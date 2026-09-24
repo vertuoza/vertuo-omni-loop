@@ -7,13 +7,15 @@
     "test": "vitest run",
     "game:project": "node game/cli/project.mjs",
     "game:score": "node game/cli/score.mjs",
-    "game:banner": "node game/cli/banner.mjs"
+    "game:banner": "node game/cli/banner.mjs",
+    "kit:build": "node kit/build.mjs"
   },
   "dependencies": {
     "yaml": "^2.5.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "esbuild": "^0.24.0",
     "vitest": "^2.1.0"
   }
 }

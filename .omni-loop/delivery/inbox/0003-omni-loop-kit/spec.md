@@ -135,6 +135,9 @@ acceptance:
 laws:
   source: knowledge                  # knowledge | claudeMdInvariants | none
   claudeMdHeading: "## Invariants"   # used by claudeMdInvariants
+risk:                                # decision-coverage rules specific to this repository
+  storedShape: []                    # regex sources: a persisted schema changed (e.g. '^libs/[^/]+/src/server/migrations\.ts$')
+  sharedContract: []                 # path prefixes other repositories read (e.g. 'libs/system-api-contract/')
 notify:
   slack: { channelVar: OMNI_SLACK_CHANNEL, tokenSecret: SLACK_BOT_TOKEN }   # or null
 limits:
