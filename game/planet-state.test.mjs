@@ -1,0 +1,140 @@
+import { describe, it, expect } from 'vitest';
+import { parseProjects } from './config.mjs';
+import { derivePlanet } from './planet-state.mjs';
+
+const config = parseProjects(`
+sectors:
+  ai: { repos: [ai-repo] }
+  core: { repos: [core-repo] }
+teams:
+  beaver: { home: core }
+  octopod: { home: ai }
+`);
+
+// Wed 2026-09-23. Brussels = UTC+2.
+const NOW = new Date('2026-09-23T14:00:00Z');
+const ctx = (terraformed = []) => ({ config, terraformedPlanets: new Set(terraformed), now: NOW });
+
+function planet(over = {}) {
+  return {
+    prd: 2332, title: 'Generic Import Engine', captain: 'pm', ownerTeam: 'beaver',
+    issue: { createdAt: '2026-09-01T08:00:00Z', closedAt: null },
+    regions: [{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z' }],
+    featurePr: { repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: null, mergedAt: null, lastActivityAt: '2026-09-23T08:00:00Z' },
+    zones: [
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
+      { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: null },
+    ],
+    outbox: [], bugs: [],
+    ...over,
+  };
+}
+
+describe('derivePlanet', () => {
+  it('is charted with no feature PR, and unsurveyed with no regions', () => {
+    const p = derivePlanet(planet({ featurePr: null, regions: [], zones: [] }), ctx());
+    expect(p.state).toBe('charted');
+    expect(p.class).toBe(0);
+  });
+
+  it('is locked while a blocked-by planet is not terraformed', () => {
+    const p = derivePlanet(planet({ regions: [{ repo: 'core-repo', blockedBy: [2300], surveyedAt: '2026-09-02T08:00:00Z' }] }), ctx());
+    expect(p.state).toBe('locked');
+    // Same default zones/NOW as the "is in distress" test below (s2 opened Mon 12:00Z, 8 working
+    // hours elapse by Tue 11:00Z, well before NOW = Wed 14:00Z), so once unblocked this planet is
+    // in distress, not merely "terraforming" (see task-4-report.md for the recount).
+    expect(derivePlanet(planet({ regions: [{ repo: 'core-repo', blockedBy: [2300], surveyedAt: '2026-09-02T08:00:00Z' }] }), ctx([2300])).state).toBe('distress');
+  });
+
+  it('derives zone states from blockers and labels', () => {
+    const p = derivePlanet(planet(), ctx());
+    expect(p.zones.map((z) => [z.id, z.state])).toEqual([['s1', 'secured'], ['s2', 'open']]);
+    expect(p.zones[1].openedAt).toBe('2026-09-21T12:00:00Z'); // when s1 merged
+    const sealed = derivePlanet(planet({ zones: [
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: null },
+      { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: null },
+    ] }), ctx());
+    expect(sealed.zones.map((z) => z.state)).toEqual(['open', 'sealed']);
+    expect(sealed.zones[0].openedAt).toBe('2026-09-21T08:00:00Z'); // feature PR created
+  });
+
+  it('marks a claimed zone, and an under-fire zone as a wound', () => {
+    const p = derivePlanet(planet({ zones: [
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-22T09:00:00Z', labels: ['pr:sub', 'pr:in-progress'], mergedAt: null, revertedAt: null } },
+      { id: 's2', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 502, author: 'bob', createdAt: '2026-09-22T09:00:00Z', labels: ['pr:sub', 'pr:needs-fix'], mergedAt: null, revertedAt: null } },
+    ] }), ctx());
+    expect(p.zones.map((z) => z.state)).toEqual(['claimed', 'under-fire']);
+    expect(p.wounds).toEqual([{ id: 'zone:core-repo:2332:s2', kind: 'under-fire', repo: 'core-repo', openedAt: '2026-09-22T09:00:00Z', closedAt: null, closedBy: null }]);
+  });
+
+  it('turns outbox items into wounds by rank, a drifted settle into a fault line', () => {
+    const p = derivePlanet(planet({ outbox: [
+      { id: 's1-01-a', repo: 'core-repo', rank: 'medium', raisedAt: '2026-09-21T10:00:00Z', settled: null },
+      { id: 's1-02-b', repo: 'core-repo', rank: 'human-action', raisedAt: '2026-09-21T10:00:00Z', settled: { verdict: 'agreed', at: '2026-09-22T10:00:00Z', by: 'pm', reworkMergedAt: null } },
+      { id: 's1-03-c', repo: 'core-repo', rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: { verdict: 'drifted', at: '2026-09-22T11:00:00Z', by: 'pm', reworkMergedAt: null } },
+    ] }), ctx());
+    expect(p.wounds).toEqual([
+      { id: 'outbox:core-repo:2332/s1-01-a', kind: 'transmission', rank: 'medium', repo: 'core-repo', openedAt: '2026-09-21T10:00:00Z', closedAt: null, closedBy: null },
+      { id: 'outbox:core-repo:2332/s1-02-b', kind: 'beacon', rank: 'human-action', repo: 'core-repo', openedAt: '2026-09-21T10:00:00Z', closedAt: '2026-09-22T10:00:00Z', closedBy: 'pm', verdict: 'agreed' },
+      { id: 'outbox:core-repo:2332/s1-03-c', kind: 'unconfirmed-ground', rank: 'high', repo: 'core-repo', openedAt: '2026-09-21T10:00:00Z', closedAt: '2026-09-22T11:00:00Z', closedBy: 'pm', verdict: 'drifted' },
+      { id: 'fault:core-repo:2332/s1-03-c', kind: 'fault-line', repo: 'core-repo', openedAt: '2026-09-22T11:00:00Z', closedAt: null, closedBy: null },
+    ]);
+  });
+
+  it('is in distress after 8 idle working hours on an open zone', () => {
+    // s2 opened Mon 2026-09-21 12:00Z (14:00 local); 8 working hours later = Tue 13:00 local = 11:00Z
+    const p = derivePlanet(planet(), ctx());
+    expect(p.state).toBe('distress');
+    expect(p.distressSince).toBe('2026-09-22T11:00:00Z');
+    const early = derivePlanet(planet(), { ...ctx(), now: new Date('2026-09-22T10:00:00Z') });
+    expect(early.state).toBe('terraforming');
+  });
+
+  it('awaits command when every zone is secured and the PR is ready', () => {
+    const p = derivePlanet(planet({
+      featurePr: { repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: '2026-09-22T08:00:00Z', mergedAt: null, lastActivityAt: '2026-09-23T08:00:00Z' },
+      zones: [{ id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } }],
+    }), ctx());
+    expect(p.state).toBe('awaiting-command');
+  });
+
+  it('is terraformed when the feature PR merged, aftershock with a bug inside 14 days', () => {
+    const merged = { repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: '2026-09-22T08:00:00Z', mergedAt: '2026-09-22T12:00:00Z', lastActivityAt: '2026-09-22T12:00:00Z' };
+    expect(derivePlanet(planet({ featurePr: merged }), ctx()).state).toBe('terraformed');
+    const shaken = derivePlanet(planet({ featurePr: merged, bugs: [{ repo: 'core-repo', number: 600, createdAt: '2026-09-23T09:00:00Z', closedAt: null, closedBy: null }] }), ctx());
+    expect(shaken.state).toBe('aftershock');
+    expect(shaken.wounds).toEqual([{ id: 'bug:core-repo#600', kind: 'aftershock', repo: 'core-repo', openedAt: '2026-09-23T09:00:00Z', closedAt: null, closedBy: null }]);
+    const late = derivePlanet(planet({ featurePr: merged, bugs: [{ repo: 'core-repo', number: 601, createdAt: '2026-10-20T09:00:00Z', closedAt: null, closedBy: null }] }), { ...ctx(), now: new Date('2026-10-21T09:00:00Z') });
+    expect(late.state).toBe('terraformed');
+    expect(late.wounds).toEqual([]);
+  });
+
+  it('is lost when closed after a claim and unmerged, decommissioned when closed before any claim', () => {
+    const closed = { createdAt: '2026-09-01T08:00:00Z', closedAt: '2026-09-23T10:00:00Z' };
+    expect(derivePlanet(planet({ issue: closed }), ctx()).state).toBe('lost');
+    expect(derivePlanet(planet({ issue: closed, zones: [{ id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: null }] }), ctx()).state).toBe('decommissioned');
+  });
+
+  it('is lost after 10 working days of silence', () => {
+    const p = derivePlanet(planet(), { ...ctx(), now: new Date('2026-10-20T10:00:00Z') });
+    expect(p.state).toBe('lost');
+  });
+
+  it('computes class and cross-sector from regions', () => {
+    const p = derivePlanet(planet({ regions: [
+      { repo: 'core-repo', blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z' },
+      { repo: 'ai-repo', blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z' },
+    ] }), ctx());
+    expect(p.class).toBe(2);
+    expect(p.crossSector).toBe(true);
+  });
+
+  it('rates threat from open wounds', () => {
+    expect(derivePlanet(planet({ zones: [] }), ctx()).threat).toBe(1);
+    const p = derivePlanet(planet({ outbox: [
+      { id: 'a', repo: 'core-repo', rank: 'human-action', raisedAt: '2026-09-21T10:00:00Z', settled: null },
+      { id: 'b', repo: 'core-repo', rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: null },
+    ] }), ctx());
+    expect(p.threat).toBeGreaterThanOrEqual(3);
+  });
+});
