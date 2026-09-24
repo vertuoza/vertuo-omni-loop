@@ -29,4 +29,20 @@ describe('renderBanner', () => {
       'Open zones: s2 (core-repo, phase 2)',
     ].join('\n'));
   });
+
+  it('flags a planet uncrewed when the captain has no owning team (spec §8)', () => {
+    const uncrewedPlanet = {
+      prd: 4100, title: 'Solo Prototype', captain: 'freelancer', ownerTeam: null, state: 'charted',
+      regions: [], class: 1, crossSector: false, threat: 1,
+      zones: [], wounds: [],
+    };
+    const uncrewedSeason = { individuals: {}, teams: {}, planets: {}, streaks: {}, credits: [] };
+    expect(renderBanner(uncrewedPlanet, { season: uncrewedSeason, now: NOW })).toBe([
+      'OMNI PLAN // PLANET 4100 — Solo Prototype',
+      'Class I · Threat I · 🪐 CHARTED · phase 0/0 · zones 0/0 secured',
+      'Wounds: none',
+      'Captain: @freelancer · Crew: none (uncrewed) · Expeditions: 0 · Rescuers: 0',
+      'Open zones: none',
+    ].join('\n'));
+  });
 });

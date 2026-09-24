@@ -28,11 +28,16 @@ export function renderBanner(p, { season, now }) {
   const streak = season.streaks?.[p.ownerTeam] ? ` 🔥${season.streaks[p.ownerTeam]}` : '';
   const stateTag = STATE[p.state] ? ` · ${STATE[p.state]}` : '';
   const openZones = p.zones.filter((z) => z.state === 'open').map((z) => `${z.id} (${z.repo}, phase ${z.wave})`);
+  // Spec §8: a planet whose captain has no team has no owning team; the banner flags it uncrewed
+  // whenever either the captain or the owning team is missing.
+  const uncrewed = !p.captain || !p.ownerTeam;
+  const captainSeg = p.captain ? `@${p.captain}` : 'none';
+  const crewSeg = `${p.ownerTeam ?? 'none'}${streak}${uncrewed ? ' (uncrewed)' : ''}`;
   return [
     `OMNI PLAN // PLANET ${p.prd} — ${p.title}`,
     `Class ${ROMAN[Math.min(p.class, 4)] || '?'}${p.crossSector ? ' ★ cross-sector' : ''} · Threat ${ROMAN[p.threat]}${stateTag} · phase ${phase}/${phases} · zones ${secured}/${p.zones.length} secured${perRegion ? ` (${perRegion})` : ''}`,
     `Wounds: ${byKind.length ? byKind.join(' · ') : 'none'}`,
-    `Captain: ${p.captain ? '@' + p.captain : 'none (uncrewed)'} · Crew: ${p.ownerTeam ?? 'none'}${streak} · Expeditions: ${expedition.length}${expedition.length ? ` (${expedition.join(', ')})` : ''} · Rescuers: ${rescuers}`,
+    `Captain: ${captainSeg} · Crew: ${crewSeg} · Expeditions: ${expedition.length}${expedition.length ? ` (${expedition.join(', ')})` : ''} · Rescuers: ${rescuers}`,
     `Open zones: ${openZones.length ? openZones.join(', ') : 'none'}`,
   ].join('\n');
 }

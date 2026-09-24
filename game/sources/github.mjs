@@ -33,7 +33,7 @@ const json = (s) => (s.trim() ? JSON.parse(s) : []);
 const soft = (p) => p.catch(() => ''); // a 404 (no outbox dir yet, no plan yet) is an empty read
 const OUTBOX_RANKS = new Set(['medium', 'high', 'human-action']); // spec §8: a malformed outbox file is ignored
 
-export async function buildSnapshot({ config, exec = ghExec, now = new Date(), org = 'vertuoza', planRepo = 'vertuo-omni-plan' }) {
+export async function buildSnapshot({ config, exec = ghExec, now = new Date(), org = 'vertuoza', planRepo = 'vertuo-omni-plan', prds }) {
   const issues = json(await exec(['issue', 'list', '-R', `${org}/${planRepo}`, '--label', 'prd', '--state', 'all', '--limit', '500', '--json', 'number,title,assignees,createdAt,closedAt']));
 
   const teams = {};
@@ -54,8 +54,23 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), o
     }
   }
 
+  // A single-planet read (game:banner <prd>) must not pay for the whole org: when `prds` is given,
+  // keep only those issues plus whatever their inbox files name as a blocker (one level is enough —
+  // the banner only needs to know a region is locked, not to walk the whole blocker chain). The
+  // per-repo inbox listing above stays unfiltered: it is what reveals the blockers in the first place.
+  let wantedIssues = issues;
+  if (prds) {
+    const wanted = new Set(prds);
+    for (const prd of prds) {
+      for (const { inbox } of inboxByPrd.get(prd) ?? []) {
+        for (const blocker of inbox.blockedBy) wanted.add(blocker);
+      }
+    }
+    wantedIssues = issues.filter((issue) => wanted.has(issue.number));
+  }
+
   const planets = [];
-  for (const issue of issues) {
+  for (const issue of wantedIssues) {
     const captain = issue.assignees?.[0]?.login ?? null;
     const planet = {
       prd: issue.number, title: issue.title, captain, ownerTeam: captain ? teams[captain] ?? null : null,

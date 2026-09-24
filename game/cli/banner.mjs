@@ -9,7 +9,7 @@ const prd = Number(process.argv[2]);
 if (!Number.isInteger(prd)) { console.error('usage: game:banner <prd>'); process.exit(2); }
 const now = new Date();
 const config = loadProjects();
-const snapshot = await buildSnapshot({ config, now });
+const snapshot = await buildSnapshot({ config, now, prds: [prd] });
 const planet = snapshot.planets.find((p) => p.prd === prd);
 if (!planet) { console.error(`no PRD #${prd} in the planning repository`); process.exit(1); }
 const terraformedPlanets = new Set(snapshot.planets.filter((p) => p.featurePr?.mergedAt).map((p) => p.prd));

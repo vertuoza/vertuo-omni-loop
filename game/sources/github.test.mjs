@@ -100,6 +100,32 @@ describe('buildSnapshot', () => {
     expect(snap.planets[0].regions).toEqual([{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-09-05T08:00:00Z' }]);
   });
 
+  it('filters to the given PRDs, issuing no per-PRD gh calls for the rest (spec §8, single-planet read)', async () => {
+    const INBOX_A = '---\nprd: 2332\ntitle: Generic Import Engine\nblocked-by: none\nplan: none\nspec: file\n---\n';
+    const INBOX_B = '---\nprd: 2400\ntitle: Other Planet\nblocked-by: none\nplan: none\nspec: file\n---\n';
+    const exec = fakeExec([
+      ['issue list -R vertuoza/vertuo-omni-plan --label prd', [
+        { number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null },
+        { number: 2400, title: 'Other Planet', assignees: [], createdAt: '2026-09-02T08:00:00Z', closedAt: null },
+      ]],
+      ['api orgs/vertuoza/teams/beaver/members', 'pm\n'],
+      // The per-repo inbox listing and every individual inbox file read stay unfiltered: they are
+      // what reveal a PRD's blockers in the first place.
+      ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', '2332-generic-import.md\n2400-other.md\n'],
+      ['api repos/vertuoza/core-repo/contents/docs/inbox/2332-generic-import.md', INBOX_A],
+      ['api repos/vertuoza/core-repo/commits?path=docs/inbox/2332-generic-import.md', '2026-09-02T08:00:00Z\n'],
+      ['api repos/vertuoza/core-repo/contents/docs/inbox/2400-other.md', INBOX_B],
+      ['api repos/vertuoza/core-repo/commits?path=docs/inbox/2400-other.md', '2026-09-03T08:00:00Z\n'],
+      // Only #2332's per-PRD PR lookup is fixtured. If buildSnapshot still walked #2400, it would
+      // call `pr list … --search "Closes #2400" in:body …`, which no fixture matches, and the fake
+      // exec throws — that failure is what would prove filtering broken.
+      ['pr list -R vertuoza/core-repo --search "Closes #2332" in:body', []],
+    ]);
+    const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z'), prds: [2332] });
+    expect(snap.planets).toHaveLength(1);
+    expect(snap.planets[0].prd).toBe(2332);
+  });
+
   it('ignores an inbox file with no front matter: no region, no crash (spec §8)', async () => {
     const exec = fakeExec([
       ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2401, title: 'Untitled', assignees: [], createdAt: '2026-09-10T08:00:00Z', closedAt: null }]],
