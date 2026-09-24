@@ -1,0 +1,11 @@
+# Org facts OmniMan needs to dispatch. Not a game file.
+# Fill <sector-*> and <repo-*> with the real values (spec §4, §11).
+sectors:
+  <sector-a>: { repos: [<repo-1>, <repo-2>] }
+  <sector-b>: { repos: [<repo-3>, <repo-4>, <repo-5>] }
+teams:
+  beaver: { home: <sector-a> }
+  octopod: { home: <sector-b> }
+  picsou: { home: <sector-a> }
+  cia: { home: <sector-b> }
+  invincible-team: { home: <sector-a> }

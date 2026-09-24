@@ -1,0 +1,19 @@
+{
+  "name": "vertuo-omni-plan",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "vitest run",
+    "game:project": "node game/cli/project.mjs",
+    "game:score": "node game/cli/score.mjs",
+    "game:banner": "node game/cli/banner.mjs"
+  },
+  "dependencies": {
+    "yaml": "^2.5.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0"
+  }
+}
