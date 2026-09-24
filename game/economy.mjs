@@ -27,6 +27,7 @@ export function score(events, { season, now }) {
   const closers = new Map();       // planet → Set(login)
   const teamOfLogin = new Map();
   const lostPlanets = new Set();   // planets whose PLANET_LOST fell within the season
+  const lostAtOf = new Map();      // planet → its PLANET_LOST `at`, any season
   const planets = {};
   const planetOf = (prd) => (planets[prd] ??= { ownerTeam: ownerOf.get(prd) ?? null, terraformed: false, lost: false, earned: 0 });
 
@@ -76,6 +77,7 @@ export function score(events, { season, now }) {
       case 'PLANET_LOST': {
         if (ownerFor(e)) streak.set(ownerFor(e), 0);
         planetOf(e.planet).lost = true;
+        lostAtOf.set(e.planet, e.at);
         if (inSeason(e.at)) lostPlanets.add(e.planet);
         break;
       }
@@ -84,22 +86,25 @@ export function score(events, { season, now }) {
     }
   }
 
-  // Decay: owner team, per tranche a wound stays open, clipped to the season.
+  // Decay: owner team, per tranche a wound stays open, clipped to the season and to the planet's loss.
   const closedAt = new Map(sorted.filter((e) => e.type === 'WOUND_CLOSED').map((e) => [e.id.replace(/:closed$/, ''), e.at]));
   for (const e of sorted.filter((e) => e.type === 'WOUND_OPENED')) {
     const team = ownerFor(e);
     if (!team) continue;
     const from = new Date(Math.max(new Date(e.at), start));
     const closed = closedAt.get(e.id.replace(/:opened$/, ''));
-    const to = new Date(Math.min(closed ? new Date(closed) : now, end, now));
+    const lostAt = lostAtOf.get(e.planet);
+    const to = new Date(Math.min(closed ? new Date(closed) : now, end, now, lostAt ? new Date(lostAt) : Infinity));
     const tranches = tranchesBetween(from, to, RULEBOOK.trancheMinutes);
     const points = -tranches * (RULEBOOK.decayPerTranche[e.data.kind] ?? 0);
     if (points !== 0) credits.push({ at: from.toISOString(), to: null, team, planet: e.planet, points, reason: `decay: ${e.data.kind}`, clawed: false });
   }
 
-  // Clawback: a PLANET_LOST within the season voids every credit on that planet in the season,
-  // including decay debits computed above (after the main pass, so they must be handled here too).
-  for (const c of credits) if (lostPlanets.has(c.planet)) c.clawed = true;
+  // Clawback: a PLANET_LOST within the season voids every *earned* credit on that planet in the
+  // season (including decay debits computed above, so this must run after that loop) — but a
+  // planet's decay is a real cost the team already paid, not a refundable credit; abandonment
+  // must not pay, so decay credits (reason `decay: …`) are never clawed back.
+  for (const c of credits) if (lostPlanets.has(c.planet) && !c.reason.startsWith('decay:')) c.clawed = true;
 
   const individuals = {};
   const teams = {};

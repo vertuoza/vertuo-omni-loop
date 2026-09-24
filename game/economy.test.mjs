@@ -92,6 +92,30 @@ describe('score', () => {
     expect(s.planets[2332].lost).toBe(true);
   });
 
+  it('a lost planet keeps the decay it accrued', () => {
+    const s = score([
+      charted,
+      // Mon 2026-09-21 09:00 local, never closed; planet lost Wed 2026-09-23 18:00 local:
+      // Mon–Wed × 9h = 27h working → 6 tranches × 5 = −30, decay stops accruing at the loss.
+      E('w1:opened', '2026-09-21T07:00:00Z', 'WOUND_OPENED', { data: { kind: 'beacon', rank: 'human-action' } }),
+      E('planet:2332:lost', '2026-09-23T16:00:00Z', 'PLANET_LOST', { data: { ownerTeam: 'beaver', reason: 'closed' } }),
+    ], { season: '2026-09', now: NOW });
+    expect(s.teams).toEqual({ beaver: -30 });
+    const decayCredit = s.credits.find((c) => c.reason.startsWith('decay:'));
+    expect(decayCredit).toMatchObject({ points: -30, clawed: false });
+  });
+
+  it('claws back earned credits on a lost planet but keeps its decay', () => {
+    const s = score([
+      charted,
+      E('zone:r:2332:s1:secured', '2026-09-21T12:00:00Z', 'ZONE_SECURED', { contributor: 'alice', team: 'octopod' }),
+      E('w1:opened', '2026-09-21T07:00:00Z', 'WOUND_OPENED', { data: { kind: 'beacon', rank: 'human-action' } }),
+      E('planet:2332:lost', '2026-09-23T16:00:00Z', 'PLANET_LOST', { data: { ownerTeam: 'beaver', reason: 'closed' } }),
+    ], { season: '2026-09', now: NOW });
+    expect(s.individuals).toEqual({ alice: 0 });
+    expect(s.teams).toEqual({ octopod: 0, beaver: -30 });
+  });
+
   it('ignores credits outside the season month', () => {
     const s = score([
       charted,
