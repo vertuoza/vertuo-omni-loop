@@ -1,17 +1,12 @@
 # `kit/lib/check-report.mjs`
 
-Not a port — new code, per the controller's clarification for Task 3. Related upstream file:
-`scripts/check-utils.mjs` @ `vertuo-ai-domain@c4a210122` (72 lines).
+Source: `scripts/check-utils.mjs` @ `vertuo-ai-domain@c4a210122` (72 lines). A reduced port, per the
+controller's clarification for Task 3: only four of upstream's functions are kept, each turned pure.
 
-## What was kept, and why
-
-Only the four functions the controller named, each turned pure (returning text instead of printing
-and calling `process.exit`, and taking `ctx` instead of a module-resolved `repoRoot`):
+## What was kept, and how it changed
 
 - `trackedFiles(ctx)` ← upstream's `trackedFiles()`: `git ls-files` run with `cwd: ctx.root` instead
-  of the module's own `repoRoot`. Upstream's `walk(repoRoot)` fallback (for when `git ls-files`
-  fails) was dropped — no test exercises a non-git repository for this function, and Task 15 (which
-  will actually call this against a real checkout) always has git, per the kit's own house rules.
+  of the module's own `repoRoot`.
 - `readRepoFile(ctx, path)` ← upstream's `readRepoFile(path)`: same body, `ctx.root` instead of
   `repoRoot`.
 - `formatFailure(title, violations)` ← upstream's `fail(title, violations)`: instead of
@@ -24,20 +19,29 @@ and calling `process.exit`, and taking `ctx` instead of a module-resolved `repoR
 
 ## What was dropped
 
-Everything else in `check-utils.mjs`: `repoRoot` (module-resolved from `import.meta.url` — replaced
-everywhere by `ctx.root`), `toRepoPath`, `isSourceTs`, `isTestFile`, `sourceFiles`,
-`importStatements`, and the `walk`/`ignoredDirs` fallback machinery. None of the three knowledge
-modules ported in this task need them, and the controller's clarification was explicit: keep only
-the four named functions "unless a ported module needs it" — none did.
+- `repoRoot` (module-resolved from `import.meta.url`): replaced everywhere it was used by `ctx.root`,
+  per the Port Protocol's "context, not root" rule.
+- `walk(dir, files)` / `ignoredDirs` and `toRepoPath(path)` — the non-git fallback `trackedFiles()`
+  used when `git ls-files` fails (walking the filesystem by hand, skipping `.git`/`.turbo`/
+  `coverage`/`dist`/`node_modules`). Dropped, not carried into `trackedFiles(ctx)`: the kit requires
+  git (`kit/lib/context.mjs`'s `loadContext` already throws when `cwd` is not inside a git
+  repository), so a repository this function would ever run against always has `git ls-files`
+  available — the fallback has no reachable case to cover.
+- `isSourceTs(path)`, `isTestFile(path)`, `sourceFiles(predicate)` — TypeScript-source-file helpers
+  specific to `vertuo-ai-domain`'s own guards (e.g. its Zod-first check); no ported module in this
+  task, nor any module the brief describes for later tasks, filters files by `.ts`/`.spec.tsx?`.
+- `importStatements(source)` — an import-statement scanner used by upstream's own import-hygiene
+  guards; no equivalent guard exists yet in the kit.
 
 ## Test
 
 No dedicated `check-report.test.mjs`: the brief's file list names only `.test.mjs` files for the
 three ported knowledge modules, not for this one, and — like `kit/lib/commands.mjs`, the kit's other
-small non-ported helper module — it carries no test of its own. `readRepoFile` and `formatFailure`'s
-shape are exercised indirectly: `check-knowledge.mjs`'s `gradeKnowledge` calls `readRepoFile` for
-every entry file it scans for stray id citations, and every test in `check-knowledge.test.mjs` that
-expects a non-empty `violations` array is implicitly checking that the text those violations would
-be printed as (via `formatFailure`) is well-formed, since `gradeKnowledge` already returns the same
-formatted strings `formatFailure` would wrap. `trackedFiles` and `formatPass` are not yet called by
-any module in this task — they exist for Task 15's `kit/bin`, per the brief's file list.
+small helper module with no test of its own — it carries none either. `readRepoFile` and
+`formatFailure`'s shape are exercised indirectly: `check-knowledge.mjs`'s `gradeKnowledge` calls
+`readRepoFile` for every entry file it scans for stray id citations, and every test in
+`check-knowledge.test.mjs` that expects a non-empty `violations` array is implicitly checking that
+the text those violations would be printed as (via `formatFailure`) is well-formed, since
+`gradeKnowledge` already returns the same formatted strings `formatFailure` would wrap.
+`trackedFiles` and `formatPass` are not yet called by any module in this task — they exist for
+Task 15's `kit/bin`, per the brief's file list.

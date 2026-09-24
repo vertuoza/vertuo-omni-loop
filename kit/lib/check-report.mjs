@@ -1,6 +1,7 @@
 // A guard's plumbing, shared by every `check-*.mjs` module: which files the repository tracks,
 // a file's own text, and the two ways a guard's result becomes printable text. Every function here
 // is pure or returns text — `kit/bin` is the only place that prints and sets the exit code.
+// Ported from vertuo-ai-domain@c4a210122:scripts/check-utils.mjs — changes in kit/porting/check-report.md.
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
