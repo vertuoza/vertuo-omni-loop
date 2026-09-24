@@ -1,0 +1,40 @@
+# The game layer's only writer: polls the delivery layer, appends to the ledger, folds the season,
+# and once a week posts the rankings. Delete this file and game/ to remove the game (spec §2).
+name: game
+on:
+  schedule:
+    - cron: '*/15 * * * *'     # poll
+    - cron: '0 7 * * 1'        # Monday 09:00 Brussels (07:00 UTC in summer; 08:00 in winter is fine)
+  workflow_dispatch:
+concurrency:
+  group: game-ledger
+  cancel-in-progress: false
+permissions:
+  contents: write
+  issues: write
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    env:
+      RANKINGS_ISSUE: 1   # the pinned "Hall of Heroes" issue in this repository; create it once by hand
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm game:project
+        env: { GH_TOKEN: '${{ secrets.OMNI_GAME_TOKEN }}' }   # a fine-grained token: read on the engineering repos, read org members
+      - run: pnpm game:score
+      - name: Commit the ledger and the season
+        run: |
+          git config user.name 'omni-game[bot]'
+          git config user.email 'omni-game@users.noreply.github.com'
+          git add game/ledger game/season
+          git diff --cached --quiet || git commit -m 'chore(game): ledger and season [skip ci]'
+          git push
+      - name: Post the weekly rankings
+        if: github.event.schedule == '0 7 * * 1'
+        env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
+        run: gh issue comment "$RANKINGS_ISSUE" --body-file game/season/rankings.md
