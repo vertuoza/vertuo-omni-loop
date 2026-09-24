@@ -50,6 +50,9 @@ const STATED_DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** A value naming a repo file: no space, at least one `/`, optionally a `#anchor`. */
 const PATH_LIKE = /^[\w.@-]+(?:\/[\w.@-]+)+(?:#\S*)?$/;
 
+/** A reference that leads somewhere without being a path: a PRD, an issue or a pull request number. */
+const NUMBER_REFERENCE = /(^|\s)(PRD |issue |PR )?#\d+\b/i;
+
 /** The comma-separated parts of a line's value, backticks stripped. */
 function partsOf(value) {
   return value
@@ -347,6 +350,18 @@ export function findEntryViolations(ctx, entries) {
       violations.push(
         ...missingPathViolations(ctx, entry, 'Source', entry.source, { onlyPathLike: true }),
       );
+      const leads = partsOf(entry.source).some(
+        (part) => PATH_LIKE.test(part) || NUMBER_REFERENCE.test(part),
+      );
+      if (!leads) {
+        violations.push(
+          violation(
+            entry.file,
+            entry.id,
+            `has "Source: ${entry.source}", which leads nowhere — name a file that exists, or a PRD or issue number.`,
+          ),
+        );
+      }
     }
 
     if (entry.kind === 'principle') {

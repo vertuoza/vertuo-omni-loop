@@ -64,21 +64,13 @@ Source: `scripts/check-registers.mjs` @ `vertuo-ai-domain@c4a210122`.
   when omitted (the brief's plain `{ ctx, files }` call, and the new folders-layout test), it falls
   back to `ctx.config.paths.glossary ? readRepoFile(ctx, path) : ''`. This is additive — every call
   site the brief specifies still works with exactly `{ ctx, files }`.
-- **Deleted check, not in the mapping table — "leads nowhere"**: upstream's `findEntryViolations`
-  additionally required a `Source:` value to either name an existing path or match a
-  `PRD #n` / `issue #n` / `PR #n` reference (`NUMBER_REFERENCE`); a bare word like `Source: kickoff`
-  failed as "leads nowhere". The task's own folders-layout test fixture uses exactly
-  `Source: kickoff` and asserts zero violations. Reinstating the check reproduces the conflict
-  directly (see RED evidence in `task-3-report.md`): with it in place the fixture fails with two
-  violations ("has \"Source: kickoff\", which leads nowhere."); without it, the fixture — and every
-  other ported test, all of which already supply a path-like or `PRD #n`-shaped `Source:` — passes.
-  The check is dropped for the port: `missingPathViolations(ctx, entry, 'Source', entry.source, {
-  onlyPathLike: true })` already skips (does not fail) a non-path-like value, so `Source:` keeps
-  requiring presence and requiring any *path-shaped* part of it to exist, but no longer requires the
-  value to be shaped like a path or a ticket reference at all. This loosening is a policy call the
-  kit is right to make generically — a host repository need not adopt `vertuo-ai-domain`'s "PRD/issue
-  number" ticket convention for every `Source:` line — and the controller's own fixture is the
-  clearest evidence this is the intended reading, not an oversight.
+- **"Leads nowhere" kept exactly as upstream has it**: `findEntryViolations` still requires a
+  `Source:` value to either name an existing path or match a `PRD #n` / `issue #n` / `PR #n`
+  reference (`NUMBER_REFERENCE`, unchanged from upstream). This was dropped in an earlier draft of
+  this port on the mistaken reasoning that the folders-layout test's original fixture (`Source:
+  kickoff`) conflicted with it — per the controller's ruling, the fixture was what needed to change,
+  not the check. See the folders-layout test below: it now uses `Source: PRD #3`, which
+  `NUMBER_REFERENCE` accepts.
 
 ## Test (`check-knowledge.test.mjs`)
 
@@ -111,11 +103,10 @@ every scenario keeps checking the same fact it checked before:
   (`toEqual([`${file}: ${id} — ${detail}`])`), spelling out the same three values in the new
   template.
 - `warnings` → `wishes` throughout (the brief's field rename).
-- `describe('strictness — every line leads somewhere real', …)` renamed to `describe('strictness —
-  a domain rule serves its own domain or the product', …)` — the literal-text scenario the dropped
-  check tested is no longer in this file (see next paragraph), and the two scenarios that remain in
-  this block are about cross-domain vs. domain-scoped `Serves:`, not about `Source:` shape, so the
-  original heading no longer described its contents.
+- `describe('strictness — every line leads somewhere real', …)` keeps its upstream name and all its
+  `it`s, including `'refuses a Source: that is only free text, and accepts one that names a PRD or
+  issue'` — restored after the controller's ruling; its assertions are unchanged (adapted only
+  through `parseLine`, per the mechanical transformation above).
 
 **Deleted, with why:**
 
@@ -123,17 +114,13 @@ every scenario keeps checking the same fact it checked before:
   `describe('findOldRegisterCitations — only the settled ledger keeps its words', …)` (3 `it`s):
   `findOldRegisterCitations` itself is deleted per the mapping table (an upstream migration
   artefact); no equivalent exists to test.
-- `it('refuses a Source: that is only free text, and accepts one that names a PRD or issue', …)`:
-  tested the "leads nowhere" check, which is deleted (see above) — its intent ("a bare word is not
-  an acceptable `Source:`") cannot survive the port unchanged, because the task's own folders-layout
-  fixture requires the opposite (`Source: kickoff` must pass). Kept: the sibling assertions in the
-  same `describe` block that do NOT depend on "leads nowhere" (the cross-domain-vs-product `Serves:`
-  scenarios) — only this one `it` is gone.
 - `describe('the knowledge folder this repo ships', …)` (1 `it`, `'grades green, the two moved
   rules serving the product principle stub'`): called `readKnowledge()` with no root, i.e. against
   the real `vertuo-ai-domain` checkout — the Port Protocol's explicit real-repo exclusion.
 
-**Added, per the task brief (Step 4), verbatim**: the folders-layout `it('grades a knowledge folder
-at the configured path with no glossary', …)` test, using `makeRepo` and the kit's default
-(folders-layout) config, `.omni-loop/knowledge/...` paths, and `Source: kickoff` — see RED/GREEN
-evidence in `task-3-report.md`.
+**Added, per the task brief (Step 4)**: the folders-layout `it('grades a knowledge folder at the
+configured path with no glossary', …)` test, using `makeRepo` and the kit's default (folders-layout)
+config, `.omni-loop/knowledge/...` paths. Its `Source:` fixture value is `PRD #3`, not the brief's
+literal `Source: kickoff` — per the controller's ruling in "Fix round 1" (`task-3-report.md`), the
+"leads nowhere" check is upstream behaviour and stays; the fixture, not the check, needed to change,
+since `kickoff` names neither a path nor a PRD/issue/PR number.

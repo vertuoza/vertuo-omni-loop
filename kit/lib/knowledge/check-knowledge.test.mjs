@@ -402,7 +402,7 @@ describe('honesty — a claim names something real', () => {
   });
 });
 
-describe('strictness — a domain rule serves its own domain or the product', () => {
+describe('strictness — every line leads somewhere real', () => {
   it("refuses a domain rule serving another domain's principle — that is a cross-domain entry", () => {
     const root = tree({
       'docs/knowledge/domains/folder/principles.md': principle('P-FOLDER-1'),
@@ -420,6 +420,19 @@ describe('strictness — a domain rule serves its own domain or the product', ()
       [ADVISOR_RULES]: rule('BR-ADVISOR-1', { serves: 'P-PRODUCT-1' }),
     });
     expect(grade(root).violations).toEqual([]);
+  });
+
+  it('refuses a Source: that is only free text, and accepts one that names a PRD or issue', () => {
+    const root = tree({
+      [ADVISOR_PRINCIPLES]:
+        principle('P-ADVISOR-1').replace('Source: PRD #1081', 'Source: somewhere in the code') +
+        '\n' +
+        principle('P-ADVISOR-2').replace('Source: PRD #1081', 'Source: PRD #985, lifted verbatim'),
+      [ADVISOR_RULES]: rule('BR-ADVISOR-1'),
+    });
+    const { violations } = grade(root);
+    expect(violations.map((line) => parseLine(line).id)).toEqual(['P-ADVISOR-1']);
+    expect(parseLine(violations[0]).detail).toMatch(/leads nowhere/);
   });
 
   it('refuses a link to a heading the file does not have, in Source: and Enforced by:', () => {
@@ -487,8 +500,8 @@ it('grades a knowledge folder at the configured path with no glossary', () => {
     git: true,
     config: { laws: { source: 'knowledge' } },
     files: {
-      '.omni-loop/knowledge/product/principles.md': '# Principles\n\n## P-PRODUCT-1\n\nThe AI proposes; a person accepts.\n\nWhy: trust\nDecided: owner, 2026-09-24\nSource: kickoff\n',
-      '.omni-loop/knowledge/product/rules.md': '# Rules\n\n## BR-PRODUCT-1\n\nNothing is sent without a click.\n\nServes: P-PRODUCT-1\nSource: kickoff\nEnforced by: unenforced\nStated: 2026-09-24\n',
+      '.omni-loop/knowledge/product/principles.md': '# Principles\n\n## P-PRODUCT-1\n\nThe AI proposes; a person accepts.\n\nWhy: trust\nDecided: owner, 2026-09-24\nSource: PRD #3\n',
+      '.omni-loop/knowledge/product/rules.md': '# Rules\n\n## BR-PRODUCT-1\n\nNothing is sent without a click.\n\nServes: P-PRODUCT-1\nSource: PRD #3\nEnforced by: unenforced\nStated: 2026-09-24\n',
       '.omni-loop/knowledge/product/invariants.md': '# Invariants\n',
     },
   });
