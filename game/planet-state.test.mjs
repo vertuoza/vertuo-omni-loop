@@ -64,7 +64,24 @@ describe('derivePlanet', () => {
       { id: 's2', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 502, author: 'bob', createdAt: '2026-09-22T09:00:00Z', labels: ['pr:sub', 'pr:needs-fix'], mergedAt: null, revertedAt: null } },
     ] }), ctx());
     expect(p.zones.map((z) => z.state)).toEqual(['claimed', 'under-fire']);
-    expect(p.wounds).toEqual([{ id: 'zone:core-repo:2332:s2', kind: 'under-fire', repo: 'core-repo', openedAt: '2026-09-22T09:00:00Z', closedAt: null, closedBy: null }]);
+    // F1: the id must not collide with the zone's own ZONE_OPENED id; with no label history the
+    // wound opens at the sub-PR's creation.
+    expect(p.wounds).toEqual([{ id: 'fire:core-repo:2332/s2', kind: 'under-fire', repo: 'core-repo', openedAt: '2026-09-22T09:00:00Z', closedAt: null, closedBy: null }]);
+  });
+
+  it('opens an under-fire wound when pr:needs-fix is labelled and closes it when the label goes or the sub-PR merges (F1)', () => {
+    const sub = (number, over) => ({ number, author: 'bob', createdAt: '2026-09-22T09:00:00Z', labels: ['pr:sub'], mergedAt: null, revertedAt: null, ...over });
+    const p = derivePlanet(planet({ zones: [
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: sub(501, { labels: ['pr:sub', 'pr:needs-fix'], needsFix: { labeledAt: '2026-09-22T10:00:00Z', unlabeledAt: null } }) },
+      { id: 's2', repo: 'core-repo', wave: 1, blockedBy: [], pr: sub(502, { needsFix: { labeledAt: '2026-09-22T10:00:00Z', unlabeledAt: '2026-09-22T15:00:00Z' } }) },
+      { id: 's3', repo: 'core-repo', wave: 1, blockedBy: [], pr: sub(503, { mergedAt: '2026-09-23T08:00:00Z', needsFix: { labeledAt: '2026-09-22T10:00:00Z', unlabeledAt: null } }) },
+      { id: 's4', repo: 'core-repo', wave: 1, blockedBy: [], pr: sub(504, { needsFix: null }) },
+    ] }), ctx());
+    expect(p.wounds).toEqual([
+      { id: 'fire:core-repo:2332/s1', kind: 'under-fire', repo: 'core-repo', openedAt: '2026-09-22T10:00:00Z', closedAt: null, closedBy: null },
+      { id: 'fire:core-repo:2332/s2', kind: 'under-fire', repo: 'core-repo', openedAt: '2026-09-22T10:00:00Z', closedAt: '2026-09-22T15:00:00Z', closedBy: 'bob' },
+      { id: 'fire:core-repo:2332/s3', kind: 'under-fire', repo: 'core-repo', openedAt: '2026-09-22T10:00:00Z', closedAt: '2026-09-23T08:00:00Z', closedBy: 'bob' },
+    ]);
   });
 
   it('turns outbox items into wounds by rank, a drifted settle into a fault line', () => {

@@ -92,9 +92,13 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), o
       const reverts = new Map(subs.filter((s) => /^revert/i.test(s.title) && s.mergedAt).flatMap((s) => [...(s.body ?? '').matchAll(/#(\d+)/g)].map((m) => [Number(m[1]), s.mergedAt])));
       for (const slice of slices) {
         const sub = subs.filter((s) => !/^revert/i.test(s.title) && s.headRefName.endsWith(`--${slice.id}`)).sort((a, b) => a.number - b.number)[0];
+        const labels = sub ? sub.labels.map((l) => l.name) : [];
         planet.zones.push({
           id: slice.id, repo, wave: slice.wave, blockedBy: slice.blockedBy,
-          pr: sub ? { number: sub.number, author: sub.author?.login ?? null, createdAt: sub.createdAt, labels: sub.labels.map((l) => l.name), mergedAt: sub.mergedAt ?? null, revertedAt: reverts.get(sub.number) ?? null } : null,
+          pr: sub ? {
+            number: sub.number, author: sub.author?.login ?? null, createdAt: sub.createdAt, labels, mergedAt: sub.mergedAt ?? null, revertedAt: reverts.get(sub.number) ?? null,
+            needsFix: await needsFixHistory(exec, `${org}/${repo}`, sub, labels),
+          } : null,
         });
       }
 
@@ -118,4 +122,19 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), o
     planets.push(planet);
   }
   return { at: now.toISOString(), teams, planets };
+}
+
+// F1: when `pr:needs-fix` was put on and taken off a sub-PR. The snapshot is a point in time, so the
+// label's history comes off the issue timeline (soft). `{ labeledAt, unlabeledAt }` — unlabeledAt is
+// null while the label is still on; the whole value is null when the sub-PR was never labelled. A
+// failed read of a currently-labelled sub-PR falls back to "labelled since the sub-PR was opened".
+const NEEDS_FIX_JQ = '.[] | select((.event=="labeled" or .event=="unlabeled") and .label.name=="pr:needs-fix") | "\\(.event) \\(.created_at)"';
+async function needsFixHistory(exec, repoSlug, sub, labels) {
+  const history = lines(await soft(exec(['api', `repos/${repoSlug}/issues/${sub.number}/timeline`, '--paginate', '--jq', NEEDS_FIX_JQ])))
+    .map((l) => l.split(/\s+/)).filter(([event, at]) => (event === 'labeled' || event === 'unlabeled') && at);
+  const labelled = labels.includes('pr:needs-fix');
+  const firstLabel = history.find(([event]) => event === 'labeled')?.[1] ?? null;
+  if (!firstLabel) return labelled ? { labeledAt: sub.createdAt, unlabeledAt: null } : null;
+  const last = history.at(-1);
+  return { labeledAt: firstLabel, unlabeledAt: !labelled && last[0] === 'unlabeled' ? last[1] : null };
 }

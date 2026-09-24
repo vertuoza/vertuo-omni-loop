@@ -31,8 +31,12 @@ export function deriveZones(planet) {
 export function deriveWounds(planet, now) {
   const wounds = [];
   for (const z of planet.zones) {
-    if (z.pr?.labels.includes('pr:needs-fix')) {
-      wounds.push({ id: `zone:${z.repo}:${planet.prd}:${z.id}`, kind: 'under-fire', repo: z.repo, openedAt: z.pr.createdAt, closedAt: z.pr.mergedAt ?? null, closedBy: z.pr.mergedAt ? z.pr.author : null });
+    // F1: the label history (`pr.needsFix`) comes off the sub-PR's timeline. A snapshot without it
+    // (a failed timeline read) falls back to "labelled since the sub-PR was opened, still labelled".
+    const fire = z.pr?.needsFix ?? (z.pr?.labels.includes('pr:needs-fix') ? { labeledAt: z.pr.createdAt, unlabeledAt: null } : null);
+    if (fire) {
+      const closedAt = fire.unlabeledAt ?? z.pr.mergedAt ?? null;
+      wounds.push({ id: `fire:${z.repo}:${planet.prd}/${z.id}`, kind: 'under-fire', repo: z.repo, openedAt: fire.labeledAt, closedAt, closedBy: closedAt ? z.pr.author : null });
     }
   }
   for (const item of planet.outbox) {
@@ -68,7 +72,7 @@ function distressSince(zones, now) {
 function lastActivity(planet) {
   return maxIso(
     planet.issue.createdAt, planet.featurePr?.createdAt, planet.featurePr?.lastActivityAt, planet.featurePr?.mergedAt,
-    ...planet.zones.flatMap((z) => [z.pr?.createdAt, z.pr?.mergedAt]),
+    ...planet.zones.flatMap((z) => [z.pr?.createdAt, z.pr?.mergedAt, z.pr?.needsFix?.labeledAt, z.pr?.needsFix?.unlabeledAt]),
     ...planet.outbox.flatMap((i) => [i.raisedAt, i.settled?.at, i.settled?.reworkMergedAt]),
     ...planet.regions.map((r) => r.surveyedAt),
   );

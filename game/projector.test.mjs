@@ -99,6 +99,32 @@ describe('projectEvents', () => {
     expect(events.find((e) => e.id === 'planet:2332:unlocked:2300')).toMatchObject({ at: '2026-09-10T08:00:00Z' });
   });
 
+  it('gives every event of a rich snapshot a unique id (F1)', () => {
+    const s = snapshot({
+      zones: [
+        { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null, needsFix: { labeledAt: '2026-09-21T10:00:00Z', unlabeledAt: '2026-09-21T11:00:00Z' } } },
+        { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: { number: 502, author: 'alice', createdAt: '2026-09-21T13:00:00Z', labels: ['pr:sub', 'pr:needs-fix'], mergedAt: null, revertedAt: null, needsFix: { labeledAt: '2026-09-21T14:00:00Z', unlabeledAt: null } } },
+        { id: 's3', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: null },
+      ],
+      outbox: [
+        { id: 's1-01-a', repo: 'core-repo', rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: { verdict: 'agreed', at: '2026-09-22T10:00:00Z', by: 'pm', reworkMergedAt: null, reworkBy: null } },
+        { id: 's1-02-b', repo: 'core-repo', rank: 'medium', raisedAt: '2026-09-21T10:00:00Z', settled: { verdict: 'drifted', at: '2026-09-22T10:00:00Z', by: 'pm', reworkMergedAt: '2026-09-22T15:00:00Z', reworkBy: 'alice' } },
+        { id: 's1-03-c', repo: 'core-repo', rank: 'human-action', raisedAt: '2026-09-21T10:00:00Z', settled: null },
+      ],
+    });
+    s.planets.push({
+      prd: 2300, title: 'Shipped', captain: 'pm', ownerTeam: 'beaver',
+      issue: { createdAt: '2026-08-01T08:00:00Z', closedAt: '2026-09-10T08:00:00Z' },
+      regions: [{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-08-02T08:00:00Z' }],
+      featurePr: { repo: 'core-repo', number: 400, createdAt: '2026-08-05T08:00:00Z', readyAt: '2026-09-09T08:00:00Z', mergedAt: '2026-09-10T08:00:00Z', lastActivityAt: '2026-09-10T08:00:00Z' },
+      zones: [{ id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 401, author: 'alice', createdAt: '2026-08-06T08:00:00Z', labels: ['pr:sub'], mergedAt: '2026-08-07T08:00:00Z', revertedAt: null } }],
+      outbox: [], bugs: [{ repo: 'core-repo', number: 600, createdAt: '2026-09-11T08:00:00Z', closedAt: '2026-09-12T08:00:00Z', closedBy: 'alice', fixedBy: 'alice' }],
+    });
+    const all = projectEvents(s, { config, now: NOW }).map((e) => e.id);
+    expect(all.length).toBeGreaterThan(20);
+    expect(new Set(all).size).toBe(all.length);
+  });
+
   it('is idempotent: the same snapshot yields the same ids and timestamps', () => {
     const a = projectEvents(snapshot(), { config, now: NOW });
     const b = projectEvents(snapshot(), { config, now: NOW });

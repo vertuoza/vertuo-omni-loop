@@ -22,7 +22,59 @@ function fakeExec(calls) {
   };
 }
 
+// One planet (#2332) in one repo, feature PR #500 open, sub-PR #501 merged on s1. `extra` calls are
+// matched first, so a test overrides any base read by listing the same prefix.
+const SUB_501 = { number: 501, title: 'feat: a', headRefName: 'feat/generic-import--s1', author: { login: 'alice' }, createdAt: '2026-09-21T09:00:00Z', labels: [{ name: 'pr:sub' }], mergedAt: '2026-09-21T12:00:00Z', body: 'Part of #2332', state: 'MERGED' };
+function world(extra = []) {
+  return [
+    ...extra,
+    ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
+    ['api orgs/vertuoza/teams/beaver/members', 'pm\nalice\n'],
+    ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', '2332-generic-import.md\n'],
+    ['api repos/vertuoza/core-repo/contents/docs/inbox/2332-generic-import.md', INBOX],
+    ['api repos/vertuoza/core-repo/commits?path=docs/inbox/2332-generic-import.md', '2026-09-02T08:00:00Z\n'],
+    ['pr list -R vertuoza/core-repo --search', [{ number: 500, headRefName: 'feat/generic-import', createdAt: '2026-09-21T08:00:00Z', isDraft: true, mergedAt: null, updatedAt: '2026-09-23T08:00:00Z' }]],
+    ['api repos/vertuoza/core-repo/contents/docs/superpowers/plans/p.md?ref=feat/generic-import', PLAN],
+    ['pr list -R vertuoza/core-repo --base feat/generic-import', [SUB_501]],
+    ['api repos/vertuoza/core-repo/issues/', ''], // sub-PR label timelines: none by default
+    ['api repos/vertuoza/core-repo/contents/docs/outbox/2332?ref=feat/generic-import --jq', ''],
+    ['issue list -R vertuoza/core-repo --label bug', []],
+  ];
+}
+const NOW = new Date('2026-09-23T14:00:00Z');
+
 describe('buildSnapshot', () => {
+  it('reads the pr:needs-fix label history off each zone sub-PR timeline (F1)', async () => {
+    const subs = [
+      { ...SUB_501, mergedAt: null, state: 'OPEN', labels: [{ name: 'pr:sub' }] },
+      { ...SUB_501, number: 502, headRefName: 'feat/generic-import--s2', mergedAt: null, state: 'OPEN', labels: [{ name: 'pr:sub' }, { name: 'pr:needs-fix' }] },
+    ];
+    const exec = fakeExec(world([
+      ['pr list -R vertuoza/core-repo --base feat/generic-import', subs],
+      ['api repos/vertuoza/core-repo/issues/501/timeline', 'labeled 2026-09-21T10:00:00Z\nunlabeled 2026-09-21T15:00:00Z\n'],
+      ['api repos/vertuoza/core-repo/issues/502/timeline', 'labeled 2026-09-22T10:00:00Z\nunlabeled 2026-09-22T11:00:00Z\nlabeled 2026-09-22T12:00:00Z\n'],
+    ]));
+    const snap = await buildSnapshot({ config, exec, now: NOW });
+    const [s1, s2] = snap.planets[0].zones;
+    expect(s1.pr.needsFix).toEqual({ labeledAt: '2026-09-21T10:00:00Z', unlabeledAt: '2026-09-21T15:00:00Z' });
+    expect(s2.pr.needsFix).toEqual({ labeledAt: '2026-09-22T10:00:00Z', unlabeledAt: null }); // labelled again: still under fire
+  });
+
+  it('carries needsFix null for a never-labelled sub-PR, and labelled-since-creation when the timeline cannot be read (F1)', async () => {
+    const subs = [
+      { ...SUB_501 },
+      { ...SUB_501, number: 502, headRefName: 'feat/generic-import--s2', mergedAt: null, state: 'OPEN', labels: [{ name: 'pr:sub' }, { name: 'pr:needs-fix' }] },
+    ];
+    const exec = fakeExec(world([
+      ['pr list -R vertuoza/core-repo --base feat/generic-import', subs],
+      ['api repos/vertuoza/core-repo/issues/502/timeline', new Error('gh: 502 Bad Gateway')],
+    ]));
+    const snap = await buildSnapshot({ config, exec, now: NOW });
+    const [s1, s2] = snap.planets[0].zones;
+    expect(s1.pr.needsFix).toBeNull();
+    expect(s2.pr.needsFix).toEqual({ labeledAt: '2026-09-21T09:00:00Z', unlabeledAt: null });
+  });
+
   it('assembles a planet from issues, inbox, plan, sub-PRs, outbox and bugs', async () => {
     const exec = fakeExec([
       ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
@@ -48,7 +100,7 @@ describe('buildSnapshot', () => {
     expect(p.regions).toEqual([{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z' }]);
     expect(p.featurePr).toEqual({ repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: null, mergedAt: null, lastActivityAt: '2026-09-23T08:00:00Z' });
     expect(p.zones).toEqual([
-      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null, needsFix: null } },
       { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: null },
     ]);
     expect(p.outbox).toEqual([{ id: 's1-01-a', repo: 'core-repo', rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: null }]);
