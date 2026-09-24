@@ -33,7 +33,10 @@
  *
  * The label named by `ctx.config.labels.outboxGo` overrides the gate unconditionally, whatever the
  * open-item count, the unreworked-drift count, or the unaccounted-change count — that override is
- * tested here, in the pure `gateResult`, not in the workflow's own branching.
+ * tested here, in the pure `gateResult`, not in the workflow's own branching. Every result carries
+ * that same label back as `overrideLabel`, so `formatReport` (which takes no `ctx` of its own) can
+ * still name the actual configured label in its override line, byte-identically to upstream's own
+ * hard-coded text when the label is left at its default.
  */
 // Ported from vertuo-ai-domain@c4a210122:scripts/outbox-status.mjs — changes in kit/porting/outbox--status.md.
 import { existsSync } from 'node:fs';
@@ -132,17 +135,18 @@ export function unreworkedDrift(prd, { ctx }) {
 export function gateResult(prd, { ctx, labels = [], changes = null } = {}) {
   const items = openItems(prd, { ctx });
   const unreworked = unreworkedDrift(prd, { ctx });
-  const overridden = labels.includes(ctx.config.labels.outboxGo);
+  const overrideLabel = ctx.config.labels.outboxGo;
+  const overridden = labels.includes(overrideLabel);
 
   if (changes === null) {
     const ok = overridden || (items.length === 0 && unreworked.length === 0);
-    return { ok, items, overridden, unreworked };
+    return { ok, items, overridden, unreworked, overrideLabel };
   }
 
   const unaccounted = unaccountedChanges(prd, changes, { ctx });
   const ok =
     overridden || (items.length === 0 && unreworked.length === 0 && unaccounted.length === 0);
-  return { ok, items, overridden, unreworked, unaccounted };
+  return { ok, items, overridden, unreworked, unaccounted, overrideLabel };
 }
 
 function formatItem(item) {
@@ -191,7 +195,7 @@ export function formatReport(prd, result) {
   }
 
   if (result.overridden) {
-    lines.push('override label in effect — waved through.');
+    lines.push(`${result.overrideLabel} — override in effect; waved through.`);
   }
   return lines.join('\n');
 }

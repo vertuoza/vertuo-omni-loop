@@ -15,12 +15,16 @@ Source: `scripts/outbox-status.mjs` @ `vertuo-ai-domain@c4a210122`.
   task's exact-exports list names it, and no literal `'outbox:go'` may appear in a non-test `.mjs`
   file (`kit/test/no-literals.test.mjs`). Its one read site (`labels.includes(OVERRIDE_LABEL)`,
   inside `gateResult`) becomes `labels.includes(ctx.config.labels.outboxGo)`.
-  - **Consequence for `formatReport`'s override line.** Upstream's override line named the literal
-    label text: `` `${OVERRIDE_LABEL} — override in effect; waved through.` ``. `formatReport`'s
-    own signature is fixed by the task at `formatReport(prd, result)` — no `ctx` — so it has no way
-    to read `ctx.config.labels.outboxGo` at print time any more. The line is now the generic
-    `'override label in effect — waved through.'`, naming no specific label text. See the one test
-    assertion this changes, below.
+  - **Consequence for `formatReport`'s override line (controller ruling, fix round 1).**
+    Upstream's override line named the literal label text: `` `${OVERRIDE_LABEL} — override in
+    effect; waved through.` ``. `formatReport`'s own signature is fixed by the task at
+    `formatReport(prd, result)` — no `ctx` — so it cannot read `ctx.config.labels.outboxGo` at
+    print time itself. Rather than drop the label name from the printed line (this port's first
+    attempt), `gateResult` now also returns `overrideLabel: ctx.config.labels.outboxGo` on every
+    result (both the `changes === null` and the `changes`-graded branch), and `formatReport` prints
+    `` `${result.overrideLabel} — override in effect; waved through.` `` — byte-identical to
+    upstream's own text whenever the label is left at its default (`'outbox:go'`). See the test
+    assertion this restores, below.
 - `` `${OUTBOX_DIR}/${prd}/` `` (in `openItemFiles`): → `` `${ctx.layout.outboxDir(prd)}/` ``, per
   the task's own mapping table row. **New null guard added**: `ctx.layout.outboxDir(prd)` can
   return `null` (a PRD with no folder at all), which `` `${OUTBOX_DIR}/${prd}/` `` never could
@@ -95,16 +99,18 @@ Source: `scripts/outbox-status.mjs` @ `vertuo-ai-domain@c4a210122`.
   outboxGo`) and rule 6:**
   - `gateResult('985', { root })` → `{ ok: true, items: [], overridden: false }` (two `toEqual`
     call sites: "is green on an empty tree", and the adopted-medium-item describe block) → both
-    gained `unreworked: []`, since `gateResult` now always returns that field.
+    gained `unreworked: []` and `overrideLabel: 'outbox:go'`, since `gateResult` now always returns
+    both fields (`ctx.config.labels.outboxGo` defaults to `'outbox:go'`).
   - The range describe block's `` expect(result).toEqual({ ok: true, items: [], overridden: false,
     unaccounted: [] }); `` ("is green when there is no open item and the range holds nothing
-    risky") → gained `unreworked: []` for the same reason.
+    risky") → gained `unreworked: []` and `overrideLabel: 'outbox:go'` for the same reason.
   - `` expect(formatReport('985', result)).toContain('outbox:go — override in effect'); `` ("names
-    the override when it waved the gate through") → `` expect(formatReport('985',
-    result)).toContain('override label in effect'); `` — the override line no longer names the
-    specific label text (see the module's own note on `formatReport`, above); this result literal
-    is hand-built (not `gateResult`'s own output) and carries no `unreworked` field, which
-    `formatReport`'s defensive `?? []` tolerates.
+    the override when it waved the gate through") — **restored to this exact upstream text**
+    (fix round 1; a first attempt had changed this to a generic `'override label in effect'` and
+    dropped the label name from the printed line entirely — the controller ruled to keep the label
+    name instead, via the new `overrideLabel` field). The hand-built result literal this test
+    passes to `formatReport` now also carries `overrideLabel: 'outbox:go'` explicitly (it is not
+    `gateResult`'s own output, so nothing sets that field for it otherwise).
 - **Deleted**, per rule 6 ("A test case that reads the real upstream repository … is deleted and
   listed"): the whole `describe('the report also reaches $GITHUB_STEP_SUMMARY', ...)` block — both
   of its tests (`'is appended to the file at that path when the workflow sets it'` and `'is never

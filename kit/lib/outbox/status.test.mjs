@@ -161,7 +161,13 @@ describe('gateResult', () => {
   it('is green on an empty tree', () => {
     const root = fixtureRoot();
     const result = gateResult('985', { ctx: flatCtx(root) });
-    expect(result).toEqual({ ok: true, items: [], overridden: false, unreworked: [] });
+    expect(result).toEqual({
+      ok: true,
+      items: [],
+      overridden: false,
+      unreworked: [],
+      overrideLabel: 'outbox:go',
+    });
   });
 
   it('is red with one open item', () => {
@@ -215,7 +221,13 @@ describe('gateResult — a medium item adopted at raise time', () => {
     expect(adopted.ok).toBe(true);
 
     const result = gateResult('985', { ctx });
-    expect(result).toEqual({ ok: true, items: [], overridden: false, unreworked: [] });
+    expect(result).toEqual({
+      ok: true,
+      items: [],
+      overridden: false,
+      unreworked: [],
+      overrideLabel: 'outbox:go',
+    });
   });
 });
 
@@ -241,16 +253,14 @@ describe('formatReport', () => {
     expect(report).not.toContain('s3-02-two.md (');
   });
 
-  // The literal override-label text ('outbox:go') is configured, not hard-coded, and
-  // `formatReport` takes no `ctx` — so the override line names no specific label any more; it was
-  // `outbox:go — override in effect; waved through.` upstream (see kit/porting/outbox--status.md).
   it('names the override when it waved the gate through', () => {
     const result = {
       ok: true,
       overridden: true,
+      overrideLabel: 'outbox:go',
       items: [{ file: 'docs/outbox/985/s3-01-one.md', id: 's3-01-one', rank: 'high' }],
     };
-    expect(formatReport('985', result)).toContain('override label in effect');
+    expect(formatReport('985', result)).toContain('outbox:go — override in effect');
   });
 
   it('names both the open item and the unaccounted change when both are present', () => {
@@ -300,6 +310,7 @@ describe('gateResult — the range (PRD #1044, slice s4)', () => {
       overridden: false,
       unreworked: [],
       unaccounted: [],
+      overrideLabel: 'outbox:go',
     });
   });
 
