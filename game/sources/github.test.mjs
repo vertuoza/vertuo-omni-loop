@@ -1,0 +1,62 @@
+import { describe, it, expect } from 'vitest';
+import { parseProjects } from '../config.mjs';
+import { buildSnapshot } from './github.mjs';
+
+const config = parseProjects('sectors:\n  core: { repos: [core-repo] }\nteams:\n  beaver: { home: core }\n');
+
+const INBOX = '---\nprd: 2332\ntitle: Generic Import Engine\nblocked-by: none\nplan: docs/superpowers/plans/p.md\nspec: file\n---\n';
+const PLAN = '| id | slice | scenarios | territory | blocked by | wave | tier |\n|---|---|---|---|---|---|---|\n| s1 | A | — | `a/` | — | 1 | mid |\n| s2 | B | — | `b/` | s1 | 2 | mid |\n';
+const ITEM = '---\nid: s1-01-a\nprd: 2332\nslice: s1\nrank: high\nbears-on: none\nraised: 2026-09-21\nwave: 1\n---\n';
+
+// A fake gh: matched on the joined argument string.
+function fakeExec(calls) {
+  return async (args) => {
+    const key = args.join(' ');
+    for (const [prefix, out] of calls) if (key.startsWith(prefix)) return typeof out === 'string' ? out : JSON.stringify(out);
+    throw new Error(`unexpected gh call: ${key}`);
+  };
+}
+
+describe('buildSnapshot', () => {
+  it('assembles a planet from issues, inbox, plan, sub-PRs, outbox and bugs', async () => {
+    const exec = fakeExec([
+      ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
+      ['api orgs/vertuoza/teams/beaver/members', 'pm\nalice\n'],
+      ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', '2332-generic-import.md\nREADME.md\n'],
+      ['api repos/vertuoza/core-repo/contents/docs/inbox/2332-generic-import.md', INBOX],
+      ['api repos/vertuoza/core-repo/commits?path=docs/inbox/2332-generic-import.md', '2026-09-02T08:00:00Z\n'],
+      ['pr list -R vertuoza/core-repo --search', [{ number: 500, headRefName: 'feat/generic-import', createdAt: '2026-09-21T08:00:00Z', isDraft: true, mergedAt: null, updatedAt: '2026-09-23T08:00:00Z' }]],
+      ['api repos/vertuoza/core-repo/contents/docs/superpowers/plans/p.md?ref=feat/generic-import', PLAN],
+      ['pr list -R vertuoza/core-repo --base feat/generic-import', [
+        { number: 501, title: 'feat: a', headRefName: 'feat/generic-import--s1', author: { login: 'alice' }, createdAt: '2026-09-21T09:00:00Z', labels: [{ name: 'pr:sub' }], mergedAt: '2026-09-21T12:00:00Z', body: 'Part of #2332' },
+      ]],
+      ['api repos/vertuoza/core-repo/contents/docs/outbox/2332?ref=feat/generic-import --jq', 's1-01-a.md\n'],
+      ['api repos/vertuoza/core-repo/contents/docs/outbox/2332/s1-01-a.md?ref=feat/generic-import', ITEM],
+      ['api repos/vertuoza/core-repo/commits?path=docs/outbox/2332/s1-01-a.md', '2026-09-21T10:00:00Z\n'],
+      ['issue list -R vertuoza/core-repo --label bug', []],
+    ]);
+    const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z') });
+    expect(snap.teams).toEqual({ pm: 'beaver', alice: 'beaver' });
+    expect(snap.planets).toHaveLength(1);
+    const p = snap.planets[0];
+    expect(p).toMatchObject({ prd: 2332, title: 'Generic Import Engine', captain: 'pm', ownerTeam: 'beaver' });
+    expect(p.regions).toEqual([{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z' }]);
+    expect(p.featurePr).toEqual({ repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: null, mergedAt: null, lastActivityAt: '2026-09-23T08:00:00Z' });
+    expect(p.zones).toEqual([
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
+      { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: null },
+    ]);
+    expect(p.outbox).toEqual([{ id: 's1-01-a', repo: 'core-repo', rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: null }]);
+    expect(p.bugs).toEqual([]);
+  });
+
+  it('keeps a planet charted and unsurveyed when no repo carries an inbox file', async () => {
+    const exec = fakeExec([
+      ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2400, title: 'New', assignees: [], createdAt: '2026-09-20T08:00:00Z', closedAt: null }]],
+      ['api orgs/vertuoza/teams/beaver/members', ''],
+      ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', ''],
+    ]);
+    const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z') });
+    expect(snap.planets[0]).toMatchObject({ prd: 2400, captain: null, ownerTeam: null, regions: [], featurePr: null, zones: [], outbox: [], bugs: [] });
+  });
+});
