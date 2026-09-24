@@ -123,3 +123,14 @@ export function score(events, { season, now }) {
   }
   return { season, generatedAt: now.toISOString(), credits, individuals, teams, planets, streaks: Object.fromEntries(streak) };
 }
+
+// Which seasons `game:score` folds, and which one's rankings it posts. With no argument: the
+// current season (UTC month); on the 1st–7th also the previous one, and the posted rankings are the
+// previous season's final standings. With an explicit season: that one only.
+export function seasonsToScore(now, season) {
+  if (season) return { seasons: [season], rankings: season };
+  const current = now.toISOString().slice(0, 7);
+  if (now.getUTCDate() > 7) return { seasons: [current], rankings: current };
+  const previous = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)).toISOString().slice(0, 7);
+  return { seasons: [previous, current], rankings: previous };
+}

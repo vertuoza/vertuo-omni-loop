@@ -93,6 +93,17 @@ describe('projectEvents', () => {
     expect(decom.some((e) => e.type === 'PLANET_LOST')).toBe(false);
   });
 
+  it('emits a silence loss only while the planet is still silent at now (revival)', () => {
+    // s1 claimed 2026-08-03, then nothing for well over 10 working days, then the label on s1's
+    // sub-PR comes off on 2026-09-22 (delivery activity): the planet revived, so no PLANET_LOST.
+    const zones = [{ id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-08-03T09:00:00Z', labels: ['pr:sub'], mergedAt: null, revertedAt: null, needsFix: { labeledAt: '2026-08-03T10:00:00Z', unlabeledAt: '2026-09-22T10:00:00Z' } } }];
+    const quiet = { issue: { createdAt: '2026-08-01T08:00:00Z', closedAt: null }, regions: [{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-08-01T08:00:00Z' }], featurePr: { repo: 'core-repo', number: 500, createdAt: '2026-08-03T08:00:00Z', readyAt: null, mergedAt: null, lastActivityAt: '2026-08-03T09:00:00Z' }, outbox: [], zones };
+    expect(projectEvents(snapshot(quiet), { config, now: NOW }).some((e) => e.type === 'PLANET_LOST')).toBe(false);
+    // Silent again from 2026-09-22 10:00Z: lost ten working days later, not at the old August gap.
+    const later = projectEvents(snapshot(quiet), { config, now: new Date('2026-10-20T10:00:00Z') }).find((e) => e.type === 'PLANET_LOST');
+    expect(later).toMatchObject({ at: '2026-10-06T10:00:00Z', data: { reason: 'silence' } });
+  });
+
   it('emits locked and unlocked against a blocker planet', () => {
     const s = snapshot({ regions: [{ repo: 'core-repo', blockedBy: [2300], surveyedAt: '2026-09-02T08:00:00Z' }] });
     s.planets.push({

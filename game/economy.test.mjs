@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { score } from './economy.mjs';
+import { score, seasonsToScore } from './economy.mjs';
 
 const NOW = new Date('2026-09-30T16:00:00Z');
 const E = (id, at, type, over = {}) => ({ id, at, type, planet: 2332, data: {}, ...over });
@@ -154,5 +154,18 @@ describe('score', () => {
       E('z1:secured', '2026-08-21T12:00:00Z', 'ZONE_SECURED', { contributor: 'alice', team: 'octopod' }),
     ], { season: '2026-09', now: NOW });
     expect(s.individuals).toEqual({});
+  });
+});
+
+describe('seasonsToScore', () => {
+  it('scores the current season, and in the first 7 days also the previous one, whose final standings are posted', () => {
+    expect(seasonsToScore(new Date('2026-09-24T10:00:00Z'))).toEqual({ seasons: ['2026-09'], rankings: '2026-09' });
+    expect(seasonsToScore(new Date('2026-10-07T23:00:00Z'))).toEqual({ seasons: ['2026-09', '2026-10'], rankings: '2026-09' });
+    expect(seasonsToScore(new Date('2026-10-08T00:00:00Z'))).toEqual({ seasons: ['2026-10'], rankings: '2026-10' });
+    expect(seasonsToScore(new Date('2027-01-03T10:00:00Z'))).toEqual({ seasons: ['2026-12', '2027-01'], rankings: '2026-12' });
+  });
+
+  it('scores only the season it is given', () => {
+    expect(seasonsToScore(new Date('2026-10-02T10:00:00Z'), '2026-08')).toEqual({ seasons: ['2026-08'], rankings: '2026-08' });
   });
 });
