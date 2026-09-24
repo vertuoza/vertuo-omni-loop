@@ -6,7 +6,10 @@ import { derivePlanet } from './planet-state.mjs';
 
 const iso = (d) => d.toISOString().replace('.000Z', 'Z');
 
-export function projectEvents(snapshot, { config, now }) {
+// F4: an event that fails validation (a malformed timestamp that slipped through) is skipped and
+// reported through `onSkip({ id, message })`; one bad fact never stops the rest of the poll. A planet
+// whose state cannot be derived at all is reported the same way, under the id `planet:<prd>`.
+export function projectEvents(snapshot, { config, now, onSkip = () => {} }) {
   const terraformedAt = new Map(snapshot.planets.filter((p) => p.featurePr?.mergedAt).map((p) => [p.prd, p.featurePr.mergedAt]));
   const terraformedPlanets = new Set(terraformedAt.keys());
   const events = [];
@@ -16,15 +19,25 @@ export function projectEvents(snapshot, { config, now }) {
   // omit both `contributor` and `team` instead of passing `null`.
   const push = (fields) => {
     const { contributor, ...rest } = fields;
-    events.push(makeEvent({
-      ...rest,
-      ...(contributor ? { contributor, ...(teamOf(contributor) ? { team: teamOf(contributor) } : {}) } : {}),
-    }));
+    try {
+      events.push(makeEvent({
+        ...rest,
+        ...(contributor ? { contributor, ...(teamOf(contributor) ? { team: teamOf(contributor) } : {}) } : {}),
+      }));
+    } catch (err) {
+      onSkip({ id: fields.id, message: err.issues ? err.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') : err.message });
+    }
   };
 
   for (const planet of snapshot.planets) {
     const prd = planet.prd;
-    const state = derivePlanet(planet, { config, terraformedPlanets, now });
+    let state;
+    try {
+      state = derivePlanet(planet, { config, terraformedPlanets, now });
+    } catch (err) {
+      onSkip({ id: `planet:${prd}`, message: err.message });
+      continue;
+    }
     push({ id: `planet:${prd}:charted`, at: planet.issue.createdAt, type: 'PLANET_CHARTED', planet: prd, data: { captain: planet.captain, ownerTeam: planet.ownerTeam, title: planet.title } });
 
     for (const r of planet.regions) {

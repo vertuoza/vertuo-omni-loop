@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseProjects } from '../config.mjs';
-import { buildSnapshot } from './github.mjs';
+import { buildSnapshot, toIso } from './github.mjs';
 import { derivePlanet } from '../planet-state.mjs';
 import { projectEvents } from '../projector.mjs';
 
@@ -156,6 +156,71 @@ describe('buildSnapshot', () => {
       expect(d.state).toBe('terraformed');
       expect(projectEvents(snap, { config: config2, now: NOW }).find((e) => e.type === 'PLANET_TERRAFORMED').at).toBe('2026-09-23T09:00:00Z');
     });
+  });
+
+  describe('timestamps (F4)', () => {
+    it('toIso normalises, and reads empty, "null" and garbage as missing', () => {
+      expect(toIso('2026-09-22')).toBe('2026-09-22T00:00:00Z');
+      expect(toIso('2026-09-22T10:00:00.123Z')).toBe('2026-09-22T10:00:00Z');
+      expect(toIso('2026-09-22T12:00:00+02:00')).toBe('2026-09-22T10:00:00Z');
+      for (const bad of [null, undefined, '', '  ', 'null', 'yesterday-ish']) expect(toIso(bad)).toBeNull();
+    });
+
+    const SETTLED = [
+      '<!-- vertuo-outbox-settled: s1-01-a -->', '- Verdict: agreed', '- Approved at: 2026-09-22', '- Approved by: pm', '- Rank: high', '',
+      '<!-- vertuo-outbox-settled: s1-02-b -->', '- Verdict: agreed', '- Approved at: soon', '- Approved by: pm', '- Rank: medium', '',
+    ].join('\n');
+
+    it('normalises a date-only settle and skips a settle whose Approved at is garbage', async () => {
+      const exec = fakeExec(world([
+        ['api repos/vertuoza/core-repo/contents/docs/outbox/2332?ref=feat/generic-import --jq', 'settled.md\n'],
+        ['api repos/vertuoza/core-repo/contents/docs/outbox/2332/settled.md', SETTLED],
+      ]));
+      const snap = await buildSnapshot({ config, exec, now: NOW });
+      expect(snap.planets[0].outbox).toEqual([
+        { id: 's1-01-a', repo: 'core-repo', rank: 'high', raisedAt: '2026-09-22T00:00:00Z', settled: { verdict: 'agreed', at: '2026-09-22T00:00:00Z', by: 'pm', reworkMergedAt: null, reworkBy: null } },
+      ]);
+    });
+
+    it('treats a jq "null" as missing: surveyedAt falls back to the issue, raisedAt to the raised date', async () => {
+      const exec = fakeExec(world([
+        ['api repos/vertuoza/core-repo/commits?path=docs/inbox/2332-generic-import.md', 'null\n'],
+        ['api repos/vertuoza/core-repo/contents/docs/outbox/2332?ref=feat/generic-import --jq', 's1-01-a.md\n'],
+        ['api repos/vertuoza/core-repo/contents/docs/outbox/2332/s1-01-a.md?ref=feat/generic-import', ITEM],
+        ['api repos/vertuoza/core-repo/commits?path=docs/outbox/2332/s1-01-a.md', 'null\n'],
+      ]));
+      const p = (await buildSnapshot({ config, exec, now: NOW })).planets[0];
+      expect(p.regions[0].surveyedAt).toBe('2026-09-01T08:00:00Z');
+      expect(p.outbox[0].raisedAt).toBe('2026-09-21T07:00:00Z');
+    });
+
+    it('skips an open item with neither a commit date nor a valid raised date', async () => {
+      const exec = fakeExec(world([
+        ['api repos/vertuoza/core-repo/contents/docs/outbox/2332?ref=feat/generic-import --jq', 's1-01-a.md\n'],
+        ['api repos/vertuoza/core-repo/contents/docs/outbox/2332/s1-01-a.md?ref=feat/generic-import', ITEM.replace('raised: 2026-09-21', 'raised: someday')],
+        ['api repos/vertuoza/core-repo/commits?path=docs/outbox/2332/s1-01-a.md', ''],
+      ]));
+      expect((await buildSnapshot({ config, exec, now: NOW })).planets[0].outbox).toEqual([]);
+    });
+
+    it('normalises every GitHub timestamp it keeps', async () => {
+      const exec = fakeExec(world([
+        ['pr list -R vertuoza/core-repo --base feat/generic-import', [{ ...SUB_501, createdAt: '2026-09-21T09:00:00.000Z', mergedAt: '2026-09-21T14:00:00+02:00' }]],
+      ]));
+      const p = (await buildSnapshot({ config, exec, now: NOW })).planets[0];
+      expect(p.zones[0].pr).toMatchObject({ createdAt: '2026-09-21T09:00:00Z', mergedAt: '2026-09-21T12:00:00Z' });
+    });
+  });
+
+  it('carries the rework sub-PR author of a drifted settle as reworkBy (F6)', async () => {
+    const settled = ['<!-- vertuo-outbox-settled: s1-01-a -->', '- Verdict: drifted', '- Approved at: 2026-09-22T10:00:00Z', '- Approved by: pm', '- Rank: high', ''].join('\n');
+    const exec = fakeExec(world([
+      ['pr list -R vertuoza/core-repo --base feat/generic-import', [SUB_501, { ...SUB_501, number: 510, headRefName: 'feat/generic-import--rework-s1-01-a', author: { login: 'carol' }, createdAt: '2026-09-22T11:00:00Z', mergedAt: '2026-09-22T15:00:00Z', body: 'Reworks s1-01-a' }]],
+      ['api repos/vertuoza/core-repo/contents/docs/outbox/2332?ref=feat/generic-import --jq', 'settled.md\n'],
+      ['api repos/vertuoza/core-repo/contents/docs/outbox/2332/settled.md', settled],
+    ]));
+    const p = (await buildSnapshot({ config, exec, now: NOW })).planets[0];
+    expect(p.outbox[0].settled).toEqual({ verdict: 'drifted', at: '2026-09-22T10:00:00Z', by: 'pm', reworkMergedAt: '2026-09-22T15:00:00Z', reworkBy: 'carol' });
   });
 
   it('assembles a planet from issues, inbox, plan, sub-PRs, outbox and bugs', async () => {

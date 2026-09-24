@@ -47,7 +47,7 @@ export function deriveWounds(planet, now) {
     else {
       wounds.push({ ...base, closedAt: item.settled.at, closedBy: item.settled.by, verdict: item.settled.verdict });
       if (item.settled.verdict === 'drifted') {
-        wounds.push({ id: `fault:${item.repo}:${planet.prd}/${item.id}`, kind: 'fault-line', repo: item.repo, openedAt: item.settled.at, closedAt: item.settled.reworkMergedAt ?? null, closedBy: null });
+        wounds.push({ id: `fault:${item.repo}:${planet.prd}/${item.id}`, kind: 'fault-line', repo: item.repo, openedAt: item.settled.at, closedAt: item.settled.reworkMergedAt ?? null, closedBy: item.settled.reworkMergedAt ? item.settled.reworkBy ?? null : null });
       }
     }
   }

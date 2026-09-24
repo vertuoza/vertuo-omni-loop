@@ -125,6 +125,21 @@ describe('projectEvents', () => {
     expect(new Set(all).size).toBe(all.length);
   });
 
+  it('skips an event it cannot build, reports it through onSkip, and still projects the rest (F4)', () => {
+    const s = snapshot();
+    s.planets.push({
+      prd: 2400, title: 'Broken', captain: null, ownerTeam: null,
+      issue: { createdAt: 'not-a-date', closedAt: null },
+      regions: [], featurePr: null, zones: [], outbox: [], bugs: [],
+    });
+    const skipped = [];
+    const events = projectEvents(s, { config, now: NOW, onSkip: (err) => skipped.push(err) });
+    expect(events.some((e) => e.id === 'planet:2332:charted')).toBe(true);
+    expect(events.some((e) => e.planet === 2400)).toBe(false);
+    expect(skipped).toEqual([{ id: 'planet:2400:charted', message: expect.stringMatching(/^at: /) }]);
+    expect(() => projectEvents(s, { config, now: NOW })).not.toThrow();
+  });
+
   it('is idempotent: the same snapshot yields the same ids and timestamps', () => {
     const a = projectEvents(snapshot(), { config, now: NOW });
     const b = projectEvents(snapshot(), { config, now: NOW });

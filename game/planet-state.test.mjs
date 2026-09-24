@@ -112,6 +112,13 @@ describe('derivePlanet', () => {
     ]);
   });
 
+  it('credits a fault line to the author of the rework sub-PR (F6)', () => {
+    const p = derivePlanet(planet({ outbox: [
+      { id: 's1-03-c', repo: 'core-repo', rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: { verdict: 'drifted', at: '2026-09-22T11:00:00Z', by: 'pm', reworkMergedAt: '2026-09-22T15:00:00Z', reworkBy: 'carol' } },
+    ] }), ctx());
+    expect(p.wounds.find((w) => w.kind === 'fault-line')).toEqual({ id: 'fault:core-repo:2332/s1-03-c', kind: 'fault-line', repo: 'core-repo', openedAt: '2026-09-22T11:00:00Z', closedAt: '2026-09-22T15:00:00Z', closedBy: 'carol' });
+  });
+
   it('is in distress after 8 idle working hours on an open zone', () => {
     // s2 opened Mon 2026-09-21 12:00Z (14:00 local); 8 working hours later = Tue 13:00 local = 11:00Z
     const p = derivePlanet(planet(), ctx());

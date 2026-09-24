@@ -33,6 +33,18 @@ const json = (s) => (s.trim() ? JSON.parse(s) : []);
 const soft = (p) => p.catch(() => ''); // a 404 (no outbox dir yet, no plan yet) is an empty read
 const OUTBOX_RANKS = new Set(['medium', 'high', 'human-action']); // spec §8: a malformed outbox file is ignored
 
+// F4: every timestamp read from GitHub or a delivery file goes through here, so one malformed value
+// never reaches the projector as a crash. Empty, missing, jq's "null" and unparseable → null; anything
+// else → UTC ISO without milliseconds (`2026-09-22T10:00:00Z`). A date-only value is UTC midnight.
+export function toIso(value) {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  if (!text || text === 'null') return null;
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+const firstIso = (out) => toIso(lines(out)[0]);
+
 export async function buildSnapshot({ config, exec = ghExec, now = new Date(), org = 'vertuoza', planRepo = 'vertuo-omni-plan', prds }) {
   const issues = json(await exec(['issue', 'list', '-R', `${org}/${planRepo}`, '--label', 'prd', '--state', 'all', '--limit', '500', '--json', 'number,title,assignees,createdAt,closedAt']));
 
@@ -49,7 +61,7 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), o
       if (!Number.isInteger(inbox.prd)) continue; // spec §8: a malformed inbox file (no front matter, no prd) is ignored
       // A source that cannot be read reads as empty (spec §8): a failed commits lookup leaves
       // surveyedAt null here; the planet loop below falls back to the PRD issue's createdAt.
-      const surveyedAt = lines(await soft(exec(['api', `repos/${org}/${repo}/commits?path=docs/inbox/${file}&per_page=100`, '--jq', '.[-1].commit.committer.date'])))[0] ?? null;
+      const surveyedAt = firstIso(await soft(exec(['api', `repos/${org}/${repo}/commits?path=docs/inbox/${file}&per_page=100`, '--jq', '.[-1].commit.committer.date'])));
       (inboxByPrd.get(inbox.prd) ?? inboxByPrd.set(inbox.prd, []).get(inbox.prd)).push({ repo, file, inbox, surveyedAt });
     }
   }
@@ -71,27 +83,32 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), o
 
   const planets = [];
   for (const issue of wantedIssues) {
+    const createdAt = toIso(issue.createdAt);
+    if (!createdAt) continue; // F4: a planet cannot be charted without its birth time
     const captain = issue.assignees?.[0]?.login ?? null;
     const planet = {
       prd: issue.number, title: issue.title, captain, ownerTeam: captain ? teams[captain] ?? null : null,
-      issue: { createdAt: issue.createdAt, closedAt: issue.closedAt ?? null },
+      issue: { createdAt, closedAt: toIso(issue.closedAt) },
       regions: [], featurePr: null, zones: [], outbox: [], bugs: [],
     };
     const planned = new Set(); // repos whose inbox names a plan: the regions a terraform waits for (F3)
     for (const { repo, inbox, surveyedAt } of inboxByPrd.get(issue.number) ?? []) {
-      const region = { repo, blockedBy: inbox.blockedBy, surveyedAt: surveyedAt ?? issue.createdAt, featurePr: null };
+      const region = { repo, blockedBy: inbox.blockedBy, surveyedAt: surveyedAt ?? createdAt, featurePr: null };
       planet.regions.push(region);
       if (inbox.plan) planned.add(repo);
       const prs = json(await exec(['pr', 'list', '-R', `${org}/${repo}`, '--search', `"Closes #${issue.number}" in:body`, '--base', 'main', '--state', 'all', '--json', 'number,headRefName,createdAt,isDraft,mergedAt,updatedAt']));
-      const fp = prs.sort((a, b) => a.number - b.number)[0];
+      const fp = prs.filter((pr) => toIso(pr.createdAt)).sort((a, b) => a.number - b.number)[0]; // F4: no creation time, no feature PR
       if (!fp) continue;
-      const readyAt = fp.isDraft ? null : (lines(await soft(exec(['api', `repos/${org}/${repo}/issues/${fp.number}/timeline`, '--paginate', '--jq', '[.[] | select(.event=="ready_for_review")][0].created_at'])))[0] ?? fp.createdAt);
-      region.featurePr = { repo, number: fp.number, createdAt: fp.createdAt, readyAt, mergedAt: fp.mergedAt ?? null, lastActivityAt: fp.updatedAt };
+      const fpCreatedAt = toIso(fp.createdAt);
+      const readyAt = fp.isDraft ? null : (firstIso(await soft(exec(['api', `repos/${org}/${repo}/issues/${fp.number}/timeline`, '--paginate', '--jq', '[.[] | select(.event=="ready_for_review")][0].created_at']))) ?? fpCreatedAt);
+      region.featurePr = { repo, number: fp.number, createdAt: fpCreatedAt, readyAt, mergedAt: toIso(fp.mergedAt), lastActivityAt: toIso(fp.updatedAt) ?? fpCreatedAt };
 
       const slices = inbox.plan ? parsePlanSlices(await soft(exec(['api', `repos/${org}/${repo}/contents/${inbox.plan}?ref=${fp.headRefName}`, ...RAW]))) : [];
       // --json includes `body` (beyond the reads list's bare field set) because the revert rule
       // below — "a sub-PR titled Revert whose body names #<n>" — cannot be read without it.
-      const subs = json(await exec(['pr', 'list', '-R', `${org}/${repo}`, '--base', fp.headRefName, '--state', 'all', '--label', 'pr:sub', '--limit', '200', '--json', 'number,title,headRefName,author,createdAt,labels,mergedAt,body,state']));
+      const subs = json(await exec(['pr', 'list', '-R', `${org}/${repo}`, '--base', fp.headRefName, '--state', 'all', '--label', 'pr:sub', '--limit', '200', '--json', 'number,title,headRefName,author,createdAt,labels,mergedAt,body,state']))
+        .map((x) => ({ ...x, createdAt: toIso(x.createdAt), mergedAt: toIso(x.mergedAt) }))
+        .filter((x) => x.createdAt); // F4: a sub-PR without a creation time is unreadable, not a claim
       const reverts = new Map(subs.filter((s) => /^revert/i.test(s.title) && s.mergedAt).flatMap((s) => [...(s.body ?? '').matchAll(/#(\d+)/g)].map((m) => [Number(m[1]), s.mergedAt])));
       for (const slice of slices) {
         const sub = zoneSub(subs, slice.id, reverts);
@@ -99,7 +116,7 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), o
         planet.zones.push({
           id: slice.id, repo, wave: slice.wave, blockedBy: slice.blockedBy,
           pr: sub ? {
-            number: sub.number, author: sub.author?.login ?? null, createdAt: sub.createdAt, labels, mergedAt: sub.mergedAt ?? null, revertedAt: reverts.get(sub.number) ?? null,
+            number: sub.number, author: sub.author?.login ?? null, createdAt: sub.createdAt, labels, mergedAt: sub.mergedAt, revertedAt: reverts.get(sub.number) ?? null,
             needsFix: await needsFixHistory(exec, `${org}/${repo}`, sub, labels),
           } : null,
         });
@@ -111,16 +128,25 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), o
       for (const name of names.filter((n) => n.endsWith('.md') && n !== 'settled.md')) {
         const item = parseOutboxItem(await exec(['api', `repos/${org}/${repo}/contents/${dir}/${name}?ref=${fp.headRefName}`, ...RAW]));
         if (!item.id || !OUTBOX_RANKS.has(item.rank)) continue; // spec §8: a malformed outbox file (no front matter) is ignored
-        const raisedAt = lines(await soft(exec(['api', `repos/${org}/${repo}/commits?path=${dir}/${name}&sha=${fp.headRefName}&per_page=100`, '--jq', '.[-1].commit.committer.date'])))[0] ?? `${item.raised}T07:00:00Z`;
+        // F4: first commit, else the `raised` date at 07:00Z, else the item is skipped.
+        const raisedAt = firstIso(await soft(exec(['api', `repos/${org}/${repo}/commits?path=${dir}/${name}&sha=${fp.headRefName}&per_page=100`, '--jq', '.[-1].commit.committer.date'])))
+          ?? (/^\d{4}-\d{2}-\d{2}$/.test(item.raised ?? '') ? toIso(`${item.raised}T07:00:00Z`) : null);
+        if (!raisedAt) continue;
         planet.outbox.push({ id: item.id, repo, rank: item.rank, raisedAt, settled: null });
       }
       for (const [id, s] of settled) {
-        const rework = s.verdict === 'drifted' ? subs.find((x) => x.mergedAt && new RegExp(`\\b${id}\\b`).test(x.body ?? ''))?.mergedAt ?? null : null;
-        planet.outbox.push({ id, repo, rank: s.rank ?? 'medium', raisedAt: s.at, settled: { verdict: s.verdict, at: s.at, by: s.by, reworkMergedAt: rework } });
+        const at = toIso(s.at);
+        if (!at) continue; // F4: a settle without a readable `Approved at` is skipped
+        // F6: the rework sub-PR's author is who closes the fault line a drift opened.
+        const rework = s.verdict === 'drifted' ? subs.find((x) => x.mergedAt && new RegExp(`\\b${id}\\b`).test(x.body ?? '')) : null;
+        planet.outbox.push({ id, repo, rank: s.rank ?? 'medium', raisedAt: at, settled: { verdict: s.verdict, at, by: s.by, reworkMergedAt: rework?.mergedAt ?? null, reworkBy: rework?.author?.login ?? null } });
       }
 
       const bugs = json(await soft(exec(['issue', 'list', '-R', `${org}/${repo}`, '--label', 'bug', '--state', 'all', '--search', `#${issue.number}`, '--json', 'number,createdAt,closedAt,closedBy'])));
-      for (const b of bugs) planet.bugs.push({ repo, number: b.number, createdAt: b.createdAt, closedAt: b.closedAt ?? null, closedBy: b.closedBy?.login ?? null });
+      for (const b of bugs) {
+        const bugCreatedAt = toIso(b.createdAt);
+        if (bugCreatedAt) planet.bugs.push({ repo, number: b.number, createdAt: bugCreatedAt, closedAt: toIso(b.closedAt), closedBy: b.closedBy?.login ?? null });
+      }
     }
     planet.featurePr = aggregateFeaturePr(planet.regions, planned);
     planets.push(planet);
@@ -169,7 +195,7 @@ function zoneSub(subs, sliceId, reverts) {
 const NEEDS_FIX_JQ = '.[] | select((.event=="labeled" or .event=="unlabeled") and .label.name=="pr:needs-fix") | "\\(.event) \\(.created_at)"';
 async function needsFixHistory(exec, repoSlug, sub, labels) {
   const history = lines(await soft(exec(['api', `repos/${repoSlug}/issues/${sub.number}/timeline`, '--paginate', '--jq', NEEDS_FIX_JQ])))
-    .map((l) => l.split(/\s+/)).filter(([event, at]) => (event === 'labeled' || event === 'unlabeled') && at);
+    .map((l) => l.split(/\s+/)).map(([event, at]) => [event, toIso(at)]).filter(([event, at]) => (event === 'labeled' || event === 'unlabeled') && at);
   const labelled = labels.includes('pr:needs-fix');
   const firstLabel = history.find(([event]) => event === 'labeled')?.[1] ?? null;
   if (!firstLabel) return labelled ? { labeledAt: sub.createdAt, unlabeledAt: null } : null;
