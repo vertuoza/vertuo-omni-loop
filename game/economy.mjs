@@ -16,12 +16,13 @@ export function score(events, { season, now }) {
   const ownerFor = (e) => e.data.ownerTeam ?? ownerOf.get(e.planet) ?? null;
 
   const credits = [];
-  const credit = (e, points, reason, to = e.contributor ?? null, team = e.team ?? null) => {
+  const credit = (e, points, reason, to = e.contributor ?? null, team = e.team ?? null, extra = {}) => {
     if (points === 0 || !inSeason(e.at)) return;
-    credits.push({ at: e.at, to, team, planet: e.planet, points, reason, clawed: false });
+    credits.push({ at: e.at, to, team, planet: e.planet, points, reason, clawed: false, ...extra });
   };
+  const SETTLE_VERDICTS = new Set(['agreed', 'drifted']);
 
-  const securedPoints = new Map(); // zone key → points given
+  const securedPoints = new Map(); // zone key → { points, at } of its ZONE_SECURED
   const streak = new Map();        // team → consecutive terraforms
   const expeditions = new Map();   // planet → Set(login)
   const closers = new Map();       // planet → Set(login)
@@ -37,26 +38,32 @@ export function score(events, { season, now }) {
     switch (e.type) {
       case 'ZONE_SECURED': {
         const points = RULEBOOK.zoneSecured * (isWorkingTime(new Date(e.at)) ? 1 : RULEBOOK.nightShiftMultiplier);
-        securedPoints.set(e.id.replace(/:secured$/, ''), points);
+        securedPoints.set(e.id.replace(/:secured$/, ''), { points, at: e.at });
         if (e.contributor) (expeditions.get(e.planet) ?? expeditions.set(e.planet, new Set()).get(e.planet)).add(e.contributor);
         credit(e, points, 'zone secured');
         break;
       }
       case 'ZONE_REVERTED': {
-        const points = securedPoints.get(e.id.replace(/:reverted$/, '')) ?? RULEBOOK.zoneSecured;
-        credit(e, -points, 'zone reverted');
+        // A revert takes back the secure only when that secure was paid in the same season; a
+        // secure from an earlier season is already settled history, so the revert debits 0.
+        const secured = securedPoints.get(e.id.replace(/:reverted$/, ''));
+        if (secured && secured.at.slice(0, 7) === e.at.slice(0, 7)) credit(e, -secured.points, 'zone reverted');
         break;
       }
       case 'WOUND_CLOSED': {
-        if (e.data.verdict === 'drifted') break;
+        // F5a: a settle pays woundClose[kind] for either verdict — an honest `drifted` must not
+        // score worse than a rubber-stamp `agreed`; the fault line a drift opens still decays the
+        // owner until reworked. Any other verdict (e.g. `undetermined`) scores nothing.
+        if (e.data.verdict !== undefined && !SETTLE_VERDICTS.has(e.data.verdict)) break;
         const base = RULEBOOK.woundClose[e.data.kind] ?? 0;
-        const cross = e.team && ownerFor(e) && e.team !== ownerFor(e) ? RULEBOOK.crossTeamMultiplier : 1;
-        if (e.contributor) (closers.get(e.planet) ?? closers.set(e.planet, new Set()).get(e.planet)).add(e.contributor);
-        credit(e, base * cross, `wound closed: ${e.data.kind}`);
+        const crossTeam = Boolean(e.team && ownerFor(e) && e.team !== ownerFor(e));
+        if (e.contributor && base) (closers.get(e.planet) ?? closers.set(e.planet, new Set()).get(e.planet)).add(e.contributor);
+        credit(e, base * (crossTeam ? RULEBOOK.crossTeamMultiplier : 1), `wound closed: ${e.data.kind}`, undefined, undefined, crossTeam ? { crossTeam: true } : {});
         break;
       }
       case 'RESCUE':
-        credit(e, RULEBOOK.rescue, 'rescue');
+        // F5b: the RESCUE is a ledger fact whoever claims; it pays only a claimer from another team.
+        if (e.team && e.team !== ownerFor(e)) credit(e, RULEBOOK.rescue, 'rescue');
         break;
       case 'PLANET_TERRAFORMED': {
         const team = ownerFor(e);
@@ -66,7 +73,7 @@ export function score(events, { season, now }) {
           * (1 + Math.min(RULEBOOK.streakCap, RULEBOOK.streakStep * prior));
         if (team) {
           credit(e, RULEBOOK.terraformOwner * mult, 'planet terraformed', null, team);
-          streak.set(team, prior + 1);
+          if (inSeason(e.at)) streak.set(team, prior + 1); // season streak (§6.1): only this season's terraforms count
         }
         planetOf(e.planet).terraformed = true;
         const crew = expeditions.get(e.planet) ?? new Set();
@@ -75,7 +82,7 @@ export function score(events, { season, now }) {
         break;
       }
       case 'PLANET_LOST': {
-        if (ownerFor(e)) streak.set(ownerFor(e), 0);
+        if (ownerFor(e) && inSeason(e.at)) streak.set(ownerFor(e), 0);
         planetOf(e.planet).lost = true;
         lostAtOf.set(e.planet, e.at);
         if (inSeason(e.at)) lostPlanets.add(e.planet);

@@ -25,7 +25,7 @@ describe('score', () => {
     expect(s.individuals).toEqual({ alice: 0 });
   });
 
-  it('pays wound closure by kind, ×1.5 cross-team, 0 for a drifted settle', () => {
+  it('pays wound closure by kind, ×1.5 cross-team, and the same for a drifted settle as an agreed one (F5a)', () => {
     const s = score([
       charted,
       E('w1:opened', '2026-09-21T10:00:00Z', 'WOUND_OPENED', { data: { kind: 'beacon', rank: 'human-action' } }),
@@ -35,8 +35,40 @@ describe('score', () => {
       E('w3:opened', '2026-09-21T10:00:00Z', 'WOUND_OPENED', { data: { kind: 'unconfirmed-ground', rank: 'high' } }),
       E('w3:closed', '2026-09-21T11:00:00Z', 'WOUND_CLOSED', { contributor: 'pm', team: 'beaver', data: { kind: 'unconfirmed-ground', rank: 'high', verdict: 'drifted' } }),
     ], { season: '2026-09', now: NOW });
-    expect(s.individuals).toEqual({ pm: 25, eve: 22.5 });
-    expect(s.teams).toEqual({ beaver: 25, octopod: 22.5 });
+    // Was pm 25 (drifted scored 0); an honest drift now pays like an agreement: 25 + 15.
+    expect(s.individuals).toEqual({ pm: 40, eve: 22.5 });
+    expect(s.teams).toEqual({ beaver: 40, octopod: 22.5 });
+    expect(s.credits.find((c) => c.to === 'eve')).toMatchObject({ crossTeam: true });
+    expect(s.credits.find((c) => c.to === 'pm').crossTeam).toBeUndefined();
+  });
+
+  it('pays nothing for a settle verdict other than agreed or drifted (F5a)', () => {
+    const s = score([
+      charted,
+      E('w1:opened', '2026-09-21T10:00:00Z', 'WOUND_OPENED', { data: { kind: 'beacon', rank: 'human-action' } }),
+      E('w1:closed', '2026-09-21T11:00:00Z', 'WOUND_CLOSED', { contributor: 'pm', team: 'beaver', data: { kind: 'beacon', rank: 'human-action', verdict: 'undetermined' } }),
+    ], { season: '2026-09', now: NOW });
+    expect(s.individuals).toEqual({});
+  });
+
+  it('pays a rescue only to a claimer from another team (F5b)', () => {
+    const s = score([
+      charted,
+      E('planet:2332:rescue:a', '2026-09-22T12:00:00Z', 'RESCUE', { contributor: 'bob', team: 'cia' }),
+      E('planet:2332:rescue:b', '2026-09-23T12:00:00Z', 'RESCUE', { contributor: 'pm', team: 'beaver' }),
+    ], { season: '2026-09', now: NOW });
+    expect(s.individuals).toEqual({ bob: 20 });
+    expect(s.teams).toEqual({ cia: 20 });
+  });
+
+  it('debits a revert only when the zone was secured in the same season', () => {
+    const s = score([
+      charted,
+      E('zone:r:2332:s1:secured', '2026-08-28T12:00:00Z', 'ZONE_SECURED', { contributor: 'alice', team: 'octopod' }),
+      E('zone:r:2332:s1:reverted', '2026-09-02T12:00:00Z', 'ZONE_REVERTED', { contributor: 'alice', team: 'octopod' }),
+    ], { season: '2026-09', now: NOW });
+    expect(s.individuals).toEqual({});
+    expect(s.credits).toEqual([]);
   });
 
   it('decays the owner team per 4 working hours, clipped to the season, and not over a weekend', () => {
@@ -70,12 +102,12 @@ describe('score', () => {
     const c = (prd) => E(`planet:${prd}:charted`, '2026-08-01T08:00:00Z', 'PLANET_CHARTED', { planet: prd, data: { ownerTeam: 'beaver' } });
     const s = score([
       c(1), c(2), c(3), c(4),
-      t(1, '2026-08-20T10:00:00Z'), // previous season, still counts for the streak
-      t(2, '2026-09-10T10:00:00Z'), // prior streak 1 → 110
+      t(1, '2026-08-20T10:00:00Z'), // previous season: the streak resets at season start, so it no longer counts
+      t(2, '2026-09-10T10:00:00Z'), // prior streak 0 → 100 (was 110 when streaks crossed seasons)
       E('planet:3:lost', '2026-09-15T10:00:00Z', 'PLANET_LOST', { planet: 3, data: { ownerTeam: 'beaver', reason: 'closed' } }),
       t(4, '2026-09-20T10:00:00Z'), // prior streak 0 → 100
     ], { season: '2026-09', now: NOW });
-    expect(s.teams).toEqual({ beaver: 210 });
+    expect(s.teams).toEqual({ beaver: 200 });
     expect(s.streaks).toEqual({ beaver: 1 });
   });
 
