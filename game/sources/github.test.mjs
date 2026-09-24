@@ -250,6 +250,41 @@ describe('buildSnapshot', () => {
     });
   });
 
+  describe('bug fixes (F5c)', () => {
+    const bug = (number) => ({ number, createdAt: '2026-09-22T09:00:00Z', closedAt: '2026-09-23T09:00:00Z', closedBy: { login: 'pm' } });
+    const bugsOf = async (extra) => (await buildSnapshot({ config, exec: fakeExec(world(extra)), now: NOW })).planets[0].bugs;
+    const ref = (number) => ({ number, url: `https://github.com/vertuoza/core-repo/pull/${number}`, repository: { name: 'core-repo', owner: { login: 'vertuoza' } } });
+
+    it('credits a closed bug to the author of a merged PR that closed it', async () => {
+      const bugs = await bugsOf([
+        ['issue list -R vertuoza/core-repo --label bug', [bug(600), bug(601), bug(602), { ...bug(603), closedAt: null, closedBy: null }]],
+        ['issue view 600 -R vertuoza/core-repo --json closedByPullRequestsReferences', { closedByPullRequestsReferences: [ref(610)] }],
+        ['issue view 601 -R vertuoza/core-repo --json closedByPullRequestsReferences', { closedByPullRequestsReferences: [] }],
+        ['issue view 602 -R vertuoza/core-repo --json closedByPullRequestsReferences', { closedByPullRequestsReferences: [ref(612)] }],
+        ['pr view 610 -R vertuoza/core-repo --json mergedAt,author', { mergedAt: '2026-09-23T08:59:00Z', author: { login: 'dave' } }],
+        ['pr view 612 -R vertuoza/core-repo --json mergedAt,author', { mergedAt: null, author: { login: 'erin' } }],
+      ]);
+      expect(bugs.map((b) => [b.number, b.closedAt, b.fixedBy])).toEqual([
+        [600, '2026-09-23T09:00:00Z', 'dave'], // closed by a merged PR
+        [601, '2026-09-23T09:00:00Z', null],   // closed by hand
+        [602, '2026-09-23T09:00:00Z', null],   // the referenced PR never merged
+        [603, null, null],                     // still open: no read at all
+      ]);
+    });
+
+    it('falls back to the timeline closed event when closedByPullRequestsReferences is unsupported; unknown is not fixed', async () => {
+      const unsupported = new Error('Unknown JSON field: "closedByPullRequestsReferences"');
+      const bugs = await bugsOf([
+        ['issue list -R vertuoza/core-repo --label bug', [bug(600), bug(601)]],
+        ['issue view 600 -R vertuoza/core-repo', unsupported],
+        ['issue view 601 -R vertuoza/core-repo', unsupported],
+        ['api repos/vertuoza/core-repo/issues/600/timeline', 'abc123 dave\n'],
+        ['api repos/vertuoza/core-repo/issues/601/timeline', 'null pm\n'],
+      ]);
+      expect(bugs.map((b) => [b.number, b.fixedBy])).toEqual([[600, 'dave'], [601, null]]);
+    });
+  });
+
   it('assembles a planet from issues, inbox, plan, sub-PRs, outbox and bugs', async () => {
     const exec = fakeExec([
       ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],

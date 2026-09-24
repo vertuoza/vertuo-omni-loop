@@ -156,7 +156,10 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), o
       const bugs = json(await soft(exec(['issue', 'list', '-R', `${org}/${repo}`, '--label', 'bug', '--state', 'all', '--search', `#${issue.number}`, '--json', 'number,createdAt,closedAt,closedBy'])));
       for (const b of bugs) {
         const bugCreatedAt = toIso(b.createdAt);
-        if (bugCreatedAt) planet.bugs.push({ repo, number: b.number, createdAt: bugCreatedAt, closedAt: toIso(b.closedAt), closedBy: b.closedBy?.login ?? null });
+        if (!bugCreatedAt) continue;
+        const bugClosedAt = toIso(b.closedAt);
+        const fixedBy = bugClosedAt ? await bugFixedBy(exec, org, repo, b.number) : null;
+        planet.bugs.push({ repo, number: b.number, createdAt: bugCreatedAt, closedAt: bugClosedAt, closedBy: b.closedBy?.login ?? null, fixedBy });
       }
     }
     planet.featurePr = aggregateFeaturePr(planet.regions, planned);
@@ -181,6 +184,35 @@ function aggregateFeaturePr(regions, planned) {
     readyAt: latest('readyAt'), mergedAt: latest('mergedAt'),
     lastActivityAt: fps.map((fp) => fp.lastActivityAt).filter(Boolean).sort().at(-1) ?? null,
   };
+}
+
+// F5c: who fixed a closed bug — the author of the earliest-merged PR among those that closed it
+// (`closedByPullRequestsReferences`, then one `gh pr view` per reference for `mergedAt`/`author`,
+// which the reference itself does not carry). null when no referenced PR merged: a bug closed by
+// hand is not a fix, and its aftershock keeps decaying. Where the gh in use does not know
+// `closedByPullRequestsReferences`, the timeline's last `closed` event stands in: a closing commit
+// (`commit_id`) counts as a fix by that event's actor; anything unknown is not fixed. All soft.
+async function bugFixedBy(exec, org, repo, number) {
+  let refs = null;
+  try {
+    refs = JSON.parse(await exec(['issue', 'view', String(number), '-R', `${org}/${repo}`, '--json', 'closedByPullRequestsReferences'])).closedByPullRequestsReferences;
+  } catch {
+    refs = null;
+  }
+  if (Array.isArray(refs)) {
+    const merged = [];
+    for (const ref of refs) {
+      const slug = ref.repository?.name ? `${ref.repository.owner?.login ?? org}/${ref.repository.name}` : `${org}/${repo}`;
+      let pr = {};
+      try { pr = JSON.parse(await exec(['pr', 'view', String(ref.number), '-R', slug, '--json', 'mergedAt,author'])); } catch { pr = {}; }
+      const mergedAt = toIso(pr?.mergedAt);
+      if (mergedAt && pr.author?.login) merged.push({ mergedAt, by: pr.author.login });
+    }
+    return merged.sort((a, b) => a.mergedAt.localeCompare(b.mergedAt))[0]?.by ?? null;
+  }
+  const closed = lines(await soft(exec(['api', `repos/${org}/${repo}/issues/${number}/timeline`, '--paginate', '--jq', '.[] | select(.event=="closed") | "\\(.commit_id) \\(.actor.login)"']))).at(-1);
+  const [commitId, actor] = (closed ?? '').split(/\s+/);
+  return commitId && commitId !== 'null' && actor && actor !== 'null' ? actor : null;
 }
 
 // F2: the sub-PR that stands for a zone. A sub-PR closed without merging is dropped (it freed the

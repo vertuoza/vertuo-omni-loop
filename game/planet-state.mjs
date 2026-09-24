@@ -56,7 +56,9 @@ export function deriveWounds(planet, now) {
     const windowEnd = new Date(new Date(mergedAt).getTime() + RULEBOOK.aftershockWindowDays * 86400000);
     for (const b of planet.bugs) {
       if (new Date(b.createdAt) >= new Date(mergedAt) && new Date(b.createdAt) <= windowEnd) {
-        wounds.push({ id: `bug:${b.repo}#${b.number}`, kind: 'aftershock', repo: b.repo, openedAt: b.createdAt, closedAt: b.closedAt, closedBy: b.closedBy });
+        // F5c: an aftershock closes only when its bug closed AND a merged PR fixed it (`fixedBy`).
+        const fixed = Boolean(b.closedAt && b.fixedBy);
+        wounds.push({ id: `bug:${b.repo}#${b.number}`, kind: 'aftershock', repo: b.repo, openedAt: b.createdAt, closedAt: fixed ? b.closedAt : null, closedBy: fixed ? b.fixedBy : null });
       }
     }
   }

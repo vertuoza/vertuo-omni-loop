@@ -147,6 +147,19 @@ describe('derivePlanet', () => {
     expect(late.wounds).toEqual([]);
   });
 
+  it('keeps an aftershock open when its bug was closed without a merged fix (F5c)', () => {
+    const merged = { repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: '2026-09-22T08:00:00Z', mergedAt: '2026-09-22T12:00:00Z', lastActivityAt: '2026-09-22T12:00:00Z' };
+    const p = derivePlanet(planet({ featurePr: merged, bugs: [
+      { repo: 'core-repo', number: 600, createdAt: '2026-09-23T09:00:00Z', closedAt: '2026-09-23T11:00:00Z', closedBy: 'pm', fixedBy: null },
+      { repo: 'core-repo', number: 601, createdAt: '2026-09-23T09:00:00Z', closedAt: '2026-09-23T12:00:00Z', closedBy: 'pm', fixedBy: 'dave' },
+    ] }), ctx());
+    expect(p.wounds.map((w) => [w.id, w.closedAt, w.closedBy])).toEqual([
+      ['bug:core-repo#600', null, null],
+      ['bug:core-repo#601', '2026-09-23T12:00:00Z', 'dave'],
+    ]);
+    expect(p.state).toBe('aftershock');
+  });
+
   it('is lost when closed after a claim and unmerged, decommissioned when closed before any claim', () => {
     const closed = { createdAt: '2026-09-01T08:00:00Z', closedAt: '2026-09-23T10:00:00Z' };
     expect(derivePlanet(planet({ issue: closed }), ctx()).state).toBe('lost');
