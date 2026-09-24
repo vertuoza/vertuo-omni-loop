@@ -1,22 +1,71 @@
 # The game layer's only writer: polls the delivery layer, appends to the ledger, folds the season,
 # and once a week posts the rankings. Delete this file and game/ to remove the game (spec §2).
+# Setup (token scopes, branch protection, variables): game/README.md, "Setup".
 name: game
 on:
   schedule:
     - cron: '*/15 * * * *'     # poll
     - cron: '0 7 * * 1'        # Monday 09:00 Brussels (07:00 UTC in summer; 08:00 in winter is fine)
   workflow_dispatch:
-concurrency:
-  group: game-ledger
-  cancel-in-progress: false
+    inputs:
+      post_rankings:
+        description: Also post the rankings page to the pinned issue
+        type: boolean
+        default: false
 permissions:
-  contents: write
-  issues: write
+  contents: read
 jobs:
   ledger:
+    # Every schedule and every dispatch. Off until the repository variable GAME_ENABLED is 'true'.
+    if: vars.GAME_ENABLED == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: game-ledger          # two polls never append together
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # main must let this workflow push; if branch protection forbids GITHUB_TOKEN, set the
+          # GAME_PUSH_TOKEN secret to a token allowed to bypass it.
+          token: ${{ secrets.GAME_PUSH_TOKEN || github.token }}
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm game:project
+        env: { GH_TOKEN: '${{ secrets.OMNI_GAME_TOKEN }}' }   # contents:read on the engineering repos, members:read on the org
+      - run: pnpm game:score
+      - name: Commit the ledger and the season
+        run: |
+          git config user.name 'omni-game[bot]'
+          git config user.email 'omni-game@users.noreply.github.com'
+          mkdir -p game/ledger game/season
+          git add game/ledger game/season
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'chore(game): ledger and season [skip ci]'
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push
+
+  rankings:
+    # The Monday schedule, or a dispatch that asks for it. Reads the committed ledger; writes nothing
+    # to the repository.
+    if: >-
+      vars.GAME_ENABLED == 'true' &&
+      (github.event.schedule == '0 7 * * 1' || (github.event_name == 'workflow_dispatch' && inputs.post_rankings))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: game-rankings
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: write
     env:
-      RANKINGS_ISSUE: 1   # the pinned "Hall of Heroes" issue in this repository; create it once by hand
+      RANKINGS_ISSUE: ${{ vars.RANKINGS_ISSUE }}   # the pinned "Hall of Heroes" issue number
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -24,17 +73,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm game:project
-        env: { GH_TOKEN: '${{ secrets.OMNI_GAME_TOKEN }}' }   # a fine-grained token: read on the engineering repos, read org members
-      - run: pnpm game:score
-      - name: Commit the ledger and the season
+      - run: pnpm game:score      # in the first 7 days of a month, the rankings page is last month's final standings
+      - name: Post the rankings
+        env: { GH_TOKEN: '${{ github.token }}' }
         run: |
-          git config user.name 'omni-game[bot]'
-          git config user.email 'omni-game@users.noreply.github.com'
-          git add game/ledger game/season
-          git diff --cached --quiet || git commit -m 'chore(game): ledger and season [skip ci]'
-          git push
-      - name: Post the weekly rankings
-        if: github.event.schedule == '0 7 * * 1'
-        env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
-        run: gh issue comment "$RANKINGS_ISSUE" --body-file game/season/rankings.md
+          if [ -z "$RANKINGS_ISSUE" ]; then echo '::error::set the repository variable RANKINGS_ISSUE'; exit 1; fi
+          gh issue comment "$RANKINGS_ISSUE" --body-file game/season/rankings.md
