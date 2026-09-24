@@ -69,7 +69,7 @@ A planet is born when an issue labelled `prd` is opened in `vertuo-omni-plan`. I
 | 🪐 Charted | PRD issue open; no feature PR yet. *Unsurveyed* until the first inbox file exists |
 | 🌑 Locked | `blocked-by` names a planet not yet terraformed |
 | 🌍 Terraforming | a feature PR is open |
-| 📡 Distress | terraforming, at least one open zone, no claim for 8 working hours |
+| 📡 Distress | terraforming, at least one open zone, and no claim anywhere on the planet for 8 working hours. The idle clock is planet-level: it starts at the later of the latest claim on the planet and the earliest opening of a zone still open; one distress per idle episode |
 | 🛡 Awaiting command | every zone secured, feature PR ready, `ci/outbox` red |
 | ✅ Terraformed | feature PR merged into `main` |
 | ⚡ Aftershock | terraformed, and an open bug issue references the PRD within 14 days of the merge |
@@ -84,7 +84,7 @@ A **zone** is a slice; a **phase** is a wave. Zone states, from the sub-PR into 
 |---|---|
 | open | runnable: blockers merged, no sub-PR |
 | sealed | a blocker is not merged |
-| claimed | draft sub-PR with `pr:in-progress` |
+| claimed | an open, unmerged sub-PR without `pr:needs-fix` (normally `pr:in-progress`). A sub-PR closed without merging frees the zone |
 | under fire | sub-PR carries `pr:needs-fix` |
 | secured | sub-PR merged into the feature branch |
 
@@ -100,8 +100,8 @@ A wound is anything only a human can close. Six sources, one decay rule (6.2).
 | 🟧 Unconfirmed ground | open outbox item, `high` | settle |
 | 🟥 Beacon | open outbox item, `human-action` | settle |
 | ⚡ Fault line | settled `drifted` | rework sub-PR merged |
-| 🔥 Zone under fire | `pr:needs-fix` on a sub-PR | sub-PR green again, or merged |
-| ⚡ Aftershock | bug issue referencing a terraformed PRD, within 14 days of merge | issue closed |
+| 🔥 Zone under fire | `pr:needs-fix` on a sub-PR | sub-PR green again (`pr:needs-fix` removed), or merged |
+| ⚡ Aftershock | bug issue referencing a terraformed PRD, within 14 days of merge | issue closed by a merged PR |
 
 ### 5.4 Threat
 
@@ -123,7 +123,7 @@ Roles are read from behaviour, never assigned:
 - **Captain**: the PM who owns the planet.
 - **Crew**: the owning team's engineers.
 - **Expedition**: anyone who ran `/omni-yolo` on the planet.
-- **Rescuer**: someone from another team who closed a wound on it, or an expedition that answered a distress call.
+- **Rescuer**: someone from another team who closed a wound on it, or who answered its distress call (a claim after the planet-level idle clock ran out).
 
 ### 5.7 Entropy
 
@@ -131,22 +131,22 @@ The enemy faction. Every wound is an Entropy unit on the planet's surface. OmniM
 
 ## 6. Economy
 
-All numbers live in `game/economy/rulebook.ts`. Every event names a **contributor** and a **planet**. Points go to the contributor and to the contributor's own team. The delivery bonus and all decay go to the planet's owning team.
+All numbers live in `game/rulebook.mjs`. Every event names a **contributor** and a **planet**. Points go to the contributor and to the contributor's own team. The delivery bonus and all decay go to the planet's owning team.
 
 ### 6.1 Earning
 
 | Event | Points | Note |
 |---|---|---|
 | Zone secured by your run | +10 | flat, so splitting a plan finer does not pay |
-| Close 📡 / 🟧 / 🟥 | +5 / +15 / +25 | rank comes from the register floor, not the answerer |
+| Close 📡 / 🟧 / 🟥 | +5 / +15 / +25 | rank comes from the register floor, not the answerer; a settle pays the same for `agreed` or `drifted` (an honest drift must not score worse than a rubber stamp; the fault line it opens still decays the owner until reworked). Any other verdict scores 0 |
 | Rework a ⚡ fault line (rework sub-PR merged) | +20 | |
 | Fix 🔥 (sub-PR back to green) | +10 | |
 | Fix an aftershock (bug issue closed by a merged PR) | +20 | |
 | Cross-team wound closure | ×1.5 | rescuer |
-| Answer a distress call (first claim after 8 idle working hours) | +20 | rescuer |
+| Answer a distress call (first claim on the planet after 8 idle working hours, planet-level clock, see 5.1) | +20 | rescuer; paid only when the claimer's team is not the owning team (the `RESCUE` event is recorded either way) |
 | Night shift: zone secured by a run outside working hours | ×1.5 on that zone | rewards idle compute, not late humans; settling has no hour bonus |
 | Planet terraformed | owning team +100 × class; every expedition member +50; every wound-closer +25 | class from 6.3 |
-| Season streak (owning team) | +10% on the terraform bonus per consecutive planet, cap +50% | resets on a lost planet |
+| Season streak (owning team) | +10% on the terraform bonus per consecutive planet, cap +50% | counts only the season's terraforms (resets at season start); resets on a lost planet |
 
 ### 6.2 Decay (owning team, working hours only)
 
@@ -177,7 +177,7 @@ A planet whose regions span more than one sector is **cross-sector**: a further 
 
 ### 6.4 Brakes
 
-- A settle whose item is later reopened or reworked claws back the settle points.
+- A settle whose item is later reopened or reworked claws back the settle points. *Not yet implemented* (see `game/README.md`, Known limits).
 - An `undetermined` answer settles nothing and scores nothing.
 - A zone secured then reverted before terraform scores 0.
 - Running `/omni-yolo` earns nothing by itself; only what it secures does.
@@ -188,13 +188,14 @@ A planet whose regions span more than one sector is **cross-sector**: a further 
 
 | Someone could | Why it does not pay |
 |---|---|
-| Answer every item "agreed" in seconds | rework claws the points back and the drift decays their team as fault lines |
+| Answer every item "agreed" in seconds | a drift pays the same, so there is nothing to gain; a wrong agreement surfaces as rework later (settle clawback on rework is not yet implemented) |
 | Split the plan into more slices | zone points are small and flat; the terraform bonus does not grow with slices |
 | Raise items to farm settles | items are raised by agents; the raiser earns nothing |
 | Keep runs on their own team's planets | cross-team ×1.5 and the rescue bonus pay more |
 | Run at night for the multiplier | intended; the slot was idle |
 | Merge early to stop decay | an aftershock decays more than the item did |
 | Close a bug issue without fixing it | the fix bonus needs a merged PR that closes the issue |
+| Close a heavy-wound PRD to stop decay | the owner loses its streak and all earned points on the planet; accrued decay stands; decay stops (5.5 accepts this trade-off) |
 
 ## 7. Architecture
 
@@ -202,30 +203,32 @@ A planet whose regions span more than one sector is **cross-sector**: a further 
 DELIVERY LAYER (GitHub: omni-plan issues, engineering repos, PRs, labels, inbox, outbox, CI)
       │  read only
       ▼
-game/projector   GitHub → game events, appended to the ledger (idempotent)
+game/sources/github.mjs → game/projector.mjs   GitHub → snapshot → game events, appended to the ledger (idempotent)
       ▼
 game/ledger/<yyyy-mm>.jsonl    append-only, committed; the one stored artefact
       ▼
-game/economy     ledger + rulebook + calendar + season → points, rankings, threat
+game/economy.mjs ledger + rulebook + calendar + season → points, rankings, threat
       ▼
 game/season/<yyyy-mm>.json     derived snapshot, regenerable
       ▼
-game/render      text banner for /omni-yolo; later the galaxy page
+game/render/     text banner for /omni-yolo; later the galaxy page
 ```
 
-Dependencies point one way. `economy/` never touches GitHub; `render/` never touches the rulebook.
+Dependencies point one way. `economy.mjs` never touches GitHub; `render/` never touches the rulebook.
+
+Modules as built, flat under `game/`: `rulebook.mjs`, `calendar.mjs`, `events.mjs`, `ledger.mjs`, `config.mjs`, `planet-state.mjs`, `projector.mjs`, `economy.mjs`, `sources/parsers.mjs`, `sources/github.mjs` (the only impure module), `render/banner.mjs`, `render/rankings.mjs`, and the commands `cli/project.mjs`, `cli/score.mjs`, `cli/banner.mjs` (`pnpm game:project`, `pnpm game:score`, `pnpm game:banner`).
 
 ### 7.1 Events
 
 Each event: `{ id, at, type, planet, region?, contributor?, team?, data }`. `id` is deterministic, `source:identity:state` (e.g. `pr:vertuo-ai-domain#1042:merged`, `outbox:985/s7-01-default-country:settled`), so replaying history appends nothing new.
 
-Types: `PLANET_CHARTED`, `REGION_SURVEYED`, `PLANET_LOCKED`, `PLANET_UNLOCKED`, `ZONE_OPENED`, `ZONE_CLAIMED`, `ZONE_SECURED`, `ZONE_REVERTED`, `WOUND_OPENED`, `WOUND_CLOSED`, `DISTRESS`, `RESCUE`, `PLANET_READY`, `PLANET_TERRAFORMED`, `PLANET_LOST`, `PLANET_DECOMMISSIONED`, `PLAN_CHANGED`.
+Types: `PLANET_CHARTED`, `REGION_SURVEYED`, `PLANET_LOCKED`, `PLANET_UNLOCKED`, `ZONE_OPENED`, `ZONE_CLAIMED`, `ZONE_SECURED`, `ZONE_REVERTED`, `WOUND_OPENED`, `WOUND_CLOSED`, `DISTRESS`, `RESCUE`, `PLANET_READY`, `PLANET_TERRAFORMED`, `PLANET_LOST`, `PLANET_DECOMMISSIONED`. There is no plan-change event: a plan change surfaces as new `ZONE_OPENED` events.
 
 A wound event carries its kind (5.3) and, for outbox items, the rank. Decay is not an event; the economy computes it from `WOUND_OPENED`/`WOUND_CLOSED` timestamps and the calendar.
 
 ### 7.2 Storage
 
-Option A now: the ledger lives in git, in `vertuo-omni-plan` under `game/ledger/`, one file per month. A GitHub Action polls every 15 minutes, with a `concurrency` group so two polls never append together, and commits with `[skip ci]`. The projector also runs on demand (`node game/projector.mjs --once`).
+Option A now: the ledger lives in git, in `vertuo-omni-plan` under `game/ledger/`, one file per month. A GitHub Action polls every 15 minutes, with a `concurrency` group so two polls never append together, and commits with `[skip ci]`. The projector also runs on demand (`pnpm game:project`).
 
 The event format is the contract. When a live galaxy page needs it, the ledger is imported into a database (Supabase) behind a web UI (Vercel); nothing upstream changes.
 
@@ -263,8 +266,8 @@ Your run: claiming s4, s6
 
 ## 9. Testing
 
-- `economy/` is pure: fixture ledgers cover a beacon ignored for a week, a night shift, a cross-team rescue, an abandonment with clawback, a season boundary, a streak reset. Each fixture asserts the exact points per person and team.
-- `projector/` runs against recorded GitHub JSON fixtures; replaying the same fixtures twice must append nothing (idempotency).
+- `economy.mjs` is pure: fixture ledgers cover a beacon ignored for a week, a night shift, a cross-team rescue, an abandonment with clawback, a season boundary, a streak reset. Each fixture asserts the exact points per person and team.
+- `projector.mjs` runs against recorded GitHub JSON fixtures; replaying the same fixtures twice must append nothing (idempotency).
 - `render/` is snapshot-tested on the banner.
 - Claim-first is tested in the engineering repository's `vertuo-parallel-wave` tests: two boards built from the same fixtures, the second excluding the first's claims.
 
