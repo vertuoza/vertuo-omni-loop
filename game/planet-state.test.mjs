@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseProjects } from './config.mjs';
-import { derivePlanet } from './planet-state.mjs';
+import { derivePlanet, distressEpisodes } from './planet-state.mjs';
 
 const config = parseProjects(`
 sectors:
@@ -126,6 +126,34 @@ describe('derivePlanet', () => {
     expect(p.distressSince).toBe('2026-09-22T11:00:00Z');
     const early = derivePlanet(planet(), { ...ctx(), now: new Date('2026-09-22T10:00:00Z') });
     expect(early.state).toBe('terraforming');
+  });
+
+  it('keeps the distress clock planet-level: a claim anywhere on the planet restarts it (F5b)', () => {
+    // s2 opens Mon 12:00Z. bob claims s3 Tue 08:00Z (10:00 local), before s2's 8 working hours run
+    // out (Tue 11:00Z), so the idle clock restarts there: Tue 10:00 → 18:00 local = Tue 16:00Z.
+    const p = derivePlanet(planet({ zones: [
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
+      { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: null },
+      { id: 's3', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: { number: 503, author: 'bob', createdAt: '2026-09-22T08:00:00Z', labels: ['pr:sub', 'pr:in-progress'], mergedAt: null, revertedAt: null } },
+    ] }), ctx());
+    expect(p.state).toBe('distress');
+    expect(p.distressSince).toBe('2026-09-22T16:00:00Z');
+  });
+
+  it('lists distress episodes with the claim that answered each (F5b)', () => {
+    const zones = [
+      { id: 's2', repo: 'core-repo', openedAt: '2026-09-21T12:00:00Z', claimedAt: '2026-09-23T09:00:00Z', author: 'bob' },
+      { id: 's3', repo: 'core-repo', openedAt: '2026-09-21T12:00:00Z', claimedAt: null, author: null },
+    ];
+    expect(distressEpisodes(zones, NOW)).toEqual([
+      { start: '2026-09-21T12:00:00Z', distressAt: '2026-09-22T11:00:00Z', rescue: { at: '2026-09-23T09:00:00Z', zone: 's2', repo: 'core-repo', author: 'bob' } },
+    ]);
+    // s3 is still open after bob's claim: a new idle clock starts at the claim (Wed 11:00 local), and
+    // its 8 working hours have not run out by NOW.
+    expect(distressEpisodes(zones, new Date('2026-09-24T12:00:00Z'))).toEqual([
+      { start: '2026-09-21T12:00:00Z', distressAt: '2026-09-22T11:00:00Z', rescue: { at: '2026-09-23T09:00:00Z', zone: 's2', repo: 'core-repo', author: 'bob' } },
+      { start: '2026-09-23T09:00:00Z', distressAt: '2026-09-24T08:00:00Z', rescue: null },
+    ]);
   });
 
   it('awaits command when every zone is secured and the PR is ready', () => {

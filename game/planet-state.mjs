@@ -65,12 +65,44 @@ export function deriveWounds(planet, now) {
   return wounds;
 }
 
+// F5b: distress is planet-level (spec §5.1). The idle clock starts at the later of the latest claim
+// anywhere on the planet and the earliest openedAt of a zone open at that moment; a planet with ≥1
+// open zone and no claim for 8 working hours is in distress. One episode per idle stretch:
+// `{ start, distressAt, rescue }`, where `rescue` is the first claim after distressAt (null while
+// nobody has answered). A zone is open from its openedAt until its claim. Zones are derived zones
+// (`openedAt`, `claimedAt`, `id`, `repo`, `author`).
+export function distressEpisodes(zones, now) {
+  const ms = (t) => new Date(t).getTime();
+  const openable = zones.filter((z) => z.openedAt && (!z.claimedAt || ms(z.claimedAt) > ms(z.openedAt)));
+  const claims = zones.filter((z) => z.claimedAt).sort((a, b) => ms(a.claimedAt) - ms(b.claimedAt) || a.id.localeCompare(b.id));
+  const openAt = (t) => openable.filter((z) => ms(z.openedAt) <= t && (!z.claimedAt || ms(z.claimedAt) > t));
+  const episodes = [];
+  let t = Math.min(...openable.map((z) => ms(z.openedAt)));
+  while (Number.isFinite(t)) {
+    const open = openAt(t);
+    if (!open.length) { // nothing open right now: jump to the next zone that opens
+      t = Math.min(...openable.map((z) => ms(z.openedAt)).filter((o) => o > t));
+      continue;
+    }
+    const lastClaim = claims.filter((c) => ms(c.claimedAt) <= t).at(-1);
+    const start = Math.max(lastClaim ? ms(lastClaim.claimedAt) : -Infinity, Math.min(...open.map((z) => ms(z.openedAt))));
+    const distressAt = addWorkingMinutes(new Date(start), RULEBOOK.distressAfterWorkingMinutes);
+    const next = claims.find((c) => ms(c.claimedAt) > start);
+    if (distressAt <= now && (!next || ms(next.claimedAt) > distressAt.getTime())) {
+      episodes.push({
+        start: iso(new Date(start)), distressAt: iso(distressAt),
+        rescue: next ? { at: next.claimedAt, zone: next.id, repo: next.repo, author: next.author } : null,
+      });
+    }
+    if (!next) break;
+    t = ms(next.claimedAt);
+  }
+  return episodes;
+}
+
 function distressSince(zones, now) {
-  const times = zones
-    .filter((z) => z.state === 'open' && z.openedAt)
-    .map((z) => addWorkingMinutes(new Date(z.openedAt), RULEBOOK.distressAfterWorkingMinutes))
-    .filter((t) => t <= now);
-  return times.length ? iso(new Date(Math.min(...times.map((t) => t.getTime())))) : null;
+  const current = distressEpisodes(zones, now).at(-1);
+  return current && !current.rescue ? current.distressAt : null;
 }
 
 function lastActivity(planet) {

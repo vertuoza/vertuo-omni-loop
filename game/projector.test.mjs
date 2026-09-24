@@ -38,10 +38,10 @@ describe('projectEvents', () => {
     const events = projectEvents(snapshot(), { config, now: NOW });
     expect(ids(events)).toEqual([
       'outbox:core-repo:2332/s1-01-a:closed', 'outbox:core-repo:2332/s1-01-a:opened',
-      'planet:2332:charted', 'region:core-repo:2332:surveyed',
+      'planet:2332:distress:2026-09-21T12:00:00Z', 'planet:2332:charted', 'region:core-repo:2332:surveyed',
       'zone:core-repo:2332:s1:claimed', 'zone:core-repo:2332:s1:opened', 'zone:core-repo:2332:s1:secured',
-      'zone:core-repo:2332:s2:distress', 'zone:core-repo:2332:s2:opened',
-    ]);
+      'zone:core-repo:2332:s2:opened',
+    ].sort());
     const secured = events.find((e) => e.id === 'zone:core-repo:2332:s1:secured');
     expect(secured).toMatchObject({ type: 'ZONE_SECURED', at: '2026-09-21T12:00:00Z', planet: 2332, region: 'core-repo', contributor: 'alice', team: 'octopod' });
     const closed = events.find((e) => e.id === 'outbox:core-repo:2332/s1-01-a:closed');
@@ -54,8 +54,17 @@ describe('projectEvents', () => {
       { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
       { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: { number: 502, author: 'alice', createdAt: '2026-09-23T09:00:00Z', labels: ['pr:sub', 'pr:in-progress'], mergedAt: null, revertedAt: null } },
     ] }), { config, now: NOW });
-    expect(events.find((e) => e.type === 'RESCUE')).toMatchObject({ id: 'zone:core-repo:2332:s2:rescue', contributor: 'alice', at: '2026-09-23T09:00:00Z' });
-    expect(events.find((e) => e.type === 'DISTRESS')).toBeTruthy();
+    expect(events.find((e) => e.type === 'RESCUE')).toMatchObject({ id: 'planet:2332:rescue:2026-09-21T12:00:00Z', region: 'core-repo', contributor: 'alice', at: '2026-09-23T09:00:00Z', data: { pr: 502, zone: 's2' } });
+    expect(events.find((e) => e.type === 'DISTRESS')).toMatchObject({ id: 'planet:2332:distress:2026-09-21T12:00:00Z', at: '2026-09-22T11:00:00Z' });
+  });
+
+  it('emits one distress per planet episode, however many zones are idle (F5b)', () => {
+    const events = projectEvents(snapshot({ zones: [
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
+      { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: null },
+      { id: 's3', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: null },
+    ] }), { config, now: NOW });
+    expect(events.filter((e) => e.type === 'DISTRESS').map((e) => e.id)).toEqual(['planet:2332:distress:2026-09-21T12:00:00Z']);
   });
 
   it('emits no distress when the claim came within 8 working hours', () => {
@@ -138,6 +147,14 @@ describe('projectEvents', () => {
     expect(events.some((e) => e.planet === 2400)).toBe(false);
     expect(skipped).toEqual([{ id: 'planet:2400:charted', message: expect.stringMatching(/^at: /) }]);
     expect(() => projectEvents(s, { config, now: NOW })).not.toThrow();
+  });
+
+  it('names the right sub-PR when two regions share a slice id (F3)', () => {
+    const events = projectEvents(snapshot({ zones: [
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
+      { id: 's1', repo: 'ai-repo', wave: 1, blockedBy: [], pr: { number: 701, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T13:00:00Z', revertedAt: null } },
+    ] }), { config, now: NOW });
+    expect(events.find((e) => e.id === 'zone:ai-repo:2332:s1:secured').data.pr).toBe(701);
   });
 
   it('is idempotent: the same snapshot yields the same ids and timestamps', () => {

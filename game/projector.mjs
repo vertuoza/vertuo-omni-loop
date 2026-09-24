@@ -2,7 +2,7 @@
 import { RULEBOOK } from './rulebook.mjs';
 import { addWorkingMinutes } from './calendar.mjs';
 import { makeEvent } from './events.mjs';
-import { derivePlanet } from './planet-state.mjs';
+import { derivePlanet, distressEpisodes } from './planet-state.mjs';
 
 const iso = (d) => d.toISOString().replace('.000Z', 'Z');
 
@@ -52,17 +52,16 @@ export function projectEvents(snapshot, { config, now, onSkip = () => {} }) {
       const key = `zone:${z.repo}:${prd}:${z.id}`;
       const base = { planet: prd, region: z.repo };
       if (z.openedAt) push({ id: `${key}:opened`, at: z.openedAt, type: 'ZONE_OPENED', ...base, data: { wave: z.wave } });
-      if (z.claimedAt) push({ id: `${key}:claimed`, at: z.claimedAt, type: 'ZONE_CLAIMED', ...base, contributor: z.author, data: { pr: prNumber(planet, z.id) } });
-      if (z.securedAt) push({ id: `${key}:secured`, at: z.securedAt, type: 'ZONE_SECURED', ...base, contributor: z.author, data: { pr: prNumber(planet, z.id) } });
-      if (z.revertedAt) push({ id: `${key}:reverted`, at: z.revertedAt, type: 'ZONE_REVERTED', ...base, contributor: z.author, data: { pr: prNumber(planet, z.id) } });
-      if (z.openedAt) {
-        const distressAt = addWorkingMinutes(new Date(z.openedAt), RULEBOOK.distressAfterWorkingMinutes);
-        const claimed = z.claimedAt ? new Date(z.claimedAt) : null;
-        if (distressAt <= now && (!claimed || claimed > distressAt)) {
-          push({ id: `${key}:distress`, at: iso(distressAt), type: 'DISTRESS', ...base });
-          if (claimed) push({ id: `${key}:rescue`, at: z.claimedAt, type: 'RESCUE', ...base, contributor: z.author, data: { pr: prNumber(planet, z.id) } });
-        }
-      }
+      if (z.claimedAt) push({ id: `${key}:claimed`, at: z.claimedAt, type: 'ZONE_CLAIMED', ...base, contributor: z.author, data: { pr: prNumber(planet, z.id, z.repo) } });
+      if (z.securedAt) push({ id: `${key}:secured`, at: z.securedAt, type: 'ZONE_SECURED', ...base, contributor: z.author, data: { pr: prNumber(planet, z.id, z.repo) } });
+      if (z.revertedAt) push({ id: `${key}:reverted`, at: z.revertedAt, type: 'ZONE_REVERTED', ...base, contributor: z.author, data: { pr: prNumber(planet, z.id, z.repo) } });
+    }
+
+    // F5b: one DISTRESS per planet-level idle episode, and a RESCUE for the claim that answered it.
+    // The RESCUE is always emitted; the economy pays it only when the claimer is from another team.
+    for (const ep of distressEpisodes(state.zones, now)) {
+      push({ id: `planet:${prd}:distress:${ep.start}`, at: ep.distressAt, type: 'DISTRESS', planet: prd });
+      if (ep.rescue) push({ id: `planet:${prd}:rescue:${ep.start}`, at: ep.rescue.at, type: 'RESCUE', planet: prd, region: ep.rescue.repo, contributor: ep.rescue.author, data: { pr: prNumber(planet, ep.rescue.zone, ep.rescue.repo), zone: ep.rescue.zone } });
     }
 
     for (const w of state.wounds) {
@@ -83,6 +82,6 @@ export function projectEvents(snapshot, { config, now, onSkip = () => {} }) {
   return events.sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
 }
 
-function prNumber(planet, zoneId) {
-  return planet.zones.find((z) => z.id === zoneId)?.pr?.number ?? null;
+function prNumber(planet, zoneId, repo) {
+  return planet.zones.find((z) => z.id === zoneId && (!repo || z.repo === repo))?.pr?.number ?? null;
 }

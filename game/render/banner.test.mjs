@@ -30,6 +30,17 @@ describe('renderBanner', () => {
     ].join('\n'));
   });
 
+  it('counts rescuers from rescue credits and cross-team wound closures, and names their teams (F5b)', () => {
+    const withRescues = { ...season, credits: [
+      { to: 'eve', team: 'octopod', planet: 2332, points: 22.5, reason: 'wound closed: unconfirmed-ground', crossTeam: true },
+      { to: 'bob', team: 'cia', planet: 2332, points: 20, reason: 'rescue' },
+      { to: 'eve', team: 'octopod', planet: 2332, points: 20, reason: 'rescue' },
+      { to: 'pm', team: 'beaver', planet: 2332, points: 25, reason: 'wound closed: beacon' },
+      { to: 'zed', team: 'picsou', planet: 9999, points: 20, reason: 'rescue' },
+    ] };
+    expect(renderBanner(planet, { season: withRescues, now: NOW }).split('\n')[3]).toBe('Captain: @pm · Crew: beaver 🔥2 · Expeditions: 2 (alice, bob) · Rescuers: 2 (octopod, cia)');
+  });
+
   it('flags a planet uncrewed when the captain has no owning team (spec §8)', () => {
     const uncrewedPlanet = {
       prd: 4100, title: 'Solo Prototype', captain: 'freelancer', ownerTeam: null, state: 'charted',

@@ -23,8 +23,11 @@ export function renderBanner(p, { season, now }) {
     return `${ws.length} ${ICON[k]} (${workingHours(oldest, now)}h)`;
   });
   const expedition = [...new Set(p.zones.map((z) => z.author).filter(Boolean))];
-  // Rescues are ledger facts; the banner reads them from the season, never re-derives them.
-  const rescuers = new Set((season.credits ?? []).filter((c) => c.planet === p.prd && c.reason === 'rescue').map((c) => c.to)).size;
+  // Rescuers (spec §5.6) are read from the season's credits, never re-derived: a paid rescue, or a
+  // wound closure the economy marked crossTeam. Teams in order of first credit.
+  const rescueCredits = (season.credits ?? []).filter((c) => c.planet === p.prd && c.to && (c.reason === 'rescue' || c.crossTeam));
+  const rescuers = new Set(rescueCredits.map((c) => c.to)).size;
+  const rescuerTeams = [...new Set(rescueCredits.map((c) => c.team).filter(Boolean))];
   const streak = season.streaks?.[p.ownerTeam] ? ` 🔥${season.streaks[p.ownerTeam]}` : '';
   const stateTag = STATE[p.state] ? ` · ${STATE[p.state]}` : '';
   const openZones = p.zones.filter((z) => z.state === 'open').map((z) => `${z.id} (${z.repo}, phase ${z.wave})`);
@@ -37,7 +40,7 @@ export function renderBanner(p, { season, now }) {
     `OMNI PLAN // PLANET ${p.prd} — ${p.title}`,
     `Class ${ROMAN[Math.min(p.class, 4)] || '?'}${p.crossSector ? ' ★ cross-sector' : ''} · Threat ${ROMAN[p.threat]}${stateTag} · phase ${phase}/${phases} · zones ${secured}/${p.zones.length} secured${perRegion ? ` (${perRegion})` : ''}`,
     `Wounds: ${byKind.length ? byKind.join(' · ') : 'none'}`,
-    `Captain: ${captainSeg} · Crew: ${crewSeg} · Expeditions: ${expedition.length}${expedition.length ? ` (${expedition.join(', ')})` : ''} · Rescuers: ${rescuers}`,
+    `Captain: ${captainSeg} · Crew: ${crewSeg} · Expeditions: ${expedition.length}${expedition.length ? ` (${expedition.join(', ')})` : ''} · Rescuers: ${rescuers}${rescuerTeams.length ? ` (${rescuerTeams.join(', ')})` : ''}`,
     `Open zones: ${openZones.length ? openZones.join(', ') : 'none'}`,
   ].join('\n');
 }
