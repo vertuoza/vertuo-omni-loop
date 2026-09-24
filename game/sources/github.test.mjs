@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { parseProjects } from '../config.mjs';
 import { buildSnapshot } from './github.mjs';
+import { derivePlanet } from '../planet-state.mjs';
+import { projectEvents } from '../projector.mjs';
 
 const config = parseProjects('sectors:\n  core: { repos: [core-repo] }\nteams:\n  beaver: { home: core }\n');
 
@@ -114,6 +116,48 @@ describe('buildSnapshot', () => {
     expect(seen.find((c) => c.includes('--base feat/generic-import'))).toMatch(/--json \S*\bstate\b/);
   });
 
+  describe('a planet with two regions (F3)', () => {
+    const config2 = parseProjects('sectors:\n  core: { repos: [core-repo] }\n  ai: { repos: [ai-repo] }\nteams:\n  beaver: { home: core }\n');
+    const fp = (number, over) => ({ number, headRefName: 'feat/generic-import', createdAt: '2026-09-21T08:00:00Z', isDraft: false, mergedAt: null, updatedAt: '2026-09-23T08:00:00Z', ...over });
+    const repoCalls = (repo, featurePr) => [
+      [`api repos/vertuoza/${repo}/contents/docs/inbox --jq`, '2332-generic-import.md\n'],
+      [`api repos/vertuoza/${repo}/contents/docs/inbox/2332-generic-import.md`, INBOX],
+      [`api repos/vertuoza/${repo}/commits?path=docs/inbox/2332-generic-import.md`, '2026-09-02T08:00:00Z\n'],
+      [`pr list -R vertuoza/${repo} --search`, [featurePr]],
+      [`api repos/vertuoza/${repo}/contents/docs/superpowers/plans/p.md?ref=feat/generic-import`, PLAN],
+      [`pr list -R vertuoza/${repo} --base feat/generic-import`, []],
+      [`api repos/vertuoza/${repo}/issues/`, ''],
+      [`api repos/vertuoza/${repo}/contents/docs/outbox/2332?ref=feat/generic-import --jq`, ''],
+      [`issue list -R vertuoza/${repo} --label bug`, []],
+    ];
+    const worldOf = (coreFp, aiFp) => fakeExec([
+      ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
+      ['api orgs/vertuoza/teams/beaver/members', 'pm\n'],
+      ...repoCalls('core-repo', coreFp), ...repoCalls('ai-repo', aiFp),
+    ]);
+
+    it('keeps each region\'s feature PR, and is not terraformed while one region is unmerged', async () => {
+      const snap = await buildSnapshot({ config: config2, exec: worldOf(fp(500, { mergedAt: '2026-09-22T10:00:00Z' }), fp(700, { createdAt: '2026-09-21T11:00:00Z', isDraft: true })), now: NOW });
+      const p = snap.planets[0];
+      expect(p.regions.map((r) => [r.repo, r.featurePr?.number, r.featurePr?.mergedAt])).toEqual([['core-repo', 500, '2026-09-22T10:00:00Z'], ['ai-repo', 700, null]]);
+      expect(p.featurePr).toEqual({ repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: null, mergedAt: null, lastActivityAt: '2026-09-23T08:00:00Z' });
+      expect(p.zones.map((z) => [z.repo, z.id])).toEqual([['core-repo', 's1'], ['core-repo', 's2'], ['ai-repo', 's1'], ['ai-repo', 's2']]);
+      expect(derivePlanet(p, { config: config2, terraformedPlanets: new Set(), now: NOW }).state).not.toBe('terraformed');
+    });
+
+    it('terraforms at the later merge once every region has merged', async () => {
+      const snap = await buildSnapshot({ config: config2, exec: worldOf(
+        fp(500, { mergedAt: '2026-09-22T10:00:00Z', updatedAt: '2026-09-22T10:00:00Z' }),
+        fp(700, { createdAt: '2026-09-21T11:00:00Z', mergedAt: '2026-09-23T09:00:00Z', updatedAt: '2026-09-23T09:00:00Z' }),
+      ), now: NOW });
+      const p = snap.planets[0];
+      expect(p.featurePr).toEqual({ repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: '2026-09-21T11:00:00Z', mergedAt: '2026-09-23T09:00:00Z', lastActivityAt: '2026-09-23T09:00:00Z' });
+      const d = derivePlanet(p, { config: config2, terraformedPlanets: new Set(), now: NOW });
+      expect(d.state).toBe('terraformed');
+      expect(projectEvents(snap, { config: config2, now: NOW }).find((e) => e.type === 'PLANET_TERRAFORMED').at).toBe('2026-09-23T09:00:00Z');
+    });
+  });
+
   it('assembles a planet from issues, inbox, plan, sub-PRs, outbox and bugs', async () => {
     const exec = fakeExec([
       ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
@@ -136,7 +180,7 @@ describe('buildSnapshot', () => {
     expect(snap.planets).toHaveLength(1);
     const p = snap.planets[0];
     expect(p).toMatchObject({ prd: 2332, title: 'Generic Import Engine', captain: 'pm', ownerTeam: 'beaver' });
-    expect(p.regions).toEqual([{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z' }]);
+    expect(p.regions).toEqual([{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z', featurePr: { repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: null, mergedAt: null, lastActivityAt: '2026-09-23T08:00:00Z' } }]);
     expect(p.featurePr).toEqual({ repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: null, mergedAt: null, lastActivityAt: '2026-09-23T08:00:00Z' });
     expect(p.zones).toEqual([
       { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null, needsFix: null } },
@@ -188,7 +232,7 @@ describe('buildSnapshot', () => {
       ['pr list -R vertuoza/core-repo --search', []],
     ]);
     const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z') });
-    expect(snap.planets[0].regions).toEqual([{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-09-05T08:00:00Z' }]);
+    expect(snap.planets[0].regions).toEqual([{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-09-05T08:00:00Z', featurePr: null }]);
   });
 
   it('filters to the given PRDs, issuing no per-PRD gh calls for the rest (spec §8, single-planet read)', async () => {

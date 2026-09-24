@@ -12,8 +12,10 @@ export function deriveZones(planet) {
   return planet.zones.map((z) => {
     const blockers = z.blockedBy.map((id) => byId.get(id)).filter(Boolean);
     const allMerged = blockers.every((b) => b.pr?.mergedAt);
+    // F3: a zone opens against its own region's feature PR (falling back to the planet's aggregate).
+    const regionFp = planet.regions.find((r) => r.repo === z.repo)?.featurePr ?? planet.featurePr;
     const openedAt = allMerged && planet.featurePr
-      ? maxIso(planet.featurePr.createdAt, ...blockers.map((b) => b.pr.mergedAt))
+      ? maxIso(regionFp?.createdAt ?? planet.featurePr.createdAt, ...blockers.map((b) => b.pr.mergedAt))
       : null;
     let state = 'sealed';
     if (z.pr?.mergedAt && !z.pr.revertedAt) state = 'secured';

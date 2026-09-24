@@ -77,13 +77,16 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), o
       issue: { createdAt: issue.createdAt, closedAt: issue.closedAt ?? null },
       regions: [], featurePr: null, zones: [], outbox: [], bugs: [],
     };
+    const planned = new Set(); // repos whose inbox names a plan: the regions a terraform waits for (F3)
     for (const { repo, inbox, surveyedAt } of inboxByPrd.get(issue.number) ?? []) {
-      planet.regions.push({ repo, blockedBy: inbox.blockedBy, surveyedAt: surveyedAt ?? issue.createdAt });
+      const region = { repo, blockedBy: inbox.blockedBy, surveyedAt: surveyedAt ?? issue.createdAt, featurePr: null };
+      planet.regions.push(region);
+      if (inbox.plan) planned.add(repo);
       const prs = json(await exec(['pr', 'list', '-R', `${org}/${repo}`, '--search', `"Closes #${issue.number}" in:body`, '--base', 'main', '--state', 'all', '--json', 'number,headRefName,createdAt,isDraft,mergedAt,updatedAt']));
       const fp = prs.sort((a, b) => a.number - b.number)[0];
       if (!fp) continue;
       const readyAt = fp.isDraft ? null : (lines(await soft(exec(['api', `repos/${org}/${repo}/issues/${fp.number}/timeline`, '--paginate', '--jq', '[.[] | select(.event=="ready_for_review")][0].created_at'])))[0] ?? fp.createdAt);
-      planet.featurePr ??= { repo, number: fp.number, createdAt: fp.createdAt, readyAt, mergedAt: fp.mergedAt ?? null, lastActivityAt: fp.updatedAt };
+      region.featurePr = { repo, number: fp.number, createdAt: fp.createdAt, readyAt, mergedAt: fp.mergedAt ?? null, lastActivityAt: fp.updatedAt };
 
       const slices = inbox.plan ? parsePlanSlices(await soft(exec(['api', `repos/${org}/${repo}/contents/${inbox.plan}?ref=${fp.headRefName}`, ...RAW]))) : [];
       // --json includes `body` (beyond the reads list's bare field set) because the revert rule
@@ -119,9 +122,28 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), o
       const bugs = json(await soft(exec(['issue', 'list', '-R', `${org}/${repo}`, '--label', 'bug', '--state', 'all', '--search', `#${issue.number}`, '--json', 'number,createdAt,closedAt,closedBy'])));
       for (const b of bugs) planet.bugs.push({ repo, number: b.number, createdAt: b.createdAt, closedAt: b.closedAt ?? null, closedBy: b.closedBy?.login ?? null });
     }
+    planet.featurePr = aggregateFeaturePr(planet.regions, planned);
     planets.push(planet);
   }
   return { at: now.toISOString(), teams, planets };
+}
+
+// F3: the planet's feature PR, aggregated over its regions (same shape as a region's, so every
+// consumer of `planet.featurePr` reads it unchanged). null when no region has one; `createdAt` the
+// earliest; `readyAt` / `mergedAt` the latest, and only once every region that has a plan (or, when
+// no inbox names a plan, every region with a feature PR) is ready / merged; `repo`/`number` are the
+// first region's. A planet is therefore terraformed at its last region's merge, not its first.
+function aggregateFeaturePr(regions, planned) {
+  const fps = regions.map((r) => r.featurePr).filter(Boolean);
+  if (!fps.length) return null;
+  const required = planned.size ? regions.filter((r) => planned.has(r.repo)).map((r) => r.featurePr) : fps;
+  const latest = (field) => (required.every((fp) => fp?.[field]) ? required.map((fp) => fp[field]).sort().at(-1) : null);
+  return {
+    repo: fps[0].repo, number: fps[0].number,
+    createdAt: fps.map((fp) => fp.createdAt).sort()[0],
+    readyAt: latest('readyAt'), mergedAt: latest('mergedAt'),
+    lastActivityAt: fps.map((fp) => fp.lastActivityAt).filter(Boolean).sort().at(-1) ?? null,
+  };
 }
 
 // F2: the sub-PR that stands for a zone. A sub-PR closed without merging is dropped (it freed the

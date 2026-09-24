@@ -58,6 +58,20 @@ describe('derivePlanet', () => {
     expect(sealed.zones[0].openedAt).toBe('2026-09-21T08:00:00Z'); // feature PR created
   });
 
+  it('opens a zone at its own region\'s feature PR creation (F3)', () => {
+    const p = derivePlanet(planet({
+      regions: [
+        { repo: 'core-repo', blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z', featurePr: { repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: null, mergedAt: null, lastActivityAt: '2026-09-23T08:00:00Z' } },
+        { repo: 'ai-repo', blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z', featurePr: { repo: 'ai-repo', number: 700, createdAt: '2026-09-22T08:00:00Z', readyAt: null, mergedAt: null, lastActivityAt: '2026-09-23T08:00:00Z' } },
+      ],
+      zones: [
+        { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: null },
+        { id: 's1', repo: 'ai-repo', wave: 1, blockedBy: [], pr: null },
+      ],
+    }), ctx());
+    expect(p.zones.map((z) => [z.repo, z.openedAt])).toEqual([['core-repo', '2026-09-21T08:00:00Z'], ['ai-repo', '2026-09-22T08:00:00Z']]);
+  });
+
   it('marks a claimed zone, and an under-fire zone as a wound', () => {
     const p = derivePlanet(planet({ zones: [
       { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-22T09:00:00Z', labels: ['pr:sub', 'pr:in-progress'], mergedAt: null, revertedAt: null } },
