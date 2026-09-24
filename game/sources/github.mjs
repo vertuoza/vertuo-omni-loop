@@ -15,7 +15,11 @@
 //     approximates.
 //
 // Spec §8: a malformed inbox or outbox file is ignored (never crashes the projector), and a source
-// that cannot be read reads as empty. An inbox file whose `prd` doesn't parse as an integer never
+// that cannot be read reads as empty — except the team member reads, which are hard (F7): a failed
+// one throws, so the poll appends nothing rather than events stripped of their teams. Every
+// timestamp passes through `toIso` (F4); a record whose required time is unreadable is skipped.
+// Beyond the list reads, each zone's sub-PR timeline gives the `pr:needs-fix` history (F1) and each
+// closed bug's closing PRs say whether a merged fix closed it (F5c); both soft. An inbox file whose `prd` doesn't parse as an integer never
 // reaches `inboxByPrd`; an open outbox item missing an `id` or carrying a rank outside
 // {medium, high, human-action} is skipped rather than pushed. The inbox `surveyedAt` commits read is
 // wrapped in `soft()`; when it yields nothing, the region falls back to the PRD issue's `createdAt`
