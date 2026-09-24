@@ -8,11 +8,16 @@ const INBOX = '---\nprd: 2332\ntitle: Generic Import Engine\nblocked-by: none\np
 const PLAN = '| id | slice | scenarios | territory | blocked by | wave | tier |\n|---|---|---|---|---|---|---|\n| s1 | A | — | `a/` | — | 1 | mid |\n| s2 | B | — | `b/` | s1 | 2 | mid |\n';
 const ITEM = '---\nid: s1-01-a\nprd: 2332\nslice: s1\nrank: high\nbears-on: none\nraised: 2026-09-21\nwave: 1\n---\n';
 
-// A fake gh: matched on the joined argument string.
+// A fake gh: matched on the joined argument string. An `out` that is an Error is thrown, so a
+// test can simulate a real gh failure (a source that cannot be read) rather than a fixture gap.
 function fakeExec(calls) {
   return async (args) => {
     const key = args.join(' ');
-    for (const [prefix, out] of calls) if (key.startsWith(prefix)) return typeof out === 'string' ? out : JSON.stringify(out);
+    for (const [prefix, out] of calls) {
+      if (!key.startsWith(prefix)) continue;
+      if (out instanceof Error) throw out;
+      return typeof out === 'string' ? out : JSON.stringify(out);
+    }
     throw new Error(`unexpected gh call: ${key}`);
   };
 }
@@ -58,5 +63,53 @@ describe('buildSnapshot', () => {
     ]);
     const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z') });
     expect(snap.planets[0]).toMatchObject({ prd: 2400, captain: null, ownerTeam: null, regions: [], featurePr: null, zones: [], outbox: [], bugs: [] });
+  });
+
+  it('ignores an outbox file with no front matter, keeping only the valid item (spec §8)', async () => {
+    const exec = fakeExec([
+      ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
+      ['api orgs/vertuoza/teams/beaver/members', 'pm\nalice\n'],
+      ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', '2332-generic-import.md\n'],
+      ['api repos/vertuoza/core-repo/contents/docs/inbox/2332-generic-import.md', INBOX],
+      ['api repos/vertuoza/core-repo/commits?path=docs/inbox/2332-generic-import.md', '2026-09-02T08:00:00Z\n'],
+      ['pr list -R vertuoza/core-repo --search', [{ number: 500, headRefName: 'feat/generic-import', createdAt: '2026-09-21T08:00:00Z', isDraft: true, mergedAt: null, updatedAt: '2026-09-23T08:00:00Z' }]],
+      ['api repos/vertuoza/core-repo/contents/docs/superpowers/plans/p.md?ref=feat/generic-import', PLAN],
+      ['pr list -R vertuoza/core-repo --base feat/generic-import', []],
+      ['api repos/vertuoza/core-repo/contents/docs/outbox/2332?ref=feat/generic-import --jq', 's1-01-a.md\nbroken.md\n'],
+      ['api repos/vertuoza/core-repo/contents/docs/outbox/2332/s1-01-a.md?ref=feat/generic-import', ITEM],
+      ['api repos/vertuoza/core-repo/commits?path=docs/outbox/2332/s1-01-a.md', '2026-09-21T10:00:00Z\n'],
+      // broken.md has no front matter: parseOutboxItem yields { id: undefined, rank: undefined, raised: undefined }.
+      // No commits fixture for it — buildSnapshot must skip it before ever asking for its raisedAt.
+      ['api repos/vertuoza/core-repo/contents/docs/outbox/2332/broken.md?ref=feat/generic-import', '## no front matter here\n'],
+      ['issue list -R vertuoza/core-repo --label bug', []],
+    ]);
+    const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z') });
+    expect(snap.planets[0].outbox).toEqual([{ id: 's1-01-a', repo: 'core-repo', rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: null }]);
+  });
+
+  it('falls back a region\'s surveyedAt to the PRD issue\'s createdAt when the inbox commits read fails (spec §8)', async () => {
+    const exec = fakeExec([
+      ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [], createdAt: '2026-09-05T08:00:00Z', closedAt: null }]],
+      ['api orgs/vertuoza/teams/beaver/members', ''],
+      ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', '2332-generic-import.md\n'],
+      ['api repos/vertuoza/core-repo/contents/docs/inbox/2332-generic-import.md', INBOX],
+      ['api repos/vertuoza/core-repo/commits?path=docs/inbox/2332-generic-import.md', new Error('gh: 502 Bad Gateway')],
+      ['pr list -R vertuoza/core-repo --search', []],
+    ]);
+    const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z') });
+    expect(snap.planets[0].regions).toEqual([{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-09-05T08:00:00Z' }]);
+  });
+
+  it('ignores an inbox file with no front matter: no region, no crash (spec §8)', async () => {
+    const exec = fakeExec([
+      ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2401, title: 'Untitled', assignees: [], createdAt: '2026-09-10T08:00:00Z', closedAt: null }]],
+      ['api orgs/vertuoza/teams/beaver/members', ''],
+      ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', 'broken.md\n'],
+      // No front matter at all: parseInbox's prd is NaN, so this file must never reach inboxByPrd,
+      // and (critically) buildSnapshot must never ask for its commit history.
+      ['api repos/vertuoza/core-repo/contents/docs/inbox/broken.md', '## no front matter\n'],
+    ]);
+    const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z') });
+    expect(snap.planets[0]).toMatchObject({ prd: 2401, regions: [], featurePr: null, zones: [], outbox: [], bugs: [] });
   });
 });

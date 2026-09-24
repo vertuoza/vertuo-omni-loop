@@ -13,6 +13,13 @@
 //     the feature branch. Decay for a settled item is therefore zero, which under-counts a slow
 //     answer that was eventually given. The open-item path above is exact; only this settled path
 //     approximates.
+//
+// Spec §8: a malformed inbox or outbox file is ignored (never crashes the projector), and a source
+// that cannot be read reads as empty. An inbox file whose `prd` doesn't parse as an integer never
+// reaches `inboxByPrd`; an open outbox item missing an `id` or carrying a rank outside
+// {medium, high, human-action} is skipped rather than pushed. The inbox `surveyedAt` commits read is
+// wrapped in `soft()`; when it yields nothing, the region falls back to the PRD issue's `createdAt`
+// so `surveyedAt` is always a valid ISO string.
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { parseInbox, parseOutboxItem, parseSettled, parsePlanSlices } from './parsers.mjs';
@@ -24,6 +31,7 @@ const RAW = ['-H', 'Accept: application/vnd.github.raw'];
 const lines = (s) => s.split('\n').map((l) => l.trim()).filter(Boolean);
 const json = (s) => (s.trim() ? JSON.parse(s) : []);
 const soft = (p) => p.catch(() => ''); // a 404 (no outbox dir yet, no plan yet) is an empty read
+const OUTBOX_RANKS = new Set(['medium', 'high', 'human-action']); // spec §8: a malformed outbox file is ignored
 
 export async function buildSnapshot({ config, exec = ghExec, now = new Date(), org = 'vertuoza', planRepo = 'vertuo-omni-plan' }) {
   const issues = json(await exec(['issue', 'list', '-R', `${org}/${planRepo}`, '--label', 'prd', '--state', 'all', '--limit', '500', '--json', 'number,title,assignees,createdAt,closedAt']));
@@ -38,7 +46,10 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), o
     const files = lines(await soft(exec(['api', `repos/${org}/${repo}/contents/docs/inbox`, '--jq', '.[].name']))).filter((f) => f !== 'README.md' && f.endsWith('.md'));
     for (const file of files) {
       const inbox = parseInbox(await exec(['api', `repos/${org}/${repo}/contents/docs/inbox/${file}`, ...RAW]));
-      const surveyedAt = lines(await exec(['api', `repos/${org}/${repo}/commits?path=docs/inbox/${file}&per_page=100`, '--jq', '.[-1].commit.committer.date']))[0] ?? null;
+      if (!Number.isInteger(inbox.prd)) continue; // spec §8: a malformed inbox file (no front matter, no prd) is ignored
+      // A source that cannot be read reads as empty (spec §8): a failed commits lookup leaves
+      // surveyedAt null here; the planet loop below falls back to the PRD issue's createdAt.
+      const surveyedAt = lines(await soft(exec(['api', `repos/${org}/${repo}/commits?path=docs/inbox/${file}&per_page=100`, '--jq', '.[-1].commit.committer.date'])))[0] ?? null;
       (inboxByPrd.get(inbox.prd) ?? inboxByPrd.set(inbox.prd, []).get(inbox.prd)).push({ repo, file, inbox, surveyedAt });
     }
   }
@@ -52,7 +63,7 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), o
       regions: [], featurePr: null, zones: [], outbox: [], bugs: [],
     };
     for (const { repo, inbox, surveyedAt } of inboxByPrd.get(issue.number) ?? []) {
-      planet.regions.push({ repo, blockedBy: inbox.blockedBy, surveyedAt });
+      planet.regions.push({ repo, blockedBy: inbox.blockedBy, surveyedAt: surveyedAt ?? issue.createdAt });
       const prs = json(await exec(['pr', 'list', '-R', `${org}/${repo}`, '--search', `"Closes #${issue.number}" in:body`, '--base', 'main', '--state', 'all', '--json', 'number,headRefName,createdAt,isDraft,mergedAt,updatedAt']));
       const fp = prs.sort((a, b) => a.number - b.number)[0];
       if (!fp) continue;
@@ -77,6 +88,7 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), o
       const settled = names.includes('settled.md') ? parseSettled(await exec(['api', `repos/${org}/${repo}/contents/${dir}/settled.md?ref=${fp.headRefName}`, ...RAW])) : new Map();
       for (const name of names.filter((n) => n.endsWith('.md') && n !== 'settled.md')) {
         const item = parseOutboxItem(await exec(['api', `repos/${org}/${repo}/contents/${dir}/${name}?ref=${fp.headRefName}`, ...RAW]));
+        if (!item.id || !OUTBOX_RANKS.has(item.rank)) continue; // spec §8: a malformed outbox file (no front matter) is ignored
         const raisedAt = lines(await soft(exec(['api', `repos/${org}/${repo}/commits?path=${dir}/${name}&sha=${fp.headRefName}&per_page=100`, '--jq', '.[-1].commit.committer.date'])))[0] ?? `${item.raised}T07:00:00Z`;
         planet.outbox.push({ id: item.id, repo, rank: item.rank, raisedAt, settled: null });
       }
