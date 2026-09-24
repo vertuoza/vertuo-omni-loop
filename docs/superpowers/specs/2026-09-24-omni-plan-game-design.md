@@ -160,7 +160,7 @@ Per 4-working-hour tranche a wound stays open:
 | ⚡ fault line, 🔥 under fire | −3 |
 | ⚡ aftershock | −5 |
 
-Decay is never multiplied by class: a beacon ignored costs the same on every planet. A planet in **distress** decays nothing; it broadcasts, and the rescue bonus is the pull.
+Decay is never multiplied by class: a beacon ignored costs the same on every planet. **Distress** itself adds no decay (open wounds on a distressed planet still decay as above); a planet nobody deploys to broadcasts, and the rescue bonus is the pull.
 
 ### 6.3 Difficulty, derived
 
