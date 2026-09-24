@@ -75,6 +75,45 @@ describe('buildSnapshot', () => {
     expect(s2.pr.needsFix).toEqual({ labeledAt: '2026-09-21T09:00:00Z', unlabeledAt: null });
   });
 
+  it('drops a closed unmerged sub-PR: the lowest live one becomes the zone pr (F2)', async () => {
+    const exec = fakeExec(world([
+      ['pr list -R vertuoza/core-repo --base feat/generic-import', [
+        { ...SUB_501, mergedAt: null, state: 'CLOSED' },
+        { ...SUB_501, number: 505, author: { login: 'bob' }, createdAt: '2026-09-22T09:00:00Z', mergedAt: null, state: 'OPEN', labels: [{ name: 'pr:sub' }, { name: 'pr:in-progress' }] },
+      ]],
+    ]));
+    const snap = await buildSnapshot({ config, exec, now: NOW });
+    expect(snap.planets[0].zones[0].pr).toMatchObject({ number: 505, author: 'bob', mergedAt: null });
+  });
+
+  it('after a revert, the zone\'s next sub-PR opened after the revert becomes its pr (F2)', async () => {
+    const exec = fakeExec(world([
+      ['pr list -R vertuoza/core-repo --base feat/generic-import', [
+        { ...SUB_501 },
+        { ...SUB_501, number: 503, title: 'Revert "feat: a"', headRefName: 'revert-501', createdAt: '2026-09-22T08:00:00Z', mergedAt: '2026-09-22T09:00:00Z', body: 'Reverts #501' },
+        { ...SUB_501, number: 505, author: { login: 'bob' }, createdAt: '2026-09-22T10:00:00Z', mergedAt: null, state: 'OPEN', labels: [{ name: 'pr:sub' }, { name: 'pr:in-progress' }] },
+      ]],
+    ]));
+    const snap = await buildSnapshot({ config, exec, now: NOW });
+    expect(snap.planets[0].zones[0].pr).toMatchObject({ number: 505, author: 'bob', mergedAt: null, revertedAt: null });
+
+    // With no sub-PR after the revert, the zone keeps the reverted one (so ZONE_REVERTED is still told).
+    const alone = fakeExec(world([
+      ['pr list -R vertuoza/core-repo --base feat/generic-import', [
+        { ...SUB_501 },
+        { ...SUB_501, number: 503, title: 'Revert "feat: a"', headRefName: 'revert-501', createdAt: '2026-09-22T08:00:00Z', mergedAt: '2026-09-22T09:00:00Z', body: 'Reverts #501' },
+      ]],
+    ]));
+    expect((await buildSnapshot({ config, exec: alone, now: NOW })).planets[0].zones[0].pr).toMatchObject({ number: 501, revertedAt: '2026-09-22T09:00:00Z' });
+  });
+
+  it('asks gh for the sub-PR state (F2)', async () => {
+    const seen = [];
+    const inner = fakeExec(world());
+    await buildSnapshot({ config, exec: (args) => { seen.push(args.join(' ')); return inner(args); }, now: NOW });
+    expect(seen.find((c) => c.includes('--base feat/generic-import'))).toMatch(/--json \S*\bstate\b/);
+  });
+
   it('assembles a planet from issues, inbox, plan, sub-PRs, outbox and bugs', async () => {
     const exec = fakeExec([
       ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],

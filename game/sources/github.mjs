@@ -88,10 +88,10 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), o
       const slices = inbox.plan ? parsePlanSlices(await soft(exec(['api', `repos/${org}/${repo}/contents/${inbox.plan}?ref=${fp.headRefName}`, ...RAW]))) : [];
       // --json includes `body` (beyond the reads list's bare field set) because the revert rule
       // below — "a sub-PR titled Revert whose body names #<n>" — cannot be read without it.
-      const subs = json(await exec(['pr', 'list', '-R', `${org}/${repo}`, '--base', fp.headRefName, '--state', 'all', '--label', 'pr:sub', '--limit', '200', '--json', 'number,title,headRefName,author,createdAt,labels,mergedAt,body']));
+      const subs = json(await exec(['pr', 'list', '-R', `${org}/${repo}`, '--base', fp.headRefName, '--state', 'all', '--label', 'pr:sub', '--limit', '200', '--json', 'number,title,headRefName,author,createdAt,labels,mergedAt,body,state']));
       const reverts = new Map(subs.filter((s) => /^revert/i.test(s.title) && s.mergedAt).flatMap((s) => [...(s.body ?? '').matchAll(/#(\d+)/g)].map((m) => [Number(m[1]), s.mergedAt])));
       for (const slice of slices) {
-        const sub = subs.filter((s) => !/^revert/i.test(s.title) && s.headRefName.endsWith(`--${slice.id}`)).sort((a, b) => a.number - b.number)[0];
+        const sub = zoneSub(subs, slice.id, reverts);
         const labels = sub ? sub.labels.map((l) => l.name) : [];
         planet.zones.push({
           id: slice.id, repo, wave: slice.wave, blockedBy: slice.blockedBy,
@@ -122,6 +122,22 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), o
     planets.push(planet);
   }
   return { at: now.toISOString(), teams, planets };
+}
+
+// F2: the sub-PR that stands for a zone. A sub-PR closed without merging is dropped (it freed the
+// zone); among the rest the lowest number wins (spec §8). Once that one is reverted, the zone's next
+// non-revert sub-PR opened after the revert — if there is one — takes over.
+function zoneSub(subs, sliceId, reverts) {
+  const live = subs
+    .filter((s) => !/^revert/i.test(s.title) && s.headRefName.endsWith(`--${sliceId}`) && !(s.state === 'CLOSED' && !s.mergedAt))
+    .sort((a, b) => a.number - b.number);
+  let sub = live[0];
+  for (let revertedAt = sub && reverts.get(sub.number); revertedAt; revertedAt = reverts.get(sub.number)) {
+    const next = live.find((s) => s.number > sub.number && new Date(s.createdAt) > new Date(revertedAt));
+    if (!next) break;
+    sub = next;
+  }
+  return sub;
 }
 
 // F1: when `pr:needs-fix` was put on and taken off a sub-PR. The snapshot is a point in time, so the
