@@ -48,10 +48,21 @@ const firstIso = (out) => toIso(lines(out)[0]);
 export async function buildSnapshot({ config, exec = ghExec, now = new Date(), org = 'vertuoza', planRepo = 'vertuo-omni-plan', prds }) {
   const issues = json(await exec(['issue', 'list', '-R', `${org}/${planRepo}`, '--label', 'prd', '--state', 'all', '--limit', '500', '--json', 'number,title,assignees,createdAt,closedAt']));
 
+  // F7: team reads are hard. A failed read would silently strip every member's team from every
+  // event this poll appends, forever (the ledger is append-only) — so it fails the poll instead, as
+  // does a read where every configured team comes back empty. A login in two teams belongs to the
+  // first one `projects.yml` names.
   const teams = {};
   for (const team of Object.keys(config.teams)) {
-    for (const login of lines(await soft(exec(['api', `orgs/${org}/teams/${team}/members`, '--paginate', '--jq', '.[].login'])))) teams[login] = team;
+    let out;
+    try {
+      out = await exec(['api', `orgs/${org}/teams/${team}/members`, '--paginate', '--jq', '.[].login']);
+    } catch (err) {
+      throw new Error(`team ${team}: members read failed (${err.message}); nothing appended`);
+    }
+    for (const login of lines(out)) teams[login] ??= team;
   }
+  if (Object.keys(config.teams).length && !Object.keys(teams).length) throw new Error('every configured team read with no members; nothing appended');
 
   const inboxByPrd = new Map(); // prd → [{ repo, file, inbox, surveyedAt }]
   for (const repo of config.repos) {
