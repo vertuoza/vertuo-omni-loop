@@ -1,6 +1,7 @@
 // The production account: Google sign-in and GitHub linking through Supabase Auth, the player's row
 // through the database, with row-level security deciding what they may change (their name, fleet
-// and hero; never their GitHub login, which link_github() sets from the linked identity).
+// and hero; never their GitHub login, which comes from the linked identity), and refusing a row to a
+// visitor who has not linked GitHub.
 import { createBrowserClient } from '@supabase/ssr';
 import type { Account, Player, PlayerPatch } from './types';
 
@@ -35,6 +36,8 @@ export function supabaseAccount({ url, key }: { url: string; key: string }): Acc
         ? db.from('players').update(patch).eq('id', user.id)
         : db.from('players').insert({ id: user.id, ...patch });
       const { data, error } = await query.select(COLUMNS).single();
+      // A visitor's row is refused by row-level security: joining a fleet needs GitHub linked.
+      if (error && !current && error.code === '42501') throw new Error('Link your GitHub first: it is what makes you a player.');
       if (error) throw fail('Saving', error.message);
       return data as Player;
     },

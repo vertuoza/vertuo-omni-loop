@@ -4,14 +4,26 @@
 import type { Hero } from '@omni/sprites';
 import { BUILDER_ROWS, rowValue, type BuilderRow } from './builder';
 import { fleet } from './fleets';
+import { Hint } from './hint';
 import { NAME_MAX, WHEEL, type NameState } from './name-entry';
 import type { FleetRow } from './types';
 
-const K = ({ children }: { children: React.ReactNode }) => <span className="j-key">{children}</span>;
 // Ends a sentence on a fleet's label without doubling its own full stop (C.I.A.).
 const stop = (label: string) => (label.endsWith('.') ? '' : '.');
 
-export function CoinOverlay({ away, error, demo }: { away: boolean; error: string | null; demo: boolean }) {
+export function CoinOverlay({ away, error, demo, closed }: { away: boolean; error: string | null; demo: boolean; closed: boolean }) {
+  if (closed) {
+    return (
+      <>
+        <div className="j-center" style={{ top: 158 }}>
+          <p className="j-h">INSERT COIN</p>
+          <p className="j-sub">SIGN-IN IS NOT OPEN YET</p>
+          <p className="j-txt j-dim">The arcade opens once Google sign-in is connected. Only @vertuoza.com accounts will get in.</p>
+        </div>
+        <p className="j-hint"><Hint k="B">BACK</Hint></p>
+      </>
+    );
+  }
   if (away) {
     return (
       <div className="j-center" style={{ top: 118 }}>
@@ -29,7 +41,7 @@ export function CoinOverlay({ away, error, demo }: { away: boolean; error: strin
         <p className="j-txt j-dim">@vertuoza.com accounts only</p>
         {error && <p className="j-txt j-error" role="alert">{error}</p>}
       </div>
-      <p className="j-hint"><K>A</K>SIGN IN WITH GOOGLE &nbsp; <K>B</K>BACK</p>
+      <p className="j-hint"><Hint k="A">SIGN IN WITH GOOGLE</Hint> &nbsp; <Hint k="B">BACK</Hint></p>
     </>
   );
 }
@@ -42,7 +54,7 @@ export function OutsiderOverlay({ email }: { email: string }) {
         <p className="j-sub">OMNI LOOP IS FOR @VERTUOZA.COM ACCOUNTS</p>
         <p className="j-txt j-dim">You are signed in as {email}. Sign out, then sign in with your Vertuoza account.</p>
       </div>
-      <p className="j-hint"><K>A</K>SIGN OUT &nbsp; <K>B</K>BACK</p>
+      <p className="j-hint"><Hint k="A">SIGN OUT</Hint> &nbsp; <Hint k="B">BACK</Hint></p>
     </>
   );
 }
@@ -77,7 +89,7 @@ export function IntroOverlay({ fleets }: { fleets: FleetRow[] }) {
           <span key={f.name} className="j-appear" style={{ ['--at' as string]: `${14 + i * 0.5}s`, color: f.color, left: `${((i + 0.5) / shown.length) * 100}%` }}>{f.label}</span>
         ))}
       </div>
-      <p className="j-hint j-right"><K>START</K>SKIP</p>
+      <p className="j-hint j-right"><Hint k="START">SKIP</Hint></p>
     </>
   );
 }
@@ -108,13 +120,13 @@ export function SelectOverlay({ fleets, pick, change, locked, confirm, current, 
           <button key={fl.name} type="button" className="j-card" aria-label={fl.label} aria-pressed={i === pick} onClick={() => onPick(i)} />
         ))}
       </div>
-      <p className="j-hint"><K>◀ ▶</K>MOVE &nbsp; <K>A</K>LOCK IN &nbsp; <K>B</K>BACK</p>
+      <p className="j-hint"><Hint k="◀ ▶">MOVE</Hint> &nbsp; <Hint k="A">LOCK IN</Hint> &nbsp; <Hint k="B">BACK</Hint></p>
       {locked && <div className="j-center j-zoom" style={{ top: 140 }}><p className="j-big" style={{ ['--glow' as string]: f.color }}>{f.label}!</p></div>}
       {confirm && (
         <div className="j-panel" style={{ left: 104, right: 104, top: 110 }} role="dialog" aria-label="Confirm the change of fleet">
           <p>YOUR FUTURE POINTS GO TO <span style={{ color: f.color }}>{f.label}</span>{stop(f.label)}</p>
           <p>YOUR PAST POINTS STAY WITH <span style={{ color: from.color }}>{from.label}</span>{stop(from.label)}</p>
-          <p className="j-tiny j-dim"><K>A</K>CONFIRM &nbsp; <K>B</K>CANCEL</p>
+          <p className="j-tiny j-dim"><Hint k="A">CONFIRM</Hint> &nbsp; <Hint k="B">CANCEL</Hint></p>
         </div>
       )}
     </>
@@ -149,7 +161,7 @@ export function NameOverlay({ state, shake, team, error }: { state: NameState; s
         {error && <p className="j-txt j-error" role="alert">{error}</p>}
       </div>
       {team && <span className="j-badge" style={{ ['--fc' as string]: f.color }}>{f.label}</span>}
-      <p className="j-hint"><K>TYPE</K>OR <K>▲▼</K>SPIN &nbsp;<K>◀▶</K>MOVE &nbsp;<K>⌫</K>ERASE &nbsp;<K>ENTER</K>DONE</p>
+      <p className="j-hint"><Hint k="TYPE">OR</Hint> <Hint k="▲▼">SPIN</Hint> &nbsp;<Hint k="◀▶">MOVE</Hint> &nbsp;<Hint k="⌫">ERASE</Hint> &nbsp;<Hint k="ENTER">DONE</Hint></p>
     </>
   );
 }
@@ -183,17 +195,16 @@ export function BuilderOverlay({ hero, row, team, name, error, onRow }: {
         })}
       </div>
       {error && <p className="j-txt j-error j-left" style={{ left: 300, top: 318 }} role="alert">{error}</p>}
-      <p className="j-hint"><K>▲▼</K>ROW &nbsp; <K>◀▶</K>CHANGE &nbsp; <K>TAB</K>RANDOM &nbsp; <K>ENTER</K>DONE</p>
+      <p className="j-hint"><Hint k="▲▼">ROW</Hint> &nbsp; <Hint k="◀▶">CHANGE</Hint> &nbsp; <Hint k="TAB">RANDOM</Hint> &nbsp; <Hint k="ENTER">DONE</Hint></p>
     </>
   );
 }
 
 export type LinkState = 'ask' | 'away' | 'done' | 'error';
 
-export function LinkOverlay({ state, name, team, login, error, demo }: {
-  state: LinkState; name: string; team: string | null; login: string | null; error: string | null; demo: boolean;
+export function LinkOverlay({ state, name, login, error, demo }: {
+  state: LinkState; name: string; login: string | null; error: string | null; demo: boolean;
 }) {
-  const f = fleet(team);
   if (state === 'away') {
     return (
       <div className="j-center" style={{ top: 118 }}>
@@ -207,19 +218,19 @@ export function LinkOverlay({ state, name, team, login, error, demo }: {
     return (
       <div className="j-panel" style={{ left: 236, right: 30, top: 110 }}>
         <p className="j-good">✓ LINKED AS @{(login ?? '').toUpperCase()}</p>
-        <p className="j-txt">Your pull requests now score for <span style={{ color: f.color }}>{f.label}</span>{stop(f.label)}</p>
+        <p className="j-txt">You are a player now. Your pull requests will score for your fleet.</p>
         <p className="j-press blink j-small">PRESS START</p>
       </div>
     );
   }
   return (
-    <div className="j-panel" style={{ left: 236, right: 30, top: 66 }}>
-      <p className="j-gold">ONE LAST THING, {name}.</p>
-      <p className="j-tiny">LINK YOUR GITHUB SO YOUR</p>
-      <p className="j-tiny">PULL REQUESTS SCORE FOR <span style={{ color: f.color }}>{f.label}</span>{stop(f.label)}</p>
-      <p className="j-txt j-dim">Points follow your GitHub username. You link it once.</p>
+    <div className="j-panel" style={{ left: 236, right: 30, top: 62 }}>
+      <p className="j-gold">TO PLAY, {name}, LINK YOUR GITHUB.</p>
+      <p className="j-tiny">YOUR PULL REQUESTS WILL SCORE</p>
+      <p className="j-tiny">FOR THE FLEET YOU JOIN.</p>
+      <p className="j-txt j-dim">Signed in with Google, you can look around. Linking GitHub, once, makes you a player.</p>
       {state === 'error' && error && <p className="j-txt j-error" role="alert">{error}</p>}
-      <p className="j-tiny"><K>A</K>{state === 'error' ? 'TRY AGAIN' : 'LINK GITHUB'} &nbsp; <K>B</K>LATER</p>
+      <p className="j-tiny"><Hint k="A">{state === 'error' ? 'TRY AGAIN' : 'LINK GITHUB'}</Hint> &nbsp; <Hint k="B">VISIT ONLY</Hint></p>
     </div>
   );
 }

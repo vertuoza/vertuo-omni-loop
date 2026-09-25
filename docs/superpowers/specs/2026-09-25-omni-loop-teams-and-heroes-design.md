@@ -17,7 +17,7 @@ Settled in the brainstorm:
 | D2 | Where a player's fleet comes from | The arcade: the player picks it. Nobody edits GitHub teams any more. |
 | D3 | Source of truth | Supabase, for everything: sectors, fleets, players, the ledger. `projects.yml`, the GitHub team reads and `game/ledger/` in git are retired. |
 | D4 | Sign-in | Google OAuth through Supabase Auth, `@vertuoza.com` accounts only. The OAuth client lives in the GCP QA project. |
-| D5 | Google ↔ GitHub | Linked once, in the arcade, with a GitHub OAuth step (Supabase identity linking). Points are earned by GitHub login, so the link is what ties a player to their score. |
+| D5 | Google ↔ GitHub | Linked once, in the arcade, with a GitHub OAuth step (Supabase identity linking). Points are earned by GitHub login, so the link is what ties a player to their score. Google alone makes a **visitor** (they may look at the galaxy); the GitHub link makes a **player** (they may join a fleet). |
 | D6 | The name | Up to 10 characters, `A–Z 0–9 -`, typed or picked on a letter wheel. |
 | D7 | Music and sounds | Written in code (Web Audio): an original SNES-flavoured score, no audio files. |
 | D8 | Input | Every step is playable from the keyboard alone. Clicks and taps keep working; phones use the on-screen pad. |
@@ -42,9 +42,14 @@ BOOT ─▶ TITLE (attract) ─START─▶ signed in? ──no──▶ INSERT C
                   a player with an active fleet? ──yes──▶ WELCOME BACK ─▶ SELECT MODE
                                     │ no
                                     ▼
-    PRESS START ─▶ INTRO ─▶ SELECT YOUR FLEET ─▶ ENTER YOUR NAME ─▶ BUILD YOUR HERO ─▶ LINK GITHUB ─▶ READY ─▶ SELECT MODE
-    (unlocks audio)                                                                   (A link · B later)
+    PRESS START ─▶ LINK GITHUB ─▶ INTRO ─▶ SELECT YOUR FLEET ─▶ ENTER YOUR NAME ─▶ BUILD YOUR HERO ─▶ READY ─▶ SELECT MODE
+    (unlocks audio)  │ (skipped once linked)
+                     └ B: visit only ─▶ SELECT MODE as a VISITOR (the galaxy, and PLAY to link)
 ```
+
+Signed in with Google, someone is a visitor: they may read the galaxy, never join a fleet. Linking
+GitHub makes them a player; no screen that plays (intro, fleets, name, hero, ready, welcome) opens
+before that, and the database refuses a player row to anyone without a linked GitHub identity.
 
 "No player yet" covers three cases: a first visit, a player who never finished onboarding (they resume
 at the first missing step), and a player whose fleet was retired (they go straight to SELECT YOUR FLEET
@@ -60,12 +65,12 @@ with the line "YOUR FLEET WAS DISBANDED. CHOOSE A NEW ONE.").
 | **Select your fleet** | The comic hero-select wall (the current `drawFleets` background). The selected mascot at 3× under a spotlight, name in the fleet colour, motto, crew count, season points. A locks in: the screen flashes the fleet colour, the mascot jumps, the name fills the screen, fanfare. | ◀ ▶ move · A lock in · B back | select loop; each fleet's motif on hover; fanfare |
 | **Enter your name** | Classic arcade entry. 10 slots and a blinking cursor, a letter wheel below. Prefilled with the Google first name, in capitals, accents stripped (`Élodie` → `ELODIE`), cut to 10. | type, or ▲▼ spin · ◀ ▶ move · ⌫ erase · ENTER done · ESC back | name loop; blip per letter; buzz on an empty name |
 | **Build your hero** | Left: the hero at 3× on a pedestal, idling, cape fluttering. Right: rows `BODY`, `SKIN`, `HAIR`, `SUIT`, `CAPE`, then `RANDOM` and `DONE`. It starts from a random look with the suit in the fleet colour. | ▲▼ row · ◀ ▶ value · TAB random · A on DONE | name loop continues; tick per change; whoosh on random |
-| **Link GitHub** | "ONE LAST THING, PIERRE. LINK YOUR GITHUB SO YOUR PULL REQUESTS SCORE FOR PIRATES." A goes to GitHub and back: "LINKED AS @PDERVAL". B means later: the menu keeps a blinking `LINK GITHUB` until it's done. | A link · B later | coin + chime on success |
+| **Link GitHub** | "TO PLAY, PIERRE, LINK YOUR GITHUB. YOUR PULL REQUESTS WILL SCORE FOR THE FLEET YOU JOIN." A goes to GitHub and back: "LINKED AS @PDERVAL · YOU ARE A PLAYER NOW", then START plays the intro. B visits only: the menu starts with a blinking `PLAY` until it's done. | A link · B visit only | coin + chime on success |
 | **Ready** | The hero flies across the galaxy alongside the fleet mascot: "PLAYER 1 READY". | any key | launch sting |
 | **Welcome back** | Two seconds: "WELCOME BACK, PIERRE", the hero and the mascot side by side. Then SELECT MODE. | any key skips | welcome jingle |
 
-SELECT MODE gains `MY HERO` (name and builder), `CHANGE FLEET`, `LINK GITHUB` (until linked) and
-`SIGN OUT`. Changing fleet reuses the select screen and ends on a confirmation: "YOUR FUTURE POINTS GO
+SELECT MODE gains `PLAY` (visitors only, it links GitHub), `MY HERO` (name and builder) and `CHANGE
+FLEET` (players only), and `SIGN OUT`. A visitor's marquee reads `VISITOR`. Changing fleet reuses the select screen and ends on a confirmation: "YOUR FUTURE POINTS GO
 TO PIRATES. YOUR PAST POINTS STAY WITH BEAVER. A CONFIRM · B CANCEL". The marquee shows
 `P1 PIERRE · PIRATES` and the hero sprite.
 
@@ -170,17 +175,19 @@ create table public.players (
   team         text references public.teams (name) on update cascade,
   team_since   timestamptz,
   hero         jsonb not null,
-  github_id    bigint unique,          -- set only by link_github()
-  github_login text unique,            -- set only by link_github()
+  github_id    bigint unique,          -- from the linked identity, never typed
+  github_login text unique,            -- from the linked identity, never typed
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
 ```
 
 - A trigger stamps `team_since` and `updated_at`, and refuses a retired fleet.
-- `link_github()` is `security definer`. It reads the caller's GitHub identity from `auth.identities`
-  (`provider = 'github'`, `identity_data->>'user_name'`, `provider_id`) and writes `github_id` and
-  `github_login` on the caller's row. Nobody can type a login, so nobody can claim someone else's
+- `my_github()` is `security definer`. It reads the caller's GitHub identity from `auth.identities`
+  (`provider = 'github'`, `identity_data->>'user_name'`, `provider_id`), for `auth.uid()` only.
+- A row may be inserted only when `my_github()` finds an identity, and the trigger copies
+  `github_id` and `github_login` from it. `link_github()` returns the linked login and writes it on
+  the caller's row when there is one. Nobody can type a login, so nobody can claim someone else's
   score. A GitHub account already linked to another player is refused with a readable message.
 - `sectors` becomes the truth for repositories (it was a copy of `projects.yml`). Real sectors are a
   migration too, and remain an open placeholder as before.
@@ -316,6 +323,8 @@ A small Web Audio engine in `apps/galaxy/src/arcade/music.ts`, next to today's `
   - an outsider's JWT reads nothing;
   - a crew JWT reads everything, updates its own `team`, but can't set its `github_login` or touch
     another player's row;
+  - a visitor (no GitHub identity) reads the galaxy but can't create a player row, and a new
+    player's row starts with their linked GitHub login;
   - anon can't read the ledger;
   - a retired fleet is refused.
 - **Arcade**: the onboarding is a pure state machine (`onboarding.ts`: session, player, fleet state →

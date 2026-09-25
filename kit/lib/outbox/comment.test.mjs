@@ -29,6 +29,7 @@ import {
   upsertOutboxComment,
   upsertOutboxPrComment,
 } from './comment.mjs';
+import { BANTER_POOL, assignBanter } from './banter.mjs';
 import { adoptItem, parseSettledEntries, renderSettledEntry, settleItem } from './settle.mjs';
 
 /** The markers every ported test below renders and parses through — `vertuo-outbox`, matching
@@ -1525,7 +1526,9 @@ describe('upsertOutboxPrComment', () => {
 // ---- Each question set apart, with its options (PRD #1166, slice s6) ----
 
 /** An item's full text, with its options (A is the one built) or, for `human-action`, the steps a
- * person must take — the shape PRD #1166 slice s4 gave every item. */
+ * person must take — the shape PRD #1166 slice s4 gave every item. `options: null` leaves both out,
+ * the shape of an item raised before options existed. `introFun` and `punchlineFun`, given together,
+ * add the intro and the punchline PRD #50 slice s1 lets an item carry. */
 function optionedItemText({
   id,
   prd = 1166,
@@ -1533,17 +1536,25 @@ function optionedItemText({
   raised = '2026-09-24',
   questionPlain = `Is ${id} the right call?`,
   decisionPlain = 'We kept what was there.',
+  introFun = null,
+  punchlineFun = null,
   options = ['Keep what was built', 'Change it'],
   personSteps = null,
 }) {
-  const choices = personSteps
-    ? ['## What a person must do', '', ...personSteps, '']
-    : [
-        '## The options, in plain words',
-        '',
-        ...options.map((text, index) => `${'ABCD'[index]}. ${text}`),
-        '',
-      ];
+  const fun = introFun
+    ? ['## The intro, for fun', '', introFun, '', '## The punchline, for fun', '', punchlineFun, '']
+    : [];
+  let choices = [];
+  if (personSteps) {
+    choices = ['## What a person must do', '', ...personSteps, ''];
+  } else if (options) {
+    choices = [
+      '## The options, in plain words',
+      '',
+      ...options.map((text, index) => `${'ABCD'[index]}. ${text}`),
+      '',
+    ];
+  }
   return [
     '---',
     `id: ${id}`,
@@ -1563,6 +1574,7 @@ function optionedItemText({
     '',
     decisionPlain,
     '',
+    ...fun,
     ...choices,
     '## What I had to decide',
     '',
@@ -1732,6 +1744,8 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
         id: 's2-01-cost',
         questionPlain:
           'Should every read return the component cost, even to a user who is not allowed to see prices?',
+        introFun: 'A price is a shy number.',
+        punchlineFun: 'Shy numbers stay home by default.',
         options: [
           'Hide the cost unless the user may see prices',
           'Always return it',
@@ -1742,16 +1756,22 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
         id: 's7-01-scopes',
         rank: 'human-action',
         questionPlain: 'Can someone add the two Slack scopes?',
+        introFun: 'Two scopes, one settings page.',
+        punchlineFun: 'The code is ready; the settings page is not.',
         personSteps: ['1. Open the Slack app settings.', '2. Add both scopes and reinstall.'],
       });
       adoptOptioned(root, {
         id: 's3-01-components',
         questionPlain: 'Which components does a quote show when none are granted?',
+        introFun: 'An empty quote still has to say something.',
+        punchlineFun: 'Saying so beats saying nothing.',
         options: ['None, and it says so', 'All of them, costs hidden'],
       });
       adoptOptioned(root, {
         id: 's4-01-order',
         questionPlain: 'In which order are the components listed?',
+        introFun: 'Every list has an order, even a lazy one.',
+        punchlineFun: 'First come, first listed.',
         options: ['In the order they were added', 'By name', 'By cost'],
       });
       const client = fakeClient();
@@ -1776,7 +1796,11 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
           '',
           '### Question 1 · human-action — needs a person',
           '',
+          '_Two scopes, one settings page._',
+          '',
           '> Can someone add the two Slack scopes?',
+          '',
+          '_The code is ready; the settings page is not._',
           '',
           '**What a person must do:**',
           '',
@@ -1789,7 +1813,11 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
           '',
           '### Question 2 · high — needs your decision',
           '',
+          '_A price is a shy number._',
+          '',
           '> Should every read return the component cost, even to a user who is not allowed to see prices?',
+          '',
+          '_Shy numbers stay home by default._',
           '',
           '|   | Option | |',
           '| --- | --- | --- |',
@@ -1805,7 +1833,11 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
           '',
           '### Question 3 · medium — adopted',
           '',
+          '_An empty quote still has to say something._',
+          '',
           '> Which components does a quote show when none are granted?',
+          '',
+          '_Saying so beats saying nothing._',
           '',
           '|   | Option | |',
           '| --- | --- | --- |',
@@ -1816,7 +1848,11 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
           '',
           '### Question 4 · medium — adopted',
           '',
+          '_Every list has an order, even a lazy one._',
+          '',
           '> In which order are the components listed?',
+          '',
+          '_First come, first listed._',
           '',
           '|   | Option | |',
           '| --- | --- | --- |',
@@ -1862,6 +1898,394 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
       ctx,
     });
     expect(body).toContain('| A | This \\| that | ✅ recommended · built |');
+  });
+});
+
+// ---- An intro and a punchline around every question (PRD #50, slice s2) ----
+
+/** An open item as `formatOutboxPrComment` takes it: the older decision line unless `options` or
+ * `personSteps` is given, and the intro and the punchline only when both are given. */
+function openItem({
+  id,
+  rank = 'high',
+  questionPlain = `Is ${id} the right call?`,
+  decisionPlain = 'We kept what was there.',
+  introFun,
+  punchlineFun,
+  options,
+  personSteps,
+}) {
+  const sections = { questionPlain, decisionPlain };
+  if (introFun) Object.assign(sections, { introFun, punchlineFun });
+  if (options) {
+    sections.options = options.map((text, index) => ({ letter: 'ABCD'[index], text }));
+  }
+  if (personSteps) sections.personSteps = personSteps.join('\n');
+  return { id, rank, prd: 50, file: `docs/outbox/50/${id}.md`, sections };
+}
+
+/** An adopted settled entry as `formatOutboxPrComment` takes it: the item it embeds, and its id. */
+function adoptedEntry(spec) {
+  return {
+    id: spec.id,
+    verdict: 'adopted',
+    itemText: optionedItemText({ prd: 50, rank: 'medium', ...spec }),
+  };
+}
+
+/** Question numbers 1, 2, 3… for `ids`, in order. */
+function numbered(ids) {
+  return ids.map((id, index) => ({ number: index + 1, id, since: '2026-09-25T00:00:00.000Z' }));
+}
+
+/** The intro and the punchline question `number` shows — the italic line right under its heading,
+ * and the one right after its quoted question — or `null` when it shows none there. */
+function funLinesOf(body, number) {
+  const match = body.match(
+    new RegExp(
+      `### Question ${number} [^\\n]*\\n\\n_([^\\n]+)_\\n\\n(?:>[^\\n]*\\n)+\\n_([^\\n]+)_\\n`,
+    ),
+  );
+  return match ? { intro: match[1], punchline: match[2] } : null;
+}
+
+/** The pool intro `id` hashes to — the one it takes when no earlier question took it first. */
+function hashedIntro(id) {
+  return assignBanter([id]).get(id).intro;
+}
+
+/** An id shaped `s9-NN-<stem>` whose pool intro hashes to the same line as `other`'s. */
+function idCollidingWith(other, stem = 'late') {
+  for (let n = 1; n < 5000; n += 1) {
+    const id = `s9-${String(n).padStart(2, '0')}-${stem}`;
+    if (id !== other && hashedIntro(id) === hashedIntro(other)) return id;
+  }
+  throw new Error(`no id collides with ${other}`);
+}
+
+describe('an intro and a punchline around every question (PRD #50 s2)', () => {
+  it('an open question with options reads: separator, heading, intro, question, punchline, options', () => {
+    const body = formatOutboxPrComment({
+      items: [
+        openItem({
+          id: 's2-01-cost',
+          questionPlain: 'Should every read return the cost?',
+          introFun: 'A price is a shy number.',
+          punchlineFun: 'Shy numbers stay home by default.',
+          options: ['Hide it', 'Show it'],
+        }),
+      ],
+      numbering: numbered(['s2-01-cost']),
+      ctx,
+    });
+
+    expect(body).toContain(
+      [
+        '---',
+        '',
+        '### Question 1 · high — needs your decision',
+        '',
+        '_A price is a shy number._',
+        '',
+        '> Should every read return the cost?',
+        '',
+        '_Shy numbers stay home by default._',
+        '',
+        '|   | Option | |',
+        '| --- | --- | --- |',
+        '| A | Hide it | ✅ recommended · built |',
+      ].join('\n'),
+    );
+  });
+
+  it('a human-action question reads: separator, heading, intro, question, punchline, the steps a person must take', () => {
+    const body = formatOutboxPrComment({
+      items: [
+        openItem({
+          id: 's7-01-scopes',
+          rank: 'human-action',
+          questionPlain: 'Can someone add the two scopes?',
+          introFun: 'Two scopes, one settings page.',
+          punchlineFun: 'The code is ready; the settings page is not.',
+          personSteps: ['1. Open the settings.', '2. Add both scopes.'],
+        }),
+      ],
+      numbering: numbered(['s7-01-scopes']),
+      ctx,
+    });
+
+    expect(body).toContain(
+      [
+        '---',
+        '',
+        '### Question 1 · human-action — needs a person',
+        '',
+        '_Two scopes, one settings page._',
+        '',
+        '> Can someone add the two scopes?',
+        '',
+        '_The code is ready; the settings page is not._',
+        '',
+        '**What a person must do:**',
+        '',
+        '1. Open the settings.',
+        '2. Add both scopes.',
+      ].join('\n'),
+    );
+  });
+
+  it('a question raised before options existed reads: separator, heading, intro, question, punchline, its decision line', () => {
+    const body = formatOutboxPrComment({
+      items: [
+        openItem({
+          id: 's3-01-old',
+          rank: 'medium',
+          questionPlain: 'Should the old wording stay?',
+          decisionPlain: 'Yes, it stayed.',
+          introFun: 'Old words, still standing.',
+          punchlineFun: 'They have held up well so far.',
+        }),
+      ],
+      numbering: numbered(['s3-01-old']),
+      ctx,
+    });
+
+    expect(body).toContain(
+      [
+        '---',
+        '',
+        '### Question 1 · medium — needs your decision',
+        '',
+        '_Old words, still standing._',
+        '',
+        '> Should the old wording stay?',
+        '',
+        '_They have held up well so far._',
+        '',
+        '**Decision taken:** Yes, it stayed.',
+      ].join('\n'),
+    );
+  });
+
+  it('an adopted question reads: heading, intro, question, punchline, then its options or its decision line', () => {
+    const body = formatOutboxPrComment({
+      items: [],
+      adopted: [
+        adoptedEntry({
+          id: 's3-01-components',
+          questionPlain: 'Which components does a quote show?',
+          introFun: 'An empty quote still has to say something.',
+          punchlineFun: 'Saying so beats saying nothing.',
+          options: ['None, and it says so', 'All of them'],
+        }),
+        adoptedEntry({
+          id: 's4-01-order',
+          questionPlain: 'In which order are they listed?',
+          decisionPlain: 'In the order they were added.',
+          introFun: 'Every list has an order.',
+          punchlineFun: 'First come, first listed.',
+          options: null,
+        }),
+      ],
+      numbering: numbered(['s3-01-components', 's4-01-order']),
+      ctx,
+    });
+
+    expect(body).toContain(
+      [
+        '<details><summary>Adopted unless you object · 2 medium</summary>',
+        '',
+        '### Question 1 · medium — adopted',
+        '',
+        '_An empty quote still has to say something._',
+        '',
+        '> Which components does a quote show?',
+        '',
+        '_Saying so beats saying nothing._',
+        '',
+        '|   | Option | |',
+      ].join('\n'),
+    );
+    expect(body).toContain(
+      [
+        '### Question 2 · medium — adopted',
+        '',
+        '_Every list has an order._',
+        '',
+        '> In which order are they listed?',
+        '',
+        '_First come, first listed._',
+        '',
+        '**Decision taken:** In the order they were added.',
+      ].join('\n'),
+    );
+  });
+
+  it('a question whose item carries no pair gets an intro and a punchline from the kit’s pool, open or adopted', () => {
+    const body = formatOutboxPrComment({
+      items: [openItem({ id: 's2-01-a' }), openItem({ id: 's2-02-b', options: ['Keep', 'Drop'] })],
+      adopted: [adoptedEntry({ id: 's3-01-c' }), adoptedEntry({ id: 's3-02-d', options: null })],
+      numbering: numbered(['s2-01-a', 's2-02-b', 's3-01-c', 's3-02-d']),
+      ctx,
+    });
+
+    for (const number of [1, 2, 3, 4]) {
+      const lines = funLinesOf(body, number);
+      expect(BANTER_POOL.intros).toContain(lines.intro);
+      expect(BANTER_POOL.punchlines).toContain(lines.punchline);
+    }
+  });
+
+  it('a question with its own pair shows its own and leaves the pool’s lines to the others', () => {
+    const own = 's2-01-own';
+    const other = idCollidingWith(own);
+    const body = formatOutboxPrComment({
+      items: [
+        openItem({ id: own, introFun: 'Its own intro.', punchlineFun: 'Its own punchline.' }),
+        openItem({ id: other }),
+      ],
+      numbering: numbered([own, other]),
+      ctx,
+    });
+
+    expect(funLinesOf(body, 1)).toEqual({
+      intro: 'Its own intro.',
+      punchline: 'Its own punchline.',
+    });
+    // The first question took no pool line, so the second keeps the one its id hashes to.
+    expect(funLinesOf(body, 2).intro).toBe(hashedIntro(other));
+  });
+
+  it('rendering the comment twice gives the same lines', () => {
+    const args = {
+      items: [openItem({ id: 's2-01-a' }), openItem({ id: 's2-02-b', rank: 'medium' })],
+      adopted: [adoptedEntry({ id: 's3-01-c' })],
+      numbering: numbered(['s2-01-a', 's2-02-b', 's3-01-c']),
+      ctx,
+    };
+    expect(formatOutboxPrComment(args)).toBe(formatOutboxPrComment(args));
+  });
+
+  it('rewriting the comment in place keeps every question’s lines', () => {
+    withFixtureRoot((root) => {
+      writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
+      writeItem(root, 985, 's3-01-b.md', { id: 's3-01-b', rank: 'medium' });
+      writeItem(root, 985, 's4-01-c.md', { id: 's4-01-c', rank: 'human-action' });
+      const client = fakeClient();
+
+      upsertOutboxPrComment({ prd: 985, ctx: flatCtx(root), now: PINNED }, client);
+      const first = client.comments[0].body;
+      const second = upsertOutboxPrComment({ prd: 985, ctx: flatCtx(root), now: PINNED }, client);
+
+      expect(second.action).toBe('updated');
+      expect(client.comments[0].body).toBe(first);
+      expect(funLinesOf(first, 1)).not.toBeNull();
+    });
+  });
+
+  it('two questions whose ids hash to the same line get different lines, the lower number keeping it', () => {
+    const first = 's2-01-first';
+    const second = idCollidingWith(first);
+    const body = formatOutboxPrComment({
+      items: [openItem({ id: first }), openItem({ id: second })],
+      numbering: numbered([first, second]),
+      ctx,
+    });
+
+    expect(funLinesOf(body, 1).intro).toBe(hashedIntro(first));
+    expect(funLinesOf(body, 2).intro).not.toBe(funLinesOf(body, 1).intro);
+    expect(BANTER_POOL.intros).toContain(funLinesOf(body, 2).intro);
+  });
+
+  it('serves questions in number order, not in the order the comment lists them', () => {
+    const first = 's3-01-medium';
+    const second = idCollidingWith(first);
+
+    // Question 2 is high, so the comment lists it before question 1, a medium one.
+    const byRank = formatOutboxPrComment({
+      items: [openItem({ id: first, rank: 'medium' }), openItem({ id: second, rank: 'high' })],
+      numbering: numbered([first, second]),
+      ctx,
+    });
+    expect(byRank.indexOf('### Question 2 ')).toBeLessThan(byRank.indexOf('### Question 1 '));
+    expect(funLinesOf(byRank, 1).intro).toBe(hashedIntro(first));
+    expect(funLinesOf(byRank, 2).intro).not.toBe(hashedIntro(first));
+
+    // Question 1 is adopted, so the comment lists it after question 2, an open one.
+    const bySection = formatOutboxPrComment({
+      items: [openItem({ id: second, rank: 'high' })],
+      adopted: [adoptedEntry({ id: first })],
+      numbering: numbered([first, second]),
+      ctx,
+    });
+    expect(bySection.indexOf('### Question 2 ')).toBeLessThan(bySection.indexOf('### Question 1 '));
+    expect(funLinesOf(bySection, 1).intro).toBe(hashedIntro(first));
+    expect(funLinesOf(bySection, 2).intro).not.toBe(hashedIntro(first));
+  });
+
+  it('adding a question never changes an earlier question’s lines, even one hashing to the same line', () => {
+    withFixtureRoot((root) => {
+      writeItem(root, 985, 's2-01-a.md', { id: 's2-01-a', rank: 'high' });
+      writeItem(root, 985, 's3-01-b.md', { id: 's3-01-b', rank: 'medium' });
+      writeItem(root, 985, 's4-01-c.md', { id: 's4-01-c', rank: 'medium' });
+      const client = fakeClient();
+      upsertOutboxPrComment({ prd: 985, ctx: flatCtx(root), now: PINNED }, client);
+      const before = client.comments[0].body;
+
+      // A new, more urgent question whose intro hashes to question 1's line.
+      const late = idCollidingWith('s2-01-a');
+      writeItem(root, 985, `${late}.md`, { id: late, rank: 'human-action' });
+      upsertOutboxPrComment({ prd: 985, ctx: flatCtx(root), now: PINNED }, client);
+      const after = client.comments[0].body;
+
+      for (const number of [1, 2, 3]) {
+        expect(funLinesOf(after, number)).toEqual(funLinesOf(before, number));
+      }
+      expect(funLinesOf(after, 4).intro).not.toBe(funLinesOf(after, 1).intro);
+    });
+  });
+
+  it('repeats no pool line within one comment while the pool has unused lines', () => {
+    const ids = Array.from({ length: 12 }, (_, index) => `s${index + 1}-01-question`);
+    const body = formatOutboxPrComment({
+      items: ids.map((id) => openItem({ id })),
+      numbering: numbered(ids),
+      ctx,
+    });
+
+    const lines = ids.map((_, index) => funLinesOf(body, index + 1));
+    expect(new Set(lines.map((line) => line.intro)).size).toBe(ids.length);
+    expect(new Set(lines.map((line) => line.punchline)).size).toBe(ids.length);
+  });
+
+  it('the Answered section carries no intro and no punchline', () => {
+    const body = formatOutboxPrComment({
+      items: [],
+      answered: [
+        {
+          id: 's2-01-a',
+          verdict: 'agreed',
+          closed: true,
+          fields: { 'Approved by': 'pierrederval', 'Approved at': '2026-09-25T10:00:00Z' },
+          answerText: 'ok',
+          itemText: optionedItemText({
+            id: 's2-01-a',
+            prd: 50,
+            questionPlain: 'Should we keep the new wording?',
+            introFun: 'Words, words, words.',
+            punchlineFun: 'Some of them are new.',
+          }),
+        },
+      ],
+      numbering: numbered(['s2-01-a']),
+      ctx,
+    });
+
+    const answered = body.slice(body.indexOf('**Answered**'));
+    expect(answered).toContain('Should we keep the new wording?');
+    expect(answered).not.toContain('Words, words, words.');
+    expect(answered).not.toContain('Some of them are new.');
+    expect(body).not.toMatch(/^_(?!A reply settles)[^\n]*_$/m);
   });
 });
 

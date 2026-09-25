@@ -360,6 +360,71 @@ describe('An agent records instead of stopping', () => {
     });
   });
 
+  describe('An item may carry an intro and a punchline (PRD #50, slice s1)', () => {
+    const fun = {
+      introFun: 'A contact with no country is a contact on a very long holiday.',
+      punchlineFun: 'The tenant has a passport, so the contact borrows it.',
+    };
+
+    it('renders both right after the plain decision, before the options', () => {
+      const text = renderOutboxItem(itemFields(fun));
+      const parsed = parseOutboxItem(text);
+      expect(parsed.ok, parsed.ok ? '' : parsed.errors.join('\n')).toBe(true);
+      expect(parsed.item.sections.introFun).toBe(fun.introFun);
+      expect(parsed.item.sections.punchlineFun).toBe(fun.punchlineFun);
+      const at = (heading) => text.indexOf(`## ${heading}`);
+      expect(at('The decision, in plain words')).toBeLessThan(at('The intro, for fun'));
+      expect(at('The intro, for fun')).toBeLessThan(at('The punchline, for fun'));
+      expect(at('The punchline, for fun')).toBeLessThan(at('The options, in plain words'));
+    });
+
+    it('renders both before the person steps of a human-action item', () => {
+      const parsed = parseOutboxItem(
+        renderOutboxItem(
+          itemFields({
+            ...fun,
+            rank: 'human-action',
+            options: undefined,
+            personSteps: 'Add the missing secret to the console, then re-run the job.',
+          }),
+        ),
+      );
+      expect(parsed.ok, parsed.ok ? '' : parsed.errors.join('\n')).toBe(true);
+      expect(parsed.item.sections.introFun).toBe(fun.introFun);
+      expect(parsed.item.sections.personSteps).toMatch(/missing secret/);
+    });
+
+    it('renders neither when given neither, exactly as before', () => {
+      const text = renderOutboxItem(itemFields());
+      expect(text).not.toMatch(/for fun/);
+      expect(renderOutboxItem(itemFields({ introFun: '  ', punchlineFun: null }))).toBe(text);
+    });
+
+    it('refuses to render one without the other', () => {
+      expect(() => renderOutboxItem(itemFields({ introFun: fun.introFun }))).toThrow(
+        /intro and (its|the) punchline/i,
+      );
+      expect(() => renderOutboxItem(itemFields({ punchlineFun: fun.punchlineFun }))).toThrow(
+        /intro and (its|the) punchline/i,
+      );
+    });
+
+    it('an adopted item embeds both in its settled entry', () => {
+      const root = mkdtempSync(join(tmpdir(), 'outbox-policy-fun-'));
+      try {
+        const adopted = adoptItem({
+          ctx: flatCtx(root),
+          itemText: renderOutboxItem(itemFields(fun)),
+        });
+        expect(adopted.ok, adopted.ok ? '' : adopted.errors.join('\n')).toBe(true);
+        expect(adopted.entry).toContain(`## The intro, for fun\n\n${fun.introFun}`);
+        expect(adopted.entry).toContain(`## The punchline, for fun\n\n${fun.punchlineFun}`);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  });
+
   it('judgement may still escalate a decision that bears on nothing', () => {
     expect(decideRecording({ bearsOn: 'none', hardToRevert: true, laws }).rank).toBe('high');
   });

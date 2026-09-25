@@ -95,3 +95,39 @@ duties of `outbox-policy.mjs` beside it (the module itself was ported earlier as
   Not wired, because the spec's table does not name them for do-work: `decisions` (the before/after
   page lists it beside `bearsOn: ADR-nnnn`) and `definition-of-done` at the account step. The spec's
   risk "a step reads only the forms the wiring table names" decides.
+
+## PRD 50, slice s3: the intro and the punchline
+
+Not a re-port: upstream's skill has no intro or punchline. A kit-local change to the prose, which
+the bundle does not carry.
+
+- **Step 3, `Fields:`** names `introFun` and `punchlineFun` after the two plain-words fields, with
+  their rules: written for every item raised; one sentence (two short ones at most, since the kit
+  allows two — PRD 50's outbox item `s1-01-fun-line-sentence-count`); at most 120 characters; plain
+  words by the same rules; about the question or its situation, never about a person or a team,
+  never mocking whoever answers; the kit refuses one without the other. It says where they show:
+  the intro opens the question in the pull request's outbox comment, the punchline follows it. The
+  spec's leave for an agent's line to name anything in the repository's world is not repeated: the
+  skill names no game word (PRD 3 §2, principle 7).
+- **Step 3, exit `2`** now tells its two kinds apart, as `omni item new` does since PRD 50 s1
+  (`kit/porting/bin--commands.md`): the JSON refused — not valid JSON, or a field missing, unknown
+  or breaking its rule, a bad intro or punchline or one without the other included — is one line on
+  stderr naming the field and an empty stdout, even with `--json`; the rendered item refused by
+  `checkItemText` is `outcome: null` with `reason` on stdout under `--json`. This replaces "Exit `2`
+  is no longer only 'your JSON is wrong': read `reason` first", which a bad intro contradicts.
+- **Step 0** says "the Omni Loop kit is not installed in this repository" instead of "the
+  repository is not terraformed", so the skill names no game word. `/omni:plan`, `/omni:brainstorm`
+  and `kit/lib/config.mjs` keep the old word — PRD 50's outbox item
+  `s3-01-installed-not-terraformed`.
+
+### Tests
+
+None added: `kit/test/plugin.test.mjs` is outside this slice's territory, and asserts only that
+the frontmatter parses and that every `omni` command the skill names exists. The two
+refusal shapes the exit-`2` bullet describes were checked against the live CLI and against
+`kit/bin/item.test.mjs` (the s1 tests "an intro over 120 characters…", "the same refusal under
+--json and --adopt…", "the same violation prints outcome null…").
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.

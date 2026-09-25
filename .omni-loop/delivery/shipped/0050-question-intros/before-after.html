@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Outbox Question Jokes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+<style>
+:root{
+  --bg:#F2F4F3;--surface:#FFFFFF;--code:#F7F9F8;--ink:#15201C;--muted:#56635E;--line:#D3DAD7;--line2:#E3E8E6;
+  --accent:#1D6B55;--soft:#D6EAE2;--red:#B3372F;--redsoft:#F6DEDB;--joke:#7A4E9E;--jokesoft:#EFE5F6;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+  --bg:#0F1513;--surface:#161E1B;--code:#121A17;--ink:#E4ECE8;--muted:#98A6A0;--line:#2A3632;--line2:#222C29;
+  --accent:#5FC3A2;--soft:#193A30;--red:#F08A80;--redsoft:#3A1F1C;--joke:#C9A2EA;--jokesoft:#2B1F36}}
+:root[data-theme="dark"]{color-scheme:dark;
+  --bg:#0F1513;--surface:#161E1B;--code:#121A17;--ink:#E4ECE8;--muted:#98A6A0;--line:#2A3632;--line2:#222C29;
+  --accent:#5FC3A2;--soft:#193A30;--red:#F08A80;--redsoft:#3A1F1C;--joke:#C9A2EA;--jokesoft:#2B1F36}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15.5px/1.6 "IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;padding-inline:16px}
+main{max-width:1100px;margin:0 auto;padding-block:40px 80px;display:grid;gap:56px}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:clamp(28px,4.6vw,40px);font-weight:700}
+h2{font-size:clamp(20px,2.5vw,24px);font-weight:600}
+p{margin:0}
+code,pre{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+code{font-size:.86em;background:var(--soft);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+section{display:grid;gap:16px;min-width:0}
+.eyebrow{font:500 12px/1.4 "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+header.top{display:grid;gap:12px}
+.lede{font-size:17px;max-width:68ch}
+.intro{color:var(--muted);max-width:70ch}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px;align-items:start}
+.colhead{font:600 12px/1.3 "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.colhead.before{color:var(--red)}
+.colhead.after{color:var(--accent)}
+
+/* a GitHub comment, drawn */
+.gh{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;min-width:0}
+.gh.after{border-color:var(--accent)}
+.gh-head{display:flex;gap:8px;align-items:center;padding:8px 14px;background:var(--code);border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)}
+.gh-head b{color:var(--ink);font-weight:600}
+.dot{width:18px;height:18px;border-radius:4px;background:var(--accent);flex:none}
+.gh-body{padding:14px 16px;display:grid;gap:10px;font-size:14px}
+.gh-body hr{border:none;border-top:1px solid var(--line);margin:4px 0;width:100%}
+.gh-body h4{margin:0;font-size:15px;font-weight:600}
+.gh-body blockquote{margin:0;padding:0 0 0 12px;border-left:3px solid var(--line);color:var(--muted)}
+.gh-body .summary{font-weight:600}
+.joke{font-style:italic;color:var(--joke);background:var(--jokesoft);border-radius:4px;padding:2px 8px;justify-self:start}
+.opts{width:100%;border-collapse:collapse;font-size:13px}
+.opts td{border:1px solid var(--line2);padding:5px 8px;vertical-align:top}
+.opts td:first-child{width:28px;text-align:center;font-weight:600}
+.opts td:last-child{white-space:nowrap;color:var(--accent);font-size:12px}
+.object{font-size:13px;color:var(--muted)}
+details summary{cursor:default;font-weight:500}
+
+pre{margin:0;font-size:12.5px;line-height:1.6;background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto}
+pre .c{color:var(--muted)}
+pre .add{background:var(--jokesoft);color:var(--joke);border-radius:3px;padding:0 3px;margin-left:-3px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 20px;display:grid;gap:10px}
+.card ul{margin:0;padding-left:20px;display:grid;gap:6px}
+.card h3{font:600 12px/1.3 "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table.plan{border-collapse:collapse;width:100%;min-width:620px;font-size:14px}
+table.plan th,table.plan td{text-align:left;vertical-align:top;padding:10px 14px;border-bottom:1px solid var(--line2)}
+table.plan tr:last-child td{border-bottom:none}
+table.plan th{font:600 11.5px/1.3 "IBM Plex Mono",monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--code)}
+.mono{font-family:"IBM Plex Mono",monospace}
+.note{font-size:14px;color:var(--muted);max-width:72ch}
+</style>
+
+<main>
+
+<header class="top">
+  <p class="eyebrow">PRD #50 · vertuo-omni-loop · 25 September 2026</p>
+  <h1>Outbox question jokes</h1>
+  <p class="lede">Every question in the omni-loop outbox comment on a feature pull request gets an <b>intro</b> under its heading and a <b>punchline</b> after the question. The agent that raised the item writes both. When an item has none, the kit fills in from a pool that stays the same on every rewrite.</p>
+</header>
+
+<section aria-labelledby="ba-h">
+  <h2 id="ba-h">The comment on a feature PR, today and after</h2>
+  <p class="intro">The two adopted questions on PRD 45's feature PR (#46), as they are today and as they would read with their lines, with the options trimmed to two. The lines on the right are examples of what the raising agent would write.</p>
+  <div class="cols">
+    <div>
+      <p class="colhead before">Today</p>
+      <article class="gh">
+        <div class="gh-head"><span class="dot" aria-hidden="true"></span><b>omni-loop-invader</b> bot commented</div>
+        <div class="gh-body">
+          <p class="summary">Nothing needs your decision</p>
+          <hr>
+          <details open><summary>Adopted unless you object · 2 medium</summary></details>
+          <h4>Question 1 · medium — adopted</h4>
+          <blockquote>Should the one-line install also create the empty knowledge forms, and end by telling people how to fill them?</blockquote>
+          <table class="opts"><tr><td>A</td><td>The install writes the blank forms after the config and the bin, and its closing steps name the terraform skill.</td><td>✅ adopted · built</td></tr><tr><td>B</td><td>The install stays as shipped. Its closing steps only name the next two steps.</td><td></td></tr></table>
+          <p class="object">To object, reply <code>1: B because …</code></p>
+          <h4>Question 2 · medium — adopted</h4>
+          <blockquote>Once every install creates the knowledge folder, how should the install decide whether a repository has product rules that bind the agents?</blockquote>
+          <table class="opts"><tr><td>A</td><td>The install reads laws from the registers only when they hold at least one entry.</td><td>✅ adopted · built</td></tr><tr><td>B</td><td>Keep PRD 39's rule, where the folder existing means laws.</td><td></td></tr></table>
+          <p class="object">To object, reply <code>2: B because …</code></p>
+        </div>
+      </article>
+    </div>
+    <div>
+      <p class="colhead after">After</p>
+      <article class="gh after">
+        <div class="gh-head"><span class="dot" aria-hidden="true"></span><b>omni-loop-invader</b> bot commented</div>
+        <div class="gh-body">
+          <p class="summary">Nothing needs your decision</p>
+          <hr>
+          <details open><summary>Adopted unless you object · 2 medium</summary></details>
+          <h4>Question 1 · medium — adopted</h4>
+          <p class="joke">A planet with no forms is just a very expensive rock.</p>
+          <blockquote>Should the one-line install also create the empty knowledge forms, and end by telling people how to fill them?</blockquote>
+          <p class="joke">OmniMan votes yes. OmniMan always votes yes.</p>
+          <table class="opts"><tr><td>A</td><td>The install writes the blank forms after the config and the bin, and its closing steps name the terraform skill.</td><td>✅ adopted · built</td></tr><tr><td>B</td><td>The install stays as shipped. Its closing steps only name the next two steps.</td><td></td></tr></table>
+          <p class="object">To object, reply <code>1: B because …</code></p>
+          <h4>Question 2 · medium — adopted</h4>
+          <p class="joke">Every install now brings a bookshelf. That does not make every repository a law firm.</p>
+          <blockquote>Once every install creates the knowledge folder, how should the install decide whether a repository has product rules that bind the agents?</blockquote>
+          <p class="joke">An empty rulebook is still empty, however nice the shelf.</p>
+          <table class="opts"><tr><td>A</td><td>The install reads laws from the registers only when they hold at least one entry.</td><td>✅ adopted · built</td></tr><tr><td>B</td><td>Keep PRD 39's rule, where the folder existing means laws.</td><td></td></tr></table>
+          <p class="object">To object, reply <code>2: B because …</code></p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="item-h">
+  <h2 id="item-h">The item behind a question</h2>
+  <p class="intro">Two optional sections, together or neither, right after the two plain-words sections. <code>omni item new</code> takes them as <code>introFun</code> and <code>punchlineFun</code>, and <code>/omni:do-work</code> always passes them.</p>
+<pre>---
+id: s4-01-init-lays-down-the-forms
+prd: 45
+slice: s4
+rank: medium
+…
+---
+
+## The question, in plain words
+
+Should the one-line install also create the empty knowledge forms, …
+
+## The decision, in plain words
+
+Yes. Installing now creates the empty forms, …
+
+<span class="add">## The intro, for fun</span>
+
+<span class="add">A planet with no forms is just a very expensive rock.</span>
+
+<span class="add">## The punchline, for fun</span>
+
+<span class="add">OmniMan votes yes. OmniMan always votes yes.</span>
+
+## The options, in plain words
+
+A. The install writes the blank forms after the config and the bin, …
+<span class="c">…the four sections a developer reads, unchanged</span></pre>
+</section>
+
+<section aria-labelledby="rules-h">
+  <h2 id="rules-h">The rules, and the fallback</h2>
+  <div class="cols">
+    <div class="card">
+      <h3>A line</h3>
+      <ul>
+        <li>One sentence, at most 120 characters, in plain words: no code name, path or id.</li>
+        <li>About the question or its situation. Never about a person or a team, and never mocking whoever answers.</li>
+        <li>An agent's line may name anything in the repository's world, the game included.</li>
+        <li>Every open or adopted question gets both lines, whatever its rank or layout.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>An item without lines</h3>
+      <ul>
+        <li>The kit's pool fills in. The pick is keyed on the item's id, so rewriting the comment never changes it.</li>
+        <li>No pool line repeats within one comment, and a new question never changes an older one's lines.</li>
+        <li>The pool never names the game: PRD 3 keeps the kit free of it, and a test lists the words.</li>
+        <li>This covers items raised before this PRD, and every older adopted entry, since the ledger is append-only.</li>
+      </ul>
+    </div>
+  </div>
+  <p class="note">What stays the same: the heading, the question, the options and the reply lines; the Answered section; the PRD issue's comment and the Slack note; whether an item is required to have its lines (it is not).</p>
+</section>
+
+<section aria-labelledby="plan-h">
+  <h2 id="plan-h">The plan</h2>
+  <p class="intro">Three slices in two waves, from <code>plan.md</code> beside this page. Each slice is a sub-PR into <code>feat/question-intros</code>.</p>
+  <div class="tablewrap">
+    <table class="plan">
+      <thead><tr><th style="width:8%">Slice</th><th style="width:8%">Wave</th><th style="width:56%">What it makes true</th><th>Blocked by</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">s1</td><td class="mono">1</td><td>An outbox item may carry an intro and a punchline: the parser, the renderer, <code>omni item new</code> and the guard</td><td>—</td></tr>
+        <tr><td class="mono">s2</td><td class="mono">2</td><td>The pull request's outbox comment shows both lines around every question, from the item or from the kit's pool</td><td class="mono">s1</td></tr>
+        <tr><td class="mono">s3</td><td class="mono">2</td><td><code>/omni:do-work</code> writes both lines for every item it raises</td><td class="mono">s1</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+</main>
+</html>

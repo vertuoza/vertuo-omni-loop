@@ -509,6 +509,109 @@ describe('omni item new — a rendered item that "check outbox" would reject', (
   });
 });
 
+describe('omni item new — the intro and the punchline (PRD #50, slice s1)', () => {
+  const FUN = {
+    introFun: 'A slow call is a polite call that forgot to hang up.',
+    punchlineFun: 'Five seconds later, we hang up for it.',
+  };
+  const ITEM = '.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md';
+  const repo = () => makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
+
+  it('writes both sections, right after the plain decision, when given both fields', async () => {
+    const { root } = repo();
+    const json = writeJson(root, { ...FIELDS, ...FUN });
+    const s = io();
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
+    expect(code).toBe(0);
+    expect(s.out.join('').trim()).toBe(ITEM);
+    const text = readTextFile(join(root, ITEM));
+    expect(text).toContain(`## The intro, for fun\n\n${FUN.introFun}\n`);
+    expect(text).toContain(`## The punchline, for fun\n\n${FUN.punchlineFun}\n`);
+    expect(text.indexOf('## The decision, in plain words')).toBeLessThan(text.indexOf('## The intro, for fun'));
+    expect(text.indexOf('## The punchline, for fun')).toBeLessThan(text.indexOf('## The options, in plain words'));
+  });
+
+  it('writes neither section when given neither field', async () => {
+    const { root } = repo();
+    const json = writeJson(root, FIELDS);
+    const s = io();
+    expect(await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s })).toBe(0);
+    expect(readTextFile(join(root, ITEM))).not.toMatch(/for fun/);
+  });
+
+  it('with --adopt, the settled entry embeds both sections', async () => {
+    const { root } = repo();
+    const json = writeJson(root, { ...FIELDS, ...FUN });
+    const s = io();
+    const code = await main(
+      ['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--adopt', '--json'],
+      { cwd: root, ...s },
+    );
+    expect(code).toBe(0);
+    expect(JSON.parse(s.out.join('').trim())).toMatchObject({ outcome: 'record', adopted: true, file: null });
+    expect(existsSync(join(root, ITEM))).toBe(false);
+    const settled = readTextFile(join(root, '.omni-loop/delivery/outbox/0042-a/settled.md'));
+    expect(settled).toContain(`## The intro, for fun\n\n${FUN.introFun}\n`);
+    expect(settled).toContain(`## The punchline, for fun\n\n${FUN.punchlineFun}\n`);
+  });
+
+  it('an intro over 120 characters writes nothing, exits 2, and names the field', async () => {
+    const { root } = repo();
+    const json = writeJson(root, { ...FIELDS, ...FUN, introFun: `${'a'.repeat(120)}.` });
+    const s = io();
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
+    expect(code).toBe(2);
+    expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
+    expect(s.err.join('')).toMatch(/"introFun"/);
+    expect(s.err.join('')).toMatch(/121 characters long/);
+    expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
+  });
+
+  it('a punchline holding a backticked code name writes nothing, exits 2, and names the field', async () => {
+    const { root } = repo();
+    const json = writeJson(root, { ...FIELDS, ...FUN, punchlineFun: 'Even `defaultTimeoutMs` hangs up eventually.' });
+    const s = io();
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
+    expect(code).toBe(2);
+    expect(s.err.join('')).toMatch(/"punchlineFun"/);
+    expect(s.err.join('')).toMatch(/code span/);
+    expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
+  });
+
+  it('the same refusal under --json and --adopt: exit 2, nothing written, adopted or not', async () => {
+    const { root } = repo();
+    const json = writeJson(root, { ...FIELDS, ...FUN, punchlineFun: 'a'.repeat(200) });
+    const s = io();
+    const code = await main(
+      ['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--adopt', '--json'],
+      { cwd: root, ...s },
+    );
+    expect(code).toBe(2);
+    expect(s.err.join('')).toMatch(/"punchlineFun"/);
+    expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
+  });
+
+  it('an intro without a punchline writes nothing, exits 2, and names the missing field', async () => {
+    const { root } = repo();
+    const json = writeJson(root, { ...FIELDS, introFun: FUN.introFun });
+    const s = io();
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
+    expect(code).toBe(2);
+    expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
+    expect(s.err.join('')).toMatch(/"punchlineFun"/);
+    expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
+  });
+
+  it('a punchline without an intro names the missing intro', async () => {
+    const { root } = repo();
+    const json = writeJson(root, { ...FIELDS, punchlineFun: FUN.punchlineFun });
+    const s = io();
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
+    expect(code).toBe(2);
+    expect(s.err.join('')).toMatch(/"introFun"/);
+  });
+});
+
 function readTextFile(path) {
   return readFileSync(path, 'utf8');
 }

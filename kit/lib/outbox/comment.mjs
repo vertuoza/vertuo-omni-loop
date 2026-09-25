@@ -73,6 +73,15 @@
  * which hands them in; the pull request run goes FIRST and leaves its url and newly adopted count
  * for the PRD-issue run to read back with {@link readPrCommentResult}. A newly adopted item is news.
  *
+ * **PRD #50, slice s2 — a joke around every question.** Every open and every adopted question on the
+ * pull request comment reads: its heading, an intro in italics, the quoted question, a punchline in
+ * italics, then its options, the steps a person must take, or the older decision line. The pair is
+ * the item's own when it carries one (`sections.introFun` / `sections.punchlineFun`, PRD #50 slice
+ * s1); otherwise it comes from the kit's pool in `banter.mjs`, keyed on a stable hash of the item's
+ * id and served in question-number order (see {@link questionBanter}), so rewriting the comment
+ * over the same questions keeps every line and a new question never moves an older one's. The
+ * **Answered** section, the PRD issue's comment and the Slack note carry neither.
+ *
  * This module builds the writer; `kit/bin` (a later task) is the caller that runs it from the gate
  * job, against the feature pull request.
  */
@@ -80,6 +89,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { readRepoFile } from '../check-report.mjs';
 import { COMMANDS } from '../commands.mjs';
+import { assignBanter } from './banter.mjs';
 import { RANK_ORDER, SETTLED_FILE, outboxItemFiles, parseOutboxItem } from './outbox.mjs';
 import { ADOPTED_VERDICT, parseSettledEntries } from './settle.mjs';
 import { unaccountedChanges, unreworkedDrift } from './status.mjs';
@@ -499,6 +509,13 @@ function quoted(text) {
     .join('\n');
 }
 
+/** An intro or a punchline in italics, on one line — a line break inside would end the emphasis. */
+function funLine(text) {
+  return `_${String(text ?? '')
+    .trim()
+    .replace(/\s*\n\s*/g, ' ')}_`;
+}
+
 /**
  * The options as a table, A marked with `mark` (`recommended · built` on an open question, `adopted ·
  * built` on an adopted one) — option A is always the one built (PRD #1166, Durable decision "The
@@ -529,19 +546,57 @@ function hasOptions(item) {
 }
 
 /**
- * One open question, set apart: a horizontal rule, a heading naming its number and rank, the
- * question quoted, then its options table with A recommended and built and the reply line — or, for
- * a `human-action` item, the steps a person must take. An item raised before options existed keeps
- * its decision and the older `ok` / `no, because …` reply line. Pure.
+ * The intro and the punchline each question the pull request comment shows carries (PRD #50, slice
+ * s2), by item id: the item's own `sections.introFun` and `sections.punchlineFun` when it has them,
+ * and otherwise the kit's pool's, through `banter.mjs`'s `assignBanter`. The questions are served in
+ * number order — open and adopted together, not in the order the comment lists them — so a
+ * question's pool lines depend only on the questions numbered before it: two renders give the same
+ * lines, and a new question, always numbered after every older one, never changes an older one's.
+ * A question carrying its own pair takes no pool line. Only the questions shown take one: a question
+ * answered, and so gone to the Answered section, frees its lines for the questions after it. Pure.
+ *
+ * @param {{ items: object[], adopted: object[], numberById: Map<string, number> }} args
+ * @returns {Map<string, { intro: string, punchline: string }>}
  */
-function openQuestionLines(item, number, round) {
+function questionBanter({ items, adopted, numberById }) {
+  const numberOf = (question) => numberById.get(question.id) ?? Infinity;
+  const questions = [
+    ...items.map((item) => ({ id: item.id, sections: item.sections })),
+    ...adopted.map((entry) => ({ id: entry.id, sections: adoptedItem(entry)?.sections })),
+  ].sort((a, b) => numberOf(a) - numberOf(b) || a.id.localeCompare(b.id));
+
+  const banter = new Map();
+  const fromPool = [];
+  for (const { id, sections } of questions) {
+    if (sections?.introFun && sections?.punchlineFun) {
+      banter.set(id, { intro: sections.introFun, punchline: sections.punchlineFun });
+    } else {
+      fromPool.push(id);
+    }
+  }
+  for (const [id, lines] of assignBanter(fromPool)) banter.set(id, lines);
+  return banter;
+}
+
+/**
+ * One open question, set apart: a horizontal rule, a heading naming its number and rank, its intro
+ * in italics, the question quoted, its punchline in italics (PRD #50 s2), then its options table
+ * with A recommended and built and the reply line — or, for a `human-action` item, the steps a
+ * person must take. An item raised before options existed keeps its decision and the older `ok` /
+ * `no, because …` reply line. Pure.
+ */
+function openQuestionLines(item, number, round, banter) {
   const humanAction = item.rank === 'human-action';
   const lines = [
     '---',
     '',
     `### Question ${number} · ${item.rank} — ${humanAction ? 'needs a person' : 'needs your decision'}`,
     '',
+    funLine(banter.intro),
+    '',
     quoted(item.sections.questionPlain),
+    '',
+    funLine(banter.punchline),
     '',
   ];
 
@@ -584,14 +639,24 @@ function adoptedItem(entry) {
 }
 
 /**
- * One adopted question, inside the collapsed section: heading, the question quoted, its options
- * with A adopted and built, and the one line that says how to object. Pure.
+ * One adopted question, inside the collapsed section: heading, its intro in italics, the question
+ * quoted, its punchline in italics (PRD #50 s2), its options with A adopted and built, and the one
+ * line that says how to object. Pure.
  */
-function adoptedQuestionLines(entry, number, round) {
+function adoptedQuestionLines(entry, number, round, banter) {
   const item = adoptedItem(entry);
   const question = item?.sections.questionPlain ?? answeredQuestionText(entry);
   const options = item && hasOptions(item) ? item.sections.options : [];
-  const lines = [`### Question ${number} · medium — adopted`, '', quoted(question), ''];
+  const lines = [
+    `### Question ${number} · medium — adopted`,
+    '',
+    funLine(banter.intro),
+    '',
+    quoted(question),
+    '',
+    funLine(banter.punchline),
+    '',
+  ];
   if (options.length > 0) {
     lines.push(
       ...formatOptionsTable(options, 'adopted · built'),
@@ -618,7 +683,9 @@ function adoptedQuestionLines(entry, number, round) {
  * permanent `number` (see {@link openQuestionLines}), followed by "asked again in round N" when
  * {@link parseRoundMarkers} names that number. Then, when `adopted` is non-empty, the collapsed
  * **Adopted unless you object** section: every adopted medium item, numbered like any question, its
- * options with A adopted and built, and the line saying how to object. With nothing open, the header
+ * options with A adopted and built, and the line saying how to object. Every open and every adopted
+ * question carries an intro under its heading and a punchline after its question (PRD #50 s2), its
+ * item's own or the kit's pool's (see {@link questionBanter}). With nothing open, the header
  * reads "Nothing needs your decision" when something is adopted, "Every question is answered" when
  * something is only answered, and "No open items." otherwise. Then, when `answered` is non-empty, an
  * **Answered** section: each settled entry's question, the reply quoted, who gave it, when, and the
@@ -638,6 +705,7 @@ export function formatOutboxPrComment({
   const sorted = sortItems(items);
   const numberById = new Map(numbering.map((entry) => [entry.id, entry.number]));
   const byNumber = (a, b) => (numberById.get(a.id) ?? 0) - (numberById.get(b.id) ?? 0);
+  const banter = questionBanter({ items: sorted, adopted, numberById });
   const lines = [ctx.markers.prComment, ''];
 
   if (sorted.length > 0) {
@@ -656,7 +724,7 @@ export function formatOutboxPrComment({
     );
     for (const item of sorted) {
       const number = numberById.get(item.id);
-      lines.push(...openQuestionLines(item, number, roundMarkers.get(number)));
+      lines.push(...openQuestionLines(item, number, roundMarkers.get(number), banter.get(item.id)));
     }
   } else if (adopted.length > 0) {
     lines.push('**Nothing needs your decision**', '');
@@ -675,7 +743,9 @@ export function formatOutboxPrComment({
     );
     for (const entry of [...adopted].sort(byNumber)) {
       const number = numberById.get(entry.id);
-      lines.push(...adoptedQuestionLines(entry, number, roundMarkers.get(number)));
+      lines.push(
+        ...adoptedQuestionLines(entry, number, roundMarkers.get(number), banter.get(entry.id)),
+      );
     }
     lines.push('</details>', '');
   }

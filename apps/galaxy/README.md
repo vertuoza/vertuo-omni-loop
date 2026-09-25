@@ -1,9 +1,10 @@
 # OMNI LOOP — the galaxy arcade
 
 The web UI of the game layer: a retro arcade cabinet that shows the galaxy. Every PRD is a planet,
-every slice a zone, every open question or bug an Entropy unit on its surface. People join by
-signing in with their `@vertuoza.com` Google account: they pick a fleet, enter a name, build a hero
-and link their GitHub account, all from the keyboard (design:
+every slice a zone, every open question or bug an Entropy unit on its surface. Signing in with a
+`@vertuoza.com` Google account makes you a **visitor**: you may look at the galaxy. Linking your
+GitHub account, once, makes you a **player**: you pick a fleet, enter a name and build a hero, and
+your pull requests score for that fleet. All from the keyboard (design:
 [`docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md`](../../docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md)).
 
 - 640×360 game pixels drawn on a canvas and scaled up by whole numbers with hard pixel edges (late
@@ -33,23 +34,24 @@ and link their GitHub account, all from the keyboard (design:
 | Boot → Title | "VERTUOZA presents", then an attract loop: logo, the story, the top five heroes (signed in) |
 | Insert coin | Sign in with the Vertuoza Google account; any other domain is refused and says why |
 | Press start | After coming back from Google: browsers play sound only after a key press |
+| Link GitHub | Before playing, once: points are earned under the GitHub login, which only the linked identity sets. B visits only |
 | Intro | First visit only, 20 s, skippable: OmniMan rises, three lines type in, the fleets flash in |
 | Select your fleet | The fleets from `public.teams`, each with its own motif; A locks in with a fanfare. Also CHANGE FLEET, with a confirmation of where the points go |
 | Enter your name | Up to 10 characters, typed or spun on a letter wheel, pre-filled from the Google first name |
 | Build your hero | Girl or boy, skin, hair, suit (the fleet colour first) and cape; TAB for random |
-| Link GitHub | Once: points are earned under the GitHub login, which only the linked identity may set |
 | Ready / Welcome back | The launch after a first visit; a two-second welcome for returning players |
-| Select mode | Galaxy map, Fleets, Hall of Heroes, How to play, then My hero, Change fleet, Link GitHub (until linked), Sign out |
+| Select mode | PLAY (visitors: links GitHub), Galaxy map, Fleets, Hall of Heroes, How to play, then My hero and Change fleet (players), Sign out |
 | Galaxy map | Sectors as nebulae; planets by state, threat and wounds; red hyperlanes from a locked planet to its blockers; distress pulses |
 | Planet | The planet with its Entropy in orbit and the fleets on station; tabs for status, zones by phase, Entropy (age, decay, bounty) and the event log |
 | Fleets | A hero-select wall of the fleets with season points, streak, planets, crew (players by name) |
 | Hall of Heroes | Season high-score table from `game/economy.mjs`, with each player's hero and name |
 | How to play | The scoring rules, read from `game/rulebook.mjs` so they never drift |
 
-Controls: arrows or WASD move, **Enter** is START, **Z**/**Space** is A, **X**/**Esc** is B, **Tab**
-is SELECT (random on the hero builder), **M** mutes. On the name screen letters type instead:
-Backspace erases, Enter confirms, Escape goes back. No step needs a mouse; clicks and taps still work,
-and phones get an on-screen pad. Deep links: `#map`, `#fleets`, `#heroes`, `#briefing`, `#planet-2332`.
+Controls: the arrows move, **Enter** is START, **A** (or Z, Space) is A, **B** (or X, Esc) is B,
+**Tab** is SELECT (random on the hero builder), **M** mutes: the keys the screens show are the keys
+to press. On the name screen letters type instead: Backspace erases, Enter confirms, Escape goes
+back. No step needs a mouse; clicks and taps still work (a key hint such as "[A] LINK GITHUB" is a
+button too), and phones get an on-screen pad. Deep links: `#map`, `#fleets`, `#heroes`, `#briefing`, `#planet-2332`.
 
 ## How the data flows
 
@@ -75,9 +77,16 @@ session, so the database's policies decide what they see. `proxy.ts` refreshes t
 each render; `app/auth/callback` turns Google's and GitHub's codes into that session and, after a
 GitHub link, calls `link_github()`.
 
-In the demo (no Supabase variables) and in the single-file artifact, sign-in and GitHub are
-simulated and the player is kept in the browser's storage (`src/arcade/account-demo.ts`), so the
-whole joining flow plays without a backend.
+Nobody gets past INSERT COIN without signing in: the title asks for a coin until there is a
+session, and every screen beyond it requires one (`allowed()` in `src/arcade/onboarding.ts`).
+
+Without the Supabase variables, the app picks its mode in `src/data/mode.ts`:
+
+- **Development** (`pnpm galaxy:dev`), or a build with `OMNI_LOOP_DEMO=1`: the demo galaxy, with
+  sign-in and GitHub simulated and the player kept in the browser's storage
+  (`src/arcade/account-demo.ts`). The single-file artifact plays the same way.
+- **Any other build** (a Vercel deployment missing its variables, say): **closed**. The attract mode
+  plays, and INSERT COIN says sign-in is not open yet. No simulated sign-in, and no galaxy data.
 
 ## Run it locally
 
@@ -156,7 +165,10 @@ never loads the demo seed.
    - Credentials › OAuth client ID › *Web application*, with the authorised redirect URI
      `https://<ref>.supabase.co/auth/v1/callback`.
 2. **GitHub** › the vertuoza organisation › Settings › Developer settings › OAuth Apps › New:
-   homepage the arcade's URL, callback `https://<ref>.supabase.co/auth/v1/callback`.
+   homepage the arcade's URL, callback `https://<ref>.supabase.co/auth/v1/callback`. Linking it is
+   what makes a visitor a player, so the arcade needs it before anyone can play. (The installed
+   GitHub App can serve instead: its Client ID, a client secret generated on its page, which is not
+   the webhook secret, the same callback URL, and the *Email addresses: read* account permission.)
 3. **Supabase** › Authentication:
    - Sign In / Providers: enable **Google** and **GitHub** with their client IDs and secrets.
    - Allow **manual linking** (players link GitHub to their Google sign-in).
@@ -174,12 +186,13 @@ never loads the demo seed.
 2. Environment variables, for Production and Preview: `NEXT_PUBLIC_SUPABASE_URL` =
    `https://<ref>.supabase.co` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` = the publishable key. Do not add
    the secret key. `NEXT_PUBLIC_*` values are inlined at build time: redeploy after changing them.
+   Without them the deployment stays closed (nobody can enter); it never falls back to the demo.
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
    cabinet still plays its attract mode and says the galaxy is out of reach.
 
 ### 6. Fill the galaxy
 
-Invite the crew to join (sign in, pick a fleet, link GitHub), put the real sectors in a migration,
+Invite the crew to join (sign in, link GitHub, pick a fleet), put the real sectors in a migration,
 then switch the game workflow on ([`game/README.md` › Setup](../../game/README.md#setup)): the first
 poll backfills history with everyone's fleet as it stands.
 
@@ -207,12 +220,14 @@ joining flow included.
   check. A trigger refuses `UPDATE` and `DELETE`: the ledger is append-only.
 - `sectors` hold the repositories; `teams` are the fleets and their look (label, colour, motto,
   mascot, order, `retired_at`). Both change by migration. A fleet is retired, never deleted.
-- `players`: one per signed-in person, keyed by their auth user: arcade name, fleet
-  (`team_since` stamped by a trigger, retired fleets refused), hero (preset numbers, checked by
-  `valid_hero()`), and the GitHub login, which only `link_github()` sets. The email stays in
-  `auth.users`.
-- Row-level security: `is_crew()` (a `@vertuoza.com` token) reads the galaxy and the players; a
-  player inserts and updates only their own row, and only its name, fleet and hero (column grants);
+- `players`: one per player, keyed by their auth user: arcade name, fleet (`team_since` stamped by
+  a trigger, retired fleets refused), hero (preset numbers, checked by `valid_hero()`), and the
+  GitHub login. A row may only be created once GitHub is linked (`my_github()` reads the caller's
+  linked identity); the trigger copies the login from that identity, and `link_github()` refreshes
+  it. The email stays in `auth.users`.
+- Row-level security: `is_crew()` (a `@vertuoza.com` token) reads the galaxy and the players, so
+  a visitor sees everything; a player with GitHub linked inserts their own row, and updates only
+  its name, fleet and hero (column grants);
   anon reads only the fleets; the service role appends to the ledger and reads the roster.
 - Explicit grants: Supabase projects created since 2026-05-30 no longer grant the API roles access
   to new tables. The local stack matches (`auto_expose_new_tables = false`), so a table added

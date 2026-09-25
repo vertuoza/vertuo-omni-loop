@@ -87,3 +87,29 @@ path above). No upstream test covered a CLI half, so none is ported or deleted.
   `omni comment --base <ref>` that cannot be read is a one-line `UsageError`, as `omni status`
   does. Tests: "comment and replies with a --repo that is not owner/name", "comment with a --base
   that does not exist".
+
+## `item` (PRD 50, slice s1): the intro and the punchline
+
+`kit/bin/commands/item.mjs` is new (no upstream CLI half, like `config`, `prd` and `ship`). This
+records its change for PRD 50.
+
+- The `--file` JSON gains two optional fields, `introFun` and `punchlineFun`, passed through to
+  `renderOutboxItem`.
+- Each is held to `funLineProblems` (`kit/lib/outbox/outbox.mjs`: the plain-words rules, 120
+  characters at most) inside the input schema, so a bad line is a one-line `UsageError` naming its
+  field (`omni item new: <file>: "introFun" — introFun is 125 characters long — keep it to 120
+  characters at most.`): exit 2, nothing written, nothing adopted, `--json` or not, before the
+  recording policy runs. Giving one without the other is the same kind of error, naming the missing
+  field. The pre-write `checkItemText` pass would have named the section rather than the field, and
+  answered in JSON under `--json` — see PRD 50's outbox item `s1-02-fun-line-refusal-shape`.
+- Header comment: a paragraph on the two fields.
+
+### Tests (`kit/bin/item.test.mjs`)
+
+**Added** `omni item new — the intro and the punchline (PRD #50, slice s1)`, all through `main()`:
+both fields write both sections in place; neither writes neither; `--adopt --json` embeds both in
+the settled entry and writes no open file; an intro over 120 characters, and a punchline holding a
+backticked code name, each exit 2 naming the field with nothing written; the same under `--adopt
+--json`; an intro without a punchline, and a punchline without an intro, each exit 2 naming the
+missing field. RED: seven of the eight failed before the command took the fields. No existing
+assertion changed; none deleted.

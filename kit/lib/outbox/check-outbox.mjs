@@ -3,7 +3,7 @@
  * `Became:` ids must resolve, and no open item may sit inside a shipped PRD** (Task 7).
  *
  * Grades every open item under every dir `ctx.layout.outboxDirs()` names, through the one parser
- * in `outbox.mjs`. Four things must hold for an open item, each failing with the file and a reason
+ * in `outbox.mjs`. Five things must hold for an open item, each failing with the file and a reason
  * a human can act on:
  *
  * 1. The item parses at all: well-formed front matter, the four required sections, in order, each
@@ -19,17 +19,20 @@
  *    above — and **a `high` or `medium` item carries two to four lettered options**, `A`, `B`,
  *    `C`… in order, each one plain; a `human-action` item needs none of that, since there is
  *    nothing to choose between.
+ * 5. **An open item's intro and punchline, when it carries them** (PRD #50, slice s1), are each
+ *    plain and at most 120 characters long (`funLineProblems`). The pair stays optional: an item
+ *    raised before PRD #50 carries neither, and the pull request's outbox comment fills in for it.
  *
  * Two more things hold across the whole outbox, not just one item at a time:
  *
- * 5. **Every `Became:` id a `settled.md` carries resolves.** A settled entry that names a
+ * 6. **Every `Became:` id a `settled.md` carries resolves.** A settled entry that names a
  *    knowledge id nothing claims is exactly as broken as an open item whose `bears-on` does not
  *    resolve — the same failure, noticed later, on the ledger instead of the open file. A process
  *    lesson becomes a playbook section, `playbook/<form>#<slot>` (PRD #45): it resolves when that
  *    form's file holds the slot and the slot is not blank.
- * 6. **No open item sits inside a shipped PRD's outbox.** Once a PRD's folder moves to `shipped`,
+ * 7. **No open item sits inside a shipped PRD's outbox.** Once a PRD's folder moves to `shipped`,
  *    every item still open under its `outbox/` is a promise nobody is reading any more: settle it,
- *    or reopen the PRD. Such a file is not also graded against 1–4 — one violation per shipped
+ *    or reopen the PRD. Such a file is not also graded against 1–5 — one violation per shipped
  *    open item is enough.
  *
  * An empty outbox tree (no PRD has ever raised an item) passes trivially — this slice builds the
@@ -45,6 +48,7 @@ import { lawsFor } from '../laws.mjs';
 import { isPlaybookId, resolvePlaybookId } from '../playbook/forms.mjs';
 import {
   SETTLED_FILE,
+  funLineProblems,
   isBelowFloor,
   optionLettersInOrder,
   outboxItemFiles,
@@ -61,6 +65,12 @@ const RANKS_NEEDING_OPTIONS = ['high', 'medium'];
 const PLAIN_SECTION_FIELDS = [
   { heading: 'The question, in plain words', field: 'questionPlain' },
   { heading: 'The decision, in plain words', field: 'decisionPlain' },
+];
+
+/** The intro and the punchline, and the field `parseOutboxItem` reports each under. */
+const FUN_SECTION_FIELDS = [
+  { heading: 'The intro, for fun', field: 'introFun' },
+  { heading: 'The punchline, for fun', field: 'punchlineFun' },
 ];
 
 /** One `file: detail` line — the one format every violation in this module is printed as. */
@@ -114,6 +124,14 @@ export function checkItemText(file, text, { ctx, laws } = {}) {
       for (const problem of plainWordsProblems(item.sections[field])) {
         violations.push(describe(file, `"## ${heading}" ${problem}`));
       }
+    }
+  }
+
+  // Optional, unlike the plain words: the parser has already refused one without the other.
+  for (const { heading, field } of FUN_SECTION_FIELDS) {
+    if (item.sections[field] === undefined) continue;
+    for (const problem of funLineProblems(item.sections[field])) {
+      violations.push(describe(file, `"## ${heading}" ${problem}`));
     }
   }
 
