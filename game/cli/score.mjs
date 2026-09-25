@@ -6,15 +6,14 @@ import { writeFileSync } from 'node:fs';
 import { supabaseFromEnv, supabaseLedger } from '../sources/supabase.mjs';
 import { score, seasonsToScore } from '../economy.mjs';
 import { renderRankings } from '../render/rankings.mjs';
+import { scoreArgs } from './score-args.mjs';
 
-const args = process.argv.slice(2);
-const at = args.indexOf('--rankings');
-const rankingsFile = at >= 0 ? args[at + 1] : null;
-if (at >= 0 && !rankingsFile) { console.error('usage: game:score [YYYY-MM] [--rankings <file>]'); process.exit(2); }
-const seasonArg = args.find((a, i) => /^\d{4}-\d{2}$/.test(a) && i !== at + 1);
+let args;
+try { args = scoreArgs(process.argv.slice(2)); } catch (err) { console.error(`${err.message}\nusage: game:score [YYYY-MM] [--rankings <file>]`); process.exit(2); }
+const rankingsFile = args.rankings;
 
 const now = new Date();
-const { seasons, rankings } = seasonsToScore(now, seasonArg);
+const { seasons, rankings } = seasonsToScore(now, args.season ?? undefined);
 const ledger = await supabaseLedger(supabaseFromEnv()).read();
 for (const season of seasons) {
   const result = score(ledger, { season, now });
