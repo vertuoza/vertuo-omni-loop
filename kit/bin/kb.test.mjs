@@ -298,6 +298,90 @@ function hashing(hashes) {
 /** The violation lines of a failed guard's report. */
 const violations = (out) => out.split('\n').filter((line) => line.startsWith('  ')).map((line) => line.trim());
 
+describe('omni kb status — the map, derived every time', () => {
+  const FILES = {
+    ...CONFIG,
+    [TESTING]: testingForm({
+      frontMatter: { evidence: ['package.json@abcdef1', 'vitest.config.mjs@1234567', 'gone.json@7654321'] },
+      slots: { data: { body: 'TODO(human): is there a naming rule for fixture repositories?' } },
+    }),
+    [`${PLAYBOOK}/ci.md`]: formText({ frontMatter: { form: 'ci', state: 'pointer', 'points-to': 'guides/ci.md' }, title: 'CI', slots: [] }),
+    [`${PLAYBOOK}/setup.md`]: formText({
+      frontMatter: { form: 'setup', state: 'filled' },
+      slots: [
+        { id: 'prerequisites', required: true, body: 'See: guides/setup.md' },
+        { id: 'install', required: true, body: 'See: guides/setup.md#install' },
+      ],
+    }),
+    [`${PLAYBOOK}/verification.md`]: formText({ frontMatter: { form: 'verification' }, slots: [{ id: 'preflight', required: true, body: 'TODO(human): which command is the preflight?' }] }),
+    'guides/ci.md': '# CI\n',
+    'guides/setup.md': '# Setup\n',
+    'package.json': '{}\n',
+    'vitest.config.mjs': 'export default {};\n',
+  };
+  const exec = hashing({ 'package.json': 'abcdef1234567890', 'vitest.config.mjs': '89abcdef01234567' });
+
+  it('--json lists each form with its state, source, open questions and stale evidence', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const { code, out } = await omni(root, ['kb', 'status', '--json'], { exec });
+    expect(code).toBe(0);
+    const status = JSON.parse(out);
+    expect(status.frontDoor).toBe('.omni-loop/knowledge');
+    expect(status.forms.map(({ form, kind, state, source }) => `${form} ${kind} ${state} ${source}`)).toEqual([
+      'briefing core missing kit',
+      'setup core filled pointer',
+      'architecture core missing kit',
+      'testing core filled repo',
+      'verification core blank kit',
+      'ci core pointer pointer',
+      'pull-requests core missing kit',
+      'decisions core missing kit',
+      'definition-of-done extended missing kit',
+      'conventions extended missing kit',
+      'releasing extended missing kit',
+      'bug-fixing extended missing kit',
+      'glossary extended missing kit',
+    ]);
+    const testing = status.forms.find((form) => form.form === 'testing');
+    expect(testing).toMatchObject({
+      file: TESTING,
+      questions: [{ slot: 'data', question: 'is there a naming rule for fixture repositories?' }],
+      stale: [
+        { path: 'vitest.config.mjs', hash: '1234567', now: '89abcdef01234567' },
+        { path: 'gone.json', hash: '7654321', now: null },
+      ],
+    });
+    expect(testing.sections.map(({ slot, source }) => `${slot}:${source}`)).toEqual(['commands:repo', 'layout:repo', 'levels:repo', 'never:repo', 'data:hole']);
+    expect(status.forms.find((form) => form.form === 'verification').questions).toEqual([{ slot: 'preflight', question: 'which command is the preflight?' }]);
+  });
+
+  it('prints one line per form, then every open question and every stale evidence entry', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const { code, out } = await omni(root, ['kb', 'status'], { exec });
+    expect(code).toBe(0);
+    const lines = out.split('\n').map((line) => line.trim().replace(/\s+/g, ' '));
+    expect(lines[0]).toBe('kb status — 13 form(s) in .omni-loop/knowledge');
+    expect(lines).toContain('briefing core missing kit default');
+    expect(lines).toContain('testing core filled repo 1 open question(s) · 2 stale evidence');
+    expect(lines).toContain('ci core pointer pointer');
+    expect(lines.slice(lines.indexOf('Open questions: 2'))).toEqual([
+      'Open questions: 2',
+      `testing#data (${TESTING}): is there a naming rule for fixture repositories?`,
+      `verification#preflight (${PLAYBOOK}/verification.md): which command is the preflight?`,
+      'Stale evidence: 2',
+      `testing (${TESTING}): vitest.config.mjs@1234567 — now 89abcde`,
+      `testing (${TESTING}): gone.json@7654321 — gone`,
+      '',
+    ]);
+  });
+
+  it('says so when there is nothing open and nothing stale', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const { out } = await omni(root, ['kb', 'status']);
+    expect(out).toMatch(/\nOpen questions: none\.\nStale evidence: none\.\n$/);
+  });
+});
+
 describe('omni check kb — acceptance criterion 4: fails naming the file', () => {
   const CI = `${PLAYBOOK}/ci.md`;
   const pointer = (frontMatter) => formText({ frontMatter: { form: 'ci', state: 'pointer', ...frontMatter }, title: 'CI', slots: [] });
