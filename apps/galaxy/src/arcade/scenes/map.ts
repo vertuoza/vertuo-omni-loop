@@ -3,16 +3,34 @@
 import { drawPlanet, drawSprite, rng, WOUND_TINT } from '@omni/sprites';
 import type { GalaxyView } from '@omni/galaxy';
 import { seedOf } from '../fleets';
-import { frameOf, nebulaFor, planetLook, pulseRing, space, W, type FrameState, type MapSlot } from './common.ts';
+import {
+  frameOf, H, nebulaFor, planetLook, pulseRing, space, W, type FrameState, type Grid, type MapSlot, type Pages,
+  type SceneName,
+} from './common.ts';
+
+/**
+ * `map`, once it is laid out on the tall grid. Until it is listed, it is drawn on the wide grid,
+ * letterboxed in the Game Boy's lens (grid.ts reads this list).
+ */
+export const TALL_SCENES: readonly SceneName[] = [];
+/** The map is one page. */
+export const PAGES: Pages = {};
 
 // ── Map layout ───────────────────────────────────────────────────────────────
 
+// The band the planets sit in, between the HUD and the dialog, on the wide grid.
 export const MAP_TOP = 72;
 export const MAP_BOTTOM = 262;
 
-export function layoutMap(view: GalaxyView): MapSlot[] {
+/**
+ * Where each planet sits on the grid the map is drawn on, in that grid's pixels: the canvas draws
+ * them there, the D-pad moves between them, and a tap on the screen finds them there. On a grid
+ * with no layout of its own, the wide one's is stretched to its size.
+ */
+export function layoutMap(view: GalaxyView, grid: Grid): MapSlot[] {
+  const top = (MAP_TOP * grid.h) / H, bottom = (MAP_BOTTOM * grid.h) / H;
   const cols = Math.max(1, view.sectors.length);
-  const colW = W / cols;
+  const colW = grid.w / cols;
   const slots: MapSlot[] = [];
   view.sectors.forEach((sector, ci) => {
     const members = view.planets
@@ -23,13 +41,13 @@ export function layoutMap(view: GalaxyView): MapSlot[] {
     const perRow = k <= 2 ? 1 : 2;
     const rows = Math.ceil(k / perRow);
     const cellW = (colW - 24) / perRow;
-    const cellH = (MAP_BOTTOM - MAP_TOP) / rows;
+    const cellH = (bottom - top) / rows;
     const shrink = Math.min(1, cellH / 62, cellW / 62);
     members.forEach(({ p, index }, j) => {
       const r = Math.max(8, Math.round((10 + p.class * 4) * shrink));
       const rand = rng(seedOf(p.prd));
       const cx = ci * colW + 12 + cellW * ((j % perRow) + 0.5) + (rand() - 0.5) * Math.max(0, cellW - r * 2 - 12) * 0.6;
-      const cy = MAP_TOP + cellH * (Math.floor(j / perRow) + 0.5) + (rand() - 0.5) * Math.max(0, cellH - r * 2 - 12) * 0.6;
+      const cy = top + cellH * (Math.floor(j / perRow) + 0.5) + (rand() - 0.5) * Math.max(0, cellH - r * 2 - 12) * 0.6;
       slots.push({ prd: p.prd, x: Math.round(cx), y: Math.round(cy), r, index });
     });
   });

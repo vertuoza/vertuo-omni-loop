@@ -2,7 +2,15 @@
 // and the Hall of Heroes.
 import { drawPlanet, drawSprite, spriteSize, WOUND_TINT, woundTint } from '@omni/sprites';
 import { fleet } from '../fleets';
-import { bootMark, frameOf, nebulaFor, plasmaTrail, RING, space, type FrameState } from './common.ts';
+import { bootMark, frameOf, nebulaFor, plasmaTrail, RING, space, type FrameState, type Pages, type SceneName } from './common.ts';
+
+/**
+ * The attract group's scenes laid out on the tall grid (`boot`, `title`, `heroes`). A scene not
+ * listed is drawn on the wide grid, letterboxed in the Game Boy's lens (grid.ts reads this list).
+ */
+export const TALL_SCENES: readonly SceneName[] = [];
+/** How many pages a tall `heroes` takes, for ◀ ▶ to turn. Undeclared, it is one. */
+export const PAGES: Pages = {};
 
 export function drawBoot(ctx: CanvasRenderingContext2D, s: FrameState) {
   bootMark(ctx, s);

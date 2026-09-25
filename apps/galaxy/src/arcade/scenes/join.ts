@@ -3,8 +3,17 @@
 import { drawPlanet, drawSprite } from '@omni/sprites';
 import { fleet } from '../fleets';
 import {
-  bobOf, bootMark, drawFleetMascot, drawHero, flash, frameOf, H, nebulaFor, pedestal, plasmaTrail, space, stars, W, type FrameState,
+  bobOf, bootMark, drawFleetMascot, drawHero, flash, frameOf, H, nebulaFor, pedestal, plasmaTrail, space, stars, W,
+  type FrameState, type Pages, type SceneName,
 } from './common.ts';
+
+/**
+ * The join group's scenes laid out on the tall grid. A scene not listed is drawn on the wide
+ * grid, letterboxed in the Game Boy's lens (grid.ts reads this list).
+ */
+export const TALL_SCENES: readonly SceneName[] = [];
+/** The join group's scenes are one page each. */
+export const PAGES: Pages = {};
 
 // Stars streaming down past the camera: the warp of the intro.
 function warp(ctx: CanvasRenderingContext2D, s: FrameState, k: number) {

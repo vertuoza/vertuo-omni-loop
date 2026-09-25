@@ -2,8 +2,17 @@
 import { drawSprite, rampFrom, spriteSize } from '@omni/sprites';
 import { fleet } from '../fleets';
 import {
-  bobOf, drawFleetMascot, drawHero, flash, frameOf, heroSelectWall, nebulaFor, pedestal, space, type FrameState,
+  bobOf, drawFleetMascot, drawHero, flash, frameOf, heroSelectWall, nebulaFor, pedestal, space,
+  type FrameState, type Pages, type SceneName,
 } from './common.ts';
+
+/**
+ * The recruit group's scenes laid out on the tall grid (`select`, `name`, `hero`). A scene not
+ * listed is drawn on the wide grid, letterboxed in the Game Boy's lens (grid.ts reads this list).
+ */
+export const TALL_SCENES: readonly SceneName[] = [];
+/** The recruit group's scenes are one page each. */
+export const PAGES: Pages = {};
 
 function comicWall(ctx: CanvasRenderingContext2D, color: string) {
   heroSelectWall(ctx);

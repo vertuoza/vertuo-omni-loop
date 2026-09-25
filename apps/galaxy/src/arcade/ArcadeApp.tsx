@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GalaxyView } from '@omni/galaxy';
 import { randomHero, type Hero } from '@omni/sprites';
-import { drawFrame, H, layoutMap, neighbour, W, type FrameState, type SceneName } from './scenes';
+import { drawFrame, H, layoutMap, neighbour, W, WIDE, type FrameState, type SceneName } from './scenes';
 import { motif, music, setMuted as setAudioMuted, sfx, unlock, type Sfx } from './sound';
 import { Press } from './hint';
 import { keyAction, type Action } from './keys';
@@ -105,7 +105,7 @@ export interface ArcadeProps {
 export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null }: ArcadeProps) {
   setFleets(fleets);
   const active = useMemo(() => fleets.filter((f) => !f.retired), [fleets]);
-  const layout = useMemo(() => (view ? layoutMap(view) : []), [view]);
+  const layout = useMemo(() => (view ? layoutMap(view, WIDE) : []), [view]);
   const start = useRef(typeof performance !== 'undefined' ? performance.now() : 0);
   const now = () => (performance.now() - start.current) / 1000;
   const firstPlanet = view ? Math.max(0, view.planets.findIndex((p) => p.state === 'distress')) : 0;
@@ -487,7 +487,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       const f = frameRef.current;
       const picking = u.scene === 'select' ? f.active[u.pick]?.name ?? null : null;
       const frame: FrameState = {
-        scene: u.scene, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches,
+        scene: u.scene, grid: WIDE, page: 0, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches,
         join: {
           fleets: f.active, pick: u.pick, lockedAt: u.lockedAt, away: u.away || u.link === 'away',
           team: picking ?? f.me?.team ?? null,
