@@ -1,0 +1,25 @@
+# The omni-loop GitHub App manifest (PRD 28). An org admin registers the app from this file, private
+# to the vertuoza org, then installs it on each repository that should carry the outbox check.
+#
+# Least privilege: these permissions and events are what the outbox check uses, nothing more.
+# `test/app-yml.test.mjs` fails on any permission or event beyond them. The actions the app acts on
+# (pull_request: opened, synchronize, reopened, ready_for_review, labeled, unlabeled, edited;
+# check_run: rerequested) are filtered in `src/webhook/` — a manifest subscribes to whole events.
+#
+# The URLs point at the app's Vercel project; replace the host with the project's production domain
+# before registering if it differs.
+name: omni-loop
+description: Posts the omni-loop outbox check on every pull request.
+url: https://omni-loop.vercel.app
+public: false
+hook_attributes:
+  url: https://omni-loop.vercel.app/api/github
+  active: true
+default_permissions:
+  checks: write
+  contents: read
+  pull_requests: write
+  metadata: read
+default_events:
+  - pull_request
+  - check_run
