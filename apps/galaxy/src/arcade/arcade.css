@@ -89,3 +89,5 @@ button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
 
 /* A toast over the screen. */
 .j-toast { position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); margin: 0; max-width: 560px; padding: 7px 9px 6px; font-size: 7px; letter-spacing: 1px; line-height: 1.6; text-align: center; color: #0b0a26; background: var(--white); box-shadow: 3px 3px 0 var(--plasma); }
+/* On the tall grid the toast keeps inside the screen, at the grid's smallest type. */
+.grid-tall .j-toast { max-width: 296px; box-sizing: border-box; font-size: 8px; }
