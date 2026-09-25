@@ -19,7 +19,7 @@ export function deriveZones(planet) {
       : null;
     let state = 'sealed';
     if (z.pr?.mergedAt && !z.pr.revertedAt) state = 'secured';
-    else if (z.pr?.labels.includes('pr:needs-fix')) state = 'under-fire';
+    else if (z.pr?.labels.includes('omni:needs-fix')) state = 'under-fire';
     else if (z.pr && !z.pr.mergedAt) state = 'claimed';
     else if (allMerged && planet.featurePr) state = 'open';
     return {
@@ -35,7 +35,7 @@ export function deriveWounds(planet, now) {
   for (const z of planet.zones) {
     // F1: the label history (`pr.needsFix`) comes off the sub-PR's timeline. A snapshot without it
     // (a failed timeline read) falls back to "labelled since the sub-PR was opened, still labelled".
-    const fire = z.pr?.needsFix ?? (z.pr?.labels.includes('pr:needs-fix') ? { labeledAt: z.pr.createdAt, unlabeledAt: null } : null);
+    const fire = z.pr?.needsFix ?? (z.pr?.labels.includes('omni:needs-fix') ? { labeledAt: z.pr.createdAt, unlabeledAt: null } : null);
     if (fire) {
       const closedAt = fire.unlabeledAt ?? z.pr.mergedAt ?? null;
       wounds.push({ id: `fire:${z.repo}:${planet.prd}/${z.id}`, kind: 'under-fire', repo: z.repo, openedAt: fire.labeledAt, closedAt, closedBy: closedAt ? z.pr.author : null });

@@ -166,7 +166,7 @@ describe('gateResult', () => {
       items: [],
       overridden: false,
       unreworked: [],
-      overrideLabel: 'outbox:go',
+      overrideLabel: 'omni:outbox-go',
     });
   });
 
@@ -189,12 +189,12 @@ describe('gateResult', () => {
     expect(result.items).toHaveLength(3);
   });
 
-  it('goes green under the outbox:go label, however many items are open', () => {
+  it('goes green under the omni:outbox-go label, however many items are open', () => {
     const root = fixtureRoot();
     const ctx = flatCtx(root);
     writeItem(root, '985', 's3-01-one.md', itemText({ frontMatter: { id: 's3-01-one' } }));
     writeItem(root, '985', 's3-02-two.md', itemText({ frontMatter: { id: 's3-02-two' } }));
-    const result = gateResult('985', { ctx, labels: ['pr:feature', ctx.config.labels.outboxGo] });
+    const result = gateResult('985', { ctx, labels: ['omni:feature', ctx.config.labels.outboxGo] });
     expect(result.ok).toBe(true);
     expect(result.overridden).toBe(true);
     expect(result.items).toHaveLength(2);
@@ -203,7 +203,7 @@ describe('gateResult', () => {
   it('an unrelated label never overrides', () => {
     const root = fixtureRoot();
     writeItem(root, '985', 's3-01-one.md', itemText());
-    const result = gateResult('985', { ctx: flatCtx(root), labels: ['pr:feature'] });
+    const result = gateResult('985', { ctx: flatCtx(root), labels: ['omni:feature'] });
     expect(result.ok).toBe(false);
   });
 });
@@ -226,7 +226,7 @@ describe('gateResult — a medium item adopted at raise time', () => {
       items: [],
       overridden: false,
       unreworked: [],
-      overrideLabel: 'outbox:go',
+      overrideLabel: 'omni:outbox-go',
     });
   });
 });
@@ -257,10 +257,10 @@ describe('formatReport', () => {
     const result = {
       ok: true,
       overridden: true,
-      overrideLabel: 'outbox:go',
+      overrideLabel: 'omni:outbox-go',
       items: [{ file: 'docs/outbox/985/s3-01-one.md', id: 's3-01-one', rank: 'high' }],
     };
-    expect(formatReport('985', result)).toContain('outbox:go — override in effect');
+    expect(formatReport('985', result)).toContain('omni:outbox-go — override in effect');
   });
 
   it('names both the open item and the unaccounted change when both are present', () => {
@@ -310,7 +310,7 @@ describe('gateResult — the range (PRD #1044, slice s4)', () => {
       overridden: false,
       unreworked: [],
       unaccounted: [],
-      overrideLabel: 'outbox:go',
+      overrideLabel: 'omni:outbox-go',
     });
   });
 
@@ -323,14 +323,14 @@ describe('gateResult — the range (PRD #1044, slice s4)', () => {
     expect(result.unaccounted).toEqual([]);
   });
 
-  it('goes green under outbox:go with both an open item and an unaccounted change', () => {
+  it('goes green under omni:outbox-go with both an open item and an unaccounted change', () => {
     const root = rangeFixtureRoot();
     const ctx = flatCtx(root, { risk: RISK });
     writeItem(root, '985', 's3-01-one.md', itemText());
     const result = gateResult('985', {
       ctx,
       changes: [RISKY_CHANGE],
-      labels: ['pr:feature', ctx.config.labels.outboxGo],
+      labels: ['omni:feature', ctx.config.labels.outboxGo],
     });
     expect(result.ok).toBe(true);
     expect(result.overridden).toBe(true);
@@ -343,7 +343,7 @@ describe('gateResult — the range (PRD #1044, slice s4)', () => {
     const result = gateResult('985', {
       ctx: flatCtx(root, { risk: RISK }),
       changes: [RISKY_CHANGE],
-      labels: ['pr:feature'],
+      labels: ['omni:feature'],
     });
     expect(result.ok).toBe(false);
   });
@@ -449,6 +449,6 @@ describe('gateResult — unreworked drift (this task)', () => {
         ),
       },
     });
-    expect(gateResult(42, { ctx, labels: ['outbox:go'] }).ok).toBe(true);
+    expect(gateResult(42, { ctx, labels: ['omni:outbox-go'] }).ok).toBe(true);
   });
 });

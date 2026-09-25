@@ -11,7 +11,7 @@ describe('loop labels', () => {
   });
 
   it('asks for a label two keys share only once', () => {
-    const names = loopLabels({ ...defaults, needsFix: 'PR:SUB' }).map((label) => label.name);
-    expect(names).toEqual(['prd', 'pr:phase-0', 'pr:feature', 'pr:sub', 'pr:in-progress', 'outbox:go']);
+    const names = loopLabels({ ...defaults, needsFix: 'OMNI:SUB' }).map((label) => label.name);
+    expect(names).toEqual(['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:outbox-go']);
   });
 });

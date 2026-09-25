@@ -18,7 +18,7 @@
 // that cannot be read reads as empty — except the team member reads, which are hard (F7): a failed
 // one throws, so the poll appends nothing rather than events stripped of their teams. Every
 // timestamp passes through `toIso` (F4); a record whose required time is unreadable is skipped.
-// Beyond the list reads, each zone's sub-PR timeline gives the `pr:needs-fix` history (F1) and each
+// Beyond the list reads, each zone's sub-PR timeline gives the `omni:needs-fix` history (F1) and each
 // closed bug's closing PRs say whether a merged fix closed it (F5c); both soft. An inbox file whose `prd` doesn't parse as an integer never
 // reaches `inboxByPrd`; an open outbox item missing an `id` or carrying a rank outside
 // {medium, high, human-action} is skipped rather than pushed. The inbox `surveyedAt` commits read is
@@ -50,7 +50,7 @@ export function toIso(value) {
 const firstIso = (out) => toIso(lines(out)[0]);
 
 export async function buildSnapshot({ config, exec = ghExec, now = new Date(), org = 'vertuoza', planRepo = 'vertuo-omni-plan', prds }) {
-  const issues = json(await exec(['issue', 'list', '-R', `${org}/${planRepo}`, '--label', 'prd', '--state', 'all', '--limit', '500', '--json', 'number,title,assignees,createdAt,closedAt']));
+  const issues = json(await exec(['issue', 'list', '-R', `${org}/${planRepo}`, '--label', 'omni:prd', '--state', 'all', '--limit', '500', '--json', 'number,title,assignees,createdAt,closedAt']));
 
   // F7: team reads are hard. A failed read would silently strip every member's team from every
   // event this poll appends, forever (the ledger is append-only) — so it fails the poll instead, as
@@ -121,7 +121,7 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), o
       const slices = inbox.plan ? parsePlanSlices(await soft(exec(['api', `repos/${org}/${repo}/contents/${inbox.plan}?ref=${fp.headRefName}`, ...RAW]))) : [];
       // --json includes `body` (beyond the reads list's bare field set) because the revert rule
       // below — "a sub-PR titled Revert whose body names #<n>" — cannot be read without it.
-      const subs = json(await exec(['pr', 'list', '-R', `${org}/${repo}`, '--base', fp.headRefName, '--state', 'all', '--label', 'pr:sub', '--limit', '200', '--json', 'number,title,headRefName,author,createdAt,labels,mergedAt,body,state']))
+      const subs = json(await exec(['pr', 'list', '-R', `${org}/${repo}`, '--base', fp.headRefName, '--state', 'all', '--label', 'omni:sub', '--limit', '200', '--json', 'number,title,headRefName,author,createdAt,labels,mergedAt,body,state']))
         .map((x) => ({ ...x, createdAt: toIso(x.createdAt), mergedAt: toIso(x.mergedAt) }))
         .filter((x) => x.createdAt); // F4: a sub-PR without a creation time is unreadable, not a claim
       const reverts = new Map(subs.filter((s) => /^revert/i.test(s.title) && s.mergedAt).flatMap((s) => [...(s.body ?? '').matchAll(/#(\d+)/g)].map((m) => [Number(m[1]), s.mergedAt])));
@@ -235,15 +235,15 @@ function zoneSub(subs, sliceId, reverts) {
   return sub;
 }
 
-// F1: when `pr:needs-fix` was put on and taken off a sub-PR. The snapshot is a point in time, so the
+// F1: when `omni:needs-fix` was put on and taken off a sub-PR. The snapshot is a point in time, so the
 // label's history comes off the issue timeline (soft). `{ labeledAt, unlabeledAt }` — unlabeledAt is
 // null while the label is still on; the whole value is null when the sub-PR was never labelled. A
 // failed read of a currently-labelled sub-PR falls back to "labelled since the sub-PR was opened".
-const NEEDS_FIX_JQ = '.[] | select((.event=="labeled" or .event=="unlabeled") and .label.name=="pr:needs-fix") | "\\(.event) \\(.created_at)"';
+const NEEDS_FIX_JQ = '.[] | select((.event=="labeled" or .event=="unlabeled") and .label.name=="omni:needs-fix") | "\\(.event) \\(.created_at)"';
 async function needsFixHistory(exec, repoSlug, sub, labels) {
   const history = lines(await soft(exec(['api', `repos/${repoSlug}/issues/${sub.number}/timeline`, '--paginate', '--jq', NEEDS_FIX_JQ])))
     .map((l) => l.split(/\s+/)).map(([event, at]) => [event, toIso(at)]).filter(([event, at]) => (event === 'labeled' || event === 'unlabeled') && at);
-  const labelled = labels.includes('pr:needs-fix');
+  const labelled = labels.includes('omni:needs-fix');
   const firstLabel = history.find(([event]) => event === 'labeled')?.[1] ?? null;
   if (!firstLabel) return labelled ? { labeledAt: sub.createdAt, unlabeledAt: null } : null;
   const last = history.at(-1);

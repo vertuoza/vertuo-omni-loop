@@ -33,7 +33,7 @@ describe('omni', () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const s = io();
     expect(await main(['config', 'labels.outboxGo'], { cwd: root, ...s })).toBe(0);
-    expect(s.out.join('')).toBe('outbox:go\n');
+    expect(s.out.join('')).toBe('omni:outbox-go\n');
   });
 
   it('status is 0 with nothing open and 1 with an open item', async () => {
@@ -104,7 +104,7 @@ describe('omni — flags, lookups and guards', () => {
       git: true,
       files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x', '.omni-loop/delivery/outbox/0042-a/s1-01-x.md': 'open' },
     });
-    expect(await main(['status', '42', '--labels', 'a,outbox:go'], { cwd: root, ...io() })).toBe(0);
+    expect(await main(['status', '42', '--labels', 'a,omni:outbox-go'], { cwd: root, ...io() })).toBe(0);
   });
 
   it('settle exits 2 without an item and 1 when the answer is refused', async () => {

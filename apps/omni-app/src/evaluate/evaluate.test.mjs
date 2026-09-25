@@ -82,13 +82,13 @@ describe('evaluate — the conclusion table', () => {
   });
 
   it('is neutral when the override label is on a red pull request', () => {
-    const verdict = run({ head: 'head-open', pr: featurePr({ labels: ['outbox:go'] }) });
+    const verdict = run({ head: 'head-open', pr: featurePr({ labels: ['omni:outbox-go'] }) });
     expect(verdict.conclusion).toBe('neutral');
-    expect(verdict.title).toBe('Override in effect (outbox:go)');
+    expect(verdict.title).toBe('Override in effect (omni:outbox-go)');
   });
 
   it('is still success when the override label is on a green pull request', () => {
-    const verdict = run({ pr: featurePr({ labels: ['outbox:go'] }) });
+    const verdict = run({ pr: featurePr({ labels: ['omni:outbox-go'] }) });
     expect(verdict.conclusion).toBe('success');
   });
 
@@ -106,7 +106,7 @@ describe('evaluate — config from base, delivery from head', () => {
   it('ignores a head that renames the override label', () => {
     const renamed = run({ head: 'head-renames-label', pr: featurePr({ labels: ['ship-it'] }) });
     expect(renamed.conclusion).toBe('failure');
-    const real = run({ head: 'head-renames-label', pr: featurePr({ labels: ['outbox:go'] }) });
+    const real = run({ head: 'head-renames-label', pr: featurePr({ labels: ['omni:outbox-go'] }) });
     expect(real.conclusion).toBe('neutral');
   });
 

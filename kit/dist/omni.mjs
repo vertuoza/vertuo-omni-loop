@@ -11565,13 +11565,13 @@ var ConfigSchema = external_exports.object({
     context: external_exports.array(text).default(["CLAUDE.md"])
   }),
   labels: section({
-    prd: text.default("prd"),
-    phase0: text.default("pr:phase-0"),
-    feature: text.default("pr:feature"),
-    sub: text.default("pr:sub"),
-    inProgress: text.default("pr:in-progress"),
-    needsFix: text.default("pr:needs-fix"),
-    outboxGo: text.default("outbox:go"),
+    prd: text.default("omni:prd"),
+    phase0: text.default("omni:phase-0"),
+    feature: text.default("omni:feature"),
+    sub: text.default("omni:sub"),
+    inProgress: text.default("omni:in-progress"),
+    needsFix: text.default("omni:needs-fix"),
+    outboxGo: text.default("omni:outbox-go"),
     autoCreate: external_exports.boolean().default(false)
   }),
   prLinks: section({
