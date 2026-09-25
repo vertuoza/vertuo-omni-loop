@@ -18,6 +18,18 @@ describe('parseConfig', () => {
     expect(config.notify.slack).toBeNull();
   });
 
+  it('names the retro label and the retro branch when the config sets neither', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(config.labels.retro).toBe('omni:retro');
+    expect(config.branches.retro).toBe('docs/retro-{topic}');
+  });
+
+  it('reads back a retro label and a retro branch the config sets', () => {
+    const config = parseConfig('kit: 1\nlabels:\n  retro: looking-back\nbranches:\n  retro: retro/{topic}\n');
+    expect(config.labels.retro).toBe('looking-back');
+    expect(config.branches.retro).toBe('retro/{topic}');
+  });
+
   it('refuses a missing or wrong schema version', () => {
     expect(() => parseConfig('repo: {}\n', 'c.yml')).toThrow(/c\.yml.*kit/s);
     expect(() => parseConfig('kit: 2\n', 'c.yml')).toThrow(ConfigError);

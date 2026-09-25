@@ -11554,7 +11554,8 @@ var ConfigSchema = external_exports.object({
     fix: text.default("fix/{topic}"),
     phase0: text.default("docs/phase-0-{topic}"),
     slice: text.default("feat/{topic}--{slice}"),
-    rework: text.default("fix-{item}")
+    rework: text.default("fix-{item}"),
+    retro: text.default("docs/retro-{topic}")
   }),
   worktrees: text.default(".claude/worktrees"),
   paths: section({
@@ -11572,6 +11573,7 @@ var ConfigSchema = external_exports.object({
     inProgress: text.default("omni:in-progress"),
     needsFix: text.default("omni:needs-fix"),
     outboxGo: text.default("omni:outbox-go"),
+    retro: text.default("omni:retro"),
     autoCreate: external_exports.boolean().default(false)
   }),
   prLinks: section({
@@ -15329,7 +15331,8 @@ var LABEL_STYLES = {
   sub: { color: "bfdadc", description: "Omni Loop: a slice pull request into a feature branch" },
   inProgress: { color: "fbca04", description: "Omni Loop: an agent is working on this pull request" },
   needsFix: { color: "d93f0b", description: "Omni Loop: this pull request needs a fix before it can move" },
-  outboxGo: { color: "1d76db", description: "Omni Loop: a person lets the outbox gate pass" }
+  outboxGo: { color: "1d76db", description: "Omni Loop: a person lets the outbox gate pass" },
+  retro: { color: "d4c5f9", description: "Omni Loop: the retro of a merged PRD \u2014 its retro pull request, or one finding to act on" }
 };
 function loopLabels(labels) {
   const seen = /* @__PURE__ */ new Set();
