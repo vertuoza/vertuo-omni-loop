@@ -1,2 +1,5 @@
 node_modules/
 kit/dist/
+supabase/.temp/
+supabase/.branches/
+.env*.local

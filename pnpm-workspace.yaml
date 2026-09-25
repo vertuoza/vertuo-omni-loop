@@ -1,0 +1,5 @@
+# The root package is the delivery kit and the game layer; apps/ and packages/ hold the galaxy UI.
+packages:
+  - '.'
+  - 'apps/*'
+  - 'packages/*'
