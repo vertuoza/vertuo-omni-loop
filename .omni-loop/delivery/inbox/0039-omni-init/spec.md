@@ -24,13 +24,25 @@ needs this to be one command that gets it right the first time.
 
 ## Solution
 
-A new subcommand, `omni init`, registered in `COMMAND_TABLE` and run from the root of the target
-repository with the bundle from an Omni Loop checkout:
+A new subcommand, `omni init`, registered in `COMMAND_TABLE`. It is installed and run with **one
+line** from the root of the target repository, with no clone of this repository and nothing
+installed first:
 
 ```bash
 cd <target repository>
-node <vertuo-omni-loop checkout>/.omni-loop/bin/omni.mjs init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]
+npx github:vertuoza/vertuo-omni-loop init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]
 ```
+
+This works because the bundle is committed at `kit/dist/omni.mjs`, which is no longer gitignored,
+and this repository's root `package.json` declares `"bin": { "omni": "kit/dist/omni.mjs" }` and
+`"files": ["kit/dist/omni.mjs"]`. `npx` fetches the default branch over git, using the person's own
+GitHub credentials, packs only that one file, and runs it. The bundle has no dependencies, so
+nothing is built on the way. `npx` ships with Node, which is already the only prerequisite, so this
+works the same in a PHP repository. From a checkout the same command is
+`node <vertuo-omni-loop checkout>/kit/dist/omni.mjs init`.
+
+This repository's own `.omni-loop/bin/omni.mjs` is a shim onto the kit source, not the bundle, so it
+is never what `npx` runs or what `init` installs.
 
 It does four things, in this order:
 
@@ -47,7 +59,10 @@ It does four things, in this order:
    `omni config` and the omni-app's `evaluate` use), so an invalid config is never written.
 2. **Installs the bin.** It copies the bundle it is running from to `.omni-loop/bin/omni.mjs`. The
    bundle is one plain-Node file with no dependencies, so the target repository needs no JS
-   toolchain, only Node 22+ and `gh` on the machine that runs the loop.
+   toolchain, only Node 22+ and `gh` on the machine that runs the loop. The bundle knows it is one:
+   `kit/build.mjs` defines a build-time constant for it. When `init` runs from source (this
+   repository's shim, or the tests without an injected bundle) and would have to copy a bin, it exits
+   2 without writing anything and names the npx command instead. It never installs a shim.
 3. **Creates the missing labels.** The names come from the resulting config's `labels.*`. It lists
    the repository's labels once and creates only the missing ones, each with a fixed colour and a
    description. It never edits, recolours or deletes an existing label.
@@ -129,7 +144,8 @@ The app's slug (`omni-loop-invader`) and the marketplace names are constants in 
 ## Decisions
 
 1. **`init` installs the bin, not only the config.** Without `.omni-loop/bin/omni.mjs`, every skill
-   stops at its first step. `init` copies the bundle it runs from. Upgrading an existing bin is out
+   stops at its first step. `init` copies the bundle it runs from, and only a real bundle: a build-time
+   constant tells the bundle apart from source. Upgrading an existing bin is out
    of scope (`--force` overwrites it, nothing more).
 2. **`init` runs without a context.** `main()` loads the context (and so requires a config) before
    any command. `init` is the one command that runs before a config exists, so it is dispatched
@@ -150,11 +166,20 @@ The app's slug (`omni-loop-invader`) and the marketplace names are constants in 
    (`kit`, `repo`, `labels.autoCreate`, `commands`, `laws`), are written. The schema stays the one
    definition of every other value.
 7. **Nothing outside `.omni-loop/`.** Removing the loop from a repository is deleting one folder.
+8. **One line to install and set up: `npx github:vertuoza/vertuo-omni-loop init`.** This comes from a
+   `bin` field in this repository's root `package.json` that points at the bundle, now committed at
+   `kit/dist/omni.mjs` and kept equal to a fresh build by a test. It is
+   not a package published to a registry: fetching over git reuses the access every Vertuoza engineer
+   already has, and it needs no publishing pipeline. It always runs the default branch; pinning a tag
+   is a later concern. When `init` runs from the npx cache, it copies that bundle into the target's
+   `.omni-loop/bin/`, exactly as it does from a checkout.
 
 ## User stories
 
-- As an engineer adopting Omni Loop in a PHP repository, I run one command and get a valid config,
-  the bin and the labels, without installing anything JavaScript in my repository.
+- As an engineer adopting Omni Loop in any repository, I paste one line,
+  `npx github:vertuoza/vertuo-omni-loop init`, with nothing cloned or installed first.
+- As an engineer adopting Omni Loop in a PHP repository, that one line gets me a valid config, the
+  bin and the labels, without installing anything JavaScript in my repository.
 - As an agent running `init` without a terminal, I get a config with `null` for what I could not
   detect and a clear list of what to fill, never a hang on a prompt.
 - As an engineer who runs `init` a second time, nothing I already have is overwritten or recoloured.
@@ -171,7 +196,9 @@ In:
   `--preflight-full`.
 - Label reconciliation through `gh`.
 - The closing steps, with links.
-- The rebuilt bundle at `.omni-loop/bin/omni.mjs` in this repository, so the command exists here.
+- The one-line install: `kit/dist/omni.mjs` committed (removed from `.gitignore`), the root
+  `package.json` `bin` and `files` fields, the bundle marker in `kit/build.mjs`, and a test that the
+  committed bundle equals a fresh build.
 
 Out:
 - Installing the GitHub App or the plugin from code, editing branch protection, creating a
@@ -195,10 +222,21 @@ Out:
   it.
 - **Footprint:** after `init` on a clean fixture, `git status --porcelain` lists only paths under
   `.omni-loop/`.
+- **The committed bundle:** a test builds the bundle to a temporary file and compares it byte for
+  byte with `kit/dist/omni.mjs`, and checks that `package.json`'s `bin.omni` names that file, which
+  starts with `#!/usr/bin/env node`.
+- **The npx path** is checked once by hand per slice that changes it: `npx --yes <this checkout> init`
+  in a scratch git repository. The test suite never calls npm or the network.
 - The existing `kit/test/no-literals.test.mjs` and the bundle build keep passing. The closing-step
   output is asserted line by line.
 
 ## Risks
+
+- **A stale committed bundle** would install old code everywhere. The drift test fails `pnpm test`
+  whenever `kit/dist/omni.mjs` differs from a fresh build, so a kit change and its rebuilt bundle
+  land together.
+- **npx needs git access to a private repository.** It uses the person's own git credentials. Anyone
+  who can read `vertuoza/vertuo-omni-loop` can run it, and anyone else gets git's error.
 
 - **The App slug is baked into the bundle.** If the app is re-registered under another slug, the
   printed link is wrong until the bundle is rebuilt. That is accepted: it is one constant, and the
@@ -234,14 +272,22 @@ Out:
 8. The closing steps print the plugin install lines, the App install link, and the branch-protection
    link with the warning, plus the removal note. Only the slug and default branch vary with the
    repository.
-9. Outside a git repository, `omni init` exits 2 with one line saying so.
-10. **Live, on `vertuoza/vertuo-workflow-domain`** (the omni-loop-invader App installed on it by
+9. Outside a git repository, `omni init` exits 2 with one line saying so. Run from source (not the
+   bundle) where it would have to copy a bin, it exits 2, writes nothing, and names
+   `npx github:vertuoza/vertuo-omni-loop init`.
+10. `kit/dist/omni.mjs` is committed, equals a fresh `pnpm kit:build` byte for byte (a test), and is
+    the root `package.json`'s `bin.omni`. In a scratch git repository,
+    `npx --yes <path to this checkout> init` writes the config and the bin and prints the closing
+    steps, and the installed `.omni-loop/bin/omni.mjs` is byte-identical to `kit/dist/omni.mjs`.
+11. **Live, on `vertuoza/vertuo-workflow-domain`** (the omni-loop-invader App installed on it by
     hand):
     - Before `omni init`, a throwaway PR there shows the outbox check *skipped — omni-loop is not
       active on this repo*.
+    - The install is the one line `npx github:vertuoza/vertuo-omni-loop init`, run from that
+      repository's root after this PRD is merged, since npx runs the default branch.
     - After `omni init` is committed and merged into its default branch, a new PR shows the check
       evaluated: *skipped — omni-loop is not active on this PR* for a non-feature PR. That proves the
       base config was read.
     - Removing the loop afterwards is deleting `.omni-loop/` in one commit.
-11. **Live, on `vertuoza/vertuo-omni-loop` itself:** `omni init` keeps the existing config and bin
-    and creates the missing loop labels (`prd`, `pr:*`, `outbox:go`). A second run creates none.
+12. **Live, on `vertuoza/vertuo-omni-loop` itself:** `omni init`, run through this repository's shim,
+    keeps the existing config and the shim and creates the missing loop labels (`prd`, `pr:*`, `outbox:go`). A second run creates none.
