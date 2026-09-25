@@ -30,14 +30,15 @@ export const RAMPS = Object.freeze({
   K: ['#a8f5e2', '#2fc6a4', '#178a80', '#0b4d52'], // sea teal (the pirates' coat)
 });
 
-// Flat colours: never shaded, never outlined by the lit-side rule.
+// Flat colours: never shaded, never outlined by the lit-side rule. forge()'s `flat` recolours them.
 export const FLAT = Object.freeze({
   Q: '#ffffff', X: '#08070f',
-  1: '#ff3b5c', 2: '#ff7aa8', 3: '#b07cff', 4: '#5b7bff', // the Vertuoza stripes
+  1: '#ff3b5c', 2: '#ff7aa8', 3: '#b07cff', 4: '#5b7bff', // the Vertuoza stripes, a theme's stripe-1 to stripe-4
   e: '#ff2a4a', // Entropy eyes
   y: '#ffe680', // sparkle
 });
 
+const HEX = /^#[0-9a-f]{6}$/i;
 const OUTLINE_DARK = '#0b0a26';
 const INNER_LINE = 'k';
 
@@ -131,12 +132,16 @@ function components(grid, w, h) {
 
 /**
  * Builds a sprite. `draw(d)` paints materials with the painter API; the forge shades and outlines.
+ * `tint` swaps a material's ramp; `flat` swaps a flat colour for one `#rrggbb` (a workspace's
+ * theme passes its stripes as `1` to `4`), and an override that is not `#rrggbb` keeps the
+ * default, so a colour never breaks a sprite. With neither, every sprite forges as it always has.
  * @returns {{ w: number, h: number, pixels: (string | null)[] }}
  */
-export function forge(w, h, draw, { tint = {}, outline = true } = {}) {
+export function forge(w, h, draw, { tint = {}, flat = {}, outline = true } = {}) {
   const grid = makeGrid(w, h);
   draw(painter(grid, w, h));
   const ramp = (m) => tint[m] ?? RAMPS[m];
+  const flatColour = (m) => (HEX.test(flat[m]) ? flat[m] : FLAT[m]);
   const { id, boxes } = components(grid, w, h);
   const pixels = Array(w * h).fill(null);
   const same = (x, y, comp) => x >= 0 && y >= 0 && x < w && y < h && id[y][x] === comp;
@@ -144,7 +149,7 @@ export function forge(w, h, draw, { tint = {}, outline = true } = {}) {
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const c = grid[y][x];
     if (!c) continue;
-    if (c.m in FLAT) { pixels[y * w + x] = FLAT[c.m]; continue; }
+    if (c.m in FLAT) { pixels[y * w + x] = flatColour(c.m); continue; }
     if (c.m === INNER_LINE) continue; // resolved below, once its neighbours have colours
     let tone = c.t;
     if (tone === undefined) {
