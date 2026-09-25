@@ -100,7 +100,7 @@ recorded here per the slice's own instructions rather than in a separate porting
 ### Fix round 1 (wave 3 review)
 
 - The last `parsePlanSlices — blockedBy` test originally read this repository's own
-  `.omni-loop/delivery/inbox/0007-omni-loop-skills/plan.md` off disk. Flagged in review: a live
+  `.omni-loop/delivery/shipped/0007-omni-loop-skills/plan.md` off disk. Flagged in review: a live
   delivery plan moves from `inbox/` to `shipped/` the moment its PRD ships, so a test that reads it
   by path goes red on ship day for a reason that has nothing to do with `parsePlanSlices`. Replaced
   with an inline fixture carrying the same table shape (`id | slice | territory | blocked by |

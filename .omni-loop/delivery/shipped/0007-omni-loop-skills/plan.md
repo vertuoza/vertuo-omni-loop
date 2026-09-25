@@ -6,7 +6,7 @@
 
 Waves 1–5 are built by the loop run by hand. Wave 6 is built by `/omni:yolo 7`: that is the cut-over.
 Every slice ships through `omni status 7` (there is no CI gate yet). Any decision taken without asking
-is an outbox item in `.omni-loop/delivery/outbox/0007-omni-loop-skills/`.
+is an outbox item in `.omni-loop/delivery/shipped/0007-omni-loop-skills/outbox/`.
 
 ## Slices
 
