@@ -35,10 +35,16 @@ node .omni-loop/bin/omni.mjs board <prd>          # print it, once, before actin
 node .omni-loop/bin/omni.mjs board <prd> --json   # what you act on
 ```
 
-The wave is `frontier.takeable`: the lowest wave's `runnable` and `claimed-stale` slices, with any
-same-wave territory collision already deferred by the kit (`frontier.excluded`). Take it as given;
-do not re-derive blockers, staleness or collisions. `frontier.wave` null or `takeable` empty:
-nothing is takeable; print the board and stop. Slices `in-flight` are someone else's; leave them.
+The wave is `frontier.takeable`: the ids of the lowest wave's `runnable` and `claimed-stale`
+slices, with any same-wave territory collision already deferred by the kit (`frontier.excluded`).
+Read each id's state, `title`, `territory` and `pr` from its row in `slices[]`. Take it as given;
+do not re-derive blockers, staleness or collisions.
+
+**Awaiting merge.** An `in-flight` row whose `pr` is not a draft (`pr.isDraft` false) and no longer
+carries `labels.inProgress` is finished work a previous run never merged. Nobody is on it: it skips
+steps 2 and 3 and joins step 4 as `done`. Every other `in-flight` slice is someone else's; leave it.
+
+`takeable` empty and nothing awaiting merge: print the board and stop.
 
 ## 2. Claim every slice first
 
@@ -51,6 +57,10 @@ Before any subagent starts, `git fetch <remote>`, then, for each takeable slice,
   over: add `labels.inProgress` (subject to `/omni:pr`'s **Labels**) and rewrite its status comment,
   through `/omni:pr`'s marker recipe, with state `claimed` and the line "taken over from a stale
   claim".
+
+Claim mode leaves your checkout on the last slice branch it cut, and git refuses to check a branch
+out in a second worktree. Once every claim is made, run `git switch --detach`, so each subagent's
+worktree can take its own slice branch.
 
 ## 3. Dispatch, one subagent per slice, in a single message
 
@@ -71,7 +81,7 @@ A subagent that returns nothing usable counts as `red`, with "no result" as its 
 Run `node .omni-loop/bin/omni.mjs plan check <prd>` once. Red means a slice broke the plan; say so in
 the report, and carry on.
 
-Then take each `done` slice in board order. Each merge moves the feature branch, so read every
+Then take each `done` slice, and each slice awaiting merge, in board order. Each merge moves the feature branch, so read every
 sub-PR afresh; never trust an earlier look.
 
 1. **Base.** `gh pr view <n> --json baseRefName,isDraft,mergeable,labels`. The base must be the
@@ -82,9 +92,11 @@ sub-PR afresh; never trust an earlier look.
    (`node .omni-loop/bin/omni.mjs prd <prd>` prints it). Any other path is a **breach**: name it in
    the report and merge anyway. It is never fatal; it says the plan was wrong about the ground,
    and it is the first thing to read when a later sub-PR conflicts.
-3. **Mergeable.** `UNKNOWN`: look again in a minute. `CONFLICTING`: in a worktree on the slice
-   branch, `git merge <remote>/<feature branch>`, resolve, run the preflight (`commands.preflightFull`,
-   or `commands.preflight` when null), push, and count one attempt. A conflict you cannot resolve
+3. **Mergeable.** `UNKNOWN`: look again in a minute. `CONFLICTING`: work in a detached worktree,
+   never on the slice branch itself. Run `git fetch <remote>`, then `git worktree add --detach <path>
+   <remote>/<slice branch>` (`<path>` under `worktrees`). In it, `git merge <remote>/<feature branch>`,
+   resolve, run the preflight (`commands.preflightFull`, or `commands.preflight` when null),
+   `git push <remote> HEAD:<slice branch>`, then `git worktree remove <path>`. Count one attempt. A conflict you cannot resolve
    with confidence goes to one fresh subagent, given both slices' intent.
 4. **Ready.** Still a draft: follow `/omni:pr`'s **sub-PR lifecycle** for it; that skill owns
    `gh pr ready` and runs it once the preflight is green. It never becomes ready: do not merge it.
@@ -98,14 +110,22 @@ sub-PR afresh; never trust an earlier look.
 | `stopped` | leave the draft. Report the law or principles it named. Its siblings still merge. |
 | `blocked` | leave the draft. Report its human-action item. |
 
+For every slice not merged, you do this, not the subagent, which has already returned: remove
+`labels.inProgress` and rewrite its status comment through `/omni:pr`'s marker recipe with state
+`stuck` and the reason (the red step, the law or principles, or the human-action item). A stuck
+slice keeps `labels.needsFix`. A stopped or blocked one waits for a person and gets no label.
+
 A slice that is not merged holds only what depends on it; the rest of the wave goes on.
 
 ## 5. Check the wave together
 
-Slices that each passed alone can fail together. In a worktree on the freshly fetched feature branch:
+Slices that each passed alone can fail together. Work in a detached worktree of the feature branch:
+run `git fetch <remote>`, then `git worktree add --detach <path> <remote>/<feature branch>`.
 
 1. **Adopt.** Under `--in-wave`, do-work leaves medium items open so parallel slices do not race on
-   the ledger. For every item a merged slice returned with rank `medium`, run
+   the ledger. For every item a merged slice returned with rank `medium`, run the command below. A slice that was
+   awaiting merge returned nothing this run, so use the open medium item files for that slice
+   listed by `node .omni-loop/bin/omni.mjs prd <prd>`. The command is
    `node .omni-loop/bin/omni.mjs adopt <file>`. Exit 1 (the ledger refused it): leave that item
    open and name the refusal in the report. Commit the ledger and the removed files together:
    `chore(delivery): wave <n> of PRD <prd> — adopt <k> medium decisions`, with your session's
@@ -113,7 +133,7 @@ Slices that each passed alone can fail together. In a worktree on the freshly fe
 2. **Check.** Run the preflight, every command in `commands.checks`, then
    `node .omni-loop/bin/omni.mjs check all`. Red: fix it on the feature branch itself; each fix
    counts toward `limits.attempts`. Still red after that: the wave is stuck; say which step.
-3. Push the feature branch to `<remote>`.
+3. `git push <remote> HEAD:<feature branch>`, then `git worktree remove <path>`.
 4. **The feature PR.** Tick each merged slice in its **Slices** checklist (`#<sub-PR> <title>`), in
    the body shape `/omni:pr` owns (`gh pr edit <feature PR> --body-file <file>`). Rewrite its status
    comment through `/omni:pr`'s marker recipe: state `merging slices` (or `stuck`, naming the red

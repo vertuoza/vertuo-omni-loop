@@ -57,6 +57,14 @@ wave, finishing the feature PR) belongs to `/omni:yolo`.
 ## Added
 
 - The takeover of a `claimed-stale` slice, and "Slices `in-flight` are someone else's".
+- **Awaiting merge** (resume): an `in-flight`, non-draft sub-PR without `labels.inProgress` is
+  finished work a previous run never merged; it joins the merge step, and its medium items are
+  read from the open files `omni prd` lists.
+- **Branch lock:** after the claims the orchestrator runs `git switch --detach`, and conflict and
+  wave-check work happens in a `git worktree add --detach` worktree pushed with `HEAD:<branch>`,
+  because git refuses a branch another worktree holds.
+- The orchestrator removes `labels.inProgress` from every slice it does not merge, and sets its
+  status comment to `stuck` with the reason.
 - The nesting line: at most three levels, so do-work never dispatches.
 - A stop when the feature branch or feature PR is missing: follow `/omni:plan` first.
 - The Report's tail: the wave's check, the high items left open, what the board still holds.
