@@ -92,3 +92,14 @@ Source: `.claude/skills/vertuo-yolo-fix/rework.mjs` @ `vertuo-ai-domain@c4a21012
 
 `pnpm vitest run kit/lib/policy/rework.test.mjs kit/test/no-literals.test.mjs` — 26/26 pass (25 in
 `rework.test.mjs`, 1 in `no-literals.test.mjs`).
+
+## Final review fixes
+
+- `reworkSliceId`, `deriveRework` and `planRework` take `branches` (`ctx.config.branches`; config's
+  own defaults when omitted, read from `ConfigSchema`, never restated). The rework id is
+  `branches.rework` with `{item}`; its branch is `branches.slice` with `{topic}` (read back from the
+  feature branch through `branches.feature`) and `{slice}` = the rework id. Default config
+  reproduces upstream's `fix-<item>` and `<feature>--fix-<item>` byte for byte (every ported
+  assertion unchanged). New: a feature branch the feature template cannot read a topic from is
+  refused rather than guessed. Tests: "names its id and branch from the configured branch
+  templates", "refuses a feature branch the feature template cannot read a topic from".

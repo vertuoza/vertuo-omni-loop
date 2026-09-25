@@ -32,6 +32,7 @@
  * again after a closure.
  */
 // Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-yolo-fix/rework.mjs — changes in kit/porting/policy--rework.md.
+import { ConfigSchema } from '../config.mjs';
 import { parsePlanSlices, sharedGround } from '../inbox/territory.mjs';
 import { parseOutboxItem } from '../outbox/outbox.mjs';
 import { parseSettledEntries } from '../outbox/settle.mjs';
@@ -91,9 +92,35 @@ export function chosenOptionOf(answerText, options) {
   };
 }
 
-/** `fix-<item id>` — one rework per drifted item, and the id names the item it closes. */
-export function reworkSliceId(itemId) {
-  return `fix-${itemId}`;
+/** The branch templates when none are passed: config's own defaults, never restated here. */
+const DEFAULT_BRANCHES = Object.freeze(ConfigSchema.shape.branches.parse(undefined));
+
+function fill(template, values) {
+  return template.replace(/\{(topic|slice|item)\}/g, (whole, key) => values[key] ?? whole);
+}
+
+/** The `{topic}` a feature branch was cut for, read back through the `branches.feature` template. */
+function topicOf(featureBranch, featureTemplate) {
+  const [head, tail = ''] = featureTemplate.split('{topic}');
+  if (!featureTemplate.includes('{topic}') || !featureBranch.startsWith(head) || !featureBranch.endsWith(tail)) return null;
+  const topic = featureBranch.slice(head.length, featureBranch.length - tail.length);
+  return topic || null;
+}
+
+/** `branches.rework` with `{item}` filled — `fix-<item id>` by default: one rework per drifted item,
+ * and the id names the item it closes. */
+export function reworkSliceId(itemId, branches = DEFAULT_BRANCHES) {
+  return fill(branches.rework, { item: itemId });
+}
+
+/** The rework's own branch: `branches.slice` with the feature branch's `{topic}` and the rework id
+ * as `{slice}` — `<feature branch>--fix-<item id>` by default. */
+export function reworkBranch(featureBranch, sliceId, branches = DEFAULT_BRANCHES) {
+  const topic = topicOf(featureBranch, branches.feature);
+  if (topic === null) {
+    throw new Error(`feature branch "${featureBranch}" does not match branches.feature "${branches.feature}"`);
+  }
+  return fill(branches.slice, { topic, slice: sliceId });
 }
 
 /**
@@ -106,9 +133,10 @@ export function reworkSliceId(itemId) {
  * says so and the declaration is whatever the bound named — never a guess.
  *
  * @param {{ id: string, itemText: string, answerText: string, fields: Record<string, string> }} entry
- * @param {{ planSlices?: Array<{ id: string, territory: string[] }>, featureBranch?: string }} [context]
+ * @param {{ planSlices?: Array<{ id: string, territory: string[] }>, featureBranch?: string, branches?: { feature: string, slice: string, rework: string } }} [context]
+ *   `branches` is `ctx.config.branches` (config's defaults when omitted).
  */
-export function deriveRework(entry, { planSlices = [], featureBranch = null } = {}) {
+export function deriveRework(entry, { planSlices = [], featureBranch = null, branches = DEFAULT_BRANCHES } = {}) {
   const parsed = parseOutboxItem(entry.itemText, { file: `settled entry ${entry.id}` });
   if (!parsed.ok) {
     throw new Error(
@@ -122,8 +150,9 @@ export function deriveRework(entry, { planSlices = [], featureBranch = null } = 
   const { chosenOption, reason } = chosenOptionOf(entry.answerText, item.sections.options);
   const territory = [...new Set([...(planSlice?.territory ?? []), ...namedPaths(bound)])];
 
+  const id = reworkSliceId(entry.id, branches);
   return {
-    id: reworkSliceId(entry.id),
+    id,
     itemId: entry.id,
     slice: item.slice,
     rank: item.rank,
@@ -141,7 +170,7 @@ export function deriveRework(entry, { planSlices = [], featureBranch = null } = 
     unknownPlanSlice: planSlice === null,
     wave: 1,
     ...(featureBranch
-      ? { base: featureBranch, branch: `${featureBranch}--${reworkSliceId(entry.id)}` }
+      ? { base: featureBranch, branch: reworkBranch(featureBranch, id, branches) }
       : {}),
   };
 }
@@ -169,15 +198,16 @@ export function assignWaves(reworks) {
  * With nothing drifted it returns no rework and a report that says so — the command opens no pull
  * request at all.
  *
- * @param {{ settledText?: string, planMarkdown?: string, prd: number, featureBranch: string, markers: object }} input
+ * @param {{ settledText?: string, planMarkdown?: string, prd: number, featureBranch: string, markers: object, branches?: object }} input
+ *   `branches` is `ctx.config.branches`; omitted, config's defaults apply.
  */
-export function planRework({ settledText = '', planMarkdown = null, prd, featureBranch, markers }) {
+export function planRework({ settledText = '', planMarkdown = null, prd, featureBranch, markers, branches = DEFAULT_BRANCHES }) {
   const settledCount = parseSettledEntries(settledText, markers).length;
   const drifted = driftedEntries(settledText, markers);
   const planSlices = planMarkdown ? parsePlanSlices(planMarkdown) : [];
 
   const reworks = assignWaves(
-    drifted.map((entry) => deriveRework(entry, { planSlices, featureBranch })),
+    drifted.map((entry) => deriveRework(entry, { planSlices, featureBranch, branches })),
   );
 
   return {

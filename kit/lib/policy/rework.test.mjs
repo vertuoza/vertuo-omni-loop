@@ -166,6 +166,27 @@ describe('A feature that drifted is brought back in line', () => {
       expect(result.report.join('\n')).not.toMatch(/into main/);
     });
 
+    it('names its id and branch from the configured branch templates', () => {
+      const result = planRework({
+        settledText: settledLedger([DRIFTED]),
+        planMarkdown: PLAN,
+        prd: PRD,
+        featureBranch: 'feature/agent-outbox',
+        markers: MARKERS,
+        branches: { feature: 'feature/{topic}', slice: 'slice/{topic}/{slice}', rework: 'rework-{item}' },
+      });
+
+      expect(result.reworks[0].id).toBe('rework-s5-01-default-country');
+      expect(result.reworks[0].base).toBe('feature/agent-outbox');
+      expect(result.reworks[0].branch).toBe('slice/agent-outbox/rework-s5-01-default-country');
+    });
+
+    it('refuses a feature branch the feature template cannot read a topic from', () => {
+      expect(() =>
+        planRework({ settledText: settledLedger([DRIFTED]), planMarkdown: PLAN, prd: PRD, featureBranch: 'main', markers: MARKERS }),
+      ).toThrow(/does not match branches\.feature "feat\/\{topic\}"/);
+    });
+
     it('raises no item of its own — it acts on answers already given', () => {
       const result = planRework({
         settledText: settledLedger([DRIFTED]),
