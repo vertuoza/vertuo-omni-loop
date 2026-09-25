@@ -93,6 +93,7 @@ const PROFILES = [
     },
     bearsOn: 'P-PRODUCT-1',
     floors: true,
+    forms: '13 blank',
   },
   {
     name: 'claudeMdInvariants',
@@ -100,11 +101,13 @@ const PROFILES = [
     extra: { 'CLAUDE.md': '## Invariants\n\n- x (ADR-0004)\n', 'docs/adr/0004-tenants.md': '# 4\n' },
     bearsOn: 'ADR-0004',
     floors: true,
+    // The decision records live outside the front door, so `kb init` writes the decisions form as a pointer.
+    forms: '1 pointer, 12 blank',
   },
-  { name: 'none', config: 'kit: 1\nrepo:\n  slug: acme/c\n', extra: {}, bearsOn: 'none', floors: false },
+  { name: 'none', config: 'kit: 1\nrepo:\n  slug: acme/c\n', extra: {}, bearsOn: 'none', floors: false, forms: '13 blank' },
 ];
 
-describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors }) => {
+describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors, forms }) => {
   it('checks clean, goes red on an item, settles, goes green, ships', async () => {
     const { root } = makeRepo({
       git: true,
@@ -116,7 +119,9 @@ describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors }) =>
       },
     });
 
-    expect(await main(['check', 'all'], { cwd: root, ...quiet() })).toBe(0);
+    const checked = [];
+    expect(await main(['check', 'all'], { cwd: root, stdout: { write: (s) => checked.push(s) }, stderr: { write() {} } })).toBe(0);
+    expect(checked.join('')).toMatch(/^check kb — 13 form\(s\): 13 missing; 13 warning\(s\)\.$/m);
     expect(await main(['status', '42'], { cwd: root, ...quiet() })).toBe(1);
     expect(
       await main(
@@ -163,6 +168,21 @@ describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors }) =>
       }),
     ).toBe(0);
     expect(prdOut.join('')).toMatch(/state: shipped/);
+  });
+
+  it('lays down the forms with kb init, commits them, and check all stays green with the kb line', async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: { '.omni-loop/config.yml': config, [`${D}/inbox/0042-a/spec.md`]: SPEC_42, ...extra },
+    });
+    expect(await main(['kb', 'init'], { cwd: root, ...quiet() })).toBe(0);
+    execFileSync('git', ['add', '-A'], { cwd: root });
+    execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'forms'], { cwd: root });
+
+    const out = [];
+    expect(await main(['check', 'all'], { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write() {} } })).toBe(0);
+    expect(out.join('')).toMatch(new RegExp(`^check kb — 13 form\\(s\\): ${forms}; \\d+ warning\\(s\\)\\.$`, 'm'));
+    expect(out.join('')).toMatch(/^check knowledge — /m);
   });
 
   it(`floors a medium item bearing on "${bearsOn}" to high when floors is ${floors}`, async () => {
