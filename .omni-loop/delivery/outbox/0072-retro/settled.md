@@ -1885,3 +1885,392 @@ A constant: which lessons one function gathers.
 ```
 
 <!-- /omni-outbox-settled: s7-04-issue-lesson-gathers-cited-lessons -->
+
+<!-- omni-outbox-settled: s8-01-day-14-run-only-where-served -->
+
+## s8-01-day-14-run-only-where-served — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-01-day-14-run-only-where-served
+prd: 72
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+The retro now waits fourteen days and then looks again. Should every copy of the retro built for a test wait too, or only the one the app really runs?
+
+## The decision, in plain words
+
+Only the retro the app runs waits and looks again after fourteen days. A copy built for another part's test stops after its first look, so those tests stay exactly as they were.
+
+## The intro, for fun
+
+Some tests would rather not wait two weeks for their answer.
+
+## The punchline, for fun
+
+So only the real retro keeps the appointment; the rehearsals go home early.
+
+## The options, in plain words
+
+A. Only the retro the app runs waits fourteen days; copies built for other tests stop after the first look, the option built.
+B. Every copy waits; each test that runs the whole retro lets the wait pass at once and expects the second look, and the saved example retro gains its after-merge section.
+
+## What I had to decide
+
+Adding `step.sleepUntil` to the function makes every `@inngest/test` run that does not mock the sleep step hang. `createRetro` is run whole by tests outside s8's territory: `kinds/ci.test.mjs` (s3), `kinds/churn.test.mjs` (s4), `narrate.test.mjs` (s6), `issues.test.mjs` (s7) and `test/prd-50.test.mjs` (s2). With the day-14 run on in all of them, narrate's call count and the PRD 50 golden `retro.md` would change too.
+
+## What I did meanwhile
+
+`createRetro` takes `followUp` (default `false`); the served `retro` passes `followUp: true`, and `retro.test.mjs` pins that the served function sleeps until the merge plus fourteen days (its GitHub stubbed through `installationOctokit`). No file outside the territory changed.
+
+## What it costs to change later
+
+A constant: flip the default to `true`, then mock the `sleep-day-14` step in the five tests above and update narrate's call count and the PRD 50 golden file.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a reviewer prefers one default for every caller over a switch that only tests leave off.
+
+```
+
+<!-- /omni-outbox-settled: s8-01-day-14-run-only-where-served -->
+
+<!-- omni-outbox-settled: s8-02-day-14-after-the-first-retro-pr -->
+
+## s8-02-day-14-after-the-first-retro-pr — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-02-day-14-after-the-first-retro-pr
+prd: 72
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+Where does the second look, fourteen days later, go when the first retro pull request is no longer open?
+
+## The decision, in plain words
+
+While the first retro pull request is open, the second look is added to it. Once it has been merged, or closed without merging, a new pull request opens from the main line as it stands, holding the whole retro again with the new section.
+
+## The intro, for fun
+
+The follow-up visit arrives to find the first appointment already closed.
+
+## The punchline, for fun
+
+So it books a fresh room and brings the whole file along.
+
+## The options, in plain words
+
+A. Open a new pull request from the main line whenever the first is no longer open, merged or closed, the option built.
+B. When the first was closed without merging, add nothing and open nothing.
+C. Start the new branch from the merged feature instead, which clashes with the retro files already merged.
+
+## What I had to decide
+
+The spec says the day-14 run commits to the same branch while its PR is open and opens `<branch>-day-14` once it is merged. It does not say where that branch starts, nor what a first PR closed without merging leads to.
+
+## What I did meanwhile
+
+`publishRetro` lists the PRs from the `branches.retro` branch: an open one (or none at all) keeps the day-14 commit there. Otherwise it cuts `<branch>-day-14` from the head of `repo.defaultBranch` and writes the merge run's record again beside the day-14 one, so the retro is whole even when the first PR was never merged. On a replay, a merged PR that already holds the branch's head is not opened again.
+
+## What it costs to change later
+
+A constant in `publish.mjs`: which PR states count as gone, and the ref the new branch is cut from.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a first retro pull request closed without merging means the retro was refused, so the second look should open nothing.
+
+```
+
+<!-- /omni-outbox-settled: s8-02-day-14-after-the-first-retro-pr -->
+
+<!-- omni-outbox-settled: s8-03-the-model-at-day-14 -->
+
+## s8-03-the-model-at-day-14 — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-03-the-model-at-day-14
+prd: 72
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+Fourteen days after the merge, should the model rewrite the words of the whole retro, or only write about what is new?
+
+## The decision, in plain words
+
+The model is asked again about the whole retro, the first findings and the new ones, and its words replace the first ones. When it gives nothing back, because it is down or has no key, the words from the first look stay.
+
+## The intro, for fun
+
+Two weeks later the pen is handed back for a second draft.
+
+## The punchline, for fun
+
+If the ink has dried up, the first draft stays on the page.
+
+## The options, in plain words
+
+A. Ask again about the whole retro, keeping the first words when nothing comes back, the option built.
+B. Ask only about the new findings, and keep the first words for the rest.
+C. Do not ask the model at all the second time.
+
+## What I had to decide
+
+`render` takes one set of prose for the whole `retro.md`, and `retro.json` keeps no prose, so the day-14 run must either ask again about every finding or carry the merge run's prose forward. The spec only says the same steps run again.
+
+## What I did meanwhile
+
+The day-14 `narrate` and `guard` steps get a sheet holding both runs' findings. With no prose back, the merge run's accepted prose is used, and the day-14 record says why its own is missing.
+
+## What it costs to change later
+
+A constant in `retro.mjs`: which sheet the day-14 `narrate` step is given.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a reviewer wants the first look's words kept exactly as they read at the merge.
+
+```
+
+<!-- /omni-outbox-settled: s8-03-the-model-at-day-14 -->
+
+<!-- omni-outbox-settled: s8-04-later-findings-numbered-after -->
+
+## s8-04-later-findings-numbered-after — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-04-later-findings-numbered-after
+prd: 72
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+The findings of the second look are of the most severe kind, but the first findings already carry numbers that their issues show. Where do the new ones go in the list?
+
+## The decision, in plain words
+
+The new findings are numbered after the first ones and listed after them, so every finding keeps the number its issue already shows. The list is worst first within each look, not across both.
+
+## The intro, for fun
+
+Late arrivals can outrank the whole queue they walk into.
+
+## The punchline, for fun
+
+They still take a ticket at the back, so no seat has to change.
+
+## The options, in plain words
+
+A. Number and list the new findings after the first ones, the option built.
+B. Sort the whole list worst first and renumber every finding, rewriting the open issues to match.
+
+## What I had to decide
+
+`detect` numbers each run's findings from F1, and `render` lists the findings of every run in run order, so both runs would carry an F1. Renumbering across runs, worst first, would change the refs already written in the merge run's issues.
+
+## What I did meanwhile
+
+The day-14 facts step numbers its findings on from the merge run's count; `render` is unchanged.
+
+## What it costs to change later
+
+A constant in `retro.mjs`. Listing worst first across runs needs `render` (s2's file) to sort, and the open issues to be rewritten.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the spec's worst-first order was meant across the two looks.
+
+```
+
+<!-- /omni-outbox-settled: s8-04-later-findings-numbered-after -->
+
+<!-- omni-outbox-settled: s8-05-what-ties-a-bug-to-the-prd -->
+
+## s8-05-what-ties-a-bug-to-the-prd — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-05-what-ties-a-bug-to-the-prd
+prd: 72
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+Fourteen days after the merge, which bug reports count against the request, when is one fixed, and when is its fix tied to code that was rewritten again and again?
+
+## The decision, in plain words
+
+A bug report counts when it carries the bug label, was opened within the fourteen days and names the request's number, and it is fixed when a change merged into the main line in those days says it closes it. That fix is tied to the rewritten code when the lines it changed fall inside such a stretch, or when it changed that file and the code host did not say which lines.
+
+## The intro, for fun
+
+Every bug report claims a parent, and the retro checks the paperwork.
+
+## The punchline, for fun
+
+It wants the number in writing, and a fix that says so out loud.
+
+## The options, in plain words
+
+A. A fix is a merged change that says it closes the bug, tied to the rewritten code by the lines it changed, the option built.
+B. Also count changes linked to the bug by hand on its page, reading each bug's history.
+C. Tie a fix to the rewritten code by the file alone, whatever lines it changed.
+
+## What I had to decide
+
+The spec counts `bug` issues whose title or body names `#<prd>`, created within fourteen days of the merge, fixed or not, and marks a fix touching a churn range as linked. It does not say how a fix is found, nor how touching a range is measured.
+
+## What I did meanwhile
+
+A fix is a pull request merged into `repo.defaultBranch` within the window whose title or body closes the bug with GitHub's closing words (`fixes #40`, `resolves owner/repo#40`, or the issue's URL). Touching compares the fix's change blocks, on its own base, with each churn range of the same file (or of the file it was renamed from); a file GitHub sent without a patch is linked by the file alone. A bug counts as closed when it was closed within the window.
+
+## What it costs to change later
+
+A small change in `kinds/after-merge.mjs` only: reading each bug's timeline to add fixes linked by hand, or dropping the line check for a file check.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The fix's line numbers are read on its own base, which may have moved since the merge: a range can be missed, or matched, by a few lines.
+- (author) A fix linked only from the issue's sidebar, or merged into a branch other than the default one, is not found.
+
+```
+
+<!-- /omni-outbox-settled: s8-05-what-ties-a-bug-to-the-prd -->
