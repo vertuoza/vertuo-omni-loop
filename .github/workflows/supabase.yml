@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
-        with: { version: latest }
+        with: { version: 2.117.0 }   # pinned: `latest` asks the GitHub API, which rate-limits
       - run: supabase db start      # applies supabase/migrations, then supabase/seed.sql
       - name: The web UI reads the galaxy, only the sync writes it
         # The migrations must grant this themselves (config.toml › auto_expose_new_tables = false).
@@ -58,6 +58,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
-        with: { version: latest }
+        with: { version: 2.117.0 }   # pinned: `latest` asks the GitHub API, which rate-limits
       - run: supabase link --project-ref "${{ vars.SUPABASE_PROJECT_ID }}"
       - run: supabase db push       # migrations only; the demo seed never reaches production
