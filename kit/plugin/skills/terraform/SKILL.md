@@ -111,9 +111,11 @@ written and say so under **Reviewer focus** in the pull request.
 
    Every step below works in that worktree. Never commit on the default branch.
 3. Run `node .omni-loop/bin/omni.mjs kb init`, for a repository installed before the forms existed.
-   It writes every missing form blank from the kit's template, the front door's `README.md` (the
-   front door is the parent of `paths.playbook`), and the three empty `product/` registers when the
-   front door holds the registers and they are missing. It prints one `wrote <path>` line per file,
+   It writes every missing form blank from the kit's template (the decisions form as a pointer when
+   `paths.adr` is outside the front door's `adr/`, the glossary form as one when `paths.glossary` is
+   set), the front door's `README.md` (the front door is the parent of `paths.playbook`), and the
+   three empty `product/` registers when the front door holds the registers and they are missing.
+   It prints one `wrote <path>` line per file,
    then `kb init — wrote <n> file(s); <m> already there, left as they were.` It never changes a file
    that exists.
 4. Run `node .omni-loop/bin/omni.mjs kb status --json` and keep it: the map, derived every time.
@@ -183,6 +185,24 @@ A page that already answers a question is pointed at, never copied, so it keeps 
   `points-to: <the page>`, or a folder with `index: <the page to read first>` when it has one;
   `evidence:` the page (or the index) at its hash; `terraformed: <today>`. Its body is the title and
   the opener alone: a pointer form holds no sections.
+
+  ```markdown
+  ---
+  form: decisions
+  form-version: 1
+  state: pointer
+  points-to: <the folder>
+  index: <the page to read first in it>
+  evidence:
+    - <the index page>@<hex>
+  terraformed: <YYYY-MM-DD>
+  ---
+
+  # Decision records
+
+  Use this page when recording a decision about how this repository is built, or looking one up.
+  ```
+
 - **A page answers one section:** its body is one line, `See: <path>` or `See: <path>#<anchor>`,
   the anchor as GitHub derives it from the heading, and its marker says `by: terraform`. The page
   goes under `evidence:`.
@@ -218,8 +238,8 @@ A page that already answers a question is pointed at, never copied, so it keeps 
     environment. Such a command is never written as verified: point at where it is defined
     (`See: <the workflow file>`), or ask.
   - A command that changes tracked files (a formatter, a code generator) leaves the tree as it found
-    it: `git status --porcelain` shows only your forms before you go on; `git restore <path>` the
-    rest.
+    it: before you go on, `git status --porcelain` shows only the files this run wrote;
+    `git restore <path>` the rest.
   - A command that runs longer than a few minutes runs in the background (Bash
     `run_in_background: true`); act when it wakes you.
 - **Front matter.** A form whose sections hold any text, `See:` line or question is
@@ -234,8 +254,8 @@ A page that already answers a question is pointed at, never copied, so it keeps 
 
 What the evidence cannot show becomes a question, never a guess.
 
-- One `TODO(human): <question>` line per question, in the section it belongs to. Its marker keeps no
-  `by:`: the section is the person's to answer.
+- One `TODO(human): <question>` line per question, in the section it belongs to. Its marker gains no
+  `by:`: the person who answers it marks it `by: human`.
 - A section holding only questions reads `[hole]`: the kit default applies meanwhile, so a hole never
   blocks delivery. A section may hold proven text and a question side by side; it then reads as the
   repository's text, and the question still counts.
