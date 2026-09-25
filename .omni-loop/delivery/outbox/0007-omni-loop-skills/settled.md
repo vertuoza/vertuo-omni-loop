@@ -1690,3 +1690,213 @@ A caller still using the old input-file spelling gets a plain usage message nami
 ```
 
 <!-- /omni-outbox-settled: s13-01-item-new-json-shape-and-input-flag-rename -->
+
+<!-- omni-outbox-settled: s9-01-gate-red-stays-draft -->
+
+## s9-01-gate-red-stays-draft — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s9
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s9-01-gate-red-stays-draft
+prd: 7
+slice: s9
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 5
+---
+
+## The question, in plain words
+
+When the build finishes but questions are still open, should the finished work be put up for review as ready, or stay a draft?
+
+## The decision, in plain words
+
+It stays a draft, with every open question posted on it. It becomes ready only once nothing is open and the work has been filed as shipped.
+
+## The options, in plain words
+
+A. Stay draft while the gate is red; ready only after ship (built).
+B. Mark ready with the gate red, as upstream did, and ship later in yolo-fix; rule 7 would then apply to the merge, not to ready.
+C. Mark ready with the gate red but add the needs-fix label so nobody merges it.
+
+## What I had to decide
+
+Upstream yolo marked the feature PR ready and stopped with the outbox check red, as its expected end state. Spec section 2.1 rule 7 (ship before ready) says ready comes only after omni ship, which refuses while items are open. Spec section 2's table row for yolo first said it ends ready with the gate red; commit ee15122 aligned it with rule 7.
+
+## What I did meanwhile
+
+The skill leaves the feature PR in draft when omni status is red, posts the questions with omni comment --pr, and reports that a person answers on the PR then runs yolo-fix. gh pr ready runs only on the green path, after ship is committed and pushed.
+
+## What it costs to change later
+
+Low: one paragraph of skill prose. The only effect is whether CI runs on the feature PR before the questions are answered.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Spec section 2's yolo row contradicted rule 7 until ee15122; upstream's ready-with-a-red-gate remains the alternative a reviewer may prefer. (author)
+- A draft PR gets no CI run, so the feature is graded only by the local preflight until yolo-fix ships it. (author)
+
+```
+
+<!-- /omni-outbox-settled: s9-01-gate-red-stays-draft -->
+
+<!-- omni-outbox-settled: s9-02-default-branch-conflict-to-a-person -->
+
+## s9-02-default-branch-conflict-to-a-person — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s9
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s9-02-default-branch-conflict-to-a-person
+prd: 7
+slice: s9
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 5
+---
+
+## The question, in plain words
+
+When the finished work clashes with changes made meanwhile on the main line, should the robot sort out the clash itself or hand it to a person?
+
+## The decision, in plain words
+
+It sorts out clashes it is confident about, and hands any other to a person, leaving the work as a draft marked stuck.
+
+## The options, in plain words
+
+A. Resolve when confident, otherwise abort and hand to a person (built).
+B. Always abort on any conflict and hand to a person.
+C. Always resolve, as upstream did, and only go stuck when the preflight stays red.
+
+## What I had to decide
+
+Upstream yolo always merged the default branch into the feature branch at the finish and resolved any conflict inline. The pr skill resolves a conflicting PR itself, but leaves a merely behind PR into the default branch to a person. The dispatch for this slice said conflicts go to a person.
+
+## What I did meanwhile
+
+The finish step merges the default branch only when the feature branch is behind; a conflict it cannot resolve with confidence is aborted and the feature PR takes the pr skill's Stuck path naming the conflicting files.
+
+## What it costs to change later
+
+Low: one step of prose; nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Confident is a judgement call; there is no kit rule for it. (author)
+
+```
+
+<!-- /omni-outbox-settled: s9-02-default-branch-conflict-to-a-person -->
+
+<!-- omni-outbox-settled: s9-03-gate-without-changes -->
+
+## s9-03-gate-without-changes — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s9
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s9-03-gate-without-changes
+prd: 7
+slice: s9
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 5
+---
+
+## The question, in plain words
+
+Before filing the work as shipped, should the final check also look for risky changes nobody explained, or only for open questions?
+
+## The decision, in plain words
+
+It looks only for open questions and for decisions that still need rework. Risky changes are already checked slice by slice while each piece is built.
+
+## The options, in plain words
+
+A. Gate on open items and unreworked drift only (built).
+B. Gate with the changes range too, so unaccounted risky changes hold the ready step.
+
+## What I had to decide
+
+omni status can also grade unaccounted risky changes against the default branch (--changes or --base). Spec rule 7 names only open items and unreworked drift. Each slice runs omni check coverage before its sub-PR.
+
+## What I did meanwhile
+
+The gate is omni status with no range flag.
+
+## What it costs to change later
+
+Low: adding a flag to one command line in the skill.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the CI outbox workflow (not built yet) will pass a range, which would make the local gate and CI disagree. (author)
+
+```
+
+<!-- /omni-outbox-settled: s9-03-gate-without-changes -->
