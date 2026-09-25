@@ -4,6 +4,7 @@ import type { GalaxyView } from '@omni/galaxy';
 import { randomHero, type Hero } from '@omni/sprites';
 import { drawFrame, layoutMap, neighbour, type FrameState, type SceneName } from './scenes';
 import { useForm } from './form';
+import { useFullscreen } from './fullscreen';
 import { frameFor, gridFor, pagesFor, turnPage } from './grid';
 import { planetAt, Screen, type GridPoint, type ScreenInfo } from './Screen';
 import { Handheld, Lens } from './Handheld';
@@ -442,9 +443,14 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   }, [view, fleets, active, layout, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, openItem]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
+  // Fullscreen hears every key first (and every click and touch press on its own): the first press
+  // of the page load asks for it, F toggles it, and the Esc that leaves it is never also B.
+  const fullscreen = useFullscreen();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const modified = e.metaKey || e.ctrlKey || e.altKey;
+      if (fullscreen({ kind: 'key', key: e.key, scene: uiRef.current.scene, modified, repeat: e.repeat })) return e.preventDefault();
+      if (modified) return;
       // Let Space and Enter activate a focused button natively; the button calls `act` itself.
       if (e.target instanceof Element && e.target.closest('button') && (e.key === ' ' || e.key === 'Enter')) return;
       unlock();
@@ -473,7 +479,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [act, leave, nameAction, nameDone, toggleSound]);
+  }, [act, fullscreen, leave, nameAction, nameDone, toggleSound]);
 
   // The title cycles its attract phases.
   const [, tick] = useState(0);
