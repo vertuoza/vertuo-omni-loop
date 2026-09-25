@@ -1,17 +1,23 @@
 'use client';
-// The galaxy map's text layer: the HUD, the sector labels, the selected planet's tag and its dialog.
+// The galaxy map's text layer: the HUD, the sector labels, the selected planet's tag and its dialog,
+// laid out for the grid the map is drawn on (map.css keeps each grid's lines).
 import type { GalaxyView } from '@omni/galaxy';
+import { useScreen } from '../Screen';
 import { FleetSprite } from '../Sprite';
 import { fleet, ROMAN } from '../fleets';
-import { W, type MapSlot } from './common.ts';
+import type { MapSlot } from './common.ts';
 import { Pips, StateChip } from './common.tsx';
 import './common.css';
 import './map.css';
 
 export function MapOverlay({ view, layout, sel, onLand }: { view: GalaxyView; layout: MapSlot[]; sel: number; onLand: () => void }) {
+  const { grid } = useScreen();
   const p = view.planets[sel];
-  const colW = W / Math.max(1, view.sectors.length);
+  const colW = grid.w / Math.max(1, view.sectors.length);
   const slot = layout.find((s) => s.index === sel);
+  // The tag is centred under its planet, and kept whole on the screen: its type is 8px a character.
+  const half = p ? (String(p.prd).length + 1) * 4 + 1 : 0;
+  const tagX = slot ? Math.min(Math.max(slot.x, half), grid.w - half) : 0;
   return (
     <div className="map">
       <header className="hud">
@@ -25,7 +31,7 @@ export function MapOverlay({ view, layout, sel, onLand }: { view: GalaxyView; la
         </span>
       ))}
       {slot && p && (
-        <span className="map-tag" style={{ left: slot.x, top: slot.y + slot.r + 12 }}>#{p.prd}</span>
+        <span className="map-tag" style={{ left: tagX, top: slot.y + slot.r + 12 }}>#{p.prd}</span>
       )}
       {p ? (
         <section className="dialog" aria-live="polite">

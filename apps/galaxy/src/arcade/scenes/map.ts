@@ -4,15 +4,12 @@ import { drawPlanet, drawSprite, rng, WOUND_TINT } from '@omni/sprites';
 import type { GalaxyView } from '@omni/galaxy';
 import { seedOf } from '../fleets';
 import {
-  frameOf, H, nebulaFor, planetLook, pulseRing, space, W, type FrameState, type Grid, type MapSlot, type Pages,
+  frameOf, H, nebulaFor, planetLook, pulseRing, space, type FrameState, type Grid, type MapSlot, type Pages,
   type SceneName,
 } from './common.ts';
 
-/**
- * `map`, once it is laid out on the tall grid. Until it is listed, it is drawn on the wide grid,
- * letterboxed in the Game Boy's lens (grid.ts reads this list).
- */
-export const TALL_SCENES: readonly SceneName[] = [];
+/** The map is laid out on the tall grid: the Game Boy held upright draws it on 320×288 (grid.ts reads this list). */
+export const TALL_SCENES: readonly SceneName[] = ['map'];
 /** The map is one page. */
 export const PAGES: Pages = {};
 
@@ -23,19 +20,44 @@ export const MAP_TOP = 72;
 export const MAP_BOTTOM = 262;
 
 /**
+ * The tall map, top to bottom, in the tall grid's pixels: the HUD on two rows, the sector labels,
+ * the planets' band, and the dialog. The text layer (map.css) keeps to the same lines.
+ */
+export const TALL_MAP = {
+  /** The HUD's two rows end here; the sectors' nebulae start here. */
+  hud: 22,
+  /** The planets' band, their state icons included: under the sector labels… */
+  top: 36,
+  /** …and above the dialog, leaving the selected planet room for its tag under it. */
+  bottom: 170,
+  /** The room a state icon takes above its planet (drawMap draws it from y - r - 22). */
+  icon: 22,
+  /** The dialog's box starts no higher than this; the nebulae stop just above it. */
+  dialog: 190,
+} as const;
+
+/** The planets of `sector`, in the galaxy's order: a planet with no sector sits in the first one. */
+function membersOf(view: GalaxyView, sector: string) {
+  return view.planets
+    .map((p, index) => ({ p, index }))
+    .filter(({ p }) => (p.sector ?? view.sectors[0]?.name) === sector);
+}
+
+/**
  * Where each planet sits on the grid the map is drawn on, in that grid's pixels: the canvas draws
- * them there, the D-pad moves between them, and a tap on the screen finds them there. On a grid
- * with no layout of its own, the wide one's is stretched to its size.
+ * them there, the D-pad moves between them, and a tap on the screen finds them there.
  */
 export function layoutMap(view: GalaxyView, grid: Grid): MapSlot[] {
+  return grid.name === 'tall' ? layoutTall(view, grid) : layoutWide(view, grid);
+}
+
+function layoutWide(view: GalaxyView, grid: Grid): MapSlot[] {
   const top = (MAP_TOP * grid.h) / H, bottom = (MAP_BOTTOM * grid.h) / H;
   const cols = Math.max(1, view.sectors.length);
   const colW = grid.w / cols;
   const slots: MapSlot[] = [];
   view.sectors.forEach((sector, ci) => {
-    const members = view.planets
-      .map((p, index) => ({ p, index }))
-      .filter(({ p }) => (p.sector ?? view.sectors[0]?.name) === sector.name);
+    const members = membersOf(view, sector.name);
     const k = members.length;
     if (!k) return;
     const perRow = k <= 2 ? 1 : 2;
@@ -51,6 +73,70 @@ export function layoutMap(view: GalaxyView, grid: Grid): MapSlot[] {
       slots.push({ prd: p.prd, x: Math.round(cx), y: Math.round(cy), r, index });
     });
   });
+  return slots.sort((a, b) => a.index - b.index);
+}
+
+// The tall layout. Each sector keeps its column, as on the wide map, and its planets zigzag down it
+// in lanes: planet j sits in lane j % lanes, one step lower than planet j - 1. Each planet owns a
+// box, its lane's width by `lanes` steps tall, with its state icon at the top and its disc below:
+// no two boxes share a pixel, so no two planets overlap and no icon lands on another planet. Every
+// planet shrinks by the same factor, so its size still tells its class from one sector to the next:
+// the factor the most crowded sector leaves room for. Each sector then takes the fewest lanes that
+// leave its planets that room, so a sector with few planets runs straight down its column.
+
+const PAD = 3; // between a column's edge and its outer lanes, inside the grid
+const EDGE = 10; // at the grid's own edges, so the selection's brackets stay on the screen
+const DRIFT = 8; // the most a planet drifts from the middle of its box
+const baseRadius = (cls: number) => 10 + cls * 4; // the wide map's radius for a class, before it shrinks
+
+interface Lanes { lanes: number; laneW: number; step: number; tall: number; room: number }
+
+/**
+ * The lanes `k` planets zigzag down in a column `width` wide, with the largest radius each has room
+ * for: the fewest lanes that leave `need` of it, or else the lanes that leave the most.
+ */
+function lanesFor(k: number, width: number, need = Infinity): Lanes {
+  const band = TALL_MAP.bottom - TALL_MAP.top;
+  let best: Lanes | null = null;
+  for (let lanes = 1; lanes <= Math.max(1, Math.min(k, 6)); lanes++) {
+    const laneW = width / lanes;
+    const step = band / (k - 1 + lanes);
+    const tall = step * lanes;
+    const room = Math.min(laneW / 2, (tall - TALL_MAP.icon) / 2) - 1;
+    const it = { lanes, laneW, step, tall, room };
+    if (room >= need) return it;
+    if (!best || room > best.room) best = it;
+  }
+  return best!;
+}
+
+/** A planet's drift from the middle of its box, along one side of `slack` spare pixels. */
+const drift = (rand: () => number, slack: number) => (rand() - 0.5) * 2 * Math.min(DRIFT, Math.max(0, slack / 2) * 0.8);
+
+function layoutTall(view: GalaxyView, grid: Grid): MapSlot[] {
+  const cols = Math.max(1, view.sectors.length);
+  const colW = grid.w / cols;
+  const sectors = view.sectors.map((sector, ci) => {
+    const members = membersOf(view, sector.name);
+    const left = ci * colW + (ci === 0 ? EDGE : PAD);
+    const width = colW - (ci === 0 ? EDGE : PAD) - (ci === cols - 1 ? EDGE : PAD);
+    return { members, left, width };
+  }).filter((s) => s.members.length);
+  const room = Math.floor(Math.min(...sectors.map((s) => lanesFor(s.members.length, s.width).room)));
+  const shrink = Math.min(1, room / Math.max(...sectors.flatMap((s) => s.members.map(({ p }) => baseRadius(p.class)))));
+  const slots: MapSlot[] = [];
+  for (const { members, left, width } of sectors) {
+    const { lanes, laneW, step, tall } = lanesFor(members.length, width, room);
+    members.forEach(({ p, index }, j) => {
+      const r = Math.max(1, Math.min(room, Math.max(6, Math.round(baseRadius(p.class) * shrink))));
+      const discTop = TALL_MAP.top + j * step + TALL_MAP.icon; // the disc's part of the box, under the icon
+      const discH = tall - TALL_MAP.icon;
+      const rand = rng(seedOf(p.prd)); // the same drift for a planet on every run
+      const cx = left + (j % lanes + 0.5) * laneW + drift(rand, laneW - r * 2 - 2);
+      const cy = discTop + discH / 2 + drift(rand, discH - r * 2 - 2);
+      slots.push({ prd: p.prd, x: Math.round(cx), y: Math.round(cy), r, index });
+    });
+  }
   return slots.sort((a, b) => a.index - b.index);
 }
 
@@ -103,16 +189,24 @@ function dashedLine(ctx: CanvasRenderingContext2D, a: MapSlot, b: MapSlot, t: nu
   }
 }
 
+// Each sector's column on each grid: its nebula, from `top` and `h` tall, under the dashed line
+// between two sectors, drawn from `from` down to `to`.
+const SKY = {
+  wide: { key: 'sector', top: 40, h: 220, from: 44, to: 262 },
+  tall: { key: 'tall-sector', top: TALL_MAP.hud, h: TALL_MAP.dialog - 2 - TALL_MAP.hud, from: TALL_MAP.hud + 4, to: TALL_MAP.dialog - 2 },
+} as const;
+
 export function drawMap(ctx: CanvasRenderingContext2D, s: FrameState) {
   space(ctx, s, 0.15);
   const { view, layout } = s;
   if (!view) return;
-  const colW = W / Math.max(1, view.sectors.length);
+  const sky = SKY[s.grid.name];
+  const colW = s.grid.w / Math.max(1, view.sectors.length);
   view.sectors.forEach((sec, i) => {
-    ctx.drawImage(nebulaFor(`sector-${sec.name}`, i, Math.round(colW), 220), Math.round(i * colW), 40);
+    ctx.drawImage(nebulaFor(`${sky.key}-${sec.name}`, i, Math.round(colW), sky.h), Math.round(i * colW), sky.top);
     if (i > 0) {
       ctx.fillStyle = '#23205a';
-      for (let y = 44; y < 262; y += 8) ctx.fillRect(Math.round(i * colW), y, 1, 4);
+      for (let y = sky.from; y < sky.to; y += 8) ctx.fillRect(Math.round(i * colW), y, 1, 4);
     }
   });
   const bySlot = new Map(layout.map((l) => [l.prd, l]));
