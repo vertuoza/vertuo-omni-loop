@@ -71,7 +71,7 @@ export const FORM_IDS = Object.freeze(FORMS.map((entry) => entry.id));
 /** The form that lives beside the decision records, under the front door, not in the playbook. */
 export const DECISIONS_FORM = 'decisions';
 
-export const FORM_STATES = Object.freeze(['blank', 'filled', 'pointer']);
+const FORM_STATES = ['blank', 'filled', 'pointer'];
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const EVIDENCE = /^(.+)@([0-9a-f]{7,40})$/;
@@ -164,12 +164,12 @@ function readHead(head) {
   const opener = head
     .slice(at + 1)
     .map((line) => line.trim())
-    .find((line) => line !== '' && !MARKER_START.test(line) && !line.startsWith('<!--'));
+    .find((line) => line !== '' && !line.startsWith('<!--'));
   return { title: head[at].match(TITLE)[1], opener: opener ?? null };
 }
 
 /** A section body, read as `text`, `pointer`, `empty` or `holes`. */
-export function readBody(raw) {
+function readBody(raw) {
   const text = raw.replace(COMMENT, '').trim();
   const lines = text.split('\n').map((line) => line.trim()).filter(Boolean);
   const questions = lines.map((line) => line.match(HOLE)?.[1]).filter(Boolean);
@@ -252,10 +252,12 @@ export function parseForm(text, { file = null } = {}) {
 
 /**
  * Reads the form `id` from its file under `ctx.layout`: `{ file, exists: false }` when the file is
- * missing, else `{ file, exists: true, ...parseForm(text) }`.
+ * missing, else `{ file, exists: true, ...parseForm(text) }`. A form the kit does not have is a
+ * caller's mistake, and throws.
  */
 export function readForm(id, { ctx }) {
   const file = ctx.layout.formPath(id);
+  if (file === null) throw new Error(`the kit has no form "${id}"`);
   if (!existsSync(join(ctx.root, file))) return { file, exists: false };
   return { file, exists: true, ...parseForm(readFileSync(join(ctx.root, file), 'utf8'), { file }) };
 }

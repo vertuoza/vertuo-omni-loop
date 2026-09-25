@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formText, makeRepo } from '../../test/fixture.mjs';
-import { FORM_IDS, FORMS, parseForm, resolvePlaybookId } from './forms.mjs';
+import { FORM_IDS, FORMS, parseForm, readForm, resolvePlaybookId } from './forms.mjs';
 
 const FILE = '.omni-loop/knowledge/playbook/testing.md';
 
@@ -226,6 +226,16 @@ describe('parseForm — a section’s body', () => {
 
   it('reads a See: line beside other text as text', () => {
     expect(bodyOf('Mostly as the guide says.\nSee: guides/testing.md')).toMatchObject({ kind: 'text', see: null });
+  });
+});
+
+describe('readForm', () => {
+  it('reads a form from the file the layout names, says when that file is missing, and throws for a form the kit does not have', () => {
+    const { ctx, write } = makeRepo();
+    expect(readForm('testing', { ctx })).toEqual({ file: FILE, exists: false });
+    write(FILE, formText());
+    expect(readForm('testing', { ctx })).toMatchObject({ file: FILE, exists: true, ok: true, form: { id: 'testing', file: FILE } });
+    expect(() => readForm('tests', { ctx })).toThrow(/no form "tests"/);
   });
 });
 
