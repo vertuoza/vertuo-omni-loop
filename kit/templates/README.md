@@ -18,8 +18,8 @@ pointer here.
 
 ## How a form is read
 
-Nobody reads a form's file directly: `omni kb show <form>` resolves it section by section, and says
-where each section came from. Top wins:
+The skills never read a form's file: they call `omni kb show <form>`, which resolves it section by
+section, and says where each section came from. Top wins:
 
 1. **A pointer.** The whole form points at a page the repository already has, or one section does,
    with a `See:` line. Nothing is copied.

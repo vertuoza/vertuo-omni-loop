@@ -26,6 +26,7 @@ glossary form, a pointer-only form: its one slot, `where`.
 
 ## Added
 
-- "This form points at the repository's glossary": the form is pointer-only in the spec.
+- "When the repository keeps a glossary, this form points at it": the form is pointer-only in the
+  spec.
 - The opener, "Use this page when you need the word this repository uses for a concept".
 - The spec's slot marker and heading.
