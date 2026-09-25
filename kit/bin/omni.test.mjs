@@ -195,6 +195,15 @@ describe('omni — flags, lookups and guards', () => {
     expect(out).toMatch(/inbox/);
     expect(out).toMatch(/outbox/);
     expect(out).toMatch(/knowledge/);
+    expect(out).toMatch(/^check kb — /m);
+  });
+
+  it('check kb is green, with a warning per missing form, in a repository with no forms', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const s = io();
+    expect(await main(['check', 'kb'], { cwd: root, ...s })).toBe(0);
+    expect(s.out.join('')).toBe('check kb — 13 form(s): 13 missing; 13 warning(s).\n');
+    expect(s.err.join('')).toMatch(/^warning: \.omni-loop\/knowledge\/playbook\/briefing\.md: missing/);
   });
 
   it('the slice-time guard command runs as emitted', async () => {

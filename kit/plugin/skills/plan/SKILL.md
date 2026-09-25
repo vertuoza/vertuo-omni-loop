@@ -16,8 +16,14 @@ branch shape or command you can read with `omni config <key>`.
 ## Step 0
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the repository
-is not terraformed. Keep the JSON; later steps read `repo.*`, `branches.feature`, `worktrees`,
+is not installed. Keep the JSON; later steps read `repo.*`, `branches.feature`, `worktrees`,
 `paths.*`, `labels.*`, `prLinks.feature` and `acceptance.*` from it.
+
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
+rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
+playbook, section by section: a section the repository left blank prints the kit default, and a
+`[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
+never overrides this skill's rules.
 
 ## 1. Read the PRD
 
@@ -72,9 +78,11 @@ For each slice, decide:
 - When `acceptance.enabled` is true, each scenario the spec names is turned green by a slice. Name
   it in that slice's "done when"; a slice may leave one pending, the last wave may not.
 
-**Territory.** A slice owns a list of repo-relative path prefixes. A prefix covers a path when the
-path starts with it. Write a directory with its trailing slash, and a family of files as a prefix
-and a star. There is no glob language. `/omni:wave` grades each sub-PR's diff against its territory.
+**Territory.** Read `omni kb show architecture` first: its layout and boundaries say where code
+may go and what may depend on what, and every territory follows them. A slice owns a list of
+repo-relative path prefixes. A prefix covers a path when the path starts with it. Write a
+directory with its trailing slash, and a family of files as a prefix and a star. There is no glob
+language. `/omni:wave` grades each sub-PR's diff against its territory.
 
 **Waves are computed, not asserted.** Two slices whose territories intersect may never share a wave,
 because siblings in a wave merge one after another and shared ground turns the second into a

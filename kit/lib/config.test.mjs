@@ -2,6 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { main } from '../bin/omni.mjs';
+import { makeRepo } from '../test/fixture.mjs';
 import { CONFIG_FILE, ConfigError, loadConfig, parseConfig } from './config.mjs';
 
 describe('parseConfig', () => {
@@ -27,6 +29,23 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nask:\n  url: ftp://ask.example.com\n')).toThrow(/ask\.url/);
     expect(() => parseConfig('kit: 1\nask:\n  url: not a url\n')).toThrow(/ask\.url/);
     expect(() => parseConfig('kit: 1\nask:\n  link: https://ask.example.com\n')).toThrow(/ask.*link/s);
+  });
+
+  it('puts the playbook under the knowledge folder and names the terraform branch when both are unset', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(config.paths.playbook).toBe('.omni-loop/knowledge/playbook');
+    expect(config.branches.terraform).toBe('docs/omni-terraform');
+  });
+
+  it('keeps a playbook folder and a terraform branch the file sets', () => {
+    const config = parseConfig('kit: 1\npaths:\n  playbook: handbook/how-we-work\nbranches:\n  terraform: chore/fill-forms\n');
+    expect(config.paths.playbook).toBe('handbook/how-we-work');
+    expect(config.branches.terraform).toBe('chore/fill-forms');
+  });
+
+  it('still refuses a key the schema does not hold beside the new ones', () => {
+    expect(() => parseConfig('kit: 1\npaths:\n  playbooks: x\n', 'c.yml')).toThrow(/c\.yml.*paths.*playbooks/s);
+    expect(() => parseConfig('kit: 1\nbranches:\n  terraforms: x\n', 'c.yml')).toThrow(/branches.*terraforms/s);
   });
 
   it('refuses a missing or wrong schema version', () => {
@@ -57,6 +76,28 @@ describe('parseConfig', () => {
 
   it('reports YAML syntax errors with the file', () => {
     expect(() => parseConfig('kit: [1\n', 'x.yml')).toThrow(/x\.yml/);
+  });
+});
+
+describe('omni config', () => {
+  const io = () => {
+    const out = [];
+    return { out, stdout: { write: (s) => out.push(s) }, stderr: { write: () => {} } };
+  };
+  const files = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
+
+  it('prints paths.playbook and branches.terraform from their defaults when the file sets neither', async () => {
+    const { root } = makeRepo({ git: true, files });
+    for (const [key, value] of [['paths.playbook', '.omni-loop/knowledge/playbook'], ['branches.terraform', 'docs/omni-terraform']]) {
+      const s = io();
+      expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
+      expect(s.out.join('')).toBe(`${value}\n`);
+    }
+  });
+
+  it('exits 2 for a key the schema does not hold', async () => {
+    const { root } = makeRepo({ git: true, files });
+    expect(await main(['config', 'paths.playbooks'], { cwd: root, ...io() })).toBe(2);
   });
 });
 

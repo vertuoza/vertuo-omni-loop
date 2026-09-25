@@ -5,11 +5,14 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const kitRoot = fileURLToPath(new URL('..', import.meta.url));
-// Kit code, and the plugin's skill prose.
+// Kit code, the plugin's skill prose, and the kit defaults. A kit default also names no package
+// manager and no upstream record or issue number: a repository's commands reach it only as
+// `{config:commands.*}`.
 const SCANNED = [
   { dir: 'lib', ext: '.mjs' },
   { dir: 'bin', ext: '.mjs' },
   { dir: 'plugin', ext: '.md' },
+  { dir: 'templates', ext: '.md', also: [/\b(?:pnpm|npm|npx|yarn)\b/, /\bADR[ -]?\d/, /#\d/] },
 ];
 const FORBIDDEN = [/vertuo/i, /\bdocs\//, /\brepoRoot\b/, /pierrederval/, /'omni:outbox-go'/, /'omni:feature'/];
 // A provenance line, in code (`// …`) or in Markdown (`<!-- … -->`).
@@ -37,12 +40,12 @@ function files(dir, ext) {
 /** Every forbidden literal under `root`, as `<file>:<line>: <text>`, outside provenance lines. */
 function literalHits(root) {
   const hits = [];
-  for (const { dir, ext } of SCANNED) {
+  for (const { dir, ext, also = [] } of SCANNED) {
     for (const file of files(join(root, dir), ext)) {
       const relPath = relative(root, file);
       readFileSync(file, 'utf8').split('\n').forEach((line, index) => {
         if (PROVENANCE.test(line.trim())) return;
-        for (const pattern of FORBIDDEN) {
+        for (const pattern of [...FORBIDDEN, ...also]) {
           const exempt = EXEMPT_PATHS[pattern.source] || [];
           if (exempt.includes(relPath)) continue;
           if (pattern.test(line)) hits.push(`${relPath}:${index + 1}: ${line.trim()}`);
@@ -56,6 +59,30 @@ function literalHits(root) {
 describe('kit source carries no repository literal', () => {
   it('finds none outside provenance lines', () => {
     expect(literalHits(kitRoot)).toEqual([]);
+  });
+
+  it('scans the kit defaults under templates/, and exempts their provenance lines', () => {
+    const root = mkdtempSync(join(tmpdir(), 'omni-literals-'));
+    const write = (path, text) => {
+      mkdirSync(dirname(join(root, path)), { recursive: true });
+      writeFileSync(join(root, path), text);
+    };
+    write('templates/playbook/testing.md', [
+      '<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/testing.md — changes in kit/porting/templates--testing.md -->',
+      'Run `{config:commands.test}`, never `pnpm test`.',
+      'Read docs/agents/testing.md first.',
+      'See ADR 0058, and #120.',
+      'The suite runs in `npx vitest`.',
+    ].join('\n'));
+    write('templates/README.md', 'The vertuo way.\n');
+    expect(literalHits(root)).toEqual([
+      'templates/README.md:1: The vertuo way.',
+      'templates/playbook/testing.md:2: Run `{config:commands.test}`, never `pnpm test`.',
+      'templates/playbook/testing.md:3: Read docs/agents/testing.md first.',
+      'templates/playbook/testing.md:4: See ADR 0058, and #120.',
+      'templates/playbook/testing.md:4: See ADR 0058, and #120.',
+      'templates/playbook/testing.md:5: The suite runs in `npx vitest`.',
+    ]);
   });
 
   it('scans skill prose under plugin/, and exempts its provenance lines', () => {

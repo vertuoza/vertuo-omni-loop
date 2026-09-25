@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Omni Invade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#F2F4F3;--surface:#FFFFFF;--code:#F7F9F8;--ink:#15201C;--muted:#56635E;--line:#D3DAD7;
+  --accent:#1D6B55;--soft:#D6EAE2;--red:#B3372F;--redsoft:#F6DEDB;--ochre:#83601A;--ochresoft:#F2E7CC;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+  --bg:#0F1513;--surface:#161E1B;--code:#121A17;--ink:#E4ECE8;--muted:#98A6A0;--line:#2A3632;
+  --accent:#5FC3A2;--soft:#193A30;--red:#F08A80;--redsoft:#3A1F1C;--ochre:#E0B860;--ochresoft:#35290F}}
+:root[data-theme="dark"]{color-scheme:dark;
+  --bg:#0F1513;--surface:#161E1B;--code:#121A17;--ink:#E4ECE8;--muted:#98A6A0;--line:#2A3632;
+  --accent:#5FC3A2;--soft:#193A30;--red:#F08A80;--redsoft:#3A1F1C;--ochre:#E0B860;--ochresoft:#35290F}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15.5px/1.6 "IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;padding-inline:16px}
+main{max-width:1100px;margin:0 auto;padding-block:40px 80px;display:grid;gap:56px}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:clamp(28px,4.6vw,42px);font-weight:700;letter-spacing:-.01em}
+h2{font-size:clamp(21px,2.6vw,26px);font-weight:600}
+h3{font-size:15px;font-weight:600}
+p,ul,ol{margin:0}
+ul,ol{padding-left:20px;display:grid;gap:6px}
+code,pre{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+code{font-size:.86em;background:var(--soft);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+.before code{background:var(--redsoft)}
+section{display:grid;gap:18px;min-width:0}
+.eyebrow{font:500 12px/1.4 "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lede{font-size:17px;max-width:68ch}
+.muted{color:var(--muted);max-width:70ch}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.col{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;display:grid;gap:12px;align-content:start;min-width:0}
+.tag{justify-self:start;font:600 11px/1 "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;padding:5px 8px;border-radius:4px}
+.before .tag{background:var(--redsoft);color:var(--red)}
+.after .tag{background:var(--soft);color:var(--accent)}
+pre{margin:0;background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px;font-size:13px;line-height:1.55;overflow-x:auto;white-space:pre}
+.hl{color:var(--accent);font-weight:600}
+.warn{color:var(--ochre);font-weight:600}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;counter-reset:s;padding:0;list-style:none}
+.steps li{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:6px;counter-increment:s}
+.steps li::before{content:counter(s);font:600 13px/1 "IBM Plex Mono",monospace;color:var(--accent)}
+.rule{background:var(--ochresoft);border-radius:10px;padding:16px 18px;display:grid;gap:6px;max-width:80ch}
+.rule h3{color:var(--ochre)}
+.same li{color:var(--muted)}
+</style>
+<main>
+  <header style="display:grid;gap:14px">
+    <p class="eyebrow">PRD 68 · before / after</p>
+    <h1>/omni:invade</h1>
+    <p class="lede">A repository the loop moves into gets explored first. Its knowledge base then points at the rules the repository already writes down, and drafts the ones only its code knows.</p>
+  </header>
+
+  <section>
+    <h2>What invade does</h2>
+    <ol class="steps">
+      <li><h3>Explore</h3><p class="muted">Four read-only scouts: domains, written rules, what the code enforces, ADRs and words.</p></li>
+      <li><h3>Show one map</h3><p class="muted">Everything found, with a default for each. You answer once.</p></li>
+      <li><h3>Write</h3><p class="muted">Index entries point at existing pages. Drafts come from the code. Playbook forms get filled.</p></li>
+      <li><h3>Open one PR</h3><p class="muted">Docs only. A person reviews and merges.</p></li>
+    </ol>
+    <div class="rule">
+      <h3>The safety rule</h3>
+      <p>Every register entry invade writes carries <code>Proposed: invade &lt;date&gt;</code>. A proposed entry never stops a slice. It becomes a law when a person deletes that line.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>A repository that already writes its rules down</h2>
+    <div class="pair">
+      <div class="col before">
+        <span class="tag">Today</span>
+        <p><code>docs/business-rules.md</code> has 40 rules. The loop can't cite them: they have no ids. <code>/omni:terraform</code> fills the playbook and leaves the registers empty.</p>
+<pre>.omni-loop/knowledge/domains/
+  (nothing)
+
+laws.source: none</pre>
+        <p class="muted">A slice that breaks a written rule never stops, because the loop never learned the rule.</p>
+      </div>
+      <div class="col after">
+        <span class="tag">After</span>
+        <p>One short <b>index entry</b> per rule. The page stays the full text.</p>
+<pre>## BR-QUOTE-1
+A quote expires 30 days after it is sent.
+Serves: P-QUOTE-1
+<span class="hl">Source: docs/business-rules.md#quote-expiry</span>
+Enforced by: tests/Quote/ExpiryTest.php
+Stated: 2026-09-25
+<span class="warn">Proposed: invade 2026-09-25</span></pre>
+        <p class="muted">Delete the last line and <code>BR-QUOTE-1</code> becomes a law the loop stops on.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The map, the one question</h2>
+    <div class="pair">
+      <div class="col before">
+        <span class="tag">Today</span>
+        <p>Terraform takes one pass looking for pages that answer the playbook forms. Nobody is asked where the ADRs belong, and the domains aren't studied.</p>
+      </div>
+      <div class="col after">
+        <span class="tag">After</span>
+<pre>Map of vertuo-workflow-domain
+
+Domains      workflow, approval, notification
+Rules        docs/business-rules.md   → index (40)
+             README.md#concepts       → context only
+From code    12 constraints           → draft
+ADRs         docs/adr (18)            → point  | repatriate?
+
+1. Keep these domains?
+2. Index docs/business-rules.md?  (default: yes)
+3. ADRs: point or repatriate?     (default: point)
+4. Draft from code?               (default: on)</pre>
+        <p class="muted">Answer once. Anything left unanswered takes its default. Nothing is written before the answer.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The name</h2>
+    <div class="pair">
+      <div class="col before"><span class="tag">Today</span><p><code>/omni:terraform</code>, <code>branches.terraform</code>, <code>terraformed:</code>, <code>by: terraform</code>, "not terraformed".</p></div>
+      <div class="col after"><span class="tag">After</span><p><code>/omni:invade</code>, <code>branches.invade</code>, <code>invaded:</code>, <code>by: invade</code>, "not installed". Old form spellings still parse, with a warning.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What stays the same</h2>
+    <ul class="same">
+      <li>The register layout and the playbook forms (PRD 45).</li>
+      <li>Nothing is written outside <code>.omni-loop/</code>. Repatriated ADRs are copied and the originals are never deleted.</li>
+      <li>A section a person wrote (<code>by: human</code>) is never rewritten.</li>
+      <li>A confirmed law behaves exactly as today.</li>
+    </ul>
+  </section>
+</main>
+</html>

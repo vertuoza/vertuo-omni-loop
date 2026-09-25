@@ -76,15 +76,15 @@ function isLawProof(change, { ctx }) {
 
 /** A file directly under `<knowledgeRoot>/product/` or `<knowledgeRoot>/domains/<d>/` named
  * `principles.md`, `rules.md` or `invariants.md`; any `.md` under `<knowledgeRoot>/cross-domain/`;
- * or any `.md` directly under `ctx.layout.adrDir`. A folder's `README.md` describes; it states no
- * law. */
+ * or any `.md` directly under `ctx.layout.adrDir` but its `README.md`. A folder's `README.md`
+ * describes; it states no law — the ADR folder's is the decisions form (PRD #45). */
 function isLawText(change, { ctx }) {
   const knowledgeRoot = escapeRegExp(ctx.layout.knowledgeRoot);
   const adrDir = escapeRegExp(ctx.layout.adrDir);
   const pattern = new RegExp(
     `^${knowledgeRoot}/(?:product|domains/[^/]+)/(?:principles|rules|invariants)\\.md$` +
       `|^${knowledgeRoot}/cross-domain/[^/]+\\.md$` +
-      `|^${adrDir}/[^/]+\\.md$`,
+      `|^${adrDir}/(?!README\\.md$)[^/]+\\.md$`,
   );
   return pattern.test(change.path);
 }

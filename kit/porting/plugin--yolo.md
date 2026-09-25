@@ -83,3 +83,10 @@ dispatch, merge, the Slices checklist) went to `/omni:wave` (see `plugin--wave.m
   finish still posts the outbox comment.
 - The finish work runs in a detached worktree pushed with `HEAD:<feature branch>`, as `/omni:wave`'s
   does, because git refuses a branch another worktree holds.
+- **The playbook forms** (PRD 45, the spec's wiring table): step 0 prints the `briefing` through
+  `omni kb show` before any other step (acceptance criterion 9), and says how to read a form: a
+  blank section is the kit default, a `[hole]` never stops the run (decision 7), and a form adds to
+  its steps without overriding its rules (item s6-02). Then it runs `omni kb status` once, at the
+  start, and prints the open questions it lists; every slice carries on with the kit defaults, and
+  the map is not read again that run (decision 7). The questions are not posted on the feature PR:
+  the spec asks only that they be printed once.

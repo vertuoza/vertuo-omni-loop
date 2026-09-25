@@ -29,6 +29,12 @@ Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and s
 `<remote>` below is `repo.remote`, and `<feature branch>` is `branches.feature` with `{topic}`
 filled by the PRD folder's topic (the folder `omni prd` names is `<n>-<topic>`).
 
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
+rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
+playbook, section by section: a section the repository left blank prints the kit default, and a
+`[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
+never overrides this skill's rules.
+
 ## 1. Find the feature PR
 
 `git fetch <remote>`, then
@@ -82,11 +88,17 @@ ledger only grows, and the latest entry wins.
 (never one adopted before this run: nobody answered it), read the answer. When `laws.source` is
 `knowledge` and it states something true about the product, write or amend the entry under
 `paths.knowledge` (an amended entry keeps its id; `omni knowledge <id>` explains one), or an ADR under
-`paths.adr` when it is about how the repository builds. Then add one line to that settled entry:
+`paths.adr` when it is about how the repository builds, written as `omni kb show decisions` says
+(where records live, their format, the next free number). When it is a lesson about how to work
+here (how to test, verify or open a pull request…), write it into the playbook section it answers,
+with `by: human` in that slot's marker (`omni kb init` first writes a missing form); its id is
+`playbook/<form>#<slot>`. A section `omni kb show <form>` prints from another page (`[→ <path>]`)
+takes the lesson in that page instead. Then add one line to that settled entry:
 `- Became: <id>[, <id>…]`. Otherwise, or when the answer states nothing lasting, add
-`- Stays here: <one-line reason>`. A drifted answer files what the person decided, not what the
-build did; the rework is what brings the code in line. When unsure, write the rule anyway: a
-reviewer deletes a wrong one in a minute.
+`- Stays here: <one-line reason>`; a lesson for a form that points elsewhere as a whole goes in that
+page, and has no section to name, so its reason says where it went. A drifted answer files what the
+person decided, not what the build did; the rework is what brings the code in line. When unsure,
+write the rule anyway: a reviewer deletes a wrong one in a minute.
 
 **Anything settled or adopted is one sub-PR** into the feature branch. In the worktree, run
 `git switch -c <settle branch>`, where `<settle branch>` is `branches.slice` with `{topic}` and
