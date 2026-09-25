@@ -1,8 +1,10 @@
 // Where a PRD lives. The folder is the status: `inbox/<prd>-<topic>/` is approved and not shipped,
 // `shipped/<prd>-<topic>/` is merged. Every other module asks this one and never builds a delivery
-// path itself.
+// path itself. It also names where the playbook's forms live: the playbook folder, its parent (the
+// front door of the knowledge), and each form's file.
 import { existsSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, posix } from 'node:path';
+import { DECISIONS_FORM, FORM_IDS } from './playbook/forms.mjs';
 
 const FOLDER = /^(\d{4,})-([a-z0-9]+(?:-[a-z0-9]+)*)$/;
 
@@ -46,6 +48,8 @@ export function foldersLayout(root, paths) {
     return null;
   }
 
+  const frontDoor = posix.dirname(paths.playbook);
+
   const inFolder = (file) => (prd) => {
     const where = whereIs(prd);
     return where ? `${where.dir}/${file}` : null;
@@ -56,6 +60,14 @@ export function foldersLayout(root, paths) {
     dirs,
     adrDir: paths.adr,
     knowledgeRoot: paths.knowledge,
+    frontDoor,
+    playbookDir: paths.playbook,
+    /** A form's file: the decisions form beside the decision records under the front door, every
+     * other form in the playbook folder; `null` for a form the kit does not have. */
+    formPath(form) {
+      if (!FORM_IDS.includes(form)) return null;
+      return form === DECISIONS_FORM ? `${frontDoor}/adr/README.md` : `${paths.playbook}/${form}.md`;
+    },
     whereIs,
     specPath: inFolder('spec.md'),
     planPath: inFolder('plan.md'),
