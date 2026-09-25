@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ask Mode</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&display=swap">
+<style>
+  /* Tokens: the galaxy's colours, turned into a reading palette. Light on bare :root, dark below. */
+  :root {
+    --ground: #f5f4fc;
+    --surface: #ffffff;
+    --sunk: #eceaf8;
+    --line: #d9d6ee;
+    --ink: #17153d;
+    --muted: #4f5486;
+    --plasma: #6a2fd0;
+    --plasma-soft: #efe7ff;
+    --yellow: #ffd84a;
+    --yellow-ink: #3a2c00;
+    --cyan: #0b6f86;
+    --green: #17804a;
+    --term-bg: #0b0a1f;
+    --term-ink: #d7daf5;
+    --term-dim: #8a90d6;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --px: "Press Start 2P", ui-monospace, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+      --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66;
+      --cyan: #6ff0ff; --green: #4ee08a; --term-bg: #07061c;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+    --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66;
+    --cyan: #6ff0ff; --green: #4ee08a; --term-bg: #07061c;
+    color-scheme: dark;
+  }
+  /* The mockup's own theme, set by its switch, independent of the page's. */
+  .ask[data-look="light"] {
+    --a-ground: #f5f4fc; --a-surface: #ffffff; --a-line: #d9d6ee; --a-ink: #17153d; --a-muted: #4f5486;
+    --a-plasma: #6a2fd0; --a-plasma-soft: #efe7ff; --a-cyan: #0b6f86; --a-green: #17804a; --a-sunk: #eceaf8;
+  }
+  .ask[data-look="dark"] {
+    --a-ground: #0e0d33; --a-surface: #16144a; --a-line: #2f2c78; --a-ink: #f2f4ff; --a-muted: #a9aee6;
+    --a-plasma: #b37cff; --a-plasma-soft: #2a1d66; --a-cyan: #6ff0ff; --a-green: #4ee08a; --a-sunk: #1d1a58;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font: 16px/1.6 var(--body);
+    padding: 40px 20px 64px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 32px; }
+  header { display: grid; gap: 8px; max-width: 68ch; }
+  .eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  h1 { margin: 0; font-size: clamp(26px, 3.2vw, 36px); line-height: 1.15; text-wrap: balance; }
+  header p { margin: 0; color: var(--muted); }
+  code { font-family: var(--mono); font-size: .9em; }
+
+  .compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+  @media (max-width: 900px) { .compare { grid-template-columns: 1fr; } }
+  .side { display: grid; gap: 12px; }
+  .side h2 { margin: 0; font-size: 18px; display: flex; align-items: baseline; gap: 10px; }
+  .tag { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; padding: 5px 8px; border-radius: 4px; }
+  .tag.today { background: var(--sunk); color: var(--muted); }
+  .tag.after { background: var(--plasma-soft); color: var(--plasma); }
+  .caption { margin: 0; color: var(--muted); font-size: 14px; }
+
+  /* Terminal */
+  .term {
+    background: var(--term-bg); color: var(--term-ink); border-radius: 10px;
+    font: 12.5px/1.55 var(--mono); padding: 14px 16px; overflow-x: auto; white-space: pre;
+    border: 1px solid #1d1a58;
+  }
+  .term .d { color: var(--term-dim); }
+  .term .y { color: #ffd84a; }
+  .term .p { color: #c9a2ff; }
+  .term .c { color: #6ff0ff; }
+  .term .g { color: #4ee08a; }
+
+  /* The ask page mockup */
+  .ask {
+    background: var(--a-ground); color: var(--a-ink); border: 1px solid var(--a-line);
+    border-radius: 12px; overflow: hidden; transition: background .2s, color .2s;
+  }
+  .ask-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 16px; border-bottom: 1px solid var(--a-line); flex-wrap: wrap;
+  }
+  .mark { font: 10px/1 var(--px); color: var(--a-plasma); letter-spacing: .04em; }
+  .mark span { color: var(--a-muted); font-family: var(--body); font-size: 13px; letter-spacing: 0; margin-left: 8px; }
+  .switch { display: inline-flex; border: 1px solid var(--a-line); border-radius: 999px; padding: 2px; background: var(--a-surface); }
+  .switch button {
+    font: 600 12px/1 var(--body); color: var(--a-muted); background: none; border: 0;
+    padding: 6px 10px; border-radius: 999px; cursor: pointer;
+  }
+  .switch button[aria-pressed="true"] { background: var(--a-plasma); color: #fff; }
+  .switch button:focus-visible, .opt:focus-visible, .send:focus-visible { outline: 2px solid var(--a-cyan); outline-offset: 2px; }
+
+  .ask-body { padding: 22px 20px 20px; display: grid; gap: 16px; max-width: 680px; margin: 0 auto; }
+  .chip { justify-self: start; font: 700 11px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--a-muted); background: var(--a-sunk); padding: 6px 9px; border-radius: 4px; }
+  .q { margin: 0; font-size: 21px; line-height: 1.3; font-weight: 700; text-wrap: balance; }
+  .opts { display: grid; gap: 10px; }
+  .opt {
+    display: grid; grid-template-columns: 26px 1fr; gap: 12px; align-items: start; text-align: left;
+    background: var(--a-surface); color: var(--a-ink); border: 1.5px solid var(--a-line); border-radius: 10px;
+    padding: 12px 14px; font: 16px/1.5 var(--body); cursor: pointer; width: 100%;
+  }
+  .opt .key { font: 600 12px/26px var(--mono); text-align: center; border-radius: 6px; background: var(--a-sunk); color: var(--a-muted); }
+  .opt b { font-weight: 700; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .opt small { display: block; color: var(--a-muted); font-size: 15px; margin-top: 2px; }
+  .opt[aria-checked="true"] { border-color: var(--a-plasma); background: var(--a-plasma-soft); }
+  .opt[aria-checked="true"] .key { background: var(--a-plasma); color: #fff; }
+  .rec { font: 700 11px/1 var(--body); letter-spacing: .04em; background: var(--yellow); color: var(--yellow-ink); padding: 4px 7px; border-radius: 4px; }
+  .other { font: 15px/1.5 var(--body); color: var(--a-muted); border: 1.5px dashed var(--a-line); border-radius: 10px; padding: 10px 14px; }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .hint { font-size: 13px; color: var(--a-muted); }
+  .hint kbd { font: 600 11px/1 var(--mono); border: 1px solid var(--a-line); border-bottom-width: 2px; border-radius: 4px; padding: 2px 5px; }
+  .send { font: 700 15px/1 var(--body); background: var(--a-plasma); color: #fff; border: 0; border-radius: 8px; padding: 12px 18px; cursor: pointer; }
+  .history { border-top: 1px solid var(--a-line); padding-top: 14px; display: grid; gap: 8px; font-size: 14px; color: var(--a-muted); }
+  .history div { display: flex; justify-content: space-between; gap: 12px; }
+  .history .ok { color: var(--a-green); font-weight: 700; }
+  .via { font: 600 11px/1 var(--mono); border: 1px solid var(--a-line); border-radius: 4px; padding: 3px 6px; }
+
+  /* What changes */
+  .ledger { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+  @media (max-width: 760px) { .ledger { grid-template-columns: 1fr; } }
+  .ledger section { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
+  .ledger h3 { margin: 0 0 8px; font-size: 16px; }
+  .ledger ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+  .ledger li::marker { color: var(--plasma); }
+
+  @media (prefers-reduced-motion: reduce) { .ask { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">PRD #71 · before / after</div>
+    <h1>Ask mode: Claude's questions on a page you can actually read</h1>
+    <p>Turn it on with <code>/omni:ask on</code>. Every <code>AskUserQuestion</code> is then sent to a page in light or dark theme, you answer there, and Claude continues. If the page can't answer, the terminal prompt takes over as it does today.</p>
+  </header>
+
+  <div class="compare">
+    <div class="side">
+      <h2><span class="tag today">Today</span> In the terminal</h2>
+<div class="term" role="img" aria-label="A terminal showing a multiple-choice question with a long preview, all in one monospace column">
+<span class="d">● </span>Hook mode + nudge is the pick. Next: who can open the page,
+  and how an agent proves it may post there?
+
+<span class="d">╭──────────────────────────────────────────────────────────╮</span>
+<span class="d">│</span> <span class="c">☐ Access</span>
+<span class="d">│</span>
+<span class="d">│</span> How should the page and the agent be authenticated?
+<span class="d">│</span>
+<span class="d">│</span> <span class="p">❯ 1. gh token + secret link (Recommended)</span>
+<span class="d">│</span>      Agent side: `omni ask` sends the person's `gh auth
+<span class="d">│</span>      token`; omni-app checks it belongs to a member of the
+<span class="d">│</span>      vertuoza org — no new secret to distribute. Page side:
+<span class="d">│</span>      the link carries an unguessable session token…
+<span class="d">│</span>   2. gh token + Google sign-in
+<span class="d">│</span>      Same agent side, but the page also requires a
+<span class="d">│</span>      @vertuoza.com Google sign-in (as galaxy does) and…
+<span class="d">│</span>   3. Shared API key
+<span class="d">│</span>      One OMNI_ASK_KEY env var each person sets locally…
+<span class="d">│</span>   4. Type something.
+<span class="d">│</span>
+<span class="d">│</span> <span class="d">Enter to select · ↑/↓ to navigate · Esc to cancel</span>
+<span class="d">╰──────────────────────────────────────────────────────────╯</span>
+<span class="d">  ↑ 40 lines of the design above it, scrolling away</span>
+</div>
+      <p class="caption">Question, options, descriptions and previews all sit in one monospace column, with the design being discussed scrolling away above. The terminal's theme is the only theme.</p>
+    </div>
+
+    <div class="side">
+      <h2><span class="tag after">After</span> Ask mode on</h2>
+<div class="term" aria-label="The terminal in ask mode, showing a link and one line per question">
+<span class="d">&gt;</span> /omni:ask on
+  <span class="g">ask mode on</span> → <span class="c">https://…/ask/7c1e2a94-…</span>
+
+<span class="d">●</span> AskUserQuestion  <span class="y">Access</span>
+  <span class="d">⏳ waiting on the page…</span>
+  <span class="g">✓</span> answered on the page: Google sign-in via the galaxy
+</div>
+
+      <div class="ask" data-look="dark" id="ask">
+        <div class="ask-bar">
+          <div class="mark">OMNI LOOP<span>vertuo-omni-loop · feat/ask-mode</span></div>
+          <div class="switch" role="group" aria-label="Theme">
+            <button type="button" id="look-system" aria-pressed="false" data-look="system">System</button>
+            <button type="button" id="look-light" aria-pressed="false" data-look="light">Light</button>
+            <button type="button" id="look-dark" aria-pressed="true" data-look="dark">Dark</button>
+          </div>
+        </div>
+        <div class="ask-body">
+          <span class="chip">Access</span>
+          <p class="q">How should the page and the agent be authenticated?</p>
+          <div class="opts" role="radiogroup" aria-label="Options">
+            <button type="button" class="opt" role="radio" aria-checked="true" id="opt-1">
+              <span class="key">1</span>
+              <span><b>gh token + secret link <span class="rec">Recommended</span></b>
+              <small>The agent sends your <code>gh</code> token; the link carries a secret. No login on the page.</small></span>
+            </button>
+            <button type="button" class="opt" role="radio" aria-checked="false" id="opt-2">
+              <span class="key">2</span>
+              <span><b>gh token + Google sign-in</b>
+              <small>The page also asks for your @vertuoza.com Google account. Only you can answer.</small></span>
+            </button>
+            <button type="button" class="opt" role="radio" aria-checked="false" id="opt-3">
+              <span class="key">3</span>
+              <span><b>Shared API key</b>
+              <small>One key everyone sets locally. Simplest, but a secret to rotate.</small></span>
+            </button>
+          </div>
+          <div class="other">Other: type your own answer…</div>
+          <div class="foot">
+            <span class="hint"><kbd>1</kbd>–<kbd>4</kbd> pick · <kbd>Enter</kbd> send</span>
+            <button type="button" class="send">Send to Claude</button>
+          </div>
+          <div class="history" aria-label="Answered earlier">
+            <div><span><span class="ok">✓</span> Mode: Hook mode + nudge</span><span class="via">page</span></div>
+            <div><span><span class="ok">✓</span> Host: omni-app</span><span class="via">terminal</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="caption">One question in focus, in a font drawn for legibility. The galaxy's colours are used as signals: plasma for your pick, yellow for the recommendation, green for answered. Try the theme switch.</p>
+    </div>
+  </div>
+
+  <div class="ledger">
+    <section>
+      <h3>What changes</h3>
+      <ul>
+        <li><code>omni signin</code> once per machine (Google, @vertuoza.com), then <code>/omni:ask on|off</code> per checkout.</li>
+        <li>While the mode is on, questions are answered on the page, and the terminal shows one line per question.</li>
+        <li>The galaxy app serves <code>/ask/…</code> pages and <code>/api/ask/*</code>. The kit only knows <code>ask.url</code>.</li>
+        <li>ADR-0002 lets the kit depend on that URL (amending PRD 3's principle 7).</li>
+      </ul>
+    </section>
+    <section>
+      <h3>What stays the same</h3>
+      <ul>
+        <li>With the mode off, every hook is silent and nothing differs from today.</li>
+        <li>No skill's text changes; the page shows exactly what <code>AskUserQuestion</code> carries.</li>
+        <li>The terminal always wins on failure: offline, signed out, or 9 min without an answer.</li>
+        <li>The arcade, the ledger and game points are untouched. Asking needs no player and no GitHub link.</li>
+      </ul>
+    </section>
+  </div>
+</div>
+<script>
+  // The mockup's theme switch: System follows the viewer's OS, Light and Dark force the look.
+  (function () {
+    var ask = document.getElementById('ask');
+    var buttons = ask.querySelectorAll('.switch button');
+    var media = window.matchMedia('(prefers-color-scheme: dark)');
+    var choice = 'dark';
+    function apply() {
+      ask.setAttribute('data-look', choice === 'system' ? (media.matches ? 'dark' : 'light') : choice);
+      buttons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.look === choice)); });
+    }
+    buttons.forEach(function (b) { b.addEventListener('click', function () { choice = b.dataset.look; apply(); }); });
+    media.addEventListener('change', function () { if (choice === 'system') apply(); });
+    var opts = ask.querySelectorAll('.opt');
+    opts.forEach(function (o) {
+      o.addEventListener('click', function () { opts.forEach(function (x) { x.setAttribute('aria-checked', String(x === o)); }); });
+    });
+    apply();
+  })();
+</script>
+</body>
+</html>
