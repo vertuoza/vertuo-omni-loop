@@ -938,3 +938,239 @@ One function and its tests.
 ```
 
 <!-- /omni-outbox-settled: s4-04-keys-in-a-round-of-several -->
+
+<!-- omni-outbox-settled: s3-01-terminal-gets-its-own-sign-in -->
+
+## s3-01-terminal-gets-its-own-sign-in — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-terminal-gets-its-own-sign-in
+prd: 71
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+When a person signs the terminal in, should it share the sign-in their browser already has, or get one of its own?
+
+## The decision, in plain words
+
+The terminal always gets a sign-in of its own, through a fresh Google sign-in on the page, and the browser keeps its own untouched. Sharing one would sign one of them out the first time the other renews it.
+
+## The intro, for fun
+
+Two doors, one key, and a lock that changes itself every hour.
+
+## The punchline, for fun
+
+So the terminal got its own key cut, and nobody is left outside.
+
+## The options, in plain words
+
+A. The terminal always gets its own sign-in, through a fresh Google sign-in, the option built.
+B. The terminal shares the browser's current sign-in when there is one and skips Google, accepting that one side may be signed out when the other renews.
+C. The terminal shares the browser's sign-in, and automatic renewal of sign-ins is set up so that sharing never signs anyone out.
+
+## What I had to decide
+
+The spec says the callback hands the CLI a one-time code bound to the account, stored with a `refresh_token`, but not whose sign-in that token belongs to. The galaxy's Supabase Auth rotates refresh tokens (`enable_refresh_token_rotation = true`, `refresh_token_reuse_interval = 10` in `supabase/config.toml`): if the browser's cookie session and the terminal held the same refresh token, the first to renew it would make the other's next renewal a reuse past the interval, which Supabase treats as theft and answers by revoking the whole session, on both sides.
+
+## What I did meanwhile
+
+`/ask/signin` always starts the Google sign-in (`hd=vertuoza.com`, `prompt=select_account`), even when the browser is signed in already. The callback's `?next=ask-cli` branch exchanges Google's code with a Supabase client that reads only the PKCE code-verifier cookie and writes no session cookie (`cliCallbackDeps` in `apps/galaxy/src/ask/cli-code-live.ts`), so the arcade's session is neither read, renewed nor replaced. That new session's refresh token is stored with the one-time code, and `/api/ask/token` renews it once when the code is redeemed, so the tokens the terminal keeps were never in the browser. An account outside the crew is refused on `/ask/signin` with the reason, its new session is ended, and nothing reaches the terminal.
+
+## What it costs to change later
+
+A change of two files: reusing the browser's session instead would read its cookies in the callback and skip the Google round trip. Nothing stored depends on the choice.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether a person already signed in on the page will mind picking their Google account once more for the terminal
+- whether the production Auth settings keep refresh-token rotation on, which is what makes sharing unsafe; they could not be read from here
+
+```
+
+<!-- /omni-outbox-settled: s3-01-terminal-gets-its-own-sign-in -->
+
+<!-- omni-outbox-settled: s3-02-codes-kept-behind-two-steps -->
+
+## s3-02-codes-kept-behind-two-steps — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-codes-kept-behind-two-steps
+prd: 71
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+The spec keeps the terminal's one-time sign-in codes where only the server's master key can reach them, but the site has no master key. How should the codes be kept safe?
+
+## The decision, in plain words
+
+Nobody reaches the codes directly. The site stores and uses them only through two narrow database steps: one that issues a code for the person who just signed in, and one that uses a code up, once.
+
+## The intro, for fun
+
+The spec asked for a safe that only the master key opens, in a house with no master key.
+
+## The punchline, for fun
+
+So the safe got two slots instead: one to drop a code in, and one to take it out, once.
+
+## The options, in plain words
+
+A. Keep the codes behind two narrow database steps, with no direct access for anyone signed in or not, the option built.
+B. Give the site the master key on its server, and let only that key reach the codes, as the spec words it.
+C. Keep the two steps, and also add a check run on every database change that proves nobody else reaches the codes.
+
+## What I had to decide
+
+The spec: "The CLI-code table is service-role only." The galaxy app holds only the anon key (`NEXT_PUBLIC_SUPABASE_ANON_KEY`): every ask call runs as the caller, and no service-role key is configured or read anywhere in `apps/galaxy`. Yet the callback must write a code, and `/api/ask/token` must read and delete it for a caller who is not signed in yet.
+
+## What I did meanwhile
+
+`ask_cli_codes` (migration `20260926100000_ask_cli_codes.sql`) has row-level security with no policy, and no grant to `anon` or `authenticated`; only `service_role` keeps it. Two `security definer` functions are the only other way in: `ask_cli_code_issue(p_code_hash, p_refresh_token)`, executable by `authenticated` and refused outside the crew, stores a code bound to `auth.uid()` for 2 minutes; `ask_cli_code_redeem(p_code_hash)`, executable by `anon` and `authenticated`, deletes the code's row and returns it, once. Expired rows go on either call. `/api/ask/token` then refuses an expired code, renews the refresh token, and refuses a sign-in that is not the code's owner's. Proved locally on an in-memory Postgres (PGlite) with a stand-in auth schema, every migration applied in order; no check file was added to `supabase/checks/`, which is outside this slice's paths.
+
+## What it costs to change later
+
+Moving to a service-role key later means a secret on the deployment, a server-only client, and a migration dropping the two functions; the table and the codes' shape stay.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether a service-role key on the galaxy's server is wanted at all, which the spec's wording assumes
+- whether the code table's grants should also be proved on every pull request, next to the ask sessions check, which lives outside this slice's paths
+
+```
+
+<!-- /omni-outbox-settled: s3-02-codes-kept-behind-two-steps -->
+
+<!-- omni-outbox-settled: s3-03-signout-forgets-on-this-computer -->
+
+## s3-03-signout-forgets-on-this-computer — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-signout-forgets-on-this-computer
+prd: 71
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+When a person signs the terminal out, should the sign-in also be ended on the server, or only forgotten on this computer?
+
+## The decision, in plain words
+
+Signing out forgets the sign-in on this computer only. The server is not told, so a copy taken before the sign-out would keep working until it runs out on its own.
+
+## The intro, for fun
+
+Throwing the key away takes a second, but the lock never hears about it.
+
+## The punchline, for fun
+
+For the lock to hear, the list of calls would need one more line.
+
+## The options, in plain words
+
+A. Forget the sign-in on this computer only, the option built.
+B. Also end the sign-in on the server, through a new call added to the list of calls the page serves.
+C. Also end it on the server, with the terminal asking the sign-in service directly.
+
+## What I had to decide
+
+The spec: "`signout` deletes them" (the tokens), and the contract under `/api/ask/*` has no call that ends a sign-in on the server. Ending it there would need either a new contract call, which this slice may not add on its own (the plan: a slice that needs to change the contract raises an item), or the kit calling Supabase Auth's logout directly, which would tie the kit to Supabase instead of to the contract.
+
+## What I did meanwhile
+
+`omni signout` removes the host's entry from `~/.config/omni/credentials.json` (the file goes with its last host, and stays at mode 0600 otherwise) and prints `signed out of <host>`, or `signed out` when there was nothing to forget; exit 0. `omni whoami` prints the email kept for the host of `ask.url`, or `signed out`, exit 0 both ways, from the file alone, with no call. With `ask.url` null, all three commands exit 1 with `ask mode is not set up for this repository (ask.url)`.
+
+## What it costs to change later
+
+Adding a server-side sign-out later is one new contract call, one route and a few lines in the command; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- how long a refresh token lives under the production Auth settings, which bounds how long a copied one keeps working; they could not be read from here
+
+```
+
+<!-- /omni-outbox-settled: s3-03-signout-forgets-on-this-computer -->
