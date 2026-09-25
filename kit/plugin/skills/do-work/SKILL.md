@@ -16,8 +16,8 @@ branch shape or command you can read with `omni config <key>`.
 |---|---|---|
 | PRD | `7` | the PRD number |
 | slice | `s5` | a row of the PRD's plan |
-| feature branch | `feat/<topic>` | the branch the slice is cut from and its sub-PR targets |
-| `--in-wave` | — | set by `/omni:wave` only. Changes two things, below: medium items are not adopted, and the skill stops once the sub-PR is open and returns the wave's result shape |
+| feature branch | shaped like `branches.feature` | the branch the slice is cut from and its sub-PR targets |
+| `--in-wave` | — | set by `/omni:wave` only. Changes three things, below: the claimed slice branch is checked out rather than cut, medium items are not adopted, and the skill stops once the sub-PR is open and returns the wave's result shape |
 
 Given only a PRD, this is not your job: follow `/omni:yolo` (or `/omni:wave`) instead.
 
@@ -39,10 +39,19 @@ is not terraformed. Keep the JSON; later steps read `repo.remote`, `branches.*`,
 5. `.omni-loop/repo.md` when it exists: the repository's architecture rules (layering, data
    contracts, persistence, UI text, test handles). They bind this slice as if written here.
 
-The slice branch is `branches.slice` filled with the feature branch's topic and the slice id. Work
-on it, cut from `<repo.remote>/<feature branch>` — never on the default branch, never on the
-feature branch. Running alone with no draft sub-PR for it yet: follow `/omni:pr` to open the draft
-claim first (claim first). Under `--in-wave`, `/omni:wave` has already claimed it.
+The slice branch is `branches.slice` filled with the feature branch's topic and the slice id.
+Never work on the default branch or on the feature branch.
+
+- **Under `--in-wave`:** `/omni:wave` has already claimed the slice. Do not cut a fresh branch:
+  fetch and check out the existing `<repo.remote>/<slice branch>`, which holds the claim commit.
+- **Running alone:** claim first. Cut the slice branch from `<repo.remote>/<feature branch>`, then
+  follow `/omni:pr`'s **Claim** mode (an empty claim commit, a push, the draft sub-PR, the claimed
+  status comment) before you build anything.
+
+**Heartbeat.** A claim reads as stale when its branch has no commit beyond the claim and the claim
+is older than `limits.claimStaleMinutes`; a stale claim can be taken by a second wave. While
+building, commit and push work in progress at least every half of
+`node .omni-loop/bin/omni.mjs config limits.claimStaleMinutes` minutes.
 
 ## 2. Build
 
@@ -80,7 +89,9 @@ When the PRD, the spec, the context files and the knowledge folder do not settle
    merges, so parallel slices do not race on the ledger.
 3. **Read the exit code.** `0`: carry on. Non-zero with `must stop` or `nothing was written (stop)`
    on stderr: the **stop** outcome. Non-zero with `is blocked`: the **blocked** outcome. Exit `2`:
-   your JSON is wrong — fix it and rerun.
+   your JSON is wrong — fix it and rerun. Exit `1` with `nothing was written:` after `--adopt`: the
+   ledger refused the adoption (the lines under it say why); rerun without `--adopt` so the item
+   stays an open file, name the refusal in your risks, and carry on.
 4. Commit the item file (or the ledger change) on the slice branch.
 
 **Exactly two ways a slice ends early.**
@@ -135,21 +146,26 @@ left unaccounted and named in your risks — never invent an account to quiet th
    drop the suffix. Then run `acceptance.run` **twice**; a scenario that passes once has not been
    shown to pass.
 4. **Push** the slice branch to `repo.remote`.
-5. **Follow `/omni:pr`** for the sub-PR: it opens (or updates the claim into) the sub-PR into the
-   feature branch, keeps its status comment, and runs its lifecycle. Never merge it, never mark it
-   ready, never touch another branch.
+5. **Hand off to `/omni:pr`** for the sub-PR into the feature branch: it turns the claim into the
+   sub-PR (title, body, Co-Authored-By trailer on every commit), keeps its status comment, marks it
+   ready once the preflight is green, and runs its lifecycle. A sub-PR has no CI: its lifecycle
+   ends at a green preflight and no conflict with the feature branch. Never merge it, never touch
+   another branch.
 
 Every hand-off line, green or stuck, names the checks that ran and the ones that did not.
 
 ## Under `--in-wave`
 
-Stop once the sub-PR is open and the preflight is green, and return exactly:
+Stop once the sub-PR is open and the preflight is green (or has stayed red through
+`limits.attempts` tries), and return exactly:
 
 ```json
-{ "slice": "s5", "status": "done | stopped | blocked", "branch": "…", "prUrl": "…",
+{ "slice": "s5", "status": "done | red | stopped | blocked", "branch": "…", "prUrl": "…",
   "preflight": "green | red | none", "summary": "…", "risks": ["…"],
   "items": [{ "id": "…", "rank": "…", "file": "…" }] }
 ```
 
-`stopped` carries the law or principles it would break; `blocked` carries the human-action item.
+`red` means the preflight or checks never went green: the sub-PR is left draft and `summary` names
+what fails. `stopped` carries the law or principles it would break; `blocked` carries the
+human-action item.
 `/omni:wave` merges sub-PRs; a subagent never merges its own.

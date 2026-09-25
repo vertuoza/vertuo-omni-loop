@@ -49,12 +49,24 @@ duties of `outbox-policy.mjs` beside it (the module itself was ported earlier as
 - **Medium items:** upstream always adopted at raise time. Here `--adopt` is passed only when
   running alone; under `--in-wave` the open file is left for `/omni:wave` to adopt after the wave
   merges (the rule the PRD 7 slices themselves follow, to avoid ledger races).
+- **"A sub-PR has no CI"** (its lifecycle ends at a green preflight and no conflict with the feature
+  branch) and the **Co-Authored-By trailer** line are kept, in the hand-off to `/omni:pr`; the
+  Conventional-Commit title and the in-progress label are left to `/omni:pr`.
+- **Reading `omni item new`'s outcome from stderr** (`must stop`, `nothing was written (stop)`,
+  `is blocked`) is interim: slice s13 gives `item new` a machine-readable outcome, and the skill
+  switches to it then.
 - **Account example** keeps the upstream three-line shape, with placeholders instead of a real path.
 
 ## Added
 
 - The `--in-wave` input (explicit; upstream inferred "dispatched by the wave" from context).
-- Claim first when running alone: open the draft sub-PR through `/omni:pr` before building (spec §2.1
-  rule 6). Upstream left the claim to the wave.
+- Claim first when running alone: follow `/omni:pr`'s Claim mode (empty claim commit, push, draft
+  sub-PR, claimed status comment) before building (spec §2.1 rule 6). Upstream left the claim to the
+  wave. Under `--in-wave`, the existing claimed slice branch is checked out, never cut afresh.
+- Heartbeat: push work in progress at least every half of `limits.claimStaleMinutes`, so a long live
+  slice never reads as a stale claim a second wave could take.
+- `/omni:pr` owns marking the sub-PR ready once the preflight is green; do-work hands off to it.
+- A `red` status in the wave's result shape, for a preflight or checks that never went green.
+- The `--adopt` failure path (exit 1, `nothing was written:`): rerun without `--adopt`, name it in risks.
 - "Territory only": a change outside the slice row's territory is a decision, not a fix.
 - The item JSON field list, and "exit 2 means your JSON is wrong".
