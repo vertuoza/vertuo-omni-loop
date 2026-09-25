@@ -10,7 +10,8 @@ function git(args, cwd, exec) {
 }
 
 /** Parses `git diff --name-status` output into `{ path, status }[]`, one entry per line. A rename
- * arrives as a delete and an add (a bare `git diff` without `-M` never emits `R`). */
+ * arrives as a delete and an add because the caller passes `--no-renames` (since git 2.9 rename
+ * detection is on by default, and an `R` would let a moved test file escape the `test-removed` rule). */
 function parseNameStatusLines(nameStatus) {
   return nameStatus
     .split('\n')
@@ -40,5 +41,5 @@ export function rangeChanges({ ctx, base, exec = execFileSync }) {
         `Fetch the base first (e.g. \`git fetch origin main\`).\n${error.message}`,
     );
   }
-  return parseNameStatusLines(git(['diff', '--name-status', `${base}...HEAD`], ctx.root, exec));
+  return parseNameStatusLines(git(['diff', '--name-status', '--no-renames', `${base}...HEAD`], ctx.root, exec));
 }

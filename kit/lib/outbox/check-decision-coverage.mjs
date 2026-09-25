@@ -26,7 +26,8 @@ import { compare, readAccounts } from './account.mjs';
 
 /**
  * Parses `git diff --name-status` output into `{ path, status }[]`, exactly what `riskyChanges`
- * wants. A rename arrives as a delete and an add (a bare `git diff` without `-M` never emits `R`).
+ * wants. A rename arrives as a delete and an add because the diff is taken with `--no-renames`
+ * (`kit/lib/git.mjs`); a bare `git diff` has detected renames by default since git 2.9.
  */
 export function parseNameStatus(nameStatus) {
   return nameStatus

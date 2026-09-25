@@ -33,8 +33,10 @@ one `omni` subcommand each. Source sha: `vertuo-ai-domain@c4a210122`.
 ## Per command
 
 - **status**: upstream's `branchChanges(base)` (a private copy of the range diff, `--no-renames`) →
-  `kit/lib/git.mjs`'s `rangeChanges({ ctx, base, exec })`, the kit's one range diff (it has no
-  `--no-renames`; a bare `git diff` never emits `R` anyway). New `--changes` flag (the brief's table):
+  `kit/lib/git.mjs`'s `rangeChanges({ ctx, base, exec })`, the kit's one range diff. It passes
+  `--no-renames` exactly as upstream did (outbox-status.mjs and outbox-comment.mjs): since git 2.9 a
+  bare `git diff` detects renames, and an `R` would let a `git mv` of a test file escape the
+  `test-removed` rule. Pinned by `kit/lib/git.test.mjs`. New `--changes` flag (the brief's table):
   shorthand for `--base <repo.remote>/<repo.defaultBranch>`. An unreadable base is a `UsageError`
   (exit 2) instead of an uncaught throw. `$GITHUB_OUTPUT` / `$GITHUB_STEP_SUMMARY` appends kept, read
   from the `env` `main` is given (default `process.env`). A missing `<prd>` is exit 2 (upstream: 1).
@@ -65,3 +67,13 @@ one `omni` subcommand each. Source sha: `vertuo-ai-domain@c4a210122`.
 
 `kit/bin/omni.test.mjs` is new (the brief's five cases, the bundle case, and one per command/guard
 path above). No upstream test covered a CLI half, so none is ported or deleted.
+
+## Fix round 1
+
+- `check`: an explicit `--base <ref>` that does not resolve is a `UsageError` (exit 2, naming it) for
+  every guard, `all` included — only the *default* base is skipped silently by `check all`. `--prd <n>`
+  when the coverage guard does not run prints `omni check: --prd <n> ignored — …` on stderr.
+- `adopt` / `settle`: a path the user typed that cannot be read (`<item-text-file>`, `--answer-file`)
+  and the library's `PRD <n> has no inbox or shipped folder` become one-line `UsageError`s (exit 2),
+  caught in the command (`readUserFile`, `withPrdFolder` in `kit/bin/args.mjs`), not in the dispatcher.
+  Upstream let both escape as a stack trace.

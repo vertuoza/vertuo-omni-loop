@@ -147,3 +147,7 @@ own clarification that this function's tests live where they already did upstrea
 
 `pnpm vitest run kit/lib/outbox/check-decision-coverage.test.mjs kit/test/no-literals.test.mjs` —
 17/17 pass (16 in `check-decision-coverage.test.mjs`, 1 in `no-literals.test.mjs`).
+
+- Task 15 fix round 1: the `parseNameStatus` comment claimed a bare `git diff` never emits `R`; false since
+  git 2.9. Rewritten to say the rename split comes from `--no-renames`, which `kit/lib/git.mjs`
+  `rangeChanges` now passes (as upstream's outbox-status/outbox-comment did). Comment only; no code change here.

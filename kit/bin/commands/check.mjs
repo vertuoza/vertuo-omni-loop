@@ -133,6 +133,12 @@ export const check = {
     const prd = flags.prd === undefined ? null : positiveInt('check', '--prd', flags.prd);
     const base = flags.base ?? defaultBase(ctx);
     const baseKnown = refExists(ctx, base, exec);
+    // An explicit --base is the user's own ref: when it does not resolve, say so rather than skip.
+    if (flags.base !== undefined && !baseKnown) {
+      throw usageError(`omni check: no ${base} — fetch it or pass another --base <ref>.`);
+    }
+    const coverageRuns = guard === 'coverage' || (guard === 'all' && baseKnown);
+    if (prd !== null && !coverageRuns) println(io.stderr, `omni check: --prd ${prd} ignored — the coverage guard did not run.`);
 
     if (guard === 'inbox') return checkInbox(io) ? 0 : 1;
     if (guard === 'outbox') return checkOutbox(io) ? 0 : 1;

@@ -1,10 +1,9 @@
 // `omni settle <item> --by --at --channel --number (--answer | --answer-file) [--url] [--verdict]` —
 // settles one open outbox item: appends its settled entry and deletes the open file.
 // Ported from vertuo-ai-domain@c4a210122:scripts/outbox-settle.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
-import { readFileSync } from 'node:fs';
 import { relative } from 'node:path';
 import { settleItem } from '../../lib/outbox/settle.mjs';
-import { inRoot, parseArgs, println, usageError } from '../args.mjs';
+import { inRoot, parseArgs, println, readUserFile, usageError, withPrdFolder } from '../args.mjs';
 
 const USAGE =
   'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request ' +
@@ -20,9 +19,9 @@ export const settle = {
       throw usageError('omni settle: give --answer or --answer-file, not both.');
     }
     const file = relative(ctx.root, inRoot(ctx, positional[0]));
-    const text = flags['answer-file'] ? readFileSync(inRoot(ctx, flags['answer-file']), 'utf8') : flags.answer;
+    const text = flags['answer-file'] ? readUserFile('settle', ctx, flags['answer-file']) : flags.answer;
 
-    const result = settleItem({
+    const result = withPrdFolder('settle', () => settleItem({
       ctx,
       file,
       answer: {
@@ -36,7 +35,7 @@ export const settle = {
         },
         ...(flags.verdict ? { statedVerdict: flags.verdict } : {}),
       },
-    });
+    }));
 
     if (!result.ok) {
       println(stderr, 'omni settle — nothing was written:');

@@ -178,6 +178,72 @@ describe('omni — flags, lookups and guards', () => {
   });
 });
 
+const STRAY_MEDIUM = [
+  '---', 'id: s7-01-t', 'prd: 999', 'slice: s7', 'rank: medium', 'bears-on: none', 'raised: 2026-09-22', 'wave: 4', '---', '',
+  '## The question, in plain words', '', 'How long should we wait before giving up on a slow call?', '',
+  '## The decision, in plain words', '', 'We wait five seconds, which is generous without being unbounded.', '',
+  '## The options, in plain words', '', 'A. Wait five seconds, the option built.', 'B. Wait one second, so a stuck call is caught sooner.', '',
+  '## What I had to decide', '', 'How long a slow call gets before it is treated as stuck.', '',
+  '## What I did meanwhile', '', 'Five seconds, a constant with no migration to undo it.', '',
+  '## What it costs to change later', '', 'One constant.', '',
+  '## What I could not know', '', '(author) Whether five seconds is measured against a real incident.', '',
+].join('\n');
+const STRAY_HIGH = STRAY_MEDIUM.replace('rank: medium', 'rank: high');
+
+describe('omni — user-caused errors are one line, exit 2', () => {
+  const oneLine = (s) => expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
+
+  it('check all with an explicit --base that does not exist', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const s = io();
+    expect(await main(['check', 'all', '--base', 'nope/branch'], { cwd: root, ...s })).toBe(2);
+    expect(s.err.join('')).toMatch(/nope\/branch/);
+  });
+
+  it('check says --prd was ignored when coverage does not run', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const s = io();
+    expect(await main(['check', 'inbox', '--prd', '3'], { cwd: root, ...s })).toBe(0);
+    expect(s.out.join('') + s.err.join('')).toMatch(/--prd 3 ignored/);
+    const t = io();
+    expect(await main(['check', 'all', '--prd', '3'], { cwd: root, ...t })).toBe(0);
+    expect(t.out.join('') + t.err.join('')).toMatch(/--prd 3 ignored/);
+  });
+
+  it('adopt with a file that does not exist', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const s = io();
+    expect(await main(['adopt', 'missing.md'], { cwd: root, ...s })).toBe(2);
+    oneLine(s);
+    expect(s.err.join('')).toMatch(/missing\.md/);
+  });
+
+  it('settle with an --answer-file that does not exist', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const s = io();
+    expect(await main(['settle', 'x.md', '--answer-file', 'gone.txt'], { cwd: root, ...s })).toBe(2);
+    oneLine(s);
+    expect(s.err.join('')).toMatch(/gone\.txt/);
+  });
+
+  it('adopt of an item whose PRD has no inbox or shipped folder', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, 'stray.md': STRAY_MEDIUM } });
+    const s = io();
+    expect(await main(['adopt', 'stray.md'], { cwd: root, ...s })).toBe(2);
+    oneLine(s);
+    expect(s.err.join('')).toMatch(/PRD 999 has no inbox or shipped folder/);
+  });
+
+  it('settle of an item whose PRD has no inbox or shipped folder', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, 'stray.md': STRAY_HIGH } });
+    const s = io();
+    const args = ['settle', 'stray.md', '--by', 'me', '--at', '2026-01-01', '--channel', 'prd-issue', '--number', '3', '--answer', 'A'];
+    expect(await main(args, { cwd: root, ...s })).toBe(2);
+    oneLine(s);
+    expect(s.err.join('')).toMatch(/PRD 999 has no inbox or shipped folder/);
+  });
+});
+
 describe('omni bundle', () => {
   it('the bundle runs in a repository with no node_modules', () => {
     const kitRoot = fileURLToPath(new URL('..', import.meta.url));

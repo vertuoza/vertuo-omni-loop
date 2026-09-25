@@ -1,5 +1,6 @@
 // Flag parsing for every `omni` command. Each command names the flags it takes (the same names its
 // upstream script's CLI half read); anything else is a usage error — exit 2, one line.
+import { readFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 
 export function usageError(message) {
@@ -58,4 +59,29 @@ export function inRoot(ctx, path) {
 
 export function println(stream, text = '') {
   stream.write(`${text}\n`);
+}
+
+/** The text of a file the user named, or a `UsageError` naming it when it cannot be read. */
+export function readUserFile(command, ctx, path) {
+  try {
+    return readFileSync(inRoot(ctx, path), 'utf8');
+  } catch (error) {
+    if (error?.code === 'ENOENT' || error?.code === 'EISDIR' || error?.code === 'EACCES') {
+      throw usageError(`omni ${command}: cannot read ${path} (${error.code}).`);
+    }
+    throw error;
+  }
+}
+
+const NO_FOLDER = /^PRD \d+ has no inbox or shipped folder$/;
+
+/** Runs `fn`, turning the library's "PRD <n> has no inbox or shipped folder" — an item naming a PRD
+ * this repository does not hold, which the user chose — into a one-line `UsageError`. */
+export function withPrdFolder(command, fn) {
+  try {
+    return fn();
+  } catch (error) {
+    if (NO_FOLDER.test(error?.message ?? '')) throw usageError(`omni ${command}: ${error.message}.`);
+    throw error;
+  }
 }
