@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 28 outbox check</title>
+<style>
+  :root {
+    --ground: #f6f7f9; --panel: #ffffff; --ink: #1c2230; --muted: #5d6677; --line: #d9dde5;
+    --ok: #1a7f37; --bad: #cf222e; --neutral: #6e7781; --accent: #3b5bdb; --chip: #eef1f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #10141b; --panel: #171c25; --ink: #e4e8ef; --muted: #98a2b3; --line: #2c3442;
+      --ok: #3fb950; --bad: #f85149; --neutral: #8b949e; --accent: #8ea4ff; --chip: #212836;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #10141b; --panel: #171c25; --ink: #e4e8ef; --muted: #98a2b3; --line: #2c3442;
+    --ok: #3fb950; --bad: #f85149; --neutral: #8b949e; --accent: #8ea4ff; --chip: #212836;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    padding-inline: 16px; padding-block: 32px 48px;
+  }
+  main { max-width: 1040px; margin: 0 auto; display: grid; gap: 28px; }
+  header { max-width: 68ch; display: grid; gap: 6px; }
+  .eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  h1 { font-size: 26px; line-height: 1.2; margin: 0; text-wrap: balance; }
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+  p { margin: 0; }
+  code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--chip); padding: 1px 5px; border-radius: 4px; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+  .side { display: grid; gap: 10px; align-content: start; }
+  .checks { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .checks .head { padding: 10px 14px; border-bottom: 1px solid var(--line); font-weight: 600; font-size: 14px; }
+  .row { display: grid; grid-template-columns: 18px 22px 1fr; gap: 8px; align-items: center; padding: 9px 14px; border-top: 1px solid var(--line); font-size: 13.5px; }
+  .row:first-of-type { border-top: 0; }
+  .row b { font-weight: 600; }
+  .row .desc { color: var(--muted); }
+  .dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; }
+  .dot.ok { color: var(--ok); background: var(--ok); }
+  .dot.bad { color: var(--bad); background: var(--bad); }
+  .dot.skip { color: var(--neutral); background: transparent; position: relative; }
+  .dot.skip::after { content: ""; position: absolute; left: 1px; right: 1px; top: 4px; height: 2px; background: currentColor; transform: rotate(-45deg); }
+  .dot.neu { color: var(--neutral); background: var(--neutral); }
+  .av { width: 20px; height: 20px; border-radius: 5px; display: grid; place-items: center; font: 700 11px/1 ui-monospace, Menlo, monospace; }
+  .av.gh { background: var(--ink); color: var(--panel); }
+  .av.omni { background: var(--accent); color: #fff; }
+  .empty { padding: 14px; color: var(--muted); font-size: 13.5px; font-style: italic; }
+  .note { font-size: 13.5px; color: var(--muted); }
+  table { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-size: 13.5px; }
+  .tablewrap { overflow-x: auto; }
+  th, td { text-align: left; padding: 8px 12px; border-top: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-top: 0; }
+  ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <span class="eyebrow">PRD 28 · before / after</span>
+    <h1>The outbox gate shows up on every pull request</h1>
+    <p class="note">Installing the private <code>omni-loop</code> GitHub App is the whole setup. No workflow file and no secret enter the repository.</p>
+  </header>
+
+  <section class="pair" aria-label="A feature PR's checks">
+    <div class="side">
+      <h2>Today · feature PR, 2 questions open</h2>
+      <div class="checks">
+        <div class="head">All checks have passed</div>
+        <div class="row"><span class="dot ok"></span><span class="av gh">CI</span><span><b>CI / test (pull_request)</b> <span class="desc">Successful in 41s</span></span></div>
+      </div>
+      <p class="note">Nothing says the outbox is open. It is checked only when a <code>/omni:yolo</code> session happens to run <code>omni status</code>, and branch protection cannot require it.</p>
+    </div>
+    <div class="side">
+      <h2>After · same PR</h2>
+      <div class="checks">
+        <div class="head">1 failing check</div>
+        <div class="row"><span class="dot bad"></span><span class="av omni">o</span><span><b>omni-loop · outbox</b> <span class="desc">Failing — 2 open outbox items</span></span></div>
+        <div class="row"><span class="dot ok"></span><span class="av gh">CI</span><span><b>CI / test (pull_request)</b> <span class="desc">Successful in 41s</span></span></div>
+      </div>
+      <p class="note">Details open the gate's report, the items listed. It turns green by itself once <code>/omni:yolo-fix</code> pushes the settle commit, and <b>Re-run</b> re-evaluates without a push.</p>
+    </div>
+  </section>
+
+  <section class="pair" aria-label="Other PRs">
+    <div class="side">
+      <h2>Today · sub-PR, or a repo without omni-loop</h2>
+      <div class="checks"><div class="empty">No omni-loop check. You cannot tell whether it is installed.</div></div>
+    </div>
+    <div class="side">
+      <h2>After · sub-PR, or a repo without omni-loop</h2>
+      <div class="checks">
+        <div class="head">1 skipped check</div>
+        <div class="row"><span class="dot skip"></span><span class="av omni">o</span><span><b>omni-loop · outbox</b> <span class="desc">Skipped — omni-loop is not active on this PR</span></span></div>
+        <div class="row"><span class="dot skip"></span><span class="av omni">o</span><span><b>omni-loop · outbox</b> <span class="desc">Skipped — omni-loop is not active on this repo</span></span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="side" aria-label="Every conclusion">
+    <h2>Every conclusion the check can take</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Situation</th><th>Check</th></tr></thead>
+        <tbody>
+          <tr><td>No <code>.omni-loop/config.yml</code> on the base branch</td><td>Skipped · not active on this repo</td></tr>
+          <tr><td>Activated, not a feature PR</td><td>Skipped · not active on this PR</td></tr>
+          <tr><td>Nothing open, no unreworked drift</td><td>Success · Outbox clear</td></tr>
+          <tr><td>Open items or unreworked drift</td><td>Failure · <i>n</i> open outbox items</td></tr>
+          <tr><td>Red, labelled <code>outbox:go</code></td><td>Neutral · Override in effect</td></tr>
+          <tr><td>Broken config, snapshot over its bound, or evaluation failed after retries</td><td>Failure · the reason, in one line</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="pair" aria-label="What changes and what stays">
+    <div class="side">
+      <h2>Changes</h2>
+      <ul>
+        <li>New <code>apps/omni-app</code>: webhook server on its own Vercel project, events through Inngest.</li>
+        <li>Committed app manifest <code>apps/omni-app/app.yml</code>.</li>
+        <li><code>ci.outboxContext</code> default: <code>ci/outbox</code> → <code>outbox</code>.</li>
+        <li>An ADR drops PRD 3's planned <code>omni-outbox.yml</code> workflow.</li>
+      </ul>
+    </div>
+    <div class="side">
+      <h2>Stays the same</h2>
+      <ul>
+        <li>The gate's policy: <code>gateResult</code> is reused, unchanged.</li>
+        <li><code>omni status</code> and <code>omni comment</code> for local and <code>/omni:yolo</code> use.</li>
+        <li>No file under <code>.github/</code> in an installed repository.</li>
+        <li>The galaxy (game layer) is untouched and still removable.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+</body>
+</html>

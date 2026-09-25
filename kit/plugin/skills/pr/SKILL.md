@@ -155,7 +155,8 @@ gh pr view <n> --json isDraft,mergeable,mergeStateStatus,baseRefName
 **Which checks count.** If `ci.branchProtection` is `true`: `gh pr checks <n> --required`. Otherwise
 read `gh pr checks <n> --json name,state,bucket` and take the checks named `ci.aggregateCheck` and
 `ci.outboxContext`; when `ci.aggregateCheck` is null, every reported check except `ci.outboxContext`
-stands in for it.
+stands in for it. The `ci.outboxContext` check is posted by the **omni-loop** GitHub App, never by a
+workflow; when the app is not installed, that check is simply absent.
 
 | What you see | What you do |
 |---|---|
