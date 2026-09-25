@@ -1,5 +1,7 @@
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 export type Tint = Record<string, readonly string[]>;
+/** One `#rrggbb` per flat colour to recolour (any other value keeps the default): `1` to `4` are the stripes on every hero's suit. */
+export type Flat = Readonly<Record<string, string>>;
 export type WoundKind = 'transmission' | 'unconfirmed-ground' | 'beacon' | 'fault-line' | 'under-fire' | 'aftershock';
 
 export const PALETTE: Readonly<Record<string, string>>;
@@ -8,15 +10,15 @@ export const RAMPS: Readonly<Record<string, readonly string[]>>;
 export const FLAT: Readonly<Record<string, string>>;
 export interface Painter { w: number; h: number; [op: string]: unknown }
 export const SPRITE_DEFS: Readonly<Record<string, { w: number; h: number; draw(d: Painter, f: number): void; outline?: boolean }>>;
-export function forge(w: number, h: number, draw: (d: Painter) => void, o?: { tint?: Tint; outline?: boolean }): { w: number; h: number; pixels: (string | null)[] };
-export function spritePixels(name: string, o?: { frame?: number; tint?: Tint | null }): { w: number; h: number; pixels: (string | null)[] };
+export function forge(w: number, h: number, draw: (d: Painter) => void, o?: { tint?: Tint; flat?: Flat; outline?: boolean }): { w: number; h: number; pixels: (string | null)[] };
+export function spritePixels(name: string, o?: { frame?: number; tint?: Tint | null; flat?: Flat | null }): { w: number; h: number; pixels: (string | null)[] };
 export function woundTint(kind: WoundKind): Tint;
 export const FLEET_SPRITE: Readonly<Record<string, string>>;
 export const WOUND_TINT: Readonly<Record<WoundKind, { p: string; ramp: readonly string[] }>>;
 export const SURFACES: Readonly<Record<string, readonly string[]>>;
 
-export function spriteImage(name: string, o?: { tint?: Tint | null; flip?: boolean; frame?: number; silhouette?: string | null }): CanvasImageSource & { width: number; height: number };
-export function drawSprite(ctx: Ctx, name: string, x: number, y: number, o?: { scale?: number; tint?: Tint; flip?: boolean; alpha?: number; frame?: number; glow?: string | null }): void;
+export function spriteImage(name: string, o?: { tint?: Tint | null; flat?: Flat | null; flip?: boolean; frame?: number; silhouette?: string | null }): CanvasImageSource & { width: number; height: number };
+export function drawSprite(ctx: Ctx, name: string, x: number, y: number, o?: { scale?: number; tint?: Tint; flat?: Flat | null; flip?: boolean; alpha?: number; frame?: number; glow?: string | null }): void;
 export function spriteSize(name: string): { w: number; h: number };
 export function rng(seed: number): () => number;
 export function planetTexture(seed: number): { height: Float32Array; order: Float32Array };
