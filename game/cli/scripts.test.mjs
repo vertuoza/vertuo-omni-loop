@@ -42,6 +42,7 @@ afterEach(async () => {
 async function game(script, args, env = {}) {
   try {
     const { stdout, stderr } = await promisify(execFile)(process.execPath, [join(here, `${script}.mjs`), ...args], {
+      cwd: tmp, // a relative path a script writes lands here, never in the repository
       env: {
         PATH: `${tmp}:${dirname(process.execPath)}:${process.env.PATH}`,
         SUPABASE_URL: server.url,
