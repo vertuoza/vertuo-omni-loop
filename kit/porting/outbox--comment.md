@@ -234,3 +234,12 @@ updated "Superseded by Task 11" section for the exact diff.
 `pnpm vitest run kit/lib/outbox/comment.test.mjs kit/lib/outbox/replies.test.mjs
 kit/test/no-literals.test.mjs` — 164/164 pass (120 in `comment.test.mjs`, 43 in
 `replies.test.mjs`, 1 in `no-literals.test.mjs`). Full `pnpm test` — 626/626 pass (32 files).
+
+## Final review fixes
+
+- `formatOutboxComment` takes `unreworked` (`unreworkedDrift`'s result, passed by
+  `upsertOutboxComment`): when nothing is open but drift is unreworked, the "Nothing open" line is
+  replaced by one naming the drifted ids and `COMMANDS.yoloFix`. Test: "names unreworked drift and
+  the fix command instead of \"Nothing open\" when nothing is open".
+- `parseNameStatus` is re-exported from `kit/lib/git.mjs` (the one implementation), no longer via
+  `check-decision-coverage.mjs`. Test: `kit/lib/git.test.mjs` "is one implementation…".

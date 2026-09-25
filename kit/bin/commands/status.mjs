@@ -25,9 +25,13 @@ export const status = {
     const report = formatReport(prd, result);
     println(stdout, report);
 
-    // In the outbox workflow the runner sets these two; unset everywhere else, where this is a no-op.
+    // In the outbox workflow the runner sets these; unset everywhere else, where this is a no-op.
     if (env.GITHUB_OUTPUT) {
-      const lines = [`open_items=${result.items.length > 0}`, `unaccounted=${(result.unaccounted ?? []).length > 0}`];
+      const lines = [
+        `open_items=${result.items.length > 0}`,
+        `unreworked=${result.unreworked.length > 0}`,
+        `unaccounted=${(result.unaccounted ?? []).length > 0}`,
+      ];
       appendFileSync(env.GITHUB_OUTPUT, `${lines.join('\n')}\n`);
     }
     if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `${report}\n`);

@@ -82,9 +82,9 @@ import { readRepoFile } from '../check-report.mjs';
 import { COMMANDS } from '../commands.mjs';
 import { RANK_ORDER, SETTLED_FILE, outboxItemFiles, parseOutboxItem } from './outbox.mjs';
 import { ADOPTED_VERDICT, parseSettledEntries } from './settle.mjs';
-import { unaccountedChanges } from './status.mjs';
+import { unaccountedChanges, unreworkedDrift } from './status.mjs';
 
-export { parseNameStatus } from './check-decision-coverage.mjs';
+export { parseNameStatus } from '../git.mjs';
 export { unaccountedChanges };
 
 /**
@@ -185,7 +185,10 @@ export function parseAnnouncedMarker(body, markers) {
  * rule that flagged it. Finally the hidden announced-keys marker, always present, naming every key
  * this body lists (see {@link announcedKeys}). Pure — no GitHub call, no filesystem access.
  *
- * @param {{ prd: number, owner: string, repo: string, branch: string, ref?: string, items: object[], unaccounted?: { path: string, rule: string }[], labels?: string[], ctx: object }} args
+ * When nothing is open but `unreworked` (`unreworkedDrift`'s `{ id }[]`) is not empty, the
+ * "nothing open" line instead names those ids and the fix command.
+ *
+ * @param {{ prd: number, owner: string, repo: string, branch: string, ref?: string, items: object[], unaccounted?: { path: string, rule: string }[], unreworked?: { id: string }[], labels?: string[], ctx: object }} args
  */
 export function formatOutboxComment({
   prd,
@@ -195,6 +198,7 @@ export function formatOutboxComment({
   ref = branch,
   items,
   unaccounted = [],
+  unreworked = [],
   labels = [],
   ctx,
 }) {
@@ -211,12 +215,20 @@ export function formatOutboxComment({
   }
 
   lines.push('');
-  lines.push(
-    sorted.length === 0
-      ? `_Nothing open on \`${branch}\`._`
-      : `_${sorted.length} open item(s) on \`${branch}\`. Settled items move to ` +
-          `\`${ctx.layout.outboxDir(prd)}/settled.md\`._`,
-  );
+  if (sorted.length > 0) {
+    lines.push(
+      `_${sorted.length} open item(s) on \`${branch}\`. Settled items move to ` +
+        `\`${ctx.layout.outboxDir(prd)}/settled.md\`._`,
+    );
+  } else if (unreworked.length > 0) {
+    // Nothing open is not the same as nothing to do: a drifted answer still holds the gate.
+    lines.push(
+      `_No open item on \`${branch}\`, but drifted and not yet reworked: ` +
+        `${unreworked.map((entry) => entry.id).join(', ')} — run \`${COMMANDS.yoloFix}\`._`,
+    );
+  } else {
+    lines.push(`_Nothing open on \`${branch}\`._`);
+  }
 
   if (sorted.length > 0 && labels.includes(ctx.config.labels.outboxGo)) {
     lines.push('');
@@ -968,7 +980,8 @@ export function upsertOutboxComment(
 ) {
   const items = openItemsForPrd(prd, { ctx });
   const unaccounted = unaccountedChanges(prd, changes, { ctx });
-  const body = formatOutboxComment({ prd, owner, repo, branch, ref, items, unaccounted, labels, ctx });
+  const unreworked = unreworkedDrift(prd, { ctx });
+  const body = formatOutboxComment({ prd, owner, repo, branch, ref, items, unaccounted, unreworked, labels, ctx });
   const counts = countsByRank(items);
   // PRD #1166 s7: the Slack note counts adopted items apart from the ones waiting on a decision.
   const adoptedCount = adoptedEntriesForPrd(prd, { ctx }).length;

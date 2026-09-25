@@ -151,3 +151,9 @@ own clarification that this function's tests live where they already did upstrea
 - Task 15 fix round 1: the `parseNameStatus` comment claimed a bare `git diff` never emits `R`; false since
   git 2.9. Rewritten to say the rename split comes from `--no-renames`, which `kit/lib/git.mjs`
   `rangeChanges` now passes (as upstream's outbox-status/outbox-comment did). Comment only; no code change here.
+
+## Final review fixes
+
+- `parseNameStatus` is no longer a second copy: it is re-exported from `kit/lib/git.mjs`, which
+  `rangeChanges` also uses. Test: `kit/lib/git.test.mjs` "is one implementation, re-exported by the
+  coverage and comment modules".

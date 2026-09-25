@@ -77,3 +77,8 @@ path above). No upstream test covered a CLI half, so none is ported or deleted.
   and the library's `PRD <n> has no inbox or shipped folder` become one-line `UsageError`s (exit 2),
   caught in the command (`readUserFile`, `withPrdFolder` in `kit/bin/args.mjs`), not in the dispatcher.
   Upstream let both escape as a stack trace.
+
+## Final review fixes
+
+- `omni status` writes `unreworked=<true|false>` to `GITHUB_OUTPUT` next to `open_items=` and
+  `unaccounted=`. Test: "status writes open_items and unreworked to GITHUB_OUTPUT".

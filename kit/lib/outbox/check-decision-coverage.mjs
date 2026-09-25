@@ -24,21 +24,8 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-decision-coverage.mjs — changes in kit/porting/outbox--check-decision-coverage.md.
 import { compare, readAccounts } from './account.mjs';
 
-/**
- * Parses `git diff --name-status` output into `{ path, status }[]`, exactly what `riskyChanges`
- * wants. A rename arrives as a delete and an add because the diff is taken with `--no-renames`
- * (`kit/lib/git.mjs`); a bare `git diff` has detected renames by default since git 2.9.
- */
-export function parseNameStatus(nameStatus) {
-  return nameStatus
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [status, ...paths] = line.split('\t');
-      return { status: status[0], path: paths.at(-1) };
-    });
-}
+/** `git diff --name-status` output as `{ path, status }[]` — one implementation, in `kit/lib/git.mjs`. */
+export { parseNameStatus } from '../git.mjs';
 
 /** Every PRD `ctx.layout.outboxDirs()` names — in-flight and shipped — as numbers, sorted. An
  * outbox tree with no PRD in it reads as `[]`. */

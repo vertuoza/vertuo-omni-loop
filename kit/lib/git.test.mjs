@@ -1,7 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.mjs';
-import { rangeChanges } from './git.mjs';
+import { parseNameStatus, rangeChanges } from './git.mjs';
+import { parseNameStatus as coverageParse } from './outbox/check-decision-coverage.mjs';
+import { parseNameStatus as commentParse } from './outbox/comment.mjs';
 
 describe('rangeChanges', () => {
   it('reports a renamed file as a delete and an add, never an R', () => {
@@ -18,5 +20,13 @@ describe('rangeChanges', () => {
       ]),
     );
     expect(changes).toHaveLength(2);
+  });
+});
+
+describe('parseNameStatus', () => {
+  it('is one implementation, re-exported by the coverage and comment modules', () => {
+    expect(parseNameStatus('M\ta.md\nA\tb.md\n')).toEqual([{ status: 'M', path: 'a.md' }, { status: 'A', path: 'b.md' }]);
+    expect(coverageParse).toBe(parseNameStatus);
+    expect(commentParse).toBe(parseNameStatus);
   });
 });

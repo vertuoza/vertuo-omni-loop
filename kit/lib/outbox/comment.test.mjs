@@ -181,6 +181,13 @@ describe('formatOutboxComment', () => {
     expect(body).toContain('No open items');
   });
 
+  it('names unreworked drift and the fix command instead of "Nothing open" when nothing is open', () => {
+    const body = formatOutboxComment({ ...base, items: [], unreworked: [{ id: 's1-01-x' }, { id: 's2-01-y' }] });
+    expect(body).not.toContain('Nothing open');
+    expect(body).toMatch(/s1-01-x, s2-01-y/);
+    expect(body).toContain('/omni-yolo-fix');
+  });
+
   it('lists every item with its rank and a link to the file on the branch', () => {
     const items = [
       item({ id: 's7-01-default-country', rank: 'high' }),
