@@ -13,6 +13,20 @@ without touching it (`game/`, `.github/workflows/game.yml`).
 
 - Design: [`docs/superpowers/specs/2026-09-24-omni-plan-game-design.md`](docs/superpowers/specs/2026-09-24-omni-plan-game-design.md)
 - Game layer reference: [`game/README.md`](game/README.md)
+- The galaxy arcade (web UI, Vercel + Supabase): [`apps/galaxy/README.md`](apps/galaxy/README.md)
+
+## Repository layout
+
+A pnpm workspace:
+
+| Path | What |
+|---|---|
+| `kit/` | the delivery kit (`omni` CLI) |
+| `game/` | the game layer: projector, ledger, economy, banner, rankings |
+| `packages/sprites` | `@omni/sprites`: the palette, hand-placed pixel sprites, the planet renderer |
+| `packages/galaxy` | `@omni/galaxy`: folds ledger events into the galaxy view; the demo world |
+| `apps/galaxy` | `@omni/galaxy-app`: the OMNI LOOP arcade, a Next.js app for Vercel |
+| `supabase/` | the galaxy database: migrations, config, demo seed |
 
 ## Getting started
 
@@ -29,6 +43,14 @@ pnpm test
 ```
 
 The tests run entirely on fixtures and never call GitHub.
+
+### Open the galaxy
+
+```bash
+pnpm galaxy:dev            # http://localhost:3000 — the arcade, on the demo galaxy
+```
+
+With a local Supabase, Vercel deployment and the artifact build: [`apps/galaxy/README.md`](apps/galaxy/README.md).
 
 ### Describe your repositories and teams
 
