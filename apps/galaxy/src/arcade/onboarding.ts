@@ -1,7 +1,10 @@
 // Who goes where, as pure functions (docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md §2).
 //
-//   START ─ signed out ─▶ INSERT COIN ─▶ Google ─▶ PRESS START ─▶ INTRO ─▶ FLEET ─▶ NAME ─▶ HERO ─▶ GITHUB ─▶ READY ─▶ MENU
+//   START ─ signed out ─▶ INSERT COIN ─▶ Google ─▶ PRESS START ─▶ GITHUB ─▶ INTRO ─▶ FLEET ─▶ NAME ─▶ HERO ─▶ READY ─▶ MENU
+//         │                                                        └ B: visit only ─▶ MENU (look, don't play)
 //         └ a player with an active fleet ─▶ WELCOME BACK ─▶ MENU
+//
+// Google lets a @vertuoza.com account in as a visitor; linking GitHub makes them a player.
 //
 // A flow says why a screen is open: the first visit (`onboard`), or one menu entry (`myhero`,
 // `change`, `link`). The same screens serve all four; only where they lead differs.
@@ -13,9 +16,14 @@ export type Step = 'coin' | 'outsider' | 'gate' | 'intro' | 'select' | 'name' | 
 
 const activeFleet = (fleets: FleetRow[], name: string | null | undefined) => fleets.find((f) => f.name === name && !f.retired) ?? null;
 
-/** A player who can go straight to the menu: an active fleet and a hero. */
-export function isReady(me: Player | null, fleets: FleetRow[]): me is Player {
-  return Boolean(me && activeFleet(fleets, me.team) && validHero(me.hero));
+/** GitHub is linked: this visitor may play. */
+export function isLinked(session: Session | null, me: Player | null): boolean {
+  return Boolean(me?.github_login || session?.github);
+}
+
+/** A player who can go straight to the menu: GitHub linked, an active fleet and a hero. */
+export function isReady(me: Player | null, fleets: FleetRow[]): boolean {
+  return Boolean(me && me.github_login && activeFleet(fleets, me.team) && validHero(me.hero));
 }
 
 /** A player whose fleet was retired since they chose it. */
@@ -31,10 +39,15 @@ export function afterStart(session: Session | null, me: Player | null, fleets: F
   return 'gate';
 }
 
-/** Where PRESS START leads: a returning player to the welcome, a disbanded one to the fleets, a new one to the intro. */
-export function afterGate(me: Player | null, fleets: FleetRow[]): Step {
+/**
+ * Where PRESS START leads (and where a fresh GitHub link leads): a returning player to the welcome,
+ * a visitor to the GitHub link, a disbanded player to the fleets, a new player to the intro.
+ */
+export function afterGate(me: Player | null, fleets: FleetRow[], session: Session | null = null): Step {
   if (isReady(me, fleets)) return 'welcome';
+  if (!isLinked(session, me)) return 'link';
   if (isDisbanded(me, fleets)) return 'select';
+  if (me && activeFleet(fleets, me.team)) return 'welcome';
   return 'intro';
 }
 
@@ -44,8 +57,8 @@ export function nextStep(step: Step, flow: Flow, me: Player | null): Step {
     case 'intro': return 'select';
     case 'select': return flow === 'change' ? 'menu' : 'name';
     case 'name': return 'hero';
-    case 'hero': return flow === 'onboard' ? (me?.github_login ? 'ready' : 'link') : 'menu';
-    case 'link': return flow === 'onboard' ? 'ready' : 'menu';
+    case 'hero': return flow === 'onboard' ? 'ready' : 'menu';
+    case 'link': return 'menu'; // B, visit only: after a link, afterGate decides
     case 'ready': case 'welcome': return 'menu';
     default: return 'menu';
   }
@@ -58,20 +71,27 @@ export function backStep(step: Step, flow: Flow): Step | 'title' {
     case 'select': return 'title';
     case 'name': return 'select';
     case 'hero': return 'name';
-    case 'link': return 'ready';
+    case 'link': return 'menu';
     default: return 'title';
   }
 }
 
-/** The screens only a signed-in player may see: everything past INSERT COIN. */
+/** The screens a signed-in visitor may see: everything past INSERT COIN. */
 const SIGNED_IN_ONLY = new Set([
   'gate', 'intro', 'select', 'name', 'hero', 'link', 'ready', 'welcome',
   'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing',
 ]);
+/** The screens only a player may see: playing starts with a linked GitHub account. */
+const PLAYERS_ONLY = new Set(['intro', 'select', 'name', 'hero', 'ready', 'welcome']);
 
-/** Where a screen may be shown to this visitor: anywhere past INSERT COIN needs a session. */
-export function allowed(scene: string, session: Session | null): string {
-  return !session && SIGNED_IN_ONLY.has(scene) ? 'coin' : scene;
+/**
+ * Where a screen may be shown: past INSERT COIN needs a session, and playing needs GitHub linked.
+ * The one door every route goes through (a deep link, a crafted return URL, a stale screen).
+ */
+export function allowed(scene: string, session: Session | null, linked = false): string {
+  if (!session && SIGNED_IN_ONLY.has(scene)) return 'coin';
+  if (!linked && PLAYERS_ONLY.has(scene)) return 'link';
+  return scene;
 }
 
 /** What the page's query string says happened while the player was away (Google, GitHub). */

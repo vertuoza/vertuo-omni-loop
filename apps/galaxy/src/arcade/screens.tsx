@@ -128,12 +128,15 @@ const GALAXY: MenuItem[] = [
   { id: 'briefing', label: 'HOW TO PLAY', scene: 'briefing' },
 ];
 
-/** The menu for who is playing: the galaxy, then what a player can change about themself. */
+/**
+ * The menu for who is at the cabinet: the galaxy for everyone signed in; then, for a player, their
+ * hero and fleet; for a visitor, the way to play (linking GitHub).
+ */
 export function menuItems({ joined, linked, signedIn }: { joined: boolean; linked: boolean; signedIn: boolean }): MenuItem[] {
   return [
+    ...(signedIn && !linked ? [{ id: 'link', label: 'PLAY', fresh: true }] as MenuItem[] : []),
     ...GALAXY,
-    ...(joined ? [{ id: 'myhero', label: 'MY HERO', fresh: true }, { id: 'change', label: 'CHANGE FLEET', fresh: true }] as MenuItem[] : []),
-    ...(joined && !linked ? [{ id: 'link', label: 'LINK GITHUB', fresh: true }] as MenuItem[] : []),
+    ...(joined && linked ? [{ id: 'myhero', label: 'MY HERO', fresh: true }, { id: 'change', label: 'CHANGE FLEET', fresh: true }] as MenuItem[] : []),
     ...(signedIn ? [{ id: 'signout', label: 'SIGN OUT' }] as MenuItem[] : []),
   ];
 }
@@ -148,14 +151,16 @@ export function MenuOverlay({ view, items, index, me, onPick }: {
     briefing: 'How points are won and lost',
     myhero: 'Your name and your look',
     change: 'Your future points follow you',
-    link: 'So your pull requests score',
+    link: 'Link your GitHub to join a fleet',
     signout: 'Back to the title',
   };
   const f = fleet(me?.team);
   return (
     <div className={`menu${items.length > 4 ? ' long' : ''}`}>
       <h2>SELECT MODE</h2>
-      {me?.team && <span className="j-badge" style={{ ['--fc' as string]: f.color }}>P1 {me.display_name} · {f.label}</span>}
+      {me?.team && me.github_login
+        ? <span className="j-badge" style={{ ['--fc' as string]: f.color }}>P1 {me.display_name} · {f.label}</span>
+        : <span className="j-badge" style={{ ['--fc' as string]: '#8a90d6' }}>VISITOR</span>}
       <ul>
         {items.map((m, i) => (
           <li key={m.id}>

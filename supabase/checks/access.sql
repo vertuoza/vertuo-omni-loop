@@ -8,9 +8,12 @@ begin;
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-00000000000a', 'ada@vertuoza.com'),
   ('00000000-0000-4000-8000-00000000000b', 'bob@vertuoza.com'),
+  ('00000000-0000-4000-8000-00000000000c', 'carol@vertuoza.com'),
   ('00000000-0000-4000-8000-00000000000e', 'eve@example.com');
+-- Ada and Bob linked GitHub (players); Carol did not (a visitor).
 insert into auth.identities (user_id, provider, provider_id, identity_data) values
-  ('00000000-0000-4000-8000-00000000000a', 'github', '424242', '{"user_name": "ada-gh"}');
+  ('00000000-0000-4000-8000-00000000000a', 'github', '424242', '{"user_name": "ada-gh"}'),
+  ('00000000-0000-4000-8000-00000000000b', 'github', '1001', '{"user_name": "bob-gh"}');
 
 -- Act as a signed-in user for the rest of the transaction.
 create function pg_temp.sign_in(uid text, email text) returns void language sql as $$
@@ -59,6 +62,10 @@ begin
   if (select team_since from public.players where id = '00000000-0000-4000-8000-00000000000a') is null then
     raise exception 'FAIL: joining a fleet did not stamp team_since';
   end if;
+  if (select github_login from public.players where id = '00000000-0000-4000-8000-00000000000a') is distinct from 'ada-gh'
+     or (select github_id from public.players where id = '00000000-0000-4000-8000-00000000000a') is distinct from 424242 then
+    raise exception 'FAIL: a new player did not start with their linked GitHub account';
+  end if;
   update public.players set team = 'beaver', display_name = 'ADA-L' where id = '00000000-0000-4000-8000-00000000000a';
   if (select team from public.players where id = '00000000-0000-4000-8000-00000000000a') <> 'beaver' then
     raise exception 'FAIL: a player could not change fleet';
@@ -94,10 +101,8 @@ begin
     raise exception 'FAIL: a name outside A-Z 0-9 - was saved';
   exception when check_violation then null; end;
 
-  perform public.link_github();
-  if (select github_login from public.players where id = '00000000-0000-4000-8000-00000000000a') is distinct from 'ada-gh'
-     or (select github_id from public.players where id = '00000000-0000-4000-8000-00000000000a') is distinct from 424242 then
-    raise exception 'FAIL: link_github did not copy the linked GitHub account';
+  if public.link_github() ->> 'github_login' is distinct from 'ada-gh' then
+    raise exception 'FAIL: link_github did not answer the linked GitHub account';
   end if;
 end $$;
 
@@ -111,9 +116,22 @@ begin
   update public.players set team = 'cia' where id = '00000000-0000-4000-8000-00000000000a';
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FAIL: a player changed someone else''s fleet'; end if;
+end $$;
+
+-- ── A visitor: signed in with Google, no GitHub linked. Looks, does not play ──
+select pg_temp.sign_in('00000000-0000-4000-8000-00000000000c', 'carol@vertuoza.com');
+do $$
+begin
+  if (select count(*) from public.ledger_events) = 0 then raise exception 'FAIL: a visitor cannot look at the galaxy'; end if;
+  begin
+    insert into public.players (id, display_name, team, hero)
+    values ('00000000-0000-4000-8000-00000000000c', 'CAROL', 'beaver', '{"v":1,"body":"girl","skin":0,"hair":0,"suit":0,"cape":0}');
+    raise exception 'FAIL: a visitor joined a fleet without linking GitHub';
+  exception when insufficient_privilege then null; end;
+  if exists (select 1 from public.my_github()) then raise exception 'FAIL: my_github answered for an unlinked visitor'; end if;
   begin
     perform public.link_github();
-    raise exception 'FAIL: link_github linked a player with no GitHub identity';
+    raise exception 'FAIL: link_github linked a visitor with no GitHub identity';
   exception when no_data_found then null; end;
 end $$;
 reset role;

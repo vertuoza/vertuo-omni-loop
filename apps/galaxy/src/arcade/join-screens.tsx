@@ -202,10 +202,9 @@ export function BuilderOverlay({ hero, row, team, name, error, onRow }: {
 
 export type LinkState = 'ask' | 'away' | 'done' | 'error';
 
-export function LinkOverlay({ state, name, team, login, error, demo }: {
-  state: LinkState; name: string; team: string | null; login: string | null; error: string | null; demo: boolean;
+export function LinkOverlay({ state, name, login, error, demo }: {
+  state: LinkState; name: string; login: string | null; error: string | null; demo: boolean;
 }) {
-  const f = fleet(team);
   if (state === 'away') {
     return (
       <div className="j-center" style={{ top: 118 }}>
@@ -219,19 +218,19 @@ export function LinkOverlay({ state, name, team, login, error, demo }: {
     return (
       <div className="j-panel" style={{ left: 236, right: 30, top: 110 }}>
         <p className="j-good">✓ LINKED AS @{(login ?? '').toUpperCase()}</p>
-        <p className="j-txt">Your pull requests now score for <span style={{ color: f.color }}>{f.label}</span>{stop(f.label)}</p>
+        <p className="j-txt">You are a player now. Your pull requests will score for your fleet.</p>
         <p className="j-press blink j-small">PRESS START</p>
       </div>
     );
   }
   return (
-    <div className="j-panel" style={{ left: 236, right: 30, top: 66 }}>
-      <p className="j-gold">ONE LAST THING, {name}.</p>
-      <p className="j-tiny">LINK YOUR GITHUB SO YOUR</p>
-      <p className="j-tiny">PULL REQUESTS SCORE FOR <span style={{ color: f.color }}>{f.label}</span>{stop(f.label)}</p>
-      <p className="j-txt j-dim">Points follow your GitHub username. You link it once.</p>
+    <div className="j-panel" style={{ left: 236, right: 30, top: 62 }}>
+      <p className="j-gold">TO PLAY, {name}, LINK YOUR GITHUB.</p>
+      <p className="j-tiny">YOUR PULL REQUESTS WILL SCORE</p>
+      <p className="j-tiny">FOR THE FLEET YOU JOIN.</p>
+      <p className="j-txt j-dim">Signed in with Google, you can look around. Linking GitHub, once, makes you a player.</p>
       {state === 'error' && error && <p className="j-txt j-error" role="alert">{error}</p>}
-      <p className="j-tiny"><K>A</K>{state === 'error' ? 'TRY AGAIN' : 'LINK GITHUB'} &nbsp; <K>B</K>LATER</p>
+      <p className="j-tiny"><K>A</K>{state === 'error' ? 'TRY AGAIN' : 'LINK GITHUB'} &nbsp; <K>B</K>VISIT ONLY</p>
     </div>
   );
 }
