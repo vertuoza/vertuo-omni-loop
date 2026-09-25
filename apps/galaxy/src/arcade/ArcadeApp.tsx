@@ -166,7 +166,12 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       store.set(FLOW_KEY, null);
       const step = afterReturn(back, s, m, fleets);
       if (back.kind === 'signin_error') return open('coin', { error: back.message });
-      if (back.kind === 'linked') return open('link', { flow, link: 'done', linkLogin: back.login || m?.github_login || null });
+      if (back.kind === 'linked') {
+        // Show the login the database holds (link_github() set it), never one read from the URL.
+        const login = account.kind === 'supabase' ? m?.github_login ?? null : back.login || m?.github_login || null;
+        if (!login) return open('link', { flow, link: 'error', error: 'Linking GitHub did not finish. Try again.' });
+        return open('link', { flow, link: 'done', linkLogin: login });
+      }
       if (back.kind === 'link_error') return open('link', { flow, link: 'error', error: back.message });
       return open(step, { flow: 'onboard' });
     }
