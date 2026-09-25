@@ -23,13 +23,28 @@ describe('game workflow', () => {
     expect(wf.jobs.rankings.if).toContain('inputs.post_rankings');
     expect(wf.jobs.ledger.if).not.toContain('schedule');
     const steps = wf.jobs.rankings.steps.map((s) => s.run ?? '').join('\n');
-    expect(steps).toContain('pnpm game:score');
-    expect(steps).toContain('gh issue comment "$RANKINGS_ISSUE" --body-file game/season/rankings.md');
+    expect(steps).toContain('pnpm game:score --rankings "$RUNNER_TEMP/rankings.md"');
+    expect(steps).toContain('gh issue comment "$RANKINGS_ISSUE" --body-file "$RUNNER_TEMP/rankings.md"');
   });
 
-  it('creates the ledger and season directories before staging them', () => {
-    const commit = wf.jobs.ledger.steps.find((s) => s.name === 'Commit the ledger and the season').run;
-    expect(commit.indexOf('mkdir -p game/ledger game/season')).toBeGreaterThanOrEqual(0);
-    expect(commit.indexOf('mkdir -p game/ledger game/season')).toBeLessThan(commit.indexOf('git add'));
+  it('writes the ledger to Supabase and never to the repository', () => {
+    for (const job of Object.values(wf.jobs)) {
+      expect(job.permissions.contents).toBe('read');
+      expect(job.env.SUPABASE_SERVICE_ROLE_KEY).toBe('${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}');
+      const runs = job.steps.map((s) => s.run ?? '').join('\n');
+      expect(runs).not.toMatch(/git (add|commit|push)/);
+    }
+    expect(wf.jobs.ledger.steps.map((s) => s.run)).toContain('pnpm game:project');
+  });
+
+  it('keeps a weekly backup of the database for 90 days, before posting', () => {
+    const steps = wf.jobs.rankings.steps;
+    const exportAt = steps.findIndex((s) => (s.run ?? '').startsWith('pnpm game:export'));
+    const upload = steps.findIndex((s) => s.uses?.startsWith('actions/upload-artifact'));
+    const post = steps.findIndex((s) => s.name === 'Post the rankings');
+    expect(exportAt).toBeGreaterThanOrEqual(0);
+    expect(upload).toBe(exportAt + 1);
+    expect(steps[upload].with['retention-days']).toBe(90);
+    expect(post).toBeGreaterThan(upload);
   });
 });

@@ -7,6 +7,58 @@ const SUIT_STRIPES = (d, x, y, w = 7) => {
   d.rect(x, y, w, 1, '1').rect(x + 2, y + 2, w - 1, 1, '2').rect(x, y + 4, w, 1, '3').rect(x + 2, y + 6, w - 2, 1, '4');
 };
 
+function heroDraw(girl, cape) {
+  return (d, f) => {
+    const b = f; // breathing
+    if (cape) {
+      const w = f ? 0 : 1; // the hem flutters
+      d.poly([[7, 17], [25, 17], [28 + w, 44], [22, 45 - w], [16, 44 + w], [10, 45 - w], [4 - w, 44]], 'P');
+    }
+    if (girl) {
+      d.poly([[11, 31], [16, 31], [15.5, 41], [12, 41]], 'W').poly([[11, 31], [12.5, 31], [12.5, 41], [12, 41]], 'N');
+      d.poly([[11.5, 39], [15.5, 39], [15.5, 46], [10.5, 46]], 'n');
+      d.poly([[7, 18 - b], [25, 18 - b], [21, 31], [11, 31]], 'N');
+      d.poly([[11, 18 - b], [21, 18 - b], [19.5, 31], [12.5, 31]], 'W');
+      d.poly([[5, 20 - b], [9, 18 - b], [10, 27], [6.5, 28]], 'N');
+      d.poly([[6, 22 - b], [8, 21 - b], [8.5, 26], [6.5, 26]], 'W');
+      d.ellipse(7.5, 29.5, 2.6, 2.5, 'n');
+      d.rect(11, 30, 10, 2, 'n');
+    } else {
+      d.poly([[10, 31], [16, 31], [15.5, 42], [11, 42]], 'W').poly([[10, 31], [12, 31], [12, 42], [11, 42]], 'N');
+      d.poly([[10.5, 41], [15.5, 41], [15.5, 46], [9.5, 46]], 'n');
+      d.poly([[5, 18 - b], [27, 18 - b], [22, 32], [10, 32]], 'N');
+      d.poly([[10, 18 - b], [22, 18 - b], [20, 32], [12, 32]], 'W');
+      d.poly([[3, 20 - b], [8, 18 - b], [9, 28], [5, 29]], 'N');
+      d.poly([[4, 22 - b], [6, 21 - b], [7, 27], [5, 27]], 'W');
+      d.ellipse(6.5, 30.5, 3.2, 3, 'n');
+      d.rect(11, 31, 10, 2, 'n');
+    }
+    d.mirror();
+    SUIT_STRIPES(d, 12, 21 - b, girl ? 6 : 7);
+    const buckle = girl ? 31 : 32;
+    d.px(15, buckle, 'Y').px(16, buckle, 'Y');
+    if (girl) {
+      d.ellipse(16, 9, 8.5, 8.5, 'H');
+      d.rect(8, 9, 4, 10, 'H').rect(20, 9, 4, 10, 'H');
+    }
+    d.rect(13, 14, 6, 5, 'S');
+    d.ellipse(16, 9, 6.5, 7.5, 'S');
+    if (girl) {
+      d.ellipse(16, 4.5, 7.5, 4, 'H');
+      d.pxs([[10, 8], [10, 9], [21, 8], [21, 9]], 'H');
+    } else {
+      d.ellipse(16, 4.5, 7, 4, 'H').rect(9, 4, 3, 4, 'H').rect(20, 4, 3, 4, 'H');
+      d.pxs([[11, 0], [12, 1], [15, 0], [16, 0], [19, 0], [20, 1]], 'H');
+      d.pxs([[9, 9], [9, 10], [22, 9], [22, 10]], 'S', 2);
+    }
+    d.rect(12, 7, 3, 1, 'H').rect(17, 7, 3, 1, 'H');
+    d.px(12, 9, 'Q').px(13, 9, 'E', 2).px(18, 9, 'E', 2).px(19, 9, 'Q');
+    if (girl) d.px(11, 8, 'H').px(20, 8, 'H');
+    d.px(16, 11, 'S', 2);
+    d.rect(14, 13, 4, 1, 'S', 3).px(13, 12, 'S', 3).px(18, 12, 'S', 3);
+  };
+}
+
 export const SPRITE_DEFS = Object.freeze({
   // The commander, as in the key art: navy-and-white suit, the four Vertuoza stripes on the chest,
   // black hair with a grey streak, the mustache, clenched fists.
@@ -150,6 +202,51 @@ export const SPRITE_DEFS = Object.freeze({
     },
   },
 
+  // pirates fleet: a tricorn with a white skull, an eye patch and a gold tooth, a striped shirt under
+  // a sea-teal coat, a peg leg, a raised cutlass, and a parrot on the shoulder flapping its wing.
+  pirate: {
+    w: 32, h: 32,
+    draw(d, f) {
+      d.rect(11, 26, 4, 3, 'N').rect(10, 28, 5, 3, 'D');
+      d.rect(18, 26, 3, 2, 'N').rect(19, 28, 2, 3, 'B');
+      d.poly([[6, 17], [26, 17], [23, 27], [9, 27]], 'K');
+      d.poly([[11, 17], [21, 17], [19.5, 27], [12.5, 27]], 'F');
+      for (let y = 18; y < 27; y += 2) {
+        const i = (y - 17) * 0.15, l = Math.ceil(11 + i), r = Math.floor(21 - i);
+        d.rect(l, y, r - l, 1, 'R', 1);
+      }
+      d.rect(9, 24, 14, 2, 'D').rect(15, 24, 2, 2, 'Y');
+      d.poly([[4, 19], [8, 17], [8, 25], [5, 25]], 'K');
+      d.ellipse(5.5, 26.5, 2.4, 2.2, 'S');
+      d.line(24, 19, 27, 13, 'K', 3);
+      d.ellipse(27.5, 12, 2.2, 2.2, 'S');
+      d.line(28, 10, 30, 1 + f, 'L', 1.6);
+      d.rect(26, 10, 4, 1, 'Y');
+      d.ellipse(16, 10, 7, 7, 'S');
+      d.ellipse(16, 14.5, 5.5, 2.8, 'H');
+      d.rect(14, 13, 4, 1, 'X').px(16, 13, 'Y');
+      d.px(19, 10, 'Q').px(20, 10, 'X');
+      d.ellipse(12.5, 10, 2.2, 1.9, 'X');
+      d.line(9, 8, 11, 9, 'X').line(12, 8, 22, 6, 'X');
+      d.poly([[4, 7], [16, 0], [28, 7], [16, 6]], 'H');
+      d.ellipse(16, 4, 6.5, 3.5, 'H');
+      d.pxs([[15, 2], [16, 2], [17, 2], [16, 3], [15, 4], [17, 4]], 'Q');
+      d.ellipse(6, 14.5, 2.4, 3, 'R');
+      d.ellipse(6, 11, 2, 2, 'R');
+      d.px(3, 11, 'Y').px(4, 11, 'Y').px(4, 12, 'Y').px(5, 10, 'X');
+      if (f) d.poly([[7, 13], [11, 9], [9, 15]], 'Y'); else d.ellipse(7.5, 15, 1.5, 2.4, 'Y');
+      d.line(6, 17, 7, 19, 'E', 1);
+    },
+  },
+
+  // The player's hero (heroes.mjs recolours it): the OMNI-MAN body in two builds, a girl and a boy,
+  // with or without a cape. The cape is the plasma material, recoloured per preset; the suit is W
+  // (main) and N (trim); the belt buckle Y takes the fleet colour.
+  'hero-girl': { w: 32, h: 48, draw: heroDraw(true, true) },
+  'hero-boy': { w: 32, h: 48, draw: heroDraw(false, true) },
+  'hero-girl-nc': { w: 32, h: 48, draw: heroDraw(true, false) },
+  'hero-boy-nc': { w: 32, h: 48, draw: heroDraw(false, false) },
+
   // Entropy: the enemy. A spiked blob with glowing eyes and teeth, recoloured per wound kind.
   entropy: {
     w: 24, h: 24,
@@ -211,9 +308,10 @@ export const SPRITE_DEFS = Object.freeze({
   cursor: { w: 8, h: 8, draw(d) { d.rect(0, 0, 4, 1, 'Y', 1).rect(0, 0, 1, 4, 'Y', 1); }, outline: false },
 });
 
-// Heroes by fleet (team names match the GitHub teams in projects.yml).
+// Mascots by fleet, as seeded in public.teams › mascot. A fleet added later names its own, or none
+// (heroes.mjs › fleetSprite then draws it as a hero in its colour).
 export const FLEET_SPRITE = Object.freeze({
-  beaver: 'beaver', octopod: 'octopod', picsou: 'picsou', cia: 'cia', 'invincible-team': 'invincible',
+  beaver: 'beaver', octopod: 'octopod', picsou: 'picsou', cia: 'cia', pirates: 'pirate', 'invincible-team': 'invincible',
 });
 
 // Entropy recoloured per wound kind (spec §5.3): the shape is the enemy, the colour says which one.

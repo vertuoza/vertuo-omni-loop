@@ -1,9 +1,10 @@
 'use client';
 import type { GalaxyView, Planet, WoundKind } from '@omni/galaxy';
 import { woundTint } from '@omni/sprites';
-import { Sprite } from './Sprite';
+import { FleetSprite, HeroSprite, Sprite } from './Sprite';
 import { age, fleet, ordinal, ROMAN, shortDate, STATE_LOOK, WOUND_LOOK } from './fleets';
 import { W, type MapSlot, type SceneName } from './scenes';
+import type { Player } from './types';
 
 // ── Shared bits ──────────────────────────────────────────────────────────────
 
@@ -66,7 +67,7 @@ const STORY = [
   'CLOSE THE WOUNDS. SAVE THE PLANETS.',
 ];
 
-export function TitleOverlay({ view, phase, sceneT }: { view: GalaxyView; phase: 'title' | 'story' | 'hiscore'; sceneT: number }) {
+export function TitleOverlay({ view, phase, sceneT, who }: { view: GalaxyView | null; phase: 'title' | 'story' | 'hiscore'; sceneT: number; who: string }) {
   if (phase === 'story') {
     const into = (((sceneT % CYCLE) + CYCLE) % CYCLE) - PHASES[0][1];
     return (
@@ -78,7 +79,7 @@ export function TitleOverlay({ view, phase, sceneT }: { view: GalaxyView; phase:
       </div>
     );
   }
-  if (phase === 'hiscore') {
+  if (phase === 'hiscore' && view) {
     return (
       <div className="attract-scores">
         <h2>HALL OF HEROES</h2>
@@ -104,7 +105,8 @@ export function TitleOverlay({ view, phase, sceneT }: { view: GalaxyView; phase:
       <p className="press blink">PRESS START</p>
       <footer className="title-foot">
         <span>© 2026 VERTUOZA</span>
-        <span>{view.totals.planets} PLANETS · {view.totals.openWounds} ENTROPY</span>
+        <span>{who}</span>
+        <span>{view ? `${view.totals.planets} PLANETS · ${view.totals.openWounds} ENTROPY` : 'SIGN IN TO SEE THE GALAXY'}</span>
       </footer>
     </div>
   );
@@ -112,36 +114,57 @@ export function TitleOverlay({ view, phase, sceneT }: { view: GalaxyView; phase:
 
 // ── Menu ─────────────────────────────────────────────────────────────────────
 
-export const MENU: { scene: SceneName; label: string }[] = [
-  { scene: 'map', label: 'GALAXY MAP' },
-  { scene: 'fleets', label: 'FLEETS' },
-  { scene: 'heroes', label: 'HALL OF HEROES' },
-  { scene: 'briefing', label: 'HOW TO PLAY' },
+export type MenuId = 'map' | 'fleets' | 'heroes' | 'briefing' | 'myhero' | 'change' | 'link' | 'signout';
+export interface MenuItem { id: MenuId; label: string; scene?: SceneName; fresh?: boolean }
+
+const GALAXY: MenuItem[] = [
+  { id: 'map', label: 'GALAXY MAP', scene: 'map' },
+  { id: 'fleets', label: 'FLEETS', scene: 'fleets' },
+  { id: 'heroes', label: 'HALL OF HEROES', scene: 'heroes' },
+  { id: 'briefing', label: 'HOW TO PLAY', scene: 'briefing' },
 ];
 
-export function MenuOverlay({ view, index, onPick }: { view: GalaxyView; index: number; onPick: (i: number) => void }) {
-  const hint = [
-    `${view.totals.planets} planets · ${view.totals.inDistress} in distress`,
-    `${view.teams.length} fleets · ${fleet(view.teams[0]?.name).label} lead`,
-    `${view.heroes.length} heroes scored in ${view.season}`,
-    'How points are won and lost',
+/** The menu for who is playing: the galaxy, then what a player can change about themself. */
+export function menuItems({ joined, linked, signedIn }: { joined: boolean; linked: boolean; signedIn: boolean }): MenuItem[] {
+  return [
+    ...GALAXY,
+    ...(joined ? [{ id: 'myhero', label: 'MY HERO', fresh: true }, { id: 'change', label: 'CHANGE FLEET', fresh: true }] as MenuItem[] : []),
+    ...(joined && !linked ? [{ id: 'link', label: 'LINK GITHUB', fresh: true }] as MenuItem[] : []),
+    ...(signedIn ? [{ id: 'signout', label: 'SIGN OUT' }] as MenuItem[] : []),
   ];
+}
+
+export function MenuOverlay({ view, items, index, me, onPick }: {
+  view: GalaxyView | null; items: MenuItem[]; index: number; me: Player | null; onPick: (i: number) => void;
+}) {
+  const hint: Record<MenuId, string> = {
+    map: view ? `${view.totals.planets} planets · ${view.totals.inDistress} in distress` : 'Out of reach',
+    fleets: view ? `${view.teams.length} fleets · ${fleet(view.teams[0]?.name).label} lead` : 'Out of reach',
+    heroes: view ? `${view.heroes.length} heroes scored in ${view.season}` : 'Out of reach',
+    briefing: 'How points are won and lost',
+    myhero: 'Your name and your look',
+    change: 'Your future points follow you',
+    link: 'So your pull requests score',
+    signout: 'Back to the title',
+  };
+  const f = fleet(me?.team);
   return (
-    <div className="menu">
+    <div className={`menu${items.length > 4 ? ' long' : ''}`}>
       <h2>SELECT MODE</h2>
+      {me?.team && <span className="j-badge" style={{ ['--fc' as string]: f.color }}>P1 {me.display_name} · {f.label}</span>}
       <ul>
-        {MENU.map((m, i) => (
-          <li key={m.scene}>
-            <button type="button" className={i === index ? 'active' : ''} onClick={() => onPick(i)}>
+        {items.map((m, i) => (
+          <li key={m.id}>
+            <button type="button" className={`${i === index ? 'active' : ''}${m.id === 'link' ? ' nudge' : ''}`} onClick={() => onPick(i)}>
               <span className="cursor" aria-hidden="true">{i === index ? '▶' : ''}</span>
               <span className="menu-label">{m.label}</span>
-              <span className="menu-hint">{hint[i]}</span>
+              <span className="menu-hint">{hint[m.id]}</span>
             </button>
           </li>
         ))}
       </ul>
       <footer className="menu-foot">
-        <SourceChip view={view} />
+        {view ? <SourceChip view={view} /> : <span className="source">GALAXY OUT OF REACH</span>}
         <span>B · BACK TO TITLE</span>
       </footer>
     </div>
@@ -178,7 +201,7 @@ export function MapOverlay({ view, layout, sel, onLand }: { view: GalaxyView; la
           </div>
           <div className="dialog-row small">
             <span className="fleet-tag" style={{ color: fleet(p.ownerTeam).color }}>
-              <Sprite name={fleet(p.ownerTeam).sprite} scale={0.5} /> {fleet(p.ownerTeam).label}
+              <FleetSprite name={p.ownerTeam} scale={0.5} /> {fleet(p.ownerTeam).label}
             </span>
             <span>CLASS {ROMAN[p.class]}{p.crossSector ? ' · CROSS-SECTOR' : ''}</span>
             <span>THREAT <Pips value={p.threat} label="Threat" /></span>
@@ -209,7 +232,7 @@ function StatusTab({ p, view }: { p: Planet; view: GalaxyView }) {
       {p.crossSector && (<><dt>RING</dt><dd>CROSS-SECTOR · ×1.25</dd></>)}
       <dt>REGIONS</dt><dd className="wrap">{p.regions.length ? p.regions.join(' · ') : 'UNSURVEYED'}</dd>
       <dt>CAPTAIN</dt><dd>{p.captain ? `@${p.captain}` : '—'}</dd>
-      <dt>FLEET</dt><dd style={{ color: owner.color }}><Sprite name={owner.sprite} scale={0.5} /> {owner.label}</dd>
+      <dt>FLEET</dt><dd style={{ color: owner.color }}><FleetSprite name={p.ownerTeam} scale={0.5} /> {owner.label}</dd>
       <dt>EXPEDITION</dt><dd>{p.expeditions.length ? p.expeditions.map((l) => `@${l}`).join(' ') : 'NONE YET'}</dd>
       {p.rescuers.length > 0 && (<><dt>RESCUERS</dt><dd>{p.rescuers.map((r) => `@${r.login}`).join(' ')}</dd></>)}
       {blockers.length > 0 && (<><dt>BLOCKED BY</dt><dd className="warn">{blockers.map((b, i) => b ? `#${b.prd} ${b.title}` : `#${p.blockers[i]}`).join(', ')}</dd></>)}
@@ -316,7 +339,9 @@ export function PlanetOverlay({ view, planet: p, tab, onTab }: { view: GalaxyVie
 
 // ── Fleets ───────────────────────────────────────────────────────────────────
 
-export function FleetsOverlay({ view, index, onPick }: { view: GalaxyView; index: number; onPick: (i: number) => void }) {
+export function FleetsOverlay({ view, crew, index, onPick }: { view: GalaxyView; crew: Player[]; index: number; onPick: (i: number) => void }) {
+  const players = byLogin(crew);
+  const nameOf = (login: string) => players.get(login.toLowerCase())?.display_name ?? `@${login}`;
   const t = view.teams[index];
   const look = fleet(t?.name);
   return (
@@ -328,7 +353,7 @@ export function FleetsOverlay({ view, index, onPick }: { view: GalaxyView; index
           return (
             <button key={team.name} type="button" className={`card ${i === index ? 'active' : ''}`} style={{ ['--fleet' as string]: f.color }} onClick={() => onPick(i)}>
               <span className="card-rank">{ordinal(team.rank)}</span>
-              <span className="card-art"><Sprite name={f.sprite} scale={2} animate={i === index} /></span>
+              <span className="card-art"><FleetSprite name={team.name} scale={f.sprite.startsWith('hero') ? 4 / 3 : 2} animate={i === index} /></span>
               <span className="card-name">{f.label}</span>
               <span className="card-pts">{team.points}</span>
             </button>
@@ -339,12 +364,12 @@ export function FleetsOverlay({ view, index, onPick }: { view: GalaxyView; index
         <section className="fleet-detail" style={{ ['--fleet' as string]: look.color }}>
           <p className="fleet-motto">{look.motto}</p>
           <dl>
-            <dt>HOME</dt><dd>{t.home.toUpperCase()}</dd>
+            <dt>HOME</dt><dd>{t.home ? t.home.toUpperCase() : 'NONE YET'}</dd>
             <dt>PLANETS</dt><dd>{t.planets} OWNED · {t.terraformed} DONE</dd>
             <dt>STREAK</dt><dd>{t.streak}</dd>
             <dt>DISTRESS</dt><dd className={t.inDistress ? 'warn' : ''}>{t.inDistress}</dd>
             <dt>ENTROPY</dt><dd className={t.openWounds ? 'warn' : ''}>{t.openWounds}</dd>
-            <dt className="crew-dt">CREW</dt><dd className="crew">{t.members.length ? t.members.map((m) => `@${m}`).join(' ') : '—'}</dd>
+            <dt className="crew-dt">CREW</dt><dd className="crew">{t.members.length ? t.members.map(nameOf).join(' ') : '—'}</dd>
           </dl>
           <p className="hint">A · SHOW THEIR PLANETS · B · MENU</p>
         </section>
@@ -355,7 +380,10 @@ export function FleetsOverlay({ view, index, onPick }: { view: GalaxyView; index
 
 // ── Hall of Heroes ───────────────────────────────────────────────────────────
 
-export function HeroesOverlay({ view }: { view: GalaxyView }) {
+const byLogin = (crew: Player[]) => new Map(crew.filter((p) => p.github_login).map((p) => [p.github_login!.toLowerCase(), p]));
+
+export function HeroesOverlay({ view, crew }: { view: GalaxyView; crew: Player[] }) {
+  const players = byLogin(crew);
   return (
     <div className="heroes">
       <h2>HALL OF HEROES</h2>
@@ -366,8 +394,13 @@ export function HeroesOverlay({ view }: { view: GalaxyView }) {
           {view.heroes.slice(0, 8).map((h) => (
             <tr key={h.name} className={`rank-${h.rank}`}>
               <td>{ordinal(h.rank)}</td>
-              <td>{h.name.toUpperCase()}</td>
-              <td style={{ color: fleet(h.team).color }}><Sprite name={fleet(h.team).sprite} scale={0.5} /> {fleet(h.team).label}</td>
+              <td>{(() => {
+                const p = players.get(h.name.toLowerCase());
+                return p
+                  ? <span className="hero-cell"><HeroSprite hero={p.hero} team={p.team} scale={0.5} title={`${p.display_name}'s hero`} /> {p.display_name}</span>
+                  : h.name.toUpperCase();
+              })()}</td>
+              <td style={{ color: fleet(h.team).color }}><FleetSprite name={h.team} scale={0.5} /> {fleet(h.team).label}</td>
               <td>{h.points}</td>
             </tr>
           ))}

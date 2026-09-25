@@ -1,10 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { parseProjects } from '../config.mjs';
+import { configFrom } from '../config.mjs';
 import { buildSnapshot, toIso } from './github.mjs';
 import { derivePlanet } from '../planet-state.mjs';
 import { projectEvents } from '../projector.mjs';
 
-const config = parseProjects('sectors:\n  core: { repos: [core-repo] }\nteams:\n  beaver: { home: core }\n');
+// The roster comes from Supabase with the config: pm and alice fly with beaver.
+const config = configFrom({
+  sectors: [{ name: 'core', repos: ['core-repo'] }],
+  teams: [{ name: 'beaver', home: 'core' }],
+  roster: [{ github_login: 'pm', team: 'beaver' }, { github_login: 'alice', team: 'beaver' }],
+});
 
 const INBOX = '---\nprd: 2332\ntitle: Generic Import Engine\nblocked-by: none\nplan: docs/superpowers/plans/p.md\nspec: file\n---\n';
 const PLAN = '| id | slice | scenarios | territory | blocked by | wave | tier |\n|---|---|---|---|---|---|---|\n| s1 | A | — | `a/` | — | 1 | mid |\n| s2 | B | — | `b/` | s1 | 2 | mid |\n';
@@ -31,7 +36,6 @@ function world(extra = []) {
   return [
     ...extra,
     ['issue list -R vertuoza/vertuo-omni-plan --label omni:prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
-    ['api orgs/vertuoza/teams/beaver/members', 'pm\nalice\n'],
     ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', '2332-generic-import.md\n'],
     ['api repos/vertuoza/core-repo/contents/docs/inbox/2332-generic-import.md', INBOX],
     ['api repos/vertuoza/core-repo/commits?path=docs/inbox/2332-generic-import.md', '2026-09-02T08:00:00Z\n'],
@@ -117,7 +121,11 @@ describe('buildSnapshot', () => {
   });
 
   describe('a planet with two regions (F3)', () => {
-    const config2 = parseProjects('sectors:\n  core: { repos: [core-repo] }\n  ai: { repos: [ai-repo] }\nteams:\n  beaver: { home: core }\n');
+    const config2 = configFrom({
+      sectors: [{ name: 'core', repos: ['core-repo'] }, { name: 'ai', repos: ['ai-repo'] }],
+      teams: [{ name: 'beaver', home: 'core' }],
+      roster: [{ github_login: 'pm', team: 'beaver' }],
+    });
     const fp = (number, over) => ({ number, headRefName: 'feat/generic-import', createdAt: '2026-09-21T08:00:00Z', isDraft: false, mergedAt: null, updatedAt: '2026-09-23T08:00:00Z', ...over });
     const repoCalls = (repo, featurePr) => [
       [`api repos/vertuoza/${repo}/contents/docs/inbox --jq`, '2332-generic-import.md\n'],
@@ -132,7 +140,6 @@ describe('buildSnapshot', () => {
     ];
     const worldOf = (coreFp, aiFp) => fakeExec([
       ['issue list -R vertuoza/vertuo-omni-plan --label omni:prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
-      ['api orgs/vertuoza/teams/beaver/members', 'pm\n'],
       ...repoCalls('core-repo', coreFp), ...repoCalls('ai-repo', aiFp),
     ]);
 
@@ -223,30 +230,26 @@ describe('buildSnapshot', () => {
     expect(p.outbox[0].settled).toEqual({ verdict: 'drifted', at: '2026-09-22T10:00:00Z', by: 'pm', reworkMergedAt: '2026-09-22T15:00:00Z', reworkBy: 'carol' });
   });
 
-  describe('team reads are hard (F7)', () => {
-    const config2 = parseProjects('sectors:\n  core: { repos: [core-repo] }\nteams:\n  beaver: { home: core }\n  octopod: { home: core }\n');
-
-    it('fails the whole snapshot when one team cannot be read', async () => {
-      const exec = fakeExec(world([
-        ['api orgs/vertuoza/teams/octopod/members', new Error('gh: 403 Forbidden')],
-      ]));
-      await expect(buildSnapshot({ config: config2, exec, now: NOW })).rejects.toThrow(/octopod/);
+  describe('fleets come from the roster, not from GitHub', () => {
+    it('never asks GitHub for team members', async () => {
+      const seen = [];
+      const inner = fakeExec(world());
+      await buildSnapshot({ config, exec: (args) => { seen.push(args.join(' ')); return inner(args); }, now: NOW });
+      expect(seen.filter((c) => c.includes('/teams/'))).toEqual([]);
     });
 
-    it('fails when every configured team reads empty', async () => {
-      const exec = fakeExec(world([
-        ['api orgs/vertuoza/teams/beaver/members', ''],
-        ['api orgs/vertuoza/teams/octopod/members', ''],
-      ]));
-      await expect(buildSnapshot({ config: config2, exec, now: NOW })).rejects.toThrow(/no members/);
+    it('gives the captain\'s fleet to the planet whatever the login\'s case, and none to an unlinked captain', async () => {
+      const shouting = configFrom({ sectors: [{ name: 'core', repos: ['core-repo'] }], teams: [{ name: 'beaver', home: 'core' }], roster: [{ github_login: 'PM', team: 'beaver' }] });
+      expect((await buildSnapshot({ config: shouting, exec: fakeExec(world()), now: NOW })).planets[0].ownerTeam).toBe('beaver');
+      const nobody = configFrom({ sectors: [{ name: 'core', repos: ['core-repo'] }], teams: [{ name: 'beaver', home: 'core' }], roster: [] });
+      expect((await buildSnapshot({ config: nobody, exec: fakeExec(world()), now: NOW })).planets[0].ownerTeam).toBeNull();
     });
 
-    it('puts a login in two teams in the first one projects.yml names', async () => {
-      const exec = fakeExec(world([
-        ['api orgs/vertuoza/teams/octopod/members', 'alice\nbob\n'],
-      ]));
-      const snap = await buildSnapshot({ config: config2, exec, now: NOW });
-      expect(snap.teams).toEqual({ pm: 'beaver', alice: 'beaver', bob: 'octopod' });
+    it('stamps each event with the contributor\'s fleet from the roster', async () => {
+      const snap = await buildSnapshot({ config, exec: fakeExec(world()), now: NOW });
+      expect(snap.teams).toEqual({ pm: 'beaver', alice: 'beaver' });
+      const secured = projectEvents(snap, { config, now: NOW }).find((e) => e.type === 'ZONE_SECURED');
+      expect(secured).toMatchObject({ contributor: 'alice', team: 'beaver' });
     });
   });
 
@@ -288,7 +291,6 @@ describe('buildSnapshot', () => {
   it('assembles a planet from issues, inbox, plan, sub-PRs, outbox and bugs', async () => {
     const exec = fakeExec([
       ['issue list -R vertuoza/vertuo-omni-plan --label omni:prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
-      ['api orgs/vertuoza/teams/beaver/members', 'pm\nalice\n'],
       ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', '2332-generic-import.md\nREADME.md\n'],
       ['api repos/vertuoza/core-repo/contents/docs/inbox/2332-generic-import.md', INBOX],
       ['api repos/vertuoza/core-repo/commits?path=docs/inbox/2332-generic-import.md', '2026-09-02T08:00:00Z\n'],
@@ -320,7 +322,6 @@ describe('buildSnapshot', () => {
   it('keeps a planet charted and unsurveyed when no repo carries an inbox file', async () => {
     const exec = fakeExec([
       ['issue list -R vertuoza/vertuo-omni-plan --label omni:prd', [{ number: 2400, title: 'New', assignees: [], createdAt: '2026-09-20T08:00:00Z', closedAt: null }]],
-      ['api orgs/vertuoza/teams/beaver/members', 'alice\n'],
       ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', ''],
     ]);
     const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z') });
@@ -330,7 +331,6 @@ describe('buildSnapshot', () => {
   it('ignores an outbox file with no front matter, keeping only the valid item (spec §8)', async () => {
     const exec = fakeExec([
       ['issue list -R vertuoza/vertuo-omni-plan --label omni:prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
-      ['api orgs/vertuoza/teams/beaver/members', 'pm\nalice\n'],
       ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', '2332-generic-import.md\n'],
       ['api repos/vertuoza/core-repo/contents/docs/inbox/2332-generic-import.md', INBOX],
       ['api repos/vertuoza/core-repo/commits?path=docs/inbox/2332-generic-import.md', '2026-09-02T08:00:00Z\n'],
@@ -352,7 +352,6 @@ describe('buildSnapshot', () => {
   it('falls back a region\'s surveyedAt to the PRD issue\'s createdAt when the inbox commits read fails (spec §8)', async () => {
     const exec = fakeExec([
       ['issue list -R vertuoza/vertuo-omni-plan --label omni:prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [], createdAt: '2026-09-05T08:00:00Z', closedAt: null }]],
-      ['api orgs/vertuoza/teams/beaver/members', 'alice\n'],
       ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', '2332-generic-import.md\n'],
       ['api repos/vertuoza/core-repo/contents/docs/inbox/2332-generic-import.md', INBOX],
       ['api repos/vertuoza/core-repo/commits?path=docs/inbox/2332-generic-import.md', new Error('gh: 502 Bad Gateway')],
@@ -370,7 +369,6 @@ describe('buildSnapshot', () => {
         { number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null },
         { number: 2400, title: 'Other Planet', assignees: [], createdAt: '2026-09-02T08:00:00Z', closedAt: null },
       ]],
-      ['api orgs/vertuoza/teams/beaver/members', 'pm\n'],
       // The per-repo inbox listing and every individual inbox file read stay unfiltered: they are
       // what reveal a PRD's blockers in the first place.
       ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', '2332-generic-import.md\n2400-other.md\n'],
@@ -391,7 +389,6 @@ describe('buildSnapshot', () => {
   it('ignores an inbox file with no front matter: no region, no crash (spec §8)', async () => {
     const exec = fakeExec([
       ['issue list -R vertuoza/vertuo-omni-plan --label omni:prd', [{ number: 2401, title: 'Untitled', assignees: [], createdAt: '2026-09-10T08:00:00Z', closedAt: null }]],
-      ['api orgs/vertuoza/teams/beaver/members', 'alice\n'],
       ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', 'broken.md\n'],
       // No front matter at all: parseInbox's prd is NaN, so this file must never reach inboxByPrd,
       // and (critically) buildSnapshot must never ask for its commit history.

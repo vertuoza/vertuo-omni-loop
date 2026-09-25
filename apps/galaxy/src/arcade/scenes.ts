@@ -2,19 +2,33 @@
 // panels) on top. Sprites draw at 1× in play so their detail shows; the title's hero shot uses 2×.
 // Every scene draws the whole frame from scratch.
 import {
-  drawPlanet, drawSprite, drawStarfield, makeNebula, makeStarfield, rng, spriteSize, WOUND_TINT, woundTint,
+  drawPlanet, drawSprite, drawStarfield, makeNebula, makeStarfield, rampFrom, rng, spriteSize, WOUND_TINT, woundTint, type Hero,
 } from '@omni/sprites';
 import type { GalaxyView, Planet } from '@omni/galaxy';
-import { fleet, seedOf } from './fleets';
+import { fleet, heroOf, seedOf } from './fleets';
+import type { FleetRow } from './types';
 
 export const W = 640;
 export const H = 360;
 
-export type SceneName = 'boot' | 'title' | 'menu' | 'map' | 'planet' | 'fleets' | 'heroes' | 'briefing';
+export type SceneName =
+  | 'boot' | 'title' | 'menu' | 'map' | 'planet' | 'fleets' | 'heroes' | 'briefing'
+  | 'coin' | 'away' | 'gate' | 'intro' | 'select' | 'name' | 'hero' | 'link' | 'ready' | 'welcome' | 'outsider';
+
+/** What the joining screens draw: the fleets to pick from, the player's fleet and hero. */
+export interface JoinFrame {
+  fleets: FleetRow[];     // the active fleets, in select order
+  pick: number;           // the fleet under the cursor on the select screen
+  lockedAt: number | null; // when the fleet was locked in (seconds, same clock as t)
+  team: string | null;    // the player's fleet
+  hero: Hero;             // the player's hero (the builder's draft on the builder)
+  away: boolean;          // leaving the arcade for Google or GitHub
+}
 
 export interface FrameState {
   scene: SceneName;
-  view: GalaxyView;
+  join: JoinFrame;
+  view: GalaxyView | null;
   layout: MapSlot[];
   sel: number;          // selected planet index (map, planet)
   fleetSel: number;     // selected fleet index (fleets)
@@ -202,11 +216,13 @@ function drawTitle(ctx: CanvasRenderingContext2D, s: FrameState) {
   const bob = (phase: number, amp = 4) => (s.reduced ? 0 : Math.round(Math.sin(s.t * 2 + phase) * amp));
   plasmaTrail(ctx, s, 310, 214 + bob(0), 30);
   drawSprite(ctx, 'omni', 288, 120 + bob(0), { scale: 2, frame: frameOf(s, 1.5), glow: '#a45cff' });
-  drawSprite(ctx, 'beaver', 104, 124 + bob(1), { scale: 2, frame: frameOf(s, 2, 0.3) });
-  drawSprite(ctx, 'cia', 176, 208 + bob(2), { scale: 2, frame: frameOf(s, 1.2, 0.5) });
-  drawSprite(ctx, 'invincible', 396, 212 + bob(3), { scale: 2, frame: frameOf(s, 1.8, 0.1) });
-  drawSprite(ctx, 'octopod', 456, 116 + bob(4), { scale: 2, frame: frameOf(s, 2.2, 0.7) });
-  drawSprite(ctx, 'picsou', 520, 206 + bob(5), { scale: 2, flip: true, frame: frameOf(s, 3, 0.2) });
+  // The fleets fly in formation around the commander: the first five active ones.
+  const spots = [[104, 124, 2, 0.3], [176, 208, 1.2, 0.5], [396, 212, 1.8, 0.1], [456, 116, 2.2, 0.7], [520, 206, 3, 0.2]] as const;
+  s.join.fleets.slice(0, spots.length).forEach((f, i) => {
+    const [x, y, rate, phase] = spots[i];
+    const look = fleet(f.name);
+    drawSprite(ctx, look.sprite, x, y + bob(i + 1) - (spriteSize(look.sprite).h - 32) * 2, { scale: 2, tint: look.tint ?? undefined, flip: i === 4, frame: frameOf(s, rate, phase) });
+  });
 }
 
 function drawStory(ctx: CanvasRenderingContext2D, s: FrameState) {
@@ -224,13 +240,20 @@ function drawStory(ctx: CanvasRenderingContext2D, s: FrameState) {
 function drawMenu(ctx: CanvasRenderingContext2D, s: FrameState) {
   space(ctx, s, 0.6);
   ctx.drawImage(nebulaFor('menu', 1, 440, 300), 240, 40);
-  drawPlanet(ctx, { cx: 472, cy: 192, r: 104, seed: 2533, rot: s.reduced ? 1 : s.t * 0.05, progress: 0.66, atmosphere: '#8fd8ff', ring: RING });
-  drawSprite(ctx, 'omni', 540, 212 + (s.reduced ? 0 : Math.round(Math.sin(s.t * 2) * 3)), { scale: 2, frame: frameOf(s, 1.5), glow: '#a45cff' });
+  drawPlanet(ctx, { cx: 500, cy: 200, r: 104, seed: 2533, rot: s.reduced ? 1 : s.t * 0.05, progress: 0.66, atmosphere: '#8fd8ff', ring: RING });
+  const y = 196 + (s.reduced ? 0 : Math.round(Math.sin(s.t * 2) * 3));
+  if (s.join.team) {
+    const look = heroOf(s.join.hero, s.join.team);
+    drawSprite(ctx, look.sprite, 552, y, { scale: 2, tint: look.tint, frame: frameOf(s, 1.5), glow: fleet(s.join.team).color });
+  } else {
+    drawSprite(ctx, 'omni', 552, y, { scale: 2, frame: frameOf(s, 1.5), glow: '#a45cff' });
+  }
 }
 
 function drawMap(ctx: CanvasRenderingContext2D, s: FrameState) {
   space(ctx, s, 0.15);
   const { view, layout } = s;
+  if (!view) return;
   const colW = W / Math.max(1, view.sectors.length);
   view.sectors.forEach((sec, i) => {
     ctx.drawImage(nebulaFor(`sector-${sec.name}`, i, Math.round(colW), 220), Math.round(i * colW), 40);
@@ -274,7 +297,7 @@ function drawMap(ctx: CanvasRenderingContext2D, s: FrameState) {
 }
 
 function drawPlanetScene(ctx: CanvasRenderingContext2D, s: FrameState) {
-  const p = s.view.planets[s.sel];
+  const p = s.view?.planets[s.sel];
   if (!p) return;
   const shake = p.state === 'aftershock' && !s.reduced && s.sceneT % 3 < 0.35 ? Math.round(Math.sin(s.t * 60) * 3) : 0;
   ctx.save();
@@ -304,7 +327,7 @@ function drawPlanetScene(ctx: CanvasRenderingContext2D, s: FrameState) {
     const x = cx + Math.cos(a) * (r + 56), y = cy - 8 + Math.sin(a) * 68;
     const f = fleet(team);
     const { w, h } = spriteSize(f.sprite);
-    drawSprite(ctx, f.sprite, x - w / 2, y - h / 2 + (s.reduced ? 0 : Math.round(Math.sin(s.t * 3 + i) * 2)), { frame: frameOf(s, 2, i * 0.4), flip: Math.cos(a) > 0 });
+    drawSprite(ctx, f.sprite, x - w / 2, y - h / 2 + (s.reduced ? 0 : Math.round(Math.sin(s.t * 3 + i) * 2)), { tint: f.tint ?? undefined, frame: frameOf(s, 2, i * 0.4), flip: Math.cos(a) > 0 });
   });
   if (p.state === 'lost') drawSprite(ctx, 'skull', cx - 16, cy - r - 44, { scale: 2 });
   if (p.state === 'locked') drawSprite(ctx, 'lock', cx - 16, cy - 16, { scale: 2 });
@@ -338,6 +361,183 @@ function drawBriefing(ctx: CanvasRenderingContext2D, s: FrameState) {
   ctx.drawImage(nebulaFor('briefing', 3, 400, 280), 280, 60);
 }
 
+// ── Joining the game ─────────────────────────────────────────────────────────
+
+const bobOf = (s: FrameState, phase: number, amp = 4) => (s.reduced ? 0 : Math.round(Math.sin(s.t * 2 + phase) * amp));
+
+function drawFleetMascot(ctx: CanvasRenderingContext2D, name: string, x: number, y: number, o: { scale?: number; frame?: number; alpha?: number; flip?: boolean } = {}) {
+  const look = fleet(name);
+  const lift = (spriteSize(look.sprite).h - 32) * (o.scale ?? 1); // a hero stand-in is taller than a mascot
+  drawSprite(ctx, look.sprite, x, y - lift, { ...o, tint: look.tint ?? undefined });
+}
+
+function drawHero(ctx: CanvasRenderingContext2D, hero: Hero, team: string | null, x: number, y: number, o: { scale?: number; frame?: number; glow?: string | null } = {}) {
+  const look = heroOf(hero, team);
+  drawSprite(ctx, look.sprite, x, y, { ...o, tint: look.tint });
+}
+
+// A pedestal lit in a fleet's colour.
+function pedestal(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: number, color: string) {
+  const ramp = rampFrom(color);
+  for (const [dy, tone] of [[3, 3], [0, 1]] as const) {
+    ctx.fillStyle = ramp[tone];
+    for (let y = -3; y <= 3; y++) {
+      const w = Math.round(rx * Math.sqrt(1 - (y / 4) ** 2));
+      ctx.fillRect(cx - w, cy + y + dy, w * 2, 1);
+    }
+  }
+  ctx.fillStyle = ramp[0];
+  ctx.fillRect(cx - Math.round(rx * 0.6), cy - 2, Math.round(rx * 0.5), 1);
+}
+
+function flash(ctx: CanvasRenderingContext2D, color: string, alpha: number) {
+  if (alpha <= 0) return;
+  ctx.globalAlpha = Math.min(1, alpha);
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, W, H);
+  ctx.globalAlpha = 1;
+}
+
+// Stars streaming down past the camera: the warp of the intro.
+function warp(ctx: CanvasRenderingContext2D, s: FrameState, k: number) {
+  ctx.fillStyle = '#07061c';
+  ctx.fillRect(0, 0, W, H);
+  for (const st of stars) {
+    const v = (st.layer + 1) * 40 * k;
+    const y = Math.floor((((st.y + (s.reduced ? 0 : s.t) * v) % H) + H) % H), len = Math.max(1, Math.round(v / 14));
+    ctx.fillStyle = ['#2e3270', '#6a70c0', '#c8d0ff'][st.layer];
+    ctx.fillRect(Math.floor(st.x), y - len, 1, len);
+  }
+}
+
+// Leaving the arcade (for Google or GitHub): a loading bar on black.
+function drawAway(ctx: CanvasRenderingContext2D, s: FrameState) {
+  ctx.fillStyle = '#05040f';
+  ctx.fillRect(0, 0, W, H);
+  for (let i = 0; i < 12; i++) {
+    ctx.fillStyle = i < Math.floor(s.sceneT * 8) % 13 ? '#6ff0ff' : '#1a1f55';
+    ctx.fillRect(248 + i * 12, 230, 8, 8);
+  }
+}
+
+function drawCoin(ctx: CanvasRenderingContext2D, s: FrameState) {
+  if (s.join.away) return drawAway(ctx, s);
+  space(ctx, s, 0.5);
+  ctx.drawImage(nebulaFor('coin', 1, 440, 300), 100, 20);
+  drawSprite(ctx, 'coin', 288, 64 + bobOf(s, 0, 3), { scale: 4, frame: frameOf(s, 5) });
+}
+
+function drawGate(ctx: CanvasRenderingContext2D, s: FrameState) {
+  space(ctx, s, 0.6);
+  drawPlanet(ctx, { cx: 320, cy: 500, r: 190, seed: 2533, rot: s.reduced ? 1 : s.t * 0.03, progress: 0.4, atmosphere: '#8fd8ff' });
+  drawSprite(ctx, 'omni', 304, 196 + bobOf(s, 0, 3), { frame: frameOf(s, 1.5), glow: '#a45cff' });
+}
+
+// The first visit's intro, timed to the intro theme's bars (score.ts): stripes 0–4 s, OMNI-MAN rises
+// 4–8 s, three lines type in at 8, 10 and 12 s (DOM), the fleets flash in one per beat from 14 s.
+function drawIntro(ctx: CanvasRenderingContext2D, s: FrameState) {
+  const st = s.sceneT;
+  if (st < 4) {
+    drawBoot(ctx, { ...s, sceneT: Math.min(1, st / 1.6) * 0.9 });
+    if (st > 2 && st < 2.15) flash(ctx, '#ffffff', 0.6);
+    return;
+  }
+  const k = Math.min(1, (st - 4) / 1.5);
+  warp(ctx, s, 0.4 + (st < 8 ? k * 2.4 : Math.max(0.3, 2.8 - (st - 8) * 0.8)));
+  ctx.drawImage(nebulaFor('intro', 2, 420, 260), 110, 30);
+  const y = st < 8 ? 380 - Math.min(1, (st - 4) / 3) * 330 : 50;
+  plasmaTrail(ctx, s, 310, y + 94 + bobOf(s, 0), st < 8 ? 36 : 22);
+  drawSprite(ctx, 'omni', 288, y + bobOf(s, 0, 3), { scale: 2, frame: frameOf(s, 1.5), glow: '#a45cff' });
+  if (st > 14) {
+    const fleets = s.join.fleets.slice(0, 5);
+    const gap = W / Math.max(1, fleets.length);
+    fleets.forEach((f, i) => {
+      const at = 14 + i * 0.5;
+      if (st < at) return;
+      const x = Math.round(gap * (i + 0.5) - 32), top = 250;
+      const jump = st < 18 || s.reduced ? 0 : -Math.round(Math.abs(Math.sin((st - 18) * 6 + i)) * 8);
+      if (st < at + 0.12) { ctx.fillStyle = f.color; ctx.fillRect(x - 8, top - 8, 80, 80); }
+      drawFleetMascot(ctx, f.name, x, top + jump, { scale: 2, frame: frameOf(s, 2.2, i * 0.4) });
+    });
+  }
+  if (st > 19.4) flash(ctx, '#ffffff', (st - 19.4) * 1.6);
+}
+
+function comicWall(ctx: CanvasRenderingContext2D, s: FrameState, color: string) {
+  drawFleets(ctx, s);
+  // A spotlight in the fleet's colour, dithered.
+  const dark = rampFrom(color)[3];
+  ctx.fillStyle = dark;
+  for (let y = 40; y < 210; y += 2) {
+    const half = 30 + ((y - 40) / 170) * 70;
+    for (let x = Math.round(320 - half); x < 320 + half; x += 2) if (!(((x + y) / 2) % 2)) ctx.fillRect(x, y, 2, 2);
+  }
+}
+
+function drawSelect(ctx: CanvasRenderingContext2D, s: FrameState) {
+  const { fleets, pick, lockedAt } = s.join;
+  const f = fleets[pick];
+  if (!f) { drawFleets(ctx, s); return; }
+  comicWall(ctx, s, f.color);
+  const locked = lockedAt === null ? null : s.t - lockedAt;
+  pedestal(ctx, 320, 200, 76, f.color);
+  const jump = locked !== null ? -Math.round(Math.abs(Math.sin(locked * 7)) * 18 * Math.max(0, 1 - locked / 1.4)) : bobOf(s, 0, 3);
+  drawFleetMascot(ctx, f.name, 256, 72 + jump, { scale: 4, frame: frameOf(s, locked !== null ? 6 : 2.2) });
+  const cardW = 48, gap = 10, x0 = Math.round(320 - (fleets.length * (cardW + gap) - gap) / 2);
+  fleets.forEach((fl, i) => {
+    const on = i === pick, x = x0 + i * (cardW + gap), y = on ? 282 : 286;
+    ctx.fillStyle = '#0b0a26'; ctx.fillRect(x + 2, y + 2, cardW, 46);
+    ctx.fillStyle = on ? rampFrom(fl.color)[3] : '#16195a'; ctx.fillRect(x, y, cardW, 46);
+    ctx.fillStyle = on ? fl.color : '#2a2f7a';
+    ctx.fillRect(x, y, cardW, 2); ctx.fillRect(x, y + 44, cardW, 2); ctx.fillRect(x, y, 2, 46); ctx.fillRect(x + cardW - 2, y, 2, 46);
+    const look = fleet(fl.name);
+    const tall = spriteSize(look.sprite).h > 32;
+    drawSprite(ctx, look.sprite, x + (tall ? 16 : 8), y + (tall ? 8 : 7), { scale: tall ? 0.5 : 1, tint: look.tint ?? undefined, frame: on ? frameOf(s, 3) : 0, alpha: on ? 1 : 0.75 });
+  });
+  if (locked !== null) flash(ctx, f.color, 0.8 - locked * 2);
+}
+
+function drawName(ctx: CanvasRenderingContext2D, s: FrameState) {
+  space(ctx, s, 0.3);
+  ctx.drawImage(nebulaFor('name', 3, 480, 280), 80, 40);
+  if (!s.join.team) return;
+  pedestal(ctx, 72, 318, 34, fleet(s.join.team).color);
+  drawFleetMascot(ctx, s.join.team, 40, 256 + bobOf(s, 0, 2), { scale: 2, frame: frameOf(s, 2) });
+}
+
+function drawBuilder(ctx: CanvasRenderingContext2D, s: FrameState) {
+  space(ctx, s, 0.2);
+  ctx.drawImage(nebulaFor('hero', 0, 360, 300), -40, 30);
+  pedestal(ctx, 148, 232, 64, fleet(s.join.team).color);
+  drawHero(ctx, s.join.hero, s.join.team, 100, 86 + bobOf(s, 0, 2), { scale: 3, frame: frameOf(s, 2.2) });
+}
+
+function drawLink(ctx: CanvasRenderingContext2D, s: FrameState) {
+  if (s.join.away) return drawAway(ctx, s);
+  space(ctx, s, 0.4);
+  ctx.drawImage(nebulaFor('link', 1, 360, 280), -30, 40);
+  pedestal(ctx, 118, 256, 50, fleet(s.join.team).color);
+  drawHero(ctx, s.join.hero, s.join.team, 86, 150 + bobOf(s, 0, 2), { scale: 2, frame: frameOf(s, 2) });
+  if (s.join.team) drawFleetMascot(ctx, s.join.team, 150, 208 + bobOf(s, 1, 2), { frame: frameOf(s, 2.4) });
+}
+
+function drawReady(ctx: CanvasRenderingContext2D, s: FrameState) {
+  space(ctx, s, 3);
+  const y = 380 - Math.min(1, s.sceneT / 1.2) * 300 + (s.sceneT > 1.2 ? bobOf(s, 0, 3) : 0);
+  plasmaTrail(ctx, s, 262, y + 92, 34);
+  drawHero(ctx, s.join.hero, s.join.team, 240, y, { scale: 2, frame: frameOf(s, 2), glow: fleet(s.join.team).color });
+  if (s.join.team) drawFleetMascot(ctx, s.join.team, 320, y + 40 + bobOf(s, 1, 3), { scale: 2, frame: frameOf(s, 2.5) });
+}
+
+function drawWelcome(ctx: CanvasRenderingContext2D, s: FrameState) {
+  space(ctx, s, 0.8);
+  ctx.drawImage(nebulaFor('welcome', 2, 480, 300), 80, 20);
+  pedestal(ctx, 320, 262, 90, fleet(s.join.team).color);
+  drawHero(ctx, s.join.hero, s.join.team, 244, 160 + bobOf(s, 0, 2), { scale: 2, frame: frameOf(s, 2) });
+  if (s.join.team) drawFleetMascot(ctx, s.join.team, 334, 196 + bobOf(s, 1, 2), { scale: 2, frame: frameOf(s, 2.4) });
+  for (let i = 0; i < 6; i++) if (Math.floor(s.t * 2 + i) % 3 === 0) drawSprite(ctx, 'star', 180 + ((i * 97) % 280), 120 + ((i * 53) % 140), { frame: frameOf(s, 4) });
+}
+
 export function drawFrame(ctx: CanvasRenderingContext2D, s: FrameState, titlePhase: 'title' | 'story' | 'hiscore') {
   ctx.imageSmoothingEnabled = false;
   switch (s.scene) {
@@ -349,5 +549,15 @@ export function drawFrame(ctx: CanvasRenderingContext2D, s: FrameState, titlePha
     case 'fleets': return drawFleets(ctx, s);
     case 'heroes': return drawHeroes(ctx, s);
     case 'briefing': return drawBriefing(ctx, s);
+    case 'coin': return drawCoin(ctx, s);
+    case 'away': return drawAway(ctx, s);
+    case 'gate': case 'outsider': return drawGate(ctx, s);
+    case 'intro': return drawIntro(ctx, s);
+    case 'select': return drawSelect(ctx, s);
+    case 'name': return drawName(ctx, s);
+    case 'hero': return drawBuilder(ctx, s);
+    case 'link': return drawLink(ctx, s);
+    case 'ready': return drawReady(ctx, s);
+    case 'welcome': return drawWelcome(ctx, s);
   }
 }

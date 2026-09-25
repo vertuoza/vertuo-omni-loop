@@ -8,9 +8,14 @@ export interface LedgerEvent {
   id: string; at: string; type: string; planet: number;
   region?: string; contributor?: string; team?: string; data: Record<string, unknown>;
 }
+/** A fleet as stored in Supabase (public.teams). Only `home` is required; the rest has defaults. */
+export interface FleetConfig {
+  home: string | null; label?: string; color?: string; motto?: string; mascot?: string | null; sort?: number; retired?: boolean;
+}
+export interface FleetLook { home: string | null; label: string; color: string; motto: string; mascot: string | null; sort: number; retired: boolean }
 export interface Projects {
   sectors: Record<string, { repos: string[] }>;
-  teams: Record<string, { home: string }>;
+  teams: Record<string, FleetConfig>;
 }
 export interface Zone { id: string; region: string; wave: number | null; state: ZoneState; contributor: string | null; team: string | null; at: string | null }
 export interface Wound {
@@ -27,8 +32,8 @@ export interface Planet {
   chartedAt: string | null; terraformedAt: string | null; lostAt: string | null; lostReason: string | null;
   lastEventAt: string | null; earned: number; log: LogLine[];
 }
-export interface Fleet {
-  name: string; home: string; points: number; rank: number; planets: number; terraformed: number;
+export interface Fleet extends FleetLook {
+  name: string; points: number; rank: number; planets: number; terraformed: number;
   inDistress: number; openWounds: number; streak: number; members: string[];
 }
 export interface Hero { name: string; team: string | null; points: number; rank: number }
@@ -50,5 +55,6 @@ export function buildGalaxy(events: LedgerEvent[], o: { projects: Projects; now?
 export function demoEvents(now?: Date): LedgerEvent[];
 export function demoSnapshot(now?: Date): unknown;
 export const DEMO_PROJECTS: Projects;
+export function lookOf(name: string, fleet?: FleetConfig): FleetLook;
 export const WOUND_LABEL: Record<WoundKind, string>;
 export const STATE_LABEL: Record<PlanetState, string>;

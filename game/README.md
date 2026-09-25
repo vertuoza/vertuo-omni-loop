@@ -1,46 +1,59 @@
 # The game layer
 
 A read-only projection of PRD delivery as a planet-terraforming game. Design:
-`docs/superpowers/specs/2026-09-24-omni-plan-game-design.md`.
+`docs/superpowers/specs/2026-09-24-omni-plan-game-design.md`; fleets, players and storage:
+`docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md`.
 
-It never writes to an engineering repository. Its only outputs are `game/ledger/*.jsonl`
-(append-only events), `game/season/*.json` + `rankings.md` (derived, regenerable) and one weekly
-comment on the pinned Hall of Heroes issue. Delete `game/` and `.github/workflows/game.yml` to
-remove it.
+It never writes to an engineering repository, nor to this one. Its only outputs are rows appended
+to the ledger in Supabase (`public.ledger_events`, append-only), one weekly comment on the pinned
+Hall of Heroes issue, and a weekly backup kept as a workflow artifact. Delete `game/` and
+`.github/workflows/game.yml` to remove it.
+
+The commands read and write Supabase: set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (locally,
+`npx supabase status` prints both; `apps/galaxy/.env.local` is read if it exists).
 
 - `pnpm game:project` — snapshot GitHub, append new events to the ledger; logs any event it had to skip
-- `pnpm game:score [YYYY-MM]` — fold the ledger into a season. With no argument: the current month,
-  and on the 1st–7th also the previous month, whose final standings become `rankings.md`
+- `pnpm game:score [YYYY-MM] [--rankings <file>]` — fold the ledger into a season. With no season:
+  the current month, and on the 1st–7th also the previous month, whose final standings become the
+  rankings page written to `<file>`
 - `pnpm game:banner <prd>` — print one planet's banner; reads only that planet and the planets it is blocked by
-- `pnpm test` — every module is tested on fixtures; nothing touches GitHub in tests
+- `pnpm game:export <dir>` — write the ledger, sectors, fleets and players as JSONL (the backup)
+- `pnpm test` — every module is tested on fixtures; nothing touches GitHub or Supabase in tests
 
-Constants live in `game/rulebook.mjs`. Org facts (sectors, teams) live in `projects.yml`.
+Constants live in `game/rulebook.mjs`. Org facts live in Supabase: `sectors` (repositories),
+`teams` (the fleets) and `players` (the roster), each changed by a migration or by the arcade.
 
-## Teams
+## Fleets and the roster
 
-Team membership is read from the GitHub teams of the organisation named in `projects.yml`. The
-read is hard: if any team cannot be read, or every team reads empty, the poll fails and nothing is
-appended (a silent failure would strip teams from every event of that poll, forever). A login in
-two teams belongs to the **first** team `projects.yml` lists.
+A player picks their fleet in the arcade and links their GitHub account once; `players` then maps
+their GitHub login to their fleet, and every event the poll appends is stamped with the
+contributor's fleet at that moment. A contributor who never joined, or never linked GitHub, has no
+fleet and scores individually (spec §8). A player whose fleet is retired has none until they choose
+again. Logins match whatever their case.
+
+The roster read is hard (F7): if the sectors, the fleets or the players cannot be read, the poll
+fails and appends nothing, rather than events stripped of their fleets forever.
 
 ## Setup
 
 The workflow `.github/workflows/game.yml` does nothing until it is switched on.
 
-1. **Token.** Create a fine-grained token and store it as the secret `OMNI_GAME_TOKEN`:
-   `contents: read` on every engineering repository in `projects.yml` and on this one (the
-   `gh pr` / `gh issue` reads also need `pull requests: read` and `issues: read` there), and
-   `members: read` on the organisation (for the team reads).
-2. **Pushing to `main`.** The `ledger` job commits `game/ledger` and `game/season` to the default
-   branch. Either let the workflow's `GITHUB_TOKEN` push to `main` (branch protection allows GitHub
-   Actions), or store a token that may bypass protection as the secret `GAME_PUSH_TOKEN`.
+1. **Supabase.** The galaxy database must exist and hold the migrations
+   ([`apps/galaxy/README.md` › Deploy to production](../apps/galaxy/README.md#deploy-to-production)):
+   the variable `SUPABASE_PROJECT_ID` and the secret `SUPABASE_SERVICE_ROLE_KEY` are what this
+   workflow uses too.
+2. **Token.** Create a fine-grained token and store it as the secret `OMNI_GAME_TOKEN`:
+   `contents: read`, `pull requests: read` and `issues: read` on every engineering repository in
+   `sectors` and on this one. It no longer needs any organisation permission: fleets come from the
+   arcade, not from GitHub teams.
 3. **Rankings issue.** Open an issue in this repository (the Hall of Heroes), pin it, and set the
    repository variable `RANKINGS_ISSUE` to its number.
-4. **Switch on.** Set the repository variable `GAME_ENABLED=true`.
+4. **Switch on.** Set the repository variable `GAME_ENABLED=true`. Do it once the crew has joined in
+   the arcade: the first poll backfills history with everyone's fleet as it stands then.
 
 Two jobs: `ledger` runs on every schedule and dispatch (concurrency `game-ledger`); `rankings`
 runs on the Monday schedule, or a dispatch with `post_rankings: true` (concurrency
-`game-rankings`). Both time out after 20 minutes.
+`game-rankings`): it exports the backup (kept 90 days), then posts. Both time out after 20 minutes.
 
 ## Known limits
 
@@ -53,5 +66,7 @@ runs on the Monday schedule, or a dispatch with `post_rankings: true` (concurren
   (spec §6.4 brake not implemented yet).
 - **Every poll re-reads all PRDs.** There is no incremental read; cost grows with the number of
   planets.
+- **Fleet stamps live only in Supabase.** The ledger can be rebuilt from GitHub, but not the fleet
+  each event was stamped with: restore those from the weekly backup artifact.
 - **A feature PR closed unmerged** still counts as the region's feature PR when it has the lowest
   number (sub-PRs drop closed-unmerged ones; feature PRs do not yet).

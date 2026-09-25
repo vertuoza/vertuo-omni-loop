@@ -15,8 +15,8 @@
 //     approximates.
 //
 // Spec §8: a malformed inbox or outbox file is ignored (never crashes the projector), and a source
-// that cannot be read reads as empty — except the team member reads, which are hard (F7): a failed
-// one throws, so the poll appends nothing rather than events stripped of their teams. Every
+// that cannot be read reads as empty. Fleets are not read here: the roster (login → fleet) comes
+// from Supabase with the config, and that read is hard (F7, sources/supabase.mjs). Every
 // timestamp passes through `toIso` (F4); a record whose required time is unreadable is skipped.
 // Beyond the list reads, each zone's sub-PR timeline gives the `omni:needs-fix` history (F1) and each
 // closed bug's closing PRs say whether a merged fix closed it (F5c); both soft. An inbox file whose `prd` doesn't parse as an integer never
@@ -52,21 +52,8 @@ const firstIso = (out) => toIso(lines(out)[0]);
 export async function buildSnapshot({ config, exec = ghExec, now = new Date(), org = 'vertuoza', planRepo = 'vertuo-omni-plan', prds }) {
   const issues = json(await exec(['issue', 'list', '-R', `${org}/${planRepo}`, '--label', 'omni:prd', '--state', 'all', '--limit', '500', '--json', 'number,title,assignees,createdAt,closedAt']));
 
-  // F7: team reads are hard. A failed read would silently strip every member's team from every
-  // event this poll appends, forever (the ledger is append-only) — so it fails the poll instead, as
-  // does a read where every configured team comes back empty. A login in two teams belongs to the
-  // first one `projects.yml` names.
-  const teams = {};
-  for (const team of Object.keys(config.teams)) {
-    let out;
-    try {
-      out = await exec(['api', `orgs/${org}/teams/${team}/members`, '--paginate', '--jq', '.[].login']);
-    } catch (err) {
-      throw new Error(`team ${team}: members read failed (${err.message}); nothing appended`);
-    }
-    for (const login of lines(out)) teams[login] ??= team;
-  }
-  if (Object.keys(config.teams).length && !Object.keys(teams).length) throw new Error('every configured team read with no members; nothing appended');
+  // The roster (GitHub login, lower-cased → fleet) is the arcade's: players pick their fleet there.
+  const teams = { ...(config.roster ?? {}) };
 
   const inboxByPrd = new Map(); // prd → [{ repo, file, inbox, surveyedAt }]
   for (const repo of config.repos) {
@@ -102,7 +89,7 @@ export async function buildSnapshot({ config, exec = ghExec, now = new Date(), o
     if (!createdAt) continue; // F4: a planet cannot be charted without its birth time
     const captain = issue.assignees?.[0]?.login ?? null;
     const planet = {
-      prd: issue.number, title: issue.title, captain, ownerTeam: captain ? teams[captain] ?? null : null,
+      prd: issue.number, title: issue.title, captain, ownerTeam: captain ? teams[captain.toLowerCase()] ?? null : null,
       issue: { createdAt, closedAt: toIso(issue.closedAt) },
       regions: [], featurePr: null, zones: [], outbox: [], bugs: [],
     };
