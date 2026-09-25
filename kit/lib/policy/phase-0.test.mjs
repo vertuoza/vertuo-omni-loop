@@ -61,7 +61,7 @@ describe('An approved design lands in the PRD-s own delivery folder', () => {
     expect(verdict.docsOnly).toBe(true);
     expect(verdict.missing).toEqual([]);
     expect(verdict.label).toBe(ctx.config.labels.phase0);
-    expect(verdict.label).toBe('pr:phase-0');
+    expect(verdict.label).toBe('omni:phase-0');
     expect(verdict.base).toBe(ctx.config.repo.defaultBranch);
     expect(verdict.base).toBe('main');
     expect(verdict.carries.spec).toEqual([paths.spec]);

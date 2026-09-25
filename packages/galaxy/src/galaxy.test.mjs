@@ -59,3 +59,27 @@ describe('buildGalaxy', () => {
     expect(g.teams).toHaveLength(5);
   });
 });
+
+describe('fleets', () => {
+  it('gives a fleet without a look a plain one, so a new row still plays', () => {
+    const g = buildGalaxy([charted], { projects, now: NOW });
+    expect(g.teams.find((t) => t.name === 'beaver')).toMatchObject({
+      label: 'BEAVER', color: '#cfd4e6', motto: '', mascot: null, sort: 0, retired: false, home: 'core',
+    });
+  });
+
+  it('keeps a retired fleet only while the season still remembers it', () => {
+    const withRetired = { ...projects, teams: { ...projects.teams, ghosts: { home: null, label: 'GHOSTS', retired: true } } };
+    expect(buildGalaxy([charted], { projects: withRetired, now: NOW }).teams.map((t) => t.name)).not.toContain('ghosts');
+    const secured = ev('zone:core-repo:7:s1:secured', '2026-09-21T12:00:00Z', 'ZONE_SECURED', 7, { region: 'core-repo', contributor: 'casper', team: 'ghosts' });
+    const g = buildGalaxy([charted, secured], { projects: withRetired, now: NOW });
+    expect(g.teams.find((t) => t.name === 'ghosts')).toMatchObject({ label: 'GHOSTS', retired: true, members: ['casper'] });
+    expect(g.sectors.flatMap((s) => s.fleets)).not.toContain('ghosts');
+  });
+
+  it('flies PIRATES in the demo galaxy, and retires INVINCIBLE', () => {
+    const g = buildGalaxy(demoEvents(NOW), { projects: DEMO_PROJECTS, now: NOW });
+    expect(g.teams.map((t) => t.name).sort()).toEqual(['beaver', 'cia', 'octopod', 'picsou', 'pirates']);
+    expect(g.teams.find((t) => t.name === 'pirates')).toMatchObject({ label: 'PIRATES', mascot: 'pirate', color: '#2fc6a4' });
+  });
+});

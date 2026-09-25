@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readLedger, appendEvents } from './ledger.mjs';
+import { readLedger, appendEvents, fileLedger, memoryLedger } from './ledger.mjs';
 
 const ev = (id, at, type = 'ZONE_SECURED') => ({ id, at, type, planet: 2332, data: {} });
 
@@ -27,5 +27,24 @@ describe('ledger', () => {
     const dir = mkdtempSync(join(tmpdir(), 'ledger-'));
     expect(() => appendEvents(dir, [{ id: 'x', at: 'nope', type: 'ZONE_SECURED', planet: 1 }])).toThrow();
     expect(readLedger(dir)).toEqual([]);
+  });
+});
+
+// The contract every store keeps; supabaseLedger is held to the same one in sources/supabase.test.mjs.
+describe.each([
+  ['memoryLedger', () => memoryLedger()],
+  ['fileLedger', () => fileLedger(mkdtempSync(join(tmpdir(), 'ledger-')))],
+])('%s', (_, make) => {
+  it('appends only new ids, returns them, and reads everything back sorted', async () => {
+    const store = make();
+    expect((await store.append([ev('b', '2026-09-02T10:00:00Z'), ev('a', '2026-09-01T10:00:00Z')])).map((e) => e.id)).toEqual(['b', 'a']);
+    expect((await store.append([ev('a', '2026-09-01T10:00:00Z'), ev('c', '2026-10-01T10:00:00Z')])).map((e) => e.id)).toEqual(['c']);
+    expect((await store.read()).map((e) => e.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('refuses a malformed batch before storing any of it', async () => {
+    const store = make();
+    await expect(store.append([ev('ok', '2026-09-01T10:00:00Z'), { id: 'x', at: 'nope', type: 'ZONE_SECURED', planet: 1 }])).rejects.toThrow();
+    expect(await store.read()).toEqual([]);
   });
 });

@@ -10,12 +10,14 @@ export const DEMO_PROJECTS = Object.freeze({
     'ai-nebula': { repos: ['vertuo-ai-domain'] },
     'field-rim': { repos: ['vertuo-web', 'vertuo-mobile'] },
   },
+  // The same fleets the migration seeds (supabase/migrations/*_fleets_and_players.sql).
   teams: {
-    beaver: { home: 'core-belt' },
-    octopod: { home: 'ai-nebula' },
-    picsou: { home: 'core-belt' },
-    cia: { home: 'field-rim' },
-    'invincible-team': { home: 'field-rim' },
+    beaver: { home: 'core-belt', label: 'BEAVER', color: '#d08a4a', motto: 'Builds the dam. Secures the zone.', mascot: 'beaver', sort: 10, retired: false },
+    octopod: { home: 'ai-nebula', label: 'OCTOPOD', color: '#b07cff', motto: 'Eight arms, eight sub-PRs.', mascot: 'octopod', sort: 20, retired: false },
+    picsou: { home: 'core-belt', label: 'PICSOU', color: '#ffd84a', motto: 'Every coin counted twice.', mascot: 'picsou', sort: 30, retired: false },
+    cia: { home: 'field-rim', label: 'C.I.A.', color: '#9aa3c8', motto: 'Knows every open question.', mascot: 'cia', sort: 40, retired: false },
+    pirates: { home: 'field-rim', label: 'PIRATES', color: '#2fc6a4', motto: 'Takes the zones nobody claims.', mascot: 'pirate', sort: 50, retired: false },
+    'invincible-team': { home: null, label: 'INVINCIBLE', color: '#4fb0ff', motto: 'Think, Mark. Then ship it.', mascot: 'invincible', sort: 90, retired: true },
   },
 });
 
@@ -24,7 +26,7 @@ const DEMO_TEAMS = {
   'pm-otto': 'octopod', inky: 'octopod', 'kraken-k': 'octopod',
   'pm-penny': 'picsou', dime: 'picsou', 'gold-rush': 'picsou',
   'pm-cecil': 'cia', 'agent-k': 'cia', 'gda-ro': 'cia',
-  'pm-mark': 'invincible-team', 'atom-eve': 'invincible-team', 'rex-splode': 'invincible-team',
+  'pm-anne': 'pirates', 'bonny-b': 'pirates', 'long-john': 'pirates',
 };
 
 const iso = (d) => d.toISOString().replace(/\.\d{3}Z$/, 'Z');
@@ -34,7 +36,7 @@ export function demoSnapshot(now = new Date()) {
   let prNo = 1000;
   const sub = (author, claimedH, mergedH = null, fire = null) => ({
     number: ++prNo, author, createdAt: ago(claimedH), mergedAt: ago(mergedH), revertedAt: null,
-    labels: ['pr:sub', ...(mergedH === null ? ['pr:in-progress'] : []), ...(fire && fire[1] === null ? ['pr:needs-fix'] : [])],
+    labels: ['omni:sub', ...(mergedH === null ? ['omni:in-progress'] : []), ...(fire && fire[1] === null ? ['omni:needs-fix'] : [])],
     ...(fire ? { needsFix: { labeledAt: ago(fire[0]), unlabeledAt: ago(fire[1]) } } : {}),
   });
   const zone = (id, repo, wave, blockedBy = [], pr = null) => ({ id, repo, wave, blockedBy, pr });
@@ -72,7 +74,7 @@ export function demoSnapshot(now = new Date()) {
       zones: [
         zone('s1', 'vertuo-core', 1, [], sub('dime', 329, 300)),
         zone('s2', 'vertuo-api', 1, [], sub('gold-rush', 329, 290)),
-        zone('s3', 'vertuo-core', 2, ['s1', 's2'], sub('atom-eve', 289, 200)),
+        zone('s3', 'vertuo-core', 2, ['s1', 's2'], sub('bonny-b', 289, 200)),
       ],
       bugs: [{ repo: 'vertuo-core', number: 4411, createdAt: ago(40), closedAt: null, fixedBy: null }],
     }),
@@ -101,7 +103,7 @@ export function demoSnapshot(now = new Date()) {
       feature: { created: 160, ready: 80, merged: 70 },
       zones: [
         zone('s1', 'vertuo-core', 1, [], sub('gold-rush', 159, 140)),
-        zone('s2', 'vertuo-web', 1, [], sub('rex-splode', 159, 130)),
+        zone('s2', 'vertuo-web', 1, [], sub('long-john', 159, 130)),
         zone('s3', 'vertuo-web', 2, ['s1', 's2'], sub('dime', 129, 90)),
       ],
       outbox: [item('s2-01-reminder-cadence', 'vertuo-web', 'human-action', 120, { verdict: 'drifted', h: 110, by: 'pm-penny', reworkH: 95, reworkBy: 'dime' })],
@@ -140,7 +142,7 @@ export function demoSnapshot(now = new Date()) {
       outbox: [item('s2-01-exif-strip', 'vertuo-mobile', 'medium', 60, { verdict: 'agreed', h: 20, by: 'pm-cecil' })],
     }),
     planet({
-      prd: 2471, title: 'Supplier Price Sync', captain: 'pm-mark', created: 150,
+      prd: 2471, title: 'Supplier Price Sync', captain: 'pm-anne', created: 150,
       regions: [['vertuo-api', 140, [2410]], ['vertuo-ai-domain', 138]],
     }),
     planet({
@@ -158,15 +160,15 @@ export function demoSnapshot(now = new Date()) {
       ],
     }),
     planet({
-      prd: 2533, title: 'Client Portal', captain: 'pm-mark', created: 200,
+      prd: 2533, title: 'Client Portal', captain: 'pm-anne', created: 200,
       regions: [['vertuo-web', 190]],
       feature: { created: 90, activity: 3 },
       zones: [
-        zone('s1', 'vertuo-web', 1, [], sub('atom-eve', 89, 70)),
-        zone('s2', 'vertuo-web', 2, ['s1'], sub('rex-splode', 69, 36)),
-        zone('s3', 'vertuo-web', 2, ['s1'], sub('atom-eve', 69, null)),
+        zone('s1', 'vertuo-web', 1, [], sub('bonny-b', 89, 70)),
+        zone('s2', 'vertuo-web', 2, ['s1'], sub('long-john', 69, 36)),
+        zone('s3', 'vertuo-web', 2, ['s1'], sub('bonny-b', 69, null)),
       ],
-      outbox: [item('s2-01-session-length', 'vertuo-web', 'high', 50, { verdict: 'drifted', h: 30, by: 'pm-mark' })],
+      outbox: [item('s2-01-session-length', 'vertuo-web', 'high', 50, { verdict: 'drifted', h: 30, by: 'pm-anne' })],
     }),
     planet({ prd: 2541, title: 'VAT Rules Belgium', captain: 'pm-lina', created: 12 }),
   ];

@@ -90,11 +90,11 @@ describe('end to end — a signed webhook to a completed check', () => {
     expect(github.state.comments[0].body).toContain('No open items.');
   });
 
-  it('3. labelled outbox:go while red, the check is neutral with "Override in effect"', async () => {
-    const pull = { ...featurePull(), labels: ['outbox:go'] };
+  it('3. labelled omni:outbox-go while red, the check is neutral with "Override in effect"', async () => {
+    const pull = { ...featurePull(), labels: ['omni:outbox-go'] };
     const github = fakeGitHub({ commits: { base1: fixture('base-active'), head1: fixture('head-open') }, pull });
     await deliver(github, pullRequestDelivery(pull, 'labeled'));
-    expect(latest(github)).toMatchObject({ conclusion: 'neutral', output: { title: 'Override in effect (outbox:go)' } });
+    expect(latest(github)).toMatchObject({ conclusion: 'neutral', output: { title: 'Override in effect (omni:outbox-go)' } });
   });
 
   it('4. a sub-PR (base is the feature branch) shows the check skipped: not active on this PR', async () => {
@@ -126,7 +126,7 @@ describe('end to end — a signed webhook to a completed check', () => {
     const pull = featurePull();
     const github = fakeGitHub({ commits: { base1: fixture('base-active'), head1: fixture('head-open') }, pull });
     await deliver(github, pullRequestDelivery(pull));
-    github.state.pull.labels = ['outbox:go'];
+    github.state.pull.labels = ['omni:outbox-go'];
     const sent = await deliver(github, rerunDelivery(pull));
     expect(sent).toHaveLength(1);
     expect(github.state.checkRuns).toHaveLength(2);

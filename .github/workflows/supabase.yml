@@ -1,6 +1,6 @@
 # The galaxy database. On a pull request: every migration and the demo seed apply to an empty
-# database, and the web UI's role can read what they create. On main: the migrations are applied
-# to the production project. Off until the repository variable SUPABASE_PROJECT_ID is set.
+# database, and supabase/checks/access.sql proves who may read and write what. On main: the
+# migrations are applied to the production project. Off until the repository variable SUPABASE_PROJECT_ID is set.
 # Setup (project, secrets, variables): apps/galaxy/README.md, "Deploy to production".
 name: supabase
 on:
@@ -22,28 +22,11 @@ jobs:
       - uses: supabase/setup-cli@v1
         with: { version: 2.117.0 }   # pinned: `latest` asks the GitHub API, which rate-limits
       - run: supabase db start      # applies supabase/migrations, then supabase/seed.sql
-      - name: The web UI reads the galaxy, only the sync writes it
-        # The migrations must grant this themselves (config.toml › auto_expose_new_tables = false).
-        run: |
-          psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 <<'SQL'
-          set role anon;
-          select count(*) from public.ledger_events;
-          select count(*) from public.sectors;
-          select count(*) from public.teams;
-          reset role;
-          do $$
-          declare t text;
-          begin
-            foreach t in array array['public.ledger_events', 'public.sectors', 'public.teams'] loop
-              if has_table_privilege('anon', t, 'insert, update, delete, truncate') then
-                raise exception 'anon may write %', t;
-              end if;
-              if not has_table_privilege('service_role', t, 'select') or not has_table_privilege('service_role', t, 'insert') then
-                raise exception 'service_role (pnpm galaxy:sync) may not write %', t;
-              end if;
-            end loop;
-          end $$;
-          SQL
+      - name: Who may read and write the galaxy
+        # Signed out: the fleets only. Another domain: nothing. The crew: the galaxy, and only their
+        # own player row, never their GitHub login. The service role: appends, never rewrites.
+        # The migrations grant all of this themselves (config.toml › auto_expose_new_tables = false).
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/access.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

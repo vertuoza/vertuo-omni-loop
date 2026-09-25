@@ -11,14 +11,14 @@ const SCANNED = [
   { dir: 'bin', ext: '.mjs' },
   { dir: 'plugin', ext: '.md' },
 ];
-const FORBIDDEN = [/vertuo/i, /\bdocs\//, /\brepoRoot\b/, /pierrederval/, /'outbox:go'/, /'pr:feature'/];
+const FORBIDDEN = [/vertuo/i, /\bdocs\//, /\brepoRoot\b/, /pierrederval/, /'omni:outbox-go'/, /'omni:feature'/];
 // A provenance line, in code (`// …`) or in Markdown (`<!-- … -->`).
 const PROVENANCE = /^(?:\/\/|<!--) Ported from vertuo-ai-domain@/;
 
 // Controller ruling: exempt kit/lib/config.mjs from exactly these patterns (per-pattern list)
 const EXEMPT_PATHS = {
-  "'outbox:go'": ['lib/config.mjs'],
-  "'pr:feature'": ['lib/config.mjs'],
+  "'omni:outbox-go'": ['lib/config.mjs'],
+  "'omni:feature'": ['lib/config.mjs'],
   '\\bdocs\\/': ['lib/config.mjs'],
 };
 
@@ -67,7 +67,7 @@ describe('kit source carries no repository literal', () => {
     write('plugin/skills/s/SKILL.md', [
       '<!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-x/SKILL.md -->',
       'Read the spec in docs/specs.',
-      'Label it `outbox:go`.',
+      'Label it `omni:outbox-go`.',
       'Run it the Vertuoza way.',
     ].join('\n'));
     write('plugin/skills/s/notes.txt', 'vertuo is fine in a file the scan does not cover\n');

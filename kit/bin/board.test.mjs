@@ -115,7 +115,7 @@ describe('omni board — the gh pr list call', () => {
       '--limit',
       '200',
       '--label',
-      'pr:sub',
+      'omni:sub',
     ]);
   });
 });
@@ -220,7 +220,7 @@ describe('omni board — table and --json output', () => {
       git: true,
       files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan },
     });
-    const { exec } = fakeExec(root, [pr({ labels: [{ name: 'pr:needs-fix' }] })]);
+    const { exec } = fakeExec(root, [pr({ labels: [{ name: 'omni:needs-fix' }] })]);
     const s = io();
     const code = await main(['board', '7'], { cwd: root, exec, ...s });
     expect(code).toBe(0);
@@ -236,7 +236,7 @@ describe('omni board — table and --json output', () => {
         '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan,
       },
     });
-    const { exec } = fakeExec(root, [pr({ baseRefName: 'main', labels: [{ name: 'pr:sub' }] })]);
+    const { exec } = fakeExec(root, [pr({ baseRefName: 'main', labels: [{ name: 'omni:sub' }] })]);
     const s = io();
     const code = await main(['board', '7'], { cwd: root, exec, ...s });
     expect(code).toBe(0);

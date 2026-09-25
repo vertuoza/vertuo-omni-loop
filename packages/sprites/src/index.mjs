@@ -5,3 +5,4 @@ export {
   spritePixels, spriteImage, drawSprite, spriteSize, rng, planetTexture, drawPlanet, SURFACES,
   makeStarfield, drawStarfield, makeNebula,
 } from './draw.mjs';
+export { HERO_PRESETS, rampFrom, heroLook, validHero, randomHero, fleetSprite } from './heroes.mjs';

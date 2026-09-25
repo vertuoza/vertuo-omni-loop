@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { drawSprite, spriteSize, type Tint } from '@omni/sprites';
+import { drawSprite, spriteSize, type Hero, type Tint } from '@omni/sprites';
+import { fleet, heroOf } from './fleets';
 
 // A sprite as a DOM element, for panels and cards. `scale` is in CSS pixels per sprite pixel;
 // `animate` plays the two idle frames.
@@ -33,4 +34,16 @@ export function Sprite({ name, scale = 1, tint, flip, animate, className, title 
       aria-hidden={title ? undefined : true}
     />
   );
+}
+
+/** A fleet's mascot (or its hero stand-in). */
+export function FleetSprite({ name, scale = 1, animate, flip }: { name: string | null | undefined; scale?: number; animate?: boolean; flip?: boolean }) {
+  const f = fleet(name);
+  return <Sprite name={f.sprite} tint={f.tint ?? undefined} scale={scale} animate={animate} flip={flip} />;
+}
+
+/** A player's hero in their fleet's colours. */
+export function HeroSprite({ hero, team, scale = 1, animate, title }: { hero: Hero; team: string | null | undefined; scale?: number; animate?: boolean; title?: string }) {
+  const look = heroOf(hero, team);
+  return <Sprite name={look.sprite} tint={look.tint} scale={scale} animate={animate} title={title} />;
 }
