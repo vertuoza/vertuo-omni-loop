@@ -1,0 +1,50 @@
+<title>Omni Skills Before After</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{--bg:#F2F4F3;--surface:#fff;--ink:#15201C;--muted:#56635E;--line:#D3DAD7;--accent:#1D6B55;--soft:#D6EAE2;--red:#B3372F;--redsoft:#F6DEDB}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#0F1513;--surface:#161E1B;--ink:#E4ECE8;--muted:#98A6A0;--line:#2A3632;--accent:#5FC3A2;--soft:#193A30;--red:#F08A80;--redsoft:#3A1F1C}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0F1513;--surface:#161E1B;--ink:#E4ECE8;--muted:#98A6A0;--line:#2A3632;--accent:#5FC3A2;--soft:#193A30;--red:#F08A80;--redsoft:#3A1F1C}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 "IBM Plex Sans",-apple-system,sans-serif;padding-inline:16px}
+main{max-width:1000px;margin:0 auto;padding-block:36px 60px;display:grid;gap:28px}
+h1{font-size:clamp(24px,4vw,34px);margin:0;text-wrap:balance}
+p.lede{color:var(--muted);max-width:66ch;margin:6px 0 0}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.col{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px;display:grid;gap:10px;align-content:start}
+.col h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;margin:0;color:var(--muted)}
+.col.after{border-color:var(--accent)}
+.col.after h2{color:var(--accent)}
+ol{margin:0;padding-left:20px;display:grid;gap:6px}
+code{font-family:"IBM Plex Mono",monospace;font-size:.88em;background:var(--soft);padding:1px 5px;border-radius:4px}
+.before code{background:var(--redsoft)}
+.note{font-size:14px;color:var(--muted)}
+</style>
+<main>
+  <header>
+    <h1>PRD #7 — the loop drives itself</h1>
+    <p class="lede">Before: each Omni Loop PRD was built by hand, with decisions kept in private notes. After: a person types three commands, and the loop runs every step, writes every decision as an outbox item, and ships before merge.</p>
+  </header>
+  <section class="cols">
+    <div class="col before">
+      <h2>Before (PRD #3)</h2>
+      <ol>
+        <li>A human writes the spec and plan, and dispatches subagents task by task.</li>
+        <li>Slices are committed straight onto one branch. There are no sub-PRs and no claims.</li>
+        <li>About 20 rulings go into a private ledger and are raised as outbox items only at the end.</li>
+        <li>The feature PR merges <b>unshipped</b>. A cleanup PR (#6) then settles and runs <code>omni ship 3</code>.</li>
+        <li>The skills that do all this live in another repository and hard-code it (<code>vertuo-*</code>).</li>
+      </ol>
+    </div>
+    <div class="col after">
+      <h2>After (with <code>/omni:*</code>)</h2>
+      <ol>
+        <li><code>/omni:brainstorm</code>: the PRD issue, spec, plan and this page, then a phase-0 PR a person merges.</li>
+        <li><code>/omni:yolo 7</code>: the board comes from GitHub; each slice is claimed as a draft sub-PR, built test-first, and merged into the feature branch.</li>
+        <li>Each decision taken without asking becomes an item through <code>omni item new</code>, ranked by the kit.</li>
+        <li>You answer on the feature PR: <code>1: ok</code> or <code>2: B because …</code>.</li>
+        <li><code>/omni:yolo-fix 7</code>: it settles the answers, reworks what drifted, runs <code>omni ship</code>, and marks the PR ready. A person merges.</li>
+      </ol>
+    </div>
+  </section>
+  <p class="note">The cut-over: waves 1–5 of this PRD are built with the loop run by hand. Wave 6 (<code>yolo-fix</code>, <code>brainstorm</code>) is built by <code>/omni:yolo 7</code> itself.</p>
+</main>
