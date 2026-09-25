@@ -676,3 +676,8 @@ button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
   .j-slot.blinky, .menu button.nudge .menu-label::before, .j-zoom, .j-shake { animation: none; }
   .j-type { animation-duration: 0.01s; }
 }
+
+/* A key hint that is also a button: click "[A] LINK GITHUB" to press A. */
+.j-hit { font: inherit; color: inherit; letter-spacing: inherit; text-shadow: inherit; line-height: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; }
+.j-hit:hover, .j-hit:focus-visible { color: var(--yellow); outline: none; }
+.j-hit:hover .j-key, .j-hit:focus-visible .j-key { background: var(--yellow); }
