@@ -273,7 +273,7 @@ async function mergedSince(octokit, { owner, repo, base, since }) {
     const { data } = await octokit.request(PULLS, { owner, repo, base, state: 'closed', sort: 'updated', direction: 'desc', per_page: PER_PAGE, page });
     all.push(...data.filter((pull) => pull.merged_at));
     const last = data.at(-1);
-    if (data.length < PER_PAGE || Date.parse(last?.updated_at ?? last?.closed_at ?? 0) < Date.parse(since)) break;
+    if (data.length < PER_PAGE || Date.parse(last?.updated_at ?? last?.closed_at ?? '') < Date.parse(since)) break;
   }
   return all;
 }

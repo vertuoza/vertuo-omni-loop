@@ -89,7 +89,7 @@ export function createRetro({ client, octokitFor, env = process.env, kinds = KIN
 
       const pulls = await step.run('gather-pulls', async () => listPullsInto(await github(), { owner, repo, base: pr.headRef }));
 
-      const scope = { owner, repo, mergeSha, mergedAt, pr, prd, config, pulls };
+      const scope = { owner, repo, mergeSha, mergedAt: mergedAt ?? pr.mergedAt, pr, prd, config, pulls };
       const context = { step, github, env, owner, repo, pr, prd, config, pulls };
       const first = await runRetro({ ...context, run: MERGE_RUN, kinds: kindsFor(MERGE_RUN, kinds), scope });
       const result = { prd: prd.number, ...outcome(first) };
@@ -97,7 +97,7 @@ export function createRetro({ client, octokitFor, env = process.env, kinds = KIN
       const laterKinds = kindsFor(FOLLOW_UP_RUN, kinds);
       if (!followUp || laterKinds.length === 0) return result;
 
-      await step.sleepUntil(FOLLOW_UP_STEP, followUpAt(mergedAt));
+      await step.sleepUntil(FOLLOW_UP_STEP, followUpAt(scope.mergedAt));
       const later = await runRetro({
         ...context,
         run: FOLLOW_UP_RUN,
