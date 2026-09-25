@@ -2,6 +2,8 @@
 // gate → ship → prd) through the CLI's `main()`, under three law profiles: knowledge,
 // claudeMdInvariants, none. Every fixture below is copied, not imported from another test file.
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { main } from '../bin/omni.mjs';
 import { makeRepo } from './fixture.mjs';
@@ -90,17 +92,19 @@ const PROFILES = [
       '.omni-loop/knowledge/product/invariants.md': EMPTY_INVARIANTS,
     },
     bearsOn: 'P-PRODUCT-1',
+    floors: true,
   },
   {
     name: 'claudeMdInvariants',
     config: 'kit: 1\nrepo:\n  slug: acme/b\npaths:\n  adr: docs/adr\nlaws:\n  source: claudeMdInvariants\n',
     extra: { 'CLAUDE.md': '## Invariants\n\n- x (ADR-0004)\n', 'docs/adr/0004-tenants.md': '# 4\n' },
     bearsOn: 'ADR-0004',
+    floors: true,
   },
-  { name: 'none', config: 'kit: 1\nrepo:\n  slug: acme/c\n', extra: {}, bearsOn: 'none' },
+  { name: 'none', config: 'kit: 1\nrepo:\n  slug: acme/c\n', extra: {}, bearsOn: 'none', floors: false },
 ];
 
-describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn }) => {
+describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors }) => {
   it('checks clean, goes red on an item, settles, goes green, ships', async () => {
     const { root } = makeRepo({
       git: true,
@@ -137,6 +141,32 @@ describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn }) => {
     });
 
     expect(await main(['ship', '42'], { cwd: root, ...quiet() })).toBe(0);
-    expect(await main(['prd', '42'], { cwd: root, ...quiet() })).toBe(0);
+
+    expect(existsSync(join(root, `${D}/inbox/0042-a`))).toBe(false);
+    expect(existsSync(join(root, `${D}/shipped/0042-a/spec.md`))).toBe(true);
+    expect(existsSync(join(root, `${D}/shipped/0042-a/outbox/settled.md`))).toBe(true);
+
+    const prdOut = [];
+    expect(
+      await main(['prd', '42'], {
+        cwd: root,
+        stdout: { write: (s) => prdOut.push(s) },
+        stderr: { write() {} },
+      }),
+    ).toBe(0);
+    expect(prdOut.join('')).toMatch(/state: shipped/);
+  });
+
+  it(`floors a medium item bearing on "${bearsOn}" to high when floors is ${floors}`, async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: {
+        '.omni-loop/config.yml': config,
+        [`${D}/outbox/0042-a/s1-01-x.md`]: itemText({ prd: 42, bearsOn, rank: 'medium' }),
+        ...extra,
+      },
+    });
+
+    expect(await main(['check', 'outbox'], { cwd: root, ...quiet() })).toBe(floors ? 1 : 0);
   });
 });
