@@ -39,10 +39,6 @@ function normalize(path) {
     .replace(/^\/+/, '');
 }
 
-function escapeRegExp(text) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 /**
  * The three files a phase-0 pull request carries for one PRD, plus where a pending acceptance file
  * would sit — `null` when this repository does not grade acceptance separately
@@ -74,27 +70,32 @@ function isPendingAcceptance(file, ctx) {
 }
 
 /**
- * Whether `file` is one of the three delivery files ANY PRD's own folder carries — used where the
- * specific PRD is not known (`isDocsOnly`), never to decide which PRD a path belongs to.
+ * Whether `file` reads as an ordinary document rather than code — the kit's equivalent of a bare
+ * fixed documentation-tree fallback, generalized to the places the kit's own config and layout
+ * name as prose rather than as one fixed directory: anywhere under the delivery tree
+ * (`ctx.config.paths.delivery` — every PRD's own folder, not only the one a verdict is grading),
+ * the knowledge folder or the ADR directory, the configured glossary file, or one of the
+ * configured context files (`CLAUDE.md` by default). Checked AFTER the PRD-specific kinds and the
+ * acceptance-pending kind, exactly as upstream checked its specific kinds before falling back to a
+ * bare documentation prefix — so this never reclassifies a path {@link classifyPhase0Path} already
+ * named `spec`/`plan`/`before-after`/`pending-acceptance`.
  */
-function ownDeliveryFileKind(file, ctx) {
-  const { dirs } = ctx.layout;
-  for (const prefix of [dirs.inbox, dirs.shipped].filter(Boolean)) {
-    const match = file.match(
-      new RegExp(`^${escapeRegExp(prefix)}/[^/]+/(spec\\.md|plan\\.md|before-after\\.html)$`),
-    );
-    if (!match) continue;
-    if (match[1] === 'spec.md') return 'spec';
-    if (match[1] === 'plan.md') return 'plan';
-    return 'before-after';
-  }
-  return null;
+function isDocsPath(file, ctx) {
+  const { paths } = ctx.config;
+  const prefixes = [paths.delivery, ctx.layout.knowledgeRoot, ctx.layout.adrDir].filter(Boolean);
+  if (prefixes.some((prefix) => file === prefix || file.startsWith(`${prefix}/`))) return true;
+  if (paths.glossary && file === paths.glossary) return true;
+  if ((paths.context ?? []).includes(file)) return true;
+  return false;
 }
 
 /**
- * Sorts one changed path into `'spec' | 'plan' | 'before-after' | 'pending-acceptance' | 'source'`,
- * against the one PRD named. Exact: a path belonging to a DIFFERENT PRD's own folder is `'source'`
- * too — a phase-0 pull request for one PRD carries that PRD's own three files, never another one's.
+ * Sorts one changed path into `'spec' | 'plan' | 'before-after' | 'pending-acceptance' | 'docs' |
+ * 'source'`, against the one PRD named. The first three are exact: a path belonging to a
+ * DIFFERENT PRD's own folder is never `spec`/`plan`/`before-after` for THIS one — but it still
+ * falls into `docs`, since it sits under the shared delivery tree, exactly as any other document
+ * does. `source` is everything else — code, config, a test — the one thing a phase-0 pull request
+ * may never carry.
  *
  * @param {string} path repo-relative
  * @param {{ ctx: object, prd: number | string }} options
@@ -106,6 +107,7 @@ export function classifyPhase0Path(path, { ctx, prd }) {
   if (file === paths.plan) return 'plan';
   if (file === paths.beforeAfter) return 'before-after';
   if (isPendingAcceptance(file, ctx)) return 'pending-acceptance';
+  if (isDocsPath(file, ctx)) return 'docs';
   return 'source';
 }
 
@@ -113,15 +115,17 @@ export function classifyPhase0Path(path, { ctx, prd }) {
 function sourceFiles(paths, ctx) {
   return (paths ?? [])
     .map(normalize)
-    .filter((file) => file && ownDeliveryFileKind(file, ctx) === null && !isPendingAcceptance(file, ctx));
+    .filter((file) => file && !isPendingAcceptance(file, ctx) && !isDocsPath(file, ctx));
 }
 
 /**
  * Whether a set of changed paths is docs-only — the rule the scenario states as *no source file is
  * in that pull request*. Structural, and not tied to any one PRD: a path counts as a document when
- * it is SOME PRD's own spec/plan/before-after file, or a pending acceptance file, whichever PRD it
- * belongs to. An empty set is docs-only and says nothing else; {@link phase0Verdict} is what
- * refuses a pull request carrying nothing for the one PRD it grades.
+ * it is a pending acceptance file or reads as an ordinary document ({@link isDocsPath}) —
+ * including, deliberately, another PRD's own spec/plan/before-after, since that is still a
+ * document, just not one THIS PRD's own verdict ({@link phase0Verdict}) carries as required. An
+ * empty set is docs-only and says nothing else; {@link phase0Verdict} is what refuses a pull
+ * request carrying nothing for the one PRD it grades.
  *
  * @param {string[]} paths
  * @param {{ ctx: object }} options
@@ -151,6 +155,7 @@ export function phase0Verdict(paths, { ctx, prd, needsBeforeAfter = true } = {})
     plan: files.filter((_, index) => kinds[index] === 'plan'),
     'before-after': files.filter((_, index) => kinds[index] === 'before-after'),
     'pending-acceptance': files.filter((_, index) => kinds[index] === 'pending-acceptance'),
+    docs: files.filter((_, index) => kinds[index] === 'docs'),
     source: files.filter((_, index) => kinds[index] === 'source'),
   };
 
@@ -193,17 +198,23 @@ function phase0Reason({ ok, docsOnly, offending, missing }) {
 /**
  * Grades the `Before/after:` line of a PRD's Handoff.
  *
- * A repository path named `before-after.html` is accepted, wherever it sits — this function takes
- * no `ctx`, so it cannot know a specific PRD's own delivery folder; a caller that also knows the
- * PRD can additionally compare the accepted path against `phase0Paths(prd, { ctx }).beforeAfter`
- * for an exact match. `none` is accepted, because a change with nothing to show says so. Anything
- * reachable only over the network is refused, and a `claude.ai` artifact is refused in its own
- * words: it is private to its author, so the people the spec is written for cannot open it. That is
- * the whole reason this slice exists.
+ * With `ctx` AND `prd` both given, a repository path must equal that PRD's own
+ * `ctx.layout.beforeAfterPath(prd)` exactly — "the right place is named", upstream's own rule,
+ * restored here now that a caller who has both can be held to it. **Without them** (the default),
+ * this function has no way to resolve a specific PRD's own folder, so it falls back to a weaker,
+ * structural check: the path's basename must be `before-after.html`, wherever it sits. Callers
+ * that know their PRD should always pass `{ ctx, prd }`; the basename-only fallback exists for
+ * callers that do not (yet) have both in hand.
+ *
+ * `none` is accepted, because a change with nothing to show says so. Anything reachable only over
+ * the network is refused, and a `claude.ai` artifact is refused in its own words: it is private to
+ * its author, so the people the spec is written for cannot open it. That is the whole reason this
+ * slice exists.
  *
  * @param {string} value the Handoff line's value
+ * @param {{ ctx?: object, prd?: number | string }} [options]
  */
-export function beforeAfterHandoff(value) {
+export function beforeAfterHandoff(value, { ctx, prd } = {}) {
   const stated = String(value ?? '').trim();
 
   if (stated === '') {
@@ -224,6 +235,19 @@ export function beforeAfterHandoff(value) {
     );
   }
   const path = normalize(stated);
+
+  if (ctx && prd !== undefined && prd !== null) {
+    const expected = ctx.layout.beforeAfterPath(prd);
+    if (path !== expected) {
+      return refusal(stated, `a before/after page for this PRD lives at ${expected}`);
+    }
+    return {
+      ok: true,
+      path,
+      reason: 'a repository path: versioned, diffable, and reviewed in the phase-0 pull request',
+    };
+  }
+
   if (path.split('/').pop() !== 'before-after.html') {
     return refusal(
       stated,

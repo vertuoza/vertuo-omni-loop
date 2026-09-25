@@ -188,3 +188,102 @@ its name/intent per the task's own instruction; every rewrite is listed below.
 
 `pnpm vitest run kit/lib/policy/phase-0.test.mjs kit/test/no-literals.test.mjs` — 15/15 pass (14 in
 `phase-0.test.mjs`, 1 in `no-literals.test.mjs`).
+
+## Fix round 1 — controller rulings on this task's report
+
+The controller ruled on two of the four concerns this task's report raised, on the "Mapping
+applied" and "Test" sections above. **These rulings supersede the paragraphs they name below** —
+left in place above (not deleted) so the record shows what was tried first and why it changed.
+
+### Ruling (3) — restore the `docs` kind (supersedes the `PHASE_0_PATH_KINDS`/`classifyPhase0Path`/
+`isDocsOnly` paragraphs above, and the "deliberate behavior change" framing)
+
+The controller's own dispatch: *"My dispatch was wrong: keep upstream's `docs` kind. In
+phase-0.mjs, a changed path classifies as `docs` when it is under `ctx.config.paths.delivery`,
+`ctx.layout.knowledgeRoot` or `ctx.layout.adrDir`, or equals `ctx.config.paths.glossary` or one of
+`ctx.config.paths.context` — checked AFTER the PRD's own folder kinds and acceptance files, exactly
+as upstream checks specific kinds before `docs/`. Anything else is `source`."*
+
+- `PHASE_0_PATH_KINDS`'s dropped `'docs'` bucket is **restored**, generalized: a new private
+  `isDocsPath(file, ctx)` returns `true` when `file` sits under `ctx.config.paths.delivery` (the
+  whole delivery tree — every PRD's own folder, not only the one a verdict is grading),
+  `ctx.layout.knowledgeRoot`, or `ctx.layout.adrDir`, or equals `ctx.config.paths.glossary`, or is
+  one of `ctx.config.paths.context`. This is the kit's config-driven equivalent of upstream's bare
+  `file.startsWith('docs/')` fallback.
+- `classifyPhase0Path(path, { ctx, prd })` gained a fourth branch, checked AFTER the three exact
+  kinds and the acceptance-pending kind and BEFORE falling through to `'source'`:
+  `if (isDocsPath(file, ctx)) return 'docs';`. A **consequence, not a separate ruling**: a path
+  belonging to a DIFFERENT PRD's own folder now classifies as `'docs'`, not `'source'` — it still
+  sits under `ctx.config.paths.delivery` — which reverses this task's original "a file in a
+  DIFFERENT PRD's own folder is source too" test (see below). This is the direct, mechanical result
+  of implementing the ruling as stated, not a new interpretation call.
+- `isDocsOnly`/`sourceFiles(paths, ctx)`: the earlier PRD-agnostic `ownDeliveryFileKind` helper
+  (a regex matching any PRD's own `spec.md`/`plan.md`/`before-after.html`) is now redundant —
+  `isDocsPath`'s own `ctx.config.paths.delivery` prefix check already covers every PRD's own folder
+  wholesale — and was deleted; `sourceFiles` now filters on `!isPendingAcceptance(file, ctx) &&
+  !isDocsPath(file, ctx)`.
+- `phase0Verdict`'s `carries` map gained a `docs` bucket (`carries.docs`), alongside the existing
+  `spec`/`plan`/`before-after`/`pending-acceptance`/`source` ones — not required, not counted
+  against `docsOnly`, purely informational, the same role upstream's own `carries.docs` played.
+
+### Ruling (2) — `beforeAfterHandoff(value, { ctx, prd } = {})` (supersedes the `beforeAfterHandoff`
+paragraph above)
+
+The controller's own dispatch: *"`beforeAfterHandoff(value, { ctx, prd } = {})`: when both are
+given, a repository path must equal `ctx.layout.beforeAfterPath(prd)` exactly (upstream's 'the
+right place is named' — restore that test with ctx+prd); without them, keep your basename check but
+also require the path to sit under `<delivery>/inbox/`... since you have no ctx then, keep the
+basename-only check and say so in the porting record."*
+
+- `beforeAfterHandoff` gained an optional second parameter, `{ ctx, prd } = {}` — this task's own
+  `Produces:` line still names only `beforeAfterHandoff(value)`, so the added parameter is
+  backward-compatible (every existing call site with no second argument is unchanged).
+- **With both `ctx` and `prd` given:** a stated repository path must equal `ctx.layout.
+  beforeAfterPath(prd)` **exactly** — restoring upstream's own "the right place is named" rule,
+  now checkable because the caller supplied what it takes to resolve one specific PRD's own
+  folder. A path that is a well-formed `before-after.html` reference but sits anywhere else is
+  refused, naming the expected path in the refusal reason.
+- **Without both** (the default — no second argument, or only one of the two given): the check
+  stays exactly the basename-only one already shipped (the file's last path segment must be
+  `before-after.html`, wherever it sits). **This is intentionally the weaker check, documented
+  here as the controller asked**: with no `ctx`, this function cannot resolve
+  `<delivery>/inbox/<prd>-<topic>/` for any PRD at all (the folder name embeds a topic slug this
+  function is never given), so it cannot additionally require the path to sit under the delivery
+  tree in this branch — only the basename is checkable. A caller that wants the strict guarantee
+  must pass `{ ctx, prd }`.
+
+### Test changes (`phase-0.test.mjs`)
+
+- **"any other file is not a recognized phase-0 document, even a harmless one, and breaks
+  docs-only"** → **replaced by two cases**, restoring upstream's original tolerant assertion:
+  - "the README beside the PRD's own files, and a configured glossary, are documents — tolerated,
+    not source" — configures `paths.glossary: 'docs/glossary.md'` in the fixture and asserts
+    `classifyPhase0Path` returns `'docs'` for both the PRD's own folder's `README.md` and the
+    configured glossary path, and that `isDocsOnly` stays `true` carrying both alongside the spec.
+  - "a root README.md not listed in paths.context is source, as upstream where only docs/
+    counted" — a bare `'README.md'` (not under delivery/knowledge/adr, not the glossary, not in
+    `paths.context`) is still `'source'`, matching upstream's own "only `docs/` counted" rule.
+- **"a file in a DIFFERENT PRD's own folder is source too — this PRD carries only its own three"**
+  → **renamed and its core assertion flipped**: "a file in a DIFFERENT PRD's own folder is a
+  document too, not source — but this PRD's own verdict still needs its own three" — asserts
+  `classifyPhase0Path` now returns `'docs'` (not `'source'`) for the other PRD's `spec.md`, that
+  `isDocsOnly` was already (and remains) `true` for it, and adds a `phase0Verdict` assertion
+  showing that PRD 1015's own verdict still reports `missing: ['spec', 'plan', 'before-after']`
+  when only another PRD's file is in the diff — the practical guarantee ("this PRD's own gate still
+  needs its own three files") survives even though the path is no longer classified as `source`.
+- **"the before/after is a self-contained page in the repository"**: `beforeAfterHandoff(path)` →
+  `beforeAfterHandoff(path, { ctx, prd: PRD })`, now exercising the restored exact-match branch.
+- **"a repository path somewhere else is refused, and the right place is named"** →
+  **restored, with `{ ctx, prd }`**: `beforeAfterHandoff('docs/before-after.html', { ctx, prd:
+  PRD })` is refused, and the reason now contains `ctx.layout.beforeAfterPath(PRD)` — upstream's
+  own assertion, back to its original shape.
+- **"a repository path with the wrong file name is refused"** → **renamed** "without ctx/prd, only
+  the file name is checked, and a wrong one is refused" — same body and assertion (`beforeAfter
+  Handoff('docs/before-after-page.html')`, no second argument), renamed to make explicit that this
+  is now the *fallback* branch rather than the only behavior the function has.
+- No test was deleted in this round; two were added (net) and three were rewritten in place.
+
+## Gate (fix round 1)
+
+`pnpm vitest run kit/lib/policy kit/test/no-literals.test.mjs` — 96/96 pass (54 outbox-policy + 16
+phase-0 + 25 rework + 1 no-literals). Full `pnpm test` — 810/810 pass.

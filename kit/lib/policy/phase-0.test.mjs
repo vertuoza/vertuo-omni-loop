@@ -123,35 +123,45 @@ describe('An approved design lands in the PRD-s own delivery folder', () => {
     expect(verdict.ok, verdict.reason).toBe(true);
   });
 
-  // Behavior change from upstream, per this task's own clarification ("Everything else makes the
-  // PR not docs-only"): upstream tolerated an extra document (a glossary entry, the inbox format's
-  // own README) alongside the three required kinds. The folders layout drops that third "docs"
-  // bucket — anything that is not the PRD's own spec/plan/before-after, or a pending acceptance
-  // file, counts as source and breaks docs-only, whatever it is.
-  it('any other file is not a recognized phase-0 document, even a harmless one, and breaks docs-only', () => {
-    const { ctx } = docsOnlyRepo();
+  // Restored to upstream's own assertion (fix round 1 — the controller's ruling on this task's
+  // report): a `docs` kind survives in the folders layout too, checked AFTER the PRD-specific and
+  // acceptance-pending kinds, exactly as upstream checked its specific kinds before falling back to
+  // a bare `docs/` prefix. The kit's equivalent of "under docs/" is "under the delivery tree, the
+  // knowledge folder or the ADR directory, or the configured glossary/context files" — so an extra
+  // document (the PRD's own folder README, a configured glossary) is tolerated, exactly as upstream
+  // tolerated `docs/inbox/README.md` and `docs/glossary.md`.
+  it('the README beside the PRD-s own files, and a configured glossary, are documents — tolerated, not source', () => {
+    const { ctx } = docsOnlyRepo({ config: { paths: { glossary: 'docs/glossary.md' } } });
     const paths = phase0Paths(PRD, { ctx });
 
-    expect(classifyPhase0Path(`${DIR}/README.md`, { ctx, prd: PRD })).toBe('source');
-    expect(classifyPhase0Path('docs/glossary.md', { ctx, prd: PRD })).toBe('source');
-    expect(isDocsOnly([paths.spec, `${DIR}/README.md`], { ctx })).toBe(false);
+    expect(classifyPhase0Path(`${DIR}/README.md`, { ctx, prd: PRD })).toBe('docs');
+    expect(classifyPhase0Path('docs/glossary.md', { ctx, prd: PRD })).toBe('docs');
+    expect(isDocsOnly([paths.spec, `${DIR}/README.md`, 'docs/glossary.md'], { ctx })).toBe(true);
   });
 
-  it('a file in a DIFFERENT PRD-s own folder is source too — this PRD carries only its own three', () => {
-    const { ctx } = docsOnlyRepo({
-      files: { '.omni-loop/delivery/inbox/0966-agent-outbox/spec.md': '# spec\n' },
-    });
+  // As upstream, where only the `docs/` prefix counted: a root file that is not under the
+  // delivery tree, the knowledge folder, the ADR directory, and is not the configured glossary or
+  // one of the configured context files, is still a source file.
+  it('a root README.md not listed in paths.context is source, as upstream where only docs/ counted', () => {
+    const { ctx } = docsOnlyRepo();
 
-    expect(
-      classifyPhase0Path('.omni-loop/delivery/inbox/0966-agent-outbox/spec.md', {
-        ctx,
-        prd: PRD,
-      }),
-    ).toBe('source');
-    // ... but it is still a document in the PRD-agnostic sense `isDocsOnly` uses.
-    expect(
-      isDocsOnly(['.omni-loop/delivery/inbox/0966-agent-outbox/spec.md'], { ctx }),
-    ).toBe(true);
+    expect(classifyPhase0Path('README.md', { ctx, prd: PRD })).toBe('source');
+    expect(isDocsOnly(['README.md'], { ctx })).toBe(false);
+  });
+
+  // A path under the shared delivery tree is a document even when it belongs to a DIFFERENT PRD's
+  // own folder — it is still tolerated the way any other document is, just never one THIS PRD's own
+  // verdict (`phase0Verdict`) counts as required.
+  it('a file in a DIFFERENT PRD-s own folder is a document too, not source — but this PRD-s verdict still needs its own three', () => {
+    const otherPrdSpec = '.omni-loop/delivery/inbox/0966-agent-outbox/spec.md';
+    const { ctx } = docsOnlyRepo({ files: { [otherPrdSpec]: '# spec\n' } });
+
+    expect(classifyPhase0Path(otherPrdSpec, { ctx, prd: PRD })).toBe('docs');
+    expect(isDocsOnly([otherPrdSpec], { ctx })).toBe(true);
+
+    const verdict = phase0Verdict([otherPrdSpec], { ctx, prd: PRD });
+    expect(verdict.docsOnly).toBe(true);
+    expect(verdict.missing).toEqual(['spec', 'plan', 'before-after']);
   });
 
   it('names the three required kinds once, in the order a reviewer wants them', () => {
@@ -166,7 +176,7 @@ describe('The before/after is a file in the repository', () => {
 
     expect(path).toBe(`${DIR}/before-after.html`);
     expect(classifyPhase0Path(path, { ctx, prd: PRD })).toBe('before-after');
-    expect(beforeAfterHandoff(path)).toMatchObject({ ok: true, path });
+    expect(beforeAfterHandoff(path, { ctx, prd: PRD })).toMatchObject({ ok: true, path });
   });
 
   it('the handoff points at that path rather than a private link', () => {
@@ -184,10 +194,24 @@ describe('The before/after is a file in the repository', () => {
     expect(refused.reason).toContain('not versioned');
   });
 
-  // Rewritten for the signature constraint this task's own interface list fixes:
-  // `beforeAfterHandoff(value)` takes no `ctx`, so it cannot know a specific PRD's own folder — it
-  // can only check the file is named `before-after.html`, wherever it sits.
-  it('a repository path with the wrong file name is refused', () => {
+  // Restored to upstream's own assertion (fix round 1): with `ctx` AND `prd` both given, a
+  // repository path must equal that PRD's own `ctx.layout.beforeAfterPath(prd)` exactly — "the
+  // right place is named" — not merely carry the right file name.
+  it('a repository path somewhere else is refused, and the right place is named', () => {
+    const { ctx } = docsOnlyRepo();
+    const expected = ctx.layout.beforeAfterPath(PRD);
+
+    const refused = beforeAfterHandoff('docs/before-after.html', { ctx, prd: PRD });
+
+    expect(refused.ok).toBe(false);
+    expect(refused.path).toBeNull();
+    expect(refused.reason).toContain(expected);
+  });
+
+  // Without `ctx`/`prd` (the fallback this function's signature still allows, per the porting
+  // record) only the file NAME is checked, wherever it sits — the one invariant checkable with no
+  // knowledge of any specific PRD's own folder.
+  it('without ctx/prd, only the file name is checked, and a wrong one is refused', () => {
     const refused = beforeAfterHandoff('docs/before-after-page.html');
 
     expect(refused.ok).toBe(false);
