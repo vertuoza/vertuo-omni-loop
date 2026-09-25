@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { HOOK_WAIT_MS, minutesLeft, pageTitle, sessionView, withPageAnswer, type RoundRow, type SessionState } from './view';
+import { HOOK_WAIT_MS, keepSent, minutesLeft, pageTitle, sessionView, withPageAnswer, type RoundRow, type SessionState } from './view';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
 const at = (msAgo: number) => new Date(NOW - msAgo).toISOString();
@@ -136,6 +136,27 @@ describe('an answer sent from the page', () => {
     const view = sessionView(next, NOW);
     expect(view.kind).toBe('working');
     expect(view.history.map((h) => [h.id, h.outcome, h.via])).toEqual([[open.id, 'answered', 'page']]);
+  });
+});
+
+describe('a read that crosses an answer sent from the page', () => {
+  it('keeps the round answered until the database says so too', () => {
+    const open = round({ ago: 1000 });
+    const answers = { 'Which storage?': 'Memory', 'Which checks?': 'RLS' };
+    const sent = new Map([[open.id, { answers, at: NOW }]]);
+    const read = keepSent(state([open]), sent);
+    expect(read.rounds[0]).toMatchObject({ status: 'answered', answered_via: 'page', answers });
+    expect(sent.has(open.id)).toBe(true);
+  });
+
+  it('forgets the answer once the database has it, or the round went another way', () => {
+    const answers = { 'Which storage?': 'Memory', 'Which checks?': 'RLS' };
+    const done = round({ ago: 1000, status: 'answered', answered_via: 'page', answers });
+    const moved = round({ ago: 1000, status: 'abandoned' });
+    const sent = new Map([[done.id, { answers, at: NOW }], [moved.id, { answers, at: NOW }]]);
+    const read = keepSent(state([done, moved]), sent);
+    expect(read.rounds.map((r) => r.status)).toEqual(['answered', 'abandoned']);
+    expect(sent.size).toBe(0);
   });
 });
 

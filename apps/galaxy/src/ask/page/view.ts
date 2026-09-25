@@ -73,5 +73,20 @@ export function withPageAnswer(state: SessionState, roundId: string, answers: Re
   };
 }
 
+/** Answers sent from the page that a read has not shown yet, by round id. */
+export type Sent = Map<string, { answers: Record<string, string>; at: number }>;
+
+/** A read that left before an answer was sent still shows the round open: keep it answered until
+ * the database shows the answer, then forget it (and forget it too if the round went another way). */
+export function keepSent(state: SessionState, sent: Sent): SessionState {
+  let next = state;
+  for (const [roundId, { answers, at }] of sent) {
+    const round = state.rounds.find((r) => r.id === roundId);
+    if (round?.status === 'open') next = withPageAnswer(next, roundId, answers, at);
+    else sent.delete(roundId);
+  }
+  return next;
+}
+
 /** The tab's title: a question waiting shows even when the tab is in the background. */
 export const pageTitle = (view: Pick<SessionView, 'kind'>) => (view.kind === 'open' ? '● Claude asks · OMNI LOOP' : 'Ask · OMNI LOOP');
