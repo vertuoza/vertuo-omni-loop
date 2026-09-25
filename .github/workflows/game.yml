@@ -49,6 +49,14 @@ jobs:
           git commit -m 'chore(game): ledger and season [skip ci]'
           git pull --rebase origin "${GITHUB_REF_NAME}"
           git push
+      - name: Sync the galaxy database
+        # After the commit: the ledger in git is the source of truth, Supabase is its copy for the
+        # web UI. Off until SUPABASE_PROJECT_ID is set (apps/galaxy/README.md, "Deploy to production").
+        if: vars.SUPABASE_PROJECT_ID != ''
+        run: pnpm galaxy:sync
+        env:
+          SUPABASE_URL: https://${{ vars.SUPABASE_PROJECT_ID }}.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
   rankings:
     # The Monday schedule, or a dispatch that asks for it. Reads the committed ledger; writes nothing
