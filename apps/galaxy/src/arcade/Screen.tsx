@@ -3,7 +3,7 @@
 // on. It fills the box it is given (the window on `full`, the lens on the two bodies) at the largest
 // size that keeps the frame's shape, and draws the scene's grid inside that frame: a wide scene in
 // the Game Boy's tall lens is letterboxed. Taps on the canvas are read in grid pixels.
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { Form } from './form';
 import { fit, WIDE, type Grid } from './grid';
 import type { MapSlot, SceneName } from './scenes/common.ts';
@@ -48,7 +48,7 @@ export function Screen({ scene, frame, info, canvasRef, onTap, children }: {
   const { grid } = info;
   const slotRef = useRef<HTMLDivElement>(null);
   const [room, setRoom] = useState<{ w: number; h: number }>({ w: frame.w, h: frame.h });
-  useEffect(() => {
+  useLayoutEffect(() => { // measured before the first paint, then whenever the room changes
     const el = slotRef.current;
     if (!el) return;
     const measure = () => {
