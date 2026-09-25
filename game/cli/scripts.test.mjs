@@ -79,6 +79,15 @@ describe('the game scripts name their workspace', () => {
     expect(ghCalls()).toEqual([]);
   }, 20_000);
 
+  it('each one stops on an argument it does not understand, rather than fall back to the variable\'s workspace', async () => {
+    const runs = await Promise.all(EVERY.map(([script, args]) => game(script, [...args, '--worksapce', 'acme'], { OMNI_LOOP_WORKSPACE: 'vertuoza' })));
+    for (const run of runs) {
+      expect(run.code).toBe(2);
+      expect(run.stderr).toMatch(/unexpected argument "--worksapce"/);
+    }
+    expect(server.calls).toEqual([]);
+  }, 20_000);
+
   it('game:project reads the workspace\'s GitHub organisation and plan repository, and appends rows carrying its workspace', async () => {
     const run = await game('project', ['--workspace', 'acme']);
     expect(run.code, run.stderr).toBe(0);
