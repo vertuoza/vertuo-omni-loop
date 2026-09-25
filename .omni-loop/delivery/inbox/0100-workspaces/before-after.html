@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galaxy Workspaces</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Press+Start+2P&display=swap">
+<style>
+/* One deliberate dark world, the arcade's own, so there is no light theme: every colour is set here. */
+:root{
+  color-scheme:dark;
+  --ground:#0b0a26;--surface:#120f3a;--raised:#1a1650;--line:#2a2766;--ink:#f2f4ff;--dim:#9aa0e0;
+  --plasma:#a45cff;--plasma-dark:#6a2fd0;--navy:#2f3fc4;--navy-dark:#1a2170;--void:#07061c;
+  --yellow:#ffd84a;--red:#ff3b5c;--cyan:#6ff0ff;--green:#4ee08a;--teal:#2fc6a4;--teal-dark:#178a80;
+  --px:'Press Start 2P','Courier New',monospace;
+  --body:'Atkinson Hyperlegible',-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:16px/1.6 var(--body);padding-inline:16px}
+main{max-width:1120px;margin:0 auto;padding-block:40px 88px;display:grid;gap:72px}
+h1,h2,h3{text-wrap:balance;margin:0;font-weight:700}
+h1{font-size:clamp(28px,4.4vw,42px);line-height:1.15}
+h2{font-size:clamp(21px,2.6vw,26px);line-height:1.25}
+h3{font-size:16px}
+p{margin:0}
+code{font:.88em/1.3 var(--mono);background:var(--surface);border:1px solid var(--line);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+.eyebrow{font:10px/1.6 var(--px);letter-spacing:.12em;color:var(--cyan);text-transform:uppercase}
+header.top{display:grid;gap:14px;max-width:780px}
+.lede{font-size:18px}
+.note{color:var(--dim);font-size:14px}
+section{display:grid;gap:20px;min-width:0}
+.sec-head{display:grid;gap:8px;max-width:720px}
+.sec-head p{color:var(--dim)}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:28px 32px;align-items:start}
+figure{margin:0;display:grid;gap:12px;min-width:0;align-content:start}
+.tag{font:9px/1.4 var(--px);letter-spacing:.1em;text-transform:uppercase}
+.tag.before{color:var(--red)}
+.tag.after{color:var(--green)}
+figcaption ul{margin:0;padding-left:20px;display:grid;gap:4px;color:var(--dim);font-size:14.5px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;gap:14px;min-width:0}
+
+/* ── Who owns the data ── */
+.door{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px;color:var(--dim)}
+.door b{font:9px/1.4 var(--px);letter-spacing:.08em;padding:6px 8px;border-radius:4px;color:var(--ground)}
+.door b.old{background:var(--red)}
+.door b.new{background:var(--green)}
+.db{display:grid;gap:10px}
+.ws{border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:10px;background:var(--ground)}
+.ws.global{border-color:#5a2b4a}
+.ws.future{border-style:dashed}
+.ws-head{display:flex;align-items:center;gap:10px}
+.ws-head .mark{width:28px;height:auto;flex:none}
+.ws-head strong{font:10px/1.4 var(--px);letter-spacing:.06em}
+.ws-head span{font-size:13px;color:var(--dim)}
+.tables{display:flex;flex-wrap:wrap;gap:6px}
+.tables code{font-size:12.5px}
+.people{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:13px;border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--dim)}
+.chip em{font-style:normal;color:var(--ink)}
+.cols2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:10px}
+
+/* ── The ledger ── */
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:360px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:8px/1.6 var(--px);letter-spacing:.08em;color:var(--dim);text-transform:uppercase}
+td.ok{color:var(--green)}
+td.lost{color:var(--red)}
+
+/* ── The mark ── */
+.marks{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-start}
+.markcard{display:grid;justify-items:center;gap:10px;min-width:96px}
+.markcard .tile{width:96px;height:96px;display:grid;place-items:center;background:#000;border:1px solid var(--line);border-radius:8px}
+.markcard .tile .mark{width:72px;height:auto}
+.markcard .who{font:8px/1.5 var(--px);letter-spacing:.06em;text-align:center}
+.markcard .why{font-size:13px;color:var(--dim);text-align:center;max-width:120px}
+
+/* ── The Game Boy, drawn small (after #94) ── */
+.gbs{display:flex;flex-wrap:wrap;gap:22px;align-items:flex-start}
+.gbwrap{display:grid;gap:10px;justify-items:center}
+.gb{--shell-a:var(--plasma-dark);--shell-b:var(--plasma);--btn-b:var(--plasma);
+  width:170px;aspect-ratio:170/280;border-radius:14px 14px 40px 14px;padding:12px;display:grid;grid-template-rows:auto auto 1fr;gap:8px;
+  background:linear-gradient(160deg,var(--shell-b),var(--shell-a));box-shadow:inset 0 0 0 2px rgba(255,255,255,.12),0 10px 26px rgba(0,0,0,.45)}
+.gb.acme{--shell-a:var(--teal-dark);--shell-b:var(--teal);--btn-b:var(--teal)}
+.lens{background:var(--navy-dark);border-radius:6px 6px 22px 6px;padding:6px 10px 12px;display:grid;gap:5px}
+.lens small{font:5px/1 var(--px);letter-spacing:.08em;color:var(--dim);text-align:center}
+.screen{background:#000;aspect-ratio:10/9;border-radius:2px;display:grid;place-items:center;align-content:center;gap:6px;box-shadow:inset 0 0 0 1px #000}
+.screen .mark{width:34px;height:auto}
+.screen span{font:5px/1.3 var(--px);color:var(--ink);letter-spacing:.06em;text-align:center}
+.wordmark{font:8px/1 var(--px);color:#fff;text-align:center;text-shadow:1px 1px 0 rgba(0,0,0,.35)}
+.ctrl{display:flex;justify-content:space-between;align-items:center;padding-inline:6px}
+.dpad{position:relative;width:44px;height:44px}
+.dpad::before,.dpad::after{content:'';position:absolute;background:#0b0a26;border-radius:3px}
+.dpad::before{left:15px;top:0;width:14px;height:44px}
+.dpad::after{left:0;top:15px;width:44px;height:14px}
+.btns{display:flex;gap:8px;transform:rotate(-20deg)}
+.btns i{width:20px;height:20px;border-radius:50%;display:block;box-shadow:inset -2px -2px 0 rgba(0,0,0,.25)}
+.btns i.b{background:var(--btn-b);border:2px solid rgba(0,0,0,.25)}
+.btns i.a{background:var(--red)}
+.gbcap{font:8px/1.5 var(--px);letter-spacing:.06em;text-align:center}
+pre{margin:0;background:var(--void);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow-x:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.55 var(--mono);color:var(--ink)}
+pre .k{color:var(--cyan)}
+pre .s{color:var(--yellow)}
+pre .c{color:var(--dim)}
+pre .e{color:var(--red)}
+pre .p{color:var(--green)}
+
+/* ── What stays ── */
+.same{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:20px}
+.same ul{margin:0;padding-left:20px;display:grid;gap:4px;color:var(--dim);font-size:14.5px}
+.same li b{color:var(--ink);font-weight:700}
+.same .once h3{color:var(--yellow)}
+
+a{color:var(--cyan)}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+</style>
+
+<main>
+  <header class="top">
+    <p class="eyebrow">PRD #100 · before / after</p>
+    <h1>Vertuoza becomes the first workspace</h1>
+    <p class="lede">A <b>workspace</b> now owns every fleet, sector, player and ledger event, along with its GitHub organisation, its mark and its colours. Vertuoza is workspace #1 and looks and plays exactly as it does today. The database, the game scripts and the arcade are ready for a second company.</p>
+    <p class="note">This is the first of four PRDs. Open sign-up (2), the setup page with the GitHub App (3), and editable fleets with solo play (4) come next. Nothing on this page changes what a Vertuoza player sees.</p>
+  </header>
+
+  <section aria-labelledby="s-owner">
+    <div class="sec-head">
+      <p class="eyebrow">Who owns the data</p>
+      <h2 id="s-owner">From one global galaxy to one galaxy per workspace</h2>
+      <p>Today the email domain decides everything. After, membership does, and each workspace sees only its own rows.</p>
+    </div>
+    <div class="pair">
+      <figure>
+        <span class="tag before">Before</span>
+        <div class="panel">
+          <div class="door"><b class="old">EMAIL ENDS IN @VERTUOZA.COM</b> reads everything</div>
+          <div class="ws global">
+            <div class="ws-head"><svg class="mark" viewBox="0 0 36 37" role="img" aria-label="The V mark today" shape-rendering="crispEdges"><defs><linearGradient id="vts1" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#a8183a"/><stop offset="0.55" stop-color="#6a2fd0"/><stop offset="1" stop-color="#2f3fc4"/></linearGradient><linearGradient id="vtg1" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff5f6d"/><stop offset="0.55" stop-color="#a45cff"/><stop offset="1" stop-color="#4a63ff"/></linearGradient></defs><g fill="url(#vts1)"><rect x="2" y="1" width="18" height="1"/><rect x="1" y="2" width="20" height="1"/><rect x="0" y="3" width="22" height="1"/><rect x="0" y="4" width="22" height="1"/><rect x="1" y="5" width="20" height="1"/><rect x="2" y="6" width="18" height="1"/><rect x="26" y="1" width="8" height="1"/><rect x="25" y="2" width="10" height="1"/><rect x="24" y="3" width="12" height="1"/><rect x="24" y="4" width="12" height="1"/><rect x="25" y="5" width="10" height="1"/><rect x="26" y="6" width="8" height="1"/><rect x="6" y="11" width="4" height="1"/><rect x="5" y="12" width="6" height="1"/><rect x="4" y="13" width="8" height="1"/><rect x="4" y="14" width="8" height="1"/><rect x="5" y="15" width="6" height="1"/><rect x="6" y="16" width="4" height="1"/><rect x="16" y="11" width="14" height="1"/><rect x="15" y="12" width="16" height="1"/><rect x="14" y="13" width="18" height="1"/><rect x="14" y="14" width="18" height="1"/><rect x="15" y="15" width="16" height="1"/><rect x="16" y="16" width="14" height="1"/><rect x="10" y="21" width="8" height="1"/><rect x="9" y="22" width="10" height="1"/><rect x="8" y="23" width="12" height="1"/><rect x="8" y="24" width="12" height="1"/><rect x="9" y="25" width="10" height="1"/><rect x="10" y="26" width="8" height="1"/><rect x="24" y="21" width="2" height="1"/><rect x="23" y="22" width="4" height="1"/><rect x="22" y="23" width="6" height="1"/><rect x="22" y="24" width="6" height="1"/><rect x="23" y="25" width="4" height="1"/><rect x="24" y="26" width="2" height="1"/><rect x="14" y="31" width="8" height="1"/><rect x="13" y="32" width="10" height="1"/><rect x="12" y="33" width="12" height="1"/><rect x="12" y="34" width="12" height="1"/><rect x="13" y="35" width="10" height="1"/><rect x="14" y="36" width="8" height="1"/></g><g fill="url(#vtg1)"><rect x="2" y="0" width="18" height="1"/><rect x="1" y="1" width="20" height="1"/><rect x="0" y="2" width="22" height="1"/><rect x="0" y="3" width="22" height="1"/><rect x="1" y="4" width="20" height="1"/><rect x="2" y="5" width="18" height="1"/><rect x="26" y="0" width="8" height="1"/><rect x="25" y="1" width="10" height="1"/><rect x="24" y="2" width="12" height="1"/><rect x="24" y="3" width="12" height="1"/><rect x="25" y="4" width="10" height="1"/><rect x="26" y="5" width="8" height="1"/><rect x="6" y="10" width="4" height="1"/><rect x="5" y="11" width="6" height="1"/><rect x="4" y="12" width="8" height="1"/><rect x="4" y="13" width="8" height="1"/><rect x="5" y="14" width="6" height="1"/><rect x="6" y="15" width="4" height="1"/><rect x="16" y="10" width="14" height="1"/><rect x="15" y="11" width="16" height="1"/><rect x="14" y="12" width="18" height="1"/><rect x="14" y="13" width="18" height="1"/><rect x="15" y="14" width="16" height="1"/><rect x="16" y="15" width="14" height="1"/><rect x="10" y="20" width="8" height="1"/><rect x="9" y="21" width="10" height="1"/><rect x="8" y="22" width="12" height="1"/><rect x="8" y="23" width="12" height="1"/><rect x="9" y="24" width="10" height="1"/><rect x="10" y="25" width="8" height="1"/><rect x="24" y="20" width="2" height="1"/><rect x="23" y="21" width="4" height="1"/><rect x="22" y="22" width="6" height="1"/><rect x="22" y="23" width="6" height="1"/><rect x="23" y="24" width="4" height="1"/><rect x="24" y="25" width="2" height="1"/><rect x="14" y="30" width="8" height="1"/><rect x="13" y="31" width="10" height="1"/><rect x="12" y="32" width="12" height="1"/><rect x="12" y="33" width="12" height="1"/><rect x="13" y="34" width="10" height="1"/><rect x="14" y="35" width="8" height="1"/></g></svg><strong>THE GALAXY</strong><span>one database, every key global</span></div>
+            <div class="tables"><code>ledger_events</code><code>sectors</code><code>teams</code><code>players</code></div>
+            <div class="people"><span class="chip"><em>ada</em> · one player, forever</span><span class="chip">anonymous · reads the fleets</span></div>
+          </div>
+        </div>
+        <figcaption><ul>
+          <li>The same domain check is copied four times: <code>is_crew()</code>, the sign-up hook, <code>isCrewEmail()</code> and <code>hd=vertuoza.com</code>.</li>
+          <li>A player <em>is</em> their sign-in. A GitHub login is unique across the whole table.</li>
+          <li>The projector's GitHub organisation is a default argument: <code>org = 'vertuoza'</code>.</li>
+        </ul></figcaption>
+      </figure>
+      <figure>
+        <span class="tag after">After</span>
+        <div class="panel">
+          <div class="door"><b class="new">MEMBER OF THE WORKSPACE</b> reads that workspace</div>
+          <div class="cols2">
+            <div class="ws">
+              <div class="ws-head"><svg class="mark" viewBox="0 0 36 37" role="img" aria-label="The V mark after: the same pixels" shape-rendering="crispEdges"><defs><linearGradient id="vas2" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#a8183a"/><stop offset="0.55" stop-color="#6a2fd0"/><stop offset="1" stop-color="#2f3fc4"/></linearGradient><linearGradient id="vag2" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff5f6d"/><stop offset="0.55" stop-color="#a45cff"/><stop offset="1" stop-color="#4a63ff"/></linearGradient></defs><g fill="url(#vas2)"><rect x="2" y="1" width="18" height="1"/><rect x="1" y="2" width="20" height="1"/><rect x="0" y="3" width="22" height="1"/><rect x="0" y="4" width="22" height="1"/><rect x="1" y="5" width="20" height="1"/><rect x="2" y="6" width="18" height="1"/><rect x="26" y="1" width="8" height="1"/><rect x="25" y="2" width="10" height="1"/><rect x="24" y="3" width="12" height="1"/><rect x="24" y="4" width="12" height="1"/><rect x="25" y="5" width="10" height="1"/><rect x="26" y="6" width="8" height="1"/><rect x="6" y="11" width="4" height="1"/><rect x="5" y="12" width="6" height="1"/><rect x="4" y="13" width="8" height="1"/><rect x="4" y="14" width="8" height="1"/><rect x="5" y="15" width="6" height="1"/><rect x="6" y="16" width="4" height="1"/><rect x="16" y="11" width="14" height="1"/><rect x="15" y="12" width="16" height="1"/><rect x="14" y="13" width="18" height="1"/><rect x="14" y="14" width="18" height="1"/><rect x="15" y="15" width="16" height="1"/><rect x="16" y="16" width="14" height="1"/><rect x="10" y="21" width="8" height="1"/><rect x="9" y="22" width="10" height="1"/><rect x="8" y="23" width="12" height="1"/><rect x="8" y="24" width="12" height="1"/><rect x="9" y="25" width="10" height="1"/><rect x="10" y="26" width="8" height="1"/><rect x="24" y="21" width="2" height="1"/><rect x="23" y="22" width="4" height="1"/><rect x="22" y="23" width="6" height="1"/><rect x="22" y="24" width="6" height="1"/><rect x="23" y="25" width="4" height="1"/><rect x="24" y="26" width="2" height="1"/><rect x="14" y="31" width="8" height="1"/><rect x="13" y="32" width="10" height="1"/><rect x="12" y="33" width="12" height="1"/><rect x="12" y="34" width="12" height="1"/><rect x="13" y="35" width="10" height="1"/><rect x="14" y="36" width="8" height="1"/></g><g fill="url(#vag2)"><rect x="2" y="0" width="18" height="1"/><rect x="1" y="1" width="20" height="1"/><rect x="0" y="2" width="22" height="1"/><rect x="0" y="3" width="22" height="1"/><rect x="1" y="4" width="20" height="1"/><rect x="2" y="5" width="18" height="1"/><rect x="26" y="0" width="8" height="1"/><rect x="25" y="1" width="10" height="1"/><rect x="24" y="2" width="12" height="1"/><rect x="24" y="3" width="12" height="1"/><rect x="25" y="4" width="10" height="1"/><rect x="26" y="5" width="8" height="1"/><rect x="6" y="10" width="4" height="1"/><rect x="5" y="11" width="6" height="1"/><rect x="4" y="12" width="8" height="1"/><rect x="4" y="13" width="8" height="1"/><rect x="5" y="14" width="6" height="1"/><rect x="6" y="15" width="4" height="1"/><rect x="16" y="10" width="14" height="1"/><rect x="15" y="11" width="16" height="1"/><rect x="14" y="12" width="18" height="1"/><rect x="14" y="13" width="18" height="1"/><rect x="15" y="14" width="16" height="1"/><rect x="16" y="15" width="14" height="1"/><rect x="10" y="20" width="8" height="1"/><rect x="9" y="21" width="10" height="1"/><rect x="8" y="22" width="12" height="1"/><rect x="8" y="23" width="12" height="1"/><rect x="9" y="24" width="10" height="1"/><rect x="10" y="25" width="8" height="1"/><rect x="24" y="20" width="2" height="1"/><rect x="23" y="21" width="4" height="1"/><rect x="22" y="22" width="6" height="1"/><rect x="22" y="23" width="6" height="1"/><rect x="23" y="24" width="4" height="1"/><rect x="24" y="25" width="2" height="1"/><rect x="14" y="30" width="8" height="1"/><rect x="13" y="31" width="10" height="1"/><rect x="12" y="32" width="12" height="1"/><rect x="12" y="33" width="12" height="1"/><rect x="13" y="34" width="10" height="1"/><rect x="14" y="35" width="8" height="1"/></g></svg><div><strong>VERTUOZA</strong><br><span>github: vertuoza · joins: vertuoza.com</span></div></div>
+              <div class="tables"><code>ledger</code><code>sectors</code><code>fleets</code><code>players</code></div>
+            </div>
+            <div class="ws future">
+              <div class="ws-head"><svg class="mark" viewBox="0 0 36 37" role="img" aria-label="An A in the same bar style" shape-rendering="crispEdges"><defs><linearGradient id="aas3" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#a8183a"/><stop offset="0.55" stop-color="#6a2fd0"/><stop offset="1" stop-color="#2f3fc4"/></linearGradient><linearGradient id="aag3" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff5f6d"/><stop offset="0.55" stop-color="#a45cff"/><stop offset="1" stop-color="#4a63ff"/></linearGradient></defs><g fill="url(#aas3)"><rect x="15" y="1" width="6" height="1"/><rect x="14" y="2" width="8" height="1"/><rect x="13" y="3" width="10" height="1"/><rect x="13" y="4" width="10" height="1"/><rect x="14" y="5" width="8" height="1"/><rect x="15" y="6" width="6" height="1"/><rect x="10" y="11" width="4" height="1"/><rect x="9" y="12" width="6" height="1"/><rect x="8" y="13" width="8" height="1"/><rect x="8" y="14" width="8" height="1"/><rect x="9" y="15" width="6" height="1"/><rect x="10" y="16" width="4" height="1"/><rect x="22" y="11" width="4" height="1"/><rect x="21" y="12" width="6" height="1"/><rect x="20" y="13" width="8" height="1"/><rect x="20" y="14" width="8" height="1"/><rect x="21" y="15" width="6" height="1"/><rect x="22" y="16" width="4" height="1"/><rect x="6" y="21" width="24" height="1"/><rect x="5" y="22" width="26" height="1"/><rect x="4" y="23" width="28" height="1"/><rect x="4" y="24" width="28" height="1"/><rect x="5" y="25" width="26" height="1"/><rect x="6" y="26" width="24" height="1"/><rect x="2" y="31" width="6" height="1"/><rect x="1" y="32" width="8" height="1"/><rect x="0" y="33" width="10" height="1"/><rect x="0" y="34" width="10" height="1"/><rect x="1" y="35" width="8" height="1"/><rect x="2" y="36" width="6" height="1"/><rect x="28" y="31" width="6" height="1"/><rect x="27" y="32" width="8" height="1"/><rect x="26" y="33" width="10" height="1"/><rect x="26" y="34" width="10" height="1"/><rect x="27" y="35" width="8" height="1"/><rect x="28" y="36" width="6" height="1"/></g><g fill="url(#aag3)"><rect x="15" y="0" width="6" height="1"/><rect x="14" y="1" width="8" height="1"/><rect x="13" y="2" width="10" height="1"/><rect x="13" y="3" width="10" height="1"/><rect x="14" y="4" width="8" height="1"/><rect x="15" y="5" width="6" height="1"/><rect x="10" y="10" width="4" height="1"/><rect x="9" y="11" width="6" height="1"/><rect x="8" y="12" width="8" height="1"/><rect x="8" y="13" width="8" height="1"/><rect x="9" y="14" width="6" height="1"/><rect x="10" y="15" width="4" height="1"/><rect x="22" y="10" width="4" height="1"/><rect x="21" y="11" width="6" height="1"/><rect x="20" y="12" width="8" height="1"/><rect x="20" y="13" width="8" height="1"/><rect x="21" y="14" width="6" height="1"/><rect x="22" y="15" width="4" height="1"/><rect x="6" y="20" width="24" height="1"/><rect x="5" y="21" width="26" height="1"/><rect x="4" y="22" width="28" height="1"/><rect x="4" y="23" width="28" height="1"/><rect x="5" y="24" width="26" height="1"/><rect x="6" y="25" width="24" height="1"/><rect x="2" y="30" width="6" height="1"/><rect x="1" y="31" width="8" height="1"/><rect x="0" y="32" width="10" height="1"/><rect x="0" y="33" width="10" height="1"/><rect x="1" y="34" width="8" height="1"/><rect x="2" y="35" width="6" height="1"/><rect x="28" y="30" width="6" height="1"/><rect x="27" y="31" width="8" height="1"/><rect x="26" y="32" width="10" height="1"/><rect x="26" y="33" width="10" height="1"/><rect x="27" y="34" width="8" height="1"/><rect x="28" y="35" width="6" height="1"/></g></svg><div><strong>ACME</strong><br><span>created by PRD 2</span></div></div>
+              <div class="tables"><code>ledger</code><code>sectors</code><code>fleets</code><code>players</code></div>
+            </div>
+          </div>
+          <div class="people"><span class="chip"><em>ada</em> · member of vertuoza</span><span class="chip"><em>a freelancer</em> · member of both</span><span class="chip">anonymous · reads nothing</span></div>
+        </div>
+        <figcaption><ul>
+          <li>One check replaces all four: <code>is_member(workspace)</code>.</li>
+          <li><code>join_by_domain()</code> runs at sign-in: a confirmed <code>@vertuoza.com</code> account joins Vertuoza.</li>
+          <li>A player is one person in one workspace, and a GitHub login is unique per workspace.</li>
+        </ul></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section aria-labelledby="s-ledger">
+    <div class="sec-head">
+      <p class="eyebrow">The ledger</p>
+      <h2 id="s-ledger">Two companies, each with a PRD #12</h2>
+      <p>Event ids carry no organisation. Today the second company's event would be dropped without an error. After, the key is the workspace plus the id, and nothing about the event itself changes.</p>
+    </div>
+    <div class="pair">
+      <figure>
+        <span class="tag before">Before · key: <code>id</code></span>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Appended by</th><th>id</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td>vertuoza</td><td><code>planet:12:charted</code></td><td class="ok">written</td></tr>
+            <tr><td>acme</td><td><code>planet:12:charted</code></td><td class="lost">dropped, no error</td></tr>
+            <tr><td>acme</td><td><code>region:api:12:surveyed</code></td><td class="lost">dropped if Vertuoza has an <code>api</code> repository</td></tr>
+          </tbody>
+        </table></div>
+      </figure>
+      <figure>
+        <span class="tag after">After · key: <code>(workspace_id, id)</code></span>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>workspace</th><th>id</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td>vertuoza</td><td><code>planet:12:charted</code></td><td class="ok">written</td></tr>
+            <tr><td>acme</td><td><code>planet:12:charted</code></td><td class="ok">written</td></tr>
+            <tr><td>acme</td><td><code>region:api:12:surveyed</code></td><td class="ok">written</td></tr>
+          </tbody>
+        </table></div>
+      </figure>
+    </div>
+  </section>
+
+  <section aria-labelledby="s-mark">
+    <div class="sec-head">
+      <p class="eyebrow">The mark</p>
+      <h2 id="s-mark">The first letter of the workspace's name</h2>
+      <p>The V becomes one letter of a bar alphabet drawn in its own style: split pill bars, the same caps, the same coral-to-blue gradient. Vertuoza keeps today's V pixel for pixel. The A and O below are sketches of the alphabet the build will draw.</p>
+    </div>
+    <div class="pair">
+      <figure>
+        <span class="tag before">Before</span>
+        <div class="marks">
+          <div class="markcard"><div class="tile"><svg class="mark" viewBox="0 0 36 37" role="img" aria-label="The V mark today" shape-rendering="crispEdges"><defs><linearGradient id="vts4" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#a8183a"/><stop offset="0.55" stop-color="#6a2fd0"/><stop offset="1" stop-color="#2f3fc4"/></linearGradient><linearGradient id="vtg4" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff5f6d"/><stop offset="0.55" stop-color="#a45cff"/><stop offset="1" stop-color="#4a63ff"/></linearGradient></defs><g fill="url(#vts4)"><rect x="2" y="1" width="18" height="1"/><rect x="1" y="2" width="20" height="1"/><rect x="0" y="3" width="22" height="1"/><rect x="0" y="4" width="22" height="1"/><rect x="1" y="5" width="20" height="1"/><rect x="2" y="6" width="18" height="1"/><rect x="26" y="1" width="8" height="1"/><rect x="25" y="2" width="10" height="1"/><rect x="24" y="3" width="12" height="1"/><rect x="24" y="4" width="12" height="1"/><rect x="25" y="5" width="10" height="1"/><rect x="26" y="6" width="8" height="1"/><rect x="6" y="11" width="4" height="1"/><rect x="5" y="12" width="6" height="1"/><rect x="4" y="13" width="8" height="1"/><rect x="4" y="14" width="8" height="1"/><rect x="5" y="15" width="6" height="1"/><rect x="6" y="16" width="4" height="1"/><rect x="16" y="11" width="14" height="1"/><rect x="15" y="12" width="16" height="1"/><rect x="14" y="13" width="18" height="1"/><rect x="14" y="14" width="18" height="1"/><rect x="15" y="15" width="16" height="1"/><rect x="16" y="16" width="14" height="1"/><rect x="10" y="21" width="8" height="1"/><rect x="9" y="22" width="10" height="1"/><rect x="8" y="23" width="12" height="1"/><rect x="8" y="24" width="12" height="1"/><rect x="9" y="25" width="10" height="1"/><rect x="10" y="26" width="8" height="1"/><rect x="24" y="21" width="2" height="1"/><rect x="23" y="22" width="4" height="1"/><rect x="22" y="23" width="6" height="1"/><rect x="22" y="24" width="6" height="1"/><rect x="23" y="25" width="4" height="1"/><rect x="24" y="26" width="2" height="1"/><rect x="14" y="31" width="8" height="1"/><rect x="13" y="32" width="10" height="1"/><rect x="12" y="33" width="12" height="1"/><rect x="12" y="34" width="12" height="1"/><rect x="13" y="35" width="10" height="1"/><rect x="14" y="36" width="8" height="1"/></g><g fill="url(#vtg4)"><rect x="2" y="0" width="18" height="1"/><rect x="1" y="1" width="20" height="1"/><rect x="0" y="2" width="22" height="1"/><rect x="0" y="3" width="22" height="1"/><rect x="1" y="4" width="20" height="1"/><rect x="2" y="5" width="18" height="1"/><rect x="26" y="0" width="8" height="1"/><rect x="25" y="1" width="10" height="1"/><rect x="24" y="2" width="12" height="1"/><rect x="24" y="3" width="12" height="1"/><rect x="25" y="4" width="10" height="1"/><rect x="26" y="5" width="8" height="1"/><rect x="6" y="10" width="4" height="1"/><rect x="5" y="11" width="6" height="1"/><rect x="4" y="12" width="8" height="1"/><rect x="4" y="13" width="8" height="1"/><rect x="5" y="14" width="6" height="1"/><rect x="6" y="15" width="4" height="1"/><rect x="16" y="10" width="14" height="1"/><rect x="15" y="11" width="16" height="1"/><rect x="14" y="12" width="18" height="1"/><rect x="14" y="13" width="18" height="1"/><rect x="15" y="14" width="16" height="1"/><rect x="16" y="15" width="14" height="1"/><rect x="10" y="20" width="8" height="1"/><rect x="9" y="21" width="10" height="1"/><rect x="8" y="22" width="12" height="1"/><rect x="8" y="23" width="12" height="1"/><rect x="9" y="24" width="10" height="1"/><rect x="10" y="25" width="8" height="1"/><rect x="24" y="20" width="2" height="1"/><rect x="23" y="21" width="4" height="1"/><rect x="22" y="22" width="6" height="1"/><rect x="22" y="23" width="6" height="1"/><rect x="23" y="24" width="4" height="1"/><rect x="24" y="25" width="2" height="1"/><rect x="14" y="30" width="8" height="1"/><rect x="13" y="31" width="10" height="1"/><rect x="12" y="32" width="12" height="1"/><rect x="12" y="33" width="12" height="1"/><rect x="13" y="34" width="10" height="1"/><rect x="14" y="35" width="8" height="1"/></g></svg></div><span class="who">EVERYONE</span><span class="why">one mark, hard-coded in <code>mark.ts</code></span></div>
+        </div>
+      </figure>
+      <figure>
+        <span class="tag after">After</span>
+        <div class="marks">
+          <div class="markcard"><div class="tile"><svg class="mark" viewBox="0 0 36 37" role="img" aria-label="The V mark after: the same pixels" shape-rendering="crispEdges"><defs><linearGradient id="vas5" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#a8183a"/><stop offset="0.55" stop-color="#6a2fd0"/><stop offset="1" stop-color="#2f3fc4"/></linearGradient><linearGradient id="vag5" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff5f6d"/><stop offset="0.55" stop-color="#a45cff"/><stop offset="1" stop-color="#4a63ff"/></linearGradient></defs><g fill="url(#vas5)"><rect x="2" y="1" width="18" height="1"/><rect x="1" y="2" width="20" height="1"/><rect x="0" y="3" width="22" height="1"/><rect x="0" y="4" width="22" height="1"/><rect x="1" y="5" width="20" height="1"/><rect x="2" y="6" width="18" height="1"/><rect x="26" y="1" width="8" height="1"/><rect x="25" y="2" width="10" height="1"/><rect x="24" y="3" width="12" height="1"/><rect x="24" y="4" width="12" height="1"/><rect x="25" y="5" width="10" height="1"/><rect x="26" y="6" width="8" height="1"/><rect x="6" y="11" width="4" height="1"/><rect x="5" y="12" width="6" height="1"/><rect x="4" y="13" width="8" height="1"/><rect x="4" y="14" width="8" height="1"/><rect x="5" y="15" width="6" height="1"/><rect x="6" y="16" width="4" height="1"/><rect x="16" y="11" width="14" height="1"/><rect x="15" y="12" width="16" height="1"/><rect x="14" y="13" width="18" height="1"/><rect x="14" y="14" width="18" height="1"/><rect x="15" y="15" width="16" height="1"/><rect x="16" y="16" width="14" height="1"/><rect x="10" y="21" width="8" height="1"/><rect x="9" y="22" width="10" height="1"/><rect x="8" y="23" width="12" height="1"/><rect x="8" y="24" width="12" height="1"/><rect x="9" y="25" width="10" height="1"/><rect x="10" y="26" width="8" height="1"/><rect x="24" y="21" width="2" height="1"/><rect x="23" y="22" width="4" height="1"/><rect x="22" y="23" width="6" height="1"/><rect x="22" y="24" width="6" height="1"/><rect x="23" y="25" width="4" height="1"/><rect x="24" y="26" width="2" height="1"/><rect x="14" y="31" width="8" height="1"/><rect x="13" y="32" width="10" height="1"/><rect x="12" y="33" width="12" height="1"/><rect x="12" y="34" width="12" height="1"/><rect x="13" y="35" width="10" height="1"/><rect x="14" y="36" width="8" height="1"/></g><g fill="url(#vag5)"><rect x="2" y="0" width="18" height="1"/><rect x="1" y="1" width="20" height="1"/><rect x="0" y="2" width="22" height="1"/><rect x="0" y="3" width="22" height="1"/><rect x="1" y="4" width="20" height="1"/><rect x="2" y="5" width="18" height="1"/><rect x="26" y="0" width="8" height="1"/><rect x="25" y="1" width="10" height="1"/><rect x="24" y="2" width="12" height="1"/><rect x="24" y="3" width="12" height="1"/><rect x="25" y="4" width="10" height="1"/><rect x="26" y="5" width="8" height="1"/><rect x="6" y="10" width="4" height="1"/><rect x="5" y="11" width="6" height="1"/><rect x="4" y="12" width="8" height="1"/><rect x="4" y="13" width="8" height="1"/><rect x="5" y="14" width="6" height="1"/><rect x="6" y="15" width="4" height="1"/><rect x="16" y="10" width="14" height="1"/><rect x="15" y="11" width="16" height="1"/><rect x="14" y="12" width="18" height="1"/><rect x="14" y="13" width="18" height="1"/><rect x="15" y="14" width="16" height="1"/><rect x="16" y="15" width="14" height="1"/><rect x="10" y="20" width="8" height="1"/><rect x="9" y="21" width="10" height="1"/><rect x="8" y="22" width="12" height="1"/><rect x="8" y="23" width="12" height="1"/><rect x="9" y="24" width="10" height="1"/><rect x="10" y="25" width="8" height="1"/><rect x="24" y="20" width="2" height="1"/><rect x="23" y="21" width="4" height="1"/><rect x="22" y="22" width="6" height="1"/><rect x="22" y="23" width="6" height="1"/><rect x="23" y="24" width="4" height="1"/><rect x="24" y="25" width="2" height="1"/><rect x="14" y="30" width="8" height="1"/><rect x="13" y="31" width="10" height="1"/><rect x="12" y="32" width="12" height="1"/><rect x="12" y="33" width="12" height="1"/><rect x="13" y="34" width="10" height="1"/><rect x="14" y="35" width="8" height="1"/></g></svg></div><span class="who">VERTUOZA</span><span class="why">today's V, same pixels</span></div>
+          <div class="markcard"><div class="tile"><svg class="mark" viewBox="0 0 36 37" role="img" aria-label="An A in the same bar style" shape-rendering="crispEdges"><defs><linearGradient id="aas6" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#a8183a"/><stop offset="0.55" stop-color="#6a2fd0"/><stop offset="1" stop-color="#2f3fc4"/></linearGradient><linearGradient id="aag6" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff5f6d"/><stop offset="0.55" stop-color="#a45cff"/><stop offset="1" stop-color="#4a63ff"/></linearGradient></defs><g fill="url(#aas6)"><rect x="15" y="1" width="6" height="1"/><rect x="14" y="2" width="8" height="1"/><rect x="13" y="3" width="10" height="1"/><rect x="13" y="4" width="10" height="1"/><rect x="14" y="5" width="8" height="1"/><rect x="15" y="6" width="6" height="1"/><rect x="10" y="11" width="4" height="1"/><rect x="9" y="12" width="6" height="1"/><rect x="8" y="13" width="8" height="1"/><rect x="8" y="14" width="8" height="1"/><rect x="9" y="15" width="6" height="1"/><rect x="10" y="16" width="4" height="1"/><rect x="22" y="11" width="4" height="1"/><rect x="21" y="12" width="6" height="1"/><rect x="20" y="13" width="8" height="1"/><rect x="20" y="14" width="8" height="1"/><rect x="21" y="15" width="6" height="1"/><rect x="22" y="16" width="4" height="1"/><rect x="6" y="21" width="24" height="1"/><rect x="5" y="22" width="26" height="1"/><rect x="4" y="23" width="28" height="1"/><rect x="4" y="24" width="28" height="1"/><rect x="5" y="25" width="26" height="1"/><rect x="6" y="26" width="24" height="1"/><rect x="2" y="31" width="6" height="1"/><rect x="1" y="32" width="8" height="1"/><rect x="0" y="33" width="10" height="1"/><rect x="0" y="34" width="10" height="1"/><rect x="1" y="35" width="8" height="1"/><rect x="2" y="36" width="6" height="1"/><rect x="28" y="31" width="6" height="1"/><rect x="27" y="32" width="8" height="1"/><rect x="26" y="33" width="10" height="1"/><rect x="26" y="34" width="10" height="1"/><rect x="27" y="35" width="8" height="1"/><rect x="28" y="36" width="6" height="1"/></g><g fill="url(#aag6)"><rect x="15" y="0" width="6" height="1"/><rect x="14" y="1" width="8" height="1"/><rect x="13" y="2" width="10" height="1"/><rect x="13" y="3" width="10" height="1"/><rect x="14" y="4" width="8" height="1"/><rect x="15" y="5" width="6" height="1"/><rect x="10" y="10" width="4" height="1"/><rect x="9" y="11" width="6" height="1"/><rect x="8" y="12" width="8" height="1"/><rect x="8" y="13" width="8" height="1"/><rect x="9" y="14" width="6" height="1"/><rect x="10" y="15" width="4" height="1"/><rect x="22" y="10" width="4" height="1"/><rect x="21" y="11" width="6" height="1"/><rect x="20" y="12" width="8" height="1"/><rect x="20" y="13" width="8" height="1"/><rect x="21" y="14" width="6" height="1"/><rect x="22" y="15" width="4" height="1"/><rect x="6" y="20" width="24" height="1"/><rect x="5" y="21" width="26" height="1"/><rect x="4" y="22" width="28" height="1"/><rect x="4" y="23" width="28" height="1"/><rect x="5" y="24" width="26" height="1"/><rect x="6" y="25" width="24" height="1"/><rect x="2" y="30" width="6" height="1"/><rect x="1" y="31" width="8" height="1"/><rect x="0" y="32" width="10" height="1"/><rect x="0" y="33" width="10" height="1"/><rect x="1" y="34" width="8" height="1"/><rect x="2" y="35" width="6" height="1"/><rect x="28" y="30" width="6" height="1"/><rect x="27" y="31" width="8" height="1"/><rect x="26" y="32" width="10" height="1"/><rect x="26" y="33" width="10" height="1"/><rect x="27" y="34" width="8" height="1"/><rect x="28" y="35" width="6" height="1"/></g></svg></div><span class="who">ACME</span><span class="why">first letter A</span></div>
+          <div class="markcard"><div class="tile"><svg class="mark" viewBox="0 0 36 37" role="img" aria-label="An O, for a name that does not start with A to Z" shape-rendering="crispEdges"><defs><linearGradient id="oas7" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#a8183a"/><stop offset="0.55" stop-color="#6a2fd0"/><stop offset="1" stop-color="#2f3fc4"/></linearGradient><linearGradient id="oag7" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff5f6d"/><stop offset="0.55" stop-color="#a45cff"/><stop offset="1" stop-color="#4a63ff"/></linearGradient></defs><g fill="url(#oas7)"><rect x="9" y="1" width="18" height="1"/><rect x="8" y="2" width="20" height="1"/><rect x="7" y="3" width="22" height="1"/><rect x="7" y="4" width="22" height="1"/><rect x="8" y="5" width="20" height="1"/><rect x="9" y="6" width="18" height="1"/><rect x="3" y="11" width="6" height="1"/><rect x="2" y="12" width="8" height="1"/><rect x="1" y="13" width="10" height="1"/><rect x="1" y="14" width="10" height="1"/><rect x="2" y="15" width="8" height="1"/><rect x="3" y="16" width="6" height="1"/><rect x="27" y="11" width="6" height="1"/><rect x="26" y="12" width="8" height="1"/><rect x="25" y="13" width="10" height="1"/><rect x="25" y="14" width="10" height="1"/><rect x="26" y="15" width="8" height="1"/><rect x="27" y="16" width="6" height="1"/><rect x="3" y="21" width="6" height="1"/><rect x="2" y="22" width="8" height="1"/><rect x="1" y="23" width="10" height="1"/><rect x="1" y="24" width="10" height="1"/><rect x="2" y="25" width="8" height="1"/><rect x="3" y="26" width="6" height="1"/><rect x="27" y="21" width="6" height="1"/><rect x="26" y="22" width="8" height="1"/><rect x="25" y="23" width="10" height="1"/><rect x="25" y="24" width="10" height="1"/><rect x="26" y="25" width="8" height="1"/><rect x="27" y="26" width="6" height="1"/><rect x="9" y="31" width="18" height="1"/><rect x="8" y="32" width="20" height="1"/><rect x="7" y="33" width="22" height="1"/><rect x="7" y="34" width="22" height="1"/><rect x="8" y="35" width="20" height="1"/><rect x="9" y="36" width="18" height="1"/></g><g fill="url(#oag7)"><rect x="9" y="0" width="18" height="1"/><rect x="8" y="1" width="20" height="1"/><rect x="7" y="2" width="22" height="1"/><rect x="7" y="3" width="22" height="1"/><rect x="8" y="4" width="20" height="1"/><rect x="9" y="5" width="18" height="1"/><rect x="3" y="10" width="6" height="1"/><rect x="2" y="11" width="8" height="1"/><rect x="1" y="12" width="10" height="1"/><rect x="1" y="13" width="10" height="1"/><rect x="2" y="14" width="8" height="1"/><rect x="3" y="15" width="6" height="1"/><rect x="27" y="10" width="6" height="1"/><rect x="26" y="11" width="8" height="1"/><rect x="25" y="12" width="10" height="1"/><rect x="25" y="13" width="10" height="1"/><rect x="26" y="14" width="8" height="1"/><rect x="27" y="15" width="6" height="1"/><rect x="3" y="20" width="6" height="1"/><rect x="2" y="21" width="8" height="1"/><rect x="1" y="22" width="10" height="1"/><rect x="1" y="23" width="10" height="1"/><rect x="2" y="24" width="8" height="1"/><rect x="3" y="25" width="6" height="1"/><rect x="27" y="20" width="6" height="1"/><rect x="26" y="21" width="8" height="1"/><rect x="25" y="22" width="10" height="1"/><rect x="25" y="23" width="10" height="1"/><rect x="26" y="24" width="8" height="1"/><rect x="27" y="25" width="6" height="1"/><rect x="9" y="30" width="18" height="1"/><rect x="8" y="31" width="20" height="1"/><rect x="7" y="32" width="22" height="1"/><rect x="7" y="33" width="22" height="1"/><rect x="8" y="34" width="20" height="1"/><rect x="9" y="35" width="18" height="1"/></g></svg></div><span class="who">42 LABS</span><span class="why">not A to Z: O, for Omni</span></div>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <section aria-labelledby="s-theme">
+    <div class="sec-head">
+      <p class="eyebrow">The theme</p>
+      <h2 id="s-theme">Colours become tokens a workspace can override</h2>
+      <p>Every colour on the arcade's <code>:root</code>, including the Game Boy's body from #94, plus the mark's gradient and the four stripes on the heroes' suits, becomes a named token. Each token defaults to today's value. A workspace stores only its overrides, and the database refuses an unknown token or a colour that isn't <code>#rrggbb</code>. The settings screen that edits a theme arrives with the setup page (PRD 3).</p>
+    </div>
+    <div class="pair">
+      <figure>
+        <span class="tag before">Before · with #94 shipped</span>
+        <div class="gbs">
+          <div class="gbwrap">
+            <div class="gb" role="img" aria-label="The Game Boy in galaxy purple with the V mark">
+              <div class="lens"><small>OMNI LOOP · GALAXY COLOR</small><div class="screen"><svg class="mark" viewBox="0 0 36 37" role="img" aria-label="The V mark on the Game Boy" shape-rendering="crispEdges"><defs><linearGradient id="vgs8" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#a8183a"/><stop offset="0.55" stop-color="#6a2fd0"/><stop offset="1" stop-color="#2f3fc4"/></linearGradient><linearGradient id="vgg8" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff5f6d"/><stop offset="0.55" stop-color="#a45cff"/><stop offset="1" stop-color="#4a63ff"/></linearGradient></defs><g fill="url(#vgs8)"><rect x="2" y="1" width="18" height="1"/><rect x="1" y="2" width="20" height="1"/><rect x="0" y="3" width="22" height="1"/><rect x="0" y="4" width="22" height="1"/><rect x="1" y="5" width="20" height="1"/><rect x="2" y="6" width="18" height="1"/><rect x="26" y="1" width="8" height="1"/><rect x="25" y="2" width="10" height="1"/><rect x="24" y="3" width="12" height="1"/><rect x="24" y="4" width="12" height="1"/><rect x="25" y="5" width="10" height="1"/><rect x="26" y="6" width="8" height="1"/><rect x="6" y="11" width="4" height="1"/><rect x="5" y="12" width="6" height="1"/><rect x="4" y="13" width="8" height="1"/><rect x="4" y="14" width="8" height="1"/><rect x="5" y="15" width="6" height="1"/><rect x="6" y="16" width="4" height="1"/><rect x="16" y="11" width="14" height="1"/><rect x="15" y="12" width="16" height="1"/><rect x="14" y="13" width="18" height="1"/><rect x="14" y="14" width="18" height="1"/><rect x="15" y="15" width="16" height="1"/><rect x="16" y="16" width="14" height="1"/><rect x="10" y="21" width="8" height="1"/><rect x="9" y="22" width="10" height="1"/><rect x="8" y="23" width="12" height="1"/><rect x="8" y="24" width="12" height="1"/><rect x="9" y="25" width="10" height="1"/><rect x="10" y="26" width="8" height="1"/><rect x="24" y="21" width="2" height="1"/><rect x="23" y="22" width="4" height="1"/><rect x="22" y="23" width="6" height="1"/><rect x="22" y="24" width="6" height="1"/><rect x="23" y="25" width="4" height="1"/><rect x="24" y="26" width="2" height="1"/><rect x="14" y="31" width="8" height="1"/><rect x="13" y="32" width="10" height="1"/><rect x="12" y="33" width="12" height="1"/><rect x="12" y="34" width="12" height="1"/><rect x="13" y="35" width="10" height="1"/><rect x="14" y="36" width="8" height="1"/></g><g fill="url(#vgg8)"><rect x="2" y="0" width="18" height="1"/><rect x="1" y="1" width="20" height="1"/><rect x="0" y="2" width="22" height="1"/><rect x="0" y="3" width="22" height="1"/><rect x="1" y="4" width="20" height="1"/><rect x="2" y="5" width="18" height="1"/><rect x="26" y="0" width="8" height="1"/><rect x="25" y="1" width="10" height="1"/><rect x="24" y="2" width="12" height="1"/><rect x="24" y="3" width="12" height="1"/><rect x="25" y="4" width="10" height="1"/><rect x="26" y="5" width="8" height="1"/><rect x="6" y="10" width="4" height="1"/><rect x="5" y="11" width="6" height="1"/><rect x="4" y="12" width="8" height="1"/><rect x="4" y="13" width="8" height="1"/><rect x="5" y="14" width="6" height="1"/><rect x="6" y="15" width="4" height="1"/><rect x="16" y="10" width="14" height="1"/><rect x="15" y="11" width="16" height="1"/><rect x="14" y="12" width="18" height="1"/><rect x="14" y="13" width="18" height="1"/><rect x="15" y="14" width="16" height="1"/><rect x="16" y="15" width="14" height="1"/><rect x="10" y="20" width="8" height="1"/><rect x="9" y="21" width="10" height="1"/><rect x="8" y="22" width="12" height="1"/><rect x="8" y="23" width="12" height="1"/><rect x="9" y="24" width="10" height="1"/><rect x="10" y="25" width="8" height="1"/><rect x="24" y="20" width="2" height="1"/><rect x="23" y="21" width="4" height="1"/><rect x="22" y="22" width="6" height="1"/><rect x="22" y="23" width="6" height="1"/><rect x="23" y="24" width="4" height="1"/><rect x="24" y="25" width="2" height="1"/><rect x="14" y="30" width="8" height="1"/><rect x="13" y="31" width="10" height="1"/><rect x="12" y="32" width="12" height="1"/><rect x="12" y="33" width="12" height="1"/><rect x="13" y="34" width="10" height="1"/><rect x="14" y="35" width="8" height="1"/></g></svg><span>VERTUOZA<br>PRESENTS</span></div></div>
+              <div class="wordmark">OMNI LOOP</div>
+              <div class="ctrl"><div class="dpad"></div><div class="btns"><i class="b"></i><i class="a"></i></div></div>
+            </div>
+            <span class="gbcap">EVERYONE</span>
+          </div>
+        </div>
+        <figcaption><ul>
+          <li>The colours are fixed values on <code>:root</code> in <code>arcade.css</code>.</li>
+          <li>The mark's gradient is a constant, and the stripes are <code>FLAT</code> colours the sprite forge never tints.</li>
+        </ul></figcaption>
+      </figure>
+      <figure>
+        <span class="tag after">After</span>
+        <div class="gbs">
+          <div class="gbwrap">
+            <div class="gb" role="img" aria-label="Vertuoza's Game Boy, unchanged">
+              <div class="lens"><small>OMNI LOOP · GALAXY COLOR</small><div class="screen"><svg class="mark" viewBox="0 0 36 37" role="img" aria-label="The V mark on the Game Boy" shape-rendering="crispEdges"><defs><linearGradient id="vgs9" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#a8183a"/><stop offset="0.55" stop-color="#6a2fd0"/><stop offset="1" stop-color="#2f3fc4"/></linearGradient><linearGradient id="vgg9" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff5f6d"/><stop offset="0.55" stop-color="#a45cff"/><stop offset="1" stop-color="#4a63ff"/></linearGradient></defs><g fill="url(#vgs9)"><rect x="2" y="1" width="18" height="1"/><rect x="1" y="2" width="20" height="1"/><rect x="0" y="3" width="22" height="1"/><rect x="0" y="4" width="22" height="1"/><rect x="1" y="5" width="20" height="1"/><rect x="2" y="6" width="18" height="1"/><rect x="26" y="1" width="8" height="1"/><rect x="25" y="2" width="10" height="1"/><rect x="24" y="3" width="12" height="1"/><rect x="24" y="4" width="12" height="1"/><rect x="25" y="5" width="10" height="1"/><rect x="26" y="6" width="8" height="1"/><rect x="6" y="11" width="4" height="1"/><rect x="5" y="12" width="6" height="1"/><rect x="4" y="13" width="8" height="1"/><rect x="4" y="14" width="8" height="1"/><rect x="5" y="15" width="6" height="1"/><rect x="6" y="16" width="4" height="1"/><rect x="16" y="11" width="14" height="1"/><rect x="15" y="12" width="16" height="1"/><rect x="14" y="13" width="18" height="1"/><rect x="14" y="14" width="18" height="1"/><rect x="15" y="15" width="16" height="1"/><rect x="16" y="16" width="14" height="1"/><rect x="10" y="21" width="8" height="1"/><rect x="9" y="22" width="10" height="1"/><rect x="8" y="23" width="12" height="1"/><rect x="8" y="24" width="12" height="1"/><rect x="9" y="25" width="10" height="1"/><rect x="10" y="26" width="8" height="1"/><rect x="24" y="21" width="2" height="1"/><rect x="23" y="22" width="4" height="1"/><rect x="22" y="23" width="6" height="1"/><rect x="22" y="24" width="6" height="1"/><rect x="23" y="25" width="4" height="1"/><rect x="24" y="26" width="2" height="1"/><rect x="14" y="31" width="8" height="1"/><rect x="13" y="32" width="10" height="1"/><rect x="12" y="33" width="12" height="1"/><rect x="12" y="34" width="12" height="1"/><rect x="13" y="35" width="10" height="1"/><rect x="14" y="36" width="8" height="1"/></g><g fill="url(#vgg9)"><rect x="2" y="0" width="18" height="1"/><rect x="1" y="1" width="20" height="1"/><rect x="0" y="2" width="22" height="1"/><rect x="0" y="3" width="22" height="1"/><rect x="1" y="4" width="20" height="1"/><rect x="2" y="5" width="18" height="1"/><rect x="26" y="0" width="8" height="1"/><rect x="25" y="1" width="10" height="1"/><rect x="24" y="2" width="12" height="1"/><rect x="24" y="3" width="12" height="1"/><rect x="25" y="4" width="10" height="1"/><rect x="26" y="5" width="8" height="1"/><rect x="6" y="10" width="4" height="1"/><rect x="5" y="11" width="6" height="1"/><rect x="4" y="12" width="8" height="1"/><rect x="4" y="13" width="8" height="1"/><rect x="5" y="14" width="6" height="1"/><rect x="6" y="15" width="4" height="1"/><rect x="16" y="10" width="14" height="1"/><rect x="15" y="11" width="16" height="1"/><rect x="14" y="12" width="18" height="1"/><rect x="14" y="13" width="18" height="1"/><rect x="15" y="14" width="16" height="1"/><rect x="16" y="15" width="14" height="1"/><rect x="10" y="20" width="8" height="1"/><rect x="9" y="21" width="10" height="1"/><rect x="8" y="22" width="12" height="1"/><rect x="8" y="23" width="12" height="1"/><rect x="9" y="24" width="10" height="1"/><rect x="10" y="25" width="8" height="1"/><rect x="24" y="20" width="2" height="1"/><rect x="23" y="21" width="4" height="1"/><rect x="22" y="22" width="6" height="1"/><rect x="22" y="23" width="6" height="1"/><rect x="23" y="24" width="4" height="1"/><rect x="24" y="25" width="2" height="1"/><rect x="14" y="30" width="8" height="1"/><rect x="13" y="31" width="10" height="1"/><rect x="12" y="32" width="12" height="1"/><rect x="12" y="33" width="12" height="1"/><rect x="13" y="34" width="10" height="1"/><rect x="14" y="35" width="8" height="1"/></g></svg><span>VERTUOZA<br>PRESENTS</span></div></div>
+              <div class="wordmark">OMNI LOOP</div>
+              <div class="ctrl"><div class="dpad"></div><div class="btns"><i class="b"></i><i class="a"></i></div></div>
+            </div>
+            <span class="gbcap">VERTUOZA · THEME {}</span>
+          </div>
+          <div class="gbwrap">
+            <div class="gb acme" role="img" aria-label="Acme's Game Boy in teal with the A mark">
+              <div class="lens"><small>OMNI LOOP · GALAXY COLOR</small><div class="screen"><svg class="mark" viewBox="0 0 36 37" role="img" aria-label="The A mark in Acme theme colours" shape-rendering="crispEdges"><defs><linearGradient id="ats10" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8f5c08"/><stop offset="0.55" stop-color="#178a80"/><stop offset="1" stop-color="#0e6a86"/></linearGradient><linearGradient id="atg10" x1="0" x2="36" y1="0" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffd84a"/><stop offset="0.55" stop-color="#2fc6a4"/><stop offset="1" stop-color="#22b8d8"/></linearGradient></defs><g fill="url(#ats10)"><rect x="15" y="1" width="6" height="1"/><rect x="14" y="2" width="8" height="1"/><rect x="13" y="3" width="10" height="1"/><rect x="13" y="4" width="10" height="1"/><rect x="14" y="5" width="8" height="1"/><rect x="15" y="6" width="6" height="1"/><rect x="10" y="11" width="4" height="1"/><rect x="9" y="12" width="6" height="1"/><rect x="8" y="13" width="8" height="1"/><rect x="8" y="14" width="8" height="1"/><rect x="9" y="15" width="6" height="1"/><rect x="10" y="16" width="4" height="1"/><rect x="22" y="11" width="4" height="1"/><rect x="21" y="12" width="6" height="1"/><rect x="20" y="13" width="8" height="1"/><rect x="20" y="14" width="8" height="1"/><rect x="21" y="15" width="6" height="1"/><rect x="22" y="16" width="4" height="1"/><rect x="6" y="21" width="24" height="1"/><rect x="5" y="22" width="26" height="1"/><rect x="4" y="23" width="28" height="1"/><rect x="4" y="24" width="28" height="1"/><rect x="5" y="25" width="26" height="1"/><rect x="6" y="26" width="24" height="1"/><rect x="2" y="31" width="6" height="1"/><rect x="1" y="32" width="8" height="1"/><rect x="0" y="33" width="10" height="1"/><rect x="0" y="34" width="10" height="1"/><rect x="1" y="35" width="8" height="1"/><rect x="2" y="36" width="6" height="1"/><rect x="28" y="31" width="6" height="1"/><rect x="27" y="32" width="8" height="1"/><rect x="26" y="33" width="10" height="1"/><rect x="26" y="34" width="10" height="1"/><rect x="27" y="35" width="8" height="1"/><rect x="28" y="36" width="6" height="1"/></g><g fill="url(#atg10)"><rect x="15" y="0" width="6" height="1"/><rect x="14" y="1" width="8" height="1"/><rect x="13" y="2" width="10" height="1"/><rect x="13" y="3" width="10" height="1"/><rect x="14" y="4" width="8" height="1"/><rect x="15" y="5" width="6" height="1"/><rect x="10" y="10" width="4" height="1"/><rect x="9" y="11" width="6" height="1"/><rect x="8" y="12" width="8" height="1"/><rect x="8" y="13" width="8" height="1"/><rect x="9" y="14" width="6" height="1"/><rect x="10" y="15" width="4" height="1"/><rect x="22" y="10" width="4" height="1"/><rect x="21" y="11" width="6" height="1"/><rect x="20" y="12" width="8" height="1"/><rect x="20" y="13" width="8" height="1"/><rect x="21" y="14" width="6" height="1"/><rect x="22" y="15" width="4" height="1"/><rect x="6" y="20" width="24" height="1"/><rect x="5" y="21" width="26" height="1"/><rect x="4" y="22" width="28" height="1"/><rect x="4" y="23" width="28" height="1"/><rect x="5" y="24" width="26" height="1"/><rect x="6" y="25" width="24" height="1"/><rect x="2" y="30" width="6" height="1"/><rect x="1" y="31" width="8" height="1"/><rect x="0" y="32" width="10" height="1"/><rect x="0" y="33" width="10" height="1"/><rect x="1" y="34" width="8" height="1"/><rect x="2" y="35" width="6" height="1"/><rect x="28" y="30" width="6" height="1"/><rect x="27" y="31" width="8" height="1"/><rect x="26" y="32" width="10" height="1"/><rect x="26" y="33" width="10" height="1"/><rect x="27" y="34" width="8" height="1"/><rect x="28" y="35" width="6" height="1"/></g></svg><span>ACME<br>PRESENTS</span></div></div>
+              <div class="wordmark">OMNI LOOP</div>
+              <div class="ctrl"><div class="dpad"></div><div class="btns"><i class="b"></i><i class="a"></i></div></div>
+            </div>
+            <span class="gbcap">ACME · OVERRIDES</span>
+          </div>
+        </div>
+<pre aria-label="Acme's theme overrides"><span class="c">-- workspaces.theme for acme: only what differs from the defaults</span>
+{
+  <span class="k">"plasma"</span>: <span class="s">"#2fc6a4"</span>,       <span class="k">"plasma-dark"</span>: <span class="s">"#178a80"</span>,
+  <span class="k">"mark-1"</span>: <span class="s">"#ffd84a"</span>,       <span class="k">"mark-shade-1"</span>: <span class="s">"#8f5c08"</span>,
+  <span class="k">"mark-2"</span>: <span class="s">"#2fc6a4"</span>,       <span class="k">"mark-shade-2"</span>: <span class="s">"#178a80"</span>,
+  <span class="k">"mark-3"</span>: <span class="s">"#22b8d8"</span>,       <span class="k">"mark-shade-3"</span>: <span class="s">"#0e6a86"</span>
+}</pre>
+      </figure>
+    </div>
+  </section>
+
+  <section aria-labelledby="s-scripts">
+    <div class="sec-head">
+      <p class="eyebrow">The game scripts</p>
+      <h2 id="s-scripts">Every game script names its workspace</h2>
+      <p>The projector reads the GitHub organisation and the plan repository from the workspace row. With no workspace named, a script stops instead of writing into the wrong one. The output lines below are illustrative.</p>
+    </div>
+    <div class="pair">
+      <figure>
+        <span class="tag before">Before</span>
+<pre><span class="p">$</span> pnpm game:project
+<span class="c"># reads vertuoza/vertuo-omni-plan: a default in github.mjs</span>
+config: 3 sectors · 9 repositories · 5 fleets · 14 players linked to GitHub
+planets: 6 · events implied: 212 · appended: 4</pre>
+      </figure>
+      <figure>
+        <span class="tag after">After</span>
+<pre><span class="p">$</span> pnpm game:project --workspace vertuoza
+<span class="c"># github: vertuoza · plans: vertuo-omni-plan, read from the workspace</span>
+config: 3 sectors · 9 repositories · 5 fleets · 14 players linked to GitHub
+planets: 6 · events implied: 212 · appended: 4
+
+<span class="p">$</span> pnpm game:project
+<span class="e">Name a workspace: --workspace &lt;slug&gt; or OMNI_LOOP_WORKSPACE.</span>
+<span class="c"># exits non-zero; the game workflow sets OMNI_LOOP_WORKSPACE=vertuoza</span></pre>
+      </figure>
+    </div>
+  </section>
+
+  <section aria-labelledby="s-same">
+    <div class="sec-head">
+      <p class="eyebrow">What stays the same</p>
+      <h2 id="s-same">Nothing a Vertuoza player sees changes</h2>
+    </div>
+    <div class="same">
+      <div class="panel">
+        <h3>The same for players</h3>
+        <ul>
+          <li><b>The screens:</b> "VERTUOZA PRESENTS", the V, "© 2026 VERTUOZA" and every colour, signed in or out, in demo mode and in the single-file artifact.</li>
+          <li><b>Sign-in:</b> the Vertuoza Google account and the same copy. Open sign-up is PRD 2.</li>
+          <li><b>The joining flow:</b> link GitHub, pick a fleet, enter a name, build a hero.</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3>The same in the code</h3>
+        <ul>
+          <li><b>The game:</b> the event contract, the event ids, the projector, the economy, the rulebook and <code>@omni/galaxy</code>.</li>
+          <li><b>Elsewhere:</b> the GitHub App (<code>apps/omni-app</code>), the kit, and the personal token the game polls with.</li>
+          <li><b>The ledger</b> is still append-only.</li>
+        </ul>
+      </div>
+      <div class="panel once">
+        <h3>Changes once, on merge</h3>
+        <ul>
+          <li>Production's four game tables are rebuilt empty: production holds nothing worth keeping.</li>
+          <li>Everyone signs in again, joins Vertuoza automatically, and picks a fleet, name and hero once more.</li>
+          <li>Switch <code>GAME_ENABLED</code> off around the merge, and back on after the migration is applied.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+</html>
