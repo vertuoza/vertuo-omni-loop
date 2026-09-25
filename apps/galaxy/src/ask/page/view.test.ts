@@ -25,7 +25,7 @@ function round(patch: Partial<RoundRow> & { ago: number }): RoundRow {
     ...rest,
   };
 }
-const answered = (ago: number, via: 'page' | 'terminal', answers = { 'Which storage?': 'Memory', 'Which checks?': 'RLS' }) =>
+const answered = (ago: number, via: 'page' | 'terminal', answers: Record<string, string> = { 'Which storage?': 'Memory', 'Which checks?': 'RLS' }) =>
   round({ ago, status: 'answered', answered_via: via, answers, answered_at: at(ago - 1000) });
 
 function state(rounds: RoundRow[], session: Partial<SessionState['session']> = {}): SessionState {

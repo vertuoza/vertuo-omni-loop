@@ -39,7 +39,9 @@ async function world() {
     const { data } = await ada.from('ask_rounds').insert({ session_id: session.id, questions: QUESTIONS }).select('id').single() as { data: { id: string } };
     return data.id;
   };
-  return { fake, clock, calls, recording, sessionId: session.id, ask };
+  // The stub answers only the query shapes the page sends, so it is not a whole Supabase client.
+  const as = (token: string) => fake.client(token) as unknown as Db;
+  return { fake, clock, calls, recording, as, sessionId: session.id, ask };
 }
 
 describe('reading a session', () => {
@@ -82,7 +84,7 @@ describe('polling', () => {
     expect((await read())?.rounds.map((r) => r.id)).toEqual([first, second]);
     expect(w.calls.filter((c) => c.includes('.in('))).toEqual([`ask_rounds.in("id", ${JSON.stringify([second])})`]);
 
-    await sendAnswers(w.fake.client('ada'), first, ANSWERS);
+    await sendAnswers(w.as('ada'), first, ANSWERS);
     w.calls.length = 0;
     const state = await read();
     expect(state?.rounds.find((r) => r.id === first)).toMatchObject({ status: 'answered', answered_via: 'page', answers: ANSWERS });
@@ -111,7 +113,7 @@ describe('sending the answers', () => {
   it('answers an open round, tagged page', async () => {
     const w = await world();
     const id = await w.ask();
-    expect(await sendAnswers(w.fake.client('ada'), id, ANSWERS)).toBe('answered');
+    expect(await sendAnswers(w.as('ada'), id, ANSWERS)).toBe('answered');
     expect(w.fake.tables.ask_rounds[0]).toMatchObject({ status: 'answered', answers: ANSWERS, answered_via: 'page' });
   });
 
@@ -119,18 +121,18 @@ describe('sending the answers', () => {
     const w = await world();
     const id = await w.ask();
     w.fake.tables.ask_rounds[0].status = 'abandoned';
-    expect(await sendAnswers(w.fake.client('ada'), id, ANSWERS)).toBe('taken');
+    expect(await sendAnswers(w.as('ada'), id, ANSWERS)).toBe('taken');
     expect(w.fake.tables.ask_rounds[0]).toMatchObject({ status: 'abandoned', answers: null });
 
     w.fake.tables.ask_rounds[0] = { ...w.fake.tables.ask_rounds[0], status: 'answered', answers: { 'Which storage?': 'Memory' }, answered_via: 'terminal' };
-    expect(await sendAnswers(w.fake.client('ada'), id, ANSWERS)).toBe('taken');
+    expect(await sendAnswers(w.as('ada'), id, ANSWERS)).toBe('taken');
     expect(w.fake.tables.ask_rounds[0]).toMatchObject({ answers: { 'Which storage?': 'Memory' }, answered_via: 'terminal' });
   });
 
   it("never answers another person's round", async () => {
     const w = await world();
     const id = await w.ask();
-    expect(await sendAnswers(w.fake.client('bob'), id, ANSWERS)).toBe('taken');
+    expect(await sendAnswers(w.as('bob'), id, ANSWERS)).toBe('taken');
     expect(w.fake.tables.ask_rounds[0]).toMatchObject({ status: 'open' });
   });
 });

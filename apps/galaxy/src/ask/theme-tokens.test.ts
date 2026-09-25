@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { TEXT_PAIRS, TOKENS, UI_PAIRS, contrast, themeCss, type TokenName } from './theme-tokens';
 
@@ -72,5 +73,33 @@ describe('the stylesheet the table becomes', () => {
   it('follows the system when no script ran', () => {
     expect(css).toContain('@media (prefers-color-scheme: dark)');
     expect(block('html:not([data-ask-theme]) .ask')).toContain(`--ask-ground: ${TOKENS.light.ground};`);
+  });
+});
+
+describe('the stylesheet', () => {
+  const css = readFileSync(new URL('./ask.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  /** Every innermost rule, as its selector and its declarations. */
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1].trim(), body: m[2] }));
+
+  it('names no colour of its own: every colour comes from the token table', () => {
+    expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+    expect(css).not.toMatch(/\b(?:rgba?|hsla?|oklch|color-mix)\(/i);
+  });
+
+  it('sets the page in Atkinson Hyperlegible Next', () => {
+    const root = rules.find((r) => r.selector === '.ask');
+    expect(root?.body).toContain('font-family: var(--ask-body);');
+    expect(css).toMatch(/--ask-body: 'Atkinson Hyperlegible Next',/);
+  });
+
+  it('keeps the pixel face to the header wordmark', () => {
+    const pixel = rules.filter((r) => r.body.includes('var(--ask-px)'));
+    expect(pixel.map((r) => r.selector)).toEqual(['.ask-mark']);
+    expect(css.match(/Press Start 2P|Jersey 10/g)).toHaveLength(1);
+  });
+
+  it('puts the preview beside the options from 720 px, and under them below', () => {
+    expect(css).toMatch(/@media \(min-width: 720px\) \{\s*\.ask-q-body\.has-preview \{ grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\);/);
+    expect(rules.find((r) => r.selector === '.ask-q-body')?.body).not.toContain('grid-template-columns');
   });
 });

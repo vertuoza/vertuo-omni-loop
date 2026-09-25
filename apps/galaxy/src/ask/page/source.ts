@@ -55,3 +55,14 @@ export async function sendAnswers(db: Db, roundId: string, answers: AskAnswers):
   const moved = await askStore(db).moveRound(roundId, ['open'], { status: 'answered', answers, answered_via: 'page' });
   return moved ? 'answered' : 'taken';
 }
+
+/** What the page needs from wherever its session lives: the database, or the demo in the browser. */
+export type AskPort = {
+  read(): Promise<SessionState | null>;
+  send(roundId: string, answers: AskAnswers): Promise<'answered' | 'taken'>;
+};
+
+/** The database, as the signed-in person, starting from what the server already read. */
+export function databasePort(db: Db, seed: SessionState): AskPort {
+  return { read: sessionReader(db, seed.session.id, seed), send: (roundId, answers) => sendAnswers(db, roundId, answers) };
+}
