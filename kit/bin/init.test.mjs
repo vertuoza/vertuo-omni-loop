@@ -18,9 +18,14 @@ function io() {
   return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
 }
 
-/** `gh` faked, `git` real. Records every gh call. */
-function fakeExec({ slug = 'acme/widgets', defaultBranch = 'trunk', ghFails = false } = {}) {
+/**
+ * `gh` faked, `git` real. Records every gh call. `labels` is the repository's label set: `label
+ * list` returns it and a `label create` adds to it, so a second run sees the first run's labels.
+ * `labelsFail` makes every `gh label` call fail, as it does when gh has no permission.
+ */
+function fakeExec({ slug = 'acme/widgets', defaultBranch = 'trunk', ghFails = false, labels = [], labelsFail = false } = {}) {
   const calls = [];
+  const present = labels.map((label) => ({ description: '', ...label }));
   const exec = (cmd, args, options) => {
     if (cmd !== 'gh') return execFileSync(cmd, args, options);
     calls.push(args);
@@ -28,10 +33,23 @@ function fakeExec({ slug = 'acme/widgets', defaultBranch = 'trunk', ghFails = fa
     if (args[0] === 'repo' && args[1] === 'view') {
       return JSON.stringify({ nameWithOwner: slug, defaultBranchRef: { name: defaultBranch } });
     }
+    if (args[0] === 'label') {
+      if (labelsFail) throw new Error('gh: HTTP 403');
+      if (args[1] === 'list') return JSON.stringify(present);
+      if (args[1] === 'create') {
+        present.push({ name: args[2] });
+        return '';
+      }
+    }
     return '';
   };
   return { exec, calls };
 }
+
+const LOOP_LABELS = ['prd', 'pr:phase-0', 'pr:feature', 'pr:sub', 'pr:in-progress', 'pr:needs-fix', 'outbox:go'];
+const labelCalls = (calls, verb) => calls.filter((args) => args[0] === 'label' && args[1] === verb);
+const created = (calls) => labelCalls(calls, 'create').map((args) => args[2]);
+const edits = (calls) => calls.filter((args) => args[0] === 'label' && !['list', 'create'].includes(args[1]));
 
 /** A fake bundle file the tests inject as "the running bundle". */
 function fakeBundle() {
@@ -210,6 +228,95 @@ describe('omni init — idempotence and --force (AC 4)', () => {
   });
 });
 
+describe('omni init — the loop labels (AC 5, 6)', () => {
+  it('creates exactly the missing labels, each with a colour and a description, and edits none', async () => {
+    const { root } = makeRepo({ git: true });
+    const fake = fakeExec({ labels: [{ name: 'prd', color: 'ffffff' }, { name: 'pr:sub', color: '000000' }, { name: 'bug' }] });
+    const { code, out, calls } = await init(root, [], { fake });
+    expect(code).toBe(0);
+    expect(created(calls)).toEqual(['pr:phase-0', 'pr:feature', 'pr:in-progress', 'pr:needs-fix', 'outbox:go']);
+    expect(edits(calls)).toEqual([]);
+    for (const args of labelCalls(calls, 'create')) {
+      expect(args).not.toContain('--force');
+      expect(args[args.indexOf('--color') + 1]).toMatch(/^[0-9a-f]{6}$/);
+      expect(args[args.indexOf('--description') + 1]).toMatch(/\S/);
+    }
+    expect(out).toMatch(/labels\s+created pr:phase-0, pr:feature, pr:in-progress, pr:needs-fix, outbox:go\s+\(already there: prd, pr:sub\)\n/);
+  });
+
+  it('lists the labels once, past gh\'s default page of 30', async () => {
+    const { root } = makeRepo({ git: true });
+    const fake = fakeExec();
+    await init(root, [], { fake });
+    const lists = labelCalls(fake.calls, 'list');
+    expect(lists).toHaveLength(1);
+    expect(Number(lists[0][lists[0].indexOf('--limit') + 1])).toBeGreaterThan(30);
+  });
+
+  it('a second run creates none, edits none and exits 0', async () => {
+    const { root } = makeRepo({ git: true });
+    const fake = fakeExec();
+    expect((await init(root, [], { fake })).code).toBe(0);
+    expect(created(fake.calls)).toEqual(LOOP_LABELS);
+    fake.calls.length = 0;
+    const { code, out } = await init(root, [], { fake });
+    expect(code).toBe(0);
+    expect(created(fake.calls)).toEqual([]);
+    expect(edits(fake.calls)).toEqual([]);
+    expect(out).toMatch(new RegExp(`labels\\s+already there: ${LOOP_LABELS.join(', ')}\\n`));
+  });
+
+  it('matches an existing label whatever its case, as GitHub does', async () => {
+    const { root } = makeRepo({ git: true });
+    const fake = fakeExec({ labels: [{ name: 'PRD' }] });
+    await init(root, [], { fake });
+    expect(created(fake.calls)).not.toContain('prd');
+  });
+
+  it('takes the names from a kept config', async () => {
+    const config = 'kit: 1\nlabels:\n  prd: epic\n  outboxGo: ship-it\n';
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/bin/omni.mjs': 'bin\n' } });
+    const fake = fakeExec();
+    await init(root, [], { fake });
+    expect(created(fake.calls)).toEqual(['epic', 'pr:phase-0', 'pr:feature', 'pr:sub', 'pr:in-progress', 'pr:needs-fix', 'ship-it']);
+  });
+
+  it('with an invalid config and no --force, creates no label', async () => {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\nnope: true\n' } });
+    const fake = fakeExec();
+    expect((await init(root, [], { fake })).code).toBe(2);
+    expect(fake.calls.filter((args) => args[0] === 'label')).toEqual([]);
+  });
+
+  it('when gh cannot list labels: the files are written, every name is a human step, exit 0', async () => {
+    const { root } = makeRepo({ git: true });
+    const fake = fakeExec({ labelsFail: true });
+    const { code, out } = await init(root, [], { fake });
+    expect(code).toBe(0);
+    expect(existsSync(join(root, '.omni-loop/config.yml'))).toBe(true);
+    expect(existsSync(join(root, '.omni-loop/bin/omni.mjs'))).toBe(true);
+    expect(created(fake.calls)).toEqual([]);
+    expect(out).toContain(`create by hand: ${LOOP_LABELS.join(', ')}\n`);
+  });
+
+  it('when one creation fails, the rest are still tried and the failed one is a human step, exit 0', async () => {
+    const { root } = makeRepo({ git: true });
+    const base = fakeExec({ labels: [{ name: 'prd' }] });
+    const exec = (cmd, args, options) => {
+      if (cmd === 'gh' && args[0] === 'label' && args[1] === 'create' && args[2] === 'pr:sub') {
+        base.calls.push(args);
+        throw new Error('gh: HTTP 403');
+      }
+      return base.exec(cmd, args, options);
+    };
+    const { code, out } = await init(root, [], { fake: { exec, calls: base.calls } });
+    expect(code).toBe(0);
+    expect(created(base.calls)).toEqual(['pr:phase-0', 'pr:feature', 'pr:sub', 'pr:in-progress', 'pr:needs-fix', 'outbox:go']);
+    expect(out).toMatch(/labels\s+created pr:phase-0, pr:feature, pr:in-progress, pr:needs-fix, outbox:go\s+\(already there: prd\)\n/);
+    expect(out).toContain('create by hand: pr:sub\n');
+  });
+});
+
 describe('omni init — running from source (AC 9)', () => {
   it('with a bin to copy and no bundle: exit 2, nothing written, names the npx command', async () => {
     const { root } = makeRepo({ git: true });
@@ -251,7 +358,10 @@ describe('omni init — the real bundle', () => {
     const dist = join(kitRoot, 'dist/omni.mjs');
     const { root } = makeRepo({ git: true, files: { Makefile: fixture('make/Makefile') } });
     // No gh on PATH: the repository has no remote, so the slug is null, and nothing reaches the network.
-    const env = { ...process.env, PATH: [dirname(process.execPath), '/usr/bin', '/bin'].join(':') };
+    // Where a runner does ship gh in /usr/bin, it gets no token, no login and no target repository,
+    // so its `label` calls fail and no real label is ever created.
+    const env = { ...process.env, PATH: [dirname(process.execPath), '/usr/bin', '/bin'].join(':'), GH_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'no-gh-')) };
+    for (const key of ['GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN', 'GH_REPO', 'GH_HOST']) delete env[key];
     execFileSync('node', [dist, 'init'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
     expect(readFileSync(join(root, '.omni-loop/bin/omni.mjs'))).toEqual(readFileSync(dist));
     const out = execFileSync('node', ['.omni-loop/bin/omni.mjs', 'config', 'commands.test'], { cwd: root, env, encoding: 'utf8' });
