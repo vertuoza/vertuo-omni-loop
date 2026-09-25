@@ -20,7 +20,7 @@ const ROUND_STATUSES = ['open', 'answered', 'abandoned'];
 
 const isText = (value) => typeof value === 'string' && value.length > 0;
 
-function path(root, file) {
+function localFile(root, file) {
   return join(root, LOCAL_DIR, file);
 }
 
@@ -34,7 +34,7 @@ function ensureLocalDir(root) {
 
 function readJson(root, file) {
   try {
-    const value = JSON.parse(readFileSync(path(root, file), 'utf8'));
+    const value = JSON.parse(readFileSync(localFile(root, file), 'utf8'));
     return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
   } catch {
     return null;
@@ -43,7 +43,7 @@ function readJson(root, file) {
 
 function writeJson(root, file, value) {
   ensureLocalDir(root);
-  writeFileSync(path(root, file), `${JSON.stringify(value, null, 2)}\n`);
+  writeFileSync(localFile(root, file), `${JSON.stringify(value, null, 2)}\n`);
 }
 
 /** @returns {{ sessionId: string, url: string, host: string } | null} */
@@ -59,7 +59,7 @@ export function writeSession(root, { sessionId, url, host }) {
 }
 
 export function clearSession(root) {
-  rmSync(path(root, SESSION_FILE), { force: true });
+  rmSync(localFile(root, SESSION_FILE), { force: true });
 }
 
 /** @returns {{ roundId: string, toolUseId: string | null, status: 'open' | 'answered' | 'abandoned' } | null} */
@@ -79,5 +79,5 @@ export function writeRound(root, { roundId, toolUseId = null, status }) {
 }
 
 export function clearRound(root) {
-  rmSync(path(root, ROUND_FILE), { force: true });
+  rmSync(localFile(root, ROUND_FILE), { force: true });
 }
