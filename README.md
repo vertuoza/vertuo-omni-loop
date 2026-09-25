@@ -54,20 +54,25 @@ With a local Supabase, Vercel deployment and the artifact build: [`apps/galaxy/R
 
 ### Describe your repositories and fleets
 
-Everything the game knows lives in Supabase ([`apps/galaxy/README.md`](apps/galaxy/README.md)).
-Repositories are grouped into **sectors** and the **fleets** are rows in `teams`, both changed by a
+Everything the game knows lives in Supabase ([`apps/galaxy/README.md`](apps/galaxy/README.md)),
+and belongs to a **workspace**: Vertuoza is the workspace `vertuoza`. Repositories are grouped into
+**sectors** and the **fleets** are rows in `teams`, both of a workspace, and both changed by a
 migration in `supabase/migrations/`:
 
 ```sql
-insert into public.sectors (name, repos) values ('core-belt', array['vertuo-core', 'vertuo-api']);
-insert into public.teams (name, label, color, motto, mascot, home, sort)
-values ('pirates', 'PIRATES', '#2fc6a4', 'Takes the zones nobody claims.', 'pirate', 'core-belt', 50);
-update public.teams set retired_at = now() where name = 'invincible-team';   -- retire, never delete
+insert into public.sectors (workspace_id, name, repos)
+select id, 'core-belt', array['vertuo-core', 'vertuo-api'] from public.workspaces where slug = 'vertuoza';
+insert into public.teams (workspace_id, name, label, color, motto, mascot, home, sort)
+select id, 'pirates', 'PIRATES', '#2fc6a4', 'Takes the zones nobody claims.', 'pirate', 'core-belt', 50
+  from public.workspaces where slug = 'vertuoza';
+update public.teams set retired_at = now()                                    -- retire, never delete
+ where name = 'invincible-team' and workspace_id = (select id from public.workspaces where slug = 'vertuoza');
 ```
 
 The fleets today: BEAVER, OCTOPOD, PICSOU, C.I.A. and PIRATES. People join one in the arcade: they
-sign in with their `@vertuoza.com` Google account, pick a fleet, enter a name, build a hero and link
-their GitHub account, and from then on their pull requests score for that fleet.
+sign in with their `@vertuoza.com` Google account, which makes them members of the `vertuoza`
+workspace, pick a fleet, enter a name, build a hero and link their GitHub account, and from then on
+their pull requests score for that fleet.
 
 ### Run it by hand
 
