@@ -9,13 +9,23 @@
 //   step "guard"            each field of prose accepted, or dropped with its reason
 //   step "publish-issues"   one retro issue per finding, worst first
 //   step "publish"          the branch, retro.md + retro.json, then the PR
+//   step "sleep-day-14"     until the merge plus `THRESHOLDS.afterMergeDays` days
+//   the same steps, "-day-14" after each id, for the kinds of the day-14 run: an "After merge"
+//                           section, issues for its new findings, committed to the retro PR while it
+//                           is open, else to a new `<branch>-day-14` PR (`publish.mjs`)
 //   onFailure               one comment on the merged PR: "The retro could not run: <reason>"
 //
-// A merge that is not a feature PR ends at "qualify" and posts nothing. The day-14 run (slice s8)
-// continues this function with a sleep and the kinds of the "day-14" run.
+// A merge that is not a feature PR ends at "qualify" and posts nothing.
+//
+// The day-14 run carries on from the merge run held in this same run: its kinds are handed the merge
+// run's fact sheet (`scope.atMerge`, the churn ranges a fix is placed against); its findings are
+// numbered on from the merge run's (F1… stay what they were); the model is asked again about the
+// whole retro, both runs' findings, and when it gives nothing the merge run's words stay; and the
+// merge run's record is written again beside its own.
 //
 // `createRetro` takes the Inngest client and `octokitFor(installationId)`, so a test runs the real
-// function against a stubbed GitHub; `retro` is the one the app serves.
+// function against a stubbed GitHub; `followUp` adds the day-14 run, which a test passes its
+// fourteen days' sleep through. `retro` is the one the app serves, with its day-14 run.
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
 import { inngest, RETRO_EVENT } from '../inngest-client.mjs';
 import { installationOctokit } from '../outbox-check/outbox-check.mjs';
@@ -24,6 +34,7 @@ import { detect } from './detect.mjs';
 import { listPullsInto } from './github.mjs';
 import { guard } from './guard.mjs';
 import { publishIssues } from './issues.mjs';
+import { followUpAt } from './kinds/after-merge.mjs';
 import { KINDS, kindsFor } from './kinds/index.mjs';
 import { narrate } from './narrate.mjs';
 import { publishRetro } from './publish.mjs';
@@ -31,10 +42,17 @@ import { qualify } from './qualify.mjs';
 
 export const RETRO_FUNCTION_ID = 'retro';
 
+/** The two runs of a retro: at the merge, and fourteen days later. */
+export const MERGE_RUN = 'merge';
+export const FOLLOW_UP_RUN = 'day-14';
+/** The step the function sleeps in, between the two runs. */
+export const FOLLOW_UP_STEP = 'sleep-day-14';
+
 /**
  * One retro at a time per repository. The spec asks for one per repository and PRD; the PRD is known
  * only once "qualify" has read the repository, so the key is the repository alone, which also keeps
- * two retros of one PRD apart.
+ * two retros of one PRD apart. Inngest counts the steps running against it, never a run asleep, so a
+ * retro waiting for its day-14 run holds nothing up.
  */
 export const CONCURRENCY = Object.freeze({ key: 'event.data.repository', limit: 1 });
 
@@ -48,9 +66,10 @@ export const FAILURE_MARKER = `<!-- ${MARKER_PREFIX}-retro-failed -->`;
  *   octokitFor: (installationId: number) => Promise<{ request: Function }> | { request: Function },
  *   env?: Record<string, string | undefined>,
  *   kinds?: readonly import('./kinds/index.mjs').Kind[],
+ *   followUp?: boolean,
  * }} deps
  */
-export function createRetro({ client, octokitFor, env = process.env, kinds = KINDS }) {
+export function createRetro({ client, octokitFor, env = process.env, kinds = KINDS, followUp = false }) {
   return client.createFunction(
     {
       id: RETRO_FUNCTION_ID,
@@ -70,43 +89,81 @@ export function createRetro({ client, octokitFor, env = process.env, kinds = KIN
 
       const pulls = await step.run('gather-pulls', async () => listPullsInto(await github(), { owner, repo, base: pr.headRef }));
 
-      const run = 'merge';
-      const runKinds = kindsFor(run, kinds);
       const scope = { owner, repo, mergeSha, mergedAt, pr, prd, config, pulls };
-      const records = {};
-      for (const kind of runKinds) {
-        records[kind.id] = (await step.run(`gather-${kind.id}`, async () => kind.gather(await github(), scope))) ?? null;
-      }
+      const context = { step, github, env, owner, repo, pr, prd, config, pulls };
+      const first = await runRetro({ ...context, run: MERGE_RUN, kinds: kindsFor(MERGE_RUN, kinds), scope });
+      const result = { prd: prd.number, ...outcome(first) };
 
-      const sheet = await step.run('facts', () => detect({ run, pr, prd, config, pulls, records, kinds: runKinds }));
+      const laterKinds = kindsFor(FOLLOW_UP_RUN, kinds);
+      if (!followUp || laterKinds.length === 0) return result;
 
-      const narrated = await step.run('narrate', () =>
-        narrate({ sheet, prd: { title: prd.title, problem: prd.problem }, env }),
-      );
-      const guarded = await step.run('guard', () => guard({ reply: narrated.reply ?? null, sheet }));
-      const prose = guarded.prose ?? null;
-
-      const retroPath = `${prd.folder}/retro.md`;
-      const issues = await step.run('publish-issues', async () =>
-        publishIssues(await github(), { owner, repo, config, sheet, prose, retroPath }),
-      );
-
-      const record = {
-        ...sheet,
-        narration: {
-          model: narrated.model ?? null,
-          reason: prose ? null : (narrated.reason ?? 'the prose was refused'),
-          dropped: guarded.dropped ?? [],
-        },
-        issues: issues ?? {},
-      };
-      const published = await step.run('publish', async () =>
-        publishRetro(await github(), { owner, repo, config, prd, pr, record, prose }),
-      );
-
-      return { prd: prd.number, findings: sheet.findings.length, issues: Object.keys(record.issues).length, ...published };
+      await step.sleepUntil(FOLLOW_UP_STEP, followUpAt(mergedAt));
+      const later = await runRetro({
+        ...context,
+        run: FOLLOW_UP_RUN,
+        kinds: laterKinds,
+        scope: { ...scope, atMerge: first.sheet },
+        earlier: first,
+      });
+      return { ...result, followUp: outcome(later) };
     },
   );
+}
+
+/**
+ * One run of the retro, from its kinds' reads to its published PR. `earlier` is the run it follows,
+ * when there is one: its findings are numbered on from, asked about again, and published again.
+ */
+async function runRetro({ step, github, env, owner, repo, pr, prd, config, pulls, run, kinds, scope, earlier = null }) {
+  const id = (name) => (run === MERGE_RUN ? name : `${name}-${run}`);
+
+  const records = {};
+  for (const kind of kinds) {
+    records[kind.id] = (await step.run(id(`gather-${kind.id}`), async () => kind.gather(await github(), scope))) ?? null;
+  }
+
+  const before = earlier?.sheet.findings ?? [];
+  const sheet = await step.run(id('facts'), () =>
+    numberedAfter(detect({ run, pr, prd, config, pulls, records, kinds }), before.length),
+  );
+
+  // The model writes the words of the whole retro, so at day 14 it is given both runs' findings.
+  const whole = earlier ? { ...sheet, findings: [...before, ...sheet.findings] } : sheet;
+  const narrated = await step.run(id('narrate'), () =>
+    narrate({ sheet: whole, prd: { title: prd.title, problem: prd.problem }, env }),
+  );
+  const guarded = await step.run(id('guard'), () => guard({ reply: narrated.reply ?? null, sheet: whole }));
+  const prose = guarded.prose ?? earlier?.prose ?? null;
+
+  const retroPath = `${prd.folder}/retro.md`;
+  const issues = await step.run(id('publish-issues'), async () =>
+    publishIssues(await github(), { owner, repo, config, sheet, prose, retroPath }),
+  );
+
+  const record = {
+    ...sheet,
+    narration: {
+      model: narrated.model ?? null,
+      reason: guarded.prose ? null : (narrated.reason ?? 'the prose was refused'),
+      dropped: guarded.dropped ?? [],
+    },
+    issues: issues ?? {},
+  };
+  const published = await step.run(id('publish'), async () =>
+    publishRetro(await github(), { owner, repo, config, prd, pr, record, prose, earlier: earlier ? [earlier.record] : [] }),
+  );
+  return { sheet, prose, record, published };
+}
+
+/** A run's fact sheet with its findings numbered on from the `count` findings of the runs before it. */
+function numberedAfter(sheet, count) {
+  if (count === 0) return sheet;
+  return { ...sheet, findings: sheet.findings.map((finding, index) => ({ ...finding, ref: `F${count + index + 1}` })) };
+}
+
+/** What a run did, as the function returns it. */
+function outcome({ sheet, record, published }) {
+  return { findings: sheet.findings.length, issues: Object.keys(record.issues).length, ...published };
 }
 
 /**
@@ -149,4 +206,4 @@ function firstLine(reason) {
   return text.split('\n')[0] || 'unknown error';
 }
 
-export const retro = createRetro({ client: inngest, octokitFor: installationOctokit });
+export const retro = createRetro({ client: inngest, octokitFor: installationOctokit, followUp: true });
