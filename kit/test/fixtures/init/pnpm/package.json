@@ -1,0 +1,8 @@
+{
+  "name": "widgets",
+  "private": true,
+  "scripts": {
+    "test": "vitest run",
+    "quality:preflight": "pnpm lint && pnpm test"
+  }
+}
