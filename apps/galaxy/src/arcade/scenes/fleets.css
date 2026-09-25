@@ -1,0 +1,50 @@
+/* The fleets wall: the cards and the selected fleet's detail. */
+
+/* ── Fleets ──────────────────────────────────────────────────────────────── */
+
+.fleets { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; padding-top: 14px; }
+.cards { display: flex; gap: 10px; margin-top: 14px; }
+.card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  width: 104px;
+  padding: 10px 0 8px;
+  transform: skewX(-6deg);
+  border: 3px solid #0b0a26;
+  background:
+    radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1.5px) 0 0 / 5px 5px,
+    linear-gradient(170deg, #2a4cc9, #10266a);
+  box-shadow: 0 0 0 2px #4a6ae0, 4px 4px 0 #0b0a26;
+  transition: transform 120ms steps(3);
+}
+.card > * { transform: skewX(6deg); }
+.card.active {
+  transform: skewX(-6deg) translateY(-6px);
+  box-shadow: 0 0 0 3px var(--fleet), 0 0 18px var(--fleet), 4px 10px 0 #0b0a26;
+  background:
+    radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1.5px) 0 0 / 5px 5px,
+    linear-gradient(170deg, #3d68ff, #1a2170);
+}
+.card-rank { position: absolute; top: 4px; left: 8px; font-size: 7px; color: var(--yellow); }
+.card-art { padding-top: 6px; }
+.card-name { font-size: 8px; color: var(--fleet); text-shadow: 1px 1px 0 #0b0a26; }
+.card-pts { font-size: 11px; color: var(--white); font-variant-numeric: tabular-nums; }
+.fleet-detail {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 12px;
+  height: 118px;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  border-color: var(--fleet);
+}
+.fleet-motto { margin: 0 0 8px; font-size: 9px; color: var(--fleet); }
+.fleet-detail dl { display: grid; grid-template-columns: 70px 1fr 70px 1fr; gap: 4px 8px; margin: 0; align-items: center; }
+.fleet-detail dt { font-size: 7px; color: var(--dim); }
+.fleet-detail dd { margin: 0; font-family: var(--txt); font-size: 17px; line-height: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fleet-detail dt.crew-dt { grid-column: 1; }
+.fleet-detail dd.crew { grid-column: 2 / -1; white-space: normal; max-height: 2em; }
+.fleet-detail .hint { position: absolute; right: 12px; bottom: 8px; margin: 0; }
