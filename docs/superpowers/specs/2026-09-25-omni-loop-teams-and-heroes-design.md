@@ -99,8 +99,8 @@ per wound kind), so each option is a ramp swap on one material:
 | BODY | the sprite | GIRL, BOY (the silhouette and the hair shape differ) |
 | SKIN | `S` | 6 tones |
 | HAIR | `H` | 8: black, brown, auburn, blonde, ginger, silver, blue, pink |
-| SUIT | `W` (main), `N` (trim) | 8 pairs: OMNI classic (white/navy), crimson, emerald, gold, violet, black, sky, orange |
-| CAPE | new `K` | 9: none, and 8 colours |
+| SUIT | `W` (main), `N` (trim) | 8 pairs: FLEET (the fleet's colour, the default), OMNI classic (white/navy), crimson, emerald, gold, violet, black, orange |
+| CAPE | `P` (recoloured) | 9: none, and 8 colours |
 
 The presets live in `@omni/sprites` (`HERO_PRESETS`). A player's hero is stored as indices, versioned so
 presets can grow: `{ "v": 1, "body": "girl", "skin": 2, "hair": 5, "suit": 0, "cape": 3 }`. A test forges
