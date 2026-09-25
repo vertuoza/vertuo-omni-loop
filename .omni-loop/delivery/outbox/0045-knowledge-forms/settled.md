@@ -283,3 +283,143 @@ A constant: which kind `readBody` returns for a mixed body is one condition and 
 ```
 
 <!-- /omni-outbox-settled: s1-02-section-with-text-and-open-questions -->
+
+<!-- omni-outbox-settled: s2-01-front-door-page-filled-from-settings -->
+
+## s2-01-front-door-page-filled-from-settings — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-front-door-page-filled-from-settings
+prd: 45
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+The page at the entrance of the knowledge folder must say where each kind of knowledge lives, even when some of it is kept elsewhere. Should the kit ship one such page, or one for each case?
+
+## The decision, in plain words
+
+One page, whose three locations are filled in from the repository's own settings when the page is written, so it names the right folders in every case.
+
+## The options, in plain words
+
+A. One plain page, whose locations are filled in from the repository's settings when it is written.
+B. Two pages, one for knowledge kept in this folder and one pointing elsewhere; the install picks one.
+C. The entrance page is a form like the others, with sections a repository can override, read the same way.
+
+## What I had to decide
+
+The spec says `omni kb init` writes the front door's `README.md` when it is missing, "pointing at `paths.knowledge` when the registers live elsewhere", and the plan gives s2 "the front door README template" under `kit/templates/`. Neither says whether that template is a form (front matter and slots, resolved per section) or a plain page, where it sits under `kit/templates/`, or how one text points elsewhere.
+
+## What I did meanwhile
+
+`kit/templates/README.md` is plain Markdown: a provenance line, a title, an opener, and no front matter or slots. It names the three places as `{config:paths.knowledge}`, `{config:paths.adr}` and `{config:paths.playbook}`, each a single string in every config, so the same text is right whether the registers live in the front door or elsewhere. Its path mirrors the front door: `kit/templates/` is the front door, `kit/templates/playbook/` the playbook. `frontDoorTemplate()` in `kit/lib/playbook/templates.mjs` returns it unfilled; s3's writer is expected to fill it with `fillConfig` (from `kit/lib/playbook/resolve.mjs`) when it writes the file. Test: "the front door’s README names the playbook, the knowledge registers and the decision records by config" in `kit/lib/playbook/templates.test.mjs`.
+
+## What it costs to change later
+
+A constant before s3 writes the file: the template's text, its path in `templates.mjs` and one test. After s3 merges, a repository that already holds its front door page keeps it, since `omni kb init` never changes an existing file; only new installs see a change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the page should read differently when the registers live outside the front door, beyond naming that folder: the spec gives no wording for that case.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-front-door-page-filled-from-settings -->
+
+<!-- omni-outbox-settled: s2-02-bundle-hands-out-the-kit-defaults -->
+
+## s2-02-bundle-hands-out-the-kit-defaults — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-bundle-hands-out-the-kit-defaults
+prd: 45
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+The shared default pages must travel inside the one file every repository installs. How should that file carry them, and how can anyone check that its copy matches the kit's?
+
+## The decision, in plain words
+
+The installed file carries every default page and hands them out on request, so a test can prove the installed copy says exactly what the kit's own pages say.
+
+## The options, in plain words
+
+A. The installed file carries every default page and hands them out on request, and a test compares them with the kit's own pages.
+B. The installed file carries the pages but shows them only through the knowledge commands of the next slice; until then nothing checks the installed copy.
+C. The pages ship as separate files beside the installed file, which reads them from there.
+
+## What I had to decide
+
+The spec says kit defaults "travel inside the bundled `omni.mjs`", and s2's "done when" asks that "from source and from the committed bundle, the same loader returns the same template text". But no command reads a template until s3's `omni kb`, so esbuild would leave the loader out of a bundle built from `kit/bin/omni.mjs`, which is not s2's territory. The plan asks that `kit/build.mjs` keep PRD 39's bundle marker and pinned working directory; it does not say whether the bundle may export more than `main`.
+
+## What I did meanwhile
+
+`kit/build.mjs` now builds from a one-line virtual entry (esbuild `stdin`) that keeps the hashbang, re-exports `kit/bin/omni.mjs`, and exports `formTemplate` and `frontDoorTemplate` from `kit/lib/playbook/templates.mjs` beside `main`. It defines `__OMNI_TEMPLATES__` as the JSON of `readTemplates()`, the loader's own reader, as a string parsed once (an object define would add an initialiser to every bundled module). `__OMNI_BUNDLE__` and `absWorkingDir` are unchanged. Test: "from source and from kit/dist/omni.mjs alone, the same loader returns the same text" in `kit/lib/playbook/templates.test.mjs`, which copies the committed bundle alone into a temporary folder and imports it with plain Node.
+
+## What it costs to change later
+
+A constant: dropping the two exports is one line of `kit/build.mjs` and a rebuild, once s3's `omni kb show` can prove the same thing through a command; that test would then move to it. Nothing stored depends on the exports.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the committed bundle's exports are meant to stay `main` alone: PRD 39's tests assert its hashbang, its usage line and that it equals a fresh build, and nothing about its exports.
+
+```
+
+<!-- /omni-outbox-settled: s2-02-bundle-hands-out-the-kit-defaults -->
