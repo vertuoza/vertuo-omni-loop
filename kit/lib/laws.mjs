@@ -48,7 +48,11 @@ export function lawsFor(ctx) {
       return { ok: false, reason: `${bearsOn} is ambiguous: ${files.join(', ')}` };
     }
     if (ID_SHAPE.test(bearsOn)) {
-      if (source !== 'knowledge') return { ok: false, reason: `${bearsOn}: knowledge ids need laws.source: knowledge` };
+      // Whether a knowledge id *exists* is asked of the folder in every profile; whether it is a
+      // *law* (floors high) is laws.source's question alone — see floorsHigh.
+      if (!existsSync(join(ctx.root, ctx.layout.knowledgeRoot))) {
+        return { ok: false, reason: `${bearsOn}: no knowledge folder at ${ctx.layout.knowledgeRoot}` };
+      }
       return resolveId(bearsOn, { ctx }) ? { ok: true } : { ok: false, reason: `${bearsOn} names no entry in ${ctx.layout.knowledgeRoot}` };
     }
     return { ok: false, reason: `${bearsOn}: not none, an ADR-NNNN or a knowledge id` };

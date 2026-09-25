@@ -11,8 +11,8 @@
  * 2. The `prd` a spec declares agrees with its own folder's number.
  * 3. `blocked-by` names only a PRD some folder actually carries, in the inbox or already shipped
  *    (`ctx.layout.whereIs`).
- * 4. Each `areas` entry, when this repository's laws come from its knowledge folder
- *    (`ctx.config.laws.source === 'knowledge'`), names a real domain folder.
+ * 4. Each `areas` entry, whenever this repository has a knowledge folder
+ *    (`ctx.layout.knowledgeRoot`) — whatever `laws.source` says — names a real domain folder.
  * 5. The sibling `before-after.html`, when present, stays at or under the configured size cap
  *    (`ctx.config.limits.beforeAfterMaxBytes`).
  *
@@ -59,7 +59,7 @@ function violationsForFile(file, folder, text, ctx) {
     );
   }
 
-  if (ctx.config.laws.source === 'knowledge' && record.areas?.length) {
+  if (record.areas?.length && existsSync(join(ctx.root, ctx.layout.knowledgeRoot))) {
     const known = knownAreas(ctx);
     for (const area of record.areas) {
       if (!known.has(area)) {

@@ -215,6 +215,17 @@ it('accepts areas: naming knowledge domains, refuses an unknown one', () => {
   expect(found).toMatch(/nope/);
   expect(found).not.toMatch(/credits/);
 });
+it('grades areas: whenever the knowledge folder exists, whatever laws.source says', () => {
+  const found = violations({
+    [`${IN}/0042-a/spec.md`]: spec({ areas: ['credits', 'nope'] }),
+    '.omni-loop/knowledge/domains/credits/README.md': '# Credits\n',
+  });
+  expect(found).toMatch(/nope/);
+  expect(found).not.toMatch(/credits/);
+});
+it('leaves areas: ungraded when there is no knowledge folder', () => {
+  expect(violations({ [`${IN}/0042-a/spec.md`]: spec({ areas: ['nope'] }) })).not.toMatch(/nope/);
+});
 it('refuses a before-after page over the configured cap', () => {
   expect(
     violations(

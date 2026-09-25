@@ -168,3 +168,9 @@ Source: `scripts/check-outbox.mjs` @ `vertuo-ai-domain@c4a210122`.
 ## Gate
 
 `pnpm vitest run kit/lib/outbox/check-outbox.test.mjs kit/test/no-literals.test.mjs` — 29/29 pass.
+
+## Final review fixes
+
+- `bears-on` and `Became:` knowledge ids resolve through `laws.resolve` in every profile whenever
+  the knowledge folder exists (kit/lib/laws.mjs split "exists" from "is a law"; only `floorsHigh`
+  depends on `laws.source`). Test: "accepts a resolving Became: id under laws.source none".

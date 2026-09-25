@@ -24,6 +24,22 @@ describe('lawsFor', () => {
     expect(laws.resolve('BR-QUOTE-1').ok).toBe(false);
   });
 
+  it('resolves a knowledge id under every source when the knowledge folder holds it; floors it only under knowledge', () => {
+    const files = { '.omni-loop/knowledge/product/principles.md': '# Principles\n\n## P-PRODUCT-1\n\nx\n\nWhy: y\nDecided: z\nSource: PRD #3\n' };
+    for (const source of ['none', 'claudeMdInvariants']) {
+      const { ctx } = makeRepo({ config: { laws: { source } }, files });
+      const laws = lawsFor(ctx);
+      expect(laws.resolve('P-PRODUCT-1')).toEqual({ ok: true });
+      expect(laws.resolve('P-PRODUCT-9').reason).toMatch(/names no entry/);
+      expect(laws.floorsHigh('P-PRODUCT-1')).toBe(false);
+    }
+  });
+
+  it('refuses a knowledge id when there is no knowledge folder, naming the folder', () => {
+    const { ctx } = makeRepo();
+    expect(lawsFor(ctx).resolve('BR-QUOTE-1').reason).toMatch(/no knowledge folder at \.omni-loop\/knowledge/);
+  });
+
   it('refuses an ambiguous ADR number, naming both files', () => {
     const { ctx } = makeRepo({ files: { [`${ADR}/0076-a.md`]: '#', [`${ADR}/0076-b.md`]: '#' } });
     const result = lawsFor(ctx).resolve('ADR-0076');

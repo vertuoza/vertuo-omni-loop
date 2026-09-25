@@ -161,3 +161,10 @@ upstream case's name and expected outcome where its premise still holds.
 
 `pnpm vitest run kit/lib/inbox/check-inbox.test.mjs kit/test/no-literals.test.mjs` — 22/22 pass
 (21 in `check-inbox.test.mjs`, 1 in `no-literals.test.mjs`). Full `pnpm test` — 715/715 pass.
+
+## Final review fixes
+
+- `areas:` is graded whenever the knowledge folder (`ctx.layout.knowledgeRoot`) exists, whatever
+  `laws.source` says — "is a law" (laws.source) is no longer conflated with "exists" (the
+  folder). With no knowledge folder, `areas:` stays ungraded. Tests: "grades areas: whenever the
+  knowledge folder exists…", "leaves areas: ungraded when there is no knowledge folder".

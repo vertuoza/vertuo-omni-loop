@@ -384,6 +384,21 @@ describe('findOutboxViolations', () => {
     });
   });
 
+  it('accepts a resolving Became: id under laws.source none — the knowledge folder is read in every profile', () => {
+    const m = makeMarkers('omni-outbox');
+    const { ctx } = makeRepo({
+      config: { laws: { source: 'none' } },
+      files: {
+        '.omni-loop/delivery/inbox/0042-a/spec.md': 'x',
+        '.omni-loop/knowledge/product/principles.md': '## P-PRODUCT-9\n\nSomething decided.\n\nWhy: x\nDecided: y\nSource: PRD #3\n',
+        '.omni-loop/delivery/outbox/0042-a/settled.md': [
+          m.settledOpen('s1-01-x'), '## s1-01-x — agreed', '- Verdict: agreed', '- Closed: yes', '- Became: P-PRODUCT-9', m.settledClose('s1-01-x'), '',
+        ].join('\n'),
+      },
+    });
+    expect(findOutboxViolations({ ctx })).toEqual([]);
+  });
+
   describe('no open item in a shipped PRD (Task 7)', () => {
     it('refuses an open item in a shipped PRD', () => {
       const { ctx } = makeRepo({

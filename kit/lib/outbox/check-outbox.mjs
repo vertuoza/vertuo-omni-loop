@@ -9,8 +9,8 @@
  * 1. The item parses at all: well-formed front matter, the four required sections, in order, each
  *    with content. `parseOutboxItem` already names exactly which piece is wrong (which malformed
  *    field, or which section is missing).
- * 2. `bears-on` resolves — to `none`, a real ADR, or (when `ctx.config.laws.source` allows it) a
- *    real knowledge entry. An id nothing can find is a promise the item cannot keep. Delegated
+ * 2. `bears-on` resolves — to `none`, a real ADR, or a real entry in the knowledge folder
+ *    (whenever one exists, whatever `ctx.config.laws.source` says). An id nothing can find is a promise the item cannot keep. Delegated
  *    entirely to the injected `laws` (`laws.mjs`, Task 4).
  * 3. `rank` is never below the floor its `bears-on` sets. A decision bearing on an invariant or a
  *    business rule that only claims `medium` is exactly the failure `isBelowFloor` exists to
