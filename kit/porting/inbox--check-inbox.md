@@ -109,9 +109,10 @@ upstream case's name and expected outcome where its premise still holds.
     folders") — ported, rewritten onto `makeRepo`/folders (`${IN}/0042-inbox-and-planner/spec.md`,
     `${IN}/0966-agent-outbox/spec.md` in place of the flat `docs/inbox/1015-….md` /
     `docs/inbox/0966-….md` files); same outcome (`toEqual([])`).
-  - "collects violations across several files, each naming its own file" — ported, rewritten onto
-    two folders (`${IN}/0042-good/spec.md`, `${IN}/0043-bad/spec.md`); **assertion reshaped**:
-    `v.file === '…'` → `v.startsWith('…/spec.md:')`, same return-shape reason as above.
+  - "collects violations across several files, each naming its own file" (renamed "… several
+    folders, each naming its own file") — ported, rewritten onto two folders
+    (`${IN}/0042-good/spec.md`, `${IN}/0043-bad/spec.md`); **assertion reshaped**: `v.file === '…'`
+    → `v.startsWith('…/spec.md:')`, same return-shape reason as above.
   - `describe('a dependency that names no PRD is refused', …)`: both cases ported, rewritten onto
     folders; "accepts a blocked-by naming a PRD an inbox file does carry" renamed "… an inbox
     folder does carry". **Added**: "accepts a blocked-by naming a PRD that has already shipped" —
