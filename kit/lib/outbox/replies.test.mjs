@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { flatCtx } from '../../test/flat-layout.mjs';
 import { makeMarkers } from '../markers.mjs';
+import { formatNumbersMarker } from './comment.mjs';
 import { adoptItem, parseSettledEntries } from './settle.mjs';
 import {
   formatRoundComment,
@@ -81,22 +82,11 @@ function writeItem(
   return `docs/outbox/${PRD}/${id}.md`;
 }
 
-/** Mirrors upstream's own `formatNumbersMarker` (outbox-comment.mjs, not yet ported) using the
- * fixture's own `markers` — the pull request comment carries only what this module reads off it:
- * the numbering. */
-function formatNumbersMarkerFixture(numbering) {
-  const body = [...numbering]
-    .sort((a, b) => a.number - b.number)
-    .map((entry) => `${entry.number}=${entry.id}@${entry.since}`)
-    .join(',');
-  return `${markers.numbersPrefix}${body}${markers.numbersSuffix}`;
-}
-
 /** The pull request comment s2 writes, carrying only what s3 reads off it: the numbering. */
 function prComment(numbering, { id = 1 } = {}) {
   return {
     id,
-    body: `${markers.prComment}\n${formatNumbersMarkerFixture(numbering)}\n\n## Outbox questions`,
+    body: `${markers.prComment}\n${formatNumbersMarker(numbering, markers)}\n\n## Outbox questions`,
     user: { login: 'github-actions[bot]' },
     author_association: 'NONE',
     created_at: '2026-09-23T08:00:00Z',

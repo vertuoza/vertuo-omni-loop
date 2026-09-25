@@ -150,3 +150,40 @@ Source: `scripts/outbox-replies.mjs` @ `vertuo-ai-domain@c4a210122`.
 
 `pnpm vitest run kit/lib/outbox/replies.test.mjs kit/test/no-literals.test.mjs` — 44/44 pass.
 `pnpm test` — 506/506 pass (31 files).
+
+## Superseded by Task 11 (`kit/lib/outbox/comment.mjs`, `kit/porting/outbox--comment.md`)
+
+Task 11 ported `scripts/outbox-comment.mjs` to `kit/lib/outbox/comment.mjs`, which now exports the
+same five functions this module had reimplemented privately above (per that task's controller
+ruling 3: "once comment.mjs exports these, delete replies.mjs's private copies and import them from
+./comment.mjs"). Applied here:
+
+- Deleted the private, non-exported `findPrMarkerComment(comments, markers)`,
+  `parseNumbersMarker(body, markers)`, `parseRoundMarkers(comments, markers)`,
+  `openItemsForPrd(prd, { ctx })` and `adoptedEntriesForPrd(prd, { ctx })` function bodies from
+  `replies.mjs` — each was byte-identical in logic to `comment.mjs`'s own exported version (same
+  regex, same "found by content" search, same null-guarded `outboxDir` prefix). `lastReaskedAt`
+  (which called the local `parseRoundMarkers`) now calls the imported one instead; nothing else in
+  its own body changed.
+- Added `import { adoptedEntriesForPrd, findPrMarkerComment, openItemsForPrd, parseNumbersMarker,
+  parseRoundMarkers } from './comment.mjs';` in their place.
+- Dropped now-unused imports that only the deleted private copies needed: `ADOPTED_VERDICT` and
+  `parseSettledEntries` from `./settle.mjs` (still imports `AnswerSchema`, `judgeAnswer`,
+  `renderSettledEntry`, `settleItem`), and `outboxItemFiles` from `./outbox.mjs` (still imports
+  `SETTLED_FILE` for `appendObjection`, and re-added `parseOutboxItem`, still needed by
+  `answerableQuestions`); `readRepoFile` from `../check-report.mjs` is no longer imported at all
+  (its only two call sites were inside the two deleted functions).
+- **No import cycle**: `comment.mjs` does not import `replies.mjs`, directly or transitively (it
+  imports `outbox.mjs`, `settle.mjs`, `status.mjs`, `check-decision-coverage.mjs`,
+  `check-report.mjs`, `commands.mjs` — none of which import `replies.mjs` either).
+- `replies.test.mjs`: added `import { formatNumbersMarker } from './comment.mjs';`; deleted the
+  test-only `formatNumbersMarkerFixture(numbering)` helper (a hand-rebuilt copy of the round-trip
+  algorithm, written only because `comment.mjs` did not exist yet) and its one call site
+  (`prComment`'s body) now calls the real `formatNumbersMarker(numbering, markers)` instead.
+  **Assertion changes: none** — the real function produces byte-identical output to the fixture
+  copy it replaces (both build `` `${markers.numbersPrefix}<n>=<id>@<since>,… ${markers.
+  numbersSuffix}` ``).
+
+Gate after this change: `pnpm vitest run kit/lib/outbox/replies.test.mjs
+kit/lib/outbox/comment.test.mjs kit/test/no-literals.test.mjs` — 164/164 pass. Full `pnpm test` —
+626/626 pass (32 files).

@@ -39,9 +39,15 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/outbox-replies.mjs — changes in kit/porting/outbox--replies.md.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { readRepoFile } from '../check-report.mjs';
-import { ADOPTED_VERDICT, AnswerSchema, judgeAnswer, parseSettledEntries, renderSettledEntry, settleItem } from './settle.mjs';
-import { SETTLED_FILE, outboxItemFiles, parseOutboxItem } from './outbox.mjs';
+import {
+  adoptedEntriesForPrd,
+  findPrMarkerComment,
+  openItemsForPrd,
+  parseNumbersMarker,
+  parseRoundMarkers,
+} from './comment.mjs';
+import { AnswerSchema, judgeAnswer, renderSettledEntry, settleItem } from './settle.mjs';
+import { SETTLED_FILE, parseOutboxItem } from './outbox.mjs';
 
 /** The `author_association` values whose replies count: people who can write to the repository. */
 export const WRITER_ASSOCIATIONS = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
@@ -144,57 +150,6 @@ function chronological(comments) {
   return [...comments].sort((a, b) => time(a.created_at) - time(b.created_at) || a.id - b.id);
 }
 
-/** The one comment carrying the pull-request outbox marker, among the feature pull request's
- * comments — or `null` when none does. Never assumes it is the newest comment: it is found by
- * content, not by position. */
-function findPrMarkerComment(comments, markers) {
-  if (!Array.isArray(comments)) return null;
-  return (
-    comments.find(
-      (comment) => typeof comment.body === 'string' && comment.body.includes(markers.prComment),
-    ) ?? null
-  );
-}
-
-/** The numbering a pull request comment body carries — `[]` when it carries no marker (no comment
- * yet) or an empty one: `<number>=<item id>@<ISO time first listed>`, comma-separated. */
-function parseNumbersMarker(body, markers) {
-  if (typeof body !== 'string') return [];
-  const match = body.match(markers.numbersRe);
-  if (!match) return [];
-  const value = match[1].trim();
-  if (value === '') return [];
-  return value.split(',').map((entry) => {
-    const [numberPart, rest] = entry.split(/=(.*)/s);
-    const at = rest.lastIndexOf('@');
-    return { number: Number(numberPart), id: rest.slice(0, at), since: rest.slice(at + 1) };
-  });
-}
-
-/**
- * The latest round each question number was re-asked in — read off every comment that carries a
- * round marker. A number a later round also re-asks keeps only the higher round; a number no round
- * comment ever names is absent from the map, never zero. Pure.
- *
- * @returns {Map<number, number>}
- */
-function parseRoundMarkers(comments, markers) {
-  const rounds = new Map();
-  for (const comment of comments ?? []) {
-    if (typeof comment.body !== 'string') continue;
-    const match = comment.body.match(markers.roundRe);
-    if (!match) continue;
-    const round = Number(match[1]);
-    for (const numberText of match[2].split(',')) {
-      if (!numberText) continue;
-      const number = Number(numberText);
-      const current = rounds.get(number);
-      if (current === undefined || round > current) rounds.set(number, round);
-    }
-  }
-  return rounds;
-}
-
 /**
  * The latest time each question number was re-asked by a round comment — read one comment at a
  * time, so the round marker has one parser.
@@ -211,39 +166,6 @@ function lastReaskedAt(comments, markers) {
     }
   }
   return { at, highestRound };
-}
-
-/**
- * Every open item file for one PRD, parsed — `outboxItemFiles({ ctx })` scoped to the PRD's own
- * outbox directory. A PRD with no folder at all (`ctx.layout.outboxDir(prd)` is `null`) has nothing
- * open. A file that fails to parse is skipped rather than thrown: this reader reports what it can
- * read; `check-outbox.mjs` is what refuses a malformed item, on a different schedule.
- */
-function openItemsForPrd(prd, { ctx }) {
-  const outboxDir = ctx.layout.outboxDir(prd);
-  if (outboxDir === null) return [];
-  const prefix = `${outboxDir}/`;
-  const items = [];
-  for (const file of outboxItemFiles({ ctx })) {
-    if (!file.startsWith(prefix)) continue;
-    const parsed = parseOutboxItem(readRepoFile(ctx, file), { file });
-    if (parsed.ok) items.push(parsed.item);
-  }
-  return items;
-}
-
-/**
- * The PRD's adopted items: the settled entries whose LATEST verdict is `adopted` — an adopted item
- * someone has since objected to carries a later `drifted` entry and is not one.
- */
-function adoptedEntriesForPrd(prd, { ctx }) {
-  const outboxDir = ctx.layout.outboxDir(prd);
-  if (outboxDir === null) return [];
-  const settledFile = `${outboxDir}/${SETTLED_FILE}`;
-  if (!existsSync(`${ctx.root}/${settledFile}`)) return [];
-  return parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers).filter(
-    (entry) => entry.verdict === ADOPTED_VERDICT,
-  );
 }
 
 /**
