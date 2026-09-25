@@ -1174,3 +1174,239 @@ Adding a server-side sign-out later is one new contract call, one route and a fe
 ```
 
 <!-- /omni-outbox-settled: s3-03-signout-forgets-on-this-computer -->
+
+<!-- omni-outbox-settled: s5-01-where-this-repository-asks -->
+
+## s5-01-where-this-repository-asks — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-where-this-repository-asks
+prd: 71
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+This repository must name the address of the page its questions go to, but that address is written nowhere here and could not be checked from this computer. Which address should it name?
+
+## The decision, in plain words
+
+It names the address the hosting service gives the page's project by default. A person checks it once against the real address, and corrects it if the page lives elsewhere.
+
+## The intro, for fun
+
+A letter needs an address, and this envelope was sealed before anyone read the doorplate.
+
+## The punchline, for fun
+
+So it goes to the likeliest door, with a note to check the number.
+
+## The options, in plain words
+
+A. Name the address the hosting service gives the project by default, and have a person check it, the option built.
+B. Leave the address empty, so ask mode stays off in this repository until a person fills it in.
+C. Name a custom address under the company's own domain, chosen now.
+
+## What I had to decide
+
+The spec: "this repository sets `ask.url` to the galaxy's production URL". No file in the repository names that URL: `apps/galaxy/vercel.json` gives only the region, and the deploy steps in `apps/galaxy/README.md` write it as `https://<production host>`. The deployed app could not be reached from this container either (the egress proxy refuses `*.vercel.app`).
+
+## What I did meanwhile
+
+`.omni-loop/config.yml` sets `ask.url: https://vertuo-omni-loop-galaxy.vercel.app`, the default production domain Vercel gives the project `vertuo-omni-loop-galaxy` (the name the Vercel bot's comments on this PRD's sub-PRs give it, in team `vertuoza-a88dca1a`), with a comment saying so. Nothing in the kit depends on the value. A sign-in is kept under the host of `ask.url`, so after a correction each person runs `omni signin` once more.
+
+## What it costs to change later
+
+One line of `.omni-loop/config.yml`. A sign-in kept under a wrong host is simply never read again.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The galaxy project's real production domain: Vercel gives `<project>.vercel.app` only when it is free, else a suffixed one, and a custom domain may be attached.
+- (author) Whether the production Supabase redirect allow-list and the Google sign-in already accept this host for `/ask/signin` and `/ask/<id>/callback`.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-where-this-repository-asks -->
+
+<!-- omni-outbox-settled: s5-02-switching-when-the-page-is-away -->
+
+## s5-02-switching-when-the-page-is-away — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-switching-when-the-page-is-away
+prd: 71
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+Turning ask mode on or off talks to the page's server, which may be unreachable or may refuse the sign-in. What should each do then?
+
+## The decision, in plain words
+
+Turning it on changes nothing unless a new session was opened, so a session already on stays on. Turning it off always stops sending questions to the page from this computer, and says so when the page could not be told.
+
+## The intro, for fun
+
+Flipping a switch is easy, until the wire on the far end goes quiet.
+
+## The punchline, for fun
+
+Now the near side always obeys, and the switch admits when the far side did not hear.
+
+## The options, in plain words
+
+A. Turning on changes nothing unless a new session opened, and turning off always works on this computer with a warning, the option built.
+B. Turning off fails too when the page cannot be told, and the mode stays on until it can.
+C. Turning on closes the old session before opening the new one, so two are never open at once.
+
+## What I had to decide
+
+The spec: `off` "closes the session and deletes the file", and a second `on` "replaces the first session and closes it". It does not say what either does when a call fails, in which order a second `on` opens and closes, what `off` does when `ask.url` is null or names another host than the session's, what the title is on a detached HEAD or without a repository slug, nor what `/omni:ask` does when the computer has no sign-in.
+
+## What I did meanwhile
+
+`turnOn` in `kit/lib/ask/mode.mjs` opens the new session first; only once it has an id and a link does it write `ask.json` (and clear `ask-round.json`), then close the session it replaced. When opening fails (unreachable, a 401 the refresh cannot cure, a 403), nothing changes and `omni ask on` exits 1 with one line, naming `omni signin` for a missing or refused sign-in. `turnOff` tries to close the session, then deletes `ask.json` and `ask-round.json` whatever happened: when the close failed, or `ask.url` is null or names another host, `omni ask off` still prints `off` and exits 0, with one stderr line saying the session was left open and closes by itself after 12 hours without a call. A 404 on close counts as closed. `omni ask status` reads only the checkout, as the hooks do, and calls nothing. The title is `<repo.slug, else the folder's name> · <branch, else the short commit>`, cut at 200 characters (the server's limit). `/omni:ask on`, told to sign in, asks the person to run `omni signin` themselves and never runs it for them, since it opens a browser and waits.
+
+## What it costs to change later
+
+A few lines in `kit/lib/ask/mode.mjs` and `kit/plugin/skills/ask/SKILL.md`, and their tests; nothing stored depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a person would rather see `omni ask off` fail when the page could not be told, since the page then shows the session open for up to 12 hours.
+- (author) Whether `omni ask status` should ask the server, so that a session closed on the page reads as off at once.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-switching-when-the-page-is-away -->
+
+<!-- omni-outbox-settled: s5-03-a-readme-for-the-kit -->
+
+## s5-03-a-readme-for-the-kit — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-a-readme-for-the-kit
+prd: 71
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+The plan asks for one line about ask mode in the kit's own readme, but the kit had no readme. Where should the line go?
+
+## The decision, in plain words
+
+A short readme for the kit was written: one paragraph on what the kit is, then the paragraph on ask mode. The repository's front page is unchanged.
+
+## The intro, for fun
+
+Adding a line to a book that was never printed takes a little extra paper.
+
+## The punchline, for fun
+
+So the book got a cover, one page, and exactly that line.
+
+## The options, in plain words
+
+A. Write a short readme for the kit, holding the line, the option built.
+B. Put the line on the repository's front page instead, outside this slice's ground.
+C. Leave the line out until the kit has a fuller readme.
+
+## What I had to decide
+
+The spec's scope names "a line in the kit README" and the plan gives `kit/README.md` to s5, but no `kit/README.md` exists on the feature branch or on `main`. The only README is the repository's own `README.md`, outside this slice's territory, whose table names `kit/` "the delivery kit (`omni` CLI)".
+
+## What I did meanwhile
+
+Created `kit/README.md`: one paragraph on what the kit is (the `omni` CLI, shipped bundled as `kit/dist/omni.mjs`, and the `omni` plugin's skills and hooks, reading everything specific to a repository from its `.omni-loop/config.yml`), then one on ask mode (`omni signin` once per computer, `/omni:ask on` prints the page's link, `/omni:ask off` turns it off, `ask.url` null by default, and the terminal takes over whenever the page cannot answer). `kit/test/no-game-words.test.mjs` scans it like every other non-test file under `kit/`.
+
+## What it costs to change later
+
+Deleting one file, or moving its ask mode paragraph to the repository's front page.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the plan meant the repository's front page, or expected a kit readme to exist already.
+
+```
+
+<!-- /omni-outbox-settled: s5-03-a-readme-for-the-kit -->
