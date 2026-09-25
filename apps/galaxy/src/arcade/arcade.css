@@ -130,7 +130,7 @@ button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
   inset: 0;
   pointer-events: none;
   background:
-    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.13) 0 1px, transparent 1px 3px),
     radial-gradient(ellipse at center, transparent 58%, rgba(0, 0, 0, 0.55) 100%);
   mix-blend-mode: multiply;
 }
@@ -548,6 +548,7 @@ button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
 .fleet-detail dl { display: grid; grid-template-columns: 70px 1fr 70px 1fr; gap: 4px 8px; margin: 0; align-items: center; }
 .fleet-detail dt { font-size: 7px; color: var(--dim); }
 .fleet-detail dd { margin: 0; font-family: var(--txt); font-size: 17px; line-height: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fleet-detail dt.crew-dt { grid-column: 1; }
 .fleet-detail dd.crew { grid-column: 2 / -1; white-space: normal; max-height: 2em; }
 .fleet-detail .hint { position: absolute; right: 12px; bottom: 8px; margin: 0; }
 

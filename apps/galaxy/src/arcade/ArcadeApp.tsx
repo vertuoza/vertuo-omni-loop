@@ -186,7 +186,7 @@ export function ArcadeApp({ view }: { view: GalaxyView }) {
     if (!el) return;
     const fit = () => {
       const { width, height } = el.getBoundingClientRect();
-      const s = Math.min(width / (W * 2), Math.max(height, 200) / (H * 2));
+      const s = Math.min(width / (W), Math.max(height, 200) / (H));
       setScale(Math.max(0.3, s));
     };
     fit();
@@ -229,7 +229,7 @@ export function ArcadeApp({ view }: { view: GalaxyView }) {
       <aside className="side-art side-left" aria-hidden="true">
         {['beaver', 'octopod', 'picsou'].map((t, i) => (
           <div key={t} className="side-card" style={{ ['--tilt' as string]: `${i % 2 ? 3 : -3}deg`, ['--fleet' as string]: fleet(t).color }}>
-            <Sprite name={fleet(t).sprite} scale={5} />
+            <Sprite name={fleet(t).sprite} scale={2} animate />
             <span>{fleet(t).label}</span>
           </div>
         ))}
@@ -242,8 +242,8 @@ export function ArcadeApp({ view }: { view: GalaxyView }) {
         </header>
 
         <div className="screen-slot" ref={slotRef}>
-          <div className="bezel" style={{ width: W * 2 * scale + 24, height: H * 2 * scale + 24 }}>
-            <div className="screen-fit" style={{ width: W * 2 * scale, height: H * 2 * scale }}>
+          <div className="bezel" style={{ width: W * scale + 24, height: H * scale + 24 }}>
+            <div className="screen-fit" style={{ width: W * scale, height: H * scale }}>
               <div className={`screen scene-${ui.scene}`} style={{ transform: `scale(${scale})` }}>
                 <canvas
                   ref={canvasRef}
@@ -293,12 +293,12 @@ export function ArcadeApp({ view }: { view: GalaxyView }) {
 
       <aside className="side-art side-right" aria-hidden="true">
         <div className="side-card side-omni" style={{ ['--tilt' as string]: '2deg', ['--fleet' as string]: '#a45cff' }}>
-          <Sprite name="omni" scale={5} />
+          <Sprite name="omni" scale={2} animate />
           <span>OMNI-MAN</span>
         </div>
         {['cia', 'invincible-team'].map((t, i) => (
           <div key={t} className="side-card" style={{ ['--tilt' as string]: `${i % 2 ? 3 : -3}deg`, ['--fleet' as string]: fleet(t).color }}>
-            <Sprite name={fleet(t).sprite} scale={5} />
+            <Sprite name={fleet(t).sprite} scale={2} animate />
             <span>{fleet(t).label}</span>
           </div>
         ))}

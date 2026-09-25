@@ -4,12 +4,18 @@ The web UI of the game layer: a retro arcade cabinet that shows the galaxy. Ever
 every slice a zone, every open question or bug an Entropy unit on its surface. View only for now;
 login comes later.
 
-- 320×180 game pixels drawn on a canvas and scaled up with hard pixel edges (GBA style). Text sits on
-  top in DOM at 2×, so it stays crisp and readable by screen readers.
-- Hand-placed sprites (`packages/sprites`): OmniMan in the navy-and-white suit, the five fleets
-  (beaver, octopod, picsou, cia, invincible-team), Entropy recoloured per wound kind, icons.
-- Planets are procedural: a dithered, lit, rotating sphere per PRD whose surface greens in patches as
-  zones are secured. Lost planets turn to ash, locked ones to stone, cross-sector ones get a ring.
+- 640×360 game pixels drawn on a canvas and scaled up by whole numbers with hard pixel edges (late
+  GBA detail). Text sits on top in DOM on the same grid, so it stays crisp and readable by screen
+  readers.
+- Sprites (`packages/sprites`) are laid out as material shapes and finished by a forge
+  (`forge.mjs`): a 4-tone ramp per material lit from the top left, and coloured outlines (the
+  material's darkest tone on the lit side, near-black on the shadow side). Heroes are 32×32
+  (OmniMan 32×48) with two idle frames: OmniMan in the navy-and-white suit, the five fleets
+  (beaver, octopod, picsou, cia, invincible-team), Entropy (24×24) recoloured per wound kind, 16×16 icons.
+- Planets are procedural: a dithered, lit, rotating sphere per PRD with oceans, shallows, forests,
+  ice caps, drifting clouds, a five-band terminator and an atmosphere glow. The surface greens in
+  patches as zones are secured; Entropy veins glow on barren ground. Lost planets turn to ash and
+  embers, locked ones to stone, cross-sector ones get a ring.
 
 ## Screens
 

@@ -1,6 +1,6 @@
 'use client';
 import type { GalaxyView, Planet, WoundKind } from '@omni/galaxy';
-import { WOUND_TINT } from '@omni/sprites';
+import { woundTint } from '@omni/sprites';
 import { Sprite } from './Sprite';
 import { age, fleet, ordinal, ROMAN, shortDate, STATE_LOOK, WOUND_LOOK } from './fleets';
 import { W, type MapSlot, type SceneName } from './scenes';
@@ -35,7 +35,7 @@ function SourceChip({ view }: { view: GalaxyView }) {
     : <span className="source">DEMO LEDGER · FICTIONAL DATA</span>;
 }
 
-const tint = (kind: WoundKind) => WOUND_TINT[kind];
+const tint = (kind: WoundKind) => woundTint(kind);
 
 // ── Boot & title ─────────────────────────────────────────────────────────────
 
@@ -152,7 +152,7 @@ export function MenuOverlay({ view, index, onPick }: { view: GalaxyView; index: 
 
 export function MapOverlay({ view, layout, sel, onLand }: { view: GalaxyView; layout: MapSlot[]; sel: number; onLand: () => void }) {
   const p = view.planets[sel];
-  const colW = (W * 2) / Math.max(1, view.sectors.length);
+  const colW = W / Math.max(1, view.sectors.length);
   const slot = layout.find((s) => s.index === sel);
   return (
     <div className="map">
@@ -167,7 +167,7 @@ export function MapOverlay({ view, layout, sel, onLand }: { view: GalaxyView; la
         </span>
       ))}
       {slot && p && (
-        <span className="map-tag" style={{ left: slot.x * 2, top: (slot.y + slot.r) * 2 + 10 }}>#{p.prd}</span>
+        <span className="map-tag" style={{ left: slot.x, top: slot.y + slot.r + 12 }}>#{p.prd}</span>
       )}
       {p ? (
         <section className="dialog" aria-live="polite">
@@ -178,7 +178,7 @@ export function MapOverlay({ view, layout, sel, onLand }: { view: GalaxyView; la
           </div>
           <div className="dialog-row small">
             <span className="fleet-tag" style={{ color: fleet(p.ownerTeam).color }}>
-              <Sprite name={fleet(p.ownerTeam).sprite} scale={1} /> {fleet(p.ownerTeam).label}
+              <Sprite name={fleet(p.ownerTeam).sprite} scale={0.5} /> {fleet(p.ownerTeam).label}
             </span>
             <span>CLASS {ROMAN[p.class]}{p.crossSector ? ' · CROSS-SECTOR' : ''}</span>
             <span>THREAT <Pips value={p.threat} label="Threat" /></span>
@@ -209,7 +209,7 @@ function StatusTab({ p, view }: { p: Planet; view: GalaxyView }) {
       {p.crossSector && (<><dt>RING</dt><dd>CROSS-SECTOR · ×1.25</dd></>)}
       <dt>REGIONS</dt><dd className="wrap">{p.regions.length ? p.regions.join(' · ') : 'UNSURVEYED'}</dd>
       <dt>CAPTAIN</dt><dd>{p.captain ? `@${p.captain}` : '—'}</dd>
-      <dt>FLEET</dt><dd style={{ color: owner.color }}><Sprite name={owner.sprite} scale={1} /> {owner.label}</dd>
+      <dt>FLEET</dt><dd style={{ color: owner.color }}><Sprite name={owner.sprite} scale={0.5} /> {owner.label}</dd>
       <dt>EXPEDITION</dt><dd>{p.expeditions.length ? p.expeditions.map((l) => `@${l}`).join(' ') : 'NONE YET'}</dd>
       {p.rescuers.length > 0 && (<><dt>RESCUERS</dt><dd>{p.rescuers.map((r) => `@${r.login}`).join(' ')}</dd></>)}
       {blockers.length > 0 && (<><dt>BLOCKED BY</dt><dd className="warn">{blockers.map((b, i) => b ? `#${b.prd} ${b.title}` : `#${p.blockers[i]}`).join(', ')}</dd></>)}
@@ -239,7 +239,7 @@ function ZonesTab({ p }: { p: Planet }) {
           <div className="wave-tiles">
             {p.zones.filter((z) => (z.wave ?? 0) === w).map((z) => (
               <span key={`${z.region}:${z.id}`} className={`tile tile-${z.state}`} title={`${z.id} · ${z.region} · ${ZONE_ICON[z.state].label}${z.contributor ? ` · @${z.contributor}` : ''}`}>
-                <Sprite name={ZONE_ICON[z.state].sprite} scale={2} />
+                <Sprite name={ZONE_ICON[z.state].sprite} scale={1} animate={z.state !== 'secured'} />
                 <span className="tile-id">{z.id}</span>
                 {z.team && <span className="tile-team" style={{ background: fleet(z.team).color }} />}
               </span>
@@ -248,7 +248,7 @@ function ZonesTab({ p }: { p: Planet }) {
         </div>
       ))}
       <p className="legend">
-        {Object.entries(ZONE_ICON).map(([k, v]) => <span key={k}><Sprite name={v.sprite} scale={1} /> {v.label}</span>)}
+        {Object.entries(ZONE_ICON).map(([k, v]) => <span key={k}><Sprite name={v.sprite} scale={0.5} /> {v.label}</span>)}
       </p>
       <p className="legend">SEALED ZONES APPEAR HERE WHEN THEIR BLOCKERS MERGE.</p>
     </div>
@@ -261,7 +261,7 @@ function EntropyTab({ p, view }: { p: Planet; view: GalaxyView }) {
     <ul className="wounds">
       {p.openWounds.slice(0, 6).map((w) => (
         <li key={w.id}>
-          <Sprite name="entropy" scale={2} tint={tint(w.kind)} />
+          <Sprite name="entropy" scale={1} tint={tint(w.kind)} animate />
           <span className="wound-name" style={{ color: WOUND_LOOK[w.kind].color }}>{WOUND_LOOK[w.kind].name}</span>
           <span className="wound-where">{w.region ?? ''}</span>
           <span className="wound-age">{age(w.ageHours)}</span>
@@ -328,7 +328,7 @@ export function FleetsOverlay({ view, index, onPick }: { view: GalaxyView; index
           return (
             <button key={team.name} type="button" className={`card ${i === index ? 'active' : ''}`} style={{ ['--fleet' as string]: f.color }} onClick={() => onPick(i)}>
               <span className="card-rank">{ordinal(team.rank)}</span>
-              <span className="card-art"><Sprite name={f.sprite} scale={4} /></span>
+              <span className="card-art"><Sprite name={f.sprite} scale={2} animate={i === index} /></span>
               <span className="card-name">{f.label}</span>
               <span className="card-pts">{team.points}</span>
             </button>
@@ -344,7 +344,7 @@ export function FleetsOverlay({ view, index, onPick }: { view: GalaxyView; index
             <dt>STREAK</dt><dd>{t.streak}</dd>
             <dt>DISTRESS</dt><dd className={t.inDistress ? 'warn' : ''}>{t.inDistress}</dd>
             <dt>ENTROPY</dt><dd className={t.openWounds ? 'warn' : ''}>{t.openWounds}</dd>
-            <dt>CREW</dt><dd className="crew">{t.members.length ? t.members.map((m) => `@${m}`).join(' ') : '—'}</dd>
+            <dt className="crew-dt">CREW</dt><dd className="crew">{t.members.length ? t.members.map((m) => `@${m}`).join(' ') : '—'}</dd>
           </dl>
           <p className="hint">A · SHOW THEIR PLANETS · B · MENU</p>
         </section>
@@ -367,7 +367,7 @@ export function HeroesOverlay({ view }: { view: GalaxyView }) {
             <tr key={h.name} className={`rank-${h.rank}`}>
               <td>{ordinal(h.rank)}</td>
               <td>{h.name.toUpperCase()}</td>
-              <td style={{ color: fleet(h.team).color }}><Sprite name={fleet(h.team).sprite} scale={1} /> {fleet(h.team).label}</td>
+              <td style={{ color: fleet(h.team).color }}><Sprite name={fleet(h.team).sprite} scale={0.5} /> {fleet(h.team).label}</td>
               <td>{h.points}</td>
             </tr>
           ))}
@@ -391,10 +391,10 @@ export function BriefingOverlay({ view }: { view: GalaxyView }) {
         <section>
           <h3 className="gold">EARN</h3>
           <ul>
-            <li><Sprite name="flag" scale={2} /> SECURE A ZONE <b>+{r.zoneSecured}</b></li>
-            <li><Sprite name="beacon" scale={2} /> RESCUE ANOTHER FLEET <b>+{r.rescue}</b></li>
-            <li><Sprite name="star" scale={2} /> FLEET TERRAFORMS <b>+{r.terraformOwner} × CLASS</b></li>
-            <li><Sprite name="ship" scale={2} /> EXPEDITION ON IT <b>+{r.terraformExpedition}</b></li>
+            <li><Sprite name="flag" scale={1} /> SECURE A ZONE <b>+{r.zoneSecured}</b></li>
+            <li><Sprite name="beacon" scale={1} /> RESCUE ANOTHER FLEET <b>+{r.rescue}</b></li>
+            <li><Sprite name="star" scale={1} /> FLEET TERRAFORMS <b>+{r.terraformOwner} × CLASS</b></li>
+            <li><Sprite name="ship" scale={1} /> EXPEDITION ON IT <b>+{r.terraformExpedition}</b></li>
             <li className="note">ZONE SECURED AT NIGHT ×{r.nightShiftMultiplier} · ENTROPY CLEARED FOR ANOTHER FLEET ×{r.crossTeamMultiplier}</li>
           </ul>
         </section>
@@ -403,7 +403,7 @@ export function BriefingOverlay({ view }: { view: GalaxyView }) {
           <ul>
             {kinds.map((k) => (
               <li key={k}>
-                <Sprite name="entropy" scale={1} tint={tint(k)} />
+                <Sprite name="entropy" scale={0.5} tint={tint(k)} />
                 <span style={{ color: WOUND_LOOK[k].color }}>{WOUND_LOOK[k].name}</span>
                 <b>+{r.woundClose[k]} / −{r.decayPerTranche[k]}</b>
               </li>
