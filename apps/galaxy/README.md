@@ -116,6 +116,28 @@ true` on both providers in `supabase/config.toml`, and restart the stack. Both c
 
 `pnpm galaxy:seed` regenerates `supabase/seed.sql` from the demo world, dated now.
 
+### Screenshots of every scene
+
+`pnpm galaxy:shots` walks the demo galaxy from the keyboard in a headless Chromium, from the boot
+through the joining flow to every screen of the menu, and saves a screenshot of each scene (the
+title's three phases and the planet's four tabs each on their own) at three sizes: 393×700 upright
+touch (an iPhone with Safari's bars), 852×393 sideways touch and 1440×900 with a mouse.
+
+```bash
+pnpm --filter @omni/galaxy-app exec playwright install chromium   # once: Playwright's Chromium
+pnpm galaxy:dev          # in one terminal
+pnpm galaxy:shots        # in another: apps/galaxy/shots/<width>x<height>/, which git ignores
+```
+
+- It prints every text element in the screen that renders below 8 CSS px at 393×700, with its
+  scene. The list is a report, not a failure.
+- Each screenshot is taken at the same moment of its scene on every run (the page's clock is
+  Playwright's), so two runs can be compared screen by screen. Only the demo galaxy's own dates
+  move, since it is dated now.
+- The demo guest always has a `@vertuoza.com` account. To reach the "wrong cartridge" screen, the
+  script makes it an account from another domain, in the browser only.
+- Without `pnpm galaxy:dev` running, it stops and says so. `pnpm test` never starts it.
+
 ## Deploy to production
 
 Supabase holds the game's data and is its source of truth; GitHub Actions migrates it and appends
