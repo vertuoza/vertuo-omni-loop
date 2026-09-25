@@ -1,10 +1,18 @@
 ---
 form: architecture
 form-version: 1
-state: blank
+state: filled
 points-to: null
-evidence: []
-terraformed: null
+evidence:
+  - pnpm-workspace.yaml@ffd7b91
+  - README.md@7eaaaa0
+  - apps/omni-app/README.md@ed64d66
+  - game/README.md@1654a62
+  - kit/build.mjs@3cd94b3
+  - kit/test/no-literals.test.mjs@2c26671
+  - kit/test/dist.test.mjs@e236e83
+  - .omni-loop/bin/omni.mjs@f3aa720
+terraformed: 2026-09-25
 ---
 
 # Architecture
@@ -12,10 +20,29 @@ terraformed: null
 Use this page when deciding where code goes, and what it may depend on.
 
 ## Layout
-<!-- slot: layout · required -->
+<!-- slot: layout · required · by: terraform · verified: 2026-09-25 -->
+A pnpm workspace (`pnpm-workspace.yaml`): the root package holds the kit (`kit/`) and the game
+layer (`game/`); `apps/*` and `packages/*` hold the rest. The README's layout table names every
+workspace package but one: `apps/omni-app`, the GitHub App that posts the outbox check.
+
+- `kit/`: the `omni` CLI's source in `kit/bin` and `kit/lib`, the kit defaults in `kit/templates`,
+  the plugin's skills in `kit/plugin`, and the committed bundle `kit/dist/omni.mjs`, which
+  `pnpm kit:build` writes. This repository's own `.omni-loop/bin/omni.mjs` is a shim onto the
+  source, not the bundle, so the skills run today's code here.
+- `.omni-loop/`: this repository's own loop: its config, its delivery folder (each PRD's spec,
+  plan and outbox) and this knowledge.
 
 ## Boundaries
-<!-- slot: boundaries · required -->
+<!-- slot: boundaries · required · by: terraform -->
+- The game only reads the delivery layer: deleting `game/` and `.github/workflows/game.yml`
+  removes it without touching delivery (README.md). It writes to no repository; its only outputs
+  are the ledger in Supabase, one weekly comment and a backup (game/README.md).
+- The kit holds no repository literal, and a kit default names no package manager:
+  `kit/test/no-literals.test.mjs` scans `kit/lib`, `kit/bin`, `kit/plugin` and `kit/templates`.
+- `kit/dist/omni.mjs` is only ever a build of the source: `kit/test/dist.test.mjs` fails when it
+  differs from a fresh build.
+- The GitHub App reuses the kit's gate unchanged and never runs repository code: it reads only YAML
+  and Markdown, through the kit's schemas (apps/omni-app/README.md).
 
 ## Patterns
 <!-- slot: patterns · optional -->
