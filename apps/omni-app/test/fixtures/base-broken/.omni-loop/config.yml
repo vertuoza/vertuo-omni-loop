@@ -1,0 +1,4 @@
+kit: 1
+labels:
+  outboxGo: outbox:go
+  shipIt: yes
