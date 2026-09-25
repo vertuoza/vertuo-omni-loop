@@ -7,6 +7,9 @@ evidence:
   - package.json@39e6355
   - vitest.config.mjs@7a03f3b
   - kit/test/fixture.mjs@2b8d897
+  - kit/bin/kb.test.mjs@aef9a95
+  - kit/lib/playbook/forms.test.mjs@2d0d280
+  - apps/omni-app/src/outbox-check/end-to-end.test.mjs@6d46f08
   - README.md@7eaaaa0
   - game/README.md@1654a62
   - apps/omni-app/README.md@ed64d66
