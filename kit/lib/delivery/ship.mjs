@@ -31,6 +31,9 @@ export function planShip(ctx, prd, { files, read }) {
   const rewrites = [];
   for (const file of files) {
     if (!REWRITTEN.test(file) || basename(file) === SETTLED_FILE) continue;
+    // A file git tracks but the working tree no longer holds (a settled item not yet committed)
+    // has nothing to rewrite.
+    if (!existsSync(join(ctx.root, file))) continue;
     const before = read(file);
     let after = before.split(where.dir).join(shipped);
     if (hasOutbox) after = after.split(outbox).join(`${shipped}/outbox`);
@@ -39,7 +42,21 @@ export function planShip(ctx, prd, { files, read }) {
   return { ok: true, moves, rewrites };
 }
 
+/** Thrown when the delivery folder holds uncommitted changes — the user's to commit, not a refusal
+ * of the PRD itself. */
+export class DirtyDeliveryError extends Error {
+  constructor(delivery) {
+    super(`uncommitted changes under ${delivery} — commit the settle first`);
+    this.name = 'DirtyDeliveryError';
+  }
+}
+
 export function applyShip(ctx, prd, { exec = execFileSync } = {}) {
+  // Ship moves folders with git mv and never commits: it runs on a committed delivery folder, as
+  // yolo-fix commits the settle before shipping.
+  const delivery = ctx.config.paths.delivery;
+  const dirty = exec('git', ['status', '--porcelain', '--', delivery], { cwd: ctx.root, encoding: 'utf8' });
+  if (String(dirty ?? '').trim()) throw new DirtyDeliveryError(delivery);
   const read = (file) => readFileSync(join(ctx.root, file), 'utf8');
   const plan = planShip(ctx, prd, { files: trackedFiles(ctx), read });
   if (!plan.ok) throw new Error(`Cannot ship PRD ${Number(prd)}:\n${plan.reasons.map((r) => `  - ${r}`).join('\n')}`);

@@ -134,6 +134,14 @@ describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors }) =>
     ).toBe(0);
     expect(await main(['status', '42'], { cwd: root, ...quiet() })).toBe(0);
 
+    // Ship refuses an uncommitted settle — one line, exit 2 — rather than crash on the item file
+    // settle removed from disk but git still tracks.
+    const refused = [];
+    expect(
+      await main(['ship', '42'], { cwd: root, stdout: { write() {} }, stderr: { write: (s) => refused.push(s) } }),
+    ).toBe(2);
+    expect(refused.join('')).toMatch(/^[^\n]*uncommitted changes under \.omni-loop\/delivery — commit the settle first[^\n]*\n$/);
+
     // yolo-fix commits the settle sub-PR before shipping, so ship runs on a committed tree.
     execFileSync('git', ['add', '-A'], { cwd: root });
     execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'settle'], {

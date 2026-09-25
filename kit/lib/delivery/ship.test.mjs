@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeRepo } from '../../test/fixture.mjs';
 import { makeMarkers } from '../markers.mjs';
@@ -46,6 +46,12 @@ describe('planShip', () => {
     expect(plan.reasons).toEqual([`open outbox item: ${D}/outbox/0042-a/s1-02-y.md`, 'drifted, not reworked: s1-01-x']);
   });
 
+  it('skips a tracked file that is no longer on disk', () => {
+    const { root, ctx, read } = makeRepo({ git: true, files: { [`${D}/inbox/0042-a/spec.md`]: 'x', 'gone.md': `${D}/inbox/0042-a/spec.md\n` } });
+    rmSync(join(root, 'gone.md'));
+    expect(planShip(ctx, 42, { files: tracked(root), read }).rewrites).toEqual([]);
+  });
+
   it('refuses a PRD that is not in the inbox', () => {
     const { root, ctx, read } = makeRepo({ git: true, files: { [`${D}/shipped/0042-a/spec.md`]: 'x' } });
     expect(planShip(ctx, 42, { files: tracked(root), read }).reasons).toEqual(['PRD 42 is not in the inbox (shipped)']);
@@ -63,6 +69,13 @@ describe('applyShip', () => {
     expect(existsSync(join(root, `${D}/inbox/0042-a`))).toBe(false);
     expect(readFileSync(join(root, `${D}/shipped/0042-a/outbox/settled.md`), 'utf8')).toBe(agreed('s1-01-x'));
     expect(execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' })).toMatch(/^R /m);
+  });
+
+  it('refuses, naming the delivery folder, while it holds uncommitted changes', () => {
+    const { root, ctx } = makeRepo({ git: true, files: { [`${D}/inbox/0042-a/spec.md`]: 'x', [`${D}/outbox/0042-a/s1-01-x.md`]: 'open' } });
+    rmSync(join(root, `${D}/outbox/0042-a/s1-01-x.md`));
+    expect(() => applyShip(ctx, 42)).toThrow(`uncommitted changes under ${D} — commit the settle first`);
+    expect(existsSync(join(root, `${D}/inbox/0042-a/spec.md`))).toBe(true);
   });
 
   it('throws with every reason when the plan refuses', () => {
