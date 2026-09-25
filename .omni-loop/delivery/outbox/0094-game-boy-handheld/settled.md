@@ -236,3 +236,237 @@ A constant: one line in the tsconfig. Going the other way means renaming the sev
 ```
 
 <!-- /omni-outbox-settled: s2-01-scene-imports-name-their-extension -->
+
+<!-- omni-outbox-settled: s3-01-pages-turn-round -->
+
+## s3-01-pages-turn-round — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-pages-turn-round
+prd: 94
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+When a list on the small upright screen is split into pages, what should happen when a player presses right on the last page, or left on the first?
+
+## The decision, in plain words
+
+Right on the last page goes back to the first, and left on the first goes to the last, the way the arcade's other lists already go round.
+
+## The intro, for fun
+
+Every book has a last page, but an arcade list likes to start all over again.
+
+## The punchline, for fun
+
+So the last page simply hands the reader back to the first one.
+
+## The options, in plain words
+
+A. Right on the last page goes back to the first, and left on the first goes to the last. This is what was built.
+B. The pages stop at the ends: right on the last page and left on the first do nothing.
+C. The pages stop at the ends, and a short buzz says there is no page further.
+
+## What I had to decide
+
+The plan has a tall `briefing` or `heroes` split into pages that ◀ ▶ turn, and s5 and s8 show "PAGE n/N", but nothing says what ▶ does on the last page, or ◀ on the first. s3 builds the page turning every group will use.
+
+## What I did meanwhile
+
+`turnPage()` in `apps/galaxy/src/arcade/grid.ts` goes round: ▶ on page N shows page 1, ◀ on page 1 shows page N, as the menu, the planet's tabs, the fleet select and the fleets wall already do. `act()` in `ArcadeApp.tsx` calls it for any scene whose group declares more than one page (`PAGES` in `scenes/<group>.ts`), with the tab sound. `grid.test.ts` pins it.
+
+## What it costs to change later
+
+A constant: one line in `turnPage()` (clamp instead of going round) and its three tests. No stored shape and no data move.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether players expect a paged table to stop at its ends: no group declares pages yet, and nobody has played it.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-pages-turn-round -->
+
+<!-- omni-outbox-settled: s3-02-sound-key-unnamed-on-computers -->
+
+## s3-02-sound-key-unnamed-on-computers — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-sound-key-unnamed-on-computers
+prd: 94
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+On a computer, nothing on screen says any more that the M key switches the sound off, because the plate under the screen that said so is gone. Should the screen say it?
+
+## The decision, in plain words
+
+For now nothing on screen names the M key: it still works as before, and phones get the speaker grille and its light instead.
+
+## The intro, for fun
+
+The volume knob is still on the machine; it just lost its little printed label.
+
+## The punchline, for fun
+
+Players who find it anyway will feel they have unlocked a secret level.
+
+## The options, in plain words
+
+A. Show nothing: the key works as before, unannounced. This is what was built.
+B. Show a short message on the screen each time M is pressed, saying whether the sound is now on or off.
+C. Name the key on the title screen, next to the credits at the bottom.
+
+## What I had to decide
+
+The spec retires the deck plates (decision 16), and the right-hand plate was the only place on `full` that read SOUND ON (M) or SOUND OFF (M). The spec gives the two Game Boy bodies the grille and the LED, and keeps M, but says nothing about the sound state or the M key on `full`, where no body and no LED is drawn.
+
+## What I did meanwhile
+
+Nothing is shown: on `full`, M toggles `omni-loop:muted` as before (`toggleSound()` in `ArcadeApp.tsx`, the same one the grille calls), with no indicator. The key hints on the screens belong to the scene groups in wave 3, and their wording to s7, so s3 adds none.
+
+## What it costs to change later
+
+Small either way: a toast on M is one line in `ArcadeApp.tsx`; a hint in the title's footer is a line in the attract group's text layer.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether desktop players found the M key through the plate: nothing measures it.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-sound-key-unnamed-on-computers -->
+
+<!-- omni-outbox-settled: s3-03-first-paint-before-the-device-is-known -->
+
+## s3-03-first-paint-before-the-device-is-known — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-first-paint-before-the-device-is-known
+prd: 94
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+The server cannot tell a phone from a computer, so the page first arrives drawn one way and changes once it starts in the browser. Which way should it arrive?
+
+## The decision, in plain words
+
+It arrives as the computer view, the screen alone, and a phone changes to the Game Boy a moment later, as soon as the page starts.
+
+## The intro, for fun
+
+Every console needs a second to find out who is holding it.
+
+## The punchline, for fun
+
+Until then it politely assumes you brought a keyboard.
+
+## The options, in plain words
+
+A. Arrive as the computer view, and change on a phone once the page starts. This is what was built.
+B. Arrive as the upright Game Boy, and change on a computer once the page starts.
+C. Arrive as a plain dark page, and draw the right body once the page starts.
+
+## What I had to decide
+
+`formFor()` needs the pointer and the viewport, which only the browser knows, and the arcade's page is rendered on the server. The spec does not say what shows before the arcade starts in the browser.
+
+## What I did meanwhile
+
+`useForm()` in `apps/galaxy/src/arcade/form.ts` gives the server `full`, and React switches to the device's form right after hydration. On a phone on a slow connection, the screen alone shows until the scripts run, as the cabinet showed its screen unfitted until then.
+
+## What it costs to change later
+
+A constant: the server snapshot in `useForm()`. A first paint drawn by CSS alone, from the pointer and the orientation media queries, is a larger change to `shell.css` and `ArcadeApp.tsx`, still with no data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) How long a phone shows the first view on a real connection: measured only on the local dev server.
+
+```
+
+<!-- /omni-outbox-settled: s3-03-first-paint-before-the-device-is-known -->
