@@ -6,10 +6,11 @@ const EVERY_LINE = [...BANTER_POOL.intros, ...BANTER_POOL.punchlines];
 
 /**
  * Words that name the game played on top of delivery (PRD #3, §2, principle 7: the kit never
- * mentions it), gathered from `game/`, `packages/` and the galaxy app: its world and its states, its
- * economy, its arcade, its fleets and their mascots, and the generic game words that would call it
- * to mind. `ledger` is here too: the game keeps a ledger of its own, so the word reads as the game's.
- * A space matches a space, a hyphen or nothing, so `omni man` also catches the one-word spelling.
+ * mentions it), gathered from `game/`, `packages/` and the galaxy app: its world and its states,
+ * its economy, its arcade, its fleets and their mascots, and the generic game words that would
+ * call it to mind. `ledger` is here too: the game keeps a ledger of its own, so the word reads as
+ * the game's. A space matches a space, a hyphen or nothing, so `omni man` also catches the one-word
+ * spelling.
  */
 const GAME_WORDS = [
   // The game itself, and whoever plays it.
@@ -42,9 +43,13 @@ function gameWordsIn(line) {
   return GAME_WORD_PATTERNS.filter(({ pattern }) => pattern.test(line)).map(({ word }) => word);
 }
 
-/** A word that would make a line about a person or a team rather than about its question. */
-const PERSON_OR_TEAM =
-  /\b(?:you|your|yours|yourself|you're|someone|somebody|everyone|everybody|nobody|whoever|team|teams|squad|developer|developers|engineer|engineers|reviewer|reviewers|manager|managers)\b/i;
+/** Words that would make a line about a person or a team rather than about its question. */
+const PERSON_OR_TEAM_WORDS = [
+  'you', 'your', 'yours', 'yourself', "you're", 'someone', 'somebody', 'everyone', 'everybody',
+  'nobody', 'whoever', 'team', 'teams', 'squad', 'developer', 'developers', 'engineer', 'engineers',
+  'reviewer', 'reviewers', 'manager', 'managers',
+];
+const PERSON_OR_TEAM = new RegExp(`\\b(?:${PERSON_OR_TEAM_WORDS.join('|')})\\b`, 'i');
 
 /** A fixed pool, so which line an id takes can be read off `assignBanter` alone. */
 const SMALL_POOL = {
