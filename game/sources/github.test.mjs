@@ -31,11 +31,11 @@ function fakeExec(calls) {
 
 // One planet (#2332) in one repo, feature PR #500 open, sub-PR #501 merged on s1. `extra` calls are
 // matched first, so a test overrides any base read by listing the same prefix.
-const SUB_501 = { number: 501, title: 'feat: a', headRefName: 'feat/generic-import--s1', author: { login: 'alice' }, createdAt: '2026-09-21T09:00:00Z', labels: [{ name: 'pr:sub' }], mergedAt: '2026-09-21T12:00:00Z', body: 'Part of #2332', state: 'MERGED' };
+const SUB_501 = { number: 501, title: 'feat: a', headRefName: 'feat/generic-import--s1', author: { login: 'alice' }, createdAt: '2026-09-21T09:00:00Z', labels: [{ name: 'omni:sub' }], mergedAt: '2026-09-21T12:00:00Z', body: 'Part of #2332', state: 'MERGED' };
 function world(extra = []) {
   return [
     ...extra,
-    ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
+    ['issue list -R vertuoza/vertuo-omni-plan --label omni:prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
     ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', '2332-generic-import.md\n'],
     ['api repos/vertuoza/core-repo/contents/docs/inbox/2332-generic-import.md', INBOX],
     ['api repos/vertuoza/core-repo/commits?path=docs/inbox/2332-generic-import.md', '2026-09-02T08:00:00Z\n'],
@@ -50,10 +50,10 @@ function world(extra = []) {
 const NOW = new Date('2026-09-23T14:00:00Z');
 
 describe('buildSnapshot', () => {
-  it('reads the pr:needs-fix label history off each zone sub-PR timeline (F1)', async () => {
+  it('reads the omni:needs-fix label history off each zone sub-PR timeline (F1)', async () => {
     const subs = [
-      { ...SUB_501, mergedAt: null, state: 'OPEN', labels: [{ name: 'pr:sub' }] },
-      { ...SUB_501, number: 502, headRefName: 'feat/generic-import--s2', mergedAt: null, state: 'OPEN', labels: [{ name: 'pr:sub' }, { name: 'pr:needs-fix' }] },
+      { ...SUB_501, mergedAt: null, state: 'OPEN', labels: [{ name: 'omni:sub' }] },
+      { ...SUB_501, number: 502, headRefName: 'feat/generic-import--s2', mergedAt: null, state: 'OPEN', labels: [{ name: 'omni:sub' }, { name: 'omni:needs-fix' }] },
     ];
     const exec = fakeExec(world([
       ['pr list -R vertuoza/core-repo --base feat/generic-import', subs],
@@ -69,7 +69,7 @@ describe('buildSnapshot', () => {
   it('carries needsFix null for a never-labelled sub-PR, and labelled-since-creation when the timeline cannot be read (F1)', async () => {
     const subs = [
       { ...SUB_501 },
-      { ...SUB_501, number: 502, headRefName: 'feat/generic-import--s2', mergedAt: null, state: 'OPEN', labels: [{ name: 'pr:sub' }, { name: 'pr:needs-fix' }] },
+      { ...SUB_501, number: 502, headRefName: 'feat/generic-import--s2', mergedAt: null, state: 'OPEN', labels: [{ name: 'omni:sub' }, { name: 'omni:needs-fix' }] },
     ];
     const exec = fakeExec(world([
       ['pr list -R vertuoza/core-repo --base feat/generic-import', subs],
@@ -85,7 +85,7 @@ describe('buildSnapshot', () => {
     const exec = fakeExec(world([
       ['pr list -R vertuoza/core-repo --base feat/generic-import', [
         { ...SUB_501, mergedAt: null, state: 'CLOSED' },
-        { ...SUB_501, number: 505, author: { login: 'bob' }, createdAt: '2026-09-22T09:00:00Z', mergedAt: null, state: 'OPEN', labels: [{ name: 'pr:sub' }, { name: 'pr:in-progress' }] },
+        { ...SUB_501, number: 505, author: { login: 'bob' }, createdAt: '2026-09-22T09:00:00Z', mergedAt: null, state: 'OPEN', labels: [{ name: 'omni:sub' }, { name: 'omni:in-progress' }] },
       ]],
     ]));
     const snap = await buildSnapshot({ config, exec, now: NOW });
@@ -97,7 +97,7 @@ describe('buildSnapshot', () => {
       ['pr list -R vertuoza/core-repo --base feat/generic-import', [
         { ...SUB_501 },
         { ...SUB_501, number: 503, title: 'Revert "feat: a"', headRefName: 'revert-501', createdAt: '2026-09-22T08:00:00Z', mergedAt: '2026-09-22T09:00:00Z', body: 'Reverts #501' },
-        { ...SUB_501, number: 505, author: { login: 'bob' }, createdAt: '2026-09-22T10:00:00Z', mergedAt: null, state: 'OPEN', labels: [{ name: 'pr:sub' }, { name: 'pr:in-progress' }] },
+        { ...SUB_501, number: 505, author: { login: 'bob' }, createdAt: '2026-09-22T10:00:00Z', mergedAt: null, state: 'OPEN', labels: [{ name: 'omni:sub' }, { name: 'omni:in-progress' }] },
       ]],
     ]));
     const snap = await buildSnapshot({ config, exec, now: NOW });
@@ -139,7 +139,7 @@ describe('buildSnapshot', () => {
       [`issue list -R vertuoza/${repo} --label bug`, []],
     ];
     const worldOf = (coreFp, aiFp) => fakeExec([
-      ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
+      ['issue list -R vertuoza/vertuo-omni-plan --label omni:prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
       ...repoCalls('core-repo', coreFp), ...repoCalls('ai-repo', aiFp),
     ]);
 
@@ -290,14 +290,14 @@ describe('buildSnapshot', () => {
 
   it('assembles a planet from issues, inbox, plan, sub-PRs, outbox and bugs', async () => {
     const exec = fakeExec([
-      ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
+      ['issue list -R vertuoza/vertuo-omni-plan --label omni:prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
       ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', '2332-generic-import.md\nREADME.md\n'],
       ['api repos/vertuoza/core-repo/contents/docs/inbox/2332-generic-import.md', INBOX],
       ['api repos/vertuoza/core-repo/commits?path=docs/inbox/2332-generic-import.md', '2026-09-02T08:00:00Z\n'],
       ['pr list -R vertuoza/core-repo --search', [{ number: 500, headRefName: 'feat/generic-import', createdAt: '2026-09-21T08:00:00Z', isDraft: true, mergedAt: null, updatedAt: '2026-09-23T08:00:00Z' }]],
       ['api repos/vertuoza/core-repo/contents/docs/superpowers/plans/p.md?ref=feat/generic-import', PLAN],
       ['pr list -R vertuoza/core-repo --base feat/generic-import', [
-        { number: 501, title: 'feat: a', headRefName: 'feat/generic-import--s1', author: { login: 'alice' }, createdAt: '2026-09-21T09:00:00Z', labels: [{ name: 'pr:sub' }], mergedAt: '2026-09-21T12:00:00Z', body: 'Part of #2332' },
+        { number: 501, title: 'feat: a', headRefName: 'feat/generic-import--s1', author: { login: 'alice' }, createdAt: '2026-09-21T09:00:00Z', labels: [{ name: 'omni:sub' }], mergedAt: '2026-09-21T12:00:00Z', body: 'Part of #2332' },
       ]],
       ['api repos/vertuoza/core-repo/contents/docs/outbox/2332?ref=feat/generic-import --jq', 's1-01-a.md\n'],
       ['api repos/vertuoza/core-repo/contents/docs/outbox/2332/s1-01-a.md?ref=feat/generic-import', ITEM],
@@ -312,7 +312,7 @@ describe('buildSnapshot', () => {
     expect(p.regions).toEqual([{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z', featurePr: { repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: null, mergedAt: null, lastActivityAt: '2026-09-23T08:00:00Z' } }]);
     expect(p.featurePr).toEqual({ repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: null, mergedAt: null, lastActivityAt: '2026-09-23T08:00:00Z' });
     expect(p.zones).toEqual([
-      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null, needsFix: null } },
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null, needsFix: null } },
       { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: null },
     ]);
     expect(p.outbox).toEqual([{ id: 's1-01-a', repo: 'core-repo', rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: null }]);
@@ -321,7 +321,7 @@ describe('buildSnapshot', () => {
 
   it('keeps a planet charted and unsurveyed when no repo carries an inbox file', async () => {
     const exec = fakeExec([
-      ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2400, title: 'New', assignees: [], createdAt: '2026-09-20T08:00:00Z', closedAt: null }]],
+      ['issue list -R vertuoza/vertuo-omni-plan --label omni:prd', [{ number: 2400, title: 'New', assignees: [], createdAt: '2026-09-20T08:00:00Z', closedAt: null }]],
       ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', ''],
     ]);
     const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z') });
@@ -330,7 +330,7 @@ describe('buildSnapshot', () => {
 
   it('ignores an outbox file with no front matter, keeping only the valid item (spec §8)', async () => {
     const exec = fakeExec([
-      ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
+      ['issue list -R vertuoza/vertuo-omni-plan --label omni:prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null }]],
       ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', '2332-generic-import.md\n'],
       ['api repos/vertuoza/core-repo/contents/docs/inbox/2332-generic-import.md', INBOX],
       ['api repos/vertuoza/core-repo/commits?path=docs/inbox/2332-generic-import.md', '2026-09-02T08:00:00Z\n'],
@@ -351,7 +351,7 @@ describe('buildSnapshot', () => {
 
   it('falls back a region\'s surveyedAt to the PRD issue\'s createdAt when the inbox commits read fails (spec §8)', async () => {
     const exec = fakeExec([
-      ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [], createdAt: '2026-09-05T08:00:00Z', closedAt: null }]],
+      ['issue list -R vertuoza/vertuo-omni-plan --label omni:prd', [{ number: 2332, title: 'Generic Import Engine', assignees: [], createdAt: '2026-09-05T08:00:00Z', closedAt: null }]],
       ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', '2332-generic-import.md\n'],
       ['api repos/vertuoza/core-repo/contents/docs/inbox/2332-generic-import.md', INBOX],
       ['api repos/vertuoza/core-repo/commits?path=docs/inbox/2332-generic-import.md', new Error('gh: 502 Bad Gateway')],
@@ -365,7 +365,7 @@ describe('buildSnapshot', () => {
     const INBOX_A = '---\nprd: 2332\ntitle: Generic Import Engine\nblocked-by: none\nplan: none\nspec: file\n---\n';
     const INBOX_B = '---\nprd: 2400\ntitle: Other Planet\nblocked-by: none\nplan: none\nspec: file\n---\n';
     const exec = fakeExec([
-      ['issue list -R vertuoza/vertuo-omni-plan --label prd', [
+      ['issue list -R vertuoza/vertuo-omni-plan --label omni:prd', [
         { number: 2332, title: 'Generic Import Engine', assignees: [{ login: 'pm' }], createdAt: '2026-09-01T08:00:00Z', closedAt: null },
         { number: 2400, title: 'Other Planet', assignees: [], createdAt: '2026-09-02T08:00:00Z', closedAt: null },
       ]],
@@ -388,7 +388,7 @@ describe('buildSnapshot', () => {
 
   it('ignores an inbox file with no front matter: no region, no crash (spec §8)', async () => {
     const exec = fakeExec([
-      ['issue list -R vertuoza/vertuo-omni-plan --label prd', [{ number: 2401, title: 'Untitled', assignees: [], createdAt: '2026-09-10T08:00:00Z', closedAt: null }]],
+      ['issue list -R vertuoza/vertuo-omni-plan --label omni:prd', [{ number: 2401, title: 'Untitled', assignees: [], createdAt: '2026-09-10T08:00:00Z', closedAt: null }]],
       ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', 'broken.md\n'],
       // No front matter at all: parseInbox's prd is NaN, so this file must never reach inboxByPrd,
       // and (critically) buildSnapshot must never ask for its commit history.

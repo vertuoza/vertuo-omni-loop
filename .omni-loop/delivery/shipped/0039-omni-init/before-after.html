@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>omni init</title>
+<style>
+  :root {
+    --ground: #f3f4f6; --paper: #ffffff; --ink: #1c2230; --muted: #5b6475; --line: #d9dde5;
+    --term: #151a24; --term-ink: #d7dce6; --term-dim: #7f889a;
+    --accent: #2f6fb3; --ok: #2e7d4f; --warn: #a0562b;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #10141c; --paper: #171c26; --ink: #e3e7ee; --muted: #9aa3b4; --line: #2a3140;
+      --term: #0b0e14; --term-ink: #d7dce6; --term-dim: #6f788a;
+      --accent: #7fb0e6; --ok: #6cc08f; --warn: #e0a070;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #10141c; --paper: #171c26; --ink: #e3e7ee; --muted: #9aa3b4; --line: #2a3140;
+    --term: #0b0e14; --term-ink: #d7dce6; --term-dim: #6f788a;
+    --accent: #7fb0e6; --ok: #6cc08f; --warn: #e0a070;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding-inline: 16px; padding-block: 32px; }
+  main { max-width: 1120px; margin: 0 auto; display: grid; gap: 28px; }
+  header { display: grid; gap: 6px; max-width: 70ch; }
+  .eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  h1 { margin: 0; font-size: 26px; text-wrap: balance; }
+  h1 code { font-size: .95em; }
+  header p { margin: 0; color: var(--muted); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 820px) { .cols { grid-template-columns: 1fr; } }
+  section { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 20px; display: grid; gap: 14px; align-content: start; }
+  h2 { margin: 0; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+  .today h2 { color: var(--warn); }
+  .after h2 { color: var(--ok); }
+  ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
+  li small { display: block; color: var(--muted); }
+  code, pre { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+  pre { margin: 0; background: var(--term); color: var(--term-ink); border-radius: 6px; padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
+  pre .d { color: var(--term-dim); }
+  pre .p { color: #8fc4ff; }
+  pre .g { color: #8fd6a8; }
+  .note { font-size: 13px; color: var(--muted); margin: 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  .tbl { overflow-x: auto; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  td code { white-space: nowrap; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <span class="eyebrow">PRD 39 · kit CLI · nothing visible changes in the loop itself</span>
+    <h1>Adopting Omni Loop: by hand today, <code>omni init</code> after</h1>
+    <p>What a person does to put the loop on a repository (TypeScript, PHP or any other), before and after this PRD. The skills, the config schema and the omni-loop App stay as they are.</p>
+  </header>
+
+  <div class="cols">
+    <section class="today">
+      <h2>Today: by hand</h2>
+      <ol>
+        <li>Write <code>.omni-loop/config.yml</code> from memory or by copying another repo's.
+          <small>Nothing checks it until a skill or the App reads it. A typo shows up as a red check.</small></li>
+        <li>Copy the bundle to <code>.omni-loop/bin/omni.mjs</code>.
+          <small>Forget it and every skill stops at step 0: “not terraformed”.</small></li>
+        <li>Create <code>prd</code>, <code>pr:phase-0</code>, <code>pr:feature</code>, <code>pr:sub</code>, <code>pr:in-progress</code>, <code>pr:needs-fix</code>, <code>outbox:go</code> one by one.
+          <small>This repository still has none of them.</small></li>
+        <li>Find out from a README somewhere that the plugin and the omni-loop GitHub App are needed too.</li>
+      </ol>
+      <pre><span class="d">$</span> gh label create prd
+<span class="d">$</span> gh label create pr:phase-0
+<span class="d">…five more…</span>
+<span class="d">$</span> node .omni-loop/bin/omni.mjs config
+<span class="d">This repository is not terraformed: .omni-loop/config.yml is missing.</span></pre>
+    </section>
+
+    <section class="after">
+      <h2>After: one line, nothing cloned first</h2>
+      <pre><span class="d">$</span> npx github:vertuoza/vertuo-omni-loop init
+<span class="g">omni init — vertuoza/vertuo-workflow-domain is set up.</span>
+  wrote   .omni-loop/config.yml
+  wrote   .omni-loop/bin/omni.mjs
+  labels  created prd, pr:phase-0, pr:feature, pr:sub,
+          pr:in-progress, pr:needs-fix, outbox:go
+
+Commit .omni-loop/ and merge it into main, then, by hand:
+  1. Install the omni plugin in Claude Code:
+       <span class="p">/plugin marketplace add vertuoza/vertuo-omni-loop</span>
+       <span class="p">/plugin install omni@omni-loop</span>
+  2. Install the omni-loop GitHub App on this repo:
+       <span class="p">https://github.com/apps/omni-loop-invader/installations/new</span>
+  3. (Optional) Require the `outbox` check on main:
+       <span class="p">https://github.com/vertuoza/vertuo-workflow-domain/settings/branches</span>
+     Warning: a required check that is never posted blocks
+     every pull request in this repository. …
+
+To remove the loop: delete .omni-loop/ and commit.</pre>
+      <p class="note">Needs only Node 22+ (npx comes with it), <code>gh</code> and read access to vertuo-omni-loop, in a TypeScript or a PHP repository alike. A second run keeps the config and the bin, creates no label, and exits 0. <code>--force</code> rewrites the files. Existing labels are never recoloured.</p>
+    </section>
+  </div>
+
+  <section>
+    <h2>Where the commands come from</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>The repository has</th><th>commands.test</th><th>commands.preflight</th></tr></thead>
+      <tbody>
+        <tr><td><code>package.json</code> (+ its lockfile)</td><td><code>pnpm test</code> / <code>npm test</code> / …</td><td><code>&lt;pm&gt; run preflight</code> or <code>quality:preflight</code>, else test</td></tr>
+        <tr><td><code>composer.json</code> (PHP)</td><td><code>composer test</code></td><td><code>composer preflight</code>, else test</td></tr>
+        <tr><td><code>Makefile</code></td><td><code>make test</code></td><td><code>make preflight</code>, else test</td></tr>
+        <tr><td>none of these</td><td colspan="2"><code>--test</code> / <code>--preflight</code> flags, a prompt on a terminal, otherwise <code>null</code> and a line in the closing steps</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>What stays the same</h2>
+    <div class="tbl"><table>
+      <thead><tr><th></th><th>Today</th><th>After</th></tr></thead>
+      <tbody>
+        <tr><td>Config schema</td><td colspan="2"><code>kit/lib/config.mjs</code> is still the only definition. <code>init</code> writes nothing it rejects.</td></tr>
+        <tr><td>Files in the repository</td><td>whatever was copied by hand</td><td>only <code>.omni-loop/config.yml</code> and <code>.omni-loop/bin/omni.mjs</code>. No <code>.github/</code>, no workflow, no secret.</td></tr>
+        <tr><td><code>labels.autoCreate</code></td><td colspan="2">still decides whether skills create labels at run time. <code>init</code> creates labels because a person ran it.</td></tr>
+        <tr><td>Outbox check (PRD 28)</td><td colspan="2"><em>skipped, omni-loop is not active on this repo</em> until the config is merged. After that the check reads it.</td></tr>
+        <tr><td>How the kit is fetched</td><td>clone vertuo-omni-loop, build, copy the bundle</td><td><code>npx</code> fetches the committed bundle <code>kit/dist/omni.mjs</code> from the default branch over git. No registry, and nothing installed in the target.</td></tr>
+        <tr><td>Plugin, App, branch protection</td><td colspan="2">still human steps. <code>init</code> prints them with links and never performs them.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+</main>
+</body>
+</html>

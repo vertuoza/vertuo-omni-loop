@@ -9,7 +9,7 @@ describe('parseConfig', () => {
     const config = parseConfig('kit: 1\n');
     expect(config.paths.delivery).toBe('.omni-loop/delivery');
     expect(config.paths.knowledge).toBe('.omni-loop/knowledge');
-    expect(config.labels.outboxGo).toBe('outbox:go');
+    expect(config.labels.outboxGo).toBe('omni:outbox-go');
     expect(config.markers.prefix).toBe('omni-outbox');
     expect(config.laws.source).toBe('none');
     expect(config.ci.outboxContext).toBe('outbox');

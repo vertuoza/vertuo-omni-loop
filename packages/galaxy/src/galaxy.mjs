@@ -121,7 +121,7 @@ function derive(prd, events, { sectorOf, now }) {
     }
   }
 
-  // A zone whose sub-PR carries `pr:needs-fix` shows as under fire while that wound is open.
+  // A zone whose sub-PR carries `omni:needs-fix` shows as under fire while that wound is open.
   for (const w of p.wounds.values()) {
     const m = FIRE_ID.exec(w.id);
     if (m && !w.closedAt) { const z = p.zones.get(`${m[1]}:${m[3]}`); if (z && z.state !== 'secured') z.state = 'under-fire'; }

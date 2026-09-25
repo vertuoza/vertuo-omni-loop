@@ -18,7 +18,7 @@ function planet(over = {}) {
     regions: [{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z' }],
     featurePr: { repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: null, mergedAt: null, lastActivityAt: '2026-09-23T08:00:00Z' },
     zones: [
-      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
       { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: null },
     ],
     outbox: [], bugs: [],
@@ -70,8 +70,8 @@ describe('derivePlanet', () => {
 
   it('marks a claimed zone, and an under-fire zone as a wound', () => {
     const p = derivePlanet(planet({ zones: [
-      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-22T09:00:00Z', labels: ['pr:sub', 'pr:in-progress'], mergedAt: null, revertedAt: null } },
-      { id: 's2', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 502, author: 'bob', createdAt: '2026-09-22T09:00:00Z', labels: ['pr:sub', 'pr:needs-fix'], mergedAt: null, revertedAt: null } },
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-22T09:00:00Z', labels: ['omni:sub', 'omni:in-progress'], mergedAt: null, revertedAt: null } },
+      { id: 's2', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 502, author: 'bob', createdAt: '2026-09-22T09:00:00Z', labels: ['omni:sub', 'omni:needs-fix'], mergedAt: null, revertedAt: null } },
     ] }), ctx());
     expect(p.zones.map((z) => z.state)).toEqual(['claimed', 'under-fire']);
     // F1: the id must not collide with the zone's own ZONE_OPENED id; with no label history the
@@ -79,10 +79,10 @@ describe('derivePlanet', () => {
     expect(p.wounds).toEqual([{ id: 'fire:core-repo:2332/s2', kind: 'under-fire', repo: 'core-repo', openedAt: '2026-09-22T09:00:00Z', closedAt: null, closedBy: null }]);
   });
 
-  it('opens an under-fire wound when pr:needs-fix is labelled and closes it when the label goes or the sub-PR merges (F1)', () => {
-    const sub = (number, over) => ({ number, author: 'bob', createdAt: '2026-09-22T09:00:00Z', labels: ['pr:sub'], mergedAt: null, revertedAt: null, ...over });
+  it('opens an under-fire wound when omni:needs-fix is labelled and closes it when the label goes or the sub-PR merges (F1)', () => {
+    const sub = (number, over) => ({ number, author: 'bob', createdAt: '2026-09-22T09:00:00Z', labels: ['omni:sub'], mergedAt: null, revertedAt: null, ...over });
     const p = derivePlanet(planet({ zones: [
-      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: sub(501, { labels: ['pr:sub', 'pr:needs-fix'], needsFix: { labeledAt: '2026-09-22T10:00:00Z', unlabeledAt: null } }) },
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: sub(501, { labels: ['omni:sub', 'omni:needs-fix'], needsFix: { labeledAt: '2026-09-22T10:00:00Z', unlabeledAt: null } }) },
       { id: 's2', repo: 'core-repo', wave: 1, blockedBy: [], pr: sub(502, { needsFix: { labeledAt: '2026-09-22T10:00:00Z', unlabeledAt: '2026-09-22T15:00:00Z' } }) },
       { id: 's3', repo: 'core-repo', wave: 1, blockedBy: [], pr: sub(503, { mergedAt: '2026-09-23T08:00:00Z', needsFix: { labeledAt: '2026-09-22T10:00:00Z', unlabeledAt: null } }) },
       { id: 's4', repo: 'core-repo', wave: 1, blockedBy: [], pr: sub(504, { needsFix: null }) },
@@ -128,9 +128,9 @@ describe('derivePlanet', () => {
     // s2 opens Mon 12:00Z. bob claims s3 Tue 08:00Z (10:00 local), before s2's 8 working hours run
     // out (Tue 11:00Z), so the idle clock restarts there: Tue 10:00 → 18:00 local = Tue 16:00Z.
     const p = derivePlanet(planet({ zones: [
-      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
       { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: null },
-      { id: 's3', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: { number: 503, author: 'bob', createdAt: '2026-09-22T08:00:00Z', labels: ['pr:sub', 'pr:in-progress'], mergedAt: null, revertedAt: null } },
+      { id: 's3', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: { number: 503, author: 'bob', createdAt: '2026-09-22T08:00:00Z', labels: ['omni:sub', 'omni:in-progress'], mergedAt: null, revertedAt: null } },
     ] }), ctx());
     expect(p.state).toBe('distress');
     expect(p.distressSince).toBe('2026-09-22T16:00:00Z');
@@ -155,7 +155,7 @@ describe('derivePlanet', () => {
   it('awaits command when every zone is secured and the PR is ready', () => {
     const p = derivePlanet(planet({
       featurePr: { repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: '2026-09-22T08:00:00Z', mergedAt: null, lastActivityAt: '2026-09-23T08:00:00Z' },
-      zones: [{ id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } }],
+      zones: [{ id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } }],
     }), ctx());
     expect(p.state).toBe('awaiting-command');
   });

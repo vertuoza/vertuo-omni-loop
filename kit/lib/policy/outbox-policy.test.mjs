@@ -106,7 +106,7 @@ describe('An agent records instead of stopping', () => {
         items: [],
         overridden: false,
         unreworked: [],
-        overrideLabel: 'outbox:go',
+        overrideLabel: 'omni:outbox-go',
       });
     } finally {
       rmSync(root, { recursive: true, force: true });

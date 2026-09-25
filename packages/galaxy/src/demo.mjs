@@ -36,7 +36,7 @@ export function demoSnapshot(now = new Date()) {
   let prNo = 1000;
   const sub = (author, claimedH, mergedH = null, fire = null) => ({
     number: ++prNo, author, createdAt: ago(claimedH), mergedAt: ago(mergedH), revertedAt: null,
-    labels: ['pr:sub', ...(mergedH === null ? ['pr:in-progress'] : []), ...(fire && fire[1] === null ? ['pr:needs-fix'] : [])],
+    labels: ['omni:sub', ...(mergedH === null ? ['omni:in-progress'] : []), ...(fire && fire[1] === null ? ['omni:needs-fix'] : [])],
     ...(fire ? { needsFix: { labeledAt: ago(fire[0]), unlabeledAt: ago(fire[1]) } } : {}),
   });
   const zone = (id, repo, wave, blockedBy = [], pr = null) => ({ id, repo, wave, blockedBy, pr });

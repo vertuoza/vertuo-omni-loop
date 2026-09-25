@@ -60,7 +60,7 @@ runs on the Monday schedule, or a dispatch with `post_rankings: true` (concurren
 - **Replay from GitHub is approximate.** Facts GitHub keeps only as current state are dated from
   the best available timestamp: `PLANET_READY` uses the feature PR's `ready_for_review` time, a
   settled outbox item's `raisedAt` is its settle time (the open file is gone), and zone states
-  read from labels other than `pr:needs-fix` (whose history comes off the sub-PR timeline) reflect
+  read from labels other than `omni:needs-fix` (whose history comes off the sub-PR timeline) reflect
   the labels at poll time.
 - **No clawback on re-raise.** A settle whose item is later reopened or re-raised keeps its points
   (spec §6.4 brake not implemented yet).
