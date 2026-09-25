@@ -6,6 +6,11 @@
 // optional with a safe default, so a JSON file that names none of them still "carries what it
 // needs": a plain question with no `bears-on` and no named risk.
 //
+// `introFun` and `punchlineFun` (PRD #50, slice s1) are optional, together or neither. The schema
+// itself holds each to `funLineProblems` (the plain-words rules, 120 characters at most), so a line
+// that breaks one is refused naming its field — a one-line usage error, exit 2, nothing written or
+// adopted — before the recording policy ever runs.
+//
 // This command follows `decision.writesItem`, exactly as the policy states it:
 // - `writesItem: false` (only `breaksNamedLaw` against a law `laws` can name) — nothing is
 //   written, and the reason is printed; exit 1.
@@ -41,7 +46,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
 import { lawsFor } from '../../lib/laws.mjs';
-import { outboxItemFiles, SETTLED_FILE } from '../../lib/outbox/outbox.mjs';
+import { funLineProblems, outboxItemFiles, SETTLED_FILE } from '../../lib/outbox/outbox.mjs';
 import { checkItemText } from '../../lib/outbox/check-outbox.mjs';
 import { adoptItem, parseSettledEntries } from '../../lib/outbox/settle.mjs';
 import { decideRecording, renderOutboxItem } from '../../lib/policy/outbox-policy.mjs';
@@ -50,6 +55,32 @@ import { parseArgs, positiveInt, println, readUserFile, usageError } from '../ar
 const USAGE = 'usage: omni item new --prd <n> --slice <id> --file <file> [--adopt] [--json]';
 
 const SLUG_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** An intro or a punchline: optional, and held to `funLineProblems` here, so a refusal names `field`. */
+function funLine(field) {
+  return z
+    .string()
+    .trim()
+    .min(1, `${field} must not be empty`)
+    .superRefine((value, refinement) => {
+      for (const problem of funLineProblems(value)) {
+        refinement.addIssue({ code: z.ZodIssueCode.custom, message: `${field} ${problem}` });
+      }
+    })
+    .optional();
+}
+
+/** The intro and the punchline come together, or neither does — the parser refuses one alone. */
+function funPair(input, refinement) {
+  const [given, missing] =
+    input.introFun === undefined ? ['punchlineFun', 'introFun'] : ['introFun', 'punchlineFun'];
+  if ((input.introFun === undefined) === (input.punchlineFun === undefined)) return;
+  refinement.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: [missing],
+    message: `${missing} is required when ${given} is given — the intro and the punchline come together, or neither does`,
+  });
+}
 
 const ItemInputSchema = z
   .object({
@@ -69,6 +100,8 @@ const ItemInputSchema = z
     principlesConflict: z.array(z.string().trim().min(1)).optional(),
     questionPlain: z.string().trim().min(1, 'questionPlain is required'),
     decisionPlain: z.string().trim().min(1, 'decisionPlain is required'),
+    introFun: funLine('introFun'),
+    punchlineFun: funLine('punchlineFun'),
     decide: z.string().trim().min(1, 'decide is required'),
     meanwhile: z.string().trim().min(1, 'meanwhile is required'),
     cost: z.string().trim().min(1, 'cost is required'),
@@ -80,7 +113,8 @@ const ItemInputSchema = z
       .optional(),
     personSteps: z.string().trim().min(1, 'personSteps must not be empty').optional(),
   })
-  .strict();
+  .strict()
+  .superRefine(funPair);
 
 /** The label a non-zero, item-written exit carries — `decision.outcome` is always `'stop'` or
  * `'blocked'` here; `'record'` never reaches this. */
@@ -221,6 +255,8 @@ async function runNew(args, { ctx, stdout, stderr }) {
       rank: decision.rank,
       questionPlain: input.questionPlain,
       decisionPlain: input.decisionPlain,
+      introFun: input.introFun,
+      punchlineFun: input.punchlineFun,
       decide: input.decide,
       meanwhile: input.meanwhile,
       cost: input.cost,
