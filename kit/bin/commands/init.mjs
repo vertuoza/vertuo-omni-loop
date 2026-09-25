@@ -1,21 +1,31 @@
 // `omni init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]` — installs the
 // loop on the repository it runs in: writes `.omni-loop/config.yml`, copies the running bundle to
-// `.omni-loop/bin/omni.mjs`, creates the loop labels the repository lacks, then prints the closing
-// steps a person still has to take. The one command that runs before a config exists, so `main()`
-// hands it no context. It writes nothing outside `.omni-loop/`.
+// `.omni-loop/bin/omni.mjs`, lays down the blank knowledge forms as `omni kb init` does, creates the
+// loop labels the repository lacks, then prints the closing steps a person still has to take. The one
+// command that runs before a config exists, so `main()` hands it no context. It writes nothing
+// outside `.omni-loop/`.
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, posix } from 'node:path';
 import { parseArgs, usageError } from '../args.mjs';
 import { CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig } from '../../lib/config.mjs';
+import { createContext } from '../../lib/context.mjs';
 import { installCommand, kitHome, runningBundle } from '../../lib/init/bundle.mjs';
 import { renderConfig } from '../../lib/init/config-text.mjs';
 import { COMMAND_KEYS, detectCommands, detectLawsSource } from '../../lib/init/detect.mjs';
 import { reconcileLabels } from '../../lib/init/labels.mjs';
 import { closingSteps } from '../../lib/init/steps.mjs';
 import { findRoot, readRepo } from '../../lib/init/repo.mjs';
+import { writeForms } from '../../lib/playbook/write-forms.mjs';
 
-export const BIN_FILE = join(dirname(CONFIG_FILE), 'bin', 'omni.mjs');
+const LOOP_DIR = dirname(CONFIG_FILE);
+export const BIN_FILE = join(LOOP_DIR, 'bin', 'omni.mjs');
+
+/** Whether `path` is the loop's folder or lies under it, however it is spelled. */
+function insideLoop(path) {
+  const clean = posix.normalize(path).replace(/\/+$/, '');
+  return clean === LOOP_DIR || clean.startsWith(`${LOOP_DIR}/`);
+}
 
 const FLAGS = { test: 'test', preflight: 'preflight', preflightFull: 'preflight-full' };
 const QUESTIONS = {
@@ -74,7 +84,7 @@ export const init = {
       const interactive = Boolean(stdin?.isTTY && stdout?.isTTY);
       const commands = await resolveCommands(root, flags, { interactive, ask });
       const repo = readRepo(root, { exec, remote: defaults.repo.remote });
-      const lawsSource = detectLawsSource(root, { knowledge: defaults.paths.knowledge, heading: defaults.laws.claudeMdHeading });
+      const lawsSource = detectLawsSource({ ctx: createContext(root, defaults) });
       const rendered = renderConfig({ ...repo, commands, lawsSource });
       config = rendered.config;
       const { text } = rendered;
@@ -87,6 +97,13 @@ export const init = {
       chmodSync(binPath, 0o755);
     }
 
+    // Then the forms, by the same writer as `omni kb init`: never over a file that exists, and never
+    // outside `.omni-loop/` — a kept config may keep the playbook elsewhere, and /omni:terraform
+    // (which runs `omni kb init`) writes them there.
+    const ctx = createContext(root, config);
+    const outside = !insideLoop(ctx.layout.frontDoor);
+    const forms = outside ? [] : writeForms({ ctx });
+
     // Last: the files are the install, the labels a convenience — a label gh cannot make is a human step.
     const labels = reconcileLabels(root, { exec, labels: config.labels });
 
@@ -98,6 +115,7 @@ export const init = {
       kitHome: kitHome({ exec }),
       outboxCheck: config.ci.outboxContext,
       files: [{ path: CONFIG_FILE, wrote: !keepConfig }, { path: BIN_FILE, wrote: copyBin }],
+      forms: { dir: ctx.layout.frontDoor, wrote: forms.filter((file) => file.wrote).map((file) => file.path), outside },
       labels,
       unfilled: COMMAND_KEYS.filter((key) => config.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] })),
     }));

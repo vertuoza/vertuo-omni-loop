@@ -15492,9 +15492,9 @@ var config = {
 
 // kit/bin/commands/init.mjs
 init_define_OMNI_BUNDLE();
-import { chmodSync, copyFileSync, existsSync as existsSync19, mkdirSync as mkdirSync2, readFileSync as readFileSync14, writeFileSync as writeFileSync4 } from "node:fs";
+import { chmodSync, copyFileSync, existsSync as existsSync20, mkdirSync as mkdirSync3, readFileSync as readFileSync14, writeFileSync as writeFileSync5 } from "node:fs";
 import { createInterface } from "node:readline/promises";
-import { dirname as dirname4, join as join20 } from "node:path";
+import { dirname as dirname5, join as join21, posix as posix4 } from "node:path";
 
 // kit/lib/init/bundle.mjs
 init_define_OMNI_BUNDLE();
@@ -15594,9 +15594,11 @@ function detectCommands(root) {
   const source = SOURCES.find(({ file }) => existsSync18(join19(root, file)));
   return source ? source.read(root) : { ...NONE };
 }
-function detectLawsSource(root, { knowledge: knowledge2, heading }) {
-  if (existsSync18(join19(root, knowledge2))) return "knowledge";
-  const claudeMd = join19(root, "CLAUDE.md");
+function detectLawsSource({ ctx }) {
+  const { principles, rules, invariants } = readRegisters({ ctx });
+  if (principles.length + rules.length + invariants.length > 0) return "knowledge";
+  const claudeMd = join19(ctx.root, "CLAUDE.md");
+  const heading = ctx.config.laws.claudeMdHeading;
   if (existsSync18(claudeMd) && readFileSync13(claudeMd, "utf8").split("\n").some((line) => line.trim() === heading)) {
     return "claudeMdInvariants";
   }
@@ -15660,7 +15662,7 @@ var MARKETPLACE = "omni-loop";
 var PLUGIN = "omni";
 var GITHUB = "https://github.com";
 var PLACEHOLDER_SLUG = "<owner>/<repository>";
-function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, files, labels, unfilled }) {
+function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, files, forms, labels, unfilled }) {
   const repo = slug ?? PLACEHOLDER_SLUG;
   const dir = dirname3(files[0].path);
   const lines = [`omni init \u2014 ${slug ?? "this repository"} is set up.`];
@@ -15668,6 +15670,7 @@ function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, fil
   for (const { path, wrote } of files) {
     lines.push(wrote ? `  wrote   ${path}` : `  kept    ${path.padEnd(width)}  (pass --force to overwrite)`);
   }
+  for (const path of forms.wrote) lines.push(`  wrote   ${path}`);
   const steps = [
     [
       `Install the ${PLUGIN} plugin in Claude Code:`,
@@ -15694,6 +15697,12 @@ function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, fil
     "   If the app is uninstalled, its deploy is broken or Inngest is down, nothing can merge. The remedy",
     "   is to remove the requirement, never to fake a status."
   ]);
+  const formsStep = steps.length + 1;
+  steps.push([
+    `Fill the forms in ${forms.dir}/ with what the repository can prove, in Claude Code:`,
+    `     /${PLUGIN}:terraform`
+  ]);
+  if (forms.outside) lines.push(`  forms   not written: ${forms.dir}/ is outside ${dir}/ \u2014 see step ${formsStep} below`);
   const done = [];
   if (labels.created.length) done.push(`created ${labels.created.join(", ")}`);
   if (labels.present.length) {
@@ -15740,8 +15749,70 @@ function readRepo(root, { exec, remote }) {
   return { slug: slug || null, defaultBranch: defaultBranch || null };
 }
 
+// kit/lib/playbook/write-forms.mjs
+init_define_OMNI_BUNDLE();
+var import_yaml4 = __toESM(require_dist(), 1);
+import { existsSync as existsSync19, mkdirSync as mkdirSync2, writeFileSync as writeFileSync4 } from "node:fs";
+import { dirname as dirname4, join as join20, posix as posix3 } from "node:path";
+var PROVENANCE = /^<!-- Ported from .*-->\n+/gm;
+var REGISTER_TITLES = { "principles.md": "Product principles", "rules.md": "Product rules", "invariants.md": "Product invariants" };
+function samePath(a, b) {
+  const clean = (path) => posix3.normalize(path).replace(/\/+$/, "");
+  return clean(a) === clean(b);
+}
+function pointerTarget(id, ctx) {
+  if (id === DECISIONS_FORM && !samePath(ctx.config.paths.adr, `${ctx.layout.frontDoor}/adr`)) return ctx.config.paths.adr;
+  if (id === "glossary" && ctx.config.paths.glossary !== null) return ctx.config.paths.glossary;
+  return null;
+}
+function blankForm(id, { ctx }) {
+  const kit = parseForm(formTemplate(id), { file: `kit template ${id}` });
+  if (!kit.ok) throw new Error(`the kit's template for ${id} does not parse:
+${kit.errors.join("\n")}`);
+  const { formVersion, title, opener, slots } = kit.form;
+  const target = pointerTarget(id, ctx);
+  const frontMatter = { form: id, "form-version": formVersion, state: target ? "pointer" : "blank", "points-to": target, evidence: [], terraformed: null };
+  const lines = ["---", (0, import_yaml4.stringify)(frontMatter).trimEnd(), "---", "", `# ${title}`, ""];
+  if (opener) lines.push(opener, "");
+  if (!target) {
+    for (const slot of slots) lines.push(`## ${slot.heading}`, `<!-- slot: ${slot.id} \xB7 ${slot.required ? "required" : "optional"} -->`, "");
+  }
+  return lines.join("\n");
+}
+function frontDoorPage(ctx) {
+  return fillConfig(frontDoorTemplate().replace(PROVENANCE, ""), ctx.config).text;
+}
+function writeForms({ ctx }) {
+  const { frontDoor, knowledgeRoot } = ctx.layout;
+  const byFolder = [...FORMS.filter(({ id }) => id !== DECISIONS_FORM), ...FORMS.filter(({ id }) => id === DECISIONS_FORM)];
+  const planned = [
+    { path: `${frontDoor}/README.md`, text: () => frontDoorPage(ctx) },
+    ...byFolder.map(({ id }) => ({ path: ctx.layout.formPath(id), text: () => blankForm(id, { ctx }) }))
+  ];
+  if (samePath(frontDoor, knowledgeRoot)) {
+    for (const name of Object.keys(LAYER_FILES)) {
+      planned.push({ path: `${productDir(ctx)}/${name}`, text: () => `# ${REGISTER_TITLES[name]}
+
+None yet.
+` });
+    }
+  }
+  return planned.map(({ path, text: text2 }) => {
+    const absolute = join20(ctx.root, path);
+    if (existsSync19(absolute)) return { path, wrote: false };
+    mkdirSync2(dirname4(absolute), { recursive: true });
+    writeFileSync4(absolute, text2());
+    return { path, wrote: true };
+  });
+}
+
 // kit/bin/commands/init.mjs
-var BIN_FILE = join20(dirname4(CONFIG_FILE), "bin", "omni.mjs");
+var LOOP_DIR = dirname5(CONFIG_FILE);
+var BIN_FILE = join21(LOOP_DIR, "bin", "omni.mjs");
+function insideLoop(path) {
+  const clean = posix4.normalize(path).replace(/\/+$/, "");
+  return clean === LOOP_DIR || clean.startsWith(`${LOOP_DIR}/`);
+}
 var FLAGS = { test: "test", preflight: "preflight", preflightFull: "preflight-full" };
 var QUESTIONS = {
   test: "the command that runs the tests",
@@ -15778,11 +15849,11 @@ var init = {
     const force = flags.force === true;
     const root = findRoot(cwd, exec);
     const defaults = ConfigSchema.parse({ kit: CONFIG_VERSION });
-    const configPath = join20(root, CONFIG_FILE);
-    const binPath = join20(root, BIN_FILE);
-    const keepConfig = !force && existsSync19(configPath);
+    const configPath = join21(root, CONFIG_FILE);
+    const binPath = join21(root, BIN_FILE);
+    const keepConfig = !force && existsSync20(configPath);
     let config2 = keepConfig ? parseConfig(readFileSync14(configPath, "utf8"), CONFIG_FILE) : null;
-    const copyBin = force || !existsSync19(binPath);
+    const copyBin = force || !existsSync20(binPath);
     if (copyBin && !bundle) {
       throw usageError(
         `omni init: this omni runs from the kit source, which is never installed as ${BIN_FILE}; run \`${installCommand(kitHome({ exec }))}\` instead.`
@@ -15792,18 +15863,21 @@ var init = {
       const interactive = Boolean(stdin?.isTTY && stdout?.isTTY);
       const commands = await resolveCommands(root, flags, { interactive, ask });
       const repo = readRepo(root, { exec, remote: defaults.repo.remote });
-      const lawsSource = detectLawsSource(root, { knowledge: defaults.paths.knowledge, heading: defaults.laws.claudeMdHeading });
+      const lawsSource = detectLawsSource({ ctx: createContext(root, defaults) });
       const rendered = renderConfig({ ...repo, commands, lawsSource });
       config2 = rendered.config;
       const { text: text2 } = rendered;
-      mkdirSync2(dirname4(configPath), { recursive: true });
-      writeFileSync4(configPath, text2);
+      mkdirSync3(dirname5(configPath), { recursive: true });
+      writeFileSync5(configPath, text2);
     }
     if (copyBin) {
-      mkdirSync2(dirname4(binPath), { recursive: true });
+      mkdirSync3(dirname5(binPath), { recursive: true });
       copyFileSync(bundle, binPath);
       chmodSync(binPath, 493);
     }
+    const ctx = createContext(root, config2);
+    const outside = !insideLoop(ctx.layout.frontDoor);
+    const forms = outside ? [] : writeForms({ ctx });
     const labels = reconcileLabels(root, { exec, labels: config2.labels });
     const slug = config2.repo.slug ?? readRepo(root, { exec, remote: config2.repo.remote }).slug;
     stdout.write(closingSteps({
@@ -15812,6 +15886,7 @@ var init = {
       kitHome: kitHome({ exec }),
       outboxCheck: config2.ci.outboxContext,
       files: [{ path: CONFIG_FILE, wrote: !keepConfig }, { path: BIN_FILE, wrote: copyBin }],
+      forms: { dir: ctx.layout.frontDoor, wrote: forms.filter((file) => file.wrote).map((file) => file.path), outside },
       labels,
       unfilled: COMMAND_KEYS.filter((key) => config2.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] }))
     }));
@@ -15821,8 +15896,8 @@ var init = {
 
 // kit/bin/commands/item.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync20, mkdirSync as mkdirSync3, readFileSync as readFileSync15, writeFileSync as writeFileSync5 } from "node:fs";
-import { basename as basename4, join as join21 } from "node:path";
+import { existsSync as existsSync21, mkdirSync as mkdirSync4, readFileSync as readFileSync15, writeFileSync as writeFileSync6 } from "node:fs";
+import { basename as basename4, join as join22 } from "node:path";
 
 // kit/lib/policy/outbox-policy.mjs
 init_define_OMNI_BUNDLE();
@@ -16113,8 +16188,8 @@ function spentIds(prd2, { ctx }) {
   const ids = new Set(
     outboxItemFiles({ ctx }).filter((path) => path.startsWith(prefix)).map((path) => basename4(path, ".md"))
   );
-  const settledFile = join21(ctx.root, outboxDir, SETTLED_FILE);
-  if (existsSync20(settledFile)) {
+  const settledFile = join22(ctx.root, outboxDir, SETTLED_FILE);
+  if (existsSync21(settledFile)) {
     for (const entry of parseSettledEntries(readFileSync15(settledFile, "utf8"), ctx.markers)) {
       ids.add(entry.id);
     }
@@ -16262,8 +16337,8 @@ async function runNew(args, { ctx, stdout, stderr }) {
 }
 function writeItemFile(ctx, outboxDir, id, text2) {
   const file = `${outboxDir}/${id}.md`;
-  mkdirSync3(join21(ctx.root, outboxDir), { recursive: true });
-  writeFileSync5(join21(ctx.root, file), text2);
+  mkdirSync4(join22(ctx.root, outboxDir), { recursive: true });
+  writeFileSync6(join22(ctx.root, file), text2);
   return file;
 }
 var item = {
@@ -16279,17 +16354,17 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/playbook/decisions.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync21, readdirSync as readdirSync9, readFileSync as readFileSync16 } from "node:fs";
-import { join as join22 } from "node:path";
+import { existsSync as existsSync22, readdirSync as readdirSync9, readFileSync as readFileSync16 } from "node:fs";
+import { join as join23 } from "node:path";
 var RECORD = /^(\d{4})-.+\.md$/;
 var TITLE2 = /^#\s+(.+?)\s*$/m;
 function readDecisions({ ctx }) {
   const dir = ctx.layout.adrDir.replace(/\/+$/, "");
-  const absolute = join22(ctx.root, dir);
-  const names = existsSync21(absolute) ? readdirSync9(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && RECORD.test(entry.name)).map((entry) => entry.name).sort() : [];
+  const absolute = join23(ctx.root, dir);
+  const names = existsSync22(absolute) ? readdirSync9(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && RECORD.test(entry.name)).map((entry) => entry.name).sort() : [];
   const records = names.map((name) => {
     const file = `${dir}/${name}`;
-    const title = readFileSync16(join22(ctx.root, file), "utf8").match(TITLE2)?.[1] ?? null;
+    const title = readFileSync16(join23(ctx.root, file), "utf8").match(TITLE2)?.[1] ?? null;
     return { number: name.match(RECORD)[1], file, title };
   });
   const byNumber = /* @__PURE__ */ new Map();
@@ -16297,63 +16372,6 @@ function readDecisions({ ctx }) {
   const shared = [...byNumber].filter(([, files]) => files.length > 1).map(([number, files]) => ({ number, files }));
   const highest = records.reduce((max, record) => Math.max(max, Number(record.number)), 0);
   return { dir, records, shared, next: String(highest + 1).padStart(4, "0") };
-}
-
-// kit/lib/playbook/write-forms.mjs
-init_define_OMNI_BUNDLE();
-var import_yaml4 = __toESM(require_dist(), 1);
-import { existsSync as existsSync22, mkdirSync as mkdirSync4, writeFileSync as writeFileSync6 } from "node:fs";
-import { dirname as dirname5, join as join23, posix as posix3 } from "node:path";
-var PROVENANCE = /^<!-- Ported from .*-->\n+/gm;
-var REGISTER_TITLES = { "principles.md": "Product principles", "rules.md": "Product rules", "invariants.md": "Product invariants" };
-function samePath(a, b) {
-  const clean = (path) => posix3.normalize(path).replace(/\/+$/, "");
-  return clean(a) === clean(b);
-}
-function pointerTarget(id, ctx) {
-  if (id === DECISIONS_FORM && !samePath(ctx.config.paths.adr, `${ctx.layout.frontDoor}/adr`)) return ctx.config.paths.adr;
-  if (id === "glossary" && ctx.config.paths.glossary !== null) return ctx.config.paths.glossary;
-  return null;
-}
-function blankForm(id, { ctx }) {
-  const kit = parseForm(formTemplate(id), { file: `kit template ${id}` });
-  if (!kit.ok) throw new Error(`the kit's template for ${id} does not parse:
-${kit.errors.join("\n")}`);
-  const { formVersion, title, opener, slots } = kit.form;
-  const target = pointerTarget(id, ctx);
-  const frontMatter = { form: id, "form-version": formVersion, state: target ? "pointer" : "blank", "points-to": target, evidence: [], terraformed: null };
-  const lines = ["---", (0, import_yaml4.stringify)(frontMatter).trimEnd(), "---", "", `# ${title}`, ""];
-  if (opener) lines.push(opener, "");
-  if (!target) {
-    for (const slot of slots) lines.push(`## ${slot.heading}`, `<!-- slot: ${slot.id} \xB7 ${slot.required ? "required" : "optional"} -->`, "");
-  }
-  return lines.join("\n");
-}
-function frontDoorPage(ctx) {
-  return fillConfig(frontDoorTemplate().replace(PROVENANCE, ""), ctx.config).text;
-}
-function writeForms({ ctx }) {
-  const { frontDoor, knowledgeRoot } = ctx.layout;
-  const byFolder = [...FORMS.filter(({ id }) => id !== DECISIONS_FORM), ...FORMS.filter(({ id }) => id === DECISIONS_FORM)];
-  const planned = [
-    { path: `${frontDoor}/README.md`, text: () => frontDoorPage(ctx) },
-    ...byFolder.map(({ id }) => ({ path: ctx.layout.formPath(id), text: () => blankForm(id, { ctx }) }))
-  ];
-  if (samePath(frontDoor, knowledgeRoot)) {
-    for (const name of Object.keys(LAYER_FILES)) {
-      planned.push({ path: `${productDir(ctx)}/${name}`, text: () => `# ${REGISTER_TITLES[name]}
-
-None yet.
-` });
-    }
-  }
-  return planned.map(({ path, text: text2 }) => {
-    const absolute = join23(ctx.root, path);
-    if (existsSync22(absolute)) return { path, wrote: false };
-    mkdirSync4(dirname5(absolute), { recursive: true });
-    writeFileSync6(absolute, text2());
-    return { path, wrote: true };
-  });
 }
 
 // kit/bin/commands/kb.mjs
