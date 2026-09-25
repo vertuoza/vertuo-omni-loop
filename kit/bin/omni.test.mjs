@@ -232,6 +232,24 @@ describe('omni — user-caused errors are one line, exit 2', () => {
     expect(t.out.join('') + t.err.join('')).toMatch(/--prd 3 ignored/);
   });
 
+  it('comment and replies with a --repo that is not owner/name', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    for (const argv of [['comment', '--prd', '3', '--branch', 'feat/x', '--repo', 'nope'], ['replies', '--prd', '3', '--pr', '4', '--repo', 'nope']]) {
+      const s = io();
+      expect(await main(argv, { cwd: root, ...s, env: {} })).toBe(2);
+      oneLine(s);
+      expect(s.err.join('')).toMatch(/owner\/name.*nope|nope.*owner\/name/);
+    }
+  });
+
+  it('comment with a --base that does not exist', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const s = io();
+    expect(await main(['comment', '--prd', '3', '--branch', 'feat/x', '--base', 'nope/branch'], { cwd: root, ...s, env: {} })).toBe(2);
+    oneLine(s);
+    expect(s.err.join('')).toMatch(/nope\/branch/);
+  });
+
   it('adopt with a file that does not exist', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const s = io();

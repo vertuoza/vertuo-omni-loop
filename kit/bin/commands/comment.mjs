@@ -12,7 +12,7 @@ import {
   upsertOutboxPrComment,
 } from '../../lib/outbox/comment.mjs';
 import { githubClientFor } from '../github.mjs';
-import { inRoot, list, parseArgs, positiveInt, println, usageError } from '../args.mjs';
+import { inRoot, list, parseArgs, positiveInt, println, repoSlug, usageError } from '../args.mjs';
 
 const USAGE =
   'usage: omni comment --prd <n> --branch <feature-branch> [--repo <owner/name>] [--base <ref>] [--ref <sha>] ' +
@@ -26,8 +26,7 @@ export const comment = {
     });
     if (positional.length) throw usageError(USAGE);
     const prd = positiveInt('comment', '--prd', flags.prd);
-    const repo = flags.repo ?? ctx.config.repo.slug;
-    if (!repo) throw usageError('omni comment: no repository slug — pass --repo <owner/name> or set repo.slug.');
+    const repo = repoSlug('comment', ctx, flags.repo);
     const [owner, name] = repo.split('/');
 
     // `--pr` writes the plain-words comment on the feature pull request itself; its absence writes
@@ -53,7 +52,14 @@ export const comment = {
     const branch = flags.branch;
     if (!branch) throw usageError(USAGE);
     const ref = flags.ref ?? branch;
-    const changes = flags.base ? rangeChanges({ ctx, base: flags.base, exec }) : [];
+    let changes = [];
+    if (flags.base) {
+      try {
+        changes = rangeChanges({ ctx, base: flags.base, exec });
+      } catch (error) {
+        throw usageError(error.message.split('\n')[0]);
+      }
+    }
     const result = upsertOutboxComment(
       { prd, owner, repo: name, branch, ref, ctx, changes, labels: list(flags.labels) },
       githubClientFor(ctx, { repo, issue: prd, exec, env }),

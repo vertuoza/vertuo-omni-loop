@@ -3,7 +3,7 @@
 // Ported from vertuo-ai-domain@c4a210122:scripts/outbox-replies.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 import { readReplies, summarize } from '../../lib/outbox/replies.mjs';
 import { githubClientFor } from '../github.mjs';
-import { parseArgs, positiveInt, println, usageError } from '../args.mjs';
+import { parseArgs, positiveInt, println, repoSlug, usageError } from '../args.mjs';
 
 export const replies = {
   async run(args, { ctx, stdout, exec, env }) {
@@ -11,8 +11,7 @@ export const replies = {
     if (positional.length) throw usageError('usage: omni replies --prd <n> --pr <n> [--repo <owner/name>] [--post]');
     const prd = positiveInt('replies', '--prd', flags.prd);
     const pr = positiveInt('replies', '--pr', flags.pr);
-    const repo = flags.repo ?? ctx.config.repo.slug;
-    if (!repo) throw usageError('omni replies: no repository slug — pass --repo <owner/name> or set repo.slug.');
+    const repo = repoSlug('replies', ctx, flags.repo);
     const post = flags.post === true;
 
     const result = readReplies({ ctx, prd, pr, post }, githubClientFor(ctx, { repo, issue: pr, exec, env }));

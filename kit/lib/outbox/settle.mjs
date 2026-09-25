@@ -290,7 +290,7 @@ export function settledHeader(prd, { ctx }) {
     '',
     'Append-only. Each entry below is one outbox item a human answered: the question exactly as it',
     'was raised, the answer exactly as it was given, who approved it, when, through which channel,',
-    `and the verdict. Nothing here is ever rewritten — see \`${ctx.layout.dirs.outbox}/README.md\`.`,
+    `and the verdict. Nothing here is ever rewritten — see \`${ctx.config.paths.delivery}/README.md\`.`,
     '',
   ].join('\n');
 }

@@ -149,3 +149,9 @@ Source: `scripts/outbox-settle.mjs` @ `vertuo-ai-domain@c4a210122`.
 ## Gate
 
 `pnpm vitest run kit/lib/outbox/settle.test.mjs kit/test/no-literals.test.mjs` — 42/42 pass.
+
+## Final review fixes
+
+- `settledHeader` points at `<ctx.config.paths.delivery>/README.md` (the delivery folder's README,
+  which exists) instead of `<dirs.outbox>/README.md` (which the folders layout never creates).
+  Test: "settledHeader (final review) › points at the delivery folder's README".

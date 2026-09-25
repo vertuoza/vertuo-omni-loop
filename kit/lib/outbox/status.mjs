@@ -25,9 +25,10 @@
  * the shape every existing caller of this module already has, unchanged.
  *
  * **The third reason (this task).** A `drifted` verdict in a PRD's `settled.md` means the build and
- * the human's decision disagree; a rework closes it by appending a fresh entry for the SAME id
- * whose `Closed:` field starts with "yes" — `settle.mjs`'s own "latest wins" rule
- * (`parseSettledEntries`) means only the newest entry for that id is ever read. `unreworkedDrift`
+ * the human's decision disagree; a rework closes it by amending that entry's one `Closed:` line in
+ * place to start with "yes" (`closeDriftedEntry` in `kit/lib/policy/rework.mjs`, which touches no
+ * other byte) — and, since `settle.mjs`'s "latest wins" rule (`parseSettledEntries`) reads only the
+ * newest entry for an id, a later objection re-opens it by appending, never by editing. `unreworkedDrift`
  * names every id still open in this sense, and it holds the gate exactly as an open item or an
  * unaccounted change does, even when the outbox itself is otherwise empty.
  *
@@ -100,7 +101,7 @@ export function unaccountedChanges(prd, changes, { ctx }) {
  * Every `drifted` decision this PRD's `settled.md` still holds open — the third reason
  * `gateResult` can be red (this task). Reads the ledger through `parseSettledEntries`
  * (`settle.mjs`), which already keeps only the LATEST entry per id, so an id reworked since it
- * drifted (a fresh entry whose `Closed:` field starts with "yes") never shows up here. A PRD with
+ * drifted (its `Closed:` line amended in place to start with "yes") never shows up here. A PRD with
  * no folder at all, or a folder with no `settled.md` yet, has no drift to report.
  *
  * @param {string | number} prd

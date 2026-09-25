@@ -138,3 +138,8 @@ Source: `scripts/outbox-status.mjs` @ `vertuo-ai-domain@c4a210122`.
 `pnpm vitest run kit/lib/outbox/status.test.mjs kit/lib/outbox/settle-head.test.mjs
 kit/test/no-literals.test.mjs` — 32/32 pass (26 in `status.test.mjs`, 5 in
 `settle-head.test.mjs`, 1 in `no-literals.test.mjs`). Full `pnpm test` — 463/463 pass.
+
+## Final review fixes
+
+- Header doc corrected: a rework closes a drifted entry by amending its `Closed:` line in place
+  (`closeDriftedEntry`), not by appending a fresh entry. Documentation only; no behaviour change.

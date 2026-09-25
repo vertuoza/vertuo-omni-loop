@@ -82,3 +82,8 @@ path above). No upstream test covered a CLI half, so none is ported or deleted.
 
 - `omni status` writes `unreworked=<true|false>` to `GITHUB_OUTPUT` next to `open_items=` and
   `unaccounted=`. Test: "status writes open_items and unreworked to GITHUB_OUTPUT".
+- `omni comment` / `omni replies`: a `--repo` (or `repo.slug`) that is not `owner/name` is a
+  one-line `UsageError` (exit 2) before any GitHub call (`repoSlug` in `kit/bin/args.mjs`).
+  `omni comment --base <ref>` that cannot be read is a one-line `UsageError`, as `omni status`
+  does. Tests: "comment and replies with a --repo that is not owner/name", "comment with a --base
+  that does not exist".

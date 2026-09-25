@@ -73,6 +73,17 @@ export function readUserFile(command, ctx, path) {
   }
 }
 
+const SLUG = /^[\w.-]+\/[\w.-]+$/;
+
+/** The repository slug a command talks to GitHub about — `--repo`, else `repo.slug` — or a one-line
+ * `UsageError` when there is none or it is not `owner/name`. */
+export function repoSlug(command, ctx, flag) {
+  const repo = flag ?? ctx.config.repo.slug;
+  if (!repo) throw usageError(`omni ${command}: no repository slug — pass --repo <owner/name> or set repo.slug.`);
+  if (!SLUG.test(repo)) throw usageError(`omni ${command}: --repo must be owner/name, got "${repo}".`);
+  return repo;
+}
+
 const NO_FOLDER = /^PRD \d+ has no inbox or shipped folder$/;
 
 /** Runs `fn`, turning the library's "PRD <n> has no inbox or shipped folder" — an item naming a PRD

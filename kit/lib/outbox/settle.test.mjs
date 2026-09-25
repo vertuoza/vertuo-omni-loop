@@ -18,6 +18,7 @@ import {
   renderAdoptedEntry,
   renderSettledEntry,
   settleItem,
+  settledHeader,
 } from './settle.mjs';
 
 /** The markers every ported test below renders and parses through — `vertuo-outbox`, matching
@@ -660,5 +661,14 @@ describe('settleItem against the folders layout', () => {
     expect(() => adoptItem({ ctx, itemText: strayMedium })).toThrow(
       'PRD 999 has no inbox or shipped folder',
     );
+  });
+});
+
+describe('settledHeader (final review)', () => {
+  it('points at the delivery folder\'s README, which is where the format lives', () => {
+    const { ctx } = makeRepo();
+    const header = settledHeader(42, { ctx });
+    expect(header).toContain('`.omni-loop/delivery/README.md`');
+    expect(header).not.toContain('delivery/outbox/README.md');
   });
 });
