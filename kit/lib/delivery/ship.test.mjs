@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { makeRepo } from '../../test/fixture.mjs';
 import { makeMarkers } from '../markers.mjs';
 import { applyShip, planShip } from './ship.mjs';
-import { whereIs } from './prd.mjs';
 
 const D = '.omni-loop/delivery';
 const m = makeMarkers('omni-outbox');
@@ -69,20 +68,5 @@ describe('applyShip', () => {
   it('throws with every reason when the plan refuses', () => {
     const { ctx } = makeRepo({ git: true, files: { [`${D}/inbox/0042-a/spec.md`]: 'x', [`${D}/outbox/0042-a/s1-02-y.md`]: 'open' } });
     expect(() => applyShip(ctx, 42)).toThrow(/open outbox item/);
-  });
-});
-
-describe('whereIs', () => {
-  it('describes a PRD in flight', () => {
-    const { ctx } = makeRepo({ files: { [`${D}/inbox/0042-a/spec.md`]: 'x', [`${D}/outbox/0042-a/s1-01-x.md`]: 'y' } });
-    expect(whereIs(ctx, '42')).toEqual({
-      prd: 42, name: '0042-a', state: 'inbox', dir: `${D}/inbox/0042-a`,
-      files: [`${D}/inbox/0042-a/spec.md`],
-      outboxDir: `${D}/outbox/0042-a`,
-      openItems: [`${D}/outbox/0042-a/s1-01-x.md`],
-    });
-  });
-  it('is null for an unknown PRD', () => {
-    expect(whereIs(makeRepo().ctx, 1)).toBeNull();
   });
 });

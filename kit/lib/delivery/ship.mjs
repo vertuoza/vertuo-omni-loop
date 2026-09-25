@@ -6,6 +6,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { basename, join, dirname } from 'node:path';
 import { trackedFiles } from '../check-report.mjs';
 import { openItemFiles, unreworkedDrift } from '../outbox/status.mjs';
+import { SETTLED_FILE } from '../outbox/outbox.mjs';
 
 const REWRITTEN = /\.(md|html|yml|yaml|json)$/;
 
@@ -29,7 +30,7 @@ export function planShip(ctx, prd, { files, read }) {
 
   const rewrites = [];
   for (const file of files) {
-    if (!REWRITTEN.test(file) || basename(file) === 'settled.md') continue;
+    if (!REWRITTEN.test(file) || basename(file) === SETTLED_FILE) continue;
     const before = read(file);
     let after = before.split(where.dir).join(shipped);
     if (hasOutbox) after = after.split(outbox).join(`${shipped}/outbox`);
