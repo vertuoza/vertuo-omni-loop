@@ -1,5 +1,5 @@
 import { InngestTestEngine } from '@inngest/test';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { inngest, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
 import { failing } from '../../test/github-replay.mjs';
 import { FEATURE, MERGE_SHA, SUB_PULLS, mergeFiles, widgetScenario } from '../../test/retro-scenario.mjs';
@@ -112,7 +112,13 @@ describe('retro — a replay', () => {
     const scenario = widgetScenario();
     await engine(scenario).execute();
     const first = scenario.github.state.refs.get(`heads/${BRANCH}`);
-    await engine(scenario, { env: { OPENROUTER_API_KEY: 'k' } }).execute();
+    // With a key the model is asked: stubbed here, so no test reaches OpenRouter.
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 401 })));
+    try {
+      await engine(scenario, { env: { OPENROUTER_API_KEY: 'k' } }).execute();
+    } finally {
+      vi.unstubAllGlobals();
+    }
     const second = scenario.github.state.refs.get(`heads/${BRANCH}`);
     expect(second).not.toBe(first);
     expect(scenario.github.state.commits.get(second).parents).toEqual([{ sha: first }]);
