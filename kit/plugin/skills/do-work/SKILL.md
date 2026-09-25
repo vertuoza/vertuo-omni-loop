@@ -44,9 +44,9 @@ Never work on the default branch or on the feature branch.
 
 - **Under `--in-wave`:** `/omni:wave` has already claimed the slice. Do not cut a fresh branch:
   fetch and check out the existing `<repo.remote>/<slice branch>`, which holds the claim commit.
-- **Running alone:** claim first. Cut the slice branch from `<repo.remote>/<feature branch>`, then
-  follow `/omni:pr`'s **Claim** mode (an empty claim commit, a push, the draft sub-PR, the claimed
-  status comment) before you build anything.
+- **Running alone:** claim first: follow `/omni:pr`'s **Claim** mode in full (it cuts the slice
+  branch from the feature branch, makes the claim commit, pushes, opens the draft and posts the
+  claimed status) before you build anything.
 
 **Heartbeat.** A claim reads as stale when its branch has no commit beyond the claim and the claim
 is older than `limits.claimStaleMinutes`; a stale claim can be taken by a second wave. While
