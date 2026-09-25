@@ -61,3 +61,61 @@
   background: var(--navy-dark);
   color: var(--yellow);
 }
+
+/* ── The map on the tall grid (320×288) ──────────────────────────────────
+   The lines of TALL_MAP in map.ts: the HUD on two rows down to 22px, the sector labels under it,
+   the planets' band from 36px to 170px, and the dialog from 190px down to the bottom. The same
+   information as the wide map, stacked: the HUD's count goes under the season and the high score,
+   and the dialog reads the planet, its state and LAND, then its title, then its facts. The type is
+   never below 8px in the pixel face and 15px in the text face. */
+
+.grid-tall .hud {
+  height: 22px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: space-between;
+  align-content: center;
+  row-gap: 3px;
+  padding: 0 6px;
+  font-size: 8px;
+  line-height: 8px;
+}
+.grid-tall .hud-mid { grid-row: 2; grid-column: 1 / -1; justify-self: center; }
+.grid-tall .sector-label {
+  top: 25px;
+  box-sizing: border-box;
+  padding: 0 2px;
+  letter-spacing: 1px;
+  line-height: 9px;
+  overflow-wrap: anywhere;
+}
+.grid-tall .map .dialog {
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  height: auto;
+  padding: 4px 7px;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'prd chip . go'
+    'title title title title'
+    'facts facts facts facts';
+  align-items: center;
+  gap: 4px 6px;
+}
+.grid-tall .map .dialog > .dialog-row:first-child { display: contents; }
+.grid-tall .map .dialog-prd { grid-area: prd; }
+.grid-tall .map .dialog .chip { grid-area: chip; justify-self: start; }
+.grid-tall .map .dialog-title {
+  grid-area: title;
+  font-size: 10px;
+  line-height: 12px;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.grid-tall .map .dialog-row.small { grid-area: facts; font-size: 16px; line-height: 16px; gap: 0 12px; }
+.grid-tall .map .dialog-go { grid-area: go; position: static; font-size: 8px; padding: 3px 5px; }
+.grid-tall .map .dialog .empty { grid-column: 1 / -1; margin: 0; }
