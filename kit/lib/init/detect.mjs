@@ -2,6 +2,7 @@
 // composer.json or a Makefile — the first that exists wins) and where its laws live.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readRegisters } from '../knowledge/registers.mjs';
 
 export const COMMAND_KEYS = Object.freeze(['test', 'preflight', 'preflightFull']);
 
@@ -63,12 +64,16 @@ export function detectCommands(root) {
 }
 
 /**
- * `knowledge` when the knowledge folder exists, else `claudeMdInvariants` when CLAUDE.md carries the
- * invariants heading, else `none`. `paths` and `laws` are the schema's defaults.
+ * `knowledge` when the knowledge registers hold at least one principle, rule or invariant — not
+ * when the folder merely exists, since every install lays down the forms and empty registers there —
+ * else `claudeMdInvariants` when CLAUDE.md carries the invariants heading, else `none`. `ctx` carries
+ * the schema's defaults.
  */
-export function detectLawsSource(root, { knowledge, heading }) {
-  if (existsSync(join(root, knowledge))) return 'knowledge';
-  const claudeMd = join(root, 'CLAUDE.md');
+export function detectLawsSource({ ctx }) {
+  const { principles, rules, invariants } = readRegisters({ ctx });
+  if (principles.length + rules.length + invariants.length > 0) return 'knowledge';
+  const claudeMd = join(ctx.root, 'CLAUDE.md');
+  const heading = ctx.config.laws.claudeMdHeading;
   if (existsSync(claudeMd) && readFileSync(claudeMd, 'utf8').split('\n').some((line) => line.trim() === heading)) {
     return 'claudeMdInvariants';
   }

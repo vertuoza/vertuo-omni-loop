@@ -65,3 +65,18 @@ spec §2 asks: replies, the settle PR, the after-merge path). Its `rework.mjs` w
 - The after-merge path opens the new feature PR as a draft through `/omni:pr` (upstream: "open one
   new feature pull request").
 - The rework subagent's prompt, spelled out, in `/omni:wave`'s dispatch shape.
+- **The playbook forms** (PRD 45, the spec's wiring table): step 0 prints the `briefing` through
+  `omni kb show` before any other step (acceptance criterion 9), and says how to read a form: a
+  blank section is the kit default, a `[hole]` never stops the run (decision 7), and a form adds to
+  its steps without overriding its rules (item s6-02).
+- **The write-back** (§3) gains two targets (PRD 45):
+  - an ADR under `paths.adr` is written as `omni kb show decisions` says: where records live, their
+    format, and the next free number it reads live from the folder;
+  - a process lesson (how to work here) goes into the playbook section it answers, with `by: human`
+    in the slot's marker, and the settled entry records `Became: playbook/<form>#<slot>`, which
+    `omni check outbox` resolves (decision 10). `omni kb init` first writes a missing form. Unlike
+    the knowledge and ADR targets, it does not wait on `laws.source`: the playbook is not law, and
+    `omni kb init` gives any installed repository one.
+  - A section that points elsewhere takes the lesson in the page it names, and still records its
+    `Became:`; a form that points elsewhere as a whole takes it in its target and records
+    `Stays here:` with where it went, since there is no slot to name (item s6-03).

@@ -2,6 +2,9 @@
 // carries as `.omni-loop/bin/omni.mjs` and runs with plain `node` — no install step.
 // `__OMNI_BUNDLE__` is the bundle's marker (see lib/init/bundle.mjs): only a build defines it, and
 // it records where the kit comes from, so `omni init` can install the bundle and name its source.
+// `__OMNI_TEMPLATES__` carries the kit defaults (see lib/playbook/templates.mjs): every file under
+// kit/templates/, read by the same loader that reads them from source, so the bundle needs no other
+// file. The bundle exports that loader beside `main`, so the committed file can be asked for them.
 // `node kit/build.mjs [outfile]`: the outfile defaults to `kit/dist/omni.mjs`, which is committed and
 // kept equal to a fresh build by kit/test/dist.test.mjs — so the output never depends on the cwd.
 import { build } from 'esbuild';
@@ -9,6 +12,16 @@ import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { slugFromRemote } from './lib/context.mjs';
+import { readTemplates } from './lib/playbook/templates.mjs';
+
+// The CLI, and the templates loader beside it: an entry that exists only here, named after this
+// file in the bundle's module comments. Its hashbang leads the bundle.
+const ENTRY = [
+  '#!/usr/bin/env node',
+  "export * from './bin/omni.mjs';",
+  "export { formTemplate, frontDoorTemplate } from './lib/playbook/templates.mjs';",
+  '',
+].join('\n');
 
 const kit = fileURLToPath(new URL('.', import.meta.url));
 const outfile = process.argv[2] ? resolve(process.argv[2]) : `${kit}dist/omni.mjs`;
@@ -19,7 +32,7 @@ try {
   home = null;
 }
 await build({
-  entryPoints: [`${kit}bin/omni.mjs`],
+  stdin: { contents: ENTRY, resolveDir: kit, sourcefile: 'build.mjs', loader: 'js' },
   outfile,
   // esbuild names each bundled module in a comment relative to this directory: pin it to the
   // repository root, so a build from any cwd is byte-identical.
@@ -30,5 +43,6 @@ await build({
   target: 'node22',
   banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" },
   legalComments: 'none',
-  define: { __OMNI_BUNDLE__: JSON.stringify({ home }) },
+  // A string, parsed once where it is read: an object here would be initialised in every module.
+  define: { __OMNI_BUNDLE__: JSON.stringify({ home }), __OMNI_TEMPLATES__: JSON.stringify(JSON.stringify(readTemplates())) },
 });
