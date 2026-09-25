@@ -173,9 +173,10 @@ export function runnableFrontier(rows) {
  * The whole board: one row per slice, plus the runnable frontier.
  *
  * @param {object} input
- * @param {Array<{ id: string, title?: string, territory: string[], wave: number, blockedBy: string[] }>} input.slices
- *   — from `parsePlanSlices` (`kit/lib/inbox/territory.mjs`), which carries each slice's own
- *   `blocked by` ids.
+ * @param {Array<{ id: string, title?: string, territory: string[], wave: number, blockedBy?: string[] }>} input.slices
+ *   — from `parsePlanSlices` (`kit/lib/inbox/territory.mjs`), each widened with its own `blocked by`
+ *   ids (that module deliberately reads `id`, `slice`, `territory` and `wave` only — the CLI half
+ *   reads `blocked by` itself, the same narrow way `omni plan check` already does).
  * @param {object[]} [input.prs] — a `gh pr list` payload: `number`, `title`, `headRefName`,
  *   `baseRefName`, `state`, `isDraft`, `mergedAt`, `body`, `labels`, `updatedAt`, `createdAt` and
  *   `headCommitDate` (the head commit's own date, when known).

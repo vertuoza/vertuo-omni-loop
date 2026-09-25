@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   breaches,
@@ -172,16 +170,27 @@ describe('parsePlanSlices — blockedBy', () => {
     expect(slices[0].blockedBy).toEqual([]);
   });
 
-  it("reads this repository's own PRD 7 plan without throwing, and s14 is blocked by s3", () => {
-    const path = fileURLToPath(
-      new URL('../../../.omni-loop/delivery/inbox/0007-omni-loop-skills/plan.md', import.meta.url),
-    );
-    const markdown = readFileSync(path, 'utf8');
-    const slices = parsePlanSlices(markdown);
-    const s14 = slices.find((slice) => slice.id === 's14');
-    expect(s14.blockedBy).toEqual(['s3']);
-    const s1 = slices.find((slice) => slice.id === 's1');
-    expect(s1.blockedBy).toEqual([]);
+  it('reads a plan shaped like a real multi-wave slice table — a multi-blocker cell and a bare dash both come through', () => {
+    // Same table shape as this repository's own PRD 7 plan (`id | slice | territory | blocked by |
+    // wave`), inlined rather than read off disk: a live delivery plan moves from inbox/ to
+    // shipped/ once its PRD ships, so a test that reads it by path goes red the moment that happens.
+    const plan = `## Slices
+
+| id  | slice              | territory   | blocked by  | wave |
+| --- | ------------------ | ----------- | ----------- | ---- |
+| s1  | Marketplace        | \`a/\`        | —           | 1    |
+| s2  | Item and plan      | \`b/\`        | —           | 1    |
+| s3  | Board              | \`c/\`        | s2          | 2    |
+| s6  | Rework and phase0  | \`d/\`        | s3          | 3    |
+| s7  | Plan skill         | \`e/\`        | s2, s4      | 3    |
+| s9  | Yolo skill         | \`f/\`        | s7, s8      | 5    |
+| s10 | Yolo-fix skill     | \`g/\`        | s6, s7, s9  | 6    |
+`;
+    const slices = parsePlanSlices(plan);
+    const byId = (id) => slices.find((slice) => slice.id === id);
+    expect(byId('s1').blockedBy).toEqual([]);
+    expect(byId('s3').blockedBy).toEqual(['s2']);
+    expect(byId('s10').blockedBy).toEqual(['s6', 's7', 's9']);
   });
 });
 

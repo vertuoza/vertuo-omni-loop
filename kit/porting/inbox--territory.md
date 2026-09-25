@@ -95,11 +95,23 @@ recorded here per the slice's own instructions rather than in a separate porting
 - `kit/bin/commands/board.mjs`: deleted the same six-function copy plus its own `slicesWithBlockers`
   wrapper; `board.run` now calls `parsePlanSlices(markdown)` directly. `kit/lib/board.mjs`'s
   `boardFor` already read `slice.blockedBy` (it never needed to know where that field came from), so
-  it required a doc-comment update only — no behavior change.
+  no change was needed there — its territory belongs to s3, not this slice.
+
+### Fix round 1 (wave 3 review)
+
+- The last `parsePlanSlices — blockedBy` test originally read this repository's own
+  `.omni-loop/delivery/inbox/0007-omni-loop-skills/plan.md` off disk. Flagged in review: a live
+  delivery plan moves from `inbox/` to `shipped/` the moment its PRD ships, so a test that reads it
+  by path goes red on ship day for a reason that has nothing to do with `parsePlanSlices`. Replaced
+  with an inline fixture carrying the same table shape (`id | slice | territory | blocked by |
+  wave`) and a multi-blocker cell (`s6, s7, s9`) alongside a bare `—`. `readFileSync` and
+  `fileURLToPath` imports dropped from the test file — nothing else used them.
+- Reverted the `kit/lib/board.mjs` doc-comment edit from the first pass: that file is s3's
+  territory, not s14's, and `boardFor`'s behavior needed no change (it already read
+  `slice.blockedBy`), so touching its doc comment was out of scope.
 
 ### Gate (this update)
 
-`pnpm test` — 970/970 pass (was 965 before this slice; +5 new `parsePlanSlices — blockedBy` cases in
-`kit/lib/inbox/territory.test.mjs`, including one reading this repository's own
-`.omni-loop/delivery/inbox/0007-omni-loop-skills/plan.md`). `omni plan check 7` and `omni board 7`
-print byte-identical output before and after (see the s14 report).
+`pnpm test` — 970/970 pass (was 965 before this slice; +5 net new `parsePlanSlices — blockedBy`
+cases in `kit/lib/inbox/territory.test.mjs`, none of them reading a file off disk). `omni plan check
+7` and `omni board 7` print byte-identical output before and after (see the s14 report).
