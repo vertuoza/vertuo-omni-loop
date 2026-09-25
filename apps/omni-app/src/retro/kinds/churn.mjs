@@ -58,146 +58,57 @@ export const churn = Object.freeze({
 
   detect(records, { pr, prd, config, pulls }) {
     if (!records) return { facts: null, findings: [] };
-    const leftOut = leftOutAs(records.gitattributes ?? null);
-    const sliceOf = sliceReader(config, prd);
-    const repoUrl = typeof pr?.url === 'string' ? pr.url.replace(/\/pull\/\d+$/, '') : null;
-
-    const commits = new Map(); // sha → { short, url, label, index }
-    const files = new Map(); // path → { added, commits: Set<sha> }
-    const lines = new Map(); // path → [line, commits][]
-    const left = { generated: new Set(), lockfile: new Set() };
-    const noPatch = [];
-    const unread = { pulls: [], commits: [] };
-    let read = 0;
-
-    const order = [...records.pulls].sort((a, b) => (a.mergedAt ?? '').localeCompare(b.mergedAt ?? '') || a.number - b.number);
-    for (const pull of order) {
-      if (pull.commits === null) {
-        unread.pulls.push(pull.number);
-        continue;
-      }
-      const label = sliceOf(pull.headRef) ?? `#${pull.number}`;
-      for (const commit of pull.commits) {
-        if (commits.has(commit.sha)) continue;
-        const short = commit.sha.slice(0, SHORT);
-        const url = commit.url ?? (repoUrl ? `${repoUrl}/commit/${commit.sha}` : null);
-        commits.set(commit.sha, { short, url, label, index: commits.size });
-        if (commit.files === null) {
-          unread.commits.push(short);
-          continue;
-        }
-        read += 1;
-        for (const file of commit.files) {
-          const why = leftOut(file.path);
-          if (why) {
-            left[why].add(file.path);
-            continue;
-          }
-          if (file.previous && file.previous !== file.path) rename(files, lines, file.previous, file.path);
-          const stats = files.get(file.path) ?? { added: 0, commits: new Set() };
-          stats.added += file.additions;
-          stats.commits.add(commit.sha);
-          files.set(file.path, stats);
-
-          if (file.status === 'removed') lines.delete(file.path);
-          else if (file.blocks === null) {
-            if (file.additions + file.deletions > 0) {
-              noPatch.push({ path: file.path, commit: short, slice: label, additions: file.additions, deletions: file.deletions });
-              lines.delete(file.path);
-            }
-          } else {
-            const before = file.status === 'added' ? [] : (lines.get(file.path) ?? []);
-            lines.set(file.path, followLines(before, file.blocks, commit.sha));
-          }
-        }
-      }
-    }
-
-    const final = records.final ? new Map(records.final.map((file) => [file.path, file])) : null;
-    const perFile = final
-      ? [...files.entries()]
-          .map(([path, stats]) => {
-            const finalAdded = final.get(path)?.additions ?? 0;
-            const churned = Math.max(0, stats.added - finalAdded);
-            return {
-              path,
-              commits: stats.commits.size,
-              added: stats.added,
-              finalAdded,
-              churn: churned,
-              percent: finalAdded > 0 ? Math.round((churned * 100) / finalAdded) : null,
-            };
-          })
-          .filter((file) => file.churn > 0)
-          .sort((a, b) => b.churn - a.churn || a.path.localeCompare(b.path))
-      : null;
-
-    const byIndex = (a, b) => commits.get(a).index - commits.get(b).index;
-    const ranges = [...lines.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .flatMap(([path, followed]) =>
-        rewrittenRanges(followed, THRESHOLDS.churnRangeCommits).map((range) => {
-          const shas = [...range.commits].sort(byIndex);
-          return { path, from: range.from, to: range.to, shas, labels: unique(shas.map((sha) => commits.get(sha).label)) };
-        }),
-      )
-      .sort((a, b) => b.shas.length - a.shas.length || a.path.localeCompare(b.path) || a.from - b.from);
-
-    const sum = (key) => [...files.values()].reduce((total, stats) => total + stats[key], 0);
-    const added = sum('added');
-    const finalAdded = final ? [...files.keys()].reduce((total, path) => total + (final.get(path)?.additions ?? 0), 0) : null;
+    const walked = walk(records, { sliceOf: sliceReader(config, prd), leftOut: leftOutAs(records.gitattributes ?? null) });
+    const final = records.final ? new Map(records.final.map((file) => [file.path, file.additions])) : null;
+    const perFile = final ? churnPerFile(walked.files, final) : null;
+    const ranges = rewritten(walked);
 
     const facts = {
-      pulls: order.filter((pull) => pull.commits !== null).length,
-      commits: read,
-      added,
-      finalAdded,
+      pulls: walked.pulls,
+      commits: walked.read,
+      added: [...walked.files.values()].reduce((total, stats) => total + stats.added, 0),
+      finalAdded: final ? [...walked.files.keys()].reduce((total, path) => total + (final.get(path) ?? 0), 0) : null,
       churn: perFile ? perFile.reduce((total, file) => total + file.churn, 0) : null,
       files: perFile,
-      ranges: ranges.map(({ path, from, to, shas, labels }) => ({
+      ranges: ranges.map(({ path, from, to, shas, slices }) => ({
         path,
         from,
         to,
-        commits: shas.map((sha) => commits.get(sha).short),
-        slices: labels,
+        commits: shas.map((sha) => walked.commits.get(sha).short),
+        slices,
       })),
-      leftOut: { generated: [...left.generated].sort(), lockfile: [...left.lockfile].sort() },
-      noPatch,
-      unread,
+      leftOut: { generated: [...walked.left.generated].sort(), lockfile: [...walked.left.lockfile].sort() },
+      noPatch: walked.noPatch,
+      unread: walked.unread,
       notCounted: (pulls ?? []).filter((pull) => !pull.mergedAt).map((pull) => pull.number),
     };
 
-    const evidenceOf = (shas) =>
-      [...shas].sort(byIndex).map((sha) => {
-        const commit = commits.get(sha);
-        return { label: `${commit.short} (${commit.label})`, url: commit.url };
-      });
-    const blob = (path, anchor = '') =>
-      repoUrl && pr?.headSha ? [`${repoUrl}/blob/${pr.headSha}/${path.split('/').map(encodeURIComponent).join('/')}${anchor}`] : [];
-
+    const links = linker(pr, walked.commits);
     const fileFindings = (perFile ?? [])
       .filter((file) => file.churn >= THRESHOLDS.churnFileLines && file.churn * 100 >= THRESHOLDS.churnFilePercent * file.finalAdded)
-      .map((file) => ({
-        id: `churn:${file.path}`,
+      .map((file) => {
+        const blob = file.finalAdded > 0 ? links.blob(file.path) : null;
+        return {
+          id: `churn:${file.path}`,
+          kind: 'churn',
+          title: `Much of \`${file.path}\` was written, then rewritten`,
+          happened: fileHappened(file, walked.noPatch.filter((entry) => entry.path === file.path)),
+          evidence: [
+            ...links.commits(walked.files.get(file.path).commits),
+            ...(blob ? [{ label: `\`${file.path}\`, as merged`, url: blob }] : []),
+          ],
+        };
+      });
+    const rangeFindings = ranges.map(({ path, from, to, shas, slices }) => {
+      const blob = links.blob(path, `#L${from}-L${to}`);
+      return {
+        id: `churn:${path}:${from}-${to}`,
         kind: 'churn',
-        title: `Much of \`${file.path}\` was written, then rewritten`,
-        happened: fileHappened(file, noPatch.filter((entry) => entry.path === file.path)),
-        evidence: [
-          ...evidenceOf(files.get(file.path).commits),
-          ...(file.finalAdded > 0 ? blob(file.path).map((url) => ({ label: `\`${file.path}\`, as merged`, url })) : []),
-        ],
-      }));
-
-    const rangeFindings = ranges.map(({ path, from, to, shas, labels }) => ({
-      id: `churn:${path}:${from}-${to}`,
-      kind: 'churn',
-      title: `Lines ${from}-${to} of \`${path}\` were rewritten again and again`,
-      happened: `Lines ${from}-${to} of \`${path}\`, as merged, were written and rewritten in ${shas.length} commits, in ${and(labels)}; the rules flag a line range rewritten in ${THRESHOLDS.churnRangeCommits} or more commits.`,
-      evidence: [
-        ...evidenceOf(shas),
-        ...blob(path, `#L${from}-L${to}`).map((url) => ({ label: `\`${path}\` lines ${from}-${to}, as merged`, url })),
-      ],
-    }));
+        title: `Lines ${from}-${to} of \`${path}\` were rewritten again and again`,
+        happened: `Lines ${from}-${to} of \`${path}\`, as merged, were written and rewritten in ${shas.length} commits, in ${and(slices)}; the rules flag a line range rewritten in ${THRESHOLDS.churnRangeCommits} or more commits.`,
+        evidence: [...links.commits(shas), ...(blob ? [{ label: `\`${path}\` lines ${from}-${to}, as merged`, url: blob }] : [])],
+      };
+    });
 
     return { facts, findings: [...fileFindings, ...rangeFindings] };
   },
@@ -227,6 +138,114 @@ export const churn = Object.freeze({
     return lines;
   },
 });
+
+/**
+ * Every commit read, in the order it reached the feature branch: pull requests by merge, commits as
+ * listed. Counts each file's lines added and the commits that changed it, following renames, and
+ * follows each line to the commits that wrote it.
+ */
+function walk(records, { sliceOf, leftOut }) {
+  const commits = new Map(); // sha → { short, url, slice, index }
+  const files = new Map(); // path → { added, commits: Set<sha> }
+  const lines = new Map(); // path → [line, commits][]
+  const left = { generated: new Set(), lockfile: new Set() };
+  const noPatch = [];
+  const unread = { pulls: [], commits: [] };
+  let pulls = 0;
+  let read = 0;
+
+  const order = [...records.pulls].sort((a, b) => (a.mergedAt ?? '').localeCompare(b.mergedAt ?? '') || a.number - b.number);
+  for (const pull of order) {
+    if (pull.commits === null) {
+      unread.pulls.push(pull.number);
+      continue;
+    }
+    pulls += 1;
+    const slice = sliceOf(pull.headRef) ?? `#${pull.number}`;
+    for (const commit of pull.commits) {
+      if (commits.has(commit.sha)) continue;
+      const short = commit.sha.slice(0, SHORT);
+      commits.set(commit.sha, { short, url: commit.url, slice, index: commits.size });
+      if (commit.files === null) {
+        unread.commits.push(short);
+        continue;
+      }
+      read += 1;
+      for (const file of commit.files) {
+        const why = leftOut(file.path);
+        if (why) {
+          left[why].add(file.path);
+          continue;
+        }
+        if (file.previous && file.previous !== file.path) rename(files, lines, file.previous, file.path);
+        const stats = files.get(file.path) ?? { added: 0, commits: new Set() };
+        stats.added += file.additions;
+        stats.commits.add(commit.sha);
+        files.set(file.path, stats);
+
+        if (file.status === 'removed') lines.delete(file.path);
+        else if (file.blocks !== null) {
+          const before = file.status === 'added' ? [] : (lines.get(file.path) ?? []);
+          lines.set(file.path, followLines(before, file.blocks, commit.sha));
+        } else if (file.additions + file.deletions > 0) {
+          // Without a patch the file's lines can no longer be placed, so they are no longer followed.
+          noPatch.push({ path: file.path, commit: short, slice, additions: file.additions, deletions: file.deletions });
+          lines.delete(file.path);
+        }
+      }
+    }
+  }
+  return { commits, files, lines, left, noPatch, unread, pulls, read };
+}
+
+/** Each file's churn against the final diff (`path → lines added`), most first; a file with none is left out. */
+function churnPerFile(files, final) {
+  return [...files.entries()]
+    .map(([path, stats]) => {
+      const finalAdded = final.get(path) ?? 0;
+      const churn = Math.max(0, stats.added - finalAdded);
+      return {
+        path,
+        commits: stats.commits.size,
+        added: stats.added,
+        finalAdded,
+        churn,
+        percent: finalAdded > 0 ? Math.round((churn * 100) / finalAdded) : null,
+      };
+    })
+    .filter((file) => file.churn > 0)
+    .sort((a, b) => b.churn - a.churn || a.path.localeCompare(b.path));
+}
+
+/** The line ranges written in enough commits, most commits first: each with its commits, oldest first, and their slices. */
+function rewritten({ lines, commits }) {
+  const byIndex = (a, b) => commits.get(a).index - commits.get(b).index;
+  return [...lines.entries()]
+    .flatMap(([path, followed]) =>
+      rewrittenRanges(followed, THRESHOLDS.churnRangeCommits).map((range) => {
+        const shas = [...range.commits].sort(byIndex);
+        return { path, from: range.from, to: range.to, shas, slices: unique(shas.map((sha) => commits.get(sha).slice)) };
+      }),
+    )
+    .sort((a, b) => b.shas.length - a.shas.length || a.path.localeCompare(b.path) || a.from - b.from);
+}
+
+/** The evidence links: commits, oldest first, and a file at the feature PR's head. */
+function linker(pr, commits) {
+  const repoUrl = typeof pr?.url === 'string' ? pr.url.replace(/\/pull\/\d+$/, '') : null;
+  return {
+    commits: (shas) =>
+      [...shas]
+        .map((sha) => ({ sha, ...commits.get(sha) }))
+        .sort((a, b) => a.index - b.index)
+        .map((commit) => ({
+          label: `${commit.short} (${commit.slice})`,
+          url: commit.url ?? (repoUrl ? `${repoUrl}/commit/${commit.sha}` : null),
+        })),
+    blob: (path, anchor = '') =>
+      repoUrl && pr?.headSha ? `${repoUrl}/blob/${pr.headSha}/${path.split('/').map(encodeURIComponent).join('/')}${anchor}` : null,
+  };
+}
 
 /** What happened to a file whose churn crossed both thresholds, every number from its facts or `rules`. */
 function fileHappened(file, noPatch) {
