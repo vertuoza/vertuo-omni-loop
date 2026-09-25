@@ -15,7 +15,11 @@ labels, and the loop that watches it.
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and stop. Every value
 below is read with `node .omni-loop/bin/omni.mjs config <key>`; never write a label, branch, check
-name or command from memory.
+name or command from memory. `<remote>` below is `repo.remote`.
+
+There are two modes. **Claim** opens a slice's draft sub-PR before the slice is built, then stops.
+`/omni:do-work` (run alone) and `/omni:wave` ask for it. **Lifecycle** is the default: it opens or
+picks up a PR and watches it until it is done or stuck.
 
 ## Three kinds
 
@@ -42,10 +46,13 @@ Before adding a label, check it exists: `gh label list --search "<name>" --json 
 
 Never add `labels.outboxGo`; it is a person's override.
 
-## Merging
+## Merging and ready
 
 - **Never merge a PR whose base is `repo.defaultBranch`.** A feature PR or standalone PR is merged by
   a person.
+- **Never mark a feature PR ready.** `/omni:yolo` does that, after `omni ship` has run on the feature
+  branch. This skill leaves a feature PR in draft, however green it is.
+- `/omni:pr` owns `gh pr ready` for a sub-PR, and runs it only once the preflight is green.
 - A **sub-PR** is merged into its feature branch by the orchestrator (`/omni:wave`), one at a time:
   check `baseRefName` is not the default branch, then `gh pr merge <n> --squash --delete-branch`. A
   subagent never merges its own sub-PR.
@@ -99,9 +106,10 @@ per PR, found by its marker and rewritten in place on every pass of the loop. **
 ```bash
 MARK="<!-- $(node .omni-loop/bin/omni.mjs config markers.prefix)-status -->"
 BODY=$(mktemp)   # write the body below into it; its first line is "$MARK"
-ID=$(gh api "repos/{owner}/{repo}/issues/<n>/comments" --paginate \
+REPO=$(node .omni-loop/bin/omni.mjs config repo.slug)   # when it prints null, use {owner}/{repo}
+ID=$(gh api "repos/$REPO/issues/<n>/comments" --paginate \
   --jq ".[] | select(.body | contains(\"$MARK\")) | .id" | head -n 1)
-if [ -n "$ID" ]; then gh api -X PATCH "repos/{owner}/{repo}/issues/comments/$ID" -F body=@"$BODY"
+if [ -n "$ID" ]; then gh api -X PATCH "repos/$REPO/issues/comments/$ID" -F body=@"$BODY"
 else gh pr comment <n> --body-file "$BODY"; fi
 ```
 
@@ -109,19 +117,36 @@ else gh pr comment <n> --body-file "$BODY"; fi
 <MARK>
 **Agent status** · updated <YYYY-MM-DD HH:MM UTC>
 
-- state: <implementing | waiting for CI (run <id>) | fixing <check> | merging slices | done | stuck>
+- state: <claimed | implementing | waiting for CI (run <id>) | fixing <check> | merging slices | done | stuck>
 - attempt: <k> / <limits.attempts>
 - slices: <merged> / <total> merged            <!-- feature PR only -->
 - human steps: <missing labels, or "none">
 ```
 
-A claim is stale when this comment is older than `limits.claimStaleMinutes`, no check is running, and
-the branch has no newer commit. Whoever picks the PR up takes it over and says so in this comment.
+This skill does not decide whether a claim is stale. The board does: `/omni:wave` reads the slice's
+`claimed-stale` state from the board command. Whoever picks up a stale PR takes it over and says so
+in this comment.
+
+## Claim
+
+Claim mode takes one slice of a PRD, given its plan id and title. It does not loop.
+
+1. Cut the slice branch (`branches.slice`, with `{topic}` and `{slice}` filled) from the feature
+   branch (`branches.feature`): `git fetch <remote> && git switch -c <slice branch> <remote>/<feature branch>`.
+2. Make one empty claim commit, ending with the co-author trailer your session requires:
+   `git commit --allow-empty -m "chore(<slice>): claim"`. Then run `git push -u <remote> <slice branch>`.
+3. Open the draft sub-PR: `gh pr create --draft --base <feature branch> --head <slice branch>
+   --title "<slice>: <title>"`. Its body starts with `prLinks.sub` filled (the sub-PR shape above).
+   Its labels are `labels.sub` and `labels.inProgress`, subject to **Labels**.
+4. Post the status comment with state `claimed`. Stop.
 
 ## The lifecycle
 
-Open the PR as a draft, with its kind label and `labels.inProgress` (both subject to **Labels**), and
-post the status comment. Then loop until it stops:
+**A sub-PR leaves here first.** No CI runs on a sub-PR, so it never enters the check loop, and "no
+checks reported" tells you nothing about it. Go to **A sub-PR's lifecycle**.
+
+For a feature or standalone PR, open it as a draft with its kind label and `labels.inProgress` (both
+subject to **Labels**), and post the status comment. Then loop until it stops:
 
 ```bash
 gh pr view <n> --json isDraft,mergeable,mergeStateStatus,baseRefName
@@ -134,13 +159,13 @@ stands in for it.
 
 | What you see | What you do |
 |---|---|
-| `mergeable: CONFLICTING` | `git fetch origin && git merge origin/<base>`, resolve, run the preflight, push. Not an attempt. |
+| `mergeable: CONFLICTING` | `git fetch <remote> && git merge <remote>/<base>`, resolve, run the preflight, push. Not an attempt. |
 | `mergeable: UNKNOWN` | GitHub is still computing. Look again in a minute. |
 | `mergeStateStatus: BEHIND` only | Leave it. A person decides when a PR into the default branch is updated. |
 | checks pending | Watch in the background (below), then loop. |
 | a counted check red, other than `ci.outboxContext` | Fix it (below). |
 | only `ci.outboxContext` red | Not a failure to fix: run `node .omni-loop/bin/omni.mjs status <prd>`. Red only for items a person must answer is the gate doing its job; say so in the status comment and stop. Anything else, fix it through the outbox, never by adding `labels.outboxGo`. |
-| every counted check green and `mergeable: MERGEABLE` | Done: `gh pr ready <n>` if still a draft, `gh pr edit <n> --remove-label "<labels.inProgress>"`, final status comment. Stop. |
+| every counted check green and `mergeable: MERGEABLE` | Done. A standalone PR gets `gh pr ready <n>` if it is still a draft. A feature PR stays in draft (see **Merging and ready**). `gh pr edit <n> --remove-label "<labels.inProgress>"`, final status comment. Stop. |
 
 **Watch in the background.** A foreground command is killed after at most 10 minutes. Run the watch
 with Bash `run_in_background: true` and act when it wakes you:
@@ -156,12 +181,12 @@ A conflicting PR runs no checks at all: the watch exits at once with "no checks 
 
 1. Read the failing job: `gh run view <run-id> --log-failed`.
 2. Decide whether the branch caused it: does the failure point at a file in
-   `git diff --name-only $(git merge-base origin/<base> HEAD)..HEAD`?
+   `git diff --name-only $(git merge-base <remote>/<base> HEAD)..HEAD`?
 3. If it plainly did not (a runner, network or timeout failure, in code the branch did not touch),
    one `gh run rerun <run-id> --failed` is allowed per PR, counted as an attempt.
 4. Otherwise fix the cause, run the preflight, push, bump the attempt in the status comment, and loop.
 
-**Stuck after `limits.attempts` failed attempts:** `gh pr ready <n> --undo`,
+**Stuck after `limits.attempts` failed attempts:** `gh pr ready <n> --undo` (a standalone PR that is no longer a draft),
 `gh pr edit <n> --add-label "<labels.needsFix>" --remove-label "<labels.inProgress>"` (subject to
 **Labels**), set the status comment's state to `stuck`, and post a new comment:
 
@@ -176,6 +201,13 @@ A conflicting PR runs no checks at all: the watch exits at once with "no checks 
 
 ### A sub-PR's lifecycle
 
-A sub-PR is graded by the preflight, not by CI. **Before it leaves draft**, run the preflight on its
-branch; it must be green, and the PR must not conflict with its feature branch. Then `gh pr ready <n>`,
-remove `labels.inProgress`, and write the final status comment. The orchestrator merges it.
+No CI runs on a sub-PR, and its checks are never read. The preflight, run on this machine, grades it.
+
+1. Run the preflight on the slice branch. If it is red, fix the cause, push, bump the attempt in the
+   status comment, and run it again. After `limits.attempts` failures, take the **Stuck** path above,
+   with the preflight step as the red check.
+2. Check `gh pr view <n> --json mergeable`. When the PR conflicts with its feature branch, run
+   `git fetch <remote> && git merge <remote>/<feature branch>`, resolve the conflict, and go back to step 1.
+3. Once the preflight is green and the PR does not conflict, run `gh pr ready <n>` (this skill owns
+   that step for a sub-PR). Then remove `labels.inProgress` and write the final status comment. The
+   orchestrator merges it.

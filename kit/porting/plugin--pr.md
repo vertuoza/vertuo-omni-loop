@@ -15,7 +15,7 @@ sub-PR lifecycle.
 | `pnpm quality:preflight --full` | `commands.preflightFull`, or `commands.preflight` when null |
 | `gh pr checks <n> --required`, the `all-green` check | `ci.branchProtection` true → `--required`; otherwise the checks named `ci.aggregateCheck` and `ci.outboxContext` (item s4-02 for a null aggregate) |
 | "three attempts" | `limits.attempts` |
-| "a status comment more than an hour old" | `limits.claimStaleMinutes` (spec §2.1 rule 6), plus "no newer commit on the branch" |
+| "a status comment more than an hour old" | the board's `claimed-stale` state, which `/omni:wave` reads (see "Staleness" below) |
 | `## Acceptance` with `<path>.feature` | only when `acceptance.enabled`; scenario files under `acceptance.dir` |
 
 ## Changed
@@ -29,7 +29,7 @@ sub-PR lifecycle.
   `<!-- <markers.prefix>-status -->`, is found by that marker through `gh api` and PATCHed in place,
   or posted when absent (item s4-01). The comment gains a `human steps` line.
 - **Merge guard.** "Never merge into `main`" is now "never merge a PR whose base is
-  `repo.defaultBranch`". Merging `origin/<base>` into a branch to resolve a conflict is kept.
+  `repo.defaultBranch`". Merging `<repo.remote>/<base>` into a branch to resolve a conflict is kept.
 - **`BEHIND`.** Upstream deferred to `vertuo-pr-monitor`, which PRD 7 does not port; now "a person
   decides".
 - **Red outbox context.** New row: a red `ci.outboxContext` alone is the gate, not a CI failure; the
@@ -41,6 +41,23 @@ sub-PR lifecycle.
   Verified, Risk and rollback, Reviewer focus) and follows `.github/PULL_REQUEST_TEMPLATE.md` only when
   it exists. The sub-PR body's "Scenarios" line became "Decisions" (outbox items raised); slices are
   named by plan id.
+- **Sub-PRs leave the check loop first.** Upstream says "No CI runs on a sub-PR". Here the lifecycle
+  sends a sub-PR to its own section before the check table. Its checks are never read, so "no checks
+  reported" is never taken for a conflict. The preflight runs on the machine, with retries counted
+  toward `limits.attempts` and the same stuck path, and the skill checks for a conflict with the
+  feature branch. Once both are fine, this skill runs `gh pr ready` for the sub-PR: that step is owned
+  here and not by `/omni:do-work`.
+- **Feature PR never marked ready.** Upstream's "Done" row ran `gh pr ready` for every kind. Now a
+  feature PR stays in draft: `/omni:yolo` marks it ready after `omni ship` (spec §2.1 rule 7).
+  Only a standalone PR is marked ready here.
+- **Claim mode** (new, spec §2.1 rule 6). It cuts the slice branch from the feature branch, makes one
+  empty claim commit with the trailer, pushes, opens the draft sub-PR (`<slice>: <title>`, body led by
+  `prLinks.sub`), posts the status comment with state `claimed`, and stops. `/omni:do-work` (run
+  alone) and `/omni:wave` use it.
+- **Staleness.** Upstream's "older than an hour and no check running" rule is not restated here. The
+  board's `claimed-stale` state decides, and `/omni:wave` reads it.
+- **Remote and slug.** `origin` becomes `repo.remote`. The comment API path uses `repo.slug`, and
+  falls back to gh's `{owner}/{repo}` when the slug is null.
 - **Sub-PR orchestrator.** `vertuo-parallel-wave` → `/omni:wave`.
 - **Step 0** added (spec §2.1 rule 1).
 - **Phase-0 PR** added as one line: `/omni:brainstorm` opens it; it uses `labels.phase0` and
