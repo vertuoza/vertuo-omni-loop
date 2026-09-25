@@ -154,3 +154,10 @@ Source: `.claude/skills/vertuo-do-work/outbox-policy.mjs` @ `vertuo-ai-domain@c4
 
 `pnpm vitest run kit/lib/policy/outbox-policy.test.mjs kit/test/no-literals.test.mjs` — 55/55 pass
 (54 in `outbox-policy.test.mjs`, 1 in `no-literals.test.mjs`).
+
+## Final review fixes
+
+- `sliceTimeGuardCommand` emits the CLI's flag form, `node .omni-loop/bin/omni.mjs check coverage
+  --base <ref> --prd <n>` (upstream's script took the two positionally; `omni check` takes
+  flags). The upstream assertion's expected string changes accordingly; `kit/bin/omni.test.mjs`
+  runs the emitted command through `main()` against a fixture holding that base ref.

@@ -484,7 +484,7 @@ export function sliceTimeGuardCommand({ base = null, prd = null } = {}) {
       'the slice-time run needs its prd spelled out — with no PRD it can only grade account format, never a range',
     );
   }
-  return `node ${SLICE_TIME_GUARD.script} ${base} ${prd}`;
+  return `node ${SLICE_TIME_GUARD.script} --base ${base} --prd ${prd}`;
 }
 
 /**

@@ -518,7 +518,7 @@ describe('The guard runs on the agent and on the branch', () => {
     it('spells the base and the PRD out, because a bare run grades no range at all', () => {
       expect(SLICE_TIME_GUARD.needsExplicitArguments).toBe(true);
       expect(sliceTimeGuardCommand({ base: 'origin/feat/decision-coverage', prd: 1044 })).toBe(
-        'node .omni-loop/bin/omni.mjs check coverage origin/feat/decision-coverage 1044',
+        'node .omni-loop/bin/omni.mjs check coverage --base origin/feat/decision-coverage --prd 1044',
       );
       expect(() => sliceTimeGuardCommand({ base: 'origin/feat/x' })).toThrow(/prd/i);
       expect(() => sliceTimeGuardCommand({ prd: 1044 })).toThrow(/base/i);

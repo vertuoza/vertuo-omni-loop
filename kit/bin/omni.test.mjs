@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeRepo } from '../test/fixture.mjs';
 import { main } from './omni.mjs';
+import { sliceTimeGuardCommand } from '../lib/policy/outbox-policy.mjs';
 
 function io() {
   const out = [];
@@ -170,6 +171,19 @@ describe('omni — flags, lookups and guards', () => {
     expect(out).toMatch(/inbox/);
     expect(out).toMatch(/outbox/);
     expect(out).toMatch(/knowledge/);
+  });
+
+  it('the slice-time guard command runs as emitted', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
+    execFileSync('git', ['branch', 'feat/topic'], { cwd: root, stdio: 'ignore' });
+    const command = sliceTimeGuardCommand({ base: 'feat/topic', prd: 42 });
+    const [, script, ...argv] = command.split(' ');
+    expect(script).toBe('.omni-loop/bin/omni.mjs');
+    const s = io();
+    const code = await main(argv, { cwd: root, ...s });
+    expect(s.err.join('')).toBe('');
+    expect(code).toBe(0);
+    expect(s.out.join('')).toMatch(/PRD #42, range feat\/topic|PRD #42: 0 risky/);
   });
 
   it('check with an unknown guard exits 2', async () => {
