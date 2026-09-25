@@ -423,3 +423,214 @@ A constant: dropping the two exports is one line of `kit/build.mjs` and a rebuil
 ```
 
 <!-- /omni-outbox-settled: s2-02-bundle-hands-out-the-kit-defaults -->
+
+<!-- omni-outbox-settled: s3-01-pointer-form-holds-no-sections -->
+
+## s3-01-pointer-form-holds-no-sections — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-pointer-form-holds-no-sections
+prd: 45
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+When the setup writes a knowledge page that only points to a page kept elsewhere, should it still carry the empty sections of a full page?
+
+## The decision, in plain words
+
+No. A page that points elsewhere carries only its title and its opening line, and the check asks it for no section, because the page it points to answers the whole question.
+
+## The options, in plain words
+
+A. A pointing page carries its title and opening line only, and the check asks it for no section.
+B. A pointing page carries every section heading, empty, like a blank page, and the check still asks for every required one.
+C. A pointing page carries every section heading, empty, and the check asks for none of them.
+
+## What I had to decide
+
+The spec says `omni kb init` writes every missing form with "the front matter with `state: blank`, the title, the opener, every slot heading and marker, empty bodies", and writes the decisions form "as a pointer" when `paths.adr` is outside the front door's `adr/` (the glossary form when `paths.glossary` is set). It does not say whether a pointer form keeps the slot headings. `omni check kb` fails on "a required slot whose marker is missing" without saying whether that holds for a pointer form, whose target resolves the whole form (s1's `resolveForm` ignores its slots). The before/after page's one pointer example, the decisions form in the vertuo-ai-domain column, has no slot.
+
+## What I did meanwhile
+
+`blankForm` in `kit/lib/playbook/write-forms.mjs` writes a pointer form as its front matter (`state: pointer`, `points-to: <path>`), its title and its opener, with no slot. `gradeForm` in `kit/lib/playbook/check-playbook.mjs` asks a pointer form for no required slot and warns on no blank one, but still fails on an unknown slot id or a dead `See:` line, and still lists its `TODO(human)` lines. Tests: "writes decisions as a pointer when paths.adr is outside the front door’s adr/, and glossary when paths.glossary is set" and "asks no section of a pointer form, and lets a folder pointer without an index through" in `kit/bin/kb.test.mjs`; "lists the questions of a pointer form, and asks it for no section" in `kit/lib/playbook/check-playbook.test.mjs`.
+
+## What it costs to change later
+
+A constant before s5 and s7 write pointer forms: one branch in `blankForm` and one condition in `gradeForm`, with their tests. After s7 merges, a pointer form this repository already holds keeps its shape, since `omni kb init` never changes a file that exists; choosing B then turns such a form red until its headings are added by hand.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether /omni:terraform (s5) will ever turn a pointer form back into a filled one in place: if it does, it writes the section headings itself.
+- (author) Whether a person reading a pointer form on GitHub needs a line of prose naming the target, beyond the front matter GitHub already shows.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-pointer-form-holds-no-sections -->
+
+<!-- omni-outbox-settled: s3-02-form-version-read-from-each-template -->
+
+## s3-02-form-version-read-from-each-template — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-form-version-read-from-each-template
+prd: 45
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+The check refuses a knowledge page written for a newer kit than the one installed. What does the installed kit compare it against?
+
+## The decision, in plain words
+
+Each kind of page carries its own version in the kit's copy of it, and a page is refused only when it is newer than the kit's copy of that same page.
+
+## The options, in plain words
+
+A. Each page's version is compared with the kit's own copy of that page.
+B. One version number for all the kit's pages, kept in the kit's code.
+C. No version check until a second version of any page exists.
+
+## What I had to decide
+
+The spec says `omni check kb` fails on "a `form-version` newer than the kit's", and the before/after page says `form-version` "lets the kit add a slot later without breaking older forms". The kit has no form-version constant: each template in `kit/templates/playbook/` carries `form-version: 1`, and s1's parser reads it.
+
+## What I did meanwhile
+
+`gradeForm` in `kit/lib/playbook/check-playbook.mjs` compares a form's `form-version` with the `form-version` of the kit's template for the form its file is for, parsed with s1's parser, so there is no second number to keep in step. The same comparison refuses front matter naming another form than its file's. `blankForm` in `kit/lib/playbook/write-forms.mjs` writes the template's version. Tests: "fails on a form-version newer than the kit’s" and "fails on front matter naming another form" in `kit/bin/kb.test.mjs`.
+
+## What it costs to change later
+
+A constant, before or after merge: one kit-wide number is a constant and one comparison in `gradeForm`. Nothing stored changes, since every template and every written form says 1 today.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a later kit will raise one form's version without the others: the spec does not say how versions move.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-form-version-read-from-each-template -->
+
+<!-- omni-outbox-settled: s3-03-a-form-source-is-its-strongest-layer -->
+
+## s3-03-a-form-source-is-its-strongest-layer — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-a-form-source-is-its-strongest-layer
+prd: 45
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+The map of the knowledge pages says, for each page, where it is read from: the repository, a pointer, or the kit's default. What does it say for a page whose sections come from different places?
+
+## The decision, in plain words
+
+It names the strongest place any section comes from: the repository when one section holds the repository's own words, a pointer when every answered section points elsewhere, and the kit's default when nothing is answered yet. The map also lists where each section comes from.
+
+## The options, in plain words
+
+A. One word per page, the strongest place any section comes from, and the place of every section beside it.
+B. One word per page from its own stated state alone: filled means the repository, blank or missing means the kit's default.
+C. No word per page: only the place of each section.
+
+## What I had to decide
+
+The spec says `omni kb status` prints "each form, its state, its open questions, its stale evidence and its source (repository, pointer or kit default)". A form resolves per slot, and one form can hold repository text, a `See:` line and blank slots at once, so a form's source is not a single fact; the spec does not say how to name it.
+
+## What I did meanwhile
+
+`formSource` in `kit/lib/playbook/status.mjs` returns `pointer` for a pointer form or one whose every answered section is a `See:` line, `repo` when at least one section holds repository text, and `kit` otherwise (a missing, invalid or blank form, or one holding only `TODO(human)` lines). Each form also lists `sections: [{ slot, source }]`. Test: "--json lists each form with its state, source, open questions and stale evidence" in `kit/bin/kb.test.mjs`.
+
+## What it costs to change later
+
+A constant, before or after merge: the rule is one function of `resolveForm`'s sections, and nothing stores it. /omni:terraform --refresh (s5) reads `state` and `stale`, not `source`.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a person reading the map wants a page with holes named apart from a page nobody has touched: today both read as the kit's default, and the open questions are listed below the map.
+
+```
+
+<!-- /omni-outbox-settled: s3-03-a-form-source-is-its-strongest-layer -->
