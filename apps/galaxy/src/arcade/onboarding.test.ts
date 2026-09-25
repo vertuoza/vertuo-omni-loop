@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { afterGate, afterReturn, afterStart, backStep, isDisbanded, isReady, nextStep, readReturn } from './onboarding';
+import { afterGate, afterReturn, afterStart, allowed, backStep, isDisbanded, isReady, nextStep, readReturn } from './onboarding';
 import type { FleetRow, Player, Session } from './types';
 
 const fleet = (name: string, retired = false): FleetRow => ({ name, home: null, label: name.toUpperCase(), color: '#2fc6a4', motto: '', mascot: null, sort: 0, retired });
@@ -90,5 +90,21 @@ describe('returns from Google and GitHub', () => {
     expect(afterReturn({ kind: 'signin' }, outsider, null, FLEETS)).toBe('outsider');
     expect(afterReturn({ kind: 'signin_error', message: 'x' }, null, null, FLEETS)).toBe('coin');
     expect(afterReturn({ kind: 'linked', login: 'ada-gh' }, crew, player(), FLEETS)).toBe('link');
+  });
+});
+
+describe('the one door', () => {
+  it('shows nothing past INSERT COIN without a session, whatever the route', () => {
+    for (const scene of ['gate', 'intro', 'select', 'name', 'hero', 'link', 'ready', 'welcome', 'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing']) {
+      expect(allowed(scene, null), scene).toBe('coin');
+      expect(allowed(scene, crew), scene).toBe(scene);
+    }
+    for (const scene of ['boot', 'title', 'coin', 'outsider']) expect(allowed(scene, null)).toBe(scene);
+  });
+
+  it('ignores a crafted return URL when nobody is signed in', () => {
+    expect(afterReturn({ kind: 'linked', login: 'someone' }, null, null, FLEETS)).toBe('coin');
+    expect(afterReturn({ kind: 'link_error', message: 'x' }, null, null, FLEETS)).toBe('coin');
+    expect(afterReturn({ kind: 'signin' }, null, null, FLEETS)).toBe('coin');
   });
 });

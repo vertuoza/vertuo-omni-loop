@@ -75,9 +75,16 @@ session, so the database's policies decide what they see. `proxy.ts` refreshes t
 each render; `app/auth/callback` turns Google's and GitHub's codes into that session and, after a
 GitHub link, calls `link_github()`.
 
-In the demo (no Supabase variables) and in the single-file artifact, sign-in and GitHub are
-simulated and the player is kept in the browser's storage (`src/arcade/account-demo.ts`), so the
-whole joining flow plays without a backend.
+Nobody gets past INSERT COIN without signing in: the title asks for a coin until there is a
+session, and every screen beyond it requires one (`allowed()` in `src/arcade/onboarding.ts`).
+
+Without the Supabase variables, the app picks its mode in `src/data/mode.ts`:
+
+- **Development** (`pnpm galaxy:dev`), or a build with `OMNI_LOOP_DEMO=1`: the demo galaxy, with
+  sign-in and GitHub simulated and the player kept in the browser's storage
+  (`src/arcade/account-demo.ts`). The single-file artifact plays the same way.
+- **Any other build** (a Vercel deployment missing its variables, say): **closed**. The attract mode
+  plays, and INSERT COIN says sign-in is not open yet. No simulated sign-in, and no galaxy data.
 
 ## Run it locally
 
@@ -174,6 +181,7 @@ never loads the demo seed.
 2. Environment variables, for Production and Preview: `NEXT_PUBLIC_SUPABASE_URL` =
    `https://<ref>.supabase.co` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` = the publishable key. Do not add
    the secret key. `NEXT_PUBLIC_*` values are inlined at build time: redeploy after changing them.
+   Without them the deployment stays closed (nobody can enter); it never falls back to the demo.
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
    cabinet still plays its attract mode and says the galaxy is out of reach.
 

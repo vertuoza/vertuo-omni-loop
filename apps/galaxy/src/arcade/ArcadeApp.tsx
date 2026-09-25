@@ -17,7 +17,7 @@ import { FleetSprite, Sprite } from './Sprite';
 import { fleet, setFleets } from './fleets';
 import { foldChar, foldName, nameInit, nameReduce, nameValue, NAME_RULE, type NameAction, type NameState } from './name-entry';
 import { BUILDER_ROWS, cycleHero } from './builder';
-import { afterGate, afterReturn, afterStart, backStep, isDisbanded, nextStep, readReturn, type Flow, type Step } from './onboarding';
+import { afterGate, afterReturn, afterStart, allowed, backStep, isDisbanded, nextStep, readReturn, type Flow, type Step } from './onboarding';
 import type { Account, FleetRow, Player, PlayerPatch, Session } from './types';
 
 export type Action = 'up' | 'down' | 'left' | 'right' | 'a' | 'b' | 'start' | 'select';
@@ -166,6 +166,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       store.set(FLOW_KEY, null);
       const step = afterReturn(back, s, m, fleets);
       if (back.kind === 'signin_error') return open('coin', { error: back.message });
+      if (step === 'coin') return open('coin');
       if (back.kind === 'linked') {
         // Show the login the database holds (link_github() set it), never one read from the URL.
         const login = account.kind === 'supabase' ? m?.github_login ?? null : back.login || m?.github_login || null;
@@ -181,6 +182,12 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   }, []);
 
   useEffect(() => { if (ui.scene !== 'boot') writeHash(ui, view); }, [ui, view]);
+  // The one door: whatever route led here (a deep link, a crafted return URL, a stale screen after
+  // signing out), nothing past INSERT COIN shows without a session.
+  useEffect(() => {
+    if (allowed(ui.scene, session) !== ui.scene) setUi((u) => ({ ...u, scene: 'coin', since: now(), away: false, error: null }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ui.scene, session]);
   useEffect(() => { setAudioMuted(muted); }, [muted]);
   useEffect(() => { if (ui.lockedAt === null) music(TRACK[ui.scene] ?? null); }, [ui.scene, ui.lockedAt]);
 
@@ -295,6 +302,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         return;
       case 'coin':
         if (u.away) return;
+        if ((action === 'a' || action === 'start') && account.kind === 'closed') return sfx('buzz');
         if (action === 'a' || action === 'start') return signIn();
         if (action === 'b') return go({ scene: 'title', error: null }, 'back');
         return;
@@ -535,12 +543,12 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const displayName = me?.display_name ?? (session ? foldName(session.givenName) || 'RECRUIT' : '');
   const who = session
     ? `${account.kind === 'demo' ? 'DEMO · ' : ''}P1 ${displayName}`
-    : account.kind === 'demo' ? 'DEMO GALAXY' : problem ? 'GALAXY OUT OF REACH' : 'SIGNED OUT';
+    : account.kind === 'demo' ? 'DEMO GALAXY' : account.kind === 'closed' ? 'SIGN-IN NOT OPEN YET' : problem ? 'GALAXY OUT OF REACH' : 'SIGNED OUT';
   const overlay = (() => {
     switch (ui.scene) {
       case 'boot': return <BootOverlay />;
-      case 'title': return <TitleOverlay view={view} phase={view ? phase : phase === 'hiscore' ? 'title' : phase} sceneT={now() - ui.since} who={who} />;
-      case 'coin': return <CoinOverlay away={ui.away} error={ui.error} demo={account.kind === 'demo'} />;
+      case 'title': return <TitleOverlay view={view} phase={view ? phase : phase === 'hiscore' ? 'title' : phase} sceneT={now() - ui.since} who={who} signedIn={Boolean(session)} />;
+      case 'coin': return <CoinOverlay away={ui.away} error={ui.error} demo={account.kind === 'demo'} closed={account.kind === 'closed'} />;
       case 'outsider': return <OutsiderOverlay email={session?.email ?? ''} />;
       case 'gate': return <GateOverlay name={me?.team ? me.display_name : null} />;
       case 'intro': return <IntroOverlay fleets={active} />;
@@ -607,7 +615,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         <p className="turn">TURN YOUR PHONE SIDEWAYS FOR THE FULL SCREEN</p>
         <div className="deck">
           <div className="plate">
-            <span className="plate-big">PRESS START</span>
+            <span className="plate-big">{session ? 'PRESS START' : 'INSERT COIN'}</span>
             <span className="plate-small plate-keys">ENTER · Z = A · X = B · ARROWS</span>
           </div>
           <div className="emblem" aria-hidden="true"><i /><i /><i /><i /></div>

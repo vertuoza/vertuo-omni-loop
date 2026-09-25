@@ -67,7 +67,11 @@ const STORY = [
   'CLOSE THE WOUNDS. SAVE THE PLANETS.',
 ];
 
-export function TitleOverlay({ view, phase, sceneT, who }: { view: GalaxyView | null; phase: 'title' | 'story' | 'hiscore'; sceneT: number; who: string }) {
+export function TitleOverlay({ view, phase, sceneT, who, signedIn }: {
+  view: GalaxyView | null; phase: 'title' | 'story' | 'hiscore'; sceneT: number; who: string; signedIn: boolean;
+}) {
+  // Nobody gets in without signing in: until then the cabinet asks for a coin.
+  const cta = signedIn ? 'PRESS START' : 'INSERT COIN';
   if (phase === 'story') {
     const into = (((sceneT % CYCLE) + CYCLE) % CYCLE) - PHASES[0][1];
     return (
@@ -75,7 +79,7 @@ export function TitleOverlay({ view, phase, sceneT, who }: { view: GalaxyView | 
         {STORY.map((line, i) => (
           <p key={line} className={into > i * 1.4 ? 'shown' : ''}>{line}</p>
         ))}
-        <p className="press blink">PRESS START</p>
+        <p className="press blink">{cta}</p>
       </div>
     );
   }
@@ -91,7 +95,7 @@ export function TitleOverlay({ view, phase, sceneT, who }: { view: GalaxyView | 
           ))}
           {!view.heroes.length && <li><span /><span>NO SCORES THIS SEASON YET</span><span /></li>}
         </ol>
-        <p className="press blink">PRESS START</p>
+        <p className="press blink">{cta}</p>
       </div>
     );
   }
@@ -102,7 +106,7 @@ export function TitleOverlay({ view, phase, sceneT, who }: { view: GalaxyView | 
         <span className="logo-loop">LOOP</span>
       </h1>
       <p className="tagline">TERRAFORM THE GALAXY</p>
-      <p className="press blink">PRESS START</p>
+      <p className="press blink">{cta}</p>
       <footer className="title-foot">
         <span>© 2026 VERTUOZA</span>
         <span>{who}</span>

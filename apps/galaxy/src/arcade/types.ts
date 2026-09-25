@@ -25,7 +25,7 @@ export interface Session { id: string; email: string; givenName: string; crew: b
  * demo galaxy (and the single-file artifact), so the arcade never imports Supabase itself.
  */
 export interface Account {
-  kind: 'demo' | 'supabase';
+  kind: 'demo' | 'supabase' | 'closed';
   /** Signs in with Google. Supabase leaves the page (and comes back through /auth/callback). */
   signIn(): Promise<Session | void>;
   /** Links GitHub. Supabase leaves the page; the demo resolves with a made-up login. */

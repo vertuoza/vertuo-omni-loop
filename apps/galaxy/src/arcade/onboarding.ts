@@ -63,6 +63,17 @@ export function backStep(step: Step, flow: Flow): Step | 'title' {
   }
 }
 
+/** The screens only a signed-in player may see: everything past INSERT COIN. */
+const SIGNED_IN_ONLY = new Set([
+  'gate', 'intro', 'select', 'name', 'hero', 'link', 'ready', 'welcome',
+  'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing',
+]);
+
+/** Where a screen may be shown to this visitor: anywhere past INSERT COIN needs a session. */
+export function allowed(scene: string, session: Session | null): string {
+  return !session && SIGNED_IN_ONLY.has(scene) ? 'coin' : scene;
+}
+
 /** What the page's query string says happened while the player was away (Google, GitHub). */
 export type Return =
   | { kind: 'signin' }
@@ -84,7 +95,7 @@ export function afterReturn(r: Return, session: Session | null, me: Player | nul
   switch (r.kind) {
     case 'signin_error': return 'coin';
     case 'signin': return !session ? 'coin' : !session.crew ? 'outsider' : 'gate';
-    case 'linked': case 'link_error': return 'link';
+    case 'linked': case 'link_error': return session ? 'link' : 'coin';
   }
   return afterStart(session, me, fleets);
 }

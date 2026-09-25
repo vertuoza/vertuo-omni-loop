@@ -11,7 +11,19 @@ const K = ({ children }: { children: React.ReactNode }) => <span className="j-ke
 // Ends a sentence on a fleet's label without doubling its own full stop (C.I.A.).
 const stop = (label: string) => (label.endsWith('.') ? '' : '.');
 
-export function CoinOverlay({ away, error, demo }: { away: boolean; error: string | null; demo: boolean }) {
+export function CoinOverlay({ away, error, demo, closed }: { away: boolean; error: string | null; demo: boolean; closed: boolean }) {
+  if (closed) {
+    return (
+      <>
+        <div className="j-center" style={{ top: 158 }}>
+          <p className="j-h">INSERT COIN</p>
+          <p className="j-sub">SIGN-IN IS NOT OPEN YET</p>
+          <p className="j-txt j-dim">The arcade opens once Google sign-in is connected. Only @vertuoza.com accounts will get in.</p>
+        </div>
+        <p className="j-hint"><K>B</K>BACK</p>
+      </>
+    );
+  }
   if (away) {
     return (
       <div className="j-center" style={{ top: 118 }}>
