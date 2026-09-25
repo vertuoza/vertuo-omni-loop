@@ -7,7 +7,8 @@ spec: file
 
 # Knowledge forms — the playbook, and /omni:terraform
 
-**Date:** 2026-09-25 · **PRD:** #45 · **Follows:** #3 (the kit, §6 knowledge), #7 (the `omni` plugin) ·
+**Date:** 2026-09-25 · **PRD:** #45 · **Follows:** #3 (the kit, §6 knowledge), #7 (the `omni` plugin),
+#39 (`omni init`, the one-line install) ·
 **Retires:** `.omni-loop/repo.md` (PRD 3 §3), read today by `/omni:do-work` step 1.5 ·
 **Modelled on:** `vertuoza/vertuo-ai-domain@db67fd9da` — `docs/knowledge/`, `docs/agents/`, `docs/adr/`
 
@@ -152,8 +153,17 @@ than one record flagged, and the next free number. Nobody keeps that list by han
 - **`omni kb init`** writes every missing form from its template: the front matter with `state: blank`,
   the title, the opener, every slot heading and marker, empty bodies. The decisions form is written as a
   pointer when `paths.adr` is outside the front door's `adr/`; the glossary form as a pointer when
-  `paths.glossary` is set. It also writes the front door's `README.md` when it is missing. It never
-  changes a file that exists. It prints what it wrote.
+  `paths.glossary` is set. It also writes the front door's `README.md` when it is missing, pointing at
+  `paths.knowledge` when the registers live elsewhere. When the front door is `paths.knowledge` and its
+  `product/` register files are missing, it writes them empty ("None yet."), because `omni check
+  knowledge` grades any knowledge folder that exists and requires those three files. It never changes a
+  file that exists. It prints what it wrote.
+- **`omni init`** (PRD 39) lays down the forms too. After it writes or keeps the config and the bin, it
+  runs the same writer as `omni kb init`, lists the files it wrote among the files it reports, and its
+  closing steps gain one: fill the forms with `/omni:terraform`. Everything it writes stays under
+  `.omni-loop/`, as PRD 39 requires. Because the forms now create `.omni-loop/knowledge/` in every
+  installed repository, `omni init` no longer reads `laws.source: knowledge` from that folder's
+  existence: it reads it from registers that hold at least one principle, rule or invariant entry.
 - **`omni kb show <form> [--json]`** prints the resolved form, as above.
 - **`omni kb status [--json]`** prints the map, derived every time: each form, its state, its open
   questions, its stale evidence and its source (repository, pointer or kit default).
@@ -169,7 +179,9 @@ than one record flagged, and the next free number. Nobody keeps that list by han
 A user-facing skill that fills the forms from what the repository can prove, and ends with a docs-only
 pull request a person merges.
 
-1. **Step 0:** `omni config`, then `omni kb init`.
+1. **Step 0:** `omni config`. When it fails, stop: the repository is not installed, and the kit's
+   one-line `omni init` (PRD 39) comes first. Then `omni kb init`, for a repository installed before this
+   PRD.
 2. **Survey, read-only:** package scripts and lockfile, engines, test runner config and test file globs,
    workflows and their triggers, jobs and checks, the pull request template, CODEOWNERS, labels, git
    hooks, the README, `CLAUDE.md` or `AGENTS.md` when present, and every Markdown page in the tree.
@@ -180,8 +192,9 @@ pull request a person merges.
 4. **Fill from evidence.** Every filled section's files are listed under `evidence:`. Every command is run
    once, green, before it is written, and its slot carries `verified: <date>`.
 5. **Leave holes.** What it cannot show becomes `TODO(human): <question>`, never a guess.
-6. **Propose config** as a diff: `commands.*`, `paths.adr`, `paths.glossary`, `paths.context`,
-   `ci.aggregateCheck`.
+6. **Propose config** as a diff. `omni init` already detected `commands.*`: terraform runs each one and
+   proposes a change only for a command that is `null` or does not run green. It also proposes
+   `paths.adr`, `paths.glossary`, `paths.context` and `ci.aggregateCheck`.
 7. **Open one docs-only pull request** on `branches.terraform` into `repo.defaultBranch`, through
    `/omni:pr`'s standalone kind. Its body lists every hole as a checkbox.
 
@@ -229,6 +242,15 @@ Decided 2026-09-25 by the PRD author, approving the brainstorm page and its six 
     pattern is corrected to do so.
 12. **Orientation pages are later.** A form points at them when they exist.
 
+Added on 2026-09-25, after PRD 39 (`omni init`) merged, for the phase-0 review to approve:
+
+13. **The one-line install lays down the forms.** `omni init` runs the forms writer after the config and
+    the bin, and its closing steps name `/omni:terraform`. Installing and filling are then two steps: one
+    command, one skill.
+14. **An installed repository's knowledge folder no longer means it has laws.** `omni init` reads
+    `laws.source: knowledge` from registers that hold at least one entry, not from the folder existing,
+    which every install now creates.
+
 ## User stories
 
 - As an **agent running `/omni:do-work`** in any terraformed repository, I read how this repository tests
@@ -248,20 +270,24 @@ Decided 2026-09-25 by the PRD author, approving the brainstorm page and its six 
 
 **In:** `paths.playbook` and `branches.terraform` in the config schema; the form parser and resolver
 (`kit/lib/playbook/`); the thirteen kit templates and the front door README template (`kit/templates/`),
-bundled; `omni kb init | show | status` and `omni check kb` inside `check all`; the `/omni:terraform`
-skill; the seven existing skills reading their forms, and `.omni-loop/repo.md` retired; `Became:` resolving
-a playbook section; the decision-coverage README fix; this repository terraformed, with a session-start
-hook printing its briefing.
+bundled; `omni kb init | show | status` and `omni check kb` inside `check all`; `omni init` laying down
+the forms, naming `/omni:terraform` in its closing steps, and reading `laws.source` from the registers'
+entries; the `/omni:terraform` skill; the seven existing skills reading their forms, and
+`.omni-loop/repo.md` retired; `Became:` resolving a playbook section; the decision-coverage README fix; this
+repository installed with `omni init` and terraformed, with a session-start hook printing its briefing.
 
-**Out:** the installer (`omni-loop init`, `doctor`, `upgrade`, `remove`; `omni kb init` joins it later); a
-session-start hook in any other repository (the installer's job); orientation pages; `/omni:fix-bug`;
-generated per-repository skills; terraforming vertuo-ai-domain or any other repository (each is its own
+**Out:** `omni init`'s other duties, and `doctor`, `upgrade`, `remove` (PRD 3 §10); a session-start hook
+in any other repository, because `omni init` writes nothing outside `.omni-loop/` (PRD 39, decision 7) and
+the skills' step 0 prints the briefing instead; orientation pages; `/omni:fix-bug`; generated
+per-repository skills; terraforming vertuo-ai-domain or any other repository (each is its own
 `/omni:terraform` run once this ships).
 
 **Human steps** (never taken by the work):
 
-1. Create the labels this repository's loop uses and lacks: `prd`, `pr:phase-0`, `pr:feature`, `pr:sub`,
-   `pr:in-progress`, `pr:needs-fix` (`labels.autoCreate` is false).
+1. Run `omni init` once in this repository, from a checkout (`node kit/dist/omni.mjs init`), before
+   `/omni:yolo 45`. It keeps the config and the shim and creates the loop labels this repository still
+   lacks (PRD 39, acceptance criterion 12, not run yet), so the sub-PRs get their labels. s7 runs it again
+   and expects to create nothing.
 2. Answer the open questions this repository's own terraform leaves (s7), listed on the feature pull
    request.
 
@@ -273,9 +299,13 @@ All in the root vitest suite (`pnpm test`):
   test; `{config:<key>}` filled from a fixture config.
 - **The templates:** each parses with the parser and declares exactly the slots in the forms table;
   `kit/test/no-literals.test.mjs` scans `kit/templates/`.
-- **The bundle:** build `kit/dist/omni.mjs`, copy it alone into a fixture repository, run `kb show`.
+- **The bundle:** the committed `kit/dist/omni.mjs`, which `kit/test/dist.test.mjs` (PRD 39) keeps equal
+  to a fresh build, copied alone into a fixture repository to run `kb show`. Every change to bundled code
+  lands with its rebuilt bundle.
 - **The commands:** through `main()` on fixture repositories (`kit/test/fixture.mjs`), with a fake `exec`
   where git is involved; `check all` in `kit/test/profiles.test.mjs` for the three profiles.
+- **`omni init`:** PRD 39's fixture repositories in `kit/bin/init.test.mjs`, now also asserting the forms,
+  the closing step and `laws.source`.
 - **The outbox:** `check-outbox` and `decision-coverage` tests for a playbook `Became:` and an ADR folder
   README.
 - **The skills:** `kit/test/plugin.test.mjs` (frontmatter, every `omni <command>` named exists).
@@ -291,13 +321,19 @@ All in the root vitest suite (`pnpm test`):
   a repository with no forms gets warnings.
 - **Kit defaults drift from vertuo-ai-domain.** Each template carries a provenance line pinned to
   `db67fd9da`, and its porting record lists what changed.
+- **The committed bundle is shared ground.** Every slice that changes bundled code rebuilds and commits
+  `kit/dist/omni.mjs`, so no two such slices can share a wave; the plan orders them.
+- **`omni init` changes behaviour PRD 39 shipped:** it writes more files, and reads `laws.source`
+  differently. Both stay under `.omni-loop/`, a second run still changes nothing, and PRD 39's own
+  acceptance tests keep passing, amended only where `laws.source` is asserted on a knowledge folder.
 
 ## Acceptance criteria
 
 1. `omni kb init` in a fixture repository with no forms writes the twelve playbook forms, `adr/README.md`
    and the front door `README.md`: each form's state is `blank`, except decisions (a pointer when
    `paths.adr` is outside the front door's `adr/`) and glossary (a pointer when `paths.glossary` is set).
-   A second run writes nothing, and no existing file is ever changed.
+   In a repository with no knowledge folder it also writes the three empty `product/` register files, and
+   `omni check knowledge` stays green. A second run writes nothing, and no existing file is ever changed.
 2. `omni kb show testing`, on a fixture whose `commands` is filled, `levels` empty, `never` a `See:` line to
    an existing file and `data` a hole, prints the sections in template order labelled `[repo]`,
    `[kit default]`, `[→ <path>]` and `[hole]`; a kit default naming `{config:commands.test}` prints the
@@ -316,7 +352,13 @@ All in the root vitest suite (`pnpm test`):
    step; `/omni:yolo` prints the open questions once; `/omni:do-work` no longer reads `.omni-loop/repo.md`.
 10. A settled entry's `Became: playbook/<form>#<slot>` passes `omni check outbox` when that slot exists and
     is not blank, and fails it otherwise; a change to `adr/README.md` is not counted as law text.
-11. This repository is terraformed: `omni check kb` reports no errors; its forms match the "two
-    repositories" column of the before/after page, or the sub-PR says why they differ; every open
-    question is a checkbox on the feature pull request; `paths.context` names no missing file; a session
-    start prints the briefing.
+11. `omni init` in a fixture repository with no `.omni-loop/` writes the config, the bin and the forms of
+    criterion 1; `laws.source` is `none`; `git status --porcelain` lists only paths under `.omni-loop/`;
+    the closing steps name `/omni:terraform`; a second run writes nothing. `omni init --force` in a
+    repository whose knowledge folder holds only forms and empty registers keeps `laws.source: none`, and
+    one whose registers hold an entry gets `knowledge`.
+12. This repository is installed and terraformed: `omni init` run here keeps the config and the shim,
+    creates no label a person already created, and writes the forms; `omni check kb` reports no errors;
+    the forms match the "two repositories" column of the before/after page, or the sub-PR says why they
+    differ; every open question is a checkbox on the feature pull request; `paths.context` names no
+    missing file; a session start prints the briefing.

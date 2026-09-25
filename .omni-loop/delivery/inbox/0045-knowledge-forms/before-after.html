@@ -139,7 +139,7 @@ ol.decide .rec b{color:var(--accent);font-weight:600}
 <main>
 
 <header class="top">
-  <p class="eyebrow">PRD #45 · vertuo-omni-loop · 25 September 2026 · spec and plan beside this page</p>
+  <p class="eyebrow">PRD #45 · vertuo-omni-loop · 25 September 2026 · re-planned after PRD #39 (omni init)</p>
   <h1>Omni knowledge forms</h1>
   <p class="lede">vertuo-ai-domain writes down two kinds of knowledge. <code>docs/knowledge/</code> says what is true about the product. <code>docs/agents/</code> says how to work in the repository: how to test, how CI works, when a pull request is done. Omni already carries the first kind. This PRD adds the second: fixed forms inside <code>.omni-loop/knowledge/</code>, a <code>/omni:terraform</code> skill that fills them from the repository, and a pointer wherever the repository already has the page.</p>
   <div class="legend" aria-label="Legend">
@@ -235,8 +235,11 @@ ol.decide .rec b{color:var(--accent);font-weight:600}
 ├── lib/<span class="add">playbook/</span>
 │   ├── <span class="add">forms.mjs</span>                     <span class="add"><span class="c">+ the one parser</span></span>
 │   ├── <span class="add">resolve.mjs</span>                   <span class="add"><span class="c">+ kit default → repo section → pointer</span></span>
+│   ├── <span class="add">write-forms.mjs</span>               <span class="add"><span class="c">+ lays down the blank forms</span></span>
 │   └── <span class="add">check-playbook.mjs</span>            <span class="add"><span class="c">+ omni check kb, part of check all</span></span>
 ├── bin/commands/<span class="add">kb.mjs</span>               <span class="add"><span class="c">+ omni kb init | show | status</span></span>
+├── bin/commands/init.mjs             <span class="c">~ omni init (PRD #39) also lays down the forms</span>
+├── dist/omni.mjs                     <span class="c">~ the committed bundle, rebuilt by every code slice</span>
 ├── plugin/skills/<span class="add">terraform/SKILL.md</span>  <span class="add"><span class="c">+ /omni:terraform</span></span>
 └── test/no-literals.test.mjs         <span class="c">~ also scans templates/</span></pre>
   </figure>
@@ -441,19 +444,19 @@ index at docs/adr/index.md.
       <ul>
         <li>A plain CLI command, with no AI involved. Safe to run again.</li>
         <li>Writes every missing form from the kit template with <code>state: blank</code>, its opener and its slot hints.</li>
-        <li>Writes <code>knowledge/README.md</code> and <code>adr/README.md</code> when they are missing.</li>
+        <li>Writes <code>knowledge/README.md</code> and <code>adr/README.md</code> when they are missing, and the three empty <code>product/</code> register files when there are none, so <code>omni check knowledge</code> stays green.</li>
         <li>Never overwrites a file.</li>
-        <li>Later it becomes part of <code>omni-loop init</code> (PRD #3, phase 4). Until then it runs on its own.</li>
+        <li><code>omni init</code> (PRD #39, the one-line install) runs it too, right after the config and the bin. Its closing steps then point to <code>/omni:terraform</code>.</li>
       </ul>
     </article>
     <article class="card after">
       <h3>/omni:terraform · fills them from the repo</h3>
       <ol class="steps">
-        <li><b>Survey</b>, read-only: scripts, lockfile, engines, test configs, workflows, PR template, CODEOWNERS, labels, hooks, README, CLAUDE.md or AGENTS.md, <code>docs/</code>.</li>
+        <li><b>Check it is installed</b> (<code>omni config</code>; otherwise <code>omni init</code> comes first), then run <code>omni kb init</code>. <b>Survey</b>, read-only: scripts, lockfile, engines, test configs, workflows, PR template, CODEOWNERS, labels, hooks, README, CLAUDE.md or AGENTS.md, <code>docs/</code>.</li>
         <li><b>Point before writing.</b> If a page already answers a form's question, the form becomes a pointer.</li>
         <li><b>Fill from evidence.</b> Each filled section lists its files under <code>evidence:</code>. Each command runs green once before it is written down.</li>
         <li><b>Leave holes.</b> Anything it cannot show becomes <code>TODO(human): &lt;question&gt;</code>.</li>
-        <li><b>Propose config</b> as a diff: <code>commands.*</code>, <code>paths.adr</code>, <code>paths.glossary</code>, <code>paths.context</code>, <code>ci.aggregateCheck</code>.</li>
+        <li><b>Propose config</b> as a diff. <code>omni init</code> already detected the commands, so terraform runs each one and proposes a change only where one is missing or fails. It also proposes <code>paths.adr</code>, <code>paths.glossary</code>, <code>paths.context</code> and <code>ci.aggregateCheck</code>.</li>
         <li><b>Open a docs-only PR</b> whose body lists every hole as a checkbox. A person fills them in and merges.</li>
       </ol>
       <p class="note"><code>--refresh</code> redoes only the forms whose evidence changed, and never touches a <code>by: human</code> section.</p>
@@ -557,7 +560,7 @@ warnings
 
 <section id="decide" aria-labelledby="dec-h">
   <h2 id="dec-h">Decided</h2>
-  <p class="intro">The brainstorm left six questions open, each with a recommendation. The PRD author approved all six on 25 September 2026. The spec lists these with its other decisions.</p>
+  <p class="intro">The brainstorm left six questions open, each with a recommendation. The PRD author approved all six on 25 September 2026. Two more came from re-planning after PRD #39 merged. The spec lists all of them with its other decisions.</p>
   <ol class="decide">
     <li><b>Where the forms live</b><span class="rec"><b>Decided:</b> <code>.omni-loop/knowledge/playbook/</code>, under the one knowledge root, through a new <code>paths.playbook</code> key that defaults there. Its parent is the front door.</span></li>
     <li><b>Whether a hole blocks delivery</b><span class="rec"><b>Decided: it does not.</b> <code>omni check kb</code> warns, and <code>/omni:yolo</code> prints the holes once at the start and uses the kit defaults.</span></li>
@@ -565,23 +568,25 @@ warnings
     <li><b>How fine-grained pointers are</b><span class="rec"><b>Decided: both levels.</b> A whole form can be <code>state: pointer</code>, and a section can carry a <code>See:</code> line.</span></li>
     <li><b>Process lessons from settled outbox answers</b><span class="rec"><b>Decided:</b> they land in a playbook section, <code>by: human</code>, and the settled entry records <code>Became: playbook/&lt;form&gt;#&lt;slot&gt;</code>, which <code>omni check outbox</code> resolves.</span></li>
     <li><b>Orientation pages</b><span class="rec"><b>Decided: later.</b> A form points to them when they exist.</span></li>
+    <li><b>The one-line install lays down the forms</b><span class="rec"><b>Added after PRD #39 merged, for the phase-0 review:</b> <code>omni init</code> writes the blank forms after the config and the bin, and its closing steps name <code>/omni:terraform</code>. Installing is one command, and filling the forms is one skill.</span></li>
+    <li><b>A knowledge folder no longer means laws</b><span class="rec"><b>Added after PRD #39 merged, for the phase-0 review:</b> every install now creates <code>.omni-loop/knowledge/</code>, so <code>omni init</code> reads <code>laws.source: knowledge</code> from registers that hold an entry, not from the folder existing.</span></li>
   </ol>
 </section>
 
 <section id="next" aria-labelledby="next-h">
   <h2 id="next-h">The plan</h2>
-  <p class="intro">Seven slices in five waves, from <code>plan.md</code> beside this page. Each slice is a sub-PR into <code>feat/knowledge-forms</code>.</p>
+  <p class="intro">Seven slices in five waves, from <code>plan.md</code> beside this page. Each slice is a sub-PR into <code>feat/knowledge-forms</code>. Since PRD #39 the bundle <code>kit/dist/omni.mjs</code> is committed and must equal a fresh build. Every slice that changes bundled code (s1 to s4) rebuilds it, so those four each get a wave of their own.</p>
   <div class="tablewrap">
     <table>
       <thead><tr><th style="width:8%">Slice</th><th style="width:8%">Wave</th><th style="width:46%">What it makes true</th><th>Blocked by</th></tr></thead>
       <tbody>
-        <tr><td class="mono">s1</td><td class="mono">1</td><td>A form is a typed thing: <code>paths.playbook</code> and <code>branches.terraform</code> in the config, and the one parser and resolver in <code>kit/lib/playbook/</code></td><td>—</td></tr>
+        <tr><td class="mono">s1</td><td class="mono">1</td><td>A form is a typed thing the kit reads: the config keys, the one parser and resolver, a playbook <code>Became:</code>, and <code>adr/README.md</code> not counted as law text</td><td>—</td></tr>
         <tr><td class="mono">s2</td><td class="mono">2</td><td>The kit defaults: thirteen templates and the front door README, ported without repository literals, bundled into <code>omni.mjs</code></td><td class="mono">s1</td></tr>
-        <tr><td class="mono">s3</td><td class="mono">2</td><td>The outbox knows the playbook: a playbook <code>Became:</code> resolves, and <code>adr/README.md</code> is not law text</td><td class="mono">s1</td></tr>
-        <tr><td class="mono">s4</td><td class="mono">3</td><td><code>omni kb init | show | status</code> and <code>omni check kb</code>, inside <code>check all</code></td><td class="mono">s1, s2</td></tr>
-        <tr><td class="mono">s5</td><td class="mono">4</td><td>The <code>/omni:terraform</code> skill, with <code>--refresh</code></td><td class="mono">s4</td></tr>
-        <tr><td class="mono">s6</td><td class="mono">4</td><td>The seven skills read their forms; <code>repo.md</code> is retired</td><td class="mono">s4</td></tr>
-        <tr><td class="mono">s7</td><td class="mono">5</td><td>Dogfood: this repository terraformed, with a session-start hook that prints its briefing</td><td class="mono">s3, s5, s6</td></tr>
+        <tr><td class="mono">s3</td><td class="mono">3</td><td><code>omni kb init | show | status</code> and <code>omni check kb</code>, inside <code>check all</code></td><td class="mono">s1, s2</td></tr>
+        <tr><td class="mono">s4</td><td class="mono">4</td><td><code>omni init</code> lays down the forms, names <code>/omni:terraform</code>, and reads <code>laws.source</code> from the registers' entries</td><td class="mono">s3</td></tr>
+        <tr><td class="mono">s5</td><td class="mono">4</td><td>The <code>/omni:terraform</code> skill, with <code>--refresh</code></td><td class="mono">s3</td></tr>
+        <tr><td class="mono">s6</td><td class="mono">4</td><td>The seven skills read their forms; <code>repo.md</code> is retired</td><td class="mono">s3</td></tr>
+        <tr><td class="mono">s7</td><td class="mono">5</td><td>Dogfood: this repository installed with <code>omni init</code> and terraformed, with a session-start hook that prints its briefing</td><td class="mono">s4, s5, s6</td></tr>
       </tbody>
     </table>
   </div>
