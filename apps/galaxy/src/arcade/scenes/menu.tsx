@@ -1,11 +1,14 @@
 'use client';
-// The menu group's text layer: the menu (a visitor's and a player's) and How to play.
+// The menu group's text layer: the menu (a visitor's and a player's) and How to play, laid out for
+// the grid the screen is drawn on (menu.css places each for `.grid-wide` and `.grid-tall`).
 import type { GalaxyView, WoundKind } from '@omni/galaxy';
 import { woundTint } from '@omni/sprites';
+import { useScreen } from '../Screen';
 import { Sprite } from '../Sprite';
 import { fleet, WOUND_LOOK } from '../fleets';
 import type { Player } from '../types';
 import type { SceneName } from './common.ts';
+import { BRIEFING_PAGES, type BriefingPage } from './menu.ts';
 import './common.css';
 import './menu.css';
 
@@ -81,36 +84,51 @@ export function MenuOverlay({ view, items, index, me, onPick }: {
 
 // ── How to play ──────────────────────────────────────────────────────────────
 
+/**
+ * How points are won and lost, from the rules the galaxy carries. The wide grid shows both sections
+ * side by side; the tall one shows a section a page, which ◀ ▶ turn (`BRIEFING_PAGES`).
+ */
 export function BriefingOverlay({ view }: { view: GalaxyView }) {
+  const { grid, page } = useScreen();
   const r = view.rules;
   const kinds = Object.keys(WOUND_LOOK) as WoundKind[];
+  const sections: Record<BriefingPage, React.ReactNode> = {
+    earn: (
+      <section key="earn">
+        <h3 className="gold">EARN</h3>
+        <ul>
+          <li><Sprite name="flag" scale={1} /> SECURE A ZONE <b>+{r.zoneSecured}</b></li>
+          <li><Sprite name="beacon" scale={1} /> RESCUE ANOTHER FLEET <b>+{r.rescue}</b></li>
+          <li><Sprite name="star" scale={1} /> FLEET TERRAFORMS <b>+{r.terraformOwner} × CLASS</b></li>
+          <li><Sprite name="ship" scale={1} /> EXPEDITION ON IT <b>+{r.terraformExpedition}</b></li>
+          <li className="note">ZONE SECURED AT NIGHT ×{r.nightShiftMultiplier} · ENTROPY CLEARED FOR ANOTHER FLEET ×{r.crossTeamMultiplier}</li>
+        </ul>
+      </section>
+    ),
+    entropy: (
+      <section key="entropy">
+        <h3 className="red">ENTROPY · CLEAR IT / IT COSTS</h3>
+        <ul>
+          {kinds.map((k) => (
+            <li key={k}>
+              <Sprite name="entropy" scale={0.5} tint={woundTint(k)} />
+              <span style={{ color: WOUND_LOOK[k].color }}>{WOUND_LOOK[k].name}</span>
+              <b>+{r.woundClose[k]} / −{r.decayPerTranche[k]}</b>
+            </li>
+          ))}
+          <li className="note">DECAY PER {r.trancheHours} WORKING HOURS · LOST AFTER {r.lostAfterDays} SILENT DAYS</li>
+        </ul>
+      </section>
+    ),
+  };
+  const tall = grid.name === 'tall';
+  const at = Math.max(0, Math.min(page, BRIEFING_PAGES.length - 1));
   return (
     <div className="briefing">
       <h2>HOW TO PLAY</h2>
+      {tall && <p className="brief-page"><span aria-hidden="true">◀</span> {`PAGE ${at + 1}/${BRIEFING_PAGES.length}`} <span aria-hidden="true">▶</span></p>}
       <div className="brief-cols">
-        <section>
-          <h3 className="gold">EARN</h3>
-          <ul>
-            <li><Sprite name="flag" scale={1} /> SECURE A ZONE <b>+{r.zoneSecured}</b></li>
-            <li><Sprite name="beacon" scale={1} /> RESCUE ANOTHER FLEET <b>+{r.rescue}</b></li>
-            <li><Sprite name="star" scale={1} /> FLEET TERRAFORMS <b>+{r.terraformOwner} × CLASS</b></li>
-            <li><Sprite name="ship" scale={1} /> EXPEDITION ON IT <b>+{r.terraformExpedition}</b></li>
-            <li className="note">ZONE SECURED AT NIGHT ×{r.nightShiftMultiplier} · ENTROPY CLEARED FOR ANOTHER FLEET ×{r.crossTeamMultiplier}</li>
-          </ul>
-        </section>
-        <section>
-          <h3 className="red">ENTROPY · CLEAR IT / IT COSTS</h3>
-          <ul>
-            {kinds.map((k) => (
-              <li key={k}>
-                <Sprite name="entropy" scale={0.5} tint={woundTint(k)} />
-                <span style={{ color: WOUND_LOOK[k].color }}>{WOUND_LOOK[k].name}</span>
-                <b>+{r.woundClose[k]} / −{r.decayPerTranche[k]}</b>
-              </li>
-            ))}
-            <li className="note">DECAY PER {r.trancheHours} WORKING HOURS · LOST AFTER {r.lostAfterDays} SILENT DAYS</li>
-          </ul>
-        </section>
+        {tall ? sections[BRIEFING_PAGES[at]] : BRIEFING_PAGES.map((p) => sections[p])}
       </div>
       <p className="hint">RUN /omni-yolo &lt;prd&gt; TO LEND YOUR AGENT TO A PLANET · B · MENU</p>
     </div>
