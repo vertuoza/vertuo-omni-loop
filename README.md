@@ -76,13 +76,15 @@ their pull requests score for that fleet.
 
 ### Run it by hand
 
-With `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` set (locally: `npx supabase status`):
+With `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` set (locally: `npx supabase status`). Each
+command reads and writes one workspace, named by `--workspace <slug>` or, failing that, by
+`OMNI_LOOP_WORKSPACE`; there is no default:
 
 ```bash
-pnpm game:banner 2332      # one planet's banner, read live from GitHub
-pnpm game:project          # snapshot GitHub and append new events to the ledger in Supabase
-pnpm game:score            # fold the ledger into this month's season
-pnpm game:export backup/   # the ledger, sectors, fleets and players as JSONL
+pnpm game:banner 2332 --workspace vertuoza      # one planet's banner, read live from GitHub
+pnpm game:project --workspace vertuoza          # snapshot the workspace's GitHub and append new events to its ledger
+pnpm game:score --workspace vertuoza            # fold its ledger into this month's season
+pnpm game:export backup/ --workspace vertuoza   # its row, ledger, sectors, fleets and players as JSONL
 ```
 
 `game:project` writes permanent history. Run it against production only once the sectors hold the
