@@ -296,7 +296,8 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
     expect(existsSync(join(root, '.omni-loop/config.yml'))).toBe(true);
     expect(existsSync(join(root, '.omni-loop/bin/omni.mjs'))).toBe(true);
     expect(created(fake.calls)).toEqual([]);
-    expect(out).toContain(`create by hand: ${LOOP_LABELS.join(', ')}\n`);
+    expect(out).toContain(`  labels  gh could not create ${LOOP_LABELS.join(', ')} — see step 3 below\n`);
+    expect(out).toContain(`  3. Create the labels gh could not create:\n       https://github.com/acme/widgets/labels\n       ${LOOP_LABELS.join(', ')}\n`);
   });
 
   it('when one creation fails, the rest are still tried and the failed one is a human step, exit 0', async () => {
@@ -313,7 +314,8 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
     expect(code).toBe(0);
     expect(created(base.calls)).toEqual(['pr:phase-0', 'pr:feature', 'pr:sub', 'pr:in-progress', 'pr:needs-fix', 'outbox:go']);
     expect(out).toMatch(/labels\s+created pr:phase-0, pr:feature, pr:in-progress, pr:needs-fix, outbox:go\s+\(already there: prd\)\n/);
-    expect(out).toContain('create by hand: pr:sub\n');
+    expect(out).toContain('  labels  gh could not create pr:sub — see step 3 below\n');
+    expect(out).toContain('  3. Create the labels gh could not create:\n       https://github.com/acme/widgets/labels\n       pr:sub\n');
   });
 });
 
@@ -354,8 +356,9 @@ describe('omni init — footprint (AC 7)', () => {
 
 describe('omni init — the real bundle', () => {
   it('the built bundle carries its marker: it installs itself byte for byte', () => {
-    execFileSync('node', [join(kitRoot, 'build.mjs')], { stdio: 'ignore' });
-    const dist = join(kitRoot, 'dist/omni.mjs');
+    // Built to a scratch file: the committed kit/dist/omni.mjs is only ever compared, never rewritten by a test.
+    const dist = join(mkdtempSync(join(tmpdir(), 'omni-built-')), 'omni.mjs');
+    execFileSync('node', [join(kitRoot, 'build.mjs'), dist], { stdio: 'ignore' });
     const { root } = makeRepo({ git: true, files: { Makefile: fixture('make/Makefile') } });
     // No gh on PATH: the repository has no remote, so the slug is null, and nothing reaches the network.
     // Where a runner does ship gh in /usr/bin, it gets no token, no login and no target repository,
@@ -367,4 +370,105 @@ describe('omni init — the real bundle', () => {
     const out = execFileSync('node', ['.omni-loop/bin/omni.mjs', 'config', 'commands.test'], { cwd: root, env, encoding: 'utf8' });
     expect(out).toBe('make test\n');
   }, 30000);
+});
+
+const KIT_HOME = 'vertuoza/vertuo-omni-loop';
+
+/** The closing steps of a first run on a bare repository, as `acme/widgets` on `trunk` sees them. */
+const FIRST_RUN = [
+  'omni init — acme/widgets is set up.',
+  '  wrote   .omni-loop/config.yml',
+  '  wrote   .omni-loop/bin/omni.mjs',
+  '  labels  created prd, pr:phase-0, pr:feature, pr:sub, pr:in-progress, pr:needs-fix, outbox:go',
+  '',
+  'Commit .omni-loop/ and merge it into trunk, then, by hand:',
+  '  1. Install the omni plugin in Claude Code:',
+  `       /plugin marketplace add ${KIT_HOME}`,
+  '       /plugin install omni@omni-loop',
+  '  2. Install the omni-loop GitHub App on acme/widgets:',
+  '       https://github.com/apps/omni-loop-invader/installations/new',
+  '  3. (Optional) Require the `outbox` check on trunk:',
+  '       https://github.com/acme/widgets/settings/branches',
+  '     Warning: a required check that is never posted blocks every pull request in this repository.',
+  '     If the app is uninstalled, its deploy is broken or Inngest is down, nothing can merge. The remedy',
+  '     is to remove the requirement, never to fake a status.',
+  '',
+  'Not filled — set them in .omni-loop/config.yml or rerun with the flag:',
+  '  commands.test (--test <cmd>)',
+  '  commands.preflight (--preflight <cmd>)',
+  '  commands.preflightFull (--preflight-full <cmd>)',
+  '',
+  'To remove the loop: delete .omni-loop/ and commit. The labels and the App installation stay.',
+  '',
+];
+
+describe('omni init — the closing steps (AC 8)', () => {
+  it('a first run on a bare repository prints them line by line', async () => {
+    const { root } = makeRepo({ git: true });
+    const { code, out } = await init(root);
+    expect(code).toBe(0);
+    expect(out.split('\n')).toEqual(FIRST_RUN);
+  });
+
+  it('only the slug and the default branch vary between two repositories', async () => {
+    const run = async (slug, defaultBranch) => {
+      const { root } = makeRepo({ git: true });
+      const { out } = await init(root, [], { fake: fakeExec({ slug, defaultBranch }) });
+      return out.split(slug).join('<slug>').split(defaultBranch).join('<branch>');
+    };
+    const a = await run('acme/widgets', 'trunk');
+    const b = await run('globex/billing-api', 'develop');
+    expect(a).toBe(b);
+    expect(a).toContain('https://github.com/<slug>/settings/branches');
+    expect(a).toContain('merge it into <branch>, then');
+  });
+
+  it('names only the commands left null, each with its flag', async () => {
+    const { root } = makeRepo({ git: true });
+    const { out } = await init(root, ['--preflight', 'make ci', '--preflight-full', 'make ci']);
+    const tail = out.slice(out.indexOf('Not filled'));
+    expect(tail.split('\n').slice(0, 3)).toEqual([
+      'Not filled — set them in .omni-loop/config.yml or rerun with the flag:',
+      '  commands.test (--test <cmd>)',
+      '',
+    ]);
+  });
+
+  it('has no "Not filled" section when every command is known', async () => {
+    const { root } = makeRepo({ git: true, files: { Makefile: fixture('make/Makefile') } });
+    const { out } = await init(root);
+    expect(out).not.toContain('Not filled');
+  });
+
+  it('a second run says what it kept, still lists the steps, and exits 0', async () => {
+    const { root } = makeRepo({ git: true });
+    const fake = fakeExec();
+    await init(root, [], { fake });
+    const { code, out } = await init(root, [], { fake });
+    expect(code).toBe(0);
+    expect(out.split('\n').slice(0, 4)).toEqual([
+      'omni init — acme/widgets is set up.',
+      '  kept    .omni-loop/config.yml    (pass --force to overwrite)',
+      '  kept    .omni-loop/bin/omni.mjs  (pass --force to overwrite)',
+      `  labels  already there: ${LOOP_LABELS.join(', ')}`,
+    ]);
+    expect(out.split('\n').slice(4)).toEqual(FIRST_RUN.slice(4));
+  });
+
+  it('with neither gh nor a remote to name the repository, it says so instead of a link', async () => {
+    const { root } = makeRepo({ git: true });
+    const { code, out } = await init(root, [], { fake: fakeExec({ ghFails: true }) });
+    expect(code).toBe(0);
+    expect(out).toContain('omni init — this repository is set up.\n');
+    expect(out).toContain('merge it into main, then');
+    expect(out).toContain('  2. Install the omni-loop GitHub App on this repository:\n');
+    expect(out).toContain('       https://github.com/<owner>/<repository>/settings/branches\n');
+  });
+
+  it('names the outbox check the config names', async () => {
+    const config = 'kit: 1\nrepo:\n  slug: acme/widgets\n  defaultBranch: trunk\nci:\n  outboxContext: omni/outbox\n';
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/bin/omni.mjs': 'bin\n' } });
+    const { out } = await init(root);
+    expect(out).toContain('  3. (Optional) Require the `omni/outbox` check on trunk:\n');
+  });
 });

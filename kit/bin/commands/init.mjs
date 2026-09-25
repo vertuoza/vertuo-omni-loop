@@ -1,16 +1,18 @@
 // `omni init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]` — installs the
 // loop on the repository it runs in: writes `.omni-loop/config.yml`, copies the running bundle to
-// `.omni-loop/bin/omni.mjs` and creates the loop labels the repository lacks. The one command that runs before a config exists, so `main()` hands it
-// no context. It writes nothing outside `.omni-loop/`.
+// `.omni-loop/bin/omni.mjs`, creates the loop labels the repository lacks, then prints the closing
+// steps a person still has to take. The one command that runs before a config exists, so `main()`
+// hands it no context. It writes nothing outside `.omni-loop/`.
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { dirname, join } from 'node:path';
-import { parseArgs, println, usageError } from '../args.mjs';
+import { parseArgs, usageError } from '../args.mjs';
 import { CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig } from '../../lib/config.mjs';
 import { installCommand, kitHome, runningBundle } from '../../lib/init/bundle.mjs';
 import { renderConfig } from '../../lib/init/config-text.mjs';
 import { COMMAND_KEYS, detectCommands, detectLawsSource } from '../../lib/init/detect.mjs';
 import { reconcileLabels } from '../../lib/init/labels.mjs';
+import { closingSteps } from '../../lib/init/steps.mjs';
 import { findRoot, readRepo } from '../../lib/init/repo.mjs';
 
 export const BIN_FILE = join(dirname(CONFIG_FILE), 'bin', 'omni.mjs');
@@ -85,19 +87,20 @@ export const init = {
       chmodSync(binPath, 0o755);
     }
 
-    println(stdout, `  ${keepConfig ? 'kept ' : 'wrote'}   ${CONFIG_FILE}${keepConfig ? '    (pass --force to overwrite)' : ''}`);
-    println(stdout, `  ${copyBin ? 'wrote' : 'kept '}   ${BIN_FILE}${copyBin ? '' : '  (pass --force to overwrite)'}`);
-
     // Last: the files are the install, the labels a convenience — a label gh cannot make is a human step.
     const labels = reconcileLabels(root, { exec, labels: config.labels });
-    const done = [];
-    if (labels.created.length) done.push(`created ${labels.created.join(', ')}`);
-    if (labels.present.length) {
-      const present = `already there: ${labels.present.join(', ')}`;
-      done.push(labels.created.length ? `   (${present})` : present);
-    }
-    if (done.length) println(stdout, `  labels  ${done.join('')}`);
-    if (labels.byHand.length) println(stdout, `  labels  gh could not make them — create by hand: ${labels.byHand.join(', ')}`);
+
+    // A kept config may leave the slug to the origin remote, as every other command does at load time.
+    const slug = config.repo.slug ?? readRepo(root, { exec, remote: config.repo.remote }).slug;
+    stdout.write(closingSteps({
+      slug,
+      defaultBranch: config.repo.defaultBranch,
+      kitHome: kitHome({ exec }),
+      outboxCheck: config.ci.outboxContext,
+      files: [{ path: CONFIG_FILE, wrote: !keepConfig }, { path: BIN_FILE, wrote: copyBin }],
+      labels,
+      unfilled: COMMAND_KEYS.filter((key) => config.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] })),
+    }));
     return 0;
   },
 };
