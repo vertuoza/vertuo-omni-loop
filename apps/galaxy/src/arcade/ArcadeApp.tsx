@@ -84,6 +84,32 @@ const store = {
   set(key: string, v: string | null) { try { if (v === null) window.sessionStorage.removeItem(key); else window.sessionStorage.setItem(key, v); } catch { /* ignore */ } },
 };
 
+// The Vertuoza mark on the deck: split bars that narrow row by row into a V, coral to blue.
+// Each bar is [x, y, width] on a 36-pixel grid, drawn as a 6-pixel-tall pill with stepped round ends.
+const MARK_BARS = [
+  [0, 0, 22], [24, 0, 12],
+  [4, 10, 8], [14, 10, 18],
+  [8, 20, 12], [22, 20, 6],
+  [12, 30, 12],
+];
+const MARK_PATH = MARK_BARS.map(([x, y, w]) => `M${x + 2} ${y}h${w - 4}v1h1v1h1v2h-1v1h-1v1h${4 - w}v-1h-1v-1h-1v-2h1v-1h1z`).join('');
+
+function VertuozaMark() {
+  return (
+    <svg width="36" height="37" viewBox="0 0 36 37" shapeRendering="crispEdges">
+      <defs>
+        <linearGradient id="vz-mark" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="36" y2="0">
+          <stop offset="0" stopColor="#ff5f6d" />
+          <stop offset="0.55" stopColor="#a45cff" />
+          <stop offset="1" stopColor="#4a63ff" />
+        </linearGradient>
+      </defs>
+      <path d={MARK_PATH} fill="#5c3a06" transform="translate(0 1)" />
+      <path d={MARK_PATH} fill="url(#vz-mark)" />
+    </svg>
+  );
+}
+
 export interface ArcadeProps {
   /** The galaxy; null while signed out (or when it cannot be read: see `problem`). */
   view: GalaxyView | null;
@@ -610,7 +636,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
             <span className="plate-big">PRESS START</span>
             <span className="plate-small plate-keys">ENTER · Z = A · X = B · ARROWS</span>
           </div>
-          <div className="emblem" aria-hidden="true"><i /><i /><i /><i /></div>
+          <div className="emblem" aria-hidden="true"><VertuozaMark /></div>
           <div className="plate">
             <span className="plate-big">{top && top.points > 0 ? `HI ${top.points}` : 'FREE PLAY'}</span>
             <span className="plate-small">{me?.team ? `P1 ${me.display_name} · ${fleet(me.team).label}` : session ? 'NEW RECRUIT' : 'INSERT COIN'} · {muted ? 'SOUND OFF (M)' : 'SOUND ON (M)'}</span>
