@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf } from '@omni/galaxy';
-import { drawFrame, layoutMap, type FrameState, type SceneName } from './scenes';
-import { setFleets } from './fleets';
-import type { FleetRow } from './types';
+import { drawFrame, layoutMap, type FrameState, type SceneName } from './index';
+import { setFleets } from '../fleets';
+import type { FleetRow } from '../types';
 
 // Every scene the arcade can open, each listed once: a scene missing here fails the typecheck.
 const SCENES: Record<SceneName, true> = {

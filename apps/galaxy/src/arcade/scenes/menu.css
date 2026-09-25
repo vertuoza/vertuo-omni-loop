@@ -1,0 +1,51 @@
+/* The menu group: the menu and How to play. */
+
+.source { font-size: 8px; color: var(--dim); }
+.source.live { color: var(--green); }
+
+/* ── Menu ────────────────────────────────────────────────────────────────── */
+
+.menu { position: absolute; inset: 0; padding: 36px 0 0 34px; }
+.menu ul { list-style: none; margin: 30px 0 0; padding: 0; display: grid; gap: 12px; width: 330px; }
+.menu li button {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  row-gap: 4px;
+  width: 100%;
+  padding: 8px 10px;
+  text-align: left;
+  background: rgba(14, 13, 51, 0.75);
+  border: 2px solid transparent;
+}
+.menu li button.active { border-color: var(--yellow); background: rgba(47, 63, 196, 0.45); }
+.menu .cursor { grid-row: span 2; color: var(--yellow); font-size: 12px; animation: blink 0.8s steps(2, start) infinite; }
+.menu-label { font-size: 13px; color: var(--white); }
+.menu li button.active .menu-label { color: var(--yellow); }
+.menu-hint { font-family: var(--txt); font-size: 17px; color: var(--dim); }
+.menu-foot { position: absolute; left: 34px; right: 24px; bottom: 16px; display: flex; justify-content: space-between; font-size: 8px; color: var(--dim); }
+/* Signed in, the menu grows (MY HERO, CHANGE FLEET, LINK GITHUB, SIGN OUT): one line per entry. */
+.menu.long ul { margin-top: 16px; gap: 4px; width: 410px; }
+.menu.long li button { grid-template-columns: 16px 150px 1fr; align-items: baseline; padding: 4px 8px; }
+.menu.long .cursor { grid-row: auto; font-size: 9px; }
+.menu.long .menu-label { font-size: 9px; }
+.menu.long .menu-hint { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menu .j-badge { top: 18px; right: 18px; }
+
+/* The menu nudges toward linking GitHub. */
+.menu button.nudge .menu-label::before { content: '● '; color: var(--red); animation: blink 0.8s steps(2, start) infinite; }
+
+/* ── How to play ─────────────────────────────────────────────────────────── */
+
+.briefing { position: absolute; inset: 0; padding: 18px 20px 0; display: flex; flex-direction: column; align-items: center; }
+.brief-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; width: 100%; }
+.brief-cols section { background: rgba(14, 13, 51, 0.85); border: 2px solid var(--navy); padding: 10px; }
+.brief-cols h3 { margin: 0 0 8px; font-size: 8px; font-weight: 400; }
+.brief-cols ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.brief-cols li { display: flex; align-items: center; gap: 6px; font-size: 7px; }
+.brief-cols li b { margin-left: auto; font-weight: 400; color: var(--yellow); white-space: nowrap; }
+.brief-cols li.note { font-family: var(--txt); font-size: 15px; color: var(--dim); }
+.briefing .hint { position: absolute; bottom: 10px; margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .menu .cursor, .menu button.nudge .menu-label::before { animation: none; }
+}

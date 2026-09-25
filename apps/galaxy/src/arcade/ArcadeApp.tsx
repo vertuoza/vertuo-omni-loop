@@ -7,14 +7,15 @@ import { motif, music, setMuted as setAudioMuted, sfx, unlock, type Sfx } from '
 import { Press } from './hint';
 import { keyAction, type Action } from './keys';
 import type { SongName } from './score';
+import { BootOverlay, HeroesOverlay, TitleOverlay, titlePhaseAt } from './scenes/attract.tsx';
 import {
-  BootOverlay, BriefingOverlay, FleetsOverlay, HeroesOverlay, MapOverlay, MenuOverlay, PlanetOverlay, TitleOverlay,
-  PLANET_TABS, menuItems, titlePhaseAt,
-} from './screens';
-import {
-  BuilderOverlay, CoinOverlay, GateOverlay, IntroOverlay, LinkOverlay, NameOverlay, OutsiderOverlay, ReadyOverlay,
-  SelectOverlay, WelcomeOverlay, type LinkState,
-} from './join-screens';
+  CoinOverlay, GateOverlay, IntroOverlay, LinkOverlay, OutsiderOverlay, ReadyOverlay, WelcomeOverlay, type LinkState,
+} from './scenes/join.tsx';
+import { BuilderOverlay, NameOverlay, SelectOverlay } from './scenes/recruit.tsx';
+import { BriefingOverlay, MenuOverlay, menuItems } from './scenes/menu.tsx';
+import { MapOverlay } from './scenes/map.tsx';
+import { PLANET_TABS, PlanetOverlay } from './scenes/planet.tsx';
+import { FleetsOverlay } from './scenes/fleets.tsx';
 import { FleetSprite, Sprite } from './Sprite';
 import { fleet, setFleets } from './fleets';
 import { foldChar, foldName, nameInit, nameReduce, nameValue, NAME_RULE, type NameAction, type NameState } from './name-entry';
