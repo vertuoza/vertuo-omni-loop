@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   breaches,
@@ -123,6 +125,63 @@ describe('parsePlanSlices', () => {
     expect(() => parsePlanSlices(planWithMultipleIdTables)).toThrow(
       /This plan's slice table has no `territory` column; it predates the territory discipline/,
     );
+  });
+});
+
+describe('parsePlanSlices — blockedBy', () => {
+  it('reads the blocked-by ids for each slice', () => {
+    const slices = parsePlanSlices(PLAN);
+    expect(slices.map((slice) => slice.blockedBy)).toEqual([[], ['s1'], []]);
+  });
+
+  it('reads a comma- or space-separated cell as more than one blocker', () => {
+    const plan = `## Slices
+
+| id  | slice | territory      | blocked by | wave |
+| --- | ----- | -------------- | ---------- | ---- |
+| s1  | A     | \`a/\`           | —          | 1    |
+| s2  | B     | \`b/\`           | s1, s3     | 2    |
+| s3  | C     | \`c/\`           | —          | 1    |
+| s4  | D     | \`d/\`           | s1 s3      | 2    |
+`;
+    const slices = parsePlanSlices(plan);
+    expect(slices.find((slice) => slice.id === 's2').blockedBy).toEqual(['s1', 's3']);
+    expect(slices.find((slice) => slice.id === 's4').blockedBy).toEqual(['s1', 's3']);
+  });
+
+  it('reads a bare hyphen or an empty cell as no blockers', () => {
+    const plan = `## Slices
+
+| id  | slice | territory | blocked by | wave |
+| --- | ----- | --------- | ---------- | ---- |
+| s1  | A     | \`a/\`      | -          | 1    |
+| s2  | B     | \`b/\`      |            | 1    |
+`;
+    const slices = parsePlanSlices(plan);
+    expect(slices.map((slice) => slice.blockedBy)).toEqual([[], []]);
+  });
+
+  it('reads [] for every slice when the plan has no `blocked by` column at all', () => {
+    const plan = `## Slices
+
+| id  | slice | territory | wave |
+| --- | ----- | --------- | ---- |
+| s1  | A     | \`a/\`      | 1    |
+`;
+    const slices = parsePlanSlices(plan);
+    expect(slices[0].blockedBy).toEqual([]);
+  });
+
+  it("reads this repository's own PRD 7 plan without throwing, and s14 is blocked by s3", () => {
+    const path = fileURLToPath(
+      new URL('../../../.omni-loop/delivery/inbox/0007-omni-loop-skills/plan.md', import.meta.url),
+    );
+    const markdown = readFileSync(path, 'utf8');
+    const slices = parsePlanSlices(markdown);
+    const s14 = slices.find((slice) => slice.id === 's14');
+    expect(s14.blockedBy).toEqual(['s3']);
+    const s1 = slices.find((slice) => slice.id === 's1');
+    expect(s1.blockedBy).toEqual([]);
   });
 });
 

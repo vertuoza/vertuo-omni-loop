@@ -55,3 +55,51 @@ its expected outcome, with only the import path and the one on-disk case affecte
 
 `pnpm vitest run kit/lib/inbox/territory.test.mjs kit/test/no-literals.test.mjs` — 23/23 pass (22 in
 `territory.test.mjs`, 1 in `no-literals.test.mjs`).
+
+## Update (s14, wave 3): `parsePlanSlices` now carries `blockedBy`
+
+Found in wave 2 (PRD 7): `omni plan check` (`kit/bin/commands/plan.mjs`) and `omni board`
+(`kit/bin/commands/board.mjs`) each carried a byte-for-byte copy of `cells` / `isTableRow` /
+`isSeparatorRow` / `blockedByCell` / `blockedByColumn`, because `parsePlanSlices` deliberately read
+only `id`, `slice`, `territory` and `wave`. Two verbatim copies of the same table-parsing logic is
+exactly the duplication the territory discipline (see the module doc comment) exists to name — so
+this slice widens `parsePlanSlices` itself rather than adding a third copy, and both commands now
+read `slice.blockedBy` and carry no local copy of any kind.
+
+This is **not** a re-port from `vertuo-ai-domain`: upstream's `scripts/check-territory.mjs` never
+read a `blocked by` column at all (`blocked by` grading was invented downstream, once here, twice
+over, by `omni plan check` and `omni board`). It is a kit-local widening of the ported function,
+recorded here per the slice's own instructions rather than in a separate porting file, since
+`territory.mjs` is this record's territory.
+
+- Added a private `blockedByCell(cell)` to `territory.mjs`, folding in the two commands' identical
+  helper. One behavior change from the two removed copies: it splits on **comma or whitespace**
+  (`/[\s,]+/`) rather than comma only, matching the slice's own instruction ("comma/space separated
+  ids"). No existing plan in this repository (or in either command's own tests) ever wrote a
+  space-only-separated `blocked by` cell, so this is strictly a widening, not a behavior change for
+  any plan that already parses today.
+- `parsePlanSlices` now sets `blockedBy: string[]` on every slice: the column's cell run through
+  `blockedByCell`, or `[]` when the plan carries no `blocked by` column at all (a plan predating that
+  column declares no blocks — this does **not** throw, unlike a missing `territory` column, which
+  is loud on purpose per the function's own doc comment).
+- **No existing assertion needed changing.** Every place `territory.test.mjs` compares a whole slice
+  object uses `toMatchObject`, which ignores extra fields — adding `blockedBy` breaks nothing. The
+  only `toEqual` calls in that file compare `collisions` / `sameWaveCollisions` / `collisionRows`
+  output (plain `{ left, right, shared, ... }` pair objects, never a slice itself), so those are
+  untouched too. Same story in `kit/bin/plan.test.mjs` and `kit/bin/board.test.mjs`: both drive the
+  command through `main()` and assert on printed text or `toMatchObject`, not on a raw slice's key
+  set.
+- `kit/bin/commands/plan.mjs`: deleted its local `isTableRow`, `isSeparatorRow`, `cells`, `NOTHING`,
+  `blockedByCell`, `blockedByColumn`; `blockedByViolations(slices, blockedBy)` now takes just
+  `slices` and reads `slice.blockedBy` directly.
+- `kit/bin/commands/board.mjs`: deleted the same six-function copy plus its own `slicesWithBlockers`
+  wrapper; `board.run` now calls `parsePlanSlices(markdown)` directly. `kit/lib/board.mjs`'s
+  `boardFor` already read `slice.blockedBy` (it never needed to know where that field came from), so
+  it required a doc-comment update only — no behavior change.
+
+### Gate (this update)
+
+`pnpm test` — 970/970 pass (was 965 before this slice; +5 new `parsePlanSlices — blockedBy` cases in
+`kit/lib/inbox/territory.test.mjs`, including one reading this repository's own
+`.omni-loop/delivery/inbox/0007-omni-loop-skills/plan.md`). `omni plan check 7` and `omni board 7`
+print byte-identical output before and after (see the s14 report).
