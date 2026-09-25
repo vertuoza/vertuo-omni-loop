@@ -24,7 +24,9 @@
  *
  * 5. **Every `Became:` id a `settled.md` carries resolves.** A settled entry that names a
  *    knowledge id nothing claims is exactly as broken as an open item whose `bears-on` does not
- *    resolve — the same failure, noticed later, on the ledger instead of the open file.
+ *    resolve — the same failure, noticed later, on the ledger instead of the open file. A process
+ *    lesson becomes a playbook section, `playbook/<form>#<slot>` (PRD #45): it resolves when that
+ *    form's file holds the slot and the slot is not blank.
  * 6. **No open item sits inside a shipped PRD's outbox.** Once a PRD's folder moves to `shipped`,
  *    every item still open under its `outbox/` is a promise nobody is reading any more: settle it,
  *    or reopen the PRD. Such a file is not also graded against 1–4 — one violation per shipped
@@ -40,6 +42,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { readRepoFile } from '../check-report.mjs';
 import { lawsFor } from '../laws.mjs';
+import { isPlaybookId, resolvePlaybookId } from '../playbook/forms.mjs';
 import {
   SETTLED_FILE,
   isBelowFloor,
@@ -152,9 +155,10 @@ function optionsViolations(file, options) {
 
 /**
  * Grades every open item file under every dir `ctx.layout.outboxDirs()` names, plus the two
- * outbox-wide checks: every `Became:` id every `settled.md` carries resolves, and no open item
- * sits inside a shipped PRD's outbox. Builds `laws` once (`lawsFor(ctx)`, Task 4) and threads it
- * through every per-item and per-ledger check.
+ * outbox-wide checks: every `Became:` id every `settled.md` carries resolves (a law through
+ * `laws`, a playbook section through the form parser), and no open item sits inside a shipped
+ * PRD's outbox. Builds `laws` once (`lawsFor(ctx)`, Task 4) and threads it through every per-item
+ * and per-ledger check.
  */
 export function findOutboxViolations({ ctx }) {
   const laws = lawsFor(ctx);
@@ -178,7 +182,7 @@ export function findOutboxViolations({ ctx }) {
 
     for (const entry of parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers)) {
       for (const id of entry.became) {
-        const resolved = laws.resolve(id);
+        const resolved = isPlaybookId(id) ? resolvePlaybookId(id, { ctx }) : laws.resolve(id);
         if (!resolved.ok) {
           violations.push(
             describe(settledFile, `${entry.id} Became: ${id} — ${resolved.reason}`),
