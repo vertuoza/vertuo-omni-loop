@@ -1900,3 +1900,352 @@ Low: adding a flag to one command line in the skill.
 ```
 
 <!-- /omni-outbox-settled: s9-03-gate-without-changes -->
+
+<!-- omni-outbox-settled: s10-01-reworks-driven-by-yolo-fix -->
+
+## s10-01-reworks-driven-by-yolo-fix — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s10
+- Wave: 6
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-01-reworks-driven-by-yolo-fix
+prd: 7
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 6
+---
+
+## The question, in plain words
+
+When a person's answers mean some built decisions must be redone, should the fix step run that rework itself, or should the wave step be taught to run rework work too?
+
+## The decision, in plain words
+
+The fix step runs the rework itself, following the same claim, build and merge steps the wave step uses, because the wave step only knows the slices written in the plan.
+
+## The options, in plain words
+
+A. The fix step applies the wave step's claim, build and merge steps to the rework rows itself.
+B. Teach the wave step and the board to take rework rows, and have the fix step invoke the wave step.
+C. Write the reworks into the plan as extra slices, so the ordinary wave step picks them up.
+
+## What I had to decide
+
+Whether /omni:yolo-fix drives its rework slices by applying /omni:wave's steps 2 to 5 to the rows `omni rework plan --json` returns, or whether /omni:wave (or `omni board`) should learn to take a rework plan so the fix skill can simply invoke it, as upstream invoked its parallel-wave skill with a plan path.
+
+## What I did meanwhile
+
+kit/plugin/skills/yolo-fix/SKILL.md step 5 claims each rework through /omni:pr, dispatches one worktree subagent per rework with the item's brief, and merges and checks each wave exactly as /omni:wave sections 4 and 5 do, reading territory from each rework row.
+
+## What it costs to change later
+
+Prose only: rewrite step 5 of kit/plugin/skills/yolo-fix/SKILL.md to invoke /omni:wave once that skill (and `omni board`) accept rework rows; no stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether `omni board` should grow a rework mode was not explored (author).
+
+```
+
+<!-- /omni-outbox-settled: s10-01-reworks-driven-by-yolo-fix -->
+
+<!-- omni-outbox-settled: s10-02-settle-sub-pr-branch-name -->
+
+## s10-02-settle-sub-pr-branch-name — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s10
+- Wave: 6
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-02-settle-sub-pr-branch-name
+prd: 7
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 6
+---
+
+## The question, in plain words
+
+The answers a person gives on the feature pull request are recorded through a small separate pull request. What should its branch be called?
+
+## The decision, in plain words
+
+It is named like a slice branch, with the word settle in place of a slice number, so it sits beside the other slice branches of the same feature.
+
+## The options, in plain words
+
+A. Name it like a slice branch, with settle as the slice.
+B. Add its own branch template to the configuration.
+
+## What I had to decide
+
+The branch name of /omni:yolo-fix's settle sub-PR: `branches.slice` with `{slice}` = `settle`, or a dedicated `branches.settle` template in config.
+
+## What I did meanwhile
+
+kit/plugin/skills/yolo-fix/SKILL.md step 3 cuts `branches.slice` filled with the topic and `settle`; the branch is deleted on merge, so a later run reuses the same name.
+
+## What it costs to change later
+
+One sentence in kit/plugin/skills/yolo-fix/SKILL.md, or a new `branches.settle` key in the config schema plus that sentence.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a plan could ever name a slice `settle` and collide was not checked (author).
+
+```
+
+<!-- /omni-outbox-settled: s10-02-settle-sub-pr-branch-name -->
+
+<!-- omni-outbox-settled: s11-01-before-after-always-written -->
+
+## s11-01-before-after-always-written — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s11
+- Wave: 6
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-01-before-after-always-written
+prd: 7
+slice: s11
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 6
+---
+
+## The question, in plain words
+
+When a change has nothing anyone can see, like a guard or a setting, should the idea still come with its today-and-after page?
+
+## The decision, in plain words
+
+Yes, always. A change with nothing visible gets a short page saying what changes and what stays the same, so the review packet always has the same three parts.
+
+## The options, in plain words
+
+A. Always write the page; a short text one when nothing is visible (built).
+B. Add a flag to omni phase0 so a page-less PRD passes, and write no page as upstream did.
+C. Write no page and accept the phase-0 check's not ok for that one missing kind.
+
+## What I had to decide
+
+Upstream brainstorming wrote no before/after page for a change with nothing to show, and said so. The kit's phase-0 command (omni phase0) grades a phase-0 pull request with phase0Verdict at its default needsBeforeAfter: true and offers no flag to turn it off, so a page-less phase-0 PR prints not ok. The skill cannot both follow upstream and leave the check green.
+
+## What I did meanwhile
+
+Step 5 of the brainstorm skill always writes before-after.html; for nothing visible it is a short today-beside-after page. The Handoff's Before/after line is always the repository path, never none.
+
+## What it costs to change later
+
+A constant: if the answer is B, omni phase0 gains a --no-before-after flag passing needsBeforeAfter: false, and step 5 goes back to writing no page and the Handoff saying none.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether reviewers find a text-only page useful or noise has not been tried (author).
+
+```
+
+<!-- /omni-outbox-settled: s11-01-before-after-always-written -->
+
+<!-- omni-outbox-settled: s11-02-plan-reuses-brainstorm-worktree -->
+
+## s11-02-plan-reuses-brainstorm-worktree — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s11
+- Wave: 6
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-02-plan-reuses-brainstorm-worktree
+prd: 7
+slice: s11
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 6
+---
+
+## The question, in plain words
+
+When the idea session hands over to planning, should planning work in the same working copy the idea was written in, or open its own?
+
+## The decision, in plain words
+
+The same one. The idea session has just created the working copy for the feature, so planning continues there instead of trying to open a second copy of the same branch, which the tools refuse.
+
+## The options, in plain words
+
+A. Brainstorm tells plan to reuse its worktree; plan unchanged (built).
+B. Change the plan skill's step 2 to detect a worktree already holding the branch, for every caller.
+C. Brainstorm removes its worktree before handing over, so plan adds its own.
+
+## What I had to decide
+
+The plan skill's step 2 adds a worktree at worktrees/<topic> for the feature branch when it exists on the remote. The brainstorm skill has just created that exact worktree and pushed the branch, and git refuses a second worktree on a branch already checked out. Upstream brainstorming invoked its plan skill the same way and did not say.
+
+## What I did meanwhile
+
+Step 8 of the brainstorm skill follows /omni:plan from inside the feature worktree and tells it to use that worktree rather than add a second one. The plan skill itself is unchanged.
+
+## What it costs to change later
+
+A constant: if the answer is B, the plan skill's step 2 gains a line (a branch already checked out in a worktree is used there), and brainstorm's step 8 drops its sentence.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- No live run of brainstorm then plan has happened yet (author).
+
+```
+
+<!-- /omni-outbox-settled: s11-02-plan-reuses-brainstorm-worktree -->
+
+<!-- omni-outbox-settled: s11-03-phase-0-pr-follows-the-lifecycle -->
+
+## s11-03-phase-0-pr-follows-the-lifecycle — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s11
+- Wave: 6
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-03-phase-0-pr-follows-the-lifecycle
+prd: 7
+slice: s11
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 6
+---
+
+## The question, in plain words
+
+Once the review packet for an idea is opened as a pull request, should the agent watch its checks until green, or open it and walk away?
+
+## The decision, in plain words
+
+It watches it like any other pull request it owns: opened as a draft, checks watched, marked ready for review once green. A person still reviews and merges it.
+
+## The options, in plain words
+
+A. Follow /omni:pr's lifecycle: draft, watch, ready when green (built).
+B. Open it ready for review and stop, as upstream did.
+C. Open it as a draft and stop, leaving ready to the reviewer.
+
+## What I had to decide
+
+Upstream brainstorming opened the phase-0 pull request (not as a draft) and stopped. The pr skill built in s4 says a phase-0 PR is opened by /omni:brainstorm and follows its lifecycle with labels.phase0 and prLinks.phase0; that lifecycle opens a draft, watches CI, and marks a non-feature PR ready once green.
+
+## What I did meanwhile
+
+Step 9 of the brainstorm skill opens the phase-0 PR through /omni:pr's lifecycle; the person reviewing sees it only once its checks are green.
+
+## What it costs to change later
+
+A constant: if the answer is B, step 9 opens the PR ready for review with gh pr create and stops, and the pr skill's phase-0 sentence says so.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether this repository's CI runs anything on a docs-only pull request was not checked (author).
+
+```
+
+<!-- /omni-outbox-settled: s11-03-phase-0-pr-follows-the-lifecycle -->
