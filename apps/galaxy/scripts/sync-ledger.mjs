@@ -2,6 +2,7 @@
 // Events are inserted with ON CONFLICT DO NOTHING (the ids are deterministic, the table is
 // append-only), so running it twice, or after every `pnpm game:project`, is safe.
 // Needs SUPABASE_SERVICE_ROLE_KEY and NEXT_PUBLIC_SUPABASE_URL (or SUPABASE_URL), e.g. in .env.local.
+// In production the game workflow runs it after every poll (.github/workflows/game.yml).
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import { readLedger } from 'vertuo-omni-plan/game/ledger.mjs';
@@ -20,15 +21,22 @@ const fail = (what, error) => { console.error(`${what}: ${error.message}`); proc
 const projects = loadProjects(`${root}projects.yml`);
 const events = readLedger(`${root}game/ledger`);
 
-// Org facts: replaced wholesale, teams first (they reference sectors).
-let r = await db.from('teams').delete().neq('name', '');
-if (r.error) fail('clear teams', r.error);
-r = await db.from('sectors').delete().neq('name', '');
-if (r.error) fail('clear sectors', r.error);
-r = await db.from('sectors').insert(Object.entries(projects.sectors).map(([name, { repos }]) => ({ name, repos })));
+// Org facts end up exactly as projects.yml lists them: upsert what it lists (sectors first, teams
+// reference them), then prune what it dropped (teams first). Never cleared first, so the live
+// galaxy, which reads these tables between two syncs, never sees an empty map.
+const upsert = (table, rows) => (rows.length ? db.from(table).upsert(rows, { onConflict: 'name' }) : { error: null });
+const prune = (table, keep) => {
+  const q = db.from(table).delete();
+  return keep.length ? q.not('name', 'in', `(${keep.map((n) => JSON.stringify(n)).join(',')})`) : q.neq('name', '');
+};
+let r = await upsert('sectors', Object.entries(projects.sectors).map(([name, { repos }]) => ({ name, repos })));
 if (r.error) fail('write sectors', r.error);
-r = await db.from('teams').insert(Object.entries(projects.teams).map(([name, { home }]) => ({ name, home })));
+r = await upsert('teams', Object.entries(projects.teams).map(([name, { home }]) => ({ name, home })));
 if (r.error) fail('write teams', r.error);
+r = await prune('teams', Object.keys(projects.teams));
+if (r.error) fail('prune teams', r.error);
+r = await prune('sectors', Object.keys(projects.sectors));
+if (r.error) fail('prune sectors', r.error);
 
 let inserted = 0;
 for (let i = 0; i < events.length; i += 500) {
