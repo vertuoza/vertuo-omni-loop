@@ -30,6 +30,14 @@ None proposed: facts only.
 | s2 | [#56](https://github.com/vertuoza/vertuo-omni-loop/pull/56) | `2026-09-25T14:07:32Z` | `2026-09-25T14:28:01Z` | 20 | 2 | 2 |
 | s3 | [#57](https://github.com/vertuoza/vertuo-omni-loop/pull/57) | `2026-09-25T14:07:34Z` | `2026-09-25T14:28:09Z` | 21 | 2 | 2 |
 
+## Decisions
+
+- Decisions: 4 raised and settled — 4 adopted, 0 agreed, 0 drifted; by rank: 4 medium.
+- The feature PR merged without the override label `omni:outbox-go`.
+- Territory: 3 merged sub-PRs graded against the plan — no path outside a slice’s territory.
+- Friction: 0 slices stuck, 0 labelled `omni:needs-fix`, 0 claimed more than once; the label events of 3 sub-PRs could not be read, so only the labels they carry now count.
+- Review: 4 pull requests — 0 reviews, 0 red-circle bot findings; the review threads of 4 could not be read.
+
 ## Rules
 
 Rules version 1; the thresholds this run used:
