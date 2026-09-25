@@ -17,7 +17,7 @@ import { FleetSprite, Sprite } from './Sprite';
 import { fleet, setFleets } from './fleets';
 import { foldChar, foldName, nameInit, nameReduce, nameValue, NAME_RULE, type NameAction, type NameState } from './name-entry';
 import { BUILDER_ROWS, cycleHero } from './builder';
-import { afterGate, afterReturn, afterStart, backStep, isDisbanded, nextStep, readReturn, type Flow, type Step } from './onboarding';
+import { afterGate, afterReturn, afterStart, allowed, backStep, isDisbanded, isLinked, nextStep, readReturn, type Flow, type Step } from './onboarding';
 import type { Account, FleetRow, Player, PlayerPatch, Session } from './types';
 
 export type Action = 'up' | 'down' | 'left' | 'right' | 'a' | 'b' | 'start' | 'select';
@@ -192,9 +192,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       store.set(FLOW_KEY, null);
       const step = afterReturn(back, s, m, fleets);
       if (back.kind === 'signin_error') return open('coin', { error: back.message });
+      if (step === 'coin') return open('coin');
       if (back.kind === 'linked') {
         // Show the login the database holds (link_github() set it), never one read from the URL.
-        const login = account.kind === 'supabase' ? m?.github_login ?? null : back.login || m?.github_login || null;
+        const login = account.kind === 'supabase' ? s?.github ?? m?.github_login ?? null : back.login || s?.github || m?.github_login || null;
         if (!login) return open('link', { flow, link: 'error', error: 'Linking GitHub did not finish. Try again.' });
         return open('link', { flow, link: 'done', linkLogin: login });
       }
@@ -207,6 +208,13 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   }, []);
 
   useEffect(() => { if (ui.scene !== 'boot') writeHash(ui, view); }, [ui, view]);
+  // The one door: whatever route led here (a deep link, a crafted return URL, a stale screen after
+  // signing out), nothing past INSERT COIN shows without a session.
+  useEffect(() => {
+    const door = allowed(ui.scene, session, isLinked(session, me));
+    if (door !== ui.scene) setUi((u) => ({ ...u, scene: door as SceneName, since: now(), away: false, error: null, link: 'ask' }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ui.scene, session, me]);
   useEffect(() => { setAudioMuted(muted); }, [muted]);
   useEffect(() => { if (ui.lockedAt === null) music(TRACK[ui.scene] ?? null); }, [ui.scene, ui.lockedAt]);
 
@@ -245,6 +253,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     account.linkGithub().then((login) => {
       if (!login) return; // Supabase: the page is leaving for GitHub
       store.set(FLOW_KEY, null);
+      const s = sessionRef.current ? { ...sessionRef.current, github: login } : null;
+      if (s) { setSession(s); sessionRef.current = s; }
       const m = meRef.current ? { ...meRef.current, github_login: login } : null;
       if (m) { setMe(m); meRef.current = m; setCrew((c) => [...c.filter((p) => p.id !== m.id), m]); }
       go({ link: 'done', linkLogin: login }, 'linked');
@@ -310,7 +320,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const act = useCallback((action: Action) => {
     const u = uiRef.current;
     const planets = view?.planets.length ?? 0;
-    const items = menuItems({ joined: Boolean(meRef.current?.team), linked: Boolean(meRef.current?.github_login), signedIn: Boolean(sessionRef.current) });
+    const items = menuItems({ joined: Boolean(meRef.current?.team), linked: isLinked(sessionRef.current, meRef.current), signedIn: Boolean(sessionRef.current) });
     switch (u.scene) {
       case 'boot': return go({ scene: 'title' });
       case 'title':
@@ -321,6 +331,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         return;
       case 'coin':
         if (u.away) return;
+        if ((action === 'a' || action === 'start') && account.kind === 'closed') return sfx('buzz');
         if (action === 'a' || action === 'start') return signIn();
         if (action === 'b') return go({ scene: 'title', error: null }, 'back');
         return;
@@ -329,7 +340,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'b') return go({ scene: 'title' }, 'back');
         return;
       case 'gate':
-        if (action === 'a' || action === 'start') return open(afterGate(meRef.current, fleets), { flow: 'onboard' }, 'start');
+        if (action === 'a' || action === 'start') return open(afterGate(meRef.current, fleets, sessionRef.current), { flow: 'onboard' }, 'start');
         return;
       case 'intro':
         if (action === 'a' || action === 'start') return open('select', { flow: 'onboard' }, 'select');
@@ -378,9 +389,9 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       }
       case 'link':
         if (u.link === 'away') return;
-        if (u.link === 'done') return open(nextStep('link', u.flow, meRef.current), {}, 'start');
+        if (u.link === 'done') return open(afterGate(meRef.current, fleets, sessionRef.current), { flow: 'onboard' }, 'start');
         if (action === 'a' || action === 'start') return linkGithub();
-        if (action === 'b') return open(nextStep('link', u.flow, meRef.current), {}, 'back');
+        if (action === 'b') return open('menu', {}, 'back'); // visit only
         return;
       case 'ready':
         if (now() - u.since > 0.6) open('menu', {}, 'select');
@@ -557,16 +568,16 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   const phase = titlePhaseAt(now() - ui.since);
   const sel = view?.planets[ui.sel];
-  const items = menuItems({ joined: Boolean(me?.team), linked: Boolean(me?.github_login), signedIn: Boolean(session) });
+  const items = menuItems({ joined: Boolean(me?.team), linked: isLinked(session, me), signedIn: Boolean(session) });
   const displayName = me?.display_name ?? (session ? foldName(session.givenName) || 'RECRUIT' : '');
   const who = session
     ? `${account.kind === 'demo' ? 'DEMO · ' : ''}P1 ${displayName}`
-    : account.kind === 'demo' ? 'DEMO GALAXY' : problem ? 'GALAXY OUT OF REACH' : 'SIGNED OUT';
+    : account.kind === 'demo' ? 'DEMO GALAXY' : account.kind === 'closed' ? 'SIGN-IN NOT OPEN YET' : problem ? 'GALAXY OUT OF REACH' : 'SIGNED OUT';
   const overlay = (() => {
     switch (ui.scene) {
       case 'boot': return <BootOverlay />;
-      case 'title': return <TitleOverlay view={view} phase={view ? phase : phase === 'hiscore' ? 'title' : phase} sceneT={now() - ui.since} who={who} />;
-      case 'coin': return <CoinOverlay away={ui.away} error={ui.error} demo={account.kind === 'demo'} />;
+      case 'title': return <TitleOverlay view={view} phase={view ? phase : phase === 'hiscore' ? 'title' : phase} sceneT={now() - ui.since} who={who} signedIn={Boolean(session)} />;
+      case 'coin': return <CoinOverlay away={ui.away} error={ui.error} demo={account.kind === 'demo'} closed={account.kind === 'closed'} />;
       case 'outsider': return <OutsiderOverlay email={session?.email ?? ''} />;
       case 'gate': return <GateOverlay name={me?.team ? me.display_name : null} />;
       case 'intro': return <IntroOverlay fleets={active} />;
@@ -577,7 +588,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       );
       case 'name': return <NameOverlay state={ui.name} shake={now() - ui.shake < 0.35} team={me?.team ?? null} error={ui.error} />;
       case 'hero': return <BuilderOverlay hero={ui.hero} row={ui.heroRow} team={me?.team ?? null} name={displayName} error={ui.error} onRow={(i) => { if (i === ui.heroRow) act('a'); else go({ heroRow: i }, 'move'); }} />;
-      case 'link': return <LinkOverlay state={ui.link} name={displayName} team={me?.team ?? null} login={ui.linkLogin ?? me?.github_login ?? null} error={ui.error} demo={account.kind === 'demo'} />;
+      case 'link': return <LinkOverlay state={ui.link} name={displayName} login={ui.linkLogin ?? session?.github ?? me?.github_login ?? null} error={ui.error} demo={account.kind === 'demo'} />;
       case 'ready': return <ReadyOverlay name={displayName} team={me?.team ?? null} />;
       case 'welcome': return <WelcomeOverlay name={displayName} team={me?.team ?? null} />;
       case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={(i) => { go({ menu: i }); act('a'); }} />;
@@ -633,7 +644,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         <p className="turn">TURN YOUR PHONE SIDEWAYS FOR THE FULL SCREEN</p>
         <div className="deck">
           <div className="plate">
-            <span className="plate-big">PRESS START</span>
+            <span className="plate-big">{session ? 'PRESS START' : 'INSERT COIN'}</span>
             <span className="plate-small plate-keys">ENTER · Z = A · X = B · ARROWS</span>
           </div>
           <div className="emblem" aria-hidden="true"><VertuozaMark /></div>
