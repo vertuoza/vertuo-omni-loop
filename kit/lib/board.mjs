@@ -20,11 +20,16 @@
  * | --------------- | ------------------------------------------------------------------------------ |
  * | `merged`        | its matched pull request is merged                                            |
  * | `stuck`         | its matched pull request carries the configured `labels.needsFix`             |
- * | `claimed-stale` | its matched pull request is a draft, was last updated longer ago than         |
- * |                 | `limits.claimStaleMinutes`, and carries no commit later than the claim itself |
+ * | `claimed-stale` | its matched pull request is a draft, its branch carries no commit beyond the  |
+ * |                 | one it was claimed with, and that claim (`createdAt`) is older than          |
+ * |                 | `limits.claimStaleMinutes`                                                    |
  * | `in-flight`     | it has a matched pull request that is none of the above                       |
  * | `runnable`      | it has no matched pull request and every slice it is blocked by is merged     |
  * | `blocked`       | it has no matched pull request and something it depends on is not merged      |
+ *
+ * An **unknown head commit date** — the caller could not read one — is read as "yes, there is a
+ * commit beyond the claim": this module will not call a claim stale on a signal it never actually
+ * saw, so the state degrades to `in-flight` rather than `claimed-stale`.
  *
  * **Matching a pull request to a slice** is by head branch — `branches.slice` with `{topic}` (the
  * plan's own PRD folder name) and `{slice}` filled in — narrowed by `board.matchBy`: `base` keeps
@@ -33,17 +38,20 @@
  * never existed — an abandoned claim, not a claim on anything. When more than one candidate
  * remains, a merged one wins; otherwise the most recently updated one does.
  *
- * **The runnable frontier** is the lowest wave that still holds a runnable slice, with any pair
- * that shares ground in that same wave (`sameWaveCollisions`, `kit/lib/inbox/territory.mjs`)
- * excluded from what can actually be taken next — the plan should never let two colliding slices
- * reach the same wave, and a frontier that quietly ran them both would be the collision made real.
+ * **The runnable frontier** is the lowest wave that still holds a slice a wave may take —
+ * `runnable`, or `claimed-stale` (a cold claim is the kit's to reclaim, not a person's to wait on;
+ * PRD #7 §2.1.3). Within that wave, a pair that shares ground (`sameWaveCollisions`,
+ * `kit/lib/inbox/territory.mjs`) may not both be taken: the plan's own order decides which one is
+ * — the earlier slice is kept and the later one deferred — rather than dropping both, so one
+ * colliding pair costs the wave a single slice, not two.
  */
 import { sameWaveCollisions } from './inbox/territory.mjs';
 
 /** `template` with `{topic}` and `{slice}` filled in from `values` — the same shape
  * `branches.feature` and `branches.slice` are declared in (`kit/lib/config.mjs`). A placeholder
- * `values` does not carry is left untouched. */
-function fillBranch(template, values) {
+ * `values` does not carry is left untouched. Exported so the CLI half can compute the same feature
+ * branch name to narrow its own `gh pr list` call. */
+export function fillBranch(template, values) {
   return template.replace(/\{(topic|slice)\}/g, (whole, key) => (values[key] ?? whole));
 }
 
@@ -84,20 +92,22 @@ function pickPr(candidates) {
 
 /** Whether `pr`'s head carries a commit later than the claim that opened it — read from the head
  * commit's date against the pull request's own `createdAt`. Unknown (either date missing) reads as
- * "no commit beyond the claim": a claim this module cannot vouch for is not one it will excuse from
- * staleness. */
+ * "yes, assume it has moved on": this module will not call a claim stale on a signal it never
+ * actually saw. */
 function hasCommitBeyondClaim(pr) {
-  if (!pr.headCommitDate || !pr.createdAt) return false;
+  if (!pr.headCommitDate || !pr.createdAt) return true;
   return new Date(pr.headCommitDate).getTime() > new Date(pr.createdAt).getTime();
 }
 
-/** A claim gone cold: a draft whose last update is older than `staleMinutes` and that has moved no
- * further than the commit it was claimed with. */
+/** A claim gone cold: a draft that has moved no further than the commit it was claimed with, and
+ * whose claim itself (`createdAt`) is older than `staleMinutes`. Never reads `updatedAt` — a
+ * comment or a label change updates that field without moving the branch at all, which would let a
+ * genuinely cold claim keep reading as fresh. */
 function isClaimedStale(pr, now, staleMinutes) {
   if (!pr.isDraft) return false;
-  const ageMs = now - new Date(pr.updatedAt).getTime();
-  if (ageMs < staleMinutes * 60 * 1000) return false;
-  return !hasCommitBeyondClaim(pr);
+  if (hasCommitBeyondClaim(pr)) return false;
+  const ageMs = now - new Date(pr.createdAt).getTime();
+  return ageMs > staleMinutes * 60 * 1000;
 }
 
 /** One slice's state, given its matched pull request (or `null`) and whether every slice it is
@@ -110,25 +120,51 @@ function stateFor({ pr, blockersMerged, now, limits, needsFixLabel }) {
   return 'in-flight';
 }
 
+const TAKEABLE_STATES = new Set(['runnable', 'claimed-stale']);
+
 /**
- * The lowest wave that still holds a runnable slice, with any slice that shares ground with
- * another runnable slice in that same wave excluded — {@link sameWaveCollisions} is the whole rule.
+ * The lowest wave that still holds a slice a wave may take — `runnable`, or `claimed-stale` (the
+ * kit's own claim to reclaim, not a person's to wait on). Within that wave, a pair that shares
+ * ground ({@link sameWaveCollisions}) may not both be taken: read in plan order (the order `rows`
+ * itself carries), the first of a colliding pair is kept and the rest deferred — never both
+ * dropped, so one collision costs the wave one slice, not two.
+ *
+ * `takeable` is the whole set a wave may start (`runnable` ∪ `claimed-stale`, collision-resolved);
+ * `runnable` narrows that to the ones with nothing at all claiming them yet — both read the plan's
+ * own order, so a caller that only ever wants to know what a fresh wave can pick up still can.
  *
  * @param {Array<{ id: string, territory: string[], wave: number, state: string }>} rows
  */
 export function runnableFrontier(rows) {
-  const runnable = rows.filter((row) => row.state === 'runnable');
-  if (runnable.length === 0) return { wave: null, slices: [], excluded: [], collisions: [] };
+  const takeableRows = rows.filter((row) => TAKEABLE_STATES.has(row.state));
+  if (takeableRows.length === 0) return { wave: null, runnable: [], takeable: [], excluded: [], collisions: [] };
 
-  const wave = Math.min(...runnable.map((row) => row.wave));
-  const inWave = runnable.filter((row) => row.wave === wave);
+  const wave = Math.min(...takeableRows.map((row) => row.wave));
+  const inWave = takeableRows.filter((row) => row.wave === wave);
   const collisions = sameWaveCollisions(inWave);
-  const collidingIds = new Set(collisions.flatMap((pair) => [pair.left, pair.right]));
+
+  const collidesWith = new Map();
+  for (const { left, right } of collisions) {
+    if (!collidesWith.has(left)) collidesWith.set(left, new Set());
+    if (!collidesWith.has(right)) collidesWith.set(right, new Set());
+    collidesWith.get(left).add(right);
+    collidesWith.get(right).add(left);
+  }
+
+  const kept = [];
+  const excluded = [];
+  for (const row of inWave) {
+    const rivals = collidesWith.get(row.id);
+    const alreadyKeptRival = rivals && kept.some((keptRow) => rivals.has(keptRow.id));
+    if (alreadyKeptRival) excluded.push(row.id);
+    else kept.push(row);
+  }
 
   return {
     wave,
-    slices: inWave.filter((row) => !collidingIds.has(row.id)).map((row) => row.id),
-    excluded: inWave.filter((row) => collidingIds.has(row.id)).map((row) => row.id),
+    takeable: kept.map((row) => row.id),
+    runnable: kept.filter((row) => row.state === 'runnable').map((row) => row.id),
+    excluded,
     collisions,
   };
 }
