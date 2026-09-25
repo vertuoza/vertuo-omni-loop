@@ -110,4 +110,115 @@ describe('publish — a replay', () => {
     expect(out.pr.created).toBe(true);
     expect(github.state.pulls.filter((pull) => pull.head.ref === BRANCH)).toHaveLength(1);
   });
+
+  it('opens no second PR once the first was merged and nothing changed', async () => {
+    const { github } = widgetScenario();
+    await publishOnce(github);
+    const first = mergeRetroPr(github, BRANCH);
+    github.state.requests.length = 0;
+
+    const out = await publishOnce(github);
+    expect(writes(github)).toEqual([]);
+    expect(out).toMatchObject({ committed: false, pr: { number: first.number, created: false } });
+    expect(github.state.pulls.filter((pull) => pull.head.ref === BRANCH)).toHaveLength(1);
+  });
+});
+
+/** The day-14 run's record: the after-merge kind's facts, and one `bug` finding. */
+const dayRecord = () => ({
+  ...record(),
+  run: 'day-14',
+  kinds: { 'after-merge': null },
+  findings: [{ ref: 'F1', id: 'bug:40', kind: 'bug', source: 'after-merge', title: 'Bug #40 was reported against the PRD after the merge', happened: 'Issue #40 was opened.', evidence: [] }],
+});
+const DAY_BRANCH = `${BRANCH}-day-14`;
+
+/** A person merges the retro PR from `branch`: it closes, merged, and the default branch moves to its head. */
+function mergeRetroPr(github, branch) {
+  const pull = github.state.pulls.find((candidate) => candidate.head.ref === branch && candidate.state === 'open');
+  Object.assign(pull, { state: 'closed', merged_at: '2026-09-22T10:00:00Z', head: { ...pull.head, sha: github.state.refs.get(`heads/${branch}`) } });
+  github.state.refs.set('heads/main', github.state.refs.get(`heads/${branch}`));
+  return pull;
+}
+
+async function publishDay14(github, { earlier = [record()] } = {}) {
+  return publishRetro(github.octokit, { owner: OWNER, repo: REPO, config, prd, pr, record: dayRecord(), prose: null, earlier });
+}
+
+describe('publish — the day-14 run', () => {
+  it('commits its record to the retro branch while the first PR is open: a fast-forward, the one PR kept', async () => {
+    const { github } = widgetScenario();
+    await publishOnce(github);
+    const first = github.state.refs.get(`heads/${BRANCH}`);
+
+    const out = await publishDay14(github);
+    const head = github.state.refs.get(`heads/${BRANCH}`);
+    expect(github.state.commits.get(head).parents).toEqual([{ sha: first }]);
+    expect(github.state.commits.get(head).message).toContain('The day-14 run of #12.');
+    expect(JSON.parse(github.filesAt(BRANCH, [JSON_PATH])[JSON_PATH]).runs.map((run) => run.run)).toEqual(['merge', 'day-14']);
+    const md = github.filesAt(BRANCH, [MD])[MD];
+    expect(md).toContain('runs: [merge, day-14]');
+    expect(md).toContain('### F1 · Bug #40 was reported against the PRD after the merge — `bug:40`');
+    expect(github.state.pulls.filter((pull) => pull.head.ref === BRANCH)).toHaveLength(1);
+    expect(github.state.refs.has(`heads/${DAY_BRANCH}`)).toBe(false);
+    expect(out).toMatchObject({ branch: BRANCH, committed: true, pr: { created: false } });
+  });
+
+  it('opens <branch>-day-14 from the default branch once the first PR was merged, and leaves the first branch alone', async () => {
+    const { github } = widgetScenario();
+    await publishOnce(github);
+    mergeRetroPr(github, BRANCH);
+    const main = github.state.refs.get('heads/main');
+
+    const out = await publishDay14(github);
+    const cut = github.state.requests.filter((r) => r.route === 'POST /repos/{owner}/{repo}/git/refs').at(-1);
+    expect(cut).toMatchObject({ ref: `refs/heads/${DAY_BRANCH}`, sha: main });
+    expect(github.state.refs.get(`heads/${BRANCH}`)).toBe(main);
+    const head = github.state.refs.get(`heads/${DAY_BRANCH}`);
+    expect(github.state.commits.get(head).parents).toEqual([{ sha: main }]);
+    expect(JSON.parse(github.filesAt(DAY_BRANCH, [JSON_PATH])[JSON_PATH]).runs.map((run) => run.run)).toEqual(['merge', 'day-14']);
+
+    const second = github.state.pulls.find((pull) => pull.head.ref === DAY_BRANCH);
+    expect(second).toMatchObject({ base: { ref: 'main' }, state: 'open', labels: [{ name: 'omni:retro' }], title: 'docs(retro): PRD 7 — Widgets that remember their colour' });
+    expect(github.state.pulls.filter((pull) => pull.state === 'open' && pull.labels.some((label) => label.name === 'omni:retro'))).toHaveLength(1);
+    expect(out).toMatchObject({ branch: DAY_BRANCH, committed: true, pr: { number: second.number, created: true } });
+  });
+
+  it('opens <branch>-day-14 too when the first PR was closed without merging, holding the first run again', async () => {
+    const { github } = widgetScenario();
+    github.state.refs.set('heads/main', MERGE_SHA);
+    await publishOnce(github);
+    github.state.pulls.find((pull) => pull.head.ref === BRANCH).state = 'closed';
+
+    const out = await publishDay14(github);
+    expect(out.branch).toBe(DAY_BRANCH);
+    const doc = JSON.parse(github.filesAt(DAY_BRANCH, [JSON_PATH])[JSON_PATH]);
+    expect(doc.runs.map((run) => run.run)).toEqual(['merge', 'day-14']);
+    expect(doc.runs[0]).toEqual(record());
+  });
+
+  it('on a replay after <branch>-day-14 was merged: no commit, no third PR', async () => {
+    const { github } = widgetScenario();
+    await publishOnce(github);
+    mergeRetroPr(github, BRANCH);
+    await publishDay14(github);
+    mergeRetroPr(github, DAY_BRANCH);
+    github.state.requests.length = 0;
+
+    const out = await publishDay14(github);
+    expect(writes(github)).toEqual([]);
+    expect(out).toMatchObject({ branch: DAY_BRANCH, committed: false, pr: null });
+    expect(github.state.pulls.filter((pull) => pull.labels.some((label) => label.name === 'omni:retro'))).toHaveLength(2);
+  });
+
+  it('with the same facts again, adds nothing on the open PR', async () => {
+    const { github } = widgetScenario();
+    await publishOnce(github);
+    await publishDay14(github);
+    const head = github.state.refs.get(`heads/${BRANCH}`);
+
+    const out = await publishDay14(github);
+    expect(github.state.refs.get(`heads/${BRANCH}`)).toBe(head);
+    expect(out).toMatchObject({ committed: false, pr: { created: false } });
+  });
 });
