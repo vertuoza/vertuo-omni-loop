@@ -102,7 +102,7 @@ pnpm galaxy:dev          # http://localhost:3000, demo galaxy (no Supabase neede
 Needs Docker and the Supabase CLI (`npx supabase`).
 
 ```bash
-npx supabase start       # applies supabase/migrations and loads supabase/seed.sql (the demo galaxy)
+npx supabase start       # applies supabase/migrations and loads supabase/seed.sql (the demo galaxy, in the vertuoza workspace)
 npx supabase status      # prints the API URL, the anon key and the service_role key
 cp apps/galaxy/.env.example apps/galaxy/.env.local   # paste the URL and both keys
 pnpm galaxy:dev          # now reads from Supabase: the menu shows "SUPABASE LEDGER"
@@ -114,7 +114,8 @@ Signing in locally needs the Google and GitHub OAuth clients: export
 true` on both providers in `supabase/config.toml`, and restart the stack. Both clients must accept
 `http://127.0.0.1:54321/auth/v1/callback`. Without them, work on the demo galaxy instead.
 
-`pnpm galaxy:seed` regenerates `supabase/seed.sql` from the demo world, dated now.
+`pnpm galaxy:seed` regenerates `supabase/seed.sql` from the demo world, dated now, in the `vertuoza`
+workspace the migrations create.
 
 ## Deploy to production
 
@@ -174,8 +175,10 @@ never loads the demo seed.
    - Allow **manual linking** (players link GitHub to their Google sign-in).
    - URL Configuration: Site URL = the production arcade; Redirect URLs = `https://<production
      host>/**`, `https://*-<vercel-team>.vercel.app/**` (previews) and `http://localhost:3000/**`.
-   - Hooks: **Before User Created** → Postgres function `public.hook_before_user_created` (it
-     refuses any address outside `@vertuoza.com`; the database policies refuse them too).
+   - Hooks: **Before User Created** → Postgres function `public.hook_before_user_created`. It
+     refuses an address whose domain no workspace joins (`workspaces.join_domain`: today,
+     `vertuoza.com` only), with a message that names no company. Keep the function's name: the
+     setting points at it. The database policies refuse anyone who is not a member anyway.
 
 ### 5. Create the Vercel project
 
@@ -214,24 +217,44 @@ joining flow included.
 
 ## Database
 
-`supabase/migrations/`:
+`supabase/migrations/`. Everything the game holds belongs to a **workspace**, and a person reaches
+a workspace by being a **member** of it. Vertuoza is workspace #1.
 
+- `workspaces`: `slug` (`vertuoza`), `name` (`Vertuoza`), `github_org` and `plan_repo` (the
+  organisation the projector reads and the repository that carries the PRD issues), `join_domain`
+  (`vertuoza.com`) and `theme`. The theme holds only the overrides of the arcade's colour tokens,
+  e.g. `{"plasma": "#2fc6a4"}`; `valid_theme()` refuses anything but an object of known tokens
+  with lowercase `#rrggbb` values. Vertuoza's is `{}`.
+- `workspace_members`: who belongs where (`role` is `owner` or `member`, `joined_at`). A person may
+  belong to several workspaces. `join_by_domain()`, called at sign-in, adds the caller to every
+  workspace whose `join_domain` is the domain of their **confirmed** email, adds nothing twice, and
+  returns the slugs of their workspaces, the one joined first first.
 - `ledger_events` mirrors the event contract (`game/events.mjs`) one to one, with the same type
-  check. A trigger refuses `UPDATE` and `DELETE`: the ledger is append-only.
+  check, plus the `workspace_id` it is stored under: the workspace is a storage column, never an
+  event field, so two workspaces may each hold a `planet:12:charted` (key `(workspace_id, id)`). A
+  trigger refuses `UPDATE` and `DELETE`: the ledger is append-only.
 - `sectors` hold the repositories; `teams` are the fleets and their look (label, colour, motto,
-  mascot, order, `retired_at`). Both change by migration. A fleet is retired, never deleted.
-- `players`: one per player, keyed by their auth user: arcade name, fleet (`team_since` stamped by
-  a trigger, retired fleets refused), hero (preset numbers, checked by `valid_hero()`), and the
-  GitHub login. A row may only be created once GitHub is linked (`my_github()` reads the caller's
-  linked identity); the trigger copies the login from that identity, and `link_github()` refreshes
-  it. The email stays in `auth.users`.
-- Row-level security: `is_crew()` (a `@vertuoza.com` token) reads the galaxy and the players, so
-  a visitor sees everything; a player with GitHub linked inserts their own row, and updates only
-  its name, fleet and hero (column grants);
-  anon reads only the fleets; the service role appends to the ledger and reads the roster.
+  mascot, home sector, order, `retired_at`). Both belong to a workspace, keyed by
+  `(workspace_id, name)`, and change by migration. A fleet is retired, never deleted.
+- `players`: one per member and workspace (`workspace_id`, `user_id`): arcade name, fleet of that
+  workspace (`team_since` stamped by a trigger, retired fleets refused), hero (preset numbers,
+  checked by `valid_hero()`), and the GitHub login, unique within a workspace. A row may only be
+  created once GitHub is linked (`my_github()` reads the caller's linked identity); the trigger
+  copies the login from that identity, and `link_github()` refreshes it on every player row of the
+  caller. Leaving a workspace removes its player row. The email stays in `auth.users`.
+- Row-level security, by membership (`is_member(workspace)`): a member reads their workspaces,
+  their own memberships, and their workspace's sectors, fleets, players and ledger, and nothing of
+  any other workspace. A member with GitHub linked inserts their own player row there, and updates
+  only its name, fleet and hero (column grants). Anonymous visitors read nothing, fleets included.
+  The service role reads everything, appends to the ledger, and writes workspaces, memberships,
+  sectors and fleets.
 - Explicit grants: Supabase projects created since 2026-05-30 no longer grant the API roles access
   to new tables. The local stack matches (`auto_expose_new_tables = false`), so a table added
-  without its grants fails locally and in the pull request check, not in production.
+  without its grants fails locally and in the pull request check, not in production. The
+  workspaces migration also revokes every grant before it grants, so a project that still grants
+  new tables by default ends up the same.
+- `supabase/checks/access.sql` proves all of this on every pull request that touches `supabase/`,
+  with a second workspace beside Vertuoza.
 
 ## Known limits
 
