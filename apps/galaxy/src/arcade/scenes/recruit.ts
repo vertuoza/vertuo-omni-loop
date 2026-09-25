@@ -104,7 +104,7 @@ export function drawBuilder(ctx: CanvasRenderingContext2D, s: FrameState) {
   // Tall: the hero at 2× in the left column, the rows beside it, as the wide grid has them.
   if (tall) ctx.drawImage(nebulaFor('hero-tall', 0, 200, 220), -50, 30);
   else ctx.drawImage(nebulaFor('hero', 0, 360, 300), -40, 30);
-  const at = tall ? { cx: 44, y: 56, scale: 2, pedestal: 154, rx: 38 } : { cx: 148, y: 86, scale: 3, pedestal: 232, rx: 64 };
+  const at = tall ? { cx: 44, y: 38, scale: 2, pedestal: 136, rx: 38 } : { cx: 148, y: 86, scale: 3, pedestal: 232, rx: 64 };
   pedestal(ctx, at.cx, at.pedestal, at.rx, fleet(s.join.team).color);
   drawHero(ctx, s.join.hero, s.join.team, at.cx - 16 * at.scale, at.y + bobOf(s, 0, 2), { scale: at.scale, frame: frameOf(s, 2.2) });
 }
