@@ -93,7 +93,7 @@ describe('the kind registry', () => {
   });
 
   it('holds kinds that, until they are built, gather nothing, find nothing and leave their section out', async () => {
-    for (const kind of KINDS.filter((k) => k.id !== 'timeline')) {
+    for (const kind of KINDS.filter((k) => !['timeline', 'delivery'].includes(k.id))) {
       expect(await kind.gather({ request: () => { throw new Error('no GitHub'); } }, {})).toBeNull();
       expect(kind.detect(null, { pr, prd, config: {}, pulls: [] })).toEqual({ facts: null, findings: [] });
       expect(kind.describe(null)).toBeNull();
