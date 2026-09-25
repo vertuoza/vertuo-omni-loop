@@ -2,6 +2,12 @@
   "name": "vertuo-omni-plan",
   "private": true,
   "type": "module",
+  "bin": {
+    "omni": "kit/dist/omni.mjs"
+  },
+  "files": [
+    "kit/dist/omni.mjs"
+  ],
   "engines": {
     "node": ">=22"
   },
