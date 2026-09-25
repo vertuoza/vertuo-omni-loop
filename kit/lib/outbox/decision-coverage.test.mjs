@@ -87,6 +87,11 @@ describe('riskyChanges — law-text', () => {
     expect(rulesFiredOn('docs/knowledge/domains/advisor/README.md')).toEqual([]);
   });
 
+  it("does not fire on the ADR folder's README, the decisions form, while a record beside it still does", () => {
+    expect(rulesFiredOn('docs/adr/README.md')).toEqual([]);
+    expect(rulesFiredOn('docs/adr/0002-x.md')).toEqual(['law-text']);
+  });
+
   it('does not fire on an unrelated docs file', () => {
     expect(rulesFiredOn('docs/glossary.md')).toEqual([]);
   });
@@ -264,6 +269,14 @@ describe('riskyChanges — the risky paths are config, not literals (Task 8, Ste
     const path = '.omni-loop/knowledge/adr/0001-x.md';
     expect(riskyChanges([change(path)], { ctx: defaultCtx })).toEqual([
       { path, status: 'M', rule: 'law-text' },
+    ]);
+  });
+
+  it("writing the default ADR dir's README, the decisions form, is not law text", () => {
+    const { ctx: defaultCtx } = makeRepo();
+    expect(riskyChanges([change('.omni-loop/knowledge/adr/README.md', 'A')], { ctx: defaultCtx })).toEqual([]);
+    expect(riskyChanges([change('.omni-loop/knowledge/adr/0002-x.md', 'A')], { ctx: defaultCtx })).toEqual([
+      { path: '.omni-loop/knowledge/adr/0002-x.md', status: 'A', rule: 'law-text' },
     ]);
   });
 });
