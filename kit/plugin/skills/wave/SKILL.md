@@ -25,6 +25,12 @@ Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and s
 `<remote>` below is `repo.remote`. The feature branch is `branches.feature` with `{topic}` filled by
 the PRD folder's topic (`node .omni-loop/bin/omni.mjs board <prd> --json` prints it as `prd.topic`).
 
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
+rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
+playbook, section by section: a section the repository left blank prints the kit default, and a
+`[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
+never overrides this skill's rules.
+
 Find the feature PR: `gh pr list --head <feature branch> --base <repo.defaultBranch> --state open
 --json number,body`. No feature branch or no feature PR: stop, and say to follow `/omni:plan` first.
 
@@ -101,6 +107,12 @@ sub-PR afresh; never trust an earlier look.
 4. **Ready.** Still a draft: follow `/omni:pr`'s **sub-PR lifecycle** for it; that skill owns
    `gh pr ready` and runs it once the preflight is green. It never becomes ready: do not merge it.
 5. **Merge.** `gh pr merge <n> --squash --delete-branch`.
+
+**A red slice** gets one look first. Read `omni kb show ci` once: which checks exist and gate, the
+known reds, and when a re-run is allowed. When a `red` slice's failing step matches a known red
+there, its diff changes nothing that red names, and the form allows a re-run, take it through
+steps 1 to 5 like a `done` slice: the preflight in step 4 is its one re-run, counted as an attempt.
+Any other `red` slice is not merged.
 
 **Not merged:**
 
