@@ -25,7 +25,7 @@
  * the one built. `go with recommendation` is a synonym of `approve all` (same precedence, same
  * "only what was listed before" rule); `<n>: A` and `<n>: go with recommendation` agree; `<n>:
  * <another offered letter>`, with or without `because …`, drifts, and the settled answer records
- * `<letter>. <option text> — because <reason>` so `/omni-yolo-fix` knows what to rework towards; a
+ * `<letter>. <option text> — because <reason>` so `/omni:yolo-fix` knows what to rework towards; a
  * letter the question does not offer is not an answer and is asked again in a round
  * ({@link interpretAnswer}). An **adopted** medium item is numbered on the comment too: a numbered
  * answer that agrees changes nothing, and one that disagrees appends a `drifted` entry for the same
@@ -104,7 +104,7 @@ export function parseReplyLines(body) {
  * - `go with recommendation` → agreed, recorded as typed;
  * - a letter the question offers, optionally with `because …` → `A` is agreed, any other letter is
  *   drifted; either way the recorded answer is `<letter>. <option text>`, followed by
- *   ` — because <reason>` when one was given, so `/omni-yolo-fix` knows what to rework towards;
+ *   ` — because <reason>` when one was given, so `/omni:yolo-fix` knows what to rework towards;
  * - a letter the question does not offer (or any letter, on a question with no options) is not an
  *   answer: `undetermined`, asked again in a round;
  * - anything else is prose, left to `judgeAnswer` (`statedVerdict: null`), recorded as written.
