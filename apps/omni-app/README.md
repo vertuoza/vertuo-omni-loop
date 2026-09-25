@@ -72,3 +72,5 @@ None of these is taken by the code; a person does each once.
 With the app installed on this repository, PRD 28's acceptance criteria 1–6 are re-run by hand on a
 feature PR: red with an open item, green once settled, neutral under `outbox:go`, skipped on a sub-PR,
 skipped on a repository without `.omni-loop/config.yml`, re-evaluated by **Re-run**.
+
+<!-- smoke test for the omni-loop outbox check; this PR is closed, not merged -->
