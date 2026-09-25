@@ -414,7 +414,7 @@ describe('gateResult — unreworked drift (this task)', () => {
         '.omni-loop/delivery/outbox/0042-a/settled.md': drifted(
           makeMarkers('omni-outbox'),
           's1-01-x',
-          'no — the build and the decision disagree (/omni-yolo-fix)',
+          'no — the build and the decision disagree (/omni:yolo-fix)',
         ),
       },
     });

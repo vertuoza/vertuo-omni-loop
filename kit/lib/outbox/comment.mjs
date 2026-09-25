@@ -430,7 +430,7 @@ export function answeredQuestionText(entry) {
   return sections.questionPlain ?? firstSentence(sections.whatIHadToDecide);
 }
 
-/** `#1090` — the rework sub-pull request `/omni-yolo-fix` named when it closed a drifted entry (the
+/** `#1090` — the rework sub-pull request `/omni:yolo-fix` named when it closed a drifted entry (the
  * kit's own rework step amends the `Closed:` field to `yes — reworked by #<n>, …`). Read
  * independently here rather than imported — this module's own territory is the outbox comments, and
  * the two already agree on the exact wording the amendment writes. */
@@ -613,7 +613,7 @@ function adoptedQuestionLines(entry, number, round) {
  * The pull request comment body (PRD #1071 s2, laid out by PRD #1166 s6): the pull-request marker on
  * its own first line, then — when any item is still open — a header naming how many questions need a
  * decision and how to reply (`2: A`, `2: B because …`, or `go with recommendation` for every one at
- * once), and a note that a reply settles nothing until `/omni-yolo-fix` runs. Then every open
+ * once), and a note that a reply settles nothing until `/omni:yolo-fix` runs. Then every open
  * question worst-first (`human-action`, then `high`), each set apart by a horizontal rule under its
  * permanent `number` (see {@link openQuestionLines}), followed by "asked again in round N" when
  * {@link parseRoundMarkers} names that number. Then, when `adopted` is non-empty, the collapsed

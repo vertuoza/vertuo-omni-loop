@@ -185,7 +185,7 @@ describe('formatOutboxComment', () => {
     const body = formatOutboxComment({ ...base, items: [], unreworked: [{ id: 's1-01-x' }, { id: 's2-01-y' }] });
     expect(body).not.toContain('Nothing open');
     expect(body).toMatch(/s1-01-x, s2-01-y/);
-    expect(body).toContain('/omni-yolo-fix');
+    expect(body).toContain('/omni:yolo-fix');
   });
 
   it('lists every item with its rank and a link to the file on the branch', () => {
@@ -1032,7 +1032,7 @@ function writeLegacyItem(root, prd, file, { id, rank = 'medium', whatIHadToDecid
 }
 
 /** Settles `file` (relative to `root`) through the real `settleItem` — a realistic `settled.md`
- * fixture, produced the same way `/omni-yolo-fix` produces one, rather than hand-typed markdown
+ * fixture, produced the same way `/omni:yolo-fix` produces one, rather than hand-typed markdown
  * this test would have to keep in sync with the ledger's own format by hand. */
 function settle(
   root,
@@ -1262,7 +1262,7 @@ describe('formatOutboxPrComment', () => {
 
     expect(body).toContain('**3 questions need your decision**');
     expect(body).toContain('go with recommendation');
-    expect(body).toContain('/omni-yolo-fix');
+    expect(body).toContain('/omni:yolo-fix');
 
     // Needs-a-person first, medium last.
     const at = (needle) => body.indexOf(needle);
@@ -1769,7 +1769,7 @@ describe('the pull request comment sets each question apart (PRD #1166 s6)', () 
             '`2: B because …` chooses another option. Several answers can go in one reply. ' +
             'To keep every recommendation at once, reply `go with recommendation`.',
           '',
-          '_A reply settles nothing on its own — `/omni-yolo-fix` reads the replies and settles ' +
+          '_A reply settles nothing on its own — `/omni:yolo-fix` reads the replies and settles ' +
             'them._',
           '',
           '---',

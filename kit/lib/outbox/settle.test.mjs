@@ -515,7 +515,7 @@ describe("the ledger's readers take the latest entry for an id", () => {
     const adopted = adoptItem({ ctx: flatCtx(root), itemText: MEDIUM_ITEM_TEXT });
     expect(adopted.ok).toBe(true);
 
-    // An objection appends a `drifted` entry for the SAME id, exactly as `/omni-yolo-fix` will do
+    // An objection appends a `drifted` entry for the SAME id, exactly as `/omni:yolo-fix` will do
     // once a later slice wires the reply that reads it — simulated directly here, since reading
     // pull request replies is that slice's own machinery, not this one's.
     const objection = renderSettledEntry({

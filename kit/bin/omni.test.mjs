@@ -122,6 +122,22 @@ describe('omni — flags, lookups and guards', () => {
     expect(s.err.join('')).toMatch(/Cannot ship PRD 9/);
   });
 
+  it('ship names each rewritten file at its new path, not its old one', async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: {
+        ...CONFIG,
+        '.omni-loop/delivery/inbox/0042-a/spec.md': '---\nprd: 42\ntitle: A\nblocked-by: none\nspec: file\n---\n\nSee .omni-loop/delivery/inbox/0042-a/plan.md\n',
+        '.omni-loop/delivery/inbox/0042-a/plan.md': 'x\n',
+      },
+    });
+    const s = io();
+    expect(await main(['ship', '42'], { cwd: root, ...s })).toBe(0);
+    const out = s.out.join('');
+    expect(out).toContain('rewrote paths in .omni-loop/delivery/shipped/0042-a/spec.md');
+    expect(out).not.toContain('rewrote paths in .omni-loop/delivery/inbox/');
+  });
+
   it('knowledge exits 1 for an id nothing claims', async () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const s = io();

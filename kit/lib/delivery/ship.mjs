@@ -65,8 +65,12 @@ export function applyShip(ctx, prd, { exec = execFileSync } = {}) {
     exec('git', ['mv', from, to], { cwd: ctx.root, stdio: 'ignore' });
   }
   for (const { file, text } of plan.rewrites) {
-    const moved = plan.moves.reduce((path, { from, to }) => (path.startsWith(`${from}/`) ? to + path.slice(from.length) : path), file);
-    writeFileSync(join(ctx.root, moved), text);
+    writeFileSync(join(ctx.root, movedPath(plan.moves, file)), text);
   }
   return plan;
+}
+
+/** Where `file` lives once `moves` have run: a file inside a moved folder follows its folder. */
+export function movedPath(moves, file) {
+  return moves.reduce((path, { from, to }) => (path.startsWith(`${from}/`) ? to + path.slice(from.length) : path), file);
 }

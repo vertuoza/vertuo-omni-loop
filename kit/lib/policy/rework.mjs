@@ -1,5 +1,5 @@
 /**
- * **`/omni-yolo-fix` brings a drifted feature back in line** (PRD #985, slice s9).
+ * **`/omni:yolo-fix` brings a drifted feature back in line** (PRD #985, slice s9).
  *
  * A settled item whose answer contradicts the choice the agent recorded is **drifted**: the build
  * and the decision disagree, and nothing closes that but a rework. This module is the whole
@@ -36,6 +36,7 @@ import { ConfigSchema } from '../config.mjs';
 import { parsePlanSlices, sharedGround } from '../inbox/territory.mjs';
 import { parseOutboxItem } from '../outbox/outbox.mjs';
 import { parseSettledEntries } from '../outbox/settle.mjs';
+import { COMMANDS } from '../commands.mjs';
 
 /** `#1001` or a pull-request URL, as the amended `Closed:` line carries it. */
 const REWORKED_BY = /reworked by (#\d+|https?:\/\/[^\s,]+)/;
@@ -255,7 +256,7 @@ export function renderReworkPlan({ prd, featureBranch, reworks }) {
   return [
     `# Rework plan — PRD ${prd}`,
     '',
-    `Derived by \`/omni-yolo-fix\` from the drifted items of PRD ${prd}. One slice per drifted`,
+    `Derived by \`${COMMANDS.yoloFix}\` from the drifted items of PRD ${prd}. One slice per drifted`,
     `item, each a sub-PR into \`${featureBranch}\`. Nothing here is merged into \`main\`.`,
     '',
     '| id | slice | territory | wave |',
@@ -300,7 +301,7 @@ export function closeDriftedEntry(settledText, { id, pullRequest, markers }) {
   }
   if (entry.verdict !== 'drifted') {
     throw new Error(
-      `${id}: this entry settled as "${entry.verdict}" — only a drifted item is ever reworked, and /omni-yolo-fix re-decides nothing.`,
+      `${id}: this entry settled as "${entry.verdict}" — only a drifted item is ever reworked, and ${COMMANDS.yoloFix} re-decides nothing.`,
     );
   }
   if (entry.closed) {
