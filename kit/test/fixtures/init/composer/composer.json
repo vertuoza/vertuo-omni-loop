@@ -1,0 +1,7 @@
+{
+  "name": "acme/widgets",
+  "require": { "php": ">=8.2" },
+  "scripts": {
+    "test": "phpunit"
+  }
+}

@@ -12,7 +12,7 @@ const USAGE = `usage: omni <command> [args]\ncommands: ${Object.keys(COMMAND_TAB
 
 export async function main(
   argv,
-  { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync, env = process.env } = {},
+  { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync, env = process.env, ...more } = {},
 ) {
   const [name, ...rest] = argv;
   const command = Object.hasOwn(COMMAND_TABLE, name ?? '') ? COMMAND_TABLE[name] : undefined;
@@ -21,6 +21,9 @@ export async function main(
     return 2;
   }
   try {
+    // `init` runs before a config exists: it finds the root itself. `more` is its injected stdin,
+    // bundle and prompt; an option left out keeps the command's own default.
+    if (command.withoutContext) return await command.run(rest, { cwd, stdout, stderr, exec, env, ...more });
     const ctx = loadContext(cwd, { exec });
     return await command.run(rest, { ctx, stdout, stderr, exec, env });
   } catch (error) {
