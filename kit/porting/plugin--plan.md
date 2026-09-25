@@ -14,7 +14,7 @@ territory and a computed wave, the plan file, the draft feature PR, the hand-off
 | `origin`, `main` | `repo.remote`, `repo.defaultBranch` |
 | `feat/<topic>` | `branches.feature` with `{topic}` from the PRD folder name `omni prd` prints |
 | `.claude/worktrees/<topic>` | `worktrees` |
-| `docs/superpowers/plans/<date>-<topic>.md` | the plan path `omni prd` prints, beside `spec.md` |
+| `docs/superpowers/plans/<date>-<topic>.md` | `plan.md` beside `spec.md`, in the PRD folder `omni prd` names as `dir` (it lists only files that exist) |
 | `node -e "import('./scripts/check-territory.mjs')…"` (`collisionRows`, `sameWaveCollisions`) | `omni plan check <n>`, rerun until it exits 0; it also catches duplicate ids and bad blockers |
 | `--label pr:feature --label pr:in-progress`, `Closes #<prd>` | `/omni:pr`'s feature kind: `labels.feature`, `labels.inProgress` under its **Labels** rules, `prLinks.feature` |
 | `vertuo-pull-request`'s feature shape | "follow `/omni:pr`'s feature kind" |
@@ -55,7 +55,19 @@ territory and a computed wave, the plan file, the draft feature PR, the hand-off
 - **Collision resolution** is spelled out: move a slice (and what it blocks) to a later wave, narrow
   a territory, or merge the two. Never leave the check red.
 - **Status comment state** at plan time is `claimed` with `slices: 0 / <total> merged`; the skill does
-  not enter `/omni:pr`'s check loop and never marks the PR ready (item s7-03).
+  not enter `/omni:pr`'s check loop and never marks the PR ready (item s7-03). Once it stops it
+  removes `labels.inProgress`, since no agent is on the PR; `/omni:yolo` adds it back.
+- **Slices checklist line** is `/omni:pr`'s feature shape, `- [ ] <slice title> — not started`.
+- **The worked example is not named in the skill.** PRD 7's plan in this repository is the model,
+  but its path is a repository literal (spec §2.1 rule 2) and moves on ship; the skill spells out
+  the four-part shape instead.
+
+## Kept from upstream
+
+- "Open it as a draft — CI skips drafts, so the slices merging into it cost no CI run": kept as the
+  reason in step 6.
+- "Related small asks belong in one PRD at brainstorm time, not in one plan afterwards": kept in the
+  guardrails, reworded without the brainstorm step's name.
 
 ## Verified against real GitHub (read-only, 2026-09-25)
 

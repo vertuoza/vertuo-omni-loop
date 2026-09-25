@@ -87,12 +87,9 @@ conflict. `omni plan check` computes the pairs (step 5). Two things it cannot se
 
 ## 4. Write `plan.md`
 
-Write it at the plan path `omni prd` prints, beside `spec.md`. If a plan is already there (a
-phase-0 PR may have landed one), keep it, and change only what steps 3 and 5 require.
-
-The worked example is the Omni Loop's own plan for its PRD 7, in the kit's repository at
-`.omni-loop/delivery/inbox/0007-omni-loop-skills/plan.md` (under `shipped/` once it ships). Copy its
-**shape**, never its content. Where it is not at hand, these four parts are the whole shape:
+Write it as `plan.md` beside `spec.md`, in the PRD folder `omni prd` names as `dir`. If a plan is
+already there (a phase-0 PR may have landed one), keep it, and change only what steps 3 and 5
+require. These four parts are the whole shape:
 
 1. A title, then one header paragraph: the PRD (`#<n>`), the spec beside the plan, the feature
    branch into `repo.defaultBranch` with `prLinks.feature`, and the sub-PRs from `branches.slice`
@@ -127,17 +124,21 @@ change the check.
 
 1. Commit the plan in the worktree as `docs(plan): <topic>`, ending with the co-author trailer your
    session requires, and run `git push -u <repo.remote> <feature branch>`.
-2. Open the **draft** feature PR by following `/omni:pr`'s **feature** kind: base
+2. Open the feature PR as a **draft**, because CI skips drafts, so the slices merging into it cost
+   no CI run. Follow `/omni:pr`'s **feature** kind: base
    `repo.defaultBranch`, head the feature branch, a Conventional Commits title naming the PRD, and
    the labels and status comment `/omni:pr` sets out (its **Labels** rules decide what happens to a
    missing label). The body starts with `prLinks.feature` filled, then the **Slices** checklist with
-   every slice unticked (`- [ ] <id> <slice>`), then the **Acceptance** checklist when
+   every slice unticked (`- [ ] <slice title> — not started`), then the **Acceptance** checklist when
    `acceptance.enabled` is true, then the remaining sections filled as far as the spec allows.
    `gh pr list --head <feature branch> --base <repo.defaultBranch> --state open --json number,url,isDraft`
    finds a feature PR already open for the branch: update its body instead of opening another.
 3. The status comment's state is `claimed`, with `slices: 0 / <total> merged`. Do not enter
    `/omni:pr`'s check loop, and never mark the PR ready: `/omni:yolo` carries it from here.
 4. Comment on the PRD issue: `Plan: <plan path> · Feature PR: #<pr>`.
+5. No agent is on the PR once this skill stops, so remove the label:
+   `gh pr edit <pr> --remove-label "<labels.inProgress>"`. `/omni:yolo` puts it back when it picks
+   the PR up.
 
 ## 7. Hand off
 
@@ -146,7 +147,8 @@ it. Run alone: end with the line `/omni:yolo <n>`.
 
 ## Guardrails
 
-- One PRD, one feature branch, one feature PR.
+- One PRD, one feature branch, one feature PR. Related small asks belong in one PRD when it is
+  written, not in one plan afterwards.
 - Slices live in the plan, never in issues.
 - Every slice declares a territory, and the waves come from `omni plan check`, never from a
   sentence saying the slices look independent.
