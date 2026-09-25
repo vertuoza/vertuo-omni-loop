@@ -67,7 +67,11 @@ const STORY = [
   'CLOSE THE WOUNDS. SAVE THE PLANETS.',
 ];
 
-export function TitleOverlay({ view, phase, sceneT, who }: { view: GalaxyView | null; phase: 'title' | 'story' | 'hiscore'; sceneT: number; who: string }) {
+export function TitleOverlay({ view, phase, sceneT, who, signedIn }: {
+  view: GalaxyView | null; phase: 'title' | 'story' | 'hiscore'; sceneT: number; who: string; signedIn: boolean;
+}) {
+  // Nobody gets in without signing in: until then the cabinet asks for a coin.
+  const cta = signedIn ? 'PRESS START' : 'INSERT COIN';
   if (phase === 'story') {
     const into = (((sceneT % CYCLE) + CYCLE) % CYCLE) - PHASES[0][1];
     return (
@@ -75,7 +79,7 @@ export function TitleOverlay({ view, phase, sceneT, who }: { view: GalaxyView | 
         {STORY.map((line, i) => (
           <p key={line} className={into > i * 1.4 ? 'shown' : ''}>{line}</p>
         ))}
-        <p className="press blink">PRESS START</p>
+        <p className="press blink">{cta}</p>
       </div>
     );
   }
@@ -91,7 +95,7 @@ export function TitleOverlay({ view, phase, sceneT, who }: { view: GalaxyView | 
           ))}
           {!view.heroes.length && <li><span /><span>NO SCORES THIS SEASON YET</span><span /></li>}
         </ol>
-        <p className="press blink">PRESS START</p>
+        <p className="press blink">{cta}</p>
       </div>
     );
   }
@@ -102,7 +106,7 @@ export function TitleOverlay({ view, phase, sceneT, who }: { view: GalaxyView | 
         <span className="logo-loop">LOOP</span>
       </h1>
       <p className="tagline">TERRAFORM THE GALAXY</p>
-      <p className="press blink">PRESS START</p>
+      <p className="press blink">{cta}</p>
       <footer className="title-foot">
         <span>© 2026 VERTUOZA</span>
         <span>{who}</span>
@@ -124,12 +128,15 @@ const GALAXY: MenuItem[] = [
   { id: 'briefing', label: 'HOW TO PLAY', scene: 'briefing' },
 ];
 
-/** The menu for who is playing: the galaxy, then what a player can change about themself. */
+/**
+ * The menu for who is at the cabinet: the galaxy for everyone signed in; then, for a player, their
+ * hero and fleet; for a visitor, the way to play (linking GitHub).
+ */
 export function menuItems({ joined, linked, signedIn }: { joined: boolean; linked: boolean; signedIn: boolean }): MenuItem[] {
   return [
+    ...(signedIn && !linked ? [{ id: 'link', label: 'PLAY', fresh: true }] as MenuItem[] : []),
     ...GALAXY,
-    ...(joined ? [{ id: 'myhero', label: 'MY HERO', fresh: true }, { id: 'change', label: 'CHANGE FLEET', fresh: true }] as MenuItem[] : []),
-    ...(joined && !linked ? [{ id: 'link', label: 'LINK GITHUB', fresh: true }] as MenuItem[] : []),
+    ...(joined && linked ? [{ id: 'myhero', label: 'MY HERO', fresh: true }, { id: 'change', label: 'CHANGE FLEET', fresh: true }] as MenuItem[] : []),
     ...(signedIn ? [{ id: 'signout', label: 'SIGN OUT' }] as MenuItem[] : []),
   ];
 }
@@ -144,14 +151,16 @@ export function MenuOverlay({ view, items, index, me, onPick }: {
     briefing: 'How points are won and lost',
     myhero: 'Your name and your look',
     change: 'Your future points follow you',
-    link: 'So your pull requests score',
+    link: 'Link your GitHub to join a fleet',
     signout: 'Back to the title',
   };
   const f = fleet(me?.team);
   return (
     <div className={`menu${items.length > 4 ? ' long' : ''}`}>
       <h2>SELECT MODE</h2>
-      {me?.team && <span className="j-badge" style={{ ['--fc' as string]: f.color }}>P1 {me.display_name} · {f.label}</span>}
+      {me?.team && me.github_login
+        ? <span className="j-badge" style={{ ['--fc' as string]: f.color }}>P1 {me.display_name} · {f.label}</span>
+        : <span className="j-badge" style={{ ['--fc' as string]: '#8a90d6' }}>VISITOR</span>}
       <ul>
         {items.map((m, i) => (
           <li key={m.id}>

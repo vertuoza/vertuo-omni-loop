@@ -17,18 +17,22 @@ export interface Player {
 /** What the arcade saves for the signed-in player: a fleet, a name, a hero. */
 export type PlayerPatch = Partial<Pick<Player, 'display_name' | 'team' | 'hero'>>;
 
-/** Who is at the cabinet. `crew` is false for a signed-in account from another domain. */
-export interface Session { id: string; email: string; givenName: string; crew: boolean }
+/**
+ * Who is at the cabinet. `crew` is false for a signed-in account from another domain. `github` is
+ * the GitHub login linked to this sign-in, if any: without one the crew member is a visitor, who may
+ * look at the galaxy but not play.
+ */
+export interface Session { id: string; email: string; givenName: string; crew: boolean; github: string | null }
 
 /**
  * Sign-in and saving, behind one interface: Supabase in production, the browser's own storage in the
  * demo galaxy (and the single-file artifact), so the arcade never imports Supabase itself.
  */
 export interface Account {
-  kind: 'demo' | 'supabase';
+  kind: 'demo' | 'supabase' | 'closed';
   /** Signs in with Google. Supabase leaves the page (and comes back through /auth/callback). */
   signIn(): Promise<Session | void>;
-  /** Links GitHub. Supabase leaves the page; the demo resolves with a made-up login. */
+  /** Links GitHub, which makes a visitor a player. Supabase leaves the page; the demo resolves with a made-up login. */
   linkGithub(): Promise<string | void>;
   /** Creates or updates the signed-in player's row; resolves with the row as stored. */
   save(patch: PlayerPatch, current: Player | null): Promise<Player>;
