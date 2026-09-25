@@ -12,16 +12,27 @@ Hall of Heroes issue, and a weekly backup kept as a workflow artifact. Delete `g
 The commands read and write Supabase: set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (locally,
 `npx supabase status` prints both; `apps/galaxy/.env.local` is read if it exists).
 
-- `pnpm game:project` — snapshot GitHub, append new events to the ledger; logs any event it had to skip
-- `pnpm game:score [YYYY-MM] [--rankings <file>]` — fold the ledger into a season. With no season:
-  the current month, and on the 1st–7th also the previous month, whose final standings become the
-  rankings page written to `<file>`
-- `pnpm game:banner <prd>` — print one planet's banner; reads only that planet and the planets it is blocked by
-- `pnpm game:export <dir>` — write the ledger, sectors, fleets and players as JSONL (the backup)
+Each command plays for one **workspace** (`public.workspaces`), and reads and writes nothing of
+another. Name it with `--workspace <slug>`, or set `OMNI_LOOP_WORKSPACE`; the flag wins. There is no
+default: with neither, or with a slug no workspace has, the command stops and says so. Vertuoza is
+the workspace `vertuoza`.
+
+- `pnpm game:project --workspace <slug>` — snapshot the workspace's GitHub, append new events to its
+  ledger; logs any event it had to skip
+- `pnpm game:score [YYYY-MM] [--rankings <file>] --workspace <slug>` — fold the workspace's ledger
+  into a season. With no season: the current month, and on the 1st–7th also the previous month,
+  whose final standings become the rankings page written to `<file>`
+- `pnpm game:banner <prd> --workspace <slug>` — print one planet's banner; reads only that planet and the planets it is blocked by
+- `pnpm game:export <dir> --workspace <slug>` — write the workspace as JSONL (the backup):
+  `workspace.jsonl` (its row) beside its `ledger_events`, `sectors`, `teams` and `players`
 - `pnpm test` — every module is tested on fixtures; nothing touches GitHub or Supabase in tests
 
-Constants live in `game/rulebook.mjs`. Org facts live in Supabase: `sectors` (repositories),
-`teams` (the fleets) and `players` (the roster), each changed by a migration or by the arcade.
+Constants live in `game/rulebook.mjs`. Org facts live in Supabase, per workspace: `workspaces`
+(its GitHub organisation, `github_org`, and the repository of its PRD issues, `plan_repo`),
+`sectors` (repositories), `teams` (the fleets) and `players` (the roster), each changed by a
+migration or by the arcade. `game:project` and `game:banner` refuse a workspace that names no
+`github_org` or `plan_repo`. The workspace is a storage column, never an event field: two workspaces
+may each hold a `planet:12:charted`.
 
 ## Fleets and the roster
 
@@ -41,10 +52,11 @@ The workflow `.github/workflows/game.yml` does nothing until it is switched on.
 1. **Supabase.** The galaxy database must exist and hold the migrations
    ([`apps/galaxy/README.md` › Deploy to production](../apps/galaxy/README.md#deploy-to-production)):
    the variable `SUPABASE_PROJECT_ID` and the secret `SUPABASE_SERVICE_ROLE_KEY` are what this
-   workflow uses too.
+   workflow uses too. The workflow sets `OMNI_LOOP_WORKSPACE: vertuoza`, the workspace the
+   migration creates with its `github_org` and `plan_repo`.
 2. **Token.** Create a fine-grained token and store it as the secret `OMNI_GAME_TOKEN`:
    `contents: read`, `pull requests: read` and `issues: read` on every engineering repository in
-   `sectors` and on this one. It no longer needs any organisation permission: fleets come from the
+   the workspace's `sectors` and on its `plan_repo`. It no longer needs any organisation permission: fleets come from the
    arcade, not from GitHub teams.
 3. **Rankings issue.** Open an issue in this repository (the Hall of Heroes), pin it, and set the
    repository variable `RANKINGS_ISSUE` to its number.
@@ -57,6 +69,8 @@ runs on the Monday schedule, or a dispatch with `post_rankings: true` (concurren
 
 ## Known limits
 
+- **One workspace per run.** The workflow polls, scores and backs up `vertuoza` alone: its token
+  reads one organisation. Looping over every workspace waits for per-workspace installation tokens.
 - **Replay from GitHub is approximate.** Facts GitHub keeps only as current state are dated from
   the best available timestamp: `PLANET_READY` uses the feature PR's `ready_for_review` time, a
   settled outbox item's `raisedAt` is its settle time (the open file is gone), and zone states

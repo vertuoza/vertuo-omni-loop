@@ -37,6 +37,14 @@ describe('game workflow', () => {
     expect(wf.jobs.ledger.steps.map((s) => s.run)).toContain('pnpm game:project');
   });
 
+  it('names the vertuoza workspace for every job: the game scripts have no default', () => {
+    for (const job of Object.values(wf.jobs)) {
+      expect({ ...wf.env, ...job.env }.OMNI_LOOP_WORKSPACE).toBe('vertuoza');
+      const runs = job.steps.map((s) => s.run ?? '').join('\n');
+      expect(runs).not.toContain('--workspace'); // one place names it: the variable
+    }
+  });
+
   it('keeps a weekly backup of the database for 90 days, before posting', () => {
     const steps = wf.jobs.rankings.steps;
     const exportAt = steps.findIndex((s) => (s.run ?? '').startsWith('pnpm game:export'));
