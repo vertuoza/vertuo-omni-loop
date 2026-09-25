@@ -1,7 +1,15 @@
 // The menu group on the canvas: the menu and How to play.
 import { drawPlanet, drawSprite } from '@omni/sprites';
 import { fleet, heroOf } from '../fleets';
-import { frameOf, nebulaFor, RING, space, type FrameState } from './common.ts';
+import { frameOf, nebulaFor, RING, space, type FrameState, type Pages, type SceneName } from './common.ts';
+
+/**
+ * The menu group's scenes laid out on the tall grid (`menu`, `briefing`). A scene not listed is
+ * drawn on the wide grid, letterboxed in the Game Boy's lens (grid.ts reads this list).
+ */
+export const TALL_SCENES: readonly SceneName[] = [];
+/** How many pages a tall `briefing` takes, for ◀ ▶ to turn. Undeclared, it is one. */
+export const PAGES: Pages = {};
 
 export function drawMenu(ctx: CanvasRenderingContext2D, s: FrameState) {
   space(ctx, s, 0.6);

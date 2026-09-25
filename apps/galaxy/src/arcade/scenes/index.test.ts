@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf } from '@omni/galaxy';
-import { drawFrame, layoutMap, type FrameState, type SceneName } from './index';
+import { drawFrame, layoutMap, TALL, WIDE, type FrameState, type Grid, type SceneName } from './index';
 import { setFleets } from '../fleets';
 import type { FleetRow } from '../types';
 
@@ -40,15 +40,37 @@ const fleets: FleetRow[] = Object.entries(DEMO_PROJECTS.teams)
   .map(([name, t]) => ({ name, ...lookOf(name, t) }))
   .sort((a, b) => a.sort - b.sort);
 
-function frame(scene: SceneName, sceneT = 2): FrameState {
+function frame(scene: SceneName, sceneT = 2, grid: Grid = WIDE): FrameState {
   return {
-    scene, view, layout: layoutMap(view), sel: 0, fleetSel: 0, t: 5, sceneT, reduced: false,
+    scene, grid, page: 0, view, layout: layoutMap(view, grid), sel: 0, fleetSel: 0, t: 5, sceneT, reduced: false,
     join: {
       fleets, pick: 1, lockedAt: null, team: fleets[1].name, away: false,
       hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 },
     },
   };
 }
+
+describe('layoutMap', () => {
+  it('lays the planets out on the wide grid as it always has, inside it', () => {
+    const slots = layoutMap(view, WIDE);
+    expect(slots.map((s) => s.index)).toEqual(view.planets.map((_, i) => i));
+    for (const s of slots) {
+      expect(s.x - s.r).toBeGreaterThanOrEqual(0);
+      expect(s.x + s.r).toBeLessThanOrEqual(WIDE.w);
+      expect(s.y - s.r).toBeGreaterThanOrEqual(0);
+      expect(s.y + s.r).toBeLessThanOrEqual(WIDE.h);
+    }
+  });
+
+  it('lays every planet out on any grid it is given, in that grid\'s pixels', () => {
+    for (const s of layoutMap(view, TALL)) {
+      expect(s.x).toBeGreaterThanOrEqual(0);
+      expect(s.x).toBeLessThanOrEqual(TALL.w);
+      expect(s.y).toBeGreaterThanOrEqual(0);
+      expect(s.y).toBeLessThanOrEqual(TALL.h);
+    }
+  });
+});
 
 describe('drawFrame', () => {
   beforeAll(() => { vi.stubGlobal('OffscreenCanvas', FakeOffscreenCanvas); setFleets(fleets); });
@@ -57,6 +79,12 @@ describe('drawFrame', () => {
   it.each(Object.keys(SCENES) as SceneName[])('draws a frame for %s', (scene) => {
     const { ctx, drawn } = recorder();
     drawFrame(ctx, frame(scene), 'title');
+    expect(drawn.fills + drawn.images).toBeGreaterThan(0);
+  });
+
+  it.each(Object.keys(SCENES) as SceneName[])('draws a frame for %s on the tall grid', (scene) => {
+    const { ctx, drawn } = recorder();
+    drawFrame(ctx, frame(scene, 2, TALL), 'title');
     expect(drawn.fills + drawn.images).toBeGreaterThan(0);
   });
 

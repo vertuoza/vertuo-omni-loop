@@ -1,7 +1,8 @@
-// What the canvas scenes share. The screen is 640×360 game pixels, the same grid as the DOM overlays
-// (text, panels) on top. Sprites draw at 1× in play so their detail shows; the title's hero shot uses
-// 2×. Every scene draws the whole frame from scratch; each scene group draws its own in
-// `scenes/<group>.ts`, and `scenes/index.ts` picks the one to draw.
+// What the canvas scenes share. A scene is drawn on one of two grids: the wide one, 640×360 game
+// pixels, or the tall one, 320×288 (a Game Boy screen at 2×), the same grid as the DOM overlays (text,
+// panels) on top. `FrameState.grid` says which. Sprites draw at 1× in play so their detail shows; the
+// title's hero shot uses 2×. Every scene draws the whole frame from scratch; each scene group draws
+// its own in `scenes/<group>.ts`, and `scenes/index.ts` picks the one to draw.
 import {
   drawSprite, drawStarfield, makeNebula, makeStarfield, rampFrom, spriteSize, type Hero,
 } from '@omni/sprites';
@@ -10,8 +11,17 @@ import { fleet, heroOf, seedOf } from '../fleets';
 import { MARK_RUNS, MARK_SHADE, MARK_SIZE, MARK_STOPS } from '../mark';
 import type { FleetRow } from '../types';
 
+/** The wide grid's size: the grid every scene is drawn on until its group lays it out tall. */
 export const W = 640;
 export const H = 360;
+
+export type GridName = 'wide' | 'tall';
+export interface Grid { readonly name: GridName; readonly w: number; readonly h: number }
+
+/** Today's 640×360 screen: on a computer, on the Advance body, and letterboxed in the Game Boy's lens. */
+export const WIDE: Grid = { name: 'wide', w: W, h: H };
+/** A Game Boy screen (160×144, 10:9) at 2×: the Game Boy held upright, for the scenes laid out on it. */
+export const TALL: Grid = { name: 'tall', w: 320, h: 288 };
 
 export type SceneName =
   | 'boot' | 'title' | 'menu' | 'map' | 'planet' | 'fleets' | 'heroes' | 'briefing'
@@ -29,6 +39,8 @@ export interface JoinFrame {
 
 export interface FrameState {
   scene: SceneName;
+  grid: Grid;           // the grid this frame is drawn on (the canvas is its size)
+  page: number;         // the page shown, on a scene its group splits into pages (0 otherwise)
   join: JoinFrame;
   view: GalaxyView | null;
   layout: MapSlot[];
@@ -40,6 +52,13 @@ export interface FrameState {
 }
 
 export interface MapSlot { prd: number; x: number; y: number; r: number; index: number }
+
+/**
+ * How many pages a scene takes on a grid, for the galaxy it shows: a group that splits its tall
+ * `briefing` or `heroes` into pages declares it in its `PAGES`, and ◀ ▶ turn them.
+ */
+export type PageCount = (at: { view: GalaxyView; grid: Grid }) => number;
+export type Pages = Partial<Record<SceneName, PageCount>>;
 
 export const stars = makeStarfield(11, W, H, 320);
 let nebulae: Map<string, CanvasImageSource> | null = null;
@@ -57,8 +76,9 @@ export function nebulaFor(key: string, i: number, w: number, h: number) {
 }
 
 export function space(ctx: CanvasRenderingContext2D, s: FrameState, speed = 0.4) {
+  const { w, h } = s.grid;
   const bands = ['#07061c', '#0a0824', '#0d0a2c', '#110c34'];
-  bands.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(0, (H / bands.length) * i, W, H / bands.length); });
+  bands.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(0, (h / bands.length) * i, w, h / bands.length); });
   drawStarfield(ctx, stars, s.reduced ? 0 : s.t, { w: W, h: H, speed });
 }
 

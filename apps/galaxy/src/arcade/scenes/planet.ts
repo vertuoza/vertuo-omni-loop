@@ -2,7 +2,15 @@
 import { drawPlanet, drawSprite, spriteSize, woundTint } from '@omni/sprites';
 import type { Planet } from '@omni/galaxy';
 import { fleet } from '../fleets';
-import { frameOf, nebulaFor, planetLook, pulseRing, space, type FrameState } from './common.ts';
+import { frameOf, nebulaFor, planetLook, pulseRing, space, type FrameState, type Pages, type SceneName } from './common.ts';
+
+/**
+ * `planet`, once it is laid out on the tall grid. Until it is listed, it is drawn on the wide
+ * grid, letterboxed in the Game Boy's lens (grid.ts reads this list).
+ */
+export const TALL_SCENES: readonly SceneName[] = [];
+/** The planet is one page: ◀ ▶ switch its tabs. */
+export const PAGES: Pages = {};
 
 export function drawPlanetScene(ctx: CanvasRenderingContext2D, s: FrameState) {
   const p = s.view?.planets[s.sel];

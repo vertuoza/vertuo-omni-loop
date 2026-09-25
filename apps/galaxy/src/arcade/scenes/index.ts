@@ -1,6 +1,8 @@
-// The canvas dispatcher: draws the scene the arcade is on with the group that owns it. Each group
-// keeps its canvas drawing in `scenes/<group>.ts`, its text layer in `scenes/<group>.tsx` and its
-// styles in `scenes/<group>.css`; what two groups share lives in `scenes/common.*`.
+// The canvas dispatcher: draws the scene the arcade is on with the group that owns it, on the grid
+// the frame names (`FrameState.grid`: the wide one, or the tall one for a scene its group lists as
+// tall). Each group keeps its canvas drawing in `scenes/<group>.ts`, with its list of tall scenes and
+// its page counts, its text layer in `scenes/<group>.tsx` and its styles in `scenes/<group>.css`;
+// what two groups share lives in `scenes/common.*`.
 import { drawBoot, drawHeroes, drawStory, drawTitle } from './attract.ts';
 import { drawFleets } from './fleets.ts';
 import { drawAway, drawCoin, drawGate, drawIntro, drawLink, drawReady, drawWelcome } from './join.ts';
@@ -10,7 +12,9 @@ import { drawPlanetScene } from './planet.ts';
 import { drawBuilder, drawName, drawSelect } from './recruit.ts';
 import type { FrameState } from './common.ts';
 
-export { H, W, type FrameState, type JoinFrame, type MapSlot, type SceneName } from './common.ts';
+export {
+  H, TALL, W, WIDE, type FrameState, type Grid, type GridName, type JoinFrame, type MapSlot, type PageCount, type Pages, type SceneName,
+} from './common.ts';
 export { layoutMap, neighbour } from './map.ts';
 
 export function drawFrame(ctx: CanvasRenderingContext2D, s: FrameState, titlePhase: 'title' | 'story' | 'hiscore') {
