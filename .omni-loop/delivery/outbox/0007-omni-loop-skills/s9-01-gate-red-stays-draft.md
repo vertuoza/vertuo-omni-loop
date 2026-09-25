@@ -24,7 +24,7 @@ C. Mark ready with the gate red but add the needs-fix label so nobody merges it.
 
 ## What I had to decide
 
-Upstream yolo marked the feature PR ready and stopped with the outbox check red, as its expected end state. Spec section 2.1 rule 7 (ship before ready) says ready comes only after omni ship, which refuses while items are open. Spec section 1's table row for yolo still says it ends with the feature PR ready and the gate red. The two cannot both hold.
+Upstream yolo marked the feature PR ready and stopped with the outbox check red, as its expected end state. Spec section 2.1 rule 7 (ship before ready) says ready comes only after omni ship, which refuses while items are open. Spec section 2's table row for yolo first said it ends ready with the gate red; commit ee15122 aligned it with rule 7.
 
 ## What I did meanwhile
 
@@ -38,5 +38,5 @@ Low: one paragraph of skill prose. The only effect is whether CI runs on the fea
 
 (author) The PRD, the registers and the glossary do not settle this:
 
-- Spec section 1's yolo row contradicts rule 7; the dispatch chose rule 7. (author)
+- Spec section 2's yolo row contradicted rule 7 until ee15122; upstream's ready-with-a-red-gate remains the alternative a reviewer may prefer. (author)
 - A draft PR gets no CI run, so the feature is graded only by the local preflight until yolo-fix ships it. (author)

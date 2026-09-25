@@ -31,16 +31,25 @@ dispatch, merge, the Slices checklist) went to `/omni:wave` (see `plugin--wave.m
 - **Reading `ci/outbox` by commit status** (upstream §4 step 7, because it was not a required check):
   the gate is `omni status <prd>`, run locally before ready, and `/omni:pr`'s lifecycle already reads
   `ci.outboxContext` by name.
-- **The `approve all` reply and "label the PR `outbox:go`" in the report:** the report names only the
-  numbered replies and `/omni:yolo-fix`; the override label is a person's, never suggested.
+- **The `approve all` reply and "label the PR `outbox:go`" in the report:** the report points to the posted
+  comment and `/omni:yolo-fix`; the override label is a person's, never suggested.
+- **Deliver's "Loop Behaviour" section** (background waits, resume after a session ends): the
+  background watch is `/omni:pr`'s, and resuming is the Input line plus the board and
+  `labels.inProgress`; no separate section.
+- **The reply grammar in the report** (`1: ok`, `2: no, because …`): the posted comment explains how
+  to answer, in the kit's own numbering; the skill points to it rather than restating it.
 - **PRD #1166, #1071, ADR 0069 references:** upstream history.
 
 ## Changed
 
 - **Gate red → the feature PR stays draft** (item s9-01). Upstream marked it ready and stopped with
   `ci/outbox` red, as expected. Here ready happens only after a green gate, `omni ship`, commit and
-  push (spec §2.1 rule 7, "ship before ready"; PR #4 was merged unshipped). Note spec §1's table row
-  still says "ends with the feature PR ready and the gate red"; the item carries the choice.
+  push (spec §2.1 rule 7, "ship before ready"; PR #4 was merged unshipped). Spec §2's table row for
+  yolo was aligned with rule 7 in `ee15122` (draft with the questions posted while items are open).
+- **Finish preflight:** after merging the default branch, a changed lockfile or package manifest
+  means an install in the worktree first (not an attempt); a red step caused by the environment is
+  fixed as environment, and code outside the PRD's slices is never edited to turn the finish green.
+  Upstream fixed any red "on the feature branch" with no such bound.
 - **Ship step added** on the green path: `omni ship`, commit `chore(delivery): ship PRD <n>`, push,
   then `gh pr ready`, then `/omni:pr`'s lifecycle for CI. Upstream had no ship step.
 - **Default branch conflict at finish** (item s9-02): upstream resolved `git merge origin/main`
@@ -59,10 +68,15 @@ dispatch, merge, the Slices checklist) went to `/omni:wave` (see `plugin--wave.m
 
 - **Read the feature branch's tip:** `git switch --detach <remote>/<feature branch>` before every
   board read, because the plan and the adopted items live on the feature branch, and `omni prd`,
-  `omni board` and `omni status` read the local checkout.
+  `omni board` and `omni status` read the local checkout. A checkout with tracked changes stops the
+  run in one line (never stash, clean or reset), and the run leaves the checkout detached.
+- **A red wave check ends the loop** (held, stuck): no next wave is built on a red feature branch.
 - **Resume after ship:** `omni prd` saying `shipped` with the feature PR still draft goes straight
   to `gh pr ready`.
+- **`omni ship` exit 2** (uncommitted delivery changes): commit this run's own, rerun once, else stop.
 - **Release:** `labels.inProgress` comes off the feature PR at the end, and the final status comment
-  (`done`, `waiting for the outbox`, or `stuck`) is written through `/omni:pr`'s marker recipe.
+  is written through `/omni:pr`'s marker recipe with one of its own states: `done` (ready, or the
+  gate red with "answer the outbox" as the human step) or `stuck` (held or a stuck finish). A stuck
+  finish still posts the outbox comment.
 - The finish work runs in a detached worktree pushed with `HEAD:<feature branch>`, as `/omni:wave`'s
   does, because git refuses a branch another worktree holds.
