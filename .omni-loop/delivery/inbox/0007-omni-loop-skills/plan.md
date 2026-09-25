@@ -23,6 +23,7 @@ is an outbox item in `.omni-loop/delivery/outbox/0007-omni-loop-skills/`.
 | s9 | skill `yolo`: every wave, the gate, ship before ready (the last hand-built slice) | `kit/plugin/skills/yolo/` | s7, s8 | 5 |
 | s10 | skill `yolo-fix`: replies, settle PR, rework slices, ship (built by `/omni:yolo 7`) | `kit/plugin/skills/yolo-fix/` | s6, s8, s9 | 6 |
 | s11 | skill `brainstorm`: idea → PRD, spec, plan, page, phase-0 PR (built by `/omni:yolo 7`) | `kit/plugin/skills/brainstorm/` | s6, s7, s9 | 6 |
+| s12 | `omni adopt <file>` removes the open item file it adopted, as `settle` does (found in wave 1: adopted items stayed open) | `kit/bin/commands/adopt.mjs` `kit/bin/adopt.test.mjs` | s2 | 2 |
 
 `kit/bin/commands/index.mjs` is shared ground. s2, s3 and s6 each register one command there, so they
 run in separate waves.
