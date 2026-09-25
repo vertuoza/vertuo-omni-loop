@@ -16,35 +16,6 @@ import { parseArgs, println, usageError } from '../args.mjs';
 
 const USAGE = 'usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json]';
 
-const SOURCE_LABEL = { repo: 'repo', pointer: 'pointer', kit: 'kit default' };
-
-/** The map as text: a line per form, then every open question, then every stale evidence entry. */
-function statusText({ frontDoor, forms }) {
-  const width = Math.max(...forms.map(({ form }) => form.length));
-  const lines = [`kb status — ${forms.length} form(s) in ${frontDoor}`];
-  for (const { form, kind, state, source, questions, stale } of forms) {
-    const counts = [];
-    if (questions.length > 0) counts.push(`${questions.length} open question(s)`);
-    if (stale.length > 0) counts.push(`${stale.length} stale evidence`);
-    const columns = [form.padEnd(width), kind.padEnd(8), state.padEnd(7), SOURCE_LABEL[source].padEnd(11), counts.join(' · ')];
-    lines.push(`  ${columns.join('  ').trimEnd()}`);
-  }
-  const questions = forms.flatMap(({ form, file, questions: open }) => open.map(({ slot, question }) => `  ${form}#${slot} (${file}): ${question}`));
-  const stale = forms.flatMap(({ form, file, stale: entries }) =>
-    entries.map(({ path, hash, now }) => `  ${form} (${file}): ${path}@${hash} — ${now === null ? 'gone' : `now ${now.slice(0, 7)}`}`),
-  );
-  lines.push(questions.length > 0 ? `Open questions: ${questions.length}` : 'Open questions: none.', ...questions);
-  lines.push(stale.length > 0 ? `Stale evidence: ${stale.length}` : 'Stale evidence: none.', ...stale);
-  return lines.join('\n');
-}
-
-function status(positional, flags, { ctx, stdout, exec }) {
-  if (positional.length > 0) throw usageError('usage: omni kb status [--json]');
-  const map = playbookStatus({ ctx, exec });
-  println(stdout, flags.json ? JSON.stringify(map, null, 2) : statusText(map));
-  return 0;
-}
-
 function init(positional, flags, { ctx, stdout }) {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
   const files = writeForms({ ctx });
@@ -86,6 +57,35 @@ function show(positional, flags, { ctx, stdout, stderr }) {
   const records = id === DECISIONS_FORM ? readDecisions({ ctx }) : null;
   for (const problem of resolved.problems) println(stderr, `warning: ${problem}`);
   println(stdout, flags.json ? JSON.stringify(records ? { ...resolved, records } : resolved, null, 2) : showText(resolved, records));
+  return 0;
+}
+
+const SOURCE_LABEL = { repo: 'repo', pointer: 'pointer', kit: 'kit default' };
+
+/** The map as text: a line per form, then every open question, then every stale evidence entry. */
+function statusText({ frontDoor, forms }) {
+  const width = Math.max(...forms.map(({ form }) => form.length));
+  const lines = [`kb status — ${forms.length} form(s) in ${frontDoor}`];
+  for (const { form, kind, state, source, questions, stale } of forms) {
+    const counts = [];
+    if (questions.length > 0) counts.push(`${questions.length} open question(s)`);
+    if (stale.length > 0) counts.push(`${stale.length} stale evidence`);
+    const columns = [form.padEnd(width), kind.padEnd(8), state.padEnd(7), SOURCE_LABEL[source].padEnd(11), counts.join(' · ')];
+    lines.push(`  ${columns.join('  ').trimEnd()}`);
+  }
+  const questions = forms.flatMap(({ form, file, questions: open }) => open.map(({ slot, question }) => `  ${form}#${slot} (${file}): ${question}`));
+  const stale = forms.flatMap(({ form, file, stale: entries }) =>
+    entries.map(({ path, hash, now }) => `  ${form} (${file}): ${path}@${hash} — ${now === null ? 'gone' : `now ${now.slice(0, 7)}`}`),
+  );
+  lines.push(questions.length > 0 ? `Open questions: ${questions.length}` : 'Open questions: none.', ...questions);
+  lines.push(stale.length > 0 ? `Stale evidence: ${stale.length}` : 'Stale evidence: none.', ...stale);
+  return lines.join('\n');
+}
+
+function status(positional, flags, { ctx, stdout, exec }) {
+  if (positional.length > 0) throw usageError('usage: omni kb status [--json]');
+  const map = playbookStatus({ ctx, exec });
+  println(stdout, flags.json ? JSON.stringify(map, null, 2) : statusText(map));
   return 0;
 }
 
