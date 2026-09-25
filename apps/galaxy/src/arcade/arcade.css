@@ -357,6 +357,12 @@ button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
 .menu li button.active .menu-label { color: var(--yellow); }
 .menu-hint { font-family: var(--txt); font-size: 17px; color: var(--dim); }
 .menu-foot { position: absolute; left: 34px; right: 24px; bottom: 16px; display: flex; justify-content: space-between; font-size: 8px; color: var(--dim); }
+/* Signed in, the menu grows (MY HERO, CHANGE FLEET, LINK GITHUB, SIGN OUT): one line per entry. */
+.menu.long ul { margin-top: 16px; gap: 4px; width: 410px; }
+.menu.long li button { grid-template-columns: 16px 150px 1fr; align-items: baseline; padding: 4px 8px; }
+.menu.long .cursor { grid-row: auto; font-size: 9px; }
+.menu.long .menu-label { font-size: 9px; }
+.menu.long .menu-hint { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ── Map ─────────────────────────────────────────────────────────────────── */
 
@@ -585,4 +591,93 @@ button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
   .pulse,
   .blink, .menu .cursor, .tile-under-fire { animation: none; }
   .boot-brand, .boot-presents { animation: none; }
+}
+
+/* ── Joining the game: sign-in, fleet select, name entry, hero builder, GitHub ────────────────
+   On the same 640×360 grid as every other screen; `j-` keeps these apart from the galaxy's. */
+
+.j-center { position: absolute; left: 0; right: 0; text-align: center; display: grid; justify-items: center; gap: 10px; }
+.j-left { position: absolute; margin: 0; text-align: left; }
+.j-h { margin: 0; font-size: 16px; color: var(--yellow); text-shadow: 2px 2px 0 var(--red), 4px 4px 0 #0b0a26; }
+.j-h.j-small { font-size: 12px; }
+.j-h.j-large { font-size: 22px; }
+.j-sub { margin: 0; font-size: 8px; color: var(--cyan); letter-spacing: 2px; text-shadow: 1px 1px 0 #0b0a26; }
+.j-txt { margin: 0; font-family: var(--txt); font-size: 20px; line-height: 1.05; letter-spacing: 1px; color: var(--white); max-width: 520px; }
+.j-tiny { margin: 0; font-size: 8px; line-height: 1.9; }
+.j-dim { color: var(--dim); }
+.j-warn { color: var(--red); }
+.j-error { color: #ff8fa3; }
+.j-good { margin: 0; font-size: 10px; color: var(--green); }
+.j-gold { margin: 0; font-size: 10px; color: var(--yellow); }
+.j-press { margin: 18px 0 0; font-size: 14px; color: var(--yellow); text-shadow: 2px 2px 0 var(--red); }
+.j-press.j-small { font-size: 10px; margin-top: 8px; }
+.j-bottom { position: absolute; left: 0; right: 0; bottom: 22px; text-align: center; font-size: 10px; }
+.j-hint { position: absolute; left: 0; right: 0; bottom: 8px; margin: 0; text-align: center; font-size: 8px; color: var(--dim); letter-spacing: 1px; text-shadow: 1px 1px 0 #0b0a26; }
+.j-hint.j-right { text-align: right; padding-right: 14px; }
+.j-key { display: inline-block; padding: 3px 4px 2px; margin-right: 5px; font-size: 7px; color: #0b0a26; background: var(--white); box-shadow: 2px 2px 0 #0b0a26; }
+.j-panel {
+  position: absolute; display: grid; gap: 8px; padding: 14px 16px; font-size: 9px; line-height: 1.6;
+  background: rgba(14, 13, 51, 0.94); border: 2px solid var(--white);
+  box-shadow: 0 0 0 2px #0b0a26, inset 0 0 0 2px var(--navy);
+}
+.j-panel p { margin: 0; }
+.j-badge { position: absolute; top: 14px; right: 16px; padding: 5px 7px 4px; font-size: 7px; letter-spacing: 1px; color: #0b0a26; background: var(--fc, var(--yellow)); box-shadow: 2px 2px 0 #0b0a26; }
+.menu .j-badge { top: 18px; right: 18px; }
+.j-toast { position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); margin: 0; max-width: 560px; padding: 7px 9px 6px; font-size: 7px; letter-spacing: 1px; line-height: 1.6; text-align: center; color: #0b0a26; background: var(--white); box-shadow: 3px 3px 0 var(--plasma); }
+
+/* The intro: three lines type in, the fleets' names light up under them. */
+.j-intro { top: 176px; gap: 12px; font-size: 10px; }
+.j-type { display: block; overflow: hidden; white-space: nowrap; width: 0; text-shadow: 2px 2px 0 #0b0a26; animation: j-type 1.2s steps(var(--n)) var(--at, 0s) forwards; }
+@keyframes j-type { to { width: calc(var(--n) * 1ch); } }
+.j-intro-names { position: absolute; left: 0; right: 0; top: 330px; }
+.j-intro-names span { position: absolute; transform: translateX(-50%); font-size: 8px; text-shadow: 1px 1px 0 #0b0a26; }
+.j-appear { opacity: 0; animation: j-appear 0.01s var(--at, 0s) forwards; }
+@keyframes j-appear { to { opacity: 1; } }
+
+/* Fleet select. */
+.j-arrow { position: absolute; top: 118px; font-size: 14px; }
+.j-fleet { margin: 0; font-size: 16px; text-shadow: 2px 2px 0 #0b0a26; }
+.j-cards { position: absolute; top: 282px; left: 0; right: 0; display: flex; justify-content: center; gap: 10px; }
+.j-card { width: 48px; height: 46px; padding: 0; background: transparent; border: 0; cursor: pointer; }
+.j-card:focus-visible { outline: 2px solid var(--yellow); }
+.j-big { margin: 0; font-size: 34px; color: #fff; text-shadow: 3px 3px 0 var(--glow, var(--red)), 6px 6px 0 #0b0a26; }
+.j-zoom { animation: j-zoom 0.5s steps(5) both; }
+@keyframes j-zoom { from { transform: scale(3); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Name entry: ten slots, the letter wheel over and under the one being edited. */
+.j-slots { position: absolute; top: 128px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; }
+.j-slot { position: relative; width: 26px; height: 30px; line-height: 30px; font-size: 18px; text-align: center; color: var(--white); border-bottom: 3px solid #3a3f7a; }
+.j-slot.on { color: var(--yellow); border-bottom-color: var(--yellow); }
+.j-slot.blinky { animation: blink 0.8s steps(2, start) infinite; }
+.j-wheel { position: absolute; left: 0; right: 0; font-size: 10px; line-height: 1; color: #5d63a8; }
+.j-wheel.up { top: -16px; }
+.j-wheel.down { top: 40px; }
+.j-shake { animation: j-shake 0.3s steps(6); }
+@keyframes j-shake { 25% { transform: translateX(-4px); } 50% { transform: translateX(4px); } 75% { transform: translateX(-2px); } }
+
+/* Hero builder: the rows on the right, the hero on its pedestal on the left (canvas). */
+.j-rows { position: absolute; left: 300px; top: 64px; width: 316px; display: grid; gap: 6px; }
+.j-row {
+  display: grid; grid-template-columns: 14px 64px 1fr; align-items: center; gap: 6px; height: 30px; padding: 0 8px;
+  font: inherit; font-size: 8px; text-align: left; color: var(--dim); cursor: pointer;
+  background: rgba(14, 13, 51, 0.85); border: 0; box-shadow: inset 0 0 0 1px #2a2766;
+}
+.j-row.on { box-shadow: inset 0 0 0 2px var(--yellow); color: var(--yellow); }
+.j-row .j-val { display: flex; align-items: center; gap: 8px; font-size: 9px; color: var(--white); }
+.j-row.on .j-val { color: var(--yellow); }
+.j-arr { color: #5d63a8; }
+.j-row.on .j-arr { color: var(--yellow); }
+.j-cur { font-size: 9px; color: var(--yellow); }
+.j-sw { display: inline-block; width: 14px; height: 14px; box-shadow: 0 0 0 1px #0b0a26, 2px 2px 0 #0b0a26; }
+.j-row.j-btn { grid-template-columns: 14px 1fr; color: var(--white); font-size: 9px; }
+.j-row.j-btn.on { background: var(--yellow); color: #0b0a26; }
+.j-row.j-btn.on .j-cur { color: #0b0a26; }
+
+/* The menu nudges toward linking GitHub; the Hall of Heroes shows heroes. */
+.menu button.nudge .menu-label::before { content: '● '; color: var(--red); animation: blink 0.8s steps(2, start) infinite; }
+.hero-cell { display: inline-flex; align-items: center; gap: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .j-slot.blinky, .menu button.nudge .menu-label::before, .j-zoom, .j-shake { animation: none; }
+  .j-type { animation-duration: 0.01s; }
 }
