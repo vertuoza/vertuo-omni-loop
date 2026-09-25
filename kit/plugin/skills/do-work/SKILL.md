@@ -24,8 +24,14 @@ Given only a PRD, this is not your job: follow `/omni:yolo` (or `/omni:wave`) in
 ## Step 0
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the repository
-is not terraformed. Keep the JSON; later steps read `repo.remote`, `branches.*`, `paths.*`,
+is not installed. Keep the JSON; later steps read `repo.remote`, `branches.*`, `paths.*`,
 `commands.*`, `acceptance.*` and `laws.source` from it.
+
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
+rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
+playbook, section by section: a section the repository left blank prints the kit default, and a
+`[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
+never overrides this skill's rules.
 
 ## 1. Read before you build
 
@@ -36,8 +42,9 @@ is not terraformed. Keep the JSON; later steps read `repo.remote`, `branches.*`,
 4. Every file in `paths.context`, the glossary at `paths.glossary` when set, and — when
    `laws.source` is `knowledge` — the knowledge folder at `paths.knowledge` (principles, rules,
    invariants; `node .omni-loop/bin/omni.mjs knowledge <id>` explains one).
-5. `.omni-loop/repo.md` when it exists: the repository's architecture rules (layering, data
-   contracts, persistence, UI text, test handles). They bind this slice as if written here.
+5. `omni kb show architecture`, `omni kb show conventions` and `omni kb show setup`: where code
+   may go and what may depend on what; naming, formatting and the shape of a commit; how to
+   install and run the repository. They bind this slice as if written here.
 
 The slice branch is `branches.slice` filled with the feature branch's topic and the slice id.
 Never work on the default branch or on the feature branch.
@@ -55,9 +62,10 @@ building, commit and push work in progress at least every half of
 
 ## 2. Build
 
-- **Test-first:** name the testable "done" condition, write the failing test, watch it fail
-  (red), make it pass (green), then refactor with the tests green. Characterization tests first
-  before a risky refactor.
+- **Test-first:** read `omni kb show testing` first (the commands, where tests live, which level
+  to choose, what a test must never do). Then name the testable "done" condition, write the
+  failing test, watch it fail (red), make it pass (green), then refactor with the tests green.
+  Characterization tests first before a risky refactor.
 - **Tracer bullets, not layer piles.** Prove the smallest vertical path, then widen.
 - **Territory only.** A change outside the row's territory is a decision (below), not a fix you
   just make.
@@ -146,6 +154,10 @@ Nothing risky, no file. **This run never stops you:** a change you cannot honest
 left unaccounted and named in your risks — never invent an account to quiet the guard.
 
 ## 5. Ship
+
+Read `omni kb show verification`, `omni kb show pull-requests` and
+`omni kb show definition-of-done` first: what must be green before a push, what a pull request
+carries here, and what done means. What they ask of a push or a hand-off is part of this step.
 
 1. **Preflight:** `commands.preflightFull`, or `commands.preflight` when it is null. Fix until
    green. Neither set: say so, and name it in the hand-off.
