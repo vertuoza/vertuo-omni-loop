@@ -45,7 +45,9 @@ None of these is taken by the code; a person does each once.
 1. **Register and install the app.** An org admin registers the app from [`app.yml`](app.yml) (private
    to vertuoza) and installs it on `vertuoza/vertuo-omni-loop`. Check that the manifest's host matches
    the Vercel project's production domain (step 2) before registering; the webhook URL can also be
-   corrected later in the app's settings. Keep the app's private key; it is shown once.
+   corrected later in the app's settings. Keep the app's private key; it is shown once. In the app's
+   settings, upload [`assets/logo.png`](assets/logo.png) as the logo (OmniMan landing on a planet,
+   drawn from `@omni/sprites`) and set the badge background colour to `#07061c`.
 2. **Create the Vercel project** for `apps/omni-app` (root directory `apps/omni-app`, its own project,
    separate from the galaxy) and set these environment variables:
    - `GITHUB_APP_ID`
