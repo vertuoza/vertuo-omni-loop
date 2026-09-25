@@ -1,19 +1,28 @@
-/* The recruit group: the fleet select, the name entry and the hero builder. */
+/* The recruit group: the fleet select, the name entry and the hero builder. Each part is placed for
+   the wide grid (640×360) first, then for the tall one (320×288, `.grid-tall` on the screen), where
+   the smallest type is 8px in the pixel face and 15px in the text face. */
 
 .j-left { position: absolute; margin: 0; text-align: left; }
 .j-warn { color: var(--red); }
 
-/* Fleet select. */
+/* Fleet select. The cards are laid over the canvas's row (cardRow() in recruit.ts). */
+.r-select-none { top: 150px; }
+.r-select-head { top: 16px; }
+.r-select-info { top: 212px; }
 .j-arrow { position: absolute; top: 118px; font-size: 14px; }
+.r-arrow-left { left: 212px; }
+.r-arrow-right { right: 212px; }
 .j-fleet { margin: 0; font-size: 16px; text-shadow: 2px 2px 0 #0b0a26; }
-.j-cards { position: absolute; top: 282px; left: 0; right: 0; display: flex; justify-content: center; gap: 10px; }
-.j-card { width: 48px; height: 46px; padding: 0; background: transparent; border: 0; cursor: pointer; }
+.j-card { position: absolute; padding: 0; background: transparent; border: 0; cursor: pointer; }
 .j-card:focus-visible { outline: 2px solid var(--yellow); }
+.r-locked { top: 140px; }
 .j-big { margin: 0; font-size: 34px; color: #fff; text-shadow: 3px 3px 0 var(--glow, var(--red)), 6px 6px 0 #0b0a26; }
 .j-zoom { animation: j-zoom 0.5s steps(5) both; }
 @keyframes j-zoom { from { transform: scale(3); opacity: 0; } to { transform: none; opacity: 1; } }
+.r-confirm { left: 104px; right: 104px; top: 110px; }
 
 /* Name entry: ten slots, the letter wheel over and under the one being edited. */
+.r-name-head { top: 18px; }
 .j-slots { position: absolute; top: 128px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; }
 .j-slot { position: relative; width: 26px; height: 30px; line-height: 30px; font-size: 18px; text-align: center; color: var(--white); border-bottom: 3px solid #3a3f7a; }
 .j-slot.on { color: var(--yellow); border-bottom-color: var(--yellow); }
@@ -23,8 +32,11 @@
 .j-wheel.down { top: 40px; }
 .j-shake { animation: j-shake 0.3s steps(6); }
 @keyframes j-shake { 25% { transform: translateX(-4px); } 50% { transform: translateX(4px); } 75% { transform: translateX(-2px); } }
+.r-name-note { top: 198px; }
 
 /* Hero builder: the rows on the right, the hero on its pedestal on the left (canvas). */
+.r-hero-head { left: 300px; top: 18px; }
+.r-hero-name { position: absolute; left: 24px; top: 22px; }
 .j-rows { position: absolute; left: 300px; top: 64px; width: 316px; display: grid; gap: 6px; }
 .j-row {
   display: grid; grid-template-columns: 14px 64px 1fr; align-items: center; gap: 6px; height: 30px; padding: 0 8px;
@@ -41,6 +53,48 @@
 .j-row.j-btn { grid-template-columns: 14px 1fr; color: var(--white); font-size: 9px; }
 .j-row.j-btn.on { background: var(--yellow); color: #0b0a26; }
 .j-row.j-btn.on .j-cur { color: #0b0a26; }
+.r-hero-error { left: 300px; top: 318px; }
+
+/* ── The tall grid ────────────────────────────────────────────────────────────────────────────── */
+
+/* The key hints: one space between two, wrapped between hints (never inside one) into balanced lines. */
+.grid-tall .r-hint { bottom: 6px; padding: 0 4px; line-height: 17px; text-wrap: balance; }
+.grid-tall .r-hint > * { margin: 0 4px; white-space: nowrap; }
+
+/* Fleet select: the title, the mascot at 3× in its spotlight between the arrows, then the fleet's
+   name, motto and crew, the cards (six at most, following the cursor) and the hints. */
+.grid-tall .r-select-none { top: 130px; }
+.grid-tall .r-select-head { top: 6px; gap: 4px; padding: 0 10px; }
+.grid-tall .r-select-head .j-sub { line-height: 11px; letter-spacing: 1px; }
+.grid-tall .j-arrow { top: 70px; }
+.grid-tall .r-arrow-left { left: 86px; }
+.grid-tall .r-arrow-right { right: 86px; }
+.grid-tall .r-select-info { top: 134px; gap: 4px; padding: 0 10px; }
+.grid-tall .r-select-info .j-txt { max-width: 300px; }
+.grid-tall .r-select-info .j-tiny { line-height: 15px; }
+.grid-tall .r-locked { top: 66px; padding: 0 6px; }
+.grid-tall .j-big { font-size: 24px; text-shadow: 2px 2px 0 var(--glow, var(--red)), 4px 4px 0 #0b0a26; }
+.grid-tall .r-confirm { left: 10px; right: 10px; top: 56px; padding: 12px; }
+
+/* Name entry: the ten slots across the grid, the error under them, the mascot bottom left with its
+   badge and the note beside it. */
+.grid-tall .r-name-head { top: 6px; gap: 8px; }
+.grid-tall .j-slots { top: 72px; gap: 4px; }
+.grid-tall .j-slot { width: 24px; }
+.grid-tall .r-name-error { top: 132px; padding: 0 10px; }
+.grid-tall .r-name-note { top: 176px; left: 88px; right: 8px; gap: 6px; justify-items: start; text-align: left; }
+.grid-tall .r-badge { position: static; font-size: 8px; }
+
+/* Hero builder: the title across the top, the player's name and the hero at 2× in the left column,
+   the rows beside them, the error under the rows. */
+.grid-tall .r-hero-head { left: 0; right: 0; top: 6px; text-align: center; }
+.grid-tall .r-hero-name { left: 6px; top: 34px; }
+.grid-tall .j-rows { left: 88px; top: 30px; width: 226px; gap: 4px; }
+.grid-tall .j-row { grid-template-columns: 10px 40px 1fr; gap: 4px; height: 22px; padding: 0 5px; }
+.grid-tall .j-row .j-val { gap: 5px; }
+.grid-tall .j-row.j-btn { grid-template-columns: 10px 1fr; }
+.grid-tall .j-sw { width: 12px; height: 12px; }
+.grid-tall .r-hero-error { left: 88px; right: 6px; top: 212px; font-size: 16px; }
 
 @media (prefers-reduced-motion: reduce) {
   .j-slot.blinky, .j-zoom, .j-shake { animation: none; }
