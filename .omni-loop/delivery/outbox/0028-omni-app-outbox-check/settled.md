@@ -498,3 +498,214 @@ One extra comment listing inside publish and a marker match; no stored data depe
 ```
 
 <!-- /omni-outbox-settled: s4-01-publish-trusts-the-planned-comment -->
+
+<!-- omni-outbox-settled: s5-01-check-grades-changed-files -->
+
+## s5-01-check-grades-changed-files — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-check-grades-changed-files
+prd: 28
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+Should the live check also hold a pull request for risky changes nobody explained, or only for open questions and unfinished rework?
+
+## The decision, in plain words
+
+It also holds it for unexplained risky changes: the app hands the pull request's list of changed files to the gate, as the spec's description of the check asks, so the check matches the kit's fullest gate.
+
+## The options, in plain words
+
+A. Pass the changed files, so unexplained risky changes also turn the check red, as built.
+B. Never pass them: the check looks only at open questions and unfinished rework.
+C. Pass them and widen the copy to the knowledge folder, so every rule can fire.
+
+## What I had to decide
+
+Whether the running check passes the pull request's changed files to the gate.
+
+## What I did meanwhile
+
+The evaluate step reads the compare endpoint (base...head, paginated, at most 3,000 files) and maps GitHub's file statuses to the one-letter shape the kit reads; evaluate hands them to gateResult. On a repository without config, nothing is compared.
+
+## What it costs to change later
+
+One argument in the evaluate step: pass null instead of the list. No stored data depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the spec's conclusion table (open items and drift only) or its unit description (changed files from the compare endpoint) is the intent; the two disagree.
+- (author) With laws.source set to knowledge, the law-proof rule reads the knowledge folder, which the snapshot does not hold, so that one rule never fires from the app.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-check-grades-changed-files -->
+
+<!-- omni-outbox-settled: s5-02-test-stub-ships-with-app -->
+
+## s5-02-test-stub-ships-with-app — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-test-stub-ships-with-app
+prd: 28
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+Where should the pretend GitHub used by the app's tests live?
+
+## The decision, in plain words
+
+Beside the code it tests, in the app's own folder, since the slice may only touch that folder. It is never loaded by the running app.
+
+## The options, in plain words
+
+A. Keep it beside the tests in the app's source folder, as built.
+B. Move it under the app's test folder with the fixtures.
+
+## What I had to decide
+
+Where the stubbed GitHub used by the outbox-check and end-to-end tests lives.
+
+## What I did meanwhile
+
+It is apps/omni-app/src/outbox-check/fake-github.mjs, imported only by tests; the test fixtures folder belongs to another slice's territory. The Inngest route uses the SDK's web-standard adapter on Vercel's Node runtime, and vercel.json only raises the functions' time limit to 60s.
+
+## What it costs to change later
+
+Moving one file and two imports.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the repository prefers test support under test/ once territories no longer apply.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-test-stub-ships-with-app -->
+
+<!-- omni-outbox-settled: s5-03-check-name-and-failure-lookup -->
+
+## s5-03-check-name-and-failure-lookup — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-check-name-and-failure-lookup
+prd: 28
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+When something goes wrong before the check can be finished, how does the app find the check it started, and what name does a new check carry?
+
+## The decision, in plain words
+
+The check takes its name from the main branch's settings, and pressing Re-run starts a fresh check. If a run fails, the app marks every unfinished check of that name on the same commit as failed, or posts one already failed when it never got to start one.
+
+## The options, in plain words
+
+A. Name from base config, find open checks by name on failure, fresh check on Re-run, as built.
+B. Always use the default name, so no read is needed before the check appears.
+C. Store the check's id outside the run so the failure handler completes exactly that one.
+
+## What I had to decide
+
+How the failure handler finds the check run to complete, and where the check's name comes from at creation.
+
+## What I did meanwhile
+
+Step in-progress reads the pull request and snapshots the base config to name the check by ci.outboxContext (the kit default when absent or broken). The failure handler cannot see the run's step results, so it lists check runs by name on the head SHA, completes every one not yet completed as failure, and creates a completed failure when there is none; if GitHub cannot be read it falls back to the default name. Runs are debounced 5s per repo and PR (at most 1m), retried 3 times, and a snapshot over its bound is not retried.
+
+## What it costs to change later
+
+Constants and one helper inside the app's outbox-check folder; nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether another app posting a check of the same name on the same commit is a real case; the handler skips any run GitHub refuses to let it write.
+- (author) Whether the Inngest debounce key expression is accepted as written by the hosted service; the SDK test engine does not evaluate it.
+
+```
+
+<!-- /omni-outbox-settled: s5-03-check-name-and-failure-lookup -->
