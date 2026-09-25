@@ -164,9 +164,22 @@ function derive(prd, events, { sectorOf, now }) {
   };
 }
 
+// A fleet's look, with plain defaults for a fleet that has none (a new row, or an old config).
+export function lookOf(name, fleet = {}) {
+  return {
+    home: fleet.home ?? null,
+    label: fleet.label ?? name.toUpperCase().slice(0, 12),
+    color: fleet.color ?? '#cfd4e6',
+    motto: fleet.motto ?? '',
+    mascot: fleet.mascot ?? null,
+    sort: fleet.sort ?? 0,
+    retired: Boolean(fleet.retired),
+  };
+}
+
 /**
  * @param events ledger events (any order)
- * @param o { projects: { sectors: {name: {repos}}, teams: {name: {home}} }, now: Date, source: string }
+ * @param o { projects: { sectors: {name: {repos}}, teams: {name: {home, label, color, motto, mascot, sort, retired}} }, now: Date, source: string }
  */
 export function buildGalaxy(events, { projects, now = new Date(), source = 'ledger' }) {
   const sorted = [...events].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id));
@@ -193,10 +206,11 @@ export function buildGalaxy(events, { projects, now = new Date(), source = 'ledg
   for (const e of sorted) if (e.contributor && e.team) loginTeam.set(e.contributor, e.team);
 
   const rank = (entries) => entries.sort((a, b) => b.points - a.points || a.name.localeCompare(b.name)).map((x, i) => ({ ...x, rank: i + 1 }));
-  const teams = rank(Object.entries(projects.teams).map(([name, { home }]) => {
+  // A retired fleet stays in the view only while this season still remembers it.
+  const teams = rank(Object.entries(projects.teams).map(([name, fleet]) => {
     const owned = planets.filter((p) => p.ownerTeam === name);
     return {
-      name, home, points: Math.round(season_.teams[name] ?? 0),
+      name, ...lookOf(name, fleet), points: Math.round(season_.teams[name] ?? 0),
       planets: owned.length,
       terraformed: owned.filter((p) => p.state === 'terraformed' || p.state === 'aftershock').length,
       inDistress: owned.filter((p) => p.state === 'distress').length,
@@ -204,7 +218,7 @@ export function buildGalaxy(events, { projects, now = new Date(), source = 'ledg
       streak: season_.streaks[name] ?? 0,
       members: [...loginTeam.entries()].filter(([, t]) => t === name).map(([l]) => l).sort(),
     };
-  }));
+  }).filter((t) => !t.retired || t.points || t.planets || t.members.length));
   const heroes = rank(Object.entries(season_.individuals).map(([name, points]) => ({ name, team: loginTeam.get(name) ?? null, points: Math.round(points) })));
 
   return {
@@ -212,7 +226,7 @@ export function buildGalaxy(events, { projects, now = new Date(), source = 'ledg
     season,
     source,
     sectors: Object.entries(projects.sectors).map(([name, { repos }]) => ({
-      name, repos, fleets: Object.entries(projects.teams).filter(([, t]) => t.home === name).map(([t]) => t),
+      name, repos, fleets: Object.entries(projects.teams).filter(([, t]) => t.home === name && !t.retired).map(([t]) => t),
     })),
     teams,
     heroes,

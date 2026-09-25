@@ -339,7 +339,7 @@ export function FleetsOverlay({ view, index, onPick }: { view: GalaxyView; index
         <section className="fleet-detail" style={{ ['--fleet' as string]: look.color }}>
           <p className="fleet-motto">{look.motto}</p>
           <dl>
-            <dt>HOME</dt><dd>{t.home.toUpperCase()}</dd>
+            <dt>HOME</dt><dd>{t.home ? t.home.toUpperCase() : 'NONE YET'}</dd>
             <dt>PLANETS</dt><dd>{t.planets} OWNED · {t.terraformed} DONE</dd>
             <dt>STREAK</dt><dd>{t.streak}</dd>
             <dt>DISTRESS</dt><dd className={t.inDistress ? 'warn' : ''}>{t.inDistress}</dd>
