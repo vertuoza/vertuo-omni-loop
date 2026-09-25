@@ -14,6 +14,12 @@ const PRD = 985;
 const DIR = `.omni-loop/delivery/inbox/0985-widgets`;
 const OUTBOX = `.omni-loop/delivery/outbox/0985-widgets`;
 
+// A second PRD, used only to prove `omni rework close` never reaches another PRD's ledger even
+// when it holds a settled entry with the exact same id (item ids are unique only within one PRD).
+const OTHER_PRD = 42;
+const OTHER_DIR = `.omni-loop/delivery/inbox/0042-widgets`;
+const OTHER_OUTBOX = `.omni-loop/delivery/outbox/0042-widgets`;
+
 const PLAN = [
   '# Plan: widgets',
   '',
@@ -77,13 +83,24 @@ async function settle(root, file, answer, extra = {}) {
 
 /** A repo with one PRD, its plan, and one drifted + one agreed settled entry. */
 async function driftedRepo() {
-  const { root, read } = makeRepo({
+  const { root, read, write } = makeRepo({
     git: true,
     files: { ...baseFiles(), [`${OUTBOX}/s1-01-default-country.md`]: ITEM_TEXT, [`${OUTBOX}/s1-02-civility-label.md`]: AGREED_ITEM_TEXT },
   });
   expect(await settle(root, `${OUTBOX}/s1-01-default-country.md`, "No — use the contact's own country instead.")).toBe(0);
   expect(await settle(root, `${OUTBOX}/s1-02-civility-label.md`, 'Yes, keep it as is.')).toBe(0);
-  return { root, read };
+  return { root, read, write };
+}
+
+/** Adds a second PRD to `root`, drifted under the exact same item id as `driftedRepo`'s own PRD
+ * 985 — the collision `--prd` exists to prevent. */
+async function addOtherDriftedPrd(root, write) {
+  write(`${OTHER_DIR}/spec.md`, '# spec\n');
+  write(`${OTHER_DIR}/plan.md`, PLAN);
+  write(`${OTHER_OUTBOX}/s1-01-default-country.md`, ITEM_TEXT.replace(`prd: ${PRD}`, `prd: ${OTHER_PRD}`));
+  expect(
+    await settle(root, `${OTHER_OUTBOX}/s1-01-default-country.md`, "No — use the contact's own country instead."),
+  ).toBe(0);
 }
 
 describe('omni rework plan', () => {
@@ -152,7 +169,7 @@ describe('omni rework close', () => {
     const before = read(`${OUTBOX}/settled.md`);
 
     const s = io();
-    expect(await main(['rework', 'close', 's1-01-default-country', '--pr', '42'], { cwd: root, ...s })).toBe(0);
+    expect(await main(['rework', 'close', 's1-01-default-country', '--prd', String(PRD), '--pr', '42'], { cwd: root, ...s })).toBe(0);
 
     const after = read(`${OUTBOX}/settled.md`);
     expect(after).toMatch(/- Closed: yes — reworked by #42/);
@@ -167,32 +184,67 @@ describe('omni rework close', () => {
     expect(await main(['status', String(PRD)], { cwd: root, ...io() })).toBe(0);
   });
 
+  it('closes only the named PRD\'s ledger when another PRD holds a settled entry with the same id', async () => {
+    const { root, read, write } = await driftedRepo();
+    await addOtherDriftedPrd(root, write);
+    const otherBefore = read(`${OTHER_OUTBOX}/settled.md`);
+
+    const s = io();
+    expect(
+      await main(['rework', 'close', 's1-01-default-country', '--prd', String(PRD), '--pr', '42'], { cwd: root, ...s }),
+    ).toBe(0);
+
+    expect(read(`${OUTBOX}/settled.md`)).toMatch(/- Closed: yes — reworked by #42/);
+    // the other PRD's ledger, holding the exact same id, is untouched byte for byte
+    expect(read(`${OTHER_OUTBOX}/settled.md`)).toBe(otherBefore);
+    expect(await main(['status', String(OTHER_PRD)], { cwd: root, ...io() })).toBe(1);
+  });
+
   it('refuses an id no ledger holds, one line, exit 2', async () => {
     const { root } = await driftedRepo();
     const s = io();
-    expect(await main(['rework', 'close', 'nope-01-x', '--pr', '1'], { cwd: root, ...s })).toBe(2);
+    expect(await main(['rework', 'close', 'nope-01-x', '--prd', String(PRD), '--pr', '1'], { cwd: root, ...s })).toBe(2);
     expect(s.err.join('').split('\n').filter(Boolean)).toHaveLength(1);
+  });
+
+  it('refuses a PRD with no inbox or shipped folder, one line, exit 2', async () => {
+    const { root } = await driftedRepo();
+    const s = io();
+    expect(await main(['rework', 'close', 's1-01-default-country', '--prd', '9', '--pr', '1'], { cwd: root, ...s })).toBe(2);
+    expect(s.err.join('')).toMatch(/PRD 9/);
   });
 
   it('refuses an already-closed id, one line, exit 2', async () => {
     const { root } = await driftedRepo();
-    expect(await main(['rework', 'close', 's1-01-default-country', '--pr', '42'], { cwd: root, ...io() })).toBe(0);
+    expect(
+      await main(['rework', 'close', 's1-01-default-country', '--prd', String(PRD), '--pr', '42'], { cwd: root, ...io() }),
+    ).toBe(0);
 
     const s = io();
-    expect(await main(['rework', 'close', 's1-01-default-country', '--pr', '43'], { cwd: root, ...s })).toBe(2);
+    expect(
+      await main(['rework', 'close', 's1-01-default-country', '--prd', String(PRD), '--pr', '43'], { cwd: root, ...s }),
+    ).toBe(2);
     expect(s.err.join('')).toMatch(/already closed/);
   });
 
   it('refuses an agreed (non-drifted) id, one line, exit 2', async () => {
     const { root } = await driftedRepo();
     const s = io();
-    expect(await main(['rework', 'close', 's1-02-civility-label', '--pr', '1'], { cwd: root, ...s })).toBe(2);
+    expect(
+      await main(['rework', 'close', 's1-02-civility-label', '--prd', String(PRD), '--pr', '1'], { cwd: root, ...s }),
+    ).toBe(2);
     expect(s.err.join('')).toMatch(/only a drifted item is ever reworked/);
   });
 
   it('requires --pr, exit 2', async () => {
     const { root } = await driftedRepo();
     const s = io();
-    expect(await main(['rework', 'close', 's1-01-default-country'], { cwd: root, ...s })).toBe(2);
+    expect(await main(['rework', 'close', 's1-01-default-country', '--prd', String(PRD)], { cwd: root, ...s })).toBe(2);
+  });
+
+  it('requires --prd, exit 2', async () => {
+    const { root } = await driftedRepo();
+    const s = io();
+    expect(await main(['rework', 'close', 's1-01-default-country', '--pr', '42'], { cwd: root, ...s })).toBe(2);
   });
 });

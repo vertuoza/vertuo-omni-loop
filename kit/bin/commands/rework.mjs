@@ -1,19 +1,18 @@
-// `omni rework plan <prd> [--json]` and `omni rework close <id> --pr <n>` — the CLI half of
-// `/omni-yolo-fix`: deriving what a drifted PRD needs reworked, then recording that a sub-PR closed
-// one of those drifts. Both commands are thin over `kit/lib/policy/rework.mjs`, which is the whole
-// derivation and the whole amendment; nothing here decides anything the library does not already
-// decide.
+// `omni rework plan <prd> [--json]` and `omni rework close <id> --prd <n> --pr <n>` — the CLI half
+// of `/omni:yolo-fix`: deriving what a drifted PRD needs reworked, then recording that a sub-PR
+// closed one of those drifts. Both commands are thin over `kit/lib/policy/rework.mjs`, which is the
+// whole derivation and the whole amendment; nothing here decides anything the library does not
+// already decide.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fillBranch } from '../../lib/board.mjs';
 import { parseFolderName } from '../../lib/layout.mjs';
-import { parseSettledEntries } from '../../lib/outbox/settle.mjs';
 import { closeDriftedEntry, planRework } from '../../lib/policy/rework.mjs';
 import { parseArgs, positiveInt, println, usageError } from '../args.mjs';
 
-const USAGE = 'usage: omni rework plan <prd> [--json] | omni rework close <id> --pr <n>';
+const USAGE = 'usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>';
 const PLAN_USAGE = 'usage: omni rework plan <prd> [--json]';
-const CLOSE_USAGE = 'usage: omni rework close <id> --pr <n>';
+const CLOSE_USAGE = 'usage: omni rework close <id> --prd <n> --pr <n>';
 
 /** `path`'s text, or `''` when it does not exist yet — a PRD not yet drifted has no `settled.md`. */
 function readIfExists(ctx, path) {
@@ -85,45 +84,35 @@ async function runPlan(args, { ctx, stdout }) {
   return 0;
 }
 
-/** Every outbox directory (open or shipped) that carries a settled entry with this id — searched
- * across every PRD, because the id alone (`<slice>-<nn>-<slug>`) names no PRD, and `omni rework
- * close` takes no `--prd` of its own. On a repository where two PRDs happened to raise the same
- * slice id, the first one `outboxDirs()` lists wins; raised as an item rather than guessed around,
- * since a person could reasonably want `--prd` required instead. */
-function findLedgerFor(id, { ctx }) {
-  for (const entry of ctx.layout.outboxDirs()) {
-    const settledFile = `${entry.dir}/settled.md`;
-    const text = readIfExists(ctx, settledFile);
-    if (!text) continue;
-    const found = parseSettledEntries(text, ctx.markers).some((candidate) => candidate.id === id);
-    if (found) return { settledFile, text };
-  }
-  return null;
-}
-
 async function runClose(args, { ctx, stdout }) {
-  const { positional, flags } = parseArgs('rework close', args, { values: ['pr'] });
-  if (positional.length !== 1 || flags.pr === undefined) throw usageError(CLOSE_USAGE);
+  const { positional, flags } = parseArgs('rework close', args, { values: ['pr', 'prd'] });
+  if (positional.length !== 1 || flags.pr === undefined || flags.prd === undefined) {
+    throw usageError(CLOSE_USAGE);
+  }
   const id = positional[0];
+  const prd = positiveInt('rework close', '--prd', flags.prd);
   const pr = positiveInt('rework close', '--pr', flags.pr);
   const pullRequest = `#${pr}`;
 
-  const ledger = findLedgerFor(id, { ctx });
-  if (!ledger) {
-    throw usageError(`omni rework close: ${id}: no PRD's settled ledger holds an entry with that id.`);
-  }
+  // Item ids are unique only within one PRD (`<slice>-<nn>-<slug>`, and slice numbering restarts
+  // per PRD) — `--prd` is required so this only ever reads and amends ITS OWN PRD's ledger, never
+  // another PRD's, however similar an id might look.
+  const outboxDir = ctx.layout.outboxDir(prd);
+  if (outboxDir === null) throw usageError(`omni rework close: PRD ${prd} has no inbox or shipped folder.`);
+  const settledFile = `${outboxDir}/settled.md`;
+  const text = readIfExists(ctx, settledFile);
 
   let closedText;
   try {
-    closedText = closeDriftedEntry(ledger.text, { id, pullRequest, markers: ctx.markers });
+    closedText = closeDriftedEntry(text, { id, pullRequest, markers: ctx.markers });
   } catch (error) {
     throw usageError(error.message.split('\n')[0]);
   }
 
-  writeFileSync(join(ctx.root, ledger.settledFile), closedText);
+  writeFileSync(join(ctx.root, settledFile), closedText);
   println(
     stdout,
-    `omni rework close — ${id} closed by ${pullRequest}; ${ledger.settledFile} amended. Commit the amendment.`,
+    `omni rework close — PRD ${prd}: ${id} closed by ${pullRequest}; ${settledFile} amended. Commit the amendment.`,
   );
   return 0;
 }
