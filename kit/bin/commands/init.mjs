@@ -1,6 +1,6 @@
 // `omni init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]` — installs the
-// loop on the repository it runs in: writes `.omni-loop/config.yml` and copies the running bundle to
-// `.omni-loop/bin/omni.mjs`. The one command that runs before a config exists, so `main()` hands it
+// loop on the repository it runs in: writes `.omni-loop/config.yml`, copies the running bundle to
+// `.omni-loop/bin/omni.mjs` and creates the loop labels the repository lacks. The one command that runs before a config exists, so `main()` hands it
 // no context. It writes nothing outside `.omni-loop/`.
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
@@ -10,6 +10,7 @@ import { CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig } from '../../li
 import { installCommand, kitHome, runningBundle } from '../../lib/init/bundle.mjs';
 import { renderConfig } from '../../lib/init/config-text.mjs';
 import { COMMAND_KEYS, detectCommands, detectLawsSource } from '../../lib/init/detect.mjs';
+import { reconcileLabels } from '../../lib/init/labels.mjs';
 import { findRoot, readRepo } from '../../lib/init/repo.mjs';
 
 export const BIN_FILE = join(dirname(CONFIG_FILE), 'bin', 'omni.mjs');
@@ -59,7 +60,7 @@ export const init = {
 
     // Everything that can refuse runs before anything is written.
     const keepConfig = !force && existsSync(configPath);
-    if (keepConfig) parseConfig(readFileSync(configPath, 'utf8'), CONFIG_FILE);
+    let config = keepConfig ? parseConfig(readFileSync(configPath, 'utf8'), CONFIG_FILE) : null;
     const copyBin = force || !existsSync(binPath);
     if (copyBin && !bundle) {
       throw usageError(
@@ -72,7 +73,9 @@ export const init = {
       const commands = await resolveCommands(root, flags, { interactive, ask });
       const repo = readRepo(root, { exec, remote: defaults.repo.remote });
       const lawsSource = detectLawsSource(root, { knowledge: defaults.paths.knowledge, heading: defaults.laws.claudeMdHeading });
-      const { text } = renderConfig({ ...repo, commands, lawsSource });
+      const rendered = renderConfig({ ...repo, commands, lawsSource });
+      config = rendered.config;
+      const { text } = rendered;
       mkdirSync(dirname(configPath), { recursive: true });
       writeFileSync(configPath, text);
     }
@@ -84,6 +87,17 @@ export const init = {
 
     println(stdout, `  ${keepConfig ? 'kept ' : 'wrote'}   ${CONFIG_FILE}${keepConfig ? '    (pass --force to overwrite)' : ''}`);
     println(stdout, `  ${copyBin ? 'wrote' : 'kept '}   ${BIN_FILE}${copyBin ? '' : '  (pass --force to overwrite)'}`);
+
+    // Last: the files are the install, the labels a convenience — a label gh cannot make is a human step.
+    const labels = reconcileLabels(root, { exec, labels: config.labels });
+    const done = [];
+    if (labels.created.length) done.push(`created ${labels.created.join(', ')}`);
+    if (labels.present.length) {
+      const present = `already there: ${labels.present.join(', ')}`;
+      done.push(labels.created.length ? `   (${present})` : present);
+    }
+    if (done.length) println(stdout, `  labels  ${done.join('')}`);
+    if (labels.byHand.length) println(stdout, `  labels  gh could not make them — create by hand: ${labels.byHand.join(', ')}`);
     return 0;
   },
 };
