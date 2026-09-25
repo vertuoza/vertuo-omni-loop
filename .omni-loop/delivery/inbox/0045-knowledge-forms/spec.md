@@ -242,9 +242,10 @@ Decided 2026-09-25 by the PRD author, approving the brainstorm page and its six 
     pattern is corrected to do so.
 12. **Orientation pages are later.** A form points at them when they exist.
 
-Added on 2026-09-25, after PRD 39 (`omni init`) merged, without asking the PRD author. Each is an open
-outbox item on the feature pull request, answered there: decision 13 is `s4-01-init-lays-down-the-forms`,
-decision 14 is `s4-02-laws-source-from-register-entries`.
+Added on 2026-09-25, after PRD 39 (`omni init`) merged, without asking the PRD author. Each is a medium
+outbox item, adopted: the feature pull request's outbox comment lists it under "Adopted unless you
+object", where a person can object. Decision 13 is `s4-01-init-lays-down-the-forms`, decision 14 is
+`s4-02-laws-source-from-register-entries`.
 
 13. **The one-line install lays down the forms.** `omni init` runs the forms writer after the config and
     the bin, and its closing steps name `/omni:terraform`. Installing and filling are then two steps: one
