@@ -17,7 +17,7 @@ stay byte-identical and prove the port; each module then gets folder-layout test
 **Tech Stack:** Node ≥ 22 ESM (`.mjs`), `zod` 3, `yaml` 2, `vitest` 2, `esbuild` (bundling only),
 `gh` CLI (called only from `kit/bin`), `git`.
 
-**Spec:** `spec.md`, beside this plan (`.omni-loop/delivery/inbox/0003-omni-loop-kit/`). **PRD:** #3. (§3–§8, §11, §13 phase 1).
+**Spec:** `spec.md`, beside this plan (`.omni-loop/delivery/shipped/0003-omni-loop-kit/`). **PRD:** #3. (§3–§8, §11, §13 phase 1).
 
 ## Global Constraints
 
@@ -92,7 +92,7 @@ touches another slice's `kit/porting/` file.
 
 | id | slice | territory | blocked by | wave |
 | --- | --- | --- | --- | --- |
-| s1 | Config schema and the no-literals guard | `kit/lib/config.mjs` `kit/lib/config.test.mjs` `kit/test/no-literals.test.mjs` `kit/porting/README.md` `vitest.config.mjs` `package.json` `pnpm-lock.yaml` `.omni-loop/delivery/inbox/0003-omni-loop-kit/spec.md` | — | 1 |
+| s1 | Config schema and the no-literals guard | `kit/lib/config.mjs` `kit/lib/config.test.mjs` `kit/test/no-literals.test.mjs` `kit/porting/README.md` `vitest.config.mjs` `package.json` `pnpm-lock.yaml` `.omni-loop/delivery/shipped/0003-omni-loop-kit/spec.md` | — | 1 |
 | s2 | Context, layout, markers, fixtures | `kit/lib/layout.mjs` `kit/lib/layout.test.mjs` `kit/lib/markers.mjs` `kit/lib/markers.test.mjs` `kit/lib/commands.mjs` `kit/lib/context.mjs` `kit/lib/context.test.mjs` `kit/test/fixture.mjs` `kit/test/flat-layout.mjs` | s1 | 2 |
 | s3 | Knowledge registers | `kit/lib/knowledge/` `kit/lib/check-report.mjs` `kit/porting/knowledge--registers.md` `kit/porting/knowledge--check-knowledge.md` `kit/porting/knowledge--describe.md` `kit/porting/check-report.md` | s2 | 3 |
 | s4 | Laws | `kit/lib/laws.mjs` `kit/lib/laws.test.mjs` | s3 | 4 |
@@ -120,7 +120,7 @@ Task N in the body below is slice sN.
 - Create: `kit/test/no-literals.test.mjs`
 - Create: `kit/porting/README.md`
 - Modify: `vitest.config.mjs`, `package.json`
-- Modify: `.omni-loop/delivery/inbox/0003-omni-loop-kit/spec.md` §4 (add `risk:` block)
+- Modify: `.omni-loop/delivery/shipped/0003-omni-loop-kit/spec.md` §4 (add `risk:` block)
 
 **Interfaces:**
 - Produces: `CONFIG_FILE: string`, `CONFIG_VERSION: 1`, `ConfigSchema` (zod), `class ConfigError
@@ -435,7 +435,7 @@ every test deleted. A reviewer reads this beside the diff against upstream.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add vitest.config.mjs package.json pnpm-lock.yaml kit .omni-loop/delivery/inbox/0003-omni-loop-kit/spec.md
+git add vitest.config.mjs package.json pnpm-lock.yaml kit .omni-loop/delivery/shipped/0003-omni-loop-kit/spec.md
 git commit -m "feat(kit): the .omni-loop/config.yml schema and the no-literals guard"
 ```
 

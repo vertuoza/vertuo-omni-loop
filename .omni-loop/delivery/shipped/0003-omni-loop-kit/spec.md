@@ -353,8 +353,8 @@ Nothing else changes: the game still only reads.
 
 This repository is terraformed by hand, before the kit exists, so its own delivery sits where the kit
 will put everyone's: `.omni-loop/config.yml` holds this repository's config, and this PRD's spec, plan
-and before/after page live in `.omni-loop/delivery/inbox/0003-omni-loop-kit/`. Its slices are sub-PRs
+and before/after page live in `.omni-loop/delivery/shipped/0003-omni-loop-kit/`. Its slices are sub-PRs
 into `feat/omni-loop-kit`; a decision an agent takes while building is an outbox item in
-`.omni-loop/delivery/outbox/0003-omni-loop-kit/`. Once phase 1 lands, `node kit/bin/omni.mjs check all`
+`.omni-loop/delivery/shipped/0003-omni-loop-kit/outbox/`. Once phase 1 lands, `node kit/bin/omni.mjs check all`
 must pass on this repository itself. The game's documents under `docs/superpowers/` predate the layout
 and stay where they are until a PRD moves them.
