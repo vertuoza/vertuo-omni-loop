@@ -1,4 +1,5 @@
-/* The planet: its header, its caption and the panel of four tabs. */
+/* The planet: its header, its caption and the panel of four tabs. The rules up to the tall grid's
+   section lay it out on the wide grid (640×360); that section rearranges it on the tall one. */
 
 .bar { display: inline-flex; gap: 2px; vertical-align: middle; }
 .bar i { width: 10px; height: 10px; background: #23205a; box-shadow: inset 0 0 0 1px #3a3f7a; }
@@ -85,6 +86,79 @@
 .log li { font-family: var(--txt); font-size: 16px; line-height: 1; color: var(--white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .log time { color: var(--cyan); margin-right: 4px; }
 .planet .hint { position: absolute; right: 10px; bottom: 10px; margin: 0; }
+
+/* ── The tall grid (320×288) ─────────────────────────────────────────────────
+   The band at the top (--band, TALL_BAND in planet.ts) holds the header and the caption on its left
+   and the planet on its right; the panel runs across the screen under it, and the hint sits at the
+   foot. The smallest type is 8px in the pixel face and 15px in the text face. */
+
+.grid-tall .planet {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  grid-template-rows: var(--band) minmax(0, 1fr) 16px;
+}
+.grid-tall .planet-head {
+  position: static;
+  grid-area: 1 / 1;
+  align-self: start;
+  height: auto;
+  margin: 4px 0 0 8px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: 'prd chip' 'title title';
+  justify-items: start;
+  align-items: center;
+  gap: 3px 6px;
+  background: none;
+}
+.grid-tall .planet-head .dialog-prd { grid-area: prd; font-size: 8px; text-shadow: 1px 1px 0 #0b0a26; }
+.grid-tall .planet-head .chip { grid-area: chip; }
+.grid-tall .planet-head h2 {
+  grid-area: title;
+  font-size: 8px;
+  line-height: 10px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-shadow: 1px 1px 0 #0b0a26;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+.grid-tall .planet-caption {
+  position: static;
+  grid-area: 1 / 1;
+  align-self: end;
+  width: auto;
+  margin: 0 0 4px 8px;
+  line-height: 10px;
+  text-align: left;
+}
+.grid-tall .planet .panel { position: relative; top: auto; right: auto; bottom: auto; width: auto; grid-area: 2 / 1 / 3 / 3; margin: 2px 6px 0; }
+.grid-tall .planet .tabs button { flex: auto; padding: 4px 0 3px; font-size: 8px; }
+.grid-tall .planet .tab-body { padding: 3px 6px; }
+/* Status: one line a row, but CAPTAIN and FLEET share one (planet.tsx pairs them). */
+.grid-tall .planet .stats { grid-template-columns: 80px max-content max-content minmax(0, 1fr); gap: 0 6px; }
+.grid-tall .planet .stats dt { font-size: 8px; letter-spacing: 0; }
+.grid-tall .planet .stats dd { grid-column: 2 / -1; font-size: 15px; }
+.grid-tall .planet .stats dd.before-pair { grid-column: 2; }
+.grid-tall .planet .stats dt.pair { grid-column: 3; }
+.grid-tall .planet .stats dd.pair { grid-column: 4; }
+.grid-tall .planet .bar i { width: 8px; height: 8px; }
+/* Zones: a tile is its icon and its id side by side. */
+.grid-tall .planet .zones { gap: 4px; }
+.grid-tall .planet .wave { grid-template-columns: 56px minmax(0, 1fr); }
+.grid-tall .planet .wave-label { font-size: 8px; }
+.grid-tall .planet .tile { display: flex; align-items: center; gap: 2px; width: auto; padding: 1px 6px 1px 1px; }
+.grid-tall .planet .tile-id { font-size: 15px; }
+.grid-tall .planet .legend { gap: 2px 8px; font-size: 8px; line-height: 10px; }
+/* Entropy: six units and the count of the rest fit the panel. */
+.grid-tall .planet .wounds { gap: 2px; }
+.grid-tall .planet .wound-name, .grid-tall .planet .wound-age { font-size: 8px; line-height: 9px; }
+.grid-tall .planet .wounds .more { font-size: 8px; }
+.grid-tall .planet .log { gap: 3px; }
+.grid-tall .planet .hint { position: static; grid-area: 3 / 1 / 4 / 3; align-self: center; margin: 0; text-align: center; letter-spacing: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .tile-under-fire { animation: none; }
