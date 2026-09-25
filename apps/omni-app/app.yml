@@ -1,15 +1,18 @@
 # The omni-loop GitHub App manifest (PRD 28). An org admin registers the app from this file, private
 # to the vertuoza org, then installs it on each repository that should carry the outbox check.
 #
-# Least privilege: these permissions and events are what the outbox check uses, nothing more.
-# `test/app-yml.test.mjs` fails on any permission or event beyond them. The actions the app acts on
-# (pull_request: opened, synchronize, reopened, ready_for_review, labeled, unlabeled, edited;
-# check_run: rerequested) are filtered in `src/webhook/` — a manifest subscribes to whole events.
+# Least privilege: these permissions and events are what the outbox check and the retro use, nothing
+# more. `test/app-yml.test.mjs` fails on any permission or event beyond them. The retro (PRD 72)
+# widened them once: `contents: write` (was `read`) to write its own `branches.retro` branch,
+# `issues: write` for its retro issues and `actions: read` for failed jobs' logs. The actions the app
+# acts on (pull_request: opened, synchronize, reopened, ready_for_review, labeled, unlabeled, edited,
+# closed; check_run: rerequested) are filtered in `src/webhook/` — a manifest subscribes to whole
+# events.
 #
 # The URLs point at the app's Vercel project; replace the host with the project's production domain
 # before registering if it differs.
 name: omni-loop
-description: Posts the omni-loop outbox check on every pull request.
+description: Posts the omni-loop outbox check on every pull request, and a retro after every feature pull request merges.
 url: https://omni-loop.vercel.app
 public: false
 hook_attributes:
@@ -17,9 +20,11 @@ hook_attributes:
   active: true
 default_permissions:
   checks: write
-  contents: read
+  contents: write
   pull_requests: write
   metadata: read
+  issues: write
+  actions: read
 default_events:
   - pull_request
   - check_run
