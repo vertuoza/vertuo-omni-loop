@@ -2,13 +2,20 @@
   "name": "vertuo-omni-plan",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "vitest run",
     "game:project": "node game/cli/project.mjs",
     "game:score": "node game/cli/score.mjs",
     "game:banner": "node game/cli/banner.mjs",
-    "kit:build": "node kit/build.mjs"
+    "kit:build": "node kit/build.mjs",
+    "galaxy:dev": "pnpm --filter @omni/galaxy-app dev",
+    "galaxy:build": "pnpm --filter @omni/galaxy-app build",
+    "galaxy:artifact": "pnpm --filter @omni/galaxy-app artifact",
+    "galaxy:seed": "pnpm --filter @omni/galaxy-app seed",
+    "galaxy:sync": "pnpm --filter @omni/galaxy-app sync"
   },
   "dependencies": {
     "yaml": "^2.5.0",
