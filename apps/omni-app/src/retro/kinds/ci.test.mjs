@@ -368,7 +368,7 @@ describe('ci — through the retro function', () => {
     expect(markdown).toContain('— `repeated-red:unit`');
     expect(markdown).toContain('— `flaky:e2e`');
     expect(markdown).toContain('— `failing-test:src/cart/cart.test.ts > cart > adds an item`');
-    expect(markdown).toMatch(/Findings: F\d · Check unit was red again and again; /);
+    expect(markdown).toMatch(/Findings: F\d · Check unit was red again and again(?: · \[#\d+\]\([^)]+\))?; /);
     const doc = JSON.parse(json);
     expect(doc.runs[0].kinds.ci.totals).toEqual({ runs: 13, red: 7, checks: 4, commits: 4, slices: 3 });
   });
