@@ -1,7 +1,8 @@
 // `omni init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]` — installs the
 // loop on the repository it runs in: writes `.omni-loop/config.yml`, copies the running bundle to
 // `.omni-loop/bin/omni.mjs`, creates the loop labels the repository lacks, then prints the closing
-// steps a person still has to take. The one command that runs before a config exists, so `main()`
+// steps a person still has to take, with a heads-up for an older copy of the loop or a formatter
+// that would reject the bin. The one command that runs before a config exists, so `main()`
 // hands it no context. It writes nothing outside `.omni-loop/`.
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
@@ -12,6 +13,7 @@ import { installCommand, kitHome, runningBundle } from '../../lib/init/bundle.mj
 import { renderConfig } from '../../lib/init/config-text.mjs';
 import { COMMAND_KEYS, detectCommands, detectLawsSource } from '../../lib/init/detect.mjs';
 import { reconcileLabels } from '../../lib/init/labels.mjs';
+import { formatterToExclude, legacyLoopWorkflows } from '../../lib/init/notices.mjs';
 import { closingSteps } from '../../lib/init/steps.mjs';
 import { findRoot, readRepo } from '../../lib/init/repo.mjs';
 
@@ -100,6 +102,7 @@ export const init = {
       files: [{ path: CONFIG_FILE, wrote: !keepConfig }, { path: BIN_FILE, wrote: copyBin }],
       labels,
       unfilled: COMMAND_KEYS.filter((key) => config.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] })),
+      notices: { legacyWorkflows: legacyLoopWorkflows(root), formatter: formatterToExclude(root, dirname(CONFIG_FILE)) },
     }));
     return 0;
   },

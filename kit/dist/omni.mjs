@@ -15036,10 +15036,10 @@ function slackLine({
   if (url) lines.push(`<${url}|${linkLabel(url)}>`);
   return lines.join("\n");
 }
-function readPrCommentResult(path, { read = (file) => readFileSync9(file, "utf8") } = {}) {
+function readPrCommentResult(path, { read: read2 = (file) => readFileSync9(file, "utf8") } = {}) {
   if (!path) return null;
   try {
-    const parsed = JSON.parse(read(path));
+    const parsed = JSON.parse(read2(path));
     return parsed && typeof parsed === "object" ? parsed : null;
   } catch {
     return null;
@@ -15207,9 +15207,9 @@ var config = {
 
 // kit/bin/commands/init.mjs
 init_define_OMNI_BUNDLE();
-import { chmodSync, copyFileSync, existsSync as existsSync15, mkdirSync as mkdirSync2, readFileSync as readFileSync11, writeFileSync as writeFileSync4 } from "node:fs";
+import { chmodSync, copyFileSync, existsSync as existsSync16, mkdirSync as mkdirSync2, readFileSync as readFileSync12, writeFileSync as writeFileSync4 } from "node:fs";
 import { createInterface } from "node:readline/promises";
-import { dirname as dirname4, join as join15 } from "node:path";
+import { dirname as dirname4, join as join16 } from "node:path";
 
 // kit/lib/init/bundle.mjs
 init_define_OMNI_BUNDLE();
@@ -15367,6 +15367,64 @@ function reconcileLabels(root, { exec, labels }) {
   return result;
 }
 
+// kit/lib/init/notices.mjs
+init_define_OMNI_BUNDLE();
+import { existsSync as existsSync15, readdirSync as readdirSync7, readFileSync as readFileSync11 } from "node:fs";
+import { join as join15 } from "node:path";
+var WORKFLOWS = join15(".github", "workflows");
+var PRETTIER_CONFIGS = [
+  ".prettierrc",
+  ".prettierrc.json",
+  ".prettierrc.json5",
+  ".prettierrc.yml",
+  ".prettierrc.yaml",
+  ".prettierrc.toml",
+  ".prettierrc.js",
+  ".prettierrc.cjs",
+  ".prettierrc.mjs",
+  "prettier.config.js",
+  "prettier.config.cjs",
+  "prettier.config.mjs",
+  "prettier.config.ts"
+];
+var PRETTIER_IGNORE = ".prettierignore";
+var BIOME_CONFIGS = ["biome.json", "biome.jsonc"];
+function read(root, path) {
+  try {
+    return readFileSync11(join15(root, path), "utf8");
+  } catch {
+    return null;
+  }
+}
+function legacyLoopWorkflows(root) {
+  let names = [];
+  try {
+    names = readdirSync7(join15(root, WORKFLOWS));
+  } catch {
+    return [];
+  }
+  return names.filter((name) => /\.ya?ml$/.test(name)).map((name) => join15(WORKFLOWS, name)).filter((path) => /outbox/i.test(read(root, path) ?? "")).sort();
+}
+function ignores(text2, dir) {
+  return text2.split("\n").map((line) => line.trim()).some((line) => line && !line.startsWith("#") && line.replace(/^\/+/, "").startsWith(dir));
+}
+function formatterToExclude(root, dir) {
+  const pkg = read(root, "package.json");
+  let prettierInPackage = false;
+  try {
+    prettierInPackage = pkg !== null && Object.hasOwn(JSON.parse(pkg), "prettier");
+  } catch {
+    prettierInPackage = false;
+  }
+  if (prettierInPackage || PRETTIER_CONFIGS.some((file) => existsSync15(join15(root, file)))) {
+    const ignore = read(root, PRETTIER_IGNORE);
+    return ignore !== null && ignores(ignore, dir) ? null : { tool: "Prettier", file: PRETTIER_IGNORE };
+  }
+  const biome = BIOME_CONFIGS.find((file) => existsSync15(join15(root, file)));
+  if (biome) return (read(root, biome) ?? "").includes(dir) ? null : { tool: "Biome", file: biome };
+  return null;
+}
+
 // kit/lib/init/steps.mjs
 init_define_OMNI_BUNDLE();
 import { dirname as dirname3 } from "node:path";
@@ -15375,7 +15433,7 @@ var MARKETPLACE = "omni-loop";
 var PLUGIN = "omni";
 var GITHUB = "https://github.com";
 var PLACEHOLDER_SLUG = "<owner>/<repository>";
-function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, files, labels, unfilled }) {
+function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, files, labels, unfilled, notices = {} }) {
   const repo = slug ?? PLACEHOLDER_SLUG;
   const dir = dirname3(files[0].path);
   const lines = [`omni init \u2014 ${slug ?? "this repository"} is set up.`];
@@ -15417,7 +15475,27 @@ function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, fil
   }
   if (done.length) lines.push(`  labels  ${done.join("")}`);
   if (labelsStep) lines.push(`  labels  gh could not create ${labels.byHand.join(", ")} \u2014 see step ${labelsStep} below`);
-  lines.push("", `Commit ${dir}/ and merge it into ${defaultBranch}, then, by hand:`);
+  const headsUp = [];
+  if (notices.legacyWorkflows?.length) {
+    headsUp.push(
+      `An older copy of the loop already runs here (${notices.legacyWorkflows.join(", ")}). Two loops mean`,
+      `  two outbox checks and two label sets: decide which one stays before merging ${dir}/.`
+    );
+  }
+  if (notices.formatter) {
+    headsUp.push(
+      `${notices.formatter.tool} checks this repository: add ${dir}/bin/ to ${notices.formatter.file}, or its`,
+      "  format check rejects the bundled bin."
+    );
+  }
+  if (headsUp.length) {
+    lines.push("", "Heads-up:");
+    for (const line of headsUp) lines.push(line.startsWith("  ") ? `  ${line}` : `  - ${line}`);
+  }
+  lines.push(
+    "",
+    files.some((file) => file.wrote) ? `Commit ${dir}/ and merge it into ${defaultBranch}, then, by hand:` : "Nothing new to commit. By hand, unless already done:"
+  );
   steps.forEach(([first, ...rest], index) => {
     lines.push(`  ${index + 1}. ${first}`, ...rest.map((line) => `  ${line}`));
   });
@@ -15456,7 +15534,7 @@ function readRepo(root, { exec, remote }) {
 }
 
 // kit/bin/commands/init.mjs
-var BIN_FILE = join15(dirname4(CONFIG_FILE), "bin", "omni.mjs");
+var BIN_FILE = join16(dirname4(CONFIG_FILE), "bin", "omni.mjs");
 var FLAGS = { test: "test", preflight: "preflight", preflightFull: "preflight-full" };
 var QUESTIONS = {
   test: "the command that runs the tests",
@@ -15493,11 +15571,11 @@ var init = {
     const force = flags.force === true;
     const root = findRoot(cwd, exec);
     const defaults = ConfigSchema.parse({ kit: CONFIG_VERSION });
-    const configPath = join15(root, CONFIG_FILE);
-    const binPath = join15(root, BIN_FILE);
-    const keepConfig = !force && existsSync15(configPath);
-    let config2 = keepConfig ? parseConfig(readFileSync11(configPath, "utf8"), CONFIG_FILE) : null;
-    const copyBin = force || !existsSync15(binPath);
+    const configPath = join16(root, CONFIG_FILE);
+    const binPath = join16(root, BIN_FILE);
+    const keepConfig = !force && existsSync16(configPath);
+    let config2 = keepConfig ? parseConfig(readFileSync12(configPath, "utf8"), CONFIG_FILE) : null;
+    const copyBin = force || !existsSync16(binPath);
     if (copyBin && !bundle) {
       throw usageError(
         `omni init: this omni runs from the kit source, which is never installed as ${BIN_FILE}; run \`${installCommand(kitHome({ exec }))}\` instead.`
@@ -15528,7 +15606,8 @@ var init = {
       outboxCheck: config2.ci.outboxContext,
       files: [{ path: CONFIG_FILE, wrote: !keepConfig }, { path: BIN_FILE, wrote: copyBin }],
       labels,
-      unfilled: COMMAND_KEYS.filter((key) => config2.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] }))
+      unfilled: COMMAND_KEYS.filter((key) => config2.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] })),
+      notices: { legacyWorkflows: legacyLoopWorkflows(root), formatter: formatterToExclude(root, dirname4(CONFIG_FILE)) }
     }));
     return 0;
   }
@@ -15536,8 +15615,8 @@ var init = {
 
 // kit/bin/commands/item.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync16, mkdirSync as mkdirSync3, readFileSync as readFileSync12, writeFileSync as writeFileSync5 } from "node:fs";
-import { basename as basename4, join as join16 } from "node:path";
+import { existsSync as existsSync17, mkdirSync as mkdirSync3, readFileSync as readFileSync13, writeFileSync as writeFileSync5 } from "node:fs";
+import { basename as basename4, join as join17 } from "node:path";
 
 // kit/lib/policy/outbox-policy.mjs
 init_define_OMNI_BUNDLE();
@@ -15861,9 +15940,9 @@ function spentIds(prd2, { ctx }) {
   const ids = new Set(
     outboxItemFiles({ ctx }).filter((path) => path.startsWith(prefix)).map((path) => basename4(path, ".md"))
   );
-  const settledFile = join16(ctx.root, outboxDir, SETTLED_FILE);
-  if (existsSync16(settledFile)) {
-    for (const entry of parseSettledEntries(readFileSync12(settledFile, "utf8"), ctx.markers)) {
+  const settledFile = join17(ctx.root, outboxDir, SETTLED_FILE);
+  if (existsSync17(settledFile)) {
+    for (const entry of parseSettledEntries(readFileSync13(settledFile, "utf8"), ctx.markers)) {
       ids.add(entry.id);
     }
   }
@@ -16012,8 +16091,8 @@ async function runNew(args, { ctx, stdout, stderr }) {
 }
 function writeItemFile(ctx, outboxDir, id, text2) {
   const file = `${outboxDir}/${id}.md`;
-  mkdirSync3(join16(ctx.root, outboxDir), { recursive: true });
-  writeFileSync5(join16(ctx.root, file), text2);
+  mkdirSync3(join17(ctx.root, outboxDir), { recursive: true });
+  writeFileSync5(join17(ctx.root, file), text2);
   return file;
 }
 var item = {
@@ -16235,8 +16314,8 @@ var phase0 = {
 
 // kit/bin/commands/plan.mjs
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync13 } from "node:fs";
-import { join as join17 } from "node:path";
+import { readFileSync as readFileSync14 } from "node:fs";
+import { join as join18 } from "node:path";
 var USAGE6 = "usage: omni plan check <prd>";
 function duplicateIds(slices) {
   const counts = /* @__PURE__ */ new Map();
@@ -16267,7 +16346,7 @@ function checkPlan(prd2, { ctx }) {
   if (planPath === null) throw usageError(`omni plan check: PRD ${prd2} has no inbox or shipped folder.`);
   let markdown;
   try {
-    markdown = readFileSync13(join17(ctx.root, planPath), "utf8");
+    markdown = readFileSync14(join18(ctx.root, planPath), "utf8");
   } catch (error) {
     if (error?.code === "ENOENT") throw usageError(`omni plan check: no plan at ${planPath}.`);
     throw error;
@@ -16321,13 +16400,13 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/delivery/prd.mjs
 init_define_OMNI_BUNDLE();
-import { readdirSync as readdirSync7 } from "node:fs";
-import { join as join18 } from "node:path";
+import { readdirSync as readdirSync8 } from "node:fs";
+import { join as join19 } from "node:path";
 function whereIs(ctx, prd2) {
   const where = ctx.layout.whereIs(prd2);
   if (!where) return null;
-  const absolute = join18(ctx.root, where.dir);
-  const files = readdirSync7(absolute, { withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => `${where.dir}/${entry.name}`).sort();
+  const absolute = join19(ctx.root, where.dir);
+  const files = readdirSync8(absolute, { withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => `${where.dir}/${entry.name}`).sort();
   const outboxDir = ctx.layout.outboxDir(prd2);
   return {
     prd: Number(prd2),
@@ -16371,8 +16450,8 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/outbox/replies.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync17, readFileSync as readFileSync14, writeFileSync as writeFileSync6 } from "node:fs";
-import { join as join19 } from "node:path";
+import { existsSync as existsSync18, readFileSync as readFileSync15, writeFileSync as writeFileSync6 } from "node:fs";
+import { join as join20 } from "node:path";
 var WRITER_ASSOCIATIONS = /* @__PURE__ */ new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 var NUMBERED_LINE = /^\s*(\d+)\s*:\s*(.+)$/;
 var APPROVE_ALL_LINE = /^\s*approve all\s*$/i;
@@ -16559,11 +16638,11 @@ function appendObjection({ ctx, prd: prd2, adoptedEntry, item: item2, answer, ju
     };
   }
   const settledFile = `${ctx.layout.outboxDir(prd2)}/${SETTLED_FILE}`;
-  const absoluteSettled = join19(ctx.root, settledFile);
-  if (!existsSync17(absoluteSettled)) {
+  const absoluteSettled = join20(ctx.root, settledFile);
+  if (!existsSync18(absoluteSettled)) {
     return { ok: false, errors: [`${settledFile}: no ledger holds the adopted item ${item2.id}.`] };
   }
-  const existing = readFileSync14(absoluteSettled, "utf8");
+  const existing = readFileSync15(absoluteSettled, "utf8");
   const separator = existing.endsWith("\n") ? "\n" : "\n\n";
   const entry = renderSettledEntry({
     item: item2,
@@ -16685,8 +16764,8 @@ Outbox round ${result.round.number} (not posted \u2014 pass --post):
 
 // kit/bin/commands/rework.mjs
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync15, writeFileSync as writeFileSync7 } from "node:fs";
-import { join as join20 } from "node:path";
+import { readFileSync as readFileSync16, writeFileSync as writeFileSync7 } from "node:fs";
+import { join as join21 } from "node:path";
 
 // kit/lib/policy/rework.mjs
 init_define_OMNI_BUNDLE();
@@ -16862,7 +16941,7 @@ var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
   try {
-    return readFileSync15(join20(ctx.root, path), "utf8");
+    return readFileSync16(join21(ctx.root, path), "utf8");
   } catch (error) {
     if (error?.code === "ENOENT") return "";
     throw error;
@@ -16936,7 +17015,7 @@ async function runClose(args, { ctx, stdout }) {
   } catch (error) {
     throw usageError(error.message.split("\n")[0]);
   }
-  writeFileSync7(join20(ctx.root, settledFile), closedText);
+  writeFileSync7(join21(ctx.root, settledFile), closedText);
   println(
     stdout,
     `omni rework close \u2014 PRD ${prd2}: ${id} closed by ${pullRequest}; ${settledFile} amended. Commit the amendment.`
@@ -17001,10 +17080,10 @@ init_define_OMNI_BUNDLE();
 // kit/lib/delivery/ship.mjs
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync5 } from "node:child_process";
-import { existsSync as existsSync18, readFileSync as readFileSync16, writeFileSync as writeFileSync8, mkdirSync as mkdirSync4 } from "node:fs";
-import { basename as basename5, join as join21, dirname as dirname5 } from "node:path";
+import { existsSync as existsSync19, readFileSync as readFileSync17, writeFileSync as writeFileSync8, mkdirSync as mkdirSync4 } from "node:fs";
+import { basename as basename5, join as join22, dirname as dirname5 } from "node:path";
 var REWRITTEN = /\.(md|html|yml|yaml|json)$/;
-function planShip(ctx, prd2, { files, read }) {
+function planShip(ctx, prd2, { files, read: read2 }) {
   const where = ctx.layout.whereIs(prd2);
   if (where?.state !== "inbox") {
     return { ok: false, reasons: [`PRD ${Number(prd2)} is not in the inbox (${where ? where.state : "nowhere"})`] };
@@ -17018,13 +17097,13 @@ function planShip(ctx, prd2, { files, read }) {
   const shipped = `${dirs.shipped}/${where.name}`;
   const outbox = `${dirs.outbox}/${where.name}`;
   const moves = [{ from: where.dir, to: shipped }];
-  const hasOutbox = existsSync18(join21(ctx.root, outbox));
+  const hasOutbox = existsSync19(join22(ctx.root, outbox));
   if (hasOutbox) moves.push({ from: outbox, to: `${shipped}/outbox` });
   const rewrites = [];
   for (const file of files) {
     if (!REWRITTEN.test(file) || basename5(file) === SETTLED_FILE) continue;
-    if (!existsSync18(join21(ctx.root, file))) continue;
-    const before = read(file);
+    if (!existsSync19(join22(ctx.root, file))) continue;
+    const before = read2(file);
     let after = before.split(where.dir).join(shipped);
     if (hasOutbox) after = after.split(outbox).join(`${shipped}/outbox`);
     if (after !== before) rewrites.push({ file, text: after });
@@ -17041,16 +17120,16 @@ function applyShip(ctx, prd2, { exec = execFileSync5 } = {}) {
   const delivery = ctx.config.paths.delivery;
   const dirty = exec("git", ["status", "--porcelain", "--", delivery], { cwd: ctx.root, encoding: "utf8" });
   if (String(dirty ?? "").trim()) throw new DirtyDeliveryError(delivery);
-  const read = (file) => readFileSync16(join21(ctx.root, file), "utf8");
-  const plan2 = planShip(ctx, prd2, { files: trackedFiles(ctx), read });
+  const read2 = (file) => readFileSync17(join22(ctx.root, file), "utf8");
+  const plan2 = planShip(ctx, prd2, { files: trackedFiles(ctx), read: read2 });
   if (!plan2.ok) throw new Error(`Cannot ship PRD ${Number(prd2)}:
 ${plan2.reasons.map((r) => `  - ${r}`).join("\n")}`);
   for (const { from, to } of plan2.moves) {
-    mkdirSync4(dirname5(join21(ctx.root, to)), { recursive: true });
+    mkdirSync4(dirname5(join22(ctx.root, to)), { recursive: true });
     exec("git", ["mv", from, to], { cwd: ctx.root, stdio: "ignore" });
   }
   for (const { file, text: text2 } of plan2.rewrites) {
-    writeFileSync8(join21(ctx.root, movedPath(plan2.moves, file)), text2);
+    writeFileSync8(join22(ctx.root, movedPath(plan2.moves, file)), text2);
   }
   return plan2;
 }
