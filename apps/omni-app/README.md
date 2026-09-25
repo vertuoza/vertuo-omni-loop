@@ -67,10 +67,10 @@ None of these is taken by the code; a person does each once.
    > if the app is uninstalled, its deploy is broken or Inngest is down, nothing can merge. The
    > remedy is to remove the requirement in branch protection — never to fake a status. Inngest's run
    > history shows whether a run was attempted.
-5. **Labels.** Create the missing label `prd` (and the `pr:*` labels) in this repository.
+5. **Labels.** Run `npx github:vertuoza/vertuo-omni-loop init` in the repository: it creates the missing `omni:*` labels.
 
 ## Checking it live
 
 With the app installed on this repository, PRD 28's acceptance criteria 1–6 are re-run by hand on a
-feature PR: red with an open item, green once settled, neutral under `outbox:go`, skipped on a sub-PR,
+feature PR: red with an open item, green once settled, neutral under `omni:outbox-go`, skipped on a sub-PR,
 skipped on a repository without `.omni-loop/config.yml`, re-evaluated by **Re-run**.

@@ -6,7 +6,7 @@ const NOW = new Date('2026-09-25T12:00:00Z').getTime();
 const CONFIG = {
   branches: { feature: 'feat/{topic}', slice: 'feat/{topic}--{slice}' },
   board: { matchBy: 'base' },
-  labels: { sub: 'pr:sub', needsFix: 'pr:needs-fix' },
+  labels: { sub: 'omni:sub', needsFix: 'omni:needs-fix' },
 };
 
 const LIMITS = { claimStaleMinutes: 60 };
@@ -100,7 +100,7 @@ describe('boardFor — states', () => {
           isDraft: true,
           createdAt: '2026-09-25T08:00:00Z',
           headCommitDate: '2026-09-25T08:00:00Z',
-          labels: [{ name: 'pr:needs-fix' }],
+          labels: [{ name: 'omni:needs-fix' }],
         }),
       ],
     );
@@ -108,7 +108,7 @@ describe('boardFor — states', () => {
   });
 
   it('accepts labels as plain strings too', () => {
-    const result = board([slice()], [pr({ labels: ['pr:needs-fix'] })]);
+    const result = board([slice()], [pr({ labels: ['omni:needs-fix'] })]);
     expect(result.slices[0].state).toBe('stuck');
   });
 
@@ -193,7 +193,7 @@ describe('boardFor — matching', () => {
     const config = { ...CONFIG, board: { matchBy: 'label' } };
     const result = boardFor({
       slices: [slice()],
-      prs: [pr({ baseRefName: 'main', labels: [{ name: 'pr:sub' }] })],
+      prs: [pr({ baseRefName: 'main', labels: [{ name: 'omni:sub' }] })],
       now: NOW,
       limits: LIMITS,
       config,

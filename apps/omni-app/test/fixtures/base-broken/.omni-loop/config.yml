@@ -1,4 +1,4 @@
 kit: 1
 labels:
-  outboxGo: outbox:go
+  outboxGo: omni:outbox-go
   shipIt: yes

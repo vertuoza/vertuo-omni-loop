@@ -21,7 +21,7 @@ function snapshot(planetOver = {}) {
       regions: [{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-09-02T08:00:00Z' }],
       featurePr: { repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: null, mergedAt: null, lastActivityAt: '2026-09-23T08:00:00Z' },
       zones: [
-        { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
+        { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
         { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: null },
       ],
       outbox: [{ id: 's1-01-a', repo: 'core-repo', rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: { verdict: 'agreed', at: '2026-09-22T10:00:00Z', by: 'pm', reworkMergedAt: null } }],
@@ -51,8 +51,8 @@ describe('projectEvents', () => {
 
   it('emits a rescue when a claim follows a distress', () => {
     const events = projectEvents(snapshot({ zones: [
-      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
-      { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: { number: 502, author: 'alice', createdAt: '2026-09-23T09:00:00Z', labels: ['pr:sub', 'pr:in-progress'], mergedAt: null, revertedAt: null } },
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
+      { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: { number: 502, author: 'alice', createdAt: '2026-09-23T09:00:00Z', labels: ['omni:sub', 'omni:in-progress'], mergedAt: null, revertedAt: null } },
     ] }), { config, now: NOW });
     expect(events.find((e) => e.type === 'RESCUE')).toMatchObject({ id: 'planet:2332:rescue:2026-09-21T12:00:00Z', region: 'core-repo', contributor: 'alice', at: '2026-09-23T09:00:00Z', data: { pr: 502, zone: 's2' } });
     expect(events.find((e) => e.type === 'DISTRESS')).toMatchObject({ id: 'planet:2332:distress:2026-09-21T12:00:00Z', at: '2026-09-22T11:00:00Z' });
@@ -60,7 +60,7 @@ describe('projectEvents', () => {
 
   it('emits one distress per planet episode, however many zones are idle (F5b)', () => {
     const events = projectEvents(snapshot({ zones: [
-      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
       { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: null },
       { id: 's3', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: null },
     ] }), { config, now: NOW });
@@ -69,15 +69,15 @@ describe('projectEvents', () => {
 
   it('emits no distress when the claim came within 8 working hours', () => {
     const events = projectEvents(snapshot({ zones: [
-      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
-      { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: { number: 502, author: 'alice', createdAt: '2026-09-21T13:00:00Z', labels: ['pr:sub', 'pr:in-progress'], mergedAt: null, revertedAt: null } },
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
+      { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: { number: 502, author: 'alice', createdAt: '2026-09-21T13:00:00Z', labels: ['omni:sub', 'omni:in-progress'], mergedAt: null, revertedAt: null } },
     ] }), { config, now: NOW });
     expect(events.some((e) => e.type === 'DISTRESS' || e.type === 'RESCUE')).toBe(false);
   });
 
   it('emits ready, terraformed, lost and decommissioned at the right times', () => {
     const merged = { repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: '2026-09-22T08:00:00Z', mergedAt: '2026-09-22T12:00:00Z', lastActivityAt: '2026-09-22T12:00:00Z' };
-    const oneZone = [{ id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } }];
+    const oneZone = [{ id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } }];
     const done = projectEvents(snapshot({ featurePr: merged, zones: oneZone }), { config, now: NOW });
     expect(done.find((e) => e.type === 'PLANET_READY')).toMatchObject({ at: '2026-09-22T08:00:00Z' });
     expect(done.find((e) => e.type === 'PLANET_TERRAFORMED')).toMatchObject({ at: '2026-09-22T12:00:00Z', data: { ownerTeam: 'beaver', class: 1, crossSector: false } });
@@ -96,7 +96,7 @@ describe('projectEvents', () => {
   it('emits a silence loss only while the planet is still silent at now (revival)', () => {
     // s1 claimed 2026-08-03, then nothing for well over 10 working days, then the label on s1's
     // sub-PR comes off on 2026-09-22 (delivery activity): the planet revived, so no PLANET_LOST.
-    const zones = [{ id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-08-03T09:00:00Z', labels: ['pr:sub'], mergedAt: null, revertedAt: null, needsFix: { labeledAt: '2026-08-03T10:00:00Z', unlabeledAt: '2026-09-22T10:00:00Z' } } }];
+    const zones = [{ id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-08-03T09:00:00Z', labels: ['omni:sub'], mergedAt: null, revertedAt: null, needsFix: { labeledAt: '2026-08-03T10:00:00Z', unlabeledAt: '2026-09-22T10:00:00Z' } } }];
     const quiet = { issue: { createdAt: '2026-08-01T08:00:00Z', closedAt: null }, regions: [{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-08-01T08:00:00Z' }], featurePr: { repo: 'core-repo', number: 500, createdAt: '2026-08-03T08:00:00Z', readyAt: null, mergedAt: null, lastActivityAt: '2026-08-03T09:00:00Z' }, outbox: [], zones };
     expect(projectEvents(snapshot(quiet), { config, now: NOW }).some((e) => e.type === 'PLANET_LOST')).toBe(false);
     // Silent again from 2026-09-22 10:00Z: lost ten working days later, not at the old August gap.
@@ -111,7 +111,7 @@ describe('projectEvents', () => {
       issue: { createdAt: '2026-08-01T08:00:00Z', closedAt: '2026-09-10T08:00:00Z' },
       regions: [{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-08-02T08:00:00Z' }],
       featurePr: { repo: 'core-repo', number: 400, createdAt: '2026-08-05T08:00:00Z', readyAt: '2026-09-09T08:00:00Z', mergedAt: '2026-09-10T08:00:00Z', lastActivityAt: '2026-09-10T08:00:00Z' },
-      zones: [{ id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 401, author: 'alice', createdAt: '2026-08-06T08:00:00Z', labels: ['pr:sub'], mergedAt: '2026-08-07T08:00:00Z', revertedAt: null } }],
+      zones: [{ id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 401, author: 'alice', createdAt: '2026-08-06T08:00:00Z', labels: ['omni:sub'], mergedAt: '2026-08-07T08:00:00Z', revertedAt: null } }],
       outbox: [], bugs: [],
     });
     const events = projectEvents(s, { config, now: NOW });
@@ -122,8 +122,8 @@ describe('projectEvents', () => {
   it('gives every event of a rich snapshot a unique id (F1)', () => {
     const s = snapshot({
       zones: [
-        { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null, needsFix: { labeledAt: '2026-09-21T10:00:00Z', unlabeledAt: '2026-09-21T11:00:00Z' } } },
-        { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: { number: 502, author: 'alice', createdAt: '2026-09-21T13:00:00Z', labels: ['pr:sub', 'pr:needs-fix'], mergedAt: null, revertedAt: null, needsFix: { labeledAt: '2026-09-21T14:00:00Z', unlabeledAt: null } } },
+        { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null, needsFix: { labeledAt: '2026-09-21T10:00:00Z', unlabeledAt: '2026-09-21T11:00:00Z' } } },
+        { id: 's2', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: { number: 502, author: 'alice', createdAt: '2026-09-21T13:00:00Z', labels: ['omni:sub', 'omni:needs-fix'], mergedAt: null, revertedAt: null, needsFix: { labeledAt: '2026-09-21T14:00:00Z', unlabeledAt: null } } },
         { id: 's3', repo: 'core-repo', wave: 2, blockedBy: ['s1'], pr: null },
       ],
       outbox: [
@@ -137,7 +137,7 @@ describe('projectEvents', () => {
       issue: { createdAt: '2026-08-01T08:00:00Z', closedAt: '2026-09-10T08:00:00Z' },
       regions: [{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-08-02T08:00:00Z' }],
       featurePr: { repo: 'core-repo', number: 400, createdAt: '2026-08-05T08:00:00Z', readyAt: '2026-09-09T08:00:00Z', mergedAt: '2026-09-10T08:00:00Z', lastActivityAt: '2026-09-10T08:00:00Z' },
-      zones: [{ id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 401, author: 'alice', createdAt: '2026-08-06T08:00:00Z', labels: ['pr:sub'], mergedAt: '2026-08-07T08:00:00Z', revertedAt: null } }],
+      zones: [{ id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 401, author: 'alice', createdAt: '2026-08-06T08:00:00Z', labels: ['omni:sub'], mergedAt: '2026-08-07T08:00:00Z', revertedAt: null } }],
       outbox: [], bugs: [{ repo: 'core-repo', number: 600, createdAt: '2026-09-11T08:00:00Z', closedAt: '2026-09-12T08:00:00Z', closedBy: 'alice', fixedBy: 'alice' }],
     });
     const all = projectEvents(s, { config, now: NOW }).map((e) => e.id);
@@ -162,8 +162,8 @@ describe('projectEvents', () => {
 
   it('names the right sub-PR when two regions share a slice id (F3)', () => {
     const events = projectEvents(snapshot({ zones: [
-      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
-      { id: 's1', repo: 'ai-repo', wave: 1, blockedBy: [], pr: { number: 701, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['pr:sub'], mergedAt: '2026-09-21T13:00:00Z', revertedAt: null } },
+      { id: 's1', repo: 'core-repo', wave: 1, blockedBy: [], pr: { number: 501, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T12:00:00Z', revertedAt: null } },
+      { id: 's1', repo: 'ai-repo', wave: 1, blockedBy: [], pr: { number: 701, author: 'alice', createdAt: '2026-09-21T09:00:00Z', labels: ['omni:sub'], mergedAt: '2026-09-21T13:00:00Z', revertedAt: null } },
     ] }), { config, now: NOW });
     expect(events.find((e) => e.id === 'zone:ai-repo:2332:s1:secured').data.pr).toBe(701);
   });

@@ -264,21 +264,21 @@ describe('formatOutboxComment', () => {
     );
   });
 
-  it('says items were waved through with outbox:go when the label is present and an item is open (PRD #1057 s1)', () => {
+  it('says items were waved through with omni:outbox-go when the label is present and an item is open (PRD #1057 s1)', () => {
     const items = [item({ id: 's7-01-default-country', rank: 'high' })];
-    const body = formatOutboxComment({ ...base, items, labels: ['outbox:go', 'pr:sub'] });
+    const body = formatOutboxComment({ ...base, items, labels: ['omni:outbox-go', 'omni:sub'] });
     expect(body).toMatch(/waved through/i);
-    expect(body).toContain('outbox:go');
+    expect(body).toContain('omni:outbox-go');
   });
 
-  it('says nothing about waving through without the outbox:go label', () => {
+  it('says nothing about waving through without the omni:outbox-go label', () => {
     const items = [item({ id: 's7-01-default-country', rank: 'high' })];
-    const body = formatOutboxComment({ ...base, items, labels: ['pr:sub'] });
+    const body = formatOutboxComment({ ...base, items, labels: ['omni:sub'] });
     expect(body).not.toMatch(/waved through/i);
   });
 
-  it('says nothing about waving through when outbox:go is present but nothing is open', () => {
-    const body = formatOutboxComment({ ...base, items: [], labels: ['outbox:go'] });
+  it('says nothing about waving through when omni:outbox-go is present but nothing is open', () => {
+    const body = formatOutboxComment({ ...base, items: [], labels: ['omni:outbox-go'] });
     expect(body).not.toMatch(/waved through/i);
   });
 
