@@ -165,8 +165,9 @@ today, no sectors are inserted: the real ones come in a later migration.
 - The letter is the first character of `name`, upper-cased, taken without accents. A name that
   does not start with A to Z gets **O**, for Omni.
 - No column holds the letter.
-- The deck emblem and the boot screen both draw whichever letter they are given. Both still read
-  one `{ size, runs, stops, shade }` value, with the boot's row-by-row reveal kept.
+- The boot screen draws whichever letter it is given, from one `{ size, runs, stops, shade }`
+  value, with its row-by-row reveal kept. #94 retires the deck plates and their emblem. Any other
+  place that draws the mark after #94 reads the same value.
 
 **A theme is a set of named colour tokens.** One module (`apps/galaxy/src/arcade/theme.ts`) lists
 every token and its default, which is today's value:
@@ -428,9 +429,10 @@ applies every migration. `auth.users` is untouched.
    game script exits non-zero with a message naming the problem.
 10. **The export is per workspace.** `pnpm game:export <dir> --workspace vertuoza` writes
     `workspace.jsonl` and that workspace's four tables, and nothing of another.
-11. **The mark is the name's first letter.** For a workspace named `Vertuoza`, the deck emblem and
-    the boot screen draw the same V as today, pixel for pixel. For a workspace named `Acme`, they
-    draw an A in the same style. For a name that does not start with A to Z, they draw an O.
+11. **The mark is the name's first letter.** For a workspace named `Vertuoza`, the boot screen
+    (and any other place that draws the mark) draws the same V as today, pixel for pixel. For a
+    workspace named `Acme`, it draws an A in the same style. For a name that does not start with A
+    to Z, it draws an O.
 12. **A theme recolours the arcade.** For a workspace whose theme overrides `plasma` and
     `plasma-dark`, the arcade (the Game Boy's body included) uses those colours. With theme `{}`,
     every colour is today's. The database refuses an unknown token or a colour that is not
