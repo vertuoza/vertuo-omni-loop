@@ -348,3 +348,288 @@ One field on the result in `kit/lib/outbox/status.mjs`.
 ```
 
 <!-- /omni-outbox-settled: s9-01-override-label-on-gate-result -->
+
+<!-- omni-outbox-settled: s13-01-phase-0-docs-kind -->
+
+## s13-01-phase-0-docs-kind — agreed
+
+- Verdict: agreed
+- Approved by: claude-code-session (delegated by pierre-derval)
+- Approved at: 2026-09-25
+- Channel: PRD issue #3
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/issues/3#issuecomment-5828428950
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s13
+- Wave: 8
+
+### The answer, as it was given
+
+```text
+ok — option A, as built (delegated answer; see the comment on #3).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s13-01-phase-0-docs-kind
+prd: 3
+slice: s13
+rank: high
+bears-on: none
+raised: 2026-09-25
+wave: 8
+---
+
+## The question, in plain words
+
+May the documentation-only pull request that opens a feature also edit the knowledge folder and the decision records, or only the feature folder?
+
+## The decision, in plain words
+
+It may: edits to the delivery folder, the knowledge folder, the decision records, the glossary and the context files all count as documentation.
+
+## The options, in plain words
+
+A. Count knowledge, decision records, glossary and context edits as documentation, the option built.
+B. Allow only the feature folder itself, so any knowledge edit needs its own pull request.
+
+## What I had to decide
+
+What `classifyPhase0Path` classes as `docs` versus `source` in a phase-0 pull request.
+
+## What I did meanwhile
+
+Kept upstream's `docs` kind: a path under `paths.delivery`, `layout.knowledgeRoot` or `layout.adrDir`, or equal to `paths.glossary` or one of `paths.context`, is docs; anything else not a PRD-folder or acceptance file is source.
+
+## What it costs to change later
+
+One classifier in `kit/lib/policy/phase-0.mjs` and its tests; narrowing it later only refuses more.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether reviewers want knowledge edits reviewed apart from the spec that motivated them.
+
+```
+
+<!-- /omni-outbox-settled: s13-01-phase-0-docs-kind -->
+
+<!-- omni-outbox-settled: s14-01-ship-needs-committed-tree -->
+
+## s14-01-ship-needs-committed-tree — agreed
+
+- Verdict: agreed
+- Approved by: claude-code-session (delegated by pierre-derval)
+- Approved at: 2026-09-25
+- Channel: PRD issue #3
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/issues/3#issuecomment-5828428950
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s14
+- Wave: 9
+
+### The answer, as it was given
+
+```text
+ok — option A, as built (delegated answer; see the comment on #3).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s14-01-ship-needs-committed-tree
+prd: 3
+slice: s14
+rank: high
+bears-on: none
+raised: 2026-09-25
+wave: 9
+---
+
+## The question, in plain words
+
+Should the ship step refuse to run until the settled answers are saved in history, and should it ever save the move itself?
+
+## The decision, in plain words
+
+It refuses while the delivery folder has unsaved changes, and it never saves the move itself: a person reviews and commits it.
+
+## The options, in plain words
+
+A. Refuse until the delivery folder is committed, and leave the move for a person to commit, the option built.
+B. Commit whatever is pending in the delivery folder first, then move and commit the move too.
+C. Move anyway and leave any pending changes mixed into the same unsaved change.
+
+## What I had to decide
+
+What `omni ship` does on a dirty `paths.delivery`, and whether it commits.
+
+## What I did meanwhile
+
+`applyShip` refuses when `git status --porcelain -- <paths.delivery>` is non-empty ("uncommitted changes under <delivery> — commit the settle first"; `omni ship` exits 2, one line). It stages the `git mv` and rewrites, and never commits. yolo-fix commits the settle before shipping.
+
+## What it costs to change later
+
+Small: the refusal is one check in `kit/lib/delivery/ship.mjs`; committing would add a commit author and message convention the kit does not have yet.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether phase-3 skills will always commit the settle before calling ship, or expect ship to do it.
+
+```
+
+<!-- /omni-outbox-settled: s14-01-ship-needs-committed-tree -->
+
+<!-- omni-outbox-settled: s15-01-check-all-skips-coverage -->
+
+## s15-01-check-all-skips-coverage — agreed
+
+- Verdict: agreed
+- Approved by: claude-code-session (delegated by pierre-derval)
+- Approved at: 2026-09-25
+- Channel: PRD issue #3
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/issues/3#issuecomment-5828428950
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s15
+- Wave: 10
+
+### The answer, as it was given
+
+```text
+ok — option A, as built (delegated answer; see the comment on #3).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s15-01-check-all-skips-coverage
+prd: 3
+slice: s15
+rank: high
+bears-on: none
+raised: 2026-09-25
+wave: 10
+---
+
+## The question, in plain words
+
+When the full check runs without a copy of the main branch to compare against, should it skip the coverage part or fail?
+
+## The decision, in plain words
+
+It skips the coverage part and says so in one line, so a fresh repository with no remote still checks clean.
+
+## The options, in plain words
+
+A. Skip the coverage part with a one-line note when the main branch is missing, the option built.
+B. Fail the whole check until the main branch is fetched, so coverage can never be skipped in silence.
+
+## What I had to decide
+
+What `omni check all` does when `<repo.remote>/<repo.defaultBranch>` does not resolve: skip `coverage` or exit non-zero.
+
+## What I did meanwhile
+
+`check all` runs inbox, outbox and knowledge always, and coverage only when the ref exists; otherwise it prints `coverage: skipped — no <ref>`. `check coverage` alone with no ref exits 2 naming the ref. An explicit `--base` that does not resolve is always an error.
+
+## What it costs to change later
+
+One branch in `kit/bin/commands/check.mjs`. The phase-2 outbox workflow must fetch the base (fetch-depth 0 or an explicit fetch) or coverage is skipped in CI; making it fatal later is a one-line change plus the fixture tests that rely on a remote-less repo.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether any CI this kit is installed into checks out without the base branch, which would make the skip silent in practice.
+
+```
+
+<!-- /omni-outbox-settled: s15-01-check-all-skips-coverage -->
+
+<!-- omni-outbox-settled: s4-01-knowledge-ids-in-every-profile -->
+
+## s4-01-knowledge-ids-in-every-profile — agreed
+
+- Verdict: agreed
+- Approved by: claude-code-session (delegated by pierre-derval)
+- Approved at: 2026-09-25
+- Channel: PRD issue #3
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/issues/3#issuecomment-5828428950
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+ok — option A, as built (delegated answer; see the comment on #3).
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-knowledge-ids-in-every-profile
+prd: 3
+slice: s4
+rank: high
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+Should a decision be able to point at an entry in the knowledge folder even when that folder is not where this repository's rules come from?
+
+## The decision, in plain words
+
+Yes: an entry is found whenever the knowledge folder exists, but it only forces a decision to be treated as serious when the rules come from that folder.
+
+## The options, in plain words
+
+A. Find knowledge entries in every setup, and raise the seriousness only when the rules come from the knowledge folder, the option built.
+B. Find knowledge entries only when the rules come from the knowledge folder, and refuse them everywhere else.
+
+## What I had to decide
+
+Whether `laws.resolve` accepts a knowledge id when `laws.source` is not `knowledge`.
+
+## What I did meanwhile
+
+`resolve()` resolves knowledge ids whenever `ctx.layout.knowledgeRoot` exists (refusing only a missing folder or an unknown id); `floorsHigh` stays tied to `laws.source`. `check-inbox` grades `areas:` the same way. `Became:` write-back therefore works in every profile.
+
+## What it costs to change later
+
+One condition in `kit/lib/laws.mjs` and one in `kit/lib/inbox/check-inbox.mjs`; reverting refuses `Became:` ids outside the knowledge profile again.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a repository with laws.source none will keep a knowledge folder at all, or treat it as unused.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-knowledge-ids-in-every-profile -->

@@ -1,7 +1,7 @@
 # This repository's own Omni Loop config — it dogfoods the kit it builds (PRD #3, spec §15).
 kit: 1
 repo:
-  slug: vertuoza/vertuo-omni-plan
+  slug: vertuoza/vertuo-omni-loop
   defaultBranch: main
 labels:
   autoCreate: false
