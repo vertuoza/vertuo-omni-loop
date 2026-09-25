@@ -74,19 +74,78 @@ Load the real ledger instead of the demo: fill `projects.yml`, run `pnpm game:pr
 `pnpm galaxy:sync`. The sync is idempotent (deterministic ids, `ON CONFLICT DO NOTHING`).
 `pnpm galaxy:seed` regenerates `supabase/seed.sql` from the demo world, dated now.
 
-## Deploy on Vercel
+## Deploy to production
 
-1. Import the repository in Vercel and set **Root Directory** to `apps/galaxy`. Vercel detects the
-   pnpm workspace and installs from the root.
-2. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (Production and Preview).
-   Without them the deployment shows the demo galaxy.
-3. Apply the migrations to the hosted project: `npx supabase link --project-ref <ref>` then
-   `npx supabase db push`.
-4. Keep the service role key out of Vercel. Only `pnpm galaxy:sync` needs it; run it wherever the
-   ledger is written (for example as a step after `pnpm game:project` in `.github/workflows/game.yml`,
-   with the key as a repository secret).
+Supabase holds the production copy of the ledger. GitHub Actions migrates it and keeps it in sync, and
+Vercel serves the arcade from it:
 
-The page revalidates every 60 seconds; the ledger moves at most every 15 minutes.
+```
+supabase workflow ── supabase db push, on merge to main ──┐
+                                                          ├──▶ Supabase, Central EU (Frankfurt)
+game workflow ────── pnpm galaxy:sync, after every poll ──┘         │  anon key, read only
+                                                                    ▼
+                                                     Vercel, fra1: apps/galaxy
+```
+
+### 1. Create the Supabase project
+
+In the Vertuoza Supabase organisation, create a project in **Central EU (Frankfurt)**, next to the
+Vercel region pinned in `vercel.json` (`fra1`). Keep the database password. Then note:
+
+- the **project ref**: the `<ref>` in `https://<ref>.supabase.co`;
+- the **publishable key** (or the legacy `anon` key): public by design, the web UI reads with it;
+- the **secret key** (or the legacy `service_role` key): it writes, so only GitHub Actions gets it;
+- a **personal access token** (Account › Access Tokens), for the migrations workflow.
+
+### 2. Give GitHub the project
+
+Repository settings › Secrets and variables › Actions:
+
+| Name | Kind | Value | Used by |
+|---|---|---|---|
+| `SUPABASE_PROJECT_ID` | variable | the project ref | both workflows; unset, they skip every Supabase step |
+| `SUPABASE_ACCESS_TOKEN` | secret | the personal access token | `supabase.yml` › deploy |
+| `SUPABASE_DB_PASSWORD` | secret | the database password | `supabase.yml` › deploy |
+| `SUPABASE_SERVICE_ROLE_KEY` | secret | the secret key | `game.yml` › sync |
+
+### 3. Apply the migrations
+
+Actions › **supabase** › Run workflow, on `main`. From then on, every merge to `main` that touches
+`supabase/migrations/` applies them. A pull request that touches `supabase/` first proves they apply
+to an empty database and that the web UI's role can read the tables. `db push` never loads the demo
+seed.
+
+### 4. Create the Vercel project
+
+1. Add New › Project, import `vertuoza/vertuo-omni-loop`, and set **Root Directory** to
+   `apps/galaxy`. Vercel detects the pnpm workspace and installs from the root. Keep "Include files
+   outside the Root Directory" on (the app imports `game/` and `packages/`) and "Automatically
+   expose System Environment Variables" on (the ignored build step reads them). Framework, region
+   and the ignored build step come from `vercel.json`.
+2. Environment variables, for Production and Preview: `NEXT_PUBLIC_SUPABASE_URL` =
+   `https://<ref>.supabase.co` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` = the publishable key. Previews
+   then read the production galaxy, read only. Do not add the secret key.
+3. Deploy. The page is prerendered during the build, so a build fails if Supabase is unreachable or
+   refuses the read, and production keeps the last good deployment. `NEXT_PUBLIC_*` values are
+   inlined at build time: redeploy after changing them.
+
+### 5. Fill the galaxy
+
+The production database starts empty, so the arcade shows an empty galaxy until the ledger arrives.
+Leave the two Vercel variables unset until then to show the demo galaxy instead.
+
+The ledger arrives once `projects.yml` holds the real repositories and the game workflow is switched
+on ([`game/README.md` › Setup](../../game/README.md#setup)): every poll commits the ledger, then
+syncs it. To sync by hand:
+`SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<secret key> pnpm galaxy:sync`.
+
+### In production
+
+- The page revalidates every 60 seconds; the ledger moves at most every 15 minutes.
+- Ledger commits do not redeploy. `scripts/ignore-build.mjs` skips a build when nothing but
+  `game/ledger/` and `game/season/` changed since the last deployment of the branch.
+- On Supabase's Free plan an idle project is paused after a week. Once the game runs, the
+  15-minute sync keeps it in use.
 
 ## Share it without a server
 
@@ -98,13 +157,18 @@ One self-contained HTML page (React from cdnjs, everything else inlined) that pl
 
 ## Database
 
-`supabase/migrations/20260925080000_galaxy_ledger.sql`:
+`supabase/migrations/`:
 
 - `ledger_events` mirrors the event contract (`game/events.mjs`) one to one, with the same type
   check. A trigger refuses `UPDATE` and `DELETE`: like the ledger, it is append-only.
-- `sectors` and `teams` mirror `projects.yml` and are replaced on every sync.
+- `sectors` and `teams` mirror `projects.yml`. Every sync upserts what it lists, then deletes what
+  it dropped, so a reader never sees them empty.
 - Row-level security: `anon` and `authenticated` may `select`; nobody but the service role writes.
   When login arrives, narrow the `select` policies to `authenticated`.
+- Explicit grants (`20260925120000_galaxy_grants.sql`): Supabase projects created since 2026-05-30
+  no longer grant the API roles access to new tables. The local stack matches
+  (`auto_expose_new_tables = false`), so a table added without its grants fails locally and in the
+  pull request check, not in production.
 
 ## Known limits
 
