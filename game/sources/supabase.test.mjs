@@ -27,6 +27,13 @@ describe('supabaseRest', () => {
     const rest = supabaseRest({ url: 'https://ref.supabase.co', key: 'k', fetch: fakeSupabase({}, { failOn: 'teams' }).fetch });
     await expect(rest.select('teams', 'select=name')).rejects.toThrow(/read teams failed \(503/);
   });
+
+  it('names the table and the cause when Supabase cannot be reached', async () => {
+    const unreachable = async () => { throw new TypeError('fetch failed', { cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }) }); };
+    const rest = supabaseRest({ url: 'http://127.0.0.1:9', key: 'k', fetch: unreachable });
+    await expect(rest.select('workspaces', 'select=id')).rejects.toThrow('Supabase: read workspaces failed (ECONNREFUSED at http://127.0.0.1:9)');
+    await expect(rest.insertNew('ledger_events', [{ id: 'a' }], 'id')).rejects.toThrow(/write ledger_events 0–1 failed \(ECONNREFUSED/);
+  });
 });
 
 describe('supabaseFromEnv', () => {

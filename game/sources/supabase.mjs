@@ -21,12 +21,20 @@ export function supabaseRest({ url, key, fetch = globalThis.fetch }) {
     const body = await res.text().catch(() => '');
     return new Error(`Supabase: ${what} failed (${res.status}${body ? `: ${body.slice(0, 200)}` : ''})`);
   };
+  // A request that never got an answer (Supabase down, a wrong URL) says what it was doing, and where.
+  const send = async (what, href, init) => {
+    try {
+      return await fetch(href, init);
+    } catch (err) {
+      throw new Error(`Supabase: ${what} failed (${err.cause?.code ?? err.cause?.message ?? err.message} at ${url})`, { cause: err });
+    }
+  };
   return {
     /** Every row of a table, `query` being a PostgREST query string (select, filters, order). */
     async select(table, query) {
       const rows = [];
       for (let offset = 0; ; offset += PAGE) {
-        const res = await fetch(`${base}/${table}?${query}&limit=${PAGE}&offset=${offset}`, { headers });
+        const res = await send(`read ${table}`, `${base}/${table}?${query}&limit=${PAGE}&offset=${offset}`, { headers });
         if (!res.ok) throw await fail(`read ${table}`, res);
         const page = await res.json();
         rows.push(...page);
@@ -37,12 +45,13 @@ export function supabaseRest({ url, key, fetch = globalThis.fetch }) {
     async insertNew(table, rows, onConflict, select = onConflict) {
       const inserted = [];
       for (let i = 0; i < rows.length; i += BATCH) {
-        const res = await fetch(`${base}/${table}?on_conflict=${onConflict}&select=${select}`, {
+        const what = `write ${table} ${i}–${i + Math.min(BATCH, rows.length - i)}`;
+        const res = await send(what, `${base}/${table}?on_conflict=${onConflict}&select=${select}`, {
           method: 'POST',
           headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'resolution=ignore-duplicates,return=representation' },
           body: JSON.stringify(rows.slice(i, i + BATCH)),
         });
-        if (!res.ok) throw await fail(`write ${table} ${i}–${i + Math.min(BATCH, rows.length - i)}`, res);
+        if (!res.ok) throw await fail(what, res);
         inserted.push(...(await res.json()));
       }
       return inserted;
