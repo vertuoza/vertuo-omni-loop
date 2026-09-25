@@ -1,12 +1,45 @@
+import { readFileSync } from 'node:fs';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
-import { fit, frameFor, gridFor, pagesFor, TALL, turnPage, WIDE } from './grid';
+import { fit, frameFor, gridFor, pagesFor, TALL, TALL_SCENES, turnPage, WIDE } from './grid';
 import type { SceneName } from './scenes/common.ts';
 
-const SCENES: SceneName[] = [
-  'boot', 'title', 'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'coin', 'away', 'gate', 'intro', 'select',
-  'name', 'hero', 'link', 'ready', 'welcome', 'outsider',
-];
+function source(path: string) {
+  return ts.createSourceFile(path, readFileSync(new URL(path, import.meta.url), 'utf8'), ts.ScriptTarget.Latest);
+}
+
+/**
+ * Every `SceneName`, read by TypeScript's own parser from where the type is declared. The type has no
+ * list at run time, and a list copied here could drift: read this way, a scene added to the type is
+ * a scene this file checks, with nothing here to update.
+ */
+function sceneNames(): SceneName[] {
+  const file = source('./scenes/common.ts');
+  const alias = file.statements.find((s): s is ts.TypeAliasDeclaration => ts.isTypeAliasDeclaration(s) && s.name.text === 'SceneName');
+  if (!alias) throw new Error('scenes/common.ts no longer declares the SceneName type');
+  const members = ts.isUnionTypeNode(alias.type) ? alias.type.types : [alias.type];
+  return members.map((m) => {
+    if (!ts.isLiteralTypeNode(m) || !ts.isStringLiteral(m.literal)) {
+      throw new Error(`SceneName is no longer a union of names (${m.getText(file)}): read the scenes from where they now live`);
+    }
+    return m.literal.text as SceneName;
+  });
+}
+
+/** The scenes the dispatcher draws: the `case` labels of `drawFrame` in `scenes/index.ts`. */
+function drawnScenes(): string[] {
+  const file = source('./scenes/index.ts');
+  const labels: string[] = [];
+  const visit = (node: ts.Node) => {
+    if (ts.isCaseClause(node) && ts.isStringLiteral(node.expression)) labels.push(node.expression.text);
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return labels;
+}
+
+const SCENES = sceneNames();
 
 describe('the two grids', () => {
   it('are 640×360 and 320×288', () => {
@@ -38,10 +71,19 @@ describe('gridFor', () => {
     expect(screen.h).toBeLessThan(lens.h);
     expect(screen.y).toBeGreaterThan(0);
   });
+});
 
-  it('reads the lists the scene groups declare', () => {
-    // Shell first: until a group lists its scenes, every scene is wide, and still reachable.
-    for (const scene of SCENES) expect([WIDE, TALL]).toContain(gridFor('handheld', scene));
+describe('every scene on the tall grid', () => {
+  it('reads every SceneName, each once, and the dispatcher draws exactly those', () => {
+    expect(SCENES.length).toBeGreaterThan(0);
+    expect(new Set(SCENES).size).toBe(SCENES.length);
+    expect([...new Set(drawnScenes())].sort()).toEqual([...SCENES].sort());
+  });
+
+  it('lists every SceneName as tall, so the Game Boy held upright draws each one on the tall grid', () => {
+    const untall = SCENES.filter((scene) => !TALL_SCENES.has(scene));
+    expect(untall, 'scenes no group lists in its TALL_SCENES').toEqual([]);
+    for (const scene of SCENES) expect(gridFor('handheld', scene), scene).toBe(TALL);
   });
 });
 
