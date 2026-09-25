@@ -1,0 +1,63 @@
+2026-09-20T10:02:11.0000001Z ##[group]Run npx jest --ci
+2026-09-20T10:02:11.0000002Z npx jest --ci
+2026-09-20T10:02:11.0000003Z ##[endgroup]
+2026-09-20T10:02:14.1000000Z PASS src/store/store.test.js
+2026-09-20T10:02:14.2000000Z FAIL src/cart/cart.test.js
+2026-09-20T10:02:14.2000001Z   cart
+2026-09-20T10:02:14.2000002Z     ✕ adds an item (5 ms)
+2026-09-20T10:02:14.2000003Z     ✓ starts empty (1 ms)
+2026-09-20T10:02:14.2000004Z     checkout
+2026-09-20T10:02:14.2000005Z       ✕ pays by card (3 ms)
+2026-09-20T10:02:14.2000006Z
+2026-09-20T10:02:14.2000007Z   ● cart › adds an item
+2026-09-20T10:02:14.2000008Z
+2026-09-20T10:02:14.2000009Z     expect(received).toBe(expected) // Object.is equality
+2026-09-20T10:02:14.2000010Z
+2026-09-20T10:02:14.2000011Z     Expected: 3
+2026-09-20T10:02:14.2000012Z     Received: 2
+2026-09-20T10:02:14.2000013Z
+2026-09-20T10:02:14.2000014Z       10 |   cart.add(item);
+2026-09-20T10:02:14.2000015Z       11 |   cart.add(item);
+2026-09-20T10:02:14.2000016Z     > 12 |   expect(cart.size).toBe(3);
+2026-09-20T10:02:14.2000017Z          |                     ^
+2026-09-20T10:02:14.2000018Z
+2026-09-20T10:02:14.2000019Z       at Object.toBe (src/cart/cart.test.js:12:21)
+2026-09-20T10:02:14.2000020Z
+2026-09-20T10:02:14.2000021Z   ● cart › checkout › pays by card
+2026-09-20T10:02:14.2000022Z
+2026-09-20T10:02:14.2000023Z     Error: card declined
+2026-09-20T10:02:14.2000024Z
+2026-09-20T10:02:14.2000025Z       at Object.<anonymous> (src/cart/cart.test.js:30:11)
+2026-09-20T10:02:14.2000026Z
+2026-09-20T10:02:14.3000000Z   ● Console
+2026-09-20T10:02:14.3000001Z
+2026-09-20T10:02:14.3000002Z     console.log
+2026-09-20T10:02:14.3000003Z       paying 12
+2026-09-20T10:02:14.3000004Z
+2026-09-20T10:02:14.4000000Z FAIL src/show/show.test.js
+2026-09-20T10:02:14.4000001Z   ● Test suite failed to run
+2026-09-20T10:02:14.4000002Z
+2026-09-20T10:02:14.4000003Z     Cannot find module './colour' from 'src/show/show.test.js'
+2026-09-20T10:02:14.4000004Z
+2026-09-20T10:02:14.5000000Z Summary of all failing tests
+2026-09-20T10:02:14.5000001Z FAIL src/cart/cart.test.js
+2026-09-20T10:02:14.5000002Z   ● cart › adds an item
+2026-09-20T10:02:14.5000003Z
+2026-09-20T10:02:14.5000004Z     expect(received).toBe(expected) // Object.is equality
+2026-09-20T10:02:14.5000005Z
+2026-09-20T10:02:14.5000006Z   ● cart › checkout › pays by card
+2026-09-20T10:02:14.5000007Z
+2026-09-20T10:02:14.5000008Z     Error: card declined
+2026-09-20T10:02:14.5000009Z
+2026-09-20T10:02:14.5000010Z FAIL src/show/show.test.js
+2026-09-20T10:02:14.5000011Z   ● Test suite failed to run
+2026-09-20T10:02:14.5000012Z
+2026-09-20T10:02:14.5000013Z     Cannot find module './colour' from 'src/show/show.test.js'
+2026-09-20T10:02:14.5000014Z
+2026-09-20T10:02:14.6000000Z
+2026-09-20T10:02:14.6000001Z Test Suites: 2 failed, 1 passed, 3 total
+2026-09-20T10:02:14.6000002Z Tests:       2 failed, 6 passed, 8 total
+2026-09-20T10:02:14.6000003Z Snapshots:   0 total
+2026-09-20T10:02:14.6000004Z Time:        2.214 s
+2026-09-20T10:02:14.6000005Z Ran all test suites.
+2026-09-20T10:02:14.7000000Z ##[error]Process completed with exit code 1.
