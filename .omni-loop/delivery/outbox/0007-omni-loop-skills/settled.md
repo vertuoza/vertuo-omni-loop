@@ -363,3 +363,771 @@ One condition to add back, guarding the policy call, if a later reviewer wants a
 ```
 
 <!-- /omni-outbox-settled: s2-02-always-runs-the-recording-policy -->
+
+<!-- omni-outbox-settled: s3-01-matchby-narrows-not-replaces-branch-match -->
+
+## s3-01-matchby-narrows-not-replaces-branch-match — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-matchby-narrows-not-replaces-branch-match
+prd: 7
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+When deciding which pull request belongs to a slice, should the base-branch-or-label setting be the only rule, or just an extra check alongside matching the branch name itself?
+
+## The decision, in plain words
+
+The branch name always has to match the slice first; the base-branch-or-label setting is only an extra check on top of that, not a replacement for it.
+
+## The options, in plain words
+
+A. Keep the base-branch-or-label setting as a secondary filter alongside the head-branch match (what was built).
+B. Make the base-branch-or-label setting the only rule, matching a slice by base branch or label alone, without checking the head branch name at all.
+
+## What I had to decide
+
+How `board.matchBy` (base vs label) combines with matching a pull request's head branch to a slice.
+
+## What I did meanwhile
+
+Treated `matchBy` as a secondary filter alongside an exact head-branch match, rather than the only way to find a slice's pull request — matching by branch name already ties a pull request to exactly one slice, so `matchBy` only narrows an ambiguity, it does not replace the branch check.
+
+## What it costs to change later
+
+Changing which check wins is a small, local change to the matching function; no stored data or file format changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Neither the spec nor the plan says whether `matchBy` is the sole matching rule or a secondary filter alongside the head branch.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-matchby-narrows-not-replaces-branch-match -->
+
+<!-- omni-outbox-settled: s3-03-unknown-head-commit-date-reads-as-not-stale -->
+
+## s3-03-unknown-head-commit-date-reads-as-not-stale — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-unknown-head-commit-date-reads-as-not-stale
+prd: 7
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+When a pull request's head commit date cannot be read at all, should the board assume the claim has moved on so it is never called stale, or assume it has not so an old, quiet draft still gets flagged?
+
+## The decision, in plain words
+
+An unknown head commit date is treated as if the claim had moved on, so the slice is never marked stale on that signal alone.
+
+## The options, in plain words
+
+A. Missing head commit date reads as "moved on", so the slice is never marked stale on this signal alone (what was built).
+B. Missing head commit date reads as no commit since the claim, so an old, untouched draft can still go stale even without this signal.
+
+## What I had to decide
+
+What the claimed-stale check does when a pull request payload carries no head commit date at all.
+
+## What I did meanwhile
+
+Read a missing head commit date as "assume it has moved on" — the safer direction, since this state exists to let the kit reclaim a cold claim on its own, and reclaiming a claim on a signal that was never actually confirmed risks taking work out from under someone still building it.
+
+## What it costs to change later
+
+Flipping the fallback is a small, local change with no format change; it only matters when a head commit date genuinely could not be read for an old, open draft.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The task names the head commit date as available only "if available", without saying what to assume when it is not; a first pass assumed the opposite (unknown counts as stale) before this round settled it the other way.
+
+```
+
+<!-- /omni-outbox-settled: s3-03-unknown-head-commit-date-reads-as-not-stale -->
+
+<!-- omni-outbox-settled: s3-04-one-pr-per-slice-merged-then-freshest -->
+
+## s3-04-one-pr-per-slice-merged-then-freshest — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-04-one-pr-per-slice-merged-then-freshest
+prd: 7
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+When more than one pull request matches the same slice, for example an old attempt plus a new one, which one should the board actually show?
+
+## The decision, in plain words
+
+A merged pull request always wins; otherwise the most recently updated one does.
+
+## The options, in plain words
+
+A. Merged wins, then most recently updated (what was built).
+B. Always take the most recently opened pull request, merged or not.
+C. Refuse to pick and report every candidate as a conflict for a person to resolve.
+
+## What I had to decide
+
+How to pick a single pull request for a slice when its branch name matches more than one candidate.
+
+## What I did meanwhile
+
+Preferred a merged match over any open one, and the most recently updated one among ties — a slice can only be building towards one outcome at a time, and a merge is the more final signal.
+
+## What it costs to change later
+
+Changing the tie-break rule is local to the one selection function; nothing downstream depends on which candidate was dropped.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Nothing in the plan or spec says a slice's branch name could ever match more than one pull request, or how to choose when it does.
+
+```
+
+<!-- /omni-outbox-settled: s3-04-one-pr-per-slice-merged-then-freshest -->
+
+<!-- omni-outbox-settled: s4-01-status-comment-marker -->
+
+## s4-01-status-comment-marker — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-status-comment-marker
+prd: 7
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+How should the agent find its own status comment on a pull request, so it rewrites that one and never another?
+
+## The decision, in plain words
+
+It looks for a hidden marker built from the configured marker prefix, and rewrites the first comment that carries it, or posts a new one when none does. Because the marker shares the outbox prefix, the reply reader already ignores it.
+
+## The options, in plain words
+
+A. Match the marker alone, first comment wins, the option built.
+B. Match the marker and the configured bot user, so a pasted marker is never overwritten.
+C. Add an omni command that upserts the status comment, and have the skill call it.
+
+## What I had to decide
+
+The status comment's marker and how `/omni:pr` upserts it, replacing upstream's `gh pr comment --edit-last`.
+
+## What I did meanwhile
+
+The marker is `<!-- <markers.prefix>-status -->`. The skill lists the PR's issue comments with `gh api ... --paginate --jq`, takes the first whose body contains the marker, and PATCHes it; otherwise `gh pr comment --body-file`. It does not filter by author. Sharing the prefix means `kit/lib/outbox/replies.mjs` skips it (it drops comments containing `markers.any`), so a status comment is never read as a reply.
+
+## What it costs to change later
+
+A few lines of `kit/plugin/skills/pr/SKILL.md`; existing comments with the old marker would be orphaned and a new one posted.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a second agent or a person might paste the marker into a comment, which an author filter on `github.user` would guard against.
+- Whether a later `omni` command should own the upsert instead of skill prose.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-status-comment-marker -->
+
+<!-- omni-outbox-settled: s4-02-checks-without-aggregate -->
+
+## s4-02-checks-without-aggregate — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-checks-without-aggregate
+prd: 7
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+When the repository has no branch protection and names no single summary check, which checks decide that a pull request is green?
+
+## The decision, in plain words
+
+Every check the pull request reports counts, except the outbox check, which is handled on its own. With a named summary check, only that one and the outbox check count.
+
+## The options, in plain words
+
+A. Every reported check except the outbox check counts, the option built.
+B. Only the outbox check counts, so a repository without a summary check has no CI gate for agents.
+C. Refuse to finish and report a human step asking for a summary check to be configured.
+
+## What I had to decide
+
+What `/omni:pr` counts as green when `ci.branchProtection` is false and `ci.aggregateCheck` is null (this repository's own case).
+
+## What I did meanwhile
+
+The lifecycle reads `gh pr checks <n> --json name,state,bucket`; with `ci.aggregateCheck` null, every reported check except `ci.outboxContext` stands in for it. An empty check list is read as a conflict, as upstream did.
+
+## What it costs to change later
+
+One paragraph of `kit/plugin/skills/pr/SKILL.md`.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether repositories without an aggregate check run optional checks that should never block an agent.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-checks-without-aggregate -->
+
+<!-- omni-outbox-settled: s4-03-outbox-check-red-is-the-gate -->
+
+## s4-03-outbox-check-red-is-the-gate — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-outbox-check-red-is-the-gate
+prd: 7
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+When the only red check on a pull request is the outbox check, should the agent try to fix it like any failing check?
+
+## The decision, in plain words
+
+No, the agent asks the kit for the outbox status and stops when only questions for a person remain, since that red check is the gate working. It never counts that as a failed attempt and never adds the override label.
+
+## The options, in plain words
+
+A. Stop and report when only person-answered items remain, the option built.
+B. Treat it as any red check, counting attempts and ending in the needs-fix label.
+
+## What I had to decide
+
+How `/omni:pr` treats a red `ci.outboxContext`, which upstream folded into its single aggregate check.
+
+## What I did meanwhile
+
+A lifecycle row: only `ci.outboxContext` red → run `omni status <prd>`; red only for items a person must answer means say so in the status comment and stop; anything else is fixed through the outbox, never by `labels.outboxGo`. This matches spec §2 (`/omni:yolo` ends with the gate red when items are open).
+
+## What it costs to change later
+
+One table row of `kit/plugin/skills/pr/SKILL.md`.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a stopped PR in this state should keep the in-progress label or drop it.
+
+```
+
+<!-- /omni-outbox-settled: s4-03-outbox-check-red-is-the-gate -->
+
+<!-- omni-outbox-settled: s4-04-one-rerun-without-triage-page -->
+
+## s4-04-one-rerun-without-triage-page — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-04-one-rerun-without-triage-page
+prd: 7
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+Without a written list of known flaky failures, when may the agent simply re-run a failed check instead of changing code?
+
+## The decision, in plain words
+
+Once per pull request, when the failure is plainly not the branch's doing, such as a runner, network or timeout failure in code the branch did not touch. That re-run still counts as one attempt.
+
+## The options, in plain words
+
+A. One re-run per PR when the failure is plainly unrelated, the option built.
+B. No re-runs at all; every red check is fixed in code.
+C. Add a config key naming a triage page, and allow a re-run only on a signature it lists.
+
+## What I had to decide
+
+The re-run rule of `/omni:pr`, since upstream's rule depended on its CI-triage page, which does not exist here.
+
+## What I did meanwhile
+
+On red: read `gh run view --log-failed`, compare against the branch's changed files since its merge base, allow one `gh run rerun --failed` per PR when unrelated, counted toward `limits.attempts`.
+
+## What it costs to change later
+
+One list in `kit/plugin/skills/pr/SKILL.md`; a config key if a triage page is wanted later.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether repositories adopting the kit will want a configured triage page, the way upstream had one.
+
+```
+
+<!-- /omni-outbox-settled: s4-04-one-rerun-without-triage-page -->
+
+<!-- omni-outbox-settled: s5-01-in-wave-input -->
+
+## s5-01-in-wave-input — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-in-wave-input
+prd: 7
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+How does the slice builder know whether it is running on its own or as part of a wave, since that changes whether it settles routine decisions itself?
+
+## The decision, in plain words
+
+It is told explicitly: the wave passes a flag, and without that flag the builder assumes it runs alone and settles routine decisions on the spot.
+
+## The options, in plain words
+
+A. An explicit in-wave flag, absent by default so a lone run adopts, the option built.
+B. An explicit adopt flag instead, off by default so nothing is adopted unless asked.
+C. Infer it from context, as upstream did, with no flag at all.
+
+## What I had to decide
+
+The name and default of the input that switches do-work between running alone (medium items adopted with --adopt, full /omni:pr lifecycle) and running under /omni:wave (no --adopt, stop once the sub-PR is open, return the result shape). Built as `--in-wave`, absent by default.
+
+## What I did meanwhile
+
+Built `--in-wave` as the explicit input in kit/plugin/skills/do-work/SKILL.md; absent means alone.
+
+## What it costs to change later
+
+A rename of one flag in two skills (do-work and wave), no stored shape.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a person running do-work by hand would rather have medium items left open for review by default, as the wave does (author).
+
+```
+
+<!-- /omni-outbox-settled: s5-01-in-wave-input -->
+
+<!-- omni-outbox-settled: s5-02-claim-first-alone -->
+
+## s5-02-claim-first-alone — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-claim-first-alone
+prd: 7
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+When a person runs the slice builder by hand, should it first put up a draft pull request to show the slice is taken?
+
+## The decision, in plain words
+
+Yes: running alone, it opens the draft claim before building, so the rule that every slice is claimed first holds however the slice is started.
+
+## The options, in plain words
+
+A. Open the draft claim first when running alone, the option built.
+B. Never claim from do-work; the claim is only ever the wave's job.
+C. Claim only when the person asks for it.
+
+## What I had to decide
+
+Whether do-work, run alone, opens the draft sub-PR (the claim) through /omni:pr before building. Upstream left the claim to the wave; the spec's rule 6 says claim first for every skill.
+
+## What I did meanwhile
+
+Built it: step 1 of do-work opens the draft claim through /omni:pr when running alone and none exists; under --in-wave the wave has already claimed.
+
+## What it costs to change later
+
+One sentence in the skill; nothing stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a hand run is ever meant to stay private until pushed (author).
+
+```
+
+<!-- /omni-outbox-settled: s5-02-claim-first-alone -->
+
+<!-- omni-outbox-settled: s5-03-drop-model-sizing -->
+
+## s5-03-drop-model-sizing — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-drop-model-sizing
+prd: 7
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+Should the slice builder keep the upstream advice on picking a cheaper model when it hands work to helpers?
+
+## The decision, in plain words
+
+No: a slice is built by one agent, and the wave already runs it two levels deep, so handing work further down is not something it should do.
+
+## The options, in plain words
+
+A. Drop the section, the option built.
+B. Keep it only for a lone run, never under a wave.
+C. Keep it as upstream wrote it.
+
+## What I had to decide
+
+Whether to port upstream's 'Right-Size The Model (When Delegating)' section into do-work.
+
+## What I did meanwhile
+
+Dropped it and recorded the drop in kit/porting/plugin--do-work.md.
+
+## What it costs to change later
+
+Re-adding one section of prose.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a hand-run do-work on a large slice should still be allowed to delegate (author).
+
+```
+
+<!-- /omni-outbox-settled: s5-03-drop-model-sizing -->
+
+<!-- omni-outbox-settled: s5-04-wave-result-shape -->
+
+## s5-04-wave-result-shape — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-04-wave-result-shape
+prd: 7
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+What does the slice builder hand back to the wave when it finishes, so the wave can decide what to merge?
+
+## The decision, in plain words
+
+The same short summary upstream used: the slice, whether it is done, stopped or blocked, its branch and pull request, whether its checks passed, and the decisions and risks it raised.
+
+## The options, in plain words
+
+A. Upstream's shape, with a none value for a repository with no preflight, the option built.
+B. Upstream's shape plus a list of checks that did not run.
+C. Free text only, parsed by the wave.
+
+## What I had to decide
+
+The result shape do-work returns under --in-wave, which /omni:wave (s8) consumes: kept upstream's { slice, status, branch, prUrl, preflight, summary, risks, items }, with preflight as green | red | none.
+
+## What I did meanwhile
+
+Wrote that shape into the skill's Under --in-wave section; s8 reads it.
+
+## What it costs to change later
+
+Changing the shape in do-work and wave together; nothing stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the wave also wants the checks that did not run as a field rather than in the summary (author).
+
+```
+
+<!-- /omni-outbox-settled: s5-04-wave-result-shape -->
