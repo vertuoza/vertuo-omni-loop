@@ -1,6 +1,8 @@
-import { existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { copyFileSync, existsSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { ConfigSchema } from '../config.mjs';
 import { FORM_IDS, FORMS, parseForm } from './forms.mjs';
@@ -8,6 +10,7 @@ import { fillConfig } from './resolve.mjs';
 import { FRONT_DOOR_TEMPLATE, formTemplate, frontDoorTemplate, readTemplates, templatePath } from './templates.mjs';
 
 const kitRoot = fileURLToPath(new URL('../..', import.meta.url));
+const DIST = join(kitRoot, 'dist/omni.mjs');
 const PROVENANCE = /^<!-- Ported from vertuo-ai-domain@db67fd9da:(.+) — changes in (kit\/porting\/templates--[a-z-]+\.md) -->$/m;
 
 /** Every template's text, keyed by its path under the templates folder: the thirteen forms, then the front door. */
@@ -76,5 +79,20 @@ describe('every template — provenance, and the config it names', () => {
     const text = frontDoorTemplate();
     for (const key of ['paths.playbook', 'paths.knowledge', 'paths.adr']) expect(text).toContain(`{config:${key}}`);
     expect(text).not.toMatch(/^---/);
+  });
+});
+
+describe('the committed bundle carries the same templates', () => {
+  it('from source and from kit/dist/omni.mjs alone, the same loader returns the same text', () => {
+    const alone = join(mkdtempSync(join(tmpdir(), 'omni-templates-')), 'omni.mjs');
+    copyFileSync(DIST, alone);
+    const script = [
+      `import { formTemplate, frontDoorTemplate } from ${JSON.stringify(pathToFileURL(alone).href)};`,
+      `const ids = ${JSON.stringify(FORM_IDS)};`,
+      'process.stdout.write(JSON.stringify([...ids.map((id) => formTemplate(id)), frontDoorTemplate()]));',
+    ].join('\n');
+    const run = spawnSync('node', ['--input-type=module', '-e', script], { cwd: tmpdir(), encoding: 'utf8' });
+    expect(run.stderr).toBe('');
+    expect(JSON.parse(run.stdout)).toEqual(ALL().map(([, text]) => text));
   });
 });
