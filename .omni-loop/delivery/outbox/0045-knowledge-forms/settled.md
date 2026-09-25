@@ -634,3 +634,705 @@ A constant, before or after merge: the rule is one function of `resolveForm`'s s
 ```
 
 <!-- /omni-outbox-settled: s3-03-a-form-source-is-its-strongest-layer -->
+
+<!-- omni-outbox-settled: s4-03-install-lists-each-form-it-wrote -->
+
+## s4-03-install-lists-each-form-it-wrote — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-install-lists-each-form-it-wrote
+prd: 45
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+When the install lays down the empty knowledge forms, how should its closing message show them, and where should the new step that fills them go?
+
+## The decision, in plain words
+
+The message gives each form the install wrote its own line, says nothing about forms that were already there, and makes filling the forms the last step of its list.
+
+## The options, in plain words
+
+A. Each form written gets its own line, forms already there are not listed, and filling the forms is the last step.
+B. One line sums up the forms folder, with how many were written and how many were already there, and filling the forms is the last step.
+C. Each form gets its own line, written or already there, like the settings file, and filling the forms comes right after installing the plugin.
+
+## What I had to decide
+
+The spec says `omni init` "lists the files it wrote among the files it reports" and that its closing steps "gain one: fill the forms with `/omni:terraform`". It does not say whether a form already there is listed (the config and the bin print `kept … (pass --force to overwrite)`, but `--force` never overwrites a form), nor where the new step sits among PRD 39's numbered steps. The plan asks that PRD 39's tests be amended only where they assert `laws.source` on a knowledge folder, yet its footprint test (AC 7) and its closing-steps tests (AC 8) compare the whole file list and the whole output, so they cannot pass unchanged once the forms are written: they are amended to list the forms and the new step.
+
+## What I did meanwhile
+
+`closingSteps` in `kit/lib/init/steps.mjs` takes `forms: { dir, wrote, outside }` and prints, after the config and the bin, one `  wrote   <path>` line per file the forms writer wrote and none for a file it found. The step `Fill the forms in <front door>/ with what the repository can prove, in Claude Code:` then `/omni:terraform` is pushed last, after the optional branch-protection step, so the labels step keeps its number 3. In `kit/bin/init.test.mjs`, `FIRST_RUN` lists the seventeen files and the new step, the footprint test lists the seventeen files, and the second-run test skips them; the new test "a repository installed before the forms: keeps the config and the bin, writes the forms and lists each one" covers a repository installed before this PRD.
+
+## What it costs to change later
+
+A constant, before or after merge: the listing and the step's place are a few lines of `closingSteps` and the `FIRST_RUN` lines of its test. Nothing is stored; the message is only printed.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a person reading the install's output wants one line per form, seventeen on a first run, or one line for the whole folder: the spec names each file only for `omni kb init`, which prints what it wrote.
+- (author) Whether PRD 39's footprint and closing-steps tests may be amended to list the forms, beyond the `laws.source` amendment the plan names: without it they cannot pass once the forms are written.
+
+```
+
+<!-- /omni-outbox-settled: s4-03-install-lists-each-form-it-wrote -->
+
+<!-- omni-outbox-settled: s4-04-install-writes-no-form-outside-its-folder -->
+
+## s4-04-install-writes-no-form-outside-its-folder — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-04-install-writes-no-form-outside-its-folder
+prd: 45
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+The install may only write inside its own folder. What should it do when a settings file it keeps puts the knowledge forms somewhere else in the repository?
+
+## The decision, in plain words
+
+It writes no form there, says so in its closing message, and leaves them to the skill that fills the forms, which creates them where the settings say.
+
+## The options, in plain words
+
+A. The install writes no form outside its folder, says so, and points to the step that fills the forms.
+B. The install writes the forms where the settings say, even outside its own folder.
+C. The install refuses to run until the settings put the forms inside its folder.
+
+## What I had to decide
+
+The spec says `omni init` runs the same writer as `omni kb init`, and that "everything it writes stays under `.omni-loop/`, as PRD 39 requires". A config `omni init` writes never sets `paths.playbook`, so its forms land in `.omni-loop/knowledge/`. But a config it keeps (no `--force`) may set `paths.playbook` elsewhere, say `docs/playbook`, and the writer would then write the front door's page, the forms and the decisions form under that folder's parent. The spec does not say which of the two rules wins.
+
+## What I did meanwhile
+
+`init` in `kit/bin/commands/init.mjs` calls `writeForms` only when the front door (`ctx.layout.frontDoor`, the playbook folder's parent), normalized, is `.omni-loop` or lies under it. Otherwise it writes none, and `closingSteps` prints `  forms   not written: <front door>/ is outside .omni-loop/ — see step <n> below`, naming the `/omni:terraform` step, whose step 0 runs `omni kb init`. Test: "writes no form outside .omni-loop/: a kept config whose playbook lies elsewhere leaves them to /omni:terraform" in `kit/bin/init.test.mjs`.
+
+## What it costs to change later
+
+A constant, before or after merge: one condition in `kit/bin/commands/init.mjs`, one line in `kit/lib/init/steps.mjs` and one test. No repository holds a form this rule kept out.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether any repository keeps its playbook outside `.omni-loop/`: the default keeps it inside, and the spec gives no example of one that does not.
+
+```
+
+<!-- /omni-outbox-settled: s4-04-install-writes-no-form-outside-its-folder -->
+
+<!-- omni-outbox-settled: s5-01-terraform-config-proposal-is-its-own-commit -->
+
+## s5-01-terraform-config-proposal-is-its-own-commit — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-terraform-config-proposal-is-its-own-commit
+prd: 45
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+When the setup skill learns better values for the repository's settings, how should it put them to the person who reviews its work?
+
+## The decision, in plain words
+
+It changes the settings file in the same review request, as a separate change the reviewer can accept or drop on its own, and lists each new value with the file that shows it.
+
+## The options, in plain words
+
+A. The settings change is its own step inside the one review request, which lists each value and the file that shows it.
+B. The settings stay untouched, and the review request only lists the suggested values for a person to copy in by hand.
+C. The settings change is folded into the same step as the knowledge pages.
+
+## What I had to decide
+
+The spec's step 6 says `/omni:terraform` proposes config "as a diff", and step 7 says it opens "one docs-only pull request". It does not say whether that diff is committed on `branches.terraform` or only shown in the body, nor whether `.omni-loop/config.yml` counts as docs. The before/after page shows `config.yml` gaining "values terraform learned", and s7's done-when says "the config proposals applied". It also does not say whether an empty `commands.checks` list counts as unset, for "a command that is `null`".
+
+## What I did meanwhile
+
+Step 5 of `kit/plugin/skills/terraform/SKILL.md` edits `.omni-loop/config.yml`, runs `omni config` and `omni check all`, and commits the change alone as `chore(config): …`. Step 6's docs-only check allows only files under the front door and the config file, and the body's `## Config` lists each key, old to new, with its evidence. A key that turns `omni check all` red is left out and named. An empty `commands.checks` counts as unset.
+
+## What it costs to change later
+
+A constant: a few lines of skill prose, before or after merge. No stored data depends on it; a terraform pull request already opened keeps its shape until the next run rewrites it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the docs-only pull request was meant to carry the settings file, or Markdown pages alone: the before/after page shows the settings gaining values, but not through which change.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-terraform-config-proposal-is-its-own-commit -->
+
+<!-- omni-outbox-settled: s5-02-terraform-continues-its-open-pull-request -->
+
+## s5-02-terraform-continues-its-open-pull-request — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-terraform-continues-its-open-pull-request
+prd: 45
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+When the setup skill runs again while its earlier review request is still open, or after that one was merged or closed, where should its new work go?
+
+## The decision, in plain words
+
+An open request is continued, so there is only ever one; once the earlier one was merged or closed, the skill starts again from the main line under the same name.
+
+## The options, in plain words
+
+A. Continue the open request; after a merge or a close, start afresh from the main line, replacing what the earlier run left under that name.
+B. Open a new request under a new, dated name on every run.
+C. Stop and ask a person whenever an earlier run's work still exists under that name.
+
+## What I had to decide
+
+`branches.terraform` is one fixed name (default `docs/omni-terraform`, no placeholder), and `/omni:terraform --refresh` runs again later on the same repository. The spec says terraform opens one pull request on that branch, and does not say what happens when the branch, or its pull request, already exists.
+
+## What I did meanwhile
+
+Step 0 of `kit/plugin/skills/terraform/SKILL.md` runs `gh pr list --head <terraform branch> --base <repo.defaultBranch> --state open`. One open: `git worktree add -B <terraform branch> <worktrees>/terraform <remote>/<terraform branch>`, and step 6 rewrites that pull request's body. None open: the same command from `<remote>/<repo.defaultBranch>`, and step 6 pushes with `--force-with-lease`; a branch whose pull request is open is never forced.
+
+## What it costs to change later
+
+A constant: a few lines of skill prose, before or after merge. A forced push over a merged branch loses nothing, and a closed pull request's commits stay readable on GitHub.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a person ever keeps unmerged work on that branch after closing its pull request, which starting afresh would replace.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-terraform-continues-its-open-pull-request -->
+
+<!-- omni-outbox-settled: s5-03-terraform-treats-an-unmarked-section-as-a-persons -->
+
+## s5-03-terraform-treats-an-unmarked-section-as-a-persons — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-terraform-treats-an-unmarked-section-as-a-persons
+prd: 45
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+The setup skill must never overwrite what a person wrote on a knowledge page. How does it tell a person's section from its own when the person did not label it?
+
+## The decision, in plain words
+
+It rewrites only sections that are empty, hold nothing but open questions, or that it labelled as its own; any other written section counts as a person's and is left alone.
+
+## The options, in plain words
+
+A. Only an empty section, one holding only questions, or one the skill labelled as its own is rewritten; every other section is a person's.
+B. Only a section a person labelled as theirs is protected; unlabelled text is the skill's to rewrite.
+C. The skill never rewrites a section holding any text, even its own; a refresh only fills empty sections and questions.
+
+## What I had to decide
+
+The spec says terraform "never rewrites a `by: human` section", and that `--refresh` redoes stale or blank forms. `omni kb init` writes markers with no `by:`, a person answering a `TODO(human)` line may not add `by: human`, and the spec's own example hole carries no `by:`. It does not say who owns a section holding text with no `by:`, nor whether a hole terraform writes is marked `by: terraform`.
+
+## What I did meanwhile
+
+The "Whose section it is" section of `kit/plugin/skills/terraform/SKILL.md`: terraform writes a section only when it is empty, holds nothing but `TODO(human)` lines, or its marker says `by: terraform`; text or a `See:` line with no `by:` is a person's. A hole's marker keeps no `by:`, and the pull request body tells a person to add ` · by: human` when answering one. A form holding a person's section is never turned into a pointer.
+
+## What it costs to change later
+
+A constant: the rule is prose in one skill. Narrowing it to option B is one sentence, but any section a person already wrote without a label would then be rewritten by the next refresh.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether people will reliably label the sections they answer, which option B relies on.
+
+```
+
+<!-- /omni-outbox-settled: s5-03-terraform-treats-an-unmarked-section-as-a-persons -->
+
+<!-- omni-outbox-settled: s5-04-terraform-never-runs-a-command-that-publishes -->
+
+## s5-04-terraform-never-runs-a-command-that-publishes — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-04-terraform-never-runs-a-command-that-publishes
+prd: 45
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+The setup skill writes a command down only after running it successfully. What about commands that publish, deploy or change shared data, which must not be run just to check them?
+
+## The decision, in plain words
+
+It never runs them, so it never writes them down as checked; the page points at the file where they are defined, or asks a person.
+
+## The options, in plain words
+
+A. Never run a command that deploys, publishes, releases or changes shared data; point at where it is defined, or ask a person.
+B. Write such commands down as the repository shows them, marked as not checked.
+C. Run them in a rehearsal mode when the tool offers one, and write them down when that succeeds.
+
+## What I had to decide
+
+Decision 6 and step 4 of the spec say every command is run once, green, before it is written, and its slot carries `verified: <date>`. The releasing form's `how` and `rollback` slots, and some CI steps, name commands that deploy, publish or migrate: running them to verify them would publish. The spec does not say which commands terraform may run.
+
+## What I did meanwhile
+
+Step 3 of `kit/plugin/skills/terraform/SKILL.md` runs only commands that check or build (install, build, test, lint, typecheck, the preflight). A deploy, publish, release, shared-database migration or shared-environment write is never run and never written as verified: its section is a `See:` line to the file that defines it, or a `TODO(human)` question. A command that changes tracked files is undone with `git restore` before the next step.
+
+## What it costs to change later
+
+A constant: a few lines of skill prose, before or after merge. Forms written meanwhile hold pointers to where those commands live, which stay true under any later rule.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether any repository's release or deploy command is safe to run from a checkout, which would let terraform verify it.
+
+```
+
+<!-- /omni-outbox-settled: s5-04-terraform-never-runs-a-command-that-publishes -->
+
+<!-- omni-outbox-settled: s5-05-terraform-marks-a-form-holding-only-questions-filled -->
+
+## s5-05-terraform-marks-a-form-holding-only-questions-filled — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-05-terraform-marks-a-form-holding-only-questions-filled
+prd: 45
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+When the setup skill could only ask questions on a knowledge page, should that page count as filled in, or as still empty?
+
+## The decision, in plain words
+
+It counts as filled in and dated, so a later refresh does not ask the same questions again; only a page the skill left wholly empty stays marked empty.
+
+## The options, in plain words
+
+A. A page holding any written text, pointer or question is marked filled and dated; a page left wholly empty stays marked empty.
+B. A page holding only questions stays marked empty, so every refresh looks at it again.
+C. Every page the skill looked at is marked filled and dated, even one it left wholly empty.
+
+## What I had to decide
+
+A form's front matter has `state: blank | filled | pointer` and `terraformed: <date> | null`, and `--refresh` redoes "the forms `omni kb status` reports stale or blank". The spec does not say which state a form holding only `TODO(human)` lines carries, nor one terraform surveyed and left empty because the kit default is already right.
+
+## What I did meanwhile
+
+Step 3 of `kit/plugin/skills/terraform/SKILL.md`: a form whose sections hold any text, `See:` line or question is `state: filled` with `terraformed: <today>`; a form left wholly empty stays `state: blank`, `evidence: []`, `terraformed: null`, so `--refresh` surveys it again.
+
+## What it costs to change later
+
+A constant: one sentence of skill prose. Forms written meanwhile keep the state they were given until a person or a refresh changes it; only the refresh choice and the map read it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a person wants a refresh to ask again the questions nobody has answered yet, which option B would do.
+
+```
+
+<!-- /omni-outbox-settled: s5-05-terraform-marks-a-form-holding-only-questions-filled -->
+
+<!-- omni-outbox-settled: s6-01-reruns-follow-the-ci-form -->
+
+## s6-01-reruns-follow-the-ci-form — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s6
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-reruns-follow-the-ci-form
+prd: 45
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+When a check fails for a reason that looks unrelated to the change, may the agents simply run it again, or must the failure be one the repository has written down as known?
+
+## The decision, in plain words
+
+Only a failure the repository's page about its checks lists as known, in ground the change did not touch, is run again, and only once. With nothing listed, every failure is the change's to fix.
+
+## The options, in plain words
+
+A. Re-runs follow the repository's page about its checks: only a failure listed there as known is run again, once, and a failed slice whose failure is one gets that one re-run too.
+B. The page adds to the old rule: a failure plainly outside the change, such as a broken machine or network, still gets one re-run when the page lists nothing.
+C. The page only informs: pull requests keep the old rule, and a failed slice is never run again.
+
+## What I had to decide
+
+The spec's wiring table gives `/omni:pr` (watch to green) and `/omni:wave` (a red slice) the `ci` form: "which checks exist and gate, the known reds, when a re-run is allowed". Before this PRD, `/omni:pr` allowed one re-run per PR for any failure plainly not the branch's (a runner, network or timeout failure), because no CI-triage page existed (PRD 7's item s4-04, recorded in `kit/porting/plugin--pr.md`). The `ci` form's kit default (s2, its `rerun` slot) allows a re-run only for a listed known red the branch does not touch, so a repository that lists none gets no re-run. `/omni:wave` never re-ran a red slice. The spec does not say whether the form replaces the old allowance or adds to it, nor what the wave does with a red slice whose failure is a known red.
+
+## What I did meanwhile
+
+`/omni:pr`'s triage (On red, steps 2 and 3) treats a failure matching a known red in the `ci` form, where the branch changes nothing that red names, as not the branch's, and re-runs only when the form's When to re-run section allows it: one per PR, counted as an attempt. The runner, network or timeout allowance is gone. `/omni:wave` (§4, A red slice) reads `omni kb show ci` once; a `red` slice whose failing step matches such a known red goes through steps 1 to 5 like a `done` slice, the preflight run by `/omni:pr`'s sub-PR lifecycle being its one re-run.
+
+## What it costs to change later
+
+Prose only, before or after merge: one step in `kit/plugin/skills/pr/SKILL.md` and one paragraph in `kit/plugin/skills/wave/SKILL.md`, no code and no stored data. Restoring the old allowance as a fallback is one sentence in `/omni:pr`'s step 3.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a repository that lists no known red should still get one re-run for a runner or network failure: the kit default says no, as upstream did; PRD 7's port said yes only because no page existed.
+- (author) Whether the wave should re-run a red slice at all, or only name the known red in the stuck comment.
+
+```
+
+<!-- /omni-outbox-settled: s6-01-reruns-follow-the-ci-form -->
+
+<!-- omni-outbox-settled: s6-02-a-form-never-overrides-a-skill-rule -->
+
+## s6-02-a-form-never-overrides-a-skill-rule — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s6
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-a-form-never-overrides-a-skill-rule
+prd: 45
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+When a repository's own page about how to work asks for something a delivery skill forbids, such as an agent merging its own pull request, which one does the agent follow?
+
+## The decision, in plain words
+
+The skill's rules win. A page adds steps and detail to what the agent does, but never loosens what the skill forbids.
+
+## The options, in plain words
+
+A. The skill's rules win; a repository's page only adds to them.
+B. The repository's page wins wherever it speaks, since it knows the repository best.
+C. Say nothing, and let the agent weigh the two case by case.
+
+## What I had to decide
+
+The spec wires each skill to read its forms through `omni kb show`, and decision 2 ranks the layers inside one form (pointer, then repository section, then kit default). It does not say how a form's text ranks against the skill that reads it: for example a filled `briefing` or `pull-requests` section saying to merge once green, while `/omni:pr` never merges a PR into `repo.defaultBranch`.
+
+## What I did meanwhile
+
+Step 0 of each of the seven skills, after printing the briefing, says: "A form adds to the steps below; it never overrides this skill's rules." The same paragraph says a `[hole]` is a question for a person, never a reason to stop (spec decision 7).
+
+## What it costs to change later
+
+Prose only, before or after merge: one sentence in the step 0 of seven `SKILL.md` files. No code and no stored data depend on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a repository should ever tighten or loosen a skill's rule through its playbook, for example its number of repair attempts: today that is what the config is for.
+
+```
+
+<!-- /omni-outbox-settled: s6-02-a-form-never-overrides-a-skill-rule -->
+
+<!-- omni-outbox-settled: s6-03-a-lesson-for-a-page-kept-elsewhere -->
+
+## s6-03-a-lesson-for-a-page-kept-elsewhere — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s6
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-03-a-lesson-for-a-page-kept-elsewhere
+prd: 45
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+When a person's answer teaches a lesson about how to work in the repository, and the page it belongs to is kept elsewhere in the repository rather than in the loop's own folder, where is the lesson written?
+
+## The decision, in plain words
+
+In the page kept elsewhere, so that page stays the one source. When only one part of the loop's page points there, the record of the answer still names that part; when the whole page points there, the record says in words where the lesson went.
+
+## The options, in plain words
+
+A. Write it in the page kept elsewhere; the record names the part of the loop's page when there is one, and otherwise says where the lesson went.
+B. Write it into the loop's own page anyway, beside the pointer, so the record can always name it; agents reading the page would not see it while the pointer stands.
+C. Keep it in the record of the answer only, and let a person copy it where it belongs.
+
+## What I had to decide
+
+Spec decision 10: a process lesson lands in a playbook section, `by: human`, and the settled entry records `Became: playbook/<form>#<slot>`, which `omni check outbox` resolves only when the form's own file holds that slot and it is not blank (s1's `resolvePlaybookId`). Decision 4 keeps pointers, not copies. A form with `state: pointer` holds no slot (s3-01) and `omni kb show` prints its target, not its slots; a section holding a `See:` line prints the page it names. The spec does not say where a lesson goes when the form, or the section, points elsewhere.
+
+## What I did meanwhile
+
+`/omni:yolo-fix` §3 (write-back): a section that `omni kb show <form>` prints from another page takes the lesson in that page, and the entry still records `Became: playbook/<form>#<slot>`, since the `See:` line keeps the slot non-blank. A form that points elsewhere as a whole takes the lesson in its target, and the entry records `Stays here:` with a reason naming where it went: there is no slot to name, and a `Became:` would fail `omni check outbox`.
+
+## What it costs to change later
+
+Prose only, before or after merge: two sentences in `kit/plugin/skills/yolo-fix/SKILL.md`. A ledger that already holds such a `Stays here:` line keeps it, since the ledger only grows.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the kit should later accept a `Became:` naming a page outside the playbook, so a lesson written into a pointed page is traced like any other.
+
+```
+
+<!-- /omni-outbox-settled: s6-03-a-lesson-for-a-page-kept-elsewhere -->
