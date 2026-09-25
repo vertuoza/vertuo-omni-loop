@@ -85,15 +85,17 @@ describe('the pre hook', () => {
   });
 
   it('waits across several waits for an answer given later on the page', async () => {
-    const { root, session, client } = await modeOn({ holdMs: 30 });
-    const later = setTimeout(() => {
+    // The page answers as the third wait comes in: two waits have come back `open` by then.
+    let waits = 0;
+    const onCall = (call) => {
+      if (!call.path.endsWith('/wait') || (waits += 1) < 3) return;
       const [round] = server.rounds.values();
       server.answerRound(round.id, { [COLOUR.question]: 'Cyan' });
-    }, 120);
-    const output = await preHook({ root, session, client, input: preInput([COLOUR]), limits: { totalMs: 2000, callMs: 1000 } });
-    clearTimeout(later);
+    };
+    const { root, session, client } = await modeOn({ holdMs: 30, onCall });
+    const output = await preHook({ root, session, client, input: preInput([COLOUR]), limits: { totalMs: 5000, callMs: 1000 } });
     expect(output.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Cyan' });
-    expect(server.calls.filter((call) => call.path.endsWith('/wait')).length).toBeGreaterThan(1);
+    expect(waits).toBe(3);
   });
 
   it('passes a multi-select joined with ", " and Other text verbatim', async () => {
@@ -144,10 +146,10 @@ describe('the pre hook', () => {
   });
 
   it('when the session is closed, deletes ask.json and the round, and prints nothing', async () => {
-    const { root, session, client } = await modeOn();
-    const later = setTimeout(() => server.closeSession(session.sessionId), 50);
+    // The session closes while the hook waits on its round, the moment that round is posted.
+    const { root, session, client } = await modeOn({ answer: (round) => { setImmediate(() => server.closeSession(round.sessionId)); return null; } });
     expect(await preHook({ root, session, client, input: preInput([COLOUR]), limits: { totalMs: 2000, callMs: 1000 } })).toBeNull();
-    clearTimeout(later);
+    expect(server.rounds.size).toBe(1);
     expect(readSession(root)).toBeNull();
     expect(readRound(root)).toBeNull();
   });

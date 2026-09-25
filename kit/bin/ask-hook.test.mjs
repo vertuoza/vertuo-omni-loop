@@ -62,6 +62,9 @@ async function modeOn(options = {}) {
   return { ...repo, sessionId: id, tokens };
 }
 
+// A few tests below start a process per case; the full suite runs them under load.
+const SPAWNS_MS = 30000;
+
 describe('omni ask hook, with the mode off', () => {
   it('exits 0 with empty stdout for every hook and any stdin, with no ask.json', () => {
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: 1\nask:\n  url: https://ask.example.com\n' } });
@@ -71,7 +74,7 @@ describe('omni ask hook, with the mode off', () => {
         expect({ kind, input, status: run.status, stdout: run.stdout }).toEqual({ kind, input, status: 0, stdout: '' });
       }
     }
-  });
+  }, SPAWNS_MS);
 
   it('stays quiet with no config, a broken config, or outside a repository', () => {
     const bare = makeRepo({ git: true });
@@ -84,7 +87,7 @@ describe('omni ask hook, with the mode off', () => {
         expect({ cwd, kind, status: run.status, stdout: run.stdout, stderr: run.stderr }).toEqual({ cwd, kind, status: 0, stdout: '', stderr: '' });
       }
     }
-  });
+  }, SPAWNS_MS);
 
   it('stays quiet when ask.url is null, even with ask.json left behind', async () => {
     const { root, write, tokens } = await modeOn();
@@ -132,8 +135,8 @@ describe('omni ask hook, with the mode on', () => {
   });
 
   it('pre deletes ask.json when the session is closed', async () => {
-    const { root, tokens, sessionId } = await modeOn();
-    setTimeout(() => server.closeSession(sessionId), 50);
+    // The session closes while the hook waits on its round, the moment that round is posted.
+    const { root, tokens } = await modeOn({ answer: (round) => { setImmediate(() => server.closeSession(round.sessionId)); return null; } });
     const s = io();
     expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...s, stdin: PRE, tokens, limits: { totalMs: 2000, callMs: 1000 } })).toBe(0);
     expect(s.out).toEqual([]);
@@ -229,7 +232,7 @@ describe('the plugin\'s hooks.json', () => {
         expect({ event, status: run.status, stdout: run.stdout }).toEqual({ event, status: 0, stdout: '' });
       }
     }
-  });
+  }, SPAWNS_MS);
 
   it('runs the checkout\'s own omni', async () => {
     const { root, tokens } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
