@@ -226,6 +226,26 @@ export function replayGitHub({ recording = [], commits = {}, pulls = [], events 
       for (const name of labels) if (!target.labels.some((label) => label.name === name)) target.labels.push({ name });
       return { data: structuredClone(target.labels) };
     },
+    // Issues, listed as GitHub lists them: pull requests among them, marked `pull_request`.
+    'GET /repos/{owner}/{repo}/issues': ({ labels, state: wanted = 'open', page }) => {
+      const names = labels ? String(labels).split(',') : [];
+      const items = [...state.issues, ...state.pulls.map((pull) => ({ ...pull, pull_request: { url: pull.html_url } }))]
+        .filter((item) => (wanted === 'all' || item.state === wanted) && names.every((name) => (item.labels ?? []).some((label) => label.name === name)))
+        .sort((a, b) => b.number - a.number);
+      return { data: Number(page ?? 1) === 1 ? structuredClone(items) : [] };
+    },
+    'POST /repos/{owner}/{repo}/issues': ({ owner, repo, title, body, labels = [] }) => {
+      const number = nextNumber++;
+      const issue = { number, title, body, state: 'open', html_url: `https://github.com/${owner}/${repo}/issues/${number}`, labels: labels.map((name) => ({ name })) };
+      state.issues.push(issue);
+      return { data: structuredClone(issue) };
+    },
+    'PATCH /repos/{owner}/{repo}/issues/{issue_number}': ({ issue_number, ...fields }) => {
+      const issue = state.issues.find((candidate) => candidate.number === Number(issue_number));
+      if (!issue) throw httpError(404, `no issue ${issue_number}`);
+      for (const key of ['title', 'body', 'state']) if (key in fields) issue[key] = fields[key];
+      return { data: structuredClone(issue) };
+    },
     'GET /repos/{owner}/{repo}/issues/{issue_number}/comments': ({ issue_number, page }) => ({
       data:
         Number(page ?? 1) === 1

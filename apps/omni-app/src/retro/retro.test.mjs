@@ -34,7 +34,7 @@ describe('retro — a merged feature PR', () => {
       'publish-issues',
       'publish',
     ]);
-    expect(result).toMatchObject({ prd: 7, findings: 1, issues: 0, branch: BRANCH, committed: true, pr: { created: true } });
+    expect(result).toMatchObject({ prd: 7, findings: 1, issues: 1, branch: BRANCH, committed: true, pr: { created: true } });
   });
 
   it('publishes docs/retro-<topic>, retro.md and retro.json in the PRD’s shipped folder, and a PR labelled omni:retro into main', async () => {
