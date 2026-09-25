@@ -63,7 +63,7 @@ export function SelectOverlay({ fleets, pick, change, locked, confirm, current, 
           const i = row.first + k;
           return (
             <button key={fl.name} type="button" className="j-card" aria-label={fl.label} aria-pressed={i === pick} onClick={() => onPick(i)}
-              style={{ left: row.x0 + k * (row.w + row.gap), top: row.y, width: row.w, height: row.h + row.lift }} />
+              style={{ left: row.x0 + k * (row.w + row.gap), top: row.y, width: row.w, height: row.h }} />
           );
         })}
       </div>
