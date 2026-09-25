@@ -123,6 +123,9 @@ node .omni-loop/bin/omni.mjs comment --prd <prd> --pr <feature PR>
    marked ready**; `/omni:yolo-fix` follows this same green path after its own ship. CI runs on it
    once: follow `/omni:pr`'s lifecycle for the feature PR until its checks are green or it is stuck.
 
+The **omni-loop** GitHub App, when installed on the repository, posts this same gate on the feature
+PR as the check named `ci.outboxContext`; this skill never posts it and never waits on it.
+
 **Gate red.** Leave the feature PR in **draft**; do not ship. The comment above holds every open
 question in plain words, each under a number. Report: "the outbox is open: a person answers on the
 feature PR, as the posted comment explains, then runs `/omni:yolo-fix <prd>`."

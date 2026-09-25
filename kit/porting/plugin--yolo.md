@@ -58,6 +58,9 @@ dispatch, merge, the Slices checklist) went to `/omni:wave` (see `plugin--wave.m
 - **The gate is `omni status <prd>` without `--changes`** (item s9-03): open items and unreworked
   drift only, as spec §2.1 rule 7 words it; unaccounted changes are graded per slice by do-work's
   `omni check coverage`.
+- **The gate's check on the PR** (PRD 28, ADR-0001): one line before "Gate red" says the omni-loop
+  GitHub App posts the same gate as the `ci.outboxContext` check, and that this skill neither posts it
+  nor waits on it. Upstream's `ci/outbox` status came from a per-repository workflow.
 - **`omni comment` runs before `omni ship`,** on both paths, so it reads the outbox while it is
   still in the inbox folder. Upstream ran it last.
 - **The loop's end states** are named: complete, held (stuck, stopped, blocked, in flight

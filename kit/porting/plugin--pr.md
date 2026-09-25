@@ -34,6 +34,9 @@ sub-PR lifecycle.
   decides".
 - **Red outbox context.** New row: a red `ci.outboxContext` alone is the gate, not a CI failure; the
   skill runs `omni status <prd>` and stops when only person-answered items remain (item s4-03).
+- **Who posts the outbox context.** One line after "Which checks count": the `ci.outboxContext` check
+  is posted by the omni-loop GitHub App, never by a workflow, and is absent when the app is not
+  installed (PRD 28, ADR-0001). Upstream's `ci/outbox` came from a per-repository workflow.
 - **Triage.** Upstream allowed a re-run only on a failure signature listed in its CI-triage page.
   There is no such page here; now one re-run per PR is allowed when the failure is plainly not the
   branch's (runner, network, timeout, in untouched code), still counted as an attempt (item s4-04).

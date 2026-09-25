@@ -1,0 +1,19 @@
+{
+  "name": "@omni/omni-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The omni-loop GitHub App: posts the outbox check on every pull request, through Inngest, deployed on Vercel.",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@octokit/app": "^16.1.4",
+    "@octokit/webhooks": "^14.2.0",
+    "inngest": "^4.21.0",
+    "vertuo-omni-plan": "workspace:*"
+  },
+  "devDependencies": {
+    "@inngest/test": "^1.0.0"
+  }
+}
