@@ -385,6 +385,41 @@ describe('omni init — footprint (AC 7)', () => {
   });
 });
 
+const RETRO_MD = [
+  '---', 'prd: 50', 'feature-pr: 51', 'merge-sha: 4e2dc90', 'runs: [merge]', 'model: none', 'rules: 1', '---',
+  '# Retro — PRD 50, A joke around every outbox question', '', 'Facts only: no model key', '',
+  '## Findings', '', '## Timeline', '', '- 3 slices in 2 waves', '',
+].join('\n');
+const RETRO_JSON = `${JSON.stringify({ prd: 50, featurePr: 51, runs: [{ run: 'merge', rules: 1, facts: { slices: 3, waves: 2 }, findings: [] }] }, null, 2)}\n`;
+
+describe('omni init — a retro in a PRD folder', () => {
+  it('omni check all, coverage included, stays green with retro.md and retro.json in a shipped and an inbox folder', async () => {
+    const { root, write } = makeRepo({ git: true });
+    await init(root);
+    const git = (...args) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd: root, stdio: 'ignore' });
+    git('add', '-A');
+    git('commit', '-q', '-m', 'omni init');
+    git('update-ref', 'refs/remotes/origin/trunk', 'HEAD');
+    const spec = (prd) => `---\nprd: ${prd}\ntitle: A PRD\nblocked-by: none\nspec: file\n---\n\n# A PRD\n`;
+    const shipped = '.omni-loop/delivery/shipped/0050-question-intros';
+    const inbox = '.omni-loop/delivery/inbox/0051-merged-unshipped';
+    for (const [folder, prd] of [[shipped, 50], [inbox, 51]]) {
+      write(`${folder}/spec.md`, spec(prd));
+      write(`${folder}/plan.md`, '# A PRD — plan\n');
+      write(`${folder}/retro.md`, RETRO_MD.replace('prd: 50', `prd: ${prd}`));
+      write(`${folder}/retro.json`, RETRO_JSON);
+    }
+    git('add', '-A');
+    git('commit', '-q', '-m', 'docs(retro): PRD 50');
+    for (const prd of ['50', '51']) {
+      const s = io();
+      expect(await main(['check', 'all', '--prd', prd], { cwd: root, ...s })).toBe(0);
+      expect(s.out.join('')).not.toMatch(/skipped/);
+      expect(s.out.join('')).toMatch(new RegExp(`PRD #${prd}: 0 risky change`));
+    }
+  });
+});
+
 describe('omni init — the real bundle', () => {
   it('the built bundle carries its marker: it installs itself byte for byte', () => {
     // Built to a scratch file: the committed kit/dist/omni.mjs is only ever compared, never rewritten by a test.
