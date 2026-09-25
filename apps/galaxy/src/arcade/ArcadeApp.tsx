@@ -4,6 +4,8 @@ import type { GalaxyView } from '@omni/galaxy';
 import { randomHero, type Hero } from '@omni/sprites';
 import { drawFrame, H, layoutMap, neighbour, W, type FrameState, type SceneName } from './scenes';
 import { motif, music, setMuted as setAudioMuted, sfx, unlock, type Sfx } from './sound';
+import { Press } from './hint';
+import { keyAction, type Action } from './keys';
 import type { SongName } from './score';
 import {
   BootOverlay, BriefingOverlay, FleetsOverlay, HeroesOverlay, MapOverlay, MenuOverlay, PlanetOverlay, TitleOverlay,
@@ -19,21 +21,6 @@ import { foldChar, foldName, nameInit, nameReduce, nameValue, NAME_RULE, type Na
 import { BUILDER_ROWS, cycleHero } from './builder';
 import { afterGate, afterReturn, afterStart, allowed, backStep, isDisbanded, isLinked, nextStep, readReturn, type Flow, type Step } from './onboarding';
 import type { Account, FleetRow, Player, PlayerPatch, Session } from './types';
-
-export type Action = 'up' | 'down' | 'left' | 'right' | 'a' | 'b' | 'start' | 'select';
-
-// The pad: arrows or WASD move, Enter is START, Z/Space/K is A, X/Esc/J/Backspace is B, Tab is SELECT.
-// On the name screen letters type instead (see onKey).
-const KEYS: Record<string, Action> = {
-  ArrowUp: 'up', w: 'up', W: 'up',
-  ArrowDown: 'down', s: 'down', S: 'down',
-  ArrowLeft: 'left', a: 'left', A: 'left',
-  ArrowRight: 'right', d: 'right', D: 'right',
-  z: 'a', Z: 'a', k: 'a', K: 'a', ' ': 'a',
-  Enter: 'start',
-  x: 'b', X: 'b', j: 'b', J: 'b', Escape: 'b', Backspace: 'b',
-  Tab: 'select', Shift: 'select',
-};
 
 // The music each screen plays; the rest are silent but for their effects.
 const TRACK: Partial<Record<SceneName, SongName>> = {
@@ -474,7 +461,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         setMuted((m) => { try { window.localStorage.setItem('omni-loop:muted', m ? '0' : '1'); } catch { /* per-viewer only */ } return !m; });
         return;
       }
-      const action = KEYS[e.key];
+      const action = keyAction(e.key);
       if (!action) return;
       e.preventDefault();
       if (e.repeat && (action === 'a' || action === 'b' || action === 'start')) return;
@@ -540,10 +527,14 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     return () => ro.disconnect();
   }, []);
 
+  // A click on a key hint ("[A] LINK GITHUB") presses that key.
+  const press = useCallback((action: Action) => { unlock(); act(action); }, [act]);
+
   const onCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     unlock();
     const u = uiRef.current;
-    if (u.scene === 'boot' || u.scene === 'title' || u.scene === 'gate') return act('start');
+    if (u.scene === 'boot' || u.scene === 'title' || u.scene === 'gate' || u.scene === 'ready' || u.scene === 'welcome') return act('start');
+    if (u.scene === 'link' && u.link === 'done') return act('start');
     if (u.scene !== 'map') return;
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * W;
@@ -632,7 +623,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
                   aria-label="Galaxy screen"
                 />
                 <div className="overlay">
-                  {overlay}
+                  <Press.Provider value={press}>{overlay}</Press.Provider>
                   {ui.toast && <p className="j-toast" role="status">{ui.toast}</p>}
                 </div>
                 <div className="crt" aria-hidden="true" />
@@ -645,7 +636,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         <div className="deck">
           <div className="plate">
             <span className="plate-big">{session ? 'PRESS START' : 'INSERT COIN'}</span>
-            <span className="plate-small plate-keys">ENTER · Z = A · X = B · ARROWS</span>
+            <span className="plate-small plate-keys">ENTER = START · A/Z · B/X · ARROWS</span>
           </div>
           <div className="emblem" aria-hidden="true"><VertuozaMark /></div>
           <div className="plate">

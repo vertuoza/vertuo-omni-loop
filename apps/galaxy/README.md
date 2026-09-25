@@ -47,10 +47,11 @@ your pull requests score for that fleet. All from the keyboard (design:
 | Hall of Heroes | Season high-score table from `game/economy.mjs`, with each player's hero and name |
 | How to play | The scoring rules, read from `game/rulebook.mjs` so they never drift |
 
-Controls: arrows or WASD move, **Enter** is START, **Z**/**Space** is A, **X**/**Esc** is B, **Tab**
-is SELECT (random on the hero builder), **M** mutes. On the name screen letters type instead:
-Backspace erases, Enter confirms, Escape goes back. No step needs a mouse; clicks and taps still work,
-and phones get an on-screen pad. Deep links: `#map`, `#fleets`, `#heroes`, `#briefing`, `#planet-2332`.
+Controls: the arrows move, **Enter** is START, **A** (or Z, Space) is A, **B** (or X, Esc) is B,
+**Tab** is SELECT (random on the hero builder), **M** mutes: the keys the screens show are the keys
+to press. On the name screen letters type instead: Backspace erases, Enter confirms, Escape goes
+back. No step needs a mouse; clicks and taps still work (a key hint such as "[A] LINK GITHUB" is a
+button too), and phones get an on-screen pad. Deep links: `#map`, `#fleets`, `#heroes`, `#briefing`, `#planet-2332`.
 
 ## How the data flows
 
