@@ -99,10 +99,8 @@ export function AskSession({ source, initial, serverNow }: Props) {
     }
   }, [round, answers, sending, getPort, clock]);
 
-  const wide = view.kind === 'open' && view.questions.some((q) => q.options.some((o) => o.preview !== null));
-
   return (
-    <div className={wide ? 'ask-col wide' : 'ask-col'}>
+    <div className="ask-col">
       <p className="ask-title">{state.session.title}</p>
       {problem && <p className="ask-problem" role="status">{problem}</p>}
       {notice && <p className="ask-problem" role="status">{notice}</p>}

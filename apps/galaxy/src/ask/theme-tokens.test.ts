@@ -64,7 +64,7 @@ describe('the stylesheet the table becomes', () => {
 
   it('declares every token for the light and the dark theme', () => {
     for (const theme of ['light', 'dark'] as const) {
-      const declared = block(`html[data-ask-theme="${theme}"]`);
+      const declared = block(`:is(html:has(.ask[data-ask-theme="${theme}"]), .ask[data-ask-theme="${theme}"])`);
       expect(declared).toContain(`color-scheme: ${theme};`);
       for (const [name, value] of Object.entries(TOKENS[theme])) expect(declared).toContain(`${variable(name as TokenName)}: ${value};`);
     }
@@ -72,7 +72,7 @@ describe('the stylesheet the table becomes', () => {
 
   it('follows the system when no script ran', () => {
     expect(css).toContain('@media (prefers-color-scheme: dark)');
-    expect(block('html:not([data-ask-theme]) .ask')).toContain(`--ask-ground: ${TOKENS.light.ground};`);
+    expect(block('.ask:not([data-ask-theme])')).toContain(`--ask-ground: ${TOKENS.light.ground};`);
   });
 });
 

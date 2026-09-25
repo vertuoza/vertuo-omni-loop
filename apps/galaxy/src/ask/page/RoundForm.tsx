@@ -72,7 +72,7 @@ export function RoundForm({ roundId, questions, draft, onDraft, canSend, sending
         const preview = shownPreview(question, pick, focus?.question === index ? focus.option : null);
         const hasPreview = question.options.some((o) => o.preview !== null);
         return (
-          <section key={index} className="ask-q" data-question={index} aria-labelledby={`${name}-text`}>
+          <section key={index} className={hasPreview ? 'ask-q has-preview' : 'ask-q'} data-question={index} aria-labelledby={`${name}-text`}>
             <div className="ask-q-head">
               {question.header && <span className="ask-chip">{question.header}</span>}
               <span className="ask-pick-hint">{question.multiSelect ? 'Pick any that apply' : 'Pick one'}</span>
@@ -142,7 +142,7 @@ export function RoundForm({ roundId, questions, draft, onDraft, canSend, sending
       })}
       <div className="ask-foot">
         <span className="ask-hint">
-          <kbd>1</kbd>–<kbd>4</kbd> pick · <kbd>Enter</kbd> send ·{' '}
+          <span className="ask-keys-hint"><kbd>1</kbd>–<kbd>4</kbd> pick · <kbd>Enter</kbd> send · </span>
           <span suppressHydrationWarning>
             {minutesLeft > 1 ? `moves to the terminal in ${minutesLeft} min` : 'moves to the terminal in a minute'}
           </span>

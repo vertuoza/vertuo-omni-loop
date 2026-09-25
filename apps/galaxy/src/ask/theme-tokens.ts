@@ -97,13 +97,15 @@ const variable = (name: string) => `--ask-${name.replace(/[A-Z]/g, (c) => `-${c.
 const declarations = (theme: Theme) =>
   `color-scheme: ${theme}; ${Object.entries(TOKENS[theme]).map(([name, value]) => `${variable(name)}: ${value};`).join(' ')}`;
 
-/** The tokens as CSS custom properties: on <html> once the theme script has run, and on the ask
- * root following the system when it has not. */
+/** The tokens as CSS custom properties, on the ask root the theme script marked, and on <html>
+ * too where :has() is known (so the page's own background follows); `:is()` forgives a browser
+ * without it. An ask root the script never marked follows the system. */
 export function themeCss(): string {
+  const marked = (theme: Theme) => `:is(html:has(.ask[data-ask-theme="${theme}"]), .ask[data-ask-theme="${theme}"])`;
   return [
-    `html[data-ask-theme="light"] { ${declarations('light')} }`,
-    `html[data-ask-theme="dark"] { ${declarations('dark')} }`,
-    `html:not([data-ask-theme]) .ask { ${declarations('light')} }`,
-    `@media (prefers-color-scheme: dark) { html:not([data-ask-theme]) .ask { ${declarations('dark')} } }`,
+    `${marked('light')} { ${declarations('light')} }`,
+    `${marked('dark')} { ${declarations('dark')} }`,
+    `.ask:not([data-ask-theme]) { ${declarations('light')} }`,
+    `@media (prefers-color-scheme: dark) { .ask:not([data-ask-theme]) { ${declarations('dark')} } }`,
   ].join('\n');
 }

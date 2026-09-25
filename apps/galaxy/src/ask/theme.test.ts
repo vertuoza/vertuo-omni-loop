@@ -47,7 +47,7 @@ function boot({ stored, systemDark, storage = 'ok', media = true }: { stored: st
         return key === THEME_KEY ? stored : null;
       },
     },
-    document: { documentElement: { setAttribute: (name: string, value: string) => attrs.set(name, value) } },
+    document: { currentScript: { parentElement: { setAttribute: (name: string, value: string) => attrs.set(name, value) } } },
   };
   if (media) global.matchMedia = (query: string) => ({ matches: query === '(prefers-color-scheme: dark)' && systemDark });
   global.window = global;
@@ -71,6 +71,10 @@ describe('the script applied before the first paint', () => {
   it('falls back to the system when storage is refused, and to light without media queries', () => {
     expect(boot({ stored: 'light', systemDark: true, storage: 'throws' })).toEqual({ theme: 'dark', choice: 'system' });
     expect(boot({ stored: null, systemDark: true, media: false })).toEqual({ theme: 'light', choice: 'system' });
+  });
+
+  it('does nothing where it has no parent to mark', () => {
+    expect(() => runInNewContext(themeScript, { localStorage: { getItem: () => 'dark' }, document: { currentScript: null } })).not.toThrow();
   });
 
   it('is one small self-contained statement', () => {

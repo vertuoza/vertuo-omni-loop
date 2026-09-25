@@ -4,7 +4,7 @@
    nothing here names a colour. The pixel face appears in the header wordmark only.
    The arcade's stylesheet is global, so everything here is scoped to the ask pages. */
 
-html[data-ask-theme],
+html:has(.ask),
 .ask {
   --ask-body: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --ask-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
@@ -12,7 +12,7 @@ html[data-ask-theme],
 }
 
 /* Over the arcade's body: its ground, its face, its smoothing. */
-html[data-ask-theme] body {
+html:has(.ask[data-ask-theme]) body {
   background: var(--ask-ground);
   color: var(--ask-ink);
   font-family: var(--ask-body);
@@ -81,11 +81,11 @@ html[data-ask-theme] body {
   padding: 7px 11px;
   border-radius: 999px;
 }
-/* The pressed choice is drawn from <html>'s attribute, which the inline script sets before the
-   first paint, so the switch never flashes the wrong one before React takes over. */
-html[data-ask-choice='system'] .ask-switch [data-choice='system'],
-html[data-ask-choice='light'] .ask-switch [data-choice='light'],
-html[data-ask-choice='dark'] .ask-switch [data-choice='dark'] {
+/* The pressed choice is drawn from the ask root's attribute, which the inline script sets before
+   the first paint, so the switch never flashes the wrong one before React takes over. */
+.ask[data-ask-choice='system'] .ask-switch [data-choice='system'],
+.ask[data-ask-choice='light'] .ask-switch [data-choice='light'],
+.ask[data-ask-choice='dark'] .ask-switch [data-choice='dark'] {
   background: var(--ask-plasma);
   color: var(--ask-on-plasma);
 }
@@ -101,7 +101,6 @@ html[data-ask-choice='dark'] .ask-switch [data-choice='dark'] {
   padding: 28px 16px 72px;
 }
 .ask-col { width: 100%; max-width: 680px; display: grid; gap: 28px; }
-.ask-col.wide { max-width: 1120px; }
 .ask-title { margin: 0; font-size: 14px; color: var(--ask-muted); overflow-wrap: anywhere; }
 
 /* ── The open round ───────────────────────────────────────────────────────── */
@@ -128,6 +127,12 @@ html[data-ask-choice='dark'] .ask-switch [data-choice='dark'] {
 @media (min-width: 720px) {
   .ask-q-body.has-preview { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
   .ask-q-body.has-preview .ask-preview { position: sticky; top: 16px; }
+  /* A question with a preview widens past the column, centred on it; the others keep its measure. */
+  .ask-q.has-preview {
+    --ask-wide: min(1120px, calc(100vw - 48px));
+    width: var(--ask-wide);
+    margin-inline: calc((100% - var(--ask-wide)) / 2);
+  }
 }
 
 .ask-opts { display: grid; gap: 10px; margin: 0; padding: 0; border: 0; min-width: 0; }
@@ -304,6 +309,11 @@ html[data-ask-choice='dark'] .ask-switch [data-choice='dark'] {
 .ask-past dl { margin: 4px 8px 10px; display: grid; gap: 8px; font-size: 15px; }
 .ask-past dt { color: var(--ask-muted); }
 .ask-past dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+
+/* A touch screen has no keys to press. */
+@media (hover: none) and (pointer: coarse) {
+  .ask-keys-hint { display: none; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .ask-working::after { animation: none; content: '…'; }

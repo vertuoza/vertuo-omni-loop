@@ -4,10 +4,11 @@ import { themeScript } from '../../src/ask/theme';
 import { ThemeSwitch } from '../../src/ask/theme-switch';
 import { TOKENS, themeCss } from '../../src/ask/theme-tokens';
 
-// Every /ask page: a reading surface apart from the arcade. The theme script runs first, before
-// anything below it is parsed, so the stored theme is applied before the first paint; the tokens
-// follow as CSS custom properties, then the faces (Atkinson Hyperlegible Next to read, JetBrains
-// Mono for previews; the pixel face, loaded by the root layout, is for the wordmark only).
+// Every /ask page: a reading surface apart from the arcade. The tokens come first as CSS custom
+// properties; the theme script is the ask root's first child, so it marks the root with the stored
+// theme before anything in it is parsed, and before the first paint. The faces: Atkinson
+// Hyperlegible Next to read, JetBrains Mono for previews; the pixel face, loaded by the root
+// layout, is for the wordmark only.
 
 export const metadata: Metadata = {
   title: 'Ask · OMNI LOOP',
@@ -29,14 +30,16 @@ const FACES =
 export default function AskLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <script
-        type={typeof window === 'undefined' ? 'text/javascript' : 'text/plain'}
-        suppressHydrationWarning
-        dangerouslySetInnerHTML={{ __html: themeScript }}
-      />
       <style dangerouslySetInnerHTML={{ __html: themeCss() }} />
       <link rel="stylesheet" href={FACES} precedence="default" />
-      <div className="ask">
+      {/* The script marks this root with the theme before anything in it is parsed; React leaves
+          those two attributes alone. */}
+      <div className="ask" suppressHydrationWarning>
+        <script
+          type={typeof window === 'undefined' ? 'text/javascript' : 'text/plain'}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: themeScript }}
+        />
         <header className="ask-bar">
           <span className="ask-brand">
             <span className="ask-mark">OMNI LOOP</span>
