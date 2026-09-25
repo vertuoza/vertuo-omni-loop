@@ -21,16 +21,18 @@ duties of `outbox-policy.mjs` beside it (the module itself was ported earlier as
 | the browser scenarios run twice against Railway | `acceptance.run`, run twice, only when `acceptance.enabled` |
 | `vertuo-pull-request` (PR kind, labels, `Part of #<prd>`, lifecycle) | "follow `/omni:pr`" — labels and link lines are that skill's, read from `labels.*` and `prLinks.*` |
 | `vertuo-parallel-wave` dispatch | `/omni:wave`, signalled by the explicit `--in-wave` input |
-| "Start From Architecture" (Zod-first, OpenRouter, Kysely, controller-service-repository, `use-intl`, ADR 0037/0040) | `.omni-loop/repo.md` when it exists: the repository's own architecture rules |
+| "Start From Architecture" (Zod-first, OpenRouter, Kysely, controller-service-repository, `use-intl`, ADR 0037/0040) | the repository's own forms: `omni kb show architecture`, `conventions` and `setup` (PRD 45; it was `.omni-loop/repo.md`, now retired) |
+| `docs/agents/testing.md`, `verification.md`, `pull-request.md`, `definition-of-done.md` ("Pair With") | `omni kb show testing` at test-first; `verification`, `pull-requests`, `definition-of-done` at ship (PRD 45) |
 
 ## Dropped
 
 - **Railway e2e recipe:** `E2E_BASE_URL`, the door secret, the QA tenant login, `railway variables`,
   `playwright install`, `bddgen`. Replaced by `acceptance.run`.
 - **OpenRouter / `system-ai` / `LlmClient`, Zod-first, Kysely / `system-db-core`, prompt/eval
-  rules, i18n and `use-intl` (ADR 0037, ADR 0040):** repository architecture; now `.omni-loop/repo.md`.
+  rules, i18n and `use-intl` (ADR 0037, ADR 0040):** repository architecture; now the repository's
+  `architecture` form (PRD 45; `.omni-loop/repo.md` before it).
 - **`apps/e2e/handles.json` and `pnpm check:test-handles`:** repository-specific; a repository that
-  wants it writes it in `.omni-loop/repo.md` and `commands.checks`.
+  wants it writes it in its `testing` form and `commands.checks` (PRD 45; `.omni-loop/repo.md` before).
 - **ADR 0061 (PR-creation hook), ADR 0069 (legacy spec path), PRD #985/#1044/#1071/#1081/#1166
   references:** upstream history.
 - **"Given a spec path" / standalone PR into `main`:** the loop builds slices only; a legacy spec is
@@ -38,7 +40,8 @@ duties of `outbox-policy.mjs` beside it (the module itself was ported earlier as
 - **"Right-Size The Model (When Delegating)":** a slice is built by one agent, and `/omni:wave`
   already sits two levels deep; do-work delegating further would near the three-level subagent limit.
 - **"SOLID In This Repo" examples tied to OpenRouter/Kysely:** kept as three generic lines in Build.
-- **"Pair With"** (`vertuo-fix-bug`, `vertuo-testing`, `docs/agents/*.md`): none has an `/omni:` twin.
+- **"Pair With"** (`vertuo-fix-bug`, `vertuo-testing`, `docs/agents/*.md`): none has an `/omni:` twin;
+  the `docs/agents/` pages came back as the playbook forms in PRD 45 (above).
 - **Writing the item text by hand** (the letter-your-own-options fallback): `omni item new` renders it.
 
 ## Changed
@@ -59,6 +62,12 @@ duties of `outbox-policy.mjs` beside it (the module itself was ported earlier as
   refused, or a rendered item the same check `omni check outbox` runs on every open item would
   reject; either way nothing is written and `reason` says why.
 - **Account example** keeps the upstream three-line shape, with placeholders instead of a real path.
+- **`.omni-loop/repo.md` retired** (PRD 45, the spec's wiring table): step 1.5 read it "when it
+  exists", and no repository held one. It now reads the `architecture`, `conventions` and `setup`
+  forms through `omni kb show`, which print the kit default for any section a repository left
+  blank; the skill no longer names `repo.md`.
+- **Step 0's stop line** says "not installed", not "not terraformed" (PRD 45): `/omni:terraform`
+  now names filling the forms, and a failing `omni config` means `omni init` has not run.
 
 ## Added
 
@@ -73,3 +82,16 @@ duties of `outbox-policy.mjs` beside it (the module itself was ported earlier as
 - The `--adopt` failure path (exit 1, `nothing was written:`): rerun without `--adopt`, name it in risks.
 - "Territory only": a change outside the slice row's territory is a decision, not a fix.
 - The item JSON field list, and "exit 2 means your JSON is wrong".
+- **The playbook forms** (PRD 45, the spec's wiring table), each read through `omni kb show`:
+  - step 0 prints the `briefing` before any other step (acceptance criterion 9), and says how to
+    read a form: a blank section is the kit default, a `[hole]` is a question for a person and never
+    stops the slice (decision 7), and a form adds to the skill's steps without overriding its rules
+    (item s6-02);
+  - read before building: `architecture`, `conventions` and `setup`, in place of `repo.md` (above);
+  - build, test-first: `testing`, before naming the "done" condition;
+  - ship: `verification`, `pull-requests` and `definition-of-done` first; what they ask of a push or
+    a hand-off is part of the step.
+
+  Not wired, because the spec's table does not name them for do-work: `decisions` (the before/after
+  page lists it beside `bearsOn: ADR-nnnn`) and `definition-of-done` at the account step. The spec's
+  risk "a step reads only the forms the wiring table names" decides.
