@@ -145,15 +145,45 @@ describe('omni item new', () => {
     expect(s2.out.join('')).toMatch(/s7-02-default-timeout/);
   });
 
-  it('needsHumanAction stops with exit 1 and writes nothing', async () => {
+  it('needsHumanAction writes a human-action item, prints its path, and exits 1 (blocked)', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
+    const { options, ...withoutOptions } = FIELDS;
+    const json = writeJson(root, {
+      ...withoutOptions,
+      needsHumanAction: true,
+      personSteps: 'Ask an admin to grant the missing scope on the shared service account.',
+    });
+    const s = io();
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json], { cwd: root, ...s });
+    expect(code).toBe(1);
+    const file = s.out.join('').trim();
+    expect(file).toBe('.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md');
+    expect(existsSync(join(root, file))).toBe(true);
+    const text = readTextFile(join(root, file));
+    expect(text).toMatch(/rank: human-action/);
+    expect(text).toMatch(/## What a person must do/);
+    expect(text).toMatch(/Ask an admin to grant the missing scope/);
+    expect(s.err.join('')).toMatch(/the slice is blocked/);
+  });
+
+  it('personSteps is required when the decision settles at rank human-action', async () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
     const json = writeJson(root, { ...FIELDS, needsHumanAction: true });
     const s = io();
     const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json], { cwd: root, ...s });
-    expect(code).toBe(1);
-    expect(s.err.join('')).toMatch(/nothing was written/);
-    expect(s.out.join('')).toBe('');
+    expect(code).toBe(2);
+    expect(s.err.join('')).toMatch(/personSteps/);
     expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
+  });
+
+  it('options is required unless the decision settles at rank human-action', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
+    const { options, ...withoutOptions } = FIELDS;
+    const json = writeJson(root, withoutOptions);
+    const s = io();
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json], { cwd: root, ...s });
+    expect(code).toBe(2);
+    expect(s.err.join('')).toMatch(/options/);
   });
 
   it('breaking a named law stops with exit 1 and writes nothing', async () => {
@@ -169,7 +199,7 @@ describe('omni item new', () => {
     expect(s.err.join('')).toMatch(/N1/);
   });
 
-  it('a decision pulled apart by two principles stops with exit 1 and writes nothing', async () => {
+  it('a decision pulled apart by two principles writes a high item, prints its path, and exits 1 (stop)', async () => {
     const { root } = makeRepo({
       git: true,
       files: { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\nlaws:\n  source: knowledge\n', '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' },
@@ -178,9 +208,13 @@ describe('omni item new', () => {
     const s = io();
     const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json], { cwd: root, ...s });
     expect(code).toBe(1);
-    expect(s.err.join('')).toMatch(/nothing was written/);
+    const file = s.out.join('').trim();
+    expect(file).toBe('.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md');
+    expect(existsSync(join(root, file))).toBe(true);
+    const text = readTextFile(join(root, file));
+    expect(text).toMatch(/rank: high/);
+    expect(s.err.join('')).toMatch(/the slice must stop/);
     expect(s.err.join('')).toMatch(/P-A-1, P-B-1/);
-    expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
   });
 });
 

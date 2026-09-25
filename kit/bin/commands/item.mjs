@@ -6,13 +6,18 @@
 // safe default, so a JSON file that names none of them still "carries what it needs": a plain
 // question with no `bears-on` and no named risk.
 //
-// A `stop` or `blocked` verdict writes nothing at all and exits 1 — even though `decideRecording`
-// itself marks a `blocked` (`human-action`) decision `writesItem: true`; see the outbox item this
-// slice raised about that choice. A `record` verdict renders the item and writes it, unless its
-// settled rank is `medium` and `--adopt` was passed — then it is adopted straight to the ledger
-// through `adoptItem` and no open file is ever created, so a parallel wave's slices never race to
-// append the same PRD's `settled.md`. Without `--adopt`, a medium item stays an open file: the
-// orchestrator adopts it once the wave has merged.
+// This command follows `decision.writesItem`, exactly as the policy states it:
+// - `writesItem: false` (only `breaksNamedLaw` against a law `laws` can name) — nothing is
+//   written, and the reason is printed; exit 1.
+// - `writesItem: true` and `outcome: 'record'` — the item is rendered at the rank the policy chose
+//   and written, unless that rank is `medium` and `--adopt` was passed, in which case it is
+//   adopted straight to the ledger through `adoptItem` and no open file is ever created (so a
+//   parallel wave's slices never race to append the same PRD's `settled.md`); without `--adopt`, a
+//   medium item stays an open file for the orchestrator to adopt once the wave has merged.
+// - `writesItem: true` and `outcome: 'stop'` (a principles conflict, rank `high`) or `'blocked'`
+//   (`needsHumanAction`, rank `human-action`) — the item is rendered and written exactly as a
+//   `record` would be, but the slice cannot carry on: a one-line reason goes to stderr and the
+//   exit code is 1, so the caller (`do-work`) gets both the file and the non-zero exit.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
@@ -51,9 +56,15 @@ const ItemInputSchema = z
     options: z
       .array(z.string().trim().min(1))
       .min(2, 'options needs two to four entries')
-      .max(4, 'options needs two to four entries'),
+      .max(4, 'options needs two to four entries')
+      .optional(),
+    personSteps: z.string().trim().min(1, 'personSteps must not be empty').optional(),
   })
   .strict();
+
+/** The label a non-zero, item-written exit carries — `decision.outcome` is always `'stop'` or
+ * `'blocked'` here; `'record'` never reaches this. */
+const NONZERO_OUTCOME_LABEL = { stop: 'must stop', blocked: 'is blocked' };
 
 function todayUtc() {
   return new Date().toISOString().slice(0, 10);
@@ -155,9 +166,16 @@ async function runNew(args, { ctx, stdout, stderr }) {
     throw usageError(`omni item new: ${error.message}`);
   }
 
-  if (decision.outcome === 'stop' || decision.outcome === 'blocked') {
+  if (!decision.writesItem) {
     println(stderr, `omni item new — nothing was written (${decision.outcome}): ${decision.reason}`);
     return 1;
+  }
+
+  if (decision.rank === 'human-action' && !input.personSteps) {
+    throw usageError('omni item new: "personSteps" is required — the decision settled at rank "human-action", which carries no options.');
+  }
+  if (decision.rank !== 'human-action' && !input.options) {
+    throw usageError('omni item new: "options" is required unless the decision settles at rank "human-action".');
   }
 
   const id = nextItemId(prd, slice, input.slug, { ctx });
@@ -177,11 +195,23 @@ async function runNew(args, { ctx, stdout, stderr }) {
       meanwhile: input.meanwhile,
       cost: input.cost,
       gaps: input.gaps,
-      options: input.options,
+      options: decision.rank === 'human-action' ? null : input.options,
+      personSteps: decision.rank === 'human-action' ? input.personSteps : null,
       laws,
     });
   } catch (error) {
     throw usageError(`omni item new: ${error.message}`);
+  }
+
+  // `outcome !== 'record'` here means `'stop'` (a principles conflict) or `'blocked'`
+  // (`needsHumanAction`) — both `writesItem: true`. The item is written exactly as a `record`
+  // would be, but the slice cannot carry on: a non-zero exit, with the reason on stderr, is the
+  // whole difference.
+  if (decision.outcome !== 'record') {
+    const file = writeItemFile(ctx, outboxDir, id, text);
+    println(stdout, file);
+    println(stderr, `omni item new — the slice ${NONZERO_OUTCOME_LABEL[decision.outcome]}: ${decision.reason}`);
+    return 1;
   }
 
   if (decision.rank === 'medium' && flags.adopt) {
@@ -198,11 +228,17 @@ async function runNew(args, { ctx, stdout, stderr }) {
     return 0;
   }
 
+  println(stdout, writeItemFile(ctx, outboxDir, id, text));
+  return 0;
+}
+
+/** Writes `text` as `<outboxDir>/<id>.md`, creating the directory if needed, and returns the
+ * repo-relative path written. */
+function writeItemFile(ctx, outboxDir, id, text) {
   const file = `${outboxDir}/${id}.md`;
   mkdirSync(join(ctx.root, outboxDir), { recursive: true });
   writeFileSync(join(ctx.root, file), text);
-  println(stdout, file);
-  return 0;
+  return file;
 }
 
 export const item = {
