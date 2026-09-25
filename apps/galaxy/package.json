@@ -10,7 +10,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "artifact": "node artifact/build.mjs",
-    "seed": "node scripts/seed.mjs"
+    "seed": "node scripts/seed.mjs",
+    "shots": "node scripts/shots.mjs"
   },
   "dependencies": {
     "@omni/galaxy": "workspace:*",
