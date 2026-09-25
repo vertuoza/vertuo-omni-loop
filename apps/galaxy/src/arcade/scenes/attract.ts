@@ -1,53 +1,131 @@
 // The attract group on the canvas: the boot, the title's three phases (title, story, high scores)
-// and the Hall of Heroes.
+// and the Hall of Heroes, on the wide grid (640×360) and on the tall one (320×288).
 import { drawPlanet, drawSprite, spriteSize, WOUND_TINT, woundTint } from '@omni/sprites';
 import { fleet } from '../fleets';
-import { bootMark, frameOf, nebulaFor, plasmaTrail, RING, space, type FrameState, type Pages, type SceneName } from './common.ts';
+import { bootMark, frameOf, nebulaFor, plasmaTrail, RING, space, TALL, W, type FrameState, type Grid, type Pages, type SceneName } from './common.ts';
 
 /**
  * The attract group's scenes laid out on the tall grid (`boot`, `title`, `heroes`). A scene not
  * listed is drawn on the wide grid, letterboxed in the Game Boy's lens (grid.ts reads this list).
  */
-export const TALL_SCENES: readonly SceneName[] = [];
-/** How many pages a tall `heroes` takes, for ◀ ▶ to turn. Undeclared, it is one. */
-export const PAGES: Pages = {};
+export const TALL_SCENES: readonly SceneName[] = ['boot', 'title', 'heroes'];
 
-export function drawBoot(ctx: CanvasRenderingContext2D, s: FrameState) {
-  bootMark(ctx, s);
+// ── The Hall of Heroes' pages ────────────────────────────────────────────────
+
+/** The Hall of Heroes shows the season's top eight; the tall grid shows them four to a page. */
+export const HALL_ROWS = 8;
+export const HALL_ROWS_TALL = 4;
+
+/** How many pages the Hall of Heroes takes on `grid`, for `count` heroes: one on the wide grid. */
+export function hallPages(count: number, grid: Grid): number {
+  if (grid.name !== 'tall') return 1;
+  return Math.max(1, Math.ceil(Math.min(count, HALL_ROWS) / HALL_ROWS_TALL));
 }
 
+/** The rows of the Hall of Heroes on `page` of `grid`: every row the wide table shows is on one tall page. */
+export function hallPage<T>(heroes: readonly T[], grid: Grid, page: number): T[] {
+  const rows = heroes.slice(0, HALL_ROWS);
+  if (grid.name !== 'tall') return rows;
+  const at = Math.min(Math.max(0, page), hallPages(heroes.length, grid) - 1);
+  return rows.slice(at * HALL_ROWS_TALL, (at + 1) * HALL_ROWS_TALL);
+}
+
+/** How many pages a tall `heroes` takes, for ◀ ▶ to turn. Undeclared, it is one. */
+export const PAGES: Pages = { heroes: ({ view, grid }) => hallPages(view.heroes.length, grid) };
+
+// ── The scenes ───────────────────────────────────────────────────────────────
+
+/** How far the boot's mark moves on the tall grid: centred across it, and 26 px higher than on the wide one. */
+const BOOT_TALL = { dx: (TALL.w - W) / 2, dy: -26 };
+
+export function drawBoot(ctx: CanvasRenderingContext2D, s: FrameState) {
+  if (s.grid.name !== 'tall') return bootMark(ctx, s);
+  // The mark is drawn for the wide grid: moved onto the tall one, its black still reaches every edge.
+  ctx.save();
+  ctx.translate(BOOT_TALL.dx, BOOT_TALL.dy);
+  bootMark(ctx, s);
+  ctx.restore();
+}
+
+/** Where the title's scenery goes on each grid: the nebulae, the two planets, the commander and the fleets. */
+interface TitleLayout {
+  nebulae: readonly [x: number, y: number][]; // 'title' (400×240), then 'title2' (320×200)
+  world: { cx: number; cy: number; r: number };
+  ringed: { cx: number; cy: number; r: number };
+  omni: { x: number; y: number; scale: number };
+  trail: { x: number; y: number; len: number };
+  // Each fleet's spot: x, y (its top on a 32 px mascot), its beat and its phase.
+  spots: readonly (readonly [x: number, y: number, rate: number, phase: number])[];
+  fleetScale: number;
+}
+
+const TITLE: Record<Grid['name'], TitleLayout> = {
+  wide: {
+    nebulae: [[300, 0], [-80, 80]],
+    world: { cx: 40, cy: 440, r: 176 },
+    ringed: { cx: 584, cy: 52, r: 30 },
+    omni: { x: 288, y: 120, scale: 2 },
+    trail: { x: 310, y: 214, len: 30 },
+    spots: [[104, 124, 2, 0.3], [176, 208, 1.2, 0.5], [396, 212, 1.8, 0.1], [456, 116, 2.2, 0.7], [520, 206, 3, 0.2]],
+    fleetScale: 2,
+  },
+  // The words take the top (the logo, the tagline) and the bottom (the call, the footer): the
+  // commander flies in the middle, two fleets on the left and three on the right.
+  tall: {
+    nebulae: [[40, 30], [-150, 96]],
+    world: { cx: 6, cy: 322, r: 104 },
+    ringed: { cx: 290, cy: 196, r: 16 },
+    omni: { x: 128, y: 78, scale: 2 },
+    trail: { x: 150, y: 172, len: 14 },
+    spots: [[22, 92, 2, 0.3], [62, 152, 1.2, 0.5], [206, 150, 1.8, 0.1], [232, 90, 2.2, 0.7], [270, 132, 3, 0.2]],
+    fleetScale: 1,
+  },
+};
+
 export function drawTitle(ctx: CanvasRenderingContext2D, s: FrameState) {
+  const at = TITLE[s.grid.name];
   space(ctx, s, 3);
-  ctx.drawImage(nebulaFor('title', 0, 400, 240), 300, 0);
-  ctx.drawImage(nebulaFor('title2', 2, 320, 200), -80, 80);
+  ctx.drawImage(nebulaFor('title', 0, 400, 240), ...at.nebulae[0]);
+  ctx.drawImage(nebulaFor('title2', 2, 320, 200), ...at.nebulae[1]);
   const rot = s.reduced ? 0.6 : s.t * 0.02;
-  drawPlanet(ctx, { cx: 40, cy: 440, r: 176, seed: 2332, rot, progress: 0.62, atmosphere: '#8fd8ff' });
-  drawPlanet(ctx, { cx: 584, cy: 52, r: 30, seed: 985, rot: rot * 3, progress: 0, ring: RING, atmosphere: '#7a64b8' });
+  drawPlanet(ctx, { ...at.world, seed: 2332, rot, progress: 0.62, atmosphere: '#8fd8ff' });
+  drawPlanet(ctx, { ...at.ringed, seed: 985, rot: rot * 3, progress: 0, ring: RING, atmosphere: '#7a64b8' });
   const bob = (phase: number, amp = 4) => (s.reduced ? 0 : Math.round(Math.sin(s.t * 2 + phase) * amp));
-  plasmaTrail(ctx, s, 310, 214 + bob(0), 30);
-  drawSprite(ctx, 'omni', 288, 120 + bob(0), { scale: 2, frame: frameOf(s, 1.5), glow: '#a45cff' });
+  plasmaTrail(ctx, s, at.trail.x, at.trail.y + bob(0), at.trail.len);
+  drawSprite(ctx, 'omni', at.omni.x, at.omni.y + bob(0), { scale: at.omni.scale, frame: frameOf(s, 1.5), glow: '#a45cff' });
   // The fleets fly in formation around the commander: the first five active ones.
-  const spots = [[104, 124, 2, 0.3], [176, 208, 1.2, 0.5], [396, 212, 1.8, 0.1], [456, 116, 2.2, 0.7], [520, 206, 3, 0.2]] as const;
-  s.join.fleets.slice(0, spots.length).forEach((f, i) => {
-    const [x, y, rate, phase] = spots[i];
+  s.join.fleets.slice(0, at.spots.length).forEach((f, i) => {
+    const [x, y, rate, phase] = at.spots[i];
     const look = fleet(f.name);
-    drawSprite(ctx, look.sprite, x, y + bob(i + 1) - (spriteSize(look.sprite).h - 32) * 2, { scale: 2, tint: look.tint ?? undefined, flip: i === 4, frame: frameOf(s, rate, phase) });
+    const k = at.fleetScale;
+    drawSprite(ctx, look.sprite, x, y + bob(i + 1) - (spriteSize(look.sprite).h - 32) * k, { scale: k, tint: look.tint ?? undefined, flip: i === 4, frame: frameOf(s, rate, phase) });
   });
 }
 
+/** Where the story's planet hangs on each grid. */
+const STORY_PLANET: Record<Grid['name'], { cx: number; cy: number; r: number }> = {
+  wide: { cx: 572, cy: 80, r: 44 },
+  tall: { cx: 282, cy: 24, r: 24 },
+};
+
 export function drawStory(ctx: CanvasRenderingContext2D, s: FrameState) {
+  const { w, h } = s.grid;
   space(ctx, s, 1);
-  // Entropy marches across the bottom of the screen.
+  // Entropy marches across the bottom of the screen, 80 px apart, one more than the screen holds.
   const kinds = Object.keys(WOUND_TINT) as (keyof typeof WOUND_TINT)[];
-  for (let i = 0; i < 9; i++) {
-    const x = ((i * 80 - s.sceneT * 36) % 720 + 720) % 720 - 40;
-    const y = 296 + (s.reduced ? 0 : Math.round(Math.sin(s.t * 3 + i) * 3));
+  const lap = w + 80;
+  for (let i = 0; i < lap / 80; i++) {
+    const x = ((i * 80 - s.sceneT * 36) % lap + lap) % lap - 40;
+    const y = h - 64 + (s.reduced ? 0 : Math.round(Math.sin(s.t * 3 + i) * 3));
     drawSprite(ctx, 'entropy', x, y, { tint: woundTint(kinds[i % kinds.length]), frame: frameOf(s, 3, i * 0.5) });
   }
-  drawPlanet(ctx, { cx: 572, cy: 80, r: 44, seed: 2410, rot: s.t * 0.06, progress: 0.15, atmosphere: '#7a64b8' });
+  drawPlanet(ctx, { ...STORY_PLANET[s.grid.name], seed: 2410, rot: s.t * 0.06, progress: 0.15, atmosphere: '#7a64b8' });
 }
+
+/** The Hall of Heroes' nebula, the same one on both grids: behind the table's middle. */
+const HEROES_NEBULA: Record<Grid['name'], [x: number, y: number]> = { wide: [80, 20], tall: [-80, -16] };
 
 export function drawHeroes(ctx: CanvasRenderingContext2D, s: FrameState) {
   space(ctx, s, 0.8);
-  ctx.drawImage(nebulaFor('heroes', 2, 480, 320), 80, 20);
+  ctx.drawImage(nebulaFor('heroes', 2, 480, 320), ...HEROES_NEBULA[s.grid.name]);
 }

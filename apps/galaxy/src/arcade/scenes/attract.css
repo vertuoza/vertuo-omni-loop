@@ -62,6 +62,38 @@
 /* The Hall of Heroes shows heroes. */
 .hero-cell { display: inline-flex; align-items: center; gap: 6px; }
 
+/* ── On the tall grid (320×288): the Game Boy held upright ──────────────────
+   The same words as on the wide grid, stacked for a narrow screen: nothing below 8 px in the pixel
+   face, nor below 15 px in the text face. The call to press sits at the same place in all three of
+   the title's phases. */
+
+.grid-tall .boot { padding-top: 160px; } /* under the mark, drawn at 70–144 */
+
+.grid-tall .logo { margin-top: 16px; gap: 14px; font-size: 32px; }
+.grid-tall .tagline { margin-top: 12px; }
+.grid-tall .press { bottom: 56px; }
+.grid-tall .title-foot { flex-direction: column; align-items: center; gap: 3px; padding: 6px 12px 7px; line-height: 10px; }
+
+.grid-tall .story { padding: 48px 14px 0; gap: 9px; }
+.grid-tall .story p { font-size: 9px; line-height: 13px; text-align: center; text-wrap: balance; }
+
+.grid-tall .attract-scores { padding-top: 30px; }
+.grid-tall .attract-scores h2, .grid-tall .heroes h2 { font-size: 16px; }
+.grid-tall .attract-scores ol { margin-top: 26px; width: 288px; }
+.grid-tall .attract-scores li { grid-template-columns: 48px 1fr 60px; font-size: 10px; }
+.grid-tall .attract-scores li span { overflow-wrap: anywhere; }
+
+.grid-tall .heroes { padding-top: 12px; }
+.grid-tall .heroes-season { margin-top: 6px; }
+.grid-tall .heroes table { margin-top: 10px; width: 296px; table-layout: fixed; font-size: 8px; }
+.grid-tall .heroes th { font-size: 8px; }
+.grid-tall .heroes th:nth-child(1), .grid-tall .heroes th:nth-child(4) { width: 44px; }
+.grid-tall .heroes th:nth-child(3) { width: 84px; }
+.grid-tall .heroes td { padding: 5px 0; overflow-wrap: anywhere; }
+.grid-tall .heroes-page { position: absolute; bottom: 42px; left: 0; right: 0; margin: 0; text-align: center; font-size: 8px; color: var(--dim); letter-spacing: 1px; }
+.grid-tall .heroes-page .j-key { font-size: 8px; }
+.grid-tall .heroes .hint { bottom: 8px; left: 12px; right: 12px; line-height: 13px; text-wrap: balance; }
+
 @media (prefers-reduced-motion: reduce) {
   .boot-brand, .boot-presents { animation: none; }
 }
