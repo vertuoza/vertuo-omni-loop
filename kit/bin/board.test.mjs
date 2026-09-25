@@ -1,0 +1,261 @@
+import { describe, expect, it } from 'vitest';
+import { makeRepo } from '../test/fixture.mjs';
+import { main } from './omni.mjs';
+
+function io() {
+  const out = [];
+  const err = [];
+  return { out, err, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } };
+}
+
+const CONFIG = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
+
+function planMd(rows) {
+  return [
+    '# A plan',
+    '',
+    '| id | slice | territory | blocked by | wave |',
+    '| --- | --- | --- | --- | --- |',
+    ...rows,
+    '',
+  ].join('\n');
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+
+/** A fake `execFileSync`: resolves `git rev-parse --show-toplevel` to `root`, `gh pr list …` to
+ * `prs` (as JSON), and `gh pr view <n> … --json commits` to `commitsByNumber[n]` (`[]` for any
+ * number not named). Records every call. */
+function fakeExec(root, prs, commitsByNumber = {}) {
+  const calls = [];
+  const exec = (file, args, options = {}) => {
+    calls.push({ file, args, options });
+    if (file === 'git' && args[0] === 'rev-parse') return `${root}\n`;
+    if (file === 'gh' && args[0] === 'pr' && args[1] === 'list') return JSON.stringify(prs);
+    if (file === 'gh' && args[0] === 'pr' && args[1] === 'view') {
+      const number = Number(args[2]);
+      return JSON.stringify({ commits: commitsByNumber[number] ?? [] });
+    }
+    throw new Error(`fakeExec: unexpected call ${file} ${args.join(' ')}`);
+  };
+  return { exec, calls };
+}
+
+function pr(overrides = {}) {
+  return {
+    number: 1,
+    title: 's1',
+    headRefName: 'feat/widgets--s1',
+    baseRefName: 'feat/widgets',
+    state: 'OPEN',
+    isDraft: false,
+    mergedAt: null,
+    body: '',
+    labels: [],
+    updatedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(), // fresh — never a stale candidate unless a test says otherwise
+    ...overrides,
+  };
+}
+
+const LIST_JSON_FIELDS = 'number,title,headRefName,baseRefName,state,isDraft,mergedAt,body,labels,updatedAt,createdAt';
+
+describe('omni board — the gh pr list call', () => {
+  it('never asks for `commits`, and narrows to the feature branch when board.matchBy is "base" (the default)', async () => {
+    const plan = planMd(['| s1 | Alpha | `a/` | — | 1 |']);
+    const { root } = makeRepo({
+      git: true,
+      files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan },
+    });
+    const { exec, calls } = fakeExec(root, []);
+    const s = io();
+    await main(['board', '7'], { cwd: root, exec, ...s });
+
+    const listCall = calls.find((call) => call.file === 'gh' && call.args[1] === 'list');
+    expect(listCall.args).toEqual([
+      'pr',
+      'list',
+      '--repo',
+      'acme/widgets',
+      '--json',
+      LIST_JSON_FIELDS,
+      '--state',
+      'all',
+      '--limit',
+      '200',
+      '--base',
+      'feat/widgets',
+    ]);
+    expect(listCall.args.join(' ')).not.toMatch(/commits/);
+  });
+
+  it('narrows by --label instead of --base when board.matchBy is "label"', async () => {
+    const plan = planMd(['| s1 | Alpha | `a/` | — | 1 |']);
+    const { root } = makeRepo({
+      git: true,
+      files: {
+        '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\nboard:\n  matchBy: label\n',
+        '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan,
+      },
+    });
+    const { exec, calls } = fakeExec(root, []);
+    const s = io();
+    await main(['board', '7'], { cwd: root, exec, ...s });
+
+    const listCall = calls.find((call) => call.file === 'gh' && call.args[1] === 'list');
+    expect(listCall.args).toEqual([
+      'pr',
+      'list',
+      '--repo',
+      'acme/widgets',
+      '--json',
+      LIST_JSON_FIELDS,
+      '--state',
+      'all',
+      '--limit',
+      '200',
+      '--label',
+      'pr:sub',
+    ]);
+  });
+});
+
+describe('omni board — head commit dates', () => {
+  it('fetches a head commit date with `gh pr view` only for an open draft old enough to be stale', async () => {
+    const plan = planMd(['| s1 | Alpha | `a/` | — | 1 |']);
+    const { root } = makeRepo({
+      git: true,
+      files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan },
+    });
+    const oldClaim = new Date(Date.now() - 2 * HOUR_MS).toISOString(); // older than the default 60-minute limit
+    const { exec, calls } = fakeExec(root, [pr({ number: 42, isDraft: true, createdAt: oldClaim })], {
+      42: [{ committedDate: oldClaim }],
+    });
+    const s = io();
+    const code = await main(['board', '7'], { cwd: root, exec, ...s });
+
+    expect(code).toBe(0);
+    expect(s.out.join('')).toMatch(/s1\s+w1\s+claimed-stale/);
+    const viewCall = calls.find((call) => call.file === 'gh' && call.args[1] === 'view');
+    expect(viewCall.args).toEqual(['pr', 'view', '42', '--repo', 'acme/widgets', '--json', 'commits']);
+  });
+
+  it('never calls `gh pr view` for a fresh draft, an open non-draft, or a merged pull request', async () => {
+    const plan = planMd(['| s1 | Alpha | `a/` | — | 1 |', '| s2 | Beta | `b/` | — | 1 |']);
+    const { root } = makeRepo({
+      git: true,
+      files: { ...CONFIG, '.omni-loop/delivery/inbox/0008-widgets/plan.md': plan },
+    });
+    const prs = [
+      pr({ number: 1, headRefName: 'feat/widgets--s1', isDraft: true }), // fresh — not old enough to be stale
+      pr({ number: 2, headRefName: 'feat/widgets--s2', mergedAt: new Date().toISOString(), state: 'MERGED' }),
+    ];
+    const { exec, calls } = fakeExec(root, prs);
+    const s = io();
+    const code = await main(['board', '8'], { cwd: root, exec, ...s });
+
+    expect(code).toBe(0);
+    expect(calls.some((call) => call.file === 'gh' && call.args[1] === 'view')).toBe(false);
+  });
+
+  it('reads claimed-stale even when a draft was updated recently — a comment bumps updatedAt, not the claim', async () => {
+    const plan = planMd(['| s1 | Alpha | `a/` | — | 1 |']);
+    const { root } = makeRepo({
+      git: true,
+      files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan },
+    });
+    const oldClaim = new Date(Date.now() - 2 * HOUR_MS).toISOString();
+    const { exec } = fakeExec(
+      root,
+      [pr({ number: 1, isDraft: true, createdAt: oldClaim, updatedAt: new Date().toISOString() })],
+      { 1: [{ committedDate: oldClaim }] },
+    );
+    const s = io();
+    const code = await main(['board', '7'], { cwd: root, exec, ...s });
+    expect(code).toBe(0);
+    expect(s.out.join('')).toMatch(/s1\s+w1\s+claimed-stale/);
+  });
+});
+
+describe('omni board — table and --json output', () => {
+  it('prints one row per slice, and the takeable/runnable frontier', async () => {
+    const plan = planMd(['| s1 | Alpha | `a/` | — | 1 |', '| s2 | Beta | `b/` | s1 | 2 |']);
+    const { root } = makeRepo({
+      git: true,
+      files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan },
+    });
+    const { exec } = fakeExec(root, [pr({ mergedAt: new Date().toISOString(), state: 'MERGED' })]);
+    const s = io();
+    const code = await main(['board', '7'], { cwd: root, exec, ...s });
+
+    expect(code).toBe(0);
+    const text = s.out.join('');
+    expect(text).toMatch(/omni board — PRD 7: 2 slice\(s\)/);
+    expect(text).toMatch(/s1\s+w1\s+merged/);
+    expect(text).toMatch(/s2\s+w2\s+runnable/);
+    expect(text).toMatch(/runnable frontier: wave 2 — takeable: s2/);
+    expect(text).toMatch(/of which runnable \(unclaimed\): s2/);
+  });
+
+  it('prints --json with the same shape boardFor returns, including the takeable field', async () => {
+    const plan = planMd(['| s1 | Alpha | `a/` | — | 1 |']);
+    const { root } = makeRepo({
+      git: true,
+      files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan },
+    });
+    const { exec } = fakeExec(root, []);
+    const s = io();
+    const code = await main(['board', '7', '--json'], { cwd: root, exec, ...s });
+
+    expect(code).toBe(0);
+    const payload = JSON.parse(s.out.join(''));
+    expect(payload.slices).toHaveLength(1);
+    expect(payload.slices[0]).toMatchObject({ id: 's1', state: 'runnable', pr: null });
+    expect(payload.frontier).toEqual({ wave: 1, runnable: ['s1'], takeable: ['s1'], excluded: [], collisions: [] });
+  });
+
+  it('reports a stuck slice from the needs-fix label', async () => {
+    const plan = planMd(['| s1 | Alpha | `a/` | — | 1 |']);
+    const { root } = makeRepo({
+      git: true,
+      files: { ...CONFIG, '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan },
+    });
+    const { exec } = fakeExec(root, [pr({ labels: [{ name: 'pr:needs-fix' }] })]);
+    const s = io();
+    const code = await main(['board', '7'], { cwd: root, exec, ...s });
+    expect(code).toBe(0);
+    expect(s.out.join('')).toMatch(/s1\s+w1\s+stuck/);
+  });
+
+  it('honours a configured board.matchBy of "label" when deciding a slice’s own state', async () => {
+    const plan = planMd(['| s1 | Alpha | `a/` | — | 1 |']);
+    const { root } = makeRepo({
+      git: true,
+      files: {
+        '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\nboard:\n  matchBy: label\n',
+        '.omni-loop/delivery/inbox/0007-widgets/plan.md': plan,
+      },
+    });
+    const { exec } = fakeExec(root, [pr({ baseRefName: 'main', labels: [{ name: 'pr:sub' }] })]);
+    const s = io();
+    const code = await main(['board', '7'], { cwd: root, exec, ...s });
+    expect(code).toBe(0);
+    expect(s.out.join('')).toMatch(/s1\s+w1\s+in-flight/);
+  });
+
+  it('fails usage with no PRD argument', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG } });
+    const s = io();
+    const code = await main(['board'], { cwd: root, exec: fakeExec(root, []).exec, ...s });
+    expect(code).toBe(2);
+    expect(s.err.join('')).toMatch(/usage: omni board <prd>/);
+  });
+
+  it('fails usage when the PRD has no inbox or shipped folder', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG } });
+    const s = io();
+    const code = await main(['board', '9'], { cwd: root, exec: fakeExec(root, []).exec, ...s });
+    expect(code).toBe(2);
+    expect(s.err.join('')).toMatch(/PRD 9 has no inbox or shipped folder/);
+  });
+});

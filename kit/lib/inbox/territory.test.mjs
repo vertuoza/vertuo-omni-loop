@@ -126,6 +126,74 @@ describe('parsePlanSlices', () => {
   });
 });
 
+describe('parsePlanSlices — blockedBy', () => {
+  it('reads the blocked-by ids for each slice', () => {
+    const slices = parsePlanSlices(PLAN);
+    expect(slices.map((slice) => slice.blockedBy)).toEqual([[], ['s1'], []]);
+  });
+
+  it('reads a comma- or space-separated cell as more than one blocker', () => {
+    const plan = `## Slices
+
+| id  | slice | territory      | blocked by | wave |
+| --- | ----- | -------------- | ---------- | ---- |
+| s1  | A     | \`a/\`           | —          | 1    |
+| s2  | B     | \`b/\`           | s1, s3     | 2    |
+| s3  | C     | \`c/\`           | —          | 1    |
+| s4  | D     | \`d/\`           | s1 s3      | 2    |
+`;
+    const slices = parsePlanSlices(plan);
+    expect(slices.find((slice) => slice.id === 's2').blockedBy).toEqual(['s1', 's3']);
+    expect(slices.find((slice) => slice.id === 's4').blockedBy).toEqual(['s1', 's3']);
+  });
+
+  it('reads a bare hyphen or an empty cell as no blockers', () => {
+    const plan = `## Slices
+
+| id  | slice | territory | blocked by | wave |
+| --- | ----- | --------- | ---------- | ---- |
+| s1  | A     | \`a/\`      | -          | 1    |
+| s2  | B     | \`b/\`      |            | 1    |
+`;
+    const slices = parsePlanSlices(plan);
+    expect(slices.map((slice) => slice.blockedBy)).toEqual([[], []]);
+  });
+
+  it('reads [] for every slice when the plan has no `blocked by` column at all', () => {
+    const plan = `## Slices
+
+| id  | slice | territory | wave |
+| --- | ----- | --------- | ---- |
+| s1  | A     | \`a/\`      | 1    |
+`;
+    const slices = parsePlanSlices(plan);
+    expect(slices[0].blockedBy).toEqual([]);
+  });
+
+  it('reads a plan shaped like a real multi-wave slice table — a multi-blocker cell and a bare dash both come through', () => {
+    // Same table shape as this repository's own PRD 7 plan (`id | slice | territory | blocked by |
+    // wave`), inlined rather than read off disk: a live delivery plan moves from inbox/ to
+    // shipped/ once its PRD ships, so a test that reads it by path goes red the moment that happens.
+    const plan = `## Slices
+
+| id  | slice              | territory   | blocked by  | wave |
+| --- | ------------------ | ----------- | ----------- | ---- |
+| s1  | Marketplace        | \`a/\`        | —           | 1    |
+| s2  | Item and plan      | \`b/\`        | —           | 1    |
+| s3  | Board              | \`c/\`        | s2          | 2    |
+| s6  | Rework and phase0  | \`d/\`        | s3          | 3    |
+| s7  | Plan skill         | \`e/\`        | s2, s4      | 3    |
+| s9  | Yolo skill         | \`f/\`        | s7, s8      | 5    |
+| s10 | Yolo-fix skill     | \`g/\`        | s6, s7, s9  | 6    |
+`;
+    const slices = parsePlanSlices(plan);
+    const byId = (id) => slices.find((slice) => slice.id === id);
+    expect(byId('s1').blockedBy).toEqual([]);
+    expect(byId('s3').blockedBy).toEqual(['s2']);
+    expect(byId('s10').blockedBy).toEqual(['s6', 's7', 's9']);
+  });
+});
+
 describe('covers', () => {
   it('a declared directory covers what is under it', () => {
     expect(covers(['docs/knowledge/domains/'], 'docs/knowledge/domains/credits/rules.md')).toBe(

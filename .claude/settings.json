@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "omni-loop": {
+      "source": {
+        "source": "directory",
+        "path": "./"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "omni@omni-loop": true
+  }
+}

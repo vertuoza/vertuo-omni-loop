@@ -24,7 +24,7 @@ types:
 | Command | Does | From upstream |
 |---|---|---|
 | `/omni:brainstorm` | an idea → the PRD issue, `inbox/<prd>-<topic>/{spec,plan}.md` and `before-after.html`, a docs-only phase-0 PR | `vertuo-brainstorming` (the superpowers steps written in; no `superpowers:` dependency) |
-| `/omni:yolo <prd>` | builds every wave and asks nothing. It ends with the feature PR ready and the gate red when there are open items. It runs the ship step when nothing is open | `vertuo-yolo` (deliver with the ask-nothing policy) |
+| `/omni:yolo <prd>` | builds every wave and asks nothing. When items are open it ends with the gate red, the feature PR still in draft and the questions posted on it. When nothing is open it runs the ship step, then marks the feature PR ready (rule 7) | `vertuo-yolo` (deliver with the ask-nothing policy) |
 | `/omni:yolo-fix <prd>` | reads the replies on the PR, settles them, reworks each drifted decision as a slice, then ships | `vertuo-yolo-fix` (origin/main: replies, settle PR, post-merge path) |
 
 It also has four internal skills, which the three above follow and a person may also run:
@@ -57,10 +57,10 @@ In another repository, a skill reaches the kit only through the bundled CLI. The
 
 | Command | Over | Used by |
 |---|---|---|
-| `omni item new --prd --slice --json <file>` | `decideRecording` + `renderOutboxItem` + `adoptItem` for medium | do-work |
+| `omni item new --prd --slice --file <file> [--adopt] [--json]` (graded like `check outbox` before writing; `--json` prints the outcome) | `decideRecording` + `renderOutboxItem` + `adoptItem` for medium | do-work |
 | `omni plan check <prd>` | `parsePlanSlices`, `sameWaveCollisions`, `collisionRows` | plan, wave |
 | `omni board <prd>` | new `kit/lib/board.mjs`: the plan's slices × `gh pr list` → merged / in flight / stuck / runnable / blocked / claimed-stale | wave, yolo |
-| `omni rework plan <prd>` · `omni rework close <id> --pr <n>` | `planRework`, `closeDriftedEntry` | yolo-fix |
+| `omni rework plan <prd>` · `omni rework close <id> --prd <n> --pr <n>` | `planRework`, `closeDriftedEntry` | yolo-fix |
 | `omni phase0 <prd> [--base <ref>]` | `phase0Verdict` over the branch's changed paths | brainstorm |
 
 `board` is pure over the plan text and an injected PR list. Only its CLI half calls `gh`.

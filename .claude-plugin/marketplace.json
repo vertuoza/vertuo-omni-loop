@@ -1,0 +1,14 @@
+{
+  "name": "omni-loop",
+  "description": "The Omni Loop kit's plugins, served from this repository.",
+  "owner": {
+    "name": "vertuoza"
+  },
+  "plugins": [
+    {
+      "name": "omni",
+      "source": "./kit/plugin",
+      "description": "The Omni Loop skills, typed /omni:<skill>."
+    }
+  ]
+}
