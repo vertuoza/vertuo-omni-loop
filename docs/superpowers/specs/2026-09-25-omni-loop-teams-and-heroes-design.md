@@ -1,7 +1,7 @@
 # OMNI LOOP — fleets, sign-in and heroes
 
 **Date:** 2026-09-25
-**Status:** design, awaiting review
+**Status:** approved 2026-09-25; being built on `claude/upbeat-edison-432oxq`
 **Scope:** how a person joins the game (a team is a *fleet* in the game's words). They sign in with their Vertuoza Google account, pick a fleet,
 enter a name and build a hero, all from the keyboard, to an SNES-style score. Supabase becomes the
 game's single source of truth: sectors, fleets, players and the ledger. This replaces §4 (teams and
@@ -254,9 +254,11 @@ GitHub ──pnpm game:project (Action, every 15 min)──▶ ledger_events (ap
   as a workflow artifact, kept 90 days. Supabase Pro's point-in-time recovery is the better answer if
   the budget allows it.
 - **Retired:** `projects.yml`, `game/ledger/*.jsonl`, `game/season/*.json`, `pnpm galaxy:sync` and
-  `apps/galaxy/scripts/sync-ledger.mjs`, the GitHub team reads in `game/sources/github.mjs`. `game:banner`
-  folds the season from the ledger instead of reading `game/season/`, and reads its config with the
-  publishable key and the caller's session, or with the secret key in CI.
+  `apps/galaxy/scripts/sync-ledger.mjs`, the GitHub team reads in `game/sources/github.mjs`, and the
+  Vercel ignored-build step (it only skipped ledger commits). `game:banner` folds the season from the
+  ledger instead of reading `game/season/`; like every `game:*` command it needs
+  `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. `game:score --rankings <file>` writes the page the
+  workflow posts.
 - **Spec updates.** Principle 3 now reads: the ledger can be rebuilt from GitHub, except the fleet
   stamps, which the export keeps. §4 and §7.2 point here.
 

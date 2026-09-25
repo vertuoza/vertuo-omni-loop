@@ -1,14 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { parseProjects } from './config.mjs';
+import { configFrom } from './config.mjs';
 import { projectEvents } from './projector.mjs';
 
-const config = parseProjects(`
-sectors:
-  core: { repos: [core-repo] }
-teams:
-  beaver: { home: core }
-  octopod: { home: core }
-`);
+const config = configFrom({
+  sectors: [{ name: 'core', repos: ['core-repo'] }],
+  teams: [{ name: 'beaver', home: 'core' }, { name: 'octopod', home: 'core' }],
+});
 const NOW = new Date('2026-09-23T14:00:00Z');
 
 function snapshot(planetOver = {}) {

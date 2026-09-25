@@ -1,15 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { parseProjects } from './config.mjs';
+import { configFrom } from './config.mjs';
 import { derivePlanet, distressEpisodes } from './planet-state.mjs';
 
-const config = parseProjects(`
-sectors:
-  ai: { repos: [ai-repo] }
-  core: { repos: [core-repo] }
-teams:
-  beaver: { home: core }
-  octopod: { home: ai }
-`);
+const config = configFrom({
+  sectors: [{ name: 'ai', repos: ['ai-repo'] }, { name: 'core', repos: ['core-repo'] }],
+  teams: [{ name: 'beaver', home: 'core' }, { name: 'octopod', home: 'ai' }],
+});
 
 // Wed 2026-09-23. Brussels = UTC+2.
 const NOW = new Date('2026-09-23T14:00:00Z');

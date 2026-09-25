@@ -7,15 +7,15 @@
   },
   "scripts": {
     "test": "vitest run",
-    "game:project": "node game/cli/project.mjs",
-    "game:score": "node game/cli/score.mjs",
-    "game:banner": "node game/cli/banner.mjs",
+    "game:project": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/project.mjs",
+    "game:score": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/score.mjs",
+    "game:banner": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/banner.mjs",
+    "game:export": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/export.mjs",
     "kit:build": "node kit/build.mjs",
     "galaxy:dev": "pnpm --filter @omni/galaxy-app dev",
     "galaxy:build": "pnpm --filter @omni/galaxy-app build",
     "galaxy:artifact": "pnpm --filter @omni/galaxy-app artifact",
-    "galaxy:seed": "pnpm --filter @omni/galaxy-app seed",
-    "galaxy:sync": "pnpm --filter @omni/galaxy-app sync"
+    "galaxy:seed": "pnpm --filter @omni/galaxy-app seed"
   },
   "dependencies": {
     "yaml": "^2.5.0",

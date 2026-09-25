@@ -13,7 +13,8 @@ export function projectEvents(snapshot, { config, now, onSkip = () => {} }) {
   const terraformedAt = new Map(snapshot.planets.filter((p) => p.featurePr?.mergedAt).map((p) => [p.prd, p.featurePr.mergedAt]));
   const terraformedPlanets = new Set(terraformedAt.keys());
   const events = [];
-  const teamOf = (login) => snapshot.teams[login];
+  // Logins are case-insensitive; the roster is keyed in lower case.
+  const teamOf = (login) => snapshot.teams[login] ?? snapshot.teams[String(login).toLowerCase()];
   // Controller ruling: EventSchema accepts `contributor` as a string or absent, never `null`.
   // When a login is null/undefined (e.g. an unclaimed zone's author, a wound's closedBy),
   // omit both `contributor` and `team` instead of passing `null`.

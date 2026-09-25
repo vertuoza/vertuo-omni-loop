@@ -26,7 +26,7 @@ A pnpm workspace:
 | `packages/sprites` | `@omni/sprites`: the palette, hand-placed pixel sprites, the planet renderer |
 | `packages/galaxy` | `@omni/galaxy`: folds ledger events into the galaxy view; the demo world |
 | `apps/galaxy` | `@omni/galaxy-app`: the OMNI LOOP arcade, a Next.js app for Vercel |
-| `supabase/` | the galaxy database: migrations, config, demo seed |
+| `supabase/` | the game's database and source of truth: migrations, access checks, config, demo seed |
 
 ## Getting started
 
@@ -52,28 +52,35 @@ pnpm galaxy:dev            # http://localhost:3000 — the arcade, on the demo g
 
 With a local Supabase, Vercel deployment and the artifact build: [`apps/galaxy/README.md`](apps/galaxy/README.md).
 
-### Describe your repositories and teams
+### Describe your repositories and fleets
 
-Fill in `projects.yml` with the real engineering repositories, grouped into sectors. Give each team
-(`beaver`, `octopod`, `picsou`, `cia`, `invincible-team`) its home sector. Team names must match the
-GitHub teams of the `vertuoza` organisation.
+Everything the game knows lives in Supabase ([`apps/galaxy/README.md`](apps/galaxy/README.md)).
+Repositories are grouped into **sectors** and the **fleets** are rows in `teams`, both changed by a
+migration in `supabase/migrations/`:
 
-```yaml
-sectors:
-  <sector-name>: { repos: [<repo>, <repo>] }
-teams:
-  beaver: { home: <sector-name> }
+```sql
+insert into public.sectors (name, repos) values ('core-belt', array['vertuo-core', 'vertuo-api']);
+insert into public.teams (name, label, color, motto, mascot, home, sort)
+values ('pirates', 'PIRATES', '#2fc6a4', 'Takes the zones nobody claims.', 'pirate', 'core-belt', 50);
+update public.teams set retired_at = now() where name = 'invincible-team';   -- retire, never delete
 ```
+
+The fleets today: BEAVER, OCTOPOD, PICSOU, C.I.A. and PIRATES. People join one in the arcade: they
+sign in with their `@vertuoza.com` Google account, pick a fleet, enter a name, build a hero and link
+their GitHub account, and from then on their pull requests score for that fleet.
 
 ### Run it by hand
 
+With `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` set (locally: `npx supabase status`):
+
 ```bash
 pnpm game:banner 2332      # one planet's banner, read live from GitHub
-pnpm game:project          # snapshot GitHub and append new events to game/ledger/
-pnpm game:score            # fold the ledger into this month's season and rankings
+pnpm game:project          # snapshot GitHub and append new events to the ledger in Supabase
+pnpm game:score            # fold the ledger into this month's season
+pnpm game:export backup/   # the ledger, sectors, fleets and players as JSONL
 ```
 
-`game:project` writes permanent history to `game/ledger/`. Run it only once `projects.yml` holds the
+`game:project` writes permanent history. Run it against production only once the sectors hold the
 real repositories.
 
 ### Switch on the scheduled workflow

@@ -39,6 +39,8 @@ Two changes, both justified without the game:
 
 ## 4. Teams and sectors
 
+> **Superseded (2026-09-25).** Sectors and fleets now live in Supabase, and players pick their fleet in the arcade instead of GitHub teams deciding it: [`2026-09-25-omni-loop-teams-and-heroes-design.md`](2026-09-25-omni-loop-teams-and-heroes-design.md) §4–§7. `projects.yml` is gone. The text below is kept as the original design.
+
 `projects.yml` at the root of `vertuo-omni-plan` is a plain org fact OmniMan needs to dispatch, not a game file:
 
 ```yaml
@@ -227,6 +229,8 @@ Types: `PLANET_CHARTED`, `REGION_SURVEYED`, `PLANET_LOCKED`, `PLANET_UNLOCKED`, 
 A wound event carries its kind (5.3) and, for outbox items, the rank. Decay is not an event; the economy computes it from `WOUND_OPENED`/`WOUND_CLOSED` timestamps and the calendar.
 
 ### 7.2 Storage
+
+> **Superseded (2026-09-25).** The ledger now lives in Supabase (`public.ledger_events`), written directly by the game workflow; nothing is committed to git. See [`2026-09-25-omni-loop-teams-and-heroes-design.md`](2026-09-25-omni-loop-teams-and-heroes-design.md) §7.
 
 Option A now: the ledger lives in git, in `vertuo-omni-plan` under `game/ledger/`, one file per month. A GitHub Action polls every 15 minutes, with a `concurrency` group so two polls never append together, and commits with `[skip ci]`. The projector also runs on demand (`pnpm game:project`).
 
