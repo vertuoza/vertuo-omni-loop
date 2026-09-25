@@ -19,7 +19,7 @@ import { readContent } from './github.mjs';
 
 /** The run that comes fourteen days after the merge, and the suffix of its own branch. */
 const FOLLOW_UP_RUN = 'day-14';
-export const FOLLOW_UP_SUFFIX = '-day-14';
+const FOLLOW_UP_SUFFIX = '-day-14';
 
 /**
  * @param {{ request: Function }} octokit
