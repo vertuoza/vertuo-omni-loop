@@ -137,6 +137,7 @@ pnpm galaxy:shots        # in another: apps/galaxy/shots/<width>x<height>/, whic
 - The demo guest always has a `@vertuoza.com` account. To reach the "wrong cartridge" screen, the
   script makes it an account from another domain, in the browser only.
 - Without `pnpm galaxy:dev` running, it stops and says so. `pnpm test` never starts it.
+- A dev server on another port: `GALAXY_URL=http://localhost:3001/ pnpm galaxy:shots`.
 
 ## Deploy to production
 

@@ -14,7 +14,7 @@ import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
-const BASE = 'http://localhost:3000/';
+const BASE = process.env.GALAXY_URL ?? 'http://localhost:3000/'; // another dev server: GALAXY_URL=http://localhost:3001/
 const OUT = fileURLToPath(new URL('../shots/', import.meta.url));
 const SMALLEST = 8; // CSS px: the smallest text a player should have to read
 
