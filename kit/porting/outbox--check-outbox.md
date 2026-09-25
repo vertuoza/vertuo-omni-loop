@@ -174,3 +174,39 @@ Source: `scripts/check-outbox.mjs` @ `vertuo-ai-domain@c4a210122`.
 - `bears-on` and `Became:` knowledge ids resolve through `laws.resolve` in every profile whenever
   the knowledge folder exists (kit/lib/laws.mjs split "exists" from "is a law"; only `floorsHigh`
   depends on `laws.source`). Test: "accepts a resolving Became: id under laws.source none".
+
+## PRD 50, slice s1: the intro and the punchline
+
+Not a re-port: upstream's `scripts/check-outbox.mjs` has no intro or punchline. A kit-local
+widening, recorded here because `check-outbox.mjs` is this record's territory.
+
+- Added `funLineProblems` to the `./outbox.mjs` import, and a `FUN_SECTION_FIELDS` constant beside
+  `PLAIN_SECTION_FIELDS` (`The intro, for fun` → `introFun`, `The punchline, for fun` →
+  `punchlineFun`).
+- `checkItemText`: for each of the two an open item carries, every `funLineProblems` problem (the
+  plain-words rules, 120 characters at most) is a `${file}: "## <heading>" <problem>` violation,
+  the same shape as a plain-section violation. The pair is optional: an item carrying neither is
+  graded exactly as before. One without the other never reaches this loop — the parser refuses it,
+  naming the file.
+- Module doc comment: the per-item list gains item 5 (the intro and the punchline); the two
+  outbox-wide checks are renumbered 6 and 7, and "not also graded against 1–4" reads "1–5".
+- `omni item new` runs the same `checkItemText` before writing, so this also catches a line that
+  reached a rendered item some other way; `item new` itself refuses a bad line earlier, naming its
+  field (`kit/porting/bin--commands.md`).
+
+### Test (`check-outbox.test.mjs`)
+
+- `PLAIN_AND_REQUIRED_SECTIONS` gained `'The intro, for fun'` and `'The punchline, for fun'` right
+  after the two plain headings. `itemText`'s default body carries neither, so every existing fixture
+  is byte-identical.
+- **Added** `the intro and the punchline (PRD #50, slice s1)`: a plain pair is accepted; neither is
+  still accepted; an intro of 121 characters, a punchline holding a backticked code name, and a
+  line naming a file path or an id are each refused naming the file and the section; one of the
+  pair alone is refused naming the file; `findOutboxViolations` fails only the open item whose intro
+  runs to 130 characters. RED: four of the seven failed before `checkItemText` graded the pair (the
+  other three hold through the parser alone).
+- No existing assertion changed; none deleted.
+
+### Gate (this update)
+
+`pnpm vitest run kit/lib/outbox/check-outbox.test.mjs` — 36/36 pass.
