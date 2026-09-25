@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Omni Knowledge Forms</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+<style>
+:root{
+  --bg:#F2F4F3;--surface:#FFFFFF;--code:#F7F9F8;--ink:#15201C;--muted:#56635E;--line:#D3DAD7;--line2:#E3E8E6;
+  --accent:#1D6B55;--soft:#D6EAE2;
+  --red:#B3372F;--redsoft:#F6DEDB;
+  --blue:#2C5A85;--bluesoft:#DDE8F3;
+  --ochre:#83601A;--ochresoft:#F2E7CC;
+  --onaccent:#FFFFFF;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+  --bg:#0F1513;--surface:#161E1B;--code:#121A17;--ink:#E4ECE8;--muted:#98A6A0;--line:#2A3632;--line2:#222C29;
+  --accent:#5FC3A2;--soft:#193A30;--red:#F08A80;--redsoft:#3A1F1C;--blue:#8DB8E6;--bluesoft:#1A2C3E;--ochre:#E0B860;--ochresoft:#35290F;--onaccent:#0F1513}}
+:root[data-theme="dark"]{color-scheme:dark;
+  --bg:#0F1513;--surface:#161E1B;--code:#121A17;--ink:#E4ECE8;--muted:#98A6A0;--line:#2A3632;--line2:#222C29;
+  --accent:#5FC3A2;--soft:#193A30;--red:#F08A80;--redsoft:#3A1F1C;--blue:#8DB8E6;--bluesoft:#1A2C3E;--ochre:#E0B860;--ochresoft:#35290F;--onaccent:#0F1513}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15.5px/1.6 "IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;padding-inline:16px}
+main{max-width:1100px;margin:0 auto;padding-block:40px 80px;display:grid;gap:60px}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:clamp(28px,4.6vw,42px);font-weight:700;letter-spacing:-.01em}
+h2{font-size:clamp(21px,2.6vw,26px);font-weight:600}
+h3{font-size:15px;font-weight:600}
+p{margin:0}
+a{color:var(--accent)}
+code,pre,.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+code{font-size:.86em;background:var(--soft);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+.before code{background:var(--redsoft)}
+section{display:grid;gap:18px;min-width:0}
+.intro{color:var(--muted);max-width:70ch}
+.eyebrow{font:500 12px/1.4 "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+header.top{display:grid;gap:14px}
+.lede{font-size:17px;max-width:68ch;color:var(--ink)}
+.lede em{font-style:normal;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:13.5px;color:var(--muted)}
+.legend span.item{display:inline-flex;gap:6px;align-items:center}
+
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px;display:grid;gap:12px;align-content:start;min-width:0}
+.card.after{border-color:var(--accent)}
+.card h3{font:600 12px/1.3 "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.card.before h3{color:var(--red)}
+.card.after h3{color:var(--accent)}
+.card ul,.card ol{margin:0;padding-left:20px;display:grid;gap:7px}
+
+figure{margin:0;display:grid;gap:8px;min-width:0;align-content:start}
+figcaption{font:500 12.5px/1.4 "IBM Plex Mono",monospace;color:var(--muted)}
+pre{margin:0;font-size:12.5px;line-height:1.6;background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;color:var(--ink);tab-size:2}
+pre .c{color:var(--muted)}
+pre .k{color:var(--accent);font-weight:500}
+pre .add{background:var(--soft);color:var(--ink);border-radius:3px;padding:0 3px;margin-left:-3px}
+pre .add .c{color:var(--accent)}
+pre .del{color:var(--red)}
+pre .todo{background:var(--redsoft);color:var(--red);border-radius:3px;padding:0 3px}
+pre .ptr{color:var(--blue);font-weight:500}
+pre .kit{color:var(--ochre);font-weight:500}
+pre .hl{font-weight:600}
+pre.term{background:var(--surface)}
+pre.term .prompt{color:var(--muted)}
+.tree.before pre{border-color:var(--line)}
+.tree.after pre{border-color:var(--accent)}
+
+.pin{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--accent);color:var(--onaccent);font:600 11px/1 "IBM Plex Mono",monospace;vertical-align:1px;margin-left:6px}
+.anat{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:820px){.anat{grid-template-columns:1fr}}
+ol.notes{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+ol.notes li{display:grid;grid-template-columns:24px 1fr;gap:8px;align-items:start;font-size:14.5px}
+ol.notes li .pin{margin:3px 0 0}
+ol.notes b{font-weight:600}
+
+.chip{display:inline-flex;align-items:center;gap:4px;font:500 11.5px/1.5 "IBM Plex Mono",monospace;padding:1px 8px;border-radius:999px;border:1px solid transparent;white-space:nowrap}
+.chip.pointer{background:var(--bluesoft);color:var(--blue);border-color:var(--blue)}
+.chip.filled{background:var(--soft);color:var(--accent);border-color:var(--accent)}
+.chip.partial{background:transparent;color:var(--accent);border-color:var(--accent);border-style:dashed}
+.chip.kit{background:var(--ochresoft);color:var(--ochre);border-color:var(--ochre)}
+.chip.hole{background:var(--redsoft);color:var(--red);border-color:var(--red)}
+.chip.core{background:var(--ink);color:var(--bg)}
+.chip.ext{background:transparent;color:var(--muted);border-color:var(--line)}
+
+.stack{display:grid;gap:0;max-width:760px}
+.layer{display:grid;grid-template-columns:150px 1fr;gap:16px;padding:14px 18px;border:1px solid var(--line);background:var(--surface);align-items:start}
+.layer + .layer{border-top:none}
+.layer:first-child{border-radius:10px 10px 0 0}
+.layer:last-child{border-radius:0 0 10px 10px}
+.layer .name{display:grid;gap:4px}
+.layer .name b{font-weight:600;font-size:15px}
+.layer .name span{font:12px/1.4 "IBM Plex Mono",monospace;color:var(--muted)}
+.layer.l-ptr{box-shadow:inset 4px 0 0 var(--blue)}
+.layer.l-repo{box-shadow:inset 4px 0 0 var(--accent)}
+.layer.l-kit{box-shadow:inset 4px 0 0 var(--ochre)}
+.layer p{font-size:14.5px}
+.layer p + p{margin-top:4px;color:var(--muted);font-size:13.5px}
+@media (max-width:560px){.layer{grid-template-columns:1fr;gap:6px}}
+.wins{font:500 12px/1.4 "IBM Plex Mono",monospace;color:var(--muted);padding:6px 0 0 2px}
+
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+.tablewrap table{min-width:860px}
+.tablewrap.narrow table{min-width:500px}
+th,td{text-align:left;vertical-align:top;padding:10px 14px;border-bottom:1px solid var(--line2)}
+tr:last-child td{border-bottom:none}
+th{font:600 11.5px/1.3 "IBM Plex Mono",monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--code);border-bottom:1px solid var(--line)}
+td .form{font:600 13px/1.4 "IBM Plex Mono",monospace;display:block;margin-bottom:4px}
+td.q{font-weight:500}
+td small{color:var(--muted);font-size:12.5px;display:block;margin-top:3px}
+td .chip{margin-bottom:4px}
+tfoot td{background:var(--code);font-size:13.5px;color:var(--muted);border-top:1px solid var(--line)}
+tr.group td{background:var(--code);font:600 11.5px/1.3 "IBM Plex Mono",monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding-block:7px}
+
+ul.rules{list-style:none;margin:0;padding:0;display:grid;gap:0;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+ul.rules li{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:16px;padding:12px 18px;border-bottom:1px solid var(--line2)}
+ul.rules li:last-child{border-bottom:none}
+ul.rules li p{margin:0}
+ul.rules li span{color:var(--muted);font-size:13.5px}
+@media (max-width:640px){ul.rules li{grid-template-columns:1fr;gap:2px}}
+
+ol.steps{margin:0;padding-left:22px;display:grid;gap:8px}
+ol.steps b{font-weight:600}
+
+ol.decide{list-style:none;margin:0;padding:0;display:grid;gap:12px;counter-reset:d}
+ol.decide li{counter-increment:d;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 18px 14px 56px;position:relative;display:grid;gap:6px}
+ol.decide li::before{content:counter(d);position:absolute;left:18px;top:14px;width:24px;height:24px;border-radius:50%;border:1px solid var(--ink);display:grid;place-items:center;font:600 12px/1 "IBM Plex Mono",monospace}
+ol.decide .rec{font-size:14px;color:var(--muted)}
+ol.decide .rec b{color:var(--accent);font-weight:600}
+
+.note{font-size:14px;color:var(--muted);max-width:72ch}
+.twoup{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px}
+.foot{font-size:13.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:18px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<main>
+
+<header class="top">
+  <p class="eyebrow">PRD #45 · vertuo-omni-loop · 25 September 2026 · spec and plan beside this page</p>
+  <h1>Omni knowledge forms</h1>
+  <p class="lede">vertuo-ai-domain writes down two kinds of knowledge. <code>docs/knowledge/</code> says what is true about the product. <code>docs/agents/</code> says how to work in the repository: how to test, how CI works, when a pull request is done. Omni already carries the first kind. This PRD adds the second: fixed forms inside <code>.omni-loop/knowledge/</code>, a <code>/omni:terraform</code> skill that fills them from the repository, and a pointer wherever the repository already has the page.</p>
+  <div class="legend" aria-label="Legend">
+    <span class="item"><span class="chip pointer">pointer</span> the repo already has it</span>
+    <span class="item"><span class="chip filled">filled</span> from evidence</span>
+    <span class="item"><span class="chip partial">partial</span> filled, with holes</span>
+    <span class="item"><span class="chip kit">kit default</span> nothing repo-specific</span>
+    <span class="item"><span class="chip hole">hole</span> a question for a person</span>
+  </div>
+</header>
+
+<section id="gap" aria-labelledby="gap-h">
+  <h2 id="gap-h">Before and after</h2>
+  <div class="cols">
+    <article class="card before">
+      <h3>Today</h3>
+      <ul>
+        <li><code>.omni-loop/knowledge/</code> holds only the truth registers: principles, rules, invariants and ADRs. PRD #3 ported them from ai-domain.</li>
+        <li>How-to knowledge is one optional free-text file, <code>.omni-loop/repo.md</code>. do-work reads it "when it exists". It does not exist in this repository.</li>
+        <li><code>paths.context</code> defaults to <code>CLAUDE.md</code>. This repository has none, so do-work starts with no repo context.</li>
+        <li>The skills stay generic. do-work knows the test command as one config string. pr re-runs a red check without knowing which reds are already known.</li>
+        <li>When ADRs live elsewhere, only <code>paths.adr</code> knows about it. A person who opens <code>.omni-loop/knowledge/adr/</code> finds no link to them.</li>
+        <li>Nothing grades this guidance, so a stale "how to test" looks the same as a current one.</li>
+      </ul>
+    </article>
+    <article class="card after">
+      <h3>With the forms</h3>
+      <ul>
+        <li><code>knowledge/playbook/</code> holds one form per question an agent asks while delivering: 8 core forms and 5 extended ones.</li>
+        <li>Every form has a fixed shape, taken from ai-domain's <code>docs/agents/</code> pages. Its sections are slots, and a person fills in the ones the skill could not.</li>
+        <li>The kit ships a default for every section. A filled repo section overrides the default, and a pointer overrides both.</li>
+        <li>When the repository already has the page, the form points to it. <code>adr/README.md</code> says where the ADRs are.</li>
+        <li><code>/omni:terraform</code> fills the forms from evidence: scripts, workflows, configs and existing docs. A command is written only after it has run green.</li>
+        <li><code>omni check kb</code> fails on a dead pointer. It warns on a blank slot, an open question or stale evidence.</li>
+        <li>Each skill reads <code>omni kb show &lt;form&gt;</code> at the step that needs it.</li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+<section id="tree" aria-labelledby="tree-h">
+  <h2 id="tree-h">The folder</h2>
+  <p class="intro"><code>.omni-loop/knowledge/</code> is always the front door, even when the knowledge lives somewhere else. Anything kept elsewhere gets a pointer here, so a person or an agent always starts in the same place.</p>
+  <div class="cols">
+    <figure class="tree before">
+      <figcaption>.omni-loop/ today</figcaption>
+<pre>.omni-loop/
+├── config.yml
+├── repo.md                     <span class="c">optional prose · absent here</span>
+├── bin/omni.mjs
+├── delivery/ …
+└── knowledge/
+    ├── product/
+    │   ├── principles.md       <span class="c">P-PRODUCT-n</span>
+    │   ├── rules.md            <span class="c">BR-PRODUCT-n</span>
+    │   └── invariants.md       <span class="c">N-PRODUCT-n</span>
+    ├── domains/&lt;domain&gt;/ …
+    ├── cross-domain/&lt;a&gt;--&lt;b&gt;.md
+    └── adr/
+        └── 0001-outbox-check-as-github-app.md</pre>
+    </figure>
+    <figure class="tree after">
+      <figcaption>.omni-loop/ with the forms</figcaption>
+<pre>.omni-loop/
+├── config.yml                  <span class="add"><span class="c">+ values terraform learned</span></span>
+├── bin/omni.mjs
+├── delivery/ …
+└── knowledge/
+    ├── <span class="add">README.md</span>               <span class="add"><span class="c">+ the two halves, the override order</span></span>
+    ├── product/ domains/ cross-domain/   <span class="c">unchanged</span>
+    ├── adr/
+    │   ├── <span class="add">README.md</span>           <span class="add"><span class="c">+ pointer, or "records live here"</span></span>
+    │   └── 0001-outbox-check-as-github-app.md
+    └── <span class="add">playbook/</span>               <span class="add"><span class="c">+ how we work here</span></span>
+        ├── briefing.md         <span class="c">core</span>
+        ├── setup.md            <span class="c">core</span>
+        ├── architecture.md     <span class="c">core · replaces repo.md</span>
+        ├── testing.md          <span class="c">core</span>
+        ├── verification.md     <span class="c">core</span>
+        ├── ci.md               <span class="c">core</span>
+        ├── pull-requests.md    <span class="c">core</span>
+        ├── definition-of-done.md
+        ├── conventions.md
+        ├── releasing.md
+        ├── bug-fixing.md
+        └── glossary.md         <span class="c">pointer only</span></pre>
+    </figure>
+  </div>
+  <figure class="tree after">
+    <figcaption>kit/ additions (the kit stays free of repository literals)</figcaption>
+<pre>kit/
+├── <span class="add">templates/playbook/&lt;form&gt;.md</span>      <span class="add"><span class="c">+ kit defaults: doctrine only, no path, no command</span></span>
+├── lib/<span class="add">playbook/</span>
+│   ├── <span class="add">forms.mjs</span>                     <span class="add"><span class="c">+ the one parser</span></span>
+│   ├── <span class="add">resolve.mjs</span>                   <span class="add"><span class="c">+ kit default → repo section → pointer</span></span>
+│   └── <span class="add">check-playbook.mjs</span>            <span class="add"><span class="c">+ omni check kb, part of check all</span></span>
+├── bin/commands/<span class="add">kb.mjs</span>               <span class="add"><span class="c">+ omni kb init | show | status</span></span>
+├── plugin/skills/<span class="add">terraform/SKILL.md</span>  <span class="add"><span class="c">+ /omni:terraform</span></span>
+└── test/no-literals.test.mjs         <span class="c">~ also scans templates/</span></pre>
+  </figure>
+</section>
+
+<section id="anatomy" aria-labelledby="anat-h">
+  <h2 id="anat-h">Anatomy of a form</h2>
+  <p class="intro">This is this repository's <code>playbook/testing.md</code> as <code>/omni:terraform</code> would leave it. The evidence hashes are the real blobs on <code>main</code> today.</p>
+  <div class="anat">
+<pre>---
+<span class="k">form:</span> testing                       <span class="pin">1</span>
+<span class="k">form-version:</span> 1
+<span class="k">state:</span> filled
+<span class="k">points-to:</span> null
+<span class="k">evidence:</span>                           <span class="pin">2</span>
+  - package.json@50fa1bd
+  - vitest.config.mjs@1ed9907
+  - README.md@3171710
+<span class="k">terraformed:</span> 2026-09-25
+---
+
+# Testing
+
+Use this page when adding, changing, or choosing tests.  <span class="pin">3</span>
+
+## Commands
+<span class="c">&lt;!-- slot: commands · required · by: terraform · verified: 2026-09-25 --&gt;</span> <span class="pin">4</span>
+| What       | Command                                   |
+|------------|-------------------------------------------|
+| everything | `pnpm test` (runs `vitest run`)           |
+| one file   | `pnpm vitest run kit/lib/config.test.mjs` |
+
+## Where tests live
+<span class="c">&lt;!-- slot: layout · required · by: terraform --&gt;</span>
+Beside the code, as `*.test.mjs`, under `game/`, `kit/`,
+`packages/` and `apps/omni-app/`. Fixture repositories:
+`apps/omni-app/test/fixtures/`.
+
+## Choosing the level
+<span class="c">&lt;!-- slot: levels · optional --&gt;</span>                <span class="pin">5</span>
+
+## Never
+<span class="c">&lt;!-- slot: never · required · by: human --&gt;</span>     <span class="pin">6</span>
+- A test never calls GitHub. Everything runs on fixtures.
+
+## Test data
+<span class="c">&lt;!-- slot: data · optional --&gt;</span>
+<span class="todo">TODO(human): is there a naming rule for fixture repos?</span> <span class="pin">7</span></pre>
+    <ol class="notes">
+      <li><span class="pin">1</span><div><b>Front matter the kit parses.</b> <code>state</code> is <code>blank</code>, <code>filled</code> or <code>pointer</code>. <code>form-version</code> lets the kit add a slot later without breaking older forms.</div></li>
+      <li><span class="pin">2</span><div><b>Evidence.</b> The files terraform read, at the blob it read them. When one of them changes, <code>omni check kb</code> reports that the form may be stale.</div></li>
+      <li><span class="pin">3</span><div><b>The opener.</b> Every page starts with "Use this page when…", the way ai-domain's <code>docs/agents/</code> pages do.</div></li>
+      <li><span class="pin">4</span><div><b>A slot.</b> It carries an id, whether it is required, and who wrote it. A command slot also carries the date it last ran green.</div></li>
+      <li><span class="pin">5</span><div><b>An empty slot.</b> The kit default shows through, so the repo page only holds what is specific to the repo.</div></li>
+      <li><span class="pin">6</span><div><b>Written by a person.</b> A person edited this section after terraform ran. <code>--refresh</code> never rewrites a <code>by: human</code> section.</div></li>
+      <li><span class="pin">7</span><div><b>A hole.</b> A question terraform could not answer from evidence. <code>omni check kb</code> lists it, and the terraform PR shows it as a checkbox.</div></li>
+    </ol>
+  </div>
+</section>
+
+<section id="override" aria-labelledby="ov-h">
+  <h2 id="ov-h">How a section is resolved</h2>
+  <p class="intro">Overrides work section by section. The skills never read the raw files. They call <code>omni kb show</code>, which merges the three layers and labels where each section came from.</p>
+  <div class="stack" role="list">
+    <div class="layer l-ptr" role="listitem">
+      <div class="name"><b>Pointer</b><span>See: docs/agents/testing.md</span></div>
+      <div><p>The repository has already written this page. The skill reads that page and nothing is copied. The path must exist.</p><p>A whole form can be a pointer (<code>state: pointer</code>), or a single section can be (a <code>See:</code> line).</p></div>
+    </div>
+    <div class="layer l-repo" role="listitem">
+      <div class="name"><b>Repo section</b><span>.omni-loop/knowledge/playbook/</span></div>
+      <div><p>What only this repository knows: its commands, where its tests live, what a test must never do.</p><p>It replaces the kit section that has the same slot id.</p></div>
+    </div>
+    <div class="layer l-kit" role="listitem">
+      <div class="name"><b>Kit default</b><span>kit/templates/playbook/</span></div>
+      <div><p>Doctrine every repository shares, ported from ai-domain: start from the risk the change creates, pick the narrowest test that proves it, pin behaviour before a risky refactor.</p><p>No path and no command. It is upgraded along with the kit.</p></div>
+    </div>
+  </div>
+  <p class="wins">Top wins. A blank layer lets the one below show through.</p>
+  <div class="twoup">
+    <div class="tablewrap narrow">
+      <table>
+        <thead><tr><th>The repo section is…</th><th>The skill reads…</th><th>Label</th></tr></thead>
+        <tbody>
+          <tr><td>filled</td><td>the repo text</td><td><span class="chip filled">repo</span></td></tr>
+          <tr><td>a <code>See: &lt;path&gt;</code> line</td><td>the page it names, which must exist</td><td><span class="chip pointer">→ path</span></td></tr>
+          <tr><td>empty</td><td>the kit default</td><td><span class="chip kit">kit default</span></td></tr>
+          <tr><td>a <code>TODO(human)</code></td><td>the kit default, plus the open question</td><td><span class="chip hole">hole</span></td></tr>
+          <tr><td>in a form with <code>state: pointer</code></td><td>the whole target page</td><td><span class="chip pointer">→ path</span></td></tr>
+          <tr><td>in a form file that is missing</td><td>the kit default, and a warning</td><td><span class="chip kit">kit default</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+<pre class="term"><span class="prompt">$</span> omni kb show testing
+<span class="hl"># Testing</span>                    <span class="c">filled · evidence fresh</span>
+
+## Commands                <span class="k">[repo · verified 2026-09-25]</span>
+   everything  pnpm test  (runs vitest run)
+   one file    pnpm vitest run kit/lib/config.test.mjs
+## Where tests live        <span class="k">[repo]</span>
+   Beside the code, as *.test.mjs, under game/,
+   kit/, packages/ and apps/omni-app/. …
+## Choosing the level      <span class="kit">[kit default]</span>
+   Start from the behaviour or risk the change
+   creates. Pick the narrowest test that proves it.
+   Pin existing behaviour before a risky refactor.
+## Never                   <span class="k">[repo · by human]</span>
+   A test never calls GitHub. Everything runs on
+   fixtures.
+## Test data               <span class="todo">[hole]</span>
+   TODO(human): is there a naming rule for fixture
+   repos?</pre>
+  </div>
+</section>
+
+<section id="pointer" aria-labelledby="ptr-h">
+  <h2 id="ptr-h">Pointers: the ADR case</h2>
+  <p class="intro">When a repository already has an ADR folder, the knowledge base records where that folder is instead of copying it. Every other form works the same way. Here is vertuo-ai-domain, which keeps its records in <code>docs/adr/</code>.</p>
+  <div class="twoup">
+    <figure>
+      <figcaption>.omni-loop/knowledge/adr/README.md · vertuo-ai-domain</figcaption>
+<pre>---
+<span class="k">form:</span> decisions
+<span class="k">form-version:</span> 1
+<span class="k">state:</span> <span class="ptr">pointer</span>
+<span class="k">points-to:</span> <span class="ptr">docs/adr/</span>
+<span class="k">index:</span> docs/adr/index.md
+<span class="k">evidence:</span>
+  - docs/adr/index.md@e92423d
+<span class="k">terraformed:</span> 2026-09-25
+---
+
+# Decision records live in docs/adr/
+
+This folder is empty on purpose. This repository
+keeps its decision records in docs/adr/, with the
+index at docs/adr/index.md.
+
+- File name: NNNN-&lt;slug&gt;.md, four digits.
+- A new record takes the next free number.
+  `omni kb show decisions` prints it, with every
+  title. Nobody keeps that list by hand.
+- A decision about how we build is a record there.
+  A decision about what the product should do is a
+  principle in docs/knowledge/.</pre>
+    </figure>
+    <figure>
+      <figcaption>What the skills read, derived live from the folder</figcaption>
+<pre class="term"><span class="prompt">$</span> omni kb show decisions
+<span class="hl">Decision records</span>  <span class="ptr">→ docs/adr/</span>
+63 records · next free number 0078
+
+0077  A service caller presents its own key
+      and a tenant's credential
+0076  The spec is a file in the repository;
+      the PRD issue is its tracker
+0076  Onboarding jobs fence Credit and
+      provider dispatch
+      <span class="todo">! 0076 is used by two records</span>
+0075  bun installs the packages and runs the
+      scripts; Node still runs the server
+0074  oxc replaces Prettier, ESLint and tsc,
+      in three changes, in that order
+…</pre>
+      <p class="note">Reading the folder live turned up something a hand-kept list would hide: two records use number 0076. The same pointer pattern applies to <code>knowledge/README.md</code>. In ai-domain it points at <code>docs/knowledge/</code>, where the 11 domain registers live.</p>
+    </figure>
+  </div>
+</section>
+
+<section id="catalogue" aria-labelledby="cat-h">
+  <h2 id="cat-h">The thirteen forms</h2>
+  <p class="intro">Each form answers one question. Most are modelled on a page ai-domain already has. The last two columns show where each form pays off: the Omni step that reads it, and what terraform reads to fill it.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th style="width:15%">Form</th><th style="width:19%">The question</th><th style="width:21%">Modelled on (ai-domain)</th><th style="width:21%">Read by (Omni)</th><th>Terraform reads</th></tr></thead>
+      <tbody>
+        <tr class="group"><td colspan="5">Core · a terraformed repository has each one filled or pointed</td></tr>
+        <tr><td><span class="form">briefing</span><span class="chip core">core</span></td><td class="q">What costs the most when broken?</td><td><code>docs/agents/briefing.md</code></td><td>step 0 of every skill; a session-start hook</td><td>CLAUDE.md or AGENTS.md "never" lines, README warnings, git hooks</td></tr>
+        <tr><td><span class="form">setup</span><span class="chip core">core</span></td><td class="q">How do I run it locally?</td><td><code>README.md</code> › local setup</td><td>do-work, before building</td><td>engines, <code>.nvmrc</code>, lockfile, README, docker-compose, <code>.env.example</code></td></tr>
+        <tr><td><span class="form">architecture</span><span class="chip core">core</span></td><td class="q">Where may code go, and what may depend on what?</td><td><code>AGENTS.md</code> › Boundaries, <code>libs/LIBRARY_STYLE_RULES.md</code></td><td>plan (territories), do-work</td><td>workspace globs, folder tree, lint and dependency rules, CLAUDE.md</td></tr>
+        <tr><td><span class="form">testing</span><span class="chip core">core</span></td><td class="q">How do I test?</td><td><code>docs/agents/testing.md</code></td><td>do-work (test-first), brainstorm (acceptance)</td><td>test runner config, test scripts, test file globs, CI test jobs</td></tr>
+        <tr><td><span class="form">verification</span><span class="chip core">core</span></td><td class="q">What must be green before a PR, and before a push?</td><td><code>docs/agents/verification.md</code>, the briefing's preflight</td><td>do-work (ship), pr (open)</td><td>preflight, lint and typecheck scripts; git hooks; lint-staged</td></tr>
+        <tr><td><span class="form">ci</span><span class="chip core">core</span></td><td class="q">How does CI work, and what does a red check mean?</td><td><code>docs/agents/ci-triage.md</code></td><td>pr (watch to green), yolo-fix</td><td><code>.github/workflows/*</code>, required checks, the aggregate job, app check runs</td></tr>
+        <tr><td><span class="form">pull-requests</span><span class="chip core">core</span></td><td class="q">What does a PR look like here?</td><td><code>docs/agents/pull-request.md</code></td><td>pr (body, labels, reviewers)</td><td>PR template, labels, CODEOWNERS, commit lint config</td></tr>
+        <tr><td><span class="form">decisions</span><span class="chip core">core</span><small>adr/README.md</small></td><td class="q">Where are the ADRs, and how is a new one written?</td><td><code>docs/adr/index.md</code></td><td>brainstorm, do-work (<code>bearsOn: ADR-nnnn</code>), yolo-fix (write-back)</td><td><code>docs/adr</code>, <code>doc/adr</code>, <code>adr</code>, <code>docs/decisions</code></td></tr>
+        <tr class="group"><td colspan="5">Extended · the kit default applies when blank</td></tr>
+        <tr><td><span class="form">definition-of-done</span><span class="chip ext">extended</span></td><td class="q">When is the work done?</td><td><code>docs/agents/definition-of-done.md</code></td><td>do-work (account step), pr</td><td>PR template checkboxes, CONTRIBUTING</td></tr>
+        <tr><td><span class="form">conventions</span><span class="chip ext">extended</span></td><td class="q">Naming, formatting, commit shape?</td><td>the briefing ("never run <code>pnpm format</code>"), DoD › Commit shape, ADR 0058</td><td>do-work</td><td>formatter and linter config, commitlint, <code>git log</code></td></tr>
+        <tr><td><span class="form">releasing</span><span class="chip ext">extended</span></td><td class="q">What does a merge to main publish?</td><td><code>docs/agents/releasing.md</code></td><td>brainstorm (risk), plan</td><td>release and deploy workflows, changesets, tags</td></tr>
+        <tr><td><span class="form">bug-fixing</span><span class="chip ext">extended</span></td><td class="q">How does a bug become a PR?</td><td><code>docs/agents/bug-fixing.md</code></td><td>a later <code>/omni:fix-bug</code></td><td>issue templates, bug labels</td></tr>
+        <tr><td><span class="form">glossary</span><span class="chip ext">extended</span><small>pointer only</small></td><td class="q">Which words mean what?</td><td><code>CONTEXT.md</code>, <code>docs/glossary.md</code></td><td>brainstorm, do-work</td><td>glossary files; sets <code>paths.glossary</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="commands" aria-labelledby="cmd-h">
+  <h2 id="cmd-h">The two commands</h2>
+  <p class="intro">One command lays down the empty forms. The other fills them from what the repository can prove.</p>
+  <div class="cols">
+    <article class="card">
+      <h3>omni kb init · creates the forms</h3>
+      <ul>
+        <li>A plain CLI command, with no AI involved. Safe to run again.</li>
+        <li>Writes every missing form from the kit template with <code>state: blank</code>, its opener and its slot hints.</li>
+        <li>Writes <code>knowledge/README.md</code> and <code>adr/README.md</code> when they are missing.</li>
+        <li>Never overwrites a file.</li>
+        <li>Later it becomes part of <code>omni-loop init</code> (PRD #3, phase 4). Until then it runs on its own.</li>
+      </ul>
+    </article>
+    <article class="card after">
+      <h3>/omni:terraform · fills them from the repo</h3>
+      <ol class="steps">
+        <li><b>Survey</b>, read-only: scripts, lockfile, engines, test configs, workflows, PR template, CODEOWNERS, labels, hooks, README, CLAUDE.md or AGENTS.md, <code>docs/</code>.</li>
+        <li><b>Point before writing.</b> If a page already answers a form's question, the form becomes a pointer.</li>
+        <li><b>Fill from evidence.</b> Each filled section lists its files under <code>evidence:</code>. Each command runs green once before it is written down.</li>
+        <li><b>Leave holes.</b> Anything it cannot show becomes <code>TODO(human): &lt;question&gt;</code>.</li>
+        <li><b>Propose config</b> as a diff: <code>commands.*</code>, <code>paths.adr</code>, <code>paths.glossary</code>, <code>paths.context</code>, <code>ci.aggregateCheck</code>.</li>
+        <li><b>Open a docs-only PR</b> whose body lists every hole as a checkbox. A person fills them in and merges.</li>
+      </ol>
+      <p class="note"><code>--refresh</code> redoes only the forms whose evidence changed, and never touches a <code>by: human</code> section.</p>
+    </article>
+  </div>
+  <h3>Rules carried over from vertuo-ai-domain</h3>
+  <ul class="rules">
+    <li><p>A wrong claim is worse than an honest blank.</p> <span>The <code>Enforced by: unenforced</code> rule, <code>docs/knowledge/README.md</code></span></li>
+    <li><p>A list that can be derived is never kept by hand.</p> <span>The <code>Serves:</code> rule: "two copies of a link drift"</span></li>
+    <li><p>One parser reads the files. Nothing else globs the markdown.</p> <span><code>scripts/registers.mjs</code>, ported as <code>kit/lib/knowledge/registers.mjs</code></span></li>
+    <li><p>The kit holds no repository literal.</p> <span>PRD #3 §2, enforced by <code>kit/test/no-literals.test.mjs</code></span></li>
+    <li><p>No bot writes to <code>main</code>.</p> <span>PRD #3 §2. Terraform ends with a PR that a person merges</span></li>
+    <li><p>Every page opens with the task it serves.</p> <span>"Use this page when…", on every <code>docs/agents/*.md</code> page</span></li>
+  </ul>
+</section>
+
+<section id="repos" aria-labelledby="repos-h">
+  <h2 id="repos-h">Two repositories, two outcomes</h2>
+  <p class="intro">The same skill run on two repositories. vertuo-ai-domain already has every page, so terraform writes only pointers. This repository has almost none, so terraform fills what it can prove and asks about the rest.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th style="width:16%">Form</th><th style="width:34%">vertuo-ai-domain · has the pages</th><th>vertuo-omni-loop · this repository</th></tr></thead>
+      <tbody>
+        <tr><td><span class="form">briefing</span></td><td><span class="chip pointer">pointer</span><br><code>docs/agents/briefing.md</code></td><td><span class="chip hole">hole</span><br>There is no CLAUDE.md. Terraform proposes one line from the README: <code>pnpm game:project</code> writes permanent history, so run it only once <code>projects.yml</code> holds the real repositories.</td></tr>
+        <tr><td><span class="form">setup</span></td><td><span class="chip pointer">pointer</span><br><code>README.md</code></td><td><span class="chip filled">filled</span><br>Node 22 or later (<code>engines</code>), pnpm (lockfile), <code>pnpm install</code>, <code>gh auth status</code>.</td></tr>
+        <tr><td><span class="form">architecture</span></td><td><span class="chip pointer">pointer</span><br><code>AGENTS.md</code> › Boundaries, <code>libs/LIBRARY_STYLE_RULES.md</code></td><td><span class="chip partial">partial</span><br>Workspace: root, <code>apps/*</code>, <code>packages/*</code>. The game only reads the delivery layer (README). The kit holds no repository literal (<code>no-literals.test.mjs</code>).</td></tr>
+        <tr><td><span class="form">testing</span></td><td><span class="chip pointer">pointer</span><br><code>docs/agents/testing.md</code></td><td><span class="chip filled">filled</span><br><code>pnpm test</code> runs <code>vitest run</code>. Tests sit beside the code. No test calls GitHub.</td></tr>
+        <tr><td><span class="form">verification</span></td><td><span class="chip pointer">pointer</span><br><code>docs/agents/verification.md</code></td><td><span class="chip partial">partial</span><br>The preflight is <code>pnpm test</code> (<code>commands.preflight</code>). Hole: there is no lint or typecheck script.</td></tr>
+        <tr><td><span class="form">ci</span></td><td><span class="chip pointer">pointer</span><br><code>docs/agents/ci-triage.md</code></td><td><span class="chip partial">partial</span><br><code>supabase / check</code> runs only when <code>supabase/**</code> changes. The outbox check comes from the GitHub App (ADR-0001). <code>game</code> runs on a schedule. Hole: <b>no workflow runs <code>pnpm test</code> on a pull request.</b></td></tr>
+        <tr><td><span class="form">pull-requests</span></td><td><span class="chip pointer">pointer</span><br><code>docs/agents/pull-request.md</code></td><td><span class="chip hole">hole</span><br>No PR template and no CODEOWNERS. The kit's PR kinds and labels apply.</td></tr>
+        <tr><td><span class="form">decisions</span></td><td><span class="chip pointer">pointer</span><br><code>docs/adr/</code>, 63 records</td><td><span class="chip filled">filled</span><br>Records live here, in <code>.omni-loop/knowledge/adr/</code>: 1 record.</td></tr>
+        <tr><td><span class="form">definition-of-done</span></td><td><span class="chip pointer">pointer</span><br><code>docs/agents/definition-of-done.md</code></td><td><span class="chip kit">kit default</span></td></tr>
+        <tr><td><span class="form">conventions</span></td><td><span class="chip pointer">pointer</span><br>the briefing, and DoD › Commit shape</td><td><span class="chip partial">partial</span><br>Conventional Commits with a scope, read from <code>git log</code>: <code>feat(omni-app):</code>, <code>fix(supabase):</code>.</td></tr>
+        <tr><td><span class="form">releasing</span></td><td><span class="chip pointer">pointer</span><br><code>docs/agents/releasing.md</code></td><td><span class="chip partial">partial</span><br>Supabase migrations are applied on a push to <code>main</code>. The galaxy deploy is a section pointer: <code>See: apps/galaxy/README.md#deploy-to-production</code>.</td></tr>
+        <tr><td><span class="form">bug-fixing</span></td><td><span class="chip pointer">pointer</span><br><code>docs/agents/bug-fixing.md</code></td><td><span class="chip kit">kit default</span></td></tr>
+        <tr><td><span class="form">glossary</span></td><td><span class="chip pointer">pointer</span><br><code>docs/glossary.md</code></td><td><span class="chip kit">kit default</span><br>There is no glossary yet.</td></tr>
+      </tbody>
+      <tfoot><tr><td>Result</td><td>13 pointers, nothing copied, no holes. Config gains <code>paths.adr: docs/adr</code>, <code>paths.glossary</code>, and <code>paths.knowledge: docs/knowledge</code> with <code>laws.source: knowledge</code>.</td><td>3 filled, 5 partial, 3 kit default, 2 holes. Five questions for a person. Config gains <code>paths.context: []</code>, because <code>CLAUDE.md</code> does not exist.</td></tr></tfoot>
+    </table>
+  </div>
+</section>
+
+<section id="wiring" aria-labelledby="wire-h">
+  <h2 id="wire-h">What each skill reads</h2>
+  <p class="intro">This is where the forms pay off. Each Omni step reads the form it needs, at the moment it needs it, through <code>omni kb show</code>.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th style="width:24%">Skill · step</th><th style="width:30%">Today</th><th>With the forms</th></tr></thead>
+      <tbody>
+        <tr><td><b>every skill</b> · step 0</td><td><code>omni config</code></td><td>+ <code>briefing</code>, printed first</td></tr>
+        <tr><td><b>brainstorm</b> · spec and acceptance</td><td><code>acceptance.*</code> from config</td><td>+ <code>testing</code>, and <code>releasing</code> (what a merge publishes) for the Risks section</td></tr>
+        <tr><td><b>plan</b> · territories</td><td>the spec and <code>paths.context</code></td><td>+ <code>architecture</code></td></tr>
+        <tr><td><b>do-work</b> · read before building</td><td><code>paths.context</code>, the registers, and <code>repo.md</code> if present</td><td>+ <code>architecture</code>, <code>conventions</code>, <code>setup</code>; <code>repo.md</code> is no longer read</td></tr>
+        <tr><td><b>do-work</b> · build test-first</td><td>"write the failing test"</td><td>+ <code>testing</code></td></tr>
+        <tr><td><b>do-work</b> · ship; <b>pr</b> · open</td><td><code>commands.preflight</code></td><td>+ <code>verification</code>, <code>pull-requests</code>, <code>definition-of-done</code></td></tr>
+        <tr><td><b>pr</b> · watch to green; <b>wave</b> · a red slice</td><td>re-run once, three attempts</td><td>+ <code>ci</code>: which checks exist and gate, the known reds, when a re-run is allowed</td></tr>
+        <tr><td><b>yolo</b> · start</td><td>the board</td><td>+ <code>omni kb status</code>: the open questions, printed once; delivery carries on with kit defaults</td></tr>
+        <tr><td><b>yolo-fix</b> · write-back</td><td>product truth becomes a knowledge entry; how we build becomes an ADR</td><td>+ the ADR follows <code>decisions</code>. A process lesson becomes a playbook section, <code>by: human</code>, recorded as <code>Became: playbook/&lt;form&gt;#&lt;slot&gt;</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="check" aria-labelledby="chk-h">
+  <h2 id="chk-h">The check</h2>
+  <div class="twoup">
+<pre class="term"><span class="prompt">$</span> omni check kb
+<span class="hl">.omni-loop/knowledge</span> · 13 forms
+3 filled · 5 partial · 3 kit default · 2 holes
+
+errors
+  none
+warnings
+  briefing.md       <span class="todo">hole</span>  what else costs the most
+                          when broken here?
+  verification.md   <span class="todo">hole</span>  no lint or typecheck
+                          script. Intended?
+  ci.md             <span class="todo">hole</span>  no workflow runs pnpm test
+                          on a pull request. Intended?
+  pull-requests.md  <span class="todo">hole</span>  no PR template. Should the
+                          kit default body apply?
+  testing.md        <span class="todo">hole</span>  a naming rule for fixture
+                          repos?
+<span class="k">ok</span> · 0 errors · 5 warnings</pre>
+    <div class="card">
+      <h3>Fails the check</h3>
+      <ul>
+        <li>A <code>points-to:</code>, <code>See:</code> or <code>evidence:</code> path that does not exist</li>
+        <li>A slot id the form does not define, or a missing required heading</li>
+        <li>A <code>form-version</code> newer than the installed kit</li>
+      </ul>
+      <h3>Warns, never fails</h3>
+      <ul>
+        <li>A <code>TODO(human)</code> still open</li>
+        <li>A required slot left blank, so the kit default applies</li>
+        <li>Evidence changed since the form was filled. A week later that reads:<br><code>testing.md · stale · vitest.config.mjs changed since 2026-09-25 → /omni:terraform --refresh</code></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="decide" aria-labelledby="dec-h">
+  <h2 id="dec-h">Decided</h2>
+  <p class="intro">The brainstorm left six questions open, each with a recommendation. The PRD author approved all six on 25 September 2026. The spec lists these with its other decisions.</p>
+  <ol class="decide">
+    <li><b>Where the forms live</b><span class="rec"><b>Decided:</b> <code>.omni-loop/knowledge/playbook/</code>, under the one knowledge root, through a new <code>paths.playbook</code> key that defaults there. Its parent is the front door.</span></li>
+    <li><b>Whether a hole blocks delivery</b><span class="rec"><b>Decided: it does not.</b> <code>omni check kb</code> warns, and <code>/omni:yolo</code> prints the holes once at the start and uses the kit defaults.</span></li>
+    <li><b>Pages or generated skills</b><span class="rec"><b>Decided: pages</b>, read by the one omni plugin. Per-repository skill copies are the drift PRD #3 was written to end.</span></li>
+    <li><b>How fine-grained pointers are</b><span class="rec"><b>Decided: both levels.</b> A whole form can be <code>state: pointer</code>, and a section can carry a <code>See:</code> line.</span></li>
+    <li><b>Process lessons from settled outbox answers</b><span class="rec"><b>Decided:</b> they land in a playbook section, <code>by: human</code>, and the settled entry records <code>Became: playbook/&lt;form&gt;#&lt;slot&gt;</code>, which <code>omni check outbox</code> resolves.</span></li>
+    <li><b>Orientation pages</b><span class="rec"><b>Decided: later.</b> A form points to them when they exist.</span></li>
+  </ol>
+</section>
+
+<section id="next" aria-labelledby="next-h">
+  <h2 id="next-h">The plan</h2>
+  <p class="intro">Seven slices in five waves, from <code>plan.md</code> beside this page. Each slice is a sub-PR into <code>feat/knowledge-forms</code>.</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th style="width:8%">Slice</th><th style="width:8%">Wave</th><th style="width:46%">What it makes true</th><th>Blocked by</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">s1</td><td class="mono">1</td><td>A form is a typed thing: <code>paths.playbook</code> and <code>branches.terraform</code> in the config, and the one parser and resolver in <code>kit/lib/playbook/</code></td><td>—</td></tr>
+        <tr><td class="mono">s2</td><td class="mono">2</td><td>The kit defaults: thirteen templates and the front door README, ported without repository literals, bundled into <code>omni.mjs</code></td><td class="mono">s1</td></tr>
+        <tr><td class="mono">s3</td><td class="mono">2</td><td>The outbox knows the playbook: a playbook <code>Became:</code> resolves, and <code>adr/README.md</code> is not law text</td><td class="mono">s1</td></tr>
+        <tr><td class="mono">s4</td><td class="mono">3</td><td><code>omni kb init | show | status</code> and <code>omni check kb</code>, inside <code>check all</code></td><td class="mono">s1, s2</td></tr>
+        <tr><td class="mono">s5</td><td class="mono">4</td><td>The <code>/omni:terraform</code> skill, with <code>--refresh</code></td><td class="mono">s4</td></tr>
+        <tr><td class="mono">s6</td><td class="mono">4</td><td>The seven skills read their forms; <code>repo.md</code> is retired</td><td class="mono">s4</td></tr>
+        <tr><td class="mono">s7</td><td class="mono">5</td><td>Dogfood: this repository terraformed, with a session-start hook that prints its briefing</td><td class="mono">s3, s5, s6</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="foot">Sources read for this page: vertuo-ai-domain <code>AGENTS.md</code>, <code>CONTEXT.md</code>, <code>docs/knowledge/README.md</code>, <code>docs/agents/</code> (21 pages), <code>docs/orientation/</code> (8 pages) and <code>docs/adr/</code> (63 records); vertuo-omni-loop <code>.omni-loop/</code>, the PRD #3 kit spec, <code>kit/lib/config.mjs</code>, <code>kit/lib/knowledge/</code>, the plugin skills and <code>.github/workflows/</code>.</p>
+</section>
+
+</main>
+</html>
