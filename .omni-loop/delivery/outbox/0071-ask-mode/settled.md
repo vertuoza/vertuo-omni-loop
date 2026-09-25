@@ -625,3 +625,316 @@ Loosening a rule is a new migration replacing a trigger function or a grant; no 
 ```
 
 <!-- /omni-outbox-settled: s2-04-round-moves-forward -->
+
+<!-- omni-outbox-settled: s4-01-sign-in-comes-back -->
+
+## s4-01-sign-in-comes-back — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-sign-in-comes-back
+prd: 71
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+A person who opens the page signed out must sign in and land back on the same questions, but the shared way back from the sign-in belongs to a later slice and always goes to the arcade. How should the page bring them back?
+
+## The decision, in plain words
+
+The page has its own way back from the Google sign-in: it returns the person to the same session, and shows why when the sign-in was refused. The arcade's sign-in is untouched.
+
+## The intro, for fun
+
+Stepping out to fetch your coat should not send you to the back of the queue.
+
+## The punchline, for fun
+
+So the page keeps its own coat check right by the door.
+
+## The options, in plain words
+
+A. The page has its own way back from the sign-in, straight to the same session, the option built.
+B. Teach the shared way back to return to any page it is told, in the sign-in slice, and drop the page's own.
+C. Finish the sign-in inside the page itself, which shows the signed-out card again for a moment on the way back.
+
+## What I had to decide
+
+s4's done-when: signed out, `/ask/<id>` shows a sign-in card, and after the sign-in it comes back to the same session. The galaxy's only sign-in return, `app/auth/callback`, always redirects to `/` (the arcade), and it belongs to s3, which adds its `?next=ask-cli` branch there; it is outside this slice's territory.
+
+## What I did meanwhile
+
+The sign-in card starts the galaxy's Google sign-in (Supabase Auth, `hd=vertuoza.com`) with `redirectTo` set to `/ask/<id>/callback`, a route under `app/ask/[session]/`. It exchanges the code for the session cookie and redirects to `/ask/<id>`, or to `/ask/<id>?signin_error=<reason>` when Google or Supabase refused the sign-in, which the card then shows; anything that is not a session id goes home. A signed-out visitor always gets the sign-in card first, so not found is only said to someone signed in, and the not-found card offers "Sign in with another account" (it signs out of the galaxy and reloads). The logic is `src/ask/page/sign-in.ts`, tested in `sign-in.test.ts`. `SignInCard` takes its return path as a prop, so s3's `/ask/signin` page can reuse it.
+
+## What it costs to change later
+
+One route file and one small function. If s3 generalises the shared callback to return to a given path, the card's return path changes and the route is deleted; nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether s3 means to generalise the shared callback for every page, which would make this route redundant.
+- (author) Whether production's Supabase redirect allow-list really covers every path on the host, as the galaxy README says it should (`https://<host>/**`): this route relies on it and it could not be checked here.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-sign-in-comes-back -->
+
+<!-- omni-outbox-settled: s4-02-question-moves-on-time -->
+
+## s4-02-question-moves-on-time — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-question-moves-on-time
+prd: 71
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+The waiting side gives up after nine minutes and asks in the terminal instead, but it may not manage to tell the page. Should the page still offer to answer a question that has waited longer than that?
+
+## The decision, in plain words
+
+After nine minutes the page shows the question as moved to the terminal and no longer offers to send an answer, even when nobody told it. Until then it says how many minutes are left.
+
+## The intro, for fun
+
+A bus that left ten minutes ago can still be up on the timetable.
+
+## The punchline, for fun
+
+The page now reads the clock instead of waiting for the driver to call.
+
+## The options, in plain words
+
+A. Stop offering an answer after nine minutes, whatever the page was told, the option built.
+B. Offer an answer until the page is told the question moved, even when nobody is waiting for it any more.
+C. Stop a little before nine minutes, to leave room for a slow network.
+
+## What I had to decide
+
+The spec: the hook waits up to 540 s in total, then the terminal prompt shows, and the page marks the round "moved to the terminal" once the hook calls `abandon`. When the hook is killed instead (its 600 s timeout, the person interrupting Claude, a machine going to sleep), no `abandon` arrives and the round stays `open`; an answer sent then is stored and nobody reads it. The spec also says a person who takes longer than 9 min gets the terminal prompt, "and the page says so".
+
+## What I did meanwhile
+
+`sessionView` in `src/ask/page/view.ts` reads the newest round as open only while its status is `open`, its questions can be read, and less than `HOOK_WAIT_MS` (540 000 ms) has passed since `created_at`; otherwise it shows "moved to the terminal", with no Send. An older round still `open` under a newer one shows in the history as not answered. The page counts on the server's clock (the offset is taken at render time), and the footer says "moves to the terminal in N min".
+
+## What it costs to change later
+
+One constant; nothing stored depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the kit's 540 s total wait is final: the page repeats the number rather than reading it from the kit, so the two can drift.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-question-moves-on-time -->
+
+<!-- omni-outbox-settled: s4-03-own-answer-with-several-choices -->
+
+## s4-03-own-answer-with-several-choices — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-own-answer-with-several-choices
+prd: 71
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+When a question allows several choices and the person also types their own answer, what should Claude receive?
+
+## The decision, in plain words
+
+Claude receives the ticked choices first, in the order they were offered, then the typed answer, all separated by commas. For a question with a single choice, typing an answer replaces the choice.
+
+## The intro, for fun
+
+Ticking three boxes and then writing in the margin is a very human way to fill in a form.
+
+## The punchline, for fun
+
+Claude now reads the margin too, right after the boxes.
+
+## The options, in plain words
+
+A. The ticked choices, then the typed answer, separated by commas, the option built.
+B. The typed answer alone, dropping the ticked choices.
+C. Let a person either tick choices or type an answer, never both.
+
+## What I had to decide
+
+The contract: several labels are joined with ", " for a multi-select, and the typed text is used for Other. It does not say what a multi-select sends when it has both labels and Other text, nor whether the labels keep the order they were clicked in or the order they are listed in.
+
+## What I did meanwhile
+
+`answerOf` in `src/ask/answer-model.ts`: a multi-select sends its chosen labels in the order the options are listed, then the Other text verbatim, joined with ", ". A single choice sends its label exactly as Claude wrote it, "(Recommended)" included, or the Other text when Other is chosen (typing in it chooses it). Other holding only blanks is no answer, so Send stays off. `answer-model.test.ts` covers each case.
+
+## What it costs to change later
+
+One function and its tests; answers already given are not affected.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) What the terminal prompt itself sends for a multi-select with typed text, which the page should match: no live session could be run here to see it.
+
+```
+
+<!-- /omni-outbox-settled: s4-03-own-answer-with-several-choices -->
+
+<!-- omni-outbox-settled: s4-04-keys-in-a-round-of-several -->
+
+## s4-04-keys-in-a-round-of-several — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-04-keys-in-a-round-of-several
+prd: 71
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+One round can hold up to four questions on the page at once, and the number keys pick an option. Which question should a key press answer?
+
+## The decision, in plain words
+
+The number keys answer the question the person is working in, or else the first question still without an answer, so a whole round can be answered with the keyboard alone. Enter sends once every question has an answer.
+
+## The intro, for fun
+
+Four questions, four number keys, and one very eager keyboard.
+
+## The punchline, for fun
+
+Each key press goes to the first question still waiting its turn.
+
+## The options, in plain words
+
+A. Keys answer the question in focus, else the first one without an answer, the option built.
+B. Keys answer only the question in focus, and do nothing until the person picks one.
+C. Show one question at a time, like the terminal does, and move on after each answer.
+
+## What I had to decide
+
+The spec: keys `1`–`4` pick an option and `Enter` sends. `AskUserQuestion` takes one to four questions per call and the page shows them all at once; the spec does not say which question a key acts on, nor what `Enter` does inside the Other field.
+
+## What I did meanwhile
+
+`activeQuestion` and `pickByKey` in `src/ask/answer-model.ts`: a key acts on the question that holds the focus, else the first without an answer (else the last); in a multi-select it toggles. While the Other field has the focus, digits are text, `Enter` sends when Send is on and Shift+Enter breaks the line. Keys held with Ctrl, Alt or Cmd are left to the browser, and the key hint hides on touch screens.
+
+## What it costs to change later
+
+One function and its tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether people will expect Enter on a focused option to pick it, as in the terminal, rather than send the round once it is complete.
+
+```
+
+<!-- /omni-outbox-settled: s4-04-keys-in-a-round-of-several -->
