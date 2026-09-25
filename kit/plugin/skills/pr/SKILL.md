@@ -124,7 +124,7 @@ else gh pr comment <n> --body-file "$BODY"; fi
 ```
 
 This skill does not decide whether a claim is stale. The board does: `/omni:wave` reads the slice's
-`claimed-stale` state from the board command. Whoever picks up a stale PR takes it over and says so
+`claimed-stale` state from `omni board <prd>`. Whoever picks up a stale PR takes it over and says so
 in this comment.
 
 ## Claim

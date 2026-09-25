@@ -15,7 +15,7 @@ sub-PR lifecycle.
 | `pnpm quality:preflight --full` | `commands.preflightFull`, or `commands.preflight` when null |
 | `gh pr checks <n> --required`, the `all-green` check | `ci.branchProtection` true → `--required`; otherwise the checks named `ci.aggregateCheck` and `ci.outboxContext` (item s4-02 for a null aggregate) |
 | "three attempts" | `limits.attempts` |
-| "a status comment more than an hour old" | the board's `claimed-stale` state, which `/omni:wave` reads (see "Staleness" below) |
+| "a status comment more than an hour old" | the `claimed-stale` state of `omni board <prd>`, which `/omni:wave` reads (see "Staleness" below) |
 | `## Acceptance` with `<path>.feature` | only when `acceptance.enabled`; scenario files under `acceptance.dir` |
 
 ## Changed
@@ -55,7 +55,7 @@ sub-PR lifecycle.
   `prLinks.sub`), posts the status comment with state `claimed`, and stops. `/omni:do-work` (run
   alone) and `/omni:wave` use it.
 - **Staleness.** Upstream's "older than an hour and no check running" rule is not restated here. The
-  board's `claimed-stale` state decides, and `/omni:wave` reads it.
+  `claimed-stale` state of `omni board <prd>` decides, and `/omni:wave` reads it.
 - **Remote and slug.** `origin` becomes `repo.remote`. The comment API path uses `repo.slug`, and
   falls back to gh's `{owner}/{repo}` when the slug is null.
 - **Sub-PR orchestrator.** `vertuo-parallel-wave` → `/omni:wave`.
