@@ -243,3 +243,65 @@ kit/test/no-literals.test.mjs` — 164/164 pass (120 in `comment.test.mjs`, 43 i
   the fix command instead of \"Nothing open\" when nothing is open".
 - `parseNameStatus` is re-exported from `kit/lib/git.mjs` (the one implementation), no longer via
   `check-decision-coverage.mjs`. Test: `kit/lib/git.test.mjs` "is one implementation…".
+
+## PRD 50, slice s2: the intro and the punchline
+
+Not a re-port: upstream's `scripts/outbox-comment.mjs` has no intro or punchline. A kit-local
+widening of the ported pull request comment, recorded here because `comment.mjs` is this record's
+territory.
+
+- Added `import { assignBanter } from './banter.mjs'`. `kit/lib/outbox/banter.mjs` is a new,
+  kit-local module (the fallback pool of intros and punchlines, `stableHash` and `assignBanter`);
+  nothing in it is ported, so it has no porting record of its own.
+- New private helper `funLine(text)`: the line in italics (`_…_`), trimmed and on one line, since a
+  line break inside would end the emphasis.
+- New private helper `questionBanter({ items, adopted, numberById })`: the intro and the punchline
+  of every question the comment shows, by item id — the item's own `sections.introFun` /
+  `sections.punchlineFun` (PRD 50, slice s1) when it carries both, otherwise the pool's through
+  `assignBanter`. Open and adopted questions are served together in question-number order (an
+  unnumbered one last, then by id), not in the order the comment lists them, so two renders agree
+  and a new question never moves an older one's lines. A question carrying its own pair takes no
+  pool line. An adopted entry's embedded item is read through the existing `adoptedItem`; one that
+  cannot be read gets the pool's pair.
+- `openQuestionLines(item, number, round)` → `openQuestionLines(item, number, round, banter)`: after
+  the heading, the intro; after the quoted question, the punchline; then the options, the person
+  steps or the older decision line, unchanged.
+- `adoptedQuestionLines(entry, number, round)` → `adoptedQuestionLines(entry, number, round,
+  banter)`: the same two lines around the quoted question. No separator is added between adopted
+  questions; the section keeps its one rule before `<details>`.
+- `formatOutboxPrComment`: computes `questionBanter` once and hands each question its pair. Its doc
+  comment gained a sentence on the pair.
+- Module doc comment: a paragraph on the pair ("PRD #50, slice s2 — a joke around every question").
+- Unchanged: the **Answered** section, `formatOutboxComment` (the PRD issue's comment), `slackLine`,
+  `maybeWriteSlackNote`, and both upsert functions.
+
+### Test (`comment.test.mjs`)
+
+- Added import: `BANTER_POOL`, `assignBanter` (`./banter.mjs`).
+- `optionedItemText` gained `introFun` and `punchlineFun` (written together, right after the plain
+  decision, when `introFun` is given), and `options: null` (no options and no person steps, the shape
+  of an item raised before options existed). Its defaults are unchanged, so every existing fixture is
+  byte-identical.
+- **Changed**: "renders a PRD with one high, one human-action and two adopted items as the
+  before/after page lays it out" — its four items now carry their own intro and punchline, and the
+  expected body carries each pair around its question. The only existing assertion changed.
+- **Added** `an intro and a punchline around every question (PRD #50 s2)`: the order separator,
+  heading, intro, question, punchline, then the rest, for an open question with options, a
+  `human-action` one with person steps, one with the older decision line, and adopted ones with
+  options and with a decision line; pool lines for items without the pair, open and adopted; a
+  question with its own pair taking no pool line; two renders identical, and a rewrite in place
+  through `upsertOutboxPrComment` identical; two ids hashing to the same line getting different
+  lines, the lower number keeping it; questions served in number order, not listing order (a high
+  question listed before a medium one numbered earlier, and an open one listed before an adopted one
+  numbered earlier); a new, more urgent question hashing to question 1's line leaving questions 1–3
+  unchanged; no pool line repeated across twelve questions; no intro or punchline in the Answered
+  section. RED: eleven of these thirteen failed, with the changed test, before `comment.mjs`
+  rendered the pair; the other two passed from the start — "rendering the comment twice gives the
+  same lines" (true of any pure render) and the Answered one, which pins what stays the same.
+- No assertion deleted. The Answered, PRD-issue comment and Slack tests are unchanged.
+
+### Gate (this update)
+
+`pnpm vitest run kit/lib/outbox/comment.test.mjs kit/lib/outbox/banter.test.mjs
+kit/test/no-literals.test.mjs` — 152/152 pass (134 in `comment.test.mjs`, 16 in
+`banter.test.mjs`, 2 in `no-literals.test.mjs`).

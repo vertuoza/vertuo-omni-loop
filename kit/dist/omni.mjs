@@ -14364,6 +14364,95 @@ import { writeFileSync as writeFileSync3 } from "node:fs";
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync13, readFileSync as readFileSync9, writeFileSync as writeFileSync2 } from "node:fs";
 
+// kit/lib/outbox/banter.mjs
+init_define_OMNI_BUNDLE();
+var INTROS = Object.freeze([
+  "Here is a small question with surprisingly strong opinions.",
+  "This one looked simple right up until it did not.",
+  "The spec went quiet here, which is rare and a little suspicious.",
+  "A question walks into a pull request and politely asks for a minute.",
+  "Two sensible ideas met in this change, and only one could stay.",
+  "Not every decision is dramatic, but this one did try its best.",
+  "This question has been rehearsing its big moment all week.",
+  "The kind of question that sounds easy until it is asked out loud.",
+  "Found in the margin of the spec, next to a very small question mark.",
+  "The build kept going and left this question behind like a bookmark.",
+  "Nothing is on fire; this is simply a question with good manners.",
+  "One more choice, gift-wrapped and labelled with care.",
+  "Fresh from the workshop, and still warm from the build.",
+  "Some questions knock politely, and this is one of them.",
+  "This decision was made in pencil, on purpose.",
+  "Behind every tidy change sits a judgement call, and here it is.",
+  "A crossroads so small it barely needed a sign, so here is the sign.",
+  "Every plan has a gap somewhere, and this one found a very tidy gap.",
+  "Plot twist: the easy part had a question hiding in it.",
+  "Here is a question that deserves better than a shrug.",
+  "A decision was made, and it would like to be introduced properly.",
+  "Somewhere between two good ideas, a choice had to be made.",
+  "Presenting a question that kept its promise to stay short.",
+  "The agent paused here, picked a path, and left a note on the door.",
+  "Every piece of work leaves one crumb of doubt, and this is the crumb.",
+  "A fork in the road, freshly swept and ready for visitors.",
+  "This question was found hiding behind a perfectly reasonable assumption.",
+  "Today's small mystery comes with a clue and a best guess."
+]);
+var PUNCHLINES = Object.freeze([
+  "Nothing here is carved in stone, only lightly pencilled.",
+  "The good news is that every pencil comes with an eraser.",
+  "No wrong answers here, only reversible ones.",
+  "Changing course later costs a little, not a lot.",
+  "The agent has a hunch, and hunches love a second opinion.",
+  "Quick to read, and oddly satisfying to settle.",
+  "It sounds bigger than it is, like most things before lunch.",
+  "The work did not wait, but it did leave a light on.",
+  "Every settled question makes the next build a little calmer.",
+  "Settling it takes a minute, and the minute is well spent.",
+  "It is easier to answer than it was to ask.",
+  "Answers of every size are welcome here.",
+  "Nothing breaks while it waits; it just waits a little hopefully.",
+  "A calm answer now saves a long thread later.",
+  "One small answer, many quieter tomorrows.",
+  "Nothing dramatic, just a small signpost waiting for its arrow.",
+  "Sometimes the sensible choice and the fun choice are the same one.",
+  "It is only a question, but it has been very well behaved.",
+  "The code carries on meanwhile; it just likes to be sure.",
+  "Half the fun of a question is watching it turn into a decision.",
+  "Best of all, the answer fits on one line.",
+  "The worst case is a small rework, and small reworks are friendly.",
+  "Clarity is cheap today and pricey next month.",
+  "The question is short, and the peace of mind lasts much longer.",
+  "Somewhere, a future bug just got a little nervous.",
+  "Every question answered is one less surprise at release time.",
+  "A good question ages like milk, so this one is served fresh.",
+  "Small print, big relief once it is settled."
+]);
+var BANTER_POOL = Object.freeze({ intros: INTROS, punchlines: PUNCHLINES });
+function stableHash(text2) {
+  let hash = 2166136261;
+  for (const byte of new TextEncoder().encode(text2)) {
+    hash ^= byte;
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+function serveLines(ids, lines, salt) {
+  const taken = /* @__PURE__ */ new Set();
+  const served = /* @__PURE__ */ new Map();
+  for (const id of ids) {
+    if (taken.size === lines.length) taken.clear();
+    let index = stableHash(`${salt}:${id}`) % lines.length;
+    while (taken.has(index)) index = (index + 1) % lines.length;
+    taken.add(index);
+    served.set(id, lines[index]);
+  }
+  return served;
+}
+function assignBanter(ids, { pool = BANTER_POOL } = {}) {
+  const intros = serveLines(ids, pool.intros, "intro");
+  const punchlines = serveLines(ids, pool.punchlines, "punchline");
+  return new Map(ids.map((id) => [id, { intro: intros.get(id), punchline: punchlines.get(id) }]));
+}
+
 // kit/lib/outbox/status.mjs
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync12 } from "node:fs";
@@ -14658,6 +14747,9 @@ function tableCell(text2) {
 function quoted(text2) {
   return String(text2 ?? "").trim().split("\n").map((line) => line.trim() === "" ? ">" : `> ${line}`).join("\n");
 }
+function funLine(text2) {
+  return `_${String(text2 ?? "").trim().replace(/\s*\n\s*/g, " ")}_`;
+}
 function formatOptionsTable(options, mark) {
   return [
     "|   | Option | |",
@@ -14673,14 +14765,36 @@ function otherLetter(options) {
 function hasOptions(item2) {
   return Array.isArray(item2.sections?.options) && item2.sections.options.length > 0;
 }
-function openQuestionLines(item2, number, round) {
+function questionBanter({ items, adopted, numberById }) {
+  const numberOf = (question) => numberById.get(question.id) ?? Infinity;
+  const questions = [
+    ...items.map((item2) => ({ id: item2.id, sections: item2.sections })),
+    ...adopted.map((entry) => ({ id: entry.id, sections: adoptedItem(entry)?.sections }))
+  ].sort((a, b) => numberOf(a) - numberOf(b) || a.id.localeCompare(b.id));
+  const banter = /* @__PURE__ */ new Map();
+  const fromPool = [];
+  for (const { id, sections } of questions) {
+    if (sections?.introFun && sections?.punchlineFun) {
+      banter.set(id, { intro: sections.introFun, punchline: sections.punchlineFun });
+    } else {
+      fromPool.push(id);
+    }
+  }
+  for (const [id, lines] of assignBanter(fromPool)) banter.set(id, lines);
+  return banter;
+}
+function openQuestionLines(item2, number, round, banter) {
   const humanAction = item2.rank === "human-action";
   const lines = [
     "---",
     "",
     `### Question ${number} \xB7 ${item2.rank} \u2014 ${humanAction ? "needs a person" : "needs your decision"}`,
     "",
+    funLine(banter.intro),
+    "",
     quoted(item2.sections.questionPlain),
+    "",
+    funLine(banter.punchline),
     ""
   ];
   if (humanAction && item2.sections.personSteps) {
@@ -14713,11 +14827,20 @@ function adoptedItem(entry) {
   const parsed = parseOutboxItem(entry.itemText, { file: null });
   return parsed.ok ? parsed.item : null;
 }
-function adoptedQuestionLines(entry, number, round) {
+function adoptedQuestionLines(entry, number, round, banter) {
   const item2 = adoptedItem(entry);
   const question = item2?.sections.questionPlain ?? answeredQuestionText(entry);
   const options = item2 && hasOptions(item2) ? item2.sections.options : [];
-  const lines = [`### Question ${number} \xB7 medium \u2014 adopted`, "", quoted(question), ""];
+  const lines = [
+    `### Question ${number} \xB7 medium \u2014 adopted`,
+    "",
+    funLine(banter.intro),
+    "",
+    quoted(question),
+    "",
+    funLine(banter.punchline),
+    ""
+  ];
   if (options.length > 0) {
     lines.push(
       ...formatOptionsTable(options, "adopted \xB7 built"),
@@ -14745,6 +14868,7 @@ function formatOutboxPrComment({
   const sorted = sortItems(items);
   const numberById = new Map(numbering.map((entry) => [entry.id, entry.number]));
   const byNumber = (a, b) => (numberById.get(a.id) ?? 0) - (numberById.get(b.id) ?? 0);
+  const banter = questionBanter({ items: sorted, adopted, numberById });
   const lines = [ctx.markers.prComment, ""];
   if (sorted.length > 0) {
     const count = sorted.length;
@@ -14759,7 +14883,7 @@ function formatOutboxPrComment({
     );
     for (const item2 of sorted) {
       const number = numberById.get(item2.id);
-      lines.push(...openQuestionLines(item2, number, roundMarkers.get(number)));
+      lines.push(...openQuestionLines(item2, number, roundMarkers.get(number), banter.get(item2.id)));
     }
   } else if (adopted.length > 0) {
     lines.push("**Nothing needs your decision**", "");
@@ -14777,7 +14901,9 @@ function formatOutboxPrComment({
     );
     for (const entry of [...adopted].sort(byNumber)) {
       const number = numberById.get(entry.id);
-      lines.push(...adoptedQuestionLines(entry, number, roundMarkers.get(number)));
+      lines.push(
+        ...adoptedQuestionLines(entry, number, roundMarkers.get(number), banter.get(entry.id))
+      );
     }
     lines.push("</details>", "");
   }
@@ -15673,7 +15799,7 @@ var ACCOUNT_FORMS = Object.freeze({
 // kit/bin/commands/item.mjs
 var USAGE4 = "usage: omni item new --prd <n> --slice <id> --file <file> [--adopt] [--json]";
 var SLUG_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-function funLine(field) {
+function funLine2(field) {
   return external_exports.string().trim().min(1, `${field} must not be empty`).superRefine((value, refinement) => {
     for (const problem of funLineProblems(value)) {
       refinement.addIssue({ code: external_exports.ZodIssueCode.custom, message: `${field} ${problem}` });
@@ -15700,8 +15826,8 @@ var ItemInputSchema = external_exports.object({
   principlesConflict: external_exports.array(external_exports.string().trim().min(1)).optional(),
   questionPlain: external_exports.string().trim().min(1, "questionPlain is required"),
   decisionPlain: external_exports.string().trim().min(1, "decisionPlain is required"),
-  introFun: funLine("introFun"),
-  punchlineFun: funLine("punchlineFun"),
+  introFun: funLine2("introFun"),
+  punchlineFun: funLine2("punchlineFun"),
   decide: external_exports.string().trim().min(1, "decide is required"),
   meanwhile: external_exports.string().trim().min(1, "meanwhile is required"),
   cost: external_exports.string().trim().min(1, "cost is required"),
