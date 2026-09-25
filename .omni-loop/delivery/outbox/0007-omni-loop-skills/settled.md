@@ -1131,3 +1131,562 @@ Changing the shape in do-work and wave together; nothing stored.
 ```
 
 <!-- /omni-outbox-settled: s5-04-wave-result-shape -->
+
+<!-- omni-outbox-settled: s7-01-acceptance-from-scope-and-seams -->
+
+## s7-01-acceptance-from-scope-and-seams — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s7
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-acceptance-from-scope-and-seams
+prd: 7
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+The planner must stop and ask when a PRD's acceptance criteria are missing, but our PRD write-ups often have no section by that name. What counts as acceptance criteria?
+
+## The decision, in plain words
+
+A PRD with no acceptance section still passes when its scope and test seams let every piece of work have a clear, checkable finish line. It stops and asks only when that finish line cannot be written.
+
+## The options, in plain words
+
+A. Acceptance section, else scope and test seams, graded by whether every slice's done-when is observable
+B. Require a heading named Acceptance criteria in every spec; stop without it
+C. Never stop; write the plan and raise the gap as an outbox item
+
+## What I had to decide
+
+Whether /omni:plan may read scope and test seams as acceptance criteria when the spec has no acceptance section, or must stop on every spec that lacks one.
+
+## What I did meanwhile
+
+The skill reads the acceptance section, else scope and test seams, and stops only when a slice's "done when" cannot be written as an observable condition.
+
+## What it costs to change later
+
+One paragraph of the skill; a later spec template with a mandatory acceptance section would make the fallback unused.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec's own §2.1 does not say what a spec file must contain; PRD 7's spec has no acceptance section. (author)
+
+```
+
+<!-- /omni-outbox-settled: s7-01-acceptance-from-scope-and-seams -->
+
+<!-- omni-outbox-settled: s7-02-one-slice-still-a-sub-pr -->
+
+## s7-02-one-slice-still-a-sub-pr — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s7
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-02-one-slice-still-a-sub-pr
+prd: 7
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+When a PRD is small enough to be one piece of work, should it still go through a separate sub-change, or be built straight on the feature branch?
+
+## The decision, in plain words
+
+Even a one-piece PRD gets its own sub-change into the feature branch. That keeps a single path for building, checking and merging work.
+
+## The options, in plain words
+
+A. Always a sub-PR, one slice or many
+B. A lone slice is built on the feature branch and the feature PR is its PR (upstream)
+
+## What I had to decide
+
+Whether a one-slice plan skips the sub-PR (upstream) or keeps it.
+
+## What I did meanwhile
+
+Every slice is a sub-PR, even when the plan has one slice, because /omni:do-work and /omni:wave only know the sub-PR path.
+
+## What it costs to change later
+
+One extra branch and PR for tiny PRDs; reverting means a one-slice path in do-work, wave and board.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Upstream built a lone slice on the feature branch; nothing in PRD 7's spec says which to keep. (author)
+
+```
+
+<!-- /omni-outbox-settled: s7-02-one-slice-still-a-sub-pr -->
+
+<!-- omni-outbox-settled: s7-03-feature-pr-opened-claimed-not-watched -->
+
+## s7-03-feature-pr-opened-claimed-not-watched — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s7
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-03-feature-pr-opened-claimed-not-watched
+prd: 7
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+After the planner opens the draft feature change, should it stay and watch it, and what does its status say?
+
+## The decision, in plain words
+
+The planner opens the draft, says it is claimed with no pieces merged yet, and stops. The delivery run picks it up from there.
+
+## The options, in plain words
+
+A. Status claimed, stop, hand to /omni:yolo
+B. Enter /omni:pr's lifecycle loop and watch until green (a draft runs no CI)
+C. A new status state such as planned, added to /omni:pr
+
+## What I had to decide
+
+Whether /omni:plan leaves the feature PR with status claimed and stops, or enters /omni:pr's watch loop.
+
+## What I did meanwhile
+
+State claimed, slices 0 of total merged, labels as /omni:pr's feature kind; no check loop, never marked ready; /omni:yolo carries it on.
+
+## What it costs to change later
+
+A word in the status comment and one sentence in the skill.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- /omni:pr's state list has no plan-time state; claimed was chosen as the nearest. (author)
+
+```
+
+<!-- /omni-outbox-settled: s7-03-feature-pr-opened-claimed-not-watched -->
+
+<!-- omni-outbox-settled: s7-04-existing-plan-kept -->
+
+## s7-04-existing-plan-kept — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s7
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-04-existing-plan-kept
+prd: 7
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+If a plan already exists for the PRD, for instance from the idea-to-PRD step, should the planner rewrite it or keep it?
+
+## The decision, in plain words
+
+It keeps the existing plan and changes only what the slicing rules and the plan check require. Work someone already reviewed is not thrown away.
+
+## The options, in plain words
+
+A. Keep an existing plan, repair only what the check or slice rules need
+B. Always write a fresh plan over it
+C. Stop and ask when a plan already exists
+
+## What I had to decide
+
+Whether /omni:plan keeps and repairs an existing plan.md, or always writes a fresh one.
+
+## What I did meanwhile
+
+An existing plan.md is kept and changed only as far as the slice rules and omni plan check require.
+
+## What it costs to change later
+
+One sentence in the skill.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- /omni:brainstorm (s11) is not built yet; whether it writes plan.md itself or follows /omni:plan is open. (author)
+
+```
+
+<!-- /omni-outbox-settled: s7-04-existing-plan-kept -->
+
+<!-- omni-outbox-settled: s8-01-territory-graded-in-prose -->
+
+## s8-01-territory-graded-in-prose — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-01-territory-graded-in-prose
+prd: 7
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+When the wave merges a slice, how does it tell whether the slice stayed on the ground the plan gave it?
+
+## The decision, in plain words
+
+The wave itself compares the files the slice changed with the ground the slice declared, and only reports a stray file. A dedicated command could take this over later.
+
+## The options, in plain words
+
+A. Compare in the skill prose, report and never fail (built).
+B. Add a territory subcommand to the check command in a follow-up slice, over the existing pure grader, and switch the skill to it.
+C. Drop the per-slice check and rely on the plan check alone.
+
+## What I had to decide
+
+Upstream graded one slice's diff with a script (check-territory). The kit has the pure function territoryVerdict in kit/lib/inbox/territory.mjs, but no CLI exposes it, and s8's territory is the skill only. Either the skill does the comparison in prose, or a new `omni check territory` command is added.
+
+## What I did meanwhile
+
+The skill reads `gh pr diff <n> --name-only` and the slice row's `territory` from `omni board <prd> --json`; a path is inside when it starts with a territory entry or sits under the PRD's outbox dir. A breach is reported and the merge goes on. `omni plan check <prd>` runs once before merging.
+
+## What it costs to change later
+
+Low: adding the command later replaces one step of prose; nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Spec §2.1 rule 3 (policy lives in code) argues for a CLI; no slice in PRD 7's plan owns it. (author)
+- The prose rule counts the outbox dir as always inside; territoryVerdict does not know about it. (author)
+
+```
+
+<!-- /omni-outbox-settled: s8-01-territory-graded-in-prose -->
+
+<!-- omni-outbox-settled: s8-02-wave-asks-nothing -->
+
+## s8-02-wave-asks-nothing — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-02-wave-asks-nothing
+prd: 7
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+Should the wave stop to ask a person about a serious decision a slice made, while that person might still be at the keyboard?
+
+## The decision, in plain words
+
+The wave never asks. It records every decision, accepts the minor ones and lists the serious ones for a person to answer on the pull request.
+
+## The options, in plain words
+
+A. Never ask; record and report (built).
+B. Take an optional policy input, and ask about high and human-action items when it says so.
+C. Ask when run directly by a person, never under /omni:yolo.
+
+## What I had to decide
+
+Upstream vertuo-parallel-wave carried a consultation policy: under vertuo-deliver it asked about high and human-action items in the prompt and settled the answers on the spot. PRD 7 ships only /omni:yolo, which asks nothing; /omni:deliver is out of scope (spec §4).
+
+## What I did meanwhile
+
+The consultation policy is dropped. High and human-action items stay open and are listed in the wave's report; the gate on the feature PR is where they are answered.
+
+## What it costs to change later
+
+Low: a later /omni:deliver can ask after the wave returns, from the report's items, without changing this skill.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a person running /omni:wave directly would want to be asked is not settled by the spec. (author)
+
+```
+
+<!-- /omni-outbox-settled: s8-02-wave-asks-nothing -->
+
+<!-- omni-outbox-settled: s8-03-adopt-then-check-on-feature-branch -->
+
+## s8-03-adopt-then-check-on-feature-branch — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-03-adopt-then-check-on-feature-branch
+prd: 7
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+After a wave merges, in which order does it accept the minor decisions and run the final checks, and where does that change go?
+
+## The decision, in plain words
+
+The wave first accepts the minor decisions in one change made straight on the shared feature line, then runs the full checks once over everything. One check pass then covers both the merged work and the accepted decisions.
+
+## The options, in plain words
+
+A. Adopt, commit on the feature branch, then check once (built).
+B. Check, adopt, commit, then check again.
+C. Adopt through a small sub-PR of its own.
+
+## What I had to decide
+
+The brief lists the full preflight and `omni check all` on the feature branch first, then adopting medium items and committing. Adopting changes settled.md and removes item files, which the outbox guard inside `omni check all` grades too.
+
+## What I did meanwhile
+
+Step 5 runs `omni adopt <file>` for each medium item a merged slice returned, commits once directly on the feature branch (no PR), then runs the preflight, `commands.checks` and `omni check all`, then pushes. A refused adoption stays open and is reported.
+
+## What it costs to change later
+
+Low: reordering is a prose edit, and the commit reverts cleanly on the feature branch.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Committing directly on the feature branch, with no sub-PR, mirrors what PRD 7's human orchestrator did after wave 2; no written rule states it. (author)
+
+```
+
+<!-- /omni-outbox-settled: s8-03-adopt-then-check-on-feature-branch -->
+
+<!-- omni-outbox-settled: s13-01-item-new-json-shape-and-input-flag-rename -->
+
+## s13-01-item-new-json-shape-and-input-flag-rename — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s13
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s13-01-item-new-json-shape-and-input-flag-rename
+prd: 7
+slice: s13
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+Once the outcome flag needed the name a caller already used for its input file, what should the input file's own flag be called, and should a bad option be caught before anything is written?
+
+## The decision, in plain words
+
+Two decisions, taken together: the input file flag is renamed so the outcome flag can keep the shorter name, and a raised item is now graded the same way the outbox check grades one, before anything is written or adopted.
+
+## The options, in plain words
+
+A. Rename the input file flag and give the outcome flag the shorter name, the option built.
+B. Keep the input file flag's old name and give the outcome flag a longer, different name instead.
+
+## What I had to decide
+
+What the input file's own flag should be called once the outcome flag needs the name it used to hold, and whether a raised item should be graded before it is written or adopted.
+
+## What I did meanwhile
+
+Two decisions, side by side. First, the input file flag is renamed, and the outcome flag prints one JSON object with the outcome, the rank, the id, the file, whether it was adopted, and a reason. Second, a rendered item is now graded the same way the outbox check grades one, before anything is written or adopted, so a bad option or a below-floor rank is caught at the source.
+
+## What it costs to change later
+
+A caller still using the old input-file spelling gets a plain usage message naming what is missing, not the written item it expected; nothing is silently lost, but nothing is recorded either until that caller is updated to the new spelling.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether a future caller would rather keep the old input flag name and give the outcome flag a different one instead
+
+```
+
+<!-- /omni-outbox-settled: s13-01-item-new-json-shape-and-input-flag-rename -->
