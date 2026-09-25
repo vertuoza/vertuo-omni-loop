@@ -21,18 +21,22 @@
 //
 // `--json` prints exactly one JSON object on stdout instead of the plain-text lines above:
 // `{ outcome, rank, id, file, adopted, reason }` — `outcome` is `'record'`, `'stop'` or
-// `'blocked'` (the same three values `decideRecording` returns); `id` and `file` are `null` when
-// nothing was written; `adopted` is `true` only when `--adopt` adopted a `medium` item, and then
-// `file` is `null` since no open file remains; `reason` is `null` on a plain successful record,
-// and the policy's one-line reason otherwise. Exit codes are unchanged. This lets a caller
-// (`do-work`) branch on structured output instead of parsing stderr wording.
+// `'blocked'` (the same three values `decideRecording` returns), or `null` for a failure that
+// never reached the recording policy at all (below); `id` and `file` are `null` when nothing was
+// written; `adopted` is `true` only when `--adopt` adopted a `medium` item, and then `file` is
+// `null` since no open file remains; `reason` is `null` on a plain successful record, and a
+// one-line (or `; `-joined multi-line) reason otherwise. Exit codes are unchanged. This lets a
+// caller (`do-work`) branch on structured output instead of parsing stderr wording.
 //
-// Before any of the above, the rendered item is graded with the exact same `checkItemText`
-// `omni check outbox` runs on every open item (a below-floor rank, a malformed options section, a
-// backticked code name or file path in a plain-words section…). A violation here is a usage error:
-// nothing is written — not an open file, not an adoption — every violation is printed on stderr,
-// one per line, and the exit code is 2, whether or not `--json` was passed; `outcome: 'record'`
-// (or `'stop'` / `'blocked'`) is never reached.
+// `outcome: null` covers the two ways nothing is written despite `decideRecording` never objecting:
+// - **Before anything is written**, the rendered item is graded with the exact same
+//   `checkItemText` `omni check outbox` runs on every open item (a below-floor rank, a malformed
+//   options section, a backticked code name or file path in a plain-words section…). A violation
+//   here is a usage error: nothing is written — not an open file, not an adoption — every
+//   violation is printed on stderr, one per line (or joined into `reason` under `--json`), and the
+//   exit code is 2, whether or not `--json` was passed; `outcome: 'record'` is never reached.
+// - **After `--adopt`**, the ledger can still refuse the adoption (a malformed `settled.md`, say);
+//   nothing is written then either, `adopted` stays `false`, and the exit code is 1.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
@@ -238,8 +242,12 @@ async function runNew(args, { ctx, stdout, stderr }) {
   const renderedFile = `${outboxDir}/${id}.md`;
   const violations = checkItemText(renderedFile, text, { ctx, laws });
   if (violations.length > 0) {
-    println(stderr, 'omni item new: the rendered item fails "check outbox" — nothing was written:');
-    for (const violation of violations) println(stderr, `  - ${violation}`);
+    if (asJson) {
+      println(stdout, jsonOutcome({ outcome: null, reason: violations.join('; ') }));
+    } else {
+      println(stderr, 'omni item new: the rendered item fails "check outbox" — nothing was written:');
+      for (const violation of violations) println(stderr, `  - ${violation}`);
+    }
     return 2;
   }
 
@@ -262,7 +270,7 @@ async function runNew(args, { ctx, stdout, stderr }) {
     const result = adoptItem({ ctx, itemText: text });
     if (!result.ok) {
       if (asJson) {
-        println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, reason: result.errors.join('; ') }));
+        println(stdout, jsonOutcome({ outcome: null, reason: result.errors.join('; ') }));
       } else {
         println(stderr, 'omni item new — nothing was written:');
         for (const error of result.errors) println(stderr, `  - ${error}`);

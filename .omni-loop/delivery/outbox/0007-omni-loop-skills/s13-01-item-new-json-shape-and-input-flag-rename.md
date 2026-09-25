@@ -10,11 +10,11 @@ wave: 3
 
 ## The question, in plain words
 
-Once the outcome flag takes the name a caller already used for its input file, should the input file get a new name, and should a bad option be caught before anything is written?
+Once the outcome flag needed the name a caller already used for its input file, what should the input file's own flag be called, and should a bad option be caught before anything is written?
 
 ## The decision, in plain words
 
-The input file flag is renamed so the outcome flag can keep the obvious name, and a raised item is now graded the same way the outbox check grades one before anything is written or adopted.
+Two decisions, taken together: the input file flag is renamed so the outcome flag can keep the shorter name, and a raised item is now graded the same way the outbox check grades one, before anything is written or adopted.
 
 ## The options, in plain words
 
@@ -23,15 +23,15 @@ B. Keep the input file flag's old name and give the outcome flag a longer, diffe
 
 ## What I had to decide
 
-What the input file's own flag should be called once the outcome flag needs the name it used to hold, and whether a raised item should be graded before it is written.
+What the input file's own flag should be called once the outcome flag needs the name it used to hold, and whether a raised item should be graded before it is written or adopted.
 
 ## What I did meanwhile
 
-The input file flag is renamed, the outcome flag prints one JSON object with the outcome, the rank, the id, the file, whether it was adopted, and a reason, and a rendered item is graded the same way the outbox check grades one before anything is written.
+Two decisions, side by side. First, the input file flag is renamed, and the outcome flag prints one JSON object with the outcome, the rank, the id, the file, whether it was adopted, and a reason. Second, a rendered item is now graded the same way the outbox check grades one, before anything is written or adopted, so a bad option or a below-floor rank is caught at the source.
 
 ## What it costs to change later
 
-Every caller of the old input file flag must pass the new name instead; a script or skill still using the old name gets a plain usage error naming the unknown flag.
+A caller still using the old input-file spelling gets a plain usage message naming what is missing, not the written item it expected; nothing is silently lost, but nothing is recorded either until that caller is updated to the new spelling.
 
 ## What I could not know
 

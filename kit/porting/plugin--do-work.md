@@ -13,7 +13,7 @@ duties of `outbox-policy.mjs` beside it (the module itself was ported earlier as
 | plan, slice and PRD found by convention | `omni prd <n>` gives the plan, the spec and the outbox dir; the slice row gives the territory |
 | `origin/feat/<topic>`, slice branch by hand | `repo.remote`, the feature branch as an input, `branches.slice` for the slice branch |
 | `docs/outbox/<prd>/…` | the outbox dir `omni prd` prints; accounts at `<outbox dir>/accounts/<slice>.md` |
-| `renderOutboxItem` + `adoptItem` called by hand, or `scripts/outbox-settle.mjs adopt` | `omni item new --prd --slice --json`, which picks the rank and the id; `--adopt` for a medium item when running alone |
+| `renderOutboxItem` + `adoptItem` called by hand, or `scripts/outbox-settle.mjs adopt` | `omni item new --prd --slice --file <file> --json`, which picks the rank and the id; `--adopt` for a medium item when running alone |
 | `node scripts/check-decision-coverage.mjs origin/feat/<topic> <prd>` | `omni check coverage --base <remote>/<feature branch> --prd <n>` |
 | `pnpm quality:preflight --full` | `commands.preflightFull`, falling back to `commands.preflight` |
 | `pnpm check` (implied) | every command in `commands.checks`, then `omni check all` |
@@ -53,8 +53,11 @@ duties of `outbox-policy.mjs` beside it (the module itself was ported earlier as
   branch) and the **Co-Authored-By trailer** line are kept, in the hand-off to `/omni:pr`; the
   Conventional-Commit title and the in-progress label are left to `/omni:pr`.
 - **Reading `omni item new`'s outcome from stderr** (`must stop`, `nothing was written (stop)`,
-  `is blocked`) is interim: slice s13 gives `item new` a machine-readable outcome, and the skill
-  switches to it then.
+  `is blocked`) is now reading its `--json` output instead (slice s13): `{ outcome, rank, id,
+  file, adopted, reason }` on stdout. `outcome` is `null` — not one of `decideRecording`'s three
+  values — for a failure that never reached the recording policy at all: an `--adopt` the ledger
+  refused, or a rendered item the same check `omni check outbox` runs on every open item would
+  reject; either way nothing is written and `reason` says why.
 - **Account example** keeps the upstream three-line shape, with placeholders instead of a real path.
 
 ## Added

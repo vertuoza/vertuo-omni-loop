@@ -74,8 +74,8 @@ When the PRD, the spec, the context files and the knowledge folder do not settle
 2. **Record it** with `omni item new`. Write the JSON to a scratch file (never in the repository):
 
    ```bash
-   node .omni-loop/bin/omni.mjs item new --prd <n> --slice <id> --json <file>            # --in-wave
-   node .omni-loop/bin/omni.mjs item new --prd <n> --slice <id> --json <file> --adopt    # alone
+   node .omni-loop/bin/omni.mjs item new --prd <n> --slice <id> --file <file> --json            # --in-wave
+   node .omni-loop/bin/omni.mjs item new --prd <n> --slice <id> --file <file> --json --adopt    # alone
    ```
 
    Fields: `slug`, `wave`, `bearsOn` (a law id, `ADR-nnnn`, or omit), `questionPlain`,
@@ -87,11 +87,21 @@ When the PRD, the spec, the context files and the knowledge folder do not settle
    The kit picks the rank and the id; you never do. `--adopt` only acts on a medium item: it goes
    straight to the ledger. Under `--in-wave`, never pass it — `/omni:wave` adopts after the wave
    merges, so parallel slices do not race on the ledger.
-3. **Read the exit code.** `0`: carry on. Non-zero with `must stop` or `nothing was written (stop)`
-   on stderr: the **stop** outcome. Non-zero with `is blocked`: the **blocked** outcome. Exit `2`:
-   your JSON is wrong — fix it and rerun. Exit `1` with `nothing was written:` after `--adopt`: the
-   ledger refused the adoption (the lines under it say why); rerun without `--adopt` so the item
-   stays an open file, name the refusal in your risks, and carry on.
+3. **Read the JSON on stdout.** Parse it: `{ outcome, rank, id, file, adopted, reason }`.
+   - `outcome: "record"`, exit `0`: carry on. `adopted: true` means it went straight to the
+     ledger; otherwise commit `file`.
+   - `outcome: "stop"`, exit `1`: the **stop** outcome (a law it can name would break, or two
+     principles pull the decision apart) — `file` names what was written, `reason` says which.
+   - `outcome: "blocked"`, exit `1`: the **blocked** outcome (a human action it cannot perform) —
+     `file` names what was written, `reason` says what a person must do.
+   - `outcome: null`, `adopted: false`, exit `1`, after `--adopt`: the ledger refused the
+     adoption (`reason` says why) — rerun without `--adopt` so the item stays an open file, name
+     the refusal in your risks, and carry on.
+   - Exit `2`: nothing was written. Either the JSON you sent it was malformed or missing a
+     field — a one-line message on stderr, fix it and rerun — or, with `--json`, `outcome: null`
+     and `reason` names every way the rendered item fails the same check `omni check outbox` runs
+     on every open item (a below-floor rank, a malformed options section, a code name loose in a
+     plain-words field…). Exit `2` is no longer only "your JSON is wrong": read `reason` first.
 4. Commit the item file (or the ledger change) on the slice branch.
 
 **Exactly two ways a slice ends early.**

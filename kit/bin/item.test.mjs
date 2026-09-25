@@ -1,8 +1,20 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { makeRepo } from '../test/fixture.mjs';
+import { adoptItem } from '../lib/outbox/settle.mjs';
 import { main } from './omni.mjs';
+
+// `adoptItem`'s own two failure conditions (a rendered item that fails to parse, or one whose rank
+// is not `medium`) are both already excluded by the time `item new --adopt` calls it: the same
+// `checkItemText` grading runs first on the identical text, and this branch is only ever reached
+// when `decision.rank === 'medium'`. Wrapping the real implementation lets one test force the
+// ledger-refusal branch anyway — a `settle.mjs` internal detail (a malformed `settled.md`, say)
+// that has nothing to do with the item text itself — without touching any other test's behavior.
+vi.mock('../lib/outbox/settle.mjs', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, adoptItem: vi.fn(actual.adoptItem) };
+});
 
 function io() {
   const out = [];
@@ -145,6 +157,21 @@ describe('omni item new', () => {
     expect(s2.out.join('')).toMatch(/s7-02-default-timeout/);
   });
 
+  it('an adoption the ledger refuses writes nothing, names the refusal, and exits 1', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
+    const json = writeJson(root, FIELDS);
+    adoptItem.mockReturnValueOnce({ ok: false, errors: ['the ledger refused this adoption, for the test'] });
+    const s = io();
+    const code = await main(
+      ['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--adopt'],
+      { cwd: root, ...s },
+    );
+    expect(code).toBe(1);
+    expect(s.err.join('')).toMatch(/nothing was written:/);
+    expect(s.err.join('')).toMatch(/the ledger refused this adoption, for the test/);
+    expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md'))).toBe(false);
+  });
+
   it('needsHumanAction writes a human-action item, prints its path, and exits 1 (blocked)', async () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
     const { options, ...withoutOptions } = FIELDS;
@@ -259,6 +286,27 @@ describe('omni item new --json', () => {
       file: null,
       adopted: true,
       reason: null,
+    });
+    expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md'))).toBe(false);
+  });
+
+  it('an adoption the ledger refuses prints outcome null, adopted false, and the reason, exit 1', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
+    const json = writeJson(root, FIELDS);
+    adoptItem.mockReturnValueOnce({ ok: false, errors: ['the ledger refused this adoption, for the test'] });
+    const s = io();
+    const code = await main(
+      ['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--adopt', '--json'],
+      { cwd: root, ...s },
+    );
+    expect(code).toBe(1);
+    expect(jsonOut(s)).toEqual({
+      outcome: null,
+      rank: null,
+      id: null,
+      file: null,
+      adopted: false,
+      reason: 'the ledger refused this adoption, for the test',
     });
     expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md'))).toBe(false);
   });
@@ -431,7 +479,7 @@ describe('omni item new — a rendered item that "check outbox" would reject', (
     expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
   });
 
-  it('the same violation still writes nothing under --json, and exit stays 2', async () => {
+  it('the same violation prints outcome null with the reason under --json, and exit stays 2', async () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
     const json = writeJson(root, {
       ...FIELDS,
@@ -446,8 +494,17 @@ describe('omni item new — a rendered item that "check outbox" would reject', (
       { cwd: root, ...s },
     );
     expect(code).toBe(2);
-    expect(s.out.join('')).toBe('');
-    expect(s.err.join('')).toMatch(/carries a code span/);
+    const parsed = JSON.parse(s.out.join('').trim());
+    expect(parsed).toEqual({
+      outcome: null,
+      rank: null,
+      id: null,
+      file: null,
+      adopted: false,
+      reason: expect.stringMatching(/carries a code span/),
+    });
+    expect(parsed.reason).toMatch(/defaultTimeoutMs/);
+    expect(s.err.join('')).toBe('');
     expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
   });
 });
