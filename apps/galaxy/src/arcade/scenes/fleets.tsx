@@ -1,29 +1,37 @@
 'use client';
 // The fleets wall's text layer: a card per fleet, and the selected fleet's points, streak, planets
-// and crew.
+// and crew. On the tall grid the same wall is laid out narrower (fleets.css), with smaller mascots,
+// and splits its cards into pages when more than five fleets fly (`cardsShown`).
 import type { GalaxyView } from '@omni/galaxy';
 import { FleetSprite } from '../Sprite';
 import { fleet, ordinal } from '../fleets';
+import { useScreen } from '../Screen';
 import type { Player } from '../types';
 import { byLogin } from './common.tsx';
+import { cardsShown } from './fleets.ts';
 import './common.css';
 import './fleets.css';
 
 export function FleetsOverlay({ view, crew, index, onPick }: { view: GalaxyView; crew: Player[]; index: number; onPick: (i: number) => void }) {
+  const { grid } = useScreen();
   const players = byLogin(crew);
   const nameOf = (login: string) => players.get(login.toLowerCase())?.display_name ?? `@${login}`;
   const t = view.teams[index];
   const look = fleet(t?.name);
+  const shown = cardsShown(grid, view.teams.length, index);
+  const art = grid.name === 'tall' ? 1 : 2; // the mascot's scale: 32 grid px on the tall card, 64 on the wide one
   return (
     <div className="fleets">
       <h2>SELECT FLEET</h2>
+      {shown.pages > 1 && <p className="cards-page">{shown.page + 1}/{shown.pages}</p>}
       <div className="cards">
-        {view.teams.map((team, i) => {
+        {view.teams.slice(shown.from, shown.to).map((team, k) => {
+          const i = shown.from + k;
           const f = fleet(team.name);
           return (
             <button key={team.name} type="button" className={`card ${i === index ? 'active' : ''}`} style={{ ['--fleet' as string]: f.color }} onClick={() => onPick(i)}>
               <span className="card-rank">{ordinal(team.rank)}</span>
-              <span className="card-art"><FleetSprite name={team.name} scale={f.sprite.startsWith('hero') ? 4 / 3 : 2} animate={i === index} /></span>
+              <span className="card-art"><FleetSprite name={team.name} scale={f.sprite.startsWith('hero') ? (art * 2) / 3 : art} animate={i === index} /></span>
               <span className="card-name">{f.label}</span>
               <span className="card-pts">{team.points}</span>
             </button>
