@@ -6,6 +6,7 @@ import {
 } from '@omni/sprites';
 import type { GalaxyView, Planet } from '@omni/galaxy';
 import { fleet, heroOf, seedOf } from './fleets';
+import { MARK_RUNS, MARK_SHADE, MARK_SIZE, MARK_STOPS } from './mark';
 import type { FleetRow } from './types';
 
 export const W = 640;
@@ -179,17 +180,22 @@ function dashedLine(ctx: CanvasRenderingContext2D, a: MapSlot, b: MapSlot, t: nu
 function drawBoot(ctx: CanvasRenderingContext2D, s: FrameState) {
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, W, H);
-  // The four Vertuoza stripes, growing in from the left like a loading bar.
-  const colors = [['#ff3b5c', '#a8183a'], ['#ff7aa8', '#b04a78'], ['#b07cff', '#6a2fd0'], ['#5b7bff', '#2f3fc4']];
-  const k = Math.min(1, s.sceneT / 0.9);
-  colors.forEach(([c, dark], i) => {
-    const w = Math.round((i % 2 ? 44 : 60) * Math.min(1, Math.max(0, k * 1.4 - i * 0.12)));
-    const x = 252 + (i % 2) * 16, y = 124 + i * 12;
-    ctx.fillStyle = dark;
-    ctx.fillRect(x, y + 4, w, 2);
-    ctx.fillStyle = c;
-    ctx.fillRect(x, y, w, 4);
+  // The Vertuoza mark at 2×, each row of bars growing in from the left like a loading bar.
+  const px = 2, x0 = W / 2 - (MARK_SIZE * px) / 2, y0 = 96;
+  const k = s.reduced ? 1 : Math.min(1, s.sceneT / 0.9);
+  const gradient = (stops: typeof MARK_STOPS | typeof MARK_SHADE) => {
+    const g = ctx.createLinearGradient(x0, 0, x0 + MARK_SIZE * px, 0);
+    for (const [offset, color] of stops) g.addColorStop(offset, color);
+    return g;
+  };
+  const runs = MARK_RUNS.map(([x, y, w, row]) => {
+    const reveal = MARK_SIZE * Math.min(1, Math.max(0, k * 1.4 - row * 0.12));
+    return [x, y, Math.round(Math.min(w, Math.max(0, reveal - x)))] as const;
   });
+  for (const [fill, dy] of [[gradient(MARK_SHADE), 1], [gradient(MARK_STOPS), 0]] as const) {
+    ctx.fillStyle = fill;
+    for (const [x, y, w] of runs) ctx.fillRect(x0 + x * px, y0 + (y + dy) * px, w * px, px);
+  }
 }
 
 function plasmaTrail(ctx: CanvasRenderingContext2D, s: FrameState, x: number, y: number, len: number) {

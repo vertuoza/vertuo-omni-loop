@@ -17,6 +17,7 @@ import { FleetSprite, Sprite } from './Sprite';
 import { fleet, setFleets } from './fleets';
 import { foldChar, foldName, nameInit, nameReduce, nameValue, NAME_RULE, type NameAction, type NameState } from './name-entry';
 import { BUILDER_ROWS, cycleHero } from './builder';
+import { MARK_RUNS, MARK_SIZE, MARK_STOPS } from './mark';
 import { afterGate, afterReturn, afterStart, allowed, backStep, isDisbanded, isLinked, nextStep, readReturn, type Flow, type Step } from './onboarding';
 import type { Account, FleetRow, Player, PlayerPatch, Session } from './types';
 
@@ -84,24 +85,15 @@ const store = {
   set(key: string, v: string | null) { try { if (v === null) window.sessionStorage.removeItem(key); else window.sessionStorage.setItem(key, v); } catch { /* ignore */ } },
 };
 
-// The Vertuoza mark on the deck: split bars that narrow row by row into a V, coral to blue.
-// Each bar is [x, y, width] on a 36-pixel grid, drawn as a 6-pixel-tall pill with stepped round ends.
-const MARK_BARS = [
-  [0, 0, 22], [24, 0, 12],
-  [4, 10, 8], [14, 10, 18],
-  [8, 20, 12], [22, 20, 6],
-  [12, 30, 12],
-];
-const MARK_PATH = MARK_BARS.map(([x, y, w]) => `M${x + 2} ${y}h${w - 4}v1h1v1h1v2h-1v1h-1v1h${4 - w}v-1h-1v-1h-1v-2h1v-1h1z`).join('');
+// The Vertuoza mark on the deck, with a shadow one pixel down.
+const MARK_PATH = MARK_RUNS.map(([x, y, w]) => `M${x} ${y}h${w}v1h${-w}z`).join('');
 
 function VertuozaMark() {
   return (
-    <svg width="36" height="37" viewBox="0 0 36 37" shapeRendering="crispEdges">
+    <svg width={MARK_SIZE} height={MARK_SIZE + 1} viewBox={`0 0 ${MARK_SIZE} ${MARK_SIZE + 1}`} shapeRendering="crispEdges">
       <defs>
-        <linearGradient id="vz-mark" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="36" y2="0">
-          <stop offset="0" stopColor="#ff5f6d" />
-          <stop offset="0.55" stopColor="#a45cff" />
-          <stop offset="1" stopColor="#4a63ff" />
+        <linearGradient id="vz-mark" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={MARK_SIZE} y2="0">
+          {MARK_STOPS.map(([offset, color]) => <stop key={offset} offset={offset} stopColor={color} />)}
         </linearGradient>
       </defs>
       <path d={MARK_PATH} fill="#5c3a06" transform="translate(0 1)" />
