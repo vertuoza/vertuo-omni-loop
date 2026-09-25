@@ -286,3 +286,215 @@ Removing one ignore rule and committing one generated file, then rebuilding it o
 ```
 
 <!-- /omni-outbox-settled: s2-02-bundle-not-committed -->
+
+<!-- omni-outbox-settled: s3-01-event-carries-pr-and-sha -->
+
+## s3-01-event-carries-pr-and-sha — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-event-carries-pr-and-sha
+prd: 28
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+What should the notice that asks for a check say, and what happens when someone presses Re-run on a check that belongs to several pull requests, or to none?
+
+## The decision, in plain words
+
+The notice names the repository, the pull request and the exact commit. A re-run asks for one check per pull request it belongs to, and for none when GitHub ties it to no pull request.
+
+## The options, in plain words
+
+A. A. One event per listed pull request, none when there is none, as built.
+B. B. Look the pull request up by head SHA when the list is empty.
+C. C. Carry the full pull request facts in the event instead of re-reading them.
+
+## What I had to decide
+
+The spec says a handled delivery becomes one Inngest event but does not fix the event's data, and a `check_run` payload lists zero or more pull requests (zero for a pull request opened from a fork).
+
+## What I did meanwhile
+
+`toCheckRequests` emits `{ installationId, owner, repo, repository, prNumber, headSha, trigger }` per pull request; `check_run.rerequested` yields one event per entry of `check_run.pull_requests` and none when it is empty. Base/head refs and labels are not carried: s5 reads the pull request fresh in its evaluate step, so a debounced run sees the latest state. A delivery without an installation is ignored with 200; an event that cannot be sent answers 502 so GitHub records a failed delivery.
+
+## What it costs to change later
+
+A change to the event's data shape between s3 and s5, both in `apps/omni-app`; nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether fork pull requests should get a check on Re-run by looking the PR up from the head SHA.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-event-carries-pr-and-sha -->
+
+<!-- omni-outbox-settled: s3-02-manifest-host-placeholder -->
+
+## s3-02-manifest-host-placeholder — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-manifest-host-placeholder
+prd: 28
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+Which web address should the app's registration file send GitHub's notifications to, when the hosting project does not exist yet?
+
+## The decision, in plain words
+
+It names the address the hosting project will most likely get. The person who registers the app checks it against the real address first and corrects it if needed.
+
+## The options, in plain words
+
+A. A. The likely hosting address with a note to correct it, as built.
+B. B. An obvious placeholder host that registration must replace.
+C. C. A custom vertuoza domain chosen now.
+
+## What I had to decide
+
+The spec asks for a committed manifest holding the webhook URL, but the Vercel project is a human step not yet taken, so its production domain is unknown.
+
+## What I did meanwhile
+
+`apps/omni-app/app.yml` points `url` at `https://omni-loop.vercel.app` and `hook_attributes.url` at `https://omni-loop.vercel.app/api/github`, with a comment telling the registrant to replace the host. The shape test checks only that the hook path is `/api/github`.
+
+## What it costs to change later
+
+One constant in `app.yml`, edited before or after registration (the webhook URL can also be changed in the app's settings). No stored data depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The Vercel project's real production domain.
+- (author) Whether a custom domain under vertuoza is wanted instead of the hosting default.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-manifest-host-placeholder -->
+
+<!-- omni-outbox-settled: s4-01-publish-trusts-the-planned-comment -->
+
+## s4-01-publish-trusts-the-planned-comment — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-publish-trusts-the-planned-comment
+prd: 28
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+When the check writes its outbox comment on a pull request, should it look again, just before writing, for a comment it may have posted a moment earlier?
+
+## The decision, in plain words
+
+No: it writes to the comment it found when it started checking, and creates one only if there was none then. Two checks racing on a brand-new pull request could leave two comments; the short wait between events makes that rare.
+
+## The options, in plain words
+
+A. Trust the comment found during the evaluation, as built.
+B. Look the comments up again just before writing, and rewrite the marker comment if one appeared.
+C. Let the check post a comment only when the evaluation found one, and never create one.
+
+## What I had to decide
+
+Whether the comment is looked up again at posting time, or the one found during the evaluation is trusted.
+
+## What I did meanwhile
+
+publish takes evaluate's planned comment ({ id, body }) as is: PATCH by id, or POST when id is null. It re-reads only the pull request's head SHA, to skip the comment when the head moved on. startCheck is a separate export that creates the check run in_progress; publish completes it.
+
+## What it costs to change later
+
+One extra comment listing inside publish and a marker match; no stored data depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the per-PR debounce in the Inngest function (slice s5) is enough to make a duplicate comment practically impossible.
+- (author) Where the marker text should come from at posting time, since publish has no kit context of its own.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-publish-trusts-the-planned-comment -->
