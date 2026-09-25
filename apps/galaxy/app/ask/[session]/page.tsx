@@ -36,11 +36,10 @@ export default async function AskSessionPage({ params, searchParams }: Props) {
       </Notice>
     );
   }
-  if (!isSessionId(id)) notFound();
-
   const db = await supabaseServer();
   const { data: { user } } = await db.auth.getUser();
   if (!user) return <SignInCard supabase={env} returnPath={callbackPath(id)} error={one(query.signin_error)} />;
+  if (!isSessionId(id)) notFound();
 
   let state;
   try {

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import '../../src/ask/ask.css';
-import { themeScript } from '../../src/ask/theme';
+import { ThemeScript } from '../../src/ask/theme-script';
 import { ThemeSwitch } from '../../src/ask/theme-switch';
 import { TOKENS, themeCss } from '../../src/ask/theme-tokens';
 
@@ -35,11 +35,7 @@ export default function AskLayout({ children }: { children: React.ReactNode }) {
       {/* The script marks this root with the theme before anything in it is parsed; React leaves
           those two attributes alone. */}
       <div className="ask" suppressHydrationWarning>
-        <script
-          type={typeof window === 'undefined' ? 'text/javascript' : 'text/plain'}
-          suppressHydrationWarning
-          dangerouslySetInnerHTML={{ __html: themeScript }}
-        />
+        <ThemeScript />
         <header className="ask-bar">
           <span className="ask-brand">
             <span className="ask-mark">OMNI LOOP</span>
