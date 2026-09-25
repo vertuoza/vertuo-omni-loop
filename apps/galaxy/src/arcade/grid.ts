@@ -43,6 +43,13 @@ export function pagesFor(scene: SceneName, at: { view: GalaxyView | null; grid: 
   return Math.max(1, Math.floor(count({ view: at.view, grid: at.grid })));
 }
 
+/** The page ◀ or ▶ turns to, of `pages`: round from the last page to the first, as the arcade's lists go. */
+export function turnPage(page: number, pages: number, dir: 'left' | 'right'): number {
+  if (pages < 2) return 0;
+  const at = Math.min(page, pages - 1);
+  return (at + (dir === 'left' ? pages - 1 : 1)) % pages;
+}
+
 export interface Fit { scale: number; w: number; h: number; x: number; y: number }
 
 /**

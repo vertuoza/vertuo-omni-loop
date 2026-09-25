@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
-import { fit, frameFor, gridFor, pagesFor, TALL, WIDE } from './grid';
+import { fit, frameFor, gridFor, pagesFor, TALL, turnPage, WIDE } from './grid';
 import type { SceneName } from './scenes/common.ts';
 
 const SCENES: SceneName[] = [
@@ -89,5 +89,24 @@ describe('pagesFor', () => {
 
   it('gives one page without a galaxy', () => {
     expect(pagesFor('heroes', { view: null, grid: TALL }, { heroes: () => 4 })).toBe(1);
+  });
+});
+
+describe('turnPage', () => {
+  it('turns forward with ▶ and back with ◀, round from the last page to the first', () => {
+    expect(turnPage(0, 3, 'right')).toBe(1);
+    expect(turnPage(2, 3, 'right')).toBe(0);
+    expect(turnPage(0, 3, 'left')).toBe(2);
+    expect(turnPage(1, 3, 'left')).toBe(0);
+  });
+
+  it('turns from the last page when the page shown is past it (the grid changed under it)', () => {
+    expect(turnPage(4, 2, 'left')).toBe(0);
+    expect(turnPage(4, 2, 'right')).toBe(0);
+  });
+
+  it('stays on a single page', () => {
+    expect(turnPage(0, 1, 'right')).toBe(0);
+    expect(turnPage(0, 1, 'left')).toBe(0);
   });
 });

@@ -1,11 +1,12 @@
-/* OMNI LOOP arcade. One deliberate dark world (an arcade cabinet), so there is no light theme:
-   every colour is set explicitly. The screen is 640×360 CSS px (320×180 game pixels at 2×)
-   and is scaled as one block, so type and sprites stay locked to the pixel grid.
+/* OMNI LOOP arcade. One deliberate dark world, so there is no light theme: every colour is set
+   explicitly. The screen is drawn on one of two grids, 640×360 (wide) or 320×288 (tall), and is
+   scaled as one block, so type and sprites stay locked to the pixel grid.
 
-   This file holds what every scene shares: the page, the cabinet and the screen, and the pieces
-   that live outside `scenes/` (the key hints, the sprites, the toast). The helpers two scene
-   groups share are in `scenes/common.css`, and each group's own styles in `scenes/<group>.css`,
-   imported by that group's text layer. */
+   This file holds what every form and every scene shares: the page, the screen fitted to its box,
+   and the pieces that live outside `scenes/` (the key hints, the sprites, the toast). The shell
+   around the screen (the Game Boy bodies and their controls) is in `shell.css`. The helpers two
+   scene groups share are in `scenes/common.css`, and each group's own styles in
+   `scenes/<group>.css`, imported by that group's text layer. */
 
 :root {
   color-scheme: dark;
@@ -38,93 +39,32 @@ body {
   color: var(--white);
   font-family: var(--px);
   -webkit-font-smoothing: none;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 button { font: inherit; color: inherit; cursor: pointer; }
 button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
 
-/* ── Cabinet ─────────────────────────────────────────────────────────────── */
+/* ── The screen ──────────────────────────────────────────────────────────
+   Screen.tsx: the slot is the room the form gives the screen (the window, or the lens); the box is
+   the largest the frame's shape fits in it, centred, with --void bars on the sides it does not
+   reach; the screen is the scene's grid, scaled into the box (letterboxed when the two differ). */
 
-.cabinet {
-  display: flex;
-  justify-content: center;
-  gap: 24px;
-  min-height: 100%;
-  padding-inline: 16px;
-  box-sizing: border-box;
-}
-
-.console {
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: 1400px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  height: 100vh;
-  height: 100dvh;
-  padding-block: 12px;
-  box-sizing: border-box;
-}
-
-.marquee {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 6px 18px;
-  background: linear-gradient(180deg, #1a2170, #0e0d33);
-  border: 2px solid var(--navy);
-  box-shadow: 0 0 18px rgba(164, 92, 255, 0.45), inset 0 0 0 2px #0b0a26;
-  text-align: center;
-}
-.marquee-title {
-  font-size: 18px;
-  color: var(--yellow);
-  text-shadow: 2px 2px 0 var(--red), 4px 4px 0 #0b0a26;
-  letter-spacing: 2px;
-}
-.marquee-sub { font-size: 9px; color: var(--cyan); letter-spacing: 1px; }
-
-.screen-slot {
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.bezel {
-  box-sizing: border-box;
-  padding: 12px;
-  background: #0b0a26;
-  border-radius: 18px;
-  box-shadow:
-    0 0 0 3px var(--navy-dark),
-    0 0 0 6px #0b0a26,
-    0 0 40px rgba(164, 92, 255, 0.5),
-    inset 0 0 20px #000;
-}
-.screen-fit { position: relative; overflow: hidden; border-radius: 8px; }
+.screen-slot { position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; overflow: hidden; }
+.screen-box { position: relative; overflow: hidden; background: var(--void); }
 
 .screen {
   position: absolute;
   top: 0;
   left: 0;
-  width: 640px;
-  height: 360px;
   transform-origin: 0 0;
   background: var(--void);
 }
 .stage {
   position: absolute;
   inset: 0;
-  width: 640px;
-  height: 360px;
+  width: 100%;
+  height: 100%;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
@@ -140,111 +80,6 @@ button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
   mix-blend-mode: multiply;
 }
 .sprite { image-rendering: pixelated; image-rendering: crisp-edges; vertical-align: middle; }
-
-/* Deck: the metal plates under the screen, like the cabinet in the reference. */
-.deck {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 10px;
-  width: min(100%, 760px);
-  align-items: stretch;
-}
-.plate {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-  padding: 8px 12px;
-  text-align: center;
-  background:
-    radial-gradient(circle at 6px 6px, #8a90d6 1.5px, transparent 2px) 0 0 / 100% 100% no-repeat,
-    radial-gradient(circle at calc(100% - 6px) 6px, #8a90d6 1.5px, transparent 2px) 0 0 / 100% 100% no-repeat,
-    linear-gradient(180deg, #2a2f5c, #171a3c);
-  border: 2px solid #3a3f7a;
-  box-shadow: inset 0 2px 0 #4a508f, inset 0 -2px 0 #0b0a26;
-}
-.plate-big { font-size: 11px; color: var(--white); letter-spacing: 1px; }
-.plate-small { font-family: var(--txt); font-size: 15px; color: var(--dim); letter-spacing: 1px; }
-.emblem {
-  display: grid;
-  place-items: center;
-  padding: 6px 16px;
-  background: linear-gradient(180deg, #d99a14, #8a5a08);
-  border: 2px solid #ffd84a;
-  box-shadow: inset 0 0 0 2px #5c3a06;
-}
-.emblem svg { display: block; }
-
-/* Controller: shown on touch screens and narrow windows. */
-.pad {
-  display: none;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 16px;
-  width: min(100%, 520px);
-}
-@media (pointer: coarse), (max-width: 820px) { .pad { display: grid; } }
-.dpad { position: relative; width: 96px; height: 96px; }
-.dpad button {
-  position: absolute;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: #22265a;
-  box-shadow: inset 0 -3px 0 #0b0a26;
-}
-.dpad button:active { background: var(--navy); }
-.d-up { left: 32px; top: 0; border-radius: 4px 4px 0 0; }
-.d-down { left: 32px; bottom: 0; border-radius: 0 0 4px 4px; }
-.d-left { left: 0; top: 32px; border-radius: 4px 0 0 4px; }
-.d-right { right: 0; top: 32px; border-radius: 0 4px 4px 0; }
-.dpad::after { content: ''; position: absolute; left: 32px; top: 32px; width: 32px; height: 32px; background: #22265a; }
-.pills { display: flex; justify-content: center; gap: 10px; }
-.pills button {
-  font-size: 8px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 2px solid #3a3f7a;
-  background: #171a3c;
-  color: var(--dim);
-}
-.ab { display: flex; gap: 12px; align-items: center; }
-.ab button {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  border: none;
-  font-size: 14px;
-  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.35), 0 0 0 3px #0b0a26;
-}
-.btn-a { background: var(--red); color: var(--white); transform: translateY(-10px); }
-.btn-b { background: var(--plasma); color: var(--white); }
-
-/* Side art: comic hero panels, tilted like the Invincible hero select. Wide screens only. */
-.side-art { display: none; }
-@media (min-width: 1500px) and (min-height: 720px) {
-  .side-art { display: flex; flex: 0 0 150px; flex-direction: column; justify-content: center; align-items: center; gap: 18px; padding-block: 24px; }
-}
-.side-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 16px 10px;
-  transform: rotate(var(--tilt)) skewX(-4deg);
-  background:
-    radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1.5px) 0 0 / 5px 5px,
-    linear-gradient(160deg, #2a4cc9, #10266a);
-  border: 3px solid #0b0a26;
-  box-shadow: 0 0 0 3px var(--fleet), 6px 6px 0 #0b0a26;
-}
-.side-card span { font-size: 9px; color: var(--fleet); text-shadow: 1px 1px 0 #0b0a26; }
-.side-omni { background: radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1.5px) 0 0 / 5px 5px, linear-gradient(160deg, #6a2fd0, #1a2170); }
-
-/* Phones: the keyboard legend means nothing on touch, and portrait leaves the screen small. */
-.turn { display: none; font-size: 8px; color: var(--yellow); text-align: center; margin: 0; }
-@media (pointer: coarse) { .plate-keys { display: none; } }
-@media (orientation: portrait) and (max-width: 820px) { .turn { display: block; } .deck { display: none; } }
 
 /* The key hints (hint.tsx): the key, and the button a click on "[A] LINK GITHUB" presses A with. */
 .j-key { display: inline-block; padding: 3px 4px 2px; margin-right: 5px; font-size: 7px; color: #0b0a26; background: var(--white); box-shadow: 2px 2px 0 #0b0a26; }
