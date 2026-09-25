@@ -214,3 +214,213 @@ Editing one table in one file. Labels already created on a repository keep their
 ```
 
 <!-- /omni-outbox-settled: s2-01-label-colours-and-descriptions -->
+
+<!-- omni-outbox-settled: s3-01-drift-test-follows-the-origin-remote -->
+
+## s3-01-drift-test-follows-the-origin-remote — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-drift-test-follows-the-origin-remote
+prd: 39
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+The installer file records the kit's own GitHub address when it is built, taken from the copy it is built in. Should the check that keeps the committed file up to date also accept a copy built from someone's fork?
+
+## The decision, in plain words
+
+No: the check compares the committed file with a fresh build of the same copy, so a fork builds a file naming the fork and the check fails there until the fork commits its own. In this repository and its CI nothing changes.
+
+## The options, in plain words
+
+A. Compare with a fresh build that reads the address from the checkout's origin remote (built).
+B. Pin the address for the drift build, so a fork's tests stay green but its bundle names the upstream.
+C. Skip the drift test when the origin remote is not the kit's own repository.
+
+## What I had to decide
+
+Whether kit/test/dist.test.mjs should pin the kit address (left open by s1-02) or compare against a fresh build that reads it from the checkout's origin remote.
+
+## What I did meanwhile
+
+The drift test runs kit/build.mjs unchanged, so the address comes from `git remote get-url origin` as s1-02 adopted; the committed bundle records vertuoza/vertuo-omni-loop and the closing steps' marketplace line uses that same address.
+
+## What it costs to change later
+
+One define in kit/build.mjs and one test; pinning later is a constant, no migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether forks or clones without an origin remote must be able to run pnpm test green was not settled by the spec or s1-02.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-drift-test-follows-the-origin-remote -->
+
+<!-- omni-outbox-settled: s3-02-labels-gh-could-not-create-as-a-step -->
+
+## s3-02-labels-gh-could-not-create-as-a-step — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-labels-gh-could-not-create-as-a-step
+prd: 39
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+When the installer cannot create the loop's tags on GitHub itself, how should it tell the person to create them?
+
+## The decision, in plain words
+
+It lists them as one of the numbered steps the person takes by hand, with the link to the repository's tag page, and the summary at the top points to that step.
+
+## The options, in plain words
+
+A. Print them as a numbered human step with the repository's labels page, pointed to from the summary (built).
+B. Keep the second slice's single summary line naming them, with no numbered step.
+C. Print the exact label-creation commands for the person to paste.
+
+## What I had to decide
+
+How the labels `gh` could not create appear in the closing steps: s2 printed them on a `labels` summary line (`create by hand: ...`) as a placeholder for s3 to shape.
+
+## What I did meanwhile
+
+kit/lib/init/steps.mjs adds a numbered step `Create the labels gh could not create:` with `https://github.com/<slug>/labels` and the names, placed before the optional branch-protection step (which moves to step 4); the summary line reads `labels  gh could not create <names> — see step 3 below`. s2's two tests were updated to this shape.
+
+## What it costs to change later
+
+A few lines in one function and two test assertions; nothing stored depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec's closing-step shape shows no labels step; where the names go and whether a link is printed was not settled.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-labels-gh-could-not-create-as-a-step -->
+
+<!-- omni-outbox-settled: s3-03-build-script-outfile-and-fixed-working-dir -->
+
+## s3-03-build-script-outfile-and-fixed-working-dir — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-build-script-outfile-and-fixed-working-dir
+prd: 39
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+To check that the committed installer file is up to date, the tests have to build a fresh copy somewhere else. May this slice change the build script, which belongs to the first slice, to allow that?
+
+## The decision, in plain words
+
+Yes: the build script now takes an optional output location and always builds the same way wherever it is started from, so the check compares like with like without ever overwriting the committed file.
+
+## The options, in plain words
+
+A. Change the build script: optional output file, working directory pinned to the repository root (built).
+B. Leave the build script alone and have the drift test rebuild the committed bundle in place, then compare against the committed blob in git.
+C. Duplicate the esbuild options inside the test.
+
+## What I had to decide
+
+Whether to change kit/build.mjs, which is outside s3's territory, so the drift test can build to a temporary file and so the bundle does not depend on the working directory.
+
+## What I did meanwhile
+
+kit/build.mjs takes an optional outfile argument (default kit/dist/omni.mjs) and sets esbuild's absWorkingDir to the repository root; without it, esbuild's per-module path comments changed with the cwd and a build from kit/ differed from one from the root. The s1 real-bundle test in kit/bin/init.test.mjs now builds to a scratch file instead of rewriting kit/dist/omni.mjs.
+
+## What it costs to change later
+
+A few lines in the build script; undoing it means the drift test must rebuild kit/dist/omni.mjs in place.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's territory for s3 does not list kit/build.mjs, though its drift test needs a build to a second file.
+
+```
+
+<!-- /omni-outbox-settled: s3-03-build-script-outfile-and-fixed-working-dir -->
