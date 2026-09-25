@@ -50,6 +50,8 @@ export function RoundForm({ roundId, questions, draft, onDraft, canSend, sending
       const intent = keyIntent(event, typing);
       if (!intent) return;
       if (intent.kind === 'send') {
+        // A focused button, link or history row keeps its own Enter (Send itself sends by its click).
+        if (target?.closest('button, a, summary, select')) return;
         // Enter in Other never breaks the line (Shift+Enter does); elsewhere it only acts once Send is on.
         if (typing || canSend) event.preventDefault();
         if (canSend && !sending) onSend();
