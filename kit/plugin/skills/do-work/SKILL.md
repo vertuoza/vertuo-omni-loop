@@ -79,11 +79,16 @@ When the PRD, the spec, the context files and the knowledge folder do not settle
    ```
 
    Fields: `slug`, `wave`, `bearsOn` (a law id, `ADR-nnnn`, or omit), `questionPlain`,
-   `decisionPlain`, `decide`, `meanwhile`, `cost`, `gaps`, `options` (two to four; A is what you
-   built), and the flags `hardToRevert`, `breaksNamedLaw`, `needsHumanAction` (then `personSteps`
-   instead of `options`), `principlesConflict`. The two plain-words fields are for a business
-   person: one or two sentences, no path, no code, no id. **Never invent a rationale:** a gap you
-   could not close goes in `gaps`, marked `(author)`.
+   `decisionPlain`, `introFun`, `punchlineFun`, `decide`, `meanwhile`, `cost`, `gaps`, `options`
+   (two to four; A is what you built), and the flags `hardToRevert`, `breaksNamedLaw`,
+   `needsHumanAction` (then `personSteps` instead of `options`), `principlesConflict`. The two
+   plain-words fields are for a business person: one or two sentences, no path, no code, no id.
+   `introFun` and `punchlineFun` are two lines for fun, written for every item you raise: the intro
+   opens the question in the pull request's outbox comment, the punchline follows it. Each is one
+   sentence (two short ones at most), at most 120 characters, in plain words by the same rules;
+   about the question or its situation, never about a person or a team, and never mocking whoever
+   answers. The kit refuses one without the other. **Never invent a rationale:** a gap you could
+   not close goes in `gaps`, marked `(author)`.
    The kit picks the rank and the id; you never do. `--adopt` only acts on a medium item: it goes
    straight to the ledger. Under `--in-wave`, never pass it — `/omni:wave` adopts after the wave
    merges, so parallel slices do not race on the ledger.
@@ -97,11 +102,15 @@ When the PRD, the spec, the context files and the knowledge folder do not settle
    - `outcome: null`, `adopted: false`, exit `1`, after `--adopt`: the ledger refused the
      adoption (`reason` says why) — rerun without `--adopt` so the item stays an open file, name
      the refusal in your risks, and carry on.
-   - Exit `2`: nothing was written. Either the JSON you sent it was malformed or missing a
-     field — a one-line message on stderr, fix it and rerun — or, with `--json`, `outcome: null`
-     and `reason` names every way the rendered item fails the same check `omni check outbox` runs
-     on every open item (a below-floor rank, a malformed options section, a code name loose in a
-     plain-words field…). Exit `2` is no longer only "your JSON is wrong": read `reason` first.
+   - Exit `2`: nothing was written or adopted, for one of two reasons. Stdout tells them apart.
+     - **The JSON was refused:** not valid JSON, or a field missing, unknown or breaking its rule
+       (an intro or a punchline too long or not in plain words, or one without the other). One
+       line on stderr says which, naming the field, and stdout stays empty, even with `--json`:
+       fix it and rerun.
+     - **The rendered item was refused** by the same check `omni check outbox` runs on every open
+       item (a below-floor rank, a malformed options section, a code name loose in a plain-words
+       field…). With `--json`, stdout carries `outcome: null`, and `reason` names every failure:
+       reword and rerun.
 4. Commit the item file (or the ledger change) on the slice branch.
 
 **Exactly two ways a slice ends early.**
