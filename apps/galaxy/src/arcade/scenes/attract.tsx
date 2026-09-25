@@ -2,9 +2,12 @@
 // The attract group's text layer: the boot, the title's three phases (title, story, high scores) and
 // the Hall of Heroes.
 import type { GalaxyView } from '@omni/galaxy';
+import { Hint } from '../hint';
+import { useScreen } from '../Screen';
 import { FleetSprite, HeroSprite } from '../Sprite';
 import { fleet, ordinal } from '../fleets';
 import type { Player } from '../types';
+import { hallPage } from './attract.ts';
 import { byLogin } from './common.tsx';
 import './common.css';
 import './attract.css';
@@ -88,8 +91,11 @@ export function TitleOverlay({ view, phase, sceneT, who, signedIn }: {
 }
 
 // ── Hall of Heroes ───────────────────────────────────────────────────────────
+// The season's top eight: one table on the wide grid, four rows a page on the tall one, which
+// ◀ ▶ turn (the group declares its pages in attract.ts).
 
 export function HeroesOverlay({ view, crew }: { view: GalaxyView; crew: Player[] }) {
+  const { grid, page, pages } = useScreen();
   const players = byLogin(crew);
   return (
     <div className="heroes">
@@ -98,7 +104,7 @@ export function HeroesOverlay({ view, crew }: { view: GalaxyView; crew: Player[]
       <table>
         <thead><tr><th>RANK</th><th>HERO</th><th>FLEET</th><th>SCORE</th></tr></thead>
         <tbody>
-          {view.heroes.slice(0, 8).map((h) => (
+          {hallPage(view.heroes, grid, page).map((h) => (
             <tr key={h.name} className={`rank-${h.rank}`}>
               <td>{ordinal(h.rank)}</td>
               <td>{(() => {
@@ -114,6 +120,7 @@ export function HeroesOverlay({ view, crew }: { view: GalaxyView; crew: Player[]
           {!view.heroes.length && <tr><td colSpan={4}>NO SCORES THIS SEASON YET</td></tr>}
         </tbody>
       </table>
+      {pages > 1 && <p className="heroes-page"><Hint k="◀ ▶">PAGE {page + 1}/{pages}</Hint></p>}
       <p className="hint">TOP FLEETS · {view.teams.slice(0, 3).map((t) => `${fleet(t.name).label} ${t.points}`).join(' · ')}</p>
     </div>
   );
