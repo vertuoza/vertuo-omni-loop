@@ -57,10 +57,10 @@ In another repository, a skill reaches the kit only through the bundled CLI. The
 
 | Command | Over | Used by |
 |---|---|---|
-| `omni item new --prd --slice --json <file>` | `decideRecording` + `renderOutboxItem` + `adoptItem` for medium | do-work |
+| `omni item new --prd --slice --file <file> [--adopt] [--json]` (graded like `check outbox` before writing; `--json` prints the outcome) | `decideRecording` + `renderOutboxItem` + `adoptItem` for medium | do-work |
 | `omni plan check <prd>` | `parsePlanSlices`, `sameWaveCollisions`, `collisionRows` | plan, wave |
 | `omni board <prd>` | new `kit/lib/board.mjs`: the plan's slices × `gh pr list` → merged / in flight / stuck / runnable / blocked / claimed-stale | wave, yolo |
-| `omni rework plan <prd>` · `omni rework close <id> --pr <n>` | `planRework`, `closeDriftedEntry` | yolo-fix |
+| `omni rework plan <prd>` · `omni rework close <id> --prd <n> --pr <n>` | `planRework`, `closeDriftedEntry` | yolo-fix |
 | `omni phase0 <prd> [--base <ref>]` | `phase0Verdict` over the branch's changed paths | brainstorm |
 
 `board` is pure over the plan text and an injected PR list. Only its CLI half calls `gh`.
