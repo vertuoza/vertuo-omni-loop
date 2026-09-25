@@ -12,7 +12,7 @@ describe('parseConfig', () => {
     expect(config.labels.outboxGo).toBe('outbox:go');
     expect(config.markers.prefix).toBe('omni-outbox');
     expect(config.laws.source).toBe('none');
-    expect(config.ci.outboxContext).toBe('ci/outbox');
+    expect(config.ci.outboxContext).toBe('outbox');
     expect(config.limits).toEqual({ stallDays: 5, attempts: 3, claimStaleMinutes: 60, beforeAfterMaxBytes: 512000 });
     expect(config.risk).toEqual({ storedShape: [], sharedContract: [] });
     expect(config.notify.slack).toBeNull();

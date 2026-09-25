@@ -64,7 +64,7 @@ export const ConfigSchema = z
     }),
     board: section({ matchBy: z.enum(['base', 'label']).default('base') }),
     ci: section({
-      outboxContext: text.default('ci/outbox'),
+      outboxContext: text.default('outbox'),
       aggregateCheck: nullableText.default(null),
       branchProtection: z.boolean().default(false),
       runner: text.default('ubuntu-latest'),
