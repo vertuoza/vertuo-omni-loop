@@ -1336,3 +1336,146 @@ Prose only, before or after merge: two sentences in `kit/plugin/skills/yolo-fix/
 ```
 
 <!-- /omni-outbox-settled: s6-03-a-lesson-for-a-page-kept-elsewhere -->
+
+<!-- omni-outbox-settled: s7-01-context-files-left-empty -->
+
+## s7-01-context-files-left-empty — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s7
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-context-files-left-empty
+prd: 45
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 5
+---
+
+## The question, in plain words
+
+This repository has no top-level instructions file for coding agents, so the setting that lists such files named one that does not exist. Should it list the arcade's own instructions file instead, or nothing?
+
+## The decision, in plain words
+
+It lists nothing. The arcade's instructions file is a note about the arcade's web framework, so every other change would read a note that does not concern it.
+
+## The options, in plain words
+
+A. The list is empty: nothing at the top of the repository, and the arcade's note stays with the arcade.
+B. The list names the arcade's instructions file, so every change reads it before building.
+C. The list names the repository's front page instead, so every change reads that first.
+
+## What I had to decide
+
+Spec step 6 has `/omni:terraform` propose `paths.context`, and the skill's step 5 table proposes it when "its list names a missing file, or misses a `CLAUDE.md` or `AGENTS.md` the tree holds: the files that exist, `[]` when none". The before/after page's column for this repository says `paths.context: []`, "because CLAUDE.md does not exist". But the tree holds `apps/galaxy/AGENTS.md` (the Next.js agent note `next dev` writes) and `apps/galaxy/CLAUDE.md` (a one-line `@AGENTS.md`), both about the arcade alone. Neither the spec nor the skill says whether a nested file counts.
+
+## What I did meanwhile
+
+`.omni-loop/config.yml` sets `paths.context: []`, with a comment saying why, in its own commit (`chore(config): paths.context names no missing file (s7)`). `omni config` prints it and `omni check all` stays green. `/omni:do-work`, `/omni:plan` and `/omni:brainstorm` read no context file here; the session-start hook in `.claude/settings.json` prints the briefing instead.
+
+## What it costs to change later
+
+A constant: one line of config. Listing `apps/galaxy/AGENTS.md` later is one entry in the list; besides the skills, only the phase-0 policy reads the list, to count its files as documents.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the skill's rule means a `CLAUDE.md` or `AGENTS.md` anywhere in the tree, or only at its root.
+- (author) Whether a slice that changes the arcade needs the Next.js note before it builds; Claude Code reads a folder's own `CLAUDE.md` when it works in that folder, but the skills read only `paths.context`.
+
+```
+
+<!-- /omni-outbox-settled: s7-01-context-files-left-empty -->
+
+<!-- omni-outbox-settled: s7-02-section-pointer-prints-whole-page -->
+
+## s7-02-section-pointer-prints-whole-page — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-25
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s7
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-02-section-pointer-prints-whole-page
+prd: 45
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-09-25
+wave: 5
+---
+
+## The question, in plain words
+
+A section of a knowledge page can send the reader to one heading of another page, but the tool that prints the page shows all of that other page, not the heading. Should this repository's pages still send sections to long pages that way?
+
+## The decision, in plain words
+
+Yes, where the plan's page shows it. But the setup page, which every build reads first, sends its section on running things locally to the short front page rather than the long arcade page, to keep what every build reads small.
+
+## The options, in plain words
+
+A. Point anyway, as the plan's page does, but keep the page read before every build pointed at the short front page.
+B. Point every section at its exact heading, however long the page that gets printed.
+C. Write a short sentence naming the page instead of a pointer, so nothing extra is printed.
+D. Change the tool first so that a pointer prints only the heading's section, then point everywhere.
+
+## What I had to decide
+
+The spec's grammar for a section pointer is `See: <path>[#anchor]`, and its resolution table says `omni kb show` prints "the page it names". `resolveSlot` in `kit/lib/playbook/resolve.mjs` reads the whole target and keeps the anchor only in the label, so a pointer to one heading prints every line of the page. `/omni:terraform` step 2 says a page that answers one section is pointed at, never copied, and the before/after page makes `releasing#how` a pointer to `apps/galaxy/README.md#deploy-to-production`, a page of about 250 lines. The spec's Risks name "too much text in a skill's context". Nothing says which wins when a pointer's page is long.
+
+## What I did meanwhile
+
+`releasing#how` is `See: apps/galaxy/README.md#deploy-to-production`, as the page shows, so `omni kb show releasing` (read by `/omni:brainstorm` and `/omni:plan`) prints the whole arcade README. `setup#run`, read by `/omni:do-work` before every slice, is `See: README.md#open-the-galaxy`, the root README of about 100 lines, rather than `apps/galaxy/README.md#run-it-locally`. No kit code changed: `kit/` is outside this slice's territory.
+
+## What it costs to change later
+
+A constant for the forms: each pointer is one line. Printing only the anchored section is a change to the kit's resolver and its tests; every `See:` line then prints less without being rewritten, and `setup#run` can point at the arcade's own section.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the spec meant a section pointer to print only the section its anchor names; the resolution table says only "the page it names".
+- (author) How much text a skill's context can take before a long pointed page costs more than it gives.
+
+```
+
+<!-- /omni-outbox-settled: s7-02-section-pointer-prints-whole-page -->
