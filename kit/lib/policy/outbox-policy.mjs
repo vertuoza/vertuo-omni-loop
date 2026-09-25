@@ -30,7 +30,7 @@
 import { COMMANDS } from '../commands.mjs';
 import { idParts } from '../knowledge/registers.mjs';
 import { ACCOUNTS_DIR } from '../outbox/account.mjs';
-import { floorRank, OPTION_LETTERS, RANK_VALUES } from '../outbox/outbox.mjs';
+import { floorRank, FUN_SECTIONS, OPTION_LETTERS, RANK_VALUES } from '../outbox/outbox.mjs';
 
 /** The three places a slice built under the recording policy can end. */
 export const SLICE_STATUSES = /** @type {const} */ (['done', 'stopped', 'blocked']);
@@ -325,10 +325,17 @@ export function unknowable(gaps) {
  * only their bare presence is checked here, so a slice cannot silently write an item this guard is
  * guaranteed to refuse.
  *
+ * **An item may carry an intro and a punchline** (PRD #50, slice s1). `introFun` and
+ * `punchlineFun` are written as `## The intro, for fun` and `## The punchline, for fun`, right after
+ * the plain decision and before the options or the person steps — both, or neither: one without
+ * the other is refused, since the parser refuses the file it would make. Neither given renders the
+ * item exactly as before. Their wording and their length are `check-outbox.mjs`'s call, like the
+ * plain words'.
+ *
  * @param {{ id: string, prd: number, slice: string, wave: number, raised: string, bearsOn: string,
- *   rank: string, questionPlain: string, decisionPlain: string, decide: string, meanwhile: string,
- *   cost: string, gaps: string[], options?: string[], personSteps?: string,
- *   laws: { floorsHigh(bearsOn: string): boolean } }} fields
+ *   rank: string, questionPlain: string, decisionPlain: string, introFun?: string,
+ *   punchlineFun?: string, decide: string, meanwhile: string, cost: string, gaps: string[],
+ *   options?: string[], personSteps?: string, laws: { floorsHigh(bearsOn: string): boolean } }} fields
  */
 export function renderOutboxItem({
   id,
@@ -340,6 +347,8 @@ export function renderOutboxItem({
   rank,
   questionPlain,
   decisionPlain,
+  introFun = null,
+  punchlineFun = null,
   decide,
   meanwhile,
   cost,
@@ -363,6 +372,7 @@ export function renderOutboxItem({
       'an item states its decision in plain words too — "## The decision, in plain words" — before the four sections a developer reads',
     );
   }
+  const funBlock = renderFun(introFun, punchlineFun);
   const optionsBlock =
     settledRank === 'human-action' ? renderPersonSteps(personSteps) : renderOptions(options);
 
@@ -385,6 +395,7 @@ export function renderOutboxItem({
     '',
     decisionPlain,
     '',
+    ...funBlock,
     ...optionsBlock,
     '',
     '## What I had to decide',
@@ -404,6 +415,23 @@ export function renderOutboxItem({
     couldNotKnow,
     '',
   ].join('\n');
+}
+
+/**
+ * `## The intro, for fun` and `## The punchline, for fun`, each followed by a blank line, or no
+ * lines at all when neither is given. Refuses one without the other rather than write an item the
+ * parser is guaranteed to refuse.
+ */
+function renderFun(introFun, punchlineFun) {
+  const intro = (introFun ?? '').trim();
+  const punchline = (punchlineFun ?? '').trim();
+  if (!intro && !punchline) return [];
+  if (!intro || !punchline) {
+    throw new Error(
+      `an item carries its intro and its punchline together, or neither — "## ${FUN_SECTIONS[0]}" and "## ${FUN_SECTIONS[1]}"`,
+    );
+  }
+  return [`## ${FUN_SECTIONS[0]}`, '', intro, '', `## ${FUN_SECTIONS[1]}`, '', punchline, ''];
 }
 
 /**

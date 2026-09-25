@@ -48,9 +48,18 @@
  * needs two to four options, in order, is the guard's call, not this parser's; a malformed
  * `A. <sentence>` line is the one thing this parser itself refuses, via {@link parseOutboxOptions}.
  *
+ * **An item may carry an intro and a punchline** (PRD #50, slice s1): `## The intro, for fun` and
+ * `## The punchline, for fun`, together or neither, right after the two plain sections and before
+ * the options or the person steps — exposed as `sections.introFun` and `sections.punchlineFun`.
+ * Optional here AND at the guard, for good: an item raised before PRD #50 and every settled entry
+ * written before it carry neither, and the pull request's outbox comment fills in for them. A body
+ * carrying only one of the two, carrying them anywhere else, or carrying them with no plain
+ * sections to sit after, is refused.
+ *
  * **The plain-words rules are one pure function**, {@link plainWordsProblems}, so a caller never
  * reimplements what "plain" means: the guard calls it on both plain sections of every open item,
- * and nothing else does.
+ * and nothing else does. The intro and the punchline are held to the same rules plus a length cap,
+ * through {@link funLineProblems}.
  *
  * **Where ADR and knowledge resolution live.** This module has no filesystem opinion of its own
  * about what a `bears-on` id resolves against, or which ids floor a rank at `high` — those are
@@ -91,11 +100,24 @@ export const REQUIRED_SECTIONS = [
 export const PLAIN_SECTIONS = ['The question, in plain words', 'The decision, in plain words'];
 
 /**
- * The two headings an item may carry right after {@link PLAIN_SECTIONS}, and before
- * {@link REQUIRED_SECTIONS} — never both (PRD #1166, slice s4). `The options, in plain words`
- * carries two to four `A.` … `D.` lines, A the option built; a `human-action` item carries
- * `What a person must do` instead, since only a person can act on it and there is nothing to
- * choose between. Optional at THIS parser's level, exactly like {@link PLAIN_SECTIONS} — a
+ * The intro and the punchline an item may carry (PRD #50, slice s1): two short lines about its
+ * question, which the pull request's outbox comment shows around it. Together or neither, right
+ * after {@link PLAIN_SECTIONS} and before the options or the person steps. Optional at THIS
+ * parser's level and at the guard's: every item raised before PRD #50, and every settled entry's
+ * embedded item (`settled.md` is append-only), carries neither, forever.
+ */
+export const FUN_SECTIONS = ['The intro, for fun', 'The punchline, for fun'];
+
+/** The longest an intro or a punchline may be, in characters — see {@link funLineProblems}. */
+export const FUN_LINE_MAX_LENGTH = 120;
+
+/**
+ * The two headings an item may carry right after {@link PLAIN_SECTIONS} (and {@link FUN_SECTIONS},
+ * when it carries them), and before {@link REQUIRED_SECTIONS} — never both (PRD #1166, slice s4).
+ * `The options, in plain words` carries two to four `A.` … `D.` lines, A the option built; a
+ * `human-action` item carries `What a person must do` instead, since only a person can act on it
+ * and there is nothing to choose between. Optional at THIS parser's level, exactly like
+ * {@link PLAIN_SECTIONS} — a
  * currently open item is held to carrying one of the two by the outbox guard, never by
  * this pure parser, and a settled entry written before this slice carries neither, forever
  * (`settled.md` is append-only).
@@ -110,6 +132,8 @@ export const OPTION_LETTERS = ['A', 'B', 'C', 'D'];
 const SECTION_FIELD = {
   'The question, in plain words': 'questionPlain',
   'The decision, in plain words': 'decisionPlain',
+  'The intro, for fun': 'introFun',
+  'The punchline, for fun': 'punchlineFun',
   [PERSON_STEPS_HEADING]: 'personSteps',
   'What I had to decide': 'whatIHadToDecide',
   'What I did meanwhile': 'whatIDidMeanwhile',
@@ -197,7 +221,9 @@ function parseHeadingSections(body) {
 /**
  * Validates that `body` carries exactly the expected headings, in order, each with content.
  * `body` may carry the two {@link PLAIN_SECTIONS}, first, before {@link REQUIRED_SECTIONS} — or
- * neither. One without the other is refused by name, never silently tolerated.
+ * neither — and the two {@link FUN_SECTIONS} right after them, or neither. Either pair with only
+ * one of its two is refused by name, never silently tolerated, and so is the fun pair in a body
+ * with no plain sections to sit after.
  *
  * Returns `{ errors, sections }` — `sections` is a `{ heading: content }` map, populated even when
  * there are errors, so a caller can still report partial state if it wants to.
@@ -216,6 +242,20 @@ function validateSections(body) {
     );
   }
 
+  const presentFun = FUN_SECTIONS.filter((heading) => foundHeadings.includes(heading));
+  if (presentFun.length === 1) {
+    const [present] = presentFun;
+    const other = FUN_SECTIONS.find((heading) => heading !== present);
+    errors.push(
+      `carries "## ${present}" without "## ${other}" — the intro and the punchline come together, or neither does`,
+    );
+  }
+  if (presentFun.length === 2 && presentPlain.length === 0) {
+    errors.push(
+      `carries "## ${FUN_SECTIONS[0]}" and "## ${FUN_SECTIONS[1]}" with no plain-words sections — the intro and the punchline sit right after the two plain-words sections`,
+    );
+  }
+
   const presentOptionsHeadings = [OPTIONS_HEADING, PERSON_STEPS_HEADING].filter((heading) =>
     foundHeadings.includes(heading),
   );
@@ -229,11 +269,13 @@ function validateSections(body) {
 
   const expectedSections = [
     ...(presentPlain.length === 2 ? PLAIN_SECTIONS : []),
+    ...(presentFun.length === 2 ? FUN_SECTIONS : []),
     ...(chosenOptionsHeading ? [chosenOptionsHeading] : []),
     ...REQUIRED_SECTIONS,
   ];
   const knownHeadings = [
     ...PLAIN_SECTIONS,
+    ...FUN_SECTIONS,
     OPTIONS_HEADING,
     PERSON_STEPS_HEADING,
     ...REQUIRED_SECTIONS,
@@ -251,7 +293,12 @@ function validateSections(body) {
     );
   }
 
-  if (missing.length === 0 && unexpected.length === 0 && presentPlain.length !== 1) {
+  if (
+    missing.length === 0 &&
+    unexpected.length === 0 &&
+    presentPlain.length !== 1 &&
+    presentFun.length !== 1
+  ) {
     const seen = foundHeadings;
     const inOrder = seen.every((heading, index) => heading === expectedSections[index]);
     if (!inOrder) {
@@ -499,6 +546,31 @@ export function plainWordsProblems(text) {
     problems.push(`is ${sentenceCount} sentences long — say it in one or two sentences`);
   }
 
+  return problems;
+}
+
+/**
+ * **The rules an intro or a punchline is held to, as one pure function of a string** (PRD #50,
+ * slice s1): every {@link plainWordsProblems} rule, plus at most {@link FUN_LINE_MAX_LENGTH}
+ * characters (counted as code points, so an emoji is one). `omni item new` calls it on the two
+ * fields it is given, and the outbox guard on the two sections of every open item that carries
+ * them; nothing else reimplements it.
+ *
+ * **What this cannot do.** Whether a line is about the question, and never about a person or a
+ * team, is the writer's job and the review's, not a string function's.
+ *
+ * @param {string} text
+ * @returns {string[]}
+ */
+export function funLineProblems(text) {
+  const value = (text ?? '').trim();
+  const problems = plainWordsProblems(value);
+  const length = [...value].length;
+  if (length > FUN_LINE_MAX_LENGTH) {
+    problems.push(
+      `is ${length} characters long — keep it to ${FUN_LINE_MAX_LENGTH} characters at most`,
+    );
+  }
   return problems;
 }
 

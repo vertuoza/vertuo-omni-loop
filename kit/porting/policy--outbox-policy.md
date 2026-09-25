@@ -161,3 +161,34 @@ Source: `.claude/skills/vertuo-do-work/outbox-policy.mjs` @ `vertuo-ai-domain@c4
   --base <ref> --prd <n>` (upstream's script took the two positionally; `omni check` takes
   flags). The upstream assertion's expected string changes accordingly; `kit/bin/omni.test.mjs`
   runs the emitted command through `main()` against a fixture holding that base ref.
+
+## PRD 50, slice s1: the intro and the punchline
+
+Not a re-port: upstream's `outbox-policy.mjs` has no intro or punchline. A kit-local widening,
+recorded here because `outbox-policy.mjs` is this record's territory.
+
+- `import { floorRank, OPTION_LETTERS, RANK_VALUES }` → also imports `FUN_SECTIONS`, the two
+  headings, so the renderer never restates them.
+- `renderOutboxItem` gained two optional fields, `introFun` and `punchlineFun` (default `null`).
+  Given both (non-blank), it writes `## The intro, for fun` and `## The punchline, for fun` right
+  after the plain decision and before the options or the person steps, through a new private
+  `renderFun`. Given neither, the output is byte-identical to before. Given one without the other,
+  it throws — the parser would refuse the file it made. Their wording and length are not graded
+  here, exactly like the plain words: that is `check-outbox.mjs`'s `funLineProblems`, and
+  `omni item new`'s input schema.
+- The function's doc comment gains a paragraph on the pair, and its `@param` type names the two
+  fields.
+
+### Test (`outbox-policy.test.mjs`)
+
+- **Added** `An item may carry an intro and a punchline (PRD #50, slice s1)`: both render, in order
+  between the plain decision and the options, and parse back; both render before a `human-action`
+  item's person steps; neither (or a blank one with a null one) renders byte-identically to the
+  existing fixture; one without the other throws; `adoptItem` on a rendered item with the pair
+  embeds both sections in its settled entry. RED: four of the five failed before `renderOutboxItem`
+  took the fields.
+- No existing assertion changed; none deleted.
+
+### Gate (this update)
+
+`pnpm vitest run kit/lib/policy/outbox-policy.test.mjs` — 59/59 pass.

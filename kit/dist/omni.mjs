@@ -11804,12 +11804,16 @@ var REQUIRED_SECTIONS = [
   "What I could not know"
 ];
 var PLAIN_SECTIONS = ["The question, in plain words", "The decision, in plain words"];
+var FUN_SECTIONS = ["The intro, for fun", "The punchline, for fun"];
+var FUN_LINE_MAX_LENGTH = 120;
 var OPTIONS_HEADING = "The options, in plain words";
 var PERSON_STEPS_HEADING = "What a person must do";
 var OPTION_LETTERS = ["A", "B", "C", "D"];
 var SECTION_FIELD = {
   "The question, in plain words": "questionPlain",
   "The decision, in plain words": "decisionPlain",
+  "The intro, for fun": "introFun",
+  "The punchline, for fun": "punchlineFun",
   [PERSON_STEPS_HEADING]: "personSteps",
   "What I had to decide": "whatIHadToDecide",
   "What I did meanwhile": "whatIDidMeanwhile",
@@ -11890,6 +11894,19 @@ function validateSections(body) {
       `carries "## ${present}" without "## ${other}" \u2014 the two plain-words sections come together, or neither does`
     );
   }
+  const presentFun = FUN_SECTIONS.filter((heading) => foundHeadings.includes(heading));
+  if (presentFun.length === 1) {
+    const [present] = presentFun;
+    const other = FUN_SECTIONS.find((heading) => heading !== present);
+    errors.push(
+      `carries "## ${present}" without "## ${other}" \u2014 the intro and the punchline come together, or neither does`
+    );
+  }
+  if (presentFun.length === 2 && presentPlain.length === 0) {
+    errors.push(
+      `carries "## ${FUN_SECTIONS[0]}" and "## ${FUN_SECTIONS[1]}" with no plain-words sections \u2014 the intro and the punchline sit right after the two plain-words sections`
+    );
+  }
   const presentOptionsHeadings = [OPTIONS_HEADING, PERSON_STEPS_HEADING].filter(
     (heading) => foundHeadings.includes(heading)
   );
@@ -11901,11 +11918,13 @@ function validateSections(body) {
   const chosenOptionsHeading = presentOptionsHeadings.length === 1 ? presentOptionsHeadings[0] : null;
   const expectedSections = [
     ...presentPlain.length === 2 ? PLAIN_SECTIONS : [],
+    ...presentFun.length === 2 ? FUN_SECTIONS : [],
     ...chosenOptionsHeading ? [chosenOptionsHeading] : [],
     ...REQUIRED_SECTIONS
   ];
   const knownHeadings = [
     ...PLAIN_SECTIONS,
+    ...FUN_SECTIONS,
     OPTIONS_HEADING,
     PERSON_STEPS_HEADING,
     ...REQUIRED_SECTIONS
@@ -11920,7 +11939,7 @@ function validateSections(body) {
       `unexpected heading(s): ${unexpected.map((heading) => `"## ${heading}"`).join(", ")}`
     );
   }
-  if (missing.length === 0 && unexpected.length === 0 && presentPlain.length !== 1) {
+  if (missing.length === 0 && unexpected.length === 0 && presentPlain.length !== 1 && presentFun.length !== 1) {
     const seen = foundHeadings;
     const inOrder = seen.every((heading, index) => heading === expectedSections[index]);
     if (!inOrder) {
@@ -12066,6 +12085,17 @@ function plainWordsProblems(text2) {
   const sentenceCount = countSentences(value);
   if (sentenceCount > 2) {
     problems.push(`is ${sentenceCount} sentences long \u2014 say it in one or two sentences`);
+  }
+  return problems;
+}
+function funLineProblems(text2) {
+  const value = (text2 ?? "").trim();
+  const problems = plainWordsProblems(value);
+  const length = [...value].length;
+  if (length > FUN_LINE_MAX_LENGTH) {
+    problems.push(
+      `is ${length} characters long \u2014 keep it to ${FUN_LINE_MAX_LENGTH} characters at most`
+    );
   }
   return problems;
 }
@@ -13808,6 +13838,10 @@ var PLAIN_SECTION_FIELDS = [
   { heading: "The question, in plain words", field: "questionPlain" },
   { heading: "The decision, in plain words", field: "decisionPlain" }
 ];
+var FUN_SECTION_FIELDS = [
+  { heading: "The intro, for fun", field: "introFun" },
+  { heading: "The punchline, for fun", field: "punchlineFun" }
+];
 function describe(file, detail) {
   return `${file}: ${detail}`;
 }
@@ -13845,6 +13879,12 @@ function checkItemText(file, text2, { ctx, laws } = {}) {
       for (const problem of plainWordsProblems(item2.sections[field])) {
         violations.push(describe(file, `"## ${heading}" ${problem}`));
       }
+    }
+  }
+  for (const { heading, field } of FUN_SECTION_FIELDS) {
+    if (item2.sections[field] === void 0) continue;
+    for (const problem of funLineProblems(item2.sections[field])) {
+      violations.push(describe(file, `"## ${heading}" ${problem}`));
     }
   }
   if (RANKS_NEEDING_OPTIONS.includes(item2.rank)) {
@@ -15501,6 +15541,8 @@ function renderOutboxItem({
   rank,
   questionPlain,
   decisionPlain,
+  introFun = null,
+  punchlineFun = null,
   decide,
   meanwhile,
   cost,
@@ -15524,6 +15566,7 @@ function renderOutboxItem({
       'an item states its decision in plain words too \u2014 "## The decision, in plain words" \u2014 before the four sections a developer reads'
     );
   }
+  const funBlock = renderFun(introFun, punchlineFun);
   const optionsBlock = settledRank === "human-action" ? renderPersonSteps(personSteps) : renderOptions(options);
   return [
     "---",
@@ -15544,6 +15587,7 @@ function renderOutboxItem({
     "",
     decisionPlain,
     "",
+    ...funBlock,
     ...optionsBlock,
     "",
     "## What I had to decide",
@@ -15563,6 +15607,17 @@ function renderOutboxItem({
     couldNotKnow,
     ""
   ].join("\n");
+}
+function renderFun(introFun, punchlineFun) {
+  const intro = (introFun ?? "").trim();
+  const punchline = (punchlineFun ?? "").trim();
+  if (!intro && !punchline) return [];
+  if (!intro || !punchline) {
+    throw new Error(
+      `an item carries its intro and its punchline together, or neither \u2014 "## ${FUN_SECTIONS[0]}" and "## ${FUN_SECTIONS[1]}"`
+    );
+  }
+  return [`## ${FUN_SECTIONS[0]}`, "", intro, "", `## ${FUN_SECTIONS[1]}`, "", punchline, ""];
 }
 function renderOptions(options) {
   const list2 = (Array.isArray(options) ? options : []).map((text2) => (text2 ?? "").trim()).filter((text2) => text2.length > 0);
@@ -15618,6 +15673,22 @@ var ACCOUNT_FORMS = Object.freeze({
 // kit/bin/commands/item.mjs
 var USAGE4 = "usage: omni item new --prd <n> --slice <id> --file <file> [--adopt] [--json]";
 var SLUG_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+function funLine(field) {
+  return external_exports.string().trim().min(1, `${field} must not be empty`).superRefine((value, refinement) => {
+    for (const problem of funLineProblems(value)) {
+      refinement.addIssue({ code: external_exports.ZodIssueCode.custom, message: `${field} ${problem}` });
+    }
+  }).optional();
+}
+function funPair(input, refinement) {
+  const [given, missing] = input.introFun === void 0 ? ["punchlineFun", "introFun"] : ["introFun", "punchlineFun"];
+  if (input.introFun === void 0 === (input.punchlineFun === void 0)) return;
+  refinement.addIssue({
+    code: external_exports.ZodIssueCode.custom,
+    path: [missing],
+    message: `${missing} is required when ${given} is given \u2014 the intro and the punchline come together, or neither does`
+  });
+}
 var ItemInputSchema = external_exports.object({
   slug: external_exports.string().trim().regex(SLUG_SHAPE, "slug must be kebab-case (lowercase letters, digits and single hyphens)"),
   wave: external_exports.coerce.number({ message: "wave must be a number" }).int().positive(),
@@ -15629,13 +15700,15 @@ var ItemInputSchema = external_exports.object({
   principlesConflict: external_exports.array(external_exports.string().trim().min(1)).optional(),
   questionPlain: external_exports.string().trim().min(1, "questionPlain is required"),
   decisionPlain: external_exports.string().trim().min(1, "decisionPlain is required"),
+  introFun: funLine("introFun"),
+  punchlineFun: funLine("punchlineFun"),
   decide: external_exports.string().trim().min(1, "decide is required"),
   meanwhile: external_exports.string().trim().min(1, "meanwhile is required"),
   cost: external_exports.string().trim().min(1, "cost is required"),
   gaps: external_exports.array(external_exports.string().trim().min(1)).min(1, "gaps needs at least one entry"),
   options: external_exports.array(external_exports.string().trim().min(1)).min(2, "options needs two to four entries").max(4, "options needs two to four entries").optional(),
   personSteps: external_exports.string().trim().min(1, "personSteps must not be empty").optional()
-}).strict();
+}).strict().superRefine(funPair);
 var NONZERO_OUTCOME_LABEL = { stop: "must stop", blocked: "is blocked" };
 function todayUtc() {
   return (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
@@ -15748,6 +15821,8 @@ async function runNew(args, { ctx, stdout, stderr }) {
       rank: decision.rank,
       questionPlain: input.questionPlain,
       decisionPlain: input.decisionPlain,
+      introFun: input.introFun,
+      punchlineFun: input.punchlineFun,
       decide: input.decide,
       meanwhile: input.meanwhile,
       cost: input.cost,

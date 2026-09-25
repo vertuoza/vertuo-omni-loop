@@ -143,3 +143,53 @@ Source: `scripts/outbox.mjs` @ `vertuo-ai-domain@c4a210122`.
 ## Gate
 
 `pnpm vitest run kit/lib/outbox/outbox.test.mjs kit/test/no-literals.test.mjs` — 128/128 pass.
+
+## PRD 50, slice s1: the intro and the punchline
+
+Not a re-port: upstream's `scripts/outbox.mjs` has no intro or punchline. A kit-local widening of the
+ported parser, recorded here because `outbox.mjs` is this record's territory.
+
+- New exports `FUN_SECTIONS` (`['The intro, for fun', 'The punchline, for fun']`) and
+  `FUN_LINE_MAX_LENGTH` (`120`).
+- `SECTION_FIELD` gained `'The intro, for fun': 'introFun'` and `'The punchline, for fun':
+  'punchlineFun'`, so a parsed item exposes `sections.introFun` / `sections.punchlineFun` when it
+  carries them, and neither key when it does not.
+- `validateSections`: the pair is optional, together or neither, right after `PLAIN_SECTIONS` and
+  before the options or person-steps heading. Three new refusals, each prefixed with the file by
+  `withFile`: one of the pair without the other (the same wording as the plain pair's), the pair in
+  a body with no plain sections to sit after, and (through the existing order check, which now also
+  skips a lone fun heading) the pair anywhere else or swapped. An empty intro or punchline is the
+  existing "has no content" refusal. A body carrying neither validates exactly as before, so every
+  settled entry written before this PRD still parses.
+- New pure function `funLineProblems(text)`: every `plainWordsProblems` rule on the trimmed text,
+  plus `is <n> characters long — keep it to 120 characters at most` when it holds more than
+  `FUN_LINE_MAX_LENGTH` code points (an emoji counts once). `plainWordsProblems` itself is unchanged;
+  in particular it still allows two sentences, so an intro or punchline may be two short sentences
+  (the spec's own example punchline is two) — see PRD 50's outbox item
+  `s1-01-fun-line-sentence-count`.
+- Module doc comment: a paragraph on the pair, and a line pointing at `funLineProblems`.
+
+### Test (`outbox.test.mjs`)
+
+- Added imports: `FUN_LINE_MAX_LENGTH`, `FUN_SECTIONS`, `funLineProblems` (`./outbox.mjs`),
+  `makeMarkers` (`kit/lib/markers.mjs`), `parseSettledEntries` (`./settle.mjs`).
+- `withSections`: its heading list gained `...FUN_SECTIONS` right after `...PLAIN_SECTIONS`. No
+  existing call passes either heading, so every existing body is byte-identical.
+- **Added** `parseOutboxItem — the intro and the punchline (PRD #50, slice s1)`: the pair before
+  the options and before the person steps; neither (the parse is unchanged and carries no
+  `introFun` key); the intro alone and the punchline alone (refused naming the file); the pair after
+  the options, between the question and the decision, and swapped (out of order); the pair with no
+  plain sections (refused naming the file); an empty intro. RED: the file failed to load
+  (`FUN_SECTIONS is not iterable`) before the exports existed; the no-plain-sections refusal was
+  also shown red by disabling its check alone (1 failed, 143 passed).
+- **Added** `a settled ledger written before PRD #50 still parses`: a fixture ledger of three
+  entries (an item from before the plain sections, one with options, a `human-action` one with
+  person steps), read with `parseSettledEntries`; every embedded item parses, with no intro and no
+  punchline.
+- **Added** `funLineProblems — the rules an intro or a punchline is held to`: a plain line, exactly
+  120 characters, 121 (named), an emoji counted once, a backticked name, and several rules at once.
+- No existing assertion changed; none deleted.
+
+### Gate (this update)
+
+`pnpm vitest run kit/lib/outbox/outbox.test.mjs` — 144/144 pass.
