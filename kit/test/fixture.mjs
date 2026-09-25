@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { stringify } from 'yaml';
 import { ConfigSchema } from '../lib/config.mjs';
 import { createContext } from '../lib/context.mjs';
 
@@ -38,4 +39,32 @@ export function makeRepo({ files = {}, config = {}, git = false } = {}) {
     }
   }
   return { root, ctx: testContext(root, config), write, read: (path) => readFileSync(join(root, path), 'utf8') };
+}
+
+/** One slot's `<!-- slot: … -->` marker, fields in the order the parser reads them. */
+export function slotMarker({ id, required = false, by = null, verified = null }) {
+  const fields = [`slot: ${id}`, required ? 'required' : 'optional'];
+  if (by) fields.push(`by: ${by}`);
+  if (verified) fields.push(`verified: ${verified}`);
+  return `<!-- ${fields.join(' · ')} -->`;
+}
+
+/**
+ * A form file's text, shaped as `kit/lib/playbook/forms.mjs` reads it: front matter, the title, the
+ * opener, then per slot its `## <heading>`, its marker and its body. A front-matter key set to
+ * `undefined` is left out; a slot's `marker` replaces its marker line (`null` drops it).
+ */
+export function formText({ frontMatter = {}, title = 'Testing', opener = 'Use this page when adding, changing, or choosing tests.', slots = [] } = {}) {
+  const fm = { form: 'testing', 'form-version': 1, state: 'blank', 'points-to': null, evidence: [], terraformed: null, ...frontMatter };
+  const lines = ['---', stringify(fm).trimEnd(), '---', '', `# ${title}`, ''];
+  if (opener !== null) lines.push(opener, '');
+  for (const slot of slots) {
+    const heading = slot.heading ?? slot.id[0].toUpperCase() + slot.id.slice(1);
+    lines.push(`## ${heading}`);
+    const marker = slot.marker === undefined ? slotMarker(slot) : slot.marker;
+    if (marker !== null) lines.push(marker);
+    if (slot.body) lines.push(slot.body);
+    lines.push('');
+  }
+  return lines.join('\n');
 }
