@@ -17320,14 +17320,267 @@ var settle = {
   }
 };
 
+// kit/bin/commands/signin.mjs
+init_define_OMNI_BUNDLE();
+import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
+
+// kit/lib/ask/credentials.mjs
+init_define_OMNI_BUNDLE();
+import { chmodSync as chmodSync3, readFileSync as readFileSync18, rmSync as rmSync4, writeFileSync as writeFileSync10 } from "node:fs";
+import { homedir as homedir2 } from "node:os";
+import { join as join23 } from "node:path";
+var FILE2 = [".config", "omni", "credentials.json"];
+var EXCHANGE_TIMEOUT_MS = 1e4;
+var SignInError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "SignInError";
+  }
+};
+var credentialsHost = (askUrl2) => new URL(askUrl2).host;
+var askEndpoint = (askUrl2, path) => `${askUrl2.replace(/\/+$/, "")}${path}`;
+var isText2 = (value) => typeof value === "string" && value.length > 0;
+function tokenEntry(reply) {
+  if (!reply || typeof reply !== "object" || Array.isArray(reply)) return null;
+  const { access_token, refresh_token, expires_at, email } = reply;
+  if (!isText2(access_token) || !isText2(refresh_token) || !isText2(email)) return null;
+  return { access_token, refresh_token, expires_at: typeof expires_at === "number" ? expires_at : null, email };
+}
+function credentials({ home = homedir2() } = {}) {
+  const file = join23(home, ...FILE2);
+  const tokens = homeTokens({ home });
+  return {
+    file,
+    /** The host's entry, or `null`. */
+    read: (host) => tokens.read(host),
+    /** Keeps the host's entry, and every other host's, at mode 0600. */
+    write: (host, entry) => tokens.write(host, entry),
+    /** Forgets the host; `true` when it had an entry. The file goes with its last host. */
+    remove(host) {
+      let all;
+      try {
+        all = JSON.parse(readFileSync18(file, "utf8"));
+      } catch {
+        return false;
+      }
+      if (!all || typeof all !== "object" || Array.isArray(all) || !Object.hasOwn(all, host)) return false;
+      delete all[host];
+      if (Object.keys(all).length === 0) {
+        rmSync4(file, { force: true });
+      } else {
+        writeFileSync10(file, `${JSON.stringify(all, null, 2)}
+`, { mode: 384 });
+        chmodSync3(file, 384);
+      }
+      return true;
+    }
+  };
+}
+async function replyOf(response) {
+  const text2 = await response.text().catch(() => "");
+  try {
+    return text2 ? JSON.parse(text2) : {};
+  } catch {
+    return {};
+  }
+}
+async function exchangeCode({ askUrl: askUrl2, code, fetch = globalThis.fetch, timeoutMs = EXCHANGE_TIMEOUT_MS }) {
+  const endpoint = askEndpoint(askUrl2, "/api/ask/token");
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: { accept: "application/json", "content-type": "application/json" },
+      body: JSON.stringify({ code }),
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+  } catch (error) {
+    const why = error?.name === "TimeoutError" ? "it did not answer in time" : "it is unreachable";
+    throw new SignInError(`could not reach ${credentialsHost(askUrl2)} to finish the sign-in: ${why}.`);
+  }
+  const reply = await replyOf(response);
+  if (!response.ok) {
+    const reason = isText2(reply?.error) ? reply.error : `HTTP ${response.status}`;
+    throw new SignInError(`the sign-in was refused: ${reason}`);
+  }
+  const entry = tokenEntry(reply);
+  if (!entry) throw new SignInError("the sign-in server answered with no tokens.");
+  return entry;
+}
+
+// kit/lib/ask/loopback.mjs
+init_define_OMNI_BUNDLE();
+import { timingSafeEqual } from "node:crypto";
+import { createServer } from "node:http";
+var LOOPBACK_WAIT_MS = 5 * 6e4;
+var HOST = "127.0.0.1";
+var PATH = "/callback";
+var LoopbackError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "LoopbackError";
+  }
+};
+function page(title, text2) {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title></head><body style="font:17px/1.6 system-ui,sans-serif;max-width:34rem;margin:15vh auto;padding:0 1rem"><h1 style="font-size:1.3rem">${title}</h1><p>${text2}</p></body></html>`;
+}
+var SIGNED_IN = page("Back to the terminal", "The terminal is finishing the sign-in. You can close this tab.");
+var NOT_OURS = page("Sign-in refused", "This sign-in was not started by this terminal. Run <code>omni signin</code> again.");
+var NO_CODE = page("Sign-in incomplete", "The sign-in came back without its code. Run <code>omni signin</code> again.");
+var sameText = (a, b) => {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+};
+async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
+  if (typeof state !== "string" || state.length === 0) throw new LoopbackError("the listener needs a state to compare with.");
+  let settle2;
+  const code = new Promise((resolve, reject) => {
+    settle2 = { resolve, reject };
+  });
+  code.catch(() => {
+  });
+  let done = false;
+  const server = createServer((request, response) => {
+    const answer = (status2, body, type = "text/html; charset=utf-8") => {
+      response.writeHead(status2, { "content-type": type, "cache-control": "no-store", connection: "close" });
+      response.end(body);
+    };
+    const url = new URL(request.url ?? "/", `http://${HOST}`);
+    if (request.method !== "GET" || url.pathname !== PATH || done) return answer(404, "not found\n", "text/plain; charset=utf-8");
+    if (!sameText(url.searchParams.get("state") ?? "", state)) return answer(400, NOT_OURS);
+    const given = url.searchParams.get("code");
+    if (!given) return answer(400, NO_CODE);
+    done = true;
+    response.on("finish", () => finish(() => settle2.resolve(given)));
+    return answer(200, SIGNED_IN);
+  });
+  let closedResolve;
+  const closed = new Promise((resolve) => {
+    closedResolve = resolve;
+  });
+  let timer;
+  function finish(outcome) {
+    done = true;
+    clearTimeout(timer);
+    outcome();
+    server.close(() => closedResolve());
+    server.closeAllConnections();
+  }
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, HOST, () => {
+      server.off("error", reject);
+      resolve();
+    });
+  });
+  const { port, address } = server.address();
+  const minutes = Math.round(timeoutMs / 6e4);
+  timer = setTimeout(
+    () => finish(() => settle2.reject(new LoopbackError(`no sign-in came back within ${minutes >= 1 ? `${minutes} min` : `${timeoutMs} ms`}.`))),
+    timeoutMs
+  );
+  return {
+    port,
+    address,
+    redirectUri: `http://${HOST}:${port}${PATH}`,
+    code,
+    closed,
+    async close() {
+      if (server.listening) finish(() => settle2.reject(new LoopbackError("the listener was stopped before a sign-in came back.")));
+      await closed;
+    }
+  };
+}
+
+// kit/bin/commands/signin.mjs
+var ASK_URL_UNSET = "ask mode is not set up for this repository (ask.url)";
+function openInBrowser(url, { platform = process.platform } = {}) {
+  const [command, args] = platform === "darwin" ? ["open", [url]] : platform === "win32" ? ["rundll32", ["url.dll,FileProtocolHandler", url]] : ["xdg-open", [url]];
+  const child = spawn(command, args, { detached: true, stdio: "ignore" });
+  child.on("error", () => {
+  });
+  child.unref();
+}
+function askUrlOf(cwd, exec) {
+  return loadContext(cwd, { exec }).config.ask.url;
+}
+function noArguments(name, args) {
+  const { positional } = parseArgs(name, args);
+  if (positional.length > 0) throw usageError(`usage: omni ${name}`);
+}
+var signin = {
+  withoutContext: true,
+  async run(args, { cwd, stdout, stderr, exec, home, openBrowser = openInBrowser, fetch = globalThis.fetch, waitMs = LOOPBACK_WAIT_MS }) {
+    noArguments("signin", args);
+    const askUrl2 = askUrlOf(cwd, exec);
+    if (!askUrl2) {
+      println(stderr, ASK_URL_UNSET);
+      return 1;
+    }
+    const state = randomBytes(32).toString("base64url");
+    const listener = await startLoopback({ state, timeoutMs: waitMs });
+    try {
+      const page2 = new URL(askEndpoint(askUrl2, "/ask/signin"));
+      page2.searchParams.set("port", String(listener.port));
+      page2.searchParams.set("state", state);
+      println(stdout, `Sign in in your browser: ${page2}`);
+      try {
+        await openBrowser(page2.toString());
+      } catch {
+      }
+      const code = await listener.code;
+      const entry = await exchangeCode({ askUrl: askUrl2, code, fetch });
+      credentials({ home }).write(credentialsHost(askUrl2), entry);
+      println(stdout, `signed in as ${entry.email}`);
+      return 0;
+    } catch (error) {
+      if (!(error instanceof LoopbackError) && !(error instanceof SignInError)) throw error;
+      println(stderr, `omni signin: ${error.message}`);
+      return 1;
+    } finally {
+      await listener.close();
+    }
+  }
+};
+var signout = {
+  withoutContext: true,
+  async run(args, { cwd, stdout, stderr, exec, home }) {
+    noArguments("signout", args);
+    const askUrl2 = askUrlOf(cwd, exec);
+    if (!askUrl2) {
+      println(stderr, ASK_URL_UNSET);
+      return 1;
+    }
+    const host = credentialsHost(askUrl2);
+    println(stdout, credentials({ home }).remove(host) ? `signed out of ${host}` : "signed out");
+    return 0;
+  }
+};
+var whoami = {
+  withoutContext: true,
+  async run(args, { cwd, stdout, stderr, exec, home }) {
+    noArguments("whoami", args);
+    const askUrl2 = askUrlOf(cwd, exec);
+    if (!askUrl2) {
+      println(stderr, ASK_URL_UNSET);
+      return 1;
+    }
+    const entry = credentials({ home }).read(credentialsHost(askUrl2));
+    println(stdout, entry ? entry.email ?? `signed in to ${credentialsHost(askUrl2)}` : "signed out");
+    return 0;
+  }
+};
+
 // kit/bin/commands/ship.mjs
 init_define_OMNI_BUNDLE();
 
 // kit/lib/delivery/ship.mjs
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync5 } from "node:child_process";
-import { existsSync as existsSync19, readFileSync as readFileSync18, writeFileSync as writeFileSync10, mkdirSync as mkdirSync6 } from "node:fs";
-import { basename as basename5, join as join23, dirname as dirname7 } from "node:path";
+import { existsSync as existsSync19, readFileSync as readFileSync19, writeFileSync as writeFileSync11, mkdirSync as mkdirSync6 } from "node:fs";
+import { basename as basename5, join as join24, dirname as dirname7 } from "node:path";
 var REWRITTEN = /\.(md|html|yml|yaml|json)$/;
 function planShip(ctx, prd2, { files, read }) {
   const where = ctx.layout.whereIs(prd2);
@@ -17343,12 +17596,12 @@ function planShip(ctx, prd2, { files, read }) {
   const shipped = `${dirs.shipped}/${where.name}`;
   const outbox = `${dirs.outbox}/${where.name}`;
   const moves = [{ from: where.dir, to: shipped }];
-  const hasOutbox = existsSync19(join23(ctx.root, outbox));
+  const hasOutbox = existsSync19(join24(ctx.root, outbox));
   if (hasOutbox) moves.push({ from: outbox, to: `${shipped}/outbox` });
   const rewrites = [];
   for (const file of files) {
     if (!REWRITTEN.test(file) || basename5(file) === SETTLED_FILE) continue;
-    if (!existsSync19(join23(ctx.root, file))) continue;
+    if (!existsSync19(join24(ctx.root, file))) continue;
     const before = read(file);
     let after = before.split(where.dir).join(shipped);
     if (hasOutbox) after = after.split(outbox).join(`${shipped}/outbox`);
@@ -17366,16 +17619,16 @@ function applyShip(ctx, prd2, { exec = execFileSync5 } = {}) {
   const delivery = ctx.config.paths.delivery;
   const dirty = exec("git", ["status", "--porcelain", "--", delivery], { cwd: ctx.root, encoding: "utf8" });
   if (String(dirty ?? "").trim()) throw new DirtyDeliveryError(delivery);
-  const read = (file) => readFileSync18(join23(ctx.root, file), "utf8");
+  const read = (file) => readFileSync19(join24(ctx.root, file), "utf8");
   const plan2 = planShip(ctx, prd2, { files: trackedFiles(ctx), read });
   if (!plan2.ok) throw new Error(`Cannot ship PRD ${Number(prd2)}:
 ${plan2.reasons.map((r) => `  - ${r}`).join("\n")}`);
   for (const { from, to } of plan2.moves) {
-    mkdirSync6(dirname7(join23(ctx.root, to)), { recursive: true });
+    mkdirSync6(dirname7(join24(ctx.root, to)), { recursive: true });
     exec("git", ["mv", from, to], { cwd: ctx.root, stdio: "ignore" });
   }
   for (const { file, text: text2 } of plan2.rewrites) {
-    writeFileSync10(join23(ctx.root, movedPath(plan2.moves, file)), text2);
+    writeFileSync11(join24(ctx.root, movedPath(plan2.moves, file)), text2);
   }
   return plan2;
 }
@@ -17443,7 +17696,7 @@ var status = {
 };
 
 // kit/bin/commands/index.mjs
-var COMMAND_TABLE = Object.freeze({ config, prd, status, settle, adopt, replies, comment, ship, check, knowledge, item, plan, board, rework, phase0, init, ask });
+var COMMAND_TABLE = Object.freeze({ config, prd, status, settle, adopt, replies, comment, ship, check, knowledge, item, plan, board, rework, phase0, init, ask, signin, signout, whoami });
 
 // kit/bin/omni.mjs
 var USAGE10 = `usage: omni <command> [args]
