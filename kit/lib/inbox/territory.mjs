@@ -40,6 +40,17 @@
 /** A cell that declares nothing: an em dash, or nothing at all. */
 const NOTHING = /^[—–-]?$/;
 
+/** The ids one `blocked by` cell names — comma- or space-separated, backticks stripped. `[]` for a
+ * cell that declares nothing (an em dash, a bare hyphen, or empty). */
+function blockedByCell(cell) {
+  const text = (cell ?? '').trim();
+  if (NOTHING.test(text)) return [];
+  return text
+    .split(/[\s,]+/)
+    .map((token) => token.replace(/`/g, '').trim())
+    .filter(Boolean);
+}
+
 /**
  * The backticked paths in one `territory` cell, in the order they are written.
  *
@@ -76,12 +87,16 @@ function isSeparatorRow(line) {
 }
 
 /**
- * Every slice a plan declares: its id, title, the ground it owns and the wave it runs in.
+ * Every slice a plan declares: its id, title, the ground it owns, the ids it is blocked by, and the
+ * wave it runs in.
  *
  * Throws when the plan holds no slice table, and when that table has no `territory` column. A plan
  * written in the old shape must be loud: a guard that reads an absent column as an empty
  * declaration would grade every slice as breaching everything, or — worse, depending on which way
  * it shrugged — as breaching nothing at all.
+ *
+ * `blockedBy` reads `[]` for a plan with no `blocked by` column at all — a plan predating that
+ * column declares no blocks, rather than throwing the way a missing `territory` column does.
  */
 export function parsePlanSlices(markdown) {
   const lines = markdown.split('\n');
@@ -128,6 +143,7 @@ export function parsePlanSlices(markdown) {
       id,
       title: column('slice') === -1 ? '' : (row[column('slice')] ?? ''),
       territory: territoryPrefixes(row[column('territory')]),
+      blockedBy: column('blocked by') === -1 ? [] : blockedByCell(row[column('blocked by')]),
       wave: column('wave') === -1 ? null : Number(row[column('wave')]),
     });
   }

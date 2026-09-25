@@ -1,12 +1,12 @@
 // `omni board <prd> [--json] [--repo owner/name]` — the loop's view of a PRD's slices, rebuilt from
-// GitHub on every run. Reads the plan's own slice table (`parsePlanSlices`, plus the `blocked by`
-// column read the same narrow way `omni plan check` already does), fetches only this feature's own
-// pull requests (`gh pr list`, narrowed by `board.matchBy` — never the whole repository), and hands
-// the result to `boardFor` (`kit/lib/board.mjs`) — the one place the state and the runnable
-// frontier are decided. `commits` is never asked of `gh pr list`: on a repository with any real
-// history that field alone can blow the GraphQL node-limit even at a small page size, so a head
-// commit date is fetched with a second, per-pull-request `gh pr view --json commits` call, and only
-// for the pull requests that could possibly be `claimed-stale` in the first place.
+// GitHub on every run. Reads the plan's own slice table (`parsePlanSlices`, which carries each
+// slice's own `blocked by` ids), fetches only this feature's own pull requests (`gh pr list`,
+// narrowed by `board.matchBy` — never the whole repository), and hands the result to `boardFor`
+// (`kit/lib/board.mjs`) — the one place the state and the runnable frontier are decided. `commits`
+// is never asked of `gh pr list`: on a repository with any real history that field alone can blow
+// the GraphQL node-limit even at a small page size, so a head commit date is fetched with a second,
+// per-pull-request `gh pr view --json commits` call, and only for the pull requests that could
+// possibly be `claimed-stale` in the first place.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { boardFor, fillBranch } from '../../lib/board.mjs';
@@ -16,70 +16,6 @@ import { githubEnv } from '../github.mjs';
 import { parseArgs, positiveInt, println, repoSlug, usageError } from '../args.mjs';
 
 const USAGE = 'usage: omni board <prd> [--json] [--repo <owner/name>]';
-
-function isTableRow(line) {
-  return line.trim().startsWith('|');
-}
-
-function isSeparatorRow(line) {
-  return /^\|[\s:|-]+\|$/.test(line.trim());
-}
-
-function cells(line) {
-  return line
-    .trim()
-    .replace(/^\|/, '')
-    .replace(/\|$/, '')
-    .split('|')
-    .map((cell) => cell.trim());
-}
-
-const NOTHING = /^[—–-]?$/;
-
-/** The ids one `blocked by` cell names — comma-separated, backticks stripped. `[]` for a cell that
- * declares nothing. Mirrors `omni plan check`'s own reading of this column: `parsePlanSlices`
- * (`kit/lib/inbox/territory.mjs`) deliberately stops at `id`, `slice`, `territory` and `wave`, so
- * every command that also needs `blocked by` reads the same table a second, narrower way rather
- * than widen that module's job. */
-function blockedByCell(cell) {
-  const text = (cell ?? '').trim();
-  if (NOTHING.test(text)) return [];
-  return text
-    .split(',')
-    .map((token) => token.replace(/`/g, '').trim())
-    .filter(Boolean);
-}
-
-/** The plan's own slice table's `blocked by` column, by id — a `Map<id, string[]>`. */
-function blockedByColumn(markdown) {
-  const lines = markdown.split('\n');
-  const headerIndex = lines.findIndex((line) => isTableRow(line) && /^\|\s*id\s*\|/i.test(line.trim()));
-  const map = new Map();
-  if (headerIndex === -1) return map;
-
-  const header = cells(lines[headerIndex]).map((name) => name.toLowerCase());
-  const idCol = header.indexOf('id');
-  const blockedCol = header.indexOf('blocked by');
-  if (blockedCol === -1) return map;
-
-  for (let index = headerIndex + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (!isTableRow(line)) break;
-    if (isSeparatorRow(line)) continue;
-    const row = cells(line);
-    const id = row[idCol];
-    if (!id) continue;
-    map.set(id, blockedByCell(row[blockedCol]));
-  }
-  return map;
-}
-
-/** The plan's slices, each widened with its own `blocked by` ids. */
-function slicesWithBlockers(markdown) {
-  const slices = parsePlanSlices(markdown);
-  const blockedBy = blockedByColumn(markdown);
-  return slices.map((slice) => ({ ...slice, blockedBy: blockedBy.get(slice.id) ?? [] }));
-}
 
 function readPlan(prd, { ctx }) {
   const planPath = ctx.layout.planPath(prd);
@@ -184,7 +120,7 @@ export const board = {
     const { markdown } = readPlan(prd, { ctx });
     let slices;
     try {
-      slices = slicesWithBlockers(markdown);
+      slices = parsePlanSlices(markdown);
     } catch (error) {
       throw usageError(`omni board: ${error.message}`);
     }

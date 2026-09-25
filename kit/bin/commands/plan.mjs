@@ -12,67 +12,6 @@ import { parseArgs, positiveInt, println, usageError } from '../args.mjs';
 
 const USAGE = 'usage: omni plan check <prd>';
 
-function isTableRow(line) {
-  return line.trim().startsWith('|');
-}
-
-function isSeparatorRow(line) {
-  return /^\|[\s:|-]+\|$/.test(line.trim());
-}
-
-function cells(line) {
-  return line
-    .trim()
-    .replace(/^\|/, '')
-    .replace(/\|$/, '')
-    .split('|')
-    .map((cell) => cell.trim());
-}
-
-const NOTHING = /^[—–-]?$/;
-
-/** The ids one `blocked by` cell names — comma-separated, backticks stripped. `[]` for a cell that
- * declares nothing. */
-function blockedByCell(cell) {
-  const text = (cell ?? '').trim();
-  if (NOTHING.test(text)) return [];
-  return text
-    .split(',')
-    .map((token) => token.replace(/`/g, '').trim())
-    .filter(Boolean);
-}
-
-/**
- * The plan's own slice table's `blocked by` column, by id — a `Map<id, string[]>`.
- * `territory.mjs`'s own `parsePlanSlices` reads `id`, `slice`, `territory` and `wave` only; this
- * command is the one place that needs `blocked by` too, so it reads the same table a second,
- * narrower way rather than widen that module's job.
- */
-function blockedByColumn(markdown) {
-  const lines = markdown.split('\n');
-  const headerIndex = lines.findIndex(
-    (line) => isTableRow(line) && /^\|\s*id\s*\|/i.test(line.trim()),
-  );
-  const map = new Map();
-  if (headerIndex === -1) return map;
-
-  const header = cells(lines[headerIndex]).map((name) => name.toLowerCase());
-  const idCol = header.indexOf('id');
-  const blockedCol = header.indexOf('blocked by');
-  if (blockedCol === -1) return map;
-
-  for (let index = headerIndex + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (!isTableRow(line)) break;
-    if (isSeparatorRow(line)) continue;
-    const row = cells(line);
-    const id = row[idCol];
-    if (!id) continue;
-    map.set(id, blockedByCell(row[blockedCol]));
-  }
-  return map;
-}
-
 /** Every id used by more than one slice row, each reported once. */
 function duplicateIds(slices) {
   const counts = new Map();
@@ -82,11 +21,11 @@ function duplicateIds(slices) {
 
 /** Every `blocked by` violation: an id naming no slice in this plan, or a blocker in the same wave
  * or a later one than the slice it blocks. */
-function blockedByViolations(slices, blockedBy) {
+function blockedByViolations(slices) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
   const violations = [];
   for (const slice of slices) {
-    for (const blocker of blockedBy.get(slice.id) ?? []) {
+    for (const blocker of slice.blockedBy ?? []) {
       if (!waveOf.has(blocker)) {
         violations.push(`${slice.id} is blocked by "${blocker}", which names no slice in this plan.`);
         continue;
@@ -123,7 +62,7 @@ function checkPlan(prd, { ctx }) {
 
   const violations = [
     ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
-    ...blockedByViolations(slices, blockedByColumn(markdown)),
+    ...blockedByViolations(slices),
     ...sameWaveCollisions(slices).map(
       (collision) =>
         `${collision.left} and ${collision.right} share ${collision.shared.join(', ')} and both sit in wave ${collision.wave} — two slices in one wave may never share territory.`,
