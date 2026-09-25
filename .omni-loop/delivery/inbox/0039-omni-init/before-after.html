@@ -83,8 +83,8 @@
     </section>
 
     <section class="after">
-      <h2>After: one command</h2>
-      <pre><span class="d">$</span> node ../vertuo-omni-loop/.omni-loop/bin/omni.mjs init
+      <h2>After: one line, nothing cloned first</h2>
+      <pre><span class="d">$</span> npx github:vertuoza/vertuo-omni-loop init
 <span class="g">omni init — vertuoza/vertuo-workflow-domain is set up.</span>
   wrote   .omni-loop/config.yml
   wrote   .omni-loop/bin/omni.mjs
@@ -103,7 +103,7 @@ Commit .omni-loop/ and merge it into main, then, by hand:
      every pull request in this repository. …
 
 To remove the loop: delete .omni-loop/ and commit.</pre>
-      <p class="note">A second run keeps the config and the bin, creates no label, and exits 0. <code>--force</code> rewrites the files. Existing labels are never recoloured.</p>
+      <p class="note">Needs only Node 22+ (npx comes with it), <code>gh</code> and read access to vertuo-omni-loop, in a TypeScript or a PHP repository alike. A second run keeps the config and the bin, creates no label, and exits 0. <code>--force</code> rewrites the files. Existing labels are never recoloured.</p>
     </section>
   </div>
 
@@ -129,6 +129,7 @@ To remove the loop: delete .omni-loop/ and commit.</pre>
         <tr><td>Files in the repository</td><td>whatever was copied by hand</td><td>only <code>.omni-loop/config.yml</code> and <code>.omni-loop/bin/omni.mjs</code>. No <code>.github/</code>, no workflow, no secret.</td></tr>
         <tr><td><code>labels.autoCreate</code></td><td colspan="2">still decides whether skills create labels at run time. <code>init</code> creates labels because a person ran it.</td></tr>
         <tr><td>Outbox check (PRD 28)</td><td colspan="2"><em>skipped, omni-loop is not active on this repo</em> until the config is merged. After that the check reads it.</td></tr>
+        <tr><td>How the kit is fetched</td><td>clone vertuo-omni-loop, build, copy the bundle</td><td><code>npx</code> fetches the committed bundle <code>kit/dist/omni.mjs</code> from the default branch over git. No registry, and nothing installed in the target.</td></tr>
         <tr><td>Plugin, App, branch protection</td><td colspan="2">still human steps. <code>init</code> prints them with links and never performs them.</td></tr>
       </tbody>
     </table></div>
