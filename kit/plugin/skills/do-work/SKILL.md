@@ -23,9 +23,9 @@ Given only a PRD, this is not your job: follow `/omni:yolo` (or `/omni:wave`) in
 
 ## Step 0
 
-Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the repository
-is not terraformed. Keep the JSON; later steps read `repo.remote`, `branches.*`, `paths.*`,
-`commands.*`, `acceptance.*` and `laws.source` from it.
+Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the Omni Loop
+kit is not installed in this repository. Keep the JSON; later steps read `repo.remote`,
+`branches.*`, `paths.*`, `commands.*`, `acceptance.*` and `laws.source` from it.
 
 ## 1. Read before you build
 
