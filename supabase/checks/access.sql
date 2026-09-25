@@ -46,25 +46,31 @@ insert into public.sectors (workspace_id, name, repos) values
 insert into public.teams (workspace_id, name, label, color, home, sort) values
   ('00000000-0000-4000-8000-0000000000a2', 'roadrunners', 'ROADRUNNERS', '#ffcc00', 'dust-belt', 10),
   ('00000000-0000-4000-8000-0000000000a2', 'beaver', 'BEAVER', '#8a5a2b', null, 20);
-insert into public.ledger_events (workspace_id, id, at, type, planet)
-select '00000000-0000-4000-8000-0000000000a2', e.id, now(), 'PLANET_CHARTED', 1
-  from public.ledger_events e
- where e.workspace_id = (select id from public.workspaces where slug = 'vertuoza')
- order by e.id
- limit 1;
+do $$
+begin
+  insert into public.ledger_events (workspace_id, id, at, type, planet)
+  select '00000000-0000-4000-8000-0000000000a2', e.id, now(), 'PLANET_CHARTED', 1
+    from public.ledger_events e
+   where e.workspace_id = (select id from public.workspaces where slug = 'vertuoza')
+   order by e.id
+   limit 1;
+exception when unique_violation then
+  raise exception 'FAIL: one ledger id cannot exist in two workspaces (%)', sqlerrm;
+end $$;
 
 insert into auth.users (id, email, email_confirmed_at) values
   ('00000000-0000-4000-8000-00000000000a', 'ada@vertuoza.com', now()),   -- a player
   ('00000000-0000-4000-8000-00000000000b', 'bob@vertuoza.com', now()),   -- a player
   ('00000000-0000-4000-8000-00000000000c', 'carol@vertuoza.com', now()), -- a visitor: no GitHub linked
   ('00000000-0000-4000-8000-00000000000d', 'dan@acme.test', now()),      -- Acme's player
-  ('00000000-0000-4000-8000-00000000000e', 'eve@example.com', now()),    -- an outsider
+  ('00000000-0000-4000-8000-00000000000e', 'eve@example.com', now()),    -- an outsider, GitHub linked
   ('00000000-0000-4000-8000-00000000000f', 'fay@example.com', now()),    -- a freelancer, in both workspaces
   ('00000000-0000-4000-8000-000000000011', 'una@vertuoza.com', null);    -- never confirmed her address
 insert into auth.identities (user_id, provider, provider_id, identity_data) values
   ('00000000-0000-4000-8000-00000000000a', 'github', '424242', '{"user_name": "ada-gh"}'),
   ('00000000-0000-4000-8000-00000000000b', 'github', '1001', '{"user_name": "bob-gh"}'),
   ('00000000-0000-4000-8000-00000000000d', 'github', '2002', '{"user_name": "dan-gh"}'),
+  ('00000000-0000-4000-8000-00000000000e', 'github', '4004', '{"user_name": "eve-gh"}'),
   ('00000000-0000-4000-8000-00000000000f', 'github', '3003', '{"user_name": "fay-gh"}');
 -- Fay's domain joins nothing: she is a member of both workspaces because someone added her.
 insert into public.workspace_members (workspace_id, user_id)
@@ -100,9 +106,13 @@ begin
   if public.join_by_domain() is distinct from array['vertuoza'] then
     raise exception 'FAIL: a confirmed vertuoza.com account did not join vertuoza';
   end if;
-  if public.join_by_domain() is distinct from array['vertuoza'] or (select count(*) from public.workspace_members) <> 1 then
-    raise exception 'FAIL: a second join_by_domain() changed the memberships';
-  end if;
+  begin
+    if public.join_by_domain() is distinct from array['vertuoza'] or (select count(*) from public.workspace_members) <> 1 then
+      raise exception 'FAIL: a second join_by_domain() changed the memberships';
+    end if;
+  exception when unique_violation then
+    raise exception 'FAIL: a second join_by_domain() failed (%)', sqlerrm;
+  end;
 
   perform pg_temp.sign_in('00000000-0000-4000-8000-000000000011', 'una@vertuoza.com');
   if public.join_by_domain() <> '{}'::text[] or exists (select 1 from public.workspace_members) then
@@ -129,7 +139,7 @@ begin
   end if;
 end $$;
 
--- ── Signed in, in no workspace: nothing ──
+-- ── Signed in, in no workspace: nothing, even with GitHub linked ──
 select pg_temp.sign_in('00000000-0000-4000-8000-00000000000e', 'eve@example.com');
 do $$
 declare t text; n int;
@@ -142,7 +152,11 @@ begin
     insert into public.players (workspace_id, user_id, display_name, team, hero)
     values ('00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-00000000000e', 'EVE', 'beaver', '{"v":1,"body":"girl","skin":0,"hair":0,"suit":0,"cape":0}');
     raise exception 'FAIL: an outsider joined a fleet';
-  exception when insufficient_privilege then null; end;
+  exception
+    when insufficient_privilege then null;
+    when foreign_key_violation then
+      raise exception 'FAIL: only a foreign key, not the row-level policy, kept an outsider out (%)', sqlerrm;
+  end;
   begin
     perform public.link_github();
     raise exception 'FAIL: link_github answered an outsider';
@@ -288,7 +302,11 @@ begin
     values ('00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-00000000000a', 'ADA', 'roadrunners',
             '{"v":1,"body":"girl","skin":2,"hair":3,"suit":0,"cape":8}');
     raise exception 'FAIL: a member inserted a player row in another workspace';
-  exception when insufficient_privilege then null; end;
+  exception
+    when insufficient_privilege then null;
+    when foreign_key_violation then
+      raise exception 'FAIL: only a foreign key, not the row-level policy, kept a member out of another workspace (%)', sqlerrm;
+  end;
   begin
     update public.players set team = 'roadrunners' where user_id = '00000000-0000-4000-8000-00000000000a';
     raise exception 'FAIL: a player joined a fleet of another workspace';
@@ -300,9 +318,13 @@ select pg_temp.sign_in('00000000-0000-4000-8000-00000000000f', 'fay@example.com'
 do $$
 declare hero constant jsonb := '{"v":1,"body":"girl","skin":4,"hair":5,"suit":6,"cape":7}';
 begin
-  insert into public.players (workspace_id, user_id, display_name, team, hero)
-  select id, '00000000-0000-4000-8000-00000000000f', 'FAY', case slug when 'acme' then 'roadrunners' else 'pirates' end, hero
-    from public.workspaces;
+  begin
+    insert into public.players (workspace_id, user_id, display_name, team, hero)
+    select id, '00000000-0000-4000-8000-00000000000f', 'FAY', case slug when 'acme' then 'roadrunners' else 'pirates' end, hero
+      from public.workspaces;
+  exception when unique_violation then
+    raise exception 'FAIL: one GitHub login could not be a player in two workspaces (%)', sqlerrm;
+  end;
   if (select count(*) from public.players where github_login = 'fay-gh') <> 2 then
     raise exception 'FAIL: one GitHub login could not be a player in two workspaces';
   end if;
