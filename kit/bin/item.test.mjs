@@ -38,7 +38,7 @@ describe('omni item new', () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
     const json = writeJson(root, FIELDS);
     const s = io();
-    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json], { cwd: root, ...s });
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
     expect(code).toBe(0);
     const printed = s.out.join('').trim();
     expect(printed).toBe('.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md');
@@ -54,7 +54,7 @@ describe('omni item new', () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
     const json = writeJson(root, FIELDS);
     const s = io();
-    await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json], { cwd: root, ...s });
+    await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
     const file = s.out.join('').trim();
     const text = readTextFile(join(root, file));
     const today = new Date().toISOString().slice(0, 10);
@@ -65,7 +65,7 @@ describe('omni item new', () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
     const json = writeJson(root, { ...FIELDS, raised: '2026-01-01' });
     const s = io();
-    await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json], { cwd: root, ...s });
+    await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
     const file = s.out.join('').trim();
     const text = readTextFile(join(root, file));
     expect(text).toMatch(/raised: 2026-01-01/);
@@ -82,7 +82,7 @@ describe('omni item new', () => {
     });
     const json = writeJson(root, FIELDS);
     const s = io();
-    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json], { cwd: root, ...s });
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
     expect(code).toBe(0);
     expect(s.out.join('').trim()).toBe('.omni-loop/delivery/outbox/0042-a/s7-02-default-timeout.md');
   });
@@ -98,7 +98,7 @@ describe('omni item new', () => {
     });
     const json = writeJson(root, { ...FIELDS, slug: 'a-completely-different-slug' });
     const s = io();
-    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json], { cwd: root, ...s });
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
     expect(code).toBe(0);
     expect(s.out.join('').trim()).toBe('.omni-loop/delivery/outbox/0042-a/s7-02-a-completely-different-slug.md');
   });
@@ -108,7 +108,7 @@ describe('omni item new', () => {
     const json = writeJson(root, { ...FIELDS, hardToRevert: true });
     const s = io();
     const code = await main(
-      ['item', 'new', '--prd', '42', '--slice', 's7', '--json', json, '--adopt'],
+      ['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--adopt'],
       { cwd: root, ...s },
     );
     expect(code).toBe(0);
@@ -123,7 +123,7 @@ describe('omni item new', () => {
     const json = writeJson(root, FIELDS);
     const s = io();
     const code = await main(
-      ['item', 'new', '--prd', '42', '--slice', 's7', '--json', json, '--adopt'],
+      ['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--adopt'],
       { cwd: root, ...s },
     );
     expect(code).toBe(0);
@@ -138,9 +138,9 @@ describe('omni item new', () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
     const json = writeJson(root, FIELDS);
     const s1 = io();
-    await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json, '--adopt'], { cwd: root, ...s1 });
+    await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--adopt'], { cwd: root, ...s1 });
     const s2 = io();
-    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json, '--adopt'], { cwd: root, ...s2 });
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--adopt'], { cwd: root, ...s2 });
     expect(code).toBe(0);
     expect(s2.out.join('')).toMatch(/s7-02-default-timeout/);
   });
@@ -154,7 +154,7 @@ describe('omni item new', () => {
       personSteps: 'Ask an admin to grant the missing scope on the shared service account.',
     });
     const s = io();
-    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json], { cwd: root, ...s });
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
     expect(code).toBe(1);
     const file = s.out.join('').trim();
     expect(file).toBe('.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md');
@@ -170,7 +170,7 @@ describe('omni item new', () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
     const json = writeJson(root, { ...FIELDS, needsHumanAction: true });
     const s = io();
-    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json], { cwd: root, ...s });
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
     expect(code).toBe(2);
     expect(s.err.join('')).toMatch(/personSteps/);
     expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
@@ -181,7 +181,7 @@ describe('omni item new', () => {
     const { options, ...withoutOptions } = FIELDS;
     const json = writeJson(root, withoutOptions);
     const s = io();
-    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json], { cwd: root, ...s });
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
     expect(code).toBe(2);
     expect(s.err.join('')).toMatch(/options/);
   });
@@ -193,7 +193,7 @@ describe('omni item new', () => {
     });
     const json = writeJson(root, { ...FIELDS, bearsOn: 'N1', breaksNamedLaw: true });
     const s = io();
-    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json], { cwd: root, ...s });
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
     expect(code).toBe(1);
     expect(s.err.join('')).toMatch(/nothing was written/);
     expect(s.err.join('')).toMatch(/N1/);
@@ -206,7 +206,7 @@ describe('omni item new', () => {
     });
     const json = writeJson(root, { ...FIELDS, principlesConflict: ['P-A-1', 'P-B-1'] });
     const s = io();
-    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json], { cwd: root, ...s });
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
     expect(code).toBe(1);
     const file = s.out.join('').trim();
     expect(file).toBe('.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md');
@@ -215,6 +215,125 @@ describe('omni item new', () => {
     expect(text).toMatch(/rank: high/);
     expect(s.err.join('')).toMatch(/the slice must stop/);
     expect(s.err.join('')).toMatch(/P-A-1, P-B-1/);
+  });
+});
+
+describe('omni item new --json', () => {
+  function jsonOut(s) {
+    return JSON.parse(s.out.join('').trim());
+  }
+
+  it('a plain record prints outcome, rank, id and file, with adopted false and reason null', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
+    const json = writeJson(root, FIELDS);
+    const s = io();
+    const code = await main(
+      ['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--json'],
+      { cwd: root, ...s },
+    );
+    expect(code).toBe(0);
+    expect(jsonOut(s)).toEqual({
+      outcome: 'record',
+      rank: 'medium',
+      id: 's7-01-default-timeout',
+      file: '.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md',
+      adopted: false,
+      reason: null,
+    });
+    expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md'))).toBe(true);
+  });
+
+  it('a record with --adopt prints adopted true and a null file, since no open file remains', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
+    const json = writeJson(root, FIELDS);
+    const s = io();
+    const code = await main(
+      ['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--adopt', '--json'],
+      { cwd: root, ...s },
+    );
+    expect(code).toBe(0);
+    expect(jsonOut(s)).toEqual({
+      outcome: 'record',
+      rank: 'medium',
+      id: 's7-01-default-timeout',
+      file: null,
+      adopted: true,
+      reason: null,
+    });
+    expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md'))).toBe(false);
+  });
+
+  it('needsHumanAction prints outcome blocked, rank human-action, with the file written and a reason', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
+    const { options, ...withoutOptions } = FIELDS;
+    const json = writeJson(root, {
+      ...withoutOptions,
+      needsHumanAction: true,
+      personSteps: 'Ask an admin to grant the missing scope on the shared service account.',
+    });
+    const s = io();
+    const code = await main(
+      ['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--json'],
+      { cwd: root, ...s },
+    );
+    expect(code).toBe(1);
+    const parsed = jsonOut(s);
+    expect(parsed).toEqual({
+      outcome: 'blocked',
+      rank: 'human-action',
+      id: 's7-01-default-timeout',
+      file: '.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md',
+      adopted: false,
+      reason: expect.stringMatching(/only a person can do this/),
+    });
+    expect(existsSync(join(root, parsed.file))).toBe(true);
+  });
+
+  it('a decision pulled apart by two principles prints outcome stop, rank high, with the file written', async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\nlaws:\n  source: knowledge\n', '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' },
+    });
+    const json = writeJson(root, { ...FIELDS, principlesConflict: ['P-A-1', 'P-B-1'] });
+    const s = io();
+    const code = await main(
+      ['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--json'],
+      { cwd: root, ...s },
+    );
+    expect(code).toBe(1);
+    const parsed = jsonOut(s);
+    expect(parsed).toEqual({
+      outcome: 'stop',
+      rank: 'high',
+      id: 's7-01-default-timeout',
+      file: '.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md',
+      adopted: false,
+      reason: expect.stringMatching(/P-A-1, P-B-1/),
+    });
+    expect(existsSync(join(root, parsed.file))).toBe(true);
+  });
+
+  it('breaking a named law prints outcome stop with a null rank, id and file, since nothing was written', async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\nlaws:\n  source: knowledge\n', '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' },
+    });
+    const json = writeJson(root, { ...FIELDS, bearsOn: 'N1', breaksNamedLaw: true });
+    const s = io();
+    const code = await main(
+      ['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--json'],
+      { cwd: root, ...s },
+    );
+    expect(code).toBe(1);
+    expect(jsonOut(s)).toEqual({
+      outcome: 'stop',
+      rank: null,
+      id: null,
+      file: null,
+      adopted: false,
+      reason: expect.stringMatching(/N1/),
+    });
+    expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
   });
 });
 
@@ -239,7 +358,7 @@ describe('omni item new — user-caused errors are one line, exit 2', () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     const json = writeJson(root, FIELDS);
     const s = io();
-    const code = await main(['item', 'new', '--prd', '999', '--slice', 's7', '--json', json], { cwd: root, ...s });
+    const code = await main(['item', 'new', '--prd', '999', '--slice', 's7', '--file', json], { cwd: root, ...s });
     expect(code).toBe(2);
     oneLine(s);
     expect(s.err.join('')).toMatch(/PRD 999 has no inbox or shipped folder/);
@@ -248,7 +367,7 @@ describe('omni item new — user-caused errors are one line, exit 2', () => {
   it('a JSON file that does not exist', async () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
     const s = io();
-    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', 'gone.json'], { cwd: root, ...s });
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', 'gone.json'], { cwd: root, ...s });
     expect(code).toBe(2);
     oneLine(s);
   });
@@ -258,7 +377,7 @@ describe('omni item new — user-caused errors are one line, exit 2', () => {
     const { decide, ...rest } = FIELDS;
     const json = writeJson(root, rest);
     const s = io();
-    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json], { cwd: root, ...s });
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
     expect(code).toBe(2);
     oneLine(s);
     expect(s.err.join('')).toMatch(/decide/);
@@ -268,7 +387,7 @@ describe('omni item new — user-caused errors are one line, exit 2', () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
     const json = writeJson(root, { ...FIELDS, slug: 'Not_Kebab' });
     const s = io();
-    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json], { cwd: root, ...s });
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
     expect(code).toBe(2);
     oneLine(s);
     expect(s.err.join('')).toMatch(/slug/);
@@ -279,7 +398,7 @@ describe('omni item new — user-caused errors are one line, exit 2', () => {
     const path = join(root, 'bad.json');
     writeFileSync(path, '{ not json');
     const s = io();
-    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', path], { cwd: root, ...s });
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', path], { cwd: root, ...s });
     expect(code).toBe(2);
     oneLine(s);
   });
@@ -288,9 +407,48 @@ describe('omni item new — user-caused errors are one line, exit 2', () => {
     const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
     const json = writeJson(root, { ...FIELDS, options: ['only one'] });
     const s = io();
-    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--json', json], { cwd: root, ...s });
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
     expect(code).toBe(2);
     oneLine(s);
+  });
+});
+
+describe('omni item new — a rendered item that "check outbox" would reject', () => {
+  it('a backticked code name in an option writes nothing and exits 2, violations on stderr', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
+    const json = writeJson(root, {
+      ...FIELDS,
+      options: [
+        'Wait five seconds, using `defaultTimeoutMs`, the option built.',
+        'Wait one second, so a stuck call is caught sooner.',
+      ],
+    });
+    const s = io();
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
+    expect(code).toBe(2);
+    expect(s.err.join('')).toMatch(/carries a code span/);
+    expect(s.err.join('')).toMatch(/defaultTimeoutMs/);
+    expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
+  });
+
+  it('the same violation still writes nothing under --json, and exit stays 2', async () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
+    const json = writeJson(root, {
+      ...FIELDS,
+      options: [
+        'Wait five seconds, using `defaultTimeoutMs`, the option built.',
+        'Wait one second, so a stuck call is caught sooner.',
+      ],
+    });
+    const s = io();
+    const code = await main(
+      ['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--json'],
+      { cwd: root, ...s },
+    );
+    expect(code).toBe(2);
+    expect(s.out.join('')).toBe('');
+    expect(s.err.join('')).toMatch(/carries a code span/);
+    expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
   });
 });
 

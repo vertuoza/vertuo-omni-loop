@@ -1,10 +1,10 @@
-// `omni item new --prd <n> --slice <id> --json <file> [--adopt]` — records one decision as an
-// outbox item, through the recording policy in `kit/lib/policy/outbox-policy.mjs`. The JSON file
-// carries `renderOutboxItem`'s fields minus `prd`, `slice` and `laws` (this command supplies all
-// three) and minus `id` (this command picks the next free one) and `rank` (`decideRecording`
-// decides it). `decideRecording` is always run — every one of its own inputs is optional with a
-// safe default, so a JSON file that names none of them still "carries what it needs": a plain
-// question with no `bears-on` and no named risk.
+// `omni item new --prd <n> --slice <id> --file <file> [--adopt] [--json]` — records one decision
+// as an outbox item, through the recording policy in `kit/lib/policy/outbox-policy.mjs`. The
+// `--file` JSON file carries `renderOutboxItem`'s fields minus `prd`, `slice` and `laws` (this
+// command supplies all three) and minus `id` (this command picks the next free one) and `rank`
+// (`decideRecording` decides it). `decideRecording` is always run — every one of its own inputs is
+// optional with a safe default, so a JSON file that names none of them still "carries what it
+// needs": a plain question with no `bears-on` and no named risk.
 //
 // This command follows `decision.writesItem`, exactly as the policy states it:
 // - `writesItem: false` (only `breaksNamedLaw` against a law `laws` can name) — nothing is
@@ -18,16 +18,32 @@
 //   (`needsHumanAction`, rank `human-action`) — the item is rendered and written exactly as a
 //   `record` would be, but the slice cannot carry on: a one-line reason goes to stderr and the
 //   exit code is 1, so the caller (`do-work`) gets both the file and the non-zero exit.
+//
+// `--json` prints exactly one JSON object on stdout instead of the plain-text lines above:
+// `{ outcome, rank, id, file, adopted, reason }` — `outcome` is `'record'`, `'stop'` or
+// `'blocked'` (the same three values `decideRecording` returns); `id` and `file` are `null` when
+// nothing was written; `adopted` is `true` only when `--adopt` adopted a `medium` item, and then
+// `file` is `null` since no open file remains; `reason` is `null` on a plain successful record,
+// and the policy's one-line reason otherwise. Exit codes are unchanged. This lets a caller
+// (`do-work`) branch on structured output instead of parsing stderr wording.
+//
+// Before any of the above, the rendered item is graded with the exact same `checkItemText`
+// `omni check outbox` runs on every open item (a below-floor rank, a malformed options section, a
+// backticked code name or file path in a plain-words section…). A violation here is a usage error:
+// nothing is written — not an open file, not an adoption — every violation is printed on stderr,
+// one per line, and the exit code is 2, whether or not `--json` was passed; `outcome: 'record'`
+// (or `'stop'` / `'blocked'`) is never reached.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
 import { lawsFor } from '../../lib/laws.mjs';
 import { outboxItemFiles, SETTLED_FILE } from '../../lib/outbox/outbox.mjs';
+import { checkItemText } from '../../lib/outbox/check-outbox.mjs';
 import { adoptItem, parseSettledEntries } from '../../lib/outbox/settle.mjs';
 import { decideRecording, renderOutboxItem } from '../../lib/policy/outbox-policy.mjs';
 import { parseArgs, positiveInt, println, readUserFile, usageError } from '../args.mjs';
 
-const USAGE = 'usage: omni item new --prd <n> --slice <id> --json <file> [--adopt]';
+const USAGE = 'usage: omni item new --prd <n> --slice <id> --file <file> [--adopt] [--json]';
 
 const SLUG_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -134,21 +150,27 @@ function nextItemId(prd, slice, slug, { ctx }) {
   throw usageError(`omni item new: ${slice} under PRD ${prd} has already spent every number 01-99.`);
 }
 
+/** The one JSON object `--json` prints on stdout, per outcome. */
+function jsonOutcome({ outcome, rank = null, id = null, file = null, adopted = false, reason = null }) {
+  return JSON.stringify({ outcome, rank, id, file, adopted, reason });
+}
+
 async function runNew(args, { ctx, stdout, stderr }) {
   const { positional, flags } = parseArgs('item new', args, {
-    values: ['prd', 'slice', 'json'],
-    booleans: ['adopt'],
+    values: ['prd', 'slice', 'file'],
+    booleans: ['adopt', 'json'],
   });
-  if (positional.length !== 0 || flags.prd === undefined || flags.slice === undefined || flags.json === undefined) {
+  if (positional.length !== 0 || flags.prd === undefined || flags.slice === undefined || flags.file === undefined) {
     throw usageError(USAGE);
   }
   const prd = positiveInt('item new', '--prd', flags.prd);
   const slice = flags.slice;
+  const asJson = Boolean(flags.json);
 
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) throw usageError(`omni item new: PRD ${prd} has no inbox or shipped folder.`);
 
-  const input = readItemInput(ctx, flags.json);
+  const input = readItemInput(ctx, flags.file);
   const laws = lawsFor(ctx);
   const bearsOn = input.bearsOn ?? 'none';
 
@@ -167,7 +189,11 @@ async function runNew(args, { ctx, stdout, stderr }) {
   }
 
   if (!decision.writesItem) {
-    println(stderr, `omni item new — nothing was written (${decision.outcome}): ${decision.reason}`);
+    if (asJson) {
+      println(stdout, jsonOutcome({ outcome: decision.outcome, reason: decision.reason }));
+    } else {
+      println(stderr, `omni item new — nothing was written (${decision.outcome}): ${decision.reason}`);
+    }
     return 1;
   }
 
@@ -203,32 +229,63 @@ async function runNew(args, { ctx, stdout, stderr }) {
     throw usageError(`omni item new: ${error.message}`);
   }
 
+  // The same grading `omni check outbox` runs on every open item, run here before anything is
+  // written — a raised item that `check outbox` would immediately reject (a below-floor rank, a
+  // malformed options section, a backticked code name in a plain-words section…) is caught at the
+  // source instead of surfacing later as a separate, harder-to-attribute failure. This is a
+  // usage error: nothing is written, every violation goes to stderr, one per line, and the exit
+  // code is 2 — `outcome: 'record'` (or `'stop'` / `'blocked'`) is never reached, `--json` or not.
+  const renderedFile = `${outboxDir}/${id}.md`;
+  const violations = checkItemText(renderedFile, text, { ctx, laws });
+  if (violations.length > 0) {
+    println(stderr, 'omni item new: the rendered item fails "check outbox" — nothing was written:');
+    for (const violation of violations) println(stderr, `  - ${violation}`);
+    return 2;
+  }
+
   // `outcome !== 'record'` here means `'stop'` (a principles conflict) or `'blocked'`
   // (`needsHumanAction`) — both `writesItem: true`. The item is written exactly as a `record`
   // would be, but the slice cannot carry on: a non-zero exit, with the reason on stderr, is the
   // whole difference.
   if (decision.outcome !== 'record') {
     const file = writeItemFile(ctx, outboxDir, id, text);
-    println(stdout, file);
-    println(stderr, `omni item new — the slice ${NONZERO_OUTCOME_LABEL[decision.outcome]}: ${decision.reason}`);
+    if (asJson) {
+      println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, file, reason: decision.reason }));
+    } else {
+      println(stdout, file);
+      println(stderr, `omni item new — the slice ${NONZERO_OUTCOME_LABEL[decision.outcome]}: ${decision.reason}`);
+    }
     return 1;
   }
 
   if (decision.rank === 'medium' && flags.adopt) {
     const result = adoptItem({ ctx, itemText: text });
     if (!result.ok) {
-      println(stderr, 'omni item new — nothing was written:');
-      for (const error of result.errors) println(stderr, `  - ${error}`);
+      if (asJson) {
+        println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, reason: result.errors.join('; ') }));
+      } else {
+        println(stderr, 'omni item new — nothing was written:');
+        for (const error of result.errors) println(stderr, `  - ${error}`);
+      }
       return 1;
     }
-    println(
-      stdout,
-      `omni item new — ${id} adopted straight to ${result.settledFile}; no open item file was written.`,
-    );
+    if (asJson) {
+      println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, adopted: true }));
+    } else {
+      println(
+        stdout,
+        `omni item new — ${id} adopted straight to ${result.settledFile}; no open item file was written.`,
+      );
+    }
     return 0;
   }
 
-  println(stdout, writeItemFile(ctx, outboxDir, id, text));
+  const file = writeItemFile(ctx, outboxDir, id, text);
+  if (asJson) {
+    println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, file }));
+  } else {
+    println(stdout, file);
+  }
   return 0;
 }
 
