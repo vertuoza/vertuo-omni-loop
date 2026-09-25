@@ -11,6 +11,8 @@ import { checkItemText, findOutboxViolations } from './check-outbox.mjs';
 const PLAIN_AND_REQUIRED_SECTIONS = [
   'The question, in plain words',
   'The decision, in plain words',
+  'The intro, for fun',
+  'The punchline, for fun',
   'The options, in plain words',
   'What a person must do',
   'What I had to decide',
@@ -263,6 +265,92 @@ describe('checkItemText', () => {
         },
       });
       expect(checkItemText('docs/outbox/985/s2-01-ok.md', text, { laws })).toEqual([]);
+    });
+  });
+
+  describe('the intro and the punchline (PRD #50, slice s1)', () => {
+    const fun = {
+      'The intro, for fun': 'A release train waits for nobody, except this one question.',
+      'The punchline, for fun': 'The train has already left. The question bought a ticket anyway.',
+    };
+
+    it('accepts an open item carrying a plain pair', () => {
+      const text = itemText({ sections: fun });
+      expect(checkItemText('docs/outbox/985/s2-01-ok.md', text, { laws })).toEqual([]);
+    });
+
+    it('still accepts an open item carrying neither — the pair is optional', () => {
+      const text = itemText();
+      expect(text).not.toMatch(/for fun/);
+      expect(checkItemText('docs/outbox/985/s2-01-ok.md', text, { laws })).toEqual([]);
+    });
+
+    it('refuses an intro over 120 characters, naming the file and the section', () => {
+      const text = itemText({ sections: { ...fun, 'The intro, for fun': 'a'.repeat(121) } });
+      const violations = checkItemText('docs/outbox/985/s2-01-bad.md', text, { laws });
+      expect(violations).toEqual([
+        expect.stringMatching(
+          /^docs\/outbox\/985\/s2-01-bad\.md: "## The intro, for fun" is 121 characters long/,
+        ),
+      ]);
+    });
+
+    it('refuses a punchline holding a backticked code name, naming the file and the section', () => {
+      const text = itemText({
+        sections: { ...fun, 'The punchline, for fun': 'Even `defaultTimeoutMs` needs a holiday.' },
+      });
+      const violations = checkItemText('docs/outbox/985/s2-01-bad.md', text, { laws });
+      expect(violations.length).toBeGreaterThan(0);
+      expect(
+        violations.every((v) =>
+          v.startsWith('docs/outbox/985/s2-01-bad.md: "## The punchline, for fun"'),
+        ),
+      ).toBe(true);
+      expect(
+        violations.some((v) => v.includes('code span') && v.includes('defaultTimeoutMs')),
+      ).toBe(true);
+    });
+
+    it('refuses a line that names a file path or an id', () => {
+      const text = itemText({
+        sections: {
+          'The intro, for fun': 'Nobody ever reads scripts/outbox.mjs for fun.',
+          'The punchline, for fun': 'Except N3, who reads everything.',
+        },
+      });
+      const violations = checkItemText('docs/outbox/985/s2-01-bad.md', text, { laws });
+      expect(
+        violations.some((v) => v.includes('"## The intro, for fun"') && v.includes('file path')),
+      ).toBe(true);
+      expect(
+        violations.some((v) => v.includes('"## The punchline, for fun"') && v.includes('N3')),
+      ).toBe(true);
+    });
+
+    it('refuses an open item carrying only one of the pair, naming the file', () => {
+      const text = itemText({ sections: { 'The intro, for fun': fun['The intro, for fun'] } });
+      const violations = checkItemText('docs/outbox/985/s2-01-bad.md', text, { laws });
+      expect(
+        violations.some(
+          (v) => v.startsWith('docs/outbox/985/s2-01-bad.md:') && v.includes('without'),
+        ),
+      ).toBe(true);
+    });
+
+    it('fails findOutboxViolations on an open item whose intro breaks a rule', () => {
+      mkdirSync(join(root, 'docs/outbox/985'), { recursive: true });
+      writeFileSync(join(root, 'docs/outbox/985/s2-01-good.md'), itemText({ sections: fun }));
+      writeFileSync(
+        join(root, 'docs/outbox/985/s2-02-long.md'),
+        itemText({
+          frontMatter: { id: 's2-02-long' },
+          sections: { ...fun, 'The intro, for fun': 'a'.repeat(130) },
+        }),
+      );
+      const violations = findOutboxViolations({ ctx: flatCtx(root) });
+      expect(violations).toEqual([
+        expect.stringMatching(/^docs\/outbox\/985\/s2-02-long\.md: .*130 characters long/),
+      ]);
     });
   });
 });
