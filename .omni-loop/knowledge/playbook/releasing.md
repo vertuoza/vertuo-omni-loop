@@ -9,7 +9,7 @@ evidence:
   - package.json@39e6355
   - kit/test/dist.test.mjs@e236e83
   - .claude-plugin/marketplace.json@5996f1b
-  - apps/galaxy/README.md@fa2375f
+  - apps/galaxy/README.md@0e2049f
   - apps/omni-app/README.md@ed64d66
 terraformed: 2026-09-25
 ---
