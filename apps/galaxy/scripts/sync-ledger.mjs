@@ -30,14 +30,15 @@ if (r.error) fail('write sectors', r.error);
 r = await db.from('teams').insert(Object.entries(projects.teams).map(([name, { home }]) => ({ name, home })));
 if (r.error) fail('write teams', r.error);
 
-let sent = 0;
+let inserted = 0;
 for (let i = 0; i < events.length; i += 500) {
   const batch = events.slice(i, i + 500).map((e) => ({
     id: e.id, at: e.at, type: e.type, planet: e.planet,
     region: e.region ?? null, contributor: e.contributor ?? null, team: e.team ?? null, data: e.data,
   }));
-  const { error } = await db.from('ledger_events').upsert(batch, { onConflict: 'id', ignoreDuplicates: true });
+  // ignore-duplicates returns only the rows it actually inserted.
+  const { data, error } = await db.from('ledger_events').upsert(batch, { onConflict: 'id', ignoreDuplicates: true }).select('id');
   if (error) fail(`write events ${i}–${i + batch.length}`, error);
-  sent += batch.length;
+  inserted += data?.length ?? 0;
 }
-console.log(`synced ${Object.keys(projects.sectors).length} sectors, ${Object.keys(projects.teams).length} teams, ${sent} ledger events (existing ids skipped)`);
+console.log(`synced ${Object.keys(projects.sectors).length} sectors, ${Object.keys(projects.teams).length} teams; ledger: ${events.length} events read, ${inserted} new`);

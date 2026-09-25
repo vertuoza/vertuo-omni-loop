@@ -19,7 +19,8 @@
   --cyan: #6ff0ff;
   --green: #4ee08a;
   --px: 'Press Start 2P', 'Courier New', monospace;
-  --txt: 'Jersey 10', 'Press Start 2P', 'Courier New', monospace;
+  /* Condensed fallbacks: a wide face in its place would overflow every panel. */
+  --txt: 'Jersey 10', 'Arial Narrow', 'Roboto Condensed', 'Liberation Sans Narrow', 'Helvetica Neue', Arial, sans-serif;
 }
 
 html, body { height: 100%; }
