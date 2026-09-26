@@ -1,6 +1,8 @@
 // The ask sessions and rounds (supabase/migrations/20260926090000_ask_sessions.sql), read and
-// written as the caller: the client carries their access token, so row-level security hands each
-// account its own rows only. Another owner's row reads as missing, exactly like one that never was.
+// written as the caller: the client carries their access token, so row-level security decides. Since
+// PRD 144 (20260927100000_ask_workspace.sql) every member of a session's workspace reads it and its
+// rounds, and only its owner changes or deletes it; a session of another workspace reads as missing,
+// exactly like one that never was.
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /** A session with no call for this long reads as closed (the spec's 12 hours). */
@@ -19,6 +21,8 @@ export type AskSession = {
   status: 'open' | 'closed';
   created_at: string;
   last_seen_at: string;
+  /** The workspace whose members read it (PRD 144), set by the database when it opens. */
+  workspace_id: string | null;
   /** Where the session came from (PRD 144): null when the kit did not say. */
   repo: string | null;
   branch: string | null;
@@ -52,7 +56,7 @@ export type AskRound = {
 /** What a round records besides its questions, as the API worked it out. */
 export type AskRoundFacts = Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd'>;
 
-const SESSION = 'id, owner, title, status, created_at, last_seen_at, repo, branch, claude_session_id';
+const SESSION = 'id, owner, title, status, created_at, last_seen_at, workspace_id, repo, branch, claude_session_id';
 const ROUND = 'id, session_id, questions, answers, answered_via, status, created_at, answered_at, prd, skill, model, tokens, cost_usd, answered_by';
 
 /** Closed, or 12 hours without a call: either way nobody asks in it any more. */
@@ -98,6 +102,12 @@ export function askStore(db: Pick<SupabaseClient, 'from'>) {
 
     async closeSession(id: string, at: Date): Promise<void> {
       settle('close the session', await db.from('ask_sessions').update({ status: 'closed', last_seen_at: at.toISOString() }).eq('id', id));
+    },
+
+    /** Deletes a session and its rounds, for good; false when nothing went (not the owner's). */
+    async deleteSession(id: string): Promise<boolean> {
+      const gone = settle<Array<{ id: string }>>('delete the session', await db.from('ask_sessions').delete().eq('id', id).select('id'));
+      return (gone ?? []).length > 0;
     },
 
     /** A new round; `facts` that are all null are not sent, so an older database takes it too. */

@@ -1,7 +1,8 @@
-// Where the ask page reads its session and sends its answers: straight to the database, as the
-// signed-in person (their session cookie on the server, the browser client on the page), so the
-// migration's row-level security decides. Another person's session reads as missing, exactly like
-// one that never was. The page polls every 2 s; a poll reads the session and each round's status,
+// Where the ask page reads its session, sends its answers and deletes it: straight to the database,
+// as the signed-in person (their session cookie on the server, the browser client on the page), so
+// the migrations' row-level security decides. Every member of the session's workspace reads it
+// (PRD 144); only its owner answers or deletes. A session of another workspace reads as missing,
+// exactly like one that never was. The page polls every 2 s; a poll reads the session and each round's status,
 // and fetches a round's questions and answers again only when it is new or its status moved.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { askStore, AskStoreError, type AskAnswers } from '../store';
@@ -56,13 +57,24 @@ export async function sendAnswers(db: Db, roundId: string, answers: AskAnswers):
   return moved ? 'answered' : 'taken';
 }
 
+/** Deletes the session and its rounds for good: true when it went, false when the caller is not its
+ * owner (row-level security deletes nothing) or it was already gone. */
+export async function removeSession(db: Db, id: string): Promise<boolean> {
+  return askStore(db).deleteSession(id);
+}
+
 /** What the page needs from wherever its session lives: the database, or the demo in the browser. */
 export type AskPort = {
   read(): Promise<SessionState | null>;
   send(roundId: string, answers: AskAnswers): Promise<'answered' | 'taken'>;
+  remove(): Promise<boolean>;
 };
 
 /** The database, as the signed-in person, starting from what the server already read. */
 export function databasePort(db: Db, seed: SessionState): AskPort {
-  return { read: sessionReader(db, seed.session.id, seed), send: (roundId, answers) => sendAnswers(db, roundId, answers) };
+  return {
+    read: sessionReader(db, seed.session.id, seed),
+    send: (roundId, answers) => sendAnswers(db, roundId, answers),
+    remove: () => removeSession(db, seed.session.id),
+  };
 }

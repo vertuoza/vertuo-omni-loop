@@ -4,13 +4,15 @@
 //
 //   POST /api/ask/sessions                {title, context?}    → {id, url}
 //   POST /api/ask/sessions/:id/close                           → {id, status: "closed"}
+//   DELETE /api/ask/sessions/:id                               → {id, deleted: true}
 //   POST /api/ask/sessions/:id/rounds     {questions, context?} → {roundId}
 //   GET  /api/ask/rounds/:id/wait                              → {status: open|answered|abandoned|closed, answers?}
 //   POST /api/ask/rounds/:id/answers      {answers, via: "terminal"} → {id, status: "answered", via: "terminal"}
 //   POST /api/ask/rounds/:id/abandon                           → {id, status: "abandoned"}
 //
 // Every call is refused 401 without a valid bearer token and 403 outside the crew; a session or
-// round of another owner is 404, like one that does not exist. A closed session (or one 12 hours
+// round of another owner is 404, like one that does not exist — except a delete by a member of the
+// session's workspace who is not its owner, who reads it (PRD 144) and is refused 403. A closed session (or one 12 hours
 // idle) takes no new round: 409 with `status: "closed"`. A round that is already answered is left
 // as it is: 409 with `status: "answered"`. 503: no database here, or the sign-in service is down;
 // 500: the database failed. Errors are `{error}` in plain words. Any of them leaves the question
@@ -188,6 +190,17 @@ export function closeSession(request: Request, id: string, deps: AskDeps): Promi
     if (!session) return notFound('session');
     if (session.status !== 'closed') await who.store.closeSession(session.id, new Date(who.now()));
     return reply(200, { id: session.id, status: 'closed' });
+  });
+}
+
+/** Deletes the caller's own session and its rounds, for good (PRD 144: kept until its owner deletes it). */
+export function deleteSession(request: Request, id: string, deps: AskDeps): Promise<Response> {
+  return handle(request, deps, async (who) => {
+    const session = UUID.test(id) ? await who.store.session(id) : null;
+    if (!session) return notFound('session');
+    if (session.owner !== who.caller.id) return refuse(403, 'Only the session\'s owner deletes it.');
+    if (!(await who.store.deleteSession(session.id))) return notFound('session');
+    return reply(200, { id: session.id, deleted: true });
   });
 }
 

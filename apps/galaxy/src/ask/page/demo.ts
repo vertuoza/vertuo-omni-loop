@@ -141,5 +141,9 @@ export function demoPort(seed: SessionState, now: () => number = Date.now, askAg
       askAt = now() + askAgainMs;
       return 'answered';
     },
+    async remove() {
+      state = { ...state, rounds: [] };
+      return true;
+    },
   };
 }
