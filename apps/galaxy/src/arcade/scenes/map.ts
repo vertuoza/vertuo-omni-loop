@@ -141,11 +141,11 @@ function layoutTall(view: GalaxyView, grid: Grid): MapSlot[] {
 }
 
 // The planet in `dir` from the current one that is closest, preferring straight lines.
-export function neighbour(layout: MapSlot[], from: number, dir: 'up' | 'down' | 'left' | 'right'): number {
+export function neighbour<T extends Pick<MapSlot, 'x' | 'y' | 'index'>>(layout: T[], from: number, dir: 'up' | 'down' | 'left' | 'right'): number {
   const cur = layout.find((s) => s.index === from);
   if (!cur) return layout[0]?.index ?? 0;
   const [vx, vy] = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[dir];
-  let best: MapSlot | null = null;
+  let best: T | null = null;
   let bestScore = Infinity;
   for (const s of layout) {
     if (s.index === from) continue;
