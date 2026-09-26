@@ -3,7 +3,8 @@
 --   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/ask.sql
 -- Accounts each with its own JWT. A session belongs to a workspace: every member of it reads the
 -- session and its rounds; only its owner changes it, asks and answers in it, or deletes it; an account
--- of another workspace, or of none, reads nothing. Nothing expires: the sweep only closes idle
+-- of another workspace, or of none, reads nothing. The owner may share a round with a member, who may
+-- then answer it while it is open: the first answer wins. Nothing expires: the sweep only closes idle
 -- sessions. One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
@@ -360,6 +361,169 @@ begin
   end if;
 end $$;
 reset role;
+
+-- ── Sharing (PRD 144, step 4): the owner shares a live round; the first answer wins ──
+-- Dan belongs to Vertuoza too, and nothing is shared with him.
+insert into auth.users (id, email) values ('00000000-0000-4000-8000-0000000000d1', 'dan@vertuoza.com');
+insert into public.workspace_members (workspace_id, user_id)
+select id, '00000000-0000-4000-8000-0000000000d1' from public.workspaces where slug = 'vertuoza';
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+do $$
+declare
+  sid uuid;
+  rid uuid;
+  bob constant uuid := '00000000-0000-4000-8000-0000000000b1';
+  asked constant jsonb := '[{"question": "Which colour?", "header": "Colour", "multiSelect": false,
+                             "options": [{"label": "Blue", "description": "calm"}, {"label": "Red", "description": "loud"}]}]';
+  label text;
+begin
+  insert into public.ask_sessions (title) values ('shared questions') returning id into sid;
+  -- Five rounds: open and shared (twice), answered and shared, abandoned and shared, open and not shared.
+  foreach label in array array['share-open', 'share-open-2', 'share-answered', 'share-abandoned', 'share-none'] loop
+    insert into public.ask_rounds (session_id, questions) values (sid, asked) returning id into rid;
+    insert into ids values (label, rid);
+  end loop;
+  update public.ask_rounds set status = 'answered', answers = '{"Which colour?": "Blue"}', answered_via = 'page'
+   where id = (select id from ids where ids.name = 'share-answered');
+  update public.ask_rounds set status = 'abandoned' where id = (select id from ids where ids.name = 'share-abandoned');
+
+  foreach label in array array['share-open', 'share-open-2', 'share-answered', 'share-abandoned'] loop
+    if not public.ask_round_share((select id from ids where ids.name = label), bob) then
+      raise exception 'FAIL: the owner could not share round % with a member', label;
+    end if;
+  end loop;
+  if not public.ask_round_share((select id from ids where ids.name = 'share-open'), bob) then
+    raise exception 'FAIL: sharing a round twice with the same member was refused';
+  end if;
+  if (select count(*) from public.ask_shares where round_id = (select id from ids where ids.name = 'share-open')) <> 1 then
+    raise exception 'FAIL: sharing twice stored two shares';
+  end if;
+  if (select shared_by from public.ask_shares where round_id = (select id from ids where ids.name = 'share-open')) <> '00000000-0000-4000-8000-0000000000a1' then
+    raise exception 'FAIL: a share does not say who shared it';
+  end if;
+  if public.ask_round_share((select id from ids where ids.name = 'share-none'), '00000000-0000-4000-8000-0000000000c1') then
+    raise exception 'FAIL: a round was shared with an account outside the session''s workspace';
+  end if;
+  if public.ask_round_share((select id from ids where ids.name = 'share-none'), '00000000-0000-4000-8000-0000000000a1') then
+    raise exception 'FAIL: the owner shared a round with themself';
+  end if;
+  if public.ask_round_share('00000000-0000-4000-8000-00000000ffff', bob) then
+    raise exception 'FAIL: a round that does not exist was shared';
+  end if;
+  begin
+    insert into public.ask_shares (round_id, shared_with, shared_by) values ((select id from ids where ids.name = 'share-none'), bob, auth.uid());
+    raise exception 'FAIL: a share was written directly';
+  exception when insufficient_privilege then null; end;
+
+  -- The members Ada may share with: Vertuoza's, not Acme's.
+  if (select array_agg(email order by email) from public.ask_members((select workspace_id from public.ask_sessions where id = sid)))
+     <> array['ada@vertuoza.com', 'bob@vertuoza.com', 'dan@vertuoza.com'] then
+    raise exception 'FAIL: the members of the workspace are not the ones who belong to it';
+  end if;
+end $$;
+
+-- Bob, the member it is shared with: answers the open round, and nothing else.
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+do $$
+declare
+  n int;
+begin
+  if (select count(*) from public.ask_shares where shared_with = auth.uid()) <> 4 then
+    raise exception 'FAIL: a member does not read the rounds shared with them';
+  end if;
+  if public.ask_round_share((select id from ids where name = 'share-none'), '00000000-0000-4000-8000-0000000000d1') then
+    raise exception 'FAIL: a member who is not the owner shared a round';
+  end if;
+  update public.ask_rounds set status = 'answered', answers = '{"Which colour?": "Red"}', answered_via = 'page'
+   where id = (select id from ids where name = 'share-open') and status = 'open';
+  get diagnostics n = row_count;
+  if n <> 1 then raise exception 'FAIL: a shared member could not answer an open round'; end if;
+  if (select answered_by from public.ask_rounds where id = (select id from ids where name = 'share-open')) <> auth.uid() then
+    raise exception 'FAIL: the round does not say the shared member answered it';
+  end if;
+  update public.ask_rounds set status = 'answered', answers = '{"Which colour?": "Red"}', answered_via = 'page'
+   where id = (select id from ids where name = 'share-answered');
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a shared member answered a round already answered'; end if;
+  update public.ask_rounds set status = 'answered', answers = '{"Which colour?": "Red"}', answered_via = 'terminal'
+   where id = (select id from ids where name = 'share-abandoned');
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a shared member answered a round that moved to the terminal'; end if;
+  update public.ask_rounds set status = 'answered', answers = '{"Which colour?": "Red"}', answered_via = 'page'
+   where id = (select id from ids where name = 'share-none');
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a member answered a round not shared with them'; end if;
+  begin
+    update public.ask_rounds set status = 'abandoned' where id = (select id from ids where name = 'share-open-2');
+    raise exception 'FAIL: a shared member abandoned a round';
+  exception when insufficient_privilege then null; end;
+  begin
+    update public.ask_rounds set status = 'answered', answers = '{"Which colour?": "Red"}', answered_via = 'terminal'
+     where id = (select id from ids where name = 'share-open-2');
+    raise exception 'FAIL: a shared member answered as the terminal';
+  exception when insufficient_privilege then null; end;
+end $$;
+
+-- Ada comes second: her answer is not written, and Bob's stands.
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+do $$
+declare
+  n int;
+begin
+  update public.ask_rounds set status = 'answered', answers = '{"Which colour?": "Blue"}', answered_via = 'page'
+   where id = (select id from ids where name = 'share-open') and status = 'open';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a second answer was written over the first'; end if;
+  begin
+    update public.ask_rounds set answers = '{"Which colour?": "Blue"}', answered_via = 'page'
+     where id = (select id from ids where name = 'share-open');
+    raise exception 'FAIL: the owner rewrote a shared member''s answer';
+  exception when check_violation then null; end;
+  if (select answers ->> 'Which colour?' from public.ask_rounds where id = (select id from ids where name = 'share-open')) <> 'Red' then
+    raise exception 'FAIL: the first answer was not kept';
+  end if;
+end $$;
+
+-- Dan, a member it is not shared with: reads the rounds and their shares, answers nothing.
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000d1', 'dan@vertuoza.com');
+do $$
+declare
+  n int;
+begin
+  if not exists (select 1 from public.ask_rounds where id = (select id from ids where name = 'share-open-2')) then
+    raise exception 'FAIL: a member did not read a shared round of their workspace';
+  end if;
+  if (select count(*) from public.ask_shares) <> 4 then raise exception 'FAIL: a member did not read the shares of their workspace''s rounds'; end if;
+  update public.ask_rounds set status = 'answered', answers = '{"Which colour?": "Red"}', answered_via = 'page'
+   where id = (select id from ids where name = 'share-open-2');
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: a member who is neither owner nor shared answered a round'; end if;
+end $$;
+
+-- Carl, of another workspace: no share, no member of Vertuoza.
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
+do $$
+begin
+  if exists (select 1 from public.ask_shares) then raise exception 'FAIL: an account of another workspace read a share'; end if;
+  if exists (select 1 from public.ask_members((select id from public.workspaces where slug = 'vertuoza'))) then
+    raise exception 'FAIL: an account of another workspace listed its members';
+  end if;
+end $$;
+reset role;
+do $$
+begin
+  if has_table_privilege('anon', 'public.ask_shares', 'select, insert, update, delete, truncate') then
+    raise exception 'FAIL: anon holds a privilege on the shares';
+  end if;
+  if has_table_privilege('authenticated', 'public.ask_shares', 'insert, update, delete, truncate') then
+    raise exception 'FAIL: a signed-in account may write a share directly';
+  end if;
+  if has_function_privilege('anon', 'public.ask_round_share(uuid, uuid)', 'execute')
+     or has_function_privilege('anon', 'public.ask_members(uuid)', 'execute') then
+    raise exception 'FAIL: anon may share a round or list members';
+  end if;
+end $$;
 
 -- ── The sweep: one scheduled function; it closes idle sessions and deletes nothing ──
 do $$
