@@ -6,12 +6,14 @@
 // and category, and fetches a round's questions and answers again only when it is new or one of them moved.
 // Any member sorts a round into one of six (PRD 144), through the database's own function for it.
 // The owner shares a round with another member (PRD 144), who then answers it at /ask/q/<round>
-// while it is open; /ask/for-me lists the rounds shared with the caller.
+// while it is open; /ask/for-me lists the rounds shared with the caller; /ask/history reads every
+// round of the caller's workspaces.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Category } from '../classify';
 import { askCategories, askShares, askStore, AskStoreError, type AskAnswers, type AskCategory } from '../store';
 import type { ForMeRow, Member, QuestionState } from './question';
 import type { RoundRow, SessionRow, SessionState } from './view';
+import type { HistoryRow } from './workspace-history';
 
 export type Db = Pick<SupabaseClient, 'from'>;
 /** What sorting a round needs: the database's functions. */
@@ -128,6 +130,23 @@ export async function readForMe(db: Db & SortDb, me: string): Promise<ForMeRow[]
     const session = sessions.find((s) => s.id === sessionId);
     const share = shares.find((s) => s.round_id === round.id);
     return session && share ? [{ round, session, sharedBy: share.shared_by }] : [];
+  });
+}
+
+/** How many of the newest rounds the history reads; filters and search narrow within them. */
+export const HISTORY_LIMIT = 1000;
+
+/** The newest rounds of every workspace the caller belongs to (row-level security reads no other),
+ * each with its session, newest first. */
+export async function readHistory(db: Db, limit = HISTORY_LIMIT): Promise<HistoryRow[]> {
+  const rounds = settle<RoundWithSession[]>('read the history',
+    await db.from('ask_rounds').select(`${ROUND}, session_id`).order('created_at', { ascending: false }).limit(limit)) ?? [];
+  if (rounds.length === 0) return [];
+  const sessions = settle<SessionRow[]>('read the sessions',
+    await db.from('ask_sessions').select(SESSION).in('id', [...new Set(rounds.map((r) => r.session_id))])) ?? [];
+  return rounds.flatMap(({ session_id: sessionId, ...round }) => {
+    const session = sessions.find((s) => s.id === sessionId);
+    return session ? [{ round, session }] : [];
   });
 }
 
