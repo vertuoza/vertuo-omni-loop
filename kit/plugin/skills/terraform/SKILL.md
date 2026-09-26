@@ -14,6 +14,12 @@ request that a person reads, answers and merges.
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
+**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
+then the line `omni sign trailer` prints, directly under it so both stay in the trailer block. Every
+pull request or issue it opens ends its body with the line `omni sign footer` prints, as a paragraph
+of its own just above your session's own attribution lines, and a body it rewrites keeps that line.
+Comments are never signed. A command that prints nothing means signing is off here: add nothing.
+
 **Evidence or nothing.** A section says only what a file in the tree shows, every command it names
 ran green first, and whatever the evidence cannot show becomes a question for a person. A wrong
 claim is worse than an honest hole.
@@ -291,7 +297,8 @@ so the pull request's diff is the proposal and a person can drop it alone. A key
 2. **Checks.** `node .omni-loop/bin/omni.mjs check kb` exits `0`: no error, and one warning per
    question (a blank required slot of a core form would warn too, and should not remain). Fix every
    error it names. Then `node .omni-loop/bin/omni.mjs check all`, green.
-3. **Commits,** Conventional Commits, each ending with the co-author trailer your session requires:
+3. **Commits,** Conventional Commits, each ending with the co-author trailer your session requires,
+   then the `omni sign trailer` line:
    the forms as `docs(knowledge): fill the playbook forms from evidence` (with `--refresh`:
    `docs(knowledge): refresh the stale playbook forms`), the config as
    `chore(config): <what the survey learned>`.
@@ -303,7 +310,7 @@ so the pull request's diff is the proposal and a person can drop it alone. A key
    (`docs(knowledge): terraform the playbook forms`). When a run continues an open pull request,
    rewrite its body instead. The body starts with these lines, above the repository's pull request
    template when it has one (fill it with the same evidence), else followed by Summary, Verified,
-   Risk and rollback, and Reviewer focus:
+   Risk and rollback, and Reviewer focus; either way it ends with the `omni sign footer` line:
 
    ````markdown
    ## Forms

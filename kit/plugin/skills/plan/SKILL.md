@@ -13,6 +13,12 @@ PR** into the default branch. This skill writes no code, files no issues, and me
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
+**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
+then the line `omni sign trailer` prints, directly under it so both stay in the trailer block. Every
+pull request or issue it opens ends its body with the line `omni sign footer` prints, as a paragraph
+of its own just above your session's own attribution lines, and a body it rewrites keeps that line.
+Comments are never signed. A command that prints nothing means signing is off here: add nothing.
+
 ## Step 0
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the repository
@@ -131,16 +137,19 @@ change the check.
 ## 6. Commit, and open the draft feature PR
 
 1. Commit the plan in the worktree as `docs(plan): <topic>`, ending with the co-author trailer your
-   session requires, and run `git push -u <repo.remote> <feature branch>`.
+   session requires, then the `omni sign trailer` line, and run
+   `git push -u <repo.remote> <feature branch>`.
 2. Open the feature PR as a **draft**, because CI skips drafts, so the slices merging into it cost
    no CI run. Follow `/omni:pr`'s **feature** kind: base
    `repo.defaultBranch`, head the feature branch, a Conventional Commits title naming the PRD, and
    the labels and status comment `/omni:pr` sets out (its **Labels** rules decide what happens to a
    missing label). The body starts with `prLinks.feature` filled, then the **Slices** checklist with
    every slice unticked (`- [ ] <slice title> — not started`), then the **Acceptance** checklist when
-   `acceptance.enabled` is true, then the remaining sections filled as far as the spec allows.
+   `acceptance.enabled` is true, then the remaining sections filled as far as the spec allows, and
+   last the `omni sign footer` line.
    `gh pr list --head <feature branch> --base <repo.defaultBranch> --state open --json number,url,isDraft`
-   finds a feature PR already open for the branch: update its body instead of opening another.
+   finds a feature PR already open for the branch: update its body, footer line included, instead
+   of opening another.
 3. The status comment's state is `claimed`, with `slices: 0 / <total> merged`. Do not enter
    `/omni:pr`'s check loop, and never mark the PR ready: `/omni:yolo` carries it from here.
 4. Comment on the PRD issue: `Plan: <plan path> · Feature PR: #<pr>`.

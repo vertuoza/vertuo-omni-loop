@@ -10,6 +10,12 @@ description: Build ONE slice of a PRD to standard — grounded in the repository
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
+**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
+then the line `omni sign trailer` prints, directly under it so both stay in the trailer block. Every
+pull request or issue it opens ends its body with the line `omni sign footer` prints, as a paragraph
+of its own just above your session's own attribution lines, and a body it rewrites keeps that line.
+Comments are never signed. A command that prints nothing means signing is off here: add nothing.
+
 ## Inputs
 
 | input | example | notes |
@@ -71,7 +77,8 @@ building, commit and push work in progress at least every half of
   just make.
 - **Follow local patterns;** let abstractions earn their keep. Narrow, behavioural seams; small
   ports over broad clients; one responsibility per module.
-- **Reviewable commits:** one coherent change each, no unrelated formatting.
+- **Reviewable commits:** one coherent change each, no unrelated formatting, each ending with the
+  co-author trailer your session requires, then the `omni sign trailer` line (**Signing**).
 
 ## 3. Record the decision, keep building
 
@@ -178,8 +185,9 @@ carries here, and what done means. What they ask of a push or a hand-off is part
    shown to pass.
 4. **Push** the slice branch to `repo.remote`.
 5. **Hand off to `/omni:pr`** for the sub-PR into the feature branch: it turns the claim into the
-   sub-PR (title, body, Co-Authored-By trailer on every commit), keeps its status comment, marks it
-   ready once the preflight is green, and runs its lifecycle. A sub-PR has no CI: its lifecycle
+   sub-PR (title; a body that ends with the `omni sign footer` line; the co-author trailer and the
+   `omni sign trailer` line on every commit), keeps its status comment, marks it ready once the
+   preflight is green, and runs its lifecycle. A sub-PR has no CI: its lifecycle
    ends at a green preflight and no conflict with the feature branch. Never merge it, never touch
    another branch.
 

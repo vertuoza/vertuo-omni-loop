@@ -10,6 +10,12 @@ description: Build ONE wave of a PRD in parallel — read the board, claim every
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
+**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
+then the line `omni sign trailer` prints, directly under it so both stay in the trailer block. Every
+pull request or issue it opens ends its body with the line `omni sign footer` prints, as a paragraph
+of its own just above your session's own attribution lines, and a body it rewrites keeps that line.
+Comments are never signed. A command that prints nothing means signing is off here: add nothing.
+
 Each slice is built by its own subagent in its own worktree and ends in its own sub-PR into the
 feature branch. You, the orchestrator, only ever hold each slice's short result; that is what keeps
 this conversation small. You merge; subagents never do.
@@ -141,13 +147,14 @@ run `git fetch <remote>`, then `git worktree add --detach <path> <remote>/<featu
    `node .omni-loop/bin/omni.mjs adopt <file>`. Exit 1 (the ledger refused it): leave that item
    open and name the refusal in the report. Commit the ledger and the removed files together:
    `chore(delivery): wave <n> of PRD <prd> — adopt <k> medium decisions`, with your session's
-   co-author trailer. High items stay open for a person.
+   co-author trailer, then the `omni sign trailer` line. High items stay open for a person.
 2. **Check.** Run the preflight, every command in `commands.checks`, then
    `node .omni-loop/bin/omni.mjs check all`. Red: fix it on the feature branch itself; each fix
    counts toward `limits.attempts`. Still red after that: the wave is stuck; say which step.
 3. `git push <remote> HEAD:<feature branch>`, then `git worktree remove <path>`.
 4. **The feature PR.** Tick each merged slice in its **Slices** checklist (`#<sub-PR> <title>`), in
-   the body shape `/omni:pr` owns (`gh pr edit <feature PR> --body-file <file>`). Rewrite its status
+   the body shape `/omni:pr` owns (`gh pr edit <feature PR> --body-file <file>`), which keeps its
+   `omni sign footer` line. Rewrite its status
    comment through `/omni:pr`'s marker recipe: state `merging slices` (or `stuck`, naming the red
    step), `slices: <merged> / <total> merged`. Never mark the feature PR ready.
 
