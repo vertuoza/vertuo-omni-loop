@@ -40,15 +40,25 @@
 
 /* ── How to play ─────────────────────────────────────────────────────────── */
 
-.briefing { position: absolute; inset: 0; padding: 18px 20px 0; display: flex; flex-direction: column; align-items: center; }
-.brief-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; width: 100%; }
+.briefing { position: absolute; inset: 0; padding: 14px 20px 0; display: flex; flex-direction: column; align-items: center; }
+.brief-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin-top: 12px; width: 100%; }
 .brief-cols section { background: rgba(14, 13, 51, 0.85); border: 2px solid var(--navy); padding: 10px; }
 .brief-cols h3 { margin: 0 0 8px; font-size: 8px; font-weight: 400; }
-.brief-cols ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.brief-cols ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
 .brief-cols li { display: flex; align-items: center; gap: 6px; font-size: 7px; }
 .brief-cols li b { margin-left: auto; font-weight: 400; color: var(--yellow); white-space: nowrap; }
 .brief-cols li.note { font-family: var(--txt); font-size: 15px; color: var(--dim); }
 .briefing .hint { position: absolute; bottom: 10px; margin: 0; }
+
+/* LEVELS: under the other two, across both columns, its three blocks side by side (what each credit
+   is worth in XP, the XP each level is reached at, the level each game opens at). The three sections
+   fill the wide grid down to the hint, so the gaps above are a little tighter than on a two-section page. */
+.brief-cols .brief-levels { grid-column: 1 / -1; padding: 8px 10px; }
+.brief-levels h3 { margin-bottom: 6px; color: var(--cyan); }
+.lv-blocks { display: grid; grid-template-columns: 1.2fr 0.8fr 1.4fr; gap: 20px; }
+.lv-blocks h4 { margin: 0 0 5px; font-size: 7px; font-weight: 400; color: var(--dim); }
+.lv-blocks ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.lv-games .note { margin: 8px 0 0; font-family: var(--txt); font-size: 15px; line-height: 1; color: var(--dim); }
 
 /* ── On the tall grid (320×288) ─────────────────────────────────────────────
    The rules above lay both scenes out on the wide grid; these rearrange them for the Game Boy held
@@ -85,6 +95,12 @@
 .grid-tall .brief-cols li { font-size: 8px; line-height: 1; }
 .grid-tall .brief-cols li.note { margin-top: 2px; font-size: 15px; line-height: 1; }
 .grid-tall .briefing .hint { left: 12px; right: 12px; bottom: 8px; line-height: 1.5; letter-spacing: 0; text-align: center; }
+/* LEVELS on its page: the credits and the curve side by side, the games and the note under them. */
+.grid-tall .lv-blocks { grid-template-columns: 1fr auto; gap: 12px 16px; }
+.grid-tall .lv-games { grid-column: 1 / -1; }
+.grid-tall .lv-blocks h4 { margin-bottom: 8px; font-size: 8px; line-height: 1; }
+.grid-tall .lv-blocks ol { gap: 8px; }
+.grid-tall .lv-games .note { margin-top: 10px; }
 
 @media (prefers-reduced-motion: reduce) {
   .menu .cursor, .menu button.nudge .menu-label::before { animation: none; }
