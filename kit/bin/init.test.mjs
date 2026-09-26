@@ -513,7 +513,17 @@ describe('omni init — the closing steps (AC 8)', () => {
       `  labels  already there: ${LOOP_LABELS.join(', ')}`,
     ]);
     // A form is never overwritten, so a kept one is never listed: the steps follow the labels line.
-    expect(out.split('\n').slice(4)).toEqual(FIRST_RUN.slice(4 + FORM_FILES.length));
+    const secondRun = FIRST_RUN.slice(4 + FORM_FILES.length);
+    secondRun[1] = 'Nothing new to commit. By hand, unless already done:';
+    expect(out.split('\n').slice(4)).toEqual(secondRun);
+  });
+
+  it('a second run with --force wrote the files again, so it asks for a commit', async () => {
+    const { root } = makeRepo({ git: true });
+    const fake = fakeExec();
+    await init(root, [], { fake });
+    const { out } = await init(root, ['--force'], { fake });
+    expect(out).toContain('Commit .omni-loop/ and merge it into trunk, then, by hand:\n');
   });
 
   it('with neither gh nor a remote to name the repository, it says so instead of a link', async () => {
@@ -531,6 +541,40 @@ describe('omni init — the closing steps (AC 8)', () => {
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/bin/omni.mjs': 'bin\n' } });
     const { out } = await init(root);
     expect(out).toContain('  3. (Optional) Require the `omni/outbox` check on trunk:\n');
+  });
+});
+
+describe('omni init — the heads-up', () => {
+  const OUTBOX_WORKFLOW = 'name: outbox\non: pull_request\njobs:\n  status:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ci/outbox\n';
+
+  it('names the outbox workflow of an older loop, and writes nothing outside .omni-loop/', async () => {
+    const { root } = makeRepo({ git: true, files: { '.github/workflows/outbox.yml': OUTBOX_WORKFLOW, '.github/workflows/ci.yml': 'name: ci\n' } });
+    const { code, out } = await init(root);
+    expect(code).toBe(0);
+    expect(out).toContain(
+      '\nHeads-up:\n'
+        + '  - An older copy of the loop already runs here (.github/workflows/outbox.yml). Two loops mean\n'
+        + '    two outbox checks and two label sets: decide which one stays before merging .omni-loop/.\n',
+    );
+    const status = execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' });
+    expect(status.split('\n').filter(Boolean).every((line) => line.slice(3).startsWith('.omni-loop/'))).toBe(true);
+  });
+
+  it('tells a Prettier repository to ignore the bin, and leaves .prettierignore alone', async () => {
+    const { root } = makeRepo({ git: true, files: { '.prettierrc': '{}\n', '.prettierignore': 'dist\n' } });
+    const { out } = await init(root);
+    expect(out).toContain(
+      '  - Prettier checks this repository: add .omni-loop/bin/ to .prettierignore, or its\n'
+        + '    format check rejects the bundled bin.\n',
+    );
+    expect(readFileSync(join(root, '.prettierignore'), 'utf8')).toBe('dist\n');
+  });
+
+  it('says nothing once .prettierignore covers the folder, nor on a repository with neither', async () => {
+    const covered = makeRepo({ git: true, files: { '.prettierrc': '{}\n', '.prettierignore': '# kit\n/.omni-loop/\n' } });
+    expect((await init(covered.root)).out).not.toContain('Heads-up');
+    const bare = makeRepo({ git: true });
+    expect((await init(bare.root)).out).not.toContain('Heads-up');
   });
 });
 
@@ -618,6 +662,7 @@ describe('omni init — the forms (PRD 45, AC 11)', () => {
       '  kept    .omni-loop/bin/omni.mjs  (pass --force to overwrite)',
       ...FORM_FILES.map((path) => `  wrote   ${path}`),
     ]);
+    expect(out).toContain('Commit .omni-loop/ and merge it into trunk, then, by hand:\n');
   });
 
   it('writes no form outside .omni-loop/: a kept config whose playbook lies elsewhere leaves them to /omni:terraform', async () => {
@@ -628,5 +673,6 @@ describe('omni init — the forms (PRD 45, AC 11)', () => {
     expect(gitStatus(root)).toEqual([]);
     expect(out).toContain('  kept    .omni-loop/bin/omni.mjs  (pass --force to overwrite)\n  forms   not written: docs/ is outside .omni-loop/ — see step 4 below\n');
     expect(out).toContain('  4. Fill the forms in docs/ with what the repository can prove, in Claude Code:\n       /omni:terraform\n');
+    expect(out).toContain('Nothing new to commit. By hand, unless already done:\n');
   });
 });
