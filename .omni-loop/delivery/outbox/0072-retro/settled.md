@@ -2274,3 +2274,249 @@ A small change in `kinds/after-merge.mjs` only: reading each bug's timeline to a
 ```
 
 <!-- /omni-outbox-settled: s8-05-what-ties-a-bug-to-the-prd -->
+
+<!-- omni-outbox-settled: s2-07-an-admin-accepts-the-new-permissions -->
+
+## s2-07-an-admin-accepts-the-new-permissions — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-09-26T05:52:00Z
+- Channel: feature pull request #75
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/75#issuecomment-5843665990
+- Basis: affirmation — the answer opens with "ok" and carries no contradiction marker
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: human-action
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s2
+- Wave: 2
+- Stays here: the answer confirms a one-time setup step was done; nothing lasting to file
+
+### The answer, as it was given
+
+```text
+ok
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-07-an-admin-accepts-the-new-permissions
+prd: 72
+slice: s2
+rank: human-action
+bears-on: none
+raised: 2026-09-25
+wave: 2
+---
+
+## The question, in plain words
+
+The retro needs the app to write its own branches, pull requests and issues and to read the build logs, which only an administrator of the organisation can grant. Will someone accept the new permissions?
+
+## The decision, in plain words
+
+Until they are accepted, each retro stops at its first write and leaves one comment on the merged pull request saying it could not run.
+
+## The intro, for fun
+
+The app got a promotion on paper, but its badge still only opens the front door.
+
+## The punchline, for fun
+
+Until an admin signs off, it knocks politely, leaves a note, and goes home.
+
+## What a person must do
+
+1. An organisation admin opens the omni-loop GitHub App's settings and updates its permissions to match the manifest: contents write, issues write, actions read.
+2. On the vertuo-omni-loop installation, accept the new permissions GitHub asks for.
+
+The app's README lists this as the first of the retro's human steps.
+
+## What I had to decide
+
+`app.yml` now asks for `contents: write` (was `read`), `issues: write` and `actions: read`. GitHub applies widened permissions only once an org admin updates the app's registration and accepts them on each installation.
+
+## What I did meanwhile
+
+The manifest and the README carry the new permissions. When a write is refused, the function's failure handler leaves one comment on the merged PR.
+
+## What it costs to change later
+
+None in code: retros that ran before the permissions were accepted failed, and can be replayed from Inngest afterwards.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the registered app already matches `app.yml` was not checked (author).
+
+```
+
+<!-- /omni-outbox-settled: s2-07-an-admin-accepts-the-new-permissions -->
+
+<!-- omni-outbox-settled: s6-05-the-writing-model-needs-its-key -->
+
+## s6-05-the-writing-model-needs-its-key — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-09-26T05:52:00Z
+- Channel: feature pull request #75
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/75#issuecomment-5843665990
+- Basis: affirmation — the answer opens with "ok" and carries no contradiction marker
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: human-action
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s6
+- Wave: 3
+- Stays here: the answer confirms a one-time setup step was done; nothing lasting to file
+
+### The answer, as it was given
+
+```text
+ok
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-05-the-writing-model-needs-its-key
+prd: 72
+slice: s6
+rank: human-action
+bears-on: none
+raised: 2026-09-25
+wave: 3
+---
+
+## The question, in plain words
+
+The retro asks a writing model for its summary and its lessons, and that needs a key that only a person can create and store in the app's hosting settings. Will someone add it?
+
+## The decision, in plain words
+
+Until the key is set, every retro goes out with the counted facts only, says so on its first line, and proposes no lessons.
+
+## The intro, for fun
+
+The writer showed up for work, but nobody handed over the key to the office.
+
+## The punchline, for fun
+
+Until then, the retro reads out the facts in a flat voice and skips the lessons.
+
+## What a person must do
+
+1. Create an OpenRouter key for the team.
+2. In the omni-loop Vercel project (the app, not the galaxy), add it as `OPENROUTER_API_KEY` for Production.
+3. Check that OpenRouter serves `anthropic/claude-opus-5.5`; if it does not, also set `OPENROUTER_MODEL` to a model it does serve.
+4. If the key is set after this pull request merges, redeploy the omni-loop project once.
+
+The same steps are in issue #93.
+
+## What I had to decide
+
+`narrate` reads `OPENROUTER_API_KEY` (and optionally `OPENROUTER_MODEL`) from the Vercel function's environment. The code cannot create or store a secret. Issue #93 holds the steps.
+
+## What I did meanwhile
+
+Without the variable, `narrate` returns `no model key` and the retro publishes "Facts only: no model key". Nothing fails.
+
+## What it costs to change later
+
+None in code: setting the key later changes only the retros after it; earlier ones can be replayed from Inngest.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether OpenRouter serves `anthropic/claude-opus-5.5` was not checked live (author).
+
+```
+
+<!-- /omni-outbox-settled: s6-05-the-writing-model-needs-its-key -->
+
+<!-- omni-outbox-settled: s8-06-the-job-service-allows-a-fourteen-day-wait -->
+
+## s8-06-the-job-service-allows-a-fourteen-day-wait — drifted
+
+- Verdict: drifted
+- Approved by: pierrederval
+- Approved at: 2026-09-26T05:52:00Z
+- Channel: feature pull request #75
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/75#issuecomment-5843665990
+- Basis: contradiction-marker — the answer says "no", which reads as a change to the recorded choice
+- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Rank: human-action
+- Bears on: none
+- Raised: 2026-09-25
+- Slice: s8
+- Wave: 4
+- Became: playbook/architecture#boundaries
+
+### The answer, as it was given
+
+```text
+no, because the plan caps sleeps at 7 days
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-06-the-job-service-allows-a-fourteen-day-wait
+prd: 72
+slice: s8
+rank: human-action
+bears-on: none
+raised: 2026-09-25
+wave: 4
+---
+
+## The question, in plain words
+
+The second look at a delivery waits fourteen days after the merge, and whether a background job may wait that long depends on the plan of the service that runs it. Will someone check the plan allows it?
+
+## The decision, in plain words
+
+The retro waits fourteen days as the spec asks; if the plan allows less, the second look does not happen until the waiting is rebuilt as a daily scheduled job.
+
+## The intro, for fun
+
+Setting a reminder two weeks out only works if the calendar goes that far.
+
+## The punchline, for fun
+
+Somebody has to flip to the next page and check.
+
+## What a person must do
+
+1. Open the Inngest account the omni-loop app uses and find the longest wait (sleep) its plan allows.
+2. If it is fourteen days or more, reply ok. If it is shorter, reply no with the limit, so the second look is rebuilt as a daily scheduled job.
+
+## What I had to decide
+
+The retro function sleeps with `step.sleepUntil` until the merge plus 14 days. Inngest caps how long a run may sleep by plan, and the code cannot read the plan. The README says a daily scheduled function takes over otherwise, but that fallback is not built.
+
+## What I did meanwhile
+
+Built the 14-day sleep only; no scheduled fallback exists.
+
+## What it costs to change later
+
+Small: if the plan is too short, the day-14 run moves to a daily scheduled Inngest function, a change in the function file only.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- What Inngest does with a sleep longer than the plan allows was not tested live (author).
+
+```
+
+<!-- /omni-outbox-settled: s8-06-the-job-service-allows-a-fourteen-day-wait -->
