@@ -25,6 +25,3 @@ export async function supabaseServer() {
     },
   });
 }
-
-/** Only @vertuoza.com accounts are crew; the database says the same (public.is_crew()). */
-export const isCrewEmail = (email: string | null | undefined) => Boolean(email && email.toLowerCase().endsWith('@vertuoza.com'));
