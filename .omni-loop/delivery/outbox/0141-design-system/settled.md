@@ -546,3 +546,314 @@ A constant per step, and one generator line to move the properties to tokens.css
 ```
 
 <!-- /omni-outbox-settled: s3-03-type-scale-values -->
+
+<!-- omni-outbox-settled: s5-01-crest-final-pixels -->
+
+## s5-01-crest-final-pixels — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-crest-final-pixels
+prd: 141
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 4
+---
+
+## The question, in plain words
+
+The approved sketch of the logo was marked as a rough draft. What should the final pixels look like?
+
+## The decision, in plain words
+
+The logo was redrawn by fixed rules close to the sketch: a round loop arrow whose tip points up at the top right, square blocky letters, lit from the top left, a dark blue outline and a purple shadow. The big letter O in the stacked version is the same O drawn twice as large.
+
+## The intro, for fun
+
+The sketch said it was only a sketch, so somebody had to place the final pixels.
+
+## The punchline, for fun
+
+Each pixel was placed by hand, and none of them was left alone on the edge.
+
+## The options, in plain words
+
+A. Keep the crest as drawn, the option built.
+B. A person redraws the O or the letters by hand, and the grids take their pixels.
+C. Make the lockup's big O a drawing of its own instead of the O doubled.
+
+## What I had to decide
+
+Whether the drawn crest (the loop-arrow O at 16 by 14, the 5 by 7 face at 2x, the lockup's O doubled) is the logo, or needs another pass by a person.
+
+## What I did meanwhile
+
+The crest as drawn in the logo module; its shape lives in a few string grids, so a redraw changes pixels, not code.
+
+## What it costs to change later
+
+Redrawing is editing the grids in the logo module; the tests check the rules, not the exact pixels.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- No designer has seen the final pixels at poster scale; the check was the arcade's own screenshots (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-01-crest-final-pixels -->
+
+<!-- omni-outbox-settled: s5-02-boot-draws-the-o-title-draws-the-word -->
+
+## s5-02-boot-draws-the-o-title-draws-the-word — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-boot-draws-the-o-title-draws-the-word
+prd: 141
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 4
+---
+
+## The question, in plain words
+
+Which version of the logo goes on the opening screen and which on the title screen, and does a customer's workspace see it on the title too?
+
+## The decision, in plain words
+
+The opening screen shows the looped O on its own, in the place the Vertuoza V used to sit, with the words OMNI LOOP PRESENTS under it. The title screen shows the full OMNI LOOP logo for everyone, customers included, because the game itself is called Omni Loop.
+
+## The intro, for fun
+
+The opening screen already says OMNI LOOP in words. Writing it twice seemed a lot.
+
+## The punchline, for fun
+
+So the O introduces itself first, and the whole name turns up on the title screen.
+
+## The options, in plain words
+
+A. Mark on the boot, full logo on the title for every brand, the option built.
+B. Full logo on the boot as well, and the words under it read only PRESENTS.
+C. Under a workspace's brand, the title goes back to the words OMNI LOOP instead of the crest.
+
+## What I had to decide
+
+Whether the boot draws the mark or the full form, and whether the title's crest is shown under a workspace's brand as well.
+
+## What I did meanwhile
+
+The boot draws the mark at 4x under the house brand, and a workspace still draws its letter; the title draws the full form at 3x (2x on the phone) under every brand.
+
+## What it costs to change later
+
+A constant in the boot's drawing and one condition in the title.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- No person has looked at it yet; the check was the arcade's own screenshots (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-02-boot-draws-the-o-title-draws-the-word -->
+
+<!-- omni-outbox-settled: s5-03-house-letter-in-the-intro -->
+
+## s5-03-house-letter-in-the-intro — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-house-letter-in-the-intro
+prd: 141
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 4
+---
+
+## The question, in plain words
+
+When a new player with no workspace watches the joining story, its first seconds used to flash the Vertuoza V. What should they flash now?
+
+## The decision, in plain words
+
+They flash an O made of the same striped bars, because Omni Loop now starts with an O. The new logo is only drawn on the opening and title screens, as the plan asks.
+
+## The intro, for fun
+
+The joining story still flashes a letter in its first second, and the V has left the house.
+
+## The punchline, for fun
+
+An O stepped in. It is round, it is striped, and it did not audition.
+
+## The options, in plain words
+
+A. The striped O, the option built.
+B. The crest's looped O, as on the opening screen.
+C. Keep the Vertuoza V there, as before.
+
+## What I had to decide
+
+Whether the intro's opening bars, under the house brand, show the striped O (the letter of Omni Loop) or the crest's mark.
+
+## What I did meanwhile
+
+The striped O, drawn by the letter mark the way any brand's first letter is.
+
+## What it costs to change later
+
+Drawing the crest there instead is one condition in the intro scene, beside the boot's.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the intro should carry the brand at all once the home page exists (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-03-house-letter-in-the-intro -->
+
+<!-- omni-outbox-settled: s5-04-boot-learns-the-crest-outside-its-ground -->
+
+## s5-04-boot-learns-the-crest-outside-its-ground — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-04-boot-learns-the-crest-outside-its-ground
+prd: 141
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 4
+---
+
+## The question, in plain words
+
+To draw the new logo on the opening screen, this slice changed a little of the game's main screen code, which sits outside the part it was given. Was that right?
+
+## The decision, in plain words
+
+Yes, with the smallest change possible: the main screen now passes along whether the logo should be drawn, and nothing else changes. No other slice was working on those files at the time.
+
+## The intro, for fun
+
+The opening screen had to know whose logo to draw, and nobody had told it.
+
+## The punchline, for fun
+
+One small note was passed through a door this slice was not meant to open.
+
+## The options, in plain words
+
+A. Carry the crest in the frame state, the option built.
+B. Draw the boot's crest in the page layer above the canvas instead, inside the slice's own files, and leave the canvas black under the house brand.
+
+## What I had to decide
+
+Whether carrying the house brand's crest through the frame state, in the arcade's shared scene types and the arcade app, is acceptable outside the slice's territory.
+
+## What I did meanwhile
+
+An optional logo field on the frame state, set from the brand's look; every scene but the boot ignores it.
+
+## What it costs to change later
+
+Three lines in the arcade app and one field in the shared scene types; removing them puts the letter mark back on the boot.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the other slices of this wave or the next expected those files untouched (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-04-boot-learns-the-crest-outside-its-ground -->
