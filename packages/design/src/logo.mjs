@@ -181,12 +181,20 @@ export function logoSvg(form, { scale = 1, mono = false, title = null } = {}) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${art.w * k}" height="${art.h * k}" viewBox="0 0 ${art.w} ${art.h}" shape-rendering="crispEdges"${label}${paths.join('')}</svg>`;
 }
 
-/** Draws a logo drawing on a canvas with its top left at (`x`, `y`), `scale` canvas pixels a pixel. */
-export function drawLogo(ctx, form, x, y, { scale = 1, mono = false } = {}) {
+/**
+ * Draws a logo drawing on a canvas with its top left at (`x`, `y`), `scale` canvas pixels a pixel.
+ * `reveal` (0 to 1) draws only that share of its columns, from the left, rounded up to a whole one.
+ */
+export function drawLogo(ctx, form, x, y, { scale = 1, mono = false, reveal = 1 } = {}) {
   const k = wholeScale(scale);
   x = Math.round(x); y = Math.round(y);
-  for (const [c, runs] of runsByColour(logoPixels(form, { mono }))) {
+  const art = logoPixels(form, { mono });
+  const cols = Math.ceil(art.w * Math.min(1, Math.max(0, reveal)));
+  for (const [c, runs] of runsByColour(art)) {
     ctx.fillStyle = c;
-    for (const [rx, ry, n] of runs) ctx.fillRect(x + rx * k, y + ry * k, n * k, k);
+    for (const [rx, ry, n] of runs) {
+      const shown = Math.min(n, cols - rx);
+      if (shown > 0) ctx.fillRect(x + rx * k, y + ry * k, shown * k, k);
+    }
   }
 }

@@ -117,6 +117,21 @@ describe('the logo', () => {
         }
         expect(() => drawLogo(ctx, form, 0, 0, { scale: 2.5 })).toThrow(/whole number/);
       });
+
+      it('reveals itself from the left, a whole pixel column at a time', () => {
+        const drawn = (reveal) => {
+          const rects = [];
+          drawLogo({ fillStyle: '', fillRect: (x, y, w, h) => rects.push({ x, w, a: w * h }) }, form, 0, 0, { scale: 2, reveal });
+          return rects;
+        };
+        expect(drawn(0)).toEqual([]);
+        expect(drawn(1).reduce((n, r) => n + r.a, 0)).toBe(art.pixels.filter(Boolean).length * 4);
+        const half = drawn(0.5);
+        const cols = Math.ceil(art.w * 0.5);
+        expect(Math.max(...half.map((r) => r.x + r.w))).toBeLessThanOrEqual(cols * 2);
+        const lit = art.pixels.filter((c, i) => c && i % art.w < cols).length;
+        expect(half.reduce((n, r) => n + r.a, 0)).toBe(lit * 4);
+      });
     });
   }
 

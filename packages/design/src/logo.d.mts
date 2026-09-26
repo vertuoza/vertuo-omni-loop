@@ -12,5 +12,5 @@ export const LOGO_DRAWINGS: readonly LogoDrawing[];
 export function logoPixels(form: LogoDrawing, o?: { mono?: boolean }): { readonly w: number; readonly h: number; readonly pixels: readonly (string | null)[] };
 /** A logo drawing as a crisp SVG string, `scale` (a whole number) times its pixels; `title` names it for a screen reader. */
 export function logoSvg(form: LogoDrawing, o?: { scale?: number; mono?: boolean; title?: string | null }): string;
-/** Draws a logo drawing on a canvas with its top left at (`x`, `y`), at a whole-number `scale`. */
-export function drawLogo(ctx: Ctx, form: LogoDrawing, x: number, y: number, o?: { scale?: number; mono?: boolean }): void;
+/** Draws a logo drawing on a canvas with its top left at (`x`, `y`), at a whole-number `scale`; `reveal` (0 to 1) draws that share of its columns from the left. */
+export function drawLogo(ctx: Ctx, form: LogoDrawing, x: number, y: number, o?: { scale?: number; mono?: boolean; reveal?: number }): void;
