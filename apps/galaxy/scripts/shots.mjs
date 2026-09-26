@@ -3,9 +3,9 @@
 //
 // It walks the demo galaxy from the keyboard, as a player would: the boot, the title's three
 // phases, INSERT COIN, the simulated Google sign-in and GitHub link, the whole joining flow, the
-// menu and every screen behind it (the planet's four tabs each on its own, the star chart, a system
-// and its reading card, the game room, and Entropy Invaders' score table, play and pause), then the
-// welcome back.
+// level-up (the demo guest's borrowed level, not yet celebrated in this browser), the menu and every
+// screen behind it (the planet's four tabs each on its own, the star chart, a system and its reading
+// card, the game room, and Entropy Invaders' score table, play and pause), then the welcome back.
 // The page's clock is Playwright's, advanced step by step, so every screenshot is taken at the same
 // moment of its scene on every run. Nothing here runs in `pnpm test`.
 //
@@ -26,12 +26,12 @@ const SIZES = [
   { name: '1440x900', width: 1440, height: 900, touch: false, what: 'a mouse' },
 ];
 
-// Every screenshot, in walk order: the 23 scenes, with the title's phases, the planet's tabs, a
+// Every screenshot, in walk order: the 24 scenes, with the title's phases, the planet's tabs, a
 // system's reading card and Entropy Invaders' ready screen, play and pause each its own. The number
 // in a file's name is its place here.
 const SHOTS = [
   'boot', 'title', 'title-story', 'title-hiscore', 'coin', 'away', 'gate', 'link', 'intro', 'select', 'name', 'hero',
-  'ready', 'menu', 'map', 'planet-status', 'planet-zones', 'planet-entropy', 'planet-log', 'chart', 'system',
+  'ready', 'levelup', 'menu', 'map', 'planet-status', 'planet-zones', 'planet-entropy', 'planet-log', 'chart', 'system',
   'system-card', 'fleets', 'heroes', 'games', 'invaders', 'invaders-play', 'invaders-paused', 'briefing', 'welcome', 'outsider',
 ];
 
@@ -198,7 +198,9 @@ async function walkGuest(d, taken) {
   await shot('hero', 'hero', 500);
   await d.key('Enter', 'ready');
   await shot('ready', 'ready', 2000);
-  await d.key('Enter', 'menu');
+  await d.key('Enter', 'levelup'); // the menu's first arrival: the guest's borrowed LV 3 is new here, and opened Entropy Invaders
+  await shot('levelup', 'levelup', 1500);
+  await d.key('b', 'menu'); // B: on to the menu, the level now celebrated in this browser
   await shot('menu', 'menu', 500);
   await d.key('Enter', 'map'); // the menu's first row: GALAXY MAP
   await shot('map', 'map', 800);

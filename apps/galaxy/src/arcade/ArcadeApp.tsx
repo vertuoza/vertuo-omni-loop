@@ -29,6 +29,7 @@ import { PLANET_TABS, PlanetOverlay } from './scenes/planet.tsx';
 import { FleetsOverlay } from './scenes/fleets.tsx';
 import { GamesOverlay } from './scenes/games.tsx';
 import { InvadersOverlay } from './scenes/invaders.tsx';
+import { LevelUpOverlay } from './scenes/levelup.tsx';
 import { cabinetDoor, cabinets, xpStatus } from './games/room';
 import { GAMES } from './games';
 import {
@@ -41,7 +42,8 @@ import { stripesOf, themeVars } from './theme';
 import { Stripes } from './Sprite';
 import { foldChar, foldName, nameInit, nameReduce, nameValue, NAME_RULE, type NameAction, type NameState } from './name-entry';
 import { BUILDER_ROWS, cycleHero } from './builder';
-import { afterGate, afterReturn, afterStart, allowed, backStep, isDisbanded, isLinked, nextStep, readReturn, type Flow, type Step } from './onboarding';
+import { afterGate, afterReturn, afterStart, allowed, arrive, backStep, isDisbanded, isLinked, nextStep, readReturn, type Flow, type Step } from './onboarding';
+import { createSeen, fanfareOf, levelUpFor, type LevelUp, type Local } from './levelup';
 import type { Account, FleetRow, Player, PlayerPatch, ScoresRead, Session, XpRead } from './types';
 import './shell.css';
 
@@ -72,11 +74,14 @@ export interface UI {
   sun: number; world: number; // the star chart's sun and the system's world under the cursor
   card: boolean; cardPage: number; // the reading card over the system, and its page
   cabinet: number; // the game room's cabinet under the cursor (wide), the page shown (tall)
+  levelUp: LevelUp | null; // what the level-up screen celebrates, set as it opens
 }
 
 const DEEP_LINKS: SceneName[] = ['map', 'chart', 'fleets', 'heroes', 'games', 'briefing'];
 const FLOW_KEY = 'omni-loop:flow'; // survives the trip to GitHub and back
 const GAMES_SEEN_KEY = 'omni-loop:games-seen'; // GAMES carries a NEW tag until the room is opened on this device
+// This browser's storage, where each login's last celebrated level is kept (levelup.ts): reaching it can throw.
+const LOCAL: Local = () => window.localStorage;
 
 function readHash(view: GalaxyView | null): Partial<UI> | null {
   if (typeof window === 'undefined' || !view) return null;
@@ -166,7 +171,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     flow: 'onboard', pick: 0, lockedAt: null, lockSaved: false, confirm: false,
     name: nameInit(''), shake: -1, hero: me0?.hero ?? { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 }, heroRow: 0,
     link: 'ask', linkLogin: null, away: false, error: null, toast: null,
-    sun: 0, world: 0, card: false, cardPage: 0, cabinet: 0,
+    sun: 0, world: 0, card: false, cardPage: 0, cabinet: 0, levelUp: null,
   }));
   const [muted, setMuted] = useState(false);
   const [gamesSeen, setGamesSeen] = useState(true); // read from this device on the first render
@@ -226,11 +231,24 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const sendScoreRef = useRef(sendScore);
   sendScoreRef.current = sendScore;
 
+  // The level-up: the levels each login last celebrated on this device, and the one due now, if any.
+  const seen = useMemo(() => createSeen(LOCAL), []);
+  const loginOf = () => meRef.current?.github_login ?? sessionRef.current?.github ?? null;
+  const levelUpDue = useRef<() => LevelUp | null>(() => null);
+  levelUpDue.current = () => {
+    const login = loginOf();
+    return login ? levelUpFor(xpStatus(isLinked(sessionRef.current, meRef.current), xp), seen.get(login)) : null;
+  };
+
   const go = useCallback((patch: Partial<UI>, effect?: Sfx) => {
     if (effect) sfx(effect);
+    // Every route to the menu arrives through here: with a level not yet celebrated on this device,
+    // the level-up plays first.
+    const due = patch.scene === 'menu' ? levelUpDue.current() : null;
+    const next = patch.scene && arrive(patch.scene, Boolean(due)) === 'levelup' ? { ...patch, scene: 'levelup' as const, levelUp: due } : patch;
     setUi((u) => {
-      const moved = patch.scene !== undefined && patch.scene !== u.scene;
-      return { ...u, page: moved ? 0 : u.page, ...patch, since: moved ? now() : u.since };
+      const moved = next.scene !== undefined && next.scene !== u.scene;
+      return { ...u, page: moved ? 0 : u.page, ...next, since: moved ? now() : u.since };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -328,7 +346,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     setGamesSeen(true);
     try { window.localStorage.setItem(GAMES_SEEN_KEY, '1'); } catch { /* per-device courtesy only */ }
   }, [ui.scene, gamesSeen]);
-  useEffect(() => { if (ui.lockedAt === null) music(TRACK[ui.scene] ?? null); }, [ui.scene, ui.lockedAt]);
+  useEffect(() => {
+    if (ui.lockedAt !== null) return;
+    music(ui.scene === 'levelup' && ui.levelUp ? fanfareOf(ui.levelUp) : TRACK[ui.scene] ?? null);
+  }, [ui.scene, ui.lockedAt, ui.levelUp]);
   // A game is only ever on its own scene: one left by another route is over, and the scene with no
   // game goes back to the room.
   useEffect(() => {
@@ -598,6 +619,17 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'b') return go({ scene: 'menu' }, 'back');
         return;
       }
+      case 'levelup': {
+        // A (or START) plays the game the level opened at once; B, and A with no game opened, go on
+        // to the menu. Either saves the level as celebrated on this device, so it plays once.
+        if (action !== 'a' && action !== 'b' && action !== 'start') return;
+        const login = loginOf();
+        if (u.levelUp && login) seen.set(login, u.levelUp.xp.level);
+        const game = action === 'b' ? null : u.levelUp?.game ?? null;
+        if (game?.scene === 'invaders') return view ? playInvaders() : open('menu', { toast: problem ?? 'GALAXY OUT OF REACH' }, 'buzz');
+        if (game?.scene) return go({ scene: game.scene }, 'start');
+        return open('menu', {}, action === 'b' ? 'back' : 'select');
+      }
       case 'invaders': {
         // ◀ ▶ and A are read held, by the canvas loop; a press answers START, B, and A on a screen.
         const g = gameRef.current;
@@ -641,7 +673,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') return go({ scene: 'menu' }, 'back');
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, showHud, sendScore]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, showHud, sendScore, seen, problem]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): the first press
@@ -811,6 +843,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'welcome': return <WelcomeOverlay name={displayName} team={me?.team ?? null} />;
       case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={openItem} chart={knowledge} xp={xpNow} />;
       case 'games': return <GamesOverlay xp={xpNow} me={me} index={ui.cabinet} scores={scores} onPick={(i) => { if (i === ui.cabinet) act('a'); else go({ cabinet: i }, 'move'); }} />;
+      case 'levelup': return ui.levelUp ? <LevelUpOverlay levelUp={ui.levelUp} /> : null;
       case 'invaders': return view ? <InvadersOverlay hud={hud} values={view.rules.woundClose} hero={me?.hero ?? ui.hero} team={me?.team ?? null} hi={hiOf(scores[INVADERS])} send={send} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => act('a')} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => go({ tab }, 'tab')} /> : null;
