@@ -1,0 +1,1060 @@
+{
+  "prd": 141,
+  "runs": [
+    {
+      "featurePr": {
+        "mergeSha": "ae719f745529ddd64e2e9383cdb9b46d6ddf81b2",
+        "mergedAt": "2026-09-26T15:56:02Z",
+        "number": 153,
+        "openedAt": "2026-09-26T10:05:43Z",
+        "title": "feat(design): Omni Loop design system (PRD 141)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/153"
+      },
+      "findings": [
+        {
+          "evidence": [
+            {
+              "label": "#168",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/168/files"
+            }
+          ],
+          "happened": "Slice s3 changed 1 path outside its territory and off the plan’s shared ground: `apps/galaxy/app/knowledge/layout.tsx`.",
+          "id": "territory:s3",
+          "kind": "territory",
+          "ref": "F1",
+          "source": "delivery",
+          "title": "Slice s3 changed files outside its territory"
+        },
+        {
+          "evidence": [
+            {
+              "label": "68ac5c3 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/68ac5c30d3a86217497f52f90766bf75d20dc81b"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0141-design-system/s3-03-type-scale-values.md` had 50 lines added across 1 commits, none of them in the final diff: 50 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0141-design-system/s3-03-type-scale-values.md",
+          "kind": "churn",
+          "ref": "F2",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0141-design-system/s3-03-type-scale-values.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "68ac5c3 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/68ac5c30d3a86217497f52f90766bf75d20dc81b"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0141-design-system/s3-02-font-alphabets.md` had 49 lines added across 1 commits, none of them in the final diff: 49 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0141-design-system/s3-02-font-alphabets.md",
+          "kind": "churn",
+          "ref": "F3",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0141-design-system/s3-02-font-alphabets.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "451afc7 (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/451afc7d570f4c5a7a23d491829da42deb5339bb"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0141-design-system/s4-01-pose-builds.md` had 49 lines added across 1 commits, none of them in the final diff: 49 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0141-design-system/s4-01-pose-builds.md",
+          "kind": "churn",
+          "ref": "F4",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0141-design-system/s4-01-pose-builds.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "453657a (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/453657a9d8cfec9dac829694dbb9b9b51cc4f051"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0141-design-system/s5-01-crest-final-pixels.md` had 49 lines added across 1 commits, none of them in the final diff: 49 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0141-design-system/s5-01-crest-final-pixels.md",
+          "kind": "churn",
+          "ref": "F5",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0141-design-system/s5-01-crest-final-pixels.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "453657a (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/453657a9d8cfec9dac829694dbb9b9b51cc4f051"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0141-design-system/s5-02-boot-draws-the-o-title-draws-the-word.md` had 49 lines added across 1 commits, none of them in the final diff: 49 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0141-design-system/s5-02-boot-draws-the-o-title-draws-the-word.md",
+          "kind": "churn",
+          "ref": "F6",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0141-design-system/s5-02-boot-draws-the-o-title-draws-the-word.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "453657a (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/453657a9d8cfec9dac829694dbb9b9b51cc4f051"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0141-design-system/s5-03-house-letter-in-the-intro.md` had 49 lines added across 1 commits, none of them in the final diff: 49 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0141-design-system/s5-03-house-letter-in-the-intro.md",
+          "kind": "churn",
+          "ref": "F7",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0141-design-system/s5-03-house-letter-in-the-intro.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "2e89210 (s6)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/2e892102d5b6695d5f72847c9dde8d4944b0ff9c"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0141-design-system/s6-01-design-page-shows-the-built-in-fleets.md` had 49 lines added across 1 commits, none of them in the final diff: 49 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0141-design-system/s6-01-design-page-shows-the-built-in-fleets.md",
+          "kind": "churn",
+          "ref": "F8",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0141-design-system/s6-01-design-page-shows-the-built-in-fleets.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "2e89210 (s6)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/2e892102d5b6695d5f72847c9dde8d4944b0ff9c"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0141-design-system/s6-02-design-page-screenshots-described-not-attached.md` had 49 lines added across 1 commits, none of them in the final diff: 49 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0141-design-system/s6-02-design-page-screenshots-described-not-attached.md",
+          "kind": "churn",
+          "ref": "F9",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0141-design-system/s6-02-design-page-screenshots-described-not-attached.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "40d03a0 (s7)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/40d03a091b0bd138672580a3f5dad3b7539748e2"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0141-design-system/s7-01-logo-minimum-sizes-and-grounds.md` had 49 lines added across 1 commits, none of them in the final diff: 49 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0141-design-system/s7-01-logo-minimum-sizes-and-grounds.md",
+          "kind": "churn",
+          "ref": "F10",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0141-design-system/s7-01-logo-minimum-sizes-and-grounds.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "e96d6f5 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/e96d6f5686233300f0bd9ee192318a5cb3a57c80"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0141-design-system/s2-01-pixel-palette-stays-in-its-file.md` had 48 lines added across 1 commits, none of them in the final diff: 48 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0141-design-system/s2-01-pixel-palette-stays-in-its-file.md",
+          "kind": "churn",
+          "ref": "F11",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0141-design-system/s2-01-pixel-palette-stays-in-its-file.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "e96d6f5 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/e96d6f5686233300f0bd9ee192318a5cb3a57c80"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0141-design-system/s2-02-vertuoza-mark-colours-stay-in-the-game.md` had 48 lines added across 1 commits, none of them in the final diff: 48 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0141-design-system/s2-02-vertuoza-mark-colours-stay-in-the-game.md",
+          "kind": "churn",
+          "ref": "F12",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0141-design-system/s2-02-vertuoza-mark-colours-stay-in-the-game.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "e96d6f5 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/e96d6f5686233300f0bd9ee192318a5cb3a57c80"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0141-design-system/s2-03-ask-colours-stay-out-of-the-shared-stylesheet.md` had 48 lines added across 1 commits, none of them in the final diff: 48 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0141-design-system/s2-03-ask-colours-stay-out-of-the-shared-stylesheet.md",
+          "kind": "churn",
+          "ref": "F13",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0141-design-system/s2-03-ask-colours-stay-out-of-the-shared-stylesheet.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "68ac5c3 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/68ac5c30d3a86217497f52f90766bf75d20dc81b"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0141-design-system/s3-01-knowledge-page-fonts.md` had 48 lines added across 1 commits, none of them in the final diff: 48 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0141-design-system/s3-01-knowledge-page-fonts.md",
+          "kind": "churn",
+          "ref": "F14",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0141-design-system/s3-01-knowledge-page-fonts.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "453657a (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/453657a9d8cfec9dac829694dbb9b9b51cc4f051"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0141-design-system/s5-04-boot-learns-the-crest-outside-its-ground.md` had 48 lines added across 1 commits, none of them in the final diff: 48 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0141-design-system/s5-04-boot-learns-the-crest-outside-its-ground.md",
+          "kind": "churn",
+          "ref": "F15",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0141-design-system/s5-04-boot-learns-the-crest-outside-its-ground.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "9561fb1 (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/9561fb13d8c6ad8aea50bb3a4c5eebe03a029c24"
+            },
+            {
+              "label": "afded66 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/afded6639eb03a546bcc143f9e9ebbaea7707427"
+            },
+            {
+              "label": "0166576 (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/0166576cf6fbf3620c70d27f0f81dd5668ffd304"
+            },
+            {
+              "label": "`packages/design/package.json` lines 6-6, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/92977b19758daedb8958433410ba59f0026642c3/packages/design/package.json#L6-L6"
+            }
+          ],
+          "happened": "Lines 6-6 of `packages/design/package.json`, as merged, were written and rewritten in 3 commits, in s1, s2 and s5; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:packages/design/package.json:6-6",
+          "kind": "churn",
+          "ref": "F16",
+          "source": "churn",
+          "title": "Lines 6-6 of `packages/design/package.json` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "9561fb1 (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/9561fb13d8c6ad8aea50bb3a4c5eebe03a029c24"
+            },
+            {
+              "label": "afded66 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/afded6639eb03a546bcc143f9e9ebbaea7707427"
+            },
+            {
+              "label": "96840f2 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/96840f250c11d052928bdfef0255e6acf5667314"
+            },
+            {
+              "label": "`packages/design/package.json` lines 8-9, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/92977b19758daedb8958433410ba59f0026642c3/packages/design/package.json#L8-L9"
+            }
+          ],
+          "happened": "Lines 8-9 of `packages/design/package.json`, as merged, were written and rewritten in 3 commits, in s1, s2 and s3; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:packages/design/package.json:8-9",
+          "kind": "churn",
+          "ref": "F17",
+          "source": "churn",
+          "title": "Lines 8-9 of `packages/design/package.json` were rewritten again and again"
+        }
+      ],
+      "kinds": {
+        "churn": {
+          "added": 4002,
+          "churn": 718,
+          "commits": 27,
+          "files": [
+            {
+              "added": 50,
+              "churn": 50,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0141-design-system/s3-03-type-scale-values.md",
+              "percent": null
+            },
+            {
+              "added": 49,
+              "churn": 49,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0141-design-system/s3-02-font-alphabets.md",
+              "percent": null
+            },
+            {
+              "added": 49,
+              "churn": 49,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0141-design-system/s4-01-pose-builds.md",
+              "percent": null
+            },
+            {
+              "added": 49,
+              "churn": 49,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0141-design-system/s5-01-crest-final-pixels.md",
+              "percent": null
+            },
+            {
+              "added": 49,
+              "churn": 49,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0141-design-system/s5-02-boot-draws-the-o-title-draws-the-word.md",
+              "percent": null
+            },
+            {
+              "added": 49,
+              "churn": 49,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0141-design-system/s5-03-house-letter-in-the-intro.md",
+              "percent": null
+            },
+            {
+              "added": 49,
+              "churn": 49,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0141-design-system/s6-01-design-page-shows-the-built-in-fleets.md",
+              "percent": null
+            },
+            {
+              "added": 49,
+              "churn": 49,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0141-design-system/s6-02-design-page-screenshots-described-not-attached.md",
+              "percent": null
+            },
+            {
+              "added": 49,
+              "churn": 49,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0141-design-system/s7-01-logo-minimum-sizes-and-grounds.md",
+              "percent": null
+            },
+            {
+              "added": 48,
+              "churn": 48,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0141-design-system/s2-01-pixel-palette-stays-in-its-file.md",
+              "percent": null
+            },
+            {
+              "added": 48,
+              "churn": 48,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0141-design-system/s2-02-vertuoza-mark-colours-stay-in-the-game.md",
+              "percent": null
+            },
+            {
+              "added": 48,
+              "churn": 48,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0141-design-system/s2-03-ask-colours-stay-out-of-the-shared-stylesheet.md",
+              "percent": null
+            },
+            {
+              "added": 48,
+              "churn": 48,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0141-design-system/s3-01-knowledge-page-fonts.md",
+              "percent": null
+            },
+            {
+              "added": 48,
+              "churn": 48,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0141-design-system/s5-04-boot-learns-the-crest-outside-its-ground.md",
+              "percent": null
+            },
+            {
+              "added": 19,
+              "churn": 19,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0141-design-system/accounts/s1.md",
+              "percent": null
+            },
+            {
+              "added": 93,
+              "churn": 4,
+              "commits": 2,
+              "finalAdded": 89,
+              "path": "apps/galaxy/src/design/design.css",
+              "percent": 4
+            },
+            {
+              "added": 204,
+              "churn": 4,
+              "commits": 2,
+              "finalAdded": 200,
+              "path": "packages/design/src/logo.mjs",
+              "percent": 2
+            },
+            {
+              "added": 193,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 191,
+              "path": "apps/galaxy/src/design/DesignScreen.tsx",
+              "percent": 1
+            },
+            {
+              "added": 18,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 16,
+              "path": "packages/design/src/logo.d.mts",
+              "percent": 13
+            },
+            {
+              "added": 78,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 77,
+              "path": "apps/galaxy/src/arcade/scenes/attract.test.ts",
+              "percent": 1
+            },
+            {
+              "added": 19,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 18,
+              "path": "apps/galaxy/src/arcade/scenes/attract.ts",
+              "percent": 6
+            },
+            {
+              "added": 24,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 23,
+              "path": "apps/galaxy/src/arcade/theme.test.ts",
+              "percent": 4
+            },
+            {
+              "added": 34,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 33,
+              "path": "apps/galaxy/src/arcade/theme.ts",
+              "percent": 3
+            },
+            {
+              "added": 2,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 1,
+              "path": "README.md",
+              "percent": 100
+            }
+          ],
+          "finalAdded": 3290,
+          "leftOut": {
+            "generated": [],
+            "lockfile": [
+              "pnpm-lock.yaml"
+            ]
+          },
+          "noPatch": [],
+          "notCounted": [],
+          "pulls": 7,
+          "ranges": [
+            {
+              "commits": [
+                "9561fb1",
+                "afded66",
+                "0166576"
+              ],
+              "from": 6,
+              "path": "packages/design/package.json",
+              "slices": [
+                "s1",
+                "s2",
+                "s5"
+              ],
+              "to": 6
+            },
+            {
+              "commits": [
+                "9561fb1",
+                "afded66",
+                "96840f2"
+              ],
+              "from": 8,
+              "path": "packages/design/package.json",
+              "slices": [
+                "s1",
+                "s2",
+                "s3"
+              ],
+              "to": 9
+            }
+          ],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [],
+          "redRuns": [],
+          "slices": [
+            "s1",
+            "s2",
+            "s4",
+            "s3",
+            "s5",
+            "s6",
+            "s7"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 0,
+            "commits": 0,
+            "red": 0,
+            "runs": 0,
+            "slices": 0
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 14,
+            "agreed": 0,
+            "byRank": {
+              "medium": 14
+            },
+            "drifted": 0,
+            "drifts": [],
+            "file": ".omni-loop/delivery/shipped/0141-design-system/outbox/settled.md",
+            "raised": 14,
+            "reworked": 0
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "stuck": 0
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  164
+                ],
+                "slice": "s1",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  165
+                ],
+                "slice": "s2",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  166
+                ],
+                "slice": "s4",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  168
+                ],
+                "slice": "s3",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  184
+                ],
+                "slice": "s5",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  189
+                ],
+                "slice": "s6",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  190
+                ],
+                "slice": "s7",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 8,
+              "red": 0,
+              "reviews": 0,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 0,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 153,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/153"
+              },
+              {
+                "pr": 164,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/164"
+              },
+              {
+                "pr": 165,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s2",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/165"
+              },
+              {
+                "pr": 166,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s4",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/166"
+              },
+              {
+                "pr": 168,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s3",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/168"
+              },
+              {
+                "pr": 184,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s5",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/184"
+              },
+              {
+                "pr": 189,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s6",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/189"
+              },
+              {
+                "pr": 190,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s7",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/190"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 1,
+              "graded": 7,
+              "shared": 2,
+              "unplanned": 0,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [],
+                "files": 58,
+                "pr": 164,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/164"
+              },
+              {
+                "breaches": [],
+                "files": 16,
+                "pr": 165,
+                "shared": [],
+                "slice": "s2",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/165"
+              },
+              {
+                "breaches": [],
+                "files": 8,
+                "pr": 166,
+                "shared": [],
+                "slice": "s4",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/166"
+              },
+              {
+                "breaches": [
+                  "apps/galaxy/app/knowledge/layout.tsx"
+                ],
+                "files": 35,
+                "pr": 168,
+                "shared": [],
+                "slice": "s3",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/168"
+              },
+              {
+                "breaches": [],
+                "files": 23,
+                "pr": 184,
+                "shared": [
+                  "apps/galaxy/src/arcade/ArcadeApp.tsx",
+                  "apps/galaxy/src/arcade/scenes/common.ts"
+                ],
+                "slice": "s5",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/184"
+              },
+              {
+                "breaches": [],
+                "files": 11,
+                "pr": 189,
+                "shared": [],
+                "slice": "s6",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/189"
+              },
+              {
+                "breaches": [],
+                "files": 5,
+                "pr": 190,
+                "shared": [],
+                "slice": "s7",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/190"
+              }
+            ],
+            "reason": null,
+            "sharedGround": [
+              "packages/design/",
+              "apps/galaxy/src/",
+              "apps/galaxy/next.config.mjs",
+              "README.md",
+              "packages/design/src/index.",
+              "packages/design/package.json",
+              "apps/galaxy/app/layout.tsx"
+            ]
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-09-26T15:56:02Z",
+            "minutes": 350,
+            "number": 153,
+            "openedAt": "2026-09-26T10:05:43Z",
+            "readyAt": "2026-09-26T15:51:25Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/153"
+          },
+          "medianMinutes": 11,
+          "sliceCount": 7,
+          "slices": [
+            {
+              "closedAt": "2026-09-26T14:51:33Z",
+              "mergedAt": "2026-09-26T14:51:33Z",
+              "mergedWave": 1,
+              "minutes": 6,
+              "openedAt": "2026-09-26T14:46:02Z",
+              "plannedWave": 1,
+              "pr": 164,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/164"
+            },
+            {
+              "closedAt": "2026-09-26T15:05:56Z",
+              "mergedAt": "2026-09-26T15:05:56Z",
+              "mergedWave": 2,
+              "minutes": 13,
+              "openedAt": "2026-09-26T14:53:14Z",
+              "plannedWave": 2,
+              "pr": 165,
+              "slice": "s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/165"
+            },
+            {
+              "closedAt": "2026-09-26T15:06:38Z",
+              "mergedAt": "2026-09-26T15:06:38Z",
+              "mergedWave": 2,
+              "minutes": 13,
+              "openedAt": "2026-09-26T14:53:22Z",
+              "plannedWave": 2,
+              "pr": 166,
+              "slice": "s4",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/166"
+            },
+            {
+              "closedAt": "2026-09-26T15:18:13Z",
+              "mergedAt": "2026-09-26T15:18:13Z",
+              "mergedWave": 3,
+              "minutes": 10,
+              "openedAt": "2026-09-26T15:08:14Z",
+              "plannedWave": 3,
+              "pr": 168,
+              "slice": "s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/168"
+            },
+            {
+              "closedAt": "2026-09-26T15:37:00Z",
+              "mergedAt": "2026-09-26T15:37:00Z",
+              "mergedWave": 4,
+              "minutes": 18,
+              "openedAt": "2026-09-26T15:19:19Z",
+              "plannedWave": 4,
+              "pr": 184,
+              "slice": "s5",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/184"
+            },
+            {
+              "closedAt": "2026-09-26T15:48:29Z",
+              "mergedAt": "2026-09-26T15:48:29Z",
+              "mergedWave": 5,
+              "minutes": 11,
+              "openedAt": "2026-09-26T15:37:56Z",
+              "plannedWave": 5,
+              "pr": 189,
+              "slice": "s6",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/189"
+            },
+            {
+              "closedAt": "2026-09-26T15:49:08Z",
+              "mergedAt": "2026-09-26T15:49:08Z",
+              "mergedWave": 5,
+              "minutes": 11,
+              "openedAt": "2026-09-26T15:38:04Z",
+              "plannedWave": 5,
+              "pr": 190,
+              "slice": "s7",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/190"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 5,
+            "planned": 5
+          }
+        }
+      },
+      "prd": {
+        "folder": ".omni-loop/delivery/shipped/0141-design-system",
+        "number": 141,
+        "state": "shipped",
+        "title": "Omni Loop design system — one library for the logo, colours, fonts and sprites",
+        "topic": "design-system"
+      },
+      "rules": {
+        "fieldCaps": {
+          "lesson": 400,
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600
+        },
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "thresholds": {
+          "afterMergeDays": 14,
+          "churnFileLines": 40,
+          "churnFilePercent": 50,
+          "churnRangeCommits": 3,
+          "failingTestRuns": 2,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "slowSliceFactor": 3
+        },
+        "version": 1
+      },
+      "run": "merge",
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": "model reply invalid",
+        "dropped": []
+      },
+      "issues": {
+        "territory:s3": {
+          "number": 193,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/193",
+          "state": "open"
+        },
+        "churn:.omni-loop/delivery/outbox/0141-design-system/s3-03-type-scale-values.md": {
+          "number": 194,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/194",
+          "state": "open"
+        },
+        "churn:.omni-loop/delivery/outbox/0141-design-system/s3-02-font-alphabets.md": {
+          "number": 195,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/195",
+          "state": "open"
+        },
+        "churn:.omni-loop/delivery/outbox/0141-design-system/s4-01-pose-builds.md": {
+          "number": 196,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/196",
+          "state": "open"
+        },
+        "churn:.omni-loop/delivery/outbox/0141-design-system/s5-01-crest-final-pixels.md": {
+          "number": 197,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/197",
+          "state": "open"
+        }
+      }
+    }
+  ]
+}
