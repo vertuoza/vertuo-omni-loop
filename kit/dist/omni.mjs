@@ -12571,7 +12571,7 @@ function settledHeader(prd2, { ctx }) {
     ""
   ].join("\n");
 }
-function renderSettledEntry({ item: item2, itemText, answer, judgement, markers }) {
+function renderSettledEntry({ item: item2, itemText, answer, judgement, markers, closed = null }) {
   const lines = [
     markers.settledOpen(item2.id),
     "",
@@ -12587,7 +12587,7 @@ function renderSettledEntry({ item: item2, itemText, answer, judgement, markers 
   }
   lines.push(
     `- Basis: ${judgement.basis} \u2014 ${judgement.reason}`,
-    `- Closed: ${closedLine(judgement.verdict)}`,
+    `- Closed: ${closed ?? closedLine(judgement.verdict)}`,
     `- Rank: ${item2.rank}`,
     `- Bears on: ${item2.bearsOn}`,
     `- Raised: ${item2.raised}`,
