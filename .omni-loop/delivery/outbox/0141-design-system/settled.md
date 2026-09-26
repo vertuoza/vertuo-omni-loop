@@ -312,3 +312,237 @@ Drawing girl and boy poses later adds sprites beside these; nothing stored chang
 ```
 
 <!-- /omni-outbox-settled: s4-01-pose-builds -->
+
+<!-- omni-outbox-settled: s3-01-knowledge-page-fonts -->
+
+## s3-01-knowledge-page-fonts — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-knowledge-page-fonts
+prd: 141
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 3
+---
+
+## The question, in plain words
+
+The knowledge map page arrived after the plan was written and still fetched its fonts from Google. Should this slice move it too?
+
+## The decision, in plain words
+
+Yes. The knowledge map now loads its fonts from our own site like the arcade and Ask, so no page fetches fonts from Google any more.
+
+## The intro, for fun
+
+One page was still ordering its fonts from abroad.
+
+## The punchline, for fun
+
+It now shops locally, like everyone else on the street.
+
+## The options, in plain words
+
+A. Move the knowledge map onto the package's fonts in this slice, the option built.
+B. Leave the knowledge map on Google Fonts, and let the guard slice decide whether it counts.
+
+## What I had to decide
+
+Whether the knowledge map's layout, outside this slice's territory, moves onto the package's fonts in this slice.
+
+## What I did meanwhile
+
+It does: its Google Fonts link is gone and it imports the package's fonts, the same two-line change as the Ask layout.
+
+## What it costs to change later
+
+Two lines in one layout; putting the Google link back undoes it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether the plan left the knowledge map out on purpose, or only because it landed after the plan was written (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-01-knowledge-page-fonts -->
+
+<!-- omni-outbox-settled: s3-02-font-alphabets -->
+
+## s3-02-font-alphabets — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-font-alphabets
+prd: 141
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 3
+---
+
+## The question, in plain words
+
+Google used to send every alphabet a font has. Which alphabets should we now ship ourselves?
+
+## The decision, in plain words
+
+Western European and Central European letters only. Greek, Cyrillic and Vietnamese text, which two of the fonts used to cover, now shows in the reader's system font.
+
+## The intro, for fun
+
+Our fonts moved in, but only packed the Latin suitcases.
+
+## The punchline, for fun
+
+The Greek and Cyrillic luggage can follow if anyone writes home in it.
+
+## The options, in plain words
+
+A. Latin and latin-ext for every face, the option built.
+B. Every subset each face has, as Google served them.
+C. Latin only, the smallest set.
+
+## What I had to decide
+
+Which character subsets the package ships for each face.
+
+## What I did meanwhile
+
+The latin and latin-ext subsets of every face; Press Start 2P and JetBrains Mono also had cyrillic, greek and vietnamese subsets on Google, now left out.
+
+## What it costs to change later
+
+One line in the fonts module and the extra files, about 20 KB each.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether any question or knowledge entry today is written in Greek, Cyrillic or Vietnamese (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-02-font-alphabets -->
+
+<!-- omni-outbox-settled: s3-03-type-scale-values -->
+
+## s3-03-type-scale-values — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-type-scale-values
+prd: 141
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 3
+---
+
+## The question, in plain words
+
+The design names eleven text sizes but gives no numbers, and says they belong in the colour sheet. What sizes, and where do they live?
+
+## The decision, in plain words
+
+Headlines run from 96 down to 32, game text keeps the sizes the arcade already uses, and reading text centres on the 17 Ask already uses. They sit in the font sheet beside the fonts they name, not in the colour sheet.
+
+## The intro, for fun
+
+Eleven text sizes were named, and not one of them came with a number.
+
+## The punchline, for fun
+
+So we measured what the game already wears and tailored the rest to fit.
+
+## The options, in plain words
+
+A. The sizes above, in the font sheet beside the faces, the option built.
+B. The same sizes, moved into the colour sheet.
+C. Different sizes, chosen once the home page draws its first headline.
+
+## What I had to decide
+
+The size, line height and slant of each type-scale step, and whether the scale's custom properties go in fonts.css or tokens.css.
+
+## What I did meanwhile
+
+Display 96, 72, 48 and 32 leaning 12 degrees; pixel 16 and 8 in Press Start 2P and 20 in Jersey 10; body 20, 17 and 14; mono 15. All written by the fonts module into fonts.css, since tokens.css belongs to the colour slice.
+
+## What it costs to change later
+
+A constant per step, and one generator line to move the properties to tokens.css.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- no page uses the display steps yet, so their sizes are unchecked against a real layout (author)
+- the spec says the scale lives in tokens.css; that file was outside this slice's territory (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-03-type-scale-values -->
