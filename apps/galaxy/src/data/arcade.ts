@@ -2,9 +2,10 @@ import 'server-only';
 import type { GalaxyView } from '@omni/galaxy';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import type { Brand } from '../arcade/brand';
-import type { FleetRow, Player, Session } from '../arcade/types';
+import type { FleetRow, Player, Session, XpRead } from '../arcade/types';
 import { demoFleets, loadCrew, loadFleets, loadGalaxy, loadMe } from './load-galaxy';
 import { brandOf, memberWorkspace, type Workspace } from './workspace';
+import { readXp } from './xp';
 
 // What the page hands the arcade when Supabase is configured, read with the visitor's own session.
 //
@@ -13,6 +14,8 @@ import { brandOf, memberWorkspace, type Workspace } from './workspace';
 //   yet). A member gets its galaxy, fleets, crew and their own player row, and its name and theme as
 //   the arcade's brand. One with no workspace is no crew, reads nothing, and meets the outsider
 //   screen.
+// - A member with GitHub linked also gets their player_xp row in that workspace, by lower-cased
+//   login: read on its own, so XP out of reach leaves the galaxy shown, and says so.
 // - The database out of reach: the attract mode, the built-in fleets, and a message saying so.
 
 export const OUT_OF_REACH = 'THE GALAXY IS OUT OF REACH. TRY AGAIN SOON.';
@@ -25,6 +28,8 @@ export interface ArcadeData {
   workspace: string | null;
   me?: Player | null;
   crew?: Player[];
+  /** The player's XP: null for a visitor or a player with no row yet, 'unreadable' when it could not be read. */
+  xp?: XpRead;
   brand?: Brand;
   problem?: string;
 }
@@ -53,7 +58,10 @@ export async function arcadeFor(db: SupabaseClient, user: User | null, now = new
     if (!workspace) return { view: null, fleets: demoFleets(), session: sessionOf(user, false), workspace: null };
     const id = workspace.id;
     const [view, fleets, me, crew] = await Promise.all([loadGalaxy(db, id, now), loadFleets(db, id), loadMe(db, id, user.id), loadCrew(db, id)]);
-    return { view, fleets, session: sessionOf(user, true), workspace: id, me, crew, brand: brandOf(workspace) };
+    const session = sessionOf(user, true);
+    const login = me?.github_login ?? session.github;
+    const xp = login ? await readXp(db, id, login) : null;
+    return { view, fleets, session, workspace: id, me, crew, xp, brand: brandOf(workspace) };
   } catch (err) {
     // Out of reach: whether they belong to a workspace may be unknown, so nobody is turned away as an
     // outsider; the arcade says the galaxy is out of reach instead.

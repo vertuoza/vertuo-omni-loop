@@ -43,7 +43,7 @@ describe('a member', () => {
   it('filters every read of the game by that workspace', async () => {
     const { reads } = await page(PEOPLE.ada);
     const game = reads.filter((c) => c.table !== 'workspace_members');
-    expect(new Set(game.map((c) => c.table))).toEqual(new Set(['ledger_events', 'sectors', 'teams', 'players']));
+    expect(new Set(game.map((c) => c.table))).toEqual(new Set(['ledger_events', 'sectors', 'teams', 'players', 'player_xp']));
     for (const call of game) expect(call.eq, call.table).toMatchObject({ workspace_id: VERTUOZA });
   });
 
@@ -98,6 +98,50 @@ describe('joining', () => {
         view: null, fleets: demoFleets(), session: expect.objectContaining({ id: person.id, crew: false }), workspace: null,
       });
     }
+  });
+});
+
+describe('the player\'s XP', () => {
+  it('reads their player_xp row in the workspace played, by their lower-cased GitHub login', async () => {
+    const { data, reads } = await page(PEOPLE.ada);
+    expect(data.xp).toEqual({ xp: 180, level: 3, unlocked: ['invaders'] });
+    expect(reads.filter((c) => c.table === 'player_xp')).toEqual([
+      { kind: 'from', table: 'player_xp', op: 'select', eq: { workspace_id: VERTUOZA, github_login: 'ada-gh' } },
+    ]);
+  });
+
+  it('reads a member of two workspaces\' XP in the one they joined first only', async () => {
+    expect((await page(PEOPLE.both)).data.xp).toEqual({ xp: 60, level: 2, unlocked: ['invaders'] });
+  });
+
+  it('lower-cases a login GitHub spells with capitals, and finds XP earned before the player row existed', async () => {
+    const bea = { ...PEOPLE.bea, github: { id: 41, login: 'Bea-GH' } };
+    const { data, reads } = await page(bea);
+    expect(data.me).toBeNull();
+    expect(data.xp).toEqual({ xp: 10, level: 1, unlocked: ['invaders'] });
+    expect(reads.find((c) => c.table === 'player_xp')?.eq).toEqual({ workspace_id: VERTUOZA, github_login: 'bea-gh' });
+  });
+
+  it('gives a player the workflow has not written a row for no XP yet', async () => {
+    expect((await page(PEOPLE.wile)).data.xp).toBeNull();
+  });
+
+  it('reads nothing for a visitor without GitHub linked', async () => {
+    const { data, reads } = await page(PEOPLE.una, (world) => {
+      world.tables.workspace_members.push({ workspace_id: VERTUOZA, user_id: PEOPLE.una.id, role: 'member', joined_at: '2026-09-26T09:00:00Z' });
+    });
+    expect(data.workspace).toBe(VERTUOZA);
+    expect(data.xp).toBeNull();
+    expect(reads.some((c) => c.table === 'player_xp')).toBe(false);
+  });
+
+  it('says XP is out of reach when only it cannot be read, and keeps the galaxy', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { data } = await page(PEOPLE.ada, (world) => { world.state.failOn = 'player_xp'; });
+    expect(data.xp).toBe('unreadable');
+    expect(data.view?.planets.map((p) => p.title)).toEqual(['Workspaces']);
+    expect(data.problem).toBeUndefined();
+    expect(console.error).toHaveBeenCalled();
   });
 });
 
