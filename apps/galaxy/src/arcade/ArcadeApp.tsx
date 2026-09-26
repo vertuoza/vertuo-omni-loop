@@ -3,8 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GalaxyView } from '@omni/galaxy';
 import { randomHero, type Hero } from '@omni/sprites';
 import {
-  chartStep, drawFrame, layoutChart, layoutMap, layoutSystem, neighbour, orbitStep, sunAt, worldAt, type ChartSource, type FrameState,
-  type SceneName,
+  chartKey, drawFrame, layoutChart, layoutMap, layoutSystem, neighbour, sunAt, worldAt, type ChartSource, type FrameState, type SceneName,
 } from './scenes';
 import { useForm } from './form';
 import { useFullscreen } from './fullscreen';
@@ -435,39 +434,11 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'down') return go({ sel: (u.sel + 1) % planets }, 'move');
         if (action === 'b' || action === 'start') return go({ scene: 'map' }, 'back');
         return;
-      case 'chart': {
-        const n = chart.suns.length;
-        if (action === 'b') return go({ scene: 'menu' }, 'back');
-        if (!n) return;
-        if (action === 'up' || action === 'down' || action === 'left' || action === 'right') {
-          const next = chartStep(chart, u.sun, action);
-          return next === u.sun ? undefined : go({ sun: next, world: 0 }, 'move');
-        }
-        if (action === 'select') return go({ sun: (u.sun + 1) % n, world: 0 }, 'move');
-        if (action === 'a' || action === 'start') return go({ scene: 'system', card: false }, 'select');
-        return;
-      }
-      case 'system': {
-        const worlds = system?.worlds ?? [];
-        const entry = worlds[u.world]?.entry;
-        if (u.card && entry && graph) {
-          const pages = cardPages(graph, entry, gridFor(formRef.current, 'system').name).length;
-          if (action === 'up' || action === 'down') {
-            const page = Math.max(0, Math.min(pages - 1, u.cardPage + (action === 'up' ? -1 : 1)));
-            return page === u.cardPage ? undefined : go({ cardPage: page }, 'tab');
-          }
-          if (action === 'b' || action === 'a' || action === 'start') return go({ card: false }, 'back');
-          return;
-        }
-        if (action === 'b') return go({ scene: 'chart', card: false }, 'back');
-        if (!worlds.length || !system) return;
-        if (action === 'up' || action === 'down' || action === 'left' || action === 'right') {
-          const next = orbitStep(system, u.world, action);
-          return next === u.world ? undefined : go({ world: next }, 'move');
-        }
-        if (action === 'select') return go({ world: (u.world + 1) % worlds.length }, 'move');
-        if (action === 'a' || action === 'start') return go({ card: true, cardPage: 0 }, 'select');
-        return;
+      case 'chart': case 'system': {
+        const entry = system?.worlds[u.world]?.entry;
+        const pages = () => (graph && entry ? cardPages(graph, entry, gridFor(formRef.current, 'system').name).length : 1);
+        const move = chartKey({ ...u, scene: u.scene }, action, { chart, system, pages });
+        return move ? go(move.patch, move.sound) : undefined;
       }
       case 'fleets': {
         const n = view?.teams.length ?? 0;

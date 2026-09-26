@@ -4,6 +4,7 @@
 // hold still, so a world stays where the D-pad and a finger expect it.
 import { rng } from '@omni/sprites';
 import { entriesOf, lanes, orbits, systems, type EntryKind, type KnowledgeEntry, type KnowledgeGraph, type KnowledgeSystem } from '../../data/knowledge';
+import type { Action } from '../keys';
 import type { Grid, GridName } from './common.ts';
 import { neighbour } from './map.ts';
 
@@ -318,4 +319,56 @@ export function worldAt(layout: SystemLayout, p: { x: number; y: number }): Worl
     if (d <= Math.max(w.r + 3, 7) && d < bestD) { best = w; bestD = d; }
   }
   return best;
+}
+
+// ── The pad on the two scenes ────────────────────────────────────────────────
+
+/** Where the star chart's cursor is: the scene, the sun and the world under it, and the reading card. */
+export interface ChartCursor { scene: 'chart' | 'system'; sun: number; world: number; card: boolean; cardPage: number }
+
+/** What a press does on the star chart: the cursor it leaves (or the menu), and the sound it makes. */
+export interface ChartMove {
+  patch: Partial<Omit<ChartCursor, 'scene'>> & { scene?: ChartCursor['scene'] | 'menu' };
+  sound: 'move' | 'select' | 'back' | 'tab';
+}
+
+/**
+ * A press on `chart` or `system`, as a pure step. On the chart the D-pad moves between suns, SELECT to
+ * the next, A (or START) enters the sun's system and B goes back to the menu. In a system ◀ ▶ ▲ ▼
+ * move along and across the orbits (`orbitStep`), SELECT to the next world, A opens the reading card
+ * and B goes back to the chart; on the card ▲ ▼ turn its `pages()` and B (or A, or START) closes it.
+ * Null when the press does nothing.
+ */
+export function chartKey(cur: ChartCursor, action: Action, at: { chart: ChartLayout; system: SystemLayout | null; pages: () => number }): ChartMove | null {
+  const dpad = action === 'up' || action === 'down' || action === 'left' || action === 'right';
+  if (cur.scene === 'chart') {
+    const n = at.chart.suns.length;
+    if (action === 'b') return { patch: { scene: 'menu' }, sound: 'back' };
+    if (!n) return null;
+    if (dpad) {
+      const sun = chartStep(at.chart, cur.sun, action);
+      return sun === cur.sun ? null : { patch: { sun, world: 0 }, sound: 'move' };
+    }
+    if (action === 'select') return { patch: { sun: (cur.sun + 1) % n, world: 0 }, sound: 'move' };
+    if (action === 'a' || action === 'start') return { patch: { scene: 'system', card: false }, sound: 'select' };
+    return null;
+  }
+  const worlds = at.system?.worlds ?? [];
+  if (cur.card && worlds[cur.world]) {
+    if (action === 'up' || action === 'down') {
+      const cardPage = Math.max(0, Math.min(at.pages() - 1, cur.cardPage + (action === 'up' ? -1 : 1)));
+      return cardPage === cur.cardPage ? null : { patch: { cardPage }, sound: 'tab' };
+    }
+    if (action === 'b' || action === 'a' || action === 'start') return { patch: { card: false }, sound: 'back' };
+    return null;
+  }
+  if (action === 'b') return { patch: { scene: 'chart', card: false }, sound: 'back' };
+  if (!worlds.length || !at.system) return null;
+  if (dpad) {
+    const world = orbitStep(at.system, cur.world, action);
+    return world === cur.world ? null : { patch: { world }, sound: 'move' };
+  }
+  if (action === 'select') return { patch: { world: (cur.world + 1) % worlds.length }, sound: 'move' };
+  if (action === 'a' || action === 'start') return { patch: { card: true, cardPage: 0 }, sound: 'select' };
+  return null;
 }

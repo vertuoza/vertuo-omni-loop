@@ -6,8 +6,8 @@ import { readGraph } from 'vertuo-omni-plan/kit/lib/knowledge/graph.mjs';
 import { KINDS, type EntryKind, type KnowledgeEntry, type KnowledgeGraph } from '../../data/knowledge';
 import { TALL, WIDE, type Grid } from './common.ts';
 import {
-  CHART_LINES, chartStep, layoutChart, layoutSystem, orbitStep, sunAt, SYSTEM_LINES, worldAt,
-  type ChartLayout, type Dir, type SystemLayout,
+  CHART_LINES, chartKey, chartStep, layoutChart, layoutSystem, orbitStep, sunAt, SYSTEM_LINES, worldAt,
+  type ChartCursor, type ChartLayout, type Dir, type SystemLayout,
 } from './chart-layout.ts';
 
 // This repository's own knowledge, read through the kit as the app reads it on the server.
@@ -268,5 +268,62 @@ describe('the chart: a sun per domain', () => {
 
   it('charts nothing for an empty graph', () => {
     expect(layoutChart({ ...REPO, domains: [], entries: [], links: [] }, WIDE)).toEqual({ suns: [], lanes: [] });
+  });
+});
+
+describe('the pad on the star chart', () => {
+  const graph = domains(3);
+  const chart = layoutChart(graph, WIDE);
+  const system = layoutSystem(graph, 'product', WIDE);
+  const at = { chart, system, pages: () => 3 };
+  const cursor = (over: Partial<ChartCursor> = {}): ChartCursor => ({ scene: 'chart', sun: 0, world: 0, card: false, cardPage: 0, ...over });
+
+  it('enters a sun\'s system with A or START, and goes back to the menu with B', () => {
+    for (const a of ['a', 'start'] as const) expect(chartKey(cursor(), a, at)).toEqual({ patch: { scene: 'system', card: false }, sound: 'select' });
+    expect(chartKey(cursor(), 'b', at)).toEqual({ patch: { scene: 'menu' }, sound: 'back' });
+  });
+
+  it('moves between suns with the D-pad and SELECT, back to the first world of the sun it reaches', () => {
+    const right = chartKey(cursor(), 'right', at);
+    expect(right?.patch).toEqual({ sun: chartStep(chart, 0, 'right'), world: 0 });
+    expect(chartKey(cursor({ sun: 2 }), 'select', at)?.patch).toEqual({ sun: 0, world: 0 });
+  });
+
+  it('opens the reading card with A, pages it with ▲ ▼ inside its pages, and closes it with B', () => {
+    const inSystem = cursor({ scene: 'system' });
+    expect(chartKey(inSystem, 'a', at)).toEqual({ patch: { card: true, cardPage: 0 }, sound: 'select' });
+    const card = cursor({ scene: 'system', card: true });
+    expect(chartKey(card, 'down', at)).toEqual({ patch: { cardPage: 1 }, sound: 'tab' });
+    expect(chartKey({ ...card, cardPage: 2 }, 'down', at)).toBeNull();
+    expect(chartKey(card, 'up', at)).toBeNull();
+    expect(chartKey({ ...card, cardPage: 2 }, 'up', at)?.patch).toEqual({ cardPage: 1 });
+    expect(chartKey(card, 'left', at)).toBeNull(); // the orbit waits under the card
+    expect(chartKey(card, 'b', at)).toEqual({ patch: { card: false }, sound: 'back' });
+  });
+
+  it('goes back B by B: the card, then the chart, then the menu', () => {
+    let cur = cursor({ scene: 'system', card: true, cardPage: 1 });
+    const scenes: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const move = chartKey(cur, 'b', at)!;
+      scenes.push(move.patch.scene ?? (move.patch.card === false ? 'card closed' : '?'));
+      if (move.patch.scene === 'menu') break;
+      cur = { ...cur, ...move.patch } as ChartCursor;
+    }
+    expect(scenes).toEqual(['card closed', 'chart', 'menu']);
+  });
+
+  it('walks a system\'s worlds with the D-pad and SELECT', () => {
+    const inSystem = cursor({ scene: 'system' });
+    expect(chartKey(inSystem, 'right', at)?.patch).toEqual({ world: orbitStep(system, 0, 'right') });
+    expect(chartKey(inSystem, 'select', at)?.patch).toEqual({ world: 1 % system.worlds.length });
+  });
+
+  it('does nothing but go back on an empty chart or an empty system', () => {
+    const empty = { chart: { suns: [], lanes: [] }, system: layoutSystem(graph, 'nowhere', WIDE), pages: () => 1 };
+    expect(chartKey(cursor(), 'a', empty)).toBeNull();
+    expect(chartKey(cursor(), 'right', empty)).toBeNull();
+    expect(chartKey(cursor({ scene: 'system' }), 'a', empty)).toBeNull();
+    expect(chartKey(cursor({ scene: 'system' }), 'b', empty)?.patch.scene).toBe('chart');
   });
 });

@@ -19,7 +19,7 @@ export {
 } from './common.ts';
 export { layoutMap, neighbour } from './map.ts';
 export {
-  chartStep, layoutChart, layoutSystem, orbitStep, sunAt, worldAt, type ChartLayout, type ChartSource, type SystemLayout,
+  chartKey, chartStep, layoutChart, layoutSystem, orbitStep, sunAt, worldAt, type ChartLayout, type ChartSource, type SystemLayout,
 } from './chart-layout.ts';
 
 export function drawFrame(ctx: CanvasRenderingContext2D, s: FrameState, titlePhase: 'title' | 'story' | 'hiscore') {
