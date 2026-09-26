@@ -462,5 +462,144 @@ begin
   exception when check_violation then null; end;
 end $$;
 
+-- ── Ask mode (PRD #71): its crew is whoever belongs to a workspace ──
+-- The ask tables carry no workspace, so a member of any workspace asks, in sessions of their own,
+-- and hands the terminal a sign-in code. An account in no workspace, whatever its address, and
+-- nobody signed in reach none of it. One owner against another is ask.sql's.
+do $$
+declare stale text;
+begin
+  if to_regprocedure('public.is_crew()') is not null then
+    raise exception 'FAIL: is_crew() outlived the workspaces migration';
+  end if;
+  -- Dropping is_crew() stops on a policy that calls it, but not on a function body that does.
+  select string_agg(p.proname, ', ') into stale
+    from pg_proc p
+   where p.pronamespace = 'public'::regnamespace and p.prosrc ~ 'is_crew\s*\(';
+  if stale is not null then raise exception 'FAIL: is_crew() is still called by %', stale; end if;
+end $$;
+
+-- Una never confirmed her vertuoza.com address, so she joined no workspace; the session she opened
+-- when an address was enough is still hers.
+insert into public.ask_sessions (id, owner, title) values
+  ('00000000-0000-4000-8000-0000000a5a01', '00000000-0000-4000-8000-000000000011', 'una, from before');
+insert into public.ask_rounds (id, session_id, questions) values
+  ('00000000-0000-4000-8000-0000000a5a02', '00000000-0000-4000-8000-0000000a5a01', '[{"question": "Still there?"}]');
+
+select pg_temp.sign_out();
+set local role anon;
+do $$
+declare t text;
+begin
+  foreach t in array array['ask_sessions', 'ask_rounds', 'ask_cli_codes'] loop
+    begin
+      execute format('select 1 from public.%I limit 1', t);
+      raise exception 'FAIL: anon read public.%', t;
+    exception when insufficient_privilege then null; end;
+  end loop;
+  begin
+    insert into public.ask_sessions (title) values ('nobody');
+    raise exception 'FAIL: anon opened an ask session';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.ask_cli_code_issue(repeat('0', 64), 'anon-refresh');
+    raise exception 'FAIL: anon was issued a sign-in code for the terminal';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+set local role authenticated;
+do $$
+declare
+  me record;
+  n int;
+begin
+  for me in select * from (values
+      ('00000000-0000-4000-8000-000000000011', 'una@vertuoza.com'),  -- a vertuoza.com address, in no workspace
+      ('00000000-0000-4000-8000-00000000000e', 'eve@example.com')) as m (uid, email) loop
+    perform pg_temp.sign_in(me.uid, me.email);
+    if exists (select 1 from public.ask_sessions) or exists (select 1 from public.ask_rounds) then
+      raise exception 'FAIL: % (in no workspace) read ask sessions, their own included', me.email;
+    end if;
+    begin
+      insert into public.ask_sessions (title) values ('outsider');
+      raise exception 'FAIL: % (in no workspace) opened an ask session', me.email;
+    exception when insufficient_privilege then null; end;
+    begin
+      insert into public.ask_rounds (session_id, questions) values ('00000000-0000-4000-8000-0000000a5a01', '[{"question": "planted"}]');
+      raise exception 'FAIL: % (in no workspace) asked in an ask session', me.email;
+    exception when insufficient_privilege then null; end;
+    update public.ask_sessions set last_seen_at = now() where id = '00000000-0000-4000-8000-0000000a5a01';
+    get diagnostics n = row_count;
+    if n <> 0 then raise exception 'FAIL: % (in no workspace) kept an ask session alive', me.email; end if;
+    update public.ask_rounds set status = 'answered', answers = '{"Still there?": "Yes"}', answered_via = 'page'
+     where id = '00000000-0000-4000-8000-0000000a5a02';
+    get diagnostics n = row_count;
+    if n <> 0 then raise exception 'FAIL: % (in no workspace) answered an ask round', me.email; end if;
+    begin
+      perform public.ask_cli_code_issue(md5(me.email) || md5(me.uid), 'outsider-refresh');
+      raise exception 'FAIL: % (in no workspace) was issued a sign-in code for the terminal', me.email;
+    exception when insufficient_privilege then null; end;
+  end loop;
+end $$;
+
+do $$
+declare
+  me record;
+  sid uuid;
+  rid uuid;
+  expires timestamptz;
+begin
+  for me in select * from (values
+      ('00000000-0000-4000-8000-00000000000c', 'carol@vertuoza.com'),  -- a member with no GitHub linked and no player
+      ('00000000-0000-4000-8000-00000000000d', 'dan@acme.test')) as m (uid, email) loop  -- a member of another workspace
+    perform pg_temp.sign_in(me.uid, me.email);
+    begin
+      insert into public.ask_sessions (title) values ('check · ' || me.email) returning id into sid;
+      insert into public.ask_rounds (session_id, questions) values (sid, '[{"question": "Ship it?"}]') returning id into rid;
+    exception when insufficient_privilege then
+      raise exception 'FAIL: % (a member) could not open an ask session and ask in it (%)', me.email, sqlerrm;
+    end;
+    if not exists (select 1 from public.ask_sessions where id = sid) or not exists (select 1 from public.ask_rounds where id = rid) then
+      raise exception 'FAIL: % (a member) cannot read their own ask session and round', me.email;
+    end if;
+    if exists (select 1 from public.ask_sessions where owner <> auth.uid()) then
+      raise exception 'FAIL: % (a member) read someone else''s ask session', me.email;
+    end if;
+    update public.ask_rounds set status = 'answered', answers = '{"Ship it?": "Yes"}', answered_via = 'page' where id = rid;
+    update public.ask_sessions set status = 'closed' where id = sid;
+    if (select status from public.ask_rounds where id = rid) is distinct from 'answered'
+       or (select status from public.ask_sessions where id = sid) is distinct from 'closed' then
+      raise exception 'FAIL: % (a member) could not answer their own round and close their session', me.email;
+    end if;
+    begin
+      expires := public.ask_cli_code_issue(md5(me.email) || md5(me.uid), 'member-refresh');
+    exception when insufficient_privilege then
+      raise exception 'FAIL: % (a member) was refused a sign-in code for the terminal (%)', me.email, sqlerrm;
+    end;
+    if expires is null or expires <= now() then
+      raise exception 'FAIL: the sign-in code of % (a member) is not good for the next minutes', me.email;
+    end if;
+  end loop;
+end $$;
+reset role;
+select pg_temp.sign_out();
+
+do $$
+begin
+  if (select count(*) from public.ask_cli_codes
+       where (owner, code_hash) in (
+         ('00000000-0000-4000-8000-00000000000c'::uuid, md5('carol@vertuoza.com') || md5('00000000-0000-4000-8000-00000000000c')),
+         ('00000000-0000-4000-8000-00000000000d'::uuid, md5('dan@acme.test') || md5('00000000-0000-4000-8000-00000000000d')))) <> 2 then
+    raise exception 'FAIL: the members'' sign-in codes are not bound to them';
+  end if;
+  if exists (select 1 from public.ask_cli_codes where owner in ('00000000-0000-4000-8000-000000000011', '00000000-0000-4000-8000-00000000000e')) then
+    raise exception 'FAIL: an account in no workspace holds a sign-in code';
+  end if;
+  if (select status from public.ask_rounds where id = '00000000-0000-4000-8000-0000000a5a02') <> 'open' then
+    raise exception 'FAIL: the round of an account in no workspace changed';
+  end if;
+end $$;
+
 select 'access checks passed' as result;
 rollback;
