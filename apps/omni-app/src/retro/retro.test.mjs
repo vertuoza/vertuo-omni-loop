@@ -1,14 +1,20 @@
-import { InngestTestEngine } from '@inngest/test';
+import { InngestTestEngine, mockCtx } from '@inngest/test';
+import { internalEvents } from 'inngest';
 import { describe, expect, it, vi } from 'vitest';
 import { inngest, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
 import { failing } from '../../test/github-replay.mjs';
 import { FEATURE, MERGE_SHA, SUB_PULLS, mergeFiles, widgetScenario } from '../../test/retro-scenario.mjs';
 import { FUNCTION_ID as OUTBOX_FUNCTION_ID } from '../outbox-check/outbox-check.mjs';
-import { DAY_14, FIX_PULLS, ISSUES, afterMergeRecording } from './kinds/after-merge.fixtures/day-14.mjs';
+import { DAY_14, FIX_PULLS, ISSUES, MERGED_AT, afterMergeRecording } from './kinds/after-merge.fixtures/day-14.mjs';
 import { GITATTRIBUTES, UNMERGED, churnRecording } from './kinds/churn.fixtures/delivery.mjs';
 import { DEFAULT_MODEL } from './narrate.mjs';
 import {
+  CLOCK_STEP,
   CONCURRENCY,
+  DAILY,
+  DAY_EVENT,
+  DAY_STEP,
+  DAY_WAIT,
   FAILURE_MARKER,
   FOLLOW_UP_STEP,
   RETRO_FUNCTION_ID,
@@ -36,14 +42,65 @@ function engine(scenario, { octokit = scenario.github.octokit, env = {} } = {}) 
   return new InngestTestEngine({ function: fn, events: [scenario.event] });
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** The longest any sleep or wait may last on the app's Inngest plan (answered on #75). */
+const PLAN_CAP = 7 * DAY_MS;
+const daysAfterMerge = (days) => Date.parse(MERGED_AT) + days * DAY_MS;
+
+/** The tick the retro's daily schedule sends, as a wait receives it. */
+const tick = (ts) => ({ name: DAY_EVENT, data: {}, id: `tick-${ts}`, ts });
+const waitStep = (turn) => `${FOLLOW_UP_STEP}-${turn}`;
+
 /**
- * The retro with its day-14 run, its fourteen days' sleep passed at once: `onWake` runs when it
- * wakes, to change what GitHub holds in between.
+ * The fourteen days, passed at once: the clock reads the merge (`steps`), and the first wait ends
+ * on the tick of the fourteenth day (`waits`). `onWake` runs when it wakes, to change what GitHub
+ * holds in between.
  */
-function followUpEngine(scenario, { env = {}, onWake = () => {} } = {}) {
-  const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env, followUp: true });
-  return new InngestTestEngine({ function: fn, events: [scenario.event], steps: [{ id: FOLLOW_UP_STEP, handler: onWake }] });
+const fourteenDays = (onWake = () => {}) => ({
+  steps: [{ id: CLOCK_STEP, handler: () => Date.parse(MERGED_AT) }],
+  waits: { [waitStep(1)]: () => (onWake(), tick(Date.parse(DAY_14))) },
+});
+
+/**
+ * Answers the run's waits by step id. `@inngest/test` hands a mocked `waitForEvent` its answer as a
+ * promise, which the SDK then refuses as an event, so the waits are answered in the step tools
+ * themselves, each once however often the run replays; a wait nobody answers fails the run.
+ */
+function answering(waits) {
+  const given = new Map();
+  return (ctx) => {
+    const mocked = mockCtx(ctx);
+    mocked.step.waitForEvent.mockImplementation(async (id) => {
+      if (!(id in waits)) throw new Error(`nobody answers the wait ${id}`);
+      if (!given.has(id)) given.set(id, waits[id]());
+      return given.get(id);
+    });
+    return mocked;
+  };
 }
+
+/** A retro's test engine, its fourteen days passed as `days` says. */
+function daysEngine(fn, event, { steps, waits: answers }) {
+  return new InngestTestEngine({ function: fn, events: [event], steps, transformCtx: answering(answers) });
+}
+
+/** The retro with its day-14 run, its fourteen days passed as `days` says. */
+function followUpEngine(scenario, { env = {}, onWake = () => {}, days = fourteenDays(onWake) } = {}) {
+  const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env, followUp: true });
+  return daysEngine(fn, scenario.event, days);
+}
+
+/** Every wait the run made, as [id, options]. */
+const waits = (ctx) => ctx.step.waitForEvent.mock.calls;
+
+const DAY_14_STEPS = [
+  'gather-after-merge-day-14',
+  'facts-day-14',
+  'narrate-day-14',
+  'guard-day-14',
+  'publish-issues-day-14',
+  'publish-day-14',
+];
 
 /** The widget scenario and, in the fourteen days after its merge, the bugs of the after-merge fixture and their fixes. */
 function afterMergeScenario({ churn = false } = {}) {
@@ -200,19 +257,20 @@ describe('retro — a GitHub failure', () => {
 });
 
 describe('retro — fourteen days later', () => {
-  it('sleeps until the merge plus fourteen days, then runs the day-14 steps: the after-merge kind, facts, narrate, guard, the issues, publish', async () => {
+  it('waits a day at a time, woken by its daily schedule, until the merge plus fourteen days, then runs the day-14 steps', async () => {
     const scenario = afterMergeScenario();
-    const { ctx, result, error } = await followUpEngine(scenario).execute();
+    const days = Array.from({ length: 14 }, (_, index) => index + 1);
+    const { ctx, result, error } = await followUpEngine(scenario, {
+      days: {
+        steps: [{ id: CLOCK_STEP, handler: () => Date.parse(MERGED_AT) + 60_000 }],
+        waits: Object.fromEntries(days.map((day) => [waitStep(day), () => tick(daysAfterMerge(day))])),
+      },
+    }).execute();
     expect(error).toBeUndefined();
-    expect(ctx.step.sleepUntil.mock.calls).toEqual([[FOLLOW_UP_STEP, DAY_14]]);
-    expect(ctx.step.run.mock.calls.map(([id]) => id).slice(-6)).toEqual([
-      'gather-after-merge-day-14',
-      'facts-day-14',
-      'narrate-day-14',
-      'guard-day-14',
-      'publish-issues-day-14',
-      'publish-day-14',
-    ]);
+
+    expect(waits(ctx)).toEqual(days.map((day) => [waitStep(day), { event: DAY_EVENT, timeout: DAY_WAIT }]));
+    const ran = ctx.step.run.mock.calls.map(([id]) => id);
+    expect(ran.slice(ran.indexOf(CLOCK_STEP))).toEqual([CLOCK_STEP, ...DAY_14_STEPS]);
     expect(result).toMatchObject({
       prd: 7,
       findings: 1,
@@ -220,6 +278,42 @@ describe('retro — fourteen days later', () => {
       branch: BRANCH,
       followUp: { findings: 2, issues: 2, branch: BRANCH, committed: true, pr: { created: false } },
     });
+  });
+
+  it('never sleeps, and no wait may outlast the plan’s seven days', async () => {
+    const { ctx } = await followUpEngine(afterMergeScenario()).execute();
+    expect(ctx.step.sleep).not.toHaveBeenCalled();
+    expect(ctx.step.sleepUntil).not.toHaveBeenCalled();
+    expect(waits(ctx).length).toBeGreaterThan(0);
+    for (const [, { timeout }] of waits(ctx)) expect(timeout).toBeLessThan(PLAN_CAP);
+  });
+
+  it('wakes on its own when no tick comes, reads the clock, and waits on until the fourteenth day', async () => {
+    const scenario = afterMergeScenario();
+    const days = {
+      steps: [
+        { id: CLOCK_STEP, handler: () => Date.parse(MERGED_AT) },
+        { id: `${CLOCK_STEP}-1`, handler: () => daysAfterMerge(13) },
+        { id: `${CLOCK_STEP}-2`, handler: () => daysAfterMerge(15) },
+      ],
+      waits: { [waitStep(1)]: () => null, [waitStep(2)]: () => null },
+    };
+    const { ctx, result, error } = await followUpEngine(scenario, { days }).execute();
+    expect(error).toBeUndefined();
+    expect(waits(ctx).map(([id]) => id)).toEqual([waitStep(1), waitStep(2)]);
+    const ran = ctx.step.run.mock.calls.map(([id]) => id);
+    expect(ran.slice(ran.indexOf(CLOCK_STEP))).toEqual([CLOCK_STEP, `${CLOCK_STEP}-1`, `${CLOCK_STEP}-2`, ...DAY_14_STEPS]);
+    expect(result.followUp).toMatchObject({ findings: 2, issues: 2 });
+  });
+
+  it('runs the day-14 steps at once when the merge is already fourteen days old, as on a late replay', async () => {
+    const scenario = afterMergeScenario();
+    const days = { steps: [{ id: CLOCK_STEP, handler: () => daysAfterMerge(20) }], waits: {} };
+    const { ctx, result, error } = await followUpEngine(scenario, { days }).execute();
+    expect(error).toBeUndefined();
+    expect(ctx.step.waitForEvent).not.toHaveBeenCalled();
+    expect(ctx.step.run.mock.calls.map(([id]) => id).slice(-6)).toEqual(DAY_14_STEPS);
+    expect(result.followUp).toMatchObject({ findings: 2, issues: 2 });
   });
 
   it('adds the "After merge" section to the open retro PR: one commit on top, the one PR kept', async () => {
@@ -359,15 +453,17 @@ describe('retro — fourteen days later', () => {
     expect(md).toContain('model: none');
   });
 
-  it('never sleeps when built without its day-14 run, nor when no kind takes part in it', async () => {
+  it('never waits when built without its day-14 run, nor when no kind takes part in it', async () => {
     const plain = await engine(widgetScenario()).execute();
-    expect(plain.ctx.step.sleepUntil).not.toHaveBeenCalled();
+    expect(plain.ctx.step.waitForEvent).not.toHaveBeenCalled();
+    expect(plain.ctx.step.run.mock.calls.map(([id]) => id)).not.toContain(CLOCK_STEP);
 
     const scenario = widgetScenario();
     const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env: {}, followUp: true, kinds: [] });
     const { ctx, error } = await new InngestTestEngine({ function: fn, events: [scenario.event] }).execute();
     expect(error).toBeUndefined();
-    expect(ctx.step.sleepUntil).not.toHaveBeenCalled();
+    expect(ctx.step.waitForEvent).not.toHaveBeenCalled();
+    expect(ctx.step.run.mock.calls.map(([id]) => id)).not.toContain(CLOCK_STEP);
   });
 
   it('is part of the function the app serves', async () => {
@@ -375,13 +471,10 @@ describe('retro — fourteen days later', () => {
     served.octokit = scenario.github.octokit;
     vi.stubEnv('OPENROUTER_API_KEY', '');
     try {
-      const { ctx, result, error } = await new InngestTestEngine({
-        function: retro,
-        events: [scenario.event],
-        steps: [{ id: FOLLOW_UP_STEP, handler() {} }],
-      }).execute();
+      const { ctx, result, error } = await daysEngine(retro, scenario.event, fourteenDays()).execute();
       expect(error).toBeUndefined();
-      expect(ctx.step.sleepUntil.mock.calls).toEqual([[FOLLOW_UP_STEP, DAY_14]]);
+      expect(waits(ctx)).toEqual([[waitStep(1), { event: DAY_EVENT, timeout: DAY_WAIT }]]);
+      expect(ctx.step.sleepUntil).not.toHaveBeenCalled();
       expect(result.followUp).toMatchObject({ findings: 2, issues: 2 });
     } finally {
       vi.unstubAllEnvs();
@@ -390,11 +483,52 @@ describe('retro — fourteen days later', () => {
   });
 });
 
+describe('retro — its daily schedule', () => {
+  const scheduled = { name: internalEvents.ScheduledTimer, data: { cron: DAILY } };
+
+  it('runs every day, beside the retro event', () => {
+    expect(retro.opts.triggers).toEqual([{ event: RETRO_EVENT }, { cron: DAILY }]);
+    expect(DAILY).toMatch(/^\d+ \d+ \* \* \*$/);
+  });
+
+  it('tells every retro waiting for its day-14 run that a day has passed, and reads nothing from GitHub', async () => {
+    const scenario = widgetScenario();
+    served.octokit = scenario.github.octokit;
+    try {
+      const { ctx, result, error } = await new InngestTestEngine({
+        function: retro,
+        events: [scheduled],
+        steps: [{ id: DAY_STEP, handler: () => ({ ids: ['tick'] }) }],
+      }).execute();
+      expect(error).toBeUndefined();
+      expect(ctx.step.sendEvent.mock.calls).toEqual([[DAY_STEP, { name: DAY_EVENT, data: {} }]]);
+      expect(ctx.step.run).not.toHaveBeenCalled();
+      expect(result).toEqual({ sent: DAY_EVENT });
+      expect(scenario.github.state.requests).toEqual([]);
+    } finally {
+      served.octokit = null;
+    }
+  });
+
+  it('is not part of a retro built without its day-14 run', () => {
+    const fn = createRetro({ client: inngest, octokitFor: () => null, env: {} });
+    expect(fn.opts.triggers).toEqual([{ event: RETRO_EVENT }]);
+  });
+
+  it('leaves no comment anywhere when a scheduled run fails', async () => {
+    const octokitFor = vi.fn();
+    const handler = createRetroFailureHandler({ octokitFor });
+    const failed = { name: internalEvents.FunctionFailed, data: { event: scheduled, error: { message: 'down' } } };
+    expect(await handler({ event: failed, error: new Error('down') })).toEqual({ skipped: 'not a merge' });
+    expect(octokitFor).not.toHaveBeenCalled();
+  });
+});
+
 describe('retro — the function’s configuration', () => {
-  it('is its own function, triggered by the retro event only', () => {
+  it('is its own function, triggered by the retro event and its daily schedule, never by the outbox check’s event', () => {
     expect(retro.id()).toBe(RETRO_FUNCTION_ID);
     expect(RETRO_FUNCTION_ID).not.toBe(OUTBOX_FUNCTION_ID);
-    expect(retro.opts.triggers).toEqual([{ event: RETRO_EVENT }]);
+    expect(retro.opts.triggers.filter((trigger) => trigger.event)).toEqual([{ event: RETRO_EVENT }]);
     expect(retro.opts.triggers).not.toContainEqual({ event: OUTBOX_CHECK_EVENT });
   });
 
