@@ -23,9 +23,10 @@ jobs:
         with: { version: 2.117.0 }   # pinned: `latest` asks the GitHub API, which rate-limits
       - run: supabase db start      # applies supabase/migrations, then supabase/seed.sql
       - name: Who may read and write the galaxy
-        # Signed out: the fleets only. Another domain: nothing. The crew: the galaxy, and only their
-        # own player row, never their GitHub login. The service role: appends, never rewrites.
-        # The migrations grant all of this themselves (config.toml › auto_expose_new_tables = false).
+        # Signed out: nothing. A member of a workspace: that workspace's galaxy and nothing of another,
+        # and only their own player row, never their GitHub login. Joining by domain: a confirmed
+        # address only. The service role: appends, never rewrites. The hook: refuses a domain no
+        # workspace joins. The migrations grant all of this themselves (config.toml › auto_expose_new_tables = false).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/access.sql
       - name: Who may read and write the ask sessions
         # Two accounts, each with its own JWT: neither reads, changes or removes the other's ask

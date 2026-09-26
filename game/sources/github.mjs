@@ -49,7 +49,11 @@ export function toIso(value) {
 }
 const firstIso = (out) => toIso(lines(out)[0]);
 
-export async function buildSnapshot({ config, exec = ghExec, now = new Date(), org = 'vertuoza', planRepo = 'vertuo-omni-plan', prds }) {
+// `org` (the owner of the repositories) and `planRepo` (the repository that carries the PRD issues)
+// are the workspace's `github_org` and `plan_repo`. There is no default: without them it throws.
+export async function buildSnapshot({ config, exec = ghExec, now = new Date(), org, planRepo, prds }) {
+  if (!org) throw new Error('buildSnapshot: no org: name the GitHub organisation (the workspace\'s github_org)');
+  if (!planRepo) throw new Error('buildSnapshot: no planRepo: name the repository of the PRD issues (the workspace\'s plan_repo)');
   const issues = json(await exec(['issue', 'list', '-R', `${org}/${planRepo}`, '--label', 'omni:prd', '--state', 'all', '--limit', '500', '--json', 'number,title,assignees,createdAt,closedAt']));
 
   // The roster (GitHub login, lower-cased → fleet) is the arcade's: players pick their fleet there.

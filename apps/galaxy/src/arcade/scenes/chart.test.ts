@@ -3,12 +3,15 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf } from '@omni/galaxy';
 import type { KnowledgeEntry, KnowledgeGraph } from '../../data/knowledge';
+import { HOUSE_BRAND } from '../brand';
 import { setFleets } from '../fleets';
 import { gridFor, TALL, WIDE, type Grid } from '../grid';
+import { markFor } from '../mark';
 import { ScreenContext } from '../Screen';
+import { DEFAULT_THEME, resolveTheme } from '../theme';
 import type { FleetRow } from '../types';
 import { layoutChart, layoutSystem, type ChartSource } from './chart-layout.ts';
-import { TALL_SCENES, WARM_PER_FRAME, worldSeed } from './chart.ts';
+import { kindColor, kindCss, TALL_SCENES, WARM_PER_FRAME, worldSeed } from './chart.ts';
 import { CARD_FIT, cardPages, ChartOverlay, servesLine, SystemOverlay, wrap } from './chart.tsx';
 import type { FrameState } from './common.ts';
 import { drawFrame, layoutMap } from './index.ts';
@@ -103,10 +106,22 @@ function frame(scene: 'chart' | 'system', grid: Grid, source: ChartSource = GRAP
   const layout = graph ? layoutChart(graph, grid) : { suns: [], lanes: [] };
   return {
     scene, grid, page: 0, view, layout: layoutMap(view, grid), sel: 0, fleetSel: 0, t: 5, sceneT: 2, reduced: false,
+    mark: markFor(HOUSE_BRAND.name), theme: DEFAULT_THEME,
     join: { fleets, pick: 0, lockedAt: null, team: null, away: false, hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } },
     chart: { source, layout, system: graph ? layoutSystem(graph, 'product', grid) : null, sun: 0, world },
   };
 }
+
+describe('the star chart\'s colours', () => {
+  it('follow the workspace\'s theme: principles its yellow, rules its cyan', () => {
+    const theme = resolveTheme({ yellow: '#000001', cyan: '#000002' });
+    expect(kindColor('principle', theme)).toBe('#000001');
+    expect(kindColor('rule', theme)).toBe('#000002');
+    expect(kindColor('principle', DEFAULT_THEME)).toBe(DEFAULT_THEME.yellow);
+    expect(kindCss('principle')).toBe('var(--yellow)');
+    expect(kindCss('rule')).toBe('var(--cyan)');
+  });
+});
 
 describe('the star chart on the canvas', () => {
   beforeAll(() => { vi.stubGlobal('OffscreenCanvas', FakeOffscreenCanvas); setFleets(fleets); });

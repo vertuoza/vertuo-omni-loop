@@ -1,6 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { afterGate, afterReturn, afterStart, allowed, backStep, isDisbanded, isLinked, isReady, nextStep, readReturn } from './onboarding';
 import type { FleetRow, Player, Session } from './types';
+import { arcadeFor } from '../data/arcade';
+import { authUser, fakeGalaxyDb, PEOPLE, twoWorkspaces, type FakeUser } from '../data/galaxy.fake';
+
+vi.mock('server-only', () => ({}));
 
 const fleet = (name: string, retired = false): FleetRow => ({ name, home: null, label: name.toUpperCase(), color: '#2fc6a4', motto: '', mascot: null, sort: 0, retired });
 const FLEETS = [fleet('beaver'), fleet('pirates'), fleet('invincible-team', true)];
@@ -25,6 +30,32 @@ describe('START', () => {
     expect(afterStart(crew, null, FLEETS)).toBe('gate');
     expect(afterStart(crew, player({ team: 'invincible-team' }), FLEETS)).toBe('gate');
     expect(afterStart(crew, player({ team: null }), FLEETS)).toBe('gate');
+  });
+});
+
+describe('crew is membership', () => {
+  /** The session the page hands the arcade, for one person, from their workspaces. */
+  const sessionOf = async (person: FakeUser) => {
+    const world = fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE));
+    return (await arcadeFor(world.client(person) as unknown as SupabaseClient, authUser(person) as unknown as User)).session;
+  };
+
+  it('lets a session with a workspace in, whatever its email\'s domain', async () => {
+    for (const person of [PEOPLE.ada, PEOPLE.wile, PEOPLE.bea]) {
+      const session = await sessionOf(person);
+      expect(session?.crew, person.email).toBe(true);
+      expect(afterStart(session, null, FLEETS), person.email).toBe('gate');
+      expect(afterReturn({ kind: 'signin' }, session, null, FLEETS), person.email).toBe('gate');
+    }
+  });
+
+  it('sends a session without one to the outsider screen, a vertuoza.com address included', async () => {
+    for (const person of [PEOPLE.eve, PEOPLE.una]) {
+      const session = await sessionOf(person);
+      expect(session?.crew, person.email).toBe(false);
+      expect(afterStart(session, null, FLEETS), person.email).toBe('outsider');
+      expect(afterReturn({ kind: 'signin' }, session, null, FLEETS), person.email).toBe('outsider');
+    }
   });
 });
 

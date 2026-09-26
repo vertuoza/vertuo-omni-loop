@@ -1,10 +1,10 @@
 // The galaxy map on the canvas: where each planet sits, which planet the D-pad reaches next, and the
 // map itself (the sectors, the hyperlanes, the distress pulses, the planets and their Entropy).
-import { drawPlanet, drawSprite, rng, WOUND_TINT } from '@omni/sprites';
+import { drawPlanet, rng, WOUND_TINT } from '@omni/sprites';
 import type { GalaxyView } from '@omni/galaxy';
 import { seedOf } from '../fleets';
 import {
-  frameOf, H, nebulaFor, planetLook, pulseRing, space, type FrameState, type Grid, type MapSlot, type Pages,
+  frameOf, H, nebulaFor, planetLook, pulseRing, space, sprite, type FrameState, type Grid, type MapSlot, type Pages,
   type SceneName,
 } from './common.ts';
 
@@ -162,14 +162,14 @@ export function neighbour<T extends Pick<MapSlot, 'x' | 'y' | 'index'>>(layout: 
 // ── The map ──────────────────────────────────────────────────────────────────
 
 /** The cursor's four blinking corners around a disc of radius `r`: the selected planet, sun or world. */
-export function brackets(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: number) {
+export function brackets(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: number, color: string) {
   const m = r + 6 + (Math.floor(t * 4) % 2) * 2;
   for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
     const cx = x + sx * m, cy = y + sy * m;
     ctx.fillStyle = '#0b0a26';
     ctx.fillRect((sx < 0 ? cx : cx - 7) + 1, cy + 1, 8, 2);
     ctx.fillRect(cx + 1, (sy < 0 ? cy : cy - 7) + 1, 2, 8);
-    ctx.fillStyle = '#ffd84a';
+    ctx.fillStyle = color;
     ctx.fillRect(sx < 0 ? cx : cx - 7, cy, 8, 2);
     ctx.fillRect(cx, sy < 0 ? cy : cy - 7, 2, 8);
     ctx.fillStyle = '#fff4b0';
@@ -177,7 +177,7 @@ export function brackets(ctx: CanvasRenderingContext2D, x: number, y: number, r:
   }
 }
 
-function dashedLine(ctx: CanvasRenderingContext2D, a: MapSlot, b: MapSlot, t: number) {
+function dashedLine(ctx: CanvasRenderingContext2D, a: MapSlot, b: MapSlot, t: number, color: string) {
   const dx = b.x - a.x, dy = b.y - a.y;
   const len = Math.hypot(dx, dy);
   const off = Math.floor(t * 16) % 12;
@@ -185,7 +185,7 @@ function dashedLine(ctx: CanvasRenderingContext2D, a: MapSlot, b: MapSlot, t: nu
     const x = Math.round(a.x + (dx * d) / len), y = Math.round(a.y + (dy * d) / len);
     ctx.fillStyle = '#5a0818';
     ctx.fillRect(x, y + 1, 5, 2);
-    ctx.fillStyle = '#ff3b5c';
+    ctx.fillStyle = color;
     ctx.fillRect(x, y, 5, 2);
   }
 }
@@ -214,13 +214,13 @@ export function drawMap(ctx: CanvasRenderingContext2D, s: FrameState) {
   // Hyperlanes: a locked planet waits on the planets it is blocked by.
   for (const slot of layout) {
     const p = view.planets[slot.index];
-    for (const b of p.blockers) { const to = bySlot.get(b); if (to) dashedLine(ctx, slot, to, s.t); }
+    for (const b of p.blockers) { const to = bySlot.get(b); if (to) dashedLine(ctx, slot, to, s.t, s.theme.red); }
   }
   for (const slot of layout) {
     const p = view.planets[slot.index];
-    const look = planetLook(p);
+    const look = planetLook(p, s.theme);
     const rot = s.reduced ? look.seed % 7 : s.t * 0.15 + (look.seed % 7);
-    if (p.state === 'distress' && !s.reduced) pulseRing(ctx, slot.x, slot.y, slot.r, s.t, '#ff3b5c');
+    if (p.state === 'distress' && !s.reduced) pulseRing(ctx, slot.x, slot.y, slot.r, s.t, s.theme.red);
     ctx.globalAlpha = look.mood === 'ghost' ? 0.55 : 1;
     drawPlanet(ctx, { cx: slot.x, cy: slot.y, r: slot.r, rot, ...look });
     ctx.globalAlpha = 1;
@@ -237,9 +237,9 @@ export function drawMap(ctx: CanvasRenderingContext2D, s: FrameState) {
     });
     const icon = p.state === 'lost' ? 'skull' : p.state === 'locked' ? 'lock' : p.state === 'distress' ? 'beacon'
       : p.state === 'awaiting-command' ? 'flag' : p.state === 'aftershock' ? 'fire' : null;
-    if (icon) drawSprite(ctx, icon, slot.x - 8, slot.y - slot.r - 22, { frame: frameOf(s, 3, slot.index * 0.3) });
-    if (p.state === 'terraformed' && Math.floor(s.t * 2 + slot.index) % 3 === 0) drawSprite(ctx, 'star', slot.x + slot.r - 6, slot.y - slot.r - 8, { frame: frameOf(s, 4) });
+    if (icon) sprite(ctx, s, icon, slot.x - 8, slot.y - slot.r - 22, { frame: frameOf(s, 3, slot.index * 0.3) });
+    if (p.state === 'terraformed' && Math.floor(s.t * 2 + slot.index) % 3 === 0) sprite(ctx, s, 'star', slot.x + slot.r - 6, slot.y - slot.r - 8, { frame: frameOf(s, 4) });
   }
   const cur = layout.find((l) => l.index === s.sel);
-  if (cur) brackets(ctx, cur.x, cur.y, cur.r, s.t);
+  if (cur) brackets(ctx, cur.x, cur.y, cur.r, s.t, s.theme.yellow);
 }

@@ -17,7 +17,12 @@ vi.mock('../data/mode', () => ({ arcadeMode: () => given.mode }));
 vi.mock('../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
   supabaseServer: async () => ({ auth: { getUser: async () => ({ data: { user: given.user } }) } }),
-  isCrewEmail: (email?: string | null) => Boolean(email?.endsWith('@vertuoza.com')),
+}));
+// Crew is membership of a workspace: here, the vertuoza workspace holds every @vertuoza.com account.
+vi.mock('../data/workspace', () => ({
+  memberWorkspace: async (_db: unknown, id: string) =>
+    (given.user?.id === id && given.user.email.endsWith('@vertuoza.com') ? { id: 'w1', slug: 'vertuoza', name: 'Vertuoza', theme: {} } : null),
+  brandOf: ({ name, theme }: { name: string; theme: Record<string, string> }) => ({ name, theme }),
 }));
 vi.mock('../data/load-galaxy', () => ({
   demoGalaxy: () => given.view,
@@ -58,7 +63,7 @@ describe('the arcade page and the star chart', () => {
   it.each([
     ['a closed build', { mode: 'closed', user: null }],
     ['a visitor signed out', { mode: 'supabase', user: null }],
-    ['an account from another domain', { mode: 'supabase', user: user('eve@example.com') }],
+    ['an account in no workspace', { mode: 'supabase', user: user('eve@example.com') }],
   ] as const)('gives %s no knowledge, and never reads it', async (_, state) => {
     Object.assign(given, state);
     const props = await propsOf();

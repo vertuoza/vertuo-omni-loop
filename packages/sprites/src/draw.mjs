@@ -23,20 +23,21 @@ function makeCanvas(w, h) {
 
 const forged = new Map();
 
-// The forged pixel grid of one frame of a sprite (pure; also used by the tests).
-export function spritePixels(name, { frame = 0, tint = null } = {}) {
+// The forged pixel grid of one frame of a sprite (pure; also used by the tests). `flat` recolours
+// flat colours, such as the stripes `1` to `4` (see forge.mjs).
+export function spritePixels(name, { frame = 0, tint = null, flat = null } = {}) {
   const def = SPRITE_DEFS[name];
   if (!def) throw new Error(`unknown sprite ${name}`);
-  const key = `${name}|${frame % 2}|${tint ? JSON.stringify(tint) : ''}`;
-  if (!forged.has(key)) forged.set(key, forge(def.w, def.h, (d) => def.draw(d, frame % 2), { tint: tint ?? {}, outline: def.outline !== false }));
+  const key = `${name}|${frame % 2}|${tint ? JSON.stringify(tint) : ''}|${flat ? JSON.stringify(flat) : ''}`;
+  if (!forged.has(key)) forged.set(key, forge(def.w, def.h, (d) => def.draw(d, frame % 2), { tint: tint ?? {}, flat: flat ?? {}, outline: def.outline !== false }));
   return forged.get(key);
 }
 
-// A sprite frame as an image, rendered once per (name, frame, tint, flip, silhouette).
-export function spriteImage(name, { tint = null, flip = false, frame = 0, silhouette = null } = {}) {
-  const key = `${name}|${frame % 2}|${tint ? JSON.stringify(tint) : ''}|${flip}|${silhouette ?? ''}`;
+// A sprite frame as an image, rendered once per (name, frame, tint, flat, flip, silhouette).
+export function spriteImage(name, { tint = null, flat = null, flip = false, frame = 0, silhouette = null } = {}) {
+  const key = `${name}|${frame % 2}|${tint ? JSON.stringify(tint) : ''}|${flat ? JSON.stringify(flat) : ''}|${flip}|${silhouette ?? ''}`;
   if (cache.has(key)) return cache.get(key);
-  const { w, h, pixels } = spritePixels(name, { frame, tint });
+  const { w, h, pixels } = spritePixels(name, { frame, tint, flat });
   const c = makeCanvas(w, h);
   const ctx = c.getContext('2d');
   const img = ctx.createImageData(w, h);
@@ -53,15 +54,15 @@ export function spriteImage(name, { tint = null, flip = false, frame = 0, silhou
 }
 
 /** `glow` draws a one-pixel halo of that colour around the silhouette (the plasma aura). */
-export function drawSprite(ctx, name, x, y, { scale = 1, tint, flip, alpha = 1, frame = 0, glow = null } = {}) {
+export function drawSprite(ctx, name, x, y, { scale = 1, tint, flat, flip, alpha = 1, frame = 0, glow = null } = {}) {
   const prev = ctx.globalAlpha;
   x = Math.round(x); y = Math.round(y);
   if (glow) {
-    const halo = spriteImage(name, { tint, flip, frame, silhouette: glow });
+    const halo = spriteImage(name, { tint, flat, flip, frame, silhouette: glow });
     ctx.globalAlpha = alpha * 0.55;
     for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(halo, x + dx * scale, y + dy * scale, halo.width * scale, halo.height * scale);
   }
-  const img = spriteImage(name, { tint, flip, frame });
+  const img = spriteImage(name, { tint, flat, flip, frame });
   ctx.globalAlpha = alpha;
   ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
   ctx.globalAlpha = prev;

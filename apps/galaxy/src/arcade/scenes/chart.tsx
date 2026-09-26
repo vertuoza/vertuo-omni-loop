@@ -8,7 +8,7 @@ import { cited, servedBy, serving } from '../../data/knowledge';
 import { Hint } from '../hint';
 import { useScreen } from '../Screen';
 import type { ChartLayout, ChartSource, SystemLayout } from './chart-layout.ts';
-import { KIND_LOOK } from './chart.ts';
+import { KIND_LOOK, kindCss } from './chart.ts';
 import type { GridName } from './common.ts';
 import './common.css';
 import './chart.css';
@@ -76,7 +76,7 @@ export function ChartOverlay({ source, layout, sun, onEnter }: { source: ChartSo
             </div>
             <div className="dialog-row small">
               {(['principle', 'rule', 'invariant'] as const).map((kind) => (
-                <span key={kind} style={{ color: KIND_LOOK[kind].color }}>{plural(s.counts[`${kind}s`], KIND_LOOK[kind].label)}</span>
+                <span key={kind} style={{ color: kindCss(kind) }}>{plural(s.counts[`${kind}s`], KIND_LOOK[kind].label)}</span>
               ))}
             </div>
             <div className="dialog-row small">
@@ -184,7 +184,7 @@ function StatusChip({ entry }: { entry: KnowledgeEntry }) {
 }
 
 function KindTag({ entry }: { entry: KnowledgeEntry }) {
-  return <span className="kind-tag" style={{ color: KIND_LOOK[entry.kind].color }}>{KIND_LOOK[entry.kind].label}</span>;
+  return <span className="kind-tag" style={{ color: kindCss(entry.kind) }}>{KIND_LOOK[entry.kind].label}</span>;
 }
 
 /** The reading card over the system: the whole entry, a page at a time. */
@@ -230,7 +230,7 @@ export function SystemOverlay({ graph, layout, world, card, cardPage, onRead, on
         <span className="system-count">{domain ? `${plural(domain.counts.laws, 'LAW')} · ${domain.counts.proposed} PROPOSED` : ''}</span>
         <span className="system-legend">
           {(['principle', 'rule', 'invariant'] as const).map((kind) => (
-            <span key={kind} style={{ color: KIND_LOOK[kind].color }}>● {KIND_LOOK[kind].plural}</span>
+            <span key={kind} style={{ color: kindCss(kind) }}>● {KIND_LOOK[kind].plural}</span>
           ))}
         </span>
       </header>

@@ -2,6 +2,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf } from '@omni/galaxy';
 import { drawFrame, layoutMap, TALL, WIDE, type FrameState, type Grid, type SceneName } from './index';
 import { setFleets } from '../fleets';
+import { HOUSE_BRAND } from '../brand';
+import { markFor } from '../mark';
+import { DEFAULT_THEME } from '../theme';
 import type { FleetRow } from '../types';
 
 // Every scene the arcade can open, each listed once: a scene missing here fails the typecheck.
@@ -42,7 +45,7 @@ const fleets: FleetRow[] = Object.entries(DEMO_PROJECTS.teams)
 
 function frame(scene: SceneName, sceneT = 2, grid: Grid = WIDE): FrameState {
   return {
-    scene, grid, page: 0, view, layout: layoutMap(view, grid), sel: 0, fleetSel: 0, t: 5, sceneT, reduced: false,
+    scene, grid, page: 0, view, layout: layoutMap(view, grid), sel: 0, fleetSel: 0, t: 5, sceneT, reduced: false, mark: markFor(HOUSE_BRAND.name), theme: DEFAULT_THEME,
     join: {
       fleets, pick: 1, lockedAt: null, team: fleets[1].name, away: false,
       hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 },

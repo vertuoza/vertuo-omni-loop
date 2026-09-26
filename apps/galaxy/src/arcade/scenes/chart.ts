@@ -8,17 +8,31 @@ import { servedBy, serving, type EntryKind, type KnowledgeGraph } from '../../da
 import { sunSeed, type WorldSlot } from './chart-layout.ts';
 import { nebulaFor, space, type FrameState, type Pages, type SceneName } from './common.ts';
 import { brackets } from './map.ts';
+import type { Theme, Token } from '../theme';
 
 /** Both scenes are laid out on the tall grid too: the Game Boy held upright draws them on 320×288 (grid.ts reads this list). */
 export const TALL_SCENES: readonly SceneName[] = ['chart', 'system'];
 /** One page each: the reading card turns its own pages. */
 export const PAGES: Pages = {};
 
-/** Each kind's colour: its orbits on the canvas, its name in the text layer. */
-export const KIND_LOOK: Record<EntryKind, { color: string; label: string; plural: string }> = {
-  principle: { color: '#ffd84a', label: 'PRINCIPLE', plural: 'PRINCIPLES' },
-  rule: { color: '#6ff0ff', label: 'RULE', plural: 'RULES' },
-  invariant: { color: '#ff8fd0', label: 'INVARIANT', plural: 'INVARIANTS' },
+/** Each kind's colour: its orbits on the canvas, its name in the text layer. A kind coloured by a
+ * theme token (`token`) takes the workspace's colour; `color` is the one no token names. */
+export const KIND_LOOK: Record<EntryKind, { token: Token | null; color: string | null; label: string; plural: string }> = {
+  principle: { token: 'yellow', color: null, label: 'PRINCIPLE', plural: 'PRINCIPLES' },
+  rule: { token: 'cyan', color: null, label: 'RULE', plural: 'RULES' },
+  invariant: { token: null, color: '#ff8fd0', label: 'INVARIANT', plural: 'INVARIANTS' },
+};
+
+/** A kind's colour on the canvas, in the frame's theme. */
+export const kindColor = (kind: EntryKind, theme: Theme) => {
+  const { token, color } = KIND_LOOK[kind];
+  return token ? theme[token] : color!;
+};
+
+/** A kind's colour in the text layer: the custom property the theme writes on the arcade's root. */
+export const kindCss = (kind: EntryKind) => {
+  const { token, color } = KIND_LOOK[kind];
+  return token ? `var(--${token})` : color!;
 };
 
 /** The graph a frame shows, if it has one: out of reach and a build without a chart draw bare space. */
@@ -35,9 +49,9 @@ export function worldSeed(id: string): number {
 }
 
 /** A world as the galaxy map's planet renderer draws it: a law terraformed, a proposed entry barren. */
-export function worldLook(w: WorldSlot) {
+export function worldLook(w: WorldSlot, theme: Theme) {
   const law = w.entry.status === 'law';
-  return { seed: worldSeed(w.entry.id), progress: law ? 1 : 0, mood: 'alive' as const, atmosphere: law ? '#6ff0ff' : '#7a64b8' };
+  return { seed: worldSeed(w.entry.id), progress: law ? 1 : 0, mood: 'alive' as const, atmosphere: law ? theme.cyan : '#7a64b8' };
 }
 
 /** A dotted line from (ax, ay) to (bx, by), `skipA` and `skipB` pixels clear of its two ends, its dots marching. */
@@ -71,7 +85,7 @@ export function drawChart(ctx: CanvasRenderingContext2D, s: FrameState) {
   }
   for (const sun of suns) drawSun(ctx, { cx: sun.x, cy: sun.y, r: sun.r, seed: sun.seed, t });
   const cur = suns[s.chart.sun];
-  if (cur) brackets(ctx, cur.x, cur.y, Math.round(cur.r * 1.25), s.t);
+  if (cur) brackets(ctx, cur.x, cur.y, Math.round(cur.r * 1.25), s.t, s.theme.yellow);
 }
 
 // ── system ───────────────────────────────────────────────────────────────────
@@ -112,7 +126,7 @@ export function drawSystem(ctx: CanvasRenderingContext2D, s: FrameState) {
   if (!graph || !layout || !s.chart) return;
   const t = s.reduced ? 0 : s.t;
   const system = s.chart.layout.suns[s.chart.sun]?.system;
-  for (const o of layout.orbits) orbitLine(ctx, layout.cx, layout.cy, o.rx, o.ry, KIND_LOOK[o.kind].color);
+  for (const o of layout.orbits) orbitLine(ctx, layout.cx, layout.cy, o.rx, o.ry, kindColor(o.kind, s.theme));
   drawSun(ctx, { cx: layout.cx, cy: layout.cy, r: layout.sun, seed: system ? sunSeed(system) : 0, t });
   // The selected world's links: to the principle it serves, and from every entry that serves it.
   const cur = layout.worlds[s.chart.world];
@@ -120,15 +134,15 @@ export function drawSystem(ctx: CanvasRenderingContext2D, s: FrameState) {
     const at = new Map(layout.worlds.map((w) => [w.entry.id, w]));
     const up = serving(graph, cur.entry.id);
     const to = up ? at.get(up.id) : undefined;
-    if (to) dotted(ctx, cur.x, cur.y, to.x, to.y, { skipA: cur.r + 2, skipB: to.r + 2, every: 4, size: 2, color: KIND_LOOK.principle.color, shade: '#6b2a00', t });
+    if (to) dotted(ctx, cur.x, cur.y, to.x, to.y, { skipA: cur.r + 2, skipB: to.r + 2, every: 4, size: 2, color: kindColor('principle', s.theme), shade: '#6b2a00', t });
     for (const e of servedBy(graph, cur.entry.id)) {
       const from = at.get(e.id);
-      if (from) dotted(ctx, from.x, from.y, cur.x, cur.y, { skipA: from.r + 2, skipB: cur.r + 2, every: 4, size: 1, color: KIND_LOOK[e.kind].color, shade: '#0b0a26', t });
+      if (from) dotted(ctx, from.x, from.y, cur.x, cur.y, { skipA: from.r + 2, skipB: cur.r + 2, every: 4, size: 1, color: kindColor(e.kind, s.theme), shade: '#0b0a26', t });
     }
   }
   let budget = WARM_PER_FRAME;
   for (const w of layout.worlds) {
-    const look = worldLook(w);
+    const look = worldLook(w, s.theme);
     if (!warmed.has(look.seed)) {
       if (budget <= 0) { disc(ctx, w.x, w.y, w.r, '#2a1f5c'); continue; }
       budget--;
@@ -137,5 +151,5 @@ export function drawSystem(ctx: CanvasRenderingContext2D, s: FrameState) {
     const rot = s.reduced ? look.seed % 7 : s.t * 0.15 + (look.seed % 7);
     drawPlanet(ctx, { cx: w.x, cy: w.y, r: w.r, rot, ...look });
   }
-  if (cur) brackets(ctx, Math.round(cur.x), Math.round(cur.y), cur.r, s.t);
+  if (cur) brackets(ctx, Math.round(cur.x), Math.round(cur.y), cur.r, s.t, s.theme.yellow);
 }

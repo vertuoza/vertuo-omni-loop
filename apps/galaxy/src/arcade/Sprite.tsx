@@ -1,16 +1,20 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
-import { drawSprite, spriteSize, type Hero, type Tint } from '@omni/sprites';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { drawSprite, spriteSize, type Flat, type Hero, type Tint } from '@omni/sprites';
 import { fleet, heroOf } from './fleets';
 
+/** The stripes every sprite in the arcade wears: the theme's `stripe-1` to `stripe-4` (theme.ts). None: the forge's own. */
+export const Stripes = createContext<Flat | null>(null);
+
 // A sprite as a DOM element, for panels and cards. `scale` is in CSS pixels per sprite pixel;
-// `animate` plays the two idle frames.
+// `animate` plays the two idle frames. It wears the arcade's stripes (`Stripes`).
 export function Sprite({ name, scale = 1, tint, flip, animate, className, title }: {
   name: string; scale?: number; tint?: Tint; flip?: boolean; animate?: boolean; className?: string; title?: string;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const { w, h } = spriteSize(name);
   const [frame, setFrame] = useState(0);
+  const flat = useContext(Stripes);
   useEffect(() => {
     if (!animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const id = window.setInterval(() => setFrame((f) => 1 - f), 420);
@@ -20,8 +24,8 @@ export function Sprite({ name, scale = 1, tint, flip, animate, className, title 
     const ctx = ref.current?.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, w, h);
-    drawSprite(ctx, name, 0, 0, { tint, flip, frame });
-  }, [name, tint, flip, w, h, frame]);
+    drawSprite(ctx, name, 0, 0, { tint, flat, flip, frame });
+  }, [name, tint, flat, flip, w, h, frame]);
   return (
     <canvas
       ref={ref}

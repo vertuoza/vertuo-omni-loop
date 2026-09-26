@@ -3,6 +3,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf } from '@omni/galaxy';
 import { setFleets } from '../fleets';
+import { HOUSE_BRAND } from '../brand';
+import { markFor } from '../mark';
+import { DEFAULT_THEME } from '../theme';
 import { gridFor, pagesFor, TALL, WIDE, type Grid } from '../grid';
 import { ScreenContext } from '../Screen';
 import type { FleetRow, Player } from '../types';
@@ -74,7 +77,7 @@ class FakeOffscreenCanvas {
 
 function frame(grid: Grid, team: string | null): FrameState {
   return {
-    scene: 'menu', grid, page: 0, view, layout: layoutMap(view, grid), sel: 0, fleetSel: 0, t: 5, sceneT: 2, reduced: false,
+    scene: 'menu', grid, page: 0, view, layout: layoutMap(view, grid), sel: 0, fleetSel: 0, t: 5, sceneT: 2, reduced: false, mark: markFor(HOUSE_BRAND.name), theme: DEFAULT_THEME,
     join: { fleets, pick: 0, lockedAt: null, team, away: false, hero: player.hero },
   };
 }
