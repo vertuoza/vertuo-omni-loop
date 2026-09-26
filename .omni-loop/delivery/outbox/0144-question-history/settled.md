@@ -312,3 +312,239 @@ Letting the owner read them later is one line added to a reading rule; deleting 
 ```
 
 <!-- /omni-outbox-settled: s2-02-session-of-owner-in-no-workspace -->
+
+<!-- omni-outbox-settled: s3-01-classifier-model -->
+
+## s3-01-classifier-model — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-classifier-model
+prd: 144
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 3
+---
+
+## The question, in plain words
+
+Which model should sort each question into one of the six categories, and how long may it take before the question is left unsorted?
+
+## The decision, in plain words
+
+A small, cheap Claude model does the sorting, and gets fifteen seconds; a slower answer leaves the question unsorted, and people can sort it by hand.
+
+## The intro, for fun
+
+Somebody has to put every question in the right drawer, and it does not need to be the smartest in the room.
+
+## The punchline, for fun
+
+A quick glance and a label: fifteen seconds, then the drawer stays shut.
+
+## The options, in plain words
+
+A. A small Claude model with a 15-second limit, fixed in the code
+B. The same, with the model named by an environment setting so it changes without a deploy
+C. A larger model, for better sorting at a higher price per question
+
+## What I had to decide
+
+Which OpenRouter model the classifier calls, and its time limit.
+
+## What I did meanwhile
+
+The classifier calls anthropic/claude-haiku-4.5 through OpenRouter, at temperature 0, with a 15-second limit; both are constants in the galaxy's classifier.
+
+## What it costs to change later
+
+Changing either is one constant; no data moves, and rounds sorted so far keep their category.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec names OpenRouter but no model, and no time limit (author)
+- Whether that model id is enabled on the OpenRouter account behind OPENROUTER_API_KEY; a model it refuses leaves every round unsorted, silently (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-01-classifier-model -->
+
+<!-- omni-outbox-settled: s3-02-model-guess-never-overrides -->
+
+## s3-02-model-guess-never-overrides — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-model-guess-never-overrides
+prd: 144
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 3
+---
+
+## The question, in plain words
+
+When the model's guess arrives after a person has already sorted the question, which one wins, and whose account records the guess?
+
+## The decision, in plain words
+
+A person always wins: the model's guess is kept only while nobody has sorted the question. The guess is recorded in the name of the person who asked, since the app holds no key of its own.
+
+## The intro, for fun
+
+The robot and a human both reach for the same label maker.
+
+## The punchline, for fun
+
+The human keeps it, and the robot does not even get a turn.
+
+## The options, in plain words
+
+A. The guess is kept only while nobody sorted the question, recorded as the asker
+B. The guess always replaces whatever is there, as the last word
+C. The app records the guess with a key of its own, so nobody else can write it
+
+## What I had to decide
+
+How the model's category is written without a database key of the app's own, and whether it may replace a person's choice.
+
+## What I did meanwhile
+
+Nobody can write the category columns directly. One database function lets any member set or clear a category; a second records the model's guess, callable only by the session's owner, and only while nobody has set one. The galaxy calls it with the asker's own sign-in, after the response.
+
+## What it costs to change later
+
+Replacing the second function, or granting the app a key of its own, is one small migration; stored categories stay as they are.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The session's owner could call the second function directly and label a round as sorted by the model; the category is still one of the six, and any member can change it (author)
+- The spec says nothing about a guess arriving after a person sorted the round (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-02-model-guess-never-overrides -->
+
+<!-- omni-outbox-settled: s3-03-chip-names-who-by-role -->
+
+## s3-03-chip-names-who-by-role — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-chip-names-who-by-role
+prd: 144
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 3
+---
+
+## The question, in plain words
+
+The chip on each question says who set its category: should it give that person's name, or only say whether it was the model, you, the owner or a teammate?
+
+## The decision, in plain words
+
+It says it by role: sorted by the model, set by you, set by the session owner, or set by a teammate. Clearing a category shows the question as unsorted, cleared by that person.
+
+## The intro, for fun
+
+A sticky note on every question, signed by somebody.
+
+## The punchline, for fun
+
+For now the signature reads teammate, which narrows it down to everyone.
+
+## The options, in plain words
+
+A. By role: the model, you, the session owner, or a teammate
+B. By the person's player name, falling back to a teammate when they have none
+
+## What I had to decide
+
+How the chip names who set a question's category, when the page only knows an account's id.
+
+## What I did meanwhile
+
+The page compares the id with the viewer and the session's owner and prints a role; no name is looked up.
+
+## What it costs to change later
+
+Showing names later is a read of the workspace's players on the page; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the chip shows who set it, without saying whether by name (author)
+- A member who never joined the game has no player name to show, so names would need a fallback anyway (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-03-chip-names-who-by-role -->
