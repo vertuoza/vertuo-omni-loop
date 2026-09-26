@@ -72,3 +72,27 @@ export function githubClientFor(ctx, { repo = ctx.config.repo.slug, issue, exec 
     updateComment: (id, body) => client().updateComment(id, body),
   };
 }
+
+/**
+ * One pull request of `repo` (default `ctx.config.repo.slug`), as the harvest needs it: whether and
+ * when it merged, who merged it, into which branch, and its merge commit. Read through `gh api`.
+ *
+ * @returns {{ number: number, url: string, merged: boolean, mergedAt: string | null,
+ *   mergedBy: string | null, mergeSha: string | null, base: string, head: string }}
+ */
+export function pullRequestFor(ctx, { repo = ctx.config.repo.slug, number, exec = execFileSync, env = process.env }) {
+  const ghEnv = githubEnv(ctx, { exec, env });
+  const data = JSON.parse(
+    exec('gh', ['api', `repos/${repo}/pulls/${number}`], { encoding: 'utf8', ...(ghEnv ? { env: ghEnv } : {}) }),
+  );
+  return {
+    number: data.number,
+    url: data.html_url,
+    merged: Boolean(data.merged_at),
+    mergedAt: data.merged_at ?? null,
+    mergedBy: data.merged_by?.login ?? null,
+    mergeSha: data.merge_commit_sha ?? null,
+    base: data.base?.ref ?? '',
+    head: data.head?.ref ?? '',
+  };
+}

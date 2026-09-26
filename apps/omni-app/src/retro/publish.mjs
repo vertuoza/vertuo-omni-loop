@@ -14,6 +14,9 @@
 // Once that PR is merged, or closed, it writes to `<branch>-day-14` instead, cut from the default
 // branch's head, and opens a PR from there. The records of the runs before it (`earlier`) are written
 // again beside its own, so its `retro.md` is the whole retro even when the first PR was never merged.
+//
+// The branch, the commit and the PR are written through the app's shared writer (`../git-write/`).
+import { addCommit, branchHead, pullsFrom, refuseDefault, upsertPull } from '../git-write/git-write.mjs';
 import { mergeRuns, render } from './render.mjs';
 import { readContent } from './github.mjs';
 
@@ -37,9 +40,9 @@ export async function publishRetro(octokit, { owner, repo, config, prd, pr, reco
     run: record.run,
     mergeSha: pr.mergeSha,
   });
-  if (branch === base) throw new Error(`The retro branch \`${branch}\` is the default branch; refusing to write to it.`);
+  refuseDefault(branch, base);
 
-  const head = await branchHead(octokit, { owner, repo, branch, from });
+  const head = await branchHead(octokit, { owner, repo, branch, from, defaultBranch: base });
   const paths = { markdown: `${prd.folder}/retro.md`, json: `${prd.folder}/retro.json` };
 
   const onBranch = {
@@ -55,6 +58,7 @@ export async function publishRetro(octokit, { owner, repo, config, prd, pr, reco
       owner,
       repo,
       branch,
+      defaultBranch: base,
       parent: head,
       message: `${out.title}\n\nThe ${record.run} run of #${pr.number}.`,
       files: [
@@ -100,92 +104,4 @@ function withRuns(existing, records) {
     text = JSON.stringify(doc);
   }
   return doc;
-}
-
-/** The branch's head, cutting the branch from `from` when it does not exist. */
-async function branchHead(octokit, { owner, repo, branch, from }) {
-  const read = async () => {
-    const { data } = await octokit.request('GET /repos/{owner}/{repo}/git/ref/{ref}', { owner, repo, ref: `heads/${branch}` });
-    return data.object.sha;
-  };
-  try {
-    return await read();
-  } catch (error) {
-    if (error?.status !== 404) throw error;
-  }
-  try {
-    await octokit.request('POST /repos/{owner}/{repo}/git/refs', { owner, repo, ref: `refs/heads/${branch}`, sha: from });
-    return from;
-  } catch (error) {
-    // Cut by an earlier attempt between the read and the write: read it again.
-    if (error?.status === 422) return read();
-    throw error;
-  }
-}
-
-/** One commit on top of `parent` holding `files`, and the branch moved to it without force. */
-async function addCommit(octokit, { owner, repo, branch, parent, message, files }) {
-  const { data: parentCommit } = await octokit.request('GET /repos/{owner}/{repo}/git/commits/{commit_sha}', {
-    owner,
-    repo,
-    commit_sha: parent,
-  });
-  const { data: tree } = await octokit.request('POST /repos/{owner}/{repo}/git/trees', {
-    owner,
-    repo,
-    base_tree: parentCommit.tree.sha,
-    tree: files.map(({ path, content }) => ({ path, mode: '100644', type: 'blob', content })),
-  });
-  const { data: commit } = await octokit.request('POST /repos/{owner}/{repo}/git/commits', {
-    owner,
-    repo,
-    message,
-    tree: tree.sha,
-    parents: [parent],
-  });
-  await octokit.request('PATCH /repos/{owner}/{repo}/git/refs/{ref}', {
-    owner,
-    repo,
-    ref: `heads/${branch}`,
-    sha: commit.sha,
-    force: false,
-  });
-  return commit.sha;
-}
-
-/** Every PR from the branch into `base`, open or closed, newest first. */
-async function pullsFrom(octokit, { owner, repo, branch, base }) {
-  const { data } = await octokit.request('GET /repos/{owner}/{repo}/pulls', {
-    owner,
-    repo,
-    head: `${owner}:${branch}`,
-    base,
-    state: 'all',
-    per_page: 10,
-    page: 1,
-  });
-  return [...data].sort((a, b) => b.number - a.number);
-}
-
-/**
- * The open PR from the branch, its title and body rewritten; else the merged PR that already holds
- * the branch's `head`, left as it is; else a new one.
- */
-async function upsertPull(octokit, { owner, repo, branch, base, head, title, body }) {
-  const pulls = await pullsFrom(octokit, { owner, repo, branch, base });
-  const open = pulls.find((pull) => pull.state === 'open');
-  if (open) {
-    const { data } = await octokit.request('PATCH /repos/{owner}/{repo}/pulls/{pull_number}', {
-      owner,
-      repo,
-      pull_number: open.number,
-      title,
-      body,
-    });
-    return { number: data.number, url: data.html_url, created: false, open: true };
-  }
-  const merged = pulls.find((pull) => pull.merged_at && pull.head?.sha === head);
-  if (merged) return { number: merged.number, url: merged.html_url, created: false, open: false };
-  const { data } = await octokit.request('POST /repos/{owner}/{repo}/pulls', { owner, repo, head: branch, base, title, body });
-  return { number: data.number, url: data.html_url, created: true, open: true };
 }

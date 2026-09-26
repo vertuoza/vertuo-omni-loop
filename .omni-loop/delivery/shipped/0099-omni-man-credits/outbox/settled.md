@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-23, P-PRODUCT-21
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ One regular expression in `kit/lib/config.mjs` and one test. Loosening it later 
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Stays here: A local parsing detail that settles a spec ambiguity. It costs one regex to change, is not yet called in this slice, and sets no lasting product rule or architecture.
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ One regular expression and one test in `kit/lib/signature.mjs`. Dropping the old
 - Raised: 2026-09-26
 - Slice: s2
 - Wave: 2
+- Became: ADR-0042
 
 ### The answer, as it was given
 
@@ -252,6 +255,7 @@ Three regular expressions and their fixture cases in `kit/test/plugin.test.mjs`;
 - Raised: 2026-09-26
 - Slice: s3
 - Wave: 2
+- Became: ADR-0043
 
 ### The answer, as it was given
 
@@ -330,6 +334,7 @@ Two arguments in `kit/lib/credits/reader.mjs`: leaving `--created` off the body 
 - Raised: 2026-09-26
 - Slice: s3
 - Wave: 2
+- Became: BR-PRODUCT-24, P-PRODUCT-22
 
 ### The answer, as it was given
 
@@ -408,6 +413,7 @@ One branch in `kit/lib/credits/reader.mjs`: a failed search could become a warni
 - Raised: 2026-09-26
 - Slice: s3
 - Wave: 2
+- Stays here: A single display string that nothing reads back and that is cheap to change; no existing entry covers it, and it sets no lasting rule or architecture.
 
 ### The answer, as it was given
 
@@ -486,6 +492,7 @@ One string in `kit/lib/credits/report.mjs` and its two tests. Nothing reads the 
 - Raised: 2026-09-26
 - Slice: s4
 - Wave: 3
+- Became: BR-PRODUCT-25, P-PRODUCT-23
 
 ### The answer, as it was given
 
@@ -564,6 +571,7 @@ A few lines in `summarize` and one in `withSignatures` (`kit/lib/credits/classif
 - Raised: 2026-09-26
 - Slice: s4
 - Wave: 3
+- Stays here: A local output-format choice for one command, cheap to change and read by nothing; no existing principle or record covers it, and it sets no lasting rule.
 
 ### The answer, as it was given
 
@@ -641,6 +649,7 @@ Three lines in `kit/bin/commands/credits.mjs` and one test. Nothing reads the te
 - Raised: 2026-09-26
 - Slice: s4
 - Wave: 3
+- Became: BR-PRODUCT-26, P-PRODUCT-24
 
 ### The answer, as it was given
 

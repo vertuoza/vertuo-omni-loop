@@ -27,8 +27,14 @@ One file per record, `NNNN-<slug>.md`, shaped like the first record here:
 - The title is `# ADR-NNNN — <the decision>`.
 - Under it, one status line: `**Status:** accepted · **Date:** <YYYY-MM-DD> · **PRD:** #<n>`, and
   `· **Supersedes:** <what>` when it replaces part of an earlier PRD's spec.
+- A record harvested from a settled outbox decision carries two more fields on that status line:
+  `· **Decided:** <who>` and `· **Merged:** @<merger>, <YYYY-MM-DD>, PR #<n>`. `Decided:` takes one
+  of three forms: `@<answerer> via <channel>, <date>` when a person answered,
+  `nobody — adopted when raised (medium), <date>`, or `@<merger> — merged over a red outbox, <date>`.
+  Its status is `accepted` when a person answered, and `adopted` otherwise.
 - Then `## Context`, `## Decision`, a `## What it supersedes in <that spec>` section when it
   supersedes one, naming each section it changes, and `## Consequences`.
+- A harvested record ends with `## Source`, naming the ledger file and the entry it came from.
 
 ## Numbering
 <!-- slot: numbering · optional -->
