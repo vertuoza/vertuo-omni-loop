@@ -1,7 +1,8 @@
 // The ask page without a database (`pnpm galaxy:dev`, or a build with OMNI_LOOP_DEMO=1, like the
 // arcade's demo galaxy): one made-up session played in the browser, so the page can be seen and
 // tried. `?demo=working|moved|closed|empty` shows the other states. Nothing here is ever sent.
-import type { AskPort } from './source';
+import type { QuestionState } from './question';
+import type { AskPort, QuestionPort } from './source';
 import type { RoundRow, SessionState } from './view';
 
 export type DemoScenario = 'open' | 'working' | 'moved' | 'closed' | 'empty';
@@ -170,6 +171,41 @@ export function demoPort(seed: SessionState, now: () => number = Date.now, askAg
       if (!round) return null;
       Object.assign(round, { category, category_by: DEMO_OWNER });
       return { category, category_by: DEMO_OWNER };
+    },
+  };
+}
+
+/** The teammate the demo's open question is shared with: whoever plays /ask/q/demo is them. */
+export const DEMO_TEAMMATE = DEMO_MEMBERS[1].user_id;
+
+/** The demo's shared question (PRD 144): its open round, shared with the teammate, or (`answered`)
+ * already answered by the owner in the terminal. */
+export function demoQuestion(now: number, answered = false): QuestionState {
+  const { session, rounds } = demoState('demo', 'open', now);
+  const open = rounds[rounds.length - 1];
+  const answers = Object.fromEntries((open.questions as Array<{ question: string; options: Array<{ label: string }> }>).map((q) => [q.question, q.options[0].label]));
+  const round = answered
+    ? { ...open, status: 'answered' as const, answers, answered_via: 'terminal' as const, answered_at: iso(now - 20_000), answered_by: DEMO_OWNER }
+    : open;
+  return { session, round, earlier: rounds.slice(0, -1), sharedWith: [DEMO_TEAMMATE] };
+}
+
+/** The demo's shared question in the browser: the teammate's answer is taken, once. */
+export function demoQuestionPort(seed: QuestionState, now: () => number = Date.now): QuestionPort {
+  let state: QuestionState = structuredClone(seed);
+  return {
+    async read() {
+      return structuredClone(state);
+    },
+    async send(roundId, answers) {
+      if (state.round.id !== roundId || state.round.status !== 'open') return 'taken';
+      state = { ...state, round: { ...state.round, status: 'answered', answers, answered_via: 'page', answered_at: iso(now()), answered_by: DEMO_TEAMMATE } };
+      return 'answered';
+    },
+    async sort(roundId, category) {
+      if (state.round.id !== roundId) return null;
+      state = { ...state, round: { ...state.round, category, category_by: DEMO_TEAMMATE } };
+      return { category, category_by: DEMO_TEAMMATE };
     },
   };
 }

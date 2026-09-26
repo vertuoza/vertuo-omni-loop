@@ -8,6 +8,9 @@ import { ContextLine } from './ContextLine';
 import { demoPort } from './demo';
 import { History } from './History';
 import { poll } from './poll';
+import type { Member } from './question';
+import { shareCandidates } from './share';
+import { ShareButton } from './ShareButton';
 import { RoundForm } from './RoundForm';
 import { databasePort, type AskPort } from './source';
 import {
@@ -18,22 +21,24 @@ import {
 // closed), the history below, read again every 2 s while the tab is visible. The server rendered the
 // first state; this keeps it current. Its owner answers and may delete the session; any other member
 // of its workspace (PRD 144) reads it all, with no answer form and no delete. Every round carries its
-// category chip, which the owner and any other member may change.
+// category chip, which the owner and any other member may change. While a round is open, its owner may
+// share it with another member of the workspace (PRD 144), who answers it at /ask/q/<round>.
 
 export type SourceConfig = { kind: 'database'; url: string; key: string } | { kind: 'demo' };
 
 /** Who is looking: the session's owner, or another member of its workspace, who only reads. */
 export type Viewer = 'owner' | 'member';
 
-/** `me`: the signed-in account's id, so the chip can say "set by you". */
-type Props = { source: SourceConfig; initial: SessionState; serverNow: number; viewer: Viewer; me?: string | null };
+/** `me`: the signed-in account's id, so the chip can say "set by you". `members`: the session's
+ * workspace, whom its owner may share an open round with. */
+type Props = { source: SourceConfig; initial: SessionState; serverNow: number; viewer: Viewer; me?: string | null; members?: Member[] };
 
 function makePort(source: SourceConfig, seed: SessionState): AskPort {
   if (source.kind === 'demo') return demoPort(seed);
   return databasePort(createBrowserClient(source.url, source.key), seed);
 }
 
-export function AskSession({ source, initial, serverNow, viewer, me = null }: Props) {
+export function AskSession({ source, initial, serverNow, viewer, me = null, members = [] }: Props) {
   const owner = viewer === 'owner';
   const [state, setState] = useState(initial);
   // The server's clock, as the page counts it (a round moves to the terminal on the hook's clock).
@@ -194,6 +199,15 @@ export function AskSession({ source, initial, serverNow, viewer, me = null }: Pr
           sending={sending}
           onSend={onSend}
           minutesLeft={minutesLeft(view.movesAt, now)}
+        />
+      )}
+
+      {view.kind === 'open' && owner && (
+        <ShareButton
+          key={view.round.id}
+          roundId={view.round.id}
+          candidates={shareCandidates(members, state.session.owner)}
+          onShare={(member) => getPort().share(view.round.id, member)}
         />
       )}
 

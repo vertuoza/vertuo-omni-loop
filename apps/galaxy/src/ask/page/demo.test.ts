@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readQuestions, shownLabel } from '../answer-model';
-import { DEMO_MEMBERS, DEMO_OWNER, demoPort, demoState, readScenario } from './demo';
+import { DEMO_MEMBERS, DEMO_OWNER, DEMO_TEAMMATE, demoPort, demoQuestion, demoQuestionPort, demoState, readScenario } from './demo';
+import { questionView } from './question';
 import { sessionView } from './view';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
@@ -50,5 +51,17 @@ describe('the demo session', () => {
     expect(await port.share('demo-round-3', DEMO_OWNER)).toBe(false);
     expect(await port.share('demo-round-3', 'stranger')).toBe(false);
     expect(await port.share('no-such-round', teammate)).toBe(false);
+  });
+
+  it('plays a question shared with a teammate, who answers it once; or shows it answered by the owner (PRD 144)', async () => {
+    const open = questionView(demoQuestion(NOW), DEMO_TEAMMATE, DEMO_MEMBERS, NOW);
+    expect(open).toMatchObject({ kind: 'open', canAnswer: true });
+    expect(open.earlier).toHaveLength(2);
+    const port = demoQuestionPort(demoQuestion(NOW), () => NOW);
+    const round = demoQuestion(NOW).round;
+    expect(await port.send(round.id, { q: 'a' })).toBe('answered');
+    expect(await port.send(round.id, { q: 'b' })).toBe('taken');
+    expect(questionView((await port.read())!, DEMO_TEAMMATE, DEMO_MEMBERS, NOW)).toMatchObject({ kind: 'answered', byMe: true });
+    expect(questionView(demoQuestion(NOW, true), DEMO_TEAMMATE, DEMO_MEMBERS, NOW)).toMatchObject({ kind: 'answered', by: 'ADA', via: 'terminal' });
   });
 });
