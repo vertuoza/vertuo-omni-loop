@@ -12,6 +12,7 @@ import type { GalaxyView, Planet } from '@omni/galaxy';
 import { fleet, heroOf, seedOf } from '../fleets';
 import type { Mark } from '../mark';
 import { stripesOf, type Theme } from '../theme';
+import type { Game } from '../games/invaders';
 import type { FleetRow } from '../types';
 import type { ChartLayout, ChartSource, SystemLayout } from './chart-layout.ts';
 
@@ -30,7 +31,7 @@ export const TALL: Grid = { name: 'tall', w: 320, h: 288 };
 export type SceneName =
   | 'boot' | 'title' | 'menu' | 'map' | 'planet' | 'fleets' | 'heroes' | 'briefing'
   | 'coin' | 'away' | 'gate' | 'intro' | 'select' | 'name' | 'hero' | 'link' | 'ready' | 'welcome' | 'outsider'
-  | 'chart' | 'system' | 'games';
+  | 'chart' | 'system' | 'games' | 'invaders';
 
 /** What the joining screens draw: the fleets to pick from, the player's fleet and hero. */
 export interface JoinFrame {
@@ -57,6 +58,7 @@ export interface FrameState {
   mark: Mark;           // the brand's mark: its letter, which the boot and the intro draw
   theme: Theme;         // the brand's theme, resolved: the colours the scenes draw with
   chart?: ChartFrame;   // the star chart (chart, system)
+  game?: Game | null;   // the game being played (invaders), laid out for `grid`
 }
 
 /** What the star chart's two scenes draw: the knowledge, its suns and the open system, laid out on the frame's grid. */

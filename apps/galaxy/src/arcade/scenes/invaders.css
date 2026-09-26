@@ -1,0 +1,44 @@
+/* The invaders group: Entropy Invaders' score line and the screens over its field. Laid out on the
+   wide grid (640×360) first; the rules at the end rearrange it for the tall grid (320×288), where
+   the smallest type is 8px in the pixel face and 15px in the text face. */
+
+.inv { position: absolute; inset: 0; }
+
+/* The score line, over the field's ceiling: the score, the wave, the lives left. */
+.inv-stat { position: absolute; top: 6px; display: grid; gap: 5px; margin: 0; line-height: 1; }
+.inv-stat b { font-weight: 400; font-size: 7px; color: var(--cyan); letter-spacing: 1px; }
+.inv-stat span { font-size: 10px; color: var(--white); }
+.inv-score { left: 24px; }
+.inv-wave { left: 470px; }
+.inv-lives { position: absolute; top: 6px; right: 24px; display: flex; gap: 4px; }
+.inv-foot { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); margin: 0; white-space: nowrap; }
+
+/* A screen over the field: the ready screen with its score table, the pause, the game over. */
+.inv-panel { left: 50%; top: 60px; transform: translateX(-50%); justify-items: center; text-align: center; white-space: nowrap; }
+.inv-title { font-size: 14px; color: var(--yellow); letter-spacing: 1px; text-shadow: 2px 2px 0 var(--red), 4px 4px 0 #0b0a26; }
+.inv-sub { font-size: 8px; color: var(--cyan); letter-spacing: 1px; }
+.inv-how { font-size: 8px; color: var(--dim); letter-spacing: 1px; }
+.inv-panel .hint { font-size: 8px; }
+.inv-final { display: flex; gap: 10px; align-items: baseline; }
+.inv-final b { font-weight: 400; font-size: 8px; color: var(--cyan); }
+.inv-final span { font-size: 16px; color: var(--white); }
+
+.inv-table { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.inv-table li { display: grid; grid-template-columns: 24px 96px 170px; align-items: center; gap: 10px; text-align: left; }
+.inv-pts { font-size: 9px; color: var(--white); }
+.inv-kind { font-family: var(--txt); font-size: 18px; line-height: 1; }
+
+/* ── On the tall grid (320×288) ───────────────────────────────────────────── */
+.grid-tall .inv-stat { top: 4px; gap: 4px; }
+.grid-tall .inv-stat b, .grid-tall .inv-stat span { font-size: 8px; }
+.grid-tall .inv-score { left: 10px; }
+.grid-tall .inv-wave { left: 96px; }
+.grid-tall .inv-lives { top: 3px; right: 10px; gap: 2px; }
+.grid-tall .inv-foot { top: auto; bottom: 1px; left: auto; right: 6px; transform: none; font-size: 8px; }
+.grid-tall .inv-foot .j-key, .grid-tall .inv-panel .j-key { font-size: 8px; }
+.grid-tall .inv-panel { top: 30px; gap: 6px; padding: 10px 10px; line-height: 1.2; }
+.grid-tall .inv-ready { left: 12px; right: 12px; transform: none; }
+.grid-tall .inv-title { font-size: 12px; }
+.grid-tall .inv-table li { grid-template-columns: 24px 74px 150px; gap: 6px; }
+.grid-tall .inv-pts { font-size: 8px; }
+.grid-tall .inv-kind { font-size: 15px; }
