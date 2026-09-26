@@ -2,9 +2,9 @@
 // functions of a Request, so they are tested with a stubbed Supabase client and the routes under
 // app/api/ask/ stay one line each:
 //
-//   POST /api/ask/sessions                {title}              → {id, url}
+//   POST /api/ask/sessions                {title, context?}    → {id, url}
 //   POST /api/ask/sessions/:id/close                           → {id, status: "closed"}
-//   POST /api/ask/sessions/:id/rounds     {questions}          → {roundId}
+//   POST /api/ask/sessions/:id/rounds     {questions, context?} → {roundId}
 //   GET  /api/ask/rounds/:id/wait                              → {status: open|answered|abandoned|closed, answers?}
 //   POST /api/ask/rounds/:id/answers      {answers, via: "terminal"} → {id, status: "answered", via: "terminal"}
 //   POST /api/ask/rounds/:id/abandon                           → {id, status: "abandoned"}
@@ -15,9 +15,19 @@
 // as it is: 409 with `status: "answered"`. 503: no database here, or the sign-in service is down;
 // 500: the database failed. Errors are `{error}` in plain words. Any of them leaves the question
 // to the terminal.
+//
+// `context` is optional on both (PRD 144): `{repo}` on a session, and on a round where it came from
+// and what the Claude session had cost by then — `{repo, branch, prd, claudeSessionId, skill, model,
+// tokens}`, each field null or missing when the kit could not read it. A field this API does not know
+// is ignored; a known one of the wrong shape is refused with 400. The round's cost comes from the one
+// price table (./prices.ts). Who answered is never taken from a body: the database sets it.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authenticate, type AskCaller, type TokenCheck } from './auth';
-import { askStore, AskStoreError, sessionClosed, type AskAnswers, type AskRound, type AskSession, type AskStore } from './store';
+import { costUsd } from './prices';
+import {
+  askStore, AskStoreError, sessionClosed,
+  type AskAnswers, type AskRound, type AskRoundFacts, type AskSession, type AskStore, type AskTokens,
+} from './store';
 
 /** How long one wait holds before it answers `open`: within the 60 s the routes may run. */
 export const WAIT_MS = 50_000;
@@ -113,13 +123,61 @@ function origin(request: Request) {
   return `${proto}://${host}`;
 }
 
+/** A context field: missing or null reads as null; `ok` says whether a value it holds is fine. */
+type Field<T> = { value: T | null } | { problem: string };
+
+function field<T>(context: Record<string, unknown>, key: string, ok: (value: unknown) => value is T, shape: string): Field<T> {
+  const value = context[key];
+  if (value === undefined || value === null) return { value: null };
+  return ok(value) ? { value } : { problem: `\`context.${key}\` must be ${shape}, or null.` };
+}
+
+const text = (max: number) => (value: unknown): value is string => typeof value === 'string' && value.length >= 1 && value.length <= max;
+const REPO = /^[\w.-]+\/[\w.-]+$/;
+const isRepo = (value: unknown): value is string => text(200)(value) && REPO.test(value);
+const isPrd = (value: unknown): value is number => Number.isInteger(value) && (value as number) > 0;
+const count = (value: unknown) => Number.isInteger(value) && (value as number) >= 0;
+const TOKEN_KEYS = ['cacheRead', 'cacheWrite', 'input', 'output'];
+const isTokens = (value: unknown): value is AskTokens =>
+  isRecord(value) && Object.keys(value).sort().join() === TOKEN_KEYS.join() && Object.values(value).every(count);
+
+type RoundContext = { repo: string | null; branch: string | null; prd: number | null; claudeSessionId: string | null;
+  skill: string | null; model: string | null; tokens: AskTokens | null };
+
+/** The context a body carries — every field null when it carries none — or why it is refused. */
+function readContext(sent: Record<string, unknown>, keys: Array<keyof RoundContext>): { context: RoundContext } | { problem: string } {
+  const empty: RoundContext = { repo: null, branch: null, prd: null, claudeSessionId: null, skill: null, model: null, tokens: null };
+  if (sent.context === undefined || sent.context === null) return { context: empty };
+  if (!isRecord(sent.context)) return { problem: '`context`, when sent, must be a JSON object.' };
+  const fields: Record<keyof RoundContext, Field<unknown>> = {
+    repo: field(sent.context, 'repo', isRepo, 'owner/name'),
+    branch: field(sent.context, 'branch', text(250), 'a branch name of 1 to 250 characters'),
+    prd: field(sent.context, 'prd', isPrd, 'a PRD number'),
+    claudeSessionId: field(sent.context, 'claudeSessionId', text(200), 'a text of 1 to 200 characters'),
+    skill: field(sent.context, 'skill', text(200), 'a text of 1 to 200 characters'),
+    model: field(sent.context, 'model', text(200), 'a model id of 1 to 200 characters'),
+    tokens: field(sent.context, 'tokens', isTokens, 'whole numbers {input, output, cacheRead, cacheWrite}'),
+  };
+  const context = { ...empty };
+  for (const key of keys) {
+    const got = fields[key];
+    if ('problem' in got) return { problem: got.problem };
+    (context as Record<string, unknown>)[key] = got.value;
+  }
+  return { context };
+}
+
+const ROUND_KEYS: Array<keyof RoundContext> = ['repo', 'branch', 'prd', 'claudeSessionId', 'skill', 'model', 'tokens'];
+
 export function openSession(request: Request, deps: AskDeps): Promise<Response> {
   return handle(request, deps, async (who) => {
     const sent = await body(request);
     if (sent instanceof Response) return sent;
     const title = typeof sent.title === 'string' ? sent.title.trim() : '';
     if (title.length < 1 || title.length > 200) return refuse(400, 'A session needs a title of 1 to 200 characters.');
-    const { id } = await who.store.openSession(title);
+    const read = readContext(sent, ['repo']);
+    if ('problem' in read) return refuse(400, read.problem);
+    const { id } = await who.store.openSession(title, read.context.repo);
     return reply(200, { id, url: `${origin(request)}/ask/${id}` });
   });
 }
@@ -146,12 +204,26 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
     if (sent instanceof Response) return sent;
     const problem = questionsProblem(sent.questions);
     if (problem) return refuse(400, problem);
+    const read = readContext(sent, ROUND_KEYS);
+    if ('problem' in read) return refuse(400, read.problem);
+    const { context } = read;
     const session = await ownSession(who, id);
     if (!session) return notFound('session');
     if (sessionClosed(session, who.now())) return closedSession();
+    const facts: AskRoundFacts = {
+      prd: context.prd,
+      skill: context.skill,
+      model: context.model,
+      tokens: context.tokens,
+      cost_usd: costUsd(context.model, context.tokens),
+    };
     try {
-      const round = await who.store.addRound(session.id, sent.questions as unknown[]);
+      const round = await who.store.addRound(session.id, sent.questions as unknown[], facts);
       await touch(who, session);
+      await who.store.placeSession(session.id, {
+        ...(context.branch !== null && { branch: context.branch }),
+        ...(context.claudeSessionId !== null && { claude_session_id: context.claudeSessionId }),
+      });
       return reply(200, { roundId: round.id });
     } catch (error) {
       // Closed between the read and the write: the database's policy refused the round.
