@@ -2451,7 +2451,7 @@ None in code: setting the key later changes only the retros after it; earlier on
 - Channel: feature pull request #75
 - Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/75#issuecomment-5843665990
 - Basis: contradiction-marker — the answer says "no", which reads as a change to the recorded choice
-- Closed: no — the build and the decision disagree until a rework sub-PR brings them back in line (/omni:yolo-fix)
+- Closed: yes — reworked by #126, the sub-pull request that brought the build back in line
 - Rank: human-action
 - Bears on: none
 - Raised: 2026-09-25
