@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
-import { abandonRound, addRound, answerRound, closeSession, deleteSession, openSession, waitRound, type AskDeps } from './api';
+import { abandonRound, addRound, answerRound, categorizeRound, closeSession, deleteSession, openSession, waitRound, type AskDeps } from './api';
+import type { Category, ClassifyInput } from './classify';
 import { fakeSupabase } from './store.fake';
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
@@ -531,6 +532,144 @@ describe('DELETE /api/ask/sessions/:id (PRD 144)', () => {
   });
 });
 
+describe('a round sorted by the model (PRD 144)', () => {
+  const CONTEXT = { repo: 'vertuoza/vertuo-omni-loop', branch: 'feat/question-history', prd: 144, skill: '/omni:brainstorm' };
+
+  /** A world whose classifier is stubbed, and whose `after()` only collects its tasks. */
+  function sorting(reply: () => Promise<Category | null>) {
+    const w = world();
+    const tasks: Array<() => Promise<void>> = [];
+    const asked: ClassifyInput[] = [];
+    const deps: AskDeps = {
+      ...w.deps,
+      classify: async (input) => { asked.push(input); return reply(); },
+      later: (task) => { tasks.push(task); },
+    };
+    const ask = async (sessionId: string) => {
+      const { status, body } = await w.read(await addRound(w.request('POST', `/api/ask/sessions/${sessionId}/rounds`, { body: { questions: QUESTIONS, context: CONTEXT } }), sessionId, deps));
+      expect(status).toBe(200);
+      return body.roundId as string;
+    };
+    const runLater = async () => { for (const task of tasks.splice(0)) await task(); };
+    return { ...w, deps, tasks, asked, ask, runLater };
+  }
+
+  it('schedules the classifier after the response: the round is created before it runs', async () => {
+    const w = sorting(async () => 'business');
+    const roundId = await w.ask(await w.session());
+    expect(w.tasks).toHaveLength(1);
+    expect(w.asked).toEqual([]);
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: null, category_by: null });
+
+    await w.runLater();
+    expect(w.asked).toEqual([{ questions: QUESTIONS, context: CONTEXT }]);
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'business', category_by: 'model' });
+  });
+
+  it('leaves the round unsorted when the classifier gives nothing, and never asks twice', async () => {
+    const w = sorting(async () => null);
+    const roundId = await w.ask(await w.session());
+    await w.runLater();
+    expect(w.asked).toHaveLength(1);
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: null, category_by: null });
+  });
+
+  it('leaves the round unsorted when the classifier or the database fails, and the task never throws', async () => {
+    const w = sorting(async () => { throw new Error('boom'); });
+    const roundId = await w.ask(await w.session());
+    await expect(w.runLater()).resolves.toBeUndefined();
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: null });
+
+    const v = sorting(async () => 'product');
+    const other = await v.ask(await v.session());
+    v.fake.state.fail = { message: 'connection reset' };
+    await expect(v.runLater()).resolves.toBeUndefined();
+    v.fake.state.fail = null;
+    expect(v.row('ask_rounds', other)).toMatchObject({ category: null });
+  });
+
+  it('schedules nothing without a classifier (no OPENROUTER_API_KEY): the round stays unsorted', async () => {
+    const w = world();
+    const later: Array<() => Promise<void>> = [];
+    const deps: AskDeps = { ...w.deps, classify: null, later: (task) => { later.push(task); } };
+    const sessionId = await w.session();
+    const { status, body } = await w.read(await addRound(w.request('POST', `/api/ask/sessions/${sessionId}/rounds`, { body: { questions: QUESTIONS } }), sessionId, deps));
+    expect(status).toBe(200);
+    expect(later).toEqual([]);
+    expect(w.row('ask_rounds', body.roundId)).toMatchObject({ category: null, category_by: null });
+  });
+
+  it('never overrides a member who sorted the round first', async () => {
+    const w = sorting(async () => 'architecture');
+    const roundId = await w.ask(await w.session());
+    await categorizeRound(w.request('PATCH', `/api/ask/rounds/${roundId}/category`, { token: 'bob-token', body: { category: 'product' } }), roundId, w.deps);
+    await w.runLater();
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'product', category_by: BOB.id });
+  });
+});
+
+describe('PATCH /api/ask/rounds/:id/category (PRD 144)', () => {
+  const sort = (w: ReturnType<typeof world>, id: string, body: unknown, token: string | null = 'ada-token') =>
+    categorizeRound(w.request('PATCH', `/api/ask/rounds/${id}/category`, { token, body }), id, w.deps);
+
+  it('lets any member of the workspace set one of the six, and says they set it', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    for (const [token, who, category] of [['bob-token', BOB.id, 'ux-ui'], ['ada-token', ADA.id, 'harness']] as const) {
+      const { status, body } = await w.read(await sort(w, roundId, { category }, token));
+      expect(status).toBe(200);
+      expect(body).toEqual({ id: roundId, category, category_by: who });
+      expect(w.row('ask_rounds', roundId)).toMatchObject({ category, category_by: who });
+    }
+  });
+
+  it('clears it with null: unsorted again, cleared by that member', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    await sort(w, roundId, { category: 'business' });
+    const { status, body } = await w.read(await sort(w, roundId, { category: null }, 'bob-token'));
+    expect(status).toBe(200);
+    expect(body).toEqual({ id: roundId, category: null, category_by: BOB.id });
+  });
+
+  it('refuses a value outside the six with 400, and changes nothing', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    await sort(w, roundId, { category: 'business' });
+    for (const body of [{ category: 'design' }, { category: 'UX/UI' }, { category: 3 }, {}, { kind: 'business' }]) {
+      const { status, body: sent } = await w.read(await sort(w, roundId, body));
+      expect(status, JSON.stringify(body)).toBe(400);
+      expect(sent.error).toMatch(/business, product, ux-ui, architecture, harness, other/);
+    }
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'business', category_by: ADA.id });
+  });
+
+  it('refuses an account of another workspace with 404, like a round that is missing or not one', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    expect((await sort(w, roundId, { category: 'other' }, 'carl-token')).status).toBe(404);
+    expect((await sort(w, MISSING, { category: 'other' })).status).toBe(404);
+    expect((await sort(w, 'not-a-uuid', { category: 'other' })).status).toBe(404);
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: null, category_by: null });
+  });
+
+  it('checks the bearer token and the crew like every other call', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    expect((await sort(w, roundId, { category: 'other' }, null)).status).toBe(401);
+    expect((await sort(w, roundId, { category: 'other' }, 'eve-token')).status).toBe(403);
+    expect((await sort({ ...w, deps: { connect: null } }, roundId, { category: 'other' })).status).toBe(503);
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: null });
+  });
+
+  it('answers 500, not a guess, when the database fails', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    w.fake.state.fail = { message: 'connection reset' };
+    expect((await sort(w, roundId, { category: 'other' })).status).toBe(500);
+  });
+});
+
 describe('the ask routes', () => {
   const app = (path: string) => fileURLToPath(new URL(`../../app/api/ask/${path}/route.ts`, import.meta.url));
   const ROUTES: Array<[string, string, string]> = [
@@ -541,6 +680,7 @@ describe('the ask routes', () => {
     ['rounds/[id]/wait', 'GET', 'waitRound'],
     ['rounds/[id]/answers', 'POST', 'answerRound'],
     ['rounds/[id]/abandon', 'POST', 'abandonRound'],
+    ['rounds/[id]/category', 'PATCH', 'categorizeRound'],
   ];
 
   for (const [path, method, handler] of ROUTES) {

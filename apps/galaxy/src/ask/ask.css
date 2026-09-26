@@ -317,6 +317,26 @@ html:has(.ask[data-ask-theme]) body {
 .ask-past dt { color: var(--ask-muted); }
 .ask-past dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 
+/* ── A round's category (PRD 144): a chip anyone in the workspace may change ── */
+
+.ask-category { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.ask-history li > .ask-category { margin: 2px 8px 0; }
+.ask-category-pick {
+  font: 700 12px/1 var(--ask-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ask-ink);
+  background: var(--ask-sunk);
+  border: 1px solid var(--ask-line);
+  border-radius: 4px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+.ask-category[data-category="unsorted"] .ask-category-pick { color: var(--ask-muted); border-style: dashed; }
+.ask-category-pick:disabled { cursor: progress; opacity: 0.7; }
+.ask-category-pick:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.ask-category-by { color: var(--ask-muted); }
+
 /* A touch screen has no keys to press. */
 @media (hover: none) and (pointer: coarse) {
   .ask-keys-hint { display: none; }

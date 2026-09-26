@@ -9,6 +9,7 @@
 //   GET  /api/ask/rounds/:id/wait                              → {status: open|answered|abandoned|closed, answers?}
 //   POST /api/ask/rounds/:id/answers      {answers, via: "terminal"} → {id, status: "answered", via: "terminal"}
 //   POST /api/ask/rounds/:id/abandon                           → {id, status: "abandoned"}
+//   PATCH /api/ask/rounds/:id/category    {category}           → {id, category, category_by}
 //
 // Every call is refused 401 without a valid bearer token and 403 outside the crew; a session or
 // round of another owner is 404, like one that does not exist — except a delete by a member of the
@@ -23,12 +24,19 @@
 // tokens}`, each field null or missing when the kit could not read it. A field this API does not know
 // is ignored; a known one of the wrong shape is refused with 400. The round's cost comes from the one
 // price table (./prices.ts). Who answered is never taken from a body: the database sets it.
+//
+// A round's category (PRD 144) is one of six (./classify.ts). Once a round is created, the model sorts
+// it after the response has gone (`later`, Next's after()), so asking never waits on it; any failure
+// leaves it unsorted, and nothing retries. Any member of the session's workspace sets, changes or
+// clears it (`category: null`); a round of another workspace is 404. The model never overrides a
+// person: the database records its guess only while nobody has set one.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authenticate, type AskCaller, type TokenCheck } from './auth';
+import { CATEGORIES, isCategory, type Category, type Classifier, type ClassifyInput } from './classify';
 import { costUsd } from './prices';
 import {
-  askStore, AskStoreError, sessionClosed,
-  type AskAnswers, type AskRound, type AskRoundFacts, type AskSession, type AskStore, type AskTokens,
+  askCategories, askStore, AskStoreError, sessionClosed,
+  type AskAnswers, type AskCategories, type AskRound, type AskRoundFacts, type AskSession, type AskStore, type AskTokens,
 } from './store';
 
 /** How long one wait holds before it answers `open`: within the 60 s the routes may run. */
@@ -39,7 +47,7 @@ export const POLL_MS = 1_000;
 export const MAX_BODY_BYTES = 256 * 1024;
 
 /** A Supabase client acting as one access token: the Auth server's check, and the tables. */
-export type AskClient = TokenCheck & Pick<SupabaseClient, 'from'>;
+export type AskClient = TokenCheck & Pick<SupabaseClient, 'from' | 'rpc'>;
 
 export type AskDeps = {
   /** A client acting as the given access token, or null when no database is configured. */
@@ -48,6 +56,10 @@ export type AskDeps = {
   sleep?: (ms: number) => Promise<void>;
   waitMs?: number;
   pollMs?: number;
+  /** Sorts a new round into one of six, or null when there is no classifier (no key): it stays unsorted. */
+  classify?: Classifier | null;
+  /** Runs a task once the response has gone (Next's after()); without it, the task just starts. */
+  later?: (task: () => Promise<void>) => void;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -61,14 +73,15 @@ const alreadyAnswered = () => refuse(409, 'This round is already answered.', { s
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-type Signed = { caller: AskCaller; store: AskStore; now: () => number };
+type Signed = { caller: AskCaller; store: AskStore; categories: AskCategories; now: () => number };
 
 /** The caller and a store acting as them, or the Response that refuses them. */
 async function signIn(request: Request, deps: AskDeps): Promise<Signed | Response> {
   if (!deps.connect) return refuse(503, 'Ask mode is not available here: this deployment has no database.');
   const auth = await authenticate(request.headers.get('authorization'), deps.connect);
   if (!auth.ok) return refuse(auth.status, auth.error);
-  return { caller: auth.caller, store: askStore(deps.connect(auth.caller.token)), now: deps.now ?? Date.now };
+  const client = deps.connect(auth.caller.token);
+  return { caller: auth.caller, store: askStore(client), categories: askCategories(client), now: deps.now ?? Date.now };
 }
 
 /** Runs a handler, turning a database failure into a 500 rather than a guess. */
@@ -237,6 +250,10 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
         ...(context.branch !== null && { branch: context.branch }),
         ...(context.claudeSessionId !== null && { claude_session_id: context.claudeSessionId }),
       });
+      sortLater(who, deps, round.id, {
+        questions: sent.questions as unknown[],
+        context: { repo: context.repo ?? session.repo, branch: context.branch, prd: context.prd, skill: context.skill },
+      });
       return reply(200, { roundId: round.id });
     } catch (error) {
       // Closed between the read and the write: the database's policy refused the round.
@@ -244,6 +261,22 @@ export function addRound(request: Request, id: string, deps: AskDeps): Promise<R
       throw error;
     }
   });
+}
+
+/** Has the model sort the round once the response has gone. Nothing it does can fail the round: a
+ * null reply, an error or a timeout leaves it unsorted, and nothing retries. */
+function sortLater(who: Signed, deps: AskDeps, roundId: string, input: ClassifyInput) {
+  const classify = deps.classify;
+  if (!classify) return;
+  const task = async () => {
+    try {
+      const category = await classify(input);
+      if (category) await who.categories.classified(roundId, category);
+    } catch (error) {
+      console.error(`ask: round ${roundId} stays unsorted: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+  (deps.later ?? ((run) => void run()))(task);
 }
 
 type Verdict = { status: 'answered'; answers: AskAnswers } | { status: 'abandoned' } | { status: 'closed' };
@@ -324,5 +357,21 @@ export function abandonRound(request: Request, id: string, deps: AskDeps): Promi
     }
     await touch(who, found.session);
     return abandoned();
+  });
+}
+
+/** Sets a round's category, changes it, or clears it with null: any member of the session's workspace. */
+export function categorizeRound(request: Request, id: string, deps: AskDeps): Promise<Response> {
+  return handle(request, deps, async (who) => {
+    const sent = await body(request);
+    if (sent instanceof Response) return sent;
+    const category = sent.category;
+    if (!(category === null || isCategory(category))) {
+      return refuse(400, `\`category\` must be one of ${CATEGORIES.join(', ')}, or null to leave the round unsorted.`);
+    }
+    if (!UUID.test(id)) return notFound('round');
+    const set = await who.categories.set(id, category as Category | null);
+    if (!set) return notFound('round');
+    return reply(200, { id, category: set.category, category_by: set.category_by });
   });
 }

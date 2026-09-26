@@ -2,8 +2,10 @@
 // round at the top, or "Claude is working…", "moved to the terminal" or "session closed", and the
 // earlier rounds folded into a history below, newest first, each with its answers and where they
 // were given (page or terminal). Each round carries its context line (PRD 144): repo · branch ·
-// PRD #n · skill · model · tokens · $cost · time to answer, each part left out when unknown.
+// PRD #n · skill · model · tokens · $cost · time to answer, each part left out when unknown — and its
+// category chip: one of six or unsorted, and who set it.
 import { readQuestions, type AskQuestion } from '../answer-model';
+import { CATEGORY_LABELS, isCategory, type Category } from '../classify';
 import { sessionClosed, type AskRound, type AskSession } from '../store';
 
 /** How long the hook waits for the page before the question goes to the terminal (the spec's
@@ -13,7 +15,7 @@ export const HOOK_WAIT_MS = 540_000;
 /** Where a session came from; missing on a row read before PRD 144's columns, or left out by a demo. */
 export type SessionPlace = Partial<Pick<AskSession, 'repo' | 'branch'>>;
 /** What a round records besides its questions (PRD 144), missing or null when unknown. */
-export type RoundFacts = Partial<Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd' | 'answered_by'>>;
+export type RoundFacts = Partial<Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd' | 'answered_by' | 'category' | 'category_by'>>;
 
 export type SessionRow = Pick<AskSession, 'id' | 'owner' | 'title' | 'status' | 'created_at' | 'last_seen_at'> & SessionPlace;
 export type RoundRow = Pick<AskRound, 'id' | 'questions' | 'answers' | 'answered_via' | 'status' | 'created_at' | 'answered_at'> & RoundFacts;
@@ -29,6 +31,9 @@ export type HistoryEntry = {
   at: string;
   /** The round's context line, part by part (see contextParts). */
   context?: string[];
+  /** The round's category and who set it (see categoryChip). */
+  category?: Category | null;
+  category_by?: string | null;
 };
 
 export type SessionView =
@@ -76,7 +81,10 @@ function entry(round: RoundRow, session: SessionPlace = {}): HistoryEntry {
     ...Object.entries(answers).filter(([question]) => !named.has(question)).map(([question, answer]) => ({ header: '', question, answer })),
   ];
   const outcome = round.status === 'answered' ? 'answered' : round.status === 'abandoned' ? 'moved' : 'unanswered';
-  return { id: round.id, lines, outcome, via: round.answered_via, at: round.answered_at ?? round.created_at, context: contextParts(session, round) };
+  return {
+    id: round.id, lines, outcome, via: round.answered_via, at: round.answered_at ?? round.created_at, context: contextParts(session, round),
+    category: round.category ?? null, category_by: round.category_by ?? null,
+  };
 }
 
 export function sessionView(state: SessionState, now: number): SessionView {
@@ -126,3 +134,28 @@ export function keepSent(state: SessionState, sent: Sent): SessionState {
 
 /** The tab's title: a question waiting shows even when the tab is in the background. */
 export const pageTitle = (view: Pick<SessionView, 'kind'>) => (view.kind === 'open' ? '● Claude asks · OMNI LOOP' : 'Ask · OMNI LOOP');
+
+/** What the category chip shows: the category (null is unsorted), its label, and who set it. */
+export type ChipView = { value: Category | null; label: string; setBy: string | null };
+
+/** Who set a round's category, as the person looking reads it: the model, themselves, the session's
+ * owner, or another member. A value outside the six reads as unsorted. */
+export function categoryChip(
+  round: Partial<Pick<RoundRow, 'category' | 'category_by'>>,
+  who: { me: string | null; owner: string },
+): ChipView {
+  const value = isCategory(round.category) ? round.category : null;
+  const by = round.category_by ?? null;
+  const verb = value ? 'set' : 'cleared';
+  const setBy = by === null ? null
+    : by === 'model' ? (value ? 'sorted by the model' : null)
+    : by === who.me ? `${verb} by you`
+    : by === who.owner ? `${verb} by the session owner`
+    : `${verb} by a teammate`;
+  return { value, label: value ? CATEGORY_LABELS[value] : 'unsorted', setBy };
+}
+
+/** A round sorted from the page, as the page shows it at once, before the next read. */
+export function withCategory(state: SessionState, roundId: string, set: Pick<RoundRow, 'category' | 'category_by'>): SessionState {
+  return { ...state, rounds: state.rounds.map((r) => (r.id === roundId ? { ...r, category: set.category, category_by: set.category_by } : r)) };
+}

@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { ContextLine } from './ContextLine';
 import type { HistoryEntry } from './view';
 
@@ -30,7 +30,8 @@ function Summary({ entry }: { entry: HistoryEntry }) {
   );
 }
 
-export function History({ history }: { history: HistoryEntry[] }) {
+/** `chip` puts each round's category chip under it (PRD 144). */
+export function History({ history, chip }: { history: HistoryEntry[]; chip?: (entry: HistoryEntry) => ReactNode }) {
   if (history.length === 0) return null;
   return (
     <section className="ask-history" aria-labelledby="ask-history-title">
@@ -53,6 +54,7 @@ export function History({ history }: { history: HistoryEntry[] }) {
               </dl>
             </details>
             <ContextLine parts={entry.context} />
+            {chip?.(entry)}
           </li>
         ))}
       </ol>
