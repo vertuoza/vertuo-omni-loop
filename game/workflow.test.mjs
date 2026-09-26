@@ -56,3 +56,18 @@ describe('game workflow', () => {
     expect(post).toBeGreaterThan(upload);
   });
 });
+
+describe('game workflow: XP (PRD 160)', () => {
+  it('recomputes XP as the ledger job\'s step right after pnpm game:project', () => {
+    const runs = wf.jobs.ledger.steps.map((s) => s.run ?? null);
+    const project = runs.indexOf('pnpm game:project');
+    expect(project).toBeGreaterThanOrEqual(0);
+    expect(runs[project + 1]).toBe('pnpm game:xp');
+    expect(wf.jobs.rankings.steps.map((s) => s.run ?? '')).not.toContain('pnpm game:xp');
+  });
+
+  it('has a root script for it, beside the other game scripts', () => {
+    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+    expect(pkg.scripts['game:xp']).toBe('node --env-file-if-exists=apps/galaxy/.env.local game/cli/xp.mjs');
+  });
+});

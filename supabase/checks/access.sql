@@ -415,6 +415,112 @@ begin
   end loop;
 end $$;
 
+-- ── XP (PRD #160): a workspace's members read its XP; only the service role writes it ──
+-- The demo seed wrote the demo world's rows. The service role writes as `pnpm game:xp` does: an
+-- upsert keyed by workspace and lower-cased login, run twice.
+do $$
+begin
+  if not exists (select 1 from public.player_xp
+                  where workspace_id = (select id from public.workspaces where slug = 'vertuoza') and level > 0) then
+    raise exception 'FAIL: the demo seed wrote no player_xp rows';
+  end if;
+end $$;
+
+set local role service_role;
+do $$
+declare
+  v constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+  acme constant uuid := '00000000-0000-4000-8000-0000000000a2';
+  run int;
+begin
+  for run in 1..2 loop
+    begin
+      insert into public.player_xp as x (workspace_id, github_login, xp, level, unlocked, computed_at) values
+        (v, 'ada-gh', 90 * run, run + 1, '{invaders}', now()),
+        (acme, 'dan-gh', 10, 1, '{invaders}', now())
+      on conflict (workspace_id, github_login) do update
+        set xp = excluded.xp, level = excluded.level, unlocked = excluded.unlocked, computed_at = excluded.computed_at;
+    exception when insufficient_privilege then
+      raise exception 'FAIL: the service role cannot write player_xp (%)', sqlerrm;
+    end;
+  end loop;
+  if (select (xp, level) from public.player_xp where workspace_id = v and github_login = 'ada-gh') is distinct from (180, 3::smallint) then
+    raise exception 'FAIL: a second game:xp run did not update the login''s row';
+  end if;
+  begin
+    insert into public.player_xp (workspace_id, github_login, xp, level, unlocked, computed_at) values (v, 'Ada-GH', 1, 1, '{}', now());
+    raise exception 'FAIL: player_xp stored a login that is not lower-cased';
+  exception when check_violation then null; end;
+end $$;
+reset role;
+
+select pg_temp.sign_out();
+set local role anon;
+do $$
+begin
+  perform 1 from public.player_xp limit 1;
+  raise exception 'FAIL: anon read public.player_xp';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
+
+set local role authenticated;
+do $$
+declare
+  me record;
+  mine uuid;
+  n int;
+begin
+  for me in select * from (values
+      ('00000000-0000-4000-8000-00000000000a', 'ada@vertuoza.com', 'vertuoza', 'ada-gh'),
+      ('00000000-0000-4000-8000-00000000000c', 'carol@vertuoza.com', 'vertuoza', 'ada-gh'),  -- a visitor reads it too
+      ('00000000-0000-4000-8000-00000000000d', 'dan@acme.test', 'acme', 'dan-gh')) as m (uid, email, slug, login) loop
+    perform pg_temp.sign_in(me.uid, me.email);
+    mine := (select id from public.workspaces where slug = me.slug);
+    if not exists (select 1 from public.player_xp where workspace_id = mine and github_login = me.login) then
+      raise exception 'FAIL: % (a member) cannot read their workspace''s XP', me.email;
+    end if;
+    select count(*) into n from public.player_xp where workspace_id <> mine;
+    if n <> 0 then raise exception 'FAIL: % read % XP rows of another workspace', me.email, n; end if;
+  end loop;
+
+  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000e', 'eve@example.com');
+  if exists (select 1 from public.player_xp) then raise exception 'FAIL: an outsider read XP'; end if;
+
+  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000a', 'ada@vertuoza.com');
+  begin
+    insert into public.player_xp (workspace_id, github_login, xp, level, unlocked, computed_at)
+    values ((select id from public.workspaces where slug = 'vertuoza'), 'ada-alt', 242550, 99, '{invaders}', now());
+    raise exception 'FAIL: a member inserted XP';
+  exception when insufficient_privilege then null; end;
+  begin
+    update public.player_xp set xp = 242550 where github_login = 'ada-gh';
+    raise exception 'FAIL: a player raised their own XP';
+  exception when insufficient_privilege then null; end;
+  begin
+    delete from public.player_xp where github_login = 'ada-gh';
+    raise exception 'FAIL: a player deleted XP';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+select pg_temp.sign_out();
+
+do $$
+begin
+  -- Column grants count too: one updatable column is a way to raise one's own level.
+  if has_any_column_privilege('anon', 'public.player_xp', 'select, insert, update')
+     or has_table_privilege('anon', 'public.player_xp', 'delete, truncate')
+     or has_any_column_privilege('authenticated', 'public.player_xp', 'insert, update')
+     or has_table_privilege('authenticated', 'public.player_xp', 'delete, truncate') then
+    raise exception 'FAIL: nobody signed in may write public.player_xp, and anon may not read it';
+  end if;
+  if not has_table_privilege('service_role', 'public.player_xp', 'select')
+     or not has_table_privilege('service_role', 'public.player_xp', 'insert')
+     or not has_table_privilege('service_role', 'public.player_xp', 'update') then
+    raise exception 'FAIL: the game workflow cannot read and write public.player_xp';
+  end if;
+end $$;
+
 -- ── The sign-up hook: a domain no workspace joins is refused, by a message naming no company ──
 do $$
 declare refusal jsonb;
