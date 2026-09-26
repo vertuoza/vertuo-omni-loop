@@ -1,9 +1,9 @@
 ---
-name: terraform
-description: Fill a repository's knowledge forms (the playbook) from what the repository can prove — survey it read-only, point at the pages that already answer a form, fill the rest from evidence with every command run green, leave an honest TODO(human) question where proof is missing, propose the config the survey learned — and end with one docs-only pull request a person merges. With --refresh it redoes only the forms that went stale or are still blank. Never rewrites a section a person wrote, never merges. Triggers on "terraform this repository", "fill the forms", "fill the playbook", "refresh the playbook", "/omni:terraform".
+name: invade
+description: Fill a repository's knowledge forms (the playbook) from what the repository can prove — survey it read-only, point at the pages that already answer a form, fill the rest from evidence with every command run green, leave an honest TODO(human) question where proof is missing, propose the config the survey learned — and end with one docs-only pull request a person merges. With --refresh it redoes only the forms that went stale or are still blank. Never rewrites a section a person wrote, never merges. Triggers on "invade this repository", "fill the forms", "fill the playbook", "refresh the playbook", "/omni:invade".
 ---
 
-# Terraform: fill the forms from evidence
+# Invade: fill the forms from evidence
 
 The playbook holds one **form** per question an agent asks while delivering: how to set up, test and
 verify, how CI works, what a pull request looks like, where the decision records live. `omni kb init`
@@ -43,7 +43,7 @@ state: filled
 points-to: null
 evidence:
   - <path>@<first 7 hex of git hash-object>
-terraformed: <YYYY-MM-DD>
+invaded: <YYYY-MM-DD>
 ---
 
 # Testing
@@ -51,13 +51,13 @@ terraformed: <YYYY-MM-DD>
 Use this page when adding, changing, or choosing tests.
 
 ## Commands
-<!-- slot: commands · required · by: terraform · verified: <YYYY-MM-DD> -->
+<!-- slot: commands · required · by: invade · verified: <YYYY-MM-DD> -->
 | What | Command |
 |---|---|
 | everything | `<a command that ran green>` |
 
 ## Where tests live
-<!-- slot: layout · required · by: terraform -->
+<!-- slot: layout · required · by: invade -->
 <what the tree shows>
 
 ## Choosing the level
@@ -74,11 +74,11 @@ TODO(human): <a question a person can answer in one line>
 
 - **Front matter:** exactly `form`, `form-version`, `state` (`blank`, `filled` or `pointer`),
   `points-to` (a path on a pointer form, `null` otherwise), `evidence` (a list, `[]` when empty),
-  `terraformed` (a date, or `null`), and, on a pointer form only, an optional `index`. No other key:
+  `invaded` (a date, or `null`), and, on a pointer form only, an optional `index`. No other key:
   `omni check kb` fails on one. Keep `form` and `form-version` as `omni kb init` wrote them.
 - **Title and opener** stay as written: the `#` title, then the "Use this page when …" line.
 - **Slots** keep the template's headings, ids, `required` or `optional`, and order. Never add,
-  rename, reorder or drop one. A marker gains ` · by: terraform` when you write the section, then
+  rename, reorder or drop one. A marker gains ` · by: invade` when you write the section, then
   ` · verified: <date>` when it names a command: in that order.
 - **A body** is one of four things: repository text; a single `See: <path>[#anchor]` line; empty;
   or `TODO(human): <question>` lines. Text beside a question reads as text, and the question is still
@@ -87,7 +87,7 @@ TODO(human): <a question a person can answer in one line>
 ## Whose section it is
 
 A section is this skill's to write only when it is **empty**, holds **nothing but `TODO(human)`
-lines**, or its marker says **`by: terraform`**. Every other section is a person's: `by: human`, and
+lines**, or its marker says **`by: invade`**. Every other section is a person's: `by: human`, and
 also text or a `See:` line whose marker has no `by:`. **Never rewrite a `by: human` section**, nor
 any other section that is a person's, on any run, with or without `--refresh`: not its body, not its
 marker, and never by turning its form into a pointer. When the evidence contradicts one, keep it as
@@ -97,17 +97,17 @@ written and say so under **Reviewer focus** in the pull request.
 
 1. Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the
    repository is not installed, and the kit's one-line install, `omni init`, comes first (it writes
-   the config, the bin and the blank forms); then run `/omni:terraform` again. Keep the JSON; later
-   steps read `repo.*`, `branches.terraform`, `worktrees`, `paths.*`, `commands.*` and `ci.*` from
-   it. `<remote>` below is `repo.remote`, `<terraform branch>` is `branches.terraform`, and `<today>`
+   the config, the bin and the blank forms); then run `/omni:invade` again. Keep the JSON; later
+   steps read `repo.*`, `branches.invade`, `worktrees`, `paths.*`, `commands.*` and `ci.*` from
+   it. `<remote>` below is `repo.remote`, `<invade branch>` is `branches.invade`, and `<today>`
    is `date -u +%F`.
 2. **The branch.** `git fetch <remote>`, then look for a pull request an earlier run left open:
-   `gh pr list --head <terraform branch> --base <repo.defaultBranch> --state open --json number,url`.
+   `gh pr list --head <invade branch> --base <repo.defaultBranch> --state open --json number,url`.
    - **One is open:** continue it, so there is still one pull request:
-     `git worktree add -B <terraform branch> <worktrees>/terraform <remote>/<terraform branch>`.
+     `git worktree add -B <invade branch> <worktrees>/invade <remote>/<invade branch>`.
    - **None is open:** start from today's default branch, whatever a merged or closed run left
      under that name:
-     `git worktree add -B <terraform branch> <worktrees>/terraform <remote>/<repo.defaultBranch>`.
+     `git worktree add -B <invade branch> <worktrees>/invade <remote>/<repo.defaultBranch>`.
 
    Every step below works in that worktree. Never commit on the default branch.
 3. Run `node .omni-loop/bin/omni.mjs kb init`, for a repository installed before the forms existed.
@@ -183,7 +183,7 @@ A page that already answers a question is pointed at, never copied, so it keeps 
 
 - **A page answers the whole form:** the form becomes a pointer: `state: pointer`,
   `points-to: <the page>`, or a folder with `index: <the page to read first>` when it has one;
-  `evidence:` the page (or the index) at its hash; `terraformed: <today>`. Its body is the title and
+  `evidence:` the page (or the index) at its hash; `invaded: <today>`. Its body is the title and
   the opener alone: a pointer form holds no sections.
 
   ```markdown
@@ -195,7 +195,7 @@ A page that already answers a question is pointed at, never copied, so it keeps 
   index: <the page to read first in it>
   evidence:
     - <the index page>@<hex>
-  terraformed: <YYYY-MM-DD>
+  invaded: <YYYY-MM-DD>
   ---
 
   # Decision records
@@ -204,7 +204,7 @@ A page that already answers a question is pointed at, never copied, so it keeps 
   ```
 
 - **A page answers one section:** its body is one line, `See: <path>` or `See: <path>#<anchor>`,
-  the anchor as GitHub derives it from the heading, and its marker says `by: terraform`. The page
+  the anchor as GitHub derives it from the heading, and its marker says `by: invade`. The page
   goes under `evidence:`.
 - **The decisions form:** records in a folder outside the front door's `adr/` make it a pointer to
   that folder, and step 5 proposes `paths.adr`. Records in the front door's `adr/` keep it a form:
@@ -243,8 +243,8 @@ A page that already answers a question is pointed at, never copied, so it keeps 
   - A command that runs longer than a few minutes runs in the background (Bash
     `run_in_background: true`); act when it wakes you.
 - **Front matter.** A form whose sections hold any text, `See:` line or question is
-  `state: filled`, with `terraformed: <today>`. A form left wholly empty stays `state: blank`,
-  `evidence: []`, `terraformed: null`.
+  `state: filled`, with `invaded: <today>`. A form left wholly empty stays `state: blank`,
+  `evidence: []`, `invaded: null`.
 - **Core forms:** each required slot of a core form ends filled, pointed or holding a question.
   An optional slot, or any slot of an extended form, stays empty when the kit default is true here.
 - **After each form,** run `node .omni-loop/bin/omni.mjs kb show <form>`: every section carries the
@@ -295,12 +295,12 @@ so the pull request's diff is the proposal and a person can drop it alone. A key
    the forms as `docs(knowledge): fill the playbook forms from evidence` (with `--refresh`:
    `docs(knowledge): refresh the stale playbook forms`), the config as
    `chore(config): <what the survey learned>`.
-4. **Push:** `git push -u <remote> <terraform branch>`. When step 0 started from the default branch
+4. **Push:** `git push -u <remote> <invade branch>`. When step 0 started from the default branch
    over an older branch of that name, add `--force-with-lease`; never force a branch whose pull
    request is open.
 5. **Open it through `/omni:pr`'s lifecycle, as a standalone PR:** base `repo.defaultBranch`, head
-   the terraform branch, no kind label, a Conventional Commits title
-   (`docs(knowledge): terraform the playbook forms`). When a run continues an open pull request,
+   the invade branch, no kind label, a Conventional Commits title
+   (`docs(knowledge): invade — fill the playbook forms`). When a run continues an open pull request,
    rewrite its body instead. The body starts with these lines, above the repository's pull request
    template when it has one (fill it with the same evidence), else followed by Summary, Verified,
    Risk and rollback, and Reviewer focus:
@@ -332,7 +332,7 @@ so the pull request's diff is the proposal and a person can drop it alone. A key
 
 ## --refresh
 
-`/omni:terraform --refresh` **redoes only the forms `omni kb status` reports stale or blank**: in
+`/omni:invade --refresh` **redoes only the forms `omni kb status` reports stale or blank**: in
 the map from step 0, a form whose `state` is `blank`, or whose `stale` list is not empty. Every
 other form is left as it is, whatever the survey finds.
 
