@@ -858,3 +858,392 @@ Low. Showing more or fewer levels is one constant, and each wording is one line.
 ```
 
 <!-- /omni-outbox-settled: s4-01-levels-shows-the-first-five-levels -->
+
+<!-- omni-outbox-settled: s5-01-scores-leave-with-the-player -->
+
+## s5-01-scores-leave-with-the-player — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-scores-leave-with-the-player
+prd: 160
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 4
+---
+
+## The question, in plain words
+
+A player's best scores are stored against their player record. When someone leaves a company space and their player record goes with them, what happens to their scores?
+
+## The decision, in plain words
+
+Their scores go with their player record, as the record already goes when they leave. A departed player no longer holds a line in the crew's table, and the weekly backup still has their scores for three months.
+
+## The intro, for fun
+
+Every high score table has a legend who left years ago.
+
+## The punchline, for fun
+
+Ours clears their line when they go, so nobody chases a ghost.
+
+## The options, in plain words
+
+A. Scores leave with the player record: the option built.
+B. Keep a departed player's scores on the table, under the name they had.
+C. Refuse to remove a member who holds a score until someone clears it.
+
+## What I had to decide
+
+The spec's table gives arcade_scores the key (workspace_id, user_id, game) pointing at players, and says scores cannot be rebuilt, so the weekly backup keeps them. It does not say what a removed player's scores become. PRD 100 made a player row go when its membership goes (players references workspace_members on delete cascade).
+
+## What I did meanwhile
+
+`supabase/migrations/20260926180000_arcade_scores.sql` references `players (workspace_id, user_id) on delete cascade`: removing a member removes their player row, then their scores. Without the cascade, removing a member who holds a score would be refused by the foreign key.
+
+## What it costs to change later
+
+Medium: another answer is a migration that changes the foreign key; the scores of anyone removed before it come back only from the weekly backup, kept 90 days.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the crew wants a departed player's best to stay on the cabinet.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-scores-leave-with-the-player -->
+
+<!-- omni-outbox-settled: s5-02-backup-test-outside-the-slice -->
+
+## s5-02-backup-test-outside-the-slice — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-backup-test-outside-the-slice
+prd: 160
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 4
+---
+
+## The question, in plain words
+
+Keeping the crew's scores in the weekly backup broke an older test of the backup command, which this piece of work was not planned to touch. May it change there?
+
+## The decision, in plain words
+
+I updated that older test so it expects the scores file among the backup's files, and checks the file holds only the chosen company space's scores.
+
+## The intro, for fun
+
+The backup bag got a new pocket, and the old packing list only knew five.
+
+## The punchline, for fun
+
+The list now says six, and checks the new pocket holds nobody else's things.
+
+## The options, in plain words
+
+A. Update the older backup test to expect the scores file: the option built.
+B. Write the scores in a backup step of their own, so the older test stays as it was.
+
+## What I had to decide
+
+The plan's territory for s5 names game/cli/export.mjs and game/workflow.test.mjs. The test that runs the game scripts as processes, game/cli/scripts.test.mjs, pins the export to exactly five files, so writing arcade_scores.jsonl fails it.
+
+## What I did meanwhile
+
+`game/cli/scripts.test.mjs` › game:export now expects six files, arcade_scores.jsonl among them, with a score in each of two workspaces and only the named one's written. The export's tables come from `backupFiles()` in `game/cli/export.mjs`, which now runs its command only as a script (the same isMain guard as game/cli/xp.mjs), so `game/workflow.test.mjs` imports it and pins arcade_scores in and player_xp out against the fake PostgREST.
+
+## What it costs to change later
+
+Low: one test's expected list of files.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the plan left that test out of the slice's territory on purpose.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-backup-test-outside-the-slice -->
+
+<!-- omni-outbox-settled: s5-03-game-over-keys -->
+
+## s5-03-game-over-keys — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-game-over-keys
+prd: 160
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 4
+---
+
+## The question, in plain words
+
+When a game ends, the score is now saved, and a save that fails can be tried once more. Which buttons do what on that end screen, and what does it say while the score is being saved?
+
+## The decision, in plain words
+
+A tries a failed save once more and the other button goes back to the game room, as A does once the score is saved or the second try has failed too. The screen says the score is saving, then shows a new best, the player's best so far, or that the score was not saved.
+
+## The intro, for fun
+
+The end screen used to have one job: send you back to the game room.
+
+## The punchline, for fun
+
+Now it also posts your score to the crew, and gets one second try when the post office is shut.
+
+## The options, in plain words
+
+A. A tries a failed save once more, the other button goes back to the room, and the screen says saving, new best, your best, or not saved: the option built.
+B. Try a failed save once more by itself a moment later, and keep A for going back to the room.
+C. Show only what the spec names, a new best or a score not saved, and nothing while saving or when the score is not a best.
+
+## What I had to decide
+
+The spec (Entropy Invaders, Lives and game over) says game over sends the score once through submit_score(), shows NEW BEST when it is one, and on a failed send shows SCORE NOT SAVED with A retrying once. s3 left A, B and START all going back to the room once the score has shown for OVER_SECONDS (item s3-02-game-feel-numbers). The spec does not say what B and START do while a retry is offered, what shows while the score is on its way, what shows when a saved score is not a best, or whether a tie or a first game of 0 is a NEW BEST.
+
+## What I did meanwhile
+
+`overPress()` in `apps/galaxy/src/arcade/scenes/invaders-score.ts`: once the score has shown for OVER_SECONDS, A retries a send that failed while its one retry is left (`SEND_TRIES` = 2); every other press goes to the engine's `press()` unchanged, so B and START go back to the room, and A too once the score is saved, still sending, or its retry spent. The game over shows SAVING SCORE… while sending; NEW BEST (blinking, still under reduced motion) when the stored best is the score and beats the player's best before it, none counting as 0, so a tie or a first game of 0 is not one; YOUR BEST n otherwise; and SCORE NOT SAVED with [A] RETRY [B] GAME ROOM, then [A] GAME ROOM once the retry has failed. `ArcadeApp.tsx` sends the score when the canvas loop first sees the game over, once per game, 0 included; a game left from the pause sends nothing.
+
+## What it costs to change later
+
+Low: one pure function and the text layer's lines; no stored shape.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- No one has played a failed save on a phone: it was checked in the demo, in a browser whose guest was removed from storage mid-game.
+
+```
+
+<!-- /omni-outbox-settled: s5-03-game-over-keys -->
+
+<!-- omni-outbox-settled: s5-04-scores-read-on-their-own -->
+
+## s5-04-scores-read-on-their-own — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-04-scores-read-on-their-own
+prd: 160
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 4
+---
+
+## The question, in plain words
+
+The crew's high scores are read from the database along with the galaxy. What should the game room show when that read fails, who gets them read at all, and what does the demo's table hold?
+
+## The decision, in plain words
+
+The scores are read on their own, only for players who linked GitHub; when that fails, the galaxy and the level still show, the cabinet says the scores are out of reach, and the game still plays. The demo's table holds only the guest's own best.
+
+## The intro, for fun
+
+The scoreboard lives in a back room, and sometimes its door sticks.
+
+## The punchline, for fun
+
+When it does, the arcade stays open and the cabinet admits it cannot see the board.
+
+## The options, in plain words
+
+A. Read the scores on their own for players, say they are out of reach when that fails, and keep only the guest's best in the demo: the option built.
+B. Read the scores together with the galaxy, so a failed read shows the whole galaxy as out of reach.
+C. Fill the demo's table with made-up crew scores around the guest's.
+
+## What I had to decide
+
+The spec (The arcade, Reading) says the page reads the game's top five from arcade_scores, with the players' names and heroes, along with the galaxy, as the signed-in member, and the Account gains submitScore() and scores(). It does not say what a failed read shows, whether a visitor's page reads them (every cabinet is locked to a visitor), how NEW BEST knows a player's best before the game when they are not in the top five, or what the demo's table holds beside the guest.
+
+## What I did meanwhile
+
+`readScores()` in `apps/galaxy/src/data/scores.ts`, called by `arcadeFor()` beside `readXp()` only when the member has a GitHub login, reads per registry game the top five (best first, the earlier of two equal scores first, names, heroes and fleets embedded from players) and the player's own best. A failed read is logged and becomes 'unreadable': the lit cabinet says SCORES OUT OF REACH and A still plays; the galaxy and the XP are untouched, as for XP (item s2-01-xp-read-in-the-workspace-played). `app/page.tsx` passes an empty table to everyone else, so the Supabase arcade never reads scores in the browser at start. After a game, `ArcadeApp.tsx` merges the returned best into the table, then reads it again through `Account.scores()`. The demo and the artifact ask the demo account's `scores()` on the first render: the guest's own best only, kept in browser storage.
+
+## What it costs to change later
+
+Low: a condition in `arcadeFor()`, one line on the cabinet, and the demo account.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the demo should show made-up crew scores beside the guest's, so its table looks like the approved design's.
+
+```
+
+<!-- /omni-outbox-settled: s5-04-scores-read-on-their-own -->
+
+<!-- omni-outbox-settled: s5-05-hi-without-a-name-upright -->
+
+## s5-05-hi-without-a-name-upright — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-05-hi-without-a-name-upright
+prd: 160
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 4
+---
+
+## The question, in plain words
+
+The approved design puts the crew's best score and its holder's name in the middle of the game's top line, but a phone held upright has no room for both beside the wave and the pause hint the game already shows. What gives way?
+
+## The decision, in plain words
+
+On a phone held upright, the crew's best shows without the holder's name, and everything else keeps its place. On a computer and on a phone held sideways, it shows with the name in the middle, as designed, and the pause hint moves beside the score.
+
+## The intro, for fun
+
+The top line of a phone screen is a very small shelf.
+
+## The punchline, for fun
+
+The name stepped down, so the score, the best, the wave and the pause all stay on it.
+
+## The options, in plain words
+
+A. Show the crew's best without the name on a phone held upright: the option built.
+B. Show the name and drop the pause hint on a phone held upright.
+C. Show the name and drop the wave on a phone held upright, as the design draws it.
+
+## What I had to decide
+
+The approved design (before-after, section 4) draws HI · DIME 12 480 in the middle of the score line on both grids; its tall drawing has neither the wave nor a pause hint, which s3 added (WAVE at 96 px, [START] PAUSE at 146 px, both at the middle of the wide grid's line or near it). 320 px holds SCORE, a HI up to 9 999 999, WAVE, the pause hint and three lives only without the name.
+
+## What I did meanwhile
+
+`InvadersOverlay` in `apps/galaxy/src/arcade/scenes/invaders.tsx` labels the HI `HI · <name>` on the wide grid and `HI` on the tall one. `invaders.css` centres it on the wide grid and moves `.inv-foot` (the pause hint) to 112 px, beside the score; on the tall grid it lays out SCORE at 10 px, HI at 66, WAVE at 144, the pause hint at 186 and the lives 8 px from the right. HI is the top line of the crew's table as read; none shows before anyone has a score, or when the table is out of reach.
+
+## What it costs to change later
+
+Low: a label and a few positions in one stylesheet.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether s3's wave and pause hint on the upright phone matter more than the holder's name the design draws there.
+
+```
+
+<!-- /omni-outbox-settled: s5-05-hi-without-a-name-upright -->
