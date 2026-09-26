@@ -158,3 +158,316 @@ One regular expression and one test in `kit/lib/signature.mjs`. Dropping the old
 ```
 
 <!-- /omni-outbox-settled: s1-02-bot-login-older-noreply-address -->
+
+<!-- omni-outbox-settled: s2-01-footer-guard-what-counts-as-opening -->
+
+## s2-01-footer-guard-what-counts-as-opening — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-footer-guard-what-counts-as-opening
+prd: 99
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 2
+---
+
+## The question, in plain words
+
+How does the automatic check tell that a skill opens a pull request or an issue, and so must end it with the loop's signature line?
+
+## The decision, in plain words
+
+A skill counts when it runs the command that opens one, rewrites a description, or says in words that it opens one. A skill that only posts comments is left alone, since comments are never signed.
+
+## The intro, for fun
+
+A check that reads instructions has to decide what counts as opening a door.
+
+## The punchline, for fun
+
+Knocking is a comment; walking in is a pull request.
+
+## The options, in plain words
+
+A. Count a skill as opening one when it runs the opening command, rewrites a description, or says in words that it opens one, the option built.
+B. Count only a skill that runs the opening command itself, so a skill that hands the opening to another skill is not held to the rule.
+C. Hold every skill to both signature lines, whatever it does, and stop reading its words.
+
+## What I had to decide
+
+What the new rule in `kit/test/plugin.test.mjs` treats as "a SKILL.md that opens a pull request or an issue" (spec, Acceptance criteria 5; the plan's s2 "done when"). The spec lists the bodies that are signed and says a body a skill rewrites later keeps its footer, but not how a guard reading skill prose recognises them. `/omni:plan`, `/omni:terraform` and `/omni:do-work` open their pull requests through `/omni:pr` and never name `gh pr create` themselves, so a guard that reads commands alone would not hold them to the rule.
+
+## What I did meanwhile
+
+The guard counts a SKILL.md as opening one when it names `gh pr create` or `gh issue create`, rewrites a body with `gh pr edit … --body`, or says "open(s) it/the/a … PR, pull request or issue" in prose, across a line break (a phrase with "in" or "on" before the noun is skipped, so "opens the question in the pull request's outbox comment" is no opening). `gh pr comment` and `gh issue comment` count for nothing. All eight skills name `omni sign footer`, so the live check passes; fixture skills in the same file show each way in, the comment-only case, and a skill dropping either line.
+
+## What it costs to change later
+
+Three regular expressions and their fixture cases in `kit/test/plugin.test.mjs`; no skill's prose changes. Narrowing the rule to commands only stops holding `/omni:plan`, `/omni:terraform` and `/omni:do-work` to it; holding every skill to both lines unconditionally needs no skill change today, since all eight already name both.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec does not say how the plugin guard recognises a skill that opens a pull request or an issue, nor whether rewriting a body counts as opening one; it says only that a rewritten body keeps its footer.
+- (author) A future skill that opens a pull request in other words ("create a pull request", "raise a PR") would escape the prose rule; the guard reads the verb "open" only.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-footer-guard-what-counts-as-opening -->
+
+<!-- omni-outbox-settled: s3-01-since-narrows-signing-boundary -->
+
+## s3-01-since-narrows-signing-boundary — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-since-narrows-signing-boundary
+prd: 99
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 2
+---
+
+## The question, in plain words
+
+When someone asks for the record from a given month on, should the kit judge whether an unsigned pull request was missed only from what it read in that window, or look further back to find when signing really began?
+
+## The decision, in plain words
+
+The kit only reads from the chosen month on, so it judges an unsigned pull request against the first signed one it finds in that window. Asked for the whole history, which is the default, it judges against the real start of signing.
+
+## The intro, for fun
+
+A window onto the past only shows what is inside the frame.
+
+## The punchline, for fun
+
+Nobody can be late to a meeting the diary does not show.
+
+## The options, in plain words
+
+A. A. Narrow every search to the window, and judge against the first signed item inside it, the option built.
+B. B. Narrow the label searches only, and read every signed item of the whole history to find the real start of signing.
+C. C. Narrow every search, and add one small search per repository for its oldest signed item.
+
+## What I had to decide
+
+Whether `--since` narrows every query `omni credits` runs, or only some. The spec says `--since` narrows to items created from that month on, and that `--since` and `--repo` narrow the searches so they stay under GitHub's 1,000-result cap (Risks, Search limits). It also says an unsigned pull request is `before signing` or `missed` around its repository's first signed item (How each one is classified). When every search is narrowed, a repository's first signed item before the window is never read, so an unsigned pull request early in the window, created before any signed one inside it, reads as `before signing` although signing had begun.
+
+## What I did meanwhile
+
+`kit/lib/credits/reader.mjs` adds `--created >=<month>-01` to every pull request search and `--committer-date >=<month>-01` to the commit search, the signature ones included. `kit/lib/credits/classify.mjs` takes each repository's first signed item among the pull requests it counts, all inside the window. Without `--since` (the default) nothing is narrowed and the boundary is the real one. Tested in `kit/lib/credits/reader.test.mjs` (the queries block) and `kit/lib/credits/classify.test.mjs` (the since block).
+
+## What it costs to change later
+
+Two arguments in `kit/lib/credits/reader.mjs`: leaving `--created` off the body search and `--committer-date` off the commit search reads the signed items of the whole history, at the price of more search results against the cap and the rate limit. No stored data, no migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec does not say whether `--since` should also narrow the searches that find signed items, or whether the signing boundary should be read from the whole history.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-since-narrows-signing-boundary -->
+
+<!-- omni-outbox-settled: s3-02-credits-other-github-failures -->
+
+## s3-02-credits-other-github-failures — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-credits-other-github-failures
+prd: 99
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 2
+---
+
+## The question, in plain words
+
+When GitHub fails the record for a reason other than a missing tool, a lost login or a speed limit, should the kit stop with one plain line, or carry on with what it could read?
+
+## The decision, in plain words
+
+If a search fails for any reason, the kit stops and says so in one line, the same way it does for the three failures the design names. If only one pull request, named by a signed commit, cannot be opened, the kit counts the rest and warns about that one.
+
+## The intro, for fun
+
+Sometimes GitHub just says no and does not say why.
+
+## The punchline, for fun
+
+Half a record would look like a whole one, so it stops.
+
+## The options, in plain words
+
+A. A. Any failed search stops the run with one line and exit 2; a pull request a signed commit names that cannot be opened is a warning, the option built.
+B. B. Any failed search is a warning, and the report prints with what was read.
+C. C. Any failure at all, the single pull request included, stops the run with exit 2.
+
+## What I had to decide
+
+What `omni credits` does when `gh` fails in a way the spec does not name. The spec (`omni credits`, and AC 10) says a missing or logged-out `gh`, or a rate limit, exits 2 with one line saying so. It says nothing of any other failure: a server error, a network cut, or a `(#<n>)` in a signed commit's subject that names an issue or a pull request the login cannot see.
+
+## What I did meanwhile
+
+`kit/lib/credits/reader.mjs` (`unreadable`): any other failed search is a `GitHubUnreadable` with reason `failed`, and `omni credits` exits 2 with one line, `omni credits: gh failed: <gh's first line>`, printing no report. A `gh pr view` of a pull request a signed commit names that fails that way is a warning (`<repo>#<n>, named by a signed commit, could not be read: …`) and that pull request is not counted; a missing or logged-out `gh` or a rate limit there still stops the run. Tested in `kit/lib/credits/reader.test.mjs` (the when gh cannot be read block, and the what it keeps block).
+
+## What it costs to change later
+
+One branch in `kit/lib/credits/reader.mjs`: a failed search could become a warning like the view does, or the view a stop like the searches. The exit code is the only contract a caller reads; nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names three ways `gh` cannot be read and says nothing of any other failure, nor of a merged-by number that is not a readable pull request.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-credits-other-github-failures -->
+
+<!-- omni-outbox-settled: s3-03-credits-heading-when-signing-off -->
+
+## s3-03-credits-heading-when-signing-off — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-credits-heading-when-signing-off
+prd: 99
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 2
+---
+
+## The question, in plain words
+
+In a repository that switched signing off, whose name should head the record of the loop's work?
+
+## The decision, in plain words
+
+The record is headed with the name of the loop itself, because signing off leaves no signer's name to show. The count still covers every labelled pull request, and the line about signing says it is off.
+
+## The intro, for fun
+
+A report with signing off still needs a name at the top.
+
+## The punchline, for fun
+
+When the hero takes the day off, the team takes the credit.
+
+## The options, in plain words
+
+A. A. Head it with the loop's own name, the option built.
+B. B. Head it with the kit's default signer's name, as if signing were on.
+C. C. Leave the name out, and start the heading with the organisation.
+
+## What I had to decide
+
+The first word of the `omni credits` report when the config says `signature: null`. The spec's example heading is the signature's name, then the organisation, then the period (`omni credits`, What it prints), and it says that with `signature: null` the pull requests still count and the signature line reads `signing is off in this repository`. With signing off there is no configured name to print.
+
+## What I did meanwhile
+
+`kit/lib/credits/report.mjs` (`creditsReport`) prints `Omni Loop · <scope> · <period>` when the name is null, and the signature line reads `signing is off in this repository`. Tested in `kit/lib/credits/report.test.mjs` and `kit/bin/credits.test.mjs` (the signature null cases).
+
+## What it costs to change later
+
+One string in `kit/lib/credits/report.mjs` and its two tests. Nothing reads the heading back.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec does not say what heads the report when signing is off.
+
+```
+
+<!-- /omni-outbox-settled: s3-03-credits-heading-when-signing-off -->
