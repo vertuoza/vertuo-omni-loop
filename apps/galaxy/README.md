@@ -12,14 +12,19 @@ keyboard on a computer, and from a Game Boy's buttons on a phone (design:
   [Three forms, two grids](#three-forms-two-grids)), and scaled to fit with hard pixel edges (late
   GBA detail). Text sits on top in DOM on the same grid, so it stays crisp and readable by screen
   readers.
-- Sprites (`packages/sprites`) are laid out as material shapes and finished by a forge
+- The look comes from one package, `@omni/design` (`packages/design`, see
+  [its README](../../packages/design/README.md)): the colours as `tokens.css`, the fonts as
+  `fonts.css` served from this origin (no Google Fonts), the Omni Loop crest, and the sprites.
+  `src/design-system.test.ts` fails when a copy creeps back: a stylesheet here declaring its own
+  colour on `:root`, a page linking Google Fonts, or a file importing the old `@omni/sprites`.
+- Sprites (`@omni/design`) are laid out as material shapes and finished by a forge
   (`forge.mjs`): a 4-tone ramp per material lit from the top left, and coloured outlines (the
   material's darkest tone on the lit side, near-black on the shadow side). Heroes are 32×32
-  (OmniMan 32×48) with two idle frames: OmniMan in the navy-and-white suit, the fleet mascots
+  (OmniMan 32×48) with two idle frames, and OmniMan also points, cheers and runs: OmniMan in the navy-and-white suit, the fleet mascots
   (beaver, octopod, picsou, cia, pirate; the retired invincible), Entropy (24×24) recoloured per
   wound kind, 16×16 icons.
 - Every player's hero is the OmniMan body (a girl or a boy, 32×48) recoloured: skin, hair, suit and
-  cape are ramp swaps on one material each (`packages/sprites/src/heroes.mjs`). A fleet without a
+  cape are ramp swaps on one material each (`packages/design/src/heroes.mjs`). A fleet without a
   drawn mascot flies as a hero in its own colour.
 - Planets are procedural: a dithered, lit, rotating sphere per PRD with oceans, shallows, forests,
   ice caps, drifting clouds, a five-band terminator and an atmosphere glow. The surface greens in
@@ -33,7 +38,7 @@ keyboard on a computer, and from a Game Boy's buttons on a phone (design:
 
 | Screen | What it shows |
 |---|---|
-| Boot → Title | "VERTUOZA presents" and the V, then an attract loop: logo, the story, the top five heroes (signed in). A member sees their workspace's name, letter and colours; signed out, the house brand, Vertuoza |
+| Boot → Title | "OMNI LOOP presents" and the Omni Loop crest, then an attract loop: the crest, the story, the top five heroes (signed in). A member sees their workspace's name, letter and colours (a Vertuoza member, "VERTUOZA presents" and the V); signed out, in demo mode, closed and in the artifact, the house brand, Omni Loop |
 | Insert coin | Sign in with the Vertuoza Google account; any other domain is refused and says why, and a signed-in account that belongs to no workspace gets the "wrong cartridge" screen |
 | Press start | After coming back from Google: browsers play sound only after a key press |
 | Link GitHub | Before playing, once: points are earned under the GitHub login, which only the linked identity sets. B visits only |
@@ -52,6 +57,9 @@ keyboard on a computer, and from a Game Boy's buttons on a phone (design:
 | How to play | The scoring rules, read from `game/rulebook.mjs` so they never drift |
 
 Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#briefing`, `#planet-2332`.
+
+Outside the arcade, `/design` shows the design system, straight from `@omni/design`: every logo
+form, colour, type step, sprite, pose and icon. It opens without signing in.
 
 ## Three forms, two grids
 
@@ -187,10 +195,14 @@ Without the Supabase variables, the app picks its mode in `src/data/mode.ts`:
 
 A workspace's brand (`src/arcade/brand.ts`) is its name and its theme. The name gives the mark its
 letter and the boot and the title their words; the theme gives the arcade its colours. Signed out,
-in demo mode and in the single-file artifact, the arcade wears the house brand: Vertuoza, theme `{}`.
+in demo mode and in the single-file artifact, the arcade wears the house brand: Omni Loop
+(`OMNI_LOOP` in `@omni/design`), theme `{}`. The boot and the title draw its crest in place of a
+letter, and the page title, the favicon (`app/icon.ts`, the crest's own 16×16 drawing) and
+`themeColor` come from it. A workspace keeps its own mark: a member of Vertuoza sees the V.
 
-**The tokens** are listed once, each with its default, in `src/arcade/theme.ts`. The defaults are
-the arcade as it always looked, so the theme `{}` changes nothing.
+**The tokens** are listed once in `src/arcade/theme.ts`. Their defaults are `@omni/design`'s
+colours (the mark's gradient and the stripes aside), the arcade as it always looked, so the theme
+`{}` changes nothing.
 
 | Tokens | What they colour |
 |---|---|
@@ -213,13 +225,14 @@ lowercase `#rrggbb`, is dropped with a console warning and its default applies, 
 breaks the arcade.
 
 **Applying it.** The resolved theme is written as CSS custom properties on the arcade's root element
-(`.shell`), over the defaults declared on `arcade.css`'s `:root`. The canvas scenes draw with the
+(`.shell`), over the defaults `@omni/design/tokens.css` declares on `:root` (`arcade.css` imports
+it and declares no colour of its own). The canvas scenes draw with the
 same values (`FrameState.theme`), the mark with `mark-*`, and every sprite, on the canvas and in the
 panels, wears `stripe-*`. Fonts are not tokens.
 
-**Adding a token** takes three places: its default in `theme.ts`, its custom property on
-`arcade.css`'s `:root` (unless only the canvas draws it), and `valid_theme()`'s list, in a new
-migration. `src/arcade/theme.test.ts` fails until the three agree, and while `shell.css` or a canvas
+**Adding a token** takes three places: its colour in `@omni/design` (then
+`pnpm --filter @omni/design tokens` regenerates `tokens.css`; unless only the canvas draws it), its
+name in `theme.ts`, and `valid_theme()`'s list, in a new migration. `src/arcade/theme.test.ts` fails until the three agree, and while `shell.css` or a canvas
 scene writes a token's colour as a literal.
 
 ## The knowledge map
@@ -231,7 +244,7 @@ page (PRD 149). Both read one graph: the one `omni kb graph --json` prints.
 **The star chart, in the arcade.** STAR CHART sits on the menu after GALAXY MAP, with
 `<n> SYSTEMS · <m> WORLDS` beside it.
 
-- `chart`: a sun per domain (`drawSun` in `@omni/sprites`), sized by how many entries it holds, each
+- `chart`: a sun per domain (`drawSun` in `@omni/design`), sized by how many entries it holds, each
   labelled with its name and count; a dotted lane between two suns for each cross-domain file,
   labelled with its entry count. One domain sits in the middle. The D-pad moves between suns, A
   enters one, B goes back to the menu. The footer names the page: `READ IT AT /KNOWLEDGE`.
@@ -425,7 +438,8 @@ pnpm galaxy:artifact     # apps/galaxy/artifact/dist/omni-loop.html
 ```
 
 One self-contained HTML page (React from cdnjs, everything else inlined) that plays the demo galaxy,
-joining flow included. It carries no knowledge base: its star chart reads `NO STAR CHART IN THIS
+joining flow included. It inlines the two pixel faces from `@omni/design`; the display and body
+roles fall back to system faces there, to keep the page small. It carries no knowledge base: its star chart reads `NO STAR CHART IN THIS
 BUILD`.
 
 ## Database

@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { FLAT, spritePixels } from '@omni/sprites';
+import { COLOURS, FLAT, spritePixels, tokensCss } from '@omni/design';
 import { markFor } from './mark';
 import { DEFAULT_THEME, parseTheme, resolveTheme, stripesOf, themeVars, TOKENS, type Token } from './theme';
 
@@ -23,7 +23,7 @@ const TODAY: Record<Token, string> = {
   // the mark's gradient and its shade (mark.ts)
   'mark-1': '#ff5f6d', 'mark-2': '#a45cff', 'mark-3': '#4a63ff',
   'mark-shade-1': '#a8183a', 'mark-shade-2': '#6a2fd0', 'mark-shade-3': '#2f3fc4',
-  // the four stripes on every hero's suit (FLAT 1 to 4 in @omni/sprites)
+  // the four stripes on every hero's suit (FLAT 1 to 4 in @omni/design)
   'stripe-1': '#ff3b5c', 'stripe-2': '#ff7aa8', 'stripe-3': '#b07cff', 'stripe-4': '#5b7bff',
 };
 
@@ -63,17 +63,28 @@ describe('the theme\'s tokens', () => {
     expect(shade).toEqual([[0, '#a8183a'], [0.55, '#6a2fd0'], [1, '#2f3fc4']]);
   });
 
-  it('hold every colour custom property on arcade.css\'s :root, at its value there', () => {
-    const root = rootColours(read('./arcade.css'));
-    expect(Object.keys(root).length).toBeGreaterThan(0);
-    for (const [name, value] of Object.entries(root)) {
-      expect(name in TOKENS, `--${name} is a token`).toBe(true);
-      expect(value, `--${name}`).toBe(TOKENS[name as Token]);
-    }
-    // And the other way: every token the stylesheets read is declared there, so a page without a
-    // theme still draws today's colours. The mark and the stripes are drawn on the canvas.
+  it('take the arcade\'s colours from @omni/design: every token the stylesheets read, at the package\'s value', () => {
+    // The mark and the stripes are drawn on the canvas, not read by a stylesheet.
     const drawnOnCanvas = (t: string) => /^(mark|stripe)-/.test(t);
-    expect(Object.keys(root).sort()).toEqual(Object.keys(TOKENS).filter((t) => !drawnOnCanvas(t)).sort());
+    const read = (Object.keys(TOKENS) as Token[]).filter((t) => !drawnOnCanvas(t));
+    for (const t of read) expect(TOKENS[t], t).toBe(COLOURS[t]);
+  });
+
+  it('are declared by @omni/design/tokens.css at their defaults, and arcade.css declares no colour of its own on :root', () => {
+    const arcade = uncommented(read('./arcade.css'));
+    expect(rootColours(arcade)).toEqual({});
+    expect(arcade).toMatch(/^\s*@import ['"]@omni\/design\/tokens\.css['"];/);
+    const root = rootColours(tokensCss());
+    const drawnOnCanvas = (t: string) => /^(mark|stripe)-/.test(t);
+    for (const t of (Object.keys(TOKENS) as Token[]).filter((t) => !drawnOnCanvas(t))) {
+      expect(root[t], `--${t}`).toBe(TOKENS[t]);
+    }
+  });
+
+  it('let a workspace\'s override win over tokens.css: it is written on the arcade\'s root element, below :root', () => {
+    const vars = themeVars(resolveTheme({ plasma: '#2fc6a4' }));
+    expect(vars['--plasma']).toBe('#2fc6a4');
+    expect(rootColours(tokensCss()).plasma).toBe(TOKENS.plasma);
   });
 
   it('are exactly the names valid_theme() accepts, in the latest migration that defines it', () => {

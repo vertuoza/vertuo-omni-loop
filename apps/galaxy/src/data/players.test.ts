@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { savePlayer } from './players';
 import { ACME, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
-import type { Hero } from '@omni/sprites';
+import type { Hero } from '@omni/design';
 
 const HERO: Hero = { v: 1, body: 'boy', skin: 2, hair: 1, suit: 0, cape: 0 };
 

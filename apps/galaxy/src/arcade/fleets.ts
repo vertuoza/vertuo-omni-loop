@@ -1,5 +1,5 @@
 import type { PlanetState, WoundKind } from '@omni/galaxy';
-import { fleetSprite, heroLook, type Hero, type Tint } from '@omni/sprites';
+import { fleetSprite, heroLook, type Hero, type Tint } from '@omni/design';
 import type { FleetRow } from './types';
 
 export interface FleetLook { label: string; sprite: string; tint: Tint | null; color: string; motto: string; retired: boolean }

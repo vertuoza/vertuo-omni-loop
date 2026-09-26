@@ -2,7 +2,7 @@
 // The menu group's text layer: the menu (a visitor's and a player's) and How to play, laid out for
 // the grid the screen is drawn on (menu.css places each for `.grid-wide` and `.grid-tall`).
 import type { GalaxyView, WoundKind } from '@omni/galaxy';
-import { woundTint } from '@omni/sprites';
+import { woundTint } from '@omni/design';
 import { useScreen } from '../Screen';
 import { Sprite } from '../Sprite';
 import { fleet, WOUND_LOOK } from '../fleets';

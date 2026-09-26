@@ -10,24 +10,9 @@
 /* ── Title ───────────────────────────────────────────────────────────────── */
 
 .title { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; }
-.logo {
-  margin: 14px 0 0;
-  display: flex;
-  gap: 18px;
-  font-size: 44px;
-  font-weight: 400;
-  line-height: 1;
-  transform: skewX(-8deg);
-}
-.logo span {
-  color: var(--yellow);
-  text-shadow:
-    -2px -2px 0 #0b0a26, 2px -2px 0 #0b0a26, -2px 2px 0 #0b0a26, 2px 2px 0 #0b0a26,
-    4px 4px 0 var(--navy), 6px 6px 0 var(--navy), 8px 8px 0 #0b0a26;
-}
-.logo .logo-loop { color: var(--white); text-shadow:
-    -2px -2px 0 #0b0a26, 2px -2px 0 #0b0a26, -2px 2px 0 #0b0a26, 2px 2px 0 #0b0a26,
-    4px 4px 0 var(--red), 6px 6px 0 var(--red), 8px 8px 0 #0b0a26; }
+/* The crest, an SVG drawn at a whole-number scale by @omni/design: never skewed, never smoothed. */
+.logo { margin: 24px 0 0; line-height: 0; }
+.logo svg { display: block; }
 .tagline { margin: 14px 0 0; font-size: 10px; letter-spacing: 3px; color: var(--cyan); text-shadow: 2px 2px 0 #0b0a26; }
 .press { position: absolute; bottom: 44px; left: 0; right: 0; margin: 0; text-align: center; font-size: 14px; color: var(--yellow); text-shadow: 2px 2px 0 var(--red); }
 .title-foot { position: absolute; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; padding: 8px 16px; font-size: 8px; color: var(--dim); background: linear-gradient(0deg, rgba(7, 6, 28, 0.9), rgba(7, 6, 28, 0)); }
@@ -67,9 +52,9 @@
    face, nor below 15 px in the text face. The call to press sits at the same place in all three of
    the title's phases. */
 
-.grid-tall .boot { padding-top: 160px; } /* under the mark, drawn at 70–144 */
+.grid-tall .boot { padding-top: 160px; } /* under the mark, drawn at 70–142 */
 
-.grid-tall .logo { margin-top: 16px; gap: 14px; font-size: 32px; }
+.grid-tall .logo { margin-top: 20px; }
 .grid-tall .tagline { margin-top: 12px; }
 .grid-tall .press { bottom: 56px; }
 .grid-tall .title-foot { flex-direction: column; align-items: center; gap: 3px; padding: 6px 12px 7px; line-height: 10px; }

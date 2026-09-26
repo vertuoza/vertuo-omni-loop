@@ -23,7 +23,7 @@ A pnpm workspace:
 |---|---|
 | `kit/` | the delivery kit (`omni` CLI) |
 | `game/` | the game layer: projector, ledger, economy, banner, rankings |
-| `packages/sprites` | `@omni/sprites`: the palette, hand-placed pixel sprites, the planet renderer |
+| `packages/design` | `@omni/design`: the Omni Loop design system — the colour tokens (`tokens.css`), the fonts (`fonts.css`), the 16-bit crest logo, the `OMNI_LOOP` brand, hand-placed pixel sprites and the planet renderer ([README](packages/design/README.md)) |
 | `packages/galaxy` | `@omni/galaxy`: folds ledger events into the galaxy view; the demo world |
 | `apps/galaxy` | `@omni/galaxy-app`: the OMNI LOOP arcade, a Next.js app for Vercel |
 | `supabase/` | the game's database and source of truth: migrations, access checks, config, demo seed |

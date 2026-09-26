@@ -2,7 +2,8 @@
 // (artifact/dist/omni-loop.html) for sharing without a server. React loads from cdnjs
 // (the 18.x UMD build; the app uses nothing React 19 adds); everything else is inlined.
 import { build } from 'esbuild';
-import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { fontFaceCss, fontFiles } from '@omni/design';
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
@@ -47,11 +48,14 @@ const sheets = ['src/arcade/arcade.css', ...readdirSync(here('../src/arcade/scen
 const left = sheets.filter((f) => !bundled.has(f));
 if (left.length) throw new Error(`artifact: no module imports ${left.join(', ')}`);
 
+// The two pixel faces the arcade draws with are inlined from @omni/design, so the page makes no font
+// request; the display and body roles are left out to keep it small, and fall back to system faces.
+const woff2 = (file) => readFileSync(fileURLToPath(import.meta.resolve(`@omni/design/fonts/${file}`))).toString('base64');
+const faces = fontFaceCss(fontFiles().filter((f) => f.role === 'pixel'), (file) => `data:font/woff2;base64,${woff2(file)}`);
+
 const html = `<title>Omni Loop Galaxy</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jersey+10&family=Press+Start+2P&display=swap">
 <style>
+${faces}
 ${css}
 </style>
 <div id="root"></div>

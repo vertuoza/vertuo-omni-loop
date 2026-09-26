@@ -1,5 +1,5 @@
 // The planet on the canvas: the planet with its Entropy in orbit and its fleets on station.
-import { drawPlanet, spriteSize, woundTint } from '@omni/sprites';
+import { drawPlanet, spriteSize, woundTint } from '@omni/design';
 import type { Planet } from '@omni/galaxy';
 import { fleet } from '../fleets';
 import { frameOf, nebulaFor, planetLook, pulseRing, space, sprite, type FrameState, type Grid, type Pages, type SceneName } from './common.ts';
