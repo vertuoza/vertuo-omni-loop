@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-26
 - Slice: s1
 - Wave: 1
+- Stays here: A small pre-hook behaviour choice, cheap to change and adopted without approval. No principle or lasting rule depends on it, so it stays in the ledger.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ One question goes to the terminal instead of the page. Changing it is a few line
 - Raised: 2026-09-26
 - Slice: s2
 - Wave: 1
+- Stays here: A local page-behaviour choice, cheap to change in the page component alone, with no stored data. No principle or rule needs it kept.
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ Keeping the picks means holding every visited tab's draft in the browser: a chan
 - Raised: 2026-09-26
 - Slice: s2
 - Wave: 1
+- Stays here: A local UI choice, adopted without approval and cheap to reverse (one line, no stored data). No existing principle or rule depends on it, so there is nothing lasting to record.
 
 ### The answer, as it was given
 
@@ -252,6 +255,7 @@ Selecting the first arrival instead is one line in the page's state rule, with n
 - Raised: 2026-09-26
 - Slice: s3
 - Wave: 2
+- Stays here: A one-off verification choice for this slice with nothing lasting to keep; it changes no code, rule or design.
 
 ### The answer, as it was given
 
