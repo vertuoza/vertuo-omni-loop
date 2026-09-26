@@ -79,16 +79,25 @@ export const tabsTitle = (count: number) => (count > 0 ? `● (${count}) Claude 
 export const firstTab = (tabs: Tab[]) => tabs[0]?.id ?? null;
 
 /** The page: the open sessions as last read, the selected tab, and the selected session when it is
- * not among them (a closed one the link named, or one that closed while selected), shown last. */
-export type Page = { rows: TabRow[]; selected: string | null; kept: TabRow | null };
+ * not among them (a closed one the link named, or one that closed while selected), shown last.
+ * `listOpen` is the folded tab list on a phone, below 720 px: opened from its row, closed again once
+ * a tab is picked. From 720 px the list always shows and it is not read. */
+export type Page = { rows: TabRow[]; selected: string | null; kept: TabRow | null; listOpen: boolean };
 
 /** The page as the server opens it: on the tab the link names (`linked`, its row when the list does
  * not hold it), or on the first tab. */
 export function startPage(rows: TabRow[], selectedId: string | null, linked: TabRow | null, now: number): Page {
   const selected = selectedId ?? firstTab(tabsOf(rows, now));
   const listed = rows.some((r) => r.session.id === selected);
-  return { rows, selected, kept: !listed && linked?.session.id === selected ? linked : null };
+  return { rows, selected, kept: !listed && linked?.session.id === selected ? linked : null, listOpen: false };
 }
+
+/** The folded tab list's row, pressed: the list opens, or closes again. The selection stays. */
+export const toggleList = (page: Page): Page => ({ ...page, listOpen: !page.listOpen });
+
+/** A tab picked from the list: the list closes. The tab's own address selects it, so picking the
+ * one already selected only closes the list. */
+export const pickTab = (page: Page): Page => ({ ...page, listOpen: false });
 
 /** A new read of the list. The selection never moves; a selected session that left the list stays,
  * closed, as the last tab. */

@@ -5,13 +5,15 @@ import { createBrowserClient } from '@supabase/ssr';
 import { AskSession, type SourceConfig } from './AskSession';
 import { poll } from './poll';
 import { databaseTabs, type TabsPort } from './source';
-import { needsYou, pageTabs, pageWithList, pageWithPane, tabsTitle, type Page, type Tab } from './tabs';
+import { needsYou, pageTabs, pageWithList, pageWithPane, pickTab, tabsTitle, toggleList, type Page, type Tab } from './tabs';
 import type { SessionState } from './view';
 
 // The person's ask page (PRD 142): every open ask session they own as a tab, one per terminal, the
 // selected one's pane beside the list. The list is read again every 2 s while the page is visible;
 // the selection moves only when the person picks a tab (a link to /ask/<id>), never by itself: a
-// question arriving elsewhere badges that tab and counts in the browser title.
+// question arriving elsewhere badges that tab and counts in the browser title. Below 720 px the list
+// folds into one row at the top that says how many terminals there are and how many need the person;
+// pressing it opens the list, and picking a tab closes it.
 
 type Props = {
   source: SourceConfig;
@@ -81,13 +83,27 @@ export function AskPage({ source, page: initial, pane, serverNow, query = '' }: 
     );
   }
 
+  const head = (
+    <>
+      Terminals ({tabs.length}){waiting > 0 && <> · <b>{waiting} {waiting === 1 ? 'needs' : 'need'} you</b></>}
+    </>
+  );
+
   return (
     <div className="ask-page">
-      <nav className="ask-tabs" aria-label="Terminals">
-        <p className="ask-tabs-head">
-          Terminals ({tabs.length}){waiting > 0 && <> · <b>{waiting} {waiting === 1 ? 'needs' : 'need'} you</b></>}
-        </p>
-        <ul className="ask-tab-list">
+      <nav className="ask-tabs" aria-label="Terminals" data-open={page.listOpen || undefined}>
+        <button
+          type="button"
+          className="ask-tabs-fold"
+          aria-expanded={page.listOpen}
+          aria-controls="ask-tab-list"
+          onClick={() => setPage(toggleList)}
+        >
+          <span>{head}</span>
+          <span className="ask-tabs-chevron" aria-hidden="true" />
+        </button>
+        <p className="ask-tabs-head">{head}</p>
+        <ul className="ask-tab-list" id="ask-tab-list">
           {tabs.map((tab) => (
             <li key={tab.id}>
               <Link
@@ -96,6 +112,7 @@ export function AskPage({ source, page: initial, pane, serverNow, query = '' }: 
                 className="ask-tab"
                 data-state={tab.state}
                 aria-current={tab.id === page.selected ? 'page' : undefined}
+                onClick={() => setPage(pickTab)}
               >
                 <span className="ask-tab-title">
                   {tab.state === 'needs-you' && <span className="ask-badge" aria-hidden="true" />}
