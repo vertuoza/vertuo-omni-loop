@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { callbackPath, isSessionId, requestOrigin, signInReturn } from './sign-in';
+import {
+  callbackPath, FOR_ME_CALLBACK, forMeSignInReturn, isSessionId, questionCallbackPath, questionSignInReturn, requestOrigin, signInReturn,
+} from './sign-in';
 
 const ID = '7c1e2a94-0b1d-4c3e-9f00-1234567890ab';
 const ORIGIN = 'https://galaxy.example';
@@ -59,5 +61,22 @@ describe('the address the person came from', () => {
     expect(requestOrigin(request('http://10.0.0.1:3000/ask/x/callback', { 'x-forwarded-host': 'galaxy.example', 'x-forwarded-proto': 'https' }))).toBe('https://galaxy.example');
     expect(requestOrigin(request('http://localhost:3000/ask/x/callback', { host: 'localhost:3000' }))).toBe('http://localhost:3000');
     expect(requestOrigin(request('http://localhost:3000/ask/x/callback'))).toBe('http://localhost:3000');
+  });
+});
+
+describe('signing in from a shared question, or For me (PRD 144)', () => {
+  const exchange = async () => ({ error: null });
+
+  it('comes back to the same question', async () => {
+    expect(questionCallbackPath(ID)).toBe(`/ask/q/${ID}/callback`);
+    expect(await questionSignInReturn(new URL(`${ORIGIN}${questionCallbackPath(ID)}?code=abc`), ORIGIN, ID, exchange)).toBe(`${ORIGIN}/ask/q/${ID}`);
+    expect(await questionSignInReturn(new URL(`${ORIGIN}/ask/q/x/callback?code=abc`), ORIGIN, '//evil.example', exchange)).toBe(`${ORIGIN}/`);
+  });
+
+  it('comes back to For me, with the reason when the sign-in was refused', async () => {
+    expect(FOR_ME_CALLBACK).toBe('/ask/for-me/callback');
+    const back = new URL(await forMeSignInReturn(new URL(`${ORIGIN}${FOR_ME_CALLBACK}?error=access_denied`), ORIGIN, exchange));
+    expect(back.pathname).toBe('/ask/for-me');
+    expect(back.searchParams.get('signin_error')).toBe('access_denied');
   });
 });

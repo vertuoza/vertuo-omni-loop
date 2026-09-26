@@ -17,7 +17,8 @@ export type SessionPlace = Partial<Pick<AskSession, 'repo' | 'branch'>>;
 /** What a round records besides its questions (PRD 144), missing or null when unknown. */
 export type RoundFacts = Partial<Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd' | 'answered_by' | 'category' | 'category_by'>>;
 
-export type SessionRow = Pick<AskSession, 'id' | 'owner' | 'title' | 'status' | 'created_at' | 'last_seen_at'> & SessionPlace;
+export type SessionRow = Pick<AskSession, 'id' | 'owner' | 'title' | 'status' | 'created_at' | 'last_seen_at'> & SessionPlace
+  & Partial<Pick<AskSession, 'workspace_id'>>;
 export type RoundRow = Pick<AskRound, 'id' | 'questions' | 'answers' | 'answered_via' | 'status' | 'created_at' | 'answered_at'> & RoundFacts;
 export type SessionState = { session: SessionRow; rounds: RoundRow[] };
 
@@ -70,9 +71,11 @@ export function contextParts(session: SessionPlace, round: RoundRow): string[] {
   return parts.filter((part): part is string => typeof part === 'string' && part !== '');
 }
 
-const asked = (a: RoundRow, b: RoundRow) => Date.parse(a.created_at) - Date.parse(b.created_at) || a.id.localeCompare(b.id);
+/** Rounds in the order they were asked. */
+export const asked = (a: RoundRow, b: RoundRow) => Date.parse(a.created_at) - Date.parse(b.created_at) || a.id.localeCompare(b.id);
 
-function entry(round: RoundRow, session: SessionPlace = {}): HistoryEntry {
+/** One round as the history lists it: its questions with their answers, its outcome, its context line. */
+export function entry(round: RoundRow, session: SessionPlace = {}): HistoryEntry {
   const questions = readQuestions(round.questions);
   const answers = round.answers ?? {};
   const named = new Set(questions.map((q) => q.question));

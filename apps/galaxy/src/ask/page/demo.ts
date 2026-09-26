@@ -83,6 +83,13 @@ const iso = (at: number) => new Date(at).toISOString();
 /** The demo session's owner: whoever plays the demo is them. */
 export const DEMO_OWNER = 'demo';
 
+/** The demo workspace's members (PRD 144): its owner, and two teammates to share a question with. */
+export const DEMO_MEMBERS = [
+  { user_id: DEMO_OWNER, email: 'ada@vertuoza.com', name: 'ADA' },
+  { user_id: 'demo-po', email: 'paula@vertuoza.com', name: 'PAULA' },
+  { user_id: 'demo-ux', email: 'uma@vertuoza.com', name: null },
+];
+
 export function demoState(id: string, scenario: DemoScenario, now: number): SessionState {
   const round = (n: number, questions: unknown[], ago: number, rest: Partial<RoundRow> = {}): RoundRow => ({
     id: `demo-round-${n}`,
@@ -154,6 +161,9 @@ export function demoPort(seed: SessionState, now: () => number = Date.now, askAg
     async remove() {
       state = { ...state, rounds: [] };
       return true;
+    },
+    async share(roundId, member) {
+      return state.rounds.some((r) => r.id === roundId) && DEMO_MEMBERS.some((m) => m.user_id === member && m.user_id !== DEMO_OWNER);
     },
     async sort(roundId, category) {
       const round = state.rounds.find((r) => r.id === roundId);

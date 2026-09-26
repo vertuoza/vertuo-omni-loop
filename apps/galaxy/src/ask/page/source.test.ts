@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { fakeSupabase } from '../store.fake';
 import { AskStoreError } from '../store';
-import { readSession, removeSession, sendAnswers, sessionReader, sortRound, type Db, type SortDb } from './source';
+import {
+  databasePort, questionPort, readForMe, readMembers, readQuestion, readSession, removeSession, sendAnswers, sessionReader, shareRound, sortRound,
+  type Db, type SortDb,
+} from './source';
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
@@ -194,5 +197,67 @@ describe('sorting a round (PRD 144)', () => {
     w.calls.length = 0;
     expect((await read())?.rounds[0]).toMatchObject({ category: 'ux-ui', category_by: BOB.id });
     expect(w.calls.filter((c) => c.includes('.in('))).toEqual([`ask_rounds.in("id", ${JSON.stringify([id])})`]);
+  });
+});
+
+describe('sharing a round, and the rounds shared with me (PRD 144)', () => {
+  const both = (w: Awaited<ReturnType<typeof world>>, token: string) => w.fake.client(token) as unknown as Db & SortDb;
+
+  it('lets the owner share a round with a member, and only the owner', async () => {
+    const w = await world();
+    const id = await w.ask();
+    expect(await shareRound(both(w, 'bob'), id, ADA.id)).toBe(false);
+    expect(await shareRound(both(w, 'ada'), id, CARL.id)).toBe(false);
+    expect(await shareRound(both(w, 'ada'), id, BOB.id)).toBe(true);
+    const state = await readSession(w.as('ada'), w.sessionId);
+    expect(await databasePort(both(w, 'ada'), state!).share(id, BOB.id)).toBe(true);
+    expect(w.fake.tables.ask_shares).toHaveLength(1);
+  });
+
+  it('reads one round with its session, the session\'s other rounds and who it is shared with', async () => {
+    const w = await world();
+    const first = await w.ask();
+    const second = await w.ask();
+    await shareRound(both(w, 'ada'), second, BOB.id);
+    const state = await readQuestion(both(w, 'bob'), second);
+    expect(state?.session).toMatchObject({ id: w.sessionId, owner: ADA.id });
+    expect(state?.round).toMatchObject({ id: second, status: 'open', questions: QUESTIONS });
+    expect(state?.round).not.toHaveProperty('session_id');
+    expect(state?.earlier.map((r) => r.id)).toEqual([first]);
+    expect(state?.sharedWith).toEqual([BOB.id]);
+    expect(await readQuestion(both(w, 'carl'), second)).toBeNull();
+    expect(await readQuestion(both(w, 'bob'), '00000000-0000-4000-8000-00000000ffff')).toBeNull();
+  });
+
+  it('answers a shared round from its page; the second answer is taken', async () => {
+    const w = await world();
+    const id = await w.ask();
+    await shareRound(both(w, 'ada'), id, BOB.id);
+    expect(await questionPort(both(w, 'bob'), id).send(id, ANSWERS)).toBe('answered');
+    expect(await questionPort(both(w, 'ada'), id).send(id, ANSWERS)).toBe('taken');
+    expect((await questionPort(both(w, 'ada'), id).read())?.round).toMatchObject({ status: 'answered', answered_by: BOB.id });
+  });
+
+  it('lists the open rounds shared with me, with their session and who shared them', async () => {
+    const w = await world();
+    const open = await w.ask();
+    const done = await w.ask();
+    await w.ask();
+    await shareRound(both(w, 'ada'), open, BOB.id);
+    await shareRound(both(w, 'ada'), done, BOB.id);
+    await sendAnswers(w.as('ada'), done, ANSWERS);
+    const rows = await readForMe(both(w, 'bob'), BOB.id);
+    expect(rows.map((r) => [r.round.id, r.session.id, r.sharedBy])).toEqual([[open, w.sessionId, ADA.id]]);
+    expect(await readForMe(both(w, 'ada'), ADA.id)).toEqual([]);
+    expect(await readForMe(both(w, 'carl'), CARL.id)).toEqual([]);
+  });
+
+  it('lists the members of my workspace, and nobody for a workspace I am not in or none', async () => {
+    const w = await world();
+    const state = await readSession(w.as('ada'), w.sessionId);
+    const members = await readMembers(both(w, 'bob'), state!.session.workspace_id);
+    expect(members.map((m) => m.email).sort()).toEqual(['ada@vertuoza.com', 'bob@vertuoza.com']);
+    expect(await readMembers(both(w, 'carl'), state!.session.workspace_id)).toEqual([]);
+    expect(await readMembers(both(w, 'bob'), null)).toEqual([]);
   });
 });

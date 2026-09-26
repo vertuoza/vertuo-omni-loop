@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readQuestions, shownLabel } from '../answer-model';
-import { demoPort, demoState, readScenario } from './demo';
+import { DEMO_MEMBERS, DEMO_OWNER, demoPort, demoState, readScenario } from './demo';
 import { sessionView } from './view';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
@@ -41,5 +41,14 @@ describe('the demo session', () => {
     const next = sessionView((await port.read())!, clock.now);
     expect(next.kind).toBe('open');
     if (next.kind === 'open') expect(readQuestions(next.round.questions)).not.toEqual(open.questions);
+  });
+
+  it('shares a round with a teammate, never with its owner or a stranger (PRD 144)', async () => {
+    const port = demoPort(demoState('any', 'open', NOW), () => NOW);
+    const teammate = DEMO_MEMBERS.find((m) => m.user_id !== DEMO_OWNER)!.user_id;
+    expect(await port.share('demo-round-3', teammate)).toBe(true);
+    expect(await port.share('demo-round-3', DEMO_OWNER)).toBe(false);
+    expect(await port.share('demo-round-3', 'stranger')).toBe(false);
+    expect(await port.share('no-such-round', teammate)).toBe(false);
   });
 });
