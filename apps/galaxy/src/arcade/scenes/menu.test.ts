@@ -12,7 +12,8 @@ import type { FleetRow, Player } from '../types';
 import type { FrameState } from './common.ts';
 import { layoutMap } from './map.ts';
 import { BRIEFING_PAGES, drawMenu, PAGES, TALL_SCENES } from './menu.ts';
-import { BriefingOverlay, MenuOverlay, menuItems } from './menu.tsx';
+import { BriefingOverlay, doorOf, MenuOverlay, menuItems } from './menu.tsx';
+import type { KnowledgeGraph } from '../../data/knowledge';
 
 const now = new Date('2026-09-25T10:00:00Z');
 const view = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });
@@ -112,9 +113,13 @@ describe('the menu', () => {
   const visitor = menuItems({ joined: false, linked: false, signedIn: true });
   const playing = menuItems({ joined: true, linked: true, signedIn: true });
 
-  it('holds a visitor\'s six items and a player\'s seven', () => {
-    expect(visitor.map((m) => m.id)).toEqual(['link', 'map', 'fleets', 'heroes', 'briefing', 'signout']);
-    expect(playing.map((m) => m.id)).toEqual(['map', 'fleets', 'heroes', 'briefing', 'myhero', 'change', 'signout']);
+  it('holds a visitor\'s seven items and a player\'s eight, STAR CHART right after GALAXY MAP', () => {
+    expect(visitor.map((m) => m.id)).toEqual(['link', 'map', 'chart', 'fleets', 'heroes', 'briefing', 'signout']);
+    expect(playing.map((m) => m.id)).toEqual(['map', 'chart', 'fleets', 'heroes', 'briefing', 'myhero', 'change', 'signout']);
+    for (const items of [visitor, playing]) {
+      const at = items.findIndex((m) => m.label === 'GALAXY MAP');
+      expect(items[at + 1]).toEqual({ id: 'chart', label: 'STAR CHART', scene: 'chart' });
+    }
   });
 
   it.each([['a visitor', visitor, null], ['a player', playing, player]] as const)(
@@ -173,5 +178,51 @@ describe('How to play', () => {
 
   it('shows no page count on the wide grid', () => {
     expect(textOf(briefing, WIDE).some((s) => s.startsWith('PAGE'))).toBe(false);
+  });
+});
+
+describe('the star chart on the menu', () => {
+  const graph: KnowledgeGraph = {
+    version: 1, repo: 'acme/widgets',
+    domains: [
+      { name: 'product', code: 'PRODUCT', scope: 'product', counts: { principles: 1, rules: 1, invariants: 0, laws: 1, proposed: 1 } },
+      { name: 'quote', code: 'QUOTE', scope: 'domain', counts: { principles: 1, rules: 0, invariants: 0, laws: 0, proposed: 1 } },
+    ],
+    entries: ['P-PRODUCT-1', 'BR-PRODUCT-1', 'P-QUOTE-1'].map((id) => ({
+      id, kind: id.startsWith('P-') ? 'principle' : 'rule', domain: id.includes('QUOTE') ? 'quote' : 'product', domains: [], statement: `${id} holds.`,
+      why: null, status: 'law', serves: null, enforced: false, enforcedBy: null, prd: null, file: 'x.md',
+    })),
+    links: [], loose: [], unserved: [],
+  };
+  const items = menuItems({ joined: true, linked: true, signedIn: true });
+  const chart = items.find((m) => m.id === 'chart')!;
+  const hintOf = (source: KnowledgeGraph | 'none' | null) => {
+    const text = textOf(createElement(MenuOverlay, { view, items, index: 0, me: player, onPick: () => {}, chart: source }), WIDE);
+    return text[text.indexOf('STAR CHART') + 1];
+  };
+
+  it('counts the systems and the worlds beside it, with a graph', () => {
+    expect(hintOf(graph)).toBe('2 SYSTEMS · 3 WORLDS');
+    expect(hintOf({ ...graph, domains: graph.domains.slice(0, 1), entries: graph.entries.slice(0, 1) })).toBe('1 SYSTEM · 1 WORLD');
+  });
+
+  it('reads OUT OF REACH without a graph, and NOT IN THIS BUILD in a build that carries none', () => {
+    expect(hintOf(null)).toBe('OUT OF REACH');
+    expect(hintOf('none')).toBe('NOT IN THIS BUILD');
+  });
+
+  it('opens the chart only with a graph, and says why not otherwise', () => {
+    expect(doorOf(chart, { view, chart: graph, problem: null })).toEqual({ scene: 'chart' });
+    expect(doorOf(chart, { view: null, chart: graph, problem: null })).toEqual({ scene: 'chart' });
+    expect(doorOf(chart, { view, chart: null, problem: null })).toEqual({ refused: 'THE STAR CHART IS OUT OF REACH' });
+    expect(doorOf(chart, { view, chart: 'none', problem: null })).toEqual({ refused: 'NO STAR CHART IN THIS BUILD' });
+  });
+
+  it('keeps the galaxy\'s screens behind the galaxy, as before', () => {
+    const map = items.find((m) => m.id === 'map')!;
+    expect(doorOf(map, { view, chart: null, problem: null })).toEqual({ scene: 'map' });
+    expect(doorOf(map, { view: null, chart: graph, problem: null })).toEqual({ refused: 'SIGN IN TO SEE THE GALAXY' });
+    expect(doorOf(map, { view: null, chart: graph, problem: 'THE GALAXY IS OUT OF REACH.' })).toEqual({ refused: 'THE GALAXY IS OUT OF REACH.' });
+    expect(doorOf(items.find((m) => m.id === 'signout')!, { view, chart: graph, problem: null })).toBeNull();
   });
 });

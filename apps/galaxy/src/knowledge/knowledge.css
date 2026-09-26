@@ -1,0 +1,242 @@
+/* The /knowledge page: the ask pages' reading surface (ask.css: the tokens, the faces, the top bar,
+   the cards), widened for a diagram beside its panel. Every colour is an ask token, or a kind's
+   colour as --km-kind (src/knowledge/kinds.ts); nothing here names a colour. On a phone the page is
+   one column that scrolls down (the diagram, the panel, the index) and never sideways; from 900 px
+   the panel stands beside the diagram and the index, and stays in view while the index scrolls. */
+
+/* The arcade holds its page still; this one is read, so it scrolls. */
+html:has(.km-root),
+html:has(.km-root) body { height: auto; overflow: visible; }
+
+.km-root { --km-kind: var(--ask-muted); }
+
+/* ── The top bar ──────────────────────────────────────────────────────────── */
+
+.km-brand { flex-wrap: wrap; row-gap: 2px; min-width: 0; }
+.km-repo { font-size: 13px; color: var(--ask-muted); overflow-wrap: anywhere; }
+.km-bar-end { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.km-chart { font-size: 15px; font-weight: 700; text-decoration: none; }
+.km-chart:hover { text-decoration: underline; }
+
+/* ── The page ─────────────────────────────────────────────────────────────── */
+
+.km-main { padding-top: 20px; }
+.km { width: 100%; max-width: 1180px; display: grid; gap: 18px; min-width: 0; }
+
+.km-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+/* `.km` outranks ask.css's `.ask a`, which colours every link cyan: a tab and an index row are
+   links drawn as controls. */
+.km .km-tab {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 14px;
+  border: 1px solid var(--ask-line);
+  border-radius: 999px;
+  background: var(--ask-surface);
+  color: var(--ask-ink);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.km .km-tab:hover { border-color: var(--ask-muted); }
+.km .km-tab[aria-current='page'] { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+.km-count { font-size: 13px; font-weight: 400; color: var(--ask-muted); }
+.km-tab[aria-current='page'] .km-count { color: inherit; }
+
+.km-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'head' 'figure' 'panel' 'index';
+  gap: 20px;
+  min-width: 0;
+}
+.km-head { grid-area: head; display: grid; gap: 2px; }
+.km-title { margin: 0; font-size: 26px; line-height: 1.2; overflow-wrap: anywhere; }
+.km-counts { margin: 0; font-size: 15px; color: var(--ask-muted); }
+
+/* ── The diagram ──────────────────────────────────────────────────────────── */
+
+.km-figure {
+  grid-area: figure;
+  margin: 0;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line);
+  border-radius: 12px;
+  min-width: 0;
+}
+.km-orrery { display: block; width: 100%; max-width: 620px; height: auto; margin: 0 auto; }
+.km-ring { fill: none; stroke: var(--ask-line); stroke-width: 1; }
+.km-link { stroke: var(--ask-muted); stroke-width: 1; opacity: 0.35; }
+.km-link.is-strong { stroke: var(--ask-ink); stroke-width: 2; opacity: 1; }
+.km-link[data-link='cites'] { stroke-dasharray: 4 3; }
+.km-sun { fill: var(--ask-yellow); stroke: var(--ask-on-yellow); stroke-opacity: 0.35; stroke-width: 1.5; }
+.km-sun-label {
+  fill: var(--ask-on-yellow);
+  font-family: var(--ask-body);
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+.km-pick { cursor: pointer; }
+.km-hit { fill: transparent; }
+.km-dot { fill: var(--km-kind); stroke: var(--km-kind); stroke-width: 2; transition: opacity 120ms; }
+.km-dot[data-status='proposed'] { fill: var(--ask-surface); }
+.km-pick:hover .km-dot { stroke-width: 3.5; }
+.km-pick.is-dim { opacity: 0.18; }
+.km-selected { fill: none; stroke: var(--ask-ink); stroke-width: 1.5; pointer-events: none; }
+
+.km-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+  font-size: 14px;
+  color: var(--ask-muted);
+}
+.km-legend li { display: inline-flex; align-items: center; gap: 7px; }
+
+/* A dot in text: the legend and the index. Filled for a law, a ring for a proposed entry. */
+.km-mark {
+  flex: none;
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--km-kind);
+  background: var(--km-kind);
+}
+.km-mark[data-status='proposed'] { background: transparent; }
+
+/* ── The panel ────────────────────────────────────────────────────────────── */
+
+.km-side { grid-area: panel; min-width: 0; scroll-margin-top: 12px; }
+.km-panel {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 20px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line);
+  border-radius: 12px;
+  min-width: 0;
+}
+.km-panel p { margin: 0; }
+.km-panel-id { margin: 0; font-size: 20px; line-height: 1.3; overflow-wrap: anywhere; }
+.km-panel-id code { font-size: 1em; font-weight: 600; }
+.km-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.km-chip {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1.5px solid var(--ask-line);
+  color: var(--ask-muted);
+}
+.km-chip[data-kind] { border-color: var(--km-kind); color: var(--km-kind); }
+.km-chip[data-status='law'] { border-color: var(--ask-green); color: var(--ask-green); }
+.km-statement { font-size: 18px; line-height: 1.55; overflow-wrap: anywhere; }
+.km-facts { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 14px; font-size: 15px; }
+.km-facts dt { color: var(--ask-muted); }
+.km-facts dd { margin: 0; overflow-wrap: anywhere; min-width: 0; }
+.km-facts code { word-break: break-all; }
+.km-links { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.km-quote { color: var(--ask-muted); }
+.km-muted { color: var(--ask-muted); }
+
+/* ── The index ────────────────────────────────────────────────────────────── */
+
+.km-index { grid-area: index; display: grid; gap: 14px; min-width: 0; }
+.km-index h2 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ask-muted); }
+.km-filter { display: flex; align-items: center; gap: 10px; }
+.km-filter label { font-size: 15px; font-weight: 700; }
+.km-filter input {
+  flex: 1;
+  min-width: 0;
+  font: 16px/1.4 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.km-filter input::placeholder { color: var(--ask-muted); opacity: 1; }
+.km-filter input:focus-visible { border-color: var(--ask-cyan); }
+
+.km-group { display: grid; gap: 6px; }
+.km-group h3 { margin: 0; font-size: 16px; }
+.km-hint { margin: 0; font-size: 14px; color: var(--ask-muted); }
+.km-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.km .km-row {
+  display: grid;
+  grid-template-columns: 11px max-content minmax(0, 1fr);
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: var(--ask-ink);
+  text-decoration: none;
+  font-size: 15px;
+  line-height: 1.45;
+}
+.km-rows [data-role='member'] .km-row { margin-left: 22px; }
+.km-row:hover { background: var(--ask-surface); }
+.km-row[aria-current='true'] { background: var(--ask-plasma-soft); }
+/* The dot sits on the first line, beside the id. */
+.km-row .km-mark { align-self: start; margin-top: 5px; }
+.km-id { font-weight: 600; font-size: 13.5px; }
+.km-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.km-tag {
+  grid-column: 2 / -1;
+  justify-self: start;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ask-muted);
+  border: 1px solid var(--ask-line);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+/* On a narrow phone the id sits above its statement. */
+@media (max-width: 479px) {
+  .km-bar-end { width: 100%; justify-content: space-between; gap: 10px; }
+  .km-chart { font-size: 14px; }
+  .km .km-row { grid-template-columns: 11px minmax(0, 1fr); }
+  .km-row .km-text { grid-column: 2; }
+  .km-rows [data-role='member'] .km-row { margin-left: 14px; }
+  .km-facts { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .km-facts dd + dt { margin-top: 8px; }
+}
+
+/* ── From 900 px: the panel beside the diagram and the index ─────────────── */
+
+@media (min-width: 900px) {
+  .km-body {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+    grid-template-areas: 'head panel' 'figure panel' 'index panel';
+    grid-template-rows: auto auto 1fr;
+    column-gap: 28px;
+    align-items: start;
+  }
+  .km-side { position: sticky; top: 16px; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .km-dot { transition: none; }
+}

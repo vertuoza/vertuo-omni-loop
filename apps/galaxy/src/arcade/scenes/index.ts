@@ -4,6 +4,7 @@
 // its page counts, its text layer in `scenes/<group>.tsx` and its styles in `scenes/<group>.css`;
 // what two groups share lives in `scenes/common.*`.
 import { drawBoot, drawHeroes, drawStory, drawTitle } from './attract.ts';
+import { drawChart, drawSystem } from './chart.ts';
 import { drawFleets } from './fleets.ts';
 import { drawAway, drawCoin, drawGate, drawIntro, drawLink, drawReady, drawWelcome } from './join.ts';
 import { drawMap } from './map.ts';
@@ -13,9 +14,13 @@ import { drawBuilder, drawName, drawSelect } from './recruit.ts';
 import type { FrameState } from './common.ts';
 
 export {
-  H, TALL, W, WIDE, type FrameState, type Grid, type GridName, type JoinFrame, type MapSlot, type PageCount, type Pages, type SceneName,
+  H, TALL, W, WIDE, type ChartFrame, type FrameState, type Grid, type GridName, type JoinFrame, type MapSlot, type PageCount, type Pages,
+  type SceneName,
 } from './common.ts';
 export { layoutMap, neighbour } from './map.ts';
+export {
+  chartKey, chartStep, layoutChart, layoutSystem, orbitStep, sunAt, worldAt, type ChartLayout, type ChartSource, type SystemLayout,
+} from './chart-layout.ts';
 
 export function drawFrame(ctx: CanvasRenderingContext2D, s: FrameState, titlePhase: 'title' | 'story' | 'hiscore') {
   ctx.imageSmoothingEnabled = false;
@@ -38,5 +43,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, s: FrameState, titlePha
     case 'link': return drawLink(ctx, s);
     case 'ready': return drawReady(ctx, s);
     case 'welcome': return drawWelcome(ctx, s);
+    case 'chart': return drawChart(ctx, s);
+    case 'system': return drawSystem(ctx, s);
   }
 }

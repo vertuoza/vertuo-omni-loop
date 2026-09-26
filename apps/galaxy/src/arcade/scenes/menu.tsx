@@ -7,6 +7,8 @@ import { useScreen } from '../Screen';
 import { Sprite } from '../Sprite';
 import { fleet, WOUND_LOOK } from '../fleets';
 import type { Player } from '../types';
+import type { ChartSource } from './chart-layout.ts';
+import { chartRefusal, chartTally } from './chart.tsx';
 import type { SceneName } from './common.ts';
 import { BRIEFING_PAGES, type BriefingPage } from './menu.ts';
 import './common.css';
@@ -20,11 +22,12 @@ function SourceChip({ view }: { view: GalaxyView }) {
 
 // ── Menu ─────────────────────────────────────────────────────────────────────
 
-export type MenuId = 'map' | 'fleets' | 'heroes' | 'briefing' | 'myhero' | 'change' | 'link' | 'signout';
+export type MenuId = 'map' | 'chart' | 'fleets' | 'heroes' | 'briefing' | 'myhero' | 'change' | 'link' | 'signout';
 export interface MenuItem { id: MenuId; label: string; scene?: SceneName; fresh?: boolean }
 
 const GALAXY: MenuItem[] = [
   { id: 'map', label: 'GALAXY MAP', scene: 'map' },
+  { id: 'chart', label: 'STAR CHART', scene: 'chart' },
   { id: 'fleets', label: 'FLEETS', scene: 'fleets' },
   { id: 'heroes', label: 'HALL OF HEROES', scene: 'heroes' },
   { id: 'briefing', label: 'HOW TO PLAY', scene: 'briefing' },
@@ -43,11 +46,22 @@ export function menuItems({ joined, linked, signedIn }: { joined: boolean; linke
   ];
 }
 
-export function MenuOverlay({ view, items, index, me, onPick }: {
-  view: GalaxyView | null; items: MenuItem[]; index: number; me: Player | null; onPick: (i: number) => void;
+/**
+ * Where a menu item's scene opens, or why it does not: the galaxy's screens need the galaxy, and the
+ * star chart needs the knowledge (out of reach past the crew's gate, or absent from the build).
+ */
+export function doorOf(item: MenuItem, at: { view: GalaxyView | null; chart: ChartSource; problem: string | null }): { scene: SceneName } | { refused: string } | null {
+  if (!item.scene) return null;
+  if (item.id === 'chart') return at.chart && at.chart !== 'none' ? { scene: item.scene } : { refused: chartRefusal(at.chart) };
+  return at.view ? { scene: item.scene } : { refused: at.problem ?? 'SIGN IN TO SEE THE GALAXY' };
+}
+
+export function MenuOverlay({ view, items, index, me, onPick, chart = null }: {
+  view: GalaxyView | null; items: MenuItem[]; index: number; me: Player | null; onPick: (i: number) => void; chart?: ChartSource;
 }) {
   const hint: Record<MenuId, string> = {
     map: view ? `${view.totals.planets} planets · ${view.totals.inDistress} in distress` : 'Out of reach',
+    chart: chart === 'none' ? 'NOT IN THIS BUILD' : chart ? chartTally(chart) : 'OUT OF REACH',
     fleets: view ? `${view.teams.length} fleets · ${fleet(view.teams[0]?.name).label} lead` : 'Out of reach',
     heroes: view ? `${view.heroes.length} heroes scored in ${view.season}` : 'Out of reach',
     briefing: 'How points are won and lost',

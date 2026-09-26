@@ -42,14 +42,16 @@ keyboard on a computer, and from a Game Boy's buttons on a phone (design:
 | Enter your name | Up to 10 characters, typed or spun on a letter wheel, pre-filled from the Google first name |
 | Build your hero | Girl or boy, skin, hair, suit (the fleet colour first) and cape; TAB for random |
 | Ready / Welcome back | The launch after a first visit; a two-second welcome for returning players |
-| Select mode | PLAY (visitors: links GitHub), Galaxy map, Fleets, Hall of Heroes, How to play, then My hero and Change fleet (players), Sign out |
+| Select mode | PLAY (visitors: links GitHub), Galaxy map, Star chart, Fleets, Hall of Heroes, How to play, then My hero and Change fleet (players), Sign out |
 | Galaxy map | Sectors as nebulae; planets by state, threat and wounds; red hyperlanes from a locked planet to its blockers; distress pulses |
 | Planet | The planet with its Entropy in orbit and the fleets on station; tabs for status, zones by phase, Entropy (age, decay, bounty) and the event log |
+| Star chart | The knowledge base as space: a sun per domain, sized by the entries it holds, and a dotted lane for each cross-domain file ([The knowledge map](#the-knowledge-map)) |
+| System | One domain as an orrery: its entries as worlds on still orbits, laws terraformed and proposed entries barren; the selected world's links, its panel, and the reading card |
 | Fleets | A hero-select wall of the fleets with season points, streak, planets, crew (players by name) |
 | Hall of Heroes | Season high-score table from `game/economy.mjs`, with each player's hero and name |
 | How to play | The scoring rules, read from `game/rulebook.mjs` so they never drift |
 
-Deep links: `#map`, `#fleets`, `#heroes`, `#briefing`, `#planet-2332`.
+Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#briefing`, `#planet-2332`.
 
 ## Three forms, two grids
 
@@ -70,7 +72,7 @@ game is the same in all three.
   sprites stay on a pixel grid.
 - **Which grid a scene gets.** `gridFor()` in `src/arcade/grid.ts`: tall on `handheld` for a scene
   its group lists in `TALL_SCENES` (`src/arcade/scenes/<group>.ts`), wide otherwise. A wide scene
-  on the Game Boy is letterboxed inside its tall lens. All 19 scenes are listed, and `grid.test.ts`
+  on the Game Boy is letterboxed inside its tall lens. All 21 scenes are listed, and `grid.test.ts`
   fails when a scene is not, so a new scene needs a wide and a tall layout.
 - **A tall layout drops nothing.** It shows what the wide one shows, stacked or split into pages:
   the Hall of Heroes (four to a page) and How to play (one section a page) show "PAGE n/N", and
@@ -125,8 +127,9 @@ Left, Right, "A, confirm", "B, back", Select, Start, Sound).
   for TAB and B for ⌫ or ESC, and drops "TYPE OR": there is no keyboard to type on. The name
   screen reads "B ERASE" and "START DONE", the hero builder "RANDOM (SELECT)". On `full` hints read
   the keyboard's keys, as they always have (`hintKey()` in `src/arcade/keys.ts`).
-- **The screen stays tappable**: key hints, menu rows, fleet cards, builder rows, planet tabs, and
-  planets on the map, whose hit test runs in the pixels of the grid the map is drawn on.
+- **The screen stays tappable**: key hints, menu rows, fleet cards, builder rows, planet tabs,
+  planets on the map, and the star chart's suns and worlds, whose hit tests run in the pixels of the
+  grid the scene is drawn on.
 
 ## How the data flows
 
@@ -219,6 +222,59 @@ panels, wears `stripe-*`. Fonts are not tokens.
 migration. `src/arcade/theme.test.ts` fails until the three agree, and while `shell.css` or a canvas
 scene writes a token's colour as a literal.
 
+## The knowledge map
+
+The repository's knowledge base (`.omni-loop/knowledge`: its principles, business rules and
+invariants, in `product/` and one folder per domain) is shown twice, in the arcade and on a plain
+page (PRD 149). Both read one graph: the one `omni kb graph --json` prints.
+
+**The star chart, in the arcade.** STAR CHART sits on the menu after GALAXY MAP, with
+`<n> SYSTEMS · <m> WORLDS` beside it.
+
+- `chart`: a sun per domain (`drawSun` in `@omni/sprites`), sized by how many entries it holds, each
+  labelled with its name and count; a dotted lane between two suns for each cross-domain file,
+  labelled with its entry count. One domain sits in the middle. The D-pad moves between suns, A
+  enters one, B goes back to the menu. The footer names the page: `READ IT AT /KNOWLEDGE`.
+- `system`: one domain as an orrery (`src/arcade/scenes/chart-layout.ts`). Principles circle on the
+  inner orbit, rules on the middle one, invariants on the outer one, each in id order clockwise from
+  the top, drawn by the galaxy map's planet renderer and seeded by their id. A law is terraformed,
+  oceans and forests; a proposed entry is barren, and confirming it (removing its `Proposed:` line)
+  terraforms it on the next load. Orbits hold still, so a world stays where the D-pad and a tap
+  expect it; only the spheres turn. An orbit that cannot seat its worlds spills onto one more of its
+  kind, further out, and every world shrinks down to a floor: every entry is always shown (tested at
+  150 entries in one domain).
+- **Moving in a system.** ◀ ▶ walk the orbit and wrap; ▲ moves in and ▼ out, to the world nearest in
+  angle on the next orbit; SELECT goes to the next world; a tap selects a world, and a tap on the
+  selected one reads it. The selected world shows a line to the principle it serves and lines from
+  every entry that serves it, and the panel (beside the diagram on the wide grid, under it on the
+  tall one) shows its id, kind, `LAW` or `PROPOSED`, its statement and `SERVES <id>` or
+  `SERVED BY <n>`. **A** opens the reading card: the whole statement, `Why:`, what it serves, what
+  serves it, what it cites, how it is enforced and the PRD it came from, paged with ▲ ▼. **B** closes
+  the card, B again goes back to the chart, and again to the menu.
+
+**The knowledge page, `/knowledge`.** The same graph as a reading surface beside the `/ask` pages,
+in their light and dark themes: the top bar (`OMNI LOOP · Knowledge map`, the repository, a link to
+the star chart at `/#chart`, the theme switch), a tab per domain and **Between domains** for the
+cross-domain entries, an SVG orrery laid out as in the arcade (a law a filled dot, a proposed entry
+a hollow ring, each kind in its own colour), the selected entry's detail (statement, `Why:`, what it
+serves and what serves it, what it cites, its PRD, how it is enforced, its file), and the index of
+the domain grouped by principle, with its loose entries and unserved principles and a filter. A
+selection is kept in the address, `/knowledge?domain=<name>&entry=<id>`, so a link to one entry can
+be shared. On a phone the page stacks and scrolls down, never sideways.
+
+**Where the data comes from.** The knowledge of the checkout the app is deployed from, read on the
+server at request time through the kit's own register parser (`src/data/load-knowledge.ts`): no
+Supabase table, no GitHub call. `next.config.mjs` traces the config and the register files into the
+deployment, since nothing imports them. When they cannot be read, the loader logs why, both maps say
+the knowledge is out of reach, and nothing else in the arcade changes.
+
+**Who sees it.** Whoever sees the galaxy: a crew member (a member of a workspace) signed in, or the
+demo in development. Anyone else's page carries no entry: in the arcade STAR CHART reads
+`OUT OF REACH` and does not open (`app/page.tsx` hands the graph to the crew and the demo only);
+`/knowledge` shows the sign-in card signed out, and a crew-only notice to an account in no workspace;
+a build that is neither says the map is not open here. The single-file artifact never embeds a
+knowledge base: its star chart reads `NO STAR CHART IN THIS BUILD`.
+
 ## Run it locally
 
 From the repository root:
@@ -252,7 +308,8 @@ workspace the migrations create.
 
 `pnpm galaxy:shots` walks the demo galaxy from the keyboard in a headless Chromium, from the boot
 through the joining flow to every screen of the menu, and saves a screenshot of each scene (the
-title's three phases and the planet's four tabs each on their own) at three sizes: 393×700 upright
+title's three phases, the planet's four tabs, and a system's reading card each on their own; the
+star chart shows this checkout's knowledge) at three sizes: 393×700 upright
 touch (an iPhone with Safari's bars), 852×393 sideways touch and 1440×900 with a mouse.
 
 ```bash
@@ -367,7 +424,8 @@ pnpm galaxy:artifact     # apps/galaxy/artifact/dist/omni-loop.html
 ```
 
 One self-contained HTML page (React from cdnjs, everything else inlined) that plays the demo galaxy,
-joining flow included.
+joining flow included. It carries no knowledge base: its star chart reads `NO STAR CHART IN THIS
+BUILD`.
 
 ## Database
 
@@ -417,6 +475,9 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
   shows the zones that have opened so far, not the whole plan.
 - **The map fits one screen.** About eight planets per sector stay legible; beyond that the planets
   shrink. A scrolling map comes when the galaxy needs it.
+- **A system fits one screen.** Past about 150 entries in one domain on the Game Boy held upright,
+  worlds reach their smallest size and start to touch; paging comes when a knowledge base needs it.
+  The star chart shows this repository's knowledge only; each sector's repositories' is later work.
 - **An iPhone keeps Safari's bars.** iPhone Safari offers web pages neither fullscreen nor
   vibration, so the Game Boy shows under the address bar and a press makes no buzz. A device that
   misreports its primary pointer gets the other form; the keyboard and taps work in both.
