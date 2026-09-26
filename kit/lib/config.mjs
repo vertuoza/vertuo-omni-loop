@@ -24,6 +24,12 @@ const regexSource = z.string().refine((source) => {
 const section = (shape) => z.object(shape).strict().default({});
 // A name or an address a `Co-authored-by: <name> <email>` line can hold: one line, no angle bracket.
 const trailerPart = text.regex(/^[^<>\r\n]+$/, 'one line, with no < or >');
+// Where ask mode's pages and calls live: https anywhere, or plain http on the loopback address only.
+const askUrl = z.string().refine((value) => {
+  let url;
+  try { url = new URL(value); } catch { return false; }
+  return url.protocol === 'https:' || (url.protocol === 'http:' && url.hostname === '127.0.0.1');
+}, 'an https URL, or http on 127.0.0.1');
 
 export const ConfigSchema = z
   .object({
@@ -113,6 +119,7 @@ export const ConfigSchema = z
       claimStaleMinutes: z.number().int().positive().default(60),
       beforeAfterMaxBytes: z.number().int().positive().default(512000),
     }),
+    ask: section({ url: askUrl.nullable().default(null) }),
     markers: section({ prefix: z.string().regex(/^[a-z][a-z0-9-]*$/, 'lowercase letters, digits and hyphens').default('omni-outbox') }),
     // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.mjs`). By
     // default the omni-loop GitHub App's bot account; `null` switches signing off.

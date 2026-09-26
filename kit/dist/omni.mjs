@@ -11545,6 +11545,15 @@ var regexSource = external_exports.string().refine((source) => {
 }, "not a valid regular expression");
 var section = (shape) => external_exports.object(shape).strict().default({});
 var trailerPart = text.regex(/^[^<>\r\n]+$/, "one line, with no < or >");
+var askUrl = external_exports.string().refine((value) => {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  return url.protocol === "https:" || url.protocol === "http:" && url.hostname === "127.0.0.1";
+}, "an https URL, or http on 127.0.0.1");
 var ConfigSchema = external_exports.object({
   kit: external_exports.literal(CONFIG_VERSION),
   repo: section({
@@ -11624,6 +11633,7 @@ var ConfigSchema = external_exports.object({
     claimStaleMinutes: external_exports.number().int().positive().default(60),
     beforeAfterMaxBytes: external_exports.number().int().positive().default(512e3)
   }),
+  ask: section({ url: askUrl.nullable().default(null) }),
   markers: section({ prefix: external_exports.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
   // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.mjs`). By
   // default the omni-loop GitHub App's bot account; `null` switches signing off.
@@ -11857,12 +11867,12 @@ function resolvePlaybookId(id, { ctx }) {
   if (!match) return { ok: false, reason: `${id}: not playbook/<form>#<slot>` };
   const [, formId, slotId] = match;
   if (!FORM_IDS.includes(formId)) return { ok: false, reason: `the kit has no form "${formId}"` };
-  const read = readForm(formId, { ctx });
-  if (!read.exists) return { ok: false, reason: `no form file at ${read.file}` };
-  if (!read.ok) return { ok: false, reason: read.errors.join("; ") };
-  const slot = read.form.slots.find((entry) => entry.id === slotId);
-  if (!slot) return { ok: false, reason: `${read.file} has no slot "${slotId}"` };
-  if (slot.body.kind === "empty") return { ok: false, reason: `${read.file}: slot "${slotId}" is blank` };
+  const read2 = readForm(formId, { ctx });
+  if (!read2.exists) return { ok: false, reason: `no form file at ${read2.file}` };
+  if (!read2.ok) return { ok: false, reason: read2.errors.join("; ") };
+  const slot = read2.form.slots.find((entry) => entry.id === slotId);
+  if (!slot) return { ok: false, reason: `${read2.file} has no slot "${slotId}"` };
+  if (slot.body.kind === "empty") return { ok: false, reason: `${read2.file}: slot "${slotId}" is blank` };
   return { ok: true };
 }
 
@@ -12829,10 +12839,717 @@ var adopt = {
   }
 };
 
+// kit/bin/commands/ask.mjs
+init_define_OMNI_BUNDLE();
+
+// kit/lib/ask/client.mjs
+init_define_OMNI_BUNDLE();
+var CALL_TIMEOUT_MS = 5e3;
+var AskCallError = class extends Error {
+  constructor(message, { status: status3 = null } = {}) {
+    super(message);
+    this.name = "AskCallError";
+    this.status = status3;
+  }
+};
+function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = CALL_TIMEOUT_MS }) {
+  const root = baseUrl.replace(/\/+$/, "");
+  const segment = (value) => encodeURIComponent(value);
+  async function send(method, path, { body, token, timeoutMs }) {
+    const headers = { accept: "application/json" };
+    if (body !== void 0) headers["content-type"] = "application/json";
+    if (token) headers.authorization = `Bearer ${token}`;
+    try {
+      return await fetch(`${root}${path}`, {
+        method,
+        headers,
+        body: body === void 0 ? void 0 : JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+    } catch (error) {
+      throw new AskCallError(`${method} ${path}: ${error?.name === "TimeoutError" ? "timed out" : "unreachable"}`);
+    }
+  }
+  async function bodyOf(response) {
+    const text2 = await response.text().catch(() => "");
+    if (!text2) return {};
+    try {
+      return JSON.parse(text2);
+    } catch {
+      return {};
+    }
+  }
+  async function refresh(current) {
+    if (!current.refresh_token) return null;
+    let response;
+    try {
+      response = await send("POST", "/api/ask/token", { body: { refresh_token: current.refresh_token }, timeoutMs: callMs });
+    } catch {
+      return null;
+    }
+    if (!response.ok) return null;
+    const fresh = await bodyOf(response);
+    if (typeof fresh.access_token !== "string" || !fresh.access_token) return null;
+    const kept = { ...current, ...fresh };
+    tokens.write(host, kept);
+    return kept;
+  }
+  async function call(method, path, { body, timeoutMs = callMs } = {}) {
+    const current = tokens.read(host);
+    if (!current?.access_token) throw new AskCallError(`not signed in to ${host}`);
+    let response = await send(method, path, { body, token: current.access_token, timeoutMs });
+    if (response.status === 401) {
+      const fresh = await refresh(current);
+      if (!fresh) throw new AskCallError(`${method} ${path}: sign-in refused`, { status: 401 });
+      response = await send(method, path, { body, token: fresh.access_token, timeoutMs });
+    }
+    if (!response.ok) throw new AskCallError(`${method} ${path}: ${response.status}`, { status: response.status });
+    return bodyOf(response);
+  }
+  return {
+    /** @returns {Promise<{ id: string, url: string }>} */
+    openSession: (title) => call("POST", "/api/ask/sessions", { body: { title } }),
+    closeSession: (sessionId) => call("POST", `/api/ask/sessions/${segment(sessionId)}/close`),
+    /** `questions` is `AskUserQuestion`'s input as is. @returns {Promise<{ roundId: string }>} */
+    openRound: (sessionId, questions) => call("POST", `/api/ask/sessions/${segment(sessionId)}/rounds`, { body: { questions } }),
+    /** Held by the server up to 50 s. @returns {Promise<{ status: 'open'|'answered'|'abandoned'|'closed', answers?: Record<string, string> }>} */
+    wait: (roundId, { timeoutMs = callMs } = {}) => call("GET", `/api/ask/rounds/${segment(roundId)}/wait`, { timeoutMs }),
+    /** An answer given in the terminal. */
+    answer: (roundId, answers) => call("POST", `/api/ask/rounds/${segment(roundId)}/answers`, { body: { answers, via: "terminal" } }),
+    abandon: (roundId) => call("POST", `/api/ask/rounds/${segment(roundId)}/abandon`)
+  };
+}
+
+// kit/lib/ask/client-tokens.mjs
+init_define_OMNI_BUNDLE();
+import { chmodSync, mkdirSync as mkdirSync2, readFileSync as readFileSync5, writeFileSync as writeFileSync2 } from "node:fs";
+import { homedir } from "node:os";
+import { dirname as dirname2, join as join7 } from "node:path";
+var FILE = [".config", "omni", "credentials.json"];
+function readAll(file) {
+  try {
+    const value = JSON.parse(readFileSync5(file, "utf8"));
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  } catch {
+    return {};
+  }
+}
+function homeTokens({ home = homedir() } = {}) {
+  const file = join7(home, ...FILE);
+  return {
+    read(host) {
+      const entry = readAll(file)[host];
+      return entry && typeof entry.access_token === "string" && entry.access_token ? entry : null;
+    },
+    write(host, tokens) {
+      const all = { ...readAll(file), [host]: tokens };
+      mkdirSync2(dirname2(file), { recursive: true, mode: 448 });
+      writeFileSync2(file, `${JSON.stringify(all, null, 2)}
+`, { mode: 384 });
+      chmodSync(file, 384);
+    }
+  };
+}
+
+// kit/lib/ask/hook.mjs
+init_define_OMNI_BUNDLE();
+
+// kit/lib/ask/local-state.mjs
+init_define_OMNI_BUNDLE();
+import { existsSync as existsSync6, mkdirSync as mkdirSync3, readFileSync as readFileSync6, rmSync as rmSync3, writeFileSync as writeFileSync3 } from "node:fs";
+import { dirname as dirname3, join as join8 } from "node:path";
+var LOCAL_DIR = join8(dirname3(CONFIG_FILE), "local");
+var SESSION_FILE = "ask.json";
+var ROUND_FILE = "ask-round.json";
+var ROUND_STATUSES = ["open", "answered", "abandoned"];
+var isText = (value) => typeof value === "string" && value.length > 0;
+function localFile(root, file) {
+  return join8(root, LOCAL_DIR, file);
+}
+function ensureLocalDir(root) {
+  const dir = join8(root, LOCAL_DIR);
+  mkdirSync3(dir, { recursive: true });
+  const ignore = join8(dir, ".gitignore");
+  if (!existsSync6(ignore)) writeFileSync3(ignore, "*\n");
+}
+function readJson(root, file) {
+  try {
+    const value = JSON.parse(readFileSync6(localFile(root, file), "utf8"));
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+function writeJson(root, file, value) {
+  ensureLocalDir(root);
+  writeFileSync3(localFile(root, file), `${JSON.stringify(value, null, 2)}
+`);
+}
+function readSession(root) {
+  const value = readJson(root, SESSION_FILE);
+  if (!value || !isText(value.sessionId) || !isText(value.url) || !isText(value.host)) return null;
+  return { sessionId: value.sessionId, url: value.url, host: value.host };
+}
+function writeSession(root, { sessionId, url, host }) {
+  writeJson(root, SESSION_FILE, { sessionId, url, host });
+}
+function clearSession(root) {
+  rmSync3(localFile(root, SESSION_FILE), { force: true });
+}
+function readRound(root) {
+  const value = readJson(root, ROUND_FILE);
+  if (!value || !isText(value.roundId)) return null;
+  return {
+    roundId: value.roundId,
+    toolUseId: isText(value.toolUseId) ? value.toolUseId : null,
+    status: ROUND_STATUSES.includes(value.status) ? value.status : "open"
+  };
+}
+function writeRound(root, { roundId, toolUseId = null, status: status3 }) {
+  writeJson(root, ROUND_FILE, { roundId, toolUseId, status: status3 });
+}
+function clearRound(root) {
+  rmSync3(localFile(root, ROUND_FILE), { force: true });
+}
+
+// kit/lib/ask/hook.mjs
+var TOOL = "AskUserQuestion";
+var PROMPT_CONTEXT = "Ask mode is on: ask every question to the person through the AskUserQuestion tool, never as plain text.";
+var WAIT_LIMITS = Object.freeze({ totalMs: 54e4, callMs: 6e4 });
+function activeSession(root) {
+  const session = readSession(root);
+  if (!session) return null;
+  let baseUrl;
+  try {
+    baseUrl = loadConfig(root).ask.url;
+  } catch {
+    return null;
+  }
+  if (!baseUrl || new URL(baseUrl).host !== session.host) return null;
+  return { session, baseUrl };
+}
+function toolAnswers(questions, answers) {
+  if (!Array.isArray(questions) || questions.length === 0) return null;
+  if (!answers || typeof answers !== "object" || Array.isArray(answers)) return null;
+  const shaped = {};
+  for (const { question } of questions) {
+    const given = answers[question];
+    const text2 = Array.isArray(given) && given.every((label) => typeof label === "string") ? given.join(", ") : given;
+    if (typeof text2 !== "string" || text2 === "") return null;
+    shaped[question] = text2;
+  }
+  return shaped;
+}
+function promptOutput() {
+  return { hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: PROMPT_CONTEXT } };
+}
+function preOutput(toolInput, answers) {
+  return { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "allow", updatedInput: { ...toolInput, answers } } };
+}
+async function preHook({ root, session, client, input, limits = WAIT_LIMITS, now = Date.now }) {
+  if (input?.tool_name !== TOOL) return null;
+  const toolInput = input.tool_input;
+  const questions = toolInput?.questions;
+  if (!Array.isArray(questions) || questions.length === 0) return null;
+  const toolUseId = typeof input.tool_use_id === "string" ? input.tool_use_id : null;
+  const deadline = now() + limits.totalMs;
+  let roundId;
+  try {
+    ({ roundId } = await client.openRound(session.sessionId, questions));
+  } catch {
+    return null;
+  }
+  if (typeof roundId !== "string" || roundId === "") return null;
+  const keep = (status3) => writeRound(root, { roundId, toolUseId, status: status3 });
+  keep("open");
+  const giveUp = async () => {
+    await client.abandon(roundId).catch(() => {
+    });
+    keep("abandoned");
+    return null;
+  };
+  for (; ; ) {
+    const left = deadline - now();
+    if (left <= 0) return giveUp();
+    let result;
+    try {
+      result = await client.wait(roundId, { timeoutMs: Math.min(limits.callMs, left) });
+    } catch {
+      return giveUp();
+    }
+    if (result?.status === "open") continue;
+    if (result?.status === "closed") {
+      clearRound(root);
+      clearSession(root);
+      return null;
+    }
+    if (result?.status === "abandoned") {
+      keep("abandoned");
+      return null;
+    }
+    const answers = result?.status === "answered" ? toolAnswers(questions, result.answers) : null;
+    if (!answers) return giveUp();
+    keep("answered");
+    return preOutput(toolInput, answers);
+  }
+}
+async function postHook({ root, client, input }) {
+  const round = readRound(root);
+  if (!round) return;
+  try {
+    const toolUseId = typeof input?.tool_use_id === "string" ? input.tool_use_id : null;
+    if (round.toolUseId && toolUseId && round.toolUseId !== toolUseId) return;
+    if (round.status === "answered") return;
+    const questions = input?.tool_input?.questions ?? input?.tool_response?.questions;
+    const answers = toolAnswers(questions, input?.tool_response?.answers ?? input?.tool_input?.answers);
+    if (answers) await client.answer(round.roundId, answers);
+  } catch {
+  } finally {
+    clearRound(root);
+  }
+}
+
+// kit/lib/ask/mode.mjs
+init_define_OMNI_BUNDLE();
+import { basename } from "node:path";
+var TITLE_MAX = 200;
+var AskModeError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "AskModeError";
+  }
+};
+var QUIET = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
+function attempt(fn) {
+  try {
+    return fn();
+  } catch {
+    return null;
+  }
+}
+function currentBranch(root, exec) {
+  return attempt(() => exec("git", ["branch", "--show-current"], { cwd: root, ...QUIET }).trim()) || attempt(() => exec("git", ["rev-parse", "--short", "HEAD"], { cwd: root, ...QUIET }).trim()) || "HEAD";
+}
+function sessionTitle({ slug, branch, root }) {
+  return `${slug || basename(root)} \xB7 ${branch}`.slice(0, TITLE_MAX);
+}
+var hostOf = (askUrl2) => new URL(askUrl2).host;
+function refusal(host, error) {
+  if (error?.status === 401) return `the sign-in to ${host} was refused \u2014 run \`omni signin\` again`;
+  if (error?.status === 403) return `${host} does not let this account open a session`;
+  return `could not open a session on ${host} (${error?.message ?? error})`;
+}
+async function turnOn({ root, askUrl: askUrl2, title, tokens, fetch }) {
+  const host = hostOf(askUrl2);
+  if (!tokens.read(host)) throw new AskModeError(`not signed in to ${host} \u2014 run \`omni signin\` first`);
+  const client = askClient({ baseUrl: askUrl2, host, tokens, fetch });
+  let opened;
+  try {
+    opened = await client.openSession(title);
+  } catch (error) {
+    throw new AskModeError(refusal(host, error));
+  }
+  const sessionId = typeof opened?.id === "string" ? opened.id : "";
+  const url = typeof opened?.url === "string" ? attempt(() => new URL(opened.url, askUrl2).href) : null;
+  if (!sessionId || !url) throw new AskModeError(`could not open a session on ${host} (it answered with no session link)`);
+  const replaced = readSession(root);
+  writeSession(root, { sessionId, url, host });
+  clearRound(root);
+  const leftOpen = replaced && replaced.sessionId !== sessionId ? await closeSession(client, replaced, host) : null;
+  return { url, replaced: replaced && { sessionId: replaced.sessionId }, leftOpen };
+}
+async function closeSession(client, session, host) {
+  if (!client || session.host !== host) return `ask.url no longer names ${session.host}`;
+  try {
+    await client.closeSession(session.sessionId);
+    return null;
+  } catch (error) {
+    return error?.status === 404 ? null : error?.message ?? String(error);
+  }
+}
+async function turnOff({ root, askUrl: askUrl2, tokens, fetch }) {
+  const session = readSession(root);
+  let leftOpen = null;
+  if (session) {
+    const host = askUrl2 ? hostOf(askUrl2) : null;
+    const client = host === session.host ? askClient({ baseUrl: askUrl2, host, tokens, fetch }) : null;
+    leftOpen = await closeSession(client, session, host);
+  }
+  clearSession(root);
+  clearRound(root);
+  return { session: session && { sessionId: session.sessionId, host: session.host }, leftOpen };
+}
+function modeStatus(root) {
+  return activeSession(root)?.session.url ?? null;
+}
+
+// kit/lib/init/repo.mjs
+init_define_OMNI_BUNDLE();
+import { realpathSync as realpathSync2 } from "node:fs";
+var QUIET2 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
+function attempt2(fn) {
+  try {
+    return fn();
+  } catch {
+    return null;
+  }
+}
+function findRoot(cwd, exec) {
+  const root = attempt2(() => exec("git", ["rev-parse", "--show-toplevel"], { cwd, ...QUIET2 }).trim());
+  if (!root) throw new ConfigError(`${cwd} is not inside a git repository.`);
+  return realpathSync2(root);
+}
+function readRepo(root, { exec, remote }) {
+  const gh = attempt2(() => JSON.parse(exec("gh", ["repo", "view", "--json", "nameWithOwner,defaultBranchRef"], { cwd: root, ...QUIET2 })));
+  const slug = gh?.nameWithOwner || attempt2(() => slugFromRemote(exec("git", ["remote", "get-url", remote], { cwd: root, ...QUIET2 })));
+  const head = attempt2(() => exec("git", ["symbolic-ref", `refs/remotes/${remote}/HEAD`], { cwd: root, ...QUIET2 }).trim());
+  const prefix = `refs/remotes/${remote}/`;
+  const defaultBranch = gh?.defaultBranchRef?.name || (head?.startsWith(prefix) ? head.slice(prefix.length) : null);
+  return { slug: slug || null, defaultBranch: defaultBranch || null };
+}
+
+// kit/bin/commands/signin.mjs
+init_define_OMNI_BUNDLE();
+import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
+
+// kit/lib/ask/credentials.mjs
+init_define_OMNI_BUNDLE();
+import { chmodSync as chmodSync2, readFileSync as readFileSync7, rmSync as rmSync4, writeFileSync as writeFileSync4 } from "node:fs";
+import { homedir as homedir2 } from "node:os";
+import { join as join9 } from "node:path";
+var FILE2 = [".config", "omni", "credentials.json"];
+var EXCHANGE_TIMEOUT_MS = 1e4;
+var SignInError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "SignInError";
+  }
+};
+var credentialsHost = (askUrl2) => new URL(askUrl2).host;
+var askEndpoint = (askUrl2, path) => `${askUrl2.replace(/\/+$/, "")}${path}`;
+var isText2 = (value) => typeof value === "string" && value.length > 0;
+function tokenEntry(reply) {
+  if (!reply || typeof reply !== "object" || Array.isArray(reply)) return null;
+  const { access_token, refresh_token, expires_at, email } = reply;
+  if (!isText2(access_token) || !isText2(refresh_token) || !isText2(email)) return null;
+  return { access_token, refresh_token, expires_at: typeof expires_at === "number" ? expires_at : null, email };
+}
+function credentials({ home = homedir2() } = {}) {
+  const file = join9(home, ...FILE2);
+  const tokens = homeTokens({ home });
+  return {
+    file,
+    /** The host's entry, or `null`. */
+    read: (host) => tokens.read(host),
+    /** Keeps the host's entry, and every other host's, at mode 0600. */
+    write: (host, entry) => tokens.write(host, entry),
+    /** Forgets the host; `true` when it had an entry. The file goes with its last host. */
+    remove(host) {
+      let all;
+      try {
+        all = JSON.parse(readFileSync7(file, "utf8"));
+      } catch {
+        return false;
+      }
+      if (!all || typeof all !== "object" || Array.isArray(all) || !Object.hasOwn(all, host)) return false;
+      delete all[host];
+      if (Object.keys(all).length === 0) {
+        rmSync4(file, { force: true });
+      } else {
+        writeFileSync4(file, `${JSON.stringify(all, null, 2)}
+`, { mode: 384 });
+        chmodSync2(file, 384);
+      }
+      return true;
+    }
+  };
+}
+async function replyOf(response) {
+  const text2 = await response.text().catch(() => "");
+  try {
+    return text2 ? JSON.parse(text2) : {};
+  } catch {
+    return {};
+  }
+}
+async function exchangeCode({ askUrl: askUrl2, code, fetch = globalThis.fetch, timeoutMs = EXCHANGE_TIMEOUT_MS }) {
+  const endpoint = askEndpoint(askUrl2, "/api/ask/token");
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: { accept: "application/json", "content-type": "application/json" },
+      body: JSON.stringify({ code }),
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+  } catch (error) {
+    const why = error?.name === "TimeoutError" ? "it did not answer in time" : "it is unreachable";
+    throw new SignInError(`could not reach ${credentialsHost(askUrl2)} to finish the sign-in: ${why}.`);
+  }
+  const reply = await replyOf(response);
+  if (!response.ok) {
+    const reason = isText2(reply?.error) ? reply.error : `HTTP ${response.status}`;
+    throw new SignInError(`the sign-in was refused: ${reason}`);
+  }
+  const entry = tokenEntry(reply);
+  if (!entry) throw new SignInError("the sign-in server answered with no tokens.");
+  return entry;
+}
+
+// kit/lib/ask/loopback.mjs
+init_define_OMNI_BUNDLE();
+import { timingSafeEqual } from "node:crypto";
+import { createServer } from "node:http";
+var LOOPBACK_WAIT_MS = 5 * 6e4;
+var HOST = "127.0.0.1";
+var PATH = "/callback";
+var LoopbackError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "LoopbackError";
+  }
+};
+function page(title, text2) {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title></head><body style="font:17px/1.6 system-ui,sans-serif;max-width:34rem;margin:15vh auto;padding:0 1rem"><h1 style="font-size:1.3rem">${title}</h1><p>${text2}</p></body></html>`;
+}
+var SIGNED_IN = page("Back to the terminal", "The terminal is finishing the sign-in. You can close this tab.");
+var NOT_OURS = page("Sign-in refused", "This sign-in was not started by this terminal. Run <code>omni signin</code> again.");
+var NO_CODE = page("Sign-in incomplete", "The sign-in came back without its code. Run <code>omni signin</code> again.");
+var sameText = (a, b) => {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+};
+async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
+  if (typeof state !== "string" || state.length === 0) throw new LoopbackError("the listener needs a state to compare with.");
+  let settle2;
+  const code = new Promise((resolve, reject) => {
+    settle2 = { resolve, reject };
+  });
+  code.catch(() => {
+  });
+  let done = false;
+  const server = createServer((request, response) => {
+    const answer = (status3, body, type = "text/html; charset=utf-8") => {
+      response.writeHead(status3, { "content-type": type, "cache-control": "no-store", connection: "close" });
+      response.end(body);
+    };
+    const url = new URL(request.url ?? "/", `http://${HOST}`);
+    if (request.method !== "GET" || url.pathname !== PATH || done) return answer(404, "not found\n", "text/plain; charset=utf-8");
+    if (!sameText(url.searchParams.get("state") ?? "", state)) return answer(400, NOT_OURS);
+    const given = url.searchParams.get("code");
+    if (!given) return answer(400, NO_CODE);
+    done = true;
+    response.on("finish", () => finish(() => settle2.resolve(given)));
+    return answer(200, SIGNED_IN);
+  });
+  let closedResolve;
+  const closed = new Promise((resolve) => {
+    closedResolve = resolve;
+  });
+  let timer;
+  function finish(outcome) {
+    done = true;
+    clearTimeout(timer);
+    outcome();
+    server.close(() => closedResolve());
+    server.closeAllConnections();
+  }
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, HOST, () => {
+      server.off("error", reject);
+      resolve();
+    });
+  });
+  const { port, address } = server.address();
+  const minutes = Math.round(timeoutMs / 6e4);
+  timer = setTimeout(
+    () => finish(() => settle2.reject(new LoopbackError(`no sign-in came back within ${minutes >= 1 ? `${minutes} min` : `${timeoutMs} ms`}.`))),
+    timeoutMs
+  );
+  return {
+    port,
+    address,
+    redirectUri: `http://${HOST}:${port}${PATH}`,
+    code,
+    closed,
+    async close() {
+      if (server.listening) finish(() => settle2.reject(new LoopbackError("the listener was stopped before a sign-in came back.")));
+      await closed;
+    }
+  };
+}
+
+// kit/bin/commands/signin.mjs
+var ASK_URL_UNSET = "ask mode is not set up for this repository (ask.url)";
+function openInBrowser(url, { platform = process.platform } = {}) {
+  const [command, args] = platform === "darwin" ? ["open", [url]] : platform === "win32" ? ["rundll32", ["url.dll,FileProtocolHandler", url]] : ["xdg-open", [url]];
+  const child = spawn(command, args, { detached: true, stdio: "ignore" });
+  child.on("error", () => {
+  });
+  child.unref();
+}
+function askUrlOf(cwd, exec) {
+  return loadContext(cwd, { exec }).config.ask.url;
+}
+function noArguments(name, args) {
+  const { positional } = parseArgs(name, args);
+  if (positional.length > 0) throw usageError(`usage: omni ${name}`);
+}
+var signin = {
+  withoutContext: true,
+  async run(args, { cwd, stdout, stderr, exec, home, openBrowser = openInBrowser, fetch = globalThis.fetch, waitMs = LOOPBACK_WAIT_MS }) {
+    noArguments("signin", args);
+    const askUrl2 = askUrlOf(cwd, exec);
+    if (!askUrl2) {
+      println(stderr, ASK_URL_UNSET);
+      return 1;
+    }
+    const state = randomBytes(32).toString("base64url");
+    const listener = await startLoopback({ state, timeoutMs: waitMs });
+    try {
+      const page2 = new URL(askEndpoint(askUrl2, "/ask/signin"));
+      page2.searchParams.set("port", String(listener.port));
+      page2.searchParams.set("state", state);
+      println(stdout, `Sign in in your browser: ${page2}`);
+      try {
+        await openBrowser(page2.toString());
+      } catch {
+      }
+      const code = await listener.code;
+      const entry = await exchangeCode({ askUrl: askUrl2, code, fetch });
+      credentials({ home }).write(credentialsHost(askUrl2), entry);
+      println(stdout, `signed in as ${entry.email}`);
+      return 0;
+    } catch (error) {
+      if (!(error instanceof LoopbackError) && !(error instanceof SignInError)) throw error;
+      println(stderr, `omni signin: ${error.message}`);
+      return 1;
+    } finally {
+      await listener.close();
+    }
+  }
+};
+var signout = {
+  withoutContext: true,
+  async run(args, { cwd, stdout, stderr, exec, home }) {
+    noArguments("signout", args);
+    const askUrl2 = askUrlOf(cwd, exec);
+    if (!askUrl2) {
+      println(stderr, ASK_URL_UNSET);
+      return 1;
+    }
+    const host = credentialsHost(askUrl2);
+    println(stdout, credentials({ home }).remove(host) ? `signed out of ${host}` : "signed out");
+    return 0;
+  }
+};
+var whoami = {
+  withoutContext: true,
+  async run(args, { cwd, stdout, stderr, exec, home }) {
+    noArguments("whoami", args);
+    const askUrl2 = askUrlOf(cwd, exec);
+    if (!askUrl2) {
+      println(stderr, ASK_URL_UNSET);
+      return 1;
+    }
+    const entry = credentials({ home }).read(credentialsHost(askUrl2));
+    println(stdout, entry ? entry.email ?? `signed in to ${credentialsHost(askUrl2)}` : "signed out");
+    return 0;
+  }
+};
+
+// kit/bin/commands/ask.mjs
+var KINDS = ["pre", "post", "prompt"];
+var MODES = ["on", "off", "status"];
+var USAGE = "usage: omni ask hook <pre|post|prompt> | omni ask <on|off|status>";
+async function readInput(stdin) {
+  let text2 = "";
+  if (typeof stdin === "string") {
+    text2 = stdin;
+  } else {
+    if (!stdin || stdin.isTTY) return null;
+    stdin.setEncoding?.("utf8");
+    for await (const chunk of stdin) text2 += chunk;
+  }
+  try {
+    const value = JSON.parse(text2);
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+async function runHook(kind, { cwd, exec, stdin, tokens, fetch, limits }) {
+  try {
+    const root = findRoot(cwd, exec);
+    const active = activeSession(root);
+    if (!active) return null;
+    if (kind === "prompt") return promptOutput();
+    const input = await readInput(stdin);
+    if (!input) return null;
+    const { session, baseUrl } = active;
+    const client = askClient({ baseUrl, host: session.host, tokens: tokens ?? homeTokens(), fetch });
+    if (kind === "pre") return await preHook({ root, session, client, input, limits });
+    await postHook({ root, client, input });
+    return null;
+  } catch {
+    return null;
+  }
+}
+async function runMode(mode, { cwd, stdout, stderr, exec, tokens, fetch }) {
+  const ctx = loadContext(cwd, { exec });
+  const { root } = ctx;
+  const askUrl2 = ctx.config.ask.url;
+  const store = tokens ?? homeTokens();
+  if (mode === "status") {
+    println(stdout, modeStatus(root) ?? "off");
+    return 0;
+  }
+  if (mode === "off") {
+    const { session, leftOpen } = await turnOff({ root, askUrl: askUrl2, tokens: store, fetch });
+    if (session && leftOpen) {
+      println(stderr, `omni ask off: could not close the session on ${session.host} (${leftOpen}); it closes by itself after 12 hours without a call.`);
+    }
+    println(stdout, "off");
+    return 0;
+  }
+  if (!askUrl2) {
+    println(stderr, ASK_URL_UNSET);
+    return 1;
+  }
+  const title = sessionTitle({ slug: ctx.config.repo.slug, branch: currentBranch(root, exec), root });
+  try {
+    const { url, replaced, leftOpen } = await turnOn({ root, askUrl: askUrl2, title, tokens: store, fetch });
+    if (replaced && leftOpen) {
+      println(stderr, `omni ask on: the session this one replaces could not be closed (${leftOpen}); it closes by itself after 12 hours without a call.`);
+    }
+    println(stdout, url);
+    return 0;
+  } catch (error) {
+    if (!(error instanceof AskModeError)) throw error;
+    println(stderr, `omni ask on: ${error.message}`);
+    return 1;
+  }
+}
+var ask = {
+  withoutContext: true,
+  async run(args, { cwd, stdout, stderr, exec, stdin = process.stdin, tokens, fetch = globalThis.fetch, limits = WAIT_LIMITS }) {
+    const { positional } = parseArgs("ask", args);
+    const [sub, kind, ...rest] = positional;
+    if (MODES.includes(sub) && positional.length === 1) return runMode(sub, { cwd, stdout, stderr, exec, tokens, fetch });
+    if (sub !== "hook" || !KINDS.includes(kind) || rest.length > 0) throw usageError(USAGE);
+    const output = await runHook(kind, { cwd, exec, stdin, tokens, fetch, limits });
+    if (output) println(stdout, JSON.stringify(output));
+    return 0;
+  }
+};
+
 // kit/bin/commands/board.mjs
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync5 } from "node:fs";
-import { join as join7 } from "node:path";
+import { readFileSync as readFileSync8 } from "node:fs";
+import { join as join10 } from "node:path";
 
 // kit/lib/board.mjs
 init_define_OMNI_BUNDLE();
@@ -13089,12 +13806,12 @@ function githubClientFor(ctx, { repo = ctx.config.repo.slug, issue, exec = execF
 }
 
 // kit/bin/commands/board.mjs
-var USAGE = "usage: omni board <prd> [--json] [--repo <owner/name>]";
+var USAGE2 = "usage: omni board <prd> [--json] [--repo <owner/name>]";
 function readPlan(prd2, { ctx }) {
   const planPath = ctx.layout.planPath(prd2);
   if (planPath === null) throw usageError(`omni board: PRD ${prd2} has no inbox or shipped folder.`);
   try {
-    return { planPath, markdown: readFileSync5(join7(ctx.root, planPath), "utf8") };
+    return { planPath, markdown: readFileSync8(join10(ctx.root, planPath), "utf8") };
   } catch (error) {
     if (error?.code === "ENOENT") throw usageError(`omni board: no plan at ${planPath}.`);
     throw error;
@@ -13156,7 +13873,7 @@ function tableLine(row) {
 var board = {
   async run(args, { ctx, stdout, exec, env }) {
     const { positional, flags } = parseArgs("board", args, { values: ["repo"], booleans: ["json"] });
-    if (positional.length !== 1) throw usageError(USAGE);
+    if (positional.length !== 1) throw usageError(USAGE2);
     const prd2 = positiveInt("board", "<prd>", positional[0]);
     const { markdown } = readPlan(prd2, { ctx });
     let slices;
@@ -13201,19 +13918,19 @@ var board = {
 
 // kit/bin/commands/check.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync15 } from "node:fs";
-import { join as join18 } from "node:path";
+import { existsSync as existsSync16 } from "node:fs";
+import { join as join21 } from "node:path";
 
 // kit/lib/check-report.mjs
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync3 } from "node:child_process";
-import { readFileSync as readFileSync6 } from "node:fs";
-import { join as join8 } from "node:path";
+import { readFileSync as readFileSync9 } from "node:fs";
+import { join as join11 } from "node:path";
 function trackedFiles(ctx) {
   return execFileSync3("git", ["ls-files"], { cwd: ctx.root, encoding: "utf8" }).split("\n").filter(Boolean).sort();
 }
 function readRepoFile(ctx, path) {
-  return readFileSync6(join8(ctx.root, path), "utf8");
+  return readFileSync9(join11(ctx.root, path), "utf8");
 }
 function formatFailure(title, violations) {
   if (violations.length === 0) return "";
@@ -13249,13 +13966,13 @@ ${error.message}`
 
 // kit/lib/inbox/check-inbox.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync7, readdirSync as readdirSync4, statSync } from "node:fs";
-import { basename as basename2, dirname as dirname2, join as join10 } from "node:path";
+import { existsSync as existsSync8, readdirSync as readdirSync4, statSync } from "node:fs";
+import { basename as basename3, dirname as dirname4, join as join13 } from "node:path";
 
 // kit/lib/knowledge/registers.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync6, readFileSync as readFileSync7, readdirSync as readdirSync3 } from "node:fs";
-import { basename, join as join9 } from "node:path";
+import { existsSync as existsSync7, readFileSync as readFileSync10, readdirSync as readdirSync3 } from "node:fs";
+import { basename as basename2, join as join12 } from "node:path";
 var PRODUCT_CODE = "PRODUCT";
 var LAYER_FILES = {
   "principles.md": "principle",
@@ -13365,8 +14082,8 @@ function parseEntryFile(file, text2, place) {
   });
 }
 function listDir(root, dir, predicate) {
-  const abs = join9(root, dir);
-  if (!existsSync6(abs)) return [];
+  const abs = join12(root, dir);
+  if (!existsSync7(abs)) return [];
   return readdirSync3(abs, { withFileTypes: true }).filter(predicate).map((entry) => entry.name).sort();
 }
 function glossaryTermOf(text2) {
@@ -13391,7 +14108,7 @@ function readKnowledge({ ctx }) {
     if (!productFiles.includes(name)) continue;
     const file = `${PRODUCT_DIR}/${name}`;
     entries.push(
-      ...parseEntryFile(file, readFileSync7(join9(ctx.root, file), "utf8"), {
+      ...parseEntryFile(file, readFileSync10(join12(ctx.root, file), "utf8"), {
         scope: "product",
         domain: "product",
         codes: [PRODUCT_CODE],
@@ -13407,7 +14124,7 @@ function readKnowledge({ ctx }) {
       if (!files.includes(layer)) continue;
       const file = `${dir}/${layer}`;
       entries.push(
-        ...parseEntryFile(file, readFileSync7(join9(ctx.root, file), "utf8"), {
+        ...parseEntryFile(file, readFileSync10(join12(ctx.root, file), "utf8"), {
           scope: "domain",
           domain: name,
           codes: [code],
@@ -13415,7 +14132,7 @@ function readKnowledge({ ctx }) {
         })
       );
     }
-    const glossaryTerm = files.includes("README.md") ? glossaryTermOf(readFileSync7(join9(ctx.root, dir, "README.md"), "utf8")) : null;
+    const glossaryTerm = files.includes("README.md") ? glossaryTermOf(readFileSync10(join12(ctx.root, dir, "README.md"), "utf8")) : null;
     return { name, code, files, glossaryTerm };
   });
   const crossDomainFiles = listDir(
@@ -13423,12 +14140,12 @@ function readKnowledge({ ctx }) {
     CROSS_DOMAIN_DIR,
     (entry) => entry.isFile() && entry.name.endsWith(".md")
   ).map((fileName) => {
-    const name = basename(fileName, ".md");
+    const name = basename2(fileName, ".md");
     const halves = name.split("--");
     const pair = halves.length === 2 && halves.every(Boolean) ? halves : null;
     const file = `${CROSS_DOMAIN_DIR}/${fileName}`;
     entries.push(
-      ...parseEntryFile(file, readFileSync7(join9(ctx.root, file), "utf8"), {
+      ...parseEntryFile(file, readFileSync10(join12(ctx.root, file), "utf8"), {
         scope: "cross-domain",
         domain: name,
         codes: pair ? pair.map(codeOf) : [],
@@ -13575,8 +14292,8 @@ function parseSpec(text2, { file = null } = {}) {
 
 // kit/lib/inbox/check-inbox.mjs
 function knownAreas(ctx) {
-  const dir = join10(ctx.root, domainsDir(ctx));
-  if (!existsSync7(dir)) return /* @__PURE__ */ new Set();
+  const dir = join13(ctx.root, domainsDir(ctx));
+  if (!existsSync8(dir)) return /* @__PURE__ */ new Set();
   return new Set(
     readdirSync4(dir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)
   );
@@ -13594,7 +14311,7 @@ function violationsForFile(file, folder, text2, ctx) {
       `${file}: prd ${record.prd} does not agree with its folder's number, ${folderPrd} ("${folder}").`
     );
   }
-  if (record.areas?.length && existsSync7(join10(ctx.root, ctx.layout.knowledgeRoot))) {
+  if (record.areas?.length && existsSync8(join13(ctx.root, ctx.layout.knowledgeRoot))) {
     const known = knownAreas(ctx);
     for (const area of record.areas) {
       if (!known.has(area)) {
@@ -13619,8 +14336,8 @@ function blockedByViolations(records, ctx) {
   return violations;
 }
 function beforeAfterViolation(file, ctx) {
-  const absolute = join10(ctx.root, file);
-  if (!existsSync7(absolute)) return null;
+  const absolute = join13(ctx.root, file);
+  if (!existsSync8(absolute)) return null;
   const { size } = statSync(absolute);
   if (size <= ctx.config.limits.beforeAfterMaxBytes) return null;
   return `${file}: is ${size} bytes, over the ${ctx.config.limits.beforeAfterMaxBytes}-byte cap.`;
@@ -13629,8 +14346,8 @@ function findInboxViolations({ ctx }) {
   const violations = [];
   const records = [];
   for (const specFile of ctx.layout.specFiles()) {
-    const folder = basename2(dirname2(specFile));
-    if (!existsSync7(join10(ctx.root, specFile))) {
+    const folder = basename3(dirname4(specFile));
+    if (!existsSync8(join13(ctx.root, specFile))) {
       violations.push(`${specFile}: spec.md is missing.`);
     } else {
       const text2 = readRepoFile(ctx, specFile);
@@ -13638,7 +14355,7 @@ function findInboxViolations({ ctx }) {
       violations.push(...fileViolations);
       if (record) records.push({ ...record, file: specFile, folder });
     }
-    const beforeAfter = beforeAfterViolation(`${dirname2(specFile)}/before-after.html`, ctx);
+    const beforeAfter = beforeAfterViolation(`${dirname4(specFile)}/before-after.html`, ctx);
     if (beforeAfter) violations.push(beforeAfter);
   }
   violations.push(...blockedByViolations(records, ctx));
@@ -13647,8 +14364,8 @@ function findInboxViolations({ ctx }) {
 
 // kit/lib/knowledge/check-knowledge.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync8, readFileSync as readFileSync8 } from "node:fs";
-import { join as join11 } from "node:path";
+import { existsSync as existsSync9, readFileSync as readFileSync11 } from "node:fs";
+import { join as join14 } from "node:path";
 function violation(file, id, detail) {
   return { file, id, detail };
 }
@@ -13666,13 +14383,13 @@ function findOwningLibraryViolations(ctx, knowledge2) {
   const violations = [];
   for (const domain of knowledge2.domains) {
     const readme = `${domainsDir(ctx)}/${domain.name}/README.md`;
-    if (!existsSync8(join11(ctx.root, readme))) continue;
-    const section3 = readFileSync8(join11(ctx.root, readme), "utf8").split(/^## Owning libraries\s*$/m)[1];
+    if (!existsSync9(join14(ctx.root, readme))) continue;
+    const section3 = readFileSync11(join14(ctx.root, readme), "utf8").split(/^## Owning libraries\s*$/m)[1];
     if (!section3) continue;
     const listed = section3.split(/^## /m)[0];
     for (const match of listed.matchAll(/`((?:libs|apps)\/[^`\s]+)`/g)) {
       const path = match[1].replace(/\/$/, "");
-      if (!existsSync8(join11(ctx.root, path))) {
+      if (!existsSync9(join14(ctx.root, path))) {
         violations.push(
           violation(readme, domain.name, `names owning library ${path}, which does not exist.`)
         );
@@ -13823,8 +14540,8 @@ function missingPathViolations(ctx, entry, label, value, { onlyPathLike }) {
   for (const part of partsOf(value)) {
     if (onlyPathLike && !PATH_LIKE.test(part)) continue;
     const [path, anchor] = part.split("#");
-    if (anchor && existsSync8(join11(ctx.root, path)) && path.endsWith(".md")) {
-      if (!headingAnchors(readFileSync8(join11(ctx.root, path), "utf8")).has(anchor.toLowerCase())) {
+    if (anchor && existsSync9(join14(ctx.root, path)) && path.endsWith(".md")) {
+      if (!headingAnchors(readFileSync11(join14(ctx.root, path), "utf8")).has(anchor.toLowerCase())) {
         violations.push(
           violation(
             entry.file,
@@ -13835,7 +14552,7 @@ function missingPathViolations(ctx, entry, label, value, { onlyPathLike }) {
       }
       continue;
     }
-    if (!existsSync8(join11(ctx.root, path))) {
+    if (!existsSync9(join14(ctx.root, path))) {
       violations.push(
         violation(
           entry.file,
@@ -13989,13 +14706,13 @@ function gradeKnowledge({ ctx, files = [], glossaryText } = {}) {
 
 // kit/lib/outbox/check-outbox.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync10 } from "node:fs";
-import { join as join13 } from "node:path";
+import { existsSync as existsSync11 } from "node:fs";
+import { join as join16 } from "node:path";
 
 // kit/lib/laws.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync9, readdirSync as readdirSync5, readFileSync as readFileSync9 } from "node:fs";
-import { join as join12 } from "node:path";
+import { existsSync as existsSync10, readdirSync as readdirSync5, readFileSync as readFileSync12 } from "node:fs";
+import { join as join15 } from "node:path";
 var ADR_ID = /^ADR-(\d{4})$/;
 function invariantAdrs(text2, heading) {
   const lines = text2.split("\n");
@@ -14011,8 +14728,8 @@ function invariantAdrs(text2, heading) {
   return ids;
 }
 function adrFiles(ctx, number) {
-  const dir = join12(ctx.root, ctx.layout.adrDir);
-  if (!existsSync9(dir)) return [];
+  const dir = join15(ctx.root, ctx.layout.adrDir);
+  if (!existsSync10(dir)) return [];
   return readdirSync5(dir).filter((name) => name.startsWith(`${number}-`) && name.endsWith(".md")).sort();
 }
 function lawsFor(ctx) {
@@ -14020,8 +14737,8 @@ function lawsFor(ctx) {
   let invariants = null;
   const invariantSet = () => {
     if (invariants === null) {
-      const file = join12(ctx.root, "CLAUDE.md");
-      invariants = existsSync9(file) ? invariantAdrs(readFileSync9(file, "utf8"), claudeMdHeading) : /* @__PURE__ */ new Set();
+      const file = join15(ctx.root, "CLAUDE.md");
+      invariants = existsSync10(file) ? invariantAdrs(readFileSync12(file, "utf8"), claudeMdHeading) : /* @__PURE__ */ new Set();
     }
     return invariants;
   };
@@ -14035,7 +14752,7 @@ function lawsFor(ctx) {
       return { ok: false, reason: `${bearsOn} is ambiguous: ${files.join(", ")}` };
     }
     if (ID_SHAPE.test(bearsOn)) {
-      if (!existsSync9(join12(ctx.root, ctx.layout.knowledgeRoot))) {
+      if (!existsSync10(join15(ctx.root, ctx.layout.knowledgeRoot))) {
         return { ok: false, reason: `${bearsOn}: no knowledge folder at ${ctx.layout.knowledgeRoot}` };
       }
       return resolveId(bearsOn, { ctx }) ? { ok: true } : { ok: false, reason: `${bearsOn} names no entry in ${ctx.layout.knowledgeRoot}` };
@@ -14147,7 +14864,7 @@ function findOutboxViolations({ ctx }) {
   }
   for (const { dir } of ctx.layout.outboxDirs()) {
     const settledFile = `${dir}/${SETTLED_FILE}`;
-    if (!existsSync10(join13(ctx.root, settledFile))) continue;
+    if (!existsSync11(join16(ctx.root, settledFile))) continue;
     for (const entry of parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers)) {
       for (const id of entry.became) {
         const resolved = isPlaybookId(id) ? resolvePlaybookId(id, { ctx }) : laws.resolve(id);
@@ -14167,8 +14884,8 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/outbox/account.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync11, readdirSync as readdirSync6 } from "node:fs";
-import { basename as basename3 } from "node:path";
+import { existsSync as existsSync12, readdirSync as readdirSync6 } from "node:fs";
+import { basename as basename4 } from "node:path";
 var ACCOUNTS_DIR = "accounts";
 var RISKY_CHANGES_HEADING = "Risky changes";
 var FrontMatterSchema4 = external_exports.object({
@@ -14329,13 +15046,13 @@ function readAccounts(prd2, { ctx }) {
   const outboxDir = ctx.layout.outboxDir(prd2);
   if (outboxDir === null) return [];
   const dir = `${outboxDir}/${ACCOUNTS_DIR}`;
-  if (!existsSync11(`${ctx.root}/${dir}`)) return [];
+  if (!existsSync12(`${ctx.root}/${dir}`)) return [];
   const prdPrefix = `${outboxDir}/`;
   const itemIds = new Set(
-    outboxItemFiles({ ctx }).filter((path) => path.startsWith(prdPrefix)).map((path) => basename3(path, ".md"))
+    outboxItemFiles({ ctx }).filter((path) => path.startsWith(prdPrefix)).map((path) => basename4(path, ".md"))
   );
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
-  if (existsSync11(`${ctx.root}/${settledFile}`)) {
+  if (existsSync12(`${ctx.root}/${settledFile}`)) {
     for (const entry of parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers)) {
       itemIds.add(entry.id);
     }
@@ -14459,18 +15176,18 @@ function riskyChanges(changes, { ctx }) {
 
 // kit/lib/playbook/check-playbook.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync14 } from "node:fs";
-import { join as join17 } from "node:path";
+import { existsSync as existsSync15 } from "node:fs";
+import { join as join20 } from "node:path";
 
 // kit/lib/playbook/status.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync13 } from "node:fs";
-import { join as join16 } from "node:path";
+import { existsSync as existsSync14 } from "node:fs";
+import { join as join19 } from "node:path";
 
 // kit/lib/playbook/resolve.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync12, readdirSync as readdirSync7, readFileSync as readFileSync10, statSync as statSync2 } from "node:fs";
-import { join as join14 } from "node:path";
+import { existsSync as existsSync13, readdirSync as readdirSync7, readFileSync as readFileSync13, statSync as statSync2 } from "node:fs";
+import { join as join17 } from "node:path";
 var CONFIG_PLACEHOLDER = /\{config:([^{}\s]+)\}/g;
 function configValue(config2, key) {
   let value = config2;
@@ -14495,9 +15212,9 @@ function fillConfig(text2, config2) {
   return { text: filled, unresolved };
 }
 function readTarget(path, index, { ctx }) {
-  const absolute = join14(ctx.root, path);
-  if (!existsSync12(absolute)) return { text: "", missing: path };
-  if (!statSync2(absolute).isDirectory()) return { text: readFileSync10(absolute, "utf8").trim(), missing: null };
+  const absolute = join17(ctx.root, path);
+  if (!existsSync13(absolute)) return { text: "", missing: path };
+  if (!statSync2(absolute).isDirectory()) return { text: readFileSync13(absolute, "utf8").trim(), missing: null };
   if (index) return readTarget(index, null, { ctx });
   const dir = path.replace(/\/+$/, "");
   const pages = readdirSync7(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && entry.name.endsWith(".md")).map((entry) => `${dir}/${entry.name}`).sort();
@@ -14535,17 +15252,17 @@ function resolveForm(formId, { ctx, template }) {
   const kit = parseForm(template, { file: `kit template ${formId}` });
   if (!kit.ok) throw new Error(`the kit's template for ${formId} does not parse:
 ${kit.errors.join("\n")}`);
-  const read = readForm(formId, { ctx });
-  const { file } = read;
+  const read2 = readForm(formId, { ctx });
+  const { file } = read2;
   const problems = [];
   let repo = null;
   let state = "missing";
-  if (read.exists && read.ok) {
-    repo = read.form;
+  if (read2.exists && read2.ok) {
+    repo = read2.form;
     state = repo.state;
-  } else if (read.exists) {
+  } else if (read2.exists) {
     state = "invalid";
-    problems.push(...read.errors);
+    problems.push(...read2.errors);
   }
   const title = repo?.title ?? kit.form.title;
   if (repo?.state === "pointer") {
@@ -14563,8 +15280,8 @@ ${kit.errors.join("\n")}`);
 
 // kit/lib/playbook/templates.mjs
 init_define_OMNI_BUNDLE();
-import { readdirSync as readdirSync8, readFileSync as readFileSync11 } from "node:fs";
-import { join as join15, posix as posix2 } from "node:path";
+import { readdirSync as readdirSync8, readFileSync as readFileSync14 } from "node:fs";
+import { join as join18, posix as posix2 } from "node:path";
 import { fileURLToPath } from "node:url";
 var BUNDLED = false ? null : JSON.parse('{"README.md":"<!-- Ported from vertuo-ai-domain@db67fd9da:docs/knowledge/README.md \u2014 changes in kit/porting/templates--front-door.md -->\\n\\n# Knowledge\\n\\nUse this page when you need to know what is true about the product, or how to work in this\\nrepository. Start here even when the knowledge lives elsewhere: anything kept somewhere else has a\\npointer here.\\n\\n## Two halves\\n\\n- **What is true.** The knowledge registers, in `{config:paths.knowledge}`: principles (a person\'s\\n  decision about what the product should be), business rules (what may or may not happen, each\\n  serving one principle) and invariants (what must always hold in the code). Decisions about how it\\n  is built are decision records, in `{config:paths.adr}`.\\n- **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent\\n  asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what\\n  a pull request looks like; what a merge publishes; the rules that cost the most when broken.\\n\\n## How a form is read\\n\\nThe skills never read a form\'s file: they call `omni kb show <form>`, which resolves it section by\\nsection, and says where each section came from. Top wins:\\n\\n1. **A pointer.** The whole form points at a page the repository already has, or one section does,\\n   with a `See:` line. Nothing is copied.\\n2. **The repository\'s section.** What only this repository knows, written from evidence, or by a\\n   person.\\n3. **The kit default.** Doctrine every repository shares. It ships with the kit, so a section left\\n   blank here improves when the kit is upgraded.\\n\\nA question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile.\\n`omni kb status` lists every form, its state, and its open questions.\\n","playbook/architecture.md":"---\\nform: architecture\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:AGENTS.md#boundaries and libs/LIBRARY_STYLE_RULES.md \u2014 changes in kit/porting/templates--architecture.md -->\\n\\n# Architecture\\n\\nUse this page when deciding where code goes, and what it may depend on.\\n\\n## Layout\\n<!-- slot: layout \xB7 required -->\\nA package\'s name says which layer it belongs to, so a boundary is legible from the tree alone.\\nScripts that orchestrate the whole repository live in one place at its root, never inside a package.\\n\\n## Boundaries\\n<!-- slot: boundaries \xB7 required -->\\n- Dependencies point down, from the apps through the layers to the infrastructure wrappers. A lower\\n  layer never imports a higher one.\\n- What two layers both need, and that knows nothing of either, moves down to the lowest layer, so\\n  each reaches it without an edge that points up.\\n- Separate product areas never import each other\'s domain code; they meet in exactly one place, the\\n  app\'s composition root.\\n- A boundary is enforced by a check wherever one can be. Name the check beside the rule; a rule only\\n  review enforces says so.\\n\\n## Patterns\\n<!-- slot: patterns \xB7 optional -->\\n- Every value that crosses a system boundary (config, external input, an API contract, a service\\n  interface) is validated there by a schema, and its type is derived from that schema.\\n- Storage is reached through one layer. Only that layer runs queries; the logic above it calls it\\n  and never touches the database; the transport above that calls the logic, never the storage.\\n- A file\'s name says its role.\\n","playbook/briefing.md":"---\\nform: briefing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md \u2014 changes in kit/porting/templates--briefing.md -->\\n\\n# Briefing\\n\\nUse this page when a session starts: the rules that cost the most when broken.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- Never merge into `{config:repo.defaultBranch}`. A person does.\\n- Before you decide anything the spec does not settle, read the knowledge the change touches. Take\\n  the most reversible option and record the decision as an outbox item; two principles pulling\\n  against each other stop that slice.\\n- Never lower a coverage floor or add a suppression to turn a check green.\\n- Never reformat files you did not change: format only what you touched.\\n- A red check on your pull request is yours to fix. Read the CI page first; after\\n  `{config:limits.attempts}` attempts, leave a comment saying what is stuck.\\n- A pull request you own carries `{config:labels.inProgress}` and a status comment you keep current,\\n  until it is green or stuck.\\n\\n## Hooks\\n<!-- slot: hooks \xB7 optional -->\\nA hook that refuses a commit or a push names what to fix: fix the cause, and never bypass the hook.\\nAn escape hatch that skips one exists for emergencies only, and the pull request says why it was\\nused.\\n\\n## Where to read next\\n<!-- slot: next \xB7 optional -->\\nThe rest of this playbook, one form per question, through `omni kb show <form>`; the knowledge\\nregisters in `{config:paths.knowledge}`, which say what is true about the product; and the decision\\nrecords in `{config:paths.adr}`, which say how it is built.\\n","playbook/bug-fixing.md":"---\\nform: bug-fixing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/bug-fixing.md \u2014 changes in kit/porting/templates--bug-fixing.md -->\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain\'s own words, and\\n   run it before any fix: it must fail. If it passes, stop; it misses the bug, or the bug is gone.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test. Otherwise the pull request says\\n`Guard: none \u2014 <reason>`. A regression test that lets small mutations of the fixed lines pass is not\\nguarding the fix.\\n","playbook/ci.md":"---\\nform: ci\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/ci-triage.md \u2014 changes in kit/porting/templates--ci.md -->\\n\\n# CI\\n\\nUse this page when a check on your pull request is red.\\n\\n## Workflows\\n<!-- slot: workflows \xB7 required -->\\nEvery job carries a timeout, so a stuck job still ends its run. A run whose jobs all sit queued,\\nnone ever starting, usually names a runner nothing answers to: check the runner settings before\\nassuming an outage.\\n\\n## What gates a merge\\n<!-- slot: gating \xB7 required -->\\n- No checks at all on a pull request, rather than a red one, usually means it conflicts with its\\n  base: no workflow runs when the merge commit cannot be built. Check that it merges first.\\n- A draft runs no CI, and a sub-pull request into a feature branch never does. Marking a draft\\n  ready is what grades it.\\n- An aggregate check counts a skipped job as a failure, and a red build skips the jobs after it:\\n  fix the build first.\\n- A green pull request whose merge turns `{config:repo.defaultBranch}` red missed a dependency its\\n  checks could not see. Fix it forward; revert only when the product is down.\\n\\n## Known reds\\n<!-- slot: known-reds \xB7 optional -->\\nA red that is not a finding is listed here: its signature, the one check that rules your branch\\nout, and what to do. Anything not listed is yours to fix. A known red that was fixed is a finding\\nagain on a branch that contains the fix.\\n\\nA flaky test not fixed in one focused attempt is quarantined: skipped with its issue in the reason,\\nand listed here so the count stays visible.\\n\\n## When to re-run\\n<!-- slot: rerun \xB7 optional -->\\nA re-run is allowed only when both hold: the failure matches a known red, and your branch changes\\nnothing the red names. One re-run at most, and it counts as one of the `{config:limits.attempts}`\\nrepair attempts; red again, it is a finding. A run a later push superseded is never re-run: read the\\nlatest run instead.\\n","playbook/conventions.md":"---\\nform: conventions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md, docs/agents/definition-of-done.md#commit-shape and docs/adr/0058-identifiers-are-english-interface-copy-is-french.md \u2014 changes in kit/porting/templates--conventions.md -->\\n\\n# Conventions\\n\\nUse this page when naming things, formatting files, or shaping commits.\\n\\n## Naming\\n<!-- slot: naming \xB7 optional -->\\nIdentifiers and the words a user reads are separate questions. Identifiers (types, functions,\\nfiles, packages, tables and columns, routes, message keys, stored values, config keys) use one\\nlanguage, the one the code already uses. Interface copy follows the product\'s own language rules.\\nConflating the two is what lets a label leak into a table name; keeping them apart lets either move\\nwithout touching the other.\\n\\n## Formatting\\n<!-- slot: formatting \xB7 optional -->\\nFormat only the files you touched. A formatter run across the whole tree makes a pull request\\nunreviewable; drift that predates you is fixed in a change of its own.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nConventional Commits, one coherent change each:\\n\\n- `feat:` a user-visible capability or workflow addition.\\n- `fix:` a behaviour correction.\\n- `docs:` a documentation-only change.\\n- `refactor:` a structure change with no behaviour change.\\n- `test:` a test-only change.\\n- `chore:` tooling, dependencies, or repository maintenance.\\n","playbook/decisions.md":"---\\nform: decisions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/adr/index.md \u2014 changes in kit/porting/templates--decisions.md -->\\n\\n# Decision records\\n\\nUse this page when recording a decision about how this repository is built, or looking one up.\\n\\n## Where they live\\n<!-- slot: where \xB7 required -->\\nDecision records live in `{config:paths.adr}`. A decision about how we build (an architecture, a\\ntool, a trade-off) is a decision record; a decision about what the product should do is a principle,\\nin the knowledge registers.\\n\\n## Format\\n<!-- slot: format \xB7 required -->\\nA record says that a decision was made, and why: the hard-to-reverse choices a future reader would\\notherwise have to reverse-engineer. One file per record, named `NNNN-<slug>.md` with four digits,\\ntitled `# NNNN \u2014 <the decision>`. Under the title, a status line (accepted; supersedes, or superseded\\nby, another record), then the decision, the options considered with why each was rejected, and the\\nconsequences.\\n\\nA record is never deleted and never rewritten to say something new: a later record supersedes it,\\nand the old one\'s status line points to its successor. A record that states a product decision is\\ntrimmed to its mechanism, and links the principle instead.\\n\\n## Numbering\\n<!-- slot: numbering \xB7 optional -->\\nA new record takes the next free number. `omni kb show decisions` prints it, with every record\'s\\nnumber and title, read from the folder each time: nobody keeps that list by hand. A number belongs\\nto one record; two records sharing one is a mistake to fix, never a precedent.\\n","playbook/definition-of-done.md":"---\\nform: definition-of-done\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/definition-of-done.md \u2014 changes in kit/porting/templates--definition-of-done.md -->\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The changed behaviour is tested, or otherwise verified with the narrowest useful evidence.\\n- The nearest relevant docs are updated when behaviour, workflow, setup, or architecture intent\\n  changes.\\n- The pull request body explains impact, validation, risk, rollback, and reviewer focus.\\n- `{config:commands.preflightFull}` is green; the body names any step it skipped, and why.\\n- The hand-off names the checks that ran and any intentionally skipped.\\n- The pull request is green and mergeable, or carries `{config:labels.needsFix}` and a comment\\n  saying what is stuck after `{config:limits.attempts}` attempts.\\n- A feature pull request\'s outbox is settled, or waved through with `{config:labels.outboxGo}`,\\n  before it is treated as done.\\n- `{config:labels.inProgress}` is off the pull request, and its status comment says where it ended.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- This playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape. Prefer a few meaningful\\ncommits over one mixed commit that hides unrelated work.\\n","playbook/glossary.md":"---\\nform: glossary\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:CONTEXT.md and docs/glossary.md \u2014 changes in kit/porting/templates--glossary.md -->\\n\\n# Glossary\\n\\nUse this page when you need the word this repository uses for a concept.\\n\\n## Where it lives\\n<!-- slot: where \xB7 required -->\\nWhen the repository keeps a glossary, this form points at it, and `paths.glossary` in the config\\nnames the same page. The glossary defines the words; the knowledge registers hold the rules. An entry says what a\\nterm is, not how it is implemented. When several words exist for one concept, the canonical one is\\ndefined and the others are listed under *Avoid*.\\n","playbook/pull-requests.md":"---\\nform: pull-requests\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/pull-request.md \u2014 changes in kit/porting/templates--pull-requests.md -->\\n\\n# Pull requests\\n\\nUse this page when opening or updating a pull request.\\n\\n## Body\\n<!-- slot: body \xB7 required -->\\n- Start from the repository\'s pull request template when it has one, and leave no placeholder:\\n  real content, `No impact`, or `Not applicable`.\\n- Keep the summary short. The reviewable detail goes in impact, validation, risk, rollback, and\\n  reviewer focus.\\n- Name the business area that owns the change, not the folder it touched, in the glossary\'s words;\\n  list the other areas it could affect. A rule or invariant cites its source of truth.\\n- Validation gives the exact commands that matter, manual steps a reviewer can run as written, and,\\n  for a skipped check, why and what evidence replaces it.\\n- Rollback is explicit, even when it is \\"revert this pull request\\". A change to stored data says how\\n  the data is recovered.\\n\\n## Title\\n<!-- slot: title \xB7 optional -->\\nThe title is a Conventional Commit, `<type>(<scope>): <summary>`, like the commits it carries.\\n\\n## Labels\\n<!-- slot: labels \xB7 optional -->\\nEach kind of pull request carries its label: `{config:labels.feature}` for a feature,\\n`{config:labels.sub}` for a slice, `{config:labels.phase0}` for a phase-0 review. A pull request an\\nagent owns also carries `{config:labels.inProgress}` and a status comment the agent keeps current,\\nuntil it is green or stuck.\\n\\n## Reviewers\\n<!-- slot: reviewers \xB7 optional -->\\nA person merges into `{config:repo.defaultBranch}`; an agent never does. Reviewer focus names the\\nparts of the change most worth scrutinizing.\\n","playbook/releasing.md":"---\\nform: releasing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/releasing.md \u2014 changes in kit/porting/templates--releasing.md -->\\n\\n# Releasing\\n\\nUse this page when you need to know what a merge publishes.\\n\\n## What a merge publishes\\n<!-- slot: publishes \xB7 required -->\\nYou do not cut a release: merging does. Every merge is either a shipping change, something a\\ndeployed service or a published package actually contains, or one that ships nothing, such as docs,\\nspecs, or tooling. Know which one yours is before it merges.\\n\\n## How a release happens\\n<!-- slot: how \xB7 optional -->\\n- The rules that decide what ships and what the next version is live in code, with tests beside\\n  them, never only in workflow configuration.\\n- A release commits nothing back to `{config:repo.defaultBranch}`: the version lives on its tag.\\n- Asking for more than a patch is a label on the pull request before it merges; a label added after\\n  the merge does nothing.\\n- A running service can say which release it is. One that answers a development version was not\\n  built by the pipeline.\\n\\n## Rollback\\n<!-- slot: rollback \xB7 optional -->\\nWhen something is on fire, run the publishing workflow by hand for the release you mean; never\\npublish from a workstation. A release that went out with the wrong number stands, and the next\\nshipping change corrects it: never retag by hand.\\n","playbook/setup.md":"---\\nform: setup\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:README.md#getting-started \u2014 changes in kit/porting/templates--setup.md -->\\n\\n# Setup\\n\\nUse this page when getting a checkout ready to build, test, and run locally.\\n\\n## Prerequisites\\n<!-- slot: prerequisites \xB7 required -->\\nThe versions the repository pins (its engines field, a version file) win over any number written on\\na page. A single check that says whether a machine is ready beats a list of steps that drifts.\\n\\n## Install\\n<!-- slot: install \xB7 required -->\\nInstall exactly what the lockfile pins, with the package manager that wrote it. An install that\\nrewrites the lockfile is a change to review, never a side effect.\\n\\n## Run\\n<!-- slot: run \xB7 optional -->\\nEach app has a fixed local port of its own, listed in one table. Check that table before giving a\\nnew app its default, so two apps never collide on the next free number.\\n\\n## Environment\\n<!-- slot: env \xB7 optional -->\\nSettings come from the environment. The repository keeps an example file listing every variable,\\nwith a note on where its value comes from. A secret is never committed, and never printed.\\n","playbook/testing.md":"---\\nform: testing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/testing.md \u2014 changes in kit/porting/templates--testing.md -->\\n\\n# Testing\\n\\nUse this page when adding, changing, or choosing tests.\\n\\n## Commands\\n<!-- slot: commands \xB7 required -->\\n`{config:commands.test}` runs the whole suite. While iterating, run the narrowest test that covers\\nthe change; run the whole suite before handing off.\\n\\n## Where tests live\\n<!-- slot: layout \xB7 required -->\\nName one existing test per kind that shows the house style: a new test starts from it rather than\\nfrom a blank file.\\n\\n## Choosing the level\\n<!-- slot: levels \xB7 optional -->\\n- Start from the behaviour, invariant, or integration risk the change creates.\\n- Prefer red-green-refactor when the expected behaviour is clear.\\n- Add characterization tests before a risky refactor, so existing behaviour is pinned before the\\n  code is reshaped.\\n- Choose the narrowest test that proves the risk. Broaden only when the risk is in the integration\\n  between layers.\\n\\n| Change | Useful test shape |\\n|---|---|\\n| A schema, config, normalizer, or parser | A unit test with valid and invalid inputs |\\n| A domain invariant or business rule | A test of the service or capability where the rule lives |\\n| Storage or migration behaviour | A persistence test with realistic rows |\\n| An API boundary | A test for validation, response shape, and failures |\\n| Behaviour across layers, at the edge | An acceptance scenario |\\n| A UI workflow | A component or page test for its states and actions; a manual browser path for visual risk |\\n\\nCover invalid inputs at a boundary, not only the happy path; error behaviour and the failure states\\na user sees, when they are part of the workflow; the invariants that must survive a refactor;\\ncontract compatibility when a shared schema changes; and the existing workflows the change could\\nplausibly affect.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- A test never proves implementation trivia: it proves behaviour or risk.\\n- Coverage measures execution, not correctness. Never write an assertion-free test to colour lines,\\n  and never lower a coverage floor or exclude logic to reach a number.\\n- A test never waits on wall-clock time it cannot name. Poll for the condition, or make the delay a\\n  parameter the test sets; raising a timeout is not a fix.\\n- A log assertion reads the emitted structured records, never a logger spy, and never expects\\n  sensitive content (prompts, tokens, keys, cookies, passwords) to appear in a log.\\n\\n## Test data\\n<!-- slot: data \xB7 optional -->\\n- Keep test data small, domain-named, and explicit.\\n- A test that creates shared state (a database, a schema, a folder) tears it down after itself.\\n- What a run writes to a shared environment, it keeps: every record a test creates there gets a\\n  name of its own.\\n","playbook/verification.md":"---\\nform: verification\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/verification.md \u2014 changes in kit/porting/templates--verification.md -->\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\n`{config:commands.preflight}` is the preflight: it is green before a pull request is opened. It\\nruns the half of the gate a laptop can run, stops at the first failure, and says what to fix. What\\nonly CI can run, it names and leaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun `{config:commands.preflightFull}` before every push to an open pull request. A sub-pull request\\nruns no CI, so this is its only grade.\\n\\nA commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of\\nskipping it, and then it protects nothing. So a green commit is not a green branch; run the rest\\nyourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- Every CI job has a local command that runs the same check, so a red job is reproduced locally\\n  under its own name.\\n- A ratchet (a check graded against a recorded baseline: coverage floors, a suppression budget, a\\n  formatting baseline) may only hold or improve. Never relax one to turn a check green; raising a\\n  budget is its own reviewed change, and a gate never rewrites its own thresholds.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n"}');
 var FRONT_DOOR_TEMPLATE = "README.md";
@@ -14576,7 +15293,7 @@ function templateText(path) {
     if (!Object.hasOwn(BUNDLED, path)) throw new Error(`the bundle carries no template ${path}`);
     return BUNDLED[path];
   }
-  return readFileSync11(join15(templatesDir(), path), "utf8");
+  return readFileSync14(join18(templatesDir(), path), "utf8");
 }
 function templatePath(id) {
   if (!FORM_IDS.includes(id)) throw new Error(`the kit has no form "${id}"`);
@@ -14600,7 +15317,7 @@ function blobHash(path, { ctx, exec }) {
 function staleEvidence(evidence, { ctx, exec }) {
   const out = [];
   for (const { path, hash } of evidence) {
-    const exists = existsSync13(join16(ctx.root, path));
+    const exists = existsSync14(join19(ctx.root, path));
     const now = exists ? blobHash(path, { ctx, exec }) : null;
     if (now === null || !now.startsWith(hash)) out.push({ path, hash, now, exists });
   }
@@ -14616,8 +15333,8 @@ function formSource(resolved) {
 function playbookStatus({ ctx, exec }) {
   const forms = FORMS.map(({ id, kind }) => {
     const resolved = resolveForm(id, { ctx, template: formTemplate(id) });
-    const read = readForm(id, { ctx });
-    const form2 = read.exists && read.ok ? read.form : null;
+    const read2 = readForm(id, { ctx });
+    const form2 = read2.exists && read2.ok ? read2.form : null;
     return {
       form: id,
       kind,
@@ -14634,13 +15351,13 @@ function playbookStatus({ ctx, exec }) {
 
 // kit/lib/playbook/check-playbook.mjs
 function gradeForm({ id, kind }, { ctx, exec }) {
-  const read = readForm(id, { ctx });
-  const { file } = read;
-  if (!read.exists) return { state: "missing", violations: [], warnings: [`${file}: missing \u2014 the kit defaults apply; \`omni kb init\` writes it`] };
-  if (!read.ok) return { state: "invalid", violations: read.errors, warnings: [] };
-  const { form: form2 } = read;
+  const read2 = readForm(id, { ctx });
+  const { file } = read2;
+  if (!read2.exists) return { state: "missing", violations: [], warnings: [`${file}: missing \u2014 the kit defaults apply; \`omni kb init\` writes it`] };
+  if (!read2.ok) return { state: "invalid", violations: read2.errors, warnings: [] };
+  const { form: form2 } = read2;
   const kit = parseForm(formTemplate(id)).form;
-  const gone = (path) => !existsSync14(join17(ctx.root, path));
+  const gone = (path) => !existsSync15(join20(ctx.root, path));
   const violations = [];
   const warnings = [];
   if (form2.id !== id) violations.push(`${file}: front matter says form: ${form2.id}, but this is the ${id} form's file`);
@@ -14686,7 +15403,7 @@ function gradePlaybook({ ctx, exec }) {
 }
 
 // kit/bin/commands/check.mjs
-var USAGE2 = "usage: omni check [inbox|outbox|knowledge|kb|coverage|all] [--base <ref>] [--prd <n>]";
+var USAGE3 = "usage: omni check [inbox|outbox|knowledge|kb|coverage|all] [--base <ref>] [--prd <n>]";
 function report(stdout, title, violations, passLine) {
   if (violations.length > 0) {
     println(stdout, formatFailure(title, violations));
@@ -14718,7 +15435,7 @@ function checkOutbox({ ctx, stdout }) {
 function checkKnowledge({ ctx, stdout, stderr }) {
   const root = ctx.layout.knowledgeRoot;
   const title = "check knowledge \u2014 the knowledge folder does not hold what it claims:";
-  if (!existsSync15(join18(ctx.root, root))) {
+  if (!existsSync16(join21(ctx.root, root))) {
     if (ctx.config.laws.source === "knowledge") {
       return report(stdout, title, [`${root}: missing \u2014 laws.source is "knowledge", so the laws are read from here.`], "");
     }
@@ -14790,7 +15507,7 @@ var check = {
   async run(args, io) {
     const { ctx, stdout, exec } = io;
     const { positional, flags } = parseArgs("check", args, { values: ["base", "prd"] });
-    if (positional.length > 1 || positional[0] && !GUARDS.includes(positional[0])) throw usageError(USAGE2);
+    if (positional.length > 1 || positional[0] && !GUARDS.includes(positional[0])) throw usageError(USAGE3);
     const guard = positional[0] ?? "all";
     const prd2 = flags.prd === void 0 ? null : positiveInt("check", "--prd", flags.prd);
     const base = flags.base ?? defaultBase(ctx);
@@ -14817,11 +15534,11 @@ var check = {
 
 // kit/bin/commands/comment.mjs
 init_define_OMNI_BUNDLE();
-import { writeFileSync as writeFileSync3 } from "node:fs";
+import { writeFileSync as writeFileSync6 } from "node:fs";
 
 // kit/lib/outbox/comment.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync17, readFileSync as readFileSync12, writeFileSync as writeFileSync2 } from "node:fs";
+import { existsSync as existsSync18, readFileSync as readFileSync15, writeFileSync as writeFileSync5 } from "node:fs";
 
 // kit/lib/outbox/banter.mjs
 init_define_OMNI_BUNDLE();
@@ -14914,7 +15631,7 @@ function assignBanter(ids, { pool = BANTER_POOL } = {}) {
 
 // kit/lib/outbox/status.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync16 } from "node:fs";
+import { existsSync as existsSync17 } from "node:fs";
 function openItemFiles(prd2, { ctx }) {
   const outboxDir = ctx.layout.outboxDir(prd2);
   if (outboxDir === null) return [];
@@ -14938,7 +15655,7 @@ function unreworkedDrift(prd2, { ctx }) {
   const outboxDir = ctx.layout.outboxDir(prd2);
   if (outboxDir === null) return [];
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
-  if (!existsSync16(`${ctx.root}/${settledFile}`)) return [];
+  if (!existsSync17(`${ctx.root}/${settledFile}`)) return [];
   const entries = parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers);
   return entries.filter((entry) => entry.verdict === "drifted" && !entry.closed).map((entry) => ({ id: entry.id, closedLine: entry.fields.Closed }));
 }
@@ -15152,7 +15869,7 @@ function readSettledEntries(prd2, { ctx }) {
   const outboxDir = ctx.layout.outboxDir(prd2);
   if (outboxDir === null) return [];
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
-  if (!existsSync17(`${ctx.root}/${settledFile}`)) return [];
+  if (!existsSync18(`${ctx.root}/${settledFile}`)) return [];
   return parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers);
 }
 function adoptedEntriesForPrd(prd2, { ctx }) {
@@ -15495,10 +16212,10 @@ function slackLine({
   if (url) lines.push(`<${url}|${linkLabel(url)}>`);
   return lines.join("\n");
 }
-function readPrCommentResult(path, { read = (file) => readFileSync12(file, "utf8") } = {}) {
+function readPrCommentResult(path, { read: read2 = (file) => readFileSync15(file, "utf8") } = {}) {
   if (!path) return null;
   try {
-    const parsed = JSON.parse(read(path));
+    const parsed = JSON.parse(read2(path));
     return parsed && typeof parsed === "object" ? parsed : null;
   } catch {
     return null;
@@ -15512,7 +16229,7 @@ function maybeWriteSlackNote({
   result,
   prComment = null,
   path,
-  write = writeFileSync2
+  write = writeFileSync5
 }) {
   if (!ctx.config.notify.slack) return;
   const news = (result.newCount ?? 0) + (prComment?.newAdoptedCount ?? 0);
@@ -15587,13 +16304,13 @@ function upsertOutboxComment({ prd: prd2, owner, repo, branch, ref = branch, ctx
 }
 
 // kit/bin/commands/comment.mjs
-var USAGE3 = "usage: omni comment --prd <n> --branch <feature-branch> [--repo <owner/name>] [--base <ref>] [--ref <sha>] [--labels <a,b>] [--slack-note <file>] [--title <t>] [--owner-slack-id <id>] [--owner-login <login>] [--pr-comment <file>] | omni comment --prd <n> --pr <n> [--repo <owner/name>] [--result <file>]";
+var USAGE4 = "usage: omni comment --prd <n> --branch <feature-branch> [--repo <owner/name>] [--base <ref>] [--ref <sha>] [--labels <a,b>] [--slack-note <file>] [--title <t>] [--owner-slack-id <id>] [--owner-login <login>] [--pr-comment <file>] | omni comment --prd <n> --pr <n> [--repo <owner/name>] [--result <file>]";
 var comment = {
   async run(args, { ctx, stdout, exec, env }) {
     const { positional, flags } = parseArgs("comment", args, {
       values: ["prd", "pr", "repo", "result", "branch", "ref", "base", "labels", "slack-note", "title", "owner-slack-id", "owner-login", "pr-comment"]
     });
-    if (positional.length) throw usageError(USAGE3);
+    if (positional.length) throw usageError(USAGE4);
     const prd2 = positiveInt("comment", "--prd", flags.prd);
     const repo = repoSlug("comment", ctx, flags.repo);
     const [owner, name] = repo.split("/");
@@ -15606,13 +16323,13 @@ var comment = {
       );
       if (flags.result) {
         const { htmlUrl, adoptedCount, newAdoptedCount } = result2;
-        writeFileSync3(inRoot(ctx, flags.result), `${JSON.stringify({ htmlUrl, adoptedCount, newAdoptedCount })}
+        writeFileSync6(inRoot(ctx, flags.result), `${JSON.stringify({ htmlUrl, adoptedCount, newAdoptedCount })}
 `);
       }
       return 0;
     }
     const branch = flags.branch;
-    if (!branch) throw usageError(USAGE3);
+    if (!branch) throw usageError(USAGE4);
     const ref = flags.ref ?? branch;
     let changes = [];
     if (flags.base) {
@@ -15694,7 +16411,7 @@ function botLogin(email) {
 }
 
 // kit/lib/credits/classify.mjs
-var KINDS = Object.freeze(["phase-0", "feature", "slice", "other"]);
+var KINDS2 = Object.freeze(["phase-0", "feature", "slice", "other"]);
 var SIGNATURES = Object.freeze(["signed", "before signing", "missed"]);
 var BY_THE_APP = "by the app";
 var MERGED_PR = /\(#(\d+)\)\s*$/;
@@ -15804,7 +16521,7 @@ function tally(items, keyFor) {
   return [...counts];
 }
 function summarize(items, { commits = null, app = false } = {}) {
-  const prs = { total: 0, states: { merged: 0, open: 0 }, kinds: zeros(KINDS), signatures: zeros(SIGNATURES) };
+  const prs = { total: 0, states: { merged: 0, open: 0 }, kinds: zeros(KINDS2), signatures: zeros(SIGNATURES) };
   const prdIssues = { total: 0, states: { open: 0, closed: 0 }, signatures: zeros(SIGNATURES) };
   const byTheApp = { issues: 0, prs: 0 };
   const counted2 = [];
@@ -15995,13 +16712,13 @@ function creditsList(items) {
 }
 
 // kit/bin/commands/credits.mjs
-var USAGE4 = "usage: omni credits [--repo <owner/name>] [--since <YYYY-MM>] [--list] [--json]";
+var USAGE5 = "usage: omni credits [--repo <owner/name>] [--since <YYYY-MM>] [--list] [--json]";
 var MONTH = /^\d{4}-(?:0[1-9]|1[0-2])$/;
 var ghUsageError = (cause) => usageError(`omni credits: ${cause.message}`);
 var credits = {
   async run(args, { ctx, stdout, stderr, exec, env }) {
     const { positional, flags } = parseArgs("credits", args, { values: ["repo", "since"], booleans: ["list", "json"] });
-    if (positional.length) throw usageError(USAGE4);
+    if (positional.length) throw usageError(USAGE5);
     const slug = repoSlug("credits", ctx, flags.repo);
     const since = flags.since ?? null;
     if (since !== null && !MONTH.test(since)) throw usageError(`omni credits: --since must be YYYY-MM, got "${since}".`);
@@ -16014,19 +16731,19 @@ var credits = {
     } catch (error) {
       throw ghUsageError(unreadable(error));
     }
-    let read;
+    let read2;
     try {
-      read = readCredits({ owner, repo, since, labels, signature, exec, env: ghEnv });
+      read2 = readCredits({ owner, repo, since, labels, signature, exec, env: ghEnv });
     } catch (error) {
       if (error instanceof GitHubUnreadable) throw ghUsageError(error);
       throw error;
     }
-    const items = creditItems({ prs: read.prs, issues: read.issues, commits: read.commits, labels, signature, since });
-    const commits = signature ? creditCommits(read.commits) : null;
+    const items = creditItems({ prs: read2.prs, issues: read2.issues, commits: read2.commits, labels, signature, since });
+    const commits = signature ? creditCommits(read2.commits) : null;
     const summary = summarize(items, { commits, app: signature !== null && botLogin(signature.email) !== null });
     const name = signature?.name ?? null;
     if (flags.json) {
-      const doc = { name, scope: { owner, repo, since }, totals: summary, items, commits: commits ?? [], warnings: read.warnings };
+      const doc = { name, scope: { owner, repo, since }, totals: summary, items, commits: commits ?? [], warnings: read2.warnings };
       println(stdout, JSON.stringify(doc, null, 2));
       return 0;
     }
@@ -16035,16 +16752,16 @@ var credits = {
       println(stdout);
       for (const line of creditsList(items)) println(stdout, line);
     }
-    for (const warning of read.warnings) println(stderr, `warning: ${warning}`);
+    for (const warning of read2.warnings) println(stderr, `warning: ${warning}`);
     return 0;
   }
 };
 
 // kit/bin/commands/init.mjs
 init_define_OMNI_BUNDLE();
-import { chmodSync, copyFileSync, existsSync as existsSync20, mkdirSync as mkdirSync3, readFileSync as readFileSync14, writeFileSync as writeFileSync5 } from "node:fs";
+import { chmodSync as chmodSync3, copyFileSync, existsSync as existsSync22, mkdirSync as mkdirSync5, readFileSync as readFileSync18, writeFileSync as writeFileSync8 } from "node:fs";
 import { createInterface } from "node:readline/promises";
-import { dirname as dirname5, join as join21, posix as posix4 } from "node:path";
+import { dirname as dirname7, join as join25, posix as posix4 } from "node:path";
 
 // kit/lib/init/bundle.mjs
 init_define_OMNI_BUNDLE();
@@ -16099,25 +16816,25 @@ function renderConfig({ slug, defaultBranch, commands, lawsSource }) {
 
 // kit/lib/init/detect.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync18, readFileSync as readFileSync13 } from "node:fs";
-import { join as join19 } from "node:path";
+import { existsSync as existsSync19, readFileSync as readFileSync16 } from "node:fs";
+import { join as join22 } from "node:path";
 var COMMAND_KEYS = Object.freeze(["test", "preflight", "preflightFull"]);
 var NONE = Object.freeze({ test: null, preflight: null, preflightFull: null });
-function readJson(file) {
+function readJson2(file) {
   try {
-    return JSON.parse(readFileSync13(file, "utf8"));
+    return JSON.parse(readFileSync16(file, "utf8"));
   } catch {
     return {};
   }
 }
 function packageManager(root) {
-  if (existsSync18(join19(root, "pnpm-lock.yaml"))) return "pnpm";
-  if (existsSync18(join19(root, "yarn.lock"))) return "yarn";
-  if (existsSync18(join19(root, "bun.lockb")) || existsSync18(join19(root, "bun.lock"))) return "bun";
+  if (existsSync19(join22(root, "pnpm-lock.yaml"))) return "pnpm";
+  if (existsSync19(join22(root, "yarn.lock"))) return "yarn";
+  if (existsSync19(join22(root, "bun.lockb")) || existsSync19(join22(root, "bun.lock"))) return "bun";
   return "npm";
 }
 function fromPackageJson(root) {
-  const scripts = readJson(join19(root, "package.json")).scripts ?? {};
+  const scripts = readJson2(join22(root, "package.json")).scripts ?? {};
   const pm = packageManager(root);
   const has = (name) => Object.hasOwn(scripts, name);
   const test = has("test") ? `${pm} test` : null;
@@ -16127,13 +16844,13 @@ function fromPackageJson(root) {
   return { test, preflight, preflightFull };
 }
 function fromComposer(root) {
-  const scripts = readJson(join19(root, "composer.json")).scripts ?? {};
+  const scripts = readJson2(join22(root, "composer.json")).scripts ?? {};
   const test = Object.hasOwn(scripts, "test") ? "composer test" : null;
   const preflight = Object.hasOwn(scripts, "preflight") ? "composer preflight" : test;
   return { test, preflight, preflightFull: preflight };
 }
 function fromMakefile(root) {
-  const text2 = readFileSync13(join19(root, "Makefile"), "utf8");
+  const text2 = readFileSync16(join22(root, "Makefile"), "utf8");
   const target = (name) => new RegExp(`^${name}\\s*:(?!=)`, "m").test(text2);
   const test = target("test") ? "make test" : null;
   const preflight = target("preflight") ? "make preflight" : test;
@@ -16145,15 +16862,15 @@ var SOURCES = [
   { file: "Makefile", read: fromMakefile }
 ];
 function detectCommands(root) {
-  const source = SOURCES.find(({ file }) => existsSync18(join19(root, file)));
+  const source = SOURCES.find(({ file }) => existsSync19(join22(root, file)));
   return source ? source.read(root) : { ...NONE };
 }
 function detectLawsSource({ ctx }) {
   const { principles, rules, invariants } = readRegisters({ ctx });
   if (principles.length + rules.length + invariants.length > 0) return "knowledge";
-  const claudeMd = join19(ctx.root, "CLAUDE.md");
+  const claudeMd = join22(ctx.root, "CLAUDE.md");
   const heading = ctx.config.laws.claudeMdHeading;
-  if (existsSync18(claudeMd) && readFileSync13(claudeMd, "utf8").split("\n").some((line) => line.trim() === heading)) {
+  if (existsSync19(claudeMd) && readFileSync16(claudeMd, "utf8").split("\n").some((line) => line.trim() === heading)) {
     return "claudeMdInvariants";
   }
   return "none";
@@ -16161,7 +16878,7 @@ function detectLawsSource({ ctx }) {
 
 // kit/lib/init/labels.mjs
 init_define_OMNI_BUNDLE();
-var QUIET = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
+var QUIET3 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
 var LIST_LIMIT = 1e3;
 var LABEL_STYLES = {
   prd: { color: "5319e7", description: "A PRD the Omni Loop builds" },
@@ -16187,7 +16904,7 @@ function reconcileLabels(root, { exec, labels }) {
   const wanted = loopLabels(labels);
   let existing;
   try {
-    const listed = JSON.parse(exec("gh", ["label", "list", "--json", "name", "--limit", String(LIST_LIMIT)], { cwd: root, ...QUIET }));
+    const listed = JSON.parse(exec("gh", ["label", "list", "--json", "name", "--limit", String(LIST_LIMIT)], { cwd: root, ...QUIET3 }));
     existing = new Set(listed.map((label) => String(label.name).toLowerCase()));
   } catch {
     return { created: [], present: [], byHand: wanted.map((label) => label.name) };
@@ -16199,7 +16916,7 @@ function reconcileLabels(root, { exec, labels }) {
       continue;
     }
     try {
-      exec("gh", ["label", "create", name, "--color", color, "--description", description], { cwd: root, ...QUIET });
+      exec("gh", ["label", "create", name, "--color", color, "--description", description], { cwd: root, ...QUIET3 });
       result.created.push(name);
     } catch {
       result.byHand.push(name);
@@ -16208,17 +16925,75 @@ function reconcileLabels(root, { exec, labels }) {
   return result;
 }
 
+// kit/lib/init/notices.mjs
+init_define_OMNI_BUNDLE();
+import { existsSync as existsSync20, readdirSync as readdirSync9, readFileSync as readFileSync17 } from "node:fs";
+import { join as join23 } from "node:path";
+var WORKFLOWS = join23(".github", "workflows");
+var PRETTIER_CONFIGS = [
+  ".prettierrc",
+  ".prettierrc.json",
+  ".prettierrc.json5",
+  ".prettierrc.yml",
+  ".prettierrc.yaml",
+  ".prettierrc.toml",
+  ".prettierrc.js",
+  ".prettierrc.cjs",
+  ".prettierrc.mjs",
+  "prettier.config.js",
+  "prettier.config.cjs",
+  "prettier.config.mjs",
+  "prettier.config.ts"
+];
+var PRETTIER_IGNORE = ".prettierignore";
+var BIOME_CONFIGS = ["biome.json", "biome.jsonc"];
+function read(root, path) {
+  try {
+    return readFileSync17(join23(root, path), "utf8");
+  } catch {
+    return null;
+  }
+}
+function legacyLoopWorkflows(root) {
+  let names = [];
+  try {
+    names = readdirSync9(join23(root, WORKFLOWS));
+  } catch {
+    return [];
+  }
+  return names.filter((name) => /\.ya?ml$/.test(name)).map((name) => join23(WORKFLOWS, name)).filter((path) => /outbox/i.test(read(root, path) ?? "")).sort();
+}
+function ignores(text2, dir) {
+  return text2.split("\n").map((line) => line.trim()).some((line) => line && !line.startsWith("#") && line.replace(/^\/+/, "").startsWith(dir));
+}
+function formatterToExclude(root, dir) {
+  const pkg = read(root, "package.json");
+  let prettierInPackage = false;
+  try {
+    prettierInPackage = pkg !== null && Object.hasOwn(JSON.parse(pkg), "prettier");
+  } catch {
+    prettierInPackage = false;
+  }
+  if (prettierInPackage || PRETTIER_CONFIGS.some((file) => existsSync20(join23(root, file)))) {
+    const ignore = read(root, PRETTIER_IGNORE);
+    return ignore !== null && ignores(ignore, dir) ? null : { tool: "Prettier", file: PRETTIER_IGNORE };
+  }
+  const biome = BIOME_CONFIGS.find((file) => existsSync20(join23(root, file)));
+  if (biome) return (read(root, biome) ?? "").includes(dir) ? null : { tool: "Biome", file: biome };
+  return null;
+}
+
 // kit/lib/init/steps.mjs
 init_define_OMNI_BUNDLE();
-import { dirname as dirname3 } from "node:path";
+import { dirname as dirname5 } from "node:path";
 var APP = { name: "omni-loop", slug: "omni-loop-invader" };
 var MARKETPLACE = "omni-loop";
 var PLUGIN = "omni";
 var GITHUB = "https://github.com";
 var PLACEHOLDER_SLUG = "<owner>/<repository>";
-function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, files, forms, labels, unfilled }) {
+function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, files, forms, labels, unfilled, notices = {} }) {
   const repo = slug ?? PLACEHOLDER_SLUG;
-  const dir = dirname3(files[0].path);
+  const dir = dirname5(files[0].path);
   const lines = [`omni init \u2014 ${slug ?? "this repository"} is set up.`];
   const width = Math.max(...files.map((file) => file.path.length));
   for (const { path, wrote } of files) {
@@ -16265,7 +17040,27 @@ function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, fil
   }
   if (done.length) lines.push(`  labels  ${done.join("")}`);
   if (labelsStep) lines.push(`  labels  gh could not create ${labels.byHand.join(", ")} \u2014 see step ${labelsStep} below`);
-  lines.push("", `Commit ${dir}/ and merge it into ${defaultBranch}, then, by hand:`);
+  const headsUp = [];
+  if (notices.legacyWorkflows?.length) {
+    headsUp.push(
+      `An older copy of the loop already runs here (${notices.legacyWorkflows.join(", ")}). Two loops mean`,
+      `  two outbox checks and two label sets: decide which one stays before merging ${dir}/.`
+    );
+  }
+  if (notices.formatter) {
+    headsUp.push(
+      `${notices.formatter.tool} checks this repository: add ${dir}/bin/ to ${notices.formatter.file}, or its`,
+      "  format check rejects the bundled bin."
+    );
+  }
+  if (headsUp.length) {
+    lines.push("", "Heads-up:");
+    for (const line of headsUp) lines.push(line.startsWith("  ") ? `  ${line}` : `  - ${line}`);
+  }
+  lines.push(
+    "",
+    files.some((file) => file.wrote) || forms.wrote.length ? `Commit ${dir}/ and merge it into ${defaultBranch}, then, by hand:` : "Nothing new to commit. By hand, unless already done:"
+  );
   steps.forEach(([first, ...rest], index) => {
     lines.push(`  ${index + 1}. ${first}`, ...rest.map((line) => `  ${line}`));
   });
@@ -16278,36 +17073,11 @@ function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, fil
 `;
 }
 
-// kit/lib/init/repo.mjs
-init_define_OMNI_BUNDLE();
-import { realpathSync as realpathSync2 } from "node:fs";
-var QUIET2 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
-function attempt(fn) {
-  try {
-    return fn();
-  } catch {
-    return null;
-  }
-}
-function findRoot(cwd, exec) {
-  const root = attempt(() => exec("git", ["rev-parse", "--show-toplevel"], { cwd, ...QUIET2 }).trim());
-  if (!root) throw new ConfigError(`${cwd} is not inside a git repository.`);
-  return realpathSync2(root);
-}
-function readRepo(root, { exec, remote }) {
-  const gh = attempt(() => JSON.parse(exec("gh", ["repo", "view", "--json", "nameWithOwner,defaultBranchRef"], { cwd: root, ...QUIET2 })));
-  const slug = gh?.nameWithOwner || attempt(() => slugFromRemote(exec("git", ["remote", "get-url", remote], { cwd: root, ...QUIET2 })));
-  const head = attempt(() => exec("git", ["symbolic-ref", `refs/remotes/${remote}/HEAD`], { cwd: root, ...QUIET2 }).trim());
-  const prefix = `refs/remotes/${remote}/`;
-  const defaultBranch = gh?.defaultBranchRef?.name || (head?.startsWith(prefix) ? head.slice(prefix.length) : null);
-  return { slug: slug || null, defaultBranch: defaultBranch || null };
-}
-
 // kit/lib/playbook/write-forms.mjs
 init_define_OMNI_BUNDLE();
 var import_yaml4 = __toESM(require_dist(), 1);
-import { existsSync as existsSync19, mkdirSync as mkdirSync2, writeFileSync as writeFileSync4 } from "node:fs";
-import { dirname as dirname4, join as join20, posix as posix3 } from "node:path";
+import { existsSync as existsSync21, mkdirSync as mkdirSync4, writeFileSync as writeFileSync7 } from "node:fs";
+import { dirname as dirname6, join as join24, posix as posix3 } from "node:path";
 var PROVENANCE = /^<!-- Ported from .*-->\n+/gm;
 var REGISTER_TITLES = { "principles.md": "Product principles", "rules.md": "Product rules", "invariants.md": "Product invariants" };
 function samePath(a, b) {
@@ -16352,17 +17122,17 @@ None yet.
     }
   }
   return planned.map(({ path, text: text2 }) => {
-    const absolute = join20(ctx.root, path);
-    if (existsSync19(absolute)) return { path, wrote: false };
-    mkdirSync2(dirname4(absolute), { recursive: true });
-    writeFileSync4(absolute, text2());
+    const absolute = join24(ctx.root, path);
+    if (existsSync21(absolute)) return { path, wrote: false };
+    mkdirSync4(dirname6(absolute), { recursive: true });
+    writeFileSync7(absolute, text2());
     return { path, wrote: true };
   });
 }
 
 // kit/bin/commands/init.mjs
-var LOOP_DIR = dirname5(CONFIG_FILE);
-var BIN_FILE = join21(LOOP_DIR, "bin", "omni.mjs");
+var LOOP_DIR = dirname7(CONFIG_FILE);
+var BIN_FILE = join25(LOOP_DIR, "bin", "omni.mjs");
 function insideLoop(path) {
   const clean = posix4.normalize(path).replace(/\/+$/, "");
   return clean === LOOP_DIR || clean.startsWith(`${LOOP_DIR}/`);
@@ -16381,7 +17151,7 @@ async function askTerminal(question) {
     rl.close();
   }
 }
-async function resolveCommands(root, flags, { interactive, ask }) {
+async function resolveCommands(root, flags, { interactive, ask: ask2 }) {
   const commands = detectCommands(root);
   for (const key of COMMAND_KEYS) {
     if (typeof flags[FLAGS[key]] === "string") commands[key] = flags[FLAGS[key]];
@@ -16389,7 +17159,7 @@ async function resolveCommands(root, flags, { interactive, ask }) {
   if (interactive) {
     for (const key of COMMAND_KEYS) {
       if (commands[key] !== null) continue;
-      const answer = String(await ask(`commands.${key}: ${QUESTIONS[key]} (empty for none): `) ?? "").trim();
+      const answer = String(await ask2(`commands.${key}: ${QUESTIONS[key]} (empty for none): `) ?? "").trim();
       commands[key] = answer || null;
     }
   }
@@ -16397,17 +17167,17 @@ async function resolveCommands(root, flags, { interactive, ask }) {
 }
 var init = {
   withoutContext: true,
-  async run(args, { cwd, stdout, exec, stdin = process.stdin, bundle = runningBundle(), ask = askTerminal }) {
+  async run(args, { cwd, stdout, exec, stdin = process.stdin, bundle = runningBundle(), ask: ask2 = askTerminal }) {
     const { positional, flags } = parseArgs("init", args, { values: Object.values(FLAGS), booleans: ["force"] });
     if (positional.length) throw usageError("usage: omni init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]");
     const force = flags.force === true;
     const root = findRoot(cwd, exec);
     const defaults = ConfigSchema.parse({ kit: CONFIG_VERSION });
-    const configPath = join21(root, CONFIG_FILE);
-    const binPath = join21(root, BIN_FILE);
-    const keepConfig = !force && existsSync20(configPath);
-    let config2 = keepConfig ? parseConfig(readFileSync14(configPath, "utf8"), CONFIG_FILE) : null;
-    const copyBin = force || !existsSync20(binPath);
+    const configPath = join25(root, CONFIG_FILE);
+    const binPath = join25(root, BIN_FILE);
+    const keepConfig = !force && existsSync22(configPath);
+    let config2 = keepConfig ? parseConfig(readFileSync18(configPath, "utf8"), CONFIG_FILE) : null;
+    const copyBin = force || !existsSync22(binPath);
     if (copyBin && !bundle) {
       throw usageError(
         `omni init: this omni runs from the kit source, which is never installed as ${BIN_FILE}; run \`${installCommand(kitHome({ exec }))}\` instead.`
@@ -16415,19 +17185,19 @@ var init = {
     }
     if (!keepConfig) {
       const interactive = Boolean(stdin?.isTTY && stdout?.isTTY);
-      const commands = await resolveCommands(root, flags, { interactive, ask });
+      const commands = await resolveCommands(root, flags, { interactive, ask: ask2 });
       const repo = readRepo(root, { exec, remote: defaults.repo.remote });
       const lawsSource = detectLawsSource({ ctx: createContext(root, defaults) });
       const rendered = renderConfig({ ...repo, commands, lawsSource });
       config2 = rendered.config;
       const { text: text2 } = rendered;
-      mkdirSync3(dirname5(configPath), { recursive: true });
-      writeFileSync5(configPath, text2);
+      mkdirSync5(dirname7(configPath), { recursive: true });
+      writeFileSync8(configPath, text2);
     }
     if (copyBin) {
-      mkdirSync3(dirname5(binPath), { recursive: true });
+      mkdirSync5(dirname7(binPath), { recursive: true });
       copyFileSync(bundle, binPath);
-      chmodSync(binPath, 493);
+      chmodSync3(binPath, 493);
     }
     const ctx = createContext(root, config2);
     const outside = !insideLoop(ctx.layout.frontDoor);
@@ -16442,7 +17212,8 @@ var init = {
       files: [{ path: CONFIG_FILE, wrote: !keepConfig }, { path: BIN_FILE, wrote: copyBin }],
       forms: { dir: ctx.layout.frontDoor, wrote: forms.filter((file) => file.wrote).map((file) => file.path), outside },
       labels,
-      unfilled: COMMAND_KEYS.filter((key) => config2.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] }))
+      unfilled: COMMAND_KEYS.filter((key) => config2.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] })),
+      notices: { legacyWorkflows: legacyLoopWorkflows(root), formatter: formatterToExclude(root, LOOP_DIR) }
     }));
     return 0;
   }
@@ -16450,8 +17221,8 @@ var init = {
 
 // kit/bin/commands/item.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync21, mkdirSync as mkdirSync4, readFileSync as readFileSync15, writeFileSync as writeFileSync6 } from "node:fs";
-import { basename as basename4, join as join22 } from "node:path";
+import { existsSync as existsSync23, mkdirSync as mkdirSync6, readFileSync as readFileSync19, writeFileSync as writeFileSync9 } from "node:fs";
+import { basename as basename5, join as join26 } from "node:path";
 
 // kit/lib/policy/outbox-policy.mjs
 init_define_OMNI_BUNDLE();
@@ -16711,7 +17482,7 @@ var ACCOUNT_FORMS = Object.freeze({
 });
 
 // kit/bin/commands/item.mjs
-var USAGE5 = "usage: omni item new --prd <n> --slice <id> --file <file> [--adopt] [--json]";
+var USAGE6 = "usage: omni item new --prd <n> --slice <id> --file <file> [--adopt] [--json]";
 var SLUG_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 function funLine2(field) {
   return external_exports.string().trim().min(1, `${field} must not be empty`).superRefine((value, refinement) => {
@@ -16773,11 +17544,11 @@ function spentIds(prd2, { ctx }) {
   const outboxDir = ctx.layout.outboxDir(prd2);
   const prefix = `${outboxDir}/`;
   const ids = new Set(
-    outboxItemFiles({ ctx }).filter((path) => path.startsWith(prefix)).map((path) => basename4(path, ".md"))
+    outboxItemFiles({ ctx }).filter((path) => path.startsWith(prefix)).map((path) => basename5(path, ".md"))
   );
-  const settledFile = join22(ctx.root, outboxDir, SETTLED_FILE);
-  if (existsSync21(settledFile)) {
-    for (const entry of parseSettledEntries(readFileSync15(settledFile, "utf8"), ctx.markers)) {
+  const settledFile = join26(ctx.root, outboxDir, SETTLED_FILE);
+  if (existsSync23(settledFile)) {
+    for (const entry of parseSettledEntries(readFileSync19(settledFile, "utf8"), ctx.markers)) {
       ids.add(entry.id);
     }
   }
@@ -16811,7 +17582,7 @@ async function runNew(args, { ctx, stdout, stderr }) {
     booleans: ["adopt", "json"]
   });
   if (positional.length !== 0 || flags.prd === void 0 || flags.slice === void 0 || flags.file === void 0) {
-    throw usageError(USAGE5);
+    throw usageError(USAGE6);
   }
   const prd2 = positiveInt("item new", "--prd", flags.prd);
   const slice = flags.slice;
@@ -16926,14 +17697,14 @@ async function runNew(args, { ctx, stdout, stderr }) {
 }
 function writeItemFile(ctx, outboxDir, id, text2) {
   const file = `${outboxDir}/${id}.md`;
-  mkdirSync4(join22(ctx.root, outboxDir), { recursive: true });
-  writeFileSync6(join22(ctx.root, file), text2);
+  mkdirSync6(join26(ctx.root, outboxDir), { recursive: true });
+  writeFileSync9(join26(ctx.root, file), text2);
   return file;
 }
 var item = {
   async run(args, io) {
     const [sub, ...rest] = args;
-    if (sub !== "new") throw usageError(USAGE5);
+    if (sub !== "new") throw usageError(USAGE6);
     return runNew(rest, io);
   }
 };
@@ -16943,17 +17714,17 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/playbook/decisions.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync22, readdirSync as readdirSync9, readFileSync as readFileSync16 } from "node:fs";
-import { join as join23 } from "node:path";
+import { existsSync as existsSync24, readdirSync as readdirSync10, readFileSync as readFileSync20 } from "node:fs";
+import { join as join27 } from "node:path";
 var RECORD = /^(\d{4})-.+\.md$/;
 var TITLE2 = /^#\s+(.+?)\s*$/m;
 function readDecisions({ ctx }) {
   const dir = ctx.layout.adrDir.replace(/\/+$/, "");
-  const absolute = join23(ctx.root, dir);
-  const names = existsSync22(absolute) ? readdirSync9(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && RECORD.test(entry.name)).map((entry) => entry.name).sort() : [];
+  const absolute = join27(ctx.root, dir);
+  const names = existsSync24(absolute) ? readdirSync10(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && RECORD.test(entry.name)).map((entry) => entry.name).sort() : [];
   const records = names.map((name) => {
     const file = `${dir}/${name}`;
-    const title = readFileSync16(join23(ctx.root, file), "utf8").match(TITLE2)?.[1] ?? null;
+    const title = readFileSync20(join27(ctx.root, file), "utf8").match(TITLE2)?.[1] ?? null;
     return { number: name.match(RECORD)[1], file, title };
   });
   const byNumber = /* @__PURE__ */ new Map();
@@ -16964,7 +17735,7 @@ function readDecisions({ ctx }) {
 }
 
 // kit/bin/commands/kb.mjs
-var USAGE6 = "usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json]";
+var USAGE7 = "usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json]";
 function init2(positional, flags, { ctx, stdout }) {
   if (positional.length > 0 || flags.json) throw usageError("usage: omni kb init");
   const files = writeForms({ ctx });
@@ -17034,7 +17805,7 @@ var kb = {
     if (sub === "init") return init2(rest, flags, io);
     if (sub === "show") return show(rest, flags, io);
     if (sub === "status") return status(rest, flags, io);
-    throw usageError(USAGE6);
+    throw usageError(USAGE7);
   }
 };
 
@@ -17205,7 +17976,7 @@ function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned }) {
 }
 
 // kit/bin/commands/phase0.mjs
-var USAGE7 = "usage: omni phase0 <prd> [--base <ref>]";
+var USAGE8 = "usage: omni phase0 <prd> [--base <ref>]";
 function defaultBase2(ctx) {
   return `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}`;
 }
@@ -17262,7 +18033,7 @@ function printVerdict(stdout, prd2, base, verdict) {
 var phase0 = {
   async run(args, { ctx, stdout, exec }) {
     const { positional, flags } = parseArgs("phase0", args, { values: ["base"] });
-    if (positional.length !== 1) throw usageError(USAGE7);
+    if (positional.length !== 1) throw usageError(USAGE8);
     const prd2 = positiveInt("phase0", "<prd>", positional[0]);
     const base = flags.base ?? defaultBase2(ctx);
     if (!refExists2(ctx, base, exec)) {
@@ -17279,9 +18050,9 @@ var phase0 = {
 
 // kit/bin/commands/plan.mjs
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync17 } from "node:fs";
-import { join as join24 } from "node:path";
-var USAGE8 = "usage: omni plan check <prd>";
+import { readFileSync as readFileSync21 } from "node:fs";
+import { join as join28 } from "node:path";
+var USAGE9 = "usage: omni plan check <prd>";
 function duplicateIds(slices) {
   const counts = /* @__PURE__ */ new Map();
   for (const slice of slices) counts.set(slice.id, (counts.get(slice.id) ?? 0) + 1);
@@ -17311,7 +18082,7 @@ function checkPlan(prd2, { ctx }) {
   if (planPath === null) throw usageError(`omni plan check: PRD ${prd2} has no inbox or shipped folder.`);
   let markdown;
   try {
-    markdown = readFileSync17(join24(ctx.root, planPath), "utf8");
+    markdown = readFileSync21(join28(ctx.root, planPath), "utf8");
   } catch (error) {
     if (error?.code === "ENOENT") throw usageError(`omni plan check: no plan at ${planPath}.`);
     throw error;
@@ -17335,9 +18106,9 @@ function checkPlan(prd2, { ctx }) {
 var plan = {
   async run(args, { ctx, stdout }) {
     const [sub, ...rest] = args;
-    if (sub !== "check") throw usageError(USAGE8);
+    if (sub !== "check") throw usageError(USAGE9);
     const { positional } = parseArgs("plan check", rest);
-    if (positional.length !== 1) throw usageError(USAGE8);
+    if (positional.length !== 1) throw usageError(USAGE9);
     const prd2 = positiveInt("plan check", "<prd>", positional[0]);
     const { planPath, slices, waves, rows, violations } = checkPlan(prd2, { ctx });
     println(
@@ -17365,13 +18136,13 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/delivery/prd.mjs
 init_define_OMNI_BUNDLE();
-import { readdirSync as readdirSync10 } from "node:fs";
-import { join as join25 } from "node:path";
+import { readdirSync as readdirSync11 } from "node:fs";
+import { join as join29 } from "node:path";
 function whereIs(ctx, prd2) {
   const where = ctx.layout.whereIs(prd2);
   if (!where) return null;
-  const absolute = join25(ctx.root, where.dir);
-  const files = readdirSync10(absolute, { withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => `${where.dir}/${entry.name}`).sort();
+  const absolute = join29(ctx.root, where.dir);
+  const files = readdirSync11(absolute, { withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => `${where.dir}/${entry.name}`).sort();
   const outboxDir = ctx.layout.outboxDir(prd2);
   return {
     prd: Number(prd2),
@@ -17415,8 +18186,8 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/outbox/replies.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync23, readFileSync as readFileSync18, writeFileSync as writeFileSync7 } from "node:fs";
-import { join as join26 } from "node:path";
+import { existsSync as existsSync25, readFileSync as readFileSync22, writeFileSync as writeFileSync10 } from "node:fs";
+import { join as join30 } from "node:path";
 var WRITER_ASSOCIATIONS = /* @__PURE__ */ new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 var NUMBERED_LINE = /^\s*(\d+)\s*:\s*(.+)$/;
 var APPROVE_ALL_LINE = /^\s*approve all\s*$/i;
@@ -17603,11 +18374,11 @@ function appendObjection({ ctx, prd: prd2, adoptedEntry, item: item2, answer, ju
     };
   }
   const settledFile = `${ctx.layout.outboxDir(prd2)}/${SETTLED_FILE}`;
-  const absoluteSettled = join26(ctx.root, settledFile);
-  if (!existsSync23(absoluteSettled)) {
+  const absoluteSettled = join30(ctx.root, settledFile);
+  if (!existsSync25(absoluteSettled)) {
     return { ok: false, errors: [`${settledFile}: no ledger holds the adopted item ${item2.id}.`] };
   }
-  const existing = readFileSync18(absoluteSettled, "utf8");
+  const existing = readFileSync22(absoluteSettled, "utf8");
   const separator = existing.endsWith("\n") ? "\n" : "\n\n";
   const entry = renderSettledEntry({
     item: item2,
@@ -17616,7 +18387,7 @@ function appendObjection({ ctx, prd: prd2, adoptedEntry, item: item2, answer, ju
     judgement,
     markers: ctx.markers
   });
-  writeFileSync7(absoluteSettled, `${existing}${separator}${entry}`);
+  writeFileSync10(absoluteSettled, `${existing}${separator}${entry}`);
   return { ok: true, settledFile };
 }
 function readReplies({ ctx, prd: prd2, pr, post = false }, client) {
@@ -17729,8 +18500,8 @@ Outbox round ${result.round.number} (not posted \u2014 pass --post):
 
 // kit/bin/commands/rework.mjs
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync19, writeFileSync as writeFileSync8 } from "node:fs";
-import { join as join27 } from "node:path";
+import { readFileSync as readFileSync23, writeFileSync as writeFileSync11 } from "node:fs";
+import { join as join31 } from "node:path";
 
 // kit/lib/policy/rework.mjs
 init_define_OMNI_BUNDLE();
@@ -17901,12 +18672,12 @@ function reworkPullRequest(entry) {
 }
 
 // kit/bin/commands/rework.mjs
-var USAGE9 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
+var USAGE10 = "usage: omni rework plan <prd> [--json] | omni rework close <id> --prd <n> --pr <n>";
 var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
   try {
-    return readFileSync19(join27(ctx.root, path), "utf8");
+    return readFileSync23(join31(ctx.root, path), "utf8");
   } catch (error) {
     if (error?.code === "ENOENT") return "";
     throw error;
@@ -17980,7 +18751,7 @@ async function runClose(args, { ctx, stdout }) {
   } catch (error) {
     throw usageError(error.message.split("\n")[0]);
   }
-  writeFileSync8(join27(ctx.root, settledFile), closedText);
+  writeFileSync11(join31(ctx.root, settledFile), closedText);
   println(
     stdout,
     `omni rework close \u2014 PRD ${prd2}: ${id} closed by ${pullRequest2}; ${settledFile} amended. Commit the amendment.`
@@ -17992,20 +18763,20 @@ var rework = {
     const [sub, ...rest] = args;
     if (sub === "plan") return runPlan(rest, io);
     if (sub === "close") return runClose(rest, io);
-    throw usageError(USAGE9);
+    throw usageError(USAGE10);
   }
 };
 
 // kit/bin/commands/settle.mjs
 init_define_OMNI_BUNDLE();
 import { relative as relative3 } from "node:path";
-var USAGE10 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted]';
+var USAGE11 = 'usage: omni settle <item-file> --by <who> --at <iso> --channel prd-issue|feature-pull-request --number <n> (--answer "<text>" | --answer-file <path>) [--url <u>] [--verdict agreed|drifted]';
 var settle = {
   async run(args, { ctx, stdout, stderr }) {
     const { positional, flags } = parseArgs("settle", args, {
       values: ["by", "at", "channel", "number", "answer", "answer-file", "url", "verdict"]
     });
-    if (positional.length !== 1) throw usageError(USAGE10);
+    if (positional.length !== 1) throw usageError(USAGE11);
     if (flags.answer !== void 0 && flags["answer-file"] !== void 0) {
       throw usageError("omni settle: give --answer or --answer-file, not both.");
     }
@@ -18045,10 +18816,10 @@ init_define_OMNI_BUNDLE();
 // kit/lib/delivery/ship.mjs
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync6 } from "node:child_process";
-import { existsSync as existsSync24, readFileSync as readFileSync20, writeFileSync as writeFileSync9, mkdirSync as mkdirSync5 } from "node:fs";
-import { basename as basename5, join as join28, dirname as dirname6 } from "node:path";
+import { existsSync as existsSync26, readFileSync as readFileSync24, writeFileSync as writeFileSync12, mkdirSync as mkdirSync7 } from "node:fs";
+import { basename as basename6, join as join32, dirname as dirname8 } from "node:path";
 var REWRITTEN = /\.(md|html|yml|yaml|json)$/;
-function planShip(ctx, prd2, { files, read }) {
+function planShip(ctx, prd2, { files, read: read2 }) {
   const where = ctx.layout.whereIs(prd2);
   if (where?.state !== "inbox") {
     return { ok: false, reasons: [`PRD ${Number(prd2)} is not in the inbox (${where ? where.state : "nowhere"})`] };
@@ -18062,13 +18833,13 @@ function planShip(ctx, prd2, { files, read }) {
   const shipped = `${dirs.shipped}/${where.name}`;
   const outbox = `${dirs.outbox}/${where.name}`;
   const moves = [{ from: where.dir, to: shipped }];
-  const hasOutbox = existsSync24(join28(ctx.root, outbox));
+  const hasOutbox = existsSync26(join32(ctx.root, outbox));
   if (hasOutbox) moves.push({ from: outbox, to: `${shipped}/outbox` });
   const rewrites = [];
   for (const file of files) {
-    if (!REWRITTEN.test(file) || basename5(file) === SETTLED_FILE) continue;
-    if (!existsSync24(join28(ctx.root, file))) continue;
-    const before = read(file);
+    if (!REWRITTEN.test(file) || basename6(file) === SETTLED_FILE) continue;
+    if (!existsSync26(join32(ctx.root, file))) continue;
+    const before = read2(file);
     let after = before.split(where.dir).join(shipped);
     if (hasOutbox) after = after.split(outbox).join(`${shipped}/outbox`);
     if (after !== before) rewrites.push({ file, text: after });
@@ -18085,16 +18856,16 @@ function applyShip(ctx, prd2, { exec = execFileSync6 } = {}) {
   const delivery = ctx.config.paths.delivery;
   const dirty = exec("git", ["status", "--porcelain", "--", delivery], { cwd: ctx.root, encoding: "utf8" });
   if (String(dirty ?? "").trim()) throw new DirtyDeliveryError(delivery);
-  const read = (file) => readFileSync20(join28(ctx.root, file), "utf8");
-  const plan2 = planShip(ctx, prd2, { files: trackedFiles(ctx), read });
+  const read2 = (file) => readFileSync24(join32(ctx.root, file), "utf8");
+  const plan2 = planShip(ctx, prd2, { files: trackedFiles(ctx), read: read2 });
   if (!plan2.ok) throw new Error(`Cannot ship PRD ${Number(prd2)}:
 ${plan2.reasons.map((r) => `  - ${r}`).join("\n")}`);
   for (const { from, to } of plan2.moves) {
-    mkdirSync5(dirname6(join28(ctx.root, to)), { recursive: true });
+    mkdirSync7(dirname8(join32(ctx.root, to)), { recursive: true });
     exec("git", ["mv", from, to], { cwd: ctx.root, stdio: "ignore" });
   }
   for (const { file, text: text2 } of plan2.rewrites) {
-    writeFileSync9(join28(ctx.root, movedPath(plan2.moves, file)), text2);
+    writeFileSync12(join32(ctx.root, movedPath(plan2.moves, file)), text2);
   }
   return plan2;
 }
@@ -18127,12 +18898,12 @@ var ship = {
 
 // kit/bin/commands/sign.mjs
 init_define_OMNI_BUNDLE();
-var USAGE11 = "usage: omni sign trailer|footer";
+var USAGE12 = "usage: omni sign trailer|footer";
 var LINES2 = { trailer: trailerLine, footer: footerLine };
 var sign = {
   async run(args, { ctx, stdout }) {
     const { positional } = parseArgs("sign", args);
-    if (positional.length !== 1 || !Object.hasOwn(LINES2, positional[0])) throw usageError(USAGE11);
+    if (positional.length !== 1 || !Object.hasOwn(LINES2, positional[0])) throw usageError(USAGE12);
     const line = LINES2[positional[0]](ctx.config.signature);
     if (line !== null) println(stdout, line);
     return 0;
@@ -18176,17 +18947,17 @@ var status2 = {
 };
 
 // kit/bin/commands/index.mjs
-var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, comment, ship, check, knowledge, kb, item, plan, board, rework, phase0, init, sign, credits });
+var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, comment, ship, check, knowledge, kb, item, plan, board, rework, phase0, init, ask, signin, signout, whoami, sign, credits });
 
 // kit/bin/omni.mjs
-var USAGE12 = `usage: omni <command> [args]
+var USAGE13 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 `;
 async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync7, env = process.env, ...more } = {}) {
   const [name, ...rest] = argv;
   const command = Object.hasOwn(COMMAND_TABLE, name ?? "") ? COMMAND_TABLE[name] : void 0;
   if (!command) {
-    stderr.write(USAGE12);
+    stderr.write(USAGE13);
     return 2;
   }
   try {

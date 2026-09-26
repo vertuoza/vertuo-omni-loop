@@ -1,0 +1,96 @@
+/* The join group: the coin, the gate, the intro, the GitHub link, ready and welcome back. Each
+   scene's words sit in one root naming its state (`.join.join-coin`, join.tsx): the rules below lay
+   them out on the wide grid, then on the tall one (the screen carries `grid-tall`). */
+
+.j-h.j-small { font-size: 12px; }
+.j-h.j-large { font-size: 22px; }
+.j-good { margin: 0; font-size: 10px; color: var(--green); }
+.j-gold { margin: 0; font-size: 10px; color: var(--yellow); }
+.j-press { margin: 18px 0 0; font-size: 14px; color: var(--yellow); text-shadow: 2px 2px 0 var(--red); }
+.j-press.j-small { font-size: 10px; margin-top: 8px; }
+.j-bottom { position: absolute; left: 0; right: 0; bottom: 22px; text-align: center; font-size: 10px; }
+.j-hint.j-right { text-align: right; padding-right: 14px; }
+
+/* The intro: three lines type in, the fleets' names light up under them. */
+.j-intro { top: 176px; gap: 12px; font-size: 10px; }
+.j-type { display: block; overflow: hidden; white-space: nowrap; width: 0; text-shadow: 2px 2px 0 #0b0a26; animation: j-type 1.2s steps(var(--n)) var(--at, 0s) forwards; }
+@keyframes j-type { to { width: calc(var(--n) * 1ch); } }
+.j-intro-names { position: absolute; left: 0; right: 0; top: 330px; }
+.j-intro-names span { position: absolute; transform: translateX(-50%); font-size: 8px; text-shadow: 1px 1px 0 #0b0a26; }
+.j-appear { opacity: 0; animation: j-appear 0.01s var(--at, 0s) forwards; }
+@keyframes j-appear { to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .j-type { animation-duration: 0.01s; }
+}
+
+/* ── The wide grid (640×360): where each scene's words stand ─────────────── */
+
+.join-coin .j-center { top: 158px; }
+.join-away .j-center { top: 118px; }
+.join-outsider .j-center { top: 70px; }
+.join-gate .j-center { top: 84px; }
+.join-link .j-panel { left: 236px; right: 30px; top: 62px; }
+.join-linked .j-panel { left: 236px; right: 30px; top: 110px; }
+.join-ready .j-center { top: 20px; }
+.join-welcome .j-center { top: 40px; }
+
+/* ── The tall grid (320×288): the Game Boy held upright ─────────────────────
+   The same words, stacked in a narrower frame: headings and lines wrap, the text face is 16px (15 is
+   the least on this grid), and the key caps grow to 8px, the least for the pixel face. The canvas
+   stands its pieces to match (the tall stage in join.ts). */
+
+.grid-tall .join .j-center { box-sizing: border-box; padding: 0 12px; gap: 8px; }
+.grid-tall .join .j-h { line-height: 1.5; text-wrap: balance; }
+.grid-tall .join .j-sub { line-height: 1.7; text-wrap: balance; }
+.grid-tall .join .j-txt { font-size: 16px; max-width: none; overflow-wrap: anywhere; text-wrap: pretty; }
+.grid-tall .join .j-key { font-size: 8px; }
+.grid-tall .join .j-hint { padding: 0 8px; line-height: 2; }
+.grid-tall .join .j-hint.j-right { padding-right: 10px; }
+.grid-tall .join .j-press { margin-top: 10px; }
+.grid-tall .join .j-press.j-small { margin-top: 4px; }
+
+/* INSERT COIN under the coin, and the GitHub link under the hero: an error line of any length keeps
+   the words on screen and clear of the hint, as the block rises over the picture above it rather
+   than running off the bottom. The first row gives the block its place, and gives way when the
+   block needs the room. */
+.grid-tall .join-coin,
+.grid-tall .join-link {
+  position: absolute; inset: 0; box-sizing: border-box; display: grid; align-content: start;
+  grid-template-rows: minmax(0, var(--j-top)) auto;
+}
+.grid-tall .join-coin { --j-top: 100px; padding-bottom: 30px; }
+.grid-tall .join-link { --j-top: 68px; padding: 0 8px 8px; }
+.grid-tall .join-coin > .j-center,
+.grid-tall .join-link > .j-panel { grid-row: 2; position: relative; inset: auto; }
+
+/* Leaving for Google or GitHub, above the loading bar. */
+.grid-tall .join-away .j-center { top: 84px; }
+
+/* WRONG CARTRIDGE and the gate above OMNI-MAN and the planet; the outsider's hint on a dark strip,
+   over the planet's bright rim. */
+.grid-tall .join-outsider .j-center { top: 22px; }
+.grid-tall .join-gate .j-center { top: 42px; }
+.grid-tall .join-outsider .j-hint { bottom: 0; padding: 6px 8px 8px; background: linear-gradient(rgba(7, 6, 28, 0), rgba(7, 6, 28, 0.88) 35%); }
+
+/* The intro: the lines under OMNI-MAN, the fleets' names under their zigzag. */
+.grid-tall .join-intro .j-intro { top: 124px; }
+.grid-tall .join-intro .j-intro-names { left: 20px; right: 20px; top: 232px; }
+.grid-tall .join-intro .j-intro-names span:nth-child(even) { top: 16px; }
+
+/* The GitHub link: the panel across the screen, under the hero and the fleet on their pedestal. */
+.grid-tall .join-link .j-panel,
+.grid-tall .join-linked .j-panel { gap: 6px; padding: 10px 12px; }
+.grid-tall .join-linked .j-panel { left: 8px; right: 8px; top: 68px; }
+.grid-tall .join-link .j-tiny { line-height: 1.6; }
+.grid-tall .join-linked .j-good { line-height: 1.5; overflow-wrap: anywhere; }
+
+/* PLAYER 1 READY over the rising hero, welcome back over the pedestal. */
+.grid-tall .join-ready .j-center { top: 14px; }
+.grid-tall .join-ready .j-bottom { bottom: 16px; }
+.grid-tall .join-welcome .j-center { top: 16px; }
+
+/* A toast over a join scene (a sign-out that failed, say) keeps inside the tall screen, readable. */
+.grid-tall:is(.scene-coin, .scene-away, .scene-outsider, .scene-gate, .scene-intro, .scene-link, .scene-ready, .scene-welcome) .j-toast {
+  max-width: 296px; box-sizing: border-box; font-size: 8px;
+}
