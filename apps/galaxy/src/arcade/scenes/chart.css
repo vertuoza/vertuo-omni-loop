@@ -1,0 +1,212 @@
+/* The star chart (PRD 149): the chart's title, sun and lane labels, dialog and footer; the system's
+   HUD, panel and reading card. The rules up to the tall grid's section lay both scenes out on the
+   wide grid (640×360), with the lines of CHART_LINES and SYSTEM_LINES in chart-layout.ts; that
+   section rearranges them on the tall one (320×288). */
+
+/* ── chart ─────────────────────────────────────────────────────────────── */
+
+.chart, .system { position: absolute; inset: 0; }
+.chart-hud { gap: 12px; }
+.chart-title { color: var(--yellow); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.chart-tally { color: var(--cyan); white-space: nowrap; }
+.sun-label {
+  position: absolute;
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  text-align: center;
+  white-space: nowrap;
+  text-shadow: 1px 1px 0 #0b0a26, -1px -1px 0 #0b0a26;
+}
+.sun-label b { font-weight: 400; font-size: 8px; color: #b5bde8; letter-spacing: 1px; }
+.sun-label.active b { color: var(--yellow); }
+.sun-label small { font-family: var(--txt); font-size: 16px; line-height: 1; color: var(--dim); }
+.lane-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 2px 3px 1px;
+  font-size: 8px;
+  color: #a88cff;
+  background: #0b0a26;
+  box-shadow: inset 0 0 0 1px #2a1f5c;
+}
+.chart-dialog {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 26px;
+  height: 76px;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+.chart-name { font-size: 12px; color: var(--white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.chart-foot {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 8px;
+  text-shadow: 1px 1px 0 #0b0a26;
+}
+.chart-read { color: var(--cyan); letter-spacing: 1px; }
+.chart-foot .hint { white-space: nowrap; }
+
+/* No chart: out of reach, or a build that carries none. */
+.chart-none { display: flex; flex-direction: column; align-items: center; padding: 60px 40px 0; text-align: center; }
+.chart-none h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--yellow);
+  text-shadow: 2px 2px 0 var(--red), 4px 4px 0 #0b0a26;
+  letter-spacing: 2px;
+}
+.chart-why { margin: 40px 0 0; font-size: 12px; line-height: 1.6; color: var(--white); text-shadow: 2px 2px 0 #0b0a26; }
+.chart-more { margin: 18px 0 0; max-width: 480px; font-family: var(--txt); font-size: 20px; line-height: 1.1; color: var(--dim); }
+.chart-none .chart-foot { justify-content: center; }
+
+/* ── system ────────────────────────────────────────────────────────────── */
+
+.system-hud { gap: 12px; font-size: 8px; }
+.system-name { font-size: 9px; color: var(--yellow); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.system-count { color: var(--green); white-space: nowrap; }
+.system-legend { display: flex; gap: 10px; white-space: nowrap; }
+.system-panel {
+  position: absolute;
+  top: 40px;
+  right: 10px;
+  width: 224px;
+  bottom: 30px;
+  box-sizing: border-box;
+  padding: 10px 12px 34px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.system-id { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.kind-tag { font-size: 8px; letter-spacing: 1px; }
+.system-statement {
+  margin: 0;
+  font-family: var(--txt);
+  font-size: 18px;
+  line-height: 18px;
+  color: var(--white);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 10;
+  line-clamp: 10;
+}
+.system-serves { margin: 0; font-size: 8px; line-height: 1.4; color: var(--dim); }
+.system-panel .dialog-go { bottom: 8px; right: 10px; }
+.system-foot { position: absolute; right: 10px; bottom: 10px; margin: 0; }
+
+/* The reading card, over the scene. */
+.card {
+  position: absolute;
+  left: 40px;
+  right: 40px;
+  top: 22px;
+  bottom: 22px;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(14, 13, 51, 0.97);
+  border: 2px solid var(--white);
+  box-shadow: 0 0 0 2px #0b0a26, inset 0 0 0 2px var(--navy), 6px 6px 0 rgba(11, 10, 38, 0.6);
+  pointer-events: auto;
+}
+.card-head { display: flex; align-items: center; gap: 10px; padding-bottom: 7px; border-bottom: 2px solid var(--navy); }
+.card-id { font-size: 10px; color: var(--cyan); }
+.card-head .chip { margin-left: auto; }
+.card-body { flex: 1; min-height: 0; overflow: hidden; padding-top: 6px; }
+.card-body p { margin: 0; white-space: nowrap; overflow: hidden; }
+.card-text { font-family: var(--txt); font-size: 18px; line-height: 19px; color: var(--white); }
+.card-label { margin-top: 3px !important; padding-top: 5px; font-size: 8px; line-height: 11px; color: var(--yellow); letter-spacing: 1px; }
+.card-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-top: 6px; font-size: 8px; color: var(--dim); }
+.card-pages { white-space: nowrap; }
+.card-pages button { padding: 0 3px; border: 0; background: none; color: var(--yellow); font-size: 8px; }
+.card-pages button:disabled { color: #3a3f7a; cursor: default; }
+
+/* ── The tall grid (320×288) ─────────────────────────────────────────────────
+   The HUD takes two rows down to 22px; the chart's suns sit in the band under it, its dialog and its
+   footer below; the system's diagram runs to 172px, its panel under it and the hint at the foot.
+   The smallest type is 8px in the pixel face and 15px in the text face. */
+
+.grid-tall .chart-hud, .grid-tall .system-hud {
+  height: 22px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  row-gap: 3px;
+  column-gap: 6px;
+  padding: 0 6px;
+  font-size: 8px;
+  line-height: 8px;
+}
+.grid-tall .chart-title { font-size: 8px; }
+.grid-tall .system-name { font-size: 8px; }
+.grid-tall .system-legend { grid-row: 2; grid-column: 1 / -1; justify-self: center; gap: 8px; }
+.grid-tall .chart-hud { grid-template-rows: 8px 8px; }
+.grid-tall .chart-title { grid-row: 1 / 3; align-self: center; white-space: normal; line-height: 11px; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.grid-tall .chart-tally { grid-row: 1 / 3; align-self: center; }
+.grid-tall .sun-label small { font-size: 15px; }
+.grid-tall .chart-dialog {
+  left: 4px;
+  right: 4px;
+  bottom: 20px;
+  height: auto;
+  padding: 5px 7px;
+  gap: 4px;
+}
+.grid-tall .chart-name { font-size: 10px; }
+.grid-tall .chart-dialog .dialog-row.small { font-size: 16px; line-height: 16px; gap: 0 10px; }
+.grid-tall .chart-dialog .dialog-go { right: 7px; bottom: auto; top: 5px; font-size: 8px; padding: 3px 5px; }
+.grid-tall .chart-foot { left: 6px; right: 6px; bottom: 5px; }
+.grid-tall .chart-read { letter-spacing: 0; }
+.grid-tall .chart-none { padding: 34px 14px 0; }
+.grid-tall .chart-none h2 { font-size: 14px; }
+.grid-tall .chart-why { margin-top: 28px; font-size: 10px; }
+.grid-tall .chart-more { font-size: 17px; }
+
+.grid-tall .system-panel {
+  top: 176px;
+  left: 4px;
+  right: 4px;
+  bottom: 18px;
+  width: auto;
+  padding: 5px 7px;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'id id kind go'
+    'text text text text'
+    'serves serves serves serves';
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 3px 6px;
+}
+.grid-tall .system-id { grid-area: id; justify-content: flex-start; }
+.grid-tall .system-panel .kind-tag { grid-area: kind; justify-self: start; }
+.grid-tall .system-statement { grid-area: text; align-self: start; font-size: 16px; line-height: 15px; -webkit-line-clamp: 3; line-clamp: 3; }
+.grid-tall .system-serves { grid-area: serves; line-height: 8px; }
+.grid-tall .system-panel .dialog-go { grid-area: go; position: static; font-size: 8px; padding: 3px 5px; }
+.grid-tall .system-panel .empty { grid-column: 1 / -1; margin: 0; }
+.grid-tall .system-foot { left: 0; right: 0; bottom: 4px; text-align: center; letter-spacing: 0; }
+
+.grid-tall .card { left: 4px; right: 4px; top: 4px; bottom: 4px; padding: 7px 8px; }
+.grid-tall .card-head { gap: 6px; padding-bottom: 5px; }
+.grid-tall .card-id { font-size: 8px; }
+.grid-tall .card-head .kind-tag { font-size: 8px; }
+.grid-tall .card-text { font-size: 17px; line-height: 18px; }
+.grid-tall .card-label { line-height: 10px; }

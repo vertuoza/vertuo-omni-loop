@@ -161,7 +161,8 @@ export function neighbour<T extends Pick<MapSlot, 'x' | 'y' | 'index'>>(layout: 
 
 // ── The map ──────────────────────────────────────────────────────────────────
 
-function brackets(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: number) {
+/** The cursor's four blinking corners around a disc of radius `r`: the selected planet, sun or world. */
+export function brackets(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: number) {
   const m = r + 6 + (Math.floor(t * 4) % 2) * 2;
   for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
     const cx = x + sx * m, cy = y + sy * m;
