@@ -42,6 +42,20 @@ this lifecycle with `labels.phase0` and `prLinks.phase0`.
 **The preflight** is `commands.preflightFull`, or `commands.preflight` when that is null. If both are
 null, say so in the body's **Verified** line and in the status comment.
 
+## Signing
+
+The loop signs its own work with two lines the CLI prints, so no skill spells a name or an address.
+
+- **Every commit** this skill makes (the claim, a fix, a resolved conflict) ends with the co-author
+  trailer your session requires, then the line `omni sign trailer` prints as the message's last
+  line, with no blank line between them.
+- **Every pull request** this skill opens, of any kind, ends its body with the line
+  `omni sign footer` prints, as a paragraph of its own just above your session's own attribution
+  lines (last, when the session adds none). A body rewritten later keeps that line.
+- **A comment is never signed:** not the status comment, not the stuck comment.
+
+A command that prints nothing means signing is off in this repository: add nothing.
+
 ## Labels
 
 Before adding a label, check it exists: `gh label list --search "<name>" --json name`.
@@ -67,7 +81,8 @@ Never add `labels.outboxGo`; it is a person's override.
 
 If `.github/PULL_REQUEST_TEMPLATE.md` exists, a feature or standalone PR fills it with concrete
 evidence, below the lines this skill adds. Otherwise use the shapes below as the whole body. Titles
-are Conventional Commits for all three kinds.
+are Conventional Commits for all three kinds. Every body, template or not, ends with the
+`omni sign footer` line (**Signing**).
 
 **Feature PR**, top of the body:
 
@@ -87,7 +102,7 @@ are Conventional Commits for all three kinds.
 Tick a slice when its sub-PR merges; tick a scenario when it passes. Without a template, follow the
 top with **Summary**, **Verified** (real commands and their result, or why a check was not run),
 **Risk and rollback** (what to revert), and **Reviewer focus** (the riskiest decisions, not a repeat
-of the summary).
+of the summary), then the `omni sign footer` line.
 
 **Sub-PR**, short, because the feature PR carries the review:
 
@@ -98,10 +113,12 @@ of the summary).
 
 **Verified:** `<the preflight>`: <green, and any step skipped with its reason>
 **Decisions:** <the outbox items this slice raised, or "none">
+
+<the line `omni sign footer` prints>
 ```
 
-**Standalone PR**: the template, or Summary / Verified / Risk and rollback / Reviewer focus, ending
-with `Closes #<issue>` when there is one.
+**Standalone PR**: the template, or Summary / Verified / Risk and rollback / Reviewer focus, then
+`Closes #<issue>` when there is one, then the `omni sign footer` line.
 
 ## The status comment
 
@@ -139,10 +156,12 @@ Claim mode takes one slice of a PRD, given its plan id and title. It does not lo
 
 1. Cut the slice branch (`branches.slice`, with `{topic}` and `{slice}` filled) from the feature
    branch (`branches.feature`): `git fetch <remote> && git switch -c <slice branch> <remote>/<feature branch>`.
-2. Make one empty claim commit, ending with the co-author trailer your session requires:
-   `git commit --allow-empty -m "chore(<slice>): claim"`. Then run `git push -u <remote> <slice branch>`.
+2. Make one empty claim commit, `git commit --allow-empty -m "chore(<slice>): claim"`, its message
+   ending with the co-author trailer your session requires, then the `omni sign trailer` line
+   (**Signing**). Then run `git push -u <remote> <slice branch>`.
 3. Open the draft sub-PR: `gh pr create --draft --base <feature branch> --head <slice branch>
-   --title "<slice>: <title>"`. Its body starts with `prLinks.sub` filled (the sub-PR shape above).
+   --title "<slice>: <title>" --body-file <file>`. Its body starts with `prLinks.sub` filled (the
+   sub-PR shape above) and ends with the `omni sign footer` line.
    Its labels are `labels.sub` and `labels.inProgress`, subject to **Labels**.
 4. Post the status comment with state `claimed`. Stop.
 

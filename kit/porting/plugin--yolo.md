@@ -90,3 +90,33 @@ dispatch, merge, the Slices checklist) went to `/omni:wave` (see `plugin--wave.m
   start, and prints the open questions it lists; every slice carries on with the kit defaults, and
   the map is not read again that run (decision 7). The questions are not posted on the feature PR:
   the spec asks only that they be printed once.
+
+## PRD #99, slice s2 — the skill signs the loop's work
+
+Not a re-port: upstream's skill signs nothing. A kit-local change to the prose, which the bundle
+does not carry. PRD #99 makes OmniMan (the `signature` config section, slice s1) a co-author of every
+commit the loop makes and the signer of every pull request and issue it opens.
+
+- **Signing,** a paragraph under the `omni` line: every commit the skill makes ends with the
+  session's co-author trailer, then the line `omni sign trailer` prints, as the message's last line
+  with no blank line between them, so both stay in the trailer block. Every pull request or issue it
+  opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+  the session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+  signed. A command that prints nothing (`signature: null`) means signing is off: the skill adds
+  nothing and runs unchanged. No skill spells the signer's name or address.
+- **The ship commit** (§5, `chore(delivery): ship PRD <prd>`) carries the trailer line.
+- **The feature PR's body,** rewritten at the finish (§4), still ends with the footer line.
+- **Unsigned:** the outbox comment `omni comment` writes and the status comments are comments.
+
+### Tests
+
+`kit/test/plugin.test.mjs` gained one rule, run on the live skills and on fixtures built to break
+it: a SKILL.md that asks for the co-author trailer names `omni sign trailer`, and one that opens a
+pull request or an issue (`gh pr create`, `gh issue create`, or "open(s) the/a … PR, pull request
+or issue" in prose), or rewrites its body (`gh pr edit … --body-file`), names `omni sign footer`.
+A skill that only comments is held to nothing. The existing rule that every `omni` command a
+SKILL.md names exists now covers `sign`.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.
