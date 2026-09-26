@@ -32,6 +32,15 @@ export function headerOf(questions: unknown): string | null {
   return readQuestions(questions).find((q) => q.header !== '')?.header ?? null;
 }
 
+/** A whole session, as the tab list reads it. */
+export function rowOf(state: SessionState): TabRow {
+  const newest = [...state.rounds].sort((a, b) => time(b.created_at) - time(a.created_at) || b.id.localeCompare(a.id))[0];
+  return {
+    session: state.session,
+    newest: newest ? { id: newest.id, status: newest.status, created_at: newest.created_at, header: headerOf(newest.questions) } : null,
+  };
+}
+
 /** A wait, as a tab says it. The hook waits 9 minutes at most, so minutes are enough. */
 export const ageLabel = (ms: number) => (ms < 60_000 ? 'just now' : `${Math.floor(ms / 60_000)} min`);
 
@@ -94,11 +103,7 @@ export function pageWithList(page: Page, rows: TabRow[]): Page {
 /** The selected session as its pane last read it, which is fresher than the list's row for it. */
 export function pageWithPane(page: Page, pane: SessionState): Page {
   if (pane.session.id !== page.selected) return page;
-  const newest = [...pane.rounds].sort((a, b) => time(b.created_at) - time(a.created_at) || b.id.localeCompare(a.id))[0];
-  const row: TabRow = {
-    session: pane.session,
-    newest: newest ? { id: newest.id, status: newest.status, created_at: newest.created_at, header: headerOf(newest.questions) } : null,
-  };
+  const row = rowOf(pane);
   const listed = page.rows.some((r) => r.session.id === row.session.id);
   return listed
     ? { ...page, rows: page.rows.map((r) => (r.session.id === row.session.id ? row : r)) }
