@@ -1,7 +1,7 @@
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf } from '@omni/galaxy';
+import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf, type GalaxyView, type XpRules } from '@omni/galaxy';
 import { setFleets } from '../fleets';
 import { HOUSE_BRAND } from '../brand';
 import { markFor } from '../mark';
@@ -222,10 +222,16 @@ describe('How to play', () => {
       expect(page).toContain(`PAGE ${i + 1}/${tallPages}`);
       expect(page.some((s) => s.includes('B · MENU'))).toBe(true);
     });
-    expect(tall[0]).toContain('EARN');
-    expect(tall[0]).not.toContain('ENTROPY · CLEAR IT / IT COSTS');
-    expect(tall[1]).toContain('ENTROPY · CLEAR IT / IT COSTS');
-    expect(tall[1]).not.toContain('EARN');
+    const headings = ['EARN', 'ENTROPY · CLEAR IT / IT COSTS', 'LEVELS · XP NEVER RESETS'];
+    expect(tall).toHaveLength(headings.length);
+    tall.forEach((page, i) => {
+      for (const [j, heading] of headings.entries()) expect(page.includes(heading), `page ${i + 1}: ${heading}`).toBe(i === j);
+    });
+  });
+
+  it('lays all three sections out on the wide grid\'s one page', () => {
+    const wide = textOf(briefing, WIDE);
+    for (const heading of ['EARN', 'ENTROPY · CLEAR IT / IT COSTS', 'LEVELS · XP NEVER RESETS']) expect(wide).toContain(heading);
   });
 
   it('shows a page past the last as the last (the grid changed under it)', () => {
@@ -234,6 +240,69 @@ describe('How to play', () => {
 
   it('shows no page count on the wide grid', () => {
     expect(textOf(briefing, WIDE).some((s) => s.startsWith('PAGE'))).toBe(false);
+  });
+});
+
+describe('How to play\'s LEVELS', () => {
+  const lastPage = BRIEFING_PAGES.indexOf('levels');
+  /** The LEVELS page on the tall grid, as a player reads it, for a view carrying `xp` as its rules' xp block. */
+  const levelsOf = (xp: XpRules = view.rules.xp): string[] => {
+    const shown: GalaxyView = { ...view, rules: { ...view.rules, xp } };
+    return textOf(createElement(BriefingOverlay, { view: shown }), TALL, lastPage, BRIEFING_PAGES.length);
+  };
+  /** The value a line shows beside its label: the next run of text. */
+  const beside = (text: string[], label: string) => {
+    expect(text, label).toContain(label);
+    return text[text.indexOf(label) + 1];
+  };
+  const rules = view.rules.xp;
+
+  it('is its own page on the tall grid, the last one', () => {
+    expect(lastPage).toBe(BRIEFING_PAGES.length - 1);
+    expect(levelsOf()).toContain('LEVELS · XP NEVER RESETS');
+  });
+
+  it('shows the weight of each personal credit, the curve\'s first levels and each game\'s unlock level, from the rulebook', () => {
+    const text = levelsOf();
+    expect(rules).toEqual({ weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1 }, curve: { first: 1, step: 25 }, cap: 99, unlocks: { invaders: 1 } });
+    for (const label of ['ZONE SECURED', 'ENTROPY CLEARED', 'RESCUE', 'EXPEDITION BONUS', 'CLOSER BONUS']) expect(beside(text, label)).toBe('×1');
+    expect([1, 2, 3, 4, 5].map((n) => beside(text, `LV ${n}`))).toEqual(['1', '50', '150', '300', '500']);
+    expect(text).not.toContain('LV 6');
+    expect(beside(text, 'ENTROPY INVADERS')).toBe('LV 1');
+    expect(text.some((s) => s.includes('UP TO LV 99')), text.join(' | ')).toBe(true);
+  });
+
+  it('shows the new value when a number in the rules changes', () => {
+    const text = levelsOf({
+      weights: { ...rules.weights, zoneSecured: 2, rescue: 1.5, woundClosed: 0 },
+      curve: { first: 5, step: 30 },
+      cap: 40,
+      unlocks: { invaders: 3 },
+    });
+    expect(beside(text, 'ZONE SECURED')).toBe('×2');
+    expect(beside(text, 'RESCUE')).toBe('×1.5');
+    expect(beside(text, 'ENTROPY CLEARED')).toBe('NOT COUNTED');
+    expect(beside(text, 'CLOSER BONUS')).toBe('×1');
+    expect([1, 2, 3, 4, 5].map((n) => beside(text, `LV ${n}`))).toEqual(['5', '60', '180', '360', '600']);
+    expect(beside(text, 'ENTROPY INVADERS')).toBe('LV 3');
+    expect(text.some((s) => s.includes('UP TO LV 40'))).toBe(true);
+    expect(text.some((s) => s.includes('LV 99'))).toBe(false);
+  });
+
+  it('lists every game in the rules\' unlocks, lowest level first, named by the game room\'s registry', () => {
+    const text = levelsOf({ ...rules, unlocks: { invaders: 4, 'star-maze': 2 } });
+    expect(beside(text, 'STAR MAZE')).toBe('LV 2');
+    expect(beside(text, 'ENTROPY INVADERS')).toBe('LV 4');
+    expect(text.indexOf('STAR MAZE')).toBeLessThan(text.indexOf('ENTROPY INVADERS'));
+    expect(levelsOf()).not.toContain('STAR MAZE');
+  });
+
+  it('shows no level past the cap, and groups the thousands of a large XP', () => {
+    const low = levelsOf({ ...rules, cap: 3 });
+    expect(low).toContain('LV 3');
+    expect(low).not.toContain('LV 4');
+    const steep = levelsOf({ ...rules, curve: { first: 1, step: 250 } });
+    expect(beside(steep, 'LV 5')).toBe('5,000');
   });
 });
 

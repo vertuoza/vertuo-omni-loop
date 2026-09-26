@@ -253,6 +253,8 @@ export function buildGalaxy(events, { projects, now = new Date(), source = 'ledg
       distressAfterHours: RULEBOOK.distressAfterWorkingMinutes / 60,
       lostAfterDays: RULEBOOK.lostAfterWorkingMinutes / 60 / 9,
       classMultipliers: [1, 2, 3, 4].map((n) => RULEBOOK.classMultiplier(n)),
+      // The XP block as the ledger job applies it (game/experience.mjs): How to play's LEVELS reads it.
+      xp: RULEBOOK.xp,
     },
   };
 }

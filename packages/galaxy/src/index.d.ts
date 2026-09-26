@@ -42,6 +42,8 @@ export interface Rules {
   trancheHours: number; rescue: number; terraformOwner: number; terraformExpedition: number; terraformCloser: number;
   crossTeamMultiplier: number; nightShiftMultiplier: number; distressAfterHours: number; lostAfterDays: number;
   classMultipliers: number[];
+  /** The rulebook's `xp` block, as `pnpm game:xp` applies it: what counts, the curve, the unlocks. */
+  xp: XpRules;
 }
 export interface GalaxyView {
   generatedAt: string; season: string; source: string;

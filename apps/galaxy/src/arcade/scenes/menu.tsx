@@ -1,7 +1,7 @@
 'use client';
 // The menu group's text layer: the menu (a visitor's and a player's) and How to play, laid out for
 // the grid the screen is drawn on (menu.css places each for `.grid-wide` and `.grid-tall`).
-import type { GalaxyView, WoundKind } from '@omni/galaxy';
+import { xpForLevel, type GalaxyView, type WoundKind, type XpRules } from '@omni/galaxy';
 import { woundTint } from '@omni/sprites';
 import { useScreen } from '../Screen';
 import { Sprite } from '../Sprite';
@@ -12,6 +12,7 @@ import { chartRefusal, chartTally } from './chart.tsx';
 import type { SceneName } from './common.ts';
 import { BRIEFING_PAGES, type BriefingPage } from './menu.ts';
 import { gamesHint, levelTag, type XpStatus } from '../games/room';
+import { GAMES, type Game } from '../games/index';
 import './common.css';
 import './menu.css';
 
@@ -116,14 +117,46 @@ export function MenuOverlay({ view, items, index, me, onPick, chart = null, xp =
 
 // ── How to play ──────────────────────────────────────────────────────────────
 
+/** The personal credits XP counts, by their key in the rulebook's `xp.weights`, as How to play names them. */
+const XP_CREDITS: Record<keyof XpRules['weights'], string> = {
+  zoneSecured: 'ZONE SECURED',
+  woundClosed: 'ENTROPY CLEARED',
+  rescue: 'RESCUE',
+  expedition: 'EXPEDITION BONUS',
+  closer: 'CLOSER BONUS',
+};
+
+/** How many of the curve's first levels LEVELS shows (fewer when the cap comes sooner). */
+const CURVE_SHOWN = 5;
+
 /**
- * How points are won and lost, from the rules the galaxy carries. The wide grid shows both sections
- * side by side; the tall one shows a section a page, which ◀ ▶ turn (`BRIEFING_PAGES`).
+ * What LEVELS shows, every number from the `xp` block it is given: each personal credit's weight
+ * (0 leaves it out), the XP each of the curve's first levels is reached at, the cap, and the level
+ * each game in `unlocks` opens at, lowest first, named by the game room's registry.
+ */
+function briefingLevels(xp: XpRules, games: readonly Game[] = GAMES) {
+  const titleOf = (id: string) => games.find((g) => g.id === id)?.title ?? id.replace(/-/g, ' ').toUpperCase();
+  return {
+    credits: (Object.keys(XP_CREDITS) as (keyof XpRules['weights'])[]).map((kind) => ({ kind, label: XP_CREDITS[kind], weight: xp.weights[kind] ?? 0 })),
+    curve: Array.from({ length: Math.min(CURVE_SHOWN, xp.cap) }, (_, i) => ({ level: i + 1, xp: xpForLevel(i + 1, xp) })),
+    cap: xp.cap,
+    unlocks: Object.entries(xp.unlocks).map(([id, level]) => ({ id, title: titleOf(id), level })).sort((a, b) => a.level - b.level),
+  };
+}
+
+/** An XP total as LEVELS prints it, its thousands grouped: 2,250. */
+const xpText = (n: number) => n.toLocaleString('en-US');
+
+/**
+ * How points are won and lost, and the levels XP reaches, from the rules the galaxy carries. The
+ * wide grid lays the three sections out on one page; the tall one shows a section a page, which
+ * ◀ ▶ turn (`BRIEFING_PAGES`).
  */
 export function BriefingOverlay({ view }: { view: GalaxyView }) {
   const { grid, page } = useScreen();
   const r = view.rules;
   const kinds = Object.keys(WOUND_LOOK) as WoundKind[];
+  const lv = briefingLevels(r.xp);
   const sections: Record<BriefingPage, React.ReactNode> = {
     earn: (
       <section key="earn">
@@ -150,6 +183,32 @@ export function BriefingOverlay({ view }: { view: GalaxyView }) {
           ))}
           <li className="note">DECAY PER {r.trancheHours} WORKING HOURS · LOST AFTER {r.lostAfterDays} SILENT DAYS</li>
         </ul>
+      </section>
+    ),
+    levels: (
+      <section key="levels" className="brief-levels">
+        <h3>LEVELS · XP NEVER RESETS</h3>
+        <div className="lv-blocks">
+          <div className="lv-credits">
+            <h4>XP PER POINT</h4>
+            <ul>
+              {lv.credits.map((c) => <li key={c.kind}>{c.label} <b>{c.weight ? `×${c.weight}` : 'NOT COUNTED'}</b></li>)}
+            </ul>
+          </div>
+          <div className="lv-curve">
+            <h4>XP TO REACH</h4>
+            <ol>
+              {lv.curve.map((c) => <li key={c.level}>{`LV ${c.level}`} <b>{xpText(c.xp)}</b></li>)}
+            </ol>
+          </div>
+          <div className="lv-games">
+            <h4>UNLOCKS</h4>
+            <ul>
+              {lv.unlocks.map((u) => <li key={u.id}>{u.title} <b>{`LV ${u.level}`}</b></li>)}
+            </ul>
+            <p className="note">{`UP TO LV ${lv.cap} · EVERY SEASON ADDS UP · A REVERT TAKES NO XP BACK`}</p>
+          </div>
+        </div>
       </section>
     ),
   };
