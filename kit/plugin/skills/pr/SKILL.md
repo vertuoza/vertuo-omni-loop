@@ -47,8 +47,8 @@ null, say so in the body's **Verified** line and in the status comment.
 The loop signs its own work with two lines the CLI prints, so no skill spells a name or an address.
 
 - **Every commit** this skill makes (the claim, a fix, a resolved conflict) ends with the co-author
-  trailer your session requires, then the line `omni sign trailer` prints, directly under it so
-  both stay in the message's trailer block.
+  trailer your session requires, then the line `omni sign trailer` prints as the message's last
+  line, with no blank line between them.
 - **Every pull request** this skill opens, of any kind, ends its body with the line
   `omni sign footer` prints, as a paragraph of its own just above your session's own attribution
   lines (last, when the session adds none). A body rewritten later keeps that line.

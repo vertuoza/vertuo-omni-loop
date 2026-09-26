@@ -11,10 +11,11 @@ description: Build a whole PRD with nothing asked along the way — plan it if n
 branch shape or command you can read with `omni config <key>`.
 
 **Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
-then the line `omni sign trailer` prints, directly under it so both stay in the trailer block. Every
-pull request or issue it opens ends its body with the line `omni sign footer` prints, as a paragraph
-of its own just above your session's own attribution lines, and a body it rewrites keeps that line.
-Comments are never signed. A command that prints nothing means signing is off here: add nothing.
+then the line `omni sign trailer` prints as the message's last line, with no blank line between
+them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
+a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
+that line. Comments are never signed. A command that prints nothing means signing is off here: add
+nothing.
 
 **It asks nothing.** Every decision a slice meets becomes an outbox item (`/omni:do-work` records it
 and carries on); a person reads them all once, at the end, on the feature PR. Only `stopped` and
