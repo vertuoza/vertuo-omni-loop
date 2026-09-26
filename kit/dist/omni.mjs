@@ -11569,6 +11569,7 @@ var ConfigSchema = external_exports.object({
     slice: text.default("feat/{topic}--{slice}"),
     rework: text.default("fix-{item}"),
     retro: text.default("docs/retro-{topic}"),
+    knowledge: text.default("docs/knowledge-{topic}"),
     invade: text.default("docs/omni-invade")
   }),
   worktrees: text.default(".claude/worktrees"),
@@ -11589,6 +11590,7 @@ var ConfigSchema = external_exports.object({
     needsFix: text.default("omni:needs-fix"),
     outboxGo: text.default("omni:outbox-go"),
     retro: text.default("omni:retro"),
+    knowledge: text.default("omni:knowledge"),
     autoCreate: external_exports.boolean().default(false)
   }),
   prLinks: section({
@@ -14011,10 +14013,11 @@ var ID_SHAPE = new RegExp(`^(?:${ID_SOURCE})$`);
 var ID_TOKEN = new RegExp(`\\b(?:${ID_SOURCE})\\b`, "g");
 var ENTRY_HEADING = new RegExp(`^##\\s+(${ID_SOURCE})\\s*$`);
 var ANY_H2 = /^##\s/;
-var FIELD_LINE = /^(Why|Decided|Source|Serves|Enforced by|Stated|Proposed|Kind|Kept id|Glossary term):\s*(.*)$/;
+var FIELD_LINE = /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed|Kind|Kept id|Glossary term):\s*(.*)$/;
 var FIELD_KEY = {
   Why: "why",
   Decided: "decided",
+  Merged: "merged",
   Source: "source",
   Serves: "serves",
   "Enforced by": "enforcedBy",
@@ -14111,6 +14114,7 @@ function parseEntryFile(file, text2, place) {
       statement,
       why: fields.why ?? null,
       decided: fields.decided ?? null,
+      merged: fields.merged ?? null,
       source: fields.source ?? null,
       serves: fields.serves ?? null,
       enforcedBy,
@@ -16957,7 +16961,8 @@ var LABEL_STYLES = {
   inProgress: { color: "fbca04", description: "Omni Loop: an agent is working on this pull request" },
   needsFix: { color: "d93f0b", description: "Omni Loop: this pull request needs a fix before it can move" },
   outboxGo: { color: "1d76db", description: "Omni Loop: a person lets the outbox gate pass" },
-  retro: { color: "d4c5f9", description: "Omni Loop: the retro of a merged PRD \u2014 its retro pull request, or one finding to act on" }
+  retro: { color: "d4c5f9", description: "Omni Loop: the retro of a merged PRD \u2014 its retro pull request, or one finding to act on" },
+  knowledge: { color: "c2e0c6", description: "Omni Loop: the knowledge pull request harvested from a merged PRD" }
 };
 function loopLabels(labels) {
   const seen = /* @__PURE__ */ new Set();

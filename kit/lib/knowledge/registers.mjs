@@ -23,6 +23,9 @@
  * marks an entry whose id predates the layout and whose prefix is therefore not its domain's code.
  * A domain's **code** is its folder name uppercased with the hyphens removed.
  *
+ * An entry the knowledge harvest wrote (PRD #82) carries `Merged: @<who>, <date>, PR #<n>` beside
+ * its `Decided:` line: who merged the feature pull request the decision came from, and when.
+ *
  * Any entry may carry `Proposed: <who> <YYYY-MM-DD>` (PRD #68): no person has confirmed it yet. Its
  * id resolves, but it is no law — `laws.floorsHigh` is false for it — until a person removes the line.
  *
@@ -62,12 +65,13 @@ export const ID_TOKEN = new RegExp(`\\b(?:${ID_SOURCE})\\b`, 'g');
 const ENTRY_HEADING = new RegExp(`^##\\s+(${ID_SOURCE})\\s*$`);
 const ANY_H2 = /^##\s/;
 const FIELD_LINE =
-  /^(Why|Decided|Source|Serves|Enforced by|Stated|Proposed|Kind|Kept id|Glossary term):\s*(.*)$/;
+  /^(Why|Decided|Merged|Source|Serves|Enforced by|Stated|Proposed|Kind|Kept id|Glossary term):\s*(.*)$/;
 
 /** The field names as they appear on a parsed entry. */
 const FIELD_KEY = {
   Why: 'why',
   Decided: 'decided',
+  Merged: 'merged',
   Source: 'source',
   Serves: 'serves',
   'Enforced by': 'enforcedBy',
@@ -201,6 +205,7 @@ export function parseEntryFile(file, text, place) {
       statement,
       why: fields.why ?? null,
       decided: fields.decided ?? null,
+      merged: fields.merged ?? null,
       source: fields.source ?? null,
       serves: fields.serves ?? null,
       enforcedBy,

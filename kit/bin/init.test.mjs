@@ -48,7 +48,7 @@ function fakeExec({ slug = 'acme/widgets', defaultBranch = 'trunk', ghFails = fa
   return { exec, calls };
 }
 
-const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro'];
+const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge'];
 const labelCalls = (calls, verb) => calls.filter((args) => args[0] === 'label' && args[1] === verb);
 const created = (calls) => labelCalls(calls, 'create').map((args) => args[2]);
 const edits = (calls) => calls.filter((args) => args[0] === 'label' && !['list', 'create'].includes(args[1]));
@@ -209,6 +209,17 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     }
   });
 
+  it('writes neither knowledge key, and omni config still names the knowledge label and branch', async () => {
+    const { root, read } = makeRepo({ git: true });
+    await init(root);
+    expect(read('.omni-loop/config.yml')).not.toMatch(/knowledge:/);
+    for (const [key, value] of [['labels.knowledge', 'omni:knowledge'], ['branches.knowledge', 'docs/knowledge-{topic}']]) {
+      const s = io();
+      expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
+      expect(s.out.join('')).toBe(`${value}\n`);
+    }
+  });
+
   it('picks the package manager from the lockfile, and preflight / preflight:full scripts', async () => {
     const scripts = JSON.stringify({ scripts: { test: 'x', preflight: 'x', 'preflight:full': 'x' } });
     for (const [lock, pm] of [['yarn.lock', 'yarn'], ['bun.lockb', 'bun'], ['bun.lock', 'bun'], [null, 'npm']]) {
@@ -326,14 +337,14 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
     const fake = fakeExec({ labels: [{ name: 'omni:prd', color: 'ffffff' }, { name: 'omni:sub', color: '000000' }, { name: 'bug' }] });
     const { code, out, calls } = await init(root, [], { fake });
     expect(code).toBe(0);
-    expect(created(calls)).toEqual(['omni:phase-0', 'omni:feature', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro']);
+    expect(created(calls)).toEqual(['omni:phase-0', 'omni:feature', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge']);
     expect(edits(calls)).toEqual([]);
     for (const args of labelCalls(calls, 'create')) {
       expect(args).not.toContain('--force');
       expect(args[args.indexOf('--color') + 1]).toMatch(/^[0-9a-f]{6}$/);
       expect(args[args.indexOf('--description') + 1]).toMatch(/\S/);
     }
-    expect(out).toMatch(/labels\s+created omni:phase-0, omni:feature, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro\s+\(already there: omni:prd, omni:sub\)\n/);
+    expect(out).toMatch(/labels\s+created omni:phase-0, omni:feature, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge\s+\(already there: omni:prd, omni:sub\)\n/);
   });
 
   it('creates omni:retro with its colour and description when it is missing', async () => {
@@ -352,6 +363,25 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
     const fake = fakeExec({ labels: [{ name: 'omni:retro', color: '000000', description: 'ours' }] });
     await init(root, [], { fake });
     expect(created(fake.calls)).not.toContain('omni:retro');
+    expect(edits(fake.calls)).toEqual([]);
+  });
+
+  it('creates omni:knowledge with its colour and description when it is missing', async () => {
+    const { root } = makeRepo({ git: true });
+    const fake = fakeExec({ labels: LOOP_LABELS.filter((name) => name !== 'omni:knowledge').map((name) => ({ name })) });
+    const { code, out } = await init(root, [], { fake });
+    expect(code).toBe(0);
+    expect(labelCalls(fake.calls, 'create')).toEqual([
+      ['label', 'create', 'omni:knowledge', '--color', LABEL_STYLES.knowledge.color, '--description', LABEL_STYLES.knowledge.description],
+    ]);
+    expect(out).toMatch(/labels\s+created omni:knowledge\s+\(already there: /);
+  });
+
+  it('leaves an existing omni:knowledge alone, whatever its colour and description', async () => {
+    const { root } = makeRepo({ git: true });
+    const fake = fakeExec({ labels: [{ name: 'omni:knowledge', color: '000000', description: 'ours' }] });
+    await init(root, [], { fake });
+    expect(created(fake.calls)).not.toContain('omni:knowledge');
     expect(edits(fake.calls)).toEqual([]);
   });
 
@@ -389,7 +419,7 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/bin/omni.mjs': 'bin\n' } });
     const fake = fakeExec();
     await init(root, [], { fake });
-    expect(created(fake.calls)).toEqual(['epic', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'ship-it', 'omni:retro']);
+    expect(created(fake.calls)).toEqual(['epic', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'ship-it', 'omni:retro', 'omni:knowledge']);
   });
 
   it('with an invalid config and no --force, creates no label', async () => {
@@ -423,8 +453,8 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
     };
     const { code, out } = await init(root, [], { fake: { exec, calls: base.calls } });
     expect(code).toBe(0);
-    expect(created(base.calls)).toEqual(['omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro']);
-    expect(out).toMatch(/labels\s+created omni:phase-0, omni:feature, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro\s+\(already there: omni:prd\)\n/);
+    expect(created(base.calls)).toEqual(['omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge']);
+    expect(out).toMatch(/labels\s+created omni:phase-0, omni:feature, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge\s+\(already there: omni:prd\)\n/);
     expect(out).toContain('  labels  gh could not create omni:sub — see step 3 below\n');
     expect(out).toContain('  3. Create the labels gh could not create:\n       https://github.com/acme/widgets/labels\n       omni:sub\n');
   });
@@ -526,7 +556,7 @@ const FIRST_RUN = [
   '  wrote   .omni-loop/config.yml',
   '  wrote   .omni-loop/bin/omni.mjs',
   ...FORM_FILES.map((path) => `  wrote   ${path}`),
-  '  labels  created omni:prd, omni:phase-0, omni:feature, omni:sub, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro',
+  '  labels  created omni:prd, omni:phase-0, omni:feature, omni:sub, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge',
   '',
   'Commit .omni-loop/ and merge it into trunk, then, by hand:',
   '  1. Install the omni plugin in Claude Code:',
