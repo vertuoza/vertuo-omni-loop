@@ -56,6 +56,23 @@ function skillFrontmatterViolations(root) {
   return out;
 }
 
+/** Skill names the plugin retired, and the skill that replaced each (PRD #68). */
+const RETIRED_SKILLS = { terraform: 'invade' };
+
+/** No skill folder, and no SKILL.md `name`, uses a retired skill name. */
+function retiredSkillViolations(root) {
+  const out = [];
+  for (const file of skillFiles(root)) {
+    const folder = file.split('/').at(-2);
+    if (Object.hasOwn(RETIRED_SKILLS, folder)) out.push(`${file}: the ${folder} skill was renamed ${RETIRED_SKILLS[folder]}`);
+    const data = existsSync(join(root, file)) ? frontmatter(readFileSync(join(root, file), 'utf8')) : null;
+    if (data && Object.hasOwn(RETIRED_SKILLS, data.name) && data.name !== folder) {
+      out.push(`${file}: names itself ${data.name}, renamed ${RETIRED_SKILLS[data.name]}`);
+    }
+  }
+  return out;
+}
+
 /** Every `omni <command>` a SKILL.md names is a key of the command table. */
 function unknownCommandViolations(root, commands) {
   const out = [];
@@ -142,6 +159,11 @@ describe('the omni plugin in this repository', () => {
     expect(manifestViolations(repoRoot)).toEqual([]);
   });
 
+  it('no skill carries a retired name, and /omni:invade is there', () => {
+    expect(retiredSkillViolations(repoRoot)).toEqual([]);
+    expect(frontmatter(readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/invade/SKILL.md'), 'utf8')).name).toBe('invade');
+  });
+
   it.skipIf(!claude)(`claude plugin validate passes on the plugin and the marketplace${reason}`, () => {
     expect(claudeValidate(join(repoRoot, PLUGIN_DIR))).toBeNull();
     expect(claudeValidate(repoRoot)).toBeNull();
@@ -181,6 +203,19 @@ describe('the plugin guard catches what it is for', () => {
       'kit/plugin/skills/bare/SKILL.md: no parseable frontmatter',
       'kit/plugin/skills/empty/SKILL.md: missing',
       'kit/plugin/skills/half/SKILL.md: frontmatter lacks description',
+    ]);
+  });
+
+  it('flags a skill named terraform, by its folder or by its name', () => {
+    expect(retiredSkillViolations(fixture(GOOD))).toEqual([]);
+    const root = fixture({
+      ...GOOD,
+      [join(PLUGIN_DIR, 'skills/terraform/SKILL.md')]: '---\nname: terraform\ndescription: d\n---\n',
+      [join(PLUGIN_DIR, 'skills/fill/SKILL.md')]: '---\nname: terraform\ndescription: d\n---\n',
+    });
+    expect(retiredSkillViolations(root)).toEqual([
+      'kit/plugin/skills/fill/SKILL.md: names itself terraform, renamed invade',
+      'kit/plugin/skills/terraform/SKILL.md: the terraform skill was renamed invade',
     ]);
   });
 

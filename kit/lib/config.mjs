@@ -45,7 +45,7 @@ export const ConfigSchema = z
       slice: text.default('feat/{topic}--{slice}'),
       rework: text.default('fix-{item}'),
       retro: text.default('docs/retro-{topic}'),
-      terraform: text.default('docs/omni-terraform'),
+      invade: text.default('docs/omni-invade'),
     }),
     worktrees: text.default('.claude/worktrees'),
     paths: section({
@@ -124,6 +124,17 @@ export const ConfigSchema = z
   })
   .strict();
 
+/** Keys a config once held under another name (PRD #68): refused, naming the key that replaced them,
+ * never read as an alias — a person set them by hand, and a clear error beats a silent alias. */
+const RENAMED = Object.freeze([{ section: 'branches', from: 'terraform', to: 'invade' }]);
+
+function renamedKey(raw) {
+  return RENAMED.find(({ section: name, from }) => {
+    const value = raw?.[name];
+    return value !== null && typeof value === 'object' && Object.hasOwn(value, from);
+  });
+}
+
 function describeIssue(issue) {
   const path = issue.path.join('.') || '(top level)';
   const keys = issue.code === 'unrecognized_keys' ? ` (unrecognized: ${issue.keys.join(', ')})` : '';
@@ -141,6 +152,11 @@ export function parseConfig(source, file = CONFIG_FILE) {
   } catch (error) {
     throw new ConfigError(`${file}: not valid YAML — ${error.message.split('\n')[0]}`);
   }
+  const renamed = renamedKey(raw);
+  if (renamed) {
+    const { section: name, from, to } = renamed;
+    throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed — call it ${name}.${to}`);
+  }
   const result = ConfigSchema.safeParse(raw);
   if (!result.success) {
     const [first, ...others] = result.error.issues.map(describeIssue);
@@ -154,7 +170,7 @@ export function parseConfig(source, file = CONFIG_FILE) {
 export function loadConfig(root) {
   const file = join(root, CONFIG_FILE);
   if (!existsSync(file)) {
-    throw new ConfigError(`This repository is not terraformed: ${CONFIG_FILE} is missing. Run \`omni-loop init\`.`);
+    throw new ConfigError(`This repository is not installed: ${CONFIG_FILE} is missing. Run \`omni-loop init\`.`);
   }
   return parseConfig(readFileSync(file, 'utf8'), CONFIG_FILE);
 }

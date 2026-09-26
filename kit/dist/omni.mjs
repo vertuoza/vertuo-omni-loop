@@ -11568,7 +11568,7 @@ var ConfigSchema = external_exports.object({
     slice: text.default("feat/{topic}--{slice}"),
     rework: text.default("fix-{item}"),
     retro: text.default("docs/retro-{topic}"),
-    terraform: text.default("docs/omni-terraform")
+    invade: text.default("docs/omni-invade")
   }),
   worktrees: text.default(".claude/worktrees"),
   paths: section({
@@ -11637,6 +11637,13 @@ var ConfigSchema = external_exports.object({
   ask: section({ url: askUrl.nullable().default(null) }),
   markers: section({ prefix: external_exports.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") })
 }).strict();
+var RENAMED = Object.freeze([{ section: "branches", from: "terraform", to: "invade" }]);
+function renamedKey(raw) {
+  return RENAMED.find(({ section: name, from }) => {
+    const value = raw?.[name];
+    return value !== null && typeof value === "object" && Object.hasOwn(value, from);
+  });
+}
 function describeIssue(issue) {
   const path = issue.path.join(".") || "(top level)";
   const keys = issue.code === "unrecognized_keys" ? ` (unrecognized: ${issue.keys.join(", ")})` : "";
@@ -11648,6 +11655,11 @@ function parseConfig(source, file = CONFIG_FILE) {
     raw = (0, import_yaml.parse)(source) ?? {};
   } catch (error) {
     throw new ConfigError(`${file}: not valid YAML \u2014 ${error.message.split("\n")[0]}`);
+  }
+  const renamed = renamedKey(raw);
+  if (renamed) {
+    const { section: name, from, to } = renamed;
+    throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed \u2014 call it ${name}.${to}`);
   }
   const result = ConfigSchema.safeParse(raw);
   if (!result.success) {
@@ -11661,7 +11673,7 @@ ${others.map((line) => `  - ${line}`).join("\n")}` : "";
 function loadConfig(root) {
   const file = join(root, CONFIG_FILE);
   if (!existsSync(file)) {
-    throw new ConfigError(`This repository is not terraformed: ${CONFIG_FILE} is missing. Run \`omni-loop init\`.`);
+    throw new ConfigError(`This repository is not installed: ${CONFIG_FILE} is missing. Run \`omni-loop init\`.`);
   }
   return parseConfig(readFileSync(file, "utf8"), CONFIG_FILE);
 }
@@ -11702,6 +11714,8 @@ var FORMS = Object.freeze([
 var FORM_IDS = Object.freeze(FORMS.map((entry) => entry.id));
 var DECISIONS_FORM = "decisions";
 var FORM_STATES = ["blank", "filled", "pointer"];
+var OLD_DATE_KEY = "terraformed";
+var OLD_BY = "terraform";
 var DATE = /^\d{4}-\d{2}-\d{2}$/;
 var EVIDENCE = /^(.+)@([0-9a-f]{7,40})$/;
 var FrontMatterSchema = external_exports.object({
@@ -11710,9 +11724,16 @@ var FrontMatterSchema = external_exports.object({
   state: external_exports.enum(FORM_STATES),
   "points-to": external_exports.string().min(1).nullable(),
   evidence: external_exports.array(external_exports.string().regex(EVIDENCE, "each entry is <path>@<hex>, the file at its git hash-object")).nullable(),
-  terraformed: external_exports.string().regex(DATE, "a YYYY-MM-DD date").nullable(),
+  invaded: external_exports.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
+  [OLD_DATE_KEY]: external_exports.string().regex(DATE, "a YYYY-MM-DD date").nullable().optional(),
   index: external_exports.string().min(1).optional()
 }).strict().superRefine((fm, context) => {
+  if (fm.invaded === void 0 && fm[OLD_DATE_KEY] === void 0) {
+    context.addIssue({ code: "custom", path: ["invaded"], message: "missing \u2014 a YYYY-MM-DD date, or null" });
+  }
+  if (fm.invaded !== void 0 && fm[OLD_DATE_KEY] !== void 0) {
+    context.addIssue({ code: "custom", path: [OLD_DATE_KEY], message: "is the old spelling of invaded \u2014 keep invaded only" });
+  }
   const pointer = fm.state === "pointer";
   if (pointer && fm["points-to"] === null) {
     context.addIssue({ code: "custom", path: ["points-to"], message: "a pointer form names the path it points to" });
@@ -11729,7 +11750,7 @@ var TITLE = /^#\s+(.+?)\s*$/;
 var HEADING = /^##\s+(.+?)\s*$/;
 var FENCE = /^\s*(?:```|~~~)/;
 var MARKER_START = /^<!--\s*slot:/;
-var MARKER = /^<!--\s*slot:\s*([a-z][a-z0-9-]*)\s*·\s*(required|optional)(?:\s*·\s*by:\s*(terraform|human))?(?:\s*·\s*verified:\s*(\d{4}-\d{2}-\d{2}))?\s*-->$/;
+var MARKER = /^<!--\s*slot:\s*([a-z][a-z0-9-]*)\s*·\s*(required|optional)(?:\s*·\s*by:\s*(invade|human|terraform))?(?:\s*·\s*verified:\s*(\d{4}-\d{2}-\d{2}))?\s*-->$/;
 var COMMENT = /<!--[\s\S]*?-->/g;
 var SEE = /^See:\s+([^\s#]+)(?:#(\S+))?$/;
 var HOLE = /^(?:[-*]\s+)?TODO\(human\):\s*(.*\S)\s*$/;
@@ -11799,6 +11820,8 @@ function parseForm(text2, { file = null } = {}) {
   const { head, sections } = splitSections(body.split(/\r?\n/));
   const slots = [];
   const unmarked = [];
+  const oldSpellings = [];
+  if (data?.[OLD_DATE_KEY] !== void 0) oldSpellings.push({ where: "front matter", old: `${OLD_DATE_KEY}:`, now: "invaded:" });
   for (const { heading, lines } of sections) {
     const at = lines.findIndex((line) => line.trim() !== "");
     const first = at === -1 ? "" : lines[at].trim();
@@ -11808,7 +11831,7 @@ function parseForm(text2, { file = null } = {}) {
     }
     const marker = first.match(MARKER);
     if (!marker) {
-      errors.push(withFile(file, `"## ${heading}": malformed slot marker ${first} \u2014 want <!-- slot: <id> \xB7 required|optional[ \xB7 by: terraform|human][ \xB7 verified: YYYY-MM-DD] -->`));
+      errors.push(withFile(file, `"## ${heading}": malformed slot marker ${first} \u2014 want <!-- slot: <id> \xB7 required|optional[ \xB7 by: invade|human][ \xB7 verified: YYYY-MM-DD] -->`));
       continue;
     }
     const [, id, need, by, verified] = marker;
@@ -11816,11 +11839,12 @@ function parseForm(text2, { file = null } = {}) {
       errors.push(withFile(file, `slot "${id}" appears twice`));
       continue;
     }
+    if (by === OLD_BY) oldSpellings.push({ where: `"## ${heading}"`, old: `by: ${OLD_BY}`, now: "by: invade" });
     slots.push({
       id,
       heading,
       required: need === "required",
-      by: by ?? null,
+      by: by === OLD_BY ? "invade" : by ?? null,
       verified: verified ?? null,
       body: readBody(lines.slice(at + 1).join("\n"))
     });
@@ -11838,7 +11862,8 @@ function parseForm(text2, { file = null } = {}) {
         const [, path, hash] = entry.match(EVIDENCE);
         return { path, hash };
       }),
-      terraformed: data.terraformed,
+      invaded: data.invaded !== void 0 ? data.invaded : data[OLD_DATE_KEY],
+      oldSpellings,
       ...readHead(head),
       slots,
       unmarked,
@@ -13978,7 +14003,7 @@ var ID_SHAPE = new RegExp(`^(?:${ID_SOURCE})$`);
 var ID_TOKEN = new RegExp(`\\b(?:${ID_SOURCE})\\b`, "g");
 var ENTRY_HEADING = new RegExp(`^##\\s+(${ID_SOURCE})\\s*$`);
 var ANY_H2 = /^##\s/;
-var FIELD_LINE = /^(Why|Decided|Source|Serves|Enforced by|Stated|Kind|Kept id|Glossary term):\s*(.*)$/;
+var FIELD_LINE = /^(Why|Decided|Source|Serves|Enforced by|Stated|Proposed|Kind|Kept id|Glossary term):\s*(.*)$/;
 var FIELD_KEY = {
   Why: "why",
   Decided: "decided",
@@ -13986,6 +14011,7 @@ var FIELD_KEY = {
   Serves: "serves",
   "Enforced by": "enforcedBy",
   Stated: "stated",
+  Proposed: "proposedLine",
   Kind: "kindLine",
   "Kept id": "keptId",
   "Glossary term": "glossaryTerm"
@@ -14030,6 +14056,18 @@ function readFields(lines) {
   });
   return { fields, counts, fieldAt };
 }
+var PROPOSED_VALUE = /^(\S.*?)\s+(\d{4}-\d{2}-\d{2})$/;
+function readProposed(file, id, value) {
+  if (value === void 0) return { proposed: null, problems: [] };
+  const match = value.match(PROPOSED_VALUE);
+  if (match && !/\d{4}-\d{2}-\d{2}$/.test(match[1])) {
+    return { proposed: { by: match[1], on: match[2] }, problems: [] };
+  }
+  return {
+    proposed: { by: null, on: null },
+    problems: [`${file}: ${id} \u2014 "Proposed: ${value}" is not "Proposed: <who> <YYYY-MM-DD>".`]
+  };
+}
 function splitEntries(text2) {
   const entries = [];
   let current = null;
@@ -14054,6 +14092,7 @@ function parseEntryFile(file, text2, place) {
     const statement = (fieldAt === -1 ? lines : lines.slice(0, fieldAt)).filter((line) => line.trim().length > 0).join(" ").trim();
     const kind = place.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
     const enforcedBy = fields.enforcedBy ?? null;
+    const { proposed, problems } = readProposed(file, id, fields.proposedLine);
     return {
       id,
       kind,
@@ -14069,9 +14108,11 @@ function parseEntryFile(file, text2, place) {
       enforcedBy,
       enforced: enforcedBy !== null && enforcedBy !== "unenforced",
       stated: fields.stated ?? null,
+      proposed,
       kindLine: fields.kindLine ?? null,
       keptId: fields.keptId ?? null,
-      fieldCounts: counts
+      fieldCounts: counts,
+      problems
     };
   });
 }
@@ -14158,6 +14199,19 @@ function readRegisters({ ctx }) {
     rules: entries.filter((entry) => entry.kind === "rule"),
     invariants: entries.filter((entry) => entry.kind === "invariant")
   };
+}
+function registerCounts({ ctx }) {
+  const knowledge2 = readKnowledge({ ctx });
+  const folders = [
+    ...knowledge2.productFiles.length > 0 ? [productDir(ctx)] : [],
+    ...knowledge2.domains.map((domain) => `${domainsDir(ctx)}/${domain.name}`),
+    ...knowledge2.crossDomainFiles.length > 0 ? [crossDomainDir(ctx)] : []
+  ];
+  return folders.map((folder) => {
+    const held = knowledge2.entries.filter((entry) => entry.file.startsWith(`${folder}/`));
+    const proposals = held.filter((entry) => entry.proposed !== null).length;
+    return { folder, laws: held.length - proposals, proposals };
+  });
 }
 function resolveId(id, { ctx }) {
   return readKnowledge({ ctx }).entries.find((entry) => entry.id === id) ?? null;
@@ -14363,8 +14417,8 @@ import { join as join14 } from "node:path";
 function violation(file, id, detail) {
   return { file, id, detail };
 }
-function formatViolation({ file, id, detail }) {
-  return `${file}: ${id} \u2014 ${detail}`;
+function formatViolation({ file, id, detail, text: text2 }) {
+  return text2 ?? `${file}: ${id} \u2014 ${detail}`;
 }
 var STATED_DATE = /^\d{4}-\d{2}-\d{2}$/;
 var PATH_LIKE = /^[\w.@-]+(?:\/[\w.@-]+)+(?:#\S*)?$/;
@@ -14606,6 +14660,7 @@ function findEntryViolations(ctx, entries) {
   const violations = [];
   for (const entry of entries) {
     violations.push(...idShapeViolations(entry));
+    violations.push(...(entry.problems ?? []).map((problem) => ({ text: problem })));
     if (entry.scope === "cross-domain" && !entry.kind) {
       violations.push(
         violation(entry.file, entry.id, 'is missing a "Kind: rule" or "Kind: invariant" line.')
@@ -14642,7 +14697,7 @@ function findEntryViolations(ctx, entries) {
         );
       }
       if (!entry.why) violations.push(violation(entry.file, entry.id, 'is missing a "Why:" line.'));
-      if (!entry.decided) {
+      if (!entry.decided && entry.proposed === null) {
         violations.push(violation(entry.file, entry.id, 'is missing a "Decided:" line.'));
       }
       continue;
@@ -14680,6 +14735,15 @@ function findWishes(entries) {
     (entry) => violation(entry.file, entry.id, "is a wish \u2014 no rule or invariant serves it yet.")
   );
 }
+function findProposals(entries) {
+  return entries.filter((entry) => entry.proposed !== null && entry.proposed.by !== null).map(
+    (entry) => violation(
+      entry.file,
+      entry.id,
+      `is proposed by ${entry.proposed.by} on ${entry.proposed.on} \u2014 not a law until a person removes its "Proposed:" line.`
+    )
+  );
+}
 function gradeKnowledge({ ctx, files = [], glossaryText } = {}) {
   const knowledge2 = readKnowledge({ ctx });
   const resolve = (id) => knowledge2.entries.find((entry) => entry.id === id);
@@ -14694,7 +14758,8 @@ function gradeKnowledge({ ctx, files = [], glossaryText } = {}) {
   ];
   return {
     violations: violations.map(formatViolation),
-    wishes: findWishes(knowledge2.entries).map(formatViolation)
+    wishes: findWishes(knowledge2.entries).map(formatViolation),
+    proposals: findProposals(knowledge2.entries).map(formatViolation)
   };
 }
 
@@ -14754,7 +14819,7 @@ function lawsFor(ctx) {
     return { ok: false, reason: `${bearsOn}: not none, an ADR-NNNN or a knowledge id` };
   }
   function floorsHigh(bearsOn) {
-    if (source === "knowledge") return ID_SHAPE.test(bearsOn);
+    if (source === "knowledge") return ID_SHAPE.test(bearsOn) && !resolveId(bearsOn, { ctx })?.proposed;
     if (source === "claudeMdInvariants") return invariantSet().has(bearsOn);
     return false;
   }
@@ -15277,7 +15342,7 @@ init_define_OMNI_BUNDLE();
 import { readdirSync as readdirSync8, readFileSync as readFileSync14 } from "node:fs";
 import { join as join18, posix as posix2 } from "node:path";
 import { fileURLToPath } from "node:url";
-var BUNDLED = false ? null : JSON.parse('{"README.md":"<!-- Ported from vertuo-ai-domain@db67fd9da:docs/knowledge/README.md \u2014 changes in kit/porting/templates--front-door.md -->\\n\\n# Knowledge\\n\\nUse this page when you need to know what is true about the product, or how to work in this\\nrepository. Start here even when the knowledge lives elsewhere: anything kept somewhere else has a\\npointer here.\\n\\n## Two halves\\n\\n- **What is true.** The knowledge registers, in `{config:paths.knowledge}`: principles (a person\'s\\n  decision about what the product should be), business rules (what may or may not happen, each\\n  serving one principle) and invariants (what must always hold in the code). Decisions about how it\\n  is built are decision records, in `{config:paths.adr}`.\\n- **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent\\n  asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what\\n  a pull request looks like; what a merge publishes; the rules that cost the most when broken.\\n\\n## How a form is read\\n\\nThe skills never read a form\'s file: they call `omni kb show <form>`, which resolves it section by\\nsection, and says where each section came from. Top wins:\\n\\n1. **A pointer.** The whole form points at a page the repository already has, or one section does,\\n   with a `See:` line. Nothing is copied.\\n2. **The repository\'s section.** What only this repository knows, written from evidence, or by a\\n   person.\\n3. **The kit default.** Doctrine every repository shares. It ships with the kit, so a section left\\n   blank here improves when the kit is upgraded.\\n\\nA question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile.\\n`omni kb status` lists every form, its state, and its open questions.\\n","playbook/architecture.md":"---\\nform: architecture\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:AGENTS.md#boundaries and libs/LIBRARY_STYLE_RULES.md \u2014 changes in kit/porting/templates--architecture.md -->\\n\\n# Architecture\\n\\nUse this page when deciding where code goes, and what it may depend on.\\n\\n## Layout\\n<!-- slot: layout \xB7 required -->\\nA package\'s name says which layer it belongs to, so a boundary is legible from the tree alone.\\nScripts that orchestrate the whole repository live in one place at its root, never inside a package.\\n\\n## Boundaries\\n<!-- slot: boundaries \xB7 required -->\\n- Dependencies point down, from the apps through the layers to the infrastructure wrappers. A lower\\n  layer never imports a higher one.\\n- What two layers both need, and that knows nothing of either, moves down to the lowest layer, so\\n  each reaches it without an edge that points up.\\n- Separate product areas never import each other\'s domain code; they meet in exactly one place, the\\n  app\'s composition root.\\n- A boundary is enforced by a check wherever one can be. Name the check beside the rule; a rule only\\n  review enforces says so.\\n\\n## Patterns\\n<!-- slot: patterns \xB7 optional -->\\n- Every value that crosses a system boundary (config, external input, an API contract, a service\\n  interface) is validated there by a schema, and its type is derived from that schema.\\n- Storage is reached through one layer. Only that layer runs queries; the logic above it calls it\\n  and never touches the database; the transport above that calls the logic, never the storage.\\n- A file\'s name says its role.\\n","playbook/briefing.md":"---\\nform: briefing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md \u2014 changes in kit/porting/templates--briefing.md -->\\n\\n# Briefing\\n\\nUse this page when a session starts: the rules that cost the most when broken.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- Never merge into `{config:repo.defaultBranch}`. A person does.\\n- Before you decide anything the spec does not settle, read the knowledge the change touches. Take\\n  the most reversible option and record the decision as an outbox item; two principles pulling\\n  against each other stop that slice.\\n- Never lower a coverage floor or add a suppression to turn a check green.\\n- Never reformat files you did not change: format only what you touched.\\n- A red check on your pull request is yours to fix. Read the CI page first; after\\n  `{config:limits.attempts}` attempts, leave a comment saying what is stuck.\\n- A pull request you own carries `{config:labels.inProgress}` and a status comment you keep current,\\n  until it is green or stuck.\\n\\n## Hooks\\n<!-- slot: hooks \xB7 optional -->\\nA hook that refuses a commit or a push names what to fix: fix the cause, and never bypass the hook.\\nAn escape hatch that skips one exists for emergencies only, and the pull request says why it was\\nused.\\n\\n## Where to read next\\n<!-- slot: next \xB7 optional -->\\nThe rest of this playbook, one form per question, through `omni kb show <form>`; the knowledge\\nregisters in `{config:paths.knowledge}`, which say what is true about the product; and the decision\\nrecords in `{config:paths.adr}`, which say how it is built.\\n","playbook/bug-fixing.md":"---\\nform: bug-fixing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/bug-fixing.md \u2014 changes in kit/porting/templates--bug-fixing.md -->\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain\'s own words, and\\n   run it before any fix: it must fail. If it passes, stop; it misses the bug, or the bug is gone.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test. Otherwise the pull request says\\n`Guard: none \u2014 <reason>`. A regression test that lets small mutations of the fixed lines pass is not\\nguarding the fix.\\n","playbook/ci.md":"---\\nform: ci\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/ci-triage.md \u2014 changes in kit/porting/templates--ci.md -->\\n\\n# CI\\n\\nUse this page when a check on your pull request is red.\\n\\n## Workflows\\n<!-- slot: workflows \xB7 required -->\\nEvery job carries a timeout, so a stuck job still ends its run. A run whose jobs all sit queued,\\nnone ever starting, usually names a runner nothing answers to: check the runner settings before\\nassuming an outage.\\n\\n## What gates a merge\\n<!-- slot: gating \xB7 required -->\\n- No checks at all on a pull request, rather than a red one, usually means it conflicts with its\\n  base: no workflow runs when the merge commit cannot be built. Check that it merges first.\\n- A draft runs no CI, and a sub-pull request into a feature branch never does. Marking a draft\\n  ready is what grades it.\\n- An aggregate check counts a skipped job as a failure, and a red build skips the jobs after it:\\n  fix the build first.\\n- A green pull request whose merge turns `{config:repo.defaultBranch}` red missed a dependency its\\n  checks could not see. Fix it forward; revert only when the product is down.\\n\\n## Known reds\\n<!-- slot: known-reds \xB7 optional -->\\nA red that is not a finding is listed here: its signature, the one check that rules your branch\\nout, and what to do. Anything not listed is yours to fix. A known red that was fixed is a finding\\nagain on a branch that contains the fix.\\n\\nA flaky test not fixed in one focused attempt is quarantined: skipped with its issue in the reason,\\nand listed here so the count stays visible.\\n\\n## When to re-run\\n<!-- slot: rerun \xB7 optional -->\\nA re-run is allowed only when both hold: the failure matches a known red, and your branch changes\\nnothing the red names. One re-run at most, and it counts as one of the `{config:limits.attempts}`\\nrepair attempts; red again, it is a finding. A run a later push superseded is never re-run: read the\\nlatest run instead.\\n","playbook/conventions.md":"---\\nform: conventions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md, docs/agents/definition-of-done.md#commit-shape and docs/adr/0058-identifiers-are-english-interface-copy-is-french.md \u2014 changes in kit/porting/templates--conventions.md -->\\n\\n# Conventions\\n\\nUse this page when naming things, formatting files, or shaping commits.\\n\\n## Naming\\n<!-- slot: naming \xB7 optional -->\\nIdentifiers and the words a user reads are separate questions. Identifiers (types, functions,\\nfiles, packages, tables and columns, routes, message keys, stored values, config keys) use one\\nlanguage, the one the code already uses. Interface copy follows the product\'s own language rules.\\nConflating the two is what lets a label leak into a table name; keeping them apart lets either move\\nwithout touching the other.\\n\\n## Formatting\\n<!-- slot: formatting \xB7 optional -->\\nFormat only the files you touched. A formatter run across the whole tree makes a pull request\\nunreviewable; drift that predates you is fixed in a change of its own.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nConventional Commits, one coherent change each:\\n\\n- `feat:` a user-visible capability or workflow addition.\\n- `fix:` a behaviour correction.\\n- `docs:` a documentation-only change.\\n- `refactor:` a structure change with no behaviour change.\\n- `test:` a test-only change.\\n- `chore:` tooling, dependencies, or repository maintenance.\\n","playbook/decisions.md":"---\\nform: decisions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/adr/index.md \u2014 changes in kit/porting/templates--decisions.md -->\\n\\n# Decision records\\n\\nUse this page when recording a decision about how this repository is built, or looking one up.\\n\\n## Where they live\\n<!-- slot: where \xB7 required -->\\nDecision records live in `{config:paths.adr}`. A decision about how we build (an architecture, a\\ntool, a trade-off) is a decision record; a decision about what the product should do is a principle,\\nin the knowledge registers.\\n\\n## Format\\n<!-- slot: format \xB7 required -->\\nA record says that a decision was made, and why: the hard-to-reverse choices a future reader would\\notherwise have to reverse-engineer. One file per record, named `NNNN-<slug>.md` with four digits,\\ntitled `# NNNN \u2014 <the decision>`. Under the title, a status line (accepted; supersedes, or superseded\\nby, another record), then the decision, the options considered with why each was rejected, and the\\nconsequences.\\n\\nA record is never deleted and never rewritten to say something new: a later record supersedes it,\\nand the old one\'s status line points to its successor. A record that states a product decision is\\ntrimmed to its mechanism, and links the principle instead.\\n\\n## Numbering\\n<!-- slot: numbering \xB7 optional -->\\nA new record takes the next free number. `omni kb show decisions` prints it, with every record\'s\\nnumber and title, read from the folder each time: nobody keeps that list by hand. A number belongs\\nto one record; two records sharing one is a mistake to fix, never a precedent.\\n","playbook/definition-of-done.md":"---\\nform: definition-of-done\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/definition-of-done.md \u2014 changes in kit/porting/templates--definition-of-done.md -->\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The changed behaviour is tested, or otherwise verified with the narrowest useful evidence.\\n- The nearest relevant docs are updated when behaviour, workflow, setup, or architecture intent\\n  changes.\\n- The pull request body explains impact, validation, risk, rollback, and reviewer focus.\\n- `{config:commands.preflightFull}` is green; the body names any step it skipped, and why.\\n- The hand-off names the checks that ran and any intentionally skipped.\\n- The pull request is green and mergeable, or carries `{config:labels.needsFix}` and a comment\\n  saying what is stuck after `{config:limits.attempts}` attempts.\\n- A feature pull request\'s outbox is settled, or waved through with `{config:labels.outboxGo}`,\\n  before it is treated as done.\\n- `{config:labels.inProgress}` is off the pull request, and its status comment says where it ended.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- This playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape. Prefer a few meaningful\\ncommits over one mixed commit that hides unrelated work.\\n","playbook/glossary.md":"---\\nform: glossary\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:CONTEXT.md and docs/glossary.md \u2014 changes in kit/porting/templates--glossary.md -->\\n\\n# Glossary\\n\\nUse this page when you need the word this repository uses for a concept.\\n\\n## Where it lives\\n<!-- slot: where \xB7 required -->\\nWhen the repository keeps a glossary, this form points at it, and `paths.glossary` in the config\\nnames the same page. The glossary defines the words; the knowledge registers hold the rules. An entry says what a\\nterm is, not how it is implemented. When several words exist for one concept, the canonical one is\\ndefined and the others are listed under *Avoid*.\\n","playbook/pull-requests.md":"---\\nform: pull-requests\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/pull-request.md \u2014 changes in kit/porting/templates--pull-requests.md -->\\n\\n# Pull requests\\n\\nUse this page when opening or updating a pull request.\\n\\n## Body\\n<!-- slot: body \xB7 required -->\\n- Start from the repository\'s pull request template when it has one, and leave no placeholder:\\n  real content, `No impact`, or `Not applicable`.\\n- Keep the summary short. The reviewable detail goes in impact, validation, risk, rollback, and\\n  reviewer focus.\\n- Name the business area that owns the change, not the folder it touched, in the glossary\'s words;\\n  list the other areas it could affect. A rule or invariant cites its source of truth.\\n- Validation gives the exact commands that matter, manual steps a reviewer can run as written, and,\\n  for a skipped check, why and what evidence replaces it.\\n- Rollback is explicit, even when it is \\"revert this pull request\\". A change to stored data says how\\n  the data is recovered.\\n\\n## Title\\n<!-- slot: title \xB7 optional -->\\nThe title is a Conventional Commit, `<type>(<scope>): <summary>`, like the commits it carries.\\n\\n## Labels\\n<!-- slot: labels \xB7 optional -->\\nEach kind of pull request carries its label: `{config:labels.feature}` for a feature,\\n`{config:labels.sub}` for a slice, `{config:labels.phase0}` for a phase-0 review. A pull request an\\nagent owns also carries `{config:labels.inProgress}` and a status comment the agent keeps current,\\nuntil it is green or stuck.\\n\\n## Reviewers\\n<!-- slot: reviewers \xB7 optional -->\\nA person merges into `{config:repo.defaultBranch}`; an agent never does. Reviewer focus names the\\nparts of the change most worth scrutinizing.\\n","playbook/releasing.md":"---\\nform: releasing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/releasing.md \u2014 changes in kit/porting/templates--releasing.md -->\\n\\n# Releasing\\n\\nUse this page when you need to know what a merge publishes.\\n\\n## What a merge publishes\\n<!-- slot: publishes \xB7 required -->\\nYou do not cut a release: merging does. Every merge is either a shipping change, something a\\ndeployed service or a published package actually contains, or one that ships nothing, such as docs,\\nspecs, or tooling. Know which one yours is before it merges.\\n\\n## How a release happens\\n<!-- slot: how \xB7 optional -->\\n- The rules that decide what ships and what the next version is live in code, with tests beside\\n  them, never only in workflow configuration.\\n- A release commits nothing back to `{config:repo.defaultBranch}`: the version lives on its tag.\\n- Asking for more than a patch is a label on the pull request before it merges; a label added after\\n  the merge does nothing.\\n- A running service can say which release it is. One that answers a development version was not\\n  built by the pipeline.\\n\\n## Rollback\\n<!-- slot: rollback \xB7 optional -->\\nWhen something is on fire, run the publishing workflow by hand for the release you mean; never\\npublish from a workstation. A release that went out with the wrong number stands, and the next\\nshipping change corrects it: never retag by hand.\\n","playbook/setup.md":"---\\nform: setup\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:README.md#getting-started \u2014 changes in kit/porting/templates--setup.md -->\\n\\n# Setup\\n\\nUse this page when getting a checkout ready to build, test, and run locally.\\n\\n## Prerequisites\\n<!-- slot: prerequisites \xB7 required -->\\nThe versions the repository pins (its engines field, a version file) win over any number written on\\na page. A single check that says whether a machine is ready beats a list of steps that drifts.\\n\\n## Install\\n<!-- slot: install \xB7 required -->\\nInstall exactly what the lockfile pins, with the package manager that wrote it. An install that\\nrewrites the lockfile is a change to review, never a side effect.\\n\\n## Run\\n<!-- slot: run \xB7 optional -->\\nEach app has a fixed local port of its own, listed in one table. Check that table before giving a\\nnew app its default, so two apps never collide on the next free number.\\n\\n## Environment\\n<!-- slot: env \xB7 optional -->\\nSettings come from the environment. The repository keeps an example file listing every variable,\\nwith a note on where its value comes from. A secret is never committed, and never printed.\\n","playbook/testing.md":"---\\nform: testing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/testing.md \u2014 changes in kit/porting/templates--testing.md -->\\n\\n# Testing\\n\\nUse this page when adding, changing, or choosing tests.\\n\\n## Commands\\n<!-- slot: commands \xB7 required -->\\n`{config:commands.test}` runs the whole suite. While iterating, run the narrowest test that covers\\nthe change; run the whole suite before handing off.\\n\\n## Where tests live\\n<!-- slot: layout \xB7 required -->\\nName one existing test per kind that shows the house style: a new test starts from it rather than\\nfrom a blank file.\\n\\n## Choosing the level\\n<!-- slot: levels \xB7 optional -->\\n- Start from the behaviour, invariant, or integration risk the change creates.\\n- Prefer red-green-refactor when the expected behaviour is clear.\\n- Add characterization tests before a risky refactor, so existing behaviour is pinned before the\\n  code is reshaped.\\n- Choose the narrowest test that proves the risk. Broaden only when the risk is in the integration\\n  between layers.\\n\\n| Change | Useful test shape |\\n|---|---|\\n| A schema, config, normalizer, or parser | A unit test with valid and invalid inputs |\\n| A domain invariant or business rule | A test of the service or capability where the rule lives |\\n| Storage or migration behaviour | A persistence test with realistic rows |\\n| An API boundary | A test for validation, response shape, and failures |\\n| Behaviour across layers, at the edge | An acceptance scenario |\\n| A UI workflow | A component or page test for its states and actions; a manual browser path for visual risk |\\n\\nCover invalid inputs at a boundary, not only the happy path; error behaviour and the failure states\\na user sees, when they are part of the workflow; the invariants that must survive a refactor;\\ncontract compatibility when a shared schema changes; and the existing workflows the change could\\nplausibly affect.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- A test never proves implementation trivia: it proves behaviour or risk.\\n- Coverage measures execution, not correctness. Never write an assertion-free test to colour lines,\\n  and never lower a coverage floor or exclude logic to reach a number.\\n- A test never waits on wall-clock time it cannot name. Poll for the condition, or make the delay a\\n  parameter the test sets; raising a timeout is not a fix.\\n- A log assertion reads the emitted structured records, never a logger spy, and never expects\\n  sensitive content (prompts, tokens, keys, cookies, passwords) to appear in a log.\\n\\n## Test data\\n<!-- slot: data \xB7 optional -->\\n- Keep test data small, domain-named, and explicit.\\n- A test that creates shared state (a database, a schema, a folder) tears it down after itself.\\n- What a run writes to a shared environment, it keeps: every record a test creates there gets a\\n  name of its own.\\n","playbook/verification.md":"---\\nform: verification\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\nterraformed: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/verification.md \u2014 changes in kit/porting/templates--verification.md -->\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\n`{config:commands.preflight}` is the preflight: it is green before a pull request is opened. It\\nruns the half of the gate a laptop can run, stops at the first failure, and says what to fix. What\\nonly CI can run, it names and leaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun `{config:commands.preflightFull}` before every push to an open pull request. A sub-pull request\\nruns no CI, so this is its only grade.\\n\\nA commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of\\nskipping it, and then it protects nothing. So a green commit is not a green branch; run the rest\\nyourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- Every CI job has a local command that runs the same check, so a red job is reproduced locally\\n  under its own name.\\n- A ratchet (a check graded against a recorded baseline: coverage floors, a suppression budget, a\\n  formatting baseline) may only hold or improve. Never relax one to turn a check green; raising a\\n  budget is its own reviewed change, and a gate never rewrites its own thresholds.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n"}');
+var BUNDLED = false ? null : JSON.parse('{"README.md":"<!-- Ported from vertuo-ai-domain@db67fd9da:docs/knowledge/README.md \u2014 changes in kit/porting/templates--front-door.md -->\\n\\n# Knowledge\\n\\nUse this page when you need to know what is true about the product, or how to work in this\\nrepository. Start here even when the knowledge lives elsewhere: anything kept somewhere else has a\\npointer here.\\n\\n## Two halves\\n\\n- **What is true.** The knowledge registers, in `{config:paths.knowledge}`: principles (a person\'s\\n  decision about what the product should be), business rules (what may or may not happen, each\\n  serving one principle) and invariants (what must always hold in the code). Decisions about how it\\n  is built are decision records, in `{config:paths.adr}`.\\n- **How we work here.** The playbook, in `{config:paths.playbook}`: one form per question an agent\\n  asks while delivering. How to set up, test, and verify; how CI works and which reds are known; what\\n  a pull request looks like; what a merge publishes; the rules that cost the most when broken.\\n\\n## How a form is read\\n\\nThe skills never read a form\'s file: they call `omni kb show <form>`, which resolves it section by\\nsection, and says where each section came from. Top wins:\\n\\n1. **A pointer.** The whole form points at a page the repository already has, or one section does,\\n   with a `See:` line. Nothing is copied.\\n2. **The repository\'s section.** What only this repository knows, written from evidence, or by a\\n   person.\\n3. **The kit default.** Doctrine every repository shares. It ships with the kit, so a section left\\n   blank here improves when the kit is upgraded.\\n\\nA question nobody could answer yet is a `TODO(human)` line: the kit default applies meanwhile.\\n`omni kb status` lists every form, its state, and its open questions.\\n","playbook/architecture.md":"---\\nform: architecture\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:AGENTS.md#boundaries and libs/LIBRARY_STYLE_RULES.md \u2014 changes in kit/porting/templates--architecture.md -->\\n\\n# Architecture\\n\\nUse this page when deciding where code goes, and what it may depend on.\\n\\n## Layout\\n<!-- slot: layout \xB7 required -->\\nA package\'s name says which layer it belongs to, so a boundary is legible from the tree alone.\\nScripts that orchestrate the whole repository live in one place at its root, never inside a package.\\n\\n## Boundaries\\n<!-- slot: boundaries \xB7 required -->\\n- Dependencies point down, from the apps through the layers to the infrastructure wrappers. A lower\\n  layer never imports a higher one.\\n- What two layers both need, and that knows nothing of either, moves down to the lowest layer, so\\n  each reaches it without an edge that points up.\\n- Separate product areas never import each other\'s domain code; they meet in exactly one place, the\\n  app\'s composition root.\\n- A boundary is enforced by a check wherever one can be. Name the check beside the rule; a rule only\\n  review enforces says so.\\n\\n## Patterns\\n<!-- slot: patterns \xB7 optional -->\\n- Every value that crosses a system boundary (config, external input, an API contract, a service\\n  interface) is validated there by a schema, and its type is derived from that schema.\\n- Storage is reached through one layer. Only that layer runs queries; the logic above it calls it\\n  and never touches the database; the transport above that calls the logic, never the storage.\\n- A file\'s name says its role.\\n","playbook/briefing.md":"---\\nform: briefing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md \u2014 changes in kit/porting/templates--briefing.md -->\\n\\n# Briefing\\n\\nUse this page when a session starts: the rules that cost the most when broken.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- Never merge into `{config:repo.defaultBranch}`. A person does.\\n- Before you decide anything the spec does not settle, read the knowledge the change touches. Take\\n  the most reversible option and record the decision as an outbox item; two principles pulling\\n  against each other stop that slice.\\n- Never lower a coverage floor or add a suppression to turn a check green.\\n- Never reformat files you did not change: format only what you touched.\\n- A red check on your pull request is yours to fix. Read the CI page first; after\\n  `{config:limits.attempts}` attempts, leave a comment saying what is stuck.\\n- A pull request you own carries `{config:labels.inProgress}` and a status comment you keep current,\\n  until it is green or stuck.\\n\\n## Hooks\\n<!-- slot: hooks \xB7 optional -->\\nA hook that refuses a commit or a push names what to fix: fix the cause, and never bypass the hook.\\nAn escape hatch that skips one exists for emergencies only, and the pull request says why it was\\nused.\\n\\n## Where to read next\\n<!-- slot: next \xB7 optional -->\\nThe rest of this playbook, one form per question, through `omni kb show <form>`; the knowledge\\nregisters in `{config:paths.knowledge}`, which say what is true about the product; and the decision\\nrecords in `{config:paths.adr}`, which say how it is built.\\n","playbook/bug-fixing.md":"---\\nform: bug-fixing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/bug-fixing.md \u2014 changes in kit/porting/templates--bug-fixing.md -->\\n\\n# Bug fixing\\n\\nUse this page when a reported bug becomes a pull request.\\n\\n## Steps\\n<!-- slot: steps \xB7 required -->\\n1. **Read and classify.** A bug is something a user, a browser, or an API caller can observe. A\\n   flaky harness, a CI timeout, or a slow job is tooling: say so on the report and follow the CI page\\n   instead.\\n2. **Triage.** Name the domain that owns the behaviour, the risk, and whether it is a regression.\\n   `critical`: data loss, security, money, or a whole surface down for every user. `high`: a main\\n   flow broken with no workaround. `medium`: a flow broken with a workaround, or a secondary flow\\n   broken. `low`: cosmetic, or a minor inconvenience. A regression is a claim with evidence: the\\n   culprit change, a green run followed by a red one, or the report saying when it last worked.\\n   Without evidence it is a new bug.\\n3. **Words first.** Every term the reproduction needs is in the glossary. A term that cannot be\\n   defined without inventing product behaviour is a question for a person.\\n4. **Prove red.** Write the test or scenario that reproduces the bug, in the domain\'s own words, and\\n   run it before any fix: it must fail. If it passes, stop; it misses the bug, or the bug is gone.\\n5. **Fix.** Test-first, the smallest fix. Never edit the reproduction to make it pass.\\n6. **Guard.** See below.\\n7. **Open the pull request**, closing the report, and say what proved red and what proved green.\\n\\nNothing is reported as proven that was not run.\\n\\n## Guard\\n<!-- slot: guard \xB7 optional -->\\nAsk which cheap check would have caught this before it shipped. When one is guard-sized (a check\\nscript, a lint rule, a unit test), add it, with its own test. Otherwise the pull request says\\n`Guard: none \u2014 <reason>`. A regression test that lets small mutations of the fixed lines pass is not\\nguarding the fix.\\n","playbook/ci.md":"---\\nform: ci\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/ci-triage.md \u2014 changes in kit/porting/templates--ci.md -->\\n\\n# CI\\n\\nUse this page when a check on your pull request is red.\\n\\n## Workflows\\n<!-- slot: workflows \xB7 required -->\\nEvery job carries a timeout, so a stuck job still ends its run. A run whose jobs all sit queued,\\nnone ever starting, usually names a runner nothing answers to: check the runner settings before\\nassuming an outage.\\n\\n## What gates a merge\\n<!-- slot: gating \xB7 required -->\\n- No checks at all on a pull request, rather than a red one, usually means it conflicts with its\\n  base: no workflow runs when the merge commit cannot be built. Check that it merges first.\\n- A draft runs no CI, and a sub-pull request into a feature branch never does. Marking a draft\\n  ready is what grades it.\\n- An aggregate check counts a skipped job as a failure, and a red build skips the jobs after it:\\n  fix the build first.\\n- A green pull request whose merge turns `{config:repo.defaultBranch}` red missed a dependency its\\n  checks could not see. Fix it forward; revert only when the product is down.\\n\\n## Known reds\\n<!-- slot: known-reds \xB7 optional -->\\nA red that is not a finding is listed here: its signature, the one check that rules your branch\\nout, and what to do. Anything not listed is yours to fix. A known red that was fixed is a finding\\nagain on a branch that contains the fix.\\n\\nA flaky test not fixed in one focused attempt is quarantined: skipped with its issue in the reason,\\nand listed here so the count stays visible.\\n\\n## When to re-run\\n<!-- slot: rerun \xB7 optional -->\\nA re-run is allowed only when both hold: the failure matches a known red, and your branch changes\\nnothing the red names. One re-run at most, and it counts as one of the `{config:limits.attempts}`\\nrepair attempts; red again, it is a finding. A run a later push superseded is never re-run: read the\\nlatest run instead.\\n","playbook/conventions.md":"---\\nform: conventions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md, docs/agents/definition-of-done.md#commit-shape and docs/adr/0058-identifiers-are-english-interface-copy-is-french.md \u2014 changes in kit/porting/templates--conventions.md -->\\n\\n# Conventions\\n\\nUse this page when naming things, formatting files, or shaping commits.\\n\\n## Naming\\n<!-- slot: naming \xB7 optional -->\\nIdentifiers and the words a user reads are separate questions. Identifiers (types, functions,\\nfiles, packages, tables and columns, routes, message keys, stored values, config keys) use one\\nlanguage, the one the code already uses. Interface copy follows the product\'s own language rules.\\nConflating the two is what lets a label leak into a table name; keeping them apart lets either move\\nwithout touching the other.\\n\\n## Formatting\\n<!-- slot: formatting \xB7 optional -->\\nFormat only the files you touched. A formatter run across the whole tree makes a pull request\\nunreviewable; drift that predates you is fixed in a change of its own.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nConventional Commits, one coherent change each:\\n\\n- `feat:` a user-visible capability or workflow addition.\\n- `fix:` a behaviour correction.\\n- `docs:` a documentation-only change.\\n- `refactor:` a structure change with no behaviour change.\\n- `test:` a test-only change.\\n- `chore:` tooling, dependencies, or repository maintenance.\\n","playbook/decisions.md":"---\\nform: decisions\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/adr/index.md \u2014 changes in kit/porting/templates--decisions.md -->\\n\\n# Decision records\\n\\nUse this page when recording a decision about how this repository is built, or looking one up.\\n\\n## Where they live\\n<!-- slot: where \xB7 required -->\\nDecision records live in `{config:paths.adr}`. A decision about how we build (an architecture, a\\ntool, a trade-off) is a decision record; a decision about what the product should do is a principle,\\nin the knowledge registers.\\n\\n## Format\\n<!-- slot: format \xB7 required -->\\nA record says that a decision was made, and why: the hard-to-reverse choices a future reader would\\notherwise have to reverse-engineer. One file per record, named `NNNN-<slug>.md` with four digits,\\ntitled `# NNNN \u2014 <the decision>`. Under the title, a status line (accepted; supersedes, or superseded\\nby, another record), then the decision, the options considered with why each was rejected, and the\\nconsequences.\\n\\nA record is never deleted and never rewritten to say something new: a later record supersedes it,\\nand the old one\'s status line points to its successor. A record that states a product decision is\\ntrimmed to its mechanism, and links the principle instead.\\n\\n## Numbering\\n<!-- slot: numbering \xB7 optional -->\\nA new record takes the next free number. `omni kb show decisions` prints it, with every record\'s\\nnumber and title, read from the folder each time: nobody keeps that list by hand. A number belongs\\nto one record; two records sharing one is a mistake to fix, never a precedent.\\n","playbook/definition-of-done.md":"---\\nform: definition-of-done\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/definition-of-done.md \u2014 changes in kit/porting/templates--definition-of-done.md -->\\n\\n# Definition of done\\n\\nUse this page when handing off work or opening a pull request.\\n\\n## Done means\\n<!-- slot: done \xB7 required -->\\n- The changed behaviour is tested, or otherwise verified with the narrowest useful evidence.\\n- The nearest relevant docs are updated when behaviour, workflow, setup, or architecture intent\\n  changes.\\n- The pull request body explains impact, validation, risk, rollback, and reviewer focus.\\n- `{config:commands.preflightFull}` is green; the body names any step it skipped, and why.\\n- The hand-off names the checks that ran and any intentionally skipped.\\n- The pull request is green and mergeable, or carries `{config:labels.needsFix}` and a comment\\n  saying what is stuck after `{config:limits.attempts}` attempts.\\n- A feature pull request\'s outbox is settled, or waved through with `{config:labels.outboxGo}`,\\n  before it is treated as done.\\n- `{config:labels.inProgress}` is off the pull request, and its status comment says where it ended.\\n\\n## Documentation updates\\n<!-- slot: docs \xB7 optional -->\\n- A decision record, when the work changes a durable architectural decision, a dependency\\n  direction, a persistence model, a boundary, or a trade-off future agents must understand.\\n- The knowledge registers, when the work settles something true about the product.\\n- The glossary, when the work introduces, renames, or sharpens domain language.\\n- This playbook, when the lesson is about how future agents should work.\\n- The setup page, when commands, ports, environment variables, or bootstrap steps change.\\n\\n## Commits\\n<!-- slot: commits \xB7 optional -->\\nEach commit is one coherent change, in the Conventional Commit shape. Prefer a few meaningful\\ncommits over one mixed commit that hides unrelated work.\\n","playbook/glossary.md":"---\\nform: glossary\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:CONTEXT.md and docs/glossary.md \u2014 changes in kit/porting/templates--glossary.md -->\\n\\n# Glossary\\n\\nUse this page when you need the word this repository uses for a concept.\\n\\n## Where it lives\\n<!-- slot: where \xB7 required -->\\nWhen the repository keeps a glossary, this form points at it, and `paths.glossary` in the config\\nnames the same page. The glossary defines the words; the knowledge registers hold the rules. An entry says what a\\nterm is, not how it is implemented. When several words exist for one concept, the canonical one is\\ndefined and the others are listed under *Avoid*.\\n","playbook/pull-requests.md":"---\\nform: pull-requests\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/pull-request.md \u2014 changes in kit/porting/templates--pull-requests.md -->\\n\\n# Pull requests\\n\\nUse this page when opening or updating a pull request.\\n\\n## Body\\n<!-- slot: body \xB7 required -->\\n- Start from the repository\'s pull request template when it has one, and leave no placeholder:\\n  real content, `No impact`, or `Not applicable`.\\n- Keep the summary short. The reviewable detail goes in impact, validation, risk, rollback, and\\n  reviewer focus.\\n- Name the business area that owns the change, not the folder it touched, in the glossary\'s words;\\n  list the other areas it could affect. A rule or invariant cites its source of truth.\\n- Validation gives the exact commands that matter, manual steps a reviewer can run as written, and,\\n  for a skipped check, why and what evidence replaces it.\\n- Rollback is explicit, even when it is \\"revert this pull request\\". A change to stored data says how\\n  the data is recovered.\\n\\n## Title\\n<!-- slot: title \xB7 optional -->\\nThe title is a Conventional Commit, `<type>(<scope>): <summary>`, like the commits it carries.\\n\\n## Labels\\n<!-- slot: labels \xB7 optional -->\\nEach kind of pull request carries its label: `{config:labels.feature}` for a feature,\\n`{config:labels.sub}` for a slice, `{config:labels.phase0}` for a phase-0 review. A pull request an\\nagent owns also carries `{config:labels.inProgress}` and a status comment the agent keeps current,\\nuntil it is green or stuck.\\n\\n## Reviewers\\n<!-- slot: reviewers \xB7 optional -->\\nA person merges into `{config:repo.defaultBranch}`; an agent never does. Reviewer focus names the\\nparts of the change most worth scrutinizing.\\n","playbook/releasing.md":"---\\nform: releasing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/releasing.md \u2014 changes in kit/porting/templates--releasing.md -->\\n\\n# Releasing\\n\\nUse this page when you need to know what a merge publishes.\\n\\n## What a merge publishes\\n<!-- slot: publishes \xB7 required -->\\nYou do not cut a release: merging does. Every merge is either a shipping change, something a\\ndeployed service or a published package actually contains, or one that ships nothing, such as docs,\\nspecs, or tooling. Know which one yours is before it merges.\\n\\n## How a release happens\\n<!-- slot: how \xB7 optional -->\\n- The rules that decide what ships and what the next version is live in code, with tests beside\\n  them, never only in workflow configuration.\\n- A release commits nothing back to `{config:repo.defaultBranch}`: the version lives on its tag.\\n- Asking for more than a patch is a label on the pull request before it merges; a label added after\\n  the merge does nothing.\\n- A running service can say which release it is. One that answers a development version was not\\n  built by the pipeline.\\n\\n## Rollback\\n<!-- slot: rollback \xB7 optional -->\\nWhen something is on fire, run the publishing workflow by hand for the release you mean; never\\npublish from a workstation. A release that went out with the wrong number stands, and the next\\nshipping change corrects it: never retag by hand.\\n","playbook/setup.md":"---\\nform: setup\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:README.md#getting-started \u2014 changes in kit/porting/templates--setup.md -->\\n\\n# Setup\\n\\nUse this page when getting a checkout ready to build, test, and run locally.\\n\\n## Prerequisites\\n<!-- slot: prerequisites \xB7 required -->\\nThe versions the repository pins (its engines field, a version file) win over any number written on\\na page. A single check that says whether a machine is ready beats a list of steps that drifts.\\n\\n## Install\\n<!-- slot: install \xB7 required -->\\nInstall exactly what the lockfile pins, with the package manager that wrote it. An install that\\nrewrites the lockfile is a change to review, never a side effect.\\n\\n## Run\\n<!-- slot: run \xB7 optional -->\\nEach app has a fixed local port of its own, listed in one table. Check that table before giving a\\nnew app its default, so two apps never collide on the next free number.\\n\\n## Environment\\n<!-- slot: env \xB7 optional -->\\nSettings come from the environment. The repository keeps an example file listing every variable,\\nwith a note on where its value comes from. A secret is never committed, and never printed.\\n","playbook/testing.md":"---\\nform: testing\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/testing.md \u2014 changes in kit/porting/templates--testing.md -->\\n\\n# Testing\\n\\nUse this page when adding, changing, or choosing tests.\\n\\n## Commands\\n<!-- slot: commands \xB7 required -->\\n`{config:commands.test}` runs the whole suite. While iterating, run the narrowest test that covers\\nthe change; run the whole suite before handing off.\\n\\n## Where tests live\\n<!-- slot: layout \xB7 required -->\\nName one existing test per kind that shows the house style: a new test starts from it rather than\\nfrom a blank file.\\n\\n## Choosing the level\\n<!-- slot: levels \xB7 optional -->\\n- Start from the behaviour, invariant, or integration risk the change creates.\\n- Prefer red-green-refactor when the expected behaviour is clear.\\n- Add characterization tests before a risky refactor, so existing behaviour is pinned before the\\n  code is reshaped.\\n- Choose the narrowest test that proves the risk. Broaden only when the risk is in the integration\\n  between layers.\\n\\n| Change | Useful test shape |\\n|---|---|\\n| A schema, config, normalizer, or parser | A unit test with valid and invalid inputs |\\n| A domain invariant or business rule | A test of the service or capability where the rule lives |\\n| Storage or migration behaviour | A persistence test with realistic rows |\\n| An API boundary | A test for validation, response shape, and failures |\\n| Behaviour across layers, at the edge | An acceptance scenario |\\n| A UI workflow | A component or page test for its states and actions; a manual browser path for visual risk |\\n\\nCover invalid inputs at a boundary, not only the happy path; error behaviour and the failure states\\na user sees, when they are part of the workflow; the invariants that must survive a refactor;\\ncontract compatibility when a shared schema changes; and the existing workflows the change could\\nplausibly affect.\\n\\n## Never\\n<!-- slot: never \xB7 required -->\\n- A test never proves implementation trivia: it proves behaviour or risk.\\n- Coverage measures execution, not correctness. Never write an assertion-free test to colour lines,\\n  and never lower a coverage floor or exclude logic to reach a number.\\n- A test never waits on wall-clock time it cannot name. Poll for the condition, or make the delay a\\n  parameter the test sets; raising a timeout is not a fix.\\n- A log assertion reads the emitted structured records, never a logger spy, and never expects\\n  sensitive content (prompts, tokens, keys, cookies, passwords) to appear in a log.\\n\\n## Test data\\n<!-- slot: data \xB7 optional -->\\n- Keep test data small, domain-named, and explicit.\\n- A test that creates shared state (a database, a schema, a folder) tears it down after itself.\\n- What a run writes to a shared environment, it keeps: every record a test creates there gets a\\n  name of its own.\\n","playbook/verification.md":"---\\nform: verification\\nform-version: 1\\nstate: blank\\npoints-to: null\\nevidence: []\\ninvaded: null\\n---\\n\\n<!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/verification.md \u2014 changes in kit/porting/templates--verification.md -->\\n\\n# Verification\\n\\nUse this page when handing off changes: what must be green before a pull request, and before a push.\\n\\n## The preflight\\n<!-- slot: preflight \xB7 required -->\\n`{config:commands.preflight}` is the preflight: it is green before a pull request is opened. It\\nruns the half of the gate a laptop can run, stops at the first failure, and says what to fix. What\\nonly CI can run, it names and leaves to CI.\\n\\n## Before every push\\n<!-- slot: before-push \xB7 optional -->\\nRun `{config:commands.preflightFull}` before every push to an open pull request. A sub-pull request\\nruns no CI, so this is its only grade.\\n\\nA commit hook runs only the checks that need no build: a hook that costs minutes buys the habit of\\nskipping it, and then it protects nothing. So a green commit is not a green branch; run the rest\\nyourself when you delete an export or change a signature. Never skip a hook.\\n\\n## Checks\\n<!-- slot: checks \xB7 optional -->\\n- Run the narrowest relevant check while iterating. Broaden it when changing a shared contract,\\n  layering, runtime behaviour, or documentation links.\\n- Every CI job has a local command that runs the same check, so a red job is reproduced locally\\n  under its own name.\\n- A ratchet (a check graded against a recorded baseline: coverage floors, a suppression budget, a\\n  formatting baseline) may only hold or improve. Never relax one to turn a check green; raising a\\n  budget is its own reviewed change, and a gate never rewrites its own thresholds.\\n- The hand-off names the checks that ran, and each check skipped with a concrete reason.\\n"}');
 var FRONT_DOOR_TEMPLATE = "README.md";
 function templatesDir() {
   return fileURLToPath(new URL("../../templates/", import.meta.url));
@@ -15340,7 +15405,7 @@ function playbookStatus({ ctx, exec }) {
       stale: staleEvidence(form2?.evidence ?? [], { ctx, exec }).map(({ path, hash, now }) => ({ path, hash, now }))
     };
   });
-  return { frontDoor: ctx.layout.frontDoor, forms };
+  return { frontDoor: ctx.layout.frontDoor, forms, registers: registerCounts({ ctx }) };
 }
 
 // kit/lib/playbook/check-playbook.mjs
@@ -15365,6 +15430,7 @@ function gradeForm({ id, kind }, { ctx, exec }) {
     else if (now === null) warnings.push(`${file}: evidence ${path}@${hash} could not be hashed`);
     else warnings.push(`${file}: evidence ${path}@${hash} is stale \u2014 the file has changed since (now ${now.slice(0, 7)})`);
   }
+  for (const { where, old, now } of form2.oldSpellings) warnings.push(`${file}: ${where} says ${old} \u2014 the old spelling; write ${now}`);
   const pointer = form2.state === "pointer";
   for (const slot of form2.slots) {
     const kitSlot = kit.slots.find((entry) => entry.id === slot.id);
@@ -15437,15 +15503,16 @@ function checkKnowledge({ ctx, stdout, stderr }) {
     return true;
   }
   const files = trackedFiles(ctx).filter((file) => file.startsWith(`${root}/`) && file.endsWith(".md"));
-  const { violations, wishes } = gradeKnowledge({ ctx, files });
+  const { violations, wishes, proposals } = gradeKnowledge({ ctx, files });
   for (const wish of wishes) println(stderr, `warning: ${wish}`);
+  for (const proposal of proposals) println(stderr, `warning: ${proposal}`);
   const knowledge2 = readKnowledge({ ctx });
   const count = (kind) => knowledge2.entries.filter((entry) => entry.kind === kind).length;
   return report(
     stdout,
     title,
     violations,
-    `check knowledge \u2014 ${count("principle")} principle(s), ${count("rule")} rule(s), ${count("invariant")} invariant(s) across ${knowledge2.domains.length} domain(s) and ${knowledge2.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es).`
+    `check knowledge \u2014 ${count("principle")} principle(s), ${count("rule")} rule(s), ${count("invariant")} invariant(s) across ${knowledge2.domains.length} domain(s) and ${knowledge2.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed.`
   );
 }
 var FORM_STATES2 = ["filled", "pointer", "blank", "missing"];
@@ -16644,7 +16711,7 @@ function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, fil
   const formsStep = steps.length + 1;
   steps.push([
     `Fill the forms in ${forms.dir}/ with what the repository can prove, in Claude Code:`,
-    `     /${PLUGIN}:terraform`
+    `     /${PLUGIN}:invade`
   ]);
   if (forms.outside) lines.push(`  forms   not written: ${forms.dir}/ is outside ${dir}/ \u2014 see step ${formsStep} below`);
   const done = [];
@@ -16710,7 +16777,7 @@ function blankForm(id, { ctx }) {
 ${kit.errors.join("\n")}`);
   const { formVersion, title, opener, slots } = kit.form;
   const target = pointerTarget(id, ctx);
-  const frontMatter = { form: id, "form-version": formVersion, state: target ? "pointer" : "blank", "points-to": target, evidence: [], terraformed: null };
+  const frontMatter = { form: id, "form-version": formVersion, state: target ? "pointer" : "blank", "points-to": target, evidence: [], invaded: null };
   const lines = ["---", (0, import_yaml4.stringify)(frontMatter).trimEnd(), "---", "", `# ${title}`, ""];
   if (opener) lines.push(opener, "");
   if (!target) {
@@ -17389,7 +17456,15 @@ function show(positional, flags, { ctx, stdout, stderr }) {
   return 0;
 }
 var SOURCE_LABEL = { repo: "repo", pointer: "pointer", kit: "kit default" };
-function statusText({ frontDoor, forms }) {
+function registerLines(registers) {
+  if (registers.length === 0) return ["Registers: none."];
+  const width = Math.max(...registers.map(({ folder }) => folder.length));
+  return [
+    `Registers: ${registers.length} folder(s)`,
+    ...registers.map(({ folder, laws, proposals }) => `  ${folder.padEnd(width)}  ${laws} law(s) \xB7 ${proposals} proposal(s)`)
+  ];
+}
+function statusText({ frontDoor, forms, registers }) {
   const width = Math.max(...forms.map(({ form: form2 }) => form2.length));
   const lines = [`kb status \u2014 ${forms.length} form(s) in ${frontDoor}`];
   for (const { form: form2, kind, state, source, questions: questions2, stale: stale2 } of forms) {
@@ -17403,6 +17478,7 @@ function statusText({ frontDoor, forms }) {
   const stale = forms.flatMap(
     ({ form: form2, file, stale: entries }) => entries.map(({ path, hash, now }) => `  ${form2} (${file}): ${path}@${hash} \u2014 ${now === null ? "gone" : `now ${now.slice(0, 7)}`}`)
   );
+  lines.push(...registerLines(registers));
   lines.push(questions.length > 0 ? `Open questions: ${questions.length}` : "Open questions: none.", ...questions);
   lines.push(stale.length > 0 ? `Stale evidence: ${stale.length}` : "Stale evidence: none.", ...stale);
   return lines.join("\n");
@@ -17453,6 +17529,11 @@ function describeEntry(knowledge2, id) {
   ];
   for (const [key, label] of LINES) {
     if (entry[key]) out.push(`${label}: ${entry[key]}`);
+  }
+  if (entry.proposed) {
+    const { by, on } = entry.proposed;
+    const who = by === null ? 'proposed (its "Proposed:" line is malformed)' : `proposed by ${by} on ${on}`;
+    out.push("", `${who} \u2014 not a law until a person removes its "Proposed:" line`);
   }
   if (entry.serves) {
     const served = knowledge2.entries.find((candidate) => candidate.id === entry.serves);
