@@ -1,10 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { fakeSupabase } from '../store.fake';
 import { AskStoreError } from '../store';
-import { readSession, sendAnswers, sessionReader, type Db } from './source';
+import { readSession, removeSession, sendAnswers, sessionReader, type Db } from './source';
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
+// Bob shares Ada's workspace (the fake's default); Carl belongs to another one.
+const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@vertuoza.com', workspaces: ['00000000-0000-4000-8000-00000000aced'] };
 const START = Date.parse('2026-09-26T09:00:00Z');
 const QUESTIONS = [{ question: 'Which storage?', header: 'Storage', multiSelect: false, options: [{ label: 'Postgres (Recommended)' }, { label: 'Memory' }] }];
 const ANSWERS = { 'Which storage?': 'Postgres (Recommended)' };
@@ -12,7 +14,7 @@ const ANSWERS = { 'Which storage?': 'Postgres (Recommended)' };
 /** A session of Ada's with rounds asked through the fake, and the calls each reader sends. */
 async function world() {
   const clock = { now: START };
-  const fake = fakeSupabase({ ada: ADA, bob: BOB }, () => clock.now);
+  const fake = fakeSupabase({ ada: ADA, bob: BOB, carl: CARL }, () => clock.now);
   const calls: string[] = [];
   // Records each query's table and filters, so a test can see what a poll fetched again.
   const recording = (token: string): Db => ({
@@ -54,10 +56,18 @@ describe('reading a session', () => {
     expect(state?.rounds.map((r) => [r.id, r.status, r.questions])).toEqual([[first, 'open', QUESTIONS], [second, 'open', QUESTIONS]]);
   });
 
-  it("reads nothing of another person's session, exactly like a missing one", async () => {
+  it('reads the session and its rounds as another member of its workspace (PRD 144)', async () => {
+    const w = await world();
+    const first = await w.ask();
+    const state = await readSession(w.recording('bob'), w.sessionId);
+    expect(state?.session).toMatchObject({ id: w.sessionId, owner: ADA.id });
+    expect(state?.rounds.map((r) => r.id)).toEqual([first]);
+  });
+
+  it('reads nothing of a session of another workspace, exactly like a missing one', async () => {
     const w = await world();
     await w.ask();
-    expect(await readSession(w.recording('bob'), w.sessionId)).toBeNull();
+    expect(await readSession(w.recording('carl'), w.sessionId)).toBeNull();
     expect(await readSession(w.recording('ada'), '00000000-0000-4000-8000-00000000ffff')).toBeNull();
   });
 
@@ -134,5 +144,24 @@ describe('sending the answers', () => {
     const id = await w.ask();
     expect(await sendAnswers(w.as('bob'), id, ANSWERS)).toBe('taken');
     expect(w.fake.tables.ask_rounds[0]).toMatchObject({ status: 'open' });
+  });
+});
+
+describe('deleting the session (PRD 144)', () => {
+  it('deletes it and its rounds for its owner', async () => {
+    const w = await world();
+    await w.ask();
+    expect(await removeSession(w.as('ada'), w.sessionId)).toBe(true);
+    expect(w.fake.tables.ask_sessions).toEqual([]);
+    expect(w.fake.tables.ask_rounds).toEqual([]);
+  });
+
+  it('deletes nothing for a member who is not the owner, nor for another workspace', async () => {
+    const w = await world();
+    await w.ask();
+    expect(await removeSession(w.as('bob'), w.sessionId)).toBe(false);
+    expect(await removeSession(w.as('carl'), w.sessionId)).toBe(false);
+    expect(w.fake.tables.ask_sessions).toHaveLength(1);
+    expect(w.fake.tables.ask_rounds).toHaveLength(1);
   });
 });

@@ -1,6 +1,9 @@
 // A stubbed Supabase client for the ask API's tests: the two ask tables in memory, the Auth server's
-// token check, and the row-level security of the migration (an account sees and changes only its
-// own sessions and their rounds; a round is asked only in an open session). It answers the query
+// token check, and the row-level security of the migrations (PRD 144: every member of a session's
+// workspace reads it and its rounds; only its owner changes or deletes it, asks and answers in it; a
+// round is asked only in an open session, and a deleted session takes its rounds with it). A new
+// session belongs to the caller's first workspace: which one the database picks is proved by
+// supabase/checks/ask.sql, not here. It answers the query
 // shapes src/ask/store.ts sends, and nothing else. The database's own rules (a round only moves
 // forward, the grants) are proved by supabase/checks/ask.sql, not here. Like the database's trigger, it
 // sets `answered_by` the moment a round is answered: the caller on the page, the session owner for
@@ -10,7 +13,10 @@ type Row = Record<string, unknown>;
 type Failure = { code?: string; message: string };
 type Result = { data: unknown; error: Failure | null };
 
-export type FakeAccount = { id: string; email: string };
+/** An account, and the workspaces it belongs to: the one workspace FAKE_WORKSPACE when none is named. */
+export type FakeAccount = { id: string; email: string; workspaces?: string[] };
+
+export const FAKE_WORKSPACE = '00000000-0000-4000-8000-00000000a0a0';
 export type FakeTables = { ask_sessions: Row[]; ask_rounds: Row[] };
 
 const clone = <T>(value: T): T => (value === undefined ? value : JSON.parse(JSON.stringify(value)));
@@ -22,13 +28,20 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
   const newId = () => `00000000-0000-4000-8000-${String((next += 1)).padStart(12, '0')}`;
   const stamp = () => new Date(now()).toISOString();
 
-  const ownsSession = (me: FakeAccount | null, sessionId: unknown) =>
-    Boolean(me && tables.ask_sessions.some((s) => s.id === sessionId && s.owner === me.id));
-  const visible = (table: keyof FakeTables, row: Row, me: FakeAccount | null) =>
-    table === 'ask_sessions' ? Boolean(me && row.owner === me.id) : ownsSession(me, row.session_id);
+  const workspacesOf = (me: FakeAccount) => me.workspaces ?? [FAKE_WORKSPACE];
+  const sessionOf = (row: Row, table: keyof FakeTables) =>
+    table === 'ask_sessions' ? row : tables.ask_sessions.find((s) => s.id === row.session_id);
+  /** Reading: a member of the session's workspace. */
+  const visible = (table: keyof FakeTables, row: Row, me: FakeAccount | null) => {
+    const session = sessionOf(row, table);
+    return Boolean(me && session && workspacesOf(me).includes(session.workspace_id as string));
+  };
+  /** Changing or deleting: the session's owner, who is a member too. */
+  const owned = (table: keyof FakeTables, row: Row, me: FakeAccount | null) =>
+    Boolean(visible(table, row, me) && sessionOf(row, table)?.owner === me?.id);
 
   class Query implements PromiseLike<Result> {
-    private op: 'select' | 'insert' | 'update' = 'select';
+    private op: 'select' | 'insert' | 'update' | 'delete' = 'select';
     private values: Row = {};
     private filters: Array<(row: Row) => boolean> = [];
     private shape: 'many' | 'single' | 'maybe' = 'many';
@@ -38,6 +51,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
     select(_columns?: string) { return this; }
     insert(values: Row) { this.op = 'insert'; this.values = values; return this; }
     update(values: Row) { this.op = 'update'; this.values = values; return this; }
+    delete() { this.op = 'delete'; return this; }
     eq(column: string, value: unknown) { this.filters.push((row) => row[column] === value); return this; }
     in(column: string, values: unknown[]) { this.filters.push((row) => values.includes(row[column])); return this; }
     single() { this.shape = 'single'; return this; }
@@ -50,7 +64,10 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
     private run(): Result {
       state.queries += 1;
       if (state.fail) return { data: null, error: state.fail };
-      const rows = this.op === 'insert' ? this.insertRow() : this.op === 'update' ? this.updateRows() : this.matching();
+      const rows = this.op === 'insert' ? this.insertRow()
+        : this.op === 'update' ? this.updateRows()
+        : this.op === 'delete' ? this.deleteRows()
+        : this.matching();
       if ('error' in rows) return { data: null, error: rows.error };
       if (this.shape === 'many') return { data: clone(rows), error: null };
       if (rows.length > 1 || (this.shape === 'single' && rows.length === 0)) {
@@ -59,8 +76,18 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
       return { data: clone(rows[0] ?? null), error: null };
     }
 
-    private matching() {
-      return tables[this.table].filter((row) => visible(this.table, row, this.me) && this.filters.every((f) => f(row)));
+    private matching(rule = visible) {
+      return tables[this.table].filter((row) => rule(this.table, row, this.me) && this.filters.every((f) => f(row)));
+    }
+
+    /** Only the owner's sessions go, and their rounds with them (on delete cascade). */
+    private deleteRows(): Row[] {
+      if (this.table !== 'ask_sessions') return [];
+      const rows = this.matching(owned);
+      const gone = new Set(rows.map((r) => r.id));
+      tables.ask_sessions = tables.ask_sessions.filter((s) => !gone.has(s.id));
+      tables.ask_rounds = tables.ask_rounds.filter((r) => !gone.has(r.session_id));
+      return rows;
     }
 
     private insertRow(): Row[] | { error: Failure } {
@@ -71,7 +98,9 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
         const row = {
           id: newId(), owner: this.me.id, status: 'open', created_at: at, last_seen_at: at, repo: null, branch: null, claude_session_id: null,
           ...clone(this.values),
+          workspace_id: workspacesOf(this.me)[0] ?? null,
         };
+        if (!row.workspace_id) return refused;
         tables.ask_sessions.push(row);
         return [row];
       }
@@ -88,7 +117,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
     }
 
     private updateRows(): Row[] {
-      const rows = this.matching();
+      const rows = this.matching(owned);
       for (const row of rows) {
         const answering = this.table === 'ask_rounds' && this.values.status === 'answered' && row.status !== 'answered';
         const { answered_by: _ignored, ...values } = clone(this.values);

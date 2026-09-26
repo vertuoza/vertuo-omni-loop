@@ -1,12 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
-import { abandonRound, addRound, answerRound, closeSession, openSession, waitRound, type AskDeps } from './api';
+import { abandonRound, addRound, answerRound, closeSession, deleteSession, openSession, waitRound, type AskDeps } from './api';
 import { fakeSupabase } from './store.fake';
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
 const EVE = { id: '00000000-0000-4000-8000-0000000000e1', email: 'eve@example.com' };
+// Ada and Bob belong to one workspace (the fake's default), Carl to another.
+const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@vertuoza.com', workspaces: ['00000000-0000-4000-8000-00000000aced'] };
 const START = Date.parse('2026-09-26T09:00:00Z');
 const HOUR = 60 * 60 * 1000;
 const MISSING = '00000000-0000-4000-8000-00000000ffff';
@@ -35,7 +37,7 @@ type Call = { token?: string | null; body?: unknown; raw?: string; headers?: Rec
 
 function world() {
   const clock = { now: START };
-  const fake = fakeSupabase({ 'ada-token': ADA, 'bob-token': BOB, 'eve-token': EVE }, () => clock.now);
+  const fake = fakeSupabase({ 'ada-token': ADA, 'bob-token': BOB, 'eve-token': EVE, 'carl-token': CARL }, () => clock.now);
   const sleeps: number[] = [];
   let onSleep: (() => void) | null = null;
   const deps: AskDeps = {
@@ -481,10 +483,59 @@ describe('POST /api/ask/rounds/:id/abandon', () => {
   });
 });
 
+describe('DELETE /api/ask/sessions/:id (PRD 144)', () => {
+  const remove = (w: ReturnType<typeof world>, id: string, token: string | null = 'ada-token') =>
+    deleteSession(w.request('DELETE', `/api/ask/sessions/${id}`, { token }), id, w.deps);
+
+  it('deletes the owner\'s session and its rounds, open or closed long ago', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const roundId = await w.round(sessionId);
+    await closeSession(w.request('POST', `/api/ask/sessions/${sessionId}/close`), sessionId, w.deps);
+    w.clock.now += 8 * 24 * HOUR;
+    expect(w.row('ask_sessions', sessionId)).toBeDefined();
+    const { status, body } = await w.read(await remove(w, sessionId));
+    expect(status).toBe(200);
+    expect(body).toEqual({ id: sessionId, deleted: true });
+    expect(w.fake.tables.ask_sessions.find((s) => s.id === sessionId)).toBeUndefined();
+    expect(w.fake.tables.ask_rounds.find((r) => r.id === roundId)).toBeUndefined();
+  });
+
+  it('refuses a member of the workspace who is not the owner with 403, and keeps the session', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    await w.round(sessionId);
+    const { status, body } = await w.read(await remove(w, sessionId, 'bob-token'));
+    expect(status).toBe(403);
+    expect(body.error).toMatch(/owner/);
+    expect(w.row('ask_sessions', sessionId)).toBeDefined();
+    expect(w.fake.tables.ask_rounds).toHaveLength(1);
+  });
+
+  it('answers 404 to an account of another workspace, and for an id that is missing or not one', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    expect((await remove(w, sessionId, 'carl-token')).status).toBe(404);
+    expect((await remove(w, MISSING)).status).toBe(404);
+    expect((await remove(w, 'not-a-uuid')).status).toBe(404);
+    expect(w.row('ask_sessions', sessionId)).toBeDefined();
+  });
+
+  it('checks the bearer token and the crew like every other call', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    expect((await remove(w, sessionId, null)).status).toBe(401);
+    expect((await remove(w, sessionId, 'eve-token')).status).toBe(403);
+    expect((await remove({ ...w, deps: { connect: null } }, sessionId)).status).toBe(503);
+    expect(w.row('ask_sessions', sessionId)).toBeDefined();
+  });
+});
+
 describe('the ask routes', () => {
   const app = (path: string) => fileURLToPath(new URL(`../../app/api/ask/${path}/route.ts`, import.meta.url));
   const ROUTES: Array<[string, string, string]> = [
     ['sessions', 'POST', 'openSession'],
+    ['sessions/[id]', 'DELETE', 'deleteSession'],
     ['sessions/[id]/close', 'POST', 'closeSession'],
     ['sessions/[id]/rounds', 'POST', 'addRound'],
     ['rounds/[id]/wait', 'GET', 'waitRound'],
