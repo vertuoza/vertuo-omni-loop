@@ -471,3 +471,236 @@ One string in `kit/lib/credits/report.mjs` and its two tests. Nothing reads the 
 ```
 
 <!-- /omni-outbox-settled: s3-03-credits-heading-when-signing-off -->
+
+<!-- omni-outbox-settled: s4-01-credits-app-items-counted-apart -->
+
+## s4-01-credits-app-items-counted-apart — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-credits-app-items-counted-apart
+prd: 99
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 3
+---
+
+## The question, in plain words
+
+When the loop's own GitHub app opens an issue or a pull request, should the record count it with the loop's other pull requests and PRD issues, or on a line of its own?
+
+## The decision, in plain words
+
+Whatever the app opened is counted on a line of its own, marked as by the app, and never inside the pull request or PRD issue counts. It never decides when signing started in a repository either.
+
+## The intro, for fun
+
+The app and the skills work for the same hero, but they keep separate timesheets.
+
+## The punchline, for fun
+
+Nobody gets counted twice at the same party.
+
+## The options, in plain words
+
+A. Count what the app opened on its own line only, never in the pull request or PRD issue counts, the option built.
+B. Also count what the app opened in the pull request and PRD issue counts, with a by-the-app share in each breakdown.
+C. Count what the app opened in the pull request and PRD issue counts only when a loop label or the signature also says it is the loop's.
+
+## What I had to decide
+
+Where `omni credits` counts an issue or a pull request the signature's bot account opened (spec, `omni credits`: What it reads, Whose it is, and the signature table's `by the app`). The spec's example prints `Opened by the app: 9 issues` on a line of its own, and its `PRs` and `PRD issues` breakdowns (`signed · before signing · missed`) add up to their totals with no `by the app` share. It does not say whether an item the app opened that also carries a loop label, or any pull request the app opened, counts in those lines too, nor whether it can mark a repository's first signed item.
+
+## What I did meanwhile
+
+`kit/lib/credits/classify.mjs`: an item whose author is the bot account (`<slug>[bot]`, or `app/<slug>` as `gh pr view` prints it) gets the reason `author` and the signature `by the app`, which wins over `signed`, `before signing` and `missed`. `summarize` counts it under `byTheApp` (issues and pull requests apart), never in `prs`, `prdIssues`, `byRepo` or `byMonth`, and `withSignatures` never takes it as a repository's first signed item. A pull request the app opened and closed without merging is not counted, like any other. `kit/lib/credits/report.mjs` prints `Opened by the app: <n> issue(s)`, adding ` · <m> pull request(s)` when there are any. Tested in `kit/lib/credits/classify.test.mjs` (the opened by the app and summarize blocks) and `kit/lib/credits/report.test.mjs`.
+
+## What it costs to change later
+
+A few lines in `summarize` and one in `withSignatures` (`kit/lib/credits/classify.mjs`), and their tests. Nothing is stored: the next run simply counts the other way.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec does not say whether an item the app opened is also counted in the pull request and PRD issue lines, nor whether it can mark the start of signing in a repository.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-credits-app-items-counted-apart -->
+
+<!-- omni-outbox-settled: s4-02-credits-list-after-the-summary -->
+
+## s4-02-credits-list-after-the-summary — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-credits-list-after-the-summary
+prd: 99
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 3
+---
+
+## The question, in plain words
+
+When someone asks the record for its list of items, should the summary still print above the list, or should the list stand alone?
+
+## The decision, in plain words
+
+The summary prints first, then a blank line, then one line per item, since the design says the list is added. Asked for the machine-readable form as well, only that prints, because it already holds the list.
+
+## The intro, for fun
+
+The design's words and its picture disagreed about what sits above the list.
+
+## The punchline, for fun
+
+The words won, and the picture keeps its artistic licence.
+
+## The options, in plain words
+
+A. Print the summary, then the list, the option built.
+B. Print the list alone, as the before-after page shows it.
+
+## What I had to decide
+
+What `omni credits --list` prints. The spec says `--list` adds one line per item, oldest first (`omni credits`, What it prints), while the before-after page shows `omni credits --list --since 2026-09` printing item lines straight after the command, with no report above them. Neither says what `--list` and `--json` do together, nor where the warnings go under `--json`.
+
+## What I did meanwhile
+
+`kit/bin/commands/credits.mjs`: `--list` prints the report, a blank line, then `creditsList` (`kit/lib/credits/report.mjs`): short repository name, `#<n>`, kind, state, created date (UTC), signature (`-` when none), title, each column padded to its widest. `--json` wins over `--list`, and carries the warnings in its `warnings` field instead of stderr. Tested in `kit/bin/credits.test.mjs` (the --list and --json cases) and `kit/lib/credits/report.test.mjs`.
+
+## What it costs to change later
+
+Three lines in `kit/bin/commands/credits.mjs` and one test. Nothing reads the text back.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the list is added, and the before-after page shows it alone; neither says what the list and the machine-readable form do together.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-credits-list-after-the-summary -->
+
+<!-- omni-outbox-settled: s4-03-credits-lines-not-looked-for -->
+
+## s4-03-credits-lines-not-looked-for — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-credits-lines-not-looked-for
+prd: 99
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 3
+---
+
+## The question, in plain words
+
+When a repository has switched signing off, or its signing address belongs to no GitHub account, what should the record show for the counts only a signature can find?
+
+## The decision, in plain words
+
+The record leaves out what it never looked for rather than printing zeros: with signing off, the PRD issues count stands alone and the app and co-authored commit lines go. With an address that names no account, only the app line goes.
+
+## The intro, for fun
+
+A zero you counted and a zero you never looked for look exactly the same on paper.
+
+## The punchline, for fun
+
+So the record leaves a gap instead of telling a small lie.
+
+## The options, in plain words
+
+A. Leave out what was not looked for, the option built.
+B. Print every line, with zeros where nothing was looked for.
+C. Print every line, saying it was not looked for in place of a count.
+
+## What I had to decide
+
+What `omni credits` prints for the lines slice s4 adds when the signature cannot find them. The spec says that with `signature: null` the pull requests and issues are still counted by label and the signature line reads `signing is off in this repository` (`omni credits`, What it prints). It names no rule for the PRD issues breakdown, `Opened by the app` or `Co-authored commits on default branches` then, nor for a signature whose address is not a noreply address, which names no bot account (`botLogin` returns `null`).
+
+## What I did meanwhile
+
+`kit/lib/credits/report.mjs`: with signing off the PRD issues line is `PRD issues <n>` with no breakdown, and the `Opened by the app` and `Co-authored commits on default branches` lines are left out; with signing on but no bot account, only `Opened by the app` is left out. `kit/lib/credits/reader.mjs` runs no author search when there is no bot account. Under `--json`, `totals.byTheApp` and `totals.commits` are `null` when they were not looked for, and `commits` is `[]`. Tested in `kit/lib/credits/report.test.mjs`, `kit/lib/credits/reader.test.mjs` and `kit/bin/credits.test.mjs` (the signature null cases).
+
+## What it costs to change later
+
+Two conditions in `creditsReport` (`kit/lib/credits/report.mjs`), the matching `null`s in `summarize`, and their tests. Nothing reads the text back.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says what the signature line reads with signing off, but not what the PRD issues breakdown, the app line or the commits line do then, nor what happens when the signing address names no GitHub account.
+
+```
+
+<!-- /omni-outbox-settled: s4-03-credits-lines-not-looked-for -->
