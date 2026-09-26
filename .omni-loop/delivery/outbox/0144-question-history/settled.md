@@ -548,3 +548,160 @@ Showing names later is a read of the workspace's players on the page; nothing st
 ```
 
 <!-- /omni-outbox-settled: s3-03-chip-names-who-by-role -->
+
+<!-- omni-outbox-settled: s4-01-teammates-named-by-email -->
+
+## s4-01-teammates-named-by-email — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-teammates-named-by-email
+prd: 144
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 4
+---
+
+## The question, in plain words
+
+To share a question, the owner picks a teammate from a list; should that list, and the note saying who answered first, show each teammate's email address to everyone in the workspace?
+
+## The decision, in plain words
+
+Yes: every member of a workspace sees the others by their arcade name when they picked one, and otherwise by their email address. Nobody outside the workspace sees the list.
+
+## The intro, for fun
+
+Picking a teammate from a list works best when the list has names on it.
+
+## The punchline, for fun
+
+Some people only ever gave us their email, so that is the name they get.
+
+## The options, in plain words
+
+A. Arcade name when there is one, otherwise the email address, shown to members of the same workspace only
+B. Arcade name only, and members without one are not offered for sharing
+C. Email address always, for everyone the same way
+
+## What I had to decide
+
+Whether members of a workspace may see each other's email addresses when sharing a question and reading who answered it, or only a name.
+
+## What I did meanwhile
+
+The share list and the already-answered note name each member by their arcade name, or by their email address when they have none; the list is given only to members of the same workspace.
+
+## What it costs to change later
+
+Showing only arcade names is a change to one database function and one line of the page; a member with no arcade name would then need another label.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says to pick a workspace member but not how a member is named, and many members have never picked an arcade name (author)
+- The access rules so far let a person read only their own membership, so no page showed another member's email before this (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-01-teammates-named-by-email -->
+
+<!-- omni-outbox-settled: s4-02-for-me-count-on-every-page -->
+
+## s4-02-for-me-count-on-every-page — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-for-me-count-on-every-page
+prd: 144
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 4
+---
+
+## The question, in plain words
+
+The count of questions waiting for someone sits in the header of every ask page; should it be read fresh each time a page opens, or refreshed while the page stays open?
+
+## The decision, in plain words
+
+It is read fresh each time an ask page opens, and not refreshed while the page stays open. The For me list itself is also read when it opens; reloading shows new questions.
+
+## The intro, for fun
+
+A little number in the corner that says someone needs you.
+
+## The punchline, for fun
+
+It only checks when you walk in, like a doorbell with a short memory.
+
+## The options, in plain words
+
+A. Read once when a page opens
+B. Refresh the count and the list every few seconds while the page is open
+
+## What I had to decide
+
+Whether the For me count and list update on their own while a page stays open, or only when a page is opened or reloaded.
+
+## What I did meanwhile
+
+Every ask page reads the count once as it opens; For me reads its list once; the question page itself keeps refreshing every two seconds while open.
+
+## What it costs to change later
+
+Adding a refresh later is a small change to the header and the list; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the header shows the count but not whether it stays current, and Slack notifications come in the next PRD (author)
+- Reading the count costs a few small database reads on every ask page load; its weight in production is not known yet (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-02-for-me-count-on-every-page -->
