@@ -47,7 +47,11 @@ wave, finishing the feature PR) belongs to `/omni:yolo`.
 - **Ready before merge:** a sub-PR is merged only once `/omni:pr` has marked it ready; the wave
   never runs `gh pr ready` itself.
 - **`red` status** (do-work's): treated like upstream's `preflight: "red"` — not merged, stuck,
-  `labels.needsFix`. A subagent that returns nothing usable is `red` too.
+  `labels.needsFix`. A subagent that returns nothing usable is `red` too. Since PRD 45 (item
+  s6-01), a red slice gets one look first: when its failing step matches a known red in the `ci`
+  form, its diff changes nothing that red names, and the form allows a re-run, it goes through the
+  merge steps like a `done` slice, the preflight of `/omni:pr`'s sub-PR lifecycle being its one
+  re-run, counted as an attempt.
 - **Medium items** are adopted here, after the merges, with `omni adopt`, in one commit on the
   feature branch (do-work leaves them open under `--in-wave`). Upstream adopted at raise time.
   The wave's check runs after the adoption, so one pass of `omni check all` covers the ledger.
@@ -68,3 +72,9 @@ wave, finishing the feature PR) belongs to `/omni:yolo`.
 - The nesting line: at most three levels, so do-work never dispatches.
 - A stop when the feature branch or feature PR is missing: follow `/omni:plan` first.
 - The Report's tail: the wave's check, the high items left open, what the board still holds.
+- **The playbook forms** (PRD 45, the spec's wiring table), each read through `omni kb show`:
+  step 0 prints the `briefing` before any other step (acceptance criterion 9), and says how to read
+  a form: a blank section is the kit default, a `[hole]` never stops the wave (decision 7), and a
+  form adds to its steps without overriding its rules (item s6-02). A red slice reads `ci` once
+  (above). The dispatch prompt is unchanged: each subagent's `/omni:do-work` prints its own
+  briefing.

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { makeRepo } from '../../test/fixture.mjs';
+import { formText, makeRepo } from '../../test/fixture.mjs';
 import { flatCtx } from '../../test/flat-layout.mjs';
 import { lawsFor } from '../laws.mjs';
 import { makeMarkers } from '../markers.mjs';
@@ -469,6 +469,58 @@ describe('findOutboxViolations', () => {
         },
       });
       expect(findOutboxViolations({ ctx })).toEqual([]);
+    });
+  });
+
+  describe('Became: a playbook section (PRD 45)', () => {
+    const SETTLED = '.omni-loop/delivery/outbox/0042-a/settled.md';
+    const TESTING = '.omni-loop/knowledge/playbook/testing.md';
+
+    /** A settled ledger whose one entry, `s1-01-x`, became `became`. */
+    function settled(became) {
+      const m = makeMarkers('omni-outbox');
+      return [m.settledOpen('s1-01-x'), '## s1-01-x — agreed', '- Verdict: agreed', '- Closed: yes', `- Became: ${became}`, m.settledClose('s1-01-x'), ''].join('\n');
+    }
+
+    /** A testing form holding one `never` slot with `body`. */
+    const testingForm = (body) => formText({ frontMatter: { state: 'filled' }, slots: [{ id: 'never', required: true, by: 'human', body }] });
+
+    function violations(files, became = 'playbook/testing#never') {
+      const { ctx } = makeRepo({ files: { '.omni-loop/delivery/inbox/0042-a/spec.md': 'x', [SETTLED]: settled(became), ...files } });
+      return findOutboxViolations({ ctx });
+    }
+
+    it('passes when the slot exists and is not blank', () => {
+      expect(violations({ [TESTING]: testingForm('- A test never calls the network.') })).toEqual([]);
+    });
+
+    it('fails naming the settled file when the form file is missing', () => {
+      expect(violations({})).toEqual([`${SETTLED}: s1-01-x Became: playbook/testing#never — no form file at ${TESTING}`]);
+    });
+
+    it('fails naming the settled file when the kit has no such form', () => {
+      expect(violations({}, 'playbook/tests#never')).toEqual([expect.stringMatching(new RegExp(`^${SETTLED}: s1-01-x Became: playbook/tests#never — .*no form "tests"`))]);
+    });
+
+    it('fails naming the settled file when the form has no such slot', () => {
+      const form = formText({ frontMatter: { state: 'filled' }, slots: [{ id: 'levels', body: 'x' }] });
+      expect(violations({ [TESTING]: form })).toEqual([`${SETTLED}: s1-01-x Became: playbook/testing#never — ${TESTING} has no slot "never"`]);
+    });
+
+    it('fails naming the settled file when the slot’s body is blank', () => {
+      expect(violations({ [TESTING]: testingForm('') })).toEqual([`${SETTLED}: s1-01-x Became: playbook/testing#never — ${TESTING}: slot "never" is blank`]);
+    });
+
+    it('resolves a playbook section beside an ADR and a knowledge id, each as before', () => {
+      const files = {
+        [TESTING]: testingForm('- A test never calls the network.'),
+        '.omni-loop/knowledge/adr/0002-x.md': '# 0002 X\n',
+        '.omni-loop/knowledge/product/principles.md': '## P-PRODUCT-9\n\nSomething decided.\n\nWhy: x\nDecided: y\nSource: PRD #3\n',
+      };
+      expect(violations(files, 'P-PRODUCT-9, ADR-0002, playbook/testing#never')).toEqual([]);
+      expect(violations(files, 'P-PRODUCT-8, ADR-0003, playbook/testing#never').join('\n')).toMatch(
+        /Became: P-PRODUCT-8 — [^\n]*\n[^\n]*Became: ADR-0003 — no decision record/,
+      );
     });
   });
 

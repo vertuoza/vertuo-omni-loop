@@ -9,5 +9,17 @@
   },
   "enabledPlugins": {
     "omni@omni-loop": true
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .omni-loop/bin/omni.mjs kb show briefing"
+          }
+        ]
+      }
+    ]
   }
 }

@@ -17,9 +17,15 @@ branch shape or command you can read with `omni config <key>`.
 ## Step 0
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the repository
-is not terraformed. Keep the JSON; later steps read `repo.*`, `branches.feature`, `branches.phase0`,
+is not installed. Keep the JSON; later steps read `repo.*`, `branches.feature`, `branches.phase0`,
 `worktrees`, `paths.*`, `labels.*`, `prLinks.*`, `acceptance.*` and `limits.beforeAfterMaxBytes`
 from it. `<remote>` below is `repo.remote`.
+
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
+rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
+playbook, section by section: a section the repository left blank prints the kit default, and a
+`[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
+never overrides this skill's rules.
 
 ## 1. Brainstorm the design
 
@@ -148,6 +154,10 @@ spec: file
   here verbatim, in a gherkin block under the path of its file; a scenario with no harness yet is
   written the same way and marked "no harness — ordinary tests". A scenario edited later is edited
   in both places, in the same push.
+- **Test seams** and **Acceptance criteria** follow `omni kb show testing`: how this repository
+  tests, at which levels, and what a test must never do.
+- **Risks** names what merging this PRD would publish, and how that is rolled back: read
+  `omni kb show releasing`.
 - Words come from `paths.glossary` when it is set, and from the files in `paths.context`.
 
 **Self-review,** before anyone reads it: no placeholder or "TBD", no two sections contradicting each
