@@ -11,6 +11,13 @@ html:has(.ask),
   --ask-px: 'Press Start 2P', ui-monospace, monospace;
 }
 
+/* Over the arcade's body: its pinned height and hidden overflow, which hold the game screen still,
+   would leave a page of several questions stuck at the first. */
+html:has(.ask) body {
+  height: auto;
+  overflow: auto;
+}
+
 /* Over the arcade's body: its ground, its face, its smoothing. */
 html:has(.ask[data-ask-theme]) body {
   background: var(--ask-ground);
