@@ -9,8 +9,8 @@ import type { RoundRow, SessionRow, SessionState } from './view';
 
 export type Db = Pick<SupabaseClient, 'from'>;
 
-const SESSION = 'id, owner, title, status, created_at, last_seen_at';
-const ROUND = 'id, questions, answers, answered_via, status, created_at, answered_at';
+const SESSION = 'id, owner, title, status, created_at, last_seen_at, repo, branch';
+const ROUND = 'id, questions, answers, answered_via, status, created_at, answered_at, prd, skill, model, tokens, cost_usd, answered_by';
 const HEAD = 'id, status';
 
 type Outcome<T> = { data: T | null; error: { code?: string; message: string } | null };

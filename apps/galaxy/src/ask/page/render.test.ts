@@ -2,9 +2,10 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect } from 'vitest';
 import { emptyDraft, pickOption, readQuestions } from '../answer-model';
+import { ContextLine } from './ContextLine';
 import { History } from './History';
 import { RoundForm } from './RoundForm';
-import type { HistoryEntry } from './view';
+import { contextParts, type HistoryEntry } from './view';
 
 // The round and the history as the server renders them: what a person sees before any script runs.
 
@@ -106,5 +107,35 @@ describe('the history, rendered', () => {
 
   it('shows nothing before the first answer', () => {
     expect(renderToStaticMarkup(createElement(History, { history: [] }))).toBe('');
+  });
+});
+
+describe('the context line, rendered (PRD 144)', () => {
+  const NOW = Date.parse('2026-09-26T10:00:00Z');
+  const session = { repo: 'vertuoza/vertuo-omni-loop', branch: 'feat/question-history' };
+  const base = {
+    id: 'r1', questions: [], answers: { 'Where?': 'Here' }, answered_via: 'page' as const, status: 'answered' as const,
+    created_at: new Date(NOW - 200_000).toISOString(), answered_at: new Date(NOW - 20_000).toISOString(),
+  };
+  const line = (parts: string[] | undefined) => renderToStaticMarkup(createElement(ContextLine, { parts }));
+
+  it('shows every field of a round that has them all, and the time to answer', () => {
+    const round = { ...base, prd: 144, skill: '/omni:brainstorm', model: 'claude-opus-4-8', tokens: { input: 10, output: 20, cacheRead: 30_000, cacheWrite: 0 }, cost_usd: 1.2345 };
+    expect(line(contextParts(session, round))).toBe(
+      '<p class="ask-title ask-context" aria-label="Where this question came from">'
+      + 'vertuoza/vertuo-omni-loop · feat/question-history · PRD #144 · /omni:brainstorm · claude-opus-4-8 · 30k tokens · $1.23 · answered in 3 min 0 s</p>',
+    );
+  });
+
+  it('shows only the time to answer for a round whose context is null, and nothing for an open one', () => {
+    const nulls = { ...base, prd: null, skill: null, model: null, tokens: null, cost_usd: null };
+    expect(line(contextParts({ repo: null, branch: null }, nulls))).toContain('>answered in 3 min 0 s</p>');
+    expect(line(contextParts({}, { ...nulls, status: 'open', answers: null, answered_via: null, answered_at: null }))).toBe('');
+    expect(line(undefined)).toBe('');
+  });
+
+  it('sits under each round of the history', () => {
+    const entry: HistoryEntry = { id: 'a', outcome: 'answered', via: 'page', at: '', lines: [{ header: 'H', question: 'Q?', answer: 'A' }], context: ['acme/widgets', 'answered in 5 s'] };
+    expect(renderToStaticMarkup(createElement(History, { history: [entry] }))).toMatch(/<\/details><p class="ask-title ask-context"[^>]*>acme\/widgets · answered in 5 s<\/p><\/li>/);
   });
 });

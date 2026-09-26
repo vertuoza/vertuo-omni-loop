@@ -2,12 +2,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { emptyDraft, roundAnswers, type Draft } from '../answer-model';
+import { ContextLine } from './ContextLine';
 import { demoPort } from './demo';
 import { History } from './History';
 import { poll } from './poll';
 import { RoundForm } from './RoundForm';
 import { databasePort, type AskPort } from './source';
-import { keepSent, minutesLeft, pageTitle, sessionView, withPageAnswer, type Sent, type SessionState } from './view';
+import { contextParts, keepSent, minutesLeft, pageTitle, sessionView, withPageAnswer, type Sent, type SessionState } from './view';
 
 // One ask session, for its signed-in owner: the open round at the top (or Claude is working,
 // moved to the terminal, session closed), the history below, read again every 2 s while the tab
@@ -104,6 +105,8 @@ export function AskSession({ source, initial, serverNow }: Props) {
       <p className="ask-title">{state.session.title}</p>
       {problem && <p className="ask-problem" role="status">{problem}</p>}
       {notice && <p className="ask-problem" role="status">{notice}</p>}
+
+      {(view.kind === 'open' || view.kind === 'moved') && <ContextLine parts={contextParts(state.session, view.round)} />}
 
       {view.kind === 'open' && draft && (
         <RoundForm

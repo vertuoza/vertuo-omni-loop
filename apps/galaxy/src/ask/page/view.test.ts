@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { HOOK_WAIT_MS, keepSent, minutesLeft, pageTitle, sessionView, withPageAnswer, type RoundRow, type SessionState } from './view';
+import { contextParts, HOOK_WAIT_MS, keepSent, minutesLeft, pageTitle, sessionView, withPageAnswer, type RoundRow, type SessionState } from './view';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
 const at = (msAgo: number) => new Date(NOW - msAgo).toISOString();
@@ -164,5 +164,46 @@ describe('the tab title', () => {
   it('flags a question waiting, so a tab in the background shows it', () => {
     expect(pageTitle({ kind: 'open' })).toBe('● Claude asks · OMNI LOOP');
     for (const kind of ['working', 'moved', 'closed'] as const) expect(pageTitle({ kind })).toBe('Ask · OMNI LOOP');
+  });
+});
+
+describe('the context line (PRD 144)', () => {
+  const full = state([], { repo: 'vertuoza/vertuo-omni-loop', branch: 'feat/question-history--s1' }).session;
+  const facts = {
+    prd: 144,
+    skill: '/omni:brainstorm',
+    model: 'claude-sonnet-4-6',
+    tokens: { input: 1200, output: 300, cacheRead: 1_000_000, cacheWrite: 200_000 },
+    cost_usd: 0.0321,
+  };
+
+  it('names the repo, branch, PRD, skill, model, tokens, cost and the time to answer', () => {
+    const r = round({ ago: 10 * MIN, ...facts, status: 'answered', answered_via: 'page', answers: {}, answered_at: at(10 * MIN - 95_000) });
+    expect(contextParts(full, r)).toEqual([
+      'vertuoza/vertuo-omni-loop', 'feat/question-history--s1', 'PRD #144', '/omni:brainstorm', 'claude-sonnet-4-6',
+      '1.2M tokens', '$0.03', 'answered in 1 min 35 s',
+    ]);
+  });
+
+  it('leaves out every field it does not have, an older kit\'s round saying nothing at all', () => {
+    const bare = state([]).session;
+    expect(contextParts(bare, round({ ago: MIN }))).toEqual([]);
+    expect(contextParts(bare, round({ ago: MIN, prd: null, skill: null, model: null, tokens: null, cost_usd: null }))).toEqual([]);
+  });
+
+  it('writes small costs, token counts and times in a way that reads', () => {
+    const tiny = round({ ago: MIN, tokens: { input: 950, output: 0, cacheRead: 0, cacheWrite: 0 }, cost_usd: 0.0004 });
+    expect(contextParts(state([]).session, tiny)).toEqual(['950 tokens', '<$0.01']);
+    const k = round({ ago: MIN, tokens: { input: 12_340, output: 0, cacheRead: 0, cacheWrite: 0 }, cost_usd: 0 });
+    expect(contextParts(state([]).session, k)).toEqual(['12.3k tokens', '$0.00']);
+    const quick = round({ ago: MIN, status: 'answered', answered_via: 'terminal', answers: {}, answered_at: at(MIN - 42_000) });
+    expect(contextParts(state([]).session, quick)).toEqual(['answered in 42 s']);
+    const slow = round({ ago: 3 * 60 * MIN, status: 'answered', answered_via: 'terminal', answers: {}, answered_at: at(60 * MIN) });
+    expect(contextParts(state([]).session, slow)).toEqual(['answered in 2 h 0 min']);
+  });
+
+  it('rides along with each round of the history', () => {
+    const view = sessionView(state([answered(MIN, 'page')], { repo: 'acme/widgets' }), NOW);
+    expect(view.history[0].context).toEqual(['acme/widgets', 'answered in 1 s']);
   });
 });
