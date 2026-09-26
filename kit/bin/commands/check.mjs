@@ -1,4 +1,4 @@
-// `omni check [inbox|outbox|knowledge|coverage|all]` — the repository's guards. Each prints its
+// `omni check [inbox|outbox|knowledge|kb|coverage|all]` — the repository's guards. Each prints its
 // violations (or its one pass line); exit 1 on any violation. `all` (the default) runs every guard,
 // and skips `coverage` — never fails on it — when the default branch's remote ref is absent.
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-inbox.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
@@ -21,9 +21,10 @@ import {
 } from '../../lib/outbox/check-decision-coverage.mjs';
 import { riskyChanges } from '../../lib/outbox/decision-coverage.mjs';
 import { outboxItemFiles } from '../../lib/outbox/outbox.mjs';
+import { gradePlaybook } from '../../lib/playbook/check-playbook.mjs';
 import { parseArgs, positiveInt, println, usageError } from '../args.mjs';
 
-const USAGE = 'usage: omni check [inbox|outbox|knowledge|coverage|all] [--base <ref>] [--prd <n>]';
+const USAGE = 'usage: omni check [inbox|outbox|knowledge|kb|coverage|all] [--base <ref>] [--prd <n>]';
 
 /** Prints a guard's result; `true` when it is green. */
 function report(stdout, title, violations, passLine) {
@@ -81,6 +82,23 @@ function checkKnowledge({ ctx, stdout, stderr }) {
   );
 }
 
+/** The states a pass line counts, in this order, each only when some form is in it. */
+const FORM_STATES = ['filled', 'pointer', 'blank', 'missing'];
+
+function checkKb({ ctx, stdout, stderr, exec }) {
+  const { violations, warnings, forms } = gradePlaybook({ ctx, exec });
+  for (const warning of warnings) println(stderr, `warning: ${warning}`);
+  const counts = FORM_STATES.map((state) => [state, forms.filter((form) => form.state === state).length])
+    .filter(([, count]) => count > 0)
+    .map(([state, count]) => `${count} ${state}`);
+  return report(
+    stdout,
+    'check kb — a form does not hold what it claims:',
+    violations,
+    `check kb — ${forms.length} form(s): ${counts.join(', ')}; ${warnings.length} warning(s).`,
+  );
+}
+
 function defaultBase(ctx) {
   return `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}`;
 }
@@ -122,7 +140,7 @@ function checkCoverage({ ctx, stdout, exec }, { base, prd }) {
   return ok;
 }
 
-const GUARDS = ['inbox', 'outbox', 'knowledge', 'coverage', 'all'];
+const GUARDS = ['inbox', 'outbox', 'knowledge', 'kb', 'coverage', 'all'];
 
 export const check = {
   async run(args, io) {
@@ -143,12 +161,13 @@ export const check = {
     if (guard === 'inbox') return checkInbox(io) ? 0 : 1;
     if (guard === 'outbox') return checkOutbox(io) ? 0 : 1;
     if (guard === 'knowledge') return checkKnowledge(io) ? 0 : 1;
+    if (guard === 'kb') return checkKb(io) ? 0 : 1;
     if (guard === 'coverage') {
       if (!baseKnown) throw usageError(`omni check coverage: no ${base} — fetch it or pass --base <ref>.`);
       return checkCoverage(io, { base, prd }) ? 0 : 1;
     }
 
-    const results = [checkInbox(io), checkOutbox(io), checkKnowledge(io)];
+    const results = [checkInbox(io), checkOutbox(io), checkKnowledge(io), checkKb(io)];
     if (baseKnown) results.push(checkCoverage(io, { base, prd }));
     else println(stdout, `coverage: skipped — no ${base}`);
     return results.every(Boolean) ? 0 : 1;

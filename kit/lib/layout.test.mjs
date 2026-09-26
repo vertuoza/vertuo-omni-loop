@@ -3,8 +3,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { foldersLayout, padPrd, parseFolderName } from './layout.mjs';
+import { FORMS } from './playbook/forms.mjs';
 
-const PATHS = { delivery: '.omni-loop/delivery', knowledge: '.omni-loop/knowledge', adr: 'docs-adr', glossary: null, context: [] };
+const PATHS = { delivery: '.omni-loop/delivery', knowledge: '.omni-loop/knowledge', adr: 'docs-adr', playbook: '.omni-loop/knowledge/playbook', glossary: null, context: [] };
 
 function tree(files) {
   const root = mkdtempSync(join(tmpdir(), 'layout-'));
@@ -77,5 +78,34 @@ describe('foldersLayout', () => {
       '.omni-loop/delivery/inbox/0001-a/spec.md',
       '.omni-loop/delivery/inbox/0002-b/spec.md',
     ]);
+  });
+});
+
+describe('foldersLayout — the playbook', () => {
+  it('names the playbook folder and its parent, the front door', () => {
+    const layout = foldersLayout(tree({}), PATHS);
+    expect(layout.playbookDir).toBe('.omni-loop/knowledge/playbook');
+    expect(layout.frontDoor).toBe('.omni-loop/knowledge');
+  });
+
+  it("names each form's file in the playbook folder, and the decisions form under the front door, wherever paths.adr is", () => {
+    const layout = foldersLayout(tree({}), PATHS);
+    expect(layout.formPath('testing')).toBe('.omni-loop/knowledge/playbook/testing.md');
+    expect(layout.formPath('definition-of-done')).toBe('.omni-loop/knowledge/playbook/definition-of-done.md');
+    expect(layout.formPath('glossary')).toBe('.omni-loop/knowledge/playbook/glossary.md');
+    expect(layout.formPath('decisions')).toBe('.omni-loop/knowledge/adr/README.md');
+  });
+
+  it('follows a playbook folder the config moves', () => {
+    const layout = foldersLayout(tree({}), { ...PATHS, playbook: 'handbook/how-we-work' });
+    expect(layout.frontDoor).toBe('handbook');
+    expect(layout.formPath('ci')).toBe('handbook/how-we-work/ci.md');
+    expect(layout.formPath('decisions')).toBe('handbook/adr/README.md');
+  });
+
+  it('names a file for every form in the kit, and none for a form it does not have', () => {
+    const layout = foldersLayout(tree({}), PATHS);
+    for (const { id } of FORMS) expect(layout.formPath(id)).toMatch(/\.md$/);
+    expect(layout.formPath('nope')).toBeNull();
   });
 });

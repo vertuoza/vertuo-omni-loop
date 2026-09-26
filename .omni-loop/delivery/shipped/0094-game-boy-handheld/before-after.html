@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galaxy Game Boy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Jersey+10&family=Press+Start+2P&display=swap">
+<style>
+/* One deliberate dark world, the arcade's own, so there is no light theme: every colour is set here. */
+:root{
+  color-scheme:dark;
+  --ground:#0b0a26;--surface:#120f3a;--line:#2a2766;--ink:#f2f4ff;--dim:#9aa0e0;
+  --plasma:#a45cff;--plasma-dark:#6a2fd0;--navy:#2f3fc4;--navy-dark:#1a2170;--void:#07061c;
+  --yellow:#ffd84a;--red:#ff3b5c;--cyan:#6ff0ff;--green:#4ee08a;
+  --px:'Press Start 2P','Courier New',monospace;
+  --txt:'Jersey 10','Arial Narrow','Roboto Condensed',sans-serif;
+  --body:'Atkinson Hyperlegible',-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+@property --x{syntax:'<number>';inherits:false;initial-value:0}
+@property --y{syntax:'<number>';inherits:false;initial-value:0}
+@property --w{syntax:'<number>';inherits:false;initial-value:0}
+@property --h{syntax:'<number>';inherits:false;initial-value:0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:16px/1.6 var(--body);padding-inline:16px}
+main{max-width:1120px;margin:0 auto;padding-block:40px 88px;display:grid;gap:72px}
+h1,h2,h3{text-wrap:balance;margin:0;font-weight:700}
+h1{font-size:clamp(28px,4.4vw,42px);line-height:1.15}
+h2{font-size:clamp(21px,2.6vw,26px);line-height:1.25}
+p{margin:0}
+code{font:.88em/1 ui-monospace,Menlo,Consolas,monospace;background:var(--surface);border:1px solid var(--line);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+.eyebrow{font:10px/1.6 var(--px);letter-spacing:.12em;color:var(--cyan);text-transform:uppercase}
+header.top{display:grid;gap:14px;max-width:760px}
+.lede{font-size:18px;color:var(--ink)}
+.note{color:var(--dim);font-size:14px}
+section{display:grid;gap:20px;min-width:0}
+.sec-head{display:grid;gap:8px;max-width:720px}
+.sec-head p{color:var(--dim)}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:28px 32px;align-items:start}
+.stack{display:grid;gap:36px}
+figure{margin:0;display:grid;gap:12px;min-width:0}
+.tag{font:9px/1.4 var(--px);letter-spacing:.1em;text-transform:uppercase}
+.tag.before{color:var(--red)}
+.tag.after{color:var(--green)}
+figcaption ol{margin:0;padding-left:22px;display:grid;gap:4px;color:var(--dim);font-size:14.5px}
+figcaption ol li::marker{font:9px var(--px);color:var(--yellow)}
+
+/* ── Devices, drawn to scale: 1 unit = 1 CSS px of the real viewport ── */
+.dev{container-type:inline-size;width:100%}
+.dev.portrait{max-width:393px}
+.dev.landscape{max-width:852px}
+.dev.desktop{max-width:900px}
+.frame{position:relative;overflow:hidden;width:100%;border-radius:calc(22*var(--u));box-shadow:0 0 0 2px #2c2a5e,0 0 0 7px #05041a,0 18px 40px rgba(0,0,0,.45)}
+.portrait .frame{--u:calc(100cqw/393);aspect-ratio:393/700}
+.landscape .frame{--u:calc(100cqw/852);aspect-ratio:852/393}
+.desktop .frame{--u:calc(100cqw/1440);aspect-ratio:1440/900;border-radius:6px}
+.abs{position:absolute;left:calc(var(--x)*var(--u));top:calc(var(--y)*var(--u))}
+.sz{width:calc(var(--w)*var(--u));height:calc(var(--h)*var(--u))}
+.mk{position:absolute;left:calc(var(--x)*var(--u));top:calc(var(--y)*var(--u));width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--yellow);color:#0b0a26;font:8px/18px var(--px);text-align:center;box-shadow:0 0 0 2px #0b0a26;z-index:5}
+
+/* Today's cabinet */
+.cab-bg{background:radial-gradient(circle at 50% 40%,rgba(164,92,255,.18),transparent 60%),radial-gradient(rgba(111,240,255,.07) 1px,transparent 1.5px) 0 0/6px 6px,var(--void)}
+.marquee{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(4*var(--u));background:linear-gradient(180deg,#1a2170,#0e0d33);border:calc(2*var(--u)) solid var(--navy);box-shadow:0 0 calc(18*var(--u)) rgba(164,92,255,.45)}
+.marquee.row{flex-direction:row;gap:calc(14*var(--u))}
+.marquee b{font:400 calc(18*var(--u))/1 var(--px);color:var(--yellow);text-shadow:calc(2*var(--u)) calc(2*var(--u)) 0 var(--red)}
+.marquee i{font:normal calc(9*var(--u))/1 var(--px);color:var(--cyan)}
+.bezel{background:#0b0a26;border-radius:calc(18*var(--u));box-shadow:0 0 0 calc(3*var(--u)) var(--navy-dark),0 0 calc(40*var(--u)) rgba(164,92,255,.5)}
+.turn{font:calc(8*var(--u))/1 var(--px);color:var(--yellow);text-align:center;left:0;right:0}
+.plate{display:grid;place-items:center;align-content:center;gap:calc(3*var(--u));background:linear-gradient(180deg,#2a2f5c,#171a3c);border:calc(2*var(--u)) solid #3a3f7a;font:calc(11*var(--u))/1 var(--px);color:var(--ink)}
+.plate small{font:calc(15*var(--u))/1 var(--txt);color:var(--dim)}
+.oldpad-d{position:absolute}
+.oldpad-d::before,.oldpad-d::after{content:'';position:absolute;background:#22265a;border-radius:calc(4*var(--u))}
+.oldpad-d::before{left:calc(32*var(--u));top:0;width:calc(32*var(--u));height:calc(96*var(--u))}
+.oldpad-d::after{left:0;top:calc(32*var(--u));width:calc(96*var(--u));height:calc(32*var(--u))}
+.oldpill{display:grid;place-items:center;border-radius:999px;border:calc(2*var(--u)) solid #3a3f7a;background:#171a3c;color:var(--dim);font:calc(8*var(--u))/1 var(--px)}
+.oldbtn{display:grid;place-items:center;border-radius:50%;color:var(--ink);font:calc(14*var(--u))/1 var(--px);box-shadow:inset 0 calc(-4*var(--u)) 0 rgba(0,0,0,.35)}
+
+/* The screen, in grid px: --g is one grid pixel on the device */
+.scr{position:absolute;overflow:hidden;background:
+  radial-gradient(ellipse at 70% 30%,rgba(164,92,255,.35),transparent 55%),
+  radial-gradient(ellipse at 20% 80%,rgba(47,63,196,.45),transparent 60%),
+  radial-gradient(rgba(242,244,255,.55) .6px,transparent 1px) 0 0/calc(37*var(--g)) calc(29*var(--g)),
+  #0a0930;border-radius:calc(8*var(--u))}
+.scr::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(180deg,rgba(0,0,0,.14) 0 1px,transparent 1px 3px),radial-gradient(ellipse at center,transparent 58%,rgba(0,0,0,.5) 100%)}
+.m{position:absolute;inset:0;font-family:var(--px);color:var(--ink);line-height:1}
+.m h3{margin:0;font:400 calc(var(--hs)*var(--g))/1 var(--px);color:var(--yellow);letter-spacing:calc(2*var(--g));text-shadow:calc(2*var(--g)) calc(2*var(--g)) 0 var(--red)}
+.m .badge{position:absolute;padding:calc(4*var(--g)) calc(6*var(--g)) calc(3*var(--g));font-size:calc(var(--bs)*var(--g));color:#0b0a26;background:#8a90d6}
+.m ul{list-style:none;margin:0;padding:0;display:grid}
+.m li{display:grid;align-items:baseline;border:calc(2*var(--g)) solid transparent}
+.m li.on{border-color:var(--yellow);background:rgba(47,63,196,.45)}
+.m .cur{color:var(--yellow);font-size:calc(9*var(--g))}
+.m .lab{font-size:calc(9*var(--g));color:var(--ink)}
+.m li.on .lab{color:var(--yellow)}
+.m .hint{font:calc(15*var(--g))/1 var(--txt);color:#8a90d6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m .foot{position:absolute;display:flex;justify-content:space-between;font-size:calc(8*var(--g));color:#8a90d6}
+.m .foot .live{color:var(--green)}
+/* wide: today's long menu on 640×360 */
+.m.wide{--hs:18;--bs:7;padding:calc(36*var(--g)) 0 0 calc(34*var(--g))}
+.m.wide .badge{top:calc(18*var(--g));right:calc(18*var(--g))}
+.m.wide ul{margin-top:calc(16*var(--g));gap:calc(4*var(--g));width:calc(410*var(--g))}
+.m.wide li{grid-template-columns:calc(16*var(--g)) calc(150*var(--g)) 1fr;padding:calc(4*var(--g)) calc(8*var(--g))}
+.m.wide .foot{left:calc(34*var(--g));right:calc(24*var(--g));bottom:calc(16*var(--g))}
+/* tall: the same menu on 320×288 */
+.m.tall{--hs:14;--bs:8;padding:calc(12*var(--g)) 0 0 calc(14*var(--g))}
+.m.tall .badge{top:calc(12*var(--g));right:calc(12*var(--g))}
+.m.tall ul{margin-top:calc(8*var(--g));gap:calc(1*var(--g));width:calc(292*var(--g))}
+.m.tall li{grid-template-columns:calc(14*var(--g)) 1fr;padding:calc(2*var(--g)) calc(6*var(--g));row-gap:calc(2*var(--g))}
+.m.tall .hint{grid-column:2}
+.m.tall .foot{left:calc(14*var(--g));right:calc(14*var(--g));bottom:calc(8*var(--g))}
+
+/* The Game Boy body */
+.gb{background:
+  radial-gradient(ellipse at 30% 0%,rgba(255,255,255,.14),transparent 50%),
+  radial-gradient(rgba(255,255,255,.06) 1px,transparent 1.5px) 0 0/5px 5px,
+  linear-gradient(165deg,var(--plasma) 0%,#8a45ee 45%,var(--plasma-dark) 100%)}
+.lens{background:linear-gradient(180deg,#1d1a4a,#14123a);border-radius:calc(10*var(--u)) calc(10*var(--u)) calc(46*var(--u)) calc(10*var(--u));box-shadow:inset 0 calc(2*var(--u)) 0 rgba(255,255,255,.08),0 calc(2*var(--u)) 0 rgba(0,0,0,.25)}
+.stripe{display:flex;align-items:center;gap:calc(8*var(--u));font:calc(7*var(--u))/1 var(--px);color:#9aa0e0;letter-spacing:.06em;white-space:nowrap}
+.stripe::before,.stripe::after{content:'';flex:1;height:calc(5*var(--u));background:linear-gradient(180deg,var(--red) 0 40%,transparent 40% 60%,var(--cyan) 60%)}
+.led{width:calc(7*var(--u));height:calc(7*var(--u));border-radius:50%;background:var(--red);box-shadow:0 0 calc(8*var(--u)) var(--red)}
+.led-lab{font:calc(6*var(--u))/1 var(--px);color:#9aa0e0}
+.word{font:calc(14*var(--u))/1 var(--px);color:#1a1560;text-shadow:0 calc(1*var(--u)) 0 rgba(255,255,255,.25);display:flex;align-items:baseline;gap:calc(10*var(--u));white-space:nowrap}
+.word small{font:calc(7*var(--u))/1 var(--px);color:#2a1d78}
+.dpad{position:absolute}
+.dpad i{position:absolute;background:linear-gradient(180deg,#26224f,#15122f);box-shadow:inset 0 calc(-4*var(--u)) 0 rgba(0,0,0,.4),0 calc(3*var(--u)) 0 rgba(0,0,0,.25)}
+.dpad i.v{left:calc(44*var(--u));top:0;width:calc(44*var(--u));height:calc(132*var(--u));border-radius:calc(6*var(--u))}
+.dpad i.h{left:0;top:calc(44*var(--u));width:calc(132*var(--u));height:calc(44*var(--u));border-radius:calc(6*var(--u))}
+.dpad b{position:absolute;font:calc(10*var(--u))/1 var(--px);color:#4a4590;width:calc(44*var(--u));text-align:center}
+.face{display:grid;place-items:center;border-radius:50%;font:calc(13*var(--u))/1 var(--px);color:rgba(255,255,255,.9);box-shadow:inset 0 calc(-5*var(--u)) 0 rgba(0,0,0,.3),0 calc(4*var(--u)) 0 rgba(40,10,90,.45)}
+.face.a{background:radial-gradient(circle at 35% 30%,#ff7d94,var(--red) 60%)}
+.face.b{background:radial-gradient(circle at 35% 30%,#caa0ff,#8b42f0 60%)}
+.flab{font:calc(8*var(--u))/1 var(--px);color:#1a1560}
+.pill{border-radius:999px;background:linear-gradient(180deg,#3b2a86,#241a5a);box-shadow:inset 0 calc(-2*var(--u)) 0 rgba(0,0,0,.35);transform:rotate(-25deg)}
+.plab{font:calc(7*var(--u))/1 var(--px);color:#1a1560;transform:rotate(-25deg);white-space:nowrap}
+.grille{position:absolute;display:flex;gap:calc(7*var(--u));transform:rotate(-25deg)}
+.grille i{display:block;width:calc(6*var(--u));height:calc(44*var(--u));border-radius:999px;background:#4a1fa6;box-shadow:inset 0 calc(2*var(--u)) calc(2*var(--u)) rgba(0,0,0,.45)}
+.glab{font:calc(6*var(--u))/1 var(--px);color:#1a1560}
+.safe{background:repeating-linear-gradient(135deg,rgba(11,10,38,.35) 0 6px,transparent 6px 12px);border-inline:1px dashed rgba(11,10,38,.5)}
+.safe span{position:absolute;bottom:calc(8*var(--u));left:0;right:0;text-align:center;font:calc(6*var(--u))/1.3 var(--px);color:#1a1560}
+
+/* Desktop */
+.bars{background:var(--void)}
+.fs-note{position:absolute;right:calc(40*var(--u));top:calc(600*var(--u));padding:calc(8*var(--u)) calc(12*var(--u));font:calc(14*var(--u))/1.4 var(--px);color:#0b0a26;background:var(--ink);box-shadow:calc(4*var(--u)) calc(4*var(--u)) 0 var(--plasma)}
+
+/* Diagrams and tables */
+.diagram{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;overflow-x:auto}
+.diagram svg{display:block;width:100%;height:auto;min-width:520px}
+.diagram text{font-family:var(--body);fill:var(--dim);font-size:13px}
+.diagram .px{font-family:var(--px);font-size:9px}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px 28px;margin:0;padding:0;list-style:none}
+.facts li{display:grid;gap:4px;padding-top:12px;border-top:1px solid var(--line)}
+.facts b{font:9px/1.6 var(--px);letter-spacing:.08em;color:var(--yellow)}
+.facts span{color:var(--dim);font-size:15px}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:520px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top;font-size:15px}
+th{font:9px/1.6 var(--px);letter-spacing:.08em;color:var(--dim);background:var(--surface);text-transform:uppercase}
+tr:last-child td{border-bottom:0}
+td.k{font:11px/1.8 var(--px);color:var(--ink);white-space:nowrap}
+td.k .key{display:inline-block;padding:3px 5px 2px;margin-right:6px;font-size:9px;color:#0b0a26;background:var(--ink);box-shadow:2px 2px 0 #05041a}
+td.k.new .key{background:var(--yellow)}
+.same{columns:2 280px;column-gap:32px;margin:0;padding-left:20px;color:var(--dim)}
+.same li{break-inside:avoid;margin-bottom:6px}
+@media (prefers-reduced-motion:no-preference){.led{animation:glow 2.4s ease-in-out infinite}@keyframes glow{50%{opacity:.7}}}
+</style>
+
+<main>
+  <header class="top">
+    <p class="eyebrow">PRD 94 · Before and after · apps/galaxy</p>
+    <h1>A Game Boy on phones, the screen alone on desktop</h1>
+    <p class="lede">On a phone the arcade becomes a Game Boy you hold upright, with a near-square screen whose text reads at its designed size, and a D-pad, A, B, SELECT and START under your thumbs. Sideways it becomes a Game Boy Advance. On a computer, where the keyboard is the controller, the frame is gone and the screen fills the window, fullscreen from the first key.</p>
+    <p class="note">Every device below is drawn to scale from the real viewport: a unit is one CSS pixel of the phone or the window, and the screen inside it is scaled exactly as the arcade scales it. The numbers on the menus are examples.</p>
+  </header>
+
+  <!-- ── 1. Phone, upright ─────────────────────────────────────────── -->
+  <section aria-labelledby="s-upright">
+    <div class="sec-head">
+      <h2 id="s-upright">A phone held upright</h2>
+      <p>An iPhone at 393×700, the area Safari leaves between its bars. The menu on both screens is the same scene with the same six items.</p>
+    </div>
+    <div class="pair">
+      <figure>
+        <span class="tag before">Today · the cabinet, squeezed</span>
+        <div class="dev portrait" role="img" aria-label="Today on a phone held upright: a marquee at the top, a small landscape screen in the middle with tiny text, a line asking to turn the phone, and a pad at the bottom.">
+          <div class="frame cab-bg">
+            <div class="abs sz marquee" style="--x:16;--y:12;--w:361;--h:62"><b>OMNI LOOP</b><i>GALAXY COMMAND · SEASON 2026-09</i></div>
+            <div class="abs sz bezel" style="--x:4;--y:210;--w:385;--h:227"></div>
+            <div class="scr" style="--g:calc(var(--u)*0.5640625);left:calc(16*var(--u));top:calc(222*var(--u));width:calc(361*var(--u));height:calc(203*var(--u))">
+              <div class="m wide">
+                <h3>SELECT MODE</h3><span class="badge">VISITOR</span>
+                <ul>
+                  <li class="on"><span class="cur">▶</span><span class="lab">PLAY</span><span class="hint">Link your GitHub to join a fleet</span></li>
+                  <li><span class="cur"></span><span class="lab">GALAXY MAP</span><span class="hint">7 planets · 2 in distress</span></li>
+                  <li><span class="cur"></span><span class="lab">FLEETS</span><span class="hint">5 fleets · Beavers lead</span></li>
+                  <li><span class="cur"></span><span class="lab">HALL OF HEROES</span><span class="hint">12 heroes scored in 2026-09</span></li>
+                  <li><span class="cur"></span><span class="lab">HOW TO PLAY</span><span class="hint">How points are won and lost</span></li>
+                  <li><span class="cur"></span><span class="lab">SIGN OUT</span><span class="hint">Back to the title</span></li>
+                </ul>
+                <div class="foot"><span class="live">SUPABASE LEDGER</span><span>B · BACK TO TITLE</span></div>
+              </div>
+            </div>
+            <p class="abs turn" style="--x:0;--y:573;margin:0">TURN YOUR PHONE SIDEWAYS FOR THE FULL SCREEN</p>
+            <div class="oldpad-d sz" style="left:calc(16*var(--u));top:calc(592*var(--u));--w:96;--h:96"></div>
+            <div class="abs sz oldpill" style="--x:130;--y:627;--w:60;--h:26">SELECT</div>
+            <div class="abs sz oldpill" style="--x:198;--y:627;--w:52;--h:26">START</div>
+            <div class="abs sz oldbtn" style="--x:261;--y:614;--w:52;--h:52;background:var(--plasma)">B</div>
+            <div class="abs sz oldbtn" style="--x:325;--y:604;--w:52;--h:52;background:var(--red)">A</div>
+            <span class="mk" style="--x:196;--y:236">1</span>
+            <span class="mk" style="--x:12;--y:210">2</span>
+            <span class="mk" style="--x:196;--y:130">3</span>
+            <span class="mk" style="--x:64;--y:640">4</span>
+            <span class="mk" style="--x:377;--y:604">5</span>
+          </div>
+        </div>
+        <figcaption><ol>
+          <li>The screen gets 0.56×: 8px labels render at about 4.5px, and the menu's hints at 8.</li>
+          <li>The bezel is 24px wider than its slot, and runs off both sides.</li>
+          <li>The marquee and the empty space around the screen take more than half the height.</li>
+          <li>The D-pad is four 32px squares that fire on release. Holding does nothing more.</li>
+          <li>The pad fills its column with no room to spare: here A ends on the column's edge, and on the iPhone in the report it is cut off.</li>
+        </ol></figcaption>
+      </figure>
+
+      <figure>
+        <span class="tag after">After · the Game Boy, on the tall grid</span>
+        <div class="dev portrait" role="img" aria-label="After, on a phone held upright: a purple Game Boy filling the phone, a near-square screen showing the menu at a readable size, a D-pad on the left, A and B on the right, SELECT and START below, and a speaker grille.">
+          <div class="frame gb">
+            <div class="abs sz lens" style="--x:12;--y:12;--w:369;--h:351"></div>
+            <div class="abs sz stripe" style="--x:26;--y:22;--w:341;--h:10">OMNI LOOP · GALAXY COLOR</div>
+            <div class="scr" style="--g:calc(var(--u)*1.065625);left:calc(26*var(--u));top:calc(40*var(--u));width:calc(341*var(--u));height:calc(307*var(--u))">
+              <div class="m tall">
+                <h3>SELECT MODE</h3><span class="badge">VISITOR</span>
+                <ul>
+                  <li class="on"><span class="cur">▶</span><span class="lab">PLAY</span><span class="hint">Link your GitHub to join a fleet</span></li>
+                  <li><span class="cur"></span><span class="lab">GALAXY MAP</span><span class="hint">7 planets · 2 in distress</span></li>
+                  <li><span class="cur"></span><span class="lab">FLEETS</span><span class="hint">5 fleets · Beavers lead</span></li>
+                  <li><span class="cur"></span><span class="lab">HALL OF HEROES</span><span class="hint">12 heroes scored in 2026-09</span></li>
+                  <li><span class="cur"></span><span class="lab">HOW TO PLAY</span><span class="hint">How points are won and lost</span></li>
+                  <li><span class="cur"></span><span class="lab">SIGN OUT</span><span class="hint">Back to the title</span></li>
+                </ul>
+                <div class="foot"><span class="live">SUPABASE LEDGER</span><span>B BACK</span></div>
+              </div>
+            </div>
+            <span class="abs led" style="--x:15;--y:180"></span>
+            <div class="abs word" style="--x:24;--y:378">OMNI LOOP <small>SEASON 2026-09</small></div>
+            <div class="dpad sz" style="left:calc(22*var(--u));top:calc(430*var(--u));--w:132;--h:132">
+              <i class="v"></i><i class="h"></i>
+              <b style="left:calc(44*var(--u));top:calc(10*var(--u))">▲</b>
+              <b style="left:calc(44*var(--u));top:calc(112*var(--u))">▼</b>
+              <b style="left:calc(0*var(--u));top:calc(61*var(--u))">◀</b>
+              <b style="left:calc(88*var(--u));top:calc(61*var(--u))">▶</b>
+            </div>
+            <div class="abs sz face b" style="--x:228;--y:478;--w:60;--h:60">B</div>
+            <div class="abs sz face a" style="--x:306;--y:436;--w:60;--h:60">A</div>
+            <span class="abs flab" style="--x:252;--y:548">B</span>
+            <span class="abs flab" style="--x:330;--y:506">A</span>
+            <div class="abs sz pill" style="--x:118;--y:604;--w:50;--h:13"></div>
+            <div class="abs sz pill" style="--x:188;--y:604;--w:50;--h:13"></div>
+            <span class="abs plab" style="--x:114;--y:630">SELECT</span>
+            <span class="abs plab" style="--x:190;--y:630">START</span>
+            <div class="grille" style="left:calc(292*var(--u));top:calc(600*var(--u))"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <span class="abs glab" style="--x:316;--y:668">SOUND</span>
+            <span class="mk" style="--x:196;--y:56">1</span>
+            <span class="mk" style="--x:15;--y:170">2</span>
+            <span class="mk" style="--x:88;--y:430">3</span>
+            <span class="mk" style="--x:366;--y:436">4</span>
+            <span class="mk" style="--x:160;--y:600">5</span>
+            <span class="mk" style="--x:374;--y:620">6</span>
+          </div>
+        </div>
+        <figcaption><ol>
+          <li>The tall grid, 320×288, at 1.07×: the same menu with 9.6px labels and 16px hints. Nothing is dropped; the hints move under their labels.</li>
+          <li>The power LED is lit while sound is on.</li>
+          <li>The D-pad is one 132px rocker with 44px arms. It fires on touch-down and repeats while held.</li>
+          <li>A and B are 60px, on the diagonal, and fire once per press.</li>
+          <li>SELECT and START are angled pills, each with a 44px touch area.</li>
+          <li>Tap the grille to switch the sound off or on. It shares its setting with the M key.</li>
+        </ol></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ── 2. Phone, sideways ────────────────────────────────────────── -->
+  <section aria-labelledby="s-sideways">
+    <div class="sec-head">
+      <h2 id="s-sideways">A phone turned sideways</h2>
+      <p>The same phone at 852×393. On a real iPhone the notch's safe area is kept clear on both sides; it is shaded on the Advance body below.</p>
+    </div>
+    <div class="stack">
+      <figure>
+        <span class="tag before">Today · the cabinet, overlapping itself</span>
+        <div class="dev landscape" role="img" aria-label="Today on a phone turned sideways: the screen overlaps the marquee above it and the deck plates below it, with the pad under everything.">
+          <div class="frame cab-bg">
+            <div class="abs sz bezel" style="--x:236;--y:23;--w:380;--h:224"></div>
+            <div class="scr" style="--g:calc(var(--u)*0.5555556);left:calc(248*var(--u));top:calc(35*var(--u));width:calc(356*var(--u));height:calc(200*var(--u))">
+              <div class="m wide">
+                <h3>SELECT MODE</h3><span class="badge">VISITOR</span>
+                <ul>
+                  <li class="on"><span class="cur">▶</span><span class="lab">PLAY</span><span class="hint">Link your GitHub to join a fleet</span></li>
+                  <li><span class="cur"></span><span class="lab">GALAXY MAP</span><span class="hint">7 planets · 2 in distress</span></li>
+                  <li><span class="cur"></span><span class="lab">FLEETS</span><span class="hint">5 fleets · Beavers lead</span></li>
+                  <li><span class="cur"></span><span class="lab">HALL OF HEROES</span><span class="hint">12 heroes scored in 2026-09</span></li>
+                  <li><span class="cur"></span><span class="lab">HOW TO PLAY</span><span class="hint">How points are won and lost</span></li>
+                  <li><span class="cur"></span><span class="lab">SIGN OUT</span><span class="hint">Back to the title</span></li>
+                </ul>
+                <div class="foot"><span class="live">SUPABASE LEDGER</span><span>B · BACK TO TITLE</span></div>
+              </div>
+            </div>
+            <div class="abs sz marquee row" style="--x:241;--y:12;--w:370;--h:36"><b>OMNI LOOP</b><i>GALAXY COMMAND · SEASON 2026-09</i></div>
+            <div class="abs sz plate" style="--x:46;--y:222;--w:372;--h:53">INSERT COIN</div>
+            <div class="abs sz plate" style="--x:434;--y:222;--w:372;--h:53">HI 652<small>INSERT COIN · SOUND ON (M)</small></div>
+            <div class="oldpad-d sz" style="left:calc(166*var(--u));top:calc(285*var(--u));--w:96;--h:96"></div>
+            <div class="abs sz oldpill" style="--x:361;--y:320;--w:52;--h:26">SELECT</div>
+            <div class="abs sz oldpill" style="--x:423;--y:320;--w:48;--h:26">START</div>
+            <div class="abs sz oldbtn" style="--x:570;--y:307;--w:52;--h:52;background:var(--plasma)">B</div>
+            <div class="abs sz oldbtn" style="--x:634;--y:297;--w:52;--h:52;background:var(--red)">A</div>
+            <span class="mk" style="--x:620;--y:40">1</span>
+            <span class="mk" style="--x:620;--y:232">2</span>
+            <span class="mk" style="--x:596;--y:130">3</span>
+          </div>
+        </div>
+        <figcaption><ol>
+          <li>The bezel runs up under the marquee.</li>
+          <li>The deck plates cover the bottom of the screen.</li>
+          <li>The screen still gets only 0.56×: the marquee, the plates and the pad take 234px of the 393.</li>
+        </ol></figcaption>
+      </figure>
+
+      <figure>
+        <span class="tag after">After · the Advance body, on the wide grid</span>
+        <div class="dev landscape" role="img" aria-label="After, on a phone turned sideways: a wide purple handheld with the D-pad and SELECT and START on the left wing, the wide screen in the middle, and A, B and the speaker grille on the right wing.">
+          <div class="frame gb">
+            <div class="abs sz safe" style="--x:0;--y:0;--w:48;--h:393"><span>SAFE<br>AREA</span></div>
+            <div class="abs sz safe" style="--x:804;--y:0;--w:48;--h:393"><span>SAFE<br>AREA</span></div>
+            <div class="abs sz lens" style="--x:188;--y:14;--w:476;--h:326"></div>
+            <div class="abs sz stripe" style="--x:200;--y:22;--w:452;--h:10">OMNI LOOP · GALAXY COLOR</div>
+            <div class="scr" style="--g:calc(var(--u)*0.70625);left:calc(200*var(--u));top:calc(38*var(--u));width:calc(452*var(--u));height:calc(254.25*var(--u))">
+              <div class="m wide">
+                <h3>SELECT MODE</h3><span class="badge">VISITOR</span>
+                <ul>
+                  <li class="on"><span class="cur">▶</span><span class="lab">PLAY</span><span class="hint">Link your GitHub to join a fleet</span></li>
+                  <li><span class="cur"></span><span class="lab">GALAXY MAP</span><span class="hint">7 planets · 2 in distress</span></li>
+                  <li><span class="cur"></span><span class="lab">FLEETS</span><span class="hint">5 fleets · Beavers lead</span></li>
+                  <li><span class="cur"></span><span class="lab">HALL OF HEROES</span><span class="hint">12 heroes scored in 2026-09</span></li>
+                  <li><span class="cur"></span><span class="lab">HOW TO PLAY</span><span class="hint">How points are won and lost</span></li>
+                  <li><span class="cur"></span><span class="lab">SIGN OUT</span><span class="hint">Back to the title</span></li>
+                </ul>
+                <div class="foot"><span class="live">SUPABASE LEDGER</span><span>B · BACK TO TITLE</span></div>
+              </div>
+            </div>
+            <span class="abs led" style="--x:192;--y:160"></span>
+            <div class="abs word" style="--x:340;--y:352">OMNI LOOP <small>SEASON 2026-09</small></div>
+            <div class="dpad sz" style="left:calc(52*var(--u));top:calc(92*var(--u));--w:132;--h:132">
+              <i class="v"></i><i class="h"></i>
+              <b style="left:calc(44*var(--u));top:calc(10*var(--u))">▲</b>
+              <b style="left:calc(44*var(--u));top:calc(112*var(--u))">▼</b>
+              <b style="left:calc(0*var(--u));top:calc(61*var(--u))">◀</b>
+              <b style="left:calc(88*var(--u));top:calc(61*var(--u))">▶</b>
+            </div>
+            <div class="abs sz pill" style="--x:58;--y:284;--w:50;--h:13"></div>
+            <div class="abs sz pill" style="--x:122;--y:284;--w:50;--h:13"></div>
+            <span class="abs plab" style="--x:54;--y:310">SELECT</span>
+            <span class="abs plab" style="--x:124;--y:310">START</span>
+            <div class="abs sz face b" style="--x:676;--y:150;--w:60;--h:60">B</div>
+            <div class="abs sz face a" style="--x:740;--y:104;--w:60;--h:60">A</div>
+            <span class="abs flab" style="--x:700;--y:220">B</span>
+            <span class="abs flab" style="--x:764;--y:174">A</span>
+            <div class="grille" style="left:calc(700*var(--u));top:calc(272*var(--u))"><i></i><i></i><i></i><i></i><i></i></div>
+            <span class="abs glab" style="--x:720;--y:340">SOUND</span>
+            <span class="mk" style="--x:426;--y:52">1</span>
+            <span class="mk" style="--x:118;--y:92">2</span>
+            <span class="mk" style="--x:800;--y:104">3</span>
+          </div>
+        </div>
+        <figcaption><ol>
+          <li>The wide grid, 640×360, at about 0.71× once the safe areas and both wings are kept clear. Better than today, but upright stays the way to read.</li>
+          <li>The D-pad, with SELECT and START under it, on the left wing.</li>
+          <li>A, B and the grille on the right wing. There are no L or R buttons, because the game has no L or R action.</li>
+        </ol></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ── 3. Desktop ───────────────────────────────────────────────── -->
+  <section aria-labelledby="s-desktop">
+    <div class="sec-head">
+      <h2 id="s-desktop">A computer, with a keyboard</h2>
+      <p>A window at 1440×900. The keyboard is the controller, so the cabinet around the screen goes.</p>
+    </div>
+    <div class="pair">
+      <figure>
+        <span class="tag before">Today · the cabinet</span>
+        <div class="dev desktop" role="img" aria-label="Today on desktop: the screen inside a bezel, a marquee above it and two deck plates with the Vertuoza emblem below it.">
+          <div class="frame cab-bg">
+            <div class="abs sz marquee row" style="--x:535;--y:12;--w:370;--h:36"><b>OMNI LOOP</b><i>GALAXY COMMAND · SEASON 2026-09</i></div>
+            <div class="abs sz bezel" style="--x:26;--y:46;--w:1388;--h:791"></div>
+            <div class="scr" style="--g:calc(var(--u)*2.1305557);left:calc(38*var(--u));top:calc(58*var(--u));width:calc(1364*var(--u));height:calc(767*var(--u))">
+              <div class="m wide">
+                <h3>SELECT MODE</h3><span class="badge">VISITOR</span>
+                <ul>
+                  <li class="on"><span class="cur">▶</span><span class="lab">PLAY</span><span class="hint">Link your GitHub to join a fleet</span></li>
+                  <li><span class="cur"></span><span class="lab">GALAXY MAP</span><span class="hint">7 planets · 2 in distress</span></li>
+                  <li><span class="cur"></span><span class="lab">FLEETS</span><span class="hint">5 fleets · Beavers lead</span></li>
+                  <li><span class="cur"></span><span class="lab">HALL OF HEROES</span><span class="hint">12 heroes scored in 2026-09</span></li>
+                  <li><span class="cur"></span><span class="lab">HOW TO PLAY</span><span class="hint">How points are won and lost</span></li>
+                  <li><span class="cur"></span><span class="lab">SIGN OUT</span><span class="hint">Back to the title</span></li>
+                </ul>
+                <div class="foot"><span class="live">SUPABASE LEDGER</span><span>B · BACK TO TITLE</span></div>
+              </div>
+            </div>
+            <div class="abs sz plate" style="--x:340;--y:846;--w:340;--h:48">INSERT COIN</div>
+            <div class="abs sz plate" style="--x:760;--y:846;--w:340;--h:48">HI 652</div>
+            <div class="abs sz" style="--x:692;--y:846;--w:56;--h:48;background:linear-gradient(180deg,#d99a14,#8a5a08);border:calc(2*var(--u)) solid #ffd84a"></div>
+          </div>
+        </div>
+        <figcaption><ol style="list-style:none;padding-left:0"><li>The screen is 1364×767 (2.13×), framed by the marquee, the bezel and the deck plates.</li></ol></figcaption>
+      </figure>
+      <figure>
+        <span class="tag after">After · the screen alone, fullscreen</span>
+        <div class="dev desktop" role="img" aria-label="After, on desktop: the screen fills the window edge to edge, with thin dark bars above and below it, and a note that the first key goes fullscreen.">
+          <div class="frame bars">
+            <div class="scr" style="--g:calc(var(--u)*2.25);left:0;top:calc(45*var(--u));width:calc(1440*var(--u));height:calc(810*var(--u));border-radius:0">
+              <div class="m wide">
+                <h3>SELECT MODE</h3><span class="badge">VISITOR</span>
+                <ul>
+                  <li class="on"><span class="cur">▶</span><span class="lab">PLAY</span><span class="hint">Link your GitHub to join a fleet</span></li>
+                  <li><span class="cur"></span><span class="lab">GALAXY MAP</span><span class="hint">7 planets · 2 in distress</span></li>
+                  <li><span class="cur"></span><span class="lab">FLEETS</span><span class="hint">5 fleets · Beavers lead</span></li>
+                  <li><span class="cur"></span><span class="lab">HALL OF HEROES</span><span class="hint">12 heroes scored in 2026-09</span></li>
+                  <li><span class="cur"></span><span class="lab">HOW TO PLAY</span><span class="hint">How points are won and lost</span></li>
+                  <li><span class="cur"></span><span class="lab">SIGN OUT</span><span class="hint">Back to the title</span></li>
+                </ul>
+                <div class="foot"><span class="live">SUPABASE LEDGER</span><span>B · BACK TO TITLE</span></div>
+              </div>
+            </div>
+            <div class="fs-note">FIRST KEY → FULLSCREEN<br>ESC LEAVES · F RETURNS</div>
+          </div>
+        </div>
+        <figcaption><ol style="list-style:none;padding-left:0"><li>The screen is 1440×810 (2.25×), centred, with 45px bars above and below. The first key press or click asks for fullscreen. Esc gives the browser back without changing the scene, and F goes fullscreen again.</li></ol></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ── 4. The controls ─────────────────────────────────────────── -->
+  <section aria-labelledby="s-controls">
+    <div class="sec-head">
+      <h2 id="s-controls">How the controls behave</h2>
+      <p>Today every control fires on release, once. After, the D-pad reads the thumb like a rocker, and a held direction repeats the way a held arrow key does.</p>
+    </div>
+    <div class="pair">
+      <figure>
+        <span class="tag after">The D-pad, read from the thumb</span>
+        <div class="diagram">
+          <svg viewBox="0 0 420 300" role="img" aria-label="The D-pad cross, 132px across. A circle 10px in radius at its centre is a dead zone. The two diagonals through the centre split the cross into four arms; a thumb exactly on a diagonal goes to the vertical arm.">
+            <rect x="0" y="0" width="420" height="300" fill="none"/>
+            <!-- cross at 2× : 264px across, centre (150,150) -->
+            <rect x="106" y="18" width="88" height="264" rx="10" fill="#1d1a4a" stroke="#3a3f7a" stroke-width="1.5"/>
+            <rect x="18" y="106" width="264" height="88" rx="10" fill="#1d1a4a" stroke="#3a3f7a" stroke-width="1.5"/>
+            <line x1="18" y1="18" x2="282" y2="282" stroke="#a45cff" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <line x1="282" y1="18" x2="18" y2="282" stroke="#a45cff" stroke-width="1.5" stroke-dasharray="5 4"/>
+            <circle cx="150" cy="150" r="20" fill="#0b0a26" stroke="#ffd84a" stroke-width="1.5"/>
+            <text x="150" y="60" text-anchor="middle" class="px" fill="#f2f4ff">▲ UP</text>
+            <text x="150" y="250" text-anchor="middle" class="px" fill="#f2f4ff">▼ DOWN</text>
+            <text x="62" y="154" text-anchor="middle" class="px" fill="#f2f4ff">◀</text>
+            <text x="238" y="154" text-anchor="middle" class="px" fill="#f2f4ff">▶</text>
+            <circle cx="190" cy="190" r="4" fill="#ff3b5c"/>
+            <line x1="296" y1="150" x2="172" y2="150" stroke="#ffd84a" stroke-width="1"/>
+            <text x="300" y="146" fill="#ffd84a">dead zone,</text>
+            <text x="300" y="162" fill="#ffd84a">under 10px</text>
+            <line x1="296" y1="200" x2="196" y2="192" stroke="#ff3b5c" stroke-width="1"/>
+            <text x="300" y="196" fill="#ff9aac">(20, 20): a tie,</text>
+            <text x="300" y="212" fill="#ff9aac">goes to ▼ DOWN</text>
+            <text x="300" y="60" fill="#c6a2ff">diagonals: the</text>
+            <text x="300" y="76" fill="#c6a2ff">stronger axis wins</text>
+            <text x="150" y="298" text-anchor="middle">132px across · drawn at 2×</text>
+          </svg>
+        </div>
+        <figcaption><ol style="list-style:none;padding-left:0"><li>Sliding from one arm to another without lifting fires the new direction at once. Sliding back into the dead zone stops without firing.</li></ol></figcaption>
+      </figure>
+      <figure>
+        <span class="tag after">Hold to repeat, to scale</span>
+        <div class="diagram">
+          <svg viewBox="0 0 560 230" role="img" aria-label="A timeline from 0 to 1000 milliseconds. Holding down fires at 0, 400, 520, 640, 760 and 880 milliseconds and stops at release, at 950. Holding A fires once, at 0.">
+            <!-- x = 40 + t * 0.48 ; 1000 ms = 480px -->
+            <line x1="40" y1="170" x2="520" y2="170" stroke="#3a3f7a" stroke-width="1.5"/>
+            <g fill="#9aa0e0" text-anchor="middle">
+              <text x="40" y="190">0</text><text x="232" y="190">400</text><text x="290" y="190">520</text><text x="347" y="190">640</text><text x="405" y="190">760</text><text x="462" y="190">880</text><text x="520" y="190">1000 ms</text>
+            </g>
+            <g stroke="#2a2766" stroke-width="1"><line x1="40" y1="30" x2="40" y2="170"/><line x1="232" y1="30" x2="232" y2="170"/><line x1="290" y1="30" x2="290" y2="170"/><line x1="347" y1="30" x2="347" y2="170"/><line x1="405" y1="30" x2="405" y2="170"/><line x1="462" y1="30" x2="462" y2="170"/></g>
+            <text x="40" y="24" class="px" fill="#f2f4ff">HOLD ▼</text>
+            <rect x="40" y="46" width="456" height="26" rx="4" fill="#1d1a4a" stroke="#3a3f7a"/>
+            <g fill="#ffd84a"><circle cx="40" cy="59" r="6"/><circle cx="232" cy="59" r="6"/><circle cx="290" cy="59" r="6"/><circle cx="347" cy="59" r="6"/><circle cx="405" cy="59" r="6"/><circle cx="462" cy="59" r="6"/></g>
+            <line x1="496" y1="40" x2="496" y2="78" stroke="#ff3b5c" stroke-width="2"/>
+            <text x="500" y="92" fill="#ff9aac" text-anchor="middle">release</text>
+            <text x="136" y="92" text-anchor="middle">wait 400 ms</text>
+            <text x="347" y="92" text-anchor="middle">then every 120 ms</text>
+            <text x="40" y="118" class="px" fill="#f2f4ff">HOLD A</text>
+            <rect x="40" y="130" width="456" height="26" rx="4" fill="#1d1a4a" stroke="#3a3f7a"/>
+            <circle cx="40" cy="143" r="6" fill="#ff3b5c"/>
+            <text x="190" y="148" text-anchor="middle">once per press, like the keyboard</text>
+            <text x="280" y="222" text-anchor="middle">A, B, START and SELECT never repeat</text>
+          </svg>
+        </div>
+      </figure>
+    </div>
+    <ul class="facts">
+      <li><b>Touch-down, not release</b><span>Controls fire on <code>pointerdown</code>. Today they wait for <code>click</code>.</span></li>
+      <li><b>Several fingers</b><span>Each finger is its own press: hold ▶ and tap A at the same time.</span></li>
+      <li><b>A buzz</b><span>A 10 ms vibration per press where the browser offers one (Android). iPhone Safari stays silent.</span></li>
+      <li><b>The page holds still</b><span>No scroll, pinch, double-tap zoom, pull-to-refresh, text selection or long-press menu on the Game Boy.</span></li>
+      <li><b>Fullscreen on touch</b><span>The first press asks for it where the browser allows (Chrome on Android, iPad). An iPhone keeps Safari's bars.</span></li>
+      <li><b>Keyboards still work</b><span>Every key does what it does today, in every form, so a Bluetooth keyboard drives the Game Boy too.</span></li>
+    </ul>
+  </section>
+
+  <!-- ── 5. Hints ─────────────────────────────────────────────────── -->
+  <section aria-labelledby="s-hints">
+    <div class="sec-head">
+      <h2 id="s-hints">The hints name the buttons you have</h2>
+      <p>The arcade's rule is that the keys a screen shows are the keys to press. On the Game Boy, those are its buttons. On a computer, the hints stay as they are.</p>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Where</th><th>Today, and on a computer</th><th>On the Game Boy</th></tr></thead>
+        <tbody>
+          <tr><td>Name entry</td><td class="k"><span class="key">TYPE</span>OR <span class="key">▲▼</span>SPIN <span class="key">◀▶</span>MOVE <span class="key">⌫</span>ERASE <span class="key">ENTER</span>DONE</td><td class="k new"><span class="key">▲▼</span>SPIN <span class="key">◀▶</span>MOVE <span class="key">B</span>ERASE <span class="key">START</span>DONE</td></tr>
+          <tr><td>Hero builder</td><td class="k"><span class="key">▲▼</span>ROW <span class="key">◀▶</span>CHANGE <span class="key">TAB</span>RANDOM <span class="key">ENTER</span>DONE</td><td class="k new"><span class="key">▲▼</span>ROW <span class="key">◀▶</span>CHANGE <span class="key">SELECT</span>RANDOM <span class="key">START</span>DONE</td></tr>
+          <tr><td>Builder row</td><td class="k">RANDOM (TAB)</td><td class="k new">RANDOM (SELECT)</td></tr>
+          <tr><td>Everywhere else</td><td class="k"><span class="key">A</span> <span class="key">B</span> <span class="key">START</span> <span class="key">◀ ▶</span></td><td class="k"><span class="key">A</span> <span class="key">B</span> <span class="key">START</span> <span class="key">◀ ▶</span> unchanged</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── 6. What stays ────────────────────────────────────────────── -->
+  <section aria-labelledby="s-same">
+    <div class="sec-head">
+      <h2 id="s-same">What stays the same</h2>
+      <p>This PRD changes what surrounds the screen and how scenes are laid out on it. The game underneath is untouched.</p>
+    </div>
+    <ul class="same">
+      <li>The game's rules, points, decay and rankings.</li>
+      <li>The galaxy's data, the ledger and Supabase: no migration, no new stored value.</li>
+      <li>Signing in with Google, linking GitHub, and who may see what.</li>
+      <li>Every scene and what it shows. A tall layout rearranges and never drops.</li>
+      <li>The keyboard's keys, and <code>keys.test.ts</code>, unchanged.</li>
+      <li>The music and the sounds, and the <code>omni-loop:muted</code> setting.</li>
+      <li>Deep links: <code>#map</code>, <code>#fleets</code>, <code>#heroes</code>, <code>#briefing</code>, <code>#planet-…</code>.</li>
+      <li>The single-file artifact, which gets the same forms.</li>
+    </ul>
+  </section>
+</main>
+</html>

@@ -17,6 +17,12 @@ Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and s
 below is read with `node .omni-loop/bin/omni.mjs config <key>`; never write a label, branch, check
 name or command from memory. `<remote>` below is `repo.remote`.
 
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
+rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
+playbook, section by section: a section the repository left blank prints the kit default, and a
+`[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
+never overrides this skill's rules.
+
 There are two modes. **Claim** opens a slice's draft sub-PR before the slice is built, then stops.
 `/omni:do-work` (run alone) and `/omni:wave` ask for it. **Lifecycle** is the default: it opens or
 picks up a PR and watches it until it is done or stuck.
@@ -142,11 +148,19 @@ Claim mode takes one slice of a PRD, given its plan id and title. It does not lo
 
 ## The lifecycle
 
+Before opening or picking up a PR, read what this repository asks of one:
+`node .omni-loop/bin/omni.mjs kb show verification` (what must be green before a push),
+`node .omni-loop/bin/omni.mjs kb show pull-requests` (its title, body, labels and reviewers) and
+`node .omni-loop/bin/omni.mjs kb show definition-of-done` (when it is done). They add to the
+preflight, **Labels** and **The body** above.
+
 **A sub-PR leaves here first.** No CI runs on a sub-PR, so it never enters the check loop, and "no
 checks reported" tells you nothing about it. Go to **A sub-PR's lifecycle**.
 
 For a feature or standalone PR, open it as a draft with its kind label and `labels.inProgress` (both
-subject to **Labels**), and post the status comment. Then loop until it stops:
+subject to **Labels**), and post the status comment. Read `node .omni-loop/bin/omni.mjs kb show ci`
+once: which checks exist and which gate a merge, the known reds, and when a re-run is allowed. Then
+loop until it stops:
 
 ```bash
 gh pr view <n> --json isDraft,mergeable,mergeStateStatus,baseRefName
@@ -182,9 +196,10 @@ A conflicting PR runs no checks at all: the watch exits at once with "no checks 
 
 1. Read the failing job: `gh run view <run-id> --log-failed`.
 2. Decide whether the branch caused it: does the failure point at a file in
-   `git diff --name-only $(git merge-base <remote>/<base> HEAD)..HEAD`?
-3. If it plainly did not (a runner, network or timeout failure, in code the branch did not touch),
-   one `gh run rerun <run-id> --failed` is allowed per PR, counted as an attempt.
+   `git diff --name-only $(git merge-base <remote>/<base> HEAD)..HEAD`? A failure matching a known
+   red in the `ci` form, where the branch changes nothing that red names, is not the branch's.
+3. Re-run only when the `ci` form's **When to re-run** allows it: one
+   `gh run rerun <run-id> --failed` per PR at most, counted as an attempt.
 4. Otherwise fix the cause, run the preflight, push, bump the attempt in the status comment, and loop.
 
 **Stuck after `limits.attempts` failed attempts:** `gh pr ready <n> --undo` (a standalone PR that is no longer a draft),

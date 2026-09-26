@@ -67,6 +67,16 @@ written in (spec §2: no `superpowers:` dependency), taken from `superpowers` 6.
   folder exists.
 - **Guardrails section added:** nothing built before approval, one idea one PRD, and spec §2.1
   rule 5 in one line.
+- **Step 0's stop line** says "not installed", not "not terraformed" (PRD 45): `/omni:terraform`
+  now names filling the forms, and a failing `omni config` means `omni init` has not run.
+- **The playbook forms** (PRD 45, the spec's wiring table), each read through `omni kb show`:
+  step 0 prints the `briefing` before any other step (acceptance criterion 9), and says how to read
+  a form: a blank section is the kit default, a `[hole]` never stops the skill (decision 7), and a
+  form adds to its steps without overriding its rules (item s6-02). The spec step (4) reads
+  `testing` for **Test seams** and **Acceptance criteria**, and `releasing` for **Risks**: what a
+  merge would publish, and how that is rolled back. Upstream's `docs/agents/bdd-acceptance.md`
+  stays dropped; `decisions` and `glossary`, which the before/after page lists beside brainstorm,
+  are not wired: the spec's table does not name them, and `paths.glossary` is still read.
 
 ## Written in from superpowers brainstorming
 

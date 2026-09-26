@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeRepo } from '../test/fixture.mjs';
 import { parseConfig } from '../lib/config.mjs';
+import { FORM_IDS, parseForm } from '../lib/playbook/forms.mjs';
 import { main } from './omni.mjs';
 
 const kitRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -66,6 +67,62 @@ async function init(root, argv = [], extra = {}) {
 }
 
 const readConfig = (read) => parseConfig(read('.omni-loop/config.yml'));
+
+const KNOWLEDGE = '.omni-loop/knowledge';
+
+/**
+ * What `omni kb init` lays down in a repository with none of it, in the order it writes them: the
+ * front door's page, the twelve playbook forms, the decisions form, the three empty product registers.
+ */
+const FORM_FILES = [
+  `${KNOWLEDGE}/README.md`,
+  `${KNOWLEDGE}/playbook/briefing.md`,
+  `${KNOWLEDGE}/playbook/setup.md`,
+  `${KNOWLEDGE}/playbook/architecture.md`,
+  `${KNOWLEDGE}/playbook/testing.md`,
+  `${KNOWLEDGE}/playbook/verification.md`,
+  `${KNOWLEDGE}/playbook/ci.md`,
+  `${KNOWLEDGE}/playbook/pull-requests.md`,
+  `${KNOWLEDGE}/playbook/definition-of-done.md`,
+  `${KNOWLEDGE}/playbook/conventions.md`,
+  `${KNOWLEDGE}/playbook/releasing.md`,
+  `${KNOWLEDGE}/playbook/bug-fixing.md`,
+  `${KNOWLEDGE}/playbook/glossary.md`,
+  `${KNOWLEDGE}/adr/README.md`,
+  `${KNOWLEDGE}/product/principles.md`,
+  `${KNOWLEDGE}/product/rules.md`,
+  `${KNOWLEDGE}/product/invariants.md`,
+];
+
+/** One entry of each kind, as the knowledge registers write them. */
+const PRINCIPLE = '# Product principles\n\n## P-PRODUCT-1\n\nA person decides what ships.\n\nWhy: x\nDecided: 2026-09-25\nSource: x\n';
+const RULE = '# Billing rules\n\n## BR-BILLING-1\n\nAn invoice is never deleted.\n\nServes: P-BILLING-1\nSource: x\nEnforced by: unenforced\nStated: 2026-09-25\n';
+const INVARIANT = '# Billing and quotes\n\n## X-BILLING-QUOTES-1\n\nA quote names its invoice.\n\nKind: invariant\nSource: x\nEnforced by: unenforced\nStated: 2026-09-25\n';
+
+/** The paths `git status` lists in `root`, untracked files one by one. */
+function gitStatus(root) {
+  const status = execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: root, encoding: 'utf8' });
+  return status.split('\n').filter(Boolean).map((line) => line.slice(3)).sort();
+}
+
+/** Every file under `root`, as `{ <path>: text }`, `.git` left out. */
+function snapshot(root, dir = '') {
+  const out = {};
+  for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
+    const path = dir ? `${dir}/${entry.name}` : entry.name;
+    if (entry.name === '.git') continue;
+    if (entry.isDirectory()) Object.assign(out, snapshot(root, path));
+    else out[path] = readFileSync(join(root, path), 'utf8');
+  }
+  return out;
+}
+
+/** Runs any other `omni <argv>` in `root`, once init has written a config: `{ code, out, err }`. */
+async function omni(root, argv) {
+  const s = io();
+  const code = await main(argv, { cwd: root, ...s });
+  return { code, out: s.out.join(''), err: s.err.join('') };
+}
 
 describe('omni init — dispatch', () => {
   it('runs without a config, where every other command needs one', async () => {
@@ -169,8 +226,8 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     expect(readConfig(read).commands).toMatchObject({ test: 'vendor/bin/phpunit', preflight: 'make ci', preflightFull: 'make ci-full' });
   });
 
-  it('laws.source is knowledge with a knowledge folder, claudeMdInvariants with the CLAUDE.md heading', async () => {
-    const withKnowledge = makeRepo({ git: true, files: { '.omni-loop/knowledge/README.md': 'x\n' } });
+  it('laws.source is knowledge with a register entry, claudeMdInvariants with the CLAUDE.md heading', async () => {
+    const withKnowledge = makeRepo({ git: true, files: { [`${KNOWLEDGE}/product/principles.md`]: PRINCIPLE } });
     await init(withKnowledge.root);
     expect(readConfig(withKnowledge.read).laws.source).toBe('knowledge');
     const withInvariants = makeRepo({ git: true, files: { 'CLAUDE.md': '# Rules\n\n## Invariants\n\n- one\n' } });
@@ -350,7 +407,7 @@ describe('omni init — footprint (AC 7)', () => {
     await init(root);
     const status = execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: root, encoding: 'utf8' });
     const paths = status.split('\n').filter(Boolean).map((line) => line.slice(3));
-    expect(paths.sort()).toEqual(['.omni-loop/bin/omni.mjs', '.omni-loop/config.yml']);
+    expect(paths.sort()).toEqual(['.omni-loop/bin/omni.mjs', '.omni-loop/config.yml', ...FORM_FILES].sort());
   });
 });
 
@@ -379,6 +436,7 @@ const FIRST_RUN = [
   'omni init — acme/widgets is set up.',
   '  wrote   .omni-loop/config.yml',
   '  wrote   .omni-loop/bin/omni.mjs',
+  ...FORM_FILES.map((path) => `  wrote   ${path}`),
   '  labels  created omni:prd, omni:phase-0, omni:feature, omni:sub, omni:in-progress, omni:needs-fix, omni:outbox-go',
   '',
   'Commit .omni-loop/ and merge it into trunk, then, by hand:',
@@ -392,6 +450,8 @@ const FIRST_RUN = [
   '     Warning: a required check that is never posted blocks every pull request in this repository.',
   '     If the app is uninstalled, its deploy is broken or Inngest is down, nothing can merge. The remedy',
   '     is to remove the requirement, never to fake a status.',
+  '  4. Fill the forms in .omni-loop/knowledge/ with what the repository can prove, in Claude Code:',
+  '       /omni:terraform',
   '',
   'Not filled — set them in .omni-loop/config.yml or rerun with the flag:',
   '  commands.test (--test <cmd>)',
@@ -452,7 +512,18 @@ describe('omni init — the closing steps (AC 8)', () => {
       '  kept    .omni-loop/bin/omni.mjs  (pass --force to overwrite)',
       `  labels  already there: ${LOOP_LABELS.join(', ')}`,
     ]);
-    expect(out.split('\n').slice(4)).toEqual(FIRST_RUN.slice(4));
+    // A form is never overwritten, so a kept one is never listed: the steps follow the labels line.
+    const secondRun = FIRST_RUN.slice(4 + FORM_FILES.length);
+    secondRun[1] = 'Nothing new to commit. By hand, unless already done:';
+    expect(out.split('\n').slice(4)).toEqual(secondRun);
+  });
+
+  it('a second run with --force wrote the files again, so it asks for a commit', async () => {
+    const { root } = makeRepo({ git: true });
+    const fake = fakeExec();
+    await init(root, [], { fake });
+    const { out } = await init(root, ['--force'], { fake });
+    expect(out).toContain('Commit .omni-loop/ and merge it into trunk, then, by hand:\n');
   });
 
   it('with neither gh nor a remote to name the repository, it says so instead of a link', async () => {
@@ -470,5 +541,138 @@ describe('omni init — the closing steps (AC 8)', () => {
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/bin/omni.mjs': 'bin\n' } });
     const { out } = await init(root);
     expect(out).toContain('  3. (Optional) Require the `omni/outbox` check on trunk:\n');
+  });
+});
+
+describe('omni init — the heads-up', () => {
+  const OUTBOX_WORKFLOW = 'name: outbox\non: pull_request\njobs:\n  status:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ci/outbox\n';
+
+  it('names the outbox workflow of an older loop, and writes nothing outside .omni-loop/', async () => {
+    const { root } = makeRepo({ git: true, files: { '.github/workflows/outbox.yml': OUTBOX_WORKFLOW, '.github/workflows/ci.yml': 'name: ci\n' } });
+    const { code, out } = await init(root);
+    expect(code).toBe(0);
+    expect(out).toContain(
+      '\nHeads-up:\n'
+        + '  - An older copy of the loop already runs here (.github/workflows/outbox.yml). Two loops mean\n'
+        + '    two outbox checks and two label sets: decide which one stays before merging .omni-loop/.\n',
+    );
+    const status = execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' });
+    expect(status.split('\n').filter(Boolean).every((line) => line.slice(3).startsWith('.omni-loop/'))).toBe(true);
+  });
+
+  it('tells a Prettier repository to ignore the bin, and leaves .prettierignore alone', async () => {
+    const { root } = makeRepo({ git: true, files: { '.prettierrc': '{}\n', '.prettierignore': 'dist\n' } });
+    const { out } = await init(root);
+    expect(out).toContain(
+      '  - Prettier checks this repository: add .omni-loop/bin/ to .prettierignore, or its\n'
+        + '    format check rejects the bundled bin.\n',
+    );
+    expect(readFileSync(join(root, '.prettierignore'), 'utf8')).toBe('dist\n');
+  });
+
+  it('says nothing once .prettierignore covers the folder, nor on a repository with neither', async () => {
+    const covered = makeRepo({ git: true, files: { '.prettierrc': '{}\n', '.prettierignore': '# kit\n/.omni-loop/\n' } });
+    expect((await init(covered.root)).out).not.toContain('Heads-up');
+    const bare = makeRepo({ git: true });
+    expect((await init(bare.root)).out).not.toContain('Heads-up');
+  });
+});
+
+describe('omni init — the forms (PRD 45, AC 11)', () => {
+  const REPOS = {
+    pnpm: { 'package.json': fixture('pnpm/package.json'), 'pnpm-lock.yaml': '' },
+    composer: { 'composer.json': fixture('composer/composer.json') },
+    make: { Makefile: fixture('make/Makefile') },
+  };
+
+  for (const [name, files] of Object.entries(REPOS)) {
+    it(`a ${name} repository with no .omni-loop/: the config, the bin and the forms of omni kb init, laws none, and a second run writes nothing`, async () => {
+      const { root, read } = makeRepo({ git: true, files });
+      const fake = fakeExec();
+      const first = await init(root, [], { fake });
+      expect(first.code).toBe(0);
+      expect(gitStatus(root)).toEqual(['.omni-loop/bin/omni.mjs', '.omni-loop/config.yml', ...FORM_FILES].sort());
+      for (const id of FORM_IDS) {
+        const file = id === 'decisions' ? `${KNOWLEDGE}/adr/README.md` : `${KNOWLEDGE}/playbook/${id}.md`;
+        const parsed = parseForm(read(file), { file });
+        expect(parsed.errors ?? [], file).toEqual([]);
+        expect(parsed.form.state, file).toBe('blank');
+      }
+      expect(readConfig(read).laws.source).toBe('none');
+      expect(first.out).toContain('\n       /omni:terraform\n');
+      // The same writer as `omni kb init`, which then finds nothing left to write; both checks stay green.
+      expect((await omni(root, ['kb', 'init'])).out).toBe(`kb init — wrote 0 file(s); ${FORM_FILES.length} already there, left as they were.\n`);
+      expect((await omni(root, ['check', 'knowledge'])).code).toBe(0);
+      expect((await omni(root, ['check', 'kb'])).code).toBe(0);
+
+      const before = snapshot(root);
+      const second = await init(root, [], { fake });
+      expect(second.code).toBe(0);
+      expect(snapshot(root)).toEqual(before);
+      expect(second.out).not.toContain('wrote');
+    });
+  }
+
+  it('--force keeps laws.source none over the forms and the empty registers, reads knowledge once one holds an entry, and never rewrites a form', async () => {
+    const { root, read, write } = makeRepo({ git: true, files: REPOS.make });
+    await init(root);
+    const testing = `${KNOWLEDGE}/playbook/testing.md`;
+    write(testing, read(testing).replace('<!-- slot: commands · required -->', '<!-- slot: commands · required -->\n`make test`'));
+    const ours = read(testing);
+
+    expect((await init(root, ['--force'])).code).toBe(0);
+    expect(readConfig(read).laws.source).toBe('none');
+    expect(read(testing)).toBe(ours);
+
+    write(`${KNOWLEDGE}/product/principles.md`, PRINCIPLE);
+    const { code, out } = await init(root, ['--force']);
+    expect(code).toBe(0);
+    expect(readConfig(read).laws.source).toBe('knowledge');
+    expect(out).toContain('  wrote   .omni-loop/config.yml\n');
+    expect(out).not.toContain(`  wrote   ${KNOWLEDGE}/`);
+    expect(read(testing)).toBe(ours);
+  });
+
+  it('reads knowledge from an entry in any register: a domain rule, a cross-domain invariant', async () => {
+    for (const [path, text] of [[`${KNOWLEDGE}/domains/billing/rules.md`, RULE], [`${KNOWLEDGE}/cross-domain/billing--quotes.md`, INVARIANT]]) {
+      const { root, read } = makeRepo({ git: true, files: { [path]: text } });
+      await init(root);
+      expect(readConfig(read).laws.source, path).toBe('knowledge');
+    }
+  });
+
+  it('a knowledge folder with no entry is no laws: CLAUDE.md invariants then count, else none', async () => {
+    const empty = { [`${KNOWLEDGE}/README.md`]: 'x\n', [`${KNOWLEDGE}/product/principles.md`]: '# Product principles\n\nNone yet.\n' };
+    const bare = makeRepo({ git: true, files: empty });
+    await init(bare.root);
+    expect(readConfig(bare.read).laws.source).toBe('none');
+    const withInvariants = makeRepo({ git: true, files: { ...empty, 'CLAUDE.md': '# Rules\n\n## Invariants\n\n- one\n' } });
+    await init(withInvariants.root);
+    expect(readConfig(withInvariants.read).laws.source).toBe('claudeMdInvariants');
+  });
+
+  it('a repository installed before the forms: keeps the config and the bin, writes the forms and lists each one', async () => {
+    const config = 'kit: 1\nrepo:\n  slug: acme/widgets\n  defaultBranch: trunk\n';
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/bin/omni.mjs': 'bin\n' } });
+    const { code, out } = await init(root);
+    expect(code).toBe(0);
+    expect(gitStatus(root)).toEqual([...FORM_FILES].sort());
+    expect(out.split('\n').slice(1, 3 + FORM_FILES.length)).toEqual([
+      '  kept    .omni-loop/config.yml    (pass --force to overwrite)',
+      '  kept    .omni-loop/bin/omni.mjs  (pass --force to overwrite)',
+      ...FORM_FILES.map((path) => `  wrote   ${path}`),
+    ]);
+    expect(out).toContain('Commit .omni-loop/ and merge it into trunk, then, by hand:\n');
+  });
+
+  it('writes no form outside .omni-loop/: a kept config whose playbook lies elsewhere leaves them to /omni:terraform', async () => {
+    const config = 'kit: 1\nrepo:\n  slug: acme/widgets\n  defaultBranch: trunk\npaths:\n  playbook: docs/playbook\n';
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/bin/omni.mjs': 'bin\n' } });
+    const { code, out } = await init(root);
+    expect(code).toBe(0);
+    expect(gitStatus(root)).toEqual([]);
+    expect(out).toContain('  kept    .omni-loop/bin/omni.mjs  (pass --force to overwrite)\n  forms   not written: docs/ is outside .omni-loop/ — see step 4 below\n');
+    expect(out).toContain('  4. Fill the forms in docs/ with what the repository can prove, in Claude Code:\n       /omni:terraform\n');
+    expect(out).toContain('Nothing new to commit. By hand, unless already done:\n');
   });
 });

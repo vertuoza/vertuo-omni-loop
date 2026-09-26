@@ -1,0 +1,99 @@
+/* The attract group: the boot, the title's three phases and the Hall of Heroes. */
+
+/* ── Boot ────────────────────────────────────────────────────────────────── */
+
+.boot { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; padding-top: 186px; gap: 14px; }
+.boot-brand { margin: 0; font-size: 24px; color: var(--white); letter-spacing: 6px; animation: rise 0.9s steps(6) both; }
+.boot-presents { margin: 0; font-size: 10px; color: var(--cyan); letter-spacing: 4px; animation: rise 0.6s 1s steps(4) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ── Title ───────────────────────────────────────────────────────────────── */
+
+.title { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; }
+.logo {
+  margin: 14px 0 0;
+  display: flex;
+  gap: 18px;
+  font-size: 44px;
+  font-weight: 400;
+  line-height: 1;
+  transform: skewX(-8deg);
+}
+.logo span {
+  color: var(--yellow);
+  text-shadow:
+    -2px -2px 0 #0b0a26, 2px -2px 0 #0b0a26, -2px 2px 0 #0b0a26, 2px 2px 0 #0b0a26,
+    4px 4px 0 var(--navy), 6px 6px 0 var(--navy), 8px 8px 0 #0b0a26;
+}
+.logo .logo-loop { color: var(--white); text-shadow:
+    -2px -2px 0 #0b0a26, 2px -2px 0 #0b0a26, -2px 2px 0 #0b0a26, 2px 2px 0 #0b0a26,
+    4px 4px 0 var(--red), 6px 6px 0 var(--red), 8px 8px 0 #0b0a26; }
+.tagline { margin: 14px 0 0; font-size: 10px; letter-spacing: 3px; color: var(--cyan); text-shadow: 2px 2px 0 #0b0a26; }
+.press { position: absolute; bottom: 44px; left: 0; right: 0; margin: 0; text-align: center; font-size: 14px; color: var(--yellow); text-shadow: 2px 2px 0 var(--red); }
+.title-foot { position: absolute; bottom: 0; left: 0; right: 0; display: flex; justify-content: space-between; padding: 8px 16px; font-size: 8px; color: var(--dim); background: linear-gradient(0deg, rgba(7, 6, 28, 0.9), rgba(7, 6, 28, 0)); }
+
+.story { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; padding-top: 70px; gap: 14px; }
+.story p { margin: 0; font-size: 11px; letter-spacing: 1px; color: var(--white); opacity: 0; text-shadow: 2px 2px 0 #0b0a26; }
+.story p.shown { opacity: 1; }
+.story p:nth-child(1), .story p:nth-child(3) { color: var(--red); }
+.story p:nth-child(5) { color: var(--yellow); }
+.story .press { opacity: 1; }
+
+.attract-scores { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; padding-top: 36px; }
+.attract-scores ol { list-style: none; margin: 28px 0 0; padding: 0; display: grid; gap: 14px; width: 420px; }
+.attract-scores li { display: grid; grid-template-columns: 70px 1fr 90px; font-size: 13px; }
+.attract-scores li span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.rank-1 { color: var(--yellow); }
+.rank-2 { color: var(--cyan); }
+.rank-3 { color: #ff8fd0; }
+
+/* ── Hall of Heroes ──────────────────────────────────────────────────────── */
+
+.heroes { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; padding-top: 18px; }
+.heroes-season { margin: 8px 0 0; font-size: 8px; color: var(--cyan); }
+.heroes table { margin-top: 12px; width: 500px; border-collapse: collapse; font-size: 10px; }
+.heroes th { font-weight: 400; font-size: 7px; color: var(--dim); text-align: left; padding-bottom: 6px; }
+.heroes td { padding: 4px 0; }
+.heroes th:last-child, .heroes td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.heroes td:nth-child(3) { font-family: var(--txt); font-size: 16px; }
+.heroes tr.rank-1 td:first-child::before { content: '★ '; }
+.heroes .hint { position: absolute; bottom: 10px; left: 16px; right: 16px; text-align: center; margin: 0; }
+
+/* The Hall of Heroes shows heroes. */
+.hero-cell { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ── On the tall grid (320×288): the Game Boy held upright ──────────────────
+   The same words as on the wide grid, stacked for a narrow screen: nothing below 8 px in the pixel
+   face, nor below 15 px in the text face. The call to press sits at the same place in all three of
+   the title's phases. */
+
+.grid-tall .boot { padding-top: 160px; } /* under the mark, drawn at 70–144 */
+
+.grid-tall .logo { margin-top: 16px; gap: 14px; font-size: 32px; }
+.grid-tall .tagline { margin-top: 12px; }
+.grid-tall .press { bottom: 56px; }
+.grid-tall .title-foot { flex-direction: column; align-items: center; gap: 3px; padding: 6px 12px 7px; line-height: 10px; }
+
+.grid-tall .story { padding: 48px 14px 0; gap: 9px; }
+.grid-tall .story p { font-size: 9px; line-height: 13px; text-align: center; text-wrap: balance; }
+
+.grid-tall .attract-scores { padding-top: 30px; }
+.grid-tall .attract-scores h2, .grid-tall .heroes h2 { font-size: 16px; }
+.grid-tall .attract-scores ol { margin-top: 26px; width: 288px; }
+.grid-tall .attract-scores li { grid-template-columns: 48px 1fr 60px; font-size: 10px; }
+.grid-tall .attract-scores li span { overflow-wrap: anywhere; }
+
+.grid-tall .heroes { padding-top: 12px; }
+.grid-tall .heroes-season { margin-top: 6px; }
+.grid-tall .heroes table { margin-top: 10px; width: 296px; table-layout: fixed; font-size: 8px; }
+.grid-tall .heroes th { font-size: 8px; }
+.grid-tall .heroes th:nth-child(1), .grid-tall .heroes th:nth-child(4) { width: 44px; }
+.grid-tall .heroes th:nth-child(3) { width: 84px; }
+.grid-tall .heroes td { padding: 5px 0; overflow-wrap: anywhere; }
+.grid-tall .heroes-page { position: absolute; bottom: 42px; left: 0; right: 0; margin: 0; text-align: center; font-size: 8px; color: var(--dim); letter-spacing: 1px; }
+.grid-tall .heroes-page .j-key { font-size: 8px; }
+.grid-tall .heroes .hint { bottom: 8px; left: 12px; right: 12px; line-height: 13px; text-wrap: balance; }
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-brand, .boot-presents { animation: none; }
+}

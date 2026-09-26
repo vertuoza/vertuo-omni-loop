@@ -1,0 +1,71 @@
+/* What the text layers of two or more scene groups share, on the 640×360 grid of the screen.
+   Each group imports this file before its own, so a group's rules come after these. */
+
+.blink { animation: blink 1s steps(2, start) infinite; }
+@keyframes blink { to { visibility: hidden; } }
+.pulse { animation: pulse 0.9s steps(2, start) infinite; }
+@keyframes pulse { to { opacity: 0.45; } }
+.warn { color: var(--red); }
+.gold { color: var(--yellow); }
+.red { color: var(--red); }
+.good { color: var(--green); }
+
+.chip {
+  display: inline-block;
+  padding: 4px 6px 3px;
+  font-size: 8px;
+  color: #0b0a26;
+  background: var(--chip);
+  box-shadow: 2px 2px 0 #0b0a26;
+  white-space: nowrap;
+}
+.pips { display: inline-flex; gap: 2px; vertical-align: middle; }
+.pips i { width: 8px; height: 8px; background: #23205a; box-shadow: inset 0 0 0 1px #3a3f7a; }
+.pips i.on { background: var(--green); }
+.pips i.on.lvl3 { background: var(--yellow); }
+.pips i.on.lvl4, .pips i.on.lvl5 { background: var(--red); }
+
+.hint { font-size: 8px; color: var(--dim); letter-spacing: 1px; }
+.empty { font-family: var(--txt); font-size: 20px; color: var(--dim); line-height: 1.1; }
+
+/* GBA dialog box: double border, navy fill. */
+.dialog, .panel, .fleet-detail {
+  background: rgba(14, 13, 51, 0.92);
+  border: 2px solid var(--white);
+  box-shadow: 0 0 0 2px #0b0a26, inset 0 0 0 2px var(--navy);
+}
+
+/* The screens' headings. */
+.attract-scores h2, .heroes h2, .menu h2, .fleets h2, .briefing h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--yellow);
+  text-shadow: 2px 2px 0 var(--red), 4px 4px 0 #0b0a26;
+  letter-spacing: 2px;
+}
+
+.dialog-prd { font-size: 10px; color: var(--cyan); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse, .blink { animation: none; }
+}
+
+/* ── Joining the game: sign-in, fleet select, name entry, hero builder, GitHub ────────────────
+   On the same 640×360 grid as every other screen; `j-` keeps these apart from the galaxy's. */
+
+.j-center { position: absolute; left: 0; right: 0; text-align: center; display: grid; justify-items: center; gap: 10px; }
+.j-h { margin: 0; font-size: 16px; color: var(--yellow); text-shadow: 2px 2px 0 var(--red), 4px 4px 0 #0b0a26; }
+.j-sub { margin: 0; font-size: 8px; color: var(--cyan); letter-spacing: 2px; text-shadow: 1px 1px 0 #0b0a26; }
+.j-txt { margin: 0; font-family: var(--txt); font-size: 20px; line-height: 1.05; letter-spacing: 1px; color: var(--white); max-width: 520px; }
+.j-tiny { margin: 0; font-size: 8px; line-height: 1.9; }
+.j-dim { color: var(--dim); }
+.j-error { color: #ff8fa3; }
+.j-hint { position: absolute; left: 0; right: 0; bottom: 8px; margin: 0; text-align: center; font-size: 8px; color: var(--dim); letter-spacing: 1px; text-shadow: 1px 1px 0 #0b0a26; }
+.j-panel {
+  position: absolute; display: grid; gap: 8px; padding: 14px 16px; font-size: 9px; line-height: 1.6;
+  background: rgba(14, 13, 51, 0.94); border: 2px solid var(--white);
+  box-shadow: 0 0 0 2px #0b0a26, inset 0 0 0 2px var(--navy);
+}
+.j-panel p { margin: 0; }
+.j-badge { position: absolute; top: 14px; right: 16px; padding: 5px 7px 4px; font-size: 7px; letter-spacing: 1px; color: #0b0a26; background: var(--fc, var(--yellow)); box-shadow: 2px 2px 0 #0b0a26; }

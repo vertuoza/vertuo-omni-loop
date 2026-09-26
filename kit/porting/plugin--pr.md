@@ -38,8 +38,20 @@ sub-PR lifecycle.
   is posted by the omni-loop GitHub App, never by a workflow, and is absent when the app is not
   installed (PRD 28, ADR-0001). Upstream's `ci/outbox` came from a per-repository workflow.
 - **Triage.** Upstream allowed a re-run only on a failure signature listed in its CI-triage page.
-  There is no such page here; now one re-run per PR is allowed when the failure is plainly not the
+  There was no such page here, so one re-run per PR was allowed when the failure was plainly not the
   branch's (runner, network, timeout, in untouched code), still counted as an attempt (item s4-04).
+  PRD 45 brings the page back as the `ci` form (item s6-01): a failure matching a known red it lists,
+  where the branch changes nothing that red names, is not the branch's, and a re-run happens only
+  when its **When to re-run** section allows it, one per PR, counted as an attempt. The
+  runner/network/timeout allowance is gone; the form's kit default allows a re-run for a listed
+  known red only, as upstream did.
+- **The playbook forms** (PRD 45, the spec's wiring table), each read through `omni kb show`.
+  Step 0 prints the `briefing` before any other step (acceptance criterion 9), and says how to read
+  a form: a blank section is the kit default, a `[hole]` never stops the skill (decision 7), and a
+  form adds to its steps without overriding its rules (item s6-02). The lifecycle reads
+  `verification`, `pull-requests` and `definition-of-done` before opening or picking up a PR; they
+  add to the preflight, **Labels** and **The body**. The check loop of a feature or standalone PR
+  reads `ci` once. Claim mode reads none: it stops before anything is built.
 - **Body.** Upstream relied on its PR template. The skill now carries the shape itself (Summary,
   Verified, Risk and rollback, Reviewer focus) and follows `.github/PULL_REQUEST_TEMPLATE.md` only when
   it exists. The sub-PR body's "Scenarios" line became "Decisions" (outbox items raised); slices are
@@ -70,7 +82,9 @@ sub-PR lifecycle.
 ## Dropped (specific to vertuo-ai-domain)
 
 - `gh label create` lines with their colours and the `prd` label definition.
-- References: its PR authoring guide, ADR 0069, CI-triage page, Definition of Done page.
+- References: its PR authoring guide, ADR 0069, CI-triage page, Definition of Done page. The three
+  pages came back in PRD 45 as the repository's `pull-requests`, `ci` and `definition-of-done`
+  forms (above).
 - Guidance on domain impact / business-rule sources (folded into the body's Reviewer focus) and on UI
   manual test steps.
 - Translation checklist, French-first wording (ADR 0037) and "where does this string live" (ADR 0040,

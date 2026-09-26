@@ -22,6 +22,12 @@ const regexSource = z.string().refine((source) => {
   try { new RegExp(source); return true; } catch { return false; }
 }, 'not a valid regular expression');
 const section = (shape) => z.object(shape).strict().default({});
+// Where ask mode's pages and calls live: https anywhere, or plain http on the loopback address only.
+const askUrl = z.string().refine((value) => {
+  let url;
+  try { url = new URL(value); } catch { return false; }
+  return url.protocol === 'https:' || (url.protocol === 'http:' && url.hostname === '127.0.0.1');
+}, 'an https URL, or http on 127.0.0.1');
 
 export const ConfigSchema = z
   .object({
@@ -38,12 +44,14 @@ export const ConfigSchema = z
       phase0: text.default('docs/phase-0-{topic}'),
       slice: text.default('feat/{topic}--{slice}'),
       rework: text.default('fix-{item}'),
+      terraform: text.default('docs/omni-terraform'),
     }),
     worktrees: text.default('.claude/worktrees'),
     paths: section({
       delivery: text.default('.omni-loop/delivery'),
       knowledge: text.default('.omni-loop/knowledge'),
       adr: text.default('.omni-loop/knowledge/adr'),
+      playbook: text.default('.omni-loop/knowledge/playbook'),
       glossary: nullableText.default(null),
       context: z.array(text).default(['CLAUDE.md']),
     }),
@@ -109,6 +117,7 @@ export const ConfigSchema = z
       claimStaleMinutes: z.number().int().positive().default(60),
       beforeAfterMaxBytes: z.number().int().positive().default(512000),
     }),
+    ask: section({ url: askUrl.nullable().default(null) }),
     markers: section({ prefix: z.string().regex(/^[a-z][a-z0-9-]*$/, 'lowercase letters, digits and hyphens').default('omni-outbox') }),
   })
   .strict();
