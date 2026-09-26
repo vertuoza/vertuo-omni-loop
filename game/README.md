@@ -5,7 +5,8 @@ A read-only projection of PRD delivery as a planet-terraforming game. Design:
 `docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md`.
 
 It never writes to an engineering repository, nor to this one. Its only outputs are rows appended
-to the ledger in Supabase (`public.ledger_events`, append-only), one weekly comment on the pinned
+to the ledger in Supabase (`public.ledger_events`, append-only), each login's XP in
+`public.player_xp`, recomputed from that ledger at every poll, one weekly comment on the pinned
 Hall of Heroes issue, and a weekly backup kept as a workflow artifact. Delete `game/` and
 `.github/workflows/game.yml` to remove it.
 
@@ -19,12 +20,16 @@ the workspace `vertuoza`.
 
 - `pnpm game:project --workspace <slug>` — snapshot the workspace's GitHub, append new events to its
   ledger; logs any event it had to skip
+- `pnpm game:xp --workspace <slug>` — recompute every login's XP, level and unlocked games from the
+  workspace's whole ledger, and write them all to `player_xp` in one request
+  ([XP, levels and unlocks](#xp-levels-and-unlocks))
 - `pnpm game:score [YYYY-MM] [--rankings <file>] --workspace <slug>` — fold the workspace's ledger
   into a season. With no season: the current month, and on the 1st–7th also the previous month,
   whose final standings become the rankings page written to `<file>`
 - `pnpm game:banner <prd> --workspace <slug>` — print one planet's banner; reads only that planet and the planets it is blocked by
 - `pnpm game:export <dir> --workspace <slug>` — write the workspace as JSONL (the backup):
-  `workspace.jsonl` (its row) beside its `ledger_events`, `sectors`, `teams` and `players`
+  `workspace.jsonl` (its row) beside its `ledger_events`, `sectors`, `teams`, `players` and
+  `arcade_scores` (the crew's high scores). `player_xp` is left out: the next `game:xp` rebuilds it
 - `pnpm test` — every module is tested on fixtures; nothing touches GitHub or Supabase in tests
 
 Constants live in `game/rulebook.mjs`. Org facts live in Supabase, per workspace: `workspaces`
@@ -45,6 +50,54 @@ again. Logins match whatever their case.
 The roster read is hard (F7): if the sectors, the fleets or the players cannot be read, the poll
 fails and appends nothing, rather than events stripped of their fleets forever.
 
+## XP, levels and unlocks
+
+Every point a player earns by delivering also counts as **XP**, and XP never resets: a season
+starts the Hall of Heroes again, never a level. Levels unlock the arcade's games
+([`apps/galaxy/README.md` › The game room](../apps/galaxy/README.md#the-game-room)). The rules are
+one block of `game/rulebook.mjs`, `xp`, applied in one place, `game/experience.mjs`
+(`experience()`, `levelFor()`, `unlockedFor()`), which `game:xp`, the demo seed and the arcade all
+call:
+
+- **XP** is the sum, over every season in the ledger, of a login's positive personal credits as
+  `score()` pays them, each multiplied by its kind's weight in `xp.weights` (`zoneSecured`,
+  `woundClosed`, `rescue`, `expedition`, `closer`), rounded once after summing. Night-shift and
+  cross-fleet multipliers count, as they do for points. A zone reverted and a clawback never lower
+  it, and fleet credits (a terraform, a decay) are not personal. A weight of 0 leaves a kind out. A
+  personal credit whose kind has no weight fails `game/experience.test.mjs`, so a new kind of
+  credit forces a decision here.
+- **Level.** 0 XP is no level. LV 1 comes at `xp.curve.first` XP (the first point), LV n at
+  `step`·n·(n−1): LV 2 at 50, LV 3 at 150, LV 5 at 500, LV 10 at 2,250. The level stops at `xp.cap`
+  (99).
+- **Unlocked** is every game whose level in `xp.unlocks` the player's level reaches (`invaders` at
+  LV 1: the first point), added to the games already stored for the login. A game once unlocked
+  stays unlocked.
+- Playing a game never earns points or XP.
+
+**Changing the rules** is changing a number in the `xp` block and merging it: the next poll
+recomputes every player's XP from the whole ledger with the rules of the day. The arcade reads the
+same block (How to play's LEVELS, the XP bar), and follows once it is deployed from that merge. A
+lower weight or a steeper curve can lower XP and levels, never the games already unlocked; whoever
+changes the rules tells the crew. A new game adds its row to `xp.unlocks` and to the arcade's
+registry (`apps/galaxy/src/arcade/games/index.ts`).
+
+**`pnpm game:xp`** (`game/cli/xp.mjs`) is the ledger job's step right after `pnpm game:project`. It
+reads the workspace's whole ledger and its stored `player_xp` rows, computes every login's XP, level
+and unlocked games, and upserts them all in one request. It never writes the ledger. If a read
+fails, it writes nothing and exits 1: the ledger step has already succeeded, so XP catches up at the
+next poll.
+
+**`public.player_xp`** holds one row per login the ledger names, player or not, so a person who
+joins later already has their XP: key `(workspace_id, github_login)`, the login lower-cased, then
+`xp`, `level` (0 before the first point), `unlocked` and `computed_at`. Level and unlocks are
+computed in JavaScript and stored; SQL never repeats the rules. The workspace's members read it, and
+only the service role writes it. It rebuilds from the ledger, so the backup leaves it out. Until the
+workflow is switched on, no row exists, and every player's game room says NO XP YET.
+
+The crew's high scores, `public.arcade_scores`, are the other half: the arcade posts them through
+`submit_score()`, which checks the game against the player's `player_xp.unlocked`. Nothing rebuilds
+them, so `game:export` backs them up.
+
 ## Setup
 
 The workflow `.github/workflows/game.yml` does nothing until it is switched on.
@@ -63,9 +116,10 @@ The workflow `.github/workflows/game.yml` does nothing until it is switched on.
 4. **Switch on.** Set the repository variable `GAME_ENABLED=true`. Do it once the crew has joined in
    the arcade: the first poll backfills history with everyone's fleet as it stands then.
 
-Two jobs: `ledger` runs on every schedule and dispatch (concurrency `game-ledger`); `rankings`
-runs on the Monday schedule, or a dispatch with `post_rankings: true` (concurrency
-`game-rankings`): it exports the backup (kept 90 days), then posts. Both time out after 20 minutes.
+Two jobs: `ledger` runs on every schedule and dispatch (concurrency `game-ledger`): `game:project`,
+then `game:xp`; `rankings` runs on the Monday schedule, or a dispatch with `post_rankings: true`
+(concurrency `game-rankings`): it exports the backup (kept 90 days), then posts. Both time out after
+20 minutes.
 
 ## Known limits
 
@@ -80,7 +134,10 @@ runs on the Monday schedule, or a dispatch with `post_rankings: true` (concurren
   (spec §6.4 brake not implemented yet).
 - **Every poll re-reads all PRDs.** There is no incremental read; cost grows with the number of
   planets.
-- **Fleet stamps live only in Supabase.** The ledger can be rebuilt from GitHub, but not the fleet
-  each event was stamped with: restore those from the weekly backup artifact.
+- **`game:xp` reads the whole ledger on every poll.** It recomputes every login from all of
+  history, with no incremental read, so its cost grows with the ledger.
+- **Fleet stamps and scores live only in Supabase.** The ledger can be rebuilt from GitHub, and XP
+  from the ledger, but not the fleet each event was stamped with, nor the crew's high scores:
+  restore those from the weekly backup artifact.
 - **A feature PR closed unmerged** still counts as the region's feature PR when it has the lowest
   number (sub-PRs drop closed-unmerged ones; feature PRs do not yet).

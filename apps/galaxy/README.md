@@ -4,8 +4,10 @@ The web UI of the game layer: a retro arcade that shows the galaxy. Every PRD is
 every slice a zone, every open question or bug an Entropy unit on its surface. Signing in with a
 `@vertuoza.com` Google account makes you a member of the `vertuoza` workspace and a **visitor**:
 you may look at its galaxy. Linking your GitHub account, once, makes you a **player**: you pick a
-fleet, enter a name and build a hero, and your pull requests score for that fleet. All from the
-keyboard on a computer, and from a Game Boy's buttons on a phone (design:
+fleet, enter a name and build a hero, and your pull requests score for that fleet. Every point also
+counts as XP, which never resets, and levels open arcade games in the game room, the first of them
+Entropy Invaders ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
+Game Boy's buttons on a phone (design:
 [`docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md`](../../docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md)).
 
 - Game pixels drawn on a canvas, on one of two grids (wide 640×360 or tall 320×288, see
@@ -42,16 +44,19 @@ keyboard on a computer, and from a Game Boy's buttons on a phone (design:
 | Enter your name | Up to 10 characters, typed or spun on a letter wheel, pre-filled from the Google first name |
 | Build your hero | Girl or boy, skin, hair, suit (the fleet colour first) and cape; TAB for random |
 | Ready / Welcome back | The launch after a first visit; a two-second welcome for returning players |
-| Select mode | PLAY (visitors: links GitHub), Galaxy map, Star chart, Fleets, Hall of Heroes, How to play, then My hero and Change fleet (players), Sign out |
+| Level up | Before the menu, once per new level on this device: LEVEL UP! with a fanfare, the hero at 2× and the new XP bar, and NEW GAME UNLOCKED when a level climbed opened a game (A plays it at once, B goes on to the menu) |
+| Select mode | PLAY (visitors: links GitHub), Galaxy map, Star chart, Fleets, Hall of Heroes, Games, How to play, then My hero and Change fleet (players), Sign out. A player's badge shows their level |
 | Galaxy map | Sectors as nebulae; planets by state, threat and wounds; red hyperlanes from a locked planet to its blockers; distress pulses |
 | Planet | The planet with its Entropy in orbit and the fleets on station; tabs for status, zones by phase, Entropy (age, decay, bounty) and the event log |
 | Star chart | The knowledge base as space: a sun per domain, sized by the entries it holds, and a dotted lane for each cross-domain file ([The knowledge map](#the-knowledge-map)) |
 | System | One domain as an orrery: its entries as worlds on still orbits, laws terraformed and proposed entries barren; the selected world's links, its panel, and the reading card |
 | Fleets | A hero-select wall of the fleets with season points, streak, planets, crew (players by name) |
 | Hall of Heroes | Season high-score table from `game/economy.mjs`, with each player's hero and name |
-| How to play | The scoring rules, read from `game/rulebook.mjs` so they never drift |
+| Games | The game room: the player's level and XP bar, a cabinet per game (lit with the crew's top five, or dark with the level it opens at) and two SOON cabinets ([The game room](#the-game-room)) |
+| Entropy Invaders | The first game: the player's own hero against a marching formation of alien Entropy, three lives, the score sent to the crew's table at game over |
+| How to play | The scoring rules and LEVELS (what XP counts, the curve, the unlocks), read from `game/rulebook.mjs` so they never drift |
 
-Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#briefing`, `#planet-2332`.
+Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#games`, `#briefing`, `#planet-2332`.
 
 ## Three forms, two grids
 
@@ -72,20 +77,21 @@ game is the same in all three.
   sprites stay on a pixel grid.
 - **Which grid a scene gets.** `gridFor()` in `src/arcade/grid.ts`: tall on `handheld` for a scene
   its group lists in `TALL_SCENES` (`src/arcade/scenes/<group>.ts`), wide otherwise. A wide scene
-  on the Game Boy is letterboxed inside its tall lens. All 21 scenes are listed, and `grid.test.ts`
+  on the Game Boy is letterboxed inside its tall lens. All 24 scenes are listed, and `grid.test.ts`
   fails when a scene is not, so a new scene needs a wide and a tall layout.
 - **A tall layout drops nothing.** It shows what the wide one shows, stacked or split into pages:
-  the Hall of Heroes (four to a page) and How to play (one section a page) show "PAGE n/N", and
-  ◀ ▶ turn them, round from the last to the first. On the fleet select screen and the fleets wall,
-  the cards shown follow the cursor. Its smallest type is 8 grid px in Press Start 2P and 15 in
-  Jersey 10.
+  the Hall of Heroes (four to a page), How to play (one section a page) and the game room (one
+  cabinet a page) show "PAGE n/N", and ◀ ▶ turn them, round from the last to the first. On the
+  fleet select screen and the fleets wall, the cards shown follow the cursor. Its smallest type is
+  8 grid px in Press Start 2P and 15 in Jersey 10.
 - **The bodies.** On a Game Boy the controls keep their size and the lens takes the height that is
   left, so a short phone gets a smaller screen, never a control off the edge. The notch and the
   home indicator are kept clear. The page holds still: no scroll, no zoom, no pull-to-refresh, no
   text selection and no long-press menu.
 - **Turning the phone** swaps the body and keeps the scene, the selection, the planet tab and the
   name being entered. The server cannot know the device, so the page arrives as `full` and a phone
-  takes its body as the page starts.
+  takes its body as the page starts. A game of Entropy Invaders keeps the field it started on,
+  letterboxed, until it ends; the next game takes the grid of the moment.
 
 ### Controls
 
@@ -127,16 +133,31 @@ Left, Right, "A, confirm", "B, back", Select, Start, Sound).
   for TAB and B for ⌫ or ESC, and drops "TYPE OR": there is no keyboard to type on. The name
   screen reads "B ERASE" and "START DONE", the hero builder "RANDOM (SELECT)". On `full` hints read
   the keyboard's keys, as they always have (`hintKey()` in `src/arcade/keys.ts`).
-- **The screen stays tappable**: key hints, menu rows, fleet cards, builder rows, planet tabs,
-  planets on the map, and the star chart's suns and worlds, whose hit tests run in the pixels of the
-  grid the scene is drawn on.
+- **The screen stays tappable**: key hints, menu rows, fleet cards, builder rows, planet tabs, the
+  game room's cabinets, planets on the map, and the star chart's suns and worlds, whose hit tests
+  run in the pixels of the grid the scene is drawn on.
+
+**Held buttons, in a game** (`src/arcade/held.ts`). The menus read a press, once, through `act()`,
+and keep doing so. Entropy Invaders also reads what is held, through a second channel beside it:
+the set of buttons held, from key down to key up and from a finger's touch-down to its lift or its
+cancel, several at once.
+
+- Hold ◀ ▶ to move and A to fire, together: from the keyboard, or on the pad with a finger on the
+  D-pad and one on A (`handheld` and `advance`).
+- During a game the D-pad stops repeating and the keyboard's own key repeat is ignored, so a held
+  direction reads as held. START pauses, and so does B; from the pause, A or START resumes and B
+  goes back to the game room. M still mutes.
+- A window that loses focus, or a hidden tab, never hears its keys and fingers go up: the set is
+  cleared, and a game pauses.
 
 ## How the data flows
 
 ```
 GitHub ──pnpm game:project (game workflow, every 15 min)──▶ Supabase: ledger_events, sectors, teams, players
+       then pnpm game:xp, from the whole ledger ──────────▶           player_xp
                                                                  │  row-level security: a member reads their
-                                                                 │  workspace, a player writes only their own row
+                                                                 │  workspace, a player writes only their own row,
+                                                                 │  and a score only through submit_score()
                                                                  ▼
              apps/galaxy (Next.js, per request, as the signed-in member, one workspace) ── buildGalaxy() ──▶ arcade (client)
                                                                  ▲
@@ -145,9 +166,10 @@ GitHub ──pnpm game:project (game workflow, every 15 min)──▶ Supabase: 
 
 `@omni/galaxy` (`packages/galaxy`) folds ledger events into the view. It never invents a number:
 points and rankings come from `game/economy.mjs`, decay and threat weights from
-`game/rulebook.mjs`, working hours from `game/calendar.mjs`. The demo galaxy is a fictional GitHub
-snapshot run through the real projector, so demo events are exactly what `pnpm game:project` would
-append.
+`game/rulebook.mjs`, working hours from `game/calendar.mjs`, XP, levels and unlocks from
+`game/experience.mjs` (the view's rules carry the rulebook's `xp` block, for How to play). The demo
+galaxy is a fictional GitHub snapshot run through the real projector, so demo events are exactly
+what `pnpm game:project` would append.
 
 What the page reads is decided in `src/data/arcade.ts`, always with the visitor's own session, so
 the database's policies decide what they see:
@@ -161,6 +183,11 @@ the database's policies decide what they see:
   boot its letter and its words, the theme its colours ([A workspace's look](#a-workspaces-look)).
   Joining a fleet writes the player row with that `workspace_id` and the person's `user_id`
   (`src/data/players.ts`).
+- **With GitHub linked**, it also reads their `player_xp` row in that workspace, by lower-cased
+  login (`src/data/xp.ts`), and each game's crew table from `arcade_scores`: its top five with the
+  players' names and heroes, and their own best (`src/data/scores.ts`). Each is read on its own,
+  after the galaxy: when one fails, the galaxy stays, and the arcade says XP OUT OF REACH (and shows
+  no level) or SCORES OUT OF REACH (and the game still plays). Without GitHub, it reads neither.
 - **Crew means "has a workspace"**, never an email domain. A signed-in person who belongs to none
   yet is joined once by the page (`join_by_domain()`), so a session from before workspaces joins
   too; one who still belongs to none gets the "wrong cartridge" screen and reads nothing.
@@ -173,13 +200,17 @@ GitHub link, `link_github()` (`src/data/sign-in.ts`). The terminal's sign-in (`o
 callback's `next=ask-cli` branch) joins the same way before its one-time code is issued.
 
 Nobody gets past INSERT COIN without signing in: the title asks for a coin until there is a
-session, and every screen beyond it requires one (`allowed()` in `src/arcade/onboarding.ts`).
+session, and every screen beyond it requires one (`allowed()` in `src/arcade/onboarding.ts`). A
+game and the level-up also need GitHub linked: XP is earned under the GitHub login.
 
 Without the Supabase variables, the app picks its mode in `src/data/mode.ts`:
 
 - **Development** (`pnpm galaxy:dev`), or a build with `OMNI_LOOP_DEMO=1`: the demo galaxy, with
   sign-in and GitHub simulated and the player kept in the browser's storage
-  (`src/arcade/account-demo.ts`). The single-file artifact plays the same way.
+  (`src/arcade/account-demo.ts`). The guest borrows the XP of the demo world's highest-XP
+  contributor, computed from the demo events by `experience()` (`demoXp()` in `src/data/xp.ts`), so
+  the game room, the level-up and the game all show; their best scores stay in the browser's
+  storage, the only line of the demo's crew table. The single-file artifact plays the same way.
 - **Any other build** (a Vercel deployment missing its variables, say): **closed**. The attract mode
   plays, and INSERT COIN says sign-in is not open yet. No simulated sign-in, and no galaxy data.
 
@@ -275,6 +306,53 @@ demo in development. Anyone else's page carries no entry: in the arcade STAR CHA
 a build that is neither says the map is not open here. The single-file artifact never embeds a
 knowledge base: its star chart reads `NO STAR CHART IN THIS BUILD`.
 
+## The game room
+
+Every point a player earns by delivering also counts as XP, and XP never resets: a new season
+starts the Hall of Heroes again, never a level (PRD 160). The rules (what XP counts, the curve, the
+cap and the level each game opens at) are the `xp` block of `game/rulebook.mjs`, applied by
+`game/experience.mjs` ([`game/README.md` › XP, levels and unlocks](../../game/README.md#xp-levels-and-unlocks)).
+The game workflow writes each login's XP, level and unlocked games to `player_xp` at every poll
+(`pnpm game:xp`); the arcade reads that row and shows the level it holds. Where the workflow is
+off, no row exists, and every player sees NO XP YET.
+
+- **GAMES** sits on the menu after HALL OF HEROES, for everyone signed in. Its hint reads
+  `LV 3 · 1 game unlocked`, or why there is no level, and a NEW tag shows beside it until the room
+  is first opened on this device. A player's badge adds the level, `P1 INKY · OCTOPOD · LV 3`: never
+  before the first point, nor when XP could not be read. Like the galaxy's screens, the room opens
+  only once the galaxy is loaded.
+- **`games`**, the room (`src/arcade/games/room.ts`): the level, the XP bar and the XP to the next
+  level (`LV 3 · 180 / 300 XP`, `120 XP to LV 4`), then a cabinet per game in the registry
+  (`src/arcade/games/index.ts`). A lit cabinet shows the crew's top five, the player's own line
+  highlighted, and A · PLAY; a locked one is dark and shows the level it opens at; two dark SOON
+  cabinets stand for the games to come, with no level. A visitor sees every cabinet locked and
+  "LINK GITHUB TO EARN XP", a player with no XP yet "NO XP YET · SCORE YOUR FIRST POINT", and XP that
+  could not be read "XP OUT OF REACH". The wide grid stands the three cabinets side by side, ◀ ▶
+  choosing; the tall grid shows one a page.
+- **`levelup`** (`src/arcade/levelup.ts`): arriving at the menu by any route, a player whose level
+  is higher than the one last celebrated on this device (`omni-loop:level-seen:<login>` in browser
+  storage) sees LEVEL UP! first. When a level climbed since then opened a game their row holds
+  unlocked, it adds NEW GAME UNLOCKED: A plays it at once, B goes on to the menu; with no game, A goes
+  on. Either key saves the level as celebrated, so a new device plays it once more; storage that
+  refuses plays it once a page load. It never plays on XP it could not read, and reduced motion
+  stills its rays and flashes.
+- **`invaders`**, Entropy Invaders: the player's own hero, in their fleet's colours, flies along the
+  ground against a formation of alien Entropy that marches side to side, steps down at each edge
+  and fires back: 5 rows × 10 and four shields on the wide grid, 5 × 6 and three on the tall one.
+  Each row is one wound kind, the one that pays most on top, and each alien pays its kind's close
+  value from the rulebook (`woundClose`); the game opens on that score table for three seconds (A
+  starts at once). The shields wear away under fire from both sides, and each cleared wave starts
+  faster. The hero has three lives: the game ends when they are gone, or when the formation reaches
+  the hero's row. Its sounds are the synth's: a marching bass that speeds up with the formation,
+  fire, hit, hero hit, a cleared wave and the game over. The engine is pure and seeded
+  (`src/arcade/games/invaders.ts`: `newGame()`, `step()`, `press()`, its speeds in `FIELDS` and
+  the constants above it), and the scene draws it.
+- **The score.** At game over the score is sent once through the account's `submitScore()` (in
+  Supabase, `submit_score()`), 0 included; once it is saved, the cabinet's top five is read again.
+  The screen says SAVING SCORE…, then NEW BEST, YOUR BEST n, or SCORE NOT SAVED, where A retries
+  once and B goes back to the room; otherwise A, B or START go back. Playing never earns points or
+  XP.
+
 ## Run it locally
 
 From the repository root:
@@ -307,9 +385,10 @@ workspace the migrations create.
 ### Screenshots of every scene
 
 `pnpm galaxy:shots` walks the demo galaxy from the keyboard in a headless Chromium, from the boot
-through the joining flow to every screen of the menu, and saves a screenshot of each scene (the
-title's three phases, the planet's four tabs, and a system's reading card each on their own; the
-star chart shows this checkout's knowledge) at three sizes: 393×700 upright
+through the joining flow and the level-up (the demo guest's borrowed level, new in that browser) to
+every screen of the menu, and saves a screenshot of each scene (the title's three phases, the
+planet's four tabs, a system's reading card, and Entropy Invaders' score table, play and pause each
+on their own; the star chart shows this checkout's knowledge) at three sizes: 393×700 upright
 touch (an iPhone with Safari's bars), 852×393 sideways touch and 1440×900 with a mouse.
 
 ```bash
@@ -336,7 +415,7 @@ to the ledger, and Vercel serves the arcade from it:
 ```
 supabase workflow ── supabase db push, on merge to main ──┐
                                                           ├──▶ Supabase, Central EU (Frankfurt)
-game workflow ────── pnpm game:project, every 15 minutes ──┘         │  the player's own session
+game workflow ─ game:project + game:xp, every 15 minutes ──┘         │  the player's own session
                                                                      ▼
                                                       Vercel, fra1: apps/galaxy
 ```
@@ -412,10 +491,12 @@ poll backfills history with everyone's fleet as it stands.
 
 ### In production
 
-- The ledger moves at most every 15 minutes (the game workflow's poll); every page load reads it.
+- The ledger moves at most every 15 minutes (the game workflow's poll), and each player's XP with
+  it; every page load reads them.
 - On Supabase's Free plan an idle project is paused after a week. Once the game runs, the 15-minute
-  poll keeps it in use. The ledger now lives only in the database: the weekly backup artifact (or
-  the Pro plan's point-in-time recovery) is what restores it.
+  poll keeps it in use. The ledger and the crew's high scores now live only in the database: the
+  weekly backup artifact (or the Pro plan's point-in-time recovery) is what restores them.
+  `player_xp` rebuilds from the ledger at the next poll.
 
 ## Share it without a server
 
@@ -424,8 +505,9 @@ pnpm galaxy:artifact     # apps/galaxy/artifact/dist/omni-loop.html
 ```
 
 One self-contained HTML page (React from cdnjs, everything else inlined) that plays the demo galaxy,
-joining flow included. It carries no knowledge base: its star chart reads `NO STAR CHART IN THIS
-BUILD`.
+joining flow included, and the game room: the guest borrows the demo world's highest XP and plays
+Entropy Invaders, its best scores kept in that browser. It carries no knowledge base: its star chart
+reads `NO STAR CHART IN THIS BUILD`.
 
 ## Database
 
@@ -455,17 +537,29 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
   created once GitHub is linked (`my_github()` reads the caller's linked identity); the trigger
   copies the login from that identity, and `link_github()` refreshes it on every player row of the
   caller. Leaving a workspace removes its player row. The email stays in `auth.users`.
+- `player_xp`: each login's XP, level and unlocked games in a workspace, one row per login the
+  ledger names, player or not (key `(workspace_id, github_login)`, the login lower-cased; `level` 0
+  before the first point; `computed_at`). The game workflow rewrites every row at each poll
+  (`pnpm game:xp`): the rules live in JavaScript, never in SQL, and `unlocked` only ever grows.
+- `arcade_scores`: each player's best at each arcade game, key `(workspace_id, user_id, game)`,
+  with `best` (0 to 9,999,999) and `at`, when it was set. It hangs off the player row, so a player's
+  scores go with it when they leave the workspace. Nobody writes it directly.
+- `submit_score(workspace, game, score)`, security definer, is the only way a score goes in. It
+  refuses a caller with no player row in the workspace (a visitor, a member of another workspace,
+  anyone signed out), a game their `player_xp.unlocked` does not hold, and a score outside
+  0..9,999,999. It keeps the higher of the stored best and the score, and returns the best as
+  stored.
 - Row-level security, by membership (`is_member(workspace)`): a member reads their workspaces,
-  their own memberships, and their workspace's sectors, fleets, players and ledger, and nothing of
-  any other workspace. A member with GitHub linked inserts their own player row there, and updates
-  only its name, fleet and hero (column grants). Anonymous visitors read nothing, fleets included.
-  The service role reads everything, appends to the ledger, and writes workspaces, memberships,
-  sectors and fleets.
+  their own memberships, and their workspace's sectors, fleets, players, ledger, XP and high
+  scores, and nothing of any other workspace. A member with GitHub linked inserts their own player
+  row there, and updates only its name, fleet and hero (column grants). Anonymous visitors read
+  nothing, fleets included. The service role reads everything, appends to the ledger, and writes
+  workspaces, memberships, sectors, fleets and `player_xp`.
 - Explicit grants: Supabase projects created since 2026-05-30 no longer grant the API roles access
   to new tables. The local stack matches (`auto_expose_new_tables = false`), so a table added
   without its grants fails locally and in the pull request check, not in production. The
-  workspaces migration also revokes every grant before it grants, so a project that still grants
-  new tables by default ends up the same.
+  workspaces migration, and the game room's two after it, also revoke every grant before they
+  grant, so a project that still grants new tables by default ends up the same.
 - `supabase/checks/access.sql` proves all of this on every pull request that touches `supabase/`,
   with a second workspace beside Vertuoza.
 
@@ -483,3 +577,6 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
   misreports its primary pointer gets the other form; the keyboard and taps work in both.
 - **A renamed GitHub account** keeps its old login in `players.github_login` (the spec lists refreshing it
   from `github_id` as later work).
+- **A score is what the browser sends.** `submit_score()` checks that the game is unlocked and holds
+  the score to 0..9,999,999, but replays nothing, so a player could post any score up to the cap.
+  A score is a bragging right on its cabinet and never earns points or XP.
