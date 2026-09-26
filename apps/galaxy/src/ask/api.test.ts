@@ -1,12 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
-import { abandonRound, addRound, answerRound, categorizeRound, closeSession, deleteSession, openSession, waitRound, type AskDeps } from './api';
+import { abandonRound, addRound, answerRound, categorizeRound, closeSession, deleteSession, openSession, shareRound, waitRound, type AskDeps } from './api';
 import type { Category, ClassifyInput } from './classify';
+import { askStore } from './store';
 import { fakeSupabase } from './store.fake';
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
+// Dan belongs to Ada's workspace too, under the arcade name he picked there.
+const DAN = { id: '00000000-0000-4000-8000-0000000000d1', email: 'dan@vertuoza.com', name: 'DAN' };
 const EVE = { id: '00000000-0000-4000-8000-0000000000e1', email: 'eve@example.com' };
 // Ada and Bob belong to one workspace (the fake's default), Carl to another.
 const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@vertuoza.com', workspaces: ['00000000-0000-4000-8000-00000000aced'] };
@@ -38,7 +41,7 @@ type Call = { token?: string | null; body?: unknown; raw?: string; headers?: Rec
 
 function world() {
   const clock = { now: START };
-  const fake = fakeSupabase({ 'ada-token': ADA, 'bob-token': BOB, 'eve-token': EVE, 'carl-token': CARL }, () => clock.now);
+  const fake = fakeSupabase({ 'ada-token': ADA, 'bob-token': BOB, 'dan-token': DAN, 'eve-token': EVE, 'carl-token': CARL }, () => clock.now);
   const sleeps: number[] = [];
   let onSleep: (() => void) | null = null;
   const deps: AskDeps = {
@@ -670,6 +673,144 @@ describe('PATCH /api/ask/rounds/:id/category (PRD 144)', () => {
   });
 });
 
+describe('POST /api/ask/rounds/:id/shares (PRD 144)', () => {
+  const share = (w: ReturnType<typeof world>, id: string, body: unknown, token: string | null = 'ada-token') =>
+    shareRound(w.request('POST', `/api/ask/rounds/${id}/shares`, { token, body }), id, w.deps);
+
+  it('lets the owner share a round with a member of the session\'s workspace, and answers the link to it', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    const { status, body } = await w.read(await share(w, roundId, { member: BOB.id }));
+    expect(status).toBe(200);
+    expect(body).toEqual({ roundId, sharedWith: BOB.id, url: `https://ask.example/ask/q/${roundId}` });
+    expect(w.fake.tables.ask_shares).toEqual([expect.objectContaining({ round_id: roundId, shared_with: BOB.id, shared_by: ADA.id })]);
+  });
+
+  it('shares again without a second share, and shares an answered round too (it only reads)', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    await share(w, roundId, { member: BOB.id });
+    expect((await share(w, roundId, { member: BOB.id })).status).toBe(200);
+    expect(w.fake.tables.ask_shares).toHaveLength(1);
+    await answerRound(w.request('POST', `/api/ask/rounds/${roundId}/answers`, { body: { answers: ANSWERS, via: 'terminal' } }), roundId, w.deps);
+    expect((await share(w, roundId, { member: DAN.id })).status).toBe(200);
+    expect(w.fake.tables.ask_shares).toHaveLength(2);
+  });
+
+  it('refuses a member outside the session\'s workspace, the owner themself, or no member at all, with 400', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    for (const body of [{ member: CARL.id }, { member: ADA.id }, { member: MISSING }, { member: 'bob' }, {}, { with: BOB.id }]) {
+      const { status, body: sent } = await w.read(await share(w, roundId, body));
+      expect(status, JSON.stringify(body)).toBe(400);
+      expect(sent.error).toEqual(expect.any(String));
+    }
+    expect(w.fake.tables.ask_shares).toEqual([]);
+  });
+
+  it('refuses a member of the workspace who is not the owner with 403', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    const { status, body } = await w.read(await share(w, roundId, { member: DAN.id }, 'bob-token'));
+    expect(status).toBe(403);
+    expect(body.error).toMatch(/owner/);
+    expect(w.fake.tables.ask_shares).toEqual([]);
+  });
+
+  it('answers 404 for an unknown round, a round of another workspace, or an id that is not one', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    expect((await share(w, MISSING, { member: BOB.id })).status).toBe(404);
+    expect((await share(w, 'not-a-uuid', { member: BOB.id })).status).toBe(404);
+    expect((await share(w, roundId, { member: BOB.id }, 'carl-token')).status).toBe(404);
+    expect(w.fake.tables.ask_shares).toEqual([]);
+  });
+
+  it('checks the bearer token and the crew like every other call, and answers 500 when the database fails', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    expect((await share(w, roundId, { member: BOB.id }, null)).status).toBe(401);
+    expect((await share(w, roundId, { member: BOB.id }, 'eve-token')).status).toBe(403);
+    expect((await share({ ...w, deps: { connect: null } }, roundId, { member: BOB.id })).status).toBe(503);
+    w.fake.state.fail = { message: 'connection reset' };
+    expect((await share(w, roundId, { member: BOB.id })).status).toBe(500);
+    w.fake.state.fail = null;
+    expect(w.fake.tables.ask_shares).toEqual([]);
+  });
+});
+
+describe('the first answer wins (PRD 144)', () => {
+  const pageAnswer = (w: ReturnType<typeof world>, token: string, roundId: string, answers: Record<string, string> = ANSWERS) =>
+    askStore(w.fake.client(token) as never).moveRound(roundId, ['open'], { status: 'answered', answers, answered_via: 'page' });
+  const terminal = (w: ReturnType<typeof world>, roundId: string) =>
+    answerRound(w.request('POST', `/api/ask/rounds/${roundId}/answers`, { body: { answers: { 'Which checks run?': 'RLS' }, via: 'terminal' } }), roundId, w.deps);
+  async function shared(w: ReturnType<typeof world>, member = BOB) {
+    const roundId = await w.round(await w.session());
+    await shareRound(w.request('POST', `/api/ask/rounds/${roundId}/shares`, { body: { member: member.id } }), roundId, w.deps);
+    return roundId;
+  }
+
+  it('lets the member it is shared with answer an open round on the page, and the hook gets that answer', async () => {
+    const w = world();
+    const roundId = await shared(w);
+    expect(await pageAnswer(w, 'bob-token', roundId)).toMatchObject({ status: 'answered', answered_via: 'page' });
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ answers: ANSWERS, answered_by: BOB.id });
+    const { body } = await w.read(await waitRound(w.request('GET', `/api/ask/rounds/${roundId}/wait`), roundId, w.deps));
+    expect(body).toEqual({ status: 'answered', answers: ANSWERS });
+  });
+
+  it('answers the second answer 409, naming who answered first and which way, and keeps the first', async () => {
+    const w = world();
+    const roundId = await shared(w, DAN);
+    await pageAnswer(w, 'dan-token', roundId);
+    const { status, body } = await w.read(await terminal(w, roundId));
+    expect(status).toBe(409);
+    expect(body).toEqual({
+      error: 'This round is already answered by DAN, on the page.',
+      status: 'answered',
+      answeredBy: { id: DAN.id, name: 'DAN' },
+      via: 'page',
+    });
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ answers: ANSWERS, answered_by: DAN.id });
+  });
+
+  it('names a member with no arcade name by their email, and the owner too', async () => {
+    const w = world();
+    const roundId = await shared(w);
+    await pageAnswer(w, 'bob-token', roundId);
+    expect((await w.read(await terminal(w, roundId))).body.answeredBy).toEqual({ id: BOB.id, name: 'bob@vertuoza.com' });
+    const own = await w.round(await w.session());
+    await pageAnswer(w, 'ada-token', own);
+    expect((await w.read(await terminal(w, own))).body).toMatchObject({ answeredBy: { id: ADA.id, name: 'ada@vertuoza.com' }, via: 'page' });
+  });
+
+  it('keeps the owner\'s answer when the shared member comes second', async () => {
+    const w = world();
+    const roundId = await shared(w);
+    expect((await terminal(w, roundId)).status).toBe(200);
+    expect(await pageAnswer(w, 'bob-token', roundId, { 'Which checks run?': 'Handlers' })).toBeNull();
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ answers: { 'Which checks run?': 'RLS' }, answered_by: ADA.id, answered_via: 'terminal' });
+  });
+
+  it('lets nobody else answer: a member it is not shared with, or the shared member once it moved to the terminal', async () => {
+    const w = world();
+    const roundId = await shared(w);
+    expect(await pageAnswer(w, 'dan-token', roundId)).toBeNull();
+    await abandonRound(w.request('POST', `/api/ask/rounds/${roundId}/abandon`), roundId, w.deps);
+    expect(await pageAnswer(w, 'bob-token', roundId)).toBeNull();
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ status: 'abandoned', answers: null });
+  });
+
+  it('never lets the shared member abandon the round, or answer it as the terminal', async () => {
+    const w = world();
+    const roundId = await shared(w);
+    const bob = askStore(w.fake.client('bob-token') as never);
+    await expect(bob.moveRound(roundId, ['open'], { status: 'abandoned' })).rejects.toThrow(/row-level security/);
+    await expect(bob.moveRound(roundId, ['open'], { status: 'answered', answers: ANSWERS, answered_via: 'terminal' })).rejects.toThrow(/row-level security/);
+    expect(w.row('ask_rounds', roundId).status).toBe('open');
+  });
+});
+
 describe('the ask routes', () => {
   const app = (path: string) => fileURLToPath(new URL(`../../app/api/ask/${path}/route.ts`, import.meta.url));
   const ROUTES: Array<[string, string, string]> = [
@@ -681,6 +822,7 @@ describe('the ask routes', () => {
     ['rounds/[id]/answers', 'POST', 'answerRound'],
     ['rounds/[id]/abandon', 'POST', 'abandonRound'],
     ['rounds/[id]/category', 'PATCH', 'categorizeRound'],
+    ['rounds/[id]/shares', 'POST', 'shareRound'],
   ];
 
   for (const [path, method, handler] of ROUTES) {

@@ -2,7 +2,8 @@
 // written as the caller: the client carries their access token, so row-level security decides. Since
 // PRD 144 (20260927100000_ask_workspace.sql) every member of a session's workspace reads it and its
 // rounds, and only its owner changes or deletes it; a session of another workspace reads as missing,
-// exactly like one that never was.
+// exactly like one that never was. Since 20260927120000_ask_shares.sql its owner may share a round
+// with another member, who may then answer it while it is open.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Category } from './classify';
 
@@ -158,3 +159,43 @@ export function askCategories(db: Pick<SupabaseClient, 'rpc'>) {
 }
 
 export type AskCategories = ReturnType<typeof askCategories>;
+
+/** A member of a workspace, as ask_members() lists them: their arcade name there, if they picked one. */
+export type AskMember = { user_id: string; email: string; name: string | null };
+
+/** How a member is named on the page and in a refusal: their arcade name, else their email. */
+export const memberLabel = (member: Pick<AskMember, 'email' | 'name'>) => member.name ?? member.email;
+
+/** A share: a round, the member it is shared with, who shared it and when. */
+export type AskShare = { round_id: string; shared_with: string; shared_by: string; created_at: string };
+
+const SHARE = 'round_id, shared_with, shared_by, created_at';
+
+/** Sharing a round (20260927120000_ask_shares.sql). No grant writes a share: ask_round_share() does,
+ * checking that the caller owns the round's session and the member belongs to its workspace. */
+export function askShares(db: Pick<SupabaseClient, 'from' | 'rpc'>) {
+  return {
+    /** Shares a round with a member; false when the caller does not own its session, or the member
+     * is the caller or not in the session's workspace. Sharing twice is fine. */
+    async share(roundId: string, member: string): Promise<boolean> {
+      return settle<boolean>('share the round', await db.rpc('ask_round_share', { p_round_id: roundId, p_member: member })) === true;
+    },
+
+    /** The members of a workspace the caller belongs to; none for any other. */
+    async members(workspaceId: string): Promise<AskMember[]> {
+      return settle<AskMember[]>('list the members', await db.rpc('ask_members', { workspace: workspaceId })) ?? [];
+    },
+
+    /** Who a round is shared with. */
+    async ofRound(roundId: string): Promise<AskShare[]> {
+      return settle<AskShare[]>('read the shares', await db.from('ask_shares').select(SHARE).eq('round_id', roundId)) ?? [];
+    },
+
+    /** Every round shared with `me`. */
+    async withMe(me: string): Promise<AskShare[]> {
+      return settle<AskShare[]>('read the shares', await db.from('ask_shares').select(SHARE).eq('shared_with', me)) ?? [];
+    },
+  };
+}
+
+export type AskShares = ReturnType<typeof askShares>;

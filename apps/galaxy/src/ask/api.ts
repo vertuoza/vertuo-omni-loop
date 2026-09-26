@@ -10,12 +10,14 @@
 //   POST /api/ask/rounds/:id/answers      {answers, via: "terminal"} → {id, status: "answered", via: "terminal"}
 //   POST /api/ask/rounds/:id/abandon                           → {id, status: "abandoned"}
 //   PATCH /api/ask/rounds/:id/category    {category}           → {id, category, category_by}
+//   POST /api/ask/rounds/:id/shares       {member}             → {roundId, sharedWith, url}
 //
 // Every call is refused 401 without a valid bearer token and 403 outside the crew; a session or
 // round of another owner is 404, like one that does not exist — except a delete by a member of the
 // session's workspace who is not its owner, who reads it (PRD 144) and is refused 403. A closed session (or one 12 hours
 // idle) takes no new round: 409 with `status: "closed"`. A round that is already answered is left
-// as it is: 409 with `status: "answered"`. 503: no database here, or the sign-in service is down;
+// as it is: 409 with `status: "answered"`, naming who answered it and which way (`answeredBy: {id,
+// name}`, `via`): the first answer wins. 503: no database here, or the sign-in service is down;
 // 500: the database failed. Errors are `{error}` in plain words. Any of them leaves the question
 // to the terminal.
 //
@@ -30,13 +32,17 @@
 // leaves it unsorted, and nothing retries. Any member of the session's workspace sets, changes or
 // clears it (`category: null`); a round of another workspace is 404. The model never overrides a
 // person: the database records its guess only while nobody has set one.
+//
+// The session's owner shares a round (PRD 144) with another member of the session's workspace, who may
+// then answer it on the page while it is open (/ask/q/<round>). Sharing any other round is refused:
+// 403 for a member who is not the owner, 400 for someone outside the workspace (or the owner themself).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authenticate, type AskCaller, type TokenCheck } from './auth';
 import { CATEGORIES, isCategory, type Category, type Classifier, type ClassifyInput } from './classify';
 import { costUsd } from './prices';
 import {
-  askCategories, askStore, AskStoreError, sessionClosed,
-  type AskAnswers, type AskCategories, type AskRound, type AskRoundFacts, type AskSession, type AskStore, type AskTokens,
+  askCategories, askShares, askStore, AskStoreError, memberLabel, sessionClosed,
+  type AskAnswers, type AskCategories, type AskRound, type AskRoundFacts, type AskSession, type AskShares, type AskStore, type AskTokens,
 } from './store';
 
 /** How long one wait holds before it answers `open`: within the 60 s the routes may run. */
@@ -68,12 +74,11 @@ const reply = (status: number, body: unknown) => Response.json(body, { status, h
 const refuse = (status: number, error: string, extra: Record<string, unknown> = {}) => reply(status, { error, ...extra });
 const notFound = (what: 'session' | 'round') => refuse(404, `No such ask ${what}.`);
 const closedSession = () => refuse(409, 'This ask session is closed. Switch ask mode on again for a new one.', { status: 'closed' });
-const alreadyAnswered = () => refuse(409, 'This round is already answered.', { status: 'answered' });
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-type Signed = { caller: AskCaller; store: AskStore; categories: AskCategories; now: () => number };
+type Signed = { caller: AskCaller; store: AskStore; categories: AskCategories; shares: AskShares; now: () => number };
 
 /** The caller and a store acting as them, or the Response that refuses them. */
 async function signIn(request: Request, deps: AskDeps): Promise<Signed | Response> {
@@ -81,7 +86,9 @@ async function signIn(request: Request, deps: AskDeps): Promise<Signed | Respons
   const auth = await authenticate(request.headers.get('authorization'), deps.connect);
   if (!auth.ok) return refuse(auth.status, auth.error);
   const client = deps.connect(auth.caller.token);
-  return { caller: auth.caller, store: askStore(client), categories: askCategories(client), now: deps.now ?? Date.now };
+  return {
+    caller: auth.caller, store: askStore(client), categories: askCategories(client), shares: askShares(client), now: deps.now ?? Date.now,
+  };
 }
 
 /** Runs a handler, turning a database failure into a 500 rather than a guess. */
@@ -123,6 +130,21 @@ async function ownRound(who: Signed, id: string): Promise<{ round: AskRound; ses
   const round = await who.store.round(id);
   const session = round && (await ownSession(who, round.session_id));
   return round && session ? { round, session } : null;
+}
+
+/** 409 for a round already answered, naming who answered it and which way: the first answer wins. */
+async function alreadyAnswered(who: Signed, roundId: string, session: AskSession): Promise<Response> {
+  const round = await who.store.round(roundId);
+  const by = round?.answered_by ?? null;
+  const member = by && session.workspace_id ? (await who.shares.members(session.workspace_id)).find((m) => m.user_id === by) : undefined;
+  const name = member ? memberLabel(member) : null;
+  const via = round?.answered_via ?? null;
+  const way = via === 'terminal' ? ', in the terminal' : via === 'page' ? ', on the page' : '';
+  return refuse(409, `This round is already answered${name ? ` by ${name}` : ''}${way}.`, {
+    status: 'answered',
+    answeredBy: by ? { id: by, name } : null,
+    via,
+  });
 }
 
 /** A call keeps its session alive, unless it already reads as closed. */
@@ -331,13 +353,13 @@ export function answerRound(request: Request, id: string, deps: AskDeps): Promis
     if (!isAnswers(sent.answers)) return refuse(400, '`answers` must map each question\'s text to the answer text.');
     const found = await ownRound(who, id);
     if (!found) return notFound('round');
-    if (found.round.status === 'answered') return alreadyAnswered();
+    if (found.round.status === 'answered') return alreadyAnswered(who, found.round.id, found.session);
     const moved = await who.store.moveRound(found.round.id, ['open', 'abandoned'], {
       status: 'answered',
       answers: sent.answers,
       answered_via: 'terminal',
     });
-    if (!moved) return alreadyAnswered();
+    if (!moved) return alreadyAnswered(who, found.round.id, found.session);
     await touch(who, found.session);
     return reply(200, { id: moved.id, status: 'answered', via: 'terminal' });
   });
@@ -349,11 +371,11 @@ export function abandonRound(request: Request, id: string, deps: AskDeps): Promi
     if (!found) return notFound('round');
     const abandoned = () => reply(200, { id: found.round.id, status: 'abandoned' });
     if (found.round.status === 'abandoned') return abandoned();
-    if (found.round.status === 'answered') return alreadyAnswered();
+    if (found.round.status === 'answered') return alreadyAnswered(who, found.round.id, found.session);
     const moved = await who.store.moveRound(found.round.id, ['open'], { status: 'abandoned' });
     if (!moved) {
       const now = await who.store.round(found.round.id);
-      if (now?.status !== 'abandoned') return alreadyAnswered();
+      if (now?.status !== 'abandoned') return alreadyAnswered(who, found.round.id, found.session);
     }
     await touch(who, found.session);
     return abandoned();
@@ -373,5 +395,22 @@ export function categorizeRound(request: Request, id: string, deps: AskDeps): Pr
     const set = await who.categories.set(id, category as Category | null);
     if (!set) return notFound('round');
     return reply(200, { id, category: set.category, category_by: set.category_by });
+  });
+}
+
+/** The session's owner shares a round with another member of its workspace, and gets the link to it. */
+export function shareRound(request: Request, id: string, deps: AskDeps): Promise<Response> {
+  return handle(request, deps, async (who) => {
+    const sent = await body(request);
+    if (sent instanceof Response) return sent;
+    const round = UUID.test(id) ? await who.store.round(id) : null;
+    const session = round && (await who.store.session(round.session_id));
+    if (!round || !session) return notFound('round');
+    if (session.owner !== who.caller.id) return refuse(403, 'Only the session\'s owner shares its questions.');
+    const member = sent.member;
+    const outside = () => refuse(400, '`member` must be the id of another member of this session\'s workspace.');
+    if (typeof member !== 'string' || !UUID.test(member)) return outside();
+    if (!(await who.shares.share(round.id, member))) return outside();
+    return reply(200, { roundId: round.id, sharedWith: member, url: `${origin(request)}/ask/q/${round.id}` });
   });
 }
