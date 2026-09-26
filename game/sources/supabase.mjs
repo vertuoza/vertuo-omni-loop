@@ -56,6 +56,16 @@ export function supabaseRest({ url, key, fetch = globalThis.fetch }) {
       }
       return inserted;
     },
+    /** Inserts rows, or updates the row their `onConflict` key already names, all in one request. */
+    async upsert(table, rows, onConflict) {
+      const what = `write ${table}`;
+      const res = await send(what, `${base}/${table}?on_conflict=${onConflict}`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+        body: JSON.stringify(rows),
+      });
+      if (!res.ok) throw await fail(what, res);
+    },
   };
 }
 
