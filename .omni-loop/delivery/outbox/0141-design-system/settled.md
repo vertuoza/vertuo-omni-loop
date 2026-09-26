@@ -857,3 +857,237 @@ Three lines in the arcade app and one field in the shared scene types; removing 
 ```
 
 <!-- /omni-outbox-settled: s5-04-boot-learns-the-crest-outside-its-ground -->
+
+<!-- omni-outbox-settled: s6-01-design-page-shows-the-built-in-fleets -->
+
+## s6-01-design-page-shows-the-built-in-fleets — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s6
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-design-page-shows-the-built-in-fleets
+prd: 141
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 5
+---
+
+## The question, in plain words
+
+The design page is public, so whose fleets should it dress the heroes in: the ones the game ships with, or a real team's own fleets?
+
+## The decision, in plain words
+
+It shows the fleets the game ships with, the same six as the demo galaxy, so a visitor with no account never sees a customer's teams.
+
+## The intro, for fun
+
+Six fleets walk into a style guide, and only the house ones get a mirror.
+
+## The punchline, for fun
+
+A customer's crew stays backstage until they sign in.
+
+## The options, in plain words
+
+A. Show the built-in fleets from the demo galaxy, the option built.
+B. Show only the fleets that are not retired.
+C. Show a signed-in member their own workspace's fleets, and the built-in ones to everyone else.
+
+## What I had to decide
+
+Which fleets the public /design page shows the heroes in.
+
+## What I did meanwhile
+
+The six built-in fleets from the demo galaxy, which the seed migration also creates: beaver, octopod, picsou, cia, pirates and the retired invincible team.
+
+## What it costs to change later
+
+One import in the page's catalogue; showing a workspace's own fleets would also need the page to read the database and a signed-in viewer.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether the retired invincible fleet belongs on a style guide at all (author)
+
+```
+
+<!-- /omni-outbox-settled: s6-01-design-page-shows-the-built-in-fleets -->
+
+<!-- omni-outbox-settled: s6-02-design-page-screenshots-described-not-attached -->
+
+## s6-02-design-page-screenshots-described-not-attached — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s6
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-design-page-screenshots-described-not-attached
+prd: 141
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 5
+---
+
+## The question, in plain words
+
+The plan asks for pictures of the design page on a phone and on a desktop in the review. The agent cannot attach an image to a review, so how should they be recorded?
+
+## The decision, in plain words
+
+The agent took the pictures, checked them, and wrote down in the review what each one shows; a person can attach the images, or retake them, when reviewing the whole feature.
+
+## The intro, for fun
+
+A picture is worth a thousand words, so here are the words.
+
+## The punchline, for fun
+
+The pictures exist; they just could not get past the door.
+
+## The options, in plain words
+
+A. Describe the screenshots in the sub-PR body, the option built.
+B. Commit the screenshots beside the page so the review can show them.
+C. A person attaches the screenshots to the feature pull request with the galaxy shots comparison.
+
+## What I had to decide
+
+How the phone and desktop screenshots of /design reach the reviewer.
+
+## What I did meanwhile
+
+Screenshots taken at 393 px and 1280 px wide against a production build, checked by eye, and described in the sub-PR body with the measured page width; the images are not committed.
+
+## What it costs to change later
+
+Nothing to undo: attaching the images later only edits a pull request's text.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- no image hosting reachable from the agent without committing binaries (author)
+
+```
+
+<!-- /omni-outbox-settled: s6-02-design-page-screenshots-described-not-attached -->
+
+<!-- omni-outbox-settled: s7-01-logo-minimum-sizes-and-grounds -->
+
+## s7-01-logo-minimum-sizes-and-grounds — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s7
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-logo-minimum-sizes-and-grounds
+prd: 141
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 5
+---
+
+## The question, in plain words
+
+How small may the Omni Loop logo be drawn, and which version of it goes where?
+
+## The decision, in plain words
+
+Each version is never drawn smaller than its own pixel size, and below that the tab icon or the written name takes over. The full logo is the default and goes on dark backgrounds, while the single dark ink version is for light ones.
+
+## The intro, for fun
+
+The logo got a rulebook. Somebody had to say how tiny is too tiny.
+
+## The punchline, for fun
+
+Below sixteen pixels, even a loop arrow gives up and just writes its name.
+
+## The options, in plain words
+
+A. Never below 1x, the favicon below the mark, text below 16 pixels, as documented (the option built).
+B. A larger floor for the wordmarks, 2x for full and lockup, so the 5x7 letters stay legible on high-density screens.
+C. Enforce the floor in code: the logo module refuses a scale below a per-form minimum.
+
+## What I had to decide
+
+The minimum size of each logo form and which form and variant goes on which ground, which the spec asks the package's documentation to state but does not settle.
+
+## What I did meanwhile
+
+The package's documentation sets the minimum at 1x for every form (full 122x18, lockup 140x32, mark 20x18, favicon 16x16 and its whole multiples), sends anything smaller than the mark to the favicon and anything under 16 pixels to the name written in the pixel face, and assigns full as the default, lockup to posters and ads, mark to square spots, favicon to tabs; the full-colour crest on dark grounds, the one-colour variant on light grounds or single ink.
+
+## What it costs to change later
+
+Documentation only: changing a minimum or a placement rule is an edit to the package's documentation. No code enforces these sizes, so nothing else moves.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names 'the minimum sizes' among the brand rules but gives no numbers; no knowledge entry or ADR sets them.
+
+```
+
+<!-- /omni-outbox-settled: s7-01-logo-minimum-sizes-and-grounds -->
