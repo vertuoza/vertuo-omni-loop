@@ -80,6 +80,9 @@ const LATER = [
 
 const iso = (at: number) => new Date(at).toISOString();
 
+/** The demo session's owner: whoever plays the demo is them. */
+export const DEMO_OWNER = 'demo';
+
 export function demoState(id: string, scenario: DemoScenario, now: number): SessionState {
   const round = (n: number, questions: unknown[], ago: number, rest: Partial<RoundRow> = {}): RoundRow => ({
     id: `demo-round-${n}`,
@@ -97,16 +100,23 @@ export function demoState(id: string, scenario: DemoScenario, now: number): Sess
     cost_usd: 0.26 * n,
     ...rest,
   });
+  // Their categories (PRD 144): one the model sorted, one the owner set, and the open one unsorted.
   const answered = [
-    round(1, [MODE], 14 * MIN, { status: 'answered', answered_via: 'page', answers: { [MODE.question]: MODE.options[0].label }, answered_at: iso(now - 13 * MIN) }),
-    round(2, [HOST], 8 * MIN, { status: 'answered', answered_via: 'terminal', answers: { [HOST.question]: HOST.options[0].label }, answered_at: iso(now - 7 * MIN) }),
+    round(1, [MODE], 14 * MIN, {
+      status: 'answered', answered_via: 'page', answers: { [MODE.question]: MODE.options[0].label }, answered_at: iso(now - 13 * MIN),
+      category: 'architecture', category_by: 'model',
+    }),
+    round(2, [HOST], 8 * MIN, {
+      status: 'answered', answered_via: 'terminal', answers: { [HOST.question]: HOST.options[0].label }, answered_at: iso(now - 7 * MIN),
+      category: 'product', category_by: DEMO_OWNER,
+    }),
   ];
   const current = round(3, [ACCESS, CHECKS], MIN, scenario === 'moved' ? { status: 'abandoned' } : {});
   const rounds = scenario === 'empty' ? [] : scenario === 'working' ? answered : [...answered, current];
   return {
     session: {
       id,
-      owner: 'demo',
+      owner: DEMO_OWNER,
       title: 'vertuo-omni-loop · feat/ask-mode',
       status: scenario === 'closed' ? 'closed' : 'open',
       created_at: iso(now - 20 * MIN),
@@ -144,6 +154,12 @@ export function demoPort(seed: SessionState, now: () => number = Date.now, askAg
     async remove() {
       state = { ...state, rounds: [] };
       return true;
+    },
+    async sort(roundId, category) {
+      const round = state.rounds.find((r) => r.id === roundId);
+      if (!round) return null;
+      Object.assign(round, { category, category_by: DEMO_OWNER });
+      return { category, category_by: DEMO_OWNER };
     },
   };
 }

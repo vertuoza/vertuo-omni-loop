@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { fakeSupabase } from '../store.fake';
 import { AskStoreError } from '../store';
-import { readSession, removeSession, sendAnswers, sessionReader, type Db } from './source';
+import { readSession, removeSession, sendAnswers, sessionReader, sortRound, type Db, type SortDb } from './source';
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
@@ -163,5 +163,36 @@ describe('deleting the session (PRD 144)', () => {
     expect(await removeSession(w.as('carl'), w.sessionId)).toBe(false);
     expect(w.fake.tables.ask_sessions).toHaveLength(1);
     expect(w.fake.tables.ask_rounds).toHaveLength(1);
+  });
+});
+
+describe('sorting a round (PRD 144)', () => {
+  // The stub answers only the calls the page sends, so it is not a whole Supabase client.
+  const sorter = (w: Awaited<ReturnType<typeof world>>, token: string) => w.fake.client(token) as unknown as SortDb;
+
+  it('lets any member of the workspace set one of the six, or clear it, and says who did', async () => {
+    const w = await world();
+    const id = await w.ask();
+    expect(await sortRound(sorter(w, 'bob'), id, 'product')).toEqual({ category: 'product', category_by: BOB.id });
+    expect(await sortRound(sorter(w, 'ada'), id, null)).toEqual({ category: null, category_by: ADA.id });
+    expect(w.fake.tables.ask_rounds[0]).toMatchObject({ category: null, category_by: ADA.id });
+  });
+
+  it('sorts nothing for an account of another workspace', async () => {
+    const w = await world();
+    const id = await w.ask();
+    expect(await sortRound(sorter(w, 'carl'), id, 'business')).toBeNull();
+    expect(w.fake.tables.ask_rounds[0]).toMatchObject({ category: null, category_by: null });
+  });
+
+  it('is read again by the poll once someone else sorts the round', async () => {
+    const w = await world();
+    const id = await w.ask();
+    const read = sessionReader(w.recording('ada'), w.sessionId);
+    expect((await read())?.rounds[0]).toMatchObject({ category: null });
+    await sortRound(sorter(w, 'bob'), id, 'ux-ui');
+    w.calls.length = 0;
+    expect((await read())?.rounds[0]).toMatchObject({ category: 'ux-ui', category_by: BOB.id });
+    expect(w.calls.filter((c) => c.includes('.in('))).toEqual([`ask_rounds.in("id", ${JSON.stringify([id])})`]);
   });
 });

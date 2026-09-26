@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect } from 'vitest';
 import { emptyDraft, pickOption, readQuestions } from '../answer-model';
 import { AskSession } from './AskSession';
+import { CategoryChip } from './CategoryChip';
 import { ContextLine } from './ContextLine';
 import { demoState } from './demo';
 import { History } from './History';
@@ -174,5 +175,60 @@ describe('the session page, for its owner and for another member (PRD 144)', () 
   it('keeps the delete button for the owner of a closed session, and never shows it to a member', () => {
     expect(page('owner', 'closed')).toContain('Delete this session');
     expect(page('member', 'closed')).not.toContain('Delete this session');
+  });
+});
+
+describe('the category chip, rendered (PRD 144)', () => {
+  const chip = (props: Parameters<typeof CategoryChip>[0]) => renderToStaticMarkup(createElement(CategoryChip, props));
+  const count = (html: string, pattern: RegExp) => html.match(new RegExp(pattern.source, 'g'))?.length ?? 0;
+
+  it('offers unsorted and the six, with the round\'s category picked', () => {
+    const html = chip({ chip: { value: 'ux-ui', label: 'UX/UI', setBy: 'sorted by the model' }, onChange: () => {} });
+    expect(html).toMatch(/<select[^>]*aria-label="Category"/);
+    expect(count(html, /<option /)).toBe(7);
+    expect(html).toContain('<option value="">unsorted</option>');
+    expect(html).toContain('<option value="ux-ui" selected="">UX/UI</option>');
+    expect(html).toContain('data-category="ux-ui"');
+    expect(html).not.toMatch(/<select[^>]*disabled/);
+  });
+
+  it('says who set it', () => {
+    expect(chip({ chip: { value: 'business', label: 'Business', setBy: 'sorted by the model' } })).toContain('<span class="ask-category-by">sorted by the model</span>');
+    expect(chip({ chip: { value: 'product', label: 'Product', setBy: 'set by a teammate' } })).toContain('set by a teammate');
+  });
+
+  it('shows an unsorted round as such, with nobody named', () => {
+    const html = chip({ chip: { value: null, label: 'unsorted', setBy: null }, onChange: () => {} });
+    expect(html).toContain('data-category="unsorted"');
+    expect(html).toContain('<option value="" selected="">unsorted</option>');
+    expect(html).not.toContain('ask-category-by');
+  });
+
+  it('cannot be changed while it saves, or where nothing can save it', () => {
+    expect(chip({ chip: { value: 'other', label: 'Other', setBy: null }, onChange: () => {}, saving: true })).toMatch(/<select[^>]*disabled=""/);
+    expect(chip({ chip: { value: 'other', label: 'Other', setBy: null } })).toMatch(/<select[^>]*disabled=""/);
+  });
+
+  describe('on the session page', () => {
+    const NOW = Date.parse('2026-09-26T10:00:00Z');
+    const page = (viewer: 'owner' | 'member', me: string) =>
+      renderToStaticMarkup(createElement(AskSession, { source: { kind: 'demo' }, initial: demoState('s1', 'open', NOW), serverNow: NOW, viewer, me }));
+
+    it('sits on the open round and on each earlier one, for the owner', () => {
+      const html = page('owner', 'demo');
+      expect(count(html, /<select[^>]*aria-label="Category"/)).toBe(3);
+      expect(html).toContain('<option value="" selected="">unsorted</option>');
+      expect(html).toContain('<option value="architecture" selected="">Architecture</option>');
+      expect(html).toContain('sorted by the model');
+      expect(html).toContain('<option value="product" selected="">Product</option>');
+      expect(html).toContain('set by you');
+    });
+
+    it('can be changed by another member too, who reads who set it', () => {
+      const html = page('member', 'bob');
+      expect(count(html, /<select[^>]*aria-label="Category"/)).toBe(3);
+      expect(html).not.toMatch(/<select[^>]*disabled/);
+      expect(html).toContain('set by the session owner');
+    });
   });
 });

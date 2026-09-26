@@ -2,32 +2,38 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { emptyDraft, roundAnswers, type Draft } from '../answer-model';
+import type { Category } from '../classify';
+import { CategoryChip } from './CategoryChip';
 import { ContextLine } from './ContextLine';
 import { demoPort } from './demo';
 import { History } from './History';
 import { poll } from './poll';
 import { RoundForm } from './RoundForm';
 import { databasePort, type AskPort } from './source';
-import { contextParts, keepSent, minutesLeft, pageTitle, sessionView, withPageAnswer, type Sent, type SessionState } from './view';
+import {
+  categoryChip, contextParts, keepSent, minutesLeft, pageTitle, sessionView, withCategory, withPageAnswer, type RoundRow, type Sent, type SessionState,
+} from './view';
 
 // One ask session: the open round at the top (or Claude is working, moved to the terminal, session
 // closed), the history below, read again every 2 s while the tab is visible. The server rendered the
 // first state; this keeps it current. Its owner answers and may delete the session; any other member
-// of its workspace (PRD 144) reads it all, with no answer form and no delete.
+// of its workspace (PRD 144) reads it all, with no answer form and no delete. Every round carries its
+// category chip, which the owner and any other member may change.
 
 export type SourceConfig = { kind: 'database'; url: string; key: string } | { kind: 'demo' };
 
 /** Who is looking: the session's owner, or another member of its workspace, who only reads. */
 export type Viewer = 'owner' | 'member';
 
-type Props = { source: SourceConfig; initial: SessionState; serverNow: number; viewer: Viewer };
+/** `me`: the signed-in account's id, so the chip can say "set by you". */
+type Props = { source: SourceConfig; initial: SessionState; serverNow: number; viewer: Viewer; me?: string | null };
 
 function makePort(source: SourceConfig, seed: SessionState): AskPort {
   if (source.kind === 'demo') return demoPort(seed);
   return databasePort(createBrowserClient(source.url, source.key), seed);
 }
 
-export function AskSession({ source, initial, serverNow, viewer }: Props) {
+export function AskSession({ source, initial, serverNow, viewer, me = null }: Props) {
   const owner = viewer === 'owner';
   const [state, setState] = useState(initial);
   // The server's clock, as the page counts it (a round moves to the terminal on the hook's clock).
@@ -39,6 +45,7 @@ export function AskSession({ source, initial, serverNow, viewer }: Props) {
   const [notice, setNotice] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleted, setDeleted] = useState(false);
+  const [sorting, setSorting] = useState<string | null>(null);
   const port = useRef<AskPort | null>(null);
   const sent = useRef<Sent>(new Map());
   const getPort = useCallback(() => (port.current ??= makePort(source, initial)), [source, initial]);
@@ -121,6 +128,28 @@ export function AskSession({ source, initial, serverNow, viewer }: Props) {
     }
   }, [deleting, getPort]);
 
+  const onSort = useCallback(async (roundId: string, category: Category | null) => {
+    setSorting(roundId);
+    setProblem(null);
+    try {
+      const set = await getPort().sort(roundId, category);
+      if (set) setState((s) => withCategory(s, roundId, set));
+      else setProblem('This question could not be sorted: it is no longer in your workspace.');
+    } catch {
+      setProblem('The category was not saved. Check your connection and try again.');
+    } finally {
+      setSorting(null);
+    }
+  }, [getPort]);
+
+  const chip = (round: Pick<RoundRow, 'id' | 'category' | 'category_by'>) => (
+    <CategoryChip
+      chip={categoryChip(round, { me, owner: state.session.owner })}
+      onChange={(category) => void onSort(round.id, category)}
+      saving={sorting === round.id}
+    />
+  );
+
   if (deleted) {
     return (
       <div className="ask-col">
@@ -138,7 +167,12 @@ export function AskSession({ source, initial, serverNow, viewer }: Props) {
       {problem && <p className="ask-problem" role="status">{problem}</p>}
       {notice && <p className="ask-problem" role="status">{notice}</p>}
 
-      {(view.kind === 'open' || view.kind === 'moved') && <ContextLine parts={contextParts(state.session, view.round)} />}
+      {(view.kind === 'open' || view.kind === 'moved') && (
+        <>
+          <ContextLine parts={contextParts(state.session, view.round)} />
+          {chip(view.round)}
+        </>
+      )}
 
       {view.kind === 'open' && !owner && (
         <section className="ask-card" aria-live="polite">
@@ -200,7 +234,7 @@ export function AskSession({ source, initial, serverNow, viewer }: Props) {
         </section>
       )}
 
-      <History history={view.history} />
+      <History history={view.history} chip={(entry) => chip({ id: entry.id, category: entry.category, category_by: entry.category_by })} />
 
       {owner && (
         <p>

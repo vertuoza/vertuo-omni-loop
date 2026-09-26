@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { contextParts, HOOK_WAIT_MS, keepSent, minutesLeft, pageTitle, sessionView, withPageAnswer, type RoundRow, type SessionState } from './view';
+import {
+  categoryChip, contextParts, HOOK_WAIT_MS, keepSent, minutesLeft, pageTitle, sessionView, withCategory, withPageAnswer, type RoundRow, type SessionState,
+} from './view';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
 const at = (msAgo: number) => new Date(NOW - msAgo).toISOString();
@@ -205,5 +207,37 @@ describe('the context line (PRD 144)', () => {
   it('rides along with each round of the history', () => {
     const view = sessionView(state([answered(MIN, 'page')], { repo: 'acme/widgets' }), NOW);
     expect(view.history[0].context).toEqual(['acme/widgets', 'answered in 1 s']);
+  });
+});
+
+describe('the category chip (PRD 144)', () => {
+  const who = { me: 'bob', owner: 'ada' };
+
+  it('shows the category, and who set it', () => {
+    expect(categoryChip({ category: 'business', category_by: 'model' }, who)).toEqual({ value: 'business', label: 'Business', setBy: 'sorted by the model' });
+    expect(categoryChip({ category: 'ux-ui', category_by: 'bob' }, who)).toEqual({ value: 'ux-ui', label: 'UX/UI', setBy: 'set by you' });
+    expect(categoryChip({ category: 'product', category_by: 'ada' }, who)).toEqual({ value: 'product', label: 'Product', setBy: 'set by the session owner' });
+    expect(categoryChip({ category: 'harness', category_by: 'carol' }, who)).toEqual({ value: 'harness', label: 'Harness', setBy: 'set by a teammate' });
+  });
+
+  it('says unsorted for a round nobody sorted, an older round with no column, or one cleared', () => {
+    expect(categoryChip({ category: null, category_by: null }, who)).toEqual({ value: null, label: 'unsorted', setBy: null });
+    expect(categoryChip({}, who)).toEqual({ value: null, label: 'unsorted', setBy: null });
+    expect(categoryChip({ category: null, category_by: 'bob' }, who)).toEqual({ value: null, label: 'unsorted', setBy: 'cleared by you' });
+  });
+
+  it('reads a stored value outside the six as unsorted', () => {
+    expect(categoryChip({ category: 'design' as never, category_by: 'model' }, who).value).toBeNull();
+  });
+
+  it('rides along with each round of the history', () => {
+    const view = sessionView(state([{ ...answered(MIN, 'page'), category: 'other', category_by: 'model' }]), NOW);
+    expect(view.history[0]).toMatchObject({ category: 'other', category_by: 'model' });
+  });
+
+  it('shows a sort at once, before the next read', () => {
+    const open = round({ ago: MIN });
+    const next = withCategory(state([open]), open.id, { category: 'architecture', category_by: 'bob' });
+    expect(next.rounds[0]).toMatchObject({ category: 'architecture', category_by: 'bob' });
   });
 });

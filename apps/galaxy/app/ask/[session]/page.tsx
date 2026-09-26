@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { AskSession } from '../../../src/ask/page/AskSession';
-import { demoState, readScenario } from '../../../src/ask/page/demo';
+import { DEMO_OWNER, demoState, readScenario } from '../../../src/ask/page/demo';
 import { Notice } from '../../../src/ask/page/Notice';
 import { SignInCard } from '../../../src/ask/page/SignInCard';
 import { callbackPath, isSessionId } from '../../../src/ask/page/sign-in';
@@ -27,7 +27,7 @@ export default async function AskSessionPage({ params, searchParams }: Props) {
   const now = Date.now();
 
   if (mode === 'demo') {
-    return <AskSession source={{ kind: 'demo' }} initial={demoState(id, readScenario(one(query.demo)), now)} serverNow={now} viewer="owner" />;
+    return <AskSession source={{ kind: 'demo' }} initial={demoState(id, readScenario(one(query.demo)), now)} serverNow={now} viewer="owner" me={DEMO_OWNER} />;
   }
   const env = supabaseEnv();
   if (mode === 'closed' || !env) {
@@ -55,5 +55,5 @@ export default async function AskSessionPage({ params, searchParams }: Props) {
   }
   if (!state) notFound();
   const viewer = state.session.owner === user.id ? 'owner' : 'member';
-  return <AskSession source={{ kind: 'database', ...env }} initial={state} serverNow={Date.now()} viewer={viewer} />;
+  return <AskSession source={{ kind: 'database', ...env }} initial={state} serverNow={Date.now()} viewer={viewer} me={user.id} />;
 }

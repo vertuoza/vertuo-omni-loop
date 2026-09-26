@@ -2,17 +2,28 @@
 // as the signed-in person (their session cookie on the server, the browser client on the page), so
 // the migrations' row-level security decides. Every member of the session's workspace reads it
 // (PRD 144); only its owner answers or deletes. A session of another workspace reads as missing,
-// exactly like one that never was. The page polls every 2 s; a poll reads the session and each round's status,
-// and fetches a round's questions and answers again only when it is new or its status moved.
+// exactly like one that never was. The page polls every 2 s; a poll reads the session and each round's status
+// and category, and fetches a round's questions and answers again only when it is new or one of them moved.
+// Any member sorts a round into one of six (PRD 144), through the database's own function for it.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { askStore, AskStoreError, type AskAnswers } from '../store';
+import type { Category } from '../classify';
+import { askCategories, askStore, AskStoreError, type AskAnswers, type AskCategory } from '../store';
 import type { RoundRow, SessionRow, SessionState } from './view';
 
 export type Db = Pick<SupabaseClient, 'from'>;
+/** What sorting a round needs: the database's functions. */
+export type SortDb = Pick<SupabaseClient, 'rpc'>;
 
 const SESSION = 'id, owner, title, status, created_at, last_seen_at, repo, branch';
-const ROUND = 'id, questions, answers, answered_via, status, created_at, answered_at, prd, skill, model, tokens, cost_usd, answered_by';
-const HEAD = 'id, status';
+const ROUND = 'id, questions, answers, answered_via, status, created_at, answered_at, prd, skill, model, tokens, cost_usd, answered_by, category, category_by';
+const HEAD = 'id, status, category, category_by';
+
+type Head = Pick<RoundRow, 'id' | 'status' | 'category' | 'category_by'>;
+
+/** A round read before, whose status and category still hold: no need to fetch it again. */
+const same = (known: RoundRow | undefined, head: Head) =>
+  known !== undefined && known.status === head.status
+  && (known.category ?? null) === (head.category ?? null) && (known.category_by ?? null) === (head.category_by ?? null);
 
 type Outcome<T> = { data: T | null; error: { code?: string; message: string } | null };
 
@@ -39,8 +50,8 @@ export function sessionReader(db: Db, id: string, seed?: SessionState | null): (
   return async () => {
     const found = await session(db, id);
     if (!found) return null;
-    const heads = settle<Pick<RoundRow, 'id' | 'status'>[]>('read the rounds', await db.from('ask_rounds').select(HEAD).eq('session_id', id)) ?? [];
-    const stale = heads.filter((h) => known.get(h.id)?.status !== h.status).map((h) => h.id);
+    const heads = settle<Head[]>('read the rounds', await db.from('ask_rounds').select(HEAD).eq('session_id', id)) ?? [];
+    const stale = heads.filter((h) => !same(known.get(h.id), h)).map((h) => h.id);
     if (stale.length) {
       const fresh = settle<RoundRow[]>('read the rounds', await db.from('ask_rounds').select(ROUND).in('id', stale)) ?? [];
       for (const round of fresh) known.set(round.id, round);
@@ -63,18 +74,26 @@ export async function removeSession(db: Db, id: string): Promise<boolean> {
   return askStore(db).deleteSession(id);
 }
 
+/** Sets a round's category, or clears it with null: the category and who set it, or null when the
+ * caller may not read the round. */
+export async function sortRound(db: SortDb, roundId: string, category: Category | null): Promise<AskCategory | null> {
+  return askCategories(db).set(roundId, category);
+}
+
 /** What the page needs from wherever its session lives: the database, or the demo in the browser. */
 export type AskPort = {
   read(): Promise<SessionState | null>;
   send(roundId: string, answers: AskAnswers): Promise<'answered' | 'taken'>;
   remove(): Promise<boolean>;
+  sort(roundId: string, category: Category | null): Promise<AskCategory | null>;
 };
 
 /** The database, as the signed-in person, starting from what the server already read. */
-export function databasePort(db: Db, seed: SessionState): AskPort {
+export function databasePort(db: Db & SortDb, seed: SessionState): AskPort {
   return {
     read: sessionReader(db, seed.session.id, seed),
     send: (roundId, answers) => sendAnswers(db, roundId, answers),
     remove: () => removeSession(db, seed.session.id),
+    sort: (roundId, category) => sortRound(db, roundId, category),
   };
 }
