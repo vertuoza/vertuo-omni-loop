@@ -9,8 +9,9 @@ import { arcadeMode } from '../../../src/data/mode';
 import { supabaseEnv, supabaseServer } from '../../../src/data/supabase-server';
 
 // /ask/<session>: the page `omni ask on` links to. Rendered per request, as the signed-in person:
-// signed out, a sign-in card that comes back here; signed in as anyone but the session's owner, not
-// found, exactly like a session that never was (row-level security hides it). Without a database it
+// signed out, a sign-in card that comes back here; signed in as its owner, the answer form and the
+// delete button; as another member of its workspace (PRD 144), the same session read-only; as anyone
+// else, not found, exactly like a session that never was (row-level security hides it). Without a database it
 // plays the demo session in development, and says ask mode is not open in any other build.
 
 type Props = {
@@ -26,7 +27,7 @@ export default async function AskSessionPage({ params, searchParams }: Props) {
   const now = Date.now();
 
   if (mode === 'demo') {
-    return <AskSession source={{ kind: 'demo' }} initial={demoState(id, readScenario(one(query.demo)), now)} serverNow={now} />;
+    return <AskSession source={{ kind: 'demo' }} initial={demoState(id, readScenario(one(query.demo)), now)} serverNow={now} viewer="owner" />;
   }
   const env = supabaseEnv();
   if (mode === 'closed' || !env) {
@@ -52,6 +53,7 @@ export default async function AskSessionPage({ params, searchParams }: Props) {
       </Notice>
     );
   }
-  if (!state || state.session.owner !== user.id) notFound();
-  return <AskSession source={{ kind: 'database', ...env }} initial={state} serverNow={Date.now()} />;
+  if (!state) notFound();
+  const viewer = state.session.owner === user.id ? 'owner' : 'member';
+  return <AskSession source={{ kind: 'database', ...env }} initial={state} serverNow={Date.now()} viewer={viewer} />;
 }

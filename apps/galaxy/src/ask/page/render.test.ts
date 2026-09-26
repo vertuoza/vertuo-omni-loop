@@ -2,7 +2,9 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect } from 'vitest';
 import { emptyDraft, pickOption, readQuestions } from '../answer-model';
+import { AskSession } from './AskSession';
 import { ContextLine } from './ContextLine';
+import { demoState } from './demo';
 import { History } from './History';
 import { RoundForm } from './RoundForm';
 import { contextParts, type HistoryEntry } from './view';
@@ -137,5 +139,40 @@ describe('the context line, rendered (PRD 144)', () => {
   it('sits under each round of the history', () => {
     const entry: HistoryEntry = { id: 'a', outcome: 'answered', via: 'page', at: '', lines: [{ header: 'H', question: 'Q?', answer: 'A' }], context: ['acme/widgets', 'answered in 5 s'] };
     expect(renderToStaticMarkup(createElement(History, { history: [entry] }))).toMatch(/<\/details><p class="ask-title ask-context"[^>]*>acme\/widgets · answered in 5 s<\/p><\/li>/);
+  });
+});
+
+describe('the session page, for its owner and for another member (PRD 144)', () => {
+  const NOW = Date.parse('2026-09-26T10:00:00Z');
+  const page = (viewer: 'owner' | 'member', scenario: 'open' | 'moved' | 'closed' = 'open') =>
+    renderToStaticMarkup(createElement(AskSession, { source: { kind: 'demo' }, initial: demoState('s1', scenario, NOW), serverNow: NOW, viewer }));
+
+  it('gives the owner the answer form and the delete button', () => {
+    const html = page('owner');
+    expect(html).toContain('Send to Claude');
+    expect(html).toMatch(/<button type="button" class="ask-button quiet">Delete this session<\/button>/);
+  });
+
+  it('shows another member the open question read-only: no form, no delete', () => {
+    const html = page('member');
+    expect(html).not.toContain('Send to Claude');
+    expect(html).not.toContain('<textarea');
+    expect(html).not.toContain('type="radio"');
+    expect(html).not.toContain('Delete this session');
+    expect(html).toContain('Waiting for the owner&#x27;s answer');
+    expect(html).toContain('How should the page and the agent be authenticated?');
+    expect(html).toContain('Earlier in this session');
+  });
+
+  it('tells another member where a moved question went without asking them to answer it', () => {
+    const html = page('member', 'moved');
+    expect(html).toContain('Moved to the terminal');
+    expect(html).not.toContain('Answer it there');
+    expect(html).not.toContain('Delete this session');
+  });
+
+  it('keeps the delete button for the owner of a closed session, and never shows it to a member', () => {
+    expect(page('owner', 'closed')).toContain('Delete this session');
+    expect(page('member', 'closed')).not.toContain('Delete this session');
   });
 });
