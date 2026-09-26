@@ -2,10 +2,10 @@
 
 The web UI of the game layer: a retro arcade that shows the galaxy. Every PRD is a planet,
 every slice a zone, every open question or bug an Entropy unit on its surface. Signing in with a
-`@vertuoza.com` Google account makes you a **visitor**: you may look at the galaxy. Linking your
-GitHub account, once, makes you a **player**: you pick a fleet, enter a name and build a hero, and
-your pull requests score for that fleet. All from the keyboard on a computer, and from a Game Boy's
-buttons on a phone (design:
+`@vertuoza.com` Google account makes you a member of the `vertuoza` workspace and a **visitor**:
+you may look at its galaxy. Linking your GitHub account, once, makes you a **player**: you pick a
+fleet, enter a name and build a hero, and your pull requests score for that fleet. All from the
+keyboard on a computer, and from a Game Boy's buttons on a phone (design:
 [`docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md`](../../docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md)).
 
 - Game pixels drawn on a canvas, on one of two grids (wide 640×360 or tall 320×288, see
@@ -33,8 +33,8 @@ buttons on a phone (design:
 
 | Screen | What it shows |
 |---|---|
-| Boot → Title | "VERTUOZA presents", then an attract loop: logo, the story, the top five heroes (signed in) |
-| Insert coin | Sign in with the Vertuoza Google account; any other domain is refused and says why |
+| Boot → Title | "VERTUOZA presents" and the V, then an attract loop: logo, the story, the top five heroes (signed in). A member sees their workspace's name and letter; signed out, the house brand, Vertuoza |
+| Insert coin | Sign in with the Vertuoza Google account; any other domain is refused and says why, and a signed-in account that belongs to no workspace gets the "wrong cartridge" screen |
 | Press start | After coming back from Google: browsers play sound only after a key press |
 | Link GitHub | Before playing, once: points are earned under the GitHub login, which only the linked identity sets. B visits only |
 | Intro | First visit only, 20 s, skippable: OmniMan rises, three lines type in, the fleets flash in |
@@ -132,10 +132,10 @@ Left, Right, "A, confirm", "B, back", Select, Start, Sound).
 
 ```
 GitHub ──pnpm game:project (game workflow, every 15 min)──▶ Supabase: ledger_events, sectors, teams, players
-                                                                 │  row-level security: the crew reads,
-                                                                 │  a player writes only their own row
+                                                                 │  row-level security: a member reads their
+                                                                 │  workspace, a player writes only their own row
                                                                  ▼
-             apps/galaxy (Next.js, per request, as the signed-in player) ── buildGalaxy() ──▶ arcade (client)
+             apps/galaxy (Next.js, per request, as the signed-in member, one workspace) ── buildGalaxy() ──▶ arcade (client)
                                                                  ▲
                               no Supabase configured ──▶ demo world → game/projector.mjs → events
 ```
@@ -146,11 +146,27 @@ points and rankings come from `game/economy.mjs`, decay and threat weights from
 snapshot run through the real projector, so demo events are exactly what `pnpm game:project` would
 append.
 
-Signed out, the page reads only the fleets (public) and plays the attract mode. Signed in with a
-`@vertuoza.com` account, it reads the galaxy, the crew and the player's own row with the player's
-session, so the database's policies decide what they see. `proxy.ts` refreshes the session before
-each render; `app/auth/callback` turns Google's and GitHub's codes into that session and, after a
-GitHub link, calls `link_github()`.
+What the page reads is decided in `src/data/arcade.ts`, always with the visitor's own session, so
+the database's policies decide what they see:
+
+- **Signed out**, it reads nothing: the attract mode plays the built-in fleets (`demoFleets()`,
+  Vertuoza's) under the house brand.
+- **Signed in**, it reads the person's memberships and plays **the workspace they joined first**
+  (by `joined_at`, then `slug`; PRD 2 brings switching). Every loader in `src/data/load-galaxy.ts`
+  (the galaxy, the fleets, the crew, the player's own row) filters by that workspace, and its
+  `name` and `theme` reach the arcade as its brand (`src/arcade/brand.ts`): the name gives the
+  boot its letter and its words. Joining a fleet writes the player row with that `workspace_id`
+  and the person's `user_id` (`src/data/players.ts`).
+- **Crew means "has a workspace"**, never an email domain. A signed-in person who belongs to none
+  yet is joined once by the page (`join_by_domain()`), so a session from before workspaces joins
+  too; one who still belongs to none gets the "wrong cartridge" screen and reads nothing.
+- **The database out of reach**: the attract mode, the built-in fleets, and "THE GALAXY IS OUT OF
+  REACH". Nobody is turned away as an outsider when the page cannot tell.
+
+`proxy.ts` refreshes the session before each render. `app/auth/callback` turns Google's and
+GitHub's codes into that session and, after every sign-in, calls `join_by_domain()`, then, after a
+GitHub link, `link_github()` (`src/data/sign-in.ts`). The terminal's sign-in (`omni signin`, the
+callback's `next=ask-cli` branch) joins the same way before its one-time code is issued.
 
 Nobody gets past INSERT COIN without signing in: the title asks for a coin until there is a
 session, and every screen beyond it requires one (`allowed()` in `src/arcade/onboarding.ts`).
