@@ -21,7 +21,8 @@
     "galaxy:dev": "pnpm --filter @omni/galaxy-app dev",
     "galaxy:build": "pnpm --filter @omni/galaxy-app build",
     "galaxy:artifact": "pnpm --filter @omni/galaxy-app artifact",
-    "galaxy:seed": "pnpm --filter @omni/galaxy-app seed"
+    "galaxy:seed": "pnpm --filter @omni/galaxy-app seed",
+    "galaxy:shots": "pnpm --filter @omni/galaxy-app shots"
   },
   "dependencies": {
     "yaml": "^2.5.0",

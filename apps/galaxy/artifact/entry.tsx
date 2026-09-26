@@ -1,6 +1,9 @@
 // The artifact build: the same arcade, bundled into one HTML page, playing the demo galaxy
 // generated in the browser at load time (so ages and decay are always relative to "now"). Sign-in
 // and GitHub are simulated by the demo account, which keeps the guest in this browser's storage.
+// The page's styles come first, as app/layout.tsx imports them for the Next build; each scene
+// group's follow with its text layer.
+import '../src/arcade/arcade.css';
 import { createRoot } from 'react-dom/client';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf } from '@omni/galaxy';
 import { ArcadeApp } from '../src/arcade/ArcadeApp';
