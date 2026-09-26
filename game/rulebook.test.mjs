@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { RULEBOOK } from './rulebook.mjs';
+import { xpForLevel } from './experience.mjs';
 
 describe('rulebook', () => {
   it('holds every constant the spec names', () => {
@@ -28,5 +29,35 @@ describe('rulebook', () => {
     expect(RULEBOOK.distressAfterWorkingMinutes).toBe(480);
     expect(RULEBOOK.lostAfterWorkingMinutes).toBe(10 * 9 * 60);
     expect(RULEBOOK.aftershockWindowDays).toBe(14);
+  });
+});
+
+describe('rulebook xp block', () => {
+  const { xp } = RULEBOOK;
+
+  it('holds the weights, the curve, the cap and the unlocks the game room spec sets out, frozen', () => {
+    expect(xp).toEqual({
+      weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1 },
+      curve: { first: 1, step: 25 },
+      cap: 99,
+      unlocks: { invaders: 1 },
+    });
+    for (const part of [xp, xp.weights, xp.curve, xp.unlocks]) expect(Object.isFrozen(part)).toBe(true);
+  });
+
+  it('climbs a curve that strictly increases from the first point up to the cap', () => {
+    expect(xpForLevel(1, xp)).toBeGreaterThan(0);
+    for (let level = 2; level <= xp.cap; level++) {
+      expect(xpForLevel(level, xp), `LV ${level}`).toBeGreaterThan(xpForLevel(level - 1, xp));
+    }
+  });
+
+  it('unlocks every game at a whole level between 1 and the cap', () => {
+    expect(Object.keys(xp.unlocks).length).toBeGreaterThan(0);
+    for (const [game, level] of Object.entries(xp.unlocks)) {
+      expect(Number.isInteger(level), game).toBe(true);
+      expect(level, game).toBeGreaterThanOrEqual(1);
+      expect(level, game).toBeLessThanOrEqual(xp.cap);
+    }
   });
 });

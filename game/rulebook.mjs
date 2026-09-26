@@ -28,4 +28,16 @@ export const RULEBOOK = Object.freeze({
     'fault-line': 3, 'under-fire': 2, aftershock: 5, distress: 4,
   }),
   threatBands: Object.freeze([0, 3, 8, 15, 25]), // score ≥ band[i] → threat i+1 (I..V)
+  // XP, levels and the games they unlock (game/experience.mjs). XP is every positive personal credit
+  // ever earned, across seasons, and never resets. Change a number here and merge it: the next poll
+  // recomputes every player's XP from the whole ledger (`pnpm game:xp`).
+  xp: Object.freeze({
+    // Weight of each personal credit. 0 leaves a credit out.
+    weights: Object.freeze({ zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1 }),
+    // LV 1 at the first point; LV n (n ≥ 2) at step·n·(n−1).
+    curve: Object.freeze({ first: 1, step: 25 }),
+    cap: 99,
+    // The level each game unlocks at.
+    unlocks: Object.freeze({ invaders: 1 }),
+  }),
 });
