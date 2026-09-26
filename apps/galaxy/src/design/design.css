@@ -29,7 +29,7 @@ html:has(.ds) body {
 .ds-svg { display: block; line-height: 0; }
 .ds-svg svg { display: block; max-width: none; image-rendering: pixelated; }
 
-.ds-head { display: grid; gap: 12px; padding-bottom: 24px; border-bottom: 2px solid var(--deep); }
+.ds-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding-bottom: 24px; border-bottom: 2px solid var(--deep); }
 .ds-kicker { margin: 8px 0 0; font-family: var(--font-pixel); font-size: 8px; line-height: 1.5; color: var(--yellow); text-transform: uppercase; }
 .ds-h1 {
   margin: 0;
@@ -46,7 +46,7 @@ html:has(.ds) body {
 .ds-note { margin: 0; color: var(--dim); }
 .ds-toc { display: flex; flex-wrap: wrap; gap: 8px 16px; font-family: var(--font-pixel); font-size: 8px; line-height: 2; }
 
-.ds-section { display: grid; gap: 16px; padding: 40px 0 8px; scroll-margin-top: 16px; }
+.ds-section { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 40px 0 8px; scroll-margin-top: 16px; }
 
 /* A row of drawings on one ground; it scrolls on its own when the drawings are wider than the page. */
 .ds-strip {
@@ -62,7 +62,7 @@ html:has(.ds) body {
 .ds-ground-light { background: var(--white); color: var(--navy-dark); }
 .ds-fig { display: grid; gap: 6px; justify-items: start; margin: 0; }
 .ds-fig figcaption { font-family: var(--font-mono); font-size: 12px; line-height: 1.4; color: inherit; opacity: 0.8; }
-.ds-logo, .ds-pose { display: grid; gap: 8px; }
+.ds-logo, .ds-pose { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .ds-logo + .ds-logo, .ds-pose + .ds-pose { margin-top: 16px; }
 
 .ds-swatches, .ds-steps, .ds-grid { margin: 0; padding: 0; list-style: none; }
@@ -73,7 +73,7 @@ html:has(.ds) body {
 .ds-hex { color: var(--dim); }
 .ds-contrast { font-size: 13px; color: var(--dim); }
 
-.ds-steps { display: grid; gap: 20px; }
+.ds-steps { display: grid; gap: 20px; overflow-x: clip; }
 .ds-step { display: grid; gap: 4px; padding-bottom: 16px; border-bottom: 1px solid var(--deep); min-width: 0; }
 .ds-spec { margin: 0; font-size: 14px; color: var(--dim); }
 .ds-sample {

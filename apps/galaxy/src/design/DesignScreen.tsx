@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { OMNI_LOOP, logoSvg, spritePixels, type Tint } from '@omni/design';
+import { OMNI_LOOP, logoSvg, spritePixels, type FontRole, type Tint } from '@omni/design';
 import {
   CAST, COLOURS, FLEETS, FRAMES, ICONS, LOGOS, LOGO_NOTES, LOGO_SCALES, LOGO_SHOWINGS, POSES, POSTER_SCALE,
   TYPE_STEPS, fleetHero, ratio,
@@ -16,6 +16,14 @@ const SECTIONS = [
   ['logo', 'Logo'], ['colours', 'Colours'], ['type', 'Type'], ['sprites', 'Sprites'],
   ['heroes', 'Heroes'], ['poses', 'Poses'], ['icons', 'Icons'],
 ] as const;
+
+/** What each role's specimen reads: short enough for the largest display step on a phone. */
+const SAMPLE: Record<FontRole, string> = {
+  display: 'Ship the loop',
+  pixel: 'Terraform the galaxy',
+  body: 'Terraform the galaxy, one slice at a time.',
+  mono: 'omni do-work --in-wave',
+};
 
 /** A string of SVG markup, as an element's only child. */
 const Svg = ({ svg }: { svg: string }) => <span className="ds-svg" dangerouslySetInnerHTML={{ __html: svg }} />;
@@ -100,7 +108,7 @@ export function DesignScreen() {
                     '--slant': `var(--type-${step.name}-slant)`,
                   } as CSSProperties}
                 >
-                  {step.role === 'mono' ? 'omni do-work --in-wave' : 'Terraform the galaxy'}
+                  {SAMPLE[step.role]}
                 </p>
               </li>
             ))}
