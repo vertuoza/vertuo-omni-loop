@@ -12,6 +12,8 @@
       "types": "./src/index.d.ts",
       "default": "./src/index.mjs"
     },
-    "./tokens.css": "./tokens.css"
+    "./tokens.css": "./tokens.css",
+    "./fonts.css": "./fonts.css",
+    "./fonts/*": "./fonts/*"
   }
 }

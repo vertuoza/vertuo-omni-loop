@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import '@omni/design/fonts.css';
 import '../src/arcade/arcade.css';
 
 export const metadata: Metadata = {
