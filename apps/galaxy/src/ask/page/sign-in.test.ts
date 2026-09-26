@@ -45,6 +45,22 @@ describe('signing in from an ask page', () => {
   });
 });
 
+describe("signing in from the person's page, /ask", () => {
+  it('asks Google to come back to /ask/callback, and goes back to /ask', async () => {
+    expect(callbackPath(null)).toBe('/ask/callback');
+    const codes: string[] = [];
+    const exchange = async (code: string) => { codes.push(code); return { error: null }; };
+    expect(await signInReturn(new URL(`${ORIGIN}/ask/callback?code=abc`), ORIGIN, null, exchange)).toBe(`${ORIGIN}/ask`);
+    expect(codes).toEqual(['abc']);
+  });
+
+  it('comes back to /ask with the reason when the sign-in was refused', async () => {
+    const back = new URL(await signInReturn(new URL(`${ORIGIN}/ask/callback?error=access_denied`), ORIGIN, null, null));
+    expect(back.pathname).toBe('/ask');
+    expect(back.searchParams.get('signin_error')).toBe('access_denied');
+  });
+});
+
 describe('a session id', () => {
   it('is a uuid', () => {
     expect(isSessionId(ID)).toBe(true);

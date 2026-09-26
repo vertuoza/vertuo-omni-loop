@@ -7,7 +7,7 @@ import { History } from './History';
 import { poll } from './poll';
 import { RoundForm } from './RoundForm';
 import { databasePort, type AskPort } from './source';
-import { keepSent, minutesLeft, pageTitle, sessionView, withPageAnswer, type Sent, type SessionState } from './view';
+import { keepSent, minutesLeft, sessionView, withPageAnswer, type Sent, type SessionState } from './view';
 
 // One ask session, for its signed-in owner: the open round at the top (or Claude is working,
 // moved to the terminal, session closed), the history below, read again every 2 s while the tab
@@ -15,14 +15,16 @@ import { keepSent, minutesLeft, pageTitle, sessionView, withPageAnswer, type Sen
 
 export type SourceConfig = { kind: 'database'; url: string; key: string } | { kind: 'demo' };
 
-type Props = { source: SourceConfig; initial: SessionState; serverNow: number };
+// `onState` hears every state the pane shows, so the tab list can show the selected tab as fresh as
+// its pane. The browser title is the tab list's (AskPage).
+type Props = { source: SourceConfig; initial: SessionState; serverNow: number; onState?: (state: SessionState) => void };
 
 function makePort(source: SourceConfig, seed: SessionState): AskPort {
   if (source.kind === 'demo') return demoPort(seed);
   return databasePort(createBrowserClient(source.url, source.key), seed);
 }
 
-export function AskSession({ source, initial, serverNow }: Props) {
+export function AskSession({ source, initial, serverNow, onState }: Props) {
   const [state, setState] = useState(initial);
   // The server's clock, as the page counts it (a round moves to the terminal on the hook's clock).
   const [offset] = useState(() => serverNow - Date.now());
@@ -40,8 +42,8 @@ export function AskSession({ source, initial, serverNow }: Props) {
   const closed = view.kind === 'closed';
 
   useEffect(() => {
-    document.title = pageTitle(view);
-  }, [view]);
+    onState?.(state);
+  }, [state, onState]);
 
   useEffect(() => {
     if (closed) return;

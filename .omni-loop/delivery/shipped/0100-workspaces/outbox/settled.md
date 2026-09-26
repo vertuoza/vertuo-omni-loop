@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off ordering between two in-flight PRDs, fixed by a file name that becomes history once applied. There is no lasting rule or build decision to record.
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ Renaming one file before the feature PR merges. Once production has applied it, 
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-27, P-PRODUCT-25
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ The regex in `valid_theme()` (a forward migration that redefines it) and the mat
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-28, P-PRODUCT-26
 
 ### The answer, as it was given
 
@@ -251,6 +254,7 @@ One condition and one message in `link_github()`, redefined by a forward migrati
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 2
+- Became: N-PRODUCT-9
 
 ### The answer, as it was given
 
@@ -329,6 +333,7 @@ A constant per script: the `parse` function each passes to `openWorkspace()`. No
 - Raised: 2026-09-26
 - Slice: fix-s1-01-migration-after-ask-mode
 - Wave: 1
+- Became: BR-PRODUCT-29, P-PRODUCT-27
 
 ### The answer, as it was given
 
@@ -410,6 +415,7 @@ One function body: `has_workspace()` in `supabase/migrations/20260926120000_work
 - Raised: 2026-09-26
 - Slice: s2
 - Wave: 1
+- Stays here: A visual glyph-table choice in one constant of the galaxy app, cheap to change and pinned by tests; no lasting product rule or architecture decision to record.
 
 ### The answer, as it was given
 
@@ -489,6 +495,7 @@ A constant: the glyph table in `mark.ts`. No column holds the letter (the spec),
 - Raised: 2026-09-26
 - Slice: s5
 - Wave: 2
+- Stays here: A temporary scope choice with no visible effect while Vertuoza is the only workspace and a cheap later change; nothing lasting to record.
 
 ### The answer, as it was given
 
@@ -568,6 +575,7 @@ A follow-up that edits `apps/galaxy/src/ask/auth.ts` and `cli-code.ts` (and thei
 - Raised: 2026-09-26
 - Slice: s5
 - Wave: 2
+- Became: BR-PRODUCT-30, P-PRODUCT-28
 
 ### The answer, as it was given
 
@@ -646,6 +654,7 @@ One boolean in `arcadeFor()`'s error path, and its test.
 - Raised: 2026-09-26
 - Slice: s5
 - Wave: 2
+- Became: ADR-0044
 
 ### The answer, as it was given
 
@@ -723,6 +732,7 @@ A few lines in `apps/galaxy/src/data/sign-in.ts` and their tests: returning a `s
 - Raised: 2026-09-26
 - Slice: s6
 - Wave: 3
+- Became: ADR-0045
 
 ### The answer, as it was given
 
@@ -803,6 +813,7 @@ Before the feature PR merges: renaming or dropping a body token is a constant in
 - Raised: 2026-09-26
 - Slice: s6
 - Wave: 3
+- Became: ADR-0046
 
 ### The answer, as it was given
 
