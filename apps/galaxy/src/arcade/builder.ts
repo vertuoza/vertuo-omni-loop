@@ -1,5 +1,5 @@
 // The hero builder's rows, as a pure step: ◀ ▶ cycle the value of a row, wrapping around.
-import { HERO_PRESETS, type Hero } from '@omni/sprites';
+import { HERO_PRESETS, type Hero } from '@omni/design';
 
 export const BUILDER_ROWS = ['BODY', 'SKIN', 'HAIR', 'SUIT', 'CAPE', 'RANDOM', 'DONE'] as const;
 export type BuilderRow = (typeof BUILDER_ROWS)[number];

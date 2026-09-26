@@ -1,9 +1,9 @@
 {
-  "name": "@omni/sprites",
+  "name": "@omni/design",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Hand-placed pixel sprites, the palette and the planet renderer for the Omni Loop galaxy.",
+  "description": "The Omni Loop design system: the palette, hand-placed pixel sprites and the planet renderer.",
   "exports": {
     ".": {
       "types": "./src/index.d.ts",

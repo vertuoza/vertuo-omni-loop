@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf, type GalaxyView } from '@omni/galaxy';
-import { drawSprite, spriteSize } from '@omni/sprites';
+import { drawSprite, spriteSize } from '@omni/design';
 import { gridFor, pagesFor } from '../grid';
 import { ScreenContext, type ScreenInfo } from '../Screen';
 import { setFleets } from '../fleets';
@@ -15,8 +15,8 @@ import { drawBoot, drawStory, drawTitle, hallPage, hallPages, PAGES, TALL_SCENES
 import { BootOverlay, HeroesOverlay, TitleOverlay } from './attract.tsx';
 
 // The sprites are drawn on a recording context: which sprite, where and how large.
-vi.mock('@omni/sprites', async (original) => ({
-  ...(await original<typeof import('@omni/sprites')>()),
+vi.mock('@omni/design', async (original) => ({
+  ...(await original<typeof import('@omni/design')>()),
   drawSprite: vi.fn(),
   drawPlanet: vi.fn(),
 }));

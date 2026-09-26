@@ -7,7 +7,7 @@
 // Adding a token means adding it to `valid_theme()` too, in a migration: theme.test.ts holds the two
 // lists equal. Fonts are not tokens.
 import { z } from 'zod';
-import type { Flat } from '@omni/sprites';
+import type { Flat } from '@omni/design';
 
 /** Every token and its default: today's colour. */
 export const TOKENS = Object.freeze({

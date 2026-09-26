@@ -11,8 +11,8 @@ import { drawFrame, layoutMap } from './index.ts';
 // every colour the arcade's own code fills with (the sprite package's planets, stars and nebulae are
 // its own, and stubbed out here).
 const sprites = vi.hoisted(() => [] as { name: string; flat?: unknown; glow?: string | null }[]);
-vi.mock('@omni/sprites', async (original) => {
-  const m = await original<typeof import('@omni/sprites')>();
+vi.mock('@omni/design', async (original) => {
+  const m = await original<typeof import('@omni/design')>();
   return {
     ...m,
     drawSprite: (_ctx: unknown, name: string, _x: number, _y: number, o: { flat?: unknown; glow?: string | null } = {}) => {
