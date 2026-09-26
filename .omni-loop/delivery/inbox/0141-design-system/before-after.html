@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Omni Loop Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Atkinson+Hyperlegible+Next:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono&family=Jersey+10&family=Press+Start+2P&display=swap">
+<style>
+/* One deliberate dark world, the arcade's own, so there is no light theme: every colour is set here.
+   The values are today's INK and PALETTE, plus the four poster accents this PRD adds. */
+:root{
+  color-scheme:dark;
+  --void:#07061c;--deep:#0e0d33;--cab:#120f3a;--line:#2a2766;
+  --navy:#2f3fc4;--navy-dark:#1a2170;--white:#f2f4ff;--dim:#8a90d6;
+  --plasma:#a45cff;--plasma-dark:#6a2fd0;--yellow:#ffd84a;--gold:#d99a14;
+  --red:#ff3b5c;--cyan:#6ff0ff;--green:#4ee08a;
+  --magenta:#ff3ea5;--orange:#ff9b30;--ad-purple:#5b1a86;--starfield:#05040f;
+  --display:'Anton','Impact','Arial Narrow Bold',sans-serif;
+  --px:'Press Start 2P','Courier New',monospace;
+  --txt:'Jersey 10','Arial Narrow',sans-serif;
+  --body:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--void);color:var(--white);font:16px/1.6 var(--body);padding-inline:16px}
+main{max-width:1120px;margin:0 auto;padding-block:40px 88px;display:grid;gap:72px}
+h1,h2,h3{text-wrap:balance;margin:0}
+p{margin:0}
+code{font:.86em/1.3 var(--mono);background:var(--deep);border:1px solid var(--line);border-radius:3px;padding:1px 5px;color:var(--cyan)}
+.eyebrow{font:10px/1.6 var(--px);letter-spacing:.06em;color:var(--yellow);text-transform:uppercase}
+.lede{max-width:68ch;color:var(--dim)}
+.lede strong{color:var(--white)}
+
+/* The masthead borrows the print-ad split: a purple text column, a starfield beside it. */
+header.ad{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);border:3px solid var(--navy-dark);overflow:hidden}
+.ad-col{background:var(--ad-purple);padding:28px 24px;display:grid;gap:14px;align-content:start}
+.ad-kicker{font:italic 400 clamp(15px,2vw,19px)/1.1 var(--display);color:var(--red);text-transform:uppercase;transform:skewX(-8deg);transform-origin:left}
+.ad-head{font:400 clamp(44px,7vw,78px)/.92 var(--display);text-transform:uppercase;transform:skewX(-10deg);transform-origin:left;color:var(--white);letter-spacing:.005em}
+.ad-dots{border-top:4px dotted var(--yellow);width:100%}
+.ad-col p{color:#e9dcff;font-size:15px}
+.ad-sky{position:relative;background:var(--starfield);min-height:300px;display:grid;place-items:center;padding:24px}
+.ad-sky canvas{position:absolute;inset:0;width:100%;height:100%}
+.ad-sky svg{position:relative;width:min(100%,520px);height:auto}
+
+h2{font:400 clamp(26px,3.4vw,36px)/1.05 var(--display);text-transform:uppercase;letter-spacing:.01em;transform:skewX(-8deg);transform-origin:left}
+section{display:grid;gap:22px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.side{display:grid;gap:12px;align-content:start}
+.tag{font:9px/1 var(--px);letter-spacing:.08em;padding:6px 8px;justify-self:start;border:2px solid}
+.tag.today{color:var(--dim);border-color:var(--line)}
+.tag.after{color:var(--void);background:var(--yellow);border-color:var(--yellow)}
+.panel{background:var(--cab);border:2px solid var(--line);padding:18px}
+.note{font-size:14px;color:var(--dim)}
+.note strong{color:var(--white)}
+
+/* Mock arcade screens, 16:9, at the wide grid's proportions. */
+.screen{aspect-ratio:16/9;max-width:100%;background:var(--void);border:3px solid var(--navy-dark);display:grid;place-items:center;align-content:center;gap:14px;position:relative;overflow:hidden}
+.screen .presents{font:9px/1.4 var(--px);color:var(--dim);letter-spacing:.1em}
+.screen .ttl{font:clamp(18px,3vw,26px)/1 var(--px);color:var(--white);text-align:center;letter-spacing:.04em;line-height:1.4}
+.screen .coin{font:8px/1 var(--px);color:var(--yellow);animation:blink 1.2s steps(1) infinite}
+@keyframes blink{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.screen .coin{animation:none}}
+
+/* Where things live: a file list per side. */
+.files{display:grid;gap:8px;font:13px/1.45 var(--mono)}
+.file{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:10px 12px;background:var(--deep);border-left:4px solid var(--line)}
+.file b{font-weight:400;color:var(--white)}
+.file span{color:var(--dim);font-family:var(--body);font-size:13px}
+.file.dup{border-left-color:var(--red)}
+.file.one{border-left-color:var(--green)}
+.file i{font-style:normal;font:9px/1.9 var(--px);color:var(--red)}
+.file.one i{color:var(--green)}
+.tree{font:13px/1.7 var(--mono);color:var(--dim);white-space:pre;overflow-x:auto;background:var(--deep);padding:14px 16px;border-left:4px solid var(--green)}
+.tree b{color:var(--white);font-weight:400}
+.tree em{color:var(--yellow);font-style:normal}
+
+/* Logo sheet. */
+.logos{display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px}
+.logo-card{display:grid;gap:10px;align-content:start}
+.logo-card .art{background:var(--starfield);border:2px solid var(--line);display:grid;place-items:center;padding:18px;min-height:150px}
+.logo-card .art.light{background:#f2f4ff}
+.logo-card svg{max-width:100%;height:auto}
+.logo-card figcaption{font-size:13px;color:var(--dim)}
+.logo-card figcaption code{color:var(--yellow)}
+figure{margin:0}
+
+/* Palette. */
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.sw{display:grid;grid-template-rows:56px auto;border:2px solid var(--line);background:var(--deep)}
+.sw div{border-bottom:2px solid var(--line)}
+.sw p{padding:8px 10px;font:12px/1.4 var(--mono);color:var(--dim)}
+.sw p b{display:block;color:var(--white);font:600 13px/1.3 var(--body)}
+.sw.new{border-color:var(--yellow)}
+.sw.new p b::after{content:" new";font:8px/1 var(--px);color:var(--yellow);margin-left:6px;vertical-align:2px}
+
+/* Type roles. */
+.roles{display:grid;gap:0;border:2px solid var(--line)}
+.role{display:grid;grid-template-columns:150px 1fr;gap:18px;padding:16px 18px;border-top:2px solid var(--line);align-items:baseline}
+.role:first-child{border-top:0}
+.role .who{font:9px/1.6 var(--px);color:var(--yellow);letter-spacing:.05em}
+.role .who span{display:block;font:12px/1.4 var(--mono);color:var(--dim);letter-spacing:0;margin-top:4px}
+.s-display{font:400 clamp(30px,4.6vw,46px)/1 var(--display);text-transform:uppercase;transform:skewX(-12deg);transform-origin:left}
+.s-pixel{font:13px/1.8 var(--px)}
+.s-pixel small{display:block;font:22px/1.1 var(--txt);color:var(--dim)}
+.s-body{font:17px/1.55 var(--body);max-width:60ch}
+.s-mono{font:14px/1.5 var(--mono);color:var(--cyan)}
+
+/* Poses. */
+.poses{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.pose{background:var(--starfield);border:2px solid var(--line);padding:14px 10px 10px;display:grid;gap:8px;justify-items:center}
+.pose.new{border-color:var(--yellow)}
+.pose svg{width:100%;max-width:96px;height:auto;image-rendering:pixelated}
+.pose p{font:9px/1.5 var(--px);color:var(--white);text-align:center}
+.pose p span{display:block;font:12px/1.4 var(--body);color:var(--dim);margin-top:4px}
+
+/* Brand layers. */
+.layers{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.layer{display:grid;gap:12px;align-content:start;padding:18px;border:2px solid var(--line);background:var(--cab)}
+.layer h3{font:11px/1.5 var(--px);color:var(--yellow)}
+.layer .emb{display:flex;gap:16px;align-items:center;min-height:90px}
+.layer ul{margin:0;padding-left:18px;color:var(--dim);font-size:14px;display:grid;gap:4px}
+.layer ul strong{color:var(--white)}
+
+/* The /design page mock. */
+.guide{border:3px solid var(--navy-dark);background:var(--starfield)}
+.guide .bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;background:var(--deep);border-bottom:2px solid var(--line);font:9px/1 var(--px);color:var(--dim);flex-wrap:wrap}
+.guide .bar b{color:var(--white);font-weight:400}
+.guide .body{display:grid;grid-template-columns:170px 1fr;min-height:260px}
+.guide nav{border-right:2px solid var(--line);padding:14px;display:grid;gap:10px;align-content:start;font:9px/1.4 var(--px);color:var(--dim)}
+.guide nav b{color:var(--yellow);font-weight:400}
+.guide .content{padding:18px;display:grid;gap:14px;align-content:start}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips i{width:28px;height:28px;display:block;border:2px solid var(--void)}
+.today-404{aspect-ratio:16/9;max-width:100%;display:grid;place-items:center;background:var(--deep);border:2px dashed var(--line);font:11px/1.8 var(--px);color:var(--dim);text-align:center;padding:16px}
+
+.stays{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.stays div{padding:14px 16px;border:2px solid var(--line);background:var(--deep);font-size:14px;color:var(--dim)}
+.stays b{display:block;color:var(--white);font-size:15px;margin-bottom:4px}
+
+@media (max-width:760px){
+  header.ad,.pair,.logos,.layers{grid-template-columns:1fr}
+  .poses{grid-template-columns:repeat(2,1fr)}
+  .role{grid-template-columns:1fr;gap:8px}
+  .guide .body{grid-template-columns:1fr}
+  .guide nav{border-right:0;border-bottom:2px solid var(--line);grid-auto-flow:column;overflow-x:auto}
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd84a"/><stop offset=".55" stop-color="#ffd84a"/><stop offset="1" stop-color="#ff9b30"/>
+    </linearGradient>
+    <!-- The full logo: italic wordmark, magenta inside navy, and a swoosh that closes into a loop. -->
+    <symbol id="logo-full" viewBox="0 0 520 250">
+      <g transform="skewX(-12) translate(40 0)" font-family="Anton, Impact, sans-serif" font-size="112" text-anchor="middle">
+        <text x="260" y="112" fill="none" stroke="#1a2170" stroke-width="22" stroke-linejoin="round">OMNI LOOP</text>
+        <text x="260" y="112" fill="none" stroke="#ff3ea5" stroke-width="10" stroke-linejoin="round">OMNI LOOP</text>
+        <text x="260" y="112" fill="url(#fill)">OMNI LOOP</text>
+      </g>
+      <path d="M40 176 C 150 206, 300 206, 404 170 C 452 152, 488 150, 492 176 C 496 204, 450 214, 432 190 C 420 172, 446 150, 470 160"
+            fill="none" stroke="#1a2170" stroke-width="24" stroke-linecap="round"/>
+      <path d="M40 176 C 150 206, 300 206, 404 170 C 452 152, 488 150, 492 176 C 496 204, 450 214, 432 190 C 420 172, 446 150, 470 160"
+            fill="none" stroke="#ff3ea5" stroke-width="15" stroke-linecap="round"/>
+      <path d="M40 176 C 150 206, 300 206, 404 170 C 452 152, 488 150, 492 176 C 496 204, 450 214, 432 190 C 420 172, 446 150, 470 160"
+            fill="none" stroke="url(#fill)" stroke-width="8" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="logo-stacked" viewBox="0 0 240 230">
+      <g transform="skewX(-12) translate(24 0)" font-family="Anton, Impact, sans-serif" font-size="96" text-anchor="middle">
+        <text x="120" y="96" fill="none" stroke="#1a2170" stroke-width="18" stroke-linejoin="round">OMNI</text>
+        <text x="120" y="96" fill="none" stroke="#ff3ea5" stroke-width="8" stroke-linejoin="round">OMNI</text>
+        <text x="120" y="96" fill="url(#fill)">OMNI</text>
+        <text x="120" y="196" fill="none" stroke="#1a2170" stroke-width="18" stroke-linejoin="round">LOOP</text>
+        <text x="120" y="196" fill="none" stroke="#ff3ea5" stroke-width="8" stroke-linejoin="round">LOOP</text>
+        <text x="120" y="196" fill="url(#fill)">LOOP</text>
+      </g>
+    </symbol>
+    <!-- The mark: the loop O alone, the favicon. -->
+    <symbol id="logo-mark" viewBox="0 0 64 64">
+      <ellipse cx="32" cy="32" rx="22" ry="24" transform="skewX(-10) translate(6 0)" fill="none" stroke="#1a2170" stroke-width="16"/>
+      <ellipse cx="32" cy="32" rx="22" ry="24" transform="skewX(-10) translate(6 0)" fill="none" stroke="#ff3ea5" stroke-width="11"/>
+      <ellipse cx="32" cy="32" rx="22" ry="24" transform="skewX(-10) translate(6 0)" fill="none" stroke="url(#fill)" stroke-width="6"/>
+      <path d="M50 50 L60 60" stroke="#1a2170" stroke-width="10" stroke-linecap="round"/>
+      <path d="M50 50 L60 60" stroke="#ffd84a" stroke-width="4" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="logo-mono" viewBox="0 0 520 250">
+      <g transform="skewX(-12) translate(40 0)" font-family="Anton, Impact, sans-serif" font-size="112" text-anchor="middle">
+        <text x="260" y="112" fill="#1a2170">OMNI LOOP</text>
+      </g>
+      <path d="M40 176 C 150 206, 300 206, 404 170 C 452 152, 488 150, 492 176 C 496 204, 450 214, 432 190 C 420 172, 446 150, 470 160"
+            fill="none" stroke="#1a2170" stroke-width="10" stroke-linecap="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<main>
+
+<header class="ad">
+  <div class="ad-col">
+    <p class="ad-kicker">PRD 141 · before and after</p>
+    <h1 class="ad-head">One look.<br>One library.</h1>
+    <div class="ad-dots" role="presentation"></div>
+    <p><strong>Omni Loop gets a design system of its own.</strong> <code>@omni/sprites</code> grows
+      into <code>@omni/design</code>, which holds the logo, the colours, the fonts, the sprites and
+      three new OmniMan poses. The galaxy game and Ask read everything from it, a public
+      <code>/design</code> page shows it all, and Omni Loop becomes the house brand.</p>
+    <p>It is the base the HOME page, the next PRD, is built on. Blocked by #100 (Workspaces).</p>
+  </div>
+  <div class="ad-sky">
+    <canvas id="stars" aria-hidden="true"></canvas>
+    <svg role="img" aria-label="The Omni Loop logo, full form"><title>Omni Loop</title><use href="#logo-full"/></svg>
+  </div>
+</header>
+
+<section aria-labelledby="h-boot">
+  <p class="eyebrow">What a player sees</p>
+  <h2 id="h-boot">The boot screen, signed out</h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag today">TODAY</span>
+      <div class="screen" aria-label="Today's boot screen">
+        <svg id="vmark" width="96" height="84" viewBox="0 0 36 32" role="img" aria-label="The Vertuoza V mark"></svg>
+        <p class="presents">VERTUOZA PRESENTS</p>
+        <p class="ttl">OMNI<br>LOOP</p>
+      </div>
+      <p class="note">The house brand is still <code>{ name: 'Vertuoza' }</code> after #100. The title's
+        OMNI/LOOP is plain DOM text, and the fonts come from Google.</p>
+    </div>
+    <div class="side">
+      <span class="tag after">AFTER</span>
+      <div class="screen" aria-label="The boot screen after this PRD">
+        <p class="presents">OMNI LOOP PRESENTS</p>
+        <svg width="300" height="144" role="img" aria-label="The Omni Loop logo"><use href="#logo-full"/></svg>
+        <p class="coin">INSERT COIN</p>
+      </div>
+      <p class="note"><strong>The house brand is <code>OMNI_LOOP</code></strong> from the package:
+        the boot, the title, the favicon, the page title and <code>themeColor</code>. The same happens
+        in demo mode, when closed, and in the single-file artifact.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="h-layers">
+  <p class="eyebrow">Two brand layers</p>
+  <h2 id="h-layers">The product's brand, and the customer's mark</h2>
+  <div class="layers">
+    <div class="layer">
+      <h3>OMNI LOOP · the product</h3>
+      <div class="emb"><svg width="72" height="72" role="img" aria-label="The loop mark"><use href="#logo-mark"/></svg>
+        <svg width="190" height="92" aria-hidden="true"><use href="#logo-full"/></svg></div>
+      <ul>
+        <li><strong>Everything signed out:</strong> boot, title, demo, closed, the artifact</li>
+        <li><strong>The public pages:</strong> <code>/design</code> now, and HOME in the next PRD</li>
+        <li><strong>The favicon</strong> is the loop mark</li>
+      </ul>
+    </div>
+    <div class="layer">
+      <h3>VERTUOZA · a workspace</h3>
+      <div class="emb"><svg id="vmark2" width="72" height="64" viewBox="0 0 36 32" role="img" aria-label="The V workspace mark"></svg>
+        <p class="note">Unchanged. #100 draws each workspace's mark from its name's first letter,
+          and Vertuoza keeps its V pixel for pixel.</p></div>
+      <ul>
+        <li><strong>Inside the workspace:</strong> the deck emblem, for its members</li>
+        <li><strong>Its theme</strong> still overrides the package's default colours</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="h-where">
+  <p class="eyebrow">What an engineer sees</p>
+  <h2 id="h-where">Where the look is defined</h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag today">TODAY · 5 PLACES</span>
+      <div class="files">
+        <div class="file"><i>SRC</i><div><b>packages/sprites/src/palette.mjs</b><br><span>PALETTE and INK: the pixel colours</span></div></div>
+        <div class="file dup"><i>COPY</i><div><b>apps/galaxy/src/arcade/arcade.css :11</b><br><span>INK retyped by hand as :root properties</span></div></div>
+        <div class="file dup"><i>COPY</i><div><b>apps/galaxy/src/ask/theme-tokens.ts</b><br><span>Ask's own light and dark colours</span></div></div>
+        <div class="file dup"><i>LINK</i><div><b>app/layout.tsx · app/ask/layout.tsx</b><br><span>two sets of Google Fonts links, no type scale</span></div></div>
+        <div class="file dup"><i>LOGO</i><div><b>src/arcade/mark.ts · scenes/attract.tsx</b><br><span>a customer's V, and OMNI/LOOP as text</span></div></div>
+      </div>
+    </div>
+    <div class="side">
+      <span class="tag after">AFTER · 1 PACKAGE</span>
+<div class="tree"><b>packages/design</b>        <em>@omni/design</em>, no React, no Next
+├─ tokens     palette, INK + 4 accents, Ask's light/dark
+│  └─ <b>tokens.css</b>   generated; a test fails on drift
+├─ fonts      4 roles as woff2, <b>fonts.css</b>, the type scale
+├─ logo       full · stacked · mark, + one-colour
+├─ sprites    forge, heroes, mascots, icons
+│             + omni-point · omni-cheer · omni-run
+│             + poster scale, up to 16×
+└─ brand      <b>OMNI_LOOP</b></div>
+      <p class="note"><code>arcade.css</code>, Ask and both layouts import from the package, and
+        #100's theme module reads its defaults from it. <strong>No Google request remains:</strong>
+        the fonts are served from the arcade's own origin.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="h-logo">
+  <p class="eyebrow">New · logo</p>
+  <h2 id="h-logo">The logo, in three forms</h2>
+  <p class="lede">Box-art style: an italic wordmark, a yellow-to-orange fill, magenta inside navy
+    outlines, and a swoosh that closes into a loop. <strong>This is a sketch:</strong> the final
+    drawing is made in the slice that builds the <code>logo</code> module, with these proportions
+    and colours.</p>
+  <div class="logos">
+    <figure class="logo-card"><div class="art"><svg width="420" height="202" role="img" aria-label="Full logo"><use href="#logo-full"/></svg></div>
+      <figcaption><code>full</code>: the poster, HOME's hero, <code>/design</code></figcaption></figure>
+    <figure class="logo-card"><div class="art"><svg width="150" height="144" role="img" aria-label="Stacked logo"><use href="#logo-stacked"/></svg></div>
+      <figcaption><code>stacked</code>: square spaces, the boot screen on a phone</figcaption></figure>
+    <figure class="logo-card"><div class="art" style="gap:14px;grid-auto-flow:column">
+        <svg width="72" height="72" role="img" aria-label="Loop mark"><use href="#logo-mark"/></svg>
+        <svg width="32" height="32" aria-hidden="true"><use href="#logo-mark"/></svg>
+        <svg width="16" height="16" aria-hidden="true"><use href="#logo-mark"/></svg></div>
+      <figcaption><code>mark</code>: the favicon, readable at 16 px</figcaption></figure>
+  </div>
+  <figure class="logo-card"><div class="art light"><svg width="300" height="144" role="img" aria-label="One-colour logo on a light ground"><use href="#logo-mono"/></svg></div>
+    <figcaption>One colour, for a light ground or a single-ink print.</figcaption></figure>
+</section>
+
+<section aria-labelledby="h-color">
+  <p class="eyebrow">Tokens · colour</p>
+  <h2 id="h-color">Today's colours, plus four for the ad</h2>
+  <p class="lede">Every existing colour keeps its value. <strong>The ones marked new</strong> give
+    the print-ad voice: the logo's magenta outline and orange fill, the ad's purple text column, and
+    the starfield behind the hero art.</p>
+  <div class="swatches" id="swatches"></div>
+</section>
+
+<section aria-labelledby="h-type">
+  <p class="eyebrow">Tokens · type</p>
+  <h2 id="h-type">Four font roles, self-hosted</h2>
+  <div class="roles">
+    <div class="role"><p class="who">DISPLAY <span>Anton, slanted 12° · new</span></p><p class="s-display">Your repo, on autopilot!</p></div>
+    <div class="role"><p class="who">PIXEL <span>Press Start 2P · Jersey 10</span></p><p class="s-pixel">PRESS START <small>Planet 141 secured · +120 pts</small></p></div>
+    <div class="role"><p class="who">BODY <span>Atkinson Hyperlegible Next</span></p><p class="s-body">A coding agent takes one slice of a PRD, builds it test-first, and opens a pull request that a person reviews.</p></div>
+    <div class="role"><p class="who">MONO <span>JetBrains Mono</span></p><p class="s-mono">/omni:yolo 141</p></div>
+  </div>
+  <p class="note">All four are under the SIL Open Font License, so the woff2 files ship inside the
+    package. The type scale names each step (<code>display-xl</code> to <code>mono</code>) as a
+    role, a size, a line height and a slant. The single-file artifact inlines only the two pixel
+    faces.</p>
+</section>
+
+<section aria-labelledby="h-poses">
+  <p class="eyebrow">New · sprites</p>
+  <h2 id="h-poses">OmniMan learns to point</h2>
+  <p class="lede">Three poses on the same 32×48 body, drawn through the forge and recolourable like
+    every hero. The poster scale renders any sprite at up to 16×, on the pixel grid. <strong>These
+    are silhouettes:</strong> the final art is drawn in the slice.</p>
+  <div class="poses">
+    <div class="pose"><svg id="p-idle" viewBox="0 0 16 24" role="img" aria-label="OmniMan idle"></svg><p>omni<span>today, two idle frames</span></p></div>
+    <div class="pose new"><svg id="p-point" viewBox="0 0 16 24" role="img" aria-label="OmniMan pointing"></svg><p>omni-point<span>the ad's spokesperson</span></p></div>
+    <div class="pose new"><svg id="p-cheer" viewBox="0 0 16 24" role="img" aria-label="OmniMan thumbs up"></svg><p>omni-cheer<span>thumbs up</span></p></div>
+    <div class="pose new"><svg id="p-run" viewBox="0 0 16 24" role="img" aria-label="OmniMan running"></svg><p>omni-run<span>two frames</span></p></div>
+  </div>
+</section>
+
+<section aria-labelledby="h-guide">
+  <p class="eyebrow">New · a public page</p>
+  <h2 id="h-guide">/design, the style guide</h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag today">TODAY</span>
+      <div class="today-404">/design<br>404 · NOT FOUND</div>
+    </div>
+    <div class="side">
+      <span class="tag after">AFTER</span>
+      <div class="guide" aria-label="Mock of the /design page">
+        <div class="bar"><b>OMNI LOOP · DESIGN</b><span>NO SIGN-IN</span></div>
+        <div class="body">
+          <nav><b>▶ LOGO</b><span>COLOURS</span><span>TYPE</span><span>SPRITES</span><span>POSES</span><span>ICONS</span></nav>
+          <div class="content">
+            <svg width="220" height="106" aria-hidden="true"><use href="#logo-full"/></svg>
+            <div class="chips" id="chips" aria-hidden="true"></div>
+            <p class="note">Rendered from <code>@omni/design</code> itself, so the page is also the
+              library's visual test.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="h-stays">
+  <p class="eyebrow">Unchanged</p>
+  <h2 id="h-stays">What stays the same</h2>
+  <div class="stays">
+    <div><b>Every other scene</b>Map, planet, fleets, Hall of Heroes and the joining flow look the same. <code>pnpm galaxy:shots</code> before and after proves it.</div>
+    <div><b>Workspaces</b>#100's letter marks, theme overrides and <code>valid_theme()</code> are untouched.</div>
+    <div><b>The game's rules and data</b>No migration, no ledger event, no scoring change.</div>
+    <div><b>The GitHub App</b><code>apps/omni-app</code> and its avatar stay as they are.</div>
+    <div><b>Out, for the next PRD</b>HOME at <code>/</code>, its copy and art, and the game moving to a route of its own.</div>
+  </div>
+</section>
+
+</main>
+
+<script>
+// The V mark, from mark.ts's pixel runs, so the "today" screens show it as it is drawn.
+(function(){
+  var ROWS=[[[0,22],[24,12]],[[4,8],[14,18]],[[8,12],[22,6]],[[12,12]]],CAP=[2,1,0,0,1,2];
+  var COL=['#ff5f6d','#d25e9e','#a45cff','#4a63ff'];
+  function draw(id){
+    var el=document.getElementById(id); if(!el) return; var s='';
+    ROWS.forEach(function(bars,row){bars.forEach(function(b){CAP.forEach(function(c,line){
+      var x=b[0]+c,w=b[1]-2*c; var t=(x+w/2)/36; var col=COL[Math.min(3,Math.floor(t*4))];
+      s+='<rect x="'+x+'" y="'+(row*8+line)+'" width="'+w+'" height="1" fill="'+col+'"/>';});});});
+    el.innerHTML=s;
+  }
+  draw('vmark'); draw('vmark2');
+})();
+
+// Swatches and the /design mock's chips, from one list.
+(function(){
+  var C=[['void','#07061c'],['deep','#0e0d33'],['navy','#2f3fc4'],['navy-dark','#1a2170'],['white','#f2f4ff'],
+    ['plasma','#a45cff'],['plasma-dark','#6a2fd0'],['yellow','#ffd84a'],['gold','#d99a14'],['red','#ff3b5c'],
+    ['cyan','#6ff0ff'],['green','#4ee08a'],['magenta','#ff3ea5',1],['orange','#ff9b30',1],['adPurple','#5b1a86',1],['starfield','#05040f',1]];
+  var sw=document.getElementById('swatches'),ch=document.getElementById('chips');
+  C.forEach(function(c){
+    sw.insertAdjacentHTML('beforeend','<div class="sw'+(c[2]?' new':'')+'"><div style="background:'+c[1]+'"></div><p><b>'+c[0]+'</b>'+c[1]+'</p></div>');
+    ch.insertAdjacentHTML('beforeend','<i style="background:'+c[1]+'"></i>');
+  });
+})();
+
+// OmniMan silhouettes on a 16×24 grid: head, suit, cape. Sketches, not the forge's art.
+(function(){
+  var K={'k':'#0b0a26','s':'#f5c19a','h':'#1c1826','n':'#2f3fc4','w':'#f2f4ff','p':'#a45cff','y':'#ffd84a'};
+  var base=[
+    '......hhhh......','.....hhhhhh.....','.....hssssh.....','.....ssssss.....','......ssss......',
+    '....nnwwwwnn....','...nnnwyywnnn...','..pnnnwwwwnnnp..','..pnnnwwwwnnnp..','..pnnnnnnnnnnp..',
+    '..pnnnnnnnnnnp..','..ps.nnnnnn.sp..','..p..nnnnnn..p..','..p..nnnnnn..p..','.....nn..nn.....',
+    '.....nn..nn.....','.....nn..nn.....','.....ww..ww.....','.....ww..ww.....','....www..www....'];
+  function put(g,r,c,ch){var row=g[r].split('');row[c]=ch;g[r]=row.join('');}
+  function render(id,g){var el=document.getElementById(id),s='';g.forEach(function(row,y){for(var x=0;x<16;x++){var ch=row[x];if(K[ch])s+='<rect x="'+x+'" y="'+(y+2)+'" width="1" height="1" fill="'+K[ch]+'"/>';}});el.innerHTML=s;}
+  render('p-idle',base.slice());
+  var pt=base.slice(); put(pt,11,2,'p'); put(pt,11,1,'.');
+  for(var c=13;c<16;c++){put(pt,7,c,'n');} put(pt,7,15,'s'); put(pt,11,13,'.'); put(pt,11,12,'n');
+  render('p-point',pt);
+  var ch=base.slice(); put(ch,4,13,'s'); put(ch,3,13,'s'); put(ch,5,13,'n'); put(ch,6,13,'n'); put(ch,11,12,'n');
+  render('p-cheer',ch);
+  var rn=base.slice(); rn[14]='....nn....nn....'; rn[15]='...nn......nn...'; rn[16]='..nn........nn..'; rn[17]='..ww........ww..'; rn[18]='.www.........ww.'; rn[19]='................';
+  render('p-run',rn);
+})();
+
+// A still starfield behind the masthead's logo.
+(function(){
+  var cv=document.getElementById('stars'); if(!cv) return;
+  function paint(){
+    var r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1; cv.width=r.width*d; cv.height=r.height*d;
+    var x=cv.getContext('2d'); x.scale(d,d); var seed=141;
+    function rnd(){seed=(seed*16807)%2147483647;return seed/2147483647;}
+    for(var i=0;i<260;i++){var s=rnd()<.1?2:1;x.fillStyle=rnd()<.2?'#6ff0ff':(rnd()<.1?'#ffd84a':'#f2f4ff');x.globalAlpha=.35+rnd()*.65;x.fillRect(Math.floor(rnd()*r.width),Math.floor(rnd()*r.height),s,s);}
+  }
+  paint(); window.addEventListener('resize',paint);
+})();
+</script>
+</html>
