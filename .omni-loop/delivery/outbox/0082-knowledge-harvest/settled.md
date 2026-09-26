@@ -547,3 +547,238 @@ One branch in classifyCandidate: writing a fixed 'Stays here:' line instead is a
 ```
 
 <!-- /omni-outbox-settled: s7-02-no-place-means-not-placed -->
+
+<!-- omni-outbox-settled: s8-01-route-test-counts-the-harvest -->
+
+## s8-01-route-test-counts-the-harvest — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-01-route-test-counts-the-harvest
+prd: 82
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 4
+---
+
+## The question, in plain words
+
+Adding the new harvest job to the app meant changing a test that belongs to the pull request check, which this piece of work was not meant to touch. Should that test change, or should the new job be served somewhere else?
+
+## The decision, in plain words
+
+The test changed in the smallest way: it now expects the three jobs the app serves instead of two. Nothing else in the pull request check or its tests changed.
+
+## The intro, for fun
+
+The guest list for the app's front door was printed before the third guest was invited.
+
+## The punchline, for fun
+
+So one name was added to the list, and the door stayed the same.
+
+## The options, in plain words
+
+A. A. Change the one test so it expects the three jobs (built).
+B. B. Serve the harvest from a separate address of its own, leaving that test untouched.
+C. C. Move the test into the app's shared test folder and rewrite it there.
+
+## What I had to decide
+
+The spec says the knowledge-harvest function is registered in api/inngest.mjs, and the plan says the outbox check's tests pass unchanged. apps/omni-app/src/outbox-check/inngest-route.test.mjs asserts that the route serves exactly [outboxCheck, retro] and reports four functions, so both cannot hold, and that file is outside s8's territory.
+
+## What I did meanwhile
+
+Registered knowledgeHarvest in apps/omni-app/api/inngest.mjs and edited inngest-route.test.mjs in three places: the import, the list of served functions (now outboxCheck, retro, knowledgeHarvest) with the harvest's id, and function_count from 4 to 6 (each function plus its failure handler). No other outbox-check test changed.
+
+## What it costs to change later
+
+Low: reverting is three lines in one test file. Serving the harvest from its own route instead would be a new file under api/ and a second Inngest sync URL.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan's 'the outbox check's tests pass unchanged' may have meant the check's behaviour tests only; the spec does not say whether the route test counts.
+
+```
+
+<!-- /omni-outbox-settled: s8-01-route-test-counts-the-harvest -->
+
+<!-- omni-outbox-settled: s8-02-replay-keeps-the-first-commit -->
+
+## s8-02-replay-keeps-the-first-commit — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-02-replay-keeps-the-first-commit
+prd: 82
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 4
+---
+
+## The question, in plain words
+
+When a harvest is run again for the same merge, its knowledge branch already holds the first run's changes. Should the rerun add its own changes on top, or leave the branch as it is and only refresh the pull request's description?
+
+## The decision, in plain words
+
+A rerun never adds a second change to a branch that already holds the harvest's change. It only rewrites the pull request's description, from what the rerun found.
+
+## The intro, for fun
+
+The second run arrives at the post office to find the letter already sent.
+
+## The punchline, for fun
+
+It rewrites the cover note and leaves the envelope sealed.
+
+## The options, in plain words
+
+A. A. Never commit again to a branch holding the harvest's commit; only rewrite the description (built).
+B. B. Commit again when the rerun's files differ from the branch's, on top of the first commit.
+C. C. Compare the rerun's files with the branch's, and when they differ, leave both alone and post a comment.
+
+## What I had to decide
+
+The spec says a replay finds the PR by its branch, rewrites its body, and never commits twice. It does not say what happens when the rerun's result differs from the first commit, for instance when the model places a decision differently the second time.
+
+## What I did meanwhile
+
+The publish step reads the knowledge branch's head commit; when it is not the tip it was cut from and its message carries 'The knowledge harvest of #<n>.', no commit is made and upsertPull rewrites the title and body from this run's result. A branch cut by a run that failed before its commit gets the commit. Ids are numbered with the run's own branch left out of the open knowledge branches, so a rerun numbers as the first run did.
+
+## What it costs to change later
+
+Low: one condition in the publish step. Committing a rerun's differing files instead would add a tree comparison before the commit; no stored data changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The body a rerun writes can name a placement the committed files do not hold when the model answers differently; the spec does not say which should win.
+
+```
+
+<!-- /omni-outbox-settled: s8-02-replay-keeps-the-first-commit -->
+
+<!-- omni-outbox-settled: s8-03-write-reads-the-settle-tip -->
+
+## s8-03-write-reads-the-settle-tip — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s8
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-03-write-reads-the-settle-tip
+prd: 82
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 4
+---
+
+## The question, in plain words
+
+The harvest reads the main branch twice, once to settle and once to write the knowledge, and the main branch may move in between. Should the second read take the newest state, or the same state the first read took?
+
+## The decision, in plain words
+
+Both reads take the same state of the main branch, the one the first read found, and the knowledge pull request starts from there. Other open knowledge pull requests are the ones not yet merged.
+
+## The intro, for fun
+
+Measuring a room twice only helps if nobody moves the walls in between.
+
+## The punchline, for fun
+
+So the harvest measures once, writes it down, and uses the same numbers twice.
+
+## The options, in plain words
+
+A. A. Read the same commit in both steps, and cut the branch from it (built).
+B. B. Read the newest tip again in the write step, and cut the branch from that newer tip.
+C. C. Read the newest tip again, and start the whole harvest over when it moved.
+
+## What I had to decide
+
+The spec's flow says step 'write' snapshots the tip again and step 'publish' cuts from the tip. The settle step's edits (the moves, the ledger's new entries) are planned against the tree it read; applied to a newer tip, a move could name a path that changed. The spec also does not say how the open knowledge branches are found.
+
+## What I did meanwhile
+
+Step 'settle' records the tip's sha; step 'write' snapshots that same sha, and 'publish' cuts the branch from it. The open knowledge branches are the open pull requests into the default branch whose head matches branches.knowledge, this run's own branch left out; each one's knowledge folder and decision records are snapshotted at its head for the ids it takes.
+
+## What it costs to change later
+
+Low: one sha passed between steps. Reading the newest tip instead is one call in the write step; finding knowledge branches by name instead of by open pull request is one query. No stored data changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether 'the tip again' in the spec means a fresh read or the same commit; the flow diagram does not say.
+- (author) A knowledge branch whose pull request never opened is not counted; the concurrency limit of one run per repository is what keeps two such runs apart.
+
+```
+
+<!-- /omni-outbox-settled: s8-03-write-reads-the-settle-tip -->
