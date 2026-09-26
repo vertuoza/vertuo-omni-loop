@@ -8,9 +8,10 @@ import { useScreen } from '../Screen';
 import { HeroSprite, Sprite } from '../Sprite';
 import { fleet } from '../fleets';
 import { Hint } from '../hint';
-import type { Player } from '../types';
+import type { Player, ScoresRead } from '../types';
 import { barFill, cabinets, type Cabinet, type XpStatus, XP_LINE } from '../games/room';
 import { badgeOf } from './menu.tsx';
+import { scoreDigits } from './invaders.tsx';
 import './common.css';
 import './games.css';
 
@@ -33,7 +34,22 @@ function XpHeader({ xp }: { xp: XpStatus }) {
 // The attract on a lit cabinet's screen: three rows of Entropy over the player's hero.
 const ROWS: WoundKind[] = ['fault-line', 'unconfirmed-ground', 'under-fire'];
 
-function CabinetView({ cabinet, me, active, onPick }: { cabinet: Cabinet; me: Player | null; active: boolean; onPick: () => void }) {
+/** The crew's top five at a game, best first, the player's own line highlighted; or why there is none. */
+function TopFive({ board, me }: { board: ScoresRead | undefined; me: Player | null }) {
+  if (board === 'unreadable') return <span className="cab-none cab-unreadable">SCORES OUT OF REACH</span>;
+  if (!board?.top.length) return <span className="cab-none">NO SCORES YET</span>;
+  return (
+    <ol className="cab-top">
+      {board.top.map((l, i) => (
+        <li key={l.id} className={l.id === me?.id ? 'mine' : undefined}><span>{i + 1} {l.name}</span><span>{scoreDigits(l.best)}</span></li>
+      ))}
+    </ol>
+  );
+}
+
+function CabinetView({ cabinet, me, board, active, onPick }: {
+  cabinet: Cabinet; me: Player | null; board: ScoresRead | undefined; active: boolean; onPick: () => void;
+}) {
   const cls = `cabinet${active ? ' active' : ''}`;
   if (cabinet.kind === 'soon') {
     return (
@@ -68,18 +84,20 @@ function CabinetView({ cabinet, me, active, onPick }: { cabinet: Cabinet; me: Pl
       </span>
       <span className="cab-scores">
         <b>CREW TOP 5</b>
-        <span>NO SCORES YET</span>
+        <TopFive board={board} me={me} />
       </span>
       <span className="cab-play">A · PLAY</span>
     </button>
   );
 }
 
-export function GamesOverlay({ xp, me, index, onPick }: {
+export function GamesOverlay({ xp, me, index, scores = {}, onPick }: {
   xp: XpStatus;
   me: Player | null;
   /** The cabinet under the cursor on the wide grid, and the page shown on the tall one. */
   index: number;
+  /** Each game's crew table, by the game's id; a game with none shows NO SCORES YET. */
+  scores?: Record<string, ScoresRead | undefined>;
   /** A tap on a cabinet: the one under the cursor plays, another comes under it. */
   onPick: (i: number) => void;
 }) {
@@ -98,7 +116,10 @@ export function GamesOverlay({ xp, me, index, onPick }: {
       <XpHeader xp={xp} />
       {tall && <p className="games-page"><Hint k="◀ ▶">PAGE {at + 1}/{room.length}</Hint></p>}
       <div className="cabinets">
-        {shown.map((i) => <CabinetView key={i} cabinet={room[i]} me={me} active={i === at} onPick={() => onPick(i)} />)}
+        {shown.map((i) => {
+          const c = room[i];
+          return <CabinetView key={i} cabinet={c} me={me} board={c.kind === 'game' ? scores[c.game.id] : undefined} active={i === at} onPick={() => onPick(i)} />;
+        })}
       </div>
       <p className="hint games-foot">
         {!tall && <Hint k="◀ ▶">CHOOSE</Hint>} <Hint k="A">PLAY</Hint> <Hint k="B">MENU</Hint>

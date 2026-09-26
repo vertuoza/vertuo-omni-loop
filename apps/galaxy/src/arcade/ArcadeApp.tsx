@@ -30,9 +30,11 @@ import { FleetsOverlay } from './scenes/fleets.tsx';
 import { GamesOverlay } from './scenes/games.tsx';
 import { InvadersOverlay } from './scenes/invaders.tsx';
 import { cabinetDoor, cabinets, xpStatus } from './games/room';
+import { GAMES } from './games';
 import {
-  hudOf, newGame, pause as pauseGame, press as pressGame, sameHud, step as stepGame, type Game, type GameEvent, type GameHud,
+  hudOf, newGame, OVER_SECONDS, pause as pauseGame, press as pressGame, sameHud, step as stepGame, type Game, type GameEvent, type GameHud,
 } from './games/invaders';
+import { failed, hiOf, overPress, saved, sending, withBest, type ScoreSend } from './scenes/invaders-score';
 import { setFleets } from './fleets';
 import { brandLook, HOUSE_BRAND, type Brand } from './brand';
 import { stripesOf, themeVars } from './theme';
@@ -40,7 +42,7 @@ import { Stripes } from './Sprite';
 import { foldChar, foldName, nameInit, nameReduce, nameValue, NAME_RULE, type NameAction, type NameState } from './name-entry';
 import { BUILDER_ROWS, cycleHero } from './builder';
 import { afterGate, afterReturn, afterStart, allowed, backStep, isDisbanded, isLinked, nextStep, readReturn, type Flow, type Step } from './onboarding';
-import type { Account, FleetRow, Player, PlayerPatch, Session, XpRead } from './types';
+import type { Account, FleetRow, Player, PlayerPatch, ScoresRead, Session, XpRead } from './types';
 import './shell.css';
 
 // The music each screen plays; the rest are silent but for their effects.
@@ -53,6 +55,8 @@ const GAME_SFX: Record<Exclude<GameEvent, 'march'>, Sfx> = { fire: 'fire', hit: 
 const playGame = (e: GameEvent, g: Game) => (e === 'march' ? march(g.marchStep) : sfx(GAME_SFX[e]));
 // A game keeps the grid it started on: turning the phone letterboxes it rather than changing its field.
 const GAME_GRID = { wide: WIDE, tall: TALL } as const;
+// Entropy Invaders' key in the registry: its crew table's, and the one its scores are sent under.
+const INVADERS = GAMES.find((g) => g.scene === 'invaders')?.id ?? 'invaders';
 
 export interface UI {
   scene: SceneName; sel: number; tab: number; menu: number; fleet: number; since: number;
@@ -126,9 +130,14 @@ export interface ArcadeProps {
    * read (the default: a page that says nothing of XP shows no level, and never guesses one).
    */
   xp?: XpRead;
+  /**
+   * Each game's crew table, by the game's id, as the page read it. None given (the demo, the
+   * artifact), the arcade asks the account for them once, on its first render.
+   */
+  scores?: Record<string, ScoresRead>;
 }
 
-export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null, brand = HOUSE_BRAND, knowledge = null, xp = 'unreadable' }: ArcadeProps) {
+export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null, brand = HOUSE_BRAND, knowledge = null, xp = 'unreadable', scores: scores0 }: ArcadeProps) {
   setFleets(fleets);
   // The brand's look: its theme, written as custom properties on the root element below and read by
   // the canvas, and its mark in the theme's colours. The theme {} is today's arcade.
@@ -183,6 +192,39 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     hudRef.current = next;
     setHud(next);
   }, []);
+  // The crew's tables, and the game over's score: sent once (`send`), for the game `run` counts, so
+  // an answer that comes back after a new game started changes the table but not the new game.
+  const [scores, setScores] = useState<Record<string, ScoresRead>>(scores0 ?? {});
+  const scoresRef = useRef(scores);
+  scoresRef.current = scores;
+  const [send, setSend] = useState<ScoreSend | null>(null);
+  const sendRef = useRef<ScoreSend | null>(null);
+  const runRef = useRef(0);
+  const showSend = useCallback((s: ScoreSend | null) => { sendRef.current = s; setSend(s); }, []);
+  const sendScore = useCallback((score: number, tries = 1) => {
+    const run = runRef.current;
+    const attempt = sending(score, tries);
+    const board = scoresRef.current[INVADERS];
+    const before = board && board !== 'unreadable' ? board.mine : null;
+    showSend(attempt);
+    account.submitScore(INVADERS, score).then((best) => {
+      const m = meRef.current;
+      if (m) setScores((all) => ({ ...all, [INVADERS]: withBest(all[INVADERS], { id: m.id, name: m.display_name, hero: m.hero, team: m.team, best }) }));
+      // Then the table as stored, with whatever the crew scored meanwhile.
+      account.scores(INVADERS).then((b) => setScores((all) => ({ ...all, [INVADERS]: b }))).catch(() => { /* the line above stands */ });
+      if (run !== runRef.current) return;
+      const done = saved(attempt, best, before);
+      showSend(done);
+      if (done.state === 'saved' && done.newBest) sfx('linked');
+    }).catch((err: Error) => {
+      console.error(err);
+      if (run !== runRef.current) return;
+      showSend(failed(attempt));
+      sfx('buzz');
+    });
+  }, [account, showSend]);
+  const sendScoreRef = useRef(sendScore);
+  sendScoreRef.current = sendScore;
 
   const go = useCallback((patch: Partial<UI>, effect?: Sfx) => {
     if (effect) sfx(effect);
@@ -213,10 +255,12 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (!view) return go({ toast: problem ?? 'GALAXY OUT OF REACH' }, 'buzz');
     const g = newGame({ layout: gridFor(formRef.current, 'invaders').name, values: view.rules.woundClose, seed: Math.floor(Math.random() * 2 ** 31) });
     held.clear(); // a finger lifted outside a game was never heard: each game starts with nothing held
+    runRef.current += 1;
+    showSend(null);
     gameRef.current = g;
     showHud(g);
     go({ scene: 'invaders' }, 'start');
-  }, [view, problem, go, showHud, held]);
+  }, [view, problem, go, showHud, showSend, held]);
 
   const save = useCallback(async (patch: PlayerPatch) => {
     const row = await account.save(patch, meRef.current);
@@ -255,6 +299,17 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     }
     const linked = readHash(view);
     if (linked) setUi((u) => ({ ...u, ...linked, since: now() }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // The crew's tables the page did not bring (the demo's, the artifact's): the account's, once.
+  useEffect(() => {
+    if (scores0) return;
+    for (const { id } of GAMES) {
+      account.scores(id)
+        .then((b) => setScores((all) => ({ ...all, [id]: b })))
+        .catch(() => setScores((all) => ({ ...all, [id]: 'unreadable' })));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -547,6 +602,12 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         // ◀ ▶ and A are read held, by the canvas loop; a press answers START, B, and A on a screen.
         const g = gameRef.current;
         if (!g) return action === 'b' ? go({ scene: 'games' }, 'back') : undefined;
+        // The game over, once its score has shown: A retries a send that failed, once; the rest is the game's.
+        const s = sendRef.current;
+        if (g.over && s && g.t - g.overAt >= OVER_SECONDS && overPress(s, action) === 'retry' && s.state === 'failed') {
+          sfx('select');
+          return sendScore(s.score, s.tries + 1);
+        }
         const { game: next, leave } = pressGame(g, action);
         if (leave) {
           gameRef.current = null;
@@ -580,7 +641,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') return go({ scene: 'menu' }, 'back');
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, showHud]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, showHud, sendScore]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): the first press
@@ -662,6 +723,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         gameRef.current = game;
         for (const e of game.events) playGame(e, game);
         showHud(game);
+        if (game.over && !sendRef.current) sendScoreRef.current(game.score); // once a game: sendRef is set at once
       }
       const picking = u.scene === 'select' ? f.active[u.pick]?.name ?? null : null;
       const frame: FrameState = {
@@ -748,8 +810,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'ready': return <ReadyOverlay name={displayName} team={me?.team ?? null} />;
       case 'welcome': return <WelcomeOverlay name={displayName} team={me?.team ?? null} />;
       case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={openItem} chart={knowledge} xp={xpNow} />;
-      case 'games': return <GamesOverlay xp={xpNow} me={me} index={ui.cabinet} onPick={(i) => { if (i === ui.cabinet) act('a'); else go({ cabinet: i }, 'move'); }} />;
-      case 'invaders': return view ? <InvadersOverlay hud={hud} values={view.rules.woundClose} hero={me?.hero ?? ui.hero} team={me?.team ?? null} /> : null;
+      case 'games': return <GamesOverlay xp={xpNow} me={me} index={ui.cabinet} scores={scores} onPick={(i) => { if (i === ui.cabinet) act('a'); else go({ cabinet: i }, 'move'); }} />;
+      case 'invaders': return view ? <InvadersOverlay hud={hud} values={view.rules.woundClose} hero={me?.hero ?? ui.hero} team={me?.team ?? null} hi={hiOf(scores[INVADERS])} send={send} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => act('a')} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => go({ tab }, 'tab')} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => go({ fleet: i }, 'move')} /> : null;

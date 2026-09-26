@@ -9,7 +9,7 @@ import { DEFAULT_THEME } from '../theme';
 import { gridFor, TALL, WIDE, type Grid } from '../grid';
 import { ScreenContext } from '../Screen';
 import { cabinets, xpStatus, type XpStatus } from '../games/room';
-import type { FleetRow, Player } from '../types';
+import type { FleetRow, Player, ScoreLine, ScoresRead } from '../types';
 import type { FrameState } from './common.ts';
 import { layoutMap } from './map.ts';
 import { drawGames, TALL_SCENES } from './games.ts';
@@ -37,8 +37,13 @@ function textOf(el: ReactElement, grid: Grid): string[] {
     .split('\n').map((s) => s.trim()).filter(Boolean);
 }
 
-const room = (xp: XpStatus, grid: Grid, index = 0, me: Player | null = player) =>
-  textOf(createElement(GamesOverlay, { xp, me, index, onPick: () => {} }), grid);
+const room = (xp: XpStatus, grid: Grid, index = 0, me: Player | null = player, scores: Record<string, ScoresRead> = {}) =>
+  textOf(createElement(GamesOverlay, { xp, me, index, scores, onPick: () => {} }), grid);
+const line = (id: string, name: string, best: number): ScoreLine => ({ id, name, hero: null, team: null, best });
+const CREW: ScoresRead = {
+  top: [line('u-dime', 'DIME', 12480), line(player.id, 'INKY', 9210), line('u-bonny', 'BONNY-B', 7730), line('u-kraken', 'KRAKEN-K', 5100), line('u-agent', 'AGENT-K', 2990)],
+  mine: 9210,
+};
 const levels = (text: string[]) => text.filter((s) => /\bLV \d/.test(s));
 
 beforeAll(() => { setFleets(fleets); });
@@ -91,6 +96,44 @@ describe('the game room, for a player with a level', () => {
     expect(text).toContain('LV 1');
     expect(text).not.toContain('A · PLAY');
     expect(text).not.toContain('CREW TOP 5');
+  });
+});
+
+describe('the crew\'s top five on the lit cabinet', () => {
+  const markup = (grid: Grid, scores: Record<string, ScoresRead>) => renderToStaticMarkup(createElement(ScreenContext.Provider, { value: { form: 'full', grid, page: 0, pages: 1 } },
+    createElement(GamesOverlay, { xp: LEVEL_3, me: player, index: 0, scores, onPick: () => {} })));
+
+  it.each([WIDE, TALL])('shows the five best with their names and scores, best first (%o)', (grid) => {
+    const text = room(LEVEL_3, grid, 0, player, { invaders: CREW });
+    const rows = [['1 DIME', '12 480'], ['2 INKY', '9 210'], ['3 BONNY-B', '7 730'], ['4 KRAKEN-K', '5 100'], ['5 AGENT-K', '2 990']];
+    const at = rows.map(([who, best]) => {
+      const i = text.indexOf(who);
+      expect(i, who).toBeGreaterThanOrEqual(0);
+      expect(text[i + 1], who).toBe(best);
+      return i;
+    });
+    expect(at).toEqual([...at].sort((a, b) => a - b));
+    expect(text).toContain('CREW TOP 5');
+    expect(text).not.toContain('NO SCORES YET');
+    expect(text).toContain('A · PLAY');
+  });
+
+  it('highlights the player\'s own line, and no other', () => {
+    const html = markup(WIDE, { invaders: CREW });
+    expect(html.match(/class="mine"/g)).toHaveLength(1);
+    expect(/<li class="mine">(.*?)<\/li>/.exec(html)?.[1].replace(/<[^>]+>/g, ' ')).toMatch(/2\s+INKY\s+9 210/);
+    expect(markup(WIDE, { invaders: { top: CREW.top.filter((l) => l.id !== player.id), mine: 40 } })).not.toContain('class="mine"');
+  });
+
+  it('says the scores are out of reach when they could not be read, and still plays', () => {
+    const text = room(LEVEL_3, WIDE, 0, player, { invaders: 'unreadable' });
+    expect(text).toContain('SCORES OUT OF REACH');
+    expect(text).not.toContain('NO SCORES YET');
+    expect(text).toContain('A · PLAY');
+  });
+
+  it('says there are none yet before anyone has scored', () => {
+    expect(room(LEVEL_3, WIDE, 0, player, { invaders: { top: [], mine: null } })).toContain('NO SCORES YET');
   });
 });
 

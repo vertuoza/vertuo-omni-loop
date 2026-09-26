@@ -11,8 +11,10 @@ import { supabaseEnv, supabaseServer } from '../src/data/supabase-server';
 // they may read it, under its brand (src/data/arcade.ts). Without Supabase: the demo galaxy in
 // development only (or OMNI_LOOP_DEMO=1); any other build is closed, and nobody gets past INSERT
 // COIN (src/data/mode.ts). The star chart's knowledge goes where the galaxy goes, to the crew and the
-// demo only: anyone else's page carries no entry. The player's XP comes with the workspace's data;
-// the demo's guest borrows the demo world's highest XP (src/data/xp.ts).
+// demo only: anyone else's page carries no entry. The player's XP and the crew's high scores come
+// with the workspace's data (none at all for anyone else: the arcade never reads them in the
+// browser); the demo's guest borrows the demo world's highest XP (src/data/xp.ts), and the demo
+// account keeps its scores in the browser.
 
 export default async function Page() {
   const mode = arcadeMode(process.env);
@@ -24,5 +26,5 @@ export default async function Page() {
   const { data: { user } } = await db.auth.getUser();
   const data = await arcadeFor(db, user);
   const knowledge = data.session?.crew && !data.problem ? loadKnowledge() : undefined;
-  return <ArcadeClient mode="supabase" supabase={env} {...data} knowledge={knowledge} />;
+  return <ArcadeClient mode="supabase" supabase={env} {...data} scores={data.scores ?? {}} knowledge={knowledge} />;
 }
