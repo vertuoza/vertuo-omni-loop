@@ -14,6 +14,7 @@
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { registerCounts } from '../knowledge/registers.mjs';
 import { FORMS, readForm } from './forms.mjs';
 import { resolveForm } from './resolve.mjs';
 import { formTemplate } from './templates.mjs';
@@ -53,7 +54,9 @@ function formSource(resolved) {
 
 /**
  * The map: `{ frontDoor, forms: [{ form, kind, file, state, source, sections: [{ slot, source }],
- * questions: [{ slot, question }], stale: [{ path, hash, now }] }] }`, the forms in the kit's order.
+ * questions: [{ slot, question }], stale: [{ path, hash, now }] }], registers: [{ folder, laws,
+ * proposals }] }`, the forms in the kit's order, then each register folder's count of laws and of
+ * proposed entries (PRD #68).
  * `state` is the form's own, or `missing`, or `invalid` when its file does not parse; a question is
  * every `TODO(human)` line the form holds, in any section.
  */
@@ -73,5 +76,5 @@ export function playbookStatus({ ctx, exec }) {
       stale: staleEvidence(form?.evidence ?? [], { ctx, exec }).map(({ path, hash, now }) => ({ path, hash, now })),
     };
   });
-  return { frontDoor: ctx.layout.frontDoor, forms };
+  return { frontDoor: ctx.layout.frontDoor, forms, registers: registerCounts({ ctx }) };
 }

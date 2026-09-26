@@ -66,8 +66,9 @@ duties of `outbox-policy.mjs` beside it (the module itself was ported earlier as
   exists", and no repository held one. It now reads the `architecture`, `conventions` and `setup`
   forms through `omni kb show`, which print the kit default for any section a repository left
   blank; the skill no longer names `repo.md`.
-- **Step 0's stop line** says "not installed", not "not terraformed" (PRD 45): `/omni:terraform`
-  now names filling the forms, and a failing `omni config` means `omni init` has not run.
+- **Step 0's stop line** says "not installed" (PRD 45, and PRD 68 for the config error): `/omni:invade`
+  (PRD 45's form-filling skill, renamed by PRD 68) now names filling the forms, and a failing
+  `omni config` means `omni init` has not run.
 
 ## Added
 
@@ -115,10 +116,10 @@ the bundle does not carry.
   stderr naming the field and an empty stdout, even with `--json`; the rendered item refused by
   `checkItemText` is `outcome: null` with `reason` on stdout under `--json`. This replaces "Exit `2`
   is no longer only 'your JSON is wrong': read `reason` first", which a bad intro contradicts.
-- **Step 0** says "the Omni Loop kit is not installed in this repository" instead of "the
-  repository is not terraformed", so the skill names no game word. `/omni:plan`, `/omni:brainstorm`
-  and `kit/lib/config.mjs` keep the old word — PRD 50's outbox item
-  `s3-01-installed-not-terraformed`.
+- **Step 0** says "the Omni Loop kit is not installed in this repository" instead of the older
+  game-word line, so the skill names no game word. `/omni:plan`, `/omni:brainstorm` and
+  `kit/lib/config.mjs` kept the old word at first (PRD 50's outbox item `s3-01`, on the installed
+  wording); PRD 68 made "not installed" the only wording.
 
 ### Tests
 
@@ -127,6 +128,39 @@ the frontmatter parses and that every `omni` command the skill names exists. The
 refusal shapes the exit-`2` bullet describes were checked against the live CLI and against
 `kit/bin/item.test.mjs` (the s1 tests "an intro over 120 characters…", "the same refusal under
 --json and --adopt…", "the same violation prints outcome null…").
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.
+
+## PRD #99, slice s2 — the skill signs the loop's work
+
+Not a re-port: upstream's skill signs nothing. A kit-local change to the prose, which the bundle
+does not carry. PRD #99 makes OmniMan (the `signature` config section, slice s1) a co-author of every
+commit the loop makes and the signer of every pull request and issue it opens.
+
+- **Signing,** a paragraph under the `omni` line: every commit the skill makes ends with the
+  session's co-author trailer, then the line `omni sign trailer` prints, as the message's last line
+  with no blank line between them, so both stay in the trailer block. Every pull request or issue it
+  opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+  the session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+  signed. A command that prints nothing (`signature: null`) means signing is off: the skill adds
+  nothing and runs unchanged. No skill spells the signer's name or address.
+- **Build, reviewable commits:** every commit of the slice (code, item files, the account, a
+  heartbeat push) ends with the co-author trailer, then the trailer line. Before, only the hand-off
+  named the trailer.
+- **Ship, the hand-off to `/omni:pr`:** "Co-Authored-By trailer on every commit" becomes a body
+  that ends with the footer line, and the co-author trailer and the trailer line on every commit.
+  This supersedes the **Changed** bullet above, in which the hand-off alone kept the trailer.
+
+### Tests
+
+`kit/test/plugin.test.mjs` gained one rule, run on the live skills and on fixtures built to break
+it: a SKILL.md that asks for the co-author trailer names `omni sign trailer`, and one that opens a
+pull request or an issue (`gh pr create`, `gh issue create`, or "open(s) the/a … PR, pull request
+or issue" in prose), or rewrites its body (`gh pr edit … --body-file`), names `omni sign footer`.
+A skill that only comments is held to nothing. The existing rule that every `omni` command a
+SKILL.md names exists now covers `sign`.
 
 ### Gate (this update)
 

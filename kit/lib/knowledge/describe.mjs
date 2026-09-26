@@ -43,6 +43,11 @@ export function describeEntry(knowledge, id) {
   for (const [key, label] of LINES) {
     if (entry[key]) out.push(`${label}: ${entry[key]}`);
   }
+  if (entry.proposed) {
+    const { by, on } = entry.proposed;
+    const who = by === null ? 'proposed (its "Proposed:" line is malformed)' : `proposed by ${by} on ${on}`;
+    out.push('', `${who} — not a law until a person removes its "Proposed:" line`);
+  }
 
   if (entry.serves) {
     const served = knowledge.entries.find((candidate) => candidate.id === entry.serves);

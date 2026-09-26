@@ -223,3 +223,68 @@ describe('The before/after is a file in the repository', () => {
     expect(beforeAfterHandoff('   ').ok).toBe(false);
   });
 });
+
+// PRD #99, slice s1: a phase-0 branch is made only by the loop, so every commit in it carries the
+// trailer `omni sign trailer` prints. The commits are given; this module never reads git.
+describe('Every commit of a phase-0 pull request is signed', () => {
+  const TRAILER = 'Co-authored-by: OmniMan <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
+  const signed = (sha, subject) => ({ sha, message: `${subject}\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n${TRAILER}\n` });
+  const unsigned = (sha, subject) => ({ sha, message: `${subject}\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n` });
+
+  function threeFiles(options = {}) {
+    const { ctx } = docsOnlyRepo(options);
+    const paths = phase0Paths(PRD, { ctx });
+    return { ctx, diff: [paths.spec, paths.plan, paths.beforeAfter] };
+  }
+
+  it('a signed range is ok, and its reason is the one it always gave', () => {
+    const { ctx, diff } = threeFiles();
+    const verdict = phase0Verdict(diff, { ctx, prd: PRD, commits: [signed('a1b2c3d', 'docs(phase-0): inbox')] });
+
+    expect(verdict.ok, verdict.reason).toBe(true);
+    expect(verdict.signed).toBe(true);
+    expect(verdict.trailer).toBe(TRAILER);
+    expect(verdict.unsigned).toEqual([]);
+    expect(verdict.reason).toBe(phase0Verdict(diff, { ctx, prd: PRD }).reason);
+  });
+
+  it('one unsigned commit is enough to refuse it, and the commit and the missing line are named', () => {
+    const { ctx, diff } = threeFiles();
+    const verdict = phase0Verdict(diff, {
+      ctx,
+      prd: PRD,
+      commits: [signed('1111111', 'docs: one'), unsigned('a1b2c3d', 'docs: two')],
+    });
+
+    expect(verdict.ok).toBe(false);
+    expect(verdict.docsOnly).toBe(true);
+    expect(verdict.signed).toBe(false);
+    expect(verdict.unsigned).toEqual([{ sha: 'a1b2c3d', subject: 'docs: two' }]);
+    expect(verdict.reason).toBe(`unsigned: a1b2c3d has no "${TRAILER}" line`);
+  });
+
+  it('several unsigned commits are named together, in the order given', () => {
+    const { ctx, diff } = threeFiles();
+    const verdict = phase0Verdict(diff, { ctx, prd: PRD, commits: [unsigned('aaaaaaa', 'a'), unsigned('bbbbbbb', 'b')] });
+
+    expect(verdict.reason).toBe(`unsigned: aaaaaaa, bbbbbbb have no "${TRAILER}" line`);
+  });
+
+  it('with signature: null nothing is checked, and the verdict says so', () => {
+    const { ctx, diff } = threeFiles({ config: { signature: null } });
+    const verdict = phase0Verdict(diff, { ctx, prd: PRD, commits: [unsigned('a1b2c3d', 'docs: two')] });
+
+    expect(verdict.ok, verdict.reason).toBe(true);
+    expect(verdict.signed).toBeNull();
+    expect(verdict.trailer).toBeNull();
+    expect(verdict.unsigned).toEqual([]);
+  });
+
+  it('with no commits given, the signature is not graded, as before this check existed', () => {
+    const { ctx, diff } = threeFiles();
+    const verdict = phase0Verdict(diff, { ctx, prd: PRD });
+
+    expect(verdict.ok, verdict.reason).toBe(true);
+    expect(verdict.signed).toBeNull();
+  });
+});

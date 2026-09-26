@@ -1,0 +1,29 @@
+2026-09-20T11:05:01.0000001Z ##[group]Run python -m pytest
+2026-09-20T11:05:01.0000002Z python -m pytest
+2026-09-20T11:05:01.0000003Z ##[endgroup]
+2026-09-20T11:05:02.0000000Z ============================= test session starts ==============================
+2026-09-20T11:05:02.0000001Z platform linux -- Python 3.12.1, pytest-8.0.0, pluggy-1.4.0
+2026-09-20T11:05:02.0000002Z rootdir: /home/runner/work/widgets/widgets
+2026-09-20T11:05:02.0000003Z collected 13 items
+2026-09-20T11:05:02.0000004Z
+2026-09-20T11:05:03.0000000Z tests/test_cart.py .F.F.                                                   [ 38%]
+2026-09-20T11:05:03.0000001Z tests/test_store.py .......s                                               [100%]
+2026-09-20T11:05:03.0000002Z
+2026-09-20T11:05:03.0000003Z =================================== FAILURES ===================================
+2026-09-20T11:05:03.0000004Z ________________________________ test_add_item _________________________________
+2026-09-20T11:05:03.0000005Z
+2026-09-20T11:05:03.0000006Z     def test_add_item():
+2026-09-20T11:05:03.0000007Z         cart = Cart()
+2026-09-20T11:05:03.0000008Z         cart.add(1)
+2026-09-20T11:05:03.0000009Z >       assert cart.size == 3
+2026-09-20T11:05:03.0000010Z E       assert 2 == 3
+2026-09-20T11:05:03.0000011Z
+2026-09-20T11:05:03.0000012Z tests/test_cart.py:12: AssertionError
+2026-09-20T11:05:03.0000013Z _______________________ TestCheckout.test_pays[card] ___________________________
+2026-09-20T11:05:03.0000014Z
+2026-09-20T11:05:03.0000015Z tests/test_cart.py:30: AssertionError: declined
+2026-09-20T11:05:03.0000016Z =========================== short test summary info ============================
+2026-09-20T11:05:03.0000017Z FAILED tests/test_cart.py::test_add_item - assert 2 == 3
+2026-09-20T11:05:03.0000018Z FAILED tests/test_cart.py::TestCheckout::test_pays[card] - AssertionError: declined
+2026-09-20T11:05:03.0000019Z =================== 2 failed, 10 passed, 1 skipped in 0.42s ====================
+2026-09-20T11:05:03.1000000Z ##[error]Process completed with exit code 1.

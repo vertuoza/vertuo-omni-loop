@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { OUTBOX_CHECK_EVENT } from '../inngest-client.mjs';
-import { HANDLED, receiveWebhook, toCheckRequests } from './webhook.mjs';
+import { OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
+import { CHECK_ACTIONS, HANDLED, RETRO_ACTIONS, receiveWebhook, toCheckRequests, toEvents, toRetroRequests } from './webhook.mjs';
 
 const SECRET = 'shh-test-secret';
 
@@ -93,14 +93,14 @@ describe('webhook — the signature', () => {
 });
 
 describe('webhook — the event and action filter', () => {
-  it.each(HANDLED.pull_request)('handles pull_request.%s', async (action) => {
+  it.each(CHECK_ACTIONS.pull_request)('handles pull_request.%s', async (action) => {
     const { response, send } = await deliver({ payload: pullRequestPayload(action) });
     expect(response.status).toBe(200);
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0][0].data.trigger).toBe(`pull_request.${action}`);
   });
 
-  it('answers 200 and sends nothing to a closed pull request', async () => {
+  it('answers 200 and sends nothing to a closed pull request that was not merged', async () => {
     const { response, send } = await deliver({ payload: pullRequestPayload('closed') });
     expect(response.status).toBe(200);
     expect(send).not.toHaveBeenCalled();
@@ -188,5 +188,72 @@ describe('toCheckRequests', () => {
   it('is the filter alone, pure: no signature, no send', () => {
     expect(toCheckRequests('pull_request', pullRequestPayload('synchronize'))).toHaveLength(1);
     expect(toCheckRequests('pull_request', pullRequestPayload('closed'))).toEqual([]);
+  });
+
+  it('never turns a closed pull request into the outbox check, merged or not', () => {
+    expect(toCheckRequests('pull_request', mergedPayload())).toEqual([]);
+  });
+});
+
+const MERGED_AT = '2026-09-25T14:44:12Z';
+const MERGE_SHA = '4e2dc907b5fdb1d86f28778fa67ee5953981abc5';
+
+/** A `pull_request.closed` delivery for a pull request that was merged. */
+const mergedPayload = (over = {}) =>
+  pullRequestPayload('closed', {
+    pull_request: {
+      number: 28,
+      merged: true,
+      merged_at: MERGED_AT,
+      merge_commit_sha: MERGE_SHA,
+      head: { sha: 'abc123', ref: 'feat/omni-app-outbox-check' },
+      base: { ref: 'main' },
+      ...over,
+    },
+  });
+
+describe('webhook — the retro route (PRD 72)', () => {
+  it('turns a merged pull request into one retro event carrying the merge SHA and time, and no outbox event', async () => {
+    const { response, send } = await deliver({ payload: mergedPayload() });
+    expect(response.status).toBe(200);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0]).toEqual([
+      {
+        name: RETRO_EVENT,
+        data: {
+          installationId: 4242,
+          owner: 'vertuoza',
+          repo: 'vertuo-omni-loop',
+          repository: 'vertuoza/vertuo-omni-loop',
+          prNumber: 28,
+          mergeSha: MERGE_SHA,
+          mergedAt: MERGED_AT,
+        },
+      },
+    ]);
+  });
+
+  it('turns a closed, unmerged pull request into nothing', () => {
+    expect(toEvents('pull_request', pullRequestPayload('closed', { pull_request: { number: 28, merged: false, merged_at: null, head: { sha: 'abc123' }, base: { ref: 'main' } } }))).toEqual([]);
+  });
+
+  it('turns a merged pull request without a merge SHA into nothing', () => {
+    expect(toRetroRequests('pull_request', mergedPayload({ merge_commit_sha: null }))).toEqual([]);
+  });
+
+  it('leaves the qualifying to the retro: a merged sub-PR still becomes the retro event', () => {
+    const events = toEvents('pull_request', mergedPayload({ base: { ref: 'feat/retro' } }));
+    expect(events.map((event) => event.name)).toEqual([RETRO_EVENT]);
+  });
+
+  it.each(CHECK_ACTIONS.pull_request)('never turns pull_request.%s into a retro event', (action) => {
+    expect(toRetroRequests('pull_request', { ...mergedPayload(), action })).toEqual([]);
+    expect(toEvents('pull_request', { ...mergedPayload(), action }).map((event) => event.name)).toEqual([OUTBOX_CHECK_EVENT]);
+  });
+
+  it('handles exactly the check actions and the retro actions', () => {
+    expect(HANDLED.pull_request).toEqual([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]);
+    expect(HANDLED.check_run).toEqual(CHECK_ACTIONS.check_run);
+    expect(RETRO_ACTIONS).toEqual({ pull_request: ['closed'] });
   });
 });

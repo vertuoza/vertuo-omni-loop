@@ -18,23 +18,53 @@ describe('parseConfig', () => {
     expect(config.limits).toEqual({ stallDays: 5, attempts: 3, claimStaleMinutes: 60, beforeAfterMaxBytes: 512000 });
     expect(config.risk).toEqual({ storedShape: [], sharedContract: [] });
     expect(config.notify.slack).toBeNull();
+    expect(config.ask).toEqual({ url: null });
   });
 
-  it('puts the playbook under the knowledge folder and names the terraform branch when both are unset', () => {
+  it('takes an https ask.url, or http only on 127.0.0.1', () => {
+    expect(parseConfig('kit: 1\nask:\n  url: https://ask.example.com\n').ask.url).toBe('https://ask.example.com');
+    expect(parseConfig('kit: 1\nask:\n  url: http://127.0.0.1:4321\n').ask.url).toBe('http://127.0.0.1:4321');
+    expect(() => parseConfig('kit: 1\nask:\n  url: http://ask.example.com\n')).toThrow(/ask\.url/);
+    expect(() => parseConfig('kit: 1\nask:\n  url: http://localhost:4321\n')).toThrow(/ask\.url/);
+    expect(() => parseConfig('kit: 1\nask:\n  url: ftp://ask.example.com\n')).toThrow(/ask\.url/);
+    expect(() => parseConfig('kit: 1\nask:\n  url: not a url\n')).toThrow(/ask\.url/);
+    expect(() => parseConfig('kit: 1\nask:\n  link: https://ask.example.com\n')).toThrow(/ask.*link/s);
+  });
+
+  it('names the retro label and the retro branch when the config sets neither', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(config.labels.retro).toBe('omni:retro');
+    expect(config.branches.retro).toBe('docs/retro-{topic}');
+  });
+
+  it('reads back a retro label and a retro branch the config sets', () => {
+    const config = parseConfig('kit: 1\nlabels:\n  retro: looking-back\nbranches:\n  retro: retro/{topic}\n');
+    expect(config.labels.retro).toBe('looking-back');
+    expect(config.branches.retro).toBe('retro/{topic}');
+  });
+
+  it('puts the playbook under the knowledge folder and names the invade branch when both are unset', () => {
     const config = parseConfig('kit: 1\n');
     expect(config.paths.playbook).toBe('.omni-loop/knowledge/playbook');
-    expect(config.branches.terraform).toBe('docs/omni-terraform');
+    expect(config.branches.invade).toBe('docs/omni-invade');
   });
 
-  it('keeps a playbook folder and a terraform branch the file sets', () => {
-    const config = parseConfig('kit: 1\npaths:\n  playbook: handbook/how-we-work\nbranches:\n  terraform: chore/fill-forms\n');
+  it('keeps a playbook folder and an invade branch the file sets', () => {
+    const config = parseConfig('kit: 1\npaths:\n  playbook: handbook/how-we-work\nbranches:\n  invade: chore/fill-forms\n');
     expect(config.paths.playbook).toBe('handbook/how-we-work');
-    expect(config.branches.terraform).toBe('chore/fill-forms');
+    expect(config.branches.invade).toBe('chore/fill-forms');
+  });
+
+  it('refuses the renamed branch key, naming the key that replaced it', () => {
+    let error;
+    try { parseConfig('kit: 1\nbranches:\n  terraform: docs/omni-terraform\n', 'c.yml'); } catch (e) { error = e; }
+    expect(error).toBeInstanceOf(ConfigError);
+    expect(error.message.split('\n')[0]).toMatch(/^c\.yml.*branches\.terraform.*branches\.invade/);
   });
 
   it('still refuses a key the schema does not hold beside the new ones', () => {
     expect(() => parseConfig('kit: 1\npaths:\n  playbooks: x\n', 'c.yml')).toThrow(/c\.yml.*paths.*playbooks/s);
-    expect(() => parseConfig('kit: 1\nbranches:\n  terraforms: x\n', 'c.yml')).toThrow(/branches.*terraforms/s);
+    expect(() => parseConfig('kit: 1\nbranches:\n  invades: x\n', 'c.yml')).toThrow(/branches.*invades/s);
   });
 
   it('refuses a missing or wrong schema version', () => {
@@ -68,6 +98,37 @@ describe('parseConfig', () => {
   });
 });
 
+describe('the signature section (PRD #99)', () => {
+  const DEFAULT = {
+    name: 'OmniMan',
+    email: '333776611+omni-loop-invader[bot]@users.noreply.github.com',
+    footer: '🦸 Delivered by OmniMan, with Omni Loop',
+  };
+
+  it('signs as OmniMan when the file has no signature section', () => {
+    expect(parseConfig('kit: 1\n').signature).toEqual(DEFAULT);
+  });
+
+  it('keeps the defaults for the keys an override leaves out', () => {
+    const config = parseConfig('kit: 1\nsignature:\n  name: Robo\n  email: robo@example.com\n');
+    expect(config.signature).toEqual({ ...DEFAULT, name: 'Robo', email: 'robo@example.com' });
+  });
+
+  it('accepts signature: null, which switches signing off', () => {
+    expect(parseConfig('kit: 1\nsignature: null\n').signature).toBeNull();
+  });
+
+  it('refuses an unknown key under signature, naming it', () => {
+    expect(() => parseConfig('kit: 1\nsignature:\n  avatar: x.png\n', 'c.yml')).toThrow(/c\.yml.*signature.*avatar/s);
+  });
+
+  it('refuses a name or an address that would break the trailer line', () => {
+    expect(() => parseConfig('kit: 1\nsignature:\n  name: "Omni <Man>"\n')).toThrow(/signature\.name/);
+    expect(() => parseConfig('kit: 1\nsignature:\n  email: "a\\nb@example.com"\n')).toThrow(/signature\.email/);
+    expect(() => parseConfig('kit: 1\nsignature:\n  footer: ""\n')).toThrow(/signature\.footer/);
+  });
+});
+
 describe('omni config', () => {
   const io = () => {
     const out = [];
@@ -75,13 +136,24 @@ describe('omni config', () => {
   };
   const files = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
 
-  it('prints paths.playbook and branches.terraform from their defaults when the file sets neither', async () => {
+  it('prints paths.playbook and branches.invade from their defaults when the file sets neither', async () => {
     const { root } = makeRepo({ git: true, files });
-    for (const [key, value] of [['paths.playbook', '.omni-loop/knowledge/playbook'], ['branches.terraform', 'docs/omni-terraform']]) {
+    for (const [key, value] of [['paths.playbook', '.omni-loop/knowledge/playbook'], ['branches.invade', 'docs/omni-invade']]) {
       const s = io();
       expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
       expect(s.out.join('')).toBe(`${value}\n`);
     }
+  });
+
+  it('prints the default signature when the file has no signature section (AC 1)', async () => {
+    const { root } = makeRepo({ git: true, files });
+    const s = io();
+    expect(await main(['config', 'signature'], { cwd: root, ...s })).toBe(0);
+    expect(JSON.parse(s.out.join(''))).toEqual({
+      name: 'OmniMan',
+      email: '333776611+omni-loop-invader[bot]@users.noreply.github.com',
+      footer: '🦸 Delivered by OmniMan, with Omni Loop',
+    });
   });
 
   it('exits 2 for a key the schema does not hold', async () => {
@@ -91,9 +163,9 @@ describe('omni config', () => {
 });
 
 describe('loadConfig', () => {
-  it('says the repository is not terraformed when the file is missing', () => {
+  it('says the repository is not installed when the file is missing', () => {
     const root = mkdtempSync(join(tmpdir(), 'cfg-'));
-    expect(() => loadConfig(root)).toThrow(/not terraformed.*\.omni-loop\/config\.yml/s);
+    expect(() => loadConfig(root)).toThrow(/not installed.*\.omni-loop\/config\.yml/s);
   });
 
   it('reads the file under root', () => {

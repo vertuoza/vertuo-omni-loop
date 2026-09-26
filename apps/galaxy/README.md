@@ -1,13 +1,15 @@
 # OMNI LOOP — the galaxy arcade
 
-The web UI of the game layer: a retro arcade cabinet that shows the galaxy. Every PRD is a planet,
+The web UI of the game layer: a retro arcade that shows the galaxy. Every PRD is a planet,
 every slice a zone, every open question or bug an Entropy unit on its surface. Signing in with a
 `@vertuoza.com` Google account makes you a **visitor**: you may look at the galaxy. Linking your
 GitHub account, once, makes you a **player**: you pick a fleet, enter a name and build a hero, and
-your pull requests score for that fleet. All from the keyboard (design:
+your pull requests score for that fleet. All from the keyboard on a computer, and from a Game Boy's
+buttons on a phone (design:
 [`docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md`](../../docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md)).
 
-- 640×360 game pixels drawn on a canvas and scaled up by whole numbers with hard pixel edges (late
+- Game pixels drawn on a canvas, on one of two grids (wide 640×360 or tall 320×288, see
+  [Three forms, two grids](#three-forms-two-grids)), and scaled to fit with hard pixel edges (late
   GBA detail). Text sits on top in DOM on the same grid, so it stays crisp and readable by screen
   readers.
 - Sprites (`packages/sprites`) are laid out as material shapes and finished by a forge
@@ -47,11 +49,84 @@ your pull requests score for that fleet. All from the keyboard (design:
 | Hall of Heroes | Season high-score table from `game/economy.mjs`, with each player's hero and name |
 | How to play | The scoring rules, read from `game/rulebook.mjs` so they never drift |
 
-Controls: the arrows move, **Enter** is START, **A** (or Z, Space) is A, **B** (or X, Esc) is B,
-**Tab** is SELECT (random on the hero builder), **M** mutes: the keys the screens show are the keys
-to press. On the name screen letters type instead: Backspace erases, Enter confirms, Escape goes
-back. No step needs a mouse; clicks and taps still work (a key hint such as "[A] LINK GITHUB" is a
-button too), and phones get an on-screen pad. Deep links: `#map`, `#fleets`, `#heroes`, `#briefing`, `#planet-2332`.
+Deep links: `#map`, `#fleets`, `#heroes`, `#briefing`, `#planet-2332`.
+
+## Three forms, two grids
+
+The arcade takes one of three forms, picked from the device by `formFor()` in `src/arcade/form.ts`.
+The pointer picks the form, not the screen size: a fine primary pointer means a keyboard player.
+A form only picks the body around the screen, the grid inside it and the keys the hints name; the
+game is the same in all three.
+
+| Form | When | Body | Grid |
+|---|---|---|---|
+| `full` | The primary pointer is fine: a mouse or a trackpad, a touchscreen laptop included | None: the screen alone, filling the window at the largest 16:9 size, fractions allowed, centred between `--void` bars | wide |
+| `handheld` | Touch, with the viewport at least as tall as it is wide: a phone or a tablet held upright | A Game Boy, edge to edge: the navy lens (its `OMNI LOOP · GALAXY COLOR` stripe and power LED), the wordmark with the season, the D-pad, B and A, SELECT and START, and the speaker grille | tall |
+| `advance` | Touch, with the viewport wider than it is tall: a phone or a tablet held sideways | A Game Boy Advance style wide body: the D-pad with SELECT and START on the left wing, A and B with the grille on the right, the lens between them. No L or R: the game has no L or R action | wide |
+
+- **The two grids.** The wide grid is 640×360. The tall grid is 320×288: a Game Boy screen (160×144)
+  at 2×, which puts the arcade's type at its designed size on a phone held upright. Each layout is
+  authored for exactly 640×360 or 320×288, with no fluid layout inside the screen, so type and
+  sprites stay on a pixel grid.
+- **Which grid a scene gets.** `gridFor()` in `src/arcade/grid.ts`: tall on `handheld` for a scene
+  its group lists in `TALL_SCENES` (`src/arcade/scenes/<group>.ts`), wide otherwise. A wide scene
+  on the Game Boy is letterboxed inside its tall lens. All 19 scenes are listed, and `grid.test.ts`
+  fails when a scene is not, so a new scene needs a wide and a tall layout.
+- **A tall layout drops nothing.** It shows what the wide one shows, stacked or split into pages:
+  the Hall of Heroes (four to a page) and How to play (one section a page) show "PAGE n/N", and
+  ◀ ▶ turn them, round from the last to the first. On the fleet select screen and the fleets wall,
+  the cards shown follow the cursor. Its smallest type is 8 grid px in Press Start 2P and 15 in
+  Jersey 10.
+- **The bodies.** On a Game Boy the controls keep their size and the lens takes the height that is
+  left, so a short phone gets a smaller screen, never a control off the edge. The notch and the
+  home indicator are kept clear. The page holds still: no scroll, no zoom, no pull-to-refresh, no
+  text selection and no long-press menu.
+- **Turning the phone** swaps the body and keeps the scene, the selection, the planet tab and the
+  name being entered. The server cannot know the device, so the page arrives as `full` and a phone
+  takes its body as the page starts.
+
+### Controls
+
+**The keyboard**, in every form (a Bluetooth keyboard drives the Game Boy too): the arrows move,
+**Enter** is START, **A** (or Z, Space) is A, **B** (or X, Esc) is B, **Tab** is SELECT (random on
+the hero builder), **M** mutes: the keys the screens show are the keys to press. On the name screen
+letters type instead: Backspace erases, Enter confirms, Escape goes back. No step needs a mouse;
+clicks and taps still work (a key hint such as "[A] LINK GITHUB" is a button too).
+
+**Fullscreen** (`src/arcade/fullscreen.ts`). The first key press, click or touch press of a page
+load asks the browser for fullscreen, so the arcade runs like a console game with no tabs or
+address bar.
+
+- Esc leaves it and the scene stays: the Esc that leaves fullscreen is never also B. While
+  fullscreen, B and X are the back keys; outside it, Esc still means B.
+- Once the player has left, the next press does not ask again. **F** toggles fullscreen, in every
+  form, except on the name screen, where F types an F. A new page load asks again on its first
+  press.
+- A refused request is ignored: no error, no toast. iPhone Safari has no fullscreen for web pages,
+  and the single-file artifact's frame may refuse it.
+
+**The Game Boy's pad**, on `handheld` and `advance` (`src/arcade/Controls.tsx`). Each control sends
+the action its key does, through the same `act()`, and is a button a screen reader names (Up, Down,
+Left, Right, "A, confirm", "B, back", Select, Start, Sound).
+
+- **Touch-down.** A control fires as the finger lands (`pointerdown`), not on release, darkens while
+  pressed, and buzzes for 10 ms where the browser offers `navigator.vibrate` (not iPhone Safari).
+- **The D-pad is one rocker** (`dpad.ts`). The direction is where the finger is from the cross's
+  centre: under 10 px is a dead zone, then the axis with the larger offset wins, and a tie goes to
+  the vertical axis. Sliding to another arm without lifting fires it at once; sliding back to the
+  centre stops.
+- **Hold to repeat** (`repeat.ts`). A held direction fires once, again after 400 ms, then every
+  120 ms until it is released. **A**, **B**, **SELECT** and **START** fire once per press, as with the
+  keyboard.
+- **Several fingers.** Each finger is its own press: the D-pad and A can be held together.
+- **The speaker grille is the sound switch.** A tap toggles the sound, the same setting M toggles,
+  saved under `omni-loop:muted`; the LED on the lens is lit while sound is on.
+- **Hints name the pad's buttons.** On `handheld` and `advance` a hint reads START for ENTER, SELECT
+  for TAB and B for ⌫ or ESC, and drops "TYPE OR": there is no keyboard to type on. The name
+  screen reads "B ERASE" and "START DONE", the hero builder "RANDOM (SELECT)". On `full` hints read
+  the keyboard's keys, as they always have (`hintKey()` in `src/arcade/keys.ts`).
+- **The screen stays tappable**: key hints, menu rows, fleet cards, builder rows, planet tabs, and
+  planets on the map, whose hit test runs in the pixels of the grid the map is drawn on.
 
 ## How the data flows
 
@@ -116,6 +191,29 @@ true` on both providers in `supabase/config.toml`, and restart the stack. Both c
 
 `pnpm galaxy:seed` regenerates `supabase/seed.sql` from the demo world, dated now, in the `vertuoza`
 workspace the migrations create.
+
+### Screenshots of every scene
+
+`pnpm galaxy:shots` walks the demo galaxy from the keyboard in a headless Chromium, from the boot
+through the joining flow to every screen of the menu, and saves a screenshot of each scene (the
+title's three phases and the planet's four tabs each on their own) at three sizes: 393×700 upright
+touch (an iPhone with Safari's bars), 852×393 sideways touch and 1440×900 with a mouse.
+
+```bash
+pnpm --filter @omni/galaxy-app exec playwright install chromium   # once: Playwright's Chromium
+pnpm galaxy:dev          # in one terminal
+pnpm galaxy:shots        # in another: apps/galaxy/shots/<width>x<height>/, which git ignores
+```
+
+- It prints every text element in the screen that renders below 8 CSS px at 393×700, with its
+  scene. The list is a report, not a failure.
+- Each screenshot is taken at the same moment of its scene on every run (the page's clock is
+  Playwright's), so two runs can be compared screen by screen. Only the demo galaxy's own dates
+  move, since it is dated now.
+- The demo guest always has a `@vertuoza.com` account. To reach the "wrong cartridge" screen, the
+  script makes it an account from another domain, in the browser only.
+- Without `pnpm galaxy:dev` running, it stops and says so. `pnpm test` never starts it.
+- A dev server on another port: `GALAXY_URL=http://localhost:3001/ pnpm galaxy:shots`.
 
 ## Deploy to production
 
@@ -191,7 +289,7 @@ never loads the demo seed.
    the secret key. `NEXT_PUBLIC_*` values are inlined at build time: redeploy after changing them.
    Without them the deployment stays closed (nobody can enter); it never falls back to the demo.
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
-   cabinet still plays its attract mode and says the galaxy is out of reach.
+   arcade still plays its attract mode and says the galaxy is out of reach.
 
 ### 6. Fill the galaxy
 
@@ -262,6 +360,8 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
   shows the zones that have opened so far, not the whole plan.
 - **The map fits one screen.** About eight planets per sector stay legible; beyond that the planets
   shrink. A scrolling map comes when the galaxy needs it.
-- **Tiny type on phones held upright.** The screen is 16:9; turning the phone gives it the room.
+- **An iPhone keeps Safari's bars.** iPhone Safari offers web pages neither fullscreen nor
+  vibration, so the Game Boy shows under the address bar and a press makes no buzz. A device that
+  misreports its primary pointer gets the other form; the keyboard and taps work in both.
 - **A renamed GitHub account** keeps its old login in `players.github_login` (the spec lists refreshing it
   from `github_id` as later work).

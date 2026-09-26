@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { functions, GET, POST, PUT } from '../../api/inngest.mjs';
 import { FUNCTION_ID, outboxCheck } from './outbox-check.mjs';
+import { RETRO_FUNCTION_ID, retro } from '../retro/retro.mjs';
 
 describe('/api/inngest', () => {
   beforeEach(() => {
@@ -10,9 +11,10 @@ describe('/api/inngest', () => {
     vi.unstubAllEnvs();
   });
 
-  it('serves the outbox-check function, and nothing else', () => {
-    expect(functions).toEqual([outboxCheck]);
+  it('serves the outbox-check function and the retro function (PRD 72), and nothing else', () => {
+    expect(functions).toEqual([outboxCheck, retro]);
     expect(outboxCheck.id()).toBe(FUNCTION_ID);
+    expect(retro.id()).toBe(RETRO_FUNCTION_ID);
   });
 
   it('answers GET, POST and PUT — the three verbs Inngest calls', () => {
@@ -23,7 +25,7 @@ describe('/api/inngest', () => {
     const response = await GET(new Request('https://omni-loop.example/api/inngest', { headers: { host: 'omni-loop.example' } }));
     expect(response.status).toBe(200);
     const body = await response.json();
-    // Inngest registers the failure handler as a function of its own, beside outbox-check.
-    expect(body.function_count).toBe(2);
+    // Inngest registers each failure handler as a function of its own, beside its function.
+    expect(body.function_count).toBe(4);
   });
 });

@@ -1,18 +1,32 @@
 // `webhook`: a raw GitHub delivery in, a response out — and, for a handled event, the Inngest events
-// that ask for the outbox check. It touches no GitHub API: it verifies GitHub's signature itself
-// (PRD 28, decision 8) before anything becomes an event, filters by event and action, and hands the
-// events to the `send` it is given. Nothing is sent unless the signature is valid.
+// it asks for. It touches no GitHub API: it verifies GitHub's signature itself (PRD 28, decision 8)
+// before anything becomes an event, routes by event and action, and hands the events to the `send`
+// it is given. Nothing is sent unless the signature is valid.
+//
+// Two routes, never both for one delivery: a merged `pull_request.closed` becomes the retro event
+// (PRD 72) and nothing else; every other handled action becomes the outbox check event, exactly as
+// before. An unmerged `closed` becomes nothing.
 import { Webhooks } from '@octokit/webhooks';
-import { OUTBOX_CHECK_EVENT } from '../inngest-client.mjs';
+import { OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
 
 /**
- * The events and actions the app re-evaluates on. `check_run.rerequested` is GitHub's **Re-run**
- * button; GitHub delivers it only to the app that created the check run. `app.yml` subscribes to
- * exactly these events (its test says so).
+ * The events and actions the app re-evaluates the outbox check on. `check_run.rerequested` is
+ * GitHub's **Re-run** button; GitHub delivers it only to the app that created the check run.
  */
-export const HANDLED = Object.freeze({
+export const CHECK_ACTIONS = Object.freeze({
   pull_request: Object.freeze(['opened', 'synchronize', 'reopened', 'ready_for_review', 'labeled', 'unlabeled', 'edited']),
   check_run: Object.freeze(['rerequested']),
+});
+
+/** The actions that may start a retro: a pull request closed, which counts only when it merged. */
+export const RETRO_ACTIONS = Object.freeze({
+  pull_request: Object.freeze(['closed']),
+});
+
+/** Every event and action the app acts on. `app.yml` subscribes to exactly these events (its test says so). */
+export const HANDLED = Object.freeze({
+  pull_request: Object.freeze([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]),
+  check_run: CHECK_ACTIONS.check_run,
 });
 
 /**
@@ -21,6 +35,10 @@ export const HANDLED = Object.freeze({
  *   installationId: number, owner: string, repo: string, repository: string,
  *   prNumber: number, headSha: string, trigger: string,
  * } }} CheckRequest
+ * @typedef {{ name: string, data: {
+ *   installationId: number, owner: string, repo: string, repository: string,
+ *   prNumber: number, mergeSha: string, mergedAt: string,
+ * } }} RetroRequest
  */
 
 /**
@@ -28,7 +46,7 @@ export const HANDLED = Object.freeze({
  *   body: string,
  *   headers: Record<string, string | undefined> | Headers,
  *   secret: string | undefined,
- *   send: (events: CheckRequest[]) => Promise<unknown>,
+ *   send: (events: (CheckRequest | RetroRequest)[]) => Promise<unknown>,
  * }} input
  * @returns {Promise<WebhookResponse>}
  */
@@ -45,7 +63,7 @@ export async function receiveWebhook({ body, headers, secret, send }) {
     return reply(400, 'body is not JSON');
   }
 
-  const events = toCheckRequests(header(headers, 'x-github-event') ?? '', payload);
+  const events = toEvents(header(headers, 'x-github-event') ?? '', payload);
   if (events.length === 0) return reply(200, 'ignored');
 
   try {
@@ -57,19 +75,29 @@ export async function receiveWebhook({ body, headers, secret, send }) {
 }
 
 /**
- * The filter alone, pure: a handled event and action become one check request per pull request it
- * names; anything else becomes none.
+ * The router alone, pure: a retro action goes to the retro, anything else to the outbox check.
+ * @param {string} event
+ * @param {any} payload
+ * @returns {(CheckRequest | RetroRequest)[]}
+ */
+export function toEvents(event, payload) {
+  if (RETRO_ACTIONS[event]?.includes(payload?.action)) return toRetroRequests(event, payload);
+  return toCheckRequests(event, payload);
+}
+
+/**
+ * The outbox check's filter, pure: a check action becomes one check request per pull request it
+ * names; anything else — a `closed`, merged or not, included — becomes none.
  * @param {string} event
  * @param {any} payload
  * @returns {CheckRequest[]}
  */
 export function toCheckRequests(event, payload) {
-  const actions = HANDLED[event];
+  const actions = CHECK_ACTIONS[event];
   if (!actions || !actions.includes(payload?.action)) return [];
 
-  const installationId = payload.installation?.id;
-  const repository = payload.repository;
-  if (!installationId || !repository?.full_name) return [];
+  const source = sourceOf(payload);
+  if (!source) return [];
 
   const trigger = `${event}.${payload.action}`;
   const pulls =
@@ -84,16 +112,48 @@ export function toCheckRequests(event, payload) {
     .filter((pull) => Number.isInteger(pull.number) && pull.sha)
     .map((pull) => ({
       name: OUTBOX_CHECK_EVENT,
-      data: {
-        installationId,
-        owner: repository.owner?.login ?? repository.full_name.split('/')[0],
-        repo: repository.name,
-        repository: repository.full_name,
-        prNumber: pull.number,
-        headSha: pull.sha,
-        trigger,
-      },
+      data: { ...source, prNumber: pull.number, headSha: pull.sha, trigger },
     }));
+}
+
+/**
+ * The retro's filter, pure: a pull request closed by its merge becomes one retro request carrying
+ * the merge SHA and time; an unmerged one becomes none. Whether it is a feature PR is not decided
+ * here: the retro reads the config at the merge SHA to decide (its step "qualify").
+ * @param {string} event
+ * @param {any} payload
+ * @returns {RetroRequest[]}
+ */
+export function toRetroRequests(event, payload) {
+  const actions = RETRO_ACTIONS[event];
+  if (!actions || !actions.includes(payload?.action)) return [];
+
+  const source = sourceOf(payload);
+  const pull = payload.pull_request;
+  if (!source || pull?.merged !== true) return [];
+
+  const prNumber = pull.number ?? payload.number;
+  if (!Number.isInteger(prNumber) || !pull.merge_commit_sha || !pull.merged_at) return [];
+
+  return [
+    {
+      name: RETRO_EVENT,
+      data: { ...source, prNumber, mergeSha: pull.merge_commit_sha, mergedAt: pull.merged_at },
+    },
+  ];
+}
+
+/** The installation and repository every event carries, or `null` when the delivery lacks one. */
+function sourceOf(payload) {
+  const installationId = payload.installation?.id;
+  const repository = payload.repository;
+  if (!installationId || !repository?.full_name) return null;
+  return {
+    installationId,
+    owner: repository.owner?.login ?? repository.full_name.split('/')[0],
+    repo: repository.name,
+    repository: repository.full_name,
+  };
 }
 
 async function verified(secret, body, signature) {

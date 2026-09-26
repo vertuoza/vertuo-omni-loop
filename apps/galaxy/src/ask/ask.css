@@ -1,0 +1,320 @@
+/* The ask pages: a reading surface, not the arcade. One centred column about 680 px wide, a face
+   drawn for legibility at 17 px on 1.6, and the galaxy's colours used only as signals. Every colour
+   is a token from src/ask/theme-tokens.ts (the layout writes them as --ask-* properties, per theme);
+   nothing here names a colour. The pixel face appears in the header wordmark only.
+   The arcade's stylesheet is global, so everything here is scoped to the ask pages. */
+
+html:has(.ask),
+.ask {
+  --ask-body: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --ask-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --ask-px: 'Press Start 2P', ui-monospace, monospace;
+}
+
+/* Over the arcade's body: its ground, its face, its smoothing. */
+html:has(.ask[data-ask-theme]) body {
+  background: var(--ask-ground);
+  color: var(--ask-ink);
+  font-family: var(--ask-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.ask {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--ask-ground);
+  color: var(--ask-ink);
+  font-family: var(--ask-body);
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.ask *,
+.ask *::before,
+.ask *::after { box-sizing: border-box; }
+.ask a { color: var(--ask-cyan); text-underline-offset: 3px; }
+.ask code { font-family: var(--ask-mono); font-size: 0.9em; }
+.ask :focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.ask button:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.ask-sr {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+
+/* ── Header: the wordmark and the theme switch ────────────────────────────── */
+
+.ask-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
+  border-bottom: 1px solid var(--ask-line);
+}
+.ask-brand { display: inline-flex; align-items: baseline; gap: 10px; }
+.ask-mark {
+  font-family: var(--ask-px);
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--ask-plasma);
+  -webkit-font-smoothing: none;
+}
+.ask-brand-sub { font-size: 14px; color: var(--ask-muted); }
+
+.ask-switch {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--ask-line);
+  border-radius: 999px;
+  background: var(--ask-surface);
+}
+.ask-switch button {
+  border: 0;
+  background: none;
+  color: var(--ask-muted);
+  font: 700 13px/1 var(--ask-body);
+  padding: 7px 11px;
+  border-radius: 999px;
+}
+/* The pressed choice is drawn from the ask root's attribute, which the inline script sets before
+   the first paint, so the switch never flashes the wrong one before React takes over. */
+.ask[data-ask-choice='system'] .ask-switch [data-choice='system'],
+.ask[data-ask-choice='light'] .ask-switch [data-choice='light'],
+.ask[data-ask-choice='dark'] .ask-switch [data-choice='dark'] {
+  background: var(--ask-plasma);
+  color: var(--ask-on-plasma);
+}
+
+/* ── The column ───────────────────────────────────────────────────────────── */
+
+.ask-main {
+  flex: 1;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 28px;
+  padding: 28px 16px 72px;
+}
+.ask-col { width: 100%; max-width: 680px; display: grid; gap: 28px; }
+.ask-title { margin: 0; font-size: 14px; color: var(--ask-muted); overflow-wrap: anywhere; }
+
+/* ── The open round ───────────────────────────────────────────────────────── */
+
+.ask-round { display: grid; gap: 32px; }
+.ask-q { display: grid; gap: 14px; }
+.ask-q + .ask-q { padding-top: 28px; border-top: 1px solid var(--ask-line); }
+.ask-q-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ask-chip {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ask-muted);
+  background: var(--ask-sunk);
+  padding: 6px 9px;
+  border-radius: 4px;
+}
+.ask-pick-hint { font-size: 14px; color: var(--ask-muted); }
+.ask-question { margin: 0; font-size: 22px; line-height: 1.3; font-weight: 700; text-wrap: balance; overflow-wrap: anywhere; }
+
+.ask-q-body { display: grid; gap: 14px; align-items: start; }
+@media (min-width: 720px) {
+  .ask-q-body.has-preview { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+  .ask-q-body.has-preview .ask-preview { position: sticky; top: 16px; }
+  /* A question with a preview widens past the column, centred on it; the others keep its measure. */
+  .ask-q.has-preview {
+    --ask-wide: min(1120px, calc(100vw - 48px));
+    width: var(--ask-wide);
+    margin-inline: calc((100% - var(--ask-wide)) / 2);
+  }
+}
+
+.ask-opts { display: grid; gap: 10px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.ask-opt {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  background: var(--ask-surface);
+  color: var(--ask-ink);
+  border: 1.5px solid var(--ask-line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.ask-opt input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+.ask-opt:hover { border-color: var(--ask-muted); }
+.ask-opt:has(input:checked) { border-color: var(--ask-plasma); background: var(--ask-plasma-soft); }
+.ask-opt:has(input:focus-visible) { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.ask-key {
+  display: grid;
+  place-items: center;
+  height: 28px;
+  font: 600 13px/1 var(--ask-mono);
+  color: var(--ask-muted);
+  background: var(--ask-sunk);
+  border: 1.5px solid var(--ask-muted);
+  border-radius: 6px;
+}
+.ask-opts[data-multi='true'] .ask-key { border-radius: 4px; }
+.ask-opts[data-multi='false'] .ask-key { border-radius: 999px; }
+.ask-opt:has(input:checked) .ask-key { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+.ask-opt-label { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 700; overflow-wrap: anywhere; }
+.ask-opt-desc { display: block; margin-top: 2px; font-size: 15px; color: var(--ask-muted); overflow-wrap: anywhere; }
+.ask-rec {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--ask-on-yellow);
+  background: var(--ask-yellow);
+  padding: 4px 7px;
+  border-radius: 4px;
+}
+
+.ask-other { border-style: dashed; cursor: default; }
+.ask-other-head { display: contents; cursor: pointer; }
+.ask-other-head .ask-key,
+.ask-other-head .ask-opt-label { cursor: pointer; }
+.ask-other:has(input:checked) .ask-opt-label { color: var(--ask-plasma); }
+.ask-other-text {
+  grid-column: 2;
+  display: block;
+  width: 100%;
+  margin-top: -4px;
+  min-height: 2.8em;
+  resize: vertical;
+  field-sizing: content;
+  font: 16px/1.5 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.ask-other-text::placeholder { color: var(--ask-muted); opacity: 1; }
+
+.ask-preview {
+  margin: 0;
+  padding: 14px 16px;
+  max-height: 70vh;
+  overflow: auto;
+  font: 13.5px/1.55 var(--ask-mono);
+  white-space: pre;
+  tab-size: 2;
+  color: var(--ask-ink);
+  background: var(--ask-sunk);
+  border: 1px solid var(--ask-line);
+  border-radius: 10px;
+}
+.ask-preview-for { display: block; margin-bottom: 8px; font: 700 12px/1.3 var(--ask-body); color: var(--ask-muted); white-space: normal; }
+
+.ask-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  flex-wrap: wrap;
+}
+.ask-hint { font-size: 14px; color: var(--ask-muted); }
+.ask kbd {
+  font: 600 12px/1 var(--ask-mono);
+  color: var(--ask-ink);
+  border: 1px solid var(--ask-line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+.ask-button {
+  font: 700 16px/1 var(--ask-body);
+  color: var(--ask-on-plasma);
+  background: var(--ask-plasma);
+  border: 0;
+  border-radius: 8px;
+  padding: 13px 20px;
+}
+.ask-button:disabled { color: var(--ask-muted); background: var(--ask-sunk); cursor: not-allowed; }
+.ask-button.quiet { color: var(--ask-ink); background: var(--ask-surface); border: 1.5px solid var(--ask-line); }
+
+/* ── Cards: working, moved, closed, sign-in, not found ────────────────────── */
+
+.ask-card {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  padding: 24px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line);
+  border-radius: 12px;
+}
+.ask-card h1,
+.ask-card h2 { margin: 0; font-size: 22px; line-height: 1.3; }
+.ask-card p { margin: 0; }
+.ask-card .ask-muted { color: var(--ask-muted); }
+.ask-card-list { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.ask-working::after {
+  content: '';
+  display: inline-block;
+  width: 1.2em;
+  text-align: left;
+  animation: ask-dots 1.4s steps(4, end) infinite;
+}
+@keyframes ask-dots {
+  0% { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+}
+.ask-error { color: var(--ask-red); font-weight: 700; }
+.ask-problem { margin: 0; font-size: 15px; color: var(--ask-red); }
+
+/* ── History ──────────────────────────────────────────────────────────────── */
+
+.ask-history { display: grid; gap: 10px; padding-top: 16px; border-top: 1px solid var(--ask-line); }
+.ask-history h2 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ask-muted); }
+.ask-history ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ask-past { border-radius: 8px; }
+.ask-past summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 15px;
+  color: var(--ask-muted);
+  cursor: pointer;
+  list-style: none;
+}
+.ask-past summary::-webkit-details-marker { display: none; }
+.ask-past summary:hover { background: var(--ask-surface); }
+.ask-past-sum { min-width: 0; overflow-wrap: anywhere; }
+.ask-past-sum b { color: var(--ask-ink); font-weight: 700; }
+.ask-ok { color: var(--ask-green); font-weight: 700; }
+.ask-via {
+  flex: none;
+  font: 600 12px/1 var(--ask-mono);
+  color: var(--ask-muted);
+  border: 1px solid var(--ask-line);
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+.ask-past dl { margin: 4px 8px 10px; display: grid; gap: 8px; font-size: 15px; }
+.ask-past dt { color: var(--ask-muted); }
+.ask-past dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+
+/* A touch screen has no keys to press. */
+@media (hover: none) and (pointer: coarse) {
+  .ask-keys-hint { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-working::after { animation: none; content: '…'; }
+}

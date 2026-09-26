@@ -1,0 +1,38 @@
+{
+  "description": "Ask mode: while it is on in a checkout, AskUserQuestion is answered on a web page. Silent otherwise.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs\" ask hook pre || true",
+            "timeout": 600
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs\" ask hook post || true"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs\" ask hook prompt || true"
+          }
+        ]
+      }
+    ]
+  }
+}

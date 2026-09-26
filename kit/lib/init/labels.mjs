@@ -15,6 +15,7 @@ export const LABEL_STYLES = {
   inProgress: { color: 'fbca04', description: 'Omni Loop: an agent is working on this pull request' },
   needsFix: { color: 'd93f0b', description: 'Omni Loop: this pull request needs a fix before it can move' },
   outboxGo: { color: '1d76db', description: 'Omni Loop: a person lets the outbox gate pass' },
+  retro: { color: 'd4c5f9', description: 'Omni Loop: the retro of a merged PRD — its retro pull request, or one finding to act on' },
 };
 
 /** `[{ name, color, description }]` for every loop label `labels` names, first name wins. */

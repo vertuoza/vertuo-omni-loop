@@ -5,7 +5,9 @@ import { parse } from 'yaml';
 import { HANDLED } from '../src/webhook/webhook.mjs';
 
 // The GitHub App manifest the org admin registers the app from (PRD 28, "The app's manifest").
-// Least privilege (decision 9): exactly these permissions and events, nothing more.
+// Least privilege (decision 9): exactly these permissions and events, nothing more. PRD 72 widens
+// the permissions once, for the retro (its decision 11): `contents: write`, `issues: write` and
+// `actions: read`; the events stay the same.
 const manifest = parse(readFileSync(fileURLToPath(new URL('../app.yml', import.meta.url)), 'utf8'));
 
 describe('app.yml — the GitHub App manifest', () => {
@@ -14,12 +16,14 @@ describe('app.yml — the GitHub App manifest', () => {
     expect(manifest.public).toBe(false);
   });
 
-  it('asks for exactly the spec’s permissions', () => {
+  it('asks for exactly the spec’s permissions: the outbox check’s, widened once for the retro', () => {
     expect(manifest.default_permissions).toEqual({
       checks: 'write',
-      contents: 'read',
+      contents: 'write',
       pull_requests: 'write',
       metadata: 'read',
+      issues: 'write',
+      actions: 'read',
     });
   });
 
@@ -31,9 +35,9 @@ describe('app.yml — the GitHub App manifest', () => {
     expect([...manifest.default_events].sort()).toEqual(Object.keys(HANDLED).sort());
   });
 
-  it('the webhook handles exactly the spec’s actions', () => {
+  it('the webhook handles exactly the spec’s actions, `closed` included for the retro', () => {
     expect(HANDLED).toEqual({
-      pull_request: ['opened', 'synchronize', 'reopened', 'ready_for_review', 'labeled', 'unlabeled', 'edited'],
+      pull_request: ['opened', 'synchronize', 'reopened', 'ready_for_review', 'labeled', 'unlabeled', 'edited', 'closed'],
       check_run: ['rerequested'],
     });
   });

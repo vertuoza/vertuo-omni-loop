@@ -1,9 +1,10 @@
 // `omni init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]` — installs the
 // loop on the repository it runs in: writes `.omni-loop/config.yml`, copies the running bundle to
 // `.omni-loop/bin/omni.mjs`, lays down the blank knowledge forms as `omni kb init` does, creates the
-// loop labels the repository lacks, then prints the closing steps a person still has to take. The one
-// command that runs before a config exists, so `main()` hands it no context. It writes nothing
-// outside `.omni-loop/`.
+// loop labels the repository lacks, then prints the closing steps a person still has to take, with a
+// heads-up for an older copy of the loop or a formatter that would reject the bin. The one command
+// that runs before a config exists, so `main()` hands it no context. It writes nothing outside
+// `.omni-loop/`.
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { dirname, join, posix } from 'node:path';
@@ -14,6 +15,7 @@ import { installCommand, kitHome, runningBundle } from '../../lib/init/bundle.mj
 import { renderConfig } from '../../lib/init/config-text.mjs';
 import { COMMAND_KEYS, detectCommands, detectLawsSource } from '../../lib/init/detect.mjs';
 import { reconcileLabels } from '../../lib/init/labels.mjs';
+import { formatterToExclude, legacyLoopWorkflows } from '../../lib/init/notices.mjs';
 import { closingSteps } from '../../lib/init/steps.mjs';
 import { findRoot, readRepo } from '../../lib/init/repo.mjs';
 import { writeForms } from '../../lib/playbook/write-forms.mjs';
@@ -98,7 +100,7 @@ export const init = {
     }
 
     // Then the forms, by the same writer as `omni kb init`: never over a file that exists, and never
-    // outside `.omni-loop/` — a kept config may keep the playbook elsewhere, and /omni:terraform
+    // outside `.omni-loop/` — a kept config may keep the playbook elsewhere, and /omni:invade
     // (which runs `omni kb init`) writes them there.
     const ctx = createContext(root, config);
     const outside = !insideLoop(ctx.layout.frontDoor);
@@ -118,6 +120,7 @@ export const init = {
       forms: { dir: ctx.layout.frontDoor, wrote: forms.filter((file) => file.wrote).map((file) => file.path), outside },
       labels,
       unfilled: COMMAND_KEYS.filter((key) => config.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] })),
+      notices: { legacyWorkflows: legacyLoopWorkflows(root), formatter: formatterToExclude(root, LOOP_DIR) },
     }));
     return 0;
   },

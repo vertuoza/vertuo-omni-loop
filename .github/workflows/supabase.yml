@@ -28,6 +28,10 @@ jobs:
         # address only. The service role: appends, never rewrites. The hook: refuses a domain no
         # workspace joins. The migrations grant all of this themselves (config.toml › auto_expose_new_tables = false).
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/access.sql
+      - name: Who may read and write the ask sessions
+        # Two accounts, each with its own JWT: neither reads, changes or removes the other's ask
+        # sessions or rounds. A round only moves forward; the expiry is scheduled and ask-only.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/ask.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

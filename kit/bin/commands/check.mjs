@@ -69,8 +69,9 @@ function checkKnowledge({ ctx, stdout, stderr }) {
     return true;
   }
   const files = trackedFiles(ctx).filter((file) => file.startsWith(`${root}/`) && file.endsWith('.md'));
-  const { violations, wishes } = gradeKnowledge({ ctx, files });
+  const { violations, wishes, proposals } = gradeKnowledge({ ctx, files });
   for (const wish of wishes) println(stderr, `warning: ${wish}`);
+  for (const proposal of proposals) println(stderr, `warning: ${proposal}`);
   const knowledge = readKnowledge({ ctx });
   const count = (kind) => knowledge.entries.filter((entry) => entry.kind === kind).length;
   return report(
@@ -78,7 +79,7 @@ function checkKnowledge({ ctx, stdout, stderr }) {
     title,
     violations,
     `check knowledge — ${count('principle')} principle(s), ${count('rule')} rule(s), ${count('invariant')} invariant(s) ` +
-      `across ${knowledge.domains.length} domain(s) and ${knowledge.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es).`,
+      `across ${knowledge.domains.length} domain(s) and ${knowledge.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed.`,
   );
 }
 
