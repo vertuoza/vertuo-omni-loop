@@ -51,7 +51,7 @@ as a library later without a rewrite. It stays `private` in this PRD.
 |---|---|
 | `tokens` | The pixel palette (`PALETTE`, one character to one colour, unchanged), the named colours (`INK`, plus the poster accents below), and Ask's semantic light and dark tokens. One generator writes `tokens.css`, the `:root` custom properties, from the JS values. |
 | `fonts` | The woff2 files of the four font roles, `fonts.css` with their `@font-face` rules, and the type scale. |
-| `logo` | The Omni Loop logo as SVG strings in three forms: `full` (the wordmark and its swoosh), `stacked` (OMNI over LOOP) and `mark` (the loop O, also the favicon), each with a one-colour variant for dark and light grounds. |
+| `logo` | The Omni Loop logo as SVG strings in three forms: `full` (the wordmark and its swoosh), `stacked` (OMNI over LOOP) and `mark` (the emblem O alone, also the favicon), each with a one-colour variant for dark and light grounds. Every O is the emblem O (below). |
 | `sprites` | Everything `@omni/sprites` holds today (the forge, the drawing code, the heroes, the fleet mascots, Entropy, the icons), plus three OmniMan poses and a poster scale. |
 | `brand` | `OMNI_LOOP`: the product's name, its tagline, its logo and its theme colour. |
 
@@ -59,6 +59,12 @@ as a library later without a rewrite. It stays `private` in this PRD.
 (`#ff3ea5`, the logo's inner outline), `orange` (`PALETTE.o`, `#ff9b30`, the bottom of the logo's
 fill), `adPurple` (`#5b1a86`, the ad's text column) and `starfield` (`#05040f`, the space behind
 the hero art). The logo's fill runs `yellow` to `orange`, its outlines are `magenta` inside `navy`.
+
+**The emblem O.** Every O of the logo, and the `mark` alone, is one shape: a fat, rounded O with a
+narrow vertical slot through its middle and a short stem on top, the shape of OmniMan's chest
+emblem. Only the shape is borrowed: it is drawn in Omni Loop's own colours (the logo's fill and
+outlines), never the comic's red and white, and in proportions of its own. The favicon draws it with
+the navy outline only, so the slot stays open at 16 px.
 
 **The four font roles.** All four are under the SIL Open Font License, so their files ship in the
 package.
@@ -113,7 +119,8 @@ the heroes in every fleet's colours; the three OmniMan poses at poster scale; an
 | D1 | Two PRDs: this design system first, the HOME page after it and blocked by it. | HOME is the library's first real user; building the library alone keeps this review small and gives HOME finished parts. (Asked; the person chose it.) |
 | D2 | `@omni/sprites` is renamed and grown into `@omni/design`; one package, not two. | The palette already lives with the sprites and feeds both pixels and CSS; a second package would split one source of truth. (Asked.) |
 | D3 | The package has no React or Next dependency: ES modules, CSS, SVG strings and font files. | It must be able to leave the monorepo as a library; the galaxy wraps what it needs in its own components. |
-| D4 | The logo is a retro box-art wordmark: italic OMNI LOOP, yellow to orange fill, magenta and navy outlines, and a swoosh that closes into a loop; the loop O alone is the mark and the favicon. | It matches the print-ad HOME and scales from a poster to 16 px. (Asked, over a pixel wordmark and a mascot badge.) |
+| D4 | The logo is a retro box-art wordmark: italic OMNI LOOP, yellow to orange fill, magenta and navy outlines, and a swoosh that closes into a loop. Every O is the emblem O, the shape of OmniMan's chest emblem, and the emblem O alone is the mark and the favicon. | It matches the print-ad HOME, ties the brand to OmniMan, and scales from a poster to 16 px. (Asked, over a pixel wordmark and a mascot badge; the emblem O asked after the spec review.) |
+| D11 | The emblem O borrows the shape only: Omni Loop's colours and proportions, never the comic's red and white. | The logo is Omni Loop's own; the person asked for the O shape, not Omni-Man's colours. It also keeps the public logo from reading as a copy of *Invincible*'s emblem. |
 | D5 | Four font roles, display Anton, self-hosted from the package. | The ad needs a heavy condensed face the pixel fonts cannot give; self-hosting removes the third-party request and makes the library portable. (Asked.) |
 | D6 | Three OmniMan poses and a poster scale are part of the system. | HOME and any later page pick poses from the library instead of drawing their own. (Asked.) |
 | D7 | Galaxy's game and Ask move onto the package in this PRD; `apps/omni-app` does not. | One source of truth from the day the package lands; the GitHub App's avatar belongs to its registration, which is out of reach here. (Asked.) |
@@ -169,8 +176,8 @@ Commands and conventions from the testing playbook: `pnpm test` runs vitest over
     light and in dark (moved from `ask/theme-tokens.test.ts`).
   - Every `INK` colour that names a `PALETTE` character has that character's value.
 - **`packages/design/src/logo.test.mjs`:** each form parses as SVG, has a `viewBox` and a `<title>`,
-  uses only colours from `INK` or `PALETTE`, and the `mark` form keeps its loop's stroke at least
-  one pixel wide when drawn at 16×16.
+  uses only colours from `INK` or `PALETTE`, and the `mark` form's slot stays at least one pixel
+  open when drawn at 16×16.
 - **`packages/design/src/fonts.test.mjs`:** every face `fonts.css` declares points to a woff2 file
   that exists in the package, and every role in the type scale names a declared face.
 - **`packages/design/src/sprites.test.mjs`:** the existing sprite and hero tests, plus: each
@@ -199,6 +206,9 @@ Commands and conventions from the testing playbook: `pnpm test` runs vitest over
   unproven here. The first slice proves it with one face before any layout moves.
 - **The rename touches about 25 imports.** It is mechanical and lands as one slice, so it merges or
   reverts whole.
+- **The emblem O's resemblance.** The O is inspired by a comic hero's emblem. Keeping the shape in
+  our own colours and proportions (D11) is the mitigation; the logo slice's pull request shows the
+  final O beside nothing but our own palette, and a person judges it before merge.
 - **The artifact's size** grows by the two pixel fonts only (tens of kilobytes).
 - **#100's theme module** may land with a shape this spec guesses at. The slice that feeds its
   defaults reads the module as merged, and keeps its names.
@@ -214,7 +224,7 @@ Commands and conventions from the testing playbook: `pnpm test` runs vitest over
 5. No stylesheet in `apps/galaxy` declares its own `:root` colours, and no page loads Google Fonts:
    the four font roles are served from the arcade's own origin.
 6. The logo exists as `full`, `stacked` and `mark`, each with a one-colour variant, uses only the
-   system's colours, and the `mark` is the favicon.
+   system's colours; every O is the emblem O, and the `mark` (the emblem O alone) is the favicon.
 7. OmniMan has `omni-point`, `omni-cheer` and `omni-run` on the 32×48 body, recolourable like any
    hero, and any sprite renders at poster scale up to 16× on the pixel grid.
 8. Signed out, in demo mode, closed and in the single-file artifact, the boot reads "OMNI LOOP
