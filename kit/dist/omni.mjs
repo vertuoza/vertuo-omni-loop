@@ -12909,6 +12909,8 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     }
   }
   async function refresh(current) {
+    const stored = tokens.read(host);
+    if (stored?.access_token && stored.access_token !== current.access_token) return stored;
     if (!current.refresh_token) return null;
     let response;
     try {
@@ -12935,7 +12937,24 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     if (!response.ok) throw new AskCallError(`${method} ${path}: ${response.status}`, { status: response.status });
     return bodyOf(response);
   }
+  async function renew() {
+    const current = tokens.read(host);
+    if (!current?.refresh_token) return "refused";
+    let response;
+    try {
+      response = await send("POST", "/api/ask/token", { body: { refresh_token: current.refresh_token }, timeoutMs: callMs });
+    } catch {
+      return "unreachable";
+    }
+    if (response.status === 401 || response.status === 403) return "refused";
+    if (!response.ok) return "unreachable";
+    const fresh = await bodyOf(response);
+    if (typeof fresh.access_token !== "string" || !fresh.access_token) return "unreachable";
+    tokens.write(host, { ...current, ...fresh });
+    return "renewed";
+  }
   return {
+    renew,
     /** @returns {Promise<{ id: string, url: string }>} */
     openSession: (title) => call("POST", "/api/ask/sessions", { body: { title } }),
     closeSession: (sessionId) => call("POST", `/api/ask/sessions/${segment(sessionId)}/close`),
@@ -13527,18 +13546,38 @@ var signout = {
 };
 var whoami = {
   withoutContext: true,
-  async run(args, { cwd, stdout, stderr, exec, home }) {
+  async run(args, { cwd, stdout, stderr, exec, home, fetch = globalThis.fetch }) {
     noArguments("whoami", args);
     const askUrl2 = askUrlOf(cwd, exec);
     if (!askUrl2) {
       println(stderr, ASK_URL_UNSET);
       return 1;
     }
-    const entry = credentials({ home }).read(credentialsHost(askUrl2));
-    println(stdout, entry ? entry.email ?? `signed in to ${credentialsHost(askUrl2)}` : "signed out");
+    const host = credentialsHost(askUrl2);
+    const store = credentials({ home });
+    const entry = store.read(host);
+    if (!entry) {
+      println(stdout, "signed out");
+      return 0;
+    }
+    const who = entry.email ?? `signed in to ${host}`;
+    if (!expired(entry)) {
+      println(stdout, who);
+      return 0;
+    }
+    const outcome = await askClient({ baseUrl: askUrl2, host, tokens: store, fetch }).renew();
+    if (outcome === "refused") {
+      println(stderr, `the sign-in of ${entry.email ?? "this computer"} to ${host} is no longer valid: run \`omni signin\` again`);
+      return 1;
+    }
+    println(stdout, outcome === "renewed" ? who : `${who} (not checked: ${host} is unreachable)`);
     return 0;
   }
 };
+function expired({ expires_at: at }, now = Date.now()) {
+  if (typeof at !== "number") return false;
+  return (at < 1e12 ? at * 1e3 : at) <= now;
+}
 
 // kit/bin/commands/ask.mjs
 var KINDS = ["pre", "post", "prompt", "end"];

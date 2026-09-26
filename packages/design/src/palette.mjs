@@ -36,7 +36,8 @@ export const PALETTE = Object.freeze({
   Z: '#1d8f55', // terraform green, shade
 });
 
-// Named swatches the UI uses outside sprites (CSS mirrors these as custom properties).
+// Named swatches the UI uses outside sprites. tokens.mjs writes them, with the arcade's own
+// colours, into tokens.css as custom properties (`navyDark` becomes `--navy-dark`).
 export const INK = Object.freeze({
   void: '#07061c',
   deep: '#0e0d33',
@@ -53,4 +54,12 @@ export const INK = Object.freeze({
   green: PALETTE.z,
   greenDark: PALETTE.Z,
   slate: PALETTE.A,
+  // The logo's 4-tone ramp, lit from the top left: highlight, yellow, orange, ember.
+  highlight: '#fff3a8',
+  orange: PALETTE.o,
+  ember: '#d9531a',
+  // The print ad's voice: its accent, its text column, and the space behind the hero art.
+  magenta: '#ff3ea5',
+  adPurple: '#5b1a86',
+  starfield: '#05040f',
 });

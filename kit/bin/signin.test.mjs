@@ -180,12 +180,44 @@ describe('omni signin', () => {
 });
 
 describe('omni whoami', () => {
-  it('prints the email of the sign-in kept for the host of ask.url', async () => {
+  it('prints the email of the sign-in kept for the host of ask.url, calling nothing while it is fresh', async () => {
     const { root } = repoWith('https://ask.example.com/');
-    const home = freshHome({ 'ask.example.com': { access_token: 'a', refresh_token: 'r', expires_at: 1, email: 'ada@example.com' } });
+    const later = Math.floor(Date.now() / 1000) + 3600;
+    const home = freshHome({ 'ask.example.com': { access_token: 'a', refresh_token: 'r', expires_at: later, email: 'ada@example.com' } });
+    const std = io();
+    const fetch = () => { throw new Error('no call expected'); };
+    expect(await main(['whoami'], { cwd: root, ...std, home, fetch })).toBe(0);
+    expect(std.text()).toBe('ada@example.com\n');
+  });
+
+  it('renews an expired sign-in, keeps the new tokens and prints the email', async () => {
+    server = await startFakeAskServer({ refreshToken: 'refresh-1', email: 'ada@example.com' });
+    const { root } = repoWith(server.url);
+    const home = freshHome({ [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1', expires_at: 1, email: 'ada@example.com' } });
     const std = io();
     expect(await main(['whoami'], { cwd: root, ...std, home })).toBe(0);
     expect(std.text()).toBe('ada@example.com\n');
+    expect(credentialsOf(home)[server.host]).toMatchObject({ access_token: 'access-2', refresh_token: 'refresh-2' });
+  });
+
+  it('says the sign-in is no longer valid when the renewal is refused', async () => {
+    server = await startFakeAskServer({ refreshToken: 'refresh-1' });
+    server.expireRefresh();
+    const { root } = repoWith(server.url);
+    const home = freshHome({ [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1', expires_at: 1, email: 'ada@example.com' } });
+    const std = io();
+    expect(await main(['whoami'], { cwd: root, ...std, home })).toBe(1);
+    expect(std.text()).toBe('');
+    expect(std.errors()).toBe(`the sign-in of ada@example.com to ${server.host} is no longer valid: run \`omni signin\` again\n`);
+  });
+
+  it('still prints the email when an expired sign-in cannot be checked, and says why', async () => {
+    const { root } = repoWith('https://ask.example.com');
+    const home = freshHome({ 'ask.example.com': { access_token: 'a', refresh_token: 'r', expires_at: 1, email: 'ada@example.com' } });
+    const std = io();
+    const fetch = () => Promise.reject(new TypeError('fetch failed'));
+    expect(await main(['whoami'], { cwd: root, ...std, home, fetch })).toBe(0);
+    expect(std.text()).toBe('ada@example.com (not checked: ask.example.com is unreachable)\n');
   });
 
   it('prints "signed out" with no sign-in for that host', async () => {

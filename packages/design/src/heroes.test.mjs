@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
-import { HERO_PRESETS, rampFrom, heroLook, validHero, randomHero, fleetSprite } from './heroes.mjs';
+import { HERO_PRESETS, rampFrom, heroLook, heroPose, OMNI_POSES, validHero, randomHero, fleetSprite } from './heroes.mjs';
 import { spritePixels } from './draw.mjs';
 import { RAMPS } from './forge.mjs';
 
@@ -82,6 +82,37 @@ describe('heroes', () => {
     const girl = spritePixels('hero-girl').pixels.join();
     const boy = spritePixels('hero-boy').pixels.join();
     expect(girl).not.toBe(boy);
+  });
+});
+
+describe('heroPose', () => {
+  const base = { v: 1, body: 'girl', skin: 3, hair: 6, suit: 2, cape: 8 };
+
+  it.each(['omni-point', 'omni-cheer', 'omni-run'])('recolours %s like the idle body: skin, hair, suit, cape and buckle', (pose) => {
+    expect(OMNI_POSES).toContain(pose);
+    const { sprite, tint } = heroPose(base, pose, '#ffd84a');
+    expect(sprite).toBe(`${pose}-cape`);
+    expect(tint).toEqual(heroLook(base, '#ffd84a').tint);
+    for (const frame of [0, 1]) {
+      const pixels = new Set(spritePixels(sprite, { frame, tint }).pixels);
+      const shows = (hex) => rampFrom(hex).some((c) => pixels.has(c));
+      expect(shows(HERO_PRESETS.skin[3]), 'skin').toBe(true);
+      expect(shows('#4a7dff'), 'hair').toBe(true);
+      expect(shows('#ff5a6e'), 'suit').toBe(true);
+      expect(shows('#2fc6a4'), 'cape').toBe(true);
+      expect(shows('#ffd84a'), 'buckle').toBe(true);
+    }
+  });
+
+  it('drops the cape for a hero without one, and dresses OMNI in the commander\'s own colours', () => {
+    expect(heroPose({ ...base, cape: 0 }, 'omni-run').sprite).toBe('omni-run');
+    const omni = heroPose({ v: 1, body: 'boy', skin: 1, hair: 0, suit: 1, cape: 0 }, 'omni-point', '#b07cff');
+    expect(omni.tint.W).toBeUndefined();
+    expect(new Set(spritePixels(omni.sprite, { tint: omni.tint }).pixels).has(RAMPS.W[1])).toBe(true);
+  });
+
+  it('refuses a pose that is not drawn', () => {
+    expect(() => heroPose(base, 'omni-dance')).toThrow(/omni-dance/);
   });
 });
 

@@ -5,7 +5,7 @@
 // score line, the ready screen's score table, the pause and the game over are the text layer's
 // (invaders.tsx).
 import type { WoundKind } from '@omni/galaxy';
-import { woundTint, type Tint } from '@omni/sprites';
+import { woundTint, type Tint } from '@omni/design';
 import { alienAt, FIELDS } from '../games/invaders';
 import { drawHero, frameOf, space, sprite, type FrameState, type Pages, type SceneName } from './common.ts';
 

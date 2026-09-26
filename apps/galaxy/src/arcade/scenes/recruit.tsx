@@ -4,7 +4,7 @@
 // classes place each part per grid (recruit.css, under `.grid-tall`); on the tall grid the parts that
 // sit side by side on the wide one stack, and nothing is left out.
 import { Fragment, type ReactNode } from 'react';
-import type { Hero } from '@omni/sprites';
+import type { Hero } from '@omni/design';
 import { BUILDER_ROWS, rowValue, type BuilderRow } from '../builder';
 import { fleet } from '../fleets';
 import { Hint } from '../hint';

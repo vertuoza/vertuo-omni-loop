@@ -68,6 +68,62 @@ export function drawSprite(ctx, name, x, y, { scale = 1, tint, flat, flip, alpha
   ctx.globalAlpha = prev;
 }
 
+// ── Poster scale ─────────────────────────────────────────────────────────────
+
+export const POSTER_MAX_SCALE = 16;
+const posters = new Map();
+
+function posterScale(scale) {
+  if (!Number.isInteger(scale) || scale < 1 || scale > POSTER_MAX_SCALE) {
+    throw new Error(`poster scale must be a whole number from 1 to ${POSTER_MAX_SCALE}, not ${scale}`);
+  }
+  return scale;
+}
+
+/**
+ * A sprite frame at poster scale (pure): every forged pixel becomes a `scale`×`scale` block, so the
+ * forge's outlines stay on the pixel grid however large the art is drawn. `scale` is 1 to 16.
+ * @returns {{ w: number, h: number, pixels: (string | null)[] }}
+ */
+export function posterPixels(name, scale, { frame = 0, tint = null, flat = null } = {}) {
+  const k = posterScale(scale);
+  const src = spritePixels(name, { frame, tint, flat });
+  const w = src.w * k, h = src.h * k;
+  const pixels = Array(w * h);
+  for (let y = 0; y < h; y++) {
+    const row = Math.floor(y / k) * src.w;
+    for (let x = 0; x < w; x++) pixels[y * w + x] = src.pixels[row + Math.floor(x / k)];
+  }
+  return { w, h, pixels };
+}
+
+/**
+ * A sprite frame at poster scale as an image, `scale` times its size, drawn block by block (never
+ * smoothed, whatever the context's image smoothing). Rendered once per (name, scale, frame, tint, flat, flip).
+ */
+export function posterImage(name, { scale, tint = null, flat = null, flip = false, frame = 0 } = {}) {
+  const k = posterScale(scale);
+  const key = `${name}|${k}|${frame % 2}|${tint ? JSON.stringify(tint) : ''}|${flat ? JSON.stringify(flat) : ''}|${flip}`;
+  if (posters.has(key)) return posters.get(key);
+  const { w, h, pixels } = spritePixels(name, { frame, tint, flat });
+  const c = makeCanvas(w * k, h * k);
+  const ctx = c.getContext('2d');
+  const img = ctx.createImageData(w * k, h * k);
+  pixels.forEach((hex, i) => {
+    if (!hex) return;
+    const sx = i % w, sy = Math.floor(i / w);
+    const x0 = (flip ? w - 1 - sx : sx) * k, y0 = sy * k;
+    const [r, g, b] = rgb(hex);
+    for (let y = y0; y < y0 + k; y++) for (let x = x0; x < x0 + k; x++) {
+      const o = (y * w * k + x) * 4;
+      img.data[o] = r; img.data[o + 1] = g; img.data[o + 2] = b; img.data[o + 3] = 255;
+    }
+  });
+  ctx.putImageData(img, 0, 0);
+  posters.set(key, c);
+  return c;
+}
+
 export function spriteSize(name) {
   const def = SPRITE_DEFS[name];
   return { w: def.w, h: def.h };

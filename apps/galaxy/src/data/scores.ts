@@ -5,7 +5,7 @@
 // the higher of the stored best and the score). The page reads each game's table with the galaxy;
 // the Supabase account sends a finished game's score. The demo keeps its own in browser storage.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Hero } from '@omni/sprites';
+import type { Hero } from '@omni/design';
 import { GAMES } from '../arcade/games';
 import type { ScoreBoard, ScoreLine, ScoresRead } from '../arcade/types';
 

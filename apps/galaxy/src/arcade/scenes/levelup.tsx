@@ -3,7 +3,7 @@
 // counted from the new level, and, when a level climbed opened a game, NEW GAME UNLOCKED with the
 // game's marquee: A plays it at once, B goes on to the menu. Without a game, A (or B) goes on to the
 // menu. Laid out for the grid the screen is drawn on (levelup.css), over the hero levelup.ts draws.
-import { woundTint } from '@omni/sprites';
+import { woundTint } from '@omni/design';
 import { useScreen } from '../Screen';
 import { Sprite } from '../Sprite';
 import { Hint } from '../hint';

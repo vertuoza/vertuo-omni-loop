@@ -13,8 +13,18 @@ begin
   select * into w from public.workspaces where slug = 'vertuoza';
   if not found then raise exception 'FAIL: there is no vertuoza workspace'; end if;
   if (w.name, w.github_org, w.plan_repo, w.join_domain, w.theme)
-     is distinct from ('Vertuoza'::text, 'vertuoza'::text, 'vertuo-omni-plan'::text, 'vertuoza.com'::text, '{}'::jsonb) then
+     is distinct from ('Vertuoza'::text, 'vertuoza'::text, 'vertuo-omni-loop'::text, 'vertuoza.com'::text, '{}'::jsonb) then
     raise exception 'FAIL: the vertuoza workspace is not as the spec sets it: %', row_to_json(w);
+  end if;
+  -- The real sectors (20260926160000), whatever the demo seed adds beside them.
+  if exists (
+    with real (name, repos) as (values
+      ('omni-core', array['vertuo-omni-loop']::text[]),
+      ('ai-nebula', array['vertuo-ai-domain']::text[]),
+      ('flow-rim',  array['vertuo-workflow-domain']::text[]))
+    select * from real except select name, repos from public.sectors where workspace_id = w.id
+  ) then
+    raise exception 'FAIL: the vertuoza workspace does not hold its real sectors';
   end if;
   if exists (
     with fleets as (select name, label, color, motto, mascot, sort::int, retired_at is not null as retired

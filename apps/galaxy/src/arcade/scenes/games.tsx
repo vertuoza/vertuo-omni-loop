@@ -3,7 +3,7 @@
 // have none), and a cabinet per game, laid out for the grid the screen is drawn on: the three
 // cabinets side by side on the wide grid, one a page on the tall one (games.css).
 import type { WoundKind } from '@omni/galaxy';
-import { woundTint } from '@omni/sprites';
+import { woundTint } from '@omni/design';
 import { useScreen } from '../Screen';
 import { HeroSprite, Sprite } from '../Sprite';
 import { fleet } from '../fleets';

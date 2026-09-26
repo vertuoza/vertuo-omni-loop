@@ -47,7 +47,9 @@ export function supabaseAccount({ url, key, workspace }: { url: string; key: str
       return loadScores(db, workspace, game, user?.id ?? null);
     },
     async signOut() {
-      await db.auth.signOut();
+      // This browser only: the default, global, would also end the sign-in `omni signin` keeps for
+      // ask mode, and every terminal would quietly fall back to asking itself.
+      await db.auth.signOut({ scope: 'local' });
     },
   };
 }

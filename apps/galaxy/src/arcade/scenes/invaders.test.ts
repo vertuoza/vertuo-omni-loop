@@ -2,7 +2,7 @@ import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf, type WoundKind } from '@omni/galaxy';
-import { heroLook, woundTint } from '@omni/sprites';
+import { heroLook, woundTint } from '@omni/design';
 import { setFleets } from '../fleets';
 import { HOUSE_BRAND } from '../brand';
 import { markFor } from '../mark';
@@ -17,8 +17,8 @@ import { layoutMap } from './map.ts';
 
 // Every sprite the scene draws, by name, with its tint and where it lands.
 const drawn = vi.hoisted(() => [] as { name: string; x: number; y: number; tint: unknown }[]);
-vi.mock('@omni/sprites', async (original) => {
-  const real = await original<typeof import('@omni/sprites')>();
+vi.mock('@omni/design', async (original) => {
+  const real = await original<typeof import('@omni/design')>();
   return {
     ...real,
     drawSprite: (_ctx: unknown, name: string, x: number, y: number, o: { tint?: unknown } = {}) => { drawn.push({ name, x, y, tint: o.tint ?? null }); },

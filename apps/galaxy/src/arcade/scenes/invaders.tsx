@@ -4,8 +4,8 @@
 // table, the pause, the game over with its score and where sending it stands. Laid out for the grid
 // the game is drawn on (invaders.css).
 import type { WoundKind } from '@omni/galaxy';
-import type { Hero } from '@omni/sprites';
-import { woundTint } from '@omni/sprites';
+import type { Hero } from '@omni/design';
+import { woundTint } from '@omni/design';
 import { useScreen } from '../Screen';
 import { HeroSprite, Sprite } from '../Sprite';
 import { WOUND_LOOK } from '../fleets';

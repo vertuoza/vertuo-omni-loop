@@ -6,13 +6,15 @@
 //   (`POST <ask.url>/api/ask/token {code}`) and keeps them in `~/.config/omni/credentials.json` at
 //   mode 0600, keyed by the host of `ask.url`. It prints `signed in as <email>`.
 // - `signout` forgets that host's sign-in on this computer.
-// - `whoami` prints the email kept for that host, or `signed out`.
+// - `whoami` prints the email kept for that host, or `signed out`. Past its expiry, it renews the
+//   sign-in first: refused, it says the sign-in is no longer valid and exits 1.
 //
 // Each reads `ask.url` from the repository's config; with none, each exits 1 with one line. They run
 // before a context exists, like `init` and `ask`, so a test can hand them `home` (the folder the
 // credentials live under), `openBrowser`, `fetch` and `waitMs`.
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { askClient } from '../../lib/ask/client.mjs';
 import { askEndpoint, credentials, credentialsHost, exchangeCode, SignInError } from '../../lib/ask/credentials.mjs';
 import { LOOPBACK_WAIT_MS, LoopbackError, startLoopback } from '../../lib/ask/loopback.mjs';
 import { loadContext } from '../../lib/context.mjs';
@@ -95,15 +97,37 @@ export const signout = {
 
 export const whoami = {
   withoutContext: true,
-  async run(args, { cwd, stdout, stderr, exec, home }) {
+  async run(args, { cwd, stdout, stderr, exec, home, fetch = globalThis.fetch }) {
     noArguments('whoami', args);
     const askUrl = askUrlOf(cwd, exec);
     if (!askUrl) {
       println(stderr, ASK_URL_UNSET);
       return 1;
     }
-    const entry = credentials({ home }).read(credentialsHost(askUrl));
-    println(stdout, entry ? (entry.email ?? `signed in to ${credentialsHost(askUrl)}`) : 'signed out');
+    const host = credentialsHost(askUrl);
+    const store = credentials({ home });
+    const entry = store.read(host);
+    if (!entry) {
+      println(stdout, 'signed out');
+      return 0;
+    }
+    const who = entry.email ?? `signed in to ${host}`;
+    if (!expired(entry)) {
+      println(stdout, who);
+      return 0;
+    }
+    const outcome = await askClient({ baseUrl: askUrl, host, tokens: store, fetch }).renew();
+    if (outcome === 'refused') {
+      println(stderr, `the sign-in of ${entry.email ?? 'this computer'} to ${host} is no longer valid: run \`omni signin\` again`);
+      return 1;
+    }
+    println(stdout, outcome === 'renewed' ? who : `${who} (not checked: ${host} is unreachable)`);
     return 0;
   },
 };
+
+/** Past its `expires_at`, in seconds as the sign-in server gives it (or milliseconds, read as such). */
+function expired({ expires_at: at }, now = Date.now()) {
+  if (typeof at !== 'number') return false;
+  return (at < 1e12 ? at * 1000 : at) <= now;
+}

@@ -1,50 +1,39 @@
 // A workspace's theme: the arcade's colours, as named tokens. Every token has a default, today's
-// colour, so the theme `{}` is the arcade as it always looked; a workspace stores only the tokens it
-// overrides (`workspaces.theme`), which `valid_theme()` checks in the database and `parseTheme()`
-// checks here. The resolved theme is written as CSS custom properties on the arcade's root element
+// colour, read from @omni/design (whose tokens.css declares the same values on :root), so the theme
+// `{}` is the arcade as it always looked; a workspace stores only the tokens it overrides
+// (`workspaces.theme`), which `valid_theme()` checks in the database and `parseTheme()` checks here. The resolved theme is written as CSS custom properties on the arcade's root element
 // (`themeVars`), the canvas scenes read the same values (`FrameState.theme`), the mark takes its
 // gradient from `mark-*` (mark.ts) and the sprite forge its stripes from `stripe-*` (`stripesOf`).
 // Adding a token means adding it to `valid_theme()` too, in a migration: theme.test.ts holds the two
 // lists equal. Fonts are not tokens.
 import { z } from 'zod';
-import type { Flat } from '@omni/sprites';
+import { COLOURS, FLAT, type Flat } from '@omni/design';
 
-/** Every token and its default: today's colour. */
+/** The arcade's colours the stylesheets read, named as @omni/design's tokens.css names them. */
+const ARCADE_TOKENS = [
+  // The arcade's own.
+  'void', 'deep', 'cab', 'navy', 'navy-dark', 'white', 'dim', 'plasma', 'plasma-dark',
+  'yellow', 'gold', 'red', 'cyan', 'green',
+  // The Game Boy's body (shell.css). Its shell runs from plasma through body-mid to plasma-dark;
+  // A is red with its shine, B plasma with its.
+  'body-mid', 'body-ink', 'body-ink-soft', 'body-lens-1', 'body-lens-2', 'body-lens-text', 'body-led-off',
+  'body-pad-1', 'body-pad-2', 'body-pad-arrow', 'body-pad-down-1', 'body-pad-down-2',
+  'body-a-shine', 'body-b-shine', 'body-pill-1', 'body-pill-2', 'body-grille',
+] as const;
+
+function fromPackage<T extends string>(names: readonly T[]): Record<T, string> {
+  return Object.fromEntries(names.map((name) => {
+    const colour = COLOURS[name];
+    if (!colour) throw new Error(`theme: @omni/design has no colour "${name}"`);
+    return [name, colour];
+  })) as Record<T, string>;
+}
+
+/** Every token and its default. The arcade's colours and the stripes come from @omni/design; the
+ * mark's gradient is the Vertuoza mark's own (mark.ts), a workspace's colours, not the product's. */
 export const TOKENS = Object.freeze({
-  // The arcade's colours, on arcade.css's :root.
-  void: '#07061c',
-  deep: '#0e0d33',
-  cab: '#120f3a',
-  navy: '#2f3fc4',
-  'navy-dark': '#1a2170',
-  white: '#f2f4ff',
-  dim: '#8a90d6',
-  plasma: '#a45cff',
-  'plasma-dark': '#6a2fd0',
-  yellow: '#ffd84a',
-  gold: '#d99a14',
-  red: '#ff3b5c',
-  cyan: '#6ff0ff',
-  green: '#4ee08a',
-  // The Game Boy's body (shell.css), on arcade.css's :root too. Its shell runs from plasma through
-  // body-mid to plasma-dark; A is red with its shine, B plasma with its.
-  'body-mid': '#8a45ee',
-  'body-ink': '#1a1560',
-  'body-ink-soft': '#2a1d78',
-  'body-lens-1': '#1d1a4a',
-  'body-lens-2': '#14123a',
-  'body-lens-text': '#9aa0e0',
-  'body-led-off': '#3a1030',
-  'body-pad-1': '#26224f',
-  'body-pad-2': '#15122f',
-  'body-pad-arrow': '#5a54a8',
-  'body-pad-down-1': '#151230',
-  'body-pad-down-2': '#0b0a1e',
-  'body-a-shine': '#ff7d94',
-  'body-b-shine': '#caa0ff',
-  'body-pill-1': '#3b2a86',
-  'body-pill-2': '#241a5a',
-  'body-grille': '#4a1fa6',
+  // The arcade's colours, declared on :root by @omni/design/tokens.css.
+  ...fromPackage(ARCADE_TOKENS),
   // The mark's gradient, left to right, and its shade (mark.ts).
   'mark-1': '#ff5f6d',
   'mark-2': '#a45cff',
@@ -53,11 +42,11 @@ export const TOKENS = Object.freeze({
   'mark-shade-2': '#6a2fd0',
   'mark-shade-3': '#2f3fc4',
   // The four stripes on every hero's suit: the sprite forge's flat colours 1 to 4.
-  'stripe-1': '#ff3b5c',
-  'stripe-2': '#ff7aa8',
-  'stripe-3': '#b07cff',
-  'stripe-4': '#5b7bff',
-} as const);
+  'stripe-1': FLAT[1]!,
+  'stripe-2': FLAT[2]!,
+  'stripe-3': FLAT[3]!,
+  'stripe-4': FLAT[4]!,
+});
 
 export type Token = keyof typeof TOKENS;
 /** A theme resolved over the defaults: every token's colour. */
