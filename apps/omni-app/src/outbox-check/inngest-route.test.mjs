@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { functions, GET, POST, PUT } from '../../api/inngest.mjs';
 import { FUNCTION_ID, outboxCheck } from './outbox-check.mjs';
 import { RETRO_FUNCTION_ID, retro } from '../retro/retro.mjs';
+import { HARVEST_FUNCTION_ID, knowledgeHarvest } from '../knowledge-harvest/knowledge-harvest.mjs';
 
 describe('/api/inngest', () => {
   beforeEach(() => {
@@ -11,10 +12,11 @@ describe('/api/inngest', () => {
     vi.unstubAllEnvs();
   });
 
-  it('serves the outbox-check function and the retro function (PRD 72), and nothing else', () => {
-    expect(functions).toEqual([outboxCheck, retro]);
+  it('serves the outbox-check function, the retro function (PRD 72) and the knowledge harvest (PRD 82), and nothing else', () => {
+    expect(functions).toEqual([outboxCheck, retro, knowledgeHarvest]);
     expect(outboxCheck.id()).toBe(FUNCTION_ID);
     expect(retro.id()).toBe(RETRO_FUNCTION_ID);
+    expect(knowledgeHarvest.id()).toBe(HARVEST_FUNCTION_ID);
   });
 
   it('answers GET, POST and PUT — the three verbs Inngest calls', () => {
@@ -26,6 +28,6 @@ describe('/api/inngest', () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     // Inngest registers each failure handler as a function of its own, beside its function.
-    expect(body.function_count).toBe(4);
+    expect(body.function_count).toBe(6);
   });
 });
