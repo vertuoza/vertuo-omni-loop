@@ -182,12 +182,22 @@ describe('the text layer', () => {
 });
 
 describe('the crew\'s best on the score line', () => {
-  it.each([WIDE, TALL])('shows HI with the name and score of the crew\'s best (%o)', (grid) => {
-    const text = screen({ ...hudOf(press(newGame({ layout: grid.name, values: VALUES, seed: 3 }), 'a').game), score: 1240 }, grid, { hi: DIME });
+  const play = (layout: 'wide' | 'tall') => ({ ...hudOf(press(newGame({ layout, values: VALUES, seed: 3 }), 'a').game), score: 1240 });
+
+  it('shows HI with the name and score of the crew\'s best on the wide grid', () => {
+    const text = screen(play('wide'), WIDE, { hi: DIME });
     const i = text.indexOf('HI · DIME');
     expect(i).toBeGreaterThanOrEqual(0);
     expect(text[i + 1]).toBe('12 480');
     expect(text).toContain('01 240');
+  });
+
+  it('shows HI and its score without the name on the tall grid, where the wave and the way to pause keep their place', () => {
+    const text = screen(play('tall'), TALL, { hi: DIME });
+    expect(text[text.indexOf('HI') + 1]).toBe('12 480');
+    expect(text.join(' ')).not.toContain('DIME');
+    expect(text).toContain('WAVE');
+    expect(text).toContain('PAUSE');
   });
 
   it('shows no HI before anyone has a score', () => {

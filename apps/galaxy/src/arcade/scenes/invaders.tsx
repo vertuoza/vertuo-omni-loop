@@ -65,12 +65,15 @@ export function InvadersOverlay({ hud, values, hero, team, hi = null, send = nul
   /** Where sending the game over's score stands; none before the game is over. */
   send?: ScoreSend | null;
 }) {
+  const { grid } = useScreen();
   if (!hud) return null;
   const line = sendLine(send);
+  // The tall grid's score line has no room for a name beside the wave and the way to pause.
+  const hiLabel = hi && (grid.name === 'tall' ? 'HI' : `HI · ${hi.name}`);
   return (
     <div className="inv">
       <p className="inv-stat inv-score"><b>SCORE</b><span>{scoreText(hud.score)}</span></p>
-      {hi && <p className="inv-stat inv-hi"><b>HI · {hi.name}</b><span>{scoreText(hi.best)}</span></p>}
+      {hi && <p className="inv-stat inv-hi"><b>{hiLabel}</b><span>{scoreText(hi.best)}</span></p>}
       <p className="inv-stat inv-wave"><b>WAVE</b><span>{hud.wave}</span></p>
       <span className="inv-lives" role="img" aria-label={`${hud.lives} ${hud.lives === 1 ? 'life' : 'lives'} left`}>
         {Array.from({ length: hud.lives }, (_, i) => <HeroSprite key={i} hero={hero} team={team} scale={0.5} />)}
