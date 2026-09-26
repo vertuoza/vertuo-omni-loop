@@ -1,21 +1,22 @@
-// Ask mode switched on and off in one checkout: `omni ask on | off | status` (PRD 71's spec, "The kit
-// side"). The mode is the file `.omni-loop/local/ask.json`, which the hooks read: `on` opens a
-// session on the server `ask.url` names and writes it, `off` closes the session and deletes it.
+// Ask mode switched on and off in one checkout: `omni ask on | off | status` (PRD 142's spec, "The
+// kit side"). The mode is the file `.omni-loop/local/ask.json`, which the hooks read. The mode is
+// per checkout; the session is per terminal, opened by that terminal's first question.
 //
-// - One session per checkout: a second `on` opens a new session, writes it, then closes the first.
-//   When the new one cannot be opened, the first stays exactly as it was.
-// - `off` always turns the mode off in this checkout, even when the server cannot be told; the
-//   session left open then reads as closed on its own after 12 hours without a call.
+// - `on` writes the flag and gives the person's page, `<ask.url>/ask`. It opens no session and
+//   closes none, so switching it on in one terminal never touches another.
+// - `off` closes every terminal's session of this checkout (and PRD 71's one, when `ask.json` still
+//   names it), then deletes the flag and every terminal's file, even when the server cannot be told;
+//   a session left open reads as closed on its own after 12 hours without a call.
 // - `status` reads the checkout alone, as the hooks do, and calls nothing.
 import { basename } from 'node:path';
 import { askClient } from './client.mjs';
-import { activeSession } from './hook.mjs';
-import { clearRound, clearSession, readSession, writeSession } from './local-state.mjs';
+import { activeMode } from './hook.mjs';
+import { clearMode, listTerminals, readMode, writeMode } from './local-state.mjs';
 
 /** The longest title the contract takes for a session. */
 export const TITLE_MAX = 200;
 
-/** `on` could not open a session; `message` says why, in one line. */
+/** `on` could not switch the mode on; `message` says why, in one line. */
 export class AskModeError extends Error {
   constructor(message) {
     super(message);
@@ -50,45 +51,27 @@ export function sessionTitle({ slug, branch, root }) {
 /** The server that `ask.url` names: the host its sign-in is kept under and ask.json records. */
 const hostOf = (askUrl) => new URL(askUrl).host;
 
-function refusal(host, error) {
-  if (error?.status === 401) return `the sign-in to ${host} was refused — run \`omni signin\` again`;
-  if (error?.status === 403) return `${host} does not let this account open a session`;
-  return `could not open a session on ${host} (${error?.message ?? error})`;
-}
+/** The person's page on `askUrl`'s server: every terminal's session, a tab each. */
+export const pageUrl = (askUrl) => `${askUrl.replace(/\/+$/, '')}/ask`;
 
 /**
- * Opens a session titled `title` on `askUrl`'s server and makes it this checkout's, closing the one
- * it replaces. Throws an `AskModeError` when no session could be opened; nothing is changed then.
+ * Switches the mode on in this checkout against `askUrl`, and gives the person's page. Calls
+ * nothing. Already on against that host, it changes nothing. Throws an `AskModeError` when this
+ * computer has no sign-in for that host; nothing is changed then.
  *
- * @returns {Promise<{ url: string, replaced: { sessionId: string } | null, leftOpen: string | null }>}
- *   `leftOpen` says why the replaced session could not be closed, or is `null`.
+ * @returns {{ url: string }}
  */
-export async function turnOn({ root, askUrl, title, tokens, fetch }) {
+export function turnOn({ root, askUrl, tokens }) {
   const host = hostOf(askUrl);
   if (!tokens.read(host)) throw new AskModeError(`not signed in to ${host} — run \`omni signin\` first`);
-  const client = askClient({ baseUrl: askUrl, host, tokens, fetch });
-  let opened;
-  try {
-    opened = await client.openSession(title);
-  } catch (error) {
-    throw new AskModeError(refusal(host, error));
-  }
-  const sessionId = typeof opened?.id === 'string' ? opened.id : '';
-  const url = typeof opened?.url === 'string' ? attempt(() => new URL(opened.url, askUrl).href) : null;
-  if (!sessionId || !url) throw new AskModeError(`could not open a session on ${host} (it answered with no session link)`);
-
-  const replaced = readSession(root);
-  writeSession(root, { sessionId, url, host });
-  clearRound(root);
-  const leftOpen = replaced && replaced.sessionId !== sessionId ? await closeSession(client, replaced, host) : null;
-  return { url, replaced: replaced && { sessionId: replaced.sessionId }, leftOpen };
+  if (readMode(root)?.host !== host) writeMode(root, { host });
+  return { url: pageUrl(askUrl) };
 }
 
-/** Closes `session` through `client`: `null` once it is closed or gone, else why it was left open. */
-async function closeSession(client, session, host) {
-  if (!client || session.host !== host) return `ask.url no longer names ${session.host}`;
+/** Closes `sessionId` through `client`: `null` once it is closed or gone, else why it was left open. */
+async function closeSession(client, sessionId) {
   try {
-    await client.closeSession(session.sessionId);
+    await client.closeSession(sessionId);
     return null;
   } catch (error) {
     return error?.status === 404 ? null : (error?.message ?? String(error));
@@ -96,27 +79,33 @@ async function closeSession(client, session, host) {
 }
 
 /**
- * Turns the mode off in this checkout: closes its session on the server when it can, and deletes
- * `ask.json` and the round file whatever happens.
+ * Turns the mode off in this checkout: closes every terminal's session on the server when it can,
+ * and PRD 71's session when `ask.json` names one, then deletes `ask.json` and every terminal's and
+ * round's file whatever happens.
  *
- * @returns {Promise<{ session: { sessionId: string, host: string } | null, leftOpen: string | null }>}
- *   `session` is the one that was on, or `null` when the mode was off already; `leftOpen` says why
- *   it could not be closed, or is `null`.
+ * @returns {Promise<{ leftOpen: { sessionId: string, host: string, reason: string }[] }>} the
+ *   sessions that could not be closed, and why.
  */
 export async function turnOff({ root, askUrl, tokens, fetch }) {
-  const session = readSession(root);
-  let leftOpen = null;
-  if (session) {
-    const host = askUrl ? hostOf(askUrl) : null;
-    const client = host === session.host ? askClient({ baseUrl: askUrl, host, tokens, fetch }) : null;
-    leftOpen = await closeSession(client, session, host);
+  const legacy = readMode(root);
+  const sessions = listTerminals(root).map(({ sessionId, host }) => ({ sessionId, host }));
+  if (legacy?.sessionId) sessions.push({ sessionId: legacy.sessionId, host: legacy.host });
+  const host = askUrl ? hostOf(askUrl) : null;
+  const client = host && sessions.some((session) => session.host === host) ? askClient({ baseUrl: askUrl, host, tokens, fetch }) : null;
+  const leftOpen = [];
+  const seen = new Set();
+  for (const session of sessions) {
+    if (seen.has(session.sessionId)) continue;
+    seen.add(session.sessionId);
+    const reason = session.host === host ? await closeSession(client, session.sessionId) : `ask.url no longer names ${session.host}`;
+    if (reason) leftOpen.push({ ...session, reason });
   }
-  clearSession(root);
-  clearRound(root);
-  return { session: session && { sessionId: session.sessionId, host: session.host }, leftOpen };
+  clearMode(root);
+  return { leftOpen };
 }
 
-/** The link of the session the hooks would ask through, or `null` when the mode is off. */
+/** The person's page while the mode is on as the hooks read it, or `null` when it is off. */
 export function modeStatus(root) {
-  return activeSession(root)?.session.url ?? null;
+  const mode = activeMode(root);
+  return mode ? pageUrl(mode.baseUrl) : null;
 }
