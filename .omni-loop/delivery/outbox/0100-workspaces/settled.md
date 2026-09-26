@@ -474,3 +474,237 @@ A constant: the glyph table in `mark.ts`. No column holds the letter (the spec),
 ```
 
 <!-- /omni-outbox-settled: s2-01-letters-take-five-stripes -->
+
+<!-- omni-outbox-settled: s5-01-ask-mode-keeps-its-email-check -->
+
+## s5-01-ask-mode-keeps-its-email-check — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-ask-mode-keeps-its-email-check
+prd: 100
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 2
+---
+
+## The question, in plain words
+
+The game now lets in whoever belongs to a workspace, whatever their email address. Should ask mode, the page where Claude's questions are answered, stop checking the email address too?
+
+## The decision, in plain words
+
+Not in this part of the work: the game no longer looks at the email address, but ask mode keeps its own check for a Vertuoza address in front of the workspace check. With Vertuoza the only workspace, nobody sees a difference yet.
+
+## The intro, for fun
+
+The game swapped its email check for a badge reader. Ask mode, next door, still squints at the address.
+
+## The punchline, for fun
+
+Both doors open for Vertuoza today; the second company will find out which one is stricter.
+
+## The options, in plain words
+
+A. Leave ask mode's own email check as it is, and let the database's membership check stand behind it. This is what was built.
+B. Change ask mode to ask for a workspace instead of the email, in a follow-up slice of this plan.
+C. Leave it for PRD 2, which opens sign-up to other companies and rewrites the sign-in anyway.
+
+## What I had to decide
+
+Whether to replace ask mode's own `isCrewEmail()` (`apps/galaxy/src/ask/auth.ts`, used by `authenticate()` and twice in `apps/galaxy/src/ask/cli-code.ts`) with a membership check. s5's row says "crew" means "has a workspace", and s5 removed the arcade's `isCrewEmail()` from `apps/galaxy/src/data/supabase-server.ts`. `src/ask/` is outside s5's territory, and outside every slice of this plan.
+
+## What I did meanwhile
+
+Left `src/ask/` untouched. The arcade's check is gone: the page reads memberships (`src/data/workspace.ts`) and `Session.crew` is true for a member of any workspace. Ask mode keeps its email check in front of the database's (`has_workspace()` in its policies and in `ask_cli_code_issue()`, item fix-s1-01-migration-after-ask-mode-01). In the callback, which is s5's, the terminal's sign-in (`next=ask-cli`) now calls `join_by_domain()` before its code is issued (`joinBeforeIssue()` in `src/data/sign-in.ts`), so a vertuoza.com account that has not opened the arcade since workspaces gets its code.
+
+## What it costs to change later
+
+A follow-up that edits `apps/galaxy/src/ask/auth.ts` and `cli-code.ts` (and their tests) to ask the database, for example `has_workspace()` through an RPC, instead of the email: a few lines and their tests, no stored shape. Until then, a member whose email is not @vertuoza.com is refused by ask mode's own 403, and a vertuoza.com account in no workspace meets the database's refusal instead of that 403.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether ask mode should follow the arcade now, or wait for PRD 2, which opens sign-up to other domains and rewrites the sign-in copy (author)
+- which slice or PRD owns `src/ask/`: none of this plan's rows names it (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-01-ask-mode-keeps-its-email-check -->
+
+<!-- omni-outbox-settled: s5-02-out-of-reach-is-not-outsider -->
+
+## s5-02-out-of-reach-is-not-outsider — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-out-of-reach-is-not-outsider
+prd: 100
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 2
+---
+
+## The question, in plain words
+
+When the game's database cannot be reached, the arcade cannot tell whether a signed-in person belongs to a workspace. Should it treat them as a member or turn them away?
+
+## The decision, in plain words
+
+It treats them as a member: they see the message that the galaxy is out of reach, never the screen that says their account is the wrong one.
+
+## The intro, for fun
+
+The guest list is locked in a room nobody can open right now. Who gets in?
+
+## The punchline, for fun
+
+Everyone gets to the lobby, and a sign there says the party is delayed.
+
+## The options, in plain words
+
+A. Treat them as a member, and show the out-of-reach message. This is what was built.
+B. Treat them as an outsider, and show the wrong-cartridge screen until the database answers again.
+C. Fall back to the email address while the database is out of reach, as before workspaces.
+
+## What I had to decide
+
+What `Session.crew` is when the page cannot read the person's memberships. The spec says a signed-in person with no workspace gets the outsider screen, and its Risks say an arcade deployed a few minutes before the migration shows "THE GALAXY IS OUT OF REACH" for those minutes; it does not say what "crew" is while membership cannot be read. Today's error path took crew from the email, so a Vertuoza account went on to the gate.
+
+## What I did meanwhile
+
+`arcadeFor()` in `apps/galaxy/src/data/arcade.ts`: when any read fails (the memberships, `join_by_domain()` or a loader), the page renders the attract mode with the built-in fleets, `problem` set to the out-of-reach message, and `crew: true`, keeping the workspace's brand when it was read before the failure. START then leads to the gate, and every galaxy screen answers with the out-of-reach toast, as before. `arcade.test.ts` pins it. Nothing becomes readable: row-level security still refuses a non-member.
+
+## What it costs to change later
+
+One boolean in `arcadeFor()`'s error path, and its test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether a person outside every workspace should rather see the wrong-cartridge screen during an outage, at the price of a Vertuoza member seeing it too (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-02-out-of-reach-is-not-outsider -->
+
+<!-- omni-outbox-settled: s5-03-joining-at-sign-in-is-best-effort -->
+
+## s5-03-joining-at-sign-in-is-best-effort — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-joining-at-sign-in-is-best-effort
+prd: 100
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 2
+---
+
+## The question, in plain words
+
+Every sign-in now adds the person to their company's workspace. If that step fails, should the sign-in fail with it?
+
+## The decision, in plain words
+
+No: the sign-in goes on, the failure is written to the server's log, and the arcade tries the joining once more when the page opens.
+
+## The intro, for fun
+
+The door opened, but the guest book pen ran out of ink.
+
+## The punchline, for fun
+
+We let the guest in and asked them to sign on the way to the coat rack.
+
+## The options, in plain words
+
+A. Carry on, log the failure, and let the page join once more. This is what was built.
+B. Stop the sign-in and send the person back to INSERT COIN with a message asking them to try again.
+
+## What I had to decide
+
+What the auth callback does when `join_by_domain()` fails after a sign-in. The spec says the callback calls it after every sign-in, beside `link_github()`, and that the page calls it once more for a person with no membership; it does not say whether a failed call stops the sign-in.
+
+## What I did meanwhile
+
+`afterSignIn()` and `joinBeforeIssue()` in `apps/galaxy/src/data/sign-in.ts` catch the error, log it, and carry on: a plain sign-in returns to the arcade as usual, whose page joins once more (`memberWorkspace()` in `src/data/workspace.ts`); a GitHub link goes on to `link_github()`, which refuses a person in no workspace with its own message; the terminal's sign-in goes on to `ask_cli_code_issue()`, which refuses the same way. `sign-in.test.ts` pins all three.
+
+## What it costs to change later
+
+A few lines in `apps/galaxy/src/data/sign-in.ts` and their tests: returning a `signin_error` instead of carrying on.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- how often the joining could fail while the sign-in itself succeeded, since both reach the same Supabase project, is not known (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-03-joining-at-sign-in-is-best-effort -->
