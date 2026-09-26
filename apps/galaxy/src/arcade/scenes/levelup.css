@@ -1,0 +1,71 @@
+/* The levelup group: the level-up moment's words over the hero levelup.ts draws. Laid out on the
+   wide grid (640×360) first, as the design drew it; the rules at the end stack the same pieces on
+   the tall grid (320×288), where the smallest type is 8px. Every animation here stops with reduced
+   motion (the last block), as the canvas's rays and flashes do. */
+
+.lu { position: absolute; inset: 0; text-align: center; }
+
+.lu-eyebrow { position: absolute; left: 0; right: 0; top: 27px; margin: 0; font-size: 8px; line-height: 1; color: var(--cyan); letter-spacing: 1px; }
+/* LEVEL UP! flashes white a few times as the screen opens. */
+.lu-title {
+  position: absolute; left: 0; right: 0; top: 48px; margin: 0;
+  font-size: 26px; font-weight: 400; line-height: 1; letter-spacing: 1px;
+  color: var(--yellow); text-shadow: 2px 2px 0 var(--red), 4px 4px 0 #0b0a26;
+  animation: lu-flash 0.24s steps(1, end) 4;
+}
+@keyframes lu-flash { 50% { color: var(--white); } }
+
+/* The new level, beside the hero. */
+.lu-level {
+  position: absolute; left: 378px; top: 124px; display: grid; place-items: center;
+  min-width: 66px; height: 28px; padding: 0 6px; box-sizing: border-box;
+  font-size: 12px; line-height: 1; color: #0b0a26; background: var(--yellow); border: 2px solid #0b0a26;
+}
+
+/* The XP bar, counted from the new level: it fills from empty as the screen opens. */
+.lu-bar {
+  position: absolute; left: 200px; top: 200px; width: 240px; height: 10px; padding: 2px; box-sizing: border-box;
+  background: var(--navy-dark); box-shadow: inset 0 0 0 2px var(--navy);
+}
+.lu-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--cyan), var(--green)); animation: lu-fill 0.8s steps(10, end) 0.3s both; }
+@keyframes lu-fill { from { width: 0; } }
+.lu-count { position: absolute; left: 0; right: 0; top: 218px; margin: 0; font-size: 7px; line-height: 1; color: var(--dim); letter-spacing: 1px; white-space: nowrap; }
+
+/* NEW GAME UNLOCKED: the game's marquee between two aliens, and what A and B do. It lands a beat
+   after the screen opens. */
+.lu-unlock {
+  position: absolute; left: 150px; top: 238px; width: 340px; height: 96px; padding-top: 12px; box-sizing: border-box;
+  display: grid; align-content: start; justify-items: center;
+  background: color-mix(in srgb, var(--green) 8%, transparent); border: 2px solid var(--green);
+  animation: lu-in 0.3s steps(3, end) 0.5s both;
+}
+@keyframes lu-in { from { opacity: 0; transform: scale(0.6); } }
+.lu-new { margin: 0; font-size: 9px; line-height: 1; color: var(--green); letter-spacing: 1px; }
+.lu-cabinet { display: flex; align-items: center; gap: 10px; margin: 9px 0 0; line-height: 0; }
+.lu-marquee {
+  display: grid; place-items: center; width: 240px; height: 30px; box-sizing: border-box;
+  font-size: 10px; line-height: 1; color: var(--yellow); letter-spacing: 1px;
+  background: linear-gradient(180deg, var(--navy-dark), var(--deep)); border: 2px solid var(--navy);
+}
+.lu-keys { margin: 14px 0 0; line-height: 1; white-space: nowrap; }
+/* No game opened: A goes on to the menu, under the XP bar. */
+.lu-plain .lu-keys { position: absolute; left: 0; right: 0; top: 250px; margin: 0; }
+
+/* ── On the tall grid (320×288) ─────────────────────────────────────────────
+   The same pieces, stacked: the line and LEVEL UP! over the hero, the level beside it, the XP bar
+   and NEW GAME UNLOCKED under it. */
+.grid-tall .lu-eyebrow { top: 8px; }
+.grid-tall .lu-title { top: 22px; font-size: 18px; }
+.grid-tall .lu-level { left: 202px; top: 92px; min-width: 54px; height: 22px; font-size: 10px; }
+.grid-tall .lu-bar { left: 60px; top: 162px; width: 200px; }
+.grid-tall .lu-count { top: 178px; font-size: 8px; }
+.grid-tall .lu-unlock { left: 12px; top: 192px; width: 296px; height: 74px; padding-top: 7px; }
+.grid-tall .lu-new { font-size: 8px; }
+.grid-tall .lu-cabinet { gap: 8px; margin-top: 6px; }
+.grid-tall .lu-marquee { width: 200px; height: 24px; font-size: 8px; }
+.grid-tall .lu-keys { margin-top: 8px; }
+.grid-tall .lu-plain .lu-keys { top: 200px; margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lu-title, .lu-bar i, .lu-unlock { animation: none; }
+}
