@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Stays here: A sequencing choice between two slices, cheap to change and bound by the spec's layout; nothing lasting beyond this feature's plan, and no existing entry covers it.
 
 ### The answer, as it was given
 
@@ -97,6 +98,7 @@ If s3 chooses another file layout, one of the two modules changes to match it; n
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Became: N-PRODUCT-7
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ Removing `|| true` from three lines.
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Became: N-PRODUCT-8
 
 ### The answer, as it was given
 
@@ -251,6 +254,7 @@ A few lines in `activeSession` if s5 stores the base URL in `ask.json` instead.
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Stays here: This is an interim choice made while the contract is silent, and s2 is expected to change it with one branch in preHook, so there is nothing lasting to record.
 
 ### The answer, as it was given
 
@@ -328,6 +332,7 @@ One branch in `preHook` once s2 names the reply.
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 1
+- Became: ADR-0028
 
 ### The answer, as it was given
 
@@ -406,6 +411,7 @@ Removing it is deleting one file and one workflow step. Folding it into `access.
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 1
+- Became: ADR-0029
 
 ### The answer, as it was given
 
@@ -484,6 +490,7 @@ Each is a constant or one branch in `apps/galaxy/src/ask/api.ts` and its test; n
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 1
+- Became: ADR-0030
 
 ### The answer, as it was given
 
@@ -562,6 +569,7 @@ The schedule or the windows change with one new migration (`cron.schedule` under
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 1
+- Became: BR-PRODUCT-12, P-PRODUCT-11
 
 ### The answer, as it was given
 
@@ -640,6 +648,7 @@ Loosening a rule is a new migration replacing a trigger function or a grant; no 
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 2
+- Stays here: A temporary, slice-local workaround pending s3's shared callback; cheap to undo, stores nothing, and the knowledge base covers only the kit, with no domain for this app.
 
 ### The answer, as it was given
 
@@ -719,6 +728,7 @@ One route file and one small function. If s3 generalises the shared callback to 
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 2
+- Became: BR-PRODUCT-13, P-PRODUCT-12
 
 ### The answer, as it was given
 
@@ -797,6 +807,7 @@ One constant; nothing stored depends on it.
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 2
+- Became: BR-PRODUCT-14, P-PRODUCT-13
 
 ### The answer, as it was given
 
@@ -875,6 +886,7 @@ One function and its tests; answers already given are not affected.
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 2
+- Stays here: A local keyboard-handling choice for the answer page, confined to one function and its tests; no principle, rule or record in the knowledge base needs it.
 
 ### The answer, as it was given
 
@@ -953,6 +965,7 @@ One function and its tests.
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 3
+- Became: ADR-0031
 
 ### The answer, as it was given
 
@@ -1032,6 +1045,7 @@ A change of two files: reusing the browser's session instead would read its cook
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 3
+- Became: ADR-0032
 
 ### The answer, as it was given
 
@@ -1111,6 +1125,7 @@ Moving to a service-role key later means a secret on the deployment, a server-on
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 3
+- Became: ADR-0033
 
 ### The answer, as it was given
 
@@ -1189,6 +1204,7 @@ Adding a server-side sign-out later is one new contract call, one route and a fe
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 4
+- Stays here: A one-line config value for this repository, cheap to correct and depended on by nothing in the kit; it sets no lasting rule, invariant or design choice.
 
 ### The answer, as it was given
 
@@ -1268,6 +1284,7 @@ One line of `.omni-loop/config.yml`. A sign-in kept under a wrong host is simply
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 4
+- Became: BR-PRODUCT-15, P-PRODUCT-14
 
 ### The answer, as it was given
 
@@ -1347,6 +1364,7 @@ A few lines in `kit/lib/ask/mode.mjs` and `kit/plugin/skills/ask/SKILL.md`, and 
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 4
+- Stays here: A local choice about where one documentation line lives. It is cheap to undo and sets no lasting rule, and no existing entry covers it.
 
 ### The answer, as it was given
 

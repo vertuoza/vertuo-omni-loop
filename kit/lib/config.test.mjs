@@ -43,6 +43,18 @@ describe('parseConfig', () => {
     expect(config.branches.retro).toBe('retro/{topic}');
   });
 
+  it('names the knowledge label and the knowledge branch when the config sets neither', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(config.labels.knowledge).toBe('omni:knowledge');
+    expect(config.branches.knowledge).toBe('docs/knowledge-{topic}');
+  });
+
+  it('reads back a knowledge label and a knowledge branch the config sets', () => {
+    const config = parseConfig('kit: 1\nlabels:\n  knowledge: harvested\nbranches:\n  knowledge: kb/{topic}\n');
+    expect(config.labels.knowledge).toBe('harvested');
+    expect(config.branches.knowledge).toBe('kb/{topic}');
+  });
+
   it('puts the playbook under the knowledge folder and names the invade branch when both are unset', () => {
     const config = parseConfig('kit: 1\n');
     expect(config.paths.playbook).toBe('.omni-loop/knowledge/playbook');

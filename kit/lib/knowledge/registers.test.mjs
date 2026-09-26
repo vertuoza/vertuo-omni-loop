@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { flatCtx } from '../../test/flat-layout.mjs';
+import { gradeKnowledge } from './check-knowledge.mjs';
 import {
   codeOf,
   idParts,
@@ -245,6 +246,79 @@ describe('parseEntryFile — a proposed entry (PRD #68)', () => {
       expect(rule.problems[0]).toMatch(
         /^docs\/knowledge\/domains\/advisor\/rules\.md: BR-ADVISOR-1 — .*Proposed: <who> <YYYY-MM-DD>/,
       );
+    }
+  });
+});
+
+describe('parseEntryFile — a harvested entry carries Merged: as its own field (PRD #82)', () => {
+  const LEDGER = '.omni-loop/delivery/shipped/0050-question-intros/outbox/settled.md';
+  const harvestedRule = (ledger = LEDGER) =>
+    [
+      '## BR-PRODUCT-1',
+      '',
+      'An intro or a punchline is refused only past 120 characters or when it is not in plain words.',
+      '',
+      'Serves: P-PRODUCT-1',
+      `Source: ${ledger}, entry s1-01-fun-line-sentence-count, PRD #50`,
+      'Enforced by: unenforced',
+      'Stated: 2026-09-26',
+      'Decided: nobody — adopted when raised (medium), 2026-09-25',
+      'Merged: @octocat, 2026-09-26, PR #51',
+      'Proposed: harvest 2026-09-26',
+    ].join('\n');
+  const harvestedPrinciple = (ledger = LEDGER) =>
+    [
+      '## P-PRODUCT-1',
+      '',
+      'A question reads plainly.',
+      '',
+      'Why: the person answering is not an engineer.',
+      `Source: ${ledger}, entry s1-01-fun-line-sentence-count, PRD #50`,
+      'Merged: @octocat, 2026-09-26, PR #51',
+      'Proposed: harvest 2026-09-26',
+    ].join('\n');
+  const PRODUCT = { scope: 'product', domain: 'product', codes: ['PRODUCT'] };
+
+  it('reads Decided: then Merged: as two fields, merged on the parsed entry', () => {
+    const [rule] = parseEntryFile('r.md', harvestedRule(), { ...PRODUCT, kind: 'rule' });
+    expect(rule.decided).toBe('nobody — adopted when raised (medium), 2026-09-25');
+    expect(rule.merged).toBe('@octocat, 2026-09-26, PR #51');
+    expect(rule.proposed).toEqual({ by: 'harvest', on: '2026-09-26' });
+  });
+
+  it('never glues Merged: onto Source:', () => {
+    const [principle] = parseEntryFile('p.md', harvestedPrinciple(), { ...PRODUCT, kind: 'principle' });
+    expect(principle.source).toBe(`${LEDGER}, entry s1-01-fun-line-sentence-count, PRD #50`);
+    expect(principle.merged).toBe('@octocat, 2026-09-26, PR #51');
+  });
+
+  it('reads an entry without the line as merged null', () => {
+    const [rule] = parseEntryFile('r.md', '## BR-PRODUCT-1\n\nx\n\nServes: P-PRODUCT-1\n', { ...PRODUCT, kind: 'rule' });
+    expect(rule.merged).toBeNull();
+  });
+
+  it('omni check knowledge stays green on a harvested rule and its proposed principle', () => {
+    const root = mkdtempSync(join(tmpdir(), 'registers-merged-'));
+    try {
+      const ledger = 'docs/delivery/shipped/0050-question-intros/outbox/settled.md';
+      const files = {
+        [ledger]: '# Settled\n',
+        'docs/knowledge/product/principles.md': `# Product — principles\n\n${harvestedPrinciple(ledger)}\n`,
+        'docs/knowledge/product/rules.md': `# Product — rules\n\n${harvestedRule(ledger)}\n`,
+        'docs/knowledge/product/invariants.md': '# Product — invariants\n\nNone yet.\n',
+      };
+      for (const [path, text] of Object.entries(files)) {
+        mkdirSync(join(root, path, '..'), { recursive: true });
+        writeFileSync(join(root, path), text);
+      }
+      const graded = gradeKnowledge({
+        ctx: flatCtx(root),
+        files: Object.keys(files).filter((path) => path.startsWith('docs/knowledge/')),
+        glossaryText: '',
+      });
+      expect(graded.violations).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });

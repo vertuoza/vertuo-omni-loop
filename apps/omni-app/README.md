@@ -1,8 +1,8 @@
-# omni-loop — the GitHub App behind the outbox check and the retro
+# omni-loop — the GitHub App behind the outbox check, the retro and the knowledge harvest
 
 `apps/omni-app` is the webhook server of **omni-loop**, a private GitHub App owned by the vertuoza org
-(PRD 28). It does two jobs: the **outbox check** on every pull request, and a **retro** after every
-feature pull request merges (PRD 72, below). Once the app is installed on a repository, every pull
+(PRD 28). It does three jobs: the **outbox check** on every pull request, and, after every feature pull
+request merges, a **retro** (PRD 72) and a **knowledge harvest** (PRD 82), below. Once the app is installed on a repository, every pull
 request carries one check run named **outbox** (shown as **omni-loop · outbox**):
 
 | Situation | Conclusion |
@@ -22,8 +22,8 @@ When a feature PR merges into the default branch, the app runs a retro of its PR
 counts what went wrong from GitHub and from the PRD's folder, and a model writes the prose around those
 facts. It ends in a **retro PR** from `branches.retro` (default `docs/retro-<topic>`) into the default
 branch, labelled `labels.retro` (default `omni:retro`), adding `retro.md` and `retro.json` to the PRD's
-folder (`shipped/<nnnn-topic>/`, or `inbox/<nnnn-topic>/` for a PRD merged unshipped), and in one
-**retro issue** per finding, at most five per run. A person merges the retro PR; merging keeps the retro
+shipped folder (`shipped/<nnnn-topic>/`, always: a PRD merged unshipped is shipped by the knowledge
+harvest on the same merge), and in one **retro issue** per finding, at most five per run. A person merges the retro PR; merging keeps the retro
 as history and changes nothing else.
 
 - A merged sub-PR, a merged phase-0 PR, a retro PR, a pull request closed without merging and a
@@ -40,11 +40,40 @@ as history and changes nothing else.
   stuck and review comments — with token-shaped strings masked. They go to OpenRouter and the model's
   provider. A repository that refuses this leaves `OPENROUTER_API_KEY` unset and gets facts only.
 
+## The knowledge harvest (PRD 82)
+
+On the same merge, the app harvests the PRD's decisions into the knowledge base. Any outbox item still
+open is settled as adopted by the person who merged (a merge over a red outbox adopts what is still
+open), the PRD's folder is shipped if it never was, and every settled decision not yet written back is
+classified by a model and written by code: a decision record, a rule (with the principle it proposes
+when none fits), an invariant, covered by an existing entry, or staying in the ledger. It all ends in
+one docs-only **knowledge PR** from `branches.knowledge` (default `docs/knowledge-<topic>`) into the
+default branch, labelled `labels.knowledge` (default `omni:knowledge`). A person reviews and merges it.
+
+- Every rule about the loop's files is the kit's harvest pipeline, the one `omni harvest` runs locally.
+  The app reads the files at the default branch's tip, never at the merge commit: the merge only
+  supplies who merged, when, and which PR.
+- The same pull requests that get no retro get no harvest, nor does a merged knowledge PR.
+- One harvest at a time per repository. Ids are numbered past the default branch and past every other
+  open knowledge PR, so two open knowledge PRs never share a record number or a register id.
+- Without `OPENROUTER_API_KEY`, or when the model fails, settling and shipping still happen: the
+  knowledge PR opens with every decision listed as not placed, saying why.
+- The checks (`omni check knowledge`, `omni check outbox`) run on the result; an entry that fails is
+  dropped and listed as not placed, with the check's message.
+- If GitHub fails after the retries, one comment on the merged PR says "The knowledge harvest could not
+  run: <reason>".
+- **To re-run a harvest,** replay its run from Inngest's dashboard. The branch and the PR are found
+  again: a branch that already holds the harvest's commit is never committed to again, and only the
+  PR's body is rewritten. Nothing to harvest opens nothing.
+- **What leaves GitHub:** per decision, the outbox item as raised and its answer, and a summary of the
+  knowledge base (ids, titles, statements), with token-shaped strings masked. No code, no logs.
+
 ## How it runs
 
 ```
 GitHub ── pull_request / check_run.rerequested ──▶ /api/github    verify signature → inngest.send → 200
-             a merged pull_request.closed → omni-loop/retro.requested, never the outbox check
+             a merged pull_request.closed → omni-loop/retro.requested and
+                                            omni-loop/knowledge.harvest.requested, never the outbox check
              every other handled action   → omni-loop/outbox.check.requested
 Inngest ──▶ /api/inngest   function "outbox-check" (debounced per repo + PR)
               step "in-progress"  create the check run, in_progress, on the head SHA
@@ -60,6 +89,13 @@ Inngest ──▶ /api/inngest   function "retro" (one at a time per repository)
               step "guard"            each field of prose accepted, or dropped with its reason
               step "publish-issues"   one retro issue per finding, worst first
               step "publish"          the branch, retro.md + retro.json, then the retro PR
+            onFailure          one comment on the merged PR
+Inngest ──▶ /api/inngest   function "knowledge-harvest" (one at a time per repository)
+              step "qualify"          the merge (who, when, which commit); a feature PR, by the retro's rule
+              step "settle"           the default branch's tip: settle at merge, plan the ship, list the candidates
+              steps "classify:<id>"   one OpenRouter call per candidate
+              step "write"            the same tip: write the knowledge, run both checks, drop what fails
+              step "publish"          one commit on branches.knowledge, cut from that tip; the knowledge PR
             onFailure          one comment on the merged PR
 ```
 
@@ -78,10 +114,15 @@ Inngest ──▶ /api/inngest   function "retro" (one at a time per repository)
 | `render` — pure: `retro.md`, `retro.json`, the PR body | `src/retro/render.mjs` |
 | the issue publisher, and `publish` — the branch, the files, the PR | `src/retro/issues.mjs`, `src/retro/publish.mjs` |
 | `rules` — every threshold, the finding order, the words refused, a version | `src/retro/rules.mjs` |
+| `git-write` — the shared writer: a branch, one commit (moves reuse blobs), a PR | `src/git-write/` |
+| `knowledge-harvest` — the Inngest function wiring the kit's harvest pipeline | `src/knowledge-harvest/knowledge-harvest.mjs`, served at `api/inngest.mjs` |
+| the harvest's GitHub reads — the merge, the tip, the ids other knowledge PRs take | `src/knowledge-harvest/github.mjs` |
+| `render` — pure: the knowledge PR's title and body, the commit | `src/knowledge-harvest/render.mjs` |
 
 The app only reads YAML, Markdown, JSON, patches and logs, as text; it never runs repository code. The
 retro writes only its own `branches.retro` branches, their pull requests, its retro issues and one
-comment on failure; it never force-pushes, never writes to the default branch and never merges.
+comment on failure; the harvest only its own `branches.knowledge` branches, their pull requests and one
+comment on failure. Neither ever force-pushes, writes to the default branch or merges.
 
 Tests run from the repository root with `pnpm test`, against a stubbed GitHub. The retro's tests also
 replay PRD 50 as GitHub returned it (`test/fixtures/prd-50/`), offline.
@@ -133,6 +174,21 @@ opening a retro PR live (PRD 72, acceptance criterion 1).
    If it does not, the day-14 run is started by a daily scheduled Inngest function instead.
 4. **Create the `omni:retro` label:** run `npx github:vertuoza/vertuo-omni-loop init` in each
    repository.
+
+### The knowledge harvest — human steps (PRD 82)
+
+None of these is taken by the code. The harvest needs nothing beyond the retro's permissions and
+environment.
+
+1. **The retro's steps 1 and 2 cover the app.** `contents: write` lets the harvest write its own
+   branch, and the one `OPENROUTER_API_KEY` (with `OPENROUTER_MODEL`, when set) serves both the retro
+   and the harvest. Without the key, every knowledge PR still settles and ships, and lists every
+   decision as not placed.
+2. **Create the `omni:knowledge` label** (`labels.autoCreate` is false): run
+   `npx github:vertuoza/vertuo-omni-loop init` in each repository, so the label carries its colour
+   and description.
+3. **Review and merge each knowledge PR.** Entries from adopted decisions carry
+   `Proposed: harvest <date>` and bind nothing until a person deletes that line.
 
 ## Checking it live
 

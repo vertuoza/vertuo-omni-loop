@@ -1,0 +1,67 @@
+You classify one settled decision of a software delivery loop: where, if anywhere, it belongs in the
+repository's knowledge base. Reply with one JSON object and nothing else.
+
+## The kinds you may answer
+
+- `adr`: a decision record — how something is built, and why. Fields: `title`, `statement`, `reason`.
+- `invariant`: something that must always hold in the code. Fields: `place`, `statement`, `reason`.
+- `rule`: a precise, provable business rule. Fields: `place`, `statement`, `serves` (an existing principle's id, of `product` or of the rule's own place, or `new`), `principle` (`{ statement, why }`, only when `serves` is `new`), `reason`.
+- `covered`: an existing entry or decision record already says this. Fields: `covers` (its id, or `ADR-NNNN`), `reason`.
+- `stays-here`: a local choice with nothing lasting to keep; it stays in the ledger. Fields: `statement`, `reason`.
+
+`place` is `product`, or one of the existing domains below; never a new one.
+`statement` and `principle`'s fields are one or two plain sentences, at most 300 characters.
+`reason` says why this kind and this place, at most 200 characters.
+Prefer `covered` when the knowledge base below already says it, and `stays-here` for a local choice.
+
+## The decision: s1-01-two-snapshots
+
+### The question
+
+Should the check read its settings from the pull request itself?
+
+### The decision
+
+It reads its settings from the base branch, so a pull request cannot rename the override label.
+
+### The options (A is what was built)
+
+A. Read the settings from the base branch, the option built.
+B. Read them from the pull request.
+
+### What the agent had to decide
+
+Where `evaluate` reads the config from.
+
+### What it did meanwhile
+
+It reads base settings and head delivery as two snapshots.
+
+### What it costs to change later
+
+One argument.
+
+### The answer (verdict: agreed)
+
+Yes, keep it.
+
+## The knowledge base
+
+### Domains
+
+- billing: # Billing
+- shipping: # Shipping
+
+### Principles
+
+- P-PRODUCT-1 (product): A person reviews every change before it reaches the default branch.
+- P-BILLING-1 (billing): An invoice is never changed once sent.
+
+### Decision records
+
+- ADR-0001: ADR-0001 — The outbox check runs as an app
+
+### Rules and invariants
+
+- BR-PRODUCT-1 (rule, product): No bot writes to the default branch.
+- N-BILLING-1 (invariant, billing): Every invoice carries a number.

@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Stays here: A cosmetic choice of label colour and wording, changed in one line. Nothing lasting or provable belongs in the knowledge base, so it stays in the ledger.
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ One line in `kit/lib/init/labels.mjs` and a rebuilt `kit/dist/omni.mjs`. `omni i
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 2
+- Stays here: A local test edit forced by registering the retro on the same endpoint; nothing lasting to record beyond this slice's ledger.
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ A constant: the test's two expectations. Serving the retro from a second endpoin
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 2
+- Became: ADR-0034
 
 ### The answer, as it was given
 
@@ -252,6 +255,7 @@ One constant. Keying on the repository and the feature branch's name instead wou
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 2
+- Stays here: This is a local choice about one test fixture's contents. It can be re-recorded by swapping one file, and it sets no lasting rule for the product.
 
 ### The answer, as it was given
 
@@ -330,6 +334,7 @@ Recording again with a token that reads the REST API directly replaces one file 
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 2
+- Became: BR-PRODUCT-16, P-PRODUCT-15
 
 ### The answer, as it was given
 
@@ -409,6 +414,7 @@ Constants in one file, and `RULES_VERSION` bumped so every retro says which rule
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 2
+- Stays here: A local heuristic inside one timeline function, cheap to change, with no lasting product law or architecture behind it; no existing entry covers retro metrics.
 
 ### The answer, as it was given
 
@@ -487,6 +493,7 @@ One function and its test. Reading waves from the claim commits or the wave's ow
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 2
+- Became: ADR-0035
 
 ### The answer, as it was given
 
@@ -566,6 +573,7 @@ Before any retro is merged into a repository, a change is `render` and its golde
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 3
+- Became: ADR-0036
 
 ### The answer, as it was given
 
@@ -645,6 +653,7 @@ One `gather` and its tests. Reading `GET /repos/{owner}/{repo}/commits/{ref}/che
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 3
+- Became: ADR-0037
 
 ### The answer, as it was given
 
@@ -724,6 +733,7 @@ A few lines in `kinds/ci.mjs` and its tests if `narrate` looks elsewhere. Before
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 3
+- Became: BR-PRODUCT-17, P-PRODUCT-16
 
 ### The answer, as it was given
 
@@ -803,6 +813,7 @@ One pure module and its tests. Once retros have opened issues, a different namin
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 3
+- Became: BR-PRODUCT-18, P-PRODUCT-17
 
 ### The answer, as it was given
 
@@ -882,6 +893,7 @@ A filter and a comparison in `kinds/churn.mjs`, and the fixture's expectations: 
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 3
+- Became: ADR-0038
 
 ### The answer, as it was given
 
@@ -961,6 +973,7 @@ Showing the model the code of each flagged range is one more field on a range fi
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 3
+- Became: BR-PRODUCT-19
 
 ### The answer, as it was given
 
@@ -1040,6 +1053,7 @@ One constant to extend. Reading the `.gitattributes` of every folder is one more
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 3
+- Became: BR-PRODUCT-20, P-PRODUCT-18
 
 ### The answer, as it was given
 
@@ -1119,6 +1133,7 @@ One function, `territoryFacts` in `apps/omni-app/src/retro/kinds/delivery.facts.
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 3
+- Stays here: This is a local measurement choice within frictionFacts that is cheap to change and stores nothing; it is not a lasting product rule or build decision worth recording.
 
 ### The answer, as it was given
 
@@ -1197,6 +1212,7 @@ A read of each status comment's edit history, or a lasting mark left by `/omni:w
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 3
+- Stays here: A one-off coordination choice about two test files within one wave; it is cheap to redo and sets no lasting rule, invariant or architectural direction.
 
 ### The answer, as it was given
 
@@ -1274,6 +1290,7 @@ One line of a test and one golden file, rebuilt by `UPDATE_GOLDEN=1 pnpm test` o
 - Raised: 2026-09-25
 - Slice: s6
 - Wave: 3
+- Stays here: This is retry tuning: constants in one file and one number in vercel.json. The facts-only fallback already comes from the spec, so no lasting rule or record is needed.
 
 ### The answer, as it was given
 
@@ -1353,6 +1370,7 @@ Constants in one file and one number in `vercel.json`. Retrying through Inngest 
 - Raised: 2026-09-25
 - Slice: s6
 - Wave: 3
+- Stays here: A local data-shape choice inside the retro narrate slice, cheap to change (one reader, one optional field); no lasting product rule or architecture to record.
 
 ### The answer, as it was given
 
@@ -1432,6 +1450,7 @@ One reader in `narrate.mjs` if the kinds put excerpts elsewhere; for the kinds, 
 - Raised: 2026-09-25
 - Slice: s6
 - Wave: 3
+- Became: BR-PRODUCT-21, P-PRODUCT-19
 
 ### The answer, as it was given
 
@@ -1510,6 +1529,7 @@ Constants and one function in `guard.mjs`, and their tests.
 - Raised: 2026-09-25
 - Slice: s6
 - Wave: 3
+- Stays here: A few lines in one test, cheap to change. The rule that tests never call the network already stood, and nothing new or lasting needs a knowledge entry.
 
 ### The answer, as it was given
 
@@ -1588,6 +1608,7 @@ A few lines of one test. Keeping the test untouched instead needs a stub install
 - Raised: 2026-09-25
 - Slice: s7
 - Wave: 3
+- Stays here: A local test-support fix across slice boundaries; it sets no lasting rule, invariant or design choice worth keeping in the knowledge base.
 
 ### The answer, as it was given
 
@@ -1666,6 +1687,7 @@ A constant: twenty lines of test support and one number in one test. Keeping the
 - Raised: 2026-09-25
 - Slice: s7
 - Wave: 3
+- Stays here: A local header-format choice pending s8's work on the function; small constant, nothing lasting or rule-like to record in the knowledge base.
 
 ### The answer, as it was given
 
@@ -1744,6 +1766,7 @@ A constant: one part of the header. Naming the PR on the first run needs a step 
 - Raised: 2026-09-25
 - Slice: s7
 - Wave: 3
+- Became: ADR-0039
 
 ### The answer, as it was given
 
@@ -1822,6 +1845,7 @@ A constant: the list's filter. Widening it to every issue of the repository cost
 - Raised: 2026-09-25
 - Slice: s7
 - Wave: 3
+- Stays here: A local rendering choice inside one function, pinned by a golden file; cheap to change and nothing in the knowledge base needs to keep it.
 
 ### The answer, as it was given
 
@@ -1900,6 +1924,7 @@ A constant: which lessons one function gathers.
 - Raised: 2026-09-25
 - Slice: s8
 - Wave: 4
+- Stays here: A local test-scoping choice within s8's territory, cheap to flip later; nothing lasting for the product knowledge base, and no existing entry covers it.
 
 ### The answer, as it was given
 
@@ -1977,6 +2002,7 @@ A constant: flip the default to `true`, then mock the `sleep-day-14` step in the
 - Raised: 2026-09-25
 - Slice: s8
 - Wave: 4
+- Became: ADR-0040
 
 ### The answer, as it was given
 
@@ -2055,6 +2081,7 @@ A constant in `publish.mjs`: which PR states count as gone, and the ref the new 
 - Raised: 2026-09-25
 - Slice: s8
 - Wave: 4
+- Stays here: A local choice about which sheet one retro step receives. It is reversible through a single constant in retro.mjs, and no existing principle or rule is touched.
 
 ### The answer, as it was given
 
@@ -2133,6 +2160,7 @@ A constant in `retro.mjs`: which sheet the day-14 `narrate` step is given.
 - Raised: 2026-09-25
 - Slice: s8
 - Wave: 4
+- Stays here: This is a local numbering choice in the retro step and can be changed by editing one constant. No existing rule, invariant or decision record governs how findings are numbered.
 
 ### The answer, as it was given
 
@@ -2210,6 +2238,7 @@ A constant in `retro.mjs`. Listing worst first across runs needs `render` (s2's 
 - Raised: 2026-09-25
 - Slice: s8
 - Wave: 4
+- Became: BR-PRODUCT-22, P-PRODUCT-20
 
 ### The answer, as it was given
 

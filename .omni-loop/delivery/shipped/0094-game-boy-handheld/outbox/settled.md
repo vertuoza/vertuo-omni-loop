@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Stays here: A local testing-tool choice in one script, cheap to undo, with no lasting rule or architecture for the knowledge base; no domain for the game exists.
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ Deleting one walk and one route handler in `apps/galaxy/scripts/shots.mjs`. Opti
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Stays here: A local tooling version pin that is cheap to change, with no lasting rule or architectural decision; no existing entry covers it.
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ One version in `apps/galaxy/package.json` and a `pnpm install`, then one `playwr
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 1
+- Became: ADR-0041
 
 ### The answer, as it was given
 
@@ -251,6 +254,7 @@ A constant: one line in the tsconfig. Going the other way means renaming the sev
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 2
+- Stays here: A local UI choice in the game app, one line to change, no lasting product law; no game domain exists and product knowledge never names the game.
 
 ### The answer, as it was given
 
@@ -329,6 +333,7 @@ A constant: one line in `turnPage()` (clamp instead of going round) and its thre
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 2
+- Stays here: A local, cheap-to-change UI choice deferred to later scene-group and wording work; nothing in the knowledge base covers game UI and there are no domains.
 
 ### The answer, as it was given
 
@@ -407,6 +412,7 @@ Small either way: a toast on M is one line in `ArcadeApp.tsx`; a hint in the tit
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 2
+- Stays here: A local rendering default in the game's app, cheap to change (one constant); no domain exists for the game and nothing in the kit's knowledge base concerns it.
 
 ### The answer, as it was given
 
@@ -485,6 +491,7 @@ A constant: the server snapshot in `useForm()`. A first paint drawn by CSS alone
 - Raised: 2026-09-25
 - Slice: s10
 - Wave: 3
+- Stays here: A local layout choice for one game screen, cheap to change (a few constants and CSS); no domain exists for the game and nothing lasting for the kit's knowledge base.
 
 ### The answer, as it was given
 
@@ -563,6 +570,7 @@ A few constants in `planetStage()` and the tall rules of `planet.css`. Option B 
 - Raised: 2026-09-25
 - Slice: s11
 - Wave: 3
+- Stays here: A local layout choice in one scene, cheap to change and unseen today; no domain exists for the game UI and no product principle applies.
 
 ### The answer, as it was given
 
@@ -641,6 +649,7 @@ A constant: the page size and the page rule in `cardsShown()` and its tests, and
 - Raised: 2026-09-25
 - Slice: s11
 - Wave: 3
+- Stays here: A local layout choice in the fleets group's styles, cheap to change; no domain for the game exists and no product principle or rule covers screen layout.
 
 ### The answer, as it was given
 
@@ -719,6 +728,7 @@ Small: the line count and the text size are two values in the fleets group's sty
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 3
+- Stays here: A cheap, local game-input choice pinned in fullscreen.test.ts; the knowledge base covers the kit, not the game, and there is no game domain to hold it.
 
 ### The answer, as it was given
 
@@ -796,6 +806,7 @@ A constant: pass the form to the rule and let F through unless it is `full`, plu
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 3
+- Stays here: A local tuning constant in the arcade's fullscreen handling, cheap to change; no domain exists for the game and the knowledge base covers only the kit.
 
 ### The answer, as it was given
 
@@ -874,6 +885,7 @@ A constant: the number, or dropping the window, one line and one test. No stored
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 3
+- Stays here: A local layout choice held in one constant (HALL_ROWS_TALL); cheap to change, no stored shape, and nothing in the knowledge base covers game screen layout.
 
 ### The answer, as it was given
 
@@ -953,6 +965,7 @@ A constant: `HALL_ROWS_TALL` in `attract.ts`, and the tests in `attract.test.ts`
 - Raised: 2026-09-25
 - Slice: s6
 - Wave: 3
+- Stays here: A local layout choice in one game scene, set by constants in join.ts and join.css and cheap to change; there is no lasting rule and no fitting domain.
 
 ### The answer, as it was given
 
@@ -1031,6 +1044,7 @@ A constant: the `scale` and positions in the tall stage of `join.ts` and the mat
 - Raised: 2026-09-25
 - Slice: s6
 - Wave: 3
+- Stays here: A local layout choice in one CSS file, cheap to change; no lasting rule or architecture, and nothing in the knowledge base covers the game's screens.
 
 ### The answer, as it was given
 
@@ -1109,6 +1123,7 @@ A constant: two rules in `join.css`. Going to option B means a line clamp on the
 - Raised: 2026-09-25
 - Slice: s7
 - Wave: 3
+- Stays here: A local layout choice in one game scene, cheap to change and with no stored shape; the knowledge base covers the kit, not game UI, and has no domain for it.
 
 ### The answer, as it was given
 
@@ -1187,6 +1202,7 @@ A constant: the window is one function and its test. Smaller cards are two numbe
 - Raised: 2026-09-25
 - Slice: s8
 - Wave: 3
+- Stays here: A local layout choice in one game scene, cheap to change (three list lines); no domain exists for the game and nothing lasting for the kit's knowledge base.
 
 ### The answer, as it was given
 
@@ -1265,6 +1281,7 @@ A constant: three list lines in `BriefingOverlay` in `apps/galaxy/src/arcade/sce
 - Raised: 2026-09-25
 - Slice: s9
 - Wave: 3
+- Stays here: A local layout choice for the game's map scene, cheap to change in one file; no domain exists for it and nothing in the knowledge base concerns it.
 
 ### The answer, as it was given
 
@@ -1344,6 +1361,7 @@ A constant or a function: the tall branch of `layoutMap()` and its constants (`T
 - Raised: 2026-09-25
 - Slice: s12
 - Wave: 4
+- Stays here: A local test-helper choice in the game, cheap to replace with a runtime SCENE_NAMES list later; no domain exists for the game and nothing product-wide lasts.
 
 ### The answer, as it was given
 

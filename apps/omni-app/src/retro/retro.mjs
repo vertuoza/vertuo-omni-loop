@@ -8,7 +8,7 @@
 //   step "narrate"          the model's prose, from this Vercel function
 //   step "guard"            each field of prose accepted, or dropped with its reason
 //   step "publish-issues"   one retro issue per finding, worst first
-//   step "publish"          the branch, retro.md + retro.json, then the PR
+//   step "publish"          the branch, retro.md + retro.json in the PRD's shipped folder, then the PR
 //   step "clock-day-14"     the time, once the merge run is out
 //   "wait-day-14-<n>"       a day at a time, until the merge plus `THRESHOLDS.afterMergeDays` days:
 //                           each wait ends on the tick of the function's own daily schedule, or after
@@ -38,6 +38,7 @@
 // serves, with its day-14 run.
 import { internalEvents } from 'inngest';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
+import { foldersLayout } from 'vertuo-omni-plan/kit/lib/layout.mjs';
 import { inngest, RETRO_EVENT } from '../inngest-client.mjs';
 import { installationOctokit } from '../outbox-check/outbox-check.mjs';
 import { listComments } from '../outbox-check/github.mjs';
@@ -169,9 +170,11 @@ async function runRetro({ step, github, env, owner, repo, pr, prd, config, pulls
     records[kind.id] = (await step.run(id(`gather-${kind.id}`), async () => kind.gather(await github(), scope))) ?? null;
   }
 
+  // Read from where the PRD's folder was at the merge; written, always, into its shipped folder.
+  const folder = retroFolder(prd, config);
   const before = earlier?.sheet.findings ?? [];
   const sheet = await step.run(id('facts'), () =>
-    numberedAfter(detect({ run, pr, prd, config, pulls, records, kinds }), before.length),
+    inFolder(numberedAfter(detect({ run, pr, prd, config, pulls, records, kinds }), before.length), folder),
   );
 
   // The model writes the words of the whole retro, so at day 14 it is given both runs' findings.
@@ -182,7 +185,7 @@ async function runRetro({ step, github, env, owner, repo, pr, prd, config, pulls
   const guarded = await step.run(id('guard'), () => guard({ reply: narrated.reply ?? null, sheet: whole }));
   const prose = guarded.prose ?? earlier?.prose ?? null;
 
-  const retroPath = `${prd.folder}/retro.md`;
+  const retroPath = `${folder}/retro.md`;
   const issues = await step.run(id('publish-issues'), async () =>
     publishIssues(await github(), { owner, repo, config, sheet, prose, retroPath }),
   );
@@ -197,9 +200,23 @@ async function runRetro({ step, github, env, owner, repo, pr, prd, config, pulls
     issues: issues ?? {},
   };
   const published = await step.run(id('publish'), async () =>
-    publishRetro(await github(), { owner, repo, config, prd, pr, record, prose, earlier: earlier ? [earlier.record] : [] }),
+    publishRetro(await github(), { owner, repo, config, prd: { ...prd, folder }, pr, record, prose, earlier: earlier ? [earlier.record] : [] }),
   );
   return { sheet, prose, record, published };
+}
+
+/**
+ * The folder a retro is written into: the PRD's shipped folder, always (PRD 82). A PRD merged
+ * without being shipped is shipped by the knowledge harvest on the same merge, so its retro waits
+ * for it there rather than in the inbox.
+ */
+export function retroFolder(prd, config) {
+  return `${foldersLayout('', config.paths).dirs.shipped}/${prd.folder.split('/').at(-1)}`;
+}
+
+/** The fact sheet naming `folder` as the one its retro is written into. */
+function inFolder(sheet, folder) {
+  return sheet.prd?.folder === folder ? sheet : { ...sheet, prd: { ...sheet.prd, folder } };
 }
 
 /** A run's fact sheet with its findings numbered on from the `count` findings of the runs before it. */
