@@ -231,6 +231,17 @@ describe('the chart: a sun per domain', () => {
       layout.suns.forEach((a, i) => layout.suns.slice(i + 1).forEach((b) => {
         expect(Math.hypot(a.x - b.x, a.y - b.y), `${a.name} and ${b.name}`).toBeGreaterThan(a.r + b.r);
       }));
+      // Each name runs under its sun, inside the band and clear of the names beside it.
+      for (const s of layout.suns) {
+        expect(s.label).toBeGreaterThan(0);
+        expect(s.x - s.label / 2).toBeGreaterThanOrEqual(CHART_LINES[grid.name].band.x);
+        expect(s.x + s.label / 2).toBeLessThanOrEqual(CHART_LINES[grid.name].band.x + CHART_LINES[grid.name].band.w);
+      }
+      layout.suns.forEach((a, i) => layout.suns.slice(i + 1).forEach((b) => {
+        if (Math.abs(a.y - b.y) < CHART_LINES[grid.name].band.h / 4) {
+          expect(Math.abs(a.x - b.x), `${a.name} and ${b.name}'s names`).toBeGreaterThanOrEqual((a.label + b.label) / 2);
+        }
+      }));
       const bySize = [...layout.suns].sort((a, b) => a.system.size - b.system.size);
       bySize.forEach((s, i) => { if (i) expect(s.r).toBeGreaterThanOrEqual(bySize[i - 1].r); });
       for (const s of layout.suns) {

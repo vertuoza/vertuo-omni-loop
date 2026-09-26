@@ -8,7 +8,7 @@ import { gridFor, TALL, WIDE, type Grid } from '../grid';
 import { ScreenContext } from '../Screen';
 import type { FleetRow } from '../types';
 import { layoutChart, layoutSystem, type ChartSource } from './chart-layout.ts';
-import { TALL_SCENES, worldSeed } from './chart.ts';
+import { TALL_SCENES, WARM_PER_FRAME, worldSeed } from './chart.ts';
 import { CARD_FIT, cardPages, ChartOverlay, servesLine, SystemOverlay, wrap } from './chart.tsx';
 import type { FrameState } from './common.ts';
 import { drawFrame, layoutMap } from './index.ts';
@@ -30,7 +30,7 @@ const GRAPH: KnowledgeGraph = {
   entries: [
     entry('P-PRODUCT-1', 'principle', 'product', { status: 'law', statement: 'Every change is reviewed by a person.', why: 'Nobody merges alone.', prd: 3 }),
     entry('P-PRODUCT-2', 'principle', 'product', { statement: LONG, why: `${LONG} It says so in P-PRODUCT-1.`, prd: 7 }),
-    entry('BR-PRODUCT-1', 'rule', 'product', { serves: 'P-PRODUCT-1', statement: 'One approval, from outside the team.', prd: 3 }),
+    entry('BR-PRODUCT-1', 'rule', 'product', { serves: 'P-PRODUCT-1', statement: 'One approval, from outside the team.', prd: 3, enforcedBy: 'unenforced' }),
     entry('BR-PRODUCT-2', 'rule', 'product', { serves: 'P-PRODUCT-1', enforced: true, enforcedBy: 'kit/lib/gate.mjs' }),
     entry('N-PRODUCT-1', 'invariant', 'product', { serves: 'P-PRODUCT-9', statement: 'The ledger is append-only.' }),
     entry('P-QUOTE-1', 'principle', 'quote'),
@@ -138,6 +138,21 @@ describe('the star chart on the canvas', () => {
     }
   });
 
+  it('builds a large system\'s worlds a few a frame, and draws every one once they are built', () => {
+    const crowd: KnowledgeGraph = {
+      ...GRAPH,
+      entries: Array.from({ length: 40 }, (_, i) => entry(`BR-CROWD-${i + 1}`, 'rule', 'product')),
+    };
+    const at = (t: number): FrameState => ({ ...frame('system', WIDE, crowd), t });
+    const first = recorder();
+    drawFrame(first.ctx, at(1), 'title');
+    expect(first.images.length).toBe(1 + WARM_PER_FRAME); // the sun, and the first worlds built
+    for (let i = 0; i < 40; i++) drawFrame(recorder().ctx, at(1 + i / 60), 'title');
+    const later = recorder();
+    drawFrame(later.ctx, at(3), 'title');
+    expect(later.images.length).toBe(1 + 40);
+  });
+
   it('seeds each world by its id', () => {
     expect(worldSeed('BR-PRODUCT-1')).toBe(worldSeed('BR-PRODUCT-1'));
     expect(worldSeed('BR-PRODUCT-1')).not.toBe(worldSeed('BR-PRODUCT-2'));
@@ -206,6 +221,9 @@ describe('the system\'s text', () => {
     }
     const principle = panel('P-PRODUCT-1', grid, true).join(' ');
     for (const part of ['WHY', 'Nobody merges alone.', 'SERVED BY 2', 'BR-PRODUCT-1, BR-PRODUCT-2', 'PRD #3']) expect(principle).toContain(part);
+    const unenforced = panel('BR-PRODUCT-1', grid, true).join(' ');
+    expect(unenforced).toContain('PRD #3');
+    expect(unenforced).not.toContain('ENFORCED BY');
   });
 
   it.each([['wide', WIDE], ['tall', TALL]] as const)('pages a long entry on the %s grid: every word on one page, a page never past its lines', (_, grid) => {

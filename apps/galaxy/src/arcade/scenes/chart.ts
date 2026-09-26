@@ -89,6 +89,22 @@ function orbitLine(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: nu
   ctx.globalAlpha = 1;
 }
 
+/**
+ * A world's first drawing builds its planet's texture, a few milliseconds each: at most
+ * `WARM_PER_FRAME` worlds are built a frame, the rest wait as dim discs, so a large system opens at
+ * once and fills in over a few frames instead of freezing its first one.
+ */
+export const WARM_PER_FRAME = 6;
+const warmed = new Set<number>();
+
+function disc(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string) {
+  ctx.fillStyle = color;
+  for (let dy = -r; dy <= r; dy++) {
+    const half = Math.round(Math.sqrt(r * r - dy * dy));
+    ctx.fillRect(Math.round(x) - half, Math.round(y) + dy, half * 2, 1);
+  }
+}
+
 export function drawSystem(ctx: CanvasRenderingContext2D, s: FrameState) {
   space(ctx, s, 0.05);
   const graph = graphOf(s);
@@ -110,8 +126,14 @@ export function drawSystem(ctx: CanvasRenderingContext2D, s: FrameState) {
       if (from) dotted(ctx, from.x, from.y, cur.x, cur.y, { skipA: from.r + 2, skipB: cur.r + 2, every: 4, size: 1, color: KIND_LOOK[e.kind].color, shade: '#0b0a26', t });
     }
   }
+  let budget = WARM_PER_FRAME;
   for (const w of layout.worlds) {
     const look = worldLook(w);
+    if (!warmed.has(look.seed)) {
+      if (budget <= 0) { disc(ctx, w.x, w.y, w.r, '#2a1f5c'); continue; }
+      budget--;
+      warmed.add(look.seed);
+    }
     const rot = s.reduced ? look.seed % 7 : s.t * 0.15 + (look.seed % 7);
     drawPlanet(ctx, { cx: w.x, cy: w.y, r: w.r, rot, ...look });
   }

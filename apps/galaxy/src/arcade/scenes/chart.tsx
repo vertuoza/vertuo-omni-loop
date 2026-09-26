@@ -54,7 +54,7 @@ export function ChartOverlay({ source, layout, sun, onEnter }: { source: ChartSo
         <span className="chart-tally">{chartTally(source)}</span>
       </header>
       {layout.suns.map((slot) => (
-        <span key={slot.name} className={`sun-label${slot.index === sun ? ' active' : ''}`} style={{ left: slot.x, top: Math.round(slot.y + slot.r * 1.4 + 3) }}>
+        <span key={slot.name} className={`sun-label${slot.index === sun ? ' active' : ''}`} style={{ left: slot.x, top: Math.round(slot.y + slot.r * 1.4 + 3), width: slot.label }}>
           <b>{slot.name.toUpperCase()}</b>
           <small>{plural(slot.system.size, 'WORLD')}</small>
         </span>
@@ -117,7 +117,7 @@ export interface CardLine { tone: 'label' | 'text'; text: string }
  * and the lines a page takes (a label counts as one). chart.css sizes the card to hold them.
  */
 export const CARD_FIT: Record<GridName, { chars: number; lines: number }> = {
-  wide: { chars: 60, lines: 11 },
+  wide: { chars: 60, lines: 13 },
   tall: { chars: 34, lines: 11 },
 };
 
@@ -154,7 +154,7 @@ export function cardBlocks(graph: KnowledgeGraph, entry: KnowledgeEntry): { labe
       ? [{ label: `SERVED BY ${down.length}`, text: down.length ? down.map((e) => e.id).join(', ') : 'Nothing serves it yet.' }]
       : []),
     ...(cites.length ? [{ label: 'CITES', text: cites.map((e) => e.id).join(', ') }] : []),
-    ...(entry.enforcedBy ? [{ label: 'ENFORCED BY', text: entry.enforcedBy }] : []),
+    ...(entry.enforced && entry.enforcedBy ? [{ label: 'ENFORCED BY', text: entry.enforcedBy }] : []),
     { label: 'FROM', text: entry.prd ? `PRD #${entry.prd}` : 'No PRD named.' },
   ];
 }
@@ -193,18 +193,18 @@ export function ReadingCard({ graph, entry, page, onPage }: { graph: KnowledgeGr
   const pages = cardPages(graph, entry, grid.name);
   const at = Math.max(0, Math.min(page, pages.length - 1));
   return (
-    <section className="card" role="dialog" aria-label={`${entry.id}, read whole`}>
-      <header className="card-head">
-        <span className="card-id">{entry.id}</span>
+    <section className="read-card" role="dialog" aria-label={`${entry.id}, read whole`}>
+      <header className="read-head">
+        <span className="read-id">{entry.id}</span>
         <KindTag entry={entry} />
         <StatusChip entry={entry} />
       </header>
-      <div className="card-body">
-        {pages[at].map((line, i) => <p key={i} className={`card-${line.tone}`}>{line.text}</p>)}
+      <div className="read-body">
+        {pages[at].map((line, i) => <p key={i} className={`read-${line.tone}`}>{line.text}</p>)}
       </div>
-      <footer className="card-foot">
+      <footer className="read-foot">
         {pages.length > 1 ? (
-          <span className="card-pages">
+          <span className="read-pages">
             <button type="button" aria-label="Previous page" disabled={at === 0} onClick={() => onPage(at - 1)}>▲</button>
             {` PAGE ${at + 1}/${pages.length} `}
             <button type="button" aria-label="Next page" disabled={at === pages.length - 1} onClick={() => onPage(at + 1)}>▼</button>
@@ -234,7 +234,7 @@ export function SystemOverlay({ graph, layout, world, card, cardPage, onRead, on
           ))}
         </span>
       </header>
-      <section className="panel system-panel" aria-live="polite">
+      <section className="dialog system-panel" aria-live="polite">
         {e ? (
           <>
             <div className="system-id">

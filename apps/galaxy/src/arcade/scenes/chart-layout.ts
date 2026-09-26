@@ -31,7 +31,8 @@ export const CHART_LINES: Record<GridName, { band: Box; label: number; sun: { mi
 /** How far a sun's corona reaches, as a share of its radius (drawSun's `sunSize`, rounded up). */
 const CORONA = 1.4;
 
-export interface SunSlot { name: string; x: number; y: number; r: number; index: number; seed: number; system: KnowledgeSystem }
+/** A domain's sun; `label` is how wide its name may run under it, kept inside its own cell. */
+export interface SunSlot { name: string; x: number; y: number; r: number; index: number; seed: number; label: number; system: KnowledgeSystem }
 /** A cross-domain file: a dotted lane between two suns, with how many entries it holds. */
 export interface LaneSlot { from: number; to: number; count: number }
 export interface ChartLayout { suns: SunSlot[]; lanes: LaneSlot[] }
@@ -74,9 +75,11 @@ export function layoutChart(graph: KnowledgeGraph, grid: Grid): ChartLayout {
     const seed = sunSeed(system);
     const rand = rng(seed);
     const slackX = Math.max(0, cellW / 2 - r * CORONA - 2), slackY = Math.max(0, (cellH - label) / 2 - r * CORONA - 2);
-    const x = band.x + (col + 0.5 + (cols - inRow) / 2) * cellW + (n > 1 ? (rand() - 0.5) * slackX : 0);
-    const y = band.y + (row + 0.5) * cellH - label / 2 + (n > 1 ? (rand() - 0.5) * slackY : 0);
-    return { name: system.name, x: Math.round(x), y: Math.round(y), r, index, seed, system };
+    const left = band.x + (col + (cols - inRow) / 2) * cellW;
+    const x = Math.round(left + cellW / 2 + (n > 1 ? (rand() - 0.5) * slackX : 0));
+    const y = Math.round(band.y + (row + 0.5) * cellH - label / 2 + (n > 1 ? (rand() - 0.5) * slackY : 0));
+    const width = Math.floor(2 * Math.min(x - left, left + cellW - x) - 4);
+    return { name: system.name, x, y, r, index, seed, label: width, system };
   });
   const at = new Map(suns.map((s) => [s.name, s.index]));
   const laneSlots = lanes(graph).flatMap((lane) => {
