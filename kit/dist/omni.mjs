@@ -2947,8 +2947,8 @@ var require_int2 = __commonJS({
     var stringifyNumber = require_stringifyNumber();
     var intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
     function intResolve(str, offset, radix, { intAsBigInt }) {
-      const sign = str[0];
-      if (sign === "-" || sign === "+")
+      const sign2 = str[0];
+      if (sign2 === "-" || sign2 === "+")
         offset += 1;
       str = str.substring(offset).replace(/_/g, "");
       if (intAsBigInt) {
@@ -2964,10 +2964,10 @@ var require_int2 = __commonJS({
             break;
         }
         const n2 = BigInt(str);
-        return sign === "-" ? BigInt(-1) * n2 : n2;
+        return sign2 === "-" ? BigInt(-1) * n2 : n2;
       }
       const n = parseInt(str, radix);
-      return sign === "-" ? -1 * n : n;
+      return sign2 === "-" ? -1 * n : n;
     }
     function intStringify(node, radix, prefix) {
       const { value } = node;
@@ -3116,11 +3116,11 @@ var require_timestamp = __commonJS({
     init_define_OMNI_BUNDLE();
     var stringifyNumber = require_stringifyNumber();
     function parseSexagesimal(str, asBigInt) {
-      const sign = str[0];
-      const parts = sign === "-" || sign === "+" ? str.substring(1) : str;
+      const sign2 = str[0];
+      const parts = sign2 === "-" || sign2 === "+" ? str.substring(1) : str;
       const num = (n) => asBigInt ? BigInt(n) : Number(n);
       const res = parts.replace(/_/g, "").split(":").reduce((res2, p) => res2 * num(60) + num(p), num(0));
-      return sign === "-" ? num(-1) * res : res;
+      return sign2 === "-" ? num(-1) * res : res;
     }
     function stringifySexagesimal(node) {
       let { value } = node;
@@ -3129,9 +3129,9 @@ var require_timestamp = __commonJS({
         num = (n) => BigInt(n);
       else if (isNaN(value) || !isFinite(value))
         return stringifyNumber.stringifyNumber(node);
-      let sign = "";
+      let sign2 = "";
       if (value < 0) {
-        sign = "-";
+        sign2 = "-";
         value *= num(-1);
       }
       const _60 = num(60);
@@ -3146,7 +3146,7 @@ var require_timestamp = __commonJS({
           parts.unshift(value);
         }
       }
-      return sign + parts.map((n) => String(n).padStart(2, "0")).join(":").replace(/000000\d*$/, "");
+      return sign2 + parts.map((n) => String(n).padStart(2, "0")).join(":").replace(/000000\d*$/, "");
     }
     var intTime = {
       identify: (value) => typeof value === "bigint" || Number.isInteger(value),
@@ -11544,6 +11544,7 @@ var regexSource = external_exports.string().refine((source) => {
   }
 }, "not a valid regular expression");
 var section = (shape) => external_exports.object(shape).strict().default({});
+var trailerPart = text.regex(/^[^<>\r\n]+$/, "one line, with no < or >");
 var ConfigSchema = external_exports.object({
   kit: external_exports.literal(CONFIG_VERSION),
   repo: section({
@@ -11623,7 +11624,14 @@ var ConfigSchema = external_exports.object({
     claimStaleMinutes: external_exports.number().int().positive().default(60),
     beforeAfterMaxBytes: external_exports.number().int().positive().default(512e3)
   }),
-  markers: section({ prefix: external_exports.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") })
+  markers: section({ prefix: external_exports.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
+  // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.mjs`). By
+  // default the omni-loop GitHub App's bot account; `null` switches signing off.
+  signature: external_exports.object({
+    name: trailerPart.default("OmniMan"),
+    email: trailerPart.default("333776611+omni-loop-invader[bot]@users.noreply.github.com"),
+    footer: text.default("\u{1F9B8} Delivered by OmniMan, with Omni Loop")
+  }).strict().nullable().default({})
 }).strict();
 function describeIssue(issue) {
   const path = issue.path.join(".") || "(top level)";
@@ -15689,6 +15697,7 @@ var section2 = (key, value) => (0, import_yaml3.stringify)({ [key]: value }).tri
 function renderConfig({ slug, defaultBranch, commands, lawsSource }) {
   const repo = { slug };
   if (defaultBranch) repo.defaultBranch = defaultBranch;
+  const { signature } = ConfigSchema.parse({ kit: CONFIG_VERSION });
   const text2 = [
     `# Omni Loop config, written by \`omni init\`. A key not written here keeps its schema default.`,
     `kit: ${CONFIG_VERSION}`,
@@ -15704,6 +15713,9 @@ function renderConfig({ slug, defaultBranch, commands, lawsSource }) {
     "",
     "# Where the laws a slice must not break are read from: knowledge, claudeMdInvariants or none.",
     section2("laws", { source: lawsSource }),
+    "",
+    "# Who co-signs the loop's commits, pull requests and issues. null: nobody.",
+    section2("signature", signature),
     ""
   ].join("\n");
   return { text: text2, config: parseConfig(text2, CONFIG_FILE) };
@@ -16715,6 +16727,23 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/policy/phase-0.mjs
 init_define_OMNI_BUNDLE();
+
+// kit/lib/signature.mjs
+init_define_OMNI_BUNDLE();
+var SIGNED_MARKER = "<!-- omni-loop:signed -->";
+function trailerLine(signature) {
+  return signature ? `Co-authored-by: ${signature.name} <${signature.email}>` : null;
+}
+function footerLine(signature) {
+  return signature ? `${signature.footer} ${SIGNED_MARKER}` : null;
+}
+function carriesTrailer(message, signature) {
+  const trailer = trailerLine(signature);
+  if (trailer === null || typeof message !== "string") return false;
+  return message.split("\n").some((line) => line.trimEnd() === trailer);
+}
+
+// kit/lib/policy/phase-0.mjs
 var PHASE_0_REQUIRED_KINDS = (
   /** @type {const} */
   ["spec", "plan", "before-after"]
@@ -16757,7 +16786,7 @@ function classifyPhase0Path(path, { ctx, prd: prd2 }) {
   if (isDocsPath(file, ctx)) return "docs";
   return "source";
 }
-function phase0Verdict(paths, { ctx, prd: prd2, needsBeforeAfter = true } = {}) {
+function phase0Verdict(paths, { ctx, prd: prd2, needsBeforeAfter = true, commits } = {}) {
   const files = (paths ?? []).map(normalize).filter(Boolean);
   const kinds = files.map((file) => classifyPhase0Path(file, { ctx, prd: prd2 }));
   const carries = {
@@ -16774,7 +16803,8 @@ function phase0Verdict(paths, { ctx, prd: prd2, needsBeforeAfter = true } = {}) 
   );
   const missing = required.filter((kind) => carries[kind].length === 0);
   const docsOnly = offending.length === 0;
-  const ok = docsOnly && missing.length === 0;
+  const { signed, trailer, unsigned } = gradeSignature(commits, ctx.config.signature);
+  const ok = docsOnly && missing.length === 0 && unsigned.length === 0;
   return {
     ok,
     docsOnly,
@@ -16783,10 +16813,19 @@ function phase0Verdict(paths, { ctx, prd: prd2, needsBeforeAfter = true } = {}) 
     carries,
     sourceFiles: offending,
     missing,
-    reason: phase0Reason({ ok, docsOnly, offending, missing })
+    signed,
+    trailer,
+    unsigned,
+    reason: phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned })
   };
 }
-function phase0Reason({ ok, docsOnly, offending, missing }) {
+function gradeSignature(commits, signature) {
+  const trailer = trailerLine(signature);
+  if (trailer === null || commits === void 0) return { signed: null, trailer, unsigned: [] };
+  const unsigned = commits.filter((commit) => !carriesTrailer(commit.message, signature)).map((commit) => ({ sha: commit.sha, subject: String(commit.message ?? "").split("\n")[0].trim() }));
+  return { signed: unsigned.length === 0, trailer, unsigned };
+}
+function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned }) {
   if (ok) {
     return "docs-only, and it carries the spec, the plan and the before/after a reviewer is being asked to approve";
   }
@@ -16798,6 +16837,10 @@ function phase0Reason({ ok, docsOnly, offending, missing }) {
   }
   if (missing.length > 0) {
     faults.push(`nothing in it is the ${missing.join(", the ")}`);
+  }
+  if (unsigned.length > 0) {
+    const shas = unsigned.map((commit) => commit.sha).join(", ");
+    faults.push(`unsigned: ${shas} ${unsigned.length === 1 ? "has" : "have"} no "${trailer}" line`);
   }
   return faults.join("; ");
 }
@@ -16821,6 +16864,16 @@ function refExists2(ctx, ref, exec) {
 function changedPaths(ctx, base, exec) {
   return git2(["diff", "--name-only", "--no-renames", `${base}...HEAD`], ctx.root, exec).split("\n").map((line) => line.trim()).filter(Boolean);
 }
+function rangeCommits(ctx, base, exec) {
+  return git2(["log", "--reverse", "--format=%h%x00%B%x1e", `${base}..HEAD`], ctx.root, exec).split("").map((record) => record.replace(/^\n/, "")).filter((record) => record.includes("\0")).map((record) => {
+    const [sha, message] = record.split("\0");
+    return { sha, message };
+  });
+}
+function signedLine(signed) {
+  if (signed === null) return "signed: off (signature: null)";
+  return `signed: ${signed ? "yes" : "no"}`;
+}
 function carriesLine(label, files) {
   return `  ${label}: ${files.length > 0 ? files.map((file) => `\`${file}\``).join(", ") : "(none)"}`;
 }
@@ -16828,6 +16881,7 @@ function printVerdict(stdout, prd2, base, verdict) {
   println(stdout, `omni phase0 \u2014 PRD ${prd2}, range ${base}...HEAD:`);
   println(stdout, `${verdict.ok ? "ok" : "not ok"} \u2014 ${verdict.reason}`);
   println(stdout, `docs-only: ${verdict.docsOnly ? "yes" : "no"}`);
+  println(stdout, signedLine(verdict.signed));
   println(stdout, "carries:");
   println(stdout, carriesLine("spec", verdict.carries.spec));
   println(stdout, carriesLine("plan", verdict.carries.plan));
@@ -16841,6 +16895,10 @@ function printVerdict(stdout, prd2, base, verdict) {
     println(stdout, `source file(s) \u2014 not allowed in a phase-0 pull request:`);
     for (const file of verdict.sourceFiles) println(stdout, `  - ${file}`);
   }
+  if (verdict.unsigned.length > 0) {
+    println(stdout, `unsigned commit(s) \u2014 each needs the line "${verdict.trailer}":`);
+    for (const commit of verdict.unsigned) println(stdout, `  - ${commit.sha} ${commit.subject}`);
+  }
 }
 var phase0 = {
   async run(args, { ctx, stdout, exec }) {
@@ -16853,7 +16911,8 @@ var phase0 = {
       throw usageError(`omni phase0: no ${base} \u2014 ${how}.`);
     }
     const paths = changedPaths(ctx, base, exec);
-    const verdict = phase0Verdict(paths, { ctx, prd: prd2 });
+    const commits = ctx.config.signature === null ? void 0 : rangeCommits(ctx, base, exec);
+    const verdict = phase0Verdict(paths, { ctx, prd: prd2, commits });
     printVerdict(stdout, prd2, base, verdict);
     return verdict.ok ? 0 : 1;
   }
@@ -17707,6 +17766,20 @@ var ship = {
   }
 };
 
+// kit/bin/commands/sign.mjs
+init_define_OMNI_BUNDLE();
+var USAGE10 = "usage: omni sign trailer|footer";
+var LINES2 = { trailer: trailerLine, footer: footerLine };
+var sign = {
+  async run(args, { ctx, stdout }) {
+    const { positional } = parseArgs("sign", args);
+    if (positional.length !== 1 || !Object.hasOwn(LINES2, positional[0])) throw usageError(USAGE10);
+    const line = LINES2[positional[0]](ctx.config.signature);
+    if (line !== null) println(stdout, line);
+    return 0;
+  }
+};
+
 // kit/bin/commands/status.mjs
 init_define_OMNI_BUNDLE();
 import { appendFileSync } from "node:fs";
@@ -17744,17 +17817,17 @@ var status2 = {
 };
 
 // kit/bin/commands/index.mjs
-var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, comment, ship, check, knowledge, kb, item, plan, board, rework, phase0, init });
+var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, comment, ship, check, knowledge, kb, item, plan, board, rework, phase0, init, sign });
 
 // kit/bin/omni.mjs
-var USAGE10 = `usage: omni <command> [args]
+var USAGE11 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 `;
 async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync6, env = process.env, ...more } = {}) {
   const [name, ...rest] = argv;
   const command = Object.hasOwn(COMMAND_TABLE, name ?? "") ? COMMAND_TABLE[name] : void 0;
   if (!command) {
-    stderr.write(USAGE10);
+    stderr.write(USAGE11);
     return 2;
   }
   try {

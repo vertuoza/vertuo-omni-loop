@@ -287,3 +287,32 @@ basename-only check and say so in the porting record."*
 
 `pnpm vitest run kit/lib/policy kit/test/no-literals.test.mjs` — 96/96 pass (54 outbox-policy + 16
 phase-0 + 25 rework + 1 no-literals). Full `pnpm test` — 810/810 pass.
+
+## PRD #99, slice s1 — every commit is signed
+
+Not a port: a rule upstream never had. PRD #99 makes OmniMan (the `signature` config section) a
+co-author of every commit the loop makes, and a phase-0 branch is made only by the loop, so
+`omni phase0` refuses a commit there that lacks the trailer `omni sign trailer` prints.
+
+- `phase0Verdict(paths, { ctx, prd, needsBeforeAfter })` gained an optional `commits`
+  (`{ sha, message }[]`, the range's commits). Each must carry the trailer exactly
+  (`carriesTrailer`, `kit/lib/signature.mjs`); one that does not makes the verdict not ok. The module
+  stays pure: `omni phase0` (`kit/bin/commands/phase0.mjs`) reads the commits with
+  `git log --reverse <base>..HEAD`, the commits its three-dot diff is made of.
+- The verdict gained three fields: `signed` (`true`/`false` once graded, `null` when nothing was —
+  `signature: null`, or no `commits` given, so every existing caller grades exactly as before),
+  `trailer` (the line looked for, `null` when signing is off) and `unsigned` (`{ sha, subject }`
+  of each commit without it, in the order given).
+- `phase0Reason` gained a third fault, joined to the others with `; ` as they are:
+  `unsigned: <sha>[, <sha>…] has|have no "<trailer>" line`. The `ok` reason is unchanged.
+- `omni phase0` prints a `signed: yes | no | off (signature: null)` line after `docs-only`, and,
+  when a commit is unsigned, lists each one with its subject under the line it needs.
+
+### Test changes
+
+- `phase-0.test.mjs`: a new block, "Every commit of a phase-0 pull request is signed" — a signed
+  range keeps the reason it always gave; one unsigned commit refuses it, naming the commit and the
+  line; several are named together; `signature: null` and no `commits` grade nothing.
+- `kit/bin/phase0.test.mjs`: the fixture's `commit()` now signs as a skill signs (the session's
+  trailer, then OmniMan's), so the three existing verdicts are unchanged; a new block runs the
+  signature through `main()`.

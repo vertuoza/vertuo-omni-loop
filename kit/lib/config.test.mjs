@@ -68,6 +68,37 @@ describe('parseConfig', () => {
   });
 });
 
+describe('the signature section (PRD #99)', () => {
+  const DEFAULT = {
+    name: 'OmniMan',
+    email: '333776611+omni-loop-invader[bot]@users.noreply.github.com',
+    footer: '🦸 Delivered by OmniMan, with Omni Loop',
+  };
+
+  it('signs as OmniMan when the file has no signature section', () => {
+    expect(parseConfig('kit: 1\n').signature).toEqual(DEFAULT);
+  });
+
+  it('keeps the defaults for the keys an override leaves out', () => {
+    const config = parseConfig('kit: 1\nsignature:\n  name: Robo\n  email: robo@example.com\n');
+    expect(config.signature).toEqual({ ...DEFAULT, name: 'Robo', email: 'robo@example.com' });
+  });
+
+  it('accepts signature: null, which switches signing off', () => {
+    expect(parseConfig('kit: 1\nsignature: null\n').signature).toBeNull();
+  });
+
+  it('refuses an unknown key under signature, naming it', () => {
+    expect(() => parseConfig('kit: 1\nsignature:\n  avatar: x.png\n', 'c.yml')).toThrow(/c\.yml.*signature.*avatar/s);
+  });
+
+  it('refuses a name or an address that would break the trailer line', () => {
+    expect(() => parseConfig('kit: 1\nsignature:\n  name: "Omni <Man>"\n')).toThrow(/signature\.name/);
+    expect(() => parseConfig('kit: 1\nsignature:\n  email: "a\\nb@example.com"\n')).toThrow(/signature\.email/);
+    expect(() => parseConfig('kit: 1\nsignature:\n  footer: ""\n')).toThrow(/signature\.footer/);
+  });
+});
+
 describe('omni config', () => {
   const io = () => {
     const out = [];
@@ -82,6 +113,17 @@ describe('omni config', () => {
       expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
       expect(s.out.join('')).toBe(`${value}\n`);
     }
+  });
+
+  it('prints the default signature when the file has no signature section (AC 1)', async () => {
+    const { root } = makeRepo({ git: true, files });
+    const s = io();
+    expect(await main(['config', 'signature'], { cwd: root, ...s })).toBe(0);
+    expect(JSON.parse(s.out.join(''))).toEqual({
+      name: 'OmniMan',
+      email: '333776611+omni-loop-invader[bot]@users.noreply.github.com',
+      footer: '🦸 Delivered by OmniMan, with Omni Loop',
+    });
   });
 
   it('exits 2 for a key the schema does not hold', async () => {

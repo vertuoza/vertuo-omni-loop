@@ -22,8 +22,14 @@
  * Nothing here restates the folder layout: `ctx.layout.specPath`/`planPath`/`beforeAfterPath` are
  * the one place a PRD's own delivery files are named, so a phase-0 pull request and the rest of the
  * kit can never disagree about where a file belongs.
+ *
+ * A third rule came with PRD #99: **every commit in that pull request is signed.** A phase-0 branch
+ * is made only by the loop, so a commit without the trailer `omni sign trailer` prints is a skill
+ * that forgot to sign. {@link phase0Verdict} grades the commits it is given; with `signature: null`
+ * in the config it grades none.
  */
 // Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-brainstorming/phase-0-policy.mjs — changes in kit/porting/policy--phase-0.md.
+import { carriesTrailer, trailerLine } from '../signature.mjs';
 
 /**
  * The three things a phase-0 pull request exists to offer for review, in the order a reader wants
@@ -144,10 +150,15 @@ export function isDocsOnly(paths, { ctx }) {
  * A change with nothing to show — docs, a config — writes no before/after page and says so; pass
  * `needsBeforeAfter: false` for that case rather than inventing a page to satisfy the check.
  *
+ * `commits` are the range's commits, `{ sha, message }` each: every one must carry the signature's
+ * trailer, or the verdict is not ok and names it in `unsigned`. `signed` is `true` or `false` once
+ * graded, and `null` when nothing was graded — `signature: null` in the config, or no `commits`
+ * given.
+ *
  * @param {string[]} paths repo-relative changed paths
- * @param {{ ctx: object, prd: number | string, needsBeforeAfter?: boolean }} options
+ * @param {{ ctx: object, prd: number | string, needsBeforeAfter?: boolean, commits?: { sha: string, message: string }[] }} options
  */
-export function phase0Verdict(paths, { ctx, prd, needsBeforeAfter = true } = {}) {
+export function phase0Verdict(paths, { ctx, prd, needsBeforeAfter = true, commits } = {}) {
   const files = (paths ?? []).map(normalize).filter(Boolean);
   const kinds = files.map((file) => classifyPhase0Path(file, { ctx, prd }));
   const carries = {
@@ -165,7 +176,8 @@ export function phase0Verdict(paths, { ctx, prd, needsBeforeAfter = true } = {})
   );
   const missing = required.filter((kind) => carries[kind].length === 0);
   const docsOnly = offending.length === 0;
-  const ok = docsOnly && missing.length === 0;
+  const { signed, trailer, unsigned } = gradeSignature(commits, ctx.config.signature);
+  const ok = docsOnly && missing.length === 0 && unsigned.length === 0;
 
   return {
     ok,
@@ -175,11 +187,24 @@ export function phase0Verdict(paths, { ctx, prd, needsBeforeAfter = true } = {})
     carries,
     sourceFiles: offending,
     missing,
-    reason: phase0Reason({ ok, docsOnly, offending, missing }),
+    signed,
+    trailer,
+    unsigned,
+    reason: phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned }),
   };
 }
 
-function phase0Reason({ ok, docsOnly, offending, missing }) {
+/** The commits without the signature's trailer, as `{ sha, subject }`, in the order given. */
+function gradeSignature(commits, signature) {
+  const trailer = trailerLine(signature);
+  if (trailer === null || commits === undefined) return { signed: null, trailer, unsigned: [] };
+  const unsigned = commits
+    .filter((commit) => !carriesTrailer(commit.message, signature))
+    .map((commit) => ({ sha: commit.sha, subject: String(commit.message ?? '').split('\n')[0].trim() }));
+  return { signed: unsigned.length === 0, trailer, unsigned };
+}
+
+function phase0Reason({ ok, docsOnly, offending, missing, trailer, unsigned }) {
   if (ok) {
     return 'docs-only, and it carries the spec, the plan and the before/after a reviewer is being asked to approve';
   }
@@ -191,6 +216,10 @@ function phase0Reason({ ok, docsOnly, offending, missing }) {
   }
   if (missing.length > 0) {
     faults.push(`nothing in it is the ${missing.join(', the ')}`);
+  }
+  if (unsigned.length > 0) {
+    const shas = unsigned.map((commit) => commit.sha).join(', ');
+    faults.push(`unsigned: ${shas} ${unsigned.length === 1 ? 'has' : 'have'} no "${trailer}" line`);
   }
   return faults.join('; ');
 }
