@@ -8,12 +8,15 @@
 --
 -- Every grant below is explicit: revoked first, then granted, so the result is the same whether or
 -- not the project grants new tables to the API roles by default (config.toml › auto_expose_new_tables).
+--
+-- Ask mode (PRD #71) shipped first, and its rules call is_crew() too: they move to membership below,
+-- before is_crew() is dropped (outbox item s1-01-migration-after-ask-mode).
 
 -- ── 1. Drop the global game tables, and the functions only they use ─────────────
 
 drop table public.ledger_events, public.players, public.teams, public.sectors;  -- their policies, grants and triggers go with them
-drop function public.is_crew();
 drop function public.players_guard();
+-- is_crew() goes once ask mode no longer calls it, after step 2.
 
 -- ── 2. Workspaces and their members ─────────────────────────────────────────────
 
@@ -79,6 +82,64 @@ as $$
     select 1 from public.workspace_members m where m.workspace_id = workspace and m.user_id = auth.uid()
   )
 $$;
+
+-- True when the caller belongs to at least one workspace: the crew, where a table names no
+-- workspace (ask mode's), and whom link_github() answers.
+create function public.has_workspace() returns boolean
+language sql stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from public.workspace_members m where m.user_id = auth.uid())
+$$;
+
+-- ── Ask mode (PRD #71): its crew becomes whoever belongs to a workspace ───────────
+
+-- A session belongs to the account that opened it, and names no workspace. Each rule keeps its owner
+-- check and trades the email domain for membership of any workspace; nothing else in it changes.
+alter policy "a person sees their own ask sessions" on public.ask_sessions
+  using (owner = (select auth.uid()) and (select public.has_workspace()));
+alter policy "a person opens ask sessions as themself" on public.ask_sessions
+  with check (owner = (select auth.uid()) and (select public.has_workspace()));
+alter policy "a person keeps and closes their own ask sessions" on public.ask_sessions
+  using (owner = (select auth.uid()) and (select public.has_workspace()));
+
+alter policy "a person sees the rounds of their own sessions" on public.ask_rounds
+  using ((select public.has_workspace()) and exists (
+    select 1 from public.ask_sessions s where s.id = session_id and s.owner = (select auth.uid())));
+alter policy "a person asks in their own open sessions" on public.ask_rounds
+  with check ((select public.has_workspace()) and exists (
+    select 1 from public.ask_sessions s where s.id = session_id and s.owner = (select auth.uid()) and s.status = 'open'));
+alter policy "a person answers the rounds of their own sessions" on public.ask_rounds
+  using ((select public.has_workspace()) and exists (
+    select 1 from public.ask_sessions s where s.id = session_id and s.owner = (select auth.uid())));
+
+-- The terminal's sign-in code is issued to a member of a workspace only. Otherwise as #71 wrote it;
+-- its grants stay.
+create or replace function public.ask_cli_code_issue(p_code_hash text, p_refresh_token text) returns timestamptz
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  expires timestamptz := now() + interval '2 minutes';
+begin
+  if auth.uid() is null or not public.has_workspace() then
+    raise exception 'Sign in with an account of a workspace first.' using errcode = '42501';
+  end if;
+  if p_code_hash is null or p_code_hash !~ '^[0-9a-f]{64}$' or coalesce(p_refresh_token, '') = '' then
+    raise exception 'A sign-in code needs its hash and a refresh token.' using errcode = '22023';
+  end if;
+  delete from public.ask_cli_codes c where c.expires_at < now();
+  insert into public.ask_cli_codes (code_hash, owner, refresh_token, expires_at)
+  values (p_code_hash, auth.uid(), p_refresh_token, expires);
+  return expires;
+end;
+$$;
+
+-- Nothing calls it any more. No cascade: a rule still calling it stops the migration here, rather
+-- than going with it.
+drop function public.is_crew();
 
 -- ── 3. The game's tables, scoped by workspace ────────────────────────────────────
 
@@ -234,7 +295,7 @@ as $$
 declare
   ident record;
 begin
-  if auth.uid() is null or not exists (select 1 from public.workspace_members m where m.user_id = auth.uid()) then
+  if auth.uid() is null or not public.has_workspace() then
     raise exception 'Sign in with an account of a workspace first.' using errcode = '42501';
   end if;
   select g.github_id, g.github_login into ident from public.my_github() g;
@@ -335,6 +396,8 @@ revoke execute on function public.valid_theme(jsonb) from public;
 grant execute on function public.valid_theme(jsonb) to anon, authenticated, service_role;
 revoke execute on function public.is_member(uuid) from public, anon;
 grant execute on function public.is_member(uuid) to authenticated, service_role;
+revoke execute on function public.has_workspace() from public, anon;
+grant execute on function public.has_workspace() to authenticated, service_role;
 revoke execute on function public.join_by_domain() from public, anon;
 grant execute on function public.join_by_domain() to authenticated;
 revoke execute on function public.link_github() from public, anon;
