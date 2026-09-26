@@ -98,6 +98,14 @@ describe('the stylesheet', () => {
     expect(css.match(/Press Start 2P|Jersey 10/g)).toHaveLength(1);
   });
 
+  it("gives the page back the scroll the arcade's body takes away", () => {
+    // arcade.css is global and pins the body (height 100%, overflow hidden) for the game screen;
+    // a page of several questions is taller than the window and must scroll.
+    const body = rules.find((r) => r.selector === 'html:has(.ask) body');
+    expect(body?.body).toContain('overflow: auto;');
+    expect(body?.body).toContain('height: auto;');
+  });
+
   it('puts the preview beside the options from 720 px, and under them below', () => {
     expect(css).toMatch(/@media \(min-width: 720px\) \{\s*\.ask-q-body\.has-preview \{ grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\);/);
     expect(rules.find((r) => r.selector === '.ask-q-body')?.body).not.toContain('grid-template-columns');

@@ -1,13 +1,14 @@
 // The production account: Google sign-in and GitHub linking through Supabase Auth, the player's row
-// through the database, with row-level security deciding what they may change (their name, fleet
-// and hero; never their GitHub login, which comes from the linked identity), and refusing a row to a
-// visitor who has not linked GitHub.
+// through the database, in the workspace the page plays (src/data/players.ts), with row-level
+// security deciding what they may change (their name, fleet and hero; never their GitHub login,
+// which comes from the linked identity), and refusing a row to a visitor who has not linked GitHub.
 import { createBrowserClient } from '@supabase/ssr';
+import { savePlayer } from '../data/players';
 import type { Account, Player, PlayerPatch } from './types';
 
-const COLUMNS = 'id, display_name, team, team_since, hero, github_login';
-
-export function supabaseAccount({ url, key }: { url: string; key: string }): Account {
+/** `workspace`: the id of the workspace the page plays, where joining a fleet writes the player row;
+ * null for a person who belongs to none. */
+export function supabaseAccount({ url, key, workspace }: { url: string; key: string; workspace: string | null }): Account {
   // Created on first use, in the browser: the server's pre-render of the arcade never needs it.
   let client: ReturnType<typeof createBrowserClient> | null = null;
   const db = new Proxy({} as ReturnType<typeof createBrowserClient>, {
@@ -20,7 +21,7 @@ export function supabaseAccount({ url, key }: { url: string; key: string }): Acc
     async signIn() {
       const { error } = await db.auth.signInWithOAuth({
         provider: 'google',
-        // hd filters Google's account chooser; the sign-in hook and every policy enforce the domain.
+        // hd filters Google's account chooser; the sign-in hook and every policy enforce membership.
         options: { redirectTo: callback(), queryParams: { hd: 'vertuoza.com' } },
       });
       if (error) throw fail('Google sign-in', error.message);
@@ -32,14 +33,7 @@ export function supabaseAccount({ url, key }: { url: string; key: string }): Acc
     async save(patch: PlayerPatch, current: Player | null) {
       const { data: { user } } = await db.auth.getUser();
       if (!user) throw new Error('Your session ended. Sign in again.');
-      const query = current
-        ? db.from('players').update(patch).eq('id', user.id)
-        : db.from('players').insert({ id: user.id, ...patch });
-      const { data, error } = await query.select(COLUMNS).single();
-      // A visitor's row is refused by row-level security: joining a fleet needs GitHub linked.
-      if (error && !current && error.code === '42501') throw new Error('Link your GitHub first: it is what makes you a player.');
-      if (error) throw fail('Saving', error.message);
-      return data as Player;
+      return savePlayer(db, workspace, user.id, patch, current);
     },
     async signOut() {
       await db.auth.signOut();

@@ -2,10 +2,10 @@
 
 The web UI of the game layer: a retro arcade that shows the galaxy. Every PRD is a planet,
 every slice a zone, every open question or bug an Entropy unit on its surface. Signing in with a
-`@vertuoza.com` Google account makes you a **visitor**: you may look at the galaxy. Linking your
-GitHub account, once, makes you a **player**: you pick a fleet, enter a name and build a hero, and
-your pull requests score for that fleet. All from the keyboard on a computer, and from a Game Boy's
-buttons on a phone (design:
+`@vertuoza.com` Google account makes you a member of the `vertuoza` workspace and a **visitor**:
+you may look at its galaxy. Linking your GitHub account, once, makes you a **player**: you pick a
+fleet, enter a name and build a hero, and your pull requests score for that fleet. All from the
+keyboard on a computer, and from a Game Boy's buttons on a phone (design:
 [`docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md`](../../docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md)).
 
 - Game pixels drawn on a canvas, on one of two grids (wide 640×360 or tall 320×288, see
@@ -33,8 +33,8 @@ buttons on a phone (design:
 
 | Screen | What it shows |
 |---|---|
-| Boot → Title | "VERTUOZA presents", then an attract loop: logo, the story, the top five heroes (signed in) |
-| Insert coin | Sign in with the Vertuoza Google account; any other domain is refused and says why |
+| Boot → Title | "VERTUOZA presents" and the V, then an attract loop: logo, the story, the top five heroes (signed in). A member sees their workspace's name, letter and colours; signed out, the house brand, Vertuoza |
+| Insert coin | Sign in with the Vertuoza Google account; any other domain is refused and says why, and a signed-in account that belongs to no workspace gets the "wrong cartridge" screen |
 | Press start | After coming back from Google: browsers play sound only after a key press |
 | Link GitHub | Before playing, once: points are earned under the GitHub login, which only the linked identity sets. B visits only |
 | Intro | First visit only, 20 s, skippable: OmniMan rises, three lines type in, the fleets flash in |
@@ -42,14 +42,16 @@ buttons on a phone (design:
 | Enter your name | Up to 10 characters, typed or spun on a letter wheel, pre-filled from the Google first name |
 | Build your hero | Girl or boy, skin, hair, suit (the fleet colour first) and cape; TAB for random |
 | Ready / Welcome back | The launch after a first visit; a two-second welcome for returning players |
-| Select mode | PLAY (visitors: links GitHub), Galaxy map, Fleets, Hall of Heroes, How to play, then My hero and Change fleet (players), Sign out |
+| Select mode | PLAY (visitors: links GitHub), Galaxy map, Star chart, Fleets, Hall of Heroes, How to play, then My hero and Change fleet (players), Sign out |
 | Galaxy map | Sectors as nebulae; planets by state, threat and wounds; red hyperlanes from a locked planet to its blockers; distress pulses |
 | Planet | The planet with its Entropy in orbit and the fleets on station; tabs for status, zones by phase, Entropy (age, decay, bounty) and the event log |
+| Star chart | The knowledge base as space: a sun per domain, sized by the entries it holds, and a dotted lane for each cross-domain file ([The knowledge map](#the-knowledge-map)) |
+| System | One domain as an orrery: its entries as worlds on still orbits, laws terraformed and proposed entries barren; the selected world's links, its panel, and the reading card |
 | Fleets | A hero-select wall of the fleets with season points, streak, planets, crew (players by name) |
 | Hall of Heroes | Season high-score table from `game/economy.mjs`, with each player's hero and name |
 | How to play | The scoring rules, read from `game/rulebook.mjs` so they never drift |
 
-Deep links: `#map`, `#fleets`, `#heroes`, `#briefing`, `#planet-2332`.
+Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#briefing`, `#planet-2332`.
 
 ## Three forms, two grids
 
@@ -70,7 +72,7 @@ game is the same in all three.
   sprites stay on a pixel grid.
 - **Which grid a scene gets.** `gridFor()` in `src/arcade/grid.ts`: tall on `handheld` for a scene
   its group lists in `TALL_SCENES` (`src/arcade/scenes/<group>.ts`), wide otherwise. A wide scene
-  on the Game Boy is letterboxed inside its tall lens. All 19 scenes are listed, and `grid.test.ts`
+  on the Game Boy is letterboxed inside its tall lens. All 21 scenes are listed, and `grid.test.ts`
   fails when a scene is not, so a new scene needs a wide and a tall layout.
 - **A tall layout drops nothing.** It shows what the wide one shows, stacked or split into pages:
   the Hall of Heroes (four to a page) and How to play (one section a page) show "PAGE n/N", and
@@ -125,17 +127,18 @@ Left, Right, "A, confirm", "B, back", Select, Start, Sound).
   for TAB and B for ⌫ or ESC, and drops "TYPE OR": there is no keyboard to type on. The name
   screen reads "B ERASE" and "START DONE", the hero builder "RANDOM (SELECT)". On `full` hints read
   the keyboard's keys, as they always have (`hintKey()` in `src/arcade/keys.ts`).
-- **The screen stays tappable**: key hints, menu rows, fleet cards, builder rows, planet tabs, and
-  planets on the map, whose hit test runs in the pixels of the grid the map is drawn on.
+- **The screen stays tappable**: key hints, menu rows, fleet cards, builder rows, planet tabs,
+  planets on the map, and the star chart's suns and worlds, whose hit tests run in the pixels of the
+  grid the scene is drawn on.
 
 ## How the data flows
 
 ```
 GitHub ──pnpm game:project (game workflow, every 15 min)──▶ Supabase: ledger_events, sectors, teams, players
-                                                                 │  row-level security: the crew reads,
-                                                                 │  a player writes only their own row
+                                                                 │  row-level security: a member reads their
+                                                                 │  workspace, a player writes only their own row
                                                                  ▼
-             apps/galaxy (Next.js, per request, as the signed-in player) ── buildGalaxy() ──▶ arcade (client)
+             apps/galaxy (Next.js, per request, as the signed-in member, one workspace) ── buildGalaxy() ──▶ arcade (client)
                                                                  ▲
                               no Supabase configured ──▶ demo world → game/projector.mjs → events
 ```
@@ -146,11 +149,28 @@ points and rankings come from `game/economy.mjs`, decay and threat weights from
 snapshot run through the real projector, so demo events are exactly what `pnpm game:project` would
 append.
 
-Signed out, the page reads only the fleets (public) and plays the attract mode. Signed in with a
-`@vertuoza.com` account, it reads the galaxy, the crew and the player's own row with the player's
-session, so the database's policies decide what they see. `proxy.ts` refreshes the session before
-each render; `app/auth/callback` turns Google's and GitHub's codes into that session and, after a
-GitHub link, calls `link_github()`.
+What the page reads is decided in `src/data/arcade.ts`, always with the visitor's own session, so
+the database's policies decide what they see:
+
+- **Signed out**, it reads nothing: the attract mode plays the built-in fleets (`demoFleets()`,
+  Vertuoza's) under the house brand.
+- **Signed in**, it reads the person's memberships and plays **the workspace they joined first**
+  (by `joined_at`, then `slug`; PRD 2 brings switching). Every loader in `src/data/load-galaxy.ts`
+  (the galaxy, the fleets, the crew, the player's own row) filters by that workspace, and its
+  `name` and `theme` reach the arcade as its brand (`src/arcade/brand.ts`): the name gives the
+  boot its letter and its words, the theme its colours ([A workspace's look](#a-workspaces-look)).
+  Joining a fleet writes the player row with that `workspace_id` and the person's `user_id`
+  (`src/data/players.ts`).
+- **Crew means "has a workspace"**, never an email domain. A signed-in person who belongs to none
+  yet is joined once by the page (`join_by_domain()`), so a session from before workspaces joins
+  too; one who still belongs to none gets the "wrong cartridge" screen and reads nothing.
+- **The database out of reach**: the attract mode, the built-in fleets, and "THE GALAXY IS OUT OF
+  REACH". Nobody is turned away as an outsider when the page cannot tell.
+
+`proxy.ts` refreshes the session before each render. `app/auth/callback` turns Google's and
+GitHub's codes into that session and, after every sign-in, calls `join_by_domain()`, then, after a
+GitHub link, `link_github()` (`src/data/sign-in.ts`). The terminal's sign-in (`omni signin`, the
+callback's `next=ask-cli` branch) joins the same way before its one-time code is issued.
 
 Nobody gets past INSERT COIN without signing in: the title asks for a coin until there is a
 session, and every screen beyond it requires one (`allowed()` in `src/arcade/onboarding.ts`).
@@ -162,6 +182,98 @@ Without the Supabase variables, the app picks its mode in `src/data/mode.ts`:
   (`src/arcade/account-demo.ts`). The single-file artifact plays the same way.
 - **Any other build** (a Vercel deployment missing its variables, say): **closed**. The attract mode
   plays, and INSERT COIN says sign-in is not open yet. No simulated sign-in, and no galaxy data.
+
+## A workspace's look
+
+A workspace's brand (`src/arcade/brand.ts`) is its name and its theme. The name gives the mark its
+letter and the boot and the title their words; the theme gives the arcade its colours. Signed out,
+in demo mode and in the single-file artifact, the arcade wears the house brand: Vertuoza, theme `{}`.
+
+**The tokens** are listed once, each with its default, in `src/arcade/theme.ts`. The defaults are
+the arcade as it always looked, so the theme `{}` changes nothing.
+
+| Tokens | What they colour |
+|---|---|
+| `void`, `deep`, `cab`, `navy`, `navy-dark`, `white`, `dim`, `plasma`, `plasma-dark`, `yellow`, `gold`, `red`, `cyan`, `green` | the screens, their panels and words, and the canvas |
+| `body-mid`, `body-ink`, `body-ink-soft`, `body-lens-1`, `body-lens-2`, `body-lens-text`, `body-led-off`, `body-pad-1`, `body-pad-2`, `body-pad-arrow`, `body-pad-down-1`, `body-pad-down-2`, `body-a-shine`, `body-b-shine`, `body-pill-1`, `body-pill-2`, `body-grille` | the Game Boy's body (`shell.css`): its shell runs from `plasma` through `body-mid` to `plasma-dark`, A is `red` with `body-a-shine`, B is `plasma` with `body-b-shine` |
+| `mark-1`, `mark-2`, `mark-3`, `mark-shade-1`, `mark-shade-2`, `mark-shade-3` | the mark's gradient, left to right, and its shade |
+| `stripe-1` to `stripe-4` | the four stripes on every hero's suit (the sprite forge's flat colours `1` to `4`) |
+
+**Storing a theme.** `workspaces.theme` holds only the tokens a workspace overrides, each a
+lowercase `#rrggbb` colour:
+
+```sql
+update public.workspaces set theme = '{"plasma": "#2fc6a4", "plasma-dark": "#178a80", "body-mid": "#22a890"}'
+ where slug = 'acme';
+```
+
+`valid_theme()` refuses an unknown token, any other colour, and anything but an object. The arcade
+reads the theme leniently (`parseTheme()`, a zod schema): an unknown token, or a colour that is not
+lowercase `#rrggbb`, is dropped with a console warning and its default applies, so a colour never
+breaks the arcade.
+
+**Applying it.** The resolved theme is written as CSS custom properties on the arcade's root element
+(`.shell`), over the defaults declared on `arcade.css`'s `:root`. The canvas scenes draw with the
+same values (`FrameState.theme`), the mark with `mark-*`, and every sprite, on the canvas and in the
+panels, wears `stripe-*`. Fonts are not tokens.
+
+**Adding a token** takes three places: its default in `theme.ts`, its custom property on
+`arcade.css`'s `:root` (unless only the canvas draws it), and `valid_theme()`'s list, in a new
+migration. `src/arcade/theme.test.ts` fails until the three agree, and while `shell.css` or a canvas
+scene writes a token's colour as a literal.
+
+## The knowledge map
+
+The repository's knowledge base (`.omni-loop/knowledge`: its principles, business rules and
+invariants, in `product/` and one folder per domain) is shown twice, in the arcade and on a plain
+page (PRD 149). Both read one graph: the one `omni kb graph --json` prints.
+
+**The star chart, in the arcade.** STAR CHART sits on the menu after GALAXY MAP, with
+`<n> SYSTEMS · <m> WORLDS` beside it.
+
+- `chart`: a sun per domain (`drawSun` in `@omni/sprites`), sized by how many entries it holds, each
+  labelled with its name and count; a dotted lane between two suns for each cross-domain file,
+  labelled with its entry count. One domain sits in the middle. The D-pad moves between suns, A
+  enters one, B goes back to the menu. The footer names the page: `READ IT AT /KNOWLEDGE`.
+- `system`: one domain as an orrery (`src/arcade/scenes/chart-layout.ts`). Principles circle on the
+  inner orbit, rules on the middle one, invariants on the outer one, each in id order clockwise from
+  the top, drawn by the galaxy map's planet renderer and seeded by their id. A law is terraformed,
+  oceans and forests; a proposed entry is barren, and confirming it (removing its `Proposed:` line)
+  terraforms it on the next load. Orbits hold still, so a world stays where the D-pad and a tap
+  expect it; only the spheres turn. An orbit that cannot seat its worlds spills onto one more of its
+  kind, further out, and every world shrinks down to a floor: every entry is always shown (tested at
+  150 entries in one domain).
+- **Moving in a system.** ◀ ▶ walk the orbit and wrap; ▲ moves in and ▼ out, to the world nearest in
+  angle on the next orbit; SELECT goes to the next world; a tap selects a world, and a tap on the
+  selected one reads it. The selected world shows a line to the principle it serves and lines from
+  every entry that serves it, and the panel (beside the diagram on the wide grid, under it on the
+  tall one) shows its id, kind, `LAW` or `PROPOSED`, its statement and `SERVES <id>` or
+  `SERVED BY <n>`. **A** opens the reading card: the whole statement, `Why:`, what it serves, what
+  serves it, what it cites, how it is enforced and the PRD it came from, paged with ▲ ▼. **B** closes
+  the card, B again goes back to the chart, and again to the menu.
+
+**The knowledge page, `/knowledge`.** The same graph as a reading surface beside the `/ask` pages,
+in their light and dark themes: the top bar (`OMNI LOOP · Knowledge map`, the repository, a link to
+the star chart at `/#chart`, the theme switch), a tab per domain and **Between domains** for the
+cross-domain entries, an SVG orrery laid out as in the arcade (a law a filled dot, a proposed entry
+a hollow ring, each kind in its own colour), the selected entry's detail (statement, `Why:`, what it
+serves and what serves it, what it cites, its PRD, how it is enforced, its file), and the index of
+the domain grouped by principle, with its loose entries and unserved principles and a filter. A
+selection is kept in the address, `/knowledge?domain=<name>&entry=<id>`, so a link to one entry can
+be shared. On a phone the page stacks and scrolls down, never sideways.
+
+**Where the data comes from.** The knowledge of the checkout the app is deployed from, read on the
+server at request time through the kit's own register parser (`src/data/load-knowledge.ts`): no
+Supabase table, no GitHub call. `next.config.mjs` traces the config and the register files into the
+deployment, since nothing imports them. When they cannot be read, the loader logs why, both maps say
+the knowledge is out of reach, and nothing else in the arcade changes.
+
+**Who sees it.** Whoever sees the galaxy: a crew member (a member of a workspace) signed in, or the
+demo in development. Anyone else's page carries no entry: in the arcade STAR CHART reads
+`OUT OF REACH` and does not open (`app/page.tsx` hands the graph to the crew and the demo only);
+`/knowledge` shows the sign-in card signed out, and a crew-only notice to an account in no workspace;
+a build that is neither says the map is not open here. The single-file artifact never embeds a
+knowledge base: its star chart reads `NO STAR CHART IN THIS BUILD`.
 
 ## Run it locally
 
@@ -177,7 +289,7 @@ pnpm galaxy:dev          # http://localhost:3000, demo galaxy (no Supabase neede
 Needs Docker and the Supabase CLI (`npx supabase`).
 
 ```bash
-npx supabase start       # applies supabase/migrations and loads supabase/seed.sql (the demo galaxy)
+npx supabase start       # applies supabase/migrations and loads supabase/seed.sql (the demo galaxy, in the vertuoza workspace)
 npx supabase status      # prints the API URL, the anon key and the service_role key
 cp apps/galaxy/.env.example apps/galaxy/.env.local   # paste the URL and both keys
 pnpm galaxy:dev          # now reads from Supabase: the menu shows "SUPABASE LEDGER"
@@ -189,13 +301,15 @@ Signing in locally needs the Google and GitHub OAuth clients: export
 true` on both providers in `supabase/config.toml`, and restart the stack. Both clients must accept
 `http://127.0.0.1:54321/auth/v1/callback`. Without them, work on the demo galaxy instead.
 
-`pnpm galaxy:seed` regenerates `supabase/seed.sql` from the demo world, dated now.
+`pnpm galaxy:seed` regenerates `supabase/seed.sql` from the demo world, dated now, in the `vertuoza`
+workspace the migrations create.
 
 ### Screenshots of every scene
 
 `pnpm galaxy:shots` walks the demo galaxy from the keyboard in a headless Chromium, from the boot
 through the joining flow to every screen of the menu, and saves a screenshot of each scene (the
-title's three phases and the planet's four tabs each on their own) at three sizes: 393×700 upright
+title's three phases, the planet's four tabs, and a system's reading card each on their own; the
+star chart shows this checkout's knowledge) at three sizes: 393×700 upright
 touch (an iPhone with Safari's bars), 852×393 sideways touch and 1440×900 with a mouse.
 
 ```bash
@@ -272,8 +386,10 @@ never loads the demo seed.
    - Allow **manual linking** (players link GitHub to their Google sign-in).
    - URL Configuration: Site URL = the production arcade; Redirect URLs = `https://<production
      host>/**`, `https://*-<vercel-team>.vercel.app/**` (previews) and `http://localhost:3000/**`.
-   - Hooks: **Before User Created** → Postgres function `public.hook_before_user_created` (it
-     refuses any address outside `@vertuoza.com`; the database policies refuse them too).
+   - Hooks: **Before User Created** → Postgres function `public.hook_before_user_created`. It
+     refuses an address whose domain no workspace joins (`workspaces.join_domain`: today,
+     `vertuoza.com` only), with a message that names no company. Keep the function's name: the
+     setting points at it. The database policies refuse anyone who is not a member anyway.
 
 ### 5. Create the Vercel project
 
@@ -308,28 +424,50 @@ pnpm galaxy:artifact     # apps/galaxy/artifact/dist/omni-loop.html
 ```
 
 One self-contained HTML page (React from cdnjs, everything else inlined) that plays the demo galaxy,
-joining flow included.
+joining flow included. It carries no knowledge base: its star chart reads `NO STAR CHART IN THIS
+BUILD`.
 
 ## Database
 
-`supabase/migrations/`:
+`supabase/migrations/`. Everything the game holds belongs to a **workspace**, and a person reaches
+a workspace by being a **member** of it. Vertuoza is workspace #1.
 
+- `workspaces`: `slug` (`vertuoza`), `name` (`Vertuoza`), `github_org` and `plan_repo` (the
+  organisation the projector reads and the repository that carries the PRD issues), `join_domain`
+  (`vertuoza.com`) and `theme`. The theme holds only the overrides of the arcade's colour tokens,
+  e.g. `{"plasma": "#2fc6a4"}`; `valid_theme()` refuses anything but an object of known tokens
+  with lowercase `#rrggbb` values. Vertuoza's is `{}`. The tokens are listed under
+  [A workspace's look](#a-workspaces-look).
+- `workspace_members`: who belongs where (`role` is `owner` or `member`, `joined_at`). A person may
+  belong to several workspaces. `join_by_domain()`, called at sign-in, adds the caller to every
+  workspace whose `join_domain` is the domain of their **confirmed** email, adds nothing twice, and
+  returns the slugs of their workspaces, the one joined first first.
 - `ledger_events` mirrors the event contract (`game/events.mjs`) one to one, with the same type
-  check. A trigger refuses `UPDATE` and `DELETE`: the ledger is append-only.
+  check, plus the `workspace_id` it is stored under: the workspace is a storage column, never an
+  event field, so two workspaces may each hold a `planet:12:charted` (key `(workspace_id, id)`). A
+  trigger refuses `UPDATE` and `DELETE`: the ledger is append-only.
 - `sectors` hold the repositories; `teams` are the fleets and their look (label, colour, motto,
-  mascot, order, `retired_at`). Both change by migration. A fleet is retired, never deleted.
-- `players`: one per player, keyed by their auth user: arcade name, fleet (`team_since` stamped by
-  a trigger, retired fleets refused), hero (preset numbers, checked by `valid_hero()`), and the
-  GitHub login. A row may only be created once GitHub is linked (`my_github()` reads the caller's
-  linked identity); the trigger copies the login from that identity, and `link_github()` refreshes
-  it. The email stays in `auth.users`.
-- Row-level security: `is_crew()` (a `@vertuoza.com` token) reads the galaxy and the players, so
-  a visitor sees everything; a player with GitHub linked inserts their own row, and updates only
-  its name, fleet and hero (column grants);
-  anon reads only the fleets; the service role appends to the ledger and reads the roster.
+  mascot, home sector, order, `retired_at`). Both belong to a workspace, keyed by
+  `(workspace_id, name)`, and change by migration. A fleet is retired, never deleted.
+- `players`: one per member and workspace (`workspace_id`, `user_id`): arcade name, fleet of that
+  workspace (`team_since` stamped by a trigger, retired fleets refused), hero (preset numbers,
+  checked by `valid_hero()`), and the GitHub login, unique within a workspace. A row may only be
+  created once GitHub is linked (`my_github()` reads the caller's linked identity); the trigger
+  copies the login from that identity, and `link_github()` refreshes it on every player row of the
+  caller. Leaving a workspace removes its player row. The email stays in `auth.users`.
+- Row-level security, by membership (`is_member(workspace)`): a member reads their workspaces,
+  their own memberships, and their workspace's sectors, fleets, players and ledger, and nothing of
+  any other workspace. A member with GitHub linked inserts their own player row there, and updates
+  only its name, fleet and hero (column grants). Anonymous visitors read nothing, fleets included.
+  The service role reads everything, appends to the ledger, and writes workspaces, memberships,
+  sectors and fleets.
 - Explicit grants: Supabase projects created since 2026-05-30 no longer grant the API roles access
   to new tables. The local stack matches (`auto_expose_new_tables = false`), so a table added
-  without its grants fails locally and in the pull request check, not in production.
+  without its grants fails locally and in the pull request check, not in production. The
+  workspaces migration also revokes every grant before it grants, so a project that still grants
+  new tables by default ends up the same.
+- `supabase/checks/access.sql` proves all of this on every pull request that touches `supabase/`,
+  with a second workspace beside Vertuoza.
 
 ## Known limits
 
@@ -337,6 +475,9 @@ joining flow included.
   shows the zones that have opened so far, not the whole plan.
 - **The map fits one screen.** About eight planets per sector stay legible; beyond that the planets
   shrink. A scrolling map comes when the galaxy needs it.
+- **A system fits one screen.** Past about 150 entries in one domain on the Game Boy held upright,
+  worlds reach their smallest size and start to touch; paging comes when a knowledge base needs it.
+  The star chart shows this repository's knowledge only; each sector's repositories' is later work.
 - **An iPhone keeps Safari's bars.** iPhone Safari offers web pages neither fullscreen nor
   vibration, so the Game Boy shows under the address bar and a press makes no buzz. A device that
   misreports its primary pointer gets the other form; the keyboard and taps work in both.

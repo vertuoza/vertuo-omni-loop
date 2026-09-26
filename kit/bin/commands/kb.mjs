@@ -1,12 +1,14 @@
-// `omni kb init | show <form> [--json] | status [--json]` — the playbook: one form per question an
-// agent asks while delivering. `init` lays down every missing form, blank, and prints what it
-// wrote; it never changes a file that exists. `show` prints one form resolved section by section (a
-// pointer, then the repository's section, then the kit default), each section labelled with where
-// it came from; `show decisions` then lists the decision records, read live. `status` prints the
-// map: each form's state and source, each register folder's laws and proposals, every open
-// question, every stale evidence entry. None of them
+// `omni kb init | show <form> [--json] | status [--json] | graph [--json]` — the playbook: one form
+// per question an agent asks while delivering. `init` lays down every missing form, blank, and prints
+// what it wrote; it never changes a file that exists. `show` prints one form resolved section by
+// section (a pointer, then the repository's section, then the kit default), each section labelled
+// with where it came from; `show decisions` then lists the decision records, read live. `status`
+// prints the map: each form's state and source, each register folder's laws and proposals, every
+// open question, every stale evidence entry. `graph` prints the knowledge registers as one graph
+// (PRD #149): its summary, or with `--json` the whole document. None of them
 // fails on what a form holds: a dead pointer or a kit default naming an unset config key is a
 // warning, and `omni check kb` grades.
+import { countsOf, readGraph } from '../../lib/knowledge/graph.mjs';
 import { DECISIONS_FORM, FORM_IDS } from '../../lib/playbook/forms.mjs';
 import { readDecisions } from '../../lib/playbook/decisions.mjs';
 import { resolveForm } from '../../lib/playbook/resolve.mjs';
@@ -15,7 +17,7 @@ import { formTemplate } from '../../lib/playbook/templates.mjs';
 import { writeForms } from '../../lib/playbook/write-forms.mjs';
 import { parseArgs, println, usageError } from '../args.mjs';
 
-const USAGE = 'usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json]';
+const USAGE = 'usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json]';
 
 function init(positional, flags, { ctx, stdout }) {
   if (positional.length > 0 || flags.json) throw usageError('usage: omni kb init');
@@ -104,6 +106,50 @@ function status(positional, flags, { ctx, stdout, exec }) {
   return 0;
 }
 
+/** `n` and its noun, in the singular for one. */
+const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+/** A group of entries as two columns: its kinds, then its laws and proposals. */
+function columns({ principles, rules, invariants, laws, proposed }) {
+  return [
+    [count(principles, 'principle', 'principles'), count(rules, 'rule', 'rules'), count(invariants, 'invariant', 'invariants')].join(' · '),
+    `${count(laws, 'law', 'laws')} · ${proposed} proposed`,
+  ];
+}
+
+/** A cross-domain entry's pair, `<a>--<b>`, or its file when the file's name names no pair. */
+const pairOf = (entry) => (entry.domains.length === 2 ? entry.domains.join('--') : entry.file);
+
+/**
+ * The graph as text: the totals; a line per domain, then per cross-domain pair, each with its kinds
+ * and its laws and proposals, the columns lined up; then the unserved principles and the loose
+ * entries, every id named.
+ */
+function graphText({ domains, entries, links, loose, unserved }) {
+  const pairs = new Map();
+  for (const entry of entries.filter((one) => one.domain === null)) pairs.set(pairOf(entry), [...(pairs.get(pairOf(entry)) ?? []), entry]);
+  const rows = [
+    ...domains.map(({ name, counts }) => [name, ...columns(counts)]),
+    ...[...pairs].map(([name, held]) => [name, ...columns(countsOf(held))]),
+  ];
+  const nameWidth = Math.max(0, ...rows.map(([name]) => name.length));
+  const kindsWidth = Math.max(0, ...rows.map(([, kinds]) => kinds.length));
+  const ids = (label, list) => `  ${label}${list.length > 0 ? ` (${list.length}): ${list.join(', ')}` : ': none'}`;
+  return [
+    `kb graph — ${count(domains.length, 'domain', 'domains')}, ${count(entries.length, 'entry', 'entries')}, ${count(links.length, 'link', 'links')}`,
+    ...rows.map(([name, kinds, status]) => `  ${name.padEnd(nameWidth)}    ${kinds.padEnd(kindsWidth)}    ${status}`),
+    ids('unserved principles', unserved),
+    ids('loose entries', loose),
+  ].join('\n');
+}
+
+function graph(positional, flags, { ctx, stdout }) {
+  if (positional.length > 0) throw usageError('usage: omni kb graph [--json]');
+  const built = readGraph({ ctx });
+  println(stdout, flags.json ? JSON.stringify(built, null, 2) : graphText(built));
+  return 0;
+}
+
 export const kb = {
   async run(args, io) {
     const { positional, flags } = parseArgs('kb', args, { booleans: ['json'] });
@@ -111,6 +157,7 @@ export const kb = {
     if (sub === 'init') return init(rest, flags, io);
     if (sub === 'show') return show(rest, flags, io);
     if (sub === 'status') return status(rest, flags, io);
+    if (sub === 'graph') return graph(rest, flags, io);
     throw usageError(USAGE);
   },
 };

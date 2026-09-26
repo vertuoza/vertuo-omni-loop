@@ -15,6 +15,10 @@ on:
         default: false
 permissions:
   contents: read
+env:
+  # The workspace every game script reads and writes: they have no default. One workspace per run
+  # until each workspace polls with its own installation token.
+  OMNI_LOOP_WORKSPACE: vertuoza
 jobs:
   ledger:
     # Every schedule and every dispatch. Off until the repository variable GAME_ENABLED is 'true'.

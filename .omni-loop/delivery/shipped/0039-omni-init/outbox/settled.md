@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Stays here: A local installer choice, cheap to change, with nothing stored depending on it; no lasting rule or architecture decision to record.
 
 ### The answer, as it was given
 
@@ -88,6 +89,7 @@ A few lines in the config writer; nothing stored depends on it.
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Became: ADR-0016
 
 ### The answer, as it was given
 
@@ -159,6 +161,7 @@ One function (kitHome) and the define in kit/build.mjs: swapping in a constant e
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 2
+- Stays here: A cosmetic, local choice held in one table with a test keeping it in step; cheap to change, with no lasting rule or architecture behind it.
 
 ### The answer, as it was given
 
@@ -229,6 +232,7 @@ Editing one table in one file. Labels already created on a repository keep their
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 3
+- Stays here: A local test choice that follows s1-02's build behaviour; cheap to change and nothing in the knowledge base needs a lasting entry for it.
 
 ### The answer, as it was given
 
@@ -299,6 +303,7 @@ One define in kit/build.mjs and one test; pinning later is a constant, no migrat
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 3
+- Stays here: A local output-formatting choice in one function, cheap to change, with nothing stored depending on it; no lasting rule or architecture.
 
 ### The answer, as it was given
 
@@ -369,6 +374,7 @@ A few lines in one function and two test assertions; nothing stored depends on i
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 3
+- Became: N-PRODUCT-5
 
 ### The answer, as it was given
 

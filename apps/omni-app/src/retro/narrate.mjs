@@ -1,7 +1,8 @@
 // `narrate`: the fact sheet and the PRD's title and problem in, the model's JSON out (PRD 72, "The
 // model, and the guard"). One streamed request to OpenRouter, made from this Vercel function so the
-// key never leaves it: Claude Opus 5.5 unless `OPENROUTER_MODEL` names another model. The model has
-// no tools; it only writes words around the facts, which `guard` then checks field by field.
+// key never leaves it, through the kit's OpenRouter client (`kit/lib/openrouter.mjs`, PRD 82): Claude
+// Opus 5.5 unless `OPENROUTER_MODEL` names another model. The model has no tools; it only writes words
+// around the facts, which `guard` then checks field by field.
 //
 // What the model is given (`modelInput`): the PRD's title and problem, then per finding its id, kind,
 // title, what happened and its evidence — a label, a URL and, when the kind gave one, an `excerpt`
@@ -12,9 +13,10 @@
 // each check always stays, cut to its last lines when it must be.
 //
 // Failures never throw: this runs inside the step "narrate", and a thrown step would fail the whole
-// retro instead of sending it out facts only. So the call is tried again here, `MODEL_CALL.attempts`
-// times in all, on a network error, a 408, a 429 or a 5xx, inside a time budget that fits the
-// function's `maxDuration` (`vercel.json`). A reply failing its schema gets one repair request.
+// retro instead of sending it out facts only. The kit's client tries the call again,
+// `MODEL_CALL.attempts` times in all, on a network error, a 408, a 429 or a 5xx, inside a time budget
+// that fits the function's `maxDuration` (`vercel.json`). A reply failing its shape (`checkReply`)
+// gets one repair request.
 //
 // The contract the function relies on:
 //   in:  { sheet, prd: { title, problem }, env, fetch }
@@ -23,45 +25,28 @@
 //        `reply` is the model's JSON: `{ summary, findings: { [id]: { title, whyItMatters, lesson? } },
 //        lessons: [{ text, findings: [id] }] }`, which `guard` checks field by field. `model` names the
 //        model asked, or `null` when none was.
+import {
+  DEFAULT_MODEL,
+  MASK,
+  MODEL_CALL,
+  NO_KEY,
+  OPENROUTER_URL,
+  REFUSED,
+  askModel,
+  maskSecrets,
+} from 'vertuo-omni-plan/kit/lib/openrouter.mjs';
 import { FIELD_CAPS, LIMITS, REFUSED_WORDS } from './rules.mjs';
+
+export { DEFAULT_MODEL, MASK, MODEL_CALL, OPENROUTER_URL, maskSecrets };
 
 export const NO_MODEL_KEY = 'no model key';
 export const REPLY_INVALID = 'model reply invalid';
-export const DEFAULT_MODEL = 'anthropic/claude-opus-5.5';
-export const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 /** Roughly how many characters make a token, to hold the input under `LIMITS.modelInputTokens`. */
 export const CHARS_PER_TOKEN = 4;
 
-/**
- * How the model is asked: how many tries a request gets in all, the pause before each retry, the
- * time every try and the repair share (under `vercel.json`'s `maxDuration` for `api/inngest.mjs`),
- * and the longest reply, in tokens.
- */
-export const MODEL_CALL = Object.freeze({
-  attempts: 3,
-  backoffMs: Object.freeze([1000, 4000]),
-  budgetMs: 240_000,
-  maxTokens: 4096,
-});
-
-/** The secrets a token looks like: GitHub's, `sk-` keys, AWS key ids, a bearer credential, a JWT. */
-const SECRETS = Object.freeze([
-  /\bgh[pousr]_[A-Za-z0-9]{16,}/g,
-  /\bgithub_pat_[A-Za-z0-9_]{16,}/g,
-  /\bsk-[A-Za-z0-9_-]{16,}/g,
-  /\bAKIA[0-9A-Z]{16}\b/g,
-  /\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*/g,
-]);
-const BEARER = /\b(Bearer)\s+[A-Za-z0-9\-._~+/]+=*/gi;
-export const MASK = '[masked]';
-
-/** `text` with every token-shaped string replaced by `[masked]`. */
-export function maskSecrets(text) {
-  let out = String(text ?? '');
-  for (const pattern of SECRETS) out = out.replace(pattern, MASK);
-  return out.replace(BEARER, `$1 ${MASK}`);
-}
+/** The title OpenRouter shows for the retro's requests. */
+const TITLE = 'omni-loop retro';
 
 const SYSTEM = `You write the prose of a retro: a look back at how one PRD, a product request, was delivered by a loop of coding agents. Code has already counted every fact. You only put plain words around those facts.
 
@@ -210,146 +195,15 @@ export function checkReply(value) {
  *   fetch?: typeof fetch, sleep?: (ms: number) => Promise<void>, call?: typeof MODEL_CALL }} input
  * @returns {Promise<{ model: string | null, reply: object | null, reason: string | null }>}
  */
-export async function narrate({ sheet, prd, env = process.env, fetch = globalThis.fetch, sleep = wait, call = MODEL_CALL } = {}) {
-  const key = env.OPENROUTER_API_KEY;
-  if (!key) return { model: null, reply: null, reason: NO_MODEL_KEY };
-  const model = env.OPENROUTER_MODEL || DEFAULT_MODEL;
+export async function narrate({ sheet, prd, env = process.env, fetch = globalThis.fetch, sleep, call = MODEL_CALL } = {}) {
   const { system, user } = modelInput({ sheet, prd });
-  const messages = [
-    { role: 'system', content: system },
-    { role: 'user', content: user },
-  ];
-  const deadline = Date.now() + call.budgetMs;
-  const request = (conversation) => ask({ fetch, sleep, call, deadline, key, body: { model, stream: true, max_tokens: call.maxTokens, messages: conversation } });
-
-  const first = await request(messages);
-  if (!first.ok) return { model, reply: null, reason: unavailable(first.status) };
-  const checked = checkReply(parseJson(first.content));
-  if (checked.reply) return { model, reply: checked.reply, reason: null };
-
-  const repair = await request([
-    ...messages,
-    { role: 'assistant', content: first.content },
-    {
-      role: 'user',
-      content: `Your reply did not fit the shape asked for: ${checked.errors.join('; ')}. Reply again with only the JSON object, in that shape.`,
-    },
-  ]);
-  if (!repair.ok) return { model, reply: null, reason: unavailable(repair.status) };
-  const repaired = checkReply(parseJson(repair.content));
-  return repaired.reply ? { model, reply: repaired.reply, reason: null } : { model, reply: null, reason: REPLY_INVALID };
-}
-
-const unavailable = (status) => `model unavailable (${status})`;
-
-/** One request, tried again on a failure worth trying again, within the budget. */
-async function ask({ fetch, sleep, call, deadline, key, body }) {
-  let outcome = { ok: false, status: 'timeout', retry: false };
-  for (let attempt = 1; attempt <= call.attempts; attempt += 1) {
-    const remaining = deadline - Date.now();
-    if (remaining <= 0) return { ok: false, status: 'timeout' };
-    outcome = await once({ fetch, key, body, signal: AbortSignal.timeout(remaining) });
-    if (outcome.ok || !outcome.retry || attempt === call.attempts) return outcome;
-    const pause = call.backoffMs[attempt - 1] ?? call.backoffMs.at(-1) ?? 0;
-    if (Date.now() + pause >= deadline) return outcome;
-    await sleep(pause);
-  }
-  return outcome;
-}
-
-async function once({ fetch, key, body, signal }) {
-  try {
-    const response = await fetch(OPENROUTER_URL, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json', 'x-title': 'omni-loop retro' },
-      body: JSON.stringify(body),
-      signal,
-    });
-    if (!response.ok) {
-      response.body?.cancel().catch(() => {});
-      return { ok: false, status: response.status, retry: retriable(response.status) };
-    }
-    return { ok: true, content: await readContent(response) };
-  } catch (error) {
-    if (error instanceof ModelError) return { ok: false, status: error.code, retry: retriable(error.code) };
-    if (error?.name === 'TimeoutError' || error?.name === 'AbortError') return { ok: false, status: 'timeout', retry: false };
-    return { ok: false, status: 'network error', retry: true };
-  }
-}
-
-function retriable(status) {
-  const code = Number(status);
-  return code === 408 || code === 429 || code >= 500;
-}
-
-/** An error OpenRouter reported after the request was accepted: inside the stream, or in the body. */
-class ModelError extends Error {
-  constructor(code) {
-    super(`model error ${code}`);
-    this.code = code ?? 'error';
-  }
-}
-
-/** The reply's text: from OpenRouter's server-sent events when streamed, else from its JSON body. */
-async function readContent(response) {
-  if (!(response.headers.get('content-type') ?? '').includes('text/event-stream')) {
-    const data = await response.json();
-    if (data?.error) throw new ModelError(data.error.code);
-    return data?.choices?.[0]?.message?.content ?? '';
-  }
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let content = '';
-  const line = (text) => {
-    if (!text.startsWith('data:')) return false;
-    const data = text.slice(5).trim();
-    if (data === '[DONE]') return true;
-    let chunk;
-    try {
-      chunk = JSON.parse(data);
-    } catch {
-      return false;
-    }
-    if (chunk?.error) throw new ModelError(chunk.error.code);
-    content += chunk?.choices?.[0]?.delta?.content ?? '';
-    return false;
-  };
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let newline = buffer.indexOf('\n');
-    while (newline !== -1) {
-      const text = buffer.slice(0, newline).replace(/\r$/, '');
-      buffer = buffer.slice(newline + 1);
-      if (line(text)) {
-        reader.cancel().catch(() => {});
-        return content;
-      }
-      newline = buffer.indexOf('\n');
-    }
-  }
-  line(buffer + decoder.decode());
-  return content;
-}
-
-/** The JSON object in the model's text, a code fence around it allowed; `undefined` when there is none. */
-function parseJson(text) {
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  if (start === -1 || end < start) return undefined;
-  try {
-    return JSON.parse(text.slice(start, end + 1));
-  } catch {
-    return undefined;
-  }
+  const out = await askModel({ system, user, check: checkReply, env, fetch, sleep, call, title: TITLE, stream: true });
+  if (out.ok) return { model: out.model, reply: out.reply, reason: null };
+  if (out.error === NO_KEY) return { model: null, reply: null, reason: NO_MODEL_KEY };
+  if (out.error === REFUSED) return { model: out.model, reply: null, reason: REPLY_INVALID };
+  return { model: out.model, reply: null, reason: out.reason };
 }
 
 function isObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

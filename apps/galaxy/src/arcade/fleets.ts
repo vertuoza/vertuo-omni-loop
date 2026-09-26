@@ -28,25 +28,27 @@ export function fleet(name: string | null | undefined): FleetLook {
 /** A player's hero, in their fleet's colour. */
 export const heroOf = (hero: Hero, team: string | null | undefined) => heroLook(hero, fleet(team).color);
 
+// A state's and a wound's colour, as the DOM panels write it: a theme token's custom property where
+// the colour is one (theme.ts), so a workspace's theme recolours it.
 export const STATE_LOOK: Record<PlanetState, { label: string; color: string; blink?: boolean }> = {
-  charted: { label: 'CHARTED', color: '#8a90d6' },
+  charted: { label: 'CHARTED', color: 'var(--dim)' },
   locked: { label: 'LOCKED', color: '#8a8aa6' },
-  terraforming: { label: 'TERRAFORMING', color: '#6ff0ff' },
-  distress: { label: 'DISTRESS', color: '#ff3b5c', blink: true },
-  'awaiting-command': { label: 'AWAITING COMMAND', color: '#ffd84a' },
-  terraformed: { label: 'TERRAFORMED', color: '#4ee08a' },
+  terraforming: { label: 'TERRAFORMING', color: 'var(--cyan)' },
+  distress: { label: 'DISTRESS', color: 'var(--red)', blink: true },
+  'awaiting-command': { label: 'AWAITING COMMAND', color: 'var(--yellow)' },
+  terraformed: { label: 'TERRAFORMED', color: 'var(--green)' },
   aftershock: { label: 'AFTERSHOCK', color: '#ff9b30', blink: true },
   lost: { label: 'LOST', color: '#a8183a' },
   decommissioned: { label: 'DECOMMISSIONED', color: '#5b5f80' },
 };
 
 export const WOUND_LOOK: Record<WoundKind, { name: string; color: string }> = {
-  transmission: { name: 'TRANSMISSION', color: '#6ff0ff' },
+  transmission: { name: 'TRANSMISSION', color: 'var(--cyan)' },
   'unconfirmed-ground': { name: 'UNCONFIRMED GROUND', color: '#ffb347' },
-  beacon: { name: 'BEACON', color: '#ff3b5c' },
-  'fault-line': { name: 'FAULT LINE', color: '#ffd84a' },
+  beacon: { name: 'BEACON', color: 'var(--red)' },
+  'fault-line': { name: 'FAULT LINE', color: 'var(--yellow)' },
   'under-fire': { name: 'ZONE UNDER FIRE', color: '#ff9b30' },
-  aftershock: { name: 'AFTERSHOCK', color: '#ff3b5c' },
+  aftershock: { name: 'AFTERSHOCK', color: 'var(--red)' },
 };
 
 export const ROMAN = ['0', 'I', 'II', 'III', 'IV', 'V'];

@@ -301,8 +301,11 @@ export function settledHeader(prd, { ctx }) {
  * `answer.channel` is `null` for an adopted entry — nobody answered it on either channel, so
  * neither `- Channel:` nor `- Channel URL:` is written at all, rather than naming a channel that
  * was never used.
+ *
+ * `closed`, when given, is the `Closed:` line's text as written (PRD #82, slice s2: a merge over a
+ * red outbox closes an entry its own way). Omitted, the line follows the verdict, as it always has.
  */
-export function renderSettledEntry({ item, itemText, answer, judgement, markers }) {
+export function renderSettledEntry({ item, itemText, answer, judgement, markers, closed = null }) {
   const lines = [
     markers.settledOpen(item.id),
     '',
@@ -318,7 +321,7 @@ export function renderSettledEntry({ item, itemText, answer, judgement, markers 
   }
   lines.push(
     `- Basis: ${judgement.basis} — ${judgement.reason}`,
-    `- Closed: ${closedLine(judgement.verdict)}`,
+    `- Closed: ${closed ?? closedLine(judgement.verdict)}`,
     `- Rank: ${item.rank}`,
     `- Bears on: ${item.bearsOn}`,
     `- Raised: ${item.raised}`,
