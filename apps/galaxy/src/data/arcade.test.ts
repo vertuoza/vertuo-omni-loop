@@ -43,7 +43,7 @@ describe('a member', () => {
   it('filters every read of the game by that workspace', async () => {
     const { reads } = await page(PEOPLE.ada);
     const game = reads.filter((c) => c.table !== 'workspace_members');
-    expect(new Set(game.map((c) => c.table))).toEqual(new Set(['ledger_events', 'sectors', 'teams', 'players', 'player_xp']));
+    expect(new Set(game.map((c) => c.table))).toEqual(new Set(['ledger_events', 'sectors', 'teams', 'players', 'player_xp', 'arcade_scores']));
     for (const call of game) expect(call.eq, call.table).toMatchObject({ workspace_id: VERTUOZA });
   });
 
@@ -142,6 +142,39 @@ describe('the player\'s XP', () => {
     expect(data.view?.planets.map((p) => p.title)).toEqual(['Workspaces']);
     expect(data.problem).toBeUndefined();
     expect(console.error).toHaveBeenCalled();
+  });
+});
+
+describe('the crew\'s high scores', () => {
+  it('reads each game\'s top five in the workspace played, with the player\'s own best', async () => {
+    const { data } = await page(PEOPLE.ada);
+    expect(data.scores).toEqual({
+      invaders: {
+        top: [
+          { id: PEOPLE.ada.id, name: 'ADA', hero: expect.any(Object), team: 'pirates', best: 1240 },
+          { id: PEOPLE.both.id, name: 'BOTH', hero: expect.any(Object), team: 'beaver', best: 385 },
+        ],
+        mine: 1240,
+      },
+    });
+    expect((await page(PEOPLE.both)).data.scores?.invaders).toEqual({ top: [expect.objectContaining({ name: 'WILE', best: 9210 })], mine: null });
+  });
+
+  it('reads nothing for a visitor without GitHub linked: every cabinet is locked to them', async () => {
+    const { data, reads } = await page(PEOPLE.una, (world) => {
+      world.tables.workspace_members.push({ workspace_id: VERTUOZA, user_id: PEOPLE.una.id, role: 'member', joined_at: '2026-09-26T09:00:00Z' });
+    });
+    expect(data.scores).toEqual({});
+    expect(reads.some((c) => c.table === 'arcade_scores')).toBe(false);
+  });
+
+  it('says the scores are out of reach when only they cannot be read, and keeps the galaxy and the XP', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { data } = await page(PEOPLE.ada, (world) => { world.state.failOn = 'arcade_scores'; });
+    expect(data.scores).toEqual({ invaders: 'unreadable' });
+    expect(data.xp).toEqual({ xp: 180, level: 3, unlocked: ['invaders'] });
+    expect(data.view?.planets.map((p) => p.title)).toEqual(['Workspaces']);
+    expect(data.problem).toBeUndefined();
   });
 });
 
