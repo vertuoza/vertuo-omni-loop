@@ -3,7 +3,8 @@
 //
 // It walks the demo galaxy from the keyboard, as a player would: the boot, the title's three
 // phases, INSERT COIN, the simulated Google sign-in and GitHub link, the whole joining flow, the
-// menu and every screen behind it (the planet's four tabs each on its own), then the welcome back.
+// menu and every screen behind it (the planet's four tabs each on its own, the star chart, a system
+// and its reading card), then the welcome back.
 // The page's clock is Playwright's, advanced step by step, so every screenshot is taken at the same
 // moment of its scene on every run. Nothing here runs in `pnpm test`.
 //
@@ -24,12 +25,12 @@ const SIZES = [
   { name: '1440x900', width: 1440, height: 900, touch: false, what: 'a mouse' },
 ];
 
-// Every screenshot, in walk order: the 19 scenes, with the title's phases and the planet's tabs
-// each its own. The number in a file's name is its place here.
+// Every screenshot, in walk order: the 21 scenes, with the title's phases, the planet's tabs and a
+// system's reading card each its own. The number in a file's name is its place here.
 const SHOTS = [
   'boot', 'title', 'title-story', 'title-hiscore', 'coin', 'away', 'gate', 'link', 'intro', 'select', 'name', 'hero',
-  'ready', 'menu', 'map', 'planet-status', 'planet-zones', 'planet-entropy', 'planet-log', 'fleets', 'heroes',
-  'briefing', 'welcome', 'outsider',
+  'ready', 'menu', 'map', 'planet-status', 'planet-zones', 'planet-entropy', 'planet-log', 'chart', 'system',
+  'system-card', 'fleets', 'heroes', 'briefing', 'welcome', 'outsider',
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -199,6 +200,18 @@ async function walkGuest(d, taken) {
     await shot(`planet-${tab}`, 'planet', 300);
   }
   await d.key('b', 'map');
+  await d.key('b', 'menu');
+  await d.key('ArrowDown', 'menu'); // the menu's second row: STAR CHART
+  await d.key('Enter', 'chart');
+  await shot('chart', 'chart', 800);
+  await d.key('Enter', 'system'); // the product's system, on its first principle
+  await d.key('ArrowDown', 'system');
+  await d.key('ArrowDown', 'system'); // out to the rules' orbit: a rule, and the line to the principle it serves
+  await shot('system', 'system', 800);
+  await d.key('a', 'system'); // the reading card, over the system
+  await shot('system-card', 'system', 300);
+  await d.key('b', 'system');
+  await d.key('b', 'chart');
   await d.key('b', 'menu');
   for (const row of ['fleets', 'heroes', 'briefing']) { // the menu's next three rows
     await d.key('ArrowDown', 'menu');

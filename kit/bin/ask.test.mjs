@@ -9,8 +9,8 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { firstOptionAnswers, startFakeAskServer } from '../test/fake-ask-server.mjs';
 import { makeRepo } from '../test/fixture.mjs';
-import { activeSession } from '../lib/ask/hook.mjs';
-import { readRound, readSession, writeRound, writeSession } from '../lib/ask/local-state.mjs';
+import { activeMode } from '../lib/ask/hook.mjs';
+import { LOCAL_DIR, readMode, readRound, readTerminal, writeRound, writeTerminal } from '../lib/ask/local-state.mjs';
 import { ASK_URL_UNSET } from './commands/signin.mjs';
 import { main } from './omni.mjs';
 
@@ -23,7 +23,9 @@ const QUESTION = {
   multiSelect: false,
   options: [{ label: 'System (Recommended)', description: 'follow the computer' }, { label: 'Dark', description: 'always dark' }],
 };
-const PRE = JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'AskUserQuestion', tool_input: { questions: [QUESTION] }, tool_use_id: 'toolu_01' });
+const preFrom = (terminalId, toolUseId = 'toolu_01') =>
+  JSON.stringify({ hook_event_name: 'PreToolUse', session_id: terminalId, tool_name: 'AskUserQuestion', tool_input: { questions: [QUESTION] }, tool_use_id: toolUseId });
+const PRE = preFrom('term-a');
 
 function io() {
   const out = [];
@@ -67,35 +69,64 @@ const ask = (sub, { root, tokens, ...more }) => {
   return main(['ask', sub], { cwd: root, ...s, tokens, ...more }).then((code) => ({ code, ...s }));
 };
 
+const hook = (kind, stdin, { root, tokens }) => {
+  const s = io();
+  return main(['ask', 'hook', kind], { cwd: root, ...s, stdin, tokens }).then((code) => ({ code, ...s }));
+};
+
 describe('omni ask on', () => {
-  it('opens a session titled <repo slug> · <branch>, writes ask.json and prints one link', async () => {
+  it('writes ask.json as { host }, prints the person\'s page, and opens no session', async () => {
     const { root, tokens } = await signedIn();
     const run = await ask('on', { root, tokens });
 
     expect(run.err()).toBe('');
     expect(run.code).toBe(0);
-    const [session] = server.sessions.values();
-    expect(session).toMatchObject({ title: 'acme/widgets · main', status: 'open' });
-    expect(run.out()).toBe(`${server.url}/ask/${session.id}\n`);
-    expect(readSession(root)).toEqual({ sessionId: session.id, url: `${server.url}/ask/${session.id}`, host: server.host });
+    expect(run.out()).toBe(`${server.url}/ask\n`);
+    expect(JSON.parse(readFileSync(join(root, LOCAL_DIR, 'ask.json'), 'utf8'))).toEqual({ host: server.host });
+    expect(server.calls).toEqual([]);
     // The hooks now see the mode as on, and send their calls to ask.url.
-    expect(activeSession(root)).toEqual({ session: readSession(root), baseUrl: server.url });
+    expect(activeMode(root)).toEqual({ host: server.host, baseUrl: server.url });
   });
 
-  it('names the branch the checkout is on', async () => {
+  it('run twice, changes nothing and prints the same page', async () => {
     const { root, tokens } = await signedIn();
-    execFileSync('git', ['switch', '-q', '-c', 'feat/theme-switch'], { cwd: root });
-    expect((await ask('on', { root, tokens })).code).toBe(0);
-    expect([...server.sessions.values()][0].title).toBe('acme/widgets · feat/theme-switch');
+    const first = await ask('on', { root, tokens });
+    writeTerminal(root, 'term-a', { sessionId: 'sess-a', host: server.host });
+    const before = readFileSync(join(root, LOCAL_DIR, 'ask.json'), 'utf8');
+
+    const second = await ask('on', { root, tokens });
+
+    expect(second.code).toBe(0);
+    expect(second.out()).toBe(first.out());
+    expect(readFileSync(join(root, LOCAL_DIR, 'ask.json'), 'utf8')).toBe(before);
+    expect(readTerminal(root, 'term-a')).toEqual({ sessionId: 'sess-a', host: server.host });
+    expect(server.calls).toEqual([]);
   });
 
-  it('leaves nothing for git to commit', async () => {
-    const { root, tokens } = await signedIn();
-    expect((await ask('on', { root, tokens })).code).toBe(0);
-    expect(execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: root, encoding: 'utf8' })).toBe('');
+  it('in a second terminal, leaves the first terminal\'s session open and its mode on', async () => {
+    const { root, tokens } = await signedIn({ answer: (round) => firstOptionAnswers(round.questions) });
+    await ask('on', { root, tokens });
+    expect((await hook('pre', preFrom('term-a'), { root, tokens })).code).toBe(0);
+    const { sessionId } = readTerminal(root, 'term-a');
+
+    await ask('on', { root, tokens });
+
+    expect(server.sessions.get(sessionId).status).toBe('open');
+    expect(readTerminal(root, 'term-a')).toEqual({ sessionId, host: server.host });
+    const again = await hook('pre', preFrom('term-a', 'toolu_02'), { root, tokens });
+    expect(JSON.parse(again.out()).hookSpecificOutput.updatedInput.answers).toEqual({ [QUESTION.question]: 'System (Recommended)' });
+    expect(server.sessions.size).toBe(1);
   });
 
-  it('signed out, exits 1, says omni signin, and opens nothing', async () => {
+  it('keeps an ask.json in PRD 71\'s shape on the same host, so off can still close its session', async () => {
+    const { root, tokens, write } = await signedIn();
+    const legacy = { sessionId: 'sess-71', url: `${server.url}/ask/sess-71`, host: server.host };
+    write(`${LOCAL_DIR}/ask.json`, JSON.stringify(legacy));
+    expect((await ask('on', { root, tokens })).out()).toBe(`${server.url}/ask\n`);
+    expect(readMode(root)).toEqual({ host: server.host, sessionId: 'sess-71' });
+  });
+
+  it('signed out, exits 1, says omni signin, and writes nothing', async () => {
     const { root } = await signedIn();
     const run = await ask('on', { root, tokens: memoryTokens() });
     expect(run.code).toBe(1);
@@ -103,7 +134,7 @@ describe('omni ask on', () => {
     expect(run.err()).toMatch(/`omni signin`/);
     expect(run.err().trim().split('\n')).toHaveLength(1);
     expect(server.calls).toEqual([]);
-    expect(readSession(root)).toBeNull();
+    expect(readMode(root)).toBeNull();
   });
 
   it('with ask.url null, exits 1 with the one-line reason', async () => {
@@ -112,75 +143,70 @@ describe('omni ask on', () => {
     expect(run.code).toBe(1);
     expect(run.out()).toBe('');
     expect(run.err()).toBe(`${ASK_URL_UNSET}\n`);
-    expect(readSession(root)).toBeNull();
+    expect(readMode(root)).toBeNull();
   });
 
-  it('a second on in the same checkout closes the first session', async () => {
+  it('leaves nothing for git to commit', async () => {
     const { root, tokens } = await signedIn();
-    await ask('on', { root, tokens });
-    const first = readSession(root);
-    writeRound(root, { roundId: 'round-old', toolUseId: 'toolu_00', status: 'open' });
-
-    const run = await ask('on', { root, tokens });
-
-    expect(run.err()).toBe('');
-    expect(run.code).toBe(0);
-    const second = readSession(root);
-    expect(second.sessionId).not.toBe(first.sessionId);
-    expect(run.out()).toBe(`${second.url}\n`);
-    expect(server.sessions.get(first.sessionId).status).toBe('closed');
-    expect(server.sessions.get(second.sessionId).status).toBe('open');
-    // The round of the first session is not the second's.
-    expect(readRound(root)).toBeNull();
-  });
-
-  it('keeps the current session when a new one cannot be opened', async () => {
-    const { root, tokens } = await signedIn();
-    await ask('on', { root, tokens });
-    const first = readSession(root);
-    await server.close();
-
-    const run = await ask('on', { root, tokens });
-
-    expect(run.code).toBe(1);
-    expect(run.out()).toBe('');
-    expect(run.err().startsWith(`omni ask on: could not open a session on ${server.host}`)).toBe(true);
-    expect(run.err().trim().split('\n')).toHaveLength(1);
-    expect(readSession(root)).toEqual(first);
-  });
-
-  it('refreshes a sign-in the server refuses once, and says omni signin when the refresh is refused too', async () => {
-    const { root, tokens } = await signedIn();
-    server.expireAccess();
     expect((await ask('on', { root, tokens })).code).toBe(0);
-    expect(tokens.store[server.host].access_token).toBe('access-2');
+    expect(execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: root, encoding: 'utf8' })).toBe('');
+  });
+});
 
-    await ask('off', { root, tokens });
-    server.expireAccess();
-    server.expireRefresh();
-    const run = await ask('on', { root, tokens });
-    expect(run.code).toBe(1);
-    expect(run.err()).toMatch(/`omni signin`/);
-    expect(readSession(root)).toBeNull();
+describe('each terminal\'s session', () => {
+  it('is titled <repo slug> · <branch>, opened by its first question', async () => {
+    const { root, tokens } = await signedIn({ answer: (round) => firstOptionAnswers(round.questions) });
+    execFileSync('git', ['switch', '-q', '-c', 'feat/theme-switch'], { cwd: root });
+    await ask('on', { root, tokens });
+    expect((await hook('pre', PRE, { root, tokens })).code).toBe(0);
+    const [session] = server.sessions.values();
+    expect(session).toMatchObject({ title: 'acme/widgets · feat/theme-switch', status: 'open' });
+  });
+
+  it('two terminals asking open two sessions', async () => {
+    const { root, tokens } = await signedIn({ answer: (round) => firstOptionAnswers(round.questions) });
+    await ask('on', { root, tokens });
+    await hook('pre', preFrom('term-a', 'toolu_a'), { root, tokens });
+    await hook('pre', preFrom('term-b', 'toolu_b'), { root, tokens });
+    expect(server.sessions.size).toBe(2);
+    expect(readTerminal(root, 'term-a').sessionId).not.toBe(readTerminal(root, 'term-b').sessionId);
   });
 });
 
 describe('omni ask off', () => {
-  it('closes the session, deletes ask.json and the round, and prints off', async () => {
-    const { root, tokens } = await signedIn();
+  it('closes every terminal\'s session, deletes ask.json and ask/, and prints off', async () => {
+    const { root, tokens } = await signedIn({ answer: (round) => firstOptionAnswers(round.questions) });
     await ask('on', { root, tokens });
-    const { sessionId } = readSession(root);
-    writeRound(root, { roundId: 'round-1', toolUseId: 'toolu_01', status: 'open' });
+    await hook('pre', preFrom('term-a', 'toolu_a'), { root, tokens });
+    await hook('pre', preFrom('term-b', 'toolu_b'), { root, tokens });
+    writeRound(root, 'toolu_c', { roundId: 'round-c', status: 'open' });
 
     const run = await ask('off', { root, tokens });
 
     expect(run.err()).toBe('');
     expect(run.code).toBe(0);
     expect(run.out()).toBe('off\n');
-    expect(server.sessions.get(sessionId).status).toBe('closed');
-    expect(readSession(root)).toBeNull();
-    expect(readRound(root)).toBeNull();
-    expect(activeSession(root)).toBeNull();
+    expect([...server.sessions.values()].map((session) => session.status)).toEqual(['closed', 'closed']);
+    expect(readMode(root)).toBeNull();
+    expect(existsSync(join(root, LOCAL_DIR, 'ask'))).toBe(false);
+    expect(readRound(root, 'toolu_c')).toBeNull();
+    expect(activeMode(root)).toBeNull();
+    expect((await ask('status', { root, tokens })).out()).toBe('off\n');
+  });
+
+  it('closes PRD 71\'s session when ask.json still names one', async () => {
+    const { root, tokens, write } = await signedIn();
+    const { id, url } = server.openSession('acme/widgets · main');
+    write(`${LOCAL_DIR}/ask.json`, JSON.stringify({ sessionId: id, url, host: server.host }));
+    write(`${LOCAL_DIR}/ask-round.json`, JSON.stringify({ roundId: 'round-71', toolUseId: 'toolu_01', status: 'open' }));
+
+    const run = await ask('off', { root, tokens });
+
+    expect(run.err()).toBe('');
+    expect(run.out()).toBe('off\n');
+    expect(server.sessions.get(id).status).toBe('closed');
+    expect(readMode(root)).toBeNull();
+    expect(existsSync(join(root, LOCAL_DIR, 'ask-round.json'))).toBe(false);
   });
 
   it('prints off and calls nothing when the mode is already off', async () => {
@@ -192,45 +218,52 @@ describe('omni ask off', () => {
     expect(server.calls).toEqual([]);
   });
 
-  it('turns the mode off here even when the server cannot be reached, and says the session was left open', async () => {
+  it('turns the mode off here even when the server cannot be reached, and names each session left open', async () => {
     const { root, tokens } = await signedIn();
     await ask('on', { root, tokens });
+    writeTerminal(root, 'term-a', { sessionId: 'sess-a', host: server.host });
+    writeTerminal(root, 'term-b', { sessionId: 'sess-b', host: server.host });
     await server.close();
 
     const run = await ask('off', { root, tokens });
 
     expect(run.code).toBe(0);
     expect(run.out()).toBe('off\n');
-    expect(run.err()).toMatch(/^omni ask off: could not close the session/);
-    expect(run.err().trim().split('\n')).toHaveLength(1);
-    expect(readSession(root)).toBeNull();
+    const lines = run.err().trim().split('\n');
+    expect(lines).toHaveLength(2);
+    for (const line of lines) expect(line).toMatch(/^omni ask off: could not close a session/);
+    expect(readMode(root)).toBeNull();
+    expect(existsSync(join(root, LOCAL_DIR, 'ask'))).toBe(false);
   });
 
   it('turns the mode off here when ask.url is null or names another server', async () => {
     for (const url of [null, 'https://ask.example.com']) {
-      const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config(url) } });
-      writeSession(root, { sessionId: 's-1', url: 'https://elsewhere.example.com/ask/s-1', host: 'elsewhere.example.com' });
+      const { root, write } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config(url) } });
+      write(`${LOCAL_DIR}/ask.json`, JSON.stringify({ host: 'elsewhere.example.com' }));
+      writeTerminal(root, 'term-a', { sessionId: 's-1', host: 'elsewhere.example.com' });
       const run = await ask('off', { root, tokens: memoryTokens() });
       expect(run.code).toBe(0);
       expect(run.out()).toBe('off\n');
-      expect(run.err()).toMatch(/^omni ask off: could not close the session/);
-      expect(readSession(root)).toBeNull();
+      expect(run.err()).toMatch(/^omni ask off: could not close a session/);
+      expect(readMode(root)).toBeNull();
+      expect(readTerminal(root, 'term-a')).toBeNull();
     }
   });
 
-  it('says nothing more when the server no longer knows the session', async () => {
+  it('says nothing more when the server no longer knows a session', async () => {
     const { root, tokens } = await signedIn();
-    writeSession(root, { sessionId: 'sess-gone', url: `${server.url}/ask/sess-gone`, host: server.host });
+    await ask('on', { root, tokens });
+    writeTerminal(root, 'term-a', { sessionId: 'sess-gone', host: server.host });
     const run = await ask('off', { root, tokens });
     expect(run.code).toBe(0);
     expect(run.out()).toBe('off\n');
     expect(run.err()).toBe('');
-    expect(readSession(root)).toBeNull();
+    expect(readTerminal(root, 'term-a')).toBeNull();
   });
 });
 
 describe('omni ask status', () => {
-  it('prints the link while the mode is on, and off otherwise', async () => {
+  it('prints the person\'s page while the mode is on, and off otherwise, calling nothing', async () => {
     const { root, tokens } = await signedIn();
     expect((await ask('status', { root, tokens })).out()).toBe('off\n');
     const on = await ask('on', { root, tokens });
@@ -239,12 +272,19 @@ describe('omni ask status', () => {
     expect(status.out()).toBe(on.out());
     await ask('off', { root, tokens });
     expect((await ask('status', { root, tokens })).out()).toBe('off\n');
+    expect(server.calls).toEqual([]);
+  });
+
+  it('reads an ask.json in PRD 71\'s shape as on', async () => {
+    const { root, tokens, write } = await signedIn();
+    write(`${LOCAL_DIR}/ask.json`, JSON.stringify({ sessionId: 'sess-71', url: `${server.url}/ask/sess-71`, host: server.host }));
+    expect((await ask('status', { root, tokens })).out()).toBe(`${server.url}/ask\n`);
   });
 
   it('prints off when ask.url is null or names another server, as the hooks read it', async () => {
     for (const url of [null, 'https://ask.example.com']) {
-      const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config(url) } });
-      writeSession(root, { sessionId: 's-1', url: 'https://elsewhere.example.com/ask/s-1', host: 'elsewhere.example.com' });
+      const { root, write } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config(url) } });
+      write(`${LOCAL_DIR}/ask.json`, JSON.stringify({ host: 'elsewhere.example.com' }));
       const run = await ask('status', { root, tokens: memoryTokens() });
       expect(run.code).toBe(0);
       expect(run.out()).toBe('off\n');
@@ -257,16 +297,16 @@ describe('ask mode, whole', () => {
     const { root, tokens } = await signedIn({ answer: (round) => firstOptionAnswers(round.questions) });
     expect((await ask('on', { root, tokens })).code).toBe(0);
 
-    const pre = io();
-    expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...pre, stdin: PRE, tokens })).toBe(0);
+    const pre = await hook('pre', PRE, { root, tokens });
+    expect(pre.code).toBe(0);
     expect(JSON.parse(pre.out()).hookSpecificOutput.updatedInput.answers).toEqual({ [QUESTION.question]: 'System (Recommended)' });
 
     expect((await ask('off', { root, tokens })).code).toBe(0);
     const [session] = server.sessions.values();
     expect(session.status).toBe('closed');
     const calls = server.calls.length;
-    const quiet = io();
-    expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...quiet, stdin: PRE, tokens })).toBe(0);
+    const quiet = await hook('pre', PRE, { root, tokens });
+    expect(quiet.code).toBe(0);
     expect(quiet.out()).toBe('');
     expect(server.calls).toHaveLength(calls);
   });
@@ -282,7 +322,7 @@ describe('ask mode, whole', () => {
     const on = await runCli(['ask', 'on'], { cwd: root, env });
     expect(on.stderr).toBe('');
     expect(on.status).toBe(0);
-    expect(on.stdout).toMatch(new RegExp(`^${server.url}/ask/\\S+\\n$`));
+    expect(on.stdout).toBe(`${server.url}/ask\n`);
     expect((await runCli(['ask', 'status'], { cwd: root, env })).stdout).toBe(on.stdout);
     const off = await runCli(['ask', 'off'], { cwd: root, env });
     expect(off).toEqual({ status: 0, stdout: 'off\n', stderr: '' });
