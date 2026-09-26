@@ -12,7 +12,17 @@ describe('loop labels', () => {
 
   it('asks for a label two keys share only once', () => {
     const names = loopLabels({ ...defaults, needsFix: 'OMNI:SUB' }).map((label) => label.name);
-    expect(names).toEqual(['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:outbox-go', 'omni:retro']);
+    expect(names).toEqual(['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:outbox-go', 'omni:retro', 'omni:knowledge']);
+  });
+
+  it('asks for the knowledge label with its own colour and a description', () => {
+    const knowledge = loopLabels(defaults).find((label) => label.name === 'omni:knowledge');
+    expect(knowledge).toEqual({ name: 'omni:knowledge', ...LABEL_STYLES.knowledge });
+    expect(knowledge.color).toMatch(/^[0-9a-f]{6}$/);
+    const others = Object.entries(LABEL_STYLES).filter(([key]) => key !== 'knowledge');
+    expect(others.map(([, style]) => style.color)).not.toContain(knowledge.color);
+    expect(knowledge.description).toMatch(/^Omni Loop: \S/);
+    expect(knowledge.description.length).toBeLessThanOrEqual(100);
   });
 
   it('asks for the retro label with its own colour and a description', () => {
