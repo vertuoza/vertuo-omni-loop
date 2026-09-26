@@ -2,26 +2,32 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GalaxyView } from '@omni/galaxy';
 import { randomHero, type Hero } from '@omni/sprites';
-import { drawFrame, H, layoutMap, neighbour, W, type FrameState, type SceneName } from './scenes';
+import { drawFrame, layoutMap, neighbour, type FrameState, type SceneName } from './scenes';
+import { useForm } from './form';
+import { useFullscreen } from './fullscreen';
+import { frameFor, gridFor, pagesFor, turnPage } from './grid';
+import { planetAt, Screen, type GridPoint, type ScreenInfo } from './Screen';
+import { Handheld, Lens } from './Handheld';
+import { Advance } from './Advance';
 import { motif, music, setMuted as setAudioMuted, sfx, unlock, type Sfx } from './sound';
 import { Press } from './hint';
 import { keyAction, type Action } from './keys';
 import type { SongName } from './score';
+import { BootOverlay, HeroesOverlay, TitleOverlay, titlePhaseAt } from './scenes/attract.tsx';
 import {
-  BootOverlay, BriefingOverlay, FleetsOverlay, HeroesOverlay, MapOverlay, MenuOverlay, PlanetOverlay, TitleOverlay,
-  PLANET_TABS, menuItems, titlePhaseAt,
-} from './screens';
-import {
-  BuilderOverlay, CoinOverlay, GateOverlay, IntroOverlay, LinkOverlay, NameOverlay, OutsiderOverlay, ReadyOverlay,
-  SelectOverlay, WelcomeOverlay, type LinkState,
-} from './join-screens';
-import { FleetSprite, Sprite } from './Sprite';
-import { fleet, setFleets } from './fleets';
+  CoinOverlay, GateOverlay, IntroOverlay, LinkOverlay, OutsiderOverlay, ReadyOverlay, WelcomeOverlay, type LinkState,
+} from './scenes/join.tsx';
+import { BuilderOverlay, NameOverlay, SelectOverlay } from './scenes/recruit.tsx';
+import { BriefingOverlay, MenuOverlay, menuItems } from './scenes/menu.tsx';
+import { MapOverlay } from './scenes/map.tsx';
+import { PLANET_TABS, PlanetOverlay } from './scenes/planet.tsx';
+import { FleetsOverlay } from './scenes/fleets.tsx';
+import { setFleets } from './fleets';
 import { foldChar, foldName, nameInit, nameReduce, nameValue, NAME_RULE, type NameAction, type NameState } from './name-entry';
 import { BUILDER_ROWS, cycleHero } from './builder';
-import { MARK_RUNS, MARK_SIZE, MARK_STOPS } from './mark';
 import { afterGate, afterReturn, afterStart, allowed, backStep, isDisbanded, isLinked, nextStep, readReturn, type Flow, type Step } from './onboarding';
 import type { Account, FleetRow, Player, PlayerPatch, Session } from './types';
+import './shell.css';
 
 // The music each screen plays; the rest are silent but for their effects.
 const TRACK: Partial<Record<SceneName, SongName>> = {
@@ -30,6 +36,7 @@ const TRACK: Partial<Record<SceneName, SongName>> = {
 
 export interface UI {
   scene: SceneName; sel: number; tab: number; menu: number; fleet: number; since: number;
+  page: number; // the page shown, on a scene its group splits into pages; back to the first on each scene
   flow: Flow;
   pick: number; lockedAt: number | null; lockSaved: boolean; confirm: boolean;
   name: NameState; shake: number;
@@ -72,23 +79,6 @@ const store = {
   set(key: string, v: string | null) { try { if (v === null) window.sessionStorage.removeItem(key); else window.sessionStorage.setItem(key, v); } catch { /* ignore */ } },
 };
 
-// The Vertuoza mark on the deck, with a shadow one pixel down.
-const MARK_PATH = MARK_RUNS.map(([x, y, w]) => `M${x} ${y}h${w}v1h${-w}z`).join('');
-
-function VertuozaMark() {
-  return (
-    <svg width={MARK_SIZE} height={MARK_SIZE + 1} viewBox={`0 0 ${MARK_SIZE} ${MARK_SIZE + 1}`} shapeRendering="crispEdges">
-      <defs>
-        <linearGradient id="vz-mark" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={MARK_SIZE} y2="0">
-          {MARK_STOPS.map(([offset, color]) => <stop key={offset} offset={offset} stopColor={color} />)}
-        </linearGradient>
-      </defs>
-      <path d={MARK_PATH} fill="#5c3a06" transform="translate(0 1)" />
-      <path d={MARK_PATH} fill="url(#vz-mark)" />
-    </svg>
-  );
-}
-
 export interface ArcadeProps {
   /** The galaxy; null while signed out (or when it cannot be read: see `problem`). */
   view: GalaxyView | null;
@@ -104,7 +94,13 @@ export interface ArcadeProps {
 export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null }: ArcadeProps) {
   setFleets(fleets);
   const active = useMemo(() => fleets.filter((f) => !f.retired), [fleets]);
-  const layout = useMemo(() => (view ? layoutMap(view) : []), [view]);
+  // The form follows the device (a mouse, or touch upright or sideways); turning the phone changes
+  // the body around the screen and the grid a scene is drawn on, never the game's state.
+  const form = useForm();
+  const formRef = useRef(form);
+  formRef.current = form;
+  const mapGrid = gridFor(form, 'map');
+  const layout = useMemo(() => (view ? layoutMap(view, mapGrid) : []), [view, mapGrid]);
   const start = useRef(typeof performance !== 'undefined' ? performance.now() : 0);
   const now = () => (performance.now() - start.current) / 1000;
   const firstPlanet = view ? Math.max(0, view.planets.findIndex((p) => p.state === 'distress')) : 0;
@@ -113,7 +109,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const [me, setMe] = useState<Player | null>(me0);
   const [crew, setCrew] = useState<Player[]>(crew0);
   const [ui, setUi] = useState<UI>(() => ({
-    scene: 'boot', sel: firstPlanet, tab: 0, menu: 0, fleet: 0, since: 0,
+    scene: 'boot', sel: firstPlanet, tab: 0, menu: 0, fleet: 0, since: 0, page: 0,
     flow: 'onboard', pick: 0, lockedAt: null, lockSaved: false, confirm: false,
     name: nameInit(''), shake: -1, hero: me0?.hero ?? { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 }, heroRow: 0,
     link: 'ask', linkLogin: null, away: false, error: null, toast: null,
@@ -128,7 +124,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   const go = useCallback((patch: Partial<UI>, effect?: Sfx) => {
     if (effect) sfx(effect);
-    setUi((u) => ({ ...u, ...patch, since: patch.scene && patch.scene !== u.scene ? now() : u.since }));
+    setUi((u) => {
+      const moved = patch.scene !== undefined && patch.scene !== u.scene;
+      return { ...u, page: moved ? 0 : u.page, ...patch, since: moved ? now() : u.since };
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -191,7 +190,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   // signing out), nothing past INSERT COIN shows without a session.
   useEffect(() => {
     const door = allowed(ui.scene, session, isLinked(session, me));
-    if (door !== ui.scene) setUi((u) => ({ ...u, scene: door as SceneName, since: now(), away: false, error: null, link: 'ask' }));
+    if (door !== ui.scene) setUi((u) => ({ ...u, scene: door as SceneName, since: now(), page: 0, away: false, error: null, link: 'ask' }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ui.scene, session, me]);
   useEffect(() => { setAudioMuted(muted); }, [muted]);
@@ -290,11 +289,28 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     go({ name: state, error: null }, sound);
   }, [go]);
 
+  /** Sound on or off: M on the keyboard, the grille on a Game Boy. Kept under the same key across reloads. */
+  const toggleSound = useCallback(() => {
+    setMuted((m) => { try { window.localStorage.setItem('omni-loop:muted', m ? '0' : '1'); } catch { /* per-viewer only */ } return !m; });
+  }, []);
+
   const leave = useCallback((step: Step) => {
     const to = backStep(step, uiRef.current.flow);
     if (to === 'title') return go({ scene: 'title', flow: 'onboard' }, 'back');
     return open(to, to === 'menu' ? {} : { flow: uiRef.current.flow }, 'back');
   }, [go, open]);
+
+  /** Opens the menu's item `i`: with A or START on the row under the cursor, or with a tap on any row. */
+  const openItem = useCallback((i: number) => {
+    const items = menuItems({ joined: Boolean(meRef.current?.team), linked: isLinked(sessionRef.current, meRef.current), signedIn: Boolean(sessionRef.current) });
+    const item = items[i];
+    if (!item) return;
+    if (item.scene) return view ? go({ scene: item.scene, menu: i }, 'select') : go({ menu: i, toast: problem ?? 'SIGN IN TO SEE THE GALAXY' }, 'buzz');
+    if (item.id === 'myhero') return open('name', { flow: 'myhero', menu: i }, 'select');
+    if (item.id === 'change') return open('select', { flow: 'change', menu: i }, 'select');
+    if (item.id === 'link') return open('link', { flow: 'link', menu: i }, 'select');
+    if (item.id === 'signout') return signOut();
+  }, [view, go, open, signOut, problem]);
 
   const act = useCallback((action: Action) => {
     const u = uiRef.current;
@@ -384,13 +400,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'down' || action === 'select') return go({ menu: (i + 1) % items.length }, 'move');
         if (action === 'b') return go({ scene: 'title' }, 'back');
         if (action !== 'a' && action !== 'start') return;
-        const item = items[i];
-        if (item.scene) return view ? go({ scene: item.scene, menu: i }, 'select') : go({ toast: problem ?? 'SIGN IN TO SEE THE GALAXY' }, 'buzz');
-        if (item.id === 'myhero') return open('name', { flow: 'myhero', menu: i }, 'select');
-        if (item.id === 'change') return open('select', { flow: 'change', menu: i }, 'select');
-        if (item.id === 'link') return open('link', { flow: 'link', menu: i }, 'select');
-        if (item.id === 'signout') return signOut();
-        return;
+        return openItem(i);
       }
       case 'map':
         if (action === 'up' || action === 'down' || action === 'left' || action === 'right') {
@@ -421,15 +431,26 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'b') return go({ scene: 'menu' }, 'back');
         return;
       }
-      default:
+      default: {
+        // `heroes` and `briefing`: ◀ ▶ turn the pages their group declares on the grid they are drawn on.
+        if (action === 'left' || action === 'right') {
+          const n = pagesFor(u.scene, { view, grid: gridFor(formRef.current, u.scene) });
+          return n > 1 ? go({ page: turnPage(u.page, n, action) }, 'tab') : undefined;
+        }
         if (action === 'a' || action === 'b' || action === 'start') return go({ scene: 'menu' }, 'back');
+      }
     }
-  }, [view, fleets, active, layout, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, problem]);
+  }, [view, fleets, active, layout, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, openItem]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
+  // Fullscreen hears every key first (and every click and touch press on its own): the first press
+  // of the page load asks for it, F toggles it, and the Esc that leaves it is never also B.
+  const fullscreen = useFullscreen();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const modified = e.metaKey || e.ctrlKey || e.altKey;
+      if (fullscreen({ kind: 'key', key: e.key, scene: uiRef.current.scene, modified, repeat: e.repeat })) return e.preventDefault();
+      if (modified) return;
       // Let Space and Enter activate a focused button natively; the button calls `act` itself.
       if (e.target instanceof Element && e.target.closest('button') && (e.key === ' ' || e.key === 'Enter')) return;
       unlock();
@@ -449,10 +470,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (handled) e.preventDefault();
         return;
       }
-      if (e.key === 'm' || e.key === 'M') {
-        setMuted((m) => { try { window.localStorage.setItem('omni-loop:muted', m ? '0' : '1'); } catch { /* per-viewer only */ } return !m; });
-        return;
-      }
+      if (e.key === 'm' || e.key === 'M') return toggleSound();
       const action = keyAction(e.key);
       if (!action) return;
       e.preventDefault();
@@ -461,7 +479,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [act, leave, nameAction, nameDone]);
+  }, [act, fullscreen, leave, nameAction, nameDone, toggleSound]);
 
   // The title cycles its attract phases.
   const [, tick] = useState(0);
@@ -473,20 +491,24 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   // ── Canvas loop ──
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const frameRef = useRef({ view, layout, active, me });
-  frameRef.current = { view, layout, active, me };
+  const grid = gridFor(form, ui.scene);
+  const pages = pagesFor(ui.scene, { view, grid });
+  const page = Math.min(ui.page, pages - 1);
+  const frameRef = useRef({ view, layout, active, me, grid, page });
+  frameRef.current = { view, layout, active, me, grid, page };
   useEffect(() => {
-    const ctx = canvasRef.current?.getContext('2d');
-    if (!ctx) return;
     const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     let raf = 0;
     const loop = () => {
+      raf = requestAnimationFrame(loop);
+      const ctx = canvasRef.current?.getContext('2d');
+      if (!ctx) return;
       const t = now();
       const u = uiRef.current;
       const f = frameRef.current;
       const picking = u.scene === 'select' ? f.active[u.pick]?.name ?? null : null;
       const frame: FrameState = {
-        scene: u.scene, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches,
+        scene: u.scene, grid: f.grid, page: f.page, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches,
         join: {
           fleets: f.active, pick: u.pick, lockedAt: u.lockedAt, away: u.away || u.link === 'away',
           team: picking ?? f.me?.team ?? null,
@@ -495,43 +517,23 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       };
       const phase = titlePhaseAt(t - u.since);
       drawFrame(ctx, frame, !f.view && phase === 'hiscore' ? 'title' : phase); // no high scores without the galaxy
-      raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Fit the 640×360 screen into whatever room the console leaves it ──
-  const slotRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-  useEffect(() => {
-    const el = slotRef.current;
-    if (!el) return;
-    const fit = () => {
-      const { width, height } = el.getBoundingClientRect();
-      const s = Math.min(width / (W), Math.max(height, 200) / (H));
-      setScale(Math.max(0.3, s));
-    };
-    fit();
-    const ro = new ResizeObserver(fit);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  // A click on a key hint ("[A] LINK GITHUB") presses that key.
+  // A click on a key hint ("[A] LINK GITHUB"), or a press of a Game Boy's control, presses that key.
   const press = useCallback((action: Action) => { unlock(); act(action); }, [act]);
 
-  const onCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // A tap on the screen, in the pixels of the grid it is drawn on.
+  const onTap = (p: GridPoint) => {
     unlock();
     const u = uiRef.current;
     if (u.scene === 'boot' || u.scene === 'title' || u.scene === 'gate' || u.scene === 'ready' || u.scene === 'welcome') return act('start');
     if (u.scene === 'link' && u.link === 'done') return act('start');
     if (u.scene !== 'map') return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * W;
-    const y = ((e.clientY - rect.top) / rect.height) * H;
-    const hit = layout.find((s) => Math.hypot(s.x - x, s.y - y) <= s.r + 5);
+    const hit = planetAt(layout, p);
     if (!hit) return;
     if (hit.index === u.sel) go({ scene: 'planet', tab: 0 }, 'select');
     else go({ sel: hit.index }, 'move');
@@ -574,7 +576,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'link': return <LinkOverlay state={ui.link} name={displayName} login={ui.linkLogin ?? session?.github ?? me?.github_login ?? null} error={ui.error} demo={account.kind === 'demo'} />;
       case 'ready': return <ReadyOverlay name={displayName} team={me?.team ?? null} />;
       case 'welcome': return <WelcomeOverlay name={displayName} team={me?.team ?? null} />;
-      case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={(i) => { go({ menu: i }); act('a'); }} />;
+      case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={openItem} />;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => act('a')} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => go({ tab }, 'tab')} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => go({ fleet: i }, 'move')} /> : null;
@@ -583,90 +585,19 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     }
   })();
 
-  const top = view?.teams[0];
-  const left = active.slice(0, 3), right = active.slice(3, 5);
+  const info = useMemo<ScreenInfo>(() => ({ form, grid, page, pages }), [form, grid, page, pages]);
+  const body = { season: view?.season ?? null, muted, onAction: press, onSound: toggleSound };
+  // The screen keeps its place in the tree in every form, so turning the phone keeps it as it is.
   return (
-    <div className="cabinet">
-      <aside className="side-art side-left" aria-hidden="true">
-        {left.map((t, i) => (
-          <div key={t.name} className="side-card" style={{ ['--tilt' as string]: `${i % 2 ? 3 : -3}deg`, ['--fleet' as string]: t.color }}>
-            <FleetSprite name={t.name} scale={fleet(t.name).sprite.startsWith('hero') ? 4 / 3 : 2} animate />
-            <span>{t.label}</span>
-          </div>
-        ))}
-      </aside>
-
-      <main className="console">
-        <header className="marquee">
-          <span className="marquee-title">OMNI LOOP</span>
-          <span className="marquee-sub">GALAXY COMMAND{view ? ` · SEASON ${view.season}` : ''}</span>
-        </header>
-
-        <div className="screen-slot" ref={slotRef}>
-          <div className="bezel" style={{ width: W * scale + 24, height: H * scale + 24 }}>
-            <div className="screen-fit" style={{ width: W * scale, height: H * scale }}>
-              <div className={`screen scene-${ui.scene}`} style={{ transform: `scale(${scale})` }}>
-                <canvas
-                  ref={canvasRef}
-                  width={W}
-                  height={H}
-                  className="stage"
-                  onClick={onCanvasClick}
-                  aria-label="Galaxy screen"
-                />
-                <div className="overlay">
-                  <Press.Provider value={press}>{overlay}</Press.Provider>
-                  {ui.toast && <p className="j-toast" role="status">{ui.toast}</p>}
-                </div>
-                <div className="crt" aria-hidden="true" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <p className="turn">TURN YOUR PHONE SIDEWAYS FOR THE FULL SCREEN</p>
-        <div className="deck">
-          <div className="plate">
-            <span className="plate-big">{session ? 'PRESS START' : 'INSERT COIN'}</span>
-            <span className="plate-small plate-keys">ENTER = START · A/Z · B/X · ARROWS</span>
-          </div>
-          <div className="emblem" aria-hidden="true"><VertuozaMark /></div>
-          <div className="plate">
-            <span className="plate-big">{top && top.points > 0 ? `HI ${top.points}` : 'FREE PLAY'}</span>
-            <span className="plate-small">{me?.team ? `P1 ${me.display_name} · ${fleet(me.team).label}` : session ? 'NEW RECRUIT' : 'INSERT COIN'} · {muted ? 'SOUND OFF (M)' : 'SOUND ON (M)'}</span>
-          </div>
-        </div>
-
-        <nav className="pad" aria-label="Controller">
-          <div className="dpad">
-            <button type="button" className="d-up" aria-label="Up" onClick={() => { unlock(); act('up'); }} />
-            <button type="button" className="d-left" aria-label="Left" onClick={() => { unlock(); act('left'); }} />
-            <button type="button" className="d-right" aria-label="Right" onClick={() => { unlock(); act('right'); }} />
-            <button type="button" className="d-down" aria-label="Down" onClick={() => { unlock(); act('down'); }} />
-          </div>
-          <div className="pills">
-            <button type="button" onClick={() => { unlock(); act('select'); }}>SELECT</button>
-            <button type="button" onClick={() => { unlock(); act('start'); }}>START</button>
-          </div>
-          <div className="ab">
-            <button type="button" className="btn-b" onClick={() => { unlock(); act('b'); }} aria-label="B, back">B</button>
-            <button type="button" className="btn-a" onClick={() => { unlock(); act('a'); }} aria-label="A, confirm">A</button>
-          </div>
-        </nav>
-      </main>
-
-      <aside className="side-art side-right" aria-hidden="true">
-        <div className="side-card side-omni" style={{ ['--tilt' as string]: '2deg', ['--fleet' as string]: '#a45cff' }}>
-          <Sprite name="omni" scale={2} animate />
-          <span>OMNI-MAN</span>
-        </div>
-        {right.map((t, i) => (
-          <div key={t.name} className="side-card" style={{ ['--tilt' as string]: `${i % 2 ? 3 : -3}deg`, ['--fleet' as string]: t.color }}>
-            <FleetSprite name={t.name} scale={fleet(t.name).sprite.startsWith('hero') ? 4 / 3 : 2} animate />
-            <span>{t.label}</span>
-          </div>
-        ))}
-      </aside>
+    <div className={`shell form-${form}`}>
+      <Lens bare={form === 'full'} muted={muted}>
+        <Screen scene={ui.scene} frame={frameFor(form)} info={info} canvasRef={canvasRef} onTap={onTap}>
+          <Press.Provider value={press}>{overlay}</Press.Provider>
+          {ui.toast && <p className="j-toast" role="status">{ui.toast}</p>}
+        </Screen>
+      </Lens>
+      {form === 'handheld' && <Handheld {...body} />}
+      {form === 'advance' && <Advance {...body} />}
     </div>
   );
 }
