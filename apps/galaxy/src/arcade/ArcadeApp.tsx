@@ -23,6 +23,8 @@ import { MapOverlay } from './scenes/map.tsx';
 import { PLANET_TABS, PlanetOverlay } from './scenes/planet.tsx';
 import { FleetsOverlay } from './scenes/fleets.tsx';
 import { setFleets } from './fleets';
+import { HOUSE_BRAND, type Brand } from './brand';
+import { markFor } from './mark';
 import { foldChar, foldName, nameInit, nameReduce, nameValue, NAME_RULE, type NameAction, type NameState } from './name-entry';
 import { BUILDER_ROWS, cycleHero } from './builder';
 import { afterGate, afterReturn, afterStart, allowed, backStep, isDisbanded, isLinked, nextStep, readReturn, type Flow, type Step } from './onboarding';
@@ -89,10 +91,13 @@ export interface ArcadeProps {
   me?: Player | null;
   crew?: Player[];
   problem?: string | null;
+  /** Whose arcade it is: its name draws the mark's letter and the boot's and the title's words. The house brand when none is given. */
+  brand?: Brand;
 }
 
-export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null }: ArcadeProps) {
+export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null, brand = HOUSE_BRAND }: ArcadeProps) {
   setFleets(fleets);
+  const mark = useMemo(() => markFor(brand.name), [brand.name]);
   const active = useMemo(() => fleets.filter((f) => !f.retired), [fleets]);
   // The form follows the device (a mouse, or touch upright or sideways); turning the phone changes
   // the body around the screen and the grid a scene is drawn on, never the game's state.
@@ -494,8 +499,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const grid = gridFor(form, ui.scene);
   const pages = pagesFor(ui.scene, { view, grid });
   const page = Math.min(ui.page, pages - 1);
-  const frameRef = useRef({ view, layout, active, me, grid, page });
-  frameRef.current = { view, layout, active, me, grid, page };
+  const frameRef = useRef({ view, layout, active, me, grid, page, mark });
+  frameRef.current = { view, layout, active, me, grid, page, mark };
   useEffect(() => {
     const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     let raf = 0;
@@ -508,7 +513,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       const f = frameRef.current;
       const picking = u.scene === 'select' ? f.active[u.pick]?.name ?? null : null;
       const frame: FrameState = {
-        scene: u.scene, grid: f.grid, page: f.page, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches,
+        scene: u.scene, grid: f.grid, page: f.page, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches, mark: f.mark,
         join: {
           fleets: f.active, pick: u.pick, lockedAt: u.lockedAt, away: u.away || u.link === 'away',
           team: picking ?? f.me?.team ?? null,
@@ -560,8 +565,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     : account.kind === 'demo' ? 'DEMO GALAXY' : account.kind === 'closed' ? 'SIGN-IN NOT OPEN YET' : problem ? 'GALAXY OUT OF REACH' : 'SIGNED OUT';
   const overlay = (() => {
     switch (ui.scene) {
-      case 'boot': return <BootOverlay />;
-      case 'title': return <TitleOverlay view={view} phase={view ? phase : phase === 'hiscore' ? 'title' : phase} sceneT={now() - ui.since} who={who} signedIn={Boolean(session)} />;
+      case 'boot': return <BootOverlay brand={brand} />;
+      case 'title': return <TitleOverlay view={view} phase={view ? phase : phase === 'hiscore' ? 'title' : phase} sceneT={now() - ui.since} who={who} signedIn={Boolean(session)} brand={brand} />;
       case 'coin': return <CoinOverlay away={ui.away} error={ui.error} demo={account.kind === 'demo'} closed={account.kind === 'closed'} />;
       case 'outsider': return <OutsiderOverlay email={session?.email ?? ''} />;
       case 'gate': return <GateOverlay name={me?.team ? me.display_name : null} />;
