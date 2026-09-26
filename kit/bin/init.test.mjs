@@ -474,7 +474,7 @@ const FIRST_RUN = [
   '     If the app is uninstalled, its deploy is broken or Inngest is down, nothing can merge. The remedy',
   '     is to remove the requirement, never to fake a status.',
   '  4. Fill the forms in .omni-loop/knowledge/ with what the repository can prove, in Claude Code:',
-  '       /omni:terraform',
+  '       /omni:invade',
   '',
   'Not filled — set them in .omni-loop/config.yml or rerun with the flag:',
   '  commands.test (--test <cmd>)',
@@ -622,7 +622,7 @@ describe('omni init — the forms (PRD 45, AC 11)', () => {
         expect(parsed.form.state, file).toBe('blank');
       }
       expect(readConfig(read).laws.source).toBe('none');
-      expect(first.out).toContain('\n       /omni:terraform\n');
+      expect(first.out).toContain('\n       /omni:invade\n');
       // The same writer as `omni kb init`, which then finds nothing left to write; both checks stay green.
       expect((await omni(root, ['kb', 'init'])).out).toBe(`kb init — wrote 0 file(s); ${FORM_FILES.length} already there, left as they were.\n`);
       expect((await omni(root, ['check', 'knowledge'])).code).toBe(0);
@@ -688,14 +688,14 @@ describe('omni init — the forms (PRD 45, AC 11)', () => {
     expect(out).toContain('Commit .omni-loop/ and merge it into trunk, then, by hand:\n');
   });
 
-  it('writes no form outside .omni-loop/: a kept config whose playbook lies elsewhere leaves them to /omni:terraform', async () => {
+  it('writes no form outside .omni-loop/: a kept config whose playbook lies elsewhere leaves them to /omni:invade', async () => {
     const config = 'kit: 1\nrepo:\n  slug: acme/widgets\n  defaultBranch: trunk\npaths:\n  playbook: docs/playbook\n';
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/bin/omni.mjs': 'bin\n' } });
     const { code, out } = await init(root);
     expect(code).toBe(0);
     expect(gitStatus(root)).toEqual([]);
     expect(out).toContain('  kept    .omni-loop/bin/omni.mjs  (pass --force to overwrite)\n  forms   not written: docs/ is outside .omni-loop/ — see step 4 below\n');
-    expect(out).toContain('  4. Fill the forms in docs/ with what the repository can prove, in Claude Code:\n       /omni:terraform\n');
+    expect(out).toContain('  4. Fill the forms in docs/ with what the repository can prove, in Claude Code:\n       /omni:invade\n');
     expect(out).toContain('Nothing new to commit. By hand, unless already done:\n');
   });
 });

@@ -48,7 +48,10 @@ never overrides this skill's rules.
 3. The spec, in full.
 4. Every file in `paths.context`, the glossary at `paths.glossary` when set, and — when
    `laws.source` is `knowledge` — the knowledge folder at `paths.knowledge` (principles, rules,
-   invariants; `node .omni-loop/bin/omni.mjs knowledge <id>` explains one).
+   invariants; `node .omni-loop/bin/omni.mjs knowledge <id>` explains one). A **proposed** entry
+   (one carrying a `Proposed:` line; `omni knowledge <id>` prints who proposed it and when) is read
+   like any other: it describes the product. It is not a law until a person confirms it, so it
+   never stops a slice (see **Exactly two ways a slice ends early**).
 5. `omni kb show architecture`, `omni kb show conventions` and `omni kb show setup`: where code
    may go and what may depend on what; naming, formatting and the shape of a commit; how to
    install and run the repository. They bind this slice as if written here.
@@ -94,7 +97,8 @@ When the PRD, the spec, the context files and the knowledge folder do not settle
    node .omni-loop/bin/omni.mjs item new --prd <n> --slice <id> --file <file> --json --adopt    # alone
    ```
 
-   Fields: `slug`, `wave`, `bearsOn` (a law id, `ADR-nnnn`, or omit), `questionPlain`,
+   Fields: `slug`, `wave`, `bearsOn` (a law id, a proposed entry's id, `ADR-nnnn`, or omit),
+   `questionPlain`,
    `decisionPlain`, `introFun`, `punchlineFun`, `decide`, `meanwhile`, `cost`, `gaps`, `options`
    (two to four; A is what you built), and the flags `hardToRevert`, `breaksNamedLaw`,
    `needsHumanAction` (then `personSteps` instead of `options`), `principlesConflict`. The two
@@ -138,7 +142,9 @@ When the PRD, the spec, the context files and the knowledge folder do not settle
 
 Anything else is not a stop. "This might break something" is a risk: record it with
 `hardToRevert` and carry on. Contradicting an ADR is proposing to supersede it: record it with
-`bearsOn` set to the ADR, and carry on.
+`bearsOn` set to the ADR, and carry on. Going against a **proposed** knowledge entry is never a stop
+either: it is no law yet, so record it with `bearsOn` set to its id, leave `breaksNamedLaw` false,
+and carry on.
 
 ## 4. Account for the ground you touched
 

@@ -55,7 +55,7 @@ export function slotMarker({ id, required = false, by = null, verified = null })
  * `undefined` is left out; a slot's `marker` replaces its marker line (`null` drops it).
  */
 export function formText({ frontMatter = {}, title = 'Testing', opener = 'Use this page when adding, changing, or choosing tests.', slots = [] } = {}) {
-  const fm = { form: 'testing', 'form-version': 1, state: 'blank', 'points-to': null, evidence: [], terraformed: null, ...frontMatter };
+  const fm = { form: 'testing', 'form-version': 1, state: 'blank', 'points-to': null, evidence: [], invaded: null, ...frontMatter };
   const lines = ['---', stringify(fm).trimEnd(), '---', '', `# ${title}`, ''];
   if (opener !== null) lines.push(opener, '');
   for (const slot of slots) {

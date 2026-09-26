@@ -66,8 +66,9 @@ duties of `outbox-policy.mjs` beside it (the module itself was ported earlier as
   exists", and no repository held one. It now reads the `architecture`, `conventions` and `setup`
   forms through `omni kb show`, which print the kit default for any section a repository left
   blank; the skill no longer names `repo.md`.
-- **Step 0's stop line** says "not installed", not "not terraformed" (PRD 45): `/omni:terraform`
-  now names filling the forms, and a failing `omni config` means `omni init` has not run.
+- **Step 0's stop line** says "not installed" (PRD 45, and PRD 68 for the config error): `/omni:invade`
+  (PRD 45's form-filling skill, renamed by PRD 68) now names filling the forms, and a failing
+  `omni config` means `omni init` has not run.
 
 ## Added
 
@@ -115,10 +116,10 @@ the bundle does not carry.
   stderr naming the field and an empty stdout, even with `--json`; the rendered item refused by
   `checkItemText` is `outcome: null` with `reason` on stdout under `--json`. This replaces "Exit `2`
   is no longer only 'your JSON is wrong': read `reason` first", which a bad intro contradicts.
-- **Step 0** says "the Omni Loop kit is not installed in this repository" instead of "the
-  repository is not terraformed", so the skill names no game word. `/omni:plan`, `/omni:brainstorm`
-  and `kit/lib/config.mjs` keep the old word — PRD 50's outbox item
-  `s3-01-installed-not-terraformed`.
+- **Step 0** says "the Omni Loop kit is not installed in this repository" instead of the older
+  game-word line, so the skill names no game word. `/omni:plan`, `/omni:brainstorm` and
+  `kit/lib/config.mjs` kept the old word at first (PRD 50's outbox item `s3-01`, on the installed
+  wording); PRD 68 made "not installed" the only wording.
 
 ### Tests
 

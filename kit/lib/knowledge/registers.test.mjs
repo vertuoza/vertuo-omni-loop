@@ -210,3 +210,41 @@ describe('readKnowledge — a fixture tree', () => {
     ]);
   });
 });
+
+describe('parseEntryFile — a proposed entry (PRD #68)', () => {
+  const proposedRule = (line) =>
+    [
+      '## BR-ADVISOR-1',
+      '',
+      'A quote expires 30 days after it is sent.',
+      '',
+      'Serves: P-ADVISOR-1',
+      'Source: PRD #68',
+      'Enforced by: unenforced',
+      'Stated: 2026-09-25',
+      line,
+    ].join('\n');
+
+  it('reads "Proposed: invade 2026-09-25" as proposed by invade on that date', () => {
+    const [rule] = parseEntryFile('r.md', proposedRule('Proposed: invade 2026-09-25'), DOMAIN_RULES);
+    expect(rule.proposed).toEqual({ by: 'invade', on: '2026-09-25' });
+    expect(rule.problems).toEqual([]);
+  });
+
+  it('reads an entry without the line as not proposed', () => {
+    const [rule] = parseEntryFile('r.md', proposedRule(''), DOMAIN_RULES);
+    expect(rule.proposed).toBeNull();
+    expect(rule.problems).toEqual([]);
+  });
+
+  it('refuses a malformed Proposed: line, naming the file — and still reads the entry as proposed', () => {
+    for (const line of ['Proposed: invade', 'Proposed: 2026-09-25', 'Proposed: invade 25/09/2026', 'Proposed:']) {
+      const [rule] = parseEntryFile('docs/knowledge/domains/advisor/rules.md', proposedRule(line), DOMAIN_RULES);
+      expect(rule.proposed).toEqual({ by: null, on: null });
+      expect(rule.problems).toHaveLength(1);
+      expect(rule.problems[0]).toMatch(
+        /^docs\/knowledge\/domains\/advisor\/rules\.md: BR-ADVISOR-1 — .*Proposed: <who> <YYYY-MM-DD>/,
+      );
+    }
+  });
+});

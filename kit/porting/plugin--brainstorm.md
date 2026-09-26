@@ -67,8 +67,9 @@ written in (spec §2: no `superpowers:` dependency), taken from `superpowers` 6.
   folder exists.
 - **Guardrails section added:** nothing built before approval, one idea one PRD, and spec §2.1
   rule 5 in one line.
-- **Step 0's stop line** says "not installed", not "not terraformed" (PRD 45): `/omni:terraform`
-  now names filling the forms, and a failing `omni config` means `omni init` has not run.
+- **Step 0's stop line** says "not installed" (PRD 45, and PRD 68 for the config error): `/omni:invade`
+  (PRD 45's form-filling skill, renamed by PRD 68) now names filling the forms, and a failing
+  `omni config` means `omni init` has not run.
 - **The playbook forms** (PRD 45, the spec's wiring table), each read through `omni kb show`:
   step 0 prints the `briefing` before any other step (acceptance criterion 9), and says how to read
   a form: a blank section is the kit default, a `[hole]` never stops the skill (decision 7), and a

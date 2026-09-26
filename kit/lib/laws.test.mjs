@@ -72,4 +72,18 @@ describe('lawsFor', () => {
     expect(laws.resolve('P-PRODUCT-1')).toEqual({ ok: true });
     expect(laws.resolve('P-PRODUCT-9').ok).toBe(false);
   });
+
+  it('a proposed id floors nothing under any source, and floors high under knowledge once its Proposed: line is removed; it resolves both ways', () => {
+    const confirmed = '# Principles\n\n## P-PRODUCT-1\n\nx\n\nWhy: y\nDecided: z\nSource: PRD #3\n';
+    const proposed = `${confirmed}Proposed: invade 2026-09-25\n`;
+    for (const source of ['knowledge', 'claudeMdInvariants', 'none']) {
+      const { ctx } = makeRepo({ config: { laws: { source } }, files: { '.omni-loop/knowledge/product/principles.md': proposed } });
+      const laws = lawsFor(ctx);
+      expect(laws.resolve('P-PRODUCT-1')).toEqual({ ok: true });
+      expect(laws.floorsHigh('P-PRODUCT-1')).toBe(false);
+    }
+    const { ctx } = makeRepo({ config: { laws: { source: 'knowledge' } }, files: { '.omni-loop/knowledge/product/principles.md': confirmed } });
+    expect(lawsFor(ctx).resolve('P-PRODUCT-1')).toEqual({ ok: true });
+    expect(lawsFor(ctx).floorsHigh('P-PRODUCT-1')).toBe(true);
+  });
 });

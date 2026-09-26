@@ -31,21 +31,28 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nask:\n  link: https://ask.example.com\n')).toThrow(/ask.*link/s);
   });
 
-  it('puts the playbook under the knowledge folder and names the terraform branch when both are unset', () => {
+  it('puts the playbook under the knowledge folder and names the invade branch when both are unset', () => {
     const config = parseConfig('kit: 1\n');
     expect(config.paths.playbook).toBe('.omni-loop/knowledge/playbook');
-    expect(config.branches.terraform).toBe('docs/omni-terraform');
+    expect(config.branches.invade).toBe('docs/omni-invade');
   });
 
-  it('keeps a playbook folder and a terraform branch the file sets', () => {
-    const config = parseConfig('kit: 1\npaths:\n  playbook: handbook/how-we-work\nbranches:\n  terraform: chore/fill-forms\n');
+  it('keeps a playbook folder and an invade branch the file sets', () => {
+    const config = parseConfig('kit: 1\npaths:\n  playbook: handbook/how-we-work\nbranches:\n  invade: chore/fill-forms\n');
     expect(config.paths.playbook).toBe('handbook/how-we-work');
-    expect(config.branches.terraform).toBe('chore/fill-forms');
+    expect(config.branches.invade).toBe('chore/fill-forms');
+  });
+
+  it('refuses the renamed branch key, naming the key that replaced it', () => {
+    let error;
+    try { parseConfig('kit: 1\nbranches:\n  terraform: docs/omni-terraform\n', 'c.yml'); } catch (e) { error = e; }
+    expect(error).toBeInstanceOf(ConfigError);
+    expect(error.message.split('\n')[0]).toMatch(/^c\.yml.*branches\.terraform.*branches\.invade/);
   });
 
   it('still refuses a key the schema does not hold beside the new ones', () => {
     expect(() => parseConfig('kit: 1\npaths:\n  playbooks: x\n', 'c.yml')).toThrow(/c\.yml.*paths.*playbooks/s);
-    expect(() => parseConfig('kit: 1\nbranches:\n  terraforms: x\n', 'c.yml')).toThrow(/branches.*terraforms/s);
+    expect(() => parseConfig('kit: 1\nbranches:\n  invades: x\n', 'c.yml')).toThrow(/branches.*invades/s);
   });
 
   it('refuses a missing or wrong schema version', () => {
@@ -117,9 +124,9 @@ describe('omni config', () => {
   };
   const files = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
 
-  it('prints paths.playbook and branches.terraform from their defaults when the file sets neither', async () => {
+  it('prints paths.playbook and branches.invade from their defaults when the file sets neither', async () => {
     const { root } = makeRepo({ git: true, files });
-    for (const [key, value] of [['paths.playbook', '.omni-loop/knowledge/playbook'], ['branches.terraform', 'docs/omni-terraform']]) {
+    for (const [key, value] of [['paths.playbook', '.omni-loop/knowledge/playbook'], ['branches.invade', 'docs/omni-invade']]) {
       const s = io();
       expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
       expect(s.out.join('')).toBe(`${value}\n`);
@@ -144,9 +151,9 @@ describe('omni config', () => {
 });
 
 describe('loadConfig', () => {
-  it('says the repository is not terraformed when the file is missing', () => {
+  it('says the repository is not installed when the file is missing', () => {
     const root = mkdtempSync(join(tmpdir(), 'cfg-'));
-    expect(() => loadConfig(root)).toThrow(/not terraformed.*\.omni-loop\/config\.yml/s);
+    expect(() => loadConfig(root)).toThrow(/not installed.*\.omni-loop\/config\.yml/s);
   });
 
   it('reads the file under root', () => {

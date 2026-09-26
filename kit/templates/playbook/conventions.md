@@ -4,7 +4,7 @@ form-version: 1
 state: blank
 points-to: null
 evidence: []
-terraformed: null
+invaded: null
 ---
 
 <!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/briefing.md, docs/agents/definition-of-done.md#commit-shape and docs/adr/0058-identifiers-are-english-interface-copy-is-french.md — changes in kit/porting/templates--conventions.md -->
