@@ -1,5 +1,5 @@
-// The `omni` plugin's guard: its skills parse, name only commands the CLI has, and its manifests
-// agree. Each rule runs on the live repository, then on a fixture built to break it.
+// The `omni` plugin's guard: its skills parse, name only commands the CLI has, sign the loop's work,
+// and its manifests agree. Each rule runs on the live repository, then on a fixture built to break it.
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -89,6 +89,38 @@ function unknownCommandViolations(root, commands) {
   return out;
 }
 
+// OmniMan signs the loop's work (PRD #99). A skill that asks for the session's co-author trailer
+// asks for the signature's trailer too, and one that opens a pull request or an issue, or rewrites
+// its body, asks for the footer. A comment is never signed, so commenting alone asks for nothing.
+const ASKS_FOR_TRAILER = /co-author/i;
+const WRITES_A_BODY = [
+  /\bgh\s+(?:pr|issue)\s+create\b/,
+  /\bgh\s+(?:pr|issue)\s+edit\b[^\n]*--body/,
+  // "Open the feature PR as a draft", "open it through `/omni:pr`'s lifecycle as a phase-0 PR" (across
+  // a line break); not "opens the question in the pull request's outbox comment".
+  /\b[Oo]pen(?:s|ing)?\s+(?:it|the|a|an|one|its)\b(?:(?!\b(?:in|on)\b)[^.]){0,60}?(?:\bPRs?\b|\bpull requests?\b|\bissues?\b)/,
+];
+const namesSign = (line) => new RegExp(`(?:\`omni|omni\\.mjs)\\s+sign\\s+${line}\\b`);
+
+/**
+ * Every SKILL.md that asks for the co-author trailer names `omni sign trailer`, and every one that
+ * opens a pull request or an issue, or rewrites its body, names `omni sign footer`.
+ */
+function signingViolations(root) {
+  const out = [];
+  for (const file of skillFiles(root)) {
+    if (!existsSync(join(root, file))) continue;
+    const text = readFileSync(join(root, file), 'utf8');
+    if (ASKS_FOR_TRAILER.test(text) && !namesSign('trailer').test(text)) {
+      out.push(`${file}: asks for the co-author trailer but never names omni sign trailer`);
+    }
+    if (WRITES_A_BODY.some((pattern) => pattern.test(text)) && !namesSign('footer').test(text)) {
+      out.push(`${file}: opens a pull request or an issue but never names omni sign footer`);
+    }
+  }
+  return out;
+}
+
 function readJson(root, file, out) {
   try {
     return JSON.parse(readFileSync(join(root, file), 'utf8'));
@@ -153,6 +185,10 @@ describe('the omni plugin in this repository', () => {
 
   it('every omni command a SKILL.md names exists', () => {
     expect(unknownCommandViolations(repoRoot, COMMAND_TABLE)).toEqual([]);
+  });
+
+  it('every SKILL.md that commits, or opens a pull request or an issue, signs it', () => {
+    expect(signingViolations(repoRoot)).toEqual([]);
   });
 
   it('plugin.json and marketplace.json parse and agree on the name', () => {
@@ -231,6 +267,52 @@ describe('the plugin guard catches what it is for', () => {
       'kit/plugin/skills/s/SKILL.md:5: names omni frobnicate, which the CLI lacks',
       'kit/plugin/skills/s/SKILL.md:6: names omni teleport, which the CLI lacks',
     ]);
+  });
+
+  it('flags a skill that commits, opens or rewrites without naming omni sign, and one that drops either line', () => {
+    const skill = (name, ...lines) => ['---', `name: ${name}`, 'description: d', '---', ...lines].join('\n');
+    const COMMITS = 'Commit it, ending with the co-author trailer your session requires.';
+    const root = fixture({
+      ...GOOD,
+      [join(PLUGIN_DIR, 'skills/commits/SKILL.md')]: skill('commits', COMMITS),
+      [join(PLUGIN_DIR, 'skills/issues/SKILL.md')]: skill('issues', 'Run `gh issue create --title "PRD: <title>" --body-file <file>`.'),
+      [join(PLUGIN_DIR, 'skills/opens/SKILL.md')]: skill('opens', 'Run `gh pr create --draft --base <feature branch>`.'),
+      [join(PLUGIN_DIR, 'skills/delegates/SKILL.md')]: skill('delegates', "Open it through `/omni:pr`'s lifecycle,", 'as a standalone PR.'),
+      [join(PLUGIN_DIR, 'skills/rewrites/SKILL.md')]: skill('rewrites', 'Tick the slice: `gh pr edit <n> --body-file <file>`.'),
+      [join(PLUGIN_DIR, 'skills/no-footer/SKILL.md')]: skill('no-footer', `${COMMITS} Then the \`omni sign trailer\` line.`, 'Open the feature PR as a draft.'),
+      [join(PLUGIN_DIR, 'skills/no-trailer/SKILL.md')]: skill(
+        'no-trailer', COMMITS, 'Open the feature PR, its body ending with the line `node .omni-loop/bin/omni.mjs sign footer` prints.',
+      ),
+    });
+    expect(signingViolations(root)).toEqual([
+      'kit/plugin/skills/commits/SKILL.md: asks for the co-author trailer but never names omni sign trailer',
+      'kit/plugin/skills/delegates/SKILL.md: opens a pull request or an issue but never names omni sign footer',
+      'kit/plugin/skills/issues/SKILL.md: opens a pull request or an issue but never names omni sign footer',
+      'kit/plugin/skills/no-footer/SKILL.md: opens a pull request or an issue but never names omni sign footer',
+      'kit/plugin/skills/no-trailer/SKILL.md: asks for the co-author trailer but never names omni sign trailer',
+      'kit/plugin/skills/opens/SKILL.md: opens a pull request or an issue but never names omni sign footer',
+      'kit/plugin/skills/rewrites/SKILL.md: opens a pull request or an issue but never names omni sign footer',
+    ]);
+  });
+
+  it('passes a skill that signs both, and asks nothing of one that only comments', () => {
+    const skill = (name, ...lines) => ['---', `name: ${name}`, 'description: d', '---', ...lines].join('\n');
+    const root = fixture({
+      ...GOOD,
+      [join(PLUGIN_DIR, 'skills/signed/SKILL.md')]: skill(
+        'signed',
+        'Commit it, ending with the co-author trailer your session requires, then the `omni sign trailer` line.',
+        'Run `gh pr create --draft`, the body ending with the line `node .omni-loop/bin/omni.mjs sign footer` prints.',
+      ),
+      [join(PLUGIN_DIR, 'skills/comments/SKILL.md')]: skill(
+        'comments',
+        'Post `gh pr comment <n> --body-file <file>`, then `gh issue comment <n> --body-file <file>`.',
+        "The intro opens the question in the pull request's outbox comment.",
+        'Label it: `gh pr edit <n> --add-label "<name>"`. Leave the feature PR open.',
+      ),
+    });
+    expect(signingViolations(root)).toEqual([]);
+    expect(unknownCommandViolations(root, COMMAND_TABLE)).toEqual([]);
   });
 
   it('flags a manifest that does not parse, a missing entry, and a name mismatch', () => {

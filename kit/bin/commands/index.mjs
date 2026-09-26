@@ -8,6 +8,7 @@ import { board } from './board.mjs';
 import { check } from './check.mjs';
 import { comment } from './comment.mjs';
 import { config } from './config.mjs';
+import { credits } from './credits.mjs';
 import { init } from './init.mjs';
 import { item } from './item.mjs';
 import { kb } from './kb.mjs';
@@ -20,6 +21,7 @@ import { rework } from './rework.mjs';
 import { settle } from './settle.mjs';
 import { signin, signout, whoami } from './signin.mjs';
 import { ship } from './ship.mjs';
+import { sign } from './sign.mjs';
 import { status } from './status.mjs';
 
-export const COMMAND_TABLE = Object.freeze({ config, prd, status, settle, adopt, replies, comment, ship, check, knowledge, kb, item, plan, board, rework, phase0, init, ask, signin, signout, whoami });
+export const COMMAND_TABLE = Object.freeze({ config, prd, status, settle, adopt, replies, comment, ship, check, knowledge, kb, item, plan, board, rework, phase0, init, ask, signin, signout, whoami, sign, credits });

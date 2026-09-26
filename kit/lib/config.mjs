@@ -22,6 +22,8 @@ const regexSource = z.string().refine((source) => {
   try { new RegExp(source); return true; } catch { return false; }
 }, 'not a valid regular expression');
 const section = (shape) => z.object(shape).strict().default({});
+// A name or an address a `Co-authored-by: <name> <email>` line can hold: one line, no angle bracket.
+const trailerPart = text.regex(/^[^<>\r\n]+$/, 'one line, with no < or >');
 // Where ask mode's pages and calls live: https anywhere, or plain http on the loopback address only.
 const askUrl = z.string().refine((value) => {
   let url;
@@ -119,6 +121,17 @@ export const ConfigSchema = z
     }),
     ask: section({ url: askUrl.nullable().default(null) }),
     markers: section({ prefix: z.string().regex(/^[a-z][a-z0-9-]*$/, 'lowercase letters, digits and hyphens').default('omni-outbox') }),
+    // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.mjs`). By
+    // default the omni-loop GitHub App's bot account; `null` switches signing off.
+    signature: z
+      .object({
+        name: trailerPart.default('OmniMan'),
+        email: trailerPart.default('333776611+omni-loop-invader[bot]@users.noreply.github.com'),
+        footer: text.default('🦸 Delivered by OmniMan, with Omni Loop'),
+      })
+      .strict()
+      .nullable()
+      .default({}),
   })
   .strict();
 

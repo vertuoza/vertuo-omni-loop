@@ -132,3 +132,36 @@ refusal shapes the exit-`2` bullet describes were checked against the live CLI a
 ### Gate (this update)
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.
+
+## PRD #99, slice s2 — the skill signs the loop's work
+
+Not a re-port: upstream's skill signs nothing. A kit-local change to the prose, which the bundle
+does not carry. PRD #99 makes OmniMan (the `signature` config section, slice s1) a co-author of every
+commit the loop makes and the signer of every pull request and issue it opens.
+
+- **Signing,** a paragraph under the `omni` line: every commit the skill makes ends with the
+  session's co-author trailer, then the line `omni sign trailer` prints, as the message's last line
+  with no blank line between them, so both stay in the trailer block. Every pull request or issue it
+  opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+  the session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+  signed. A command that prints nothing (`signature: null`) means signing is off: the skill adds
+  nothing and runs unchanged. No skill spells the signer's name or address.
+- **Build, reviewable commits:** every commit of the slice (code, item files, the account, a
+  heartbeat push) ends with the co-author trailer, then the trailer line. Before, only the hand-off
+  named the trailer.
+- **Ship, the hand-off to `/omni:pr`:** "Co-Authored-By trailer on every commit" becomes a body
+  that ends with the footer line, and the co-author trailer and the trailer line on every commit.
+  This supersedes the **Changed** bullet above, in which the hand-off alone kept the trailer.
+
+### Tests
+
+`kit/test/plugin.test.mjs` gained one rule, run on the live skills and on fixtures built to break
+it: a SKILL.md that asks for the co-author trailer names `omni sign trailer`, and one that opens a
+pull request or an issue (`gh pr create`, `gh issue create`, or "open(s) the/a … PR, pull request
+or issue" in prose), or rewrites its body (`gh pr edit … --body-file`), names `omni sign footer`.
+A skill that only comments is held to nothing. The existing rule that every `omni` command a
+SKILL.md names exists now covers `sign`.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.

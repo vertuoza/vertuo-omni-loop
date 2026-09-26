@@ -1,8 +1,10 @@
 // The `.omni-loop/config.yml` that `omni init` writes: minimal and commented. Only `kit`, `repo`,
-// `labels.autoCreate`, `commands` and `laws` are written; every other key keeps its schema default.
+// `labels.autoCreate`, `commands`, `laws` and `signature` are written; every other key keeps its
+// schema default. `signature` is written with its default values, so who signs the loop's work is
+// visible and editable in the repository rather than hidden in the kit.
 // The text is returned only once the kit's own parser accepts it.
 import { stringify } from 'yaml';
-import { CONFIG_FILE, CONFIG_VERSION, parseConfig } from '../config.mjs';
+import { CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig } from '../config.mjs';
 
 const section = (key, value) => stringify({ [key]: value }).trimEnd();
 
@@ -13,6 +15,7 @@ const section = (key, value) => stringify({ [key]: value }).trimEnd();
 export function renderConfig({ slug, defaultBranch, commands, lawsSource }) {
   const repo = { slug };
   if (defaultBranch) repo.defaultBranch = defaultBranch;
+  const { signature } = ConfigSchema.parse({ kit: CONFIG_VERSION });
   const text = [
     `# Omni Loop config, written by \`omni init\`. A key not written here keeps its schema default.`,
     `kit: ${CONFIG_VERSION}`,
@@ -28,6 +31,9 @@ export function renderConfig({ slug, defaultBranch, commands, lawsSource }) {
     '',
     '# Where the laws a slice must not break are read from: knowledge, claudeMdInvariants or none.',
     section('laws', { source: lawsSource }),
+    '',
+    "# Who co-signs the loop's commits, pull requests and issues. null: nobody.",
+    section('signature', signature),
     '',
   ].join('\n');
   return { text, config: parseConfig(text, CONFIG_FILE) };

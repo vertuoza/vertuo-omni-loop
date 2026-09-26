@@ -14,6 +14,13 @@ at a review gate, not at delivery: a person merges the phase-0 PR, then runs `/o
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
+**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
+then the line `omni sign trailer` prints as the message's last line, with no blank line between
+them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
+a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
+that line. Comments are never signed. A command that prints nothing means signing is off here: add
+nothing.
+
 ## Step 0
 
 Run `node .omni-loop/bin/omni.mjs config`. If it fails, stop and say so in one line: the repository
@@ -85,9 +92,9 @@ The PRD's number is its issue's number, and it names the inbox folder, so the is
 2. Before adding `labels.prd`, check it exists (`gh label list --search "<name>" --json name`) and
    follow `/omni:pr`'s **Labels** rules for a missing one.
 3. `gh issue create --title "PRD: <title>" --label "<labels.prd>" --body-file <file>`, with the
-   pointer body below. The spec is the file; the issue only points at it, because two copies of a
-   long document drift. The issue is still required: it is the PRD's answer channel, and the
-   feature PR closes it.
+   pointer body below, signed (**Signing**). The spec is the file; the issue only points at it,
+   because two copies of a long document drift. The issue is still required: it is the PRD's answer
+   channel, and the feature PR closes it.
 
 ```markdown
 **Spec:** `<folder>/spec.md` · **Plan:** `<folder>/plan.md` · **Before/after:** `<folder>/before-after.html`
@@ -100,6 +107,8 @@ The PRD's number is its issue's number, and it names the inbox folder, so the is
 - Branch: `<feature branch>`
 - Scenarios: `<file>`, … (only when `acceptance.enabled`; "none — no observable behaviour" when there are none)
 - Before/after: `<folder>/before-after.html`
+
+<the line `omni sign footer` prints>
 ```
 
 The `Before/after:` line is a repository path, never a URL.
@@ -200,7 +209,8 @@ turns it into ordinary tests.
 ## 7. Commit, check, push
 
 In the worktree: commit the folder (and any glossary change and scenario file) as
-`docs(prd): <topic>`, ending with the co-author trailer your session requires. Then:
+`docs(prd): <topic>`, ending with the co-author trailer your session requires, then the
+`omni sign trailer` line. Then:
 
 ```bash
 node .omni-loop/bin/omni.mjs check inbox
@@ -236,22 +246,23 @@ yet. That is what a person can review cheaply, so this is where a brainstorm end
    git checkout <remote>/<feature branch> -- <folder> <each scenario file> <the glossary, when step 6 changed it>
    ```
 
-2. Commit as `docs(phase-0): <topic>`, with the co-author trailer.
+2. Commit as `docs(phase-0): <topic>`, with the co-author trailer, then the `omni sign trailer`
+   line: `omni phase0` refuses a commit without it.
 3. Prove it is a phase-0 PR before opening it:
 
    ```bash
    node .omni-loop/bin/omni.mjs phase0 <n>
    ```
 
-   It must print `ok`: docs-only, and carrying the spec, the plan and the before/after. `not ok`
-   names what is missing or which source file slipped in; fix the branch and rerun. Never leave it
-   red.
+   It must print `ok`: docs-only, carrying the spec, the plan and the before/after, and every commit
+   signed. `not ok` names what is missing, which source file slipped in, or which commit lacks the
+   signature's trailer; fix the branch and rerun. Never leave it red.
 4. `git push -u <remote> <phase-0 branch>`, then open it through `/omni:pr`'s lifecycle as a
    phase-0 PR: base `repo.defaultBranch`, head the phase-0 branch, a Conventional Commits title
    (`docs(<scope>): <PRD title>`), `labels.phase0` subject to **Labels**, and a body that starts with
    `prLinks.phase0` filled (it refers to the PRD; the feature PR is the one that closes it),
    followed by Summary, Verified (the `omni phase0` and `omni check inbox` lines), Risk and
-   rollback, and Reviewer focus.
+   rollback, and Reviewer focus, and ending with the `omni sign footer` line.
 
 **A person reviews and merges it.** Never merge it yourself, and never mark the feature PR ready.
 

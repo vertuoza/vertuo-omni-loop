@@ -171,7 +171,30 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     const text = read('.omni-loop/config.yml');
     expect(text.startsWith('#')).toBe(true);
     const keys = text.split('\n').filter((line) => /^[a-zA-Z]/.test(line)).map((line) => line.split(':')[0]);
-    expect(keys).toEqual(['kit', 'repo', 'labels', 'commands', 'laws']);
+    expect(keys).toEqual(['kit', 'repo', 'labels', 'commands', 'laws', 'signature']);
+  });
+
+  it('writes the signature section with its default values, under a comment, and it parses (PRD #99, AC 4)', async () => {
+    const { root, read } = makeRepo({ git: true });
+    await init(root);
+    const text = read('.omni-loop/config.yml');
+    expect(text).toContain([
+      "# Who co-signs the loop's commits, pull requests and issues. null: nobody.",
+      'signature:',
+      '  name: OmniMan',
+      '  email: 333776611+omni-loop-invader[bot]@users.noreply.github.com',
+      '  footer: 🦸 Delivered by OmniMan, with Omni Loop',
+    ].join('\n'));
+    expect(readConfig(read).signature).toEqual({
+      name: 'OmniMan',
+      email: '333776611+omni-loop-invader[bot]@users.noreply.github.com',
+      footer: '🦸 Delivered by OmniMan, with Omni Loop',
+    });
+    expect(await omni(root, ['sign', 'trailer'])).toEqual({
+      code: 0,
+      out: 'Co-authored-by: OmniMan <333776611+omni-loop-invader[bot]@users.noreply.github.com>\n',
+      err: '',
+    });
   });
 
   it('picks the package manager from the lockfile, and preflight / preflight:full scripts', async () => {
