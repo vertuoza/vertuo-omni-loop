@@ -144,4 +144,11 @@ describe("the person's page, rendered", () => {
     expect(html).toMatch(/<a class="ask-tab" data-state="working" aria-current="page" href="\/ask\/demo-terminal-2">/);
     expect(html).toContain('<p class="ask-title">vertuo-omni-loop · main</p>');
   });
+
+  it('folds the tabs into one row that says how many there are and how many need you, the list closed', () => {
+    const html = page(demoSessions('open', NOW), null);
+    expect(html).toMatch(/<button type="button" class="ask-tabs-fold" aria-expanded="false" aria-controls="ask-tab-list"><span>Terminals \(3\) · <b>1 needs you<\/b>/);
+    expect(html).toMatch(/<nav class="ask-tabs" aria-label="Terminals">/);
+    expect(html).toContain('<ul class="ask-tab-list" id="ask-tab-list">');
+  });
 });

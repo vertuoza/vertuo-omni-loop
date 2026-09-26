@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { HOOK_WAIT_MS, type SessionRow } from './view';
-import { ageLabel, firstTab, needsYou, pageTabs, pageWithList, pageWithPane, startPage, tabsOf, tabsTitle, type TabRow } from './tabs';
+import { ageLabel, firstTab, needsYou, pageTabs, pageWithList, pageWithPane, pickTab, startPage, tabsOf, tabsTitle, toggleList, type TabRow } from './tabs';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
 const MIN = 60_000;
@@ -123,5 +123,33 @@ describe("the page's state", () => {
     });
     expect(pageTabs(after, NOW).find((t) => t.id === 'a')?.state).toBe('working');
     expect(needsYou(pageTabs(after, NOW))).toBe(0);
+  });
+});
+
+describe('the folded tab list, on a phone', () => {
+  it('opens closed, whichever tab the link names', () => {
+    expect(startPage([row('a'), row('b')], null, null, NOW).listOpen).toBe(false);
+    expect(startPage([row('a'), row('b')], 'b', null, NOW).listOpen).toBe(false);
+  });
+
+  it('opens and closes on its row, and keeps the selection', () => {
+    const start = startPage([row('a'), row('b')], 'a', null, NOW);
+    const open = toggleList(start);
+    expect(open).toMatchObject({ listOpen: true, selected: 'a' });
+    expect(toggleList(open)).toMatchObject({ listOpen: false, selected: 'a' });
+  });
+
+  it('closes once a tab is picked, the selected one included', () => {
+    const open = toggleList(startPage([row('a'), row('b')], 'a', null, NOW));
+    expect(pickTab(open).listOpen).toBe(false);
+    expect(pickTab(pickTab(open)).listOpen).toBe(false);
+  });
+
+  it('stays as the person left it while the list and the pane are read again', () => {
+    const open = toggleList(startPage([row('a'), row('b')], 'a', null, NOW));
+    const read = pageWithList(open, [row('a'), row('b', { round: { ago: 0 } })]);
+    expect(read.listOpen).toBe(true);
+    expect(pageWithPane(read, { session: read.rows[0].session, rounds: [] }).listOpen).toBe(true);
+    expect(pageWithList(pickTab(read), [row('a', { round: { ago: 0 } })]).listOpen).toBe(false);
   });
 });

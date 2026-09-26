@@ -137,6 +137,34 @@ html:has(.ask[data-ask-theme]) body {
 .ask-tab-state[data-state='needs-you'] { color: var(--ask-plasma); font-weight: 700; }
 .ask-tab[data-state='closed'] .ask-tab-title { color: var(--ask-muted); }
 .ask-badge { flex: none; width: 10px; height: 10px; border-radius: 999px; background: var(--ask-plasma); }
+/* The folded tab list, a phone's row at the top of the page: shown below 720 px only. */
+.ask-tabs-fold { display: none; }
+
+@media (max-width: 719.98px) {
+  .ask-tabs-fold {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 1.5px solid var(--ask-line);
+    border-radius: 10px;
+    background: var(--ask-surface);
+    color: var(--ask-ink);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+  }
+  .ask-tabs-fold b { color: var(--ask-plasma); }
+  .ask-tabs-chevron { flex: none; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+  .ask-tabs[data-open] .ask-tabs-chevron { transform: rotate(-135deg); }
+  .ask-tabs-head { display: none; }
+  .ask-tabs:not([data-open]) .ask-tab-list { display: none; }
+}
 
 @media (min-width: 720px) {
   .ask-page { grid-template-columns: minmax(200px, 280px) minmax(0, 1fr); gap: 32px; }
