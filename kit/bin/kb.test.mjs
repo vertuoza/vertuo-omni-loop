@@ -445,6 +445,92 @@ describe('omni kb status — laws and proposals per register folder (PRD #68)', 
   });
 });
 
+describe('omni kb graph — the knowledge graph (PRD #149, acceptance criterion 1)', () => {
+  const K = '.omni-loop/knowledge';
+  const PROPOSED = 'Proposed: harvest 2026-09-26\n';
+  const principle = (id, proposed = false) => `## ${id}\n\nA decision.\n\nWhy: x\nSource: PRD #3\n${proposed ? PROPOSED : ''}\n`;
+  const kept = (id, serves, { proposed = false, kind = null } = {}) =>
+    `## ${id}\n\nA rule.\n\n${kind ? `Kind: ${kind}\n` : ''}${serves ? `Serves: ${serves}\n` : ''}Source: PRD #7\nEnforced by: unenforced\n${proposed ? PROPOSED : ''}\n`;
+  const PRODUCT = {
+    ...CONFIG,
+    [`${K}/product/principles.md`]: `# Principles\n\n${principle('P-PRODUCT-1')}${principle('P-PRODUCT-2', true)}`,
+    [`${K}/product/rules.md`]: `# Rules\n\n${kept('BR-PRODUCT-1', 'P-PRODUCT-1')}`,
+    [`${K}/product/invariants.md`]: `# Invariants\n\n${kept('N-PRODUCT-1', null)}`,
+  };
+  const FILES = {
+    ...PRODUCT,
+    [`${K}/domains/quote/rules.md`]: `# Rules\n\n${kept('BR-QUOTE-1', 'P-PRODUCT-1', { proposed: true })}${kept('BR-QUOTE-2', 'P-QUOTE-3', { proposed: true })}`,
+    [`${K}/cross-domain/advisor--quote.md`]: `# Advisor and quote\n\n${kept('X-ADVISOR-QUOTE-1', 'P-PRODUCT-1', { kind: 'invariant' })}`,
+  };
+  const squeeze = (out) => out.split('\n').map((line) => line.trim().replace(/\s+/g, ' '));
+
+  it('--json prints one JSON document: version 1, the repository slug, the domains, the entries and the links', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const { code, out, err } = await omni(root, ['kb', 'graph', '--json']);
+    expect(code).toBe(0);
+    expect(err).toBe('');
+    const graph = JSON.parse(out);
+    expect(graph).toMatchObject({ version: 1, repo: 'acme/widgets', loose: ['N-PRODUCT-1', 'BR-QUOTE-2'], unserved: ['P-PRODUCT-2'] });
+    expect(graph.domains.map(({ name, counts }) => `${name} ${Object.values(counts).join(' ')}`)).toEqual(['product 2 1 1 3 1', 'quote 0 2 0 0 2']);
+    expect(graph.entries.map(({ id }) => id)).toEqual(['P-PRODUCT-1', 'P-PRODUCT-2', 'BR-PRODUCT-1', 'N-PRODUCT-1', 'BR-QUOTE-1', 'BR-QUOTE-2', 'X-ADVISOR-QUOTE-1']);
+    expect(graph.links).toEqual([
+      { from: 'BR-PRODUCT-1', to: 'P-PRODUCT-1', kind: 'serves' },
+      { from: 'BR-QUOTE-1', to: 'P-PRODUCT-1', kind: 'serves' },
+      { from: 'X-ADVISOR-QUOTE-1', to: 'P-PRODUCT-1', kind: 'serves' },
+    ]);
+  });
+
+  it('prints the summary: the totals, a line per domain and per cross-domain pair, the unserved principles and the loose entries', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const { code, out } = await omni(root, ['kb', 'graph']);
+    expect(code).toBe(0);
+    expect(squeeze(out)).toEqual([
+      'kb graph — 2 domains, 7 entries, 3 links',
+      'product 2 principles · 1 rule · 1 invariant 3 laws · 1 proposed',
+      'quote 0 principles · 2 rules · 0 invariants 0 laws · 2 proposed',
+      'advisor--quote 0 principles · 0 rules · 1 invariant 1 law · 0 proposed',
+      'unserved principles (1): P-PRODUCT-2',
+      'loose entries (2): N-PRODUCT-1, BR-QUOTE-2',
+      '',
+    ]);
+  });
+
+  it('lines the columns up, the spec’s shape for one domain', async () => {
+    const { root } = makeRepo({ git: true, files: PRODUCT });
+    const { out } = await omni(root, ['kb', 'graph']);
+    expect(out).toBe(
+      [
+        'kb graph — 1 domain, 4 entries, 1 link',
+        '  product    2 principles · 1 rule · 1 invariant    3 laws · 1 proposed',
+        '  unserved principles (1): P-PRODUCT-2',
+        '  loose entries (1): N-PRODUCT-1',
+        '',
+      ].join('\n'),
+    );
+  });
+
+  it('prints an empty graph and exits 0 in a repository without a knowledge folder', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    const json = await omni(root, ['kb', 'graph', '--json']);
+    expect(json.code).toBe(0);
+    expect(JSON.parse(json.out)).toEqual({ version: 1, repo: 'acme/widgets', domains: [], entries: [], links: [], loose: [], unserved: [] });
+    const text = await omni(root, ['kb', 'graph']);
+    expect(text.code).toBe(0);
+    expect(text.out).toBe('kb graph — 0 domains, 0 entries, 0 links\n  unserved principles: none\n  loose entries: none\n');
+  });
+
+  it('exits 2 on an extra argument or an unknown flag', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    for (const argv of [['kb', 'graph', 'product'], ['kb', 'graph', '--json', 'extra'], ['kb', 'graph', '--domain']]) {
+      const { code, out, err } = await omni(root, argv);
+      expect(code, argv.join(' ')).toBe(2);
+      expect(out).toBe('');
+      expect(err).toMatch(/^(usage: omni kb graph \[--json\]|omni kb: unknown flag --domain\.)\n$/);
+    }
+    expect((await omni(root, ['kb'])).err).toContain('omni kb graph [--json]');
+  });
+});
+
 describe('omni check kb — acceptance criterion 4: fails naming the file', () => {
   const CI = `${PLAYBOOK}/ci.md`;
   const pointer = (frontMatter) => formText({ frontMatter: { form: 'ci', state: 'pointer', ...frontMatter }, title: 'CI', slots: [] });

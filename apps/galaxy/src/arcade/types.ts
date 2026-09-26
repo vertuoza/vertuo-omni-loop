@@ -4,8 +4,9 @@ import type { Hero } from '@omni/sprites';
 /** A fleet as the arcade draws it: public.teams, look included. */
 export interface FleetRow extends FleetLook { name: string }
 
-/** A signed-in person's row in public.players. */
+/** A signed-in person's row in public.players, in the workspace the arcade plays. */
 export interface Player {
+  /** The person: the row's `user_id`. */
   id: string;
   display_name: string;
   team: string | null;
@@ -18,9 +19,9 @@ export interface Player {
 export type PlayerPatch = Partial<Pick<Player, 'display_name' | 'team' | 'hero'>>;
 
 /**
- * Who is at the cabinet. `crew` is false for a signed-in account from another domain. `github` is
- * the GitHub login linked to this sign-in, if any: without one the crew member is a visitor, who may
- * look at the galaxy but not play.
+ * Who is at the cabinet. `crew` is true when they belong to a workspace, whatever their email's
+ * domain; false, they meet the outsider screen. `github` is the GitHub login linked to this sign-in,
+ * if any: without one the crew member is a visitor, who may look at the galaxy but not play.
  */
 export interface Session { id: string; email: string; givenName: string; crew: boolean; github: string | null }
 

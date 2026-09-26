@@ -6,6 +6,9 @@ import { drawSprite, spriteSize } from '@omni/sprites';
 import { gridFor, pagesFor } from '../grid';
 import { ScreenContext, type ScreenInfo } from '../Screen';
 import { setFleets } from '../fleets';
+import { HOUSE_BRAND, type Brand } from '../brand';
+import { markFor, type Mark } from '../mark';
+import { DEFAULT_THEME } from '../theme';
 import type { FleetRow } from '../types';
 import { TALL, WIDE, type FrameState, type Grid, type SceneName } from './common.ts';
 import { drawBoot, drawStory, drawTitle, hallPage, hallPages, PAGES, TALL_SCENES } from './attract.ts';
@@ -34,7 +37,7 @@ function recorder() {
   const ctx = new Proxy(state, {
     get(target, prop) {
       if (prop in target) return target[prop];
-      if (prop === 'createLinearGradient') return () => ({ addColorStop() {} });
+      if (prop === 'createLinearGradient') return () => { const stops: unknown[] = []; return { stops, addColorStop(o: number, c: string) { stops.push([o, c]); } }; };
       if (prop === 'createImageData') return (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) });
       if (prop === 'translate') return (x: number, y: number) => { at = { x: at.x + x, y: at.y + y }; };
       if (prop === 'save') return () => { saved.push(at); };
@@ -52,9 +55,9 @@ class FakeOffscreenCanvas {
   getContext() { return recorder().ctx; }
 }
 
-function frame(scene: SceneName, grid: Grid, sceneT = 2): FrameState {
+function frame(scene: SceneName, grid: Grid, sceneT = 2, mark: Mark = markFor(HOUSE_BRAND.name)): FrameState {
   return {
-    scene, grid, page: 0, view, layout: [], sel: 0, fleetSel: 0, t: 5, sceneT, reduced: true,
+    scene, grid, page: 0, view, layout: [], sel: 0, fleetSel: 0, t: 5, sceneT, reduced: true, mark, theme: DEFAULT_THEME,
     join: { fleets, pick: 0, lockedAt: null, team: null, away: false, hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } },
   };
 }
@@ -117,6 +120,80 @@ describe('the boot on the tall grid', () => {
   });
 });
 
+describe('the boot draws the brand\'s letter', () => {
+  const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+  /** The pixel lines one gradient of the mark filled, back in the mark's own pixels (it is drawn at 2×, from 284,96). */
+  function layer(rects: ReturnType<typeof recorder>['rects'], stops: Mark['stops'], dy = 0) {
+    return rects
+      .filter((r) => JSON.stringify((r.style as { stops?: unknown } | null)?.stops) === JSON.stringify(stops))
+      .map((r) => [(r.x - 284) / 2, (r.y - 96) / 2 - dy, r.w / 2]);
+  }
+  const boot = (mark: Mark, sceneT: number, reduced = false) => {
+    const { ctx, rects } = recorder();
+    drawBoot(ctx, { ...frame('boot', WIDE, sceneT, mark), reduced });
+    return rects;
+  };
+
+  it('draws the letter it is given, in the gradient over its shade, where the V always was', () => {
+    for (const name of ['Vertuoza', 'Acme', 'Élan', '42 Labs', '']) {
+      const mark = markFor(name);
+      const rects = boot(mark, 5, true);
+      const whole = mark.runs.map(([x, y, w]) => [x, y, w]);
+      expect(layer(rects, mark.stops), name).toEqual(whole);
+      expect(layer(rects, mark.shade, 1), name).toEqual(whole);
+    }
+    expect(layer(boot(markFor('Acme'), 5, true), markFor('Acme').stops)).toEqual(markFor('A').runs.map(([x, y, w]) => [x, y, w]));
+  });
+
+  it('reveals today\'s V as it always did, row by row, like a loading bar', () => {
+    const v = markFor(HOUSE_BRAND.name);
+    // Today's reveal: each row grows in from the left, 0.12 of the reveal behind the row above it.
+    const today = (sceneT: number) => {
+      const k = Math.min(1, sceneT / 0.9);
+      return v.runs.map(([x, y, w, row]) => {
+        const reveal = 36 * Math.min(1, Math.max(0, k * 1.4 - row * 0.12));
+        return [x, y, Math.round(Math.min(w, Math.max(0, reveal - x)))];
+      });
+    };
+    for (const sceneT of [0, 0.05, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 2]) {
+      const rects = boot(v, sceneT);
+      expect(layer(rects, v.stops), `at ${sceneT}s`).toEqual(today(sceneT));
+      expect(layer(rects, v.shade, 1), `at ${sceneT}s`).toEqual(today(sceneT));
+    }
+  });
+
+  it('reveals every letter from nothing to whole in the V\'s time, however many rows it has', () => {
+    for (const letter of ALPHABET) {
+      const mark = markFor(letter);
+      expect(layer(boot(mark, 0), mark.stops).every(([, , w]) => w === 0), letter).toBe(true);
+      expect(layer(boot(mark, 0.9), mark.stops), letter).toEqual(mark.runs.map(([x, y, w]) => [x, y, w]));
+      // Early on, the top row has begun and the bottom one has not.
+      const early = layer(boot(mark, 0.2), mark.stops);
+      const shown = (row: number) => early.filter((_, i) => mark.runs[i][3] === row).reduce((n, [, , w]) => n + w, 0);
+      const last = Math.max(...mark.runs.map((r) => r[3]));
+      expect(shown(0), letter).toBeGreaterThan(0);
+      expect(shown(last), letter).toBe(0);
+    }
+  });
+});
+
+describe('the brand\'s name on the boot and the title', () => {
+  const acme: Brand = { name: 'Acme', theme: {} };
+  const title = (brand: Brand) => text(screen({ form: 'full', grid: WIDE }, createElement(TitleOverlay, { view, phase: 'title', sceneT: 0, who: 'SIGNED OUT', signedIn: false, brand })));
+
+  it('reads VERTUOZA under the house brand, as today', () => {
+    expect(text(screen({ form: 'full', grid: WIDE }, createElement(BootOverlay, { brand: HOUSE_BRAND })))).toBe('VERTUOZA PRESENTS');
+    expect(title(HOUSE_BRAND)).toContain('© 2026 VERTUOZA');
+  });
+
+  it('reads the workspace\'s name under its brand', () => {
+    expect(text(screen({ form: 'full', grid: WIDE }, createElement(BootOverlay, { brand: acme })))).toBe('ACME PRESENTS');
+    expect(title(acme)).toContain('© 2026 ACME');
+    expect(title(acme)).not.toContain('VERTUOZA');
+  });
+});
+
 describe('the title on the tall grid', () => {
   it('flies the commander and the five fleets inside the screen', () => {
     drawTitle(recorder().ctx, frame('title', TALL));
@@ -145,16 +222,16 @@ describe('the title on the tall grid', () => {
 
   it('shows the same words on the tall grid as on the wide one, in every phase', () => {
     for (const phase of ['title', 'story', 'hiscore'] as const) {
-      const props = { view, phase, sceneT: 30, who: 'DEMO · P1 GUEST', signedIn: true };
+      const props = { view, phase, sceneT: 30, who: 'DEMO · P1 GUEST', signedIn: true, brand: HOUSE_BRAND };
       const tall = text(screen({ grid: TALL }, createElement(TitleOverlay, props)));
       const wide = text(screen({ form: 'full', grid: WIDE }, createElement(TitleOverlay, props)));
       expect(tall, phase).toBe(wide);
     }
-    expect(text(screen({ grid: TALL }, createElement(BootOverlay)))).toBe('VERTUOZA PRESENTS');
+    expect(text(screen({ grid: TALL }, createElement(BootOverlay, { brand: HOUSE_BRAND })))).toBe('VERTUOZA PRESENTS');
   });
 
   it('shows every high score it shows today: the top five, on one page', () => {
-    const html = text(screen({ grid: TALL }, createElement(TitleOverlay, { view, phase: 'hiscore', sceneT: 30, who: '', signedIn: false })));
+    const html = text(screen({ grid: TALL }, createElement(TitleOverlay, { view, phase: 'hiscore', sceneT: 30, who: '', signedIn: false, brand: HOUSE_BRAND })));
     for (const h of view.heroes.slice(0, 5)) expect(html).toContain(h.name.toUpperCase());
     expect(html).not.toContain('PAGE');
   });

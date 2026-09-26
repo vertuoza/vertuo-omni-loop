@@ -23,20 +23,21 @@ function makeCanvas(w, h) {
 
 const forged = new Map();
 
-// The forged pixel grid of one frame of a sprite (pure; also used by the tests).
-export function spritePixels(name, { frame = 0, tint = null } = {}) {
+// The forged pixel grid of one frame of a sprite (pure; also used by the tests). `flat` recolours
+// flat colours, such as the stripes `1` to `4` (see forge.mjs).
+export function spritePixels(name, { frame = 0, tint = null, flat = null } = {}) {
   const def = SPRITE_DEFS[name];
   if (!def) throw new Error(`unknown sprite ${name}`);
-  const key = `${name}|${frame % 2}|${tint ? JSON.stringify(tint) : ''}`;
-  if (!forged.has(key)) forged.set(key, forge(def.w, def.h, (d) => def.draw(d, frame % 2), { tint: tint ?? {}, outline: def.outline !== false }));
+  const key = `${name}|${frame % 2}|${tint ? JSON.stringify(tint) : ''}|${flat ? JSON.stringify(flat) : ''}`;
+  if (!forged.has(key)) forged.set(key, forge(def.w, def.h, (d) => def.draw(d, frame % 2), { tint: tint ?? {}, flat: flat ?? {}, outline: def.outline !== false }));
   return forged.get(key);
 }
 
-// A sprite frame as an image, rendered once per (name, frame, tint, flip, silhouette).
-export function spriteImage(name, { tint = null, flip = false, frame = 0, silhouette = null } = {}) {
-  const key = `${name}|${frame % 2}|${tint ? JSON.stringify(tint) : ''}|${flip}|${silhouette ?? ''}`;
+// A sprite frame as an image, rendered once per (name, frame, tint, flat, flip, silhouette).
+export function spriteImage(name, { tint = null, flat = null, flip = false, frame = 0, silhouette = null } = {}) {
+  const key = `${name}|${frame % 2}|${tint ? JSON.stringify(tint) : ''}|${flat ? JSON.stringify(flat) : ''}|${flip}|${silhouette ?? ''}`;
   if (cache.has(key)) return cache.get(key);
-  const { w, h, pixels } = spritePixels(name, { frame, tint });
+  const { w, h, pixels } = spritePixels(name, { frame, tint, flat });
   const c = makeCanvas(w, h);
   const ctx = c.getContext('2d');
   const img = ctx.createImageData(w, h);
@@ -53,15 +54,15 @@ export function spriteImage(name, { tint = null, flip = false, frame = 0, silhou
 }
 
 /** `glow` draws a one-pixel halo of that colour around the silhouette (the plasma aura). */
-export function drawSprite(ctx, name, x, y, { scale = 1, tint, flip, alpha = 1, frame = 0, glow = null } = {}) {
+export function drawSprite(ctx, name, x, y, { scale = 1, tint, flat, flip, alpha = 1, frame = 0, glow = null } = {}) {
   const prev = ctx.globalAlpha;
   x = Math.round(x); y = Math.round(y);
   if (glow) {
-    const halo = spriteImage(name, { tint, flip, frame, silhouette: glow });
+    const halo = spriteImage(name, { tint, flat, flip, frame, silhouette: glow });
     ctx.globalAlpha = alpha * 0.55;
     for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(halo, x + dx * scale, y + dy * scale, halo.width * scale, halo.height * scale);
   }
-  const img = spriteImage(name, { tint, flip, frame });
+  const img = spriteImage(name, { tint, flat, flip, frame });
   ctx.globalAlpha = alpha;
   ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
   ctx.globalAlpha = prev;
@@ -354,6 +355,99 @@ function drawRing(data, size, r, ring) {
     const [cr, cg, cb] = rgb(ring[shade]);
     data[k] = cr; data[k + 1] = cg; data[k + 2] = cb; data[k + 3] = 255;
   }
+}
+
+// ── Suns ─────────────────────────────────────────────────────────────────────
+
+// Five tones each, limb → core. A seed picks one: each domain of the star chart burns its own colour.
+const SUN_RAMPS = [
+  ['#6b2a00', '#c25a00', '#ff9b30', '#ffd84a', '#fff4b0'], // gold
+  ['#5a0818', '#a8183a', '#ff6a4a', '#ffb0a0', '#fff0e8'], // red giant
+  ['#10266a', '#2f5fd8', '#6ff0ff', '#c8f8ff', '#ffffff'], // blue
+  ['#3a1a70', '#6a2fd0', '#a88cff', '#e2c6ff', '#ffffff'], // violet
+];
+
+/** A sun's frames: its surface boils and its corona flickers through them, four a second. */
+export const SUN_FRAMES = 4;
+
+/** How far a sun's corona reaches past its disc, in pixels. */
+const coronaOf = (r) => Math.max(3, Math.ceil(r * 0.35));
+
+/** The side of the square a sun of radius `r` is drawn in: its disc and its corona. */
+export function sunSize(r) {
+  return (Math.round(r) + coronaOf(Math.round(r))) * 2;
+}
+
+const suns = new Map();
+
+/**
+ * One frame of a sun, as a square of colours (`null` is empty space): a dithered disc, brightest at
+ * its core and boiling with granules, in a flickering corona of rays. Pure, and the same for the same
+ * radius, seed and frame.
+ */
+export function sunPixels(radius, seed, frame = 0) {
+  const r = Math.max(1, Math.round(radius));
+  const f = ((frame % SUN_FRAMES) + SUN_FRAMES) % SUN_FRAMES;
+  const key = `${r}|${seed}|${f}`;
+  if (suns.has(key)) return suns.get(key);
+  const ramp = SUN_RAMPS[(seed >>> 0) % SUN_RAMPS.length];
+  const corona = coronaOf(r);
+  const size = sunSize(r);
+  const o = size / 2;
+  const phase = (f / SUN_FRAMES) * Math.PI * 2; // the frames loop: the noise circles back to frame 0
+  const pixels = new Array(size * size).fill(null);
+  for (let py = 0; py < size; py++) {
+    for (let px = 0; px < size; px++) {
+      const dx = px + 0.5 - o, dy = py + 0.5 - o;
+      const d = Math.hypot(dx, dy);
+      const q = BAYER[(py & 3) * 4 + (px & 3)];
+      if (d <= r) {
+        // Limb darkening: the core at the top tone, the rim two tones down; granules boil on top.
+        const k = d / r;
+        const granule = fbm(dx / 3.2 + Math.cos(phase) * 0.6, dy / 3.2 + Math.sin(phase) * 0.6, seed * 0.01, seed, 3) - 0.5;
+        const level = Math.max(0, Math.min(4, Math.floor(4.6 - k * k * 2.6 + granule * 1.6 + (q - 0.5) * 0.6)));
+        pixels[py * size + px] = ramp[level];
+      } else if (d <= r + corona) {
+        // Rays: brighter where the noise around the rim runs high, fading outwards, dithered.
+        const a = Math.atan2(dy, dx);
+        const ray = fbm(Math.cos(a) * 2.2 + Math.cos(phase) * 0.5, Math.sin(a) * 2.2 + Math.sin(phase) * 0.5, 3.1, seed + 11, 3);
+        const fade = 1 - (d - r) / corona;
+        const v = fade * (0.35 + ray * 1.1);
+        if (v > q + 0.15) pixels[py * size + px] = ramp[v > 0.9 ? 2 : v > 0.55 ? 1 : 0];
+      }
+    }
+  }
+  const sun = { size, pixels };
+  suns.set(key, sun);
+  return sun;
+}
+
+const sunImages = new Map();
+
+/**
+ * Draws a sun of radius `r` centred on (`cx`, `cy`), within a square of side `sunSize(r)`, at the
+ * frame the clock `t` (seconds) is on; the same seed always burns the same way.
+ */
+export function drawSun(ctx, { cx, cy, r, seed, t = 0 }) {
+  const frame = Math.floor(t * 4) % SUN_FRAMES;
+  const rr = Math.max(1, Math.round(r));
+  const key = `${rr}|${seed}|${frame}`;
+  let canvas = sunImages.get(key);
+  if (!canvas) {
+    const { size, pixels } = sunPixels(rr, seed, frame);
+    canvas = makeCanvas(size, size);
+    const sctx = canvas.getContext('2d');
+    const img = sctx.createImageData(size, size);
+    pixels.forEach((hex, i) => {
+      if (!hex) return;
+      const [cr, cg, cb] = rgb(hex);
+      img.data[i * 4] = cr; img.data[i * 4 + 1] = cg; img.data[i * 4 + 2] = cb; img.data[i * 4 + 3] = 255;
+    });
+    sctx.putImageData(img, 0, 0);
+    sunImages.set(key, canvas);
+  }
+  const half = sunSize(rr) / 2;
+  ctx.drawImage(canvas, Math.round(cx - half), Math.round(cy - half));
 }
 
 // ── Space ────────────────────────────────────────────────────────────────────
