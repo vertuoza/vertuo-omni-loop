@@ -406,8 +406,9 @@ never loads the demo seed.
 
 ### 6. Fill the galaxy
 
-Invite the crew to join (sign in, link GitHub, pick a fleet), put the real sectors in a migration,
-then switch the game workflow on ([`game/README.md` › Setup](../../game/README.md#setup)): the first
+Invite the crew to join (sign in, link GitHub, pick a fleet). The real sectors are in a migration
+(`supabase/migrations/20260926160000_vertuoza_sectors.sql`: `omni-core`, `ai-nebula`, `flow-rim`);
+add a sector or a repository with a migration of its own. Then switch the game workflow on ([`game/README.md` › Setup](../../game/README.md#setup)): the first
 poll backfills history with everyone's fleet as it stands.
 
 ### In production
