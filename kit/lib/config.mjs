@@ -46,6 +46,7 @@ export const ConfigSchema = z
       phase0: text.default('docs/phase-0-{topic}'),
       slice: text.default('feat/{topic}--{slice}'),
       rework: text.default('fix-{item}'),
+      retro: text.default('docs/retro-{topic}'),
       invade: text.default('docs/omni-invade'),
     }),
     worktrees: text.default('.claude/worktrees'),
@@ -65,6 +66,7 @@ export const ConfigSchema = z
       inProgress: text.default('omni:in-progress'),
       needsFix: text.default('omni:needs-fix'),
       outboxGo: text.default('omni:outbox-go'),
+      retro: text.default('omni:retro'),
       autoCreate: z.boolean().default(false),
     }),
     prLinks: section({

@@ -2,8 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "functions": {
-    "api/*.mjs": {
+    "api/github.mjs": {
       "maxDuration": 60
+    },
+    "api/inngest.mjs": {
+      "maxDuration": 300
     }
   }
 }

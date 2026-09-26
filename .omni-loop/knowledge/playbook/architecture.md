@@ -33,7 +33,7 @@ workspace package but one: `apps/omni-app`, the GitHub App that posts the outbox
   plan and outbox) and this knowledge.
 
 ## Boundaries
-<!-- slot: boundaries · required · by: terraform -->
+<!-- slot: boundaries · required · by: human -->
 - The game only reads the delivery layer: deleting `game/` and `.github/workflows/game.yml`
   removes it without touching delivery (README.md). It writes to no repository; its only outputs
   are the ledger in Supabase, one weekly comment and a backup (game/README.md).
@@ -43,6 +43,9 @@ workspace package but one: `apps/omni-app`, the GitHub App that posts the outbox
   differs from a fresh build.
 - The GitHub App reuses the kit's gate unchanged and never runs repository code: it reads only YAML
   and Markdown, through the kit's schemas (apps/omni-app/README.md).
+- The GitHub App's Inngest plan caps how long a run may sleep at 7 days (answered on #75, PRD 72):
+  anything that waits longer, like the retro's second look 14 days after a merge, runs from a daily
+  scheduled function, never from one long sleep.
 
 ## Patterns
 <!-- slot: patterns · optional -->

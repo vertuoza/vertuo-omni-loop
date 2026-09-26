@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeRepo } from '../test/fixture.mjs';
 import { parseConfig } from '../lib/config.mjs';
+import { LABEL_STYLES } from '../lib/init/labels.mjs';
 import { FORM_IDS, parseForm } from '../lib/playbook/forms.mjs';
 import { main } from './omni.mjs';
 
@@ -47,7 +48,7 @@ function fakeExec({ slug = 'acme/widgets', defaultBranch = 'trunk', ghFails = fa
   return { exec, calls };
 }
 
-const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go'];
+const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro'];
 const labelCalls = (calls, verb) => calls.filter((args) => args[0] === 'label' && args[1] === verb);
 const created = (calls) => labelCalls(calls, 'create').map((args) => args[2]);
 const edits = (calls) => calls.filter((args) => args[0] === 'label' && !['list', 'create'].includes(args[1]));
@@ -197,6 +198,17 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     });
   });
 
+  it('writes neither retro key, and omni config still names the retro label and branch', async () => {
+    const { root, read } = makeRepo({ git: true });
+    await init(root);
+    expect(read('.omni-loop/config.yml')).not.toMatch(/retro/);
+    for (const [key, value] of [['labels.retro', 'omni:retro'], ['branches.retro', 'docs/retro-{topic}']]) {
+      const s = io();
+      expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
+      expect(s.out.join('')).toBe(`${value}\n`);
+    }
+  });
+
   it('picks the package manager from the lockfile, and preflight / preflight:full scripts', async () => {
     const scripts = JSON.stringify({ scripts: { test: 'x', preflight: 'x', 'preflight:full': 'x' } });
     for (const [lock, pm] of [['yarn.lock', 'yarn'], ['bun.lockb', 'bun'], ['bun.lock', 'bun'], [null, 'npm']]) {
@@ -314,14 +326,33 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
     const fake = fakeExec({ labels: [{ name: 'omni:prd', color: 'ffffff' }, { name: 'omni:sub', color: '000000' }, { name: 'bug' }] });
     const { code, out, calls } = await init(root, [], { fake });
     expect(code).toBe(0);
-    expect(created(calls)).toEqual(['omni:phase-0', 'omni:feature', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go']);
+    expect(created(calls)).toEqual(['omni:phase-0', 'omni:feature', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro']);
     expect(edits(calls)).toEqual([]);
     for (const args of labelCalls(calls, 'create')) {
       expect(args).not.toContain('--force');
       expect(args[args.indexOf('--color') + 1]).toMatch(/^[0-9a-f]{6}$/);
       expect(args[args.indexOf('--description') + 1]).toMatch(/\S/);
     }
-    expect(out).toMatch(/labels\s+created omni:phase-0, omni:feature, omni:in-progress, omni:needs-fix, omni:outbox-go\s+\(already there: omni:prd, omni:sub\)\n/);
+    expect(out).toMatch(/labels\s+created omni:phase-0, omni:feature, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro\s+\(already there: omni:prd, omni:sub\)\n/);
+  });
+
+  it('creates omni:retro with its colour and description when it is missing', async () => {
+    const { root } = makeRepo({ git: true });
+    const fake = fakeExec({ labels: LOOP_LABELS.filter((name) => name !== 'omni:retro').map((name) => ({ name })) });
+    const { code, out } = await init(root, [], { fake });
+    expect(code).toBe(0);
+    expect(labelCalls(fake.calls, 'create')).toEqual([
+      ['label', 'create', 'omni:retro', '--color', LABEL_STYLES.retro.color, '--description', LABEL_STYLES.retro.description],
+    ]);
+    expect(out).toMatch(/labels\s+created omni:retro\s+\(already there: /);
+  });
+
+  it('leaves an existing omni:retro alone, whatever its colour and description', async () => {
+    const { root } = makeRepo({ git: true });
+    const fake = fakeExec({ labels: [{ name: 'omni:retro', color: '000000', description: 'ours' }] });
+    await init(root, [], { fake });
+    expect(created(fake.calls)).not.toContain('omni:retro');
+    expect(edits(fake.calls)).toEqual([]);
   });
 
   it('lists the labels once, past gh\'s default page of 30', async () => {
@@ -358,7 +389,7 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/bin/omni.mjs': 'bin\n' } });
     const fake = fakeExec();
     await init(root, [], { fake });
-    expect(created(fake.calls)).toEqual(['epic', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'ship-it']);
+    expect(created(fake.calls)).toEqual(['epic', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'ship-it', 'omni:retro']);
   });
 
   it('with an invalid config and no --force, creates no label', async () => {
@@ -392,8 +423,8 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
     };
     const { code, out } = await init(root, [], { fake: { exec, calls: base.calls } });
     expect(code).toBe(0);
-    expect(created(base.calls)).toEqual(['omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go']);
-    expect(out).toMatch(/labels\s+created omni:phase-0, omni:feature, omni:in-progress, omni:needs-fix, omni:outbox-go\s+\(already there: omni:prd\)\n/);
+    expect(created(base.calls)).toEqual(['omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro']);
+    expect(out).toMatch(/labels\s+created omni:phase-0, omni:feature, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro\s+\(already there: omni:prd\)\n/);
     expect(out).toContain('  labels  gh could not create omni:sub — see step 3 below\n');
     expect(out).toContain('  3. Create the labels gh could not create:\n       https://github.com/acme/widgets/labels\n       omni:sub\n');
   });
@@ -434,6 +465,41 @@ describe('omni init — footprint (AC 7)', () => {
   });
 });
 
+const RETRO_MD = [
+  '---', 'prd: 50', 'feature-pr: 51', 'merge-sha: 4e2dc90', 'runs: [merge]', 'model: none', 'rules: 1', '---',
+  '# Retro — PRD 50, A joke around every outbox question', '', 'Facts only: no model key', '',
+  '## Findings', '', '## Timeline', '', '- 3 slices in 2 waves', '',
+].join('\n');
+const RETRO_JSON = `${JSON.stringify({ prd: 50, featurePr: 51, runs: [{ run: 'merge', rules: 1, facts: { slices: 3, waves: 2 }, findings: [] }] }, null, 2)}\n`;
+
+describe('omni init — a retro in a PRD folder', () => {
+  it('omni check all, coverage included, stays green with retro.md and retro.json in a shipped and an inbox folder', async () => {
+    const { root, write } = makeRepo({ git: true });
+    await init(root);
+    const git = (...args) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd: root, stdio: 'ignore' });
+    git('add', '-A');
+    git('commit', '-q', '-m', 'omni init');
+    git('update-ref', 'refs/remotes/origin/trunk', 'HEAD');
+    const spec = (prd) => `---\nprd: ${prd}\ntitle: A PRD\nblocked-by: none\nspec: file\n---\n\n# A PRD\n`;
+    const shipped = '.omni-loop/delivery/shipped/0050-question-intros';
+    const inbox = '.omni-loop/delivery/inbox/0051-merged-unshipped';
+    for (const [folder, prd] of [[shipped, 50], [inbox, 51]]) {
+      write(`${folder}/spec.md`, spec(prd));
+      write(`${folder}/plan.md`, '# A PRD — plan\n');
+      write(`${folder}/retro.md`, RETRO_MD.replace('prd: 50', `prd: ${prd}`));
+      write(`${folder}/retro.json`, RETRO_JSON);
+    }
+    git('add', '-A');
+    git('commit', '-q', '-m', 'docs(retro): PRD 50');
+    for (const prd of ['50', '51']) {
+      const s = io();
+      expect(await main(['check', 'all', '--prd', prd], { cwd: root, ...s })).toBe(0);
+      expect(s.out.join('')).not.toMatch(/skipped/);
+      expect(s.out.join('')).toMatch(new RegExp(`PRD #${prd}: 0 risky change`));
+    }
+  });
+});
+
 describe('omni init — the real bundle', () => {
   it('the built bundle carries its marker: it installs itself byte for byte', () => {
     // Built to a scratch file: the committed kit/dist/omni.mjs is only ever compared, never rewritten by a test.
@@ -460,7 +526,7 @@ const FIRST_RUN = [
   '  wrote   .omni-loop/config.yml',
   '  wrote   .omni-loop/bin/omni.mjs',
   ...FORM_FILES.map((path) => `  wrote   ${path}`),
-  '  labels  created omni:prd, omni:phase-0, omni:feature, omni:sub, omni:in-progress, omni:needs-fix, omni:outbox-go',
+  '  labels  created omni:prd, omni:phase-0, omni:feature, omni:sub, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro',
   '',
   'Commit .omni-loop/ and merge it into trunk, then, by hand:',
   '  1. Install the omni plugin in Claude Code:',

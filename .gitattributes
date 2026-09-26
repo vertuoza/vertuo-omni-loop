@@ -1,0 +1,2 @@
+# The bundle `pnpm kit:build` writes from kit/ is generated: GitHub collapses its diff, and a retro leaves it out of churn.
+kit/dist/** linguist-generated

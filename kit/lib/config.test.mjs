@@ -31,6 +31,18 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nask:\n  link: https://ask.example.com\n')).toThrow(/ask.*link/s);
   });
 
+  it('names the retro label and the retro branch when the config sets neither', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(config.labels.retro).toBe('omni:retro');
+    expect(config.branches.retro).toBe('docs/retro-{topic}');
+  });
+
+  it('reads back a retro label and a retro branch the config sets', () => {
+    const config = parseConfig('kit: 1\nlabels:\n  retro: looking-back\nbranches:\n  retro: retro/{topic}\n');
+    expect(config.labels.retro).toBe('looking-back');
+    expect(config.branches.retro).toBe('retro/{topic}');
+  });
+
   it('puts the playbook under the knowledge folder and names the invade branch when both are unset', () => {
     const config = parseConfig('kit: 1\n');
     expect(config.paths.playbook).toBe('.omni-loop/knowledge/playbook');
