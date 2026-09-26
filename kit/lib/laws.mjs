@@ -59,7 +59,8 @@ export function lawsFor(ctx) {
   }
 
   function floorsHigh(bearsOn) {
-    if (source === 'knowledge') return ID_SHAPE.test(bearsOn);
+    // A proposed entry (PRD #68) is no law until a person removes its `Proposed:` line.
+    if (source === 'knowledge') return ID_SHAPE.test(bearsOn) && !resolveId(bearsOn, { ctx })?.proposed;
     if (source === 'claudeMdInvariants') return invariantSet().has(bearsOn);
     return false;
   }

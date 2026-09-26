@@ -27,3 +27,8 @@ Source: `scripts/knowledge.mjs` @ `vertuo-ai-domain@c4a210122`.
   checkout. The Port Protocol's explicit real-repo exclusion; no fixture stand-in was substituted,
   since the scenario ("the two moved rules") names entries specific to that repository's own
   history and has no equivalent in a kit-agnostic fixture.
+
+## After the port: PRD #68, slice s2 — a proposed entry
+
+Kit-only, no upstream counterpart. `describeEntry` prints `proposed by <who> on <date>` after the
+field lines for a proposed entry, and nothing of it for a law. Test added in `describe.test.mjs`.
