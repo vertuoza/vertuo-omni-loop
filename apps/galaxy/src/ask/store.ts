@@ -4,6 +4,7 @@
 // rounds, and only its owner changes or deletes it; a session of another workspace reads as missing,
 // exactly like one that never was.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Category } from './classify';
 
 /** A session with no call for this long reads as closed (the spec's 12 hours). */
 export const IDLE_CLOSE_MS = 12 * 60 * 60 * 1000;
@@ -51,13 +52,16 @@ export type AskRound = {
   cost_usd: number | null;
   /** Who answered: set by the database, never sent. */
   answered_by: string | null;
+  /** One of six, or null for unsorted (PRD 144), and who set it last: 'model', or a member's id. */
+  category: Category | null;
+  category_by: string | null;
 };
 
 /** What a round records besides its questions, as the API worked it out. */
 export type AskRoundFacts = Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd'>;
 
 const SESSION = 'id, owner, title, status, created_at, last_seen_at, workspace_id, repo, branch, claude_session_id';
-const ROUND = 'id, session_id, questions, answers, answered_via, status, created_at, answered_at, prd, skill, model, tokens, cost_usd, answered_by';
+const ROUND = 'id, session_id, questions, answers, answered_via, status, created_at, answered_at, prd, skill, model, tokens, cost_usd, answered_by, category, category_by';
 
 /** Closed, or 12 hours without a call: either way nobody asks in it any more. */
 export function sessionClosed(session: Pick<AskSession, 'status' | 'last_seen_at'>, now: number): boolean {
@@ -133,3 +137,24 @@ export function askStore(db: Pick<SupabaseClient, 'from'>) {
 }
 
 export type AskStore = ReturnType<typeof askStore>;
+
+/** A round's category and who set it, as the database answers a change of it. */
+export type AskCategory = Pick<AskRound, 'category' | 'category_by'>;
+
+/** A round's category (20260927110000_ask_category.sql). No grant reaches the columns: two functions
+ * write them, each checking who calls. */
+export function askCategories(db: Pick<SupabaseClient, 'rpc'>) {
+  return {
+    /** A member sets a round's category, or clears it with null; null when they may not read the round. */
+    async set(roundId: string, category: Category | null): Promise<AskCategory | null> {
+      return settle<AskCategory>('sort the round', await db.rpc('ask_round_categorize', { round_id: roundId, new_category: category }).maybeSingle());
+    },
+
+    /** The model's guess, as the account that asked; false when a person had already sorted it. */
+    async classified(roundId: string, category: Category): Promise<boolean> {
+      return settle<boolean>('record the model\'s category', await db.rpc('ask_round_classified', { round_id: roundId, new_category: category })) === true;
+    },
+  };
+}
+
+export type AskCategories = ReturnType<typeof askCategories>;

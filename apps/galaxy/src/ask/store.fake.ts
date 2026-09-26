@@ -7,7 +7,11 @@
 // shapes src/ask/store.ts sends, and nothing else. The database's own rules (a round only moves
 // forward, the grants) are proved by supabase/checks/ask.sql, not here. Like the database's trigger, it
 // sets `answered_by` the moment a round is answered: the caller on the page, the session owner for
-// the terminal.
+// the terminal. A round's category (PRD 144) is written only through the two functions the database
+// has for it, as `rpc`: any member sets or clears it; the model's guess, recorded as the session's
+// owner, never overrides a person's.
+
+import { isCategory } from './classify';
 
 type Row = Record<string, unknown>;
 type Failure = { code?: string; message: string };
@@ -110,7 +114,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
         id: newId(), answers: null, answered_via: null, status: 'open', created_at: stamp(), answered_at: null,
         prd: null, skill: null, model: null, tokens: null, cost_usd: null,
         ...clone(this.values),
-        answered_by: null,
+        answered_by: null, category: null, category_by: null,
       };
       tables.ask_rounds.push(row);
       return [row];
@@ -120,7 +124,8 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
       const rows = this.matching(owned);
       for (const row of rows) {
         const answering = this.table === 'ask_rounds' && this.values.status === 'answered' && row.status !== 'answered';
-        const { answered_by: _ignored, ...values } = clone(this.values);
+        // No grant reaches these columns: the database refuses them, the functions below write them.
+        const { answered_by: _answeredBy, category: _category, category_by: _categoryBy, ...values } = clone(this.values);
         Object.assign(row, values);
         if (answering) {
           row.answered_at = stamp();
@@ -132,10 +137,48 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
     }
   }
 
+  /** `ask_round_categorize` and `ask_round_classified`, as the migration writes them. */
+  function call(me: FakeAccount | null, name: string, args: { round_id?: string; new_category?: unknown }): Result {
+    state.queries += 1;
+    if (state.fail) return { data: null, error: state.fail };
+    const { round_id: id, new_category: category } = args;
+    if (category !== null && !isCategory(category)) {
+      return { data: null, error: { code: '23514', message: 'new row for relation "ask_rounds" violates check constraint "ask_rounds_category_check"' } };
+    }
+    const round = tables.ask_rounds.find((r) => r.id === id);
+    if (name === 'ask_round_categorize') {
+      if (!me || !round || !visible('ask_rounds', round, me)) return { data: [], error: null };
+      Object.assign(round, { category, category_by: me.id });
+      return { data: [{ category: round.category, category_by: round.category_by }], error: null };
+    }
+    if (name === 'ask_round_classified') {
+      const sorted = Boolean(me && round && category !== null && round.category_by === null && owned('ask_rounds', round, me));
+      if (sorted) Object.assign(round!, { category, category_by: 'model' });
+      return { data: sorted, error: null };
+    }
+    return { data: null, error: { code: 'PGRST202', message: `Could not find the function public.${name}` } };
+  }
+
+  /** An rpc's answer, as a list or, through maybeSingle(), one row or null. */
+  function rpcResult(run: () => Result) {
+    return {
+      maybeSingle: () => Promise.resolve().then(() => {
+        const result = run();
+        if (result.error || !Array.isArray(result.data)) return result;
+        if (result.data.length > 1) return { data: null, error: { code: 'PGRST116', message: `JSON object requested, ${result.data.length} rows returned` } };
+        return { data: clone(result.data[0] ?? null), error: null };
+      }),
+      then<A = Result, B = never>(done?: ((value: Result) => A | PromiseLike<A>) | null, failed?: ((reason: unknown) => B | PromiseLike<B>) | null) {
+        return Promise.resolve().then(run).then(done, failed);
+      },
+    };
+  }
+
   /** The client for one bearer token: acting as its account, as the API's real client does. */
   function client(token: string) {
     const me = accounts[token] ?? null;
     return {
+      rpc: (name: string, args: { round_id?: string; new_category?: unknown }) => rpcResult(() => call(me, name, args)),
       auth: {
         async getUser(jwt: string) {
           state.queries += 1;
