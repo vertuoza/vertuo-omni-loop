@@ -105,6 +105,20 @@ export function heroLook(hero, fleetColor = '#2f3fc4') {
   return look;
 }
 
+/** OmniMan's poses (sprites.mjs), each drawn bare and with a cape (`<pose>-cape`). */
+export const OMNI_POSES = Object.freeze(['omni-point', 'omni-cheer', 'omni-run']);
+
+/**
+ * A hero in one of OmniMan's poses: the pose's sprite, caped when the hero wears a cape, and the
+ * hero's own tint (heroLook), so skin, hair, suit, cape and the fleet's buckle apply as on the idle body.
+ * @returns {{ sprite: string, tint: Record<string, readonly string[]> }}
+ */
+export function heroPose(hero, pose, fleetColor = '#2f3fc4') {
+  if (!OMNI_POSES.includes(pose)) throw new Error(`heroPose: ${pose} is not one of ${OMNI_POSES.join(', ')}`);
+  const { tint } = heroLook(hero, fleetColor);
+  return { sprite: HERO_PRESETS.cape[hero.cape][1] ? `${pose}-cape` : pose, tint };
+}
+
 /**
  * How a fleet is drawn: its mascot when the sprite exists, else a caped hero in the fleet's colour,
  * so a fleet added by a migration plays before anyone draws it a mascot.
