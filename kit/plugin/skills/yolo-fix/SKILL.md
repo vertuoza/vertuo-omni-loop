@@ -10,6 +10,13 @@ description: Bring a PRD back in line with what a person answered — read the r
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
+**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
+then the line `omni sign trailer` prints as the message's last line, with no blank line between
+them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
+a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
+that line. Comments are never signed. A command that prints nothing means signing is off here: add
+nothing.
+
 A settled item whose answer **contradicts the choice the agent recorded** is **drifted**: the build
 and the decision disagree, and no check can see it. This skill is what closes that gap.
 
@@ -49,7 +56,7 @@ then a fresh worktree) after every merge: each one moves the feature branch.
 `repo.defaultBranch`: the outbox comment stays on the merged PR and still takes replies. Find it
 with `--state merged`; the ledger now lives on the default branch. With the feature branch gone, cut
 it afresh from `<remote>/<repo.defaultBranch>`, push it, and open a new draft feature PR from it
-through `/omni:pr` (the feature kind). Read replies from the merged PR (step 3), and settle and
+through `/omni:pr` (the feature kind), its body ending with the `omni sign footer` line. Read replies from the merged PR (step 3), and settle and
 rework into the new branch exactly as below. Nothing is ever committed to the default branch
 directly; a person merges the new feature PR.
 
@@ -103,9 +110,11 @@ write the rule anyway: a reviewer deletes a wrong one in a minute.
 **Anything settled or adopted is one sub-PR** into the feature branch. In the worktree, run
 `git switch -c <settle branch>`, where `<settle branch>` is `branches.slice` with `{topic}` and
 `{slice}` = `settle`. Commit the ledger, the removed item files and any write-back together
-(`chore(delivery): settle <n> answers from the feature PR`, with your session's co-author trailer),
-push, and open it with `gh pr create --draft --base <feature branch>`, body starting with
-`prLinks.sub` filled, labels `labels.sub` and `labels.inProgress`. Follow `/omni:pr`'s **sub-PR
+(`chore(delivery): settle <n> answers from the feature PR`, with your session's co-author trailer,
+then the `omni sign trailer` line), push, and open it with
+`gh pr create --draft --base <feature branch> --body-file <file>`, the body starting with
+`prLinks.sub` filled and ending with the `omni sign footer` line, labels `labels.sub` and
+`labels.inProgress`. Follow `/omni:pr`'s **sub-PR
 lifecycle** until it is ready, then merge it the way `/omni:wave` §4 merges a slice (the base must be
 the feature branch; `gh pr merge <n> --squash --delete-branch`). Never into the default branch.
 Merge it before step 4: the drift is read off the feature branch.
@@ -142,7 +151,8 @@ waves. `/omni:wave` reads the plan's board, which does not hold reworks, so driv
 steps over the rework rows instead:
 
 1. **Claim** each rework through `/omni:pr`'s **Claim** mode, with the rework `id` as the slice and
-   `rework <itemId>` as the title. Then `git switch --detach`.
+   `rework <itemId>` as the title: its claim commit and its sub-PR's body are signed there. Then
+   `git switch --detach`.
 2. **Dispatch** one worktree subagent per rework, all in one message, each with
    `isolation: "worktree"`:
 
@@ -169,7 +179,8 @@ node .omni-loop/bin/omni.mjs rework close <itemId> --prd <prd> --pr <sub-PR>
 
 It amends exactly one line of the ledger, that entry's `Closed:` line, and nothing else. Commit the
 amendment naming the items it closed (`chore(delivery): close <k> reworked decisions`, with your
-session's co-author trailer) and `git push <remote> HEAD:<feature branch>`. A rework not merged
+session's co-author trailer, then the `omni sign trailer` line) and
+`git push <remote> HEAD:<feature branch>`. A rework not merged
 stays open, and so does the gate.
 
 ## 7. Finish, gate, ship before ready

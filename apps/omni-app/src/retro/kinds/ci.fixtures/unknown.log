@@ -1,0 +1,22 @@
+2026-09-20T09:50:01.0000001Z ##[group]Run cargo test
+2026-09-20T09:50:01.0000002Z cargo test
+2026-09-20T09:50:01.0000003Z ##[endgroup]
+2026-09-20T09:50:20.0000000Z    Compiling widgets v0.1.0 (/home/runner/work/widgets/widgets)
+2026-09-20T09:50:31.0000000Z     Finished test [unoptimized + debuginfo] target(s) in 11.02s
+2026-09-20T09:50:31.0000001Z      Running unittests src/lib.rs (target/debug/deps/widgets-1a2b3c4d)
+2026-09-20T09:50:31.0000002Z
+2026-09-20T09:50:31.0000003Z running 3 tests
+2026-09-20T09:50:31.0000004Z test colour::keeps_it ... ok
+2026-09-20T09:50:31.0000005Z test colour::reads_it_back ... FAILED
+2026-09-20T09:50:31.0000006Z test store::saves ... ok
+2026-09-20T09:50:31.0000007Z
+2026-09-20T09:50:31.0000008Z failures:
+2026-09-20T09:50:31.0000009Z
+2026-09-20T09:50:31.0000010Z ---- colour::reads_it_back stdout ----
+2026-09-20T09:50:31.0000011Z thread 'colour::reads_it_back' panicked at src/colour.rs:40:9:
+2026-09-20T09:50:31.0000012Z assertion `left == right` failed
+2026-09-20T09:50:31.0000013Z
+2026-09-20T09:50:31.0000014Z test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+2026-09-20T09:50:31.0000015Z
+2026-09-20T09:50:31.0000016Z error: test failed, to rerun pass `--lib`
+2026-09-20T09:50:31.1000000Z ##[error]Process completed with exit code 101.

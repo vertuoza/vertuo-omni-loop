@@ -4,7 +4,7 @@ form-version: 1
 state: blank
 points-to: null
 evidence: []
-terraformed: null
+invaded: null
 ---
 
 <!-- Ported from vertuo-ai-domain@db67fd9da:docs/agents/pull-request.md — changes in kit/porting/templates--pull-requests.md -->

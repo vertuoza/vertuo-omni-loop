@@ -124,3 +124,11 @@ config, `.omni-loop/knowledge/...` paths. Its `Source:` fixture value is `PRD #3
 literal `Source: kickoff` — per the controller's ruling in "Fix round 1" (`task-3-report.md`), the
 "leads nowhere" check is upstream behaviour and stays; the fixture, not the check, needed to change,
 since `kickoff` names neither a path nor a PRD/issue/PR number.
+
+## After the port: PRD #68, slice s2 — a proposed entry
+
+Kit-only, no upstream counterpart. A proposed principle may go without `Decided:`; an entry's
+`problems` (a malformed `Proposed:` line) are violations; `findProposals` reports each proposed entry
+once, and `gradeKnowledge` returns them as `proposals` beside `wishes`, which `omni check knowledge`
+prints as warnings. Every other line is graded as before, for a proposed entry too. Tests added in
+`check-knowledge.test.mjs`; no ported assertion changed.

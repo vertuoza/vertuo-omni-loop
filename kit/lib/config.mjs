@@ -22,6 +22,14 @@ const regexSource = z.string().refine((source) => {
   try { new RegExp(source); return true; } catch { return false; }
 }, 'not a valid regular expression');
 const section = (shape) => z.object(shape).strict().default({});
+// A name or an address a `Co-authored-by: <name> <email>` line can hold: one line, no angle bracket.
+const trailerPart = text.regex(/^[^<>\r\n]+$/, 'one line, with no < or >');
+// Where ask mode's pages and calls live: https anywhere, or plain http on the loopback address only.
+const askUrl = z.string().refine((value) => {
+  let url;
+  try { url = new URL(value); } catch { return false; }
+  return url.protocol === 'https:' || (url.protocol === 'http:' && url.hostname === '127.0.0.1');
+}, 'an https URL, or http on 127.0.0.1');
 
 export const ConfigSchema = z
   .object({
@@ -38,7 +46,8 @@ export const ConfigSchema = z
       phase0: text.default('docs/phase-0-{topic}'),
       slice: text.default('feat/{topic}--{slice}'),
       rework: text.default('fix-{item}'),
-      terraform: text.default('docs/omni-terraform'),
+      retro: text.default('docs/retro-{topic}'),
+      invade: text.default('docs/omni-invade'),
     }),
     worktrees: text.default('.claude/worktrees'),
     paths: section({
@@ -57,6 +66,7 @@ export const ConfigSchema = z
       inProgress: text.default('omni:in-progress'),
       needsFix: text.default('omni:needs-fix'),
       outboxGo: text.default('omni:outbox-go'),
+      retro: text.default('omni:retro'),
       autoCreate: z.boolean().default(false),
     }),
     prLinks: section({
@@ -111,9 +121,32 @@ export const ConfigSchema = z
       claimStaleMinutes: z.number().int().positive().default(60),
       beforeAfterMaxBytes: z.number().int().positive().default(512000),
     }),
+    ask: section({ url: askUrl.nullable().default(null) }),
     markers: section({ prefix: z.string().regex(/^[a-z][a-z0-9-]*$/, 'lowercase letters, digits and hyphens').default('omni-outbox') }),
+    // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.mjs`). By
+    // default the omni-loop GitHub App's bot account; `null` switches signing off.
+    signature: z
+      .object({
+        name: trailerPart.default('OmniMan'),
+        email: trailerPart.default('333776611+omni-loop-invader[bot]@users.noreply.github.com'),
+        footer: text.default('🦸 Delivered by OmniMan, with Omni Loop'),
+      })
+      .strict()
+      .nullable()
+      .default({}),
   })
   .strict();
+
+/** Keys a config once held under another name (PRD #68): refused, naming the key that replaced them,
+ * never read as an alias — a person set them by hand, and a clear error beats a silent alias. */
+const RENAMED = Object.freeze([{ section: 'branches', from: 'terraform', to: 'invade' }]);
+
+function renamedKey(raw) {
+  return RENAMED.find(({ section: name, from }) => {
+    const value = raw?.[name];
+    return value !== null && typeof value === 'object' && Object.hasOwn(value, from);
+  });
+}
 
 function describeIssue(issue) {
   const path = issue.path.join('.') || '(top level)';
@@ -132,6 +165,11 @@ export function parseConfig(source, file = CONFIG_FILE) {
   } catch (error) {
     throw new ConfigError(`${file}: not valid YAML — ${error.message.split('\n')[0]}`);
   }
+  const renamed = renamedKey(raw);
+  if (renamed) {
+    const { section: name, from, to } = renamed;
+    throw new ConfigError(`${file} is not a valid Omni Loop config: ${name}.${from} was renamed — call it ${name}.${to}`);
+  }
   const result = ConfigSchema.safeParse(raw);
   if (!result.success) {
     const [first, ...others] = result.error.issues.map(describeIssue);
@@ -145,7 +183,7 @@ export function parseConfig(source, file = CONFIG_FILE) {
 export function loadConfig(root) {
   const file = join(root, CONFIG_FILE);
   if (!existsSync(file)) {
-    throw new ConfigError(`This repository is not terraformed: ${CONFIG_FILE} is missing. Run \`omni-loop init\`.`);
+    throw new ConfigError(`This repository is not installed: ${CONFIG_FILE} is missing. Run \`omni-loop init\`.`);
   }
   return parseConfig(readFileSync(file, 'utf8'), CONFIG_FILE);
 }

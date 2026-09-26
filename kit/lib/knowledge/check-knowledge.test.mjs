@@ -509,3 +509,90 @@ it('grades a knowledge folder at the configured path with no glossary', () => {
   expect(violations).toEqual([]);
   expect(wishes).toEqual([]);
 });
+
+describe('Feature: a proposed entry (PRD #68)', () => {
+  /** A principle a person has not decided yet: no `Decided:` line, a `Proposed:` one. */
+  function proposedPrinciple(id) {
+    return [
+      `## ${id}`,
+      '',
+      'A product decision nobody confirmed.',
+      '',
+      'Why: the code suggests it.',
+      'Source: PRD #68',
+      'Proposed: invade 2026-09-25',
+      '',
+    ].join('\n');
+  }
+
+  it('Scenario: a proposed principle without Decided: and a rule serving it pass, one warning per proposed entry', () => {
+    const root = tree({
+      [ADVISOR_PRINCIPLES]: proposedPrinciple('P-ADVISOR-1'),
+      [ADVISOR_RULES]: rule('BR-ADVISOR-1', { serves: 'P-ADVISOR-1', extra: ['Proposed: invade 2026-09-25'] }),
+    });
+    const result = grade(root);
+    expect(result.violations).toEqual([]);
+    expect(result.proposals.map(parseLine)).toEqual([
+      { file: ADVISOR_PRINCIPLES, id: 'P-ADVISOR-1', detail: expect.stringMatching(/proposed by invade on 2026-09-25/) },
+      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: expect.stringMatching(/proposed by invade on 2026-09-25/) },
+    ]);
+  });
+
+  it('Scenario: a confirmed rule may serve a proposed principle', () => {
+    const root = tree({
+      [ADVISOR_PRINCIPLES]: proposedPrinciple('P-ADVISOR-1'),
+      [ADVISOR_RULES]: rule('BR-ADVISOR-1', { serves: 'P-ADVISOR-1' }),
+    });
+    const result = grade(root);
+    expect(result.violations).toEqual([]);
+    expect(result.proposals.map((line) => parseLine(line).id)).toEqual(['P-ADVISOR-1']);
+  });
+
+  it('Scenario: the same principle without Proposed: fails for the missing Decided:', () => {
+    const root = tree({
+      [ADVISOR_PRINCIPLES]: proposedPrinciple('P-ADVISOR-1').replace('Proposed: invade 2026-09-25\n', ''),
+      [ADVISOR_RULES]: rule('BR-ADVISOR-1', { serves: 'P-ADVISOR-1' }),
+    });
+    const result = grade(root);
+    expect(result.violations.map((line) => parseLine(line).detail)).toEqual([
+      expect.stringMatching(/missing a "Decided:" line/),
+    ]);
+    expect(result.proposals).toEqual([]);
+  });
+
+  it('Scenario: a proposed entry with a dead Source: anchor fails', () => {
+    const root = tree({
+      'docs/business-rules.md': '# Business rules\n\n## Quote expiry\n\nA quote expires.\n',
+      [ADVISOR_PRINCIPLES]: principle('P-ADVISOR-1'),
+      [ADVISOR_RULES]: rule('BR-ADVISOR-1', {
+        serves: 'P-ADVISOR-1',
+        extra: ['Proposed: invade 2026-09-25'],
+      }).replace('Source: PRD #1081', 'Source: docs/business-rules.md#quote-renewal'),
+    });
+    expect(grade(root).violations.map(parseLine)).toEqual([
+      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: expect.stringMatching(/has no heading with that anchor/) },
+    ]);
+  });
+
+  it('Scenario: an index entry whose Source: anchor exists passes', () => {
+    const root = tree({
+      'docs/business-rules.md': '# Business rules\n\n## Quote expiry\n\nA quote expires.\n',
+      [ADVISOR_PRINCIPLES]: principle('P-ADVISOR-1'),
+      [ADVISOR_RULES]: rule('BR-ADVISOR-1', {
+        serves: 'P-ADVISOR-1',
+        extra: ['Proposed: invade 2026-09-25'],
+      }).replace('Source: PRD #1081', 'Source: docs/business-rules.md#quote-expiry'),
+    });
+    expect(grade(root).violations).toEqual([]);
+  });
+
+  it('Scenario: a malformed Proposed: line is refused, naming the file', () => {
+    const root = tree({
+      [ADVISOR_PRINCIPLES]: principle('P-ADVISOR-1'),
+      [ADVISOR_RULES]: rule('BR-ADVISOR-1', { serves: 'P-ADVISOR-1', extra: ['Proposed: invade'] }),
+    });
+    expect(grade(root).violations.map(parseLine)).toEqual([
+      { file: ADVISOR_RULES, id: 'BR-ADVISOR-1', detail: expect.stringMatching(/is not "Proposed: <who> <YYYY-MM-DD>"/) },
+    ]);
+  });
+});

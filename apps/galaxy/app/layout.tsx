@@ -6,7 +6,11 @@ export const metadata: Metadata = {
   description: 'The galaxy map of the Omni Loop game: every PRD is a planet the fleets terraform together.',
 };
 
-export const viewport: Viewport = { themeColor: '#07061c', viewportFit: 'cover' };
+// The phone is the Game Boy: edge to edge (the bodies keep the notch and the home indicator clear
+// with the safe-area insets), and never zoomed by a pinch or a double tap.
+export const viewport: Viewport = {
+  themeColor: '#07061c', viewportFit: 'cover', width: 'device-width', initialScale: 1, maximumScale: 1, userScalable: false,
+};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

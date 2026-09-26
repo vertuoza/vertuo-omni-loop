@@ -58,7 +58,7 @@ describe('omni kb init — acceptance criterion 1', () => {
       const file = id === 'decisions' ? DECISIONS : `${PLAYBOOK}/${id}.md`;
       const parsed = parseForm(readFileSync(join(root, file), 'utf8'), { file });
       expect(parsed.errors ?? [], file).toEqual([]);
-      expect(parsed.form, file).toMatchObject({ id, formVersion: 1, state: 'blank', pointsTo: null, evidence: [], terraformed: null });
+      expect(parsed.form, file).toMatchObject({ id, formVersion: 1, state: 'blank', pointsTo: null, evidence: [], invaded: null, oldSpellings: [] });
     }
     expect(await omni(root, ['check', 'knowledge'])).toMatchObject({ code: 0 });
   });
@@ -156,7 +156,7 @@ describe('omni kb show — acceptance criterion 2: each section says where it ca
   const FILLED = formText({
     frontMatter: { state: 'filled' },
     slots: [
-      { id: 'commands', required: true, by: 'terraform', verified: '2026-09-25', body: '`make check` runs everything.' },
+      { id: 'commands', required: true, by: 'invade', verified: '2026-09-25', body: '`make check` runs everything.' },
       { id: 'layout', heading: 'Where tests live', required: true, body: 'Beside the code.' },
       { id: 'levels', heading: 'Choosing the level' },
       { id: 'never', required: true, body: 'See: guides/never.md' },
@@ -382,6 +382,69 @@ describe('omni kb status — the map, derived every time', () => {
   });
 });
 
+describe('omni kb status — laws and proposals per register folder (PRD #68)', () => {
+  const K = '.omni-loop/knowledge';
+  const PROPOSED = 'Proposed: invade 2026-09-25\n';
+  const principle = (id, proposed = false) => `## ${id}\n\nA decision.\n\nWhy: x\nDecided: y\nSource: PRD #68\n${proposed ? PROPOSED : ''}\n`;
+  const rule = (id, serves, proposed = false) =>
+    `## ${id}\n\nA rule.\n\nServes: ${serves}\nSource: PRD #68\nEnforced by: unenforced\nStated: 2026-09-25\n${proposed ? PROPOSED : ''}\n`;
+  const FILES = {
+    ...CONFIG,
+    [`${K}/product/principles.md`]: `# Principles\n\n${principle('P-PRODUCT-1')}${principle('P-PRODUCT-2', true)}`,
+    [`${K}/product/rules.md`]: `# Rules\n\n${rule('BR-PRODUCT-1', 'P-PRODUCT-1')}`,
+    [`${K}/product/invariants.md`]: '# Invariants\n',
+    [`${K}/domains/quote/README.md`]: '# Quote\n\nGlossary term: Quote\n',
+    [`${K}/domains/quote/principles.md`]: '# Principles\n',
+    [`${K}/domains/quote/rules.md`]: `# Rules\n\n${rule('BR-QUOTE-1', 'P-PRODUCT-2', true)}${rule('BR-QUOTE-2', 'P-PRODUCT-2', true)}`,
+    [`${K}/domains/quote/invariants.md`]: '# Invariants\n',
+  };
+
+  it('--json carries the laws and the proposals of each register folder', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const { code, out } = await omni(root, ['kb', 'status', '--json']);
+    expect(code).toBe(0);
+    expect(JSON.parse(out).registers).toEqual([
+      { folder: `${K}/product`, laws: 2, proposals: 1 },
+      { folder: `${K}/domains/quote`, laws: 0, proposals: 2 },
+    ]);
+  });
+
+  it('prints one line per register folder, and says so when there is none', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const { out } = await omni(root, ['kb', 'status']);
+    const lines = out.split('\n').map((line) => line.trim().replace(/\s+/g, ' '));
+    expect(lines.slice(lines.indexOf('Registers: 2 folder(s)'), lines.indexOf('Registers: 2 folder(s)') + 3)).toEqual([
+      'Registers: 2 folder(s)',
+      `${K}/product 2 law(s) · 1 proposal(s)`,
+      `${K}/domains/quote 0 law(s) · 2 proposal(s)`,
+    ]);
+    const { root: empty } = makeRepo({ git: true, files: CONFIG });
+    const none = await omni(empty, ['kb', 'status', '--json']);
+    expect(JSON.parse(none.out).registers).toEqual([]);
+    expect((await omni(empty, ['kb', 'status'])).out).toMatch(/\nRegisters: none\.\n/);
+  });
+
+  it('omni check knowledge passes, warning once per proposed entry, naming its file and id', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const { code, out, err } = await omni(root, ['check', 'knowledge']);
+    expect(code).toBe(0);
+    expect(out).toMatch(/3 proposed\./);
+    const warnings = err.split('\n').filter((line) => line.includes('is proposed by'));
+    expect(warnings).toEqual([
+      `warning: ${K}/product/principles.md: P-PRODUCT-2 — is proposed by invade on 2026-09-25 — not a law until a person removes its "Proposed:" line.`,
+      `warning: ${K}/domains/quote/rules.md: BR-QUOTE-1 — is proposed by invade on 2026-09-25 — not a law until a person removes its "Proposed:" line.`,
+      `warning: ${K}/domains/quote/rules.md: BR-QUOTE-2 — is proposed by invade on 2026-09-25 — not a law until a person removes its "Proposed:" line.`,
+    ]);
+  });
+
+  it('omni knowledge <id> prints who proposed the entry and when', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const { code, out } = await omni(root, ['knowledge', 'BR-QUOTE-1']);
+    expect(code).toBe(0);
+    expect(out).toContain('proposed by invade on 2026-09-25');
+  });
+});
+
 describe('omni check kb — acceptance criterion 4: fails naming the file', () => {
   const CI = `${PLAYBOOK}/ci.md`;
   const pointer = (frontMatter) => formText({ frontMatter: { form: 'ci', state: 'pointer', ...frontMatter }, title: 'CI', slots: [] });
@@ -460,6 +523,35 @@ describe('omni check kb — acceptance criterion 4: warns, exit 0', () => {
       missing('glossary'),
     ]);
     expect(out).toBe('check kb — 13 form(s): 1 filled, 2 blank, 10 missing; 15 warning(s).\n');
+  });
+});
+
+describe('omni check kb — the old spellings (PRD #68)', () => {
+  it('warns once per old spelling, naming the file, and exits 0', async () => {
+    const testing = formText({
+      frontMatter: { state: 'filled', invaded: undefined, terraformed: '2026-09-25' },
+      slots: [
+        { id: 'commands', required: true, by: 'terraform', body: '`make check` runs everything.' },
+        { id: 'layout', heading: 'Where tests live', required: true, body: 'Beside the code.' },
+        { id: 'never', required: true, by: 'terraform', body: '- A test never calls the network.' },
+      ],
+    });
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, [TESTING]: testing } });
+    const { code, err } = await omni(root, ['check', 'kb']);
+    expect(code).toBe(0);
+    expect(err.split('\n').filter((line) => line.includes(TESTING))).toEqual([
+      `warning: ${TESTING}: front matter says terraformed: — the old spelling; write invaded:`,
+      `warning: ${TESTING}: "## Commands" says by: terraform — the old spelling; write by: invade`,
+      `warning: ${TESTING}: "## Never" says by: terraform — the old spelling; write by: invade`,
+    ]);
+  });
+
+  it('never meets an old spelling in a form omni kb init wrote', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    expect((await omni(root, ['kb', 'init'])).code).toBe(0);
+    const written = Object.entries(snapshot(root)).filter(([path]) => path.startsWith('.omni-loop/knowledge/'));
+    for (const [path, text] of written) expect(text, path).not.toMatch(/terraform/i);
+    expect((await omni(root, ['check', 'kb'])).err).not.toMatch(/old spelling/);
   });
 });
 

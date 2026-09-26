@@ -23,6 +23,9 @@
  * marks an entry whose id predates the layout and whose prefix is therefore not its domain's code.
  * A domain's **code** is its folder name uppercased with the hyphens removed.
  *
+ * Any entry may carry `Proposed: <who> <YYYY-MM-DD>` (PRD #68): no person has confirmed it yet. Its
+ * id resolves, but it is no law — `laws.floorsHigh` is false for it — until a person removes the line.
+ *
  * Nothing else may glob this markdown: `check-knowledge.mjs` grades it, `outbox.mjs` resolves a
  * `bears-on` id through {@link resolveId}, and `describe.mjs` prints an entry and what serves it.
  *
@@ -59,7 +62,7 @@ export const ID_TOKEN = new RegExp(`\\b(?:${ID_SOURCE})\\b`, 'g');
 const ENTRY_HEADING = new RegExp(`^##\\s+(${ID_SOURCE})\\s*$`);
 const ANY_H2 = /^##\s/;
 const FIELD_LINE =
-  /^(Why|Decided|Source|Serves|Enforced by|Stated|Kind|Kept id|Glossary term):\s*(.*)$/;
+  /^(Why|Decided|Source|Serves|Enforced by|Stated|Proposed|Kind|Kept id|Glossary term):\s*(.*)$/;
 
 /** The field names as they appear on a parsed entry. */
 const FIELD_KEY = {
@@ -69,6 +72,7 @@ const FIELD_KEY = {
   Serves: 'serves',
   'Enforced by': 'enforcedBy',
   Stated: 'stated',
+  Proposed: 'proposedLine',
   Kind: 'kindLine',
   'Kept id': 'keptId',
   'Glossary term': 'glossaryTerm',
@@ -129,6 +133,27 @@ function readFields(lines) {
   return { fields, counts, fieldAt };
 }
 
+/** A `Proposed:` value: who proposed the entry, then the day, `YYYY-MM-DD`. */
+const PROPOSED_VALUE = /^(\S.*?)\s+(\d{4}-\d{2}-\d{2})$/;
+
+/**
+ * An entry's `Proposed:` line read: `{ proposed, problems }`. `proposed` is `{ by, on }`, `null` when
+ * the entry carries no such line — a law. A malformed line still reads as proposed (`by` and `on`
+ * `null`): the line says a person has not confirmed the entry, whatever its shape; the problem
+ * names the file so the checker refuses it.
+ */
+function readProposed(file, id, value) {
+  if (value === undefined) return { proposed: null, problems: [] };
+  const match = value.match(PROPOSED_VALUE);
+  if (match && !/\d{4}-\d{2}-\d{2}$/.test(match[1])) {
+    return { proposed: { by: match[1], on: match[2] }, problems: [] };
+  }
+  return {
+    proposed: { by: null, on: null },
+    problems: [`${file}: ${id} — "Proposed: ${value}" is not "Proposed: <who> <YYYY-MM-DD>".`],
+  };
+}
+
 /** Splits `text` into `{ id, lines }` entries; any `##` heading that is not an id closes one. */
 function splitEntries(text) {
   const entries = [];
@@ -165,6 +190,7 @@ export function parseEntryFile(file, text, place) {
       place.kind ??
       (fields.kindLine === 'rule' || fields.kindLine === 'invariant' ? fields.kindLine : null);
     const enforcedBy = fields.enforcedBy ?? null;
+    const { proposed, problems } = readProposed(file, id, fields.proposedLine);
     return {
       id,
       kind,
@@ -180,9 +206,11 @@ export function parseEntryFile(file, text, place) {
       enforcedBy,
       enforced: enforcedBy !== null && enforcedBy !== 'unenforced',
       stated: fields.stated ?? null,
+      proposed,
       kindLine: fields.kindLine ?? null,
       keptId: fields.keptId ?? null,
       fieldCounts: counts,
+      problems,
     };
   });
 }
@@ -299,6 +327,25 @@ export function readRegisters({ ctx }) {
     rules: entries.filter((entry) => entry.kind === 'rule'),
     invariants: entries.filter((entry) => entry.kind === 'invariant'),
   };
+}
+
+/**
+ * Per register folder — `product/`, each `domains/<domain>/`, `cross-domain/` — how many of its
+ * entries are laws and how many are proposed (PRD #68): `[{ folder, laws, proposals }]`, in that
+ * order, a folder listed only when it exists and holds a file. An absent knowledge folder is `[]`.
+ */
+export function registerCounts({ ctx }) {
+  const knowledge = readKnowledge({ ctx });
+  const folders = [
+    ...(knowledge.productFiles.length > 0 ? [productDir(ctx)] : []),
+    ...knowledge.domains.map((domain) => `${domainsDir(ctx)}/${domain.name}`),
+    ...(knowledge.crossDomainFiles.length > 0 ? [crossDomainDir(ctx)] : []),
+  ];
+  return folders.map((folder) => {
+    const held = knowledge.entries.filter((entry) => entry.file.startsWith(`${folder}/`));
+    const proposals = held.filter((entry) => entry.proposed !== null).length;
+    return { folder, laws: held.length - proposals, proposals };
+  });
 }
 
 /** `id` → its entry, or `null` when nothing claims it. */

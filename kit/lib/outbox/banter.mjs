@@ -19,6 +19,11 @@
  * a team, and never mocking whoever answers. Unlike an agent's line, it never names the game played
  * on top of delivery: the kit never mentions it. `banter.test.mjs` holds the pool to all of it.
  *
+ * **One named exception, outside this pool** (PRD #99): OmniMan is the loop's signing identity —
+ * the `signature` config default (`kit/lib/config.mjs`, `kit/lib/signature.mjs`) — and the face of
+ * the omni-loop GitHub App, both on the delivery side, so the kit names him there. The pool keeps
+ * the rule: no line here names him or anything else of the game.
+ *
  * Pure: no filesystem, no network, no clock.
  */
 

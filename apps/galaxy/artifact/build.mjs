@@ -2,7 +2,7 @@
 // (artifact/dist/omni-loop.html) for sharing without a server. React loads from cdnjs
 // (the 18.x UMD build; the app uses nothing React 19 adds); everything else is inlined.
 import { build } from 'esbuild';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
@@ -21,6 +21,11 @@ const result = await build({
   bundle: true,
   minify: true,
   write: false,
+  // Names the two outputs: the script, and the styles its modules import (arcade.css from the entry,
+  // each scene group's from its text layer), in import order. Nothing is written there.
+  outdir: here('./dist'),
+  absWorkingDir: here('..'),
+  metafile: true,
   format: 'iife',
   platform: 'browser',
   target: 'es2020',
@@ -32,8 +37,15 @@ const result = await build({
   plugins: [umdGlobals],
   logLevel: 'warning',
 });
-const js = result.outputFiles[0].text.replaceAll('</script', '<\\/script');
-const css = readFileSync(here('../src/arcade/arcade.css'), 'utf8');
+const output = (ext) => result.outputFiles.find((f) => f.path.endsWith(ext)).text;
+const js = output('.js').replaceAll('</script', '<\\/script');
+const css = output('.css');
+
+// Every stylesheet of the arcade rides along, or a screen would show unstyled in the page.
+const bundled = new Set(Object.keys(result.metafile.inputs));
+const sheets = ['src/arcade/arcade.css', ...readdirSync(here('../src/arcade/scenes')).filter((f) => f.endsWith('.css')).map((f) => `src/arcade/scenes/${f}`)];
+const left = sheets.filter((f) => !bundled.has(f));
+if (left.length) throw new Error(`artifact: no module imports ${left.join(', ')}`);
 
 const html = `<title>Omni Loop Galaxy</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">

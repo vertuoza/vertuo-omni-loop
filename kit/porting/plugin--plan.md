@@ -61,8 +61,9 @@ territory and a computed wave, the plan file, the draft feature PR, the hand-off
 - **The worked example is not named in the skill.** PRD 7's plan in this repository is the model,
   but its path is a repository literal (spec §2.1 rule 2) and moves on ship; the skill spells out
   the four-part shape instead.
-- **Step 0's stop line** says "not installed", not "not terraformed" (PRD 45): `/omni:terraform`
-  now names filling the forms, and a failing `omni config` means `omni init` has not run.
+- **Step 0's stop line** says "not installed" (PRD 45, and PRD 68 for the config error): `/omni:invade`
+  (PRD 45's form-filling skill, renamed by PRD 68) now names filling the forms, and a failing
+  `omni config` means `omni init` has not run.
 - **The playbook forms** (PRD 45, the spec's wiring table), each read through `omni kb show`:
   step 0 prints the `briefing` before any other step (acceptance criterion 9), and says how to read
   a form: a blank section is the kit default, a `[hole]` never stops the skill (decision 7), and a
@@ -85,3 +86,35 @@ territory and a computed wave, the plan file, the draft feature PR, the hand-off
   `[{"isDraft":true,"number":9,…}]`.
 - `git ls-remote --heads origin feat/omni-loop-skills` prints the ref; a missing branch prints
   nothing, exit 0.
+
+## PRD #99, slice s2 — the skill signs the loop's work
+
+Not a re-port: upstream's skill signs nothing. A kit-local change to the prose, which the bundle
+does not carry. PRD #99 makes OmniMan (the `signature` config section, slice s1) a co-author of every
+commit the loop makes and the signer of every pull request and issue it opens.
+
+- **Signing,** a paragraph under the `omni` line: every commit the skill makes ends with the
+  session's co-author trailer, then the line `omni sign trailer` prints, as the message's last line
+  with no blank line between them, so both stay in the trailer block. Every pull request or issue it
+  opens ends its body with the line `omni sign footer` prints, as a paragraph of its own just above
+  the session's own attribution lines, and a body it rewrites keeps that line. Comments are never
+  signed. A command that prints nothing (`signature: null`) means signing is off: the skill adds
+  nothing and runs unchanged. No skill spells the signer's name or address.
+- **The commit:** `docs(plan): <topic>` (step 6) carries the trailer line.
+- **The feature PR:** its body ends with the footer line, after the sections the spec allows; an
+  already open feature PR whose body is updated gets it too (step 6).
+- **Unsigned:** the needs-clarification comment on the PRD issue (step 1) and the
+  `Plan: … · Feature PR: …` comment (step 6) are comments.
+
+### Tests
+
+`kit/test/plugin.test.mjs` gained one rule, run on the live skills and on fixtures built to break
+it: a SKILL.md that asks for the co-author trailer names `omni sign trailer`, and one that opens a
+pull request or an issue (`gh pr create`, `gh issue create`, or "open(s) the/a … PR, pull request
+or issue" in prose), or rewrites its body (`gh pr edit … --body-file`), names `omni sign footer`.
+A skill that only comments is held to nothing. The existing rule that every `omni` command a
+SKILL.md names exists now covers `sign`.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.

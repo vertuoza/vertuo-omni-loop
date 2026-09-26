@@ -1,0 +1,157 @@
+{
+  "prd": 7,
+  "runs": [
+    {
+      "run": "merge",
+      "rules": {
+        "version": 1,
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "thresholds": {
+          "slowSliceFactor": 3,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "failingTestRuns": 2,
+          "churnRangeCommits": 3,
+          "churnFilePercent": 50,
+          "churnFileLines": 40,
+          "afterMergeDays": 14
+        },
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "fieldCaps": {
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600,
+          "lesson": 400
+        }
+      },
+      "prd": {
+        "number": 7,
+        "title": "Widgets that remember their colour",
+        "topic": "widget",
+        "state": "shipped",
+        "folder": ".omni-loop/delivery/shipped/0007-widget"
+      },
+      "featurePr": {
+        "number": 12,
+        "title": "feat(widget): widgets remember their colour (PRD 7)",
+        "url": "https://github.com/acme/widgets/pull/12",
+        "openedAt": "2026-09-20T09:00:00Z",
+        "mergedAt": "2026-09-20T12:00:00Z",
+        "mergeSha": "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678"
+      },
+      "kinds": {
+        "timeline": {
+          "featurePr": {
+            "number": 12,
+            "url": "https://github.com/acme/widgets/pull/12",
+            "openedAt": "2026-09-20T09:00:00Z",
+            "readyAt": "2026-09-20T11:50:00Z",
+            "mergedAt": "2026-09-20T12:00:00Z",
+            "minutes": 180
+          },
+          "slices": [
+            {
+              "slice": "s1",
+              "pr": 13,
+              "url": "https://github.com/acme/widgets/pull/13",
+              "openedAt": "2026-09-20T09:10:00Z",
+              "mergedAt": "2026-09-20T09:40:00Z",
+              "closedAt": "2026-09-20T09:40:00Z",
+              "minutes": 30,
+              "plannedWave": 1,
+              "mergedWave": 1
+            },
+            {
+              "slice": "s2",
+              "pr": 14,
+              "url": "https://github.com/acme/widgets/pull/14",
+              "openedAt": "2026-09-20T09:45:00Z",
+              "mergedAt": "2026-09-20T10:05:00Z",
+              "closedAt": "2026-09-20T10:05:00Z",
+              "minutes": 20,
+              "plannedWave": 2,
+              "mergedWave": 2
+            },
+            {
+              "slice": "s3",
+              "pr": 15,
+              "url": "https://github.com/acme/widgets/pull/15",
+              "openedAt": "2026-09-20T09:46:00Z",
+              "mergedAt": "2026-09-20T11:46:00Z",
+              "closedAt": "2026-09-20T11:46:00Z",
+              "minutes": 120,
+              "plannedWave": 2,
+              "mergedWave": 2
+            }
+          ],
+          "sliceCount": 3,
+          "waves": {
+            "planned": 2,
+            "merged": 2
+          },
+          "medianMinutes": 30,
+          "slowFactor": 3
+        },
+        "ci": null
+      },
+      "findings": [
+        {
+          "ref": "F1",
+          "id": "slow-slice:s3",
+          "kind": "slow-slice",
+          "title": "Slice s3 took far longer than the others",
+          "happened": "Slice s3 took 120 minutes from its claim to its merge, against a median of 30 minutes; the rules flag a slice slower than 3 times the median.",
+          "evidence": [
+            {
+              "label": "#15",
+              "url": "https://github.com/acme/widgets/pull/15"
+            }
+          ],
+          "source": "timeline"
+        }
+      ],
+      "narration": {
+        "model": null,
+        "reason": "no model key",
+        "dropped": []
+      },
+      "issues": {}
+    }
+  ]
+}

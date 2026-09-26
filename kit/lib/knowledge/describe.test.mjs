@@ -94,4 +94,12 @@ describe('describeEntry', () => {
   it('returns null for an id nothing claims', () => {
     expect(describeEntry(knowledgeOf(FIXTURE), 'P-ADVISOR-9')).toBeNull();
   });
+
+  it('says who proposed an entry and when (PRD #68), and says nothing of it for a law', () => {
+    const rules = 'docs/knowledge/domains/advisor/rules.md';
+    const files = { ...FIXTURE, [rules]: `${FIXTURE[rules]}Proposed: invade 2026-09-25\n` };
+    const text = describeEntry(knowledgeOf(files), 'BR-ADVISOR-1');
+    expect(text.split('\n')).toContain('proposed by invade on 2026-09-25 — not a law until a person removes its "Proposed:" line');
+    expect(describeEntry(knowledgeOf(FIXTURE), 'BR-ADVISOR-1')).not.toMatch(/proposed/i);
+  });
 });

@@ -10,6 +10,13 @@ description: Build a whole PRD with nothing asked along the way — plan it if n
 `omni` below is `node .omni-loop/bin/omni.mjs`. Never import the kit, and never name a path, label,
 branch shape or command you can read with `omni config <key>`.
 
+**Signing.** Every commit this skill makes ends with the co-author trailer your session requires,
+then the line `omni sign trailer` prints as the message's last line, with no blank line between
+them. Every pull request or issue it opens ends its body with the line `omni sign footer` prints, as
+a paragraph of its own just above your session's own attribution lines, and a body it rewrites keeps
+that line. Comments are never signed. A command that prints nothing means signing is off here: add
+nothing.
+
 **It asks nothing.** Every decision a slice meets becomes an outbox item (`/omni:do-work` records it
 and carries on); a person reads them all once, at the end, on the feature PR. Only `stopped` and
 `blocked` hold a slice, and only that one.
@@ -33,7 +40,9 @@ never overrides this skill's rules.
 
 Then run `node .omni-loop/bin/omni.mjs kb status` once, and print the open questions it lists. They
 are for a person, and none of them holds delivery: every slice carries on with the kit default
-where a form has a hole. Do not run it again this run.
+where a form has a hole. Beside them, print once the proposed register entries, summed over its
+`Registers` lines: `<n> proposed knowledge entries — not laws until confirmed`. A proposed entry
+floors nothing and stops no slice; delivery carries on. Do not run it again this run.
 
 ## 1. Find the PRD, the plan and the feature PR
 
@@ -106,7 +115,8 @@ Work in a detached worktree: `git fetch <remote>`, then
 5. `git push <remote> HEAD:<feature branch>`.
 6. **The body.** Tick every slice, and every passing scenario, and fill **Summary**, **Verified** (the
    commands that ran and their result), **Risk and rollback** and **Reviewer focus**, in the shape
-   `/omni:pr` owns (`gh pr edit <feature PR> --body-file <file>`).
+   `/omni:pr` owns (`gh pr edit <feature PR> --body-file <file>`), still ending with the
+   `omni sign footer` line.
 7. **The gate:**
 
    ```bash
@@ -127,8 +137,8 @@ node .omni-loop/bin/omni.mjs comment --prd <prd> --pr <feature PR>
    - Exit 1 names each reason it refused: the feature PR stays draft; name them in step 6 as `stuck`.
    - Exit 2 means the delivery folder holds uncommitted changes. Commit them if they are this run's
      own (the body file never lives there), then rerun once; otherwise stop, as for exit 1.
-2. Commit the move as `chore(delivery): ship PRD <prd>`, with your session's co-author trailer, and
-   `git push <remote> HEAD:<feature branch>`.
+2. Commit the move as `chore(delivery): ship PRD <prd>`, with your session's co-author trailer, then
+   the `omni sign trailer` line, and `git push <remote> HEAD:<feature branch>`.
 3. Only now, `gh pr ready <feature PR>`. **This is the only place in this skill a feature PR is
    marked ready**; `/omni:yolo-fix` follows this same green path after its own ship. CI runs on it
    once: follow `/omni:pr`'s lifecycle for the feature PR until its checks are green or it is stuck.
