@@ -53,3 +53,12 @@ Source: `scripts/registers.mjs` @ `vertuo-ai-domain@c4a210122`.
   of their assertions could be ported without inventing a stand-in fixture that would test something
   else entirely, so they are deleted rather than rewritten.
 - No other assertion changed.
+
+## After the port: PRD #68, slice s2 — a proposed entry
+
+Kit-only, no upstream counterpart. `FIELD_LINE` reads a `Proposed: <who> <YYYY-MM-DD>` line; each
+entry carries `proposed` (`{ by, on }`, or `null` for a law; a malformed line reads as
+`{ by: null, on: null }`, still proposed) and `problems` (the malformed line, naming the file, for
+the checker to refuse). `registerCounts({ ctx })` is new: per register folder, its laws and its
+proposed entries, for `omni kb status`. Tests added in `registers.test.mjs`; no ported assertion
+changed.

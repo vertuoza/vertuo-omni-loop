@@ -14001,7 +14001,7 @@ var ID_SHAPE = new RegExp(`^(?:${ID_SOURCE})$`);
 var ID_TOKEN = new RegExp(`\\b(?:${ID_SOURCE})\\b`, "g");
 var ENTRY_HEADING = new RegExp(`^##\\s+(${ID_SOURCE})\\s*$`);
 var ANY_H2 = /^##\s/;
-var FIELD_LINE = /^(Why|Decided|Source|Serves|Enforced by|Stated|Kind|Kept id|Glossary term):\s*(.*)$/;
+var FIELD_LINE = /^(Why|Decided|Source|Serves|Enforced by|Stated|Proposed|Kind|Kept id|Glossary term):\s*(.*)$/;
 var FIELD_KEY = {
   Why: "why",
   Decided: "decided",
@@ -14009,6 +14009,7 @@ var FIELD_KEY = {
   Serves: "serves",
   "Enforced by": "enforcedBy",
   Stated: "stated",
+  Proposed: "proposedLine",
   Kind: "kindLine",
   "Kept id": "keptId",
   "Glossary term": "glossaryTerm"
@@ -14053,6 +14054,18 @@ function readFields(lines) {
   });
   return { fields, counts, fieldAt };
 }
+var PROPOSED_VALUE = /^(\S.*?)\s+(\d{4}-\d{2}-\d{2})$/;
+function readProposed(file, id, value) {
+  if (value === void 0) return { proposed: null, problems: [] };
+  const match = value.match(PROPOSED_VALUE);
+  if (match && !/\d{4}-\d{2}-\d{2}$/.test(match[1])) {
+    return { proposed: { by: match[1], on: match[2] }, problems: [] };
+  }
+  return {
+    proposed: { by: null, on: null },
+    problems: [`${file}: ${id} \u2014 "Proposed: ${value}" is not "Proposed: <who> <YYYY-MM-DD>".`]
+  };
+}
 function splitEntries(text2) {
   const entries = [];
   let current = null;
@@ -14077,6 +14090,7 @@ function parseEntryFile(file, text2, place) {
     const statement = (fieldAt === -1 ? lines : lines.slice(0, fieldAt)).filter((line) => line.trim().length > 0).join(" ").trim();
     const kind = place.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
     const enforcedBy = fields.enforcedBy ?? null;
+    const { proposed, problems } = readProposed(file, id, fields.proposedLine);
     return {
       id,
       kind,
@@ -14092,9 +14106,11 @@ function parseEntryFile(file, text2, place) {
       enforcedBy,
       enforced: enforcedBy !== null && enforcedBy !== "unenforced",
       stated: fields.stated ?? null,
+      proposed,
       kindLine: fields.kindLine ?? null,
       keptId: fields.keptId ?? null,
-      fieldCounts: counts
+      fieldCounts: counts,
+      problems
     };
   });
 }
@@ -14181,6 +14197,19 @@ function readRegisters({ ctx }) {
     rules: entries.filter((entry) => entry.kind === "rule"),
     invariants: entries.filter((entry) => entry.kind === "invariant")
   };
+}
+function registerCounts({ ctx }) {
+  const knowledge2 = readKnowledge({ ctx });
+  const folders = [
+    ...knowledge2.productFiles.length > 0 ? [productDir(ctx)] : [],
+    ...knowledge2.domains.map((domain) => `${domainsDir(ctx)}/${domain.name}`),
+    ...knowledge2.crossDomainFiles.length > 0 ? [crossDomainDir(ctx)] : []
+  ];
+  return folders.map((folder) => {
+    const held = knowledge2.entries.filter((entry) => entry.file.startsWith(`${folder}/`));
+    const proposals = held.filter((entry) => entry.proposed !== null).length;
+    return { folder, laws: held.length - proposals, proposals };
+  });
 }
 function resolveId(id, { ctx }) {
   return readKnowledge({ ctx }).entries.find((entry) => entry.id === id) ?? null;
@@ -14386,8 +14415,8 @@ import { join as join14 } from "node:path";
 function violation(file, id, detail) {
   return { file, id, detail };
 }
-function formatViolation({ file, id, detail }) {
-  return `${file}: ${id} \u2014 ${detail}`;
+function formatViolation({ file, id, detail, text: text2 }) {
+  return text2 ?? `${file}: ${id} \u2014 ${detail}`;
 }
 var STATED_DATE = /^\d{4}-\d{2}-\d{2}$/;
 var PATH_LIKE = /^[\w.@-]+(?:\/[\w.@-]+)+(?:#\S*)?$/;
@@ -14629,6 +14658,7 @@ function findEntryViolations(ctx, entries) {
   const violations = [];
   for (const entry of entries) {
     violations.push(...idShapeViolations(entry));
+    violations.push(...(entry.problems ?? []).map((problem) => ({ text: problem })));
     if (entry.scope === "cross-domain" && !entry.kind) {
       violations.push(
         violation(entry.file, entry.id, 'is missing a "Kind: rule" or "Kind: invariant" line.')
@@ -14665,7 +14695,7 @@ function findEntryViolations(ctx, entries) {
         );
       }
       if (!entry.why) violations.push(violation(entry.file, entry.id, 'is missing a "Why:" line.'));
-      if (!entry.decided) {
+      if (!entry.decided && entry.proposed === null) {
         violations.push(violation(entry.file, entry.id, 'is missing a "Decided:" line.'));
       }
       continue;
@@ -14703,6 +14733,15 @@ function findWishes(entries) {
     (entry) => violation(entry.file, entry.id, "is a wish \u2014 no rule or invariant serves it yet.")
   );
 }
+function findProposals(entries) {
+  return entries.filter((entry) => entry.proposed !== null && entry.proposed.by !== null).map(
+    (entry) => violation(
+      entry.file,
+      entry.id,
+      `is proposed by ${entry.proposed.by} on ${entry.proposed.on} \u2014 not a law until a person removes its "Proposed:" line.`
+    )
+  );
+}
 function gradeKnowledge({ ctx, files = [], glossaryText } = {}) {
   const knowledge2 = readKnowledge({ ctx });
   const resolve = (id) => knowledge2.entries.find((entry) => entry.id === id);
@@ -14717,7 +14756,8 @@ function gradeKnowledge({ ctx, files = [], glossaryText } = {}) {
   ];
   return {
     violations: violations.map(formatViolation),
-    wishes: findWishes(knowledge2.entries).map(formatViolation)
+    wishes: findWishes(knowledge2.entries).map(formatViolation),
+    proposals: findProposals(knowledge2.entries).map(formatViolation)
   };
 }
 
@@ -14777,7 +14817,7 @@ function lawsFor(ctx) {
     return { ok: false, reason: `${bearsOn}: not none, an ADR-NNNN or a knowledge id` };
   }
   function floorsHigh(bearsOn) {
-    if (source === "knowledge") return ID_SHAPE.test(bearsOn);
+    if (source === "knowledge") return ID_SHAPE.test(bearsOn) && !resolveId(bearsOn, { ctx })?.proposed;
     if (source === "claudeMdInvariants") return invariantSet().has(bearsOn);
     return false;
   }
@@ -15363,7 +15403,7 @@ function playbookStatus({ ctx, exec }) {
       stale: staleEvidence(form2?.evidence ?? [], { ctx, exec }).map(({ path, hash, now }) => ({ path, hash, now }))
     };
   });
-  return { frontDoor: ctx.layout.frontDoor, forms };
+  return { frontDoor: ctx.layout.frontDoor, forms, registers: registerCounts({ ctx }) };
 }
 
 // kit/lib/playbook/check-playbook.mjs
@@ -15461,15 +15501,16 @@ function checkKnowledge({ ctx, stdout, stderr }) {
     return true;
   }
   const files = trackedFiles(ctx).filter((file) => file.startsWith(`${root}/`) && file.endsWith(".md"));
-  const { violations, wishes } = gradeKnowledge({ ctx, files });
+  const { violations, wishes, proposals } = gradeKnowledge({ ctx, files });
   for (const wish of wishes) println(stderr, `warning: ${wish}`);
+  for (const proposal of proposals) println(stderr, `warning: ${proposal}`);
   const knowledge2 = readKnowledge({ ctx });
   const count = (kind) => knowledge2.entries.filter((entry) => entry.kind === kind).length;
   return report(
     stdout,
     title,
     violations,
-    `check knowledge \u2014 ${count("principle")} principle(s), ${count("rule")} rule(s), ${count("invariant")} invariant(s) across ${knowledge2.domains.length} domain(s) and ${knowledge2.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es).`
+    `check knowledge \u2014 ${count("principle")} principle(s), ${count("rule")} rule(s), ${count("invariant")} invariant(s) across ${knowledge2.domains.length} domain(s) and ${knowledge2.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed.`
   );
 }
 var FORM_STATES2 = ["filled", "pointer", "blank", "missing"];
@@ -17412,7 +17453,15 @@ function show(positional, flags, { ctx, stdout, stderr }) {
   return 0;
 }
 var SOURCE_LABEL = { repo: "repo", pointer: "pointer", kit: "kit default" };
-function statusText({ frontDoor, forms }) {
+function registerLines(registers) {
+  if (registers.length === 0) return ["Registers: none."];
+  const width = Math.max(...registers.map(({ folder }) => folder.length));
+  return [
+    `Registers: ${registers.length} folder(s)`,
+    ...registers.map(({ folder, laws, proposals }) => `  ${folder.padEnd(width)}  ${laws} law(s) \xB7 ${proposals} proposal(s)`)
+  ];
+}
+function statusText({ frontDoor, forms, registers }) {
   const width = Math.max(...forms.map(({ form: form2 }) => form2.length));
   const lines = [`kb status \u2014 ${forms.length} form(s) in ${frontDoor}`];
   for (const { form: form2, kind, state, source, questions: questions2, stale: stale2 } of forms) {
@@ -17426,6 +17475,7 @@ function statusText({ frontDoor, forms }) {
   const stale = forms.flatMap(
     ({ form: form2, file, stale: entries }) => entries.map(({ path, hash, now }) => `  ${form2} (${file}): ${path}@${hash} \u2014 ${now === null ? "gone" : `now ${now.slice(0, 7)}`}`)
   );
+  lines.push(...registerLines(registers));
   lines.push(questions.length > 0 ? `Open questions: ${questions.length}` : "Open questions: none.", ...questions);
   lines.push(stale.length > 0 ? `Stale evidence: ${stale.length}` : "Stale evidence: none.", ...stale);
   return lines.join("\n");
@@ -17476,6 +17526,11 @@ function describeEntry(knowledge2, id) {
   ];
   for (const [key, label] of LINES) {
     if (entry[key]) out.push(`${label}: ${entry[key]}`);
+  }
+  if (entry.proposed) {
+    const { by, on } = entry.proposed;
+    const who = by === null ? 'proposed (its "Proposed:" line is malformed)' : `proposed by ${by} on ${on}`;
+    out.push("", `${who} \u2014 not a law until a person removes its "Proposed:" line`);
   }
   if (entry.serves) {
     const served = knowledge2.entries.find((candidate) => candidate.id === entry.serves);

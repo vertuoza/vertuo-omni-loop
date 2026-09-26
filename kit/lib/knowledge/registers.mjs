@@ -23,6 +23,9 @@
  * marks an entry whose id predates the layout and whose prefix is therefore not its domain's code.
  * A domain's **code** is its folder name uppercased with the hyphens removed.
  *
+ * Any entry may carry `Proposed: <who> <YYYY-MM-DD>` (PRD #68): no person has confirmed it yet. Its
+ * id resolves, but it is no law — `laws.floorsHigh` is false for it — until a person removes the line.
+ *
  * Nothing else may glob this markdown: `check-knowledge.mjs` grades it, `outbox.mjs` resolves a
  * `bears-on` id through {@link resolveId}, and `describe.mjs` prints an entry and what serves it.
  *
@@ -324,6 +327,25 @@ export function readRegisters({ ctx }) {
     rules: entries.filter((entry) => entry.kind === 'rule'),
     invariants: entries.filter((entry) => entry.kind === 'invariant'),
   };
+}
+
+/**
+ * Per register folder — `product/`, each `domains/<domain>/`, `cross-domain/` — how many of its
+ * entries are laws and how many are proposed (PRD #68): `[{ folder, laws, proposals }]`, in that
+ * order, a folder listed only when it exists and holds a file. An absent knowledge folder is `[]`.
+ */
+export function registerCounts({ ctx }) {
+  const knowledge = readKnowledge({ ctx });
+  const folders = [
+    ...(knowledge.productFiles.length > 0 ? [productDir(ctx)] : []),
+    ...knowledge.domains.map((domain) => `${domainsDir(ctx)}/${domain.name}`),
+    ...(knowledge.crossDomainFiles.length > 0 ? [crossDomainDir(ctx)] : []),
+  ];
+  return folders.map((folder) => {
+    const held = knowledge.entries.filter((entry) => entry.file.startsWith(`${folder}/`));
+    const proposals = held.filter((entry) => entry.proposed !== null).length;
+    return { folder, laws: held.length - proposals, proposals };
+  });
 }
 
 /** `id` → its entry, or `null` when nothing claims it. */
