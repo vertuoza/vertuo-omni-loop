@@ -6,7 +6,11 @@
    and the pieces that live outside `scenes/` (the key hints, the sprites, the toast). The shell
    around the screen (the Game Boy bodies and their controls) is in `shell.css`. The helpers two
    scene groups share are in `scenes/common.css`, and each group's own styles in
-   `scenes/<group>.css`, imported by that group's text layer. */
+   `scenes/<group>.css`, imported by that group's text layer.
+
+   Every colour custom property on :root is a theme token (theme.ts), at its default: a workspace's
+   theme overrides them on the arcade's root element (`.shell`), and theme.test.ts holds the two
+   lists equal. A colour a workspace may change is declared here, never written as a literal. */
 
 :root {
   color-scheme: dark;
@@ -24,6 +28,25 @@
   --red: #ff3b5c;
   --cyan: #6ff0ff;
   --green: #4ee08a;
+  /* The Game Boy's body (shell.css): its shell runs from --plasma through --body-mid to
+     --plasma-dark; A is --red with its shine, B --plasma with its. */
+  --body-mid: #8a45ee;
+  --body-ink: #1a1560;
+  --body-ink-soft: #2a1d78;
+  --body-lens-1: #1d1a4a;
+  --body-lens-2: #14123a;
+  --body-lens-text: #9aa0e0;
+  --body-led-off: #3a1030;
+  --body-pad-1: #26224f;
+  --body-pad-2: #15122f;
+  --body-pad-arrow: #5a54a8;
+  --body-pad-down-1: #151230;
+  --body-pad-down-2: #0b0a1e;
+  --body-a-shine: #ff7d94;
+  --body-b-shine: #caa0ff;
+  --body-pill-1: #3b2a86;
+  --body-pill-2: #241a5a;
+  --body-grille: #4a1fa6;
   --px: 'Press Start 2P', 'Courier New', monospace;
   /* Condensed fallbacks: a wide face in its place would overflow every panel. */
   --txt: 'Jersey 10', 'Arial Narrow', 'Roboto Condensed', 'Liberation Sans Narrow', 'Helvetica Neue', Arial, sans-serif;

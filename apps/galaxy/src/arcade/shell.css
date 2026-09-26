@@ -4,7 +4,9 @@
 
    The shell is the whole window, and never scrolls. The two bodies are galaxy purple, from
    --plasma-dark to --plasma, with a navy lens, a red A and a plasma B. Their words are the
-   arcade's own: no Nintendo name, logo or label. */
+   arcade's own: no Nintendo name, logo or label. Every colour they are drawn in is a theme token
+   (the --body-* ones and the arcade's own, declared on arcade.css's :root), so a workspace's theme
+   recolours the body; only the light and the shadow on it are written here. */
 
 .shell { position: fixed; inset: 0; display: grid; overflow: hidden; }
 
@@ -28,7 +30,6 @@ html.held-still body { position: fixed; inset: 0; }
 
 .form-handheld, .form-advance {
   --gutter: 12px;
-  --ink: #1a1560;
   --safe-top: max(var(--gutter), env(safe-area-inset-top));
   --safe-right: max(var(--gutter), env(safe-area-inset-right));
   --safe-bottom: max(8px, env(safe-area-inset-bottom));
@@ -39,7 +40,7 @@ html.held-still body { position: fixed; inset: 0; }
   background:
     radial-gradient(ellipse at 30% 0%, rgba(255, 255, 255, 0.14), transparent 50%),
     radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1.5px) 0 0 / 5px 5px,
-    linear-gradient(165deg, var(--plasma) 0%, #8a45ee 45%, var(--plasma-dark) 100%);
+    linear-gradient(165deg, var(--plasma) 0%, var(--body-mid) 45%, var(--plasma-dark) 100%);
 }
 
 /* The Game Boy, upright: the lens, the wordmark, room to spare, the controls. The lens is as tall as
@@ -68,7 +69,7 @@ html.held-still body { position: fixed; inset: 0; }
 .gb-lens { grid-area: lens; position: relative; display: grid; min-width: 0; min-height: 0; }
 .form-handheld .gb-lens, .form-advance .gb-lens {
   padding: 28px 14px 16px;
-  background: linear-gradient(180deg, #1d1a4a, #14123a);
+  background: linear-gradient(180deg, var(--body-lens-1), var(--body-lens-2));
   border-radius: 10px 10px 46px 10px;
   box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.08), 0 2px 0 rgba(0, 0, 0, 0.25);
 }
@@ -87,7 +88,7 @@ html.held-still body { position: fixed; inset: 0; }
   font-size: 8px;
   line-height: 1;
   letter-spacing: 0.06em;
-  color: #9aa0e0;
+  color: var(--body-lens-text);
   white-space: nowrap;
 }
 .gb-stripe::before, .gb-stripe::after {
@@ -106,7 +107,7 @@ html.held-still body { position: fixed; inset: 0; }
   height: 7px;
   margin-top: -4px;
   border-radius: 50%;
-  background: #3a1030;
+  background: var(--body-led-off);
   box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.5);
 }
 .gb-led.on { background: var(--red); box-shadow: 0 0 8px var(--red); }
@@ -124,12 +125,12 @@ html.held-still body { position: fixed; inset: 0; }
   padding-left: 12px;
   font-size: 14px;
   line-height: 1;
-  color: var(--ink);
+  color: var(--body-ink);
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
   white-space: nowrap;
   overflow: hidden;
 }
-.gb-word small { font-size: 8px; color: #2a1d78; }
+.gb-word small { font-size: 8px; color: var(--body-ink-soft); }
 .form-advance .gb-word { justify-content: center; padding-left: 0; }
 
 /* ── The controls ───────────────────────────────────────────────────────── */
@@ -157,9 +158,9 @@ html.held-still body { position: fixed; inset: 0; }
   box-sizing: border-box;
   padding: 0;
   border: 0;
-  background: linear-gradient(180deg, #26224f, #15122f);
+  background: linear-gradient(180deg, var(--body-pad-1), var(--body-pad-2));
   box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.4), 0 3px 0 rgba(0, 0, 0, 0.25);
-  color: #5a54a8;
+  color: var(--body-pad-arrow);
   font-size: 10px;
   line-height: 1;
 }
@@ -184,9 +185,9 @@ html.held-still body { position: fixed; inset: 0; }
   color: rgba(255, 255, 255, 0.9);
   box-shadow: inset 0 -5px 0 rgba(0, 0, 0, 0.3), 0 4px 0 rgba(40, 10, 90, 0.45);
 }
-.gb-face-a { left: 80px; top: 0; background: radial-gradient(circle at 35% 30%, #ff7d94, var(--red) 60%); }
-.gb-face-b { left: 0; top: 44px; background: radial-gradient(circle at 35% 30%, #caa0ff, var(--plasma) 60%); }
-.gb-face-label { position: absolute; width: 60px; font-size: 8px; line-height: 1; text-align: center; color: var(--ink); }
+.gb-face-a { left: 80px; top: 0; background: radial-gradient(circle at 35% 30%, var(--body-a-shine), var(--red) 60%); }
+.gb-face-b { left: 0; top: 44px; background: radial-gradient(circle at 35% 30%, var(--body-b-shine), var(--plasma) 60%); }
+.gb-face-label { position: absolute; width: 60px; font-size: 8px; line-height: 1; text-align: center; color: var(--body-ink); }
 .gb-face-label-a { left: 80px; top: 70px; }
 .gb-face-label-b { left: 0; top: 114px; }
 
@@ -210,10 +211,10 @@ html.held-still body { position: fixed; inset: 0; }
   width: 48px;
   height: 13px;
   border-radius: 999px;
-  background: linear-gradient(180deg, #3b2a86, #241a5a);
+  background: linear-gradient(180deg, var(--body-pill-1), var(--body-pill-2));
   box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.35), 0 2px 0 rgba(40, 10, 90, 0.35);
 }
-.gb-pill span { font-size: 8px; line-height: 1; color: var(--ink); white-space: nowrap; }
+.gb-pill span { font-size: 8px; line-height: 1; color: var(--body-ink); white-space: nowrap; }
 
 /* The speaker grille, labelled SOUND: a tap toggles the sound. */
 .gb-grille {
@@ -236,10 +237,10 @@ html.held-still body { position: fixed; inset: 0; }
   width: 5px;
   height: 40px;
   border-radius: 999px;
-  background: #4a1fa6;
+  background: var(--body-grille);
   box-shadow: inset 0 2px 2px rgba(0, 0, 0, 0.45);
 }
-.gb-grille-label { font-size: 8px; line-height: 1; color: var(--ink); }
+.gb-grille-label { font-size: 8px; line-height: 1; color: var(--body-ink); }
 
 /* A pressed part sinks and darkens. */
 .gb-face[data-down], .gb-pill[data-down] i, .gb-grille[data-down] .gb-slots {
@@ -251,7 +252,7 @@ html.held-still body { position: fixed; inset: 0; }
 .gb-dpad[data-dir='down'] .gb-arm-down,
 .gb-dpad[data-dir='left'] .gb-arm-left,
 .gb-dpad[data-dir='right'] .gb-arm-right {
-  background: linear-gradient(180deg, #151230, #0b0a1e);
+  background: linear-gradient(180deg, var(--body-pad-down-1), var(--body-pad-down-2));
   box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.5);
   color: var(--cyan);
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LETTERS, letterOf, MARK_SHADE, MARK_SIZE, MARK_STOPS, markFor, type Letter, type Run } from './mark';
+import { LETTERS, letterOf, MARK_SIZE, markFor, type Letter, type Run } from './mark';
 
 // Today's V, pixel for pixel: the runs the boot screen drew before the mark took a brand's letter,
 // as [x, y, width, row of bars]. Four rows of bars, 10 pixels apart, each a 6-pixel pill.
@@ -26,8 +26,6 @@ describe('the mark', () => {
     expect(MARK_SIZE).toBe(36);
     expect(mark.stops).toEqual([[0, '#ff5f6d'], [0.55, '#a45cff'], [1, '#4a63ff']]);
     expect(mark.shade).toEqual([[0, '#a8183a'], [0.55, '#6a2fd0'], [1, '#2f3fc4']]);
-    expect(mark.stops).toBe(MARK_STOPS);
-    expect(mark.shade).toBe(MARK_SHADE);
   });
 
   it('has a letter for every one of A to Z', () => {
