@@ -3,11 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "The Omni Loop design system: the palette, hand-placed pixel sprites and the planet renderer.",
+  "description": "The Omni Loop design system: the colour tokens and tokens.css, hand-placed pixel sprites and the planet renderer.",
+  "scripts": {
+    "tokens": "node --input-type=module -e \"import { writeFileSync } from 'node:fs'; import { tokensCss } from './src/tokens.mjs'; writeFileSync('tokens.css', tokensCss());\""
+  },
   "exports": {
     ".": {
       "types": "./src/index.d.ts",
       "default": "./src/index.mjs"
-    }
+    },
+    "./tokens.css": "./tokens.css"
   }
 }
