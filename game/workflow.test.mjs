@@ -2,6 +2,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
+import { backupFiles } from './cli/export.mjs';
+import { supabaseRest } from './sources/supabase.mjs';
+import { fakeSupabase } from './test/fake-supabase.mjs';
 
 const wf = parse(readFileSync(new URL('../.github/workflows/game.yml', import.meta.url), 'utf8'));
 
@@ -69,5 +72,23 @@ describe('game workflow: XP (PRD 160)', () => {
   it('has a root script for it, beside the other game scripts', () => {
     const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
     expect(pkg.scripts['game:xp']).toBe('node --env-file-if-exists=apps/galaxy/.env.local game/cli/xp.mjs');
+  });
+});
+
+describe('game workflow: the scores backup (PRD 160)', () => {
+  const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';
+  const ACME = 'b0000000-0000-4000-8000-000000000002';
+  const score = (workspace_id, user_id, best) => ({ workspace_id, user_id, game: 'invaders', best, at: '2026-09-26T18:00:00+00:00' });
+
+  it('exports arcade_scores, which nothing can rebuild, and leaves player_xp out, which the ledger rebuilds', async () => {
+    const fake = fakeSupabase({
+      workspaces: [{ id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan', join_domain: 'vertuoza.com', theme: {}, created_at: 'c' }],
+      arcade_scores: [score(VERTUOZA, 'u1', 1240), score(ACME, 'u9', 385)],
+      player_xp: [{ workspace_id: VERTUOZA, github_login: 'alice', xp: 180, level: 3, unlocked: ['invaders'], computed_at: 'c' }],
+    });
+    const files = await backupFiles(supabaseRest({ url: 'https://x.supabase.co', key: 'k', fetch: fake.fetch }), VERTUOZA);
+    expect(Object.keys(files)).toEqual(['workspace', 'ledger_events', 'sectors', 'teams', 'players', 'arcade_scores']);
+    expect(files.arcade_scores).toEqual([score(VERTUOZA, 'u1', 1240)]);
+    expect(fake.calls.some((c) => c.table === 'player_xp')).toBe(false);
   });
 });

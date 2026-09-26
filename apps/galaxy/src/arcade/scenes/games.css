@@ -36,7 +36,12 @@
 .cab-hero { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); line-height: 0; }
 .cab-scores { display: grid; gap: 8px; margin: 6px 8px 0; font-size: 7px; text-align: left; }
 .cab-scores b { font-weight: 400; color: var(--cyan); }
-.cab-scores span { font-family: var(--txt); font-size: 15px; color: var(--dim); }
+.cab-none { font-family: var(--txt); font-size: 15px; color: var(--dim); }
+.cab-none.cab-unreadable { color: #ff8fa3; }
+/* The crew's top five: rank and name, and the score flush right; the player's own line in yellow. */
+.cab-top { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.cab-top li { display: flex; justify-content: space-between; gap: 6px; line-height: 1; color: var(--white); white-space: nowrap; }
+.cab-top li.mine { color: var(--yellow); }
 .cab-play { align-self: center; margin: auto 0 6px; padding: 5px 12px 4px; font-size: 7px; color: #fff; background: var(--red); }
 
 .cabinet.dark .marquee { font-size: 9px; color: #3a3f7a; background: #12103a; border-color: #2a2766; }
@@ -65,6 +70,8 @@
 .grid-tall .marquee { height: 28px; font-size: 8px; line-height: 12px; }
 .grid-tall .cab-screen { height: 64px; gap: 1px; padding-top: 3px; }
 .grid-tall .cab-scores { gap: 4px; margin-top: 2px; font-size: 8px; }
+.grid-tall .cabinet.lit .cab-screen { height: 50px; } /* room for the five lines under it */
+.grid-tall .cab-top { gap: 3px; }
 .grid-tall .cab-play { margin-bottom: 2px; font-size: 8px; }
 .grid-tall .cab-lock { margin-top: 6px; }
 .grid-tall .games-foot { position: static; align-self: stretch; text-align: center; line-height: 1; }

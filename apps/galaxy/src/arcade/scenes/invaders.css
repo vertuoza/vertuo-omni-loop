@@ -4,14 +4,16 @@
 
 .inv { position: absolute; inset: 0; }
 
-/* The score line, over the field's ceiling: the score, the wave, the lives left. */
+/* The score line, over the field's ceiling: the score, the crew's best (HI) in the middle, the wave,
+   the lives left; the way to pause between the score and the HI. */
 .inv-stat { position: absolute; top: 6px; display: grid; gap: 5px; margin: 0; line-height: 1; }
-.inv-stat b { font-weight: 400; font-size: 7px; color: var(--cyan); letter-spacing: 1px; }
+.inv-stat b { font-weight: 400; font-size: 7px; color: var(--cyan); letter-spacing: 1px; white-space: nowrap; }
 .inv-stat span { font-size: 10px; color: var(--white); }
 .inv-score { left: 24px; }
+.inv-hi { left: 50%; transform: translateX(-50%); justify-items: center; }
 .inv-wave { left: 470px; }
 .inv-lives { position: absolute; top: 6px; right: 24px; display: flex; gap: 4px; }
-.inv-foot { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); margin: 0; white-space: nowrap; }
+.inv-foot { position: absolute; top: 12px; left: 112px; margin: 0; white-space: nowrap; }
 
 /* A screen over the field: the ready screen with its score table over the formation, clear of the
    hero; the pause and the game over in the middle of the field. */
@@ -24,6 +26,13 @@
 .inv-final { display: flex; gap: 10px; align-items: baseline; }
 .inv-final b { font-weight: 400; font-size: 8px; color: var(--cyan); }
 .inv-final span { font-size: 16px; color: var(--white); }
+/* Where sending the game over's score stands: saving, NEW BEST (blinking), the player's best, or not saved. */
+.inv-send { font-size: 8px; letter-spacing: 1px; color: var(--white); }
+.inv-sending { color: var(--dim); }
+.inv-best { color: var(--yellow); animation: inv-blink 0.8s steps(1) infinite; }
+.inv-failed { color: #ff8fa3; }
+@keyframes inv-blink { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .inv-best { animation: none; } }
 
 .inv-table { display: grid; grid-template-columns: 24px max-content max-content; align-items: center; gap: 2px 12px; margin: 0; padding: 0; list-style: none; text-align: left; }
 .inv-table li { display: contents; }
@@ -34,9 +43,11 @@
 .grid-tall .inv-stat { top: 4px; gap: 4px; }
 .grid-tall .inv-stat b, .grid-tall .inv-stat span { font-size: 8px; }
 .grid-tall .inv-score { left: 10px; }
-.grid-tall .inv-wave { left: 96px; }
-.grid-tall .inv-lives { top: 3px; right: 10px; gap: 2px; }
-.grid-tall .inv-foot { top: 8px; left: 146px; transform: none; font-size: 8px; }
+/* SCORE, HI (room for the cap's 9 999 999), WAVE and the way to pause, left to right, then the lives. */
+.grid-tall .inv-hi { left: 66px; transform: none; justify-items: start; }
+.grid-tall .inv-wave { left: 144px; }
+.grid-tall .inv-lives { top: 3px; right: 8px; gap: 2px; }
+.grid-tall .inv-foot { top: 8px; left: 186px; transform: none; font-size: 8px; }
 .grid-tall .inv-foot .j-key, .grid-tall .inv-panel .j-key { font-size: 8px; }
 .grid-tall .inv-panel { top: 30px; gap: 5px; padding: 8px 10px; }
 .grid-tall .inv-ready { left: 12px; right: 12px; transform: none; }

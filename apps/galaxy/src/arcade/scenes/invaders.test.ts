@@ -10,7 +10,8 @@ import { DEFAULT_THEME } from '../theme';
 import { gridFor, TALL, WIDE, type Grid } from '../grid';
 import { ScreenContext } from '../Screen';
 import { alienAt, FIELDS, hudOf, newGame, press, type Game, type GameHud } from '../games/invaders';
-import type { FleetRow } from '../types';
+import type { FleetRow, ScoreLine } from '../types';
+import { failed, saved, SEND_TRIES, sending, type ScoreSend } from './invaders-score';
 import type { FrameState } from './common.ts';
 import { layoutMap } from './map.ts';
 
@@ -54,7 +55,9 @@ function textOf(el: ReactElement, grid: Grid): string[] {
     .split('\n').map((s) => s.trim()).filter(Boolean);
 }
 
-const screen = (hud: GameHud, grid: Grid) => textOf(createElement(InvadersOverlay, { hud, values: VALUES, hero, team }), grid);
+const screen = (hud: GameHud, grid: Grid, more: { hi?: ScoreLine | null; send?: ScoreSend | null } = {}) =>
+  textOf(createElement(InvadersOverlay, { hud, values: VALUES, hero, team, ...more }), grid);
+const DIME: ScoreLine = { id: 'u-dime', name: 'DIME', hero: null, team: null, best: 12480 };
 
 // A 2D context that swallows every call.
 function sink() {
@@ -175,5 +178,69 @@ describe('the text layer', () => {
     expect(text).toContain('GAME OVER');
     expect(text).toContain('00 385');
     expect(text).toContain('GAME ROOM');
+  });
+});
+
+describe('the crew\'s best on the score line', () => {
+  const play = (layout: 'wide' | 'tall') => ({ ...hudOf(press(newGame({ layout, values: VALUES, seed: 3 }), 'a').game), score: 1240 });
+
+  it('shows HI with the name and score of the crew\'s best on the wide grid', () => {
+    const text = screen(play('wide'), WIDE, { hi: DIME });
+    const i = text.indexOf('HI · DIME');
+    expect(i).toBeGreaterThanOrEqual(0);
+    expect(text[i + 1]).toBe('12 480');
+    expect(text).toContain('01 240');
+  });
+
+  it('shows HI and its score without the name on the tall grid, where the wave and the way to pause keep their place', () => {
+    const text = screen(play('tall'), TALL, { hi: DIME });
+    expect(text[text.indexOf('HI') + 1]).toBe('12 480');
+    expect(text.join(' ')).not.toContain('DIME');
+    expect(text).toContain('WAVE');
+    expect(text).toContain('PAUSE');
+  });
+
+  it('shows no HI before anyone has a score', () => {
+    const text = screen(hudOf(newGame({ layout: 'wide', values: VALUES, seed: 3 })), WIDE, { hi: null });
+    expect(text.some((s) => s.startsWith('HI'))).toBe(false);
+  });
+});
+
+describe('the game over, sending its score', () => {
+  const over: GameHud = { layout: 'wide', phase: 'over', score: 385, lives: 0, wave: 3 };
+  const lost = failed(sending(385));
+
+  it('says the score is being saved, and A goes back to the room', () => {
+    const text = screen(over, WIDE, { send: sending(385) });
+    expect(text).toContain('SAVING SCORE…');
+    expect(text).not.toContain('RETRY');
+    expect(text).toContain('GAME ROOM');
+  });
+
+  it.each([WIDE, TALL])('shows NEW BEST when the score is one (%o)', (grid) => {
+    const text = screen({ ...over, layout: grid.name }, grid, { send: saved(sending(385), 385, 200) });
+    expect(text).toContain('NEW BEST');
+    expect(text).toContain('00 385');
+  });
+
+  it('shows the player\'s best instead when the score is not one', () => {
+    const text = screen(over, WIDE, { send: saved(sending(385), 12480, 12480) });
+    expect(text).not.toContain('NEW BEST');
+    expect(text).toContain('YOUR BEST 12 480');
+  });
+
+  it.each([WIDE, TALL])('says SCORE NOT SAVED when sending failed: A retries, B goes back to the room (%o)', (grid) => {
+    const text = screen({ ...over, layout: grid.name }, grid, { send: lost });
+    expect(text).toContain('SCORE NOT SAVED');
+    const a = text.indexOf('A'), b = text.indexOf('B');
+    expect(text[a + 1]).toBe('RETRY');
+    expect(text[b + 1]).toBe('GAME ROOM');
+  });
+
+  it('after its one retry fails too, keeps SCORE NOT SAVED and A goes back to the room', () => {
+    const text = screen(over, WIDE, { send: failed(sending(385, SEND_TRIES)) });
+    expect(text).toContain('SCORE NOT SAVED');
+    expect(text).not.toContain('RETRY');
+    expect(text[text.indexOf('A') + 1]).toBe('GAME ROOM');
   });
 });
