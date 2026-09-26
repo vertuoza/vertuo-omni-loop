@@ -358,3 +358,15 @@ Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #101
 Proposed: harvest 2026-09-26
+
+## BR-PRODUCT-31
+
+The public /design page dresses its heroes only in the six built-in fleets of the demo galaxy, never in any workspace's own fleets, whoever is viewing.
+
+Serves: P-PRODUCT-29
+Source: .omni-loop/delivery/shipped/0141-design-system/outbox/settled.md, entry s6-01-design-page-shows-the-built-in-fleets, PRD #141
+Enforced by: unenforced
+Stated: 2026-09-26
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-26, PR #153
+Proposed: harvest 2026-09-26

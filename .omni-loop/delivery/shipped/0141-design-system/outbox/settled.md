@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-26
 - Slice: s2
 - Wave: 2
+- Stays here: A local file-placement choice inside one package; moving it later is a file move and a few imports, with nothing lasting for the knowledge base to keep.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ Moving the two tables into the tokens module later is a file move and a few impo
 - Raised: 2026-09-26
 - Slice: s2
 - Wave: 2
+- Stays here: A narrow, self-adopted choice about six values that is cheap to reverse. No existing ADR or rule covers the design library, and no lasting law follows from it.
 
 ### The answer, as it was given
 
@@ -172,6 +174,7 @@ Moving them later is six values added to the library and six lines changed in th
 - Raised: 2026-09-26
 - Slice: s2
 - Wave: 2
+- Stays here: A deferred local choice, cheap to change later with no stored data; nothing lasting to record beyond the ledger.
 
 ### The answer, as it was given
 
@@ -249,6 +252,7 @@ Adding them to the shared stylesheet later is a change to the generator and to t
 - Raised: 2026-09-26
 - Slice: s4
 - Wave: 2
+- Stays here: A local sprite choice that is cheap to reverse: girl and boy poses can be added later without changing stored data, and no screen draws poses yet.
 
 ### The answer, as it was given
 
@@ -327,6 +331,7 @@ Drawing girl and boy poses later adds sprites beside these; nothing stored chang
 - Raised: 2026-09-26
 - Slice: s3
 - Wave: 3
+- Stays here: This was a scoping choice about which slice makes a cheap, easily reversed two-line change. The lasting font approach belongs to the feature's own plan, not to this decision.
 
 ### The answer, as it was given
 
@@ -404,6 +409,7 @@ Two lines in one layout; putting the Google link back undoes it.
 - Raised: 2026-09-26
 - Slice: s3
 - Wave: 3
+- Stays here: A local packaging choice, cheap to reverse with one line and a few files; no lasting rule, invariant or architectural decision to record.
 
 ### The answer, as it was given
 
@@ -482,6 +488,7 @@ One line in the fonts module and the extra files, about 20 KB each.
 - Raised: 2026-09-26
 - Slice: s3
 - Wave: 3
+- Stays here: These are local sizing and file-placement choices. Changing them later costs one constant per step and one generator line, and no principle, rule or record is involved.
 
 ### The answer, as it was given
 
@@ -561,6 +568,7 @@ A constant per step, and one generator line to move the properties to tokens.css
 - Raised: 2026-09-26
 - Slice: s5
 - Wave: 4
+- Stays here: A visual design choice held in editable string grids; redrawing changes pixels, not code, so there is no lasting rule, invariant or architectural decision to record.
 
 ### The answer, as it was given
 
@@ -639,6 +647,7 @@ Redrawing is editing the grids in the logo module; the tests check the rules, no
 - Raised: 2026-09-26
 - Slice: s5
 - Wave: 4
+- Stays here: A visual layout choice for two game screens, cheap to change (a constant and a condition); no lasting rule, invariant or architectural decision to record.
 
 ### The answer, as it was given
 
@@ -717,6 +726,7 @@ A constant in the boot's drawing and one condition in the title.
 - Raised: 2026-09-26
 - Slice: s5
 - Wave: 4
+- Stays here: A local visual choice in one intro scene, cheap to change with one condition; no lasting rule, invariant or architecture decision to keep.
 
 ### The answer, as it was given
 
@@ -795,6 +805,7 @@ Drawing the crest there instead is one condition in the intro scene, beside the 
 - Raised: 2026-09-26
 - Slice: s5
 - Wave: 4
+- Stays here: A one-off territory crossing for a single slice, cheap to undo; no lasting rule or build decision beyond this change.
 
 ### The answer, as it was given
 
@@ -872,6 +883,7 @@ Three lines in the arcade app and one field in the shared scene types; removing 
 - Raised: 2026-09-26
 - Slice: s6
 - Wave: 5
+- Became: BR-PRODUCT-31, P-PRODUCT-29
 
 ### The answer, as it was given
 
@@ -950,6 +962,7 @@ One import in the page's catalogue; showing a workspace's own fleets would also 
 - Raised: 2026-09-26
 - Slice: s6
 - Wave: 5
+- Stays here: A one-off choice about how this slice's review evidence was recorded; nothing lasting for the knowledge base, and no existing entry covers it.
 
 ### The answer, as it was given
 
@@ -1028,6 +1041,7 @@ Nothing to undo: attaching the images later only edits a pull request's text.
 - Raised: 2026-09-26
 - Slice: s7
 - Wave: 5
+- Stays here: A brand-usage choice recorded only in the package's documentation, with no code enforcing it; the documentation is its lasting home, and the knowledge base need not repeat it.
 
 ### The answer, as it was given
 
