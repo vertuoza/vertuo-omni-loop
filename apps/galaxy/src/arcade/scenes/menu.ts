@@ -1,7 +1,7 @@
 // The menu group on the canvas: the menu and How to play, on the wide grid and on the tall one.
-import { drawPlanet, drawSprite } from '@omni/sprites';
+import { drawPlanet } from '@omni/sprites';
 import { fleet, heroOf } from '../fleets';
-import { frameOf, nebulaFor, RING, space, type FrameState, type Pages, type SceneName } from './common.ts';
+import { frameOf, nebulaFor, RING, space, sprite, type FrameState, type Pages, type SceneName } from './common.ts';
 
 /**
  * The menu group's scenes laid out on the tall grid (`menu`, `briefing`). A scene not listed is
@@ -36,9 +36,9 @@ export function drawMenu(ctx: CanvasRenderingContext2D, s: FrameState) {
   const y = at.hero.y + (s.reduced ? 0 : Math.round(Math.sin(s.t * 2) * 3));
   if (s.join.team) {
     const look = heroOf(s.join.hero, s.join.team);
-    drawSprite(ctx, look.sprite, at.hero.x, y, { scale: at.hero.scale, tint: look.tint, frame: frameOf(s, 1.5), glow: fleet(s.join.team).color });
+    sprite(ctx, s, look.sprite, at.hero.x, y, { scale: at.hero.scale, tint: look.tint, frame: frameOf(s, 1.5), glow: fleet(s.join.team).color });
   } else {
-    drawSprite(ctx, 'omni', at.hero.x, y, { scale: at.hero.scale, frame: frameOf(s, 1.5), glow: '#a45cff' });
+    sprite(ctx, s, 'omni', at.hero.x, y, { scale: at.hero.scale, frame: frameOf(s, 1.5), glow: s.theme.plasma });
   }
 }
 

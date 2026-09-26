@@ -4,6 +4,7 @@ import { gridFor } from '../grid';
 import { setFleets } from '../fleets';
 import { HOUSE_BRAND } from '../brand';
 import { markFor } from '../mark';
+import { DEFAULT_THEME } from '../theme';
 import type { FleetRow } from '../types';
 import { TALL, WIDE, type FrameState, type Grid } from './common.ts';
 import { drawPlanetScene, planetStage, TALL_BAND, TALL_SCENES } from './planet.ts';
@@ -44,7 +45,7 @@ class FakeOffscreenCanvas {
 
 function frame(sel: number, t: number, grid: Grid): FrameState {
   return {
-    scene: 'planet', grid, page: 0, view, layout: [], sel, fleetSel: 0, t, sceneT: t, reduced: false, mark: markFor(HOUSE_BRAND.name),
+    scene: 'planet', grid, page: 0, view, layout: [], sel, fleetSel: 0, t, sceneT: t, reduced: false, mark: markFor(HOUSE_BRAND.name), theme: DEFAULT_THEME,
     join: { fleets, pick: 0, lockedAt: null, team: null, away: false, hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } },
   };
 }

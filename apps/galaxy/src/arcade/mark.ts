@@ -1,7 +1,9 @@
 // The mark: the first letter of the brand's name in split bars, coral to blue. A bar alphabet, A to
 // Z, drawn in the V's style: horizontal pills 6 pixels tall with stepped round ends, on the V's
 // 36-pixel grid, under its gradient and its shade. The V is the Vertuoza mark as it always was. The
-// boot screen, and the intro's first bars, draw whichever letter they are given (`markFor`).
+// boot screen, and the intro's first bars, draw whichever letter they are given (`markFor`), in the
+// theme's `mark-1` to `mark-3` and `mark-shade-1` to `mark-shade-3` (theme.ts).
+import { DEFAULT_THEME, type Theme } from './theme';
 
 export const MARK_SIZE = 36;
 
@@ -17,10 +19,6 @@ export interface Mark {
   readonly stops: readonly Stop[];
   readonly shade: readonly Stop[];
 }
-
-/** The left-to-right gradient, as [offset, colour] stops, and its darker shade for shadows. */
-export const MARK_STOPS = [[0, '#ff5f6d'], [0.55, '#a45cff'], [1, '#4a63ff']] as const satisfies readonly Stop[];
-export const MARK_SHADE = [[0, '#a8183a'], [0.55, '#6a2fd0'], [1, '#2f3fc4']] as const satisfies readonly Stop[];
 
 /** A bar of a row, [x, width] on the 36-pixel grid. */
 type Bar = readonly [x: number, w: number];
@@ -87,10 +85,12 @@ export function letterOf(name: string): Letter {
   return /^[A-Z]$/.test(first) ? (first as Letter) : 'O';
 }
 
-/** The mark of a name: its letter, in the mark's gradient and shade. */
-export function markFor(name: string): Mark {
+/** The mark of a name: its letter, in the theme's gradient (`mark-1` to `mark-3`) and shade (`mark-shade-1` to `mark-shade-3`). */
+export function markFor(name: string, theme: Theme = DEFAULT_THEME): Mark {
   const letter = letterOf(name);
   let runs = RUNS.get(letter);
   if (!runs) RUNS.set(letter, (runs = runsOf(LETTERS[letter])));
-  return { size: MARK_SIZE, runs, stops: MARK_STOPS, shade: MARK_SHADE };
+  const stops: Stop[] = [[0, theme['mark-1']], [0.55, theme['mark-2']], [1, theme['mark-3']]];
+  const shade: Stop[] = [[0, theme['mark-shade-1']], [0.55, theme['mark-shade-2']], [1, theme['mark-shade-3']]];
+  return { size: MARK_SIZE, runs, stops, shade };
 }

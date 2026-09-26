@@ -1,9 +1,9 @@
 // The recruit group on the canvas: the fleet select, the name entry and the hero builder, each on the
 // wide grid and on the tall one (the Game Boy held upright), where the same parts stack.
-import { drawSprite, rampFrom, spriteSize } from '@omni/sprites';
+import { rampFrom, spriteSize } from '@omni/sprites';
 import { fleet } from '../fleets';
 import {
-  bobOf, drawFleetMascot, drawHero, flash, frameOf, heroSelectWall, nebulaFor, pedestal, space,
+  bobOf, drawFleetMascot, drawHero, flash, frameOf, heroSelectWall, nebulaFor, pedestal, space, sprite,
   type FrameState, type Grid, type Pages, type SceneName,
 } from './common.ts';
 
@@ -64,7 +64,7 @@ export function drawSelect(ctx: CanvasRenderingContext2D, s: FrameState) {
   const locked = lockedAt === null ? null : s.t - lockedAt;
   pedestal(ctx, stage.cx, stage.pedestal, stage.rx, f.color);
   const jump = locked !== null ? -Math.round(Math.abs(Math.sin(locked * 7)) * 18 * Math.max(0, 1 - locked / 1.4)) : bobOf(s, 0, 3);
-  drawFleetMascot(ctx, f.name, stage.cx - 16 * stage.scale, stage.y + jump, { scale: stage.scale, frame: frameOf(s, locked !== null ? 6 : 2.2) });
+  drawFleetMascot(ctx, s, f.name, stage.cx - 16 * stage.scale, stage.y + jump, { scale: stage.scale, frame: frameOf(s, locked !== null ? 6 : 2.2) });
   const row = cardRow(fleets.length, pick, s.grid);
   const { w: cardW, h: cardH, gap } = row;
   fleets.slice(row.first, row.first + row.count).forEach((fl, k) => {
@@ -81,7 +81,7 @@ export function drawSelect(ctx: CanvasRenderingContext2D, s: FrameState) {
     const at = s.grid.name === 'wide'
       ? { x: tall ? 16 : 8, y: tall ? 8 : 7 }
       : { x: Math.round((cardW - size.w * scale) / 2), y: Math.round((cardH - size.h * scale) / 2) };
-    drawSprite(ctx, look.sprite, x + at.x, y + at.y, { scale, tint: look.tint ?? undefined, frame: on ? frameOf(s, 3) : 0, alpha: on ? 1 : 0.75 });
+    sprite(ctx, s, look.sprite, x + at.x, y + at.y, { scale, tint: look.tint ?? undefined, frame: on ? frameOf(s, 3) : 0, alpha: on ? 1 : 0.75 });
   });
   if (locked !== null) flash(ctx, f.color, 0.8 - locked * 2);
 }
@@ -95,7 +95,7 @@ export function drawName(ctx: CanvasRenderingContext2D, s: FrameState) {
   if (!s.join.team) return;
   const at = tall ? { x: 12, y: 170, pedestal: 234 } : { x: 40, y: 256, pedestal: 318 };
   pedestal(ctx, at.x + 32, at.pedestal, 34, fleet(s.join.team).color);
-  drawFleetMascot(ctx, s.join.team, at.x, at.y + bobOf(s, 0, 2), { scale: 2, frame: frameOf(s, 2) });
+  drawFleetMascot(ctx, s, s.join.team, at.x, at.y + bobOf(s, 0, 2), { scale: 2, frame: frameOf(s, 2) });
 }
 
 export function drawBuilder(ctx: CanvasRenderingContext2D, s: FrameState) {
@@ -106,5 +106,5 @@ export function drawBuilder(ctx: CanvasRenderingContext2D, s: FrameState) {
   else ctx.drawImage(nebulaFor('hero', 0, 360, 300), -40, 30);
   const at = tall ? { cx: 44, y: 38, scale: 2, pedestal: 136, rx: 38 } : { cx: 148, y: 86, scale: 3, pedestal: 232, rx: 64 };
   pedestal(ctx, at.cx, at.pedestal, at.rx, fleet(s.join.team).color);
-  drawHero(ctx, s.join.hero, s.join.team, at.cx - 16 * at.scale, at.y + bobOf(s, 0, 2), { scale: at.scale, frame: frameOf(s, 2.2) });
+  drawHero(ctx, s, s.join.hero, s.join.team, at.cx - 16 * at.scale, at.y + bobOf(s, 0, 2), { scale: at.scale, frame: frameOf(s, 2.2) });
 }

@@ -445,7 +445,8 @@ end $$;
 -- ── A theme holds known tokens only, each a #rrggbb colour ──
 do $$
 begin
-  if not public.valid_theme('{}') or not public.valid_theme('{"plasma": "#2fc6a4", "plasma-dark": "#178a80", "stripe-4": "#5b7bff"}') then
+  if not public.valid_theme('{}')
+     or not public.valid_theme('{"plasma": "#2fc6a4", "plasma-dark": "#178a80", "body-mid": "#22a890", "stripe-4": "#5b7bff"}') then
     raise exception 'FAIL: valid_theme refused a valid theme';
   end if;
   if public.valid_theme('{"chartreuse": "#7fff00"}') then raise exception 'FAIL: valid_theme accepted an unknown token'; end if;

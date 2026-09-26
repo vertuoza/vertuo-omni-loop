@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { GalaxyView } from '@omni/galaxy';
 import { randomHero, type Hero } from '@omni/sprites';
 import { drawFrame, layoutMap, neighbour, type FrameState, type SceneName } from './scenes';
@@ -23,8 +23,9 @@ import { MapOverlay } from './scenes/map.tsx';
 import { PLANET_TABS, PlanetOverlay } from './scenes/planet.tsx';
 import { FleetsOverlay } from './scenes/fleets.tsx';
 import { setFleets } from './fleets';
-import { HOUSE_BRAND, type Brand } from './brand';
-import { markFor } from './mark';
+import { brandLook, HOUSE_BRAND, type Brand } from './brand';
+import { stripesOf, themeVars } from './theme';
+import { Stripes } from './Sprite';
 import { foldChar, foldName, nameInit, nameReduce, nameValue, NAME_RULE, type NameAction, type NameState } from './name-entry';
 import { BUILDER_ROWS, cycleHero } from './builder';
 import { afterGate, afterReturn, afterStart, allowed, backStep, isDisbanded, isLinked, nextStep, readReturn, type Flow, type Step } from './onboarding';
@@ -91,13 +92,16 @@ export interface ArcadeProps {
   me?: Player | null;
   crew?: Player[];
   problem?: string | null;
-  /** Whose arcade it is: its name draws the mark's letter and the boot's and the title's words. The house brand when none is given. */
+  /** Whose arcade it is: its name draws the mark's letter and the boot's and the title's words, its theme colours the arcade. The house brand when none is given. */
   brand?: Brand;
 }
 
 export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null, brand = HOUSE_BRAND }: ArcadeProps) {
   setFleets(fleets);
-  const mark = useMemo(() => markFor(brand.name), [brand.name]);
+  // The brand's look: its theme, written as custom properties on the root element below and read by
+  // the canvas, and its mark in the theme's colours. The theme {} is today's arcade.
+  const { theme, mark } = useMemo(() => brandLook(brand), [brand]);
+  const themeStyle = useMemo(() => themeVars(theme) as CSSProperties, [theme]);
   const active = useMemo(() => fleets.filter((f) => !f.retired), [fleets]);
   // The form follows the device (a mouse, or touch upright or sideways); turning the phone changes
   // the body around the screen and the grid a scene is drawn on, never the game's state.
@@ -499,8 +503,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const grid = gridFor(form, ui.scene);
   const pages = pagesFor(ui.scene, { view, grid });
   const page = Math.min(ui.page, pages - 1);
-  const frameRef = useRef({ view, layout, active, me, grid, page, mark });
-  frameRef.current = { view, layout, active, me, grid, page, mark };
+  const frameRef = useRef({ view, layout, active, me, grid, page, mark, theme });
+  frameRef.current = { view, layout, active, me, grid, page, mark, theme };
   useEffect(() => {
     const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     let raf = 0;
@@ -513,7 +517,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       const f = frameRef.current;
       const picking = u.scene === 'select' ? f.active[u.pick]?.name ?? null : null;
       const frame: FrameState = {
-        scene: u.scene, grid: f.grid, page: f.page, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches, mark: f.mark,
+        scene: u.scene, grid: f.grid, page: f.page, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches, mark: f.mark, theme: f.theme,
         join: {
           fleets: f.active, pick: u.pick, lockedAt: u.lockedAt, away: u.away || u.link === 'away',
           team: picking ?? f.me?.team ?? null,
@@ -593,16 +597,19 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const info = useMemo<ScreenInfo>(() => ({ form, grid, page, pages }), [form, grid, page, pages]);
   const body = { season: view?.season ?? null, muted, onAction: press, onSound: toggleSound };
   // The screen keeps its place in the tree in every form, so turning the phone keeps it as it is.
+  // The root carries the theme's custom properties, and the sprites in its panels its stripes.
   return (
-    <div className={`shell form-${form}`}>
-      <Lens bare={form === 'full'} muted={muted}>
-        <Screen scene={ui.scene} frame={frameFor(form)} info={info} canvasRef={canvasRef} onTap={onTap}>
-          <Press.Provider value={press}>{overlay}</Press.Provider>
-          {ui.toast && <p className="j-toast" role="status">{ui.toast}</p>}
-        </Screen>
-      </Lens>
-      {form === 'handheld' && <Handheld {...body} />}
-      {form === 'advance' && <Advance {...body} />}
+    <div className={`shell form-${form}`} style={themeStyle}>
+      <Stripes.Provider value={stripesOf(theme)}>
+        <Lens bare={form === 'full'} muted={muted}>
+          <Screen scene={ui.scene} frame={frameFor(form)} info={info} canvasRef={canvasRef} onTap={onTap}>
+            <Press.Provider value={press}>{overlay}</Press.Provider>
+            {ui.toast && <p className="j-toast" role="status">{ui.toast}</p>}
+          </Screen>
+        </Lens>
+        {form === 'handheld' && <Handheld {...body} />}
+        {form === 'advance' && <Advance {...body} />}
+      </Stripes.Provider>
     </div>
   );
 }

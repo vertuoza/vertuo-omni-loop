@@ -32,6 +32,9 @@ as $$
      where e.key <> all (array[
              'void', 'deep', 'cab', 'navy', 'navy-dark', 'white', 'dim', 'plasma', 'plasma-dark',
              'yellow', 'gold', 'red', 'cyan', 'green',
+             'body-mid', 'body-ink', 'body-ink-soft', 'body-lens-1', 'body-lens-2', 'body-lens-text',
+             'body-led-off', 'body-pad-1', 'body-pad-2', 'body-pad-arrow', 'body-pad-down-1',
+             'body-pad-down-2', 'body-a-shine', 'body-b-shine', 'body-pill-1', 'body-pill-2', 'body-grille',
              'mark-1', 'mark-2', 'mark-3', 'mark-shade-1', 'mark-shade-2', 'mark-shade-3',
              'stripe-1', 'stripe-2', 'stripe-3', 'stripe-4'])
         or jsonb_typeof(e.value) <> 'string'

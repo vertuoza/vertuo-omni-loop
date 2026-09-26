@@ -51,6 +51,9 @@ importers:
       vertuo-omni-plan:
         specifier: workspace:*
         version: link:../..
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^22.10.0

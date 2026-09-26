@@ -8,6 +8,7 @@ import { ScreenContext, type ScreenInfo } from '../Screen';
 import { setFleets } from '../fleets';
 import { HOUSE_BRAND, type Brand } from '../brand';
 import { markFor, type Mark } from '../mark';
+import { DEFAULT_THEME } from '../theme';
 import type { FleetRow } from '../types';
 import { TALL, WIDE, type FrameState, type Grid, type SceneName } from './common.ts';
 import { drawBoot, drawStory, drawTitle, hallPage, hallPages, PAGES, TALL_SCENES } from './attract.ts';
@@ -56,7 +57,7 @@ class FakeOffscreenCanvas {
 
 function frame(scene: SceneName, grid: Grid, sceneT = 2, mark: Mark = markFor(HOUSE_BRAND.name)): FrameState {
   return {
-    scene, grid, page: 0, view, layout: [], sel: 0, fleetSel: 0, t: 5, sceneT, reduced: true, mark,
+    scene, grid, page: 0, view, layout: [], sel: 0, fleetSel: 0, t: 5, sceneT, reduced: true, mark, theme: DEFAULT_THEME,
     join: { fleets, pick: 0, lockedAt: null, team: null, away: false, hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } },
   };
 }
