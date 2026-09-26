@@ -4,6 +4,8 @@
 //         │                                                        └ B: visit only ─▶ MENU (look, don't play)
 //         └ a player with an active fleet ─▶ WELCOME BACK ─▶ MENU
 //
+//   … ─▶ MENU, a level not yet celebrated on this device ─▶ LEVEL UP ─▶ MENU (A on a game it opened: the game)
+//
 // Google lets a @vertuoza.com account in as a visitor; linking GitHub makes them a player.
 //
 // A flow says why a screen is open: the first visit (`onboard`), or one menu entry (`myhero`,
@@ -79,10 +81,13 @@ export function backStep(step: Step, flow: Flow): Step | 'title' {
 /** The screens a signed-in visitor may see: everything past INSERT COIN. */
 const SIGNED_IN_ONLY = new Set([
   'gate', 'intro', 'select', 'name', 'hero', 'link', 'ready', 'welcome',
-  'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'chart', 'system', 'games', 'invaders',
+  'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'chart', 'system', 'games', 'invaders', 'levelup',
 ]);
-/** The screens only a player may see: playing starts with a linked GitHub account (and so does a game). */
-const PLAYERS_ONLY = new Set(['intro', 'select', 'name', 'hero', 'ready', 'welcome', 'invaders']);
+/**
+ * The screens only a player may see: playing starts with a linked GitHub account (and so does a
+ * game, and a level-up: XP is earned with GitHub).
+ */
+const PLAYERS_ONLY = new Set(['intro', 'select', 'name', 'hero', 'ready', 'welcome', 'invaders', 'levelup']);
 
 /**
  * Where a screen may be shown: past INSERT COIN needs a session, and playing needs GitHub linked.
@@ -92,6 +97,15 @@ export function allowed(scene: string, session: Session | null, linked = false):
   if (!session && SIGNED_IN_ONLY.has(scene)) return 'coin';
   if (!linked && PLAYERS_ONLY.has(scene)) return 'link';
   return scene;
+}
+
+/**
+ * The screen a route to `scene` opens: the menu plays the level-up first when one is `due` (the
+ * player's level is higher than the one this device last celebrated: levelup.ts decides); every
+ * other screen opens as asked.
+ */
+export function arrive<S extends string>(scene: S, due: boolean): S | 'levelup' {
+  return scene === 'menu' && due ? 'levelup' : scene;
 }
 
 /** What the page's query string says happened while the player was away (Google, GitHub). */

@@ -8,6 +8,7 @@ import { drawChart, drawSystem } from './chart.ts';
 import { drawFleets } from './fleets.ts';
 import { drawGames } from './games.ts';
 import { drawInvaders } from './invaders.ts';
+import { drawLevelUp } from './levelup.ts';
 import { drawAway, drawCoin, drawGate, drawIntro, drawLink, drawReady, drawWelcome } from './join.ts';
 import { drawMap } from './map.ts';
 import { drawBriefing, drawMenu } from './menu.ts';
@@ -49,5 +50,6 @@ export function drawFrame(ctx: CanvasRenderingContext2D, s: FrameState, titlePha
     case 'system': return drawSystem(ctx, s);
     case 'games': return drawGames(ctx, s);
     case 'invaders': return drawInvaders(ctx, s);
+    case 'levelup': return drawLevelUp(ctx, s);
   }
 }
