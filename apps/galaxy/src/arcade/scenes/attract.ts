@@ -1,8 +1,8 @@
 // The attract group on the canvas: the boot, the title's three phases (title, story, high scores)
 // and the Hall of Heroes, on the wide grid (640×360) and on the tall one (320×288).
-import { drawPlanet, spriteSize, WOUND_TINT, woundTint } from '@omni/design';
+import { drawLogo, drawPlanet, logoPixels, spriteSize, WOUND_TINT, woundTint } from '@omni/design';
 import { fleet } from '../fleets';
-import { bootMark, frameOf, nebulaFor, plasmaTrail, RING, space, sprite, TALL, W, type FrameState, type Grid, type Pages, type SceneName } from './common.ts';
+import { bootMark, frameOf, H, nebulaFor, plasmaTrail, RING, space, sprite, TALL, W, type FrameState, type Grid, type Pages, type SceneName } from './common.ts';
 
 /**
  * The attract group's scenes laid out on the tall grid (`boot`, `title`, `heroes`). A scene not
@@ -38,12 +38,26 @@ export const PAGES: Pages = { heroes: ({ view, grid }) => hallPages(view.heroes.
 /** How far the boot's mark moves on the tall grid: centred across it, and 26 px higher than on the wide one. */
 const BOOT_TALL = { dx: (TALL.w - W) / 2, dy: -26 };
 
+/** The crest's mark on the boot: 4×, the V's 72 pixels tall, from where the V's top was. */
+const BOOT_CREST = { scale: 4, y: 96, reveal: 0.9 };
+
+// The house brand's boot: the crest's mark on black, wiped in from the left in the V's time.
+function bootCrest(ctx: CanvasRenderingContext2D, s: FrameState) {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+  const { scale, y, reveal } = BOOT_CREST;
+  const { w } = logoPixels('mark');
+  drawLogo(ctx, 'mark', W / 2 - (w * scale) / 2, y, { scale, reveal: s.reduced ? 1 : Math.min(1, s.sceneT / reveal) });
+}
+
 export function drawBoot(ctx: CanvasRenderingContext2D, s: FrameState) {
-  if (s.grid.name !== 'tall') return bootMark(ctx, s);
+  // The house brand draws the crest's mark; a workspace's brand its letter.
+  const draw = s.logo ? bootCrest : bootMark;
+  if (s.grid.name !== 'tall') return draw(ctx, s);
   // The mark is drawn for the wide grid: moved onto the tall one, its black still reaches every edge.
   ctx.save();
   ctx.translate(BOOT_TALL.dx, BOOT_TALL.dy);
-  bootMark(ctx, s);
+  draw(ctx, s);
   ctx.restore();
 }
 

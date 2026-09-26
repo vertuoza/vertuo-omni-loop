@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf, type GalaxyView } from '@omni/galaxy';
-import { drawSprite, spriteSize } from '@omni/design';
+import { drawSprite, logoPixels, logoSvg, spriteSize } from '@omni/design';
 import { gridFor, pagesFor } from '../grid';
 import { ScreenContext, type ScreenInfo } from '../Screen';
 import { setFleets } from '../fleets';
@@ -55,7 +55,8 @@ class FakeOffscreenCanvas {
   getContext() { return recorder().ctx; }
 }
 
-function frame(scene: SceneName, grid: Grid, sceneT = 2, mark: Mark = markFor(HOUSE_BRAND.name)): FrameState {
+/** A frame under a workspace's brand: its letter mark, no crest. */
+function frame(scene: SceneName, grid: Grid, sceneT = 2, mark: Mark = markFor('Vertuoza')): FrameState {
   return {
     scene, grid, page: 0, view, layout: [], sel: 0, fleetSel: 0, t: 5, sceneT, reduced: true, mark, theme: DEFAULT_THEME,
     join: { fleets, pick: 0, lockedAt: null, team: null, away: false, hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } },
@@ -95,7 +96,7 @@ describe('the attract group on the tall grid', () => {
 });
 
 describe('the boot on the tall grid', () => {
-  it('draws the Vertuoza mark in the middle of the screen, on black to its edges', () => {
+  it('draws a workspace\'s mark in the middle of the screen, on black to its edges', () => {
     const { ctx, rects } = recorder();
     drawBoot(ctx, frame('boot', TALL, 5));
     const black = rects.find((r) => r.style === '#000')!;
@@ -117,6 +118,51 @@ describe('the boot on the tall grid', () => {
     const mark = rects.filter((r) => typeof r.style !== 'string' && r.w > 0);
     expect(Math.min(...mark.map((r) => r.x))).toBe(284);
     expect(Math.min(...mark.map((r) => r.y))).toBe(96);
+  });
+});
+
+describe('the house brand\'s boot draws the crest\'s mark', () => {
+  const CREST = new Set(logoPixels('mark').pixels.filter(Boolean));
+  const mark = logoPixels('mark');
+  const boot = (grid: Grid, sceneT: number, reduced = true) => {
+    const { ctx, rects } = recorder();
+    drawBoot(ctx, { ...frame('boot', grid, sceneT, markFor(HOUSE_BRAND.name)), logo: HOUSE_BRAND.logo, reduced });
+    return rects;
+  };
+  const crest = (rects: ReturnType<typeof recorder>['rects']) => rects.filter((r) => CREST.has(r.style as string) && r.w > 0);
+  const box = (rects: ReturnType<typeof recorder>['rects']) => ({
+    left: Math.min(...rects.map((r) => r.x)), right: Math.max(...rects.map((r) => r.x + r.w)),
+    top: Math.min(...rects.map((r) => r.y)), bottom: Math.max(...rects.map((r) => r.y + r.h)),
+  });
+
+  it('draws it at 4× where the V was, on black, and no letter', () => {
+    const rects = boot(WIDE, 5);
+    expect(rects.some((r) => r.style === '#000' && r.w >= WIDE.w && r.h >= WIDE.h)).toBe(true);
+    expect(rects.filter((r) => typeof r.style !== 'string')).toEqual([]);
+    const b = box(crest(rects));
+    expect(b).toEqual({ left: 320 - mark.w * 2, right: 320 + mark.w * 2, top: 96, bottom: 96 + mark.h * 4 });
+  });
+
+  it('centres it on the tall grid, above the words', () => {
+    const rects = boot(TALL, 5);
+    const black = rects.find((r) => r.style === '#000')!;
+    expect(black.x).toBeLessThanOrEqual(0);
+    expect(black.x + black.w).toBeGreaterThanOrEqual(TALL.w);
+    expect(black.y + black.h).toBeGreaterThanOrEqual(TALL.h);
+    const b = box(crest(rects));
+    expect((b.left + b.right) / 2).toBe(TALL.w / 2);
+    expect(b.top).toBeGreaterThan(0);
+    expect(b.bottom).toBeLessThan(TALL.h / 2 + 20);
+  });
+
+  it('reveals it from the left in the V\'s time', () => {
+    expect(crest(boot(WIDE, 0, false))).toEqual([]);
+    const area = (rects: ReturnType<typeof recorder>['rects']) => crest(rects).reduce((n, r) => n + r.w * r.h, 0);
+    const whole = area(boot(WIDE, 5));
+    expect(area(boot(WIDE, 0.9, false))).toBe(whole);
+    const early = area(boot(WIDE, 0.3, false));
+    expect(early).toBeGreaterThan(0);
+    expect(early).toBeLessThan(whole);
   });
 });
 
@@ -147,7 +193,7 @@ describe('the boot draws the brand\'s letter', () => {
   });
 
   it('reveals today\'s V as it always did, row by row, like a loading bar', () => {
-    const v = markFor(HOUSE_BRAND.name);
+    const v = markFor('Vertuoza');
     // Today's reveal: each row grows in from the left, 0.12 of the reveal behind the row above it.
     const today = (sceneT: number) => {
       const k = Math.min(1, sceneT / 0.9);
@@ -182,15 +228,35 @@ describe('the brand\'s name on the boot and the title', () => {
   const acme: Brand = { name: 'Acme', theme: {} };
   const title = (brand: Brand) => text(screen({ form: 'full', grid: WIDE }, createElement(TitleOverlay, { view, phase: 'title', sceneT: 0, who: 'SIGNED OUT', signedIn: false, brand })));
 
-  it('reads VERTUOZA under the house brand, as today', () => {
-    expect(text(screen({ form: 'full', grid: WIDE }, createElement(BootOverlay, { brand: HOUSE_BRAND })))).toBe('VERTUOZA PRESENTS');
-    expect(title(HOUSE_BRAND)).toContain('© 2026 VERTUOZA');
+  it('reads OMNI LOOP under the house brand', () => {
+    expect(text(screen({ form: 'full', grid: WIDE }, createElement(BootOverlay, { brand: HOUSE_BRAND })))).toBe('OMNI LOOP PRESENTS');
+    expect(title(HOUSE_BRAND)).toContain('© 2026 OMNI LOOP');
   });
 
   it('reads the workspace\'s name under its brand', () => {
     expect(text(screen({ form: 'full', grid: WIDE }, createElement(BootOverlay, { brand: acme })))).toBe('ACME PRESENTS');
     expect(title(acme)).toContain('© 2026 ACME');
-    expect(title(acme)).not.toContain('VERTUOZA');
+    expect(title(acme)).not.toContain('OMNI LOOP PRESENTS');
+  });
+});
+
+describe('the title\'s logo', () => {
+  const titleHtml = (grid: Grid, brand: Brand = HOUSE_BRAND) =>
+    screen({ form: grid === WIDE ? 'full' : 'handheld', grid }, createElement(TitleOverlay, { view, phase: 'title', sceneT: 0, who: '', signedIn: false, brand }));
+
+  it('is the crest, drawn crisp at 3× on the wide grid and 2× on the tall one, in place of the words', () => {
+    expect(titleHtml(WIDE)).toContain(logoSvg('full', { scale: 3, title: 'Omni Loop' }));
+    expect(titleHtml(TALL)).toContain(logoSvg('full', { scale: 2, title: 'Omni Loop' }));
+    for (const grid of [WIDE, TALL]) expect(titleHtml(grid)).not.toContain('logo-omni');
+  });
+
+  it('fits the tall screen', () => {
+    expect(logoPixels('full').w * 2).toBeLessThanOrEqual(TALL.w);
+    expect(logoPixels('full').w * 3).toBeLessThanOrEqual(WIDE.w);
+  });
+
+  it('is the product\'s under a workspace\'s brand too: the game is Omni Loop', () => {
+    expect(titleHtml(WIDE, { name: 'Acme', theme: {} })).toContain(logoSvg('full', { scale: 3, title: 'Omni Loop' }));
   });
 });
 
@@ -227,7 +293,7 @@ describe('the title on the tall grid', () => {
       const wide = text(screen({ form: 'full', grid: WIDE }, createElement(TitleOverlay, props)));
       expect(tall, phase).toBe(wide);
     }
-    expect(text(screen({ grid: TALL }, createElement(BootOverlay, { brand: HOUSE_BRAND })))).toBe('VERTUOZA PRESENTS');
+    expect(text(screen({ grid: TALL }, createElement(BootOverlay, { brand: HOUSE_BRAND })))).toBe('OMNI LOOP PRESENTS');
   });
 
   it('shows every high score it shows today: the top five, on one page', () => {

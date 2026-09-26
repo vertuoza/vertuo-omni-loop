@@ -5,15 +5,36 @@ import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf } from '@omni/galaxy';
 import { ArcadeApp } from './ArcadeApp';
 import { closedAccount } from './account-closed';
 import { demoAccount } from './account-demo';
-import { brandWord, HOUSE_BRAND, type Brand } from './brand';
-import { letterOf } from './mark';
+import { logoSvg, OMNI_LOOP } from '@omni/design';
+import { brandLook, brandWord, HOUSE_BRAND, type Brand } from './brand';
+import { letterOf, markFor } from './mark';
+import { DEFAULT_THEME } from './theme';
+import Icon, { contentType, size } from '../../app/icon';
 import type { Account, FleetRow } from './types';
 
 describe('the house brand', () => {
-  it('is Vertuoza, with no colour of its own: today\'s arcade', () => {
-    expect(HOUSE_BRAND).toEqual({ name: 'Vertuoza', theme: {} });
-    expect(letterOf(HOUSE_BRAND.name)).toBe('V');
-    expect(brandWord(HOUSE_BRAND)).toBe('VERTUOZA');
+  it('is Omni Loop, drawn with its crest and no colour of its own', () => {
+    expect(HOUSE_BRAND).toEqual({ name: OMNI_LOOP.name, theme: {}, logo: OMNI_LOOP.logo });
+    expect(brandWord(HOUSE_BRAND)).toBe('OMNI LOOP');
+    expect(brandLook(HOUSE_BRAND).logo).toBe('full');
+  });
+
+  it('gives the page its favicon: the crest\'s own 16×16 drawing, as a crisp SVG', async () => {
+    expect(size).toEqual({ width: 16, height: 16 });
+    expect(contentType).toBe('image/svg+xml');
+    const res = Icon();
+    expect(res.headers.get('Content-Type')).toBe('image/svg+xml');
+    expect(await res.text()).toBe(logoSvg(OMNI_LOOP.icon));
+  });
+});
+
+describe('a workspace\'s brand', () => {
+  it('draws Vertuoza\'s V, pixel for pixel, and no crest', () => {
+    const vertuoza: Brand = { name: 'Vertuoza', theme: {} };
+    const look = brandLook(vertuoza);
+    expect(letterOf(vertuoza.name)).toBe('V');
+    expect(look.mark).toEqual(markFor('Vertuoza', DEFAULT_THEME));
+    expect(look.logo).toBeNull();
   });
 });
 
@@ -43,13 +64,14 @@ describe('the arcade\'s brand', () => {
       ['signed out', { view: null, account: signedOut }],
       ['closed', { view: null, account: closedAccount() }],
     ] as const) {
-      expect(boot(props), what).toContain('VERTUOZA PRESENTS');
+      expect(boot(props), what).toContain('OMNI LOOP PRESENTS');
+      expect(boot(props), what).not.toContain('VERTUOZA');
     }
   });
 
   it('is the workspace\'s when it is given one', () => {
     const words = boot({ view, account: signedOut, brand: { name: 'Acme', theme: {} } });
     expect(words).toContain('ACME PRESENTS');
-    expect(words).not.toContain('VERTUOZA');
+    expect(words).not.toContain('OMNI LOOP PRESENTS');
   });
 });
