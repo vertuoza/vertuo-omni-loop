@@ -5,6 +5,8 @@ import { DEMO_PROJECTS, lookOf } from '@omni/galaxy';
 import { spriteSize } from '@omni/sprites';
 import { gridFor } from '../grid';
 import { setFleets } from '../fleets';
+import { HOUSE_BRAND } from '../brand';
+import { markFor, type Mark } from '../mark';
 import { ScreenContext } from '../Screen';
 import type { FleetRow } from '../types';
 import { TALL, WIDE, type FrameState, type Grid, type SceneName } from './common.ts';
@@ -51,9 +53,9 @@ const fleets: FleetRow[] = Object.entries(DEMO_PROJECTS.teams)
   .sort((a, b) => a.sort - b.sort);
 const JOIN: SceneName[] = ['coin', 'away', 'outsider', 'gate', 'intro', 'link', 'ready', 'welcome'];
 
-function frame(scene: SceneName, sceneT: number, grid: Grid, away = false): FrameState {
+function frame(scene: SceneName, sceneT: number, grid: Grid, away = false, mark: Mark = markFor(HOUSE_BRAND.name)): FrameState {
   return {
-    scene, grid, page: 0, view: null, layout: [], sel: 0, fleetSel: 0, t: 5, sceneT, reduced: false,
+    scene, grid, page: 0, view: null, layout: [], sel: 0, fleetSel: 0, t: 5, sceneT, reduced: false, mark,
     join: { fleets, pick: 0, lockedAt: null, team: fleets[1].name, away, hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } },
   };
 }
@@ -115,6 +117,18 @@ describe('the join scenes drawn on the tall grid', () => {
     const mascots = boxes.filter((b) => b.name !== 'omni');
     expect(mascots).toHaveLength(Math.min(5, fleets.length));
     for (let i = 1; i < mascots.length; i++) expect(mascots[i].x, `fleet ${i}`).toBeGreaterThanOrEqual(mascots[i - 1].x + mascots[i - 1].w);
+  });
+
+  it('opens the intro with the brand\'s letter, as the boot drew it', () => {
+    // At 1.8 s the intro's mark is whole, before its flash: the pixel lines filled in a gradient.
+    const drawn = (mark: Mark) => spritesOf(frame('intro', 1.8, WIDE, false, mark)).rects
+      .filter((r) => typeof r.color !== 'string' && r.w > 0)
+      .map((r) => [(r.x - 284) / 2, (r.y - 96) / 2, r.w / 2]);
+    for (const name of ['Vertuoza', 'Acme']) {
+      const { runs } = markFor(name);
+      const lines = runs.map(([x, y, w]) => [x, y, w]);
+      expect(drawn(markFor(name)), name).toEqual([...lines.map(([x, y, w]) => [x, y + 1, w]), ...lines]); // the shade, then the gradient
+    }
   });
 
   it('centres the loading bar of a trip away from the arcade on the screen', () => {

@@ -8,7 +8,7 @@ import {
 } from '@omni/sprites';
 import type { GalaxyView, Planet } from '@omni/galaxy';
 import { fleet, heroOf, seedOf } from '../fleets';
-import { MARK_RUNS, MARK_SHADE, MARK_SIZE, MARK_STOPS } from '../mark';
+import type { Mark } from '../mark';
 import type { FleetRow } from '../types';
 
 /** The wide grid's size: the grid every scene is drawn on until its group lays it out tall. */
@@ -49,6 +49,7 @@ export interface FrameState {
   t: number;            // seconds since start
   sceneT: number;       // seconds since this scene opened
   reduced: boolean;     // prefers-reduced-motion
+  mark: Mark;           // the brand's mark: its letter, which the boot and the intro draw
 }
 
 export interface MapSlot { prd: number; x: number; y: number; r: number; index: number }
@@ -120,25 +121,30 @@ export function pulseRing(ctx: CanvasRenderingContext2D, x: number, y: number, r
   ctx.globalAlpha = 1;
 }
 
-// The Vertuoza mark at 2× on black, each row of bars growing in from the left like a loading bar:
-// the boot screen, and the first bars of the intro.
+// The brand's mark at 2× on black, each row of bars growing in from the left like a loading bar:
+// the boot screen, and the first bars of the intro. Each row starts a little after the one above it,
+// the last one 0.36 of the reveal after the first, however many rows the letter has.
+const REVEAL_LAG = 0.36;
+
 export function bootMark(ctx: CanvasRenderingContext2D, s: FrameState) {
+  const { size, runs, stops, shade } = s.mark;
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, W, H);
-  const px = 2, x0 = W / 2 - (MARK_SIZE * px) / 2, y0 = 96;
+  const px = 2, x0 = W / 2 - (size * px) / 2, y0 = 96;
   const k = s.reduced ? 1 : Math.min(1, s.sceneT / 0.9);
-  const gradient = (stops: typeof MARK_STOPS | typeof MARK_SHADE) => {
-    const g = ctx.createLinearGradient(x0, 0, x0 + MARK_SIZE * px, 0);
-    for (const [offset, color] of stops) g.addColorStop(offset, color);
+  const gradient = (colors: Mark['stops']) => {
+    const g = ctx.createLinearGradient(x0, 0, x0 + size * px, 0);
+    for (const [offset, color] of colors) g.addColorStop(offset, color);
     return g;
   };
-  const runs = MARK_RUNS.map(([x, y, w, row]) => {
-    const reveal = MARK_SIZE * Math.min(1, Math.max(0, k * 1.4 - row * 0.12));
+  const lag = REVEAL_LAG / Math.max(1, ...runs.map(([, , , row]) => row));
+  const shown = runs.map(([x, y, w, row]) => {
+    const reveal = size * Math.min(1, Math.max(0, k * 1.4 - row * lag));
     return [x, y, Math.round(Math.min(w, Math.max(0, reveal - x)))] as const;
   });
-  for (const [fill, dy] of [[gradient(MARK_SHADE), 1], [gradient(MARK_STOPS), 0]] as const) {
+  for (const [fill, dy] of [[gradient(shade), 1], [gradient(stops), 0]] as const) {
     ctx.fillStyle = fill;
-    for (const [x, y, w] of runs) ctx.fillRect(x0 + x * px, y0 + (y + dy) * px, w * px, px);
+    for (const [x, y, w] of shown) ctx.fillRect(x0 + x * px, y0 + (y + dy) * px, w * px, px);
   }
 }
 
