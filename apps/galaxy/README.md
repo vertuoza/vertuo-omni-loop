@@ -33,7 +33,7 @@ keyboard on a computer, and from a Game Boy's buttons on a phone (design:
 
 | Screen | What it shows |
 |---|---|
-| Boot → Title | "VERTUOZA presents" and the V, then an attract loop: logo, the story, the top five heroes (signed in). A member sees their workspace's name and letter; signed out, the house brand, Vertuoza |
+| Boot → Title | "VERTUOZA presents" and the V, then an attract loop: logo, the story, the top five heroes (signed in). A member sees their workspace's name, letter and colours; signed out, the house brand, Vertuoza |
 | Insert coin | Sign in with the Vertuoza Google account; any other domain is refused and says why, and a signed-in account that belongs to no workspace gets the "wrong cartridge" screen |
 | Press start | After coming back from Google: browsers play sound only after a key press |
 | Link GitHub | Before playing, once: points are earned under the GitHub login, which only the linked identity sets. B visits only |
@@ -155,8 +155,9 @@ the database's policies decide what they see:
   (by `joined_at`, then `slug`; PRD 2 brings switching). Every loader in `src/data/load-galaxy.ts`
   (the galaxy, the fleets, the crew, the player's own row) filters by that workspace, and its
   `name` and `theme` reach the arcade as its brand (`src/arcade/brand.ts`): the name gives the
-  boot its letter and its words. Joining a fleet writes the player row with that `workspace_id`
-  and the person's `user_id` (`src/data/players.ts`).
+  boot its letter and its words, the theme its colours ([A workspace's look](#a-workspaces-look)).
+  Joining a fleet writes the player row with that `workspace_id` and the person's `user_id`
+  (`src/data/players.ts`).
 - **Crew means "has a workspace"**, never an email domain. A signed-in person who belongs to none
   yet is joined once by the page (`join_by_domain()`), so a session from before workspaces joins
   too; one who still belongs to none gets the "wrong cartridge" screen and reads nothing.
@@ -178,6 +179,45 @@ Without the Supabase variables, the app picks its mode in `src/data/mode.ts`:
   (`src/arcade/account-demo.ts`). The single-file artifact plays the same way.
 - **Any other build** (a Vercel deployment missing its variables, say): **closed**. The attract mode
   plays, and INSERT COIN says sign-in is not open yet. No simulated sign-in, and no galaxy data.
+
+## A workspace's look
+
+A workspace's brand (`src/arcade/brand.ts`) is its name and its theme. The name gives the mark its
+letter and the boot and the title their words; the theme gives the arcade its colours. Signed out,
+in demo mode and in the single-file artifact, the arcade wears the house brand: Vertuoza, theme `{}`.
+
+**The tokens** are listed once, each with its default, in `src/arcade/theme.ts`. The defaults are
+the arcade as it always looked, so the theme `{}` changes nothing.
+
+| Tokens | What they colour |
+|---|---|
+| `void`, `deep`, `cab`, `navy`, `navy-dark`, `white`, `dim`, `plasma`, `plasma-dark`, `yellow`, `gold`, `red`, `cyan`, `green` | the screens, their panels and words, and the canvas |
+| `body-mid`, `body-ink`, `body-ink-soft`, `body-lens-1`, `body-lens-2`, `body-lens-text`, `body-led-off`, `body-pad-1`, `body-pad-2`, `body-pad-arrow`, `body-pad-down-1`, `body-pad-down-2`, `body-a-shine`, `body-b-shine`, `body-pill-1`, `body-pill-2`, `body-grille` | the Game Boy's body (`shell.css`): its shell runs from `plasma` through `body-mid` to `plasma-dark`, A is `red` with `body-a-shine`, B is `plasma` with `body-b-shine` |
+| `mark-1`, `mark-2`, `mark-3`, `mark-shade-1`, `mark-shade-2`, `mark-shade-3` | the mark's gradient, left to right, and its shade |
+| `stripe-1` to `stripe-4` | the four stripes on every hero's suit (the sprite forge's flat colours `1` to `4`) |
+
+**Storing a theme.** `workspaces.theme` holds only the tokens a workspace overrides, each a
+lowercase `#rrggbb` colour:
+
+```sql
+update public.workspaces set theme = '{"plasma": "#2fc6a4", "plasma-dark": "#178a80", "body-mid": "#22a890"}'
+ where slug = 'acme';
+```
+
+`valid_theme()` refuses an unknown token, any other colour, and anything but an object. The arcade
+reads the theme leniently (`parseTheme()`, a zod schema): an unknown token, or a colour that is not
+lowercase `#rrggbb`, is dropped with a console warning and its default applies, so a colour never
+breaks the arcade.
+
+**Applying it.** The resolved theme is written as CSS custom properties on the arcade's root element
+(`.shell`), over the defaults declared on `arcade.css`'s `:root`. The canvas scenes draw with the
+same values (`FrameState.theme`), the mark with `mark-*`, and every sprite, on the canvas and in the
+panels, wears `stripe-*`. Fonts are not tokens.
+
+**Adding a token** takes three places: its default in `theme.ts`, its custom property on
+`arcade.css`'s `:root` (unless only the canvas draws it), and `valid_theme()`'s list, in a new
+migration. `src/arcade/theme.test.ts` fails until the three agree, and while `shell.css` or a canvas
+scene writes a token's colour as a literal.
 
 ## Run it locally
 
@@ -338,7 +378,8 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
   organisation the projector reads and the repository that carries the PRD issues), `join_domain`
   (`vertuoza.com`) and `theme`. The theme holds only the overrides of the arcade's colour tokens,
   e.g. `{"plasma": "#2fc6a4"}`; `valid_theme()` refuses anything but an object of known tokens
-  with lowercase `#rrggbb` values. Vertuoza's is `{}`.
+  with lowercase `#rrggbb` values. Vertuoza's is `{}`. The tokens are listed under
+  [A workspace's look](#a-workspaces-look).
 - `workspace_members`: who belongs where (`role` is `owner` or `member`, `joined_at`). A person may
   belong to several workspaces. `join_by_domain()`, called at sign-in, adds the caller to every
   workspace whose `join_domain` is the domain of their **confirmed** email, adds nothing twice, and
