@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { HOOK_WAIT_MS, keepSent, minutesLeft, pageTitle, sessionView, withPageAnswer, type RoundRow, type SessionState } from './view';
+import { HOOK_WAIT_MS, keepSent, minutesLeft, sessionView, withPageAnswer, type RoundRow, type SessionState } from './view';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
 const at = (msAgo: number) => new Date(NOW - msAgo).toISOString();
@@ -157,12 +157,5 @@ describe('a read that crosses an answer sent from the page', () => {
     const read = keepSent(state([done, moved]), sent);
     expect(read.rounds.map((r) => r.status)).toEqual(['answered', 'abandoned']);
     expect(sent.size).toBe(0);
-  });
-});
-
-describe('the tab title', () => {
-  it('flags a question waiting, so a tab in the background shows it', () => {
-    expect(pageTitle({ kind: 'open' })).toBe('● Claude asks · OMNI LOOP');
-    for (const kind of ['working', 'moved', 'closed'] as const) expect(pageTitle({ kind })).toBe('Ask · OMNI LOOP');
   });
 });

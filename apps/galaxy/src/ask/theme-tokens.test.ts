@@ -106,6 +106,28 @@ describe('the stylesheet', () => {
     expect(body?.body).toContain('height: auto;');
   });
 
+  it('puts the tabs beside the pane from 720 px, and above it below', () => {
+    expect(css).toMatch(/@media \(min-width: 720px\) \{[^@]*?\.ask-page \{ grid-template-columns: minmax\(200px, 280px\) minmax\(0, 1fr\);/);
+    expect(rules.find((r) => r.selector === '.ask-page')?.body).not.toContain('grid-template-columns');
+  });
+
+  it('folds the tabs into one row below 720 px, the list shown only once it is opened', () => {
+    const narrow = css.match(/@media \(max-width: 719\.98px\) \{([\s\S]*?)\n\}/)?.[1] ?? '';
+    expect(narrow).toMatch(/\.ask-tabs-fold \{[^}]*display: flex;/);
+    expect(narrow).toMatch(/\.ask-tabs-head \{[^}]*display: none;/);
+    expect(narrow).toMatch(/\.ask-tabs:not\(\[data-open\]\) \.ask-tab-list \{[^}]*display: none;/);
+    // From 720 px the list always shows and the folded row does not.
+    expect(rules.find((r) => r.selector === '.ask-tabs-fold')?.body).toContain('display: none;');
+    expect(rules.filter((r) => r.selector === '.ask-tab-list').map((r) => r.body).join('')).not.toContain('display: none');
+  });
+
+  it('never pins the tabbed page to the window, so it scrolls', () => {
+    for (const selector of ['.ask-page', '.ask-pane']) {
+      const body = rules.filter((r) => r.selector === selector).map((r) => r.body).join('');
+      expect(body, selector).not.toMatch(/overflow: hidden|height: 100(?:vh|dvh|%)/);
+    }
+  });
+
   it('puts the preview beside the options from 720 px, and under them below', () => {
     expect(css).toMatch(/@media \(min-width: 720px\) \{\s*\.ask-q-body\.has-preview \{ grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\);/);
     expect(rules.find((r) => r.selector === '.ask-q-body')?.body).not.toContain('grid-template-columns');

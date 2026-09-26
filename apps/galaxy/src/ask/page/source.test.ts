@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { fakeSupabase } from '../store.fake';
 import { AskStoreError } from '../store';
-import { readSession, sendAnswers, sessionReader, type Db } from './source';
+import { readSession, readTabs, sendAnswers, sessionReader, tabsReader, type Db } from './source';
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
@@ -134,5 +134,75 @@ describe('sending the answers', () => {
     const id = await w.ask();
     expect(await sendAnswers(w.as('bob'), id, ANSWERS)).toBe('taken');
     expect(w.fake.tables.ask_rounds[0]).toMatchObject({ status: 'open' });
+  });
+});
+
+describe('reading the tab list', () => {
+  /** Ada's sessions: two open, one closed, one idle for 12 hours; and one of Bob's. */
+  async function tabsWorld() {
+    const w = await world();
+    const ada = w.fake.client('ada');
+    const bob = w.fake.client('bob');
+    const open = async (client: typeof ada, title: string) =>
+      ((await client.from('ask_sessions').insert({ title }).select('id').single()) as { data: { id: string } }).data.id;
+    const ask = async (sessionId: string, header: string) => {
+      w.clock.now += 1000;
+      const questions = [{ ...QUESTIONS[0], header }];
+      return ((await ada.from('ask_rounds').insert({ session_id: sessionId, questions }).select('id').single()) as { data: { id: string } }).data.id;
+    };
+    const second = await open(ada, 'vertuo-omni-loop · main');
+    const closed = await open(ada, 'vertuo-omni-loop · old');
+    const idle = await open(ada, 'vertuo-omni-loop · idle');
+    await open(bob, 'vertuo-omni-loop · bob');
+    for (const row of w.fake.tables.ask_sessions) {
+      if (row.id === closed) row.status = 'closed';
+      if (row.id === idle) row.last_seen_at = new Date(w.clock.now - 12 * 60 * 60 * 1000).toISOString();
+    }
+    return { ...w, second, closed, idle, askIn: ask };
+  }
+
+  it("reads the person's open sessions seen within 12 hours, each with its newest round", async () => {
+    const w = await tabsWorld();
+    await w.askIn(w.sessionId, 'Storage');
+    const newest = await w.askIn(w.sessionId, 'Access');
+    const rows = await readTabs(w.recording('ada'), w.clock.now);
+    expect(rows.map((r) => r.session.id).sort()).toEqual([w.sessionId, w.second].sort());
+    const first = rows.find((r) => r.session.id === w.sessionId)!;
+    expect(first.newest).toMatchObject({ id: newest, status: 'open', header: 'Access' });
+    expect(rows.find((r) => r.session.id === w.second)!.newest).toBeNull();
+  });
+
+  it('asks the database for open sessions only, and never reads another person\'s', async () => {
+    const w = await tabsWorld();
+    await readTabs(w.recording('ada'), w.clock.now);
+    expect(w.calls).toContain('ask_sessions.eq("status", "open")');
+    expect(await readTabs(w.recording('bob'), w.clock.now)).toHaveLength(1);
+  });
+
+  it('reads no rounds when there is no open session', async () => {
+    const w = await tabsWorld();
+    w.fake.tables.ask_sessions.length = 0;
+    w.calls.length = 0;
+    expect(await readTabs(w.recording('ada'), w.clock.now)).toEqual([]);
+    expect(w.calls.filter((c) => c.startsWith('ask_rounds'))).toEqual([]);
+  });
+
+  it("fetches a round's questions once, for its header, and only the newest round's", async () => {
+    const w = await tabsWorld();
+    await w.askIn(w.sessionId, 'Storage');
+    const newest = await w.askIn(w.sessionId, 'Access');
+    const read = tabsReader(w.recording('ada'));
+    w.calls.length = 0;
+    await read(w.clock.now);
+    expect(w.calls.filter((c) => c.includes('.in("id"'))).toEqual([`ask_rounds.in("id", ${JSON.stringify([newest])})`]);
+    w.calls.length = 0;
+    await read(w.clock.now);
+    expect(w.calls.filter((c) => c.includes('.in("id"'))).toEqual([]);
+  });
+
+  it('throws when the database fails, rather than reading it as empty', async () => {
+    const w = await tabsWorld();
+    w.fake.state.fail = { code: '08006', message: 'connection lost' };
+    await expect(readTabs(w.recording('ada'), w.clock.now)).rejects.toBeInstanceOf(AskStoreError);
   });
 });
