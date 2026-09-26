@@ -49,6 +49,15 @@ describe('the songs', () => {
     const looping = Object.entries(SONGS).filter(([, s]) => 'loop' in s && s.loop).map(([n]) => n).sort();
     expect(looping).toEqual(['name', 'select']);
   });
+
+  it('rings the unlock fanfare as the level-up fanfare, then a bar of its own for the game', () => {
+    const levelup = parseSong(SONGS.levelup), unlock = parseSong(SONGS.unlock);
+    expect(levelup.steps).toBe(32);
+    expect(unlock.steps).toBe(levelup.steps + 16);
+    for (const voice of ['lead', 'harm', 'bass', 'drums'] as const) expect(SONGS.unlock[voice][0], voice).toBe(SONGS.levelup[voice][0]);
+    // Short enough to leave the screen with its keys a moment after it lands.
+    expect(unlock.steps * stepSeconds(SONGS.unlock.bpm)).toBeLessThan(5);
+  });
 });
 
 describe('motifNotes', () => {

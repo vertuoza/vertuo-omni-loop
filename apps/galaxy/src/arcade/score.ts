@@ -137,6 +137,22 @@ export const SONGS = {
     bass: ['C2 - - - G2 - - - C3 - - - - - - -'],
     drums: ['s s s s s s s s c . . . . . . .'],
   },
+  // LEVEL UP!: a climb up the chord, a turn, and the new level held.
+  levelup: {
+    bpm: 160,
+    lead: ['C5 . E5 . G5 . C6 - - - G5 . C6 . E6 .', 'G6 - - - - - - - F6 - E6 - D6 - E6 -'],
+    harm: ['E4 . G4 . C5 . E5 - - - E5 . G5 . C6 .', 'B5 - - - - - - - A5 - G5 - F5 - G5 -'],
+    bass: ['C2 . . . G2 . . . C3 - - - G2 . C3 .', 'G2 - - - - - - - G1 - - - G2 - - -'],
+    drums: ['k . s . k . s . c . . . s s s s', 'c . . . k . s . k . s . s s s s'],
+  },
+  // LEVEL UP! and NEW GAME UNLOCKED: the level-up's climb, a march up to the cabinet, and its lights.
+  unlock: {
+    bpm: 160,
+    lead: ['C5 . E5 . G5 . C6 - - - G5 . C6 . E6 .', 'G5 - - - A5 - - - B5 - - - C6 - D6 -', 'E6 . G6 . C7 - - - - - - - . . . .'],
+    harm: ['E4 . G4 . C5 . E5 - - - E5 . G5 . C6 .', 'D5 - - - F5 - - - G5 - - - A5 - B5 -', 'C6 . E6 . G6 - - - - - - - . . . .'],
+    bass: ['C2 . . . G2 . . . C3 - - - G2 . C3 .', 'F2 - - - F2 - - - G2 - - - G2 - - -', 'C2 . . . C3 - - - - - - - . . . .'],
+    drums: ['k . s . k . s . c . . . s s s s', 'k . h . s . h . k . h . s s s s', 'c . . . k . . . c . . . . . . .'],
+  },
 } satisfies Record<string, Song>;
 
 export type SongName = keyof typeof SONGS;
