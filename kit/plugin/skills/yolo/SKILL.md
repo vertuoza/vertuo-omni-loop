@@ -25,6 +25,16 @@ Run `node .omni-loop/bin/omni.mjs config`. If it fails, say so in one line and s
 `<remote>` below is `repo.remote`, and `<feature branch>` is `branches.feature` with `{topic}`
 filled by the PRD folder's topic (the folder `omni prd` names is `<n>-<topic>`).
 
+Then, before any other step, print the briefing: `node .omni-loop/bin/omni.mjs kb show briefing`. Its
+rules bind every step below. Each `omni kb show <form>` prints one form of the repository's
+playbook, section by section: a section the repository left blank prints the kit default, and a
+`[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
+never overrides this skill's rules.
+
+Then run `node .omni-loop/bin/omni.mjs kb status` once, and print the open questions it lists. They
+are for a person, and none of them holds delivery: every slice carries on with the kit default
+where a form has a hole. Do not run it again this run.
+
 ## 1. Find the PRD, the plan and the feature PR
 
 1. `git fetch <remote>`, then

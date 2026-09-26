@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OmniMan Credits</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+<style>
+:root{
+  --bg:#F2F4F3;--surface:#FFFFFF;--code:#F7F9F8;--ink:#15201C;--muted:#56635E;--line:#D3DAD7;--line2:#E3E8E6;
+  --accent:#1D6B55;--soft:#D6EAE2;--red:#B3372F;--redsoft:#F6DEDB;
+  --omni:#27347A;--omnisoft:#E3E7F8;--claude:#B8643A;--person:#5A6B8C;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+  --bg:#0F1513;--surface:#161E1B;--code:#121A17;--ink:#E4ECE8;--muted:#98A6A0;--line:#2A3632;--line2:#222C29;
+  --accent:#5FC3A2;--soft:#193A30;--red:#F08A80;--redsoft:#3A1F1C;
+  --omni:#A9B6F5;--omnisoft:#1E2544;--claude:#E3A07C;--person:#9AAAC8}}
+:root[data-theme="dark"]{color-scheme:dark;
+  --bg:#0F1513;--surface:#161E1B;--code:#121A17;--ink:#E4ECE8;--muted:#98A6A0;--line:#2A3632;--line2:#222C29;
+  --accent:#5FC3A2;--soft:#193A30;--red:#F08A80;--redsoft:#3A1F1C;
+  --omni:#A9B6F5;--omnisoft:#1E2544;--claude:#E3A07C;--person:#9AAAC8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15.5px/1.6 "IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;padding-inline:16px}
+main{max-width:1100px;margin:0 auto;padding-block:40px 80px;display:grid;gap:56px}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:clamp(28px,4.6vw,40px);font-weight:700}
+h2{font-size:clamp(20px,2.5vw,24px);font-weight:600}
+p{margin:0}
+code,pre{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+code{font-size:.86em;background:var(--soft);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+section{display:grid;gap:16px;min-width:0}
+.eyebrow{font:500 12px/1.4 "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+header.top{display:grid;gap:12px}
+.lede{font-size:17px;max-width:68ch}
+.intro{color:var(--muted);max-width:70ch}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px;align-items:start}
+.cols>*{min-width:0}
+.colhead{font:600 12px/1.3 "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.colhead.before{color:var(--red)}
+.colhead.after{color:var(--accent)}
+
+/* a GitHub surface, drawn */
+.gh{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;min-width:0}
+.gh.after{border-color:var(--accent)}
+.gh-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;background:var(--code);border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)}
+.gh-head b{color:var(--ink);font-weight:600}
+.gh-body{padding:14px 16px;display:grid;gap:10px;font-size:14px}
+.gh-body hr{border:none;border-top:1px solid var(--line);margin:2px 0;width:100%}
+.title{font-weight:600;font-size:15px}
+.faint{color:var(--muted)}
+.stack{display:flex;align-items:center}
+.stack>*{margin-left:-6px;border:2px solid var(--code);border-radius:50%}
+.stack>*:first-child{margin-left:0}
+.av{width:24px;height:24px;display:block;flex:none}
+.who{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12.5px}
+.who span{display:inline-flex;align-items:center;gap:5px}
+.sig{color:var(--omni);background:var(--omnisoft);border-radius:4px;padding:2px 8px;justify-self:start}
+
+pre{margin:0;font-size:12.5px;line-height:1.6;background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto}
+pre .c{color:var(--muted)}
+pre .add{background:var(--omnisoft);color:var(--omni);border-radius:3px;padding:0 3px;margin-left:-3px}
+pre .err{color:var(--red)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 20px;display:grid;gap:10px}
+.card ul{margin:0;padding-left:20px;display:grid;gap:6px}
+.card h3{font:600 12px/1.3 "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table.rules{border-collapse:collapse;width:100%;min-width:600px;font-size:14px}
+table.rules th,table.rules td{text-align:left;vertical-align:top;padding:10px 14px;border-bottom:1px solid var(--line2)}
+table.rules tr:last-child td{border-bottom:none}
+table.rules th{font:600 11.5px/1.3 "IBM Plex Mono",monospace;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--code)}
+.note{font-size:14px;color:var(--muted);max-width:72ch}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- OmniMan, as the omni-loop app's avatar: navy suit, white chest, red cape, on the night sky -->
+    <symbol id="omniman" viewBox="0 0 12 12" shape-rendering="crispEdges">
+      <rect width="12" height="12" fill="#07061c"/>
+      <rect x="4" y="1" width="4" height="3" fill="#f1c9a5"/>
+      <rect x="4" y="1" width="4" height="1" fill="#1b1b1b"/>
+      <rect x="2" y="4" width="8" height="1" fill="#c8323c"/>
+      <rect x="3" y="4" width="6" height="5" fill="#1f2d6b"/>
+      <rect x="5" y="5" width="2" height="2" fill="#ffffff"/>
+      <rect x="3" y="9" width="2" height="2" fill="#1f2d6b"/>
+      <rect x="7" y="9" width="2" height="2" fill="#1f2d6b"/>
+      <rect x="1" y="2" width="1" height="1" fill="#8f7cff"/>
+      <rect x="10" y="8" width="1" height="1" fill="#8f7cff"/>
+    </symbol>
+    <symbol id="claude" viewBox="0 0 12 12">
+      <circle cx="6" cy="6" r="6" fill="#d97757"/>
+      <path d="M6 2.2v7.6M2.2 6h7.6M3.3 3.3l5.4 5.4M8.7 3.3l-5.4 5.4" stroke="#fff" stroke-width="1.1" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="person" viewBox="0 0 12 12">
+      <circle cx="6" cy="6" r="6" fill="#5a6b8c"/>
+      <circle cx="6" cy="4.6" r="2" fill="#dfe5f1"/>
+      <path d="M2.6 10.2c.6-2 1.9-3 3.4-3s2.8 1 3.4 3z" fill="#dfe5f1"/>
+    </symbol>
+  </defs>
+</svg>
+
+<main>
+
+<header class="top">
+  <p class="eyebrow">PRD #99 · vertuo-omni-loop · 25 September 2026</p>
+  <h1>OmniMan signs the loop's work, and <code>omni credits</code> counts it</h1>
+  <p class="lede">Today Claude is credited on everything the loop builds, and the loop itself is not. After this PRD, OmniMan (the omni-loop app's bot, <code>omni-loop-invader[bot]</code>) is a co-author of every commit a skill makes, signs every pull request and issue a skill opens, and has a track record anyone can print.</p>
+</header>
+
+<section aria-labelledby="commit-h">
+  <h2 id="commit-h">A commit a skill made, on GitHub</h2>
+  <p class="intro">A slice commit, as GitHub shows it, and the lines at the end of its message. Drawn, not captured: GitHub's own wording around the avatars may differ.</p>
+  <div class="cols">
+    <div>
+      <p class="colhead before">Today</p>
+      <article class="gh">
+        <div class="gh-head">
+          <span class="stack"><svg class="av" role="img" aria-label="pierrederval"><use href="#person"/></svg><svg class="av" role="img" aria-label="Claude"><use href="#claude"/></svg></span>
+          <span><b>pierrederval</b> and <b>Claude</b> committed</span>
+        </div>
+        <div class="gh-body">
+          <p class="title">feat(kit): s3 — omni credits counts the loop's pull requests</p>
+          <pre><span class="c">…</span>
+Co-Authored-By: Claude &lt;noreply@anthropic.com&gt;</pre>
+        </div>
+      </article>
+    </div>
+    <div>
+      <p class="colhead after">After</p>
+      <article class="gh after">
+        <div class="gh-head">
+          <span class="stack"><svg class="av" role="img" aria-label="pierrederval"><use href="#person"/></svg><svg class="av" role="img" aria-label="Claude"><use href="#claude"/></svg><svg class="av" role="img" aria-label="OmniMan"><use href="#omniman"/></svg></span>
+          <span><b>pierrederval</b>, <b>Claude</b> and <b>omni-loop-invader[bot]</b> committed</span>
+        </div>
+        <div class="gh-body">
+          <p class="title">feat(kit): s3 — omni credits counts the loop's pull requests</p>
+          <pre><span class="c">…</span>
+Co-Authored-By: Claude &lt;noreply@anthropic.com&gt;
+<span class="add">Co-authored-by: OmniMan &lt;333776611+omni-loop-invader[bot]@users.noreply.github.com&gt;</span></pre>
+          <p class="faint">The second line is what <code>omni sign trailer</code> prints. When the feature pull request is squash-merged, GitHub carries both co-authors into the commit on <code>main</code>.</p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="body-h">
+  <h2 id="body-h">The end of a pull request or issue the loop opened</h2>
+  <p class="intro">Pull requests and issues have no co-author on GitHub, so OmniMan signs the description, just above the session's own lines. The hidden marker is what <code>omni credits</code> recognises.</p>
+  <div class="cols">
+    <div>
+      <p class="colhead before">Today</p>
+      <article class="gh">
+        <div class="gh-head"><svg class="av" role="img" aria-label="pierrederval"><use href="#person"/></svg><span><b>pierrederval</b> opened this via <b>claude</b></span></div>
+        <div class="gh-body">
+          <p class="faint">… Summary, Verified, Risk and rollback, Reviewer focus …</p>
+          <hr>
+          <p>🤖 Generated with Claude Code</p>
+        </div>
+      </article>
+    </div>
+    <div>
+      <p class="colhead after">After</p>
+      <article class="gh after">
+        <div class="gh-head"><svg class="av" role="img" aria-label="pierrederval"><use href="#person"/></svg><span><b>pierrederval</b> opened this via <b>claude</b></span></div>
+        <div class="gh-body">
+          <p class="faint">… Summary, Verified, Risk and rollback, Reviewer focus …</p>
+          <hr>
+          <p class="sig">🦸 Delivered by OmniMan, with Omni Loop</p>
+          <p>🤖 Generated with Claude Code</p>
+        </div>
+      </article>
+      <pre style="margin-top:10px"><span class="c">$ omni sign footer</span>
+<span class="add">🦸 Delivered by OmniMan, with Omni Loop &lt;!-- omni-loop:signed --&gt;</span></pre>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="credits-h">
+  <h2 id="credits-h">How many pull requests did OmniMan work on?</h2>
+  <p class="intro">Today nothing answers it. After, <code>omni credits</code> reads GitHub across the organisation and prints his record. The numbers below are made up.</p>
+  <div class="cols">
+    <div>
+      <p class="colhead before">Today</p>
+      <pre><span class="c">$ omni credits</span>
+<span class="err">usage: omni &lt;command&gt; [args]
+commands: config, prd, status, settle, adopt, replies, comment,
+ship, check, knowledge, kb, item, plan, board, rework, phase0, init</span></pre>
+    </div>
+    <div>
+      <p class="colhead after">After</p>
+      <pre><span class="c">$ omni credits</span>
+OmniMan · vertuoza · all time
+PRs        56   (merged 53 · open 3)
+           phase-0 5 · feature 4 · slices 45 · other 2
+  signed 12 · before signing 44 · missed 0
+PRD issues 26   signed 4 · before signing 22 · missed 0
+Opened by the app: 9 issues
+Co-authored commits on default branches: 11
+By repo    vertuo-omni-loop 47 · vertuo-core 9
+By month   2026-07 8 · 2026-08 21 · 2026-09 27
+
+<span class="c">$ omni credits --list --since 2026-09</span>
+vertuo-omni-loop #101 feature merged 2026-09-28 signed  feat(kit): OmniMan…
+vertuo-omni-loop #102 slice   merged 2026-09-28 signed  s1 — the signature…
+<span class="c">…</span></pre>
+    </div>
+  </div>
+  <div class="tablewrap">
+    <table class="rules">
+      <thead><tr><th>A pull request is OmniMan's when</th><th>Which ones that catches</th></tr></thead>
+      <tbody>
+        <tr><td>it carries <code>omni:phase-0</code>, <code>omni:feature</code> or <code>omni:sub</code></td><td>every phase-0, feature, slice and rework pull request, signed or not, back to the loop's first PRD</td></tr>
+        <tr><td>its description carries the signature marker</td><td>the terraform pull request, a standalone pull request, and a loop pull request whose label was removed</td></tr>
+        <tr><td>a commit carrying his trailer merged it</td><td>a squash merge on a default branch, found by its <code>(#&lt;n&gt;)</code> even with no label and no footer</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">Any one is enough. The signature then only says how he shows: <b>signed</b>, <b>before signing</b> (history, before the repository's first signed item) or <b>missed</b> (a skill forgot to sign it). A pull request closed without merging does not count.</p>
+</section>
+
+<section aria-labelledby="config-h">
+  <h2 id="config-h">The config <code>omni init</code> writes</h2>
+  <p class="intro">Signing is on by default everywhere the loop is installed. A new repository also sees it in its own config, where it can change or switch it off.</p>
+  <div class="cols">
+    <div>
+      <p class="colhead before">Today</p>
+      <pre><span class="c"># Where the laws a slice must not break are read from…</span>
+laws:
+  source: none</pre>
+    </div>
+    <div>
+      <p class="colhead after">After</p>
+      <pre><span class="c"># Where the laws a slice must not break are read from…</span>
+laws:
+  source: none
+
+<span class="add"># Who co-signs the loop's commits, pull requests and issues. null: nobody.</span>
+<span class="add">signature:</span>
+<span class="add">  name: OmniMan</span>
+<span class="add">  email: 333776611+omni-loop-invader[bot]@users.noreply.github.com</span>
+<span class="add">  footer: "🦸 Delivered by OmniMan, with Omni Loop"</span></pre>
+    </div>
+  </div>
+  <div class="cols">
+    <div>
+      <p class="colhead before">Today</p>
+      <pre><span class="c">$ omni phase0 99</span>
+omni phase0 — PRD 99, range origin/main...HEAD:
+ok — docs-only, carrying the spec, the plan and the before-after</pre>
+    </div>
+    <div>
+      <p class="colhead after">After, with an unsigned commit</p>
+      <pre><span class="c">$ omni phase0 99</span>
+omni phase0 — PRD 99, range origin/main...HEAD:
+<span class="err">not ok — unsigned: a1b2c3d has no "Co-authored-by: OmniMan
+&lt;333776611+omni-loop-invader[bot]@users.noreply.github.com&gt;" line</span></pre>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="same-h">
+  <h2 id="same-h">What stays the same</h2>
+  <div class="card">
+    <ul>
+      <li>Claude's trailer and "Generated with Claude Code" line stay exactly as they are. OmniMan is added beside them.</li>
+      <li>A commit a person makes by hand is not signed, and comments are not signed.</li>
+      <li><code>omni ship</code> checks nothing new: a feature branch may carry a person's fix.</li>
+      <li>Pull requests and issues are still opened by the person, via Claude. The app opens nothing new.</li>
+      <li>The game, the galaxy arcade and the Hall of Heroes do not change. An OmniMan card in the arcade is a later PRD.</li>
+      <li><code>signature: null</code> in a repository's config switches all of it off; the skills then run as today.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+</html>
