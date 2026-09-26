@@ -6,3 +6,4 @@ export * from './heroes.mjs';
 export * from './tokens.mjs';
 export * from './fonts.mjs';
 export * from './logo.mjs';
+export * from './brand.mjs';
