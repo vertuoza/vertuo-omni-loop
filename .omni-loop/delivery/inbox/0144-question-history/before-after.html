@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Question History</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=Press+Start+2P&display=swap">
+<style>
+  /* Tokens: ask mode's palette (PRD 71), so both pages read as one product. Light on bare :root, dark below. */
+  :root {
+    --ground: #f5f4fc;
+    --surface: #ffffff;
+    --sunk: #eceaf8;
+    --line: #d9d6ee;
+    --ink: #17153d;
+    --muted: #4f5486;
+    --plasma: #6a2fd0;
+    --plasma-soft: #efe7ff;
+    --yellow: #ffd84a;
+    --yellow-ink: #3a2c00;
+    --cyan: #0b6f86;
+    --green: #17804a;
+    --red: #b3263e;
+    --c-business: #9a5b00;
+    --c-product: #6a2fd0;
+    --c-ux: #b0307a;
+    --c-arch: #0b6f86;
+    --c-harness: #17804a;
+    --c-other: #5b5f7e;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --px: "Press Start 2P", ui-monospace, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+      --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66;
+      --cyan: #6ff0ff; --green: #4ee08a; --red: #ff7a90;
+      --c-business: #ffc15e; --c-product: #c29bff; --c-ux: #ff8fcf; --c-arch: #6ff0ff; --c-harness: #4ee08a; --c-other: #b8bbd9;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+    --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66;
+    --cyan: #6ff0ff; --green: #4ee08a; --red: #ff7a90;
+    --c-business: #ffc15e; --c-product: #c29bff; --c-ux: #ff8fcf; --c-arch: #6ff0ff; --c-harness: #4ee08a; --c-other: #b8bbd9;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.55 var(--body); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 40px 64px; display: grid; gap: 48px; }
+  header { display: grid; gap: 12px; max-width: 70ch; }
+  .eyebrow { font: 10px/1.6 var(--px); letter-spacing: .08em; color: var(--plasma); text-transform: uppercase; }
+  h1 { margin: 0; font-size: clamp(28px, 4vw, 40px); line-height: 1.15; text-wrap: balance; }
+  h2 { margin: 0; font-size: 22px; text-wrap: balance; }
+  h3 { margin: 0; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  p { margin: 0; }
+  .lede { color: var(--muted); }
+  section { display: grid; gap: 16px; }
+  section > p { max-width: 70ch; color: var(--muted); }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+  .side { display: grid; gap: 10px; }
+  .tag { justify-self: start; font: 600 12px/1 var(--mono); padding: 5px 8px; border-radius: 4px; }
+  .tag.today { background: var(--sunk); color: var(--muted); }
+  .tag.after { background: var(--plasma-soft); color: var(--plasma); }
+
+  .screen { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .bar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--sunk); font: 12px var(--mono); color: var(--muted); overflow-x: auto; white-space: nowrap; }
+  .bar b { color: var(--ink); font-weight: 600; }
+  .bar .spacer { flex: 1; }
+  .badge { background: var(--yellow); color: var(--yellow-ink); border-radius: 999px; padding: 1px 7px; font-weight: 600; }
+  .body { padding: 16px; display: grid; gap: 14px; }
+
+  .round { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: grid; gap: 8px; }
+  .round.open { border-color: var(--plasma); }
+  .q { font-weight: 600; }
+  .opts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .opt { border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; font-size: 14px; }
+  .opt.on { border-color: var(--plasma); background: var(--plasma-soft); }
+  .meta { font: 12px/1.5 var(--mono); color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 12px; font-variant-numeric: tabular-nums; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .chip { font: 600 11px/1 var(--mono); border: 1px solid currentColor; border-radius: 999px; padding: 4px 8px; }
+  .chip.business { color: var(--c-business); }
+  .chip.product { color: var(--c-product); }
+  .chip.ux { color: var(--c-ux); }
+  .chip.arch { color: var(--c-arch); }
+  .chip.harness { color: var(--c-harness); }
+  .chip.unsorted { color: var(--c-other); border-style: dashed; }
+  .btn { font: 600 13px var(--body); border-radius: 6px; padding: 6px 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+  .btn.primary { background: var(--plasma); border-color: var(--plasma); color: var(--surface); }
+  .note { font-size: 13px; color: var(--muted); }
+  .gone { text-align: center; padding: 28px 12px; color: var(--muted); font-size: 14px; border: 1px dashed var(--line); border-radius: 8px; }
+  .won { color: var(--green); font-weight: 600; }
+  .lost { color: var(--red); font-weight: 600; }
+  .share { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 8px; background: var(--sunk); }
+  .link { font: 12px var(--mono); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 5px 8px; overflow-x: auto; white-space: nowrap; }
+
+  .tablebox { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 600 11px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  td.num { font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; }
+  .filter { font: 12px var(--mono); border: 1px solid var(--line); border-radius: 4px; padding: 4px 8px; color: var(--muted); }
+  .filter.on { border-color: var(--plasma); color: var(--plasma); }
+
+  .same { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .same div { border-top: 2px solid var(--line); padding-top: 10px; font-size: 14px; color: var(--muted); }
+  .same b { color: var(--ink); display: block; margin-bottom: 2px; }
+  :focus-visible { outline: 2px solid var(--plasma); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">PRD 144 · before / after</span>
+  <h1>Every question Claude asks, kept, sorted and shareable</h1>
+  <p class="lede">Ask mode puts Claude's questions on a web page, then deletes them a week after the session closes. After this PRD, every question is kept with where it came from, what it cost, who answered and a category, the whole workspace can read the history, and a live question can go to the teammate who should decide it.</p>
+</header>
+
+<section aria-labelledby="s1">
+  <h2 id="s1">1. A question on the live page</h2>
+  <p>The same question, asked by <code>/omni:brainstorm</code> on PRD 94. Today the round knows only its text and its answer. After, it says where it came from and what it cost, carries a category, and can be shared while it is open.</p>
+  <div class="pair">
+    <div class="side">
+      <span class="tag today">Today</span>
+      <div class="screen">
+        <div class="bar"><b>Ask</b> · session: vertuo-omni-loop<span class="spacer"></span>pierre@</div>
+        <div class="body">
+          <div class="round open">
+            <p class="q">Should the Game Boy skin be free for every workspace, or a paid add-on?</p>
+            <div class="opts"><span class="opt">Free for all</span><span class="opt">Paid add-on</span><span class="opt">Free for 30 days</span></div>
+            <div class="row"><button class="btn primary" type="button">Send</button></div>
+          </div>
+          <p class="note">Only you can see this page. It is deleted 7 days after the session closes.</p>
+        </div>
+      </div>
+    </div>
+    <div class="side">
+      <span class="tag after">After</span>
+      <div class="screen">
+        <div class="bar"><b>Ask</b> · session: vertuo-omni-loop<span class="spacer"></span>History · For me <span class="badge">1</span> · pierre@</div>
+        <div class="body">
+          <div class="round open">
+            <div class="row"><span class="chip business">Business</span><span class="note">sorted by the model · change</span></div>
+            <p class="q">Should the Game Boy skin be free for every workspace, or a paid add-on?</p>
+            <div class="opts"><span class="opt">Free for all</span><span class="opt">Paid add-on</span><span class="opt">Free for 30 days</span></div>
+            <div class="meta"><span>vertuo-omni-loop</span><span>feat/game-boy-handheld</span><span>PRD #94</span><span>/omni:brainstorm</span></div>
+            <div class="meta"><span>claude-opus-5-5</span><span>412k tokens</span><span>$1.84 so far</span><span>open 1 m 12 s · falls back in 8 m 48 s</span></div>
+            <div class="row"><button class="btn primary" type="button">Send</button><button class="btn" type="button">Share</button></div>
+            <div class="share">
+              <span class="note">Shared with <b>Marie (product)</b>. Either of you can answer; the first answer wins.</span>
+              <span class="link">https://vertuo-omni-loop-galaxy.vercel.app/ask/q/7c1e…</span>
+              <div class="row"><button class="btn" type="button">Copy link</button></div>
+            </div>
+          </div>
+          <p class="note">Everyone in the Vertuoza workspace can read this session. Kept until you delete it.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="s2">
+  <h2 id="s2">2. The teammate's side</h2>
+  <p>Today the question can reach nobody but its owner. After, Marie sees it under <b>For me</b> and answers on its own page, with the earlier questions of the session for context. If Pierre answers first, her page says so.</p>
+  <div class="pair">
+    <div class="side">
+      <span class="tag today">Today</span>
+      <div class="screen">
+        <div class="bar"><b>/ask/…</b> opened by Marie</div>
+        <div class="body"><div class="gone">This session is not yours.<br>Nothing to show.</div></div>
+      </div>
+    </div>
+    <div class="side">
+      <span class="tag after">After</span>
+      <div class="screen">
+        <div class="bar"><b>/ask/q/7c1e…</b> · Marie<span class="spacer"></span>For me <span class="badge">1</span></div>
+        <div class="body">
+          <div class="round open">
+            <div class="row"><span class="chip business">Business</span><span class="note">from Pierre · PRD #94 · 8 m 48 s left</span></div>
+            <p class="q">Should the Game Boy skin be free for every workspace, or a paid add-on?</p>
+            <div class="opts"><span class="opt">Free for all</span><span class="opt on">Paid add-on</span><span class="opt">Free for 30 days</span></div>
+            <div class="row"><button class="btn primary" type="button">Send</button></div>
+          </div>
+          <div class="round">
+            <p class="note"><span class="won">Answered by Marie</span> via the page, after 2 m 14 s. Claude carried on with "Paid add-on".</p>
+          </div>
+          <div class="round">
+            <p class="note"><span class="lost">Already answered by Pierre</span> via the terminal, after 10 m 03 s: "Free for all". Your answer was not sent.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="s3">
+  <h2 id="s3">3. History</h2>
+  <p>Today there is none. After, <code>/ask/history</code> lists every question of the workspace, newest first, filtered by category, repo, PRD, skill, who asked and who answered, and searched by the words of a question or its answer.</p>
+  <div class="pair">
+    <div class="side">
+      <span class="tag today">Today</span>
+      <div class="screen">
+        <div class="bar"><b>/ask/history</b></div>
+        <div class="body"><div class="gone">404. Sessions are deleted 7 days after they close.</div></div>
+      </div>
+    </div>
+    <div class="side">
+      <span class="tag after">After</span>
+      <div class="screen">
+        <div class="bar"><b>/ask/history</b> · Vertuoza</div>
+        <div class="body">
+          <div class="filters"><span class="filter on">Business</span><span class="filter">Product</span><span class="filter">UX/UI</span><span class="filter">Architecture</span><span class="filter">Harness</span><span class="filter">Other</span><span class="filter on">PRD #94</span></div>
+          <div class="tablebox">
+            <table>
+              <thead><tr><th>Question</th><th>Answer</th><th>By</th><th>Took</th><th>Cost</th></tr></thead>
+              <tbody>
+                <tr><td>Game Boy skin free, or a paid add-on?</td><td>Paid add-on</td><td>Marie</td><td class="num">2 m 14 s</td><td class="num">$1.84</td></tr>
+                <tr><td>Which workspaces see the Game Boy first?</td><td>Vertuoza only</td><td>Pierre</td><td class="num">41 s</td><td class="num">$0.96</td></tr>
+                <tr><td>Show a price on the skin picker?</td><td>No, a "Pro" badge</td><td>Marie</td><td class="num">5 m 02 s</td><td class="num">$2.10</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">Example rows.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="s4">
+  <h2 id="s4">4. What stays the same</h2>
+  <div class="same">
+    <div><b>Off means off</b>With ask mode off, the hooks are silent and nothing is recorded.</div>
+    <div><b>The 10-minute ceiling</b>A question nobody answers on the page goes back to the terminal, as today.</div>
+    <div><b>No transcript text leaves</b>The hook sends counts and names (tokens, model, skill), never what was said.</div>
+    <div><b>An older kit works</b>A kit that sends no context still asks and gets answers; its rounds carry empty fields.</div>
+  </div>
+</section>
+
+</div>
+</body>
+</html>
