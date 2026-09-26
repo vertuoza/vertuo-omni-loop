@@ -24,7 +24,9 @@ html:has(.km-root) body { height: auto; overflow: visible; }
 .km { width: 100%; max-width: 1180px; display: grid; gap: 18px; min-width: 0; }
 
 .km-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
-.km-tab {
+/* `.km` outranks ask.css's `.ask a`, which colours every link cyan: a tab and an index row are
+   links drawn as controls. */
+.km .km-tab {
   display: inline-flex;
   align-items: baseline;
   gap: 8px;
@@ -37,8 +39,8 @@ html:has(.km-root) body { height: auto; overflow: visible; }
   font-weight: 700;
   text-decoration: none;
 }
-.km-tab:hover { border-color: var(--ask-muted); }
-.km-tab[aria-current='page'] { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+.km .km-tab:hover { border-color: var(--ask-muted); }
+.km .km-tab[aria-current='page'] { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
 .km-count { font-size: 13px; font-weight: 400; color: var(--ask-muted); }
 .km-tab[aria-current='page'] .km-count { color: inherit; }
 
@@ -173,7 +175,7 @@ html:has(.km-root) body { height: auto; overflow: visible; }
 .km-group h3 { margin: 0; font-size: 16px; }
 .km-hint { margin: 0; font-size: 14px; color: var(--ask-muted); }
 .km-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.km-row {
+.km .km-row {
   display: grid;
   grid-template-columns: 11px max-content minmax(0, 1fr);
   align-items: baseline;
@@ -188,7 +190,8 @@ html:has(.km-root) body { height: auto; overflow: visible; }
 .km-rows [data-role='member'] .km-row { margin-left: 22px; }
 .km-row:hover { background: var(--ask-surface); }
 .km-row[aria-current='true'] { background: var(--ask-plasma-soft); }
-.km-row .km-mark { align-self: center; }
+/* The dot sits on the first line, beside the id. */
+.km-row .km-mark { align-self: start; margin-top: 5px; }
 .km-id { font-weight: 600; font-size: 13.5px; }
 .km-text {
   min-width: 0;
@@ -212,7 +215,9 @@ html:has(.km-root) body { height: auto; overflow: visible; }
 
 /* On a narrow phone the id sits above its statement. */
 @media (max-width: 479px) {
-  .km-row { grid-template-columns: 11px minmax(0, 1fr); }
+  .km-bar-end { width: 100%; justify-content: space-between; gap: 10px; }
+  .km-chart { font-size: 14px; }
+  .km .km-row { grid-template-columns: 11px minmax(0, 1fr); }
   .km-row .km-text { grid-column: 2; }
   .km-rows [data-role='member'] .km-row { margin-left: 14px; }
   .km-facts { grid-template-columns: minmax(0, 1fr); gap: 2px; }

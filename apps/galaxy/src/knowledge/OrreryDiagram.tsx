@@ -18,9 +18,10 @@ type Props = {
   onChoose: (id: string, event: MouseEvent) => void;
 };
 
-/** The sun label's font size: 11 units, shrunk to fit inside the sun. */
+/** The sun label's font size: 11 units, shrunk to fit inside the sun, whichever face draws it (a bold
+ * letter is about two thirds of the size wide). */
 const labelSize = (label: string, sun: number) =>
-  Math.round(Math.min(11, (2 * sun * 0.86) / (0.56 * Math.max(label.length, 1))) * 10) / 10;
+  Math.round(Math.min(11, (2 * sun * 0.84) / (0.68 * Math.max(label.length, 1))) * 10) / 10;
 
 export function OrreryDiagram({ graph, entries, label, selected, query, onChoose }: Props) {
   const layout = orrery(entries);
