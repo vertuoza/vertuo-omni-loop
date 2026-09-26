@@ -87,6 +87,3 @@ export function keepSent(state: SessionState, sent: Sent): SessionState {
   }
   return next;
 }
-
-/** The tab's title: a question waiting shows even when the tab is in the background. */
-export const pageTitle = (view: Pick<SessionView, 'kind'>) => (view.kind === 'open' ? '● Claude asks · OMNI LOOP' : 'Ask · OMNI LOOP');

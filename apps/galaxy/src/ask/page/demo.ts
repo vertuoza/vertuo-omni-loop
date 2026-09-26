@@ -2,8 +2,7 @@
 // arcade's demo galaxy): three made-up terminals, one of them asking, played in the browser, so the
 // page can be seen and tried. `?demo=working|moved|closed|empty` shows the other states on the
 // first one. Nothing here is ever sent.
-import type { AskPort, TabsPort } from './source';
-import { rowOf } from './tabs';
+import type { AskPort } from './source';
 import type { RoundRow, SessionState } from './view';
 
 export type DemoScenario = 'open' | 'working' | 'moved' | 'closed' | 'empty';
@@ -158,12 +157,6 @@ export function demoSessions(scenario: DemoScenario, now: number): SessionState[
  * single session it always played. */
 export function demoPane(id: string, scenario: DemoScenario, now: number): SessionState {
   return demoSessions(scenario, now).find((s) => s.session.id === id) ?? demoState(id, scenario, now);
-}
-
-/** The demo's tab list: the terminals as the page first read them. */
-export function demoTabs(sessions: SessionState[]): TabsPort {
-  const rows = sessions.map(rowOf);
-  return { list: async () => structuredClone(rows) };
 }
 
 /** The demo session in the browser: an answer is taken, and a moment later Claude asks again. */
