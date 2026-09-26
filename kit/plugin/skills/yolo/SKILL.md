@@ -33,7 +33,9 @@ never overrides this skill's rules.
 
 Then run `node .omni-loop/bin/omni.mjs kb status` once, and print the open questions it lists. They
 are for a person, and none of them holds delivery: every slice carries on with the kit default
-where a form has a hole. Do not run it again this run.
+where a form has a hole. Beside them, print once the proposed register entries, summed over its
+`Registers` lines: `<n> proposed knowledge entries — not laws until confirmed`. A proposed entry
+floors nothing and stops no slice; delivery carries on. Do not run it again this run.
 
 ## 1. Find the PRD, the plan and the feature PR
 

@@ -15,7 +15,9 @@
  * - each `TODO(human)` question;
  * - a blank required slot of a core form that is not a pointer: the kit default applies;
  * - an `evidence` file whose `git hash-object` no longer starts with the recorded hex;
- * - a missing form file: the kit defaults apply.
+ * - a missing form file: the kit defaults apply;
+ * - each old spelling the parser still reads (`terraformed:`, `by: terraform`, PRD #68), once per
+ *   place it appears.
  *
  * A path is read from the repository's root. Which slots a form has, and which are required, is
  * its template's say, never its own markers'.
@@ -50,6 +52,8 @@ function gradeForm({ id, kind }, { ctx, exec }) {
     else if (now === null) warnings.push(`${file}: evidence ${path}@${hash} could not be hashed`);
     else warnings.push(`${file}: evidence ${path}@${hash} is stale — the file has changed since (now ${now.slice(0, 7)})`);
   }
+
+  for (const { where, old, now } of form.oldSpellings) warnings.push(`${file}: ${where} says ${old} — the old spelling; write ${now}`);
 
   const pointer = form.state === 'pointer';
   for (const slot of form.slots) {

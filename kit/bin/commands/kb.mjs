@@ -3,7 +3,8 @@
 // wrote; it never changes a file that exists. `show` prints one form resolved section by section (a
 // pointer, then the repository's section, then the kit default), each section labelled with where
 // it came from; `show decisions` then lists the decision records, read live. `status` prints the
-// map: each form's state and source, every open question, every stale evidence entry. None of them
+// map: each form's state and source, each register folder's laws and proposals, every open
+// question, every stale evidence entry. None of them
 // fails on what a form holds: a dead pointer or a kit default naming an unset config key is a
 // warning, and `omni check kb` grades.
 import { DECISIONS_FORM, FORM_IDS } from '../../lib/playbook/forms.mjs';
@@ -62,8 +63,21 @@ function show(positional, flags, { ctx, stdout, stderr }) {
 
 const SOURCE_LABEL = { repo: 'repo', pointer: 'pointer', kit: 'kit default' };
 
-/** The map as text: a line per form, then every open question, then every stale evidence entry. */
-function statusText({ frontDoor, forms }) {
+/** The register folders as text: a line per folder, its laws and its proposed entries (PRD #68). */
+function registerLines(registers) {
+  if (registers.length === 0) return ['Registers: none.'];
+  const width = Math.max(...registers.map(({ folder }) => folder.length));
+  return [
+    `Registers: ${registers.length} folder(s)`,
+    ...registers.map(({ folder, laws, proposals }) => `  ${folder.padEnd(width)}  ${laws} law(s) · ${proposals} proposal(s)`),
+  ];
+}
+
+/**
+ * The map as text: a line per form, then each register folder's laws and proposals, then every
+ * open question, then every stale evidence entry.
+ */
+function statusText({ frontDoor, forms, registers }) {
   const width = Math.max(...forms.map(({ form }) => form.length));
   const lines = [`kb status — ${forms.length} form(s) in ${frontDoor}`];
   for (const { form, kind, state, source, questions, stale } of forms) {
@@ -77,6 +91,7 @@ function statusText({ frontDoor, forms }) {
   const stale = forms.flatMap(({ form, file, stale: entries }) =>
     entries.map(({ path, hash, now }) => `  ${form} (${file}): ${path}@${hash} — ${now === null ? 'gone' : `now ${now.slice(0, 7)}`}`),
   );
+  lines.push(...registerLines(registers));
   lines.push(questions.length > 0 ? `Open questions: ${questions.length}` : 'Open questions: none.', ...questions);
   lines.push(stale.length > 0 ? `Stale evidence: ${stale.length}` : 'Stale evidence: none.', ...stale);
   return lines.join('\n');

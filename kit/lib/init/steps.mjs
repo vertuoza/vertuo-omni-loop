@@ -1,6 +1,6 @@
 // What `omni init` prints last: what it wrote or kept, then the steps only a person can take — the
 // plugin, the GitHub App, the loop labels gh could not make, the optional branch protection, filling
-// the forms with /omni:terraform — the commands it could not fill, what it noticed and left alone, and
+// the forms with /omni:invade — the commands it could not fill, what it noticed and left alone, and
 // how to remove the loop again. Only the repository's slug and default branch (and the kit's own
 // address, see bundle.mjs) vary from one repository to the next.
 import { dirname } from 'node:path';
@@ -70,7 +70,7 @@ export function closingSteps({ slug, defaultBranch, kitHome, outboxCheck, files,
   const formsStep = steps.length + 1;
   steps.push([
     `Fill the forms in ${forms.dir}/ with what the repository can prove, in Claude Code:`,
-    `     /${PLUGIN}:terraform`,
+    `     /${PLUGIN}:invade`,
   ]);
 
   if (forms.outside) lines.push(`  forms   not written: ${forms.dir}/ is outside ${dir}/ — see step ${formsStep} below`);

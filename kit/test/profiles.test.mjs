@@ -197,4 +197,26 @@ describe.each(PROFILES)('profile $name', ({ config, extra, bearsOn, floors, form
 
     expect(await main(['check', 'outbox'], { cwd: root, ...quiet() })).toBe(floors ? 1 : 0);
   });
+
+  it('a proposed knowledge entry keeps check all green, and a medium item bearing on it is never floored (PRD #68)', async () => {
+    const proposed =
+      '\n## P-PRODUCT-2\n\nA decision nobody confirmed.\n\nWhy: the code suggests it.\nSource: PRD #42\nProposed: invade 2026-09-25\n';
+    const { root } = makeRepo({
+      git: true,
+      files: {
+        '.omni-loop/config.yml': config,
+        [`${D}/inbox/0042-a/spec.md`]: SPEC_42,
+        [`${D}/outbox/0042-a/s1-01-x.md`]: itemText({ prd: 42, bearsOn: 'P-PRODUCT-2', rank: 'medium' }),
+        ...extra,
+        '.omni-loop/knowledge/product/principles.md': `${PRINCIPLE_P_PRODUCT_1}${proposed}`,
+        '.omni-loop/knowledge/product/rules.md': EMPTY_RULES,
+        '.omni-loop/knowledge/product/invariants.md': EMPTY_INVARIANTS,
+      },
+    });
+    const out = [];
+    const err = [];
+    expect(await main(['check', 'all'], { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) } })).toBe(0);
+    expect(out.join('')).toMatch(/^check knowledge — .*1 proposed\.$/m);
+    expect(err.join('')).toMatch(/warning: \.omni-loop\/knowledge\/product\/principles\.md: P-PRODUCT-2 — is proposed by invade on 2026-09-25/);
+  });
 });

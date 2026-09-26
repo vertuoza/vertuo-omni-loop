@@ -4,7 +4,7 @@ form-version: 1
 state: blank
 points-to: null
 evidence: []
-terraformed: null
+invaded: null
 ---
 
 <!-- Ported from vertuo-ai-domain@db67fd9da:CONTEXT.md and docs/glossary.md — changes in kit/porting/templates--glossary.md -->
