@@ -11,6 +11,7 @@ import type { ChartSource } from './chart-layout.ts';
 import { chartRefusal, chartTally } from './chart.tsx';
 import type { SceneName } from './common.ts';
 import { BRIEFING_PAGES, type BriefingPage } from './menu.ts';
+import { gamesHint, levelTag, type XpStatus } from '../games/room';
 import './common.css';
 import './menu.css';
 
@@ -22,25 +23,30 @@ function SourceChip({ view }: { view: GalaxyView }) {
 
 // ── Menu ─────────────────────────────────────────────────────────────────────
 
-export type MenuId = 'map' | 'chart' | 'fleets' | 'heroes' | 'briefing' | 'myhero' | 'change' | 'link' | 'signout';
-export interface MenuItem { id: MenuId; label: string; scene?: SceneName; fresh?: boolean }
+export type MenuId = 'map' | 'chart' | 'fleets' | 'heroes' | 'games' | 'briefing' | 'myhero' | 'change' | 'link' | 'signout';
+/** A row of the menu. `tag` is the small label beside it: NEW on GAMES until the room is seen. */
+export interface MenuItem { id: MenuId; label: string; scene?: SceneName; fresh?: boolean; tag?: 'NEW' }
 
 const GALAXY: MenuItem[] = [
   { id: 'map', label: 'GALAXY MAP', scene: 'map' },
   { id: 'chart', label: 'STAR CHART', scene: 'chart' },
   { id: 'fleets', label: 'FLEETS', scene: 'fleets' },
   { id: 'heroes', label: 'HALL OF HEROES', scene: 'heroes' },
-  { id: 'briefing', label: 'HOW TO PLAY', scene: 'briefing' },
 ];
+const BRIEFING: MenuItem = { id: 'briefing', label: 'HOW TO PLAY', scene: 'briefing' };
 
 /**
- * The menu for who is at the cabinet: the galaxy for everyone signed in; then, for a player, their
- * hero and fleet; for a visitor, the way to play (linking GitHub).
+ * The menu for who is at the cabinet: the galaxy and the game room for everyone signed in; then, for
+ * a player, their hero and fleet; for a visitor, the way to play (linking GitHub). `newGames`: the
+ * game room was never opened on this device, and GAMES carries a NEW tag.
  */
-export function menuItems({ joined, linked, signedIn }: { joined: boolean; linked: boolean; signedIn: boolean }): MenuItem[] {
+export function menuItems({ joined, linked, signedIn, newGames = false }: { joined: boolean; linked: boolean; signedIn: boolean; newGames?: boolean }): MenuItem[] {
+  const games: MenuItem = { id: 'games', label: 'GAMES', scene: 'games', ...(newGames ? { tag: 'NEW' as const } : {}) };
   return [
     ...(signedIn && !linked ? [{ id: 'link', label: 'PLAY', fresh: true }] as MenuItem[] : []),
     ...GALAXY,
+    ...(signedIn ? [games] : []),
+    BRIEFING,
     ...(joined && linked ? [{ id: 'myhero', label: 'MY HERO', fresh: true }, { id: 'change', label: 'CHANGE FLEET', fresh: true }] as MenuItem[] : []),
     ...(signedIn ? [{ id: 'signout', label: 'SIGN OUT' }] as MenuItem[] : []),
   ];
@@ -56,14 +62,26 @@ export function doorOf(item: MenuItem, at: { view: GalaxyView | null; chart: Cha
   return at.view ? { scene: item.scene } : { refused: at.problem ?? 'SIGN IN TO SEE THE GALAXY' };
 }
 
-export function MenuOverlay({ view, items, index, me, onPick, chart = null }: {
+/** The level on a player's badge, when they have one: `P1 INKY · OCTOPOD · LV 3`. */
+export function badgeOf(me: Player, xp: XpStatus): string {
+  const tag = levelTag(xp);
+  return `P1 ${me.display_name} · ${fleet(me.team).label}${tag ? ` · ${tag}` : ''}`;
+}
+
+/** XP nobody read: no level shows, and the arcade never guesses one. */
+const UNKNOWN_XP: XpStatus = { kind: 'unreadable' };
+
+export function MenuOverlay({ view, items, index, me, onPick, chart = null, xp = UNKNOWN_XP }: {
   view: GalaxyView | null; items: MenuItem[]; index: number; me: Player | null; onPick: (i: number) => void; chart?: ChartSource;
+  /** The player's XP, for GAMES's hint and the level on their badge. */
+  xp?: XpStatus;
 }) {
   const hint: Record<MenuId, string> = {
     map: view ? `${view.totals.planets} planets · ${view.totals.inDistress} in distress` : 'Out of reach',
     chart: chart === 'none' ? 'NOT IN THIS BUILD' : chart ? chartTally(chart) : 'OUT OF REACH',
     fleets: view ? `${view.teams.length} fleets · ${fleet(view.teams[0]?.name).label} lead` : 'Out of reach',
     heroes: view ? `${view.heroes.length} heroes scored in ${view.season}` : 'Out of reach',
+    games: gamesHint(xp),
     briefing: 'How points are won and lost',
     myhero: 'Your name and your look',
     change: 'Your future points follow you',
@@ -75,14 +93,14 @@ export function MenuOverlay({ view, items, index, me, onPick, chart = null }: {
     <div className={`menu${items.length > 4 ? ' long' : ''}`}>
       <h2>SELECT MODE</h2>
       {me?.team && me.github_login
-        ? <span className="j-badge" style={{ ['--fc' as string]: f.color }}>P1 {me.display_name} · {f.label}</span>
+        ? <span className="j-badge" style={{ ['--fc' as string]: f.color }}>{badgeOf(me, xp)}</span>
         : <span className="j-badge" style={{ ['--fc' as string]: '#8a90d6' }}>VISITOR</span>}
       <ul>
         {items.map((m, i) => (
           <li key={m.id}>
             <button type="button" className={`${i === index ? 'active' : ''}${m.id === 'link' ? ' nudge' : ''}`} onClick={() => onPick(i)}>
               <span className="cursor" aria-hidden="true">{i === index ? '▶' : ''}</span>
-              <span className="menu-label">{m.label}</span>
+              <span className="menu-label">{m.label}{m.tag && <i className="menu-tag">{m.tag}</i>}</span>
               <span className="menu-hint">{hint[m.id]}</span>
             </button>
           </li>

@@ -164,6 +164,13 @@ describe('the one door', () => {
     }
   });
 
+  it('keeps the game room behind a sign-in, and lets a visitor in to see every cabinet locked', () => {
+    expect(allowed('games', null)).toBe('coin');
+    expect(allowed('games', crew)).toBe('games');
+    expect(allowed('games', crew, false)).toBe('games');
+    expect(allowed('games', linked, true)).toBe('games');
+  });
+
   it('ignores a crafted return URL when nobody is signed in', () => {
     expect(afterReturn({ kind: 'linked', login: 'someone' }, null, null, FLEETS)).toBe('coin');
     expect(afterReturn({ kind: 'link_error', message: 'x' }, null, null, FLEETS)).toBe('coin');

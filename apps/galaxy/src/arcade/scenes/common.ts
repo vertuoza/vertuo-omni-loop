@@ -30,7 +30,7 @@ export const TALL: Grid = { name: 'tall', w: 320, h: 288 };
 export type SceneName =
   | 'boot' | 'title' | 'menu' | 'map' | 'planet' | 'fleets' | 'heroes' | 'briefing'
   | 'coin' | 'away' | 'gate' | 'intro' | 'select' | 'name' | 'hero' | 'link' | 'ready' | 'welcome' | 'outsider'
-  | 'chart' | 'system';
+  | 'chart' | 'system' | 'games';
 
 /** What the joining screens draw: the fleets to pick from, the player's fleet and hero. */
 export interface JoinFrame {

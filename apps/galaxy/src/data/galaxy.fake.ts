@@ -11,7 +11,7 @@ type Failure = { code?: string; message: string };
 type Result = { data: unknown; error: Failure | null };
 
 export type FakeUser = { id: string; email: string; confirmed?: boolean; github?: { id: number; login: string } };
-export type FakeTable = 'workspaces' | 'workspace_members' | 'sectors' | 'teams' | 'players' | 'ledger_events';
+export type FakeTable = 'workspaces' | 'workspace_members' | 'sectors' | 'teams' | 'players' | 'ledger_events' | 'player_xp';
 export type FakeTables = Record<FakeTable, Row[]>;
 
 /** One call the client received: a table's query with its `eq` filters, or an RPC. */
@@ -36,7 +36,7 @@ function items(columns: string): string[] {
 
 export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] = []) {
   const tables: FakeTables = {
-    workspaces: [], workspace_members: [], sectors: [], teams: [], players: [], ledger_events: [],
+    workspaces: [], workspace_members: [], sectors: [], teams: [], players: [], ledger_events: [], player_xp: [],
     ...clone(seed),
   };
   const calls: FakeCall[] = [];
@@ -213,6 +213,9 @@ const charted = (workspace_id: string, title: string) => ({
   workspace_id, id: 'planet:12:charted', at: '2026-09-20T10:00:00Z', type: 'PLANET_CHARTED', planet: 12,
   region: null, contributor: null, team: null, data: { title, captain: 'ada-gh' },
 });
+const xpRow = (workspace_id: string, github_login: string, xp: number, level: number, unlocked: string[]) => ({
+  workspace_id, github_login, xp, level, unlocked, computed_at: '2026-09-26T09:45:00Z',
+});
 const player = (workspace_id: string, user_id: string, display_name: string, team: string, github_login: string) => ({
   workspace_id, user_id, display_name, team, team_since: '2026-09-21T10:00:00Z', hero: HERO, github_id: 1, github_login,
 });
@@ -260,6 +263,14 @@ export function twoWorkspaces(): Partial<FakeTables> {
       player(VERTUOZA, both.id, 'BOTH', 'beaver', 'both-gh'),
     ],
     ledger_events: [charted(VERTUOZA, 'Workspaces'), charted(ACME, 'Anvils')],
+    // As the game workflow writes them (supabase/migrations/20260926170000_game_room.sql): a row per
+    // lower-cased login the workspace's ledger names, player or not (BEA has no player row yet).
+    player_xp: [
+      xpRow(VERTUOZA, 'ada-gh', 180, 3, ['invaders']),
+      xpRow(VERTUOZA, 'both-gh', 500, 5, ['invaders']),
+      xpRow(VERTUOZA, 'bea-gh', 10, 1, ['invaders']),
+      xpRow(ACME, 'both-gh', 60, 2, ['invaders']),
+    ],
   };
 }
 

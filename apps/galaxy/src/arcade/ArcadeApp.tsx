@@ -25,6 +25,8 @@ import { cardPages, ChartOverlay, SystemOverlay } from './scenes/chart.tsx';
 import { MapOverlay } from './scenes/map.tsx';
 import { PLANET_TABS, PlanetOverlay } from './scenes/planet.tsx';
 import { FleetsOverlay } from './scenes/fleets.tsx';
+import { GamesOverlay } from './scenes/games.tsx';
+import { cabinetDoor, cabinets, xpStatus } from './games/room';
 import { setFleets } from './fleets';
 import { brandLook, HOUSE_BRAND, type Brand } from './brand';
 import { stripesOf, themeVars } from './theme';
@@ -32,7 +34,7 @@ import { Stripes } from './Sprite';
 import { foldChar, foldName, nameInit, nameReduce, nameValue, NAME_RULE, type NameAction, type NameState } from './name-entry';
 import { BUILDER_ROWS, cycleHero } from './builder';
 import { afterGate, afterReturn, afterStart, allowed, backStep, isDisbanded, isLinked, nextStep, readReturn, type Flow, type Step } from './onboarding';
-import type { Account, FleetRow, Player, PlayerPatch, Session } from './types';
+import type { Account, FleetRow, Player, PlayerPatch, Session, XpRead } from './types';
 import './shell.css';
 
 // The music each screen plays; the rest are silent but for their effects.
@@ -53,10 +55,12 @@ export interface UI {
   toast: string | null;
   sun: number; world: number; // the star chart's sun and the system's world under the cursor
   card: boolean; cardPage: number; // the reading card over the system, and its page
+  cabinet: number; // the game room's cabinet under the cursor (wide), the page shown (tall)
 }
 
-const DEEP_LINKS: SceneName[] = ['map', 'chart', 'fleets', 'heroes', 'briefing'];
+const DEEP_LINKS: SceneName[] = ['map', 'chart', 'fleets', 'heroes', 'games', 'briefing'];
 const FLOW_KEY = 'omni-loop:flow'; // survives the trip to GitHub and back
+const GAMES_SEEN_KEY = 'omni-loop:games-seen'; // GAMES carries a NEW tag until the room is opened on this device
 
 function readHash(view: GalaxyView | null): Partial<UI> | null {
   if (typeof window === 'undefined' || !view) return null;
@@ -82,6 +86,10 @@ function readMuted() {
   try { return window.localStorage.getItem('omni-loop:muted') === '1'; } catch { return false; }
 }
 
+function readGamesSeen() {
+  try { return window.localStorage.getItem(GAMES_SEEN_KEY) === '1'; } catch { return true; } // no storage: no tag that never goes
+}
+
 const store = {
   get(key: string) { try { return window.sessionStorage.getItem(key); } catch { return null; } },
   set(key: string, v: string | null) { try { if (v === null) window.sessionStorage.removeItem(key); else window.sessionStorage.setItem(key, v); } catch { /* ignore */ } },
@@ -101,9 +109,14 @@ export interface ArcadeProps {
   brand?: Brand;
   /** The star chart's knowledge: the crew's and the demo's only; `'none'` in a build without it (see ChartSource). */
   knowledge?: ChartSource;
+  /**
+   * The player's XP: their player_xp row, null when they have none, 'unreadable' when it could not be
+   * read (the default: a page that says nothing of XP shows no level, and never guesses one).
+   */
+  xp?: XpRead;
 }
 
-export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null, brand = HOUSE_BRAND, knowledge = null }: ArcadeProps) {
+export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null, brand = HOUSE_BRAND, knowledge = null, xp = 'unreadable' }: ArcadeProps) {
   setFleets(fleets);
   // The brand's look: its theme, written as custom properties on the root element below and read by
   // the canvas, and its mark in the theme's colours. The theme {} is today's arcade.
@@ -132,9 +145,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     flow: 'onboard', pick: 0, lockedAt: null, lockSaved: false, confirm: false,
     name: nameInit(''), shake: -1, hero: me0?.hero ?? { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 }, heroRow: 0,
     link: 'ask', linkLogin: null, away: false, error: null, toast: null,
-    sun: 0, world: 0, card: false, cardPage: 0,
+    sun: 0, world: 0, card: false, cardPage: 0, cabinet: 0,
   }));
   const [muted, setMuted] = useState(false);
+  const [gamesSeen, setGamesSeen] = useState(true); // read from this device on the first render
   const system = useMemo(() => {
     const sun = chart.suns[ui.sun];
     return graph && sun ? layoutSystem(graph, sun.name, systemGrid) : null;
@@ -181,6 +195,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   // ── First render: the demo's remembered guest, a return from Google or GitHub, a deep link ──
   useEffect(() => {
     setMuted(readMuted());
+    setGamesSeen(readGamesSeen());
     let s = session0, m = me0;
     if (account.restore) {
       const r = account.restore();
@@ -218,6 +233,12 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ui.scene, session, me]);
   useEffect(() => { setAudioMuted(muted); }, [muted]);
+  // The game room, once opened on this device, takes GAMES's NEW tag away.
+  useEffect(() => {
+    if (ui.scene !== 'games' || gamesSeen) return;
+    setGamesSeen(true);
+    try { window.localStorage.setItem(GAMES_SEEN_KEY, '1'); } catch { /* per-device courtesy only */ }
+  }, [ui.scene, gamesSeen]);
   useEffect(() => { if (ui.lockedAt === null) music(TRACK[ui.scene] ?? null); }, [ui.scene, ui.lockedAt]);
 
   // ── Timed hand-overs ──
@@ -326,7 +347,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   /** Opens the menu's item `i`: with A or START on the row under the cursor, or with a tap on any row. */
   const openItem = useCallback((i: number) => {
-    const items = menuItems({ joined: Boolean(meRef.current?.team), linked: isLinked(sessionRef.current, meRef.current), signedIn: Boolean(sessionRef.current) });
+    const items = menuItems({ joined: Boolean(meRef.current?.team), linked: isLinked(sessionRef.current, meRef.current), signedIn: Boolean(sessionRef.current), newGames: !gamesSeen });
     const item = items[i];
     if (!item) return;
     const door = doorOf(item, { view, chart: knowledge, problem });
@@ -335,12 +356,12 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (item.id === 'change') return open('select', { flow: 'change', menu: i }, 'select');
     if (item.id === 'link') return open('link', { flow: 'link', menu: i }, 'select');
     if (item.id === 'signout') return signOut();
-  }, [view, knowledge, go, open, signOut, problem]);
+  }, [view, knowledge, go, open, signOut, problem, gamesSeen]);
 
   const act = useCallback((action: Action) => {
     const u = uiRef.current;
     const planets = view?.planets.length ?? 0;
-    const items = menuItems({ joined: Boolean(meRef.current?.team), linked: isLinked(sessionRef.current, meRef.current), signedIn: Boolean(sessionRef.current) });
+    const items = menuItems({ joined: Boolean(meRef.current?.team), linked: isLinked(sessionRef.current, meRef.current), signedIn: Boolean(sessionRef.current), newGames: !gamesSeen });
     switch (u.scene) {
       case 'boot': return go({ scene: 'title' });
       case 'title':
@@ -449,6 +470,20 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         const move = chartKey({ ...u, scene: u.scene }, action, { chart, system, pages });
         return move ? go(move.patch, move.sound) : undefined;
       }
+      case 'games': {
+        // ◀ ▶ choose a cabinet on the wide grid and turn the page on the tall one: one cursor for both.
+        const status = xpStatus(isLinked(sessionRef.current, meRef.current), xp);
+        const room = cabinets(status);
+        const at = Math.min(u.cabinet, room.length - 1);
+        if (action === 'left' || action === 'right') return go({ cabinet: turnPage(at, room.length, action) }, 'move');
+        if (action === 'select') return go({ cabinet: turnPage(at, room.length, 'right') }, 'move');
+        if (action === 'a' || action === 'start') {
+          const door = cabinetDoor(room[at], status);
+          return 'scene' in door ? go({ scene: door.scene }, 'select') : go({ toast: door.refused }, 'buzz');
+        }
+        if (action === 'b') return go({ scene: 'menu' }, 'back');
+        return;
+      }
       case 'fleets': {
         const n = view?.teams.length ?? 0;
         if (!n) return action === 'b' ? go({ scene: 'menu' }, 'back') : undefined;
@@ -471,7 +506,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') return go({ scene: 'menu' }, 'back');
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, openItem]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): the first press
@@ -596,7 +631,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   const phase = titlePhaseAt(now() - ui.since);
   const sel = view?.planets[ui.sel];
-  const items = menuItems({ joined: Boolean(me?.team), linked: isLinked(session, me), signedIn: Boolean(session) });
+  const items = menuItems({ joined: Boolean(me?.team), linked: isLinked(session, me), signedIn: Boolean(session), newGames: !gamesSeen });
+  const xpNow = xpStatus(isLinked(session, me), xp);
   const displayName = me?.display_name ?? (session ? foldName(session.givenName) || 'RECRUIT' : '');
   const who = session
     ? `${account.kind === 'demo' ? 'DEMO · ' : ''}P1 ${displayName}`
@@ -619,7 +655,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'link': return <LinkOverlay state={ui.link} name={displayName} login={ui.linkLogin ?? session?.github ?? me?.github_login ?? null} error={ui.error} demo={account.kind === 'demo'} />;
       case 'ready': return <ReadyOverlay name={displayName} team={me?.team ?? null} />;
       case 'welcome': return <WelcomeOverlay name={displayName} team={me?.team ?? null} />;
-      case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={openItem} chart={knowledge} />;
+      case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={openItem} chart={knowledge} xp={xpNow} />;
+      case 'games': return <GamesOverlay xp={xpNow} me={me} index={ui.cabinet} onPick={(i) => { if (i === ui.cabinet) act('a'); else go({ cabinet: i }, 'move'); }} />;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => act('a')} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => go({ tab }, 'tab')} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => go({ fleet: i }, 'move')} /> : null;

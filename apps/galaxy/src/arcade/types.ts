@@ -15,6 +15,19 @@ export interface Player {
   github_login: string | null;
 }
 
+/**
+ * A player's row in public.player_xp, which the game workflow writes at every poll: their lifetime
+ * XP, their level (0 is no level yet: before the first point) and the games they unlocked.
+ */
+export interface PlayerXp { xp: number; level: number; unlocked: string[] }
+
+/**
+ * What the arcade knows of the player's XP: their row; null when they have none (no counted credit
+ * yet, or the game workflow never ran); 'unreadable' when it could not be read, and the arcade then
+ * shows no level rather than guess one.
+ */
+export type XpRead = PlayerXp | null | 'unreadable';
+
 /** What the arcade saves for the signed-in player: a fleet, a name, a hero. */
 export type PlayerPatch = Partial<Pick<Player, 'display_name' | 'team' | 'hero'>>;
 
