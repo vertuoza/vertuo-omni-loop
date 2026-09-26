@@ -158,3 +158,237 @@ Low: the client is new and only the retro and the harvest call it. Changing the 
 ```
 
 <!-- /omni-outbox-settled: s4-01-model-client-answer-shape -->
+
+<!-- omni-outbox-settled: s2-01-broken-open-item-stops-the-settle -->
+
+## s2-01-broken-open-item-stops-the-settle — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-broken-open-item-stops-the-settle
+prd: 82
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 2
+---
+
+## The question, in plain words
+
+When a feature is merged while a question is still open, and one of those open questions is written so badly it cannot be read, what should happen?
+
+## The decision, in plain words
+
+Nothing is settled for that feature, and the reason names the unreadable question, so a person can fix it and run the settling again.
+
+## The intro, for fun
+
+One open question got scribbled on a napkin instead of the form.
+
+## The punchline, for fun
+
+So the whole pile waits until someone rewrites the napkin.
+
+## The options, in plain words
+
+A. Settle nothing and name the unreadable question, so a person fixes it first.
+B. Settle every readable question and list the unreadable ones as left open.
+C. Settle every question, reading only the header of an unreadable one.
+
+## What I had to decide
+
+What settle at merge does when an open item file in the PRD's outbox does not parse. The spec says every open item is adopted, but an entry needs the item's id, rank, slice and wave, and a file that does not parse gives none of them reliably.
+
+## What I did meanwhile
+
+settleAtMerge returns ok: false with the parser's errors, naming the file, and settles nothing for that PRD. The outbox check refuses a malformed item on every pull request, so this should only happen when that check was bypassed.
+
+## What it costs to change later
+
+A constant change in one function: settle the parseable items and list the unparseable ones as not settled, or fall back to the front matter alone. No stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec does not say what a merge over red does with an open item that does not parse.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-broken-open-item-stops-the-settle -->
+
+<!-- omni-outbox-settled: s5-01-reworked-drift-record-quotes-the-answer -->
+
+## s5-01-reworked-drift-record-quotes-the-answer — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-reworked-drift-record-quotes-the-answer
+prd: 82
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 2
+---
+
+## The question, in plain words
+
+When a person asked for a change and the team reworked it, what should the written decision say was chosen?
+
+## The decision, in plain words
+
+The written decision quotes the person's answer word for word, instead of the first option, which was what got built before the change.
+
+## The intro, for fun
+
+The first option lost the argument, so it should not get the last word.
+
+## The punchline, for fun
+
+The person who asked for the change gets quoted instead.
+
+## The options, in plain words
+
+A. Quote the answer verbatim for a reworked drift, option A otherwise (what was built).
+B. Always quote option A, even for a reworked drift.
+C. Ask the model to name the chosen option in its reply, and quote that.
+
+## What I had to decide
+
+The spec says a decision record's Decision section ends with the option chosen, verbatim. For a decision kept as built that is option A. For a drifted decision that was reworked, option A is what the person rejected, and the answer rarely names a letter.
+
+## What I did meanwhile
+
+A record from a drifted, reworked decision ends its Decision section with 'The answer, as it was given:' and the answer verbatim; every other record ends with 'The option chosen:' and option A verbatim.
+
+## What it costs to change later
+
+One function in kit/lib/knowledge/write.mjs and one test; records already merged keep their text until a person edits them.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec does not say which option a reworked drift chose; nothing in the ledger maps a free-text answer back to an option letter.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-reworked-drift-record-quotes-the-answer -->
+
+<!-- omni-outbox-settled: s6-01-retro-record-names-shipped-folder -->
+
+## s6-01-retro-record-names-shipped-folder — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s6
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-retro-record-names-shipped-folder
+prd: 82
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 2
+---
+
+## The question, in plain words
+
+When a feature was merged before its folder was moved to the shipped shelf, should the retro's own record say where the folder was at the merge, or where the retro now lives?
+
+## The decision, in plain words
+
+The retro's record names the shipped folder, where the retro is written, and still says the folder was in the inbox at the merge.
+
+## The intro, for fun
+
+A retro written into a room the folder has not moved into yet.
+
+## The punchline, for fun
+
+The address on the letter is where it will be read, not where it was posted.
+
+## The options, in plain words
+
+A. Name the shipped folder in the record and the pull request text, keep the state as it was at the merge (built).
+B. Keep the inbox folder in the record, and only write the files into the shipped folder; the pull request text then names a folder that no longer holds the retro.
+C. Name the shipped folder and also set the state to shipped, losing the fact that the PRD was merged without being shipped.
+
+## What I had to decide
+
+Whether the retro's record and its pull request text name the shipped folder or the inbox folder for a PRD merged without being shipped.
+
+## What I did meanwhile
+
+The record's folder field and the retro pull request's text name the shipped folder; the record's state field still says inbox.
+
+## What it costs to change later
+
+One line in the retro function: the folder put on the fact sheet after detection. Undoing it drops that line; no stored data needs migrating.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the retro's files go into shipped/ always, and says nothing about the folder field inside retro.json. (author)
+
+```
+
+<!-- /omni-outbox-settled: s6-01-retro-record-names-shipped-folder -->
