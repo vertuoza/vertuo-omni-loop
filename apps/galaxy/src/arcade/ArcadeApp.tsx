@@ -212,10 +212,11 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const playInvaders = useCallback(() => {
     if (!view) return go({ toast: problem ?? 'GALAXY OUT OF REACH' }, 'buzz');
     const g = newGame({ layout: gridFor(formRef.current, 'invaders').name, values: view.rules.woundClose, seed: Math.floor(Math.random() * 2 ** 31) });
+    held.clear(); // a finger lifted outside a game was never heard: each game starts with nothing held
     gameRef.current = g;
     showHud(g);
     go({ scene: 'invaders' }, 'start');
-  }, [view, problem, go, showHud]);
+  }, [view, problem, go, showHud, held]);
 
   const save = useCallback(async (patch: PlayerPatch) => {
     const row = await account.save(patch, meRef.current);
