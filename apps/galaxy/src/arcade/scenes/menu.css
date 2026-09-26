@@ -31,6 +31,9 @@
 .menu.long .menu-hint { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .menu .j-badge { top: 18px; right: 18px; }
 
+/* NEW beside GAMES, until the game room is opened on this device. */
+.menu-tag { display: inline-block; margin-left: 8px; padding: 2px 3px 1px; font-size: 7px; font-style: normal; line-height: 1; color: #fff; background: var(--red); vertical-align: 1px; }
+
 /* The menu nudges toward linking GitHub. */
 .menu button.nudge .menu-label::before { content: '● '; color: var(--red); animation: blink 0.8s steps(2, start) infinite; }
 
@@ -66,6 +69,7 @@
 .grid-tall .menu .cursor, .grid-tall .menu.long .cursor { grid-row: span 2; font-size: 8px; line-height: 1; }
 .grid-tall .menu .menu-label, .grid-tall .menu.long .menu-label { font-size: 9px; line-height: 1; }
 .grid-tall .menu .menu-hint, .grid-tall .menu.long .menu-hint { grid-column: 2; font-size: 15px; line-height: 14px; white-space: nowrap; }
+.grid-tall .menu .menu-tag { font-size: 8px; vertical-align: 0; }
 .grid-tall .menu-foot { position: static; align-self: stretch; flex-wrap: wrap; gap: 3px 8px; line-height: 1; }
 .grid-tall .menu-foot > :last-child { margin-left: auto; }
 
