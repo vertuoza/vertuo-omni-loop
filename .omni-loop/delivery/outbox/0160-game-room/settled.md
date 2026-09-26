@@ -468,3 +468,393 @@ Low. Opening the room without the galaxy is one line in `doorOf()`.
 ```
 
 <!-- /omni-outbox-settled: s2-03-game-room-needs-the-galaxy -->
+
+<!-- omni-outbox-settled: s3-01-score-table-as-ready-screen -->
+
+## s3-01-score-table-as-ready-screen — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-score-table-as-ready-screen
+prd: 160
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 3
+---
+
+## The question, in plain words
+
+The design shows a screen with the score table, what each alien is worth. Where should players see it, and does a game then start by itself?
+
+## The decision, in plain words
+
+Choosing Entropy Invaders opens the game on the score table for three seconds, then the aliens start moving. Pressing A starts at once.
+
+## The intro, for fun
+
+Every arcade cabinet has a card saying what each alien is worth, and almost nobody reads it.
+
+## The punchline, for fun
+
+So ours shows it for three seconds, right before the aliens start marching.
+
+## The options, in plain words
+
+A. Show the score table for three seconds before each game, A skipping it, the option built.
+B. Wait on the score table until the player presses A.
+C. Start at once, and show the score table only on the pause screen.
+
+## What I had to decide
+
+The spec says an attract screen shows the score table and that A on the unlocked cabinet starts a game. It does not say whether the table is a screen of its own, how long it shows, or whether the game waits for a press.
+
+## What I did meanwhile
+
+`newGame()` in `apps/galaxy/src/arcade/games/invaders.ts` opens on a ready phase (`READY_SECONDS`, 3 s) and the text layer shows the score table over the formation, read from the view's `rules.woundClose`. `press()` with A or START skips it, and B goes back to the room.
+
+## What it costs to change later
+
+Low: one constant for the time, and one phase of the engine to keep or drop.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the person pictured the table as a looping attract mode on the cabinet in the room instead.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-score-table-as-ready-screen -->
+
+<!-- omni-outbox-settled: s3-02-game-feel-numbers -->
+
+## s3-02-game-feel-numbers — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-game-feel-numbers
+prd: 160
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 3
+---
+
+## The question, in plain words
+
+How fast should the game be, how often do the aliens fire back, and what do the back button and the end of a game do?
+
+## The decision, in plain words
+
+I picked the game's speeds and difficulty myself and kept them together so they are easy to tune. The back button during play pauses instead of leaving, and the game over waits for a button before going back to the room.
+
+## The intro, for fun
+
+Every arcade game hides a dial that decides how mean the aliens are.
+
+## The punchline, for fun
+
+Ours is set to friendly but firm, and the dial sits in one place in case you disagree.
+
+## The options, in plain words
+
+A. Keep these numbers until a person has played a game on a laptop and on a phone, the option built.
+B. Make the game harder from the first wave: a faster march and more bombs.
+C. Go back to the room by itself a few seconds after the game over.
+
+## What I had to decide
+
+The spec sets the two fields, the shields, three lives, faster waves and the controls. It gives no speeds, no fire rate, no protection after a hit, nothing on shields between waves, and does not say what B does during play or whether the game over returns to the room by itself.
+
+## What I did meanwhile
+
+The numbers sit in `FIELDS` and the constants at the top of `apps/galaxy/src/arcade/games/invaders.ts`: a march step every 0.6 s with the whole formation, down to a tenth of that as it thins out, 15% faster each wave (never under 0.2 s at full strength); a bomb every 0.4 to 1.5 s, at most three in flight wide and two tall; 1.5 s of blinking after a hit; the shields rebuilt each wave. The game over shows its score for 1 s, then A, B or START returns to the room. B during play pauses, as START does.
+
+## What it costs to change later
+
+Low: constants in one file.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- No one has played it on a phone yet: the spec's manual check (one game on a laptop, one on a phone) is still to do.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-game-feel-numbers -->
+
+<!-- omni-outbox-settled: s3-03-a-game-keeps-its-field -->
+
+## s3-03-a-game-keeps-its-field — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-a-game-keeps-its-field
+prd: 160
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 3
+---
+
+## The question, in plain words
+
+If a player turns their phone in the middle of a game, the screen changes shape. Should the game restart on the new screen, or carry on as it was?
+
+## The decision, in plain words
+
+The game carries on as it was: it keeps the field it started on, shown smaller with bars around it, until it ends. The next game uses the new screen.
+
+## The intro, for fun
+
+Turning the phone mid-game is the pocket version of tilting the arcade cabinet.
+
+## The punchline, for fun
+
+Nothing is lost: the aliens stay right where they were, just framed a little smaller.
+
+## The options, in plain words
+
+A. Keep the game's field and letterbox it, the option built.
+B. Pause the game and ask the player to turn the phone back.
+C. Restart the game on the new field.
+
+## What I had to decide
+
+The wide field has ten columns and four shields, the tall one six and three. The spec gives both but not what happens to a game when the phone turns from one to the other; the arcade's rule elsewhere is that turning the phone never changes the game's state.
+
+## What I did meanwhile
+
+`ArcadeApp.tsx` draws the invaders scene on the grid its game was laid out for (`GAME_GRID[hud.layout]`), so a game begun upright is letterboxed when the phone turns sideways, and the other way round. A new game takes the grid of the moment.
+
+## What it costs to change later
+
+Low: one line picks the grid.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a letterboxed field is still comfortable to play on a small phone held sideways.
+
+```
+
+<!-- /omni-outbox-settled: s3-03-a-game-keeps-its-field -->
+
+<!-- omni-outbox-settled: s3-04-rows-follow-the-close-values -->
+
+## s3-04-rows-follow-the-close-values — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-04-rows-follow-the-close-values
+prd: 160
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 3
+---
+
+## The question, in plain words
+
+Each row of aliens is one kind of Entropy, the kind that pays most on top. If someone later changes what each kind pays, should the rows change order?
+
+## The decision, in plain words
+
+Yes: the rows are sorted by what each kind pays, highest on top, so the top row always pays most. Today's values give exactly the order in the design.
+
+## The intro, for fun
+
+In every arcade, the aliens at the top of the screen are the ones worth the most.
+
+## The punchline, for fun
+
+Ours keep that promise even if the rulebook reshuffles the prices.
+
+## The options, in plain words
+
+A. Sort the rows by what each kind pays, highest on top, the option built.
+B. Keep the design's row order whatever the values become.
+
+## What I had to decide
+
+The spec lists the rows top to bottom (beacon 25, fault line 20, unconfirmed ground 15, zone under fire 10, transmission 5) and the person asked that the top row pay most. It does not say which wins when a rule change reorders the values.
+
+## What I did meanwhile
+
+`rowKinds()` in `apps/galaxy/src/arcade/games/invaders.ts` sorts the five kinds by the view's `woundClose`, highest first, a tie kept in the spec's order; the score table reads the same order. `games/invaders.test.ts` checks today's order and a reordered one.
+
+## What it costs to change later
+
+Low: one sort to swap for the fixed list.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the colours of the rows matter more to the person than which row pays most.
+
+```
+
+<!-- /omni-outbox-settled: s3-04-rows-follow-the-close-values -->
+
+<!-- omni-outbox-settled: s4-01-levels-shows-the-first-five-levels -->
+
+## s4-01-levels-shows-the-first-five-levels — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-levels-shows-the-first-five-levels
+prd: 160
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 3
+---
+
+## The question, in plain words
+
+The design says How to play shows how many XP each level needs, but not how much of that list. Levels run up to 99, far more than a Game Boy screen can hold: which ones should the page show?
+
+## The decision, in plain words
+
+The page shows the XP needed for the first five levels and says how high levels go, beside what each kind of point is worth and the level each game opens at.
+
+## The intro, for fun
+
+A staircase with ninety-nine steps is lovely, until you have to draw every step on a Game Boy.
+
+## The punchline, for fun
+
+So we drew the first five and hung a sign saying how high it goes.
+
+## The options, in plain words
+
+A. Show the XP for the first five levels, and say how high levels go.
+B. Show every level up to the top one, over as many pages as it takes.
+C. Show the rule as a sentence instead of a list of levels.
+
+## What I had to decide
+
+The spec (The arcade, How to play) and the plan's s4 done-when ask for a LEVELS section with "the weighted credits, the curve's first levels and each game's unlock level, all read from the rules", its own page on the tall grid and laid out on the wide one. Neither says how many of the curve's levels to show, how a weight of 0 reads, or how a third section fits the wide page beside EARN and ENTROPY. The cap is 99, so the whole curve cannot fit the tall grid's 320×288 page.
+
+## What I did meanwhile
+
+`BriefingOverlay` in `apps/galaxy/src/arcade/scenes/menu.tsx` gains a `levels` section, a third entry in `BRIEFING_PAGES` (`scenes/menu.ts`): its own page on the tall grid, across both columns under EARN and ENTROPY on the wide one. XP PER POINT lists the five weights as `×n` (a weight of 0 reads NOT COUNTED); XP TO REACH lists LV 1 to LV 5 (`CURVE_SHOWN`, fewer under a lower cap) through `xpForLevel()`; UNLOCKS lists each game in `xp.unlocks`, lowest level first, by its registry title; a note says UP TO LV 99. Every number comes from `view.rules.xp`, which `buildGalaxy()` now fills with the rulebook's `xp` block. To fit, the wide page's gaps are a few pixels tighter. `menu.test.ts` changes the rules and sees the new values.
+
+## What it costs to change later
+
+Low. Showing more or fewer levels is one constant, and each wording is one line. Nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether players would rather read the rule itself (25 × n × (n − 1) XP) than the first five levels.
+- (author) Whether ENTROPY CLEARED, EXPEDITION BONUS and CLOSER BONUS are the names players know: the closer bonus was not on How to play before.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-levels-shows-the-first-five-levels -->
