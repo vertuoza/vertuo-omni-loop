@@ -64,14 +64,15 @@ describe('parseForm — front matter', () => {
       pointsTo: null,
       index: null,
       evidence: [],
-      terraformed: null,
+      invaded: null,
+      oldSpellings: [],
       file: FILE,
     });
   });
 
-  it('reads a filled form’s evidence as path and hash, and its terraformed date', () => {
+  it('reads a filled form’s evidence as path and hash, and its invaded date', () => {
     const parsed = parseForm(
-      formText({ frontMatter: { state: 'filled', evidence: ['package.json@50fa1bd', 'node_modules/@scope/x/a.md@1ed9907'], terraformed: '2026-09-25' } }),
+      formText({ frontMatter: { state: 'filled', evidence: ['package.json@50fa1bd', 'node_modules/@scope/x/a.md@1ed9907'], invaded: '2026-09-25' } }),
       { file: FILE },
     );
     expect(parsed.ok).toBe(true);
@@ -79,7 +80,20 @@ describe('parseForm — front matter', () => {
       { path: 'package.json', hash: '50fa1bd' },
       { path: 'node_modules/@scope/x/a.md', hash: '1ed9907' },
     ]);
-    expect(parsed.form.terraformed).toBe('2026-09-25');
+    expect(parsed.form.invaded).toBe('2026-09-25');
+  });
+
+  it('still reads the old spelling of the invaded date, and lists it among the old spellings', () => {
+    const parsed = parseForm(formText({ frontMatter: { state: 'filled', invaded: undefined, terraformed: '2026-09-25' } }), { file: FILE });
+    expect(parsed.ok).toBe(true);
+    expect(parsed.form.invaded).toBe('2026-09-25');
+    expect(parsed.form.oldSpellings).toEqual([{ where: 'front matter', old: 'terraformed:', now: 'invaded:' }]);
+    expect(parseForm(formText({ frontMatter: { invaded: undefined, terraformed: null } }), { file: FILE }).form.invaded).toBeNull();
+  });
+
+  it('refuses both spellings of the invaded date in one form', () => {
+    const errors = errorsOf(formText({ frontMatter: { invaded: '2026-09-25', terraformed: '2026-09-25' } }));
+    expect(errors).toEqual([expect.stringMatching(new RegExp(`^${FILE}: .*terraformed.*invaded`))]);
   });
 
   it('parses a pointer form with an index, and one without', () => {
@@ -103,7 +117,7 @@ describe('parseForm — front matter', () => {
   });
 
   it('refuses each missing key, naming the file and the key', () => {
-    for (const key of ['form', 'form-version', 'state', 'points-to', 'evidence', 'terraformed']) {
+    for (const key of ['form', 'form-version', 'state', 'points-to', 'evidence', 'invaded']) {
       const errors = errorsOf(formText({ frontMatter: { [key]: undefined } }));
       expect(errors, key).toHaveLength(1);
       expect(errors[0], key).toMatch(new RegExp(`^${FILE}: .*${key}`));
@@ -125,7 +139,7 @@ describe('parseForm — front matter', () => {
     expect(errorsOf(formText({ frontMatter: { form: 'tests' } }))).toEqual([expect.stringMatching(/: .*form/)]);
     expect(errorsOf(formText({ frontMatter: { 'form-version': 0 } }))).toEqual([expect.stringMatching(/: .*form-version/)]);
     expect(errorsOf(formText({ frontMatter: { evidence: ['package.json'] } }))).toEqual([expect.stringMatching(/: .*evidence/)]);
-    expect(errorsOf(formText({ frontMatter: { terraformed: 'yesterday' } }))).toEqual([expect.stringMatching(/: .*terraformed/)]);
+    expect(errorsOf(formText({ frontMatter: { invaded: 'yesterday' } }))).toEqual([expect.stringMatching(/: .*invaded/)]);
   });
 
   it('refuses a file with no front matter, or front matter that is not YAML, naming the file', () => {
@@ -145,19 +159,33 @@ describe('parseForm — title, opener and slots', () => {
   it('reads the slots in order, with their id, heading, required flag, by and verified', () => {
     const text = formText({
       slots: [
-        { id: 'commands', heading: 'Commands', required: true, by: 'terraform', verified: '2026-09-25', body: '`pnpm test`' },
-        { id: 'layout', heading: 'Where tests live', required: true, by: 'terraform' },
+        { id: 'commands', heading: 'Commands', required: true, by: 'invade', verified: '2026-09-25', body: '`pnpm test`' },
+        { id: 'layout', heading: 'Where tests live', required: true, by: 'invade' },
         { id: 'levels', heading: 'Choosing the level' },
         { id: 'never', heading: 'Never', required: true, by: 'human', body: '- A test never calls the network.' },
       ],
     });
     const { form } = parseForm(text, { file: FILE });
     expect(form.slots.map(({ id, heading, required, by, verified }) => ({ id, heading, required, by, verified }))).toEqual([
-      { id: 'commands', heading: 'Commands', required: true, by: 'terraform', verified: '2026-09-25' },
-      { id: 'layout', heading: 'Where tests live', required: true, by: 'terraform', verified: null },
+      { id: 'commands', heading: 'Commands', required: true, by: 'invade', verified: '2026-09-25' },
+      { id: 'layout', heading: 'Where tests live', required: true, by: 'invade', verified: null },
       { id: 'levels', heading: 'Choosing the level', required: false, by: null, verified: null },
       { id: 'never', heading: 'Never', required: true, by: 'human', verified: null },
     ]);
+  });
+
+  it('still reads the old spelling of by: invade as by: invade, and lists it among the old spellings', () => {
+    const { form } = parseForm(
+      formText({ slots: [{ id: 'commands', required: true, by: 'terraform', verified: '2026-09-25' }, { id: 'never', required: true, by: 'human' }] }),
+      { file: FILE },
+    );
+    expect(form.slots.map((slot) => slot.by)).toEqual(['invade', 'human']);
+    expect(form.oldSpellings).toEqual([{ where: '"## Commands"', old: 'by: terraform', now: 'by: invade' }]);
+  });
+
+  it('refuses a marker whose by: is neither invade nor human', () => {
+    const errors = errorsOf(formText({ slots: [{ id: 'levels', heading: 'Choosing the level', by: 'robot' }] }));
+    expect(errors).toEqual([expect.stringMatching(new RegExp(`^${FILE}: "## Choosing the level".*marker.*by: invade\\|human`))]);
   });
 
   it('refuses a malformed slot marker, naming the file and the heading', () => {

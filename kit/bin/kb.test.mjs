@@ -58,7 +58,7 @@ describe('omni kb init — acceptance criterion 1', () => {
       const file = id === 'decisions' ? DECISIONS : `${PLAYBOOK}/${id}.md`;
       const parsed = parseForm(readFileSync(join(root, file), 'utf8'), { file });
       expect(parsed.errors ?? [], file).toEqual([]);
-      expect(parsed.form, file).toMatchObject({ id, formVersion: 1, state: 'blank', pointsTo: null, evidence: [], terraformed: null });
+      expect(parsed.form, file).toMatchObject({ id, formVersion: 1, state: 'blank', pointsTo: null, evidence: [], invaded: null, oldSpellings: [] });
     }
     expect(await omni(root, ['check', 'knowledge'])).toMatchObject({ code: 0 });
   });
@@ -156,7 +156,7 @@ describe('omni kb show — acceptance criterion 2: each section says where it ca
   const FILLED = formText({
     frontMatter: { state: 'filled' },
     slots: [
-      { id: 'commands', required: true, by: 'terraform', verified: '2026-09-25', body: '`make check` runs everything.' },
+      { id: 'commands', required: true, by: 'invade', verified: '2026-09-25', body: '`make check` runs everything.' },
       { id: 'layout', heading: 'Where tests live', required: true, body: 'Beside the code.' },
       { id: 'levels', heading: 'Choosing the level' },
       { id: 'never', required: true, body: 'See: guides/never.md' },
@@ -460,6 +460,35 @@ describe('omni check kb — acceptance criterion 4: warns, exit 0', () => {
       missing('glossary'),
     ]);
     expect(out).toBe('check kb — 13 form(s): 1 filled, 2 blank, 10 missing; 15 warning(s).\n');
+  });
+});
+
+describe('omni check kb — the old spellings (PRD #68)', () => {
+  it('warns once per old spelling, naming the file, and exits 0', async () => {
+    const testing = formText({
+      frontMatter: { state: 'filled', invaded: undefined, terraformed: '2026-09-25' },
+      slots: [
+        { id: 'commands', required: true, by: 'terraform', body: '`make check` runs everything.' },
+        { id: 'layout', heading: 'Where tests live', required: true, body: 'Beside the code.' },
+        { id: 'never', required: true, by: 'terraform', body: '- A test never calls the network.' },
+      ],
+    });
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, [TESTING]: testing } });
+    const { code, err } = await omni(root, ['check', 'kb']);
+    expect(code).toBe(0);
+    expect(err.split('\n').filter((line) => line.includes(TESTING))).toEqual([
+      `warning: ${TESTING}: front matter says terraformed: — the old spelling; write invaded:`,
+      `warning: ${TESTING}: "## Commands" says by: terraform — the old spelling; write by: invade`,
+      `warning: ${TESTING}: "## Never" says by: terraform — the old spelling; write by: invade`,
+    ]);
+  });
+
+  it('never meets an old spelling in a form omni kb init wrote', async () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    expect((await omni(root, ['kb', 'init'])).code).toBe(0);
+    const written = Object.entries(snapshot(root)).filter(([path]) => path.startsWith('.omni-loop/knowledge/'));
+    for (const [path, text] of written) expect(text, path).not.toMatch(/terraform/i);
+    expect((await omni(root, ['check', 'kb'])).err).not.toMatch(/old spelling/);
   });
 });
 

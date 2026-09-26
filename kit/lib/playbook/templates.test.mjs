@@ -34,7 +34,7 @@ describe('each form template — the forms table, as the one parser reads it', (
     it(`${form.id}: parses as its form, blank, and declares exactly its slots, required as marked, in order`, () => {
       const parsed = parseForm(formTemplate(form.id), { file: templatePath(form.id) });
       expect(parsed.errors ?? []).toEqual([]);
-      expect(parsed.form).toMatchObject({ id: form.id, formVersion: 1, state: 'blank', pointsTo: null, evidence: [], terraformed: null, unmarked: [] });
+      expect(parsed.form).toMatchObject({ id: form.id, formVersion: 1, state: 'blank', pointsTo: null, evidence: [], invaded: null, oldSpellings: [], unmarked: [] });
       expect(parsed.form.slots.map((slot) => ({ id: slot.id, required: slot.required }))).toEqual(
         form.slots.map((slot) => ({ id: slot.id, required: slot.required })),
       );
