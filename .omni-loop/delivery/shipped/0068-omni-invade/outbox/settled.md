@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-26
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off fix for a missed plan step, cheap to undo and with no lasting rule; nothing in the knowledge base governs when slices take in main.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ Low: the merge is clean and main's commits would reach the feature branch anyway
 - Raised: 2026-09-26
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off scoping choice for this rename slice, cheap to change later; it sets no lasting rule, invariant or design decision for the knowledge base.
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ Low: rewriting the forms is a search and replace in one folder; the helper renam
 - Raised: 2026-09-26
 - Slice: s2
 - Wave: 2
+- Stays here: A one-off territory exception within a single slice, cheap to revert; nothing lasting for the knowledge base beyond the ledger.
 
 ### The answer, as it was given
 
@@ -251,6 +254,7 @@ A constant: reverting is deleting the print loop and the count, and folding prop
 - Raised: 2026-09-26
 - Slice: s3
 - Wave: 3
+- Became: ADR-0027
 
 ### The answer, as it was given
 
@@ -330,6 +334,7 @@ A constant in one skill's prose: switching to a recorded date is a paragraph rew
 - Raised: 2026-09-26
 - Slice: s3
 - Wave: 3
+- Stays here: A scope-bound local choice about two changelog files, cheap to add later; no lasting rule, invariant or design decision to keep.
 
 ### The answer, as it was given
 
