@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 import { FLAT, RAMPS, forge } from './forge.mjs';
 import { SPRITE_DEFS, FLEET_SPRITE, WOUND_TINT, woundTint } from './sprites.mjs';
-import { drawSprite, planetTexture, spriteImage, spritePixels } from './draw.mjs';
-import { heroLook } from './heroes.mjs';
+import { drawSprite, planetTexture, posterImage, posterPixels, spriteImage, spritePixels } from './draw.mjs';
+import { heroLook, heroPose, OMNI_POSES } from './heroes.mjs';
 import { WOUND_KINDS } from '../../../game/events.mjs';
 
 const KNOWN = new Set([...Object.values(RAMPS).flat(), ...Object.values(FLAT), '#0b0a26']);
@@ -22,6 +22,9 @@ const FORGED = {
   lock: '2b6b3393eae8b4f6', skull: 'ab2e39696a26bb5a', beacon: 'a46810cc963139ab', coin: '1b58b50f666861b3',
   check: 'f6ea65ad9194e380', open: 'e3b78dad19e1099c', star: '17cb38ff80c23c8f', ship: 'a77451377f2203c2',
   cursor: '253d3264e5006812',
+  // OmniMan's poses (PRD 141, s4), pinned as first drawn.
+  'omni-point': '19419fc7bd1902f7', 'omni-cheer': 'ea66af00b11d0821', 'omni-run': '3c9651d4bb89d59d',
+  'omni-point-cape': '5eb31659af009eab', 'omni-cheer-cape': '82c1ed1e1605dd1f', 'omni-run-cape': '01ae4561e5f23ee0',
 };
 const FORGED_WOUNDED = {
   transmission: '36e0b517c4c911e4', 'unconfirmed-ground': 'b1db9c109ced6935', beacon: '0ac20bcc96a66c5b',
@@ -164,6 +167,129 @@ describe('stripe override', () => {
       expect(shows(drawn.at(-1), STRIPES[2])).toBe(true);
       drawSprite(ctx, 'beaver', 0, 0);
       expect(shows(drawn.at(-1), STRIPES[2])).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe('OmniMan poses', () => {
+  const POSES = ['omni-point', 'omni-cheer', 'omni-run'];
+  const filled = (name, frame, test) => {
+    const { w, pixels } = spritePixels(name, { frame });
+    return pixels.some((p, i) => p && test(i % w, Math.floor(i / w)));
+  };
+
+  it('names the three poses, each with a caped build', () => {
+    expect(OMNI_POSES).toEqual(POSES);
+    for (const pose of POSES) for (const name of [pose, `${pose}-cape`]) expect(SPRITE_DEFS[name], name).toBeDefined();
+  });
+
+  it.each(POSES.flatMap((p) => [p, `${p}-cape`]))('%s is 32×48 in both frames, in palette colours only', (name) => {
+    for (const frame of [0, 1]) {
+      const { w, h, pixels } = spritePixels(name, { frame });
+      expect([w, h]).toEqual([32, 48]);
+      const drawn = pixels.filter(Boolean);
+      expect(drawn.length).toBeGreaterThan(w * h * 0.3);
+      for (const p of drawn) expect(KNOWN.has(p), `${name}: ${p}`).toBe(true);
+    }
+  });
+
+  it('keeps the commander: the same head and the stripes as the idle body', () => {
+    const head = (name) => spritePixels(name).pixels.filter((_, i) => i < 32 * 16 && i % 32 >= 8 && i % 32 < 24).join();
+    for (const name of POSES) if (name !== 'omni-run') expect(head(name), name).toBe(head('omni'));
+    const STRIPES = { 1: '#010203', 2: '#040506', 3: '#070809', 4: '#0a0b0c' };
+    for (const name of POSES) {
+      const worn = new Set(spritePixels(name, { flat: STRIPES }).pixels);
+      for (const hex of Object.values(STRIPES)) expect(worn.has(hex), `${name} ${hex}`).toBe(true);
+    }
+  });
+
+  it('points: an arm out to his left, the hand at the edge of the frame', () => {
+    const out = (name) => filled(name, 0, (x, y) => x >= 30 && y >= 16 && y <= 24);
+    expect(out('omni-point')).toBe(true);
+    expect(out('omni')).toBe(false);
+  });
+
+  it('cheers: a fist raised beside his head, thumb up', () => {
+    const raised = (name) => filled(name, 0, (x, y) => x >= 26 && y <= 15);
+    expect(raised('omni-cheer')).toBe(true);
+    expect(raised('omni')).toBe(false);
+  });
+
+  it('runs: two strides, the legs apart, different from each other', () => {
+    const legs = (frame) => spritePixels('omni-run', { frame }).pixels.slice(32 * 32).join();
+    expect(legs(0)).not.toBe(legs(1));
+    const wide = (name, frame) => filled(name, frame, (x, y) => y >= 40 && (x <= 6 || x >= 25));
+    expect(wide('omni-run', 0)).toBe(true);
+    expect(wide('omni', 0)).toBe(false);
+  });
+
+  it('draws each pose differently from the idle body and from the others', () => {
+    const all = ['omni', ...POSES].map((name) => spritePixels(name).pixels.join());
+    expect(new Set(all).size).toBe(all.length);
+  });
+
+  it('wears the cape only in the caped build', () => {
+    const plasma = (name) => spritePixels(name).pixels.some((p) => p !== FLAT[3] && RAMPS.P.includes(p));
+    for (const pose of POSES) {
+      expect(plasma(pose), pose).toBe(false);
+      expect(plasma(`${pose}-cape`), pose).toBe(true);
+    }
+  });
+});
+
+describe('poster scale', () => {
+  it.each([1, 2, 3, 7, 16])('renders a sprite at %i× exactly that many times its size, each pixel a solid block', (k) => {
+    for (const name of ['omni-point', 'omni-run', 'beaver', 'coin']) {
+      for (const frame of [0, 1]) {
+        const src = spritePixels(name, { frame });
+        const big = posterPixels(name, k, { frame });
+        expect([big.w, big.h]).toEqual([src.w * k, src.h * k]);
+        const blocks = Array.from({ length: big.w * big.h }, (_, i) => src.pixels[Math.floor(Math.floor(i / big.w) / k) * src.w + Math.floor((i % big.w) / k)]);
+        expect(big.pixels).toEqual(blocks);
+      }
+    }
+  });
+
+  it('carries the tint and the stripes of the sprite it scales', () => {
+    const { sprite, tint } = heroPose({ v: 1, body: 'girl', skin: 3, hair: 6, suit: 2, cape: 8 }, 'omni-cheer', '#ffd84a');
+    const flat = { 1: '#010203' };
+    const small = new Set(spritePixels(sprite, { tint, flat }).pixels);
+    expect(new Set(posterPixels(sprite, 4, { tint, flat }).pixels)).toEqual(small);
+  });
+
+  it('refuses a scale that is not a whole number from 1 to 16', () => {
+    for (const k of [0, 17, 1.5, -2, NaN, '4']) expect(() => posterPixels('omni', k), String(k)).toThrow(/1 to 16/);
+    expect(() => posterPixels('nobody', 2)).toThrow(/unknown sprite/);
+  });
+
+  it('posterImage draws the blocks onto a canvas k times the sprite, flipped when asked', () => {
+    class FakeCanvas {
+      constructor(w, h) { this.width = w; this.height = h; this.data = null; }
+      getContext() {
+        return {
+          createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+          putImageData: (img) => { this.data = img.data; },
+        };
+      }
+    }
+    vi.stubGlobal('OffscreenCanvas', FakeCanvas);
+    try {
+      const k = 16;
+      const img = posterImage('omni-point', { scale: k });
+      expect([img.width, img.height]).toEqual([32 * k, 48 * k]);
+      const big = posterPixels('omni-point', k);
+      const at = (image, x, y) => Array.from(image.data.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 4));
+      const hex = (rgba) => (rgba[3] ? '#' + rgba.slice(0, 3).map((v) => v.toString(16).padStart(2, '0')).join('') : null);
+      for (let i = 0; i < big.pixels.length; i += 97) {
+        const x = i % big.w, y = Math.floor(i / big.w);
+        expect(hex(at(img, x, y))).toBe(big.pixels[i]);
+      }
+      const flipped = posterImage('omni-point', { scale: 2, flip: true });
+      const two = posterPixels('omni-point', 2);
+      expect(hex(at(flipped, 0, 40))).toBe(two.pixels[40 * two.w + two.w - 1]);
+      expect(posterImage('omni-point', { scale: k })).toBe(img);
     } finally {
       vi.unstubAllGlobals();
     }

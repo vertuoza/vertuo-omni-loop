@@ -7,6 +7,12 @@ export const SURFACES: Readonly<Record<string, readonly string[]>>;
 export function spritePixels(name: string, o?: { frame?: number; tint?: Tint | null; flat?: Flat | null }): { w: number; h: number; pixels: (string | null)[] };
 export function spriteImage(name: string, o?: { tint?: Tint | null; flat?: Flat | null; flip?: boolean; frame?: number; silhouette?: string | null }): CanvasImageSource & { width: number; height: number };
 export function drawSprite(ctx: Ctx, name: string, x: number, y: number, o?: { scale?: number; tint?: Tint; flat?: Flat | null; flip?: boolean; alpha?: number; frame?: number; glow?: string | null }): void;
+/** The largest poster scale. */
+export const POSTER_MAX_SCALE: number;
+/** A sprite frame at a whole-number scale from 1 to 16: every pixel a `scale`×`scale` block. */
+export function posterPixels(name: string, scale: number, o?: { frame?: number; tint?: Tint | null; flat?: Flat | null }): { w: number; h: number; pixels: (string | null)[] };
+/** The same, as an image `scale` times the sprite's size, never smoothed. */
+export function posterImage(name: string, o: { scale: number; tint?: Tint | null; flat?: Flat | null; flip?: boolean; frame?: number }): CanvasImageSource & { width: number; height: number };
 export function spriteSize(name: string): { w: number; h: number };
 export function rng(seed: number): () => number;
 export function planetTexture(seed: number): { height: Float32Array; order: Float32Array };

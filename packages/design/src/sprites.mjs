@@ -1,6 +1,6 @@
 // The cast and the icons, laid out as material shapes and finished by the forge (forge.mjs).
-// Heroes are 32×32 (OmniMan 32×48), Entropy 24×24, icons 16×16. Every sprite has two idle frames
-// (`f` is 0 or 1): breathing, tentacles, a coin flip, a flicker.
+// Heroes are 32×32 (OmniMan and his poses 32×48), Entropy 24×24, icons 16×16. Every sprite has two
+// frames (`f` is 0 or 1): breathing, tentacles, a coin flip, a flicker, a stride.
 // Materials: see RAMPS and FLAT in forge.mjs; 'k' is an inner line.
 
 const SUIT_STRIPES = (d, x, y, w = 7) => {
@@ -59,6 +59,70 @@ function heroDraw(girl, cape) {
   };
 }
 
+// The commander's neck and head: grey streak, stern brows, the mustache.
+function omniHead(d) {
+  d.rect(13, 14, 6, 5, 'S');
+  d.ellipse(16, 9, 6.5, 7.5, 'S');
+  d.ellipse(16, 4.5, 7, 4, 'H').rect(9, 4, 3, 5, 'H').rect(20, 4, 3, 5, 'H');
+  d.pxs([[19, 1], [20, 2], [21, 2], [21, 3], [22, 4], [22, 5]], 'G');
+  d.pxs([[9, 9], [9, 10], [22, 9], [22, 10]], 'S', 2);
+  d.rect(11, 7, 4, 1, 'H').rect(17, 7, 4, 1, 'H');
+  d.px(12, 9, 'Q').px(13, 9, 'E', 2).px(18, 9, 'E', 2).px(19, 9, 'Q');
+  d.px(16, 10, 'S', 2).px(16, 11, 'S', 2).px(15, 11, 'S', 2);
+  d.rect(12, 12, 8, 1, 'H').rect(13, 13, 6, 1, 'H').px(12, 13, 'H').px(19, 13, 'H').px(11, 13, 'H', 3).px(20, 13, 'H', 3);
+  d.rect(15, 14, 2, 1, 'S', 2);
+}
+
+// OmniMan's poses, on the idle body: `point` (arm out to his left, the ad's spokesperson), `cheer`
+// (a fist raised, thumb up) and `run` (two strides). With `cape`, the plasma cape heroes wear, so a
+// hero's cape recolours it (heroes.mjs › heroPose). Points and cheers breathe as the idle body does.
+function omniPose(pose, cape) {
+  return (d, f) => {
+    const run = pose === 'run';
+    const b = run ? 0 : f;
+    if (cape) {
+      if (run) d.poly([[8, 17], [21, 17], [15, 29], [5, 37 + f], [2, 33 - f], [4, 24]], 'P'); // streaming behind him
+      else { const w = f ? 0 : 1; d.poly([[7, 17], [25, 17], [28 + w, 44], [22, 45 - w], [16, 44 + w], [10, 45 - w], [4 - w, 44]], 'P'); }
+    }
+    // Standing legs and the torso: symmetric, so the right half copies the left.
+    if (!run) {
+      d.poly([[10, 31], [16, 31], [15.5, 42], [11, 42]], 'W').poly([[10, 31], [12, 31], [12, 42], [11, 42]], 'N');
+      d.poly([[10.5, 41], [15.5, 41], [15.5, 46], [9.5, 46]], 'n');
+    }
+    d.poly([[5, 18 - b], [27, 18 - b], [22, 32], [10, 32]], 'N');
+    d.poly([[10, 18 - b], [22, 18 - b], [20, 32], [12, 32]], 'W');
+    if (!run) d.mirror(); // a running cape streams to one side, so it is not mirrored
+    if (run) {
+      // A stride: one leg thrown back, the other reaching forward; the second frame swaps them.
+      const [back, fore] = f ? [[19, 25, 39, 26.5, 42], [13, 10, 42, 9.5, 44.5]] : [[13, 7, 39, 5.5, 42], [19, 22, 42, 22.5, 44.5]];
+      for (const [hx, fx, fy, bx, by] of [back, fore]) {
+        d.line(hx, 32, fx, fy, 'W', 4).line(hx - 1.5, 32, fx - 1.5, fy, 'N', 1.2);
+        d.ellipse(bx, by, 3, 2, 'n');
+      }
+    }
+    d.rect(11, 31, 10, 2, 'n');
+    // His right arm (the viewer's left): at his side, or swinging as he runs.
+    if (run && f) d.line(7, 20, 10, 27, 'N', 3.2).ellipse(10.5, 28.5, 2.8, 2.6, 'n');
+    else if (run) d.line(7, 20, 4, 26, 'N', 3.2).ellipse(4.5, 27.5, 2.6, 2.4, 'n');
+    else {
+      d.poly([[3, 20 - b], [8, 18 - b], [9, 28], [5, 29]], 'N').poly([[4, 22 - b], [6, 21 - b], [7, 27], [5, 27]], 'W');
+      d.ellipse(6.5, 30.5, 3.2, 3, 'n');
+    }
+    // His left arm (the viewer's right) makes the pose.
+    if (pose === 'point') {
+      d.poly([[23, 18 - b], [27, 18.5 - b], [27, 23 - b], [23, 23 - b]], 'N').rect(23, 20 - b, 4, 1, 'W');
+      d.ellipse(28, 21 - b, 2, 2.2, 'n').rect(29, 20 - b, 2, 1, 'n');
+    } else if (pose === 'cheer') {
+      d.line(25, 20 - b, 28, 25, 'N', 3.2).line(28, 25, 28, 17, 'N', 3.2);
+      d.ellipse(28, 15.5, 2.4, 2.2, 'n').rect(28, 11, 1, 3, 'n');
+    } else if (f) d.line(25, 20, 28, 26, 'N', 3.2).ellipse(28.5, 27.5, 2.8, 2.6, 'n');
+    else d.line(25, 20, 22, 27, 'N', 3.2).ellipse(21.5, 28.5, 2.8, 2.6, 'n');
+    SUIT_STRIPES(d, 12, 21 - b);
+    d.px(16, 32, 'Y').px(15, 32, 'Y');
+    omniHead(d);
+  };
+}
+
 export const SPRITE_DEFS = Object.freeze({
   // The commander, as in the key art: navy-and-white suit, the four Vertuoza stripes on the chest,
   // black hair with a grey streak, the mustache, clenched fists.
@@ -79,20 +143,17 @@ export const SPRITE_DEFS = Object.freeze({
       d.mirror();
       SUIT_STRIPES(d, 12, 21 - b);
       d.px(16, 32, 'Y').px(15, 32, 'Y');
-      // Neck and head.
-      d.rect(13, 14, 6, 5, 'S');
-      d.ellipse(16, 9, 6.5, 7.5, 'S');
-      d.ellipse(16, 4.5, 7, 4, 'H').rect(9, 4, 3, 5, 'H').rect(20, 4, 3, 5, 'H');
-      d.pxs([[19, 1], [20, 2], [21, 2], [21, 3], [22, 4], [22, 5]], 'G');
-      d.pxs([[9, 9], [9, 10], [22, 9], [22, 10]], 'S', 2);
-      // Stern brows, eyes, nose, the mustache.
-      d.rect(11, 7, 4, 1, 'H').rect(17, 7, 4, 1, 'H');
-      d.px(12, 9, 'Q').px(13, 9, 'E', 2).px(18, 9, 'E', 2).px(19, 9, 'Q');
-      d.px(16, 10, 'S', 2).px(16, 11, 'S', 2).px(15, 11, 'S', 2);
-      d.rect(12, 12, 8, 1, 'H').rect(13, 13, 6, 1, 'H').px(12, 13, 'H').px(19, 13, 'H').px(11, 13, 'H', 3).px(20, 13, 'H', 3);
-      d.rect(15, 14, 2, 1, 'S', 2);
+      omniHead(d);
     },
   },
+
+  // OmniMan's poses (omniPose), bare as the commander wears his suit, or caped as a hero.
+  'omni-point': { w: 32, h: 48, draw: omniPose('point', false) },
+  'omni-cheer': { w: 32, h: 48, draw: omniPose('cheer', false) },
+  'omni-run': { w: 32, h: 48, draw: omniPose('run', false) },
+  'omni-point-cape': { w: 32, h: 48, draw: omniPose('point', true) },
+  'omni-cheer-cape': { w: 32, h: 48, draw: omniPose('cheer', true) },
+  'omni-run-cape': { w: 32, h: 48, draw: omniPose('run', true) },
 
   // beaver fleet: goggles, buck teeth, a wrench.
   beaver: {
