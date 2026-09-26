@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import { ContextLine } from './ContextLine';
 import type { HistoryEntry } from './view';
 
 // Earlier rounds, folded into a quiet list below the open one, newest first: one line each (the
@@ -51,6 +52,7 @@ export function History({ history }: { history: HistoryEntry[] }) {
                 ))}
               </dl>
             </details>
+            <ContextLine parts={entry.context} />
           </li>
         ))}
       </ol>

@@ -9,6 +9,7 @@
 // - `status` reads the checkout alone, as the hooks do, and calls nothing.
 import { basename } from 'node:path';
 import { askClient } from './client.mjs';
+import { sessionContext } from './context.mjs';
 import { activeSession } from './hook.mjs';
 import { clearRound, clearSession, readSession, writeSession } from './local-state.mjs';
 
@@ -69,7 +70,7 @@ export async function turnOn({ root, askUrl, title, tokens, fetch }) {
   const client = askClient({ baseUrl: askUrl, host, tokens, fetch });
   let opened;
   try {
-    opened = await client.openSession(title);
+    opened = await client.openSession(title, sessionContext(root));
   } catch (error) {
     throw new AskModeError(refusal(host, error));
   }

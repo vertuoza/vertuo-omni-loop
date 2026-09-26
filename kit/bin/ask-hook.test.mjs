@@ -116,6 +116,51 @@ describe('omni ask hook, with the mode on', () => {
     expect(s.err).toEqual([]);
   });
 
+  it('pre sends where the question came from and what the session had cost, read from the config, git and the transcript', async () => {
+    const { root, write, tokens } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    write('.omni-loop/config.yml', `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${server.url}\n`);
+    write('.omni-loop/delivery/inbox/0144-question-history/spec.md', '# spec\n');
+    spawnSync('git', ['checkout', '-q', '-b', 'feat/question-history--s1'], { cwd: root });
+    const transcript = join(root, 'transcript.jsonl');
+    writeFileSync(transcript, [
+      JSON.stringify({ type: 'user', message: { role: 'user', content: '<command-name>/omni:brainstorm</command-name>' } }),
+      JSON.stringify({ type: 'assistant', message: { id: 'm1', model: 'claude-opus-4-1', usage: { input_tokens: 5, output_tokens: 2, cache_read_input_tokens: 40, cache_creation_input_tokens: 8 } } }),
+      JSON.stringify({ type: 'assistant', message: { id: 'm1', model: 'claude-opus-4-1', usage: { input_tokens: 5, output_tokens: 2, cache_read_input_tokens: 40, cache_creation_input_tokens: 8 } } }),
+    ].join('\n'));
+    const stdin = JSON.stringify({ ...JSON.parse(PRE), session_id: 'claude-7', transcript_path: transcript, cwd: root });
+    expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...io(), stdin, tokens })).toBe(0);
+    const [round] = server.rounds.values();
+    expect(round.context).toEqual({
+      repo: 'acme/widgets',
+      branch: 'feat/question-history--s1',
+      prd: 144,
+      claudeSessionId: 'claude-7',
+      skill: '/omni:brainstorm',
+      model: 'claude-opus-4-1',
+      tokens: { input: 5, output: 2, cacheRead: 40, cacheWrite: 8 },
+    });
+  });
+
+  it('a session open sends context.repo, read from the config', async () => {
+    server = await startFakeAskServer();
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${server.url}\n` } });
+    const tokens = memoryTokens({ [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1' } });
+    expect(await main(['ask', 'on'], { cwd: root, ...io(), tokens })).toBe(0);
+    const opened = server.calls.find((call) => call.path === '/api/ask/sessions');
+    expect(opened.body).toEqual({ title: 'acme/widgets · main', context: { repo: 'acme/widgets' } });
+  });
+
+  it('pre still asks with nulls in the context when there is no transcript and HEAD is detached', async () => {
+    const { root, tokens } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    spawnSync('git', ['checkout', '-q', '--detach'], { cwd: root });
+    const stdin = JSON.stringify({ ...JSON.parse(PRE), transcript_path: join(root, 'gone.jsonl') });
+    const s = io();
+    expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...s, stdin, tokens })).toBe(0);
+    expect(JSON.parse(s.out.join('')).hookSpecificOutput.updatedInput.answers).toEqual({ [QUESTION.question]: 'System (Recommended)' });
+    const [round] = server.rounds.values();
+    expect(round.context).toMatchObject({ branch: null, prd: null, skill: null, model: null, tokens: null });
+  });
+
   it('pre abandons the round and prints nothing when the page never answers', async () => {
     const { root, tokens } = await modeOn({ holdMs: 20 });
     const s = io();

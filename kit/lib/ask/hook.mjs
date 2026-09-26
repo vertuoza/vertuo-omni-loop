@@ -3,13 +3,16 @@
 // person's terminal prompt shows exactly as it would without ask mode. The mode never blocks a
 // session.
 //
-// - `pre` (PreToolUse on AskUserQuestion): posts the round, waits on it up to 540 s in all (the
+// - `pre` (PreToolUse on AskUserQuestion): posts the round with its best-effort `context`
+//   (`./context.mjs`: where it came from, what the session had cost; a context that cannot be read is
+//   sent as nulls, or not at all, and never stops the question), waits on it up to 540 s in all (the
 //   hook's own timeout is 600 s), and hands the page's answer back through `updatedInput.answers`.
 //   On any other outcome it abandons the round when it can, and answers nothing.
 // - `post` (PostToolUse on AskUserQuestion): an answer given in the terminal is posted to the page as
 //   well, with `via: "terminal"`; then the round file goes.
 // - `prompt` (UserPromptSubmit): one sentence of context, so questions go through the tool.
 import { loadConfig } from '../config.mjs';
+import { askContext } from './context.mjs';
 import { clearRound, clearSession, readRound, readSession, writeRound } from './local-state.mjs';
 
 const TOOL = 'AskUserQuestion';
@@ -65,12 +68,22 @@ function preOutput(toolInput, answers) {
   return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', updatedInput: { ...toolInput, answers } } };
 }
 
+/** The round's context, or `null` when even reading it failed: the question goes on either way. */
+function contextOf(readContext, root, input) {
+  try {
+    return readContext({ root, input }) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * @param {{ root: string, session: { sessionId: string }, client: ReturnType<import('./client.mjs').askClient>,
- *   input: any, limits?: { totalMs: number, callMs: number }, now?: () => number }} options
+ *   input: any, limits?: { totalMs: number, callMs: number }, now?: () => number,
+ *   readContext?: typeof askContext }} options
  * @returns {Promise<object | null>} the hook's output, or `null` for none
  */
-export async function preHook({ root, session, client, input, limits = WAIT_LIMITS, now = Date.now }) {
+export async function preHook({ root, session, client, input, limits = WAIT_LIMITS, now = Date.now, readContext = askContext }) {
   if (input?.tool_name !== TOOL) return null;
   const toolInput = input.tool_input;
   const questions = toolInput?.questions;
@@ -80,7 +93,7 @@ export async function preHook({ root, session, client, input, limits = WAIT_LIMI
 
   let roundId;
   try {
-    ({ roundId } = await client.openRound(session.sessionId, questions));
+    ({ roundId } = await client.openRound(session.sessionId, questions, contextOf(readContext, root, input) ?? undefined));
   } catch {
     return null;
   }

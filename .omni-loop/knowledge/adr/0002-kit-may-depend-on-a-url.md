@@ -26,6 +26,11 @@ game's app: a dependency principle 7 did not foresee, in the direction it forbad
    `game/`, `packages/` or `apps/galaxy`, reads none of the game's tables, and writes no ledger event.
    The hooks and the CLI would work unchanged against any server that honours the contract; the
    kit's own tests run them against a fake one (`kit/test/fake-ask-server.mjs`).
+   Since PRD 144, `POST /api/ask/sessions` takes an optional `context: {repo}` and
+   `POST /api/ask/sessions/:id/rounds` an optional `context` — `{repo, branch, prd,
+   claudeSessionId, skill, model, tokens}`, each field null when the kit could not read it. Only
+   names and counts leave the machine, never transcript text, and the kit holds no price. An older
+   kit sends neither and keeps working; a server that ignores the field still honours the contract.
 3. **The kit still never names the game.** `kit/test/no-game-words.test.mjs` fails on "galaxy" in any
    file under `kit/` that is not a test, the plugin's skills and hooks included. It sits next to the
    fuller list of game words `kit/lib/outbox/banter.test.mjs` keeps for the outbox's fun lines. The

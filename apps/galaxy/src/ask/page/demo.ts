@@ -89,6 +89,12 @@ export function demoState(id: string, scenario: DemoScenario, now: number): Sess
     status: 'open',
     created_at: iso(now - ago),
     answered_at: null,
+    // Its context line (PRD 144), as a kit that reads it sends it.
+    prd: 71,
+    skill: '/omni:brainstorm',
+    model: 'claude-opus-4-8',
+    tokens: { input: 4_200 * n, output: 1_800 * n, cacheRead: 180_000 * n, cacheWrite: 24_000 * n },
+    cost_usd: 0.26 * n,
     ...rest,
   });
   const answered = [
@@ -105,6 +111,8 @@ export function demoState(id: string, scenario: DemoScenario, now: number): Sess
       status: scenario === 'closed' ? 'closed' : 'open',
       created_at: iso(now - 20 * MIN),
       last_seen_at: iso(now - 30_000),
+      repo: 'vertuoza/vertuo-omni-loop',
+      branch: 'feat/ask-mode',
     },
     rounds,
   };

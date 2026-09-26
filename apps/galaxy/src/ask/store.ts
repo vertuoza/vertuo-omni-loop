@@ -19,7 +19,14 @@ export type AskSession = {
   status: 'open' | 'closed';
   created_at: string;
   last_seen_at: string;
+  /** Where the session came from (PRD 144): null when the kit did not say. */
+  repo: string | null;
+  branch: string | null;
+  claude_session_id: string | null;
 };
+
+/** A Claude session's tokens up to a question. */
+export type AskTokens = { input: number; output: number; cacheRead: number; cacheWrite: number };
 
 export type AskRoundStatus = 'open' | 'answered' | 'abandoned';
 
@@ -32,10 +39,21 @@ export type AskRound = {
   status: AskRoundStatus;
   created_at: string;
   answered_at: string | null;
+  /** Where the round came from and what the session had cost by then (PRD 144): null when unknown. */
+  prd: number | null;
+  skill: string | null;
+  model: string | null;
+  tokens: AskTokens | null;
+  cost_usd: number | null;
+  /** Who answered: set by the database, never sent. */
+  answered_by: string | null;
 };
 
-const SESSION = 'id, owner, title, status, created_at, last_seen_at';
-const ROUND = 'id, session_id, questions, answers, answered_via, status, created_at, answered_at';
+/** What a round records besides its questions, as the API worked it out. */
+export type AskRoundFacts = Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd'>;
+
+const SESSION = 'id, owner, title, status, created_at, last_seen_at, repo, branch, claude_session_id';
+const ROUND = 'id, session_id, questions, answers, answered_via, status, created_at, answered_at, prd, skill, model, tokens, cost_usd, answered_by';
 
 /** Closed, or 12 hours without a call: either way nobody asks in it any more. */
 export function sessionClosed(session: Pick<AskSession, 'status' | 'last_seen_at'>, now: number): boolean {
@@ -58,8 +76,9 @@ function settle<T>(what: string, { data, error }: Outcome<T>): T | null {
 
 export function askStore(db: Pick<SupabaseClient, 'from'>) {
   return {
-    async openSession(title: string): Promise<{ id: string }> {
-      return settle('open the session', await db.from('ask_sessions').insert({ title }).select('id').single())!;
+    async openSession(title: string, repo: string | null = null): Promise<{ id: string }> {
+      const row: { title: string; repo?: string } = repo === null ? { title } : { title, repo };
+      return settle('open the session', await db.from('ask_sessions').insert(row).select('id').single())!;
     },
 
     async session(id: string): Promise<AskSession | null> {
@@ -71,12 +90,20 @@ export function askStore(db: Pick<SupabaseClient, 'from'>) {
       settle('keep the session', await db.from('ask_sessions').update({ last_seen_at: at.toISOString() }).eq('id', id).eq('status', 'open'));
     },
 
+    /** The branch and the Claude session the latest round named; a value not named is left as it is. */
+    async placeSession(id: string, where: Partial<Pick<AskSession, 'branch' | 'claude_session_id'>>): Promise<void> {
+      if (Object.keys(where).length === 0) return;
+      settle('place the session', await db.from('ask_sessions').update(where).eq('id', id).eq('status', 'open'));
+    },
+
     async closeSession(id: string, at: Date): Promise<void> {
       settle('close the session', await db.from('ask_sessions').update({ status: 'closed', last_seen_at: at.toISOString() }).eq('id', id));
     },
 
-    async addRound(sessionId: string, questions: AskQuestions): Promise<{ id: string }> {
-      return settle('ask the round', await db.from('ask_rounds').insert({ session_id: sessionId, questions }).select('id').single())!;
+    /** A new round; `facts` that are all null are not sent, so an older database takes it too. */
+    async addRound(sessionId: string, questions: AskQuestions, facts?: AskRoundFacts): Promise<{ id: string }> {
+      const known = Object.fromEntries(Object.entries(facts ?? {}).filter(([, value]) => value !== null));
+      return settle('ask the round', await db.from('ask_rounds').insert({ session_id: sessionId, questions, ...known }).select('id').single())!;
     },
 
     async round(id: string): Promise<AskRound | null> {

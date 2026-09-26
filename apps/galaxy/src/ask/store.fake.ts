@@ -2,7 +2,9 @@
 // token check, and the row-level security of the migration (an account sees and changes only its
 // own sessions and their rounds; a round is asked only in an open session). It answers the query
 // shapes src/ask/store.ts sends, and nothing else. The database's own rules (a round only moves
-// forward, the grants) are proved by supabase/checks/ask.sql, not here.
+// forward, the grants) are proved by supabase/checks/ask.sql, not here. Like the database's trigger, it
+// sets `answered_by` the moment a round is answered: the caller on the page, the session owner for
+// the terminal.
 
 type Row = Record<string, unknown>;
 type Failure = { code?: string; message: string };
@@ -66,7 +68,10 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
       if (!this.me) return refused;
       if (this.table === 'ask_sessions') {
         const at = stamp();
-        const row = { id: newId(), owner: this.me.id, status: 'open', created_at: at, last_seen_at: at, ...clone(this.values) };
+        const row = {
+          id: newId(), owner: this.me.id, status: 'open', created_at: at, last_seen_at: at, repo: null, branch: null, claude_session_id: null,
+          ...clone(this.values),
+        };
         tables.ask_sessions.push(row);
         return [row];
       }
@@ -74,7 +79,9 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
       if (!session || session.owner !== this.me.id || session.status !== 'open') return refused;
       const row = {
         id: newId(), answers: null, answered_via: null, status: 'open', created_at: stamp(), answered_at: null,
+        prd: null, skill: null, model: null, tokens: null, cost_usd: null,
         ...clone(this.values),
+        answered_by: null,
       };
       tables.ask_rounds.push(row);
       return [row];
@@ -83,8 +90,14 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
     private updateRows(): Row[] {
       const rows = this.matching();
       for (const row of rows) {
-        Object.assign(row, clone(this.values));
-        if (this.table === 'ask_rounds' && this.values.status === 'answered') row.answered_at = stamp();
+        const answering = this.table === 'ask_rounds' && this.values.status === 'answered' && row.status !== 'answered';
+        const { answered_by: _ignored, ...values } = clone(this.values);
+        Object.assign(row, values);
+        if (answering) {
+          row.answered_at = stamp();
+          const owner = tables.ask_sessions.find((s) => s.id === row.session_id)?.owner ?? null;
+          row.answered_by = row.answered_via === 'terminal' ? owner : this.me?.id ?? null;
+        }
       }
       return rows;
     }

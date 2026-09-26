@@ -84,6 +84,26 @@ describe('the pre hook', () => {
     expect(readRound(root)).toEqual({ roundId: round.id, toolUseId: 'toolu_01', status: 'answered' });
   });
 
+  it('sends the round\'s context with the questions', async () => {
+    const { root, session, client } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const input = { ...preInput([COLOUR]), session_id: 'claude-1', transcript_path: `${root}/no-transcript.jsonl` };
+    await preHook({ root, session, client, input, limits: FAST });
+    const [round] = server.rounds.values();
+    expect(round.context).toEqual({
+      repo: null, branch: null, prd: null, claudeSessionId: 'claude-1', skill: null, model: null, tokens: null,
+    });
+  });
+
+  it('still asks the question when reading the context throws', async () => {
+    const { root, session, client } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const readContext = () => { throw new Error('the transcript moved'); };
+    const output = await preHook({ root, session, client, input: preInput([COLOUR]), limits: FAST, readContext });
+    expect(output.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
+    const [round] = server.rounds.values();
+    expect(round.context).toBeNull();
+    expect(server.calls.find((call) => call.path.endsWith('/rounds')).body).toEqual({ questions: [COLOUR] });
+  });
+
   it('waits across several waits for an answer given later on the page', async () => {
     // The page answers as the third wait comes in: two waits have come back `open` by then.
     let waits = 0;

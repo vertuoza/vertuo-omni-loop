@@ -221,6 +221,101 @@ describe('POST /api/ask/sessions/:id/rounds', () => {
   });
 });
 
+describe('a round\'s context (PRD 144)', () => {
+  const CONTEXT = {
+    repo: 'vertuoza/vertuo-omni-loop',
+    branch: 'feat/question-history--s1',
+    prd: 144,
+    claudeSessionId: 'claude-session-1',
+    skill: '/omni:brainstorm',
+    model: 'claude-sonnet-4-6',
+    tokens: { input: 1000, output: 2000, cacheRead: 0, cacheWrite: 0 },
+  };
+  const ask = (w: ReturnType<typeof world>, id: string, body: unknown) =>
+    addRound(w.request('POST', `/api/ask/sessions/${id}/rounds`, { body }), id, w.deps);
+
+  it('opens a session with its repo, or without a context at all', async () => {
+    const w = world();
+    const open = async (body: unknown) => (await w.read(await openSession(w.request('POST', '/api/ask/sessions', { body }), w.deps))).body.id as string;
+    const withRepo = await open({ title: 't', context: { repo: 'vertuoza/vertuo-omni-loop' } });
+    expect(w.row('ask_sessions', withRepo)).toMatchObject({ repo: 'vertuoza/vertuo-omni-loop' });
+    for (const body of [{ title: 't' }, { title: 't', context: null }, { title: 't', context: { repo: null } }]) {
+      expect(w.row('ask_sessions', await open(body))).toMatchObject({ repo: null });
+    }
+  });
+
+  it('refuses a session context that is not one, or a repo that is not owner/name, with 400', async () => {
+    const w = world();
+    for (const context of ['acme/widgets', [], { repo: 7 }, { repo: '' }, { repo: 'no-slash' }, { repo: `a/${'x'.repeat(200)}` }]) {
+      const response = await openSession(w.request('POST', '/api/ask/sessions', { body: { title: 't', context } }), w.deps);
+      expect(response.status, JSON.stringify(context)).toBe(400);
+    }
+    expect(w.fake.tables.ask_sessions).toEqual([]);
+  });
+
+  it('stores the context of a round and its cost from the price table; the session keeps the branch and the Claude session', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const { status, body } = await w.read(await ask(w, sessionId, { questions: QUESTIONS, context: CONTEXT }));
+    expect(status).toBe(200);
+    expect(w.row('ask_rounds', body.roundId)).toMatchObject({
+      prd: 144, skill: '/omni:brainstorm', model: 'claude-sonnet-4-6', tokens: CONTEXT.tokens, cost_usd: 0.033, answered_by: null,
+    });
+    expect(w.row('ask_sessions', sessionId)).toMatchObject({ branch: 'feat/question-history--s1', claude_session_id: 'claude-session-1' });
+  });
+
+  it('prices an unknown model at null, and stores a round with no context, or one of nulls, as nulls', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const unknown = (await w.read(await ask(w, sessionId, { questions: QUESTIONS, context: { ...CONTEXT, model: 'mystery-1' } }))).body.roundId;
+    expect(w.row('ask_rounds', unknown)).toMatchObject({ model: 'mystery-1', cost_usd: null, tokens: CONTEXT.tokens });
+    const nulls = { repo: null, branch: null, prd: null, claudeSessionId: null, skill: null, model: null, tokens: null };
+    for (const body of [{ questions: QUESTIONS }, { questions: QUESTIONS, context: nulls }, { questions: QUESTIONS, context: {} }]) {
+      const { status, body: sent } = await w.read(await ask(w, sessionId, body));
+      expect(status).toBe(200);
+      expect(w.row('ask_rounds', sent.roundId)).toMatchObject({ prd: null, skill: null, model: null, tokens: null, cost_usd: null });
+    }
+    // A later round that names no branch leaves the session's as it was.
+    expect(w.row('ask_sessions', sessionId)).toMatchObject({ branch: 'feat/question-history--s1' });
+  });
+
+  it('refuses a malformed context with 400, and asks nothing', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const bad = [
+      'context', [], 7,
+      { ...CONTEXT, prd: 0 }, { ...CONTEXT, prd: 1.5 }, { ...CONTEXT, prd: '144' },
+      { ...CONTEXT, skill: 3 }, { ...CONTEXT, model: '' }, { ...CONTEXT, branch: 'x'.repeat(251) }, { ...CONTEXT, claudeSessionId: {} },
+      { ...CONTEXT, repo: 'no-slash' },
+      { ...CONTEXT, tokens: [] }, { ...CONTEXT, tokens: { input: 1 } }, { ...CONTEXT, tokens: { ...CONTEXT.tokens, output: -1 } },
+      { ...CONTEXT, tokens: { ...CONTEXT.tokens, input: 1.5 } }, { ...CONTEXT, tokens: { ...CONTEXT.tokens, extra: 1 } },
+    ];
+    for (const context of bad) {
+      const response = await ask(w, sessionId, { questions: QUESTIONS, context });
+      expect(response.status, JSON.stringify(context)).toBe(400);
+    }
+    expect(w.fake.tables.ask_rounds).toEqual([]);
+  });
+});
+
+describe('who answered (PRD 144)', () => {
+  it('is the session owner for an answer the terminal recorded, whatever the body says', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    const body = { answers: ANSWERS, via: 'terminal', answered_by: BOB.id, answeredBy: BOB.id };
+    expect((await answerRound(w.request('POST', `/api/ask/rounds/${roundId}/answers`, { body }), roundId, w.deps)).status).toBe(200);
+    expect(w.row('ask_rounds', roundId).answered_by).toBe(ADA.id);
+  });
+
+  it('is the caller for an answer the page sent', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    const { askStore } = await import('./store');
+    await askStore(w.fake.client('ada-token') as never).moveRound(roundId, ['open'], { status: 'answered', answers: ANSWERS, answered_via: 'page' });
+    expect(w.row('ask_rounds', roundId).answered_by).toBe(ADA.id);
+  });
+});
+
 describe('GET /api/ask/rounds/:id/wait', () => {
   const wait = (w: ReturnType<typeof world>, id: string, c: Call = {}) => waitRound(w.request('GET', `/api/ask/rounds/${id}/wait`, c), id, w.deps);
 
