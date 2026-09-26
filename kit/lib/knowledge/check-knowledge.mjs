@@ -21,6 +21,10 @@
  *
  * A principle no entry serves is a **wish**: reported, never a violation — a signal that nothing
  * concrete makes it true yet.
+ *
+ * A **proposed** entry (a `Proposed: <who> <YYYY-MM-DD>` line, PRD #68) is one no person has
+ * confirmed: a principle may go without `Decided:`, and every other line is graded as for a law. Each
+ * is reported once, never a violation; a malformed `Proposed:` line is one.
  */
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-registers.mjs — changes in kit/porting/knowledge--check-knowledge.md.
 import { existsSync, readFileSync } from 'node:fs';
@@ -41,8 +45,8 @@ function violation(file, id, detail) {
   return { file, id, detail };
 }
 
-function formatViolation({ file, id, detail }) {
-  return `${file}: ${id} — ${detail}`;
+function formatViolation({ file, id, detail, text }) {
+  return text ?? `${file}: ${id} — ${detail}`;
 }
 
 const STATED_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -336,6 +340,7 @@ export function findEntryViolations(ctx, entries) {
 
   for (const entry of entries) {
     violations.push(...idShapeViolations(entry));
+    violations.push(...(entry.problems ?? []).map((problem) => ({ text: problem })));
 
     if (entry.scope === 'cross-domain' && !entry.kind) {
       violations.push(
@@ -375,7 +380,7 @@ export function findEntryViolations(ctx, entries) {
         );
       }
       if (!entry.why) violations.push(violation(entry.file, entry.id, 'is missing a "Why:" line.'));
-      if (!entry.decided) {
+      if (!entry.decided && entry.proposed === null) {
         violations.push(violation(entry.file, entry.id, 'is missing a "Decided:" line.'));
       }
       continue;
@@ -424,8 +429,22 @@ export function findWishes(entries) {
     );
 }
 
+/** Every proposed entry — not a law until a person removes its `Proposed:` line; reported, never failed. */
+export function findProposals(entries) {
+  return entries
+    .filter((entry) => entry.proposed !== null && entry.proposed.by !== null)
+    .map((entry) =>
+      violation(
+        entry.file,
+        entry.id,
+        `is proposed by ${entry.proposed.by} on ${entry.proposed.on} — not a law until a person removes its "Proposed:" line.`,
+      ),
+    );
+}
+
 /**
- * The whole grade of the knowledge folder at `ctx`: `{ violations, wishes }`, both formatted text.
+ * The whole grade of the knowledge folder at `ctx`: `{ violations, wishes, proposals }`, all
+ * formatted text.
  *
  * `files` names the entry files to check for stray id citations (the caller — a test, or the CLI
  * with `readKnowledge({ ctx }).entries` reduced to their `file`s — already knows which files those
@@ -450,5 +469,6 @@ export function gradeKnowledge({ ctx, files = [], glossaryText } = {}) {
   return {
     violations: violations.map(formatViolation),
     wishes: findWishes(knowledge.entries).map(formatViolation),
+    proposals: findProposals(knowledge.entries).map(formatViolation),
   };
 }

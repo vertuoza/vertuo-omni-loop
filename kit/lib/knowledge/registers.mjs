@@ -59,7 +59,7 @@ export const ID_TOKEN = new RegExp(`\\b(?:${ID_SOURCE})\\b`, 'g');
 const ENTRY_HEADING = new RegExp(`^##\\s+(${ID_SOURCE})\\s*$`);
 const ANY_H2 = /^##\s/;
 const FIELD_LINE =
-  /^(Why|Decided|Source|Serves|Enforced by|Stated|Kind|Kept id|Glossary term):\s*(.*)$/;
+  /^(Why|Decided|Source|Serves|Enforced by|Stated|Proposed|Kind|Kept id|Glossary term):\s*(.*)$/;
 
 /** The field names as they appear on a parsed entry. */
 const FIELD_KEY = {
@@ -69,6 +69,7 @@ const FIELD_KEY = {
   Serves: 'serves',
   'Enforced by': 'enforcedBy',
   Stated: 'stated',
+  Proposed: 'proposedLine',
   Kind: 'kindLine',
   'Kept id': 'keptId',
   'Glossary term': 'glossaryTerm',
@@ -129,6 +130,27 @@ function readFields(lines) {
   return { fields, counts, fieldAt };
 }
 
+/** A `Proposed:` value: who proposed the entry, then the day, `YYYY-MM-DD`. */
+const PROPOSED_VALUE = /^(\S.*?)\s+(\d{4}-\d{2}-\d{2})$/;
+
+/**
+ * An entry's `Proposed:` line read: `{ proposed, problems }`. `proposed` is `{ by, on }`, `null` when
+ * the entry carries no such line — a law. A malformed line still reads as proposed (`by` and `on`
+ * `null`): the line says a person has not confirmed the entry, whatever its shape; the problem
+ * names the file so the checker refuses it.
+ */
+function readProposed(file, id, value) {
+  if (value === undefined) return { proposed: null, problems: [] };
+  const match = value.match(PROPOSED_VALUE);
+  if (match && !/\d{4}-\d{2}-\d{2}$/.test(match[1])) {
+    return { proposed: { by: match[1], on: match[2] }, problems: [] };
+  }
+  return {
+    proposed: { by: null, on: null },
+    problems: [`${file}: ${id} — "Proposed: ${value}" is not "Proposed: <who> <YYYY-MM-DD>".`],
+  };
+}
+
 /** Splits `text` into `{ id, lines }` entries; any `##` heading that is not an id closes one. */
 function splitEntries(text) {
   const entries = [];
@@ -165,6 +187,7 @@ export function parseEntryFile(file, text, place) {
       place.kind ??
       (fields.kindLine === 'rule' || fields.kindLine === 'invariant' ? fields.kindLine : null);
     const enforcedBy = fields.enforcedBy ?? null;
+    const { proposed, problems } = readProposed(file, id, fields.proposedLine);
     return {
       id,
       kind,
@@ -180,9 +203,11 @@ export function parseEntryFile(file, text, place) {
       enforcedBy,
       enforced: enforcedBy !== null && enforcedBy !== 'unenforced',
       stated: fields.stated ?? null,
+      proposed,
       kindLine: fields.kindLine ?? null,
       keptId: fields.keptId ?? null,
       fieldCounts: counts,
+      problems,
     };
   });
 }
