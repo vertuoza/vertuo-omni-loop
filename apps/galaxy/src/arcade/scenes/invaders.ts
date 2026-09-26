@@ -14,7 +14,8 @@ export const TALL_SCENES: readonly SceneName[] = ['invaders'];
 
 export const PAGES: Pages = {};
 
-const SHIELD = '#1d8f55', SHIELD_TOP = '#4ee08a', GROUND = '#4ee08a', BOMB = '#ff3b5c', BOOM = '#ffd84a';
+// The shields' dark green; their lit edge, the ground, the bombs and the bursts are theme tokens.
+const SHIELD = '#1d8f55';
 
 // One tint per kind, made once: the sprite cache keys on it every frame.
 const tints = new Map<WoundKind, Tint>();
@@ -31,7 +32,7 @@ export function drawInvaders(ctx: CanvasRenderingContext2D, s: FrameState) {
 
   // The ground the hero flies along.
   ctx.globalAlpha = 0.6;
-  ctx.fillStyle = GROUND;
+  ctx.fillStyle = s.theme.green;
   ctx.fillRect(0, f.ground, f.w, 2);
   ctx.globalAlpha = 1;
 
@@ -41,7 +42,7 @@ export function drawInvaders(ctx: CanvasRenderingContext2D, s: FrameState) {
     sh.cells.forEach((on, i) => {
       if (!on) return;
       const r = Math.floor(i / cols), c = i % cols;
-      ctx.fillStyle = r === 0 || !sh.cells[i - cols] ? SHIELD_TOP : SHIELD;
+      ctx.fillStyle = r === 0 || !sh.cells[i - cols] ? s.theme.green : SHIELD;
       ctx.fillRect(sh.x + c * cell, sh.y + r * cell, cell, cell);
     });
   }
@@ -56,7 +57,7 @@ export function drawInvaders(ctx: CanvasRenderingContext2D, s: FrameState) {
   });
 
   // An alien hit bursts for a moment.
-  ctx.fillStyle = BOOM;
+  ctx.fillStyle = s.theme.yellow;
   for (const b of g.booms) {
     const k = Math.min(1, (g.t - b.at) / 0.4);
     const r = Math.round(4 + k * 6);
@@ -71,7 +72,7 @@ export function drawInvaders(ctx: CanvasRenderingContext2D, s: FrameState) {
   ctx.globalAlpha = 1;
 
   // The formation's bombs: a red zigzag.
-  ctx.fillStyle = BOMB;
+  ctx.fillStyle = s.theme.red;
   for (const b of g.bombs) {
     for (let y = 0; y < f.bomb.h; y += 2) ctx.fillRect(b.x + ((y >> 2) % 2 ? 2 : 0), b.y + y, 2, 2);
   }
@@ -79,7 +80,7 @@ export function drawInvaders(ctx: CanvasRenderingContext2D, s: FrameState) {
   // The hero's plasma bolt: white at the tip, plasma behind, with its glow.
   if (g.bolt) {
     const grad = ctx.createLinearGradient(0, g.bolt.y, 0, g.bolt.y + f.bolt.h);
-    grad.addColorStop(0, '#f2f4ff');
+    grad.addColorStop(0, s.theme.white);
     grad.addColorStop(1, s.theme.plasma);
     ctx.globalAlpha = 0.35;
     ctx.fillStyle = s.theme.plasma;

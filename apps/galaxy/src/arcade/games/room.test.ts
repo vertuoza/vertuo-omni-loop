@@ -119,13 +119,14 @@ describe('cabinetDoor', () => {
   const status = xpStatus(true, row(180, 3));
   const [game, soon] = cabinets(status);
 
-  it('plays an unlocked game once it has its scene', () => {
-    const playable = { ...game, game: { ...GAMES[0], scene: 'menu' as const } };
-    expect(cabinetDoor(playable, status)).toEqual({ scene: 'menu' });
+  it('plays Entropy Invaders on its unlocked cabinet: A opens the invaders scene', () => {
+    expect(GAMES[0]).toEqual({ id: 'invaders', title: 'ENTROPY INVADERS', scene: 'invaders' });
+    expect(cabinetDoor(game, status)).toEqual({ scene: 'invaders' });
   });
 
   it('says why a cabinet does not play: not playable yet, locked, or still to come', () => {
-    expect(cabinetDoor(game, status)).toEqual({ refused: 'ENTROPY INVADERS · COMING SOON' });
+    const unplayable = { ...game, game: { ...GAMES[0], scene: null } };
+    expect(cabinetDoor(unplayable, status)).toEqual({ refused: 'ENTROPY INVADERS · COMING SOON' });
     expect(cabinetDoor(soon, status)).toEqual({ refused: 'THIS CABINET ARRIVES SOON' });
     const locked = cabinets(xpStatus(true, null))[0];
     expect(cabinetDoor(locked, xpStatus(true, null))).toEqual({ refused: 'REACH LV 1 TO PLAY' });
