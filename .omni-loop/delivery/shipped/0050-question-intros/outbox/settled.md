@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Stays here: This settles a wording gap in the spec for one check, matching its acceptance criteria. It is cheap to change later and serves no principle, so it stays in the ledger.
 
 ### The answer, as it was given
 
@@ -87,6 +88,7 @@ A one-sentence cap is one more check in `funLineProblems` and a couple of tests.
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Stays here: A local choice of error shape that is cheap to reverse. N-PRODUCT-3 already guarantees refusal before writing; how the refusal is worded needs no lasting record.
 
 ### The answer, as it was given
 
@@ -157,6 +159,7 @@ Moving the refusal to the pre-write pass is deleting the two schema refinements 
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 2
+- Stays here: A cosmetic rendering choice in questionBanter. It stores nothing and is a one-function change to reverse, so it holds no lasting product rule, invariant or architecture decision.
 
 ### The answer, as it was given
 
@@ -226,6 +229,7 @@ Switching to B is one change in `questionBanter`: serve every id the numbering m
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 2
+- Stays here: A one-line prose change in one guide, easily reverted. The knowledge base already uses terraform as the kit's own word (ADR-0017), so nothing lasting is settled here.
 
 ### The answer, as it was given
 

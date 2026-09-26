@@ -160,11 +160,12 @@ describe('retro — a merged feature PR', () => {
     expect(retroPr).toMatchObject({ base: { ref: 'main' }, labels: [{ name: 'omni:retro' }], title: 'docs(retro): PRD 7 — Widgets that remember their colour' });
   });
 
-  it('publishes in the inbox folder a PRD merged without being shipped', async () => {
+  it('publishes in the shipped folder a PRD merged without being shipped', async () => {
     const scenario = widgetScenario({ files: mergeFiles({ state: 'inbox' }) });
     await engine(scenario).execute();
-    const path = '.omni-loop/delivery/inbox/0007-widget/retro.md';
+    const path = '.omni-loop/delivery/shipped/0007-widget/retro.md';
     expect(scenario.github.filesAt(BRANCH, [path])[path]).toContain('# Retro — PRD 7');
+    expect(scenario.github.state.issues.map((issue) => issue.body)).toEqual([expect.stringContaining(`\nretro: ${path}\n`)]);
   });
 
   it('writes the files, then opens the PR: the issues come first, in their own step', async () => {

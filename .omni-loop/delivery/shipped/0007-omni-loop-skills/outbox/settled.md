@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Stays here: The exact shape comes from the official settings reference and lives in two JSON files, and the plugin test guards the name agreement. Nothing lasting needs recording beyond the files.
 
 ### The answer, as it was given
 
@@ -94,6 +95,7 @@ Two JSON files (`.claude/settings.json`, `.claude-plugin/marketplace.json`); the
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Stays here: A one-line local dev-settings choice, cheap to change, with no business rule or code invariant behind it; nothing in the knowledge base covers it, and it needs no ADR.
 
 ### The answer, as it was given
 
@@ -166,6 +168,7 @@ One line in `.claude/settings.json`.
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Stays here: A local test-scope choice, cheap to change (two regexes, one fixture), not approved; nothing lasting that the knowledge base must keep.
 
 ### The answer, as it was given
 
@@ -237,6 +240,7 @@ Two regexes in `kit/test/no-literals.test.mjs`, and one fixture line flipped.
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Stays here: These are metadata values in two JSON files that are cheap to change. The no-literals-in-kit concern already follows from ADR-0002's spirit, so nothing lasting needs recording.
 
 ### The answer, as it was given
 
@@ -309,6 +313,7 @@ A few fields in two JSON files, plus the settings key and `enabledPlugins` id if
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 1
+- Stays here: A local implementation choice, cheap to reverse with one guard condition; no existing entry covers it and it sets no lasting product rule or invariant.
 
 ### The answer, as it was given
 
@@ -378,6 +383,7 @@ One condition to add back, guarding the policy call, if a later reviewer wants a
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 2
+- Stays here: A local choice inside one matching function, cheap to reverse and touching no stored data or format. It was adopted without approval, and no existing principle or domain calls for recording it.
 
 ### The answer, as it was given
 
@@ -447,6 +453,7 @@ Changing which check wins is a small, local change to the matching function; no 
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 2
+- Became: BR-PRODUCT-2, P-PRODUCT-2
 
 ### The answer, as it was given
 
@@ -516,6 +523,7 @@ Flipping the fallback is a small, local change with no format change; it only ma
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 2
+- Stays here: A tie-break inside one selection function, cheap to change, with nothing downstream depending on it and no approval behind it. It is a local choice with nothing lasting to record.
 
 ### The answer, as it was given
 
@@ -586,6 +594,7 @@ Changing the tie-break rule is local to the one selection function; nothing down
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 2
+- Stays here: A local choice about how one skill upserts one comment. It costs a few lines to change, and no existing entry or lasting rule needs it recorded.
 
 ### The answer, as it was given
 
@@ -657,6 +666,7 @@ A few lines of `kit/plugin/skills/pr/SKILL.md`; existing comments with the old m
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 2
+- Became: ADR-0006
 
 ### The answer, as it was given
 
@@ -727,6 +737,7 @@ One paragraph of `kit/plugin/skills/pr/SKILL.md`.
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 2
+- Became: BR-PRODUCT-3, P-PRODUCT-3
 
 ### The answer, as it was given
 
@@ -796,6 +807,7 @@ One table row of `kit/plugin/skills/pr/SKILL.md`.
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 2
+- Became: ADR-0007
 
 ### The answer, as it was given
 
@@ -866,6 +878,7 @@ One list in `kit/plugin/skills/pr/SKILL.md`; a config key if a triage page is wa
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 2
+- Stays here: A flag name and default inside two skills, cheap to rename, with no stored shape; it is a local choice rather than a lasting rule or architecture decision.
 
 ### The answer, as it was given
 
@@ -936,6 +949,7 @@ A rename of one flag in two skills (do-work and wave), no stored shape.
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 2
+- Became: BR-PRODUCT-4, P-PRODUCT-4
 
 ### The answer, as it was given
 
@@ -1006,6 +1020,7 @@ One sentence in the skill; nothing stored.
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 2
+- Stays here: A porting choice about one prose section, already recorded in the porting notes. It is cheap to reverse and sets no lasting rule, invariant or architecture decision.
 
 ### The answer, as it was given
 
@@ -1076,6 +1091,7 @@ Re-adding one section of prose.
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 2
+- Stays here: This is an internal contract between two skills that is written in the skill itself. Changing it later is cheap, nothing is stored, and no knowledge-base entry covers it.
 
 ### The answer, as it was given
 
@@ -1146,6 +1162,7 @@ Changing the shape in do-work and wave together; nothing stored.
 - Raised: 2026-09-25
 - Slice: s7
 - Wave: 3
+- Became: ADR-0008
 
 ### The answer, as it was given
 
@@ -1216,6 +1233,7 @@ One paragraph of the skill; a later spec template with a mandatory acceptance se
 - Raised: 2026-09-25
 - Slice: s7
 - Wave: 3
+- Became: ADR-0009
 
 ### The answer, as it was given
 
@@ -1285,6 +1303,7 @@ One extra branch and PR for tiny PRDs; reverting means a one-slice path in do-wo
 - Raised: 2026-09-25
 - Slice: s7
 - Wave: 3
+- Became: ADR-0010
 
 ### The answer, as it was given
 
@@ -1355,6 +1374,7 @@ A word in the status comment and one sentence in the skill.
 - Raised: 2026-09-25
 - Slice: s7
 - Wave: 3
+- Became: ADR-0011
 
 ### The answer, as it was given
 
@@ -1425,6 +1445,7 @@ One sentence in the skill.
 - Raised: 2026-09-25
 - Slice: s8
 - Wave: 4
+- Stays here: A provisional, cheap-to-change skill step with nothing stored; no lasting rule or architecture choice, and no existing entry covers it.
 
 ### The answer, as it was given
 
@@ -1496,6 +1517,7 @@ Low: adding the command later replaces one step of prose; nothing is stored.
 - Raised: 2026-09-25
 - Slice: s8
 - Wave: 4
+- Became: ADR-0012
 
 ### The answer, as it was given
 
@@ -1566,6 +1588,7 @@ Low: a later /omni:deliver can ask after the wave returns, from the report's ite
 - Raised: 2026-09-25
 - Slice: s8
 - Wave: 4
+- Stays here: A local ordering of workflow steps that is cheap to change; no existing entry covers it, and it holds no lasting code invariant or business rule.
 
 ### The answer, as it was given
 
@@ -1636,6 +1659,7 @@ Low: reordering is a prose edit, and the commit reverts cleanly on the feature b
 - Raised: 2026-09-25
 - Slice: s13
 - Wave: 3
+- Became: N-PRODUCT-3
 
 ### The answer, as it was given
 
@@ -1705,6 +1729,7 @@ A caller still using the old input-file spelling gets a plain usage message nami
 - Raised: 2026-09-25
 - Slice: s9
 - Wave: 5
+- Became: BR-PRODUCT-5, P-PRODUCT-5
 
 ### The answer, as it was given
 
@@ -1776,6 +1801,7 @@ Low: one paragraph of skill prose. The only effect is whether CI runs on the fea
 - Raised: 2026-09-25
 - Slice: s9
 - Wave: 5
+- Became: ADR-0013
 
 ### The answer, as it was given
 
@@ -1846,6 +1872,7 @@ Low: one step of prose; nothing is stored.
 - Raised: 2026-09-25
 - Slice: s9
 - Wave: 5
+- Stays here: This is a local choice in the skill that costs one flag to change, and no existing entry covers it. It sets no lasting architectural rule beyond what the spec already states.
 
 ### The answer, as it was given
 
@@ -1915,6 +1942,7 @@ Low: adding a flag to one command line in the skill.
 - Raised: 2026-09-25
 - Slice: s10
 - Wave: 6
+- Stays here: A prose-only local choice in one skill file, cheap to change later, with no lasting architectural or business rule to record; no existing entry covers it.
 
 ### The answer, as it was given
 
@@ -1985,6 +2013,7 @@ Prose only: rewrite step 5 of kit/plugin/skills/yolo-fix/SKILL.md to invoke /omn
 - Raised: 2026-09-25
 - Slice: s10
 - Wave: 6
+- Stays here: A local naming choice, cheap to change (one sentence in the skill); no lasting rule or architecture decision, and nothing in the knowledge base covers it.
 
 ### The answer, as it was given
 
@@ -2054,6 +2083,7 @@ One sentence in kit/plugin/skills/yolo-fix/SKILL.md, or a new `branches.settle` 
 - Raised: 2026-09-25
 - Slice: s11
 - Wave: 6
+- Became: ADR-0014
 
 ### The answer, as it was given
 
@@ -2124,6 +2154,7 @@ A constant: if the answer is B, omni phase0 gains a --no-before-after flag passi
 - Raised: 2026-09-25
 - Slice: s11
 - Wave: 6
+- Stays here: A local wiring choice between two skills, cheap to change (one line either way); no lasting architectural or business rule to record.
 
 ### The answer, as it was given
 
@@ -2194,6 +2225,7 @@ A constant: if the answer is B, the plan skill's step 2 gains a line (a branch a
 - Raised: 2026-09-25
 - Slice: s11
 - Wave: 6
+- Stays here: This applies the existing pr skill lifecycle to one step of the brainstorm skill. It is a workflow choice with no lasting code invariant or business rule, and no existing entry covers it.
 
 ### The answer, as it was given
 

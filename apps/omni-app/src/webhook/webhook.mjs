@@ -4,10 +4,10 @@
 // it is given. Nothing is sent unless the signature is valid.
 //
 // Two routes, never both for one delivery: a merged `pull_request.closed` becomes the retro event
-// (PRD 72) and nothing else; every other handled action becomes the outbox check event, exactly as
-// before. An unmerged `closed` becomes nothing.
+// (PRD 72) and the knowledge harvest event (PRD 82), and nothing else; every other handled action
+// becomes the outbox check event, exactly as before. An unmerged `closed` becomes nothing.
 import { Webhooks } from '@octokit/webhooks';
-import { OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
+import { HARVEST_EVENT, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
 
 /**
  * The events and actions the app re-evaluates the outbox check on. `check_run.rerequested` is
@@ -39,6 +39,9 @@ export const HANDLED = Object.freeze({
  *   installationId: number, owner: string, repo: string, repository: string,
  *   prNumber: number, mergeSha: string, mergedAt: string,
  * } }} RetroRequest
+ * @typedef {{ name: string, data: {
+ *   installationId: number, owner: string, repo: string, repository: string, prNumber: number,
+ * } }} HarvestRequest
  */
 
 /**
@@ -46,7 +49,7 @@ export const HANDLED = Object.freeze({
  *   body: string,
  *   headers: Record<string, string | undefined> | Headers,
  *   secret: string | undefined,
- *   send: (events: (CheckRequest | RetroRequest)[]) => Promise<unknown>,
+ *   send: (events: (CheckRequest | RetroRequest | HarvestRequest)[]) => Promise<unknown>,
  * }} input
  * @returns {Promise<WebhookResponse>}
  */
@@ -75,13 +78,16 @@ export async function receiveWebhook({ body, headers, secret, send }) {
 }
 
 /**
- * The router alone, pure: a retro action goes to the retro, anything else to the outbox check.
+ * The router alone, pure: a retro action goes to the retro and the knowledge harvest, anything else
+ * to the outbox check.
  * @param {string} event
  * @param {any} payload
- * @returns {(CheckRequest | RetroRequest)[]}
+ * @returns {(CheckRequest | RetroRequest | HarvestRequest)[]}
  */
 export function toEvents(event, payload) {
-  if (RETRO_ACTIONS[event]?.includes(payload?.action)) return toRetroRequests(event, payload);
+  if (RETRO_ACTIONS[event]?.includes(payload?.action)) {
+    return [...toRetroRequests(event, payload), ...toHarvestRequests(event, payload)];
+  }
   return toCheckRequests(event, payload);
 }
 
@@ -141,6 +147,18 @@ export function toRetroRequests(event, payload) {
       data: { ...source, prNumber, mergeSha: pull.merge_commit_sha, mergedAt: pull.merged_at },
     },
   ];
+}
+
+/**
+ * The knowledge harvest's filter, pure: the same merged pull requests the retro gets, one harvest
+ * request each, carrying only where it merged. The function reads the merge's facts from the pull
+ * request itself, and decides in its step "qualify" whether it is a feature PR.
+ * @param {string} event
+ * @param {any} payload
+ * @returns {HarvestRequest[]}
+ */
+export function toHarvestRequests(event, payload) {
+  return toRetroRequests(event, payload).map(({ data: { mergeSha, mergedAt, ...data } }) => ({ name: HARVEST_EVENT, data }));
 }
 
 /** The installation and repository every event carries, or `null` when the delivery lacks one. */

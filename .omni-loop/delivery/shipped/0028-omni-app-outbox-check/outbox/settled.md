@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Became: N-PRODUCT-4
 
 ### The answer, as it was given
 
@@ -89,6 +90,7 @@ A constant-level change: if one merged folder is preferred, evaluate reads the c
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Became: ADR-0015
 
 ### The answer, as it was given
 
@@ -160,6 +162,7 @@ One argument: s5 passes the changed files or does not. No stored data depends on
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 1
+- Stays here: A local workaround for this repository's knowledge folder; cheap to undo, and no lasting rule, invariant or architectural choice follows from it.
 
 ### The answer, as it was given
 
@@ -232,6 +235,7 @@ Deleting three small files and, if chosen, a one-line settings change or a small
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 1
+- Stays here: A one-off deviation from the plan that follows an existing ignore rule; nothing new or lasting to record, and no entry covers bundle tracking.
 
 ### The answer, as it was given
 
@@ -301,6 +305,7 @@ Removing one ignore rule and committing one generated file, then rebuilding it o
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 2
+- Stays here: Internal event shape between two slices in one app, nothing stored and cheap to change; no lasting product rule or architectural decision to record.
 
 ### The answer, as it was given
 
@@ -371,6 +376,7 @@ A change to the event's data shape between s3 and s5, both in `apps/omni-app`; n
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 2
+- Stays here: A provisional constant that can be changed in a single edit, with no stored data depending on it. There is nothing lasting to record, and no existing entry covers it.
 
 ### The answer, as it was given
 
@@ -442,6 +448,7 @@ One constant in `app.yml`, edited before or after registration (the webhook URL 
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 2
+- Stays here: This is a local implementation choice that is cheap to reverse, with no stored data depending on it; no principle or record is affected, so it stays in the ledger.
 
 ### The answer, as it was given
 
@@ -513,6 +520,7 @@ One extra comment listing inside publish and a marker match; no stored data depe
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 3
+- Became: BR-PRODUCT-6
 
 ### The answer, as it was given
 
@@ -584,6 +592,7 @@ One argument in the evaluate step: pass null instead of the list. No stored data
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 3
+- Stays here: This is a local file-placement choice forced by slice territory. It is cheap to move (one file, two imports) and has no lasting rule or architectural weight.
 
 ### The answer, as it was given
 
@@ -653,6 +662,7 @@ Moving one file and two imports.
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 3
+- Stays here: A local implementation choice inside the app's outbox-check folder: only constants and one helper, nothing stored, cheap to change, so there is no lasting rule to keep.
 
 ### The answer, as it was given
 

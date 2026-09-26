@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 4
+- Became: ADR-0017
 
 ### The answer, as it was given
 
@@ -88,6 +89,7 @@ Before s4 merges: drop s4's forms step and the closing line from the plan, a few
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 4
+- Became: BR-PRODUCT-7, P-PRODUCT-6
 
 ### The answer, as it was given
 
@@ -158,6 +160,7 @@ One function and its tests. If B or C is chosen, s4 drops the change, and nothin
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-8, P-PRODUCT-7
 
 ### The answer, as it was given
 
@@ -228,6 +231,7 @@ A constant: widening `configValue` in `kit/lib/playbook/resolve.mjs` (for exampl
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-9, P-PRODUCT-8
 
 ### The answer, as it was given
 
@@ -298,6 +302,7 @@ A constant: which kind `readBody` returns for a mixed body is one condition and 
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 2
+- Became: ADR-0018
 
 ### The answer, as it was given
 
@@ -368,6 +373,7 @@ A constant before s3 writes the file: the template's text, its path in `template
 - Raised: 2026-09-25
 - Slice: s2
 - Wave: 2
+- Stays here: The exports are temporary scaffolding, removable in one line once s3 adds a command. The lasting requirement that defaults travel in the bundle already comes from the spec.
 
 ### The answer, as it was given
 
@@ -438,6 +444,7 @@ A constant: dropping the two exports is one line of `kit/build.mjs` and a rebuil
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 3
+- Became: ADR-0019
 
 ### The answer, as it was given
 
@@ -509,6 +516,7 @@ A constant before s5 and s7 write pointer forms: one branch in `blankForm` and o
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 3
+- Became: ADR-0020
 
 ### The answer, as it was given
 
@@ -579,6 +587,7 @@ A constant, before or after merge: one kit-wide number is a constant and one com
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 3
+- Stays here: A cheap, local display choice in one function. Nothing stores it and nothing downstream reads it, so there is nothing lasting to record beyond the ledger.
 
 ### The answer, as it was given
 
@@ -649,6 +658,7 @@ A constant, before or after merge: the rule is one function of `resolveForm`'s s
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 4
+- Stays here: A local choice about a printed message; cheap to change, nothing stored, and no existing entry or lasting rule covers it.
 
 ### The answer, as it was given
 
@@ -720,6 +730,7 @@ A constant, before or after merge: the listing and the step's place are a few li
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 4
+- Became: N-PRODUCT-6
 
 ### The answer, as it was given
 
@@ -790,6 +801,7 @@ A constant, before or after merge: one condition in `kit/bin/commands/init.mjs`,
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 4
+- Became: ADR-0021
 
 ### The answer, as it was given
 
@@ -860,6 +872,7 @@ A constant: a few lines of skill prose, before or after merge. No stored data de
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 4
+- Became: ADR-0022
 
 ### The answer, as it was given
 
@@ -930,6 +943,7 @@ A constant: a few lines of skill prose, before or after merge. A forced push ove
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 4
+- Became: BR-PRODUCT-10, P-PRODUCT-9
 
 ### The answer, as it was given
 
@@ -1000,6 +1014,7 @@ A constant: the rule is prose in one skill. Narrowing it to option B is one sent
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 4
+- Became: ADR-0023
 
 ### The answer, as it was given
 
@@ -1070,6 +1085,7 @@ A constant: a few lines of skill prose, before or after merge. Forms written mea
 - Raised: 2026-09-25
 - Slice: s5
 - Wave: 4
+- Became: BR-PRODUCT-11, P-PRODUCT-10
 
 ### The answer, as it was given
 
@@ -1140,6 +1156,7 @@ A constant: one sentence of skill prose. Forms written meanwhile keep the state 
 - Raised: 2026-09-25
 - Slice: s6
 - Wave: 4
+- Became: ADR-0024
 
 ### The answer, as it was given
 
@@ -1211,6 +1228,7 @@ Prose only, before or after merge: one step in `kit/plugin/skills/pr/SKILL.md` a
 - Raised: 2026-09-25
 - Slice: s6
 - Wave: 4
+- Became: ADR-0025
 
 ### The answer, as it was given
 
@@ -1281,6 +1299,7 @@ Prose only, before or after merge: one sentence in the step 0 of seven `SKILL.md
 - Raised: 2026-09-25
 - Slice: s6
 - Wave: 4
+- Became: ADR-0026
 
 ### The answer, as it was given
 
@@ -1351,6 +1370,7 @@ Prose only, before or after merge: two sentences in `kit/plugin/skills/yolo-fix/
 - Raised: 2026-09-25
 - Slice: s7
 - Wave: 5
+- Stays here: A one-line config choice specific to this repository, cheap to change; no lasting rule or architecture to record, and nothing in the knowledge base covers it.
 
 ### The answer, as it was given
 
@@ -1422,6 +1442,7 @@ A constant: one line of config. Listing `apps/galaxy/AGENTS.md` later is one ent
 - Raised: 2026-09-25
 - Slice: s7
 - Wave: 5
+- Stays here: This is a local workaround in two page lines, pending a resolver fix that would make it moot. Each pointer is a one-line change, so nothing lasting belongs in the knowledge base.
 
 ### The answer, as it was given
 
