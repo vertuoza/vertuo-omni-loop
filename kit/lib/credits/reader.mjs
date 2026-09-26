@@ -5,10 +5,14 @@
  * was created (a commit: committed) from that month on:
  *
  * - `gh search prs --label <l>` for each loop label (`labels.phase0`, `labels.feature`,
- *   `labels.sub`): every one is kept;
- * - `gh search prs --match body -- <name>`: kept only when the body carries the signature marker;
+ *   `labels.sub`), and `gh search issues --label <labels.prd>`: every one is kept;
+ * - `gh search prs --match body -- <name>` and `gh search issues --match body -- <name>`: kept only
+ *   when the body carries the signature marker;
  * - `gh search commits -- <name>` (GitHub searches default branches only): kept only when the
  *   message carries the exact trailer line;
+ * - `gh search prs` and `gh search issues` for what the signature's own account opened (the login in
+ *   its noreply address): `--app <slug>` for an app's `<slug>[bot]`, else `--author <login>`. Every
+ *   one is kept. An address that is no noreply address names no account, and this search is skipped;
  * - `gh pr view` for each pull request such a commit merged (the `(#<n>)` ending its subject) that
  *   no search above returned.
  *
@@ -20,12 +24,14 @@
  * Every call goes through `exec` (`execFileSync`'s shape), so the tests stub it and never call GitHub.
  */
 import { execFileSync } from 'node:child_process';
-import { carriesTrailer, isSignedBody } from '../signature.mjs';
+import { botLogin, carriesTrailer, isSignedBody } from '../signature.mjs';
 import { mergedPullRequest } from './classify.mjs';
 
 /** The most results GitHub's search API returns for one query. */
 export const SEARCH_CAP = 1000;
+/** What `gh search prs` and `gh search issues` are asked for: both take the same fields. */
 const PR_FIELDS = 'number,title,state,createdAt,labels,body,repository,author';
+const BOT_SUFFIX = '[bot]';
 const VIEW_FIELDS = 'number,title,state,createdAt,labels,body,author';
 const COMMIT_FIELDS = 'sha,commit,repository';
 const MAX_BUFFER = 64 * 1024 * 1024;
@@ -63,7 +69,12 @@ function toIso(value) {
   return value && !Number.isNaN(date.getTime()) ? date.toISOString().replace(/\.\d{3}Z$/, 'Z') : null;
 }
 
-/** One pull request, the same shape whether `gh search prs` or `gh pr view` printed it. */
+/** The `gh search` flags that find what `login` opened: `--app <slug>` for an app's bot account. */
+function openedBy(login) {
+  return login.toLowerCase().endsWith(BOT_SUFFIX) ? ['--app', login.slice(0, -BOT_SUFFIX.length)] : ['--author', login];
+}
+
+/** One pull request or issue, the same shape whether `gh search` or `gh pr view` printed it. */
 function pullRequest(raw, repo) {
   return {
     repo,
@@ -82,11 +93,11 @@ const shown = (arg) => (/\s/.test(arg) ? JSON.stringify(arg) : arg);
 /**
  * @param {{
  *   owner: string, repo: string | null, since: string | null,
- *   labels: { phase0: string, feature: string, sub: string },
+ *   labels: { prd: string, phase0: string, feature: string, sub: string },
  *   signature: { name: string, email: string } | null,
  *   exec?: typeof execFileSync, env?: object,
  * }} input
- * @returns {{ prs: object[], commits: object[], warnings: string[] }}
+ * @returns {{ prs: object[], issues: object[], commits: object[], warnings: string[] }}
  */
 export function readCredits({ owner, repo, since, labels, signature, exec = execFileSync, env }) {
   const options = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: MAX_BUFFER, ...(env ? { env } : {}) };
@@ -113,27 +124,41 @@ export function readCredits({ owner, repo, since, labels, signature, exec = exec
   };
 
   const prs = new Map();
-  const keep = (pr) => {
-    const key = `${pr.repo}#${pr.number}`;
-    if (pr.createdAt !== null && !prs.has(key)) prs.set(key, pr);
+  const issues = new Map();
+  /** Keeps the first read of each pull request or issue into `into`, by `<repo>#<n>`. */
+  const keeper = (into) => (item) => {
+    const key = `${item.repo}#${item.number}`;
+    if (item.createdAt !== null && !into.has(key)) into.set(key, item);
   };
+  const keep = keeper(prs);
+  const keepIssue = keeper(issues);
   const created = from ? ['--created', from] : [];
-  const searchPrs = (narrowing, keyword) =>
-    search(['search', 'prs', ...scope, ...narrowing, ...created], PR_FIELDS, keyword).map((raw) =>
+  /** One `gh search prs` or `gh search issues`, `narrowing` it, each row in the one shape. */
+  const searchItems = (type, narrowing, keyword) =>
+    search(['search', type, ...scope, ...narrowing, ...created], PR_FIELDS, keyword).map((raw) =>
       pullRequest(raw, raw.repository?.nameWithOwner),
     );
+  const result = (commits) => ({ prs: [...prs.values()], issues: [...issues.values()], commits, warnings });
 
   for (const label of new Set([labels.phase0, labels.feature, labels.sub])) {
-    searchPrs(['--label', label]).forEach(keep);
+    searchItems('prs', ['--label', label]).forEach(keep);
   }
-  if (!signature) return { prs: [...prs.values()], commits: [], warnings };
+  searchItems('issues', ['--label', labels.prd]).forEach(keepIssue);
+  if (!signature) return result([]);
 
-  searchPrs(['--match', 'body'], signature.name).filter((pr) => isSignedBody(pr.body)).forEach(keep);
+  searchItems('prs', ['--match', 'body'], signature.name).filter((pr) => isSignedBody(pr.body)).forEach(keep);
+  searchItems('issues', ['--match', 'body'], signature.name).filter((issue) => isSignedBody(issue.body)).forEach(keepIssue);
 
   const committed = from ? ['--committer-date', from] : [];
   const commits = search(['search', 'commits', ...scope, ...committed], COMMIT_FIELDS, signature.name)
     .map((raw) => ({ repo: raw.repository?.fullName, sha: raw.sha, message: raw.commit?.message ?? '', date: toIso(raw.commit?.committer?.date) }))
     .filter((commit) => carriesTrailer(commit.message, signature));
+
+  const login = botLogin(signature.email);
+  if (login !== null) {
+    searchItems('prs', openedBy(login)).forEach(keep);
+    searchItems('issues', openedBy(login)).forEach(keepIssue);
+  }
 
   for (const commit of commits) {
     const number = mergedPullRequest(commit.message);
@@ -148,5 +173,5 @@ export function readCredits({ owner, repo, since, labels, signature, exec = exec
     }
     keep(pullRequest(raw, commit.repo));
   }
-  return { prs: [...prs.values()], commits, warnings };
+  return result(commits);
 }

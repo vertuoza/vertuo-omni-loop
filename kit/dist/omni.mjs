@@ -15412,7 +15412,7 @@ function upsertOutboxPrComment({ prd: prd2, ctx, now = () => (/* @__PURE__ */ ne
     };
   }
   const previouslyNumbered = new Set(previous.map((entry) => entry.id));
-  const counted = {
+  const counted2 = {
     openCount: items.length,
     answeredCount: answered.length,
     adoptedCount: adopted.length,
@@ -15429,7 +15429,7 @@ function upsertOutboxPrComment({ prd: prd2, ctx, now = () => (/* @__PURE__ */ ne
       action: "updated",
       id: existing.id,
       htmlUrl: updated?.html_url ?? existing.html_url ?? null,
-      ...counted,
+      ...counted2,
       body
     };
   }
@@ -15438,7 +15438,7 @@ function upsertOutboxPrComment({ prd: prd2, ctx, now = () => (/* @__PURE__ */ ne
     action: "created",
     id: created?.id ?? null,
     htmlUrl: created?.html_url ?? null,
-    ...counted,
+    ...counted2,
     body
   };
 }
@@ -15673,6 +15673,7 @@ init_define_OMNI_BUNDLE();
 // kit/lib/signature.mjs
 init_define_OMNI_BUNDLE();
 var SIGNED_MARKER = "<!-- omni-loop:signed -->";
+var NOREPLY = /^(?:\d+\+)?([^\s@+]+)@users\.noreply\.github\.com$/i;
 function trailerLine(signature) {
   return signature ? `Co-authored-by: ${signature.name} <${signature.email}>` : null;
 }
@@ -15687,10 +15688,15 @@ function carriesTrailer(message, signature) {
   if (trailer === null || typeof message !== "string") return false;
   return message.split("\n").some((line) => line.trimEnd() === trailer);
 }
+function botLogin(email) {
+  const match = typeof email === "string" ? NOREPLY.exec(email.trim()) : null;
+  return match ? match[1] : null;
+}
 
 // kit/lib/credits/classify.mjs
 var KINDS = Object.freeze(["phase-0", "feature", "slice", "other"]);
 var SIGNATURES = Object.freeze(["signed", "before signing", "missed"]);
+var BY_THE_APP = "by the app";
 var MERGED_PR = /\(#(\d+)\)\s*$/;
 function mergedPullRequest(message) {
   const match = MERGED_PR.exec(String(message ?? "").split("\n")[0]);
@@ -15704,22 +15710,30 @@ function kindOf(names, labels) {
   if (names.includes(labels.sub)) return "slice";
   return "other";
 }
+function sameAccount(author, login) {
+  if (!author || !login) return false;
+  const said = String(author).toLowerCase();
+  const wanted = login.toLowerCase();
+  return said === wanted || wanted.endsWith("[bot]") && said === `app/${wanted.slice(0, -"[bot]".length)}`;
+}
 function withSignatures(items, signing) {
   const firstSigned = /* @__PURE__ */ new Map();
   for (const item2 of items) {
-    if (!item2.signed) continue;
+    if (!item2.signed || item2.byApp) continue;
     const seen = firstSigned.get(item2.repo);
     if (seen === void 0 || time(item2.createdAt) < seen) firstSigned.set(item2.repo, time(item2.createdAt));
   }
-  return items.map(({ signed, ...item2 }) => {
+  return items.map(({ signed, byApp, ...item2 }) => {
     if (!signing) return { ...item2, signature: null };
+    if (byApp) return { ...item2, signature: BY_THE_APP };
     if (signed) return { ...item2, signature: "signed" };
     const first = firstSigned.get(item2.repo);
     return { ...item2, signature: first !== void 0 && time(item2.createdAt) > first ? "missed" : "before signing" };
   });
 }
-function creditPullRequests({ prs, commits, labels, signature, since }) {
+function creditItems({ prs, issues = [], commits, labels, signature, since }) {
   const loopLabels2 = [labels.phase0, labels.feature, labels.sub];
+  const bot = signature ? botLogin(signature.email) : null;
   const mergedBySigned = /* @__PURE__ */ new Set();
   for (const commit of commits) {
     const number = carriesTrailer(commit.message, signature) ? mergedPullRequest(commit.message) : null;
@@ -15728,30 +15742,57 @@ function creditPullRequests({ prs, commits, labels, signature, since }) {
   const from = since ? time(`${since}-01T00:00:00Z`) : null;
   const seen = /* @__PURE__ */ new Set();
   const items = [];
-  for (const pr of prs) {
-    const key = keyOf(pr.repo, pr.number);
-    if (seen.has(key)) continue;
+  const add = (type, raw, { labelled, merged, counted: counted2, kind }) => {
+    const key = `${type}:${keyOf(raw.repo, raw.number)}`;
+    if (seen.has(key)) return;
     seen.add(key);
     const reasons = [];
-    if (pr.labels.some((name) => loopLabels2.includes(name))) reasons.push("label");
-    if (signature && isSignedBody(pr.body)) reasons.push("marker");
-    if (mergedBySigned.has(key)) reasons.push("commit");
-    if (reasons.length === 0) continue;
-    if (pr.state !== "merged" && pr.state !== "open") continue;
-    if (from !== null && time(pr.createdAt) < from) continue;
+    if (raw.labels.some(labelled)) reasons.push("label");
+    if (signature && isSignedBody(raw.body)) reasons.push("marker");
+    if (merged) reasons.push("commit");
+    if (sameAccount(raw.author, bot)) reasons.push("author");
+    if (reasons.length === 0 || !counted2.includes(raw.state)) return;
+    if (from !== null && time(raw.createdAt) < from) return;
     items.push({
-      repo: pr.repo,
-      number: pr.number,
-      title: pr.title,
-      kind: kindOf(pr.labels, labels),
-      state: pr.state,
-      createdAt: pr.createdAt,
+      type,
+      repo: raw.repo,
+      number: raw.number,
+      title: raw.title,
+      kind: kind(reasons),
+      state: raw.state,
+      createdAt: raw.createdAt,
       reasons,
-      signed: reasons.includes("marker") || reasons.includes("commit")
+      signed: reasons.includes("marker") || reasons.includes("commit"),
+      byApp: reasons.includes("author")
+    });
+  };
+  for (const pr of prs) {
+    add("pr", pr, {
+      labelled: (name) => loopLabels2.includes(name),
+      merged: mergedBySigned.has(keyOf(pr.repo, pr.number)),
+      counted: ["merged", "open"],
+      kind: () => kindOf(pr.labels, labels)
+    });
+  }
+  for (const issue of issues) {
+    add("issue", issue, {
+      labelled: (name) => name === labels.prd,
+      merged: false,
+      counted: ["open", "closed"],
+      kind: (reasons) => reasons.includes("label") || reasons.includes("marker") ? "prd" : "issue"
     });
   }
   items.sort((a, b) => time(a.createdAt) - time(b.createdAt) || a.repo.localeCompare(b.repo) || a.number - b.number);
   return withSignatures(items, signature !== null);
+}
+function creditCommits(commits) {
+  return commits.map((commit) => ({
+    repo: commit.repo,
+    sha: commit.sha,
+    date: commit.date,
+    subject: String(commit.message ?? "").split("\n")[0].trim(),
+    pullRequest: mergedPullRequest(commit.message)
+  })).sort((a, b) => (time(a.date) || 0) - (time(b.date) || 0) || a.repo.localeCompare(b.repo) || a.sha.localeCompare(b.sha));
 }
 var zeros = (keys) => Object.fromEntries(keys.map((key) => [key, 0]));
 function tally(items, keyFor) {
@@ -15762,22 +15803,31 @@ function tally(items, keyFor) {
   }
   return [...counts];
 }
-function summarize(items) {
-  const states = { merged: 0, open: 0 };
-  const kinds = zeros(KINDS);
-  const signatures = zeros(SIGNATURES);
+function summarize(items, { commits = null, app = false } = {}) {
+  const prs = { total: 0, states: { merged: 0, open: 0 }, kinds: zeros(KINDS), signatures: zeros(SIGNATURES) };
+  const prdIssues = { total: 0, states: { open: 0, closed: 0 }, signatures: zeros(SIGNATURES) };
+  const byTheApp = { issues: 0, prs: 0 };
+  const counted2 = [];
   for (const item2 of items) {
-    states[item2.state] += 1;
-    kinds[item2.kind] += 1;
-    if (item2.signature !== null) signatures[item2.signature] += 1;
+    if (item2.signature === BY_THE_APP) {
+      byTheApp[item2.type === "pr" ? "prs" : "issues"] += 1;
+      continue;
+    }
+    const totals = item2.type === "pr" ? prs : prdIssues;
+    totals.total += 1;
+    totals.states[item2.state] += 1;
+    if (item2.signature !== null) totals.signatures[item2.signature] += 1;
+    if (item2.type !== "pr") continue;
+    prs.kinds[item2.kind] += 1;
+    counted2.push(item2);
   }
   return {
-    total: items.length,
-    states,
-    kinds,
-    signatures,
-    byRepo: tally(items, (item2) => item2.repo).sort(([a, x], [b, y]) => y - x || a.localeCompare(b)).map(([repo, count]) => ({ repo, count })),
-    byMonth: tally(items, (item2) => new Date(item2.createdAt).toISOString().slice(0, 7)).sort(([a], [b]) => a.localeCompare(b)).map(([month, count]) => ({ month, count }))
+    prs,
+    prdIssues,
+    byTheApp: app ? byTheApp : null,
+    commits: commits === null ? null : commits.length,
+    byRepo: tally(counted2, (item2) => item2.repo).sort(([a, x], [b, y]) => y - x || a.localeCompare(b)).map(([repo, count]) => ({ repo, count })),
+    byMonth: tally(counted2, (item2) => new Date(item2.createdAt).toISOString().slice(0, 7)).sort(([a], [b]) => a.localeCompare(b)).map(([month, count]) => ({ month, count }))
   };
 }
 
@@ -15786,6 +15836,7 @@ init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync5 } from "node:child_process";
 var SEARCH_CAP = 1e3;
 var PR_FIELDS2 = "number,title,state,createdAt,labels,body,repository,author";
+var BOT_SUFFIX = "[bot]";
 var VIEW_FIELDS = "number,title,state,createdAt,labels,body,author";
 var COMMIT_FIELDS = "sha,commit,repository";
 var MAX_BUFFER = 64 * 1024 * 1024;
@@ -15814,6 +15865,9 @@ ${error?.message ?? ""}`;
 function toIso(value) {
   const date = new Date(String(value ?? ""));
   return value && !Number.isNaN(date.getTime()) ? date.toISOString().replace(/\.\d{3}Z$/, "Z") : null;
+}
+function openedBy(login) {
+  return login.toLowerCase().endsWith(BOT_SUFFIX) ? ["--app", login.slice(0, -BOT_SUFFIX.length)] : ["--author", login];
 }
 function pullRequest(raw, repo) {
   return {
@@ -15850,21 +15904,32 @@ function readCredits({ owner, repo, since, labels, signature, exec = execFileSyn
     return rows;
   };
   const prs = /* @__PURE__ */ new Map();
-  const keep = (pr) => {
-    const key = `${pr.repo}#${pr.number}`;
-    if (pr.createdAt !== null && !prs.has(key)) prs.set(key, pr);
+  const issues = /* @__PURE__ */ new Map();
+  const keeper = (into) => (item2) => {
+    const key = `${item2.repo}#${item2.number}`;
+    if (item2.createdAt !== null && !into.has(key)) into.set(key, item2);
   };
+  const keep = keeper(prs);
+  const keepIssue = keeper(issues);
   const created = from ? ["--created", from] : [];
-  const searchPrs = (narrowing, keyword) => search(["search", "prs", ...scope, ...narrowing, ...created], PR_FIELDS2, keyword).map(
+  const searchItems = (type, narrowing, keyword) => search(["search", type, ...scope, ...narrowing, ...created], PR_FIELDS2, keyword).map(
     (raw) => pullRequest(raw, raw.repository?.nameWithOwner)
   );
+  const result = (commits2) => ({ prs: [...prs.values()], issues: [...issues.values()], commits: commits2, warnings });
   for (const label of /* @__PURE__ */ new Set([labels.phase0, labels.feature, labels.sub])) {
-    searchPrs(["--label", label]).forEach(keep);
+    searchItems("prs", ["--label", label]).forEach(keep);
   }
-  if (!signature) return { prs: [...prs.values()], commits: [], warnings };
-  searchPrs(["--match", "body"], signature.name).filter((pr) => isSignedBody(pr.body)).forEach(keep);
+  searchItems("issues", ["--label", labels.prd]).forEach(keepIssue);
+  if (!signature) return result([]);
+  searchItems("prs", ["--match", "body"], signature.name).filter((pr) => isSignedBody(pr.body)).forEach(keep);
+  searchItems("issues", ["--match", "body"], signature.name).filter((issue) => isSignedBody(issue.body)).forEach(keepIssue);
   const committed = from ? ["--committer-date", from] : [];
   const commits = search(["search", "commits", ...scope, ...committed], COMMIT_FIELDS, signature.name).map((raw) => ({ repo: raw.repository?.fullName, sha: raw.sha, message: raw.commit?.message ?? "", date: toIso(raw.commit?.committer?.date) })).filter((commit) => carriesTrailer(commit.message, signature));
+  const login = botLogin(signature.email);
+  if (login !== null) {
+    searchItems("prs", openedBy(login)).forEach(keep);
+    searchItems("issues", openedBy(login)).forEach(keepIssue);
+  }
   for (const commit of commits) {
     const number = mergedPullRequest(commit.message);
     if (number === null || prs.has(`${commit.repo}#${number}`)) continue;
@@ -15878,7 +15943,7 @@ function readCredits({ owner, repo, since, labels, signature, exec = execFileSyn
     }
     keep(pullRequest(raw, commit.repo));
   }
-  return { prs: [...prs.values()], commits, warnings };
+  return result(commits);
 }
 
 // kit/lib/credits/report.mjs
@@ -15892,24 +15957,50 @@ function cell(text2, width, gap = 1) {
 }
 var joined = (parts) => parts.length ? parts.join(" \xB7 ") : "none";
 var shortName = (repo) => repo.slice(repo.indexOf("/") + 1);
+var counted = (count, one, many) => `${count} ${count === 1 ? one : many}`;
+var signatureLine = (signatures) => `signed ${signatures.signed} \xB7 before signing ${signatures["before signing"]} \xB7 missed ${signatures.missed}`;
 function creditsReport({ name, scope, since, summary }) {
-  const { total, states, kinds, signatures, byRepo, byMonth } = summary;
-  return [
+  const { prs, prdIssues, byTheApp, commits, byRepo, byMonth } = summary;
+  const { states, kinds } = prs;
+  const lines = [
     `${name ?? "Omni Loop"} \xB7 ${scope} \xB7 ${since ? `since ${since}` : "all time"}`,
-    cell("PRs", LABEL) + cell(total, COUNT) + cell(`(merged ${states.merged} \xB7 open ${states.open})`, STATES, 2) + `phase-0 ${kinds["phase-0"]} \xB7 feature ${kinds.feature} \xB7 slices ${kinds.slice} \xB7 other ${kinds.other}`,
-    name === null ? "  signing is off in this repository" : `  signed ${signatures.signed} \xB7 before signing ${signatures["before signing"]} \xB7 missed ${signatures.missed}`,
+    cell("PRs", LABEL) + cell(prs.total, COUNT) + cell(`(merged ${states.merged} \xB7 open ${states.open})`, STATES, 2) + `phase-0 ${kinds["phase-0"]} \xB7 feature ${kinds.feature} \xB7 slices ${kinds.slice} \xB7 other ${kinds.other}`,
+    name === null ? "  signing is off in this repository" : `  ${signatureLine(prs.signatures)}`,
+    name === null ? cell("PRD issues", LABEL) + prdIssues.total : cell("PRD issues", LABEL) + cell(prdIssues.total, COUNT) + signatureLine(prdIssues.signatures)
+  ];
+  if (byTheApp !== null) {
+    const opened = [counted(byTheApp.issues, "issue", "issues")];
+    if (byTheApp.prs > 0) opened.push(counted(byTheApp.prs, "pull request", "pull requests"));
+    lines.push(`Opened by the app: ${opened.join(" \xB7 ")}`);
+  }
+  if (commits !== null) lines.push(`Co-authored commits on default branches: ${commits}`);
+  lines.push(
     cell("By repo", LABEL) + joined(byRepo.map(({ repo, count }) => `${shortName(repo)} ${count}`)),
     cell("By month", LABEL) + joined(byMonth.map(({ month, count }) => `${month} ${count}`))
-  ];
+  );
+  return lines;
+}
+function creditsList(items) {
+  const rows = items.map((item2) => [
+    shortName(item2.repo),
+    `#${item2.number}`,
+    item2.kind,
+    item2.state,
+    item2.createdAt.slice(0, 10),
+    item2.signature ?? "-",
+    item2.title
+  ]);
+  const widths = rows.reduce((max, row) => max.map((width, index) => Math.max(width, row[index].length)), Array(6).fill(0));
+  return rows.map((row) => [...widths.map((width, index) => row[index].padEnd(width)), row[6]].join(" "));
 }
 
 // kit/bin/commands/credits.mjs
-var USAGE4 = "usage: omni credits [--repo <owner/name>] [--since <YYYY-MM>]";
+var USAGE4 = "usage: omni credits [--repo <owner/name>] [--since <YYYY-MM>] [--list] [--json]";
 var MONTH = /^\d{4}-(?:0[1-9]|1[0-2])$/;
 var ghUsageError = (cause) => usageError(`omni credits: ${cause.message}`);
 var credits = {
   async run(args, { ctx, stdout, stderr, exec, env }) {
-    const { positional, flags } = parseArgs("credits", args, { values: ["repo", "since"] });
+    const { positional, flags } = parseArgs("credits", args, { values: ["repo", "since"], booleans: ["list", "json"] });
     if (positional.length) throw usageError(USAGE4);
     const slug = repoSlug("credits", ctx, flags.repo);
     const since = flags.since ?? null;
@@ -15930,9 +16021,20 @@ var credits = {
       if (error instanceof GitHubUnreadable) throw ghUsageError(error);
       throw error;
     }
-    const items = creditPullRequests({ prs: read.prs, commits: read.commits, labels, signature, since });
-    const lines = creditsReport({ name: signature?.name ?? null, scope: repo ?? owner, since, summary: summarize(items) });
-    for (const line of lines) println(stdout, line);
+    const items = creditItems({ prs: read.prs, issues: read.issues, commits: read.commits, labels, signature, since });
+    const commits = signature ? creditCommits(read.commits) : null;
+    const summary = summarize(items, { commits, app: signature !== null && botLogin(signature.email) !== null });
+    const name = signature?.name ?? null;
+    if (flags.json) {
+      const doc = { name, scope: { owner, repo, since }, totals: summary, items, commits: commits ?? [], warnings: read.warnings };
+      println(stdout, JSON.stringify(doc, null, 2));
+      return 0;
+    }
+    for (const line of creditsReport({ name, scope: repo ?? owner, since, summary })) println(stdout, line);
+    if (flags.list && items.length) {
+      println(stdout);
+      for (const line of creditsList(items)) println(stdout, line);
+    }
     for (const warning of read.warnings) println(stderr, `warning: ${warning}`);
     return 0;
   }
