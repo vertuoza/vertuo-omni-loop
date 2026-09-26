@@ -209,7 +209,7 @@ outside the workspace; notifications other than **For me**.
 - **The API** (`apps/galaxy/src/ask/api.test.ts`): `context` optional and validated; `answered_by`
   from the caller; share, category and delete routes, each with its refusals; the second answer's
   409 naming the first answerer.
-- **The access rules** (`supabase/tests/`, run by the `supabase` workflow on an empty database): a
+- **The access rules** (`supabase/checks/ask.sql`, run by the `supabase` workflow on an empty database): a
   member reads another member's session; a non-member reads nothing; a shared member answers an open
   round and not an answered one; a member who is neither owner nor shared cannot answer; only the
   owner deletes; `ask_sweep()` deletes nothing.
