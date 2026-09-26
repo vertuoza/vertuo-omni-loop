@@ -171,6 +171,13 @@ describe('the one door', () => {
     expect(allowed('games', linked, true)).toBe('games');
   });
 
+  it('plays Entropy Invaders only for a signed-in player: a visitor is sent to link GitHub', () => {
+    expect(allowed('invaders', null)).toBe('coin');
+    expect(allowed('invaders', crew)).toBe('link');
+    expect(allowed('invaders', crew, false)).toBe('link');
+    expect(allowed('invaders', linked, true)).toBe('invaders');
+  });
+
   it('ignores a crafted return URL when nobody is signed in', () => {
     expect(afterReturn({ kind: 'linked', login: 'someone' }, null, null, FLEETS)).toBe('coin');
     expect(afterReturn({ kind: 'link_error', message: 'x' }, null, null, FLEETS)).toBe('coin');

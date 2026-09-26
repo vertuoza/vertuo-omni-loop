@@ -12,5 +12,5 @@ export interface Game {
 }
 
 export const GAMES: readonly Game[] = [
-  { id: 'invaders', title: 'ENTROPY INVADERS', scene: null },
+  { id: 'invaders', title: 'ENTROPY INVADERS', scene: 'invaders' },
 ];

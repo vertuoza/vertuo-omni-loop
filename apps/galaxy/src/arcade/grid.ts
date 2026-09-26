@@ -12,6 +12,7 @@ import * as attract from './scenes/attract.ts';
 import * as chart from './scenes/chart.ts';
 import * as fleets from './scenes/fleets.ts';
 import * as games from './scenes/games.ts';
+import * as invaders from './scenes/invaders.ts';
 import * as join from './scenes/join.ts';
 import * as map from './scenes/map.ts';
 import * as menu from './scenes/menu.ts';
@@ -20,7 +21,7 @@ import * as recruit from './scenes/recruit.ts';
 
 export { TALL, WIDE, type Grid, type GridName } from './scenes/common.ts';
 
-const GROUPS = [attract, join, recruit, menu, map, planet, fleets, chart, games];
+const GROUPS = [attract, join, recruit, menu, map, planet, fleets, chart, games, invaders];
 
 /** Every scene a group has laid out on the tall grid. */
 export const TALL_SCENES: ReadonlySet<SceneName> = new Set(GROUPS.flatMap((g) => g.TALL_SCENES));

@@ -4,7 +4,8 @@
 // It walks the demo galaxy from the keyboard, as a player would: the boot, the title's three
 // phases, INSERT COIN, the simulated Google sign-in and GitHub link, the whole joining flow, the
 // menu and every screen behind it (the planet's four tabs each on its own, the star chart, a system
-// and its reading card, the game room), then the welcome back.
+// and its reading card, the game room, and Entropy Invaders' score table, play and pause), then the
+// welcome back.
 // The page's clock is Playwright's, advanced step by step, so every screenshot is taken at the same
 // moment of its scene on every run. Nothing here runs in `pnpm test`.
 //
@@ -25,12 +26,13 @@ const SIZES = [
   { name: '1440x900', width: 1440, height: 900, touch: false, what: 'a mouse' },
 ];
 
-// Every screenshot, in walk order: the 22 scenes, with the title's phases, the planet's tabs and a
-// system's reading card each its own. The number in a file's name is its place here.
+// Every screenshot, in walk order: the 23 scenes, with the title's phases, the planet's tabs, a
+// system's reading card and Entropy Invaders' ready screen, play and pause each its own. The number
+// in a file's name is its place here.
 const SHOTS = [
   'boot', 'title', 'title-story', 'title-hiscore', 'coin', 'away', 'gate', 'link', 'intro', 'select', 'name', 'hero',
   'ready', 'menu', 'map', 'planet-status', 'planet-zones', 'planet-entropy', 'planet-log', 'chart', 'system',
-  'system-card', 'fleets', 'heroes', 'games', 'briefing', 'welcome', 'outsider',
+  'system-card', 'fleets', 'heroes', 'games', 'invaders', 'invaders-play', 'invaders-paused', 'briefing', 'welcome', 'outsider',
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -121,6 +123,13 @@ function driver(page, size, dir, small) {
       await page.keyboard.press(key);
       await hold(ms);
       await expect(want, `pressing ${key}`);
+    },
+    /** Holds `keys` down together while `ms` pass, lets them go, and checks the arcade shows `want`. */
+    async holdKeys(keys, want, ms) {
+      for (const k of keys) await page.keyboard.down(k);
+      await hold(ms);
+      for (const k of keys) await page.keyboard.up(k);
+      await expect(want, `holding ${keys.join(' and ')}`);
     },
     /** Lets `ms` pass, and checks the arcade shows `want`. */
     async wait(want, ms) {
@@ -217,11 +226,24 @@ async function walkGuest(d, taken) {
     await d.key('ArrowDown', 'menu');
     await d.key('Enter', row);
     await shot(row, row, 800);
+    if (row === 'games') await walkInvaders(d, shot);
     await d.key('b', 'menu');
   }
   await d.key('b', 'title');
   await d.key('Enter', 'welcome'); // a player now: START on the title welcomes them back
   await shot('welcome', 'welcome', 1500);
+}
+
+/** From the game room: A on the lit cabinet, Entropy Invaders' ready screen, a moment of play, the pause, and back. */
+async function walkInvaders(d, shot) {
+  await d.key('Enter', 'invaders'); // the first cabinet, lit by the demo guest's borrowed XP
+  await shot('invaders', 'invaders', 800); // the ready screen: the score table
+  await d.key('a', 'invaders'); // A plays at once
+  await d.holdKeys(['ArrowRight', 'a'], 'invaders', 1500); // fly right, firing
+  await shot('invaders-play', 'invaders', 300);
+  await d.key('Enter', 'invaders'); // START pauses
+  await shot('invaders-paused', 'invaders', 300);
+  await d.key('b', 'games'); // B from the pause: back to the room
 }
 
 // The demo's guest is always a @vertuoza.com account, so `outsider` (signed in from another domain)

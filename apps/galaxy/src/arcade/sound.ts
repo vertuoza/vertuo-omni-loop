@@ -6,7 +6,9 @@ import { freqOf, parseSong, SONGS, stepSeconds, type SongName, type Voice } from
 
 export type Sfx =
   | 'move' | 'select' | 'back' | 'start' | 'tab'
-  | 'coin' | 'type' | 'erase' | 'buzz' | 'tick' | 'random' | 'linked' | 'away';
+  | 'coin' | 'type' | 'erase' | 'buzz' | 'tick' | 'random' | 'linked' | 'away'
+  // Entropy Invaders: a bolt fired, an alien hit, the hero hit, a wave cleared, the game over.
+  | 'fire' | 'hit' | 'hurt' | 'wave' | 'over';
 
 type Wave = 'p25' | 'p12' | OscillatorType;
 
@@ -232,7 +234,32 @@ export function sfx(name: Sfx) {
       ['C6', 'E6', 'G6', 'C7'].forEach((n, i) => note(o, freqOf(n)!, t + 0.3 + i * 0.08, 0.3, 'sine', 0.05));
       break;
     case 'away': [300, 500, 700].forEach((f, i) => note(o, f, t + i * 0.09, 0.08, 'p12', 0.035)); break;
+    case 'fire': note(o, 1400, t, 0.09, 'p12', 0.035, { slideTo: 500 }); break;
+    case 'hit':
+      hiss(o, t, 0.16, { freq: 1200, q: 0.7, gain: 0.3 });
+      note(o, 300, t, 0.1, 'square', 0.035, { slideTo: 90 });
+      break;
+    case 'hurt':
+      hiss(o, t, 0.6, { type: 'lowpass', freq: 600, gain: 0.9 });
+      note(o, 220, t, 0.5, 'square', 0.05, { slideTo: 40 });
+      break;
+    case 'wave': ['C5', 'E5', 'G5', 'C6'].forEach((n, i) => note(o, freqOf(n)!, t + i * 0.06, 0.09, 'p25', 0.045)); break;
+    case 'over':
+      ['G4', 'E4', 'C4', 'G3'].forEach((n, i) => note(o, freqOf(n)!, t + i * 0.22, i === 3 ? 0.7 : 0.2, 'p25', 0.05, { vib: i === 3 ? 0.02 : 0 }));
+      note(o, freqOf('C2')!, t + 0.66, 0.7, 'triangle', 0.12);
+      break;
   }
+}
+
+// The formation's march: four bass notes going down, one per step, round and round. The steps come
+// faster as the formation thins out and each wave starts, so the march speeds up with it.
+const MARCH = ['C2', 'Bb1', 'Ab1', 'G1'];
+
+/** The formation's `step`-th march step: its note of the marching bass. */
+export function march(step: number) {
+  if (!ac) return;
+  const o = out(), t = ac.currentTime + 0.01;
+  note(o, freqOf(MARCH[((step % MARCH.length) + MARCH.length) % MARCH.length])!, t, 0.09, 'triangle', 0.16);
 }
 
 /** Mutes music and effects with a short fade. */
