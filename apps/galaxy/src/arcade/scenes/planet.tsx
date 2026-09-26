@@ -4,7 +4,7 @@
 // across the screen under the band the header and the planet share (TALL_BAND in planet.ts).
 import { Fragment, type CSSProperties, type ReactNode } from 'react';
 import type { GalaxyView, Planet } from '@omni/galaxy';
-import { woundTint } from '@omni/sprites';
+import { woundTint } from '@omni/design';
 import { FleetSprite, Sprite } from '../Sprite';
 import { useScreen } from '../Screen';
 import { age, fleet, ROMAN, shortDate, WOUND_LOOK } from '../fleets';

@@ -24,12 +24,12 @@ importers:
 
   apps/galaxy:
     dependencies:
+      '@omni/design':
+        specifier: workspace:*
+        version: link:../../packages/design
       '@omni/galaxy':
         specifier: workspace:*
         version: link:../../packages/galaxy
-      '@omni/sprites':
-        specifier: workspace:*
-        version: link:../../packages/sprites
       '@supabase/ssr':
         specifier: ^0.12.7
         version: 0.12.7(@supabase/supabase-js@2.117.1(@opentelemetry/api@1.9.1))
@@ -93,13 +93,13 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0(inngest@4.21.0(@opentelemetry/core@2.11.0(@opentelemetry/api@1.9.1))(next@16.3.6(@opentelemetry/api@1.9.1)(@types/node@22.20.4)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)(typescript@5.9.3)(zod@3.25.76))
 
+  packages/design: {}
+
   packages/galaxy:
     dependencies:
       vertuo-omni-plan:
         specifier: workspace:*
         version: link:../..
-
-  packages/sprites: {}
 
 packages:
 

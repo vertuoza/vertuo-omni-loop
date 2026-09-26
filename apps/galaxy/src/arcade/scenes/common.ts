@@ -7,7 +7,7 @@
 // sprite is drawn through `sprite()`, in the theme's stripes.
 import {
   drawSprite, drawStarfield, makeNebula, makeStarfield, rampFrom, spriteSize, type Hero,
-} from '@omni/sprites';
+} from '@omni/design';
 import type { GalaxyView, Planet } from '@omni/galaxy';
 import { fleet, heroOf, seedOf } from '../fleets';
 import type { Mark } from '../mark';

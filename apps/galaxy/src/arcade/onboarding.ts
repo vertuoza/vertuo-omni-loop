@@ -8,7 +8,7 @@
 //
 // A flow says why a screen is open: the first visit (`onboard`), or one menu entry (`myhero`,
 // `change`, `link`). The same screens serve all four; only where they lead differs.
-import { validHero } from '@omni/sprites';
+import { validHero } from '@omni/design';
 import type { FleetRow, Player, Session } from './types';
 
 export type Flow = 'onboard' | 'myhero' | 'change' | 'link';

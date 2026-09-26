@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { GalaxyView } from '@omni/galaxy';
-import { randomHero, type Hero } from '@omni/sprites';
+import { randomHero, type Hero } from '@omni/design';
 import {
   chartKey, drawFrame, layoutChart, layoutMap, layoutSystem, neighbour, sunAt, worldAt, type ChartSource, type FrameState, type SceneName,
 } from './scenes';

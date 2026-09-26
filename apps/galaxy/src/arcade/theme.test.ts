@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { FLAT, spritePixels } from '@omni/sprites';
+import { FLAT, spritePixels } from '@omni/design';
 import { markFor } from './mark';
 import { DEFAULT_THEME, parseTheme, resolveTheme, stripesOf, themeVars, TOKENS, type Token } from './theme';
 
@@ -23,7 +23,7 @@ const TODAY: Record<Token, string> = {
   // the mark's gradient and its shade (mark.ts)
   'mark-1': '#ff5f6d', 'mark-2': '#a45cff', 'mark-3': '#4a63ff',
   'mark-shade-1': '#a8183a', 'mark-shade-2': '#6a2fd0', 'mark-shade-3': '#2f3fc4',
-  // the four stripes on every hero's suit (FLAT 1 to 4 in @omni/sprites)
+  // the four stripes on every hero's suit (FLAT 1 to 4 in @omni/design)
   'stripe-1': '#ff3b5c', 'stripe-2': '#ff7aa8', 'stripe-3': '#b07cff', 'stripe-4': '#5b7bff',
 };
 

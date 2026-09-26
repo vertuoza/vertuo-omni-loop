@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { HERO_PRESETS, validHero, type Hero } from '@omni/sprites';
+import { HERO_PRESETS, validHero, type Hero } from '@omni/design';
 import { BUILDER_ROWS, cycleHero, rowValue } from './builder';
 
 const hero: Hero = { v: 1, body: 'girl', skin: 0, hair: 0, suit: 0, cape: 0 };

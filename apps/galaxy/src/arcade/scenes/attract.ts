@@ -1,6 +1,6 @@
 // The attract group on the canvas: the boot, the title's three phases (title, story, high scores)
 // and the Hall of Heroes, on the wide grid (640×360) and on the tall one (320×288).
-import { drawPlanet, spriteSize, WOUND_TINT, woundTint } from '@omni/sprites';
+import { drawPlanet, spriteSize, WOUND_TINT, woundTint } from '@omni/design';
 import { fleet } from '../fleets';
 import { bootMark, frameOf, nebulaFor, plasmaTrail, RING, space, sprite, TALL, W, type FrameState, type Grid, type Pages, type SceneName } from './common.ts';
 

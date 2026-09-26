@@ -1,6 +1,6 @@
 // The galaxy map on the canvas: where each planet sits, which planet the D-pad reaches next, and the
 // map itself (the sectors, the hyperlanes, the distress pulses, the planets and their Entropy).
-import { drawPlanet, rng, WOUND_TINT } from '@omni/sprites';
+import { drawPlanet, rng, WOUND_TINT } from '@omni/design';
 import type { GalaxyView } from '@omni/galaxy';
 import { seedOf } from '../fleets';
 import {
