@@ -8,7 +8,7 @@ import type { FleetRow } from '../types';
 const SCENES: Record<SceneName, true> = {
   boot: true, title: true, menu: true, map: true, planet: true, fleets: true, heroes: true, briefing: true,
   coin: true, away: true, gate: true, intro: true, select: true, name: true, hero: true, link: true, ready: true,
-  welcome: true, outsider: true,
+  welcome: true, outsider: true, chart: true, system: true,
 };
 
 // A 2D context that counts what is drawn on it, and the offscreen canvases the sprites render into.

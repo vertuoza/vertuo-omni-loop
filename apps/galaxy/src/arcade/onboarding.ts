@@ -79,7 +79,7 @@ export function backStep(step: Step, flow: Flow): Step | 'title' {
 /** The screens a signed-in visitor may see: everything past INSERT COIN. */
 const SIGNED_IN_ONLY = new Set([
   'gate', 'intro', 'select', 'name', 'hero', 'link', 'ready', 'welcome',
-  'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing',
+  'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'chart', 'system',
 ]);
 /** The screens only a player may see: playing starts with a linked GitHub account. */
 const PLAYERS_ONLY = new Set(['intro', 'select', 'name', 'hero', 'ready', 'welcome']);

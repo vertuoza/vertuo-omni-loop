@@ -141,11 +141,11 @@ function layoutTall(view: GalaxyView, grid: Grid): MapSlot[] {
 }
 
 // The planet in `dir` from the current one that is closest, preferring straight lines.
-export function neighbour(layout: MapSlot[], from: number, dir: 'up' | 'down' | 'left' | 'right'): number {
+export function neighbour<T extends Pick<MapSlot, 'x' | 'y' | 'index'>>(layout: T[], from: number, dir: 'up' | 'down' | 'left' | 'right'): number {
   const cur = layout.find((s) => s.index === from);
   if (!cur) return layout[0]?.index ?? 0;
   const [vx, vy] = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[dir];
-  let best: MapSlot | null = null;
+  let best: T | null = null;
   let bestScore = Infinity;
   for (const s of layout) {
     if (s.index === from) continue;
@@ -161,7 +161,8 @@ export function neighbour(layout: MapSlot[], from: number, dir: 'up' | 'down' | 
 
 // ── The map ──────────────────────────────────────────────────────────────────
 
-function brackets(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: number) {
+/** The cursor's four blinking corners around a disc of radius `r`: the selected planet, sun or world. */
+export function brackets(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: number) {
   const m = r + 6 + (Math.floor(t * 4) % 2) * 2;
   for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
     const cx = x + sx * m, cy = y + sy * m;
