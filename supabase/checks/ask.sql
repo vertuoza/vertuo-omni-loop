@@ -10,6 +10,12 @@ insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com'),
   ('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com'),
   ('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
+-- Ask mode's crew is whoever belongs to a workspace (PRD 100): Ada and Bob belong to Vertuoza, Eve to none.
+insert into public.workspace_members (workspace_id, user_id)
+select w.id, u.id
+  from public.workspaces w,
+       (values ('00000000-0000-4000-8000-0000000000a1'::uuid), ('00000000-0000-4000-8000-0000000000b1'::uuid)) as u (id)
+ where w.slug = 'vertuoza';
 
 -- Act as a signed-in account for the rest of the transaction: the claims of its access token.
 create function pg_temp.sign_in(uid text, email text) returns void language sql as $$
@@ -113,7 +119,7 @@ begin
   exception when insufficient_privilege then null; end;
 end $$;
 
--- ── Signed in with another domain: not the crew, so no session at all ──
+-- ── Signed in, in no workspace: not the crew, so no session at all ──
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
 do $$
 begin
