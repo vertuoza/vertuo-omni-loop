@@ -175,6 +175,104 @@ begin
   if n <> 0 then raise exception 'FAIL: an account of another workspace deleted a session'; end if;
 end $$;
 
+-- ── Categories (PRD 144, step 3): any member sets one; the model's guess never overrides a person ──
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+do $$
+declare
+  rid constant uuid := (select id from ids where name = 'round');
+  second constant uuid := (select id from ids where name = 'second');
+begin
+  if (select category from public.ask_rounds where id = rid) is not null
+     or (select category_by from public.ask_rounds where id = rid) is not null then
+    raise exception 'FAIL: a new round was not unsorted';
+  end if;
+  begin
+    update public.ask_rounds set category = 'business' where id = rid;
+    raise exception 'FAIL: an owner wrote a category directly';
+  exception when insufficient_privilege then null; end;
+  begin
+    update public.ask_rounds set category_by = 'model' where id = rid;
+    raise exception 'FAIL: an owner wrote who set a category directly';
+  exception when insufficient_privilege then null; end;
+
+  -- The model's guess, recorded as the owner who asked.
+  if not public.ask_round_classified(rid, 'architecture') then raise exception 'FAIL: the model''s guess was not recorded'; end if;
+  if (select category || '/' || category_by from public.ask_rounds where id = rid) <> 'architecture/model' then
+    raise exception 'FAIL: the model''s guess was not stored as the model''s';
+  end if;
+  begin
+    perform public.ask_round_classified(second, 'design');
+    raise exception 'FAIL: a category outside the six was stored';
+  exception when check_violation then null; end;
+  begin
+    perform 1 from public.ask_round_categorize(second, 'design');
+    raise exception 'FAIL: a member stored a category outside the six';
+  exception when check_violation then null; end;
+end $$;
+
+-- Bob, a member who is not the owner, moves it; the model then cannot move it back.
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+do $$
+declare
+  rid constant uuid := (select id from ids where name = 'round');
+  got record;
+begin
+  select * into got from public.ask_round_categorize(rid, 'product');
+  if got.category is distinct from 'product' or got.category_by is distinct from '00000000-0000-4000-8000-0000000000b1' then
+    raise exception 'FAIL: a member could not set a round''s category, or it does not say they did';
+  end if;
+  if public.ask_round_classified(rid, 'business') then raise exception 'FAIL: a member who did not ask recorded the model''s guess'; end if;
+end $$;
+
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+do $$
+declare
+  rid constant uuid := (select id from ids where name = 'round');
+begin
+  if public.ask_round_classified(rid, 'business') then raise exception 'FAIL: the model''s guess overrode a member''s choice'; end if;
+  if (select category || '/' || category_by from public.ask_rounds where id = rid) <> 'product/00000000-0000-4000-8000-0000000000b1' then
+    raise exception 'FAIL: a member''s category did not stand';
+  end if;
+end $$;
+
+-- Carl, of another workspace, cannot touch it; Bob clears it.
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
+do $$
+declare
+  rid constant uuid := (select id from ids where name = 'round');
+begin
+  if exists (select 1 from public.ask_round_categorize(rid, 'other')) then
+    raise exception 'FAIL: an account of another workspace set a round''s category';
+  end if;
+end $$;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+do $$
+declare
+  rid constant uuid := (select id from ids where name = 'round');
+  got record;
+begin
+  select * into got from public.ask_round_categorize(rid, null);
+  if got.category is not null or got.category_by is distinct from '00000000-0000-4000-8000-0000000000b1' then
+    raise exception 'FAIL: a member could not clear a round''s category';
+  end if;
+end $$;
+reset role;
+do $$
+begin
+  if (select category from public.ask_rounds where id = (select id from ids where name = 'round')) is not null then
+    raise exception 'FAIL: an account of another workspace changed a round''s category';
+  end if;
+  if has_function_privilege('anon', 'public.ask_round_categorize(uuid, text)', 'execute')
+     or has_function_privilege('anon', 'public.ask_round_classified(uuid, text)', 'execute') then
+    raise exception 'FAIL: anon may set a category';
+  end if;
+  if has_column_privilege('authenticated', 'public.ask_rounds', 'category', 'insert, update')
+     or has_column_privilege('authenticated', 'public.ask_rounds', 'category_by', 'insert, update') then
+    raise exception 'FAIL: a signed-in account may write a category directly';
+  end if;
+end $$;
+set local role authenticated;
+
 -- ── Signed in, in no workspace: not the crew, so no session at all ──
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
 do $$
