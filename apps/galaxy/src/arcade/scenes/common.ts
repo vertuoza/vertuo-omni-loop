@@ -10,6 +10,7 @@ import type { GalaxyView, Planet } from '@omni/galaxy';
 import { fleet, heroOf, seedOf } from '../fleets';
 import { MARK_RUNS, MARK_SHADE, MARK_SIZE, MARK_STOPS } from '../mark';
 import type { FleetRow } from '../types';
+import type { ChartLayout, ChartSource, SystemLayout } from './chart-layout.ts';
 
 /** The wide grid's size: the grid every scene is drawn on until its group lays it out tall. */
 export const W = 640;
@@ -25,7 +26,8 @@ export const TALL: Grid = { name: 'tall', w: 320, h: 288 };
 
 export type SceneName =
   | 'boot' | 'title' | 'menu' | 'map' | 'planet' | 'fleets' | 'heroes' | 'briefing'
-  | 'coin' | 'away' | 'gate' | 'intro' | 'select' | 'name' | 'hero' | 'link' | 'ready' | 'welcome' | 'outsider';
+  | 'coin' | 'away' | 'gate' | 'intro' | 'select' | 'name' | 'hero' | 'link' | 'ready' | 'welcome' | 'outsider'
+  | 'chart' | 'system';
 
 /** What the joining screens draw: the fleets to pick from, the player's fleet and hero. */
 export interface JoinFrame {
@@ -49,6 +51,18 @@ export interface FrameState {
   t: number;            // seconds since start
   sceneT: number;       // seconds since this scene opened
   reduced: boolean;     // prefers-reduced-motion
+  chart?: ChartFrame;   // the star chart (chart, system)
+}
+
+/** What the star chart's two scenes draw: the knowledge, its suns and the open system, laid out on the frame's grid. */
+export interface ChartFrame {
+  source: ChartSource;
+  layout: ChartLayout;
+  /** The system of the sun under the cursor. */
+  system: SystemLayout | null;
+  /** The sun under the cursor (chart), and the world (system). */
+  sun: number;
+  world: number;
 }
 
 export interface MapSlot { prd: number; x: number; y: number; r: number; index: number }
