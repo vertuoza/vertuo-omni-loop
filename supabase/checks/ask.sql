@@ -1,21 +1,31 @@
--- Who may read and write the ask sessions (PRD 71). The supabase workflow runs it on every pull
--- request, after `supabase db start` has applied the migrations:
+-- Who may read and write the ask sessions (PRD 71, PRD 144). The supabase workflow runs it on every
+-- pull request, after `supabase db start` has applied the migrations:
 --   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/ask.sql
--- Two accounts, each with its own JWT: neither reads, changes or removes the other's sessions or
--- rounds. One transaction, rolled back at the end. Any `FAIL:` stops the run.
+-- Accounts each with its own JWT. A session belongs to a workspace: every member of it reads the
+-- session and its rounds; only its owner changes it, asks and answers in it, or deletes it; an account
+-- of another workspace, or of none, reads nothing. Nothing expires: the sweep only closes idle
+-- sessions. One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
 
 insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com'),
   ('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com'),
+  ('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test'),
   ('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
--- Ask mode's crew is whoever belongs to a workspace (PRD 100): Ada and Bob belong to Vertuoza, Eve to none.
-insert into public.workspace_members (workspace_id, user_id)
-select w.id, u.id
-  from public.workspaces w,
-       (values ('00000000-0000-4000-8000-0000000000a1'::uuid), ('00000000-0000-4000-8000-0000000000b1'::uuid)) as u (id)
- where w.slug = 'vertuoza';
+-- Ask mode's crew is whoever belongs to a workspace (PRD 100). A second workspace, Acme, owns the
+-- GitHub organisation acme. Ada joined Vertuoza first, then Acme; Bob belongs to Vertuoza, Carl to
+-- Acme, Eve to none.
+insert into public.workspaces (slug, name, github_org) values ('acme', 'Acme', 'acme');
+insert into public.workspace_members (workspace_id, user_id, joined_at)
+select w.id, m.user_id, m.joined_at
+  from (values
+         ('vertuoza', '00000000-0000-4000-8000-0000000000a1'::uuid, now() - interval '2 days'),
+         ('acme',     '00000000-0000-4000-8000-0000000000a1'::uuid, now() - interval '1 day'),
+         ('vertuoza', '00000000-0000-4000-8000-0000000000b1'::uuid, now() - interval '1 day'),
+         ('acme',     '00000000-0000-4000-8000-0000000000c1'::uuid, now() - interval '1 day')
+       ) as m (slug, user_id, joined_at)
+  join public.workspaces w on w.slug = m.slug;
 
 -- Act as a signed-in account for the rest of the transaction: the claims of its access token.
 create function pg_temp.sign_in(uid text, email text) returns void language sql as $$
@@ -61,6 +71,29 @@ begin
   insert into public.ask_rounds (session_id, questions) values (sid, asked) returning id into second;
   insert into ids values ('session', sid), ('round', rid), ('second', second);
 
+  -- The session's workspace is picked by the database: the one whose GitHub organisation owns the
+  -- repo, and otherwise the one Ada joined first.
+  if (select w.slug from public.ask_sessions s join public.workspaces w on w.id = s.workspace_id where s.id = sid) <> 'vertuoza' then
+    raise exception 'FAIL: a session with no repo did not go to the workspace its owner joined first';
+  end if;
+  insert into public.ask_sessions (title, repo) values ('acme widgets', 'Acme/widgets') returning id into second;
+  if (select w.slug from public.ask_sessions s join public.workspaces w on w.id = s.workspace_id where s.id = second) <> 'acme' then
+    raise exception 'FAIL: a session of an acme repo did not go to the workspace of the acme organisation';
+  end if;
+  insert into ids values ('acme', second);
+  insert into public.ask_sessions (title, repo) values ('elsewhere', 'someone-else/tool') returning id into second;
+  if (select w.slug from public.ask_sessions s join public.workspaces w on w.id = s.workspace_id where s.id = second) <> 'vertuoza' then
+    raise exception 'FAIL: a session of a repo no workspace owns did not go to the workspace its owner joined first';
+  end if;
+  begin
+    insert into public.ask_sessions (title, workspace_id) values ('planted', (select id from public.workspaces where slug = 'acme'));
+    raise exception 'FAIL: an account chose the workspace of its session';
+  exception when insufficient_privilege then null; end;
+  begin
+    update public.ask_sessions set workspace_id = (select id from public.workspaces where slug = 'acme') where id = sid;
+    raise exception 'FAIL: an account moved its session to another workspace';
+  exception when insufficient_privilege then null; end;
+
   begin
     insert into public.ask_sessions (owner, title) values ('00000000-0000-4000-8000-0000000000b1', 'for bob');
     raise exception 'FAIL: an account opened a session in someone else''s name';
@@ -79,16 +112,18 @@ begin
   exception when check_violation then null; end;
 end $$;
 
--- ── Account B (Bob), with his own JWT: nothing of Ada's ──
+-- ── Account B (Bob), a member of Ada's workspace who is not the owner: reads, never writes ──
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
 do $$
 declare
   sid constant uuid := (select id from ids where name = 'session');
   rid constant uuid := (select id from ids where name = 'round');
+  acme constant uuid := (select id from ids where name = 'acme');
   n int;
 begin
-  if (select count(*) from public.ask_sessions) <> 0 then raise exception 'FAIL: account B read account A''s sessions'; end if;
-  if (select count(*) from public.ask_rounds) <> 0 then raise exception 'FAIL: account B read account A''s rounds'; end if;
+  if not exists (select 1 from public.ask_sessions where id = sid) then raise exception 'FAIL: a member did not read a session of their workspace'; end if;
+  if (select count(*) from public.ask_rounds where session_id = sid) <> 2 then raise exception 'FAIL: a member did not read the rounds of a session of their workspace'; end if;
+  if exists (select 1 from public.ask_sessions where id = acme) then raise exception 'FAIL: a member read a session of a workspace they do not belong to'; end if;
 
   update public.ask_sessions set status = 'closed' where id = sid;
   get diagnostics n = row_count;
@@ -103,11 +138,9 @@ begin
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FAIL: account B abandoned account A''s round'; end if;
 
-  begin
-    delete from public.ask_sessions where id = sid;
-    get diagnostics n = row_count;
-    if n <> 0 then raise exception 'FAIL: account B deleted account A''s session'; end if;
-  exception when insufficient_privilege then null; end;
+  delete from public.ask_sessions where id = sid;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: account B deleted account A''s session'; end if;
   begin
     delete from public.ask_rounds where id = rid;
     get diagnostics n = row_count;
@@ -117,6 +150,29 @@ begin
     insert into public.ask_rounds (session_id, questions) values (sid, '[{"question": "planted"}]');
     raise exception 'FAIL: account B asked in account A''s session';
   exception when insufficient_privilege then null; end;
+end $$;
+
+-- ── Account C (Carl), of another workspace: nothing of Ada's Vertuoza sessions ──
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
+do $$
+declare
+  sid constant uuid := (select id from ids where name = 'session');
+  rid constant uuid := (select id from ids where name = 'round');
+  n int;
+begin
+  if exists (select 1 from public.ask_sessions s where s.id <> (select id from ids where name = 'acme')) then
+    raise exception 'FAIL: an account read a session of another workspace';
+  end if;
+  if exists (select 1 from public.ask_rounds where session_id = sid) then raise exception 'FAIL: an account read the rounds of another workspace'; end if;
+  if (select count(*) from public.ask_sessions where id = (select id from ids where name = 'acme')) <> 1 then
+    raise exception 'FAIL: a member of Acme did not read the Acme session';
+  end if;
+  update public.ask_rounds set status = 'abandoned' where id = rid;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an account of another workspace abandoned a round'; end if;
+  delete from public.ask_sessions where id = sid;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: an account of another workspace deleted a session'; end if;
 end $$;
 
 -- ── Signed in, in no workspace: not the crew, so no session at all ──
@@ -139,7 +195,7 @@ declare
   second constant uuid := (select id from ids where name = 'second');
 begin
   if (select count(*) from public.ask_sessions where id = sid and status = 'open') <> 1 then
-    raise exception 'FAIL: account A''s session did not survive account B';
+    raise exception 'FAIL: account A''s session did not survive accounts B and C';
   end if;
   if (select count(*) from public.ask_rounds where session_id = sid and status = 'open') <> 2 then
     raise exception 'FAIL: account A''s rounds did not survive account B';
@@ -184,59 +240,94 @@ begin
   exception when insufficient_privilege then null; end;
 
   begin
-    perform public.ask_expire();
-    raise exception 'FAIL: a signed-in account ran the expiry';
+    perform public.ask_sweep();
+    raise exception 'FAIL: a signed-in account ran the sweep';
   exception when insufficient_privilege then null; end;
+
+  -- A round never goes on its own.
+  begin
+    delete from public.ask_rounds where session_id = sid;
+    raise exception 'FAIL: a round was deleted on its own';
+  exception when insufficient_privilege then null; end;
+
+  -- Only the owner deletes, closed or not: the session and its rounds go for good.
+  delete from public.ask_sessions where id = sid;
+  if exists (select 1 from public.ask_sessions where id = sid) then raise exception 'FAIL: the owner could not delete their session'; end if;
+end $$;
+reset role;
+do $$
+begin
+  if exists (select 1 from public.ask_rounds where session_id = (select id from ids where name = 'session')) then
+    raise exception 'FAIL: the rounds of a deleted session were kept';
+  end if;
 end $$;
 reset role;
 
--- ── The expiry: one scheduled function, the ask tables only ──
+-- ── The sweep: one scheduled function; it closes idle sessions and deletes nothing ──
 do $$
 declare
   ledger bigint := (select count(*) from public.ledger_events);
   players bigint := (select count(*) from public.players);
-  gone int;
+  sessions bigint;
+  rounds bigint;
+  idle_since constant timestamptz := now() - interval '8 days';
+  swept int;
 begin
   insert into public.ask_sessions (id, owner, title, status, last_seen_at) values
     ('00000000-0000-4000-8000-00000000c001', '00000000-0000-4000-8000-0000000000a1', 'closed 8 days ago', 'closed', now() - interval '8 days'),
-    ('00000000-0000-4000-8000-00000000c002', '00000000-0000-4000-8000-0000000000a1', 'closed 6 days ago', 'closed', now() - interval '6 days'),
-    ('00000000-0000-4000-8000-00000000c003', '00000000-0000-4000-8000-0000000000a1', 'idle 8 days', 'open', now() - interval '8 days'),
-    ('00000000-0000-4000-8000-00000000c004', '00000000-0000-4000-8000-0000000000a1', 'idle 7 days', 'open', now() - interval '7 days');
+    ('00000000-0000-4000-8000-00000000c003', '00000000-0000-4000-8000-0000000000a1', 'idle 8 days', 'open', idle_since),
+    ('00000000-0000-4000-8000-00000000c004', '00000000-0000-4000-8000-0000000000a1', 'idle 11 hours', 'open', now() - interval '11 hours');
   insert into public.ask_rounds (session_id, questions) values
     ('00000000-0000-4000-8000-00000000c001', '[{"question": "old"}]'),
     ('00000000-0000-4000-8000-00000000c003', '[{"question": "old"}]'),
     ('00000000-0000-4000-8000-00000000c004', '[{"question": "recent"}]');
+  sessions := (select count(*) from public.ask_sessions);
+  rounds := (select count(*) from public.ask_rounds);
 
-  gone := public.ask_expire();
-  if exists (select 1 from public.ask_sessions where id in ('00000000-0000-4000-8000-00000000c001', '00000000-0000-4000-8000-00000000c003')) then
-    raise exception 'FAIL: a session closed more than 7 days ago was kept';
+  swept := public.ask_sweep();
+  if (select count(*) from public.ask_sessions) <> sessions or (select count(*) from public.ask_rounds) <> rounds then
+    raise exception 'FAIL: the sweep deleted something';
   end if;
-  if exists (select 1 from public.ask_rounds where session_id in ('00000000-0000-4000-8000-00000000c001', '00000000-0000-4000-8000-00000000c003')) then
-    raise exception 'FAIL: the rounds of an expired session were kept';
+  if (select status from public.ask_sessions where id = '00000000-0000-4000-8000-00000000c001') <> 'closed' then
+    raise exception 'FAIL: a session closed 8 days ago was not kept as it was';
   end if;
-  -- Idle for 7 days: it read as closed only 6.5 days ago, so it stays a little longer.
-  if (select count(*) from public.ask_sessions where id in ('00000000-0000-4000-8000-00000000c002', '00000000-0000-4000-8000-00000000c004')) <> 2
-     or not exists (select 1 from public.ask_rounds where session_id = '00000000-0000-4000-8000-00000000c004') then
-    raise exception 'FAIL: the expiry removed a session closed less than 7 days ago';
+  if (select status from public.ask_sessions where id = '00000000-0000-4000-8000-00000000c003') <> 'closed' then
+    raise exception 'FAIL: the sweep did not close a session idle for 12 hours';
   end if;
-  if gone <> 2 then raise exception 'FAIL: the expiry reported % sessions removed, not 2', gone; end if;
+  if (select last_seen_at from public.ask_sessions where id = '00000000-0000-4000-8000-00000000c003') <> idle_since + interval '12 hours' then
+    raise exception 'FAIL: a swept session is not dated when it read as closed';
+  end if;
+  if (select status from public.ask_sessions where id = '00000000-0000-4000-8000-00000000c004') <> 'open' then
+    raise exception 'FAIL: the sweep closed a session idle for less than 12 hours';
+  end if;
+  if swept <> 1 then raise exception 'FAIL: the sweep reported % sessions closed, not 1', swept; end if;
   if (select count(*) from public.ledger_events) <> ledger or (select count(*) from public.players) <> players then
-    raise exception 'FAIL: the expiry touched the game';
+    raise exception 'FAIL: the sweep touched the game';
   end if;
-  if not exists (select 1 from cron.job where jobname = 'ask-expire' and command like '%public.ask_expire()%') then
-    raise exception 'FAIL: the expiry is not scheduled';
+  if not exists (select 1 from cron.job where jobname = 'ask-sweep' and command like '%public.ask_sweep()%') then
+    raise exception 'FAIL: the sweep is not scheduled';
   end if;
-  if has_function_privilege('anon', 'public.ask_expire()', 'execute')
-     or has_function_privilege('authenticated', 'public.ask_expire()', 'execute') then
-    raise exception 'FAIL: the API roles may run the expiry';
+  if exists (select 1 from cron.job where jobname = 'ask-expire') or to_regprocedure('public.ask_expire()') is not null then
+    raise exception 'FAIL: the expiry that deleted sessions is still there';
+  end if;
+  if has_function_privilege('anon', 'public.ask_sweep()', 'execute')
+     or has_function_privilege('authenticated', 'public.ask_sweep()', 'execute') then
+    raise exception 'FAIL: the API roles may run the sweep';
+  end if;
+  if has_function_privilege('authenticated', 'public.ask_session_workspace(uuid, text)', 'execute') then
+    raise exception 'FAIL: the API roles may call the workspace picker';
   end if;
   if has_table_privilege('anon', 'public.ask_sessions', 'select, insert, update, delete, truncate')
      or has_table_privilege('anon', 'public.ask_rounds', 'select, insert, update, delete, truncate') then
     raise exception 'FAIL: anon holds a privilege on the ask tables';
   end if;
-  if has_table_privilege('authenticated', 'public.ask_sessions', 'delete, truncate')
+  if has_table_privilege('authenticated', 'public.ask_sessions', 'truncate')
      or has_table_privilege('authenticated', 'public.ask_rounds', 'delete, truncate') then
-    raise exception 'FAIL: a signed-in account may delete ask rows';
+    raise exception 'FAIL: a signed-in account may delete rounds, or truncate the ask tables';
+  end if;
+  if has_column_privilege('authenticated', 'public.ask_sessions', 'workspace_id', 'insert')
+     or has_column_privilege('authenticated', 'public.ask_sessions', 'workspace_id', 'update') then
+    raise exception 'FAIL: a signed-in account may write a session''s workspace';
   end if;
 end $$;
 
