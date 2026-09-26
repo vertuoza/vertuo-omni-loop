@@ -4,3 +4,4 @@ export * from './sprites.mjs';
 export * from './draw.mjs';
 export * from './heroes.mjs';
 export * from './tokens.mjs';
+export * from './fonts.mjs';
