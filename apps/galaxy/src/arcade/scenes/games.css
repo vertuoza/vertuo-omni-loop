@@ -63,7 +63,7 @@
 .grid-tall .cabinets { position: static; flex: 1 1 auto; align-self: stretch; justify-content: center; margin: 4px 0; min-height: 0; }
 .grid-tall .cabinet { width: 220px; height: 100%; gap: 4px; }
 .grid-tall .marquee { height: 28px; font-size: 8px; line-height: 12px; }
-.grid-tall .cab-screen { height: 58px; }
+.grid-tall .cab-screen { height: 64px; gap: 1px; padding-top: 3px; }
 .grid-tall .cab-scores { gap: 4px; margin-top: 2px; font-size: 8px; }
 .grid-tall .cab-play { margin-bottom: 2px; font-size: 8px; }
 .grid-tall .cab-lock { margin-top: 6px; }

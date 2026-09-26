@@ -4,7 +4,7 @@
 // It walks the demo galaxy from the keyboard, as a player would: the boot, the title's three
 // phases, INSERT COIN, the simulated Google sign-in and GitHub link, the whole joining flow, the
 // menu and every screen behind it (the planet's four tabs each on its own, the star chart, a system
-// and its reading card), then the welcome back.
+// and its reading card, the game room), then the welcome back.
 // The page's clock is Playwright's, advanced step by step, so every screenshot is taken at the same
 // moment of its scene on every run. Nothing here runs in `pnpm test`.
 //
@@ -25,12 +25,12 @@ const SIZES = [
   { name: '1440x900', width: 1440, height: 900, touch: false, what: 'a mouse' },
 ];
 
-// Every screenshot, in walk order: the 21 scenes, with the title's phases, the planet's tabs and a
+// Every screenshot, in walk order: the 22 scenes, with the title's phases, the planet's tabs and a
 // system's reading card each its own. The number in a file's name is its place here.
 const SHOTS = [
   'boot', 'title', 'title-story', 'title-hiscore', 'coin', 'away', 'gate', 'link', 'intro', 'select', 'name', 'hero',
   'ready', 'menu', 'map', 'planet-status', 'planet-zones', 'planet-entropy', 'planet-log', 'chart', 'system',
-  'system-card', 'fleets', 'heroes', 'briefing', 'welcome', 'outsider',
+  'system-card', 'fleets', 'heroes', 'games', 'briefing', 'welcome', 'outsider',
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -213,7 +213,7 @@ async function walkGuest(d, taken) {
   await d.key('b', 'system');
   await d.key('b', 'chart');
   await d.key('b', 'menu');
-  for (const row of ['fleets', 'heroes', 'briefing']) { // the menu's next three rows
+  for (const row of ['fleets', 'heroes', 'games', 'briefing']) { // the menu's next four rows: the game room with the demo guest's borrowed XP
     await d.key('ArrowDown', 'menu');
     await d.key('Enter', row);
     await shot(row, row, 800);
