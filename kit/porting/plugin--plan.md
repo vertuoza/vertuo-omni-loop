@@ -61,8 +61,9 @@ territory and a computed wave, the plan file, the draft feature PR, the hand-off
 - **The worked example is not named in the skill.** PRD 7's plan in this repository is the model,
   but its path is a repository literal (spec §2.1 rule 2) and moves on ship; the skill spells out
   the four-part shape instead.
-- **Step 0's stop line** says "not installed", not "not terraformed" (PRD 45): `/omni:terraform`
-  now names filling the forms, and a failing `omni config` means `omni init` has not run.
+- **Step 0's stop line** says "not installed" (PRD 45, and PRD 68 for the config error): `/omni:invade`
+  (PRD 45's form-filling skill, renamed by PRD 68) now names filling the forms, and a failing
+  `omni config` means `omni init` has not run.
 - **The playbook forms** (PRD 45, the spec's wiring table), each read through `omni kb show`:
   step 0 prints the `briefing` before any other step (acceptance criterion 9), and says how to read
   a form: a blank section is the kit default, a `[hole]` never stops the skill (decision 7), and a

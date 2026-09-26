@@ -46,7 +46,7 @@ export function blankForm(id, { ctx }) {
   if (!kit.ok) throw new Error(`the kit's template for ${id} does not parse:\n${kit.errors.join('\n')}`);
   const { formVersion, title, opener, slots } = kit.form;
   const target = pointerTarget(id, ctx);
-  const frontMatter = { form: id, 'form-version': formVersion, state: target ? 'pointer' : 'blank', 'points-to': target, evidence: [], terraformed: null };
+  const frontMatter = { form: id, 'form-version': formVersion, state: target ? 'pointer' : 'blank', 'points-to': target, evidence: [], invaded: null };
   const lines = ['---', stringify(frontMatter).trimEnd(), '---', '', `# ${title}`, ''];
   if (opener) lines.push(opener, '');
   if (!target) {

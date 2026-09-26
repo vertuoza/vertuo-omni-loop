@@ -32,7 +32,7 @@ describe('resolveForm — one row of the resolution table each', () => {
   it('a filled section: the repository text, labelled [repo], [repo · by human] or [repo · verified <date>]', () => {
     const result = resolved({
       [FILE]: repoForm([
-        { id: 'commands', required: true, by: 'terraform', verified: '2026-09-25', body: '`pnpm test` runs everything.' },
+        { id: 'commands', required: true, by: 'invade', verified: '2026-09-25', body: '`pnpm test` runs everything.' },
         { id: 'layout', required: true, body: 'Beside the code, as `*.test.mjs`.' },
         { id: 'never', required: true, by: 'human', body: '- A test never calls the network.' },
       ]),

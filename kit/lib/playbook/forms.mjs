@@ -13,7 +13,7 @@
  * index: <path>                 a pointer form only, optional: the page to read first in a folder
  * evidence:                     <path>@<hex>: the files it was filled from, at their git hash-object
  *   - package.json@50fa1bd
- * terraformed: 2026-09-25       or null
+ * invaded: 2026-09-25           or null
  * ---
  *
  * # Testing
@@ -21,13 +21,18 @@
  * Use this page when adding, changing, or choosing tests.        the opener
  *
  * ## Commands
- * <!-- slot: commands · required · by: terraform · verified: 2026-09-25 -->
+ * <!-- slot: commands · required · by: invade · verified: 2026-09-25 -->
  * …the section's body
  * ```
  *
  * A **slot** is a `## <heading>` whose first non-blank line is its marker,
- * `<!-- slot: <id> · required|optional[ · by: terraform|human][ · verified: YYYY-MM-DD] -->`. A
+ * `<!-- slot: <id> · required|optional[ · by: invade|human][ · verified: YYYY-MM-DD] -->`. A
  * `##` heading with no marker is no slot; it is listed apart (`unmarked`).
+ *
+ * **Old spellings** (PRD #68): a form written before `/omni:invade` was named says `terraformed:` for
+ * `invaded:` and `by: terraform` for `by: invade`. The parser still reads both, as the new spelling,
+ * and lists each one it met in `oldSpellings`, so `omni check kb` can warn on it. Nothing the kit
+ * writes carries an old spelling.
  *
  * A slot's **body** is read as one of four kinds: `text` (repository text); `pointer` (a lone
  * `See: <path>[#anchor]` line, a section pointer); `empty`; or `holes` (nothing but
@@ -73,6 +78,10 @@ export const DECISIONS_FORM = 'decisions';
 
 const FORM_STATES = ['blank', 'filled', 'pointer'];
 
+/** What a form written before PRD #68 may say, and what it says now. */
+const OLD_DATE_KEY = 'terraformed';
+const OLD_BY = 'terraform';
+
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const EVIDENCE = /^(.+)@([0-9a-f]{7,40})$/;
 
@@ -83,11 +92,18 @@ const FrontMatterSchema = z
     state: z.enum(FORM_STATES),
     'points-to': z.string().min(1).nullable(),
     evidence: z.array(z.string().regex(EVIDENCE, 'each entry is <path>@<hex>, the file at its git hash-object')).nullable(),
-    terraformed: z.string().regex(DATE, 'a YYYY-MM-DD date').nullable(),
+    invaded: z.string().regex(DATE, 'a YYYY-MM-DD date').nullable().optional(),
+    [OLD_DATE_KEY]: z.string().regex(DATE, 'a YYYY-MM-DD date').nullable().optional(),
     index: z.string().min(1).optional(),
   })
   .strict()
   .superRefine((fm, context) => {
+    if (fm.invaded === undefined && fm[OLD_DATE_KEY] === undefined) {
+      context.addIssue({ code: 'custom', path: ['invaded'], message: 'missing — a YYYY-MM-DD date, or null' });
+    }
+    if (fm.invaded !== undefined && fm[OLD_DATE_KEY] !== undefined) {
+      context.addIssue({ code: 'custom', path: [OLD_DATE_KEY], message: 'is the old spelling of invaded — keep invaded only' });
+    }
     const pointer = fm.state === 'pointer';
     if (pointer && fm['points-to'] === null) {
       context.addIssue({ code: 'custom', path: ['points-to'], message: 'a pointer form names the path it points to' });
@@ -106,7 +122,7 @@ const HEADING = /^##\s+(.+?)\s*$/;
 const FENCE = /^\s*(?:```|~~~)/;
 const MARKER_START = /^<!--\s*slot:/;
 const MARKER =
-  /^<!--\s*slot:\s*([a-z][a-z0-9-]*)\s*·\s*(required|optional)(?:\s*·\s*by:\s*(terraform|human))?(?:\s*·\s*verified:\s*(\d{4}-\d{2}-\d{2}))?\s*-->$/;
+  /^<!--\s*slot:\s*([a-z][a-z0-9-]*)\s*·\s*(required|optional)(?:\s*·\s*by:\s*(invade|human|terraform))?(?:\s*·\s*verified:\s*(\d{4}-\d{2}-\d{2}))?\s*-->$/;
 const COMMENT = /<!--[\s\S]*?-->/g;
 const SEE = /^See:\s+([^\s#]+)(?:#(\S+))?$/;
 const HOLE = /^(?:[-*]\s+)?TODO\(human\):\s*(.*\S)\s*$/;
@@ -185,9 +201,10 @@ function readBody(raw) {
  * starts with `file`: front matter that is missing, is not YAML, lacks a key or holds another, a
  * malformed slot marker, a slot id used twice.
  *
- * `form` is `{ id, formVersion, state, pointsTo, index, evidence: [{ path, hash }], terraformed,
- * title, opener, slots: [{ id, heading, required, by, verified, body }], unmarked, file }`, the
- * slots in file order, `body` as {@link readBody} reads it.
+ * `form` is `{ id, formVersion, state, pointsTo, index, evidence: [{ path, hash }], invaded,
+ * oldSpellings: [{ where, old, now }], title, opener, slots: [{ id, heading, required, by, verified,
+ * body }], unmarked, file }`, the slots in file order, `body` as {@link readBody} reads it, an old
+ * spelling read as the new one and listed in `oldSpellings` (see the module note).
  */
 export function parseForm(text, { file = null } = {}) {
   const block = text.match(FRONT_MATTER_BLOCK);
@@ -201,6 +218,8 @@ export function parseForm(text, { file = null } = {}) {
   const { head, sections } = splitSections(body.split(/\r?\n/));
   const slots = [];
   const unmarked = [];
+  const oldSpellings = [];
+  if (data?.[OLD_DATE_KEY] !== undefined) oldSpellings.push({ where: 'front matter', old: `${OLD_DATE_KEY}:`, now: 'invaded:' });
   for (const { heading, lines } of sections) {
     const at = lines.findIndex((line) => line.trim() !== '');
     const first = at === -1 ? '' : lines[at].trim();
@@ -210,7 +229,7 @@ export function parseForm(text, { file = null } = {}) {
     }
     const marker = first.match(MARKER);
     if (!marker) {
-      errors.push(withFile(file, `"## ${heading}": malformed slot marker ${first} — want <!-- slot: <id> · required|optional[ · by: terraform|human][ · verified: YYYY-MM-DD] -->`));
+      errors.push(withFile(file, `"## ${heading}": malformed slot marker ${first} — want <!-- slot: <id> · required|optional[ · by: invade|human][ · verified: YYYY-MM-DD] -->`));
       continue;
     }
     const [, id, need, by, verified] = marker;
@@ -218,11 +237,12 @@ export function parseForm(text, { file = null } = {}) {
       errors.push(withFile(file, `slot "${id}" appears twice`));
       continue;
     }
+    if (by === OLD_BY) oldSpellings.push({ where: `"## ${heading}"`, old: `by: ${OLD_BY}`, now: 'by: invade' });
     slots.push({
       id,
       heading,
       required: need === 'required',
-      by: by ?? null,
+      by: by === OLD_BY ? 'invade' : (by ?? null),
       verified: verified ?? null,
       body: readBody(lines.slice(at + 1).join('\n')),
     });
@@ -241,7 +261,8 @@ export function parseForm(text, { file = null } = {}) {
         const [, path, hash] = entry.match(EVIDENCE);
         return { path, hash };
       }),
-      terraformed: data.terraformed,
+      invaded: data.invaded !== undefined ? data.invaded : data[OLD_DATE_KEY],
+      oldSpellings,
       ...readHead(head),
       slots,
       unmarked,

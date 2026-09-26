@@ -22,11 +22,11 @@ describe('omni', () => {
     expect(s.err.join('')).toMatch(/^.*not inside a git repository\.\n$/);
   });
 
-  it('exits 2 in a repository that is not terraformed', async () => {
+  it('exits 2 in a repository that is not installed', async () => {
     const { root } = makeRepo({ git: true });
     const s = io();
     expect(await main(['status', '1'], { cwd: root, ...s })).toBe(2);
-    expect(s.err.join('')).toMatch(/not terraformed/);
+    expect(s.err.join('')).toMatch(/not installed/);
   });
 
   it('prints one config value', async () => {

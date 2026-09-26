@@ -100,7 +100,7 @@ export const init = {
     }
 
     // Then the forms, by the same writer as `omni kb init`: never over a file that exists, and never
-    // outside `.omni-loop/` — a kept config may keep the playbook elsewhere, and /omni:terraform
+    // outside `.omni-loop/` — a kept config may keep the playbook elsewhere, and /omni:invade
     // (which runs `omni kb init`) writes them there.
     const ctx = createContext(root, config);
     const outside = !insideLoop(ctx.layout.frontDoor);
