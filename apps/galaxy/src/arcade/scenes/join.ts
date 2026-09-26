@@ -2,10 +2,10 @@
 // intro, the GitHub link, ready and welcome back. Each scene stands its pieces where its grid's
 // stage says: the wide grid as it always was, or the tall one (the Game Boy held upright), where
 // the same pieces stack in a narrower, taller frame.
-import { drawPlanet, drawSprite } from '@omni/sprites';
+import { drawPlanet } from '@omni/sprites';
 import { fleet } from '../fleets';
 import {
-  bobOf, bootMark, drawFleetMascot, drawHero, flash, frameOf, H, nebulaFor, pedestal, plasmaTrail, space, stars, W,
+  bobOf, bootMark, drawFleetMascot, drawHero, flash, frameOf, H, nebulaFor, pedestal, plasmaTrail, space, sprite, stars, W,
   type FrameState, type GridName, type Pages, type SceneName,
 } from './common.ts';
 
@@ -87,7 +87,7 @@ const stageOf = (s: FrameState) => STAGES[s.grid.name];
 // Stars streaming down past the camera: the warp of the intro.
 function warp(ctx: CanvasRenderingContext2D, s: FrameState, k: number) {
   const { w, h } = s.grid;
-  ctx.fillStyle = '#07061c';
+  ctx.fillStyle = s.theme.void;
   ctx.fillRect(0, 0, w, h);
   for (const st of stars) {
     if (st.x >= w) continue;
@@ -104,7 +104,7 @@ export function drawAway(ctx: CanvasRenderingContext2D, s: FrameState) {
   ctx.fillStyle = '#05040f';
   ctx.fillRect(0, 0, W, H);
   for (let i = 0; i < 12; i++) {
-    ctx.fillStyle = i < Math.floor(s.sceneT * 8) % 13 ? '#6ff0ff' : '#1a1f55';
+    ctx.fillStyle = i < Math.floor(s.sceneT * 8) % 13 ? s.theme.cyan : '#1a1f55';
     ctx.fillRect(bar.x + i * 12, bar.y, 8, 8);
   }
 }
@@ -114,14 +114,14 @@ export function drawCoin(ctx: CanvasRenderingContext2D, s: FrameState) {
   const { nebula, coin } = stageOf(s).coin;
   space(ctx, s, 0.5);
   ctx.drawImage(nebulaFor(nebula.key, 1, nebula.w, nebula.h), nebula.x, nebula.y);
-  drawSprite(ctx, 'coin', coin.x, coin.y + bobOf(s, 0, 3), { scale: 4, frame: frameOf(s, 5) });
+  sprite(ctx, s, 'coin', coin.x, coin.y + bobOf(s, 0, 3), { scale: 4, frame: frameOf(s, 5) });
 }
 
 export function drawGate(ctx: CanvasRenderingContext2D, s: FrameState) {
   const { planet, omni } = stageOf(s).gate;
   space(ctx, s, 0.6);
   drawPlanet(ctx, { ...planet, seed: 2533, rot: s.reduced ? 1 : s.t * 0.03, progress: 0.4, atmosphere: '#8fd8ff' });
-  drawSprite(ctx, 'omni', omni.x, omni.y + bobOf(s, 0, 3), { frame: frameOf(s, 1.5), glow: '#a45cff' });
+  sprite(ctx, s, 'omni', omni.x, omni.y + bobOf(s, 0, 3), { frame: frameOf(s, 1.5), glow: s.theme.plasma });
 }
 
 // The first visit's intro, timed to the intro theme's bars (score.ts): stripes 0–4 s, OMNI-MAN rises
@@ -143,7 +143,7 @@ export function drawIntro(ctx: CanvasRenderingContext2D, s: FrameState) {
   ctx.drawImage(nebulaFor(at.nebula.key, 2, at.nebula.w, at.nebula.h), at.nebula.x, at.nebula.y);
   const y = st < 8 ? at.from - Math.min(1, (st - 4) / 3) * (at.from - at.to) : at.to;
   plasmaTrail(ctx, s, at.omniX + 22, y + 94 + bobOf(s, 0), st < 8 ? 36 : 22);
-  drawSprite(ctx, 'omni', at.omniX, y + bobOf(s, 0, 3), { scale: 2, frame: frameOf(s, 1.5), glow: '#a45cff' });
+  sprite(ctx, s, 'omni', at.omniX, y + bobOf(s, 0, 3), { scale: 2, frame: frameOf(s, 1.5), glow: s.theme.plasma });
   if (st > 14) {
     const row = at.fleets, size = 32 * row.scale;
     const fleets = s.join.fleets.slice(0, 5);
@@ -154,7 +154,7 @@ export function drawIntro(ctx: CanvasRenderingContext2D, s: FrameState) {
       const x = Math.round(row.left + gap * (i + 0.5) - size / 2), top = row.top + (i % 2) * row.stagger;
       const jump = st < 18 || s.reduced ? 0 : -Math.round(Math.abs(Math.sin((st - 18) * 6 + i)) * 4 * row.scale);
       if (st < beat + 0.12) { ctx.fillStyle = f.color; ctx.fillRect(x - 4 * row.scale, top - 4 * row.scale, size + 8 * row.scale, size + 8 * row.scale); }
-      drawFleetMascot(ctx, f.name, x, top + jump, { scale: row.scale, frame: frameOf(s, 2.2, i * 0.4) });
+      drawFleetMascot(ctx, s, f.name, x, top + jump, { scale: row.scale, frame: frameOf(s, 2.2, i * 0.4) });
     });
   }
   if (st > 19.4) flash(ctx, '#ffffff', (st - 19.4) * 1.6);
@@ -166,8 +166,8 @@ export function drawLink(ctx: CanvasRenderingContext2D, s: FrameState) {
   space(ctx, s, 0.4);
   ctx.drawImage(nebulaFor(nebula.key, 1, nebula.w, nebula.h), nebula.x, nebula.y);
   pedestal(ctx, p.cx, p.cy, p.rx, fleet(s.join.team).color);
-  drawHero(ctx, s.join.hero, s.join.team, hero.x, hero.y + bobOf(s, 0, 2), { scale: hero.scale, frame: frameOf(s, 2) });
-  if (s.join.team) drawFleetMascot(ctx, s.join.team, mascot.x, mascot.y + bobOf(s, 1, 2), { frame: frameOf(s, 2.4) });
+  drawHero(ctx, s, s.join.hero, s.join.team, hero.x, hero.y + bobOf(s, 0, 2), { scale: hero.scale, frame: frameOf(s, 2) });
+  if (s.join.team) drawFleetMascot(ctx, s, s.join.team, mascot.x, mascot.y + bobOf(s, 1, 2), { frame: frameOf(s, 2.4) });
 }
 
 export function drawReady(ctx: CanvasRenderingContext2D, s: FrameState) {
@@ -175,8 +175,8 @@ export function drawReady(ctx: CanvasRenderingContext2D, s: FrameState) {
   space(ctx, s, 3);
   const y = at.from - Math.min(1, s.sceneT / 1.2) * (at.from - at.to) + (s.sceneT > 1.2 ? bobOf(s, 0, 3) : 0);
   plasmaTrail(ctx, s, at.heroX + 22, y + 92, 34);
-  drawHero(ctx, s.join.hero, s.join.team, at.heroX, y, { scale: 2, frame: frameOf(s, 2), glow: fleet(s.join.team).color });
-  if (s.join.team) drawFleetMascot(ctx, s.join.team, at.mascotX, y + 40 + bobOf(s, 1, 3), { scale: 2, frame: frameOf(s, 2.5) });
+  drawHero(ctx, s, s.join.hero, s.join.team, at.heroX, y, { scale: 2, frame: frameOf(s, 2), glow: fleet(s.join.team).color });
+  if (s.join.team) drawFleetMascot(ctx, s, s.join.team, at.mascotX, y + 40 + bobOf(s, 1, 3), { scale: 2, frame: frameOf(s, 2.5) });
 }
 
 export function drawWelcome(ctx: CanvasRenderingContext2D, s: FrameState) {
@@ -184,7 +184,7 @@ export function drawWelcome(ctx: CanvasRenderingContext2D, s: FrameState) {
   space(ctx, s, 0.8);
   ctx.drawImage(nebulaFor(nebula.key, 2, nebula.w, nebula.h), nebula.x, nebula.y);
   pedestal(ctx, p.cx, p.cy, p.rx, fleet(s.join.team).color);
-  drawHero(ctx, s.join.hero, s.join.team, hero.x, hero.y + bobOf(s, 0, 2), { scale: 2, frame: frameOf(s, 2) });
-  if (s.join.team) drawFleetMascot(ctx, s.join.team, mascot.x, mascot.y + bobOf(s, 1, 2), { scale: 2, frame: frameOf(s, 2.4) });
-  for (let i = 0; i < 6; i++) if (Math.floor(s.t * 2 + i) % 3 === 0) drawSprite(ctx, 'star', sky.x + ((i * 97) % sky.w), sky.y + ((i * 53) % sky.h), { frame: frameOf(s, 4) });
+  drawHero(ctx, s, s.join.hero, s.join.team, hero.x, hero.y + bobOf(s, 0, 2), { scale: 2, frame: frameOf(s, 2) });
+  if (s.join.team) drawFleetMascot(ctx, s, s.join.team, mascot.x, mascot.y + bobOf(s, 1, 2), { scale: 2, frame: frameOf(s, 2.4) });
+  for (let i = 0; i < 6; i++) if (Math.floor(s.t * 2 + i) % 3 === 0) sprite(ctx, s, 'star', sky.x + ((i * 97) % sky.w), sky.y + ((i * 53) % sky.h), { frame: frameOf(s, 4) });
 }

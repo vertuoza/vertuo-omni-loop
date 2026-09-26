@@ -7,6 +7,10 @@
 // Reads are answered, in order, from: what this double wrote; the synthetic commits and pull
 // requests a test hands in; the recording, matched on the route and every parameter exactly. Anything
 // else is a 404 naming the request, so a unit that reads something unrecorded fails loudly.
+//
+// A tree this double writes may reuse a blob by its sha (a moved file) or remove a path (`sha: null`),
+// as GitHub's API allows; each tree and commit it writes can then be read back whole, like a synthetic
+// commit, so a later snapshot of a branch it wrote sees its files.
 import { createHash } from 'node:crypto';
 
 /**
@@ -34,6 +38,8 @@ export function replayGitHub({ recording = [], commits = {}, pulls = [], events 
   };
   let nextId = 5000;
   let nextNumber = 900;
+  // The synthetic commits handed in, and every tree and commit this double wrote, whole: sha → files.
+  const synthetic = { ...commits };
 
   const octokit = {
     async request(route, params = {}) {
@@ -58,7 +64,7 @@ export function replayGitHub({ recording = [], commits = {}, pulls = [], events 
 
   function syntheticTree(sha) {
     const [commit, ...rest] = sha.split(':');
-    const files = commits[commit];
+    const files = synthetic[commit];
     if (!files) return null;
     return { commit, files, dir: rest.join(':') };
   }
@@ -121,6 +127,22 @@ export function replayGitHub({ recording = [], commits = {}, pulls = [], events 
     return false;
   }
 
+  /** A written tree entry's text: its content, the text of the blob it reuses, or `null` when it removes the path. */
+  function entryText(entry) {
+    if (entry.content !== undefined) return entry.content;
+    if (entry.sha === null) return null;
+    const blob = syntheticTree(entry.sha);
+    const text = blob?.files[blob.dir];
+    if (text === undefined) throw httpError(422, `no blob ${entry.sha}`);
+    return text;
+  }
+
+  /** A copy of every file of a synthetic or written tree (or of a commit's tree), `path → text`. */
+  function wholeTree(sha) {
+    const commit = state.commits.get(sha);
+    return { ...(synthetic[commit ? commit.tree.sha : sha] ?? {}) };
+  }
+
   const ROUTES = {
     'GET /repos/{owner}/{repo}/git/trees/{tree_sha}': ({ tree_sha, recursive }) => {
       const synthetic = syntheticTree(tree_sha);
@@ -155,15 +177,22 @@ export function replayGitHub({ recording = [], commits = {}, pulls = [], events 
       return { data: { ref: `refs/${ref}`, object: { sha, type: 'commit' } } };
     },
     'POST /repos/{owner}/{repo}/git/trees': ({ base_tree, tree }) => {
-      const entries = Object.fromEntries(tree.map((entry) => [entry.path, entry.content]));
+      const entries = Object.fromEntries(tree.map((entry) => [entry.path, entryText(entry)]));
       const sha = `tree-${hash({ base_tree, entries })}`;
-      state.trees.set(sha, { sha, base: base_tree ?? null, entries });
+      state.trees.set(sha, { sha, base: base_tree ?? null, entries, given: structuredClone(tree) });
+      const whole = base_tree ? wholeTree(base_tree) : {};
+      for (const [path, text] of Object.entries(entries)) {
+        if (text === null) delete whole[path];
+        else whole[path] = text;
+      }
+      synthetic[sha] = whole;
       return { data: { sha } };
     },
     'POST /repos/{owner}/{repo}/git/commits': ({ message, tree, parents }) => {
       const sha = `commit-${nextId++}`;
       const commit = { sha, message, tree: { sha: tree }, parents: parents.map((parent) => ({ sha: parent })) };
       state.commits.set(sha, commit);
+      if (synthetic[tree]) synthetic[sha] = synthetic[tree];
       return { data: structuredClone(commit) };
     },
     'GET /repos/{owner}/{repo}/contents/{path}': ({ path, ref }) => {

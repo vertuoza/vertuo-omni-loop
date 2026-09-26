@@ -2,14 +2,18 @@
 // pixels, or the tall one, 320×288 (a Game Boy screen at 2×), the same grid as the DOM overlays (text,
 // panels) on top. `FrameState.grid` says which. Sprites draw at 1× in play so their detail shows; the
 // title's hero shot uses 2×. Every scene draws the whole frame from scratch; each scene group draws
-// its own in `scenes/<group>.ts`, and `scenes/index.ts` picks the one to draw.
+// its own in `scenes/<group>.ts`, and `scenes/index.ts` picks the one to draw. A colour that is a
+// theme token is read from the frame's theme (`FrameState.theme`), never written here, and every
+// sprite is drawn through `sprite()`, in the theme's stripes.
 import {
   drawSprite, drawStarfield, makeNebula, makeStarfield, rampFrom, spriteSize, type Hero,
 } from '@omni/sprites';
 import type { GalaxyView, Planet } from '@omni/galaxy';
 import { fleet, heroOf, seedOf } from '../fleets';
-import { MARK_RUNS, MARK_SHADE, MARK_SIZE, MARK_STOPS } from '../mark';
+import type { Mark } from '../mark';
+import { stripesOf, type Theme } from '../theme';
 import type { FleetRow } from '../types';
+import type { ChartLayout, ChartSource, SystemLayout } from './chart-layout.ts';
 
 /** The wide grid's size: the grid every scene is drawn on until its group lays it out tall. */
 export const W = 640;
@@ -25,7 +29,8 @@ export const TALL: Grid = { name: 'tall', w: 320, h: 288 };
 
 export type SceneName =
   | 'boot' | 'title' | 'menu' | 'map' | 'planet' | 'fleets' | 'heroes' | 'briefing'
-  | 'coin' | 'away' | 'gate' | 'intro' | 'select' | 'name' | 'hero' | 'link' | 'ready' | 'welcome' | 'outsider';
+  | 'coin' | 'away' | 'gate' | 'intro' | 'select' | 'name' | 'hero' | 'link' | 'ready' | 'welcome' | 'outsider'
+  | 'chart' | 'system';
 
 /** What the joining screens draw: the fleets to pick from, the player's fleet and hero. */
 export interface JoinFrame {
@@ -49,6 +54,20 @@ export interface FrameState {
   t: number;            // seconds since start
   sceneT: number;       // seconds since this scene opened
   reduced: boolean;     // prefers-reduced-motion
+  mark: Mark;           // the brand's mark: its letter, which the boot and the intro draw
+  theme: Theme;         // the brand's theme, resolved: the colours the scenes draw with
+  chart?: ChartFrame;   // the star chart (chart, system)
+}
+
+/** What the star chart's two scenes draw: the knowledge, its suns and the open system, laid out on the frame's grid. */
+export interface ChartFrame {
+  source: ChartSource;
+  layout: ChartLayout;
+  /** The system of the sun under the cursor. */
+  system: SystemLayout | null;
+  /** The sun under the cursor (chart), and the world (system). */
+  sun: number;
+  world: number;
 }
 
 export interface MapSlot { prd: number; x: number; y: number; r: number; index: number }
@@ -77,7 +96,7 @@ export function nebulaFor(key: string, i: number, w: number, h: number) {
 
 export function space(ctx: CanvasRenderingContext2D, s: FrameState, speed = 0.4) {
   const { w, h } = s.grid;
-  const bands = ['#07061c', '#0a0824', '#0d0a2c', '#110c34'];
+  const bands = [s.theme.void, '#0a0824', '#0d0a2c', '#110c34'];
   bands.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(0, (h / bands.length) * i, w, h / bands.length); });
   drawStarfield(ctx, stars, s.reduced ? 0 : s.t, { w: W, h: H, speed });
 }
@@ -91,13 +110,13 @@ function mood(p: Planet): 'alive' | 'lost' | 'locked' | 'ghost' {
 
 export const RING = ['#3a2a78', '#6a4fd0', '#a88cff', '#2a1f5c'];
 
-export function planetLook(p: Planet) {
+export function planetLook(p: Planet, theme: Theme) {
   const alive = mood(p) === 'alive';
   return {
     seed: seedOf(p.prd),
     progress: p.progress,
     mood: mood(p),
-    atmosphere: alive ? (p.progress >= 1 ? '#6ff0ff' : p.progress > 0 ? '#8fd8ff' : '#7a64b8') : null,
+    atmosphere: alive ? (p.progress >= 1 ? theme.cyan : p.progress > 0 ? '#8fd8ff' : '#7a64b8') : null,
     ring: p.crossSector ? RING : null,
   };
 }
@@ -120,25 +139,30 @@ export function pulseRing(ctx: CanvasRenderingContext2D, x: number, y: number, r
   ctx.globalAlpha = 1;
 }
 
-// The Vertuoza mark at 2× on black, each row of bars growing in from the left like a loading bar:
-// the boot screen, and the first bars of the intro.
+// The brand's mark at 2× on black, each row of bars growing in from the left like a loading bar:
+// the boot screen, and the first bars of the intro. Each row starts a little after the one above it,
+// the last one 0.36 of the reveal after the first, however many rows the letter has.
+const REVEAL_LAG = 0.36;
+
 export function bootMark(ctx: CanvasRenderingContext2D, s: FrameState) {
+  const { size, runs, stops, shade } = s.mark;
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, W, H);
-  const px = 2, x0 = W / 2 - (MARK_SIZE * px) / 2, y0 = 96;
+  const px = 2, x0 = W / 2 - (size * px) / 2, y0 = 96;
   const k = s.reduced ? 1 : Math.min(1, s.sceneT / 0.9);
-  const gradient = (stops: typeof MARK_STOPS | typeof MARK_SHADE) => {
-    const g = ctx.createLinearGradient(x0, 0, x0 + MARK_SIZE * px, 0);
-    for (const [offset, color] of stops) g.addColorStop(offset, color);
+  const gradient = (colors: Mark['stops']) => {
+    const g = ctx.createLinearGradient(x0, 0, x0 + size * px, 0);
+    for (const [offset, color] of colors) g.addColorStop(offset, color);
     return g;
   };
-  const runs = MARK_RUNS.map(([x, y, w, row]) => {
-    const reveal = MARK_SIZE * Math.min(1, Math.max(0, k * 1.4 - row * 0.12));
+  const lag = REVEAL_LAG / Math.max(1, ...runs.map(([, , , row]) => row));
+  const shown = runs.map(([x, y, w, row]) => {
+    const reveal = size * Math.min(1, Math.max(0, k * 1.4 - row * lag));
     return [x, y, Math.round(Math.min(w, Math.max(0, reveal - x)))] as const;
   });
-  for (const [fill, dy] of [[gradient(MARK_SHADE), 1], [gradient(MARK_STOPS), 0]] as const) {
+  for (const [fill, dy] of [[gradient(shade), 1], [gradient(stops), 0]] as const) {
     ctx.fillStyle = fill;
-    for (const [x, y, w] of runs) ctx.fillRect(x0 + x * px, y0 + (y + dy) * px, w * px, px);
+    for (const [x, y, w] of shown) ctx.fillRect(x0 + x * px, y0 + (y + dy) * px, w * px, px);
   }
 }
 
@@ -148,9 +172,9 @@ export function plasmaTrail(ctx: CanvasRenderingContext2D, s: FrameState, x: num
     const yy = y + i * 3 + ((s.t * 60 + i * 7) % 6);
     const w = Math.max(1, 4 - Math.floor(i / 8));
     ctx.globalAlpha = 1 - i / len;
-    ctx.fillStyle = i % 3 ? '#a45cff' : '#6ff0ff';
+    ctx.fillStyle = i % 3 ? s.theme.plasma : s.theme.cyan;
     ctx.fillRect(x + ((i * 5) % 9) - 4, yy, w, w);
-    ctx.fillStyle = i % 4 ? '#6a2fd0' : '#e2c6ff';
+    ctx.fillStyle = i % 4 ? s.theme['plasma-dark'] : '#e2c6ff';
     ctx.fillRect(x + 20 - ((i * 3) % 9), yy + 2, w, w);
   }
   ctx.globalAlpha = 1;
@@ -171,15 +195,23 @@ export function heroSelectWall(ctx: CanvasRenderingContext2D) {
   for (let y = 3; y < H; y += 8) for (let x = (y / 8) % 2 ? 4 : 0; x < W; x += 8) ctx.fillRect(x, y, 2, 2);
 }
 
-export function drawFleetMascot(ctx: CanvasRenderingContext2D, name: string, x: number, y: number, o: { scale?: number; frame?: number; alpha?: number; flip?: boolean } = {}) {
-  const look = fleet(name);
-  const lift = (spriteSize(look.sprite).h - 32) * (o.scale ?? 1); // a hero stand-in is taller than a mascot
-  drawSprite(ctx, look.sprite, x, y - lift, { ...o, tint: look.tint ?? undefined });
+/** How a sprite is drawn, but its stripes: those are the theme's. */
+export type SpriteOptions = Omit<NonNullable<Parameters<typeof drawSprite>[4]>, 'flat'>;
+
+/** A sprite on the canvas, in the theme's stripes (`stripe-1` to `stripe-4`): every scene draws its sprites through here. */
+export function sprite(ctx: CanvasRenderingContext2D, s: FrameState, name: string, x: number, y: number, o: SpriteOptions = {}) {
+  drawSprite(ctx, name, x, y, { ...o, flat: stripesOf(s.theme) });
 }
 
-export function drawHero(ctx: CanvasRenderingContext2D, hero: Hero, team: string | null, x: number, y: number, o: { scale?: number; frame?: number; glow?: string | null } = {}) {
+export function drawFleetMascot(ctx: CanvasRenderingContext2D, s: FrameState, name: string, x: number, y: number, o: { scale?: number; frame?: number; alpha?: number; flip?: boolean } = {}) {
+  const look = fleet(name);
+  const lift = (spriteSize(look.sprite).h - 32) * (o.scale ?? 1); // a hero stand-in is taller than a mascot
+  sprite(ctx, s, look.sprite, x, y - lift, { ...o, tint: look.tint ?? undefined });
+}
+
+export function drawHero(ctx: CanvasRenderingContext2D, s: FrameState, hero: Hero, team: string | null, x: number, y: number, o: { scale?: number; frame?: number; glow?: string | null } = {}) {
   const look = heroOf(hero, team);
-  drawSprite(ctx, look.sprite, x, y, { ...o, tint: look.tint });
+  sprite(ctx, s, look.sprite, x, y, { ...o, tint: look.tint });
 }
 
 // A pedestal lit in a fleet's colour.

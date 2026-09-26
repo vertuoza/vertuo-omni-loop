@@ -54,30 +54,37 @@ With a local Supabase, Vercel deployment and the artifact build: [`apps/galaxy/R
 
 ### Describe your repositories and fleets
 
-Everything the game knows lives in Supabase ([`apps/galaxy/README.md`](apps/galaxy/README.md)).
-Repositories are grouped into **sectors** and the **fleets** are rows in `teams`, both changed by a
+Everything the game knows lives in Supabase ([`apps/galaxy/README.md`](apps/galaxy/README.md)),
+and belongs to a **workspace**: Vertuoza is the workspace `vertuoza`. Repositories are grouped into
+**sectors** and the **fleets** are rows in `teams`, both of a workspace, and both changed by a
 migration in `supabase/migrations/`:
 
 ```sql
-insert into public.sectors (name, repos) values ('core-belt', array['vertuo-core', 'vertuo-api']);
-insert into public.teams (name, label, color, motto, mascot, home, sort)
-values ('pirates', 'PIRATES', '#2fc6a4', 'Takes the zones nobody claims.', 'pirate', 'core-belt', 50);
-update public.teams set retired_at = now() where name = 'invincible-team';   -- retire, never delete
+insert into public.sectors (workspace_id, name, repos)
+select id, 'core-belt', array['vertuo-core', 'vertuo-api'] from public.workspaces where slug = 'vertuoza';
+insert into public.teams (workspace_id, name, label, color, motto, mascot, home, sort)
+select id, 'pirates', 'PIRATES', '#2fc6a4', 'Takes the zones nobody claims.', 'pirate', 'core-belt', 50
+  from public.workspaces where slug = 'vertuoza';
+update public.teams set retired_at = now()                                    -- retire, never delete
+ where name = 'invincible-team' and workspace_id = (select id from public.workspaces where slug = 'vertuoza');
 ```
 
 The fleets today: BEAVER, OCTOPOD, PICSOU, C.I.A. and PIRATES. People join one in the arcade: they
-sign in with their `@vertuoza.com` Google account, pick a fleet, enter a name, build a hero and link
-their GitHub account, and from then on their pull requests score for that fleet.
+sign in with their `@vertuoza.com` Google account, which makes them members of the `vertuoza`
+workspace, pick a fleet, enter a name, build a hero and link their GitHub account, and from then on
+their pull requests score for that fleet.
 
 ### Run it by hand
 
-With `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` set (locally: `npx supabase status`):
+With `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` set (locally: `npx supabase status`). Each
+command reads and writes one workspace, named by `--workspace <slug>` or, failing that, by
+`OMNI_LOOP_WORKSPACE`; there is no default:
 
 ```bash
-pnpm game:banner 2332      # one planet's banner, read live from GitHub
-pnpm game:project          # snapshot GitHub and append new events to the ledger in Supabase
-pnpm game:score            # fold the ledger into this month's season
-pnpm game:export backup/   # the ledger, sectors, fleets and players as JSONL
+pnpm game:banner 2332 --workspace vertuoza      # one planet's banner, read live from GitHub
+pnpm game:project --workspace vertuoza          # snapshot the workspace's GitHub and append new events to its ledger
+pnpm game:score --workspace vertuoza            # fold its ledger into this month's season
+pnpm game:export backup/ --workspace vertuoza   # its row, ledger, sectors, fleets and players as JSONL
 ```
 
 `game:project` writes permanent history. Run it against production only once the sectors hold the

@@ -1,7 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
-import { CHECK_ACTIONS, HANDLED, RETRO_ACTIONS, receiveWebhook, toCheckRequests, toEvents, toRetroRequests } from './webhook.mjs';
+import { HARVEST_EVENT, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
+import { CHECK_ACTIONS, HANDLED, RETRO_ACTIONS, receiveWebhook, toCheckRequests, toEvents, toHarvestRequests, toRetroRequests } from './webhook.mjs';
 
 const SECRET = 'shh-test-secret';
 
@@ -213,9 +213,10 @@ const mergedPayload = (over = {}) =>
   });
 
 describe('webhook — the retro route (PRD 72)', () => {
-  it('turns a merged pull request into one retro event carrying the merge SHA and time, and no outbox event', async () => {
+  it('turns a merged pull request into one retro event and one harvest event (PRD 82), and no outbox event', async () => {
     const { response, send } = await deliver({ payload: mergedPayload() });
     expect(response.status).toBe(200);
+    expect(response.body).toBe('sent 2');
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0]).toEqual([
       {
@@ -230,6 +231,16 @@ describe('webhook — the retro route (PRD 72)', () => {
           mergedAt: MERGED_AT,
         },
       },
+      {
+        name: HARVEST_EVENT,
+        data: {
+          installationId: 4242,
+          owner: 'vertuoza',
+          repo: 'vertuo-omni-loop',
+          repository: 'vertuoza/vertuo-omni-loop',
+          prNumber: 28,
+        },
+      },
     ]);
   });
 
@@ -241,13 +252,18 @@ describe('webhook — the retro route (PRD 72)', () => {
     expect(toRetroRequests('pull_request', mergedPayload({ merge_commit_sha: null }))).toEqual([]);
   });
 
-  it('leaves the qualifying to the retro: a merged sub-PR still becomes the retro event', () => {
+  it('leaves the qualifying to the functions: a merged sub-PR still becomes the retro and harvest events', () => {
     const events = toEvents('pull_request', mergedPayload({ base: { ref: 'feat/retro' } }));
-    expect(events.map((event) => event.name)).toEqual([RETRO_EVENT]);
+    expect(events.map((event) => event.name)).toEqual([RETRO_EVENT, HARVEST_EVENT]);
   });
 
-  it.each(CHECK_ACTIONS.pull_request)('never turns pull_request.%s into a retro event', (action) => {
+  it('turns a closed, unmerged pull request into no harvest event', () => {
+    expect(toHarvestRequests('pull_request', pullRequestPayload('closed', { pull_request: { number: 28, merged: false, merged_at: null, head: { sha: 'abc123' }, base: { ref: 'main' } } }))).toEqual([]);
+  });
+
+  it.each(CHECK_ACTIONS.pull_request)('never turns pull_request.%s into a retro or harvest event', (action) => {
     expect(toRetroRequests('pull_request', { ...mergedPayload(), action })).toEqual([]);
+    expect(toHarvestRequests('pull_request', { ...mergedPayload(), action })).toEqual([]);
     expect(toEvents('pull_request', { ...mergedPayload(), action }).map((event) => event.name)).toEqual([OUTBOX_CHECK_EVENT]);
   });
 

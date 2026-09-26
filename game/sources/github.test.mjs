@@ -48,8 +48,31 @@ function world(extra = []) {
   ];
 }
 const NOW = new Date('2026-09-23T14:00:00Z');
+// The GitHub organisation and plan repository come from the workspace row (game:project, game:banner).
+const VERTUOZA = { org: 'vertuoza', planRepo: 'vertuo-omni-plan' };
 
 describe('buildSnapshot', () => {
+  it('has no organisation of its own: without an org or a plan repository it throws, before reading GitHub', async () => {
+    const seen = [];
+    const exec = async (args) => { seen.push(args); return '[]'; };
+    await expect(buildSnapshot({ config, exec, now: NOW, planRepo: 'vertuo-omni-plan' })).rejects.toThrow(/org/);
+    await expect(buildSnapshot({ config, exec, now: NOW, org: 'vertuoza' })).rejects.toThrow(/planRepo/);
+    expect(seen).toEqual([]);
+  });
+
+  it('reads the organisation and plan repository it is given', async () => {
+    const acmeConfig = configFrom({ sectors: [{ name: 'rockets', repos: ['acme-rockets'] }], teams: [], roster: [] });
+    const seen = [];
+    const exec = async (args) => {
+      seen.push(args.join(' '));
+      return args[0] === 'issue' ? '[]' : '';
+    };
+    await buildSnapshot({ config: acmeConfig, exec, now: NOW, org: 'acme-gh', planRepo: 'acme-plan' });
+    expect(seen[0]).toMatch(/^issue list -R acme-gh\/acme-plan /);
+    expect(seen.slice(1).every((c) => c.includes('repos/acme-gh/acme-rockets/'))).toBe(true);
+    expect(seen.join('\n')).not.toContain('vertuo');
+  });
+
   it('reads the omni:needs-fix label history off each zone sub-PR timeline (F1)', async () => {
     const subs = [
       { ...SUB_501, mergedAt: null, state: 'OPEN', labels: [{ name: 'omni:sub' }] },
@@ -60,7 +83,7 @@ describe('buildSnapshot', () => {
       ['api repos/vertuoza/core-repo/issues/501/timeline', 'labeled 2026-09-21T10:00:00Z\nunlabeled 2026-09-21T15:00:00Z\n'],
       ['api repos/vertuoza/core-repo/issues/502/timeline', 'labeled 2026-09-22T10:00:00Z\nunlabeled 2026-09-22T11:00:00Z\nlabeled 2026-09-22T12:00:00Z\n'],
     ]));
-    const snap = await buildSnapshot({ config, exec, now: NOW });
+    const snap = await buildSnapshot({ ...VERTUOZA, config, exec, now: NOW });
     const [s1, s2] = snap.planets[0].zones;
     expect(s1.pr.needsFix).toEqual({ labeledAt: '2026-09-21T10:00:00Z', unlabeledAt: '2026-09-21T15:00:00Z' });
     expect(s2.pr.needsFix).toEqual({ labeledAt: '2026-09-22T10:00:00Z', unlabeledAt: null }); // labelled again: still under fire
@@ -75,7 +98,7 @@ describe('buildSnapshot', () => {
       ['pr list -R vertuoza/core-repo --base feat/generic-import', subs],
       ['api repos/vertuoza/core-repo/issues/502/timeline', new Error('gh: 502 Bad Gateway')],
     ]));
-    const snap = await buildSnapshot({ config, exec, now: NOW });
+    const snap = await buildSnapshot({ ...VERTUOZA, config, exec, now: NOW });
     const [s1, s2] = snap.planets[0].zones;
     expect(s1.pr.needsFix).toBeNull();
     expect(s2.pr.needsFix).toEqual({ labeledAt: '2026-09-21T09:00:00Z', unlabeledAt: null });
@@ -88,7 +111,7 @@ describe('buildSnapshot', () => {
         { ...SUB_501, number: 505, author: { login: 'bob' }, createdAt: '2026-09-22T09:00:00Z', mergedAt: null, state: 'OPEN', labels: [{ name: 'omni:sub' }, { name: 'omni:in-progress' }] },
       ]],
     ]));
-    const snap = await buildSnapshot({ config, exec, now: NOW });
+    const snap = await buildSnapshot({ ...VERTUOZA, config, exec, now: NOW });
     expect(snap.planets[0].zones[0].pr).toMatchObject({ number: 505, author: 'bob', mergedAt: null });
   });
 
@@ -100,7 +123,7 @@ describe('buildSnapshot', () => {
         { ...SUB_501, number: 505, author: { login: 'bob' }, createdAt: '2026-09-22T10:00:00Z', mergedAt: null, state: 'OPEN', labels: [{ name: 'omni:sub' }, { name: 'omni:in-progress' }] },
       ]],
     ]));
-    const snap = await buildSnapshot({ config, exec, now: NOW });
+    const snap = await buildSnapshot({ ...VERTUOZA, config, exec, now: NOW });
     expect(snap.planets[0].zones[0].pr).toMatchObject({ number: 505, author: 'bob', mergedAt: null, revertedAt: null });
 
     // With no sub-PR after the revert, the zone keeps the reverted one (so ZONE_REVERTED is still told).
@@ -110,13 +133,13 @@ describe('buildSnapshot', () => {
         { ...SUB_501, number: 503, title: 'Revert "feat: a"', headRefName: 'revert-501', createdAt: '2026-09-22T08:00:00Z', mergedAt: '2026-09-22T09:00:00Z', body: 'Reverts #501' },
       ]],
     ]));
-    expect((await buildSnapshot({ config, exec: alone, now: NOW })).planets[0].zones[0].pr).toMatchObject({ number: 501, revertedAt: '2026-09-22T09:00:00Z' });
+    expect((await buildSnapshot({ ...VERTUOZA, config, exec: alone, now: NOW })).planets[0].zones[0].pr).toMatchObject({ number: 501, revertedAt: '2026-09-22T09:00:00Z' });
   });
 
   it('asks gh for the sub-PR state (F2)', async () => {
     const seen = [];
     const inner = fakeExec(world());
-    await buildSnapshot({ config, exec: (args) => { seen.push(args.join(' ')); return inner(args); }, now: NOW });
+    await buildSnapshot({ ...VERTUOZA, config, exec: (args) => { seen.push(args.join(' ')); return inner(args); }, now: NOW });
     expect(seen.find((c) => c.includes('--base feat/generic-import'))).toMatch(/--json \S*\bstate\b/);
   });
 
@@ -144,7 +167,7 @@ describe('buildSnapshot', () => {
     ]);
 
     it('keeps each region\'s feature PR, and is not terraformed while one region is unmerged', async () => {
-      const snap = await buildSnapshot({ config: config2, exec: worldOf(fp(500, { mergedAt: '2026-09-22T10:00:00Z' }), fp(700, { createdAt: '2026-09-21T11:00:00Z', isDraft: true })), now: NOW });
+      const snap = await buildSnapshot({ ...VERTUOZA, config: config2, exec: worldOf(fp(500, { mergedAt: '2026-09-22T10:00:00Z' }), fp(700, { createdAt: '2026-09-21T11:00:00Z', isDraft: true })), now: NOW });
       const p = snap.planets[0];
       expect(p.regions.map((r) => [r.repo, r.featurePr?.number, r.featurePr?.mergedAt])).toEqual([['core-repo', 500, '2026-09-22T10:00:00Z'], ['ai-repo', 700, null]]);
       expect(p.featurePr).toEqual({ repo: 'core-repo', number: 500, createdAt: '2026-09-21T08:00:00Z', readyAt: null, mergedAt: null, lastActivityAt: '2026-09-23T08:00:00Z' });
@@ -153,7 +176,7 @@ describe('buildSnapshot', () => {
     });
 
     it('terraforms at the later merge once every region has merged', async () => {
-      const snap = await buildSnapshot({ config: config2, exec: worldOf(
+      const snap = await buildSnapshot({ ...VERTUOZA, config: config2, exec: worldOf(
         fp(500, { mergedAt: '2026-09-22T10:00:00Z', updatedAt: '2026-09-22T10:00:00Z' }),
         fp(700, { createdAt: '2026-09-21T11:00:00Z', mergedAt: '2026-09-23T09:00:00Z', updatedAt: '2026-09-23T09:00:00Z' }),
       ), now: NOW });
@@ -183,7 +206,7 @@ describe('buildSnapshot', () => {
         ['api repos/vertuoza/core-repo/contents/docs/outbox/2332?ref=feat/generic-import --jq', 'settled.md\n'],
         ['api repos/vertuoza/core-repo/contents/docs/outbox/2332/settled.md', SETTLED],
       ]));
-      const snap = await buildSnapshot({ config, exec, now: NOW });
+      const snap = await buildSnapshot({ ...VERTUOZA, config, exec, now: NOW });
       expect(snap.planets[0].outbox).toEqual([
         { id: 's1-01-a', repo: 'core-repo', rank: 'high', raisedAt: '2026-09-22T00:00:00Z', settled: { verdict: 'agreed', at: '2026-09-22T00:00:00Z', by: 'pm', reworkMergedAt: null, reworkBy: null } },
       ]);
@@ -196,7 +219,7 @@ describe('buildSnapshot', () => {
         ['api repos/vertuoza/core-repo/contents/docs/outbox/2332/s1-01-a.md?ref=feat/generic-import', ITEM],
         ['api repos/vertuoza/core-repo/commits?path=docs/outbox/2332/s1-01-a.md', 'null\n'],
       ]));
-      const p = (await buildSnapshot({ config, exec, now: NOW })).planets[0];
+      const p = (await buildSnapshot({ ...VERTUOZA, config, exec, now: NOW })).planets[0];
       expect(p.regions[0].surveyedAt).toBe('2026-09-01T08:00:00Z');
       expect(p.outbox[0].raisedAt).toBe('2026-09-21T07:00:00Z');
     });
@@ -207,14 +230,14 @@ describe('buildSnapshot', () => {
         ['api repos/vertuoza/core-repo/contents/docs/outbox/2332/s1-01-a.md?ref=feat/generic-import', ITEM.replace('raised: 2026-09-21', 'raised: someday')],
         ['api repos/vertuoza/core-repo/commits?path=docs/outbox/2332/s1-01-a.md', ''],
       ]));
-      expect((await buildSnapshot({ config, exec, now: NOW })).planets[0].outbox).toEqual([]);
+      expect((await buildSnapshot({ ...VERTUOZA, config, exec, now: NOW })).planets[0].outbox).toEqual([]);
     });
 
     it('normalises every GitHub timestamp it keeps', async () => {
       const exec = fakeExec(world([
         ['pr list -R vertuoza/core-repo --base feat/generic-import', [{ ...SUB_501, createdAt: '2026-09-21T09:00:00.000Z', mergedAt: '2026-09-21T14:00:00+02:00' }]],
       ]));
-      const p = (await buildSnapshot({ config, exec, now: NOW })).planets[0];
+      const p = (await buildSnapshot({ ...VERTUOZA, config, exec, now: NOW })).planets[0];
       expect(p.zones[0].pr).toMatchObject({ createdAt: '2026-09-21T09:00:00Z', mergedAt: '2026-09-21T12:00:00Z' });
     });
   });
@@ -226,7 +249,7 @@ describe('buildSnapshot', () => {
       ['api repos/vertuoza/core-repo/contents/docs/outbox/2332?ref=feat/generic-import --jq', 'settled.md\n'],
       ['api repos/vertuoza/core-repo/contents/docs/outbox/2332/settled.md', settled],
     ]));
-    const p = (await buildSnapshot({ config, exec, now: NOW })).planets[0];
+    const p = (await buildSnapshot({ ...VERTUOZA, config, exec, now: NOW })).planets[0];
     expect(p.outbox[0].settled).toEqual({ verdict: 'drifted', at: '2026-09-22T10:00:00Z', by: 'pm', reworkMergedAt: '2026-09-22T15:00:00Z', reworkBy: 'carol' });
   });
 
@@ -234,19 +257,19 @@ describe('buildSnapshot', () => {
     it('never asks GitHub for team members', async () => {
       const seen = [];
       const inner = fakeExec(world());
-      await buildSnapshot({ config, exec: (args) => { seen.push(args.join(' ')); return inner(args); }, now: NOW });
+      await buildSnapshot({ ...VERTUOZA, config, exec: (args) => { seen.push(args.join(' ')); return inner(args); }, now: NOW });
       expect(seen.filter((c) => c.includes('/teams/'))).toEqual([]);
     });
 
     it('gives the captain\'s fleet to the planet whatever the login\'s case, and none to an unlinked captain', async () => {
       const shouting = configFrom({ sectors: [{ name: 'core', repos: ['core-repo'] }], teams: [{ name: 'beaver', home: 'core' }], roster: [{ github_login: 'PM', team: 'beaver' }] });
-      expect((await buildSnapshot({ config: shouting, exec: fakeExec(world()), now: NOW })).planets[0].ownerTeam).toBe('beaver');
+      expect((await buildSnapshot({ ...VERTUOZA, config: shouting, exec: fakeExec(world()), now: NOW })).planets[0].ownerTeam).toBe('beaver');
       const nobody = configFrom({ sectors: [{ name: 'core', repos: ['core-repo'] }], teams: [{ name: 'beaver', home: 'core' }], roster: [] });
-      expect((await buildSnapshot({ config: nobody, exec: fakeExec(world()), now: NOW })).planets[0].ownerTeam).toBeNull();
+      expect((await buildSnapshot({ ...VERTUOZA, config: nobody, exec: fakeExec(world()), now: NOW })).planets[0].ownerTeam).toBeNull();
     });
 
     it('stamps each event with the contributor\'s fleet from the roster', async () => {
-      const snap = await buildSnapshot({ config, exec: fakeExec(world()), now: NOW });
+      const snap = await buildSnapshot({ ...VERTUOZA, config, exec: fakeExec(world()), now: NOW });
       expect(snap.teams).toEqual({ pm: 'beaver', alice: 'beaver' });
       const secured = projectEvents(snap, { config, now: NOW }).find((e) => e.type === 'ZONE_SECURED');
       expect(secured).toMatchObject({ contributor: 'alice', team: 'beaver' });
@@ -255,7 +278,7 @@ describe('buildSnapshot', () => {
 
   describe('bug fixes (F5c)', () => {
     const bug = (number) => ({ number, createdAt: '2026-09-22T09:00:00Z', closedAt: '2026-09-23T09:00:00Z', closedBy: { login: 'pm' } });
-    const bugsOf = async (extra) => (await buildSnapshot({ config, exec: fakeExec(world(extra)), now: NOW })).planets[0].bugs;
+    const bugsOf = async (extra) => (await buildSnapshot({ ...VERTUOZA, config, exec: fakeExec(world(extra)), now: NOW })).planets[0].bugs;
     const ref = (number) => ({ number, url: `https://github.com/vertuoza/core-repo/pull/${number}`, repository: { name: 'core-repo', owner: { login: 'vertuoza' } } });
 
     it('credits a closed bug to the author of a merged PR that closed it', async () => {
@@ -304,7 +327,7 @@ describe('buildSnapshot', () => {
       ['api repos/vertuoza/core-repo/commits?path=docs/outbox/2332/s1-01-a.md', '2026-09-21T10:00:00Z\n'],
       ['issue list -R vertuoza/core-repo --label bug', []],
     ]);
-    const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z') });
+    const snap = await buildSnapshot({ ...VERTUOZA, config, exec, now: new Date('2026-09-23T14:00:00Z') });
     expect(snap.teams).toEqual({ pm: 'beaver', alice: 'beaver' });
     expect(snap.planets).toHaveLength(1);
     const p = snap.planets[0];
@@ -324,7 +347,7 @@ describe('buildSnapshot', () => {
       ['issue list -R vertuoza/vertuo-omni-plan --label omni:prd', [{ number: 2400, title: 'New', assignees: [], createdAt: '2026-09-20T08:00:00Z', closedAt: null }]],
       ['api repos/vertuoza/core-repo/contents/docs/inbox --jq', ''],
     ]);
-    const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z') });
+    const snap = await buildSnapshot({ ...VERTUOZA, config, exec, now: new Date('2026-09-23T14:00:00Z') });
     expect(snap.planets[0]).toMatchObject({ prd: 2400, captain: null, ownerTeam: null, regions: [], featurePr: null, zones: [], outbox: [], bugs: [] });
   });
 
@@ -345,7 +368,7 @@ describe('buildSnapshot', () => {
       ['api repos/vertuoza/core-repo/contents/docs/outbox/2332/broken.md?ref=feat/generic-import', '## no front matter here\n'],
       ['issue list -R vertuoza/core-repo --label bug', []],
     ]);
-    const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z') });
+    const snap = await buildSnapshot({ ...VERTUOZA, config, exec, now: new Date('2026-09-23T14:00:00Z') });
     expect(snap.planets[0].outbox).toEqual([{ id: 's1-01-a', repo: 'core-repo', rank: 'high', raisedAt: '2026-09-21T10:00:00Z', settled: null }]);
   });
 
@@ -357,7 +380,7 @@ describe('buildSnapshot', () => {
       ['api repos/vertuoza/core-repo/commits?path=docs/inbox/2332-generic-import.md', new Error('gh: 502 Bad Gateway')],
       ['pr list -R vertuoza/core-repo --search', []],
     ]);
-    const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z') });
+    const snap = await buildSnapshot({ ...VERTUOZA, config, exec, now: new Date('2026-09-23T14:00:00Z') });
     expect(snap.planets[0].regions).toEqual([{ repo: 'core-repo', blockedBy: [], surveyedAt: '2026-09-05T08:00:00Z', featurePr: null }]);
   });
 
@@ -381,7 +404,7 @@ describe('buildSnapshot', () => {
       // exec throws — that failure is what would prove filtering broken.
       ['pr list -R vertuoza/core-repo --search "Closes #2332" in:body', []],
     ]);
-    const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z'), prds: [2332] });
+    const snap = await buildSnapshot({ ...VERTUOZA, config, exec, now: new Date('2026-09-23T14:00:00Z'), prds: [2332] });
     expect(snap.planets).toHaveLength(1);
     expect(snap.planets[0].prd).toBe(2332);
   });
@@ -394,7 +417,7 @@ describe('buildSnapshot', () => {
       // and (critically) buildSnapshot must never ask for its commit history.
       ['api repos/vertuoza/core-repo/contents/docs/inbox/broken.md', '## no front matter\n'],
     ]);
-    const snap = await buildSnapshot({ config, exec, now: new Date('2026-09-23T14:00:00Z') });
+    const snap = await buildSnapshot({ ...VERTUOZA, config, exec, now: new Date('2026-09-23T14:00:00Z') });
     expect(snap.planets[0]).toMatchObject({ prd: 2401, regions: [], featurePr: null, zones: [], outbox: [], bugs: [] });
   });
 });

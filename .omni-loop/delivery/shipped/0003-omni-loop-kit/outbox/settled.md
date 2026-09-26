@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-25
 - Slice: s1
 - Wave: 1
+- Stays here: This is a narrow exemption in one test guard that costs two test entries to change. Nothing here is a lasting product rule or architectural decision beyond the guard itself.
 
 ### The answer, as it was given
 
@@ -87,6 +88,7 @@ Two entries in `kit/test/no-literals.test.mjs`.
 - Raised: 2026-09-25
 - Slice: s15
 - Wave: 10
+- Became: N-PRODUCT-1
 
 ### The answer, as it was given
 
@@ -156,6 +158,7 @@ Moving it back is a file move plus imports.
 - Raised: 2026-09-25
 - Slice: s3
 - Wave: 3
+- Became: N-PRODUCT-2
 
 ### The answer, as it was given
 
@@ -225,6 +228,7 @@ One function in `kit/lib/check-report.mjs`.
 - Raised: 2026-09-25
 - Slice: s6
 - Wave: 6
+- Stays here: A local error-handling guard in one function, cheap to change and adopted without review; nothing lasting beyond consistency with settleItem.
 
 ### The answer, as it was given
 
@@ -294,6 +298,7 @@ One guard in `kit/lib/outbox/settle.mjs`.
 - Raised: 2026-09-25
 - Slice: s9
 - Wave: 8
+- Stays here: This is a small reporting detail that can be changed by editing one field. It sets no lasting architectural or business rule, and no existing ADR covers it.
 
 ### The answer, as it was given
 
@@ -365,6 +370,7 @@ One field on the result in `kit/lib/outbox/status.mjs`.
 - Raised: 2026-09-25
 - Slice: s13
 - Wave: 8
+- Became: BR-PRODUCT-1, P-PRODUCT-1
 
 ### The answer, as it was given
 
@@ -436,6 +442,7 @@ One classifier in `kit/lib/policy/phase-0.mjs` and its tests; narrowing it later
 - Raised: 2026-09-25
 - Slice: s14
 - Wave: 9
+- Became: ADR-0003
 
 ### The answer, as it was given
 
@@ -508,6 +515,7 @@ Small: the refusal is one check in `kit/lib/delivery/ship.mjs`; committing would
 - Raised: 2026-09-25
 - Slice: s15
 - Wave: 10
+- Became: ADR-0004
 
 ### The answer, as it was given
 
@@ -579,6 +587,7 @@ One branch in `kit/bin/commands/check.mjs`. The phase-2 outbox workflow must fet
 - Raised: 2026-09-25
 - Slice: s4
 - Wave: 4
+- Became: ADR-0005
 
 ### The answer, as it was given
 

@@ -2,6 +2,7 @@
 // The attract group's text layer: the boot, the title's three phases (title, story, high scores) and
 // the Hall of Heroes.
 import type { GalaxyView } from '@omni/galaxy';
+import { brandWord, type Brand } from '../brand';
 import { Hint } from '../hint';
 import { useScreen } from '../Screen';
 import { FleetSprite, HeroSprite } from '../Sprite';
@@ -14,10 +15,11 @@ import './attract.css';
 
 // ── Boot & title ─────────────────────────────────────────────────────────────
 
-export function BootOverlay() {
+// The brand presents: its name under its mark, which the canvas draws.
+export function BootOverlay({ brand }: { brand: Brand }) {
   return (
     <div className="boot">
-      <p className="boot-brand">VERTUOZA</p>
+      <p className="boot-brand">{brandWord(brand)}</p>
       <p className="boot-presents">PRESENTS</p>
     </div>
   );
@@ -41,8 +43,8 @@ const STORY = [
   'CLOSE THE WOUNDS. SAVE THE PLANETS.',
 ];
 
-export function TitleOverlay({ view, phase, sceneT, who, signedIn }: {
-  view: GalaxyView | null; phase: 'title' | 'story' | 'hiscore'; sceneT: number; who: string; signedIn: boolean;
+export function TitleOverlay({ view, phase, sceneT, who, signedIn, brand }: {
+  view: GalaxyView | null; phase: 'title' | 'story' | 'hiscore'; sceneT: number; who: string; signedIn: boolean; brand: Brand;
 }) {
   // Nobody gets in without signing in: until then the cabinet asks for a coin.
   const cta = signedIn ? 'PRESS START' : 'INSERT COIN';
@@ -82,7 +84,7 @@ export function TitleOverlay({ view, phase, sceneT, who, signedIn }: {
       <p className="tagline">TERRAFORM THE GALAXY</p>
       <p className="press blink">{cta}</p>
       <footer className="title-foot">
-        <span>© 2026 VERTUOZA</span>
+        <span>{`© 2026 ${brandWord(brand)}`}</span>
         <span>{who}</span>
         <span>{view ? `${view.totals.planets} PLANETS · ${view.totals.openWounds} ENTROPY` : 'SIGN IN TO SEE THE GALAXY'}</span>
       </footer>

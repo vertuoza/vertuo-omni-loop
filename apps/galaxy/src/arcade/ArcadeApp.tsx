@@ -1,8 +1,10 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { GalaxyView } from '@omni/galaxy';
 import { randomHero, type Hero } from '@omni/sprites';
-import { drawFrame, layoutMap, neighbour, type FrameState, type SceneName } from './scenes';
+import {
+  chartKey, drawFrame, layoutChart, layoutMap, layoutSystem, neighbour, sunAt, worldAt, type ChartSource, type FrameState, type SceneName,
+} from './scenes';
 import { useForm } from './form';
 import { useFullscreen } from './fullscreen';
 import { frameFor, gridFor, pagesFor, turnPage } from './grid';
@@ -18,11 +20,15 @@ import {
   CoinOverlay, GateOverlay, IntroOverlay, LinkOverlay, OutsiderOverlay, ReadyOverlay, WelcomeOverlay, type LinkState,
 } from './scenes/join.tsx';
 import { BuilderOverlay, NameOverlay, SelectOverlay } from './scenes/recruit.tsx';
-import { BriefingOverlay, MenuOverlay, menuItems } from './scenes/menu.tsx';
+import { BriefingOverlay, doorOf, MenuOverlay, menuItems } from './scenes/menu.tsx';
+import { cardPages, ChartOverlay, SystemOverlay } from './scenes/chart.tsx';
 import { MapOverlay } from './scenes/map.tsx';
 import { PLANET_TABS, PlanetOverlay } from './scenes/planet.tsx';
 import { FleetsOverlay } from './scenes/fleets.tsx';
 import { setFleets } from './fleets';
+import { brandLook, HOUSE_BRAND, type Brand } from './brand';
+import { stripesOf, themeVars } from './theme';
+import { Stripes } from './Sprite';
 import { foldChar, foldName, nameInit, nameReduce, nameValue, NAME_RULE, type NameAction, type NameState } from './name-entry';
 import { BUILDER_ROWS, cycleHero } from './builder';
 import { afterGate, afterReturn, afterStart, allowed, backStep, isDisbanded, isLinked, nextStep, readReturn, type Flow, type Step } from './onboarding';
@@ -45,9 +51,11 @@ export interface UI {
   away: boolean;
   error: string | null;
   toast: string | null;
+  sun: number; world: number; // the star chart's sun and the system's world under the cursor
+  card: boolean; cardPage: number; // the reading card over the system, and its page
 }
 
-const DEEP_LINKS: SceneName[] = ['map', 'fleets', 'heroes', 'briefing'];
+const DEEP_LINKS: SceneName[] = ['map', 'chart', 'fleets', 'heroes', 'briefing'];
 const FLOW_KEY = 'omni-loop:flow'; // survives the trip to GitHub and back
 
 function readHash(view: GalaxyView | null): Partial<UI> | null {
@@ -89,10 +97,18 @@ export interface ArcadeProps {
   me?: Player | null;
   crew?: Player[];
   problem?: string | null;
+  /** Whose arcade it is: its name draws the mark's letter and the boot's and the title's words, its theme colours the arcade. The house brand when none is given. */
+  brand?: Brand;
+  /** The star chart's knowledge: the crew's and the demo's only; `'none'` in a build without it (see ChartSource). */
+  knowledge?: ChartSource;
 }
 
-export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null }: ArcadeProps) {
+export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null, brand = HOUSE_BRAND, knowledge = null }: ArcadeProps) {
   setFleets(fleets);
+  // The brand's look: its theme, written as custom properties on the root element below and read by
+  // the canvas, and its mark in the theme's colours. The theme {} is today's arcade.
+  const { theme, mark } = useMemo(() => brandLook(brand), [brand]);
+  const themeStyle = useMemo(() => themeVars(theme) as CSSProperties, [theme]);
   const active = useMemo(() => fleets.filter((f) => !f.retired), [fleets]);
   // The form follows the device (a mouse, or touch upright or sideways); turning the phone changes
   // the body around the screen and the grid a scene is drawn on, never the game's state.
@@ -101,6 +117,9 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   formRef.current = form;
   const mapGrid = gridFor(form, 'map');
   const layout = useMemo(() => (view ? layoutMap(view, mapGrid) : []), [view, mapGrid]);
+  const graph = knowledge && knowledge !== 'none' ? knowledge : null;
+  const chartGrid = gridFor(form, 'chart'), systemGrid = gridFor(form, 'system');
+  const chart = useMemo(() => (graph ? layoutChart(graph, chartGrid) : { suns: [], lanes: [] }), [graph, chartGrid]);
   const start = useRef(typeof performance !== 'undefined' ? performance.now() : 0);
   const now = () => (performance.now() - start.current) / 1000;
   const firstPlanet = view ? Math.max(0, view.planets.findIndex((p) => p.state === 'distress')) : 0;
@@ -113,8 +132,13 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     flow: 'onboard', pick: 0, lockedAt: null, lockSaved: false, confirm: false,
     name: nameInit(''), shake: -1, hero: me0?.hero ?? { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 }, heroRow: 0,
     link: 'ask', linkLogin: null, away: false, error: null, toast: null,
+    sun: 0, world: 0, card: false, cardPage: 0,
   }));
   const [muted, setMuted] = useState(false);
+  const system = useMemo(() => {
+    const sun = chart.suns[ui.sun];
+    return graph && sun ? layoutSystem(graph, sun.name, systemGrid) : null;
+  }, [graph, chart, ui.sun, systemGrid]);
   const uiRef = useRef(ui);
   uiRef.current = ui;
   const meRef = useRef(me);
@@ -305,12 +329,13 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const items = menuItems({ joined: Boolean(meRef.current?.team), linked: isLinked(sessionRef.current, meRef.current), signedIn: Boolean(sessionRef.current) });
     const item = items[i];
     if (!item) return;
-    if (item.scene) return view ? go({ scene: item.scene, menu: i }, 'select') : go({ menu: i, toast: problem ?? 'SIGN IN TO SEE THE GALAXY' }, 'buzz');
+    const door = doorOf(item, { view, chart: knowledge, problem });
+    if (door) return 'scene' in door ? go({ scene: door.scene, menu: i, card: false }, 'select') : go({ menu: i, toast: door.refused }, 'buzz');
     if (item.id === 'myhero') return open('name', { flow: 'myhero', menu: i }, 'select');
     if (item.id === 'change') return open('select', { flow: 'change', menu: i }, 'select');
     if (item.id === 'link') return open('link', { flow: 'link', menu: i }, 'select');
     if (item.id === 'signout') return signOut();
-  }, [view, go, open, signOut, problem]);
+  }, [view, knowledge, go, open, signOut, problem]);
 
   const act = useCallback((action: Action) => {
     const u = uiRef.current;
@@ -418,6 +443,12 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'down') return go({ sel: (u.sel + 1) % planets }, 'move');
         if (action === 'b' || action === 'start') return go({ scene: 'map' }, 'back');
         return;
+      case 'chart': case 'system': {
+        const entry = system?.worlds[u.world]?.entry;
+        const pages = () => (graph && entry ? cardPages(graph, entry, gridFor(formRef.current, 'system').name).length : 1);
+        const move = chartKey({ ...u, scene: u.scene }, action, { chart, system, pages });
+        return move ? go(move.patch, move.sound) : undefined;
+      }
       case 'fleets': {
         const n = view?.teams.length ?? 0;
         if (!n) return action === 'b' ? go({ scene: 'menu' }, 'back') : undefined;
@@ -440,7 +471,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') return go({ scene: 'menu' }, 'back');
       }
     }
-  }, [view, fleets, active, layout, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, openItem]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, openItem]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): the first press
@@ -494,8 +525,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const grid = gridFor(form, ui.scene);
   const pages = pagesFor(ui.scene, { view, grid });
   const page = Math.min(ui.page, pages - 1);
-  const frameRef = useRef({ view, layout, active, me, grid, page });
-  frameRef.current = { view, layout, active, me, grid, page };
+  const frameRef = useRef({ view, layout, active, me, grid, page, mark, theme, knowledge, chart, system });
+  frameRef.current = { view, layout, active, me, grid, page, mark, theme, knowledge, chart, system };
   useEffect(() => {
     const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     let raf = 0;
@@ -508,12 +539,13 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       const f = frameRef.current;
       const picking = u.scene === 'select' ? f.active[u.pick]?.name ?? null : null;
       const frame: FrameState = {
-        scene: u.scene, grid: f.grid, page: f.page, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches,
+        scene: u.scene, grid: f.grid, page: f.page, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches, mark: f.mark, theme: f.theme,
         join: {
           fleets: f.active, pick: u.pick, lockedAt: u.lockedAt, away: u.away || u.link === 'away',
           team: picking ?? f.me?.team ?? null,
           hero: u.scene === 'hero' ? u.hero : f.me?.hero ?? u.hero,
         },
+        chart: { source: f.knowledge, layout: f.chart, system: f.system, sun: u.sun, world: u.world },
       };
       const phase = titlePhaseAt(t - u.since);
       drawFrame(ctx, frame, !f.view && phase === 'hiscore' ? 'title' : phase); // no high scores without the galaxy
@@ -532,6 +564,17 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const u = uiRef.current;
     if (u.scene === 'boot' || u.scene === 'title' || u.scene === 'gate' || u.scene === 'ready' || u.scene === 'welcome') return act('start');
     if (u.scene === 'link' && u.link === 'done') return act('start');
+    if (u.scene === 'chart') {
+      const hit = sunAt(chart, p);
+      if (!hit) return;
+      return hit.index === u.sun ? act('a') : go({ sun: hit.index, world: 0 }, 'move');
+    }
+    if (u.scene === 'system') {
+      if (u.card) return; // the card is read, and closed, with its own buttons
+      const hit = system ? worldAt(system, p) : null;
+      if (!hit) return;
+      return hit.index === u.world ? act('a') : go({ world: hit.index }, 'move');
+    }
     if (u.scene !== 'map') return;
     const hit = planetAt(layout, p);
     if (!hit) return;
@@ -560,8 +603,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     : account.kind === 'demo' ? 'DEMO GALAXY' : account.kind === 'closed' ? 'SIGN-IN NOT OPEN YET' : problem ? 'GALAXY OUT OF REACH' : 'SIGNED OUT';
   const overlay = (() => {
     switch (ui.scene) {
-      case 'boot': return <BootOverlay />;
-      case 'title': return <TitleOverlay view={view} phase={view ? phase : phase === 'hiscore' ? 'title' : phase} sceneT={now() - ui.since} who={who} signedIn={Boolean(session)} />;
+      case 'boot': return <BootOverlay brand={brand} />;
+      case 'title': return <TitleOverlay view={view} phase={view ? phase : phase === 'hiscore' ? 'title' : phase} sceneT={now() - ui.since} who={who} signedIn={Boolean(session)} brand={brand} />;
       case 'coin': return <CoinOverlay away={ui.away} error={ui.error} demo={account.kind === 'demo'} closed={account.kind === 'closed'} />;
       case 'outsider': return <OutsiderOverlay email={session?.email ?? ''} />;
       case 'gate': return <GateOverlay name={me?.team ? me.display_name : null} />;
@@ -576,28 +619,35 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'link': return <LinkOverlay state={ui.link} name={displayName} login={ui.linkLogin ?? session?.github ?? me?.github_login ?? null} error={ui.error} demo={account.kind === 'demo'} />;
       case 'ready': return <ReadyOverlay name={displayName} team={me?.team ?? null} />;
       case 'welcome': return <WelcomeOverlay name={displayName} team={me?.team ?? null} />;
-      case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={openItem} />;
+      case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={openItem} chart={knowledge} />;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => act('a')} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => go({ tab }, 'tab')} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => go({ fleet: i }, 'move')} /> : null;
       case 'heroes': return view ? <HeroesOverlay view={view} crew={crew} /> : null;
       case 'briefing': return view ? <BriefingOverlay view={view} /> : null;
+      case 'chart': return <ChartOverlay source={knowledge} layout={chart} sun={ui.sun} onEnter={() => act('a')} />;
+      case 'system': return graph && system
+        ? <SystemOverlay graph={graph} layout={system} world={ui.world} card={ui.card} cardPage={ui.cardPage} onRead={() => act('a')} onPage={(cardPage) => go({ cardPage }, 'tab')} />
+        : <ChartOverlay source={knowledge} layout={chart} sun={ui.sun} onEnter={() => act('a')} />;
     }
   })();
 
   const info = useMemo<ScreenInfo>(() => ({ form, grid, page, pages }), [form, grid, page, pages]);
   const body = { season: view?.season ?? null, muted, onAction: press, onSound: toggleSound };
   // The screen keeps its place in the tree in every form, so turning the phone keeps it as it is.
+  // The root carries the theme's custom properties, and the sprites in its panels its stripes.
   return (
-    <div className={`shell form-${form}`}>
-      <Lens bare={form === 'full'} muted={muted}>
-        <Screen scene={ui.scene} frame={frameFor(form)} info={info} canvasRef={canvasRef} onTap={onTap}>
-          <Press.Provider value={press}>{overlay}</Press.Provider>
-          {ui.toast && <p className="j-toast" role="status">{ui.toast}</p>}
-        </Screen>
-      </Lens>
-      {form === 'handheld' && <Handheld {...body} />}
-      {form === 'advance' && <Advance {...body} />}
+    <div className={`shell form-${form}`} style={themeStyle}>
+      <Stripes.Provider value={stripesOf(theme)}>
+        <Lens bare={form === 'full'} muted={muted}>
+          <Screen scene={ui.scene} frame={frameFor(form)} info={info} canvasRef={canvasRef} onTap={onTap}>
+            <Press.Provider value={press}>{overlay}</Press.Provider>
+            {ui.toast && <p className="j-toast" role="status">{ui.toast}</p>}
+          </Screen>
+        </Lens>
+        {form === 'handheld' && <Handheld {...body} />}
+        {form === 'advance' && <Advance {...body} />}
+      </Stripes.Provider>
     </div>
   );
 }
