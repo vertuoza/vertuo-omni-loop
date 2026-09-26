@@ -1,6 +1,9 @@
 /* The workspace's history (PRD 144). Every colour is a token of src/ask/theme-tokens.ts, as in
    src/ask/ask.css, so light, dark and system follow the theme switch. */
 
+/* The header now holds History beside For me: neither label breaks on a phone. */
+.ask a.ask-for-me-nav { white-space: nowrap; }
+
 /* ── The filters and the search ──────────────────────────────────────────── */
 
 .ask-history-filters {
