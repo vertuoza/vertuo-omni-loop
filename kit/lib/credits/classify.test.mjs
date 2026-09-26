@@ -1,8 +1,9 @@
-// PRD #99, slice s3: the credits classifier — whose pull request it is, its kind, its state and its
-// signature — a pure unit over fixture pull requests and commits (AC 7, AC 9 first half).
+// PRD #99, slices s3 and s4: the credits classifier — whose pull request or issue it is, its kind,
+// its state and its signature — a pure unit over fixture pull requests, issues and commits (AC 7,
+// AC 8, AC 9).
 import { describe, expect, it } from 'vitest';
 import { ConfigSchema } from '../config.mjs';
-import { creditPullRequests, mergedPullRequest, summarize } from './classify.mjs';
+import { creditCommits, creditItems, mergedPullRequest, summarize } from './classify.mjs';
 
 const { labels, signature } = ConfigSchema.parse({ kit: 1 });
 const TRAILER = 'Co-authored-by: OmniMan <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
@@ -28,8 +29,15 @@ function commit(subject, { repo = 'acme/widgets', trailer = TRAILER } = {}) {
   return { repo, sha: `sha-${subject}`, message: `${subject}\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n${trailer}\n`, date: '2026-08-11T09:00:00Z' };
 }
 
-const credit = (prs, { commits = [], since = null, sig = signature } = {}) =>
-  creditPullRequests({ prs, commits, labels, signature: sig, since });
+/** One issue as the reader hands it over; unlabelled, unsigned and open unless told otherwise. */
+function issue(number, overrides = {}) {
+  return { ...pr(number, { state: 'open', title: `Issue ${number}` }), ...overrides };
+}
+
+const BOT = 'omni-loop-invader[bot]';
+
+const credit = (prs, { commits = [], since = null, sig = signature, issues = [] } = {}) =>
+  creditItems({ prs, issues, commits, labels, signature: sig, since });
 const numbers = (items) => items.map((item) => item.number);
 
 describe('mergedPullRequest', () => {
@@ -108,7 +116,7 @@ describe('state and kind (AC 7)', () => {
     expect(items.map((item) => item.kind)).toEqual(['phase-0', 'feature', 'slice', 'other']);
 
     const renamed = { ...labels, sub: 'loop:slice' };
-    const [item] = creditPullRequests({ prs: [pr(1, { labels: ['loop:slice'] })], commits: [], labels: renamed, signature, since: null });
+    const [item] = creditItems({ prs: [pr(1, { labels: ['loop:slice'] })], issues: [], commits: [], labels: renamed, signature, since: null });
     expect(item).toMatchObject({ kind: 'slice', reasons: ['label'] });
   });
 });
@@ -171,6 +179,119 @@ describe('signature: null', () => {
   });
 });
 
+describe('PRD issues (AC 8)', () => {
+  it('an issue is his by the PRD label alone or the marker alone, open or closed', () => {
+    const items = credit([], {
+      issues: [
+        issue(10, { labels: ['omni:prd'] }),
+        issue(11, { body: SIGNED_BODY, state: 'closed' }),
+        issue(12, { labels: ['bug'] }),
+        issue(13, { labels: ['omni:sub'] }),
+      ],
+    });
+    expect(items.map(({ type, number, kind, state, reasons }) => ({ type, number, kind, state, reasons }))).toEqual([
+      { type: 'issue', number: 10, kind: 'prd', state: 'open', reasons: ['label'] },
+      { type: 'issue', number: 11, kind: 'prd', state: 'closed', reasons: ['marker'] },
+    ]);
+  });
+
+  it('tells a pull request from an issue, and lists both oldest first', () => {
+    const items = credit([pr(2, { labels: ['omni:sub'], createdAt: '2026-08-02T09:00:00Z' })], {
+      issues: [issue(1, { labels: ['omni:prd'], createdAt: '2026-08-01T09:00:00Z' })],
+    });
+    expect(items.map(({ type, number }) => `${type} ${number}`)).toEqual(['issue 1', 'pr 2']);
+  });
+
+  it('splits the unsigned around the repository\'s first signed item, a pull request or an issue', () => {
+    const items = credit(
+      [
+        pr(1, { labels: ['omni:sub'], createdAt: '2026-07-01T09:00:00Z' }),
+        pr(3, { labels: ['omni:sub'], createdAt: '2026-08-03T09:00:00Z' }),
+      ],
+      {
+        issues: [
+          issue(2, { labels: ['omni:prd'], createdAt: '2026-08-01T09:00:00Z', body: SIGNED_BODY }),
+          issue(4, { labels: ['omni:prd'], createdAt: '2026-08-04T09:00:00Z' }),
+          issue(5, { labels: ['omni:prd'], createdAt: '2026-06-04T09:00:00Z' }),
+        ],
+      },
+    );
+    expect(items.map(({ type, number, signature: s }) => `${type} ${number} ${s}`)).toEqual([
+      'issue 5 before signing',
+      'pr 1 before signing',
+      'issue 2 signed',
+      'pr 3 missed',
+      'issue 4 missed',
+    ]);
+  });
+
+  it('--since keeps only the issues created from that month on', () => {
+    const items = credit([], {
+      since: '2026-08',
+      issues: [issue(1, { labels: ['omni:prd'], createdAt: '2026-07-31T23:59:59Z' }), issue(2, { labels: ['omni:prd'] })],
+    });
+    expect(numbers(items)).toEqual([2]);
+  });
+
+  it('with signature: null, only the label says an issue is his, and no signature is given', () => {
+    const items = credit([], { sig: null, issues: [issue(1, { labels: ['omni:prd'], body: SIGNED_BODY }), issue(2, { body: SIGNED_BODY })] });
+    expect(items.map(({ number, reasons, signature: s }) => ({ number, reasons, signature: s }))).toEqual([
+      { number: 1, reasons: ['label'], signature: null },
+    ]);
+  });
+});
+
+describe('opened by the app (AC 8)', () => {
+  it('an issue or a pull request his bot account opened is his, by the app, however gh names the account', () => {
+    const items = credit([pr(3, { author: 'app/omni-loop-invader' })], {
+      issues: [issue(1, { author: BOT }), issue(2, { author: BOT, labels: ['omni:prd'] })],
+    });
+    expect(items.map(({ type, number, kind, reasons, signature: s }) => ({ type, number, kind, reasons, signature: s }))).toEqual([
+      { type: 'issue', number: 1, kind: 'issue', reasons: ['author'], signature: 'by the app' },
+      { type: 'issue', number: 2, kind: 'prd', reasons: ['label', 'author'], signature: 'by the app' },
+      { type: 'pr', number: 3, kind: 'other', reasons: ['author'], signature: 'by the app' },
+    ]);
+  });
+
+  it('a pull request the app opened and closed without merging is not counted', () => {
+    expect(credit([pr(1, { author: BOT, state: 'closed' })])).toEqual([]);
+  });
+
+  it('what the app opened sets no repository\'s first signed item', () => {
+    const items = credit([pr(2, { labels: ['omni:sub'], createdAt: '2026-08-02T09:00:00Z' })], {
+      issues: [issue(1, { author: BOT, body: SIGNED_BODY, createdAt: '2026-08-01T09:00:00Z' })],
+    });
+    expect(items.map(({ number, signature: s }) => `${number} ${s}`)).toEqual(['1 by the app', '2 before signing']);
+  });
+
+  it('another account is not the app, nor is anyone when the address names no account or signing is off', () => {
+    const others = [issue(1, { author: 'omni-loop-invader' }), issue(2, { author: 'someone[bot]' }), issue(3, { author: null })];
+    expect(credit([], { issues: others })).toEqual([]);
+    const plain = { ...signature, email: 'omniman@example.com' };
+    expect(credit([], { sig: plain, issues: [issue(1, { author: BOT })] })).toEqual([]);
+    expect(credit([], { sig: null, issues: [issue(1, { author: BOT })] })).toEqual([]);
+  });
+
+  it('a user noreply address names that user as the account', () => {
+    const user = { ...signature, email: '42+octocat@users.noreply.github.com' };
+    const [item] = credit([], { sig: user, issues: [issue(1, { author: 'octocat' })] });
+    expect(item).toMatchObject({ reasons: ['author'], signature: 'by the app' });
+  });
+});
+
+describe('creditCommits (AC 8)', () => {
+  it('each co-authored commit with the pull request it merged, oldest first', () => {
+    const commits = [
+      { ...commit('feat: two (#2)'), date: '2026-08-12T09:00:00Z' },
+      { ...commit('chore: no number', { repo: 'acme/other' }), date: '2026-08-11T09:00:00Z' },
+    ];
+    expect(creditCommits(commits)).toEqual([
+      { repo: 'acme/other', sha: 'sha-chore: no number', date: '2026-08-11T09:00:00Z', subject: 'chore: no number', pullRequest: null },
+      { repo: 'acme/widgets', sha: 'sha-feat: two (#2)', date: '2026-08-12T09:00:00Z', subject: 'feat: two (#2)', pullRequest: 2 },
+    ]);
+  });
+});
+
 describe('summarize', () => {
   it('totals the pull requests by state, kind, signature, repository and month', () => {
     const items = credit(
@@ -183,11 +304,13 @@ describe('summarize', () => {
         pr(6, { repo: 'acme/zeta', labels: ['omni:sub'], createdAt: '2026-09-06T09:00:00Z' }),
       ],
     );
-    expect(summarize(items)).toEqual({
-      total: 6,
-      states: { merged: 5, open: 1 },
-      kinds: { 'phase-0': 1, feature: 1, slice: 3, other: 1 },
-      signatures: { signed: 2, 'before signing': 3, missed: 1 },
+    expect(summarize(items)).toMatchObject({
+      prs: {
+        total: 6,
+        states: { merged: 5, open: 1 },
+        kinds: { 'phase-0': 1, feature: 1, slice: 3, other: 1 },
+        signatures: { signed: 2, 'before signing': 3, missed: 1 },
+      },
       byRepo: [
         { repo: 'acme/widgets', count: 3 },
         { repo: 'acme/other', count: 2 },
@@ -201,14 +324,43 @@ describe('summarize', () => {
     });
   });
 
-  it('is all zeros on nothing', () => {
+  it('totals the PRD issues, what the app opened and the co-authored commits apart from the pull requests', () => {
+    const items = credit(
+      [pr(1, { labels: ['omni:sub'] }), pr(2, { author: BOT, state: 'open', repo: 'acme/other', createdAt: '2026-09-01T09:00:00Z' })],
+      {
+        issues: [
+          issue(3, { labels: ['omni:prd'], body: SIGNED_BODY, state: 'closed' }),
+          issue(4, { labels: ['omni:prd'], createdAt: '2026-08-20T09:00:00Z' }),
+          issue(5, { author: BOT }),
+          issue(6, { author: BOT }),
+        ],
+      },
+    );
+    const summary = summarize(items, { commits: [commit('a (#1)'), commit('b')], app: true });
+    expect(summary).toMatchObject({
+      prs: { total: 1, states: { merged: 1, open: 0 }, signatures: { signed: 0, 'before signing': 1, missed: 0 } },
+      prdIssues: { total: 2, states: { open: 1, closed: 1 }, signatures: { signed: 1, 'before signing': 0, missed: 1 } },
+      byTheApp: { issues: 2, prs: 1 },
+      commits: 2,
+      byRepo: [{ repo: 'acme/widgets', count: 1 }],
+      byMonth: [{ month: '2026-08', count: 1 }],
+    });
+  });
+
+  it('is all zeros on nothing, with no app and no commits when they were not read', () => {
     expect(summarize([])).toEqual({
-      total: 0,
-      states: { merged: 0, open: 0 },
-      kinds: { 'phase-0': 0, feature: 0, slice: 0, other: 0 },
-      signatures: { signed: 0, 'before signing': 0, missed: 0 },
+      prs: {
+        total: 0,
+        states: { merged: 0, open: 0 },
+        kinds: { 'phase-0': 0, feature: 0, slice: 0, other: 0 },
+        signatures: { signed: 0, 'before signing': 0, missed: 0 },
+      },
+      prdIssues: { total: 0, states: { open: 0, closed: 0 }, signatures: { signed: 0, 'before signing': 0, missed: 0 } },
+      byTheApp: null,
+      commits: null,
       byRepo: [],
       byMonth: [],
     });
+    expect(summarize([], { commits: [], app: true })).toMatchObject({ byTheApp: { issues: 0, prs: 0 }, commits: 0 });
   });
 });

@@ -1,6 +1,7 @@
-// PRD #99, slice s3: the credits reader, with a stubbed `exec` — the queries it asks `gh` for, what it
-// keeps of each, the 1,000-result cap turned into a warning, and a missing or logged-out `gh` and a
-// rate limit turned into errors (AC 10). It never calls GitHub.
+// PRD #99, slices s3 and s4: the credits reader, with a stubbed `exec` — the queries it asks `gh`
+// for, what it keeps of each (pull requests, PRD issues, what the app opened, commits), the
+// 1,000-result cap turned into a warning, and a missing or logged-out `gh` and a rate limit turned
+// into errors (AC 8, AC 10). It never calls GitHub.
 import { describe, expect, it } from 'vitest';
 import { ConfigSchema } from '../config.mjs';
 import { GitHubUnreadable, readCredits } from './reader.mjs';
@@ -51,7 +52,7 @@ function fakeExec(routes) {
 }
 
 /** Every search answered empty, after `routes`. */
-const quiet = (routes = []) => [...routes, ['search prs', []], ['search commits', []]];
+const quiet = (routes = []) => [...routes, ['search prs', []], ['search issues', []], ['search commits', []]];
 
 const read = (exec, options = {}) =>
   readCredits({ owner: 'acme', repo: null, since: null, labels, signature, exec, ...options });
@@ -62,15 +63,19 @@ function failure({ code, status = 1, stderr = '' } = {}) {
 }
 
 describe('the queries it asks gh for', () => {
-  it('over the organisation: one per loop label, the name in bodies, the name in commits', () => {
+  it('over the organisation: one per loop label, the PRD label, the name in bodies and commits, the app', () => {
     const { exec, calls } = fakeExec(quiet());
     read(exec);
     expect(calls.map((call) => [call.file, ...call.args].join(' '))).toEqual([
       `gh search prs --owner acme --label omni:phase-0 --limit 1000 --json ${PR_FIELDS}`,
       `gh search prs --owner acme --label omni:feature --limit 1000 --json ${PR_FIELDS}`,
       `gh search prs --owner acme --label omni:sub --limit 1000 --json ${PR_FIELDS}`,
+      `gh search issues --owner acme --label omni:prd --limit 1000 --json ${PR_FIELDS}`,
       `gh search prs --owner acme --match body --limit 1000 --json ${PR_FIELDS} -- OmniMan`,
+      `gh search issues --owner acme --match body --limit 1000 --json ${PR_FIELDS} -- OmniMan`,
       'gh search commits --owner acme --limit 1000 --json sha,commit,repository -- OmniMan',
+      `gh search prs --owner acme --app omni-loop-invader --limit 1000 --json ${PR_FIELDS}`,
+      `gh search issues --owner acme --app omni-loop-invader --limit 1000 --json ${PR_FIELDS}`,
     ]);
   });
 
@@ -81,24 +86,46 @@ describe('the queries it asks gh for', () => {
       `search prs --repo acme/widgets --label omni:phase-0 --created >=2026-07-01 --limit 1000 --json ${PR_FIELDS}`,
       `search prs --repo acme/widgets --label omni:feature --created >=2026-07-01 --limit 1000 --json ${PR_FIELDS}`,
       `search prs --repo acme/widgets --label omni:sub --created >=2026-07-01 --limit 1000 --json ${PR_FIELDS}`,
+      `search issues --repo acme/widgets --label omni:prd --created >=2026-07-01 --limit 1000 --json ${PR_FIELDS}`,
       `search prs --repo acme/widgets --match body --created >=2026-07-01 --limit 1000 --json ${PR_FIELDS} -- OmniMan`,
+      `search issues --repo acme/widgets --match body --created >=2026-07-01 --limit 1000 --json ${PR_FIELDS} -- OmniMan`,
       'search commits --repo acme/widgets --committer-date >=2026-07-01 --limit 1000 --json sha,commit,repository -- OmniMan',
+      `search prs --repo acme/widgets --app omni-loop-invader --created >=2026-07-01 --limit 1000 --json ${PR_FIELDS}`,
+      `search issues --repo acme/widgets --app omni-loop-invader --created >=2026-07-01 --limit 1000 --json ${PR_FIELDS}`,
     ]);
   });
 
-  it('asks for the configured labels and name, once each', () => {
+  it('asks for the configured labels, name and account, once each', () => {
     const { exec, calls } = fakeExec(quiet());
     read(exec, {
-      labels: { ...labels, phase0: 'loop', feature: 'loop', sub: 'loop:slice' },
-      signature: { ...signature, name: 'Robo Cop' },
+      labels: { ...labels, prd: 'loop:prd', phase0: 'loop', feature: 'loop', sub: 'loop:slice' },
+      signature: { ...signature, name: 'Robo Cop', email: '7+robo-app[bot]@users.noreply.github.com' },
     });
-    expect(calls.map((call) => call.args.slice(2, 6).join(' '))).toEqual([
-      '--owner acme --label loop',
-      '--owner acme --label loop:slice',
-      '--owner acme --match body',
-      '--owner acme --limit 1000',
+    expect(calls.map((call) => call.args.slice(0, 6).join(' '))).toEqual([
+      'search prs --owner acme --label loop',
+      'search prs --owner acme --label loop:slice',
+      'search issues --owner acme --label loop:prd',
+      'search prs --owner acme --match body',
+      'search issues --owner acme --match body',
+      'search commits --owner acme --limit 1000',
+      'search prs --owner acme --app robo-app',
+      'search issues --owner acme --app robo-app',
     ]);
-    expect(calls.slice(-2).map((call) => call.args.at(-1))).toEqual(['Robo Cop', 'Robo Cop']);
+    expect(calls.slice(3, 6).map((call) => call.args.at(-1))).toEqual(['Robo Cop', 'Robo Cop', 'Robo Cop']);
+  });
+
+  it('looks for a person\'s account by author, and for none when the address is no noreply address', () => {
+    const user = fakeExec(quiet());
+    read(user.exec, { signature: { ...signature, email: '42+octocat@users.noreply.github.com' } });
+    expect(user.calls.slice(-2).map((call) => call.args.slice(0, 6).join(' '))).toEqual([
+      'search prs --owner acme --author octocat',
+      'search issues --owner acme --author octocat',
+    ]);
+
+    const plain = fakeExec(quiet());
+    read(plain.exec, { signature: { ...signature, email: 'omniman@example.com' } });
+    expect(plain.calls.map((call) => call.args.join(' ')).filter((key) => /--(?:app|author) /.test(key))).toEqual([]);
+    expect(plain.calls.at(-1).args.slice(0, 2)).toEqual(['search', 'commits']);
   });
 
   it('with signature: null, asks only for the labels', () => {
@@ -108,6 +135,7 @@ describe('the queries it asks gh for', () => {
       'search prs --owner acme --label omni:phase-0',
       'search prs --owner acme --label omni:feature',
       'search prs --owner acme --label omni:sub',
+      'search issues --owner acme --label omni:prd',
     ]);
   });
 
@@ -138,6 +166,25 @@ describe('what it keeps', () => {
     ]);
     expect(commits).toEqual([{ repo: 'acme/widgets', sha: 'c1', message: `feat: one (#1)\n\n${TRAILER}\n`, date: '2026-08-11T09:00:00Z' }]);
     expect(warnings).toEqual([]);
+  });
+
+  it('every PRD-labelled issue, an issue body match only with the marker, and all the app opened', () => {
+    const app = { author: { login: 'omni-loop-invader[bot]' } };
+    const { exec, calls } = fakeExec(quiet([
+      ['search issues --owner acme --label omni:prd', [searched(10, { labels: [{ name: 'omni:prd' }], state: 'closed' })]],
+      ['search issues --owner acme --match body', [searched(11, { body: SIGNED_BODY }), searched(12, { body: 'OmniMan rocks' })]],
+      ['search commits', [searchedCommit('c20', `chore: retro (#20)\n\n${TRAILER}`)]],
+      ['search prs --owner acme --app', [searched(20, app)]],
+      ['search issues --owner acme --app', [searched(13, app), searched(10, { labels: [{ name: 'omni:prd' }], state: 'closed' })]],
+    ]));
+    const { prs, issues } = read(exec);
+    expect(issues.map((issue) => `${issue.repo}#${issue.number} ${issue.state} ${issue.author}`)).toEqual([
+      'acme/widgets#10 closed someone',
+      'acme/widgets#11 merged someone',
+      'acme/widgets#13 merged omni-loop-invader[bot]',
+    ]);
+    expect(prs.map((pr) => `${pr.number} ${pr.author}`)).toEqual(['20 omni-loop-invader[bot]']);
+    expect(calls.filter((call) => call.args[0] === 'pr')).toEqual([]);
   });
 
   it('reads a pull request found twice once', () => {
