@@ -1,0 +1,52 @@
+/* The workspace's history (PRD 144). Every colour is a token of src/ask/theme-tokens.ts, as in
+   src/ask/ask.css, so light, dark and system follow the theme switch. */
+
+/* ── The filters and the search ──────────────────────────────────────────── */
+
+.ask-history-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  padding: 16px;
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line);
+  border-radius: 12px;
+}
+.ask-history-field { display: grid; gap: 4px; min-width: 0; }
+.ask-history-field .ask-share-pick,
+.ask-history-field .ask-share-link { width: 100%; }
+.ask-history-search { grid-column: 1 / -1; }
+.ask-history-actions { grid-column: 1 / -1; margin: 0; display: flex; align-items: center; gap: 16px; }
+.ask a.ask-history-clear { color: var(--ask-muted); font-size: 15px; }
+
+/* ── The rounds, newest first ─────────────────────────────────────────────── */
+
+.ask-history-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.ask-history-list > li { display: grid; gap: 4px; }
+.ask-history-list .ask-context { padding: 0 18px; }
+.ask a.ask-history-link {
+  display: grid;
+  gap: 6px;
+  padding: 14px 18px;
+  color: var(--ask-ink);
+  text-decoration: none;
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line);
+  border-radius: 12px;
+  min-width: 0;
+}
+.ask a.ask-history-link:hover { border-color: var(--ask-plasma); }
+.ask a.ask-history-link:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+.ask-history-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ask-history-answer { font-weight: 700; overflow-wrap: anywhere; white-space: pre-wrap; }
+.ask-category-tag {
+  font: 700 12px/1 var(--ask-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ask-ink);
+  background: var(--ask-sunk);
+  border: 1px solid var(--ask-line);
+  border-radius: 4px;
+  padding: 5px 8px;
+}
+.ask-category-tag[data-category="unsorted"] { color: var(--ask-muted); border-style: dashed; }

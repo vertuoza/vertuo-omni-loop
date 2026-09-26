@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  callbackPath, FOR_ME_CALLBACK, forMeSignInReturn, isSessionId, questionCallbackPath, questionSignInReturn, requestOrigin, signInReturn,
+  callbackPath, FOR_ME_CALLBACK, forMeSignInReturn, HISTORY_CALLBACK, historySignInReturn, isSessionId, questionCallbackPath, questionSignInReturn, requestOrigin, signInReturn,
 } from './sign-in';
 
 const ID = '7c1e2a94-0b1d-4c3e-9f00-1234567890ab';
@@ -78,5 +78,10 @@ describe('signing in from a shared question, or For me (PRD 144)', () => {
     const back = new URL(await forMeSignInReturn(new URL(`${ORIGIN}${FOR_ME_CALLBACK}?error=access_denied`), ORIGIN, exchange));
     expect(back.pathname).toBe('/ask/for-me');
     expect(back.searchParams.get('signin_error')).toBe('access_denied');
+  });
+
+  it('comes back to the history', async () => {
+    expect(HISTORY_CALLBACK).toBe('/ask/history/callback');
+    expect(await historySignInReturn(new URL(`${ORIGIN}${HISTORY_CALLBACK}?code=abc`), ORIGIN, exchange)).toBe(`${ORIGIN}/ask/history`);
   });
 });
