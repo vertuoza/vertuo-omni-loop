@@ -310,3 +310,51 @@ Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #103
 Proposed: harvest 2026-09-26
+
+## BR-PRODUCT-27
+
+A workspace theme colour is accepted only as a lowercase six-digit #rrggbb value, the same rule fleet colours follow; a value such as #A45CFF is refused, in the database and in the client schema alike.
+
+Serves: P-PRODUCT-25
+Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s1-02-theme-colours-lowercase, PRD #100
+Enforced by: unenforced
+Stated: 2026-09-26
+Decided: nobody — adopted when raised (medium), 2026-09-25
+Merged: @pierrederval, 2026-09-26, PR #101
+Proposed: harvest 2026-09-26
+
+## BR-PRODUCT-28
+
+link_github() answers only a caller who has at least one workspace_members row; anyone else is refused with 42501 and 'Sign in with an account of a workspace first.', whether or not GitHub is linked.
+
+Serves: P-PRODUCT-26
+Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s1-03-link-github-needs-a-workspace, PRD #100
+Enforced by: unenforced
+Stated: 2026-09-26
+Decided: nobody — adopted when raised (medium), 2026-09-25
+Merged: @pierrederval, 2026-09-26, PR #101
+Proposed: harvest 2026-09-26
+
+## BR-PRODUCT-29
+
+Ask mode is open to any account that belongs to at least one workspace, whichever it is, and each person sees only their own sessions and rounds. An account in no workspace is refused, even with a vertuoza.com email.
+
+Serves: P-PRODUCT-27
+Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry fix-s1-01-migration-after-ask-mode-01-ask-mode-crew-is-any-workspace, PRD #100
+Enforced by: unenforced
+Stated: 2026-09-26
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-26, PR #101
+Proposed: harvest 2026-09-26
+
+## BR-PRODUCT-30
+
+When the arcade cannot read a signed-in person's memberships, domain join or loaders, it treats them as crew: it shows the galaxy-out-of-reach message and never the wrong-account screen.
+
+Serves: P-PRODUCT-28
+Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s5-02-out-of-reach-is-not-outsider, PRD #100
+Enforced by: unenforced
+Stated: 2026-09-26
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-26, PR #101
+Proposed: harvest 2026-09-26
