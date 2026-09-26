@@ -1247,3 +1247,237 @@ Low: a label and a few positions in one stylesheet.
 ```
 
 <!-- /omni-outbox-settled: s5-05-hi-without-a-name-upright -->
+
+<!-- omni-outbox-settled: s6-01-level-memory-when-storage-refused -->
+
+## s6-01-level-memory-when-storage-refused — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s6
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-level-memory-when-storage-refused
+prd: 160
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 5
+---
+
+## The question, in plain words
+
+The level last celebrated is kept in the browser. When the browser refuses to keep anything, as a private or embedded page may, should the level-up still play?
+
+## The decision, in plain words
+
+It plays once each time the page is opened, and not again until the page is reloaded. The level is remembered per GitHub name written in lower case, the same way the XP is saved.
+
+## The intro, for fun
+
+A browser that forgets everything is a goldfish at a party: every lap round the bowl is the first.
+
+## The punchline, for fun
+
+So it gets the cake once per visit, and nobody sings twice in the same room.
+
+## The options, in plain words
+
+A. Play it once each time the page opens when the browser keeps nothing, the option built.
+B. Never play it when the browser keeps nothing, as the NEW label on the games entry already does.
+C. Keep the level celebrated with the player's saved record instead, so every device agrees.
+
+## What I had to decide
+
+The spec keeps the level celebrated in browser storage and says losing it only replays a fanfare. It does not say what to do when storage cannot be read at all, which the single-file demo page may meet, nor how the login in the storage key is written.
+
+## What I did meanwhile
+
+`createSeen()` in `apps/galaxy/src/arcade/levelup.ts` reads and writes `omni-loop:level-seen:<login>` inside try/catch, the login lower-cased as `player_xp` stores it, and also remembers the level in the page: storage that refuses replays the level-up once per page load, never at every arrival at the menu. The NEW tag on GAMES (s2-02) takes the other side: no storage, no tag.
+
+## What it costs to change later
+
+Low: one fallback in one function. Keeping the level in the database instead would need a migration, and is not what this built.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the person wants the demo page to replay the level-up on every visit when its browser keeps nothing.
+
+```
+
+<!-- /omni-outbox-settled: s6-01-level-memory-when-storage-refused -->
+
+<!-- omni-outbox-settled: s6-02-levels-climbed-between-visits -->
+
+## s6-02-levels-climbed-between-visits — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s6
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-levels-climbed-between-visits
+prd: 160
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 5
+---
+
+## The question, in plain words
+
+A player can climb several levels between two visits, for example from no level to level 3. Should the level-up screen then say a new game opened, when the game opened at a level they climbed through rather than the one they reached?
+
+## The decision, in plain words
+
+Yes: the screen names a game when any level climbed since this device last celebrated opened it, and the player's saved record holds that game as unlocked. So the demo guest, at level 3, sees Entropy Invaders unlocked.
+
+## The intro, for fun
+
+Three floors up in one lift ride, and nobody mentioned the arcade on the first floor.
+
+## The punchline, for fun
+
+So the lift now points it out, even though you never pressed that button.
+
+## The options, in plain words
+
+A. Name a game opened by any level climbed since the last celebration on this device, the option built.
+B. Name a game only when the exact level reached opened it, so a player who jumps past it is never told.
+C. Name every game the player holds that this device never celebrated, whatever the level.
+
+## What I had to decide
+
+The plan says NEW GAME UNLOCKED shows only when that level opened a game, and the approved design says crossing an unlock level adds the new game. Neither says what happens when a player climbs past an unlock level between two visits, which is the demo guest's case and any returning player's.
+
+## What I did meanwhile
+
+`levelUpFor()` in `apps/galaxy/src/arcade/levelup.ts` names the first registry game whose unlock level (the rulebook's `xp.unlocks`) lies above the level this device last celebrated and at or below the level reached, and which the player's `player_xp.unlocked` holds. On a new device the first level-up names it once more, as the design's replayed fanfare does. Tested in `levelup.test.ts`.
+
+## What it costs to change later
+
+Low: one condition in one pure function, and its tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the person reads "that level" as the level reached, or as every level passed on the way.
+
+```
+
+<!-- /omni-outbox-settled: s6-02-levels-climbed-between-visits -->
+
+<!-- omni-outbox-settled: s6-03-level-up-words-and-keys -->
+
+## s6-03-level-up-words-and-keys — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s6
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-03-level-up-words-and-keys
+prd: 160
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 5
+---
+
+## The question, in plain words
+
+The approved design shows the level-up for the first point only. What should it say at higher levels and when no game opened, and does it move on by itself?
+
+## The decision, in plain words
+
+Above level 1 it opens on the XP earned instead of the first point, and with no new game it offers one button to continue to the menu. It waits for a button and never moves on alone, since pressing one is what marks the level as seen.
+
+## The intro, for fun
+
+The party was drawn for the first point, and the later birthdays were left to imagination.
+
+## The punchline, for fun
+
+Later birthdays get the same cake, with the candle count written on top.
+
+## The options, in plain words
+
+A. Open on the XP earned above level 1, offer continue when no game opened, and wait for a button, the option built.
+B. Keep the first point's line at every level, and move on to the menu after a few seconds, saving the level then.
+C. Open on what the next level needs instead of the XP earned, and wait for a button.
+
+## What I had to decide
+
+Section 3 of the approved before/after page draws LEVEL UP! LV 1 with FIRST POINT EARNED, NEW GAME UNLOCKED, A · PLAY NOW and B · LATER. It does not draw a later level, a level that opened no game or the tall grid, nor say whether the screen hands over on a timer as the welcome back does.
+
+## What I did meanwhile
+
+`eyebrowOf()` in `apps/galaxy/src/arcade/levelup.ts` says FIRST POINT EARNED at LV 1 and `<xp> XP EARNED` above it. `LevelUpOverlay` shows [A] CONTINUE when no game opened, and A, START and B then all go on to the menu. The scene has no timer. On the tall grid the same pieces stack: the line, LEVEL UP!, the hero at 2x with the level beside it, the XP bar, NEW GAME UNLOCKED.
+
+## What it costs to change later
+
+Low: two strings and a hint in the text layer, or one timer.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the person pictured other words above level 1, or a hand-over to the menu on its own.
+
+```
+
+<!-- /omni-outbox-settled: s6-03-level-up-words-and-keys -->
