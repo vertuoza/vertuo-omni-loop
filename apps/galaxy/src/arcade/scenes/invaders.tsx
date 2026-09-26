@@ -5,6 +5,7 @@
 import type { WoundKind } from '@omni/galaxy';
 import type { Hero } from '@omni/sprites';
 import { woundTint } from '@omni/sprites';
+import { useScreen } from '../Screen';
 import { HeroSprite, Sprite } from '../Sprite';
 import { WOUND_LOOK } from '../fleets';
 import { Hint } from '../hint';
@@ -19,11 +20,12 @@ export function scoreText(score: number): string {
 
 /** What each alien pays, top row first: the close values the view's rules carry. */
 function ScoreTable({ values }: { values: Readonly<Record<WoundKind, number>> }) {
+  const { grid } = useScreen();
   return (
     <ul className="inv-table">
       {rowKinds(values).map((kind) => (
         <li key={kind}>
-          <Sprite name="entropy" tint={woundTint(kind)} />
+          <Sprite name="entropy" tint={woundTint(kind)} scale={grid.name === 'tall' ? 0.75 : 1} />
           <span className="inv-pts">= {values[kind]} PTS</span>
           <span className="inv-kind" style={{ color: WOUND_LOOK[kind].color }}>{WOUND_LOOK[kind].name}</span>
         </li>
@@ -59,13 +61,13 @@ export function InvadersOverlay({ hud, values, hero, team }: {
         </div>
       )}
       {hud.phase === 'paused' && (
-        <div className="j-panel inv-panel">
+        <div className="j-panel inv-panel inv-mid">
           <p className="inv-title">PAUSED</p>
           <p className="hint"><Hint k="ENTER">RESUME</Hint> <Hint k="B">GAME ROOM</Hint></p>
         </div>
       )}
       {hud.phase === 'over' && (
-        <div className="j-panel inv-panel">
+        <div className="j-panel inv-panel inv-mid">
           <p className="inv-title">GAME OVER</p>
           <p className="inv-final"><b>SCORE</b><span>{scoreText(hud.score)}</span></p>
           <p className="inv-sub">WAVE {hud.wave}</p>
