@@ -58,7 +58,8 @@ function graphEntry(entry, pairs) {
   };
 }
 
-function countsOf(entries) {
+/** How many of `entries` are principles, rules and invariants, and how many are laws and proposed. */
+export function countsOf(entries) {
   const counts = { principles: 0, rules: 0, invariants: 0, laws: 0, proposed: 0 };
   for (const entry of entries) {
     counts[`${entry.kind}s`] += 1;

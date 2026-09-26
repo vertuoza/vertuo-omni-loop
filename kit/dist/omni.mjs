@@ -622,8 +622,8 @@ var require_Node = __commonJS({
         };
         const res = toJS.toJS(this, "", ctx);
         if (typeof onAnchor === "function")
-          for (const { count, res: res2 } of ctx.anchors.values())
-            onAnchor(res2, count);
+          for (const { count: count2, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count2);
         return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
       }
     };
@@ -732,13 +732,13 @@ var require_Alias = __commonJS({
         const anchor = anchors2 && source && anchors2.get(source);
         return anchor ? anchor.count * anchor.aliasCount : 0;
       } else if (identity.isCollection(node)) {
-        let count = 0;
+        let count2 = 0;
         for (const item2 of node.items) {
           const c = getAliasCount(doc, item2, anchors2);
-          if (c > count)
-            count = c;
+          if (c > count2)
+            count2 = c;
         }
-        return count;
+        return count2;
       } else if (identity.isPair(node)) {
         const kc = getAliasCount(doc, node.key, anchors2);
         const vc = getAliasCount(doc, node.value, anchors2);
@@ -3729,8 +3729,8 @@ var require_Document = __commonJS({
         };
         const res = toJS.toJS(this.contents, jsonArg ?? "", ctx);
         if (typeof onAnchor === "function")
-          for (const { count, res: res2 } of ctx.anchors.values())
-            onAnchor(res2, count);
+          for (const { count: count2, res: res2 } of ctx.anchors.values())
+            onAnchor(res2, count2);
         return typeof reviver === "function" ? applyReviver.applyReviver(reviver, { "": res }, "", res) : res;
       }
       /**
@@ -3808,12 +3808,12 @@ var require_errors = __commonJS({
         lineStr = prev + lineStr;
       }
       if (/[^ ]/.test(lineStr)) {
-        let count = 1;
+        let count2 = 1;
         const end = error.linePos[1];
         if (end?.line === line && end.col > col) {
-          count = Math.max(1, Math.min(end.col - col, 80 - ci));
+          count2 = Math.max(1, Math.min(end.col - col, 80 - ci));
         }
-        const pointer = " ".repeat(ci) + "^".repeat(count);
+        const pointer = " ".repeat(ci) + "^".repeat(count2);
         error.message += `:
 
 ${lineStr}
@@ -14605,9 +14605,9 @@ function headingAnchors(text3) {
     const match = !fenced && line.match(/^#{1,6}\s+(.*?)\s*#*\s*$/);
     if (!match) continue;
     const base = match[1].replace(/`/g, "").toLowerCase().replace(/[^\p{L}\p{N}\s_-]/gu, "").replace(/\s/g, "-");
-    const count = seen.get(base) ?? 0;
-    seen.set(base, count + 1);
-    anchors.add(count === 0 ? base : `${base}-${count}`);
+    const count2 = seen.get(base) ?? 0;
+    seen.set(base, count2 + 1);
+    anchors.add(count2 === 0 ? base : `${base}-${count2}`);
   }
   return anchors;
 }
@@ -15502,22 +15502,22 @@ function report(stdout, title, violations, passLine) {
 }
 function checkInbox({ ctx, stdout }) {
   const violations = findInboxViolations({ ctx });
-  const count = ctx.layout.specFiles().length;
+  const count2 = ctx.layout.specFiles().length;
   return report(
     stdout,
     "check inbox \u2014 an inbox file does not hold what it claims:",
     violations,
-    `check inbox \u2014 ${count} inbox file(s), all well-formed.`
+    `check inbox \u2014 ${count2} inbox file(s), all well-formed.`
   );
 }
 function checkOutbox({ ctx, stdout }) {
   const violations = findOutboxViolations({ ctx });
-  const count = outboxItemFiles({ ctx }).length;
+  const count2 = outboxItemFiles({ ctx }).length;
   return report(
     stdout,
     "check outbox \u2014 an outbox item does not hold what it claims:",
     violations,
-    `check outbox \u2014 ${count} open item(s), all well-formed.`
+    `check outbox \u2014 ${count2} open item(s), all well-formed.`
   );
 }
 function checkKnowledge({ ctx, stdout, stderr }) {
@@ -15535,19 +15535,19 @@ function checkKnowledge({ ctx, stdout, stderr }) {
   for (const wish of wishes) println(stderr, `warning: ${wish}`);
   for (const proposal of proposals) println(stderr, `warning: ${proposal}`);
   const knowledge2 = readKnowledge({ ctx });
-  const count = (kind) => knowledge2.entries.filter((entry) => entry.kind === kind).length;
+  const count2 = (kind) => knowledge2.entries.filter((entry) => entry.kind === kind).length;
   return report(
     stdout,
     title,
     violations,
-    `check knowledge \u2014 ${count("principle")} principle(s), ${count("rule")} rule(s), ${count("invariant")} invariant(s) across ${knowledge2.domains.length} domain(s) and ${knowledge2.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed.`
+    `check knowledge \u2014 ${count2("principle")} principle(s), ${count2("rule")} rule(s), ${count2("invariant")} invariant(s) across ${knowledge2.domains.length} domain(s) and ${knowledge2.crossDomainFiles.length} cross-domain file(s); ${wishes.length} wish(es), ${proposals.length} proposed.`
   );
 }
 var FORM_STATES2 = ["filled", "pointer", "blank", "missing"];
 function checkKb({ ctx, stdout, stderr, exec }) {
   const { violations, warnings, forms } = gradePlaybook({ ctx, exec });
   for (const warning of warnings) println(stderr, `warning: ${warning}`);
-  const counts = FORM_STATES2.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count]) => count > 0).map(([state, count]) => `${count} ${state}`);
+  const counts = FORM_STATES2.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count2]) => count2 > 0).map(([state, count2]) => `${count2} ${state}`);
   return report(
     stdout,
     "check kb \u2014 a form does not hold what it claims:",
@@ -16136,10 +16136,10 @@ function formatOutboxPrComment({
   const banter = questionBanter({ items: sorted, adopted, numberById });
   const lines = [ctx.markers.prComment, ""];
   if (sorted.length > 0) {
-    const count = sorted.length;
+    const count2 = sorted.length;
     const example = numberById.get(sorted.at(-1).id) ?? 1;
     lines.push(
-      `**${count} question${count === 1 ? "" : "s"} need${count === 1 ? "s" : ""} your decision**`,
+      `**${count2} question${count2 === 1 ? "" : "s"} need${count2 === 1 ? "s" : ""} your decision**`,
       "",
       `Reply to this comment, one line per question: \`${example}: A\` keeps what was built, \`${example}: B because \u2026\` chooses another option. Several answers can go in one reply. To keep every recommendation at once, reply \`go with recommendation\`.`,
       "",
@@ -16258,8 +16258,8 @@ function countsByRank(items) {
 function slackEscape(text3) {
   return text3.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
-function plural(count, singular, pluralForm = `${singular}s`) {
-  return `${count} ${count === 1 ? singular : pluralForm}`;
+function plural(count2, singular, pluralForm = `${singular}s`) {
+  return `${count2} ${count2 === 1 ? singular : pluralForm}`;
 }
 var SLACK_USER_ID = /^[UW][A-Z0-9]{2,}$/;
 function slackOwner({ slackId, login } = {}) {
@@ -16289,7 +16289,7 @@ function slackLine({
   const name = cleanTitle ? `PRD #${prd2} \xB7 ${slackEscape(cleanTitle)}` : `PRD #${prd2}`;
   const who = ownerText(owner);
   const head = who ? `*${name}* \u2014 owner ${who}` : `*${name}*`;
-  const waiting = Object.values(counts).reduce((sum, count) => sum + count, 0);
+  const waiting = Object.values(counts).reduce((sum, count2) => sum + count2, 0);
   const parts = [];
   if (waiting > 0) {
     parts.push(`${waiting} question${waiting === 1 ? " needs" : "s need"} a decision`);
@@ -16632,8 +16632,8 @@ function summarize(items, { commits = null, app = false } = {}) {
     prdIssues,
     byTheApp: app ? byTheApp : null,
     commits: commits === null ? null : commits.length,
-    byRepo: tally(counted2, (item2) => item2.repo).sort(([a, x], [b, y]) => y - x || a.localeCompare(b)).map(([repo, count]) => ({ repo, count })),
-    byMonth: tally(counted2, (item2) => new Date(item2.createdAt).toISOString().slice(0, 7)).sort(([a], [b]) => a.localeCompare(b)).map(([month, count]) => ({ month, count }))
+    byRepo: tally(counted2, (item2) => item2.repo).sort(([a, x], [b, y]) => y - x || a.localeCompare(b)).map(([repo, count2]) => ({ repo, count: count2 })),
+    byMonth: tally(counted2, (item2) => new Date(item2.createdAt).toISOString().slice(0, 7)).sort(([a], [b]) => a.localeCompare(b)).map(([month, count2]) => ({ month, count: count2 }))
   };
 }
 
@@ -16763,7 +16763,7 @@ function cell(text3, width, gap = 1) {
 }
 var joined = (parts) => parts.length ? parts.join(" \xB7 ") : "none";
 var shortName = (repo) => repo.slice(repo.indexOf("/") + 1);
-var counted = (count, one, many) => `${count} ${count === 1 ? one : many}`;
+var counted = (count2, one, many) => `${count2} ${count2 === 1 ? one : many}`;
 var signatureLine = (signatures) => `signed ${signatures.signed} \xB7 before signing ${signatures["before signing"]} \xB7 missed ${signatures.missed}`;
 function creditsReport({ name, scope, since, summary }) {
   const { prs, prdIssues, byTheApp, commits, byRepo, byMonth } = summary;
@@ -16781,8 +16781,8 @@ function creditsReport({ name, scope, since, summary }) {
   }
   if (commits !== null) lines.push(`Co-authored commits on default branches: ${commits}`);
   lines.push(
-    cell("By repo", LABEL) + joined(byRepo.map(({ repo, count }) => `${shortName(repo)} ${count}`)),
-    cell("By month", LABEL) + joined(byMonth.map(({ month, count }) => `${month} ${count}`))
+    cell("By repo", LABEL) + joined(byRepo.map(({ repo, count: count2 }) => `${shortName(repo)} ${count2}`)),
+    cell("By month", LABEL) + joined(byMonth.map(({ month, count: count2 }) => `${month} ${count2}`))
   );
   return lines;
 }
@@ -18953,7 +18953,71 @@ var item = {
 
 // kit/bin/commands/kb.mjs
 init_define_OMNI_BUNDLE();
-var USAGE8 = "usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json]";
+
+// kit/lib/knowledge/graph.mjs
+init_define_OMNI_BUNDLE();
+var GRAPH_VERSION = 1;
+var KINDS3 = ["principle", "rule", "invariant"];
+var PRD_IN_SOURCE = /\bPRD\s*#(\d+)\b/;
+function prdOf(source) {
+  const match = PRD_IN_SOURCE.exec(source ?? "");
+  return match ? Number(match[1]) : null;
+}
+function graphEntry(entry, pairs) {
+  const crossDomain = entry.scope === "cross-domain";
+  return {
+    id: entry.id,
+    kind: entry.kind,
+    domain: crossDomain ? null : entry.domain,
+    domains: crossDomain ? [...pairs.get(entry.file) ?? []] : [entry.domain],
+    statement: entry.statement,
+    why: entry.why,
+    status: entry.proposed === null ? "law" : "proposed",
+    serves: entry.serves,
+    enforced: entry.enforced,
+    enforcedBy: entry.enforcedBy,
+    prd: prdOf(entry.source),
+    file: entry.file
+  };
+}
+function countsOf(entries) {
+  const counts = { principles: 0, rules: 0, invariants: 0, laws: 0, proposed: 0 };
+  for (const entry of entries) {
+    counts[`${entry.kind}s`] += 1;
+    counts[entry.status === "law" ? "laws" : "proposed"] += 1;
+  }
+  return counts;
+}
+function buildGraph(knowledge2, { repo }) {
+  const pairs = new Map(knowledge2.crossDomainFiles.map(({ file, pair }) => [file, pair ?? []]));
+  const entries = knowledge2.entries.filter((entry) => KINDS3.includes(entry.kind)).map((entry) => graphEntry(entry, pairs));
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const domainRows = [
+    ...knowledge2.productFiles.length > 0 ? [{ name: "product", code: PRODUCT_CODE, scope: "product" }] : [],
+    ...knowledge2.domains.map(({ name, code }) => ({ name, code, scope: "domain" }))
+  ];
+  const domains = domainRows.map((row) => ({ ...row, counts: countsOf(entries.filter((entry) => entry.domain === row.name)) }));
+  const links = [];
+  for (const entry of entries) {
+    const served2 = entry.kind === "principle" ? void 0 : byId.get(entry.serves);
+    if (served2?.kind === "principle") links.push({ from: entry.id, to: served2.id, kind: "serves" });
+    const cited = idsCitedIn([entry.statement, entry.why ?? ""].join("\n"));
+    for (const id of cited) {
+      if (id !== entry.id && byId.has(id)) links.push({ from: entry.id, to: id, kind: "cites" });
+    }
+  }
+  const serving = new Set(links.filter((link) => link.kind === "serves").map((link) => link.from));
+  const served = new Set(links.filter((link) => link.kind === "serves").map((link) => link.to));
+  const loose = entries.filter((entry) => entry.kind !== "principle" && !serving.has(entry.id)).map((entry) => entry.id);
+  const unserved = entries.filter((entry) => entry.kind === "principle" && !served.has(entry.id)).map((entry) => entry.id);
+  return { version: GRAPH_VERSION, repo, domains, entries, links, loose, unserved };
+}
+function readGraph({ ctx }) {
+  return buildGraph(readKnowledge({ ctx }), { repo: ctx.config.repo.slug });
+}
+
+// kit/bin/commands/kb.mjs
+var USAGE8 = "usage: omni kb init | omni kb show <form> [--json] | omni kb status [--json] | omni kb graph [--json]";
 function init2(positional, flags, { ctx, stdout }) {
   if (positional.length > 0 || flags.json) throw usageError("usage: omni kb init");
   const files = writeForms({ ctx });
@@ -19007,8 +19071,8 @@ function statusText({ frontDoor, forms, registers }) {
     const counts = [];
     if (questions2.length > 0) counts.push(`${questions2.length} open question(s)`);
     if (stale2.length > 0) counts.push(`${stale2.length} stale evidence`);
-    const columns = [form2.padEnd(width), kind.padEnd(8), state.padEnd(7), SOURCE_LABEL[source].padEnd(11), counts.join(" \xB7 ")];
-    lines.push(`  ${columns.join("  ").trimEnd()}`);
+    const columns2 = [form2.padEnd(width), kind.padEnd(8), state.padEnd(7), SOURCE_LABEL[source].padEnd(11), counts.join(" \xB7 ")];
+    lines.push(`  ${columns2.join("  ").trimEnd()}`);
   }
   const questions = forms.flatMap(({ form: form2, file, questions: open }) => open.map(({ slot, question }) => `  ${form2}#${slot} (${file}): ${question}`));
   const stale = forms.flatMap(
@@ -19025,6 +19089,37 @@ function status(positional, flags, { ctx, stdout, exec }) {
   println(stdout, flags.json ? JSON.stringify(map, null, 2) : statusText(map));
   return 0;
 }
+var count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+function columns({ principles, rules, invariants, laws, proposed }) {
+  return [
+    [count(principles, "principle", "principles"), count(rules, "rule", "rules"), count(invariants, "invariant", "invariants")].join(" \xB7 "),
+    `${count(laws, "law", "laws")} \xB7 ${proposed} proposed`
+  ];
+}
+var pairOf = (entry) => entry.domains.length === 2 ? entry.domains.join("--") : entry.file;
+function graphText({ domains, entries, links, loose, unserved }) {
+  const pairs = /* @__PURE__ */ new Map();
+  for (const entry of entries.filter((one) => one.domain === null)) pairs.set(pairOf(entry), [...pairs.get(pairOf(entry)) ?? [], entry]);
+  const rows = [
+    ...domains.map(({ name, counts }) => [name, ...columns(counts)]),
+    ...[...pairs].map(([name, held]) => [name, ...columns(countsOf(held))])
+  ];
+  const nameWidth = Math.max(0, ...rows.map(([name]) => name.length));
+  const kindsWidth = Math.max(0, ...rows.map(([, kinds]) => kinds.length));
+  const ids = (label, list3) => `  ${label}${list3.length > 0 ? ` (${list3.length}): ${list3.join(", ")}` : ": none"}`;
+  return [
+    `kb graph \u2014 ${count(domains.length, "domain", "domains")}, ${count(entries.length, "entry", "entries")}, ${count(links.length, "link", "links")}`,
+    ...rows.map(([name, kinds, status3]) => `  ${name.padEnd(nameWidth)}    ${kinds.padEnd(kindsWidth)}    ${status3}`),
+    ids("unserved principles", unserved),
+    ids("loose entries", loose)
+  ].join("\n");
+}
+function graph(positional, flags, { ctx, stdout }) {
+  if (positional.length > 0) throw usageError("usage: omni kb graph [--json]");
+  const built = readGraph({ ctx });
+  println(stdout, flags.json ? JSON.stringify(built, null, 2) : graphText(built));
+  return 0;
+}
 var kb = {
   async run(args, io) {
     const { positional, flags } = parseArgs("kb", args, { booleans: ["json"] });
@@ -19032,6 +19127,7 @@ var kb = {
     if (sub === "init") return init2(rest, flags, io);
     if (sub === "show") return show(rest, flags, io);
     if (sub === "status") return status(rest, flags, io);
+    if (sub === "graph") return graph(rest, flags, io);
     throw usageError(USAGE8);
   }
 };
@@ -19288,7 +19384,7 @@ var USAGE10 = "usage: omni plan check <prd>";
 function duplicateIds(slices) {
   const counts = /* @__PURE__ */ new Map();
   for (const slice of slices) counts.set(slice.id, (counts.get(slice.id) ?? 0) + 1);
-  return [...counts.entries()].filter(([, count]) => count > 1).map(([id]) => id);
+  return [...counts.entries()].filter(([, count2]) => count2 > 1).map(([id]) => id);
 }
 function blockedByViolations2(slices) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
