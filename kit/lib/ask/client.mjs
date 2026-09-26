@@ -18,6 +18,9 @@ export class AskCallError extends Error {
   }
 }
 
+/** `body` with `context` added only when there is one: an older server never sees the field. */
+const withContext = (body, context) => (context && typeof context === 'object' ? { ...body, context } : body);
+
 /**
  * @typedef {{ access_token: string, refresh_token?: string, expires_at?: number, email?: string }} Tokens
  * @typedef {{ read(host: string): Tokens | null, write(host: string, tokens: Tokens): void }} TokenStore
@@ -87,11 +90,14 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
   }
 
   return {
-    /** @returns {Promise<{ id: string, url: string }>} */
-    openSession: (title) => call('POST', '/api/ask/sessions', { body: { title } }),
+    /** `context`, when given, is `{ repo }` (PRD 144): optional, an older server ignores it.
+     * @returns {Promise<{ id: string, url: string }>} */
+    openSession: (title, context) => call('POST', '/api/ask/sessions', { body: withContext({ title }, context) }),
     closeSession: (sessionId) => call('POST', `/api/ask/sessions/${segment(sessionId)}/close`),
-    /** `questions` is `AskUserQuestion`'s input as is. @returns {Promise<{ roundId: string }>} */
-    openRound: (sessionId, questions) => call('POST', `/api/ask/sessions/${segment(sessionId)}/rounds`, { body: { questions } }),
+    /** `questions` is `AskUserQuestion`'s input as is; `context`, when given, is where the round came
+     * from and what it cost (`./context.mjs`). @returns {Promise<{ roundId: string }>} */
+    openRound: (sessionId, questions, context) =>
+      call('POST', `/api/ask/sessions/${segment(sessionId)}/rounds`, { body: withContext({ questions }, context) }),
     /** Held by the server up to 50 s. @returns {Promise<{ status: 'open'|'answered'|'abandoned'|'closed', answers?: Record<string, string> }>} */
     wait: (roundId, { timeoutMs = callMs } = {}) => call('GET', `/api/ask/rounds/${segment(roundId)}/wait`, { timeoutMs }),
     /** An answer given in the terminal. */

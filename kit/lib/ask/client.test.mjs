@@ -52,6 +52,19 @@ describe('the ask contract client', () => {
     expect(server.rounds.get(second.roundId).status).toBe('abandoned');
   });
 
+  it('sends a context with a session and a round when it is given one, and none otherwise', async () => {
+    const { client } = await setUp();
+    const context = { repo: 'acme/widgets', branch: 'main', prd: null, claudeSessionId: 'c1', skill: null, model: null, tokens: null };
+    const session = await client.openSession('acme/widgets · main', { repo: 'acme/widgets' });
+    expect(server.calls[0].body).toEqual({ title: 'acme/widgets · main', context: { repo: 'acme/widgets' } });
+    expect(server.sessions.get(session.id).context).toEqual({ repo: 'acme/widgets' });
+    const { roundId } = await client.openRound(session.id, QUESTIONS, context);
+    expect(server.calls[1].body).toEqual({ questions: QUESTIONS, context });
+    expect(server.rounds.get(roundId).context).toEqual(context);
+    await client.openRound(session.id, QUESTIONS);
+    expect(server.calls[2].body).toEqual({ questions: QUESTIONS });
+  });
+
   it('keeps a path under ask.url, with or without a trailing slash', async () => {
     server = await startFakeAskServer();
     const tokens = memoryTokens({ [server.host]: { access_token: 'access-1' } });
