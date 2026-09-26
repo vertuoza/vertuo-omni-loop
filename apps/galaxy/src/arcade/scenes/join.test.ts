@@ -7,6 +7,7 @@ import { gridFor } from '../grid';
 import { setFleets } from '../fleets';
 import { HOUSE_BRAND } from '../brand';
 import { markFor, type Mark } from '../mark';
+import { DEFAULT_THEME } from '../theme';
 import { ScreenContext } from '../Screen';
 import type { FleetRow } from '../types';
 import { TALL, WIDE, type FrameState, type Grid, type SceneName } from './common.ts';
@@ -55,7 +56,7 @@ const JOIN: SceneName[] = ['coin', 'away', 'outsider', 'gate', 'intro', 'link', 
 
 function frame(scene: SceneName, sceneT: number, grid: Grid, away = false, mark: Mark = markFor(HOUSE_BRAND.name)): FrameState {
   return {
-    scene, grid, page: 0, view: null, layout: [], sel: 0, fleetSel: 0, t: 5, sceneT, reduced: false, mark,
+    scene, grid, page: 0, view: null, layout: [], sel: 0, fleetSel: 0, t: 5, sceneT, reduced: false, mark, theme: DEFAULT_THEME,
     join: { fleets, pick: 0, lockedAt: null, team: fleets[1].name, away, hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } },
   };
 }

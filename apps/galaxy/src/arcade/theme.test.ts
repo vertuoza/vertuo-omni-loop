@@ -88,6 +88,15 @@ describe('the theme\'s tokens', () => {
       expect(layout || name in TOKENS, `--${name} is a token or a length`).toBe(true);
     }
   });
+
+  it('are what the canvas scenes draw with: no scene writes a token\'s colour but through the theme', () => {
+    const dir = new URL('./scenes/', import.meta.url);
+    const defaults = new Set<string>(Object.values(TOKENS));
+    for (const file of readdirSync(dir).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))) {
+      const literals = readFileSync(new URL(file, dir), 'utf8').match(/#[0-9a-f]{6}\b/gi) ?? [];
+      expect(literals.filter((c) => defaults.has(c.toLowerCase())), file).toEqual([]);
+    }
+  });
 });
 
 describe('a workspace\'s theme', () => {

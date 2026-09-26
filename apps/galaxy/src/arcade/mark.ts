@@ -20,9 +20,6 @@ export interface Mark {
   readonly shade: readonly Stop[];
 }
 
-/** Where the gradient's three colours sit across the mark, left to right. */
-const OFFSETS = [0, 0.55, 1] as const;
-
 /** A bar of a row, [x, width] on the 36-pixel grid. */
 type Bar = readonly [x: number, w: number];
 /** A letter: its rows of bars, top to bottom, the first row's y and how far apart the rows are. */
@@ -93,7 +90,7 @@ export function markFor(name: string, theme: Theme = DEFAULT_THEME): Mark {
   const letter = letterOf(name);
   let runs = RUNS.get(letter);
   if (!runs) RUNS.set(letter, (runs = runsOf(LETTERS[letter])));
-  const stops = OFFSETS.map((offset, i) => [offset, theme[`mark-${i + 1}` as const]] as const);
-  const shade = OFFSETS.map((offset, i) => [offset, theme[`mark-shade-${i + 1}` as const]] as const);
+  const stops: Stop[] = [[0, theme['mark-1']], [0.55, theme['mark-2']], [1, theme['mark-3']]];
+  const shade: Stop[] = [[0, theme['mark-shade-1']], [0.55, theme['mark-shade-2']], [1, theme['mark-shade-3']]];
   return { size: MARK_SIZE, runs, stops, shade };
 }

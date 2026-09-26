@@ -1,8 +1,8 @@
 // The attract group on the canvas: the boot, the title's three phases (title, story, high scores)
 // and the Hall of Heroes, on the wide grid (640×360) and on the tall one (320×288).
-import { drawPlanet, drawSprite, spriteSize, WOUND_TINT, woundTint } from '@omni/sprites';
+import { drawPlanet, spriteSize, WOUND_TINT, woundTint } from '@omni/sprites';
 import { fleet } from '../fleets';
-import { bootMark, frameOf, nebulaFor, plasmaTrail, RING, space, TALL, W, type FrameState, type Grid, type Pages, type SceneName } from './common.ts';
+import { bootMark, frameOf, nebulaFor, plasmaTrail, RING, space, sprite, TALL, W, type FrameState, type Grid, type Pages, type SceneName } from './common.ts';
 
 /**
  * The attract group's scenes laid out on the tall grid (`boot`, `title`, `heroes`). A scene not
@@ -92,13 +92,13 @@ export function drawTitle(ctx: CanvasRenderingContext2D, s: FrameState) {
   drawPlanet(ctx, { ...at.ringed, seed: 985, rot: rot * 3, progress: 0, ring: RING, atmosphere: '#7a64b8' });
   const bob = (phase: number, amp = 4) => (s.reduced ? 0 : Math.round(Math.sin(s.t * 2 + phase) * amp));
   plasmaTrail(ctx, s, at.trail.x, at.trail.y + bob(0), at.trail.len);
-  drawSprite(ctx, 'omni', at.omni.x, at.omni.y + bob(0), { scale: at.omni.scale, frame: frameOf(s, 1.5), glow: '#a45cff' });
+  sprite(ctx, s, 'omni', at.omni.x, at.omni.y + bob(0), { scale: at.omni.scale, frame: frameOf(s, 1.5), glow: s.theme.plasma });
   // The fleets fly in formation around the commander: the first five active ones.
   s.join.fleets.slice(0, at.spots.length).forEach((f, i) => {
     const [x, y, rate, phase] = at.spots[i];
     const look = fleet(f.name);
     const k = at.fleetScale;
-    drawSprite(ctx, look.sprite, x, y + bob(i + 1) - (spriteSize(look.sprite).h - 32) * k, { scale: k, tint: look.tint ?? undefined, flip: i === 4, frame: frameOf(s, rate, phase) });
+    sprite(ctx, s, look.sprite, x, y + bob(i + 1) - (spriteSize(look.sprite).h - 32) * k, { scale: k, tint: look.tint ?? undefined, flip: i === 4, frame: frameOf(s, rate, phase) });
   });
 }
 
@@ -117,7 +117,7 @@ export function drawStory(ctx: CanvasRenderingContext2D, s: FrameState) {
   for (let i = 0; i < lap / 80; i++) {
     const x = ((i * 80 - s.sceneT * 36) % lap + lap) % lap - 40;
     const y = h - 64 + (s.reduced ? 0 : Math.round(Math.sin(s.t * 3 + i) * 3));
-    drawSprite(ctx, 'entropy', x, y, { tint: woundTint(kinds[i % kinds.length]), frame: frameOf(s, 3, i * 0.5) });
+    sprite(ctx, s, 'entropy', x, y, { tint: woundTint(kinds[i % kinds.length]), frame: frameOf(s, 3, i * 0.5) });
   }
   drawPlanet(ctx, { ...STORY_PLANET[s.grid.name], seed: 2410, rot: s.t * 0.06, progress: 0.15, atmosphere: '#7a64b8' });
 }
