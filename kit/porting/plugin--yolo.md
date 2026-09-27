@@ -120,3 +120,42 @@ SKILL.md names exists now covers `sign`.
 ### Gate (this update)
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.
+
+## PRD #251, slice s2 — the terminal door
+
+Not a re-port: upstream's yolo only ever ended on the pull request. A kit-local change to the prose,
+which the bundle does not carry. PRD #251 lets a person answer the outbox in the terminal where the
+yolo ended, then carries on into the yolo-fix steps in the same run.
+
+- **"It asks nothing" becomes "It asks nothing along the way":** every decision is still an outbox
+  item; the only question is asked at the end, and mediums are never asked.
+- **Step 7, Answer here, when the gate ends red** (new; Report moves to step 8, and the stuck-finish
+  jumps in step 4 now name step 8). It runs only when every slice merged, the gate read red, and
+  `omni config answers.enabled` prints `true`; with the switch off the skill ends as before. It comes
+  after the outbox comment (step 5), the draft and the status comment (step 6), so nothing is lost if
+  the person walks away (spec Decision 5).
+- **One opening question** through `AskUserQuestion`, with three choices: *Answer here now*,
+  *Answered in the Omni page or on the pull request — carry on*, *Later — stop here*.
+- **Answer here now:** `omni answers ask <prd> --pr <n> --json`, one `AskUserQuestion` call per
+  batch (the kit batches at most four, human action first), `Other` read as a letter or `not done`
+  with a reason, or else `prose`; then `omni answers post` with the picks in a scratch file. A
+  refused pick is asked again; a failed post prints the reply to paste and stops at the report,
+  except that a session without `gh` posts the `--print` output with its own GitHub tools.
+- **Carry on** follows `/omni:yolo-fix` steps 2 to 7 in the same run (spec Decision 6), redoing its
+  step 1's label and status comment on this feature PR; a reply that was not enough ends red and
+  draft exactly as yolo-fix does, and the question is not asked again.
+- **Guardrails:** "Never ask" became "Never ask along the way", naming step 7 as the one question.
+- The frontmatter description names the offer on the red gate.
+
+### Tests
+
+`kit/test/plugin.test.mjs` gained `the terminal door in /omni:yolo`: step 7 exists after the
+outbox comment and the release, names `answers.enabled` and the red gate, the three choices and
+`AskUserQuestion`, `omni answers ask` before `omni answers post` and `--print`, `prose`, and
+`/omni:yolo-fix` steps 2 to 7 after the post; and says that with the switch off the report reads as
+before.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs kit/test/no-game-words.test.mjs`
+and `pnpm test`, green.

@@ -257,6 +257,44 @@ describe('the dossier skills in this repository', () => {
   });
 });
 
+// PRD 251: when its gate ends red and `answers.enabled` is on, `/omni:yolo` asks one opening
+// question, after the outbox comment, the draft and the status comment are written. Answering here
+// runs `omni answers`; answering here or elsewhere carries on into `/omni:yolo-fix` steps 2 to 7.
+describe('the terminal door in /omni:yolo', () => {
+  const yolo = readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/yolo/SKILL.md'), 'utf8');
+  const door = skillSection(yolo, '7. Answer here');
+
+  it('opens only on a red gate with the switch on, after the outbox comment and the release', () => {
+    expect(door, 'a section of its own').not.toBe('');
+    expect(door).toContain('answers.enabled');
+    expect(door).toMatch(/gate (?:is |ended |ends )?red/i);
+    expect(yolo.indexOf('## 7. Answer here')).toBeGreaterThan(yolo.indexOf('omni.mjs comment --prd'));
+    expect(yolo.indexOf('## 7. Answer here')).toBeGreaterThan(yolo.indexOf('## 6. Release'));
+  });
+
+  it('asks one opening question with the three choices', () => {
+    for (const choice of ['Answer here now', 'carry on', 'Later — stop here']) expect(door, choice).toContain(choice);
+    expect(door).toContain('AskUserQuestion');
+  });
+
+  it('asks through omni answers ask, posts through omni answers post, and falls back on --print', () => {
+    expect(door).toContain('omni.mjs answers ask');
+    expect(door).toContain('omni.mjs answers post');
+    expect(door).toContain('--print');
+    expect(door).toMatch(/prose/);
+    expect(door.indexOf('answers post')).toBeGreaterThan(door.indexOf('answers ask'));
+  });
+
+  it('carries on into /omni:yolo-fix steps 2 to 7 in the same run', () => {
+    expect(door).toMatch(/`\/omni:yolo-fix` steps 2 to 7/);
+    expect(door.indexOf('steps 2 to 7')).toBeGreaterThan(door.indexOf('answers post'));
+  });
+
+  it('with the switch off, the red gate reads as before: the report says to answer on the pull request', () => {
+    expect(door).toMatch(/`answers\.enabled` is (?:off|false)[^.]*(?:step 7|report)/);
+  });
+});
+
 describe('the plugin guard catches what it is for', () => {
   it('passes a well-formed fixture and one with no skills', () => {
     const good = fixture(GOOD);
