@@ -212,18 +212,20 @@ static-render test beside the code, as `*.test.ts` under `apps/galaxy/src/`.
   - `/app`'s body lists the four cards as links, in order.
   - `GameModeButton` renders a button named `Game mode`, and a dialog with *Switch to game mode?*,
     **Stay** and **Switch**, where Switch leads to `/#menu`.
-  - The `/ask` header and the `/knowledge` bar, in each of `/knowledge`'s states, end with Game
-    mode, and their `OMNI LOOP` mark links to `/app`.
+- **`src/switch/headers.test.ts`** and **`src/knowledge/render.test.ts`:** the `/ask` header and the
+  `/knowledge` bar, in each of `/knowledge`'s states, end with Game mode, and their `OMNI LOOP` mark
+  links to `/app`.
 - **`src/arcade/leave.test.ts`:** while the overlay is open, A and START go, B stays, and every other
   action does nothing. Opening it over Entropy Invaders in play pauses the game, and B returns to the
   pause. Over a paused or finished game, it opens as it is.
 - **`src/arcade/scenes/menu.test.ts`:** with the app, `menuItems()` puts APP MODE just above SIGN
   OUT, for a visitor and for a player. Without the app, there is no such row. `MenuOverlay` renders
   its hint.
-- **The bodies** (a static render of `Handheld` and `Advance`): with `onApp`, the switch is there,
-  named "Switch to the app". Without it, there is no switch.
-- **The deep link:** `#menu` opens SELECT MODE, and the address at the menu reads `/#menu`. Signed
-  out, `/#menu` shows INSERT COIN.
+- **`src/arcade/bodies.test.ts`** (a static render of `Handheld` and `Advance`): with `onApp`, the
+  switch is there, named "Switch to the app". Without it, there is no switch.
+- **`src/arcade/deep-link.test.ts`** (the deep links, moved out of `ArcadeApp.tsx` into
+  `deep-link.ts`): `#menu` opens SELECT MODE, and the address at the menu reads `/#menu`. Signed out,
+  `/#menu` shows INSERT COIN.
 - **`page.test.ts`:** the arcade page hands `app: '/app'` to the arcade in every mode. The artifact's
   entry passes none.
 - **By hand, with screenshots in the last slice's sub-PR** (`pnpm galaxy:shots` and the app pages at
