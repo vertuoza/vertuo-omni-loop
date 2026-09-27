@@ -25,6 +25,14 @@ const EXEMPT_PATHS = {
   '\\bdocs\\/': ['lib/config.mjs'],
 };
 
+// One value let through (ADR-0047, outbox item s1-01 of PRD 215): the arcade's production address,
+// the default of `signature.home`, in `lib/config.mjs` only. Each whole occurrence of its host (the
+// boundary `kit/test/no-game-words.test.mjs` uses) is removed from a line before the line is
+// tested, so every other hit on that line, in that file or any other, still fails.
+const EXEMPT_VALUES = {
+  'lib/config.mjs': [/(?<![\w.-])vertuo-omni-loop-galaxy\.vercel\.app(?![\w-]|\.[\w-])/g],
+};
+
 function files(dir, ext) {
   let out = [];
   let names = [];
@@ -45,10 +53,11 @@ function literalHits(root) {
       const relPath = relative(root, file);
       readFileSync(file, 'utf8').split('\n').forEach((line, index) => {
         if (PROVENANCE.test(line.trim())) return;
+        const tested = (EXEMPT_VALUES[relPath] || []).reduce((rest, value) => rest.replace(value, ''), line);
         for (const pattern of [...FORBIDDEN, ...also]) {
           const exempt = EXEMPT_PATHS[pattern.source] || [];
           if (exempt.includes(relPath)) continue;
-          if (pattern.test(line)) hits.push(`${relPath}:${index + 1}: ${line.trim()}`);
+          if (pattern.test(tested)) hits.push(`${relPath}:${index + 1}: ${line.trim()}`);
         }
       });
     }
@@ -82,6 +91,27 @@ describe('kit source carries no repository literal', () => {
       'templates/playbook/testing.md:4: See ADR 0058, and #120.',
       'templates/playbook/testing.md:4: See ADR 0058, and #120.',
       'templates/playbook/testing.md:5: The suite runs in `npx vitest`.',
+    ]);
+  });
+
+  it('lets the arcade\'s exact address through in lib/config.mjs only, and nothing else (ADR-0047)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'omni-literals-'));
+    const write = (path, text) => {
+      mkdirSync(dirname(join(root, path)), { recursive: true });
+      writeFileSync(join(root, path), text);
+    };
+    write('lib/config.mjs', [
+      "home: httpsUrl.default('https://vertuo-omni-loop-galaxy.vercel.app'),",
+      "slug: 'vertuoza/widgets',",
+      "home: 'https://vertuo-omni-loop-galaxy.vercel.app', // the vertuo way",
+      "home: 'https://evil-vertuo-omni-loop-galaxy.vercel.app',",
+    ].join('\n'));
+    write('lib/signature.mjs', "const HOME = 'https://vertuo-omni-loop-galaxy.vercel.app';\n");
+    expect(literalHits(root)).toEqual([
+      "lib/config.mjs:2: slug: 'vertuoza/widgets',",
+      "lib/config.mjs:3: home: 'https://vertuo-omni-loop-galaxy.vercel.app', // the vertuo way",
+      "lib/config.mjs:4: home: 'https://evil-vertuo-omni-loop-galaxy.vercel.app',",
+      "lib/signature.mjs:1: const HOME = 'https://vertuo-omni-loop-galaxy.vercel.app';",
     ]);
   });
 
