@@ -470,3 +470,391 @@ One follow-up migration granting more (`update` on every column, or `delete`) an
 ```
 
 <!-- /omni-outbox-settled: s4-02-service-role-cannot-renumber -->
+
+<!-- omni-outbox-settled: s5-01-env-example-names-the-sync -->
+
+## s5-01-env-example-names-the-sync — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-env-example-names-the-sync
+prd: 262
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 3
+---
+
+## The question, in plain words
+
+The app's example settings file says the database's secret key serves only the game's commands, yet the new publishing step uses that key too, plus a setting the file does not list. Should the file say so?
+
+## The decision, in plain words
+
+The file was left as it is, since no part of this work was given it. The app's guide now names both settings the publishing step reads, and where each comes from.
+
+## The intro, for fun
+
+A settings file swears the secret key has exactly one job, and a second job just walked in.
+
+## The punchline, for fun
+
+The guide now tells the whole story; the file catches up once someone may touch it.
+
+## The options, in plain words
+
+A. Leave the file as it is, and describe both settings in the app's guide only: the option built.
+B. Change the file too: say the secret key also serves the publishing step, and add the project address it needs.
+
+## What I had to decide
+
+Whether `apps/galaxy/.env.example` should change. It says `SUPABASE_SERVICE_ROLE_KEY` is "Only for the `pnpm game:*` commands" and has no `SUPABASE_URL` line, while `pnpm releases:sync` (s4) reads both, from `apps/galaxy/.env.local` too, as the `game:*` scripts do. The file is outside every slice's territory in the plan, so s5 does not edit it. In my judgment it should change: someone copying it for a local sync would not learn that the sync needs `SUPABASE_URL` (the `NEXT_PUBLIC_` URL is not read), and the comment on the key is no longer true.
+
+## What I did meanwhile
+
+`apps/galaxy/README.md` (s5's ground) documents the sync's two variables in its Release notes section and under With a local Supabase (`SUPABASE_URL=http://127.0.0.1:54321 pnpm releases:sync`), and its secrets table names `releases.yml` beside `game.yml` for `SUPABASE_SERVICE_ROLE_KEY`. `.env.example` is unchanged.
+
+## What it costs to change later
+
+Option B is two comment lines and one empty `SUPABASE_URL=` line in `apps/galaxy/.env.example`, in a follow-up. No code, no stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the plan left the example settings file out of every slice on purpose.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-env-example-names-the-sync -->
+
+<!-- omni-outbox-settled: s5-02-canonical-address-production-host -->
+
+## s5-02-canonical-address-production-host — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-canonical-address-production-host
+prd: 262
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 3
+---
+
+## The question, in plain words
+
+Search engines and link previews are told one official web address for the release notes page. Which address should that be?
+
+## The decision, in plain words
+
+The app's current public address, written once in the page, so every copy of the page, preview copies included, sends search engines to the same place.
+
+## The intro, for fun
+
+Every page wants one true address, even when a dozen preview copies serve it.
+
+## The punchline, for fun
+
+The page now points home, and moving home later is a one-line change.
+
+## The options, in plain words
+
+A. The app's current public address, written once in the page: the option built.
+B. The address the hosting service reports as the production one, read when the page is built, the written address as a fallback.
+C. No official address: search engines pick whichever copy they find.
+
+## What I had to decide
+
+The spec asks for a canonical address and Open Graph tags on `/releases` and does not name the host. Next needs an absolute URL for both, and the app sets no `metadataBase` anywhere.
+
+## What I did meanwhile
+
+`SITE = 'https://vertuo-omni-loop-galaxy.vercel.app'` in `apps/galaxy/src/releases/page/address.ts`: the default of `signature.home` and this repository's `ask.url`. The canonical and `og:url` are `<SITE>/releases` (`apps/galaxy/src/releases/page/render.test.ts`), checked in the dev server's HTML.
+
+## What it costs to change later
+
+One constant and its test line; a custom domain later changes the constant. Search engines re-read the canonical at their next crawl. No stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a custom domain is planned for the app, which would leave the written address pointing at the old one.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-canonical-address-production-host -->
+
+<!-- omni-outbox-settled: s5-03-empty-table-says-no-release-yet -->
+
+## s5-03-empty-table-says-no-release-yet — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-empty-table-says-no-release-yet
+prd: 262
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 3
+---
+
+## The question, in plain words
+
+Right after the page goes live, and before the first publishing run, the list of releases is empty. What should a visitor read then?
+
+## The decision, in plain words
+
+A short line saying no release is published yet, under the page's heading. It differs from the message shown when the page cannot be read at all.
+
+## The intro, for fun
+
+Opening night: the stage is set, and the cast has not arrived yet.
+
+## The punchline, for fun
+
+The sign on the door says the show starts soon, not that the theatre burned down.
+
+## The options, in plain words
+
+A. A line of its own, saying no release is published yet: the option built.
+B. The same line as when the page cannot be read, saying release notes are unavailable right now.
+C. Only the heading and its line, with nothing under them.
+
+## What I had to decide
+
+What `/releases` shows when `public.releases` answers with no row: the migration has run and the sync has not. The spec names the unavailable message for closed mode and a failed read, and says nothing of an empty table.
+
+## What I did meanwhile
+
+`RELEASES.empty`, *No release is published yet.*, in `apps/galaxy/src/releases/words.ts`, shown by `ReleasesPage` when there is no week (`apps/galaxy/src/releases/page/render.test.ts`). An empty read is a good read: it replaces an older render like any other.
+
+## What it costs to change later
+
+One word constant and one branch of the page. No stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) How long the table stays empty in production: the sync follows each successful migration run on main, so minutes once the repository variables are set.
+
+```
+
+<!-- /omni-outbox-settled: s5-03-empty-table-says-no-release-yet -->
+
+<!-- omni-outbox-settled: s5-04-demo-sample-invented-releases -->
+
+## s5-04-demo-sample-invented-releases — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-04-demo-sample-invented-releases
+prd: 262
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 3
+---
+
+## The question, in plain words
+
+When the app runs without its database, on a developer's machine, the release notes page shows a sample. What should that sample hold?
+
+## The decision, in plain words
+
+The real initial release, word for word, then six invented releases over the following weeks, so the sample shows how older weeks fold away.
+
+## The intro, for fun
+
+A sample page needs a past, and this project only has one week of it so far.
+
+## The punchline, for fun
+
+So the sample borrows a few weeks from the future, and promises nothing about them.
+
+## The options, in plain words
+
+A. The real initial release, then invented releases over five weeks: the option built.
+B. Only the real initial release: nothing invented, but no folded week to see.
+C. The real initial release, then entries that read plainly as placeholders.
+
+## What I had to decide
+
+The spec asks for a built-in demo sample, and for screenshots of `/releases` from it; it does not say what the sample holds. Showing a folded week takes more than four weeks of releases, and only one week exists.
+
+## What I did meanwhile
+
+`apps/galaxy/src/releases/demo.ts`: the 21 pinned notes, word for word, each dated when its shipped folder reached main (its test holds them to the shipped notes), then releases 0.0.2 to 0.0.7 (PRDs 262, 270, 284, 291, 305 and 318) from 28 September to 20 October 2026, each passing the note rules. 0.0.2 is the before/after page's own example. Only development and `OMNI_LOOP_DEMO=1` builds show it.
+
+## What it costs to change later
+
+The sample rows in one file and its test. Nothing in production reads them; no stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The invented releases carry PRD numbers that real PRDs may take later; in development they could be read as real.
+
+```
+
+<!-- /omni-outbox-settled: s5-04-demo-sample-invented-releases -->
+
+<!-- omni-outbox-settled: s5-05-version-links-to-its-release -->
+
+## s5-05-version-links-to-its-release — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-05-version-links-to-its-release
+prd: 262
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 3
+---
+
+## The question, in plain words
+
+Each release on the page has its own web address, so one release can be shared. Should its version number be a link to that address?
+
+## The decision, in plain words
+
+Yes: a click on a version puts that release's own address in the browser, ready to copy. The number of the product plan beside it stays plain text.
+
+## The intro, for fun
+
+Every release got its own address, and nobody told the visitor where to find it.
+
+## The punchline, for fun
+
+Now each version points at itself, the most modest link on the web.
+
+## The options, in plain words
+
+A. The version links to its own release, the address ready to copy: the option built.
+B. No link: the address works, but a visitor has to know to type it.
+
+## What I had to decide
+
+The spec gives each release an anchor, its version (`/releases#0.0.3`), so one release can be shared, and says `PRD <n>` is never a link; it does not say how a visitor finds the anchor. The before/after page draws the version as a badge.
+
+## What I did meanwhile
+
+In `apps/galaxy/src/releases/page/ReleasesPage.tsx` the version badge is `<a href="#0.0.3">`, titled *Link to this release*, and a release opened by its anchor shows its badge filled (`:target` in `releases.css`). The PRD stays plain text, and a release holds no other link (`render.test.ts`).
+
+## What it costs to change later
+
+One element and two CSS rules. No stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether visitors expect a version badge to be clickable.
+
+```
+
+<!-- /omni-outbox-settled: s5-05-version-links-to-its-release -->
