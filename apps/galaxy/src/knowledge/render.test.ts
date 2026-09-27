@@ -29,7 +29,8 @@ const between = (html: string, start: string, end: string) => {
   const to = html.indexOf(end, from + start.length);
   return html.slice(from, to < 0 ? undefined : to);
 };
-const diagram = (html: string) => between(html, '<svg', '</svg>');
+/** The orrery: the page's diagram (the header's Game mode glyph is an svg too). */
+const diagram = (html: string) => between(html, '<svg class="km-orrery"', '</svg>');
 const index = (html: string) => between(html, 'class="km-index"', '</section>');
 const panel = (html: string) => between(html, 'class="km-panel"', '</section>');
 /** Every `data-entry` in the markup, in order. */
@@ -98,6 +99,32 @@ describe('the map, for the crew', () => {
   });
 });
 
+describe('the top bar, in every state of the page', () => {
+  const states: Array<[string, KnowledgeView]> = [
+    ['a build with no database', { kind: 'closed' }],
+    ['signed out', { kind: 'sign-in' }],
+    ['signed in without a crew account', { kind: 'crew-only' }],
+    ['the knowledge out of reach', { kind: 'out-of-reach' }],
+    ['the map', { kind: 'map', graph: GRAPH }],
+    ['no knowledge yet', { kind: 'map', graph: { ...GRAPH, domains: [], entries: [], links: [], loose: [], unserved: [] } }],
+  ];
+  const bar = (view: KnowledgeView) => between(screen(view), '<header', '</header>');
+  /** The bar's links and buttons, in order, by name; the Game mode dialog's own left out. */
+  const controls = (html: string) =>
+    [...html.replace(/<dialog[\s\S]*?<\/dialog>/g, '').matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)]
+      .map((m) => m[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+
+  it.each(states)('%s: links the OMNI LOOP mark to /app', (_, view) => {
+    expect(bar(view)).toMatch(/<a class="ask-mark" href="\/app">OMNI LOOP<\/a><span class="ask-brand-sub">Knowledge map<\/span>/);
+  });
+
+  it.each(states)('%s: keeps the star chart, then ends with the theme switch and Game mode', (_, view) => {
+    expect(controls(bar(view))).toEqual(['OMNI LOOP', 'Open the star chart →', 'System', 'Light', 'Dark', 'Game mode']);
+    expect(bar(view)).toMatch(/<a class="km-chart" href="\/#chart">/);
+    expect(bar(view)).toMatch(/<dialog [^>]*class="game-mode-dialog"/);
+  });
+});
+
 describe('the address selecting an entry', () => {
   it('shows a rule whole in the panel: statement, serves, cites, its PRD, enforcement and file', () => {
     const html = map({ domain: 'product', entry: 'BR-PRODUCT-1' });
@@ -162,7 +189,7 @@ describe('everyone else', () => {
     const html = screen(view);
     for (const secret of SECRETS) expect(html, secret).not.toContain(secret);
     expect(html).not.toContain('acme/widgets');
-    expect(html).not.toContain('<svg');
+    expect(html).not.toContain('km-orrery');
   });
 
   it('asks a visitor who is signed out to sign in, to come back to /knowledge', () => {

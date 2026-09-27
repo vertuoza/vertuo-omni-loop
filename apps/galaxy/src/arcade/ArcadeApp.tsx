@@ -44,6 +44,9 @@ import { foldChar, foldName, nameInit, nameReduce, nameValue, NAME_RULE, type Na
 import { BUILDER_ROWS, cycleHero } from './builder';
 import { afterGate, afterReturn, afterStart, allowed, arrive, backStep, isDisbanded, isLinked, nextStep, readReturn, type Flow, type Step } from './onboarding';
 import { createSeen, fanfareOf, levelUpFor, type LevelUp, type Local } from './levelup';
+import { addressAt, landing } from './deep-link';
+import { leaveMove, openOver } from './leave.ts';
+import { LeaveOverlay } from './leave.tsx';
 import type { Account, DossiersRead, FleetRow, Player, PlayerPatch, ScoresRead, Session, XpRead } from './types';
 import './shell.css';
 
@@ -75,31 +78,18 @@ export interface UI {
   card: boolean; cardPage: number; // the reading card over the system, and its page
   cabinet: number; // the game room's cabinet under the cursor (wide), the page shown (tall)
   levelUp: LevelUp | null; // what the level-up screen celebrates, set as it opens
+  leaving: boolean; // OPEN THE APP? is up, over the scene (leave.ts): the scene under it is left as it was
 }
 
-const DEEP_LINKS: SceneName[] = ['map', 'chart', 'fleets', 'heroes', 'games', 'briefing'];
 const FLOW_KEY = 'omni-loop:flow'; // survives the trip to GitHub and back
 const GAMES_SEEN_KEY = 'omni-loop:games-seen'; // GAMES carries a NEW tag until the room is opened on this device
 // This browser's storage, where each login's last celebrated level is kept (levelup.ts): reaching it can throw.
 const LOCAL: Local = () => window.localStorage;
 
-function readHash(view: GalaxyView | null): Partial<UI> | null {
-  if (typeof window === 'undefined' || !view) return null;
-  const h = window.location.hash.replace('#', '');
-  if ((DEEP_LINKS as string[]).includes(h)) return { scene: h as SceneName };
-  const m = /^planet-(\d+)$/.exec(h);
-  if (m) {
-    const i = view.planets.findIndex((p) => p.prd === Number(m[1]));
-    if (i >= 0) return { scene: 'planet', sel: i };
-  }
-  return null;
-}
-
+// The address follows the screen (deep-link.ts): a reload or a shared address comes back to it.
 function writeHash(ui: UI, view: GalaxyView | null) {
   try {
-    const h = ui.scene === 'planet' ? `planet-${view?.planets[ui.sel]?.prd}` : (DEEP_LINKS as string[]).includes(ui.scene) ? ui.scene : '';
-    const url = `${window.location.pathname}${h ? `#${h}` : ''}`;
-    window.history.replaceState(null, '', url);
+    window.history.replaceState(null, '', addressAt(window.location.pathname, ui, view));
   } catch { /* sandboxed frames may refuse; the hash is a convenience */ }
 }
 
@@ -155,9 +145,14 @@ export interface ArcadeProps {
    * carries its link, and START opens it from the tab; the single-file artifact's carry none.
    */
   dossiers?: DossiersRead;
+  /**
+   * The app the arcade leaves for, from SELECT MODE's APP MODE row after OPEN THE APP? (`/app`, from
+   * the page). None in the single-file artifact, which has no app: no row, and nothing leaves.
+   */
+  app?: string;
 }
 
-export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null, brand = HOUSE_BRAND, knowledge = null, xp = 'unreadable', scores: scores0, dossiers }: ArcadeProps) {
+export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null, brand = HOUSE_BRAND, knowledge = null, xp = 'unreadable', scores: scores0, dossiers, app }: ArcadeProps) {
   setFleets(fleets);
   // The brand's look: its theme, written as custom properties on the root element below and read by
   // the canvas, and its mark in the theme's colours. The theme {} is today's arcade.
@@ -186,7 +181,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     flow: 'onboard', pick: 0, lockedAt: null, lockSaved: false, confirm: false,
     name: nameInit(''), shake: -1, hero: me0?.hero ?? { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 }, heroRow: 0,
     link: 'ask', linkLogin: null, away: false, error: null, toast: null,
-    sun: 0, world: 0, card: false, cardPage: 0, cabinet: 0, levelUp: null,
+    sun: 0, world: 0, card: false, cardPage: 0, cabinet: 0, levelUp: null, leaving: false,
   }));
   const [muted, setMuted] = useState(false);
   const [gamesSeen, setGamesSeen] = useState(true); // read from this device on the first render
@@ -295,6 +290,20 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     go({ scene: 'invaders' }, 'start');
   }, [view, problem, go, showHud, showSend, held]);
 
+  /**
+   * Opens OPEN THE APP? over whatever scene is showing: the one way to it, from the menu's APP MODE
+   * row and from the Game Boy's switch alike. A game in play pauses first, so B comes back to the
+   * pause (leave.ts). Without an app to leave for, nothing opens.
+   */
+  const askLeave = useCallback((patch: Partial<UI> = {}) => {
+    if (!app || uiRef.current.leaving) return;
+    const g = uiRef.current.scene === 'invaders' ? gameRef.current : null;
+    const under = openOver(g);
+    if (under !== g) { gameRef.current = under; showHud(under); }
+    held.clear();
+    go({ ...patch, leaving: true }, 'select');
+  }, [app, go, showHud, held]);
+
   const save = useCallback(async (patch: PlayerPatch) => {
     const row = await account.save(patch, meRef.current);
     setMe(row);
@@ -330,8 +339,9 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       if (back.kind === 'link_error') return open('link', { flow, link: 'error', error: back.message });
       return open(step, { flow: 'onboard' });
     }
-    const linked = readHash(view);
-    if (linked) setUi((u) => ({ ...u, ...linked, since: now() }));
+    // A deep link, through the one door; the menu's, like every route to it, through `go`.
+    const link = landing(window.location.hash, { view, session: s, linked: isLinked(s, m) });
+    if (link) go(link);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -347,6 +357,12 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   }, []);
 
   useEffect(() => { if (ui.scene !== 'boot') writeHash(ui, view); }, [ui, view]);
+  // Back from the app to a page the browser kept as it was: the scene shows again, OPEN THE APP? closed.
+  useEffect(() => {
+    const back = (e: PageTransitionEvent) => { if (e.persisted) setUi((u) => (u.leaving ? { ...u, leaving: false } : u)); };
+    window.addEventListener('pageshow', back);
+    return () => window.removeEventListener('pageshow', back);
+  }, []);
   // The one door: whatever route led here (a deep link, a crafted return URL, a stale screen after
   // signing out), nothing past INSERT COIN shows without a session.
   useEffect(() => {
@@ -391,8 +407,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   }, [held, showHud]);
 
   // ── Timed hand-overs ──
+  // They wait while OPEN THE APP? is up, so B finds the scene it covered, and start again from there.
   useEffect(() => {
     const later = (ms: number, fn: () => void) => { const id = window.setTimeout(fn, ms); return () => window.clearTimeout(id); };
+    if (ui.leaving) return undefined;
     if (ui.scene === 'boot') return later(3200, () => go({ scene: 'title' }));
     if (ui.scene === 'intro') return later(20200, () => open('select', { flow: 'onboard' }));
     if (ui.scene === 'welcome') return later(3200, () => open('menu'));
@@ -402,7 +420,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     }
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ui.scene, ui.lockedAt, ui.lockSaved, go, open]);
+  }, [ui.scene, ui.lockedAt, ui.lockSaved, ui.leaving, go, open]);
   useEffect(() => {
     if (!ui.toast) return;
     const id = window.setTimeout(() => go({ toast: null }), 2600);
@@ -496,7 +514,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   /** Opens the menu's item `i`: with A or START on the row under the cursor, or with a tap on any row. */
   const openItem = useCallback((i: number) => {
-    const items = menuItems({ joined: Boolean(meRef.current?.team), linked: isLinked(sessionRef.current, meRef.current), signedIn: Boolean(sessionRef.current), newGames: !gamesSeen });
+    const items = menuItems({ joined: Boolean(meRef.current?.team), linked: isLinked(sessionRef.current, meRef.current), signedIn: Boolean(sessionRef.current), newGames: !gamesSeen, app: Boolean(app) });
     const item = items[i];
     if (!item) return;
     const door = doorOf(item, { view, chart: knowledge, problem });
@@ -504,13 +522,22 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (item.id === 'myhero') return open('name', { flow: 'myhero', menu: i }, 'select');
     if (item.id === 'change') return open('select', { flow: 'change', menu: i }, 'select');
     if (item.id === 'link') return open('link', { flow: 'link', menu: i }, 'select');
+    if (item.id === 'app') return askLeave({ menu: i });
     if (item.id === 'signout') return signOut();
-  }, [view, knowledge, go, open, signOut, problem, gamesSeen]);
+  }, [view, knowledge, go, open, signOut, problem, gamesSeen, app, askLeave]);
 
   const act = useCallback((action: Action) => {
     const u = uiRef.current;
+    // OPEN THE APP? takes every press while it is up: A (or START) leaves for the app in this tab,
+    // B closes it on the scene as it was, and nothing else is read (leave.ts).
+    if (u.leaving) {
+      const move = leaveMove(action);
+      if (move === 'go' && app) { sfx('start'); return window.location.assign(app); }
+      if (move) return go({ leaving: false }, 'back');
+      return;
+    }
     const planets = view?.planets.length ?? 0;
-    const items = menuItems({ joined: Boolean(meRef.current?.team), linked: isLinked(sessionRef.current, meRef.current), signedIn: Boolean(sessionRef.current), newGames: !gamesSeen });
+    const items = menuItems({ joined: Boolean(meRef.current?.team), linked: isLinked(sessionRef.current, meRef.current), signedIn: Boolean(sessionRef.current), newGames: !gamesSeen, app: Boolean(app) });
     switch (u.scene) {
       case 'boot': return go({ scene: 'title' });
       case 'title':
@@ -693,7 +720,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') return go({ scene: 'menu' }, 'back');
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, showHud, sendScore, seen, problem, dossiers]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, showHud, sendScore, seen, problem, dossiers, app]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): the first press
@@ -707,7 +734,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       // Let Space and Enter activate a focused button natively; the button calls `act` itself.
       if (e.target instanceof Element && e.target.closest('button') && (e.key === ' ' || e.key === 'Enter')) return;
       unlock();
-      if (uiRef.current.scene === 'name') {
+      // Letters type on the name screen, but not under OPEN THE APP?: it takes the pad's keys (leave.ts).
+      if (uiRef.current.scene === 'name' && !uiRef.current.leaving) {
         const k = e.key;
         let handled = true;
         if (k === 'Enter') nameDone();
@@ -798,11 +826,14 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   // A click on a key hint ("[A] LINK GITHUB"), or a press of a Game Boy's control, presses that key.
   const press = useCallback((action: Action) => { unlock(); act(action); }, [act]);
+  // The Game Boy's GAME ▮▯ APP switch: no key, but OPEN THE APP?, on any scene. None without an app.
+  const switchToApp = useCallback(() => { unlock(); askLeave(); }, [askLeave]);
 
   // A tap on the screen, in the pixels of the grid it is drawn on.
   const onTap = (p: GridPoint) => {
     unlock();
     const u = uiRef.current;
+    if (u.leaving) return; // the scene under OPEN THE APP? reads no tap
     if (u.scene === 'boot' || u.scene === 'title' || u.scene === 'gate' || u.scene === 'ready' || u.scene === 'welcome') return act('start');
     if (u.scene === 'link' && u.link === 'done') return act('start');
     if (u.scene === 'chart') {
@@ -837,7 +868,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   const phase = titlePhaseAt(now() - ui.since);
   const sel = view?.planets[ui.sel];
-  const items = menuItems({ joined: Boolean(me?.team), linked: isLinked(session, me), signedIn: Boolean(session), newGames: !gamesSeen });
+  const items = menuItems({ joined: Boolean(me?.team), linked: isLinked(session, me), signedIn: Boolean(session), newGames: !gamesSeen, app: Boolean(app) });
   const xpNow = xpStatus(isLinked(session, me), xp);
   const displayName = me?.display_name ?? (session ? foldName(session.givenName) || 'RECRUIT' : '');
   const who = session
@@ -878,7 +909,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   })();
 
   const info = useMemo<ScreenInfo>(() => ({ form, grid, page, pages }), [form, grid, page, pages]);
-  const body = { season: view?.season ?? null, muted, onAction: press, onSound: toggleSound };
+  const body = { season: view?.season ?? null, muted, onAction: press, onSound: toggleSound, onApp: app ? switchToApp : undefined, leaving: ui.leaving };
   // The screen keeps its place in the tree in every form, so turning the phone keeps it as it is.
   // The root carries the theme's custom properties, and the sprites in its panels its stripes.
   return (
@@ -886,7 +917,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       <Stripes.Provider value={stripesOf(theme)}>
         <Lens bare={form === 'full'} muted={muted}>
           <Screen scene={ui.scene} frame={frameFor(form)} info={info} canvasRef={canvasRef} onTap={onTap}>
-            <Press.Provider value={press}>{overlay}</Press.Provider>
+            <Press.Provider value={press}>
+              {overlay}
+              {ui.leaving && <LeaveOverlay />}
+            </Press.Provider>
             {ui.toast && <p className="j-toast" role="status">{ui.toast}</p>}
           </Screen>
         </Lens>

@@ -50,7 +50,7 @@ Game Boy's buttons on a phone (design:
 | Build your hero | Girl or boy, skin, hair, suit (the fleet colour first) and cape; TAB for random |
 | Ready / Welcome back | The launch after a first visit; a two-second welcome for returning players |
 | Level up | Before the menu, once per new level on this device: LEVEL UP! with a fanfare, the hero at 2× and the new XP bar, and NEW GAME UNLOCKED when a level climbed opened a game (A plays it at once, B goes on to the menu) |
-| Select mode | PLAY (visitors: links GitHub), Galaxy map, Star chart, Fleets, Hall of Heroes, Games, How to play, then My hero and Change fleet (players), Sign out. A player's badge shows their level |
+| Select mode | PLAY (visitors: links GitHub), Galaxy map, Star chart, Fleets, Hall of Heroes, Games, How to play, then My hero and Change fleet (players), APP MODE (leaves the game for the app, after OPEN THE APP?), Sign out. A player's badge shows their level |
 | Galaxy map | Sectors as nebulae; planets by state, threat and wounds; red hyperlanes from a locked planet to its blockers; distress pulses |
 | Planet | The planet with its Entropy in orbit and the fleets on station; tabs for status, zones by phase, Entropy (age, decay, bounty), the event log and its PRD's dossier (the latest version of each artifact, the questions asked and answered, the last three answers; START opens its page, [PRD dossiers](#prd-dossiers)) |
 | Star chart | The knowledge base as space: a sun per domain, sized by the entries it holds, and a dotted lane for each cross-domain file ([The knowledge map](#the-knowledge-map)) |
@@ -61,12 +61,32 @@ Game Boy's buttons on a phone (design:
 | Entropy Invaders | The first game: the player's own hero against a marching formation of alien Entropy, three lives, the score sent to the crew's table at game over |
 | How to play | The scoring rules and LEVELS (what XP counts, the curve, the unlocks), read from `game/rulebook.mjs` so they never drift |
 
-Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#games`, `#briefing`, `#planet-2332`.
+Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#games`, `#briefing`, `#menu`, `#planet-2332`
+(`src/arcade/deep-link.ts`). Each opens its screen past the boot and the title, and the address
+follows the screen, so the menu reads `/#menu`: the game's home, where the app's Game mode lands.
+Signed out, they land on INSERT COIN; a planet's link, which needs the galaxy, starts at the boot
+where the page holds none.
 
-Outside the arcade, `/design` shows the design system, straight from `@omni/design`: every logo
-form, colour, type step, sprite, pose and icon. It opens without signing in. `/prd` lists the
-workspace's PRD dossiers and `/prd/<id>` is one PRD's page to share, both for the workspace's members
-([PRD dossiers](#prd-dossiers)).
+**OPEN THE APP?** APP MODE and the Game Boy's GAME ▮▯ APP switch open one confirm over whatever scene
+is showing: OPEN THE APP?, *QUESTIONS AND KNOWLEDGE, AS PAGES*, [A] YES and [B] NO. It is an overlay,
+not a scene, laid out on both grids (`src/arcade/leave.ts` decides, `leave.tsx` draws). A or START
+opens `/app` in the same tab; B closes it on the scene exactly as it was, its selection, page and tab
+included; nothing else is read while it is up. Entropy Invaders pauses first, so B comes back to the
+pause, and the screens that move on by themselves wait under it. On the name screen it takes the
+keys: A, Z, Space, K and Enter say yes, B, X, Esc, J and Backspace say no. The single-file artifact
+has no app: neither the row nor the switch shows.
+
+Outside the arcade, the app (PRD 238): `/app`, its home, beside `/ask`, `/ask/for-me`, `/ask/history`
+and `/knowledge`, all on the ask pages' reading surface, in light and dark. `/app` is a card per
+section (`SECTIONS` in `src/switch/switch.ts`), each a link to its page; it reads nothing and opens
+without signing in, and each page it opens signs the visitor in on its own. Every app page's header
+links its `OMNI LOOP` mark to `/app` and ends with **Game mode**, which asks *Switch to game mode?*:
+Switch opens `/#menu` in the same tab, and Stay, Esc or a click outside leaves the page as it was.
+
+`/design` shows the design system, straight from `@omni/design`: every logo form, colour, type step,
+sprite, pose and icon. It opens without signing in, and is not one of the app's pages. `/prd` lists
+the workspace's PRD dossiers and `/prd/<id>` is one PRD's page to share, both for the workspace's
+members ([PRD dossiers](#prd-dossiers)).
 
 ## Three forms, two grids
 
@@ -78,8 +98,8 @@ game is the same in all three.
 | Form | When | Body | Grid |
 |---|---|---|---|
 | `full` | The primary pointer is fine: a mouse or a trackpad, a touchscreen laptop included | None: the screen alone, filling the window at the largest 16:9 size, fractions allowed, centred between `--void` bars | wide |
-| `handheld` | Touch, with the viewport at least as tall as it is wide: a phone or a tablet held upright | A Game Boy, edge to edge: the navy lens (its `OMNI LOOP · GALAXY COLOR` stripe and power LED), the wordmark with the season, the D-pad, B and A, SELECT and START, and the speaker grille | tall |
-| `advance` | Touch, with the viewport wider than it is tall: a phone or a tablet held sideways | A Game Boy Advance style wide body: the D-pad with SELECT and START on the left wing, A and B with the grille on the right, the lens between them. No L or R: the game has no L or R action | wide |
+| `handheld` | Touch, with the viewport at least as tall as it is wide: a phone or a tablet held upright | A Game Boy, edge to edge: the navy lens (its `OMNI LOOP · GALAXY COLOR` stripe and power LED), the wordmark with the season and the GAME ▮▯ APP switch at its right end, the D-pad, B and A, SELECT and START, and the speaker grille | tall |
+| `advance` | Touch, with the viewport wider than it is tall: a phone or a tablet held sideways | A Game Boy Advance style wide body: the D-pad with SELECT and START on the left wing, A and B with the grille on the right and the GAME ▮▯ APP switch under it, the lens between them. No L or R: the game has no L or R action | wide |
 
 - **The two grids.** The wide grid is 640×360. The tall grid is 320×288: a Game Boy screen (160×144)
   at 2×, which puts the arcade's type at its designed size on a phone held upright. Each layout is
@@ -141,6 +161,13 @@ Left, Right, "A, confirm", "B, back", Select, Start, Sound).
 - **Several fingers.** Each finger is its own press: the D-pad and A can be held together.
 - **The speaker grille is the sound switch.** A tap toggles the sound, the same setting M toggles,
   saved under `omni-loop:muted`; the LED on the lens is lit while sound is on.
+- **The GAME ▮▯ APP switch leaves for the app** (`AppSwitch`), a slide switch in the body's colours,
+  a nod to the handheld's power switch: at the right end of the wordmark row upright, under the
+  grille at the foot of the right wing sideways. It fires on touch-down and buzzes like the pad, but
+  it is no pad action: the game never reads it and no hint names it. On any scene, the boot included,
+  it opens OPEN THE APP?, and its knob shows APP while the confirm is up. Upright, a long season label
+  is cut with an ellipsis before the switch leaves the body. A screen reader names it "Switch to the
+  app".
 - **Hints name the pad's buttons.** On `handheld` and `advance` a hint reads START for ENTER, SELECT
   for TAB and B for ⌫ or ESC, and drops "TYPE OR": there is no keyboard to type on. The name
   screen reads "B ERASE" and "START DONE", the hero builder "RANDOM (SELECT)". On `full` hints read
@@ -311,8 +338,8 @@ page (PRD 149). Both read one graph: the one `omni kb graph --json` prints.
 
 **The knowledge page, `/knowledge`.** The same graph as a reading surface beside the `/ask` pages,
 in their light and dark themes: the top bar (`OMNI LOOP · Knowledge map`, the repository, a link to
-the star chart at `/#chart`, the theme switch), a tab per domain and **Between domains** for the
-cross-domain entries, an SVG orrery laid out as in the arcade (a law a filled dot, a proposed entry
+the star chart at `/#chart`, the theme switch, Game mode), a tab per domain and **Between domains**
+for the cross-domain entries, an SVG orrery laid out as in the arcade (a law a filled dot, a proposed entry
 a hollow ring, each kind in its own colour), the selected entry's detail (statement, `Why:`, what it
 serves and what serves it, what it cites, its PRD, how it is enforced, its file), and the index of
 the domain grouped by principle, with its loose entries and unserved principles and a filter. A
@@ -466,9 +493,10 @@ workspace the migrations create.
 
 `pnpm galaxy:shots` walks the demo galaxy from the keyboard in a headless Chromium, from the boot
 through the joining flow and the level-up (the demo guest's borrowed level, new in that browser) to
-every screen of the menu, and saves a screenshot of each scene (the title's three phases, the
-planet's first four tabs (not yet DOSSIER), a system's reading card, and Entropy Invaders' score table, play and pause each
-on their own; the star chart shows this checkout's knowledge) at three sizes: 393×700 upright
+every screen of the menu, and saves a screenshot of each scene (the title's three phases, OPEN THE
+APP? over the menu, the planet's first four tabs (not yet DOSSIER), a system's reading card, and
+Entropy Invaders' score table, play and pause each on their own; the star chart shows this
+checkout's knowledge) at three sizes: 393×700 upright
 touch (an iPhone with Safari's bars), 852×393 sideways touch and 1440×900 with a mouse.
 
 ```bash
