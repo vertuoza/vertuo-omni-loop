@@ -1,0 +1,47 @@
+/* /app, the app's home (PRD 238): a heading, its line, and one card per section, on the ask pages'
+   reading surface. Every colour is a token of src/ask/theme-tokens.ts, as in src/ask/ask.css. Two
+   columns from 560 px, one on a phone, and nothing wider than the window. */
+
+.app-bar-end { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+.ask-col.app-home { gap: 24px; }
+.app-intro { display: grid; gap: 6px; }
+.app-heading { margin: 0; font-size: 28px; line-height: 1.2; text-wrap: balance; }
+.app-line { margin: 0; color: var(--ask-muted); }
+
+.app-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+@media (min-width: 560px) {
+  .app-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.ask a.app-card {
+  height: 100%;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--ask-line);
+  border-radius: 12px;
+  background: var(--ask-surface);
+  color: var(--ask-ink);
+  text-decoration: none;
+}
+.ask a.app-card:hover { border-color: var(--ask-plasma); }
+.app-card-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.app-card-title::after { content: '→'; color: var(--ask-plasma); }
+.app-card-line { font-size: 15px; line-height: 1.45; color: var(--ask-muted); overflow-wrap: anywhere; }
+.ask .app-card-path { justify-self: start; margin-top: 6px; font-size: 13px; color: var(--ask-muted); }

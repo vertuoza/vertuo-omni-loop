@@ -1,15 +1,18 @@
 import { Notice } from '../ask/page/Notice';
 import { SwitchAccount } from '../ask/page/SignInCard';
 import { ThemeSwitch } from '../ask/theme-switch';
+import { GameModeButton } from '../switch/GameModeButton';
+import { APP_HOME } from '../switch/switch';
 import type { KnowledgeView } from './access';
 import { KnowledgeMap } from './KnowledgeMap';
 import { KnowledgeSignIn } from './KnowledgeSignIn';
 import { knowledgeCallbackPath } from './sign-in';
 import { select } from './view';
 
-// The /knowledge page, in each of its states: the top bar, then the map for the crew (and the demo),
-// or the card that says why there is none. Only the map state holds the graph; every other state
-// renders from nothing but its kind, so its markup cannot carry an entry.
+// The /knowledge page, in each of its states: the top bar (its OMNI LOOP mark a link to /app, and
+// Game mode its last control: PRD 238), then the map for the crew (and the demo), or the card that
+// says why there is none. Only the map state holds the graph; every other state renders from nothing
+// but its kind, so its markup cannot carry an entry.
 
 type Supabase = { url: string; key: string };
 
@@ -25,13 +28,14 @@ function KnowledgeBar({ repo }: { repo: string | null }) {
   return (
     <header className="ask-bar km-bar">
       <span className="ask-brand km-brand">
-        <span className="ask-mark">OMNI LOOP</span>
+        <a className="ask-mark" href={APP_HOME}>OMNI LOOP</a>
         <span className="ask-brand-sub">Knowledge map</span>
         {repo && <code className="km-repo">{repo}</code>}
       </span>
       <span className="km-bar-end">
         <a className="km-chart" href="/#chart">Open the star chart →</a>
         <ThemeSwitch />
+        <GameModeButton />
       </span>
     </header>
   );
