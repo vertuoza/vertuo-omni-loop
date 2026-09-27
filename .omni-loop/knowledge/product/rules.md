@@ -523,4 +523,15 @@ Enforced by: unenforced
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #239
+
+## BR-PRODUCT-45
+
+On HOME, pressing Enter starts the game unless the focus is on a button, link or field, which then does what that control does; a focused PRESS START still starts the game.
+
+Serves: P-PRODUCT-42
+Source: .omni-loop/delivery/shipped/0261-home/outbox/settled.md, entry s3-02-enter-on-focused-controls, PRD #261
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-27
+Merged: @pierrederval, 2026-09-27, PR #263
 Proposed: harvest 2026-09-27
