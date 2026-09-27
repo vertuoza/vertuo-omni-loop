@@ -1,17 +1,18 @@
 // Signing in from an ask page, and coming back to it. The sign-in is the galaxy's Google sign-in
 // (Supabase Auth, restricted to @vertuoza.com); only the way back differs from the arcade's: Google
-// returns to /ask/<id>/callback, which turns the code into the session cookie and goes back to the
-// same session, carrying the reason when the sign-in was refused. A shared question (/ask/q/<round>)
-// For me (/ask/for-me) and the history (/ask/history) come back the same way, each through its own
-// callback (PRD 144).
+// returns to /ask/<id>/callback (or /ask/callback from the person's page, /ask), which turns the code
+// into the session cookie and goes back to the same page, carrying the reason when the sign-in was
+// refused. A shared question (/ask/q/<round>), For me (/ask/for-me) and the history (/ask/history)
+// come back the same way, each through its own callback (PRD 144).
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Session ids are uuids; anything else is not a session anyone has. */
 export const isSessionId = (id: string) => UUID.test(id);
 
-/** Where Google sends the person back after signing in on a session's page. */
-export const callbackPath = (sessionId: string) => `/ask/${encodeURIComponent(sessionId)}/callback`;
+/** Where Google sends the person back after signing in on a session's page, or on /ask (null). */
+export const callbackPath = (sessionId: string | null) =>
+  sessionId === null ? '/ask/callback' : `/ask/${encodeURIComponent(sessionId)}/callback`;
 
 /** Where Google sends the person back after signing in on a shared question's page. */
 export const questionCallbackPath = (roundId: string) => `/ask/q/${encodeURIComponent(roundId)}/callback`;
@@ -31,11 +32,11 @@ export function requestOrigin(request: { url: string; headers: Headers }): strin
 /** Turns a sign-in code into the session cookie (Supabase's exchangeCodeForSession). */
 export type Exchange = (code: string) => Promise<{ error: { message: string } | null }>;
 
-/** Where the callback sends the person: back to the session, with `signin_error` when the sign-in
- * failed. Anything that is not a session id goes home, on this site. `exchange` is null when this
- * deployment has no database. */
-export async function signInReturn(url: URL, origin: string, sessionId: string, exchange: Exchange | null): Promise<string> {
-  return signInBack(url, origin, isSessionId(sessionId) ? `/ask/${sessionId}` : '/', exchange);
+/** Where the callback sends the person: back to the session (or to /ask, for null), with
+ * `signin_error` when the sign-in failed. Anything that is not a session id goes home, on this
+ * site. `exchange` is null when this deployment has no database. */
+export async function signInReturn(url: URL, origin: string, sessionId: string | null, exchange: Exchange | null): Promise<string> {
+  return signInBack(url, origin, sessionId === null ? '/ask' : isSessionId(sessionId) ? `/ask/${sessionId}` : '/', exchange);
 }
 
 /** The same, for a shared question: back to /ask/q/<round>, or home for anything that is not a round id. */

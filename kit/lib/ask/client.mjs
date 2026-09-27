@@ -3,8 +3,8 @@
 // calls; any server that honours them will do.
 //
 // Every call but the token exchange carries `Authorization: Bearer <access token>`, read from a
-// token store keyed by the host of `ask.url`. A 401 refreshes the token once, keeps the new tokens
-// and retries; a second 401 is an error. Every call has a timeout. Anything but a 2xx, a network
+// token store keyed by the host of `ask.url`. A 401 refreshes the token once (or takes the tokens
+// another terminal renewed meanwhile), keeps the new tokens and retries; a second 401 is an error. Every call has a timeout. Anything but a 2xx, a network
 // failure or a timeout is an `AskCallError`, whose `status` is the HTTP status or `null`.
 
 /** The calls whose default timeout is not the `wait` call's own. */
@@ -59,8 +59,15 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     }
   }
 
-  /** The new tokens, kept in the store, or `null` when there is no refresh token or it is refused. */
+  /**
+   * The new tokens, kept in the store, or `null` when there is no refresh token or it is refused.
+   * The store is read again first: when another terminal has renewed the sign-in since `current` was
+   * read, its tokens are taken as they are. Replaying a refresh token that was already rotated makes
+   * the sign-in server revoke the whole sign-in.
+   */
   async function refresh(current) {
+    const stored = tokens.read(host);
+    if (stored?.access_token && stored.access_token !== current.access_token) return stored;
     if (!current.refresh_token) return null;
     let response;
     try {
@@ -89,7 +96,30 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     return bodyOf(response);
   }
 
+  /**
+   * Renews the stored sign-in now: `renewed` (the new tokens are kept), `refused` (the server no
+   * longer honours it) or `unreachable`.
+   * @returns {Promise<'renewed' | 'refused' | 'unreachable'>}
+   */
+  async function renew() {
+    const current = tokens.read(host);
+    if (!current?.refresh_token) return 'refused';
+    let response;
+    try {
+      response = await send('POST', '/api/ask/token', { body: { refresh_token: current.refresh_token }, timeoutMs: callMs });
+    } catch {
+      return 'unreachable';
+    }
+    if (response.status === 401 || response.status === 403) return 'refused';
+    if (!response.ok) return 'unreachable';
+    const fresh = await bodyOf(response);
+    if (typeof fresh.access_token !== 'string' || !fresh.access_token) return 'unreachable';
+    tokens.write(host, { ...current, ...fresh });
+    return 'renewed';
+  }
+
   return {
+    renew,
     /** `context`, when given, is `{ repo }` (PRD 144): optional, an older server ignores it.
      * @returns {Promise<{ id: string, url: string }>} */
     openSession: (title, context) => call('POST', '/api/ask/sessions', { body: withContext({ title }, context) }),

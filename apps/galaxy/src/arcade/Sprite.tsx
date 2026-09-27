@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { drawSprite, spriteSize, type Flat, type Hero, type Tint } from '@omni/sprites';
+import { drawSprite, spriteSize, type Flat, type Hero, type Tint } from '@omni/design';
 import { fleet, heroOf } from './fleets';
 
 /** The stripes every sprite in the arcade wears: the theme's `stripe-1` to `stripe-4` (theme.ts). None: the forge's own. */

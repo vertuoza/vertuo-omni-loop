@@ -2,7 +2,7 @@
 // intro, the GitHub link, ready and welcome back. Each scene stands its pieces where its grid's
 // stage says: the wide grid as it always was, or the tall one (the Game Boy held upright), where
 // the same pieces stack in a narrower, taller frame.
-import { drawPlanet } from '@omni/sprites';
+import { drawPlanet } from '@omni/design';
 import { fleet } from '../fleets';
 import {
   bobOf, bootMark, drawFleetMascot, drawHero, flash, frameOf, H, nebulaFor, pedestal, plasmaTrail, space, sprite, stars, W,

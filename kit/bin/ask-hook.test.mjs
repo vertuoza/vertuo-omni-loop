@@ -1,4 +1,4 @@
-// `omni ask hook <pre|post|prompt>` and the plugin's hooks.json that runs it: the hook bodies seen
+// `omni ask hook <pre|post|prompt|end>` and the plugin's hooks.json that runs it: the hook bodies seen
 // from the outside — stdin in, stdout out, exit code — against the fake contract server.
 import { execFile, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -9,13 +9,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { firstOptionAnswers, startFakeAskServer } from '../test/fake-ask-server.mjs';
 import { makeRepo } from '../test/fixture.mjs';
 import { PROMPT_CONTEXT } from '../lib/ask/hook.mjs';
-import { readRound, readSession, writeRound, writeSession } from '../lib/ask/local-state.mjs';
+import { readMode, readRound, readTerminal, writeMode, writeRound, writeTerminal } from '../lib/ask/local-state.mjs';
 import { main } from './omni.mjs';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const CLI = join(repoRoot, 'kit/bin/omni.mjs');
 const HOOKS = join(repoRoot, 'kit/plugin/hooks/hooks.json');
-const KINDS = ['pre', 'post', 'prompt'];
+const KINDS = ['pre', 'post', 'prompt', 'end'];
 
 const QUESTION = {
   question: 'Which theme should the page open in?',
@@ -23,7 +23,7 @@ const QUESTION = {
   multiSelect: false,
   options: [{ label: 'System (Recommended)', description: 'follow the computer' }, { label: 'Dark', description: 'always dark' }],
 };
-const PRE = JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'AskUserQuestion', tool_input: { questions: [QUESTION] }, tool_use_id: 'toolu_01' });
+const PRE = JSON.stringify({ hook_event_name: 'PreToolUse', session_id: 'term-a', tool_name: 'AskUserQuestion', tool_input: { questions: [QUESTION] }, tool_use_id: 'toolu_01' });
 const STDINS = ['', 'not json at all', '{}', PRE, JSON.stringify({ hook_event_name: 'UserPromptSubmit', prompt: 'hello' })];
 
 function io() {
@@ -56,8 +56,9 @@ afterEach(async () => {
 async function modeOn(options = {}) {
   server = await startFakeAskServer(options);
   const repo = makeRepo({ git: true, files: { '.omni-loop/config.yml': `kit: 1\nask:\n  url: ${server.url}\n` } });
-  const { id, url } = server.openSession('acme/widgets · main');
-  writeSession(repo.root, { sessionId: id, url, host: server.host });
+  writeMode(repo.root, { host: server.host });
+  const { id } = server.openSession('acme/widgets · main');
+  writeTerminal(repo.root, 'term-a', { sessionId: id, host: server.host });
   const tokens = memoryTokens({ [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1' } });
   return { ...repo, sessionId: id, tokens };
 }
@@ -79,7 +80,7 @@ describe('omni ask hook, with the mode off', () => {
   it('stays quiet with no config, a broken config, or outside a repository', () => {
     const bare = makeRepo({ git: true });
     const broken = makeRepo({ git: true, files: { '.omni-loop/config.yml': 'kit: [\n' } });
-    writeSession(broken.root, { sessionId: 's', url: 'https://ask.example.com/ask/s', host: 'ask.example.com' });
+    writeMode(broken.root, { host: 'ask.example.com' });
     const outside = mkdtempSync(join(tmpdir(), 'omni-nogit-'));
     for (const cwd of [bare.root, broken.root, outside]) {
       for (const kind of KINDS) {
@@ -142,10 +143,13 @@ describe('omni ask hook, with the mode on', () => {
   });
 
   it('a session open sends context.repo, read from the config', async () => {
-    server = await startFakeAskServer();
+    server = await startFakeAskServer({ answer: (round) => firstOptionAnswers(round.questions) });
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': `kit: 1\nrepo:\n  slug: acme/widgets\nask:\n  url: ${server.url}\n` } });
     const tokens = memoryTokens({ [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1' } });
     expect(await main(['ask', 'on'], { cwd: root, ...io(), tokens })).toBe(0);
+    // `on` opens no session (PRD 142): the terminal's first question does, and says where it came from.
+    expect(server.calls.find((call) => call.path === '/api/ask/sessions')).toBeUndefined();
+    expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...io(), stdin: PRE, tokens })).toBe(0);
     const opened = server.calls.find((call) => call.path === '/api/ask/sessions');
     expect(opened.body).toEqual({ title: 'acme/widgets · main', context: { repo: 'acme/widgets' } });
   });
@@ -179,13 +183,14 @@ describe('omni ask hook, with the mode on', () => {
     expect(s.out).toEqual([]);
   });
 
-  it('pre deletes ask.json when the session is closed', async () => {
+  it('pre forgets only this terminal\'s session when it is closed, and the mode stays on', async () => {
     // The session closes while the hook waits on its round, the moment that round is posted.
     const { root, tokens } = await modeOn({ answer: (round) => { setImmediate(() => server.closeSession(round.sessionId)); return null; } });
     const s = io();
     expect(await main(['ask', 'hook', 'pre'], { cwd: root, ...s, stdin: PRE, tokens, limits: { totalMs: 2000, callMs: 1000 } })).toBe(0);
     expect(s.out).toEqual([]);
-    expect(readSession(root)).toBeNull();
+    expect(readTerminal(root, 'term-a')).toBeNull();
+    expect(readMode(root)).toEqual({ host: server.host, sessionId: null });
   });
 
   it('post sends the terminal answer only for a round the page did not answer, then deletes the round', async () => {
@@ -194,21 +199,34 @@ describe('omni ask hook, with the mode on', () => {
     const post = JSON.stringify({ hook_event_name: 'PostToolUse', tool_name: 'AskUserQuestion', tool_input: { questions: [QUESTION] }, tool_response: answered, tool_use_id: 'toolu_01' });
 
     server.rounds.clear();
-    writeRound(root, { roundId: 'round-page', toolUseId: 'toolu_01', status: 'answered' });
+    writeRound(root, 'toolu_01', { roundId: 'round-page', status: 'answered' });
     expect(await main(['ask', 'hook', 'post'], { cwd: root, ...io(), stdin: post, tokens })).toBe(0);
     expect(server.calls).toEqual([]);
-    expect(readRound(root)).toBeNull();
+    expect(readRound(root, 'toolu_01')).toBeNull();
 
     const token = tokens.read(server.host).access_token;
     const opened = await fetch(`${server.url}/api/ask/sessions/${sessionId}/rounds`, {
       method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ questions: [QUESTION] }),
     }).then((response) => response.json());
-    writeRound(root, { roundId: opened.roundId, toolUseId: 'toolu_01', status: 'abandoned' });
+    writeRound(root, 'toolu_01', { roundId: opened.roundId, status: 'abandoned' });
     const s = io();
     expect(await main(['ask', 'hook', 'post'], { cwd: root, ...s, stdin: post, tokens })).toBe(0);
     expect(s.out).toEqual([]);
     expect(server.rounds.get(opened.roundId)).toMatchObject({ status: 'answered', answeredVia: 'terminal', answers: { [QUESTION.question]: 'Dark' } });
-    expect(readRound(root)).toBeNull();
+    expect(readRound(root, 'toolu_01')).toBeNull();
+  });
+
+  it('end closes this terminal\'s session only, deletes its file, and prints nothing', async () => {
+    const { root, tokens, sessionId } = await modeOn();
+    const other = server.openSession('acme/widgets · main');
+    writeTerminal(root, 'term-b', { sessionId: other.id, host: server.host });
+    const s = io();
+    expect(await main(['ask', 'hook', 'end'], { cwd: root, ...s, stdin: JSON.stringify({ hook_event_name: 'SessionEnd', session_id: 'term-a', reason: 'exit' }), tokens })).toBe(0);
+    expect(s.out).toEqual([]);
+    expect(server.sessions.get(sessionId).status).toBe('closed');
+    expect(server.sessions.get(other.id).status).toBe('open');
+    expect(readTerminal(root, 'term-a')).toBeNull();
+    expect(readTerminal(root, 'term-b')).toEqual({ sessionId: other.id, host: server.host });
   });
 
   it('prompt prints the one sentence of context', async () => {
@@ -236,11 +254,11 @@ describe('omni ask hook, with the mode on', () => {
 });
 
 describe('omni ask usage', () => {
-  it('refuses anything but hook pre, post or prompt', async () => {
+  it('refuses anything but hook pre, post, prompt or end', async () => {
     for (const args of [['ask'], ['ask', 'hook'], ['ask', 'hook', 'later'], ['ask', 'hook', 'pre', 'extra'], ['ask', 'dance']]) {
       const s = io();
       expect(await main(args, { cwd: tmpdir(), ...s })).toBe(2);
-      expect(s.err.join('')).toMatch(/^usage: omni ask hook <pre\|post\|prompt>/);
+      expect(s.err.join('')).toMatch(/^usage: omni ask hook <pre\|post\|prompt\|end>/);
     }
   });
 });
@@ -253,16 +271,19 @@ describe('the plugin\'s hooks.json', () => {
     return { matcher: hooks[event][0].matcher, ...hooks[event][0].hooks[0] };
   };
 
-  it('wires PreToolUse and PostToolUse on AskUserQuestion, and UserPromptSubmit', () => {
-    expect(Object.keys(hooks).sort()).toEqual(['PostToolUse', 'PreToolUse', 'UserPromptSubmit']);
+  it('wires PreToolUse and PostToolUse on AskUserQuestion, UserPromptSubmit and SessionEnd', () => {
+    expect(Object.keys(hooks).sort()).toEqual(['PostToolUse', 'PreToolUse', 'SessionEnd', 'UserPromptSubmit']);
     const pre = only('PreToolUse');
     const post = only('PostToolUse');
     const prompt = only('UserPromptSubmit');
+    const end = only('SessionEnd');
     expect(pre).toMatchObject({ matcher: 'AskUserQuestion', type: 'command', timeout: 600 });
     expect(post).toMatchObject({ matcher: 'AskUserQuestion', type: 'command' });
     expect(prompt).toMatchObject({ type: 'command' });
     expect(prompt.matcher).toBeUndefined();
-    for (const [kind, hook] of [['pre', pre], ['post', post], ['prompt', prompt]]) {
+    expect(end).toMatchObject({ type: 'command' });
+    expect(end.matcher).toBeUndefined();
+    for (const [kind, hook] of [['pre', pre], ['post', post], ['prompt', prompt], ['end', end]]) {
       expect(hook.command).toMatch(new RegExp(`^node "\\$CLAUDE_PROJECT_DIR/\\.omni-loop/bin/omni\\.mjs" ask hook ${kind}\\b`));
     }
   });

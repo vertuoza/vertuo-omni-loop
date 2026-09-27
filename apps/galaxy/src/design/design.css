@@ -1,0 +1,89 @@
+/* /design: the design system's page (DesignScreen.tsx). A reading page on the arcade's dark ground:
+   one column about 1080 px wide, the body face for copy, the pixel face for headings. Every colour
+   and face is a variable from @omni/design (tokens.css, fonts.css); nothing here names its own.
+   The arcade's stylesheet is global, so everything here is scoped to the page. */
+
+/* Over the arcade's body: its pinned height and hidden overflow, which hold the game screen still,
+   would leave the page stuck at its top. */
+html:has(.ds) body {
+  height: auto;
+  overflow: auto;
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.ds {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 32px 16px 64px;
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.6;
+}
+.ds code { font-family: var(--font-mono); font-size: 0.9em; }
+.ds a { color: var(--cyan); }
+.ds a:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+
+/* Pixels are never smoothed, and an SVG keeps the size its scale gives it. */
+.ds-svg { display: block; line-height: 0; }
+.ds-svg svg { display: block; max-width: none; image-rendering: pixelated; }
+
+.ds-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding-bottom: 24px; border-bottom: 2px solid var(--deep); }
+.ds-kicker { margin: 8px 0 0; font-family: var(--font-pixel); font-size: 8px; line-height: 1.5; color: var(--yellow); text-transform: uppercase; }
+.ds-h1 {
+  margin: 0;
+  font-family: var(--type-display-s-family);
+  font-size: var(--type-display-s-size);
+  line-height: var(--type-display-s-line);
+  font-weight: 400;
+  transform: skewX(var(--type-display-s-slant));
+  transform-origin: left bottom;
+}
+.ds-h2 { margin: 0; font-family: var(--font-pixel); font-size: 16px; line-height: 1.25; color: var(--yellow); }
+.ds-h3 { margin: 0; font-size: 1em; }
+.ds-lede { margin: 0; max-width: 68ch; }
+.ds-note { margin: 0; color: var(--dim); }
+.ds-toc { display: flex; flex-wrap: wrap; gap: 8px 16px; font-family: var(--font-pixel); font-size: 8px; line-height: 2; }
+
+.ds-section { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 40px 0 8px; scroll-margin-top: 16px; }
+
+/* A row of drawings on one ground; it scrolls on its own when the drawings are wider than the page. */
+.ds-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px 24px;
+  padding: 16px;
+  overflow-x: auto;
+  border-radius: 4px;
+}
+.ds-ground-dark { background: var(--void); box-shadow: inset 0 0 0 1px var(--deep); }
+.ds-ground-light { background: var(--white); color: var(--navy-dark); }
+.ds-fig { display: grid; gap: 6px; justify-items: start; margin: 0; }
+.ds-fig figcaption { font-family: var(--font-mono); font-size: 12px; line-height: 1.4; color: inherit; opacity: 0.8; }
+.ds-logo, .ds-pose { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.ds-logo + .ds-logo, .ds-pose + .ds-pose { margin-top: 16px; }
+
+.ds-swatches, .ds-steps, .ds-grid { margin: 0; padding: 0; list-style: none; }
+.ds-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.ds-swatch { display: grid; gap: 2px; padding: 8px; background: var(--deep); border-radius: 4px; }
+.ds-chip { display: block; height: 56px; margin-bottom: 6px; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--slate); }
+.ds-name { font-weight: 700; }
+.ds-hex { color: var(--dim); }
+.ds-contrast { font-size: 13px; color: var(--dim); }
+
+.ds-steps { display: grid; gap: 20px; overflow-x: clip; }
+.ds-step { display: grid; gap: 4px; padding-bottom: 16px; border-bottom: 1px solid var(--deep); min-width: 0; }
+.ds-spec { margin: 0; font-size: 14px; color: var(--dim); }
+.ds-sample {
+  margin: 0;
+  overflow-wrap: anywhere;
+  transform: skewX(var(--slant, 0deg));
+  transform-origin: left bottom;
+}
+
+.ds-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.ds-grid-icons { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }
+.ds-card { display: grid; gap: 8px; justify-items: start; padding: 12px; background: var(--deep); border-radius: 4px; min-width: 0; }
+.ds-frames { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }

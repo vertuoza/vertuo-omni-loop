@@ -1,5 +1,5 @@
 {
-  "description": "Ask mode: while it is on in a checkout, AskUserQuestion is answered on a web page. Silent otherwise.",
+  "description": "Ask mode: while it is on in a checkout, AskUserQuestion is answered on a web page, a tab per terminal. Silent otherwise.",
   "hooks": {
     "PreToolUse": [
       {
@@ -30,6 +30,16 @@
           {
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs\" ask hook prompt || true"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.omni-loop/bin/omni.mjs\" ask hook end || true"
           }
         ]
       }

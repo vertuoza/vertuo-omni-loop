@@ -1,55 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { TEXT_PAIRS, TOKENS, UI_PAIRS, contrast, themeCss, type TokenName } from './theme-tokens';
-
-describe('contrast', () => {
-  it('is the WCAG ratio', () => {
-    expect(contrast('#000000', '#ffffff')).toBeCloseTo(21, 5);
-    expect(contrast('#ffffff', '#ffffff')).toBeCloseTo(1, 5);
-    expect(contrast('#777777', '#ffffff')).toBeCloseTo(4.48, 2);
-    expect(contrast('#ffffff', '#777777')).toBeCloseTo(contrast('#777777', '#ffffff'), 10);
-  });
-});
+import { ASK, ASK_TEXT_PAIRS, ASK_UI_PAIRS } from '@omni/design';
+import { TEXT_PAIRS, TOKENS, UI_PAIRS, themeCss, type TokenName } from './theme-tokens';
 
 describe('the token table', () => {
-  const themes = Object.keys(TOKENS) as Array<keyof typeof TOKENS>;
-
-  it('has both themes, with the same tokens', () => {
-    expect(themes.sort()).toEqual(['dark', 'light']);
-    expect(Object.keys(TOKENS.dark).sort()).toEqual(Object.keys(TOKENS.light).sort());
-    for (const theme of themes) {
-      for (const [name, value] of Object.entries(TOKENS[theme])) expect(value, `${theme} ${name}`).toMatch(/^#[0-9a-f]{6}$/);
-    }
-  });
-
-  it('passes WCAG AA for every text colour pair, in both themes', () => {
-    const failures: string[] = [];
-    for (const theme of themes) {
-      for (const { text, on, where } of TEXT_PAIRS) {
-        const ratio = contrast(TOKENS[theme][text], TOKENS[theme][on]);
-        if (ratio < 4.5) failures.push(`${theme}: ${text} on ${on} (${where}) is ${ratio.toFixed(2)}:1`);
-      }
-    }
-    expect(failures).toEqual([]);
-  });
-
-  it("gives focus rings and the selected option's edge 3:1 against what they sit on", () => {
-    const failures: string[] = [];
-    for (const theme of themes) {
-      for (const { text, on, where } of UI_PAIRS) {
-        const ratio = contrast(TOKENS[theme][text], TOKENS[theme][on]);
-        if (ratio < 3) failures.push(`${theme}: ${text} on ${on} (${where}) is ${ratio.toFixed(2)}:1`);
-      }
-    }
-    expect(failures).toEqual([]);
-  });
-
-  it('names only tokens the table has', () => {
-    const names = new Set(Object.keys(TOKENS.light));
-    for (const { text, on } of [...TEXT_PAIRS, ...UI_PAIRS]) {
-      expect(names.has(text), text).toBe(true);
-      expect(names.has(on), on).toBe(true);
-    }
+  // Its values, its pairs and their WCAG AA test live in @omni/design (tokens.test.mjs).
+  it('is @omni/design\'s', () => {
+    expect(TOKENS).toBe(ASK);
+    expect(TEXT_PAIRS).toBe(ASK_TEXT_PAIRS);
+    expect(UI_PAIRS).toBe(ASK_UI_PAIRS);
   });
 });
 
@@ -104,6 +63,28 @@ describe('the stylesheet', () => {
     const body = rules.find((r) => r.selector === 'html:has(.ask) body');
     expect(body?.body).toContain('overflow: auto;');
     expect(body?.body).toContain('height: auto;');
+  });
+
+  it('puts the tabs beside the pane from 720 px, and above it below', () => {
+    expect(css).toMatch(/@media \(min-width: 720px\) \{[^@]*?\.ask-page \{ grid-template-columns: minmax\(200px, 280px\) minmax\(0, 1fr\);/);
+    expect(rules.find((r) => r.selector === '.ask-page')?.body).not.toContain('grid-template-columns');
+  });
+
+  it('folds the tabs into one row below 720 px, the list shown only once it is opened', () => {
+    const narrow = css.match(/@media \(max-width: 719\.98px\) \{([\s\S]*?)\n\}/)?.[1] ?? '';
+    expect(narrow).toMatch(/\.ask-tabs-fold \{[^}]*display: flex;/);
+    expect(narrow).toMatch(/\.ask-tabs-head \{[^}]*display: none;/);
+    expect(narrow).toMatch(/\.ask-tabs:not\(\[data-open\]\) \.ask-tab-list \{[^}]*display: none;/);
+    // From 720 px the list always shows and the folded row does not.
+    expect(rules.find((r) => r.selector === '.ask-tabs-fold')?.body).toContain('display: none;');
+    expect(rules.filter((r) => r.selector === '.ask-tab-list').map((r) => r.body).join('')).not.toContain('display: none');
+  });
+
+  it('never pins the tabbed page to the window, so it scrolls', () => {
+    for (const selector of ['.ask-page', '.ask-pane']) {
+      const body = rules.filter((r) => r.selector === selector).map((r) => r.body).join('');
+      expect(body, selector).not.toMatch(/overflow: hidden|height: 100(?:vh|dvh|%)/);
+    }
   });
 
   it('puts the preview beside the options from 720 px, and under them below', () => {

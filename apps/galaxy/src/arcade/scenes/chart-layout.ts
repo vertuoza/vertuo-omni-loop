@@ -2,7 +2,7 @@
 // circles its sun in the `system`, and where the D-pad and a tap go on each. The canvas draws them
 // (chart.ts), the text layer labels them (chart.tsx), and nothing here moves with time: the orbits
 // hold still, so a world stays where the D-pad and a finger expect it.
-import { rng } from '@omni/sprites';
+import { rng } from '@omni/design';
 import { entriesOf, lanes, orbits, systems, type EntryKind, type KnowledgeEntry, type KnowledgeGraph, type KnowledgeSystem } from '../../data/knowledge';
 import type { Action } from '../keys';
 import type { Grid, GridName } from './common.ts';

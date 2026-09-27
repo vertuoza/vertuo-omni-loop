@@ -1,6 +1,7 @@
 // The ask page without a database (`pnpm galaxy:dev`, or a build with OMNI_LOOP_DEMO=1, like the
-// arcade's demo galaxy): one made-up session played in the browser, so the page can be seen and
-// tried. `?demo=working|moved|closed|empty` shows the other states. Nothing here is ever sent.
+// arcade's demo galaxy): three made-up terminals, one of them asking, played in the browser, so the
+// page can be seen and tried. `?demo=working|moved|closed|empty` shows the other states on the
+// first one. Nothing here is ever sent.
 import type { QuestionState } from './question';
 import type { AskPort, QuestionPort } from './source';
 import type { RoundRow, SessionRow, SessionState } from './view';
@@ -135,6 +136,54 @@ export function demoState(id: string, scenario: DemoScenario, now: number): Sess
     },
     rounds,
   };
+}
+
+const DEPLOY = {
+  question: 'Which preview should the live proof run against?',
+  header: 'Preview',
+  multiSelect: false,
+  options: [
+    { label: 'The feature branch\'s (Recommended)', description: 'Every slice merged, nothing on main yet.' },
+    { label: 'Production', description: 'Only once the feature PR merges.' },
+  ],
+};
+const QUOTES = {
+  question: 'Should a quote keep its lines when it is copied?',
+  header: 'Quotes',
+  multiSelect: false,
+  options: [
+    { label: 'Yes, every line (Recommended)', description: 'The copy starts as the original.' },
+    { label: 'Only the header', description: 'The lines start empty.' },
+  ],
+};
+
+/** The terminals the demo plays on /ask: the first one asks (or shows `scenario`), the two others
+ * are working, one on another branch of the same repository and one in another repository. */
+export function demoSessions(scenario: DemoScenario, now: number): SessionState[] {
+  const first = demoState('demo-terminal-1', scenario, now);
+  const quiet = (n: number, title: string, question: typeof DEPLOY, ago: number): SessionState => ({
+    session: { id: `demo-terminal-${n}`, owner: DEMO_OWNER, title, status: 'open', created_at: iso(now - 90 * MIN), last_seen_at: iso(now - ago) },
+    rounds: [{
+      id: `demo-terminal-${n}-round-1`,
+      questions: [question],
+      answers: { [question.question]: question.options[0].label },
+      answered_via: 'page',
+      status: 'answered',
+      created_at: iso(now - ago - 3 * MIN),
+      answered_at: iso(now - ago - 2 * MIN),
+    }],
+  });
+  return [
+    first,
+    quiet(2, 'vertuo-omni-loop · main', DEPLOY, 2 * MIN),
+    quiet(3, 'vertuo-workflow-domain · feat/copy-quote', QUOTES, 6 * MIN),
+  ];
+}
+
+/** The session a demo pane plays: one of the terminals, or, for any other link (a PRD 71 one), the
+ * single session it always played. */
+export function demoPane(id: string, scenario: DemoScenario, now: number): SessionState {
+  return demoSessions(scenario, now).find((s) => s.session.id === id) ?? demoState(id, scenario, now);
 }
 
 /** The demo session in the browser: an answer is taken, and a moment later Claude asks again. */

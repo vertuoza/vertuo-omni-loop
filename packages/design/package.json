@@ -1,0 +1,20 @@
+{
+  "name": "@omni/design",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The Omni Loop design system: the colour tokens and tokens.css, the fonts, the 16-bit crest logo, the Omni Loop brand, hand-placed pixel sprites and the planet renderer.",
+  "scripts": {
+    "tokens": "node --input-type=module -e \"import { writeFileSync } from 'node:fs'; import { tokensCss } from './src/tokens.mjs'; writeFileSync('tokens.css', tokensCss());\"",
+    "fonts": "node --input-type=module -e \"import { writeFileSync } from 'node:fs'; import { fontsCss } from './src/fonts.mjs'; writeFileSync('fonts.css', fontsCss());\""
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.mjs"
+    },
+    "./tokens.css": "./tokens.css",
+    "./fonts.css": "./fonts.css",
+    "./fonts/*": "./fonts/*"
+  }
+}

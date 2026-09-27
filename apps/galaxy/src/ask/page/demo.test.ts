@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { readQuestions, shownLabel } from '../answer-model';
-import { DEMO_MEMBERS, DEMO_OWNER, DEMO_TEAMMATE, demoPort, demoQuestion, demoQuestionPort, demoState, readScenario } from './demo';
+import {
+  DEMO_MEMBERS, DEMO_OWNER, DEMO_TEAMMATE, demoPane, demoPort, demoQuestion, demoQuestionPort, demoSessions, demoState, readScenario,
+} from './demo';
 import { questionView } from './question';
+import { firstTab, needsYou, rowOf, tabsOf } from './tabs';
 import { sessionView } from './view';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
@@ -27,6 +30,22 @@ describe('the demo session', () => {
     expect(options.some((o) => o.preview)).toBe(true);
     expect(view.questions.some((q) => q.multiSelect)).toBe(true);
     expect(view.history.map((h) => h.via).sort()).toEqual(['page', 'terminal']);
+  });
+
+  it('plays three terminals, one needing the person, and /ask opens on that one', () => {
+    const tabs = tabsOf(demoSessions('open', NOW).map(rowOf), NOW);
+    expect(tabs).toHaveLength(3);
+    expect(new Set(tabs.map((t) => t.title)).size).toBe(3);
+    expect(tabs.map((t) => t.state)).toEqual(['needs-you', 'working', 'working']);
+    expect(demoPane(firstTab(tabs)!, 'open', NOW).session.id).toBe(tabs[0].id);
+    expect(sessionView(demoPane(tabs[0].id, 'open', NOW), NOW).kind).toBe('open');
+  });
+
+  it("plays a PRD 71 link's session as before, and the other states on the first terminal", () => {
+    expect(demoPane('7c1e2a94-0b1d-4c3e-9f00-1234567890ab', 'moved', NOW).session.id).toBe('7c1e2a94-0b1d-4c3e-9f00-1234567890ab');
+    const [first] = demoSessions('working', NOW);
+    expect(sessionView(first, NOW).kind).toBe('working');
+    expect(needsYou(tabsOf(demoSessions('working', NOW).map(rowOf), NOW))).toBe(0);
   });
 
   it('takes an answer, then asks again a moment later', async () => {

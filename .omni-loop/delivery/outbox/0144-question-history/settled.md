@@ -705,3 +705,245 @@ Adding a refresh later is a small change to the header and the list; nothing sto
 ```
 
 <!-- /omni-outbox-settled: s4-02-for-me-count-on-every-page -->
+
+<!-- omni-outbox-settled: s2-03-teammate-session-outside-the-tabs -->
+
+## s2-03-teammate-session-outside-the-tabs — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s2
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-03-teammate-session-outside-the-tabs
+prd: 144
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 4
+---
+
+## The question, in plain words
+
+Now that the ask page shows one tab per terminal, where should a teammate's session open when someone follows its link?
+
+## The decision, in plain words
+
+A teammate's session opens on its own, read-only, without the tab list. The tab list only ever shows the terminals the signed-in person opened, even though the whole workspace can now read every session.
+
+## The intro, for fun
+
+Two features met in a merge and both wanted the same page.
+
+## The punchline, for fun
+
+Your tabs stay yours; a teammate's session is a guest, not a roommate.
+
+## The options, in plain words
+
+A. Open a teammate's session alone, read-only, outside the tabs, the option built.
+B. Show it as an extra read-only tab after the person's own terminals.
+C. Show every workspace session as a tab, marked by owner.
+
+## What I had to decide
+
+PRD 142 turned the session page into one page with a tab per terminal, built on the idea that only the owner could read a session. PRD 144 lets every workspace member read every session, read-only for non-owners. Merging the two needed a choice about how a teammate's session sits next to the person's own tabs.
+
+## What I did meanwhile
+
+The tab list reads only sessions the person owns. A link to a teammate's session renders that session alone, read-only, with the context line and category chip, no answer form, no Share, no delete. The person's own tabs keep the answer form, Share on the open round, and delete.
+
+## What it costs to change later
+
+Small: showing a teammate's session as an extra tab later is a change to the route and the tab list only; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether people would rather see a teammate's session as a visiting tab beside their own terminals
+- whether the history page planned in PRD 144 will become the usual way into a teammate's session, which would make this choice moot
+
+```
+
+<!-- /omni-outbox-settled: s2-03-teammate-session-outside-the-tabs -->
+
+<!-- omni-outbox-settled: s2-01-sweep-closes-idle-sessions -->
+
+## s2-01-sweep-closes-idle-sessions — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-09-27T05:22:19Z
+- Channel: feature pull request #147
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/147#issuecomment-5852950068
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Became: ADR-0030
+- Rank: high
+- Bears on: ADR-0030
+- Raised: 2026-09-26
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+go with recommendation
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-sweep-closes-idle-sessions
+prd: 144
+slice: s2
+rank: high
+bears-on: ADR-0030
+raised: 2026-09-26
+wave: 2
+---
+
+## The question, in plain words
+
+Now that questions are kept for good, the hourly clean-up deletes nothing; should it still close a session left idle for twelve hours, which an earlier decision said it would never do?
+
+## The decision, in plain words
+
+Yes: the hourly job now marks a session closed once it has sat idle for twelve hours, dated twelve hours after it went quiet, and deletes nothing. The old clean-up that deleted week-old sessions is gone.
+
+## The intro, for fun
+
+The hourly janitor used to throw old questions away; now it only turns off the lights.
+
+## The punchline, for fun
+
+Everything stays on the shelf, just in a darker room.
+
+## The options, in plain words
+
+A. Replace the deleting job with one that closes a session idle for twelve hours and deletes nothing
+B. Drop the hourly job entirely: nothing is deleted, and an idle session keeps reading as closed without being rewritten
+
+## What I had to decide
+
+Keep the hourly job closing idle sessions, or drop it and let an idle session only read as closed, as before.
+
+## What I did meanwhile
+
+Idle sessions are closed by the hourly job, which deletes nothing; a closed session shows the same to everyone as before.
+
+## What it costs to change later
+
+Going back is one small migration that unschedules the job; sessions it already closed stay closed, which the pages already show them as.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec names the function ask_sweep() and says it still closes idle sessions, while the function in the database was ask_expire(), which only deleted and never closed; I read the spec as asking for a job that closes and deletes nothing (author)
+- The earlier decision record on expiry says idle sessions are never rewritten; this slice cannot edit that record, which sits outside its files (author)
+
+```
+
+<!-- /omni-outbox-settled: s2-01-sweep-closes-idle-sessions -->
+
+<!-- omni-outbox-settled: s4-03-share-reply-shape -->
+
+## s4-03-share-reply-shape — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-09-27T05:22:19Z
+- Channel: feature pull request #147
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/147#issuecomment-5852950068
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Became: ADR-0002
+- Rank: high
+- Bears on: ADR-0002
+- Raised: 2026-09-26
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+go with recommendation
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-share-reply-shape
+prd: 144
+slice: s4
+rank: high
+bears-on: ADR-0002
+raised: 2026-09-26
+wave: 4
+---
+
+## The question, in plain words
+
+The spec names a new way to share a question and says a late answer is refused with who answered, but not exactly what is sent and received; what should it look like?
+
+## The decision, in plain words
+
+Sharing takes the teammate and answers with the link, and a late answer is told who answered first and whether on the page or in the terminal. An answered question may still be shared, read-only.
+
+## The intro, for fun
+
+Two people reach for the same question; somebody has to be told they were second.
+
+## The punchline, for fun
+
+Politely, with the winner's name on the note.
+
+## The options, in plain words
+
+A. Share with member, answered by the link; a late answer told who and which way; any question may be shared
+B. Same bodies, but refuse to share a question that is no longer open
+C. Share with an email address rather than an account id
+
+## What I had to decide
+
+The exact shape of the share call and of the refusal a second answer gets, and whether an answered question may still be shared.
+
+## What I did meanwhile
+
+Sharing sends the teammate's account id as member and gets back the round, the teammate and the link. A second answer gets a refusal carrying who answered first, by id and name, and which way. Answered or abandoned questions can still be shared, read-only.
+
+## What it costs to change later
+
+No kit sends a share yet and the terminal only reads the refusal's status, so renaming a field is a small change in the app and its tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec lists the share route and says the refusal names who answered, but gives neither body (author)
+- The contract section of ADR-0002 lives outside this slice's files, so it does not yet list the share route (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-03-share-reply-shape -->

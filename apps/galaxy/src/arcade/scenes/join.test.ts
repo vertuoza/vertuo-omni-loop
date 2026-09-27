@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { DEMO_PROJECTS, lookOf } from '@omni/galaxy';
-import { spriteSize } from '@omni/sprites';
+import { spriteSize } from '@omni/design';
 import { gridFor } from '../grid';
 import { setFleets } from '../fleets';
 import { HOUSE_BRAND } from '../brand';
@@ -17,8 +17,8 @@ import { CoinOverlay, GateOverlay, IntroOverlay, LinkOverlay, OutsiderOverlay, R
 
 // Every sprite drawn, where and how large: the join scenes' actors on the canvas.
 const sprites = vi.hoisted(() => [] as { name: string; x: number; y: number; scale: number }[]);
-vi.mock('@omni/sprites', async (original) => {
-  const m = await original<typeof import('@omni/sprites')>();
+vi.mock('@omni/design', async (original) => {
+  const m = await original<typeof import('@omni/design')>();
   return {
     ...m,
     drawSprite: (_ctx: unknown, name: string, x: number, y: number, o: { scale?: number } = {}) => {

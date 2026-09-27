@@ -6,8 +6,8 @@
 // theme token is read from the frame's theme (`FrameState.theme`), never written here, and every
 // sprite is drawn through `sprite()`, in the theme's stripes.
 import {
-  drawSprite, drawStarfield, makeNebula, makeStarfield, rampFrom, spriteSize, type Hero,
-} from '@omni/sprites';
+  drawSprite, drawStarfield, makeNebula, makeStarfield, rampFrom, spriteSize, type Hero, type LogoForm,
+} from '@omni/design';
 import type { GalaxyView, Planet } from '@omni/galaxy';
 import { fleet, heroOf, seedOf } from '../fleets';
 import type { Mark } from '../mark';
@@ -55,6 +55,7 @@ export interface FrameState {
   sceneT: number;       // seconds since this scene opened
   reduced: boolean;     // prefers-reduced-motion
   mark: Mark;           // the brand's mark: its letter, which the boot and the intro draw
+  logo?: LogoForm | null; // the house brand's crest, which the boot draws in place of the mark
   theme: Theme;         // the brand's theme, resolved: the colours the scenes draw with
   chart?: ChartFrame;   // the star chart (chart, system)
 }

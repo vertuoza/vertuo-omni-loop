@@ -90,6 +90,26 @@ describe('the ask contract client', () => {
     expect(server.calls[2].authorization).toBe('Bearer access-2');
   });
 
+  it('on a 401, takes the tokens another terminal already renewed, and never replays the old refresh token', async () => {
+    // Terminal B read the store before terminal A renewed it. Replaying B's refresh token, already
+    // rotated by A, is what makes Supabase revoke the whole sign-in.
+    const { client: a, tokens } = await setUp();
+    const { id } = server.openSession();
+    server.expireAccess();
+    await a.openRound(id, QUESTIONS);
+    const stale = { access_token: 'access-1', refresh_token: 'refresh-1' };
+    let first = true;
+    const behind = { read: (host) => (first ? ((first = false), stale) : tokens.read(host)), write: tokens.write };
+    const b = askClient({ baseUrl: server.url, host: server.host, tokens: behind });
+    server.calls.length = 0;
+
+    const { roundId } = await b.openRound(id, QUESTIONS);
+
+    expect(server.rounds.has(roundId)).toBe(true);
+    expect(server.calls.map((call) => call.path)).toEqual([`/api/ask/sessions/${id}/rounds`, `/api/ask/sessions/${id}/rounds`]);
+    expect(server.calls[1].authorization).toBe('Bearer access-2');
+  });
+
   it('refreshes only once: a second 401 is an error', async () => {
     const { client } = await setUp();
     const { id } = server.openSession();

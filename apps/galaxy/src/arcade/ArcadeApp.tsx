@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { GalaxyView } from '@omni/galaxy';
-import { randomHero, type Hero } from '@omni/sprites';
+import { randomHero, type Hero } from '@omni/design';
 import {
   chartKey, drawFrame, layoutChart, layoutMap, layoutSystem, neighbour, sunAt, worldAt, type ChartSource, type FrameState, type SceneName,
 } from './scenes';
@@ -107,7 +107,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   setFleets(fleets);
   // The brand's look: its theme, written as custom properties on the root element below and read by
   // the canvas, and its mark in the theme's colours. The theme {} is today's arcade.
-  const { theme, mark } = useMemo(() => brandLook(brand), [brand]);
+  const { theme, mark, logo } = useMemo(() => brandLook(brand), [brand]);
   const themeStyle = useMemo(() => themeVars(theme) as CSSProperties, [theme]);
   const active = useMemo(() => fleets.filter((f) => !f.retired), [fleets]);
   // The form follows the device (a mouse, or touch upright or sideways); turning the phone changes
@@ -525,8 +525,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const grid = gridFor(form, ui.scene);
   const pages = pagesFor(ui.scene, { view, grid });
   const page = Math.min(ui.page, pages - 1);
-  const frameRef = useRef({ view, layout, active, me, grid, page, mark, theme, knowledge, chart, system });
-  frameRef.current = { view, layout, active, me, grid, page, mark, theme, knowledge, chart, system };
+  const frameRef = useRef({ view, layout, active, me, grid, page, mark, logo, theme, knowledge, chart, system });
+  frameRef.current = { view, layout, active, me, grid, page, mark, logo, theme, knowledge, chart, system };
   useEffect(() => {
     const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     let raf = 0;
@@ -539,7 +539,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       const f = frameRef.current;
       const picking = u.scene === 'select' ? f.active[u.pick]?.name ?? null : null;
       const frame: FrameState = {
-        scene: u.scene, grid: f.grid, page: f.page, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches, mark: f.mark, theme: f.theme,
+        scene: u.scene, grid: f.grid, page: f.page, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches, mark: f.mark, logo: f.logo, theme: f.theme,
         join: {
           fleets: f.active, pick: u.pick, lockedAt: u.lockedAt, away: u.away || u.link === 'away',
           team: picking ?? f.me?.team ?? null,
