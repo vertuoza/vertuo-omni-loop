@@ -9,7 +9,9 @@
 -- service role (the fallback) adds versions through the same rule, and a draft numbered to its dossier
 -- merges into it. Later steps of PRD 216 append their own checks: dossier_rounds() gives each member
 -- the same brainstorm and delivery rounds of a dossier, once each, and nothing its caller could not
--- read. One transaction, rolled back at the end. Any `FAIL:` stops the run.
+-- read; dossier_list() lists each dossier of the caller's workspaces with its repositories, its latest
+-- versions, its question counts and its last activity, and nothing of another workspace. One
+-- transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
 
@@ -540,6 +542,229 @@ begin
   if has_function_privilege('anon', 'public.dossier_rounds(uuid)', 'execute')
      or not has_function_privilege('authenticated', 'public.dossier_rounds(uuid)', 'execute') then
     raise exception 'FAIL: dossier_rounds() is callable by anon, or not by the signed-in';
+  end if;
+end $$;
+
+-- ── The history: dossier_list() (PRD 216, step 4) ──
+-- Written as the database owner, past row-level security. Vertuoza's plan repository is
+-- vertuoza/vertuo-omni-loop (the sectors migration); Acme's becomes acme/plans here. PRD 40 of Vertuoza's
+-- plan repository, opened 3 days ago in the Claude session sess-l: its spec at v2 (the second read from
+-- GitHub) and its before/after page at v1, no plan; a brainstorm question asked in
+-- Vertuoza/Vertuo-AI-Domain and answered, a delivery question asked in its home repository named in
+-- another case; its planet surveyed in vertuo-core (twice, once in another case) and vertuo-web, a zone
+-- opened in vertuo-mobile, and PRD 41's planet surveyed in vertuo-mobile. PRD 40 of vertuoza/tiles,
+-- which the fallback created: not the plan repository, so the planet's regions are not its own, and
+-- nothing else happened to it since it was numbered 4 days ago. A draft opened 6 days ago, untouched.
+-- Acme's PRD 40 of acme/plans, its planet surveyed in acme-core.
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+do $$
+declare
+  vertuoza constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+  acme constant uuid := (select id from public.workspaces where slug = 'acme');
+  ada constant uuid := '00000000-0000-4000-8000-0000000000a1';
+  bob constant uuid := '00000000-0000-4000-8000-0000000000b1';
+  carl constant uuid := '00000000-0000-4000-8000-0000000000c1';
+  asked constant jsonb := '[{"question": "Monthly or weekly reminders?", "header": "Cadence", "multiSelect": false,
+                             "options": [{"label": "Monthly", "description": "calmer"}, {"label": "Weekly", "description": "sooner"}]}]';
+  plan40 constant uuid := gen_random_uuid();
+  tiles40 constant uuid := gen_random_uuid();
+  draft constant uuid := gen_random_uuid();
+  acme40 constant uuid := gen_random_uuid();
+  s_brainstorm uuid;
+  s_delivery uuid;
+  r_brainstorm uuid;
+begin
+  if (select w.plan_repo from public.workspaces w where w.id = vertuoza) is distinct from 'vertuo-omni-loop' then
+    raise exception 'FAIL: the history checks expect vertuoza/vertuo-omni-loop as Vertuoza''s plan repository';
+  end if;
+  update public.workspaces set plan_repo = 'plans' where id = acme;
+  insert into ids values ('l-plan40', plan40), ('l-tiles40', tiles40), ('l-draft', draft), ('l-acme40', acme40);
+  insert into public.dossiers (id, workspace_id, home_repo, prd, title, opened_by, claude_session_id, created_at, numbered_at) values
+    (plan40,  vertuoza, 'vertuoza/vertuo-omni-loop', 40,   'Invoice reminders', ada,  'sess-l', now() - interval '3 days', now() - interval '71 hours'),
+    (tiles40, vertuoza, 'vertuoza/tiles',            40,   'Tile sizes',        null, null,     now() - interval '5 days', now() - interval '4 days'),
+    (draft,   vertuoza, 'vertuoza/tiles',            null, 'Grout colours',     bob,  null,     now() - interval '6 days', null),
+    (acme40,  acme,     'acme/plans',                40,   'Acme reminders',    carl, null,     now() - interval '2 days', now() - interval '2 days');
+  perform public.dossier_add_version(plan40, 'spec', 'reminders spec one', 'kit', ada);
+  perform public.dossier_add_version(plan40, 'before-after', 'reminders page', 'kit', ada);
+  perform public.dossier_add_version(plan40, 'spec', 'reminders spec two', 'github', null, 'a1b2c3d', 'b10b5ea');
+
+  insert into public.ledger_events (workspace_id, id, at, type, planet, region) values
+    (vertuoza, 'check:region:vertuo-core:40:surveyed',   now() - interval '60 hours', 'REGION_SURVEYED', 40, 'vertuo-core'),
+    (vertuoza, 'check:region:vertuo-core:40:again',      now() - interval '50 hours', 'REGION_SURVEYED', 40, 'Vertuo-Core'),
+    (vertuoza, 'check:region:vertuo-web:40:surveyed',    now() - interval '40 hours', 'REGION_SURVEYED', 40, 'vertuo-web'),
+    (vertuoza, 'check:planet:40:charted',                now() - interval '70 hours', 'PLANET_CHARTED',  40, null),
+    (vertuoza, 'check:zone:vertuo-mobile:40:opened',     now() - interval '30 hours', 'ZONE_OPENED',     40, 'vertuo-mobile'),
+    (vertuoza, 'check:region:vertuo-mobile:41:surveyed', now() - interval '30 hours', 'REGION_SURVEYED', 41, 'vertuo-mobile'),
+    (acme,     'check:region:acme-core:40:surveyed',     now() - interval '30 hours', 'REGION_SURVEYED', 40, 'acme-core');
+
+  insert into public.ask_sessions (owner, title, repo, branch, claude_session_id)
+  values (ada, 'vertuo-ai-domain · main', 'Vertuoza/Vertuo-AI-Domain', 'main', 'sess-l') returning id into s_brainstorm;
+  insert into public.ask_sessions (owner, title, repo, branch, claude_session_id)
+  values (bob, 'vertuo-omni-loop · feat/invoice-reminders--s1', 'Vertuoza/Vertuo-Omni-Loop', 'feat/invoice-reminders--s1', 'sess-lb')
+  returning id into s_delivery;
+  insert into public.ask_rounds (session_id, questions, created_at, prd, skill)
+  values (s_brainstorm, asked, now() - interval '2 days', null, '/omni:brainstorm') returning id into r_brainstorm;
+  insert into public.ask_rounds (session_id, questions, created_at, prd, skill)
+  values (s_delivery, asked, now() - interval '1 hour', 40, '/omni:do-work');
+  update public.ask_rounds set status = 'answered', answers = '{"Monthly or weekly reminders?": "Monthly"}', answered_via = 'terminal'
+   where id = r_brainstorm;
+end $$;
+
+-- The order dossier_list() gives the dossiers these checks named, as their names.
+create function pg_temp.list_order() returns text language sql as $$
+  select coalesce(string_agg(i.name, ' ' order by l.ordinality), '')
+    from public.dossier_list() with ordinality as l
+    join ids i on i.id = l.id and i.name in ('l-plan40', 'l-tiles40', 'l-draft', 'q-prd30', 'q-prd31', 'q-draft')
+$$;
+grant execute on function pg_temp.list_order() to authenticated;
+
+-- ── Bob, a member: every dossier of his workspace, and nothing else, each as the history lists it ──
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+do $$
+declare
+  vertuoza constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+  plan40 constant uuid := (select id from ids where name = 'l-plan40');
+  tiles40 constant uuid := (select id from ids where name = 'l-tiles40');
+  draft constant uuid := (select id from ids where name = 'l-draft');
+  listed record;
+  got text;
+begin
+  if (select count(*) from public.dossier_list()) <> (select count(*) from public.dossiers) then
+    raise exception 'FAIL: dossier_list() did not list every dossier a member reads, once each';
+  end if;
+  if exists (select 1 from public.dossier_list() l where l.workspace_id <> vertuoza) then
+    raise exception 'FAIL: dossier_list() listed a dossier of a workspace its caller does not belong to';
+  end if;
+
+  -- PRD 40 of the plan repository: its home, its questions' repository and its planet's regions, once
+  -- each and in lower case; its latest version of each kind it has; its rounds; its latest version's time.
+  select * into listed from public.dossier_list() l where l.id = plan40;
+  if listed.repos is distinct from array['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-ai-domain', 'vertuoza/vertuo-core', 'vertuoza/vertuo-web'] then
+    raise exception 'FAIL: a PRD of the plan repository did not list its home, its questions'' and its planet''s repositories: %', listed.repos;
+  end if;
+  if listed.latest -> 'spec' ->> 'version' is distinct from '2' or listed.latest -> 'spec' ->> 'source' is distinct from 'github'
+     or (listed.latest -> 'spec' ->> 'id')::uuid is distinct from (select v.id from public.dossier_versions v where v.dossier_id = plan40 and v.content = 'reminders spec two')
+     or listed.latest -> 'before-after' ->> 'version' is distinct from '1' or listed.latest -> 'before-after' ->> 'source' is distinct from 'kit'
+     or listed.latest -> 'plan' is not null then
+    raise exception 'FAIL: dossier_list() did not give the latest version of each kind a dossier has, and none of a kind it lacks: %', listed.latest;
+  end if;
+  if listed.asked is distinct from 2 or listed.answered is distinct from 1 then
+    raise exception 'FAIL: dossier_list() did not count a dossier''s rounds asked and answered: % asked, % answered', listed.asked, listed.answered;
+  end if;
+  if listed.last_activity is distinct from (select max(v.created_at) from public.dossier_versions v where v.dossier_id = plan40)
+     or listed.prd is distinct from 40 or listed.title is distinct from 'Invoice reminders' or listed.home_repo is distinct from 'vertuoza/vertuo-omni-loop' then
+    raise exception 'FAIL: a dossier''s last activity is not its latest version, or its row is not its own: %', row_to_json(listed);
+  end if;
+
+  -- PRD 40 of another repository: the planet's regions are the plan repository's PRD's, not its own.
+  select * into listed from public.dossier_list() l where l.id = tiles40;
+  if listed.repos is distinct from array['vertuoza/tiles'] or listed.latest is distinct from '{}'::jsonb
+     or listed.asked is distinct from 0 or listed.answered is distinct from 0 or listed.last_activity is distinct from now() - interval '4 days' then
+    raise exception 'FAIL: a dossier of another repository, with nothing but its numbering, did not list as such: %', row_to_json(listed);
+  end if;
+  select * into listed from public.dossier_list() l where l.id = draft;
+  if listed.prd is not null or listed.last_activity is distinct from now() - interval '6 days' then
+    raise exception 'FAIL: an untouched draft did not list with its opening as its last activity: %', row_to_json(listed);
+  end if;
+
+  -- PRD 30 of vertuoza/tiles (the rounds checks): its rounds asked in Vertuoza/Tiles and vertuoza/tiles
+  -- are its home, once; an answer given in this transaction is its last activity.
+  select * into listed from public.dossier_list() l where l.id = (select id from ids where name = 'q-prd30');
+  if listed.repos is distinct from array['vertuoza/tiles'] or listed.asked is distinct from 4 or listed.answered is distinct from 2
+     or listed.last_activity is distinct from now() then
+    raise exception 'FAIL: PRD 30 did not list its home once, its four rounds, two answered, and its latest answer as its last activity: %', row_to_json(listed);
+  end if;
+
+  -- Every row counts what dossier_rounds() returns, and numbers what its versions hold.
+  if exists (
+    select 1 from public.dossier_list() l
+     where l.asked <> (select count(*) from public.dossier_rounds(l.id))
+        or l.answered <> (select count(*) from public.dossier_rounds(l.id) r where r.status = 'answered')) then
+    raise exception 'FAIL: dossier_list() counted rounds other than those dossier_rounds() returns';
+  end if;
+  if exists (
+    select 1 from public.dossier_list() l cross join unnest(array['spec', 'plan', 'before-after']) as k (kind)
+     where coalesce((l.latest -> k.kind ->> 'version')::integer, 0)
+           <> (select count(*) from public.dossier_versions v where v.dossier_id = l.id and v.kind = k.kind)) then
+    raise exception 'FAIL: dossier_list() numbered a latest version other than by its place among its kind''s';
+  end if;
+
+  -- Newest activity first.
+  got := pg_temp.list_order();
+  if got <> 'l-plan40 q-prd30 q-prd31 q-draft l-tiles40 l-draft' then
+    raise exception 'FAIL: dossier_list() did not list the newest activity first: %', got;
+  end if;
+
+  -- One dossier, when named.
+  if (select array_agg(l.id) from public.dossier_list(plan40) l) is distinct from array[plan40] then
+    raise exception 'FAIL: dossier_list(p_dossier) did not list that dossier alone';
+  end if;
+end $$;
+
+-- ── Ada, a member of both workspaces: each dossier with its own workspace's repositories ──
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+do $$
+begin
+  if (select l.repos from public.dossier_list() l where l.id = (select id from ids where name = 'l-acme40'))
+     is distinct from array['acme/plans', 'acme/acme-core'] then
+    raise exception 'FAIL: a PRD of Acme''s plan repository did not list its planet''s regions as Acme''s repositories';
+  end if;
+  if (select l.repos from public.dossier_list() l where l.id = (select id from ids where name = 'l-plan40'))
+     is distinct from array['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-ai-domain', 'vertuoza/vertuo-core', 'vertuoza/vertuo-web'] then
+    raise exception 'FAIL: a member of two workspaces read another workspace''s regions on a Vertuoza PRD';
+  end if;
+  if (select count(*) from public.dossier_list()) <> (select count(*) from public.dossiers) then
+    raise exception 'FAIL: dossier_list() did not list every dossier of both workspaces to a member of both';
+  end if;
+end $$;
+
+-- ── Carl, of another workspace: lists nothing of Vertuoza's ──
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
+do $$
+declare
+  vertuoza constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+begin
+  if exists (select 1 from public.dossier_list() l where l.workspace_id = vertuoza)
+     or exists (select 1 from public.dossier_list((select id from ids where name = 'l-plan40'))) then
+    raise exception 'FAIL: an account of another workspace listed a Vertuoza dossier';
+  end if;
+  if (select l.repos from public.dossier_list() l where l.id = (select id from ids where name = 'l-acme40'))
+     is distinct from array['acme/plans', 'acme/acme-core'] then
+    raise exception 'FAIL: a member of Acme did not list an Acme dossier with its repositories';
+  end if;
+end $$;
+
+-- ── Eve, in no workspace: lists nothing ──
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
+do $$
+begin
+  if exists (select 1 from public.dossier_list()) then
+    raise exception 'FAIL: an account in no workspace listed a dossier';
+  end if;
+end $$;
+reset role;
+
+-- ── Signed out: refused ──
+set local role anon;
+do $$
+begin
+  begin
+    perform public.dossier_list();
+    raise exception 'FAIL: anon called dossier_list()';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+-- ── dossier_list() runs as its caller, and only the signed-in may call it ──
+do $$
+begin
+  if (select p.prosecdef from pg_proc p where p.oid = 'public.dossier_list(uuid)'::regprocedure) then
+    raise exception 'FAIL: dossier_list() is security definer: row-level security would not decide what it lists';
+  end if;
+  if has_function_privilege('anon', 'public.dossier_list(uuid)', 'execute')
+     or not has_function_privilege('authenticated', 'public.dossier_list(uuid)', 'execute') then
+    raise exception 'FAIL: dossier_list() is callable by anon, or not by the signed-in';
   end if;
 end $$;
 

@@ -3,9 +3,13 @@
 // read from the repository), one of its before/after page and no plan yet, so every state of a tab
 // shows; and the questions that shaped it, three asked by its brainstorm and two while it was
 // delivered, answered on the page, in the terminal, or not at all. Its viewer is the ask demo's owner,
-// who opened it.
+// who opened it. Its planet has regions in two more repositories, so it shows three chips.
+//
+// The history's demo (/prd, step 4): that dossier as dossier_list() would list it, a draft whose
+// brainstorm asked a question in another repository, and a PRD the page read from the repository, so
+// every filter has something to keep and something to leave out.
 import { DEMO_MEMBERS, DEMO_OWNER } from '../../ask/page/demo';
-import type { DossierRoundRow, DossierVersionRow } from '../store';
+import { DOSSIER_KINDS, type DossierListRow, type DossierRoundRow, type DossierVersionRow, type LatestVersion } from '../store';
 import type { DossierRead } from './view';
 
 export const DEMO_DOSSIER_ID = '00000000-0000-4000-8000-00000000d055';
@@ -128,6 +132,9 @@ function demoRounds(opened: number): DossierRoundRow[] {
   ];
 }
 
+/** The demo dossier's repositories: its home, then its planet's regions. */
+const DEMO_REPOS = ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-core', 'vertuoza/vertuo-web'];
+
 export function demoDossier(now: number): DossierRead {
   const opened = now - 3 * 24 * 60 * MIN;
   const version = (id: string, kind: DossierVersionRow['kind'], at: number, more: Partial<DossierVersionRow> = {}): DossierVersionRow => ({
@@ -147,7 +154,55 @@ export function demoDossier(now: number): DossierRead {
     ],
     members: DEMO_MEMBERS,
     rounds: demoRounds(opened),
+    repos: DEMO_REPOS,
   };
+}
+
+/** A dossier the page read, as dossier_list() lists it. */
+function listed({ dossier, versions, rounds, repos }: DossierRead): DossierListRow {
+  const latest: Partial<Record<(typeof DOSSIER_KINDS)[number], LatestVersion>> = {};
+  for (const kind of DOSSIER_KINDS) {
+    const ofKind = versions.filter((v) => v.kind === kind);
+    const last = ofKind.at(-1);
+    if (last) latest[kind] = { id: last.id, version: ofKind.length, source: last.source, created_at: last.created_at };
+  }
+  const asked = rounds ?? [];
+  const times = [dossier.created_at, dossier.numbered_at, ...versions.map((v) => v.created_at), ...asked.flatMap((r) => [r.created_at, r.answered_at])]
+    .filter((t): t is string => t !== null);
+  return {
+    ...dossier,
+    repos: repos ?? [dossier.home_repo],
+    latest,
+    asked: asked.length,
+    answered: asked.filter((r) => r.status === 'answered').length,
+    last_activity: iso(Math.max(...times.map((t) => Date.parse(t)))),
+  };
+}
+
+/** The history's demo rows, as dossier_list() gives them. */
+export function demoHistory(now: number): DossierListRow[] {
+  const at = (minutesAgo: number) => iso(now - minutesAgo * MIN);
+  const read = 'github' as const;
+  return [
+    listed(demoDossier(now)),
+    {
+      id: '00000000-0000-4000-8000-00000000d056', workspace_id: 'demo', home_repo: 'vertuoza/vertuo-omni-loop', prd: null,
+      title: 'Offline quotes on the site app', opened_by: DEMO_OWNER, created_at: at(3 * 60), numbered_at: null,
+      repos: ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-mobile'], latest: {}, asked: 3, answered: 2, last_activity: at(2 * 60),
+    },
+    {
+      id: '00000000-0000-4000-8000-00000000d057', workspace_id: 'demo', home_repo: 'vertuoza/vertuo-omni-loop', prd: 144,
+      title: 'Question history — every question kept, sorted and shareable', opened_by: null,
+      created_at: at(9 * 24 * 60), numbered_at: at(9 * 24 * 60),
+      repos: ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-ai-domain'],
+      latest: {
+        spec: { id: 'demo-144-spec-2', version: 2, source: read, created_at: at(6 * 24 * 60) },
+        plan: { id: 'demo-144-plan-1', version: 1, source: read, created_at: at(9 * 24 * 60) },
+        'before-after': { id: 'demo-144-page-1', version: 1, source: read, created_at: at(9 * 24 * 60) },
+      },
+      asked: 4, answered: 4, last_activity: at(6 * 24 * 60),
+    },
+  ];
 }
 
 /** A demo version's content, or null for one that does not exist. */

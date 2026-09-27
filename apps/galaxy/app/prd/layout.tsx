@@ -3,6 +3,7 @@ import '@omni/design/fonts.css';
 import '../../src/ask/ask.css';
 import '../../src/ask/page/share.css';
 import '../../src/dossier/page/dossier.css';
+import { HISTORY_PATH } from '../../src/dossier/page/history';
 import { ThemeScript } from '../../src/ask/theme-script';
 import { ThemeSwitch } from '../../src/ask/theme-switch';
 import { TOKENS, themeCss } from '../../src/ask/theme-tokens';
@@ -11,7 +12,8 @@ import { TOKENS, themeCss } from '../../src/ask/theme-tokens';
 // first as CSS custom properties; their theme script is the root's first child, so it marks the root
 // with the stored theme before anything in it is parsed, and before the first paint; their switch
 // offers system, light and dark. Their faces, from @omni/design's fonts.css, served from this origin.
-// The before/after page's sandboxed route is a route handler: no layout wraps it.
+// The header links to /prd, every PRD of the workspace. The before/after page's sandboxed route is a
+// route handler: no layout wraps it.
 
 export const metadata: Metadata = {
   title: 'PRD · OMNI LOOP',
@@ -40,7 +42,10 @@ export default function DossierLayout({ children }: { children: React.ReactNode 
             <span className="ask-mark">OMNI LOOP</span>
             <span className="ask-brand-sub">PRD dossier</span>
           </span>
-          <ThemeSwitch />
+          <span className="ask-bar-end">
+            <a className="ask-for-me-nav" href={HISTORY_PATH}>All PRDs</a>
+            <ThemeSwitch />
+          </span>
         </header>
         <main className="ask-main">{children}</main>
       </div>

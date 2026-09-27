@@ -25,8 +25,18 @@
 // migration writes it — brainstorm (the dossier's Claude session, from its opening to that session's
 // next dossier) and delivery (its number in its home repository), in its own workspace, a round both
 // match once as brainstorm, in the order they were asked, nothing for someone who cannot read it.
+//
+// The history (PRD 216, step 4): each workspace's plan repository and its ledger's REGION_SURVEYED
+// events, seeded by a test (seedPlanet), and dossier_list(dossier) of
+// supabase/migrations/20260928110000_dossier_list.sql written here as the migration writes it — each
+// dossier `me` may read (or only the one named), its repositories (home first, then its rounds' and, for
+// a PRD of its workspace's plan repository, its planet's regions as <github_org>/<region>, in lower case,
+// once each, in order), its latest version of each kind, its rounds asked and answered, and its last
+// activity (its opening, numbering, versions and rounds asked or answered), newest first.
 import { createHash } from 'node:crypto';
-import { ARTIFACT_MAX_BYTES, DOSSIER_KINDS, TITLE_MAX, type DossierRoundRow, type RoundRule } from './store';
+import {
+  ARTIFACT_MAX_BYTES, DOSSIER_KINDS, TITLE_MAX, type DossierKind, type DossierListRow, type DossierRoundRow, type LatestVersion, type RoundRule,
+} from './store';
 
 type Row = Record<string, unknown>;
 type Failure = { code?: string; message: string };
@@ -58,8 +68,10 @@ export type FakeAskRound = {
   category: string | null; category_by: string | null; prd: number | null; skill: string | null;
   created_at: string; answered_at: string | null;
 };
+/** A ledger event (PRD 100), as much of it as the history reads. */
+export type FakeLedgerEvent = { workspace_id: string; type: string; planet: number; region: string | null };
 
-const REPO = /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/;
+const REPO =/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/;
 const sha256 = (content: string) => createHash('sha256').update(content, 'utf8').digest('hex');
 const refuse = (code: string, message: string): Result => ({ data: null, error: { code, message } });
 
@@ -71,6 +83,9 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
   const tables = {
     dossiers: [] as FakeDossier[], dossier_versions: [] as FakeVersion[],
     ask_sessions: [] as FakeAskSession[], ask_rounds: [] as FakeAskRound[],
+    ledger_events: [] as FakeLedgerEvent[],
+    /** Each workspace's plan repository, a bare name, by workspace id. */
+    plan_repos: {} as Record<string, string>,
   };
   const state = { fail: null as Failure | null, calls: 0 };
   let next = 0;
@@ -282,6 +297,42 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     }).sort((a, b) => at(a.created_at) - at(b.created_at) || a.round_id.localeCompare(b.round_id));
   }
 
+  /** dossier_list(): each dossier `me` may read, or only `dossierId`'s, as the history lists it. */
+  function list(me: FakeAccount | null, dossierId: unknown): DossierListRow[] {
+    if (!me) return [];
+    const dossiers = tables.dossiers.filter((d) => isMember(me, d.workspace_id) && (dossierId === null || dossierId === undefined || d.id === dossierId));
+    return dossiers.map((d): DossierListRow => {
+      const asked = rounds(me, d.id);
+      const versions = tables.dossier_versions.filter((v) => v.dossier_id === d.id).sort((a, b) => a.created_at.localeCompare(b.created_at));
+      const latest: Partial<Record<DossierKind, LatestVersion>> = {};
+      for (const kind of DOSSIER_KINDS) {
+        const ofKind = versions.filter((v) => v.kind === kind);
+        const last = ofKind.at(-1);
+        if (last) latest[kind] = { id: last.id, version: ofKind.length, source: last.source, created_at: last.created_at };
+      }
+      const org = orgs[d.workspace_id] ?? null;
+      const plan = tables.plan_repos[d.workspace_id] ?? null;
+      const regions = org && plan && d.home_repo === `${org}/${plan}`.toLowerCase()
+        ? tables.ledger_events
+          .filter((e) => e.workspace_id === d.workspace_id && e.planet === d.prd && e.type === 'REGION_SURVEYED' && e.region !== null)
+          .map((e) => `${org}/${e.region}`.toLowerCase())
+        : [];
+      const others = [...new Set([...asked.flatMap((r) => (r.repo ? [r.repo.toLowerCase()] : [])), ...regions])]
+        .filter((repo) => repo !== d.home_repo).sort();
+      const times = [d.created_at, d.numbered_at, ...versions.map((v) => v.created_at), ...asked.flatMap((r) => [r.created_at, r.answered_at])]
+        .filter((t): t is string => t !== null);
+      const { claude_session_id: _session, ...row } = d;
+      return {
+        ...row,
+        repos: [d.home_repo, ...others],
+        latest,
+        asked: asked.length,
+        answered: asked.filter((r) => r.status === 'answered').length,
+        last_activity: new Date(Math.max(...times.map((t) => Date.parse(t)))).toISOString(),
+      };
+    }).sort((a, b) => Date.parse(b.last_activity) - Date.parse(a.last_activity) || a.id.localeCompare(b.id));
+  }
+
   /** The client for one bearer token: acting as its account, as the API's real client does. */
   function client(token: string) {
     const me = accounts[token] ?? null;
@@ -294,6 +345,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
         if (name === 'dossier_push') return push(me, args);
         if (name === 'ask_members') return { data: members(me, args.workspace as string), error: null };
         if (name === 'dossier_rounds') return { data: rounds(me, args.p_dossier), error: null };
+        if (name === 'dossier_list') return { data: list(me, args.p_dossier), error: null };
         return refuse('PGRST202', `Could not find the function public.${name}`);
       }),
       auth: {
@@ -339,5 +391,14 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     return { session, rounds: made };
   }
 
-  return { tables, client, state, seedFromGithub, seedAsk, sha256 };
+  /** A workspace's plan repository (a bare name), and PRD `prd`'s planet surveyed in each of `regions`,
+   * as the ledger's REGION_SURVEYED events record it. */
+  function seedPlanet({ workspace = FAKE_WORKSPACE, planRepo, prd, regions }: {
+    workspace?: string; planRepo: string; prd: number; regions: string[];
+  }) {
+    tables.plan_repos[workspace] = planRepo;
+    for (const region of regions) tables.ledger_events.push({ workspace_id: workspace, type: 'REGION_SURVEYED', planet: prd, region });
+  }
+
+  return { tables, client, state, seedFromGithub, seedAsk, seedPlanet, sha256 };
 }

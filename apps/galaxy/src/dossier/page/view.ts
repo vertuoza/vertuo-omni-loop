@@ -77,9 +77,12 @@ export function versionSource(version: Pick<DossierVersionRow, 'source' | 'uploa
     : `${nameOf(version.uploaded_by, members)} (kit)`;
 }
 
-/** What the page reads: the dossier, its versions, its workspace's members, and its rounds (null when
- * they could not be read). */
-export type DossierRead = { dossier: DossierRow; versions: DossierVersionRow[]; members: Member[]; rounds: DossierRoundRow[] | null };
+/** What the page reads: the dossier, its versions, its workspace's members, its rounds (null when they
+ * could not be read), and its repositories as the history lists them (its home repository alone when
+ * they are not given, or could not be read). */
+export type DossierRead = {
+  dossier: DossierRow; versions: DossierVersionRow[]; members: Member[]; rounds: DossierRoundRow[] | null; repos?: string[] | null;
+};
 
 /** A tab and what its label adds: an artifact's latest version (`v3`), or the questions answered out
  * of asked (`11/12 answered`); null when there is nothing yet. */
@@ -198,7 +201,7 @@ export function questionsView(rows: DossierRoundRow[] | null, members: Member[])
   return { rounds, asked: rows.length, answered: rows.filter((row) => row.status === 'answered').length };
 }
 
-export function dossierView({ dossier, versions, members, rounds }: DossierRead, me: string | null, pick: DossierPick): DossierView {
+export function dossierView({ dossier, versions, members, rounds, repos }: DossierRead, me: string | null, pick: DossierPick): DossierView {
   const ofKind = (kind: DossierKind) => versions.filter((v) => v.kind === kind);
   const tab = pick.tab;
   const mine = tab === 'questions' ? [] : ofKind(tab);
@@ -225,7 +228,7 @@ export function dossierView({ dossier, versions, members, rounds }: DossierRead,
     heading: dossier.prd === null ? 'DRAFT' : `PRD #${dossier.prd}`,
     draft: dossier.prd === null,
     title: dossier.title,
-    repos: [dossier.home_repo],
+    repos: repos?.length ? repos : [dossier.home_repo],
     opened: `${opener} · ${stamp(dossier.created_at)}`,
     link: dossierPath(dossier.id),
     canDelete: dossier.prd === null && me !== null && dossier.opened_by === me,

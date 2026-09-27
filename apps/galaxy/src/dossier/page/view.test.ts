@@ -91,6 +91,14 @@ describe('the header', () => {
   it('says a dossier nobody opened was read from GitHub', () => {
     expect(view(readPick({}), { ...numbered, opened_by: null }).opened).toBe('read from GitHub · 27 Sep 2026, 09:12 UTC');
   });
+
+  it('chips every repository of the dossier as the history lists them, else its home repository alone', () => {
+    const read = { dossier: numbered, versions, members: MEMBERS, rounds };
+    const repos = ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-ai-domain', 'vertuoza/vertuo-core'];
+    expect(dossierView({ ...read, repos }, PIERRE.user_id, readPick({})).repos).toEqual(repos);
+    expect(dossierView({ ...read, repos: null }, PIERRE.user_id, readPick({})).repos).toEqual(['vertuoza/vertuo-omni-loop']);
+    expect(dossierView({ ...read, repos: [] }, PIERRE.user_id, readPick({})).repos).toEqual(['vertuoza/vertuo-omni-loop']);
+  });
 });
 
 describe('who may delete', () => {

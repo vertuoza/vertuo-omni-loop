@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { dossierCallbackPath, dossierSignInReturn } from './sign-in';
+import { dossierCallbackPath, dossierSignInReturn, historySignInReturn } from './sign-in';
 
 // Signing in from /prd/<id> (PRD 216): Google comes back to /prd/<id>/callback, which turns the code
 // into the session cookie, joins the workspaces of the account's domain, and goes back to the same
@@ -53,5 +53,29 @@ describe('the way back after signing in on a dossier', () => {
 
   it('goes back without exchanging anything when this deployment has no database', async () => {
     expect(await dossierSignInReturn(back('?code=abc'), ORIGIN, ID, null, null)).toBe(`${ORIGIN}/prd/${ID}`);
+  });
+});
+
+describe('the way back after signing in on the history', () => {
+  const history = (query: string) => new URL(`${ORIGIN}/prd/callback${query}`);
+
+  it('exchanges the code, joins the account\'s workspaces, then goes back to /prd', async () => {
+    const steps: string[] = [];
+    const exchange = vi.fn(async (code: string) => { steps.push(`exchange ${code}`); return { error: null }; });
+    const join = vi.fn(async () => { steps.push('join'); });
+    expect(await historySignInReturn(history('?code=abc'), ORIGIN, exchange, join)).toBe(`${ORIGIN}/prd`);
+    expect(steps).toEqual(['exchange abc', 'join']);
+  });
+
+  it('carries the reason when Google refused, and joins nothing', async () => {
+    const join = vi.fn(async () => {});
+    const url = new URL(await historySignInReturn(history('?error=access_denied&error_description=Not+allowed'), ORIGIN, async () => ({ error: null }), join));
+    expect(url.pathname).toBe('/prd');
+    expect(url.searchParams.get('signin_error')).toBe('Not allowed');
+    expect(join).not.toHaveBeenCalled();
+  });
+
+  it('goes back without exchanging anything when this deployment has no database', async () => {
+    expect(await historySignInReturn(history('?code=abc'), ORIGIN, null, null)).toBe(`${ORIGIN}/prd`);
   });
 });

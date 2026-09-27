@@ -181,3 +181,38 @@ export const ROUND_FIELDS = [
 export async function dossierRounds(db: Pick<SupabaseClient, 'rpc'>, dossierId: string): Promise<DossierRoundRow[]> {
   return settle<DossierRoundRow[]>('read the questions', await db.rpc('dossier_rounds', { p_dossier: dossierId })) ?? [];
 }
+
+// ── The history (PRD 216, step 4) ───────────────────────────────────────────────
+// dossier_list() (supabase/migrations/20260928110000_dossier_list.sql) returns each dossier of the
+// caller's workspaces with what /prd lists and the planet's DOSSIER tab reads: its repositories (the
+// home repository first, then its questions' and, for a PRD of the plan repository, its planet's
+// regions, in lower case), its latest version of each kind, its question counts (rounds, as the
+// Questions tab counts them) and its last activity, newest first. It runs as the caller, so row-level
+// security decides: a member of another workspace lists nothing of it.
+
+/** An artifact's latest version: its number is how many versions of its kind there are. */
+export type LatestVersion = { id: string; version: number; source: 'kit' | 'github'; created_at: string };
+
+/** A dossier as the history lists it. */
+export type DossierListRow = DossierRow & {
+  /** The home repository first, then the others in order, each once, in lower case. */
+  repos: string[];
+  /** The latest version of each kind it has; a kind with none is left out. */
+  latest: Partial<Record<DossierKind, LatestVersion>>;
+  /** Its rounds (dossier_rounds()), and those answered. */
+  asked: number;
+  answered: number;
+  /** The latest of its opening, its numbering, its versions and its rounds, asked or answered. */
+  last_activity: string;
+};
+
+/** The columns dossier_list() returns, in its order. */
+export const LIST_FIELDS = [
+  'id', 'workspace_id', 'home_repo', 'prd', 'title', 'opened_by', 'created_at', 'numbered_at', 'repos', 'latest', 'asked', 'answered',
+  'last_activity',
+] as const satisfies ReadonlyArray<keyof DossierListRow>;
+
+/** Every dossier the caller may read, newest activity first; or only `dossierId`'s, when given. */
+export async function dossierList(db: Pick<SupabaseClient, 'rpc'>, dossierId: string | null = null): Promise<DossierListRow[]> {
+  return settle<DossierListRow[]>('read the history', await db.rpc('dossier_list', { p_dossier: dossierId })) ?? [];
+}
