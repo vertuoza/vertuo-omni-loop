@@ -20,7 +20,8 @@ game's app: a dependency principle 7 did not foresee, in the direction it forbad
 1. **Principle 7 is amended.** It now reads: "The game stays a projection of what this kit writes, and
    the kit never mentions the game. The kit may depend on a URL the game's app serves, through a
    contract any other server could honour."
-2. **The contract is the only coupling.** The kit knows one config key, `ask.url`, and the calls
+2. **The contract is the only coupling.** The kit knows one config key for the server, `ask.url`
+   (and, since PRD 216, the switch `dossier.enabled`), and the calls
    PRD 71's spec lists under "The contract": the `/ask/signin` page, `/api/ask/token`, and the
    session and round calls under `/api/ask/*`, each with a bearer token. The kit imports nothing from
    `game/`, `packages/` or `apps/galaxy`, reads none of the game's tables, and writes no ledger event.
@@ -36,6 +37,21 @@ game's app: a dependency principle 7 did not foresee, in the direction it forbad
    answered one is then read-only), `PATCH /api/ask/rounds/:id/category` and
    `DELETE /api/ask/sessions/:id`. An answer to a round that is no longer open returns 409 with
    `answeredBy {id, name}` and `via` (page or terminal): the first answer wins (PRD 144, item s4-03).
+   Since PRD 216, the kit makes two more calls, both with the bearer token, when `dossier.enabled`
+   is true and `ask.url` is set (`omni dossier`):
+   - `POST /api/dossiers {title, repo, claudeSessionId?}` → `201 {id, url}` opens a draft dossier.
+   - `POST /api/dossiers/push {repo, prd, title, draftId?, artifacts: [{kind, content}]}` →
+     `200 {id, url, added: [{kind, version}], unchanged: [kind]}` sends a PRD folder's `spec.md`,
+     `plan.md` and `before-after.html` (kinds `spec`, `plan`, `before-after`), whole. The server finds
+     the dossier (the draft named, else the one keyed by repository and PRD, else a new one), numbers
+     a draft, and adds a version of a kind only when the hash it computes from the content differs
+     from the latest; every kind received comes back in `added` or `unchanged`. The body is capped at
+     2 MiB and each artifact at 512 KiB.
+
+   Their refusals follow ADR-0029: 400, 401, 403 (not a member of a workspace), 404 (a draft the
+   caller cannot read), 413 and 503. Only the three files, the repository's name, the PRD number, the
+   title and the Claude session id (`CLAUDE_CODE_SESSION_ID`) leave the machine. An older kit makes
+   neither call; a server without them answers 404, which the kit reports as `refused (404)`.
 3. **The kit still never names the game.** `kit/test/no-game-words.test.mjs` fails on "galaxy" in any
    file under `kit/` that is not a test, the plugin's skills and hooks included. It sits next to the
    fuller list of game words `kit/lib/outbox/banter.test.mjs` keeps for the outbox's fun lines. The
