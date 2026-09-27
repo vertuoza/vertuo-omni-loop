@@ -394,3 +394,392 @@ One rule in the HOME code; nothing is stored.
 ```
 
 <!-- /omni-outbox-settled: s3-02-enter-on-focused-controls -->
+
+<!-- omni-outbox-settled: s4-01-planet-drawn-at-build -->
+
+## s4-01-planet-drawn-at-build — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-planet-drawn-at-build
+prd: 261
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 2
+---
+
+## The question, in plain words
+
+The poster's planet should show green ground spreading across it. Should it be animated live in the visitor's browser, or drawn ahead of time so the page needs no extra code to show it?
+
+## The decision, in plain words
+
+The planet is drawn once when the site is built, by the game's own planet painter, as three pictures that take turns so the green visibly spreads. The page keeps a single small interactive part, as the spec asks.
+
+## The intro, for fun
+
+A planet walks into a static page and asks for a script.
+
+## The punchline, for fun
+
+It got three still frames and a flipbook instead.
+
+## The options, in plain words
+
+A. A: Three frames drawn when the site is built, taking turns with no script (built).
+B. B: A small live canvas that turns the planet and spreads the green smoothly, as a second client part.
+C. C: A single still frame, half secured, with no motion at all.
+
+## What I had to decide
+
+Whether the invasion on the poster's planet may stay a three-frame loop, or should turn smoothly in the browser like the arcade's planets.
+
+## What I did meanwhile
+
+HOME shows the three frames in turn, and only the last one for visitors who asked for less motion.
+
+## What it costs to change later
+
+Small: the frames live in one file of the poster, and a live canvas would be one more small client part in their place.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- No one was asked whether a second client part for the planet would break the spec's rule of one interactive component; the builder read the rule strictly. (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-01-planet-drawn-at-build -->
+
+<!-- omni-outbox-settled: s4-02-phone-poster-order -->
+
+## s4-02-phone-poster-order — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-phone-poster-order
+prd: 261
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 2
+---
+
+## The question, in plain words
+
+On a phone the poster stacks, with the logo, the headline and the start button first. The spec does not say where the planet and the small red line above the headline go.
+
+## The decision, in plain words
+
+On a phone the logo, the headline and the start button sit on the starfield, then the planet, then the purple panel opens with the red line, the pitch, the quote, OmniMan and the sign-up button.
+
+## The intro, for fun
+
+Phones are tall and posters are wide.
+
+## The punchline, for fun
+
+Something had to go downstairs, and the red line drew the short straw.
+
+## The options, in plain words
+
+A. A: Logo, headline, start button, planet, then the purple panel starting with the red line (built).
+B. B: The red line first, above the logo, so it still reads before the headline.
+C. C: The mockup's order: the whole starfield first, then the full purple panel with the headline in it.
+
+## What I had to decide
+
+Whether the red line may follow the headline on a phone, and whether the planet belongs right under the start button.
+
+## What I did meanwhile
+
+Phones show the order described above; wider screens keep the poster's two columns unchanged.
+
+## What it costs to change later
+
+A few lines of the page's styles for phones.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The approved mockup put the whole starfield first on a phone, planet included, with the headline still in the purple panel; the spec's order and the mockup differ, and the builder followed the spec. (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-02-phone-poster-order -->
+
+<!-- omni-outbox-settled: s6-01-share-words-beside-home -->
+
+## s6-01-share-words-beside-home — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s6
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-share-words-beside-home
+prd: 261
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 2
+---
+
+## The question, in plain words
+
+Where should the words and the picture a shared link shows live, so they can be tested?
+
+## The decision, in plain words
+
+They live in a small file of their own beside the rest of the home page, where tests can reach them; the two page files only point to it.
+
+## The intro, for fun
+
+Every ad needs a proof sheet before it goes to print.
+
+## The punchline, for fun
+
+So the proof sheet got its own drawer, right next to the poster.
+
+## The options, in plain words
+
+A. Keep the words and the card in their own tested file beside HOME, the option built.
+B. Inline them in the two page files, untested, inside the row's territory as written.
+
+## What I had to decide
+
+The slice's territory is `apps/galaxy/app/opengraph-image`, `apps/galaxy/app/page.tsx` and the README, but tests only run under `apps/*/src/` (vitest.config.mjs), so nothing in the territory can hold a test of the metadata or the Open Graph card.
+
+## What I did meanwhile
+
+Added `apps/galaxy/src/home/share.tsx` (the title, the description, the card's size and its drawing) and `apps/galaxy/src/home/share.test.ts` beside it. `app/page.tsx` exports `HOME_METADATA` and `app/opengraph-image.tsx` renders `shareCard()`. The spec's Scope already puts the metadata and the Open Graph image under `apps/galaxy/src/home/`; both files are new, so no other slice's ground is touched.
+
+## What it costs to change later
+
+Moving two new files; no stored shape, no contract.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether the plan meant the territory to include a test beside HOME (author)
+
+```
+
+<!-- /omni-outbox-settled: s6-01-share-words-beside-home -->
+
+<!-- omni-outbox-settled: s6-02-share-card-headline-face -->
+
+## s6-02-share-card-headline-face — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s6
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-share-card-headline-face
+prd: 261
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 2
+---
+
+## The question, in plain words
+
+The picture a shared link shows cannot use the page's own lettering. Which lettering should its headline use?
+
+## The decision, in plain words
+
+The headline is drawn in the picture tool's plain built-in lettering, large, yellow and slanted, while the logo above it keeps its pixel art.
+
+## The intro, for fun
+
+The poster's lettering showed up in a format the printer cannot read.
+
+## The punchline, for fun
+
+So the headline wears plain type, and the logo still wears its pixels.
+
+## The options, in plain words
+
+A. Draw the headline in the renderer's built-in lettering, the option built.
+B. Add a copy of the display lettering in a format the picture tool reads, and draw the headline in it.
+C. Draw the headline as pixel art, the way the crest is drawn.
+
+## What I had to decide
+
+Next's image renderer reads fonts as TTF, OTF or WOFF only, and `@omni/design` ships its faces as WOFF2 only (`packages/design/fonts/`), so the `display` role cannot draw JOIN THE LOOP! in the Open Graph image.
+
+## What I did meanwhile
+
+The card draws the crest's `full` form from `logoSvg` (pixel-exact) and the kicker and JOIN THE LOOP! in the renderer's built-in sans (Noto Sans), yellow, skewed -10°, with an ad-purple drop shadow, all colours from `COLOURS`. Checked by rendering the PNG from `pnpm build`.
+
+## What it costs to change later
+
+A few lines: load a TTF/WOFF copy of the display face in `app/opengraph-image.tsx` and pass it to `ImageResponse`'s `fonts`.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether a person finds the built-in sans off-brand next to the pixel crest (author)
+
+```
+
+<!-- /omni-outbox-settled: s6-02-share-card-headline-face -->
+
+<!-- omni-outbox-settled: s6-03-share-card-for-every-page -->
+
+## s6-03-share-card-for-every-page — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s6
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-03-share-card-for-every-page
+prd: 261
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 2
+---
+
+## The question, in plain words
+
+Should the ad's preview picture also show when someone shares a link to the game or to another page of the site?
+
+## The decision, in plain words
+
+Yes for now: every page of the site that has no picture of its own shows the ad's picture when shared. The link's own address is left out of the preview.
+
+## The intro, for fun
+
+One poster went up at the front door and the whole street got a copy.
+
+## The punchline, for fun
+
+Nobody complained yet, but the side doors never asked for it.
+
+## The options, in plain words
+
+A. The ad card for every page that has none, and no og:url, the option built.
+B. Move the home page into a group of its own so only it carries the ad picture.
+C. Fix the site's production address in the app and print each page's full address in the preview.
+
+## What I had to decide
+
+Next applies an `opengraph-image` at the app root to every route below it that has none of its own, and the slice's territory names only `apps/galaxy/app/opengraph-image`, so `/play`, `/ask`, `/knowledge`, `/app` and the others inherit the ad card. Separately, the app sets no `metadataBase`, so an `og:url` would print as a bare `/`.
+
+## What I did meanwhile
+
+Kept the card at `app/opengraph-image.tsx`: every page without its own shares with the ad card (their title and description are unchanged, from `app/layout.tsx`). Left `og:url` out of HOME's metadata; the image's address takes the deployment's origin from Next's fallback (VERCEL_PROJECT_PRODUCTION_URL on Vercel, localhost locally).
+
+## What it costs to change later
+
+Moving one file into a route group, or adding a card per page; setting `metadataBase` is one line once the production domain is settled.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether the other pages should preview with a card of their own (author)
+
+```
+
+<!-- /omni-outbox-settled: s6-03-share-card-for-every-page -->
