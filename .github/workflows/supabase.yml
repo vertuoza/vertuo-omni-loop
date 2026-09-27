@@ -38,6 +38,12 @@ jobs:
         # role adds versions through the same rule: a version only when its content changed, never
         # rewritten. Only the opener deletes a draft; nobody deletes a numbered dossier.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dossiers.sql
+      - name: Who may read and write the outboxes and the sends
+        # A member of the workspace reads its dossiers' outboxes; an account of another workspace, or of
+        # none, nothing. Only dossier_outbox_put() writes an outbox, called by the service role, and it
+        # keeps only a newer evaluation. A send is made by a member as themselves, read only by its owner,
+        # and its outcome recorded once through outbox_send_done(). dossier_list() counts the open questions.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/outbox_answers.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''
