@@ -4,6 +4,7 @@
 // `limits`; signin's `home`, `openBrowser`, `fetch` and `waitMs`; signout's and whoami's `home`; dossier's
 // `tokens`, `home`, `fetch`, `callMs` and `now`).
 import { adopt } from './adopt.mjs';
+import { answers } from './answers.mjs';
 import { ask } from './ask.mjs';
 import { board } from './board.mjs';
 import { check } from './check.mjs';
@@ -27,4 +28,4 @@ import { ship } from './ship.mjs';
 import { sign } from './sign.mjs';
 import { status } from './status.mjs';
 
-export const COMMAND_TABLE = Object.freeze({ config, prd, status, settle, adopt, replies, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, init, ask, signin, signout, whoami, sign, credits, dossier });
+export const COMMAND_TABLE = Object.freeze({ config, prd, status, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, init, ask, signin, signout, whoami, sign, credits, dossier });
