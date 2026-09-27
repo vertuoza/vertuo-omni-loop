@@ -11,7 +11,7 @@ import { TOKENS, themeCss } from '../../src/ask/theme-tokens';
 // Every /prd page (PRD 216): the ask pages' reading surface, apart from the arcade. Their tokens come
 // first as CSS custom properties; their theme script is the root's first child, so it marks the root
 // with the stored theme before anything in it is parsed, and before the first paint; their switch
-// offers system, light and dark. Their faces, from @omni/design's fonts.css, served from this origin.
+// offers Omni, Light and Dark. Their faces, from @omni/design's fonts.css, served from this origin.
 // The header links to /prd, every PRD of the workspace. The before/after page's sandboxed route is a
 // route handler: no layout wraps it.
 
@@ -21,11 +21,10 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+// One colour for the browser's bar, Omni's ground: this metadata is static and cannot read the stored
+// choice, and Omni is the default (PRD 284).
 export const viewport: Viewport = {
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: TOKENS.light.ground },
-    { media: '(prefers-color-scheme: dark)', color: TOKENS.dark.ground },
-  ],
+  themeColor: TOKENS.omni.ground,
   colorScheme: 'light dark',
 };
 
