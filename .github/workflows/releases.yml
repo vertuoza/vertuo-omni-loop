@@ -1,0 +1,48 @@
+# Release notes (PRD 262): stamps each shipped PRD with its version, once, in public.releases, which the
+# galaxy app's public /releases page reads. Runs `pnpm releases:sync` on main's whole history: a PRD
+# already in the table keeps its number and date and takes its note's new text; a PRD shipped since gets
+# the next number, in the order it reached main. It writes Supabase only, never the repository, and
+# never deletes a row. It shares nothing with the game: deleting game/ and game.yml leaves it working.
+# Off until the repository variable SUPABASE_PROJECT_ID is set, like the supabase workflow.
+# Setup (project, secrets, variables): apps/galaxy/README.md, "Deploy to production".
+name: releases
+on:
+  push:
+    branches: [main]
+    paths: ['.omni-loop/delivery/shipped/**', '.github/workflows/releases.yml']
+  # After the supabase workflow migrates production, so the first sync follows the migration that
+  # creates the table.
+  workflow_run:
+    workflows: [supabase]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sync:
+    if: >-
+      vars.SUPABASE_PROJECT_ID != '' &&
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: releases             # two syncs never number together
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    env:
+      # The service role alone writes public.releases. The same project and key as the game workflow.
+      SUPABASE_URL: https://${{ vars.SUPABASE_PROJECT_ID }}.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        # main, whatever started the run (a dispatch from another branch included): every number and
+        # date comes from main's history, so the whole of it.
+        with: { ref: main, fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm releases:sync
