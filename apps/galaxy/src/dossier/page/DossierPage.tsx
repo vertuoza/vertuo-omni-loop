@@ -1,4 +1,5 @@
 import { OutboxTab } from '../../outbox/OutboxTab';
+import type { SentView } from '../../outbox/sent';
 import type { DossierKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
 import { CopyLink } from './CopyLink';
@@ -24,6 +25,8 @@ type Props = {
   markdown: RenderedMarkdown | null;
   /** Why the Outbox tab's Send is off, or null when it may send. */
   sendOff?: string | null;
+  /** What became of the reply the Outbox tab just sent (`?send=`), or null. */
+  sent?: SentView | null;
   /** Where the browser deletes a draft from; null when this deployment has no database (the demo). */
   supabase: { url: string; key: string } | null;
 };
@@ -34,10 +37,10 @@ const EMPTY: Record<DossierKind, string> = {
   plan: 'The plan has no version yet.',
 };
 
-function Pane({ view, markdown, sendOff = null }: Pick<Props, 'view' | 'markdown' | 'sendOff'>) {
+function Pane({ view, markdown, sendOff = null, sent = null }: Pick<Props, 'view' | 'markdown' | 'sendOff' | 'sent'>) {
   const { shown, tab } = view;
   if (tab === 'questions') return <QuestionsPane questions={view.questions} />;
-  if (tab === 'outbox') return view.outbox ? <OutboxTab id={view.id} pane={view.outbox} spec={markdown} sendOff={sendOff} /> : null;
+  if (tab === 'outbox') return view.outbox ? <OutboxTab id={view.id} pane={view.outbox} spec={markdown} sendOff={sendOff} sent={sent} /> : null;
   if (!shown) {
     return (
       <p className="dossier-empty">
@@ -75,7 +78,7 @@ function Pane({ view, markdown, sendOff = null }: Pick<Props, 'view' | 'markdown
   );
 }
 
-export function DossierPage({ view, markdown, supabase, sendOff }: Props) {
+export function DossierPage({ view, markdown, supabase, sendOff, sent }: Props) {
   return (
     <div className="dossier">
       <header className="dossier-head">
@@ -103,7 +106,7 @@ export function DossierPage({ view, markdown, supabase, sendOff }: Props) {
         ))}
       </nav>
       <section className="dossier-pane" aria-label={TAB_LABELS[view.tab]}>
-        <Pane view={view} markdown={markdown} sendOff={sendOff} />
+        <Pane view={view} markdown={markdown} sendOff={sendOff} sent={sent} />
       </section>
     </div>
   );

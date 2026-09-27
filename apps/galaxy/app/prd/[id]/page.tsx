@@ -10,6 +10,8 @@ import { dossierCallbackPath } from '../../../src/dossier/page/sign-in';
 import { readContent, readDossier } from '../../../src/dossier/page/source';
 import { dossierView, readPick, type DossierRead, type DossierView } from '../../../src/dossier/page/view';
 import { SEND_OFF } from '../../../src/outbox/OutboxTab';
+import { sendConfigured, sendStore } from '../../../src/outbox/send-live';
+import { isSendError, sentView, type SentView } from '../../../src/outbox/sent';
 
 // /prd/<id>, the page to share (PRD 216): one PRD's dossier. Rendered per request, as the signed-in
 // person, so row-level security decides: signed out, a sign-in card that comes back here through
@@ -18,7 +20,8 @@ import { SEND_OFF } from '../../../src/outbox/OutboxTab';
 // artifact and its version. After its opener deletes a draft, `?deleted=1` says it is gone. Without a
 // database it plays the demo dossier in development. `?tab=outbox` (PRD 251) shows the questions its
 // feature pull request still asks, and `&context=` what sits beside them; the rail's Spec is the latest
-// spec, read and rendered here.
+// spec, read and rendered here. Back from GitHub, `&send=<id>` shows what became of the reply the tab
+// sent (read as its owner: anyone else's reads as none), and `&send_error=` why nothing was posted.
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -44,6 +47,22 @@ function markdownVersion(view: DossierView): string | null {
   if (view.shown && !view.shown.frame) return view.shown.id;
   const context = view.outbox?.context;
   return context?.current === 'spec' ? context.specId : null;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** What became of the send `?send=` names, or why `?send_error=` says nothing was posted; null for neither. */
+async function readSent(db: Awaited<ReturnType<typeof supabaseServer>>, query: Record<string, string | string[] | undefined>, prd: number | null): Promise<SentView | null> {
+  const error = one(query.send_error);
+  if (isSendError(error)) return sentView(null, prd, error);
+  const id = one(query.send);
+  if (!id || !UUID.test(id)) return null;
+  try {
+    return sentView(await sendStore(db).read(id), prd, null);
+  } catch (failure) {
+    console.error(failure);
+    return null;
+  }
 }
 
 export default async function DossierRoute({ params, searchParams }: Props) {
@@ -91,6 +110,9 @@ export default async function DossierRoute({ params, searchParams }: Props) {
 
   const view = dossierView(read, user.id, pick);
   const version = markdownVersion(view);
-  const markdown = version ? await markdownOf(() => readContent(db, version)) : null;
-  return <DossierPage view={view} markdown={markdown} supabase={env} sendOff={SEND_OFF.notYet} />;
+  const [markdown, sent] = await Promise.all([
+    version ? markdownOf(() => readContent(db, version)) : null,
+    view.tab === 'outbox' ? readSent(db, query, read.dossier.prd) : null,
+  ]);
+  return <DossierPage view={view} markdown={markdown} supabase={env} sendOff={sendConfigured() ? null : SEND_OFF.notYet} sent={sent} />;
 }

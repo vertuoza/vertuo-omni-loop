@@ -3,6 +3,7 @@ import { FRAME_SANDBOX } from '../dossier/page/sandbox';
 import type { ContextView, OutboxPane } from '../dossier/page/view';
 import { ContextDisclosure } from './ContextDisclosure';
 import { OutboxAnswers } from './OutboxAnswers';
+import type { SentView } from './sent';
 import { outboxView } from './tab';
 
 // The Outbox tab of /prd/<id> (PRD 251, "The Outbox tab"): each state of the spec's table — no outbox
@@ -12,7 +13,7 @@ import { outboxView } from './tab';
 // script runs. Wide, the rail sits on the right and stays where it is while the questions scroll; tall,
 // it is a Context disclosure above them.
 
-/** Send is off: in the demo, and until this page can post a reply as the person. */
+/** Send is off: in the demo, and where this deployment does not know the omni-loop App's client. */
 export const SEND_OFF = {
   demo: 'A demo outbox: Send is off here.',
   notYet: 'Sending from this page is not open yet: reply on the pull request.',
@@ -25,6 +26,8 @@ type Props = {
   spec: RenderedMarkdown | null;
   /** Why Send is off here, or null when it may send. */
   sendOff: string | null;
+  /** What became of the reply this tab just sent, or null. */
+  sent?: SentView | null;
 };
 
 function Rail({ context, spec }: { context: ContextView; spec: RenderedMarkdown | null }) {
@@ -74,9 +77,9 @@ function Rail({ context, spec }: { context: ContextView; spec: RenderedMarkdown 
   );
 }
 
-export function OutboxTab({ id, pane, spec, sendOff }: Props) {
+export function OutboxTab({ id, pane, spec, sendOff, sent = null }: Props) {
   const { context } = pane;
-  const view = outboxView(pane.read);
+  const view = outboxView(pane.read, sent);
   if (view.state === 'failed') {
     return <p className="ask-problem" role="alert">The outbox is out of reach. Reload the page in a moment.</p>;
   }
@@ -93,7 +96,7 @@ export function OutboxTab({ id, pane, spec, sendOff }: Props) {
             <p className="ask-hint outbox-pr">
               The questions of <a href={view.pr.url} target="_blank" rel="noopener noreferrer">pull request #{view.pr.number}</a>
             </p>
-            <OutboxAnswers dossierId={id} view={view} sendOff={sendOff} />
+            <OutboxAnswers dossierId={id} view={view} sendOff={sendOff} sent={sent} />
           </>
         )}
       </div>

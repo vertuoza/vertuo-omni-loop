@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { answered, keepKnown, pickable, picksKey, readPicks, recommend, type Pick, type Picks } from './picks';
+import { copyLink } from '../ask/page/share';
+import { answered, answers, dropPicks, keepKnown, pickable, picksKey, readPicks, recommend, type Pick, type Picks } from './picks';
+import type { SentView } from './sent';
 import type { OutboxShown, QuestionCard, SettledView } from './tab';
 
 // The questions of the Outbox tab (PRD 251, "The Outbox tab"): the toolbar — Select every
@@ -13,12 +15,20 @@ import type { OutboxShown, QuestionCard, SettledView } from './tab';
 //
 // Item text arrives rendered on the server by PRD 216's markdown renderer, raw HTML off. Picks live in
 // this component and in the browser's storage, a convenience only: they survive a reload.
+//
+// Send n answers (PRD 251, "Send posts the reply as you") posts the picks to /api/outbox/send, then goes
+// to GitHub's authorisation of the omni-loop App, which sends the person back here with the outcome:
+// Sent as @login, the reply's link and the next step, or why nothing was posted. A pick whose question
+// was settled meanwhile is dropped, and the tab says so before going on to GitHub. Every failure keeps
+// the picks; a posted reply clears them, and its answers show as pending until the next outbox.
 
 type Props = {
   dossierId: string;
   view: OutboxShown;
   /** Why Send is off here (the demo, or no send yet), or null when it may send. */
   sendOff: string | null;
+  /** What became of the reply this tab just sent, or null. */
+  sent?: SentView | null;
 };
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -209,20 +219,63 @@ function Settled({ entry }: { entry: SettledView }) {
   );
 }
 
-export function OutboxAnswers({ dossierId, view, sendOff }: Props) {
+function CopyStep({ step }: { step: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <>
+      <code>{step}</code>{' '}
+      <button type="button" className="ask-button quiet" onClick={async () => setCopied((await copyLink(step, navigator.clipboard, () => {})) === 'copied')}>
+        Copy
+      </button>
+      {copied && <span className="ask-hint" role="status"> Copied.</span>}
+    </>
+  );
+}
+
+const KEPT = 'Your answers are kept: send them again.';
+
+function SentResult({ sent }: { sent: SentView }) {
+  if (sent.state === 'failed') return <p className="ask-problem outbox-sent" role="alert">{sent.error} {KEPT}</p>;
+  if (sent.state === 'waiting') {
+    return <p className="ask-problem outbox-sent" role="alert">GitHub did not send you back with an answer, so nothing was posted. {KEPT}</p>;
+  }
+  return (
+    <div className="outbox-sent" role="status">
+      <p>
+        <b>Sent as @{sent.login}</b> ·{' '}
+        <a href={sent.url} target="_blank" rel="noopener noreferrer">the reply on the pull request</a>
+      </p>
+      <p>Next, in the terminal: <CopyStep step={sent.next} /></p>
+      {!sent.counted && (
+        <p className="ask-problem" role="alert">
+          GitHub does not list @{sent.login} as an owner, member or collaborator of this repository, so {sent.next.split(' ')[0]} will not read
+          the reply. Someone who is should answer.
+        </p>
+      )}
+    </div>
+  );
+}
+
+type Sending = { state: 'idle' } | { state: 'sending' } | { state: 'refused'; error: string } | { state: 'dropped'; numbers: number[]; authorize: string };
+
+export function OutboxAnswers({ dossierId, view, sendOff, sent = null }: Props) {
   const questions = useMemo(() => pickable([...view.open, ...view.adopted]), [view]);
   const [picks, setPicks] = useState<Picks>({});
+  const [sending, setSending] = useState<Sending>({ state: 'idle' });
   const key = picksKey(dossierId);
+  const posted = sent?.state === 'posted';
 
-  // Picks survive a reload: read once the page is in the browser, kept after every change.
+  // Picks survive a reload: read once the page is in the browser, kept after every change. A reply just
+  // posted clears them: its answers show as pending instead.
   useEffect(() => {
     if (view.readOnly) return;
     try {
-      setPicks(keepKnown(questions, readPicks(window.localStorage.getItem(key))));
+      if (posted) window.localStorage.removeItem(key);
+      else setPicks(keepKnown(questions, readPicks(window.localStorage.getItem(key))));
     } catch {
       // No storage here (a private window, blocked site data): picks just do not survive a reload.
     }
-  }, [key, questions, view.readOnly]);
+  }, [key, questions, view.readOnly, posted]);
 
   function change(next: Picks) {
     setPicks(next);
@@ -240,6 +293,28 @@ export function OutboxAnswers({ dossierId, view, sendOff }: Props) {
     change(next);
   };
 
+  async function send() {
+    setSending({ state: 'sending' });
+    try {
+      const response = await fetch('/api/outbox/send', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ dossier: dossierId, picks: answers(questions, picks) }),
+      });
+      const body = (await response.json().catch(() => ({}))) as { authorize?: string; dropped?: number[]; error?: string };
+      const dropped = body.dropped ?? [];
+      if (dropped.length > 0) change(dropPicks(picks, dropped));
+      if (!response.ok || !body.authorize) {
+        setSending({ state: 'refused', error: body.error ?? `The page could not send (${response.status}). ${KEPT}` });
+        return;
+      }
+      if (dropped.length > 0) setSending({ state: 'dropped', numbers: dropped, authorize: body.authorize });
+      else window.location.assign(body.authorize);
+    } catch {
+      setSending({ state: 'refused', error: `The page could not be reached. ${KEPT}` });
+    }
+  }
+
   const count = answered(questions, picks);
   const card = (c: QuestionCard) => <Card key={c.number} card={c} pick={picks[c.number]} readOnly={view.readOnly} onPick={onPick} />;
 
@@ -252,12 +327,22 @@ export function OutboxAnswers({ dossierId, view, sendOff }: Props) {
           <button type="button" className="ask-button quiet" onClick={() => change(recommend(questions, picks))} disabled={view.openCount === 0}>
             Select every recommendation
           </button>
-          <button type="button" className="ask-button" disabled={sendOff !== null || count === 0}>
+          <button type="button" className="ask-button" disabled={sendOff !== null || count === 0 || sending.state === 'sending'} onClick={send}>
             Send {plural(count, 'answer')}
           </button>
           {sendOff && <span className="ask-hint">{sendOff}</span>}
+          {sending.state === 'sending' && <span className="ask-hint" role="status">Sending…</span>}
         </div>
       )}
+      {sending.state === 'refused' && <p className="ask-problem outbox-sent" role="alert">{sending.error}</p>}
+      {sending.state === 'dropped' && (
+        <p className="outbox-sent" role="status">
+          {sending.numbers.length === 1 ? `Question ${sending.numbers[0]} was` : `Questions ${sending.numbers.join(', ')} were`} settled
+          meanwhile, so {sending.numbers.length === 1 ? 'it is' : 'they are'} left out.{' '}
+          <a className="ask-button" href={sending.authorize}>Send the rest through GitHub</a>
+        </p>
+      )}
+      {sending.state === 'idle' && sent && <SentResult sent={sent} />}
       {view.open.length === 0 ? (
         <p className="outbox-nothing">Nothing is waiting on you.</p>
       ) : (

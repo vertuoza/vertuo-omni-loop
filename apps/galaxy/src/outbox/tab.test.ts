@@ -143,3 +143,29 @@ describe('the cards', () => {
     expect(view.open[0].raw).toContain('<strong>words</strong>');
   });
 });
+
+describe('the answers just sent from this page (PRD 251, Send, step 5)', () => {
+  const sent = (at: string) => ({
+    state: 'posted' as const, login: 'bob', url: 'https://github.com/acme/widgets/pull/12#issuecomment-99', counted: true,
+    next: '/omni:yolo-fix 7', reply: '1: ok\n3: B because too big\n\n_answered on the Omni page · PRD 7_', at,
+  });
+
+  it('show as pending at once, as sent from the Omni page, until the next outbox arrives', () => {
+    const view = outboxView({ row: outboxRow() }, sent('2026-09-27T10:06:00Z')) as OutboxShown;
+    expect(card(view.open, 1).pending).toEqual({
+      text: 'ok', by: 'bob', where: 'on the Omni page', when: '27 Sep 2026, 10:06 UTC', url: 'https://github.com/acme/widgets/pull/12#issuecomment-99',
+    });
+    expect(card(view.adopted, 3).pending).toMatchObject({ text: 'B because too big', by: 'bob' });
+    expect(card(view.open, 2).pending).toMatchObject({ by: 'ada' });
+  });
+
+  it('give way to an outbox evaluated after them', () => {
+    const view = outboxView({ row: outboxRow({ evaluated_at: '2026-09-27T10:07:00Z' }) }, sent('2026-09-27T10:06:00Z')) as OutboxShown;
+    expect(card(view.open, 1).pending).toBeNull();
+  });
+
+  it('nothing for a send that failed or waits', () => {
+    const view = outboxView({ row: outboxRow() }, { state: 'failed', error: 'x' }) as OutboxShown;
+    expect(card(view.open, 1).pending).toBeNull();
+  });
+});
