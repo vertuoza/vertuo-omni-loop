@@ -2,8 +2,10 @@
 // arcade's demo galaxy): three made-up terminals, one of them asking, played in the browser, so the
 // page can be seen and tried. `?demo=working|moved|closed|empty` shows the other states on the
 // first one. Nothing here is ever sent.
-import type { AskPort } from './source';
-import type { RoundRow, SessionState } from './view';
+import type { QuestionState } from './question';
+import type { AskPort, QuestionPort } from './source';
+import type { RoundRow, SessionRow, SessionState } from './view';
+import type { HistoryRow } from './workspace-history';
 
 export type DemoScenario = 'open' | 'working' | 'moved' | 'closed' | 'empty';
 const SCENARIOS: DemoScenario[] = ['open', 'working', 'moved', 'closed', 'empty'];
@@ -81,6 +83,16 @@ const LATER = [
 
 const iso = (at: number) => new Date(at).toISOString();
 
+/** The demo session's owner: whoever plays the demo is them. */
+export const DEMO_OWNER = 'demo';
+
+/** The demo workspace's members (PRD 144): its owner, and two teammates to share a question with. */
+export const DEMO_MEMBERS = [
+  { user_id: DEMO_OWNER, email: 'ada@vertuoza.com', name: 'ADA' },
+  { user_id: 'demo-po', email: 'paula@vertuoza.com', name: 'PAULA' },
+  { user_id: 'demo-ux', email: 'uma@vertuoza.com', name: null },
+];
+
 export function demoState(id: string, scenario: DemoScenario, now: number): SessionState {
   const round = (n: number, questions: unknown[], ago: number, rest: Partial<RoundRow> = {}): RoundRow => ({
     id: `demo-round-${n}`,
@@ -90,22 +102,37 @@ export function demoState(id: string, scenario: DemoScenario, now: number): Sess
     status: 'open',
     created_at: iso(now - ago),
     answered_at: null,
+    // Its context line (PRD 144), as a kit that reads it sends it.
+    prd: 71,
+    skill: '/omni:brainstorm',
+    model: 'claude-opus-4-8',
+    tokens: { input: 4_200 * n, output: 1_800 * n, cacheRead: 180_000 * n, cacheWrite: 24_000 * n },
+    cost_usd: 0.26 * n,
     ...rest,
   });
+  // Their categories (PRD 144): one the model sorted, one the owner set, and the open one unsorted.
   const answered = [
-    round(1, [MODE], 14 * MIN, { status: 'answered', answered_via: 'page', answers: { [MODE.question]: MODE.options[0].label }, answered_at: iso(now - 13 * MIN) }),
-    round(2, [HOST], 8 * MIN, { status: 'answered', answered_via: 'terminal', answers: { [HOST.question]: HOST.options[0].label }, answered_at: iso(now - 7 * MIN) }),
+    round(1, [MODE], 14 * MIN, {
+      status: 'answered', answered_via: 'page', answers: { [MODE.question]: MODE.options[0].label }, answered_at: iso(now - 13 * MIN),
+      category: 'architecture', category_by: 'model',
+    }),
+    round(2, [HOST], 8 * MIN, {
+      status: 'answered', answered_via: 'terminal', answers: { [HOST.question]: HOST.options[0].label }, answered_at: iso(now - 7 * MIN),
+      category: 'product', category_by: DEMO_OWNER,
+    }),
   ];
   const current = round(3, [ACCESS, CHECKS], MIN, scenario === 'moved' ? { status: 'abandoned' } : {});
   const rounds = scenario === 'empty' ? [] : scenario === 'working' ? answered : [...answered, current];
   return {
     session: {
       id,
-      owner: 'demo',
+      owner: DEMO_OWNER,
       title: 'vertuo-omni-loop · feat/ask-mode',
       status: scenario === 'closed' ? 'closed' : 'open',
       created_at: iso(now - 20 * MIN),
       last_seen_at: iso(now - 30_000),
+      repo: 'vertuoza/vertuo-omni-loop',
+      branch: 'feat/ask-mode',
     },
     rounds,
   };
@@ -135,7 +162,7 @@ const QUOTES = {
 export function demoSessions(scenario: DemoScenario, now: number): SessionState[] {
   const first = demoState('demo-terminal-1', scenario, now);
   const quiet = (n: number, title: string, question: typeof DEPLOY, ago: number): SessionState => ({
-    session: { id: `demo-terminal-${n}`, owner: 'demo', title, status: 'open', created_at: iso(now - 90 * MIN), last_seen_at: iso(now - ago) },
+    session: { id: `demo-terminal-${n}`, owner: DEMO_OWNER, title, status: 'open', created_at: iso(now - 90 * MIN), last_seen_at: iso(now - ago) },
     rounds: [{
       id: `demo-terminal-${n}-round-1`,
       questions: [question],
@@ -181,6 +208,76 @@ export function demoPort(seed: SessionState, now: () => number = Date.now, askAg
       Object.assign(round, { status: 'answered', answers, answered_via: 'page', answered_at: iso(now()) });
       askAt = now() + askAgainMs;
       return 'answered';
+    },
+    async remove() {
+      state = { ...state, rounds: [] };
+      return true;
+    },
+    async share(roundId, member) {
+      return state.rounds.some((r) => r.id === roundId) && DEMO_MEMBERS.some((m) => m.user_id === member && m.user_id !== DEMO_OWNER);
+    },
+    async sort(roundId, category) {
+      const round = state.rounds.find((r) => r.id === roundId);
+      if (!round) return null;
+      Object.assign(round, { category, category_by: DEMO_OWNER });
+      return { category, category_by: DEMO_OWNER };
+    },
+  };
+}
+
+/** The demo workspace's history (PRD 144): the demo session's rounds, and a teammate's session on
+ * another repository whose business question the owner answered. */
+export function demoHistory(now: number): HistoryRow[] {
+  const { session, rounds } = demoState('demo', 'open', now);
+  const TRIAL = {
+    question: 'How long should the free trial last?', header: 'Trial', multiSelect: false,
+    options: [{ label: '14 days', description: '' }, { label: '30 days', description: '' }],
+  };
+  const pricing: SessionRow = {
+    id: 'demo-pricing', owner: DEMO_MEMBERS[1].user_id, title: 'vertuo-app · feat/pricing', status: 'closed',
+    created_at: iso(now - 3 * 24 * 60 * MIN), last_seen_at: iso(now - 3 * 24 * 60 * MIN + 30 * MIN), repo: 'vertuoza/vertuo-app', branch: 'feat/pricing',
+  };
+  const trial: RoundRow = {
+    id: 'demo-round-trial', questions: [TRIAL], answers: { [TRIAL.question]: '14 days' }, answered_via: 'page', status: 'answered',
+    created_at: iso(now - 3 * 24 * 60 * MIN + 10 * MIN), answered_at: iso(now - 3 * 24 * 60 * MIN + 14 * MIN), answered_by: DEMO_OWNER,
+    prd: 94, skill: '/omni:yolo', model: 'claude-sonnet-4-6', category: 'business', category_by: 'model',
+  };
+  // The page answer came from the teammate it was shared with; the terminal's is the owner's.
+  const answeredBy = (round: RoundRow) => (round.status !== 'answered' ? null : round.answered_via === 'terminal' ? DEMO_OWNER : DEMO_MEMBERS[1].user_id);
+  return [...rounds.map((round) => ({ round: { ...round, answered_by: answeredBy(round) }, session })), { round: trial, session: pricing }];
+}
+
+/** The teammate the demo's open question is shared with: whoever plays /ask/q/demo is them. */
+export const DEMO_TEAMMATE = DEMO_MEMBERS[1].user_id;
+
+/** The demo's shared question (PRD 144): its open round, shared with the teammate, or (`answered`)
+ * already answered by the owner in the terminal. */
+export function demoQuestion(now: number, answered = false): QuestionState {
+  const { session, rounds } = demoState('demo', 'open', now);
+  const open = rounds[rounds.length - 1];
+  const answers = Object.fromEntries((open.questions as Array<{ question: string; options: Array<{ label: string }> }>).map((q) => [q.question, q.options[0].label]));
+  const round = answered
+    ? { ...open, status: 'answered' as const, answers, answered_via: 'terminal' as const, answered_at: iso(now - 20_000), answered_by: DEMO_OWNER }
+    : open;
+  return { session, round, earlier: rounds.slice(0, -1), sharedWith: [DEMO_TEAMMATE] };
+}
+
+/** The demo's shared question in the browser: the teammate's answer is taken, once. */
+export function demoQuestionPort(seed: QuestionState, now: () => number = Date.now): QuestionPort {
+  let state: QuestionState = structuredClone(seed);
+  return {
+    async read() {
+      return structuredClone(state);
+    },
+    async send(roundId, answers) {
+      if (state.round.id !== roundId || state.round.status !== 'open') return 'taken';
+      state = { ...state, round: { ...state.round, status: 'answered', answers, answered_via: 'page', answered_at: iso(now()), answered_by: DEMO_TEAMMATE } };
+      return 'answered';
+    },
+    async sort(roundId, category) {
+      if (state.round.id !== roundId) return null;
+      state = { ...state, round: { ...state.round, category, category_by: DEMO_TEAMMATE } };
+      return { category, category_by: DEMO_TEAMMATE };
     },
   };
 }

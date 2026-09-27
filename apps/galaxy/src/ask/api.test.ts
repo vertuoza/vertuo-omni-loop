@@ -1,12 +1,18 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
-import { abandonRound, addRound, answerRound, closeSession, openSession, waitRound, type AskDeps } from './api';
+import { abandonRound, addRound, answerRound, categorizeRound, closeSession, deleteSession, openSession, shareRound, waitRound, type AskDeps } from './api';
+import type { Category, ClassifyInput } from './classify';
+import { askStore } from './store';
 import { fakeSupabase } from './store.fake';
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
+// Dan belongs to Ada's workspace too, under the arcade name he picked there.
+const DAN = { id: '00000000-0000-4000-8000-0000000000d1', email: 'dan@vertuoza.com', name: 'DAN' };
 const EVE = { id: '00000000-0000-4000-8000-0000000000e1', email: 'eve@example.com' };
+// Ada and Bob belong to one workspace (the fake's default), Carl to another.
+const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@vertuoza.com', workspaces: ['00000000-0000-4000-8000-00000000aced'] };
 const START = Date.parse('2026-09-26T09:00:00Z');
 const HOUR = 60 * 60 * 1000;
 const MISSING = '00000000-0000-4000-8000-00000000ffff';
@@ -35,7 +41,7 @@ type Call = { token?: string | null; body?: unknown; raw?: string; headers?: Rec
 
 function world() {
   const clock = { now: START };
-  const fake = fakeSupabase({ 'ada-token': ADA, 'bob-token': BOB, 'eve-token': EVE }, () => clock.now);
+  const fake = fakeSupabase({ 'ada-token': ADA, 'bob-token': BOB, 'dan-token': DAN, 'eve-token': EVE, 'carl-token': CARL }, () => clock.now);
   const sleeps: number[] = [];
   let onSleep: (() => void) | null = null;
   const deps: AskDeps = {
@@ -221,6 +227,101 @@ describe('POST /api/ask/sessions/:id/rounds', () => {
   });
 });
 
+describe('a round\'s context (PRD 144)', () => {
+  const CONTEXT = {
+    repo: 'vertuoza/vertuo-omni-loop',
+    branch: 'feat/question-history--s1',
+    prd: 144,
+    claudeSessionId: 'claude-session-1',
+    skill: '/omni:brainstorm',
+    model: 'claude-sonnet-4-6',
+    tokens: { input: 1000, output: 2000, cacheRead: 0, cacheWrite: 0 },
+  };
+  const ask = (w: ReturnType<typeof world>, id: string, body: unknown) =>
+    addRound(w.request('POST', `/api/ask/sessions/${id}/rounds`, { body }), id, w.deps);
+
+  it('opens a session with its repo, or without a context at all', async () => {
+    const w = world();
+    const open = async (body: unknown) => (await w.read(await openSession(w.request('POST', '/api/ask/sessions', { body }), w.deps))).body.id as string;
+    const withRepo = await open({ title: 't', context: { repo: 'vertuoza/vertuo-omni-loop' } });
+    expect(w.row('ask_sessions', withRepo)).toMatchObject({ repo: 'vertuoza/vertuo-omni-loop' });
+    for (const body of [{ title: 't' }, { title: 't', context: null }, { title: 't', context: { repo: null } }]) {
+      expect(w.row('ask_sessions', await open(body))).toMatchObject({ repo: null });
+    }
+  });
+
+  it('refuses a session context that is not one, or a repo that is not owner/name, with 400', async () => {
+    const w = world();
+    for (const context of ['acme/widgets', [], { repo: 7 }, { repo: '' }, { repo: 'no-slash' }, { repo: `a/${'x'.repeat(200)}` }]) {
+      const response = await openSession(w.request('POST', '/api/ask/sessions', { body: { title: 't', context } }), w.deps);
+      expect(response.status, JSON.stringify(context)).toBe(400);
+    }
+    expect(w.fake.tables.ask_sessions).toEqual([]);
+  });
+
+  it('stores the context of a round and its cost from the price table; the session keeps the branch and the Claude session', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const { status, body } = await w.read(await ask(w, sessionId, { questions: QUESTIONS, context: CONTEXT }));
+    expect(status).toBe(200);
+    expect(w.row('ask_rounds', body.roundId)).toMatchObject({
+      prd: 144, skill: '/omni:brainstorm', model: 'claude-sonnet-4-6', tokens: CONTEXT.tokens, cost_usd: 0.033, answered_by: null,
+    });
+    expect(w.row('ask_sessions', sessionId)).toMatchObject({ branch: 'feat/question-history--s1', claude_session_id: 'claude-session-1' });
+  });
+
+  it('prices an unknown model at null, and stores a round with no context, or one of nulls, as nulls', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const unknown = (await w.read(await ask(w, sessionId, { questions: QUESTIONS, context: { ...CONTEXT, model: 'mystery-1' } }))).body.roundId;
+    expect(w.row('ask_rounds', unknown)).toMatchObject({ model: 'mystery-1', cost_usd: null, tokens: CONTEXT.tokens });
+    const nulls = { repo: null, branch: null, prd: null, claudeSessionId: null, skill: null, model: null, tokens: null };
+    for (const body of [{ questions: QUESTIONS }, { questions: QUESTIONS, context: nulls }, { questions: QUESTIONS, context: {} }]) {
+      const { status, body: sent } = await w.read(await ask(w, sessionId, body));
+      expect(status).toBe(200);
+      expect(w.row('ask_rounds', sent.roundId)).toMatchObject({ prd: null, skill: null, model: null, tokens: null, cost_usd: null });
+    }
+    // A later round that names no branch leaves the session's as it was.
+    expect(w.row('ask_sessions', sessionId)).toMatchObject({ branch: 'feat/question-history--s1' });
+  });
+
+  it('refuses a malformed context with 400, and asks nothing', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const bad = [
+      'context', [], 7,
+      { ...CONTEXT, prd: 0 }, { ...CONTEXT, prd: 1.5 }, { ...CONTEXT, prd: '144' },
+      { ...CONTEXT, skill: 3 }, { ...CONTEXT, model: '' }, { ...CONTEXT, branch: 'x'.repeat(251) }, { ...CONTEXT, claudeSessionId: {} },
+      { ...CONTEXT, repo: 'no-slash' },
+      { ...CONTEXT, tokens: [] }, { ...CONTEXT, tokens: { input: 1 } }, { ...CONTEXT, tokens: { ...CONTEXT.tokens, output: -1 } },
+      { ...CONTEXT, tokens: { ...CONTEXT.tokens, input: 1.5 } }, { ...CONTEXT, tokens: { ...CONTEXT.tokens, extra: 1 } },
+    ];
+    for (const context of bad) {
+      const response = await ask(w, sessionId, { questions: QUESTIONS, context });
+      expect(response.status, JSON.stringify(context)).toBe(400);
+    }
+    expect(w.fake.tables.ask_rounds).toEqual([]);
+  });
+});
+
+describe('who answered (PRD 144)', () => {
+  it('is the session owner for an answer the terminal recorded, whatever the body says', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    const body = { answers: ANSWERS, via: 'terminal', answered_by: BOB.id, answeredBy: BOB.id };
+    expect((await answerRound(w.request('POST', `/api/ask/rounds/${roundId}/answers`, { body }), roundId, w.deps)).status).toBe(200);
+    expect(w.row('ask_rounds', roundId).answered_by).toBe(ADA.id);
+  });
+
+  it('is the caller for an answer the page sent', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    const { askStore } = await import('./store');
+    await askStore(w.fake.client('ada-token') as never).moveRound(roundId, ['open'], { status: 'answered', answers: ANSWERS, answered_via: 'page' });
+    expect(w.row('ask_rounds', roundId).answered_by).toBe(ADA.id);
+  });
+});
+
 describe('GET /api/ask/rounds/:id/wait', () => {
   const wait = (w: ReturnType<typeof world>, id: string, c: Call = {}) => waitRound(w.request('GET', `/api/ask/rounds/${id}/wait`, c), id, w.deps);
 
@@ -386,15 +487,342 @@ describe('POST /api/ask/rounds/:id/abandon', () => {
   });
 });
 
+describe('DELETE /api/ask/sessions/:id (PRD 144)', () => {
+  const remove = (w: ReturnType<typeof world>, id: string, token: string | null = 'ada-token') =>
+    deleteSession(w.request('DELETE', `/api/ask/sessions/${id}`, { token }), id, w.deps);
+
+  it('deletes the owner\'s session and its rounds, open or closed long ago', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    const roundId = await w.round(sessionId);
+    await closeSession(w.request('POST', `/api/ask/sessions/${sessionId}/close`), sessionId, w.deps);
+    w.clock.now += 8 * 24 * HOUR;
+    expect(w.row('ask_sessions', sessionId)).toBeDefined();
+    const { status, body } = await w.read(await remove(w, sessionId));
+    expect(status).toBe(200);
+    expect(body).toEqual({ id: sessionId, deleted: true });
+    expect(w.fake.tables.ask_sessions.find((s) => s.id === sessionId)).toBeUndefined();
+    expect(w.fake.tables.ask_rounds.find((r) => r.id === roundId)).toBeUndefined();
+  });
+
+  it('refuses a member of the workspace who is not the owner with 403, and keeps the session', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    await w.round(sessionId);
+    const { status, body } = await w.read(await remove(w, sessionId, 'bob-token'));
+    expect(status).toBe(403);
+    expect(body.error).toMatch(/owner/);
+    expect(w.row('ask_sessions', sessionId)).toBeDefined();
+    expect(w.fake.tables.ask_rounds).toHaveLength(1);
+  });
+
+  it('answers 404 to an account of another workspace, and for an id that is missing or not one', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    expect((await remove(w, sessionId, 'carl-token')).status).toBe(404);
+    expect((await remove(w, MISSING)).status).toBe(404);
+    expect((await remove(w, 'not-a-uuid')).status).toBe(404);
+    expect(w.row('ask_sessions', sessionId)).toBeDefined();
+  });
+
+  it('checks the bearer token and the crew like every other call', async () => {
+    const w = world();
+    const sessionId = await w.session();
+    expect((await remove(w, sessionId, null)).status).toBe(401);
+    expect((await remove(w, sessionId, 'eve-token')).status).toBe(403);
+    expect((await remove({ ...w, deps: { connect: null } }, sessionId)).status).toBe(503);
+    expect(w.row('ask_sessions', sessionId)).toBeDefined();
+  });
+});
+
+describe('a round sorted by the model (PRD 144)', () => {
+  const CONTEXT = { repo: 'vertuoza/vertuo-omni-loop', branch: 'feat/question-history', prd: 144, skill: '/omni:brainstorm' };
+
+  /** A world whose classifier is stubbed, and whose `after()` only collects its tasks. */
+  function sorting(reply: () => Promise<Category | null>) {
+    const w = world();
+    const tasks: Array<() => Promise<void>> = [];
+    const asked: ClassifyInput[] = [];
+    const deps: AskDeps = {
+      ...w.deps,
+      classify: async (input) => { asked.push(input); return reply(); },
+      later: (task) => { tasks.push(task); },
+    };
+    const ask = async (sessionId: string) => {
+      const { status, body } = await w.read(await addRound(w.request('POST', `/api/ask/sessions/${sessionId}/rounds`, { body: { questions: QUESTIONS, context: CONTEXT } }), sessionId, deps));
+      expect(status).toBe(200);
+      return body.roundId as string;
+    };
+    const runLater = async () => { for (const task of tasks.splice(0)) await task(); };
+    return { ...w, deps, tasks, asked, ask, runLater };
+  }
+
+  it('schedules the classifier after the response: the round is created before it runs', async () => {
+    const w = sorting(async () => 'business');
+    const roundId = await w.ask(await w.session());
+    expect(w.tasks).toHaveLength(1);
+    expect(w.asked).toEqual([]);
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: null, category_by: null });
+
+    await w.runLater();
+    expect(w.asked).toEqual([{ questions: QUESTIONS, context: CONTEXT }]);
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'business', category_by: 'model' });
+  });
+
+  it('leaves the round unsorted when the classifier gives nothing, and never asks twice', async () => {
+    const w = sorting(async () => null);
+    const roundId = await w.ask(await w.session());
+    await w.runLater();
+    expect(w.asked).toHaveLength(1);
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: null, category_by: null });
+  });
+
+  it('leaves the round unsorted when the classifier or the database fails, and the task never throws', async () => {
+    const w = sorting(async () => { throw new Error('boom'); });
+    const roundId = await w.ask(await w.session());
+    await expect(w.runLater()).resolves.toBeUndefined();
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: null });
+
+    const v = sorting(async () => 'product');
+    const other = await v.ask(await v.session());
+    v.fake.state.fail = { message: 'connection reset' };
+    await expect(v.runLater()).resolves.toBeUndefined();
+    v.fake.state.fail = null;
+    expect(v.row('ask_rounds', other)).toMatchObject({ category: null });
+  });
+
+  it('schedules nothing without a classifier (no OPENROUTER_API_KEY): the round stays unsorted', async () => {
+    const w = world();
+    const later: Array<() => Promise<void>> = [];
+    const deps: AskDeps = { ...w.deps, classify: null, later: (task) => { later.push(task); } };
+    const sessionId = await w.session();
+    const { status, body } = await w.read(await addRound(w.request('POST', `/api/ask/sessions/${sessionId}/rounds`, { body: { questions: QUESTIONS } }), sessionId, deps));
+    expect(status).toBe(200);
+    expect(later).toEqual([]);
+    expect(w.row('ask_rounds', body.roundId)).toMatchObject({ category: null, category_by: null });
+  });
+
+  it('never overrides a member who sorted the round first', async () => {
+    const w = sorting(async () => 'architecture');
+    const roundId = await w.ask(await w.session());
+    await categorizeRound(w.request('PATCH', `/api/ask/rounds/${roundId}/category`, { token: 'bob-token', body: { category: 'product' } }), roundId, w.deps);
+    await w.runLater();
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'product', category_by: BOB.id });
+  });
+});
+
+describe('PATCH /api/ask/rounds/:id/category (PRD 144)', () => {
+  const sort = (w: ReturnType<typeof world>, id: string, body: unknown, token: string | null = 'ada-token') =>
+    categorizeRound(w.request('PATCH', `/api/ask/rounds/${id}/category`, { token, body }), id, w.deps);
+
+  it('lets any member of the workspace set one of the six, and says they set it', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    for (const [token, who, category] of [['bob-token', BOB.id, 'ux-ui'], ['ada-token', ADA.id, 'harness']] as const) {
+      const { status, body } = await w.read(await sort(w, roundId, { category }, token));
+      expect(status).toBe(200);
+      expect(body).toEqual({ id: roundId, category, category_by: who });
+      expect(w.row('ask_rounds', roundId)).toMatchObject({ category, category_by: who });
+    }
+  });
+
+  it('clears it with null: unsorted again, cleared by that member', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    await sort(w, roundId, { category: 'business' });
+    const { status, body } = await w.read(await sort(w, roundId, { category: null }, 'bob-token'));
+    expect(status).toBe(200);
+    expect(body).toEqual({ id: roundId, category: null, category_by: BOB.id });
+  });
+
+  it('refuses a value outside the six with 400, and changes nothing', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    await sort(w, roundId, { category: 'business' });
+    for (const body of [{ category: 'design' }, { category: 'UX/UI' }, { category: 3 }, {}, { kind: 'business' }]) {
+      const { status, body: sent } = await w.read(await sort(w, roundId, body));
+      expect(status, JSON.stringify(body)).toBe(400);
+      expect(sent.error).toMatch(/business, product, ux-ui, architecture, harness, other/);
+    }
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: 'business', category_by: ADA.id });
+  });
+
+  it('refuses an account of another workspace with 404, like a round that is missing or not one', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    expect((await sort(w, roundId, { category: 'other' }, 'carl-token')).status).toBe(404);
+    expect((await sort(w, MISSING, { category: 'other' })).status).toBe(404);
+    expect((await sort(w, 'not-a-uuid', { category: 'other' })).status).toBe(404);
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: null, category_by: null });
+  });
+
+  it('checks the bearer token and the crew like every other call', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    expect((await sort(w, roundId, { category: 'other' }, null)).status).toBe(401);
+    expect((await sort(w, roundId, { category: 'other' }, 'eve-token')).status).toBe(403);
+    expect((await sort({ ...w, deps: { connect: null } }, roundId, { category: 'other' })).status).toBe(503);
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ category: null });
+  });
+
+  it('answers 500, not a guess, when the database fails', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    w.fake.state.fail = { message: 'connection reset' };
+    expect((await sort(w, roundId, { category: 'other' })).status).toBe(500);
+  });
+});
+
+describe('POST /api/ask/rounds/:id/shares (PRD 144)', () => {
+  const share = (w: ReturnType<typeof world>, id: string, body: unknown, token: string | null = 'ada-token') =>
+    shareRound(w.request('POST', `/api/ask/rounds/${id}/shares`, { token, body }), id, w.deps);
+
+  it('lets the owner share a round with a member of the session\'s workspace, and answers the link to it', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    const { status, body } = await w.read(await share(w, roundId, { member: BOB.id }));
+    expect(status).toBe(200);
+    expect(body).toEqual({ roundId, sharedWith: BOB.id, url: `https://ask.example/ask/q/${roundId}` });
+    expect(w.fake.tables.ask_shares).toEqual([expect.objectContaining({ round_id: roundId, shared_with: BOB.id, shared_by: ADA.id })]);
+  });
+
+  it('shares again without a second share, and shares an answered round too (it only reads)', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    await share(w, roundId, { member: BOB.id });
+    expect((await share(w, roundId, { member: BOB.id })).status).toBe(200);
+    expect(w.fake.tables.ask_shares).toHaveLength(1);
+    await answerRound(w.request('POST', `/api/ask/rounds/${roundId}/answers`, { body: { answers: ANSWERS, via: 'terminal' } }), roundId, w.deps);
+    expect((await share(w, roundId, { member: DAN.id })).status).toBe(200);
+    expect(w.fake.tables.ask_shares).toHaveLength(2);
+  });
+
+  it('refuses a member outside the session\'s workspace, the owner themself, or no member at all, with 400', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    for (const body of [{ member: CARL.id }, { member: ADA.id }, { member: MISSING }, { member: 'bob' }, {}, { with: BOB.id }]) {
+      const { status, body: sent } = await w.read(await share(w, roundId, body));
+      expect(status, JSON.stringify(body)).toBe(400);
+      expect(sent.error).toEqual(expect.any(String));
+    }
+    expect(w.fake.tables.ask_shares).toEqual([]);
+  });
+
+  it('refuses a member of the workspace who is not the owner with 403', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    const { status, body } = await w.read(await share(w, roundId, { member: DAN.id }, 'bob-token'));
+    expect(status).toBe(403);
+    expect(body.error).toMatch(/owner/);
+    expect(w.fake.tables.ask_shares).toEqual([]);
+  });
+
+  it('answers 404 for an unknown round, a round of another workspace, or an id that is not one', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    expect((await share(w, MISSING, { member: BOB.id })).status).toBe(404);
+    expect((await share(w, 'not-a-uuid', { member: BOB.id })).status).toBe(404);
+    expect((await share(w, roundId, { member: BOB.id }, 'carl-token')).status).toBe(404);
+    expect(w.fake.tables.ask_shares).toEqual([]);
+  });
+
+  it('checks the bearer token and the crew like every other call, and answers 500 when the database fails', async () => {
+    const w = world();
+    const roundId = await w.round(await w.session());
+    expect((await share(w, roundId, { member: BOB.id }, null)).status).toBe(401);
+    expect((await share(w, roundId, { member: BOB.id }, 'eve-token')).status).toBe(403);
+    expect((await share({ ...w, deps: { connect: null } }, roundId, { member: BOB.id })).status).toBe(503);
+    w.fake.state.fail = { message: 'connection reset' };
+    expect((await share(w, roundId, { member: BOB.id })).status).toBe(500);
+    w.fake.state.fail = null;
+    expect(w.fake.tables.ask_shares).toEqual([]);
+  });
+});
+
+describe('the first answer wins (PRD 144)', () => {
+  const pageAnswer = (w: ReturnType<typeof world>, token: string, roundId: string, answers: Record<string, string> = ANSWERS) =>
+    askStore(w.fake.client(token) as never).moveRound(roundId, ['open'], { status: 'answered', answers, answered_via: 'page' });
+  const terminal = (w: ReturnType<typeof world>, roundId: string) =>
+    answerRound(w.request('POST', `/api/ask/rounds/${roundId}/answers`, { body: { answers: { 'Which checks run?': 'RLS' }, via: 'terminal' } }), roundId, w.deps);
+  async function shared(w: ReturnType<typeof world>, member = BOB) {
+    const roundId = await w.round(await w.session());
+    await shareRound(w.request('POST', `/api/ask/rounds/${roundId}/shares`, { body: { member: member.id } }), roundId, w.deps);
+    return roundId;
+  }
+
+  it('lets the member it is shared with answer an open round on the page, and the hook gets that answer', async () => {
+    const w = world();
+    const roundId = await shared(w);
+    expect(await pageAnswer(w, 'bob-token', roundId)).toMatchObject({ status: 'answered', answered_via: 'page' });
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ answers: ANSWERS, answered_by: BOB.id });
+    const { body } = await w.read(await waitRound(w.request('GET', `/api/ask/rounds/${roundId}/wait`), roundId, w.deps));
+    expect(body).toEqual({ status: 'answered', answers: ANSWERS });
+  });
+
+  it('answers the second answer 409, naming who answered first and which way, and keeps the first', async () => {
+    const w = world();
+    const roundId = await shared(w, DAN);
+    await pageAnswer(w, 'dan-token', roundId);
+    const { status, body } = await w.read(await terminal(w, roundId));
+    expect(status).toBe(409);
+    expect(body).toEqual({
+      error: 'This round is already answered by DAN, on the page.',
+      status: 'answered',
+      answeredBy: { id: DAN.id, name: 'DAN' },
+      via: 'page',
+    });
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ answers: ANSWERS, answered_by: DAN.id });
+  });
+
+  it('names a member with no arcade name by their email, and the owner too', async () => {
+    const w = world();
+    const roundId = await shared(w);
+    await pageAnswer(w, 'bob-token', roundId);
+    expect((await w.read(await terminal(w, roundId))).body.answeredBy).toEqual({ id: BOB.id, name: 'bob@vertuoza.com' });
+    const own = await w.round(await w.session());
+    await pageAnswer(w, 'ada-token', own);
+    expect((await w.read(await terminal(w, own))).body).toMatchObject({ answeredBy: { id: ADA.id, name: 'ada@vertuoza.com' }, via: 'page' });
+  });
+
+  it('keeps the owner\'s answer when the shared member comes second', async () => {
+    const w = world();
+    const roundId = await shared(w);
+    expect((await terminal(w, roundId)).status).toBe(200);
+    expect(await pageAnswer(w, 'bob-token', roundId, { 'Which checks run?': 'Handlers' })).toBeNull();
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ answers: { 'Which checks run?': 'RLS' }, answered_by: ADA.id, answered_via: 'terminal' });
+  });
+
+  it('lets nobody else answer: a member it is not shared with, or the shared member once it moved to the terminal', async () => {
+    const w = world();
+    const roundId = await shared(w);
+    expect(await pageAnswer(w, 'dan-token', roundId)).toBeNull();
+    await abandonRound(w.request('POST', `/api/ask/rounds/${roundId}/abandon`), roundId, w.deps);
+    expect(await pageAnswer(w, 'bob-token', roundId)).toBeNull();
+    expect(w.row('ask_rounds', roundId)).toMatchObject({ status: 'abandoned', answers: null });
+  });
+
+  it('never lets the shared member abandon the round, or answer it as the terminal', async () => {
+    const w = world();
+    const roundId = await shared(w);
+    const bob = askStore(w.fake.client('bob-token') as never);
+    await expect(bob.moveRound(roundId, ['open'], { status: 'abandoned' })).rejects.toThrow(/row-level security/);
+    await expect(bob.moveRound(roundId, ['open'], { status: 'answered', answers: ANSWERS, answered_via: 'terminal' })).rejects.toThrow(/row-level security/);
+    expect(w.row('ask_rounds', roundId).status).toBe('open');
+  });
+});
+
 describe('the ask routes', () => {
   const app = (path: string) => fileURLToPath(new URL(`../../app/api/ask/${path}/route.ts`, import.meta.url));
   const ROUTES: Array<[string, string, string]> = [
     ['sessions', 'POST', 'openSession'],
+    ['sessions/[id]', 'DELETE', 'deleteSession'],
     ['sessions/[id]/close', 'POST', 'closeSession'],
     ['sessions/[id]/rounds', 'POST', 'addRound'],
     ['rounds/[id]/wait', 'GET', 'waitRound'],
     ['rounds/[id]/answers', 'POST', 'answerRound'],
     ['rounds/[id]/abandon', 'POST', 'abandonRound'],
+    ['rounds/[id]/category', 'PATCH', 'categorizeRound'],
+    ['rounds/[id]/shares', 'POST', 'shareRound'],
   ];
 
   for (const [path, method, handler] of ROUTES) {
