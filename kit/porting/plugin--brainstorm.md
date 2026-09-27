@@ -78,6 +78,13 @@ written in (spec §2: no `superpowers:` dependency), taken from `superpowers` 6.
   merge would publish, and how that is rolled back. Upstream's `docs/agents/bdd-acceptance.md`
   stays dropped; `decisions` and `glossary`, which the before/after page lists beside brainstorm,
   are not wired: the spec's table does not name them, and `paths.glossary` is still read.
+- **The hand-off ends with a plain "What is next?"** (PRD 292): after its report, step 10 shows the
+  PRD's folder as a tree, where the PRD is on the loop's six stages (idea, PRD, inbox, outbox,
+  shipped, retro; "you are here" under PRD, the phase-0 merge under inbox), then **What is next?**
+  in three steps (review the phase-0 PR, with the dossier link only when one was printed; merge it;
+  `/clear` or a new terminal, then run), and `/omni:yolo <n>` stays alone on the last line. Step 2's
+  Handoff reads ``Next command: `/omni:yolo <n>`, once the phase-0 PR is merged``. A block in
+  `kit/test/plugin.test.mjs` asserts both on the live skill.
 
 ## Written in from superpowers brainstorming
 

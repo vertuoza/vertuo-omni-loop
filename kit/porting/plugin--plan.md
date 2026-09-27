@@ -70,6 +70,12 @@ territory and a computed wave, the plan file, the draft feature PR, the hand-off
   form adds to its steps without overriding its rules (item s6-02). **Territory** reads
   `architecture` first, and every territory follows its layout and boundaries. `releasing`, which
   the before/after page lists beside plan, is not wired: the spec's table does not name it.
+- **The hand-off** (PRD 292): followed by `/omni:brainstorm` or `/omni:yolo`, step 7 returns and
+  prints no **What is next?**, so a reply never carries two. Run alone, it ends with **What is
+  next?** in two steps (review the plan on the draft feature PR; `/clear` or a new terminal, then
+  run) and `/omni:yolo <n>` alone on the last line; no folder and no stages, since run alone it
+  cannot tell whether the PRD's phase-0 PR merged. A block in `kit/test/plugin.test.mjs` asserts it
+  on the live skill.
 
 ## Kept from upstream
 
