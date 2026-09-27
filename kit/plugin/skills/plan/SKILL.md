@@ -162,8 +162,24 @@ change the check.
 
 ## 7. Hand off
 
-Print the slice table and the waves `omni plan check` reported. Followed by `/omni:yolo`: return to
-it. Run alone: end with the line `/omni:yolo <n>`.
+Print the slice table and the waves `omni plan check` reported. Then:
+
+- **Followed by `/omni:brainstorm` or `/omni:yolo`:** return to it, and print no **What is next?**.
+  The caller says what is next, so the reply never carries two.
+- **Run alone:** end the reply with these two short steps, every placeholder filled with a real
+  number or link, and the command alone on the reply's last line:
+
+```markdown
+**What is next?**
+
+1. Review the plan: https://github.com/<owner>/<repo>/pull/<feature PR>
+2. Type /clear (or open a new terminal), then run:
+
+/omni:yolo <n>
+```
+
+No folder and no stages here: run alone, this skill cannot tell whether the PRD's phase-0 PR has
+merged, so a stage marker could be wrong.
 
 ## Guardrails
 
