@@ -10,7 +10,7 @@ import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../dossier/
 import { isWide, subscribe, WIDE } from './ContextDisclosure';
 import { outboxRow, STORED } from './fixtures';
 import { SEND_OFF } from './OutboxTab';
-import type { OutboxRead } from './tab';
+import type { OutboxRead } from './count';
 
 // The Outbox tab of /prd/<id> as the server renders it (PRD 251): what a person sees before any script
 // runs, in each state of the spec's table, with each kind of card and group, and the context rail.

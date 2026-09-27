@@ -12,7 +12,7 @@
 // Its outbox (PRD 251) is src/outbox/demo.ts's: two open questions, one adopted, one settled.
 import { DEMO_MEMBERS, DEMO_OWNER } from '../../ask/page/demo';
 import { demoOutbox } from '../../outbox/demo';
-import { openCount } from '../../outbox/tab';
+import { openCount } from '../../outbox/count';
 import { DOSSIER_KINDS, type DossierListRow, type DossierRoundRow, type DossierVersionRow, type LatestVersion } from '../store';
 import type { DossierRead } from './view';
 

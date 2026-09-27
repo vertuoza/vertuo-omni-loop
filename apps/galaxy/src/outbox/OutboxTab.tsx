@@ -3,6 +3,7 @@ import { FRAME_SANDBOX } from '../dossier/page/sandbox';
 import type { ContextView, OutboxPane } from '../dossier/page/view';
 import { ContextDisclosure } from './ContextDisclosure';
 import { OutboxAnswers } from './OutboxAnswers';
+import { outboxView } from './tab';
 
 // The Outbox tab of /prd/<id> (PRD 251, "The Outbox tab"): each state of the spec's table — no outbox
 // yet, the read failed, and the outbox itself, open, merged or closed — and, beside the questions, the
@@ -74,7 +75,8 @@ function Rail({ context, spec }: { context: ContextView; spec: RenderedMarkdown 
 }
 
 export function OutboxTab({ id, pane, spec, sendOff }: Props) {
-  const { view, context } = pane;
+  const { context } = pane;
+  const view = outboxView(pane.read);
   if (view.state === 'failed') {
     return <p className="ask-problem" role="alert">The outbox is out of reach. Reload the page in a moment.</p>;
   }

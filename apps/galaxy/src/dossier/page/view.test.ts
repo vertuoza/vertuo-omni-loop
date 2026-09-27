@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
 import { outboxRow, STORED } from '../../outbox/fixtures';
-import type { OutboxRead } from '../../outbox/tab';
+import type { OutboxRead } from '../../outbox/count';
 import { dossierView, readPick, sandboxPath, shortDay, stamp, versionSource, type DossierPick } from './view';
 
 // /prd/<id> (PRD 216), as pure functions of the rows the viewer may read, the workspace's members and
@@ -290,7 +290,7 @@ describe('the Outbox tab (PRD 251)', () => {
     expect(v.tab).toBe('outbox');
     expect(v.versions).toEqual([]);
     expect(v.shown).toBeNull();
-    expect(v.outbox?.view.state).toBe('open');
+    expect(v.outbox?.read).toEqual({ row: outboxRow() });
     expect(withOutbox(readPick({ tab: 'spec' }), { row: outboxRow() }).outbox).toBeNull();
   });
 

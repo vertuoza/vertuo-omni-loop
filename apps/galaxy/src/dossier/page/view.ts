@@ -13,8 +13,9 @@
 //
 // The Outbox tab (PRD 251) comes after Questions: the questions the PRD's feature pull request still
 // asks, beside a context rail — Before/after, Spec or Brainstorm, picked by `?context=` — and its
-// label says `n open`. Its cards are src/outbox/tab.ts's.
-import { outboxView, openCount, type OutboxRead, type OutboxView } from '../../outbox/tab';
+// label says `n open`. Its cards are src/outbox/tab.ts's, built by the tab on the server: this model is
+// imported by a browser component too (DeleteDraft), so it holds the outbox as read, never the kit.
+import { openCount, type OutboxRead } from '../../outbox/count';
 import { readQuestions, shownLabel } from '../../ask/answer-model';
 import { CATEGORY_LABELS, isCategory, type Category } from '../../ask/classify';
 import { nameOf, type Member } from '../../ask/page/question';
@@ -162,7 +163,8 @@ export type ContextView = {
   brainstorm: BrainstormAnswer[] | null;
 };
 
-export type OutboxPane = { view: OutboxView; context: ContextView };
+/** The Outbox tab: the outbox as read (src/outbox/tab.ts turns it into cards), and the rail. */
+export type OutboxPane = { read: OutboxRead; context: ContextView };
 
 /** One option of a question, as it was offered: its label without "(Recommended)", which becomes a
  * badge, and whether the answer chose it. */
@@ -304,7 +306,7 @@ export function dossierView(read: DossierRead, me: string | null, pick: DossierP
     shown: entries.find((e) => e.current) ?? null,
     questions,
     outbox: tab === 'outbox'
-      ? { view: outboxView(outbox), context: contextView(dossier.id, versions, questions, pick.context ?? 'before-after') }
+      ? { read: outbox, context: contextView(dossier.id, versions, questions, pick.context ?? 'before-after') }
       : null,
   };
 }

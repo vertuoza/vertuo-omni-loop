@@ -13,7 +13,7 @@
 // dossier by its key, among those the viewer may read.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { outboxReader } from '../../outbox/store';
-import type { OutboxRead } from '../../outbox/tab';
+import type { OutboxRead } from '../../outbox/count';
 import { readMembers } from '../../ask/page/source';
 import { dossierList, dossierReader, dossierRounds, type DossierListRow, type DossierRoundRow } from '../store';
 import type { DossierRead } from './view';

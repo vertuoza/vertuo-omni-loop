@@ -12,10 +12,9 @@
 import { parseOutboxItem, RANK_ORDER } from 'vertuo-omni-plan/kit/lib/outbox/outbox.mjs';
 import { renderMarkdown } from '../dossier/markdown';
 import { StoredOutbox } from './contract';
-import type { OutboxRow } from './store';
+import type { OutboxRead } from './count';
 
-/** What the page read: the dossier's latest outbox (null: none yet), or a read that failed. */
-export type OutboxRead = { row: OutboxRow | null } | { failed: true };
+export { openCount, type OutboxRead } from './count';
 
 /** An answer nobody has settled yet: what it said, who, where (`on GitHub`) and when. */
 export type PendingView = { text: string; by: string; where: string; when: string | null; url: string | null };
@@ -178,11 +177,4 @@ export function outboxView(read: OutboxRead): OutboxView {
       answer: entry.answer, url: entry.channelUrl,
     })),
   };
-}
-
-/** The Outbox tab's `n open`: the open questions while the pull request is open; 0 otherwise. */
-export function openCount(read: OutboxRead): number {
-  if ('failed' in read || !read.row || read.row.state !== 'open') return 0;
-  const stored = StoredOutbox.safeParse(read.row.outbox);
-  return stored.success ? stored.data.open.length : 0;
 }
