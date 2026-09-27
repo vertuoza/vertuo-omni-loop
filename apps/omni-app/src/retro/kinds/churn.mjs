@@ -58,7 +58,7 @@ export const churn = Object.freeze({
 
   detect(records, { pr, prd, config, pulls }) {
     if (!records) return { facts: null, findings: [] };
-    const walked = walk(records, { sliceOf: sliceReader(config, prd), leftOut: leftOutAs(records.gitattributes ?? null) });
+    const walked = walk(records, { sliceOf: sliceReader(config, prd), leftOut: leftOutAs(records.gitattributes ?? null, { delivery: config?.paths?.delivery }) });
     const final = records.final ? new Map(records.final.map((file) => [file.path, file.additions])) : null;
     const perFile = final ? churnPerFile(walked.files, final) : null;
     const ranges = rewritten(walked);
@@ -77,7 +77,11 @@ export const churn = Object.freeze({
         commits: shas.map((sha) => walked.commits.get(sha).short),
         slices,
       })),
-      leftOut: { generated: [...walked.left.generated].sort(), lockfile: [...walked.left.lockfile].sort() },
+      leftOut: {
+        generated: [...walked.left.generated].sort(),
+        lockfile: [...walked.left.lockfile].sort(),
+        delivery: [...walked.left.delivery].sort(),
+      },
       noPatch: walked.noPatch,
       unread: walked.unread,
       notCounted: (pulls ?? []).filter((pull) => !pull.mergedAt).map((pull) => pull.number),
@@ -125,6 +129,7 @@ export const churn = Object.freeze({
     const paths = (list) => list.map((path) => `\`${path}\``).join(', ');
     if (facts.leftOut.generated.length > 0) lines.push(`- Left out as generated, by \`.gitattributes\`: ${paths(facts.leftOut.generated)}.`);
     if (facts.leftOut.lockfile.length > 0) lines.push(`- Left out as lockfiles: ${paths(facts.leftOut.lockfile)}.`);
+    if (facts.leftOut.delivery?.length > 0) lines.push(`- Left out as the loop's own delivery record: ${paths(facts.leftOut.delivery)}.`);
     for (const file of facts.noPatch) {
       lines.push(
         `- GitHub sent no patch for \`${file.path}\` in ${file.commit} (${file.slice}): counted by its totals, ${file.additions} added and ${file.deletions} removed, its lines not followed.`,
@@ -148,7 +153,7 @@ function walk(records, { sliceOf, leftOut }) {
   const commits = new Map(); // sha → { short, url, slice, index }
   const files = new Map(); // path → { added, commits: Set<sha> }
   const lines = new Map(); // path → [line, commits][]
-  const left = { generated: new Set(), lockfile: new Set() };
+  const left = { generated: new Set(), lockfile: new Set(), delivery: new Set() };
   const noPatch = [];
   const unread = { pulls: [], commits: [] };
   let pulls = 0;
