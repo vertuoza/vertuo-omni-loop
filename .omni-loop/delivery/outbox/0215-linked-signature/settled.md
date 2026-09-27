@@ -1,3 +1,35 @@
+# Settled outbox items — PRD 215
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-literal-guard-lets-the-home-link-through -->
+
+## s1-01-literal-guard-lets-the-home-link-through — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-09-27T07:52:05Z
+- Channel: feature pull request #217
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: ADR-0047
+- Raised: 2026-09-27
+- Slice: s1
+- Wave: 1
+- Became: ADR-0047
+
+### The answer, as it was given
+
+```text
+A. Let the home page link through the name check in the kit's default settings only, and keep refusing the company's name everywhere else. This is what was built.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-literal-guard-lets-the-home-link-through
 prd: 215
@@ -47,3 +79,7 @@ A constant: one regular expression and its fixture cases in one test file. Nothi
 (author) The PRD, the registers and the glossary do not settle this:
 
 - Whether the person, deciding that the kit may carry the address (ADR-0047), meant it to pass the repository-literal guard too, or only the game-words guard: the spec names only the latter (author).
+
+```
+
+<!-- /omni-outbox-settled: s1-01-literal-guard-lets-the-home-link-through -->
