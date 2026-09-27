@@ -136,7 +136,7 @@ export const ConfigSchema = z
     // as written. `home` defaults to the Omni Loop home page (ADR-0047).
     signature: z
       .object({
-        name: trailerPart.default('OmniMan'),
+        name: trailerPart.default('Omni-man'),
         email: trailerPart.default('333776611+omni-loop-invader[bot]@users.noreply.github.com'),
         home: httpsUrl.default('https://vertuo-omni-loop-galaxy.vercel.app'),
         footer: text.default('🦸 {name} by [Omni Loop]({home}) ©'),

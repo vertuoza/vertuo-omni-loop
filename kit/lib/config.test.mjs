@@ -112,13 +112,13 @@ describe('parseConfig', () => {
 
 describe('the signature section (PRD #99, PRD #215)', () => {
   const DEFAULT = {
-    name: 'OmniMan',
+    name: 'Omni-man',
     email: '333776611+omni-loop-invader[bot]@users.noreply.github.com',
     home: 'https://vertuo-omni-loop-galaxy.vercel.app',
     footer: '🦸 {name} by [Omni Loop]({home}) ©',
   };
 
-  it('signs as OmniMan, linking home, when the file has no signature section', () => {
+  it('signs as Omni-man, linking home, when the file has no signature section', () => {
     expect(parseConfig('kit: 1\n').signature).toEqual(DEFAULT);
   });
 
@@ -182,7 +182,7 @@ describe('omni config', () => {
     const s = io();
     expect(await main(['config', 'signature'], { cwd: root, ...s })).toBe(0);
     expect(JSON.parse(s.out.join(''))).toEqual({
-      name: 'OmniMan',
+      name: 'Omni-man',
       email: '333776611+omni-loop-invader[bot]@users.noreply.github.com',
       home: 'https://vertuo-omni-loop-galaxy.vercel.app',
       footer: '🦸 {name} by [Omni Loop]({home}) ©',
