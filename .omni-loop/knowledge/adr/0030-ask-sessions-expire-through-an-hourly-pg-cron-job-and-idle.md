@@ -19,3 +19,7 @@ The schedule or the windows change with one new migration (`cron.schedule` under
 ## Source
 
 `.omni-loop/delivery/shipped/0071-ask-mode/outbox/settled.md`, entry `s2-03-expiry-hourly`
+
+## Amended by PRD 144
+
+Sessions and rounds are kept for good. `public.ask_sweep()` replaces `ask_expire()`: it runs hourly, rewrites a session idle for 12 hours to closed, and deletes nothing. Only the owner deletes a session, with its rounds. The rest of this record (pg_cron, the hourly schedule, the 12-hour idle window) stands (item s2-01, agreed on #147).
