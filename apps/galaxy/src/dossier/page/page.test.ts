@@ -298,7 +298,9 @@ describe('the layout', () => {
     expect(page).toContain('@media (prefers-color-scheme: dark)');
     expect(page).toMatch(/<div class="ask"><script[^>]*>\(function\(\)\{/);
     expect(page).toContain('aria-label="Theme"');
-    for (const choice of ['System', 'Light', 'Dark']) expect(page).toContain(`>${choice}</button>`);
+    const choices = page.slice(page.indexOf('aria-label="Theme"'), page.indexOf('</div>', page.indexOf('aria-label="Theme"')));
+    expect([...choices.matchAll(/>([^<]*)<\/button>/g)].map((m) => m[1])).toEqual(['Omni', 'Light', 'Dark']);
+    expect(page).not.toContain('>System</button>');
     expect(page).toContain('<main class="ask-main"><p>inside</p></main>');
   });
 

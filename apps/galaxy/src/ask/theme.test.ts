@@ -1,44 +1,42 @@
 import { runInNewContext } from 'node:vm';
 import { describe, it, expect } from 'vitest';
-import { CHOICE_ATTR, THEME_ATTR, THEME_KEY, readChoice, resolveTheme, storeChoice, themeScript } from './theme';
+import { CHOICE_ATTR, THEME_ATTR, THEME_CHOICES, THEME_KEY, readChoice, storeChoice, themeScript } from './theme';
+import * as theme from './theme';
 
-describe('the theme resolver', () => {
-  it('follows the system when the choice is system', () => {
-    expect(resolveTheme('system', true)).toBe('dark');
-    expect(resolveTheme('system', false)).toBe('light');
+describe('the theme choice', () => {
+  it('is Omni, Light or Dark, in that order', () => {
+    expect(THEME_CHOICES).toEqual(['omni', 'light', 'dark']);
   });
 
-  it('keeps light and dark whatever the system says', () => {
-    for (const systemDark of [true, false]) {
-      expect(resolveTheme('light', systemDark)).toBe('light');
-      expect(resolveTheme('dark', systemDark)).toBe('dark');
-    }
+  it('is the theme: nothing resolves it against the system any more', () => {
+    expect('resolveTheme' in theme).toBe(false);
   });
 
-  it('reads a stored choice, and anything else as system', () => {
+  it('reads a stored light or dark as itself, and anything else as Omni', () => {
     expect(readChoice('light')).toBe('light');
     expect(readChoice('dark')).toBe('dark');
-    expect(readChoice('system')).toBe('system');
-    for (const stored of [null, '', 'Dark', 'sepia']) expect(readChoice(stored), String(stored)).toBe('system');
+    for (const stored of [null, 'system', 'omni', '', 'Dark', 'sepia']) expect(readChoice(stored), String(stored)).toBe('omni');
   });
 
-  it('stores light and dark, and forgets the key for system', () => {
+  it('stores light and dark, and forgets the key for Omni', () => {
     const store = new Map<string, string>();
     const storage = { setItem: (k: string, v: string) => store.set(k, v), removeItem: (k: string) => store.delete(k) };
+    storeChoice(storage, 'light');
+    expect(store.get(THEME_KEY)).toBe('light');
     storeChoice(storage, 'dark');
     expect(store.get(THEME_KEY)).toBe('dark');
-    storeChoice(storage, 'system');
+    storeChoice(storage, 'omni');
     expect(store.has(THEME_KEY)).toBe(false);
   });
 
   it('never throws when storage is refused', () => {
     const refused = { setItem() { throw new Error('denied'); }, removeItem() { throw new Error('denied'); } };
-    expect(() => storeChoice(refused, 'light')).not.toThrow();
+    for (const choice of THEME_CHOICES) expect(() => storeChoice(refused, choice), choice).not.toThrow();
   });
 });
 
 /** Runs the inline script the layout puts before the first paint, in a bare browser-like global. */
-function boot({ stored, systemDark, storage = 'ok', media = true }: { stored: string | null; systemDark: boolean; storage?: 'ok' | 'throws'; media?: boolean }) {
+function boot({ stored, storage = 'ok' }: { stored: string | null; storage?: 'ok' | 'throws' }) {
   const attrs = new Map<string, string>();
   const global: Record<string, unknown> = {
     localStorage: {
@@ -48,29 +46,29 @@ function boot({ stored, systemDark, storage = 'ok', media = true }: { stored: st
       },
     },
     document: { currentScript: { parentElement: { setAttribute: (name: string, value: string) => attrs.set(name, value) } } },
+    // A system that prefers dark: Omni never follows it.
+    matchMedia: (query: string) => ({ matches: query === '(prefers-color-scheme: dark)' }),
   };
-  if (media) global.matchMedia = (query: string) => ({ matches: query === '(prefers-color-scheme: dark)' && systemDark });
   global.window = global;
   runInNewContext(themeScript, global);
   return { theme: attrs.get(THEME_ATTR), choice: attrs.get(CHOICE_ATTR) };
 }
 
 describe('the script applied before the first paint', () => {
-  it('sets the theme the resolver picks, for every stored choice and system setting', () => {
-    for (const stored of [null, 'system', 'light', 'dark', 'sepia']) {
-      for (const systemDark of [true, false]) {
-        const choice = readChoice(stored);
-        expect(boot({ stored, systemDark }), `${stored} / ${systemDark ? 'dark' : 'light'} system`).toEqual({
-          theme: resolveTheme(choice, systemDark),
-          choice,
-        });
-      }
+  it('marks the root with the choice readChoice gives, for every stored value', () => {
+    for (const stored of [null, 'system', 'omni', '', 'light', 'dark', 'sepia']) {
+      const choice = readChoice(stored);
+      expect(boot({ stored }), String(stored)).toEqual({ theme: choice, choice });
     }
   });
 
-  it('falls back to the system when storage is refused, and to light without media queries', () => {
-    expect(boot({ stored: 'light', systemDark: true, storage: 'throws' })).toEqual({ theme: 'dark', choice: 'system' });
-    expect(boot({ stored: null, systemDark: true, media: false })).toEqual({ theme: 'light', choice: 'system' });
+  it('shows Omni when storage is refused', () => {
+    expect(boot({ stored: 'light', storage: 'throws' })).toEqual({ theme: 'omni', choice: 'omni' });
+  });
+
+  it('never asks the system what it prefers', () => {
+    expect(themeScript).not.toContain('matchMedia');
+    expect(themeScript).not.toContain('prefers-color-scheme');
   });
 
   it('does nothing where it has no parent to mark', () => {
