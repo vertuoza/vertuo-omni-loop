@@ -75,3 +75,16 @@ describe('the /ask header', () => {
     expect(layout).not.toContain('<header');
   });
 });
+
+describe('on a phone', () => {
+  const css = (file: string) => readFileSync(new URL(file, import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  it('the /ask header\'s end wraps, rather than push the page sideways', () => {
+    expect(css('../ask/ask.css')).toMatch(/\.ask-bar-end \{[^}]*flex-wrap: wrap;/);
+  });
+
+  it('Game mode, on a row of its own, keeps the right end of it, in the /ask header and the /knowledge bar', () => {
+    expect(css('../ask/ask.css')).toMatch(/\.ask-bar-end > \.game-mode \{ margin-left: auto; \}/);
+    expect(css('../knowledge/knowledge.css')).toMatch(/\.km-bar-end > \.game-mode \{ margin-left: auto; \}/);
+  });
+});

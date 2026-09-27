@@ -72,6 +72,11 @@ html:has(.ask[data-ask-theme]) body {
   -webkit-font-smoothing: none;
 }
 .ask-brand-sub { font-size: 14px; color: var(--ask-muted); }
+/* The header's end (AskBar): the page's own links, the theme switch, then Game mode, the last
+   control (PRD 238). On a phone they wrap rather than push the page sideways, and Game mode, on a
+   row of its own, keeps the right end of it. */
+.ask-bar-end { flex-wrap: wrap; }
+.ask-bar-end > .game-mode { margin-left: auto; }
 
 .ask-switch {
   display: inline-flex;
