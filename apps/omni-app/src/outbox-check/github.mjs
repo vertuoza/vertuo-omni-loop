@@ -81,7 +81,10 @@ export async function checkName(octokit, { owner, repo, baseSha }) {
   }
 }
 
-/** Every comment on the pull request, as `{ id, body }`. */
+/**
+ * Every comment on the pull request, as `{ id, body }` and what the kit's reply reader needs of it
+ * (PRD 251): who wrote it, their `author_association`, when, and its link.
+ */
 export async function listComments(octokit, { owner, repo, prNumber }) {
   const comments = await paginate((page) =>
     octokit
@@ -94,7 +97,14 @@ export async function listComments(octokit, { owner, repo, prNumber }) {
       })
       .then(({ data }) => data),
   );
-  return comments.map(({ id, body }) => ({ id, body: body ?? '' }));
+  return comments.map(({ id, body, user, author_association, created_at, html_url }) => ({
+    id,
+    body: body ?? '',
+    user: { login: user?.login ?? '' },
+    author_association: author_association ?? 'NONE',
+    created_at: created_at ?? null,
+    html_url: html_url ?? null,
+  }));
 }
 
 /**

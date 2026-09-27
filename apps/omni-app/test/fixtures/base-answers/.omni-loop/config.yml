@@ -1,0 +1,5 @@
+kit: 1
+repo:
+  slug: acme/widgets
+ask:
+  url: https://omni.example
