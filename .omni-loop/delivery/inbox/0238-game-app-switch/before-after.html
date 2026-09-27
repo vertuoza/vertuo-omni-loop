@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Game and App Switch</title>
+<style>
+  /* Ask mode's palette (PRD 71, PRD 144) for the pages, and the arcade's own colours for the Game Boy
+     and its screen, drawn the same in both themes, as the arcade is. No web font and no external
+     request: the page must look the same anywhere it is opened. */
+  :root {
+    --ground: #f5f4fc;
+    --surface: #ffffff;
+    --sunk: #eceaf8;
+    --line: #d9d6ee;
+    --ink: #17153d;
+    --muted: #4f5486;
+    --plasma: #6a2fd0;
+    --plasma-soft: #efe7ff;
+    --yellow: #ffd84a;
+    --yellow-ink: #3a2c00;
+    --cyan: #0b6f86;
+    --green: #17804a;
+    --red: #b3263e;
+    /* The arcade, the same in both themes. */
+    --a-void: #07061f;
+    --a-panel: #110f3a;
+    --a-line: #3b37a0;
+    --a-ink: #f2f4ff;
+    --a-dim: #9da3e0;
+    --a-plasma: #b37cff;
+    --a-cyan: #6ff0ff;
+    --a-yellow: #ffd84a;
+    --a-red: #ff4d6d;
+    /* The Game Boy's body: galaxy purple, a navy lens. */
+    --gb-hi: #8c52f0;
+    --gb-mid: #6a2fd0;
+    --gb-lo: #4a1c9e;
+    --gb-ink: #1c0b45;
+    --gb-ink-soft: #3a2375;
+    --gb-lens: #1a1850;
+    --gb-lens-2: #121040;
+    --gb-pad: #231f5c;
+    --gb-pill: #3b2a86;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --px: "Press Start 2P", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+      --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66;
+      --cyan: #6ff0ff; --green: #4ee08a; --red: #ff7a90;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+    --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66;
+    --cyan: #6ff0ff; --green: #4ee08a; --red: #ff7a90;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.55 var(--body); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 40px 64px; display: grid; gap: 52px; }
+  header.page { display: grid; gap: 12px; max-width: 72ch; }
+  .eyebrow { font: 10px/1.6 var(--px); letter-spacing: .08em; color: var(--plasma); text-transform: uppercase; }
+  h1 { margin: 0; font-size: clamp(28px, 4vw, 40px); line-height: 1.15; text-wrap: balance; }
+  h2 { margin: 0; font-size: 22px; line-height: 1.25; text-wrap: balance; }
+  p { margin: 0; }
+  code { font: 0.88em var(--mono); background: var(--sunk); border-radius: 4px; padding: 1px 5px; }
+  .lede { color: var(--muted); }
+  section { display: grid; gap: 16px; }
+  section > p { max-width: 72ch; color: var(--muted); }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 20px; align-items: start; }
+  .side { display: grid; gap: 10px; min-width: 0; justify-items: start; }
+  .side > * { max-width: 100%; }
+  .tag { font: 600 12px/1 var(--mono); padding: 5px 8px; border-radius: 4px; }
+  .tag.today { background: var(--sunk); color: var(--muted); }
+  .tag.after { background: var(--plasma-soft); color: var(--plasma); }
+  .note { font-size: 13px; color: var(--muted); max-width: 52ch; }
+  .note b { color: var(--ink); }
+
+  /* The flow, as a diagram. */
+  .flowbox { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .flowbox svg { display: block; width: 100%; min-width: 640px; height: auto; }
+  .flowbox text { font-family: var(--body); }
+
+  /* ── The Game Boy, upright ─────────────────────────────────────────── */
+  .gb {
+    width: 272px; border-radius: 18px 18px 56px 18px; padding: 14px 14px 18px;
+    background: linear-gradient(165deg, var(--gb-hi) 0%, var(--gb-mid) 45%, var(--gb-lo) 100%);
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.18), 0 8px 24px rgba(23,21,61,.25);
+    display: grid; gap: 10px;
+  }
+  .gb-lens { position: relative; background: linear-gradient(180deg, var(--gb-lens), var(--gb-lens-2)); border-radius: 8px 8px 30px 8px; padding: 22px 12px 14px; }
+  .gb-stripe { position: absolute; top: 8px; left: 12px; right: 12px; display: flex; align-items: center; gap: 6px; font: 6px/1 var(--px); color: #9da3e0; letter-spacing: .06em; white-space: nowrap; }
+  .gb-stripe::before, .gb-stripe::after { content: ''; flex: 1; height: 4px; background: linear-gradient(180deg, #ff4d6d 0 40%, transparent 40% 60%, #6ff0ff 60%); }
+  .gb-led { position: absolute; left: 3px; top: 50%; width: 6px; height: 6px; border-radius: 50%; background: #ff4d6d; box-shadow: 0 0 6px #ff4d6d; }
+  .gb-word { display: flex; align-items: center; gap: 8px; min-height: 24px; padding-left: 6px; font: 11px/1 var(--px); color: var(--gb-ink); text-shadow: 0 1px 0 rgba(255,255,255,.25); white-space: nowrap; }
+  .gb-word small { font-size: 6px; color: var(--gb-ink-soft); }
+  .gb-word .push { flex: 1; }
+  .gb-controls { position: relative; height: 138px; }
+  .dpad { position: absolute; left: 8px; top: 16px; width: 72px; height: 72px; }
+  .dpad::before, .dpad::after { content: ''; position: absolute; background: var(--gb-pad); border-radius: 4px; box-shadow: inset 0 2px 0 rgba(255,255,255,.08); }
+  .dpad::before { left: 24px; top: 0; width: 24px; height: 72px; }
+  .dpad::after { left: 0; top: 24px; width: 72px; height: 24px; }
+  .face { position: absolute; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font: 9px/1 var(--px); color: rgba(255,255,255,.85); box-shadow: inset 0 2px 0 rgba(255,255,255,.25), 0 2px 0 rgba(0,0,0,.25); }
+  .face.b { right: 58px; top: 38px; background: #9c62ff; }
+  .face.a { right: 12px; top: 18px; background: #e8335a; }
+  .pills { position: absolute; left: 70px; bottom: 6px; display: flex; gap: 14px; }
+  .pill { display: grid; justify-items: center; gap: 4px; font: 5px/1 var(--px); color: var(--gb-ink); letter-spacing: .04em; }
+  .pill i { display: block; width: 30px; height: 8px; border-radius: 4px; background: var(--gb-pill); transform: rotate(-24deg); }
+  .grille { position: absolute; right: 8px; bottom: 4px; display: flex; gap: 4px; transform: rotate(-28deg); }
+  .grille i { display: block; width: 4px; height: 26px; border-radius: 2px; background: rgba(28,11,69,.45); }
+
+  /* The GAME ▮▯ APP slide switch. */
+  .slide { display: inline-flex; align-items: center; gap: 4px; font: 6px/1 var(--px); color: var(--gb-ink); letter-spacing: .04em; }
+  .slide .track { position: relative; width: 24px; height: 10px; border-radius: 5px; background: var(--gb-lens-2); box-shadow: inset 0 1px 2px rgba(0,0,0,.5); }
+  .slide .knob { position: absolute; top: 1px; left: 1px; width: 11px; height: 8px; border-radius: 4px; background: var(--a-yellow); box-shadow: 0 1px 0 rgba(0,0,0,.35); }
+  .slide.app .knob { left: 12px; }
+  .hl { outline: 2px dashed var(--a-yellow); outline-offset: 3px; border-radius: 6px; }
+
+  /* ── The arcade's screen ───────────────────────────────────────────── */
+  .lcd { background: var(--a-void); color: var(--a-ink); font-family: var(--px); position: relative; overflow: hidden; }
+  .gb .lcd { border-radius: 3px; padding: 8px 8px 7px; min-height: 212px; }
+  .menu h3 { margin: 0; font: 10px/1 var(--px); color: var(--a-ink); }
+  .badge { display: inline-block; margin-top: 4px; font: 6px/1 var(--px); padding: 3px 5px 2px; border: 1px solid #2fc6a4; color: #2fc6a4; }
+  .rows { list-style: none; margin: 5px 0 0; padding: 0; display: grid; gap: 1px; }
+  .rows li { display: grid; grid-template-columns: 9px 1fr; column-gap: 2px; padding: 2px 3px 1px; }
+  .rows li .c { grid-row: span 2; font-size: 6px; color: var(--a-yellow); }
+  .rows li b { font: 6px/1.1 var(--px); font-weight: 400; }
+  .rows li span { font: 9px/1.1 var(--mono); color: var(--a-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rows li.on { box-shadow: inset 0 0 0 1px var(--a-yellow); }
+  .rows li.on b { color: var(--a-yellow); }
+  .rows li.new { background: rgba(111,240,255,.1); box-shadow: inset 0 0 0 1px var(--a-cyan); }
+  .rows li.new b { color: var(--a-cyan); }
+  .mfoot { margin-top: 4px; display: flex; justify-content: space-between; font: 5px/1 var(--px); color: var(--a-dim); }
+
+  /* The wide screen, on a computer. */
+  .wide { width: 100%; max-width: 480px; aspect-ratio: 16 / 9; border-radius: 8px; padding: 14px 18px; display: grid; grid-template-columns: 1fr 120px; gap: 12px; }
+  .wide .rows li { grid-template-columns: 10px 116px 1fr; align-items: baseline; }
+  .wide .rows li .c { grid-row: auto; }
+  .wide .rows li b { font-size: 7px; }
+  .orb { align-self: center; justify-self: center; width: 100px; height: 100px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #4ee08a 0 18%, #1b7a8a 38%, #10205a 72%); box-shadow: 0 0 22px rgba(143,216,255,.45); }
+
+  /* The confirm overlay, over the screen. */
+  .veil { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(7,6,31,.72); }
+  .confirm { border: 2px solid var(--a-yellow); background: var(--a-panel); padding: 10px 12px; display: grid; gap: 7px; justify-items: center; text-align: center; box-shadow: 0 0 0 3px var(--a-void); }
+  .confirm strong { font: 9px/1.2 var(--px); color: var(--a-yellow); font-weight: 400; }
+  .confirm small { font: 9px/1.3 var(--mono); color: var(--a-dim); }
+  .confirm .keys { display: flex; gap: 14px; font: 6px/1 var(--px); }
+  .confirm .keys .y { color: var(--a-ink); }
+  .confirm .keys .n { color: var(--a-dim); }
+  .wide .confirm { padding: 14px 18px; gap: 10px; }
+  .wide .confirm strong { font-size: 11px; }
+  .wide .confirm small { font-size: 11px; }
+  .wide .confirm .keys { font-size: 8px; }
+
+  /* ── The app's pages, framed as a browser window ───────────────────── */
+  .screen { width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; min-width: 0; position: relative; }
+  .bar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--sunk); font: 12px var(--mono); color: var(--muted); overflow-x: auto; white-space: nowrap; }
+  .bar b { color: var(--ink); font-weight: 600; }
+  .appbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .brand { display: inline-flex; align-items: baseline; gap: 8px; }
+  .mark { font: 9px/1 var(--px); color: var(--plasma); letter-spacing: .04em; }
+  a.mark { text-decoration: underline; text-decoration-color: var(--plasma); text-underline-offset: 4px; }
+  .sub { font-size: 13px; color: var(--muted); }
+  .end { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+  .end .lnk { color: var(--plasma); }
+  .count { font: 600 11px/1 var(--mono); background: var(--yellow); color: var(--yellow-ink); border-radius: 999px; padding: 3px 6px; margin-left: 4px; }
+  .theme { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; font: 11px/1 var(--body); }
+  .theme span { padding: 4px 7px; border-radius: 999px; color: var(--muted); }
+  .theme span.on { background: var(--plasma-soft); color: var(--plasma); }
+  .gm { display: inline-flex; align-items: center; gap: 6px; font: 600 13px/1 var(--body); color: var(--surface); background: var(--plasma); border-radius: 8px; padding: 7px 10px; }
+  .gm svg { width: 16px; height: 12px; }
+  .gm.hl { outline-color: var(--yellow); }
+  .pbody { padding: 16px; display: grid; gap: 12px; }
+  .pbody h4 { margin: 0; font-size: 20px; line-height: 1.2; }
+  .ln { height: 7px; border-radius: 4px; background: var(--line); }
+  .w90 { width: 90%; } .w70 { width: 70%; } .w50 { width: 50%; }
+  .hrow { display: grid; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .gone { text-align: center; padding: 44px 12px; color: var(--muted); display: grid; gap: 6px; }
+  .gone b { font: 600 22px var(--body); color: var(--ink); }
+
+  /* /app's cards. */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 10px; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 4px; background: var(--ground); }
+  .card b { font-size: 15px; display: flex; justify-content: space-between; gap: 8px; }
+  .card b::after { content: '→'; color: var(--plasma); }
+  .card span { font-size: 13px; color: var(--muted); line-height: 1.4; }
+  .card code { justify-self: start; font-size: 11px; }
+
+  /* The Game mode dialog. */
+  .scrim { position: absolute; inset: 0; background: rgba(23,21,61,.38); display: grid; place-items: center; padding: 16px; }
+  .dialog { width: min(100%, 300px); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 8px; box-shadow: 0 12px 32px rgba(23,21,61,.3); }
+  .dialog b { font-size: 17px; }
+  .dialog p { font-size: 14px; color: var(--muted); }
+  .dialog .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+  .btn { font: 600 13px var(--body); border-radius: 8px; padding: 7px 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+  .btn.primary { background: var(--plasma); border-color: var(--plasma); color: var(--surface); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--plasma); }
+
+  .same { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 14px; }
+  .same div { border-top: 2px solid var(--line); padding-top: 10px; font-size: 14px; color: var(--muted); }
+  .same b { color: var(--ink); display: block; margin-bottom: 2px; }
+  :focus-visible { outline: 2px solid var(--plasma); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="page">
+  <span class="eyebrow">PRD 238 · before / after</span>
+  <h1>One tap between the game and the app</h1>
+  <p class="lede">Omni Loop has a fun side, the arcade at <code>/</code>, and a professional side: the pages where people read Claude's questions and the knowledge map, and soon the PRDs. Today nothing joins them, and you cross by typing an address. After this PRD, the Game Boy has a GAME ▮▯ APP switch, SELECT MODE has an APP MODE row, and every page of the app has <b>Game mode</b> at the top right. Each crossing asks first.</p>
+</header>
+
+<section aria-labelledby="flow">
+  <h2 id="flow">The two crossings</h2>
+  <p>Each side has one home. Leaving the game lands on <code>/app</code>. Leaving the app lands on SELECT MODE, past the boot and the title. Both ask before they go.</p>
+  <div class="flowbox">
+    <svg viewBox="0 0 900 250" role="img" aria-label="From the arcade, the switch or the APP MODE row asks OPEN THE APP?, and A opens /app. From the app, Game mode asks Switch to game mode?, and Switch opens /#menu.">
+      <rect x="10" y="20" width="250" height="210" rx="12" fill="#07061f"/>
+      <text x="135" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#ffd84a">The arcade  /</text>
+      <rect x="30" y="72" width="210" height="40" rx="8" fill="#110f3a" stroke="#3b37a0" stroke-width="2"/>
+      <text x="135" y="97" text-anchor="middle" font-size="13" fill="#f2f4ff">GAME ▮▯ APP on the Game Boy</text>
+      <rect x="30" y="124" width="210" height="40" rx="8" fill="#110f3a" stroke="#3b37a0" stroke-width="2"/>
+      <text x="135" y="149" text-anchor="middle" font-size="13" fill="#f2f4ff">APP MODE on SELECT MODE</text>
+      <rect x="30" y="176" width="210" height="40" rx="8" fill="#110f3a" stroke="#6ff0ff" stroke-width="2"/>
+      <text x="135" y="201" text-anchor="middle" font-size="13" fill="#6ff0ff">arrives on SELECT MODE</text>
+
+      <rect x="640" y="20" width="250" height="210" rx="12" fill="#efe7ff" stroke="#6a2fd0" stroke-width="2"/>
+      <text x="765" y="52" text-anchor="middle" font-size="15" font-weight="700" fill="#6a2fd0">The app</text>
+      <rect x="660" y="72" width="210" height="40" rx="8" fill="#ffffff" stroke="#d9d6ee" stroke-width="2"/>
+      <text x="765" y="97" text-anchor="middle" font-size="13" fill="#17153d">/app · /ask/* · /knowledge</text>
+      <rect x="660" y="124" width="210" height="40" rx="8" fill="#6a2fd0"/>
+      <text x="765" y="149" text-anchor="middle" font-size="13" font-weight="700" fill="#ffffff">Game mode, top right</text>
+      <rect x="660" y="176" width="210" height="40" rx="8" fill="#ffffff" stroke="#6a2fd0" stroke-width="2"/>
+      <text x="765" y="201" text-anchor="middle" font-size="13" fill="#6a2fd0">arrives on /app</text>
+
+      <path d="M244 118 C 330 118, 330 70, 400 70" fill="none" stroke="#6a2fd0" stroke-width="2"/>
+      <rect x="400" y="50" width="130" height="40" rx="6" fill="#110f3a" stroke="#ffd84a" stroke-width="2"/>
+      <text x="465" y="68" text-anchor="middle" font-size="11" fill="#ffd84a">OPEN THE APP?</text>
+      <text x="465" y="83" text-anchor="middle" font-size="10" fill="#9da3e0">A YES · B NO</text>
+      <path d="M530 70 C 600 70, 600 196, 656 196" fill="none" stroke="#6a2fd0" stroke-width="2"/>
+      <path d="M648 190 L 658 196 L 648 202" fill="none" stroke="#6a2fd0" stroke-width="2"/>
+      <text x="590" y="120" text-anchor="middle" font-size="11" fill="#4f5486">A</text>
+
+      <path d="M656 144 C 590 144, 590 180, 530 180" fill="none" stroke="#0b6f86" stroke-width="2"/>
+      <rect x="370" y="160" width="160" height="40" rx="6" fill="#ffffff" stroke="#0b6f86" stroke-width="2"/>
+      <text x="450" y="178" text-anchor="middle" font-size="11" fill="#17153d">Switch to game mode?</text>
+      <text x="450" y="193" text-anchor="middle" font-size="10" fill="#4f5486">Stay · Switch</text>
+      <path d="M370 180 C 310 180, 310 196, 250 196" fill="none" stroke="#0b6f86" stroke-width="2"/>
+      <path d="M252 190 L 242 196 L 252 202" fill="none" stroke="#0b6f86" stroke-width="2"/>
+      <text x="310" y="214" text-anchor="middle" font-size="11" fill="#4f5486">Switch → /#menu</text>
+    </svg>
+  </div>
+</section>
+
+<section aria-labelledby="body">
+  <h2 id="body">The Game Boy, held upright</h2>
+  <p>The wordmark row gets a small slide switch at its right end, in the body's colours. Nothing else on the body moves. SELECT and START stay the pad's buttons. The switch looks like hardware, because it leaves the game.</p>
+  <div class="pair">
+    <div class="side">
+      <span class="tag today">Today</span>
+      <div class="gb" aria-label="The Game Boy today">
+        <div class="gb-lens">
+          <p class="gb-stripe" aria-hidden="true">OMNI LOOP · GALAXY COLOR</p>
+          <span class="gb-led" aria-hidden="true"></span>
+          <div class="lcd menu">
+            <h3>SELECT MODE</h3>
+            <span class="badge">P1 INKY · OCTOPOD · LV 3</span>
+            <ul class="rows">
+              <li class="on"><i class="c">▶</i><b>GALAXY MAP</b><span>12 planets · 2 in distress</span></li>
+              <li><i class="c"></i><b>STAR CHART</b><span>6 systems · 41 worlds</span></li>
+              <li><i class="c"></i><b>FLEETS</b><span>5 fleets · OCTOPOD lead</span></li>
+              <li><i class="c"></i><b>HALL OF HEROES</b><span>18 heroes scored</span></li>
+              <li><i class="c"></i><b>GAMES</b><span>LV 3 · 1 game open</span></li>
+            </ul>
+          </div>
+        </div>
+        <div class="gb-word">OMNI LOOP <small>SEASON 2026-09</small></div>
+        <div class="gb-controls" aria-hidden="true">
+          <div class="dpad"></div>
+          <div class="face b">B</div><div class="face a">A</div>
+          <div class="pills"><span class="pill"><i></i>SELECT</span><span class="pill"><i></i>START</span></div>
+          <div class="grille"><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+      <p class="note">No way to the pages from here. A PM who wants the questions types <code>/ask</code> into the address bar.</p>
+    </div>
+    <div class="side">
+      <span class="tag after">After</span>
+      <div class="gb" aria-label="The Game Boy after, with the switch">
+        <div class="gb-lens">
+          <p class="gb-stripe" aria-hidden="true">OMNI LOOP · GALAXY COLOR</p>
+          <span class="gb-led" aria-hidden="true"></span>
+          <div class="lcd menu">
+            <h3>SELECT MODE</h3>
+            <span class="badge">P1 INKY · OCTOPOD · LV 3</span>
+            <ul class="rows">
+              <li class="on"><i class="c">▶</i><b>GALAXY MAP</b><span>12 planets · 2 in distress</span></li>
+              <li><i class="c"></i><b>STAR CHART</b><span>6 systems · 41 worlds</span></li>
+              <li><i class="c"></i><b>FLEETS</b><span>5 fleets · OCTOPOD lead</span></li>
+              <li><i class="c"></i><b>HALL OF HEROES</b><span>18 heroes scored</span></li>
+              <li><i class="c"></i><b>GAMES</b><span>LV 3 · 1 game open</span></li>
+            </ul>
+          </div>
+        </div>
+        <div class="gb-word">OMNI LOOP <small>SEASON 2026-09</small><span class="push"></span><span class="slide hl" aria-label="Switch to the app">GAME <span class="track"><span class="knob"></span></span> APP</span></div>
+        <div class="gb-controls" aria-hidden="true">
+          <div class="dpad"></div>
+          <div class="face b">B</div><div class="face a">A</div>
+          <div class="pills"><span class="pill"><i></i>SELECT</span><span class="pill"><i></i>START</span></div>
+          <div class="grille"><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+      <p class="note"><b>GAME ▮▯ APP</b>, its knob on GAME. It fires on touch-down and buzzes like the pad, and it works on every scene. Held sideways, the Advance body carries it under the grille on the right wing.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="confirm">
+  <h2 id="confirm">OPEN THE APP?</h2>
+  <p>The switch and the APP MODE row open the same question over whatever is on screen. A goes to <code>/app</code>. B closes it, and the scene is exactly as it was. In Entropy Invaders the game pauses first, and B goes back to the pause.</p>
+  <div class="pair">
+    <div class="side">
+      <span class="tag after">After · the switch slid</span>
+      <div class="gb" aria-label="The Game Boy with the confirm open">
+        <div class="gb-lens">
+          <p class="gb-stripe" aria-hidden="true">OMNI LOOP · GALAXY COLOR</p>
+          <span class="gb-led" aria-hidden="true"></span>
+          <div class="lcd menu">
+            <h3>SELECT MODE</h3>
+            <span class="badge">P1 INKY · OCTOPOD · LV 3</span>
+            <ul class="rows">
+              <li class="on"><i class="c">▶</i><b>GALAXY MAP</b><span>12 planets · 2 in distress</span></li>
+              <li><i class="c"></i><b>STAR CHART</b><span>6 systems · 41 worlds</span></li>
+              <li><i class="c"></i><b>FLEETS</b><span>5 fleets · OCTOPOD lead</span></li>
+              <li><i class="c"></i><b>HALL OF HEROES</b><span>18 heroes scored</span></li>
+              <li><i class="c"></i><b>GAMES</b><span>LV 3 · 1 game open</span></li>
+            </ul>
+            <div class="veil">
+              <div class="confirm" role="dialog" aria-label="Open the app?">
+                <strong>OPEN THE APP?</strong>
+                <small>QUESTIONS AND KNOWLEDGE, AS PAGES</small>
+                <div class="keys"><span class="y">[A] YES</span><span class="n">[B] NO</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="gb-word">OMNI LOOP <small>SEASON 2026-09</small><span class="push"></span><span class="slide app">GAME <span class="track"><span class="knob"></span></span> APP</span></div>
+        <div class="gb-controls" aria-hidden="true">
+          <div class="dpad"></div>
+          <div class="face b">B</div><div class="face a">A</div>
+          <div class="pills"><span class="pill"><i></i>SELECT</span><span class="pill"><i></i>START</span></div>
+          <div class="grille"><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+      <p class="note">While the question is open, the knob shows APP. It slides back to GAME on B.</p>
+    </div>
+    <div class="side">
+      <span class="tag after">After · on a computer</span>
+      <div class="lcd wide menu" aria-label="SELECT MODE on the wide screen, with the confirm open">
+        <div>
+          <h3>SELECT MODE</h3>
+          <span class="badge">P1 INKY · OCTOPOD · LV 3</span>
+          <ul class="rows">
+            <li><i class="c"></i><b>HOW TO PLAY</b><span>How points are won and lost</span></li>
+            <li><i class="c"></i><b>MY HERO</b><span>Your name and your look</span></li>
+            <li><i class="c"></i><b>CHANGE FLEET</b><span>Your future points follow you</span></li>
+            <li class="new on"><i class="c">▶</i><b>APP MODE</b><span>Leave the game for the app</span></li>
+            <li><i class="c"></i><b>SIGN OUT</b><span>Back to the title</span></li>
+          </ul>
+        </div>
+        <span class="orb" aria-hidden="true"></span>
+        <div class="veil">
+          <div class="confirm">
+            <strong>OPEN THE APP?</strong>
+            <small>QUESTIONS AND KNOWLEDGE, AS PAGES</small>
+            <div class="keys"><span class="y">[A] YES</span><span class="n">[B] NO</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="note">The bottom of the menu, where the new row sits: <b>APP MODE</b>, just above SIGN OUT, since both leave the game. On a computer the screen has no body, so this row is the way out. Enter says yes too, and Esc says no.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="home">
+  <h2 id="home">The app's home</h2>
+  <p>A lands on <code>/app</code>, a new page that reads nothing and needs no sign-in. It is one card per section. Each page it opens signs you in on its own, as it does today.</p>
+  <div class="pair">
+    <div class="side">
+      <span class="tag today">Today</span>
+      <div class="screen">
+        <div class="bar"><b>vertuo-omni-loop-galaxy.vercel.app</b>/app</div>
+        <div class="gone"><b>404</b><span>This page could not be found.</span></div>
+      </div>
+      <p class="note">There is no home. <code>/ask</code>, <code>/ask/for-me</code>, <code>/ask/history</code> and <code>/knowledge</code> each draw their own header, and none links to the others' pages.</p>
+    </div>
+    <div class="side">
+      <span class="tag after">After</span>
+      <div class="screen">
+        <div class="bar"><b>vertuo-omni-loop-galaxy.vercel.app</b>/app</div>
+        <div class="appbar">
+          <span class="brand"><span class="mark">OMNI LOOP</span><span class="sub">App</span></span>
+          <span class="end">
+            <span class="theme"><span class="on">System</span><span>Light</span><span>Dark</span></span>
+            <span class="gm"><svg viewBox="0 0 16 12" aria-hidden="true"><rect x="0.5" y="1.5" width="15" height="9" rx="4.5" fill="none" stroke="currentColor"/><path d="M4 4.5v3M2.5 6h3" stroke="currentColor"/><circle cx="11" cy="5" r="1" fill="currentColor"/><circle cx="12.5" cy="7" r="1" fill="currentColor"/></svg>Game mode</span>
+          </span>
+        </div>
+        <div class="pbody">
+          <h4>Omni Loop</h4>
+          <p class="note">The loop's questions and knowledge, as pages. The game is one tap away.</p>
+          <div class="cards">
+            <div class="card"><b>Questions</b><span>The questions Claude is asking you now</span><code>/ask</code></div>
+            <div class="card"><b>For me</b><span>Questions a teammate shared with you</span><code>/ask/for-me</code></div>
+            <div class="card"><b>History</b><span>Every question your workspace was asked</span><code>/ask/history</code></div>
+            <div class="card"><b>Knowledge map</b><span>Principles, rules and invariants, as a map</span><code>/knowledge</code></div>
+          </div>
+        </div>
+      </div>
+      <p class="note">Two columns wide, one on a phone. When PRD 216's <code>/prd</code> is on <code>main</code>, a <b>PRDs</b> card comes first.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="back">
+  <h2 id="back">Back to the game: Game mode, top right</h2>
+  <p>Every page of the app ends its header with <b>Game mode</b>, after the theme switch. It asks first, and Switch opens the arcade on SELECT MODE. The <code>OMNI LOOP</code> mark becomes a link to <code>/app</code>.</p>
+  <div class="pair">
+    <div class="side">
+      <span class="tag today">Today · /ask/history</span>
+      <div class="screen">
+        <div class="bar"><b>vertuo-omni-loop-galaxy.vercel.app</b>/ask/history</div>
+        <div class="appbar">
+          <span class="brand"><span class="mark">OMNI LOOP</span><span class="sub">Claude asks</span></span>
+          <span class="end">
+            <span class="lnk">History</span>
+            <span class="lnk">For me<span class="count">2</span></span>
+            <span class="theme"><span class="on">System</span><span>Light</span><span>Dark</span></span>
+          </span>
+        </div>
+        <div class="pbody">
+          <div class="hrow"><div class="ln w90"></div><div class="ln w50"></div></div>
+          <div class="hrow"><div class="ln w70"></div><div class="ln w50"></div></div>
+          <div class="hrow"><div class="ln w90"></div><div class="ln w70"></div></div>
+        </div>
+      </div>
+      <p class="note">The way back to the game is the address bar. <code>/knowledge</code> has "Open the star chart →", and no other page links to the arcade.</p>
+    </div>
+    <div class="side">
+      <span class="tag after">After · Game mode pressed</span>
+      <div class="screen">
+        <div class="bar"><b>vertuo-omni-loop-galaxy.vercel.app</b>/ask/history</div>
+        <div class="appbar">
+          <span class="brand"><a class="mark">OMNI LOOP</a><span class="sub">Claude asks</span></span>
+          <span class="end">
+            <span class="lnk">History</span>
+            <span class="lnk">For me<span class="count">2</span></span>
+            <span class="theme"><span class="on">System</span><span>Light</span><span>Dark</span></span>
+            <span class="gm hl"><svg viewBox="0 0 16 12" aria-hidden="true"><rect x="0.5" y="1.5" width="15" height="9" rx="4.5" fill="none" stroke="currentColor"/><path d="M4 4.5v3M2.5 6h3" stroke="currentColor"/><circle cx="11" cy="5" r="1" fill="currentColor"/><circle cx="12.5" cy="7" r="1" fill="currentColor"/></svg>Game mode</span>
+          </span>
+        </div>
+        <div class="pbody">
+          <div class="hrow"><div class="ln w90"></div><div class="ln w50"></div></div>
+          <div class="hrow"><div class="ln w70"></div><div class="ln w50"></div></div>
+          <div class="hrow"><div class="ln w90"></div><div class="ln w70"></div></div>
+        </div>
+        <div class="scrim">
+          <div class="dialog" role="dialog" aria-label="Switch to game mode?">
+            <b>Switch to game mode?</b>
+            <p>The arcade opens on its menu.</p>
+            <div class="btns"><span class="btn">Stay</span><span class="btn primary">Switch</span></div>
+          </div>
+        </div>
+      </div>
+      <p class="note"><b>Switch</b> has the focus and goes to <code>/#menu</code>, in the same tab. <b>Stay</b>, Esc or a click outside closes it, and the page is as it was. The same button ends the header of <code>/app</code>, every <code>/ask/*</code> page and <code>/knowledge</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="same">
+  <h2 id="same">What stays the same</h2>
+  <div class="same">
+    <div><b>The pad</b>The D-pad, A, B, SELECT, START and the grille work as they do today. The switch is not a pad action and appears in no key hint.</div>
+    <div><b>The scenes</b>The 24 scenes and their grids are unchanged. The confirm is an overlay over them.</div>
+    <div><b>The address <code>/</code></b>It still starts at the boot. Only <code>/#menu</code>, a new deep link, starts at SELECT MODE.</div>
+    <div><b>Each page's sign-in</b><code>/ask</code> and <code>/knowledge</code> keep their own sign-in, callbacks and states.</div>
+    <div><b>The artifact</b>The single-file arcade has no server and no <code>/app</code>, so it shows neither the switch nor the row.</div>
+    <div><b>Data</b>No table, no API route, no kit command. Nothing is stored, and a revert undoes it all.</div>
+  </div>
+</section>
+
+</div>
+</body>
+</html>
