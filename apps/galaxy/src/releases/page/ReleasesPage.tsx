@@ -82,8 +82,10 @@ function WeekHead({ week }: { week: Week }) {
 function WeekOf({ week }: { week: Week }) {
   const releases = week.releases.map((release) => <ReleaseEntry key={release.release} release={release} />);
   if (!week.open) {
+    // The browser owns `open`: it opens the week itself for a link to a release inside it
+    // (/releases#0.0.1) or for a find in the page, sometimes before React takes the page over.
     return (
-      <details className="rel-week rel-fold">
+      <details className="rel-week rel-fold" suppressHydrationWarning>
         <summary className="rel-week-head"><WeekHead week={week} /></summary>
         {releases}
       </details>
