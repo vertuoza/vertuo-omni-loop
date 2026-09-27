@@ -434,3 +434,84 @@ describe('the release note in the skills that ship', () => {
     expect(run.stdout).toBe('true\n');
   });
 });
+
+// PRD 292: the brainstorm and the plan end with a plain "What is next?", written for someone new to
+// the loop. The brainstorm's step 10 shows the PRD's folder as a tree, where it is on the loop's six
+// stages, then What is next? in three steps; the plan's step 7, run alone, ends with What is next? in
+// two. Each puts the command alone on the reply's last line, and the PRD issue's Handoff says the
+// command waits for the phase-0 merge.
+describe('the hand-off that ends the brainstorm and the plan', () => {
+  const read = (skill) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const COMMAND = '/omni:yolo <n>';
+  const BRAINSTORM = [
+    '<folder>/', 'spec.md', 'plan.md', 'before-after.html',
+    'idea ──▶ PRD ──▶ inbox ──▶ outbox ──▶ shipped ──▶ retro', 'you are here', 'merging the phase-0 PR moves it here',
+    '**What is next?**', 'Review the PRD', 'Merge that PR', '/clear',
+  ];
+  const PLAN = ['**What is next?**', 'Review the plan', '/clear'];
+  const HANDOFF = 'Next command: `/omni:yolo <n>`, once the phase-0 PR is merged';
+
+  /** The last non-blank line of a section's last fenced block, or null when it has none. */
+  const lastFencedLine = (section) => {
+    let open = false;
+    let block = [];
+    let last = null;
+    for (const line of section.split('\n')) {
+      if (line.trim().startsWith('```')) {
+        if (open) last = block.filter((text) => text.trim() !== '').at(-1)?.trim() ?? null;
+        open = !open;
+        block = [];
+      } else if (open) block.push(line);
+    }
+    return last;
+  };
+
+  /** Each phrase the section lacks after the one before it, and a last fenced line that is not the command. */
+  const handOffViolations = (section, phrases) => {
+    const out = [];
+    let from = 0;
+    phrases.forEach((phrase, index) => {
+      const at = section.indexOf(phrase, from);
+      if (at < 0) out.push(`names ${phrase} after ${phrases[index - 1] ?? 'the heading'}`);
+      else from = at + phrase.length;
+    });
+    const last = lastFencedLine(section);
+    if (last !== COMMAND) out.push(`its last fenced line is ${last ?? 'missing'}, not ${COMMAND}`);
+    return out;
+  };
+
+  it('/omni:brainstorm step 10 shows the folder, where it is, then What is next?, and ends on the command', () => {
+    expect(handOffViolations(skillSection(read('brainstorm'), '10.'), BRAINSTORM)).toEqual([]);
+  });
+
+  it('/omni:plan step 7, run alone, ends with What is next? and the command', () => {
+    expect(handOffViolations(skillSection(read('plan'), '7.'), PLAN)).toEqual([]);
+  });
+
+  // Step 2 is read up to step 3's heading, not through `skillSection`: the issue body it templates has
+  // a `## Handoff` heading of its own, where `skillSection` would stop.
+  it("/omni:brainstorm step 2's issue says the command waits for the phase-0 merge", () => {
+    const brainstorm = read('brainstorm');
+    const step = brainstorm.slice(brainstorm.indexOf('\n## 2.'), brainstorm.indexOf('\n## 3.'));
+    expect(step).toMatch(/^\n## 2\. Open the PRD issue\n/);
+    expect(step).toContain(`## Handoff\n\n- ${HANDOFF}\n`);
+  });
+
+  it('fails when a phrase is removed, or the last fenced line is not the command', () => {
+    const fenced = (...lines) => ['```text', ...lines, '```'].join('\n');
+    const good = ['## 10. Hand off', ...BRAINSTORM, fenced('**What is next?**', '', COMMAND, '')].join('\n');
+    expect(handOffViolations(good, BRAINSTORM)).toEqual([]);
+    for (const [index, phrase] of BRAINSTORM.entries()) {
+      expect(handOffViolations(good.replaceAll(phrase, '…'), BRAINSTORM), phrase).toContain(
+        `names ${phrase} after ${BRAINSTORM[index - 1] ?? 'the heading'}`,
+      );
+    }
+    expect(handOffViolations(`${good}\n${fenced('/omni:plan <n>')}`, BRAINSTORM)).toEqual([
+      `its last fenced line is /omni:plan <n>, not ${COMMAND}`,
+    ]);
+    expect(handOffViolations(`${good}\n${fenced(COMMAND, 'and more')}`, BRAINSTORM)).toEqual([
+      `its last fenced line is and more, not ${COMMAND}`,
+    ]);
+    expect(handOffViolations(PLAN.join('\n'), PLAN)).toEqual([`its last fenced line is missing, not ${COMMAND}`]);
+  });
+});

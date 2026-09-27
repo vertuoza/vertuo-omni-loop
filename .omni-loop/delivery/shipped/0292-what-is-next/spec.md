@@ -45,7 +45,7 @@ blocks, in this order, every placeholder filled with a real path, number or link
 ```text
 PRD 292's folder: on the phase-0 PR now, on main once it merges
 
-  .omni-loop/delivery/inbox/0292-what-is-next/
+  .omni-loop/delivery/shipped/0292-what-is-next/
   ├── spec.md            what changes, and why
   ├── plan.md            how it gets built, slice by slice
   └── before-after.html  today beside after
