@@ -425,4 +425,12 @@ describe('the release note in the skills that ship', () => {
   it('points to the releasing form and restates none of its limits', () => {
     for (const skill of ['yolo', 'yolo-fix']) expect(read(skill), skill).not.toMatch(/\b(?:60|280) characters\b/);
   });
+
+  it('this repository switches release notes on, so its own ship needs a note', () => {
+    const shim = join(repoRoot, '.omni-loop/bin/omni.mjs');
+    const run = spawnSync(process.execPath, [shim, 'config', 'releaseNotes.enabled'], { cwd: repoRoot, encoding: 'utf8' });
+    expect(run.stderr).toBe('');
+    expect(run.status).toBe(0);
+    expect(run.stdout).toBe('true\n');
+  });
 });
