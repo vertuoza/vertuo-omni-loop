@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 284
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s2-01-theme-colour-test-beside-the-theme -->
+
+## s2-01-theme-colour-test-beside-the-theme — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s2-01-theme-colour-test-beside-the-theme
 prd: 284
@@ -47,3 +77,7 @@ Deleting one test file; nothing else depends on it.
 (author) The PRD, the registers and the glossary do not settle this:
 
 - (author) The plan gives s2 no test path, and tests must sit under apps/*/src/ to run, while the layouts sit under apps/galaxy/app/: whether the planner meant s2 to go without an automated check or simply left the test out was not settled.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-theme-colour-test-beside-the-theme -->
