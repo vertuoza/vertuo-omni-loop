@@ -947,3 +947,167 @@ No kit sends a share yet and the terminal only reads the refusal's status, so re
 ```
 
 <!-- /omni-outbox-settled: s4-03-share-reply-shape -->
+
+<!-- omni-outbox-settled: s5-02-manual-acceptance-with-screenshots -->
+
+## s5-02-manual-acceptance-with-screenshots — agreed
+
+- Verdict: agreed
+- Approved by: pierre-derval
+- Approved at: 2026-09-27T06:57:02Z
+- Channel: feature pull request #147
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/147#issuecomment-5853569541
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Stays here: a one-off gate for this feature (a person runs the acceptance after release), not a lasting rule
+- Rank: human-action
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s5
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+agreed — the acceptance runs after release, on production, once this PR is merged; the screenshots then go on #192.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-manual-acceptance-with-screenshots
+prd: 144
+slice: s5
+rank: human-action
+bears-on: none
+raised: 2026-09-26
+wave: 5
+---
+
+## The question, in plain words
+
+The feature ends with a tryout for real, with two people, a live database and a real Claude session, recorded with screenshots in light and dark. Who runs it, and when?
+
+## The decision, in plain words
+
+Everything is built and tested; the tryout for real waits for a person, once the database changes and the pages are live.
+
+## The intro, for fun
+
+Every test passes, and still nobody has asked a real teammate a real question.
+
+## The punchline, for fun
+
+The robot built the phone line; a human has to pick up.
+
+## What a person must do
+
+1. Deploy the feature branch's migrations and a galaxy preview on a database both accounts can reach
+2. With ask mode on, run /omni:brainstorm on a PRD's feature branch; screenshot the question with its context line, its cost and its category, in light and dark
+3. Share a live question with a second account; answer it there and check Claude continues with that answer
+4. Share another; answer it first as the owner and screenshot Already answered on the teammate's page
+5. Open History, filter to those questions and search a word of an answer; screenshot it
+6. With a kit from before this PRD (no context), ask a question and check it is answered
+7. Attach the screenshots to the sub-PR of s5 and settle this item
+
+## What I had to decide
+
+Who runs the manual acceptance, on which deployment, and with which second account.
+
+## What I did meanwhile
+
+The history page, its filters and search, its sign-in return and the header link are built and tested, and were checked on the demo galaxy in light and dark at phone and desktop widths. The manual acceptance is not recorded.
+
+## What it costs to change later
+
+Nothing to undo: the acceptance only records evidence on the sub-PR. Until it runs, the feature's live behaviour across two accounts is unproven.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The acceptance needs the PRD's migrations on a live database, two signed-in workspace accounts and a real Claude Code session with ask mode on, none of which this slice can reach (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-02-manual-acceptance-with-screenshots -->
+
+<!-- omni-outbox-settled: s5-01-history-reads-newest-thousand -->
+
+## s5-01-history-reads-newest-thousand — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-26
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-26
+- Slice: s5
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-history-reads-newest-thousand
+prd: 144
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-26
+wave: 5
+---
+
+## The question, in plain words
+
+The history has to filter and search every question the workspace was ever asked, and the database cannot search inside the stored questions directly. How far back should it look?
+
+## The decision, in plain words
+
+The history reads the newest thousand questions of your workspaces and filters and searches within them. Older ones stay kept and open by their link, but a filter or a search will not find them.
+
+## The intro, for fun
+
+A history that remembers everything still has to decide how far back to read.
+
+## The punchline, for fun
+
+A thousand questions back, for now; the attic can wait.
+
+## The options, in plain words
+
+A. Read the newest thousand questions and filter and search within them
+B. Filter and search in the database over every question, with a text index
+C. Read the newest thousand, and page further back on demand
+
+## What I had to decide
+
+Whether the history should look back only over the newest thousand questions, or search every question the database holds.
+
+## What I did meanwhile
+
+The page reads the newest 1000 rounds the caller may see, newest first, and applies every filter and the search to them in the app. The number is one constant.
+
+## What it costs to change later
+
+Raising the number is a one-line change. Searching everything means moving the filters and the search into the database (a view or a function with a text index), a migration and a new read, with the page unchanged.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says the history lists every round and is searched over questions and answers, but not how many rounds it must reach, nor where the search runs (author)
+- How many questions a workspace asks a month is not known yet, so the thousand is a guess (author)
+
+```
+
+<!-- /omni-outbox-settled: s5-01-history-reads-newest-thousand -->
