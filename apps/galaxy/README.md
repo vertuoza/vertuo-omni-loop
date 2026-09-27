@@ -52,7 +52,7 @@ Game Boy's buttons on a phone (design:
 | Level up | Before the menu, once per new level on this device: LEVEL UP! with a fanfare, the hero at 2× and the new XP bar, and NEW GAME UNLOCKED when a level climbed opened a game (A plays it at once, B goes on to the menu) |
 | Select mode | PLAY (visitors: links GitHub), Galaxy map, Star chart, Fleets, Hall of Heroes, Games, How to play, then My hero and Change fleet (players), Sign out. A player's badge shows their level |
 | Galaxy map | Sectors as nebulae; planets by state, threat and wounds; red hyperlanes from a locked planet to its blockers; distress pulses |
-| Planet | The planet with its Entropy in orbit and the fleets on station; tabs for status, zones by phase, Entropy (age, decay, bounty) and the event log |
+| Planet | The planet with its Entropy in orbit and the fleets on station; tabs for status, zones by phase, Entropy (age, decay, bounty), the event log and its PRD's dossier (the latest version of each artifact, the questions asked and answered, the last three answers; START opens its page, [PRD dossiers](#prd-dossiers)) |
 | Star chart | The knowledge base as space: a sun per domain, sized by the entries it holds, and a dotted lane for each cross-domain file ([The knowledge map](#the-knowledge-map)) |
 | System | One domain as an orrery: its entries as worlds on still orbits, laws terraformed and proposed entries barren; the selected world's links, its panel, and the reading card |
 | Fleets | A hero-select wall of the fleets with season points, streak, planets, crew (players by name) |
@@ -64,7 +64,9 @@ Game Boy's buttons on a phone (design:
 Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#games`, `#briefing`, `#planet-2332`.
 
 Outside the arcade, `/design` shows the design system, straight from `@omni/design`: every logo
-form, colour, type step, sprite, pose and icon. It opens without signing in.
+form, colour, type step, sprite, pose and icon. It opens without signing in. `/prd` lists the
+workspace's PRD dossiers and `/prd/<id>` is one PRD's page to share, both for the workspace's members
+([PRD dossiers](#prd-dossiers)).
 
 ## Three forms, two grids
 
@@ -96,6 +98,8 @@ game is the same in all three.
   left, so a short phone gets a smaller screen, never a control off the edge. The notch and the
   home indicator are kept clear. The page holds still: no scroll, no zoom, no pull-to-refresh, no
   text selection and no long-press menu.
+- **The planet's tabs** are five on both grids, `STATUS · ZONES · ENTROPY · LOG · DOSSIER`: the tall
+  grid shows each tab's rows as the wide one does, in its smaller type.
 - **Turning the phone** swaps the body and keeps the scene, the selection, the planet tab and the
   name being entered. The server cannot know the device, so the page arrives as `full` and a phone
   takes its body as the page starts. A game of Entropy Invaders keeps the field it started on,
@@ -141,7 +145,7 @@ Left, Right, "A, confirm", "B, back", Select, Start, Sound).
   for TAB and B for ⌫ or ESC, and drops "TYPE OR": there is no keyboard to type on. The name
   screen reads "B ERASE" and "START DONE", the hero builder "RANDOM (SELECT)". On `full` hints read
   the keyboard's keys, as they always have (`hintKey()` in `src/arcade/keys.ts`).
-- **The screen stays tappable**: key hints, menu rows, fleet cards, builder rows, planet tabs, the
+- **The screen stays tappable**: key hints (the DOSSIER tab's `[START] OPEN` among them), menu rows, fleet cards, builder rows, planet tabs, the
   game room's cabinets, planets on the map, and the star chart's suns and worlds, whose hit tests
   run in the pixels of the grid the scene is drawn on.
 
@@ -196,6 +200,13 @@ the database's policies decide what they see:
   players' names and heroes, and their own best (`src/data/scores.ts`). Each is read on its own,
   after the galaxy: when one fails, the galaxy stays, and the arcade says XP OUT OF REACH (and shows
   no level) or SCORES OUT OF REACH (and the game still plays). Without GitHub, it reads neither.
+- **The planets' dossiers**, for every member, visitor or player (`src/data/dossiers.ts`): the
+  workspace's plan repository from `workspaces`, the ids of its PRDs' dossiers from `dossiers`, then,
+  for each planet that has one, `dossier_list(p_dossier)` (its latest version of each kind, its
+  question counts) and `dossier_rounds(p_dossier)` (its last three answered rounds), one dossier at a
+  time, never the whole list. Read on its own after the galaxy, like XP: when it fails, the galaxy
+  stays and the DOSSIER tab says DOSSIERS OUT OF REACH; one planet's dossier out of reach leaves the
+  others shown.
 - **Crew means "has a workspace"**, never an email domain. A signed-in person who belongs to none
   yet is joined once by the page (`join_by_domain()`), so a session from before workspaces joins
   too; one who still belongs to none gets the "wrong cartridge" screen and reads nothing.
@@ -218,7 +229,9 @@ Without the Supabase variables, the app picks its mode in `src/data/mode.ts`:
   (`src/arcade/account-demo.ts`). The guest borrows the XP of the demo world's highest-XP
   contributor, computed from the demo events by `experience()` (`demoXp()` in `src/data/xp.ts`), so
   the game room, the level-up and the game all show; their best scores stay in the browser's
-  storage, the only line of the demo's crew table. The single-file artifact plays the same way.
+  storage, the only line of the demo's crew table. Four of the demo world's planets carry demo
+  dossiers (`demoDossiers()` in `src/data/dossiers.ts`), and the rest none, so every state of the
+  DOSSIER tab shows. The single-file artifact plays the same way.
 - **Any other build** (a Vercel deployment missing its variables, say): **closed**. The attract mode
   plays, and INSERT COIN says sign-in is not open yet. No simulated sign-in, and no galaxy data.
 
@@ -366,6 +379,60 @@ off, no row exists, and every player sees NO XP YET.
   once and B goes back to the room; otherwise A, B or START go back. Playing never earns points or
   XP.
 
+## PRD dossiers
+
+The galaxy keeps one **dossier** per PRD (PRD 216): its artifacts (`spec.md`, `plan.md` and
+`before-after.html` from the PRD's delivery folder), every version of each, the repositories
+involved, and the questions that shaped it. The kit fills it from the terminal (`omni dossier open`
+at the brainstorm's start and `omni dossier push <n>` after each push, through `POST /api/dossiers` and
+`POST /api/dossiers/push`, ADR-0002's contract), and the game workflow's `pnpm game:dossiers` reads
+each repository's default branch for whatever the kit did not send ([`game/README.md`](../../game/README.md)).
+A repository opts in with `dossier: { enabled: true }` in its `.omni-loop/config.yml`.
+
+**`/prd`, the history.** Every dossier of the signed-in person's workspaces, newest activity first
+(its latest version, question or answer, or its opening or numbering). Each row shows `#n` or
+DRAFT, the title, its repository chips, which artifacts it has and their latest version, and the
+questions answered out of asked.
+Filters: a repository (a dossier shows under each of its repositories: its home repository, its
+questions' repositories and, for a PRD of the plan repository, its planet's regions), draft or PRD,
+and a search over the words of the titles. Each row opens `/prd/<id>`.
+
+**`/prd/<id>`, the page to share.** The header reads `PRD #n` or DRAFT, the title, the repository
+chips, who opened it and when (or that it was read from GitHub), and **Copy link**. Four tabs:
+**Before/after**, **Spec**, **Plan** (markdown rendered by `markdown-it` with raw HTML off, the front
+matter as a line above) and **Questions** (each round's questions, options and answer, who answered
+and after how long, its category, and `brainstorm` or `delivery`). Each artifact tab has a version
+picker, newest first (`v3 · 27 Sep · Pierre (kit)`, `v4 · 28 Sep · commit a1b2c3d (github)`); the
+tab and the version live in the address (`?tab=spec&v=2`). The opener of a draft may delete it;
+nobody deletes a numbered dossier.
+
+- **The before/after page runs sandboxed**, served from `/prd/<id>/v/<n>/page` with
+  `Content-Security-Policy: sandbox allow-scripts; default-src 'none'; …` and
+  `X-Content-Type-Options: nosniff`, and shown in an `<iframe sandbox="allow-scripts">`: an anonymous
+  origin, with no cookies and no network, even opened on its own.
+- **Who reads it.** A member of the dossier's workspace, signed in with the arcade's Google sign-in
+  (each page has its own callback, `/prd/callback` and `/prd/<id>/callback`). Anyone else, a
+  member of another workspace included, gets not found, in the words a dossier that never was gets.
+  Light, dark and system themes, as the `/ask` pages.
+- **Without a database**, in development, both pages play a demo dossier.
+
+**The planet's DOSSIER tab.** The planet screen's fifth tab, after LOG. A planet's dossier is the one
+whose home repository is the workspace's plan repository (`<github_org>/<plan_repo>`) and whose number
+is the planet's PRD.
+
+- It shows each artifact with its latest version and date (`V3 · 24 SEP`, or NONE YET), the rounds
+  asked and answered (`12 ASKED · 11 ANSWERED`, a round counting once, as the Questions tab counts it)
+  and the last three answered, newest first: each round's first question and its answer on one line,
+  cut to fit, with `+n` when the round held more questions.
+- **`[START] OPEN`** opens `/prd/<id>` in a new browser tab; a tap on the hint does the same. On every
+  other tab, and where there is nothing to open, START goes back to the map as it always has. The
+  tabs still turn with ◀ ▶ and A.
+- A planet without a dossier shows NO DOSSIER YET; when the dossiers could not be read, DOSSIERS OUT
+  OF REACH, and the rest of the planet is unchanged.
+- The wide and the tall grids show the same rows. The demo world's planets carry demo dossiers; the
+  single-file artifact shows them without the OPEN hint, since it has no page to open.
+- **In the demo**, a planet's OPEN opens the pages' demo dossier, whichever planet it was pressed on.
+
 ## Run it locally
 
 From the repository root:
@@ -400,7 +467,7 @@ workspace the migrations create.
 `pnpm galaxy:shots` walks the demo galaxy from the keyboard in a headless Chromium, from the boot
 through the joining flow and the level-up (the demo guest's borrowed level, new in that browser) to
 every screen of the menu, and saves a screenshot of each scene (the title's three phases, the
-planet's four tabs, a system's reading card, and Entropy Invaders' score table, play and pause each
+planet's first four tabs (not yet DOSSIER), a system's reading card, and Entropy Invaders' score table, play and pause each
 on their own; the star chart shows this checkout's knowledge) at three sizes: 393×700 upright
 touch (an iPhone with Safari's bars), 852×393 sideways touch and 1440×900 with a mouse.
 
@@ -526,7 +593,8 @@ One self-contained HTML page (React from cdnjs, everything else inlined) that pl
 joining flow included, and the game room: the guest borrows the demo world's highest XP and plays
 Entropy Invaders, its best scores kept in that browser. It inlines the two pixel faces from
 `@omni/design`; the display and body roles fall back to system faces there, to keep the page small.
-It carries no knowledge base: its star chart reads `NO STAR CHART IN THIS BUILD`.
+It carries no knowledge base: its star chart reads `NO STAR CHART IN THIS BUILD`. Its planets carry
+the demo dossiers, with no OPEN hint: there is no page to open.
 
 ## Database
 
@@ -568,6 +636,28 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
   anyone signed out), a game their `player_xp.unlocked` does not hold, and a score outside
   0..9,999,999. It keeps the higher of the stored best and the score, and returns the best as
   stored.
+- `dossiers` (PRD 216): one per PRD, keyed by `(workspace_id, home_repo, prd)`; `home_repo` is the
+  repository whose issue the PRD is, `owner/name` in lower case, and `prd` is null while the dossier
+  is a draft (`numbered_at` is set with it). Also its `title`, `opened_by` (null when the fallback
+  created it), `claude_session_id` (the brainstorm's Claude Code session) and `created_at`.
+- `dossier_versions`: every version of a dossier's artifacts, stored whole: `kind` (`spec`, `plan` or
+  `before-after`), `content` (at most 512 KiB), its `sha256` (computed by the database, never taken
+  from the request), `bytes`, `source` (`kit` or `github`), `uploaded_by` or the `commit_sha` and
+  `git_blob` it was read at, and `created_at`. A version's number is its place among its kind's. A
+  version is added only when its hash differs from the latest of its kind, and never edited.
+- `dossier_open()` and `dossier_push()`, security definer, are the only way the signed-in write
+  them: each checks the caller is a member of the workspace; the push finds the dossier (the draft
+  named, else the one keyed by repository and PRD, else a new one), numbers a draft, merges it into a
+  dossier the fallback already made, and adds versions through `dossier_add_version()`, the version
+  rule the service role calls too. A member reads their workspace's dossiers and versions; the opener
+  deletes their own draft, and nobody deletes a numbered dossier.
+- `dossier_rounds(p_dossier)` and `dossier_list(p_dossier default null)`, security invoker, read the
+  questions without copying them: the rounds of a dossier's brainstorm (its Claude session, from its
+  opening to that session's next dossier) and of its delivery (its PRD number in its home
+  repository), each with its rule; and each dossier with its repositories, its latest version of
+  each kind, its question counts and its last activity. PRD 144's access rules decide what comes
+  back. `supabase/checks/dossiers.sql` proves the dossiers' rules on every pull request that touches
+  `supabase/`.
 - Row-level security, by membership (`is_member(workspace)`): a member reads their workspaces,
   their own memberships, and their workspace's sectors, fleets, players, ledger, XP and high
   scores, and nothing of any other workspace. A member with GitHub linked inserts their own player

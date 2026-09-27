@@ -3,17 +3,46 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 
 vi.mock('server-only', () => ({}));
 
+import type { DossierListRow } from '../dossier/store';
 import { arcadeFor, OUT_OF_REACH } from './arcade';
+import { withDossiers, type FakeDossier } from './dossiers.fake';
 import { demoFleets } from './load-galaxy';
 import { ACME, authUser, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
 
 const NOW = new Date('2026-09-26T10:00:00Z');
 
+/** A dossier of the workspace's plan repository, as dossier_list() lists it. */
+const dossierRow = (id: string, workspace_id: string, home_repo: string, prd: number | null, more: Partial<DossierListRow> = {}): DossierListRow => ({
+  id, workspace_id, home_repo, prd, title: `PRD ${prd}`, opened_by: null, created_at: '2026-09-20T09:00:00Z',
+  numbered_at: prd === null ? null : '2026-09-20T10:00:00Z', repos: [home_repo], latest: {}, asked: 0, answered: 0,
+  last_activity: '2026-09-20T10:00:00Z', ...more,
+});
+
+/** Each workspace's planet #12 has a dossier in its plan repository; Vertuoza's has a spec and a question answered. */
+const DOSSIERS: FakeDossier[] = [
+  {
+    row: dossierRow('d-vz-12', VERTUOZA, 'vertuoza/vertuo-omni-plan', 12, {
+      latest: { spec: { id: 'v1', version: 2, source: 'kit', created_at: '2026-09-24T08:00:00Z' } }, asked: 1, answered: 1,
+    }),
+    rounds: [{
+      rule: 'brainstorm', round_id: 'r1', session_id: 's1', asked_by: PEOPLE.ada.id, repo: 'vertuoza/vertuo-omni-plan', branch: 'main',
+      questions: [{ question: 'Who owns a workspace?', header: 'Owner', multiSelect: false, options: [] }], answers: { 'Who owns a workspace?': 'Its first member' },
+      status: 'answered', answered_via: 'page', answered_by: PEOPLE.ada.id, category: null, category_by: null, prd: null, skill: null,
+      created_at: '2026-09-20T09:05:00Z', answered_at: '2026-09-20T09:06:00Z',
+    }],
+  },
+  { row: dossierRow('d-acme-12', ACME, 'acme/acme-plan', 12), rounds: [] },
+];
+
+type World = ReturnType<typeof fakeGalaxyDb> & { dossiers: ReturnType<typeof withDossiers> };
+
 /** The page's data for one person (null: signed out), and every call the database received. */
-async function page(person: FakeUser | null, arrange: (world: ReturnType<typeof fakeGalaxyDb>) => void = () => {}) {
-  const world = fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE));
+async function page(person: FakeUser | null, arrange: (world: World) => void = () => {}) {
+  const galaxy = fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE));
+  const dossiers = withDossiers(galaxy, DOSSIERS);
+  const world: World = Object.assign(galaxy, { dossiers });
   arrange(world);
-  const db = world.client(person) as unknown as SupabaseClient;
+  const db = dossiers.client(person) as unknown as SupabaseClient;
   const data = await arcadeFor(db, person ? (authUser(person) as unknown as User) : null, NOW);
   return { data, world, reads: world.calls.filter((c) => c.kind === 'from'), rpcs: world.calls.filter((c) => c.kind === 'rpc') };
 }
@@ -41,10 +70,13 @@ describe('a member', () => {
   });
 
   it('filters every read of the game by that workspace', async () => {
-    const { reads } = await page(PEOPLE.ada);
-    const game = reads.filter((c) => c.table !== 'workspace_members');
+    const { reads, world } = await page(PEOPLE.ada);
+    const game = reads.filter((c) => c.table !== 'workspace_members' && c.table !== 'workspaces');
     expect(new Set(game.map((c) => c.table))).toEqual(new Set(['ledger_events', 'sectors', 'teams', 'players', 'player_xp', 'arcade_scores']));
     for (const call of game) expect(call.eq, call.table).toMatchObject({ workspace_id: VERTUOZA });
+    // The planets' dossiers: the workspace's plan repository, then its dossiers there.
+    expect(reads.filter((c) => c.table === 'workspaces').map((c) => c.eq)).toEqual([{ id: VERTUOZA }]);
+    for (const call of world.dossiers.calls.filter((c) => c.kind === 'from')) expect(call.eq).toMatchObject({ workspace_id: VERTUOZA });
   });
 
   it('is not joined again: a member triggers no call to join_by_domain()', async () => {
@@ -175,6 +207,54 @@ describe('the crew\'s high scores', () => {
     expect(data.xp).toEqual({ xp: 180, level: 3, unlocked: ['invaders'] });
     expect(data.view?.planets.map((p) => p.title)).toEqual(['Workspaces']);
     expect(data.problem).toBeUndefined();
+  });
+});
+
+describe('the planets\' dossiers', () => {
+  it('reads each planet\'s dossier in the workspace played: its plan repository\'s PRD of the planet\'s number', async () => {
+    const { data } = await page(PEOPLE.ada);
+    expect(data.dossiers).toEqual({
+      12: {
+        id: 'd-vz-12', url: '/prd/d-vz-12', asked: 1, answered: 1,
+        latest: { 'before-after': null, spec: { version: 2, at: '2026-09-24T08:00:00Z' }, plan: null },
+        last: [{ question: 'Who owns a workspace?', answer: 'Its first member', more: 0, at: '2026-09-20T09:06:00Z' }],
+      },
+    });
+    expect((await page(PEOPLE.both)).data.dossiers).toEqual({ 12: expect.objectContaining({ id: 'd-acme-12' }) });
+  });
+
+  it('reads them for a visitor without GitHub linked too: a visitor may look at every planet', async () => {
+    const { data } = await page(PEOPLE.una, (world) => {
+      world.tables.workspace_members.push({ workspace_id: VERTUOZA, user_id: PEOPLE.una.id, role: 'member', joined_at: '2026-09-26T09:00:00Z' });
+    });
+    expect(data.dossiers).toEqual({ 12: expect.objectContaining({ id: 'd-vz-12' }) });
+  });
+
+  it('gives a planet with no dossier none', async () => {
+    const { data } = await page(PEOPLE.ada, (world) => { world.dossiers.state.gone.add('d-vz-12'); });
+    expect(data.dossiers).toEqual({});
+  });
+
+  it('says the dossiers are out of reach when only they cannot be read, and keeps the galaxy, the XP and the scores', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { data } = await page(PEOPLE.ada, (world) => { world.dossiers.state.failOn = 'dossiers'; });
+    expect(data.dossiers).toBe('unreadable');
+    expect(data.view?.planets.map((p) => p.title)).toEqual(['Workspaces']);
+    expect(data.xp).toEqual({ xp: 180, level: 3, unlocked: ['invaders'] });
+    expect(data.scores?.invaders).not.toBe('unreadable');
+    expect(data.problem).toBeUndefined();
+  });
+
+  it('reads none signed out, for an outsider, or with the galaxy out of reach', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    for (const person of [null, PEOPLE.eve]) {
+      const { data, world } = await page(person);
+      expect(data.dossiers).toBeUndefined();
+      expect(world.dossiers.calls).toEqual([]);
+    }
+    const { data, world } = await page(PEOPLE.ada, (w) => { w.state.failOn = 'ledger_events'; });
+    expect(data.dossiers).toBeUndefined();
+    expect(world.dossiers.calls).toEqual([]);
   });
 });
 
