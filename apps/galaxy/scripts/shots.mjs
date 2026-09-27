@@ -19,7 +19,8 @@ import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
-const BASE = process.env.GALAXY_URL ?? 'http://localhost:3000/'; // another dev server: GALAXY_URL=http://localhost:3001/
+// The arcade is at /play since HOME took `/` (PRD 261). Another dev server: GALAXY_URL=http://localhost:3001/
+const BASE = new URL('play', process.env.GALAXY_URL ?? 'http://localhost:3000/').href;
 const OUT = fileURLToPath(new URL('../shots/', import.meta.url));
 const SMALLEST = 8; // CSS px: the smallest text a player should have to read
 

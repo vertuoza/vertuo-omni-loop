@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// The arcade page (app/page.tsx), called as the server calls it, with its data sources stubbed: which
+// The arcade page (app/play/page.tsx), called as the server calls it, with its data sources stubbed: which
 // visitor's page carries the star chart's knowledge, and that every page hands the arcade the app it
 // leaves for. The props it returns are what reaches the browser.
 const given = vi.hoisted(() => ({
@@ -36,7 +36,7 @@ vi.mock('../data/load-galaxy', () => ({
 }));
 vi.mock('../data/load-knowledge', () => ({ loadKnowledge }));
 
-const { default: Page } = await import('../../app/page.tsx');
+const { default: Page } = await import('../../app/play/page.tsx');
 
 const user = (email: string) => ({ id: 'u1', email, user_metadata: { given_name: 'Ada' }, identities: [] as [] });
 const propsOf = async () => ((await Page()) as ReactElement<{ knowledge?: unknown; view: unknown; app?: string }>).props;
