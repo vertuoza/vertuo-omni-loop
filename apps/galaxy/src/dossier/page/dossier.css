@@ -1,0 +1,143 @@
+/* The page to share, /prd/<id> (PRD 216), on the ask pages' reading surface: their tokens, faces and
+   theme switch. Every colour is a token of src/ask/theme-tokens.ts, as in src/ask/ask.css, so light,
+   dark and system follow the switch; nothing here names a colour. Wider than the ask column: a
+   before/after page needs room, and a spec keeps a reading measure inside it. */
+
+.dossier { width: 100%; max-width: 1180px; min-width: 0; display: grid; gap: 20px; }
+
+/* ── The header: PRD #n or DRAFT, the title, the repositories, who opened it ── */
+
+.dossier-head { display: grid; gap: 12px; min-width: 0; }
+.dossier-title {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.25;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.dossier-number { color: var(--ask-plasma); white-space: nowrap; }
+.dossier-draft {
+  display: inline-block;
+  vertical-align: middle;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  color: var(--ask-on-yellow);
+  background: var(--ask-yellow);
+  padding: 6px 9px;
+  border-radius: 4px;
+}
+.dossier-meta { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; min-width: 0; }
+.dossier-repos { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.dossier-repo {
+  font: 600 13px/1 var(--ask-mono);
+  color: var(--ask-ink);
+  background: var(--ask-sunk);
+  border: 1px solid var(--ask-line);
+  border-radius: 999px;
+  padding: 6px 10px;
+  overflow-wrap: anywhere;
+}
+.dossier-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dossier-copy,
+.dossier-delete { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dossier-copy .ask-share-link { flex: 1 1 260px; }
+
+/* ── The artifact tabs: links, the current one underlined ─────────────────── */
+
+.dossier-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--ask-line);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.ask a.dossier-tab {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 10px 14px;
+  margin-bottom: -1px;
+  color: var(--ask-muted);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  border-bottom: 3px solid transparent;
+}
+.ask a.dossier-tab:hover { color: var(--ask-ink); }
+.ask a.dossier-tab[aria-current='page'] { color: var(--ask-ink); border-bottom-color: var(--ask-plasma); }
+.dossier-tab small { font: 600 12px/1 var(--ask-mono); color: var(--ask-muted); }
+
+/* ── A tab's pane: the version picker, then the frame or the rendered markdown ── */
+
+.dossier-pane { display: grid; gap: 16px; min-width: 0; }
+.dossier-picker { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; margin: 0; }
+.dossier-picker-field { display: grid; gap: 4px; min-width: 0; }
+.dossier-picker .ask-share-pick { max-width: 100%; }
+.dossier-empty { margin: 0; padding: 20px; color: var(--ask-muted); background: var(--ask-surface); border: 1px dashed var(--ask-line); border-radius: 12px; }
+
+.dossier-frame { margin: 0; display: grid; gap: 8px; }
+.dossier-frame iframe {
+  display: block;
+  width: 100%;
+  height: 80vh;
+  min-height: 480px;
+  border: 1px solid var(--ask-line);
+  border-radius: 12px;
+  background: var(--ask-surface);
+}
+
+.dossier-front {
+  margin: 0;
+  padding: 8px 12px;
+  font: 13px/1.5 var(--ask-mono);
+  color: var(--ask-muted);
+  background: var(--ask-sunk);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+/* The spec and the plan, as markdown-it renders them: a reading measure, and tables and code that
+   scroll within it rather than widen the page. */
+.dossier-md { max-width: 780px; min-width: 0; overflow-wrap: anywhere; }
+.dossier-md > :first-child { margin-top: 0; }
+.dossier-md h1,
+.dossier-md h2,
+.dossier-md h3,
+.dossier-md h4 { line-height: 1.3; margin: 1.6em 0 0.5em; text-wrap: balance; }
+.dossier-md h1 { font-size: 28px; }
+.dossier-md h2 { font-size: 22px; padding-bottom: 6px; border-bottom: 1px solid var(--ask-line); }
+.dossier-md h3 { font-size: 18px; }
+.dossier-md h4 { font-size: 17px; color: var(--ask-muted); }
+.dossier-md p,
+.dossier-md ul,
+.dossier-md ol,
+.dossier-md blockquote,
+.dossier-md pre,
+.dossier-md table { margin: 0 0 1em; }
+.dossier-md ul,
+.dossier-md ol { padding-left: 1.4em; }
+.dossier-md li + li { margin-top: 0.25em; }
+.dossier-md blockquote { padding: 4px 16px; color: var(--ask-muted); border-left: 3px solid var(--ask-line); }
+.dossier-md hr { border: 0; border-top: 1px solid var(--ask-line); margin: 2em 0; }
+.dossier-md code { padding: 1px 5px; background: var(--ask-sunk); border-radius: 4px; }
+.dossier-md pre {
+  padding: 14px 16px;
+  overflow-x: auto;
+  font: 13.5px/1.55 var(--ask-mono);
+  background: var(--ask-sunk);
+  border: 1px solid var(--ask-line);
+  border-radius: 10px;
+  overflow-wrap: normal;
+}
+.dossier-md pre code { padding: 0; background: none; font-size: inherit; }
+.dossier-md table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 15px; overflow-wrap: normal; }
+.dossier-md th,
+.dossier-md td { padding: 6px 10px; border: 1px solid var(--ask-line); text-align: left; vertical-align: top; }
+.dossier-md th { background: var(--ask-surface); }
+
+@media (max-width: 719.98px) {
+  .dossier-title { font-size: 23px; }
+  .dossier-actions { margin-left: 0; }
+  .dossier-frame iframe { height: 70vh; min-height: 360px; }
+}
