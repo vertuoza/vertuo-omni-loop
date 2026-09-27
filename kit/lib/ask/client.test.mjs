@@ -161,3 +161,36 @@ describe('the ask contract client', () => {
     await expect(client.openRound('no-such-session', QUESTIONS)).rejects.toMatchObject({ status: 404 });
   });
 });
+
+describe('the dossier calls (PRD 216)', () => {
+  const SPEC = '---\ntitle: Team inbox\n---\n# Team inbox\n';
+
+  it('opens a draft with the bearer token, sending the Claude session id only when there is one', async () => {
+    const { client } = await setUp();
+    const draft = await client.openDossier({ title: 'A team inbox', repo: 'acme/widgets', claudeSessionId: 'c-1' });
+    expect(draft).toEqual({ id: expect.any(String), url: `${server.url}/prd/${draft.id}` });
+    await client.openDossier({ title: 'Another idea', repo: 'acme/widgets', claudeSessionId: null });
+    expect(server.calls.map(({ method, path, body, authorization }) => ({ method, path, body, authorization }))).toEqual([
+      { method: 'POST', path: '/api/dossiers', body: { title: 'A team inbox', repo: 'acme/widgets', claudeSessionId: 'c-1' }, authorization: 'Bearer access-1' },
+      { method: 'POST', path: '/api/dossiers', body: { title: 'Another idea', repo: 'acme/widgets' }, authorization: 'Bearer access-1' },
+    ]);
+  });
+
+  it('pushes a folder\'s artifacts, naming the draft only when there is one, and hands back what was added', async () => {
+    const { client } = await setUp();
+    const draft = await client.openDossier({ title: 'A team inbox', repo: 'acme/widgets' });
+    const first = await client.pushDossier({ repo: 'acme/widgets', prd: 7, title: 'Team inbox', draftId: draft.id, artifacts: [{ kind: 'spec', content: SPEC }] });
+    expect(first).toEqual({ id: draft.id, url: `${server.url}/prd/${draft.id}`, added: [{ kind: 'spec', version: 1 }], unchanged: [] });
+    expect(server.calls[1].body).toEqual({ repo: 'acme/widgets', prd: 7, title: 'Team inbox', draftId: draft.id, artifacts: [{ kind: 'spec', content: SPEC }] });
+
+    const again = await client.pushDossier({ repo: 'acme/widgets', prd: 7, title: 'Team inbox', draftId: null, artifacts: [{ kind: 'spec', content: SPEC }] });
+    expect(again).toMatchObject({ id: draft.id, added: [], unchanged: ['spec'] });
+    expect(server.calls[2].body).not.toHaveProperty('draftId');
+  });
+
+  it('carries a refusal\'s status, as every call does', async () => {
+    const { client } = await setUp({ artifactBytes: 10 });
+    await expect(client.pushDossier({ repo: 'acme/widgets', prd: 7, title: 'T', artifacts: [{ kind: 'spec', content: SPEC }] }))
+      .rejects.toMatchObject({ status: 413 });
+  });
+});

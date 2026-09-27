@@ -1,0 +1,26 @@
+// A dossier's spec and plan, rendered for /prd/<id> (PRD 216's spec, "The pages"; decision 10):
+// markdown-it with raw HTML off, so HTML written in the markdown shows as text and nothing in a file
+// becomes markup on the galaxy's origin. markdown-it also refuses to link a javascript:, vbscript:,
+// file: or data: URL. The front matter (the block between two `---` lines that opens a spec) is not
+// part of the body: it comes back as one line of text, its lines joined by ` · `, to show above it.
+// Runs on the server only: the page ships the HTML, never the renderer.
+import MarkdownIt from 'markdown-it';
+
+const renderer = new MarkdownIt({ html: false, linkify: false, typographer: false });
+
+/** The front matter that opens a file: `---`, its lines, `---`. */
+const FRONT = /^---\r?\n([\s\S]*?)\r?\n?---[ \t]*(?:\r?\n|$)/;
+
+export type RenderedMarkdown = {
+  /** The front matter as one line of text (`prd: 216 · title: …`), or null when the file has none. */
+  front: string | null;
+  /** The body as HTML, raw HTML in it escaped. */
+  html: string;
+};
+
+export function renderMarkdown(text: string): RenderedMarkdown {
+  const match = FRONT.exec(text);
+  const lines = match ? match[1].split(/\r?\n/).map((line) => line.trim()).filter(Boolean) : [];
+  const body = match ? text.slice(match[0].length) : text;
+  return { front: lines.length ? lines.join(' · ') : null, html: renderer.render(body) };
+}

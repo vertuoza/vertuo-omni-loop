@@ -32,6 +32,12 @@ jobs:
         # Two accounts, each with its own JWT: neither reads, changes or removes the other's ask
         # sessions or rounds. A round only moves forward; the expiry is scheduled and ask-only.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/ask.sql
+      - name: Who may read and write the dossiers
+        # A member of the workspace reads its dossiers and their versions; an account of another
+        # workspace, or of none, nothing. Only dossier_open() and dossier_push() write, and the service
+        # role adds versions through the same rule: a version only when its content changed, never
+        # rewritten. Only the opener deletes a draft; nobody deletes a numbered dossier.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dossiers.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

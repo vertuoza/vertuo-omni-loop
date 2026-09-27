@@ -25,7 +25,7 @@ import { BuilderOverlay, NameOverlay, SelectOverlay } from './scenes/recruit.tsx
 import { BriefingOverlay, doorOf, MenuOverlay, menuItems } from './scenes/menu.tsx';
 import { cardPages, ChartOverlay, SystemOverlay } from './scenes/chart.tsx';
 import { MapOverlay } from './scenes/map.tsx';
-import { PLANET_TABS, PlanetOverlay } from './scenes/planet.tsx';
+import { dossierLink, dossierOf, PLANET_TABS, PlanetOverlay } from './scenes/planet.tsx';
 import { FleetsOverlay } from './scenes/fleets.tsx';
 import { GamesOverlay } from './scenes/games.tsx';
 import { InvadersOverlay } from './scenes/invaders.tsx';
@@ -47,7 +47,7 @@ import { createSeen, fanfareOf, levelUpFor, type LevelUp, type Local } from './l
 import { addressAt, landing } from './deep-link';
 import { leaveMove, openOver } from './leave.ts';
 import { LeaveOverlay } from './leave.tsx';
-import type { Account, FleetRow, Player, PlayerPatch, ScoresRead, Session, XpRead } from './types';
+import type { Account, DossiersRead, FleetRow, Player, PlayerPatch, ScoresRead, Session, XpRead } from './types';
 import './shell.css';
 
 // The music each screen plays; the rest are silent but for their effects.
@@ -93,6 +93,15 @@ function writeHash(ui: UI, view: GalaxyView | null) {
   } catch { /* sandboxed frames may refuse; the hash is a convenience */ }
 }
 
+/**
+ * Opens a PRD's page to share in a new browser tab, from the planet's DOSSIER tab: the first scene that
+ * opens a URL. A press is a user gesture, so the browser lets it through; one that refuses it anyway
+ * (a sandboxed frame) is ignored.
+ */
+function openPage(url: string) {
+  try { window.open(url, '_blank', 'noopener'); } catch { /* the page stays as it is */ }
+}
+
 function readMuted() {
   try { return window.localStorage.getItem('omni-loop:muted') === '1'; } catch { return false; }
 }
@@ -131,13 +140,19 @@ export interface ArcadeProps {
    */
   scores?: Record<string, ScoresRead>;
   /**
+   * The planets' dossiers, by PRD number (PRD 216): the planet's DOSSIER tab shows its own, NO DOSSIER
+   * YET without one, and DOSSIERS OUT OF REACH when they could not be read. A dossier with a page to open
+   * carries its link, and START opens it from the tab; the single-file artifact's carry none.
+   */
+  dossiers?: DossiersRead;
+  /**
    * The app the arcade leaves for, from SELECT MODE's APP MODE row after OPEN THE APP? (`/app`, from
    * the page). None in the single-file artifact, which has no app: no row, and nothing leaves.
    */
   app?: string;
 }
 
-export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null, brand = HOUSE_BRAND, knowledge = null, xp = 'unreadable', scores: scores0, app }: ArcadeProps) {
+export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null, brand = HOUSE_BRAND, knowledge = null, xp = 'unreadable', scores: scores0, dossiers, app }: ArcadeProps) {
   setFleets(fleets);
   // The brand's look: its theme, written as custom properties on the root element below and read by
   // the canvas, and its mark in the theme's colours. The theme {} is today's arcade.
@@ -623,6 +638,11 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'right' || action === 'a' || action === 'select') return go({ tab: (u.tab + 1) % PLANET_TABS.length }, 'tab');
         if (action === 'up') return go({ sel: (u.sel + planets - 1) % planets }, 'move');
         if (action === 'down') return go({ sel: (u.sel + 1) % planets }, 'move');
+        if (action === 'start') {
+          // On the DOSSIER tab, START opens the PRD's page to share; elsewhere it goes back to the map.
+          const url = dossierLink(dossiers, view?.planets[u.sel]?.prd ?? 0, u.tab);
+          if (url) { sfx('select'); return openPage(url); }
+        }
         if (action === 'b' || action === 'start') return go({ scene: 'map' }, 'back');
         return;
       case 'chart': case 'system': {
@@ -700,7 +720,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') return go({ scene: 'menu' }, 'back');
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, showHud, sendScore, seen, problem, app]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, showHud, sendScore, seen, problem, dossiers, app]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): the first press
@@ -877,7 +897,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'levelup': return ui.levelUp ? <LevelUpOverlay levelUp={ui.levelUp} /> : null;
       case 'invaders': return view ? <InvadersOverlay hud={hud} values={view.rules.woundClose} hero={me?.hero ?? ui.hero} team={me?.team ?? null} hi={hiOf(scores[INVADERS])} send={send} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => act('a')} /> : null;
-      case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => go({ tab }, 'tab')} /> : null;
+      case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => go({ tab }, 'tab')} dossier={dossierOf(dossiers, sel.prd)} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => go({ fleet: i }, 'move')} /> : null;
       case 'heroes': return view ? <HeroesOverlay view={view} crew={crew} /> : null;
       case 'briefing': return view ? <BriefingOverlay view={view} /> : null;
