@@ -66,6 +66,16 @@ dispatch, merge, the Slices checklist) went to `/omni:wave` (see `plugin--wave.m
 - **The loop's end states** are named: complete, held (stuck, stopped, blocked, in flight
   elsewhere), or a wave that moved nothing. Upstream's "nothing runnable" did not cover a wave whose
   own check stayed red.
+- **The hand-off ends with a plain "What is next?"** (PRD 301, as `/omni:brainstorm` does since
+  PRD 292): step 7 is headed `## 7. Hand off` and keeps its report, then shows the PRD's folder as a
+  tree read from `omni prd <n>` (shipped with `outbox/` inside, or the inbox folder with its outbox
+  folder as a second tree), where the PRD is on the loop's six stages ("you are here" under outbox,
+  the feature PR's merge under shipped, the brainstorm's six lines word for word), then
+  **What is next?** for the green, red or held ending, whose own line (`Nothing to run: merging
+  #<feature PR> is yours.`, `/omni:yolo-fix <n>` or `/omni:yolo <n>`) is alone on the reply's last
+  line. A run that stops before step 2 prints none. Step 5's red-gate "Report: …" line and step 7's
+  "A person merges the feature PR" line are gone: the hand-off says both. A block in
+  `kit/test/plugin.test.mjs` asserts it on the live skill.
 
 ## Added
 

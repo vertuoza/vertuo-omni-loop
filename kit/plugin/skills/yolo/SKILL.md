@@ -163,8 +163,7 @@ The **omni-loop** GitHub App, when installed on the repository, posts this same 
 PR as the check named `ci.outboxContext`; this skill never posts it and never waits on it.
 
 **Gate red.** Leave the feature PR in **draft**; do not ship. The comment above holds every open
-question in plain words, each under a number. Report: "the outbox is open: a person answers on the
-feature PR, as the posted comment explains, then runs `/omni:yolo-fix <prd>`."
+question in plain words, each under a number.
 
 Then `git worktree remove <path>`.
 
@@ -179,12 +178,127 @@ Remove `labels.inProgress` from the feature PR (unless the Stuck path already sw
 - `stuck`: held (a stuck, stopped, blocked or in-flight slice, a red wave check) or a stuck finish,
   with the reason; `human steps` names what a person must do.
 
-## 7. Report
+## 7. Hand off
 
-One block: the feature PR link and its state (ready, draft with the gate red, or held); slices merged
-out of total, each held slice with its reason; the checks that ran and did not; every open outbox
-item with its rank and file (`omni status <prd>` lists them); and, when the gate is red, the line
-from step 5. A person merges the feature PR into `repo.defaultBranch`.
+Report, in one block: the feature PR link and its state (ready, draft with the gate red, or held);
+slices merged out of total, each held slice with its reason; the checks that ran and did not; and
+every open outbox item with its rank and file (`omni status <prd>` lists them).
+
+Then always end the reply with three blocks, in this order, written for someone who knows nothing
+about the loop and just does what it says, one step at a time. Fill every placeholder with a real
+path, number or link: `<n>` is the PRD number, and the folder is read from
+`node .omni-loop/bin/omni.mjs prd <n>` run on the feature branch as this run leaves it (refresh the
+checkout first, as step 1's items 1–2 do).
+
+**1. The PRD's folder,** in a code block so the tree lines up: its path, `<dir>/` (the `dir` that
+`omni prd <n>` prints), then each file that command lists, with a few words each. `release.md`
+appears only when it is listed. When the PRD shipped, its outbox sits inside the folder, as
+`outbox/`:
+
+```text
+PRD <n>'s folder: on the feature PR now, on <repo.defaultBranch> once it merges
+
+  <dir>/
+  ├── spec.md            what changes, and why
+  ├── plan.md            how it is built, slice by slice
+  ├── before-after.html  today beside after
+  ├── release.md         what ships, in plain words
+  └── outbox/            every decision the agents took, and how each was settled
+```
+
+When it did not ship, the folder is still in the inbox, with no `outbox/` line, and its outbox is a
+folder of its own: `<outbox>/`, the `outbox` path `omni prd <n>` prints. When that folder exists on
+the branch, a second tree follows, with one line per open item file and `settled.md` when it is
+there:
+
+```text
+  <outbox>/
+  ├── s1-02-….md         open: a question waiting for you
+  └── settled.md         the decisions already settled
+```
+
+**2. Where it is,** in a code block: the six stages of the loop on one line, a marker under outbox
+and one under shipped, then the brainstorm's six stage lines, word for word.
+
+```text
+Where it is
+
+  idea ──▶ PRD ──▶ inbox ──▶ outbox ──▶ shipped ──▶ retro
+                               ▲           ▲
+                               │           └─ merging the feature PR moves it here
+                               └─ you are here
+
+  idea     talked through, nothing written
+  PRD      spec, plan and before/after written, in the phase-0 PR
+  inbox    phase-0 PR merged: approved, ready to build
+  outbox   being built: what the agents decided alone waits for you
+  shipped  feature PR merged: the change is on <repo.defaultBranch>
+  retro    a retro PR tells how the delivery went
+```
+
+The markers are the same on every ending: "you are here" is always under outbox, and
+"merging the feature PR moves it here" always under shipped, because whatever the gate read, the
+feature PR is not merged.
+
+**3. What is next?** One of three, by how the run ended: three short numbered steps, then the
+ending's last line.
+
+**Green:** the gate was green, `omni ship` is committed and the feature PR is ready.
+
+```markdown
+**What is next?**
+
+1. Review the change: https://github.com/<owner>/<repo>/pull/<feature PR>
+   (the diff, and the outbox comment listing every decision the agents took)
+2. Merge that PR. → PRD <n> is shipped: the change is on <repo.defaultBranch>.
+3. If the omni-loop app is installed, it then opens a retro PR (how the delivery went)
+   and a knowledge PR (the decisions, written back): review and merge each.
+
+Nothing to run: merging #<feature PR> is yours.
+```
+
+When `/omni:pr`'s lifecycle left the ready feature PR's CI stuck, the line in brackets under step 1
+names the red check instead: `(its CI is red: <check>; it must be green before you merge)`.
+
+**Red:** every slice merged, the gate red, the feature PR still a draft, the outbox comment posted.
+
+```markdown
+**What is next?**
+
+1. Read the questions: https://github.com/<owner>/<repo>/pull/<feature PR>#issuecomment-<id>
+2. Answer each one in a comment on that PR, as the questions explain: `2: A`,
+   `2: B because …`, or `go with recommendation` for all of them. Nothing changes until step 3.
+3. Once you've answered, type /clear (or open a new terminal), then run:
+
+/omni:yolo-fix <n>
+```
+
+`<id>` is the comment's id the `omni comment` line printed (`pull request comment #<id>`); when it
+printed none, step 1 links the feature PR alone.
+
+**Held:** a slice stuck, stopped, blocked or in flight, a wave's check red, or a finish or a ship
+that stayed red.
+
+```markdown
+**What is next?**
+
+1. See what holds it: https://github.com/<owner>/<repo>/pull/<the PR that holds it>
+2. <the one thing a person must do: the human steps of the final status comment>
+3. Once that's done, type /clear (or open a new terminal), then run:
+
+/omni:yolo <n>
+```
+
+The PR that holds it is the stuck sub-PR when there is one, the feature PR otherwise.
+
+The last line of the reply is always the ending's own, alone on it:
+`Nothing to run: merging #<feature PR> is yours.`, `/omni:yolo-fix <n>` or `/omni:yolo <n>`.
+Everything the next session needs is in the repository and on GitHub, so clearing the session loses
+nothing.
+
+**Before step 2, no hand-off.** A run that stops before it picks up the feature PR (the config does
+not read, the checkout is not clean, the PRD is in another state, `/omni:plan` needs clarification)
+keeps its one line: nothing was built, so there is nothing to hand off.
 
 ## Guardrails
 

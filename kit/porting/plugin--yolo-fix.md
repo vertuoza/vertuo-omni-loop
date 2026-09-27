@@ -57,6 +57,11 @@ spec §2 asks: replies, the settle PR, the after-merge path). Its `rework.mjs` w
 - **`territoryKnown: false`** stops that rework rather than only being reported: a rework with no
   declared ground cannot be graded.
 - **Every edit works in a detached worktree,** as `/omni:yolo` and `/omni:wave` do.
+- **The hand-off** (PRD 301): step 8 is headed `## 8. Hand off`, keeps its report, drops the line
+  "A person merges #<feature PR> into `repo.defaultBranch`.", and ends with `/omni:yolo` §7's
+  hand-off as written (the PRD's folder, where it is, **What is next?**). Its held ending runs
+  `/omni:yolo-fix <n>`, since a held rework resumes with this skill. A block in
+  `kit/test/plugin.test.mjs` asserts it on the live skill.
 
 ## Added
 
