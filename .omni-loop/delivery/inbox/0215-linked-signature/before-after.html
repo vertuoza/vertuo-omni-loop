@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Omni-man Signature</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+<style>
+:root{
+  --bg:#F2F4F3;--surface:#FFFFFF;--code:#F7F9F8;--ink:#15201C;--muted:#56635E;--line:#D3DAD7;--line2:#E3E8E6;
+  --accent:#1D6B55;--soft:#D6EAE2;--red:#B3372F;--redsoft:#F6DEDB;
+  --omni:#27347A;--omnisoft:#E3E7F8;--link:#0969DA;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+  --bg:#0F1513;--surface:#161E1B;--code:#121A17;--ink:#E4ECE8;--muted:#98A6A0;--line:#2A3632;--line2:#222C29;
+  --accent:#5FC3A2;--soft:#193A30;--red:#F08A80;--redsoft:#3A1F1C;
+  --omni:#A9B6F5;--omnisoft:#1E2544;--link:#4493F8}}
+:root[data-theme="dark"]{color-scheme:dark;
+  --bg:#0F1513;--surface:#161E1B;--code:#121A17;--ink:#E4ECE8;--muted:#98A6A0;--line:#2A3632;--line2:#222C29;
+  --accent:#5FC3A2;--soft:#193A30;--red:#F08A80;--redsoft:#3A1F1C;
+  --omni:#A9B6F5;--omnisoft:#1E2544;--link:#4493F8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15.5px/1.6 "IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;padding-inline:16px}
+main{max-width:1100px;margin:0 auto;padding-block:40px 80px;display:grid;gap:56px}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:clamp(28px,4.6vw,40px);font-weight:700}
+h2{font-size:clamp(20px,2.5vw,24px);font-weight:600}
+p{margin:0}
+code,pre{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+code{font-size:.86em;background:var(--soft);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+section{display:grid;gap:16px;min-width:0}
+.eyebrow{font:500 12px/1.4 "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+header.top{display:grid;gap:12px}
+.lede{font-size:17px;max-width:68ch}
+.intro{color:var(--muted);max-width:70ch}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px;align-items:start}
+.cols>*{min-width:0}
+.colhead{font:600 12px/1.3 "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.colhead.before{color:var(--red)}
+.colhead.after{color:var(--accent)}
+
+/* a GitHub surface, drawn */
+.gh{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden;min-width:0}
+.gh.after{border-color:var(--accent)}
+.gh-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;background:var(--code);border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)}
+.gh-head b{color:var(--ink);font-weight:600}
+.gh-body{padding:14px 16px;display:grid;gap:10px;font-size:14px}
+.gh-body hr{border:none;border-top:1px solid var(--line);margin:2px 0;width:100%}
+.faint{color:var(--muted)}
+.gh-body a{color:var(--link);text-decoration:underline;text-underline-offset:2px}
+.gh-body a:focus-visible{outline:2px solid var(--link);outline-offset:2px;border-radius:2px}
+.hover{font:500 11.5px/1.4 "IBM Plex Mono",monospace;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.hover span{background:var(--code);border:1px solid var(--line);border-radius:4px;padding:1px 6px;overflow-wrap:anywhere}
+.stack{display:flex;align-items:center}
+.stack>*{margin-left:-6px;border:2px solid var(--code);border-radius:50%}
+.stack>*:first-child{margin-left:0}
+.av{width:24px;height:24px;display:block;flex:none}
+.who{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12.5px}
+.who span{display:inline-flex;align-items:center;gap:5px}
+
+pre{margin:0;font-size:12.5px;line-height:1.6;background:var(--code);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto}
+pre .c{color:var(--muted)}
+pre .add{background:var(--omnisoft);color:var(--omni);border-radius:3px;padding:0 3px;margin-left:-3px}
+pre .twice{background:var(--redsoft);color:var(--red);border-radius:3px;padding:0 3px;margin-left:-3px}
+pre .ok{color:var(--accent)}
+pre .err{color:var(--red)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 20px;display:grid;gap:10px}
+.card ul{margin:0;padding-left:20px;display:grid;gap:6px}
+.card h3{font:600 12px/1.3 "IBM Plex Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.note{font-size:14px;color:var(--muted);max-width:72ch}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- Omni-man, as the omni-loop app's avatar: navy suit, white chest, red cape, on the night sky -->
+    <symbol id="omniman" viewBox="0 0 12 12" shape-rendering="crispEdges">
+      <rect width="12" height="12" fill="#07061c"/>
+      <rect x="4" y="1" width="4" height="3" fill="#f1c9a5"/>
+      <rect x="4" y="1" width="4" height="1" fill="#1b1b1b"/>
+      <rect x="2" y="4" width="8" height="1" fill="#c8323c"/>
+      <rect x="3" y="4" width="6" height="5" fill="#1f2d6b"/>
+      <rect x="5" y="5" width="2" height="2" fill="#ffffff"/>
+      <rect x="3" y="9" width="2" height="2" fill="#1f2d6b"/>
+      <rect x="7" y="9" width="2" height="2" fill="#1f2d6b"/>
+      <rect x="1" y="2" width="1" height="1" fill="#8f7cff"/>
+      <rect x="10" y="8" width="1" height="1" fill="#8f7cff"/>
+    </symbol>
+    <symbol id="claude" viewBox="0 0 12 12">
+      <circle cx="6" cy="6" r="6" fill="#d97757"/>
+      <path d="M6 2.2v7.6M2.2 6h7.6M3.3 3.3l5.4 5.4M8.7 3.3l-5.4 5.4" stroke="#fff" stroke-width="1.1" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="person" viewBox="0 0 12 12">
+      <circle cx="6" cy="6" r="6" fill="#5a6b8c"/>
+      <circle cx="6" cy="4.6" r="2" fill="#dfe5f1"/>
+      <path d="M2.6 10.2c.6-2 1.9-3 3.4-3s2.8 1 3.4 3z" fill="#dfe5f1"/>
+    </symbol>
+  </defs>
+</svg>
+
+<main>
+  <header class="top">
+    <p class="eyebrow">PRD #215 · before and after</p>
+    <h1>Omni-man by Omni Loop</h1>
+    <p class="lede">The line the loop signs its pull requests and issues with becomes
+      “🦸 Omni-man by Omni Loop ©”, and “Omni Loop” links to the Omni Loop home page. The hero’s
+      name, the link and the wording are three config keys, so changing them later is one edit.</p>
+  </header>
+
+  <section aria-labelledby="pr">
+    <h2 id="pr">The end of a pull request or issue</h2>
+    <p class="intro">What a reader sees under the description of every pull request and issue the loop
+      opens. The hidden marker <code>&lt;!-- omni-loop:signed --&gt;</code> follows the line in both
+      cases, and <code>omni credits</code> still finds it.</p>
+    <div class="cols">
+      <div>
+        <p class="colhead before">Today</p>
+        <div class="gh">
+          <div class="gh-head"><svg class="av" role="img" aria-label="pierrederval"><use href="#person"/></svg><span><b>pierrederval</b> opened this via <b>claude</b></span></div>
+          <div class="gh-body">
+            <p><b>Summary</b> <span class="faint">· Verified · Risk and rollback · Reviewer focus</span></p>
+            <hr>
+            <p>🦸 Delivered by OmniMan, with Omni Loop</p>
+            <p class="faint">🤖 Generated with Claude Code</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="colhead after">After PRD #215</p>
+        <div class="gh after">
+          <div class="gh-head"><svg class="av" role="img" aria-label="pierrederval"><use href="#person"/></svg><span><b>pierrederval</b> opened this via <b>claude</b></span></div>
+          <div class="gh-body">
+            <p><b>Summary</b> <span class="faint">· Verified · Risk and rollback · Reviewer focus</span></p>
+            <hr>
+            <p>🦸 Omni-man by <a href="https://vertuo-omni-loop-galaxy.vercel.app">Omni Loop</a> ©</p>
+            <p class="hover">“Omni Loop” opens <span>https://vertuo-omni-loop-galaxy.vercel.app</span></p>
+            <p class="faint">🤖 Generated with Claude Code</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cols">
+      <pre aria-label="What omni sign footer prints today"><span class="c"># omni sign footer, today</span>
+🦸 Delivered by OmniMan, with Omni Loop &lt;!-- omni-loop:signed --&gt;</pre>
+      <pre aria-label="What omni sign footer prints after"><span class="c"># omni sign footer, after</span>
+<span class="add">🦸 Omni-man by [Omni Loop](https://vertuo-omni-loop-galaxy.vercel.app) ©</span> &lt;!-- omni-loop:signed --&gt;</pre>
+    </div>
+  </section>
+
+  <section aria-labelledby="commit">
+    <h2 id="commit">A commit the loop makes</h2>
+    <p class="intro">A commit message is plain text on GitHub, so it carries no link. Only the hero’s
+      name changes. The address stays the same, so GitHub still shows the bot’s avatar.</p>
+    <div class="cols">
+      <div>
+        <p class="colhead before">Today</p>
+        <div class="gh">
+          <div class="gh-head"><span class="stack"><svg class="av" role="img" aria-label="pierrederval"><use href="#person"/></svg><svg class="av" role="img" aria-label="Claude"><use href="#claude"/></svg><svg class="av" role="img" aria-label="OmniMan"><use href="#omniman"/></svg></span><span><b>docs(prd): linked-signature</b></span></div>
+          <div class="gh-body">
+            <div class="who"><span>pierrederval</span><span>Claude</span><span>OmniMan</span></div>
+          </div>
+        </div>
+        <pre style="margin-top:10px">docs(prd): linked-signature
+
+Co-Authored-By: Claude &lt;noreply@anthropic.com&gt;
+Co-authored-by: OmniMan &lt;333776611+omni-loop-invader[bot]@users.noreply.github.com&gt;</pre>
+      </div>
+      <div>
+        <p class="colhead after">After PRD #215</p>
+        <div class="gh after">
+          <div class="gh-head"><span class="stack"><svg class="av" role="img" aria-label="pierrederval"><use href="#person"/></svg><svg class="av" role="img" aria-label="Claude"><use href="#claude"/></svg><svg class="av" role="img" aria-label="Omni-man"><use href="#omniman"/></svg></span><span><b>docs(prd): linked-signature</b></span></div>
+          <div class="gh-body">
+            <div class="who"><span>pierrederval</span><span>Claude</span><span>Omni-man</span></div>
+          </div>
+        </div>
+        <pre style="margin-top:10px">docs(prd): linked-signature
+
+Co-Authored-By: Claude &lt;noreply@anthropic.com&gt;
+Co-authored-by: <span class="add">Omni-man</span> &lt;333776611+omni-loop-invader[bot]@users.noreply.github.com&gt;</pre>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="config">
+    <h2 id="config">The settings</h2>
+    <p class="intro">Today the hero’s name is typed twice and there is nowhere to put a link. After,
+      the footer is a template: <code>{name}</code> and <code>{home}</code> are filled in from the keys
+      above it. Set any key in a repository’s <code>.omni-loop/config.yml</code> to change that
+      repository, or change the kit’s default to change them all.</p>
+    <div class="cols">
+      <div>
+        <p class="colhead before">Today · the kit’s default</p>
+        <pre>signature:
+  name: <span class="twice">OmniMan</span>
+  email: 333776611+omni-loop-invader[bot]@users.noreply.github.com
+  footer: "🦸 Delivered by <span class="twice">OmniMan</span>, with Omni Loop"</pre>
+      </div>
+      <div>
+        <p class="colhead after">After · the kit’s default</p>
+        <pre>signature:
+  name: <span class="add">Omni-man</span>
+  email: 333776611+omni-loop-invader[bot]@users.noreply.github.com
+  <span class="add">home: https://vertuo-omni-loop-galaxy.vercel.app</span>
+  footer: "🦸 <span class="add">{name}</span> by [Omni Loop](<span class="add">{home}</span>) ©"</pre>
+      </div>
+    </div>
+    <pre><span class="c"># one repository changes its mind: only the link moves, everything else keeps the default</span>
+signature:
+  home: https://example.com</pre>
+  </section>
+
+  <section aria-labelledby="guard">
+    <h2 id="guard">The kit may carry the arcade’s address</h2>
+    <p class="intro">The kit never names the game: a guard fails on the word “galaxy” in any kit file
+      that is not a test (ADR-0002). A new ADR adds one exception, the arcade’s address as the default
+      link. Any other use of the word still fails.</p>
+    <div class="cols">
+      <div>
+        <p class="colhead before">Today · kit/test/no-game-words.test.mjs</p>
+        <pre><span class="c"># kit/lib/config.mjs, with the address as home's default</span>
+<span class="err">✗ lib/config.mjs: home: …vertuo-omni-loop-galaxy.vercel.app</span></pre>
+      </div>
+      <div>
+        <p class="colhead after">After</p>
+        <pre><span class="ok">✓ the exact address vertuo-omni-loop-galaxy.vercel.app</span>
+<span class="err">✗ the address, and "galaxy" elsewhere on the line</span>
+<span class="err">✗ any other host holding the word</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="same">
+    <h2 id="same">What stays the same</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>Unchanged</h3>
+        <ul>
+          <li>The skills: they print whatever <code>omni sign trailer</code> and <code>omni sign footer</code> print.</li>
+          <li>The hidden marker, and <code>signature: null</code> switching signing off.</li>
+          <li>A repository that wrote its own footer with no <code>{…}</code> in it: it prints exactly as before.</li>
+          <li>The arcade, its hero sprite and the docs, which keep “OmniMan”.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Accepted</h3>
+        <ul>
+          <li><code>omni credits</code> matches a commit by its exact co-author line, so commits signed
+            “OmniMan” before the merge leave its co-authored commit count. Pull requests and PRD
+            issues keep counting through their labels and the marker.</li>
+          <li>Bodies and commits already signed keep their old line.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note">Rollback: revert the feature pull request, or set <code>signature</code> in one
+      repository’s config.</p>
+  </section>
+</main>
+</html>
