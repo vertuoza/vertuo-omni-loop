@@ -1,0 +1,1262 @@
+{
+  "prd": 160,
+  "runs": [
+    {
+      "featurePr": {
+        "mergeSha": "7c9f8eeb00b2d2fb1c08c6b881345854127a85b7",
+        "mergedAt": "2026-09-27T05:41:40Z",
+        "number": 161,
+        "openedAt": "2026-09-26T11:13:06Z",
+        "title": "feat(galaxy): game room — XP, levels and Entropy Invaders (PRD 160)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/161"
+      },
+      "findings": [
+        {
+          "evidence": [
+            {
+              "label": "#186",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/186/files"
+            }
+          ],
+          "happened": "Slice s1 changed 3 paths outside its territory and off the plan’s shared ground: `game/sources/supabase.mjs`, `game/sources/supabase.test.mjs`, `game/test/fake-supabase.mjs`.",
+          "id": "territory:s1",
+          "kind": "territory",
+          "ref": "F1",
+          "source": "delivery",
+          "title": "Slice s1 changed files outside its territory"
+        },
+        {
+          "evidence": [
+            {
+              "label": "#202",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/202/files"
+            }
+          ],
+          "happened": "Slice s5 changed 1 path outside its territory and off the plan’s shared ground: `game/cli/scripts.test.mjs`.",
+          "id": "territory:s5",
+          "kind": "territory",
+          "ref": "F2",
+          "source": "delivery",
+          "title": "Slice s5 changed files outside its territory"
+        },
+        {
+          "evidence": [
+            {
+              "label": "0be9d28 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/0be9d28733898f64daac5b27d8158e01c5af2807"
+            },
+            {
+              "label": "6c2e033 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/6c2e033cd6039f945bf91d524f12ab84a0b3defe"
+            },
+            {
+              "label": "a54347c (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/a54347c4e3b9432cb0e1f71ebbcb66302d5964ac"
+            },
+            {
+              "label": "8470039 (s6)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/8470039cffa4a33e53e3bd947722a198a82b4caa"
+            },
+            {
+              "label": "`apps/galaxy/src/arcade/ArcadeApp.tsx` lines 676-676, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/8361c20e71572b2bbaddafa618c076e763d50bd2/apps/galaxy/src/arcade/ArcadeApp.tsx#L676-L676"
+            }
+          ],
+          "happened": "Lines 676-676 of `apps/galaxy/src/arcade/ArcadeApp.tsx`, as merged, were written and rewritten in 4 commits, in s2, s3, s5 and s6; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/arcade/ArcadeApp.tsx:676-676",
+          "kind": "churn",
+          "ref": "F3",
+          "source": "churn",
+          "title": "Lines 676-676 of `apps/galaxy/src/arcade/ArcadeApp.tsx` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "0b7a1f5 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/0b7a1f500e2b134f208e2f595879a31e870ecf1e"
+            },
+            {
+              "label": "3daad4f (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/3daad4f7acbc228af91ae4c63e5b1eb923bddfd1"
+            },
+            {
+              "label": "8470039 (s6)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/8470039cffa4a33e53e3bd947722a198a82b4caa"
+            },
+            {
+              "label": "`apps/galaxy/scripts/shots.mjs` lines 6-8, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/8361c20e71572b2bbaddafa618c076e763d50bd2/apps/galaxy/scripts/shots.mjs#L6-L8"
+            }
+          ],
+          "happened": "Lines 6-8 of `apps/galaxy/scripts/shots.mjs`, as merged, were written and rewritten in 3 commits, in s2, s3 and s6; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/scripts/shots.mjs:6-8",
+          "kind": "churn",
+          "ref": "F4",
+          "source": "churn",
+          "title": "Lines 6-8 of `apps/galaxy/scripts/shots.mjs` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "0b7a1f5 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/0b7a1f500e2b134f208e2f595879a31e870ecf1e"
+            },
+            {
+              "label": "3daad4f (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/3daad4f7acbc228af91ae4c63e5b1eb923bddfd1"
+            },
+            {
+              "label": "8470039 (s6)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/8470039cffa4a33e53e3bd947722a198a82b4caa"
+            },
+            {
+              "label": "`apps/galaxy/scripts/shots.mjs` lines 29-29, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/8361c20e71572b2bbaddafa618c076e763d50bd2/apps/galaxy/scripts/shots.mjs#L29-L29"
+            }
+          ],
+          "happened": "Lines 29-29 of `apps/galaxy/scripts/shots.mjs`, as merged, were written and rewritten in 3 commits, in s2, s3 and s6; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/scripts/shots.mjs:29-29",
+          "kind": "churn",
+          "ref": "F5",
+          "source": "churn",
+          "title": "Lines 29-29 of `apps/galaxy/scripts/shots.mjs` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "6c2e033 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/6c2e033cd6039f945bf91d524f12ab84a0b3defe"
+            },
+            {
+              "label": "8758b64 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/8758b64911fe8e1a27bf6a5fb397d1b864d50f78"
+            },
+            {
+              "label": "a54347c (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/a54347c4e3b9432cb0e1f71ebbcb66302d5964ac"
+            },
+            {
+              "label": "`apps/galaxy/src/arcade/ArcadeApp.tsx` lines 281-281, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/8361c20e71572b2bbaddafa618c076e763d50bd2/apps/galaxy/src/arcade/ArcadeApp.tsx#L281-L281"
+            }
+          ],
+          "happened": "Lines 281-281 of `apps/galaxy/src/arcade/ArcadeApp.tsx`, as merged, were written and rewritten in 3 commits, in s3 and s5; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/arcade/ArcadeApp.tsx:281-281",
+          "kind": "churn",
+          "ref": "F6",
+          "source": "churn",
+          "title": "Lines 281-281 of `apps/galaxy/src/arcade/ArcadeApp.tsx` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "0be9d28 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/0be9d28733898f64daac5b27d8158e01c5af2807"
+            },
+            {
+              "label": "6c2e033 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/6c2e033cd6039f945bf91d524f12ab84a0b3defe"
+            },
+            {
+              "label": "a54347c (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/a54347c4e3b9432cb0e1f71ebbcb66302d5964ac"
+            },
+            {
+              "label": "`apps/galaxy/src/arcade/ArcadeApp.tsx` lines 845-845, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/8361c20e71572b2bbaddafa618c076e763d50bd2/apps/galaxy/src/arcade/ArcadeApp.tsx#L845-L845"
+            }
+          ],
+          "happened": "Lines 845-845 of `apps/galaxy/src/arcade/ArcadeApp.tsx`, as merged, were written and rewritten in 3 commits, in s2, s3 and s5; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/arcade/ArcadeApp.tsx:845-845",
+          "kind": "churn",
+          "ref": "F7",
+          "source": "churn",
+          "title": "Lines 845-845 of `apps/galaxy/src/arcade/ArcadeApp.tsx` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "0be9d28 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/0be9d28733898f64daac5b27d8158e01c5af2807"
+            },
+            {
+              "label": "6c2e033 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/6c2e033cd6039f945bf91d524f12ab84a0b3defe"
+            },
+            {
+              "label": "a54347c (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/a54347c4e3b9432cb0e1f71ebbcb66302d5964ac"
+            },
+            {
+              "label": "`apps/galaxy/src/arcade/ArcadeApp.tsx` lines 847-847, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/8361c20e71572b2bbaddafa618c076e763d50bd2/apps/galaxy/src/arcade/ArcadeApp.tsx#L847-L847"
+            }
+          ],
+          "happened": "Lines 847-847 of `apps/galaxy/src/arcade/ArcadeApp.tsx`, as merged, were written and rewritten in 3 commits, in s2, s3 and s5; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/arcade/ArcadeApp.tsx:847-847",
+          "kind": "churn",
+          "ref": "F8",
+          "source": "churn",
+          "title": "Lines 847-847 of `apps/galaxy/src/arcade/ArcadeApp.tsx` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "0be9d28 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/0be9d28733898f64daac5b27d8158e01c5af2807"
+            },
+            {
+              "label": "070c3bb (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/070c3bb53845ef3fe2cae47bec53da2263d54435"
+            },
+            {
+              "label": "e3ecc34 (s6)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/e3ecc3418ff9aa850310cd3ed2153ecc13346352"
+            },
+            {
+              "label": "`apps/galaxy/src/arcade/grid.ts` lines 25-25, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/8361c20e71572b2bbaddafa618c076e763d50bd2/apps/galaxy/src/arcade/grid.ts#L25-L25"
+            }
+          ],
+          "happened": "Lines 25-25 of `apps/galaxy/src/arcade/grid.ts`, as merged, were written and rewritten in 3 commits, in s2, s3 and s6; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/arcade/grid.ts:25-25",
+          "kind": "churn",
+          "ref": "F9",
+          "source": "churn",
+          "title": "Lines 25-25 of `apps/galaxy/src/arcade/grid.ts` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "0be9d28 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/0be9d28733898f64daac5b27d8158e01c5af2807"
+            },
+            {
+              "label": "6c2e033 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/6c2e033cd6039f945bf91d524f12ab84a0b3defe"
+            },
+            {
+              "label": "8470039 (s6)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/8470039cffa4a33e53e3bd947722a198a82b4caa"
+            },
+            {
+              "label": "`apps/galaxy/src/arcade/onboarding.ts` lines 84-84, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/8361c20e71572b2bbaddafa618c076e763d50bd2/apps/galaxy/src/arcade/onboarding.ts#L84-L84"
+            }
+          ],
+          "happened": "Lines 84-84 of `apps/galaxy/src/arcade/onboarding.ts`, as merged, were written and rewritten in 3 commits, in s2, s3 and s6; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/arcade/onboarding.ts:84-84",
+          "kind": "churn",
+          "ref": "F10",
+          "source": "churn",
+          "title": "Lines 84-84 of `apps/galaxy/src/arcade/onboarding.ts` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "0be9d28 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/0be9d28733898f64daac5b27d8158e01c5af2807"
+            },
+            {
+              "label": "070c3bb (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/070c3bb53845ef3fe2cae47bec53da2263d54435"
+            },
+            {
+              "label": "e3ecc34 (s6)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/e3ecc3418ff9aa850310cd3ed2153ecc13346352"
+            },
+            {
+              "label": "`apps/galaxy/src/arcade/scenes/common.ts` lines 34-34, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/8361c20e71572b2bbaddafa618c076e763d50bd2/apps/galaxy/src/arcade/scenes/common.ts#L34-L34"
+            }
+          ],
+          "happened": "Lines 34-34 of `apps/galaxy/src/arcade/scenes/common.ts`, as merged, were written and rewritten in 3 commits, in s2, s3 and s6; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/arcade/scenes/common.ts:34-34",
+          "kind": "churn",
+          "ref": "F11",
+          "source": "churn",
+          "title": "Lines 34-34 of `apps/galaxy/src/arcade/scenes/common.ts` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "0be9d28 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/0be9d28733898f64daac5b27d8158e01c5af2807"
+            },
+            {
+              "label": "070c3bb (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/070c3bb53845ef3fe2cae47bec53da2263d54435"
+            },
+            {
+              "label": "e3ecc34 (s6)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/e3ecc3418ff9aa850310cd3ed2153ecc13346352"
+            },
+            {
+              "label": "`apps/galaxy/src/arcade/scenes/index.test.ts` lines 14-14, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/8361c20e71572b2bbaddafa618c076e763d50bd2/apps/galaxy/src/arcade/scenes/index.test.ts#L14-L14"
+            }
+          ],
+          "happened": "Lines 14-14 of `apps/galaxy/src/arcade/scenes/index.test.ts`, as merged, were written and rewritten in 3 commits, in s2, s3 and s6; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/arcade/scenes/index.test.ts:14-14",
+          "kind": "churn",
+          "ref": "F12",
+          "source": "churn",
+          "title": "Lines 14-14 of `apps/galaxy/src/arcade/scenes/index.test.ts` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "070c3bb (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/070c3bb53845ef3fe2cae47bec53da2263d54435"
+            },
+            {
+              "label": "3daad4f (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/3daad4f7acbc228af91ae4c63e5b1eb923bddfd1"
+            },
+            {
+              "label": "dabf350 (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/dabf350ee333b552e74fae75c7dbb0fb588d45d4"
+            },
+            {
+              "label": "`apps/galaxy/src/arcade/scenes/invaders.css` lines 46-50, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/8361c20e71572b2bbaddafa618c076e763d50bd2/apps/galaxy/src/arcade/scenes/invaders.css#L46-L50"
+            }
+          ],
+          "happened": "Lines 46-50 of `apps/galaxy/src/arcade/scenes/invaders.css`, as merged, were written and rewritten in 3 commits, in s3 and s5; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/arcade/scenes/invaders.css:46-50",
+          "kind": "churn",
+          "ref": "F13",
+          "source": "churn",
+          "title": "Lines 46-50 of `apps/galaxy/src/arcade/scenes/invaders.css` were rewritten again and again"
+        }
+      ],
+      "kinds": {
+        "churn": {
+          "added": 5545,
+          "churn": 88,
+          "commits": 40,
+          "files": [
+            {
+              "added": 72,
+              "churn": 14,
+              "commits": 3,
+              "finalAdded": 58,
+              "path": "apps/galaxy/src/arcade/scenes/invaders.css",
+              "percent": 24
+            },
+            {
+              "added": 261,
+              "churn": 12,
+              "commits": 5,
+              "finalAdded": 249,
+              "path": "apps/galaxy/src/arcade/ArcadeApp.tsx",
+              "percent": 5
+            },
+            {
+              "added": 121,
+              "churn": 11,
+              "commits": 4,
+              "finalAdded": 110,
+              "path": "apps/galaxy/src/arcade/scenes/invaders.tsx",
+              "percent": 10
+            },
+            {
+              "added": 38,
+              "churn": 6,
+              "commits": 3,
+              "finalAdded": 32,
+              "path": "apps/galaxy/scripts/shots.mjs",
+              "percent": 19
+            },
+            {
+              "added": 102,
+              "churn": 6,
+              "commits": 2,
+              "finalAdded": 96,
+              "path": "apps/galaxy/src/arcade/scenes/invaders.ts",
+              "percent": 6
+            },
+            {
+              "added": 134,
+              "churn": 5,
+              "commits": 2,
+              "finalAdded": 129,
+              "path": "apps/galaxy/src/arcade/scenes/games.tsx",
+              "percent": 4
+            },
+            {
+              "added": 140,
+              "churn": 4,
+              "commits": 2,
+              "finalAdded": 136,
+              "path": "apps/galaxy/src/arcade/games/room.test.ts",
+              "percent": 3
+            },
+            {
+              "added": 21,
+              "churn": 4,
+              "commits": 3,
+              "finalAdded": 17,
+              "path": "apps/galaxy/src/arcade/onboarding.ts",
+              "percent": 24
+            },
+            {
+              "added": 250,
+              "churn": 4,
+              "commits": 3,
+              "finalAdded": 246,
+              "path": "apps/galaxy/src/arcade/scenes/invaders.test.ts",
+              "percent": 2
+            },
+            {
+              "added": 18,
+              "churn": 4,
+              "commits": 2,
+              "finalAdded": 14,
+              "path": "apps/galaxy/src/data/arcade.ts",
+              "percent": 29
+            },
+            {
+              "added": 231,
+              "churn": 3,
+              "commits": 2,
+              "finalAdded": 228,
+              "path": "apps/galaxy/src/arcade/scenes/games.test.ts",
+              "percent": 1
+            },
+            {
+              "added": 9,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 7,
+              "path": "apps/galaxy/app/page.tsx",
+              "percent": 29
+            },
+            {
+              "added": 6,
+              "churn": 2,
+              "commits": 3,
+              "finalAdded": 4,
+              "path": "apps/galaxy/src/arcade/grid.ts",
+              "percent": 50
+            },
+            {
+              "added": 5,
+              "churn": 2,
+              "commits": 3,
+              "finalAdded": 3,
+              "path": "apps/galaxy/src/arcade/scenes/common.ts",
+              "percent": 67
+            },
+            {
+              "added": 80,
+              "churn": 2,
+              "commits": 3,
+              "finalAdded": 78,
+              "path": "apps/galaxy/src/arcade/scenes/games.css",
+              "percent": 3
+            },
+            {
+              "added": 3,
+              "churn": 2,
+              "commits": 3,
+              "finalAdded": 1,
+              "path": "apps/galaxy/src/arcade/scenes/index.test.ts",
+              "percent": 200
+            },
+            {
+              "added": 69,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 67,
+              "path": "apps/galaxy/src/data/galaxy.fake.ts",
+              "percent": 3
+            },
+            {
+              "added": 17,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 16,
+              "path": "apps/galaxy/src/arcade/games/index.ts",
+              "percent": 6
+            },
+            {
+              "added": 34,
+              "churn": 1,
+              "commits": 4,
+              "finalAdded": 33,
+              "path": "apps/galaxy/src/arcade/scenes/menu.css",
+              "percent": 3
+            },
+            {
+              "added": 79,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 78,
+              "path": "apps/galaxy/src/data/arcade.test.ts",
+              "percent": 1
+            }
+          ],
+          "finalAdded": 5458,
+          "leftOut": {
+            "delivery": [
+              ".omni-loop/delivery/outbox/0160-game-room/s1-01-xp-writer-upsert.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s1-02-fake-postgrest-moved-by-workspaces.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s1-03-no-level-stored-as-zero.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s2-01-xp-read-in-the-workspace-played.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s2-02-games-new-tag-until-the-room-is-seen.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s2-03-game-room-needs-the-galaxy.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s3-01-score-table-as-ready-screen.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s3-02-game-feel-numbers.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s3-03-a-game-keeps-its-field.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s3-04-rows-follow-the-close-values.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s4-01-levels-shows-the-first-five-levels.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s5-01-scores-leave-with-the-player.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s5-02-backup-test-outside-the-slice.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s5-03-game-over-keys.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s5-04-scores-read-on-their-own.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s5-05-hi-without-a-name-upright.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s6-01-level-memory-when-storage-refused.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s6-02-levels-climbed-between-visits.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s6-03-level-up-words-and-keys.md",
+              ".omni-loop/delivery/outbox/0160-game-room/s7-01-stale-docs-outside-the-slice.md"
+            ],
+            "generated": [],
+            "lockfile": []
+          },
+          "noPatch": [],
+          "notCounted": [],
+          "pulls": 7,
+          "ranges": [
+            {
+              "commits": [
+                "0be9d28",
+                "6c2e033",
+                "a54347c",
+                "8470039"
+              ],
+              "from": 676,
+              "path": "apps/galaxy/src/arcade/ArcadeApp.tsx",
+              "slices": [
+                "s2",
+                "s3",
+                "s5",
+                "s6"
+              ],
+              "to": 676
+            },
+            {
+              "commits": [
+                "0b7a1f5",
+                "3daad4f",
+                "8470039"
+              ],
+              "from": 6,
+              "path": "apps/galaxy/scripts/shots.mjs",
+              "slices": [
+                "s2",
+                "s3",
+                "s6"
+              ],
+              "to": 8
+            },
+            {
+              "commits": [
+                "0b7a1f5",
+                "3daad4f",
+                "8470039"
+              ],
+              "from": 29,
+              "path": "apps/galaxy/scripts/shots.mjs",
+              "slices": [
+                "s2",
+                "s3",
+                "s6"
+              ],
+              "to": 29
+            },
+            {
+              "commits": [
+                "6c2e033",
+                "8758b64",
+                "a54347c"
+              ],
+              "from": 281,
+              "path": "apps/galaxy/src/arcade/ArcadeApp.tsx",
+              "slices": [
+                "s3",
+                "s5"
+              ],
+              "to": 281
+            },
+            {
+              "commits": [
+                "0be9d28",
+                "6c2e033",
+                "a54347c"
+              ],
+              "from": 845,
+              "path": "apps/galaxy/src/arcade/ArcadeApp.tsx",
+              "slices": [
+                "s2",
+                "s3",
+                "s5"
+              ],
+              "to": 845
+            },
+            {
+              "commits": [
+                "0be9d28",
+                "6c2e033",
+                "a54347c"
+              ],
+              "from": 847,
+              "path": "apps/galaxy/src/arcade/ArcadeApp.tsx",
+              "slices": [
+                "s2",
+                "s3",
+                "s5"
+              ],
+              "to": 847
+            },
+            {
+              "commits": [
+                "0be9d28",
+                "070c3bb",
+                "e3ecc34"
+              ],
+              "from": 25,
+              "path": "apps/galaxy/src/arcade/grid.ts",
+              "slices": [
+                "s2",
+                "s3",
+                "s6"
+              ],
+              "to": 25
+            },
+            {
+              "commits": [
+                "0be9d28",
+                "6c2e033",
+                "8470039"
+              ],
+              "from": 84,
+              "path": "apps/galaxy/src/arcade/onboarding.ts",
+              "slices": [
+                "s2",
+                "s3",
+                "s6"
+              ],
+              "to": 84
+            },
+            {
+              "commits": [
+                "0be9d28",
+                "070c3bb",
+                "e3ecc34"
+              ],
+              "from": 34,
+              "path": "apps/galaxy/src/arcade/scenes/common.ts",
+              "slices": [
+                "s2",
+                "s3",
+                "s6"
+              ],
+              "to": 34
+            },
+            {
+              "commits": [
+                "0be9d28",
+                "070c3bb",
+                "e3ecc34"
+              ],
+              "from": 14,
+              "path": "apps/galaxy/src/arcade/scenes/index.test.ts",
+              "slices": [
+                "s2",
+                "s3",
+                "s6"
+              ],
+              "to": 14
+            },
+            {
+              "commits": [
+                "070c3bb",
+                "3daad4f",
+                "dabf350"
+              ],
+              "from": 46,
+              "path": "apps/galaxy/src/arcade/scenes/invaders.css",
+              "slices": [
+                "s3",
+                "s5"
+              ],
+              "to": 50
+            }
+          ],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [
+            {
+              "check": "check",
+              "red": 0,
+              "redCommits": [],
+              "redSlices": [],
+              "redThenGreen": [],
+              "runs": 7
+            }
+          ],
+          "redRuns": [],
+          "slices": [
+            "s1",
+            "s2",
+            "s3",
+            "s4",
+            "s5",
+            "s6",
+            "s7"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 1,
+            "commits": 7,
+            "red": 0,
+            "runs": 7,
+            "slices": 2
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 20,
+            "agreed": 0,
+            "byRank": {
+              "medium": 20
+            },
+            "drifted": 0,
+            "drifts": [],
+            "file": ".omni-loop/delivery/shipped/0160-game-room/outbox/settled.md",
+            "raised": 20,
+            "reworked": 0
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "stuck": 0
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  186
+                ],
+                "slice": "s1",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  191
+                ],
+                "slice": "s2",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  200
+                ],
+                "slice": "s3",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  201
+                ],
+                "slice": "s4",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  202
+                ],
+                "slice": "s5",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  203
+                ],
+                "slice": "s6",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  204
+                ],
+                "slice": "s7",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 8,
+              "red": 0,
+              "reviews": 0,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 0,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 161,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/161"
+              },
+              {
+                "pr": 186,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/186"
+              },
+              {
+                "pr": 191,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s2",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/191"
+              },
+              {
+                "pr": 200,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s3",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/200"
+              },
+              {
+                "pr": 201,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s4",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/201"
+              },
+              {
+                "pr": 202,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s5",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/202"
+              },
+              {
+                "pr": 203,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s6",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/203"
+              },
+              {
+                "pr": 204,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s7",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/204"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 4,
+              "graded": 7,
+              "shared": 0,
+              "unplanned": 0,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [
+                  "game/sources/supabase.mjs",
+                  "game/sources/supabase.test.mjs",
+                  "game/test/fake-supabase.mjs"
+                ],
+                "files": 19,
+                "pr": 186,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/186"
+              },
+              {
+                "breaches": [],
+                "files": 34,
+                "pr": 191,
+                "shared": [],
+                "slice": "s2",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/191"
+              },
+              {
+                "breaches": [],
+                "files": 24,
+                "pr": 200,
+                "shared": [],
+                "slice": "s3",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/200"
+              },
+              {
+                "breaches": [],
+                "files": 8,
+                "pr": 201,
+                "shared": [],
+                "slice": "s4",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/201"
+              },
+              {
+                "breaches": [
+                  "game/cli/scripts.test.mjs"
+                ],
+                "files": 31,
+                "pr": 202,
+                "shared": [],
+                "slice": "s5",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/202"
+              },
+              {
+                "breaches": [],
+                "files": 19,
+                "pr": 203,
+                "shared": [],
+                "slice": "s6",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/203"
+              },
+              {
+                "breaches": [],
+                "files": 3,
+                "pr": 204,
+                "shared": [],
+                "slice": "s7",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/204"
+              }
+            ],
+            "reason": null,
+            "sharedGround": [
+              "game/workflow.test.mjs",
+              "supabase/migrations/",
+              "supabase/checks/access.sql",
+              "apps/galaxy/src/arcade/games/",
+              "apps/galaxy/src/arcade/scenes/games",
+              "apps/galaxy/src/arcade/scenes/index",
+              "apps/galaxy/src/arcade/scenes/common",
+              "apps/galaxy/src/arcade/grid",
+              "apps/galaxy/src/arcade/onboarding",
+              "apps/galaxy/src/arcade/ArcadeApp.tsx",
+              "apps/galaxy/scripts/shots.mjs",
+              "apps/galaxy/src/arcade/scenes/menu",
+              "packages/galaxy/src/",
+              "apps/galaxy/src/arcade/ArcadeClient.tsx",
+              "apps/galaxy/src/arcade/types.ts",
+              "apps/galaxy/src/data/",
+              "apps/galaxy/app/page.tsx",
+              "apps/galaxy/src/arcade/scenes/invaders",
+              "apps/galaxy/src/arcade/sound.ts",
+              "apps/galaxy/src/arcade/score"
+            ]
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-09-27T05:41:40Z",
+            "minutes": 1109,
+            "number": 161,
+            "openedAt": "2026-09-26T11:13:06Z",
+            "readyAt": "2026-09-26T18:42:14Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/161"
+          },
+          "medianMinutes": 29,
+          "sliceCount": 7,
+          "slices": [
+            {
+              "closedAt": "2026-09-26T15:45:29Z",
+              "mergedAt": "2026-09-26T15:45:29Z",
+              "mergedWave": 1,
+              "minutes": 21,
+              "openedAt": "2026-09-26T15:24:35Z",
+              "plannedWave": 1,
+              "pr": 186,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/186"
+            },
+            {
+              "closedAt": "2026-09-26T16:16:23Z",
+              "mergedAt": "2026-09-26T16:16:23Z",
+              "mergedWave": 2,
+              "minutes": 29,
+              "openedAt": "2026-09-26T15:47:41Z",
+              "plannedWave": 2,
+              "pr": 191,
+              "slice": "s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/191"
+            },
+            {
+              "closedAt": "2026-09-26T16:52:40Z",
+              "mergedAt": "2026-09-26T16:52:40Z",
+              "mergedWave": 3,
+              "minutes": 34,
+              "openedAt": "2026-09-26T16:18:13Z",
+              "plannedWave": 3,
+              "pr": 200,
+              "slice": "s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/200"
+            },
+            {
+              "closedAt": "2026-09-26T16:53:00Z",
+              "mergedAt": "2026-09-26T16:52:59Z",
+              "mergedWave": 3,
+              "minutes": 35,
+              "openedAt": "2026-09-26T16:18:17Z",
+              "plannedWave": 3,
+              "pr": 201,
+              "slice": "s4",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/201"
+            },
+            {
+              "closedAt": "2026-09-26T17:57:51Z",
+              "mergedAt": "2026-09-26T17:57:51Z",
+              "mergedWave": 4,
+              "minutes": 63,
+              "openedAt": "2026-09-26T16:54:45Z",
+              "plannedWave": 4,
+              "pr": 202,
+              "slice": "s5",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/202"
+            },
+            {
+              "closedAt": "2026-09-26T18:23:13Z",
+              "mergedAt": "2026-09-26T18:23:13Z",
+              "mergedWave": 5,
+              "minutes": 24,
+              "openedAt": "2026-09-26T17:59:37Z",
+              "plannedWave": 5,
+              "pr": 203,
+              "slice": "s6",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/203"
+            },
+            {
+              "closedAt": "2026-09-26T18:38:48Z",
+              "mergedAt": "2026-09-26T18:38:48Z",
+              "mergedWave": 6,
+              "minutes": 14,
+              "openedAt": "2026-09-26T18:25:07Z",
+              "plannedWave": 6,
+              "pr": 204,
+              "slice": "s7",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/204"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 6,
+            "planned": 6
+          }
+        }
+      },
+      "prd": {
+        "folder": ".omni-loop/delivery/shipped/0160-game-room",
+        "number": 160,
+        "state": "shipped",
+        "title": "Game room — XP, levels and Entropy Invaders",
+        "topic": "game-room"
+      },
+      "rules": {
+        "fieldCaps": {
+          "lesson": 400,
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600
+        },
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "thresholds": {
+          "afterMergeDays": 14,
+          "churnFileLines": 40,
+          "churnFilePercent": 50,
+          "churnRangeCommits": 3,
+          "failingTestRuns": 2,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "slowSliceFactor": 3
+        },
+        "version": 1
+      },
+      "run": "merge",
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": []
+      },
+      "issues": {
+        "territory:s1": {
+          "number": 208,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/208",
+          "state": "open"
+        },
+        "territory:s5": {
+          "number": 209,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/209",
+          "state": "open"
+        },
+        "churn:apps/galaxy/src/arcade/ArcadeApp.tsx:676-676": {
+          "number": 210,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/210",
+          "state": "open"
+        },
+        "churn:apps/galaxy/scripts/shots.mjs:6-8": {
+          "number": 211,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/211",
+          "state": "open"
+        },
+        "churn:apps/galaxy/scripts/shots.mjs:29-29": {
+          "number": 212,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/212",
+          "state": "open"
+        }
+      }
+    }
+  ]
+}
