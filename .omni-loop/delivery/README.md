@@ -4,8 +4,17 @@ The folder is the status.
 
 - `inbox/<prd>-<topic>/` — approved, not shipped: `spec.md`, `plan.md`, `before-after.html`.
 - `outbox/<prd>-<topic>/` — the decisions agents took while building it, waiting for a person.
-- `shipped/<prd>-<topic>/` — merged; its outbox moves inside it as `outbox/`.
+- `shipped/<prd>-<topic>/` — merged; its outbox moves inside it as `outbox/`, beside its release
+  note, `release.md`.
 - `archive/` — history no PRD issue can be matched to.
+
+**`release.md`** says what the PRD shipped, in plain words for anyone outside: a title and a
+one-paragraph description, which `omni check releases` grades. The loop writes it when it ships the
+PRD, and the person who merges the feature PR approves its words; a typo is fixed by pull request.
+Once the shipped folder reaches `main`, the sync (`pnpm releases:sync`, run by the `releases`
+workflow) stamps the PRD with its version, `0.0.<n>`, once and for good, in the table the public
+release page reads. A note never carries its own version, except the notes of the PRDs shipped
+before release notes existed: they are pinned `version: 0.0.1`, the initial release.
 
 Once a PRD's feature PR merges, the omni-loop app opens two pull requests, each for a person to
 review and merge.
