@@ -7,8 +7,9 @@
 -- workspace. A version is added only when its content's hash differs from the latest of its kind, and
 -- is never updated or deleted. Only the opener deletes a draft; nobody deletes a numbered dossier. The
 -- service role (the fallback) adds versions through the same rule, and a draft numbered to its dossier
--- merges into it. Later steps of PRD 216 append their own checks. One transaction, rolled back at the
--- end. Any `FAIL:` stops the run.
+-- merges into it. Later steps of PRD 216 append their own checks: dossier_rounds() gives each member
+-- the same brainstorm and delivery rounds of a dossier, once each, and nothing its caller could not
+-- read. One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
 
@@ -343,6 +344,202 @@ begin
      or has_function_privilege('anon', 'public.dossier_add_version(uuid, text, text, text, uuid, text, text)', 'execute')
      or has_function_privilege('authenticated', 'public.dossier_add_version(uuid, text, text, text, uuid, text, text)', 'execute') then
     raise exception 'FAIL: an API role may call a dossier function it should not';
+  end if;
+end $$;
+
+-- ── The questions that shaped a dossier: dossier_rounds() (PRD 216, step 3) ──
+-- Written as the database owner, past row-level security, so each row is dated where the rules need it:
+-- Vertuoza's PRD 30 of vertuoza/tiles, opened 10 hours ago in the Claude session sess-r, and PRD 31,
+-- opened 5 hours ago in the same Claude session, which ends PRD 30's brainstorm. Acme holds a dossier of
+-- its own for the same repository, number and Claude session, opened 7 hours ago: it belongs to another
+-- workspace, so it ends nothing of Vertuoza's. A draft with neither a Claude session nor a number.
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+do $$
+declare
+  vertuoza constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+  acme constant uuid := (select id from public.workspaces where slug = 'acme');
+  ada constant uuid := '00000000-0000-4000-8000-0000000000a1';
+  bob constant uuid := '00000000-0000-4000-8000-0000000000b1';
+  carl constant uuid := '00000000-0000-4000-8000-0000000000c1';
+  asked constant jsonb := '[{"question": "Square or hexagonal tiles?", "header": "Shape", "multiSelect": false,
+                             "options": [{"label": "Square (Recommended)", "description": "cheaper"}, {"label": "Hexagonal", "description": "prettier"}]}]';
+  s_ada uuid;
+  s_bob uuid;
+  s_stones uuid;
+  s_carl uuid;
+begin
+  insert into ids
+  select 'q-' || x.name, x.id from (values
+    ('prd30', gen_random_uuid()), ('prd31', gen_random_uuid()), ('acme30', gen_random_uuid()), ('draft', gen_random_uuid())
+  ) as x (name, id);
+  insert into public.dossiers (id, workspace_id, home_repo, prd, title, opened_by, claude_session_id, created_at, numbered_at) values
+    ((select id from ids where name = 'q-prd30'), vertuoza, 'vertuoza/tiles', 30, 'Tiles', ada, 'sess-r', now() - interval '10 hours', now() - interval '9 hours'),
+    ((select id from ids where name = 'q-prd31'), vertuoza, 'vertuoza/tiles', 31, 'Grout', ada, 'sess-r', now() - interval '5 hours', now() - interval '4 hours'),
+    ((select id from ids where name = 'q-acme30'), acme, 'vertuoza/tiles', 30, 'Tiles at Acme', carl, 'sess-r', now() - interval '7 hours', now() - interval '7 hours'),
+    ((select id from ids where name = 'q-draft'), vertuoza, 'vertuoza/tiles', null, 'Sealant', ada, null, now() - interval '12 hours', null);
+
+  -- The ask sessions: each lands in its workspace by its owner and repository, as PRD 144 places it.
+  insert into public.ask_sessions (owner, title, repo, branch, claude_session_id)
+  values (ada, 'tiles · main', 'Vertuoza/Tiles', 'main', 'sess-r') returning id into s_ada;
+  insert into public.ask_sessions (owner, title, repo, branch, claude_session_id)
+  values (bob, 'tiles · feat/tiles--s2', 'vertuoza/tiles', 'feat/tiles--s2', 'sess-bob') returning id into s_bob;
+  insert into public.ask_sessions (owner, title, repo, branch, claude_session_id)
+  values (bob, 'stones · feat/stones', 'vertuoza/stones', 'feat/stones', 'sess-stones') returning id into s_stones;
+  insert into public.ask_sessions (owner, title, repo, branch, claude_session_id)
+  values (carl, 'tiles at acme', 'vertuoza/tiles', 'main', 'sess-r') returning id into s_carl;
+  if (select w.slug from public.ask_sessions s join public.workspaces w on w.id = s.workspace_id where s.id = s_carl) <> 'acme'
+     or (select w.slug from public.ask_sessions s join public.workspaces w on w.id = s.workspace_id where s.id = s_ada) <> 'vertuoza' then
+    raise exception 'FAIL: the ask sessions of the rounds checks did not land in the workspaces they need';
+  end if;
+
+  -- The rounds, each dated. Their names say which dossier each belongs to, and by which rule.
+  with asked_at (name, session_id, ago, prd, skill) as (values
+    ('q-before',     s_ada,    interval '11 hours', null::integer, '/omni:brainstorm'),  -- before PRD 30 opened: no dossier's
+    ('q-brainstorm', s_ada,    interval '9 hours',  null,          '/omni:brainstorm'),  -- PRD 30, brainstorm
+    ('q-both',       s_ada,    interval '8 hours',  30,            '/omni:brainstorm'),  -- PRD 30, both rules: brainstorm
+    ('q-moved',      s_ada,    interval '6 hours',  null,          '/omni:brainstorm'),  -- PRD 30, brainstorm: Acme's dossier ends nothing
+    ('q-next',       s_ada,    interval '4 hours',  null,          '/omni:brainstorm'),  -- PRD 31, brainstorm
+    ('q-delivery',   s_bob,    interval '2 hours',  30,            '/omni:do-work'),     -- PRD 30, delivery
+    ('q-delivery31', s_bob,    interval '90 minutes', 31,          '/omni:do-work'),     -- PRD 31, delivery
+    ('q-stones',     s_stones, interval '1 hour',   30,            '/omni:do-work'),     -- PRD 30 of another repository: none
+    ('q-acme',       s_carl,   interval '3 hours',  30,            '/omni:do-work')      -- Acme's dossier only
+  ), made as (
+    insert into public.ask_rounds (session_id, questions, created_at, prd, skill)
+    select a.session_id, asked, now() - a.ago, a.prd, a.skill from asked_at a
+    returning id, session_id, created_at
+  )
+  insert into ids
+  select a.name, m.id from made m join asked_at a on a.session_id = m.session_id and now() - a.ago = m.created_at;
+
+  -- Answered: in the terminal (so by the session's owner), on the page by Bob, or moved to the terminal.
+  update public.ask_rounds set status = 'answered', answers = '{"Square or hexagonal tiles?": "Square (Recommended)"}', answered_via = 'terminal'
+   where id = (select id from ids where name = 'q-brainstorm');
+  update public.ask_rounds set status = 'answered', answers = '{"Square or hexagonal tiles?": "Hexagonal"}', answered_via = 'page',
+         category = 'ux-ui', category_by = 'model'
+   where id = (select id from ids where name = 'q-delivery');
+  update public.ask_rounds set status = 'abandoned' where id = (select id from ids where name = 'q-moved');
+  if (select count(*) from ids where name like 'q-%') <> 13 then
+    raise exception 'FAIL: the rounds checks did not set up their rows';
+  end if;
+end $$;
+
+create function pg_temp.rounds_of(dossier text) returns text language sql as $$
+  select coalesce(string_agg(coalesce(i.name, 'unknown') || ':' || r.rule, ' ' order by r.ordinality), '')
+    from public.dossier_rounds((select id from ids where name = dossier)) with ordinality as r
+    left join ids i on i.id = r.round_id and i.name like 'q-%'
+$$;
+grant execute on function pg_temp.rounds_of(text) to authenticated;
+
+-- ── Bob, a member: each dossier's rounds by the two rules, once each, in the order they were asked ──
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+do $$
+declare
+  got text;
+  found_round record;
+begin
+  got := pg_temp.rounds_of('q-prd30');
+  if got <> 'q-brainstorm:brainstorm q-both:brainstorm q-moved:brainstorm q-delivery:delivery' then
+    raise exception 'FAIL: PRD 30 did not read its brainstorm and delivery rounds, once each, in order: %', got;
+  end if;
+  got := pg_temp.rounds_of('q-prd31');
+  if got <> 'q-next:brainstorm q-delivery31:delivery' then
+    raise exception 'FAIL: PRD 31 did not read the rounds after its opening and its own delivery rounds: %', got;
+  end if;
+  got := pg_temp.rounds_of('q-draft');
+  if got <> '' then raise exception 'FAIL: a draft with no Claude session and no number read rounds: %', got; end if;
+  got := pg_temp.rounds_of('q-acme30');
+  if got <> '' then raise exception 'FAIL: a member read the rounds of another workspace''s dossier: %', got; end if;
+
+  -- Each round as PRD 144 keeps it, with who asked it, where, and who answered.
+  select * into found_round from public.dossier_rounds((select id from ids where name = 'q-prd30')) r
+   where r.round_id = (select id from ids where name = 'q-delivery');
+  if found_round.asked_by is distinct from '00000000-0000-4000-8000-0000000000b1'::uuid
+     or found_round.repo is distinct from 'vertuoza/tiles' or found_round.branch is distinct from 'feat/tiles--s2'
+     or found_round.status is distinct from 'answered' or found_round.answered_via is distinct from 'page'
+     or found_round.answered_by is distinct from '00000000-0000-4000-8000-0000000000b1'::uuid
+     or found_round.answers is distinct from '{"Square or hexagonal tiles?": "Hexagonal"}'::jsonb
+     or found_round.category is distinct from 'ux-ui' or found_round.category_by is distinct from 'model'
+     or found_round.prd is distinct from 30 or found_round.skill is distinct from '/omni:do-work' or found_round.answered_at is null
+     or found_round.questions -> 0 ->> 'question' is distinct from 'Square or hexagonal tiles?' then
+    raise exception 'FAIL: a delivery round did not come back as PRD 144 keeps it: %', row_to_json(found_round);
+  end if;
+  select * into found_round from public.dossier_rounds((select id from ids where name = 'q-prd30')) r
+   where r.round_id = (select id from ids where name = 'q-brainstorm');
+  if found_round.asked_by is distinct from '00000000-0000-4000-8000-0000000000a1'::uuid
+     or found_round.answered_by is distinct from '00000000-0000-4000-8000-0000000000a1'::uuid
+     or found_round.answered_via is distinct from 'terminal' or found_round.repo is distinct from 'Vertuoza/Tiles'
+     or found_round.category is not null then
+    raise exception 'FAIL: a brainstorm round did not name who asked it and who answered it: %', row_to_json(found_round);
+  end if;
+
+  -- Nothing the caller could not read on their own.
+  if exists (
+    select 1 from public.dossier_rounds((select id from ids where name = 'q-prd30')) r
+     where not exists (select 1 from public.ask_rounds a where a.id = r.round_id)) then
+    raise exception 'FAIL: dossier_rounds() returned a round its caller cannot read';
+  end if;
+end $$;
+
+-- ── Ada, a member of both workspaces: each dossier reads its own workspace's rounds only ──
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+do $$
+declare
+  got text;
+begin
+  got := pg_temp.rounds_of('q-prd30');
+  if got <> 'q-brainstorm:brainstorm q-both:brainstorm q-moved:brainstorm q-delivery:delivery' then
+    raise exception 'FAIL: a member of two workspaces read another workspace''s rounds on PRD 30: %', got;
+  end if;
+  got := pg_temp.rounds_of('q-acme30');
+  if got <> 'q-acme:brainstorm' then
+    raise exception 'FAIL: Acme''s dossier did not read Acme''s rounds alone: %', got;
+  end if;
+end $$;
+
+-- ── Carl, of another workspace: nothing of Vertuoza's ──
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
+do $$
+begin
+  if pg_temp.rounds_of('q-prd30') <> '' or pg_temp.rounds_of('q-prd31') <> '' then
+    raise exception 'FAIL: an account of another workspace read the rounds of a Vertuoza dossier';
+  end if;
+  if pg_temp.rounds_of('q-acme30') <> 'q-acme:brainstorm' then
+    raise exception 'FAIL: a member of Acme did not read the rounds of an Acme dossier';
+  end if;
+end $$;
+
+-- ── Eve, in no workspace: nothing ──
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
+do $$
+begin
+  if exists (select 1 from public.dossier_rounds((select id from ids where name = 'q-prd30')))
+     or exists (select 1 from public.dossier_rounds((select id from ids where name = 'q-acme30'))) then
+    raise exception 'FAIL: an account in no workspace read a dossier''s rounds';
+  end if;
+end $$;
+reset role;
+
+-- ── Signed out: refused ──
+set local role anon;
+do $$
+begin
+  begin
+    perform public.dossier_rounds('00000000-0000-4000-8000-000000000000');
+    raise exception 'FAIL: anon called dossier_rounds()';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+-- ── dossier_rounds() runs as its caller, and only the signed-in may call it ──
+do $$
+begin
+  if (select p.prosecdef from pg_proc p where p.oid = 'public.dossier_rounds(uuid)'::regprocedure) then
+    raise exception 'FAIL: dossier_rounds() is security definer: PRD 144''s access rules would not decide what it reads';
+  end if;
+  if has_function_privilege('anon', 'public.dossier_rounds(uuid)', 'execute')
+     or not has_function_privilege('authenticated', 'public.dossier_rounds(uuid)', 'execute') then
+    raise exception 'FAIL: dossier_rounds() is callable by anon, or not by the signed-in';
   end if;
 end $$;
 
