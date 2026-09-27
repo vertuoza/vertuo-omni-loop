@@ -124,6 +124,9 @@ export const ConfigSchema = z
       beforeAfterMaxBytes: z.number().int().positive().default(512000),
     }),
     ask: section({ url: askUrl.nullable().default(null) }),
+    // PRD 216: whether `omni dossier` uploads this repository's PRD folders to the server `ask.url`
+    // names. Off by default: a repository opts in. `dossierSwitch()` reads it with `ask.url`.
+    dossier: section({ enabled: z.boolean().default(false) }),
     markers: section({ prefix: z.string().regex(/^[a-z][a-z0-9-]*$/, 'lowercase letters, digits and hyphens').default('omni-outbox') }),
     // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.mjs`). By
     // default the omni-loop GitHub App's bot account; `null` switches signing off.
@@ -138,6 +141,18 @@ export const ConfigSchema = z
       .default({}),
   })
   .strict();
+
+/**
+ * Whether dossiers are on in a repository (PRD 216): `dossier.enabled` is true and `ask.url` is set.
+ * `reason` says why, in the words `omni dossier status` prints; `askUrl` is where the calls go.
+ *
+ * @returns {{ on: true, reason: string, askUrl: string } | { on: false, reason: string }}
+ */
+export function dossierSwitch(config) {
+  if (!config.dossier.enabled) return { on: false, reason: 'dossier.enabled is false' };
+  if (!config.ask.url) return { on: false, reason: 'ask.url is not set' };
+  return { on: true, reason: `dossier.enabled is true in ${CONFIG_FILE}`, askUrl: config.ask.url };
+}
 
 /** Keys a config once held under another name (PRD #68): refused, naming the key that replaced them,
  * never read as an alias — a person set them by hand, and a clear error beats a silent alias. */
