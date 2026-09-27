@@ -209,6 +209,24 @@ describe('syncDossiers: what it skips, and logs, without failing', () => {
     expect(report.created).toEqual([216]);
     expect(lines).toContain('  ! skipped PRD 3 of vertuoza/vertuo-omni-loop: Supabase: write dossiers 0–1 failed (503)');
   });
+
+  it('logs a file whose version is refused, and still adds its siblings', async () => {
+    const { run, store, versions, lines } = setup({ 'vertuoza/vertuo-omni-loop': omniLoop() });
+    const refusing = { ...store, addVersion: async (v) => (v.kind === 'plan' ? Promise.reject(new Error('Supabase: add a plan version failed (400)')) : store.addVersion(v)) };
+    await run(['vertuo-omni-loop'], { using: refusing });
+    expect(versions(216).map(([kind]) => kind)).toEqual(['spec', 'before-after']);
+    expect(lines).toContain(`  ! skipped ${D}/inbox/0216-prd-dossiers/plan.md in vertuoza/vertuo-omni-loop: Supabase: add a plan version failed (400)`);
+  });
+
+  it('takes the dossier the kit opened between the listing and the insert, rather than a second one', async () => {
+    const kitDossier = { id: 'd-kit', workspace_id: VERTUOZA, home_repo: 'vertuoza/vertuo-omni-loop', prd: 216, title: 'From the kit', opened_by: 'u1', claude_session_id: null, created_at: '2026-09-27T08:00:00Z', numbered_at: '2026-09-27T08:00:00Z' };
+    const { run, store, fake } = setup({ 'vertuoza/vertuo-omni-loop': omniLoop() }, { dossiers: [kitDossier] });
+    const stale = { ...store, dossiersOf: (w, r, prd = null) => (prd === null ? Promise.resolve(new Map()) : store.dossiersOf(w, r, prd)) };
+    const [report] = await run(['vertuo-omni-loop'], { using: stale });
+    expect(report.created).toEqual([3]);
+    expect(fake.tables.dossiers.filter((d) => d.prd === 216).map((d) => d.id)).toEqual(['d-kit']);
+    expect(fake.tables.dossier_versions.filter((v) => v.dossier_id === 'd-kit').map((v) => v.kind)).toEqual(['spec', 'plan', 'before-after']);
+  });
 });
 
 describe('syncDossiers: whose dossiers', () => {

@@ -48,38 +48,43 @@ async function syncFolder({ exec, store, slug, homeRepo, workspaceId, head, fold
 
   const title = titleOf(contents.get('spec') ?? null, folder.topic);
   if (!dossier) {
-    // Null when the key was taken since the listing (a kit push in between): read the one there is.
-    dossier = (await store.open({ workspaceId, homeRepo, prd: folder.prd, title, at: now.toISOString() }))
-      ?? (await store.dossiersOf(workspaceId, homeRepo, folder.prd)).get(folder.prd);
-    report.created.push(folder.prd);
+    dossier = await store.open({ workspaceId, homeRepo, prd: folder.prd, title, at: now.toISOString() });
+    if (dossier) report.created.push(folder.prd);
+    // Null when the key was taken since the listing (a kit push in between): take the one there is.
+    else dossier = (await store.dossiersOf(workspaceId, homeRepo, folder.prd)).get(folder.prd);
+    if (!dossier) throw new Error('its dossier could be neither opened nor found');
   } else if (contents.has('spec') && title !== dossier.title) {
     await store.retitle(dossier.id, title);
   }
 
   for (const file of wanted) {
     if (!contents.has(file.kind)) continue;
-    const version = await store.addVersion({ dossierId: dossier.id, kind: file.kind, content: contents.get(file.kind), commitSha: head.commit, gitBlob: file.sha });
-    if (version !== null) report.added.push({ prd: folder.prd, kind: file.kind, version });
+    try {
+      const version = await store.addVersion({ dossierId: dossier.id, kind: file.kind, content: contents.get(file.kind), commitSha: head.commit, gitBlob: file.sha });
+      if (version !== null) report.added.push({ prd: folder.prd, kind: file.kind, version });
+    } catch (err) {
+      log.warn(`  ! skipped ${file.path} in ${slug}: ${err.message}`);
+    }
   }
 }
 
 async function syncRepository({ exec, store, workspaceId, slug, now, log }) {
-  let head, config, listing;
+  // A repository that has not switched dossiers on is expected; one that cannot be read is logged as a problem.
+  const skip = (reason, problem = false) => {
+    if (problem) log.warn(`  ! skipped ${slug}: ${reason}`);
+    else log.log(`  - skipped ${slug}: ${reason}`);
+    return { slug, skipped: reason };
+  };
+  let head, listing;
   try {
     head = await readHead(exec, slug);
-    config = await readConfig(exec, slug, head.commit);
+    const config = await readConfig(exec, slug, head.commit);
     if (config === null) return skip(`no ${CONFIG_FILE} on ${head.branch}`);
     const switched = dossierSwitch(config);
     if (!switched.on) return skip(switched.reason);
     listing = { ...(await readTree(exec, slug, head.tree)), delivery: switched.delivery };
   } catch (err) {
-    log.warn(`  ! skipped ${slug}: cannot be read: ${ghWhy(err)}`);
-    return { slug, skipped: `cannot be read: ${ghWhy(err)}` };
-  }
-
-  function skip(reason) {
-    log.log(`  - skipped ${slug}: ${reason}`);
-    return { slug, skipped: reason };
+    return skip(`cannot be read: ${ghWhy(err)}`, true);
   }
 
   if (listing.truncated) log.warn(`  ! ${slug}: the tree listing is truncated: folders past its end are not read`);
@@ -93,8 +98,7 @@ async function syncRepository({ exec, store, workspaceId, slug, now, log }) {
     try {
       known = await store.dossiersOf(workspaceId, homeRepo);
     } catch (err) {
-      log.warn(`  ! skipped ${slug}: its dossiers cannot be read: ${err.message}`);
-      return { slug, skipped: `its dossiers cannot be read: ${err.message}` };
+      return skip(`its dossiers cannot be read: ${err.message}`, true);
     }
   }
   for (const folder of folders) {
