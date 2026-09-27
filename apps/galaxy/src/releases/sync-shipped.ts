@@ -49,7 +49,7 @@ function readWords(root: string, folder: Folder): { words: Pick<ShippedPrd, 'tit
   const read = (file: string) => readFileSync(join(root, file), 'utf8');
   if (existsSync(join(root, folder.note))) {
     const text = read(folder.note);
-    const broken: string[] = gradeReleaseNote(text, { prd: folder.prd });
+    const broken = gradeReleaseNote(text, { prd: folder.prd }) as string[];
     if (broken.length) return { refused: broken.map((rule) => `${folder.note}: ${rule}`) };
     const { note } = parseReleaseNote(text) as { note: { title: string; description: string; version: string | null } };
     return { words: { title: note.title, description: note.description, pinned: note.version === INITIAL_VERSION } };
