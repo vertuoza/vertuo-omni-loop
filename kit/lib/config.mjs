@@ -30,6 +30,11 @@ const askUrl = z.string().refine((value) => {
   try { url = new URL(value); } catch { return false; }
   return url.protocol === 'https:' || (url.protocol === 'http:' && url.hostname === '127.0.0.1');
 }, 'an https URL, or http on 127.0.0.1');
+// A public link: an absolute https URL on one line, with no loopback exception.
+const httpsUrl = z.string().refine((value) => {
+  if (/\s/.test(value)) return false;
+  try { return new URL(value).protocol === 'https:'; } catch { return false; }
+}, 'an absolute https URL');
 
 export const ConfigSchema = z
   .object({
@@ -126,12 +131,15 @@ export const ConfigSchema = z
     ask: section({ url: askUrl.nullable().default(null) }),
     markers: section({ prefix: z.string().regex(/^[a-z][a-z0-9-]*$/, 'lowercase letters, digits and hyphens').default('omni-outbox') }),
     // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.mjs`). By
-    // default the omni-loop GitHub App's bot account; `null` switches signing off.
+    // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a
+    // template: `{name}` and `{home}` are filled from the keys they name, anything else is printed
+    // as written. `home` defaults to the Omni Loop home page (ADR-0047).
     signature: z
       .object({
         name: trailerPart.default('OmniMan'),
         email: trailerPart.default('333776611+omni-loop-invader[bot]@users.noreply.github.com'),
-        footer: text.default('🦸 Delivered by OmniMan, with Omni Loop'),
+        home: httpsUrl.default('https://vertuo-omni-loop-galaxy.vercel.app'),
+        footer: text.default('🦸 {name} by [Omni Loop]({home}) ©'),
       })
       .strict()
       .nullable()
