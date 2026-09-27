@@ -31,6 +31,11 @@ game's app: a dependency principle 7 did not foresee, in the direction it forbad
    claudeSessionId, skill, model, tokens}`, each field null when the kit could not read it. Only
    names and counts leave the machine, never transcript text, and the kit holds no price. An older
    kit sends neither and keeps working; a server that ignores the field still honours the contract.
+   The galaxy's own pages add calls the kit never makes: `POST /api/ask/rounds/:id/shares` (the
+   owner shares a round with a member of the session's workspace; any round may be shared, and an
+   answered one is then read-only), `PATCH /api/ask/rounds/:id/category` and
+   `DELETE /api/ask/sessions/:id`. An answer to a round that is no longer open returns 409 with
+   `answeredBy {id, name}` and `via` (page or terminal): the first answer wins (PRD 144, item s4-03).
 3. **The kit still never names the game.** `kit/test/no-game-words.test.mjs` fails on "galaxy" in any
    file under `kit/` that is not a test, the plugin's skills and hooks included. It sits next to the
    fuller list of game words `kit/lib/outbox/banter.test.mjs` keeps for the outbox's fun lines. The
