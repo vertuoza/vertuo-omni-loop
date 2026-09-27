@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-27
 - Slice: s1
 - Wave: 1
+- Stays here: A local routing choice in deep-link.ts that one condition can change. No principle or rule in the knowledge base covers where signed-out links land.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ One condition in landing(); nothing stored.
 - Raised: 2026-09-27
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-42, P-PRODUCT-39
 
 ### The answer, as it was given
 
@@ -172,6 +174,7 @@ One line in ArcadeApp.tsx: set the scene directly instead of through go().
 - Raised: 2026-09-27
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-43, P-PRODUCT-40
 
 ### The answer, as it was given
 
@@ -250,6 +253,7 @@ One condition in landing(); nothing stored.
 - Raised: 2026-09-27
 - Slice: s1
 - Wave: 1
+- Stays here: A local markup choice for one dialog element, cheap to change, with no lasting rule or architecture decision behind it; nothing in the knowledge base covers it.
 
 ### The answer, as it was given
 
@@ -327,6 +331,7 @@ One element in the dialog, and its test.
 - Raised: 2026-09-27
 - Slice: s2
 - Wave: 2
+- Stays here: A local layout choice costing two CSS rules and a test; no lasting product rule or architecture decision, and nothing in the knowledge base covers it.
 
 ### The answer, as it was given
 
@@ -406,6 +411,7 @@ Two CSS rules and their test.
 - Raised: 2026-09-27
 - Slice: s2
 - Wave: 2
+- Stays here: A local layout choice, reversible by one CSS rule. It carries no lasting rule, invariant or architectural decision worth keeping in the knowledge base.
 
 ### The answer, as it was given
 
@@ -484,6 +490,7 @@ One CSS rule in src/knowledge/knowledge.css.
 - Raised: 2026-09-27
 - Slice: s3
 - Wave: 2
+- Stays here: A local game-behaviour choice, one condition in pauseFirst(), cheap to change; no domain exists for the arcade and it sets no lasting product rule.
 
 ### The answer, as it was given
 
@@ -561,6 +568,7 @@ One condition in pauseFirst() in src/arcade/leave.ts, and its test.
 - Raised: 2026-09-27
 - Slice: s3
 - Wave: 2
+- Became: BR-PRODUCT-44, P-PRODUCT-41
 
 ### The answer, as it was given
 
@@ -639,6 +647,7 @@ One condition in ArcadeApp.tsx's timed hand-overs.
 - Raised: 2026-09-27
 - Slice: s3
 - Wave: 2
+- Stays here: A local layout tweak of two CSS numbers, cheap to change, with no lasting rule or architectural choice behind it.
 
 ### The answer, as it was given
 
@@ -716,6 +725,7 @@ Two numbers in menu.css.
 - Raised: 2026-09-27
 - Slice: s4
 - Wave: 3
+- Stays here: A local visual placement in one CSS rule, cheap to change and with nothing lasting to keep. No existing entry covers the arcade shell layout.
 
 ### The answer, as it was given
 
@@ -793,6 +803,7 @@ One rule in shell.css (the switch's place on .form-advance); nothing stored.
 - Raised: 2026-09-27
 - Slice: s4
 - Wave: 3
+- Stays here: A local layout sizing choice, cheap to change (two lengths in shell.css), with no lasting rule or architecture to record.
 
 ### The answer, as it was given
 
