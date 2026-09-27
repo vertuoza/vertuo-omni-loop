@@ -1,6 +1,7 @@
-// `omni check [inbox|outbox|knowledge|kb|coverage|all]` — the repository's guards. Each prints its
-// violations (or its one pass line); exit 1 on any violation. `all` (the default) runs every guard,
-// and skips `coverage` — never fails on it — when the default branch's remote ref is absent.
+// `omni check [inbox|outbox|knowledge|kb|releases|coverage|all]` — the repository's guards. Each
+// prints its violations (or its one pass line); exit 1 on any violation. `all` (the default) runs
+// every guard, and skips `coverage` — never fails on it — when the default branch's remote ref is
+// absent.
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-inbox.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-outbox.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
 // Ported from vertuo-ai-domain@c4a210122:scripts/check-registers.mjs (its CLI half) — changes in kit/porting/bin--commands.md.
@@ -22,9 +23,10 @@ import {
 import { riskyChanges } from '../../lib/outbox/decision-coverage.mjs';
 import { outboxItemFiles } from '../../lib/outbox/outbox.mjs';
 import { gradePlaybook } from '../../lib/playbook/check-playbook.mjs';
+import { findReleaseViolations, releaseNoteFiles } from '../../lib/releases/check-releases.mjs';
 import { parseArgs, positiveInt, println, usageError } from '../args.mjs';
 
-const USAGE = 'usage: omni check [inbox|outbox|knowledge|kb|coverage|all] [--base <ref>] [--prd <n>]';
+const USAGE = 'usage: omni check [inbox|outbox|knowledge|kb|releases|coverage|all] [--base <ref>] [--prd <n>]';
 
 /** Prints a guard's result; `true` when it is green. */
 function report(stdout, title, violations, passLine) {
@@ -100,6 +102,16 @@ function checkKb({ ctx, stdout, stderr, exec }) {
   );
 }
 
+// PRD 262: every release note in the inbox and shipped folders, by the note's rules.
+function checkReleases({ ctx, stdout }) {
+  return report(
+    stdout,
+    'check releases — a release note does not hold what it claims:',
+    findReleaseViolations({ ctx }),
+    `check releases — ${releaseNoteFiles({ ctx }).length} release note(s), all well-formed.`,
+  );
+}
+
 function defaultBase(ctx) {
   return `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}`;
 }
@@ -141,7 +153,7 @@ function checkCoverage({ ctx, stdout, exec }, { base, prd }) {
   return ok;
 }
 
-const GUARDS = ['inbox', 'outbox', 'knowledge', 'kb', 'coverage', 'all'];
+const GUARDS = ['inbox', 'outbox', 'knowledge', 'kb', 'releases', 'coverage', 'all'];
 
 export const check = {
   async run(args, io) {
@@ -163,12 +175,13 @@ export const check = {
     if (guard === 'outbox') return checkOutbox(io) ? 0 : 1;
     if (guard === 'knowledge') return checkKnowledge(io) ? 0 : 1;
     if (guard === 'kb') return checkKb(io) ? 0 : 1;
+    if (guard === 'releases') return checkReleases(io) ? 0 : 1;
     if (guard === 'coverage') {
       if (!baseKnown) throw usageError(`omni check coverage: no ${base} — fetch it or pass --base <ref>.`);
       return checkCoverage(io, { base, prd }) ? 0 : 1;
     }
 
-    const results = [checkInbox(io), checkOutbox(io), checkKnowledge(io), checkKb(io)];
+    const results = [checkInbox(io), checkOutbox(io), checkKnowledge(io), checkKb(io), checkReleases(io)];
     if (baseKnown) results.push(checkCoverage(io, { base, prd }));
     else println(stdout, `coverage: skipped — no ${base}`);
     return results.every(Boolean) ? 0 : 1;
