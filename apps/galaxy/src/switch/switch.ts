@@ -25,6 +25,8 @@ export const SECTIONS: readonly Section[] = [
   { title: 'For me', path: '/ask/for-me', line: 'Questions a teammate shared with you' },
   { title: 'History', path: '/ask/history', line: 'Every question your workspace was asked' },
   { title: 'Knowledge map', path: '/knowledge', line: 'Principles, rules and invariants, as a map' },
+  // Public, unlike the others: anyone reads it, signed in or not (PRD 262).
+  { title: 'Release notes', path: '/releases', line: 'What Omni Loop shipped, week by week' },
 ];
 
 /** /app's own words: the sub-title beside the wordmark, the heading, and its line. */

@@ -76,10 +76,11 @@ pause, and the screens that move on by themselves wait under it. On the name scr
 keys: A, Z, Space, K and Enter say yes, B, X, Esc, J and Backspace say no. The single-file artifact
 has no app: neither the row nor the switch shows.
 
-Outside the arcade, the app (PRD 238): `/app`, its home, beside `/ask`, `/ask/for-me`, `/ask/history`
-and `/knowledge`, all on the ask pages' reading surface, in light and dark. `/app` is a card per
-section (`SECTIONS` in `src/switch/switch.ts`), each a link to its page; it reads nothing and opens
-without signing in, and each page it opens signs the visitor in on its own. Every app page's header
+Outside the arcade, the app (PRD 238): `/app`, its home, beside `/ask`, `/ask/for-me`, `/ask/history`,
+`/knowledge` and `/releases`, all on the ask pages' reading surface, in light and dark. `/app` is a
+card per section (`SECTIONS` in `src/switch/switch.ts`), each a link to its page; it reads nothing and
+opens without signing in, and each page it opens signs the visitor in on its own, except
+`/releases`, which is public ([Release notes](#release-notes)). Every app page's header
 links its `OMNI LOOP` mark to `/app` and ends with **Game mode**, which asks *Switch to game mode?*:
 Switch opens `/#menu` in the same tab, and Stay, Esc or a click outside leaves the page as it was.
 
@@ -460,6 +461,77 @@ is the planet's PRD.
   single-file artifact shows them without the OPEN hint, since it has no page to open.
 - **In the demo**, a planet's OPEN opens the pages' demo dossier, whichever planet it was pressed on.
 
+## Release notes
+
+Every PRD the loop ships carries a release note (PRD 262): a `release.md` beside its spec, a title and
+a one-paragraph description written for anyone outside, which the loop writes at ship and the feature
+PR's reviewer approves (`omni check releases` grades it). Once the PRD is on `main`, the sync stamps it
+with a version, `0.0.<n>`, once and for good, and `/releases` lists every release, week by week.
+
+```
+main ── a push under .omni-loop/delivery/shipped/ ──▶ releases workflow: pnpm releases:sync
+                                                             │  the service role: adds a row per PRD shipped
+                                                             ▼  since, refreshes a changed note's text
+                                             Supabase: public.releases (anyone reads it)
+                                                             │  the publishable key, no session
+                                                             ▼
+                                   /releases, regenerated at most every 5 minutes, no sign-in
+```
+
+**`/releases`, the page.** Public and indexed: no sign-in, no cookie read, and a title, a
+description, a canonical address and Open Graph tags, with no `noindex`. The app bar reads
+`OMNI LOOP · Releases`, then the theme switch and Game mode, and `/app` has a card for it, **Release
+notes**.
+
+- **Weeks** start on Monday, in Brussels time (`src/releases/weeks.ts`), newest first, each headed
+  `Week of <Monday>`, and the releases inside a week run newest first. Each shows its version, its
+  day, `PRD <n>` as plain text (never a link: the repository is private), its title and its
+  description.
+- **Release 0.0.1**, the initial release, gathers the 21 PRDs shipped from 24 to 27 September 2026. It
+  is dated by the latest of them and shows `Initial release`, its headline and intro, then a line per
+  PRD in PRD order.
+- **The four newest weeks are open**; each older one is a native `<details>` whose summary counts its
+  releases and PRDs. No script: every word is in the page.
+- **Each release has an anchor**, its version: `/releases#0.0.3` opens on it, and its version links to
+  it. A browser that honours it opens the folded week around it (Chromium does).
+- **Its words** live in `src/releases/words.ts`: the heading, its line, the initial release's headline
+  and intro, and the unavailable message.
+- **Modes** (`src/data/mode.ts`): with Supabase, it reads `public.releases` with the publishable key and
+  no session (`src/releases/store.ts`). In development, or a build with `OMNI_LOOP_DEMO=1`, it shows a
+  built-in sample (`src/releases/demo.ts`: the real initial release, then sample releases over five
+  weeks, so the oldest folds). Closed, it says *Release notes are unavailable right now.*
+- **A failed read** (`src/releases/page/source.ts`) never fails the build: while building, the page is
+  built with the unavailable line and the reason is logged. After that, it never replaces a good page:
+  the read throws, Next keeps serving the last page it rendered, and it tries again on a later
+  request. A visitor never reads an error's detail.
+
+**`pnpm releases:sync`, the sync** (`scripts/releases-sync.mjs`, its rules in `src/releases/`). It
+reads this checkout's shipped folders through the kit (the config, the layout and the note parser)
+and `git`, reads the table, and writes:
+
+1. A PRD already in the table keeps its release number and date forever; only its title and
+   description are refreshed from its note, so a typo is fixed by a pull request.
+2. A note pinned `version: 0.0.1` gets release 1.
+3. Every other shipped PRD with no row gets the next number, from 2, in the order its shipped folder
+   first reached `main`, the lower PRD number first on a tie.
+4. Its date is the committer date of the first commit on `main` that holds its shipped `spec.md`.
+5. A shipped PRD with no note is published under its spec's title with an empty description.
+6. It never deletes a row, and the database lets it neither renumber nor redate one.
+
+Every number comes from `main`'s history, so emptying the table and syncing again rebuilds the same
+rows. A note that breaks the rules stops the whole sync, which writes nothing and exits 1 until a pull
+request fixes it. It needs `SUPABASE_URL` (the project's URL, not the `NEXT_PUBLIC_` one) and
+`SUPABASE_SERVICE_ROLE_KEY`, and names the one missing; `pnpm releases:sync` also reads them from
+`apps/galaxy/.env.local`, as the `game:*` commands do. Run it on a checkout of `main` with its whole
+history: locally, `npx supabase status` prints both values.
+
+**`.github/workflows/releases.yml`** runs it on a push to `main` that touches
+`.omni-loop/delivery/shipped/**` (or the workflow), after every successful `supabase` run on `main` (so
+the first sync follows the migration that creates the table), and by hand. It checks out `main`'s
+whole history, runs one sync at a time (`group: releases`), and uses the same project and secret key
+as the game workflow. It stays off while `SUPABASE_PROJECT_ID` is unset, and it shares nothing with the
+game: deleting `game/` leaves it working.
+
 ## Run it locally
 
 From the repository root:
@@ -478,7 +550,12 @@ npx supabase start       # applies supabase/migrations and loads supabase/seed.s
 npx supabase status      # prints the API URL, the anon key and the service_role key
 cp apps/galaxy/.env.example apps/galaxy/.env.local   # paste the URL and both keys
 pnpm galaxy:dev          # now reads from Supabase: the menu shows "SUPABASE LEDGER"
+SUPABASE_URL=http://127.0.0.1:54321 pnpm releases:sync   # fills public.releases from this checkout, on main
 ```
+
+`/releases` reads `public.releases` as soon as the two public variables are set: empty until the sync
+has run, it says no release is published yet. The sync writes with the service role's key, which it
+reads from `.env.local` like the `game:*` commands, and the project's URL as `SUPABASE_URL`.
 
 Signing in locally needs the Google and GitHub OAuth clients: export
 `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID`, `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`,
@@ -522,8 +599,9 @@ to the ledger, and Vercel serves the arcade from it:
 
 ```
 supabase workflow ── supabase db push, on merge to main ──┐
-                                                          ├──▶ Supabase, Central EU (Frankfurt)
-game workflow ─ game:project + game:xp, every 15 minutes ──┘         │  the player's own session
+game workflow ─ game:project + game:xp, every 15 minutes ─┼──▶ Supabase, Central EU (Frankfurt)
+releases workflow ─ releases:sync, when a PRD ships ──────┘          │  the player's own session;
+                                                                     │  nobody's, for /releases
                                                                      ▼
                                                       Vercel, fra1: apps/galaxy
 ```
@@ -544,17 +622,18 @@ Repository settings › Secrets and variables › Actions:
 
 | Name | Kind | Value | Used by |
 |---|---|---|---|
-| `SUPABASE_PROJECT_ID` | variable | the project ref | both workflows; unset, the migrations skip their deploy |
+| `SUPABASE_PROJECT_ID` | variable | the project ref | the three workflows; unset, the migrations skip their deploy and the sync stays off |
 | `SUPABASE_ACCESS_TOKEN` | secret | the personal access token | `supabase.yml` › deploy |
 | `SUPABASE_DB_PASSWORD` | secret | the database password | `supabase.yml` › deploy |
-| `SUPABASE_SERVICE_ROLE_KEY` | secret | the secret key | `game.yml` › ledger and rankings |
+| `SUPABASE_SERVICE_ROLE_KEY` | secret | the secret key | `game.yml` › ledger and rankings; `releases.yml` › sync |
 
 ### 3. Apply the migrations
 
 Actions › **supabase** › Run workflow, on `main`. From then on, every merge to `main` that touches
 `supabase/migrations/` applies them. A pull request that touches `supabase/` first proves they apply
 to an empty database and runs `supabase/checks/access.sql` (who may read and write what). `db push`
-never loads the demo seed.
+never loads the demo seed. Each successful run on `main` is followed by the releases workflow, which
+fills `public.releases` for `/releases` ([Release notes](#release-notes)).
 
 ### 4. Set up sign-in
 
@@ -593,7 +672,8 @@ never loads the demo seed.
    harness, other) a moment after it is asked. Without it, questions stay unsorted and nothing fails;
    anyone in the workspace can still sort them on the page.
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
-   arcade still plays its attract mode and says the galaxy is out of reach.
+   arcade still plays its attract mode and says the galaxy is out of reach. `/releases` reads the
+   database at build time instead, as nobody, and again at most every 5 minutes.
 
 ### 6. Fill the galaxy
 
@@ -610,6 +690,9 @@ poll backfills history with everyone's fleet as it stands.
   poll keeps it in use. The ledger and the crew's high scores now live only in the database: the
   weekly backup artifact (or the Pro plan's point-in-time recovery) is what restores them.
   `player_xp` rebuilds from the ledger at the next poll.
+- `/releases` keeps serving its last good render while the project is paused or out of reach, and
+  the releases workflow fails loudly in Actions until it wakes. `public.releases` rebuilds from
+  `main`'s history: empty it and run the sync.
 
 ## Share it without a server
 
@@ -686,12 +769,20 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
   each kind, its question counts and its last activity. PRD 144's access rules decide what comes
   back. `supabase/checks/dossiers.sql` proves the dossiers' rules on every pull request that touches
   `supabase/`.
+- `releases` (PRD 262): one row per shipped PRD, key `prd`, with its `release` number (shown as
+  `0.0.<release>`; 1 is the initial release, shared, and every number above 1 is one PRD's own, a
+  partial unique index), `released_at` (when its shipped folder first reached `main`), and its note's
+  `title` and `description` (empty while it has no note). It belongs to no workspace: **anyone reads
+  it**, signed in or not, for `/releases`. Only the service role writes it, through the sync: it adds
+  rows and updates `title` and `description` only (column grants), and nobody deletes a row but a
+  person in the database. `supabase/checks/releases.sql` proves both on every pull request that
+  touches `supabase/` ([Release notes](#release-notes)).
 - Row-level security, by membership (`is_member(workspace)`): a member reads their workspaces,
   their own memberships, and their workspace's sectors, fleets, players, ledger, XP and high
   scores, and nothing of any other workspace. A member with GitHub linked inserts their own player
   row there, and updates only its name, fleet and hero (column grants). Anonymous visitors read
-  nothing, fleets included. The service role reads everything, appends to the ledger, and writes
-  workspaces, memberships, sectors, fleets and `player_xp`.
+  nothing but `releases`, fleets included. The service role reads everything, appends to the
+  ledger, and writes workspaces, memberships, sectors, fleets and `player_xp`, and adds releases.
 - Explicit grants: Supabase projects created since 2026-05-30 no longer grant the API roles access
   to new tables. The local stack matches (`auto_expose_new_tables = false`), so a table added
   without its grants fails locally and in the pull request check, not in production. The
