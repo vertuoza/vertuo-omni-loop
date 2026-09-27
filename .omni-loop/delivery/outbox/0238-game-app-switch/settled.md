@@ -701,3 +701,157 @@ Two numbers in menu.css.
 ```
 
 <!-- /omni-outbox-settled: s3-03-wide-menu-rows-tightened -->
+
+<!-- omni-outbox-settled: s4-01-sideways-switch-at-the-wing-foot -->
+
+## s4-01-sideways-switch-at-the-wing-foot — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-sideways-switch-at-the-wing-foot
+prd: 238
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 3
+---
+
+## The question, in plain words
+
+On a phone held sideways, the new switch between the game and the app goes under the speaker grille on the right. Should it sit just below the grille, or lower down, level with the OMNI LOOP name under the screen?
+
+## The decision, in plain words
+
+It sits at the bottom of the right side, level with the OMNI LOOP name under the screen, still below the grille. Everything else on that side keeps its exact place.
+
+## The intro, for fun
+
+The switch went looking for a seat under the grille and found the whole bottom row free.
+
+## The punchline, for fun
+
+It sat down level with the name tag, and nobody had to scoot over.
+
+## The options, in plain words
+
+A. At the bottom of the right side, level with the name under the screen, the option built.
+B. Just below the grille, a fixed short step under it, whatever the phone's height.
+
+## What I had to decide
+
+Where on the sideways (Advance) body's right wing the GAME ▮▯ APP switch sits. The spec says "under the speaker grille, on the right wing" and that nothing else on the body moves; the wing centres A, B and the grille as one column, so a switch added to that column would push them up.
+
+## What I did meanwhile
+
+In src/arcade/shell.css the switch is placed out of the wing's column (absolutely, centred on the wing, 34 px tall, 3 px into the bottom gutter), so its middle lines up with the wordmark row under the lens. At 852×393 the grille ends at y 303 and the switch's track sits at y 365 to 377. Measured by hand in Chromium, no other part of either wing, the lens or the wordmark moves.
+
+## What it costs to change later
+
+One rule in shell.css (the switch's place on .form-advance); nothing stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names the wing and says under the grille, not how far under it; the before-and-after page draws only the upright body.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-sideways-switch-at-the-wing-foot -->
+
+<!-- omni-outbox-settled: s4-02-season-label-gives-way-on-small-phones -->
+
+## s4-02-season-label-gives-way-on-small-phones — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-season-label-gives-way-on-small-phones
+prd: 238
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 3
+---
+
+## The question, in plain words
+
+On a phone held upright, the new switch shares a row with the OMNI LOOP name and the season, and on the narrowest phones all three do not fit. How much of the row should the switch take?
+
+## The decision, in plain words
+
+The switch is kept compact, so the whole season (SEASON 2026-09) still shows on phones 390 pixels wide or wider. On narrower phones the end of the season is cut and replaced by three dots, as the spec asks, and the switch always stays on the body.
+
+## The intro, for fun
+
+Three things wanted one short shelf: a name, a season and a brand-new switch.
+
+## The punchline, for fun
+
+On the smallest phones, the season agreed to lose its last few letters.
+
+## The options, in plain words
+
+A. A compact switch: the whole season shows from 390 pixels wide and is cut below that, the option built.
+B. A roomier switch, easier to hit with a thumb, with the season cut on more phones.
+
+## What I had to decide
+
+How wide the GAME ▮▯ APP switch is on the upright (Handheld) body, which sets the phone width below which the season label is cut. The spec asks for the ellipsis before the switch leaves the body; it gives no size for the switch or for its touch area.
+
+## What I did meanwhile
+
+In src/arcade/shell.css the upright body's grid gains an auto column beside the wordmark that only the switch takes (zero wide without it), and the season label shrinks with an ellipsis. The switch's button is 98×34 px to touch: an 8 px lead-in, GAME, a 26×12 px track with its knob, and APP, its words at 8 px. Measured by hand in Chromium: SEASON 2026-09 shows whole at 393 and 390 px wide and is cut at 375, 360 and 320; OMNI LOOP and every other part of the body keep their places, and the switch ends 12 px inside the screen's edge.
+
+## What it costs to change later
+
+Two lengths in shell.css (the switch's padding and gap); nothing stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names the long season label and asks for the ellipsis, but gives no size for the switch or its touch area, and no phone width at which the whole label must still fit.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-season-label-gives-way-on-small-phones -->
