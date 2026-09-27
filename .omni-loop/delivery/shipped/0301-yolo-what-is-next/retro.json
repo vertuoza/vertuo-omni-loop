@@ -1,0 +1,265 @@
+{
+  "prd": 301,
+  "runs": [
+    {
+      "featurePr": {
+        "mergeSha": "cbfbbdbfde0b9d2f47f2ffb8fff0f374d1d669ef",
+        "mergedAt": "2026-09-27T19:54:44Z",
+        "number": 302,
+        "openedAt": "2026-09-27T19:25:48Z",
+        "title": "feat(kit): the yolo and the yolo-fix end with a plain \"What is next?\" (PRD 301)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/302"
+      },
+      "findings": [],
+      "kinds": {
+        "churn": {
+          "added": 244,
+          "churn": 0,
+          "commits": 4,
+          "files": [],
+          "finalAdded": 244,
+          "leftOut": {
+            "delivery": [
+              ".omni-loop/delivery/outbox/0301-yolo-what-is-next/s1-01-next-steps-printed-as-formatted-text.md"
+            ],
+            "generated": [],
+            "lockfile": []
+          },
+          "noPatch": [],
+          "notCounted": [],
+          "pulls": 1,
+          "ranges": [],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [],
+          "redRuns": [],
+          "slices": [
+            "s1"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 0,
+            "commits": 0,
+            "red": 0,
+            "runs": 0,
+            "slices": 0
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 1,
+            "agreed": 0,
+            "byRank": {
+              "medium": 1
+            },
+            "drifted": 0,
+            "drifts": [],
+            "file": ".omni-loop/delivery/shipped/0301-yolo-what-is-next/outbox/settled.md",
+            "raised": 1,
+            "reworked": 0
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "stuck": 0
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  304
+                ],
+                "slice": "s1",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 2,
+              "red": 0,
+              "reviews": 0,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 0,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 302,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/302"
+              },
+              {
+                "pr": 304,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/304"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 0,
+              "graded": 1,
+              "shared": 0,
+              "unplanned": 0,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [],
+                "files": 6,
+                "pr": 304,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/304"
+              }
+            ],
+            "reason": null,
+            "sharedGround": []
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-09-27T19:54:44Z",
+            "minutes": 29,
+            "number": 302,
+            "openedAt": "2026-09-27T19:25:48Z",
+            "readyAt": "2026-09-27T19:50:35Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/302"
+          },
+          "medianMinutes": 14,
+          "sliceCount": 1,
+          "slices": [
+            {
+              "closedAt": "2026-09-27T19:45:04Z",
+              "mergedAt": "2026-09-27T19:45:04Z",
+              "mergedWave": 1,
+              "minutes": 14,
+              "openedAt": "2026-09-27T19:30:54Z",
+              "plannedWave": 1,
+              "pr": 304,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/304"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 1,
+            "planned": 1
+          }
+        }
+      },
+      "prd": {
+        "folder": ".omni-loop/delivery/shipped/0301-yolo-what-is-next",
+        "number": 301,
+        "state": "shipped",
+        "title": "The yolo and the yolo-fix end with a plain \"What is next?\"",
+        "topic": "yolo-what-is-next"
+      },
+      "rules": {
+        "fieldCaps": {
+          "lesson": 400,
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600
+        },
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "thresholds": {
+          "afterMergeDays": 14,
+          "churnFileLines": 40,
+          "churnFilePercent": 50,
+          "churnRangeCommits": 3,
+          "failingTestRuns": 2,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "slowSliceFactor": 3
+        },
+        "version": 1
+      },
+      "run": "merge",
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": []
+      },
+      "issues": {}
+    }
+  ]
+}
