@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Omni Theme</title>
+<style>
+  /* The page's own frame wears Ask's palette, light and dark (PRD 71, PRD 144). The mockups are
+     drawn in fixed colours, one theme each, the same whatever theme this page is read in: they are
+     the app's pages as they will look. No web font and no external request. */
+  :root {
+    --ground: #f5f4fc;
+    --surface: #ffffff;
+    --sunk: #eceaf8;
+    --line: #d9d6ee;
+    --ink: #17153d;
+    --muted: #4f5486;
+    --plasma: #6a2fd0;
+    --plasma-soft: #efe7ff;
+    --green: #15703f;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --px: "Press Start 2P", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+      --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66; --green: #4ee08a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+    --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66; --green: #4ee08a;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.55 var(--body); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 40px 64px; display: grid; gap: 52px; }
+  header.page { display: grid; gap: 12px; max-width: 72ch; }
+  .eyebrow { font: 10px/1.6 var(--px); letter-spacing: .08em; color: var(--plasma); text-transform: uppercase; }
+  h1 { margin: 0; font-size: clamp(28px, 4vw, 40px); line-height: 1.15; text-wrap: balance; }
+  h2 { margin: 0; font-size: 22px; line-height: 1.25; text-wrap: balance; }
+  p { margin: 0; }
+  code { font: 0.88em var(--mono); background: var(--sunk); border-radius: 4px; padding: 1px 5px; }
+  .lede { color: var(--muted); }
+  section { display: grid; gap: 18px; }
+  section > header { display: grid; gap: 6px; max-width: 72ch; }
+  section > header p { color: var(--muted); }
+
+  /* Today beside after. */
+  .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+  .trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  figure { margin: 0; display: grid; gap: 10px; min-width: 0; }
+  figcaption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 14px; color: var(--muted); }
+  .tag { font: 9px/1 var(--px); letter-spacing: .06em; padding: 6px 8px; border-radius: 4px; background: var(--sunk); color: var(--muted); text-transform: uppercase; }
+  .tag.after { background: var(--plasma); color: var(--surface); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag.after { color: var(--ground); } }
+  :root[data-theme="dark"] .tag.after { color: var(--ground); }
+
+  /* ── The mockups: an /ask page, in one theme each ─────────────────────────────────────────── */
+  .mock[data-t="light"] {
+    --g: #f5f4fc; --s: #ffffff; --k: #eceaf8; --l: #d9d6ee; --i: #17153d; --m: #4f5486;
+    --p: #6a2fd0; --ps: #efe7ff; --op: #ffffff; --y: #ffd84a; --oy: #3a2c00; --c: #0b6f86; --gr: #15703f;
+    color-scheme: light;
+  }
+  .mock[data-t="dark"] {
+    --g: #0e0d33; --s: #16144a; --k: #1d1a58; --l: #2f2c78; --i: #f2f4ff; --m: #a9aee6;
+    --p: #b37cff; --ps: #2a1d66; --op: #0e0d33; --y: #ffd84a; --oy: #3a2c00; --c: #6ff0ff; --gr: #4ee08a;
+    color-scheme: dark;
+  }
+  .mock[data-t="omni"] {
+    --g: #07061c; --s: #120f3a; --k: #0e0d33; --l: #1a2170; --i: #f2f4ff; --m: #8a90d6;
+    --p: #ffd84a; --ps: #2a2350; --op: #07061c; --y: #ff3ea5; --oy: #07061c; --c: #6ff0ff; --gr: #4ee08a;
+    color-scheme: dark;
+  }
+  .mock {
+    background: var(--g); color: var(--i);
+    border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+    font: 13px/1.5 var(--body);
+    box-shadow: 0 1px 0 var(--line);
+  }
+  .m-bar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 8px 10px; border-bottom: 1px solid var(--l);
+  }
+  .m-brand { display: inline-flex; align-items: baseline; gap: 7px; }
+  .m-mark { font: 7px/1 var(--px); letter-spacing: .04em; color: var(--p); text-decoration: underline; text-underline-offset: 3px; }
+  .m-sub { font-size: 11px; color: var(--m); }
+  .m-end { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .m-switch { display: inline-flex; padding: 2px; border: 1px solid var(--l); border-radius: 999px; background: var(--s); }
+  .m-switch i { font: 700 10px/1 var(--body); font-style: normal; color: var(--m); padding: 5px 7px; border-radius: 999px; }
+  .m-switch i.on { background: var(--p); color: var(--op); }
+  .m-game { font: 700 10px/1 var(--body); padding: 6px 8px; border-radius: 6px; background: var(--p); color: var(--op); white-space: nowrap; }
+  .m-body { display: grid; gap: 10px; padding: 14px 12px 16px; }
+  .m-chip { justify-self: start; font-size: 11px; color: var(--m); background: var(--k); border-radius: 999px; padding: 2px 9px; }
+  .m-q { font-size: 15px; font-weight: 700; line-height: 1.3; }
+  .m-opts { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+  .m-opt {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 9px; align-items: start;
+    padding: 9px 10px; border: 1.5px solid var(--l); border-radius: 9px; background: var(--s);
+  }
+  .m-opt.sel { border-color: var(--p); background: var(--ps); }
+  .m-radio { width: 13px; height: 13px; margin-top: 2px; border-radius: 50%; border: 1.5px solid var(--m); }
+  .m-opt.sel .m-radio { border-color: var(--p); box-shadow: inset 0 0 0 3px var(--ps), inset 0 0 0 7px var(--p); }
+  .m-opt b { font-weight: 700; }
+  .m-opt small { display: block; font-size: 11.5px; color: var(--m); }
+  .m-badge { display: inline-block; margin-left: 6px; font: 700 9.5px/1 var(--body); font-style: normal; padding: 3px 6px; border-radius: 999px; background: var(--y); color: var(--oy); vertical-align: 1px; }
+  .m-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .m-link { color: var(--c); text-decoration: underline; text-underline-offset: 3px; font-size: 12px; }
+  .m-done { color: var(--gr); font-size: 12px; font-weight: 700; }
+  .m-send { font: 700 12px/1 var(--body); padding: 8px 14px; border-radius: 8px; background: var(--p); color: var(--op); }
+
+  /* ── Tables ───────────────────────────────────────────────────────────────────────────────── */
+  .scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: 12px; font-weight: 700; color: var(--muted); background: var(--sunk); white-space: nowrap; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .sw { display: inline-flex; align-items: center; gap: 7px; font: 12px var(--mono); white-space: nowrap; }
+  .sw::before { content: ""; width: 16px; height: 16px; border-radius: 4px; background: var(--c); box-shadow: inset 0 0 0 1px rgba(128, 128, 160, .45); flex: none; }
+  .same { color: var(--muted); }
+  .new { color: var(--plasma); font-weight: 700; }
+
+  ul.plain { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72ch; }
+  .note { font-size: 14px; color: var(--muted); max-width: 72ch; }
+
+  @media (max-width: 860px) {
+    .trio { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 680px) {
+    .pair { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page">
+    <p class="eyebrow">PRD 284 · before / after</p>
+    <h1>Omni · Light · Dark: the homepage's palette on the app</h1>
+    <p class="lede">The theme switch on <code>/app</code>, <code>/ask/*</code>, <code>/knowledge</code>,
+      <code>/prd</code> and <code>/releases</code> reads <b>Omni · Light · Dark</b> instead of
+      System · Light · Dark. Omni is HOME's void, navy and comic yellow, and the default. Light and
+      Dark are today's themes, unchanged. Only colours change between the three: the layout, the
+      faces, the sizes and the controls are the same.</p>
+  </header>
+
+  <section>
+    <header>
+      <h2>A first visit to /ask</h2>
+      <p>Nothing stored. Today the page follows the system and lands on the neutral Dark (or Light).
+        After, it opens in Omni, with Omni pressed.</p>
+    </header>
+    <div class="pair">
+      <figure>
+        <figcaption><span class="tag">Today</span> System, on a device set to dark</figcaption>
+        <div class="mock" data-t="dark" role="img" aria-label="The ask page today, in the dark theme, System pressed">
+          <div class="m-bar">
+            <span class="m-brand"><span class="m-mark">OMNI LOOP</span><span class="m-sub">Questions</span></span>
+            <span class="m-end"><span class="m-switch"><i class="on">System</i><i>Light</i><i>Dark</i></span><span class="m-game">Game mode</span></span>
+          </div>
+          <div class="m-body">
+            <span class="m-chip">Release</span>
+            <p class="m-q">Where should the release notes link from the app?</p>
+            <ul class="m-opts">
+              <li class="m-opt sel"><span class="m-radio"></span><span><b>A card on /app</b><em class="m-badge">Recommended</em><small>One more entry in the app's sections</small></span></li>
+              <li class="m-opt"><span class="m-radio"></span><span><b>The app bar</b><small>A link beside the theme switch</small></span></li>
+              <li class="m-opt"><span class="m-radio"></span><span><b>Nowhere yet</b><small>Keep it reachable by its address</small></span></li>
+            </ul>
+            <p class="m-foot"><span class="m-link">Share this question</span><span class="m-send">Send</span></p>
+          </div>
+        </div>
+      </figure>
+      <figure>
+        <figcaption><span class="tag after">After</span> Omni, the default</figcaption>
+        <div class="mock" data-t="omni" role="img" aria-label="The ask page after, in the Omni theme, Omni pressed">
+          <div class="m-bar">
+            <span class="m-brand"><span class="m-mark">OMNI LOOP</span><span class="m-sub">Questions</span></span>
+            <span class="m-end"><span class="m-switch"><i class="on">Omni</i><i>Light</i><i>Dark</i></span><span class="m-game">Game mode</span></span>
+          </div>
+          <div class="m-body">
+            <span class="m-chip">Release</span>
+            <p class="m-q">Where should the release notes link from the app?</p>
+            <ul class="m-opts">
+              <li class="m-opt sel"><span class="m-radio"></span><span><b>A card on /app</b><em class="m-badge">Recommended</em><small>One more entry in the app's sections</small></span></li>
+              <li class="m-opt"><span class="m-radio"></span><span><b>The app bar</b><small>A link beside the theme switch</small></span></li>
+              <li class="m-opt"><span class="m-radio"></span><span><b>Nowhere yet</b><small>Keep it reachable by its address</small></span></li>
+            </ul>
+            <p class="m-foot"><span class="m-link">Share this question</span><span class="m-send">Send</span></p>
+          </div>
+        </div>
+      </figure>
+    </div>
+    <p class="note">In Omni the signal is comic yellow with the void's text on it, as HOME's PRESS START:
+      the selected option's edge, the pressed theme, Send and Game mode. The Recommended badge turns
+      magenta, so it never reads as a selection.</p>
+  </section>
+
+  <section>
+    <header>
+      <h2>After: three themes, one layout</h2>
+      <p>The same page in each theme. Light and Dark are today's, token for token; only the switch's
+        first button changed.</p>
+    </header>
+    <div class="trio">
+      <figure>
+        <figcaption><span class="tag after">Omni</span> the default</figcaption>
+        <div class="mock" data-t="omni" role="img" aria-label="The ask page in Omni">
+          <div class="m-bar">
+            <span class="m-brand"><span class="m-mark">OMNI LOOP</span><span class="m-sub">Questions</span></span>
+            <span class="m-end"><span class="m-switch"><i class="on">Omni</i><i>Light</i><i>Dark</i></span></span>
+          </div>
+          <div class="m-body">
+            <p class="m-q">Keep the old export?</p>
+            <ul class="m-opts">
+              <li class="m-opt sel"><span class="m-radio"></span><span><b>Drop it</b><em class="m-badge">Recommended</em><small>Nobody opened it in 90 days</small></span></li>
+              <li class="m-opt"><span class="m-radio"></span><span><b>Keep it</b><small>Behind the new one</small></span></li>
+            </ul>
+            <p class="m-foot"><span class="m-done">Answered</span><span class="m-send">Send</span></p>
+          </div>
+        </div>
+      </figure>
+      <figure>
+        <figcaption><span class="tag">Light</span> unchanged</figcaption>
+        <div class="mock" data-t="light" role="img" aria-label="The ask page in Light">
+          <div class="m-bar">
+            <span class="m-brand"><span class="m-mark">OMNI LOOP</span><span class="m-sub">Questions</span></span>
+            <span class="m-end"><span class="m-switch"><i>Omni</i><i class="on">Light</i><i>Dark</i></span></span>
+          </div>
+          <div class="m-body">
+            <p class="m-q">Keep the old export?</p>
+            <ul class="m-opts">
+              <li class="m-opt sel"><span class="m-radio"></span><span><b>Drop it</b><em class="m-badge">Recommended</em><small>Nobody opened it in 90 days</small></span></li>
+              <li class="m-opt"><span class="m-radio"></span><span><b>Keep it</b><small>Behind the new one</small></span></li>
+            </ul>
+            <p class="m-foot"><span class="m-done">Answered</span><span class="m-send">Send</span></p>
+          </div>
+        </div>
+      </figure>
+      <figure>
+        <figcaption><span class="tag">Dark</span> unchanged</figcaption>
+        <div class="mock" data-t="dark" role="img" aria-label="The ask page in Dark">
+          <div class="m-bar">
+            <span class="m-brand"><span class="m-mark">OMNI LOOP</span><span class="m-sub">Questions</span></span>
+            <span class="m-end"><span class="m-switch"><i>Omni</i><i>Light</i><i class="on">Dark</i></span></span>
+          </div>
+          <div class="m-body">
+            <p class="m-q">Keep the old export?</p>
+            <ul class="m-opts">
+              <li class="m-opt sel"><span class="m-radio"></span><span><b>Drop it</b><em class="m-badge">Recommended</em><small>Nobody opened it in 90 days</small></span></li>
+              <li class="m-opt"><span class="m-radio"></span><span><b>Keep it</b><small>Behind the new one</small></span></li>
+            </ul>
+            <p class="m-foot"><span class="m-done">Answered</span><span class="m-send">Send</span></p>
+          </div>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <header>
+      <h2>The tokens</h2>
+      <p>Omni is a third theme in <code>@omni/design</code>'s <code>ASK</code>, with the same fourteen
+        names. Every value but one is a colour HOME already uses. The contrast column is Omni's pair
+        from <code>ASK_TEXT_PAIRS</code>; all 24 text and edge pairs pass WCAG AA.</p>
+    </header>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Token</th><th>Role</th><th>Light</th><th>Dark</th><th>Omni</th><th>Omni contrast</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>ground</code></td><td>the page</td><td><span class="sw" style="--c:#f5f4fc">#f5f4fc</span></td><td><span class="sw" style="--c:#0e0d33">#0e0d33</span></td><td><span class="sw" style="--c:#07061c">#07061c</span> void</td><td class="num">—</td></tr>
+          <tr><td><code>surface</code></td><td>an option, a card</td><td><span class="sw" style="--c:#ffffff">#ffffff</span></td><td><span class="sw" style="--c:#16144a">#16144a</span></td><td><span class="sw" style="--c:#120f3a">#120f3a</span> cab</td><td class="num">—</td></tr>
+          <tr><td><code>sunk</code></td><td>the preview, a chip</td><td><span class="sw" style="--c:#eceaf8">#eceaf8</span></td><td><span class="sw" style="--c:#1d1a58">#1d1a58</span></td><td><span class="sw" style="--c:#0e0d33">#0e0d33</span> deep</td><td class="num">—</td></tr>
+          <tr><td><code>line</code></td><td>borders</td><td><span class="sw" style="--c:#d9d6ee">#d9d6ee</span></td><td><span class="sw" style="--c:#2f2c78">#2f2c78</span></td><td><span class="sw" style="--c:#1a2170">#1a2170</span> navyDark</td><td class="num">—</td></tr>
+          <tr><td><code>ink</code></td><td>text</td><td><span class="sw" style="--c:#17153d">#17153d</span></td><td><span class="sw" style="--c:#f2f4ff">#f2f4ff</span></td><td><span class="sw" style="--c:#f2f4ff">#f2f4ff</span> white</td><td class="num">18.22 on ground</td></tr>
+          <tr><td><code>muted</code></td><td>hints, descriptions</td><td><span class="sw" style="--c:#4f5486">#4f5486</span></td><td><span class="sw" style="--c:#a9aee6">#a9aee6</span></td><td><span class="sw" style="--c:#8a90d6">#8a90d6</span> dim</td><td class="num">4.84 on plasmaSoft</td></tr>
+          <tr><td><code>plasma</code></td><td>the signal</td><td><span class="sw" style="--c:#6a2fd0">#6a2fd0</span></td><td><span class="sw" style="--c:#b37cff">#b37cff</span></td><td><span class="sw" style="--c:#ffd84a">#ffd84a</span> yellow</td><td class="num">14.43 on ground</td></tr>
+          <tr><td><code>plasmaSoft</code></td><td>the selected option</td><td><span class="sw" style="--c:#efe7ff">#efe7ff</span></td><td><span class="sw" style="--c:#2a1d66">#2a1d66</span></td><td><span class="sw" style="--c:#2a2350">#2a2350</span> <span class="new">new</span></td><td class="num">13.17 ink on it</td></tr>
+          <tr><td><code>onPlasma</code></td><td>text on the signal</td><td><span class="sw" style="--c:#ffffff">#ffffff</span></td><td><span class="sw" style="--c:#0e0d33">#0e0d33</span></td><td><span class="sw" style="--c:#07061c">#07061c</span> void</td><td class="num">14.43 on plasma</td></tr>
+          <tr><td><code>yellow</code></td><td>the Recommended badge</td><td><span class="sw" style="--c:#ffd84a">#ffd84a</span></td><td><span class="sw" style="--c:#ffd84a">#ffd84a</span></td><td><span class="sw" style="--c:#ff3ea5">#ff3ea5</span> magenta</td><td class="num">—</td></tr>
+          <tr><td><code>onYellow</code></td><td>text on the badge</td><td><span class="sw" style="--c:#3a2c00">#3a2c00</span></td><td><span class="sw" style="--c:#3a2c00">#3a2c00</span></td><td><span class="sw" style="--c:#07061c">#07061c</span> void</td><td class="num">6.16 on badge</td></tr>
+          <tr><td><code>cyan</code></td><td>links, focus</td><td><span class="sw" style="--c:#0b6f86">#0b6f86</span></td><td><span class="sw" style="--c:#6ff0ff">#6ff0ff</span></td><td><span class="sw" style="--c:#6ff0ff">#6ff0ff</span> cyan</td><td class="num">13.49 on surface</td></tr>
+          <tr><td><code>green</code></td><td>answered</td><td><span class="sw" style="--c:#15703f">#15703f</span></td><td><span class="sw" style="--c:#4ee08a">#4ee08a</span></td><td><span class="sw" style="--c:#4ee08a">#4ee08a</span> green</td><td class="num">10.69 on surface</td></tr>
+          <tr><td><code>red</code></td><td>errors</td><td><span class="sw" style="--c:#b3122f">#b3122f</span></td><td><span class="sw" style="--c:#ff6b86">#ff6b86</span></td><td><span class="sw" style="--c:#ff6b86">#ff6b86</span> as Dark</td><td class="num">6.67 on surface</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">On the knowledge map, whose kinds read these tokens, principles turn yellow in Omni
+      (as in the arcade's star chart), rules stay cyan and invariants red; the sun turns magenta.</p>
+  </section>
+
+  <section>
+    <header>
+      <h2>What a stored choice shows</h2>
+      <p>The key stays <code>omni-ask-theme</code>, so nobody who picked Light or Dark loses it.</p>
+    </header>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Stored in the browser</th><th>Today</th><th>After</th></tr></thead>
+        <tbody>
+          <tr><td>nothing</td><td>System: light or dark, as the device</td><td class="new">Omni</td></tr>
+          <tr><td><code>system</code> (from before)</td><td>System: light or dark, as the device</td><td class="new">Omni</td></tr>
+          <tr><td><code>light</code></td><td>Light</td><td class="same">Light</td></tr>
+          <tr><td><code>dark</code></td><td>Dark</td><td class="same">Dark</td></tr>
+          <tr><td>anything else, or storage refused</td><td>System</td><td class="new">Omni</td></tr>
+          <tr><td>choosing Omni</td><td>—</td><td>removes the key</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <header>
+      <h2>What stays the same</h2>
+    </header>
+    <ul class="plain">
+      <li>Every page's layout, faces, sizes, spacing, corners and controls, in all three themes.</li>
+      <li>Light and Dark, token for token.</li>
+      <li>The theme applied before the first paint: a reload never flashes another theme.</li>
+      <li>HOME at <code>/</code>, the arcade at <code>/play</code>, and <code>/design</code>.</li>
+      <li>No database, kit or route change.</li>
+    </ul>
+  </section>
+
+</div>
+</body>
+</html>
