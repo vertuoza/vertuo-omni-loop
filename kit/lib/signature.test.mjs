@@ -1,11 +1,14 @@
 // PRD #99, slice s1: the signature's lines, built from the `signature` config section, and the
-// three questions `omni phase0` and `omni credits` ask of what GitHub holds.
+// three questions `omni phase0` and `omni credits` ask of what GitHub holds. PRD #215, slice s1: the
+// footer is a template, its `{name}` and `{home}` filled before the marker.
 import { describe, expect, it } from 'vitest';
 import { parseConfig } from './config.mjs';
 import { botLogin, carriesTrailer, footerLine, isSignedBody, SIGNED_MARKER, trailerLine } from './signature.mjs';
 
 const EMAIL = '333776611+omni-loop-invader[bot]@users.noreply.github.com';
 const TRAILER = `Co-authored-by: OmniMan <${EMAIL}>`;
+const HOME = 'https://vertuo-omni-loop-galaxy.vercel.app';
+const FOOTER = `🦸 OmniMan by [Omni Loop](${HOME}) ©`;
 const signature = parseConfig('kit: 1\n').signature;
 const custom = { name: 'Robo', email: 'robo@example.com', footer: 'Made by Robo' };
 
@@ -17,8 +20,26 @@ describe('the lines a signature prints', () => {
 
   it('the footer is the footer, then the hidden marker on the same line', () => {
     expect(SIGNED_MARKER).toBe('<!-- omni-loop:signed -->');
-    expect(footerLine(signature)).toBe('🦸 Delivered by OmniMan, with Omni Loop <!-- omni-loop:signed -->');
+    expect(footerLine(signature)).toBe(`${FOOTER} <!-- omni-loop:signed -->`);
     expect(footerLine(custom)).toBe('Made by Robo <!-- omni-loop:signed -->');
+  });
+
+  it('fills every {name} and {home} in the footer, wherever they appear', () => {
+    const twice = { ...custom, home: 'https://example.com', footer: '{name} and {name}, at {home} or {home}' };
+    expect(footerLine(twice)).toBe('Robo and Robo, at https://example.com or https://example.com <!-- omni-loop:signed -->');
+    expect(footerLine({ ...twice, footer: '[{home}]({home}) — {name}' })).toBe(
+      '[https://example.com](https://example.com) — Robo <!-- omni-loop:signed -->',
+    );
+  });
+
+  it('prints anything else in the footer as written, an unknown placeholder included', () => {
+    const other = { ...custom, home: 'https://example.com', footer: '{x} {Name} {home {name}} { name } {{name}}' };
+    expect(footerLine(other)).toBe('{x} {Name} {home Robo} { name } {Robo} <!-- omni-loop:signed -->');
+  });
+
+  it('fills each placeholder once: a value holding a placeholder or a $ is printed as it is', () => {
+    const tricky = { ...custom, name: '{home} $& $1', home: 'https://example.com/{name}', footer: '{name} | {home}' };
+    expect(footerLine(tricky)).toBe('{home} $& $1 | https://example.com/{name} <!-- omni-loop:signed -->');
   });
 
   it('signing off gives no line at all', () => {
@@ -34,7 +55,7 @@ describe('whether a body is signed', () => {
   });
 
   it('is not signed with the words of the footer alone, or with no body', () => {
-    expect(isSignedBody('🦸 Delivered by OmniMan, with Omni Loop')).toBe(false);
+    expect(isSignedBody(FOOTER)).toBe(false);
     expect(isSignedBody('<!-- omni-loop:signed')).toBe(false);
     expect(isSignedBody('')).toBe(false);
     expect(isSignedBody(null)).toBe(false);
