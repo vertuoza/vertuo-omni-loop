@@ -139,7 +139,9 @@ change the check.
 
 1. Commit the plan in the worktree as `docs(plan): <topic>`, ending with the co-author trailer your
    session requires, then the `omni sign trailer` line, and run
-   `git push -u <repo.remote> <feature branch>`.
+   `git push -u <repo.remote> <feature branch>`. Then follow `/omni:dossier-push <n>` from the
+   worktree: `plan.md` goes up to the PRD's dossier, as a new version only when it changed.
+   Whatever it prints, carry on.
 2. Open the feature PR as a **draft**, because CI skips drafts, so the slices merging into it cost
    no CI run. Follow `/omni:pr`'s **feature** kind: base
    `repo.defaultBranch`, head the feature branch, a Conventional Commits title naming the PRD, and

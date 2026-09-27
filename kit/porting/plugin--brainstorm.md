@@ -125,3 +125,42 @@ SKILL.md names exists now covers `sign`.
 ### Gate (this update)
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.
+
+## PRD #216, slice s5 — the brainstorm follows the dossier skills
+
+Not a re-port: upstream's skill keeps its artifacts in the repository only. A kit-local change to
+the prose, which the bundle does not carry. PRD #216 keeps every PRD's spec, plan and before/after
+page on the Omni page as a **dossier**, every version of each, through `omni dossier` (slice s1),
+which two small skills wrap: `/omni:dossier-open` (`omni dossier open`) and `/omni:dossier-push`
+(`omni dossier push`). Each reports every exit code as the command prints it, and neither stops the
+skill that runs it.
+
+- **Step 0** follows `/omni:dossier-open` with one line of the idea, after the briefing and before
+  the first question: a draft dossier, linked to the Claude session, whose link it prints as
+  "follow along at …". Whatever it prints, the brainstorm carries on to step 1.
+- **Step 1's spike** notes that its dossier stays a draft, which the person who opened it may delete
+  on the Omni page: a spike still ends with no issue, no folder, no plan and no PR.
+- **Step 7** follows `/omni:dossier-push <n>` from the feature worktree, after its push: the draft
+  becomes PRD n's dossier, and the spec and the before/after page go up as its first versions.
+- **Step 8** says that `/omni:plan` sends `plan.md` through `/omni:dossier-push` itself, between its
+  push and the draft feature PR (see `plugin--plan.md`); the brainstorm adds no push of its own.
+- **Step 9** follows `/omni:dossier-push <n>` from the phase-0 worktree, after the phase-0 push: a
+  file that changed becomes a new version, an unchanged one adds nothing. Item 4 ("push, then open
+  it") is split in two, so the push and the dossier come before the phase-0 PR opens
+  (item 5), and the PR's own lifecycle does not hold the dossier back.
+- **Unchanged:** step 5's rule that the before/after page is never a claude.ai artifact. The dossier
+  shows that same file, sandboxed, to the workspace; the file in the repository stays the one a
+  person reviews in the phase-0 PR.
+
+### Tests
+
+`kit/test/plugin.test.mjs` gained a block on the live skills: each dossier skill parses, names only
+`omni dossier` (the one verb it wraps), and has a row for exits `0`, `1` and `2`; the brainstorm names
+`/omni:dossier-open` in step 0 after `kb show briefing`, and `/omni:dossier-push` in step 7 after
+`git push -u` and in step 9 after the phase-0 push. The existing rules (every `omni` command a
+SKILL.md names exists, signing) cover the two new skills, which make no commit and open nothing.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs kit/test/no-game-words.test.mjs`
+and `pnpm test`, green.
