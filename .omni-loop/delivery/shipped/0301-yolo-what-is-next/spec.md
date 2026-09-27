@@ -63,7 +63,7 @@ When it did not ship, the folder is still in the inbox and its outbox is a folde
 with one line per open item file and `settled.md` when it is there:
 
 ```text
-  .omni-loop/delivery/outbox/0301-yolo-what-is-next/
+  .omni-loop/delivery/shipped/0301-yolo-what-is-next/outbox/
   ├── s1-02-….md         open: a question waiting for you
   └── settled.md         the decisions already settled
 ```

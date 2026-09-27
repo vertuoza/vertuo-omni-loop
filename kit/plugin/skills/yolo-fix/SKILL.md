@@ -209,16 +209,22 @@ the whole feature, acceptance, push, the body, the gate), then `/omni:yolo` §5 
 Then release as `/omni:yolo` §6 does: remove `labels.inProgress` (unless the Stuck path swapped it
 for `labels.needsFix`) and write the final status comment, `done` or `stuck`.
 
-## 8. Report
+## 8. Hand off
 
-One block: what step 3 settled (agreed or drifted, by question number) and whether a round was
-posted; the leftovers adopted; every drifted item, the rework sub-PR that closed it, the bound it
-stayed inside, any territory breach; each rework not merged, with its reason; the checks that ran
-and did not; the gate verdict and the feature PR's state. Then the line "A person merges #<feature
-PR> into `repo.defaultBranch`."
+Report, in one block: what step 3 settled (agreed or drifted, by question number) and whether a
+round was posted; the leftovers adopted; every drifted item, the rework sub-PR that closed it, the
+bound it stayed inside, any territory breach; each rework not merged, with its reason; the checks
+that ran and did not; the gate verdict and the feature PR's state.
 
 **With nothing answered, nothing drifted and nothing unclear,** say so plainly: no settle sub-PR,
 no rework sub-PR, no round comment. Step 7 still refreshes the outbox comment.
+
+Then end the reply with `/omni:yolo` §7's hand-off, as written: the PRD's folder, where it is, and
+the **What is next?** of the ending this run reached, its last line alone as the reply's last line.
+One difference: the held ending's command is `/omni:yolo-fix <n>`, since a held rework resumes with
+this skill. The red ending already runs `/omni:yolo-fix <n>`, and the green one runs nothing. As
+there, a run that stops before it picks up the feature PR (step 1) keeps its one line and prints no
+hand-off.
 
 ## Guardrails
 
