@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-26
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off, low-cost scope stretch for one slice; the method is additive and changes no caller, so there is no lasting rule or build choice to record.
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ Low. The method is additive. Removing it means moving the write into `game/cli/x
 - Raised: 2026-09-26
 - Slice: s1
 - Wave: 1
+- Stays here: A local test-seam drift with nothing to undo; following where the fake now lives is not a lasting rule or architectural decision.
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ None: the fake is the same one, only its file moved. Nothing to undo.
 - Raised: 2026-09-26
 - Slice: s1
 - Wave: 1
+- Became: N-PRODUCT-10
 
 ### The answer, as it was given
 
@@ -250,6 +253,7 @@ Low while nothing reads it: making the column nullable is a one-statement follow
 - Raised: 2026-09-26
 - Slice: s2
 - Wave: 2
+- Became: BR-PRODUCT-32, P-PRODUCT-30
 
 ### The answer, as it was given
 
@@ -328,6 +332,7 @@ Low. Reading XP inside the galaxy's `Promise.all` is a two-line change in `arcad
 - Raised: 2026-09-26
 - Slice: s2
 - Wave: 2
+- Stays here: A local UI choice, cheap to change (one storage key, one flag), with no lasting product rule or architecture behind it; nothing in the knowledge base covers it.
 
 ### The answer, as it was given
 
@@ -406,6 +411,7 @@ Low. One key in browser storage and one flag in `menuItems()`: dropping the tag,
 - Raised: 2026-09-26
 - Slice: s2
 - Wave: 2
+- Stays here: A local consistency choice: it reuses the existing doorOf() refusal, is one line to change, and sets no new lasting rule beyond how the menu already behaves.
 
 ### The answer, as it was given
 
@@ -483,6 +489,7 @@ Low. Opening the room without the galaxy is one line in `doorOf()`.
 - Raised: 2026-09-26
 - Slice: s3
 - Wave: 3
+- Stays here: A local game-flow choice that is cheap to change; no principle, rule or ADR covers game screens, and there is no domain for the arcade game.
 
 ### The answer, as it was given
 
@@ -561,6 +568,7 @@ Low: one constant for the time, and one phase of the engine to keep or drop.
 - Raised: 2026-09-26
 - Slice: s3
 - Wave: 3
+- Stays here: Local, cheap-to-change tuning numbers in one file, pending playtesting; nothing lasting or provable belongs in the knowledge base, and no domain exists for the game.
 
 ### The answer, as it was given
 
@@ -639,6 +647,7 @@ Low: constants in one file.
 - Raised: 2026-09-26
 - Slice: s3
 - Wave: 3
+- Became: BR-PRODUCT-33, P-PRODUCT-31
 
 ### The answer, as it was given
 
@@ -717,6 +726,7 @@ Low: one line picks the grid.
 - Raised: 2026-09-26
 - Slice: s3
 - Wave: 3
+- Became: BR-PRODUCT-34, P-PRODUCT-32
 
 ### The answer, as it was given
 
@@ -794,6 +804,7 @@ Low: one sort to swap for the fixed list.
 - Raised: 2026-09-26
 - Slice: s4
 - Wave: 3
+- Stays here: A local layout choice fixed by one constant, cheap to change, and nothing stored; no domain or principle in the knowledge base calls for it to be kept.
 
 ### The answer, as it was given
 
@@ -873,6 +884,7 @@ Low. Showing more or fewer levels is one constant, and each wording is one line.
 - Raised: 2026-09-26
 - Slice: s5
 - Wave: 4
+- Became: BR-PRODUCT-35, P-PRODUCT-33
 
 ### The answer, as it was given
 
@@ -951,6 +963,7 @@ Medium: another answer is a migration that changes the foreign key; the scores o
 - Raised: 2026-09-26
 - Slice: s5
 - Wave: 4
+- Stays here: A one-off test adjustment outside the slice's territory; cheap to change and it sets no lasting rule, invariant or design choice.
 
 ### The answer, as it was given
 
@@ -1028,6 +1041,7 @@ Low: one test's expected list of files.
 - Raised: 2026-09-26
 - Slice: s5
 - Wave: 4
+- Stays here: A local UI choice for one game screen, cheap to change and with no stored shape; no domain exists for the game and nothing in the knowledge base covers it.
 
 ### The answer, as it was given
 
@@ -1106,6 +1120,7 @@ Low: one pure function and the text layer's lines; no stored shape.
 - Raised: 2026-09-26
 - Slice: s5
 - Wave: 4
+- Became: BR-PRODUCT-36, P-PRODUCT-30
 
 ### The answer, as it was given
 
@@ -1184,6 +1199,7 @@ Low: a condition in `arcadeFor()`, one line on the cabinet, and the demo account
 - Raised: 2026-09-26
 - Slice: s5
 - Wave: 4
+- Stays here: A local layout choice in one scene's stylesheet, cheap to change, with no lasting rule, invariant or architectural consequence.
 
 ### The answer, as it was given
 
@@ -1262,6 +1278,7 @@ Low: a label and a few positions in one stylesheet.
 - Raised: 2026-09-26
 - Slice: s6
 - Wave: 5
+- Stays here: A small fallback inside one function, cheap to change. It sets no lasting product law, and the spec already treats a replayed fanfare as harmless.
 
 ### The answer, as it was given
 
@@ -1340,6 +1357,7 @@ Low: one fallback in one function. Keeping the level in the database instead wou
 - Raised: 2026-09-26
 - Slice: s6
 - Wave: 5
+- Became: BR-PRODUCT-37, P-PRODUCT-35
 
 ### The answer, as it was given
 
@@ -1418,6 +1436,7 @@ Low: one condition in one pure function, and its tests.
 - Raised: 2026-09-26
 - Slice: s6
 - Wave: 5
+- Stays here: Local UI copy and flow choice in one overlay, cheap to change; no lasting principle, rule or architectural decision, and no existing entry covers it.
 
 ### The answer, as it was given
 
@@ -1496,6 +1515,7 @@ Low: two strings and a hint in the text layer, or one timer.
 - Raised: 2026-09-26
 - Slice: s7
 - Wave: 6
+- Stays here: A one-off territory choice about two stale doc lines, fixable in any later PR; nothing lasting to record beyond the ledger.
 
 ### The answer, as it was given
 
