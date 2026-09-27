@@ -137,3 +137,47 @@ export function dossierReader(db: Pick<SupabaseClient, 'from'>) {
 }
 
 export type DossierReader = ReturnType<typeof dossierReader>;
+
+// ── The questions that shaped it (PRD 216, step 3) ──────────────────────────────
+// dossier_rounds() (supabase/migrations/20260928100000_dossier_rounds.sql) finds a dossier's rounds
+// when it is read, by two rules — brainstorm (its Claude session, from its opening to that session's
+// next dossier) and delivery (its PRD number in its home repository) — in its own workspace. It runs as
+// the caller, so PRD 144's access rules decide: someone who cannot read the dossier gets no round.
+
+/** Which rule brought a round to a dossier. A round both rules match is brainstorm. */
+export type RoundRule = 'brainstorm' | 'delivery';
+
+/** A round of a dossier, as dossier_rounds() returns it: the round as PRD 144 keeps it, its rule, and
+ * its ask session's owner (who asked), repository and branch. */
+export type DossierRoundRow = {
+  rule: RoundRule;
+  round_id: string;
+  session_id: string;
+  asked_by: string;
+  repo: string | null;
+  branch: string | null;
+  /** AskUserQuestion's questions, exactly as the tool took them. */
+  questions: unknown;
+  /** Question text → the answer, once answered. */
+  answers: Record<string, string> | null;
+  status: 'open' | 'answered' | 'abandoned';
+  answered_via: 'page' | 'terminal' | null;
+  answered_by: string | null;
+  category: string | null;
+  category_by: string | null;
+  prd: number | null;
+  skill: string | null;
+  created_at: string;
+  answered_at: string | null;
+};
+
+/** The columns dossier_rounds() returns, in its order. */
+export const ROUND_FIELDS = [
+  'rule', 'round_id', 'session_id', 'asked_by', 'repo', 'branch', 'questions', 'answers', 'status', 'answered_via',
+  'answered_by', 'category', 'category_by', 'prd', 'skill', 'created_at', 'answered_at',
+] as const satisfies ReadonlyArray<keyof DossierRoundRow>;
+
+/** The dossier's rounds, in the order they were asked; none when the caller may not read it. */
+export async function dossierRounds(db: Pick<SupabaseClient, 'rpc'>, dossierId: string): Promise<DossierRoundRow[]> {
+  return settle<DossierRoundRow[]>('read the questions', await db.rpc('dossier_rounds', { p_dossier: dossierId })) ?? [];
+}

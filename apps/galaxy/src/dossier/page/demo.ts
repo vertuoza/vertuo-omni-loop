@@ -1,9 +1,11 @@
 // The dossier page's demo (PRD 216), for a build without a database in development, as the ask pages
 // have theirs: one numbered PRD of the ask demo's workspace, with two versions of its spec (the second
 // read from the repository), one of its before/after page and no plan yet, so every state of a tab
-// shows. Its viewer is the ask demo's owner, who opened it.
+// shows; and the questions that shaped it, three asked by its brainstorm and two while it was
+// delivered, answered on the page, in the terminal, or not at all. Its viewer is the ask demo's owner,
+// who opened it.
 import { DEMO_MEMBERS, DEMO_OWNER } from '../../ask/page/demo';
-import type { DossierVersionRow } from '../store';
+import type { DossierRoundRow, DossierVersionRow } from '../store';
 import type { DossierRead } from './view';
 
 export const DEMO_DOSSIER_ID = '00000000-0000-4000-8000-00000000d055';
@@ -65,6 +67,67 @@ const PAGE_V1 = `<!doctype html>
 /** Every version's content, by version id. */
 const CONTENT: Record<string, string> = { 'demo-spec-1': SPEC_V1, 'demo-spec-2': SPEC_V2, 'demo-page-1': PAGE_V1 };
 
+const [PAULA, UMA] = [DEMO_MEMBERS[1].user_id, DEMO_MEMBERS[2].user_id];
+
+const MODE = {
+  question: 'How should the questions reach the page?', header: 'Mode', multiSelect: false,
+  options: [
+    { label: 'Hook mode + nudge (Recommended)', description: 'A PreToolUse hook sends every AskUserQuestion.' },
+    { label: 'An instruction to the model', description: 'Each skill is told to call a tool of its own.' },
+  ],
+};
+const HOST = {
+  question: 'Where should the page live?', header: 'Host', multiSelect: false,
+  options: [
+    { label: 'The galaxy app', description: 'It already has the crew\'s Google sign-in.' },
+    { label: 'A project of its own', description: 'One more deployment to keep.' },
+  ],
+};
+const CHECKS = {
+  question: 'Which checks should gate the slice?', header: 'Checks', multiSelect: true,
+  options: [
+    { label: 'Row-level security', description: 'Two accounts\' tokens against the migration.' },
+    { label: 'Handler tests', description: 'The API as functions, with a stubbed client.' },
+    { label: 'A live session', description: 'A real Claude Code session answered from the page.' },
+  ],
+};
+const UPDATES = {
+  question: 'Should the page poll, or listen for changes?', header: 'Updates', multiSelect: false,
+  options: [
+    { label: 'Poll every 2 s (Recommended)', description: 'No new service; cheap at the crew\'s volume.' },
+    { label: 'Supabase Realtime', description: 'Instant, but one more moving part.' },
+  ],
+};
+const THEME = {
+  question: 'Which theme should a first visit get?', header: 'Theme', multiSelect: false,
+  options: [
+    { label: 'The system\'s (Recommended)', description: 'Light or dark, as the device is set.' },
+    { label: 'Always dark', description: 'Like the arcade.' },
+  ],
+};
+
+/** The demo's rounds: its brainstorm's, in the hour after it opened, then two of its delivery. */
+function demoRounds(opened: number): DossierRoundRow[] {
+  const round = (n: number, question: typeof MODE, at: number, more: Partial<DossierRoundRow> = {}): DossierRoundRow => ({
+    rule: 'brainstorm', round_id: `demo-dossier-round-${n}`, session_id: 'demo-terminal-1', asked_by: DEMO_OWNER,
+    repo: 'vertuoza/vertuo-omni-loop', branch: 'main', questions: [question], answers: null, status: 'open', answered_via: null,
+    answered_by: null, category: null, category_by: null, prd: null, skill: '/omni:brainstorm', created_at: iso(at), answered_at: null, ...more,
+  });
+  const answered = (question: typeof MODE, answer: string, by: string, via: 'page' | 'terminal', at: number) => ({
+    status: 'answered' as const, answers: { [question.question]: answer }, answered_by: by, answered_via: via, answered_at: iso(at),
+  });
+  const delivery = { rule: 'delivery' as const, prd: 71, branch: 'feat/ask-mode--s2', skill: '/omni:do-work', session_id: 'demo-terminal-2' };
+  return [
+    round(1, MODE, opened + 5 * MIN, { ...answered(MODE, MODE.options[0].label, PAULA, 'page', opened + 7 * MIN + 10_000), category: 'architecture', category_by: 'model' }),
+    round(2, HOST, opened + 12 * MIN, { ...answered(HOST, HOST.options[0].label, DEMO_OWNER, 'terminal', opened + 12 * MIN + 40_000), category: 'product', category_by: DEMO_OWNER }),
+    round(3, CHECKS, opened + 30 * MIN, { ...answered(CHECKS, 'Row-level security, Handler tests', UMA, 'page', opened + 36 * MIN), category: 'harness', category_by: 'model' }),
+    round(4, UPDATES, opened + 2 * 24 * 60 * MIN, {
+      ...delivery, ...answered(UPDATES, UPDATES.options[0].label, DEMO_OWNER, 'terminal', opened + 2 * 24 * 60 * MIN + 3 * MIN), category: 'architecture', category_by: 'model',
+    }),
+    round(5, THEME, opened + 2 * 24 * 60 * MIN + 40 * MIN, { ...delivery, status: 'abandoned' }),
+  ];
+}
+
 export function demoDossier(now: number): DossierRead {
   const opened = now - 3 * 24 * 60 * MIN;
   const version = (id: string, kind: DossierVersionRow['kind'], at: number, more: Partial<DossierVersionRow> = {}): DossierVersionRow => ({
@@ -83,6 +146,7 @@ export function demoDossier(now: number): DossierRead {
       version('demo-spec-2', 'spec', opened + 2 * 24 * 60 * MIN, { source: 'github', uploaded_by: null, commit_sha: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678' }),
     ],
     members: DEMO_MEMBERS,
+    rounds: demoRounds(opened),
   };
 }
 

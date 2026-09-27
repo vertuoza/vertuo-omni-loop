@@ -1,16 +1,19 @@
+import type { DossierKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
 import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
+import { QuestionsPane } from './QuestionsPane';
 import { FRAME_SANDBOX } from './sandbox';
 import { VersionPicker } from './VersionPicker';
 import { dossierPath, TAB_LABELS, type DossierView } from './view';
 
 // /prd/<id>, the page to share (PRD 216's spec, "The pages"): the header — PRD #n or DRAFT, the title,
 // the repository chips, who opened it and when, Copy link, and Delete draft for its opener — then a tab
-// per artifact. Before/after frames the version shown on its sandboxed route; Spec and Plan show it
-// rendered from markdown, raw HTML off, the front matter as a line above. Each tab with a version has
-// its version picker; one with none says so. Rendered on the server: the tabs and the picker are links
-// and a GET form, so it all works before any script runs.
+// per artifact and the Questions tab. Before/after frames the version shown on its sandboxed route;
+// Spec and Plan show it rendered from markdown, raw HTML off, the front matter as a line above. Each
+// artifact tab with a version has its version picker; one with none says so. Questions lists the rounds
+// that shaped it, and its label counts those answered out of those asked. Rendered on the server: the
+// tabs and the picker are links and a GET form, so it all works before any script runs.
 
 type Props = {
   view: DossierView;
@@ -20,7 +23,7 @@ type Props = {
   supabase: { url: string; key: string } | null;
 };
 
-const EMPTY: Record<DossierView['tab'], string> = {
+const EMPTY: Record<DossierKind, string> = {
   'before-after': 'The before/after page has no version yet.',
   spec: 'The spec has no version yet.',
   plan: 'The plan has no version yet.',
@@ -28,6 +31,7 @@ const EMPTY: Record<DossierView['tab'], string> = {
 
 function Pane({ view, markdown }: Pick<Props, 'view' | 'markdown'>) {
   const { shown, tab } = view;
+  if (tab === 'questions') return <QuestionsPane questions={view.questions} />;
   if (!shown) {
     return (
       <p className="dossier-empty">
@@ -88,7 +92,7 @@ export function DossierPage({ view, markdown, supabase }: Props) {
         {view.tabs.map((t) => (
           <a key={t.kind} className="dossier-tab" href={t.href} aria-current={t.current ? 'page' : undefined}>
             {t.label}
-            {t.latest !== null && <small>v{t.latest}</small>}
+            {t.badge !== null && <small>{t.badge}</small>}
           </a>
         ))}
       </nav>
