@@ -17,6 +17,8 @@ html:has(.km-root) body { height: auto; overflow: visible; }
 .km-bar-end { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .km-chart { font-size: 15px; font-weight: 700; text-decoration: none; }
 .km-chart:hover { text-decoration: underline; }
+/* Game mode, the bar's last control (PRD 238): on a row of its own, it keeps the right end of it. */
+.km-bar-end > .game-mode { margin-left: auto; }
 
 /* ── The page ─────────────────────────────────────────────────────────────── */
 
