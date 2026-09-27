@@ -441,4 +441,51 @@ Enforced by: unenforced
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
+
+## BR-PRODUCT-38
+
+Each question's cost uses the price list's per-million-token prices. Cache reads cost 0.1× and cache writes 1.25× the input price unless the model's own entry says otherwise. A model not on the list shows no cost, never a guess.
+
+Serves: P-PRODUCT-36
+Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s1-03-price-table-values, PRD #144
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-27, PR #147
+Proposed: harvest 2026-09-27
+
+## BR-PRODUCT-39
+
+An ask session that belongs to no workspace is kept, and nobody can read it, its owner included, until a person moves it into a workspace by hand. The change never deletes such a session.
+
+Serves: P-PRODUCT-27
+Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s2-02-session-of-owner-in-no-workspace, PRD #144
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-27, PR #147
+Proposed: harvest 2026-09-27
+
+## BR-PRODUCT-40
+
+The model's guessed category is written only while no person has set one, through a function only the session's owner may call, under the asker's own sign-in. A category a person set is never replaced by the guess.
+
+Serves: P-PRODUCT-37
+Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s3-02-model-guess-never-overrides, PRD #144
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-27, PR #147
+Proposed: harvest 2026-09-27
+
+## BR-PRODUCT-41
+
+The share list and the already-answered note name each workspace member by their arcade name, or by their email address when they have none. The list is given only to members of that same workspace.
+
+Serves: P-PRODUCT-38
+Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s4-01-teammates-named-by-email, PRD #144
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-27, PR #147
 Proposed: harvest 2026-09-27
