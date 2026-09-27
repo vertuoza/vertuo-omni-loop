@@ -13,9 +13,11 @@
 //   the SHA-256 of its content, computed here and never taken from the caller, differs from the latest
 //   version of its kind; a version's number is its place among its kind's versions.
 //
-// The repository is kept in lower case, as the migration keeps it. The access rules on reading and
-// deleting, and that nothing is ever written to the tables but through these functions, are proved by
-// supabase/checks/dossiers.sql, not here.
+// The repository is kept in lower case, as the migration keeps it. The page's reads (PRD 216's page to
+// share) run on the same tables under the migration's access rules on reading and deleting, written
+// here as its policies write them, and name people through ask_members() (PRD 144). That the database holds those rules, and that nothing is ever
+// written to the tables but through these functions, is proved by supabase/checks/dossiers.sql, not
+// here.
 import { createHash } from 'node:crypto';
 import { ARTIFACT_MAX_BYTES, DOSSIER_KINDS, TITLE_MAX } from './store';
 
@@ -23,8 +25,9 @@ type Row = Record<string, unknown>;
 type Failure = { code?: string; message: string };
 type Result = { data: unknown; error: Failure | null };
 
-/** An account, and the workspaces it belongs to in the order it joined them: FAKE_WORKSPACE when none is named. */
-export type FakeAccount = { id: string; email: string; workspaces?: string[] };
+/** An account, and the workspaces it belongs to in the order it joined them: FAKE_WORKSPACE when none is
+ * named. `name`: the arcade name ask_members() gives, when they picked one. */
+export type FakeAccount = { id: string; email: string; workspaces?: string[]; name?: string };
 
 export const FAKE_WORKSPACE = '00000000-0000-4000-8000-00000000a0a0';
 
@@ -168,15 +171,79 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     return { data: { id: dossier.id, added, unchanged }, error: null };
   }
 
+  /**
+   * A query on one of the two tables, as `me` under the migration's access rules: a member of the
+   * dossier's workspace reads it and its versions, and nobody else reads anything; the opener deletes
+   * their own draft (its versions go with it), and no other delete removes a row. Only the steps the
+   * page's reads take: select, eq, order, maybeSingle, delete.
+   */
+  function query(me: FakeAccount | null, table: 'dossiers' | 'dossier_versions') {
+    let columns: string[] | null = null;
+    let removing = false;
+    const filters: Array<(row: Row) => boolean> = [];
+    const orders: Array<{ column: string; ascending: boolean }> = [];
+
+    const readable = (row: Row): boolean => {
+      if (!me) return false;
+      const workspace = table === 'dossiers' ? row.workspace_id : tables.dossiers.find((d) => d.id === row.dossier_id)?.workspace_id;
+      return typeof workspace === 'string' && isMember(me, workspace);
+    };
+    const deletable = (row: Row) => table === 'dossiers' && me !== null && row.opened_by === me.id && row.prd === null;
+    const project = (row: Row) => (columns ? Object.fromEntries(columns.map((c) => [c, row[c]])) : { ...row });
+    const compare = (a: Row, b: Row) => {
+      for (const { column, ascending } of orders) {
+        const [x, y] = [String(a[column]), String(b[column])];
+        if (x !== y) return (x < y ? -1 : 1) * (ascending ? 1 : -1);
+      }
+      return 0;
+    };
+
+    function run(): Result {
+      state.calls += 1;
+      if (state.fail) return { data: null, error: state.fail };
+      const rows = (tables[table] as Row[]).filter((row) => readable(row) && filters.every((f) => f(row)));
+      if (!removing) return { data: [...rows].sort(compare).map(project), error: null };
+      const gone = new Set(rows.filter(deletable).map((row) => row.id));
+      tables.dossiers = tables.dossiers.filter((d) => !gone.has(d.id));
+      tables.dossier_versions = tables.dossier_versions.filter((v) => !gone.has(v.dossier_id));
+      return { data: columns ? rows.filter((row) => gone.has(row.id)).map(project) : null, error: null };
+    }
+
+    const builder = {
+      select(list = '*') { columns = list === '*' ? null : list.split(',').map((c) => c.trim()); return builder; },
+      delete() { removing = true; return builder; },
+      eq(column: string, value: unknown) { filters.push((row) => row[column] === value); return builder; },
+      order(column: string, { ascending = true }: { ascending?: boolean } = {}) { orders.push({ column, ascending }); return builder; },
+      maybeSingle: () => Promise.resolve().then((): Result => {
+        const result = run();
+        if (result.error) return result;
+        const rows = result.data as Row[];
+        return rows.length > 1 ? refuse('PGRST116', 'More than one row came back.') : { data: rows[0] ?? null, error: null };
+      }),
+      then: <T>(resolve: (result: Result) => T, reject?: (error: unknown) => T) => Promise.resolve().then(run).then(resolve, reject),
+    };
+    return builder;
+  }
+
+  /** ask_members() (PRD 144), which the page names people with: a workspace's members, to its members only. */
+  function members(me: FakeAccount | null, workspace: string) {
+    if (!me || !isMember(me, workspace)) return [];
+    return Object.values(accounts)
+      .filter((account, i, all) => isMember(account, workspace) && all.findIndex((a) => a.id === account.id) === i)
+      .map((account) => ({ user_id: account.id, email: account.email, name: account.name ?? null }));
+  }
+
   /** The client for one bearer token: acting as its account, as the API's real client does. */
   function client(token: string) {
     const me = accounts[token] ?? null;
     return {
+      from: (table: 'dossiers' | 'dossier_versions') => query(me, table),
       rpc: (name: string, args: Row) => Promise.resolve().then((): Result => {
         state.calls += 1;
         if (state.fail) return { data: null, error: state.fail };
         if (name === 'dossier_open') return open(me, args);
         if (name === 'dossier_push') return push(me, args);
+        if (name === 'ask_members') return { data: members(me, args.workspace as string), error: null };
         return refuse('PGRST202', `Could not find the function public.${name}`);
       }),
       auth: {

@@ -1,11 +1,14 @@
 // The store and the migration agree: the store calls each function with exactly the parameters the
 // migration declares, and the kinds and the cap it checks are the table's own. The rules themselves
 // are proved by api.test.ts on the fake (which writes them as the migration does) and by
-// supabase/checks/dossiers.sql on the database.
+// supabase/checks/dossiers.sql on the database. The page's reads ask only for the columns the
+// migration grants.
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
-import { ARTIFACT_MAX_BYTES, DOSSIER_KINDS, dossierStore, DossierStoreError, TITLE_MAX } from './store';
+import {
+  ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierReader, dossierStore, DossierStoreError, TITLE_MAX, VERSION_COLUMNS,
+} from './store';
 
 const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20260928090000_dossiers.sql', import.meta.url)), 'utf8');
 
@@ -57,5 +60,70 @@ describe('the dossier store', () => {
     expect(MIGRATION).toContain(`kind in (${DOSSIER_KINDS.map((k) => `'${k}'`).join(', ')})`);
     expect(MIGRATION).toContain(`bytes between 0 and ${ARTIFACT_MAX_BYTES}`);
     expect(MIGRATION).toContain(`char_length(title) between 1 and ${TITLE_MAX}`);
+  });
+});
+
+/** The columns `grant select (…) on public.<table> to authenticated` names. */
+function granted(table: string): string[] {
+  const match = new RegExp(`grant select \\(([^)]*)\\)\\s+on public\\.${table} to authenticated`).exec(MIGRATION);
+  if (!match) throw new Error(`the migration grants no columns of ${table}`);
+  return match[1].split(',').map((column) => column.trim());
+}
+
+/** A client that records each query built on it and answers `answer`. */
+function querying(answer: { data: unknown; error: { code?: string; message: string } | null }) {
+  const calls: Array<[string, ...unknown[]]> = [];
+  const builder: Record<string, unknown> = {};
+  for (const step of ['select', 'eq', 'order', 'delete']) {
+    builder[step] = (...args: unknown[]) => { calls.push([step, ...args]); return builder; };
+  }
+  builder.maybeSingle = () => { calls.push(['maybeSingle']); return Promise.resolve(answer); };
+  builder.then = (resolve: (value: unknown) => unknown) => Promise.resolve(answer).then(resolve);
+  const from = (table: string) => { calls.push(['from', table]); return builder; };
+  return { calls, db: { from } as never };
+}
+
+describe('reading a dossier as its members do (the page to share)', () => {
+  it('reads only the columns the migration grants the signed-in', () => {
+    const dossiers = granted('dossiers');
+    for (const column of DOSSIER_COLUMNS.split(', ')) expect(dossiers).toContain(column);
+    const versions = granted('dossier_versions');
+    for (const column of VERSION_COLUMNS.split(', ')) expect(versions).toContain(column);
+    expect(versions).toContain('content');
+  });
+
+  it('reads a dossier by its id, or null when row-level security hides it', async () => {
+    const { calls, db } = querying({ data: null, error: null });
+    expect(await dossierReader(db).dossier('d1')).toBeNull();
+    expect(calls).toEqual([['from', 'dossiers'], ['select', DOSSIER_COLUMNS], ['eq', 'id', 'd1'], ['maybeSingle']]);
+  });
+
+  it('reads the versions without their content, oldest first, as the version rule numbers them', async () => {
+    const { calls, db } = querying({ data: [], error: null });
+    expect(await dossierReader(db).versions('d1')).toEqual([]);
+    expect(calls).toEqual([
+      ['from', 'dossier_versions'], ['select', VERSION_COLUMNS], ['eq', 'dossier_id', 'd1'],
+      ['order', 'created_at', { ascending: true }], ['order', 'id', { ascending: true }],
+    ]);
+    expect(VERSION_COLUMNS).not.toContain('content');
+  });
+
+  it('reads one version\'s content on its own', async () => {
+    const { calls, db } = querying({ data: { content: '# Spec' }, error: null });
+    expect(await dossierReader(db).content('v1')).toBe('# Spec');
+    expect(calls).toEqual([['from', 'dossier_versions'], ['select', 'content'], ['eq', 'id', 'v1'], ['maybeSingle']]);
+  });
+
+  it('deletes a draft, and says whether anything went: row-level security decides who may', async () => {
+    expect(await dossierReader(querying({ data: [{ id: 'd1' }], error: null }).db).deleteDraft('d1')).toBe(true);
+    const refused = querying({ data: [], error: null });
+    expect(await dossierReader(refused.db).deleteDraft('d1')).toBe(false);
+    expect(refused.calls).toEqual([['from', 'dossiers'], ['delete'], ['eq', 'id', 'd1'], ['select', 'id']]);
+  });
+
+  it('turns a failed read into a DossierStoreError', async () => {
+    const error = await dossierReader(querying({ data: null, error: { code: '42501', message: 'permission denied' } }).db).dossier('d1').catch((e) => e);
+    expect(error).toBeInstanceOf(DossierStoreError);
+    expect(error).toMatchObject({ code: '42501' });
   });
 });
