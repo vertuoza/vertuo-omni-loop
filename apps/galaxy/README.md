@@ -36,6 +36,23 @@ Game Boy's buttons on a phone (design:
   noise drums and one echo (`src/arcade/sound.ts`), playing songs written as note strings
   (`src/arcade/score.ts`). No audio files.
 
+## HOME at `/`, the arcade at `/play`
+
+`/` is **HOME**, Omni Loop's front door, drawn as a retro print ad (PRD 261): JOIN THE LOOP!, what
+loop engineering is, and PRESS START, which opens the game. It is a static page: it reads no
+session and no database, and looks the same to every visitor. Its parts live in `src/home/`
+(`app/page.tsx` renders them). Shared, a link to `/` previews as the ad: the page's title and
+description, and an Open Graph image of the crest and JOIN THE LOOP! on the starfield
+(`app/opengraph-image.tsx`, drawn from `src/home/share.tsx`).
+
+The arcade is at **`/play`** (`app/play/page.tsx`), in the same modes as before. Signing in with
+Google, linking GitHub and signing out all come back to `/play`.
+
+The arcade's deep links are forwarded: HOME sends `/#map`, `/#chart`, `/#fleets`, `/#heroes`,
+`/#games`, `/#briefing`, `/#menu` and `/#planet-<n>` on to `/play` with the same hash before it
+paints (`src/home/forward.ts`), so an old bookmark still opens its screen. Any other hash stays on
+HOME.
+
 ## Screens
 
 | Screen | What it shows |
@@ -63,7 +80,8 @@ Game Boy's buttons on a phone (design:
 
 Deep links: `#map`, `#chart`, `#fleets`, `#heroes`, `#games`, `#briefing`, `#menu`, `#planet-2332`
 (`src/arcade/deep-link.ts`). Each opens its screen past the boot and the title, and the address
-follows the screen, so the menu reads `/#menu`: the game's home, where the app's Game mode lands.
+follows the screen, so the menu reads `/play#menu`: the game's home, where the app's Game mode lands
+(its `/#menu` forwarded from HOME).
 Signed out, they land on INSERT COIN; a planet's link, which needs the galaxy, starts at the boot
 where the page holds none.
 
@@ -538,7 +556,7 @@ From the repository root:
 
 ```bash
 pnpm install
-pnpm galaxy:dev          # http://localhost:3000, demo galaxy (no Supabase needed)
+pnpm galaxy:dev          # http://localhost:3000: HOME; the demo galaxy at /play (no Supabase needed)
 ```
 
 ### With a local Supabase
