@@ -170,7 +170,7 @@ describe('churn — detect', () => {
 
   it('leaves out a generated path and a lockfile, and names them', async () => {
     const { facts } = await run();
-    expect(facts.leftOut).toEqual({ generated: ['dist/bundle.js'], lockfile: ['pnpm-lock.yaml'] });
+    expect(facts.leftOut).toEqual({ generated: ['dist/bundle.js'], lockfile: ['pnpm-lock.yaml'], delivery: [] });
     expect(facts.files.map((file) => file.path)).not.toContain('dist/bundle.js');
     expect(facts.files.map((file) => file.path)).not.toContain('pnpm-lock.yaml');
   });
@@ -208,6 +208,38 @@ describe('churn — detect', () => {
     const { facts } = churn.detect(records, { pr, prd, config, pulls: [] });
     expect(facts.files).toEqual([{ path: 'b.js', commits: 3, added: 9, finalAdded: 3, churn: 6, percent: 200 }]);
     expect(facts.ranges).toEqual([{ path: 'b.js', from: 1, to: 3, commits: [short('r1'), short('r2'), short('r3')], slices: ['s1'] }]);
+  });
+
+  it("leaves out an outbox note raised, rewritten and settled: the loop's own record, not churn", () => {
+    const note = `${config.paths.delivery}/outbox/0007-widget/s1-01-a-decision.md`;
+    const records = {
+      gitattributes: null,
+      final: [],
+      pulls: [
+        {
+          number: 13,
+          url: SUB_PULLS[0].html_url,
+          headRef: 'feat/widget--s1',
+          mergedAt: SUB_PULLS[0].merged_at,
+          commits: ['o1', 'o2', 'o3'].map((tag, i) => ({
+            sha: sha(tag),
+            url: commitUrl(tag),
+            files: [
+              i === 0
+                ? { path: note, previous: null, status: 'added', additions: 50, deletions: 0, blocks: [[1, 0, 1, 50]] }
+                : i === 1
+                  ? { path: note, previous: null, status: 'modified', additions: 50, deletions: 50, blocks: [[1, 50, 1, 50]] }
+                  : { path: note, previous: null, status: 'removed', additions: 0, deletions: 50, blocks: [[1, 50, 1, 0]] },
+            ],
+          })),
+        },
+      ],
+    };
+    const { facts, findings } = churn.detect(records, { pr, prd, config, pulls: [] });
+    expect(findings).toEqual([]);
+    expect(facts.leftOut.delivery).toEqual([note]);
+    expect(facts.files).toEqual([]);
+    expect(churn.describe(facts)).toContain(`- Left out as the loop's own delivery record: \`${note}\`.`);
   });
 
   it('still follows line ranges, and counts no file, when the final diff could not be read', async () => {

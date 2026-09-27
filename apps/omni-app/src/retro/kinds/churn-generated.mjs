@@ -1,6 +1,8 @@
 // What churn leaves out (PRD 72, "The facts, and what makes a finding"): the paths a repository marks
-// `linguist-generated` in its `.gitattributes` at the merge, and lockfiles by name. A generated file
-// or a lockfile is rewritten whole by a tool, so its lines say nothing of how the code was written.
+// `linguist-generated` in its `.gitattributes` at the merge, lockfiles by name, and the delivery
+// folder (`paths.delivery`). A generated file or a lockfile is rewritten whole by a tool, so its lines
+// say nothing of how the code was written; the delivery folder is the loop's own record, where an
+// outbox note is raised, rewritten and settled by design.
 // Pure: the `.gitattributes` text is read by the kind's `gather`.
 
 /** Lockfiles, by file name, at any depth: written by a package manager, never by hand. */
@@ -61,13 +63,15 @@ export function linguistGenerated(gitattributes) {
 }
 
 /**
- * Why churn leaves a path out: `generated`, `lockfile`, or `null` when it counts.
+ * Why churn leaves a path out: `generated`, `lockfile`, `delivery`, or `null` when it counts.
  * @param {string | null} gitattributes
- * @returns {(path: string) => 'generated' | 'lockfile' | null}
+ * @param {{ delivery?: string | null }} [paths]  the config's `paths.delivery`, when there is one
+ * @returns {(path: string) => 'generated' | 'lockfile' | 'delivery' | null}
  */
-export function leftOutAs(gitattributes) {
+export function leftOutAs(gitattributes, { delivery = null } = {}) {
   const generated = linguistGenerated(gitattributes);
-  return (path) => (generated(path) ? 'generated' : isLockfile(path) ? 'lockfile' : null);
+  const inDelivery = delivery ? (path) => path.startsWith(`${delivery.replace(/\/+$/, '')}/`) : () => false;
+  return (path) => (generated(path) ? 'generated' : isLockfile(path) ? 'lockfile' : inDelivery(path) ? 'delivery' : null);
 }
 
 /**

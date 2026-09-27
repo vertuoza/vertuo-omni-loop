@@ -72,4 +72,13 @@ describe('leftOutAs', () => {
     expect(leftOut('yarn.lock')).toBe('lockfile');
     expect(leftOut('src/cart.ts')).toBeNull();
   });
+
+  it("leaves out the delivery folder, the loop's own record, and only it", () => {
+    const leftOut = leftOutAs(null, { delivery: '.omni-loop/delivery' });
+    expect(leftOut('.omni-loop/delivery/outbox/0141-design-system/s3-03-type-scale-values.md')).toBe('delivery');
+    expect(leftOut('.omni-loop/delivery/shipped/0142-ask-tabs/outbox/settled.md')).toBe('delivery');
+    expect(leftOut('.omni-loop/delivery-notes.md')).toBeNull();
+    expect(leftOut('.omni-loop/knowledge/product/rules.md')).toBeNull();
+    expect(leftOutAs(null)('.omni-loop/delivery/outbox/x.md')).toBeNull();
+  });
 });
