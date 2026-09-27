@@ -392,3 +392,471 @@ Moving to a single function later is one migration and a change in the fallback'
 ```
 
 <!-- /omni-outbox-settled: s1-07-fallback-writes-through-grants -->
+
+<!-- omni-outbox-settled: s2-01-sign-in-joins-workspace -->
+
+## s2-01-sign-in-joins-workspace — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-sign-in-joins-workspace
+prd: 216
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 2
+---
+
+## The question, in plain words
+
+Someone opening a PRD link for the first time may not belong to its workspace yet, because they have never signed in to the galaxy. Should signing in from the PRD's page also make them a member, as signing in from the game does?
+
+## The decision, in plain words
+
+Yes. Signing in from a PRD's page adds the person to the workspace of their company email, as signing in from the game already does, before the page is shown to them.
+
+## The intro, for fun
+
+A product owner followed a link from a chat and knocked on a door that had never heard of them.
+
+## The punchline, for fun
+
+Now the door checks their company badge first, then opens.
+
+## The options, in plain words
+
+A. Join the person's workspaces when they sign in from the PRD page, as the game's sign-in does
+B. Join nobody there: a first-time visitor gets not found until they open the game once
+C. Join on every visit to the page, not only at sign-in
+
+## What I had to decide
+
+Join the person to the workspaces of their email domain when they sign in from the PRD page, or leave joining to the other pages and show not found until they have visited one.
+
+## What I did meanwhile
+
+The PRD page's sign-in return joins the person to the workspaces of their confirmed email domain, as the arcade's sign-in does. A failure to join is logged, and the page then says not found.
+
+## What it costs to change later
+
+One call in the page's sign-in return; removing it changes nothing stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the pages sign in like the ask pages, whose own sign-in returns do not join; whether they leave joining out on purpose is not written anywhere.
+
+```
+
+<!-- /omni-outbox-settled: s2-01-sign-in-joins-workspace -->
+
+<!-- omni-outbox-settled: s2-02-dossier-times-in-utc -->
+
+## s2-02-dossier-times-in-utc — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-dossier-times-in-utc
+prd: 216
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 2
+---
+
+## The question, in plain words
+
+The PRD's page shows when it was opened and the day each version arrived. Whose clock should those times follow?
+
+## The decision, in plain words
+
+Universal time, marked as such, the same for every reader, as the question history page already does. The version picker shows the day only, as the spec's own example does.
+
+## The intro, for fun
+
+A PRD was opened at nine o'clock, which raised the question: nine where?
+
+## The punchline, for fun
+
+The page settled it the way sailors do: one universal clock, and it says so.
+
+## The options, in plain words
+
+A. Universal time, marked as such
+B. Each reader's own time zone, taken from their browser
+C. The workspace's own time zone, once a workspace carries one
+
+## What I had to decide
+
+Show times in universal time, or in each reader's own time zone.
+
+## What I did meanwhile
+
+The header reads like 27 Sep 2026, 09:12 UTC and each version reads like 27 Sep, both in universal time, so the server and every browser write the same thing.
+
+## What it costs to change later
+
+One formatting function; nothing stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the people reading these pages work in more than one time zone is not written anywhere; the history page's own choice was followed.
+
+```
+
+<!-- /omni-outbox-settled: s2-02-dossier-times-in-utc -->
+
+<!-- omni-outbox-settled: s2-03-mockup-version-address -->
+
+## s2-03-mockup-version-address — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-03-mockup-version-address
+prd: 216
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 2
+---
+
+## The question, in plain words
+
+The before-and-after mockup is shown from an address of its own that names a version. Should it name the version by the number people read, v1 or v2, or by a hidden identifier that never changes?
+
+## The decision, in plain words
+
+By the number people read, counted per artifact from the oldest, which matches the version picker and reads well in a shared link. When a draft is joined to a PRD the repository reading had already found, both sets of versions are counted together by date, so a number may then point elsewhere.
+
+## The intro, for fun
+
+Every mockup got a house number, counted from the oldest house on the street.
+
+## The punchline, for fun
+
+If two streets ever merge, the numbers may shuffle, so the page says which street it counted.
+
+## The options, in plain words
+
+A. The version's number, counted per artifact from the oldest
+B. The version's stored identifier, which never changes
+C. The number in the address, with the identifier added as a check
+
+## What I had to decide
+
+Name a before/after version in its address by its number, or by its stored identifier.
+
+## What I did meanwhile
+
+The sandboxed route takes the version's number among the versions of its kind, oldest first: the same number the picker shows and the version rule returns when it adds one.
+
+## What it costs to change later
+
+How the page builds and reads one address; nothing stored changes, but links already shared to one version would stop working.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether a link to one version must keep pointing at the same content after a draft is merged into a dossier the fallback created is not written in the spec.
+
+```
+
+<!-- /omni-outbox-settled: s2-03-mockup-version-address -->
+
+<!-- omni-outbox-settled: s2-04-tab-and-version-in-address -->
+
+## s2-04-tab-and-version-in-address — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-04-tab-and-version-in-address
+prd: 216
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 2
+---
+
+## The question, in plain words
+
+The PRD's page has a tab per artifact and a version picker. Where should the chosen tab and version be kept, and which tab should open first?
+
+## The decision, in plain words
+
+They are kept in the page's address, so every view is a link that can be shared and the page works before any script runs. The before-and-after page opens first, since it is what a product owner comes for.
+
+## The intro, for fun
+
+The tabs were asked where they live, and each one answered with its full address.
+
+## The punchline, for fun
+
+Share the link, and the reader lands on the very same version of the very same tab.
+
+## The options, in plain words
+
+A. In the address, with the before-and-after page first
+B. In the address, with the spec first
+C. In the page only, so the address never changes
+
+## What I had to decide
+
+Keep the tab and the version in the address or only in the page, and pick the tab that opens first.
+
+## What I did meanwhile
+
+The address carries the tab and the version; with neither, the page opens the before/after tab at its latest version. The picker is a form that sends its choice to the same address.
+
+## What it costs to change later
+
+A constant and the page's links; nothing stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec lists the tabs in an order but does not say which one opens first.
+
+```
+
+<!-- /omni-outbox-settled: s2-04-tab-and-version-in-address -->
+
+<!-- omni-outbox-settled: s5-01-skill-checks-outside-ground -->
+
+## s5-01-skill-checks-outside-ground — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-skill-checks-outside-ground
+prd: 216
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 2
+---
+
+## The question, in plain words
+
+The spec asks the plugin's test file to check that the two new skills exist and that the brainstorm and the plan call them, but that file is outside the ground this slice was given. Should the slice add those checks there anyway?
+
+## The decision, in plain words
+
+Yes. The checks were added to the plugin's test file: no other slice of this wave touches it, and without them nothing would notice a later edit dropping one of the calls.
+
+## The intro, for fun
+
+The test file sat just past the fence, and the slice had a ball to throw.
+
+## The punchline, for fun
+
+It threw the ball over, and wrote down that it did.
+
+## The options, in plain words
+
+A. A. Add the checks to the plugin's test file, outside the slice's ground
+B. B. Keep to the ground: no new check, only the guards that already run on every skill
+C. C. Keep the checks, and widen the plan so the slice's ground names that test file
+
+## What I had to decide
+
+Add the checks the spec names in a file outside the slice's ground, or keep to the ground and leave the new calls unchecked.
+
+## What I did meanwhile
+
+The plugin's test file has one new block checking both skills and the four calls, each after what it must follow. Nothing else outside the ground changed.
+
+## What it costs to change later
+
+Deleting one block of tests. Nothing depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan only asks that this test file stay green; whether leaving it out of the slice's ground was deliberate is unknown.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-skill-checks-outside-ground -->
+
+<!-- omni-outbox-settled: s7-01-fallback-compares-latest -->
+
+## s7-01-fallback-compares-latest — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s7
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s7-01-fallback-compares-latest
+prd: 216
+slice: s7
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 2
+---
+
+## The question, in plain words
+
+The background reader that copies each PRD's files from the main branch fetches a file only when the PRD's record does not hold it yet. Should that mean the last version kept, or any version ever kept?
+
+## The decision, in plain words
+
+The last version kept, so a file that goes back to an earlier wording is kept as a new version, as the record's rule asks. When that last version came from someone's terminal, the reader compares it with the file without fetching the file again.
+
+## The intro, for fun
+
+A file changed its mind and went back to how it read last Tuesday.
+
+## The punchline, for fun
+
+The record noticed, and kept Tuesday's words as its newest page.
+
+## The options, in plain words
+
+A. Compare each file with the latest version of its kind, and hash a terminal upload's stored text when the sizes match
+B. Compare with any version ever kept: fewer fetches, but a file that returns to an earlier wording is never recorded again
+C. Fetch every file at every run and let the record's rule decide: simplest, but many more requests to GitHub
+
+## What I had to decide
+
+Whether the reader compares each file on the main branch with the latest version of its kind, or with every version the record already holds.
+
+## What I did meanwhile
+
+The reader compares each file with the latest version of its kind. A version uploaded from a terminal carries no file hash from the repository, so when the sizes match the reader hashes the stored text itself, instead of asking GitHub for the file again.
+
+## What it costs to change later
+
+One comparison and its tests change; nothing stored changes, and the next run follows the new rule.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the reader fetches only the files the record has not stored, and also that content going back to an earlier state is still a new version. Read literally, the first rule would skip that return, so I followed the version rule.
+
+```
+
+<!-- /omni-outbox-settled: s7-01-fallback-compares-latest -->
