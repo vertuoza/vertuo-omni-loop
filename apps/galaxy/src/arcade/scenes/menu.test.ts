@@ -1,7 +1,7 @@
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf } from '@omni/galaxy';
+import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf, type GalaxyView, type XpRules } from '@omni/galaxy';
 import { setFleets } from '../fleets';
 import { HOUSE_BRAND } from '../brand';
 import { markFor } from '../mark';
@@ -12,7 +12,8 @@ import type { FleetRow, Player } from '../types';
 import type { FrameState } from './common.ts';
 import { layoutMap } from './map.ts';
 import { BRIEFING_PAGES, drawMenu, PAGES, TALL_SCENES } from './menu.ts';
-import { BriefingOverlay, doorOf, MenuOverlay, menuItems } from './menu.tsx';
+import { BriefingOverlay, doorOf, MenuOverlay, menuItems, type MenuItem } from './menu.tsx';
+import { xpStatus, type XpStatus } from '../games/room';
 import type { KnowledgeGraph } from '../../data/knowledge';
 
 const now = new Date('2026-09-25T10:00:00Z');
@@ -113,9 +114,9 @@ describe('the menu', () => {
   const visitor = menuItems({ joined: false, linked: false, signedIn: true });
   const playing = menuItems({ joined: true, linked: true, signedIn: true });
 
-  it('holds a visitor\'s seven items and a player\'s eight, STAR CHART right after GALAXY MAP', () => {
-    expect(visitor.map((m) => m.id)).toEqual(['link', 'map', 'chart', 'fleets', 'heroes', 'briefing', 'signout']);
-    expect(playing.map((m) => m.id)).toEqual(['map', 'chart', 'fleets', 'heroes', 'briefing', 'myhero', 'change', 'signout']);
+  it('holds a visitor\'s eight items and a player\'s nine, STAR CHART right after GALAXY MAP', () => {
+    expect(visitor.map((m) => m.id)).toEqual(['link', 'map', 'chart', 'fleets', 'heroes', 'games', 'briefing', 'signout']);
+    expect(playing.map((m) => m.id)).toEqual(['map', 'chart', 'fleets', 'heroes', 'games', 'briefing', 'myhero', 'change', 'signout']);
     for (const items of [visitor, playing]) {
       const at = items.findIndex((m) => m.label === 'GALAXY MAP');
       expect(items[at + 1]).toEqual({ id: 'chart', label: 'STAR CHART', scene: 'chart' });
@@ -132,6 +133,61 @@ describe('the menu', () => {
       expect(wide).toContain('B · BACK TO TITLE');
     },
   );
+});
+
+describe('GAMES on the menu', () => {
+  const visitor = menuItems({ joined: false, linked: false, signedIn: true });
+  const playing = menuItems({ joined: true, linked: true, signedIn: true });
+  const withXp = xpStatus(true, { xp: 180, level: 3, unlocked: ['invaders'] });
+  const shown = (items: MenuItem[], me: Player | null, xp?: XpStatus, grid: Grid = WIDE) =>
+    textOf(createElement(MenuOverlay, { view, items, index: 0, me, onPick: () => {}, xp }), grid);
+  const hintOf = (text: string[]) => text[text.indexOf('GAMES') + 1];
+
+  it('stands right after HALL OF HEROES for a visitor and for a player, and opens the game room', () => {
+    for (const items of [visitor, playing]) {
+      const at = items.findIndex((m) => m.id === 'heroes');
+      expect(items[at + 1]).toEqual({ id: 'games', label: 'GAMES', scene: 'games' });
+    }
+    expect(menuItems({ joined: false, linked: false, signedIn: false }).map((m) => m.id)).not.toContain('games');
+    const games = playing.find((m) => m.id === 'games')!;
+    expect(doorOf(games, { view, chart: null, problem: null })).toEqual({ scene: 'games' });
+    expect(doorOf(games, { view: null, chart: null, problem: 'THE GALAXY IS OUT OF REACH.' })).toEqual({ refused: 'THE GALAXY IS OUT OF REACH.' });
+  });
+
+  it('names a player\'s level and the games unlocked in its hint, and puts the level on their badge', () => {
+    const text = shown(playing, player, withXp);
+    expect(hintOf(text)).toBe('LV 3 · 1 game unlocked');
+    expect(text).toContain(`P1 MAXIMILIAN · ${fleets[1].label} · LV 3`);
+    expect(shown(playing, player, withXp, TALL)).toEqual(text);
+  });
+
+  it('tells a visitor linking GitHub is how XP is earned, and shows no level on their badge', () => {
+    const text = shown(visitor, null, xpStatus(false, null));
+    expect(hintOf(text)).toBe('Link GitHub to earn XP');
+    expect(text).toContain('VISITOR');
+    expect(text.some((s) => /LV \d/.test(s))).toBe(false);
+  });
+
+  it.each([
+    ['no row', xpStatus(true, null), 'No XP yet'],
+    ['a row stored at level 0', xpStatus(true, { xp: 0, level: 0, unlocked: [] }), 'No XP yet'],
+    ['XP it could not read', xpStatus(true, 'unreadable'), 'XP out of reach'],
+    ['nothing said about XP', undefined, 'XP out of reach'],
+  ] as const)('shows a player with %s no level: never LV 0, never a guess', (_, xp, hint) => {
+    const text = shown(playing, player, xp);
+    expect(hintOf(text)).toBe(hint);
+    expect(text).toContain(`P1 MAXIMILIAN · ${fleets[1].label}`);
+    expect(text.some((s) => /LV \d/.test(s)), text.join(' | ')).toBe(false);
+  });
+
+  it('carries a NEW tag until the room is seen', () => {
+    const fresh = menuItems({ joined: true, linked: true, signedIn: true, newGames: true });
+    expect(fresh.find((m) => m.id === 'games')).toEqual({ id: 'games', label: 'GAMES', scene: 'games', tag: 'NEW' });
+    expect(fresh.filter((m) => m.tag).map((m) => m.id)).toEqual(['games']);
+    const text = shown(fresh, player, withXp);
+    expect(text[text.indexOf('GAMES') + 1]).toBe('NEW');
+    expect(shown(playing, player, withXp)).not.toContain('NEW');
+  });
 });
 
 describe('How to play', () => {
@@ -166,10 +222,16 @@ describe('How to play', () => {
       expect(page).toContain(`PAGE ${i + 1}/${tallPages}`);
       expect(page.some((s) => s.includes('B · MENU'))).toBe(true);
     });
-    expect(tall[0]).toContain('EARN');
-    expect(tall[0]).not.toContain('ENTROPY · CLEAR IT / IT COSTS');
-    expect(tall[1]).toContain('ENTROPY · CLEAR IT / IT COSTS');
-    expect(tall[1]).not.toContain('EARN');
+    const headings = ['EARN', 'ENTROPY · CLEAR IT / IT COSTS', 'LEVELS · XP NEVER RESETS'];
+    expect(tall).toHaveLength(headings.length);
+    tall.forEach((page, i) => {
+      for (const [j, heading] of headings.entries()) expect(page.includes(heading), `page ${i + 1}: ${heading}`).toBe(i === j);
+    });
+  });
+
+  it('lays all three sections out on the wide grid\'s one page', () => {
+    const wide = textOf(briefing, WIDE);
+    for (const heading of ['EARN', 'ENTROPY · CLEAR IT / IT COSTS', 'LEVELS · XP NEVER RESETS']) expect(wide).toContain(heading);
   });
 
   it('shows a page past the last as the last (the grid changed under it)', () => {
@@ -178,6 +240,69 @@ describe('How to play', () => {
 
   it('shows no page count on the wide grid', () => {
     expect(textOf(briefing, WIDE).some((s) => s.startsWith('PAGE'))).toBe(false);
+  });
+});
+
+describe('How to play\'s LEVELS', () => {
+  const lastPage = BRIEFING_PAGES.indexOf('levels');
+  /** The LEVELS page on the tall grid, as a player reads it, for a view carrying `xp` as its rules' xp block. */
+  const levelsOf = (xp: XpRules = view.rules.xp): string[] => {
+    const shown: GalaxyView = { ...view, rules: { ...view.rules, xp } };
+    return textOf(createElement(BriefingOverlay, { view: shown }), TALL, lastPage, BRIEFING_PAGES.length);
+  };
+  /** The value a line shows beside its label: the next run of text. */
+  const beside = (text: string[], label: string) => {
+    expect(text, label).toContain(label);
+    return text[text.indexOf(label) + 1];
+  };
+  const rules = view.rules.xp;
+
+  it('is its own page on the tall grid, the last one', () => {
+    expect(lastPage).toBe(BRIEFING_PAGES.length - 1);
+    expect(levelsOf()).toContain('LEVELS · XP NEVER RESETS');
+  });
+
+  it('shows the weight of each personal credit, the curve\'s first levels and each game\'s unlock level, from the rulebook', () => {
+    const text = levelsOf();
+    expect(rules).toEqual({ weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1 }, curve: { first: 1, step: 25 }, cap: 99, unlocks: { invaders: 1 } });
+    for (const label of ['ZONE SECURED', 'ENTROPY CLEARED', 'RESCUE', 'EXPEDITION BONUS', 'CLOSER BONUS']) expect(beside(text, label)).toBe('×1');
+    expect([1, 2, 3, 4, 5].map((n) => beside(text, `LV ${n}`))).toEqual(['1', '50', '150', '300', '500']);
+    expect(text).not.toContain('LV 6');
+    expect(beside(text, 'ENTROPY INVADERS')).toBe('LV 1');
+    expect(text.some((s) => s.includes('UP TO LV 99')), text.join(' | ')).toBe(true);
+  });
+
+  it('shows the new value when a number in the rules changes', () => {
+    const text = levelsOf({
+      weights: { ...rules.weights, zoneSecured: 2, rescue: 1.5, woundClosed: 0 },
+      curve: { first: 5, step: 30 },
+      cap: 40,
+      unlocks: { invaders: 3 },
+    });
+    expect(beside(text, 'ZONE SECURED')).toBe('×2');
+    expect(beside(text, 'RESCUE')).toBe('×1.5');
+    expect(beside(text, 'ENTROPY CLEARED')).toBe('NOT COUNTED');
+    expect(beside(text, 'CLOSER BONUS')).toBe('×1');
+    expect([1, 2, 3, 4, 5].map((n) => beside(text, `LV ${n}`))).toEqual(['5', '60', '180', '360', '600']);
+    expect(beside(text, 'ENTROPY INVADERS')).toBe('LV 3');
+    expect(text.some((s) => s.includes('UP TO LV 40'))).toBe(true);
+    expect(text.some((s) => s.includes('LV 99'))).toBe(false);
+  });
+
+  it('lists every game in the rules\' unlocks, lowest level first, named by the game room\'s registry', () => {
+    const text = levelsOf({ ...rules, unlocks: { invaders: 4, 'star-maze': 2 } });
+    expect(beside(text, 'STAR MAZE')).toBe('LV 2');
+    expect(beside(text, 'ENTROPY INVADERS')).toBe('LV 4');
+    expect(text.indexOf('STAR MAZE')).toBeLessThan(text.indexOf('ENTROPY INVADERS'));
+    expect(levelsOf()).not.toContain('STAR MAZE');
+  });
+
+  it('shows no level past the cap, and groups the thousands of a large XP', () => {
+    const low = levelsOf({ ...rules, cap: 3 });
+    expect(low).toContain('LV 3');
+    expect(low).not.toContain('LV 4');
+    const steep = levelsOf({ ...rules, curve: { first: 1, step: 250 } });
+    expect(beside(steep, 'LV 5')).toBe('5,000');
   });
 });
 

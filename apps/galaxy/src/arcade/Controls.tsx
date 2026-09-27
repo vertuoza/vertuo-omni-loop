@@ -3,11 +3,19 @@
 // `act()`: they fire on touch-down, the D-pad is one rocker that repeats while held, several fingers
 // each press their own control, and every press buzzes where the browser can. The grille toggles
 // the sound. Each control is a button too, so a keyboard or a screen reader can press it.
-import { useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react';
+//
+// While a game runs, the arcade hands the pad its held channel (`HeldPad`): the D-pad and A then
+// also tell it which finger holds which button, several fingers at once, and the D-pad stops
+// repeating, so a held direction is read as held rather than as a stream of presses.
+import { createContext, useContext, useEffect, useMemo, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { dpadDirection, type Direction } from './dpad';
+import type { HeldFingers } from './held';
 import type { Action } from './keys';
 import { holdToRepeat } from './repeat';
 import { unlock } from './sound';
+
+/** The held channel the pad reports its fingers to while a game runs; null in the menus. */
+export const HeldPad = createContext<HeldFingers | null>(null);
 
 type Fire = (action: Action) => void;
 
@@ -21,9 +29,13 @@ function buzz() {
 // reader's activation) fires on its own.
 const CLICK_AFTER_PRESS_MS = 1000;
 
-function usePress(fire: () => void) {
+/** A finger on a control, for the held channel: down, lifted, or taken away by the browser. */
+interface Finger { down(id: number): void; up(id: number): void; cancel(id: number): void }
+
+function usePress(fire: () => void, finger?: Finger) {
   const pressedAt = useRef(-Infinity);
   const up = (e: ReactPointerEvent<HTMLElement>) => {
+    if (e.type === 'pointercancel') finger?.cancel(e.pointerId); else finger?.up(e.pointerId);
     if (!('down' in e.currentTarget.dataset)) return;
     pressedAt.current = performance.now();
     delete e.currentTarget.dataset.down;
@@ -35,6 +47,7 @@ function usePress(fire: () => void) {
       pressedAt.current = performance.now();
       e.currentTarget.dataset.down = '';
       buzz();
+      finger?.down(e.pointerId);
       fire();
     },
     onPointerUp: up,
@@ -46,15 +59,18 @@ function usePress(fire: () => void) {
   };
 }
 
-/** A, B, SELECT or START: fires once per press, never repeating. */
-function useButton(action: Action, onAction: Fire) {
+/** A, B, SELECT or START: fires once per press, never repeating; held by its finger while a game runs. */
+function useButton(action: Action, onAction: Fire, held: HeldFingers | null = null) {
   const fire = useRef(onAction);
   fire.current = onAction;
-  return usePress(() => fire.current(action));
+  const finger = held
+    ? { down: (id: number) => held.fingerDown(id, action), up: (id: number) => held.fingerUp(id), cancel: (id: number) => held.fingerCancel(id) }
+    : undefined;
+  return usePress(() => fire.current(action), finger);
 }
 
 export function FaceButton({ action, onAction }: { action: 'a' | 'b'; onAction: Fire }) {
-  const press = useButton(action, onAction);
+  const press = useButton(action, onAction, useContext(HeldPad));
   const letter = action.toUpperCase();
   return (
     <>
@@ -99,32 +115,47 @@ const ARMS: { dir: Direction; label: string; arrow: string }[] = [
 /**
  * The D-pad: one rocker. The direction comes from where the finger is relative to the cross's centre
  * (`dpadDirection`), sliding to another arm fires it at once, sliding back to the centre stops, and a
- * held direction repeats. One finger drives it at a time: the last one down.
+ * held direction repeats; while a game runs it tells the held channel instead, and does not repeat.
+ * One finger drives it at a time: the last one down.
  */
 export function DPad({ onAction }: { onAction: Fire }) {
   const fire = useRef(onAction);
   fire.current = onAction;
+  const held = useContext(HeldPad);
+  const heldRef = useRef(held);
+  heldRef.current = held;
   const repeat = useMemo(() => holdToRepeat((a) => fire.current(a)), []);
-  useEffect(() => () => repeat.release(), [repeat]);
   const cross = useRef<HTMLDivElement>(null);
   const finger = useRef<number | null>(null);
-  const held = useRef<Direction | null>(null);
+  const aimed = useRef<Direction | null>(null);
   const pressedAt = useRef(-Infinity);
+  // A game starting or ending under a held finger, or the pad going away: the repeat stops, and the
+  // finger lets go of the game it held a button in.
+  useEffect(() => () => {
+    repeat.release();
+    if (finger.current !== null) held?.fingerUp(finger.current);
+  }, [held, repeat]);
 
   const aim = (clientX: number, clientY: number) => {
     const el = cross.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
     const dir = dpadDirection(clientX - (r.left + r.width / 2), clientY - (r.top + r.height / 2));
-    if (dir === held.current) return;
-    held.current = dir;
+    if (dir === aimed.current) return;
+    aimed.current = dir;
     if (dir) el.dataset.dir = dir; else delete el.dataset.dir;
+    const game = heldRef.current, id = finger.current;
+    if (game && id !== null) {
+      if (dir) { buzz(); game.fingerDown(id, dir); fire.current(dir); } else game.fingerUp(id);
+      return;
+    }
     if (dir) { buzz(); repeat.press(dir); } else repeat.release();
   };
   const lift = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.pointerId !== finger.current) return;
+    if (e.type === 'pointercancel') heldRef.current?.fingerCancel(e.pointerId); else heldRef.current?.fingerUp(e.pointerId);
     finger.current = null;
-    held.current = null;
+    aimed.current = null;
     pressedAt.current = performance.now();
     delete e.currentTarget.dataset.dir;
     repeat.release();
@@ -140,8 +171,9 @@ export function DPad({ onAction }: { onAction: Fire }) {
       onPointerDown={(e) => {
         e.preventDefault();
         try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+        if (finger.current !== null && finger.current !== e.pointerId) heldRef.current?.fingerUp(finger.current);
         finger.current = e.pointerId;
-        held.current = null;
+        aimed.current = null;
         pressedAt.current = performance.now();
         aim(e.clientX, e.clientY);
       }}

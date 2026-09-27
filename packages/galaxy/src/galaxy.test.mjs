@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildGalaxy } from './galaxy.mjs';
 import { demoEvents, DEMO_PROJECTS } from './demo.mjs';
 import { makeEvent } from '../../../game/events.mjs';
+import { RULEBOOK } from '../../../game/rulebook.mjs';
 
 const NOW = new Date('2026-09-23T14:00:00Z');
 const projects = { sectors: { core: { repos: ['core-repo'] }, ai: { repos: ['ai-repo'] } }, teams: { beaver: { home: 'core' }, octopod: { home: 'ai' } } };
@@ -57,6 +58,24 @@ describe('buildGalaxy', () => {
     expect(new Set(g.planets.map((p) => p.state))).toEqual(new Set(['terraformed', 'aftershock', 'terraforming', 'lost', 'distress', 'awaiting-command', 'locked', 'charted']));
     expect(g.heroes.length).toBeGreaterThan(5);
     expect(g.teams).toHaveLength(5);
+  });
+});
+
+describe('the rules the view carries', () => {
+  it('carries the rulebook\'s xp block, so How to play shows the XP rules the ledger job applies', () => {
+    const g = buildGalaxy([charted], { projects, now: NOW });
+    expect(g.rules.xp).toBe(RULEBOOK.xp);
+    expect(g.rules.xp).toEqual({
+      weights: { zoneSecured: 1, woundClosed: 1, rescue: 1, expedition: 1, closer: 1 },
+      curve: { first: 1, step: 25 },
+      cap: 99,
+      unlocks: { invaders: 1 },
+    });
+  });
+
+  it('keeps the xp block whole when the view is sent to the browser as JSON', () => {
+    const g = buildGalaxy(demoEvents(NOW), { projects: DEMO_PROJECTS, now: NOW, source: 'demo' });
+    expect(JSON.parse(JSON.stringify(g)).rules.xp).toEqual(RULEBOOK.xp);
   });
 });
 

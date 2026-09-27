@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
-import { afterGate, afterReturn, afterStart, allowed, backStep, isDisbanded, isLinked, isReady, nextStep, readReturn } from './onboarding';
+import { afterGate, afterReturn, afterStart, allowed, arrive, backStep, isDisbanded, isLinked, isReady, nextStep, readReturn } from './onboarding';
 import type { FleetRow, Player, Session } from './types';
 import { arcadeFor } from '../data/arcade';
 import { authUser, fakeGalaxyDb, PEOPLE, twoWorkspaces, type FakeUser } from '../data/galaxy.fake';
@@ -125,6 +125,26 @@ describe('menu flows', () => {
   });
 });
 
+describe('arriving at the menu', () => {
+  it('plays the level-up first when one is due, whichever screen leads there', () => {
+    expect(arrive('menu', true)).toBe('levelup');
+    expect(arrive('menu', false)).toBe('menu');
+  });
+
+  it('leaves every other screen as it is, due or not', () => {
+    for (const scene of ['title', 'games', 'invaders', 'map', 'welcome', 'ready', 'link'] as const) {
+      expect(arrive(scene, true), scene).toBe(scene);
+      expect(arrive(scene, false), scene).toBe(scene);
+    }
+  });
+
+  it('runs welcome back → level up → menu, and ready → level up → menu, once a level is due', () => {
+    expect(arrive(nextStep('welcome', 'onboard', player()), true)).toBe('levelup');
+    expect(arrive(nextStep('ready', 'onboard', player()), true)).toBe('levelup');
+    expect(arrive(nextStep('hero', 'myhero', player()), true)).toBe('levelup');
+  });
+});
+
 describe('returns from Google and GitHub', () => {
   it('reads what the callback put in the query string', () => {
     expect(readReturn('?signin=ok')).toEqual({ kind: 'signin' });
@@ -162,6 +182,26 @@ describe('the one door', () => {
     for (const scene of ['gate', 'link', 'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'chart', 'system']) {
       expect(allowed(scene, crew), scene).toBe(scene);
     }
+  });
+
+  it('keeps the game room behind a sign-in, and lets a visitor in to see every cabinet locked', () => {
+    expect(allowed('games', null)).toBe('coin');
+    expect(allowed('games', crew)).toBe('games');
+    expect(allowed('games', crew, false)).toBe('games');
+    expect(allowed('games', linked, true)).toBe('games');
+  });
+
+  it('plays Entropy Invaders only for a signed-in player: a visitor is sent to link GitHub', () => {
+    expect(allowed('invaders', null)).toBe('coin');
+    expect(allowed('invaders', crew)).toBe('link');
+    expect(allowed('invaders', crew, false)).toBe('link');
+    expect(allowed('invaders', linked, true)).toBe('invaders');
+  });
+
+  it('plays the level-up only for a signed-in player: a visitor has no XP to celebrate', () => {
+    expect(allowed('levelup', null)).toBe('coin');
+    expect(allowed('levelup', crew)).toBe('link');
+    expect(allowed('levelup', linked, true)).toBe('levelup');
   });
 
   it('ignores a crafted return URL when nobody is signed in', () => {

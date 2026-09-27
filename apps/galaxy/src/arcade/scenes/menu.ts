@@ -10,10 +10,11 @@ import { frameOf, nebulaFor, RING, space, sprite, type FrameState, type Pages, t
 export const TALL_SCENES: readonly SceneName[] = ['menu', 'briefing'];
 
 /**
- * How to play's sections, one page each on the tall grid: what earns points, and the Entropy that
- * costs them. The wide grid shows both side by side, on one page.
+ * How to play's sections, one page each on the tall grid: what earns points, the Entropy that costs
+ * them, and the levels XP reaches. The wide grid lays all three out on one page: the first two side
+ * by side, the levels under them.
  */
-export const BRIEFING_PAGES = ['earn', 'entropy'] as const;
+export const BRIEFING_PAGES = ['earn', 'entropy', 'levels'] as const;
 export type BriefingPage = (typeof BRIEFING_PAGES)[number];
 
 /** How many pages a tall `briefing` takes, for ◀ ▶ to turn: a section each. */

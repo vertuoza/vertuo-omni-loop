@@ -4,12 +4,14 @@
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
+import { playerXp } from 'vertuo-omni-plan/game/experience.mjs';
 import { arr, json, lit, workspaceId } from './sql.mjs';
 
 const WORKSPACE = 'vertuoza';
 const out = fileURLToPath(new URL('../../../supabase/seed.sql', import.meta.url));
 const now = new Date();
 const events = demoEvents(now);
+const xp = playerXp(events, { now }); // what `pnpm game:xp` writes for the ledger below
 const ws = workspaceId(WORKSPACE);
 
 const lines = [
@@ -35,6 +37,14 @@ const lines = [
   events.map((e) => `  (${[lit(e.id), lit(e.at), lit(e.type), e.planet, lit(e.region), lit(e.contributor), lit(e.team), json(e.data)].join(', ')})`).join(',\n'),
   ') as v (id, at, type, planet, region, contributor, team, data);',
   '',
+  ...(xp.length ? [
+    '-- Every login\'s XP, level and unlocked games, as `pnpm game:xp` computes them from the ledger above.',
+    'insert into public.player_xp (workspace_id, github_login, xp, level, unlocked, computed_at)',
+    `select ${ws}, v.github_login, v.xp, v.level, v.unlocked, v.computed_at::timestamptz from (values`,
+    xp.map((r) => `  (${[lit(r.login), r.xp, r.level, arr(r.unlocked), lit(now.toISOString())].join(', ')})`).join(',\n'),
+    ') as v (github_login, xp, level, unlocked, computed_at);',
+    '',
+  ] : []),
 ];
 writeFileSync(out, lines.join('\n'));
-console.log(`supabase/seed.sql: ${events.length} events across ${new Set(events.map((e) => e.planet)).size} planets, in the ${WORKSPACE} workspace`);
+console.log(`supabase/seed.sql: ${events.length} events across ${new Set(events.map((e) => e.planet)).size} planets and ${xp.length} logins' XP, in the ${WORKSPACE} workspace`);

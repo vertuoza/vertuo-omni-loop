@@ -36,7 +36,7 @@
 }
 
 /* The screens' headings. */
-.attract-scores h2, .heroes h2, .menu h2, .fleets h2, .briefing h2 {
+.attract-scores h2, .heroes h2, .menu h2, .fleets h2, .briefing h2, .games h2 {
   margin: 0;
   font-size: 18px;
   font-weight: 400;

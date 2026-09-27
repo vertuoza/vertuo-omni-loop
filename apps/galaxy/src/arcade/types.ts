@@ -15,6 +15,28 @@ export interface Player {
   github_login: string | null;
 }
 
+/**
+ * A player's row in public.player_xp, which the game workflow writes at every poll: their lifetime
+ * XP, their level (0 is no level yet: before the first point) and the games they unlocked.
+ */
+export interface PlayerXp { xp: number; level: number; unlocked: string[] }
+
+/**
+ * What the arcade knows of the player's XP: their row; null when they have none (no counted credit
+ * yet, or the game workflow never ran); 'unreadable' when it could not be read, and the arcade then
+ * shows no level rather than guess one.
+ */
+export type XpRead = PlayerXp | null | 'unreadable';
+
+/** A line of a game's crew table (public.arcade_scores): a player's best, under their arcade name and hero. */
+export interface ScoreLine { id: string; name: string; hero: Hero | null; team: string | null; best: number }
+
+/** A game's crew table: its top five, best first, and the player's own best (null before their first saved game). */
+export interface ScoreBoard { top: ScoreLine[]; mine: number | null }
+
+/** What the arcade knows of a game's scores: its board, or 'unreadable' when it could not be read. */
+export type ScoresRead = ScoreBoard | 'unreadable';
+
 /** What the arcade saves for the signed-in player: a fleet, a name, a hero. */
 export type PlayerPatch = Partial<Pick<Player, 'display_name' | 'team' | 'hero'>>;
 
@@ -37,6 +59,14 @@ export interface Account {
   linkGithub(): Promise<string | void>;
   /** Creates or updates the signed-in player's row; resolves with the row as stored. */
   save(patch: PlayerPatch, current: Player | null): Promise<Player>;
+  /**
+   * Sends the signed-in player's score at a finished game; resolves with their best at that game as
+   * stored, the higher of the two. Supabase refuses a visitor, a game not unlocked and a score
+   * outside 0 to 9,999,999.
+   */
+  submitScore(game: string, score: number): Promise<number>;
+  /** A game's crew table: its top five with names, and the signed-in player's own best. */
+  scores(game: string): Promise<ScoreBoard>;
   signOut(): Promise<void>;
   /** The demo's remembered guest; Supabase answers from the server render instead. */
   restore?(): { session: Session | null; me: Player | null };

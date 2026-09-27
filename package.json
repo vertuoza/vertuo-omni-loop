@@ -15,6 +15,7 @@
     "test": "vitest run",
     "game:project": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/project.mjs",
     "game:score": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/score.mjs",
+    "game:xp": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/xp.mjs",
     "game:banner": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/banner.mjs",
     "game:export": "node --env-file-if-exists=apps/galaxy/.env.local game/cli/export.mjs",
     "kit:build": "node kit/build.mjs",

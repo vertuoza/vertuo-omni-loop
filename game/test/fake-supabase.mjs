@@ -1,6 +1,6 @@
 // A fake PostgREST over in-memory tables, for the game's tests: enough of GET (select, eq. and
-// not.is.null filters, limit/offset) and of POST with on_conflict + ignore-duplicates to hold the
-// client to the real contract. `fakeSupabase(...).fetch` stands in for fetch; `serveFake` puts the
+// not.is.null filters, limit/offset) and of POST with on_conflict + ignore-duplicates or
+// merge-duplicates (an upsert) to hold the client to the real contract. `fakeSupabase(...).fetch` stands in for fetch; `serveFake` puts the
 // same fake behind a local HTTP server, for a test that runs a game script as a process.
 import { createServer } from 'node:http';
 
@@ -31,13 +31,17 @@ export function fakeSupabase(tables, { failOn = null } = {}) {
       return reply(200, out.slice(offset, offset + limit).map((r) => pick(r, select)));
     }
     const key = (url.searchParams.get('on_conflict') ?? '').split(',').filter(Boolean);
+    const prefer = init.headers?.Prefer ?? init.headers?.prefer ?? '';
+    const merge = prefer.includes('resolution=merge-duplicates');
     const inserted = [];
     for (const row of JSON.parse(init.body)) {
-      if (key.length && rows.some((r) => key.every((k) => r[k] === row[k]))) continue;
-      rows.push(row);
-      inserted.push(pick(row, select));
+      const existing = key.length ? rows.find((r) => key.every((k) => r[k] === row[k])) : undefined;
+      if (existing && !merge) continue;
+      if (existing) Object.assign(existing, row);
+      else rows.push(row);
+      inserted.push(pick(existing ?? row, select));
     }
-    return reply(201, inserted);
+    return reply(201, prefer.includes('return=minimal') ? [] : inserted);
   };
   return { fetch, calls, tables };
 }

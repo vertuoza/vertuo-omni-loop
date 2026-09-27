@@ -42,6 +42,8 @@ export interface Rules {
   trancheHours: number; rescue: number; terraformOwner: number; terraformExpedition: number; terraformCloser: number;
   crossTeamMultiplier: number; nightShiftMultiplier: number; distressAfterHours: number; lostAfterDays: number;
   classMultipliers: number[];
+  /** The rulebook's `xp` block, as `pnpm game:xp` applies it: what counts, the curve, the unlocks. */
+  xp: XpRules;
 }
 export interface GalaxyView {
   generatedAt: string; season: string; source: string;
@@ -58,3 +60,22 @@ export const DEMO_PROJECTS: Projects;
 export function lookOf(name: string, fleet?: FleetConfig): FleetLook;
 export const WOUND_LABEL: Record<WoundKind, string>;
 export const STATE_LABEL: Record<PlanetState, string>;
+
+/** The rulebook's `xp` block (game/rulebook.mjs): every XP number, in one place. */
+export interface XpRules {
+  weights: Readonly<Record<'zoneSecured' | 'woundClosed' | 'rescue' | 'expedition' | 'closer', number>>;
+  curve: Readonly<{ first: number; step: number }>;
+  cap: number;
+  /** The level each game unlocks at, by game id. */
+  unlocks: Readonly<Record<string, number>>;
+}
+/** One login's XP, as `player_xp` holds it: level 0 is no level yet. */
+export interface XpRow { login: string; xp: number; level: number; unlocked: string[] }
+
+export const XP_RULES: XpRules;
+export function experience(events: LedgerEvent[], o: { now: Date; rules?: XpRules }): Record<string, number>;
+export function levelFor(xp: number, rules?: XpRules): number;
+export function xpForLevel(level: number, rules?: XpRules): number;
+export function unlockedFor(level: number, stored?: readonly string[], rules?: XpRules): string[];
+export function playerXp(events: LedgerEvent[], o: { now: Date; rules?: XpRules; stored?: Record<string, readonly string[]> }): XpRow[];
+export function borrowedXp(events: LedgerEvent[], o: { now: Date; rules?: XpRules }): XpRow | null;
