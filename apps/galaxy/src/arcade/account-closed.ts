@@ -10,6 +10,8 @@ export function closedAccount(): Account {
     async signIn() { throw new Error(CLOSED); },
     async linkGithub() { throw new Error(CLOSED); },
     async save() { throw new Error(CLOSED); },
+    async submitScore() { throw new Error(CLOSED); },
+    async scores() { return { top: [], mine: null }; }, // nobody has played here
     async signOut() { /* nobody is signed in */ },
   };
 }

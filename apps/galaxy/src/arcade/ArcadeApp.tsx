@@ -7,11 +7,13 @@ import {
 } from './scenes';
 import { useForm } from './form';
 import { useFullscreen } from './fullscreen';
-import { frameFor, gridFor, pagesFor, turnPage } from './grid';
+import { frameFor, gridFor, pagesFor, TALL, turnPage, WIDE } from './grid';
 import { planetAt, Screen, type GridPoint, type ScreenInfo } from './Screen';
 import { Handheld, Lens } from './Handheld';
 import { Advance } from './Advance';
-import { motif, music, setMuted as setAudioMuted, sfx, unlock, type Sfx } from './sound';
+import { HeldPad } from './Controls';
+import { createHeld } from './held';
+import { march, motif, music, setMuted as setAudioMuted, sfx, unlock, type Sfx } from './sound';
 import { Press } from './hint';
 import { keyAction, type Action } from './keys';
 import type { SongName } from './score';
@@ -25,20 +27,38 @@ import { cardPages, ChartOverlay, SystemOverlay } from './scenes/chart.tsx';
 import { MapOverlay } from './scenes/map.tsx';
 import { PLANET_TABS, PlanetOverlay } from './scenes/planet.tsx';
 import { FleetsOverlay } from './scenes/fleets.tsx';
+import { GamesOverlay } from './scenes/games.tsx';
+import { InvadersOverlay } from './scenes/invaders.tsx';
+import { LevelUpOverlay } from './scenes/levelup.tsx';
+import { cabinetDoor, cabinets, xpStatus } from './games/room';
+import { GAMES } from './games';
+import {
+  hudOf, newGame, OVER_SECONDS, pause as pauseGame, press as pressGame, sameHud, step as stepGame, type Game, type GameEvent, type GameHud,
+} from './games/invaders';
+import { failed, hiOf, overPress, saved, sending, withBest, type ScoreSend } from './scenes/invaders-score';
 import { setFleets } from './fleets';
 import { brandLook, HOUSE_BRAND, type Brand } from './brand';
 import { stripesOf, themeVars } from './theme';
 import { Stripes } from './Sprite';
 import { foldChar, foldName, nameInit, nameReduce, nameValue, NAME_RULE, type NameAction, type NameState } from './name-entry';
 import { BUILDER_ROWS, cycleHero } from './builder';
-import { afterGate, afterReturn, afterStart, allowed, backStep, isDisbanded, isLinked, nextStep, readReturn, type Flow, type Step } from './onboarding';
-import type { Account, FleetRow, Player, PlayerPatch, Session } from './types';
+import { afterGate, afterReturn, afterStart, allowed, arrive, backStep, isDisbanded, isLinked, nextStep, readReturn, type Flow, type Step } from './onboarding';
+import { createSeen, fanfareOf, levelUpFor, type LevelUp, type Local } from './levelup';
+import type { Account, FleetRow, Player, PlayerPatch, ScoresRead, Session, XpRead } from './types';
 import './shell.css';
 
 // The music each screen plays; the rest are silent but for their effects.
 const TRACK: Partial<Record<SceneName, SongName>> = {
   intro: 'intro', select: 'select', name: 'name', hero: 'name', link: 'name', ready: 'launch', welcome: 'welcome',
 };
+
+// What Entropy Invaders sounds like: its march is the marching bass, a note a step; the rest are effects.
+const GAME_SFX: Record<Exclude<GameEvent, 'march'>, Sfx> = { fire: 'fire', hit: 'hit', hurt: 'hurt', wave: 'wave', over: 'over' };
+const playGame = (e: GameEvent, g: Game) => (e === 'march' ? march(g.marchStep) : sfx(GAME_SFX[e]));
+// A game keeps the grid it started on: turning the phone letterboxes it rather than changing its field.
+const GAME_GRID = { wide: WIDE, tall: TALL } as const;
+// Entropy Invaders' key in the registry: its crew table's, and the one its scores are sent under.
+const INVADERS = GAMES.find((g) => g.scene === 'invaders')?.id ?? 'invaders';
 
 export interface UI {
   scene: SceneName; sel: number; tab: number; menu: number; fleet: number; since: number;
@@ -53,10 +73,15 @@ export interface UI {
   toast: string | null;
   sun: number; world: number; // the star chart's sun and the system's world under the cursor
   card: boolean; cardPage: number; // the reading card over the system, and its page
+  cabinet: number; // the game room's cabinet under the cursor (wide), the page shown (tall)
+  levelUp: LevelUp | null; // what the level-up screen celebrates, set as it opens
 }
 
-const DEEP_LINKS: SceneName[] = ['map', 'chart', 'fleets', 'heroes', 'briefing'];
+const DEEP_LINKS: SceneName[] = ['map', 'chart', 'fleets', 'heroes', 'games', 'briefing'];
 const FLOW_KEY = 'omni-loop:flow'; // survives the trip to GitHub and back
+const GAMES_SEEN_KEY = 'omni-loop:games-seen'; // GAMES carries a NEW tag until the room is opened on this device
+// This browser's storage, where each login's last celebrated level is kept (levelup.ts): reaching it can throw.
+const LOCAL: Local = () => window.localStorage;
 
 function readHash(view: GalaxyView | null): Partial<UI> | null {
   if (typeof window === 'undefined' || !view) return null;
@@ -82,6 +107,10 @@ function readMuted() {
   try { return window.localStorage.getItem('omni-loop:muted') === '1'; } catch { return false; }
 }
 
+function readGamesSeen() {
+  try { return window.localStorage.getItem(GAMES_SEEN_KEY) === '1'; } catch { return true; } // no storage: no tag that never goes
+}
+
 const store = {
   get(key: string) { try { return window.sessionStorage.getItem(key); } catch { return null; } },
   set(key: string, v: string | null) { try { if (v === null) window.sessionStorage.removeItem(key); else window.sessionStorage.setItem(key, v); } catch { /* ignore */ } },
@@ -101,9 +130,19 @@ export interface ArcadeProps {
   brand?: Brand;
   /** The star chart's knowledge: the crew's and the demo's only; `'none'` in a build without it (see ChartSource). */
   knowledge?: ChartSource;
+  /**
+   * The player's XP: their player_xp row, null when they have none, 'unreadable' when it could not be
+   * read (the default: a page that says nothing of XP shows no level, and never guesses one).
+   */
+  xp?: XpRead;
+  /**
+   * Each game's crew table, by the game's id, as the page read it. None given (the demo, the
+   * artifact), the arcade asks the account for them once, on its first render.
+   */
+  scores?: Record<string, ScoresRead>;
 }
 
-export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null, brand = HOUSE_BRAND, knowledge = null }: ArcadeProps) {
+export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null, brand = HOUSE_BRAND, knowledge = null, xp = 'unreadable', scores: scores0 }: ArcadeProps) {
   setFleets(fleets);
   // The brand's look: its theme, written as custom properties on the root element below and read by
   // the canvas, and its mark in the theme's colours. The theme {} is today's arcade.
@@ -132,9 +171,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     flow: 'onboard', pick: 0, lockedAt: null, lockSaved: false, confirm: false,
     name: nameInit(''), shake: -1, hero: me0?.hero ?? { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 }, heroRow: 0,
     link: 'ask', linkLogin: null, away: false, error: null, toast: null,
-    sun: 0, world: 0, card: false, cardPage: 0,
+    sun: 0, world: 0, card: false, cardPage: 0, cabinet: 0, levelUp: null,
   }));
   const [muted, setMuted] = useState(false);
+  const [gamesSeen, setGamesSeen] = useState(true); // read from this device on the first render
   const system = useMemo(() => {
     const sun = chart.suns[ui.sun];
     return graph && sun ? layoutSystem(graph, sun.name, systemGrid) : null;
@@ -145,12 +185,70 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   meRef.current = me;
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  // Entropy Invaders: the held buttons it reads, the game (stepped by the canvas loop, never by
+  // React), and what its text layer shows, set only when that changes.
+  const held = useMemo(() => createHeld(), []);
+  const gameRef = useRef<Game | null>(null);
+  const [hud, setHud] = useState<GameHud | null>(null);
+  const hudRef = useRef<GameHud | null>(null);
+  const showHud = useCallback((g: Game | null) => {
+    const next = g ? hudOf(g) : null;
+    if (sameHud(next, hudRef.current)) return;
+    hudRef.current = next;
+    setHud(next);
+  }, []);
+  // The crew's tables, and the game over's score: sent once (`send`), for the game `run` counts, so
+  // an answer that comes back after a new game started changes the table but not the new game.
+  const [scores, setScores] = useState<Record<string, ScoresRead>>(scores0 ?? {});
+  const scoresRef = useRef(scores);
+  scoresRef.current = scores;
+  const [send, setSend] = useState<ScoreSend | null>(null);
+  const sendRef = useRef<ScoreSend | null>(null);
+  const runRef = useRef(0);
+  const showSend = useCallback((s: ScoreSend | null) => { sendRef.current = s; setSend(s); }, []);
+  const sendScore = useCallback((score: number, tries = 1) => {
+    const run = runRef.current;
+    const attempt = sending(score, tries);
+    const board = scoresRef.current[INVADERS];
+    const before = board && board !== 'unreadable' ? board.mine : null;
+    showSend(attempt);
+    account.submitScore(INVADERS, score).then((best) => {
+      const m = meRef.current;
+      if (m) setScores((all) => ({ ...all, [INVADERS]: withBest(all[INVADERS], { id: m.id, name: m.display_name, hero: m.hero, team: m.team, best }) }));
+      // Then the table as stored, with whatever the crew scored meanwhile.
+      account.scores(INVADERS).then((b) => setScores((all) => ({ ...all, [INVADERS]: b }))).catch(() => { /* the line above stands */ });
+      if (run !== runRef.current) return;
+      const done = saved(attempt, best, before);
+      showSend(done);
+      if (done.state === 'saved' && done.newBest) sfx('linked');
+    }).catch((err: Error) => {
+      console.error(err);
+      if (run !== runRef.current) return;
+      showSend(failed(attempt));
+      sfx('buzz');
+    });
+  }, [account, showSend]);
+  const sendScoreRef = useRef(sendScore);
+  sendScoreRef.current = sendScore;
+
+  // The level-up: the levels each login last celebrated on this device, and the one due now, if any.
+  const seen = useMemo(() => createSeen(LOCAL), []);
+  const loginOf = () => meRef.current?.github_login ?? sessionRef.current?.github ?? null;
+  const levelUpDue = useRef<() => LevelUp | null>(() => null);
+  levelUpDue.current = () => {
+    const login = loginOf();
+    return login ? levelUpFor(xpStatus(isLinked(sessionRef.current, meRef.current), xp), seen.get(login)) : null;
+  };
 
   const go = useCallback((patch: Partial<UI>, effect?: Sfx) => {
     if (effect) sfx(effect);
+    // Every route to the menu arrives through here: with a level not yet celebrated on this device,
+    // the level-up plays first.
+    const due = patch.scene === 'menu' ? levelUpDue.current() : null;
+    const next = patch.scene && arrive(patch.scene, Boolean(due)) === 'levelup' ? { ...patch, scene: 'levelup' as const, levelUp: due } : patch;
     setUi((u) => {
-      const moved = patch.scene !== undefined && patch.scene !== u.scene;
-      return { ...u, page: moved ? 0 : u.page, ...patch, since: moved ? now() : u.since };
+      const moved = next.scene !== undefined && next.scene !== u.scene;
+      return { ...u, page: moved ? 0 : u.page, ...next, since: moved ? now() : u.since };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -170,6 +268,18 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     go({ ...extra, ...patch, scene: step as SceneName }, effect);
   }, [active, go]);
 
+  /** A on the unlocked cabinet: a new game, laid out for the grid it is shown on, each alien paying the rules' close value. */
+  const playInvaders = useCallback(() => {
+    if (!view) return go({ toast: problem ?? 'GALAXY OUT OF REACH' }, 'buzz');
+    const g = newGame({ layout: gridFor(formRef.current, 'invaders').name, values: view.rules.woundClose, seed: Math.floor(Math.random() * 2 ** 31) });
+    held.clear(); // a finger lifted outside a game was never heard: each game starts with nothing held
+    runRef.current += 1;
+    showSend(null);
+    gameRef.current = g;
+    showHud(g);
+    go({ scene: 'invaders' }, 'start');
+  }, [view, problem, go, showHud, showSend, held]);
+
   const save = useCallback(async (patch: PlayerPatch) => {
     const row = await account.save(patch, meRef.current);
     setMe(row);
@@ -181,6 +291,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   // ── First render: the demo's remembered guest, a return from Google or GitHub, a deep link ──
   useEffect(() => {
     setMuted(readMuted());
+    setGamesSeen(readGamesSeen());
     let s = session0, m = me0;
     if (account.restore) {
       const r = account.restore();
@@ -209,6 +320,17 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The crew's tables the page did not bring (the demo's, the artifact's): the account's, once.
+  useEffect(() => {
+    if (scores0) return;
+    for (const { id } of GAMES) {
+      account.scores(id)
+        .then((b) => setScores((all) => ({ ...all, [id]: b })))
+        .catch(() => setScores((all) => ({ ...all, [id]: 'unreadable' })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => { if (ui.scene !== 'boot') writeHash(ui, view); }, [ui, view]);
   // The one door: whatever route led here (a deep link, a crafted return URL, a stale screen after
   // signing out), nothing past INSERT COIN shows without a session.
@@ -218,7 +340,40 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ui.scene, session, me]);
   useEffect(() => { setAudioMuted(muted); }, [muted]);
-  useEffect(() => { if (ui.lockedAt === null) music(TRACK[ui.scene] ?? null); }, [ui.scene, ui.lockedAt]);
+  // The game room, once opened on this device, takes GAMES's NEW tag away.
+  useEffect(() => {
+    if (ui.scene !== 'games' || gamesSeen) return;
+    setGamesSeen(true);
+    try { window.localStorage.setItem(GAMES_SEEN_KEY, '1'); } catch { /* per-device courtesy only */ }
+  }, [ui.scene, gamesSeen]);
+  useEffect(() => {
+    if (ui.lockedAt !== null) return;
+    music(ui.scene === 'levelup' && ui.levelUp ? fanfareOf(ui.levelUp) : TRACK[ui.scene] ?? null);
+  }, [ui.scene, ui.lockedAt, ui.levelUp]);
+  // A game is only ever on its own scene: one left by another route is over, and the scene with no
+  // game goes back to the room.
+  useEffect(() => {
+    if (ui.scene === 'invaders' && !gameRef.current) go({ scene: 'games' });
+    if (ui.scene !== 'invaders' && gameRef.current) { gameRef.current = null; showHud(null); }
+  }, [ui.scene, go, showHud]);
+  // A window that loses focus or a hidden tab never hears its keys and fingers go up: nothing stays
+  // held, and a game pauses.
+  useEffect(() => {
+    const lost = () => {
+      held.clear();
+      const g = gameRef.current;
+      if (uiRef.current.scene !== 'invaders' || !g) return;
+      gameRef.current = pauseGame(g);
+      showHud(gameRef.current);
+    };
+    const onVisibility = () => { if (document.hidden) lost(); };
+    window.addEventListener('blur', lost);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('blur', lost);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [held, showHud]);
 
   // ── Timed hand-overs ──
   useEffect(() => {
@@ -326,7 +481,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   /** Opens the menu's item `i`: with A or START on the row under the cursor, or with a tap on any row. */
   const openItem = useCallback((i: number) => {
-    const items = menuItems({ joined: Boolean(meRef.current?.team), linked: isLinked(sessionRef.current, meRef.current), signedIn: Boolean(sessionRef.current) });
+    const items = menuItems({ joined: Boolean(meRef.current?.team), linked: isLinked(sessionRef.current, meRef.current), signedIn: Boolean(sessionRef.current), newGames: !gamesSeen });
     const item = items[i];
     if (!item) return;
     const door = doorOf(item, { view, chart: knowledge, problem });
@@ -335,12 +490,12 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (item.id === 'change') return open('select', { flow: 'change', menu: i }, 'select');
     if (item.id === 'link') return open('link', { flow: 'link', menu: i }, 'select');
     if (item.id === 'signout') return signOut();
-  }, [view, knowledge, go, open, signOut, problem]);
+  }, [view, knowledge, go, open, signOut, problem, gamesSeen]);
 
   const act = useCallback((action: Action) => {
     const u = uiRef.current;
     const planets = view?.planets.length ?? 0;
-    const items = menuItems({ joined: Boolean(meRef.current?.team), linked: isLinked(sessionRef.current, meRef.current), signedIn: Boolean(sessionRef.current) });
+    const items = menuItems({ joined: Boolean(meRef.current?.team), linked: isLinked(sessionRef.current, meRef.current), signedIn: Boolean(sessionRef.current), newGames: !gamesSeen });
     switch (u.scene) {
       case 'boot': return go({ scene: 'title' });
       case 'title':
@@ -449,6 +604,53 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         const move = chartKey({ ...u, scene: u.scene }, action, { chart, system, pages });
         return move ? go(move.patch, move.sound) : undefined;
       }
+      case 'games': {
+        // ◀ ▶ choose a cabinet on the wide grid and turn the page on the tall one: one cursor for both.
+        const status = xpStatus(isLinked(sessionRef.current, meRef.current), xp);
+        const room = cabinets(status);
+        const at = Math.min(u.cabinet, room.length - 1);
+        if (action === 'left' || action === 'right') return go({ cabinet: turnPage(at, room.length, action) }, 'move');
+        if (action === 'select') return go({ cabinet: turnPage(at, room.length, 'right') }, 'move');
+        if (action === 'a' || action === 'start') {
+          const door = cabinetDoor(room[at], status);
+          if (!('scene' in door)) return go({ toast: door.refused }, 'buzz');
+          return door.scene === 'invaders' ? playInvaders() : go({ scene: door.scene }, 'select');
+        }
+        if (action === 'b') return go({ scene: 'menu' }, 'back');
+        return;
+      }
+      case 'levelup': {
+        // A (or START) plays the game the level opened at once; B, and A with no game opened, go on
+        // to the menu. Either saves the level as celebrated on this device, so it plays once.
+        if (action !== 'a' && action !== 'b' && action !== 'start') return;
+        const login = loginOf();
+        if (u.levelUp && login) seen.set(login, u.levelUp.xp.level);
+        const game = action === 'b' ? null : u.levelUp?.game ?? null;
+        if (game?.scene === 'invaders') return view ? playInvaders() : open('menu', { toast: problem ?? 'GALAXY OUT OF REACH' }, 'buzz');
+        if (game?.scene) return go({ scene: game.scene }, 'start');
+        return open('menu', {}, action === 'b' ? 'back' : 'select');
+      }
+      case 'invaders': {
+        // ◀ ▶ and A are read held, by the canvas loop; a press answers START, B, and A on a screen.
+        const g = gameRef.current;
+        if (!g) return action === 'b' ? go({ scene: 'games' }, 'back') : undefined;
+        // The game over, once its score has shown: A retries a send that failed, once; the rest is the game's.
+        const s = sendRef.current;
+        if (g.over && s && g.t - g.overAt >= OVER_SECONDS && overPress(s, action) === 'retry' && s.state === 'failed') {
+          sfx('select');
+          return sendScore(s.score, s.tries + 1);
+        }
+        const { game: next, leave } = pressGame(g, action);
+        if (leave) {
+          gameRef.current = null;
+          showHud(null);
+          return go({ scene: 'games' }, 'back');
+        }
+        if (next === g) return;
+        gameRef.current = next;
+        sfx(next.paused ? 'back' : 'select');
+        return showHud(next);
+      }
       case 'fleets': {
         const n = view?.teams.length ?? 0;
         if (!n) return action === 'b' ? go({ scene: 'menu' }, 'back') : undefined;
@@ -471,7 +673,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') return go({ scene: 'menu' }, 'back');
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, openItem]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, showHud, sendScore, seen, problem]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): the first press
@@ -505,12 +707,19 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       const action = keyAction(e.key);
       if (!action) return;
       e.preventDefault();
+      held.keyDown(e.key);
       if (e.repeat && (action === 'a' || action === 'b' || action === 'start')) return;
+      if (e.repeat && uiRef.current.scene === 'invaders') return; // a game reads a held key as held, never as repeats
       act(action);
     };
+    const onKeyUp = (e: KeyboardEvent) => held.keyUp(e.key);
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [act, fullscreen, leave, nameAction, nameDone, toggleSound]);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKeyUp);
+    };
+  }, [act, fullscreen, leave, nameAction, nameDone, toggleSound, held]);
 
   // The title cycles its attract phases.
   const [, tick] = useState(0);
@@ -522,7 +731,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   // ── Canvas loop ──
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const grid = gridFor(form, ui.scene);
+  const grid = ui.scene === 'invaders' && hud ? GAME_GRID[hud.layout] : gridFor(form, ui.scene);
   const pages = pagesFor(ui.scene, { view, grid });
   const page = Math.min(ui.page, pages - 1);
   const frameRef = useRef({ view, layout, active, me, grid, page, mark, logo, theme, knowledge, chart, system });
@@ -530,13 +739,24 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   useEffect(() => {
     const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     let raf = 0;
+    let last = now();
     const loop = () => {
       raf = requestAnimationFrame(loop);
+      const t = now(), dt = t - last;
+      last = t;
       const ctx = canvasRef.current?.getContext('2d');
       if (!ctx) return;
-      const t = now();
       const u = uiRef.current;
       const f = frameRef.current;
+      // The game plays the time since the last frame, with the buttons held now.
+      let game = u.scene === 'invaders' ? gameRef.current : null;
+      if (game) {
+        game = stepGame(game, held.buttons(), dt);
+        gameRef.current = game;
+        for (const e of game.events) playGame(e, game);
+        showHud(game);
+        if (game.over && !sendRef.current) sendScoreRef.current(game.score); // once a game: sendRef is set at once
+      }
       const picking = u.scene === 'select' ? f.active[u.pick]?.name ?? null : null;
       const frame: FrameState = {
         scene: u.scene, grid: f.grid, page: f.page, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches, mark: f.mark, logo: f.logo, theme: f.theme,
@@ -546,6 +766,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           hero: u.scene === 'hero' ? u.hero : f.me?.hero ?? u.hero,
         },
         chart: { source: f.knowledge, layout: f.chart, system: f.system, sun: u.sun, world: u.world },
+        game,
       };
       const phase = titlePhaseAt(t - u.since);
       drawFrame(ctx, frame, !f.view && phase === 'hiscore' ? 'title' : phase); // no high scores without the galaxy
@@ -596,7 +817,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   const phase = titlePhaseAt(now() - ui.since);
   const sel = view?.planets[ui.sel];
-  const items = menuItems({ joined: Boolean(me?.team), linked: isLinked(session, me), signedIn: Boolean(session) });
+  const items = menuItems({ joined: Boolean(me?.team), linked: isLinked(session, me), signedIn: Boolean(session), newGames: !gamesSeen });
+  const xpNow = xpStatus(isLinked(session, me), xp);
   const displayName = me?.display_name ?? (session ? foldName(session.givenName) || 'RECRUIT' : '');
   const who = session
     ? `${account.kind === 'demo' ? 'DEMO · ' : ''}P1 ${displayName}`
@@ -619,7 +841,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'link': return <LinkOverlay state={ui.link} name={displayName} login={ui.linkLogin ?? session?.github ?? me?.github_login ?? null} error={ui.error} demo={account.kind === 'demo'} />;
       case 'ready': return <ReadyOverlay name={displayName} team={me?.team ?? null} />;
       case 'welcome': return <WelcomeOverlay name={displayName} team={me?.team ?? null} />;
-      case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={openItem} chart={knowledge} />;
+      case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={openItem} chart={knowledge} xp={xpNow} />;
+      case 'games': return <GamesOverlay xp={xpNow} me={me} index={ui.cabinet} scores={scores} onPick={(i) => { if (i === ui.cabinet) act('a'); else go({ cabinet: i }, 'move'); }} />;
+      case 'levelup': return ui.levelUp ? <LevelUpOverlay levelUp={ui.levelUp} /> : null;
+      case 'invaders': return view ? <InvadersOverlay hud={hud} values={view.rules.woundClose} hero={me?.hero ?? ui.hero} team={me?.team ?? null} hi={hiOf(scores[INVADERS])} send={send} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => act('a')} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => go({ tab }, 'tab')} /> : null;
       case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => go({ fleet: i }, 'move')} /> : null;
@@ -645,8 +870,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
             {ui.toast && <p className="j-toast" role="status">{ui.toast}</p>}
           </Screen>
         </Lens>
-        {form === 'handheld' && <Handheld {...body} />}
-        {form === 'advance' && <Advance {...body} />}
+        <HeldPad.Provider value={ui.scene === 'invaders' ? held : null}>
+          {form === 'handheld' && <Handheld {...body} />}
+          {form === 'advance' && <Advance {...body} />}
+        </HeldPad.Provider>
       </Stripes.Provider>
     </div>
   );

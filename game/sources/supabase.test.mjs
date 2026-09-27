@@ -34,6 +34,23 @@ describe('supabaseRest', () => {
     await expect(rest.select('workspaces', 'select=id')).rejects.toThrow('Supabase: read workspaces failed (ECONNREFUSED at http://127.0.0.1:9)');
     await expect(rest.insertNew('ledger_events', [{ id: 'a' }], 'id')).rejects.toThrow(/write ledger_events 0–1 failed \(ECONNREFUSED/);
   });
+
+  it('upserts every row in one request, updating the rows its key already names', async () => {
+    const fake = fakeSupabase({ player_xp: [{ k: 'a', xp: 1 }] });
+    const rest = supabaseRest({ url: 'https://ref.supabase.co', key: 'k', fetch: fake.fetch });
+    const rows = Array.from({ length: 1200 }, (_, i) => ({ k: i ? `n${i}` : 'a', xp: 2 }));
+    await rest.upsert('player_xp', rows, 'k');
+    expect(fake.calls).toHaveLength(1);
+    expect(fake.calls[0].url.searchParams.get('on_conflict')).toBe('k');
+    expect(fake.calls[0].headers.Prefer).toBe('resolution=merge-duplicates,return=minimal');
+    expect(fake.tables.player_xp).toHaveLength(1200);
+    expect(fake.tables.player_xp[0]).toEqual({ k: 'a', xp: 2 });
+  });
+
+  it('names the table and the status when an upsert fails', async () => {
+    const rest = supabaseRest({ url: 'https://ref.supabase.co', key: 'k', fetch: fakeSupabase({}, { failOn: 'player_xp' }).fetch });
+    await expect(rest.upsert('player_xp', [{ k: 'a' }], 'k')).rejects.toThrow(/write player_xp failed \(503/);
+  });
 });
 
 describe('supabaseFromEnv', () => {

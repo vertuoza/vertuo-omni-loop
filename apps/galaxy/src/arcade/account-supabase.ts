@@ -2,8 +2,11 @@
 // through the database, in the workspace the page plays (src/data/players.ts), with row-level
 // security deciding what they may change (their name, fleet and hero; never their GitHub login,
 // which comes from the linked identity), and refusing a row to a visitor who has not linked GitHub.
+// A finished game's score goes through submit_score(), and the crew's tables are read as the member
+// (src/data/scores.ts).
 import { createBrowserClient } from '@supabase/ssr';
 import { savePlayer } from '../data/players';
+import { loadScores, submitScore } from '../data/scores';
 import type { Account, Player, PlayerPatch } from './types';
 
 /** `workspace`: the id of the workspace the page plays, where joining a fleet writes the player row;
@@ -34,6 +37,14 @@ export function supabaseAccount({ url, key, workspace }: { url: string; key: str
       const { data: { user } } = await db.auth.getUser();
       if (!user) throw new Error('Your session ended. Sign in again.');
       return savePlayer(db, workspace, user.id, patch, current);
+    },
+    async submitScore(game: string, score: number) {
+      return submitScore(db, workspace, game, score);
+    },
+    async scores(game: string) {
+      if (!workspace) throw new Error('This account belongs to no workspace yet.');
+      const { data: { user } } = await db.auth.getUser();
+      return loadScores(db, workspace, game, user?.id ?? null);
     },
     async signOut() {
       // This browser only: the default, global, would also end the sign-in `omni signin` keeps for

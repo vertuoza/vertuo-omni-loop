@@ -120,16 +120,17 @@ describe('the game scripts name their workspace', () => {
     expect(read.url.searchParams.get('workspace_id')).toBe(`eq.${ACME}`);
   }, 20_000);
 
-  it('game:export writes one workspace: workspace.jsonl and its four tables, nothing of another', async () => {
+  it('game:export writes one workspace: workspace.jsonl and its five tables, nothing of another', async () => {
     tables.ledger_events.push({ ...tables.ledger_events[0], workspace_id: ACME });
     tables.sectors.push({ workspace_id: ACME, name: 'rockets', repos: [] });
+    tables.arcade_scores = [VERTUOZA, ACME].map((workspace_id) => ({ workspace_id, user_id: 'u1', game: 'invaders', best: 1240, at: 'a' }));
     const dir = join(tmp, 'backup');
     const run = await game('export', [dir, '--workspace', 'vertuoza']);
     expect(run.code, run.stderr).toBe(0);
-    expect(readdirSync(dir).sort()).toEqual(['ledger_events.jsonl', 'players.jsonl', 'sectors.jsonl', 'teams.jsonl', 'workspace.jsonl']);
+    expect(readdirSync(dir).sort()).toEqual(['arcade_scores.jsonl', 'ledger_events.jsonl', 'players.jsonl', 'sectors.jsonl', 'teams.jsonl', 'workspace.jsonl']);
     const read = (file) => readFileSync(join(dir, file), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
     expect(read('workspace.jsonl')).toEqual([tables.workspaces[0]]);
-    for (const table of ['ledger_events', 'sectors', 'teams', 'players']) {
+    for (const table of ['ledger_events', 'sectors', 'teams', 'players', 'arcade_scores']) {
       expect(read(`${table}.jsonl`).map((r) => r.workspace_id)).toEqual([VERTUOZA]);
     }
     expect(readdirSync(dir).map((f) => readFileSync(join(dir, f), 'utf8')).join('')).not.toContain(ACME);

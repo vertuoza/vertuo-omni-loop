@@ -2,8 +2,9 @@
 // written as one signed-in person under the row-level security of
 // supabase/migrations/20260926120000_workspaces.sql (a person reads their own memberships, a member
 // reads their workspaces' rows and nothing of another's, a member with GitHub linked writes only
-// their own player row), with join_by_domain() and link_github(). It answers the query shapes
-// src/data sends, records every one, and nothing else. The database's own rules are proved by
+// their own player row), with join_by_domain(), link_github() and submit_score()
+// (supabase/migrations/20260926180000_arcade_scores.sql). It answers the query shapes src/data
+// sends, records every one, and nothing else. The database's own rules are proved by
 // supabase/checks/access.sql, not here.
 
 type Row = Record<string, unknown>;
@@ -11,13 +12,16 @@ type Failure = { code?: string; message: string };
 type Result = { data: unknown; error: Failure | null };
 
 export type FakeUser = { id: string; email: string; confirmed?: boolean; github?: { id: number; login: string } };
-export type FakeTable = 'workspaces' | 'workspace_members' | 'sectors' | 'teams' | 'players' | 'ledger_events';
+export type FakeTable = 'workspaces' | 'workspace_members' | 'sectors' | 'teams' | 'players' | 'ledger_events' | 'player_xp' | 'arcade_scores';
 export type FakeTables = Record<FakeTable, Row[]>;
 
-/** One call the client received: a table's query with its `eq` filters, or an RPC. */
+/** One call the client received: a table's query with its `eq` filters, or an RPC with its arguments. */
 export type FakeCall =
   | { kind: 'from'; table: FakeTable; op: 'select' | 'insert' | 'update'; eq: Record<string, unknown> }
-  | { kind: 'rpc'; fn: string };
+  | { kind: 'rpc'; fn: string; args?: Record<string, unknown> };
+
+/** The highest score submit_score() takes. */
+const SCORE_CAP = 9_999_999;
 
 const clone = <T>(value: T): T => (value === undefined ? value : JSON.parse(JSON.stringify(value)));
 
@@ -36,7 +40,7 @@ function items(columns: string): string[] {
 
 export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] = []) {
   const tables: FakeTables = {
-    workspaces: [], workspace_members: [], sectors: [], teams: [], players: [], ledger_events: [],
+    workspaces: [], workspace_members: [], sectors: [], teams: [], players: [], ledger_events: [], player_xp: [], arcade_scores: [],
     ...clone(seed),
   };
   const calls: FakeCall[] = [];
@@ -51,8 +55,14 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
       : table === 'workspace_members' ? Boolean(me && row.user_id === me.id)
         : isMember(me, row.workspace_id);
 
+  /** The row `table` an embedding joins to `row`: a player on the row's workspace and person (the
+   * composite key arcade_scores holds), any other table on `<table>_id`. */
+  const joined = (table: FakeTable, row: Row) => (table === 'players'
+    ? (r: Row) => r.workspace_id === row.workspace_id && r.user_id === row.user_id
+    : (r: Row) => r.id === row[`${table.replace(/s$/, '')}_id`]);
+
   /** A row as `select(columns)` shapes it: aliases (`id:user_id`) and one level of embedding
-   * (`workspace:workspaces(id, slug)`, joined on `workspace_id`, under the same security). */
+   * (`workspace:workspaces(id, slug)`, `player:players(display_name)`, under the same security). */
   function project(row: Row, columns: string, me: FakeUser | null): Row {
     if (columns.trim() === '*') return clone(row);
     const out: Row = {};
@@ -62,8 +72,8 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
       const [, alias, name, inner] = m;
       if (inner === undefined) { out[alias ?? name] = clone(row[name]); continue; }
       const table = name as FakeTable;
-      const key = `${table.replace(/s$/, '')}_id`;
-      const found = tables[table].find((r) => r.id === row[key] && visible(table, r, me));
+      const on = joined(table, row);
+      const found = tables[table].find((r) => on(r) && visible(table, r, me));
       out[alias ?? name] = found ? project(found, inner, me) : null;
     }
     return out;
@@ -76,6 +86,7 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     private eqs: Record<string, unknown> = {};
     private orders: Array<{ column: string; ascending: boolean }> = [];
     private window: [number, number] | null = null;
+    private most: number | null = null;
     private shape: 'many' | 'single' | 'maybe' = 'many';
 
     constructor(private table: FakeTable, private me: FakeUser | null) {}
@@ -86,6 +97,7 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     eq(column: string, value: unknown) { this.eqs[column] = value; return this; }
     order(column: string, options: { ascending?: boolean } = {}) { this.orders.push({ column, ascending: options.ascending ?? true }); return this; }
     range(from: number, to: number) { this.window = [from, to]; return this; }
+    limit(count: number) { this.most = count; return this; }
     single() { this.shape = 'single'; return this; }
     maybeSingle() { this.shape = 'maybe'; return this; }
 
@@ -113,12 +125,14 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
         .filter((row) => Object.entries(this.eqs).every(([column, value]) => row[column] === value));
       const sorted = [...rows].sort((a, b) => {
         for (const { column, ascending } of this.orders) {
-          const x = String(a[column] ?? ''), y = String(b[column] ?? '');
+          const numbers = typeof a[column] === 'number' && typeof b[column] === 'number';
+          const x = numbers ? (a[column] as number) : String(a[column] ?? ''), y = numbers ? (b[column] as number) : String(b[column] ?? '');
           if (x !== y) return (x < y ? -1 : 1) * (ascending ? 1 : -1);
         }
         return 0;
       });
-      return this.window ? sorted.slice(this.window[0], this.window[1] + 1) : sorted;
+      const shown = this.window ? sorted.slice(this.window[0], this.window[1] + 1) : sorted;
+      return this.most === null ? shown : shown.slice(0, this.most);
     }
 
     /** A player joins: their own row, in a workspace they belong to, with GitHub linked; the guard
@@ -156,9 +170,28 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     }
   }
 
-  async function rpc(me: FakeUser | null, fn: string): Promise<Result> {
-    calls.push({ kind: 'rpc', fn });
+  async function rpc(me: FakeUser | null, fn: string, args?: Record<string, unknown>): Promise<Result> {
+    calls.push(args === undefined ? { kind: 'rpc', fn } : { kind: 'rpc', fn, args: clone(args) });
     if (state.fail) return { data: null, error: state.fail };
+    if (fn === 'submit_score') {
+      // A player of the workspace, with the game in their player_xp row's unlocked, a score from 0 to
+      // the cap; the higher of the stored best and the score is kept, and returned.
+      const { workspace, game, score } = args ?? {};
+      const player = me && tables.players.find((p) => p.workspace_id === workspace && p.user_id === me.id);
+      if (!me || !player) return { data: null, error: { code: '42501', message: 'Only a player of this workspace may post a score.' } };
+      if (typeof score !== 'number' || !Number.isInteger(score) || score < 0 || score > SCORE_CAP) {
+        return { data: null, error: { code: '22023', message: 'A score is a whole number from 0 to 9,999,999.' } };
+      }
+      const login = String(player.github_login ?? '').toLowerCase();
+      const xp = tables.player_xp.find((x) => x.workspace_id === workspace && x.github_login === login);
+      if (!xp || !(xp.unlocked as string[]).includes(String(game))) {
+        return { data: null, error: { code: '42501', message: `The game ${game} is not unlocked for this player yet.` } };
+      }
+      const row = tables.arcade_scores.find((s) => s.workspace_id === workspace && s.user_id === me.id && s.game === game);
+      if (!row) tables.arcade_scores.push({ workspace_id: workspace, user_id: me.id, game, best: score, at: stamp() });
+      else if (score > (row.best as number)) Object.assign(row, { best: score, at: stamp() });
+      return { data: row ? row.best : score, error: null };
+    }
     if (!me) return { data: null, error: { code: '42501', message: 'Sign in first.' } };
     if (fn === 'join_by_domain') {
       const domain = me.email.toLowerCase().split('@')[1];
@@ -193,7 +226,7 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
         },
       },
       from: (table: FakeTable) => new Query(table, user),
-      rpc: (fn: string) => rpc(user, fn),
+      rpc: (fn: string, args?: Record<string, unknown>) => rpc(user, fn, args),
     };
   }
 
@@ -212,6 +245,12 @@ const fleet = (workspace_id: string, name: string, sort: number, retired_at: str
 const charted = (workspace_id: string, title: string) => ({
   workspace_id, id: 'planet:12:charted', at: '2026-09-20T10:00:00Z', type: 'PLANET_CHARTED', planet: 12,
   region: null, contributor: null, team: null, data: { title, captain: 'ada-gh' },
+});
+const xpRow = (workspace_id: string, github_login: string, xp: number, level: number, unlocked: string[]) => ({
+  workspace_id, github_login, xp, level, unlocked, computed_at: '2026-09-26T09:45:00Z',
+});
+export const score = (workspace_id: string, user_id: string, best: number, at: string, game = 'invaders') => ({
+  workspace_id, user_id, game, best, at,
 });
 const player = (workspace_id: string, user_id: string, display_name: string, team: string, github_login: string) => ({
   workspace_id, user_id, display_name, team, team_since: '2026-09-21T10:00:00Z', hero: HERO, github_id: 1, github_login,
@@ -260,6 +299,20 @@ export function twoWorkspaces(): Partial<FakeTables> {
       player(VERTUOZA, both.id, 'BOTH', 'beaver', 'both-gh'),
     ],
     ledger_events: [charted(VERTUOZA, 'Workspaces'), charted(ACME, 'Anvils')],
+    // As the game workflow writes them (supabase/migrations/20260926170000_game_room.sql): a row per
+    // lower-cased login the workspace's ledger names, player or not (BEA has no player row yet).
+    player_xp: [
+      xpRow(VERTUOZA, 'ada-gh', 180, 3, ['invaders']),
+      xpRow(VERTUOZA, 'both-gh', 500, 5, ['invaders']),
+      xpRow(VERTUOZA, 'bea-gh', 10, 1, ['invaders']),
+      xpRow(ACME, 'both-gh', 60, 2, ['invaders']),
+    ],
+    // Each player's best at Entropy Invaders, as submit_score() keeps them.
+    arcade_scores: [
+      score(VERTUOZA, ada.id, 1240, '2026-09-26T08:30:00Z'),
+      score(VERTUOZA, both.id, 385, '2026-09-26T08:40:00Z'),
+      score(ACME, wile.id, 9210, '2026-09-26T08:50:00Z'),
+    ],
   };
 }
 

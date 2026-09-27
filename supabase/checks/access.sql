@@ -425,6 +425,242 @@ begin
   end loop;
 end $$;
 
+-- ── XP (PRD #160): a workspace's members read its XP; only the service role writes it ──
+-- The demo seed wrote the demo world's rows. The service role writes as `pnpm game:xp` does: an
+-- upsert keyed by workspace and lower-cased login, run twice.
+do $$
+begin
+  if not exists (select 1 from public.player_xp
+                  where workspace_id = (select id from public.workspaces where slug = 'vertuoza') and level > 0) then
+    raise exception 'FAIL: the demo seed wrote no player_xp rows';
+  end if;
+end $$;
+
+set local role service_role;
+do $$
+declare
+  v constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+  acme constant uuid := '00000000-0000-4000-8000-0000000000a2';
+  run int;
+begin
+  for run in 1..2 loop
+    begin
+      insert into public.player_xp as x (workspace_id, github_login, xp, level, unlocked, computed_at) values
+        (v, 'ada-gh', 90 * run, run + 1, '{invaders}', now()),
+        (acme, 'dan-gh', 10, 1, '{invaders}', now())
+      on conflict (workspace_id, github_login) do update
+        set xp = excluded.xp, level = excluded.level, unlocked = excluded.unlocked, computed_at = excluded.computed_at;
+    exception when insufficient_privilege then
+      raise exception 'FAIL: the service role cannot write player_xp (%)', sqlerrm;
+    end;
+  end loop;
+  if (select (xp, level) from public.player_xp where workspace_id = v and github_login = 'ada-gh') is distinct from (180, 3::smallint) then
+    raise exception 'FAIL: a second game:xp run did not update the login''s row';
+  end if;
+  begin
+    insert into public.player_xp (workspace_id, github_login, xp, level, unlocked, computed_at) values (v, 'Ada-GH', 1, 1, '{}', now());
+    raise exception 'FAIL: player_xp stored a login that is not lower-cased';
+  exception when check_violation then null; end;
+end $$;
+reset role;
+
+select pg_temp.sign_out();
+set local role anon;
+do $$
+begin
+  perform 1 from public.player_xp limit 1;
+  raise exception 'FAIL: anon read public.player_xp';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
+
+set local role authenticated;
+do $$
+declare
+  me record;
+  mine uuid;
+  n int;
+begin
+  for me in select * from (values
+      ('00000000-0000-4000-8000-00000000000a', 'ada@vertuoza.com', 'vertuoza', 'ada-gh'),
+      ('00000000-0000-4000-8000-00000000000c', 'carol@vertuoza.com', 'vertuoza', 'ada-gh'),  -- a visitor reads it too
+      ('00000000-0000-4000-8000-00000000000d', 'dan@acme.test', 'acme', 'dan-gh')) as m (uid, email, slug, login) loop
+    perform pg_temp.sign_in(me.uid, me.email);
+    mine := (select id from public.workspaces where slug = me.slug);
+    if not exists (select 1 from public.player_xp where workspace_id = mine and github_login = me.login) then
+      raise exception 'FAIL: % (a member) cannot read their workspace''s XP', me.email;
+    end if;
+    select count(*) into n from public.player_xp where workspace_id <> mine;
+    if n <> 0 then raise exception 'FAIL: % read % XP rows of another workspace', me.email, n; end if;
+  end loop;
+
+  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000e', 'eve@example.com');
+  if exists (select 1 from public.player_xp) then raise exception 'FAIL: an outsider read XP'; end if;
+
+  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000a', 'ada@vertuoza.com');
+  begin
+    insert into public.player_xp (workspace_id, github_login, xp, level, unlocked, computed_at)
+    values ((select id from public.workspaces where slug = 'vertuoza'), 'ada-alt', 242550, 99, '{invaders}', now());
+    raise exception 'FAIL: a member inserted XP';
+  exception when insufficient_privilege then null; end;
+  begin
+    update public.player_xp set xp = 242550 where github_login = 'ada-gh';
+    raise exception 'FAIL: a player raised their own XP';
+  exception when insufficient_privilege then null; end;
+  begin
+    delete from public.player_xp where github_login = 'ada-gh';
+    raise exception 'FAIL: a player deleted XP';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+select pg_temp.sign_out();
+
+do $$
+begin
+  -- Column grants count too: one updatable column is a way to raise one's own level.
+  if has_any_column_privilege('anon', 'public.player_xp', 'select, insert, update')
+     or has_table_privilege('anon', 'public.player_xp', 'delete, truncate')
+     or has_any_column_privilege('authenticated', 'public.player_xp', 'insert, update')
+     or has_table_privilege('authenticated', 'public.player_xp', 'delete, truncate') then
+    raise exception 'FAIL: nobody signed in may write public.player_xp, and anon may not read it';
+  end if;
+  if not has_table_privilege('service_role', 'public.player_xp', 'select')
+     or not has_table_privilege('service_role', 'public.player_xp', 'insert')
+     or not has_table_privilege('service_role', 'public.player_xp', 'update') then
+    raise exception 'FAIL: the game workflow cannot read and write public.player_xp';
+  end if;
+end $$;
+
+-- ── Scores (PRD #160): a workspace's members read its scores; only submit_score() writes them ──
+-- By now Ada (Vertuoza) and Dan (Acme) each have Entropy Invaders in their player_xp row; Bob is a
+-- player with no player_xp row, Carol a visitor with no player row, Eve an outsider.
+set local role authenticated;
+do $$
+declare
+  acme constant uuid := '00000000-0000-4000-8000-0000000000a2';
+  ada constant uuid := '00000000-0000-4000-8000-00000000000a';
+  dan constant uuid := '00000000-0000-4000-8000-00000000000d';
+  v uuid;
+begin
+  perform pg_temp.sign_in(ada::text, 'ada@vertuoza.com');
+  v := (select id from public.workspaces where slug = 'vertuoza');  -- read as a member
+  if public.submit_score(v, 'invaders', 500) is distinct from 500 then
+    raise exception 'FAIL: submit_score() did not store a first score as the best';
+  end if;
+  if public.submit_score(v, 'invaders', 300) is distinct from 500 then
+    raise exception 'FAIL: submit_score() let a lower score replace the best, or did not return the best';
+  end if;
+  if public.submit_score(v, 'invaders', 900) is distinct from 900 then
+    raise exception 'FAIL: submit_score() did not keep the higher score';
+  end if;
+  if (select array_agg(best) from public.arcade_scores where workspace_id = v and user_id = ada) is distinct from array[900] then
+    raise exception 'FAIL: a player holds more than one best per game, or not the higher one';
+  end if;
+  begin
+    perform public.submit_score(v, 'invaders', -1);
+    raise exception 'FAIL: submit_score() stored a score below 0';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.submit_score(v, 'invaders', 10000000);
+    raise exception 'FAIL: submit_score() stored a score above 9,999,999';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.submit_score(v, 'maze', 100);
+    raise exception 'FAIL: submit_score() stored a score for a game the caller''s player_xp has not unlocked';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.submit_score(acme, 'invaders', 100);
+    raise exception 'FAIL: submit_score() stored a score in another workspace';
+  exception when insufficient_privilege then null; end;
+  if public.submit_score(v, 'invaders', 9999999) is distinct from 9999999 then
+    raise exception 'FAIL: submit_score() refused the cap itself';
+  end if;
+
+  -- Only through submit_score(): no direct write, not even to one's own best.
+  begin
+    insert into public.arcade_scores (workspace_id, user_id, game, best, at) values (v, ada, 'maze', 42, now());
+    raise exception 'FAIL: a player inserted a score directly';
+  exception when insufficient_privilege then null; end;
+  begin
+    update public.arcade_scores set best = 1 where user_id = ada;
+    raise exception 'FAIL: a player changed a score directly';
+  exception when insufficient_privilege then null; end;
+  begin
+    delete from public.arcade_scores where user_id = ada;
+    raise exception 'FAIL: a player deleted a score';
+  exception when insufficient_privilege then null; end;
+
+  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000b', 'bob@vertuoza.com');
+  begin
+    perform public.submit_score(v, 'invaders', 100);
+    raise exception 'FAIL: submit_score() stored a score for a player whose XP unlocked nothing';
+  exception when insufficient_privilege then null; end;
+
+  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000c', 'carol@vertuoza.com');
+  begin
+    perform public.submit_score(v, 'invaders', 100);
+    raise exception 'FAIL: submit_score() stored a visitor''s score';
+  exception when insufficient_privilege then null; end;
+  if (select count(*) from public.arcade_scores where workspace_id = v) <> 1 then
+    raise exception 'FAIL: a member (a visitor) cannot read their workspace''s scores';
+  end if;
+
+  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000e', 'eve@example.com');
+  begin
+    perform public.submit_score(v, 'invaders', 100);
+    raise exception 'FAIL: submit_score() stored an outsider''s score';
+  exception when insufficient_privilege then null; end;
+  if exists (select 1 from public.arcade_scores) then raise exception 'FAIL: an outsider read scores'; end if;
+
+  perform pg_temp.sign_in(dan::text, 'dan@acme.test');
+  if public.submit_score(acme, 'invaders', 40) is distinct from 40 then
+    raise exception 'FAIL: a player of another workspace could not post a score there';
+  end if;
+  if (select array_agg(user_id) from public.arcade_scores) is distinct from array[dan] then
+    raise exception 'FAIL: a member read scores of another workspace, or not their own workspace''s';
+  end if;
+
+  perform pg_temp.sign_in(ada::text, 'ada@vertuoza.com');
+  if (select array_agg(user_id) from public.arcade_scores) is distinct from array[ada] then
+    raise exception 'FAIL: a member read scores of another workspace, or not their own workspace''s';
+  end if;
+end $$;
+reset role;
+select pg_temp.sign_out();
+
+set local role anon;
+do $$
+begin
+  begin
+    perform 1 from public.arcade_scores limit 1;
+    raise exception 'FAIL: anon read public.arcade_scores';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.submit_score((select '00000000-0000-4000-8000-0000000000a2'::uuid), 'invaders', 1);
+    raise exception 'FAIL: anon called submit_score()';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+
+do $$
+begin
+  if has_any_column_privilege('anon', 'public.arcade_scores', 'select, insert, update')
+     or has_table_privilege('anon', 'public.arcade_scores', 'delete, truncate')
+     or has_any_column_privilege('authenticated', 'public.arcade_scores', 'insert, update')
+     or has_table_privilege('authenticated', 'public.arcade_scores', 'delete, truncate')
+     or has_any_column_privilege('service_role', 'public.arcade_scores', 'insert, update')
+     or has_table_privilege('service_role', 'public.arcade_scores', 'delete, truncate') then
+    raise exception 'FAIL: someone may write public.arcade_scores directly, or anon may read it';
+  end if;
+  if not has_table_privilege('service_role', 'public.arcade_scores', 'select') then
+    raise exception 'FAIL: the weekly backup cannot read public.arcade_scores';
+  end if;
+  if has_function_privilege('anon', 'public.submit_score(uuid, text, integer)', 'execute')
+     or not has_function_privilege('authenticated', 'public.submit_score(uuid, text, integer)', 'execute') then
+    raise exception 'FAIL: submit_score() is callable by the wrong roles';
+  end if;
+end $$;
+
 -- ── The sign-up hook: a domain no workspace joins is refused, by a message naming no company ──
 do $$
 declare refusal jsonb;

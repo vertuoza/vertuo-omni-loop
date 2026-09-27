@@ -44,6 +44,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm game:project
         env: { GH_TOKEN: '${{ secrets.OMNI_GAME_TOKEN }}' }   # contents, pull requests and issues: read on the engineering repos
+      # Every login's XP, level and unlocked games, recomputed from the whole ledger with the rulebook
+      # of the day and written to player_xp. Reads the ledger, never writes it.
+      - run: pnpm game:xp
 
   rankings:
     # The Monday schedule, or a dispatch that asks for it. Reads the ledger; writes nothing to the
