@@ -17269,8 +17269,8 @@ var dossier = {
       return 1;
     }
     const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...callMs ? { callMs } : {} });
-    const where = { ctx, repo, client, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(env), stdout, stderr, now };
-    return verb === "open" ? open(title, where) : push(prd2, where);
+    const options = { ctx, repo, client, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(env), stdout, stderr, now };
+    return verb === "open" ? open(title, options) : push(prd2, options);
   }
 };
 
