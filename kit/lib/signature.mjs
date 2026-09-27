@@ -27,15 +27,24 @@ export function trailerLine(signature) {
   return signature ? `Co-authored-by: ${signature.name} <${signature.email}>` : null;
 }
 
+/** The placeholders a footer may hold (PRD #215): each is filled with the signature key it names. */
+const PLACEHOLDER = /\{(name|home)\}/g;
+
 /**
  * The line a pull request or issue body the loop opens ends with — the footer, then the marker — or
- * `null` when signing is off.
+ * `null` when signing is off. The footer is a template: every `{name}` is filled with the
+ * signature's name and every `{home}` with its home page, once each, so a value holding a
+ * placeholder is printed as it is. Anything else, an unknown `{…}` included, is printed as written.
  *
- * @param {{ footer: string } | null} signature
+ * @param {{ name?: string, home?: string, footer: string } | null} signature
  * @returns {string | null}
  */
 export function footerLine(signature) {
-  return signature ? `${signature.footer} ${SIGNED_MARKER}` : null;
+  if (!signature) return null;
+  const footer = signature.footer.replace(PLACEHOLDER, (placeholder, key) =>
+    typeof signature[key] === 'string' ? signature[key] : placeholder,
+  );
+  return `${footer} ${SIGNED_MARKER}`;
 }
 
 /** Whether a pull request or issue body carries the marker. */

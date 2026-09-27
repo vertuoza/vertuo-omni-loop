@@ -6,8 +6,8 @@ import { ConfigSchema } from '../config.mjs';
 import { creditCommits, creditItems, mergedPullRequest, summarize } from './classify.mjs';
 
 const { labels, signature } = ConfigSchema.parse({ kit: 1 });
-const TRAILER = 'Co-authored-by: OmniMan <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
-const SIGNED_BODY = 'Part of #7\n\n🦸 Delivered by OmniMan, with Omni Loop <!-- omni-loop:signed -->';
+const TRAILER = 'Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
+const SIGNED_BODY = 'Part of #7\n\n🦸 Omni-man by [Omni Loop](https://vertuo-omni-loop-galaxy.vercel.app) © <!-- omni-loop:signed -->';
 
 /** One pull request as the reader hands it over; unlabelled, unsigned and merged unless told otherwise. */
 function pr(number, overrides = {}) {
@@ -24,7 +24,7 @@ function pr(number, overrides = {}) {
   };
 }
 
-/** One default-branch commit, carrying OmniMan's trailer unless another message is given. */
+/** One default-branch commit, carrying Omni-man's trailer unless another message is given. */
 function commit(subject, { repo = 'acme/widgets', trailer = TRAILER } = {}) {
   return { repo, sha: `sha-${subject}`, message: `${subject}\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n${trailer}\n`, date: '2026-08-11T09:00:00Z' };
 }
@@ -77,7 +77,7 @@ describe('whose pull request it is (AC 7)', () => {
   it('a commit whose trailer names another name or another address, or merged another repository\'s number, is not his', () => {
     const commits = [
       commit('feat: one (#1)', { trailer: 'Co-authored-by: Someone <333776611+omni-loop-invader[bot]@users.noreply.github.com>' }),
-      commit('feat: two (#2)', { trailer: 'Co-authored-by: OmniMan <omniman@example.com>' }),
+      commit('feat: two (#2)', { trailer: 'Co-authored-by: Omni-man <omniman@example.com>' }),
       commit('feat: three (#3)', { repo: 'acme/other' }),
     ];
     expect(credit([pr(1), pr(2), pr(3)], { commits })).toEqual([]);

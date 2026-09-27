@@ -227,7 +227,7 @@ describe('The before/after is a file in the repository', () => {
 // PRD #99, slice s1: a phase-0 branch is made only by the loop, so every commit in it carries the
 // trailer `omni sign trailer` prints. The commits are given; this module never reads git.
 describe('Every commit of a phase-0 pull request is signed', () => {
-  const TRAILER = 'Co-authored-by: OmniMan <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
+  const TRAILER = 'Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
   const signed = (sha, subject) => ({ sha, message: `${subject}\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n${TRAILER}\n` });
   const unsigned = (sha, subject) => ({ sha, message: `${subject}\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n` });
 
