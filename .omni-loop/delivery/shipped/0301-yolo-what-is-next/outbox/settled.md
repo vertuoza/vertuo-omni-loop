@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-27
 - Slice: s1
 - Wave: 1
+- Stays here: A presentation choice for one skill's output that is cheap to change and follows the brainstorm precedent; there is no lasting rule or architecture to record.
 
 ### The answer, as it was given
 
