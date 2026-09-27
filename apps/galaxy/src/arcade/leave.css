@@ -1,7 +1,7 @@
 /* The confirm before the arcade is left for the app (leave.tsx): OPEN THE APP?, over whatever scene
    is showing, on the wide grid (640×360) and the tall one (320×288). It covers the whole screen and
-   dims the scene, which stays drawn under it as it was; the box is the GBA dialog box every scene's
-   panels are. */
+   dims the scene, which stays drawn under it as it was; the box is the GBA dialog box the scenes'
+   panels are, filled solid, so no line of the scene reads through it. */
 
 .leave {
   position: absolute;
@@ -21,7 +21,7 @@
   box-sizing: border-box;
   padding: 18px 20px 16px;
   text-align: center;
-  background: rgba(14, 13, 51, 0.94);
+  background: var(--deep);
   border: 2px solid var(--white);
   box-shadow: 0 0 0 2px #0b0a26, inset 0 0 0 2px var(--navy);
 }
