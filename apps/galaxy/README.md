@@ -493,6 +493,10 @@ never loads the demo seed.
    `https://<ref>.supabase.co` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` = the publishable key. Do not add
    the secret key. `NEXT_PUBLIC_*` values are inlined at build time: redeploy after changing them.
    Without them the deployment stays closed (nobody can enter); it never falls back to the demo.
+   Optionally `OPENROUTER_API_KEY`, an [OpenRouter](https://openrouter.ai) key, server only: ask mode
+   then sorts each question into one of six categories (business, product, UX/UI, architecture,
+   harness, other) a moment after it is asked. Without it, questions stay unsorted and nothing fails;
+   anyone in the workspace can still sort them on the page.
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
    arcade still plays its attract mode and says the galaxy is out of reach.
 

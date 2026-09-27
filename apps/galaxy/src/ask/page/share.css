@@ -1,0 +1,67 @@
+/* Sharing a question, and For me (PRD 144). Every colour is a token of src/ask/theme-tokens.ts, as in
+   src/ask/ask.css, so light, dark and system follow the theme switch. */
+
+/* ── The header's For me link and its count ─────────────────────────────── */
+
+.ask-bar-end { display: inline-flex; align-items: center; gap: 12px; }
+.ask a.ask-for-me-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 700 14px/1 var(--ask-body);
+  color: var(--ask-ink);
+  text-decoration: none;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ask-line);
+  background: var(--ask-surface);
+}
+.ask a.ask-for-me-nav:hover { border-color: var(--ask-muted); }
+.ask-count {
+  min-width: 20px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  font: 700 12px/1 var(--ask-body);
+  text-align: center;
+  color: var(--ask-on-plasma);
+  background: var(--ask-plasma);
+}
+
+/* ── Share, on an open round ─────────────────────────────────────────────── */
+
+.ask-share { margin: 0; display: grid; gap: 8px; }
+.ask-share p { margin: 0; }
+.ask-share-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ask-share-pick,
+.ask-share-link {
+  font: 400 15px/1.2 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line);
+  border-radius: 8px;
+  padding: 11px 12px;
+  min-width: 0;
+}
+.ask-share-link { flex: 1 1 260px; font-family: var(--ask-mono); font-size: 14px; }
+
+/* ── An answered question: who answered first, and the answer ────────────── */
+
+.ask-answered { margin: 0; display: grid; gap: 8px; font-size: 16px; }
+.ask-answered dt { color: var(--ask-muted); }
+.ask-answered dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; font-weight: 700; }
+
+/* ── For me: the questions shared with the person looking ──────────────── */
+
+.ask-for-me { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.ask a.ask-for-me-link {
+  display: grid;
+  gap: 6px;
+  padding: 16px 18px;
+  color: var(--ask-ink);
+  text-decoration: none;
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line);
+  border-radius: 12px;
+}
+.ask a.ask-for-me-link:hover { border-color: var(--ask-plasma); }
+.ask-for-me-question { font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }

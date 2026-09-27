@@ -6,6 +6,7 @@ import { AskSession, type SourceConfig } from './AskSession';
 import { poll } from './poll';
 import { databaseTabs, type TabsPort } from './source';
 import { needsYou, pageTabs, pageWithList, pageWithPane, pickTab, tabsTitle, toggleList, type Page, type Tab } from './tabs';
+import type { Member } from './question';
 import type { SessionState } from './view';
 
 // The person's ask page (PRD 142): every open ask session they own as a tab, one per terminal, the
@@ -24,11 +25,15 @@ type Props = {
   serverNow: number;
   /** Kept on every tab link (the demo's `?demo=`). */
   query?: string;
+  /** The signed-in account: the owner of every tab, and whom the category chip calls "you". */
+  me: string;
+  /** The selected session's workspace, whom its owner may share an open round with (PRD 144). */
+  members?: Member[];
 };
 
-function makeTabs(source: SourceConfig, page: Page): TabsPort {
+function makeTabs(source: SourceConfig, page: Page, me: string): TabsPort {
   if (source.kind === 'demo') return { list: async () => structuredClone(page.rows) };
-  return databaseTabs(createBrowserClient(source.url, source.key));
+  return databaseTabs(createBrowserClient(source.url, source.key), me);
 }
 
 function TabState({ tab }: { tab: Tab }) {
@@ -36,12 +41,12 @@ function TabState({ tab }: { tab: Tab }) {
   return <span className="ask-tab-state">{tab.state === 'closed' ? 'closed' : 'working'}</span>;
 }
 
-export function AskPage({ source, page: initial, pane, serverNow, query = '' }: Props) {
+export function AskPage({ source, page: initial, pane, serverNow, query = '', me, members = [] }: Props) {
   const [page, setPage] = useState(initial);
   const [offset] = useState(() => serverNow - Date.now());
   const [now, setNow] = useState(serverNow);
   const port = useRef<TabsPort | null>(null);
-  const getPort = useCallback(() => (port.current ??= makeTabs(source, initial)), [source, initial]);
+  const getPort = useCallback(() => (port.current ??= makeTabs(source, initial, me)), [source, initial, me]);
 
   const tabs = useMemo(() => pageTabs(page, now), [page, now]);
   const waiting = needsYou(tabs);
@@ -127,7 +132,7 @@ export function AskPage({ source, page: initial, pane, serverNow, query = '' }: 
       </nav>
       <div className="ask-pane">
         {pane && page.selected === pane.session.id ? (
-          <AskSession source={source} initial={pane} serverNow={serverNow} onState={onPane} />
+          <AskSession source={source} initial={pane} serverNow={serverNow} onState={onPane} viewer="owner" me={me} members={members} />
         ) : (
           <div className="ask-col">
             <section className="ask-card">

@@ -26,6 +26,16 @@ game's app: a dependency principle 7 did not foresee, in the direction it forbad
    `game/`, `packages/` or `apps/galaxy`, reads none of the game's tables, and writes no ledger event.
    The hooks and the CLI would work unchanged against any server that honours the contract; the
    kit's own tests run them against a fake one (`kit/test/fake-ask-server.mjs`).
+   Since PRD 144, `POST /api/ask/sessions` takes an optional `context: {repo}` and
+   `POST /api/ask/sessions/:id/rounds` an optional `context` — `{repo, branch, prd,
+   claudeSessionId, skill, model, tokens}`, each field null when the kit could not read it. Only
+   names and counts leave the machine, never transcript text, and the kit holds no price. An older
+   kit sends neither and keeps working; a server that ignores the field still honours the contract.
+   The galaxy's own pages add calls the kit never makes: `POST /api/ask/rounds/:id/shares` (the
+   owner shares a round with a member of the session's workspace; any round may be shared, and an
+   answered one is then read-only), `PATCH /api/ask/rounds/:id/category` and
+   `DELETE /api/ask/sessions/:id`. An answer to a round that is no longer open returns 409 with
+   `answeredBy {id, name}` and `via` (page or terminal): the first answer wins (PRD 144, item s4-03).
 3. **The kit still never names the game.** `kit/test/no-game-words.test.mjs` fails on "galaxy" in any
    file under `kit/` that is not a test, the plugin's skills and hooks included. It sits next to the
    fuller list of game words `kit/lib/outbox/banter.test.mjs` keeps for the outbox's fun lines. The
