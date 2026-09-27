@@ -22,7 +22,7 @@ own colour on `:root`, or if a galaxy page links Google Fonts.
 | Module | Exports | What it holds |
 |---|---|---|
 | `palette` | `PALETTE`, `INK` | The pixel palette, one character to one colour, so a sprite can be written as strings; and the named colours: the arcade's (`void`, `deep`, `navy`, `navyDark`, `white`, `plasma`, `plasmaDark`, `yellow`, `gold`, `red`, `cyan`, `green`…), the logo's ramp (`highlight`, `yellow`, `orange`, `ember`) and the print ad's accents (`magenta`, `adPurple`, `starfield`). |
-| `tokens` | `ARCADE`, `COLOURS`, `cssName`, `tokensCss`, `ASK`, `ASK_TEXT_PAIRS`, `ASK_UI_PAIRS`, `contrast` | The one source of colour: `INK` plus the arcade's own (the cabinet, dim text, the Game Boy's body), every colour by its CSS name (`COLOURS`, `navy-dark`), Ask's light and dark reading tokens with the text and edge pairs each must pass, and the generator of `tokens.css`. |
+| `tokens` | `ARCADE`, `COLOURS`, `cssName`, `tokensCss`, `ASK`, `ASK_TEXT_PAIRS`, `ASK_UI_PAIRS`, `contrast` | The one source of colour: `INK` plus the arcade's own (the cabinet, dim text, the Game Boy's body), every colour by its CSS name (`COLOURS`, `navy-dark`), Ask's Omni, light and dark reading tokens with the text and edge pairs each must pass (Omni is HOME's palette on the app's pages, the default there; its `yellow` holds magenta, so the Recommended badge never reads as the yellow signal), and the generator of `tokens.css`. |
 | `fonts` | `FACES`, `ROLES`, `TYPE_SCALE`, `SUBSETS`, `fontFiles`, `fontFaceCss`, `fontsCss` | The four font roles, their faces and files, the type scale, and the generator of `fonts.css`. |
 | `logo` | `LOGO_FORMS`, `LOGO_DRAWINGS`, `logoPixels`, `logoSvg`, `drawLogo` | The 16-bit crest in its three forms and the favicon, each with a one-colour variant: as pixels, as a crisp SVG at any whole-number scale, and drawn on a canvas. |
 | `brand` | `OMNI_LOOP` | The product brand: its name, its tagline, its logo form, its favicon and its theme colour. |
@@ -40,9 +40,9 @@ pnpm --filter @omni/design tokens
 ```
 
 `src/tokens.test.mjs` fails while the committed `tokens.css` differs from what the generator writes,
-and while any of Ask's text or edge pairs misses WCAG AA, in light or in dark. A workspace's theme
-(the galaxy's `src/arcade/theme.ts`) takes its defaults from `COLOURS` and overrides them on the
-arcade's root element; it never writes on `:root`.
+and while any of Ask's text or edge pairs misses WCAG AA, in Omni, in light or in dark. A workspace's
+theme (the galaxy's `src/arcade/theme.ts`) takes its defaults from `COLOURS` and overrides them on
+the arcade's root element; it never writes on `:root`.
 
 ### Fonts
 
