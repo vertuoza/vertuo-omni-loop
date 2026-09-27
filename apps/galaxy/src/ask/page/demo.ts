@@ -4,7 +4,8 @@
 // first one. Nothing here is ever sent.
 import type { QuestionState } from './question';
 import type { AskPort, QuestionPort } from './source';
-import type { RoundRow, SessionState } from './view';
+import type { RoundRow, SessionRow, SessionState } from './view';
+import type { HistoryRow } from './workspace-history';
 
 export type DemoScenario = 'open' | 'working' | 'moved' | 'closed' | 'empty';
 const SCENARIOS: DemoScenario[] = ['open', 'working', 'moved', 'closed', 'empty'];
@@ -222,6 +223,28 @@ export function demoPort(seed: SessionState, now: () => number = Date.now, askAg
       return { category, category_by: DEMO_OWNER };
     },
   };
+}
+
+/** The demo workspace's history (PRD 144): the demo session's rounds, and a teammate's session on
+ * another repository whose business question the owner answered. */
+export function demoHistory(now: number): HistoryRow[] {
+  const { session, rounds } = demoState('demo', 'open', now);
+  const TRIAL = {
+    question: 'How long should the free trial last?', header: 'Trial', multiSelect: false,
+    options: [{ label: '14 days', description: '' }, { label: '30 days', description: '' }],
+  };
+  const pricing: SessionRow = {
+    id: 'demo-pricing', owner: DEMO_MEMBERS[1].user_id, title: 'vertuo-app · feat/pricing', status: 'closed',
+    created_at: iso(now - 3 * 24 * 60 * MIN), last_seen_at: iso(now - 3 * 24 * 60 * MIN + 30 * MIN), repo: 'vertuoza/vertuo-app', branch: 'feat/pricing',
+  };
+  const trial: RoundRow = {
+    id: 'demo-round-trial', questions: [TRIAL], answers: { [TRIAL.question]: '14 days' }, answered_via: 'page', status: 'answered',
+    created_at: iso(now - 3 * 24 * 60 * MIN + 10 * MIN), answered_at: iso(now - 3 * 24 * 60 * MIN + 14 * MIN), answered_by: DEMO_OWNER,
+    prd: 94, skill: '/omni:yolo', model: 'claude-sonnet-4-6', category: 'business', category_by: 'model',
+  };
+  // The page answer came from the teammate it was shared with; the terminal's is the owner's.
+  const answeredBy = (round: RoundRow) => (round.status !== 'answered' ? null : round.answered_via === 'terminal' ? DEMO_OWNER : DEMO_MEMBERS[1].user_id);
+  return [...rounds.map((round) => ({ round: { ...round, answered_by: answeredBy(round) }, session })), { round: trial, session: pricing }];
 }
 
 /** The teammate the demo's open question is shared with: whoever plays /ask/q/demo is them. */

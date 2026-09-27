@@ -2,8 +2,8 @@
 // (Supabase Auth, restricted to @vertuoza.com); only the way back differs from the arcade's: Google
 // returns to /ask/<id>/callback (or /ask/callback from the person's page, /ask), which turns the code
 // into the session cookie and goes back to the same page, carrying the reason when the sign-in was
-// refused. A shared question (/ask/q/<round>) and For me (/ask/for-me) come back the same way, each
-// through its own callback (PRD 144).
+// refused. A shared question (/ask/q/<round>), For me (/ask/for-me) and the history (/ask/history)
+// come back the same way, each through its own callback (PRD 144).
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -47,6 +47,14 @@ export async function questionSignInReturn(url: URL, origin: string, roundId: st
 /** The same, for For me. */
 export async function forMeSignInReturn(url: URL, origin: string, exchange: Exchange | null): Promise<string> {
   return signInBack(url, origin, '/ask/for-me', exchange);
+}
+
+/** Where Google sends the person back after signing in on the history. */
+export const HISTORY_CALLBACK = '/ask/history/callback';
+
+/** The same, for the history. */
+export async function historySignInReturn(url: URL, origin: string, exchange: Exchange | null): Promise<string> {
+  return signInBack(url, origin, '/ask/history', exchange);
 }
 
 /** Back to `path` on this site, once the code is exchanged, or with `signin_error` saying why not. */

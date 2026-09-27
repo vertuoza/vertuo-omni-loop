@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { fakeSupabase } from '../store.fake';
 import { AskStoreError } from '../store';
 import {
-  databasePort, questionPort, readForMe, readMembers, readQuestion, readSession, readTabs, removeSession, sendAnswers, sessionReader, shareRound, sortRound, tabsReader,
+  databasePort, questionPort, readForMe, readHistory, readMembers, readQuestion, readSession, readTabs, removeSession, sendAnswers, sessionReader, shareRound, sortRound, tabsReader,
   type Db, type SortDb,
 } from './source';
 
@@ -259,6 +259,40 @@ describe('sharing a round, and the rounds shared with me (PRD 144)', () => {
     expect(members.map((m) => m.email).sort()).toEqual(['ada@vertuoza.com', 'bob@vertuoza.com']);
     expect(await readMembers(both(w, 'carl'), state!.session.workspace_id)).toEqual([]);
     expect(await readMembers(both(w, 'bob'), null)).toEqual([]);
+  });
+});
+
+describe('the workspace history (PRD 144)', () => {
+  it('reads every round of my workspaces with its session, newest first, and nothing of another workspace', async () => {
+    const w = await world();
+    const first = await w.ask();
+    const second = await w.ask();
+    const carl = w.fake.client('carl');
+    const { data: elsewhere } = await carl.from('ask_sessions').insert({ title: 'elsewhere' }).select('id').single() as { data: { id: string } };
+    w.clock.now += 1000;
+    await carl.from('ask_rounds').insert({ session_id: elsewhere.id, questions: QUESTIONS }).select('id').single();
+
+    for (const token of ['ada', 'bob']) {
+      const rows = await readHistory(w.as(token));
+      expect(rows.map((r) => [r.round.id, r.session.id]), token).toEqual([[second, w.sessionId], [first, w.sessionId]]);
+      expect(rows[0].round).not.toHaveProperty('session_id');
+    }
+    expect((await readHistory(w.as('carl'))).map((r) => r.session.title)).toEqual(['elsewhere']);
+  });
+
+  it('reads the newest rounds up to its limit', async () => {
+    const w = await world();
+    await w.ask();
+    const second = await w.ask();
+    const third = await w.ask();
+    expect((await readHistory(w.as('ada'), 2)).map((r) => r.round.id)).toEqual([third, second]);
+  });
+
+  it('reads nothing when there is nothing, and throws when the database fails', async () => {
+    const w = await world();
+    expect(await readHistory(w.as('ada'))).toEqual([]);
+    w.fake.state.fail = { code: '08006', message: 'connection lost' };
+    await expect(readHistory(w.as('ada'))).rejects.toBeInstanceOf(AskStoreError);
   });
 });
 

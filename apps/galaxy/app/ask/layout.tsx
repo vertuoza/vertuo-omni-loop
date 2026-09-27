@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from 'next';
 import '@omni/design/fonts.css';
 import '../../src/ask/ask.css';
 import '../../src/ask/page/share.css';
+import '../../src/ask/page/history.css';
 import { ForMeLink } from '../../src/ask/page/ForMe';
+import { HistoryLink } from '../../src/ask/page/WorkspaceHistory';
 import { forMeCount } from '../../src/ask/page/for-me-live';
 import { ThemeScript } from '../../src/ask/theme-script';
 import { ThemeSwitch } from '../../src/ask/theme-switch';
@@ -12,8 +14,9 @@ import { TOKENS, themeCss } from '../../src/ask/theme-tokens';
 // properties; the theme script is the ask root's first child, so it marks the root with the stored
 // theme before anything in it is parsed, and before the first paint. The faces, all from
 // @omni/design's fonts.css and served from this origin: Atkinson Hyperlegible Next to read,
-// JetBrains Mono for previews, and the pixel face for the wordmark only. The header links to For me
-// (PRD 144), with how many questions a teammate shared that still wait for the person looking.
+// JetBrains Mono for previews, and the pixel face for the wordmark only. The header links to the
+// workspace's History and to For me (PRD 144), with how many questions a teammate shared that still
+// wait for the person looking.
 
 export const metadata: Metadata = {
   title: 'Ask · OMNI LOOP',
@@ -44,6 +47,7 @@ export default async function AskLayout({ children }: { children: React.ReactNod
             <span className="ask-brand-sub">Claude asks</span>
           </span>
           <span className="ask-bar-end">
+            <HistoryLink />
             <ForMeLink count={waiting ?? 0} />
             <ThemeSwitch />
           </span>

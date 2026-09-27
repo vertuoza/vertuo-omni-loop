@@ -60,6 +60,8 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
     private values: Row = {};
     private filters: Array<(row: Row) => boolean> = [];
     private shape: 'many' | 'single' | 'maybe' = 'many';
+    private sorting: { column: string; ascending: boolean } | null = null;
+    private cap: number | null = null;
 
     constructor(private table: keyof FakeTables, private me: FakeAccount | null) {}
 
@@ -69,6 +71,8 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
     delete() { this.op = 'delete'; return this; }
     eq(column: string, value: unknown) { this.filters.push((row) => row[column] === value); return this; }
     in(column: string, values: unknown[]) { this.filters.push((row) => values.includes(row[column])); return this; }
+    order(column: string, { ascending = true }: { ascending?: boolean } = {}) { this.sorting = { column, ascending }; return this; }
+    limit(count: number) { this.cap = count; return this; }
     single() { this.shape = 'single'; return this; }
     maybeSingle() { this.shape = 'maybe'; return this; }
 
@@ -82,13 +86,22 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
       const rows = this.op === 'insert' ? this.insertRow()
         : this.op === 'update' ? this.updateRows()
         : this.op === 'delete' ? this.deleteRows()
-        : this.matching();
+        : this.ordered(this.matching());
       if ('error' in rows) return { data: null, error: rows.error };
       if (this.shape === 'many') return { data: clone(rows), error: null };
       if (rows.length > 1 || (this.shape === 'single' && rows.length === 0)) {
         return { data: null, error: { code: 'PGRST116', message: `JSON object requested, ${rows.length} rows returned` } };
       }
       return { data: clone(rows[0] ?? null), error: null };
+    }
+
+    /** `order()` then `limit()`, as PostgREST applies them to a read. */
+    private ordered(rows: Row[]): Row[] {
+      const { sorting, cap } = this;
+      const sorted = sorting
+        ? [...rows].sort((a, b) => String(a[sorting.column]).localeCompare(String(b[sorting.column])) * (sorting.ascending ? 1 : -1))
+        : rows;
+      return cap === null ? sorted : sorted.slice(0, cap);
     }
 
     private matching(rule = visible) {
