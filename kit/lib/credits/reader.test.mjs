@@ -7,8 +7,8 @@ import { ConfigSchema } from '../config.mjs';
 import { GitHubUnreadable, readCredits } from './reader.mjs';
 
 const { labels, signature } = ConfigSchema.parse({ kit: 1 });
-const TRAILER = 'Co-authored-by: OmniMan <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
-const SIGNED_BODY = 'Part of #7\n\n🦸 Delivered by OmniMan, with Omni Loop <!-- omni-loop:signed -->';
+const TRAILER = 'Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
+const SIGNED_BODY = 'Part of #7\n\n🦸 Omni-man by [Omni Loop](https://vertuo-omni-loop-galaxy.vercel.app) © <!-- omni-loop:signed -->';
 const PR_FIELDS = 'number,title,state,createdAt,labels,body,repository,author';
 
 /** One pull request as `gh search prs --json` prints it. */
@@ -71,9 +71,9 @@ describe('the queries it asks gh for', () => {
       `gh search prs --owner acme --label omni:feature --limit 1000 --json ${PR_FIELDS}`,
       `gh search prs --owner acme --label omni:sub --limit 1000 --json ${PR_FIELDS}`,
       `gh search issues --owner acme --label omni:prd --limit 1000 --json ${PR_FIELDS}`,
-      `gh search prs --owner acme --match body --limit 1000 --json ${PR_FIELDS} -- OmniMan`,
-      `gh search issues --owner acme --match body --limit 1000 --json ${PR_FIELDS} -- OmniMan`,
-      'gh search commits --owner acme --limit 1000 --json sha,commit,repository -- OmniMan',
+      `gh search prs --owner acme --match body --limit 1000 --json ${PR_FIELDS} -- Omni-man`,
+      `gh search issues --owner acme --match body --limit 1000 --json ${PR_FIELDS} -- Omni-man`,
+      'gh search commits --owner acme --limit 1000 --json sha,commit,repository -- Omni-man',
       `gh search prs --owner acme --app omni-loop-invader --limit 1000 --json ${PR_FIELDS}`,
       `gh search issues --owner acme --app omni-loop-invader --limit 1000 --json ${PR_FIELDS}`,
     ]);
@@ -87,9 +87,9 @@ describe('the queries it asks gh for', () => {
       `search prs --repo acme/widgets --label omni:feature --created >=2026-07-01 --limit 1000 --json ${PR_FIELDS}`,
       `search prs --repo acme/widgets --label omni:sub --created >=2026-07-01 --limit 1000 --json ${PR_FIELDS}`,
       `search issues --repo acme/widgets --label omni:prd --created >=2026-07-01 --limit 1000 --json ${PR_FIELDS}`,
-      `search prs --repo acme/widgets --match body --created >=2026-07-01 --limit 1000 --json ${PR_FIELDS} -- OmniMan`,
-      `search issues --repo acme/widgets --match body --created >=2026-07-01 --limit 1000 --json ${PR_FIELDS} -- OmniMan`,
-      'search commits --repo acme/widgets --committer-date >=2026-07-01 --limit 1000 --json sha,commit,repository -- OmniMan',
+      `search prs --repo acme/widgets --match body --created >=2026-07-01 --limit 1000 --json ${PR_FIELDS} -- Omni-man`,
+      `search issues --repo acme/widgets --match body --created >=2026-07-01 --limit 1000 --json ${PR_FIELDS} -- Omni-man`,
+      'search commits --repo acme/widgets --committer-date >=2026-07-01 --limit 1000 --json sha,commit,repository -- Omni-man',
       `search prs --repo acme/widgets --app omni-loop-invader --created >=2026-07-01 --limit 1000 --json ${PR_FIELDS}`,
       `search issues --repo acme/widgets --app omni-loop-invader --created >=2026-07-01 --limit 1000 --json ${PR_FIELDS}`,
     ]);
@@ -153,10 +153,10 @@ describe('what it keeps', () => {
   it('every labelled pull request, a body match only with the marker, a commit only with the exact trailer', () => {
     const { exec } = fakeExec(quiet([
       ['search prs --owner acme --label omni:sub', [searched(1, { labels: [{ name: 'omni:sub' }] })]],
-      ['search prs --owner acme --match body', [searched(2, { body: SIGNED_BODY }), searched(3, { body: 'Thanks, OmniMan!' })]],
+      ['search prs --owner acme --match body', [searched(2, { body: SIGNED_BODY }), searched(3, { body: 'Thanks, Omni-man!' })]],
       ['search commits', [
         searchedCommit('c1', `feat: one (#1)\n\n${TRAILER}\n`),
-        searchedCommit('c2', 'chore: OmniMan was here (#5)\n'),
+        searchedCommit('c2', 'chore: Omni-man was here (#5)\n'),
       ]],
     ]));
     const { prs, commits, warnings } = read(exec);
@@ -172,7 +172,7 @@ describe('what it keeps', () => {
     const app = { author: { login: 'omni-loop-invader[bot]' } };
     const { exec, calls } = fakeExec(quiet([
       ['search issues --owner acme --label omni:prd', [searched(10, { labels: [{ name: 'omni:prd' }], state: 'closed' })]],
-      ['search issues --owner acme --match body', [searched(11, { body: SIGNED_BODY }), searched(12, { body: 'OmniMan rocks' })]],
+      ['search issues --owner acme --match body', [searched(11, { body: SIGNED_BODY }), searched(12, { body: 'Omni-man rocks' })]],
       ['search commits', [searchedCommit('c20', `chore: retro (#20)\n\n${TRAILER}`)]],
       ['search prs --owner acme --app', [searched(20, app)]],
       ['search issues --owner acme --app', [searched(13, app), searched(10, { labels: [{ name: 'omni:prd' }], state: 'closed' })]],
@@ -235,7 +235,7 @@ describe('what it keeps', () => {
 describe('the 1,000-result cap (AC 10)', () => {
   it('reads what it got, and warns naming each query that hit the cap', () => {
     const full = Array.from({ length: 1000 }, (_, index) => searched(index + 1, { labels: [{ name: 'omni:sub' }] }));
-    const commits = Array.from({ length: 1000 }, (_, index) => searchedCommit(`c${index}`, 'chore: OmniMan'));
+    const commits = Array.from({ length: 1000 }, (_, index) => searchedCommit(`c${index}`, 'chore: Omni-man'));
     const { exec } = fakeExec(quiet([
       ['search prs --owner acme --label omni:sub', full],
       ['search commits', commits],
@@ -244,7 +244,7 @@ describe('the 1,000-result cap (AC 10)', () => {
     expect(prs).toHaveLength(1000);
     expect(warnings).toEqual([
       'gh search prs --owner acme --label omni:sub --created >=2026-07-01 hit GitHub\'s 1,000-result cap: some items may be missing; narrow it with --since or --repo.',
-      'gh search commits --owner acme --committer-date >=2026-07-01 -- OmniMan hit GitHub\'s 1,000-result cap: some items may be missing; narrow it with --since or --repo.',
+      'gh search commits --owner acme --committer-date >=2026-07-01 -- Omni-man hit GitHub\'s 1,000-result cap: some items may be missing; narrow it with --since or --repo.',
     ]);
   });
 

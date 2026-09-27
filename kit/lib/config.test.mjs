@@ -140,20 +140,40 @@ describe('dossierSwitch (PRD 216)', () => {
   });
 });
 
-describe('the signature section (PRD #99)', () => {
+describe('the signature section (PRD #99, PRD #215)', () => {
   const DEFAULT = {
-    name: 'OmniMan',
+    name: 'Omni-man',
     email: '333776611+omni-loop-invader[bot]@users.noreply.github.com',
-    footer: '🦸 Delivered by OmniMan, with Omni Loop',
+    home: 'https://vertuo-omni-loop-galaxy.vercel.app',
+    footer: '🦸 {name} by [Omni Loop]({home}) ©',
   };
 
-  it('signs as OmniMan when the file has no signature section', () => {
+  it('signs as Omni-man, linking home, when the file has no signature section', () => {
     expect(parseConfig('kit: 1\n').signature).toEqual(DEFAULT);
   });
 
   it('keeps the defaults for the keys an override leaves out', () => {
     const config = parseConfig('kit: 1\nsignature:\n  name: Robo\n  email: robo@example.com\n');
     expect(config.signature).toEqual({ ...DEFAULT, name: 'Robo', email: 'robo@example.com' });
+  });
+
+  it('moves the link alone when an override sets only home', () => {
+    expect(parseConfig('kit: 1\nsignature:\n  home: https://example.com\n').signature).toEqual({
+      ...DEFAULT,
+      home: 'https://example.com',
+    });
+  });
+
+  it('refuses a home that is not an absolute https URL, naming signature.home', () => {
+    for (const home of ['http://example.com', 'http://127.0.0.1:4321', 'ftp://example.com', 'not a url', 'example.com', '""', 'null']) {
+      expect(() => parseConfig(`kit: 1\nsignature:\n  home: ${home}\n`), home).toThrow(/signature\.home/);
+    }
+  });
+
+  it('refuses a home that would break the footer line: a space or a line break in it', () => {
+    for (const home of ['"https://example.com/a b"', '"https://example.com/\\nnext"']) {
+      expect(() => parseConfig(`kit: 1\nsignature:\n  home: ${home}\n`), home).toThrow(/signature\.home/);
+    }
   });
 
   it('accepts signature: null, which switches signing off', () => {
@@ -192,10 +212,23 @@ describe('omni config', () => {
     const s = io();
     expect(await main(['config', 'signature'], { cwd: root, ...s })).toBe(0);
     expect(JSON.parse(s.out.join(''))).toEqual({
-      name: 'OmniMan',
+      name: 'Omni-man',
       email: '333776611+omni-loop-invader[bot]@users.noreply.github.com',
-      footer: '🦸 Delivered by OmniMan, with Omni Loop',
+      home: 'https://vertuo-omni-loop-galaxy.vercel.app',
+      footer: '🦸 {name} by [Omni Loop]({home}) ©',
     });
+  });
+
+  it('prints signature.home, and the footer as its template, unfilled (PRD #215)', async () => {
+    const { root } = makeRepo({ git: true, files });
+    for (const [key, value] of [
+      ['signature.home', 'https://vertuo-omni-loop-galaxy.vercel.app'],
+      ['signature.footer', '🦸 {name} by [Omni Loop]({home}) ©'],
+    ]) {
+      const s = io();
+      expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
+      expect(s.out.join('')).toBe(`${value}\n`);
+    }
   });
 
   it('exits 2 for a key the schema does not hold', async () => {

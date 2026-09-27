@@ -12,10 +12,10 @@ function io() {
 const CONFIG_TEXT = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
 const PRD = 7;
 const DIR = `.omni-loop/delivery/inbox/0007-widgets`;
-const TRAILER = 'Co-authored-by: OmniMan <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
+const TRAILER = 'Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
 const CLAUDE = 'Co-Authored-By: Claude <noreply@anthropic.com>';
 
-/** Commits everything, signed as a skill signs it (the session's trailer, then OmniMan's) unless
+/** Commits everything, signed as a skill signs it (the session's trailer, then Omni-man's) unless
  * `signed` is false. Returns the commit's short sha. */
 function commit(root, message, { signed = true } = {}) {
   const text = signed ? `${message}\n\n${CLAUDE}\n${TRAILER}\n` : message;
@@ -145,14 +145,25 @@ describe('omni phase0 — the signature (PRD #99, AC 6)', () => {
     expect(out).not.toContain('docs: the plan');
   });
 
-  it('a claude trailer alone, or OmniMan at another address, is not signed', async () => {
+  it('a claude trailer alone, or Omni-man at another address, is not signed', async () => {
     const { root, write, base } = setup();
     writeDocs(write);
-    commit(root, `docs(phase-0): widgets\n\n${CLAUDE}\nCo-authored-by: OmniMan <omniman@example.com>\n`, { signed: false });
+    commit(root, `docs(phase-0): widgets\n\n${CLAUDE}\nCo-authored-by: Omni-man <omniman@example.com>\n`, { signed: false });
 
     const s = io();
     expect(await main(['phase0', String(PRD), '--base', base], { cwd: root, ...s })).toBe(1);
     expect(s.out.join('')).toMatch(/^not ok — unsigned: /m);
+  });
+
+  it('a commit signed OmniMan, his name before PRD #215, is no longer signed (its Decision 5)', async () => {
+    const { root, write, base } = setup();
+    writeDocs(write);
+    const before = TRAILER.replace('Omni-man', 'OmniMan');
+    const sha = commit(root, `docs(phase-0): widgets\n\n${CLAUDE}\n${before}\n`, { signed: false });
+
+    const s = io();
+    expect(await main(['phase0', String(PRD), '--base', base], { cwd: root, ...s })).toBe(1);
+    expect(s.out.join('')).toContain(`not ok — unsigned: ${sha} has no "${TRAILER}" line`);
   });
 
   it('reports every fault at once: an unsigned commit beside a missing plan', async () => {

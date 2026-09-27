@@ -11554,6 +11554,14 @@ var askUrl = external_exports.string().refine((value) => {
   }
   return url.protocol === "https:" || url.protocol === "http:" && url.hostname === "127.0.0.1";
 }, "an https URL, or http on 127.0.0.1");
+var httpsUrl = external_exports.string().refine((value) => {
+  if (/\s/.test(value)) return false;
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}, "an absolute https URL");
 var ConfigSchema = external_exports.object({
   kit: external_exports.literal(CONFIG_VERSION),
   repo: section({
@@ -11643,11 +11651,14 @@ var ConfigSchema = external_exports.object({
   dossier: section({ enabled: external_exports.boolean().default(false) }),
   markers: section({ prefix: external_exports.string().regex(/^[a-z][a-z0-9-]*$/, "lowercase letters, digits and hyphens").default("omni-outbox") }),
   // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.mjs`). By
-  // default the omni-loop GitHub App's bot account; `null` switches signing off.
+  // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a
+  // template: `{name}` and `{home}` are filled from the keys they name, anything else is printed
+  // as written. `home` defaults to the Omni Loop home page (ADR-0047).
   signature: external_exports.object({
-    name: trailerPart.default("OmniMan"),
+    name: trailerPart.default("Omni-man"),
     email: trailerPart.default("333776611+omni-loop-invader[bot]@users.noreply.github.com"),
-    footer: text.default("\u{1F9B8} Delivered by OmniMan, with Omni Loop")
+    home: httpsUrl.default("https://vertuo-omni-loop-galaxy.vercel.app"),
+    footer: text.default("\u{1F9B8} {name} by [Omni Loop]({home}) \xA9")
   }).strict().nullable().default({})
 }).strict();
 function dossierSwitch(config2) {
@@ -16692,8 +16703,14 @@ var NOREPLY = /^(?:\d+\+)?([^\s@+]+)@users\.noreply\.github\.com$/i;
 function trailerLine(signature) {
   return signature ? `Co-authored-by: ${signature.name} <${signature.email}>` : null;
 }
+var PLACEHOLDER = /\{(name|home)\}/g;
 function footerLine(signature) {
-  return signature ? `${signature.footer} ${SIGNED_MARKER}` : null;
+  if (!signature) return null;
+  const footer = signature.footer.replace(
+    PLACEHOLDER,
+    (placeholder, key) => typeof signature[key] === "string" ? signature[key] : placeholder
+  );
+  return `${footer} ${SIGNED_MARKER}`;
 }
 function isSignedBody(body) {
   return typeof body === "string" && body.includes(SIGNED_MARKER);
