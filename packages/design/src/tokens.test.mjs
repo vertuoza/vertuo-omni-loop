@@ -86,15 +86,48 @@ describe('contrast', () => {
 describe('Ask\'s tokens', () => {
   const themes = Object.keys(ASK);
 
-  it('have both themes, with the same tokens', () => {
-    expect([...themes].sort()).toEqual(['dark', 'light']);
-    expect(Object.keys(ASK.dark).sort()).toEqual(Object.keys(ASK.light).sort());
+  it('have three themes, Omni, light and dark, with the same tokens', () => {
+    expect([...themes].sort()).toEqual(['dark', 'light', 'omni']);
     for (const theme of themes) {
+      expect(Object.keys(ASK[theme]).sort(), theme).toEqual(Object.keys(ASK.light).sort());
       for (const [name, value] of Object.entries(ASK[theme])) expect(value, `${theme} ${name}`).toMatch(/^#[0-9a-f]{6}$/);
     }
   });
 
-  it('pass WCAG AA for every text colour pair, in both themes', () => {
+  it('give Omni the homepage\'s palette: the void, the cabinet, comic yellow for the signal, magenta for the badge', () => {
+    expect(ASK.omni).toEqual({
+      ground: INK.void,
+      surface: '#120f3a',
+      sunk: INK.deep,
+      line: INK.navyDark,
+      ink: INK.white,
+      muted: '#8a90d6',
+      plasma: INK.yellow,
+      plasmaSoft: '#2a2350',
+      onPlasma: INK.void,
+      yellow: INK.magenta,
+      onYellow: INK.void,
+      cyan: INK.cyan,
+      green: INK.green,
+      red: ASK.dark.red,
+    });
+    expect(COLOURS).toMatchObject({ cab: ASK.omni.surface, dim: ASK.omni.muted });
+  });
+
+  it('keep light and dark as they were, token for token', () => {
+    expect(ASK.light).toEqual({
+      ground: '#f5f4fc', surface: '#ffffff', sunk: '#eceaf8', line: '#d9d6ee', ink: '#17153d', muted: '#4f5486',
+      plasma: '#6a2fd0', plasmaSoft: '#efe7ff', onPlasma: '#ffffff', yellow: '#ffd84a', onYellow: '#3a2c00',
+      cyan: '#0b6f86', green: '#15703f', red: '#b3122f',
+    });
+    expect(ASK.dark).toEqual({
+      ground: '#0e0d33', surface: '#16144a', sunk: '#1d1a58', line: '#2f2c78', ink: '#f2f4ff', muted: '#a9aee6',
+      plasma: '#b37cff', plasmaSoft: '#2a1d66', onPlasma: '#0e0d33', yellow: '#ffd84a', onYellow: '#3a2c00',
+      cyan: '#6ff0ff', green: '#4ee08a', red: '#ff6b86',
+    });
+  });
+
+  it('pass WCAG AA for every text colour pair, in all three themes', () => {
     const failures = [];
     for (const theme of themes) {
       for (const { text, on, where } of ASK_TEXT_PAIRS) {
@@ -105,7 +138,7 @@ describe('Ask\'s tokens', () => {
     expect(failures).toEqual([]);
   });
 
-  it('give focus rings and the selected option\'s edge 3:1 against what they sit on', () => {
+  it('give focus rings and the selected option\'s edge 3:1 against what they sit on, in all three themes', () => {
     const failures = [];
     for (const theme of themes) {
       for (const { text, on, where } of ASK_UI_PAIRS) {

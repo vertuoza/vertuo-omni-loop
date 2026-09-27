@@ -4,7 +4,7 @@
 // (themeCss) for the layout. ask.css only uses those properties, and theme-tokens.test.ts checks
 // the stylesheet this becomes.
 import { ASK, ASK_TEXT_PAIRS, ASK_UI_PAIRS, contrast, type AskPair, type AskToken } from '@omni/design';
-import type { Theme } from './theme';
+import { THEME_CHOICES, type Theme } from './theme';
 
 export type TokenName = AskToken;
 
@@ -21,18 +21,18 @@ export const UI_PAIRS: readonly Pair[] = ASK_UI_PAIRS;
 export { contrast };
 
 const variable = (name: string) => `--ask-${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
+/** The scheme of each theme's native controls and scrollbars: Omni is a dark world. */
+const SCHEME: Record<Theme, 'light' | 'dark'> = { omni: 'dark', light: 'light', dark: 'dark' };
 const declarations = (theme: Theme) =>
-  `color-scheme: ${theme}; ${Object.entries(TOKENS[theme]).map(([name, value]) => `${variable(name)}: ${value};`).join(' ')}`;
+  `color-scheme: ${SCHEME[theme]}; ${Object.entries(TOKENS[theme]).map(([name, value]) => `${variable(name)}: ${value};`).join(' ')}`;
 
 /** The tokens as CSS custom properties, on the ask root the theme script marked, and on <html>
  * too where :has() is known (so the page's own background follows); `:is()` forgives a browser
- * without it. An ask root the script never marked follows the system. */
+ * without it. An ask root the script never marked shows Omni, whatever the system prefers. */
 export function themeCss(): string {
   const marked = (theme: Theme) => `:is(html:has(.ask[data-ask-theme="${theme}"]), .ask[data-ask-theme="${theme}"])`;
   return [
-    `${marked('light')} { ${declarations('light')} }`,
-    `${marked('dark')} { ${declarations('dark')} }`,
-    `.ask:not([data-ask-theme]) { ${declarations('light')} }`,
-    `@media (prefers-color-scheme: dark) { .ask:not([data-ask-theme]) { ${declarations('dark')} } }`,
+    ...THEME_CHOICES.map((theme) => `${marked(theme)} { ${declarations(theme)} }`),
+    `.ask:not([data-ask-theme]) { ${declarations('omni')} }`,
   ].join('\n');
 }

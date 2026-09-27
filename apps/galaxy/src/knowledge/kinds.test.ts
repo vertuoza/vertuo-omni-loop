@@ -5,16 +5,17 @@ import { contrast, TOKENS } from '../ask/theme-tokens';
 import { KIND_GROUNDS, KIND_TOKEN, kindCss } from './kinds';
 
 // Each kind's colour on the diagram and in the index: a dot, a ring, a chip. Non-text marks, so
-// WCAG 1.4.11 asks 3:1 against what they sit on, in both themes.
+// WCAG 1.4.11 asks 3:1 against what they sit on, in every theme: Omni, light and dark.
 
 describe('the kind colours', () => {
   it('give each kind its own colour', () => {
     expect(new Set(KINDS.map((kind) => KIND_TOKEN[kind])).size).toBe(KINDS.length);
   });
 
-  it('hold at least 3:1 against the ground, and every surface a dot sits on, in the light and the dark theme', () => {
+  it('hold at least 3:1 against the ground, and every surface a dot sits on, in the Omni, the light and the dark theme', () => {
     const failures: string[] = [];
-    for (const theme of ['light', 'dark'] as const) {
+    expect(Object.keys(TOKENS).sort()).toEqual(['dark', 'light', 'omni']);
+    for (const theme of ['omni', 'light', 'dark'] as const) {
       for (const kind of KINDS) {
         for (const on of KIND_GROUNDS) {
           const ratio = contrast(TOKENS[theme][KIND_TOKEN[kind]], TOKENS[theme][on]);

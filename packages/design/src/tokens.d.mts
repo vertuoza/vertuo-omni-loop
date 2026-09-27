@@ -7,12 +7,12 @@ export const COLOURS: Readonly<Record<string, string>>;
 /** tokens.css, as the generator writes it. */
 export function tokensCss(): string;
 
-export type AskTheme = 'light' | 'dark';
+export type AskTheme = 'omni' | 'light' | 'dark';
 export type AskToken =
   | 'ground' | 'surface' | 'sunk' | 'line' | 'ink' | 'muted'
   | 'plasma' | 'plasmaSoft' | 'onPlasma' | 'yellow' | 'onYellow' | 'cyan' | 'green' | 'red';
 export type AskPair = { readonly text: AskToken; readonly on: AskToken; readonly where: string };
-/** Ask's semantic tokens, light and dark. */
+/** Ask's semantic tokens: Omni, light and dark. In Omni, `yellow` holds magenta (the Recommended badge). */
 export const ASK: Readonly<Record<AskTheme, Readonly<Record<AskToken, string>>>>;
 /** Every text colour on every background Ask puts it on. Each must reach 4.5:1. */
 export const ASK_TEXT_PAIRS: readonly AskPair[];
