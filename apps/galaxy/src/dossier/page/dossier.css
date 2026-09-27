@@ -88,6 +88,7 @@
 }
 
 .dossier-front {
+  max-width: 780px;
   margin: 0;
   padding: 8px 12px;
   font: 13px/1.5 var(--ask-mono);
