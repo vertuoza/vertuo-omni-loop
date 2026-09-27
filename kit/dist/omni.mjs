@@ -13950,6 +13950,7 @@ function formatOutboxPrComment({
   answered = [],
   numbering,
   roundMarkers = /* @__PURE__ */ new Map(),
+  prd: prd2 = null,
   ctx
 }) {
   const sorted = sortItems(items);
@@ -13979,6 +13980,8 @@ function formatOutboxPrComment({
   } else {
     lines.push("No open items.", "");
   }
+  const page2 = omniPageLink(prd2, ctx);
+  if (page2) lines.splice(4, 0, `Answer here, or on the Omni page: ${page2}`, "");
   if (adopted.length > 0) {
     lines.push(
       "---",
@@ -14009,6 +14012,11 @@ function formatOutboxPrComment({
   }
   lines.push(formatNumbersMarker(numbering, ctx.markers));
   return lines.join("\n");
+}
+function omniPageLink(prd2, ctx) {
+  const { answers: answers2, ask: ask4, repo } = ctx.config;
+  if (!answers2?.enabled || !ask4?.url || !repo?.slug || !Number.isInteger(prd2) || prd2 < 1) return null;
+  return `${ask4.url.replace(/\/+$/, "")}/prd/at/${repo.slug}/${prd2}`;
 }
 function upsertOutboxPrComment({ prd: prd2, ctx, now = () => (/* @__PURE__ */ new Date()).toISOString() }, client) {
   const items = openItemsForPrd(prd2, { ctx });
@@ -14050,7 +14058,15 @@ function upsertOutboxPrComment({ prd: prd2, ctx, now = () => (/* @__PURE__ */ ne
     comments.filter((comment2) => comment2.id !== existing?.id),
     ctx.markers
   );
-  const body = formatOutboxPrComment({ items, adopted, answered, numbering, roundMarkers, ctx });
+  const body = formatOutboxPrComment({
+    items,
+    adopted,
+    answered,
+    numbering,
+    roundMarkers,
+    prd: prd2,
+    ctx
+  });
   if (existing) {
     const updated = client.updateComment(existing.id, body);
     return {
