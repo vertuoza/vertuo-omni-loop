@@ -132,6 +132,10 @@ export const ConfigSchema = z
     // PRD 216: whether `omni dossier` uploads this repository's PRD folders to the server `ask.url`
     // names. Off by default: a repository opts in. `dossierSwitch()` reads it with `ask.url`.
     dossier: section({ enabled: z.boolean().default(false) }),
+    // PRD 251: whether an outbox may be answered outside the pull request — at the end of
+    // `/omni:yolo` (`omni answers`) and on the page `ask.url` names. On by default: a repository
+    // opts out. The pull request takes replies either way.
+    answers: section({ enabled: z.boolean().default(true) }),
     markers: section({ prefix: z.string().regex(/^[a-z][a-z0-9-]*$/, 'lowercase letters, digits and hyphens').default('omni-outbox') }),
     // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.mjs`). By
     // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a
