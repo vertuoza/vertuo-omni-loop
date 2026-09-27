@@ -84,9 +84,9 @@ export async function startFakeAskServer({
     return tokens;
   }
 
-  function openSession(title = 'fake session') {
+  function openSession(title = 'fake session', context = null) {
     const id = `sess-${nextId++}`;
-    sessions.set(id, { id, title, status: 'open' });
+    sessions.set(id, { id, title, status: 'open', context });
     return { id, url: `${base}/ask/${id}` };
   }
 
@@ -123,7 +123,7 @@ export async function startFakeAskServer({
     const bearer = /^Bearer (.+)$/.exec(request.headers.authorization ?? '')?.[1];
     if (denied || !bearer || !access.has(bearer)) return json(response, 401, { error: 'unauthorized' });
 
-    if (method === 'POST' && path === '/api/ask/sessions') return json(response, 200, openSession(body?.title));
+    if (method === 'POST' && path === '/api/ask/sessions') return json(response, 200, openSession(body?.title, body?.context ?? null));
     if (method === 'POST' && (match = /^\/api\/ask\/sessions\/([^/]+)\/close$/.exec(path))) {
       if (!sessions.has(match[1])) return json(response, 404, { error: 'not found' });
       closeSession(match[1]);
@@ -134,7 +134,10 @@ export async function startFakeAskServer({
       if (!session) return json(response, 404, { error: 'not found' });
       if (session.status === 'closed') return json(response, 409, { error: 'session closed' });
       if (!Array.isArray(body?.questions)) return json(response, 400, { error: 'questions' });
-      const round = { id: `round-${nextId++}`, sessionId: session.id, questions: body.questions, status: 'open', answers: null, answeredVia: null };
+      const round = {
+        id: `round-${nextId++}`, sessionId: session.id, questions: body.questions, context: body.context ?? null,
+        status: 'open', answers: null, answeredVia: null,
+      };
       rounds.set(round.id, round);
       const given = answer(round);
       if (given) answerRound(round.id, given);

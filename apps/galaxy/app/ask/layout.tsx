@@ -1,6 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 import '@omni/design/fonts.css';
 import '../../src/ask/ask.css';
+import '../../src/ask/page/share.css';
+import '../../src/ask/page/history.css';
+import { ForMeLink } from '../../src/ask/page/ForMe';
+import { HistoryLink } from '../../src/ask/page/WorkspaceHistory';
+import { forMeCount } from '../../src/ask/page/for-me-live';
 import { ThemeScript } from '../../src/ask/theme-script';
 import { ThemeSwitch } from '../../src/ask/theme-switch';
 import { TOKENS, themeCss } from '../../src/ask/theme-tokens';
@@ -9,7 +14,9 @@ import { TOKENS, themeCss } from '../../src/ask/theme-tokens';
 // properties; the theme script is the ask root's first child, so it marks the root with the stored
 // theme before anything in it is parsed, and before the first paint. The faces, all from
 // @omni/design's fonts.css and served from this origin: Atkinson Hyperlegible Next to read,
-// JetBrains Mono for previews, and the pixel face for the wordmark only.
+// JetBrains Mono for previews, and the pixel face for the wordmark only. The header links to the
+// workspace's History and to For me (PRD 144), with how many questions a teammate shared that still
+// wait for the person looking.
 
 export const metadata: Metadata = {
   title: 'Ask · OMNI LOOP',
@@ -25,7 +32,8 @@ export const viewport: Viewport = {
   colorScheme: 'light dark',
 };
 
-export default function AskLayout({ children }: { children: React.ReactNode }) {
+export default async function AskLayout({ children }: { children: React.ReactNode }) {
+  const waiting = await forMeCount(Date.now());
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: themeCss() }} />
@@ -38,7 +46,11 @@ export default function AskLayout({ children }: { children: React.ReactNode }) {
             <span className="ask-mark">OMNI LOOP</span>
             <span className="ask-brand-sub">Claude asks</span>
           </span>
-          <ThemeSwitch />
+          <span className="ask-bar-end">
+            <HistoryLink />
+            <ForMeLink count={waiting ?? 0} />
+            <ThemeSwitch />
+          </span>
         </header>
         <main className="ask-main">{children}</main>
       </div>

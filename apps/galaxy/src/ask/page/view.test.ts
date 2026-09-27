@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { HOOK_WAIT_MS, keepSent, minutesLeft, sessionView, withPageAnswer, type RoundRow, type SessionState } from './view';
+import {
+  categoryChip, contextParts, HOOK_WAIT_MS, keepSent, minutesLeft, sessionView, withCategory, withPageAnswer, type RoundRow, type SessionState,
+} from './view';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
 const at = (msAgo: number) => new Date(NOW - msAgo).toISOString();
@@ -157,5 +159,78 @@ describe('a read that crosses an answer sent from the page', () => {
     const read = keepSent(state([done, moved]), sent);
     expect(read.rounds.map((r) => r.status)).toEqual(['answered', 'abandoned']);
     expect(sent.size).toBe(0);
+  });
+});
+
+describe('the context line (PRD 144)', () => {
+  const full = state([], { repo: 'vertuoza/vertuo-omni-loop', branch: 'feat/question-history--s1' }).session;
+  const facts = {
+    prd: 144,
+    skill: '/omni:brainstorm',
+    model: 'claude-sonnet-4-6',
+    tokens: { input: 1200, output: 300, cacheRead: 1_000_000, cacheWrite: 200_000 },
+    cost_usd: 0.0321,
+  };
+
+  it('names the repo, branch, PRD, skill, model, tokens, cost and the time to answer', () => {
+    const r = round({ ago: 10 * MIN, ...facts, status: 'answered', answered_via: 'page', answers: {}, answered_at: at(10 * MIN - 95_000) });
+    expect(contextParts(full, r)).toEqual([
+      'vertuoza/vertuo-omni-loop', 'feat/question-history--s1', 'PRD #144', '/omni:brainstorm', 'claude-sonnet-4-6',
+      '1.2M tokens', '$0.03', 'answered in 1 min 35 s',
+    ]);
+  });
+
+  it('leaves out every field it does not have, an older kit\'s round saying nothing at all', () => {
+    const bare = state([]).session;
+    expect(contextParts(bare, round({ ago: MIN }))).toEqual([]);
+    expect(contextParts(bare, round({ ago: MIN, prd: null, skill: null, model: null, tokens: null, cost_usd: null }))).toEqual([]);
+  });
+
+  it('writes small costs, token counts and times in a way that reads', () => {
+    const tiny = round({ ago: MIN, tokens: { input: 950, output: 0, cacheRead: 0, cacheWrite: 0 }, cost_usd: 0.0004 });
+    expect(contextParts(state([]).session, tiny)).toEqual(['950 tokens', '<$0.01']);
+    const k = round({ ago: MIN, tokens: { input: 12_340, output: 0, cacheRead: 0, cacheWrite: 0 }, cost_usd: 0 });
+    expect(contextParts(state([]).session, k)).toEqual(['12.3k tokens', '$0.00']);
+    const quick = round({ ago: MIN, status: 'answered', answered_via: 'terminal', answers: {}, answered_at: at(MIN - 42_000) });
+    expect(contextParts(state([]).session, quick)).toEqual(['answered in 42 s']);
+    const slow = round({ ago: 3 * 60 * MIN, status: 'answered', answered_via: 'terminal', answers: {}, answered_at: at(60 * MIN) });
+    expect(contextParts(state([]).session, slow)).toEqual(['answered in 2 h 0 min']);
+  });
+
+  it('rides along with each round of the history', () => {
+    const view = sessionView(state([answered(MIN, 'page')], { repo: 'acme/widgets' }), NOW);
+    expect(view.history[0].context).toEqual(['acme/widgets', 'answered in 1 s']);
+  });
+});
+
+describe('the category chip (PRD 144)', () => {
+  const who = { me: 'bob', owner: 'ada' };
+
+  it('shows the category, and who set it', () => {
+    expect(categoryChip({ category: 'business', category_by: 'model' }, who)).toEqual({ value: 'business', label: 'Business', setBy: 'sorted by the model' });
+    expect(categoryChip({ category: 'ux-ui', category_by: 'bob' }, who)).toEqual({ value: 'ux-ui', label: 'UX/UI', setBy: 'set by you' });
+    expect(categoryChip({ category: 'product', category_by: 'ada' }, who)).toEqual({ value: 'product', label: 'Product', setBy: 'set by the session owner' });
+    expect(categoryChip({ category: 'harness', category_by: 'carol' }, who)).toEqual({ value: 'harness', label: 'Harness', setBy: 'set by a teammate' });
+  });
+
+  it('says unsorted for a round nobody sorted, an older round with no column, or one cleared', () => {
+    expect(categoryChip({ category: null, category_by: null }, who)).toEqual({ value: null, label: 'unsorted', setBy: null });
+    expect(categoryChip({}, who)).toEqual({ value: null, label: 'unsorted', setBy: null });
+    expect(categoryChip({ category: null, category_by: 'bob' }, who)).toEqual({ value: null, label: 'unsorted', setBy: 'cleared by you' });
+  });
+
+  it('reads a stored value outside the six as unsorted', () => {
+    expect(categoryChip({ category: 'design' as never, category_by: 'model' }, who).value).toBeNull();
+  });
+
+  it('rides along with each round of the history', () => {
+    const view = sessionView(state([{ ...answered(MIN, 'page'), category: 'other', category_by: 'model' }]), NOW);
+    expect(view.history[0]).toMatchObject({ category: 'other', category_by: 'model' });
+  });
+
+  it('shows a sort at once, before the next read', () => {
+    const open = round({ ago: MIN });
+    const next = withCategory(state([open]), open.id, { category: 'architecture', category_by: 'bob' });
+    expect(next.rounds[0]).toMatchObject({ category: 'architecture', category_by: 'bob' });
   });
 });

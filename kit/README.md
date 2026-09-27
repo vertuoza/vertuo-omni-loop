@@ -10,7 +10,9 @@ computer with `omni signin`, then `/omni:ask on` in a checkout prints the page's
 `/omni:ask off` turns it off. The mode is per checkout: `on` replaces nothing, and every Claude Code
 terminal open in the checkout gets a tab of its own on the one page, which goes away when that
 terminal exits. It needs `ask.url` in the config (`null` by default, which leaves it off), and
-whenever the page cannot answer, the question shows in the terminal as usual.
+whenever the page cannot answer, the question shows in the terminal as usual. The questions are
+kept: the whole workspace reads them, sorted and searchable, on the page's History, and a live one
+can be shared with a teammate, who answers it on its own link.
 
 **The knowledge graph** is the knowledge registers read as one map: `omni kb graph` prints a summary
 (a line per domain with its principles, rules, invariants, laws and proposals, then the principles

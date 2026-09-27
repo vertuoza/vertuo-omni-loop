@@ -1,7 +1,11 @@
 // The ask sessions and rounds (supabase/migrations/20260926090000_ask_sessions.sql), read and
-// written as the caller: the client carries their access token, so row-level security hands each
-// account its own rows only. Another owner's row reads as missing, exactly like one that never was.
+// written as the caller: the client carries their access token, so row-level security decides. Since
+// PRD 144 (20260927100000_ask_workspace.sql) every member of a session's workspace reads it and its
+// rounds, and only its owner changes or deletes it; a session of another workspace reads as missing,
+// exactly like one that never was. Since 20260927120000_ask_shares.sql its owner may share a round
+// with another member, who may then answer it while it is open.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Category } from './classify';
 
 /** A session with no call for this long reads as closed (the spec's 12 hours). */
 export const IDLE_CLOSE_MS = 12 * 60 * 60 * 1000;
@@ -19,7 +23,16 @@ export type AskSession = {
   status: 'open' | 'closed';
   created_at: string;
   last_seen_at: string;
+  /** The workspace whose members read it (PRD 144), set by the database when it opens. */
+  workspace_id: string | null;
+  /** Where the session came from (PRD 144): null when the kit did not say. */
+  repo: string | null;
+  branch: string | null;
+  claude_session_id: string | null;
 };
+
+/** A Claude session's tokens up to a question. */
+export type AskTokens = { input: number; output: number; cacheRead: number; cacheWrite: number };
 
 export type AskRoundStatus = 'open' | 'answered' | 'abandoned';
 
@@ -32,10 +45,24 @@ export type AskRound = {
   status: AskRoundStatus;
   created_at: string;
   answered_at: string | null;
+  /** Where the round came from and what the session had cost by then (PRD 144): null when unknown. */
+  prd: number | null;
+  skill: string | null;
+  model: string | null;
+  tokens: AskTokens | null;
+  cost_usd: number | null;
+  /** Who answered: set by the database, never sent. */
+  answered_by: string | null;
+  /** One of six, or null for unsorted (PRD 144), and who set it last: 'model', or a member's id. */
+  category: Category | null;
+  category_by: string | null;
 };
 
-const SESSION = 'id, owner, title, status, created_at, last_seen_at';
-const ROUND = 'id, session_id, questions, answers, answered_via, status, created_at, answered_at';
+/** What a round records besides its questions, as the API worked it out. */
+export type AskRoundFacts = Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd'>;
+
+const SESSION = 'id, owner, title, status, created_at, last_seen_at, workspace_id, repo, branch, claude_session_id';
+const ROUND = 'id, session_id, questions, answers, answered_via, status, created_at, answered_at, prd, skill, model, tokens, cost_usd, answered_by, category, category_by';
 
 /** Closed, or 12 hours without a call: either way nobody asks in it any more. */
 export function sessionClosed(session: Pick<AskSession, 'status' | 'last_seen_at'>, now: number): boolean {
@@ -58,8 +85,9 @@ function settle<T>(what: string, { data, error }: Outcome<T>): T | null {
 
 export function askStore(db: Pick<SupabaseClient, 'from'>) {
   return {
-    async openSession(title: string): Promise<{ id: string }> {
-      return settle('open the session', await db.from('ask_sessions').insert({ title }).select('id').single())!;
+    async openSession(title: string, repo: string | null = null): Promise<{ id: string }> {
+      const row: { title: string; repo?: string } = repo === null ? { title } : { title, repo };
+      return settle('open the session', await db.from('ask_sessions').insert(row).select('id').single())!;
     },
 
     async session(id: string): Promise<AskSession | null> {
@@ -71,12 +99,26 @@ export function askStore(db: Pick<SupabaseClient, 'from'>) {
       settle('keep the session', await db.from('ask_sessions').update({ last_seen_at: at.toISOString() }).eq('id', id).eq('status', 'open'));
     },
 
+    /** The branch and the Claude session the latest round named; a value not named is left as it is. */
+    async placeSession(id: string, where: Partial<Pick<AskSession, 'branch' | 'claude_session_id'>>): Promise<void> {
+      if (Object.keys(where).length === 0) return;
+      settle('place the session', await db.from('ask_sessions').update(where).eq('id', id).eq('status', 'open'));
+    },
+
     async closeSession(id: string, at: Date): Promise<void> {
       settle('close the session', await db.from('ask_sessions').update({ status: 'closed', last_seen_at: at.toISOString() }).eq('id', id));
     },
 
-    async addRound(sessionId: string, questions: AskQuestions): Promise<{ id: string }> {
-      return settle('ask the round', await db.from('ask_rounds').insert({ session_id: sessionId, questions }).select('id').single())!;
+    /** Deletes a session and its rounds, for good; false when nothing went (not the owner's). */
+    async deleteSession(id: string): Promise<boolean> {
+      const gone = settle<Array<{ id: string }>>('delete the session', await db.from('ask_sessions').delete().eq('id', id).select('id'));
+      return (gone ?? []).length > 0;
+    },
+
+    /** A new round; `facts` that are all null are not sent, so an older database takes it too. */
+    async addRound(sessionId: string, questions: AskQuestions, facts?: AskRoundFacts): Promise<{ id: string }> {
+      const known = Object.fromEntries(Object.entries(facts ?? {}).filter(([, value]) => value !== null));
+      return settle('ask the round', await db.from('ask_rounds').insert({ session_id: sessionId, questions, ...known }).select('id').single())!;
     },
 
     async round(id: string): Promise<AskRound | null> {
@@ -96,3 +138,64 @@ export function askStore(db: Pick<SupabaseClient, 'from'>) {
 }
 
 export type AskStore = ReturnType<typeof askStore>;
+
+/** A round's category and who set it, as the database answers a change of it. */
+export type AskCategory = Pick<AskRound, 'category' | 'category_by'>;
+
+/** A round's category (20260927110000_ask_category.sql). No grant reaches the columns: two functions
+ * write them, each checking who calls. */
+export function askCategories(db: Pick<SupabaseClient, 'rpc'>) {
+  return {
+    /** A member sets a round's category, or clears it with null; null when they may not read the round. */
+    async set(roundId: string, category: Category | null): Promise<AskCategory | null> {
+      return settle<AskCategory>('sort the round', await db.rpc('ask_round_categorize', { round_id: roundId, new_category: category }).maybeSingle());
+    },
+
+    /** The model's guess, as the account that asked; false when a person had already sorted it. */
+    async classified(roundId: string, category: Category): Promise<boolean> {
+      return settle<boolean>('record the model\'s category', await db.rpc('ask_round_classified', { round_id: roundId, new_category: category })) === true;
+    },
+  };
+}
+
+export type AskCategories = ReturnType<typeof askCategories>;
+
+/** A member of a workspace, as ask_members() lists them: their arcade name there, if they picked one. */
+export type AskMember = { user_id: string; email: string; name: string | null };
+
+/** How a member is named on the page and in a refusal: their arcade name, else their email. */
+export const memberLabel = (member: Pick<AskMember, 'email' | 'name'>) => member.name ?? member.email;
+
+/** A share: a round, the member it is shared with, who shared it and when. */
+export type AskShare = { round_id: string; shared_with: string; shared_by: string; created_at: string };
+
+const SHARE = 'round_id, shared_with, shared_by, created_at';
+
+/** Sharing a round (20260927120000_ask_shares.sql). No grant writes a share: ask_round_share() does,
+ * checking that the caller owns the round's session and the member belongs to its workspace. */
+export function askShares(db: Pick<SupabaseClient, 'from' | 'rpc'>) {
+  return {
+    /** Shares a round with a member; false when the caller does not own its session, or the member
+     * is the caller or not in the session's workspace. Sharing twice is fine. */
+    async share(roundId: string, member: string): Promise<boolean> {
+      return settle<boolean>('share the round', await db.rpc('ask_round_share', { p_round_id: roundId, p_member: member })) === true;
+    },
+
+    /** The members of a workspace the caller belongs to; none for any other. */
+    async members(workspaceId: string): Promise<AskMember[]> {
+      return settle<AskMember[]>('list the members', await db.rpc('ask_members', { workspace: workspaceId })) ?? [];
+    },
+
+    /** Who a round is shared with. */
+    async ofRound(roundId: string): Promise<AskShare[]> {
+      return settle<AskShare[]>('read the shares', await db.from('ask_shares').select(SHARE).eq('round_id', roundId)) ?? [];
+    },
+
+    /** Every round shared with `me`. */
+    async withMe(me: string): Promise<AskShare[]> {
+      return settle<AskShare[]>('read the shares', await db.from('ask_shares').select(SHARE).eq('shared_with', me)) ?? [];
+    },
+  };
+}
+
+export type AskShares = ReturnType<typeof askShares>;

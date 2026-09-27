@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { readQuestions, shownLabel } from '../answer-model';
-import { demoPane, demoPort, demoSessions, demoState, readScenario } from './demo';
+import {
+  DEMO_MEMBERS, DEMO_OWNER, DEMO_TEAMMATE, demoPane, demoPort, demoQuestion, demoQuestionPort, demoSessions, demoState, readScenario,
+} from './demo';
+import { questionView } from './question';
 import { firstTab, needsYou, rowOf, tabsOf } from './tabs';
 import { sessionView } from './view';
 
@@ -58,5 +61,26 @@ describe('the demo session', () => {
     const next = sessionView((await port.read())!, clock.now);
     expect(next.kind).toBe('open');
     if (next.kind === 'open') expect(readQuestions(next.round.questions)).not.toEqual(open.questions);
+  });
+
+  it('shares a round with a teammate, never with its owner or a stranger (PRD 144)', async () => {
+    const port = demoPort(demoState('any', 'open', NOW), () => NOW);
+    const teammate = DEMO_MEMBERS.find((m) => m.user_id !== DEMO_OWNER)!.user_id;
+    expect(await port.share('demo-round-3', teammate)).toBe(true);
+    expect(await port.share('demo-round-3', DEMO_OWNER)).toBe(false);
+    expect(await port.share('demo-round-3', 'stranger')).toBe(false);
+    expect(await port.share('no-such-round', teammate)).toBe(false);
+  });
+
+  it('plays a question shared with a teammate, who answers it once; or shows it answered by the owner (PRD 144)', async () => {
+    const open = questionView(demoQuestion(NOW), DEMO_TEAMMATE, DEMO_MEMBERS, NOW);
+    expect(open).toMatchObject({ kind: 'open', canAnswer: true });
+    expect(open.earlier).toHaveLength(2);
+    const port = demoQuestionPort(demoQuestion(NOW), () => NOW);
+    const round = demoQuestion(NOW).round;
+    expect(await port.send(round.id, { q: 'a' })).toBe('answered');
+    expect(await port.send(round.id, { q: 'b' })).toBe('taken');
+    expect(questionView((await port.read())!, DEMO_TEAMMATE, DEMO_MEMBERS, NOW)).toMatchObject({ kind: 'answered', byMe: true });
+    expect(questionView(demoQuestion(NOW, true), DEMO_TEAMMATE, DEMO_MEMBERS, NOW)).toMatchObject({ kind: 'answered', by: 'ADA', via: 'terminal' });
   });
 });

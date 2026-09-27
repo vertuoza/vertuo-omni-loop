@@ -45,7 +45,7 @@ async function modeOn(options = {}) {
   writeMode(root, { host: server.host });
   const tokens = memoryTokens({ [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1' } });
   const client = askClient({ baseUrl: server.url, host: server.host, tokens });
-  const pre = (input, limits = FAST) => preHook({ root, host: server.host, client, input, title: () => TITLE, limits });
+  const pre = (input, limits = FAST, more = {}) => preHook({ root, host: server.host, client, input, title: () => TITLE, limits, ...more });
   return { root, write, client, tokens, pre };
 }
 
@@ -130,6 +130,40 @@ describe('the pre hook', () => {
     expect(server.sessions.size).toBe(2);
     expect(readTerminal(root, 'term-a').sessionId).toBe(colour.sessionId);
     expect(readTerminal(root, 'term-b').sessionId).toBe(places.sessionId);
+  });
+
+  it('sends the round\'s context with the questions', async () => {
+    const { root, pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const input = { ...preInput([COLOUR], 'toolu_01', 'claude-1'), transcript_path: `${root}/no-transcript.jsonl` };
+    await pre(input);
+    const [round] = server.rounds.values();
+    expect(round.context).toEqual({
+      repo: null, branch: null, prd: null, claudeSessionId: 'claude-1', skill: null, model: null, tokens: null,
+    });
+  });
+
+  it('still asks the question when reading the context throws', async () => {
+    const { pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const readContext = () => { throw new Error('the transcript moved'); };
+    const output = await pre(preInput([COLOUR]), FAST, { readContext });
+    expect(output.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
+    const [round] = server.rounds.values();
+    expect(round.context).toBeNull();
+    expect(server.calls.find((call) => call.path.endsWith('/rounds')).body).toEqual({ questions: [COLOUR] });
+  });
+
+  it('opens the terminal\'s session with context.repo (PRD 144)', async () => {
+    const { pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    await pre(preInput([COLOUR]), FAST, { readSessionContext: () => ({ repo: 'acme/widgets' }) });
+    expect(server.calls.find((call) => call.path === '/api/ask/sessions').body).toEqual({ title: TITLE, context: { repo: 'acme/widgets' } });
+  });
+
+  it('still opens the session, with no context, when reading context.repo throws', async () => {
+    const { pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
+    const readSessionContext = () => { throw new Error('the config moved'); };
+    const output = await pre(preInput([COLOUR]), FAST, { readSessionContext });
+    expect(output.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
+    expect(server.calls.find((call) => call.path === '/api/ask/sessions').body).toEqual({ title: TITLE });
   });
 
   it('waits across several waits for an answer given later on the page', async () => {

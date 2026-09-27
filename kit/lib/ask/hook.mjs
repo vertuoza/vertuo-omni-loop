@@ -4,15 +4,19 @@
 // session. The mode is per checkout; the session is per terminal, the terminal being the input's
 // `session_id`, and the round per question, keyed by its `tool_use_id` (PRD 142's spec).
 //
-// - `pre` (PreToolUse on AskUserQuestion): opens this terminal's session on its first question,
-//   posts the round, waits on it up to 540 s in all (the hook's own timeout is 600 s), and hands the
-//   page's answer back through `updatedInput.answers`. On any other outcome it abandons the round
-//   when it can, and answers nothing. A closed session is forgotten: the next question opens anew.
+// - `pre` (PreToolUse on AskUserQuestion): opens this terminal's session on its first question
+//   (with `context.repo`, PRD 144), posts the round with its best-effort `context` (`./context.mjs`:
+//   where it came from, what the session had cost; a context that cannot be read is sent as nulls, or
+//   not at all, and never stops the question), waits on it up to 540 s in all (the hook's own timeout
+//   is 600 s), and hands the page's answer back through `updatedInput.answers`. On any other outcome
+//   it abandons the round when it can, and answers nothing. A closed session is forgotten: the next
+//   question opens anew.
 // - `post` (PostToolUse on AskUserQuestion): an answer given in the terminal is posted to the page as
 //   well, with `via: "terminal"`; then that question's round file goes.
 // - `end` (SessionEnd): closes this terminal's session and deletes its file.
 // - `prompt` (UserPromptSubmit): one sentence of context, so questions go through the tool.
 import { loadConfig } from '../config.mjs';
+import { askContext, sessionContext } from './context.mjs';
 import { clearRound, clearTerminal, isSafeId, readMode, readRound, readTerminal, writeRound, writeTerminal } from './local-state.mjs';
 
 const TOOL = 'AskUserQuestion';
@@ -68,6 +72,16 @@ function preOutput(toolInput, answers) {
   return { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', updatedInput: { ...toolInput, answers } } };
 }
 
+/** A best-effort context (`./context.mjs`), or `null` when even reading it failed: the question goes
+ * on either way. */
+function contextOf(read) {
+  try {
+    return read() ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** The input's id when it may name a file, else `null`. */
 const idOf = (value) => (isSafeId(value) ? value : null);
 
@@ -78,10 +92,10 @@ const SESSION_GONE = [404, 409];
  * This terminal's session: the one its file names on `host`, or one it opens titled `title()` and
  * writes. Throws when none could be opened.
  */
-async function terminalSession({ root, host, client, terminalId, title }) {
+async function terminalSession({ root, host, client, terminalId, title, readSessionContext }) {
   const known = readTerminal(root, terminalId);
   if (known && known.host === host) return known.sessionId;
-  const opened = await client.openSession(title());
+  const opened = await client.openSession(title(), contextOf(() => readSessionContext(root)) ?? undefined);
   if (typeof opened?.id !== 'string' || opened.id === '') throw new Error('the server answered with no session');
   writeTerminal(root, terminalId, { sessionId: opened.id, host });
   return opened.id;
@@ -89,11 +103,22 @@ async function terminalSession({ root, host, client, terminalId, title }) {
 
 /**
  * @param {{ root: string, host: string, client: ReturnType<import('./client.mjs').askClient>,
- *   input: any, title: () => string, limits?: { totalMs: number, callMs: number }, now?: () => number }} options
+ *   input: any, title: () => string, limits?: { totalMs: number, callMs: number }, now?: () => number,
+ *   readContext?: typeof askContext, readSessionContext?: typeof sessionContext }} options
  *   `title` names a session this terminal opens: `<repo slug> · <branch>`.
  * @returns {Promise<object | null>} the hook's output, or `null` for none
  */
-export async function preHook({ root, host, client, input, title, limits = WAIT_LIMITS, now = Date.now }) {
+export async function preHook({
+  root,
+  host,
+  client,
+  input,
+  title,
+  limits = WAIT_LIMITS,
+  now = Date.now,
+  readContext = askContext,
+  readSessionContext = sessionContext,
+}) {
   if (input?.tool_name !== TOOL) return null;
   const toolInput = input.tool_input;
   const questions = toolInput?.questions;
@@ -105,9 +130,9 @@ export async function preHook({ root, host, client, input, title, limits = WAIT_
 
   let roundId;
   try {
-    const sessionId = await terminalSession({ root, host, client, terminalId, title });
+    const sessionId = await terminalSession({ root, host, client, terminalId, title, readSessionContext });
     try {
-      ({ roundId } = await client.openRound(sessionId, questions));
+      ({ roundId } = await client.openRound(sessionId, questions, contextOf(() => readContext({ root, input })) ?? undefined));
     } catch (error) {
       // Closed or gone on the server: this question goes to the terminal, the next opens anew.
       if (SESSION_GONE.includes(error?.status)) clearTerminal(root, terminalId);
