@@ -16,6 +16,35 @@ request carries one check run named **outbox** (shown as **omni-loop · outbox**
 
 Nothing is added to an installed repository: no workflow, no file under `.github/`, no secret.
 
+## The outbox, sent to the Omni page (PRD 251)
+
+A person may answer the outbox on the Omni page, on the PRD's dossier (`/prd/<id>?tab=outbox`, in
+`apps/galaxy`), as well as on the pull request. The app is what keeps that page current (ADR-0048):
+
+- **A new event, `issue_comment`** (`created`, `edited`, `deleted`). A comment on a pull request
+  re-runs the outbox check exactly as a push does: that is what shows the page an answer typed on
+  GitHub. A comment on an issue, and one the app wrote itself (`omni-loop[bot]`), does nothing. A
+  comment names no head, so the run reads it off the pull request. The event adds no permission.
+- **The relay.** After the check and the comment are published, the `outbox-check` function takes one
+  more step, `relay`: when the base branch's config has `answers.enabled` on (the kit's default) and
+  `ask.url`'s host is the host of the app's `OMNI_PAGE_URL`, it sends `POST <OMNI_PAGE_URL>/api/outbox`
+  what the check read: the numbering, the open items (their files verbatim), the adopted ones, what
+  the replies say that nobody has settled yet (the kit's `planReplies`, on the comments the check
+  already read), and the settled entries. The body is signed,
+  `X-Omni-Signature: sha256=<HMAC-SHA256 of the raw body>`, keyed with `OMNI_OUTBOX_SECRET`, which the
+  app and the galaxy share. With the switch off, `ask.url` on another host, or no `OMNI_PAGE_URL`,
+  nothing is sent.
+- **The last send.** A pull request closed, merged or not, gets one more send with `state` `merged` or
+  `closed`, and nothing else: no check run and no comment on it.
+- **The relay never changes the check.** Its conclusion and the comment are published before it runs;
+  a send the page refuses is retried as an Inngest step, then logged
+  (`omni-loop relay: <repo>#<n> was not sent to the Omni page: <reason>`), and the page keeps the last
+  outbox it had.
+
+Every door, the page's **Send** included, ends as the person's own reply on the pull request: the
+page posts through a user authorisation of this app (its client id and secret live on the galaxy),
+never as `omni-loop[bot]`, whose replies `omni replies` does not count.
+
 ## The retro (PRD 72)
 
 When a feature PR merges into the default branch, the app runs a retro of its PRD, by itself: code
@@ -71,14 +100,18 @@ default branch, labelled `labels.knowledge` (default `omni:knowledge`). A person
 ## How it runs
 
 ```
-GitHub ── pull_request / check_run.rerequested ──▶ /api/github    verify signature → inngest.send → 200
-             a merged pull_request.closed → omni-loop/retro.requested and
-                                            omni-loop/knowledge.harvest.requested, never the outbox check
+GitHub ── pull_request / check_run.rerequested / issue_comment ──▶ /api/github    verify signature → inngest.send → 200
+             a pull_request.closed        → the outbox's last send (outbox-check, no check run, no comment)
+                                            and, merged, omni-loop/retro.requested and
+                                            omni-loop/knowledge.harvest.requested
+             a comment on an issue, or by omni-loop[bot] → nothing
              every other handled action   → omni-loop/outbox.check.requested
 Inngest ──▶ /api/inngest   function "outbox-check" (debounced per repo + PR)
               step "in-progress"  create the check run, in_progress, on the head SHA
               step "evaluate"     snapshot base config + head delivery folder into /tmp, evaluate
               step "publish"      complete the check run; rewrite the outbox comment unless the head moved on
+              step "relay"        send the Omni page the outbox the check read (PRD 251), when the
+                                  base config turns answers on and ask.url is on OMNI_PAGE_URL's host
             onFailure          complete the check run as failure — never left in_progress
 Inngest ──▶ /api/inngest   function "retro" (one at a time per repository)
               step "qualify"          the config at the merge SHA; a feature PR; its PRD folder
@@ -106,6 +139,7 @@ Inngest ──▶ /api/inngest   function "knowledge-harvest" (one at a time per
 | `evaluate` — pure, reuses the kit's gate unchanged | `src/evaluate/` |
 | `publish` — the check run and the comment | `src/publish/` |
 | `outbox-check` — the Inngest function | `src/outbox-check/`, served at `api/inngest.mjs` |
+| `relay` — whether the outbox goes to the Omni page, what it carries, the signed send | `src/relay/` |
 | `retro` — the Inngest function wiring the retro's units | `src/retro/retro.mjs`, served at `api/inngest.mjs` |
 | `qualify` — which merged PR gets a retro, and its PRD | `src/retro/qualify.mjs` |
 | the kinds of finding — each one's GitHub reads, detector and section | `src/retro/kinds/` (registry: `index.mjs`) |
@@ -158,6 +192,30 @@ None of these is taken by the code; a person does each once.
    > history shows whether a run was attempted.
 5. **Labels.** Run `npx github:vertuoza/vertuo-omni-loop init` in the repository: it creates the missing `omni:*` labels.
 
+### The Omni page — human steps (PRD 251)
+
+None of these is taken by the code. Until they are done, the Outbox tab shows questions only after a
+push, and the page's **Send** fails with GitHub's reason.
+
+1. **Set the two variables** in the app's Vercel project, then redeploy:
+   - `OMNI_PAGE_URL` — the galaxy's production address (`https://vertuo-omni-loop-galaxy.vercel.app`),
+     whose host must be the host of each repository's `ask.url`;
+   - `OMNI_OUTBOX_SECRET` — a long random secret, the same value as on the galaxy's project
+     (`openssl rand -hex 32`). A different value on either side, and the page refuses every send (401).
+2. **Accept the `issue_comment` event.** An org admin updates the app from [`app.yml`](app.yml) (or
+   ticks *Issue comment* under the app's settings › Permissions & events › Subscribe to events), then
+   accepts the change on each installation. Until then an answer typed on GitHub reaches the page only
+   with the next push.
+3. **Let the page post as the person.** In the app's settings › General:
+   - under *Callback URL*, add `<galaxy host>/prd/github/callback` for every galaxy host that sends
+     (production, and `http://localhost:3000/prd/github/callback` for local work). GitHub brings the
+     person back to the host they left from, so a host that is not listed, a preview deployment
+     among them, cannot send;
+   - allow users to authorise the app (the page asks each person once; after that GitHub brings
+     them straight back, with no prompt);
+   - generate a client secret and give the galaxy's project `GITHUB_APP_CLIENT_ID` (the app's Client
+     ID) and `GITHUB_APP_CLIENT_SECRET` ([`apps/galaxy/README.md`](../galaxy/README.md)).
+
 ### The retro — human steps (PRD 72)
 
 None of these is taken by the code. Until steps 1 and 2 are done, a merged feature PR cannot be seen
@@ -195,3 +253,8 @@ environment.
 With the app installed on this repository, PRD 28's acceptance criteria 1–6 are re-run by hand on a
 feature PR: red with an open item, green once settled, neutral under `omni:outbox-go`, skipped on a sub-PR,
 skipped on a repository without `.omni-loop/config.yml`, re-evaluated by **Re-run**.
+
+PRD 251's, once its human steps are done, on a feature PR of a repository whose `ask.url` is the
+galaxy: a push shows its questions on the PRD's Outbox tab within a minute; a reply typed on GitHub
+shows there as pending; the page's **Send** posts one reply under the person's own account, which
+`/omni:yolo-fix` settles with that reply's link as its channel URL.
