@@ -444,7 +444,7 @@ describe('the hand-off that ends the brainstorm and the plan', () => {
   const read = (skill) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
   const COMMAND = '/omni:yolo <n>';
   const BRAINSTORM = [
-    'inbox/<folder>/', 'spec.md', 'plan.md', 'before-after.html',
+    '<folder>/', 'spec.md', 'plan.md', 'before-after.html',
     'idea ──▶ PRD ──▶ inbox ──▶ outbox ──▶ shipped ──▶ retro', 'you are here', 'merging the phase-0 PR moves it here',
     '**What is next?**', 'Review the PRD', 'Merge that PR', '/clear',
   ];

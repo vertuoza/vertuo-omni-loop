@@ -286,15 +286,15 @@ check that ran or did not. Then always end the reply with three blocks, in this 
 someone who knows nothing about the loop and just does what it says, one step at a time. Fill every
 placeholder with a real path, number or link.
 
-**1. The PRD's folder,** in a code block so the tree lines up: its path,
-`<paths.delivery>/inbox/<folder>/` (the `dir` that `omni prd <n>` printed), then each file that
+**1. The PRD's folder,** in a code block so the tree lines up: its path, `<folder>/` (the
+repository path step 2 named, which is the `dir` that `omni prd <n>` printed), then each file that
 command lists, with a few words each. When `acceptance.enabled`, list each scenario file, by its
 path, under the tree.
 
 ```text
 PRD <n>'s folder: on the phase-0 PR now, on <repo.defaultBranch> once it merges
 
-  <paths.delivery>/inbox/<folder>/
+  <folder>/
   ├── spec.md            what changes, and why
   ├── plan.md            how it gets built, slice by slice
   └── before-after.html  today beside after
