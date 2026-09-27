@@ -43,9 +43,15 @@
   color: var(--ask-ink);
   font-family: var(--ask-body);
 }
+/* The backdrop dims the page: the ink's colour on the light theme, the ground's on the dark one,
+   where the ink is light. The dialog opens only once a script runs, so the theme is always marked. */
 .ask .game-mode-dialog::backdrop {
   background: var(--ask-ink);
-  opacity: 0.45;
+  opacity: 0.4;
+}
+.ask[data-ask-theme='dark'] .game-mode-dialog::backdrop {
+  background: var(--ask-ground);
+  opacity: 0.75;
 }
 .game-mode-box { display: grid; gap: 8px; padding: 20px; }
 .game-mode-title { margin: 0; font-size: 19px; line-height: 1.3; }
