@@ -1,7 +1,7 @@
 /* The app bar's two ways out (PRD 238): the OMNI LOOP mark as a link to /app, and Game mode with the
    dialog it opens. Drawn on the ask pages' reading surface: every colour is a token of
-   src/ask/theme-tokens.ts (the --ask-* properties the ask root carries, per theme), so light, dark
-   and system follow the theme switch. Scoped to the ask root, as ask.css is. */
+   src/ask/theme-tokens.ts (the --ask-* properties the ask root carries, per theme), so Omni, light
+   and dark follow the theme switch. Scoped to the ask root, as ask.css is. */
 
 /* ── The OMNI LOOP mark, a link home ──────────────────────────────────────── */
 
@@ -43,12 +43,14 @@
   color: var(--ask-ink);
   font-family: var(--ask-body);
 }
-/* The backdrop dims the page: the ink's colour on the light theme, the ground's on the dark one,
-   where the ink is light. The dialog opens only once a script runs, so the theme is always marked. */
+/* The backdrop dims the page: the ink's colour on the light theme, the ground's on Omni and the
+   dark one, where the ink is light. The dialog opens only once a script runs, so the theme is
+   always marked. */
 .ask .game-mode-dialog::backdrop {
   background: var(--ask-ink);
   opacity: 0.4;
 }
+.ask[data-ask-theme='omni'] .game-mode-dialog::backdrop,
 .ask[data-ask-theme='dark'] .game-mode-dialog::backdrop {
   background: var(--ask-ground);
   opacity: 0.75;

@@ -21,17 +21,22 @@ describe('the stylesheet the table becomes', () => {
   };
   const variable = (name: TokenName) => `--ask-${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
 
-  it('declares every token for the light and the dark theme', () => {
-    for (const theme of ['light', 'dark'] as const) {
+  /** The native controls' scheme each theme asks for: Omni is a dark world. */
+  const SCHEME = { omni: 'dark', light: 'light', dark: 'dark' } as const;
+
+  it('declares every token for the Omni, the light and the dark theme', () => {
+    for (const theme of ['omni', 'light', 'dark'] as const) {
       const declared = block(`:is(html:has(.ask[data-ask-theme="${theme}"]), .ask[data-ask-theme="${theme}"])`);
-      expect(declared).toContain(`color-scheme: ${theme};`);
-      for (const [name, value] of Object.entries(TOKENS[theme])) expect(declared).toContain(`${variable(name as TokenName)}: ${value};`);
+      expect(declared, theme).toContain(`color-scheme: ${SCHEME[theme]};`);
+      for (const [name, value] of Object.entries(TOKENS[theme])) expect(declared, theme).toContain(`${variable(name as TokenName)}: ${value};`);
     }
   });
 
-  it('follows the system when no script ran', () => {
-    expect(css).toContain('@media (prefers-color-scheme: dark)');
-    expect(block('.ask:not([data-ask-theme])')).toContain(`--ask-ground: ${TOKENS.light.ground};`);
+  it('shows Omni when no script ran, whatever the system prefers', () => {
+    const unmarked = block('.ask:not([data-ask-theme])');
+    expect(unmarked).toContain('color-scheme: dark;');
+    for (const [name, value] of Object.entries(TOKENS.omni)) expect(unmarked).toContain(`${variable(name as TokenName)}: ${value};`);
+    expect(css).not.toContain('prefers-color-scheme');
   });
 });
 
@@ -43,6 +48,15 @@ describe('the stylesheet', () => {
   it('names no colour of its own: every colour comes from the token table', () => {
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
     expect(css).not.toMatch(/\b(?:rgba?|hsla?|oklch|color-mix)\(/i);
+  });
+
+  it('draws the pressed theme for Omni, light and dark, from the choice the root carries', () => {
+    const pressed = rules.filter((r) => r.body.includes('background: var(--ask-plasma);') && r.body.includes('color: var(--ask-on-plasma);'))
+      .flatMap((r) => r.selector.split(',').map((one) => one.trim()));
+    for (const choice of ['omni', 'light', 'dark']) {
+      expect(pressed, choice).toContain(`.ask[data-ask-choice='${choice}'] .ask-switch [data-choice='${choice}']`);
+    }
+    expect(css).not.toContain("'system'");
   });
 
   it('sets the page in Atkinson Hyperlegible Next', () => {
