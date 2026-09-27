@@ -1,0 +1,283 @@
+{
+  "prd": 292,
+  "runs": [
+    {
+      "featurePr": {
+        "mergeSha": "011675258c7d18ac940a948cede8f54c8214a14a",
+        "mergedAt": "2026-09-27T19:10:22Z",
+        "number": 293,
+        "openedAt": "2026-09-27T18:42:04Z",
+        "title": "feat(kit): the brainstorm and the plan end with a plain \"What is next?\" (PRD 292)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/293"
+      },
+      "findings": [],
+      "kinds": {
+        "churn": {
+          "added": 170,
+          "churn": 4,
+          "commits": 5,
+          "files": [
+            {
+              "added": 57,
+              "churn": 3,
+              "commits": 2,
+              "finalAdded": 54,
+              "path": "kit/plugin/skills/brainstorm/SKILL.md",
+              "percent": 6
+            },
+            {
+              "added": 82,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 81,
+              "path": "kit/test/plugin.test.mjs",
+              "percent": 1
+            }
+          ],
+          "finalAdded": 166,
+          "leftOut": {
+            "delivery": [
+              ".omni-loop/delivery/outbox/0292-what-is-next/s1-01-hand-off-blocks-printed-how.md",
+              ".omni-loop/delivery/outbox/0292-what-is-next/s1-02-issue-step-test-reads-to-next-step.md"
+            ],
+            "generated": [],
+            "lockfile": []
+          },
+          "noPatch": [],
+          "notCounted": [],
+          "pulls": 1,
+          "ranges": [],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [],
+          "redRuns": [],
+          "slices": [
+            "s1"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 0,
+            "commits": 0,
+            "red": 0,
+            "runs": 0,
+            "slices": 0
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 2,
+            "agreed": 0,
+            "byRank": {
+              "medium": 2
+            },
+            "drifted": 0,
+            "drifts": [],
+            "file": ".omni-loop/delivery/shipped/0292-what-is-next/outbox/settled.md",
+            "raised": 2,
+            "reworked": 0
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "stuck": 0
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  295
+                ],
+                "slice": "s1",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 2,
+              "red": 0,
+              "reviews": 0,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 0,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 293,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/293"
+              },
+              {
+                "pr": 295,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/295"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 0,
+              "graded": 1,
+              "shared": 0,
+              "unplanned": 0,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [],
+                "files": 7,
+                "pr": 295,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/295"
+              }
+            ],
+            "reason": null,
+            "sharedGround": []
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-09-27T19:10:22Z",
+            "minutes": 28,
+            "number": 293,
+            "openedAt": "2026-09-27T18:42:04Z",
+            "readyAt": "2026-09-27T19:07:25Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/293"
+          },
+          "medianMinutes": 12,
+          "sliceCount": 1,
+          "slices": [
+            {
+              "closedAt": "2026-09-27T19:01:37Z",
+              "mergedAt": "2026-09-27T19:01:37Z",
+              "mergedWave": 1,
+              "minutes": 12,
+              "openedAt": "2026-09-27T18:49:57Z",
+              "plannedWave": 1,
+              "pr": 295,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/295"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 1,
+            "planned": 1
+          }
+        }
+      },
+      "prd": {
+        "folder": ".omni-loop/delivery/shipped/0292-what-is-next",
+        "number": 292,
+        "state": "shipped",
+        "title": "The brainstorm and the plan end with a plain \"What is next?\"",
+        "topic": "what-is-next"
+      },
+      "rules": {
+        "fieldCaps": {
+          "lesson": 400,
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600
+        },
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "thresholds": {
+          "afterMergeDays": 14,
+          "churnFileLines": 40,
+          "churnFilePercent": 50,
+          "churnRangeCommits": 3,
+          "failingTestRuns": 2,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "slowSliceFactor": 3
+        },
+        "version": 1
+      },
+      "run": "merge",
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": []
+      },
+      "issues": {}
+    }
+  ]
+}
