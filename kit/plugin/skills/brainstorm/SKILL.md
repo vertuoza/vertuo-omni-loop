@@ -34,6 +34,11 @@ playbook, section by section: a section the repository left blank prints the kit
 `[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
 never overrides this skill's rules.
 
+Then, before your first question, follow `/omni:dossier-open` with one line of the idea: it opens a
+draft dossier for it on the Omni page, linked to this Claude session, and prints its link as
+"follow along at …", which the person can send to whoever the idea is for. Whatever it prints,
+carry on to step 1: a draft that did not open stops nothing.
+
 ## 1. Brainstorm the design
 
 This step is a conversation with the person who has the idea. Everything they decide here is asked,
@@ -59,7 +64,8 @@ override it:
 - **Spike:** a feasibility question ("can we…", "is it possible…") whose output is an answer, not
   code anyone keeps. Present the question and the probe in two or three sentences, get a nod,
   investigate as cheaply as correctness allows, and report a recommendation. Anything built stays
-  labelled throwaway. **A spike ends here:** no issue, no folder, no plan, no PR.
+  labelled throwaway. **A spike ends here:** no issue, no folder, no plan, no PR. Its dossier stays
+  a draft, which the person who opened it may delete on the Omni page.
 - **Bounded:** a well-scoped change to a flow that already exists in this repository, one you can
   read. Explore, ask the few questions that matter (one at a time), present a short design in chat
   (the approach, what it touches, how it is tested), and **stop until you hear an explicit yes**.
@@ -219,12 +225,16 @@ node .omni-loop/bin/omni.mjs prd <n>        # state inbox, and the folder's file
 
 Fix until `omni check inbox` is green, then `git push -u <remote> <feature branch>`.
 
+Then follow `/omni:dossier-push <n>` from this worktree: the draft becomes PRD n's dossier, and the
+spec and the before/after page go up as its first versions. Whatever it prints, carry on to step 8.
+
 ## 8. Plan it
 
 Follow `/omni:plan <n>` from inside the feature worktree, while the design is fresh, so that
 delivery only executes. Its step 2 finds the feature branch already checked out here: use this
 worktree rather than adding a second one. It writes `plan.md`, grades it with `omni plan check`,
-pushes it, and opens the draft feature PR.
+pushes it, sends it to the PRD's dossier through `/omni:dossier-push`, and opens the draft feature
+PR.
 
 `/omni:plan` may return `needs clarification`: a plan is never written on a guess. Stop there, and
 say what the spec must answer (it has already asked on the issue). There is no phase-0 PR and no
@@ -257,12 +267,15 @@ yet. That is what a person can review cheaply, so this is where a brainstorm end
    It must print `ok`: docs-only, carrying the spec, the plan and the before/after, and every commit
    signed. `not ok` names what is missing, which source file slipped in, or which commit lacks the
    signature's trailer; fix the branch and rerun. Never leave it red.
-4. `git push -u <remote> <phase-0 branch>`, then open it through `/omni:pr`'s lifecycle as a
-   phase-0 PR: base `repo.defaultBranch`, head the phase-0 branch, a Conventional Commits title
-   (`docs(<scope>): <PRD title>`), `labels.phase0` subject to **Labels**, and a body that starts with
-   `prLinks.phase0` filled (it refers to the PRD; the feature PR is the one that closes it),
-   followed by Summary, Verified (the `omni phase0` and `omni check inbox` lines), Risk and
-   rollback, and Reviewer focus, and ending with the `omni sign footer` line.
+4. `git push -u <remote> <phase-0 branch>`, then follow `/omni:dossier-push <n>` from this
+   worktree: a file that changed since the last push becomes a new version of it, and an unchanged
+   one adds nothing. Whatever it prints, carry on.
+5. Open the phase-0 PR through `/omni:pr`'s lifecycle: base `repo.defaultBranch`, head the
+   phase-0 branch, a Conventional Commits title (`docs(<scope>): <PRD title>`), `labels.phase0`
+   subject to **Labels**, and a body that starts with `prLinks.phase0` filled (it refers to the
+   PRD; the feature PR is the one that closes it), followed by Summary, Verified (the `omni phase0`
+   and `omni check inbox` lines), Risk and rollback, and Reviewer focus, and ending with the
+   `omni sign footer` line.
 
 **A person reviews and merges it.** Never merge it yourself, and never mark the feature PR ready.
 
