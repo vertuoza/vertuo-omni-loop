@@ -118,3 +118,30 @@ SKILL.md names exists now covers `sign`.
 ### Gate (this update)
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.
+
+## PRD #216, slice s5 — the plan follows `/omni:dossier-push`
+
+Not a re-port: upstream's skill keeps the plan in the repository only. A kit-local change to the
+prose, which the bundle does not carry. PRD #216 keeps every PRD's spec, plan and before/after page
+on the Omni page as a **dossier**, every version of each, through `omni dossier` (slice s1), which
+`/omni:dossier-push` wraps: it reports every exit code as the command prints it, and never stops the
+skill that runs it.
+
+- **Step 6, item 1:** after `git push -u <repo.remote> <feature branch>`, the skill follows
+  `/omni:dossier-push <n>` from the worktree, so `plan.md` goes up to the PRD's dossier, as a new
+  version only when it changed. Whatever it prints, the skill carries on and opens (or updates) the
+  draft feature PR. Run from `/omni:brainstorm`'s step 8, this is the plan's only push to the
+  dossier (see `plugin--brainstorm.md`).
+- **Unchanged:** the plan is still committed on the feature branch first; the dossier is a copy of
+  what was pushed, never the plan's home.
+
+### Tests
+
+`kit/test/plugin.test.mjs` gained a block on the live skills: the plan names `/omni:dossier-push` in
+step 6 after `git push -u`, and the dossier skill it follows parses, names only `omni dossier`, and
+has a row for exits `0`, `1` and `2`.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs kit/test/no-game-words.test.mjs`
+and `pnpm test`, green.
