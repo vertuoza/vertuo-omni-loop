@@ -27,6 +27,18 @@ that runs it: `/omni:brainstorm` follows `/omni:dossier-open` before its first q
 `/omni:dossier-push` after each of its pushes, and `/omni:plan` follows `/omni:dossier-push` after
 it pushes `plan.md`.
 
+**Release notes** say, for anyone outside, what each PRD shipped: a `release.md` beside the PRD's
+`spec.md`, whose front matter holds `prd` and `title` (and, on the initial release's notes only,
+`version: 0.0.1`), and whose body is one paragraph of description. `omni check releases` grades
+every note in the inbox and shipped folders, and `omni check all` runs it too: a title of 1 to 60
+characters on one line with no final full stop and no PRD number, a description of one paragraph of
+1 to 280 characters, and neither holding a link, an issue reference, a backtick or a path under the
+kit's folder. Each failure names the file and the rule; a repository with no note passes. The switch
+is `releaseNotes: { enabled: true }` in the config (`false` by default): once it is on, `omni ship`
+refuses a PRD whose folder has no note (`no release note: <path>`) or whose note fails the check
+(`release note: <rule>`). The note's voice is the optional `notes` slot of the `releasing` form, which
+`omni kb show releasing` prints.
+
 **The knowledge graph** is the knowledge registers read as one map: `omni kb graph` prints a summary
 (a line per domain with its principles, rules, invariants, laws and proposals, then the principles
 nothing serves and the rules and invariants that serve no principle), and `omni kb graph --json` the
