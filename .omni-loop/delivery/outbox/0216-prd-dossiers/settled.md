@@ -1561,3 +1561,254 @@ The pages' demo would look up the planet's demo dossier by its address: a small 
 ```
 
 <!-- /omni-outbox-settled: s6-04-demo-opens-one-example-page -->
+
+<!-- omni-outbox-settled: s1-02-dossier-table-checks -->
+
+## s1-02-dossier-table-checks — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-09-27T12:56:12Z
+- Channel: feature pull request #219
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/219#issuecomment-5856046752
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s1
+- Wave: 1
+- Stays here: The lower-case repository and the row checks live in this PRD's migration and its access checks; laws are off in this repository (laws.source: none), and the choice is specific to the dossier tables.
+
+### The answer, as it was given
+
+```text
+go with recommendation
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-02-dossier-table-checks
+prd: 216
+slice: s1
+rank: high
+bears-on: none
+raised: 2026-09-27
+wave: 1
+---
+
+## The question, in plain words
+
+The spec sketches the two dossier tables. Should the database also keep the repository name in lower case, and refuse a few inconsistent rows the sketch does not mention?
+
+## The decision, in plain words
+
+Yes: the home repository is kept in lower case, so the kit and the fallback, which may spell a name differently, reach the same dossier. The tables also refuse a numbered dossier with no numbering date, a version read from GitHub with no commit, and a malformed hash.
+
+## The intro, for fun
+
+Two spellings of one repository walked into the database and asked for the same table.
+
+## The punchline, for fun
+
+They got one spelling and one table.
+
+## The options, in plain words
+
+A. Store the repository in lower case and refuse the inconsistent rows
+B. Store the repository as sent, and match names ignoring case in every lookup
+C. Store it as sent and match exactly, as the sketch reads
+
+## What I had to decide
+
+Keep repository names as sent and match them exactly, or store them in one case with a few extra rules on each row.
+
+## What I did meanwhile
+
+The migration stores names in lower case and checks each dossier and version as described. The fallback slice must lower-case its names too, or go through the functions that do.
+
+## What it costs to change later
+
+A follow-up migration relaxes a rule; names already stored stay in lower case, which GitHub treats as the same repository.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The original spelling of a repository name is not kept; nothing in the spec needs it (author).
+
+```
+
+<!-- /omni-outbox-settled: s1-02-dossier-table-checks -->
+
+<!-- omni-outbox-settled: s1-03-unknown-draft-refusals -->
+
+## s1-03-unknown-draft-refusals — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-09-27T12:56:12Z
+- Channel: feature pull request #219
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/219#issuecomment-5856046752
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: high
+- Bears on: ADR-0029
+- Raised: 2026-09-27
+- Slice: s1
+- Wave: 1
+- Stays here: Which refusal a missing or mismatched draft gets, and the kit's one retry, are details of this PRD's contract, now written in its API and command; ADR-0029's codes are unchanged, and laws are off here (laws.source: none).
+
+### The answer, as it was given
+
+```text
+go with recommendation
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s1-03-unknown-draft-refusals
+prd: 216
+slice: s1
+rank: high
+bears-on: ADR-0029
+raised: 2026-09-27
+wave: 1
+---
+
+## The question, in plain words
+
+A push may name a draft that is gone, belongs to another repository, or is already another PRD. The spec lists the refusal codes but not which case gets which, so what should happen?
+
+## The decision, in plain words
+
+A draft that is gone, or that the caller cannot read, is refused as not found, and the command then forgets it and pushes again by the PRD's number. A draft of another repository, or already another PRD, is refused as a bad request.
+
+## The intro, for fun
+
+A push knocked on a draft's door and found the house had been sold.
+
+## The punchline, for fun
+
+It now tries the street address instead of waiting on the porch.
+
+## The options, in plain words
+
+A. Refuse a missing draft as not found, and have the command retry by the PRD's number and forget the draft
+B. Have the server fall back to the PRD's own dossier by itself when the draft is missing
+C. Refuse it, and have the command report the refusal without retrying
+
+## What I had to decide
+
+Refuse a missing draft and let the command recover, or have the server fall back quietly to the PRD's own dossier.
+
+## What I did meanwhile
+
+The server answers not found for a missing draft and bad request for a mismatched one. The command retries once without the draft, and forgets the draft only when that retry lands.
+
+## What it costs to change later
+
+A constant in the server and one branch in the command; no stored data depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a person would rather see the refusal than the quiet retry is unknown (author).
+
+```
+
+<!-- /omni-outbox-settled: s1-03-unknown-draft-refusals -->
+
+<!-- omni-outbox-settled: s6-05-production-acceptance -->
+
+## s6-05-production-acceptance — agreed
+
+- Verdict: agreed
+- Approved by: pierrederval
+- Approved at: 2026-09-27T12:56:12Z
+- Channel: feature pull request #219
+- Channel URL: https://github.com/vertuoza/vertuo-omni-loop/pull/219#issuecomment-5856046752
+- Basis: stated — the answer is settled as "agreed" because a human said so, not because a comparison read it
+- Closed: yes — the answer matches what was built, so there is nothing to rework
+- Rank: human-action
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s6
+- Wave: 5
+- Stays here: Agreed as the acceptance run after release, as PRD 144's s5-02 was: the six steps are still to be run by a person on the released site, and they teach nothing lasting until they have run.
+
+### The answer, as it was given
+
+```text
+go with recommendation
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-05-production-acceptance
+prd: 216
+slice: s6
+rank: human-action
+bears-on: none
+raised: 2026-09-27
+wave: 5
+---
+
+## The question, in plain words
+
+The last checks of this feature need the released site, a real sign-in and a real terminal session. They cannot run before the release, so a person has to run them afterwards.
+
+## The decision, in plain words
+
+A person runs them once the feature is released. Everything else was shown with the demo and the tests, and this terminal's session name was checked against the one the question history records.
+
+## The intro, for fun
+
+The rehearsal went well, but the theatre is still being built.
+
+## The punchline, for fun
+
+Someone has to take a seat on opening night and check the view.
+
+## What a person must do
+
+After the release, with the dossier switch on in this repository and a terminal signed in:
+
+1. Turn ask mode on and start a brainstorm. Check that it prints the dossier's link before its first question, and that each question you answer appears on the draft's Questions tab, marked brainstorm, with its answer and who answered.
+2. Let the brainstorm push its files. Check that the dossier now reads PRD and its number, and that Before/after and Spec show v1.
+3. Change the spec and push it again. Check that Spec shows v2 and that v1 is still readable from the version picker.
+4. Send the link to another member of the workspace and check that it opens for them. An account of another workspace should get not found.
+5. In the arcade, open that PRD's planet, turn to the DOSSIER tab, press START, and check that the page opens in a new tab.
+6. In the same terminal, compare the session name Claude Code reports with the one stored for that brainstorm's questions in the question history. They must be equal.
+
+Reply on the feature pull request with what you saw, and a screenshot of each step.
+
+## What I had to decide
+
+Hold the feature until someone can run the checks on the released site, or release it and have a person run them right after.
+
+## What I did meanwhile
+
+Screenshots of the demo show the dossier tab on both screens, the tab opening the page, and the two pages. In this environment the terminal's session name is the one Claude Code hands its hooks, which is what the question history stores.
+
+## What it costs to change later
+
+Nothing to undo: the checks confirm the feature, or report a fault to fix.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The feature is not deployed and this environment has no database, so none of the steps a person must do could run here (author).
+- The session name was compared in a cloud session only; a terminal on a laptop was not tried (author).
+
+```
+
+<!-- /omni-outbox-settled: s6-05-production-acceptance -->
