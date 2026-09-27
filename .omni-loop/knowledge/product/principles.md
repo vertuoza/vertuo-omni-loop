@@ -215,3 +215,39 @@ Why: A zero claims a search found nothing. Printing one for a search that never 
 Source: .omni-loop/delivery/shipped/0099-omni-man-credits/outbox/settled.md, entry s4-03-credits-lines-not-looked-for, PRD #99
 Merged: @pierrederval, 2026-09-26, PR #103
 Proposed: harvest 2026-09-26
+
+## P-PRODUCT-25
+
+A colour is accepted in one exact form everywhere in the app, so a colour one check accepts is never refused by another.
+
+Why: The database and the client schema must agree, and browser colour pickers already give lowercase hex, so one form avoids silent mismatches.
+Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s1-02-theme-colours-lowercase, PRD #100
+Merged: @pierrederval, 2026-09-26, PR #101
+Proposed: harvest 2026-09-26
+
+## P-PRODUCT-26
+
+Only people who belong to a workspace can act on players; being signed in alone grants nothing.
+
+Why: Access follows workspace membership rather than one company's accounts, so outsiders never touch player data.
+Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s1-03-link-github-needs-a-workspace, PRD #100
+Merged: @pierrederval, 2026-09-26, PR #101
+Proposed: harvest 2026-09-26
+
+## P-PRODUCT-27
+
+Who may use the game's features is decided by workspace membership, never by the domain of an email address, and a person's questions stay theirs alone.
+
+Why: Workspaces are now how people reach the game, so access follows them, and an asker's questions must not be shown to anyone else.
+Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry fix-s1-01-migration-after-ask-mode-01-ask-mode-crew-is-any-workspace, PRD #100
+Merged: @pierrederval, 2026-09-26, PR #101
+Proposed: harvest 2026-09-26
+
+## P-PRODUCT-28
+
+In the game, a person is never told they are an outsider because the database could not be read; an unknown membership never counts against them.
+
+Why: An outage would otherwise tell real members their account is wrong, and RLS already keeps data closed to non-members.
+Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s5-02-out-of-reach-is-not-outsider, PRD #100
+Merged: @pierrederval, 2026-09-26, PR #101
+Proposed: harvest 2026-09-26

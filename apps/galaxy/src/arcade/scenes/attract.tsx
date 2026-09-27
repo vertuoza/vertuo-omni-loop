@@ -2,6 +2,7 @@
 // The attract group's text layer: the boot, the title's three phases (title, story, high scores) and
 // the Hall of Heroes.
 import type { GalaxyView } from '@omni/galaxy';
+import { logoSvg, OMNI_LOOP } from '@omni/design';
 import { brandWord, type Brand } from '../brand';
 import { Hint } from '../hint';
 import { useScreen } from '../Screen';
@@ -43,9 +44,14 @@ const STORY = [
   'CLOSE THE WOUNDS. SAVE THE PLANETS.',
 ];
 
+// The title's logo is the product's crest, whoever's brand the arcade is under: the game is Omni
+// Loop. Drawn crisp at a whole-number scale: 3× on the wide grid, 2× on the tall one.
+const TITLE_LOGO = { wide: logoSvg(OMNI_LOOP.logo, { scale: 3, title: OMNI_LOOP.name }), tall: logoSvg(OMNI_LOOP.logo, { scale: 2, title: OMNI_LOOP.name }) };
+
 export function TitleOverlay({ view, phase, sceneT, who, signedIn, brand }: {
   view: GalaxyView | null; phase: 'title' | 'story' | 'hiscore'; sceneT: number; who: string; signedIn: boolean; brand: Brand;
 }) {
+  const { grid } = useScreen();
   // Nobody gets in without signing in: until then the cabinet asks for a coin.
   const cta = signedIn ? 'PRESS START' : 'INSERT COIN';
   if (phase === 'story') {
@@ -77,11 +83,8 @@ export function TitleOverlay({ view, phase, sceneT, who, signedIn, brand }: {
   }
   return (
     <div className="title">
-      <h1 className="logo" aria-label="Omni Loop">
-        <span className="logo-omni">OMNI</span>
-        <span className="logo-loop">LOOP</span>
-      </h1>
-      <p className="tagline">TERRAFORM THE GALAXY</p>
+      <h1 className="logo" dangerouslySetInnerHTML={{ __html: TITLE_LOGO[grid.name] }} />
+      <p className="tagline">{OMNI_LOOP.tagline.toUpperCase()}</p>
       <p className="press blink">{cta}</p>
       <footer className="title-foot">
         <span>{`© 2026 ${brandWord(brand)}`}</span>

@@ -1,5 +1,5 @@
 import type { FleetLook } from '@omni/galaxy';
-import type { Hero } from '@omni/sprites';
+import type { Hero } from '@omni/design';
 
 /** A fleet as the arcade draws it: public.teams, look included. */
 export interface FleetRow extends FleetLook { name: string }

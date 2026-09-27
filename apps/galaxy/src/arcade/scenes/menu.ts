@@ -1,5 +1,5 @@
 // The menu group on the canvas: the menu and How to play, on the wide grid and on the tall one.
-import { drawPlanet } from '@omni/sprites';
+import { drawPlanet } from '@omni/design';
 import { fleet, heroOf } from '../fleets';
 import { frameOf, nebulaFor, RING, space, sprite, type FrameState, type Pages, type SceneName } from './common.ts';
 

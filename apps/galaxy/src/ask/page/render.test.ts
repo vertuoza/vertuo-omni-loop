@@ -2,12 +2,14 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect } from 'vitest';
 import { emptyDraft, pickOption, readQuestions } from '../answer-model';
+import { AskPage } from './AskPage';
 import { AskSession } from './AskSession';
 import { CategoryChip } from './CategoryChip';
 import { ContextLine } from './ContextLine';
-import { demoState } from './demo';
+import { demoSessions, demoState } from './demo';
 import { History } from './History';
 import { RoundForm } from './RoundForm';
+import { rowOf, startPage } from './tabs';
 import { contextParts, type HistoryEntry } from './view';
 
 // The round and the history as the server renders them: what a person sees before any script runs.
@@ -230,5 +232,46 @@ describe('the category chip, rendered (PRD 144)', () => {
       expect(html).not.toMatch(/<select[^>]*disabled/);
       expect(html).toContain('set by the session owner');
     });
+  });
+});
+
+describe("the person's page, rendered", () => {
+  const NOW = Date.parse('2026-09-26T10:00:00Z');
+  const page = (sessions: ReturnType<typeof demoSessions>, selected: string | null) => {
+    const rows = sessions.map(rowOf);
+    const start = startPage(rows, selected, null, NOW);
+    const pane = sessions.find((s) => s.session.id === start.selected) ?? null;
+    return renderToStaticMarkup(createElement(AskPage, { source: { kind: 'demo' }, page: start, pane, serverNow: NOW, me: 'demo' }));
+  };
+
+  it('names /omni:ask on when no terminal has ask mode on', () => {
+    const html = page([], null);
+    expect(html).toContain('Ask mode is not on in any terminal');
+    expect(html).toContain('<code>/omni:ask on</code>');
+    expect(html).not.toContain('ask-tabs');
+  });
+
+  it('lists every terminal as a tab, the one that needs you first, badged and selected', () => {
+    const html = page(demoSessions('open', NOW), null);
+    expect(count(html, /class="ask-tab"/)).toBe(3);
+    expect(html).toContain('Terminals (3) · <b>1 needs you</b>');
+    expect(count(html, /class="ask-badge"/)).toBe(1);
+    expect(html).toMatch(/<a class="ask-tab" data-state="needs-you" aria-current="page" href="\/ask\/demo-terminal-1">/);
+    expect(html).toContain('needs you · 1 min');
+    expect(count(html, />working</)).toBe(2);
+    expect(html).toContain('<span class="ask-tab-header">Access</span>');
+  });
+
+  it('shows the pane of the tab the link names', () => {
+    const html = page(demoSessions('open', NOW), 'demo-terminal-2');
+    expect(html).toMatch(/<a class="ask-tab" data-state="working" aria-current="page" href="\/ask\/demo-terminal-2">/);
+    expect(html).toContain('<p class="ask-title">vertuo-omni-loop · main</p>');
+  });
+
+  it('folds the tabs into one row that says how many there are and how many need you, the list closed', () => {
+    const html = page(demoSessions('open', NOW), null);
+    expect(html).toMatch(/<button type="button" class="ask-tabs-fold" aria-expanded="false" aria-controls="ask-tab-list"><span>Terminals \(3\) · <b>1 needs you<\/b>/);
+    expect(html).toMatch(/<nav class="ask-tabs" aria-label="Terminals">/);
+    expect(html).toContain('<ul class="ask-tab-list" id="ask-tab-list">');
   });
 });

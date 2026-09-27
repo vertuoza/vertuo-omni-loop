@@ -18,7 +18,7 @@ const KNOWLEDGE_FILES = [
 
 /** @type {import('next').NextConfig} */
 export default {
-  transpilePackages: ['@omni/galaxy', '@omni/sprites', 'vertuo-omni-plan'],
+  transpilePackages: ['@omni/galaxy', '@omni/design', 'vertuo-omni-plan'],
   turbopack: { root },
   outputFileTracingRoot: root,
   outputFileTracingIncludes: { '/': KNOWLEDGE_FILES },

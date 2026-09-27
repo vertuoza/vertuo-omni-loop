@@ -110,6 +110,69 @@ html:has(.ask[data-ask-theme]) body {
 .ask-col { width: 100%; max-width: 680px; display: grid; gap: 28px; }
 .ask-title { margin: 0; font-size: 14px; color: var(--ask-muted); overflow-wrap: anywhere; }
 
+/* ── The person's page: a tab per terminal, the selected one's pane ──────────
+   Above the pane on a narrow screen, beside it from 720 px. Nothing here pins the page to the
+   window: the tab list sticks while the pane scrolls with the page. */
+
+.ask-page { width: 100%; max-width: 1180px; display: grid; gap: 24px; align-items: start; }
+.ask-pane { min-width: 0; display: grid; justify-items: center; container-type: inline-size; }
+.ask-tabs { display: grid; gap: 8px; min-width: 0; }
+.ask-tabs-head { margin: 0; font-size: 14px; color: var(--ask-muted); }
+.ask-tabs-head b { color: var(--ask-plasma); }
+.ask-tab-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ask .ask-tab {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  color: var(--ask-ink);
+  text-decoration: none;
+}
+.ask .ask-tab:hover { background: var(--ask-surface); border-color: var(--ask-line); }
+.ask .ask-tab[aria-current='page'] { background: var(--ask-surface); border-color: var(--ask-plasma); }
+.ask-tab-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; overflow-wrap: anywhere; }
+.ask-tab-header { font-size: 14px; color: var(--ask-muted); overflow-wrap: anywhere; }
+.ask-tab-state { font-size: 13px; color: var(--ask-muted); }
+.ask-tab-state[data-state='needs-you'] { color: var(--ask-plasma); font-weight: 700; }
+.ask-tab[data-state='closed'] .ask-tab-title { color: var(--ask-muted); }
+.ask-badge { flex: none; width: 10px; height: 10px; border-radius: 999px; background: var(--ask-plasma); }
+/* The folded tab list, a phone's row at the top of the page: shown below 720 px only. */
+.ask-tabs-fold { display: none; }
+
+@media (max-width: 719.98px) {
+  .ask-tabs-fold {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 1.5px solid var(--ask-line);
+    border-radius: 10px;
+    background: var(--ask-surface);
+    color: var(--ask-ink);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+  }
+  .ask-tabs-fold b { color: var(--ask-plasma); }
+  .ask-tabs-chevron { flex: none; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+  .ask-tabs[data-open] .ask-tabs-chevron { transform: rotate(-135deg); }
+  .ask-tabs-head { display: none; }
+  .ask-tabs:not([data-open]) .ask-tab-list { display: none; }
+}
+
+@media (min-width: 720px) {
+  .ask-page { grid-template-columns: minmax(200px, 280px) minmax(0, 1fr); gap: 32px; }
+  .ask-tabs { position: sticky; top: 16px; max-height: calc(100dvh - 32px); overflow-y: auto; }
+  /* Beside the tabs, a question with a preview widens to the pane, not to the window. */
+  .ask-pane .ask-q.has-preview { --ask-wide: min(1120px, 100cqi); }
+}
+
 /* ── The open round ───────────────────────────────────────────────────────── */
 
 .ask-round { display: grid; gap: 32px; }

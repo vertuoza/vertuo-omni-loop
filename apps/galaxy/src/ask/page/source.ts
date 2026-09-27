@@ -9,8 +9,9 @@
 // while it is open; /ask/for-me lists the rounds shared with the caller.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Category } from '../classify';
-import { askCategories, askShares, askStore, AskStoreError, type AskAnswers, type AskCategory } from '../store';
+import { askCategories, askShares, askStore, AskStoreError, sessionClosed, type AskAnswers, type AskCategory } from '../store';
 import type { ForMeRow, Member, QuestionState } from './question';
+import { headerOf, type TabRound, type TabRow } from './tabs';
 import type { RoundRow, SessionRow, SessionState } from './view';
 
 export type Db = Pick<SupabaseClient, 'from'>;
@@ -63,6 +64,43 @@ export function sessionReader(db: Db, id: string, seed?: SessionState | null): (
     return { session: found, rounds };
   };
 }
+
+const ROUND_HEAD = 'id, session_id, status, created_at';
+
+/** A reader for the person's tab list (PRD 142): the sessions `owner` opened that are open and seen
+ * within 12 hours, each with its newest round. Row-level security lets every member of a workspace
+ * read its sessions (PRD 144), so the read names the owner: a teammate's terminal is never a tab. A
+ * round's questions never change, so each is fetched once, for its header, and only for a newest
+ * round. */
+export function tabsReader(db: Db, owner: string): (now: number) => Promise<TabRow[]> {
+  const headers = new Map<string, string | null>();
+  return async (now) => {
+    const sessions = (settle<SessionRow[]>('read the sessions', await db.from('ask_sessions').select(SESSION).eq('owner', owner).eq('status', 'open')) ?? [])
+      .filter((s) => !sessionClosed(s, now));
+    if (!sessions.length) return [];
+    type Head = Pick<RoundRow, 'id' | 'status' | 'created_at'> & { session_id: string };
+    const heads = settle<Head[]>('read the rounds', await db.from('ask_rounds').select(ROUND_HEAD).in('session_id', sessions.map((s) => s.id))) ?? [];
+    const newest = new Map<string, Head>();
+    for (const head of heads) {
+      const was = newest.get(head.session_id);
+      const later = !was || Date.parse(head.created_at) - Date.parse(was.created_at) > 0 || (head.created_at === was.created_at && head.id > was.id);
+      if (later) newest.set(head.session_id, head);
+    }
+    const missing = [...newest.values()].map((h) => h.id).filter((id) => !headers.has(id));
+    if (missing.length) {
+      const fresh = settle<Pick<RoundRow, 'id' | 'questions'>[]>('read the rounds', await db.from('ask_rounds').select('id, questions').in('id', missing)) ?? [];
+      for (const round of fresh) headers.set(round.id, headerOf(round.questions));
+    }
+    return sessions.map((session) => {
+      const head = newest.get(session.id);
+      const round: TabRound | null = head ? { id: head.id, status: head.status, created_at: head.created_at, header: headers.get(head.id) ?? null } : null;
+      return { session, newest: round };
+    });
+  };
+}
+
+/** The person's tab list, read once (the server's first render). */
+export const readTabs = (db: Db, owner: string, now: number) => tabsReader(db, owner)(now);
 
 /** Answers a round from the page, only while it is still open: `taken` when the terminal took it
  * over or it was answered already (s2's rule: the page never answers a round it no longer holds). */
@@ -166,3 +204,8 @@ export function questionPort(db: Db & SortDb, roundId: string): QuestionPort {
     sort: (id, category) => sortRound(db, id, category),
   };
 }
+
+/** What the tab list needs from wherever the sessions live: the database, or the demo. */
+export type TabsPort = { list(now: number): Promise<TabRow[]> };
+
+export const databaseTabs = (db: Db, owner: string): TabsPort => ({ list: tabsReader(db, owner) });

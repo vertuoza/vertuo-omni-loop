@@ -1,6 +1,6 @@
 // The recruit group on the canvas: the fleet select, the name entry and the hero builder, each on the
 // wide grid and on the tall one (the Game Boy held upright), where the same parts stack.
-import { rampFrom, spriteSize } from '@omni/sprites';
+import { rampFrom, spriteSize } from '@omni/design';
 import { fleet } from '../fleets';
 import {
   bobOf, drawFleetMascot, drawHero, flash, frameOf, heroSelectWall, nebulaFor, pedestal, space, sprite,

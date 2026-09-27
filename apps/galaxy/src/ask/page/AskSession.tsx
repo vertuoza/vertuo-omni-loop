@@ -14,7 +14,7 @@ import { ShareButton } from './ShareButton';
 import { RoundForm } from './RoundForm';
 import { databasePort, type AskPort } from './source';
 import {
-  categoryChip, contextParts, keepSent, minutesLeft, pageTitle, sessionView, withCategory, withPageAnswer, type RoundRow, type Sent, type SessionState,
+  categoryChip, contextParts, keepSent, minutesLeft, sessionView, withCategory, withPageAnswer, type RoundRow, type Sent, type SessionState,
 } from './view';
 
 // One ask session: the open round at the top (or Claude is working, moved to the terminal, session
@@ -30,15 +30,25 @@ export type SourceConfig = { kind: 'database'; url: string; key: string } | { ki
 export type Viewer = 'owner' | 'member';
 
 /** `me`: the signed-in account's id, so the chip can say "set by you". `members`: the session's
- * workspace, whom its owner may share an open round with. */
-type Props = { source: SourceConfig; initial: SessionState; serverNow: number; viewer: Viewer; me?: string | null; members?: Member[] };
+ * workspace, whom its owner may share an open round with. `onState` hears every state the pane
+ * shows, so the tab list can show the selected tab as fresh as its pane. The browser title is the
+ * tab list's (AskPage). */
+type Props = {
+  source: SourceConfig;
+  initial: SessionState;
+  serverNow: number;
+  viewer: Viewer;
+  me?: string | null;
+  members?: Member[];
+  onState?: (state: SessionState) => void;
+};
 
 function makePort(source: SourceConfig, seed: SessionState): AskPort {
   if (source.kind === 'demo') return demoPort(seed);
   return databasePort(createBrowserClient(source.url, source.key), seed);
 }
 
-export function AskSession({ source, initial, serverNow, viewer, me = null, members = [] }: Props) {
+export function AskSession({ source, initial, serverNow, viewer, me = null, members = [], onState }: Props) {
   const owner = viewer === 'owner';
   const [state, setState] = useState(initial);
   // The server's clock, as the page counts it (a round moves to the terminal on the hook's clock).
@@ -60,8 +70,8 @@ export function AskSession({ source, initial, serverNow, viewer, me = null, memb
   const closed = view.kind === 'closed' || deleted;
 
   useEffect(() => {
-    document.title = pageTitle(view);
-  }, [view]);
+    onState?.(state);
+  }, [state, onState]);
 
   useEffect(() => {
     if (closed) return;

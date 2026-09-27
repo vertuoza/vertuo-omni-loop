@@ -1,0 +1,44 @@
+/* Generated from @omni/design (src/tokens.mjs): do not edit. Change a colour there and run
+   `pnpm --filter @omni/design tokens`. */
+:root {
+  --void: #07061c;
+  --deep: #0e0d33;
+  --navy: #2f3fc4;
+  --navy-dark: #1a2170;
+  --white: #f2f4ff;
+  --plasma: #a45cff;
+  --plasma-dark: #6a2fd0;
+  --yellow: #ffd84a;
+  --gold: #d99a14;
+  --red: #ff3b5c;
+  --red-dark: #a8183a;
+  --cyan: #6ff0ff;
+  --green: #4ee08a;
+  --green-dark: #1d8f55;
+  --slate: #5b5f80;
+  --highlight: #fff3a8;
+  --orange: #ff9b30;
+  --ember: #d9531a;
+  --magenta: #ff3ea5;
+  --ad-purple: #5b1a86;
+  --starfield: #05040f;
+  --cab: #120f3a;
+  --dim: #8a90d6;
+  --body-mid: #8a45ee;
+  --body-ink: #1a1560;
+  --body-ink-soft: #2a1d78;
+  --body-lens-1: #1d1a4a;
+  --body-lens-2: #14123a;
+  --body-lens-text: #9aa0e0;
+  --body-led-off: #3a1030;
+  --body-pad-1: #26224f;
+  --body-pad-2: #15122f;
+  --body-pad-arrow: #5a54a8;
+  --body-pad-down-1: #151230;
+  --body-pad-down-2: #0b0a1e;
+  --body-a-shine: #ff7d94;
+  --body-b-shine: #caa0ff;
+  --body-pill-1: #3b2a86;
+  --body-pill-2: #241a5a;
+  --body-grille: #4a1fa6;
+}

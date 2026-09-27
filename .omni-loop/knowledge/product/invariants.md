@@ -87,3 +87,14 @@ Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #73
 Proposed: harvest 2026-09-26
+
+## N-PRODUCT-9
+
+Each game/cli script parses its own arguments in openWorkspace() before any read, and any argument it does not understand exits 2 with the usage line before Supabase or GitHub is called.
+
+Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s4-01-game-scripts-refuse-stray-arguments, PRD #100
+Enforced by: unenforced
+Stated: 2026-09-26
+Decided: nobody — adopted when raised (medium), 2026-09-25
+Merged: @pierrederval, 2026-09-26, PR #101
+Proposed: harvest 2026-09-26
