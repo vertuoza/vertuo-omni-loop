@@ -44,6 +44,7 @@ import { foldChar, foldName, nameInit, nameReduce, nameValue, NAME_RULE, type Na
 import { BUILDER_ROWS, cycleHero } from './builder';
 import { afterGate, afterReturn, afterStart, allowed, arrive, backStep, isDisbanded, isLinked, nextStep, readReturn, type Flow, type Step } from './onboarding';
 import { createSeen, fanfareOf, levelUpFor, type LevelUp, type Local } from './levelup';
+import { addressAt, landing } from './deep-link';
 import type { Account, FleetRow, Player, PlayerPatch, ScoresRead, Session, XpRead } from './types';
 import './shell.css';
 
@@ -77,29 +78,15 @@ export interface UI {
   levelUp: LevelUp | null; // what the level-up screen celebrates, set as it opens
 }
 
-const DEEP_LINKS: SceneName[] = ['map', 'chart', 'fleets', 'heroes', 'games', 'briefing'];
 const FLOW_KEY = 'omni-loop:flow'; // survives the trip to GitHub and back
 const GAMES_SEEN_KEY = 'omni-loop:games-seen'; // GAMES carries a NEW tag until the room is opened on this device
 // This browser's storage, where each login's last celebrated level is kept (levelup.ts): reaching it can throw.
 const LOCAL: Local = () => window.localStorage;
 
-function readHash(view: GalaxyView | null): Partial<UI> | null {
-  if (typeof window === 'undefined' || !view) return null;
-  const h = window.location.hash.replace('#', '');
-  if ((DEEP_LINKS as string[]).includes(h)) return { scene: h as SceneName };
-  const m = /^planet-(\d+)$/.exec(h);
-  if (m) {
-    const i = view.planets.findIndex((p) => p.prd === Number(m[1]));
-    if (i >= 0) return { scene: 'planet', sel: i };
-  }
-  return null;
-}
-
+// The address follows the screen (deep-link.ts): a reload or a shared address comes back to it.
 function writeHash(ui: UI, view: GalaxyView | null) {
   try {
-    const h = ui.scene === 'planet' ? `planet-${view?.planets[ui.sel]?.prd}` : (DEEP_LINKS as string[]).includes(ui.scene) ? ui.scene : '';
-    const url = `${window.location.pathname}${h ? `#${h}` : ''}`;
-    window.history.replaceState(null, '', url);
+    window.history.replaceState(null, '', addressAt(window.location.pathname, ui, view));
   } catch { /* sandboxed frames may refuse; the hash is a convenience */ }
 }
 
@@ -315,8 +302,9 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       if (back.kind === 'link_error') return open('link', { flow, link: 'error', error: back.message });
       return open(step, { flow: 'onboard' });
     }
-    const linked = readHash(view);
-    if (linked) setUi((u) => ({ ...u, ...linked, since: now() }));
+    // A deep link, through the one door; the menu's, like every route to it, through `go`.
+    const link = landing(window.location.hash, { view, session: s, linked: isLinked(s, m) });
+    if (link) go(link);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

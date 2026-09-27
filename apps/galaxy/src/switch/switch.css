@@ -1,0 +1,66 @@
+/* The app bar's two ways out (PRD 238): the OMNI LOOP mark as a link to /app, and Game mode with the
+   dialog it opens. Drawn on the ask pages' reading surface: every colour is a token of
+   src/ask/theme-tokens.ts (the --ask-* properties the ask root carries, per theme), so light, dark
+   and system follow the theme switch. Scoped to the ask root, as ask.css is. */
+
+/* ── The OMNI LOOP mark, a link home ──────────────────────────────────────── */
+
+.ask a.ask-mark {
+  color: var(--ask-plasma);
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+  text-underline-offset: 4px;
+}
+
+/* ── Game mode ────────────────────────────────────────────────────────────── */
+
+.ask .game-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--ask-plasma);
+  color: var(--ask-on-plasma);
+  font: 700 13px/1 var(--ask-body);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.game-mode-glyph { flex: none; }
+
+/* ── The dialog: Switch to game mode? ─────────────────────────────────────── */
+
+/* No padding of its own, so a click on the dialog itself is a click on its backdrop. */
+.ask .game-mode-dialog {
+  width: min(calc(100% - 32px), 360px);
+  max-width: none;
+  padding: 0;
+  border: 1px solid var(--ask-line);
+  border-radius: 12px;
+  background: var(--ask-surface);
+  color: var(--ask-ink);
+  font-family: var(--ask-body);
+}
+/* The backdrop dims the page: the ink's colour on the light theme, the ground's on the dark one,
+   where the ink is light. The dialog opens only once a script runs, so the theme is always marked. */
+.ask .game-mode-dialog::backdrop {
+  background: var(--ask-ink);
+  opacity: 0.4;
+}
+.ask[data-ask-theme='dark'] .game-mode-dialog::backdrop {
+  background: var(--ask-ground);
+  opacity: 0.75;
+}
+.game-mode-box { display: grid; gap: 8px; padding: 20px; }
+.game-mode-title { margin: 0; font-size: 19px; line-height: 1.3; }
+.game-mode-line { margin: 0; font-size: 15px; color: var(--ask-muted); }
+.game-mode-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+.game-mode-actions .ask-button { font-size: 15px; padding: 11px 18px; cursor: pointer; }
+/* Stay's edge, in Switch's colour: the two stand the same height. */
+.game-mode-actions .ask-button:not(.quiet) { border: 1.5px solid var(--ask-plasma); }
+/* Switch is a link, so it would take a link's colour and underline: it keeps the button's. */
+.ask .game-mode-actions a.ask-button { color: var(--ask-on-plasma); text-decoration: none; }
+/* Switch has the focus as the dialog opens, and the ring says so, however it was opened. */
+.ask .game-mode-actions a.ask-button:focus { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
