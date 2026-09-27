@@ -1,0 +1,465 @@
+{
+  "prd": 215,
+  "runs": [
+    {
+      "featurePr": {
+        "mergeSha": "4a77bb207546a31df52e6d35baf46d91dedcb571",
+        "mergedAt": "2026-09-27T08:13:21Z",
+        "number": 217,
+        "openedAt": "2026-09-27T07:11:31Z",
+        "title": "feat(kit): Omni-man by Omni Loop — a linked, configurable signature (PRD 215)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/217"
+      },
+      "findings": [
+        {
+          "evidence": [
+            {
+              "label": "stuck comment on #218",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/218#issuecomment-5853787470"
+            },
+            {
+              "label": "#218",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/218"
+            }
+          ],
+          "happened": "Slice s1 was labelled `omni:needs-fix` and went stuck after 1 attempt.",
+          "id": "friction:s1",
+          "kind": "friction",
+          "ref": "F1",
+          "source": "delivery",
+          "title": "Slice s1 went stuck"
+        },
+        {
+          "evidence": [
+            {
+              "label": "#218",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/218/files"
+            }
+          ],
+          "happened": "Slice s1 changed 1 path outside its territory and off the plan’s shared ground: `kit/test/no-literals.test.mjs`.",
+          "id": "territory:s1",
+          "kind": "territory",
+          "ref": "F2",
+          "source": "delivery",
+          "title": "Slice s1 changed files outside its territory"
+        }
+      ],
+      "kinds": {
+        "churn": {
+          "added": 318,
+          "churn": 9,
+          "commits": 9,
+          "files": [
+            {
+              "added": 36,
+              "churn": 3,
+              "commits": 2,
+              "finalAdded": 33,
+              "path": "kit/bin/sign.test.mjs",
+              "percent": 9
+            },
+            {
+              "added": 65,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 63,
+              "path": ".omni-loop/knowledge/adr/0047-the-kit-may-carry-the-arcade-s-address-as-signature-home.md",
+              "percent": 3
+            },
+            {
+              "added": 33,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 31,
+              "path": "kit/lib/signature.test.mjs",
+              "percent": 6
+            },
+            {
+              "added": 14,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 13,
+              "path": "kit/bin/init.test.mjs",
+              "percent": 8
+            },
+            {
+              "added": 40,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 39,
+              "path": "kit/lib/config.test.mjs",
+              "percent": 3
+            }
+          ],
+          "finalAdded": 309,
+          "leftOut": {
+            "delivery": [
+              ".omni-loop/delivery/outbox/0215-linked-signature/accounts/s1.md",
+              ".omni-loop/delivery/outbox/0215-linked-signature/s1-01-literal-guard-lets-the-home-link-through.md",
+              ".omni-loop/delivery/outbox/0215-linked-signature/settled.md"
+            ],
+            "generated": [
+              "kit/dist/omni.mjs"
+            ],
+            "lockfile": []
+          },
+          "noPatch": [],
+          "notCounted": [],
+          "pulls": 3,
+          "ranges": [],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [],
+          "redRuns": [],
+          "slices": [
+            "s1",
+            "s2",
+            "settle"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 0,
+            "commits": 0,
+            "red": 0,
+            "runs": 0,
+            "slices": 0
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 0,
+            "agreed": 1,
+            "byRank": {
+              "high": 1
+            },
+            "drifted": 0,
+            "drifts": [],
+            "file": ".omni-loop/delivery/shipped/0215-linked-signature/outbox/settled.md",
+            "raised": 1,
+            "reworked": 0
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 1,
+              "reclaimed": 0,
+              "stuck": 1
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [
+                  {
+                    "at": "2026-09-27T07:25:18Z",
+                    "pr": 218
+                  }
+                ],
+                "prs": [
+                  218
+                ],
+                "slice": "s1",
+                "stuck": [
+                  {
+                    "at": "2026-09-27T07:25:25Z",
+                    "attempts": 1,
+                    "pr": 218,
+                    "text": "## Stuck after 1 attempt\n\n**Red check:** the preflight, `pnpm test`. `kit/test/no-literals.test.mjs › finds none outside provenance lines` flags `lib/config.mjs:141: home: httpsUrl.default('https://vertuo-omni-loop-galaxy.vercel.app'),`. The other 3268 tests pass.\n**Tried:** 1. I built the slice as planned and ran the full preflight. I made no further attempt, because every fix is outside s1's territory. Hiding the literal from the scanner (splitting the string, or moving it to a file the scanner skips) would only game the guard, so I did not do that either.\n**I believe:** the spec (AC 1, AC 7) puts the arcade's address in `kit/lib/config.mjs` as `signature.home`'s default. It plans the game-words exemption, but not this second guard: `kit/test/no-literals.test.mjs` refuses `/vertuo/i` anywhere in `kit/lib`. The address is a config default a repository can override, not a repository literal, so the narrowest fix is to let that exact host through in `lib/config.mjs` only. It would match the whole host, the way `kit/test/no-game-words.test.mjs` now does, and come with fixture cases showing that \"vertuo\" elsewhere on the line, or in another file, still fails.\n**A person should look at:** `kit/test/no-literals.test.mjs`, because it is outside s1's territory and this slice was told not to change it. Either the wave makes that one exemption, recording it as a decision, or s1's territory gains the file.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_",
+                    "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/218#issuecomment-5853787470"
+                  }
+                ]
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  221
+                ],
+                "slice": "s2",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  230
+                ],
+                "slice": "settle",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 4,
+              "red": 0,
+              "reviews": 0,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 0,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 217,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/217"
+              },
+              {
+                "pr": 218,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/218"
+              },
+              {
+                "pr": 221,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s2",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/221"
+              },
+              {
+                "pr": 230,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "settle",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/230"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 1,
+              "graded": 2,
+              "shared": 0,
+              "unplanned": 1,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [
+                  "kit/test/no-literals.test.mjs"
+                ],
+                "files": 12,
+                "pr": 218,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/218"
+              },
+              {
+                "breaches": [],
+                "files": 11,
+                "pr": 221,
+                "shared": [],
+                "slice": "s2",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/221"
+              },
+              {
+                "breaches": null,
+                "files": 3,
+                "pr": 230,
+                "shared": null,
+                "slice": "settle",
+                "status": "unplanned",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/230"
+              }
+            ],
+            "reason": null,
+            "sharedGround": [
+              "kit/lib/config.",
+              "kit/lib/signature.",
+              "kit/bin/sign.test.mjs",
+              "kit/bin/init.test.mjs",
+              "kit/dist/omni.mjs"
+            ]
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-09-27T08:13:21Z",
+            "minutes": 62,
+            "number": 217,
+            "openedAt": "2026-09-27T07:11:31Z",
+            "readyAt": "2026-09-27T08:09:57Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/217"
+          },
+          "medianMinutes": 7,
+          "sliceCount": 3,
+          "slices": [
+            {
+              "closedAt": "2026-09-27T07:30:00Z",
+              "mergedAt": "2026-09-27T07:30:00Z",
+              "mergedWave": 1,
+              "minutes": 18,
+              "openedAt": "2026-09-27T07:12:09Z",
+              "plannedWave": 1,
+              "pr": 218,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/218"
+            },
+            {
+              "closedAt": "2026-09-27T07:39:13Z",
+              "mergedAt": "2026-09-27T07:39:13Z",
+              "mergedWave": 2,
+              "minutes": 7,
+              "openedAt": "2026-09-27T07:32:05Z",
+              "plannedWave": 2,
+              "pr": 221,
+              "slice": "s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/221"
+            },
+            {
+              "closedAt": "2026-09-27T08:07:18Z",
+              "mergedAt": "2026-09-27T08:07:18Z",
+              "mergedWave": 3,
+              "minutes": 0,
+              "openedAt": "2026-09-27T08:07:03Z",
+              "plannedWave": null,
+              "pr": 230,
+              "slice": "settle",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/230"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 3,
+            "planned": 2
+          }
+        }
+      },
+      "prd": {
+        "folder": ".omni-loop/delivery/shipped/0215-linked-signature",
+        "number": 215,
+        "state": "shipped",
+        "title": "Omni-man by Omni Loop — a linked, configurable signature",
+        "topic": "linked-signature"
+      },
+      "rules": {
+        "fieldCaps": {
+          "lesson": 400,
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600
+        },
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "thresholds": {
+          "afterMergeDays": 14,
+          "churnFileLines": 40,
+          "churnFilePercent": 50,
+          "churnRangeCommits": 3,
+          "failingTestRuns": 2,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "slowSliceFactor": 3
+        },
+        "version": 1
+      },
+      "run": "merge",
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": []
+      },
+      "issues": {
+        "friction:s1": {
+          "number": 232,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/232",
+          "state": "open"
+        },
+        "territory:s1": {
+          "number": 233,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/233",
+          "state": "open"
+        }
+      }
+    }
+  ]
+}
