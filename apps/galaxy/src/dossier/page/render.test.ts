@@ -104,6 +104,7 @@ describe('the tabs', () => {
       ['Spec', 'v2', `/prd/${ID}?tab=spec`, false],
       ['Plan', null, `/prd/${ID}?tab=plan`, false],
       ['Questions', '1/2 answered', `/prd/${ID}?tab=questions`, false],
+      ['Outbox', null, `/prd/${ID}?tab=outbox`, false],
     ]);
   });
 });

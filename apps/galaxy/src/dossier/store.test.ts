@@ -160,7 +160,8 @@ describe('reading a dossier\'s rounds', () => {
 
 // ── The history (PRD 216, step 4) ───────────────────────────────────────────────
 
-const LIST_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20260928110000_dossier_list.sql', import.meta.url)), 'utf8');
+// The latest migration that writes dossier_list(): PRD 251's, which adds open_questions.
+const LIST_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20260929090000_outbox_answers.sql', import.meta.url)), 'utf8');
 
 describe('reading the history', () => {
   it('calls dossier_list() with the migration\'s parameter: every dossier, or one', async () => {

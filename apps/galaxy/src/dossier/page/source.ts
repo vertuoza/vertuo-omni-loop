@@ -8,7 +8,12 @@
 // Its repositories (dossier_list(), step 4: its home, its questions' and its planet's regions) are its
 // header's chips; when they cannot be read, the chip is its home repository alone. /prd, the history,
 // reads dossier_list() whole, as the viewer: every dossier of their workspaces.
+// Its latest outbox (PRD 251) is read as the viewer too; when it cannot be read, the page still shows
+// the dossier and its Outbox tab says the outbox is out of reach. /prd/at/<owner>/<repo>/<n> finds a
+// dossier by its key, among those the viewer may read.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { outboxReader } from '../../outbox/store';
+import type { OutboxRead } from '../../outbox/tab';
 import { readMembers } from '../../ask/page/source';
 import { dossierList, dossierReader, dossierRounds, type DossierListRow, type DossierRoundRow } from '../store';
 import type { DossierRead } from './view';
@@ -30,6 +35,16 @@ async function readRounds(db: Pick<Db, 'rpc'>, id: string): Promise<DossierRound
   }
 }
 
+/** The dossier's latest outbox, or a read that failed. */
+async function readOutbox(db: Pick<Db, 'from'>, id: string): Promise<OutboxRead> {
+  try {
+    return { row: await outboxReader(db).latest(id) };
+  } catch (error) {
+    console.error(error);
+    return { failed: true };
+  }
+}
+
 /** The dossier's repositories, as the history lists them; null when they cannot be read. */
 async function readRepos(db: Pick<Db, 'rpc'>, id: string): Promise<string[] | null> {
   try {
@@ -47,11 +62,14 @@ export async function readDossier(db: Db, id: string): Promise<DossierRead | nul
   const reader = dossierReader(db);
   const dossier = await reader.dossier(id);
   if (!dossier) return null;
-  const [versions, members, rounds, repos] = await Promise.all([
-    reader.versions(id), readMembers(db, dossier.workspace_id), readRounds(db, id), readRepos(db, id),
+  const [versions, members, rounds, repos, outbox] = await Promise.all([
+    reader.versions(id), readMembers(db, dossier.workspace_id), readRounds(db, id), readRepos(db, id), readOutbox(db, id),
   ]);
-  return { dossier, versions, members, rounds, repos };
+  return { dossier, versions, members, rounds, repos, outbox };
 }
+
+/** The id of the dossier of `repo`'s PRD `prd` the viewer may read, or null when there is none. */
+export const findDossier = (db: Pick<Db, 'from'>, repo: string, prd: number) => dossierReader(db).byKey(repo, prd);
 
 /** Every dossier of the viewer's workspaces, as the history lists them. */
 export const readHistory = (db: Pick<Db, 'rpc'>): Promise<DossierListRow[]> => dossierList(db);

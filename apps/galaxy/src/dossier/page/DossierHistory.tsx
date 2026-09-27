@@ -4,7 +4,8 @@ import { filtered, HISTORY_PATH, type HistoryFilters, type HistoryItem } from '.
 // draft or PRD — sent as a GET to this same page, so they work before any script runs; then every
 // dossier that passes, newest activity first, each a link to its page. A row shows #n or DRAFT, the
 // title, its repository chips, which artifacts it has and how many versions of each, its questions
-// answered out of asked, and its last activity. Every title is text: React escapes it.
+// answered out of asked, and its last activity. Every title is text: React escapes it. PRD 251: a row
+// shows its outbox's open questions, `n open`, and Needs an answer keeps only those rows.
 
 type Choices = { repos: string[] };
 type Option = { value: string; label: string };
@@ -35,6 +36,10 @@ function Filters({ choices, filters }: { choices: Choices; filters: HistoryFilte
         name="state" label="Draft or PRD" any="Drafts and PRDs" value={filters.state}
         options={[{ value: 'draft', label: 'Drafts' }, { value: 'prd', label: 'PRDs' }]}
       />
+      <label className="dossier-history-field dossier-history-needs">
+        <input type="checkbox" name="needs" value="answer" defaultChecked={filters.needsAnswer === true} />
+        <span>Needs an answer</span>
+      </label>
       <p className="dossier-history-actions">
         <button type="submit" className="ask-button">Filter</button>
         {filtered(filters) && <a className="dossier-history-clear" href={HISTORY_PATH}>Clear</a>}
@@ -60,6 +65,7 @@ function Row({ item }: { item: HistoryItem }) {
               ? <span className="ask-hint">no artifact yet</span>
               : item.artifacts.map((a) => <span key={a.kind} className="dossier-history-artifact">{a.label} <small>{a.badge}</small></span>)}
           </span>
+          {item.open && <span className="dossier-history-open">{item.open}</span>}
           <span className="ask-hint">{item.questions}</span>
           <time className="ask-hint" dateTime={item.at}>{item.activity}</time>
         </span>

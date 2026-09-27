@@ -115,6 +115,14 @@ export function dossierReader(db: Pick<SupabaseClient, 'from'>) {
       return settle<DossierRow>('read the dossier', await db.from('dossiers').select(DOSSIER_COLUMNS).eq('id', id).maybeSingle());
     },
 
+    /** The id of the dossier keyed by `repo` (owner/name, any case) and `prd` that the caller may read,
+     * or null; the one opened first, when the caller's workspaces hold several. */
+    async byKey(repo: string, prd: number): Promise<string | null> {
+      const rows = settle<Array<{ id: string }>>('find the dossier', await db.from('dossiers').select('id')
+        .eq('home_repo', repo.toLowerCase()).eq('prd', prd).order('created_at', { ascending: true }).order('id', { ascending: true })) ?? [];
+      return rows[0]?.id ?? null;
+    },
+
     /** Every version of the dossier, oldest first: a version's number is its place among its kind's. */
     async versions(dossierId: string): Promise<DossierVersionRow[]> {
       return settle<DossierVersionRow[]>('read the versions', await db.from('dossier_versions').select(VERSION_COLUMNS)
@@ -183,7 +191,8 @@ export async function dossierRounds(db: Pick<SupabaseClient, 'rpc'>, dossierId: 
 }
 
 // ── The history (PRD 216, step 4) ───────────────────────────────────────────────
-// dossier_list() (supabase/migrations/20260928110000_dossier_list.sql) returns each dossier of the
+// dossier_list() (supabase/migrations/20260928110000_dossier_list.sql, given open_questions by PRD 251's
+// 20260929090000_outbox_answers.sql) returns each dossier of the
 // caller's workspaces with what /prd lists and the planet's DOSSIER tab reads: its repositories (the
 // home repository first, then its questions' and, for a PRD of the plan repository, its planet's
 // regions, in lower case), its latest version of each kind, its question counts (rounds, as the
@@ -204,12 +213,15 @@ export type DossierListRow = DossierRow & {
   answered: number;
   /** The latest of its opening, its numbering, its versions and its rounds, asked or answered. */
   last_activity: string;
+  /** Its outbox's open items while its feature pull request is open, else 0 (PRD 251,
+   * supabase/migrations/20260929090000_outbox_answers.sql). Left out by an older database. */
+  open_questions?: number;
 };
 
 /** The columns dossier_list() returns, in its order. */
 export const LIST_FIELDS = [
   'id', 'workspace_id', 'home_repo', 'prd', 'title', 'opened_by', 'created_at', 'numbered_at', 'repos', 'latest', 'asked', 'answered',
-  'last_activity',
+  'last_activity', 'open_questions',
 ] as const satisfies ReadonlyArray<keyof DossierListRow>;
 
 /** Every dossier the caller may read, newest activity first; or only `dossierId`'s, when given. */

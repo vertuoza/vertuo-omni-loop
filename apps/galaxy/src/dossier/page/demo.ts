@@ -8,7 +8,11 @@
 // The history's demo (/prd, step 4): that dossier as dossier_list() would list it, a draft whose
 // brainstorm asked a question in another repository, and a PRD the page read from the repository, so
 // every filter has something to keep and something to leave out.
+//
+// Its outbox (PRD 251) is src/outbox/demo.ts's: two open questions, one adopted, one settled.
 import { DEMO_MEMBERS, DEMO_OWNER } from '../../ask/page/demo';
+import { demoOutbox } from '../../outbox/demo';
+import { openCount } from '../../outbox/tab';
 import { DOSSIER_KINDS, type DossierListRow, type DossierRoundRow, type DossierVersionRow, type LatestVersion } from '../store';
 import type { DossierRead } from './view';
 
@@ -155,11 +159,12 @@ export function demoDossier(now: number): DossierRead {
     members: DEMO_MEMBERS,
     rounds: demoRounds(opened),
     repos: DEMO_REPOS,
+    outbox: { row: demoOutbox(DEMO_DOSSIER_ID, now) },
   };
 }
 
 /** A dossier the page read, as dossier_list() lists it. */
-function listed({ dossier, versions, rounds, repos }: DossierRead): DossierListRow {
+function listed({ dossier, versions, rounds, repos, outbox }: DossierRead): DossierListRow {
   const latest: Partial<Record<(typeof DOSSIER_KINDS)[number], LatestVersion>> = {};
   for (const kind of DOSSIER_KINDS) {
     const ofKind = versions.filter((v) => v.kind === kind);
@@ -176,6 +181,7 @@ function listed({ dossier, versions, rounds, repos }: DossierRead): DossierListR
     asked: asked.length,
     answered: asked.filter((r) => r.status === 'answered').length,
     last_activity: iso(Math.max(...times.map((t) => Date.parse(t)))),
+    open_questions: outbox ? openCount(outbox) : 0,
   };
 }
 

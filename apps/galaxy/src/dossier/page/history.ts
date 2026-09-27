@@ -6,6 +6,10 @@
 // each — and by draft or PRD, and searched by the words of a title. Each row shows #n or DRAFT, the
 // title, its repository chips, which artifacts it has and how many versions of each, and its questions
 // answered out of asked, and opens /prd/<id>.
+//
+// PRD 251: a row whose outbox has open questions shows `n open` (dossier_list()'s open_questions: the
+// open items while the feature pull request is open), and Needs an answer (`?needs=answer`) keeps only
+// those rows.
 import type { DossierKind, DossierListRow } from '../store';
 import { dossierPath, stamp, TAB_LABELS, TABS } from './view';
 
@@ -20,6 +24,8 @@ export type HistoryFilters = {
   state?: 'draft' | 'prd';
   /** Words, each of which must appear in the title. */
   search?: string;
+  /** Only the dossiers whose outbox has open questions. */
+  needsAnswer?: true;
 };
 
 /** An artifact the dossier has, and how many versions of it (`v3`). */
@@ -37,6 +43,8 @@ export type HistoryItem = {
   artifacts: ArtifactEntry[];
   /** `11/12 answered`, or `no question yet`. */
   questions: string;
+  /** `2 open`: its outbox's open questions; null when none. */
+  open: string | null;
   /** `last activity 28 Sep 2026, 08:00 UTC`. */
   activity: string;
   at: string;
@@ -49,7 +57,7 @@ const one = (value: string | string[] | undefined) => {
   return first ? first : undefined;
 };
 
-/** The filters an address carries: `repo`, `state` (`draft` or `prd`), `q`. */
+/** The filters an address carries: `repo`, `state` (`draft` or `prd`), `q`, `needs` (`answer`). */
 export function readHistoryFilters(query: Query): HistoryFilters {
   const filters: HistoryFilters = {};
   const repo = one(query.repo);
@@ -58,6 +66,7 @@ export function readHistoryFilters(query: Query): HistoryFilters {
   if (state === 'draft' || state === 'prd') filters.state = state;
   const search = one(query.q);
   if (search) filters.search = search;
+  if (one(query.needs) === 'answer') filters.needsAnswer = true;
   return filters;
 }
 
@@ -68,6 +77,7 @@ function passes(row: DossierListRow, filters: HistoryFilters): boolean {
   if (filters.repo && !row.repos.includes(filters.repo)) return false;
   if (filters.state === 'draft' && row.prd !== null) return false;
   if (filters.state === 'prd' && row.prd === null) return false;
+  if (filters.needsAnswer && !((row.open_questions ?? 0) > 0)) return false;
   if (filters.search) {
     const title = row.title.toLowerCase();
     if (!filters.search.toLowerCase().split(/\s+/).every((word) => title.includes(word))) return false;
@@ -88,11 +98,12 @@ export function historyItems(rows: DossierListRow[], filters: HistoryFilters): H
     title: row.title,
     repos: row.repos,
     artifacts: TABS.flatMap((kind): ArtifactEntry[] => {
-      if (kind === 'questions') return [];
+      if (kind === 'questions' || kind === 'outbox') return [];
       const latest = row.latest[kind];
       return latest ? [{ kind, label: TAB_LABELS[kind], badge: `v${latest.version}` }] : [];
     }),
     questions: row.asked > 0 ? `${row.answered}/${row.asked} answered` : 'no question yet',
+    open: (row.open_questions ?? 0) > 0 ? `${row.open_questions} open` : null,
     activity: `last activity ${stamp(row.last_activity)}`,
     at: row.last_activity,
   }));

@@ -8,14 +8,17 @@ import { DossierPage } from '../../../src/dossier/page/DossierPage';
 import { DossierSignIn } from '../../../src/dossier/page/DossierSignIn';
 import { dossierCallbackPath } from '../../../src/dossier/page/sign-in';
 import { readContent, readDossier } from '../../../src/dossier/page/source';
-import { dossierView, readPick, type DossierRead } from '../../../src/dossier/page/view';
+import { dossierView, readPick, type DossierRead, type DossierView } from '../../../src/dossier/page/view';
+import { SEND_OFF } from '../../../src/outbox/OutboxTab';
 
 // /prd/<id>, the page to share (PRD 216): one PRD's dossier. Rendered per request, as the signed-in
 // person, so row-level security decides: signed out, a sign-in card that comes back here through
 // /prd/<id>/callback; a member of the dossier's workspace, the dossier; anyone else — a member of
 // another workspace, a dossier that never was — not found, in the same words. `?tab=` and `?v=` pick the
 // artifact and its version. After its opener deletes a draft, `?deleted=1` says it is gone. Without a
-// database it plays the demo dossier in development.
+// database it plays the demo dossier in development. `?tab=outbox` (PRD 251) shows the questions its
+// feature pull request still asks, and `&context=` what sits beside them; the rail's Spec is the latest
+// spec, read and rendered here.
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -35,6 +38,14 @@ async function markdownOf(read: () => Promise<string | null>): Promise<RenderedM
   }
 }
 
+/** The version the page renders as markdown: the shown Spec or Plan, or the Outbox tab's latest spec
+ * when its rail shows Spec; null when it renders none. */
+function markdownVersion(view: DossierView): string | null {
+  if (view.shown && !view.shown.frame) return view.shown.id;
+  const context = view.outbox?.context;
+  return context?.current === 'spec' ? context.specId : null;
+}
+
 export default async function DossierRoute({ params, searchParams }: Props) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const pick = readPick(query);
@@ -42,9 +53,9 @@ export default async function DossierRoute({ params, searchParams }: Props) {
 
   if (mode === 'demo') {
     const view = dossierView(demoDossier(Date.now()), DEMO_VIEWER, pick);
-    const shown = view.shown;
-    const markdown = shown && !shown.frame ? await markdownOf(async () => demoContent(shown.id)) : null;
-    return <DossierPage view={view} markdown={markdown} supabase={null} />;
+    const version = markdownVersion(view);
+    const markdown = version ? await markdownOf(async () => demoContent(version)) : null;
+    return <DossierPage view={view} markdown={markdown} supabase={null} sendOff={SEND_OFF.demo} />;
   }
   const env = supabaseEnv();
   if (mode === 'closed' || !env) {
@@ -79,7 +90,7 @@ export default async function DossierRoute({ params, searchParams }: Props) {
   if (!read) notFound();
 
   const view = dossierView(read, user.id, pick);
-  const shown = view.shown;
-  const markdown = shown && !shown.frame ? await markdownOf(() => readContent(db, shown.id)) : null;
-  return <DossierPage view={view} markdown={markdown} supabase={env} />;
+  const version = markdownVersion(view);
+  const markdown = version ? await markdownOf(() => readContent(db, version)) : null;
+  return <DossierPage view={view} markdown={markdown} supabase={env} sendOff={SEND_OFF.notYet} />;
 }

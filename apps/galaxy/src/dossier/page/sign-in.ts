@@ -5,9 +5,11 @@
 // confirmed email domain (join_by_domain(), as the arcade's callback does) before the page reads as
 // them: best effort, since a failure only leaves the page saying not found. It only ever returns to
 // this site: anything that is not a dossier id goes home. /prd, the history (step 4), signs in the same
-// way through /prd/callback, and comes back to /prd.
+// way through /prd/callback, and comes back to /prd. The short address of a PRD's questions,
+// /prd/at/<owner>/<repo>/<n> (PRD 251), signs in through its own callback and comes back to it.
 import type { Exchange } from '../../ask/page/sign-in';
 import { HISTORY_PATH } from './history';
+import { shortPath, type ShortKey } from './short';
 import { dossierPath } from './view';
 import { isDossierId } from './source';
 
@@ -25,6 +27,11 @@ export async function dossierSignInReturn(url: URL, origin: string, id: string, 
 /** Where the history's callback sends the person: back to /prd. */
 export async function historySignInReturn(url: URL, origin: string, exchange: Exchange | null, join: Join | null): Promise<string> {
   return signInReturn(url, new URL(HISTORY_PATH, origin), exchange, join);
+}
+
+/** Where the short address's callback sends the person: back to it, or home when it is no key. */
+export async function shortSignInReturn(url: URL, origin: string, key: ShortKey | null, exchange: Exchange | null, join: Join | null): Promise<string> {
+  return signInReturn(url, new URL(key ? shortPath(key) : '/', origin), exchange, join);
 }
 
 async function signInReturn(url: URL, back: URL, exchange: Exchange | null, join: Join | null): Promise<string> {
