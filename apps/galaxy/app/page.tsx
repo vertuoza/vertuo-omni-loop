@@ -1,5 +1,6 @@
 import { ArcadeClient } from '../src/arcade/ArcadeClient';
 import { arcadeFor } from '../src/data/arcade';
+import { demoDossiers } from '../src/data/dossiers';
 import { demoFleets, demoGalaxy } from '../src/data/load-galaxy';
 import { loadKnowledge } from '../src/data/load-knowledge';
 import { arcadeMode } from '../src/data/mode';
@@ -14,12 +15,16 @@ import { supabaseEnv, supabaseServer } from '../src/data/supabase-server';
 // demo only: anyone else's page carries no entry. The player's XP and the crew's high scores come
 // with the workspace's data (none at all for anyone else: the arcade never reads them in the
 // browser); the demo's guest borrows the demo world's highest XP (src/data/xp.ts), and the demo
-// account keeps its scores in the browser.
+// account keeps its scores in the browser. The planets' dossiers come the same way: read with the
+// workspace's data for its crew, demo dossiers in the demo, each linking to its page at /prd/<id>.
 
 export default async function Page() {
   const mode = arcadeMode(process.env);
   const env = supabaseEnv();
-  if (mode === 'demo') return <ArcadeClient mode="demo" supabase={null} view={demoGalaxy()} fleets={demoFleets()} knowledge={loadKnowledge()} xp={demoXp()} />;
+  if (mode === 'demo') {
+    const now = new Date();
+    return <ArcadeClient mode="demo" supabase={null} view={demoGalaxy(now)} fleets={demoFleets()} knowledge={loadKnowledge()} xp={demoXp(now)} dossiers={demoDossiers(now)} />;
+  }
   if (mode === 'closed' || !env) return <ArcadeClient mode="closed" supabase={null} view={null} fleets={demoFleets()} />;
 
   const db = await supabaseServer();

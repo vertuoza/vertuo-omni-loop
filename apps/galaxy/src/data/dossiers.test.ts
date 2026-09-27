@@ -133,7 +133,7 @@ describe('readDossiers', () => {
     await read();
     const rpcs = fake.calls.filter((c) => c.kind === 'rpc');
     expect(rpcs).toHaveLength(4);
-    for (const call of rpcs) expect(['d-12', 'd-13']).toContain((call as { args: { p_dossier: unknown } }).args.p_dossier);
+    for (const call of rpcs) expect(['d-12', 'd-13']).toContain(call.kind === 'rpc' ? call.args.p_dossier : null);
   });
 
   it('reads nothing more for a galaxy with no planet, or a workspace with no plan repository', async () => {

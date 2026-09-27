@@ -1,4 +1,4 @@
-/* The planet: its header, its caption and the panel of four tabs. The rules up to the tall grid's
+/* The planet: its header, its caption and the panel of five tabs. The rules up to the tall grid's
    section lay it out on the wide grid (640×360); that section rearranges it on the tall one. */
 
 .bar { display: inline-flex; gap: 2px; vertical-align: middle; }
@@ -34,8 +34,9 @@
 }
 .tabs { display: flex; border-bottom: 2px solid var(--navy); }
 .tabs button {
-  flex: 1;
+  flex: auto; /* each as wide as its label, the rest shared: five labels fit, ENTROPY's count included */
   padding: 7px 0 6px;
+  white-space: nowrap;
   font-size: 7px;
   background: transparent;
   border: none;
@@ -86,6 +87,21 @@
 .log li { font-family: var(--txt); font-size: 16px; line-height: 1; color: var(--white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .log time { color: var(--cyan); margin-right: 4px; }
 .planet .hint { position: absolute; right: 10px; bottom: 10px; margin: 0; }
+/* The dossier: an artifact a row, the question counts, then the last three answered, a line each: the
+   question cut first, then its answer (at most half the line), then how many more the round held. */
+.dossier { display: grid; gap: 5px; }
+.dossier-rows { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 3px 8px; margin: 0; align-items: center; }
+.dossier-rows dt { font-size: 7px; color: var(--dim); letter-spacing: 1px; }
+.dossier-rows dd { margin: 0; font-family: var(--txt); font-size: 17px; line-height: 1; color: var(--white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dossier-rows dd.none { color: var(--dim); }
+.dossier-label { margin: 3px 0 0; font-size: 7px; color: var(--dim); letter-spacing: 1px; }
+.dossier-last { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.dossier-answer { display: flex; align-items: baseline; gap: 6px; min-width: 0; font-family: var(--txt); font-size: 16px; line-height: 1; white-space: nowrap; }
+.dossier-q { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--white); }
+.dossier-a { flex: 0 1 auto; max-width: 50%; overflow: hidden; text-overflow: ellipsis; color: var(--cyan); }
+.dossier-more { flex: none; color: var(--dim); }
+.dossier-none { margin: 0; font-family: var(--txt); font-size: 16px; line-height: 1; color: var(--dim); }
+.dossier-open { margin: 4px 0 0; font-size: 7px; color: var(--white); letter-spacing: 1px; }
 
 /* ── The tall grid (320×288) ─────────────────────────────────────────────────
    The band at the top (--band, TALL_BAND in planet.ts) holds the header and the caption on its left
@@ -158,6 +174,15 @@
 .grid-tall .planet .wound-name, .grid-tall .planet .wound-age { font-size: 8px; line-height: 9px; }
 .grid-tall .planet .wounds .more { font-size: 8px; }
 .grid-tall .planet .log { gap: 3px; }
+/* Dossier: the same rows, one line each, in the smallest type the tall grid allows. */
+.grid-tall .planet .dossier { gap: 3px; }
+.grid-tall .planet .dossier-rows { grid-template-columns: 104px minmax(0, 1fr); gap: 0 6px; }
+.grid-tall .planet .dossier-rows dt { font-size: 8px; letter-spacing: 0; }
+.grid-tall .planet .dossier-rows dd { font-size: 15px; }
+.grid-tall .planet .dossier-label { margin: 2px 0 0; font-size: 8px; letter-spacing: 0; }
+.grid-tall .planet .dossier-last { gap: 2px; }
+.grid-tall .planet .dossier-answer, .grid-tall .planet .dossier-none { font-size: 15px; }
+.grid-tall .planet .dossier-open { margin: 2px 0 0; font-size: 8px; letter-spacing: 0; }
 .grid-tall .planet .hint { position: static; grid-area: 3 / 1 / 4 / 3; align-self: center; margin: 0; text-align: center; letter-spacing: 0; }
 
 @media (prefers-reduced-motion: reduce) {
