@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-27
 - Slice: s1
 - Wave: 1
+- Stays here: A presentation choice in two skill templates, cheap to change, with no lasting rule, invariant or architectural consequence; nothing in the knowledge base covers it.
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ A fence language and one sentence per block, in two skills. No code, no command,
 - Raised: 2026-09-27
 - Slice: s1
 - Wave: 1
+- Stays here: A local test-reading choice in one file, cheap to change, with no lasting rule, invariant or architecture decision to record.
 
 ### The answer, as it was given
 
