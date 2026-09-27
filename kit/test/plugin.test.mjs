@@ -515,3 +515,99 @@ describe('the hand-off that ends the brainstorm and the plan', () => {
     expect(handOffViolations(PLAN.join('\n'), PLAN)).toEqual([`its last fenced line is missing, not ${COMMAND}`]);
   });
 });
+
+// PRD 301: the yolo and the yolo-fix end the way the brainstorm does since PRD 292. The yolo's step 7
+// keeps its report, then shows the PRD's folder as a tree (shipped with its outbox inside, or the
+// inbox folder beside its outbox folder), where it is on the loop's six stages ("you are here" under
+// outbox, the feature PR's merge under shipped), then What is next? for the ending the run reached:
+// green, red or held, each with a last line of its own. The yolo-fix's step 8 ends with that hand-off
+// as written, its held ending resuming with `/omni:yolo-fix <n>`.
+describe('the hand-off that ends the yolo and the yolo-fix', () => {
+  const read = (skill) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const YOLO = [
+    '<dir>/', 'spec.md', 'plan.md', 'before-after.html', 'release.md', 'outbox/', 'settled.md',
+    'idea ──▶ PRD ──▶ inbox ──▶ outbox ──▶ shipped ──▶ retro', 'you are here', 'merging the feature PR moves it here',
+    'Review the change', 'Merge that PR', 'retro PR', 'knowledge PR',
+    'Read the questions', '#issuecomment-', '/clear',
+    'See what holds it', '/clear',
+  ];
+  // Green, red and held, in that order.
+  const ENDINGS = ['Nothing to run: merging #<feature PR> is yours.', '/omni:yolo-fix <n>', '/omni:yolo <n>'];
+  const WHAT_IS_NEXT = '**What is next?**';
+
+  /** The last non-blank line of each fenced block whose first non-blank line is What is next?. */
+  const endings = (section) => {
+    const out = [];
+    let block = null;
+    for (const line of section.split('\n')) {
+      if (line.trim().startsWith('```')) {
+        if (block) {
+          const lines = block.map((text) => text.trim()).filter((text) => text !== '');
+          if (lines[0] === WHAT_IS_NEXT) out.push(lines.at(-1));
+        }
+        block = block ? null : [];
+      } else if (block) block.push(line);
+    }
+    return out;
+  };
+
+  /** Each phrase the section lacks after the one before it, a missing ending, and an ending's wrong last line. */
+  const handOffViolations = (section) => {
+    const out = [];
+    let from = 0;
+    YOLO.forEach((phrase, index) => {
+      const at = section.indexOf(phrase, from);
+      if (at < 0) out.push(`names ${phrase} after ${YOLO[index - 1] ?? 'the heading'}`);
+      else from = at + phrase.length;
+    });
+    const lasts = endings(section);
+    if (lasts.length !== ENDINGS.length) out.push(`has ${lasts.length} What is next? blocks, not ${ENDINGS.length}`);
+    ENDINGS.forEach((ending, index) => {
+      if (lasts[index] !== ending) out.push(`What is next? ${index + 1} ends on ${lasts[index] ?? 'nothing'}, not ${ending}`);
+    });
+    return out;
+  };
+
+  it('/omni:yolo step 7 keeps its report, then shows the folder, where it is, and three endings', () => {
+    const step = skillSection(read('yolo'), '7. Hand off');
+    expect(step).toMatch(/^## 7\. Hand off\n/);
+    expect(handOffViolations(step)).toEqual([]);
+    expect(step).not.toContain('A person merges');
+  });
+
+  it("/omni:yolo step 5's red gate leaves what to do next to the hand-off", () => {
+    const step = skillSection(read('yolo'), '5.');
+    expect(step.slice(step.indexOf('**Gate red.**'))).not.toContain('Report:');
+  });
+
+  it("/omni:yolo-fix step 8 ends with /omni:yolo §7's hand-off, its held ending resuming the yolo-fix", () => {
+    const step = skillSection(read('yolo-fix'), '8. Hand off');
+    expect(step).toMatch(/^## 8\. Hand off\n/);
+    expect(step).toContain('`/omni:yolo` §7');
+    expect(step).toContain('/omni:yolo-fix <n>');
+    expect(step).not.toContain('A person merges');
+  });
+
+  it('fails when a phrase is removed, an ending ends on another line, or an ending is missing', () => {
+    const fenced = (...lines) => ['```markdown', ...lines, '```'].join('\n');
+    const ending = (last) => fenced(WHAT_IS_NEXT, '', '1. …', '', last, '');
+    const good = ['## 7. Hand off', ...YOLO, ['```text', '  <dir>/', '```'].join('\n'), ...ENDINGS.map(ending)].join('\n');
+    expect(handOffViolations(good)).toEqual([]);
+    for (const [index, phrase] of YOLO.entries()) {
+      expect(handOffViolations(good.replaceAll(phrase, '…')), phrase).toContain(
+        `names ${phrase} after ${YOLO[index - 1] ?? 'the heading'}`,
+      );
+    }
+    expect(handOffViolations(good.replace(ENDINGS[0], 'A person merges the feature PR.'))).toEqual([
+      `What is next? 1 ends on A person merges the feature PR., not ${ENDINGS[0]}`,
+    ]);
+    expect(handOffViolations(good.replace(ending(ENDINGS[2]), ending('/omni:yolo-fix <n>')))).toEqual([
+      `What is next? 3 ends on /omni:yolo-fix <n>, not ${ENDINGS[2]}`,
+    ]);
+    expect(handOffViolations(good.replace(ending(ENDINGS[1]), ''))).toEqual([
+      `has 2 What is next? blocks, not ${ENDINGS.length}`,
+      `What is next? 2 ends on /omni:yolo <n>, not ${ENDINGS[1]}`,
+      `What is next? 3 ends on nothing, not ${ENDINGS[2]}`,
+    ]);
+  });
+});
