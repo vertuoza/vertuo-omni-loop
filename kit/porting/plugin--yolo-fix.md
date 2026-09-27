@@ -113,3 +113,35 @@ SKILL.md names exists now covers `sign`.
 ### Gate (this update)
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.
+
+## PRD 262, slice s2 — the loop writes the release note
+
+Not a re-port: upstream's skill writes no release note. A kit-local change to the prose, which the
+bundle does not carry. PRD 262 gives every shipped PRD a release note, `release.md` in its folder;
+with `releaseNotes.enabled` on, `omni ship` refuses a PRD without one that passes
+`omni check releases` (slice s1).
+
+- **Step 7, gate green: the release note before the ship,** only when
+  `omni config releaseNotes.enabled` prints `true`. It is `/omni:yolo` §5's item 1 (write it from
+  the spec and the built branch in the voice of `omni kb show releasing`, `omni check releases`
+  until green, commit `docs(release): PRD <prd> release note` with the trailers), with one
+  addition: a note already in the PRD's folder is read against what the branch builds now, and when
+  a merged rework changed what the PRD does for the people who use it, the note is rewritten the
+  same way. A rework that changed nothing the note says leaves it as it is.
+- **The after-merge path** (`omni prd` already says `shipped`) still has nothing to ship, but the
+  note is written or rewritten all the same, in the folder `omni prd` prints (the shipped one),
+  and its commit is pushed before ready: a reworked PRD's note would otherwise describe what it no
+  longer does.
+- **The voice is not restated:** the step points to `omni kb show releasing`, as `/omni:yolo` does.
+- **Unchanged:** the red gate ships nothing and writes no note.
+
+### Tests
+
+`kit/test/plugin.test.mjs`'s block `the release note in the skills that ship` (item s2-01, the file
+sits outside the slice's ground) reads step 7: it names the switch, `omni kb show releasing`,
+`omni check releases` and the `docs(release)` commit in that order, before `gh pr ready`, says it
+rewrites the note, and restates none of the voice's limits.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.

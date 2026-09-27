@@ -22,3 +22,7 @@ ask:
 # app, which keeps every version. Off by default in the kit; `false` stops every upload from here.
 dossier:
   enabled: true
+# Release notes (PRD 262): every PRD the loop ships carries a `release.md` in its folder, written at
+# ship by /omni:yolo and /omni:yolo-fix; `omni ship` refuses one without it. Off by default in the kit.
+releaseNotes:
+  enabled: true

@@ -191,8 +191,19 @@ the whole feature, acceptance, push, the body, the gate), then `/omni:yolo` §5 
 
 - the outbox comment is rewritten in place on both paths (`omni comment --prd <prd> --pr <feature
   PR>`), even when nothing changed: it costs no commit;
-- **gate green:** the ship step, commit, push, and only then `gh pr ready`. When `omni prd` already
-  says `shipped` (the after-merge path), there is nothing to ship: go straight to ready;
+- **gate green:** the release note, then the ship step, commit, push, and only then ready:
+  - **The release note,** only when `node .omni-loop/bin/omni.mjs config releaseNotes.enabled`
+    prints `true`: `/omni:yolo` §5's item 1, with one addition. A note already in the PRD's folder
+    is read against what the feature branch builds now. When a merged rework changed what the PRD
+    does for the people who use it, rewrite the note: in the voice of the **Release notes** section
+    of `node .omni-loop/bin/omni.mjs kb show releasing`, from the spec and the branch as it now
+    stands, then `node .omni-loop/bin/omni.mjs check releases` until it is green, and commit it as
+    `docs(release): PRD <prd> release note`, with your session's co-author trailer, then the
+    `omni sign trailer` line. A rework that changed nothing the note says leaves it as it is.
+  - **Ship,** commit and push as `/omni:yolo` §5's items 2 and 3, then `gh pr ready`. When
+    `omni prd` already says `shipped` (the after-merge path), there is nothing to ship: the note is
+    written or rewritten all the same, in the folder `omni prd` prints; push its commit, if there is
+    one (`git push <remote> HEAD:<feature branch>`), and go straight to ready;
 - **gate red:** the feature PR stays draft, and the report says who answers what.
 
 Then release as `/omni:yolo` §6 does: remove `labels.inProgress` (unless the Stuck path swapped it
