@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answered, keepKnown, pickable, recommend, readPicks, type Pickable, type Picks } from './picks';
+import { answered, answers, dropPicks, keepKnown, pickable, recommend, readPicks, type Pickable, type Picks } from './picks';
 
 // The person's picks on the Outbox tab (PRD 251): what each counts as, Select every recommendation, and
 // what a reload keeps.
@@ -70,5 +70,22 @@ describe('what a reload keeps', () => {
   it('reads the questions a card list offers', () => {
     expect(pickable([{ number: 2, kind: 'decision', adopted: false, options: [{ letter: 'A' }, { letter: 'B' }] }]))
       .toEqual([{ number: 2, kind: 'decision', adopted: false, letters: ['A', 'B'] }]);
+  });
+});
+
+describe('what Send posts', () => {
+  it('each pick that answers its question, in number order, with a reason only when one was given', () => {
+    const picks: Picks = {
+      2: { pick: 'B', reason: 'softer' }, 1: { pick: 'done', reason: '  ' }, 3: { pick: 'A', reason: '' }, 4: { pick: 'A', reason: '' },
+    };
+    expect(answers(ALL, picks)).toEqual([{ number: 1, pick: 'done' }, { number: 2, pick: 'B', reason: 'softer' }]);
+  });
+
+  it('never a not done without its reason', () => {
+    expect(answers(ALL, { 1: { pick: 'not-done', reason: '' } })).toEqual([]);
+  });
+
+  it('drops the picks on questions settled meanwhile, keeping the rest', () => {
+    expect(dropPicks({ 1: { pick: 'done', reason: '' }, 2: { pick: 'B', reason: '' } }, [2])).toEqual({ 1: { pick: 'done', reason: '' } });
   });
 });

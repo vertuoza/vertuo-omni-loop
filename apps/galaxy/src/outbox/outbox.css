@@ -155,3 +155,7 @@
   border-radius: 4px;
 }
 .dossier-history-needs { display: flex; align-items: center; gap: 8px; align-self: end; }
+
+/* What became of the reply the tab sent (PRD 251, Send). */
+.outbox-sent { margin: 0 0 12px; }
+.outbox-sent p { margin: 0 0 8px; }

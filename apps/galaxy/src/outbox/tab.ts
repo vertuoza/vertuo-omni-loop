@@ -10,9 +10,11 @@
 //
 // Runs on the server: the page ships the cards' HTML to the tab, never the parser or the renderer.
 import { parseOutboxItem, RANK_ORDER } from 'vertuo-omni-plan/kit/lib/outbox/outbox.mjs';
+import { parseReplyLines } from 'vertuo-omni-plan/kit/lib/outbox/replies.mjs';
 import { renderMarkdown } from '../dossier/markdown';
 import { StoredOutbox } from './contract';
 import type { OutboxRead } from './count';
+import type { SentView } from './sent';
 
 export { openCount, type OutboxRead } from './count';
 
@@ -149,7 +151,19 @@ function cardOf(
 const urgency = (a: QuestionCard, b: QuestionCard) =>
   ((RANK_ORDER as Record<string, number>)[b.rank] ?? -1) - ((RANK_ORDER as Record<string, number>)[a.rank] ?? -1) || a.number - b.number;
 
-export function outboxView(read: OutboxRead): OutboxView {
+/** The answers a reply just sent from this page gives, by number, as pending: shown at once, until an
+ * outbox evaluated after it — which reads that very reply off the pull request — replaces them. */
+function justSent(sent: SentView | null | undefined, evaluatedAt: string): Map<number, PendingView> {
+  const answers = new Map<number, PendingView>();
+  if (sent?.state !== 'posted' || Date.parse(evaluatedAt) >= Date.parse(sent.at)) return answers;
+  for (const line of parseReplyLines(sent.reply) as Array<{ kind: string; number?: number; text: string }>) {
+    if (line.kind !== 'numbered' || line.number === undefined) continue;
+    answers.set(line.number, { text: line.text, by: sent.login, where: WHERE.page, when: when(sent.at), url: sent.url });
+  }
+  return answers;
+}
+
+export function outboxView(read: OutboxRead, sent?: SentView | null): OutboxView {
   if ('failed' in read) return { state: 'failed' };
   const { row } = read;
   if (!row) return { state: 'none' };
@@ -160,6 +174,7 @@ export function outboxView(read: OutboxRead): OutboxView {
   const pendingOf = new Map(pending.map((p): [number, PendingView] => [
     p.number, { text: p.text, by: p.by, where: WHERE[p.via], when: when(p.at), url: p.url },
   ]));
+  for (const [number, answer] of justSent(sent, row.evaluated_at)) pendingOf.set(number, answer);
   const readOnly = row.state !== 'open';
   return {
     state: row.state,

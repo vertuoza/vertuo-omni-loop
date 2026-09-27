@@ -11,6 +11,7 @@ import { isWide, subscribe, WIDE } from './ContextDisclosure';
 import { outboxRow, STORED } from './fixtures';
 import { SEND_OFF } from './OutboxTab';
 import type { OutboxRead } from './count';
+import type { SentView } from './sent';
 
 // The Outbox tab of /prd/<id> as the server renders it (PRD 251): what a person sees before any script
 // runs, in each state of the spec's table, with each kind of card and group, and the context rail.
@@ -32,9 +33,9 @@ const rounds: DossierRoundRow[] = [{
   category_by: null, prd: null, skill: '/omni:brainstorm', created_at: '2026-09-27T09:15:00Z', answered_at: '2026-09-27T09:16:00Z',
 }];
 
-function tab({ outbox = { row: outboxRow() } as OutboxRead, query = {} as Record<string, string>, spec = null as string | null, sendOff = SEND_OFF.notYet as string | null } = {}) {
+function tab({ outbox = { row: outboxRow() } as OutboxRead, query = {} as Record<string, string>, spec = null as string | null, sendOff = SEND_OFF.notYet as string | null, sent = null as SentView | null } = {}) {
   const view = dossierView({ dossier, versions, members: [PIERRE], rounds, outbox }, PIERRE.user_id, readPick({ tab: 'outbox', ...query }));
-  return renderToStaticMarkup(createElement(DossierPage, { view, markdown: spec === null ? null : renderMarkdown(spec), supabase: null, sendOff }));
+  return renderToStaticMarkup(createElement(DossierPage, { view, markdown: spec === null ? null : renderMarkdown(spec), supabase: null, sendOff, sent }));
 }
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
@@ -204,5 +205,45 @@ describe('the context disclosure, wide and tall', () => {
     const css = readFileSync(fileURLToPath(new URL('./outbox.css', import.meta.url)), 'utf8');
     expect(css).toContain('@media (min-width: 960px)');
     expect(css).toMatch(/\.outbox-context > summary \{ display: none; \}/);
+  });
+});
+
+describe('Send (PRD 251, "Send posts the reply as you")', () => {
+  const POSTED: SentView = {
+    state: 'posted', login: 'ada', url: 'https://github.com/acme/widgets/pull/12#issuecomment-99', counted: true,
+    next: '/omni:yolo-fix 7', reply: '1: ok\n\n_answered on the Omni page · PRD 7_', at: '2026-09-27T10:06:00Z',
+  };
+
+  it('is on where this page may send: Send n answers waits for a pick, and says nothing is off', () => {
+    const html = tab({ sendOff: null });
+    expect(html).toMatch(/<button type="button" class="ask-button" disabled="">Send 0 answers<\/button>/);
+    expect(html).not.toContain(SEND_OFF.notYet);
+  });
+
+  it('posted: Sent as @login, the comment\'s link, and the next step with a copy button', () => {
+    const html = tab({ sendOff: null, sent: POSTED });
+    expect(text(html)).toContain('Sent as @ada');
+    expect(html).toContain('<a href="https://github.com/acme/widgets/pull/12#issuecomment-99" target="_blank" rel="noopener noreferrer">the reply on the pull request</a>');
+    expect(html).toContain('<code>/omni:yolo-fix 7</code>');
+    expect(html).toMatch(/<button type="button" class="ask-button quiet">Copy<\/button>/);
+    expect(html).not.toContain('will not read');
+  });
+
+  it('shows the just-sent answers as pending, from the Omni page', () => {
+    const card = /<article class="outbox-card" data-kind="action"[\s\S]*?<\/article>/.exec(tab({ sendOff: null, sent: POSTED }))?.[0] ?? '';
+    expect(text(card)).toContain('by @ada on the Omni page');
+  });
+
+  it('an author the kit does not count: the tab says so, and that /omni:yolo-fix will not read the reply', () => {
+    const html = text(tab({ sendOff: null, sent: { ...POSTED, login: 'visitor', counted: false } }));
+    expect(html).toContain('GitHub does not list @visitor as an owner, member or collaborator of this repository');
+    expect(html).toContain('/omni:yolo-fix will not read the reply');
+  });
+
+  it('failed: names why, keeps the picks, and offers to try again', () => {
+    const html = tab({ sendOff: null, sent: { state: 'failed', error: 'GitHub did not answer, so nothing was posted. Try again in a moment.' } });
+    expect(html).toContain('role="alert"');
+    expect(text(html)).toContain('GitHub did not answer, so nothing was posted. Try again in a moment.');
+    expect(text(html)).toContain('Your answers are kept: send them again.');
   });
 });

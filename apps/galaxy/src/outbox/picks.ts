@@ -70,3 +70,19 @@ export function readPicks(stored: string | null): Picks {
   }
   return picks;
 }
+
+/** What Send posts: each pick that answers its question, in number order, with its reason when given. */
+export function answers(questions: Pickable[], picks: Picks): Array<{ number: number; pick: string; reason?: string }> {
+  return questions
+    .filter((q) => isAnswer(q, picks[q.number]))
+    .sort((a, b) => a.number - b.number)
+    .map(({ number }) => {
+      const { pick, reason } = picks[number];
+      return reason.trim() ? { number, pick, reason } : { number, pick };
+    });
+}
+
+/** The picks without those on questions settled meanwhile. */
+export function dropPicks(picks: Picks, numbers: number[]): Picks {
+  return Object.fromEntries(Object.entries(picks).filter(([number]) => !numbers.includes(Number(number))));
+}
