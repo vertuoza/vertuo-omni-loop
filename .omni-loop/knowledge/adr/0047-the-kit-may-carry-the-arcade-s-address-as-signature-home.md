@@ -32,9 +32,15 @@ app's host and over linking only in this repository's config.
    the host `vertuo-omni-loop-galaxy.vercel.app` from it. The word elsewhere on the same line still
    fails, and so does any other host that holds it, a longer host holding the address included. The
    guard's header comment names this record.
-3. **The kit still never names the game in words.** No identifier, comment, message or skill says
+3. **The repository-literal guard lets the same host through, in `kit/lib/config.mjs` only.**
+   `kit/test/no-literals.test.mjs` refuses the repository's name anywhere in the kit's code, and the
+   address holds it. It removes each whole occurrence of the same host from a line of
+   `lib/config.mjs`, with the same boundary, before testing the line; every other hit, in that file
+   or any other, still fails (PRD 215's outbox item `s1-01`, answered A by @pierrederval on
+   2026-09-27).
+4. **The kit still never names the game in words.** No identifier, comment, message or skill says
    it; the address is carried only as a value.
-4. **Nothing else moves.** `ask.url` still defaults to `null`, so ask mode stays off until a
+5. **Nothing else moves.** `ask.url` still defaults to `null`, so ask mode stays off until a
    repository sets it (ADR-0002, decision 4), and the kit still imports nothing from the game and
    reads none of its tables (decision 2). `signature.home` is a link a reader follows, not a call:
    the kit never fetches it.
