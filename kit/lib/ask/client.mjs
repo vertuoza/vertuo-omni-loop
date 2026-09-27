@@ -1,6 +1,7 @@
 // The ask contract, from the kit's side: one small client over `fetch` for the calls under
-// `<ask.url>/api/ask/*` (PRD 71's spec, "The contract"). The kit knows only this URL and these
-// calls; any server that honours them will do.
+// `<ask.url>/api/ask/*` (PRD 71's spec, "The contract"), and since PRD 216 the two dossier calls under
+// `<ask.url>/api/dossiers`. The kit knows only this URL and these calls; any server that honours
+// them will do.
 //
 // Every call but the token exchange carries `Authorization: Bearer <access token>`, read from a
 // token store keyed by the host of `ask.url`. A 401 refreshes the token once (or takes the tokens
@@ -133,5 +134,13 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     /** An answer given in the terminal. */
     answer: (roundId, answers) => call('POST', `/api/ask/rounds/${segment(roundId)}/answers`, { body: { answers, via: 'terminal' } }),
     abandon: (roundId) => call('POST', `/api/ask/rounds/${segment(roundId)}/abandon`),
+    /** PRD 216: opens a draft dossier for `repo`. The Claude session id is sent only when there is
+     * one. @returns {Promise<{ id: string, url: string }>} */
+    openDossier: ({ title, repo, claudeSessionId = null }) =>
+      call('POST', '/api/dossiers', { body: { title, repo, ...(claudeSessionId ? { claudeSessionId } : {}) } }),
+    /** PRD 216: sends a PRD folder's artifacts, whole; the draft is named only when there is one.
+     * @returns {Promise<{ id: string, url: string, added: Array<{ kind: string, version: number }>, unchanged: string[] }>} */
+    pushDossier: ({ repo, prd, title, draftId = null, artifacts }) =>
+      call('POST', '/api/dossiers/push', { body: { repo, prd, title, ...(draftId ? { draftId } : {}), artifacts } }),
   };
 }
