@@ -1,26 +1,25 @@
 'use client';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { CHOICE_ATTR, THEME_ATTR, THEME_CHOICES, THEME_KEY, readChoice, resolveTheme, storeChoice, type ThemeChoice } from './theme';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { CHOICE_ATTR, THEME_ATTR, THEME_CHOICES, THEME_KEY, readChoice, storeChoice, type ThemeChoice } from './theme';
 
-// The system / light / dark switch in the ask pages' header. The inline script (theme.ts) has
-// already applied the stored choice to the ask root before the first paint, and ask.css draws the
-// pressed button from that root's attribute; this keeps the choice, re-applies it once React owns
-// the page, and follows the system while the choice is system.
+// The Omni / light / dark switch in the ask pages' header. The inline script (theme.ts) has already
+// applied the stored choice to the ask root before the first paint, and ask.css draws the pressed
+// button from that root's attribute; this keeps the choice and re-applies it once React owns the
+// page. The choice is the theme: nothing here follows the system's preference.
 
-const LABELS: Record<ThemeChoice, string> = { system: 'System', light: 'Light', dark: 'Dark' };
-const DARK = '(prefers-color-scheme: dark)';
+const LABELS: Record<ThemeChoice, string> = { omni: 'Omni', light: 'Light', dark: 'Dark' };
 
 function stored(): ThemeChoice {
   try {
     return readChoice(window.localStorage.getItem(THEME_KEY));
   } catch {
-    return 'system';
+    return readChoice(null);
   }
 }
 
 function apply(root: Element | null | undefined, choice: ThemeChoice) {
   if (!root) return;
-  root.setAttribute(THEME_ATTR, resolveTheme(choice, window.matchMedia?.(DARK).matches ?? false));
+  root.setAttribute(THEME_ATTR, choice);
   root.setAttribute(CHOICE_ATTR, choice);
 }
 
@@ -35,14 +34,6 @@ export function ThemeSwitch() {
     apply(root(), now);
     setChoice(now);
   }, []);
-
-  useEffect(() => {
-    if (choice !== 'system' || !window.matchMedia) return;
-    const media = window.matchMedia(DARK);
-    const follow = () => apply(root(), 'system');
-    media.addEventListener('change', follow);
-    return () => media.removeEventListener('change', follow);
-  }, [choice]);
 
   const choose = (next: ThemeChoice) => {
     try {

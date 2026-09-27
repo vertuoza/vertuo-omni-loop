@@ -30,11 +30,10 @@ export const metadata: Metadata = {
   },
 };
 
+// One colour for the browser's bar, Omni's ground: this metadata is static and cannot read the stored
+// choice, and Omni is the default (PRD 284).
 export const viewport: Viewport = {
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: TOKENS.light.ground },
-    { media: '(prefers-color-scheme: dark)', color: TOKENS.dark.ground },
-  ],
+  themeColor: TOKENS.omni.ground,
   colorScheme: 'light dark',
 };
 

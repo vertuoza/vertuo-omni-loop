@@ -30,7 +30,8 @@ const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '
 const controls = (bar: string) =>
   [...bar.replace(/<dialog[\s\S]*?<\/dialog>/g, '').matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((m) => text(m[2]));
 
-const THEME_THEN_GAME = ['System', 'Light', 'Dark', 'Game mode'];
+/** The theme switch, Omni first (PRD 284), then Game mode. */
+const THEME_THEN_GAME = ['Omni', 'Light', 'Dark', 'Game mode'];
 
 const askBar = (waiting = 0) =>
   header(renderToStaticMarkup(createElement(AskBar, null, createElement(HistoryLink), createElement(ForMeLink, { count: waiting }))));
@@ -51,6 +52,11 @@ describe('every header of the app', () => {
 
   it.each(HEADERS)('%s: ends with Game mode, right after the theme switch', (_, bar) => {
     expect(controls(bar()).slice(-4)).toEqual(THEME_THEN_GAME);
+  });
+
+  it.each(HEADERS)('%s: offers no System theme', (_, bar) => {
+    expect(controls(bar())).not.toContain('System');
+    expect(bar()).not.toContain('data-choice="system"');
   });
 
   it.each(HEADERS)('%s: holds the Game mode dialog, closed', (_, bar) => {

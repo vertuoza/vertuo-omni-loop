@@ -95,7 +95,10 @@ keys: A, Z, Space, K and Enter say yes, B, X, Esc, J and Backspace say no. The s
 has no app: neither the row nor the switch shows.
 
 Outside the arcade, the app (PRD 238): `/app`, its home, beside `/ask`, `/ask/for-me`, `/ask/history`,
-`/knowledge` and `/releases`, all on the ask pages' reading surface, in light and dark. `/app` is a
+`/knowledge` and `/releases`, all on the ask pages' reading surface, in three themes: **Omni**, the
+default, HOME's palette (the void, the cabinet's navy, comic yellow), then **Light** and **Dark**
+(PRD 284). The theme switch reads `Omni · Light · Dark`; only colours change between them, and a
+choice of Light or Dark is remembered in the browser, Omni being the absence of one. `/app` is a
 card per section (`SECTIONS` in `src/switch/switch.ts`), each a link to its page; it reads nothing and
 opens without signing in, and each page it opens signs the visitor in on its own, except
 `/releases`, which is public ([Release notes](#release-notes)). Every app page's header
@@ -356,7 +359,7 @@ page (PRD 149). Both read one graph: the one `omni kb graph --json` prints.
   the card, B again goes back to the chart, and again to the menu.
 
 **The knowledge page, `/knowledge`.** The same graph as a reading surface beside the `/ask` pages,
-in their light and dark themes: the top bar (`OMNI LOOP · Knowledge map`, the repository, a link to
+in their Omni, Light and Dark themes: the top bar (`OMNI LOOP · Knowledge map`, the repository, a link to
 the star chart at `/#chart`, the theme switch, Game mode), a tab per domain and **Between domains**
 for the cross-domain entries, an SVG orrery laid out as in the arcade (a law a filled dot, a proposed entry
 a hollow ring, each kind in its own colour), the selected entry's detail (statement, `Why:`, what it
@@ -459,7 +462,7 @@ nobody deletes a numbered dossier.
 - **Who reads it.** A member of the dossier's workspace, signed in with the arcade's Google sign-in
   (each page has its own callback, `/prd/callback` and `/prd/<id>/callback`). Anyone else, a
   member of another workspace included, gets not found, in the words a dossier that never was gets.
-  Light, dark and system themes, as the `/ask` pages.
+  Omni, Light and Dark themes, Omni the default, as the `/ask` pages.
 - **Without a database**, in development, both pages play a demo dossier.
 
 **The planet's DOSSIER tab.** The planet screen's fifth tab, after LOG. A planet's dossier is the one

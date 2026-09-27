@@ -119,7 +119,7 @@ describe('the top bar, in every state of the page', () => {
   });
 
   it.each(states)('%s: keeps the star chart, then ends with the theme switch and Game mode', (_, view) => {
-    expect(controls(bar(view))).toEqual(['OMNI LOOP', 'Open the star chart →', 'System', 'Light', 'Dark', 'Game mode']);
+    expect(controls(bar(view))).toEqual(['OMNI LOOP', 'Open the star chart →', 'Omni', 'Light', 'Dark', 'Game mode']);
     expect(bar(view)).toMatch(/<a class="km-chart" href="\/#chart">/);
     expect(bar(view)).toMatch(/<dialog [^>]*class="game-mode-dialog"/);
   });

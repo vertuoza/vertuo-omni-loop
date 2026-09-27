@@ -95,7 +95,7 @@ html:has(.ask[data-ask-theme]) body {
 }
 /* The pressed choice is drawn from the ask root's attribute, which the inline script sets before
    the first paint, so the switch never flashes the wrong one before React takes over. */
-.ask[data-ask-choice='system'] .ask-switch [data-choice='system'],
+.ask[data-ask-choice='omni'] .ask-switch [data-choice='omni'],
 .ask[data-ask-choice='light'] .ask-switch [data-choice='light'],
 .ask[data-ask-choice='dark'] .ask-switch [data-choice='dark'] {
   background: var(--ask-plasma);
