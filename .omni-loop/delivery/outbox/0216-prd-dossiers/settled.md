@@ -1249,3 +1249,315 @@ One line of the page's filtering; nothing stored changes.
 ```
 
 <!-- /omni-outbox-settled: s4-02-search-every-word-of-title -->
+
+<!-- omni-outbox-settled: s6-01-last-answers-by-round -->
+
+## s6-01-last-answers-by-round — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s6
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-last-answers-by-round
+prd: 216
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 5
+---
+
+## The question, in plain words
+
+The planet's dossier tab lists the last three answered questions. When Claude asked several questions at once, should each question be a line, or should one ask be one line?
+
+## The decision, in plain words
+
+One ask is one line: the three most recent asks that were answered, each showing its first question and its answer, with a small count when it held more. This matches how the counts above it, and the page's Questions tab, count them.
+
+## The intro, for fun
+
+Three lines on a small screen, and Claude sometimes asks four questions in one breath.
+
+## The punchline, for fun
+
+Each breath gets one line, and a little plus sign for the rest.
+
+## The options, in plain words
+
+A. Show the last three answered asks, each with its first question and a count of the rest
+B. Show the last three answered questions one by one, even when they come from the same ask
+C. Show the last three answered asks with every question of each, over several lines
+
+## What I had to decide
+
+Show the last three questions one by one, or the last three asks, each with its first question.
+
+## What I did meanwhile
+
+The tab lists the last three answered asks, newest answer first, each with its first question and its answer on one line, and a plus count for the questions of that ask it leaves out.
+
+## What it costs to change later
+
+One small function and its tests: listing questions one by one instead is a change of a few lines, with nothing stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says questions, while the counts beside them count asks (an earlier decision of this PRD); which one a reader expects on the planet is not settled (author).
+
+```
+
+<!-- /omni-outbox-settled: s6-01-last-answers-by-round -->
+
+<!-- omni-outbox-settled: s6-02-start-opens-from-dossier-tab-only -->
+
+## s6-02-start-opens-from-dossier-tab-only — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s6
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-start-opens-from-dossier-tab-only
+prd: 216
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 5
+---
+
+## The question, in plain words
+
+On the planet screen the start button used to go back to the map. It now opens the PRD's page from the dossier tab: what should it do on the other tabs, or on a planet with no dossier?
+
+## The decision, in plain words
+
+It opens the page only on the dossier tab, when there is a page to open, and goes back to the map everywhere else, as before; clicking a tab no longer takes the keyboard away from the start key.
+
+## The intro, for fun
+
+One button, two jobs, and a player who pressed it out of habit.
+
+## The punchline, for fun
+
+It only opens the page where the page is promised.
+
+## The options, in plain words
+
+A. Open the page from the dossier tab only, and go back to the map everywhere else
+B. Open the page from any tab of a planet that has a dossier
+C. Open the page from the dossier tab, and do nothing on the other tabs
+
+## What I had to decide
+
+Make the start button open the page from any tab of a planet with a dossier, or only from the dossier tab, keeping its old job elsewhere.
+
+## What I did meanwhile
+
+The button opens the page from the dossier tab when a page exists, and goes back to the map in every other case. The tab buttons no longer take the keyboard's focus when clicked, as the key hints already do not.
+
+## What it costs to change later
+
+A few lines in the arcade's key handling, and their tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether players rely on the start button to leave a planet is not known (author).
+
+```
+
+<!-- /omni-outbox-settled: s6-02-start-opens-from-dossier-tab-only -->
+
+<!-- omni-outbox-settled: s6-03-planet-dossiers-read-one-by-one -->
+
+## s6-03-planet-dossiers-read-one-by-one — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s6
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-03-planet-dossiers-read-one-by-one
+prd: 216
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 5
+---
+
+## The question, in plain words
+
+The arcade reads each planet's dossier when the galaxy loads. Should it ask the database once for every dossier, or once for each planet that has one?
+
+## The decision, in plain words
+
+Once for each planet that has one: it first finds which planets have a dossier, then reads each on its own. Asking for every dossier at once would also work out the questions of every other dossier in the workspace, on every page load.
+
+## The intro, for fun
+
+A galaxy of forty planets, and one librarian fetching folders.
+
+## The punchline, for fun
+
+She fetches only the folders that exist, a few at a time.
+
+## The options, in plain words
+
+A. Find the planets' dossiers first, then read each one on its own
+B. Read every dossier of the workspace in one request and keep the planets'
+C. Read a planet's dossier only when a player opens its dossier tab
+
+## What I had to decide
+
+Read every dossier of the workspace in one request, or read only the planets' dossiers, two small requests each.
+
+## What I did meanwhile
+
+Two small requests find the plan repository and its dossiers, then two requests for each planet with a dossier read its versions, its counts and its last answers, side by side, after the galaxy.
+
+## What it costs to change later
+
+One function in the arcade's data layer, and nothing stored: switching to a single request is a small change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- How many planets will carry a dossier, and how much longer the arcade then takes to open, is not measured (author).
+- Whether the database could narrow one request for every dossier to the plan repository before working out each one's questions was not tried (author).
+
+```
+
+<!-- /omni-outbox-settled: s6-03-planet-dossiers-read-one-by-one -->
+
+<!-- omni-outbox-settled: s6-04-demo-opens-one-example-page -->
+
+## s6-04-demo-opens-one-example-page — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s6
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-04-demo-opens-one-example-page
+prd: 216
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 5
+---
+
+## The question, in plain words
+
+In the demo, the start button on any planet's dossier tab opens the same example page, about another PRD. Should the demo's page show the dossier of the planet it came from?
+
+## The decision, in plain words
+
+Not in this slice, since the demo page belongs to the pages built earlier: each planet shows its own demo dossier, and the button opens the demo page, which always shows its one example.
+
+## The intro, for fun
+
+Every door in the demo museum leads to the same room.
+
+## The punchline, for fun
+
+It is a lovely room, but the sign on each door promised a different one.
+
+## The options, in plain words
+
+A. Leave the demo's page showing its one example
+B. Make the demo's page show the demo dossier of the planet whose link opened it
+
+## What I had to decide
+
+Leave the demo's page as it is, or teach it the planets' demo dossiers, which changes the pages' demo built in an earlier slice.
+
+## What I did meanwhile
+
+The demo's links carry each planet's own address, and the demo's page shows its single example whatever the address. The guide says so.
+
+## What it costs to change later
+
+The pages' demo would look up the planet's demo dossier by its address: a small change to demo data only.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether anyone shows the demo's link from a planet to its page before the feature is deployed is not known (author).
+
+```
+
+<!-- /omni-outbox-settled: s6-04-demo-opens-one-example-page -->
