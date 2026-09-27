@@ -54,7 +54,7 @@ describe('HOME at /', () => {
     const html = await render();
     const script = html.indexOf('<script');
     expect(script).toBeGreaterThanOrEqual(0);
-    expect(script).toBeLessThan(html.indexOf('JOIN THE LOOP!'));
+    expect(script).toBeLessThan(html.indexOf('<h1'));
     expect(html).toContain("location.replace('/play'");
   });
 
@@ -74,6 +74,88 @@ describe('HOME at /', () => {
   it('is the page `/` serves, reading neither the session nor the arcade', () => {
     const source = readFileSync(new URL('../../app/page.tsx', import.meta.url), 'utf8');
     expect(source).not.toMatch(/supabase|arcade|cookies|headers/i);
+  });
+});
+
+// The poster above the fold (s4): the Star Fox split, a text column beside a starfield.
+describe('the poster', () => {
+  const render = async () => {
+    const { Home } = await import('./Home');
+    return renderToStaticMarkup(Home());
+  };
+  const element = (html: string, attr: string) => new RegExp(`<[a-z]+ [^>]*${attr}[^>]*>`).exec(html)?.[0] ?? '';
+
+  it('carries the kicker, the headline, the pitch and the quote, in the column\'s order', async () => {
+    const page = text(await render());
+    const order = [
+      'GET WHOLE FEATURES SHIPPED WHILE YOU SLEEP, WHEN YOU',
+      'JOIN THE LOOP!',
+      'Hand a PRD to the loop. Coding agents plan it, build it test-first, and open the pull requests. You answer their questions once, then review and merge.',
+      '“TO JOIN INSTANTLY, SIGN UP WITH GITHUB!”',
+    ].map((line) => page.indexOf(line));
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+
+  it('makes JOIN THE LOOP! the page\'s one headline', async () => {
+    const html = await render();
+    expect(html.match(/<h1\b/g)).toHaveLength(1);
+    expect(text(/<h1[\s\S]*?<\/h1>/.exec(html)?.[0] ?? '')).toBe('JOIN THE LOOP!');
+  });
+
+  it('shows OmniMan in his omni-point pose, and the crest in its full form', async () => {
+    const html = await render();
+    expect(element(html, 'data-pose="omni-point"')).toBeTruthy();
+    expect(html).toContain('aria-label="OmniMan pointing at the crest"');
+    expect(element(html, 'data-logo="full"')).toBeTruthy();
+    expect(html).toContain('aria-label="Omni Loop"');
+  });
+
+  it('draws the invaded planet and the starfield on the page itself, with no script', async () => {
+    const html = await render();
+    const planet = element(html, 'class="home-planet"');
+    expect(planet).toMatch(/role="img"/);
+    expect(planet).toMatch(/aria-label="[^"]*invasion[^"]*"/);
+    expect(html).toMatch(/class="home-planet"[\s\S]*?<svg /);
+    expect(html).toMatch(/class="home-stars"[^>]*aria-hidden="true"/);
+  });
+
+  it('shows a sign-up button that is disabled, says coming soon, and goes nowhere', async () => {
+    const html = await render();
+    const buttons = [...html.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)].map(([b]) => b);
+    const signUp = buttons.filter((b) => /SIGN UP WITH GITHUB/.test(b));
+    expect(signUp).toHaveLength(1);
+    const [button] = signUp;
+    expect(text(button)).toBe('SIGN UP WITH GITHUB · COMING SOON');
+    expect(button).toMatch(/<button [^>]*disabled=""/);
+    expect(button).toMatch(/type="button"/);
+    expect(/aria-label="([^"]*)"/.exec(button)?.[1]).toMatch(/coming soon/i);
+    expect(button).not.toMatch(/href=|formaction=|onclick=/i);
+  });
+
+  it('marks PRESS START for the controls, and keeps it a plain link to /play', async () => {
+    const html = await render();
+    const starts = [...html.matchAll(/<a\b[^>]*>PRESS START<\/a>/g)].map(([a]) => a);
+    expect(starts.length).toBeGreaterThan(0);
+    for (const a of starts) {
+      expect(a).toContain('href="/play"');
+      expect(a).toContain('data-press-start=""');
+    }
+  });
+
+  it('mounts the controls: Enter, the Konami code and CHEAT ACTIVATED! live on HOME', async () => {
+    expect(await render()).toMatch(/class="home-cheat"[^>]*role="status"/);
+  });
+
+  it('puts the crest, the headline and PRESS START first on a phone', () => {
+    const css = readFileSync(new URL('./home.css', import.meta.url), 'utf8');
+    const phone = /@media \(max-width: 760px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
+    const order = (cls: string) => Number(new RegExp(`\\.${cls} \\{[^}]*order: (-?\\d+)`).exec(phone)?.[1]);
+    expect(order('home-crest')).toBeLessThan(order('home-head'));
+    expect(order('home-head')).toBeLessThan(order('home-poster .home-start'));
+    for (const rest of ['home-kicker', 'home-pitch', 'home-quote', 'home-spokes', 'home-planet']) {
+      expect(order(rest), rest).toBeGreaterThan(order('home-poster .home-start'));
+    }
   });
 });
 

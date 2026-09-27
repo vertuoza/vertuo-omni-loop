@@ -1,0 +1,208 @@
+/* HOME at `/` (PRD 261): the Omni Loop front door, drawn as a retro print ad. One deliberate dark
+   world like the arcade's: every colour and face is a variable from @omni/design (tokens.css comes
+   with the arcade's stylesheet, fonts.css with the root layout); nothing here names its own, and
+   nothing is declared on :root. The arcade's stylesheet is global, so everything here is scoped to
+   the page. */
+
+/* Over the arcade's body: its pinned height and hidden overflow, which hold the game screen still,
+   would leave HOME stuck at its top. */
+html:has(.home) body {
+  height: auto;
+  overflow: auto;
+  background: var(--void);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+.home {
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: var(--type-body-m-size);
+  line-height: var(--type-body-m-line);
+  overflow-x: clip;
+}
+.home p, .home h1 { margin: 0; }
+
+/* Pixels are never smoothed, and a drawing fills the box it is given. */
+.home-svg { display: block; line-height: 0; }
+.home-svg svg, .home-planet-frame svg { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+
+/* ── The poster: a text column in the ad's purple beside the starfield ─────────────────────── */
+
+.home-poster {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  min-height: min(100svh, 820px);
+  background: var(--starfield);
+}
+
+.home-col {
+  background: var(--ad-purple);
+  padding: 36px 32px 0;
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.home-kicker {
+  font: 400 clamp(15px, 1.9vw, 22px)/1.05 var(--font-display);
+  color: var(--red);
+  transform: skewX(var(--type-display-s-slant));
+  transform-origin: 0 100%;
+}
+
+/* The headline: the display role at its largest step, slanted. */
+.home-head {
+  font: 400 clamp(58px, 8.6vw, var(--type-display-xl-size))/var(--type-display-xl-line) var(--type-display-xl-family);
+  color: var(--white);
+  transform: skewX(var(--type-display-xl-slant));
+  transform-origin: 0 100%;
+  text-wrap: balance;
+}
+
+.home-dots { border-top: 5px dotted var(--yellow); }
+
+.home-pitch {
+  font-size: var(--type-body-m-size);
+  line-height: var(--type-body-m-line);
+  color: var(--highlight);
+  max-width: 36ch;
+}
+
+.home-quote {
+  font: 400 clamp(18px, 2.2vw, 26px)/1.05 var(--font-display);
+  color: var(--yellow);
+  transform: skewX(var(--type-display-s-slant));
+  transform-origin: 0 100%;
+  margin-top: 8px;
+}
+
+/* OmniMan at the bottom of the column, pointing across at the crest, beside the sign-up button. */
+.home-spokes {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: end;
+  margin-top: 4px;
+}
+.home-omni { width: 128px; }
+
+.home-signup {
+  align-self: center;
+  justify-self: start;
+  font: 9px/1.5 var(--font-pixel);
+  letter-spacing: 0.04em;
+  color: var(--dim);
+  background: var(--deep);
+  border: 2px dashed var(--dim);
+  padding: 10px 12px;
+  text-align: left;
+  cursor: not-allowed;
+}
+.home-signup b { display: block; color: var(--white); font-weight: 400; }
+.home-signup-sep { display: none; }
+
+/* The starfield side: the invaded planet, the crest where the ad puts its logo, PRESS START. */
+.home-sky {
+  position: relative;
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  justify-items: center;
+  gap: 20px;
+  padding: 28px 20px 36px;
+  overflow: hidden;
+}
+.home-stars { position: absolute; inset: 0; }
+.home-stars svg { display: block; width: 100%; height: 100%; }
+
+.home-planet {
+  position: relative;
+  align-self: center;
+  display: grid;
+  width: min(224px, 56vw);
+}
+/* The frames stack, and the invasion spreads from one to the next. */
+.home-planet-frame {
+  grid-area: 1 / 1;
+  line-height: 0;
+  opacity: 0;
+  animation: home-invade 4.5s steps(1) infinite;
+}
+.home-planet-frame:nth-child(2) { animation-delay: -3s; }
+.home-planet-frame:nth-child(3) { animation-delay: -1.5s; }
+@keyframes home-invade {
+  0% { opacity: 1; }
+  33.333% { opacity: 0; }
+}
+
+.home-crest { position: relative; width: min(100%, 560px); }
+
+.home-start {
+  position: relative;
+  display: inline-block;
+  font: 14px/1 var(--font-pixel);
+  color: var(--void);
+  background: var(--yellow);
+  padding: 14px 22px;
+  box-shadow: 4px 4px 0 var(--magenta);
+  text-decoration: none;
+}
+.home-start:focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; }
+.home-blink { animation: home-blink 1.2s steps(1) infinite; }
+@keyframes home-blink { 50% { opacity: 0.2; } }
+
+/* CHEAT ACTIVATED!, flashed over the poster by Controls. */
+.home-cheat {
+  position: fixed;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  font: var(--type-pixel-l-size)/var(--type-pixel-l-line) var(--font-pixel);
+  color: var(--yellow);
+  background: var(--void);
+  border: 4px double var(--yellow);
+  padding: 18px 22px;
+  animation: home-blink 0.3s steps(1) infinite;
+}
+.home-cheat[hidden] { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .home-blink, .home-cheat { animation: none; }
+  .home-planet-frame { animation: none; }
+  .home-planet-frame:last-child { opacity: 1; }
+}
+
+/* On a phone the poster stacks: the crest, the headline and PRESS START first, on the starfield,
+   then the planet, then the rest of the column on the ad's purple. */
+@media (max-width: 760px) {
+  .home-poster {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .home-col, .home-sky { display: contents; }
+  .home-stars { z-index: 0; }
+  .home-crest { order: 1; align-self: center; width: min(100% - 32px, 480px); margin-top: 28px; }
+  .home-head { order: 2; position: relative; padding: 20px 16px 0; font-size: 64px; text-align: center; transform-origin: center; }
+  .home-poster .home-start { order: 3; align-self: center; margin: 20px 0 8px; }
+  .home-planet { order: 4; align-self: center; margin: 12px 0 24px; }
+  .home-kicker { order: 5; }
+  .home-dots { order: 6; }
+  .home-pitch { order: 7; }
+  .home-quote { order: 8; }
+  .home-spokes { order: 9; }
+  .home-kicker, .home-dots, .home-pitch, .home-quote, .home-spokes {
+    position: relative;
+    background: var(--ad-purple);
+    margin: 0;
+    padding: 8px 16px;
+  }
+  .home-kicker { padding-top: 28px; }
+  /* A slanted box would slant its purple band: on a phone the words lean, not the box. */
+  .home-kicker, .home-quote { transform: none; font-style: oblique 12deg; }
+  .home-dots { border-top: 0; padding-block: 8px; background-image: none; }
+  .home-dots::before { content: ''; display: block; border-top: 5px dotted var(--yellow); }
+  .home-spokes { padding-bottom: 0; }
+  .home-omni { width: 96px; }
+}
