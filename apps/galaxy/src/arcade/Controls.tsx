@@ -2,7 +2,8 @@
 // The controls both Game Boy bodies share. Each sends the action a key does, through the same
 // `act()`: they fire on touch-down, the D-pad is one rocker that repeats while held, several fingers
 // each press their own control, and every press buzzes where the browser can. The grille toggles
-// the sound. Each control is a button too, so a keyboard or a screen reader can press it.
+// the sound, and the GAME ▮▯ APP switch asks to leave for the app. Each control is a button too, so a
+// keyboard or a screen reader can press it.
 //
 // While a game runs, the arcade hands the pad its held channel (`HeldPad`): the D-pad and A then
 // also tell it which finger holds which button, several fingers at once, and the D-pad stops
@@ -101,6 +102,25 @@ export function Grille({ muted, onToggle }: { muted: boolean; onToggle: () => vo
     <button type="button" className="gb-grille" aria-label="Sound" aria-pressed={!muted} {...press}>
       <span className="gb-slots" aria-hidden="true"><i /><i /><i /><i /><i /><i /></span>
       <span className="gb-grille-label" aria-hidden="true">SOUND</span>
+    </button>
+  );
+}
+
+/**
+ * The GAME ▮▯ APP switch (PRD 238): a slide switch on the body, a nod to the handheld's power switch.
+ * It fires on touch-down and buzzes like the pad, but it is no pad action: it never reaches the game,
+ * and no key hint names it. A press asks to leave for the app (OPEN THE APP?); its knob rests on
+ * GAME, and shows APP while that question is up.
+ */
+export function AppSwitch({ leaving, onApp }: { leaving: boolean; onApp: () => void }) {
+  const ask = useRef(onApp);
+  ask.current = onApp;
+  const press = usePress(() => ask.current());
+  return (
+    <button type="button" className="gb-switch" aria-label="Switch to the app" data-side={leaving ? 'app' : 'game'} {...press}>
+      <span className="gb-switch-word" aria-hidden="true">GAME</span>
+      <span className="gb-track" aria-hidden="true"><i className="gb-knob" /></span>
+      <span className="gb-switch-word" aria-hidden="true">APP</span>
     </button>
   );
 }
