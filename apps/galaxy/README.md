@@ -419,16 +419,17 @@ A repository opts in with `dossier: { enabled: true }` in its `.omni-loop/config
 **`/prd`, the history.** Every dossier of the signed-in person's workspaces, newest activity first
 (its latest version, question or answer, or its opening or numbering). Each row shows `#n` or
 DRAFT, the title, its repository chips, which artifacts it has and their latest version, and the
-questions answered out of asked.
-Filters: a repository (a dossier shows under each of its repositories: its home repository, its
+questions answered out of asked, and `n open` when its outbox has open questions (PRD 251).
+Filters: **Needs an answer** (`?needs=answer`, only the rows with open questions), a repository (a dossier shows under each of its repositories: its home repository, its
 questions' repositories and, for a PRD of the plan repository, its planet's regions), draft or PRD,
 and a search over the words of the titles. Each row opens `/prd/<id>`.
 
 **`/prd/<id>`, the page to share.** The header reads `PRD #n` or DRAFT, the title, the repository
-chips, who opened it and when (or that it was read from GitHub), and **Copy link**. Four tabs:
+chips, who opened it and when (or that it was read from GitHub), and **Copy link**. Five tabs:
 **Before/after**, **Spec**, **Plan** (markdown rendered by `markdown-it` with raw HTML off, the front
-matter as a line above) and **Questions** (each round's questions, options and answer, who answered
-and after how long, its category, and `brainstorm` or `delivery`). Each artifact tab has a version
+matter as a line above), **Questions** (each round's questions, options and answer, who answered
+and after how long, its category, and `brainstorm` or `delivery`) and **Outbox**, with `n open` in
+its label (below). Each artifact tab has a version
 picker, newest first (`v3 · 27 Sep · Pierre (kit)`, `v4 · 28 Sep · commit a1b2c3d (github)`); the
 tab and the version live in the address (`?tab=spec&v=2`). The opener of a draft may delete it;
 nobody deletes a numbered dossier.
@@ -442,6 +443,54 @@ nobody deletes a numbered dossier.
   member of another workspace included, gets not found, in the words a dossier that never was gets.
   Light, dark and system themes, as the `/ask` pages.
 - **Without a database**, in development, both pages play a demo dossier.
+
+### The Outbox tab (PRD 251)
+
+A person answers the PRD's outbox questions on `/prd/<id>?tab=outbox`, beside what they are about,
+as well as on the feature pull request or at the end of `/omni:yolo` (ADR-0048). Every door ends as
+the person's own reply on the feature pull request, so `/omni:yolo-fix` settles it like any other.
+
+- **What it shows** is the latest outbox the omni-loop App sent: the open questions (a decision card
+  with its options as a radio group, A marked `built · recommended`, an optional reason, its
+  `bears-on` chips and a details disclosure; a human-action card with its steps, then **Done** or
+  **Not done**, which needs a reason), each pending answer on its card (what it said, who, where and
+  when; the latest answer wins), then two collapsed groups: *Adopted unless you object*, each with
+  **Object**, and *Settled*. Item text is rendered with the dossier's markdown renderer, raw HTML off.
+- **The context rail.** On a wide screen, the questions sit beside a rail that switches between
+  Before/after (the sandboxed frame), Spec and Brainstorm (the dossier's brainstorm rounds). On a tall
+  one the rail is a Context disclosure above the questions, closed at first.
+- **The toolbar.** **Select every recommendation** picks A on every open decision and never marks a
+  human action done. **Send n answers** posts the picks. Picks survive a reload (the browser's
+  storage, a convenience only).
+- **The states:** no outbox yet; nothing waiting on you; read-only once the pull request merged or
+  closed (what was still open was adopted); the outbox out of reach (the other tabs unchanged); and,
+  without a database, a demo outbox with Send off.
+
+**Send** posts the reply as the person, never as the App's bot:
+
+1. `POST /api/outbox/send` (`src/outbox/send.ts`), as the signed-in person, checks each pick against
+   the stored outbox. A pick whose question was settled meanwhile is dropped: the tab names it and
+   offers to send the rest. The kit's reply writer writes the reply, and it is recorded as a send.
+2. The person goes through GitHub's authorisation of the omni-loop App (`GITHUB_APP_CLIENT_ID`), whose
+   `state` names the send and carries a nonce, also held in a short-lived, http-only cookie. A person
+   who authorised it before comes straight back.
+3. `/prd/github/callback` checks the nonce and that the send is the caller's and not yet posted,
+   trades the code for a user token (`GITHUB_APP_CLIENT_SECRET`), posts the reply once, drops the
+   token (never stored, logged or sent to the browser), records the comment's link and author, or the
+   error, and goes back to the tab: *Sent as @login*, the link, and `/omni:yolo-fix <n>` to copy.
+   GitHub brings the person back to the host they left from, so only a host listed as a callback URL
+   in the App's settings can send; a preview deployment cannot.
+4. An author GitHub does not list as `OWNER`, `MEMBER` or `COLLABORATOR` is reported: `omni replies`
+   will not count that reply. Any failure posts nothing and keeps the picks.
+
+**The routes.**
+
+| Route | What it does |
+|---|---|
+| `POST /api/outbox` | The omni-loop App's relay (`src/outbox/api.ts`). Checks the size (2 MiB, 413), the signature (`X-Omni-Signature: sha256=<HMAC-SHA256 of the raw body>` keyed with `OMNI_OUTBOX_SECRET`, in constant time, 401) and the shape (400); stores the outbox through `dossier_outbox_put()` with the service role, finding or creating the dossier by its key; keeps only a newer evaluation (`stale: true`); 404 when no workspace owns the repository's organisation, 503 without a database or a secret. Answers `{ id, url, stale }`, `url` the Outbox tab. |
+| `POST /api/outbox/send` | Send's first half, above. |
+| `GET /prd/github/callback` | Send's second half, above. |
+| `/prd/at/<owner>/<repo>/<n>` | The short address the outbox comment links: redirects to that PRD's Outbox tab as the signed-in person, or not found (a dossier of another workspace included). Signed out, the sign-in card, back through `/prd/at/<owner>/<repo>/<n>/callback`. |
 
 **The planet's DOSSIER tab.** The planet screen's fifth tab, after LOG. A planet's dossier is the one
 whose home repository is the workspace's plan repository (`<github_org>/<plan_repo>`) and whose number
@@ -585,13 +634,24 @@ never loads the demo seed.
    outside the Root Directory" on (the app imports `game/` and `packages/`). Framework and region
    come from `vercel.json`.
 2. Environment variables, for Production and Preview: `NEXT_PUBLIC_SUPABASE_URL` =
-   `https://<ref>.supabase.co` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` = the publishable key. Do not add
-   the secret key. `NEXT_PUBLIC_*` values are inlined at build time: redeploy after changing them.
+   `https://<ref>.supabase.co` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` = the publishable key. Never give
+   the secret key a `NEXT_PUBLIC_` name. `NEXT_PUBLIC_*` values are inlined at build time: redeploy after changing them.
    Without them the deployment stays closed (nobody can enter); it never falls back to the demo.
    Optionally `OPENROUTER_API_KEY`, an [OpenRouter](https://openrouter.ai) key, server only: ask mode
    then sorts each question into one of six categories (business, product, UX/UI, architecture,
    harness, other) a moment after it is asked. Without it, questions stay unsorted and nothing fails;
    anyone in the workspace can still sort them on the page.
+   For the Outbox tab (PRD 251), four server-only variables, for Production:
+   - `SUPABASE_SERVICE_ROLE_KEY` — the secret key; only `/api/outbox` uses it, to call
+     `dossier_outbox_put()`;
+   - `OMNI_OUTBOX_SECRET` — the secret the omni-loop App signs its sends with, the same value as on
+     the App's project ([`apps/omni-app/README.md`](../omni-app/README.md));
+   - `GITHUB_APP_CLIENT_ID` and `GITHUB_APP_CLIENT_SECRET` — the omni-loop App's Client ID and a client
+     secret generated on its page, for Send. Send works only on a host the App lists as a callback URL
+     (`https://<host>/prd/github/callback`).
+
+   Without the first two, `/api/outbox` answers 503 and the tab keeps saying no outbox yet; without
+   the last two, Send is off. `.env.example` does not list the last three yet.
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
    arcade still plays its attract mode and says the galaxy is out of reach.
 
@@ -686,6 +746,18 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
   each kind, its question counts and its last activity. PRD 144's access rules decide what comes
   back. `supabase/checks/dossiers.sql` proves the dossiers' rules on every pull request that touches
   `supabase/`.
+- `dossier_outboxes` (PRD 251): the latest outbox of each dossier's feature pull request, as the
+  omni-loop App sent it (`pr_number`, `pr_url`, `head_sha`, `state` `open`, `merged` or `closed`, the
+  `outbox` itself, `evaluated_at`, `received_at`). Only `dossier_outbox_put()`, security definer and
+  granted to the service role alone, writes it: it finds or creates the dossier by its key, under a
+  lock, and refuses an evaluation older than the stored one. A member of the dossier's workspace reads
+  it; nobody else.
+- `outbox_sends` (PRD 251): each reply the page posts as a person (`reply`, the nonce's hash, then
+  `posted_at`, `comment_url`, `login`, `counted` or `error`). Its owner, a member of the dossier's
+  workspace, inserts it and reads it, and records its outcome once through `outbox_send_done()`.
+  Nobody else reads it, and nobody deletes it. `dossier_list()` gains `open_questions`: the open items
+  of the dossier's outbox while its pull request is open, 0 otherwise.
+  `supabase/checks/outbox_answers.sql` proves both tables' rules in the `supabase` workflow.
 - Row-level security, by membership (`is_member(workspace)`): a member reads their workspaces,
   their own memberships, and their workspace's sectors, fleets, players, ledger, XP and high
   scores, and nothing of any other workspace. A member with GitHub linked inserts their own player
