@@ -1,11 +1,13 @@
 'use client';
 // HOME's one client component (PRD 261): every interaction on the page, and nothing else ships
 // JavaScript. It listens on the whole page for Enter and the Konami code, makes a click on any
-// PRESS START (an element carrying `data-press-start`) start the game, and flashes CHEAT ACTIVATED!
+// PRESS START (an element carrying `data-press-start`) start the game, flips a trading card on a
+// click (spreads/flip.ts), and flashes CHEAT ACTIVATED!
 // Without JavaScript, PRESS START is still a plain link to /play.
 import { useEffect, useRef, useState } from 'react';
 import { play } from '../arcade/sound';
 import { konami } from './konami';
+import { flipCard } from './spreads/flip';
 import { PRESS_START_ATTR, pressStart, startsOnKey } from './start';
 
 /** How long CHEAT ACTIVATED! shows before the sound and the game. */
@@ -51,6 +53,7 @@ export function Controls() {
     const onClick = (e: MouseEvent) => {
       if (e.defaultPrevented || e.button !== 0 || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
       const target = e.target instanceof Element ? e.target : null;
+      if (flipCard(target)) return;
       if (!target?.closest(`[${PRESS_START_ATTR}]`)) return;
       e.preventDefault();
       start();

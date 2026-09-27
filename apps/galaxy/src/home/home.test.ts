@@ -11,6 +11,8 @@ const supabase = vi.hoisted(() => ({
   exchange: vi.fn(async () => ({ error: null as null | { message: string } })),
 }));
 const afterSignIn = vi.hoisted(() => vi.fn(async () => ['signed_in', '1'] as [string, string]));
+// The high scores as the build would count them: two counters read, one out of reach.
+const highScores = vi.hoisted(() => vi.fn(() => ({ prdsShipped: 21, slicesMerged: 134, decisionsAdopted: '—' as const })));
 
 vi.mock('server-only', () => ({}));
 vi.mock('../data/supabase-server', () => ({
@@ -20,6 +22,7 @@ vi.mock('../data/supabase-server', () => ({
 }));
 vi.mock('../data/sign-in', () => ({ afterSignIn, joinBeforeIssue: () => { throw new Error('not in this test'); } }));
 vi.mock('../data/workspace', () => ({ joinByDomain: () => { throw new Error('not in this test'); } }));
+vi.mock('./scores', async (actual) => ({ ...(await actual<typeof import('./scores')>()), countHighScores: highScores }));
 vi.mock('../ask/cli-code-live', () => ({ cliCallbackDeps: () => { throw new Error('not in this test'); } }));
 
 const ENV = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'OMNI_LOOP_DEMO'] as const;
@@ -34,7 +37,8 @@ afterEach(() => {
   for (const k of ENV) if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k];
 });
 
-const text = (html: string) => html.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+const text = (html: string) => html.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  .replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 
 describe('HOME at /', () => {
   const render = async () => {
@@ -120,17 +124,18 @@ describe('the poster', () => {
     expect(html).toMatch(/class="home-stars"[^>]*aria-hidden="true"/);
   });
 
-  it('shows a sign-up button that is disabled, says coming soon, and goes nowhere', async () => {
+  it('shows sign-up buttons that are disabled, say coming soon, and go nowhere: the poster\'s and the order form\'s', async () => {
     const html = await render();
     const buttons = [...html.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)].map(([b]) => b);
     const signUp = buttons.filter((b) => /SIGN UP WITH GITHUB/.test(b));
-    expect(signUp).toHaveLength(1);
-    const [button] = signUp;
-    expect(text(button)).toBe('SIGN UP WITH GITHUB · COMING SOON');
-    expect(button).toMatch(/<button [^>]*disabled=""/);
-    expect(button).toMatch(/type="button"/);
-    expect(/aria-label="([^"]*)"/.exec(button)?.[1]).toMatch(/coming soon/i);
-    expect(button).not.toMatch(/href=|formaction=|onclick=/i);
+    expect(signUp).toHaveLength(2);
+    for (const button of signUp) {
+      expect(text(button)).toBe('SIGN UP WITH GITHUB · COMING SOON');
+      expect(button).toMatch(/<button [^>]*disabled=""/);
+      expect(button).toMatch(/type="button"/);
+      expect(/aria-label="([^"]*)"/.exec(button)?.[1]).toMatch(/coming soon/i);
+      expect(button).not.toMatch(/href=|formaction=|onclick=/i);
+    }
   });
 
   it('marks PRESS START for the controls, and keeps it a plain link to /play', async () => {
@@ -156,6 +161,103 @@ describe('the poster', () => {
     for (const rest of ['home-kicker', 'home-pitch', 'home-quote', 'home-spokes', 'home-planet']) {
       expect(order(rest), rest).toBeGreaterThan(order('home-poster .home-start'));
     }
+  });
+});
+
+// The magazine spreads under the poster (s5): the strategy guide, the great stuff, the high scores,
+// the fleets' trading cards and the order form, in that order.
+describe('the spreads', () => {
+  const render = async () => {
+    const { Home } = await import('./Home');
+    return renderToStaticMarkup(Home());
+  };
+  const STAGES = [
+    ['1-1', 'BRAINSTORM', 'You and Claude turn an idea into an approved PRD.'],
+    ['1-2', 'PLAN', 'The PRD is cut into thin slices, grouped in waves.'],
+    ['1-3', 'WAVES', 'One agent per slice, each in its own worktree, test-first, each with its own pull request.'],
+    ['1-4', 'OUTBOX', 'Every decision taken without asking is written down; you answer once, at the end.'],
+    ['1-5', 'SHIP', 'The feature pull request is ready, and a person merges it.'],
+    ['★ BONUS', 'KNOWLEDGE', 'Merged decisions land in the knowledge base, so the next loop knows more.'],
+  ];
+  const BULLETS = [
+    'omni invade reads a repository and writes its playbook.',
+    'Never merges into main : a person always does.',
+    'Ask mode puts Claude\'s questions on a web page.',
+    'The knowledge graph reads the registers as one map.',
+    'The galaxy : every PRD a planet, every team a fleet.',
+  ];
+
+  it('come under the poster, in the spec\'s order', async () => {
+    const page = text(await render());
+    const order = ['JOIN THE LOOP!', 'STRATEGY GUIDE', 'PLUS ALL OF THIS GREAT STUFF!', 'HIGH SCORES', 'COLLECT ALL THE FLEETS!', 'TO JOIN INSTANTLY: SIGN UP WITH GITHUB']
+      .map((line) => page.toUpperCase().indexOf(line));
+    expect(order.every((at) => at >= 0), String(order)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+
+  it('give each spread its own heading, under the page\'s one headline', async () => {
+    const html = await render();
+    expect(html.match(/<h2\b/g)).toHaveLength(5);
+  });
+
+  it('walk the strategy guide\'s six stages in order, with OmniMan running the path', async () => {
+    const html = await render();
+    const page = text(html);
+    const at = STAGES.map(([level, name, line]) => {
+      expect(page, name).toContain(`${level} ${name} ${line}`);
+      return page.indexOf(`${level} ${name}`);
+    });
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+    expect(html).toMatch(/<[a-z]+ [^>]*data-pose="omni-run"[^>]*>/);
+  });
+
+  it('list the five great-stuff bullets', async () => {
+    const html = await render();
+    const items = [...(/<ul class="home-stuff"[\s\S]*?<\/ul>/.exec(html)?.[0] ?? '').matchAll(/<li>[\s\S]*?<\/li>/g)].map(([li]) => text(li));
+    expect(items).toEqual(BULLETS);
+  });
+
+  it('show the three high scores as the build counted them, and — for one it could not read', async () => {
+    const html = await render();
+    const scores = [...html.matchAll(/<div class="home-score">([\s\S]*?)<\/div>/g)].map(([, s]) => text(s));
+    expect(scores).toEqual(['PRDS SHIPPED 21', 'SLICES MERGED 134', 'DECISIONS ADOPTED —']);
+  });
+
+  it('deal one flipping card per built-in fleet that is not retired, each a button', async () => {
+    const { demoFleets } = await import('../data/load-galaxy');
+    const html = await render();
+    const cards = [...html.matchAll(/<button [^>]*class="home-card"[^>]*>[\s\S]*?<\/button>/g)].map(([b]) => b);
+    const live = demoFleets().filter((f) => !f.retired);
+    expect(cards).toHaveLength(live.length);
+    live.forEach((f, i) => {
+      expect(text(cards[i])).toContain(f.label);
+      expect(text(cards[i])).toContain(f.motto);
+      expect(cards[i]).toMatch(/type="button"/);
+      expect(cards[i]).toMatch(/aria-pressed="false"/);
+      expect(cards[i]).toContain('data-flip=""');
+      expect(cards[i]).toContain(`--fleet:${f.color}`);
+    });
+    expect(text(html)).not.toContain('INVINCIBLE');
+  });
+
+  it('close on the order form: the sign-up, PRESS START and the fine print', async () => {
+    const html = await render();
+    const form = /<div class="home-order"[\s\S]*$/.exec(html)?.[0] ?? '';
+    expect(form).toMatch(/<button [^>]*disabled=""[^>]*>[\s\S]*?SIGN UP WITH GITHUB/);
+    expect(form).toMatch(/<a [^>]*href="\/play"[^>]*>PRESS START<\/a>/);
+    expect(text(form)).toContain('Omni Loop runs on Claude Code. Invite-only while in beta.');
+  });
+
+  it('name no Nintendo game, console or mark', async () => {
+    const page = text(await render());
+    expect(page).not.toMatch(/nintendo|snes|super famicom|star fox|mario|zelda|metroid|game boy/i);
+  });
+
+  it('flip under reduced motion with a crossfade, never a turn', () => {
+    const css = readFileSync(new URL('./home.css', import.meta.url), 'utf8');
+    const still = [...css.matchAll(/@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/g)].map(([, b]) => b).join('\n');
+    expect(still).toMatch(/\.home-card-in[^{]*\{[^}]*transform: none/);
+    expect(still).toMatch(/opacity/);
   });
 });
 
