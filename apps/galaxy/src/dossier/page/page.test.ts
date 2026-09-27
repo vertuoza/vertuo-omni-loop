@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
+import { NextRequest } from 'next/server';
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
+import { outboxRow } from '../../outbox/fixtures';
 import { SANDBOX_CSP } from './sandbox';
 
 // /prd/<id> and its sandboxed route (PRD 216), called as the server calls them, reading as the viewer
@@ -37,6 +39,8 @@ const { default: Page } = await import('../../../app/prd/[id]/page.tsx');
 const { default: HistoryPage } = await import('../../../app/prd/page.tsx');
 const { default: Layout } = await import('../../../app/prd/layout.tsx');
 const { GET: sandboxRoute } = await import('../../../app/prd/[id]/v/[version]/page/route.ts');
+const { default: ShortPage } = await import('../../../app/prd/at/[owner]/[repo]/[n]/page.tsx');
+const { GET: shortCallback } = await import('../../../app/prd/at/[owner]/[repo]/[n]/callback/route.ts');
 
 let numbered = '';
 let draft = '';
@@ -259,6 +263,109 @@ describe('the history', () => {
   });
 });
 
+describe('the Outbox tab (PRD 251)', () => {
+  const seed = (more: Parameters<typeof outboxRow>[0] = {}) => given.fake.seedOutbox(outboxRow({ dossier_id: numbered, ...more }));
+
+  it('shows a member the outbox their feature pull request asks, n open in its label', async () => {
+    seed();
+    given.token = 'bob';
+    const page = await html(numbered, { tab: 'outbox' });
+    expect(page).toContain('Outbox<small>2 open</small>');
+    expect(page).toContain('Question 1</h3>');
+    expect(page).toContain('Question 2</h3>');
+    expect(page).toContain('Sending from this page is not open yet: reply on the pull request.');
+    expect(await html(numbered)).toContain('Outbox<small>2 open</small>');
+  });
+
+  it('says there is no outbox yet before the App sent one', async () => {
+    given.token = 'bob';
+    expect(await html(numbered, { tab: 'outbox' })).toContain('No outbox yet.');
+  });
+
+  it('is not found for a member of another workspace', async () => {
+    seed();
+    given.token = 'carl';
+    await expect(open(numbered, { tab: 'outbox' })).rejects.toMatchObject(notFound);
+  });
+
+  it('frames the latest before/after page beside the questions, and renders the latest spec on Spec', async () => {
+    seed();
+    given.token = 'bob';
+    expect(await html(numbered, { tab: 'outbox' })).toContain(`src="/prd/${numbered}/v/1/page"`);
+    const spec = await html(numbered, { tab: 'outbox', context: 'spec' });
+    expect(spec).toContain('<h1>Team inbox</h1>');
+    expect(spec).toContain('&lt;b&gt;raw&lt;/b&gt;');
+  });
+
+  it('plays the demo outbox in development, Send off and saying so', async () => {
+    given.mode = 'demo';
+    const page = await html('anything', { tab: 'outbox' });
+    expect(page).toContain('Outbox<small>2 open</small>');
+    expect(page).toContain('A demo outbox: Send is off here.');
+    expect(page).toContain('Adopted unless you object · 1');
+    expect(await html('anything', { tab: 'outbox', context: 'spec' })).toContain('<h1>Ask mode</h1>');
+  });
+
+  it('shows n open in the history, and Needs an answer keeps only those', async () => {
+    seed();
+    given.token = 'bob';
+    const list = async (query: Record<string, string> = {}) =>
+      renderToStaticMarkup((await HistoryPage({ searchParams: Promise.resolve(query) })) as ReactElement);
+    expect(await list()).toContain('<span class="dossier-history-open">2 open</span>');
+    const needs = await list({ needs: 'answer' });
+    expect(needs).toContain(`href="/prd/${numbered}"`);
+    expect(needs).not.toContain(`href="/prd/${draft}"`);
+    seed({ state: 'merged' });
+    expect(await list()).not.toContain('dossier-history-open');
+  });
+});
+
+describe('the short address, /prd/at/<owner>/<repo>/<n> (PRD 251)', () => {
+  const at = async (owner: string, repo: string, n: string, query: Record<string, string> = {}) =>
+    (await ShortPage({ params: Promise.resolve({ owner, repo, n }), searchParams: Promise.resolve(query) })) as ReactElement;
+  const redirected = (to: string) => ({ digest: expect.stringContaining(to) });
+
+  it('redirects a member to the dossier\'s Outbox tab, whatever the case of the repository', async () => {
+    given.token = 'bob';
+    await expect(at('acme', 'widgets', '7')).rejects.toMatchObject(redirected(`/prd/${numbered}?tab=outbox`));
+    await expect(at('Acme', 'Widgets', '7')).rejects.toMatchObject(redirected(`/prd/${numbered}?tab=outbox`));
+  });
+
+  it('is not found for a member of another workspace, a PRD with no dossier, or an address that names none', async () => {
+    given.token = 'carl';
+    await expect(at('acme', 'widgets', '7')).rejects.toMatchObject(notFound);
+    given.token = 'bob';
+    await expect(at('acme', 'widgets', '8')).rejects.toMatchObject(notFound);
+    await expect(at('acme', 'gadgets', '7')).rejects.toMatchObject(notFound);
+    for (const [owner, repo, n] of [['acme', 'widgets', '0'], ['acme', 'widgets', 'seven'], ['..', 'widgets', '7'], ['a%2Fb', 'widgets', '7']]) {
+      await expect(at(owner, repo, n), `${owner}/${repo}/${n}`).rejects.toMatchObject(notFound);
+    }
+  });
+
+  it('asks someone signed out to sign in, coming back to the same address', async () => {
+    const page = renderToStaticMarkup(await at('acme', 'widgets', '7', { signin_error: 'Not allowed' }));
+    expect(page).toContain('Sign in to read this PRD');
+    expect(page).toContain('Not allowed');
+    const back = await shortCallback(
+      new NextRequest('https://omni.example/prd/at/acme/widgets/7/callback?error=denied'),
+      { params: Promise.resolve({ owner: 'acme', repo: 'widgets', n: '7' }) },
+    );
+    expect(back.headers.get('location')).toBe('https://omni.example/prd/at/acme/widgets/7?signin_error=denied');
+  });
+
+  it('says the database could not answer when it fails', async () => {
+    given.token = 'bob';
+    given.fake.state.fail = { message: 'down' };
+    expect(renderToStaticMarkup(await at('acme', 'widgets', '7'))).toContain('The dossier database could not answer');
+  });
+
+  it('finds the demo dossier in development, and nothing else', async () => {
+    given.mode = 'demo';
+    await expect(at('vertuoza', 'vertuo-omni-loop', '71')).rejects.toMatchObject(redirected('?tab=outbox'));
+    await expect(at('vertuoza', 'vertuo-omni-loop', '72')).rejects.toMatchObject(notFound);
+  });
+});
+
 describe('the sandboxed route', () => {
   const serve = (id: string, version: string) =>
     sandboxRoute(new Request(`https://omni.example/prd/${id}/v/${version}/page`) as never, { params: Promise.resolve({ id, version }) });
@@ -308,8 +415,11 @@ describe('the layout', () => {
   });
 });
 
-describe('the stylesheet', () => {
-  const css = readFileSync(new URL('./dossier.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+describe.each([
+  ['dossier.css', new URL('./dossier.css', import.meta.url)],
+  ['outbox.css (PRD 251)', new URL('../../outbox/outbox.css', import.meta.url)],
+])('the stylesheet %s', (_, file) => {
+  const css = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 
   it('names no colour of its own: every colour is a token, so light, dark and system follow the switch', () => {
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);

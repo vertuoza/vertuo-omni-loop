@@ -106,3 +106,18 @@ describe('the sign-in', () => {
     expect(html).not.toContain('Sign in to read this PRD');
   });
 });
+
+describe('the open questions (PRD 251)', () => {
+  const rows = [row('00000000-0000-4000-8000-0000000000d4', { prd: 251, title: 'Answer the outbox anywhere', open_questions: 2 }), ...ROWS];
+
+  it('shows n open on the row, and a Needs an answer box in the filters', () => {
+    const html = history({}, rows);
+    expect(html).toContain('<span class="dossier-history-open">2 open</span>');
+    expect(html.match(/dossier-history-open/g)).toHaveLength(1);
+    expect(html).toContain('<input type="checkbox" name="needs" value="answer"/><span>Needs an answer</span>');
+  });
+
+  it('keeps the box ticked when the address asks for it', () => {
+    expect(history({ needsAnswer: true }, rows)).toContain('<input type="checkbox" name="needs" checked="" value="answer"/>');
+  });
+});

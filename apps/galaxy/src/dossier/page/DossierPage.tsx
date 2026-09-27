@@ -1,3 +1,4 @@
+import { OutboxTab } from '../../outbox/OutboxTab';
 import type { DossierKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
 import { CopyLink } from './CopyLink';
@@ -14,11 +15,15 @@ import { dossierPath, TAB_LABELS, type DossierView } from './view';
 // artifact tab with a version has its version picker; one with none says so. Questions lists the rounds
 // that shaped it, and its label counts those answered out of those asked. Rendered on the server: the
 // tabs and the picker are links and a GET form, so it all works before any script runs.
+// The Outbox tab (PRD 251) is src/outbox/OutboxTab.tsx: its questions, and the context rail beside them.
 
 type Props = {
   view: DossierView;
-  /** The shown version of the Spec or Plan, rendered; null on Before/after, or when it could not be read. */
+  /** The shown version of the Spec or Plan, rendered — on the Outbox tab, the latest spec when its rail
+   * shows Spec; null on Before/after, or when it could not be read. */
   markdown: RenderedMarkdown | null;
+  /** Why the Outbox tab's Send is off, or null when it may send. */
+  sendOff?: string | null;
   /** Where the browser deletes a draft from; null when this deployment has no database (the demo). */
   supabase: { url: string; key: string } | null;
 };
@@ -29,9 +34,10 @@ const EMPTY: Record<DossierKind, string> = {
   plan: 'The plan has no version yet.',
 };
 
-function Pane({ view, markdown }: Pick<Props, 'view' | 'markdown'>) {
+function Pane({ view, markdown, sendOff = null }: Pick<Props, 'view' | 'markdown' | 'sendOff'>) {
   const { shown, tab } = view;
   if (tab === 'questions') return <QuestionsPane questions={view.questions} />;
+  if (tab === 'outbox') return view.outbox ? <OutboxTab id={view.id} pane={view.outbox} spec={markdown} sendOff={sendOff} /> : null;
   if (!shown) {
     return (
       <p className="dossier-empty">
@@ -69,7 +75,7 @@ function Pane({ view, markdown }: Pick<Props, 'view' | 'markdown'>) {
   );
 }
 
-export function DossierPage({ view, markdown, supabase }: Props) {
+export function DossierPage({ view, markdown, supabase, sendOff }: Props) {
   return (
     <div className="dossier">
       <header className="dossier-head">
@@ -97,7 +103,7 @@ export function DossierPage({ view, markdown, supabase }: Props) {
         ))}
       </nav>
       <section className="dossier-pane" aria-label={TAB_LABELS[view.tab]}>
-        <Pane view={view} markdown={markdown} />
+        <Pane view={view} markdown={markdown} sendOff={sendOff} />
       </section>
     </div>
   );

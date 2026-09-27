@@ -687,12 +687,14 @@ function adoptedQuestionLines(entry, number, round, banter) {
  * question carries an intro under its heading and a punchline after its question (PRD #50 s2), its
  * item's own or the kit's pool's (see {@link questionBanter}). With nothing open, the header
  * reads "Nothing needs your decision" when something is adopted, "Every question is answered" when
- * something is only answered, and "No open items." otherwise. Then, when `answered` is non-empty, an
+ * something is only answered, and "No open items." otherwise. Under the header, when
+ * {@link omniPageLink} gives one for `prd`, the line pointing at the PRD's questions on the Omni page
+ * (PRD 251). Then, when `answered` is non-empty, an
  * **Answered** section: each settled entry's question, the reply quoted, who gave it, when, and the
  * outcome. Finally the hidden numbering marker, always present. Pure — no GitHub call, no filesystem
  * access.
  *
- * @param {{ items: object[], adopted?: object[], answered?: object[], numbering: { number: number, id: string, since: string }[], roundMarkers?: Map<number, number>, ctx: object }} args
+ * @param {{ items: object[], adopted?: object[], answered?: object[], numbering: { number: number, id: string, since: string }[], roundMarkers?: Map<number, number>, prd?: number | null, ctx: object }} args
  */
 export function formatOutboxPrComment({
   items,
@@ -700,6 +702,7 @@ export function formatOutboxPrComment({
   answered = [],
   numbering,
   roundMarkers = new Map(),
+  prd = null,
   ctx,
 }) {
   const sorted = sortItems(items);
@@ -733,6 +736,10 @@ export function formatOutboxPrComment({
   } else {
     lines.push('No open items.', '');
   }
+  // PRD 251: the Omni page's line sits under the header — after the marker, a blank line, the
+  // header and its blank line.
+  const page = omniPageLink(prd, ctx);
+  if (page) lines.splice(4, 0,`Answer here, or on the Omni page: ${page}`, '');
 
   if (adopted.length > 0) {
     lines.push(
@@ -768,6 +775,18 @@ export function formatOutboxPrComment({
   lines.push(formatNumbersMarker(numbering, ctx.markers));
 
   return lines.join('\n');
+}
+
+/**
+ * The short address of the PRD's questions on the Omni page (PRD 251): `<ask.url>/prd/at/<owner>/
+ * <repo>/<prd>`, which the page redirects to the PRD's Outbox tab. `null` — no line — unless
+ * `answers.enabled` is on, `ask.url` is set, the repository names its slug and the PRD is known. The
+ * kit names only the address a repository configured, never the page behind it. Pure.
+ */
+export function omniPageLink(prd, ctx) {
+  const { answers, ask, repo } = ctx.config;
+  if (!answers?.enabled || !ask?.url || !repo?.slug || !Number.isInteger(prd) || prd < 1) return null;
+  return `${ask.url.replace(/\/+$/, '')}/prd/at/${repo.slug}/${prd}`;
 }
 
 /**
@@ -839,7 +858,15 @@ export function upsertOutboxPrComment({ prd, ctx, now = () => new Date().toISOSt
     comments.filter((comment) => comment.id !== existing?.id),
     ctx.markers,
   );
-  const body = formatOutboxPrComment({ items, adopted, answered, numbering, roundMarkers, ctx });
+  const body = formatOutboxPrComment({
+    items,
+    adopted,
+    answered,
+    numbering,
+    roundMarkers,
+    prd,
+    ctx,
+  });
 
   if (existing) {
     const updated = client.updateComment(existing.id, body);

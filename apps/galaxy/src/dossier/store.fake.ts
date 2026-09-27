@@ -33,6 +33,10 @@
 // a PRD of its workspace's plan repository, its planet's regions as <github_org>/<region>, in lower case,
 // once each, in order), its latest version of each kind, its rounds asked and answered, and its last
 // activity (its opening, numbering, versions and rounds asked or answered), newest first.
+//
+// The outboxes (PRD 251): each dossier's latest outbox, seeded by a test (seedOutbox) as the omni-loop
+// App's send stores it, read by a member of the dossier's workspace and nobody else, and dossier_list()'s
+// open_questions as supabase/migrations/20260929090000_outbox_answers.sql counts them.
 import { createHash } from 'node:crypto';
 import {
   ARTIFACT_MAX_BYTES, DOSSIER_KINDS, TITLE_MAX, type DossierKind, type DossierListRow, type DossierRoundRow, type LatestVersion, type RoundRule,
@@ -68,6 +72,11 @@ export type FakeAskRound = {
   category: string | null; category_by: string | null; prd: number | null; skill: string | null;
   created_at: string; answered_at: string | null;
 };
+/** A dossier's latest outbox (PRD 251), as supabase/migrations/20260929090000_outbox_answers.sql keeps it. */
+export type FakeOutboxRow = {
+  dossier_id: string; pr_number: number; pr_url: string; head_sha: string; state: 'open' | 'merged' | 'closed';
+  outbox: unknown; evaluated_at: string; received_at: string;
+};
 /** A ledger event (PRD 100), as much of it as the history reads. */
 export type FakeLedgerEvent = { workspace_id: string; type: string; planet: number; region: string | null };
 
@@ -86,6 +95,8 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     ledger_events: [] as FakeLedgerEvent[],
     /** Each workspace's plan repository, a bare name, by workspace id. */
     plan_repos: {} as Record<string, string>,
+    /** The latest outbox of each dossier (PRD 251), as dossier_outbox_put() stores it. */
+    dossier_outboxes: [] as FakeOutboxRow[],
   };
   const state = { fail: null as Failure | null, calls: 0 };
   let next = 0;
@@ -214,7 +225,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
    * their own draft (its versions go with it), and no other delete removes a row. Only the steps the
    * page's reads take: select, eq, order, maybeSingle, delete.
    */
-  function query(me: FakeAccount | null, table: 'dossiers' | 'dossier_versions') {
+  function query(me: FakeAccount | null, table: 'dossiers' | 'dossier_versions' | 'dossier_outboxes') {
     let columns: string[] | null = null;
     let removing = false;
     const filters: Array<(row: Row) => boolean> = [];
@@ -243,6 +254,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
       const gone = new Set(rows.filter(deletable).map((row) => row.id));
       tables.dossiers = tables.dossiers.filter((d) => !gone.has(d.id));
       tables.dossier_versions = tables.dossier_versions.filter((v) => !gone.has(v.dossier_id));
+      tables.dossier_outboxes = tables.dossier_outboxes.filter((o) => !gone.has(o.dossier_id));
       return { data: columns ? rows.filter((row) => gone.has(row.id)).map(project) : null, error: null };
     }
 
@@ -297,6 +309,13 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     }).sort((a, b) => at(a.created_at) - at(b.created_at) || a.round_id.localeCompare(b.round_id));
   }
 
+  /** open_questions (PRD 251): the stored outbox's open items while its pull request is open, else 0. */
+  function openQuestions(dossierId: string): number {
+    const stored = tables.dossier_outboxes.find((o) => o.dossier_id === dossierId);
+    const open = (stored?.outbox as { open?: unknown } | undefined)?.open;
+    return stored?.state === 'open' && Array.isArray(open) ? open.length : 0;
+  }
+
   /** dossier_list(): each dossier `me` may read, or only `dossierId`'s, as the history lists it. */
   function list(me: FakeAccount | null, dossierId: unknown): DossierListRow[] {
     if (!me) return [];
@@ -329,6 +348,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
         asked: asked.length,
         answered: asked.filter((r) => r.status === 'answered').length,
         last_activity: new Date(Math.max(...times.map((t) => Date.parse(t)))).toISOString(),
+        open_questions: openQuestions(d.id),
       };
     }).sort((a, b) => Date.parse(b.last_activity) - Date.parse(a.last_activity) || a.id.localeCompare(b.id));
   }
@@ -337,7 +357,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
   function client(token: string) {
     const me = accounts[token] ?? null;
     return {
-      from: (table: 'dossiers' | 'dossier_versions') => query(me, table),
+      from: (table: 'dossiers' | 'dossier_versions' | 'dossier_outboxes') => query(me, table),
       rpc: (name: string, args: Row) => Promise.resolve().then((): Result => {
         state.calls += 1;
         if (state.fail) return { data: null, error: state.fail };
@@ -400,5 +420,10 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     for (const region of regions) tables.ledger_events.push({ workspace_id: workspace, type: 'REGION_SURVEYED', planet: prd, region });
   }
 
-  return { tables, client, state, seedFromGithub, seedAsk, seedPlanet, sha256 };
+  /** A dossier's latest outbox, as the omni-loop App's last send stored it. */
+  function seedOutbox(row: FakeOutboxRow) {
+    tables.dossier_outboxes = [...tables.dossier_outboxes.filter((o) => o.dossier_id !== row.dossier_id), row];
+  }
+
+  return { tables, client, state, seedFromGithub, seedAsk, seedPlanet, seedOutbox, sha256 };
 }

@@ -10,26 +10,40 @@
 // asked: each question with its options, the answer, who answered and after how long, its category
 // (PRD 144), and whether the brainstorm or the delivery asked it. Its label counts the rounds answered
 // out of those asked.
+//
+// The Outbox tab (PRD 251) comes after Questions: the questions the PRD's feature pull request still
+// asks, beside a context rail — Before/after, Spec or Brainstorm, picked by `?context=` — and its
+// label says `n open`. Its cards are src/outbox/tab.ts's, built by the tab on the server: this model is
+// imported by a browser component too (DeleteDraft), so it holds the outbox as read, never the kit.
+import { openCount, type OutboxRead } from '../../outbox/count';
 import { readQuestions, shownLabel } from '../../ask/answer-model';
 import { CATEGORY_LABELS, isCategory, type Category } from '../../ask/classify';
 import { nameOf, type Member } from '../../ask/page/question';
 import { duration } from '../../ask/page/view';
 import { isDossierKind, type DossierKind, type DossierRoundRow, type DossierRow, type DossierVersionRow, type RoundRule } from '../store';
 
-/** The page's tabs: an artifact's, or the questions that shaped it. */
-export type DossierTab = DossierKind | 'questions';
+/** The page's tabs: an artifact's, the questions that shaped it, or those its outbox still asks. */
+export type DossierTab = DossierKind | 'questions' | 'outbox';
 
-/** The tabs, in order: the page to look at first, then what to read, then how it was decided. */
-export const TABS: readonly DossierTab[] = ['before-after', 'spec', 'plan', 'questions'];
+/** The tabs, in order: the page to look at first, then what to read, then how it was decided, then
+ * what is still to decide. */
+export const TABS: readonly DossierTab[] = ['before-after', 'spec', 'plan', 'questions', 'outbox'];
 
 export const TAB_LABELS: Readonly<Record<DossierTab, string>> = {
-  'before-after': 'Before/after', spec: 'Spec', plan: 'Plan', questions: 'Questions',
+  'before-after': 'Before/after', spec: 'Spec', plan: 'Plan', questions: 'Questions', outbox: 'Outbox',
 };
 
-const isDossierTab = (value: unknown): value is DossierTab => value === 'questions' || isDossierKind(value);
+const isDossierTab = (value: unknown): value is DossierTab => value === 'questions' || value === 'outbox' || isDossierKind(value);
 
-/** What the address picks: a tab, and a version of its artifact (null: the latest). */
-export type DossierPick = { tab: DossierTab; version: number | null };
+/** What the Outbox tab's context rail shows beside the questions. */
+export type ContextKind = 'before-after' | 'spec' | 'brainstorm';
+export const CONTEXTS: readonly ContextKind[] = ['before-after', 'spec', 'brainstorm'];
+export const CONTEXT_LABELS: Readonly<Record<ContextKind, string>> = { 'before-after': 'Before/after', spec: 'Spec', brainstorm: 'Brainstorm' };
+const isContext = (value: unknown): value is ContextKind => CONTEXTS.includes(value as ContextKind);
+
+/** What the address picks: a tab, a version of its artifact (null: the latest), and on the Outbox tab
+ * its context (Before/after when not given). */
+export type DossierPick = { tab: DossierTab; version: number | null; context?: ContextKind };
 
 type Query = Record<string, string | string[] | undefined>;
 
@@ -39,7 +53,12 @@ const VERSION = /^[1-9]\d{0,8}$/;
 export function readPick(query: Query): DossierPick {
   const tab = one(query.tab);
   const version = one(query.v);
-  return { tab: isDossierTab(tab) ? tab : 'before-after', version: version !== null && VERSION.test(version) ? Number(version) : null };
+  const context = one(query.context);
+  return {
+    tab: isDossierTab(tab) ? tab : 'before-after',
+    version: version !== null && VERSION.test(version) ? Number(version) : null,
+    ...(isContext(context) ? { context } : {}),
+  };
 }
 
 /** The page's own address, the one Copy link gives. */
@@ -48,10 +67,14 @@ export const dossierPath = (id: string) => `/prd/${encodeURIComponent(id)}`;
 /** Where a version of the before/after page is served, sandboxed. */
 export const sandboxPath = (id: string, number: number) => `${dossierPath(id)}/v/${number}/page`;
 
-function hrefOf(id: string, tab: DossierTab, version: number | null) {
+/** The dossier's Outbox tab, where /prd/at/… and the outbox route send people. */
+export const outboxPath = (id: string) => `${dossierPath(id)}?tab=outbox`;
+
+function hrefOf(id: string, tab: DossierTab, version: number | null, context: ContextKind | null = null) {
   const query = new URLSearchParams();
   if (tab !== 'before-after') query.set('tab', tab);
   if (version !== null) query.set('v', String(version));
+  if (context !== null && context !== 'before-after') query.set('context', context);
   return String(query) ? `${dossierPath(id)}?${query}` : dossierPath(id);
 }
 
@@ -82,6 +105,8 @@ export function versionSource(version: Pick<DossierVersionRow, 'source' | 'uploa
  * they are not given, or could not be read). */
 export type DossierRead = {
   dossier: DossierRow; versions: DossierVersionRow[]; members: Member[]; rounds: DossierRoundRow[] | null; repos?: string[] | null;
+  /** Its latest outbox (PRD 251); left out, it reads as none. */
+  outbox?: OutboxRead;
 };
 
 /** A tab and what its label adds: an artifact's latest version (`v3`), or the questions answered out
@@ -119,7 +144,27 @@ export type DossierView = {
   shown: VersionEntry | null;
   /** The questions that shaped it. */
   questions: QuestionsView;
+  /** On the Outbox tab: its questions and the context rail beside them; null on every other tab. */
+  outbox: OutboxPane | null;
 };
+
+/** One question the brainstorm asked, and its answer as given. */
+export type BrainstormAnswer = { question: string; answer: string | null };
+
+/** The context rail of the Outbox tab: its three switches, and what the current one shows. */
+export type ContextView = {
+  current: ContextKind;
+  links: Array<{ kind: ContextKind; label: string; href: string; current: boolean }>;
+  /** The latest before/after version's sandboxed route; null when there is none. */
+  frame: string | null;
+  /** The latest spec's version id, which the page reads and renders when Spec is current; null when none. */
+  specId: string | null;
+  /** The brainstorm's questions and answers; null when the rounds could not be read. */
+  brainstorm: BrainstormAnswer[] | null;
+};
+
+/** The Outbox tab: the outbox as read (src/outbox/tab.ts turns it into cards), and the rail. */
+export type OutboxPane = { read: OutboxRead; context: ContextView };
 
 /** One option of a question, as it was offered: its label without "(Recommended)", which becomes a
  * badge, and whether the answer chose it. */
@@ -201,12 +246,29 @@ export function questionsView(rows: DossierRoundRow[] | null, members: Member[])
   return { rounds, asked: rows.length, answered: rows.filter((row) => row.status === 'answered').length };
 }
 
-export function dossierView({ dossier, versions, members, rounds, repos }: DossierRead, me: string | null, pick: DossierPick): DossierView {
+function contextView(id: string, versions: DossierVersionRow[], questions: QuestionsView, current: ContextKind): ContextView {
+  const pages = versions.filter((v) => v.kind === 'before-after');
+  return {
+    current,
+    links: CONTEXTS.map((kind) => ({ kind, label: CONTEXT_LABELS[kind], href: hrefOf(id, 'outbox', null, kind), current: kind === current })),
+    frame: pages.length ? sandboxPath(id, pages.length) : null,
+    specId: versions.filter((v) => v.kind === 'spec').at(-1)?.id ?? null,
+    brainstorm: questions.rounds === null ? null : questions.rounds
+      .filter((round) => round.rule === 'brainstorm')
+      .flatMap((round) => round.questions.map((q) => ({ question: q.question, answer: q.answer }))),
+  };
+}
+
+export function dossierView(read: DossierRead, me: string | null, pick: DossierPick): DossierView {
+  const { dossier, versions, members, rounds, repos } = read;
   const ofKind = (kind: DossierKind) => versions.filter((v) => v.kind === kind);
   const tab = pick.tab;
-  const mine = tab === 'questions' ? [] : ofKind(tab);
+  const mine = tab === 'questions' || tab === 'outbox' ? [] : ofKind(tab);
   const questions = questionsView(rounds, members);
+  const outbox: OutboxRead = read.outbox ?? { row: null };
+  const open = openCount(outbox);
   const badgeOf = (kind: DossierTab) => {
+    if (kind === 'outbox') return open > 0 ? `${open} open` : null;
     if (kind !== 'questions') return ofKind(kind).length ? `v${ofKind(kind).length}` : null;
     return questions.asked ? `${questions.answered}/${questions.asked} answered` : null;
   };
@@ -243,5 +305,8 @@ export function dossierView({ dossier, versions, members, rounds, repos }: Dossi
     versions: entries,
     shown: entries.find((e) => e.current) ?? null,
     questions,
+    outbox: tab === 'outbox'
+      ? { read: outbox, context: contextView(dossier.id, versions, questions, pick.context ?? 'before-after') }
+      : null,
   };
 }

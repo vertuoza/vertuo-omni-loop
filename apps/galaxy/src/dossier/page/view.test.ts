@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
-import { dossierView, readPick, sandboxPath, shortDay, stamp, versionSource } from './view';
+import { outboxRow, STORED } from '../../outbox/fixtures';
+import type { OutboxRead } from '../../outbox/count';
+import { dossierView, readPick, sandboxPath, shortDay, stamp, versionSource, type DossierPick } from './view';
 
 // /prd/<id> (PRD 216), as pure functions of the rows the viewer may read, the workspace's members and
 // what the address picks: the header, the tabs, each artifact's versions, newest first, and the
@@ -114,18 +116,20 @@ describe('who may delete', () => {
 });
 
 describe('the tabs', () => {
-  it('reads Before/after, Spec, Plan, each with its latest version, then Questions, answered out of asked', () => {
+  it('reads Before/after, Spec, Plan, each with its latest version, then Questions, answered out of asked, then Outbox', () => {
     expect(view().tabs).toEqual([
       { kind: 'before-after', label: 'Before/after', badge: 'v2', href: `/prd/${ID}`, current: true },
       { kind: 'spec', label: 'Spec', badge: 'v3', href: `/prd/${ID}?tab=spec`, current: false },
       { kind: 'plan', label: 'Plan', badge: null, href: `/prd/${ID}?tab=plan`, current: false },
       { kind: 'questions', label: 'Questions', badge: '2/4 answered', href: `/prd/${ID}?tab=questions`, current: false },
+      { kind: 'outbox', label: 'Outbox', badge: null, href: `/prd/${ID}?tab=outbox`, current: false },
     ]);
   });
 
   it('counts no question when none was asked, or when they could not be read', () => {
-    expect(view(readPick({}), numbered, PIERRE.user_id, versions, []).tabs.at(-1)?.badge).toBeNull();
-    expect(view(readPick({}), numbered, PIERRE.user_id, versions, null).tabs.at(-1)?.badge).toBeNull();
+    const badge = (v: ReturnType<typeof view>) => v.tabs.find((t) => t.kind === 'questions')?.badge;
+    expect(badge(view(readPick({}), numbered, PIERRE.user_id, versions, []))).toBeNull();
+    expect(badge(view(readPick({}), numbered, PIERRE.user_id, versions, null))).toBeNull();
   });
 
   it('opens the tab the address names', () => {
@@ -259,5 +263,60 @@ describe('the words', () => {
 
   it('builds the sandboxed route of a version', () => {
     expect(sandboxPath(ID, 3)).toBe(`/prd/${ID}/v/3/page`);
+  });
+});
+
+describe('the Outbox tab (PRD 251)', () => {
+  const withOutbox = (pick: DossierPick, outbox: OutboxRead, asked: DossierRoundRow[] | null = rounds) =>
+    dossierView({ dossier: numbered, versions, members: MEMBERS, rounds: asked, outbox }, PIERRE.user_id, pick);
+  const badge = (v: ReturnType<typeof view>) => v.tabs.find((t) => t.kind === 'outbox')?.badge;
+
+  it('comes after Questions, with n open in its label, and the first tab is still Before/after', () => {
+    const v = withOutbox(readPick({}), { row: outboxRow() });
+    expect(v.tabs.map((t) => t.kind)).toEqual(['before-after', 'spec', 'plan', 'questions', 'outbox']);
+    expect(v.tab).toBe('before-after');
+    expect(badge(v)).toBe('2 open');
+  });
+
+  it('says nothing open when there is no outbox, nothing open, the read failed, or it merged', () => {
+    expect(badge(withOutbox(readPick({}), { row: null }))).toBeNull();
+    expect(badge(withOutbox(readPick({}), { row: outboxRow({ outbox: { ...STORED, open: [] } }) }))).toBeNull();
+    expect(badge(withOutbox(readPick({}), { failed: true }))).toBeNull();
+    expect(badge(withOutbox(readPick({}), { row: outboxRow({ state: 'merged' }) }))).toBeNull();
+  });
+
+  it('opens on ?tab=outbox, with its cards and the context rail; every other tab has none', () => {
+    const v = withOutbox(readPick({ tab: 'outbox' }), { row: outboxRow() });
+    expect(v.tab).toBe('outbox');
+    expect(v.versions).toEqual([]);
+    expect(v.shown).toBeNull();
+    expect(v.outbox?.read).toEqual({ row: outboxRow() });
+    expect(withOutbox(readPick({ tab: 'spec' }), { row: outboxRow() }).outbox).toBeNull();
+  });
+
+  it('switches its context between Before/after, Spec and Brainstorm, Before/after by default', () => {
+    const rail = (query: Record<string, string>) => withOutbox(readPick({ tab: 'outbox', ...query }), { row: null }).outbox?.context;
+    expect(rail({})?.links).toEqual([
+      { kind: 'before-after', label: 'Before/after', href: `/prd/${ID}?tab=outbox`, current: true },
+      { kind: 'spec', label: 'Spec', href: `/prd/${ID}?tab=outbox&context=spec`, current: false },
+      { kind: 'brainstorm', label: 'Brainstorm', href: `/prd/${ID}?tab=outbox&context=brainstorm`, current: false },
+    ]);
+    expect(rail({ context: 'spec' })?.current).toBe('spec');
+    expect(rail({ context: 'nonsense' })?.current).toBe('before-after');
+  });
+
+  it('frames the latest before/after page, names the latest spec, and lists the brainstorm\'s answers only', () => {
+    const rail = withOutbox(readPick({ tab: 'outbox' }), { row: null }).outbox?.context;
+    expect(rail?.frame).toBe(`/prd/${ID}/v/2/page`);
+    expect(rail?.specId).toBe(versions[3].id);
+    expect(rail?.brainstorm).toEqual([
+      { question: SHAPE.question, answer: 'Square (Recommended)' },
+      { question: CHECKS.question, answer: 'Unit, Access' },
+    ]);
+  });
+
+  it('has no frame and no spec before they are pushed, and no brainstorm when the rounds could not be read', () => {
+    const rail = dossierView({ dossier: numbered, versions: [], members: MEMBERS, rounds: null }, PIERRE.user_id, readPick({ tab: 'outbox' })).outbox?.context;
+    expect(rail).toMatchObject({ frame: null, specId: null, brainstorm: null });
   });
 });

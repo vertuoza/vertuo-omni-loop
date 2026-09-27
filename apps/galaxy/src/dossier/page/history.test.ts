@@ -99,3 +99,21 @@ describe('what the repository filter offers', () => {
     expect(historyChoices([]).repos).toEqual([]);
   });
 });
+
+describe('the open questions (PRD 251)', () => {
+  const waiting = row('00000000-0000-4000-8000-0000000000d4', { prd: 251, title: 'Answer the outbox anywhere', open_questions: 3 });
+  const rows = [...ROWS, waiting, row('00000000-0000-4000-8000-0000000000d5', { title: 'Quiet', open_questions: 0 })];
+
+  it('shows n open on a row whose outbox has open questions, and nothing on the others', () => {
+    const items = historyItems(rows, {});
+    expect(items.find((i) => i.id === waiting.id)?.open).toBe('3 open');
+    expect(items.filter((i) => i.id !== waiting.id).map((i) => i.open)).toEqual([null, null, null, null]);
+  });
+
+  it('reads Needs an answer from the address, and keeps only the rows with open questions', () => {
+    expect(readHistoryFilters({ needs: 'answer' })).toEqual({ needsAnswer: true });
+    expect(readHistoryFilters({ needs: 'nonsense' })).toEqual({});
+    expect(filtered({ needsAnswer: true })).toBe(true);
+    expect(historyItems(rows, { needsAnswer: true }).map((i) => i.id)).toEqual([waiting.id]);
+  });
+});

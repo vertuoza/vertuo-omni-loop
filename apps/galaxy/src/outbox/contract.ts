@@ -60,8 +60,10 @@ export const OutboxBody = z.object({
 
 export type OutboxBody = z.infer<typeof OutboxBody>;
 
-/** What the page keeps of a body: the outbox itself, the pull request and the key kept apart. */
-export type StoredOutbox = Pick<OutboxBody, 'numbering' | 'open' | 'adopted' | 'pending' | 'settled'>;
+/** What the page keeps of a body: the outbox itself, the pull request and the key kept apart. Read
+ * back through this schema too (the Outbox tab), so a row written by an older page still parses. */
+export const StoredOutbox = OutboxBody.pick({ numbering: true, open: true, adopted: true, pending: true, settled: true });
+export type StoredOutbox = z.infer<typeof StoredOutbox>;
 
 export const storedOutbox = ({ numbering, open, adopted, pending, settled }: OutboxBody): StoredOutbox =>
   ({ numbering, open, adopted, pending, settled });
