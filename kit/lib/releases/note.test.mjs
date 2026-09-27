@@ -135,6 +135,9 @@ describe('gradeReleaseNote — the six rules', () => {
     expect(grade(note({ fields: { title: '' } }))).toEqual(['title is empty — 1 to 60 characters']);
     expect(grade(note({ fields: { title: 'Jump between work and play.' } }))).toEqual(['title ends with a full stop']);
     expect(grade(note({ fields: { title: 'What PRD 12 brought' } }))).toEqual(['title names a PRD number ("PRD 12")']);
+    expect(grade(note({ fields: { title: 'What prd 7 brought' } }))).toEqual(['title names a PRD number ("prd 7")']);
+    expect(grade(note({ fields: { title: 'What PRD12 brought' } }))).toEqual(['title names a PRD number ("PRD12")']);
+    expect(grade(note({ fields: { title: 'Products and PRDs, side by side' } }))).toEqual([]);
     const twoLines = ['---', 'prd: 238', 'title: Jump between work', '  and play', '---', 'One line.', ''].join('\n');
     expect(grade(twoLines)).toEqual(['title spans more than one line — one line']);
   });
