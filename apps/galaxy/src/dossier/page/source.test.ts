@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { dossierRounds } from '../store';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
 import { deleteDraft, readContent, readDossier, readSandboxed } from './source';
 
@@ -111,5 +112,78 @@ describe('deleting a draft', () => {
     const { fake, as, numbered } = await world();
     expect(await deleteDraft(as('ada'), numbered)).toBe(false);
     expect(fake.tables.dossier_versions.filter((v) => v.dossier_id === numbered)).toHaveLength(3);
+  });
+});
+
+describe('reading the questions that shaped it', () => {
+  const at = (hhmm: string) => `2026-09-28T${hhmm}:00.000Z`;
+
+  /** Ada opens a dossier at 09:00 in the Claude session sess-a, numbered PRD 7, and another at 12:00 in
+   * the same Claude session; then questions are asked in every way the rules tell apart. */
+  async function asked() {
+    let now = Date.parse(at('09:00'));
+    const fake = fakeSupabase({ ada: ADA, bob: BOB, carl: CARL }, { [FAKE_WORKSPACE]: 'acme', [OTHER]: 'other' }, () => now);
+    const as = (token: string | null) => fake.client(token ?? 'nobody') as never;
+    const open = async (title: string) =>
+      (await fake.client('ada').rpc('dossier_open', { p_title: title, p_repo: 'acme/widgets', p_claude_session_id: 'sess-a' })).data as string;
+    const inbox = await open('Team inbox');
+    await fake.client('ada').rpc('dossier_push', { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: inbox, p_artifacts: [] });
+    now = Date.parse(at('12:00'));
+    const roster = await open('Team roster');
+    const ids = (seeded: { rounds: Array<{ id: string }> }) => seeded.rounds.map((r) => r.id);
+    const [before, brainstorm, both, later] = ids(fake.seedAsk({ owner: ADA.id, repo: 'Acme/Widgets', branch: 'main', claudeSessionId: 'sess-a' }, [
+      { created_at: at('08:00') },
+      { created_at: at('09:30'), status: 'answered', answers: { 'A question?': 'Yes' }, answered_via: 'terminal', answered_by: ADA.id, answered_at: at('09:31') },
+      { created_at: at('10:00'), prd: 7 },
+      { created_at: at('12:30') },
+    ]));
+    const [delivery, other] = ids(fake.seedAsk({ owner: BOB.id, repo: 'acme/widgets', branch: 'feat/team-inbox--s2', claudeSessionId: 'sess-b' }, [
+      { created_at: at('15:00'), prd: 7, skill: '/omni:do-work', category: 'product', category_by: 'model' },
+      { created_at: at('15:30'), prd: 8 },
+    ]));
+    const [gadgets] = ids(fake.seedAsk({ owner: BOB.id, repo: 'acme/gadgets' }, [{ created_at: at('16:00'), prd: 7 }]));
+    const [elsewhere] = ids(fake.seedAsk({ owner: CARL.id, workspace: OTHER, repo: 'acme/widgets', claudeSessionId: 'sess-a' }, [{ created_at: at('10:30'), prd: 7 }]));
+    return { fake, as, inbox, roster, round: { before, brainstorm, both, later, delivery, other, gadgets, elsewhere } };
+  }
+
+  it('gives a member the brainstorm rounds and the delivery rounds, once each, in the order they were asked', async () => {
+    const { as, inbox, round } = await asked();
+    const read = await readDossier(as('bob'), inbox);
+    expect(read?.rounds?.map((r) => [r.round_id, r.rule])).toEqual([
+      [round.brainstorm, 'brainstorm'],
+      [round.both, 'brainstorm'],
+      [round.delivery, 'delivery'],
+    ]);
+    expect(read?.rounds?.[2]).toMatchObject({
+      asked_by: BOB.id, repo: 'acme/widgets', branch: 'feat/team-inbox--s2', prd: 7, skill: '/omni:do-work', category: 'product', status: 'open',
+    });
+    expect(read?.rounds?.[0]).toMatchObject({ status: 'answered', answered_by: ADA.id, answered_via: 'terminal', answers: { 'A question?': 'Yes' } });
+  });
+
+  it('ends a brainstorm where its Claude session opened its next dossier', async () => {
+    const { as, roster, round } = await asked();
+    expect((await readDossier(as('ada'), roster))?.rounds?.map((r) => [r.round_id, r.rule])).toEqual([[round.later, 'brainstorm']]);
+  });
+
+  it('gives nothing to someone who cannot read the dossier', async () => {
+    const { as, inbox } = await asked();
+    expect(await readDossier(as('carl'), inbox)).toBeNull();
+    expect(await dossierRounds(as('carl'), inbox)).toEqual([]);
+    expect(await dossierRounds(as(null), inbox)).toEqual([]);
+  });
+
+  it('still shows the dossier when its questions cannot be read, saying so', async () => {
+    const { fake, inbox } = await asked();
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const client = fake.client('bob');
+    const failing = {
+      from: client.from,
+      rpc: (name: string, args: Record<string, unknown>) =>
+        name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args),
+    };
+    const read = await readDossier(failing as never, inbox);
+    expect(read?.dossier.id).toBe(inbox);
+    expect(read?.rounds).toBeNull();
+    quiet.mockRestore();
   });
 });

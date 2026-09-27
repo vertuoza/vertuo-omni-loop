@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import type { DossierRow, DossierVersionRow } from '../store';
+import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
 import { dossierView, readPick, sandboxPath, shortDay, stamp, versionSource } from './view';
 
 // /prd/<id> (PRD 216), as pure functions of the rows the viewer may read, the workspace's members and
-// what the address picks: the header, the tabs, and each artifact's versions, newest first.
+// what the address picks: the header, the tabs, each artifact's versions, newest first, and the
+// questions that shaped it.
 
 const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
 const MARIE = { user_id: 'u-marie', email: 'marie@vertuoza.com', name: null };
@@ -34,8 +35,40 @@ const versions = [
   version('before-after', '2026-09-28T08:00:01Z'),
 ];
 
-const view = (pick = readPick({}), dossier = numbered, me = PIERRE.user_id, rows = versions) =>
-  dossierView({ dossier, versions: rows, members: MEMBERS }, me, pick);
+const SHAPE = {
+  question: 'Square or hexagonal tiles?', header: 'Shape', multiSelect: false,
+  options: [{ label: 'Square (Recommended)', description: 'cheaper' }, { label: 'Hexagonal', description: 'prettier' }],
+};
+const CHECKS = {
+  question: 'Which checks gate the slice?', header: 'Checks', multiSelect: true,
+  options: [{ label: 'Unit', description: '' }, { label: 'Access', description: 'two accounts' }, { label: 'Manual', description: '' }],
+};
+
+function round(id: string, rule: DossierRoundRow['rule'], at: string, more: Partial<DossierRoundRow> = {}): DossierRoundRow {
+  return {
+    rule, round_id: id, session_id: 's1', asked_by: PIERRE.user_id, repo: 'vertuoza/vertuo-omni-loop', branch: 'main',
+    questions: [SHAPE], answers: null, status: 'open', answered_via: null, answered_by: null, category: null, category_by: null,
+    prd: null, skill: '/omni:brainstorm', created_at: at, answered_at: null, ...more,
+  };
+}
+
+const rounds = [
+  round('r3', 'delivery', '2026-09-28T08:00:00Z', {
+    status: 'abandoned', prd: 216, branch: 'feat/prd-dossiers--s3', skill: '/omni:do-work', asked_by: MARIE.user_id,
+  }),
+  round('r1', 'brainstorm', '2026-09-27T09:15:00Z', {
+    status: 'answered', answers: { [SHAPE.question]: 'Square (Recommended)' }, answered_via: 'page', answered_by: MARIE.user_id,
+    answered_at: '2026-09-27T09:16:35Z', category: 'ux-ui', category_by: 'model',
+  }),
+  round('r2', 'brainstorm', '2026-09-27T09:30:00Z', {
+    questions: [CHECKS], status: 'answered', answers: { [CHECKS.question]: 'Unit, Access' }, answered_via: 'terminal',
+    answered_by: PIERRE.user_id, answered_at: '2026-09-27T11:30:00Z', category: 'harness', category_by: PIERRE.user_id,
+  }),
+  round('r4', 'delivery', '2026-09-28T09:00:00Z', { prd: 216, skill: null, branch: null }),
+];
+
+const view = (pick = readPick({}), dossier = numbered, me = PIERRE.user_id, rows = versions, asked: DossierRoundRow[] | null = rounds) =>
+  dossierView({ dossier, versions: rows, members: MEMBERS, rounds: asked }, me, pick);
 
 describe('the header', () => {
   it('names a numbered dossier PRD #n, with its title, its repository and who opened it when', () => {
@@ -73,12 +106,18 @@ describe('who may delete', () => {
 });
 
 describe('the tabs', () => {
-  it('reads Before/after, Spec, Plan, each with its latest version, Before/after first', () => {
+  it('reads Before/after, Spec, Plan, each with its latest version, then Questions, answered out of asked', () => {
     expect(view().tabs).toEqual([
-      { kind: 'before-after', label: 'Before/after', latest: 2, href: `/prd/${ID}`, current: true },
-      { kind: 'spec', label: 'Spec', latest: 3, href: `/prd/${ID}?tab=spec`, current: false },
-      { kind: 'plan', label: 'Plan', latest: null, href: `/prd/${ID}?tab=plan`, current: false },
+      { kind: 'before-after', label: 'Before/after', badge: 'v2', href: `/prd/${ID}`, current: true },
+      { kind: 'spec', label: 'Spec', badge: 'v3', href: `/prd/${ID}?tab=spec`, current: false },
+      { kind: 'plan', label: 'Plan', badge: null, href: `/prd/${ID}?tab=plan`, current: false },
+      { kind: 'questions', label: 'Questions', badge: '2/4 answered', href: `/prd/${ID}?tab=questions`, current: false },
     ]);
+  });
+
+  it('counts no question when none was asked, or when they could not be read', () => {
+    expect(view(readPick({}), numbered, PIERRE.user_id, versions, []).tabs.at(-1)?.badge).toBeNull();
+    expect(view(readPick({}), numbered, PIERRE.user_id, versions, null).tabs.at(-1)?.badge).toBeNull();
   });
 
   it('opens the tab the address names', () => {
@@ -122,14 +161,78 @@ describe('the version picker', () => {
   });
 });
 
+describe('the Questions tab', () => {
+  const questions = () => view(readPick({ tab: 'questions' }));
+
+  it('opens from the address, with no version picker', () => {
+    const v = questions();
+    expect(v.tab).toBe('questions');
+    expect(v.tabs.find((t) => t.current)?.kind).toBe('questions');
+    expect(v.versions).toEqual([]);
+    expect(v.shown).toBeNull();
+  });
+
+  it('lists every round in the order it was asked, brainstorm or delivery, answered out of asked', () => {
+    const q = questions().questions;
+    expect(q.rounds?.map((r) => [r.id, r.rule])).toEqual([['r1', 'brainstorm'], ['r2', 'brainstorm'], ['r3', 'delivery'], ['r4', 'delivery']]);
+    expect([q.answered, q.asked]).toEqual([2, 4]);
+  });
+
+  it('shows each question with its options, the chosen ones marked, and the answer as given', () => {
+    const [first, second] = questions().questions.rounds ?? [];
+    expect(first.questions).toEqual([{
+      header: 'Shape', question: 'Square or hexagonal tiles?', multiSelect: false, answer: 'Square (Recommended)',
+      options: [
+        { label: 'Square', recommended: true, description: 'cheaper', chosen: true },
+        { label: 'Hexagonal', recommended: false, description: 'prettier', chosen: false },
+      ],
+    }]);
+    expect(second.questions[0].options.map((o) => [o.label, o.chosen])).toEqual([['Unit', true], ['Access', true], ['Manual', false]]);
+    expect(second.questions[0].answer).toBe('Unit, Access');
+  });
+
+  it('says who answered, after how long and where, or that nobody did', () => {
+    expect(questions().questions.rounds?.map((r) => r.outcome)).toEqual([
+      'answered by marie@vertuoza.com after 1 min 35 s, on the page',
+      'answered by Pierre after 2 h 0 min, in the terminal',
+      'moved to the terminal, no answer recorded',
+      'not answered yet',
+    ]);
+  });
+
+  it('names who asked it and when, its category, where it came from, and links to the question', () => {
+    const [first, second, third, fourth] = questions().questions.rounds ?? [];
+    expect(first).toMatchObject({ asked: 'asked by Pierre · 27 Sep 2026, 09:15 UTC', category: 'UX/UI', categoryValue: 'ux-ui', href: '/ask/q/r1' });
+    expect(second).toMatchObject({ category: 'Harness', categoryValue: 'harness' });
+    expect(third).toMatchObject({ asked: 'asked by marie@vertuoza.com · 28 Sep 2026, 08:00 UTC', category: 'unsorted', categoryValue: null });
+    expect(third.context).toEqual(['vertuoza/vertuo-omni-loop', 'feat/prd-dossiers--s3', 'PRD #216', '/omni:do-work']);
+    expect(fourth.context).toEqual(['vertuoza/vertuo-omni-loop', 'PRD #216']);
+  });
+
+  it('keeps an answer to a question the round does not name, and reads a round with no question it can show', () => {
+    const odd = round('r9', 'delivery', '2026-09-28T10:00:00Z', {
+      questions: [{ header: 'no text' }], status: 'answered', answers: { 'Asked in the terminal?': 'Yes' }, answered_via: 'terminal',
+      answered_by: 'u-gone', answered_at: '2026-09-28T10:00:42Z',
+    });
+    const [only] = view(readPick({ tab: 'questions' }), numbered, PIERRE.user_id, versions, [odd]).questions.rounds ?? [];
+    expect(only.questions).toEqual([{ header: '', question: 'Asked in the terminal?', multiSelect: false, options: [], answer: 'Yes' }]);
+    expect(only.outcome).toBe('answered by someone who left the workspace after 42 s, in the terminal');
+  });
+
+  it('has no rounds to list when they could not be read', () => {
+    expect(view(readPick({ tab: 'questions' }), numbered, PIERRE.user_id, versions, null).questions).toEqual({ rounds: null, asked: 0, answered: 0 });
+  });
+});
+
 describe('what the address picks', () => {
   it('reads the tab and the version', () => {
     expect(readPick({ tab: 'plan', v: '4' })).toEqual({ tab: 'plan', version: 4 });
     expect(readPick({ tab: ['spec', 'plan'], v: ['2'] })).toEqual({ tab: 'spec', version: 2 });
+    expect(readPick({ tab: 'questions' })).toEqual({ tab: 'questions', version: null });
   });
 
   it('opens Before/after for a tab it does not know, and the latest version for a version that is not one', () => {
-    for (const tab of [undefined, 'questions', 'spec.md', '']) expect(readPick({ tab }), String(tab)).toEqual({ tab: 'before-after', version: null });
+    for (const tab of [undefined, 'Questions', 'spec.md', '']) expect(readPick({ tab }), String(tab)).toEqual({ tab: 'before-after', version: null });
     for (const v of ['0', '-1', 'v2', '1.5', '99999999999', '']) expect(readPick({ tab: 'spec', v }), v).toEqual({ tab: 'spec', version: null });
   });
 });

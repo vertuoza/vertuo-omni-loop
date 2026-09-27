@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect } from 'vitest';
 import { renderMarkdown } from '../markdown';
-import type { DossierRow, DossierVersionRow } from '../store';
+import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
 import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
 import { DossierPage } from './DossierPage';
@@ -11,7 +11,7 @@ import { dossierView, readPick, type DossierPick } from './view';
 
 // /prd/<id> as the server renders it (PRD 216): what a person sees before any script runs, in each of
 // its states — numbered or draft, each artifact tab, a version picked, an artifact with no version yet,
-// the opener of a draft, and the sign-in.
+// the opener of a draft, the sign-in, and the Questions tab with its rounds, none, or none readable.
 
 const ID = '00000000-0000-4000-8000-0000000000d1';
 const PIERRE = { user_id: 'u-pierre', email: 'pierre@vertuoza.com', name: 'Pierre' };
@@ -36,8 +36,28 @@ const versions = [
 
 const SPEC = '---\nprd: 216\ntitle: PRD dossiers\n---\n\n# PRD dossiers\n\nKeep <script>alert(1)</script> every version.\n';
 
-function page({ dossier = numbered, rows = versions, pick = readPick({}), me = MARIE.user_id, markdown = null as string | null, supabase = SUPABASE as typeof SUPABASE | null } = {}) {
-  const view = dossierView({ dossier, versions: rows, members: [PIERRE, MARIE] }, me, pick);
+const SHAPE = {
+  question: 'Square or <b>hexagonal</b> tiles?', header: 'Shape', multiSelect: false,
+  options: [{ label: 'Square (Recommended)', description: 'cheaper' }, { label: 'Hexagonal', description: 'prettier' }],
+};
+const asked = (id: string, rule: DossierRoundRow['rule'], at: string, more: Partial<DossierRoundRow> = {}): DossierRoundRow => ({
+  rule, round_id: id, session_id: 's1', asked_by: PIERRE.user_id, repo: 'vertuoza/vertuo-omni-loop', branch: 'main', questions: [SHAPE],
+  answers: null, status: 'open', answered_via: null, answered_by: null, category: null, category_by: null, prd: null,
+  skill: '/omni:brainstorm', created_at: at, answered_at: null, ...more,
+});
+const rounds = [
+  asked('r1', 'brainstorm', '2026-09-27T09:15:00Z', {
+    status: 'answered', answers: { [SHAPE.question]: 'Square (Recommended)' }, answered_via: 'page', answered_by: MARIE.user_id,
+    answered_at: '2026-09-27T09:16:35Z', category: 'ux-ui', category_by: 'model',
+  }),
+  asked('r2', 'delivery', '2026-09-28T08:00:00Z', { status: 'abandoned', prd: 216, branch: 'feat/prd-dossiers--s3', skill: '/omni:do-work' }),
+];
+
+function page({
+  dossier = numbered, rows = versions, pick = readPick({}), me = MARIE.user_id, markdown = null as string | null,
+  supabase = SUPABASE as typeof SUPABASE | null, questions = rounds as DossierRoundRow[] | null,
+} = {}) {
+  const view = dossierView({ dossier, versions: rows, members: [PIERRE, MARIE], rounds: questions }, me, pick);
   return renderToStaticMarkup(createElement(DossierPage, { view, markdown: markdown === null ? null : renderMarkdown(markdown), supabase }));
 }
 const tab = (name: DossierPick['tab'], v?: number): DossierPick => ({ tab: name, version: v ?? null });
@@ -75,15 +95,62 @@ describe('Delete', () => {
 });
 
 describe('the tabs', () => {
-  it('reads Before/after, Spec and Plan, each linking to itself with its latest version', () => {
+  it('reads Before/after, Spec and Plan with their latest versions, then Questions with answered out of asked', () => {
     const html = page();
-    const tabs = [...html.matchAll(/<a class="dossier-tab" href="([^"]+)"( aria-current="page")?>([^<]+)(?:<small>(v\d+)<\/small>)?<\/a>/g)]
+    const tabs = [...html.matchAll(/<a class="dossier-tab" href="([^"]+)"( aria-current="page")?>([^<]+)(?:<small>([^<]+)<\/small>)?<\/a>/g)]
       .map((m) => [m[3], m[4] ?? null, m[1].replaceAll('&amp;', '&'), Boolean(m[2])]);
     expect(tabs).toEqual([
       ['Before/after', 'v2', `/prd/${ID}`, true],
       ['Spec', 'v2', `/prd/${ID}?tab=spec`, false],
       ['Plan', null, `/prd/${ID}?tab=plan`, false],
+      ['Questions', '1/2 answered', `/prd/${ID}?tab=questions`, false],
     ]);
+  });
+});
+
+describe('the Questions tab', () => {
+  const questions = (more: Parameters<typeof page>[0] = {}) => page({ pick: tab('questions'), ...more });
+
+  it('lists each round in the order asked, marked brainstorm or delivery, with no picker and no frame', () => {
+    const html = questions();
+    expect(html).toContain('<ol class="dossier-rounds" aria-label="Questions, in the order they were asked">');
+    expect([...html.matchAll(/<li class="dossier-round" data-rule="([a-z]+)">/g)].map((m) => m[1])).toEqual(['brainstorm', 'delivery']);
+    expect([...html.matchAll(/<span class="dossier-rule">([a-z]+)<\/span>/g)].map((m) => m[1])).toEqual(['brainstorm', 'delivery']);
+    expect(html).not.toContain('<select');
+    expect(html).not.toContain('<iframe');
+  });
+
+  it('shows the question, as text, with its options, the chosen one marked, and the answer', () => {
+    const html = questions();
+    expect(html).toContain('Square or &lt;b&gt;hexagonal&lt;/b&gt; tiles?');
+    expect(html).not.toContain('<b>hexagonal</b>');
+    expect(html).toMatch(/<li class="dossier-option" data-chosen="true"><span class="dossier-option-label">Square<span class="ask-rec">Recommended<\/span><span class="dossier-chosen">chosen<\/span><\/span><span class="dossier-option-desc">cheaper<\/span><\/li>/);
+    expect(html).toMatch(/<li class="dossier-option"><span class="dossier-option-label">Hexagonal<\/span><span class="dossier-option-desc">prettier<\/span><\/li>/);
+    expect(html).toContain('<p class="dossier-answer"><span class="ask-hint">Answer</span> <b>Square (Recommended)</b></p>');
+    expect(html).toContain('<p class="dossier-answer"><span class="ask-hint">No answer</span></p>');
+  });
+
+  it('says who answered and after how long, its category, who asked and where, and links to the question', () => {
+    const html = questions();
+    expect(html).toContain('answered by Marie after 1 min 35 s, on the page');
+    expect(html).toContain('moved to the terminal, no answer recorded');
+    expect(html).toContain('<span class="dossier-category" data-category="ux-ui">UX/UI</span>');
+    expect(html).toContain('<span class="dossier-category" data-category="unsorted">unsorted</span>');
+    expect(html).toContain('asked by Pierre · 27 Sep 2026, 09:15 UTC');
+    expect(html).toContain('vertuoza/vertuo-omni-loop · feat/prd-dossiers--s3 · PRD #216 · /omni:do-work');
+    expect(html).toContain('<a class="dossier-round-link" href="/ask/q/r1">Open the question</a>');
+  });
+
+  it('says when no question was asked yet', () => {
+    const html = questions({ questions: [] });
+    expect(html).toContain('No question yet.');
+    expect(html).not.toContain('dossier-rounds');
+  });
+
+  it('says when the questions could not be read, and still shows the dossier', () => {
+    const html = questions({ questions: null });
+    expect(html).toContain('role="alert">The questions could not be read.');
+    expect(html).toContain('PRD #216');
   });
 });
 

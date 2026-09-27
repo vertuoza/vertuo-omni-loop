@@ -18,8 +18,15 @@
 // here as its policies write them, and name people through ask_members() (PRD 144). That the database holds those rules, and that nothing is ever
 // written to the tables but through these functions, is proved by supabase/checks/dossiers.sql, not
 // here.
+//
+// The questions that shaped a dossier (PRD 216, step 3): PRD 144's ask sessions and rounds in memory,
+// seeded by a test (seedAsk), each readable by the members of its session's workspace, and
+// dossier_rounds(dossier) of supabase/migrations/20260928100000_dossier_rounds.sql written here as the
+// migration writes it — brainstorm (the dossier's Claude session, from its opening to that session's
+// next dossier) and delivery (its number in its home repository), in its own workspace, a round both
+// match once as brainstorm, in the order they were asked, nothing for someone who cannot read it.
 import { createHash } from 'node:crypto';
-import { ARTIFACT_MAX_BYTES, DOSSIER_KINDS, TITLE_MAX } from './store';
+import { ARTIFACT_MAX_BYTES, DOSSIER_KINDS, TITLE_MAX, type DossierRoundRow, type RoundRule } from './store';
 
 type Row = Record<string, unknown>;
 type Failure = { code?: string; message: string };
@@ -40,6 +47,18 @@ export type FakeVersion = {
   source: 'kit' | 'github'; uploaded_by: string | null; commit_sha: string | null; git_blob: string | null; created_at: string;
 };
 
+/** An ask session (PRD 71, PRD 144), with the workspace PRD 144 placed it in. */
+export type FakeAskSession = {
+  id: string; owner: string; workspace_id: string | null; repo: string | null; branch: string | null; claude_session_id: string | null;
+};
+/** An ask round (PRD 71, PRD 144). */
+export type FakeAskRound = {
+  id: string; session_id: string; questions: unknown; answers: Record<string, string> | null;
+  status: 'open' | 'answered' | 'abandoned'; answered_via: 'page' | 'terminal' | null; answered_by: string | null;
+  category: string | null; category_by: string | null; prd: number | null; skill: string | null;
+  created_at: string; answered_at: string | null;
+};
+
 const REPO = /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/;
 const sha256 = (content: string) => createHash('sha256').update(content, 'utf8').digest('hex');
 const refuse = (code: string, message: string): Result => ({ data: null, error: { code, message } });
@@ -49,7 +68,10 @@ const refuse = (code: string, message: string): Result => ({ data: null, error: 
  * @param orgs each workspace's github_org, by workspace id: a workspace not named owns no organisation
  */
 export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record<string, string | null> = {}, now: () => number = Date.now) {
-  const tables = { dossiers: [] as FakeDossier[], dossier_versions: [] as FakeVersion[] };
+  const tables = {
+    dossiers: [] as FakeDossier[], dossier_versions: [] as FakeVersion[],
+    ask_sessions: [] as FakeAskSession[], ask_rounds: [] as FakeAskRound[],
+  };
   const state = { fail: null as Failure | null, calls: 0 };
   let next = 0;
   let tick = 0;
@@ -233,6 +255,33 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
       .map((account) => ({ user_id: account.id, email: account.email, name: account.name ?? null }));
   }
 
+  /** dossier_rounds(): the dossier's rounds by the two rules, as `me` may read them. */
+  function rounds(me: FakeAccount | null, dossierId: unknown): DossierRoundRow[] {
+    const at = (iso: string) => Date.parse(iso);
+    const dossier = tables.dossiers.find((d) => d.id === dossierId && me !== null && isMember(me, d.workspace_id));
+    if (!dossier || !me) return [];
+    const sessions = tables.ask_sessions.filter((s) => s.workspace_id === dossier.workspace_id && isMember(me, s.workspace_id));
+    const next = tables.dossiers
+      .filter((d) => d.workspace_id === dossier.workspace_id && d.claude_session_id !== null
+        && d.claude_session_id === dossier.claude_session_id && at(d.created_at) > at(dossier.created_at))
+      .map((d) => at(d.created_at));
+    const windowEnd = next.length ? Math.min(...next) : Infinity;
+    const ruleOf = (round: FakeAskRound, session: FakeAskSession): RoundRule | null => {
+      const brainstorm = dossier.claude_session_id !== null && session.claude_session_id === dossier.claude_session_id
+        && at(round.created_at) >= at(dossier.created_at) && at(round.created_at) < windowEnd;
+      if (brainstorm) return 'brainstorm';
+      const delivery = dossier.prd !== null && round.prd === dossier.prd && session.repo?.toLowerCase() === dossier.home_repo;
+      return delivery ? 'delivery' : null;
+    };
+    return tables.ask_rounds.flatMap((round): DossierRoundRow[] => {
+      const session = sessions.find((s) => s.id === round.session_id);
+      const rule = session ? ruleOf(round, session) : null;
+      if (!session || !rule) return [];
+      const { id, session_id: _session, ...rest } = round;
+      return [{ rule, round_id: id, session_id: session.id, asked_by: session.owner, repo: session.repo, branch: session.branch, ...rest }];
+    }).sort((a, b) => at(a.created_at) - at(b.created_at) || a.round_id.localeCompare(b.round_id));
+  }
+
   /** The client for one bearer token: acting as its account, as the API's real client does. */
   function client(token: string) {
     const me = accounts[token] ?? null;
@@ -244,6 +293,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
         if (name === 'dossier_open') return open(me, args);
         if (name === 'dossier_push') return push(me, args);
         if (name === 'ask_members') return { data: members(me, args.workspace as string), error: null };
+        if (name === 'dossier_rounds') return { data: rounds(me, args.p_dossier), error: null };
         return refuse('PGRST202', `Could not find the function public.${name}`);
       }),
       auth: {
@@ -270,5 +320,24 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     return dossier;
   }
 
-  return { tables, client, state, seedFromGithub, sha256 };
+  /** An ask session and its rounds, as PRD 144 stores them: in `workspace` (FAKE_WORKSPACE when none is
+   * named), each round open unless it says otherwise. */
+  function seedAsk(
+    { owner, workspace = FAKE_WORKSPACE, repo = null, branch = null, claudeSessionId = null }: {
+      owner: string; workspace?: string | null; repo?: string | null; branch?: string | null; claudeSessionId?: string | null;
+    },
+    asked: Array<Partial<FakeAskRound> & Pick<FakeAskRound, 'created_at'>>,
+  ): { session: FakeAskSession; rounds: FakeAskRound[] } {
+    const session: FakeAskSession = { id: newId(), owner, workspace_id: workspace, repo, branch, claude_session_id: claudeSessionId };
+    tables.ask_sessions.push(session);
+    const made = asked.map((round): FakeAskRound => ({
+      id: newId(), session_id: session.id, questions: [{ question: 'A question?', header: '', multiSelect: false, options: [] }],
+      answers: null, status: 'open', answered_via: null, answered_by: null, category: null, category_by: null, prd: null, skill: null,
+      answered_at: null, ...round,
+    }));
+    tables.ask_rounds.push(...made);
+    return { session, rounds: made };
+  }
+
+  return { tables, client, state, seedFromGithub, seedAsk, sha256 };
 }

@@ -79,6 +79,43 @@ describe('the page to share', () => {
     expect(page).toContain('&lt;b&gt;raw&lt;/b&gt;');
   });
 
+  it('shows a member the questions asked while the PRD was delivered, answered out of asked in the tab', async () => {
+    const later = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString();
+    given.fake.seedAsk({ owner: ADA.id, repo: 'Acme/Widgets', branch: 'feat/team-inbox--s2' }, [
+      { created_at: later(1), prd: 7, status: 'answered', answers: { 'A question?': 'Yes' }, answered_via: 'terminal', answered_by: ADA.id, answered_at: later(3) },
+      { created_at: later(4), prd: 7 },
+      { created_at: later(5), prd: 8 },
+    ]);
+    given.token = 'bob';
+    const page = await html(numbered, { tab: 'questions' });
+    expect(page).toContain('Questions<small>1/2 answered</small>');
+    expect([...page.matchAll(/<span class="dossier-rule">([a-z]+)<\/span>/g)].map((m) => m[1])).toEqual(['delivery', 'delivery']);
+    expect(page).toContain('answered by ADA after 2 min 0 s, in the terminal');
+    expect(page).toContain('not answered yet');
+    given.token = 'carl';
+    await expect(open(numbered, { tab: 'questions' })).rejects.toMatchObject(notFound);
+  });
+
+  it('shows the questions of the brainstorm that opened a draft, in its Claude session', async () => {
+    const opened = (await given.fake.client('ada').rpc('dossier_open', { p_title: 'Offline quotes', p_repo: 'acme/widgets', p_claude_session_id: 'sess-a' })).data as string;
+    given.fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets', claudeSessionId: 'sess-a' }, [{ created_at: new Date(Date.now() + 60_000).toISOString() }]);
+    given.token = 'bob';
+    const page = await html(opened, { tab: 'questions' });
+    expect(page).toContain('<span class="dossier-rule">brainstorm</span>');
+    expect(page).toContain('Questions<small>0/1 answered</small>');
+    expect(await html(draft, { tab: 'questions' })).toContain('No question yet.');
+  });
+
+  it('still shows the dossier when its questions cannot be read', async () => {
+    const client = given.fake.client('bob');
+    given.fake = { ...given.fake, client: () => ({ ...client, rpc: (name: string, args: Record<string, unknown>) =>
+      name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args) }) } as never;
+    given.token = 'bob';
+    const page = await html(numbered, { tab: 'questions' });
+    expect(page).toContain('PRD #7');
+    expect(page).toContain('The questions could not be read.');
+  });
+
   it('says an artifact with no version yet has none', async () => {
     given.token = 'bob';
     expect(await html(numbered, { tab: 'plan' })).toContain('The plan has no version yet.');
@@ -139,6 +176,10 @@ describe('the page to share', () => {
     expect(page).toContain('PRD #71');
     expect(page).not.toContain('Delete draft');
     expect(await html('anything', { tab: 'spec' })).toContain('<p class="dossier-front">');
+    const questions = await html('anything', { tab: 'questions' });
+    expect(questions).toContain('<span class="dossier-rule">brainstorm</span>');
+    expect(questions).toContain('<span class="dossier-rule">delivery</span>');
+    expect(questions).toMatch(/Questions<small>\d+\/\d+ answered<\/small>/);
   });
 });
 

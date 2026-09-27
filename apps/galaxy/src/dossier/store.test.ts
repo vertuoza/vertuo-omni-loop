@@ -7,7 +7,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import {
-  ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierReader, dossierStore, DossierStoreError, TITLE_MAX, VERSION_COLUMNS,
+  ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierReader, dossierRounds, dossierStore, DossierStoreError, ROUND_FIELDS, TITLE_MAX,
+  VERSION_COLUMNS,
 } from './store';
 
 const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20260928090000_dossiers.sql', import.meta.url)), 'utf8');
@@ -125,5 +126,34 @@ describe('reading a dossier as its members do (the page to share)', () => {
     const error = await dossierReader(querying({ data: null, error: { code: '42501', message: 'permission denied' } }).db).dossier('d1').catch((e) => e);
     expect(error).toBeInstanceOf(DossierStoreError);
     expect(error).toMatchObject({ code: '42501' });
+  });
+});
+
+// ── The questions that shaped it (PRD 216, step 3) ──────────────────────────────
+
+const ROUNDS_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20260928100000_dossier_rounds.sql', import.meta.url)), 'utf8');
+
+describe('reading a dossier\'s rounds', () => {
+  it('calls dossier_rounds() with the migration\'s parameter, and hands back its rows', async () => {
+    const row = { rule: 'brainstorm', round_id: 'r1' };
+    const { calls, db } = recording({ data: [row], error: null });
+    expect(await dossierRounds(db, 'd1')).toEqual([row]);
+    expect(calls).toEqual([{ name: 'dossier_rounds', args: { p_dossier: 'd1' } }]);
+    const declared = /create function public\.dossier_rounds\(([^)]*)\)/.exec(ROUNDS_MIGRATION)?.[1].split(',').map((p) => p.trim().split(/\s+/)[0]);
+    expect(Object.keys(calls[0].args)).toEqual(declared);
+  });
+
+  it('expects exactly the columns the function returns', () => {
+    const table = /returns table \(([\s\S]*?)\)\s*language/.exec(ROUNDS_MIGRATION)?.[1] ?? '';
+    const returned = table.split(',').map((line) => line.trim().split(/\s+/)[0]).filter(Boolean);
+    expect([...ROUND_FIELDS]).toEqual(returned);
+    expect(ROUNDS_MIGRATION).toContain('security invoker');
+  });
+
+  it('reads no rows as none, and turns a failure into a DossierStoreError', async () => {
+    expect(await dossierRounds(recording({ data: null, error: null }).db, 'd1')).toEqual([]);
+    const error = await dossierRounds(recording({ data: null, error: { code: '42883', message: 'no such function' } }).db, 'd1').catch((e) => e);
+    expect(error).toBeInstanceOf(DossierStoreError);
+    expect(error).toMatchObject({ code: '42883' });
   });
 });
