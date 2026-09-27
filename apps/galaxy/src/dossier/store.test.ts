@@ -7,8 +7,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import {
-  ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierReader, dossierRounds, dossierStore, DossierStoreError, ROUND_FIELDS, TITLE_MAX,
-  VERSION_COLUMNS,
+  ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierList, dossierReader, dossierRounds, dossierStore, DossierStoreError, LIST_FIELDS,
+  ROUND_FIELDS, TITLE_MAX, VERSION_COLUMNS,
 } from './store';
 
 const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20260928090000_dossiers.sql', import.meta.url)), 'utf8');
@@ -155,5 +155,39 @@ describe('reading a dossier\'s rounds', () => {
     const error = await dossierRounds(recording({ data: null, error: { code: '42883', message: 'no such function' } }).db, 'd1').catch((e) => e);
     expect(error).toBeInstanceOf(DossierStoreError);
     expect(error).toMatchObject({ code: '42883' });
+  });
+});
+
+// ── The history (PRD 216, step 4) ───────────────────────────────────────────────
+
+const LIST_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20260928110000_dossier_list.sql', import.meta.url)), 'utf8');
+
+describe('reading the history', () => {
+  it('calls dossier_list() with the migration\'s parameter: every dossier, or one', async () => {
+    const row = { id: 'd1', repos: ['acme/widgets'] };
+    const { calls, db } = recording({ data: [row], error: null });
+    expect(await dossierList(db)).toEqual([row]);
+    expect(await dossierList(db, 'd1')).toEqual([row]);
+    expect(calls).toEqual([
+      { name: 'dossier_list', args: { p_dossier: null } },
+      { name: 'dossier_list', args: { p_dossier: 'd1' } },
+    ]);
+    const declared = /create function public\.dossier_list\(([^)]*)\)/.exec(LIST_MIGRATION)?.[1].split(',').map((p) => p.trim().split(/\s+/)[0]);
+    expect(Object.keys(calls[0].args)).toEqual(declared);
+  });
+
+  it('expects exactly the columns the function returns, and it runs as its caller on dossier_rounds()', () => {
+    const table = /returns table \(([\s\S]*?)\)\s*language/.exec(LIST_MIGRATION)?.[1] ?? '';
+    const returned = table.split(',').map((line) => line.trim().split(/\s+/)[0]).filter(Boolean);
+    expect([...LIST_FIELDS]).toEqual(returned);
+    expect(LIST_MIGRATION).toContain('security invoker');
+    expect(LIST_MIGRATION).toContain('public.dossier_rounds(d.id)');
+  });
+
+  it('reads no rows as none, and turns a failure into a DossierStoreError', async () => {
+    expect(await dossierList(recording({ data: null, error: null }).db)).toEqual([]);
+    const error = await dossierList(recording({ data: null, error: { code: '42501', message: 'permission denied' } }).db).catch((e) => e);
+    expect(error).toBeInstanceOf(DossierStoreError);
+    expect(error).toMatchObject({ code: '42501' });
   });
 });
