@@ -1,5 +1,5 @@
 // The `.omni-loop/config.yml` that `omni init` writes: minimal and commented. Only `kit`, `repo`,
-// `labels.autoCreate`, `commands`, `laws` and `signature` are written; every other key keeps its
+// `labels.autoCreate`, `commands`, `laws`, `answers` and `signature` are written; every other key keeps its
 // schema default. `signature` is written with its default values, so who signs the loop's work is
 // visible and editable in the repository rather than hidden in the kit.
 // The text is returned only once the kit's own parser accepts it.
@@ -31,6 +31,9 @@ export function renderConfig({ slug, defaultBranch, commands, lawsSource }) {
     '',
     '# Where the laws a slice must not break are read from: knowledge, claudeMdInvariants or none.',
     section('laws', { source: lawsSource }),
+    '',
+    '# Whether the outbox may be answered outside the pull request, at the end of /omni:yolo. false: only on the pull request.',
+    section('answers', { enabled: true }),
     '',
     "# Who co-signs the loop's commits, pull requests and issues. null: nobody.",
     section('signature', signature),

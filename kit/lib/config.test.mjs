@@ -40,6 +40,15 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\ndossier:\n  on: true\n')).toThrow(/dossier.*on/s);
   });
 
+  it('keeps the answers switch on unless the file switches it off, and refuses one that is not a boolean (PRD 251)', () => {
+    expect(parseConfig('kit: 1\n').answers).toEqual({ enabled: true });
+    expect(parseConfig('kit: 1\nanswers:\n  enabled: false\n').answers).toEqual({ enabled: false });
+    expect(() => parseConfig('kit: 1\nanswers:\n  enabled: yes please\n', 'c.yml')).toThrow(/c\.yml.*answers\.enabled/);
+    expect(() => parseConfig('kit: 1\nanswers:\n  enabled: "false"\n')).toThrow(/answers\.enabled/);
+    expect(() => parseConfig('kit: 1\nanswers:\n  enabled: 0\n')).toThrow(/answers\.enabled/);
+    expect(() => parseConfig('kit: 1\nanswers:\n  on: true\n')).toThrow(/answers.*on/s);
+  });
+
   it('names the retro label and the retro branch when the config sets neither', () => {
     const config = parseConfig('kit: 1\n');
     expect(config.labels.retro).toBe('omni:retro');

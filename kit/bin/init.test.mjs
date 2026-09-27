@@ -172,7 +172,15 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     const text = read('.omni-loop/config.yml');
     expect(text.startsWith('#')).toBe(true);
     const keys = text.split('\n').filter((line) => /^[a-zA-Z]/.test(line)).map((line) => line.split(':')[0]);
-    expect(keys).toEqual(['kit', 'repo', 'labels', 'commands', 'laws', 'signature']);
+    expect(keys).toEqual(['kit', 'repo', 'labels', 'commands', 'laws', 'answers', 'signature']);
+  });
+
+  it('writes the answers switch on, under a comment, and it parses (PRD 251)', async () => {
+    const { root, read } = makeRepo({ git: true });
+    await init(root);
+    const text = read('.omni-loop/config.yml');
+    expect(text).toMatch(/\n# [^\n]*\nanswers:\n  enabled: true\n/);
+    expect(readConfig(read).answers).toEqual({ enabled: true });
   });
 
   it('writes the signature section with its default values, home and the footer template included, under a comment, and it parses (PRD #99, AC 4; PRD #215, AC 6)', async () => {
