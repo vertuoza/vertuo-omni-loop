@@ -24,6 +24,8 @@ export const RELEASES = {
   unavailable: 'Release notes are unavailable right now.',
   /** The table holds no row yet: the sync has not run. */
   empty: 'No release is published yet.',
+  /** A version's link to its own anchor, the address to share one release. */
+  anchor: 'Link to this release',
 } as const;
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
@@ -41,8 +43,11 @@ export const isoDateOf = ({ year, month, day }: Day) =>
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
+/** A number of PRDs: `1 PRD`, `21 PRDs`. */
+export const prdsOf = (prds: number) => plural(prds, 'PRD', 'PRDs');
+
 /** A week's counts: `1 release · 21 PRDs`. */
-export const countsOf = (releases: number, prds: number) => `${plural(releases, 'release', 'releases')} · ${plural(prds, 'PRD', 'PRDs')}`;
+export const countsOf = (releases: number, prds: number) => `${plural(releases, 'release', 'releases')} · ${prdsOf(prds)}`;
 
 /** A PRD, as plain text: never a link. */
 export const prdOf = (prd: number) => `PRD ${prd}`;

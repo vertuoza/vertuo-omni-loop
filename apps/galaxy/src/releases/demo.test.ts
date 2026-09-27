@@ -18,9 +18,8 @@ function pinnedNotes() {
   return readdirSync(SHIPPED)
     .map((folder) => join(SHIPPED, folder, 'release.md'))
     .filter((file) => existsSync(file))
-    .map((file) => parseReleaseNote(readFileSync(file, 'utf8')))
-    .flatMap((parsed) => (parsed.ok && parsed.note.version === '0.0.1' ? [parsed.note] : []))
-    .map(({ prd, title, description }) => ({ prd, title, description }))
+    .map((file) => parseReleaseNote(readFileSync(file, 'utf8')).note)
+    .flatMap((note) => (note?.version === '0.0.1' ? [{ prd: note.prd, title: note.title, description: note.description }] : []))
     .sort((a, b) => a.prd - b.prd);
 }
 

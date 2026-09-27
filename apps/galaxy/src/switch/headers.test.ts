@@ -11,10 +11,12 @@ import { APP_HOME } from './switch';
 
 // Every header of the app, as the server renders it (PRD 238): its OMNI LOOP mark leads home to
 // /app, and Game mode is its last control, right after the theme switch, at the top right. /app's own
-// header, the /ask pages' (AskBar, which app/ask/layout.tsx renders) and the /knowledge bar. The
+// header, /releases' (PRD 262), the /ask pages' (AskBar, which app/ask/layout.tsx renders) and the
+// /knowledge bar. The
 // /knowledge bar in each of the page's states is src/knowledge/render.test.ts's.
 
 const { default: AppLayout } = await import('../../app/app/layout.tsx');
+const { default: ReleasesLayout } = await import('../../app/releases/layout.tsx');
 
 /** The header in the markup, its Game mode dialog included. */
 const header = (html: string) => {
@@ -35,6 +37,7 @@ const askBar = (waiting = 0) =>
 
 const HEADERS: Array<[string, () => string]> = [
   ['/app', () => header(renderToStaticMarkup(createElement(AppLayout, null, createElement('p')) as ReactElement))],
+  ['/releases', () => header(renderToStaticMarkup(createElement(ReleasesLayout, null, createElement('p')) as ReactElement))],
   ['every /ask page', () => askBar()],
   ['/knowledge', () => header(renderToStaticMarkup(createElement(KnowledgeScreen, {
     view: { kind: 'map', graph: GRAPH }, wanted: { domain: null, entry: null }, supabase: null, signinError: null,
