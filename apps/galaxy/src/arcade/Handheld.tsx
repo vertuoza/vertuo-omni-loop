@@ -2,9 +2,10 @@
 // The Game Boy, held upright: the lens with the tall screen in it, the wordmark, and the controls
 // under the thumbs (the D-pad, A and B on the diagonal, SELECT and START, the speaker grille). The
 // body fills the phone edge to edge; the controls keep their size and the lens takes the height
-// that is left (shell.css). The lens and the wordmark are the Advance body's too.
+// that is left (shell.css). The lens and the wordmark are the Advance body's too. With an app to
+// leave for, the GAME ▮▯ APP switch sits at the right end of the wordmark row.
 import type { ReactNode } from 'react';
-import { DPad, FaceButton, Grille, Pill, useHoldStill } from './Controls';
+import { AppSwitch, DPad, FaceButton, Grille, Pill, useHoldStill } from './Controls';
 import type { Action } from './keys';
 
 export interface BodyProps {
@@ -12,6 +13,10 @@ export interface BodyProps {
   muted: boolean;
   onAction: (action: Action) => void;
   onSound: () => void;
+  /** Asks to leave for the app (OPEN THE APP?), from the GAME ▮▯ APP switch. None, no switch: the artifact has no app. */
+  onApp?: () => void;
+  /** OPEN THE APP? is up: the switch's knob shows APP. */
+  leaving?: boolean;
 }
 
 /**
@@ -41,11 +46,12 @@ export function Wordmark({ season }: { season: string | null }) {
   );
 }
 
-export function Handheld({ season, muted, onAction, onSound }: BodyProps) {
+export function Handheld({ season, muted, onAction, onSound, onApp, leaving = false }: BodyProps) {
   useHoldStill();
   return (
     <>
       <Wordmark season={season} />
+      {onApp && <AppSwitch leaving={leaving} onApp={onApp} />}
       <div className="gb-pad" role="group" aria-label="Controller">
         <DPad onAction={onAction} />
         <div className="gb-ab">

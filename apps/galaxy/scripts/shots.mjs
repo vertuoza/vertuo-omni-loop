@@ -3,9 +3,12 @@
 //
 // It walks the demo galaxy from the keyboard, as a player would: the boot, the title's three
 // phases, INSERT COIN, the simulated Google sign-in and GitHub link, the whole joining flow, the
-// level-up (the demo guest's borrowed level, not yet celebrated in this browser), the menu and every
-// screen behind it (the planet's four tabs each on its own, the star chart, a system and its reading
-// card, the game room, and Entropy Invaders' score table, play and pause), then the welcome back.
+// level-up (the demo guest's borrowed level, not yet celebrated in this browser), the menu, OPEN THE
+// APP? over it (opened by the Game Boy's GAME ▮▯ APP switch on the two touch sizes, where every
+// screenshot shows the body with its switch, and by the APP MODE row on a computer), and every
+// screen behind the menu (the planet's four tabs each on its own, the star chart, a system and its
+// reading card, the game room, and Entropy Invaders' score table, play and pause), then the welcome
+// back.
 // The page's clock is Playwright's, advanced step by step, so every screenshot is taken at the same
 // moment of its scene on every run. Nothing here runs in `pnpm test`.
 //
@@ -27,11 +30,11 @@ const SIZES = [
 ];
 
 // Every screenshot, in walk order: the 24 scenes, with the title's phases, the planet's tabs, a
-// system's reading card and Entropy Invaders' ready screen, play and pause each its own. The number
-// in a file's name is its place here.
+// system's reading card and Entropy Invaders' ready screen, play and pause each its own, and OPEN THE
+// APP? over the menu (`leave`). The number in a file's name is its place here.
 const SHOTS = [
   'boot', 'title', 'title-story', 'title-hiscore', 'coin', 'away', 'gate', 'link', 'intro', 'select', 'name', 'hero',
-  'ready', 'levelup', 'menu', 'map', 'planet-status', 'planet-zones', 'planet-entropy', 'planet-log', 'chart', 'system',
+  'ready', 'levelup', 'menu', 'leave', 'map', 'planet-status', 'planet-zones', 'planet-entropy', 'planet-log', 'chart', 'system',
   'system-card', 'fleets', 'heroes', 'games', 'invaders', 'invaders-play', 'invaders-paused', 'briefing', 'welcome', 'outsider',
 ];
 
@@ -118,6 +121,8 @@ function driver(page, size, dir, small) {
   };
 
   return {
+    /** A finger, not a mouse: the arcade wears a Game Boy body. */
+    touch: size.touch,
     /** Presses a key, lets `ms` pass, and checks the arcade shows `want`. */
     async key(key, want, ms = 200) {
       await page.keyboard.press(key);
@@ -130,6 +135,17 @@ function driver(page, size, dir, small) {
       await hold(ms);
       for (const k of keys) await page.keyboard.up(k);
       await expect(want, `holding ${keys.join(' and ')}`);
+    },
+    /** Taps what `selector` finds with a finger, lets `ms` pass, and checks the arcade shows `want`. */
+    async tap(selector, want, ms = 200) {
+      await page.tap(selector);
+      await hold(ms);
+      await expect(want, `tapping ${selector}`);
+    },
+    /** Checks OPEN THE APP? is up (`up`) or closed, over the scene. */
+    async leaving(up) {
+      const now = await page.evaluate(() => Boolean(document.querySelector('.leave')));
+      if (now !== up) throw new WalkError(`OPEN THE APP? should be ${up ? 'up' : 'closed'}; it is ${now ? 'up' : 'closed'}`);
     },
     /** Lets `ms` pass, and checks the arcade shows `want`. */
     async wait(want, ms) {
@@ -202,6 +218,7 @@ async function walkGuest(d, taken) {
   await shot('levelup', 'levelup', 1500);
   await d.key('b', 'menu'); // B: on to the menu, the level now celebrated in this browser
   await shot('menu', 'menu', 500);
+  await walkLeave(d, shot);
   await d.key('Enter', 'map'); // the menu's first row: GALAXY MAP
   await shot('map', 'map', 800);
   await d.key('Enter', 'planet');
@@ -234,6 +251,28 @@ async function walkGuest(d, taken) {
   await d.key('b', 'title');
   await d.key('Enter', 'welcome'); // a player now: START on the title welcomes them back
   await shot('welcome', 'welcome', 1500);
+}
+
+/**
+ * From the menu: OPEN THE APP? over it, and B back to the menu as it was. On a Game Boy the body's
+ * GAME ▮▯ APP switch opens it, and the screenshot shows its knob on APP; on a computer, which has no
+ * body, the APP MODE row just above SIGN OUT does (up twice from the first row, and down twice back).
+ */
+async function walkLeave(d, shot) {
+  if (d.touch) await d.tap('.gb-switch', 'menu');
+  else {
+    await d.key('ArrowUp', 'menu');
+    await d.key('ArrowUp', 'menu');
+    await d.key('Enter', 'menu');
+  }
+  await d.leaving(true);
+  await shot('leave', 'menu', 300);
+  await d.key('b', 'menu');
+  await d.leaving(false);
+  if (!d.touch) {
+    await d.key('ArrowDown', 'menu');
+    await d.key('ArrowDown', 'menu');
+  }
 }
 
 /** From the game room: A on the lit cabinet, Entropy Invaders' ready screen, a moment of play, the pause, and back. */

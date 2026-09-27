@@ -806,6 +806,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   // A click on a key hint ("[A] LINK GITHUB"), or a press of a Game Boy's control, presses that key.
   const press = useCallback((action: Action) => { unlock(); act(action); }, [act]);
+  // The Game Boy's GAME ▮▯ APP switch: no key, but OPEN THE APP?, on any scene. None without an app.
+  const switchToApp = useCallback(() => { unlock(); askLeave(); }, [askLeave]);
 
   // A tap on the screen, in the pixels of the grid it is drawn on.
   const onTap = (p: GridPoint) => {
@@ -887,7 +889,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   })();
 
   const info = useMemo<ScreenInfo>(() => ({ form, grid, page, pages }), [form, grid, page, pages]);
-  const body = { season: view?.season ?? null, muted, onAction: press, onSound: toggleSound };
+  const body = { season: view?.season ?? null, muted, onAction: press, onSound: toggleSound, onApp: app ? switchToApp : undefined, leaving: ui.leaving };
   // The screen keeps its place in the tree in every form, so turning the phone keeps it as it is.
   // The root carries the theme's custom properties, and the sprites in its panels its stripes.
   return (

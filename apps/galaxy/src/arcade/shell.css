@@ -45,15 +45,17 @@ html.held-still body { position: fixed; inset: 0; }
 
 /* The Game Boy, upright: the lens, the wordmark, room to spare, the controls. The lens is as tall as
    the tall screen at the width the phone gives it (288/320 of it, plus the bezel), and shrinks on a
-   short phone so the controls always fit. */
+   short phone so the controls always fit. The wordmark's row ends with the GAME ▮▯ APP switch, in a
+   column of its own that is as wide as the switch, and nothing wide without it: every other part
+   spans both columns, so the switch moves none of them. */
 .form-handheld {
   --lens-x: 28px;  /* the bezel's left and right */
   --lens-y: 44px;  /* the bezel's top (the stripe) and bottom */
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows:
     minmax(0, calc((100vw - var(--safe-left) - var(--safe-right) - var(--lens-x)) * 0.9 + var(--lens-y)))
     34px minmax(0, 1fr) 252px;
-  grid-template-areas: 'lens' 'word' '.' 'pad';
+  grid-template-areas: 'lens lens' 'word switch' '. .' 'pad pad';
 }
 
 /* The Advance body, sideways: a wing each side, the lens between them, the wordmark under it. */
@@ -131,6 +133,9 @@ html.held-still body { position: fixed; inset: 0; }
   overflow: hidden;
 }
 .gb-word small { font-size: 8px; color: var(--body-ink-soft); }
+/* A season label too long for the row is cut with an ellipsis, before the switch is ever pushed off
+   the body: OMNI LOOP keeps its width, and the label gives way. */
+.gb-word small { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .form-advance .gb-word { justify-content: center; padding-left: 0; }
 
 /* ── The controls ───────────────────────────────────────────────────────── */
@@ -140,8 +145,8 @@ html.held-still body { position: fixed; inset: 0; }
 .gb-wing-left { grid-area: left; }
 .gb-wing-right { grid-area: right; }
 
-.gb-dpad, .gb-ab, .gb-pills, .gb-grille { touch-action: none; }
-.gb-dpad button, .gb-ab button, .gb-pills button, .gb-grille {
+.gb-dpad, .gb-ab, .gb-pills, .gb-grille, .gb-switch { touch-action: none; }
+.gb-dpad button, .gb-ab button, .gb-pills button, .gb-grille, .gb-switch {
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
@@ -242,8 +247,52 @@ html.held-still body { position: fixed; inset: 0; }
 }
 .gb-grille-label { font-size: 8px; line-height: 1; color: var(--body-ink); }
 
+/* The GAME ▮▯ APP switch (Controls.tsx, AppSwitch): a slide switch in the body's colours, its knob
+   resting on GAME, and on APP while OPEN THE APP? is up. Upright, it ends the wordmark's row (its
+   own column, above); sideways, it sits under the grille on the right wing, in line with the
+   wordmark under the lens, placed on its own so nothing on the wing moves. The whole row's height
+   is its button, to touch. */
+.gb-switch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-sizing: border-box;
+  height: 34px;
+  padding: 0 0 0 8px;
+  border: 0;
+  background: none;
+  font-size: 8px;
+  line-height: 1;
+  color: var(--body-ink);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+  white-space: nowrap;
+}
+.form-handheld .gb-switch { grid-area: switch; align-self: center; }
+.form-advance .gb-switch { position: absolute; left: 50%; bottom: -3px; translate: -50% 0; padding: 0 6px; }
+.gb-track {
+  position: relative;
+  flex: none;
+  width: 26px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--body-lens-2);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.gb-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--yellow);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  transition: translate 120ms ease-out;
+}
+.gb-switch[data-side='app'] .gb-knob { translate: 10px 0; }
+
 /* A pressed part sinks and darkens. */
-.gb-face[data-down], .gb-pill[data-down] i, .gb-grille[data-down] .gb-slots {
+.gb-face[data-down], .gb-pill[data-down] i, .gb-grille[data-down] .gb-slots, .gb-switch[data-down] .gb-track {
   filter: brightness(0.72);
   translate: 0 2px;
 }
