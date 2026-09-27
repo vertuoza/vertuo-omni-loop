@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-27
 - Slice: s2
 - Wave: 2
+- Stays here: A local choice about where one small test lives, removable by deleting one file; nothing in it is a lasting rule, invariant or build decision.
 
 ### The answer, as it was given
 
