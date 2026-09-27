@@ -453,7 +453,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   const signOut = useCallback(() => {
     account.signOut().then(() => {
-      if (account.kind === 'supabase') { window.location.assign('/'); return; }
+      if (account.kind === 'supabase') { window.location.assign('/play'); return; }
       setSession(null); sessionRef.current = null;
       go({ scene: 'title', flow: 'onboard' }, 'back');
     }).catch((err: Error) => go({ toast: err.message }, 'buzz'));

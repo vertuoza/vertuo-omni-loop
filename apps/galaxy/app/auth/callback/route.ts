@@ -9,7 +9,8 @@ import { joinByDomain } from '../../../src/data/workspace';
 // cookie, and every sign-in joins the workspaces of the account's confirmed email domain
 // (join_by_domain()). After a GitHub link, link_github() then copies the linked login onto the
 // player, from the identity Supabase recorded, never from anything the browser sends. Then back to
-// the arcade, with the outcome in the query string for it to show (src/data/sign-in.ts).
+// the arcade at /play (HOME is at /, PRD 261), with the outcome in the query string for it to show
+// (src/data/sign-in.ts).
 // With `?next=ask-cli` it is `omni signin` coming back instead: the code becomes a sign-in for the
 // terminal, not a cookie, which joins as well before its one-time code is issued, and the browser
 // goes on to the terminal's loopback address with that code, or back to /ask/signin with the reason
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
     for (const { name, value, options } of spent) response.cookies.set(name, value, options);
     return response;
   }
-  const home = new URL('/', origin(request));
+  const home = new URL('/play', origin(request));
   const back = (key: string, value: string) => { home.searchParams.set(key, value); return NextResponse.redirect(home); };
 
   const failure = params.get('error_description') ?? params.get('error');
