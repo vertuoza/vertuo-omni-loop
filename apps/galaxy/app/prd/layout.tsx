@@ -3,6 +3,7 @@ import '@omni/design/fonts.css';
 import '../../src/ask/ask.css';
 import '../../src/ask/page/share.css';
 import '../../src/dossier/page/dossier.css';
+import '../../src/outbox/outbox.css';
 import { HISTORY_PATH } from '../../src/dossier/page/history';
 import { ThemeScript } from '../../src/ask/theme-script';
 import { ThemeSwitch } from '../../src/ask/theme-switch';

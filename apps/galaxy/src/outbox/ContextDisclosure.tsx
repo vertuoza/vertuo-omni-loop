@@ -9,14 +9,19 @@ import { useSyncExternalStore } from 'react';
 /** The width from which the rail sits beside the questions; outbox.css uses the same. */
 export const WIDE = '(min-width: 960px)';
 
-function subscribe(change: () => void) {
+/** Follows the screen's width: calls `change` whenever it crosses WIDE. */
+export function subscribe(change: () => void) {
   const media = window.matchMedia(WIDE);
   media.addEventListener('change', change);
   return () => media.removeEventListener('change', change);
 }
 
+/** Whether the rail sits open beside the questions: in the browser, the screen is wide; on the server, yes. */
+export const isWide = () => window.matchMedia(WIDE).matches;
+const onServer = () => true;
+
 export function ContextDisclosure({ children }: { children: React.ReactNode }) {
-  const wide = useSyncExternalStore(subscribe, () => window.matchMedia(WIDE).matches, () => true);
+  const wide = useSyncExternalStore(subscribe, isWide, onServer);
   return (
     // `key` remounts the element when the width crosses the line, so `open` applies again.
     <details key={wide ? 'wide' : 'tall'} className="outbox-context" open={wide} aria-label="Context">
