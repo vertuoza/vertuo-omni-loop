@@ -37,6 +37,38 @@ export interface ScoreBoard { top: ScoreLine[]; mine: number | null }
 /** What the arcade knows of a game's scores: its board, or 'unreadable' when it could not be read. */
 export type ScoresRead = ScoreBoard | 'unreadable';
 
+/** A PRD's artifact, as the planet's DOSSIER tab names it (PRD 216). */
+export type DossierArtifactKind = 'before-after' | 'spec' | 'plan';
+
+/** An artifact's latest version: its number (how many versions of its kind there are) and when it was added. */
+export interface DossierLatest { version: number; at: string }
+
+/** One of the last answered rounds: its first question and the answer to it, and how many more questions it held. */
+export interface DossierAnswer { question: string; answer: string; more: number; at: string }
+
+/**
+ * A planet's dossier, as its DOSSIER tab summarises it: each artifact's latest version (null for one
+ * with none yet), the rounds asked and answered, and the last three answered, newest first. `url` is
+ * the page START opens, `/prd/<id>`; null in a build with no page to open (the single-file artifact).
+ */
+export interface PlanetDossier {
+  id: string;
+  url: string | null;
+  latest: Record<DossierArtifactKind, DossierLatest | null>;
+  asked: number;
+  answered: number;
+  last: DossierAnswer[];
+}
+
+/** What the arcade knows of one planet's dossier: the dossier, or 'unreadable' when it could not be read. */
+export type PlanetDossierRead = PlanetDossier | 'unreadable';
+
+/**
+ * The planets' dossiers, by PRD number: a planet with none is absent. 'unreadable' when none could be
+ * read at all: every DOSSIER tab then says so, and the rest of the planet is unchanged.
+ */
+export type DossiersRead = Record<number, PlanetDossierRead> | 'unreadable';
+
 /** What the arcade saves for the signed-in player: a fleet, a name, a hero. */
 export type PlayerPatch = Partial<Pick<Player, 'display_name' | 'team' | 'hero'>>;
 
