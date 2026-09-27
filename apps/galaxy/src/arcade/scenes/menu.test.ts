@@ -135,6 +135,53 @@ describe('the menu', () => {
   );
 });
 
+describe('APP MODE on the menu', () => {
+  const visitor = menuItems({ joined: false, linked: false, signedIn: true, app: true });
+  const playing = menuItems({ joined: true, linked: true, signedIn: true, app: true });
+  const APP: MenuItem = { id: 'app', label: 'APP MODE' };
+
+  it('stands just above SIGN OUT, for a visitor and for a player, with the app', () => {
+    expect(visitor.map((m) => m.id)).toEqual(['link', 'map', 'chart', 'fleets', 'heroes', 'games', 'briefing', 'app', 'signout']);
+    expect(playing.map((m) => m.id)).toEqual(['map', 'chart', 'fleets', 'heroes', 'games', 'briefing', 'myhero', 'change', 'app', 'signout']);
+    for (const items of [visitor, playing]) expect(items.at(-2)).toEqual(APP);
+  });
+
+  it('makes a linked player\'s menu ten rows, its longest', () => {
+    expect(playing).toHaveLength(10);
+    expect(menuItems({ joined: true, linked: true, signedIn: true, app: true, newGames: true })).toHaveLength(10);
+  });
+
+  it('is last, with no SIGN OUT under it, for anyone signed out', () => {
+    expect(menuItems({ joined: false, linked: false, signedIn: false, app: true }).map((m) => m.id))
+      .toEqual(['map', 'chart', 'fleets', 'heroes', 'briefing', 'app']);
+  });
+
+  it('is not there without the app (the single-file artifact has none), and the menu is as it was', () => {
+    for (const who of [{ joined: false, linked: false, signedIn: true }, { joined: true, linked: true, signedIn: true }, { joined: false, linked: false, signedIn: false }]) {
+      expect(menuItems(who).map((m) => m.id)).not.toContain('app');
+      expect(menuItems({ ...who, app: false })).toEqual(menuItems(who));
+      expect(menuItems({ ...who, app: true }).filter((m) => m.id !== 'app')).toEqual(menuItems(who));
+    }
+  });
+
+  it('opens no scene of its own: the arcade asks OPEN THE APP? first', () => {
+    expect(doorOf(APP, { view, chart: null, problem: null })).toBeNull();
+    expect(doorOf(APP, { view: null, chart: null, problem: 'THE GALAXY IS OUT OF REACH.' })).toBeNull();
+  });
+
+  it.each([['a visitor', visitor, null], ['a player', playing, player]] as const)(
+    'shows %s its hint, Leave the game for the app, on the wide grid and the tall one',
+    (_, items, me) => {
+      const menu = createElement(MenuOverlay, { view, items: [...items], index: 0, me, onPick: () => {} });
+      const wide = textOf(menu, WIDE);
+      expect(wide[wide.indexOf('APP MODE') + 1]).toBe('Leave the game for the app');
+      expect(wide.indexOf('APP MODE')).toBeLessThan(wide.indexOf('SIGN OUT'));
+      expect(textOf(menu, TALL)).toEqual(wide);
+      expect(wide).toContain('B · BACK TO TITLE');
+    },
+  );
+});
+
 describe('GAMES on the menu', () => {
   const visitor = menuItems({ joined: false, linked: false, signedIn: true });
   const playing = menuItems({ joined: true, linked: true, signedIn: true });
