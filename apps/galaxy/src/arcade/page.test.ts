@@ -1,8 +1,10 @@
+import { readFileSync } from 'node:fs';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The arcade page (app/page.tsx), called as the server calls it, with its data sources stubbed: which
-// visitor's page carries the star chart's knowledge. The props it returns are what reaches the browser.
+// visitor's page carries the star chart's knowledge, and that every page hands the arcade the app it
+// leaves for. The props it returns are what reaches the browser.
 const given = vi.hoisted(() => ({
   mode: 'demo' as 'demo' | 'closed' | 'supabase',
   user: null as null | { id: string; email: string; user_metadata: Record<string, string>; identities: [] },
@@ -37,7 +39,7 @@ vi.mock('../data/load-knowledge', () => ({ loadKnowledge }));
 const { default: Page } = await import('../../app/page.tsx');
 
 const user = (email: string) => ({ id: 'u1', email, user_metadata: { given_name: 'Ada' }, identities: [] as [] });
-const propsOf = async () => ((await Page()) as ReactElement<{ knowledge?: unknown; view: unknown }>).props;
+const propsOf = async () => ((await Page()) as ReactElement<{ knowledge?: unknown; view: unknown; app?: string }>).props;
 
 beforeEach(() => {
   loadKnowledge.mockClear();
@@ -77,5 +79,29 @@ describe('the arcade page and the star chart', () => {
     const props = await propsOf();
     expect(props.view).toBeNull();
     expect(props.knowledge).toBeUndefined();
+  });
+});
+
+// The app the arcade leaves for (PRD 238): the page hands its home to the arcade, whoever is at it,
+// so the APP MODE row shows; the single-file artifact has no server and no /app, so it hands none.
+describe('the arcade page and the app', () => {
+  it.each([
+    ['the demo', { mode: 'demo', user: null }],
+    ['a closed build', { mode: 'closed', user: null }],
+    ['a visitor signed out', { mode: 'supabase', user: null }],
+    ['an account in no workspace', { mode: 'supabase', user: user('eve@example.com') }],
+    ['a crew member signed in', { mode: 'supabase', user: user('ada@vertuoza.com') }],
+    ['a crew member whose galaxy is out of reach', { mode: 'supabase', user: user('ada@vertuoza.com'), galaxyDown: true }],
+  ] as const)('hands %s\'s arcade the app, at /app', async (_, state) => {
+    Object.assign(given, state);
+    expect((await propsOf()).app).toBe('/app');
+  });
+
+  it('is not handed to the single-file artifact\'s arcade', () => {
+    const entry = readFileSync(new URL('../../artifact/entry.tsx', import.meta.url), 'utf8');
+    const arcade = /<ArcadeApp\b[^>]*\/>/.exec(entry)?.[0];
+    expect(arcade).toBeTruthy();
+    expect(arcade).not.toMatch(/\bapp=/);
+    expect(entry).not.toMatch(/APP_HOME|src\/switch/);
   });
 });

@@ -1,0 +1,38 @@
+/* The confirm before the arcade is left for the app (leave.tsx): OPEN THE APP?, over whatever scene
+   is showing, on the wide grid (640×360) and the tall one (320×288). It covers the whole screen and
+   dims the scene, which stays drawn under it as it was; the box is the GBA dialog box the scenes'
+   panels are, filled solid, so no line of the scene reads through it. */
+
+.leave {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  background: rgba(7, 6, 28, 0.62);
+  outline: none;
+}
+.leave-box {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: 400px;
+  box-sizing: border-box;
+  padding: 18px 20px 16px;
+  text-align: center;
+  background: var(--deep);
+  border: 2px solid var(--white);
+  box-shadow: 0 0 0 2px #0b0a26, inset 0 0 0 2px var(--navy);
+}
+.leave-box p { margin: 0; }
+.leave-title { font-size: 16px; line-height: 1; color: var(--yellow); letter-spacing: 1px; text-shadow: 2px 2px 0 var(--red), 4px 4px 0 #0b0a26; }
+.leave-line { font-size: 8px; line-height: 1; color: var(--cyan); letter-spacing: 1px; text-shadow: 1px 1px 0 #0b0a26; }
+.leave-box .leave-keys { display: flex; justify-content: center; gap: 48px; margin-top: 4px; font-size: 9px; line-height: 1.6; color: var(--white); }
+
+/* On the tall grid the box keeps inside the screen, at the grid's smallest type: the line runs its
+   33 letters at 8px with no spacing between them, which the box's width holds. */
+.grid-tall .leave-box { width: 300px; gap: 10px; padding: 14px 8px 12px; }
+.grid-tall .leave-title { font-size: 14px; }
+.grid-tall .leave-line { letter-spacing: 0; }
+.grid-tall .leave-box .leave-keys { gap: 36px; font-size: 8px; }
