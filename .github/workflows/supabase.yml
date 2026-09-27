@@ -38,6 +38,11 @@ jobs:
         # role adds versions through the same rule: a version only when its content changed, never
         # rewritten. Only the opener deletes a draft; nobody deletes a numbered dossier.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dossiers.sql
+      - name: Who may read and write the releases
+        # Anyone, signed out or signed in, reads every release, and nobody writes one. Only the service
+        # role (pnpm releases:sync) adds releases and refreshes their text, and it never renumbers,
+        # redates or deletes one. Release 1 is shared; a release above 1 belongs to one PRD.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/releases.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

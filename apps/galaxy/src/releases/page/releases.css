@@ -1,0 +1,102 @@
+/* /releases (PRD 262): the heading and its line, then the releases week by week, on the ask pages'
+   reading surface. Every colour is a token of src/ask/theme-tokens.ts (the --ask-* properties the ask
+   root carries, per theme), as in src/ask/ask.css; nothing here names a colour. The pixel face stays
+   the wordmark's: dates, versions and week headings are in the mono face. Nothing is wider than the
+   window, and a long word wraps rather than push the page sideways. */
+
+.ask-col.rel-page { gap: 32px; }
+
+.rel-intro { display: grid; gap: 6px; }
+.rel-heading { margin: 0; font-size: 32px; line-height: 1.15; text-wrap: balance; }
+.rel-lede { margin: 0; color: var(--ask-muted); }
+
+.rel-notice {
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--ask-line);
+  border-radius: 12px;
+  background: var(--ask-surface);
+  color: var(--ask-muted);
+}
+
+/* ── A week: its heading, then its releases ───────────────────────────────── */
+
+.rel-week {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--ask-line);
+}
+.rel-week-head {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4px 12px;
+  font: 700 13px/1.4 var(--ask-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ask-muted);
+}
+.rel-week-count { font-weight: 400; letter-spacing: 0.04em; }
+
+/* An older week, folded: its summary is the heading, with a marker that turns as it opens. */
+.rel-fold { padding-top: 0; border-top: 0; }
+.rel-fold > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 12px 14px;
+  border: 1px solid var(--ask-line);
+  border-radius: 10px;
+  background: var(--ask-surface);
+}
+.rel-fold > summary::-webkit-details-marker { display: none; }
+.rel-fold > summary:hover { border-color: var(--ask-plasma); }
+.rel-fold > summary .rel-week-name::before { content: '▸'; display: inline-block; margin-right: 8px; color: var(--ask-plasma); }
+.rel-fold[open] > summary .rel-week-name::before { transform: rotate(90deg); }
+.rel-fold[open] { gap: 24px; }
+
+/* ── A release ────────────────────────────────────────────────────────────── */
+
+.rel-release { display: grid; gap: 6px; min-width: 0; scroll-margin-top: 16px; }
+.rel-meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font: 13px/1.4 var(--ask-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ask-muted);
+}
+.ask a.rel-version {
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: var(--ask-plasma-soft);
+  color: var(--ask-plasma);
+  font-weight: 700;
+  text-decoration: none;
+}
+.ask a.rel-version:hover { text-decoration: underline; }
+.rel-release:target .rel-version { background: var(--ask-plasma); color: var(--ask-on-plasma); }
+.rel-title { margin: 0; font-size: 21px; line-height: 1.3; text-wrap: balance; overflow-wrap: anywhere; }
+.rel-text { margin: 0; color: var(--ask-muted); max-width: 64ch; overflow-wrap: anywhere; }
+
+/* The initial release: a line per PRD, in PRD order. */
+.rel-lines { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 16px; }
+.rel-line {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding-left: 14px;
+  border-left: 2px solid var(--ask-line);
+}
+.rel-line-title { margin: 0; font-size: 17px; line-height: 1.35; overflow-wrap: anywhere; }
+.rel-line-text { margin: 0; font-size: 15px; line-height: 1.5; color: var(--ask-muted); overflow-wrap: anywhere; }
+.rel-line-prd { font: 12px/1.4 var(--ask-mono); color: var(--ask-muted); }
+
+@media (min-width: 720px) {
+  .rel-heading { font-size: 40px; }
+}

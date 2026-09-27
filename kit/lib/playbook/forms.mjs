@@ -66,7 +66,7 @@ export const FORMS = Object.freeze([
   form('decisions', 'core', [req('where'), req('format'), opt('numbering')]),
   form('definition-of-done', 'extended', [req('done'), opt('docs'), opt('commits')]),
   form('conventions', 'extended', [opt('naming'), opt('formatting'), opt('commits')]),
-  form('releasing', 'extended', [req('publishes'), opt('how'), opt('rollback')]),
+  form('releasing', 'extended', [req('publishes'), opt('how'), opt('rollback'), opt('notes')]),
   form('bug-fixing', 'extended', [req('steps'), opt('guard')]),
   form('glossary', 'extended', [req('where')], { pointerOnly: true }),
 ]);

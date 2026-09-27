@@ -42,7 +42,7 @@ describe('FORMS — the spec’s forms table, the contract with the templates an
       decisions: '*where *format numbering',
       'definition-of-done': '*done docs commits',
       conventions: 'naming formatting commits',
-      releasing: '*publishes how rollback',
+      releasing: '*publishes how rollback notes',
       'bug-fixing': '*steps guard',
       glossary: '*where',
     });

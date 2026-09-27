@@ -40,6 +40,16 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\ndossier:\n  on: true\n')).toThrow(/dossier.*on/s);
   });
 
+  it('keeps release notes off unless the file switches them on, and refuses a switch that is not a boolean (PRD 262)', () => {
+    expect(parseConfig('kit: 1\n').releaseNotes).toEqual({ enabled: false });
+    expect(parseConfig('kit: 1\nreleaseNotes:\n  enabled: true\n').releaseNotes).toEqual({ enabled: true });
+    expect(parseConfig('kit: 1\nreleaseNotes: { enabled: false }\n').releaseNotes).toEqual({ enabled: false });
+    expect(() => parseConfig('kit: 1\nreleaseNotes:\n  enabled: yes please\n', 'c.yml')).toThrow(/c\.yml.*releaseNotes\.enabled/);
+    expect(() => parseConfig('kit: 1\nreleaseNotes:\n  enabled: "true"\n')).toThrow(/releaseNotes\.enabled/);
+    expect(() => parseConfig('kit: 1\nreleaseNotes:\n  enabled: 1\n')).toThrow(/releaseNotes\.enabled/);
+    expect(() => parseConfig('kit: 1\nreleaseNotes:\n  on: true\n')).toThrow(/releaseNotes.*on/s);
+  });
+
   it('names the retro label and the retro branch when the config sets neither', () => {
     const config = parseConfig('kit: 1\n');
     expect(config.labels.retro).toBe('omni:retro');
@@ -227,6 +237,15 @@ describe('omni config', () => {
     ]) {
       const s = io();
       expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
+      expect(s.out.join('')).toBe(`${value}\n`);
+    }
+  });
+
+  it('prints releaseNotes.enabled, false by default and true once the file switches it on (PRD 262)', async () => {
+    for (const [text, value] of [[files['.omni-loop/config.yml'], 'false'], ['kit: 1\nreleaseNotes:\n  enabled: true\n', 'true']]) {
+      const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': text } });
+      const s = io();
+      expect(await main(['config', 'releaseNotes.enabled'], { cwd: root, ...s })).toBe(0);
       expect(s.out.join('')).toBe(`${value}\n`);
     }
   });

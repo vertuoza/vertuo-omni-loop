@@ -1,7 +1,8 @@
 # `kit/templates/playbook/releasing.md`
 
 Source: `docs/agents/releasing.md` @ `vertuo-ai-domain@db67fd9da`. The kit default of the releasing
-form: slots `publishes`, `how`, `rollback`, in the spec's order.
+form: slots `publishes`, `how`, `rollback`, in the spec's order, then `notes`, which has no upstream
+source (PRD 262, below).
 
 ## Read from config instead of hard-coded
 
@@ -43,3 +44,10 @@ form: slots `publishes`, `how`, `rollback`, in the spec's order.
 ## Added
 
 - The spec's slot markers and headings.
+- **The `notes` slot** (`## Release notes`, optional, last), from PRD 262, not from upstream: upstream
+  has no release note. Its kit default is the voice of `release.md` as the PRD's spec states it (the
+  front matter, the title's and the description's rules, what `omni check releases` grades and the
+  ship guard), with three example notes for a product no repository names. Each example passes the
+  check (`kit/lib/playbook/releasing.test.mjs`). The slot is optional, so a form written before it
+  still reads as the same `form-version: 1`, and shows the kit default until a repository writes its
+  own voice there.

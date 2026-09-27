@@ -55,7 +55,7 @@ floors nothing and stops no slice; delivery carries on. Do not run it again this
    wave moves the feature branch. The run leaves the checkout detached; say so in the report.
 3. `node .omni-loop/bin/omni.mjs prd <n>`. It must be in state `inbox`. `shipped`, with the feature
    PR still a draft, means a previous run shipped and stopped before ready: go to step 5, green path,
-   item 3. Anything else: stop and say where it is.
+   item 4. Anything else: stop and say where it is.
 4. No feature branch, no feature PR, or no `plan.md` in the PRD's files: follow `/omni:plan` first.
    It may return `needs clarification`: stop, and say what the PRD must answer. Otherwise go back to
    item 1 with its feature PR.
@@ -133,13 +133,29 @@ node .omni-loop/bin/omni.mjs comment --prd <prd> --pr <feature PR>
 
 **Gate green** (nothing open, no unreworked drift). In the worktree:
 
-1. `node .omni-loop/bin/omni.mjs ship <prd>`. It stages the move and prints what moved.
-   - Exit 1 names each reason it refused: the feature PR stays draft; name them in step 6 as `stuck`.
+1. **The release note,** only when `node .omni-loop/bin/omni.mjs config releaseNotes.enabled` prints
+   `true`; otherwise go to item 2. The note is `release.md` in the PRD's folder (the one
+   `omni prd <prd>` prints), beside its spec.
+   - **None there:** write it. What it holds and how it reads are the **Release notes** section of
+     `node .omni-loop/bin/omni.mjs kb show releasing`: follow it, and never restate it here. Write
+     it from the spec and from what the feature branch actually built
+     (`git diff <remote>/<repo.defaultBranch>...HEAD`), never from the plan: a slice that was not
+     built, or a decision a person reversed, is not in the note.
+   - **One there** (a person wrote or edited it on the branch, or an earlier run did): keep its
+     words, and change only what the check below refuses.
+   - `node .omni-loop/bin/omni.mjs check releases`, and fix the note until it is green. Still red
+     after `limits.attempts` rewrites: do not ship; name the rule in step 6 as `stuck`.
+   - Commit the note alone as `docs(release): PRD <prd> release note`, with your session's
+     co-author trailer, then the `omni sign trailer` line; it is pushed with the move (item 3). A
+     kept note that did not change needs no commit.
+2. `node .omni-loop/bin/omni.mjs ship <prd>`. It stages the move and prints what moved.
+   - Exit 1 names each reason it refused (with the switch on, a missing or failing release note is
+     one): the feature PR stays draft; name them in step 6 as `stuck`.
    - Exit 2 means the delivery folder holds uncommitted changes. Commit them if they are this run's
      own (the body file never lives there), then rerun once; otherwise stop, as for exit 1.
-2. Commit the move as `chore(delivery): ship PRD <prd>`, with your session's co-author trailer, then
+3. Commit the move as `chore(delivery): ship PRD <prd>`, with your session's co-author trailer, then
    the `omni sign trailer` line, and `git push <remote> HEAD:<feature branch>`.
-3. Only now, `gh pr ready <feature PR>`. **This is the only place in this skill a feature PR is
+4. Only now, `gh pr ready <feature PR>`. **This is the only place in this skill a feature PR is
    marked ready**; `/omni:yolo-fix` follows this same green path after its own ship. CI runs on it
    once: follow `/omni:pr`'s lifecycle for the feature PR until its checks are green or it is stuck.
 

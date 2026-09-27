@@ -1,14 +1,27 @@
 // The ship step: on the feature branch, before the feature pull request leaves draft, the PRD's
 // inbox folder becomes its shipped folder and its outbox moves inside it. The human merge is what
 // ships it — no bot writes to the default branch. settled.md is append-only and never rewritten.
+// With `releaseNotes.enabled` (PRD 262), a PRD ships only with a release note that holds: the note
+// is in its folder, so the move carries it to shipped.
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { basename, join, dirname } from 'node:path';
 import { trackedFiles } from '../check-report.mjs';
 import { openItemFiles, unreworkedDrift } from '../outbox/status.mjs';
 import { SETTLED_FILE } from '../outbox/outbox.mjs';
+import { releaseNotePath } from '../releases/check-releases.mjs';
+import { gradeReleaseNote } from '../releases/note.mjs';
 
 const REWRITTEN = /\.(md|html|yml|yaml|json)$/;
+
+/** Why the release note stops PRD `prd` in `dir` from shipping: `[]` when the switch is off or the
+ * note holds. */
+function releaseNoteReasons(ctx, prd, dir, read) {
+  if (!ctx.config.releaseNotes.enabled) return [];
+  const file = releaseNotePath(dir);
+  if (!existsSync(join(ctx.root, file))) return [`no release note: ${file}`];
+  return gradeReleaseNote(read(file), { prd }).map((rule) => `release note: ${rule}`);
+}
 
 export function planShip(ctx, prd, { files, read }) {
   const where = ctx.layout.whereIs(prd);
@@ -18,6 +31,7 @@ export function planShip(ctx, prd, { files, read }) {
   const reasons = [
     ...openItemFiles(prd, { ctx }).map((file) => `open outbox item: ${file}`),
     ...unreworkedDrift(prd, { ctx }).map((entry) => `drifted, not reworked: ${entry.id}`),
+    ...releaseNoteReasons(ctx, prd, where.dir, read),
   ];
   if (reasons.length) return { ok: false, reasons };
 

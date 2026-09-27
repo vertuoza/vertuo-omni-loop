@@ -120,3 +120,47 @@ SKILL.md names exists now covers `sign`.
 ### Gate (this update)
 
 `pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.
+
+## PRD 262, slice s2 — the loop writes the release note
+
+Not a re-port: upstream's skill writes no release note. A kit-local change to the prose, which the
+bundle does not carry. PRD 262 gives every shipped PRD a release note, `release.md` in its folder;
+with `releaseNotes.enabled` on, `omni ship` refuses a PRD without one that passes
+`omni check releases` (slice s1).
+
+- **Step 5, gate green, a new item 1: the release note,** only when
+  `omni config releaseNotes.enabled` prints `true`; with the switch off the green path runs as
+  before. Before `omni ship`, the skill writes the note in the folder `omni prd` prints, from the
+  spec and from what the feature branch built (its diff against the default branch), never from the
+  plan (the spec's decision 5).
+- **The voice is not restated.** What the note holds and how it reads are the `notes` slot of the
+  `releasing` form: the step points to `omni kb show releasing` and names none of its rules, so a
+  repository that writes its own voice there changes what the loop writes without touching the
+  skill.
+- **`omni check releases` until green,** then the note is committed alone as
+  `docs(release): PRD <prd> release note`, with the session's co-author trailer and the
+  `omni sign trailer` line, and pushed with the move. Still red after `limits.attempts` rewrites,
+  the run does not ship and names the rule as `stuck`, like any other red step of the finish (the
+  briefing's attempts rule).
+- **A note already there is kept** (a person wrote or edited it on the branch, or an earlier run
+  committed it and stopped before the ship): only what the check refuses changes, and an unchanged
+  note needs no commit (item s2-02). `/omni:yolo-fix` is the one that rewrites a note, when a rework
+  changed what the PRD does.
+- **Ship, its commit and ready move to items 2 to 4.** Ship's exit 1 names a missing or failing
+  note among its reasons, and the resume path in step 1 (shipped, still a draft) now points to
+  item 4, the one that marks the feature PR ready.
+- **Unchanged:** the red gate ships nothing, so it writes no note. The skill's description is left
+  as it was.
+
+### Tests
+
+`kit/test/plugin.test.mjs` gained a block at its end, `the release note in the skills that ship`
+(item s2-01: the file sits outside the slice's ground). On the live skills: step 5's green path
+names the switch, `omni kb show releasing`, `omni check releases` and the `docs(release)` commit in
+that order, before `omni ship` and `gh pr ready`, and its red gate names none of them; the resume
+pointer lands on the item that marks the PR ready; neither skill restates the voice's limits; and
+this repository's shim prints `releaseNotes.enabled` as `true`.
+
+### Gate (this update)
+
+`pnpm vitest run kit/test/plugin.test.mjs kit/test/no-literals.test.mjs` and `pnpm test`, green.
