@@ -416,6 +416,12 @@ describe('the release note in the skills that ship', () => {
     expect(line, `item ${item} of step 5`).toContain('gh pr ready');
   });
 
+  it('/omni:yolo-fix step 7 writes the note, rewrites one a rework changed, and checks and commits it before ready', () => {
+    const step = skillSection(read('yolo-fix'), '7.');
+    expectInOrder(step, [...NOTE, 'gh pr ready']);
+    expect(step).toMatch(/\brewrites? the note\b/);
+  });
+
   it('points to the releasing form and restates none of its limits', () => {
     for (const skill of ['yolo', 'yolo-fix']) expect(read(skill), skill).not.toMatch(/\b(?:60|280) characters\b/);
   });
