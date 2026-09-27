@@ -182,25 +182,25 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     expect(text).toContain([
       "# Who co-signs the loop's commits, pull requests and issues. null: nobody.",
       'signature:',
-      '  name: OmniMan',
+      '  name: Omni-man',
       '  email: 333776611+omni-loop-invader[bot]@users.noreply.github.com',
       '  home: https://vertuo-omni-loop-galaxy.vercel.app',
       '  footer: 🦸 {name} by [Omni Loop]({home}) ©',
     ].join('\n'));
     expect(readConfig(read).signature).toEqual({
-      name: 'OmniMan',
+      name: 'Omni-man',
       email: '333776611+omni-loop-invader[bot]@users.noreply.github.com',
       home: 'https://vertuo-omni-loop-galaxy.vercel.app',
       footer: '🦸 {name} by [Omni Loop]({home}) ©',
     });
     expect(await omni(root, ['sign', 'trailer'])).toEqual({
       code: 0,
-      out: 'Co-authored-by: OmniMan <333776611+omni-loop-invader[bot]@users.noreply.github.com>\n',
+      out: 'Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>\n',
       err: '',
     });
     expect(await omni(root, ['sign', 'footer'])).toEqual({
       code: 0,
-      out: '🦸 OmniMan by [Omni Loop](https://vertuo-omni-loop-galaxy.vercel.app) © <!-- omni-loop:signed -->\n',
+      out: '🦸 Omni-man by [Omni Loop](https://vertuo-omni-loop-galaxy.vercel.app) © <!-- omni-loop:signed -->\n',
       err: '',
     });
   });

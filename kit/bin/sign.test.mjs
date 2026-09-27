@@ -1,4 +1,5 @@
 // PRD #99, slice s1: `omni sign trailer | footer`, through `main()` on a fixture repository (AC 3).
+// PRD #215: the footer links home (slice s1), and the hero is Omni-man (slice s2).
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.mjs';
 import { main } from './omni.mjs';
@@ -18,7 +19,7 @@ describe('omni sign', () => {
   it('trailer prints exactly the co-author line, and nothing else', async () => {
     expect(await omni(['sign', 'trailer'])).toEqual({
       code: 0,
-      out: 'Co-authored-by: OmniMan <333776611+omni-loop-invader[bot]@users.noreply.github.com>\n',
+      out: 'Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>\n',
       err: '',
     });
   });
@@ -26,7 +27,7 @@ describe('omni sign', () => {
   it('footer prints the footer, its name and home filled, followed by the hidden marker (PRD #215)', async () => {
     expect(await omni(['sign', 'footer'])).toEqual({
       code: 0,
-      out: '🦸 OmniMan by [Omni Loop](https://vertuo-omni-loop-galaxy.vercel.app) © <!-- omni-loop:signed -->\n',
+      out: '🦸 Omni-man by [Omni Loop](https://vertuo-omni-loop-galaxy.vercel.app) © <!-- omni-loop:signed -->\n',
       err: '',
     });
   });
@@ -41,11 +42,11 @@ describe('omni sign', () => {
     const config = `${CONFIG}signature:\n  home: https://example.com\n`;
     expect(await omni(['sign', 'footer'], config)).toEqual({
       code: 0,
-      out: '🦸 OmniMan by [Omni Loop](https://example.com) © <!-- omni-loop:signed -->\n',
+      out: '🦸 Omni-man by [Omni Loop](https://example.com) © <!-- omni-loop:signed -->\n',
       err: '',
     });
     expect((await omni(['sign', 'trailer'], config)).out).toBe(
-      'Co-authored-by: OmniMan <333776611+omni-loop-invader[bot]@users.noreply.github.com>\n',
+      'Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>\n',
     );
   });
 

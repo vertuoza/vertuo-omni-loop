@@ -11652,7 +11652,7 @@ var ConfigSchema = external_exports.object({
   // template: `{name}` and `{home}` are filled from the keys they name, anything else is printed
   // as written. `home` defaults to the Omni Loop home page (ADR-0047).
   signature: external_exports.object({
-    name: trailerPart.default("OmniMan"),
+    name: trailerPart.default("Omni-man"),
     email: trailerPart.default("333776611+omni-loop-invader[bot]@users.noreply.github.com"),
     home: httpsUrl.default("https://vertuo-omni-loop-galaxy.vercel.app"),
     footer: text.default("\u{1F9B8} {name} by [Omni Loop]({home}) \xA9")

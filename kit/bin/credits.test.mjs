@@ -7,8 +7,8 @@ import { makeRepo } from '../test/fixture.mjs';
 import { main } from './omni.mjs';
 
 const CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\n';
-const TRAILER = 'Co-authored-by: OmniMan <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
-const SIGNED_BODY = 'Part of #7\n\n🦸 Delivered by OmniMan, with Omni Loop <!-- omni-loop:signed -->';
+const TRAILER = 'Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
+const SIGNED_BODY = 'Part of #7\n\n🦸 Omni-man by [Omni Loop](https://vertuo-omni-loop-galaxy.vercel.app) © <!-- omni-loop:signed -->';
 
 function searched(number, { repo = 'acme/widgets', labels = [], ...overrides } = {}) {
   return {
@@ -66,7 +66,7 @@ const WORLD = [
   ]],
   ['search prs --owner acme --match body', [
     searched(5, { createdAt: '2026-09-02T09:00:00Z', body: SIGNED_BODY }),
-    searched(6, { createdAt: '2026-09-03T09:00:00Z', body: 'OmniMan, thanks.' }),
+    searched(6, { createdAt: '2026-09-03T09:00:00Z', body: 'Omni-man, thanks.' }),
   ]],
   ['search commits --owner acme', [
     { sha: 'c8', commit: { message: `feat: eight (#8)\n\n${TRAILER}\n`, committer: { date: '2026-09-05T09:00:00Z' } }, repository: { fullName: 'acme/gadgets' } },
@@ -77,7 +77,7 @@ const WORLD = [
   ]],
   ['search issues --owner acme --match body', [
     searched(21, { state: 'closed', title: 'Issue 21', createdAt: '2026-09-10T09:00:00Z', body: SIGNED_BODY }),
-    searched(22, { state: 'open', title: 'Issue 22', createdAt: '2026-09-11T09:00:00Z', body: 'Ask OmniMan.' }),
+    searched(22, { state: 'open', title: 'Issue 22', createdAt: '2026-09-11T09:00:00Z', body: 'Ask Omni-man.' }),
   ]],
   ['search issues --owner acme --app omni-loop-invader', [
     searched(30, { state: 'open', title: 'Retro', createdAt: '2026-09-15T09:00:00Z', author: { login: 'omni-loop-invader[bot]' } }),
@@ -86,7 +86,7 @@ const WORLD = [
 
 /** The report WORLD prints. */
 const REPORT = [
-  'OmniMan · acme · all time',
+  'Omni-man · acme · all time',
   'PRs        6    (merged 5 · open 1)       phase-0 1 · feature 1 · slices 2 · other 2',
   '  signed 3 · before signing 2 · missed 1',
   'PRD issues 2    signed 1 · before signing 1 · missed 0',
@@ -127,7 +127,7 @@ describe('omni credits', () => {
     expect({ code, err }).toEqual({ code: 0, err: '' });
     const doc = JSON.parse(out);
     expect(Object.keys(doc)).toEqual(['name', 'scope', 'totals', 'items', 'commits', 'warnings']);
-    expect(doc.name).toBe('OmniMan');
+    expect(doc.name).toBe('Omni-man');
     expect(doc.scope).toEqual({ owner: 'acme', repo: null, since: null });
     expect(doc.totals).toMatchObject({
       prs: { total: 6, states: { merged: 5, open: 1 }, kinds: { 'phase-0': 1, feature: 1, slice: 2, other: 2 }, signatures: { signed: 3, 'before signing': 2, missed: 1 } },
@@ -187,7 +187,7 @@ describe('omni credits', () => {
     expect(calls.every((call) => call.includes('--repo acme/gadgets'))).toBe(true);
     expect(calls.filter((call) => call.startsWith('search')).every((call) => /--(?:created|committer-date) >=2026-09-01/.test(call))).toBe(true);
     expect(out.split('\n').slice(0, 2)).toEqual([
-      'OmniMan · acme/gadgets · since 2026-09',
+      'Omni-man · acme/gadgets · since 2026-09',
       'PRs        1    (merged 1 · open 0)       phase-0 0 · feature 0 · slices 1 · other 0',
     ]);
   });
