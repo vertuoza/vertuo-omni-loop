@@ -1093,3 +1093,159 @@ A constant in the page's view.
 ```
 
 <!-- /omni-outbox-settled: s3-03-questions-oldest-first -->
+
+<!-- omni-outbox-settled: s4-01-last-activity-counts-answers -->
+
+## s4-01-last-activity-counts-answers — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-last-activity-counts-answers
+prd: 216
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 4
+---
+
+## The question, in plain words
+
+The list of PRDs puts the most recently active first, and the spec says activity is the latest version or question. Does an answer count as activity, and what about a draft nobody has touched since it was opened?
+
+## The decision, in plain words
+
+An answer counts, as much as a question being asked, and so do opening the dossier and giving it its number. A draft nobody touched sits at the date it was opened, below the ones people are working on.
+
+## The intro, for fun
+
+Two drafts sat at the bottom of the list, each claiming it had been busy.
+
+## The punchline, for fun
+
+The one with an answer this morning won the argument.
+
+## The options, in plain words
+
+A. Count the opening, the numbering, every version, and every question asked or answered
+B. Count only versions and questions asked, as the spec words it, with the opening for a dossier that has neither
+C. Count versions only, so questions never move a PRD up the list
+
+## What I had to decide
+
+What moves a dossier up the list: only a new version or a question asked, as the spec words it, or also an answer, its opening and its numbering.
+
+## What I did meanwhile
+
+The last activity is the latest of the opening, the numbering, every version, and every question asked or answered. The list and the planet's tab of the next slice read the same value.
+
+## What it costs to change later
+
+One line in the database function that lists the dossiers, and the same line in the test double; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says newest activity first, the latest version or question, without saying whether answering a question is activity or where a dossier with neither sits.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-last-activity-counts-answers -->
+
+<!-- omni-outbox-settled: s4-02-search-every-word-of-title -->
+
+## s4-02-search-every-word-of-title — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-27
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-27
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-search-every-word-of-title
+prd: 216
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-27
+wave: 4
+---
+
+## The question, in plain words
+
+The list of PRDs has a search over titles. When someone types several words, must a PRD's title hold all of them, or is one enough?
+
+## The decision, in plain words
+
+All of them, in any order and in any case, and a word also matches inside a longer one. This is how the question history's search already behaves, so the two searches feel the same.
+
+## The intro, for fun
+
+Someone typed three words into the search box and expected the list to listen to all three.
+
+## The punchline, for fun
+
+It did. Titles holding one word out of three stayed home.
+
+## The options, in plain words
+
+A. Keep a PRD when its title holds every word typed, as the question history's search does
+B. Keep a PRD when its title holds any of the words typed
+C. Match the words typed as one phrase, in that order
+
+## What I had to decide
+
+Whether a search with several words keeps the titles holding every word, or the titles holding any of them.
+
+## What I did meanwhile
+
+The search keeps a PRD when each word typed appears somewhere in its title, ignoring case, as the question history's search does with questions and answers.
+
+## What it costs to change later
+
+One line of the page's filtering; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a search finds a dossier by a word of its title, without saying what several words mean together.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-search-every-word-of-title -->
