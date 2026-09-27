@@ -2,12 +2,13 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
-import { HANDLED } from '../src/webhook/webhook.mjs';
+import { APP_BOT_LOGIN, HANDLED } from '../src/webhook/webhook.mjs';
 
 // The GitHub App manifest the org admin registers the app from (PRD 28, "The app's manifest").
 // Least privilege (decision 9): exactly these permissions and events, nothing more. PRD 72 widens
 // the permissions once, for the retro (its decision 11): `contents: write`, `issues: write` and
-// `actions: read`; the events stay the same.
+// `actions: read`; the events stay the same. PRD 251 adds one event, `issue_comment`, and nothing
+// else.
 const manifest = parse(readFileSync(fileURLToPath(new URL('../app.yml', import.meta.url)), 'utf8'));
 
 describe('app.yml — the GitHub App manifest', () => {
@@ -27,8 +28,12 @@ describe('app.yml — the GitHub App manifest', () => {
     });
   });
 
-  it('subscribes to exactly the spec’s events', () => {
-    expect([...manifest.default_events].sort()).toEqual(['check_run', 'pull_request']);
+  it('subscribes to exactly the spec’s events: issue_comment is the one PRD 251 adds', () => {
+    expect([...manifest.default_events].sort()).toEqual(['check_run', 'issue_comment', 'pull_request']);
+  });
+
+  it('is registered under the name the webhook knows its own comments by', () => {
+    expect(`${manifest.name}[bot]`).toBe(APP_BOT_LOGIN);
   });
 
   it('subscribes to exactly the events the webhook handles', () => {
@@ -39,6 +44,7 @@ describe('app.yml — the GitHub App manifest', () => {
     expect(HANDLED).toEqual({
       pull_request: ['opened', 'synchronize', 'reopened', 'ready_for_review', 'labeled', 'unlabeled', 'edited', 'closed'],
       check_run: ['rerequested'],
+      issue_comment: ['created', 'edited', 'deleted'],
     });
   });
 

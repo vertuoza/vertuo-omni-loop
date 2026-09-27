@@ -4,10 +4,11 @@
 # Least privilege: these permissions and events are what the outbox check and the retro use, nothing
 # more. `test/app-yml.test.mjs` fails on any permission or event beyond them. The retro (PRD 72)
 # widened them once: `contents: write` (was `read`) to write its own `branches.retro` branch,
-# `issues: write` for its retro issues and `actions: read` for failed jobs' logs. The actions the app
-# acts on (pull_request: opened, synchronize, reopened, ready_for_review, labeled, unlabeled, edited,
-# closed; check_run: rerequested) are filtered in `src/webhook/` — a manifest subscribes to whole
-# events.
+# `issues: write` for its retro issues and `actions: read` for failed jobs' logs. PRD 251 adds one
+# event and no permission: `issue_comment`, so an answer typed on a pull request re-checks it and the
+# Omni page shows it. The actions the app acts on (pull_request: opened, synchronize, reopened,
+# ready_for_review, labeled, unlabeled, edited, closed; check_run: rerequested; issue_comment:
+# created, edited, deleted) are filtered in `src/webhook/` — a manifest subscribes to whole events.
 #
 # The URLs point at the app's Vercel project; replace the host with the project's production domain
 # before registering if it differs.
@@ -28,3 +29,4 @@ default_permissions:
 default_events:
   - pull_request
   - check_run
+  - issue_comment

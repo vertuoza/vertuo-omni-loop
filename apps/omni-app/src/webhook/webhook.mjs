@@ -3,20 +3,31 @@
 // before anything becomes an event, routes by event and action, and hands the events to the `send`
 // it is given. Nothing is sent unless the signature is valid.
 //
-// Two routes, never both for one delivery: a merged `pull_request.closed` becomes the retro event
-// (PRD 72) and the knowledge harvest event (PRD 82), and nothing else; every other handled action
-// becomes the outbox check event, exactly as before. An unmerged `closed` becomes nothing.
+// Two routes, never both for one delivery: a `pull_request.closed` becomes the outbox's last send
+// (PRD 251) and, when it merged, the retro event (PRD 72) and the knowledge harvest event (PRD 82);
+// every other handled action becomes the outbox check event, exactly as before. A comment on a pull
+// request re-checks it like a push (PRD 251): that is what shows the Omni page an answer typed on
+// GitHub. A comment on an issue, and one the App wrote itself, does nothing.
 import { Webhooks } from '@octokit/webhooks';
 import { HARVEST_EVENT, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
+
+/** The App's name, as `app.yml` registers it: GitHub writes its own comments as `<name>[bot]`. */
+export const APP_SLUG = 'omni-loop';
+export const APP_BOT_LOGIN = `${APP_SLUG}[bot]`;
 
 /**
  * The events and actions the app re-evaluates the outbox check on. `check_run.rerequested` is
  * GitHub's **Re-run** button; GitHub delivers it only to the app that created the check run.
+ * `issue_comment` is a comment written, changed or removed on a pull request (PRD 251).
  */
 export const CHECK_ACTIONS = Object.freeze({
   pull_request: Object.freeze(['opened', 'synchronize', 'reopened', 'ready_for_review', 'labeled', 'unlabeled', 'edited']),
   check_run: Object.freeze(['rerequested']),
+  issue_comment: Object.freeze(['created', 'edited', 'deleted']),
 });
+
+/** The trigger of the outbox's last send, from a pull request closed, merged or not (PRD 251). */
+export const LAST_SEND_TRIGGER = 'pull_request.closed';
 
 /** The actions that may start a retro: a pull request closed, which counts only when it merged. */
 export const RETRO_ACTIONS = Object.freeze({
@@ -27,14 +38,15 @@ export const RETRO_ACTIONS = Object.freeze({
 export const HANDLED = Object.freeze({
   pull_request: Object.freeze([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]),
   check_run: CHECK_ACTIONS.check_run,
+  issue_comment: CHECK_ACTIONS.issue_comment,
 });
 
 /**
  * @typedef {{ status: number, body: string }} WebhookResponse
  * @typedef {{ name: string, data: {
  *   installationId: number, owner: string, repo: string, repository: string,
- *   prNumber: number, headSha: string, trigger: string,
- * } }} CheckRequest
+ *   prNumber: number, headSha: string | null, trigger: string, state?: 'merged' | 'closed',
+ * } }} CheckRequest  `headSha` null: a comment, which names none; the function reads it off the pull request
  * @typedef {{ name: string, data: {
  *   installationId: number, owner: string, repo: string, repository: string,
  *   prNumber: number, mergeSha: string, mergedAt: string,
@@ -78,15 +90,15 @@ export async function receiveWebhook({ body, headers, secret, send }) {
 }
 
 /**
- * The router alone, pure: a retro action goes to the retro and the knowledge harvest, anything else
- * to the outbox check.
+ * The router alone, pure: a retro action goes to the outbox's last send and, merged, to the retro
+ * and the knowledge harvest; anything else to the outbox check.
  * @param {string} event
  * @param {any} payload
  * @returns {(CheckRequest | RetroRequest | HarvestRequest)[]}
  */
 export function toEvents(event, payload) {
   if (RETRO_ACTIONS[event]?.includes(payload?.action)) {
-    return [...toRetroRequests(event, payload), ...toHarvestRequests(event, payload)];
+    return [...toLastSendRequests(event, payload), ...toRetroRequests(event, payload), ...toHarvestRequests(event, payload)];
   }
   return toCheckRequests(event, payload);
 }
@@ -106,6 +118,13 @@ export function toCheckRequests(event, payload) {
   if (!source) return [];
 
   const trigger = `${event}.${payload.action}`;
+  if (event === 'issue_comment') {
+    // A comment names no head: the function reads it off the pull request.
+    if (!payload.issue?.pull_request || payload.comment?.user?.login === APP_BOT_LOGIN) return [];
+    const prNumber = payload.issue.number;
+    if (!Number.isInteger(prNumber)) return [];
+    return [{ name: OUTBOX_CHECK_EVENT, data: { ...source, prNumber, headSha: null, trigger } }];
+  }
   const pulls =
     event === 'pull_request'
       ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha }]
@@ -120,6 +139,35 @@ export function toCheckRequests(event, payload) {
       name: OUTBOX_CHECK_EVENT,
       data: { ...source, prNumber: pull.number, headSha: pull.sha, trigger },
     }));
+}
+
+/**
+ * The outbox's last send, pure (PRD 251): a pull request closed, merged or not, becomes one request
+ * to the outbox function carrying its state, which sends the page the outbox one last time and
+ * touches no check. Whether it is a feature pull request, and whether the repository sends at all,
+ * is the function's to read.
+ * @param {string} event
+ * @param {any} payload
+ * @returns {CheckRequest[]}
+ */
+export function toLastSendRequests(event, payload) {
+  if (`${event}.${payload?.action}` !== LAST_SEND_TRIGGER) return [];
+  const source = sourceOf(payload);
+  const pull = payload.pull_request;
+  const prNumber = pull?.number ?? payload.number;
+  if (!source || !Number.isInteger(prNumber) || !pull?.head?.sha) return [];
+  return [
+    {
+      name: OUTBOX_CHECK_EVENT,
+      data: {
+        ...source,
+        prNumber,
+        headSha: pull.head.sha,
+        trigger: LAST_SEND_TRIGGER,
+        state: pull.merged === true ? 'merged' : 'closed',
+      },
+    },
+  ];
 }
 
 /**

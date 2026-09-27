@@ -1,7 +1,19 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { HARVEST_EVENT, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
-import { CHECK_ACTIONS, HANDLED, RETRO_ACTIONS, receiveWebhook, toCheckRequests, toEvents, toHarvestRequests, toRetroRequests } from './webhook.mjs';
+import {
+  APP_BOT_LOGIN,
+  CHECK_ACTIONS,
+  HANDLED,
+  LAST_SEND_TRIGGER,
+  RETRO_ACTIONS,
+  receiveWebhook,
+  toCheckRequests,
+  toEvents,
+  toHarvestRequests,
+  toLastSendRequests,
+  toRetroRequests,
+} from './webhook.mjs';
 
 const SECRET = 'shh-test-secret';
 
@@ -100,10 +112,24 @@ describe('webhook — the event and action filter', () => {
     expect(send.mock.calls[0][0][0].data.trigger).toBe(`pull_request.${action}`);
   });
 
-  it('answers 200 and sends nothing to a closed pull request that was not merged', async () => {
+  it('turns a closed pull request that was not merged into the outbox’s last send only (PRD 251)', async () => {
     const { response, send } = await deliver({ payload: pullRequestPayload('closed') });
     expect(response.status).toBe(200);
-    expect(send).not.toHaveBeenCalled();
+    expect(send.mock.calls[0][0]).toEqual([
+      {
+        name: OUTBOX_CHECK_EVENT,
+        data: {
+          installationId: 4242,
+          owner: 'vertuoza',
+          repo: 'vertuo-omni-loop',
+          repository: 'vertuoza/vertuo-omni-loop',
+          prNumber: 28,
+          headSha: 'abc123',
+          trigger: LAST_SEND_TRIGGER,
+          state: 'closed',
+        },
+      },
+    ]);
   });
 
   it.each(['assigned', 'review_requested', 'converted_to_draft'])('answers 200 and sends nothing to pull_request.%s', async (action) => {
@@ -213,12 +239,25 @@ const mergedPayload = (over = {}) =>
   });
 
 describe('webhook — the retro route (PRD 72)', () => {
-  it('turns a merged pull request into one retro event and one harvest event (PRD 82), and no outbox event', async () => {
+  it('turns a merged pull request into the outbox’s last send, one retro event and one harvest event (PRD 82)', async () => {
     const { response, send } = await deliver({ payload: mergedPayload() });
     expect(response.status).toBe(200);
-    expect(response.body).toBe('sent 2');
+    expect(response.body).toBe('sent 3');
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0]).toEqual([
+      {
+        name: OUTBOX_CHECK_EVENT,
+        data: {
+          installationId: 4242,
+          owner: 'vertuoza',
+          repo: 'vertuo-omni-loop',
+          repository: 'vertuoza/vertuo-omni-loop',
+          prNumber: 28,
+          headSha: 'abc123',
+          trigger: LAST_SEND_TRIGGER,
+          state: 'merged',
+        },
+      },
       {
         name: RETRO_EVENT,
         data: {
@@ -244,8 +283,15 @@ describe('webhook — the retro route (PRD 72)', () => {
     ]);
   });
 
-  it('turns a closed, unmerged pull request into nothing', () => {
-    expect(toEvents('pull_request', pullRequestPayload('closed', { pull_request: { number: 28, merged: false, merged_at: null, head: { sha: 'abc123' }, base: { ref: 'main' } } }))).toEqual([]);
+  it('turns a closed, unmerged pull request into the last send alone: no retro, no harvest', () => {
+    const events = toEvents('pull_request', pullRequestPayload('closed', { pull_request: { number: 28, merged: false, merged_at: null, head: { sha: 'abc123' }, base: { ref: 'main' } } }));
+    expect(events.map((event) => [event.name, event.data.trigger, event.data.state])).toEqual([[OUTBOX_CHECK_EVENT, LAST_SEND_TRIGGER, 'closed']]);
+  });
+
+  it('never makes a last send of an action other than closed, or of a closed pull request without its head', () => {
+    expect(toLastSendRequests('pull_request', pullRequestPayload('synchronize'))).toEqual([]);
+    expect(toLastSendRequests('pull_request', mergedPayload({ head: {} }))).toEqual([]);
+    expect(toLastSendRequests('check_run', rerequestedPayload())).toEqual([]);
   });
 
   it('turns a merged pull request without a merge SHA into nothing', () => {
@@ -254,7 +300,7 @@ describe('webhook — the retro route (PRD 72)', () => {
 
   it('leaves the qualifying to the functions: a merged sub-PR still becomes the retro and harvest events', () => {
     const events = toEvents('pull_request', mergedPayload({ base: { ref: 'feat/retro' } }));
-    expect(events.map((event) => event.name)).toEqual([RETRO_EVENT, HARVEST_EVENT]);
+    expect(events.map((event) => event.name)).toEqual([OUTBOX_CHECK_EVENT, RETRO_EVENT, HARVEST_EVENT]);
   });
 
   it('turns a closed, unmerged pull request into no harvest event', () => {
@@ -270,6 +316,61 @@ describe('webhook — the retro route (PRD 72)', () => {
   it('handles exactly the check actions and the retro actions', () => {
     expect(HANDLED.pull_request).toEqual([...CHECK_ACTIONS.pull_request, ...RETRO_ACTIONS.pull_request]);
     expect(HANDLED.check_run).toEqual(CHECK_ACTIONS.check_run);
+    expect(HANDLED.issue_comment).toEqual(CHECK_ACTIONS.issue_comment);
     expect(RETRO_ACTIONS).toEqual({ pull_request: ['closed'] });
+  });
+});
+
+/** An `issue_comment` delivery: on a pull request unless `issue.pull_request` is taken away. */
+const commentPayload = (action, { login = 'ada', onPull = true } = {}) => ({
+  action,
+  installation: INSTALLATION,
+  repository: REPOSITORY,
+  issue: { number: 28, ...(onPull ? { pull_request: { url: 'https://api.github.com/repos/vertuoza/vertuo-omni-loop/pulls/28' } } : {}) },
+  comment: { id: 77, body: '1: A', user: { login } },
+});
+
+describe('webhook — a comment re-checks its pull request (PRD 251)', () => {
+  it.each(['created', 'edited', 'deleted'])('turns issue_comment.%s on a pull request into the outbox check, with no head', async (action) => {
+    const { response, send } = await deliver({ event: 'issue_comment', payload: commentPayload(action) });
+    expect(response.status).toBe(200);
+    expect(send.mock.calls[0][0]).toEqual([
+      {
+        name: OUTBOX_CHECK_EVENT,
+        data: {
+          installationId: 4242,
+          owner: 'vertuoza',
+          repo: 'vertuo-omni-loop',
+          repository: 'vertuoza/vertuo-omni-loop',
+          prNumber: 28,
+          headSha: null,
+          trigger: `issue_comment.${action}`,
+        },
+      },
+    ]);
+  });
+
+  it('does nothing for a comment on an issue', async () => {
+    const { response, send } = await deliver({ event: 'issue_comment', payload: commentPayload('created', { onPull: false }) });
+    expect(response.status).toBe(200);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('does nothing for a comment the App wrote itself, so its own outbox comment never loops', async () => {
+    expect(APP_BOT_LOGIN).toBe('omni-loop[bot]');
+    for (const action of ['created', 'edited']) {
+      const { send } = await deliver({ event: 'issue_comment', payload: commentPayload(action, { login: APP_BOT_LOGIN }) });
+      expect(send).not.toHaveBeenCalled();
+    }
+  });
+
+  it('still re-checks on a person’s comment posted with the App (the Omni page’s Send)', () => {
+    const payload = commentPayload('created', { login: 'ada' });
+    payload.comment.performed_via_github_app = { slug: 'omni-loop' };
+    expect(toCheckRequests('issue_comment', payload)).toHaveLength(1);
+  });
+
+  it('does nothing for an issue_comment action it does not know', () => {
+    expect(toCheckRequests('issue_comment', commentPayload('pinned'))).toEqual([]);
   });
 });
