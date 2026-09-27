@@ -5,9 +5,12 @@
 // The workspace's members (ask_members(), PRD 144) name who opened it and who pushed each version.
 // Its rounds (dossier_rounds(), PRD 216 step 3) are the questions that shaped it, read as the viewer
 // too; when they cannot be read, the page still shows the dossier and its Questions tab says so.
+// Its repositories (dossier_list(), step 4: its home, its questions' and its planet's regions) are its
+// header's chips; when they cannot be read, the chip is its home repository alone. /prd, the history,
+// reads dossier_list() whole, as the viewer: every dossier of their workspaces.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { readMembers } from '../../ask/page/source';
-import { dossierReader, dossierRounds, type DossierRoundRow } from '../store';
+import { dossierList, dossierReader, dossierRounds, type DossierListRow, type DossierRoundRow } from '../store';
 import type { DossierRead } from './view';
 
 export type Db = Pick<SupabaseClient, 'from' | 'rpc'>;
@@ -27,16 +30,31 @@ async function readRounds(db: Pick<Db, 'rpc'>, id: string): Promise<DossierRound
   }
 }
 
-/** The dossier, its versions (without their content), its workspace's members and its rounds; null
- * when the viewer may not read it, or it does not exist. */
+/** The dossier's repositories, as the history lists them; null when they cannot be read. */
+async function readRepos(db: Pick<Db, 'rpc'>, id: string): Promise<string[] | null> {
+  try {
+    return (await dossierList(db, id))[0]?.repos ?? null;
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+}
+
+/** The dossier, its versions (without their content), its workspace's members, its rounds and its
+ * repositories; null when the viewer may not read it, or it does not exist. */
 export async function readDossier(db: Db, id: string): Promise<DossierRead | null> {
   if (!isDossierId(id)) return null;
   const reader = dossierReader(db);
   const dossier = await reader.dossier(id);
   if (!dossier) return null;
-  const [versions, members, rounds] = await Promise.all([reader.versions(id), readMembers(db, dossier.workspace_id), readRounds(db, id)]);
-  return { dossier, versions, members, rounds };
+  const [versions, members, rounds, repos] = await Promise.all([
+    reader.versions(id), readMembers(db, dossier.workspace_id), readRounds(db, id), readRepos(db, id),
+  ]);
+  return { dossier, versions, members, rounds, repos };
 }
+
+/** Every dossier of the viewer's workspaces, as the history lists them. */
+export const readHistory = (db: Pick<Db, 'rpc'>): Promise<DossierListRow[]> => dossierList(db);
 
 /** One version's content, or null when the viewer may not read it. */
 export const readContent = (db: Pick<Db, 'from'>, versionId: string) => dossierReader(db).content(versionId);

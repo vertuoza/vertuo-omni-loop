@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { dossierRounds } from '../store';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
-import { deleteDraft, readContent, readDossier, readSandboxed } from './source';
+import { deleteDraft, readContent, readDossier, readHistory, readSandboxed } from './source';
 
 // Where /prd/<id> reads: straight from the database as the viewer (the stubbed client of
 // ../store.fake.ts, which keeps the migration's access rules), so a member of the dossier's workspace
@@ -184,6 +184,74 @@ describe('reading the questions that shaped it', () => {
     const read = await readDossier(failing as never, inbox);
     expect(read?.dossier.id).toBe(inbox);
     expect(read?.rounds).toBeNull();
+    quiet.mockRestore();
+  });
+});
+
+describe('reading the history', () => {
+  const at = (hhmm: string) => `2026-09-28T${hhmm}:00.000Z`;
+
+  /** Acme's plan repository is acme/plans. Ada opens a draft of it at 08:00, then at 09:00, in the Claude
+   * session sess-a, the dossier a push numbers PRD 7; a brainstorm question is asked in Acme/Gadgets and
+   * answered, a delivery question at 11:00 in its home repository; PRD 7's planet is surveyed in widgets,
+   * gadgets (twice, once in another case) and core. Bob pushes PRD 7 of acme/widgets at 10:00. Carl's
+   * workspace keeps a PRD 7 of its own plan repository, its planet surveyed in secret. */
+  async function history() {
+    let now = Date.parse(at('08:00'));
+    const fake = fakeSupabase({ ada: ADA, bob: BOB, carl: CARL }, { [FAKE_WORKSPACE]: 'acme', [OTHER]: 'other' }, () => now);
+    const as = (token: string | null) => fake.client(token ?? 'nobody') as never;
+    const open = async (title: string, session: string | null) =>
+      (await fake.client('ada').rpc('dossier_open', { p_title: title, p_repo: 'acme/plans', p_claude_session_id: session })).data as string;
+    const push = async (token: string, repo: string, title: string, draft: string | null, artifacts: unknown[] = []) =>
+      ((await fake.client(token).rpc('dossier_push', { p_repo: repo, p_prd: 7, p_title: title, p_draft: draft, p_artifacts: artifacts })).data as { id: string }).id;
+    const draft = await open('Grout colours', null);
+    now = Date.parse(at('09:00'));
+    const reminders = await push('ada', 'acme/plans', 'Invoice reminders', await open('Reminders', 'sess-a'), [{ kind: 'spec', content: 'spec one' }]);
+    now = Date.parse(at('10:00'));
+    const widgets = await push('bob', 'acme/widgets', 'Widget sizes', null);
+    const elsewhere = await push('carl', 'other/stuff', 'Elsewhere', null);
+    fake.seedPlanet({ planRepo: 'plans', prd: 7, regions: ['widgets', 'Gadgets', 'gadgets', 'core'] });
+    fake.seedPlanet({ workspace: OTHER, planRepo: 'stuff', prd: 7, regions: ['secret'] });
+    fake.seedAsk({ owner: ADA.id, repo: 'Acme/Gadgets', claudeSessionId: 'sess-a' }, [
+      { created_at: at('09:30'), status: 'answered', answers: { 'A question?': 'Yes' }, answered_via: 'terminal', answered_by: ADA.id, answered_at: at('09:31') },
+    ]);
+    fake.seedAsk({ owner: BOB.id, repo: 'Acme/Plans', branch: 'feat/invoice-reminders--s1' }, [{ created_at: at('11:00'), prd: 7 }]);
+    return { fake, as, draft, reminders, widgets, elsewhere };
+  }
+
+  it('gives a member every dossier of their workspace, newest activity first, each with its repositories, versions and counts', async () => {
+    const { as, draft, reminders, widgets } = await history();
+    const rows = await readHistory(as('bob'));
+    expect(rows.map((r) => r.id)).toEqual([reminders, widgets, draft]);
+    expect(rows[0]).toMatchObject({
+      prd: 7, title: 'Invoice reminders', home_repo: 'acme/plans',
+      repos: ['acme/plans', 'acme/core', 'acme/gadgets', 'acme/widgets'],
+      latest: { spec: { version: 1, source: 'kit' } }, asked: 2, answered: 1, last_activity: at('11:00'),
+    });
+    expect(rows[0].latest.plan).toBeUndefined();
+    expect(rows[1]).toMatchObject({ repos: ['acme/widgets'], latest: {}, asked: 0, answered: 0, last_activity: at('10:00') });
+    expect(rows[2]).toMatchObject({ prd: null, repos: ['acme/plans'], last_activity: at('08:00') });
+  });
+
+  it('gives a member of another workspace its own dossiers alone, and someone signed out nothing', async () => {
+    const { as, elsewhere } = await history();
+    expect((await readHistory(as('carl'))).map((r) => [r.id, r.repos])).toEqual([[elsewhere, ['other/stuff', 'other/secret']]]);
+    expect(await readHistory(as(null))).toEqual([]);
+  });
+
+  it('chips a dossier\'s repositories on its page, and its home repository alone when they cannot be read', async () => {
+    const { fake, as, reminders } = await history();
+    expect((await readDossier(as('bob'), reminders))?.repos).toEqual(['acme/plans', 'acme/core', 'acme/gadgets', 'acme/widgets']);
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const client = fake.client('bob');
+    const failing = {
+      from: client.from,
+      rpc: (name: string, args: Record<string, unknown>) =>
+        name === 'dossier_list' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args),
+    };
+    const read = await readDossier(failing as never, reminders);
+    expect(read?.repos).toBeNull();
+    expect(read?.rounds).toHaveLength(2);
     quiet.mockRestore();
   });
 });

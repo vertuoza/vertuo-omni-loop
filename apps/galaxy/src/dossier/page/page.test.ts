@@ -34,6 +34,7 @@ vi.mock('../../data/supabase-server', () => ({
 }));
 
 const { default: Page } = await import('../../../app/prd/[id]/page.tsx');
+const { default: HistoryPage } = await import('../../../app/prd/page.tsx');
 const { default: Layout } = await import('../../../app/prd/layout.tsx');
 const { GET: sandboxRoute } = await import('../../../app/prd/[id]/v/[version]/page/route.ts');
 
@@ -69,6 +70,14 @@ describe('the page to share', () => {
     expect(page).toContain('opened by ADA · ');
     expect(page).toContain(`src="/prd/${numbered}/v/1/page"`);
     expect(page).toContain('sandbox="allow-scripts"');
+  });
+
+  it('chips every repository of the dossier: its home, and for a PRD of the plan repository its planet\'s regions', async () => {
+    given.fake.seedPlanet({ planRepo: 'widgets', prd: 7, regions: ['core', 'web'] });
+    given.token = 'bob';
+    expect(await html(numbered)).toContain(
+      '<ul class="dossier-repos" aria-label="Repositories"><li class="dossier-repo">acme/widgets</li><li class="dossier-repo">acme/core</li><li class="dossier-repo">acme/web</li></ul>',
+    );
   });
 
   it('renders the Spec tab\'s markdown, raw HTML as text, the front matter above', async () => {
@@ -183,6 +192,73 @@ describe('the page to share', () => {
   });
 });
 
+describe('the history', () => {
+  const list = async (query: Record<string, string> = {}) =>
+    renderToStaticMarkup((await HistoryPage({ searchParams: Promise.resolve(query) })) as ReactElement);
+  const rows = (page: string) => [...page.matchAll(/<a class="dossier-history-row" href="\/prd\/([^"]+)">/g)].map((m) => m[1]);
+
+  it('lists every dossier of a member\'s workspace, newest activity first, each opening its page', async () => {
+    given.token = 'bob';
+    const page = await list();
+    expect(rows(page)).toEqual([numbered, draft]);
+    expect(page).toContain('<span class="dossier-number">#7</span> <span>Team inbox</span>');
+    expect(page).toContain('<span class="dossier-draft">DRAFT</span> <span>An idea</span>');
+    expect(page).toContain('<span class="dossier-history-artifact">Before/after <small>v1</small></span><span class="dossier-history-artifact">Spec <small>v1</small></span>');
+  });
+
+  it('filters by a repository: a dossier with three shows under each', async () => {
+    given.fake.seedPlanet({ planRepo: 'widgets', prd: 7, regions: ['core', 'web'] });
+    given.token = 'bob';
+    for (const repo of ['acme/core', 'acme/web']) expect(rows(await list({ repo })), repo).toEqual([numbered]);
+    expect(rows(await list({ repo: 'acme/widgets' }))).toEqual([numbered, draft]);
+    expect(rows(await list({ repo: 'acme/gadgets' }))).toEqual([]);
+    expect(await list({ repo: 'acme/gadgets' })).toContain('No PRD matches');
+  });
+
+  it('filters by draft or PRD, and finds a dossier by a word of its title', async () => {
+    given.token = 'bob';
+    expect(rows(await list({ state: 'draft' }))).toEqual([draft]);
+    expect(rows(await list({ state: 'prd' }))).toEqual([numbered]);
+    expect(rows(await list({ q: 'INBOX' }))).toEqual([numbered]);
+    expect(rows(await list({ q: 'idea', state: 'prd' }))).toEqual([]);
+  });
+
+  it('lists nothing of a workspace to a member of another', async () => {
+    given.token = 'carl';
+    const page = await list();
+    expect(rows(page)).toEqual([]);
+    expect(page).toContain('No PRD yet');
+    expect(page).not.toContain('Team inbox');
+  });
+
+  it('asks someone signed out to sign in, coming back to the history', async () => {
+    const page = await list({ signin_error: 'Not allowed' });
+    expect(page).toContain('Sign in to see your workspace&#x27;s PRDs');
+    expect(page).toContain('Not allowed');
+    expect(page).not.toContain('Team inbox');
+  });
+
+  it('says the database could not answer when it fails', async () => {
+    given.token = 'bob';
+    given.fake.state.fail = { message: 'down' };
+    expect(await list()).toContain('The dossier database could not answer');
+  });
+
+  it('says dossiers are not open in a build without a database', async () => {
+    given.mode = 'closed';
+    expect(await list()).toContain('PRD dossiers are not open here');
+  });
+
+  it('plays the demo history in development, without a database', async () => {
+    given.mode = 'demo';
+    const page = await list();
+    expect(page).toContain('<span class="dossier-number">#71</span>');
+    expect(page).toContain('<span class="dossier-draft">DRAFT</span>');
+    expect(rows(await list({ repo: 'vertuoza/vertuo-web' }))).toHaveLength(1);
+    expect(rows(await list({ repo: 'vertuoza/vertuo-omni-loop' }))).toHaveLength(3);
+  });
+});
+
 describe('the sandboxed route', () => {
   const serve = (id: string, version: string) =>
     sandboxRoute(new Request(`https://omni.example/prd/${id}/v/${version}/page`) as never, { params: Promise.resolve({ id, version }) });
@@ -224,6 +300,11 @@ describe('the layout', () => {
     expect(page).toContain('aria-label="Theme"');
     for (const choice of ['System', 'Light', 'Dark']) expect(page).toContain(`>${choice}</button>`);
     expect(page).toContain('<main class="ask-main"><p>inside</p></main>');
+  });
+
+  it('links to the history of every PRD', () => {
+    const page = renderToStaticMarkup(createElement(Layout, null, null));
+    expect(page).toContain('<a class="ask-for-me-nav" href="/prd">All PRDs</a>');
   });
 });
 
