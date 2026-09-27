@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Omni Loop Release Notes</title>
+<style>
+  /* Ask mode's palette (PRD 71, PRD 144), the reading pages' surface /releases is built on. No web
+     font and no external request: the page must look the same anywhere it is opened. */
+  :root {
+    --ground: #f5f4fc;
+    --surface: #ffffff;
+    --sunk: #eceaf8;
+    --line: #d9d6ee;
+    --ink: #17153d;
+    --muted: #4f5486;
+    --plasma: #6a2fd0;
+    --plasma-soft: #efe7ff;
+    --yellow: #ffd84a;
+    --yellow-ink: #3a2c00;
+    --cyan: #0b6f86;
+    --green: #17804a;
+    --red: #b3263e;
+    --red-soft: #fbe6ea;
+    --term: #110f3a;
+    --term-ink: #f2f4ff;
+    --term-dim: #9da3e0;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --px: "Press Start 2P", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+      --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66;
+      --cyan: #6ff0ff; --green: #4ee08a; --red: #ff7a90; --red-soft: #3a1633;
+      --term: #07061f;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+    --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66;
+    --cyan: #6ff0ff; --green: #4ee08a; --red: #ff7a90; --red-soft: #3a1633;
+    --term: #07061f;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.55 var(--body); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 40px 64px; display: grid; gap: 52px; }
+  header.page { display: grid; gap: 12px; max-width: 72ch; }
+  .eyebrow { font: 10px/1.6 var(--px); letter-spacing: .08em; color: var(--plasma); text-transform: uppercase; }
+  h1 { margin: 0; font-size: clamp(28px, 4vw, 40px); line-height: 1.15; text-wrap: balance; }
+  h2 { margin: 0; font-size: 22px; line-height: 1.25; text-wrap: balance; }
+  p { margin: 0; }
+  code { font: 0.88em var(--mono); background: var(--sunk); border-radius: 4px; padding: 1px 5px; }
+  .lede { color: var(--muted); }
+  section { display: grid; gap: 16px; }
+  section > p { max-width: 72ch; color: var(--muted); }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 20px; align-items: start; }
+  .side { display: grid; gap: 10px; min-width: 0; justify-items: start; }
+  .side > * { max-width: 100%; }
+  .tag { font: 600 12px/1 var(--mono); padding: 5px 8px; border-radius: 4px; }
+  .tag.today { background: var(--sunk); color: var(--muted); }
+  .tag.after { background: var(--plasma-soft); color: var(--plasma); }
+  .note { font-size: 13px; color: var(--muted); max-width: 56ch; }
+  .note b { color: var(--ink); }
+  .eg { font: 600 10px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--yellow-ink); background: var(--yellow); border-radius: 3px; padding: 3px 5px; }
+
+  /* The flow, as a diagram. */
+  .flowbox { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .flowbox svg { display: block; width: 100%; min-width: 760px; height: auto; }
+  .flowbox text { font-family: var(--body); }
+
+  /* ── A browser window ──────────────────────────────────────────────── */
+  .screen { width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; min-width: 0; position: relative; }
+  .bar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--sunk); font: 12px var(--mono); color: var(--muted); overflow-x: auto; white-space: nowrap; }
+  .bar b { color: var(--ink); font-weight: 600; }
+  .appbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .brand { display: inline-flex; align-items: baseline; gap: 8px; }
+  .mark { font: 9px/1 var(--px); color: var(--plasma); letter-spacing: .04em; }
+  .sub { font-size: 13px; color: var(--muted); }
+  .end { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+  .theme { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; font: 11px/1 var(--body); }
+  .theme span { padding: 4px 7px; border-radius: 999px; color: var(--muted); }
+  .theme span.on { background: var(--plasma-soft); color: var(--plasma); }
+  .gm { display: inline-flex; align-items: center; gap: 6px; font: 600 13px/1 var(--body); color: var(--surface); background: var(--plasma); border-radius: 8px; padding: 7px 10px; }
+  .pbody { padding: 18px 16px 20px; display: grid; gap: 14px; }
+
+  /* Today: the private repository's pull request list. */
+  .gh { padding: 0; }
+  .gh .filter { padding: 10px 14px; border-bottom: 1px solid var(--line); font: 12px var(--mono); color: var(--muted); }
+  .gh ul { list-style: none; margin: 0; padding: 0; }
+  .gh li { padding: 9px 14px; border-bottom: 1px solid var(--line); display: grid; gap: 2px; }
+  .gh li b { font: 13px/1.35 var(--mono); font-weight: 600; overflow-wrap: anywhere; }
+  .gh li span { font-size: 12px; color: var(--muted); }
+  .wall { display: grid; gap: 6px; justify-items: center; text-align: center; padding: 40px 16px; }
+  .wall b { font: 600 44px/1 var(--mono); color: var(--muted); }
+  .wall span { color: var(--muted); font-size: 14px; max-width: 34ch; }
+
+  /* After: /releases. */
+  .rel h3 { margin: 0; font-size: 24px; line-height: 1.2; text-wrap: balance; }
+  .rel .intro { color: var(--muted); font-size: 14px; }
+  .week { display: grid; gap: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .wk { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .entry { display: grid; gap: 4px; }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font: 12px/1.2 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .ver { font-weight: 700; color: var(--plasma); background: var(--plasma-soft); border-radius: 4px; padding: 3px 6px; }
+  .entry h4 { margin: 0; font-size: 17px; line-height: 1.3; text-wrap: balance; }
+  .entry p { font-size: 14px; color: var(--muted); line-height: 1.5; max-width: 62ch; }
+  .headline { font-size: 17px; font-weight: 700; }
+  .lines { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 10px; }
+  .lines li { display: grid; gap: 2px; padding-left: 12px; border-left: 2px solid var(--line); }
+  .lines li b { font-size: 15px; }
+  .lines li span { font-size: 13px; color: var(--muted); line-height: 1.45; }
+  .lines li small { font: 11px var(--mono); color: var(--muted); }
+  .more { font: 12px var(--mono); color: var(--plasma); }
+  .fold { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; background: var(--ground); font: 600 11px/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .fold span:first-child::before { content: '▸'; color: var(--plasma); margin-right: 6px; }
+
+  /* A pull request's files, and a terminal. */
+  .files { list-style: none; margin: 0; padding: 0; font: 12px/1.3 var(--mono); }
+  .files li { display: flex; gap: 10px; align-items: baseline; padding: 8px 14px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+  .files li:last-child { border-bottom: 0; }
+  .files .st { flex: none; width: 3ch; font-weight: 700; color: var(--muted); }
+  .files li.add .st { color: var(--green); }
+  .files li.hl { background: var(--plasma-soft); }
+  .diff { margin: 0; padding: 12px 14px; font: 12.5px/1.6 var(--mono); background: var(--ground); border-top: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .diff .p { color: var(--green); }
+  .term { background: var(--term); color: var(--term-ink); border-radius: 10px; padding: 14px 16px; font: 12.5px/1.6 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; width: 100%; }
+  .term .dim { color: var(--term-dim); }
+  .term .bad { color: #ff7a90; }
+  .term .ok { color: #4ee08a; }
+
+  /* A phone. */
+  .phone { width: 300px; max-width: 100%; border: 10px solid var(--ink); border-radius: 32px; overflow: hidden; background: var(--surface); }
+  .phone .appbar { padding: 10px 12px; }
+  .phone .pbody { padding: 14px 12px 18px; gap: 12px; }
+  .phone .rel h3 { font-size: 20px; }
+
+  /* /app's cards. */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 10px; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 4px; background: var(--ground); align-content: start; }
+  .card b { font-size: 15px; display: flex; justify-content: space-between; gap: 8px; }
+  .card b::after { content: '→'; color: var(--plasma); }
+  .card span { font-size: 13px; color: var(--muted); line-height: 1.4; }
+  .card.new { border-color: var(--plasma); background: var(--plasma-soft); }
+  .hl { outline: 2px dashed var(--yellow); outline-offset: 3px; }
+
+  .same { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 76ch; color: var(--muted); }
+  .same b { color: var(--ink); }
+  a:focus-visible { outline: 2px solid var(--plasma); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+<header class="page">
+  <div class="eyebrow">PRD 262 · before / after</div>
+  <h1>Release notes: every shipped PRD, versioned, on a public page</h1>
+  <p class="lede">Today, what Omni Loop shipped lives in a private repository, in titles written for
+  engineers. After this PRD, every PRD the loop ships carries a note: a catchy title about the value it
+  brings and a neutral, factual description. The loop writes it, the feature PR's reviewer approves it,
+  and <code>/releases</code> lists it for anyone, week by week, with a version that never changes.</p>
+</header>
+
+<section aria-labelledby="where">
+  <h2 id="where">"What did we ship this week?"</h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag today">today</span>
+      <div class="screen">
+        <div class="bar">github.com/<b>vertuoza/vertuo-omni-loop</b>/pulls?q=is:merged</div>
+        <div class="gh">
+          <div class="filter">is:pr is:merged base:main · 52 results</div>
+          <ul>
+            <li><b>feat(dossier): PRD dossiers — artifacts and answered questions, versioned and shareable (PRD 216) (#219)</b><span>merged 27 Sep</span></li>
+            <li><b>feat(galaxy): game and app switch — one tap between the arcade and the app (PRD 238) (#239)</b><span>merged 27 Sep</span></li>
+            <li><b>fix(delivery): drop PRD 149's duplicate inbox folder (#207)</b><span>merged 27 Sep</span></li>
+            <li><b>docs(phase-0): outbox-answers (#254)</b><span>merged 27 Sep</span></li>
+            <li><b>feat(kit): Omni-man by Omni Loop — a linked, configurable signature (PRD 215) (#217)</b><span>merged 27 Sep</span></li>
+          </ul>
+        </div>
+      </div>
+      <p class="note"><b>Written for engineers, mixed with everything else.</b> Features, fixes and phase-0
+      docs sit side by side, titled in commit syntax. No version, no grouping, and no one outside the
+      organisation can open it:</p>
+      <div class="screen">
+        <div class="bar">a visitor without access</div>
+        <div class="wall"><b>404</b><span>This is not the web page you are looking for.</span></div>
+      </div>
+    </div>
+
+    <div class="side">
+      <span class="tag after">after</span>
+      <div class="screen">
+        <div class="bar">vertuo-omni-loop-galaxy.vercel.app/<b>releases</b></div>
+        <div class="appbar">
+          <span class="brand"><span class="mark">OMNI LOOP</span><span class="sub">Releases</span></span>
+          <span class="end"><span class="theme"><span>Light</span><span class="on">System</span><span>Dark</span></span><span class="gm">Game mode</span></span>
+        </div>
+        <div class="pbody rel">
+          <h3>What's new in Omni Loop</h3>
+          <p class="intro">Every PRD the loop ships, in plain words. Newest first.</p>
+
+          <div class="week">
+            <div class="wk"><span>Week of 28 Sep 2026</span><span class="eg">example</span></div>
+            <div class="entry">
+              <div class="meta"><span class="ver">0.0.2</span><span>Mon 28 Sep</span><span>· PRD 262</span></div>
+              <h4>Everything we ship, in plain words</h4>
+              <p>Every PRD the loop ships now comes with a release note, reviewed with its code and published on a public page, week by week, with its own version number.</p>
+            </div>
+          </div>
+
+          <div class="week">
+            <div class="wk"><span>Week of 21 Sep 2026</span><span>1 release · 21 PRDs</span></div>
+            <div class="entry">
+              <div class="meta"><span class="ver">0.0.1</span><span>Sun 27 Sep</span><span>· Initial release</span></div>
+              <p class="headline">From idea to merged PR, on a loop.</p>
+              <p>The first public release of Omni Loop gathers everything shipped from 24 to 27 September 2026: the kit and its Claude Code plugin, the omni-loop GitHub App, ask mode and its question history, a knowledge base that fills itself, PRD dossiers, a design system, and the arcade that turns delivery into a game.</p>
+              <ul class="lines">
+                <li><b>Install the delivery loop in any repository</b><span>The Omni Loop kit packages the brainstorm, build, review and ship loop as one command-line tool and one configuration folder, so any repository can run it without a hand-made copy of its own.</span><small>PRD 3</small></li>
+                <li><b>Brainstorm, build and ship with three commands</b><span>The omni plugin for Claude Code gives the loop its commands: /omni:brainstorm turns an idea into a reviewed PRD, /omni:yolo builds it in parallel slices, and /omni:yolo-fix reworks what a reviewer disagreed with.</span><small>PRD 7</small></li>
+                <li><b>Every open question, visible on the pull request</b><span>The omni-loop GitHub App adds an outbox check to every pull request. It stays red while a decision the agents took still waits for a person, so reviewers see open questions before they merge.</span><small>PRD 28</small></li>
+                <li><b>Answer Claude on a page, not in a terminal</b><span>Ask mode shows the questions Claude asks during a session on a clean web page, with options and previews side by side. It is switched on per checkout, and the terminal takes over whenever the page cannot answer.</span><small>PRD 71</small></li>
+              </ul>
+              <span class="more">… and 17 more lines, one per PRD, in PRD order</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="note"><b>Public and indexed.</b> No sign-in, no GitHub link, no internal path. Each release
+      has its own anchor (<code>/releases#0.0.1</code>). Versions and dates are stamped once and never move.
+      The 0.0.2 entry is an example: this PRD's own note is written when it ships.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="flow">
+  <h2 id="flow">From ship to page</h2>
+  <p>The note is written and reviewed before the merge; the version and the date are stamped after it,
+  from <code>main</code>'s history. No bot writes to <code>main</code>.</p>
+  <div class="flowbox">
+    <svg viewBox="0 0 980 250" role="img" aria-label="The loop writes release.md at ship; the reviewer approves it in the feature PR; after the merge, releases.yml stamps a version and date into public.releases; /releases reads it.">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--plasma)"/>
+        </marker>
+      </defs>
+      <g font-size="13" fill="var(--ink)">
+        <rect x="10" y="30" width="200" height="86" rx="10" fill="var(--plasma-soft)" stroke="var(--plasma)"/>
+        <text x="24" y="56" font-weight="700">/omni:yolo, gate green</text>
+        <text x="24" y="78" fill="var(--muted)">writes release.md</text>
+        <text x="24" y="98" fill="var(--muted)">omni ship refuses without it</text>
+
+        <rect x="260" y="30" width="190" height="86" rx="10" fill="var(--surface)" stroke="var(--line)"/>
+        <text x="274" y="56" font-weight="700">Feature PR</text>
+        <text x="274" y="78" fill="var(--muted)">the reviewer reads and</text>
+        <text x="274" y="98" fill="var(--muted)">edits the copy, merges</text>
+
+        <rect x="500" y="30" width="200" height="86" rx="10" fill="var(--surface)" stroke="var(--line)"/>
+        <text x="514" y="56" font-weight="700">releases.yml, on main</text>
+        <text x="514" y="78" fill="var(--muted)">new PRD → next number,</text>
+        <text x="514" y="98" fill="var(--muted)">date from git, once</text>
+
+        <rect x="750" y="30" width="220" height="86" rx="10" fill="var(--surface)" stroke="var(--line)"/>
+        <text x="764" y="56" font-weight="700">public.releases</text>
+        <text x="764" y="78" fill="var(--muted)">prd · release · released_at</text>
+        <text x="764" y="98" fill="var(--muted)">title · description</text>
+
+        <rect x="750" y="160" width="220" height="70" rx="10" fill="var(--plasma-soft)" stroke="var(--plasma)"/>
+        <text x="764" y="186" font-weight="700">/releases</text>
+        <text x="764" y="208" fill="var(--muted)">anyone reads it, by week</text>
+
+        <rect x="500" y="160" width="200" height="70" rx="10" fill="var(--ground)" stroke="var(--line)" stroke-dasharray="4 4"/>
+        <text x="514" y="186" font-weight="700">A typo later?</text>
+        <text x="514" y="208" fill="var(--muted)">a PR edits release.md</text>
+      </g>
+      <g stroke="var(--plasma)" stroke-width="2" fill="none">
+        <path d="M210 73 H254" marker-end="url(#ar)"/>
+        <path d="M450 73 H494" marker-end="url(#ar)"/>
+        <path d="M700 73 H744" marker-end="url(#ar)"/>
+        <path d="M860 116 V154" marker-end="url(#ar)"/>
+        <path d="M600 160 V122" marker-end="url(#ar)" stroke-dasharray="4 4"/>
+      </g>
+      <g font-size="11" fill="var(--muted)">
+        <text x="216" y="64">commit</text>
+        <text x="458" y="64">merge</text>
+        <text x="706" y="64">upsert</text>
+        <text x="868" y="140">read</text>
+        <text x="608" y="146">text only; the number stays</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<section aria-labelledby="pr">
+  <h2 id="pr">The note, in the feature PR</h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag today">today</span>
+      <div class="screen">
+        <div class="bar">feature PR · <b>chore(delivery): ship PRD 238</b></div>
+        <ul class="files">
+          <li><span class="st">R</span>…/shipped/0238-game-app-switch/spec.md</li>
+          <li><span class="st">R</span>…/shipped/0238-game-app-switch/plan.md</li>
+          <li><span class="st">R</span>…/shipped/0238-game-app-switch/before-after.html</li>
+          <li><span class="st">R</span>…/shipped/0238-game-app-switch/outbox/settled.md</li>
+        </ul>
+      </div>
+      <p class="note"><b>The folder moves, nothing is said about it.</b> The reviewer sees a spec written
+      for engineers and has nothing to approve for anyone else.</p>
+    </div>
+    <div class="side">
+      <span class="tag after">after</span>
+      <div class="screen">
+        <div class="bar">feature PR · <b>docs(release): PRD 238 release note</b></div>
+        <ul class="files">
+          <li class="add hl"><span class="st">A</span>…/inbox/0238-game-app-switch/release.md</li>
+        </ul>
+        <pre class="diff"><span class="p">+---</span>
+<span class="p">+prd: 238</span>
+<span class="p">+title: Jump between work and play in one tap</span>
+<span class="p">+---</span>
+<span class="p">+A Game mode button on every app page and an App mode switch in the arcade</span>
+<span class="p">+move you between the reading pages and the game, with a confirmation before</span>
+<span class="p">+each switch. The app gets its own home page.</span></pre>
+      </div>
+      <p class="note"><b>Written from what was built, approved by whoever merges.</b> The reviewer can
+      edit the copy on the branch. Then <code>omni ship</code> moves it to <code>shipped/</code> with the rest.</p>
+    </div>
+  </div>
+
+  <div class="pair">
+    <div class="side">
+      <span class="tag today">today</span>
+      <pre class="term"><span class="dim">$ omni ship 238</span>
+moved inbox/0238-game-app-switch → shipped/0238-game-app-switch
+moved outbox/0238-game-app-switch → shipped/0238-game-app-switch/outbox</pre>
+    </div>
+    <div class="side">
+      <span class="tag after">after, with <code>releaseNotes.enabled: true</code></span>
+      <pre class="term"><span class="dim">$ omni ship 238</span>
+<span class="bad">omni ship: PRD 238 cannot ship:</span>
+  - no release note: .omni-loop/delivery/inbox/0238-game-app-switch/release.md
+<span class="dim">$ omni check releases</span>
+<span class="bad">check releases — a release note does not hold what it claims:</span>
+  - …/0238-game-app-switch/release.md: the title is 64 characters (60 at most)</pre>
+      <p class="note"><b>The switch is off by default in the kit.</b> Every other repository running the
+      loop ships exactly as today until it turns release notes on.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="phone">
+  <h2 id="phone">On a phone, once the page has grown</h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag today">today</span>
+      <p class="note"><b>No page to open.</b> The closest thing is the repository's history, behind a
+      GitHub sign-in, unreadable at phone width.</p>
+    </div>
+    <div class="side">
+      <span class="tag after">after</span>
+      <div class="phone">
+        <div class="appbar">
+          <span class="brand"><span class="mark">OMNI LOOP</span><span class="sub">Releases</span></span>
+          <span class="gm">Game mode</span>
+        </div>
+        <div class="pbody rel">
+          <h3>What's new in Omni Loop</h3>
+          <div class="week">
+            <div class="wk"><span>Week of 19 Oct 2026</span><span class="eg">example</span></div>
+            <div class="entry">
+              <div class="meta"><span class="ver">0.0.31</span><span>Tue 20 Oct</span><span>· PRD 318</span></div>
+              <h4>A title about the value it brings</h4>
+              <p>One to three factual sentences: what changed, and for whom.</p>
+            </div>
+          </div>
+          <div class="week">
+            <div class="wk"><span>Week of 12 Oct 2026</span></div>
+            <div class="entry"><div class="meta"><span class="ver">0.0.30</span><span>Fri 16 Oct</span></div><h4>…</h4></div>
+          </div>
+          <div class="fold"><span>Week of 21 Sep 2026</span><span>1 release · 21 PRDs</span></div>
+        </div>
+      </div>
+      <p class="note"><b>The four newest weeks are open;</b> older ones fold into a <code>&lt;details&gt;</code>
+      with their counts. One page, no script, every word still indexable.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="home">
+  <h2 id="home">The app's home gains a card</h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag today">today · /app</span>
+      <div class="screen">
+        <div class="pbody">
+          <div class="cards">
+            <div class="card"><b>Questions</b><span>The questions Claude is asking you now</span></div>
+            <div class="card"><b>For me</b><span>Questions a teammate shared with you</span></div>
+            <div class="card"><b>History</b><span>Every question your workspace was asked</span></div>
+            <div class="card"><b>Knowledge map</b><span>Principles, rules and invariants, as a map</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="side">
+      <span class="tag after">after · /app</span>
+      <div class="screen">
+        <div class="pbody">
+          <div class="cards">
+            <div class="card"><b>Questions</b><span>The questions Claude is asking you now</span></div>
+            <div class="card"><b>For me</b><span>Questions a teammate shared with you</span></div>
+            <div class="card"><b>History</b><span>Every question your workspace was asked</span></div>
+            <div class="card"><b>Knowledge map</b><span>Principles, rules and invariants, as a map</span></div>
+            <div class="card new hl"><b>Release notes</b><span>What Omni Loop shipped, week by week</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="same">
+  <h2 id="same">What stays the same</h2>
+  <ul class="same">
+    <li><b>Every other repository running the loop:</b> the switch is off by default, and <code>omni ship</code> is unchanged there.</li>
+    <li><b>The brainstorm, the plan and the waves:</b> the note is written only at ship, by <code>/omni:yolo</code> and <code>/omni:yolo-fix</code>.</li>
+    <li><b>The omni-loop GitHub App, the retro and the knowledge harvest:</b> untouched.</li>
+    <li><b>The game:</b> the sync reads git and writes one table. It needs nothing from the ledger, and removing the game leaves it working.</li>
+    <li><b>Every other page of the galaxy app:</b> it keeps its sign-in. <code>/releases</code> is the only page open to anyone, and it only reads release copy.</li>
+    <li><b><code>main</code>:</b> only people merge into it. No bot commits a version or a date.</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>
