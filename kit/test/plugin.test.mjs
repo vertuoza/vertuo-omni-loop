@@ -384,3 +384,39 @@ describe('the plugin guard catches what it is for', () => {
     expect(claudeValidate(join(good, PLUGIN_DIR))).toBeNull();
   });
 });
+
+// PRD 262: with release notes switched on, the loop writes the note when it ships. `/omni:yolo` step 5
+// and `/omni:yolo-fix` step 7 read the switch, write the note in the voice of the `releasing` form,
+// which they point to and never restate, check it and commit it, all before `omni ship` and before
+// the feature PR is marked ready. The red gate ships nothing, so it writes no note.
+describe('the release note in the skills that ship', () => {
+  const read = (skill) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const NOTE = ['releaseNotes.enabled', 'kb show releasing', 'check releases', 'docs(release): PRD <prd> release note'];
+  const expectInOrder = (text, mentions) => {
+    let from = 0;
+    mentions.forEach((mention, index) => {
+      const at = text.indexOf(mention, from);
+      expect(at, `${mention}, after ${mentions[index - 1] ?? 'the start'}`).toBeGreaterThan(-1);
+      from = at + mention.length;
+    });
+  };
+
+  it('/omni:yolo step 5 writes, checks and commits the note before omni ship, on the green gate only', () => {
+    const step = skillSection(read('yolo'), '5.');
+    const red = step.indexOf('**Gate red.**');
+    expect(red, 'the red gate').toBeGreaterThan(-1);
+    expectInOrder(step.slice(0, red), [...NOTE, 'omni.mjs ship <prd>', 'gh pr ready']);
+    for (const mention of NOTE) expect(step.slice(red), `the red gate names ${mention}`).not.toContain(mention);
+  });
+
+  it('/omni:yolo resumes a shipped draft at the item that marks it ready', () => {
+    const yolo = read('yolo');
+    const [, item] = /go to step 5, green path,\s+item (\d+)/.exec(yolo) ?? [];
+    const line = skillSection(yolo, '5.').split('\n').find((text) => text.startsWith(`${item}. `));
+    expect(line, `item ${item} of step 5`).toContain('gh pr ready');
+  });
+
+  it('points to the releasing form and restates none of its limits', () => {
+    for (const skill of ['yolo', 'yolo-fix']) expect(read(skill), skill).not.toMatch(/\b(?:60|280) characters\b/);
+  });
+});
