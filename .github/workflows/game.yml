@@ -1,6 +1,7 @@
-# The game layer's only writer: polls the delivery layer and appends to the ledger in Supabase, and
-# once a week posts the rankings and keeps a backup. It commits nothing to the repository. Delete
-# this file and game/ to remove the game (spec §2).
+# The game layer's only writer: polls the delivery layer and appends to the ledger in Supabase, fills
+# the PRD dossiers from each repository's delivery folders, and once a week posts the rankings and
+# keeps a backup. It commits nothing to the repository. Delete this file and game/ to remove the game
+# (spec §2).
 # Setup (token scopes, Supabase, variables): game/README.md, "Setup".
 name: game
 on:
@@ -47,6 +48,12 @@ jobs:
       # Every login's XP, level and unlocked games, recomputed from the whole ledger with the rulebook
       # of the day and written to player_xp. Reads the ledger, never writes it.
       - run: pnpm game:xp
+      # PRD dossiers' fallback (PRD 216): each repository's delivery folders on its default branch,
+      # read into the dossiers of the PRDs they hold, a version wherever a file changed. It skips and
+      # logs what it cannot read, and never fails the job.
+      - run: pnpm game:dossiers
+        continue-on-error: true
+        env: { GH_TOKEN: '${{ secrets.OMNI_GAME_TOKEN }}' }   # contents: read on the engineering repos
 
   rankings:
     # The Monday schedule, or a dispatch that asks for it. Reads the ledger; writes nothing to the

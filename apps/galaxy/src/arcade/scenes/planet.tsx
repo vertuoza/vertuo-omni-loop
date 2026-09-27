@@ -1,13 +1,16 @@
 'use client';
-// The planet's text layer: its header and caption, and the panel of four tabs (status, zones,
-// Entropy, log). On the wide grid the panel stands beside the planet; on the tall grid it runs
-// across the screen under the band the header and the planet share (TALL_BAND in planet.ts).
+// The planet's text layer: its header and caption, and the panel of five tabs (status, zones,
+// Entropy, log, and its PRD's dossier). On the wide grid the panel stands beside the planet; on the
+// tall grid it runs across the screen under the band the header and the planet share (TALL_BAND in
+// planet.ts), with the same rows.
 import { Fragment, type CSSProperties, type ReactNode } from 'react';
 import type { GalaxyView, Planet } from '@omni/galaxy';
 import { woundTint } from '@omni/design';
 import { FleetSprite, Sprite } from '../Sprite';
 import { useScreen } from '../Screen';
+import { Hint } from '../hint';
 import { age, fleet, ROMAN, shortDate, WOUND_LOOK } from '../fleets';
+import type { DossierArtifactKind, DossiersRead, PlanetDossier } from '../types';
 import { Pips, StateChip } from './common.tsx';
 import { TALL_BAND } from './planet.ts';
 import './common.css';
@@ -22,7 +25,33 @@ function Bar({ value, segments = 10, label }: { value: number; segments?: number
   );
 }
 
-export const PLANET_TABS = ['STATUS', 'ZONES', 'ENTROPY', 'LOG'] as const;
+export const PLANET_TABS = ['STATUS', 'ZONES', 'ENTROPY', 'LOG', 'DOSSIER'] as const;
+
+/** The DOSSIER tab's place among the tabs: the last, after LOG. */
+export const DOSSIER_TAB: number = PLANET_TABS.indexOf('DOSSIER');
+
+/** What a planet's DOSSIER tab shows: its dossier, none yet, or out of reach. */
+export type DossierShown = PlanetDossier | 'none' | 'unreadable';
+
+/**
+ * The planet `prd`'s dossier among those the page read: 'unreadable' when it, or every dossier, could
+ * not be read; 'none' when it has none (or nothing was read: a page that says nothing of dossiers).
+ */
+export function dossierOf(dossiers: DossiersRead | undefined, prd: number): DossierShown {
+  if (dossiers === 'unreadable') return 'unreadable';
+  return dossiers?.[prd] ?? 'none';
+}
+
+/**
+ * The page START opens from planet `prd` on `tab`: its dossier's `/prd/<id>`, on the DOSSIER tab only,
+ * and only for a dossier with a page to open. Null otherwise, and START goes back to the map as it does
+ * on every other tab.
+ */
+export function dossierLink(dossiers: DossiersRead | undefined, prd: number, tab: number): string | null {
+  if (tab !== DOSSIER_TAB) return null;
+  const d = dossierOf(dossiers, prd);
+  return typeof d === 'object' ? d.url : null;
+}
 
 /** One line of the status tab: its label and its value. */
 export interface StatusRow {
@@ -126,6 +155,57 @@ function EntropyTab({ p, view }: { p: Planet; view: GalaxyView }) {
   );
 }
 
+/** The artifacts, in the order the page to share shows them. */
+const ARTIFACTS: ReadonlyArray<readonly [DossierArtifactKind, string]> = [['before-after', 'BEFORE/AFTER'], ['spec', 'SPEC'], ['plan', 'PLAN']];
+
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+/** `24 SEP`, in UTC, as the page to share dates its versions: the same on the server and in any browser. */
+function day(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+}
+
+/**
+ * The PRD's dossier, summarised (PRD 216): each artifact's latest version and date, the rounds asked
+ * and answered, and the last three answered, each question with its answer on one line. START opens the
+ * page to share in a new tab; the hint is a button too. Reading a spec in pixel type would help nobody.
+ */
+function DossierTab({ dossier }: { dossier: DossierShown }) {
+  if (dossier === 'unreadable') return <p className="empty">DOSSIERS OUT OF REACH</p>;
+  if (dossier === 'none') return <p className="empty">NO DOSSIER YET. ONE OPENS WITH THE PRD&apos;S BRAINSTORM.</p>;
+  return (
+    <div className="dossier">
+      <dl className="dossier-rows">
+        {ARTIFACTS.map(([kind, label]) => {
+          const v = dossier.latest[kind];
+          return (
+            <Fragment key={kind}>
+              <dt>{label}</dt>
+              <dd className={v ? undefined : 'none'}>{v ? `V${v.version} · ${day(v.at)}` : 'NONE YET'}</dd>
+            </Fragment>
+          );
+        })}
+        <dt>QUESTIONS</dt>
+        <dd>{`${dossier.asked} ASKED · ${dossier.answered} ANSWERED`}</dd>
+      </dl>
+      <p className="dossier-label">LAST ANSWERS</p>
+      {dossier.last.length ? (
+        <ol className="dossier-last">
+          {dossier.last.map((a, i) => (
+            <li key={`${a.at}-${i}`} className="dossier-answer" title={`${a.question} → ${a.answer}`}>
+              <span className="dossier-q">{a.question}</span>
+              <span className="dossier-a">{a.answer}</span>
+              {a.more > 0 && <span className="dossier-more">{`+${a.more}`}</span>}
+            </li>
+          ))}
+        </ol>
+      ) : <p className="dossier-none">NO ANSWER YET</p>}
+      {dossier.url && <p className="dossier-open"><Hint k="START">OPEN</Hint></p>}
+    </div>
+  );
+}
+
 function LogTab({ p }: { p: Planet }) {
   return (
     <ol className="log">
@@ -136,7 +216,9 @@ function LogTab({ p }: { p: Planet }) {
   );
 }
 
-export function PlanetOverlay({ view, planet: p, tab, onTab }: { view: GalaxyView; planet: Planet; tab: number; onTab: (t: number) => void }) {
+export function PlanetOverlay({ view, planet: p, tab, onTab, dossier }: {
+  view: GalaxyView; planet: Planet; tab: number; onTab: (t: number) => void; dossier: DossierShown;
+}) {
   const { grid } = useScreen();
   return (
     <div className="planet" style={grid.name === 'tall' ? { ['--band' as string]: `${TALL_BAND}px` } : undefined}>
@@ -151,7 +233,8 @@ export function PlanetOverlay({ view, planet: p, tab, onTab }: { view: GalaxyVie
       <section className="panel">
         <div className="tabs" role="tablist">
           {PLANET_TABS.map((t, i) => (
-            <button key={t} type="button" role="tab" aria-selected={i === tab} className={i === tab ? 'active' : ''} onClick={() => onTab(i)}>
+            // No focus on click, as a key hint: Enter keeps meaning START (which opens the dossier's page).
+            <button key={t} type="button" role="tab" aria-selected={i === tab} className={i === tab ? 'active' : ''} onMouseDown={(e) => e.preventDefault()} onClick={() => onTab(i)}>
               {t}{t === 'ENTROPY' && p.openWounds.length ? ` ${p.openWounds.length}` : ''}
             </button>
           ))}
@@ -161,6 +244,7 @@ export function PlanetOverlay({ view, planet: p, tab, onTab }: { view: GalaxyVie
           {tab === 1 && <ZonesTab p={p} />}
           {tab === 2 && <EntropyTab p={p} view={view} />}
           {tab === 3 && <LogTab p={p} />}
+          {tab === DOSSIER_TAB && <DossierTab dossier={dossier} />}
         </div>
       </section>
       <footer className="hint">◀ ▶ TABS · ▲ ▼ NEXT PLANET · B MAP</footer>

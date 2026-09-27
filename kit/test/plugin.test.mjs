@@ -73,20 +73,32 @@ function retiredSkillViolations(root) {
   return out;
 }
 
+/** Every `omni <command>` a text names, in both mention forms, in the order they appear per form. */
+function commandMentions(text) {
+  return COMMAND_MENTIONS.flatMap((pattern) => [...text.matchAll(pattern)].map(([, name]) => name));
+}
+
 /** Every `omni <command>` a SKILL.md names is a key of the command table. */
 function unknownCommandViolations(root, commands) {
   const out = [];
   for (const file of skillFiles(root)) {
     if (!existsSync(join(root, file))) continue;
     readFileSync(join(root, file), 'utf8').split('\n').forEach((line, index) => {
-      for (const pattern of COMMAND_MENTIONS) {
-        for (const [, name] of line.matchAll(pattern)) {
-          if (!Object.hasOwn(commands, name)) out.push(`${file}:${index + 1}: names omni ${name}, which the CLI lacks`);
-        }
+      for (const name of commandMentions(line)) {
+        if (!Object.hasOwn(commands, name)) out.push(`${file}:${index + 1}: names omni ${name}, which the CLI lacks`);
       }
     });
   }
   return out;
+}
+
+/** The `## <heading>` section of a SKILL.md whose heading starts with `start`, up to the next one. */
+function skillSection(text, start) {
+  const lines = text.split('\n');
+  const from = lines.findIndex((line) => line.startsWith(`## ${start}`));
+  if (from < 0) return '';
+  const to = lines.findIndex((line, index) => index > from && line.startsWith('## '));
+  return lines.slice(from, to < 0 ? undefined : to).join('\n');
 }
 
 // OmniMan signs the loop's work (PRD #99). A skill that asks for the session's co-author trailer
@@ -214,6 +226,34 @@ describe('the omni plugin in this repository', () => {
     const unknown = spawnSync(process.execPath, [shim, 'no-such-command'], { cwd: repoRoot, encoding: 'utf8' });
     expect(unknown.status).toBe(2);
     expect(unknown.stderr).toMatch(/^usage: omni/);
+  });
+});
+
+// PRD 216: two small skills each wrap one verb of `omni dossier`, and the brainstorm and the plan
+// follow them at the steps the spec names, each after what it must come after.
+describe('the dossier skills in this repository', () => {
+  const read = (skill) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const expectAfter = (text, anchor, mention) => {
+    expect(text, `names ${anchor}`).toContain(anchor);
+    expect(text.indexOf(mention, text.indexOf(anchor)), `${mention} after ${anchor}`).toBeGreaterThan(-1);
+  };
+
+  it('each wraps one verb of omni dossier, names no other command, and says what each exit code means', () => {
+    for (const [skill, verb] of Object.entries({ 'dossier-open': 'open', 'dossier-push': 'push' })) {
+      const text = read(skill);
+      expect(frontmatter(text)?.name).toBe(skill);
+      expect(new Set(commandMentions(text)), skill).toEqual(new Set(['dossier']));
+      expect(text).toContain(`omni.mjs dossier ${verb}`);
+      for (const code of ['0', '1', '2']) expect(text, `${skill}: exit ${code}`).toMatch(new RegExp(`^\\| \`${code}\``, 'm'));
+    }
+  });
+
+  it('the brainstorm follows them after the briefing, the push and the phase-0 push; the plan after it pushes plan.md', () => {
+    const brainstorm = read('brainstorm');
+    expectAfter(skillSection(brainstorm, 'Step 0'), 'kb show briefing', '/omni:dossier-open');
+    expectAfter(skillSection(brainstorm, '7.'), 'git push -u', '/omni:dossier-push');
+    expectAfter(skillSection(brainstorm, '9.'), 'git push -u <remote> <phase-0 branch>', '/omni:dossier-push');
+    expectAfter(skillSection(read('plan'), '6.'), 'git push -u', '/omni:dossier-push');
   });
 });
 

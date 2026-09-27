@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { main } from '../bin/omni.mjs';
 import { makeRepo } from '../test/fixture.mjs';
-import { CONFIG_FILE, ConfigError, loadConfig, parseConfig } from './config.mjs';
+import { CONFIG_FILE, ConfigError, dossierSwitch, loadConfig, parseConfig } from './config.mjs';
 
 describe('parseConfig', () => {
   it('fills every section from defaults when only the version is given', () => {
@@ -29,6 +29,15 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nask:\n  url: ftp://ask.example.com\n')).toThrow(/ask\.url/);
     expect(() => parseConfig('kit: 1\nask:\n  url: not a url\n')).toThrow(/ask\.url/);
     expect(() => parseConfig('kit: 1\nask:\n  link: https://ask.example.com\n')).toThrow(/ask.*link/s);
+  });
+
+  it('keeps dossiers off unless the file switches them on, and refuses a switch that is not a boolean (PRD 216)', () => {
+    expect(parseConfig('kit: 1\n').dossier).toEqual({ enabled: false });
+    expect(parseConfig('kit: 1\ndossier:\n  enabled: true\n').dossier).toEqual({ enabled: true });
+    expect(() => parseConfig('kit: 1\ndossier:\n  enabled: yes please\n', 'c.yml')).toThrow(/c\.yml.*dossier\.enabled/);
+    expect(() => parseConfig('kit: 1\ndossier:\n  enabled: "true"\n')).toThrow(/dossier\.enabled/);
+    expect(() => parseConfig('kit: 1\ndossier:\n  enabled: 1\n')).toThrow(/dossier\.enabled/);
+    expect(() => parseConfig('kit: 1\ndossier:\n  on: true\n')).toThrow(/dossier.*on/s);
   });
 
   it('names the retro label and the retro branch when the config sets neither', () => {
@@ -107,6 +116,27 @@ describe('parseConfig', () => {
 
   it('reports YAML syntax errors with the file', () => {
     expect(() => parseConfig('kit: [1\n', 'x.yml')).toThrow(/x\.yml/);
+  });
+});
+
+describe('dossierSwitch (PRD 216)', () => {
+  const at = (yaml) => dossierSwitch(parseConfig(`kit: 1\n${yaml}`));
+
+  it('is off by default, saying the switch is off', () => {
+    expect(at('ask:\n  url: https://ask.example.com\n')).toEqual({ on: false, reason: 'dossier.enabled is false' });
+  });
+
+  it('is on when the file switches it on and ask.url is set, naming where the switch is', () => {
+    expect(at('ask:\n  url: https://ask.example.com\ndossier:\n  enabled: true\n')).toEqual({
+      on: true,
+      reason: 'dossier.enabled is true in .omni-loop/config.yml',
+      askUrl: 'https://ask.example.com',
+    });
+  });
+
+  it('reads true with ask.url null as off, saying ask.url is not set', () => {
+    expect(at('dossier:\n  enabled: true\n')).toEqual({ on: false, reason: 'ask.url is not set' });
+    expect(at('ask:\n  url: null\ndossier:\n  enabled: true\n')).toEqual({ on: false, reason: 'ask.url is not set' });
   });
 });
 
