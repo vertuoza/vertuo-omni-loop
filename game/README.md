@@ -6,9 +6,10 @@ A read-only projection of PRD delivery as a planet-terraforming game. Design:
 
 It never writes to an engineering repository, nor to this one. Its only outputs are rows appended
 to the ledger in Supabase (`public.ledger_events`, append-only), each login's XP in
-`public.player_xp`, recomputed from that ledger at every poll, one weekly comment on the pinned
-Hall of Heroes issue, and a weekly backup kept as a workflow artifact. Delete `game/` and
-`.github/workflows/game.yml` to remove it.
+`public.player_xp`, recomputed from that ledger at every poll, the PRD dossiers read from each
+repository's delivery folders (`public.dossiers` and `public.dossier_versions`, a version only where
+a file changed), one weekly comment on the pinned Hall of Heroes issue, and a weekly backup kept as a
+workflow artifact. Delete `game/` and `.github/workflows/game.yml` to remove it.
 
 The commands read and write Supabase: set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (locally,
 `npx supabase status` prints both; `apps/galaxy/.env.local` is read if it exists).
@@ -27,6 +28,9 @@ the workspace `vertuoza`.
   into a season. With no season: the current month, and on the 1st–7th also the previous month,
   whose final standings become the rankings page written to `<file>`
 - `pnpm game:banner <prd> --workspace <slug>` — print one planet's banner; reads only that planet and the planets it is blocked by
+- `pnpm game:dossiers --workspace <slug>` — read each repository's delivery folders on its default
+  branch into the PRD dossiers: finds or creates each PRD's dossier, and adds a version wherever a
+  file changed; logs what it skipped ([PRD dossiers](#prd-dossiers))
 - `pnpm game:export <dir> --workspace <slug>` — write the workspace as JSONL (the backup):
   `workspace.jsonl` (its row) beside its `ledger_events`, `sectors`, `teams`, `players` and
   `arcade_scores` (the crew's high scores). `player_xp` is left out: the next `game:xp` rebuilds it
@@ -98,6 +102,34 @@ The crew's high scores, `public.arcade_scores`, are the other half: the arcade p
 `submit_score()`, which checks the game against the player's `player_xp.unlocked`. Nothing rebuilds
 them, so `game:export` backs them up.
 
+## PRD dossiers
+
+A dossier keeps a PRD's `spec.md`, `plan.md` and `before-after.html`, every version of each
+(PRD 216, PRD dossiers). The kit uploads them from the
+terminal (`omni dossier push`); **`pnpm game:dossiers`** (`game/cli/dossiers.mjs`, the modules in
+`game/dossiers/`) is the fallback, for a PRD brainstormed with no sign-in, an edit that reaches the
+default branch later, and every PRD that existed before. Its first run gives every PRD folder a
+dossier. At each poll, for each repository of the workspace's sectors and its `plan_repo`:
+
+1. It reads `.omni-loop/config.yml` on the default branch's head, and skips the repository when there
+   is none, or when its switch is off: dossiers are on only when `dossier.enabled` is `true` and
+   `ask.url` is set, as the kit reads them. It takes `paths.delivery` (default `.omni-loop/delivery`).
+2. One recursive tree listing of that commit gives every `<delivery>/{inbox,shipped}/<nnnn>-<topic>/`
+   folder's `spec.md`, `plan.md` and `before-after.html`, with their blob hashes. A PRD in both is
+   read from the inbox, as the kit reads it.
+3. It fetches only the files whose blob differs from the one the dossier's latest version of that
+   kind was read at. A version the kit pushed has no blob hash: when its size matches, its stored
+   content is hashed as git does, rather than fetched again.
+4. It finds the dossier by its key (`<github_org>/<repo>` in lower case, the PRD number), or creates
+   it with the spec's front matter `title:` or else the topic, retitles it when a changed spec names
+   another, and adds each fetched file through `dossier_add_version()`, the rule the kit's pushes go
+   through: a version only when the content's hash differs from the latest, with source `github`, the
+   head commit and the blob hash. A second run with no change fetches and adds nothing.
+
+A folder whose name does not parse, a file over 512 KiB, a repository or a file that cannot be read,
+and a PRD that cannot be stored are skipped and logged; the run goes on and exits 0, and its step never
+fails the ledger job. It needs only `contents: read` from the token.
+
 ## Setup
 
 The workflow `.github/workflows/game.yml` does nothing until it is switched on.
@@ -117,7 +149,7 @@ The workflow `.github/workflows/game.yml` does nothing until it is switched on.
    the arcade: the first poll backfills history with everyone's fleet as it stands then.
 
 Two jobs: `ledger` runs on every schedule and dispatch (concurrency `game-ledger`): `game:project`,
-then `game:xp`; `rankings` runs on the Monday schedule, or a dispatch with `post_rankings: true`
+then `game:xp`, then `game:dossiers`; `rankings` runs on the Monday schedule, or a dispatch with `post_rankings: true`
 (concurrency `game-rankings`): it exports the backup (kept 90 days), then posts. Both time out after
 20 minutes.
 
@@ -139,5 +171,10 @@ then `game:xp`; `rankings` runs on the Monday schedule, or a dispatch with `post
 - **Fleet stamps and scores live only in Supabase.** The ledger can be rebuilt from GitHub, and XP
   from the ledger, but not the fleet each event was stamped with, nor the crew's high scores:
   restore those from the weekly backup artifact.
+- **Dossiers are not in the backup.** `game:dossiers` rebuilds what the default branches hold, but
+  not the versions the kit uploaded from other branches, nor who opened a dossier.
+- **Dossiers read the default branch only.** An edit on a feature branch reaches its dossier through
+  the kit, or once it merges. The first run fetches every PRD folder's files; after that, one tree
+  listing per repository per poll, and a blob only where a file changed.
 - **A feature PR closed unmerged** still counts as the region's feature PR when it has the lowest
   number (sub-PRs drop closed-unmerged ones; feature PRs do not yet).
