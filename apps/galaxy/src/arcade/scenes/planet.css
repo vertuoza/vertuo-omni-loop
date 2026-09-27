@@ -98,7 +98,7 @@
 .dossier-last { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .dossier-answer { display: flex; align-items: baseline; gap: 6px; min-width: 0; font-family: var(--txt); font-size: 16px; line-height: 1; white-space: nowrap; }
 .dossier-q { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--white); }
-.dossier-a { flex: 0 1 auto; max-width: 50%; overflow: hidden; text-overflow: ellipsis; color: var(--cyan); }
+.dossier-a { flex: none; max-width: 50%; overflow: hidden; text-overflow: ellipsis; color: var(--cyan); }
 .dossier-more { flex: none; color: var(--dim); }
 .dossier-none { margin: 0; font-family: var(--txt); font-size: 16px; line-height: 1; color: var(--dim); }
 .dossier-open { margin: 4px 0 0; font-size: 7px; color: var(--white); letter-spacing: 1px; }
