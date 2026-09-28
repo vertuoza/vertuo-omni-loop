@@ -99,6 +99,12 @@ conflict. `omni plan check` computes the pairs (step 5). Two things it cannot se
   in both territories, so the check separates them.
 - A file several slices each add one line to (a registry, an index, a manifest). That is shared
   ground: declare it in each, and say so in the plan's shared-ground note.
+- A test that checks what several slices change: a page's or a layout's test, a shared component's
+  render test, a golden file. Before you write the territories, list the existing tests that import
+  or read the files each slice will change (`git grep -l <module name>` over the test files). A test
+  two slices' changes will both touch is shared ground: declare it in each of those slices and name
+  it in the shared-ground note. Otherwise the second slice edits it outside its territory, and the
+  same lines get rewritten wave after wave.
 
 ## 4. Write `plan.md`
 
