@@ -1,31 +1,32 @@
 // Who goes where, as pure functions (docs/superpowers/specs/2026-09-25-omni-loop-teams-and-heroes-design.md §2).
 //
-//   START ─ signed out ─▶ INSERT COIN ─▶ Google ─▶ PRESS START ─▶ GITHUB ─▶ INTRO ─▶ FLEET ─▶ NAME ─▶ HERO ─▶ READY ─▶ MENU
-//         │                                                        └ B: visit only ─▶ MENU (look, don't play)
+//   START ─ signed out ─▶ INSERT COIN ─▶ GitHub ─▶ PRESS START ─▶ INTRO ─▶ FLEET ─▶ NAME ─▶ HERO ─▶ READY ─▶ MENU
+//         ├ in no workspace ─▶ OUTSIDER (the way to /signup)
 //         └ a player with an active fleet ─▶ WELCOME BACK ─▶ MENU
 //
 //   … ─▶ MENU, a level not yet celebrated on this device ─▶ LEVEL UP ─▶ MENU (A on a game it opened: the game)
 //
-// Google lets a @vertuoza.com account in as a visitor; linking GitHub makes them a player.
+// Everyone signs in with GitHub, and the callback links it on every sign-in (PRD 359): a signed-in
+// member of a workspace is a player at once, with no link step.
 //
 // A flow says why a screen is open: the first visit (`onboard`), or one menu entry (`myhero`,
-// `change`, `link`). The same screens serve all four; only where they lead differs.
+// `change`). The same screens serve all three; only where they lead differs.
 import { validHero } from '@omni/design';
 import type { FleetRow, Player, Session } from './types';
 
-export type Flow = 'onboard' | 'myhero' | 'change' | 'link';
-export type Step = 'coin' | 'outsider' | 'gate' | 'intro' | 'select' | 'name' | 'hero' | 'link' | 'ready' | 'welcome' | 'menu';
+export type Flow = 'onboard' | 'myhero' | 'change';
+export type Step = 'coin' | 'outsider' | 'gate' | 'intro' | 'select' | 'name' | 'hero' | 'ready' | 'welcome' | 'menu';
 
 const activeFleet = (fleets: FleetRow[], name: string | null | undefined) => fleets.find((f) => f.name === name && !f.retired) ?? null;
 
-/** GitHub is linked: this visitor may play. */
-export function isLinked(session: Session | null, me: Player | null): boolean {
-  return Boolean(me?.github_login || session?.github);
+/** Signed in, in a workspace: this account plays (its GitHub is its sign-in). */
+export function isPlayer(session: Session | null): boolean {
+  return Boolean(session?.crew);
 }
 
-/** A player who can go straight to the menu: GitHub linked, an active fleet and a hero. */
+/** A player who can go straight to the menu: an active fleet and a hero. */
 export function isReady(me: Player | null, fleets: FleetRow[]): boolean {
-  return Boolean(me && me.github_login && activeFleet(fleets, me.team) && validHero(me.hero));
+  return Boolean(me && activeFleet(fleets, me.team) && validHero(me.hero));
 }
 
 /** A player whose fleet was retired since they chose it. */
@@ -42,12 +43,11 @@ export function afterStart(session: Session | null, me: Player | null, fleets: F
 }
 
 /**
- * Where PRESS START leads (and where a fresh GitHub link leads): a returning player to the welcome,
- * a visitor to the GitHub link, a disbanded player to the fleets, a new player to the intro.
+ * Where PRESS START leads: a returning player to the welcome, a disbanded player to the fleets, a
+ * new player to the intro and on to the fleets.
  */
-export function afterGate(me: Player | null, fleets: FleetRow[], session: Session | null = null): Step {
+export function afterGate(me: Player | null, fleets: FleetRow[]): Step {
   if (isReady(me, fleets)) return 'welcome';
-  if (!isLinked(session, me)) return 'link';
   if (isDisbanded(me, fleets)) return 'select';
   if (me && activeFleet(fleets, me.team)) return 'welcome';
   return 'intro';
@@ -60,7 +60,6 @@ export function nextStep(step: Step, flow: Flow, me: Player | null): Step {
     case 'select': return flow === 'change' ? 'menu' : 'name';
     case 'name': return 'hero';
     case 'hero': return flow === 'onboard' ? 'ready' : 'menu';
-    case 'link': return 'menu'; // B, visit only: after a link, afterGate decides
     case 'ready': case 'welcome': return 'menu';
     default: return 'menu';
   }
@@ -73,29 +72,22 @@ export function backStep(step: Step, flow: Flow): Step | 'title' {
     case 'select': return 'title';
     case 'name': return 'select';
     case 'hero': return 'name';
-    case 'link': return 'menu';
     default: return 'title';
   }
 }
 
-/** The screens a signed-in visitor may see: everything past INSERT COIN. */
+/** The screens a signed-in account may see: everything past INSERT COIN, playing included. */
 const SIGNED_IN_ONLY = new Set([
-  'gate', 'intro', 'select', 'name', 'hero', 'link', 'ready', 'welcome',
+  'gate', 'intro', 'select', 'name', 'hero', 'ready', 'welcome',
   'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'chart', 'system', 'games', 'invaders', 'levelup',
 ]);
-/**
- * The screens only a player may see: playing starts with a linked GitHub account (and so does a
- * game, and a level-up: XP is earned with GitHub).
- */
-const PLAYERS_ONLY = new Set(['intro', 'select', 'name', 'hero', 'ready', 'welcome', 'invaders', 'levelup']);
 
 /**
- * Where a screen may be shown: past INSERT COIN needs a session, and playing needs GitHub linked.
- * The one door every route goes through (a deep link, a crafted return URL, a stale screen).
+ * Where a screen may be shown: past INSERT COIN needs a session. The one door every route goes
+ * through (a deep link, a crafted return URL, a stale screen).
  */
-export function allowed(scene: string, session: Session | null, linked = false): string {
+export function allowed(scene: string, session: Session | null): string {
   if (!session && SIGNED_IN_ONLY.has(scene)) return 'coin';
-  if (!linked && PLAYERS_ONLY.has(scene)) return 'link';
   return scene;
 }
 
@@ -108,18 +100,14 @@ export function arrive<S extends string>(scene: S, due: boolean): S | 'levelup' 
   return scene === 'menu' && due ? 'levelup' : scene;
 }
 
-/** What the page's query string says happened while the player was away (Google, GitHub). */
+/** What the page's query string says happened while the player was away at GitHub. */
 export type Return =
   | { kind: 'signin' }
-  | { kind: 'signin_error'; message: string }
-  | { kind: 'linked'; login: string }
-  | { kind: 'link_error'; message: string };
+  | { kind: 'signin_error'; message: string };
 
 export function readReturn(search: string): Return | null {
   const q = new URLSearchParams(search);
   if (q.has('signin_error')) return { kind: 'signin_error', message: q.get('signin_error') || 'Sign-in failed.' };
-  if (q.has('link_error')) return { kind: 'link_error', message: q.get('link_error') || 'Linking GitHub failed.' };
-  if (q.has('linked')) return { kind: 'linked', login: q.get('linked') ?? '' };
   if (q.get('signin') === 'ok') return { kind: 'signin' };
   return null;
 }
@@ -129,7 +117,6 @@ export function afterReturn(r: Return, session: Session | null, me: Player | nul
   switch (r.kind) {
     case 'signin_error': return 'coin';
     case 'signin': return !session ? 'coin' : !session.crew ? 'outsider' : 'gate';
-    case 'linked': case 'link_error': return session ? 'link' : 'coin';
   }
   return afterStart(session, me, fleets);
 }

@@ -13,7 +13,7 @@ import type { FleetRow } from '../types';
 import { TALL, WIDE, type FrameState, type Grid, type SceneName } from './common.ts';
 import { drawFrame } from './index.ts';
 import { TALL_SCENES } from './join.ts';
-import { CoinOverlay, GateOverlay, IntroOverlay, LinkOverlay, OutsiderOverlay, ReadyOverlay, WelcomeOverlay } from './join.tsx';
+import { CoinOverlay, GateOverlay, IntroOverlay, OutsiderOverlay, ReadyOverlay, WelcomeOverlay } from './join.tsx';
 
 // Every sprite drawn, where and how large: the join scenes' actors on the canvas.
 const sprites = vi.hoisted(() => [] as { name: string; x: number; y: number; scale: number }[]);
@@ -52,7 +52,7 @@ class FakeOffscreenCanvas {
 const fleets: FleetRow[] = Object.entries(DEMO_PROJECTS.teams)
   .map(([name, t]) => ({ name, ...lookOf(name, t) }))
   .sort((a, b) => a.sort - b.sort);
-const JOIN: SceneName[] = ['coin', 'away', 'outsider', 'gate', 'intro', 'link', 'ready', 'welcome'];
+const JOIN: SceneName[] = ['coin', 'away', 'outsider', 'gate', 'intro', 'ready', 'welcome'];
 
 function frame(scene: SceneName, sceneT: number, grid: Grid, away = false, mark: Mark = markFor(HOUSE_BRAND.name)): FrameState {
   return {
@@ -89,7 +89,7 @@ describe('the join scenes drawn on the tall grid', () => {
   afterAll(() => { vi.unstubAllGlobals(); });
   beforeEach(() => { sprites.length = 0; });
 
-  // Each scene once its entrance has played: the coin, the gate and the link at rest, the intro with
+  // Each scene once its entrance has played: the coin and the gate at rest, the intro with
   // every fleet in, the ready hero risen, the welcome on its pedestal.
   const settled: [string, FrameState][] = [
     ['coin', frame('coin', 0.5, TALL)],
@@ -97,7 +97,6 @@ describe('the join scenes drawn on the tall grid', () => {
     ['gate', frame('gate', 0.5, TALL)],
     ['intro, OMNI-MAN risen', frame('intro', 9, TALL)],
     ['intro, every fleet in', frame('intro', 16.3, TALL)],
-    ['link', frame('link', 0.5, TALL)],
     ['ready', frame('ready', 2, TALL)],
     ['welcome', frame('welcome', 2, TALL)],
   ];
@@ -133,7 +132,7 @@ describe('the join scenes drawn on the tall grid', () => {
   });
 
   it('centres the loading bar of a trip away from the arcade on the screen', () => {
-    for (const s of [frame('away', 0.3, TALL), frame('coin', 0.3, TALL, true), frame('link', 0.3, TALL, true)]) {
+    for (const s of [frame('away', 0.3, TALL), frame('coin', 0.3, TALL, true)]) {
       const bar = spritesOf(s).rects.filter((r) => r.w === 8 && r.h === 8 && (r.color === '#6ff0ff' || r.color === '#1a1f55'));
       expect(bar, s.scene).toHaveLength(12);
       const left = Math.min(...bar.map((r) => r.x)), right = Math.max(...bar.map((r) => r.x + r.w));
@@ -151,20 +150,16 @@ describe('the join group\'s text layer', () => {
   );
   const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
 
-  // Every state of every join scene, the coin's and the link's included.
+  // Every state of every join scene, the coin's included.
   const states: [string, ReactElement, string[]][] = [
-    ['coin', createElement(CoinOverlay, { away: false, error: null, demo: true, closed: false }), ['INSERT COIN', 'SIGN IN WITH YOUR VERTUOZA ACCOUNT', '@vertuoza.com accounts only', 'SIGN IN WITH GOOGLE', 'BACK']],
-    ['coin, with the error line', createElement(CoinOverlay, { away: false, error: 'Sign-in failed.', demo: true, closed: false }), ['INSERT COIN', 'Sign-in failed.', 'SIGN IN WITH GOOGLE']],
-    ['coin, closed', createElement(CoinOverlay, { away: false, error: null, demo: false, closed: true }), ['INSERT COIN', 'SIGN-IN IS NOT OPEN YET', 'Only @vertuoza.com accounts will get in.', 'BACK']],
-    ['coin, away on the demo', createElement(CoinOverlay, { away: true, error: null, demo: true, closed: false }), ['LEAVING THE ARCADE…', 'GOOGLE SIGN-IN', 'Demo galaxy: no real sign-in, you come back as a guest.']],
-    ['outsider', createElement(OutsiderOverlay, { email: 'ada@example.com' }), ['WRONG CARTRIDGE', 'OMNI LOOP IS FOR @VERTUOZA.COM ACCOUNTS', 'ada@example.com', 'SIGN OUT', 'BACK']],
+    ['coin', createElement(CoinOverlay, { away: false, error: null, demo: true, closed: false }), ['INSERT COIN', 'SIGN IN WITH YOUR GITHUB ACCOUNT', 'SIGN IN WITH GITHUB', 'BACK']],
+    ['coin, with the error line', createElement(CoinOverlay, { away: false, error: 'Sign-in failed.', demo: true, closed: false }), ['INSERT COIN', 'Sign-in failed.', 'SIGN IN WITH GITHUB']],
+    ['coin, closed', createElement(CoinOverlay, { away: false, error: null, demo: false, closed: true }), ['INSERT COIN', 'SIGN-IN IS NOT OPEN YET', 'GitHub sign-in', 'BACK']],
+    ['coin, away on the demo', createElement(CoinOverlay, { away: true, error: null, demo: true, closed: false }), ['LEAVING THE ARCADE…', 'GITHUB SIGN-IN', 'Demo galaxy: no real sign-in, you come back as a guest.']],
+    ['outsider', createElement(OutsiderOverlay, { who: '@eve-gh' }), ['NO WORKSPACE YET', 'You are signed in as @eve-gh', 'Install Omni Loop on your GitHub org', 'SIGN UP', 'SIGN OUT']],
     ['gate', createElement(GateOverlay, { name: null }), ['WELCOME, RECRUIT', 'PRESS START', 'Browsers need a key press before they play sound.']],
     ['gate, a player back', createElement(GateOverlay, { name: 'ADA' }), ['WELCOME BACK, ADA', 'PRESS START']],
     ['intro', createElement(IntroOverlay, { fleets }), ['ENTROPY IS WINNING.', 'THE GALAXY NEEDS HEROES.', 'CHOOSE YOUR FLEET.', ...fleets.slice(0, 5).map((f) => f.label), 'SKIP']],
-    ['link, idle', createElement(LinkOverlay, { state: 'ask', name: 'ADA', login: null, error: null, demo: true }), ['TO PLAY, ADA, LINK YOUR GITHUB.', 'YOUR PULL REQUESTS WILL SCORE', 'FOR THE FLEET YOU JOIN.', 'makes you a player.', 'LINK GITHUB', 'VISIT ONLY']],
-    ['link, away', createElement(LinkOverlay, { state: 'away', name: 'ADA', login: null, error: null, demo: true }), ['LEAVING THE ARCADE…', 'GITHUB', 'Demo galaxy: no real GitHub, you come back with a made-up login.']],
-    ['link, done', createElement(LinkOverlay, { state: 'done', name: 'ADA', login: 'ada-l', error: null, demo: true }), ['✓ LINKED AS @ADA-L', 'Your pull requests will score for your fleet.', 'PRESS START']],
-    ['link, error', createElement(LinkOverlay, { state: 'error', name: 'ADA', login: null, error: 'Linking GitHub failed.', demo: true }), ['TO PLAY, ADA, LINK YOUR GITHUB.', 'Linking GitHub failed.', 'TRY AGAIN', 'VISIT ONLY']],
     ['ready', createElement(ReadyOverlay, { name: 'ADA', team: fleets[1].name }), ['PLAYER 1 READY', `ADA · ${fleets[1].label}`, 'PRESS ANY KEY']],
     ['welcome', createElement(WelcomeOverlay, { name: 'ADA', team: fleets[1].name }), ['WELCOME BACK,', 'ADA', fleets[1].label]],
   ];
@@ -178,7 +173,23 @@ describe('the join group\'s text layer', () => {
   it('marks the error lines as alerts on both grids', () => {
     for (const grid of [TALL, WIDE]) {
       expect(words(createElement(CoinOverlay, { away: false, error: 'Sign-in failed.', demo: true, closed: false }), grid)).toMatch(/role="alert"[^>]*>Sign-in failed\./);
-      expect(words(createElement(LinkOverlay, { state: 'error', name: 'ADA', login: null, error: 'Linking GitHub failed.', demo: true }), grid)).toMatch(/role="alert"[^>]*>Linking GitHub failed\./);
+    }
+  });
+
+  it('never names Google or @vertuoza.com on the way in', () => {
+    const all = [
+      createElement(CoinOverlay, { away: false, error: null, demo: false, closed: false }),
+      createElement(CoinOverlay, { away: false, error: null, demo: false, closed: true }),
+      createElement(CoinOverlay, { away: true, error: null, demo: false, closed: false }),
+      createElement(OutsiderOverlay, { who: '@eve-gh' }),
+    ].map((el) => words(el, WIDE)).join(' ');
+    expect(all).not.toMatch(/google/i);
+    expect(all).not.toMatch(/@vertuoza\.com/i);
+  });
+
+  it('points the outsider at /signup, to install Omni Loop and get a workspace', () => {
+    for (const grid of [TALL, WIDE]) {
+      expect(words(createElement(OutsiderOverlay, { who: '@eve-gh' }), grid)).toMatch(/<a [^>]*href="\/signup"/);
     }
   });
 });

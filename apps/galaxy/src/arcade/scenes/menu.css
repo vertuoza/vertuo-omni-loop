@@ -23,7 +23,7 @@
 .menu li button.active .menu-label { color: var(--yellow); }
 .menu-hint { font-family: var(--txt); font-size: 17px; color: var(--dim); }
 .menu-foot { position: absolute; left: 34px; right: 24px; bottom: 16px; display: flex; justify-content: space-between; font-size: 8px; color: var(--dim); }
-/* Signed in, the menu grows (GAMES, MY HERO, CHANGE FLEET, LINK GITHUB, APP MODE, SIGN OUT): one
+/* Signed in, the menu grows (PLAY, GAMES, MY HERO, CHANGE FLEET, APP MODE, SIGN OUT): one
    line per entry, each line box set, so a player's ten rows end above the footer whatever the font. */
 .menu.long ul { margin-top: 12px; gap: 2px; width: 410px; }
 .menu.long li button { grid-template-columns: 16px 150px 1fr; align-items: baseline; padding: 3px 8px; }
@@ -35,7 +35,7 @@
 /* NEW beside GAMES, until the game room is opened on this device. */
 .menu-tag { display: inline-block; margin-left: 8px; padding: 2px 3px 1px; font-size: 7px; font-style: normal; line-height: 1; color: #fff; background: var(--red); vertical-align: 1px; }
 
-/* The menu nudges toward linking GitHub. */
+/* The menu nudges a visitor toward PLAY: the fleets. */
 .menu button.nudge .menu-label::before { content: '● '; color: var(--red); animation: blink 0.8s steps(2, start) infinite; }
 
 /* ── How to play ─────────────────────────────────────────────────────────── */
