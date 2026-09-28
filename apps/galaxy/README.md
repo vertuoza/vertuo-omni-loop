@@ -91,7 +91,7 @@ HOME.
 | Press start | After coming back from GitHub: browsers play sound only after a key press |
 | Intro | First visit only, 20 s, skippable: OmniMan rises, three lines type in, the fleets flash in |
 | Select your fleet | The fleets from `public.teams`, each with its own motif; A locks in with a fanfare. Also CHANGE FLEET, with a confirmation of where the points go |
-| Enter your name | Up to 10 characters, typed or spun on a letter wheel, pre-filled from the Google first name |
+| Enter your name | Up to 10 characters, typed or spun on a letter wheel, pre-filled from the account's first name |
 | Build your hero | Girl or boy, skin, hair, suit (the fleet colour first) and cape; TAB for random |
 | Ready / Welcome back | The launch after a first visit; a two-second welcome for returning players |
 | Level up | Before the menu, once per new level on this device: LEVEL UP! with a fanfare, the hero at 2× and the new XP bar, and NEW GAME UNLOCKED when a level climbed opened a game (A plays it at once, B goes on to the menu) |
@@ -461,9 +461,9 @@ three season counts reset together. The week alone counts Brussels days, because
 |---|---|
 | **Demo** (development, or a build with `OMNI_LOOP_DEMO=1`) | The whole dashboard on the demo world, signed in as its *you*: DAM-DEV of BEAVER, one of the demo galaxy's heroes, wearing the demo guest's default hero. The points, places and rankings are the demo galaxy's own; the week (nine merges) and the counts (14, 3, 2 and 1) are made up and fixed, each in its folder's `demo.ts` |
 | **Closed** (a build with no database) | *The dashboard is not open here*, then the section cards |
-| **Signed out** | Only a sign-in card: *Sign in to see your dashboard* and **Sign in with Google** (`@vertuoza.com`). Google comes back to `/app/callback`, which turns the code into the session cookie, joins the workspaces of the email's domain (`join_by_domain()`) and returns to `/app`, or to `/app?signin_error=…`, whose reason the card says |
+| **Signed out** | Only a sign-in card: *Sign in to see your dashboard* and **Sign in with GitHub**. GitHub comes back to `/app/callback`, which turns the code into the session cookie, joins the workspaces of the account's GitHub orgs and links GitHub (`src/data/sign-in.ts`) and returns to `/app`, or to `/app?signin_error=…`, whose reason the card says |
 | **Signed in, in no workspace** | *Your account is not in a workspace*, with **Switch account**, as `/knowledge` does |
-| **A member who never joined a fleet** (no `players` row) | The heading is the Google account's first name, and in place of the hero, the points and the places, a card: *Join a fleet in the arcade to get your hero and your score*, linking to `/play`. The week, the counts and the rankings still show, counted by the account's linked GitHub identity when it has one |
+| **A member who never joined a fleet** (no `players` row) | The heading is the account's first name, and in place of the hero, the points and the places, a card: *Join a fleet in the arcade to get your hero and your score*, linking to `/play`. The week, the counts and the rankings still show, counted by the account's linked GitHub identity when it has one |
 | **No GitHub login** (neither `players.github_login` nor a linked identity) | *Link your GitHub in the arcade*, linking to `/play`, in place of the points and places, the week, **Outbox settled** and **PRDs created**, and below the individuals' top 3. The hero, the fleet, the fleets table, **Questions answered** and **Waiting for you** still show: they need no GitHub |
 | **One read fails** | Only its part reads *Couldn't load this. Reload in a moment.*, its error logged on the server, and the rest renders. Each tile fails alone; the rankings need the galaxy and the workspace's players both, so either failing empties both tables. When even the workspace cannot be read, every part says so, and nobody is turned away |
 
@@ -647,7 +647,7 @@ nobody deletes a numbered dossier.
 A person answers the PRD's outbox questions on `/prd/<id>?tab=outbox`, beside what they are about,
 as well as on the feature pull request or at the end of `/omni:yolo`. Every door ends as the
 person's own reply on the feature pull request, so `/omni:yolo-fix` settles it like any other
-(ADR-0051).
+(ADR-0052).
 
 - **What it shows** is read from GitHub, as the omni-loop App, by PRD 426's reader
   (`src/dossier/github/reader.ts`, cached 60 seconds per dossier); nothing of the outbox is stored.
@@ -852,8 +852,8 @@ pnpm galaxy:shots        # in another: apps/galaxy/shots/<width>x<height>/, whic
   clock is Playwright's), so two runs can be compared screen by screen. Only the demo galaxy's own
   dates move, since it is dated now. `/app` is drawn on the server, with its clock: its week of
   merges moves with the day it is shot on.
-- The demo guest always has a `@vertuoza.com` account. To reach the "wrong cartridge" screen, the
-  script makes it an account from another domain, in the browser only.
+- The demo guest is always a member of a workspace. To reach the "wrong cartridge" screen, the
+  script makes it an account in no workspace, in the browser only.
 - Without `pnpm galaxy:dev` running, it stops and says so. `pnpm test` never starts it.
 - A dev server on another port: `GALAXY_URL=http://localhost:3001/ pnpm galaxy:shots`.
 
@@ -1075,7 +1075,7 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
   `reply`, the nonce's hash, then `posted_at`, `comment_url`, `login`, `counted` or `error`). Its
   owner, a member of the dossier's workspace, inserts it and reads it, and records its outcome once
   through `outbox_send_done()`. Nobody else reads it, nobody updates it otherwise, and nobody
-  deletes it. The outbox itself is never stored: the page reads it from GitHub (ADR-0051).
+  deletes it. The outbox itself is never stored: the page reads it from GitHub (ADR-0052).
   `supabase/checks/outbox_sends.sql` proves these rules in the `supabase` workflow.
 - Row-level security, by membership (`is_member(workspace)`): a member reads their workspaces,
   their own memberships, and their workspace's sectors, fleets, players, ledger, XP, high scores

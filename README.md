@@ -33,7 +33,7 @@ A pnpm workspace:
 ### Prerequisites
 
 - Node 22 or later, and pnpm
-- The GitHub CLI, logged in: `gh auth status` (read access to the `vertuoza` organisation)
+- The GitHub CLI, logged in: `gh auth status`
 
 ### Install and test
 
@@ -70,9 +70,9 @@ update public.teams set retired_at = now()                                    --
 ```
 
 The fleets today: BEAVER, OCTOPOD, PICSOU, C.I.A. and PIRATES. People join one in the arcade: they
-sign in with their `@vertuoza.com` Google account, which makes them members of the `vertuoza`
-workspace, pick a fleet, enter a name, build a hero and link their GitHub account, and from then on
-their pull requests score for that fleet.
+sign in with their GitHub account, which makes them members of the workspace of every GitHub org of
+theirs that has the Omni App installed (`vertuoza` for the `vertuoza` org), pick a fleet, enter a
+name and build a hero, and from then on their pull requests score for that fleet.
 
 ### Run it by hand
 

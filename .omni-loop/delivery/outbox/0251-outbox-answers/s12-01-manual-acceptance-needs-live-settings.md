@@ -30,7 +30,7 @@ Settings first (production only; a preview deployment cannot send, GitHub refuse
 
 1. In the omni-loop GitHub App's settings (github.com › Settings › Developer settings › GitHub Apps › omni-loop › General): note the **Client ID**, press **Generate a new client secret** and copy it, and under **Callback URL** add `https://vertuo-omni-loop-galaxy.vercel.app/prd/github/callback` beside the URLs already listed. Save.
 2. On the galaxy's Vercel project (`vertuo-omni-loop-galaxy`) › Settings › Environment Variables, for **Production**: set `GITHUB_APP_CLIENT_ID` to the Client ID and `GITHUB_APP_CLIENT_SECRET` to the new secret (server only, no `NEXT_PUBLIC_` name). `SUPABASE_SERVICE_ROLE_KEY` and the App's `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` are already set (PRD 359); check they still are.
-3. Merge the feature PR of PRD 251 into `main`, wait for the `supabase` workflow's deploy job to apply `20261004090000_outbox_sends.sql`, and for the galaxy's production deployment (redeploy it if it built before step 2).
+3. Merge the feature PR of PRD 251 into `main`, wait for the `supabase` workflow's deploy job to apply `20261005090000_outbox_sends.sql`, and for the galaxy's production deployment (redeploy it if it built before step 2).
 
 Then the checks, on a feature PR whose outbox has at least one open human-action or high question (a throwaway PRD is fine), with `answers.enabled` on (the default):
 
@@ -47,7 +47,7 @@ The last slice asks for the manual acceptance to be recorded with screenshots in
 
 ## What I did meanwhile
 
-Wrote ADR-0051 (the spec's Decisions 1 to 3) and the kit and galaxy README lines, which name the switch, `omni answers`, the end of yolo, the Outbox tab, both routes, the short address, `outbox_sends`, the two variables and the App's callback URL. Left the checks, with the screenshots to attach, as the steps below.
+Wrote ADR-0052 (the spec's Decisions 1 to 3) and the kit and galaxy README lines, which name the switch, `omni answers`, the end of yolo, the Outbox tab, both routes, the short address, `outbox_sends`, the two variables and the App's callback URL. Left the checks, with the screenshots to attach, as the steps below.
 
 ## What it costs to change later
 

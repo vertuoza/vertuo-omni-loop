@@ -76,7 +76,7 @@ it pushes `plan.md`.
 
 **Answers** take the outbox's questions through three doors, the terminal, the PRD's Outbox tab on
 the Omni page and the feature pull request, and every one ends as the person's own reply on the
-feature pull request, in the grammar `omni replies` reads (ADR-0051). The switch is
+feature pull request, in the grammar `omni replies` reads (ADR-0052). The switch is
 `answers: { enabled: true }` in the config: `true` by default, and `omni init` writes it into every
 new config. `omni answers ask <prd> --pr <n> [--json]` prints the open `human-action` and `high`
 questions in the pull request's numbering, in batches of at most four, human action first (mediums

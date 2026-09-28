@@ -69,10 +69,11 @@ export function sessionClosed(session: Pick<AskSession, 'status' | 'last_seen_at
   return session.status === 'closed' || now - Date.parse(session.last_seen_at) >= IDLE_CLOSE_MS;
 }
 
-/** The database refused or failed; `code` is Postgres's (42501: row-level security said no). */
+/** The database refused or failed; `code` is Postgres's (42501: row-level security, or the workspace
+ * pick, said no), and `reason` the database's own words. */
 export class AskStoreError extends Error {
-  constructor(what: string, readonly code: string | undefined, message: string) {
-    super(`${what}: ${message}`);
+  constructor(what: string, readonly code: string | undefined, readonly reason: string) {
+    super(`${what}: ${reason}`);
   }
 }
 

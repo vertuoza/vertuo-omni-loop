@@ -11,7 +11,7 @@ the kit prints it, then why it happens and how to fix it.
 Your terminal does not know the `omni` command yet (zsh says `zsh: command not found: omni`). Step 1
 of [Install](/docs/install), the npm line that installs `omni` once per laptop, has not run on this
 laptop, or it failed. Run it again, and read what npm prints: its last lines say whether it
-installed `omni`. When it says `EACCES` or `repository not found`, see the two entries below.
+installed `omni`. When it says `EACCES`, see the entry below.
 
 ## npm says `EACCES` while installing omni
 
@@ -20,20 +20,6 @@ you. Do not run the npm line with `sudo`. Follow npm's own page on it,
 [Resolving EACCES permissions errors](https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally),
 which moves npm's global folder to one of yours (or installs Node with a version manager), then run
 the npm line of [Install](/docs/install) again.
-
-## npm says `repository not found` while installing omni
-
-The kit's repository, `vertuoza/vertuo-omni-loop`, is private while Omni Loop is in beta, and npm
-fetches it with git, which found no sign-in that can read it. Two things to check:
-
-- **Your GitHub account can read the repository.** Open
-  [github.com/vertuoza/vertuo-omni-loop](https://github.com/vertuoza/vertuo-omni-loop) while signed
-  in: if GitHub says the page is not found, ask the Omni Loop team for read access.
-- **git uses gh's sign-in.** Run this once, then the npm line again:
-
-  ```bash terminal
-  gh auth setup-git
-  ```
 
 ## An old `~/.local/bin/omni`
 
@@ -116,9 +102,10 @@ Sign in once, yourself, in a terminal at the root of the repository:
 omni signin
 ```
 
-It opens your browser. Sign in there with the GitHub account your invite was sent to, and the
-terminal prints `signed in as` followed by your email. Inside Claude Code, you can run it from the
-prompt by typing `!` before it. The next dossier update goes through.
+It opens your browser. Sign in there with your GitHub account, and the terminal prints
+`signed in as` followed by your GitHub login and the workspace this repository goes to. Inside
+Claude Code, you can run it from the prompt by typing `!` before it. The next dossier update goes
+through.
 
 Two related lines:
 
@@ -140,6 +127,33 @@ Two related lines:
   dossier:
     enabled: true
   ```
+
+## `refused (403): you are not a member of <workspace>, which owns <owner/repo>`
+
+You see this from `omni dossier`, and at the end of `omni signin` or `omni ask on`, in a clone of a
+repository another workspace owns. A workspace owns a repository when it was made for the
+repository's owner: the GitHub account or organization the Omni App is installed on. You are
+signed in, but you are not a member of that workspace, so your dossiers and questions have nowhere
+to go. Your sign-in stays, and the loop keeps working in the terminal.
+
+Two ways out:
+
+- **Join that workspace.** Ask its owner to add your GitHub account to their GitHub organization:
+  the workspace's members are the organization's. Once you are in, run `omni signin` again, and it
+  names the workspace.
+- **Work in a repository of your own.** Install the Omni App on your own account or organization,
+  as in step 3 of [Install](/docs/install), and run the loop in a repository it owns.
+
+## `no workspace owns <owner/repo> yet — install the Omni App: <link>`
+
+You see this at the end of `omni signin` and of the sign-in step of `omni init`, and from
+`omni dossier` and `omni ask on`. Your sign-in went through, and the line ends green. But nobody has
+installed the Omni App on your repository's owner yet, and your GitHub account belongs to no
+workspace, so dossiers and ask mode have nowhere to land.
+
+Open the link it prints, and install the App on the account or organization that owns the
+repository (step 3 of [Install](/docs/install)). Then run `omni signin` again: it names the
+workspace this repository goes to, and dossiers and ask mode start working.
 
 ## "Deployment was blocked" on Vercel
 

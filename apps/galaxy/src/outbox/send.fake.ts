@@ -2,7 +2,7 @@
 // now comes from a fake of PRD 426's GitHub reader, not from a stored copy.
 //
 // Fakes for Send's tests (PRD 251, "Send posts the reply as you"): the sends of one signed-in person in
-// memory, kept by the rules supabase/migrations/20261004090000_outbox_sends.sql gives outbox_sends —
+// memory, kept by the rules supabase/migrations/20261005090000_outbox_sends.sql gives outbox_sends —
 // only the owner reads a send, only a member of the dossier's workspace makes one, and
 // outbox_send_done() records an outcome once — a reader whose summary each test sets, and a GitHub that
 // answers the two calls a send makes, OAuth's code exchange and the comment, over a fake fetch. That the

@@ -11,7 +11,7 @@ import type { SendRow } from './sent';
 //
 // Send's real dependencies (./send.ts): the signed-in person's own Supabase session, so row-level
 // security decides who reads a dossier and who records and reads a send
-// (supabase/migrations/20261004090000_outbox_sends.sql); the server's one GitHub reader, as the omni-loop
+// (supabase/migrations/20261005090000_outbox_sends.sql); the server's one GitHub reader, as the omni-loop
 // App, read fresh for a send and cleared once it is posted; and GitHub, as the omni-loop App's user
 // authorisation — GITHUB_APP_CLIENT_ID and GITHUB_APP_CLIENT_SECRET, both server-only. Without them,
 // Send is off; without a database, nobody is signed in.

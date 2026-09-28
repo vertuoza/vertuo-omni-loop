@@ -1,4 +1,4 @@
-# ADR-0051 — Every answer door ends as the person's own reply on the feature PR, and the Omni page reads the outbox from GitHub
+# ADR-0052 — Every answer door ends as the person's own reply on the feature PR, and the Omni page reads the outbox from GitHub
 
 **Status:** accepted · **Date:** 2026-09-28 · **PRD:** #251
 

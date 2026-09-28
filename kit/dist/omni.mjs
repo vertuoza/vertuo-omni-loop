@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.35" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.36" };
   }
 });
 
@@ -14905,8 +14905,8 @@ function slackLine({
 }) {
   const cleanTitle = (title ?? "").replace(/^\s*PRD:\s*/i, "").trim();
   const name = cleanTitle ? `PRD #${prd2} \xB7 ${slackEscape(cleanTitle)}` : `PRD #${prd2}`;
-  const who = ownerText(owner);
-  const head = who ? `*${name}* \u2014 owner ${who}` : `*${name}*`;
+  const who2 = ownerText(owner);
+  const head = who2 ? `*${name}* \u2014 owner ${who2}` : `*${name}*`;
   const waiting = Object.values(counts2).reduce((sum, count3) => sum + count3, 0);
   const parts = [];
   if (waiting > 0) {
@@ -15322,12 +15322,23 @@ init_define_OMNI_BUNDLE();
 init_define_OMNI_BUNDLE();
 var CALL_TIMEOUT_MS = 5e3;
 var AskCallError = class extends Error {
-  constructor(message, { status: status3 = null } = {}) {
+  /** `status`: the server's, null when it could not be reached. `reason`: its `{error}`, when it gave one. */
+  constructor(message, { status: status3 = null, reason: reason2 = null } = {}) {
     super(message);
     this.name = "AskCallError";
     this.status = status3;
+    this.reason = reason2;
   }
 };
+var reasonOf = (body) => {
+  const text4 = typeof body?.error === "string" ? body.error.replace(/\s+/g, " ").trim() : "";
+  return text4 || null;
+};
+var SIGN_IN_FIELDS = ["access_token", "refresh_token", "expires_at", "email", "login"];
+var renewed = (current, fresh) => ({
+  ...current,
+  ...Object.fromEntries(SIGN_IN_FIELDS.filter((key) => fresh[key] !== void 0).map((key) => [key, fresh[key]]))
+});
 var withContext = (body, context) => context && typeof context === "object" ? { ...body, context } : body;
 function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = CALL_TIMEOUT_MS }) {
   const root = baseUrl.replace(/\/+$/, "");
@@ -15369,7 +15380,7 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     if (!response.ok) return null;
     const fresh = await bodyOf(response);
     if (typeof fresh.access_token !== "string" || !fresh.access_token) return null;
-    const kept = { ...current, ...fresh };
+    const kept = renewed(current, fresh);
     tokens.write(host, kept);
     return kept;
   }
@@ -15382,7 +15393,10 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
       if (!fresh) throw new AskCallError(`${method} ${path}: sign-in refused`, { status: 401 });
       response = await send(method, path, { body, token: fresh.access_token, timeoutMs });
     }
-    if (!response.ok) throw new AskCallError(`${method} ${path}: ${response.status}`, { status: response.status });
+    if (!response.ok) {
+      const reason2 = reasonOf(await bodyOf(response));
+      throw new AskCallError(`${method} ${path}: ${response.status}${reason2 ? ` ${reason2}` : ""}`, { status: response.status, reason: reason2 });
+    }
     return bodyOf(response);
   }
   async function renew() {
@@ -15398,7 +15412,7 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     if (!response.ok) return "unreachable";
     const fresh = await bodyOf(response);
     if (typeof fresh.access_token !== "string" || !fresh.access_token) return "unreachable";
-    tokens.write(host, { ...current, ...fresh });
+    tokens.write(host, renewed(current, fresh));
     return "renewed";
   }
   return {
@@ -15415,6 +15429,9 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     /** An answer given in the terminal. */
     answer: (roundId, answers2) => call("POST", `/api/ask/rounds/${segment(roundId)}/answers`, { body: { answers: answers2, via: "terminal" } }),
     abandon: (roundId) => call("POST", `/api/ask/rounds/${segment(roundId)}/abandon`),
+    /** PRD 459: where the caller's questions for `repo` (owner/name) land — a 404 from a server older
+     * than the call. @returns {Promise<{ workspace: { slug: string, name: string } | null, reason: string | null }>} */
+    whereQuestionsGo: (repo) => call("GET", `/api/ask/workspace?${new URLSearchParams({ repo })}`),
     /** PRD 216: opens a draft dossier for `repo`. The Claude session id is sent only when there is
      * one. @returns {Promise<{ id: string, url: string }>} */
     openDossier: ({ title, repo, claudeSessionId = null }) => call("POST", "/api/dossiers", { body: { title, repo, ...claudeSessionId ? { claudeSessionId } : {} } }),
@@ -15775,9 +15792,27 @@ var askEndpoint = (askUrl2, path) => `${askUrl2.replace(/\/+$/, "")}${path}`;
 var isText3 = (value) => typeof value === "string" && value.length > 0;
 function tokenEntry(reply) {
   if (!reply || typeof reply !== "object" || Array.isArray(reply)) return null;
-  const { access_token, refresh_token, expires_at, email } = reply;
-  if (!isText3(access_token) || !isText3(refresh_token) || !isText3(email)) return null;
-  return { access_token, refresh_token, expires_at: typeof expires_at === "number" ? expires_at : null, email };
+  const { access_token, refresh_token, expires_at, email, login } = reply;
+  if (!isText3(access_token) || !isText3(refresh_token)) return null;
+  return {
+    access_token,
+    refresh_token,
+    expires_at: typeof expires_at === "number" ? expires_at : null,
+    ...isText3(email) ? { email } : {},
+    ...isText3(login) ? { login } : {}
+  };
+}
+function workspaceOf(value) {
+  if (!value || typeof value !== "object" || !isText3(value.name)) return null;
+  return { slug: isText3(value.slug) ? value.slug : null, name: value.name };
+}
+function signedInLine({ login, email, repo, workspace, reason: reason2 } = {}) {
+  const who2 = isText3(login) ? login : isText3(email) ? email : null;
+  const head = who2 ? `signed in as ${who2}` : "signed in";
+  if (!isText3(repo)) return head;
+  if (workspace && isText3(workspace.name)) return `${head} \u2014 ${repo} goes to ${workspace.name}`;
+  if (isText3(reason2)) return `${head} \u2014 ${reason2}`;
+  return head;
 }
 function credentials({ home = homedir2() } = {}) {
   const file = join20(home, ...FILE2);
@@ -15817,14 +15852,14 @@ async function replyOf(response) {
     return {};
   }
 }
-async function exchangeCode({ askUrl: askUrl2, code, fetch = globalThis.fetch, timeoutMs = EXCHANGE_TIMEOUT_MS }) {
+async function exchangeCode({ askUrl: askUrl2, code, repo = null, fetch = globalThis.fetch, timeoutMs = EXCHANGE_TIMEOUT_MS }) {
   const endpoint = askEndpoint(askUrl2, "/api/ask/token");
   let response;
   try {
     response = await fetch(endpoint, {
       method: "POST",
       headers: { accept: "application/json", "content-type": "application/json" },
-      body: JSON.stringify({ code }),
+      body: JSON.stringify(isText3(repo) ? { code, repo } : { code }),
       signal: AbortSignal.timeout(timeoutMs)
     });
   } catch (error) {
@@ -15838,7 +15873,14 @@ async function exchangeCode({ askUrl: askUrl2, code, fetch = globalThis.fetch, t
   }
   const entry = tokenEntry(reply);
   if (!entry) throw new SignInError("the sign-in server answered with no tokens.");
-  return entry;
+  const workspace = workspaceOf(reply.workspace);
+  return {
+    entry,
+    login: entry.login ?? null,
+    email: entry.email ?? null,
+    workspace,
+    reason: !workspace && isText3(reply.reason) ? reply.reason : null
+  };
 }
 
 // kit/lib/ask/loopback.mjs
@@ -15938,15 +15980,20 @@ function openInBrowser(url, { platform = process.platform } = {}) {
 function askUrlOf(cwd, exec) {
   return loadContext(cwd, { exec }).config.ask.url;
 }
+function signInConfig(cwd, exec) {
+  const { config: config2 } = loadContext(cwd, { exec });
+  return { askUrl: config2.ask.url, repo: config2.repo?.slug ?? null };
+}
 function noArguments(name, args) {
   const { positional } = parseArgs(name, args);
   if (positional.length > 0) throw usageError(`usage: omni ${name}`);
 }
 var signin = {
   withoutContext: true,
-  async run(args, { cwd, stdout, stderr, exec, home, openBrowser = openInBrowser, fetch = globalThis.fetch, waitMs = LOOPBACK_WAIT_MS }) {
+  /** `onSignedIn`, when given (by `omni init`), takes the closing line instead of stdout. */
+  async run(args, { cwd, stdout, stderr, exec, home, openBrowser = openInBrowser, fetch = globalThis.fetch, waitMs = LOOPBACK_WAIT_MS, onSignedIn }) {
     noArguments("signin", args);
-    const askUrl2 = askUrlOf(cwd, exec);
+    const { askUrl: askUrl2, repo } = signInConfig(cwd, exec);
     if (!askUrl2) {
       println(stderr, ASK_URL_UNSET);
       return 1;
@@ -15963,9 +16010,11 @@ var signin = {
       } catch {
       }
       const code = await listener.code;
-      const entry = await exchangeCode({ askUrl: askUrl2, code, fetch });
+      const { entry, ...where } = await exchangeCode({ askUrl: askUrl2, code, repo, fetch });
       credentials({ home }).write(credentialsHost(askUrl2), entry);
-      println(stdout, `signed in as ${entry.email}`);
+      const line = signedInLine({ ...where, repo });
+      if (onSignedIn) onSignedIn(line);
+      else println(stdout, line);
       return 0;
     } catch (error) {
       if (!(error instanceof LoopbackError) && !(error instanceof SignInError)) throw error;
@@ -16006,17 +16055,17 @@ var whoami = {
       println(stdout, "signed out");
       return 0;
     }
-    const who = entry.email ?? `signed in to ${host}`;
+    const who2 = entry.email ?? entry.login ?? `signed in to ${host}`;
     if (!expired(entry)) {
-      println(stdout, who);
+      println(stdout, who2);
       return 0;
     }
     const outcome = await askClient({ baseUrl: askUrl2, host, tokens: store, fetch }).renew();
     if (outcome === "refused") {
-      println(stderr, `the sign-in of ${entry.email ?? "this computer"} to ${host} is no longer valid: run \`omni signin\` again`);
+      println(stderr, `the sign-in of ${entry.email ?? entry.login ?? "this computer"} to ${host} is no longer valid: run \`omni signin\` again`);
       return 1;
     }
-    println(stdout, outcome === "renewed" ? who : `${who} (not checked: ${host} is unreachable)`);
+    println(stdout, outcome === "renewed" ? who2 : `${who2} (not checked: ${host} is unreachable)`);
     return 0;
   }
 };
@@ -16066,13 +16115,30 @@ async function runHook(kind, { cwd, exec, stdin, tokens, fetch, limits }) {
     return null;
   }
 }
+async function whereLine({ baseUrl, host, slug, tokens, fetch }) {
+  if (!slug) return null;
+  try {
+    const { workspace, reason: reason2 } = await askClient({ baseUrl, host, tokens, fetch }).whereQuestionsGo(slug);
+    if (typeof workspace?.name === "string" && workspace.name) return `questions go to ${workspace.name}'s page`;
+    return typeof reason2 === "string" && reason2.trim() ? reason2.replace(/\s+/g, " ").trim() : null;
+  } catch {
+    return null;
+  }
+}
 async function runMode(mode, { cwd, stdout, stderr, exec, tokens, fetch }) {
   const ctx = loadContext(cwd, { exec });
   const { root } = ctx;
   const askUrl2 = ctx.config.ask.url;
   const store = tokens ?? homeTokens();
+  const slug = ctx.config.repo?.slug ?? null;
+  const printWhere = async (baseUrl) => {
+    const line = await whereLine({ baseUrl, host: new URL(baseUrl).host, slug, tokens: store, fetch });
+    if (line) println(stdout, line);
+  };
   if (mode === "status") {
-    println(stdout, modeStatus(root) ?? "off");
+    const page2 = modeStatus(root);
+    println(stdout, page2 ?? "off");
+    if (page2) await printWhere(activeMode(root).baseUrl);
     return 0;
   }
   if (mode === "off") {
@@ -16089,12 +16155,13 @@ async function runMode(mode, { cwd, stdout, stderr, exec, tokens, fetch }) {
   }
   try {
     println(stdout, turnOn({ root, askUrl: askUrl2, tokens: store }).url);
-    return 0;
   } catch (error) {
     if (!(error instanceof AskModeError)) throw error;
     println(stderr, `omni ask on: ${error.message}`);
     return 1;
   }
+  await printWhere(askUrl2);
+  return 0;
 }
 var ask2 = {
   withoutContext: true,
@@ -18075,7 +18142,8 @@ function claudeSessionOf(env) {
 }
 function skipLine(error) {
   if (!(error instanceof AskCallError)) throw error;
-  return error.status === null ? "unreachable" : `refused (${error.status})`;
+  if (error.status === null) return "unreachable";
+  return error.status === 403 && error.reason ? `refused (403): ${error.reason}` : `refused (${error.status})`;
 }
 var isText4 = (value) => typeof value === "string" && value.length > 0;
 function addedLine({ added, unchanged }) {
@@ -18861,7 +18929,7 @@ var PREFIX = { principle: "P", rule: "BR", invariant: "N" };
 var LAYER = { principle: "principles.md", rule: "rules.md", invariant: "invariants.md" };
 var NONE_YET = /^None yet\./;
 var day = (value) => String(value ?? "").slice(0, 10);
-var handle = (who) => String(who).startsWith("@") ? String(who) : `@${who}`;
+var handle = (who2) => String(who2).startsWith("@") ? String(who2) : `@${who2}`;
 var oneLine = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
 function answeredByPerson(candidate) {
   if (candidate.verdict === "agreed") return true;
@@ -19842,8 +19910,8 @@ function renderOverview(config2, { entries: entries3 = ENTRIES } = {}) {
 }
 function entryLines(entry, fill2) {
   const [first, ...more] = entry.usage.map(fill2);
-  const who = WHO_RUNS[entry.who];
-  const head = first.length + 2 + who.length <= HELP_WIDTH ? [`${first.padEnd(HELP_WIDTH - who.length)}${who}`, ...more] : [first, ...more, who.padStart(HELP_WIDTH)];
+  const who2 = WHO_RUNS[entry.who];
+  const head = first.length + 2 + who2.length <= HELP_WIDTH ? [`${first.padEnd(HELP_WIDTH - who2.length)}${who2}`, ...more] : [first, ...more, who2.padStart(HELP_WIDTH)];
   const paragraphs = entry.detail.split(/\n\s*\n/).map((paragraph) => wrapWords(fill2(paragraph)));
   return [...head, "", ...paragraphs.flatMap((lines, index) => index ? ["", ...lines] : lines)];
 }
@@ -20292,19 +20360,23 @@ async function signInStep({ askUrl: askUrl2, home, interactive, signIn }) {
   const host = credentialsHost(askUrl2);
   const store = credentials({ home });
   const held = store.read(host);
-  if (held) return { outcome: "already", host, email: held.email };
+  if (held) return { outcome: "already", host, email: who(held) };
   if (!interactive) return { outcome: "later", host, why: "no terminal" };
   let code;
+  let line;
   try {
-    code = await signIn();
+    const done = await signIn();
+    ({ code, line } = typeof done === "number" ? { code: done } : { code: done?.code, line: done?.line });
   } catch {
     code = 1;
   }
   const entry = code === 0 ? store.read(host) : null;
   if (!entry) return { outcome: "later", host, why: "did not finish" };
-  return { outcome: "signed-in", host, email: entry.email };
+  return { outcome: "signed-in", host, email: who(entry), ...line ? { line } : {} };
 }
-function signInLines({ outcome, host, email, why: why2 }) {
+var who = (entry) => entry.email ?? entry.login;
+function signInLines({ outcome, host, email, line, why: why2 }) {
+  if (outcome === "signed-in" && line) return { status: [`  signin  ${line}`], todo: [] };
   if (outcome === "signed-in") return { status: [`  signin  signed in to ${host} as ${email}`], todo: [] };
   if (outcome === "already") return { status: [`  signin  signed in to ${host} already, as ${email}`], todo: [] };
   if (outcome === "later") return { status: [`  signin  not signed in to ${host}: ${why2}`], todo: ["omni signin"] };
@@ -20520,7 +20592,13 @@ var init = {
       askUrl: config2.ask.url,
       home: userHome,
       interactive,
-      signIn: signIn ?? (() => signin.run([], { cwd: root, stdout, stderr, exec, home: userHome }))
+      signIn: signIn ?? (async () => {
+        let line;
+        const code = await signin.run([], { cwd: root, stdout, stderr, exec, home: userHome, onSignedIn: (said) => {
+          line = said;
+        } });
+        return { code, line };
+      })
     });
     const closing = [
       "",
@@ -21247,8 +21325,8 @@ function describeEntry(knowledge2, id) {
   }
   if (entry.proposed) {
     const { by, on } = entry.proposed;
-    const who = by === null ? 'proposed (its "Proposed:" line is malformed)' : `proposed by ${by} on ${on}`;
-    out.push("", `${who} \u2014 not a law until a person removes its "Proposed:" line`);
+    const who2 = by === null ? 'proposed (its "Proposed:" line is malformed)' : `proposed by ${by} on ${on}`;
+    out.push("", `${who2} \u2014 not a law until a person removes its "Proposed:" line`);
   }
   if (entry.serves) {
     const served = knowledge2.entries.find((candidate) => candidate.id === entry.serves);
