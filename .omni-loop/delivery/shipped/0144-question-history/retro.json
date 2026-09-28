@@ -1,0 +1,1092 @@
+{
+  "prd": 144,
+  "runs": [
+    {
+      "featurePr": {
+        "mergeSha": "94979745de7594b77e2f658278dbc1ee0519d8a8",
+        "mergedAt": "2026-09-27T08:03:02Z",
+        "number": 147,
+        "openedAt": "2026-09-26T08:57:32Z",
+        "title": "feat(ask): question history — every question kept, sorted and shareable (PRD 144)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/147"
+      },
+      "findings": [
+        {
+          "evidence": [
+            {
+              "label": "#163",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/163/files"
+            }
+          ],
+          "happened": "Slice s1 changed 1 path outside its territory and off the plan’s shared ground: `kit/lib/ask/mode.mjs`.",
+          "id": "territory:s1",
+          "kind": "territory",
+          "ref": "F1",
+          "source": "delivery",
+          "title": "Slice s1 changed files outside its territory"
+        },
+        {
+          "evidence": [
+            {
+              "label": "#175",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/175/files"
+            }
+          ],
+          "happened": "Slice s3 changed 2 paths outside its territory and off the plan’s shared ground: `apps/galaxy/app/ask/[session]/page.tsx`, `apps/galaxy/src/ask/ask.css`.",
+          "id": "territory:s3",
+          "kind": "territory",
+          "ref": "F2",
+          "source": "delivery",
+          "title": "Slice s3 changed files outside its territory"
+        },
+        {
+          "evidence": [
+            {
+              "label": "#188",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/188/files"
+            }
+          ],
+          "happened": "Slice s4 changed 1 path outside its territory and off the plan’s shared ground: `apps/galaxy/app/ask/[session]/page.tsx`.",
+          "id": "territory:s4",
+          "kind": "territory",
+          "ref": "F3",
+          "source": "delivery",
+          "title": "Slice s4 changed files outside its territory"
+        },
+        {
+          "evidence": [
+            {
+              "label": "587d6d6 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/587d6d60b235af310e1f23deff603eaab972c69c"
+            },
+            {
+              "label": "63ad5db (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/63ad5db6c203a01747c1156154a4a3793118e123"
+            },
+            {
+              "label": "7a0df98 (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/7a0df98dc97e3013f8e5384d93cfc488af55d663"
+            },
+            {
+              "label": "8f406eb (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/8f406ebbce4f908e8c4520c54ea6bbba25612d0e"
+            },
+            {
+              "label": "`apps/galaxy/src/ask/page/source.test.ts` lines 4-7, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/b974bb6a3c1dcfc13a6f36593556ced2e4192cfd/apps/galaxy/src/ask/page/source.test.ts#L4-L7"
+            }
+          ],
+          "happened": "Lines 4-7 of `apps/galaxy/src/ask/page/source.test.ts`, as merged, were written and rewritten in 4 commits, in s2, s3, s4 and s5; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/ask/page/source.test.ts:4-7",
+          "kind": "churn",
+          "ref": "F4",
+          "source": "churn",
+          "title": "Lines 4-7 of `apps/galaxy/src/ask/page/source.test.ts` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "c2ca7d3 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/c2ca7d31ea501714f54258af913e5adaec9d9c35"
+            },
+            {
+              "label": "63ad5db (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/63ad5db6c203a01747c1156154a4a3793118e123"
+            },
+            {
+              "label": "8756007 (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/87560077e045addabf9f965188f7b9430a540f26"
+            },
+            {
+              "label": "`apps/galaxy/app/ask/[session]/page.tsx` lines 30-30, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/b974bb6a3c1dcfc13a6f36593556ced2e4192cfd/apps/galaxy/app/ask/%5Bsession%5D/page.tsx#L30-L30"
+            }
+          ],
+          "happened": "Lines 30-30 of `apps/galaxy/app/ask/[session]/page.tsx`, as merged, were written and rewritten in 3 commits, in s2, s3 and s4; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/app/ask/[session]/page.tsx:30-30",
+          "kind": "churn",
+          "ref": "F5",
+          "source": "churn",
+          "title": "Lines 30-30 of `apps/galaxy/app/ask/[session]/page.tsx` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "c2ca7d3 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/c2ca7d31ea501714f54258af913e5adaec9d9c35"
+            },
+            {
+              "label": "63ad5db (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/63ad5db6c203a01747c1156154a4a3793118e123"
+            },
+            {
+              "label": "8756007 (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/87560077e045addabf9f965188f7b9430a540f26"
+            },
+            {
+              "label": "`apps/galaxy/app/ask/[session]/page.tsx` lines 58-60, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/b974bb6a3c1dcfc13a6f36593556ced2e4192cfd/apps/galaxy/app/ask/%5Bsession%5D/page.tsx#L58-L60"
+            }
+          ],
+          "happened": "Lines 58-60 of `apps/galaxy/app/ask/[session]/page.tsx`, as merged, were written and rewritten in 3 commits, in s2, s3 and s4; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/app/ask/[session]/page.tsx:58-60",
+          "kind": "churn",
+          "ref": "F6",
+          "source": "churn",
+          "title": "Lines 58-60 of `apps/galaxy/app/ask/[session]/page.tsx` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "587d6d6 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/587d6d60b235af310e1f23deff603eaab972c69c"
+            },
+            {
+              "label": "f290f49 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/f290f4959a69a96dee9e2a5bc2e7fbe74dc196cd"
+            },
+            {
+              "label": "a5def29 (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/a5def299ebd98b012ce96ca9bb028e264fdb3b67"
+            },
+            {
+              "label": "`apps/galaxy/src/ask/api.test.ts` lines 4-4, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/b974bb6a3c1dcfc13a6f36593556ced2e4192cfd/apps/galaxy/src/ask/api.test.ts#L4-L4"
+            }
+          ],
+          "happened": "Lines 4-4 of `apps/galaxy/src/ask/api.test.ts`, as merged, were written and rewritten in 3 commits, in s2, s3 and s4; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/ask/api.test.ts:4-4",
+          "kind": "churn",
+          "ref": "F7",
+          "source": "churn",
+          "title": "Lines 4-4 of `apps/galaxy/src/ask/api.test.ts` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "0bbadf1 (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/0bbadf11b21dc7fa37587db31c69b9166a868ed7"
+            },
+            {
+              "label": "f290f49 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/f290f4959a69a96dee9e2a5bc2e7fbe74dc196cd"
+            },
+            {
+              "label": "a5def29 (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/a5def299ebd98b012ce96ca9bb028e264fdb3b67"
+            },
+            {
+              "label": "`apps/galaxy/src/ask/api.ts` lines 44-45, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/b974bb6a3c1dcfc13a6f36593556ced2e4192cfd/apps/galaxy/src/ask/api.ts#L44-L45"
+            }
+          ],
+          "happened": "Lines 44-45 of `apps/galaxy/src/ask/api.ts`, as merged, were written and rewritten in 3 commits, in s1, s3 and s4; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/ask/api.ts:44-45",
+          "kind": "churn",
+          "ref": "F8",
+          "source": "churn",
+          "title": "Lines 44-45 of `apps/galaxy/src/ask/api.ts` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "c2ca7d3 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/c2ca7d31ea501714f54258af913e5adaec9d9c35"
+            },
+            {
+              "label": "63ad5db (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/63ad5db6c203a01747c1156154a4a3793118e123"
+            },
+            {
+              "label": "8756007 (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/87560077e045addabf9f965188f7b9430a540f26"
+            },
+            {
+              "label": "`apps/galaxy/src/ask/page/AskSession.tsx` lines 24-25, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/b974bb6a3c1dcfc13a6f36593556ced2e4192cfd/apps/galaxy/src/ask/page/AskSession.tsx#L24-L25"
+            }
+          ],
+          "happened": "Lines 24-25 of `apps/galaxy/src/ask/page/AskSession.tsx`, as merged, were written and rewritten in 3 commits, in s2, s3 and s4; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/ask/page/AskSession.tsx:24-25",
+          "kind": "churn",
+          "ref": "F9",
+          "source": "churn",
+          "title": "Lines 24-25 of `apps/galaxy/src/ask/page/AskSession.tsx` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "c2ca7d3 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/c2ca7d31ea501714f54258af913e5adaec9d9c35"
+            },
+            {
+              "label": "63ad5db (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/63ad5db6c203a01747c1156154a4a3793118e123"
+            },
+            {
+              "label": "8756007 (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/87560077e045addabf9f965188f7b9430a540f26"
+            },
+            {
+              "label": "`apps/galaxy/src/ask/page/AskSession.tsx` lines 32-34, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/b974bb6a3c1dcfc13a6f36593556ced2e4192cfd/apps/galaxy/src/ask/page/AskSession.tsx#L32-L34"
+            }
+          ],
+          "happened": "Lines 32-34 of `apps/galaxy/src/ask/page/AskSession.tsx`, as merged, were written and rewritten in 3 commits, in s2, s3 and s4; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/ask/page/AskSession.tsx:32-34",
+          "kind": "churn",
+          "ref": "F10",
+          "source": "churn",
+          "title": "Lines 32-34 of `apps/galaxy/src/ask/page/AskSession.tsx` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "c2ca7d3 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/c2ca7d31ea501714f54258af913e5adaec9d9c35"
+            },
+            {
+              "label": "63ad5db (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/63ad5db6c203a01747c1156154a4a3793118e123"
+            },
+            {
+              "label": "8756007 (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/87560077e045addabf9f965188f7b9430a540f26"
+            },
+            {
+              "label": "`apps/galaxy/src/ask/page/AskSession.tsx` lines 41-41, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/b974bb6a3c1dcfc13a6f36593556ced2e4192cfd/apps/galaxy/src/ask/page/AskSession.tsx#L41-L41"
+            }
+          ],
+          "happened": "Lines 41-41 of `apps/galaxy/src/ask/page/AskSession.tsx`, as merged, were written and rewritten in 3 commits, in s2, s3 and s4; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/ask/page/AskSession.tsx:41-41",
+          "kind": "churn",
+          "ref": "F11",
+          "source": "churn",
+          "title": "Lines 41-41 of `apps/galaxy/src/ask/page/AskSession.tsx` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "0bbadf1 (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/0bbadf11b21dc7fa37587db31c69b9166a868ed7"
+            },
+            {
+              "label": "f290f49 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/f290f4959a69a96dee9e2a5bc2e7fbe74dc196cd"
+            },
+            {
+              "label": "a5def29 (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/a5def299ebd98b012ce96ca9bb028e264fdb3b67"
+            },
+            {
+              "label": "`apps/galaxy/src/ask/store.fake.ts` lines 12-15, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/b974bb6a3c1dcfc13a6f36593556ced2e4192cfd/apps/galaxy/src/ask/store.fake.ts#L12-L15"
+            }
+          ],
+          "happened": "Lines 12-15 of `apps/galaxy/src/ask/store.fake.ts`, as merged, were written and rewritten in 3 commits, in s1, s3 and s4; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/ask/store.fake.ts:12-15",
+          "kind": "churn",
+          "ref": "F12",
+          "source": "churn",
+          "title": "Lines 12-15 of `apps/galaxy/src/ask/store.fake.ts` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "#192",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/192"
+            }
+          ],
+          "happened": "Slice s5 took 904 minutes from its claim to its merge, against a median of 16 minutes; the rules flag a slice slower than 3 times the median.",
+          "id": "slow-slice:s5",
+          "kind": "slow-slice",
+          "ref": "F13",
+          "source": "timeline",
+          "title": "Slice s5 took far longer than the others"
+        }
+      ],
+      "kinds": {
+        "churn": {
+          "added": 5029,
+          "churn": 57,
+          "commits": 34,
+          "files": [
+            {
+              "added": 18,
+              "churn": 18,
+              "commits": 3,
+              "finalAdded": 0,
+              "path": "apps/galaxy/app/ask/[session]/page.tsx",
+              "percent": null
+            },
+            {
+              "added": 179,
+              "churn": 13,
+              "commits": 5,
+              "finalAdded": 166,
+              "path": "apps/galaxy/src/ask/store.fake.ts",
+              "percent": 8
+            },
+            {
+              "added": 194,
+              "churn": 6,
+              "commits": 4,
+              "finalAdded": 188,
+              "path": "apps/galaxy/src/ask/api.ts",
+              "percent": 3
+            },
+            {
+              "added": 84,
+              "churn": 5,
+              "commits": 3,
+              "finalAdded": 79,
+              "path": "apps/galaxy/src/ask/page/view.ts",
+              "percent": 6
+            },
+            {
+              "added": 433,
+              "churn": 3,
+              "commits": 4,
+              "finalAdded": 430,
+              "path": "apps/galaxy/src/ask/api.test.ts",
+              "percent": 1
+            },
+            {
+              "added": 34,
+              "churn": 3,
+              "commits": 2,
+              "finalAdded": 31,
+              "path": "apps/galaxy/src/ask/page/sign-in.ts",
+              "percent": 10
+            },
+            {
+              "added": 114,
+              "churn": 3,
+              "commits": 4,
+              "finalAdded": 111,
+              "path": "apps/galaxy/src/ask/store.ts",
+              "percent": 3
+            },
+            {
+              "added": 2,
+              "churn": 2,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": "kit/lib/ask/mode.mjs",
+              "percent": null
+            },
+            {
+              "added": 16,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 15,
+              "path": "apps/galaxy/app/ask/layout.tsx",
+              "percent": 7
+            },
+            {
+              "added": 26,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 25,
+              "path": "apps/galaxy/src/ask/page/sign-in.test.ts",
+              "percent": 4
+            },
+            {
+              "added": 77,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 76,
+              "path": "apps/galaxy/src/ask/page/view.test.ts",
+              "percent": 1
+            },
+            {
+              "added": 398,
+              "churn": 1,
+              "commits": 3,
+              "finalAdded": 397,
+              "path": "supabase/checks/ask.sql",
+              "percent": 0
+            }
+          ],
+          "finalAdded": 5021,
+          "leftOut": {
+            "delivery": [
+              ".omni-loop/delivery/outbox/0144-question-history/s1-01-session-repo-sent-from-mode.md",
+              ".omni-loop/delivery/outbox/0144-question-history/s1-02-branch-kept-on-the-session.md",
+              ".omni-loop/delivery/outbox/0144-question-history/s1-03-price-table-values.md",
+              ".omni-loop/delivery/outbox/0144-question-history/s2-01-sweep-closes-idle-sessions.md",
+              ".omni-loop/delivery/outbox/0144-question-history/s2-02-session-of-owner-in-no-workspace.md",
+              ".omni-loop/delivery/outbox/0144-question-history/s2-03-teammate-session-outside-the-tabs.md",
+              ".omni-loop/delivery/outbox/0144-question-history/s3-01-classifier-model.md",
+              ".omni-loop/delivery/outbox/0144-question-history/s3-02-model-guess-never-overrides.md",
+              ".omni-loop/delivery/outbox/0144-question-history/s3-03-chip-names-who-by-role.md",
+              ".omni-loop/delivery/outbox/0144-question-history/s4-01-teammates-named-by-email.md",
+              ".omni-loop/delivery/outbox/0144-question-history/s4-02-for-me-count-on-every-page.md",
+              ".omni-loop/delivery/outbox/0144-question-history/s4-03-share-reply-shape.md",
+              ".omni-loop/delivery/outbox/0144-question-history/s5-01-history-reads-newest-thousand.md",
+              ".omni-loop/delivery/outbox/0144-question-history/s5-02-manual-acceptance-with-screenshots.md",
+              ".omni-loop/delivery/outbox/0144-question-history/settled.md"
+            ],
+            "generated": [
+              "kit/dist/omni.mjs"
+            ],
+            "lockfile": []
+          },
+          "noPatch": [],
+          "notCounted": [],
+          "pulls": 6,
+          "ranges": [
+            {
+              "commits": [
+                "587d6d6",
+                "63ad5db",
+                "7a0df98",
+                "8f406eb"
+              ],
+              "from": 4,
+              "path": "apps/galaxy/src/ask/page/source.test.ts",
+              "slices": [
+                "s2",
+                "s3",
+                "s4",
+                "s5"
+              ],
+              "to": 7
+            },
+            {
+              "commits": [
+                "c2ca7d3",
+                "63ad5db",
+                "8756007"
+              ],
+              "from": 30,
+              "path": "apps/galaxy/app/ask/[session]/page.tsx",
+              "slices": [
+                "s2",
+                "s3",
+                "s4"
+              ],
+              "to": 30
+            },
+            {
+              "commits": [
+                "c2ca7d3",
+                "63ad5db",
+                "8756007"
+              ],
+              "from": 58,
+              "path": "apps/galaxy/app/ask/[session]/page.tsx",
+              "slices": [
+                "s2",
+                "s3",
+                "s4"
+              ],
+              "to": 60
+            },
+            {
+              "commits": [
+                "587d6d6",
+                "f290f49",
+                "a5def29"
+              ],
+              "from": 4,
+              "path": "apps/galaxy/src/ask/api.test.ts",
+              "slices": [
+                "s2",
+                "s3",
+                "s4"
+              ],
+              "to": 4
+            },
+            {
+              "commits": [
+                "0bbadf1",
+                "f290f49",
+                "a5def29"
+              ],
+              "from": 44,
+              "path": "apps/galaxy/src/ask/api.ts",
+              "slices": [
+                "s1",
+                "s3",
+                "s4"
+              ],
+              "to": 45
+            },
+            {
+              "commits": [
+                "c2ca7d3",
+                "63ad5db",
+                "8756007"
+              ],
+              "from": 24,
+              "path": "apps/galaxy/src/ask/page/AskSession.tsx",
+              "slices": [
+                "s2",
+                "s3",
+                "s4"
+              ],
+              "to": 25
+            },
+            {
+              "commits": [
+                "c2ca7d3",
+                "63ad5db",
+                "8756007"
+              ],
+              "from": 32,
+              "path": "apps/galaxy/src/ask/page/AskSession.tsx",
+              "slices": [
+                "s2",
+                "s3",
+                "s4"
+              ],
+              "to": 34
+            },
+            {
+              "commits": [
+                "c2ca7d3",
+                "63ad5db",
+                "8756007"
+              ],
+              "from": 41,
+              "path": "apps/galaxy/src/ask/page/AskSession.tsx",
+              "slices": [
+                "s2",
+                "s3",
+                "s4"
+              ],
+              "to": 41
+            },
+            {
+              "commits": [
+                "0bbadf1",
+                "f290f49",
+                "a5def29"
+              ],
+              "from": 12,
+              "path": "apps/galaxy/src/ask/store.fake.ts",
+              "slices": [
+                "s1",
+                "s3",
+                "s4"
+              ],
+              "to": 15
+            }
+          ],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [
+            {
+              "check": "check",
+              "red": 0,
+              "redCommits": [],
+              "redSlices": [],
+              "redThenGreen": [],
+              "runs": 12
+            }
+          ],
+          "redRuns": [],
+          "slices": [
+            "s1",
+            "s2",
+            "s3",
+            "s4",
+            "s5",
+            "settle"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 1,
+            "commits": 12,
+            "red": 0,
+            "runs": 12,
+            "slices": 4
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 11,
+            "agreed": 3,
+            "byRank": {
+              "high": 2,
+              "human-action": 1,
+              "medium": 11
+            },
+            "drifted": 0,
+            "drifts": [],
+            "file": ".omni-loop/delivery/shipped/0144-question-history/outbox/settled.md",
+            "raised": 14,
+            "reworked": 0
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "stuck": 0
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  163
+                ],
+                "slice": "s1",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  167
+                ],
+                "slice": "s2",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  175
+                ],
+                "slice": "s3",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  188
+                ],
+                "slice": "s4",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  192
+                ],
+                "slice": "s5",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  206
+                ],
+                "slice": "settle",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 7,
+              "red": 0,
+              "reviews": 0,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 0,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 147,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/147"
+              },
+              {
+                "pr": 163,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/163"
+              },
+              {
+                "pr": 167,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s2",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/167"
+              },
+              {
+                "pr": 175,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s3",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/175"
+              },
+              {
+                "pr": 188,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s4",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/188"
+              },
+              {
+                "pr": 192,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s5",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/192"
+              },
+              {
+                "pr": 206,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "settle",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/206"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 4,
+              "graded": 5,
+              "shared": 0,
+              "unplanned": 1,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [
+                  "kit/lib/ask/mode.mjs"
+                ],
+                "files": 29,
+                "pr": 163,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/163"
+              },
+              {
+                "breaches": [],
+                "files": 15,
+                "pr": 167,
+                "shared": [],
+                "slice": "s2",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/167"
+              },
+              {
+                "breaches": [
+                  "apps/galaxy/app/ask/[session]/page.tsx",
+                  "apps/galaxy/src/ask/ask.css"
+                ],
+                "files": 26,
+                "pr": 175,
+                "shared": [],
+                "slice": "s3",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/175"
+              },
+              {
+                "breaches": [
+                  "apps/galaxy/app/ask/[session]/page.tsx"
+                ],
+                "files": 35,
+                "pr": 188,
+                "shared": [],
+                "slice": "s4",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/188"
+              },
+              {
+                "breaches": [],
+                "files": 17,
+                "pr": 192,
+                "shared": [],
+                "slice": "s5",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/192"
+              },
+              {
+                "breaches": null,
+                "files": 6,
+                "pr": 206,
+                "shared": null,
+                "slice": "settle",
+                "status": "unplanned",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/206"
+              }
+            ],
+            "reason": null,
+            "sharedGround": [
+              "apps/galaxy/src/ask/api",
+              "apps/galaxy/src/ask/store",
+              "apps/galaxy/app/api/ask/",
+              "apps/galaxy/src/ask/page/",
+              "supabase/checks/ask.sql",
+              "apps/galaxy/app/ask/layout.tsx"
+            ]
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-09-27T08:03:02Z",
+            "minutes": 1386,
+            "number": 147,
+            "openedAt": "2026-09-26T08:57:32Z",
+            "readyAt": "2026-09-27T06:59:15Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/147"
+          },
+          "medianMinutes": 16,
+          "sliceCount": 6,
+          "slices": [
+            {
+              "closedAt": "2026-09-26T14:57:41Z",
+              "mergedAt": "2026-09-26T14:57:41Z",
+              "mergedWave": 1,
+              "minutes": 14,
+              "openedAt": "2026-09-26T14:43:16Z",
+              "plannedWave": 1,
+              "pr": 163,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/163"
+            },
+            {
+              "closedAt": "2026-09-26T15:12:44Z",
+              "mergedAt": "2026-09-26T15:12:44Z",
+              "mergedWave": 2,
+              "minutes": 13,
+              "openedAt": "2026-09-26T14:59:27Z",
+              "plannedWave": 2,
+              "pr": 167,
+              "slice": "s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/167"
+            },
+            {
+              "closedAt": "2026-09-26T15:30:13Z",
+              "mergedAt": "2026-09-26T15:30:13Z",
+              "mergedWave": 3,
+              "minutes": 17,
+              "openedAt": "2026-09-26T15:13:37Z",
+              "plannedWave": 3,
+              "pr": 175,
+              "slice": "s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/175"
+            },
+            {
+              "closedAt": "2026-09-26T15:52:42Z",
+              "mergedAt": "2026-09-26T15:52:42Z",
+              "mergedWave": 4,
+              "minutes": 22,
+              "openedAt": "2026-09-26T15:31:01Z",
+              "plannedWave": 4,
+              "pr": 188,
+              "slice": "s4",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/188"
+            },
+            {
+              "closedAt": "2026-09-27T06:57:38Z",
+              "mergedAt": "2026-09-27T06:57:38Z",
+              "mergedWave": 5,
+              "minutes": 904,
+              "openedAt": "2026-09-26T15:53:32Z",
+              "plannedWave": 5,
+              "pr": 192,
+              "slice": "s5",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/192"
+            },
+            {
+              "closedAt": "2026-09-27T05:35:38Z",
+              "mergedAt": "2026-09-27T05:35:38Z",
+              "mergedWave": 5,
+              "minutes": 0,
+              "openedAt": "2026-09-27T05:35:19Z",
+              "plannedWave": null,
+              "pr": 206,
+              "slice": "settle",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/206"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 5,
+            "planned": 5
+          }
+        }
+      },
+      "prd": {
+        "folder": ".omni-loop/delivery/shipped/0144-question-history",
+        "number": 144,
+        "state": "shipped",
+        "title": "Question history — every question Claude asks, kept, sorted and shareable",
+        "topic": "question-history"
+      },
+      "rules": {
+        "fieldCaps": {
+          "lesson": 400,
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600
+        },
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "thresholds": {
+          "afterMergeDays": 14,
+          "churnFileLines": 40,
+          "churnFilePercent": 50,
+          "churnRangeCommits": 3,
+          "failingTestRuns": 2,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "slowSliceFactor": 3
+        },
+        "version": 1
+      },
+      "run": "merge",
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": [
+          {
+            "field": "findings.churn:apps/galaxy/app/ask/[session]/page.tsx:58-60.whyItMatters",
+            "reason": "it holds a word the rules refuse"
+          }
+        ]
+      },
+      "issues": {
+        "territory:s1": {
+          "number": 223,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/223",
+          "state": "open"
+        },
+        "territory:s3": {
+          "number": 224,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/224",
+          "state": "open"
+        },
+        "territory:s4": {
+          "number": 225,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/225",
+          "state": "open"
+        },
+        "churn:apps/galaxy/src/ask/page/source.test.ts:4-7": {
+          "number": 226,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/226",
+          "state": "open"
+        },
+        "churn:apps/galaxy/app/ask/[session]/page.tsx:30-30": {
+          "number": 227,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/227",
+          "state": "open"
+        }
+      }
+    }
+  ]
+}
