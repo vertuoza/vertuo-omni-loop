@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-28
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off test edit following a removed UI element; nothing lasting to record, and no existing entry governs it.
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ One test block, easy to move or drop.
 - Raised: 2026-09-28
 - Slice: s1
 - Wave: 1
+- Stays here: A local layout choice that is cheap to change and carries no lasting product rule, invariant or architectural reason; it stays in the ledger.
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ A few lines of markup and CSS; moving it into the map's title means editing Know
 - Raised: 2026-09-28
 - Slice: s1
 - Wave: 1
+- Stays here: A local demo-mode display choice, changed in one branch of viewerLive; no lasting rule or principle depends on it, and nothing in the knowledge base covers it.
 
 ### The answer, as it was given
 
@@ -251,6 +254,7 @@ One branch in viewerLive.
 - Raised: 2026-09-28
 - Slice: s2
 - Wave: 2
+- Stays here: A one-off test fix for this slice's own UI change; no lasting rule, invariant or build decision beyond this ledger entry.
 
 ### The answer, as it was given
 
@@ -328,6 +332,7 @@ Reverting means restoring one assertion in the header test; no product code depe
 - Raised: 2026-09-28
 - Slice: s4
 - Wave: 2
+- Stays here: A local layout choice, a one-line reorder to change; no lasting rule or principle in the knowledge base depends on it.
 
 ### The answer, as it was given
 
@@ -406,6 +411,7 @@ Moving it is a one-line reorder in the bar and its two tests.
 - Raised: 2026-09-28
 - Slice: s3
 - Wave: 3
+- Stays here: A local test adjustment, undone by two lines in one file; nothing in the knowledge base covers it and no lasting rule or build decision follows from it.
 
 ### The answer, as it was given
 
