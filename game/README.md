@@ -10,7 +10,8 @@ to the ledger in Supabase (`public.ledger_events`, append-only), each login's XP
 into a default branch and each PRD issue (`public.contributions`, for the app's dashboard), the PRD
 dossiers read from each repository's delivery folders (`public.dossiers` and
 `public.dossier_versions`, a version only where a file changed), one weekly comment on the pinned
-Hall of Heroes issue, and a weekly backup kept as a workflow artifact. Delete `game/` and `.github/workflows/game.yml` to remove it.
+Hall of Heroes issue, and a weekly backup kept as a workflow artifact. Delete `game/` and
+`.github/workflows/game.yml` to remove it.
 
 The commands read and write Supabase: set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (locally,
 `npx supabase status` prints both; `apps/galaxy/.env.local` is read if it exists).

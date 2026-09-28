@@ -1,6 +1,6 @@
 # The game layer's only writer: polls the delivery layer and appends to the ledger in Supabase, records
-# who authored each merge into a default branch and each PRD issue (public.contributions), fills the PRD dossiers
-# from each repository's delivery folders, and once a week posts the rankings and
+# who authored each merge into a default branch and each PRD issue (public.contributions), fills the
+# PRD dossiers from each repository's delivery folders, and once a week posts the rankings and
 # keeps a backup. It commits nothing to the repository. Delete this file and game/ to remove the game
 # (spec §2).
 # Setup (token scopes, Supabase, variables): game/README.md, "Setup".
