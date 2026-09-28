@@ -173,6 +173,40 @@ html:has(.home) body {
 
 .home-crest { position: relative; width: min(100%, 560px); }
 
+/* OmniMan flies past (PRD 394): the omni-cheer-cape sprite crosses the starfield from its left edge
+   to its right on a gentle arc over the planet, tilted along his path, a short plasma trail behind
+   him. About 2.5 s of every 12 s (21 % of the cycle), then gone. CSS only; no clicks. */
+.home-flyby {
+  position: absolute;
+  top: 22%;
+  left: 0;
+  z-index: 1;
+  width: 96px;
+  line-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  animation: home-flyby 12s linear infinite;
+}
+.home-flyby::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 50%;
+  width: 72px;
+  height: 6px;
+  transform: translateY(-50%) rotate(-90deg);
+  transform-origin: right center;
+  background: linear-gradient(to left, var(--cyan), transparent);
+  opacity: 0.8;
+}
+@keyframes home-flyby {
+  0% { left: -120px; opacity: 1; transform: translateY(48px) rotate(62deg); }
+  10.5% { transform: translateY(0) rotate(90deg); }
+  20.9% { left: 100%; opacity: 1; transform: translateY(48px) rotate(118deg); }
+  21% { left: 100%; opacity: 0; }
+  100% { left: 100%; opacity: 0; }
+}
+
 .home-start {
   position: relative;
   display: inline-block;
@@ -207,6 +241,7 @@ html:has(.home) body {
   .home-planet-frame { animation: none; visibility: visible; }
   .home-planet-frame:last-child { opacity: 1; }
   .home-planet-canvas { display: none; }
+  .home-flyby { animation: none; display: none; }
 }
 
 /* On a phone the poster stacks: the crest, the headline and PRESS START first, on the starfield,
@@ -224,6 +259,7 @@ html:has(.home) body {
   .home-head { order: 2; position: relative; padding: 20px 16px 0; font-size: clamp(40px, 13vw, 64px); text-align: center; }
   .home-poster .home-start { order: 3; align-self: center; margin: 20px 0 8px; }
   .home-planet { order: 4; align-self: center; margin: 12px 0 24px; }
+  .home-flyby { top: 40px; width: 64px; }
   .home-kicker { order: 5; }
   .home-dots { order: 6; }
   .home-pitch { order: 7; }
