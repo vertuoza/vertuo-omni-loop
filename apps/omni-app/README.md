@@ -178,8 +178,8 @@ and GitHub sends no installer to galaxy's sign-up.
    when they are not the org's admin); galaxy checks the installation and creates the workspace.
 3. **Give galaxy the app's identity:** the same app id and private key, and the app's slug, in
    galaxy's Vercel project (galaxy's README lists the variable names).
-4. **To roll back,** make the app private again; installations outside the vertuoza org stop
-   receiving events.
+4. **To roll back,** make the app private again from the same settings page. GitHub may first ask
+   for the installations on other accounts to be removed.
 
 A repository that installs the app without the loop gets nothing from it: no check run, no comment,
 no retro, no harvest.
