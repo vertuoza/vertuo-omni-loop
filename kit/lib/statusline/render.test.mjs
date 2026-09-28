@@ -1,0 +1,191 @@
+// PRD #324, slice s1: the status line's lines, drawn from what was read — the context bar and its
+// colours, the 5-hour usage, `ask on`, the no-PRD line, the width and `NO_COLOR`.
+import { describe, expect, it } from 'vitest';
+import { columnsOf, colorOn, contextPart, fit, NO_PRD_LINE, renderLines, resetIn, sessionLine, usagePart, visibleLength } from './render.mjs';
+
+const GREEN = '\x1b[32m';
+const YELLOW = '\x1b[33m';
+const RED = '\x1b[31m';
+const RESET = '\x1b[0m';
+const NOW = Date.parse('2026-09-28T12:00:00Z');
+const MINUTE = 60_000;
+
+const bar = (filled) => '█'.repeat(filled) + '░'.repeat(10 - filled);
+
+/** What `parseInput` gives for a full payload: 58.9 % of the context, 25.4 % of the window, 90 minutes left. */
+const INPUT = {
+  model: 'Opus 5.5',
+  contextPercent: 58.9,
+  fiveHour: { percent: 25.4, resetsAt: NOW + 90 * MINUTE },
+  currentDir: '/work/repo',
+  projectDir: '/work/repo',
+};
+const LINE_1 = `Opus 5.5 · context ${bar(5)} 58% · usage 25%, resets in 1h30 · ask on`;
+
+describe('the context part', () => {
+  it.each([
+    [0, 0, GREEN],
+    [49, 4, GREEN],
+    [50, 5, YELLOW],
+    [79, 7, YELLOW],
+    [80, 8, RED],
+    [100, 10, RED],
+    [130, 10, RED],
+  ])('at %i %% fills %i cells, in its colour', (percent, filled, colour) => {
+    expect(contextPart(percent, { color: false })).toBe(`context ${bar(filled)} ${percent}%`);
+    expect(contextPart(percent, { color: true })).toBe(`context ${colour}${bar(filled)} ${percent}%${RESET}`);
+  });
+
+  it('rounds the percentage down, for the cells and the colour alike', () => {
+    expect(contextPart(58.9, { color: false })).toBe(`context ${bar(5)} 58%`);
+    expect(contextPart(49.99, { color: true })).toBe(`context ${GREEN}${bar(4)} 49%${RESET}`);
+    expect(contextPart(79.9, { color: true })).toBe(`context ${YELLOW}${bar(7)} 79%${RESET}`);
+  });
+
+  it('reads `context —` without a percentage, with no colour', () => {
+    expect(contextPart(null, { color: true })).toBe('context —');
+    expect(contextPart(undefined, { color: false })).toBe('context —');
+  });
+});
+
+describe('the 5-hour usage part', () => {
+  const window = (minutes, percent = 25.4) => ({ percent, resetsAt: NOW + minutes * MINUTE });
+
+  it('reads the percentage rounded down and the time to the reset', () => {
+    expect(usagePart(window(90), NOW)).toBe('usage 25%, resets in 1h30');
+    expect(usagePart(window(45, 7.9), NOW)).toBe('usage 7%, resets in 45m');
+  });
+
+  it('is left out without a five-hour window', () => {
+    expect(usagePart(null, NOW)).toBeNull();
+    expect(usagePart(undefined, NOW)).toBeNull();
+  });
+
+  it('is left out once its reset has passed', () => {
+    expect(usagePart(window(0), NOW)).toBeNull();
+    expect(usagePart(window(-5), NOW)).toBeNull();
+  });
+
+  it('reads minutes under an hour, and hours with two-digit minutes from an hour on', () => {
+    expect(resetIn(45 * MINUTE)).toBe('45m');
+    expect(resetIn(59 * MINUTE)).toBe('59m');
+    expect(resetIn(60 * MINUTE)).toBe('1h00');
+    expect(resetIn(65 * MINUTE)).toBe('1h05');
+    expect(resetIn(299 * MINUTE)).toBe('4h59');
+  });
+
+  it('counts a started minute as a whole one, so it never reads 0m', () => {
+    expect(resetIn(30_000)).toBe('1m');
+    expect(resetIn(44 * MINUTE + 1)).toBe('45m');
+    expect(resetIn(59 * MINUTE + 30_000)).toBe('1h00');
+  });
+});
+
+describe('line 1', () => {
+  it('holds the model, the context, the usage and `ask on`, in that order', () => {
+    expect(sessionLine({ ...INPUT, askOn: true }, { now: NOW, color: false })).toBe(LINE_1);
+  });
+
+  it('leaves out `ask on` while ask mode is off', () => {
+    expect(sessionLine({ ...INPUT, askOn: false }, { now: NOW, color: false })).toBe(`Opus 5.5 · context ${bar(5)} 58% · usage 25%, resets in 1h30`);
+  });
+
+  it('leaves out each part with nothing to say, but always says the context', () => {
+    expect(sessionLine({ model: null, contextPercent: null, fiveHour: null, askOn: false }, { now: NOW, color: false })).toBe('context —');
+    expect(sessionLine({ model: 'Sonnet', contextPercent: null, fiveHour: null, askOn: true }, { now: NOW, color: false })).toBe('Sonnet · context — · ask on');
+  });
+
+  it('colours the bar and its percentage, and nothing else', () => {
+    expect(sessionLine({ ...INPUT, askOn: true }, { now: NOW, color: true })).toBe(
+      `Opus 5.5 · context ${YELLOW}${bar(5)} 58%${RESET} · usage 25%, resets in 1h30 · ask on`,
+    );
+  });
+});
+
+describe('renderLines', () => {
+  const PLAIN = { NO_COLOR: '1' };
+
+  it('prints line 1, then the no-PRD line where the loop is installed', () => {
+    expect(renderLines({ input: INPUT, facts: { installed: true, askOn: true }, env: PLAIN, now: NOW })).toEqual([LINE_1, NO_PRD_LINE]);
+    expect(NO_PRD_LINE).toBe('no PRD · /omni:brainstorm to start');
+  });
+
+  it('prints line 1 alone where the loop is not installed', () => {
+    expect(renderLines({ input: INPUT, facts: { installed: false, askOn: true }, env: PLAIN, now: NOW })).toEqual([LINE_1]);
+  });
+
+  it('prints line 1 from the JSON alone when nothing could be read', () => {
+    expect(renderLines({ input: INPUT, facts: null, env: PLAIN, now: NOW })).toEqual([
+      `Opus 5.5 · context ${bar(5)} 58% · usage 25%, resets in 1h30`,
+    ]);
+  });
+
+  it('prints `omni` for JSON that could not be read', () => {
+    expect(renderLines({ input: null, facts: { installed: true, askOn: true }, env: PLAIN, now: NOW })).toEqual(['omni']);
+  });
+
+  it('holds no colour code when NO_COLOR is set to anything but an empty string', () => {
+    for (const value of ['1', 'true', '0', 'no']) {
+      const lines = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, env: { NO_COLOR: value }, now: NOW });
+      expect(lines.join('\n')).not.toContain('\x1b');
+    }
+    const coloured = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, env: { NO_COLOR: '' }, now: NOW });
+    expect(coloured[0]).toContain(YELLOW);
+    expect(colorOn({})).toBe(true);
+    expect(colorOn({ NO_COLOR: '' })).toBe(true);
+    expect(colorOn({ NO_COLOR: '1' })).toBe(false);
+  });
+
+  it.each([40, 80, 200])('fits every line within COLUMNS=%i, colour codes not counted', (columns) => {
+    for (const env of [{ COLUMNS: String(columns) }, { COLUMNS: String(columns), NO_COLOR: '1' }]) {
+      const lines = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, env, now: NOW });
+      expect(lines).toHaveLength(2);
+      for (const line of lines) expect(visibleLength(line)).toBeLessThanOrEqual(columns);
+      if (visibleLength(LINE_1) > columns) expect(lines[0].replace(/\x1b\[[0-9;]*m/g, '')).toMatch(/…$/);
+      else expect(lines[0].replace(/\x1b\[[0-9;]*m/g, '')).toBe(LINE_1);
+      expect(lines[1]).toBe(NO_PRD_LINE);
+    }
+  });
+
+  it('cuts a line too wide at its end with `…`, closing any colour it cut into', () => {
+    const [line] = renderLines({ input: INPUT, facts: null, env: { COLUMNS: '24' }, now: NOW });
+    expect(line).toBe(`Opus 5.5 · context ${YELLOW}████${RESET}…`);
+    expect(visibleLength(line)).toBe(24);
+  });
+
+  it('does not cut a coloured line whose visible width fits exactly', () => {
+    const exact = String(visibleLength(LINE_1));
+    const [line] = renderLines({ input: INPUT, facts: { installed: true, askOn: true }, env: { COLUMNS: exact }, now: NOW });
+    expect(line).toBe(`Opus 5.5 · context ${YELLOW}${bar(5)} 58%${RESET} · usage 25%, resets in 1h30 · ask on`);
+  });
+
+  it('reads COLUMNS as 80 when it is unset or not a number', () => {
+    expect(columnsOf({})).toBe(80);
+    expect(columnsOf({ COLUMNS: '' })).toBe(80);
+    expect(columnsOf({ COLUMNS: 'wide' })).toBe(80);
+    expect(columnsOf({ COLUMNS: '0' })).toBe(80);
+    expect(columnsOf({ COLUMNS: '-4' })).toBe(80);
+    expect(columnsOf({ COLUMNS: '12.5' })).toBe(80);
+    expect(columnsOf({ COLUMNS: '120' })).toBe(120);
+    expect(columnsOf({ COLUMNS: ' 40 ' })).toBe(40);
+  });
+});
+
+describe('fit and visibleLength', () => {
+  it('counts characters, never colour codes', () => {
+    expect(visibleLength(`a${RED}██${RESET}b`)).toBe(4);
+    expect(visibleLength('context —')).toBe(9);
+  });
+
+  it('leaves a line that fits as it is', () => {
+    expect(fit('abcd', 4)).toBe('abcd');
+    expect(fit(`ab${RED}cd${RESET}`, 4)).toBe(`ab${RED}cd${RESET}`);
+  });
+
+  it('cuts a line too wide to width - 1 characters and `…`', () => {
+    expect(fit('abcdef', 4)).toBe('abc…');
+    expect(fit('abcdef', 1)).toBe('…');
+    expect(fit(`ab${RED}cdef${RESET}gh`, 5)).toBe(`ab${RED}cd${RESET}…`);
+    expect(fit(`ab${RED}c${RESET}defgh`, 5)).toBe(`ab${RED}c${RESET}d…`);
+  });
+});
