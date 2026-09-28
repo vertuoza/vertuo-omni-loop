@@ -56,7 +56,7 @@ const form = (id, kind, slots, { pointerOnly = false } = {}) =>
 
 /** The thirteen forms, in the spec's order: eight core, then five extended. */
 export const FORMS = Object.freeze([
-  form('briefing', 'core', [req('never'), opt('hooks'), opt('next')]),
+  form('briefing', 'core', [req('never'), opt('hooks'), opt('links'), opt('next')]),
   form('setup', 'core', [req('prerequisites'), req('install'), opt('run'), opt('env')]),
   form('architecture', 'core', [req('layout'), req('boundaries'), opt('patterns')]),
   form('testing', 'core', [req('commands'), req('layout'), opt('levels'), req('never'), opt('data')]),

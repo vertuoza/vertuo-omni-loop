@@ -5,6 +5,17 @@ and the `omni` plugin for Claude Code (`kit/plugin/`: its skills and hooks). A r
 both to run the Omni Loop; everything specific to that repository is read from its
 `.omni-loop/config.yml`.
 
+**Installing.** A laptop needs Node 22 or later, git, gh signed in and Claude Code signed in, then
+`omni` once: `npm install -g github:vertuoza/vertuo-omni-loop` (check it with `omni --version`).
+The global `omni` is the same bundle: inside a repository that has the kit it runs that
+repository's own `.omni-loop/bin/omni.mjs`, and outside one only `init`, `help` and `--version`
+run. In a repository, `omni init` does the rest: it switches to `chore/install-omni-loop`, writes
+the kit under `.omni-loop/` (a fresh config with `ask.url` and `dossier.enabled: true`), commits
+only its own files, pushes and opens the install pull request, installs the `omni` plugin, and
+offers sign-in; a step it cannot do prints the lines to type instead. What is left is the GitHub
+App link it prints and merging the pull request. The full walk-through is the Getting Started
+guide, `docs/guide/install.md`.
+
 **Updating.** Every merge to the kit's `main` cuts a release (`v0.0.1`, `v0.0.2`, …), and
 `omni version` says which one a repository runs and whether a newer one exists. A repository moves
 only when someone runs `omni update` in it (`--to <version>` for another release than the latest):

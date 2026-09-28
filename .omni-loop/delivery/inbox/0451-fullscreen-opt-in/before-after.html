@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fullscreen Opt-in</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --void: #07061c; --deep: #0e0d33; --cab: #120f3a; --navy: #2f3fc4; --white: #f2f4ff;
+    --dim: #8a90d6; --slate: #5b5f80; --yellow: #ffd84a; --red: #ff3b5c; --green: #4ee08a;
+    --cyan: #6ff0ff; --chrome: #23213f; --chrome-hi: #33305a;
+    --pixel: 'Press Start 2P', ui-monospace, 'SF Mono', Menlo, monospace;
+    --display: 'Anton', 'Impact', 'Haettenschweiler', 'Arial Narrow Bold', sans-serif;
+    --body: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--white); font: 15px/1.55 var(--body); padding: 32px 16px 64px; }
+  main { max-width: 1080px; margin: 0 auto; display: grid; gap: 44px; }
+  h1 { font: 44px/1.05 var(--display); letter-spacing: .01em; margin: 0; text-wrap: balance; text-transform: uppercase; }
+  h1 em { font-style: normal; color: var(--yellow); }
+  .lede { max-width: 66ch; color: var(--dim); margin: 12px 0 0; }
+  .meta { font: 10px/1.6 var(--pixel); color: var(--slate); letter-spacing: .08em; margin-bottom: 14px; }
+  section { display: grid; gap: 14px; }
+  h2 { font: 12px/1.6 var(--pixel); color: var(--cyan); margin: 0; letter-spacing: .06em; text-transform: uppercase; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .pair { grid-template-columns: 1fr; } h1 { font-size: 34px; } }
+  .side { display: grid; gap: 8px; align-content: start; }
+  .tag { font: 9px/1 var(--pixel); letter-spacing: .1em; padding: 6px 8px; justify-self: start; }
+  .today .tag { background: var(--slate); color: var(--void); }
+  .after .tag { background: var(--yellow); color: var(--void); }
+  .note { color: var(--dim); font-size: 14px; margin: 0; }
+  .note b { color: var(--white); font-weight: 600; }
+
+  /* A desktop browser window, and the same arcade taking the whole monitor. */
+  .win { border: 2px solid var(--chrome-hi); background: var(--deep); position: relative; aspect-ratio: 16 / 10.5; max-width: 100%; display: flex; flex-direction: column; }
+  .bar { background: var(--chrome); display: flex; align-items: center; gap: 6px; padding: 6px 8px; flex: none; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--slate); }
+  .tab { font: 11px/1 var(--body); color: var(--dim); background: var(--chrome-hi); padding: 4px 10px; margin-left: 6px; }
+  .url { flex: 1; font: 11px/1 var(--body); color: var(--dim); background: var(--void); padding: 5px 8px; margin-left: 6px; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .page { flex: 1; display: grid; place-items: center; position: relative; padding: 14px; }
+  .screen { width: 78%; aspect-ratio: 16 / 9; background: #0a0930; border: 3px solid var(--navy); display: grid; place-items: center; gap: 6px; align-content: center; }
+  .screen .t { font: 12px/1.4 var(--pixel); color: var(--yellow); letter-spacing: .06em; text-align: center; }
+  .screen .s { font: 8px/1.4 var(--pixel); color: var(--dim); text-align: center; }
+  .full { border-color: var(--red); }
+  .full .page { padding: 6px; }
+  .full .screen { width: 94%; }
+  .gone { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); font: 11px/1.3 var(--body); color: var(--white); background: rgba(7,6,28,.85); border: 1px solid var(--slate); padding: 6px 10px; white-space: nowrap; }
+  .cursor { position: absolute; width: 0; height: 0; border-left: 7px solid var(--white); border-top: 11px solid transparent; transform: rotate(-20deg); }
+  .fs { position: absolute; right: 10px; bottom: 10px; width: 26px; height: 26px; display: grid; place-items: center; color: var(--white); border: 1px solid var(--slate); opacity: .4; font: 15px/1 var(--body); }
+  .fs.hover { opacity: 1; border-color: var(--dim); }
+  .tip { position: absolute; right: 42px; bottom: 12px; font: 11px/1 var(--body); background: var(--chrome); color: var(--white); padding: 5px 7px; border: 1px solid var(--chrome-hi); }
+  .arrow { font: 10px/1.6 var(--pixel); color: var(--slate); text-align: center; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .scroll { overflow-x: auto; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--chrome-hi); vertical-align: top; }
+  th { font: 9px/1.6 var(--pixel); color: var(--slate); letter-spacing: .08em; font-weight: normal; }
+  td:first-child { color: var(--white); white-space: nowrap; }
+  td { color: var(--dim); }
+  .same { color: var(--green); }
+  .chg { color: var(--yellow); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="meta">PRD 451 · GALAXY ARCADE · DESKTOP</div>
+    <h1>Fullscreen is <em>opt-in</em> on desktop</h1>
+    <p class="lede">Today the arcade asks the browser for fullscreen on the first click or key of every page load, so a desktop player loses their tabs and address bar the moment they touch anything. After, the window stays as it is. A small, dim ⛶ in the page's corner (or F) takes it fullscreen when the player wants it. Phones keep today's behaviour.</p>
+  </header>
+
+  <section>
+    <h2>1 · The first click on desktop</h2>
+    <div class="pair">
+      <div class="side today">
+        <span class="tag">TODAY</span>
+        <div class="win full" role="img" aria-label="The arcade has taken the whole monitor after one click; tabs and address bar are gone">
+          <div class="page">
+            <div class="screen"><div class="t">OMNI LOOP</div><div class="s">PRESS START</div></div>
+            <div class="gone">Press Esc to exit full screen</div>
+          </div>
+        </div>
+        <p class="note">One click to look at the galaxy, and the browser goes <b>fullscreen</b>. Tabs and the address bar are gone until Esc. It happens again on every page load.</p>
+      </div>
+      <div class="side after">
+        <span class="tag">AFTER</span>
+        <div class="win" role="img" aria-label="The arcade stays inside the browser window; a dim fullscreen button sits in the page's bottom-right corner">
+          <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="tab">Omni Loop</span><span class="url">vertuo-omni-loop-galaxy.vercel.app/play</span></div>
+          <div class="page">
+            <div class="screen"><div class="t">OMNI LOOP</div><div class="s">PRESS START</div></div>
+            <span class="cursor" style="left:44%; top:52%"></span>
+            <span class="fs" aria-hidden="true">⛶</span>
+          </div>
+        </div>
+        <p class="note">The click just clicks. The window keeps its <b>tabs and address bar</b>. A dim ⛶ waits in the bottom-right corner, outside the screen.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · Choosing fullscreen</h2>
+    <div class="pair">
+      <div class="side after">
+        <span class="tag">AFTER · HOVER</span>
+        <div class="win" role="img" aria-label="Hovering the button makes it fully opaque with a tooltip reading Full screen (F)">
+          <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="tab">Omni Loop</span><span class="url">vertuo-omni-loop-galaxy.vercel.app/play</span></div>
+          <div class="page">
+            <div class="screen"><div class="t">OMNI LOOP</div><div class="s">PRESS START</div></div>
+            <span class="tip">Full screen (F)</span>
+            <span class="fs hover" aria-hidden="true">⛶</span>
+            <span class="cursor" style="right:14px; bottom:4px"></span>
+          </div>
+        </div>
+        <p class="note">On hover or keyboard focus the ⛶ turns <b>fully visible</b>, and its tooltip names the key: <b>Full screen (F)</b>.</p>
+      </div>
+      <div class="side after">
+        <span class="tag">AFTER · CLICKED</span>
+        <div class="win full" role="img" aria-label="The arcade is fullscreen and the button is hidden">
+          <div class="page">
+            <div class="screen"><div class="t">OMNI LOOP</div><div class="s">PRESS START</div></div>
+          </div>
+        </div>
+        <p class="note">Fullscreen, by choice. The ⛶ <b>hides</b> while fullscreen. Esc or F leaves, and the ⛶ shows again.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · What changes, what stays</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>SITUATION</th><th>TODAY</th><th>AFTER</th></tr></thead>
+        <tbody>
+          <tr><td>Desktop, first click or key</td><td>Asks for fullscreen</td><td class="chg">Asks nothing</td></tr>
+          <tr><td>Desktop, the ⛶ button</td><td>Does not exist</td><td class="chg">Enters fullscreen; hidden while fullscreen</td></tr>
+          <tr><td>F (not on the name screen)</td><td>Toggles fullscreen</td><td class="same">Unchanged</td></tr>
+          <tr><td>Esc while fullscreen</td><td>Leaves it, and is never also B</td><td class="same">Unchanged</td></tr>
+          <tr><td>Phone (Game Boy), first tap</td><td>Asks for fullscreen</td><td class="same">Unchanged, no button drawn</td></tr>
+          <tr><td>Frame that refuses fullscreen</td><td>Request ignored silently</td><td class="same">Unchanged; the ⛶ is not shown</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+</body>
+</html>

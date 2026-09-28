@@ -192,6 +192,13 @@ describe('each situation of a signed-in person', () => {
     });
     expect(d.you).toMatchObject({ kind: 'player', fleet: null, score: { points: 10, fleet: null } });
   });
+  it('a solo player (a player row with no fleet): their hero, and SOLO for a fleet', async () => {
+    const d = await dashboard(PEOPLE.ada, (w) => {
+      const row = w.tables.players.find((p) => p.user_id === PEOPLE.ada.id)!;
+      row.team = null;
+    });
+    expect(d.you).toMatchObject({ kind: 'player', fleet: 'solo', score: { points: 10, fleet: null } });
+  });
 });
 
 describe('one read failing', () => {

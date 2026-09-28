@@ -301,6 +301,13 @@
 .dossier-history-actions { grid-column: 1 / -1; margin: 0; display: flex; align-items: center; gap: 16px; }
 .ask a.dossier-history-clear { color: var(--ask-muted); font-size: 15px; }
 
+/* Mine / All (PRD 413): two links, the current one filled. */
+.dossier-history-whos { display: inline-flex; gap: 4px; margin: 0 0 12px; padding: 4px; background: var(--ask-surface); border: 1.5px solid var(--ask-line); border-radius: 999px; }
+.ask a.dossier-history-who { font: 700 14px/1 var(--ask-body); color: var(--ask-ink); text-decoration: none; padding: 8px 16px; border-radius: 999px; }
+.ask a.dossier-history-who:hover { background: var(--ask-sunk); }
+.ask a.dossier-history-who[aria-current="page"] { color: var(--ask-on-plasma); background: var(--ask-plasma); }
+.ask a.dossier-history-who:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
+
 .dossier-history-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; min-width: 0; }
 .ask a.dossier-history-row {
   display: grid;

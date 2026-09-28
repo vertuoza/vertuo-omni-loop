@@ -180,9 +180,17 @@ Remove `labels.inProgress` from the feature PR (unless the Stuck path already sw
 
 ## 7. Hand off
 
-Report, in one block: the feature PR link and its state (ready, draft with the gate red, or held);
-slices merged out of total, each held slice with its reason; the checks that ran and did not; and
-every open outbox item with its rank and file (`omni status <prd>` lists them).
+Report, in one block: the PRD's page beside its number, then the feature PR link and its state
+(ready, draft with the gate red, or held); slices merged out of total, each held slice with its
+reason; the checks that ran and did not; and every open outbox item with its rank and file
+(`omni status <prd>` lists them).
+
+The PRD's page comes first on every ending, green, red or held. Run
+`node .omni-loop/bin/omni.mjs dossier link <n>`: exit `0` prints the page's link on one line, so
+print `PRD <n>: <link>`. Anything else (`none`, `off`, `no sign-in (omni signin)`, `unreachable`,
+`refused (<status>)`, or exit `2` from a kit without the verb) means it has no page to show: print
+`PRD <n>: no page yet, https://github.com/<owner>/<repo>/issues/<n>` instead. It never stops the
+hand-off.
 
 Then always end the reply with three blocks, in this order, written for someone who knows nothing
 about the loop and just does what it says, one step at a time. Fill every placeholder with a real

@@ -194,3 +194,29 @@ describe('the dossier calls (PRD 216)', () => {
       .rejects.toMatchObject({ status: 413 });
   });
 });
+
+describe('the dossier lookup (PRD 413)', () => {
+  /** A client over a stubbed fetch that records each call and answers with `reply`. */
+  function stubbed(reply) {
+    const calls = [];
+    const fetch = async (url, init) => {
+      calls.push({ url: String(url), method: init.method, authorization: init.headers.authorization, body: init.body });
+      return reply(String(url));
+    };
+    const tokens = memoryTokens({ 'omni.example': { access_token: 'access-1', refresh_token: 'refresh-1' } });
+    return { calls, client: askClient({ baseUrl: 'https://omni.example/', host: 'omni.example', tokens, fetch }) };
+  }
+
+  it('asks GET /api/dossiers by repository and number, with the bearer token, and hands back {id, url}', async () => {
+    const { calls, client } = stubbed(() => new Response(JSON.stringify({ id: 'd-1', url: 'https://omni.example/prd/d-1' }), { status: 200 }));
+    expect(await client.findDossier({ repo: 'acme/widgets', prd: 7 })).toEqual({ id: 'd-1', url: 'https://omni.example/prd/d-1' });
+    expect(calls).toEqual([
+      { url: 'https://omni.example/api/dossiers?repo=acme%2Fwidgets&prd=7', method: 'GET', authorization: 'Bearer access-1', body: undefined },
+    ]);
+  });
+
+  it('a PRD with no dossier is a refusal carrying 404', async () => {
+    const { client } = stubbed(() => new Response('{}', { status: 404 }));
+    await expect(client.findDossier({ repo: 'acme/widgets', prd: 7 })).rejects.toMatchObject({ status: 404 });
+  });
+});

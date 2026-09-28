@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Large Repo File List</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --void: #07061c; --deep: #0e0d33; --cab: #120f3a; --line: #2a2a66; --white: #f2f4ff;
+    --dim: #8a90d6; --slate: #5b5f80; --yellow: #ffd84a; --red: #ff3b5c; --green: #4ee08a;
+    --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--white); font: 15px/1.55 var(--sans); }
+  main { max-width: 1080px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 48px; display: grid; gap: 28px; }
+  h1 { margin: 0; font-size: 26px; line-height: 1.2; text-wrap: balance; }
+  h2 { margin: 0; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  p { margin: 0; max-width: 68ch; color: var(--dim); }
+  .eyebrow { font: 12px var(--mono); color: var(--yellow); letter-spacing: .06em; }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .side { background: var(--deep); border: 1px solid var(--line); border-radius: 6px; padding: 16px; display: grid; gap: 12px; align-content: start; }
+  .tag { display: inline-block; font: 12px var(--mono); padding: 2px 8px; border-radius: 3px; width: fit-content; }
+  .today .tag { background: color-mix(in srgb, var(--red) 20%, transparent); color: var(--red); }
+  .after .tag { background: color-mix(in srgb, var(--green) 20%, transparent); color: var(--green); }
+  pre { margin: 0; background: var(--cab); border-radius: 4px; padding: 12px; font: 12.5px/1.6 var(--mono); overflow-x: auto; color: var(--white); }
+  .err { color: var(--red); } .ok { color: var(--green); } .mute { color: var(--slate); } .hl { color: var(--yellow); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+  td code, p code { font: 13px var(--mono); color: var(--yellow); }
+  .scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid;gap:8px">
+    <div class="eyebrow">PRD 433 · kit · no screen changes</div>
+    <h1>The kit keeps working when a repository's file list is over 1 MB</h1>
+    <p>Only the terminal output changes. In a large repository, <code>omni check all</code> and <code>omni ship</code> crash today because the kit caps <code>git ls-files</code> at Node's default 1 MB. After this change they run normally.</p>
+  </header>
+
+  <section style="display:grid;gap:12px">
+    <h2>omni check all, in a repository with a 1.1 MB file list</h2>
+    <div class="pair">
+      <div class="side today">
+        <span class="tag">today</span>
+<pre><span class="mute">$</span> node .omni-loop/bin/omni.mjs check all
+check inbox — ok
+check outbox — ok
+<span class="err">Error: spawnSync git ENOBUFS
+    at trackedFiles (check-report.mjs:11)
+    at checkKnowledge (check.mjs:73)
+  code: 'ENOBUFS'</span>
+<span class="mute">exit 1</span></pre>
+        <p>The crash also stops <code>/omni:invade</code> and <code>/omni:brainstorm</code>, which both run <code>check all</code>.</p>
+      </div>
+      <div class="side after">
+        <span class="tag">after</span>
+<pre><span class="mute">$</span> node .omni-loop/bin/omni.mjs check all
+check inbox — ok
+check outbox — ok
+<span class="ok">check knowledge — ok</span> <span class="mute">(14 entries)</span>
+<span class="mute">…</span>
+<span class="mute">exit 0</span></pre>
+        <p><code>check knowledge</code> lists only its own folder, so its output grows with the knowledge folder, not with the repository.</p>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:grid;gap:12px">
+    <h2>omni ship, at the end of /omni:yolo</h2>
+    <div class="pair">
+      <div class="side today">
+        <span class="tag">today</span>
+<pre><span class="mute">$</span> node .omni-loop/bin/omni.mjs ship 12
+<span class="err">Error: spawnSync git ENOBUFS
+    at trackedFiles (check-report.mjs:11)
+    at applyShip (ship.mjs:75)</span></pre>
+      </div>
+      <div class="side after">
+        <span class="tag">after</span>
+<pre><span class="mute">$</span> node .omni-loop/bin/omni.mjs ship 12
+<span class="ok">moved</span> inbox/0012-… <span class="hl">→</span> shipped/0012-…
+<span class="ok">rewrote</span> links in 3 files</pre>
+      </div>
+    </div>
+  </section>
+
+  <section style="display:grid;gap:12px">
+    <h2>What changes, what stays</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Part</th><th>Today</th><th>After</th></tr></thead>
+        <tbody>
+          <tr><td><code>trackedFiles(ctx)</code></td><td>Stops at 1 MB of output, newline split</td><td>Up to 256 MiB, <code>-z</code> NUL split, so unusual paths come back exactly as written</td></tr>
+          <tr><td><code>trackedFiles(ctx, dir)</code></td><td>Does not exist</td><td>Lists only the files under <code>dir/</code></td></tr>
+          <tr><td><code>check knowledge</code></td><td>Lists the whole repository, then filters</td><td>Lists the knowledge folder only; same grading</td></tr>
+          <tr><td><code>omni ship</code></td><td>Lists the whole repository</td><td>Same; only the limit changes</td></tr>
+          <tr><td>Other git calls in the kit</td><td>Scoped to one folder or branch</td><td>Unchanged</td></tr>
+          <tr><td>Config, skills, apps, database</td><td colspan="2">Unchanged</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+</body>
+</html>

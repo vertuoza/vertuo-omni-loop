@@ -1,11 +1,16 @@
 // `omni init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]` — installs the
 // loop on the repository it runs in: writes `.omni-loop/config.yml`, copies the running bundle to
 // `.omni-loop/bin/omni.mjs`, lays down the blank knowledge forms as `omni kb init` does, switches on
-// the kit's status line in `.claude/settings.json`, creates the loop labels the repository lacks,
-// then prints the closing steps a person still has to take, with a heads-up for an older copy of the
-// loop or a formatter that would reject the bin. The one command that runs before a config exists,
-// so `main()` hands it no context. It writes nothing outside `.omni-loop/` but the `statusLine` key
-// of `.claude/settings.json`.
+// the kit's status line in `.claude/settings.json` and creates the loop labels the repository lacks.
+// Around those writes it opens the install pull request (PRD 420): it switches to
+// `chore/install-omni-loop` first, and afterwards commits only what it wrote, pushes that branch and
+// opens (or finds) its pull request. Then it installs the Claude Code plugin on this computer and, on
+// a terminal, signs it in to the Omni page. Each step prints one status line, or the exact lines left
+// to type when it could not be done, and never makes init fail. Last it prints the closing steps a
+// person still has to take — the GitHub App, merging PR #N, /omni:invade — with a heads-up for an
+// older copy of the loop or a formatter that would reject the bin. The one command that runs before a
+// config exists, so `main()` hands it no context. It writes no file outside `.omni-loop/` but the
+// `statusLine` key of `.claude/settings.json` (N-PRODUCT-6).
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { dirname, join, posix } from 'node:path';
@@ -17,10 +22,14 @@ import { renderConfig } from '../../lib/init/config-text.mjs';
 import { COMMAND_KEYS, detectCommands, detectLawsSource } from '../../lib/init/detect.mjs';
 import { reconcileLabels } from '../../lib/init/labels.mjs';
 import { formatterToExclude, legacyLoopWorkflows } from '../../lib/init/notices.mjs';
-import { closingSteps } from '../../lib/init/steps.mjs';
+import { closingSteps, computerLines, setupLines } from '../../lib/init/steps.mjs';
+import { installPlugin, pluginLines } from '../../lib/init/plugin.mjs';
+import { signInLines, signInStep } from '../../lib/init/signin-step.mjs';
+import { installLines, openInstallPr, switchToInstallBranch } from '../../lib/init/install-pr.mjs';
 import { findRoot, readRepo } from '../../lib/init/repo.mjs';
 import { writeStatusLine } from '../../lib/init/settings.mjs';
 import { writeForms } from '../../lib/playbook/write-forms.mjs';
+import { signin } from './signin.mjs';
 
 const LOOP_DIR = dirname(CONFIG_FILE);
 export const BIN_FILE = join(LOOP_DIR, 'bin', 'omni.mjs');
@@ -30,6 +39,9 @@ function insideLoop(path) {
   const clean = posix.normalize(path).replace(/\/+$/, '');
   return clean === LOOP_DIR || clean.startsWith(`${LOOP_DIR}/`);
 }
+
+// The status-line outcomes that leave the kit's own line in the settings file (settings.mjs).
+const OWN_STATUS_LINE = new Set(['wrote', 'kept']);
 
 const FLAGS = { test: 'test', preflight: 'preflight', preflightFull: 'preflight-full' };
 const QUESTIONS = {
@@ -65,7 +77,7 @@ async function resolveCommands(root, flags, { interactive, ask }) {
 
 export const init = {
   withoutContext: true,
-  async run(args, { cwd, stdout, exec, stdin = process.stdin, bundle = runningBundle(), ask = askTerminal }) {
+  async run(args, { cwd, stdout, stderr, exec, stdin = process.stdin, bundle = runningBundle(), ask = askTerminal, home: userHome, signIn }) {
     const { positional, flags } = parseArgs('init', args, { values: Object.values(FLAGS), booleans: ['force'] });
     if (positional.length) throw usageError('usage: omni init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]');
     const force = flags.force === true;
@@ -84,8 +96,12 @@ export const init = {
       );
     }
 
+    // The install branch comes first, so everything written below lands on it, never on the branch
+    // the person was on. A branch git refuses is reported with the install pull request below.
+    const branch = switchToInstallBranch(root, { exec });
+
+    const interactive = Boolean(stdin?.isTTY && stdout?.isTTY);
     if (!keepConfig) {
-      const interactive = Boolean(stdin?.isTTY && stdout?.isTTY);
       const commands = await resolveCommands(root, flags, { interactive, ask });
       const repo = readRepo(root, { exec, remote: defaults.repo.remote });
       const lawsSource = detectLawsSource({ ctx: createContext(root, defaults) });
@@ -117,18 +133,45 @@ export const init = {
 
     // A kept config may leave the slug to the origin remote, as every other command does at load time.
     const slug = config.repo.slug ?? readRepo(root, { exec, remote: config.repo.remote }).slug;
-    stdout.write(closingSteps({
-      slug,
-      defaultBranch: config.repo.defaultBranch,
-      kitHome: kitHome({ exec }),
-      outboxCheck: config.ci.outboxContext,
-      files: [{ path: CONFIG_FILE, wrote: !keepConfig }, { path: BIN_FILE, wrote: copyBin }],
-      forms: { dir: ctx.layout.frontDoor, wrote: forms.filter((file) => file.wrote).map((file) => file.path), outside },
-      settings,
-      labels,
-      unfilled: COMMAND_KEYS.filter((key) => config.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] })),
-      notices: { legacyWorkflows: legacyLoopWorkflows(root), formatter: formatterToExclude(root, LOOP_DIR) },
-    }));
+    const filesWritten = [{ path: CONFIG_FILE, wrote: !keepConfig }, { path: BIN_FILE, wrote: copyBin }];
+    const formsDone = { dir: ctx.layout.frontDoor, wrote: forms.filter((file) => file.wrote).map((file) => file.path), outside };
+    const out = setupLines({ slug, files: filesWritten, forms: formsDone, settings, labels });
+
+    // Then the install pull request: only init's own paths are committed — the loop's folder, and the
+    // settings file while the kit's status line is in it.
+    const paths = [LOOP_DIR, ...(OWN_STATUS_LINE.has(settings.outcome) ? [settings.path] : [])];
+    const pr = { paths, remote: config.repo.remote, base: config.repo.defaultBranch, slug };
+    const install = openInstallPr(root, { exec, branch, ...pr });
+    out.push('', 'Install pull request:', ...installLines(install, pr));
+    // Printed before the steps that may take a while, or open the browser.
+    stdout.write(`${out.join('\n')}\n`);
+
+    // Then this computer: the plugin, and the sign-in to the Omni page. Neither ever fails init.
+    const kit = kitHome({ exec });
+    const plugin = pluginLines(installPlugin({ exec, kitHome: kit }), { kitHome: kit });
+    const signedIn = await signInStep({
+      askUrl: config.ask.url,
+      home: userHome,
+      interactive,
+      signIn: signIn ?? (() => signin.run([], { cwd: root, stdout, stderr, exec, home: userHome })),
+    });
+    const closing = [
+      '',
+      ...computerLines(plugin, signInLines(signedIn)),
+      ...closingSteps({
+        slug,
+        defaultBranch: config.repo.defaultBranch,
+        configPath: CONFIG_FILE,
+        outboxCheck: config.ci.outboxContext,
+        pr: install.pr,
+        forms: formsDone,
+        settings,
+        labels,
+        unfilled: COMMAND_KEYS.filter((key) => config.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] })),
+        notices: { legacyWorkflows: legacyLoopWorkflows(root), formatter: formatterToExclude(root, LOOP_DIR) },
+      }),
+    ];
+    stdout.write(`${closing.join('\n')}\n`);
     return 0;
   },
 };

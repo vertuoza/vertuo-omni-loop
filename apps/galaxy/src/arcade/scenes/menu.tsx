@@ -5,7 +5,7 @@ import { xpForLevel, type GalaxyView, type WoundKind, type XpRules } from '@omni
 import { woundTint } from '@omni/design';
 import { useScreen } from '../Screen';
 import { Sprite } from '../Sprite';
-import { fleet, WOUND_LOOK } from '../fleets';
+import { crewLook, fleet, WOUND_LOOK } from '../fleets';
 import type { Player } from '../types';
 import type { ChartSource } from './chart-layout.ts';
 import { chartRefusal, chartTally } from './chart.tsx';
@@ -40,21 +40,24 @@ const APP: MenuItem = { id: 'app', label: 'APP MODE' };
 
 /**
  * The menu for who is at the cabinet: the galaxy and the game room for everyone signed in; then, for
- * a player, their hero and fleet; for a visitor with no fleet yet, the way to play (the fleets). `newGames`: the
- * game room was never opened on this device, and GAMES carries a NEW tag. `app`: the arcade has an
- * app to leave for (not in the single-file artifact), and APP MODE stands just above SIGN OUT, since
- * both leave the game.
+ * a player (`joined`: they have a player row, in a fleet or solo), MY HERO and their fleet: CHANGE
+ * FLEET, or JOIN A FLEET for a `solo` one, and neither when the workspace has no `fleets`; for a
+ * visitor with no player row yet, the way to play. `newGames`: the game room was never opened on this
+ * device, and GAMES carries a NEW tag. `app`: the arcade has an app to leave for (not in the
+ * single-file artifact), and APP MODE stands just above SIGN OUT, since both leave the game.
  */
-export function menuItems({ joined, signedIn, newGames = false, app = false }: {
-  joined: boolean; signedIn: boolean; newGames?: boolean; app?: boolean;
+export function menuItems({ joined, signedIn, newGames = false, app = false, solo = false, fleets = true }: {
+  joined: boolean; signedIn: boolean; newGames?: boolean; app?: boolean; solo?: boolean; fleets?: boolean;
 }): MenuItem[] {
+  const change: MenuItem = { id: 'change', label: solo ? 'JOIN A FLEET' : 'CHANGE FLEET', fresh: true };
   const games: MenuItem = { id: 'games', label: 'GAMES', scene: 'games', ...(newGames ? { tag: 'NEW' as const } : {}) };
   return [
     ...(signedIn && !joined ? [{ id: 'play', label: 'PLAY', fresh: true }] as MenuItem[] : []),
     ...GALAXY,
     ...(signedIn ? [games] : []),
     BRIEFING,
-    ...(signedIn && joined ? [{ id: 'myhero', label: 'MY HERO', fresh: true }, { id: 'change', label: 'CHANGE FLEET', fresh: true }] as MenuItem[] : []),
+    ...(signedIn && joined ? [{ id: 'myhero', label: 'MY HERO', fresh: true }] as MenuItem[] : []),
+    ...(signedIn && joined && fleets ? [change] : []),
     ...(app ? [APP] : []),
     ...(signedIn ? [{ id: 'signout', label: 'SIGN OUT' }] as MenuItem[] : []),
   ];
@@ -73,7 +76,7 @@ export function doorOf(item: MenuItem, at: { view: GalaxyView | null; chart: Cha
 /** The level on a player's badge, when they have one: `P1 INKY · OCTOPOD · LV 3`. */
 export function badgeOf(me: Player, xp: XpStatus): string {
   const tag = levelTag(xp);
-  return `P1 ${me.display_name} · ${fleet(me.team).label}${tag ? ` · ${tag}` : ''}`;
+  return `P1 ${me.display_name} · ${crewLook(me.team).label}${tag ? ` · ${tag}` : ''}`;
 }
 
 /** XP nobody read: no level shows, and the arcade never guesses one. */
@@ -87,21 +90,21 @@ export function MenuOverlay({ view, items, index, me, onPick, chart = null, xp =
   const hint: Record<MenuId, string> = {
     map: view ? `${view.totals.planets} planets · ${view.totals.inDistress} in distress` : 'Out of reach',
     chart: chart === 'none' ? 'NOT IN THIS BUILD' : chart ? chartTally(chart) : 'OUT OF REACH',
-    fleets: view ? `${view.teams.length} fleets · ${fleet(view.teams[0]?.name).label} lead` : 'Out of reach',
+    fleets: !view ? 'Out of reach' : view.teams.length ? `${view.teams.length} fleets · ${fleet(view.teams[0].name).label} lead` : 'No fleets yet',
     heroes: view ? `${view.heroes.length} heroes scored in ${view.season}` : 'Out of reach',
     games: gamesHint(xp),
     briefing: 'How points are won and lost',
     myhero: 'Your name and your look',
-    change: 'Your future points follow you',
-    play: 'Join a fleet: your pull requests score for it',
+    change: me && !me.team ? 'Pick a fleet: your future points follow you' : 'Your future points follow you',
+    play: 'Build your hero: your pull requests score',
     app: 'Leave the game for the app',
     signout: 'Back to the title',
   };
-  const f = fleet(me?.team);
+  const f = crewLook(me?.team);
   return (
     <div className={`menu${items.length > 4 ? ' long' : ''}`}>
       <h2>SELECT MODE</h2>
-      {me?.team
+      {me
         ? <span className="j-badge" style={{ ['--fc' as string]: f.color }}>{badgeOf(me, xp)}</span>
         : <span className="j-badge" style={{ ['--fc' as string]: '#8a90d6' }}>VISITOR</span>}
       <ul>

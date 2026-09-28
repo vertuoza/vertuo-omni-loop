@@ -122,6 +122,29 @@ describe('the guard', () => {
     expect(guide({ index: page('A', '/docs/b', body), b: page('B', '/docs') })).toEqual([`index.md:7: ${problem}`]);
   });
 
+  it('passes an install page whose TERMINAL blocks are each one line', () => {
+    const body = '```bash terminal\nomni config\n```\n\n```text agent\n/omni:plan 7\n/omni:plan 8\n```\n';
+    expect(guide({ index: page('A', '/docs/install'), install: page('Install', '/docs', body) })).toEqual([]);
+  });
+
+  it('fails on an install page with a TERMINAL block of more than one line, naming the line', () => {
+    // The frontmatter takes lines 1 to 3, a blank line 4, Words. line 5: the fence opens on line 7.
+    const body = 'Words.\n\n```bash terminal agent\ngit add .omni-loop\ngit commit\n```\n';
+    expect(guide({ index: page('A', '/docs/install'), install: page('Install', '/docs', body) }))
+      .toEqual(['install.md:7: the TERMINAL block is 2 lines: every one on the install page is one line']);
+  });
+
+  it('lets another page show a TERMINAL block of several lines', () => {
+    const body = '```bash terminal\ngit switch main\ngit pull\n```\n';
+    expect(guide({ index: page('A', '/docs/b', body), b: page('B', '/docs') })).toEqual([]);
+  });
+
+  it('fails on a page naming ~/.local/bin/omni, anywhere but troubleshooting', () => {
+    const old = 'An old `~/.local/bin/omni` can go: `rm ~/.local/bin/omni`.';
+    expect(guide({ index: page('A', '/docs/install', old), install: page('Install', '/docs/troubleshooting', old), troubleshooting: page('T', '/docs', old) }))
+      .toEqual(['index.md: names ~/.local/bin/omni, the old PATH wrapper: only troubleshooting may', 'install.md: names ~/.local/bin/omni, the old PATH wrapper: only troubleshooting may']);
+  });
+
   it('fails on a page the order file leaves out, and on an order entry with no page', () => {
     expect(guide({ index: page('A', '/docs/b'), b: page('B', '/docs') }, ['index', 'gone'])).toEqual([
       'meta.json: lists gone, which has no gone.md',

@@ -14,7 +14,10 @@ export function demoGalaxy(now = new Date()): GalaxyView {
   return buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });
 }
 
-/** The built-in fleets, as the migration seeds Vertuoza's: signed out, and when the database is out of reach. */
+/**
+ * The demo world's fleets, invented like the rest of it: the demo mode's, HOME's trading cards and
+ * the artifact's. Never a signed-out visitor's or a workspace's whose read failed (PRD 400).
+ */
 export function demoFleets(): FleetRow[] {
   return fleetsFrom(Object.entries(DEMO_PROJECTS.teams).map(([name, t]) => ({ name, ...t })));
 }

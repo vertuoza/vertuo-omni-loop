@@ -142,5 +142,9 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * @returns {Promise<{ id: string, url: string, added: Array<{ kind: string, version: number }>, unchanged: string[] }>} */
     pushDossier: ({ repo, prd, title, draftId = null, artifacts }) =>
       call('POST', '/api/dossiers/push', { body: { repo, prd, title, ...(draftId ? { draftId } : {}), artifacts } }),
+    /** PRD 413: PRD `prd`'s dossier for `repo`, as the caller may read it; a 404 when it has none.
+     * @returns {Promise<{ id: string, url: string }>} */
+    findDossier: ({ repo, prd }) =>
+      call('GET', `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd) })}`),
   };
 }

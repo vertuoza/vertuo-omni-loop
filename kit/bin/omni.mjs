@@ -12,6 +12,7 @@ import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ConfigError } from '../lib/config.mjs';
 import { loadContext } from '../lib/context.mjs';
+import { handOver, planLaunch } from '../lib/launch/launch.mjs';
 import { recordSession } from '../lib/statusline/sessions.mjs';
 import { positiveInt } from './args.mjs';
 import { COMMAND_TABLE } from './commands/index.mjs';
@@ -100,10 +101,27 @@ export async function main(
   }
 }
 
-const invoked = process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+// Run as a program (the global `omni` a person installs with npm, or this file), the entry is first a
+// launcher (PRD 420, `../lib/launch/launch.mjs`): a checkout with its own bin runs that bin instead,
+// and outside a repository with the kit only the commands that need none run. `main()` never
+// launches, so a repository's bin, which calls it, runs exactly as before.
+const self = fileURLToPath(import.meta.url);
+const invoked = process.argv[1] && realpathSync(process.argv[1]) === realpathSync(self);
 if (invoked) {
-  main(process.argv.slice(2)).then((code) => process.exit(code), (error) => {
-    process.stderr.write(`${error.stack ?? error}\n`);
+  const argv = process.argv.slice(2);
+  const fail = (error) => {
+    process.stderr.write(`${error?.stack ?? error}\n`);
     process.exit(1);
-  });
+  };
+  try {
+    const launch = planLaunch(argv, { self });
+    if (launch.kind === 'handover') process.exit(handOver(launch.bin, argv));
+    if (launch.kind === 'refuse') {
+      process.stderr.write(`${launch.message}\n`);
+      process.exit(2);
+    }
+    main(argv).then((code) => process.exit(code), fail);
+  } catch (error) {
+    fail(error);
+  }
 }
