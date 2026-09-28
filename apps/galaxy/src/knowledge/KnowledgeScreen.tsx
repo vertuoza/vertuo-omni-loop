@@ -57,8 +57,8 @@ function Body({ view, wanted, supabase, signinError }: KnowledgeScreenProps) {
       return (
         <Notice title="The knowledge map is for the crew">
           <p className="ask-muted">
-            You are signed in with an account outside the crew. Sign in with your Vertuoza Google account to read the
-            knowledge map.
+            You are signed in with an account outside the crew. Sign in with the GitHub account that belongs to your
+            workspace&apos;s org to read the knowledge map.
           </p>
           {supabase && <SwitchAccount supabase={supabase} />}
         </Notice>
