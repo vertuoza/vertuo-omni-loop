@@ -1,7 +1,7 @@
 // The recruit group on the canvas: the fleet select, the name entry and the hero builder, each on the
 // wide grid and on the tall one (the Game Boy held upright), where the same parts stack.
 import { rampFrom, spriteSize } from '@omni/design';
-import { fleet } from '../fleets';
+import { crewLook, fleet, SOLO } from '../fleets';
 import {
   bobOf, drawFleetMascot, drawHero, flash, frameOf, heroSelectWall, nebulaFor, pedestal, space, sprite,
   type FrameState, type Grid, type Pages, type SceneName,
@@ -55,26 +55,35 @@ function comicWall(ctx: CanvasRenderingContext2D, color: string, stage: (typeof 
   }
 }
 
+/**
+ * The fleet select: the fleet under the cursor on its pedestal, and a card per active fleet, then the
+ * PLAY SOLO card (PRD 400), at `pick` = `fleets.length`, where the player's own hero stands. With no
+ * fleets, the wall alone: the text layer is the "raise your own" screen.
+ */
 export function drawSelect(ctx: CanvasRenderingContext2D, s: FrameState) {
   const { fleets, pick, lockedAt } = s.join;
-  const f = fleets[pick];
-  if (!f) { heroSelectWall(ctx); return; }
+  if (!fleets.length) { heroSelectWall(ctx); return; }
+  const f = fleets[pick] ?? null;
+  const color = f?.color ?? SOLO.color;
   const stage = STAGE[s.grid.name];
-  comicWall(ctx, f.color, stage);
+  comicWall(ctx, color, stage);
   const locked = lockedAt === null ? null : s.t - lockedAt;
-  pedestal(ctx, stage.cx, stage.pedestal, stage.rx, f.color);
+  pedestal(ctx, stage.cx, stage.pedestal, stage.rx, color);
   const jump = locked !== null ? -Math.round(Math.abs(Math.sin(locked * 7)) * 18 * Math.max(0, 1 - locked / 1.4)) : bobOf(s, 0, 3);
-  drawFleetMascot(ctx, s, f.name, stage.cx - 16 * stage.scale, stage.y + jump, { scale: stage.scale, frame: frameOf(s, locked !== null ? 6 : 2.2) });
-  const row = cardRow(fleets.length, pick, s.grid);
+  const pose = { scale: stage.scale, frame: frameOf(s, locked !== null ? 6 : 2.2) };
+  if (f) drawFleetMascot(ctx, s, f.name, stage.cx - 16 * stage.scale, stage.y + jump, pose);
+  else drawHero(ctx, s, s.join.hero, null, stage.cx - 16 * stage.scale, stage.y + jump, pose);
+  const cards = [...fleets.map((fl) => ({ color: fl.color, look: fleet(fl.name) })), { color: SOLO.color, look: SOLO }];
+  const row = cardRow(cards.length, pick, s.grid);
   const { w: cardW, h: cardH, gap } = row;
-  fleets.slice(row.first, row.first + row.count).forEach((fl, k) => {
+  cards.slice(row.first, row.first + row.count).forEach((card, k) => {
     const i = row.first + k;
     const on = i === pick, x = row.x0 + k * (cardW + gap), y = on ? row.y : row.y + row.lift;
     ctx.fillStyle = '#0b0a26'; ctx.fillRect(x + 2, y + 2, cardW, cardH);
-    ctx.fillStyle = on ? rampFrom(fl.color)[3] : '#16195a'; ctx.fillRect(x, y, cardW, cardH);
-    ctx.fillStyle = on ? fl.color : '#2a2f7a';
+    ctx.fillStyle = on ? rampFrom(card.color)[3] : '#16195a'; ctx.fillRect(x, y, cardW, cardH);
+    ctx.fillStyle = on ? card.color : '#2a2f7a';
     ctx.fillRect(x, y, cardW, 2); ctx.fillRect(x, y + cardH - 2, cardW, 2); ctx.fillRect(x, y, 2, cardH); ctx.fillRect(x + cardW - 2, y, 2, cardH);
-    const look = fleet(fl.name);
+    const look = card.look;
     const size = spriteSize(look.sprite);
     const tall = size.h > 32;
     const scale = tall ? 0.5 : 1;
@@ -83,7 +92,7 @@ export function drawSelect(ctx: CanvasRenderingContext2D, s: FrameState) {
       : { x: Math.round((cardW - size.w * scale) / 2), y: Math.round((cardH - size.h * scale) / 2) };
     sprite(ctx, s, look.sprite, x + at.x, y + at.y, { scale, tint: look.tint ?? undefined, frame: on ? frameOf(s, 3) : 0, alpha: on ? 1 : 0.75 });
   });
-  if (locked !== null) flash(ctx, f.color, 0.8 - locked * 2);
+  if (locked !== null) flash(ctx, color, 0.8 - locked * 2);
 }
 
 export function drawName(ctx: CanvasRenderingContext2D, s: FrameState) {
@@ -94,7 +103,7 @@ export function drawName(ctx: CanvasRenderingContext2D, s: FrameState) {
   else ctx.drawImage(nebulaFor('name', 3, 480, 280), 80, 40);
   if (!s.join.team) return;
   const at = tall ? { x: 12, y: 170, pedestal: 234 } : { x: 40, y: 256, pedestal: 318 };
-  pedestal(ctx, at.x + 32, at.pedestal, 34, fleet(s.join.team).color);
+  pedestal(ctx, at.x + 32, at.pedestal, 34, crewLook(s.join.team).color);
   drawFleetMascot(ctx, s, s.join.team, at.x, at.y + bobOf(s, 0, 2), { scale: 2, frame: frameOf(s, 2) });
 }
 
@@ -105,6 +114,6 @@ export function drawBuilder(ctx: CanvasRenderingContext2D, s: FrameState) {
   if (tall) ctx.drawImage(nebulaFor('hero-tall', 0, 200, 220), -50, 30);
   else ctx.drawImage(nebulaFor('hero', 0, 360, 300), -40, 30);
   const at = tall ? { cx: 44, y: 38, scale: 2, pedestal: 136, rx: 38 } : { cx: 148, y: 86, scale: 3, pedestal: 232, rx: 64 };
-  pedestal(ctx, at.cx, at.pedestal, at.rx, fleet(s.join.team).color);
+  pedestal(ctx, at.cx, at.pedestal, at.rx, crewLook(s.join.team).color);
   drawHero(ctx, s, s.join.hero, s.join.team, at.cx - 16 * at.scale, at.y + bobOf(s, 0, 2), { scale: at.scale, frame: frameOf(s, 2.2) });
 }

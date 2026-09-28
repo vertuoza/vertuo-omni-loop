@@ -75,13 +75,66 @@ describe('the fleet cards', () => {
 
   it('are a button each on the tall grid, for the cards it shows', () => {
     const html = render('handheld', TALL, select(0));
-    expect(html.match(/class="j-card"/g)).toHaveLength(fleets.length);
+    expect(html.match(/class="j-card"/g)).toHaveLength(fleets.length + 1); // and PLAY SOLO
     const many = render('handheld', TALL, createElement(SelectOverlay, {
       fleets: Array.from({ length: 9 }, (_, i) => ({ ...fleets[i % fleets.length], name: `f${i}`, label: `F${i}` })),
       pick: 8, change: false, locked: false, confirm: false, current: null, disbanded: false, crew: {}, onPick: () => {},
     }));
-    expect(many.match(/class="j-card"/g)).toHaveLength(cardRow(9, 8, TALL).count);
+    expect(many.match(/class="j-card"/g)).toHaveLength(cardRow(10, 8, TALL).count);
     expect(many).toContain('aria-label="F8"');
+  });
+});
+
+describe('the fleet step, a fleet optional (PRD 400)', () => {
+  const pickOf = (pick: number, over: Partial<Parameters<typeof SelectOverlay>[0]> = {}) => createElement(SelectOverlay, {
+    fleets, pick, change: false, locked: false, confirm: false, current: null, disbanded: false, crew: {}, onPick: () => {}, ...over,
+  });
+
+  it('offers each active fleet and a PLAY SOLO card after them', () => {
+    const html = render('full', WIDE, pickOf(0));
+    const labels = [...html.matchAll(/class="j-card" aria-label="([^"]*)"/g)].map(([, l]) => l);
+    expect(labels).toEqual([...fleets.map((f) => f.label), 'PLAY SOLO']);
+  });
+
+  it('reads PLAY SOLO, never a fleet, with the solo card under the cursor', () => {
+    const shown = text(render('full', WIDE, pickOf(fleets.length)));
+    expect(shown).toContain('PLAY SOLO');
+    expect(shown).toContain('Flies alone. Every point is your own.');
+    expect(shown).not.toContain('UNCREWED');
+  });
+
+  it('says SOLO! when solo is locked in, and warns a fleet player that leaving keeps their past points', () => {
+    expect(text(render('full', WIDE, pickOf(fleets.length, { locked: true })))).toContain('SOLO!');
+    const confirm = text(render('full', WIDE, pickOf(fleets.length, { change: true, confirm: true, current: fleets[0].name })));
+    expect(confirm).toContain('YOUR FUTURE POINTS ARE YOUR OWN.');
+    expect(confirm).toContain(`YOUR PAST POINTS STAY WITH ${fleets[0].label}`);
+  });
+
+  it('marks SOLO as a solo player\'s own choice when they come to join a fleet', () => {
+    expect(text(render('full', WIDE, pickOf(fleets.length, { change: true, current: null })))).toContain('YOUR CHOICE');
+    expect(text(render('full', WIDE, pickOf(0, { change: true, current: null })))).toContain('JOIN A FLEET');
+  });
+
+  it('shows the "raise your own" screen with no fleets: the owner reads where, a member whom to ask', () => {
+    for (const grid of [WIDE, TALL]) {
+      const owner = text(render(grid === TALL ? 'handheld' : 'full', grid, pickOf(0, { fleets: [], owner: true })));
+      expect(owner).toContain('NO FLEETS YET — RAISE YOUR OWN!');
+      expect(owner).toContain('SET THEM UP AT /app/fleets');
+      expect(owner).not.toContain('ASK YOUR OWNER');
+    }
+    const member = text(render('full', WIDE, pickOf(0, { fleets: [], owner: false })));
+    expect(member).toContain('NO FLEETS YET — RAISE YOUR OWN!');
+    expect(member).toContain('ASK YOUR OWNER');
+    expect(member).not.toContain('/app/fleets');
+  });
+});
+
+describe('a solo player on the recruit screens', () => {
+  it('reads SOLO on the hero builder and no badge on the name entry, never UNCREWED', () => {
+    const named = text(render('full', WIDE, createElement(NameOverlay, { state: nameInit('GUEST'), shake: false, team: null, error: null })));
+    expect(named).not.toContain('UNCREWED');
+    const built = text(render('full', WIDE, createElement(BuilderOverlay, { hero, row: 0, team: null, name: 'GUEST', error: null, onRow: () => {} })));
+    expect(built).not.toContain('UNCREWED');
   });
 });
 

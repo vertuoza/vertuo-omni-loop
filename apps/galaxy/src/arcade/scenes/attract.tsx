@@ -7,7 +7,7 @@ import { brandWord, type Brand } from '../brand';
 import { Hint } from '../hint';
 import { useScreen } from '../Screen';
 import { FleetSprite, HeroSprite } from '../Sprite';
-import { fleet, ordinal } from '../fleets';
+import { crewLook, ordinal } from '../fleets';
 import type { Player } from '../types';
 import { hallPage } from './attract.ts';
 import { byLogin } from './common.tsx';
@@ -35,21 +35,32 @@ export function titlePhaseAt(t: number): 'title' | 'story' | 'hiscore' {
   return 'title';
 }
 
-const STORY = [
-  'ENTROPY IS SPREADING.',
-  'UNANSWERED QUESTIONS. STUCK SLICES.',
-  'BUGS SHIPPED TO PRODUCTION.',
-  'EVERY PRD IS A PLANET TO TERRAFORM.',
-  'FIVE FLEETS. ONE COMMANDER.',
-  'CLOSE THE WOUNDS. SAVE THE PLANETS.',
-];
+const NUMBERS = ['ZERO', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN', 'ELEVEN', 'TWELVE'];
+
+/**
+ * The story, its fleets line counting the fleets that fly (PRD 400): "FIVE FLEETS. ONE COMMANDER.",
+ * "ONE FLEET. …", and no line at all with none.
+ */
+export function storyLines(fleets: number): string[] {
+  const count = fleets > 0 ? `${NUMBERS[fleets] ?? String(fleets)} ${fleets === 1 ? 'FLEET' : 'FLEETS'}. ONE COMMANDER.` : null;
+  return [
+    'ENTROPY IS SPREADING.',
+    'UNANSWERED QUESTIONS. STUCK SLICES.',
+    'BUGS SHIPPED TO PRODUCTION.',
+    'EVERY PRD IS A PLANET TO TERRAFORM.',
+    ...(count ? [count] : []),
+    'CLOSE THE WOUNDS. SAVE THE PLANETS.',
+  ];
+}
 
 // The title's logo is the product's crest, whoever's brand the arcade is under: the game is Omni
 // Loop. Drawn crisp at a whole-number scale: 3× on the wide grid, 2× on the tall one.
 const TITLE_LOGO = { wide: logoSvg(OMNI_LOOP.logo, { scale: 3, title: OMNI_LOOP.name }), tall: logoSvg(OMNI_LOOP.logo, { scale: 2, title: OMNI_LOOP.name }) };
 
-export function TitleOverlay({ view, phase, sceneT, who, signedIn, brand }: {
+export function TitleOverlay({ view, phase, sceneT, who, signedIn, brand, fleets = 0 }: {
   view: GalaxyView | null; phase: 'title' | 'story' | 'hiscore'; sceneT: number; who: string; signedIn: boolean; brand: Brand;
+  /** How many fleets fly: the story's fleets line counts them. */
+  fleets?: number;
 }) {
   const { grid } = useScreen();
   // Nobody gets in without signing in: until then the cabinet asks for a coin.
@@ -58,7 +69,7 @@ export function TitleOverlay({ view, phase, sceneT, who, signedIn, brand }: {
     const into = (((sceneT % CYCLE) + CYCLE) % CYCLE) - PHASES[0][1];
     return (
       <div className="story">
-        {STORY.map((line, i) => (
+        {storyLines(fleets).map((line, i) => (
           <p key={line} className={into > i * 1.4 ? 'shown' : ''}>{line}</p>
         ))}
         <p className="press blink">{cta}</p>
@@ -97,17 +108,19 @@ export function TitleOverlay({ view, phase, sceneT, who, signedIn, brand }: {
 
 // ── Hall of Heroes ───────────────────────────────────────────────────────────
 // The season's top eight: one table on the wide grid, four rows a page on the tall one, which
-// ◀ ▶ turn (the group declares its pages in attract.ts).
+// ◀ ▶ turn (the group declares its pages in attract.ts). With no fleets, the fleet column and TOP
+// FLEETS are gone (PRD 400); a solo hero reads SOLO.
 
 export function HeroesOverlay({ view, crew }: { view: GalaxyView; crew: Player[] }) {
   const { grid, page, pages } = useScreen();
   const players = byLogin(crew);
+  const fleets = view.teams.length > 0;
   return (
     <div className="heroes">
       <h2>HALL OF HEROES</h2>
       <p className="heroes-season">SEASON {view.season}</p>
       <table>
-        <thead><tr><th>RANK</th><th>HERO</th><th>FLEET</th><th>SCORE</th></tr></thead>
+        <thead><tr><th>RANK</th><th>HERO</th>{fleets && <th>FLEET</th>}<th>SCORE</th></tr></thead>
         <tbody>
           {hallPage(view.heroes, grid, page).map((h) => (
             <tr key={h.name} className={`rank-${h.rank}`}>
@@ -118,15 +131,17 @@ export function HeroesOverlay({ view, crew }: { view: GalaxyView; crew: Player[]
                   ? <span className="hero-cell"><HeroSprite hero={p.hero} team={p.team} scale={0.5} title={`${p.display_name}'s hero`} /> {p.display_name}</span>
                   : h.name.toUpperCase();
               })()}</td>
-              <td style={{ color: fleet(h.team).color }}><FleetSprite name={h.team} scale={0.5} /> {fleet(h.team).label}</td>
+              {fleets && (
+                <td style={{ color: crewLook(h.team).color }}>{h.team && <FleetSprite name={h.team} scale={0.5} />} {crewLook(h.team).label}</td>
+              )}
               <td>{h.points}</td>
             </tr>
           ))}
-          {!view.heroes.length && <tr><td colSpan={4}>NO SCORES THIS SEASON YET</td></tr>}
+          {!view.heroes.length && <tr><td colSpan={fleets ? 4 : 3}>NO SCORES THIS SEASON YET</td></tr>}
         </tbody>
       </table>
       {pages > 1 && <p className="heroes-page"><Hint k="◀ ▶">PAGE {page + 1}/{pages}</Hint></p>}
-      <p className="hint">TOP FLEETS · {view.teams.slice(0, 3).map((t) => `${fleet(t.name).label} ${t.points}`).join(' · ')}</p>
+      {fleets && <p className="hint">TOP FLEETS · {view.teams.slice(0, 3).map((t) => `${crewLook(t.name).label} ${t.points}`).join(' · ')}</p>}
     </div>
   );
 }

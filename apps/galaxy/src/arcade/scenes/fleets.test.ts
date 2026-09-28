@@ -114,3 +114,26 @@ describe('cardsShown', () => {
     }
   });
 });
+
+describe('the fleets wall with zero fleets (PRD 400)', () => {
+  const none: GalaxyView = { ...view, teams: [] };
+  const empty = (owner: boolean) => unescape(renderToStaticMarkup(createElement(
+    ScreenContext.Provider,
+    { value: { form: 'full', grid: WIDE, page: 0, pages: 1 } },
+    createElement(FleetsOverlay, { view: none, crew: [], index: 0, onPick: () => {}, owner }),
+  )));
+
+  it('hides the wall and shows the "raise your own" screen instead', () => {
+    const html = empty(false);
+    expect(html).not.toContain('SELECT FLEET');
+    expect(cardsIn(html)).toEqual([]);
+    expect(html).toContain('NO FLEETS YET — RAISE YOUR OWN!');
+    expect(html).toContain('ASK YOUR OWNER');
+    expect(html).not.toContain('UNCREWED');
+  });
+
+  it('points the owner at /app/fleets', () => {
+    expect(empty(true)).toContain('SET THEM UP AT');
+    expect(empty(true)).toContain('href="/app/fleets"');
+  });
+});
