@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import '@omni/design/fonts.css';
 import '../../src/ask/ask.css';
 import '../../src/switch/home.css';
+import '../../src/dashboard/dashboard.css';
 import { ThemeScript } from '../../src/ask/theme-script';
 import { TOKENS, themeCss } from '../../src/ask/theme-tokens';
 import { TopBar } from '../../src/nav/TopBar';
@@ -9,14 +10,14 @@ import { HOME } from '../../src/switch/switch';
 
 // /app, the app's home (PRD 238), on the ask pages' reading surface: their tokens as CSS custom
 // properties, their faces from @omni/design's fonts.css, and their theme script as the root's first
-// child, so the stored theme is applied before the first paint. It reads nothing (no session, no
-// cookie, no database), so it renders once, at build time. The header is the app's one top bar
-// (TopBar, PRD 346): the OMNI LOOP mark, a link home, then Release notes, the theme switch and Game
-// mode.
+// child, so the stored theme is applied before the first paint. The layout itself reads nothing (no
+// session, no cookie, no database); the page, your dashboard (PRD 328), reads per request. The header
+// is the app's one top bar (TopBar, PRD 346): the OMNI LOOP mark, a link home, then Release notes,
+// Docs, the theme switch and Game mode.
 
 export const metadata: Metadata = {
   title: 'App · OMNI LOOP',
-  description: 'The Omni Loop app: its questions and its knowledge, as pages.',
+  description: 'Your Omni Loop dashboard: your hero, your fleet, your season, and the app’s questions and knowledge.',
   robots: { index: false, follow: false },
 };
 

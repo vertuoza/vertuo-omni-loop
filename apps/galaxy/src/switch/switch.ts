@@ -4,23 +4,24 @@
 // `#menu` deep link, src/arcade/deep-link.ts). The app's words live here; the arcade's in its own
 // files.
 
-/** The app's home: a page of links that reads nothing and needs no sign-in. */
+/** The app's home: your dashboard (PRD 328), ending with a card per section. */
 export const APP_HOME = '/app';
 
 /** The game's home: the arcade on SELECT MODE. */
 export const GAME_HOME = '/#menu';
 
-/** One of the app's sections, as /app's card for it shows it. */
+/** One of the app's sections: /app's card for it shows its title and opens its page. */
 export interface Section {
   title: string;
   /** The page the card opens, from the site's root. */
   path: string;
-  /** What the section holds, in one line. */
+  /** What the section holds, in one line. The dashboard's compact card leaves it out (PRD 328). */
   line: string;
 }
 
-/** /app's cards, in order. A new section of the app is one entry here. Release notes are no section:
- * every page reaches them from the top bar's menu (src/nav/menu.ts, PRD 346). */
+/** /app's cards, in order, at the foot of the dashboard. A new section of the app is one entry here.
+ * Release notes are no section: every page reaches them from the top bar's menu (src/nav/menu.ts,
+ * PRD 346). */
 export const SECTIONS: readonly Section[] = [
   { title: 'Questions', path: '/ask', line: 'The questions Claude is asking you now' },
   { title: 'For me', path: '/ask/for-me', line: 'Questions a teammate shared with you' },
@@ -28,11 +29,9 @@ export const SECTIONS: readonly Section[] = [
   { title: 'Knowledge map', path: '/knowledge', line: 'Principles, rules and invariants, as a map' },
 ];
 
-/** /app's own words: the sub-title beside the wordmark, the heading, and its line. */
+/** /app's own words: the sub-title beside the wordmark. The page's heading is your name (PRD 328). */
 export const HOME = {
   sub: 'App',
-  heading: 'Omni Loop',
-  line: 'The loop’s questions and knowledge, as pages. The game is one tap away.',
 } as const;
 
 /** The Game mode button, and the dialog it opens before the app is left for the game. */
