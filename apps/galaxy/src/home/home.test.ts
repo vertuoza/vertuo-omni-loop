@@ -46,8 +46,8 @@ describe('HOME at /', () => {
     return renderToStaticMarkup((await Page()) as ReactElement);
   };
 
-  it('shows the headline, JOIN THE LOOP!', async () => {
-    expect(text(await render())).toContain('JOIN THE LOOP!');
+  it('shows the headline, AGENTS SHIP. YOU STEER.', async () => {
+    expect(text(await render())).toContain('AGENTS SHIP. YOU STEER.');
   });
 
   it('links PRESS START to the game at /play', async () => {
@@ -71,7 +71,7 @@ describe('HOME at /', () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321';
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon';
     supabase.env.mockReturnValue({ url: 'http://127.0.0.1:54321', key: 'anon' });
-    expect(text(await render())).toContain('JOIN THE LOOP!');
+    expect(text(await render())).toContain('AGENTS SHIP. YOU STEER.');
     expect(supabase.server).not.toHaveBeenCalled();
   });
 
@@ -81,7 +81,8 @@ describe('HOME at /', () => {
   });
 });
 
-// The poster above the fold (s4): the Star Fox split, a text column beside a starfield.
+// The poster above the fold (PRD 261, reworded by PRD 285): the Star Fox split, a text column beside
+// a starfield, saying what the loop is worth.
 describe('the poster', () => {
   const render = async () => {
     const { Home } = await import('./Home');
@@ -89,22 +90,32 @@ describe('the poster', () => {
   };
   const element = (html: string, attr: string) => new RegExp(`<[a-z]+ [^>]*${attr}[^>]*>`).exec(html)?.[0] ?? '';
 
-  it('carries the kicker, the headline, the pitch and the quote, in the column\'s order', async () => {
+  it('carries the kicker, the headline, the pitch, the three promises and the quote, in the column\'s order', async () => {
     const page = text(await render());
     const order = [
-      'GET WHOLE FEATURES SHIPPED WHILE YOU SLEEP, WHEN YOU',
-      'JOIN THE LOOP!',
-      'Hand a PRD to the loop. Coding agents plan it, build it test-first, and open the pull requests. You answer their questions once, then review and merge.',
+      'THE DELIVERY FRAMEWORK FOR CODING AGENTS',
+      'AGENTS SHIP. YOU STEER.',
+      'Describe the feature once. Coding agents plan it, build it test-first and open the pull requests. Your team owns the product and the rules, and sees every decision the agents took.',
+      'ONE FOLDER IN, ONE FOLDER OUT',
+      'EVERY DECISION WRITTEN DOWN',
+      'A PERSON ALWAYS MERGES',
       '“TO JOIN INSTANTLY, SIGN UP WITH GITHUB!”',
     ].map((line) => page.indexOf(line));
-    expect(order.every((at) => at >= 0)).toBe(true);
+    expect(order.every((at) => at >= 0), String(order)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 
-  it('makes JOIN THE LOOP! the page\'s one headline', async () => {
+  it('makes AGENTS SHIP. YOU STEER. the page\'s one headline', async () => {
     const html = await render();
     expect(html.match(/<h1\b/g)).toHaveLength(1);
-    expect(text(/<h1[\s\S]*?<\/h1>/.exec(html)?.[0] ?? '')).toBe('JOIN THE LOOP!');
+    expect(text(/<h1[\s\S]*?<\/h1>/.exec(html)?.[0] ?? '')).toBe('AGENTS SHIP. YOU STEER.');
+  });
+
+  it('lists the promise strip as three starred items', async () => {
+    const html = await render();
+    const strip = /<ul class="home-promises"[\s\S]*?<\/ul>/.exec(html)?.[0] ?? '';
+    const items = [...strip.matchAll(/<li>[\s\S]*?<\/li>/g)].map(([li]) => text(li));
+    expect(items).toEqual(['★ ONE FOLDER IN, ONE FOLDER OUT', '★ EVERY DECISION WRITTEN DOWN', '★ A PERSON ALWAYS MERGES']);
   });
 
   it('shows OmniMan in his omni-point pose, and the crest in its full form', async () => {
@@ -152,112 +163,64 @@ describe('the poster', () => {
     expect(await render()).toMatch(/class="home-cheat"[^>]*role="status"/);
   });
 
-  it('puts the crest, the headline and PRESS START first on a phone', () => {
+  it('puts the crest, the headline and PRESS START first on a phone, then the planet and the column in its order', () => {
     const css = readFileSync(new URL('./home.css', import.meta.url), 'utf8');
     const phone = /@media \(max-width: 760px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
     const order = (cls: string) => Number(new RegExp(`\\.${cls} \\{[^}]*order: (-?\\d+)`).exec(phone)?.[1]);
     expect(order('home-crest')).toBeLessThan(order('home-head'));
     expect(order('home-head')).toBeLessThan(order('home-poster .home-start'));
-    for (const rest of ['home-kicker', 'home-pitch', 'home-quote', 'home-spokes', 'home-planet']) {
-      expect(order(rest), rest).toBeGreaterThan(order('home-poster .home-start'));
-    }
+    expect(order('home-planet')).toBeGreaterThan(order('home-poster .home-start'));
+    const rest = ['home-kicker', 'home-dots', 'home-pitch', 'home-promises', 'home-quote', 'home-spokes'].map(order);
+    for (const at of rest) expect(at).toBeGreaterThan(order('home-planet'));
+    expect([...rest].sort((a, b) => a - b), 'the column keeps its order').toEqual(rest);
   });
 });
 
-// The magazine spreads under the poster (s5): the strategy guide, the great stuff, the high scores,
-// the fleets' trading cards and the order form, in that order.
+// The magazine spreads under the poster (PRD 285): value first, then the loop's proof, the game and
+// the order form. Each spread is its own component, with its own test beside it under spreads/.
 describe('the spreads', () => {
   const render = async () => {
     const { Home } = await import('./Home');
     return renderToStaticMarkup(Home());
   };
-  const STAGES = [
-    ['1-1', 'BRAINSTORM', 'You and Claude turn an idea into an approved PRD.'],
-    ['1-2', 'PLAN', 'The PRD is cut into thin slices, grouped in waves.'],
-    ['1-3', 'WAVES', 'One agent per slice, each in its own worktree, test-first, each with its own pull request.'],
-    ['1-4', 'OUTBOX', 'Every decision taken without asking is written down; you answer once, at the end.'],
-    ['1-5', 'SHIP', 'The feature pull request is ready, and a person merges it.'],
-    ['★ BONUS', 'KNOWLEDGE', 'Merged decisions land in the knowledge base, so the next loop knows more.'],
-  ];
-  const BULLETS = [
-    'omni invade reads a repository and writes its playbook.',
-    'Never merges into main : a person always does.',
-    'Ask mode puts Claude\'s questions on a web page.',
-    'The knowledge graph reads the registers as one map.',
-    'The galaxy : every PRD a planet, every team a fleet.',
+  const HEADS = [
+    'What\'s in it for you?',
+    'Strategy guide: the loop, level by level',
+    'You see everything',
+    'Easy in, easy out',
+    'High scores: the loop built this',
+    'The game: Entropy you can see',
+    'Join the loop!',
   ];
 
-  it('come under the poster, in the spec\'s order', async () => {
-    const page = text(await render());
-    const order = ['JOIN THE LOOP!', 'STRATEGY GUIDE', 'PLUS ALL OF THIS GREAT STUFF!', 'HIGH SCORES', 'COLLECT ALL THE FLEETS!', 'TO JOIN INSTANTLY: SIGN UP WITH GITHUB']
-      .map((line) => page.toUpperCase().indexOf(line));
-    expect(order.every((at) => at >= 0), String(order)).toBe(true);
-    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  it('come under the poster, in the spec\'s order, each under its own h2', async () => {
+    const html = await render();
+    const heads = [...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map(([, h]) => text(h));
+    expect(heads).toEqual(HEADS);
+    expect(html.indexOf('<h2')).toBeGreaterThan(html.indexOf('</h1>'));
   });
 
-  it('give each spread its own heading, under the page\'s one headline', async () => {
-    const html = await render();
-    expect(html.match(/<h2\b/g)).toHaveLength(5);
+  it('are composed by Spreads.tsx alone, one component per spread', () => {
+    const source = readFileSync(new URL('./spreads/Spreads.tsx', import.meta.url), 'utf8');
+    expect(source).not.toMatch(/<section\b|<h2\b/);
+    for (const name of ['ForYou', 'StrategyGuide', 'SeeEverything', 'InOut', 'HighScores', 'Game', 'OrderForm']) {
+      expect(source, name).toMatch(new RegExp(`from '\\./${name}'`));
+    }
   });
 
-  it('walk the strategy guide\'s six stages in order, with OmniMan running the path', async () => {
+  it('link nowhere but the game at /play and the release notes at /releases, the one page open without signing in', async () => {
     const html = await render();
-    const page = text(html);
-    const at = STAGES.map(([level, name, line]) => {
-      expect(page, name).toContain(`${level} ${name} ${line}`);
-      return page.indexOf(`${level} ${name}`);
-    });
-    expect([...at].sort((a, b) => a - b)).toEqual(at);
-    expect(html).toMatch(/<[a-z]+ [^>]*data-pose="omni-run"[^>]*>/);
-  });
-
-  it('list the five great-stuff bullets', async () => {
-    const html = await render();
-    const items = [...(/<ul class="home-stuff"[\s\S]*?<\/ul>/.exec(html)?.[0] ?? '').matchAll(/<li>[\s\S]*?<\/li>/g)].map(([li]) => text(li));
-    expect(items).toEqual(BULLETS);
-  });
-
-  it('show the three high scores as the build counted them, and — for one it could not read', async () => {
-    const html = await render();
-    const scores = [...html.matchAll(/<div class="home-score">([\s\S]*?)<\/div>/g)].map(([, s]) => text(s));
-    expect(scores).toEqual(['PRDS SHIPPED 21', 'SLICES MERGED 134', 'DECISIONS ADOPTED —']);
-  });
-
-  it('deal one flipping card per built-in fleet that is not retired, each a button', async () => {
-    const { demoFleets } = await import('../data/load-galaxy');
-    const html = await render();
-    const cards = [...html.matchAll(/<button [^>]*class="home-card"[^>]*>[\s\S]*?<\/button>/g)].map(([b]) => b);
-    const live = demoFleets().filter((f) => !f.retired);
-    expect(cards).toHaveLength(live.length);
-    live.forEach((f, i) => {
-      expect(text(cards[i])).toContain(f.label);
-      expect(text(cards[i])).toContain(f.motto);
-      expect(cards[i]).toMatch(/type="button"/);
-      expect(cards[i]).toMatch(/aria-pressed="false"/);
-      expect(cards[i]).toContain('data-flip=""');
-      expect(cards[i]).toContain(`--fleet:${f.color}`);
-    });
-    expect(text(html)).not.toContain('INVINCIBLE');
-  });
-
-  it('close on the order form: the sign-up, PRESS START and the fine print', async () => {
-    const html = await render();
-    const form = /<div class="home-order"[\s\S]*$/.exec(html)?.[0] ?? '';
-    expect(form).toMatch(/<button [^>]*disabled=""[^>]*>[\s\S]*?SIGN UP WITH GITHUB/);
-    expect(form).toMatch(/<a [^>]*href="\/play"[^>]*>PRESS START<\/a>/);
-    expect(text(form)).toContain('Omni Loop runs on Claude Code. Invite-only while in beta.');
+    const hrefs = [...html.matchAll(/<a\b[^>]*\bhref="([^"]*)"/g)].map(([, href]) => href);
+    expect(hrefs).toContain('/play');
+    expect(hrefs).toContain('/releases');
+    expect(new Set(hrefs)).toEqual(new Set(['/play', '/releases']));
+    expect(html.match(/<a\b/g)?.length, 'every link has an href').toBe(hrefs.length);
+    expect(html).not.toMatch(/<(?:form|area|link)\b[^>]*\b(?:action|href)=/);
   });
 
   it('name no Nintendo game, console or mark', async () => {
     const page = text(await render());
     expect(page).not.toMatch(/nintendo|snes|super famicom|star fox|mario|zelda|metroid|game boy/i);
-  });
-
-  it('flip under reduced motion with a crossfade, never a turn', () => {
-    const css = readFileSync(new URL('./home.css', import.meta.url), 'utf8');
-    const still = [...css.matchAll(/@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/g)].map(([, b]) => b).join('\n');
-    expect(still).toMatch(/\.home-card-in[^{]*\{[^}]*transform: none/);
-    expect(still).toMatch(/opacity/);
   });
 });
 

@@ -5,10 +5,14 @@ import { CREST_FORM, crestSvg, OMNI_POSE, omniSvg, planetSvgs, starfieldSvg } fr
 // The poster above HOME's fold (PRD 261), drawn as a retro print ad: a text column in the ad's
 // purple beside a starfield, the Star Fox split. Every picture is an SVG drawn on the server
 // (art.ts), so the poster ships no script; the one client component on the page (Controls) makes
-// every PRESS START start the game. Its styles are in home.css.
+// every PRESS START start the game. Its styles are in home.css. PRD 285 put value first: the column
+// says what the loop gives a team, AGENTS SHIP. YOU STEER., then its three promises.
+
+/** The promise strip under the pitch, in its order. */
+export const PROMISES = ['ONE FOLDER IN, ONE FOLDER OUT', 'EVERY DECISION WRITTEN DOWN', 'A PERSON ALWAYS MERGES'] as const;
 
 /** A string of SVG markup, as an element's only child. */
-const Svg = ({ svg }: { svg: string }) => <span className="home-svg" dangerouslySetInnerHTML={{ __html: svg }} />;
+export const Svg = ({ svg }: { svg: string }) => <span className="home-svg" dangerouslySetInnerHTML={{ __html: svg }} />;
 
 /** The call to action this PRD only shows: signing up with GitHub is the next PRD's. It goes nowhere. */
 export function SignUp() {
@@ -30,13 +34,18 @@ export function Poster() {
   return (
     <section className="home-poster" aria-labelledby="home-headline">
       <div className="home-col">
-        <p className="home-kicker">GET WHOLE FEATURES SHIPPED<br />WHILE YOU SLEEP, WHEN YOU</p>
-        <h1 id="home-headline" className="home-head">JOIN<br />THE<br />LOOP!</h1>
+        <p className="home-kicker">THE DELIVERY FRAMEWORK<br />FOR CODING AGENTS</p>
+        <h1 id="home-headline" className="home-head">AGENTS SHIP.<br />YOU STEER.</h1>
         <div className="home-dots" role="presentation" />
         <p className="home-pitch">
-          Hand a PRD to the loop. Coding agents plan it, build it test-first, and open the pull
-          requests. You answer their questions once, then review and merge.
+          Describe the feature once. Coding agents plan it, build it test-first and open the pull
+          requests. Your team owns the product and the rules, and sees every decision the agents took.
         </p>
+        <ul className="home-promises">
+          {PROMISES.map((promise) => (
+            <li key={promise}><span className="home-glyph" aria-hidden="true">★</span> {promise}</li>
+          ))}
+        </ul>
         <p className="home-quote">“TO JOIN INSTANTLY,<br />SIGN UP WITH GITHUB!”</p>
         <div className="home-spokes">
           <div className="home-omni" data-pose={OMNI_POSE}><Svg svg={omniSvg()} /></div>

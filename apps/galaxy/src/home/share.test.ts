@@ -3,35 +3,48 @@ import { describe, expect, it } from 'vitest';
 import { COLOURS, logoSvg } from '@omni/design';
 import { HOME_METADATA, SHARE_CARD, shareCard } from './share';
 
-// HOME shared as the ad (PRD 261, s6): a link to `/` previews with the page's title, its
-// description and an Open Graph image showing the crest and JOIN THE LOOP! on the starfield.
+// HOME shared as the ad (PRD 261, s6; reworded by PRD 285, s2): a link to `/` previews with the
+// page's title, its description and an Open Graph image showing the crest and AGENTS SHIP. YOU
+// STEER. on the starfield.
+const TITLE = 'OMNI LOOP · AGENTS SHIP. YOU STEER.';
+const DESCRIPTION = 'The delivery framework for coding agents. Agents plan, build test-first and open '
+  + 'the pull requests; your team owns the product and the rules, and sees every decision.';
+
 describe('HOME\'s metadata', () => {
-  it('titles the page after the ad and describes the loop in the pitch\'s words', () => {
-    expect(HOME_METADATA.title).toEqual({ absolute: 'OMNI LOOP · JOIN THE LOOP!' });
-    expect(HOME_METADATA.description).toMatch(/Hand a PRD to the loop\./);
-    expect(HOME_METADATA.description).toMatch(/review and merge/);
+  it('titles the page after the headline and describes the loop in the spec\'s words', () => {
+    expect(HOME_METADATA.title).toEqual({ absolute: TITLE });
+    expect(HOME_METADATA.description).toBe(DESCRIPTION);
   });
 
   it('gives a shared link the same title and description, as a large image card', () => {
-    expect(HOME_METADATA.openGraph).toMatchObject({
-      title: 'OMNI LOOP · JOIN THE LOOP!', description: HOME_METADATA.description, type: 'website',
-    });
+    expect(HOME_METADATA.openGraph).toMatchObject({ title: TITLE, description: DESCRIPTION, type: 'website' });
     expect(HOME_METADATA.openGraph).not.toHaveProperty('url');
-    expect(HOME_METADATA.twitter).toMatchObject({
-      card: 'summary_large_image', title: 'OMNI LOOP · JOIN THE LOOP!', description: HOME_METADATA.description,
-    });
+    expect(HOME_METADATA.twitter).toMatchObject({ card: 'summary_large_image', title: TITLE, description: DESCRIPTION });
+  });
+
+  it('no longer says JOIN THE LOOP! or hands a PRD to the loop', () => {
+    const words = JSON.stringify(HOME_METADATA);
+    expect(words).not.toContain('JOIN THE LOOP!');
+    expect(words).not.toMatch(/Hand a PRD/);
   });
 });
 
 describe('the share card', () => {
   const html = renderToStaticMarkup(shareCard());
+  const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
-  it('is the size every network previews without cropping', () => {
-    expect(SHARE_CARD).toEqual({ width: 1200, height: 630, alt: expect.stringMatching(/JOIN THE LOOP!/) });
+  it('is the size every network previews without cropping, and its alt text says the headline', () => {
+    expect(SHARE_CARD).toEqual({ width: 1200, height: 630, alt: expect.stringMatching(/AGENTS SHIP\. YOU STEER\./) });
+    expect(SHARE_CARD.alt).not.toContain('JOIN THE LOOP!');
   });
 
-  it('draws JOIN THE LOOP! on the starfield', () => {
-    expect(html).toContain('JOIN THE LOOP!');
+  it('draws AGENTS SHIP. YOU STEER. on the starfield, under the poster\'s kicker', () => {
+    expect(text).toContain('AGENTS SHIP.');
+    expect(text).toContain('YOU STEER.');
+    expect(text.indexOf('AGENTS SHIP.')).toBeLessThan(text.indexOf('YOU STEER.'));
+    expect(text).toContain('THE DELIVERY FRAMEWORK FOR CODING AGENTS');
+    expect(text).not.toContain('JOIN THE LOOP!');
+    expect(text).not.toContain('WHILE YOU SLEEP');
     expect(html).toContain(`background-color:${COLOURS.starfield}`);
   });
 

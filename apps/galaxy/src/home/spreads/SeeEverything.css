@@ -1,0 +1,20 @@
+/* You see everything's spread (HOME, PRD 285): the ad's bullet column. Every colour and face is a
+   variable from @omni/design; nothing here is declared on :root. */
+
+.home-see {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px 28px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.home-see li { font-size: 15px; line-height: 1.5; color: var(--white); padding-left: 18px; position: relative; }
+.home-see li::before { content: '•'; position: absolute; left: 0; color: var(--yellow); }
+.home-see b { text-transform: uppercase; color: var(--yellow); }
+.home-see a { color: var(--yellow); text-decoration: underline; text-underline-offset: 3px; }
+.home-see a:hover, .home-see a:focus-visible { color: var(--white); }
+
+@media (max-width: 760px) {
+  .home-see { grid-template-columns: minmax(0, 1fr); }
+}
