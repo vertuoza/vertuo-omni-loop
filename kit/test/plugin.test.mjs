@@ -343,6 +343,65 @@ describe('the help skill in this repository', () => {
   });
 });
 
+// PRD 251: when its gate ends red and `answers.enabled` is on, `/omni:yolo` asks one opening
+// question, once the outbox comment, the draft and the status comment are written (the end of step
+// 6, Release). Answering here runs `omni answers`; answering here or elsewhere carries on into
+// `/omni:yolo-fix` steps 2 to 7. The hand-off stays step 7, which `/omni:yolo-fix` names.
+describe('the terminal door in /omni:yolo', () => {
+  const yolo = readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/yolo/SKILL.md'), 'utf8');
+  const HEADING = '### Answer here, when the gate ends red';
+  const door = (() => {
+    const from = yolo.indexOf(HEADING);
+    if (from < 0) return '';
+    const to = yolo.indexOf('\n## ', from);
+    return yolo.slice(from, to < 0 ? undefined : to);
+  })();
+
+  it('opens only on a red gate with the switch on, after the outbox comment and the status comment', () => {
+    expect(door, 'a section of its own').not.toBe('');
+    expect(door).toContain('answers.enabled');
+    expect(door).toMatch(/gate (?:is |read |ended |ends )?red/i);
+    expect(skillSection(yolo, '6. Release'), 'inside step 6, after the final status comment').toContain(HEADING);
+    expect(yolo.indexOf(HEADING)).toBeGreaterThan(yolo.indexOf('omni.mjs comment --prd'));
+    expect(yolo.indexOf(HEADING)).toBeGreaterThan(yolo.indexOf('final status comment'));
+    expect(yolo.indexOf(HEADING)).toBeLessThan(yolo.indexOf('## 7. Hand off'));
+  });
+
+  it('asks one opening question with the three choices', () => {
+    for (const choice of ['Answer here now', 'carry on', 'Later — stop here']) expect(door, choice).toContain(choice);
+    expect(door).toContain('AskUserQuestion');
+  });
+
+  it('asks through omni answers ask, posts through omni answers post, and falls back on --print', () => {
+    expect(door).toContain('omni.mjs answers ask');
+    expect(door).toContain('omni.mjs answers post');
+    expect(door).toContain('--print');
+    expect(door).toMatch(/prose/);
+    expect(door.indexOf('answers post')).toBeGreaterThan(door.indexOf('answers ask'));
+  });
+
+  it('never asks a medium', () => {
+    expect(door).toMatch(/mediums? (?:are|is) never asked/i);
+  });
+
+  it('carries on into /omni:yolo-fix steps 2 to 7 in the same run, and ends with its hand-off', () => {
+    expect(door).toMatch(/`\/omni:yolo-fix` steps 2 to 7/);
+    expect(door.indexOf('steps 2 to 7')).toBeGreaterThan(door.indexOf('answers post'));
+    expect(door).toMatch(/`\/omni:yolo-fix` step 8/);
+  });
+
+  it('with the switch off, the red gate reads as before: the hand-off says to answer on the pull request', () => {
+    expect(door).toMatch(/`answers\.enabled` is (?:off|false)[^.]*(?:step 7|hand-off)/);
+  });
+
+  it('keeps "never ask" true along the way, naming the one question at the end', () => {
+    const guardrails = skillSection(yolo, 'Guardrails');
+    expect(guardrails).toContain('Never ask along the way');
+    expect(guardrails).toContain('answers.enabled');
+    expect(yolo).not.toMatch(/\*\*It asks nothing\.\*\*/);
+  });
+});
+
 describe('the plugin guard catches what it is for', () => {
   it('passes a well-formed fixture and one with no skills', () => {
     const good = fixture(GOOD);
