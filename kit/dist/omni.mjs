@@ -11578,7 +11578,9 @@ var ConfigSchema = external_exports.object({
     rework: text.default("fix-{item}"),
     retro: text.default("docs/retro-{topic}"),
     knowledge: text.default("docs/knowledge-{topic}"),
-    invade: text.default("docs/omni-invade")
+    invade: text.default("docs/omni-invade"),
+    // PRD 347: the branch `omni update` opens its pull request from; `{version}` is `v<x.y.z>`.
+    update: text.default("chore/omni-update-{version}")
   }),
   worktrees: text.default(".claude/worktrees"),
   paths: section({
@@ -11682,13 +11684,22 @@ function describeIssue(issue) {
   const keys = issue.code === "unrecognized_keys" ? ` (unrecognized: ${issue.keys.join(", ")})` : "";
   return `${path}: ${issue.message}${keys}`;
 }
-function parseConfig(source, file = CONFIG_FILE) {
+var MIGRATIONS = Object.freeze([]);
+function migrateConfig(raw, migrations = MIGRATIONS) {
+  let current = raw;
+  for (const { from, migrate } of migrations) {
+    if (current?.kit === from) current = migrate(current);
+  }
+  return current;
+}
+function parseConfig(source, file = CONFIG_FILE, { migrate = false } = {}) {
   let raw;
   try {
     raw = (0, import_yaml.parse)(source) ?? {};
   } catch (error) {
     throw new ConfigError(`${file}: not valid YAML \u2014 ${error.message.split("\n")[0]}`);
   }
+  if (migrate) raw = migrateConfig(raw);
   const renamed = renamedKey(raw);
   if (renamed) {
     const { section: name, from, to } = renamed;
@@ -13518,8 +13529,8 @@ async function exchangeCode({ askUrl: askUrl2, code, fetch = globalThis.fetch, t
       signal: AbortSignal.timeout(timeoutMs)
     });
   } catch (error) {
-    const why = error?.name === "TimeoutError" ? "it did not answer in time" : "it is unreachable";
-    throw new SignInError(`could not reach ${credentialsHost(askUrl2)} to finish the sign-in: ${why}.`);
+    const why2 = error?.name === "TimeoutError" ? "it did not answer in time" : "it is unreachable";
+    throw new SignInError(`could not reach ${credentialsHost(askUrl2)} to finish the sign-in: ${why2}.`);
   }
   const reply = await replyOf(response);
   if (!response.ok) {
@@ -18726,6 +18737,15 @@ var ENTRIES = deepFreeze([
     detail: "The version of the kit this omni runs, marked (source) when it runs from the kit source, or (unversioned) for a build that carries none. It then asks GitHub, through gh, for the kit's latest release, for up to 5 seconds: (latest) when it is the one running, a second line saying to run omni update when a newer one exists, nothing more when GitHub does not answer. It needs no config, and always exits 0."
   },
   {
+    name: "update",
+    kind: "command",
+    who: "you",
+    usage: ["omni update [--to <version>]"],
+    label: "omni update",
+    summary: "opens the pull request to the latest kit",
+    detail: "Finds the kit's latest release, or the one --to names, downloads its omni and lets it do the work: in a worktree cut from the remote {defaultBranch}, it writes the new bin, checks config.yml under the new version without rewriting it, creates any knowledge form the repository lacks and any missing loop label, then commits, pushes and opens one pull request for a person to merge. Your checkout is never touched. Up to date, it writes nothing; a pull request already open is printed instead. A release GitHub cannot find, or a config.yml the new version refuses, stops it before anything is committed, exit 1."
+  },
+  {
     name: "help",
     kind: "command",
     who: "you",
@@ -21764,8 +21784,20 @@ var status2 = {
   }
 };
 
-// kit/bin/commands/version.mjs
+// kit/bin/commands/update.mjs
 init_define_OMNI_BUNDLE();
+import { mkdtempSync as mkdtempSync2, rmSync as rmSync7 } from "node:fs";
+import { tmpdir as tmpdir2 } from "node:os";
+import { join as join44 } from "node:path";
+
+// kit/lib/update/apply.mjs
+init_define_OMNI_BUNDLE();
+import { chmodSync as chmodSync4, copyFileSync as copyFileSync2, existsSync as existsSync35, mkdirSync as mkdirSync11, readFileSync as readFileSync35 } from "node:fs";
+import { dirname as dirname13, join as join43, posix as posix5 } from "node:path";
+
+// kit/lib/update/release.mjs
+init_define_OMNI_BUNDLE();
+import { join as join42 } from "node:path";
 
 // kit/lib/version/version.mjs
 init_define_OMNI_BUNDLE();
@@ -21801,7 +21833,230 @@ function versionLines({ version: version2, source, latest }) {
   return [first];
 }
 
+// kit/lib/update/release.mjs
+var BUNDLE_ASSET = "omni.mjs";
+var QUIET6 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
+var UpdateError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "UpdateError";
+  }
+};
+function findTarget({ home, to = null, exec, timeoutMs = 15e3 }) {
+  if (!home) throw new UpdateError("omni update: this omni does not know where the kit comes from, so it cannot find a release.");
+  const tag = to === null ? null : `v${parseVersion(to)}`;
+  const what = tag ? `the release ${tag} of ${home}` : `the latest release of ${home}`;
+  let answer;
+  try {
+    answer = exec("gh", ["release", "view", ...tag ? [tag] : [], "--repo", home, "--json", "tagName", "--jq", ".tagName"], { ...QUIET6, timeout: timeoutMs });
+  } catch {
+    throw new UpdateError(`omni update: cannot find ${what}: ${tag ? "no such tag, or " : ""}GitHub is out of reach or gh is not signed in.`);
+  }
+  const version2 = parseVersion(answer);
+  if (!version2) throw new UpdateError(`omni update: ${what} is not a version: ${String(answer).trim() || "(nothing)"}.`);
+  return version2;
+}
+function downloadBundle({ home, version: version2, dir, exec }) {
+  try {
+    exec("gh", ["release", "download", `v${version2}`, "--repo", home, "--pattern", BUNDLE_ASSET, "--dir", dir], QUIET6);
+  } catch {
+    throw new UpdateError(`omni update: cannot download ${BUNDLE_ASSET} from the release v${version2} of ${home}.`);
+  }
+  return join42(dir, BUNDLE_ASSET);
+}
+
+// kit/lib/update/report.mjs
+init_define_OMNI_BUNDLE();
+var tagOf = (version2) => version2 ? `v${version2}` : "unversioned";
+function updateBranch(template, version2) {
+  return template.replaceAll("{version}", `v${version2}`);
+}
+var updateTitle = (version2) => `chore(omni): update to v${version2}`;
+function labelsWords({ created, byHand }) {
+  const parts = [];
+  if (created.length) parts.push(`${created.length} created`);
+  if (byHand.length) parts.push(`to create by hand: ${byHand.join(", ")}`);
+  return parts.length ? parts.join(", ") : "ok";
+}
+function formsWords(forms) {
+  if (forms.outside) return `left as they are (${forms.dir} is outside .omni-loop/)`;
+  return forms.created.length ? `${forms.created.length} created (${forms.created.join(", ")})` : "none missing";
+}
+function reportLines2({ from, to, forms, labels }) {
+  return [
+    `${tagOf(from)} \u2192 v${to}`,
+    "  bin      updated",
+    `  config   kept, valid under v${to}`,
+    `  forms    ${formsWords(forms)}`,
+    `  labels   ${labelsWords(labels)}`
+  ];
+}
+function changesLink({ home, from, to }) {
+  return from ? `https://github.com/${home}/compare/v${from}...v${to}` : `https://github.com/${home}/releases/tag/v${to}`;
+}
+function updateBody({ lines, home, from, to, footer }) {
+  const body = [
+    `Brings this repository to the Omni Loop kit v${to}, from ${tagOf(from)}. \`config.yml\` is kept as it was.`,
+    "",
+    "```text",
+    ...lines,
+    "```",
+    "",
+    `What changed in the kit: ${changesLink({ home, from, to })}`
+  ];
+  if (footer) body.push("", footer);
+  return `${body.join("\n")}
+`;
+}
+
+// kit/lib/update/apply.mjs
+var LOOP_DIR2 = dirname13(CONFIG_FILE);
+var BIN_FILE2 = join43(LOOP_DIR2, "bin", "omni.mjs");
+function insideLoop2(path) {
+  const clean = posix5.normalize(path).replace(/\/+$/, "");
+  return clean === LOOP_DIR2 || clean.startsWith(`${LOOP_DIR2}/`);
+}
+function why(error) {
+  const text3 = String(error?.stderr ?? "").trim() || String(error?.message ?? error);
+  return text3.split("\n")[0];
+}
+function checkConfig(root, version2) {
+  const file = join43(root, CONFIG_FILE);
+  if (!existsSync35(file)) throw new UpdateError(`omni update: ${CONFIG_FILE} is missing: this repository is not installed; run omni init.`);
+  try {
+    return parseConfig(readFileSync35(file, "utf8"), `${CONFIG_FILE} under v${version2}`, { migrate: true });
+  } catch (error) {
+    if (!(error instanceof ConfigError)) throw error;
+    throw new UpdateError(`omni update: ${error.message.split("\n")[0]}; nothing was committed.`);
+  }
+}
+function applyUpdate({ root, bundle, version: version2, from, home, exec, println: println2 }) {
+  const git4 = (args, cwd = root) => {
+    try {
+      return exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } catch (error) {
+      throw new UpdateError(`omni update: git ${args[0]} failed: ${why(error)}`);
+    }
+  };
+  const gh = (args) => {
+    try {
+      return exec("gh", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    } catch (error) {
+      throw new UpdateError(`omni update: gh ${args.slice(0, 2).join(" ")} failed: ${why(error)}`);
+    }
+  };
+  const config2 = checkConfig(root, version2);
+  const { remote, defaultBranch } = config2.repo;
+  const slug = config2.repo.slug ?? readRepo(root, { exec, remote }).slug;
+  const repoFlag = slug ? ["--repo", slug] : [];
+  const branch = updateBranch(config2.branches.update, version2);
+  const open2 = gh(["pr", "list", ...repoFlag, "--head", branch, "--state", "open", "--json", "url", "--jq", '.[0].url // ""']).trim();
+  if (open2) {
+    println2(`PR already open for v${version2}: ${open2}`);
+    return 0;
+  }
+  git4(["fetch", "-q", remote, defaultBranch]);
+  const worktree = join43(root, config2.worktrees, branch.replace(/[^\w.-]+/g, "-"));
+  if (existsSync35(worktree)) git4(["worktree", "remove", "--force", worktree]);
+  mkdirSync11(dirname13(worktree), { recursive: true });
+  git4(["worktree", "add", "-q", "-B", branch, worktree, `${remote}/${defaultBranch}`]);
+  try {
+    const bin = join43(worktree, BIN_FILE2);
+    mkdirSync11(dirname13(bin), { recursive: true });
+    copyFileSync2(bundle, bin);
+    chmodSync4(bin, 493);
+    const branchConfig = checkConfig(worktree, version2);
+    const ctx = createContext(worktree, branchConfig);
+    const outside = !insideLoop2(ctx.layout.frontDoor);
+    const created = outside ? [] : writeForms({ ctx }).filter((file) => file.wrote).map((file) => file.path);
+    const labels = reconcileLabels(root, { exec, labels: branchConfig.labels });
+    const lines = reportLines2({ from, to: version2, forms: { created, outside, dir: ctx.layout.frontDoor }, labels });
+    git4(["add", "-A", "--", LOOP_DIR2], worktree);
+    let changed = true;
+    try {
+      exec("git", ["diff", "--cached", "--quiet"], { cwd: worktree, stdio: "ignore" });
+      changed = false;
+    } catch {
+      changed = true;
+    }
+    for (const line of lines) println2(line);
+    if (!changed) {
+      println2(`nothing to commit: ${defaultBranch} already holds v${version2}`);
+      return 0;
+    }
+    const trailer = trailerLine(branchConfig.signature);
+    git4(["commit", "-q", "-m", trailer ? `${updateTitle(version2)}
+
+${trailer}` : updateTitle(version2)], worktree);
+    git4(["push", "-q", "-u", remote, branch], worktree);
+    const body = updateBody({ lines, home, from, to: version2, footer: footerLine(branchConfig.signature) });
+    const url = gh(["pr", "create", ...repoFlag, "--base", defaultBranch, "--head", branch, "--title", updateTitle(version2), "--body", body]).trim();
+    println2(`PR: ${url}`);
+    return 0;
+  } finally {
+    try {
+      exec("git", ["worktree", "remove", "--force", worktree], { cwd: root, stdio: "ignore" });
+    } catch {
+    }
+  }
+}
+
+// kit/bin/commands/update.mjs
+var USAGE16 = "usage: omni update [--to <version>]";
+function handOver({ cwd, running, target, exec }) {
+  const dir = mkdtempSync2(join44(tmpdir2(), "omni-update-"));
+  try {
+    const bundle = downloadBundle({ home: running.home, version: target, dir, exec });
+    const from = running.version ? ["--from", running.version] : [];
+    try {
+      exec("node", [bundle, "update", "--apply", ...from], { cwd, stdio: "inherit" });
+      return 0;
+    } catch (error) {
+      return Number.isInteger(error?.status) ? error.status : 1;
+    }
+  } finally {
+    rmSync7(dir, { recursive: true, force: true });
+  }
+}
+var update = {
+  withoutContext: true,
+  async run(args, { cwd, stdout, stderr, exec, kit, bundle }) {
+    const { positional, flags } = parseArgs("update", args, { values: ["to", "from"], booleans: ["apply"] });
+    if (positional.length) throw usageError(USAGE16);
+    if (flags.to !== void 0 && !parseVersion(flags.to)) throw usageError(`omni update: --to takes a version like v0.0.12, got "${flags.to}".`);
+    if (flags.from !== void 0 && !parseVersion(flags.from)) throw usageError(`omni update: --from takes a version like 0.0.12, got "${flags.from}".`);
+    const running = kit ?? runningKit({ exec });
+    const out = (line) => println(stdout, line);
+    try {
+      if (flags.apply) {
+        const file = bundle === void 0 ? runningBundle() : bundle;
+        if (running.source || !file || !running.version) {
+          throw usageError("omni update --apply: this omni runs from the kit source, or carries no version; only a release bundle applies an update.");
+        }
+        const root = findRoot(cwd, exec);
+        return applyUpdate({ root, bundle: file, version: running.version, from: flags.from ? parseVersion(flags.from) : null, home: running.home, exec, println: out });
+      }
+      if (running.source) {
+        out(`omni runs from the kit source${running.version ? ` (v${running.version})` : ""}: there is no bin to update here.`);
+        return 0;
+      }
+      const target = findTarget({ home: running.home, to: flags.to ?? null, exec });
+      if (running.version === target) {
+        out(`omni v${target} is up to date.`);
+        return 0;
+      }
+      return handOver({ cwd, running, target, exec });
+    } catch (error) {
+      if (!(error instanceof UpdateError)) throw error;
+      stderr.write(`${error.message}
+`);
+      return 1;
+    }
+  }
+};
+
 // kit/bin/commands/version.mjs
+init_define_OMNI_BUNDLE();
 var version = {
   withoutContext: true,
   async run(args, { stdout, exec, kit }) {
@@ -21815,10 +22070,10 @@ var version = {
 };
 
 // kit/bin/commands/index.mjs
-var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, init, ask, signin, signout, whoami, sign, credits, dossier, version, help });
+var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, init, ask, signin, signout, whoami, sign, credits, dossier, version, update, help });
 
 // kit/bin/omni.mjs
-var USAGE16 = `usage: omni <command> [args]
+var USAGE17 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 omni help: what each command does
 `;
@@ -21829,7 +22084,7 @@ async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr
   const name = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
   const command = Object.hasOwn(COMMAND_TABLE, name ?? "") ? COMMAND_TABLE[name] : void 0;
   if (!command) {
-    stderr.write(USAGE16);
+    stderr.write(USAGE17);
     return 2;
   }
   try {

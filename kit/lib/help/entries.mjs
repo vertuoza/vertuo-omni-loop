@@ -161,6 +161,22 @@ export const ENTRIES = deepFreeze([
       'It needs no config, and always exits 0.',
   },
   {
+    name: 'update',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni update [--to <version>]'],
+    label: 'omni update',
+    summary: 'opens the pull request to the latest kit',
+    detail:
+      "Finds the kit's latest release, or the one --to names, downloads its omni and lets it do the " +
+      'work: in a worktree cut from the remote {defaultBranch}, it writes the new bin, checks ' +
+      'config.yml under the new version without rewriting it, creates any knowledge form the ' +
+      'repository lacks and any missing loop label, then commits, pushes and opens one pull request ' +
+      'for a person to merge. Your checkout is never touched. Up to date, it writes nothing; a pull ' +
+      'request already open is printed instead. A release GitHub cannot find, or a config.yml the new ' +
+      'version refuses, stops it before anything is committed, exit 1.',
+  },
+  {
     name: 'help',
     kind: 'command',
     who: 'you',
