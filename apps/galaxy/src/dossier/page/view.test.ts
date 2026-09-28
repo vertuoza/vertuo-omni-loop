@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
-import { dossierView, readPick, sandboxPath, shortDay, stamp, versionSource, wayBack } from './view';
+import { dossierView, isQuick, readPick, sandboxPath, shortDay, stamp, versionSource, wayBack } from './view';
 
 // /prd/<id> (PRD 216), as pure functions of the rows the viewer may read, the workspace's members and
 // what the address picks: the header, the tabs, each artifact's versions, newest first, and the
@@ -354,5 +354,63 @@ describe('the way back from a question answered on its own page (PRD 384)', () =
     for (const from of ['', 'https://evil.example/prd', '//evil.example', `${ID}/../x`, 'not-a-dossier']) {
       expect(back(from), from).toBe(`/ask/${SESSION}`);
     }
+  });
+});
+
+describe('a quick round, answered on the list (PRD 384)', () => {
+  const AT = '2026-09-28T09:00:00Z';
+  const SOON = Date.parse(AT) + 60_000;
+  const LATE = Date.parse(AT) + 540_000;
+  const PREVIEWED = { ...SHAPE, options: [{ label: 'Square', description: '', preview: '[ ]' }, { label: 'Hexagonal', description: '' }] };
+  const quick = (more: Partial<DossierRoundRow> = {}, now = SOON) => isQuick(round('q', 'brainstorm', AT, more), now);
+
+  it('is an open round of one single-choice question with no preview, with time left', () => {
+    expect(quick()).toBe(true);
+  });
+
+  it('is not quick once answered or moved, or once its time is up', () => {
+    expect(quick({ status: 'answered', answers: { [SHAPE.question]: 'Hexagonal' } })).toBe(false);
+    expect(quick({ status: 'abandoned' })).toBe(false);
+    expect(quick({}, LATE)).toBe(false);
+    expect(quick({}, LATE - 1)).toBe(true);
+  });
+
+  it('is not quick with several questions, a multi-select, a preview, or no option', () => {
+    expect(quick({ questions: [SHAPE, SHAPE] })).toBe(false);
+    expect(quick({ questions: [CHECKS] })).toBe(false);
+    expect(quick({ questions: [PREVIEWED] })).toBe(false);
+    expect(quick({ questions: [{ ...SHAPE, options: [] }] })).toBe(false);
+    expect(quick({ questions: [] })).toBe(false);
+  });
+
+  const asked = [
+    round('a', 'brainstorm', '2026-09-28T08:59:00Z', { status: 'answered', answers: { [SHAPE.question]: 'Hexagonal' } }),
+    round('q1', 'brainstorm', AT),
+    round('q2', 'brainstorm', '2026-09-28T09:00:30Z', { questions: [CHECKS] }),
+  ];
+  const quickView = (me: string, answerable: string[]) =>
+    dossierView({ dossier: numbered, versions, members: MEMBERS, rounds: asked, answerable }, me, readPick({}), SOON).questions.rounds!;
+
+  it('gives a viewer who may answer a button per option, the answer exactly as offered, and the next open round', () => {
+    const [answered, first, second] = quickView(PIERRE.user_id, ['q1', 'q2']);
+    expect(answered.quick).toBeNull();
+    expect(second.quick).toBeNull();
+    expect(first.quick).toEqual({
+      question: SHAPE.question,
+      choices: [{ label: 'Square', recommended: true, value: 'Square (Recommended)' }, { label: 'Hexagonal', recommended: false, value: 'Hexagonal' }],
+      canAnswer: true,
+      owner: 'Pierre',
+      next: 'q2',
+    });
+  });
+
+  it('decides who may answer from what the server read, never from the viewer alone', () => {
+    const [, first] = quickView(PIERRE.user_id, []);
+    expect(first.quick).toMatchObject({ canAnswer: false, owner: 'Pierre' });
+    expect(quickView(MARIE.user_id, ['q1'])[1].quick).toMatchObject({ canAnswer: true });
+  });
+
+  it('keeps each round id as the id the way back lands on', () => {
+    expect(quickView(PIERRE.user_id, []).map((r) => r.id)).toEqual(['a', 'q1', 'q2']);
   });
 });

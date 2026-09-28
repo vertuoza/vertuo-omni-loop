@@ -12,11 +12,15 @@
 // (PRD 144), and whether the brainstorm or the delivery asked it. Its label counts the rounds answered
 // out of those asked. Each round links to its own page with the dossier it came from
 // (`/ask/q/<round>?from=<dossier id>`), and `wayBack` says where that page goes once it is answered:
-// back to this Questions tab, at the next round still open.
+// back to this Questions tab, at the next round still open. Each round carries its id as its element's
+// id, so that way back lands on it. A quick round (`isQuick`: open, one single-choice question with no
+// preview, time left) is answered with one click on the list by whoever may answer it — its session's
+// owner or a member it is shared with, decided on the server when the page is read (`answerable`) —
+// and reads "Waiting for <owner>" to anyone else.
 import { readQuestions, shownLabel } from '../../ask/answer-model';
 import { CATEGORY_LABELS, isCategory, type Category } from '../../ask/classify';
 import { nameOf, type Member } from '../../ask/page/question';
-import { duration } from '../../ask/page/view';
+import { duration, HOOK_WAIT_MS } from '../../ask/page/view';
 import { isDossierKind, type DossierKind, type DossierRoundRow, type DossierRow, type DossierVersionRow, type RoundRule } from '../store';
 import { isDossierId } from './source';
 
@@ -87,10 +91,12 @@ export function versionSource(version: Pick<DossierVersionRow, 'source' | 'uploa
 }
 
 /** What the page reads: the dossier, its versions, its workspace's members, its rounds (null when they
- * could not be read), and its repositories as the history lists them (its home repository alone when
- * they are not given, or could not be read). */
+ * could not be read), its repositories as the history lists them (its home repository alone when
+ * they are not given, or could not be read), and the rounds the viewer may answer, as the server
+ * decided them (none when not given). */
 export type DossierRead = {
   dossier: DossierRow; versions: DossierVersionRow[]; members: Member[]; rounds: DossierRoundRow[] | null; repos?: string[] | null;
+  answerable?: readonly string[];
 };
 
 /** A tab and what its label adds: an artifact's latest version (`v3`), or the questions answered out
@@ -145,7 +151,17 @@ export type RoundQuestion = {
   header: string; question: string; multiSelect: boolean; shape: QuestionShape; options: RoundOption[]; answer: string | null; written: string | null;
 };
 
+/** One option of a quick round, as its button shows it (`label`, `recommended`) and as the answer
+ * records it (`value`: the label exactly as the question offered it). */
+export type QuickChoice = { label: string; recommended: boolean; value: string };
+
+/** A quick round, answered on the list: its one question, a button per option for a viewer who may
+ * answer it, "Waiting for <owner>" for anyone else, and the next round still open, to scroll to once
+ * it is answered. */
+export type QuickRound = { question: string; choices: QuickChoice[]; canAnswer: boolean; owner: string; next: string | null };
+
 export type RoundEntry = {
+  /** The round's id, also its element's id on the list, so `#<round id>` lands on it. */
   id: string;
   rule: RoundRule;
   /** The question on its own page, where any member may change its category, carrying the dossier it came from. */
@@ -160,6 +176,8 @@ export type RoundEntry = {
   categoryValue: Category | null;
   /** Where it came from: repository · branch · PRD #n · skill, each left out when unknown. */
   context: string[];
+  /** Set when the round is quick (PRD 384): it is answered on the list; null otherwise. */
+  quick: QuickRound | null;
 };
 
 /** The rounds, in the order they were asked (null when they could not be read), and how many were asked and answered. */
@@ -218,11 +236,45 @@ type Asked = Pick<DossierRoundRow, 'round_id' | 'created_at'>;
 const askedOrder = (a: Asked, b: Asked) =>
   Date.parse(a.created_at) - Date.parse(b.created_at) || a.round_id.localeCompare(b.round_id);
 
+/** Whether a round is answered with one click on the list (PRD 384): open, exactly one question,
+ * single choice, with options and none of them a preview, and time left before it moves to the terminal. */
+export function isQuick(row: Pick<DossierRoundRow, 'status' | 'questions' | 'created_at'>, now: number): boolean {
+  if (row.status !== 'open' || now >= Date.parse(row.created_at) + HOOK_WAIT_MS) return false;
+  const asked = readQuestions(row.questions);
+  if (asked.length !== 1) return false;
+  const [only] = asked;
+  return !only.multiSelect && only.options.length > 0 && only.options.every((o) => o.preview === null);
+}
+
+type Opened = Pick<DossierRoundRow, 'round_id' | 'status' | 'created_at'>;
+
+/** The first round still open in the order asked, other than `roundId`; null when none is. */
+function nextOpen(rows: readonly Opened[], roundId: string): string | null {
+  return [...rows].filter((row) => row.status === 'open' && row.round_id !== roundId).sort(askedOrder)[0]?.round_id ?? null;
+}
+
+function quickOf(row: DossierRoundRow, rows: readonly DossierRoundRow[], members: Member[], answerable: readonly string[], now: number): QuickRound | null {
+  if (!isQuick(row, now)) return null;
+  const [only] = readQuestions(row.questions);
+  return {
+    question: only.question,
+    choices: only.options.map((o) => {
+      const shown = shownLabel(o.label);
+      return { label: shown.text, recommended: shown.recommended, value: o.label };
+    }),
+    canAnswer: answerable.includes(row.round_id),
+    owner: nameOf(row.asked_by, members),
+    next: nextOpen(rows, row.round_id),
+  };
+}
+
 /** A round's own page, carrying the dossier it is opened from, so that page can bring the person back. */
 export const roundPath = (roundId: string, dossierId: string) =>
   `/ask/q/${encodeURIComponent(roundId)}?from=${encodeURIComponent(dossierId)}`;
 
-export function questionsView(rows: DossierRoundRow[] | null, members: Member[], dossierId: string): QuestionsView {
+export function questionsView(
+  rows: DossierRoundRow[] | null, members: Member[], dossierId: string, answerable: readonly string[] = [], now: number = Date.now(),
+): QuestionsView {
   if (rows === null) return { rounds: null, asked: 0, answered: 0 };
   const rounds = [...rows].sort(askedOrder).map((row): RoundEntry => ({
     id: row.round_id,
@@ -234,16 +286,19 @@ export function questionsView(rows: DossierRoundRow[] | null, members: Member[],
     category: isCategory(row.category) ? CATEGORY_LABELS[row.category] : 'unsorted',
     categoryValue: isCategory(row.category) ? row.category : null,
     context: [row.repo, row.branch, row.prd ? `PRD #${row.prd}` : null, row.skill].filter((part): part is string => typeof part === 'string' && part !== ''),
+    quick: quickOf(row, rows, members, answerable, now),
   }));
   return { rounds, asked: rows.length, answered: rows.filter((row) => row.status === 'answered').length };
 }
 
-export function dossierView({ dossier, versions, members, rounds, repos }: DossierRead, me: string | null, pick: DossierPick): DossierView {
+export function dossierView(
+  { dossier, versions, members, rounds, repos, answerable = [] }: DossierRead, me: string | null, pick: DossierPick, now: number = Date.now(),
+): DossierView {
   const ofKind = (kind: DossierKind) => versions.filter((v) => v.kind === kind);
   const fallback = defaultTab(rounds);
   const tab = pick.tab ?? fallback;
   const mine = tab === 'questions' ? [] : ofKind(tab);
-  const questions = questionsView(rounds, members, dossier.id);
+  const questions = questionsView(rounds, members, dossier.id, answerable, now);
   const badgeOf = (kind: DossierTab) => {
     if (kind !== 'questions') return ofKind(kind).length ? `v${ofKind(kind).length}` : null;
     return questions.asked ? `${questions.answered}/${questions.asked} answered` : null;
@@ -290,7 +345,7 @@ export type WayBack = {
   from: string | null;
   sessionId: string;
   roundId: string;
-  rounds: readonly Pick<DossierRoundRow, 'round_id' | 'status' | 'created_at'>[] | null;
+  rounds: readonly Opened[] | null;
 };
 
 /** Where the question page goes once its round is answered (PRD 384): the dossier's Questions tab at
@@ -300,8 +355,6 @@ export type WayBack = {
 export function wayBack({ from, sessionId, roundId, rounds }: WayBack): string {
   if (from === null || !isDossierId(from)) return `/ask/${encodeURIComponent(sessionId)}`;
   const tab = `${dossierPath(from)}?tab=questions`;
-  const next = [...(rounds ?? [])]
-    .filter((row) => row.status === 'open' && row.round_id !== roundId)
-    .sort(askedOrder)[0];
-  return next ? `${tab}#${encodeURIComponent(next.round_id)}` : tab;
+  const next = nextOpen(rounds ?? [], roundId);
+  return next ? `${tab}#${encodeURIComponent(next)}` : tab;
 }
