@@ -11,9 +11,9 @@ import './bell.css';
 // panel takes the screen's width under the top bar (bell.css).
 
 export function Bell() {
-  const { list, unread } = useWaiting();
+  const { list, unread, unreadPrds } = useWaiting();
   const [now, setNow] = useState(() => Date.now());
-  return <BellView list={list} unread={unread} now={now} onOpen={() => setNow(Date.now())} />;
+  return <BellView list={list} unread={{ ...unread, outboxPrds: unreadPrds }} now={now} onOpen={() => setNow(Date.now())} />;
 }
 
 /** The bell as it draws a given list: what the render tests pin. */
