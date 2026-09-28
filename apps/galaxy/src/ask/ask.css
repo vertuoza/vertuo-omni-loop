@@ -317,6 +317,14 @@ html:has(.ask[data-ask-theme]) body {
 }
 .ask-button:disabled { color: var(--ask-muted); background: var(--ask-sunk); cursor: not-allowed; }
 .ask-button.quiet { color: var(--ask-ink); background: var(--ask-surface); border: 1.5px solid var(--ask-line); }
+/* A link drawn as a button (Approve spec, Review & merge…): `.ask a` would paint it cyan and
+   underlined, unreadable on plasma (PRD 476). Focus keeps the cyan ring of `.ask :focus-visible`. */
+.ask a.ask-button { color: var(--ask-on-plasma); text-decoration: none; }
+.ask a.ask-button:hover,
+.ask a.ask-button:focus-visible { color: var(--ask-on-plasma); text-decoration: none; }
+.ask a.ask-button.quiet,
+.ask a.ask-button.quiet:hover,
+.ask a.ask-button.quiet:focus-visible { color: var(--ask-ink); }
 
 /* ── Cards: working, moved, closed, sign-in, not found ────────────────────── */
 
