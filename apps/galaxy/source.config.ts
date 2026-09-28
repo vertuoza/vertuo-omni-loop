@@ -1,4 +1,5 @@
 import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
+import { rehypeCodeBadges } from './src/docs/badges';
 
 // The guide (PRD 346): the markdown pages of docs/guide/ at the repository's root, compiled by
 // fumadocs-mdx at build time into .source/, which src/docs/source.ts hands to fumadocs-core's loader.
@@ -7,4 +8,6 @@ export const docs = defineDocs({ dir: '../../docs/guide' });
 
 // No syntax highlighting: Shiki would paint code blocks with its own theme's colours, inline, where
 // the app draws everything from @omni/design's tokens (src/docs/docs.css).
-export default defineConfig({ mdxOptions: { rehypeCodeOptions: false } });
+// Each code block's fence words (```bash terminal agent) become its badges, set above the code
+// (PRD 373, src/docs/badges.ts): decided here, at compile time, never in the browser.
+export default defineConfig({ mdxOptions: { rehypeCodeOptions: false, rehypePlugins: [rehypeCodeBadges] } });

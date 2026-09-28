@@ -46,8 +46,8 @@ describe('what a page names', () => {
 
   it('reads a page\'s title and Next link', () => {
     expect(parsePage('install', '---\ntitle: Install\n---\n\nWords.\n\n[Next → Invade](/docs/invade)\n'))
-      .toEqual({ slug: 'install', title: 'Install', next: '/docs/invade', body: '\nWords.\n\n[Next → Invade](/docs/invade)\n' });
-    expect(parsePage('x', 'No frontmatter.')).toMatchObject({ title: null, next: null });
+      .toEqual({ slug: 'install', title: 'Install', next: '/docs/invade', body: '\nWords.\n\n[Next → Invade](/docs/invade)\n', bodyLine: 4 });
+    expect(parsePage('x', 'No frontmatter.')).toMatchObject({ title: null, next: null, bodyLine: 1 });
   });
 
   it('serves index at /docs and every other page under it', () => {
@@ -82,7 +82,7 @@ describe('the guard', () => {
   });
 
   it('fails on an omni command the CLI does not have', () => {
-    expect(guide({ index: page('A', '/docs/b', '```\nomni nope\n```'), b: page('B', '/docs') })).toEqual(['index.md: omni nope is no command of the CLI']);
+    expect(guide({ index: page('A', '/docs/b', '```bash terminal\nomni nope\n```'), b: page('B', '/docs') })).toEqual(['index.md: omni nope is no command of the CLI']);
   });
 
   it('fails on a page with no title', () => {
@@ -95,6 +95,31 @@ describe('the guard', () => {
       'b.md: Next → /docs/b is no other page of the guide',
       'c.md: no Next → link',
     ]);
+  });
+
+  it('passes code blocks that each name where they go, fenced or indented in a list', () => {
+    const body = [
+      '```bash terminal', 'gh auth login', '```', '',
+      '```text agent', '/omni:plan 7', '```', '',
+      '```bash terminal agent', 'omni config', '```', '',
+      '```yaml file=.omni-loop/config.yml', 'ask:', '```', '',
+      '- A reply:', '', '  ```text github', '  1: A', '  ```',
+      '',
+      '````markdown agent', '```', 'a fence shown inside a block', '```', '````',
+    ].join('\n');
+    expect(guide({ index: page('A', '/docs/b', body), b: page('B', '/docs') })).toEqual([]);
+  });
+
+  it.each([
+    ['```bash', 'the code block names no kind (terminal, agent, file=<path>, github)'],
+    ['```text foo', 'the code block names "foo", which is no kind'],
+    ['```yaml file', 'the code block names file with no path'],
+    ['```text github terminal', 'the code block names github beside another kind: it stands alone'],
+    ['  ```yaml file= agent', 'the code block names file with no path'],
+  ])('fails on a block fenced %j, once, naming the page and the line', (fence, problem) => {
+    // The frontmatter takes lines 1 to 3, a blank line 4, Words. line 5: the fence opens on line 7.
+    const body = `Words.\n\n${fence}\nsome code\n${fence.startsWith(' ') ? '  ' : ''}\`\`\`\n`;
+    expect(guide({ index: page('A', '/docs/b', body), b: page('B', '/docs') })).toEqual([`index.md:7: ${problem}`]);
   });
 
   it('fails on a page the order file leaves out, and on an order entry with no page', () => {
