@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kit Releases</title>
+<style>
+  /* Ask mode's palette (PRD 71, 144, 216), as the before/after pages around it use. No web font and
+     no external request: the Omni page shows it inside a sandbox whose policy is default-src 'none'.
+     The terminals are drawn the same in both themes, as a terminal is. The versions, commits and
+     pull request numbers are examples. */
+  :root {
+    --ground: #f5f4fc;
+    --surface: #ffffff;
+    --sunk: #eceaf8;
+    --line: #d9d6ee;
+    --ink: #17153d;
+    --muted: #4f5486;
+    --plasma: #6a2fd0;
+    --plasma-soft: #efe7ff;
+    --t-ground: #0d0c26;
+    --t-raised: #15133a;
+    --t-ink: #e8eaff;
+    --t-dim: #8f95cf;
+    --t-line: #2f2c78;
+    --t-green: #5fe3a1;
+    --t-yellow: #ffd166;
+    --t-red: #ff7a8a;
+    --t-violet: #b37cff;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --px: "Press Start 2P", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+      --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+    --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.55 var(--body); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 40px 64px; display: grid; gap: 56px; }
+  header { display: grid; gap: 12px; max-width: 72ch; }
+  .eyebrow { font: 10px/1.6 var(--px); letter-spacing: .08em; color: var(--plasma); text-transform: uppercase; }
+  h1 { margin: 0; font-size: clamp(28px, 4vw, 40px); line-height: 1.15; text-wrap: balance; }
+  h2 { margin: 0; font-size: 22px; line-height: 1.25; text-wrap: balance; }
+  h3 { margin: 0; font: 600 14px/1.4 var(--body); }
+  p { margin: 0; }
+  code { font: 0.88em var(--mono); background: var(--sunk); border-radius: 4px; padding: 1px 5px; }
+  .lede { color: var(--muted); }
+  section { display: grid; gap: 16px; }
+  section > p { max-width: 72ch; color: var(--muted); }
+  .pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 960px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+  .pair.stack { grid-template-columns: minmax(0, 1fr); }
+  .side { display: grid; gap: 10px; min-width: 0; }
+  .tag { justify-self: start; font: 600 12px/1 var(--mono); padding: 5px 8px; border-radius: 4px; }
+  .tag.today { background: var(--sunk); color: var(--muted); }
+  .tag.after { background: var(--plasma-soft); color: var(--plasma); }
+  .note { font-size: 14px; color: var(--muted); max-width: 70ch; }
+
+  /* Terminal */
+  .term { background: var(--t-ground); color: var(--t-ink); border-radius: 10px; border: 1px solid var(--t-line); overflow-x: auto; }
+  .term-bar { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--t-line); color: var(--t-dim); font: 12px var(--mono); align-items: center; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--t-line); }
+  .term pre { margin: 0; padding: 12px 14px 14px; font: 13px/1.6 var(--mono); white-space: pre; }
+  .term .input { margin: 0 14px; border: 1px solid var(--t-line); border-radius: 6px; padding: 8px 10px; font: 13px/1.4 var(--mono); color: var(--t-dim); white-space: pre; }
+  .term .foot { padding: 8px 14px 12px; font: 13px/1.6 var(--mono); white-space: pre; }
+  .t-dim { color: var(--t-dim); }
+  .t-green { color: var(--t-green); }
+  .t-yellow { color: var(--t-yellow); }
+  .t-red { color: var(--t-red); }
+  .t-violet { color: var(--t-violet); }
+
+  /* The gallery of line-2 states */
+  .states { display: grid; gap: 12px; }
+  .state { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); gap: 12px 20px; align-items: center; }
+  @media (max-width: 760px) { .state { grid-template-columns: minmax(0, 1fr); gap: 6px; } }
+  .state .when { font-size: 14px; color: var(--muted); }
+  .state .when b { color: var(--ink); font-weight: 600; }
+  .strip { background: var(--t-ground); color: var(--t-ink); border: 1px solid var(--t-line); border-radius: 8px; padding: 8px 12px; font: 13px/1.6 var(--mono); white-space: pre; overflow-x: auto; }
+
+  /* What changes, what stays */
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; background: var(--surface); border: 1px solid var(--line); }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 600 12px var(--mono); color: var(--muted); background: var(--sunk); }
+  tr:last-child td { border-bottom: 0; }
+  td.same { color: var(--muted); }
+  td.new { color: var(--ink); }
+  td.new b { color: var(--plasma); }
+
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <header>
+    <span class="eyebrow">PRD 347 · before / after</span>
+    <h1>Know which kit you run, and get the latest in one command</h1>
+    <p class="lede">Today the kit has no version: a merge to <code>main</code> changes what the next install takes, and
+      nothing says which one a repository runs. Updating means <code>init --force</code>, which rewrites
+      <code>config.yml</code>, and the Claude plugin never updates at all. After, every merge is a numbered release,
+      <code>omni version</code> says where you are, and <code>omni update</code> opens one pull request that brings the
+      repository to the latest, and updates the plugin too.</p>
+  </header>
+
+  <section aria-labelledby="merge">
+    <h2 id="merge">A merge to <code>main</code></h2>
+    <p>The <code>release</code> workflow stamps one number everywhere: <code>package.json</code>, <code>plugin.json</code>,
+      the bundle, a git tag and a GitHub Release.</p>
+    <div class="pair">
+      <div class="side">
+        <span class="tag today">today</span>
+        <div class="term" aria-label="main's history, today">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>git log --oneline main</span></div>
+<pre>d324bad docs(phase-0): statusline (#327)
+be3621d docs(phase-0): help-and-status (#317)
+ce95a90 feat(galaxy): HOME, value first (#288)
+
+<span class="t-dim">$ git tag
+$ gh release list
+$ grep version kit/plugin/.claude-plugin/plugin.json</span>
+  "version": "0.1.0"   <span class="t-red">← never changes</span></pre>
+        </div>
+      </div>
+      <div class="side">
+        <span class="tag after">after</span>
+        <div class="term" aria-label="main's history, after">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>git log --oneline main</span></div>
+<pre>7f1e2a0 chore(release): v0.0.3   <span class="t-violet">(tag: v0.0.3)</span>
+d324bad docs(phase-0): statusline (#327)
+91ab3c4 chore(release): v0.0.2   <span class="t-violet">(tag: v0.0.2)</span>
+be3621d docs(phase-0): help-and-status (#317)
+
+<span class="t-dim">$ gh release list</span>
+v0.0.3  Latest  omni.mjs attached
+<span class="t-dim">$ grep version kit/plugin/.claude-plugin/plugin.json</span>
+  "version": "0.0.3"   <span class="t-green">← same as the bin</span></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="version">
+    <h2 id="version">Which kit am I running?</h2>
+    <div class="pair">
+      <div class="side">
+        <span class="tag today">today</span>
+        <div class="term" aria-label="omni version, today">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>vertuo-workflow-domain</span></div>
+<pre><span class="t-dim">$ omni version</span>
+usage: omni &lt;config|prd|status|…&gt;
+<span class="t-red">exit 2</span>
+
+<span class="t-dim">The bin records nothing about the
+commit it was built from.</span></pre>
+        </div>
+      </div>
+      <div class="side">
+        <span class="tag after">after</span>
+        <div class="term" aria-label="omni version, after">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>vertuo-workflow-domain</span></div>
+<pre><span class="t-dim">$ omni version</span>
+omni v0.0.13
+<span class="t-yellow">latest v0.0.15, run: omni update</span></pre>
+        </div>
+        <div class="states">
+          <div class="state"><p class="when"><b>Up to date</b></p><div class="strip">omni v0.0.15 (latest)</div></div>
+          <div class="state"><p class="when"><b>Offline</b>, or no <code>gh</code></p><div class="strip">omni v0.0.13</div></div>
+          <div class="state"><p class="when"><b>Installed before versions</b></p><div class="strip">omni (unversioned)</div></div>
+          <div class="state"><p class="when"><b>The kit's own repository</b></p><div class="strip">omni v0.0.15 (source)</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="update">
+    <h2 id="update">Getting the latest</h2>
+    <div class="pair">
+      <div class="side">
+        <span class="tag today">today</span>
+        <div class="term" aria-label="updating, today">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>vertuo-workflow-domain</span></div>
+<pre><span class="t-dim">$ npx github:vertuoza/vertuo-omni-loop init --force</span>
+omni init — vertuoza/vertuo-workflow-domain is set up.
+  wrote   .omni-loop/config.yml   <span class="t-red">← your edits gone</span>
+  wrote   .omni-loop/bin/omni.mjs
+  <span class="t-dim">…</span>
+
+<span class="t-dim">In Claude Code:</span>
+&gt; /plugin update omni@omni-loop
+<span class="t-red">omni is already at the latest version (0.1.0).</span></pre>
+        </div>
+      </div>
+      <div class="side">
+        <span class="tag after">after</span>
+        <div class="term" aria-label="omni update, after">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>vertuo-workflow-domain</span></div>
+<pre><span class="t-dim">$ omni update</span>
+v0.0.9 → v0.0.15
+  bin      updated
+  config   <span class="t-green">kept</span>, valid under v0.0.15
+  forms    1 created (.omni-loop/knowledge/playbook/security.md)
+  labels   ok
+  plugin   <span class="t-green">updated to v0.0.15</span>, run /reload-plugins
+PR: https://github.com/vertuoza/vertuo-workflow-domain/pull/88</pre>
+        </div>
+        <p class="note">The work happens in a worktree on <code>chore/omni-update-v0.0.15</code>, so your checkout is never
+          touched. A person merges the pull request. <code>omni update --to v0.0.12</code> goes back to a given version.
+          The first time, a repository installed before versions runs <code>npx github:vertuoza/vertuo-omni-loop update</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="table">
+    <h2 id="table">What changes, what stays</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>thing</th><th>today</th><th>after</th></tr></thead>
+        <tbody>
+          <tr><td>a merge to <code>main</code></td><td class="same">changes what the next install takes</td><td class="new">the same, and it is <b>release v0.0.N</b>: tag, GitHub Release, one bot commit</td></tr>
+          <tr><td>the bin</td><td class="same">no version</td><td class="new">carries its version; <b>omni version</b> prints it</td></tr>
+          <tr><td>the plugin</td><td class="same">stuck at 0.1.0, never updates</td><td class="new">the <b>same number as the bin</b>, updated by <code>omni update</code></td></tr>
+          <tr><td><code>config.yml</code></td><td class="same">rewritten by <code>init --force</code></td><td class="new"><b>never rewritten</b> by an update: checked, migrated only when the format changes</td></tr>
+          <tr><td>knowledge forms</td><td class="same">never overwritten</td><td class="same">never overwritten; new ones created</td></tr>
+          <tr><td>installed repositories</td><td class="same">untouched by a merge</td><td class="same">untouched by a merge: they move when someone runs <code>omni update</code></td></tr>
+          <tr><td><code>omni init</code></td><td class="same">installs from <code>main</code></td><td class="same">installs from <code>main</code>, which is the latest release</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>
