@@ -13,7 +13,7 @@ import { supabaseEnv, supabaseServer } from '../../../../src/data/supabase-serve
 // is shared with, the answer form while it is open; as any other member of the session's workspace,
 // the same question read-only; once answered, who answered first, with the answer; as anyone else,
 // not found. Without a database it plays the demo's shared question in development (`?demo=answered`:
-// already answered by its owner).
+// already answered by its owner). `?from=<dossier id>` is where the page goes back once answered (PRD 384).
 
 type Props = {
   params: Promise<{ round: string }>;
@@ -29,7 +29,7 @@ export default async function AskQuestionPage({ params, searchParams }: Props) {
 
   if (mode === 'demo') {
     const initial = demoQuestion(now, one(query.demo) === 'answered');
-    return <AskQuestion source={{ kind: 'demo' }} initial={initial} serverNow={now} me={DEMO_TEAMMATE} members={DEMO_MEMBERS} />;
+    return <AskQuestion source={{ kind: 'demo' }} initial={initial} serverNow={now} me={DEMO_TEAMMATE} members={DEMO_MEMBERS} from={one(query.from)} />;
   }
   const env = supabaseEnv();
   if (mode === 'closed' || !env) {
@@ -57,5 +57,5 @@ export default async function AskQuestionPage({ params, searchParams }: Props) {
   }
   if (!state) notFound();
   const members = await readMembers(db, state.session.workspace_id);
-  return <AskQuestion source={{ kind: 'database', ...env }} initial={state} serverNow={Date.now()} me={user.id} members={members} />;
+  return <AskQuestion source={{ kind: 'database', ...env }} initial={state} serverNow={Date.now()} me={user.id} members={members} from={one(query.from)} />;
 }

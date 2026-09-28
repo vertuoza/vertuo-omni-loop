@@ -68,6 +68,8 @@ export type FakeAskRound = {
   category: string | null; category_by: string | null; prd: number | null; skill: string | null;
   created_at: string; answered_at: string | null;
 };
+/** A share (PRD 144): a round, the member it is shared with, who shared it and when. */
+export type FakeAskShare = { round_id: string; shared_with: string; shared_by: string; created_at: string };
 /** A ledger event (PRD 100), as much of it as the history reads. */
 export type FakeLedgerEvent = { workspace_id: string; type: string; planet: number; region: string | null };
 
@@ -82,7 +84,7 @@ const refuse = (code: string, message: string): Result => ({ data: null, error: 
 export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record<string, string | null> = {}, now: () => number = Date.now) {
   const tables = {
     dossiers: [] as FakeDossier[], dossier_versions: [] as FakeVersion[],
-    ask_sessions: [] as FakeAskSession[], ask_rounds: [] as FakeAskRound[],
+    ask_sessions: [] as FakeAskSession[], ask_rounds: [] as FakeAskRound[], ask_shares: [] as FakeAskShare[],
     ledger_events: [] as FakeLedgerEvent[],
     /** Each workspace's plan repository, a bare name, by workspace id. */
     plan_repos: {} as Record<string, string>,
@@ -214,7 +216,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
    * their own draft (its versions go with it), and no other delete removes a row. Only the steps the
    * page's reads take: select, eq, order, maybeSingle, delete.
    */
-  function query(me: FakeAccount | null, table: 'dossiers' | 'dossier_versions') {
+  function query(me: FakeAccount | null, table: 'dossiers' | 'dossier_versions' | 'ask_shares') {
     let columns: string[] | null = null;
     let removing = false;
     const filters: Array<(row: Row) => boolean> = [];
@@ -222,6 +224,12 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
 
     const readable = (row: Row): boolean => {
       if (!me) return false;
+      if (table === 'ask_shares') {
+        // "a member reads the shares of their workspace's rounds" (20260927120000_ask_shares.sql).
+        const round = tables.ask_rounds.find((r) => r.id === row.round_id);
+        const session = round && tables.ask_sessions.find((s) => s.id === round.session_id);
+        return row.shared_with === me.id || (typeof session?.workspace_id === 'string' && isMember(me, session.workspace_id));
+      }
       const workspace = table === 'dossiers' ? row.workspace_id : tables.dossiers.find((d) => d.id === row.dossier_id)?.workspace_id;
       return typeof workspace === 'string' && isMember(me, workspace);
     };
@@ -337,7 +345,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
   function client(token: string) {
     const me = accounts[token] ?? null;
     return {
-      from: (table: 'dossiers' | 'dossier_versions') => query(me, table),
+      from: (table: 'dossiers' | 'dossier_versions' | 'ask_shares') => query(me, table),
       rpc: (name: string, args: Row) => Promise.resolve().then((): Result => {
         state.calls += 1;
         if (state.fail) return { data: null, error: state.fail };
@@ -391,6 +399,11 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     return { session, rounds: made };
   }
 
+  /** A round shared with a member, as ask_round_share() records it (PRD 144). */
+  function seedShare(roundId: string, sharedWith: string, sharedBy: string) {
+    tables.ask_shares.push({ round_id: roundId, shared_with: sharedWith, shared_by: sharedBy, created_at: stamp() });
+  }
+
   /** A workspace's plan repository (a bare name), and PRD `prd`'s planet surveyed in each of `regions`,
    * as the ledger's REGION_SURVEYED events record it. */
   function seedPlanet({ workspace = FAKE_WORKSPACE, planRepo, prd, regions }: {
@@ -400,5 +413,5 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     for (const region of regions) tables.ledger_events.push({ workspace_id: workspace, type: 'REGION_SURVEYED', planet: prd, region });
   }
 
-  return { tables, client, state, seedFromGithub, seedAsk, seedPlanet, sha256 };
+  return { tables, client, state, seedFromGithub, seedAsk, seedShare, seedPlanet, sha256 };
 }
