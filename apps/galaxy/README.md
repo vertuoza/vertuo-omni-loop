@@ -1,9 +1,9 @@
 # OMNI LOOP — the galaxy arcade
 
 The web UI of the game layer: a retro arcade that shows the galaxy. Every PRD is a planet,
-every slice a zone, every open question or bug an Entropy unit on its surface. Signing in with a
-`@vertuoza.com` Google account makes you a member of the `vertuoza` workspace and a **visitor**:
-you may look at its galaxy. Linking your GitHub account, once, makes you a **player**: you pick a
+every slice a zone, every open question or bug an Entropy unit on its surface. Signing in with
+GitHub makes you a member of the workspace of every GitHub org of yours that has Omni Loop installed
+(the `vertuoza` workspace, for the vertuoza org), and a **player** at once: you pick a
 fleet, enter a name and build a hero, and your pull requests score for that fleet. Every point also
 counts as XP, which never resets, and levels open arcade games in the game room, the first of them
 Entropy Invaders ([The game room](#the-game-room)). All from the keyboard on a computer, and from a
@@ -72,7 +72,8 @@ description, and an Open Graph image of the crest and AGENTS SHIP. YOU STEER. on
 (`app/opengraph-image.tsx`, drawn from `src/home/share.tsx`).
 
 The arcade is at **`/play`** (`app/play/page.tsx`), in the same modes as before. Signing in with
-Google, linking GitHub and signing out all come back to `/play`.
+GitHub and signing out come back to `/play`; a visitor whose orgs have no workspace yet signs up at
+`/signup` ([Sign-in and sign-up](#sign-in-and-sign-up)).
 
 The arcade's deep links are forwarded: HOME sends `/#map`, `/#chart`, `/#fleets`, `/#heroes`,
 `/#games`, `/#briefing`, `/#menu` and `/#planet-<n>` on to `/play` with the same hash before it
@@ -84,9 +85,8 @@ HOME.
 | Screen | What it shows |
 |---|---|
 | Boot → Title | "OMNI LOOP presents" and the Omni Loop crest, then an attract loop: the crest, the story, the top five heroes (signed in). A member sees their workspace's name, letter and colours (a Vertuoza member, "VERTUOZA presents" and the V); signed out, in demo mode, closed and in the artifact, the house brand, Omni Loop |
-| Insert coin | Sign in with the Vertuoza Google account; any other domain is refused and says why, and a signed-in account that belongs to no workspace gets the "wrong cartridge" screen |
-| Press start | After coming back from Google: browsers play sound only after a key press |
-| Link GitHub | Before playing, once: points are earned under the GitHub login, which only the linked identity sets. B visits only |
+| Insert coin | Sign in with GitHub; a signed-in account that belongs to no workspace gets the "wrong cartridge" screen, which points at `/signup` |
+| Press start | After coming back from GitHub: browsers play sound only after a key press |
 | Intro | First visit only, 20 s, skippable: OmniMan rises, three lines type in, the fleets flash in |
 | Select your fleet | The fleets from `public.teams`, each with its own motif; A locks in with a fanfare. Also CHANGE FLEET, with a confirmation of where the points go |
 | Enter your name | Up to 10 characters, typed or spun on a letter wheel, pre-filled from the Google first name |
@@ -282,16 +282,15 @@ the database's policies decide what they see:
   time, never the whole list. Read on its own after the galaxy, like XP: when it fails, the galaxy
   stays and the DOSSIER tab says DOSSIERS OUT OF REACH; one planet's dossier out of reach leaves the
   others shown.
-- **Crew means "has a workspace"**, never an email domain. A signed-in person who belongs to none
-  yet is joined once by the page (`join_by_domain()`), so a session from before workspaces joins
-  too; one who still belongs to none gets the "wrong cartridge" screen and reads nothing.
+- **Crew means "has a workspace"**, never an email domain. Joining happens at sign-in, where
+  GitHub's token is at hand ([Sign-in and sign-up](#sign-in-and-sign-up)); a signed-in person who
+  belongs to none gets the "wrong cartridge" screen, pointing at `/signup`, and reads nothing.
 - **The database out of reach**: the attract mode, the built-in fleets, and "THE GALAXY IS OUT OF
   REACH". Nobody is turned away as an outsider when the page cannot tell.
 
-`proxy.ts` refreshes the session before each render. `app/auth/callback` turns Google's and
-GitHub's codes into that session and, after every sign-in, calls `join_by_domain()`, then, after a
-GitHub link, `link_github()` (`src/data/sign-in.ts`). The terminal's sign-in (`omni signin`, the
-callback's `next=ask-cli` branch) joins the same way before its one-time code is issued.
+`proxy.ts` refreshes the session before each render. `app/auth/callback` turns GitHub's code into
+that session and settles the sign-in (`src/data/sign-in.ts`); the terminal's sign-in (`omni signin`,
+the callback's `next=ask-cli` branch) settles it the same way before its one-time code is issued.
 
 Nobody gets past INSERT COIN without signing in: the title asks for a coin until there is a
 session, and every screen beyond it requires one (`allowed()` in `src/arcade/onboarding.ts`). A
@@ -309,6 +308,55 @@ Without the Supabase variables, the app picks its mode in `src/data/mode.ts`:
   DOSSIER tab shows. The single-file artifact plays the same way.
 - **Any other build** (a Vercel deployment missing its variables, say): **closed**. The attract mode
   plays, and INSERT COIN says sign-in is not open yet. No simulated sign-in, and no galaxy data.
+
+## Sign-in and sign-up
+
+GitHub is the only way in (PRD 359). Every sign-in surface (the arcade, `/ask`, the terminal's code
+card, `/knowledge`, the dossiers) starts GitHub's sign-in with the `read:org` scope
+(`src/data/sign-in-github.ts`), and the database's sign-up hook refuses any other provider with
+"Omni Loop signs in with GitHub only." A GitHub account with no public email signs up all the same.
+
+**At every sign-in** the callback settles it (`settleSignIn()` in `src/data/sign-in.ts`), each step
+best effort (ADR 0044: a failure is logged, and the sign-in carries on):
+
+1. **Joining by org.** With the provider token Supabase hands back, galaxy reads the person's login
+   and orgs from GitHub once (`src/data/github-orgs.ts`); the token is never stored. The service
+   role's `join_workspaces_by_github()` makes them a member of every workspace whose `github_org` is
+   one of those logins, in any case, and that has an installation of the App.
+2. **Completing sign-up requests.** Each pending request of theirs whose org they still belong to
+   and that now has the App installed (read with the App's JWT) becomes a workspace:
+   `create_workspace_from_installation()` makes them its owner, or a member of the one the org's
+   owner made first. The request is then gone.
+3. **Linking GitHub** (`link_github()`): every account is a player at once.
+
+**Signing up** is installing the omni-loop App (`apps/omni-app/app.yml`, public). `/signup` links to
+its install page on GitHub (`GITHUB_APP_SLUG`). GitHub then sends the visitor to the App's setup
+URL, `/signup/installed`:
+
+```
+/signup ── github.com/apps/<slug>/installations/new ── pick an org or your own account, pick repos
+   ▼
+/signup/installed?installation_id=…&setup_action=install|request
+   │  never trusted alone: the visitor signs in with GitHub again (silent, the scopes are granted)
+   ▼
+/signup/installed/callback ── src/signup/installed.ts, finishSetup():
+   ├─ install : the installation, fetched with the App's JWT (src/signup/github-app.ts); its
+   │            account must be the visitor's own login (a solo workspace) or one of their orgs;
+   │            create_workspace_from_installation() ──▶ /play, as the new workspace's owner
+   │            (a member, when the account had a workspace already)
+   └─ request : the visitor is not the org's admin, and GitHub names no org: a sign-up request for
+                each of their orgs without the App ──▶ /signup?waiting=<orgs>, "Waiting for <org>'s owner"
+```
+
+Anything else ends on `/signup?error=<reason>`, and creates nothing: an address GitHub did not send,
+an installation GitHub does not know, one on an account the visitor neither is nor belongs to,
+GitHub or the database out of reach. A workspace's slug and name are its account's login (the slug
+lowercased, numbered when taken); it starts empty, with no sectors and no fleets of its own.
+
+Sign-up's writes, the service role's only, go through `src/signup/store.ts`; the App's id and key
+(`GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`) and the service role's key are server only, read in
+`src/data/sign-in-live.ts`, and no client component imports them (`src/signup/SignupScreen.test.ts`
+checks).
 
 ## A workspace's look
 
@@ -485,7 +533,7 @@ nobody deletes a numbered dossier.
   `Content-Security-Policy: sandbox allow-scripts; default-src 'none'; …` and
   `X-Content-Type-Options: nosniff`, and shown in an `<iframe sandbox="allow-scripts">`: an anonymous
   origin, with no cookies and no network, even opened on its own.
-- **Who reads it.** A member of the dossier's workspace, signed in with the arcade's Google sign-in
+- **Who reads it.** A member of the dossier's workspace, signed in with the arcade's GitHub sign-in
   (each page has its own callback, `/prd/callback` and `/prd/<id>/callback`). Anyone else, a
   member of another workspace included, gets not found, in the words a dossier that never was gets.
   Omni, Light and Dark themes, Omni the default, as the `/ask` pages.
@@ -604,11 +652,13 @@ SUPABASE_URL=http://127.0.0.1:54321 pnpm releases:sync   # fills public.releases
 has run, it says no release is published yet. The sync writes with the service role's key, which it
 reads from `.env.local` like the `game:*` commands, and the project's URL as `SUPABASE_URL`.
 
-Signing in locally needs the Google and GitHub OAuth clients: export
-`SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID`, `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`,
-`SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID` and `SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET`, set `enabled =
-true` on both providers in `supabase/config.toml`, and restart the stack. Both clients must accept
-`http://127.0.0.1:54321/auth/v1/callback`. Without them, work on the demo galaxy instead.
+Signing in locally needs a GitHub OAuth client: export `SUPABASE_AUTH_EXTERNAL_GITHUB_CLIENT_ID` and
+`SUPABASE_AUTH_EXTERNAL_GITHUB_SECRET`, set `enabled = true` on the GitHub provider in
+`supabase/config.toml`, and restart the stack. The client must accept
+`http://127.0.0.1:54321/auth/v1/callback`. Joining by org also needs the service role's key in
+`.env.local`, and signing up a GitHub App of your own (its id, slug and private key, see
+`.env.example`) whose setup URL is `http://localhost:3000/signup/installed`. Without them, work on the
+demo galaxy instead.
 
 `pnpm galaxy:seed` regenerates `supabase/seed.sql` from the demo world, dated now, in the `vertuoza`
 workspace the migrations create.
@@ -660,7 +710,8 @@ Vercel region pinned in `vercel.json` (`fra1`). Keep the database password. Then
 
 - the **project ref**: the `<ref>` in `https://<ref>.supabase.co`;
 - the **publishable key** (or the legacy `anon` key): public by design, the web UI uses it;
-- the **secret key** (or the legacy `service_role` key): it writes, so only GitHub Actions gets it;
+- the **secret key** (or the legacy `service_role` key): it writes, so only GitHub Actions and
+  galaxy's server get it, never a browser;
 - a **personal access token** (Account › Access Tokens), for the migrations workflow.
 
 ### 2. Give GitHub the project
@@ -684,25 +735,25 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
 
 ### 4. Set up sign-in
 
-1. **Google (GCP QA project)** › APIs & Services:
-   - OAuth consent screen: **Internal** if the project belongs to the vertuoza.com Google Workspace
-     organisation (then only its accounts can consent); app name `OMNI LOOP`.
-   - Credentials › OAuth client ID › *Web application*, with the authorised redirect URI
-     `https://<ref>.supabase.co/auth/v1/callback`.
-2. **GitHub** › the vertuoza organisation › Settings › Developer settings › OAuth Apps › New:
-   homepage the arcade's URL, callback `https://<ref>.supabase.co/auth/v1/callback`. Linking it is
-   what makes a visitor a player, so the arcade needs it before anyone can play. (The installed
-   GitHub App can serve instead: its Client ID, a client secret generated on its page, which is not
-   the webhook secret, the same callback URL, and the *Email addresses: read* account permission.)
+1. **GitHub** › the vertuoza organisation › Settings › Developer settings › OAuth Apps › New:
+   homepage the arcade's URL, callback `https://<ref>.supabase.co/auth/v1/callback`. It is the only
+   way in. (The omni-loop GitHub App can serve instead: its Client ID, a client secret generated on
+   its page, which is not the webhook secret, the same callback URL, and the *Email addresses: read*
+   account permission.)
+2. **The omni-loop GitHub App** (`apps/omni-app`, registered from `app.yml`) › its settings page:
+   make it **public** (Advanced › Make public), and set its **Setup URL** to
+   `https://<production host>/signup/installed` with *Redirect on update* on. Note its **App ID**
+   and its public **slug** (`github.com/apps/<slug>`), and generate a **private key** (a `.pem`) for
+   galaxy.
 3. **Supabase** › Authentication:
-   - Sign In / Providers: enable **Google** and **GitHub** with their client IDs and secrets.
-   - Allow **manual linking** (players link GitHub to their Google sign-in).
+   - Sign In / Providers: enable **GitHub** with its client ID and secret, and disable **Google**.
    - URL Configuration: Site URL = the production arcade; Redirect URLs = `https://<production
      host>/**`, `https://*-<vercel-team>.vercel.app/**` (previews) and `http://localhost:3000/**`.
+     The `/**` covers `/signup/installed/callback`, where sign-up signs the visitor in again.
    - Hooks: **Before User Created** → Postgres function `public.hook_before_user_created`. It
-     refuses an address whose domain no workspace joins (`workspaces.join_domain`: today,
-     `vertuoza.com` only), with a message that names no company. Keep the function's name: the
-     setting points at it. The database policies refuse anyone who is not a member anyway.
+     lets in an account made by the GitHub provider, with or without an email, and refuses every
+     other with "Omni Loop signs in with GitHub only." Keep the function's name: the setting points
+     at it. The database policies refuse anyone who is not a member anyway.
 
 ### 5. Create the Vercel project
 
@@ -711,9 +762,14 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
    outside the Root Directory" on (the app imports `game/` and `packages/`). Framework and region
    come from `vercel.json`.
 2. Environment variables, for Production and Preview: `NEXT_PUBLIC_SUPABASE_URL` =
-   `https://<ref>.supabase.co` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` = the publishable key. Do not add
-   the secret key. `NEXT_PUBLIC_*` values are inlined at build time: redeploy after changing them.
-   Without them the deployment stays closed (nobody can enter); it never falls back to the demo.
+   `https://<ref>.supabase.co` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` = the publishable key.
+   `NEXT_PUBLIC_*` values are inlined at build time: redeploy after changing them. Without them the
+   deployment stays closed (nobody can enter); it never falls back to the demo.
+   Then, server only (never with a `NEXT_PUBLIC_` name): `SUPABASE_SERVICE_ROLE_KEY` = the secret
+   key, which joins people by org and makes workspaces at sign-up; and the App's `GITHUB_APP_ID`,
+   `GITHUB_APP_SLUG` and `GITHUB_APP_PRIVATE_KEY` (the whole `.pem`; on one line, each line break
+   written `\n`). Without the secret key, sign-in works but nobody joins a workspace; without the
+   App's three, `/signup` says sign-up is not open here.
    Optionally `OPENROUTER_API_KEY`, an [OpenRouter](https://openrouter.ai) key, server only: ask mode
    then sorts each question into one of six categories (business, product, UX/UI, architecture,
    harness, other) a moment after it is asked. Without it, questions stay unsorted and nothing fails;
@@ -724,7 +780,7 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
 
 ### 6. Fill the galaxy
 
-Invite the crew to join (sign in, link GitHub, pick a fleet). The real sectors are in a migration
+Invite the crew to join (sign in with GitHub, pick a fleet). The real sectors are in a migration
 (`supabase/migrations/20260926160000_vertuoza_sectors.sql`: `omni-core`, `ai-nebula`, `flow-rim`);
 add a sector or a repository with a migration of its own. Then switch the game workflow on ([`game/README.md` › Setup](../../game/README.md#setup)): the first
 poll backfills history with everyone's fleet as it stands.
@@ -760,15 +816,23 @@ the demo dossiers, with no OPEN hint: there is no page to open.
 a workspace by being a **member** of it. Vertuoza is workspace #1.
 
 - `workspaces`: `slug` (`vertuoza`), `name` (`Vertuoza`), `github_org` and `plan_repo` (the
-  organisation the projector reads and the repository that carries the PRD issues), `join_domain`
-  (`vertuoza.com`) and `theme`. The theme holds only the overrides of the arcade's colour tokens,
+  organisation the projector reads and the repository that carries the PRD issues),
+  `github_installation_id` and `github_account_type` (the omni-loop App installation it owns, on an
+  `Organization` or a `User`'s own account; members join by org only once it is set) and `theme`. The theme holds only the overrides of the arcade's colour tokens,
   e.g. `{"plasma": "#2fc6a4"}`; `valid_theme()` refuses anything but an object of known tokens
   with lowercase `#rrggbb` values. Vertuoza's is `{}`. The tokens are listed under
   [A workspace's look](#a-workspaces-look).
 - `workspace_members`: who belongs where (`role` is `owner` or `member`, `joined_at`). A person may
-  belong to several workspaces. `join_by_domain()`, called at sign-in, adds the caller to every
-  workspace whose `join_domain` is the domain of their **confirmed** email, adds nothing twice, and
-  returns the slugs of their workspaces, the one joined first first.
+  belong to several workspaces. `join_workspaces_by_github(user, logins)`, run by galaxy's server at
+  sign-in as the service role only, adds the person to every workspace with an installation whose
+  `github_org` is one of their GitHub logins, adds nothing twice, and returns the slugs of their
+  workspaces, the one joined first first.
+- `create_workspace_from_installation(user, installation, login, type)`, the service role's only,
+  run by `/signup` once it has checked the installation with GitHub: one workspace per GitHub account
+  (a replayed installation or an account that has one already joins it as a member, recording the
+  installation when it had none), else a new, empty one with the person as its owner.
+- `signup_requests`: `(user_id, github_org, created_at)`, a visitor waiting for their org's owner to
+  install the App. Its own person reads it; only the service role writes it.
 - `ledger_events` mirrors the event contract (`game/events.mjs`) one to one, with the same type
   check, plus the `workspace_id` it is stored under: the workspace is a storage column, never an
   event field, so two workspaces may each hold a `planet:12:charted` (key `(workspace_id, id)`). A
