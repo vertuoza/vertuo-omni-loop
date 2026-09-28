@@ -5,9 +5,13 @@
 // `__OMNI_TEMPLATES__` carries the kit defaults (see lib/playbook/templates.mjs): every file under
 // kit/templates/, read by the same loader that reads them from source, so the bundle needs no other
 // file. The bundle exports that loader beside `main`, so the committed file can be asked for them.
-// `node kit/build.mjs [outfile]`: the outfile defaults to `kit/dist/omni.mjs`, which is committed and
-// kept equal to a fresh build by kit/test/dist.test.mjs — so the output never depends on the cwd.
+// The marker also carries the kit's version: `version` from the root package.json, `null` when it has
+// none (PRD 347); the release workflow stamps it there before it builds.
+// `node kit/build.mjs [outfile] [package.json]`: the outfile defaults to `kit/dist/omni.mjs`, which is
+// committed and kept equal to a fresh build by kit/test/dist.test.mjs — so the output never depends
+// on the cwd. The package.json defaults to the repository's own; a test names another.
 import { build } from 'esbuild';
+import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +29,9 @@ const ENTRY = [
 
 const kit = fileURLToPath(new URL('.', import.meta.url));
 const outfile = process.argv[2] ? resolve(process.argv[2]) : `${kit}dist/omni.mjs`;
+const pkgFile = process.argv[3] ? resolve(process.argv[3]) : fileURLToPath(new URL('../package.json', import.meta.url));
+const pkgVersion = JSON.parse(readFileSync(pkgFile, 'utf8')).version;
+const version = typeof pkgVersion === 'string' && pkgVersion ? pkgVersion : null;
 let home = null;
 try {
   home = slugFromRemote(execFileSync('git', ['remote', 'get-url', 'origin'], { cwd: kit, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
@@ -44,5 +51,5 @@ await build({
   banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" },
   legalComments: 'none',
   // A string, parsed once where it is read: an object here would be initialised in every module.
-  define: { __OMNI_BUNDLE__: JSON.stringify({ home }), __OMNI_TEMPLATES__: JSON.stringify(JSON.stringify(readTemplates())) },
+  define: { __OMNI_BUNDLE__: JSON.stringify({ home, version }), __OMNI_TEMPLATES__: JSON.stringify(JSON.stringify(readTemplates())) },
 });

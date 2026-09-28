@@ -147,6 +147,20 @@ export const ENTRIES = deepFreeze([
       'one line.',
   },
   {
+    name: 'version',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni version', 'omni --version'],
+    label: 'omni version',
+    summary: 'which kit runs, and whether a newer one exists',
+    detail:
+      'The version of the kit this omni runs, marked (source) when it runs from the kit source, or ' +
+      "(unversioned) for a build that carries none. It then asks GitHub, through gh, for the kit's " +
+      'latest release, for up to 5 seconds: (latest) when it is the one running, a second line ' +
+      'saying to run omni update when a newer one exists, nothing more when GitHub does not answer. ' +
+      'It needs no config, and always exits 0.',
+  },
+  {
     name: 'help',
     kind: 'command',
     who: 'you',
