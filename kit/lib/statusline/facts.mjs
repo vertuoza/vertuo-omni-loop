@@ -1,6 +1,6 @@
 // What the status line reads besides Claude Code's JSON (PRD 324's spec, "How it is built"): the one
-// module that touches git and the disk, so that `input.mjs`, `which-prd.mjs`, `stage.mjs` and
-// `render.mjs` stay pure. Each fact is read on its own, and one that cannot be read counts as absent:
+// module that touches git and the disk (with `sessions.mjs`, through which it reads the session's
+// record), so that `input.mjs`, `which-prd.mjs`, `stage.mjs` and `render.mjs` stay pure. Each fact is read on its own, and one that cannot be read counts as absent:
 // nothing here prints, fetches, runs `gh` or writes a file. Every git call goes through the injected
 // `exec`.
 //
@@ -8,10 +8,11 @@
 //   the process's own folder): the loop is installed there, and line 2 is printed.
 // - `askOn` — ask mode is on in the checkout Claude Code was launched from: the file the ask hooks
 //   read, under `input.projectDir`, read with the kit's own `readMode`. Nothing is called to know it.
-// - `prd` — the PRD the session's branch names (`which-prd.mjs`) and where it stands (`stage.mjs`),
-//   as `{ number, topic, slice, stage, openItems }`, or `null` for no PRD. Read from git as of the
-//   last fetch:
+// - `prd` — the PRD the session's branch names, else the one the session's record names
+//   (`which-prd.mjs`), and where it stands (`stage.mjs`), as `{ number, topic, slice, stage,
+//   openItems }`, or `null` for no PRD. Read from git as of the last fetch:
 //   - the branch: `git rev-parse --abbrev-ref HEAD` in the session's folder;
+//   - the record: the one `input.sessionId` names, in the main checkout of the session's folder;
 //   - the base: `<repo.remote>/<repo.defaultBranch>` when that ref exists, else the local
 //     `<repo.defaultBranch>`, else none (and no stage);
 //   - the PRD folders: the delivery folder's inbox and shipped folders in the checkout's working tree
@@ -25,6 +26,7 @@ import { fillBranch } from '../board.mjs';
 import { loadConfig } from '../config.mjs';
 import { createContext } from '../context.mjs';
 import { findRoot } from '../init/repo.mjs';
+import { recordedPrd } from './sessions.mjs';
 import { isBuilt, openItemCount, stageOf } from './stage.mjs';
 import { branchNames, whichPrd } from './which-prd.mjs';
 
@@ -120,16 +122,18 @@ function featureFacts(ctx, { base, topic, folder }, exec) {
   };
 }
 
-/** The PRD the branch checked out in `folder` names, and where it stands; `null` for no PRD. */
-function readPrd(ctx, folder, exec) {
+/** The PRD the branch checked out in `folder` names, else the one session `sessionId`'s record names,
+ * and where it stands; `null` for no PRD. */
+function readPrd(ctx, { folder, sessionId }, exec) {
   const branch = branchOf(folder, exec);
   const { branches } = ctx.config;
-  if (!branchNames(branch, branches)) return null;
+  const recorded = recordedPrd({ cwd: folder, exec, sessionId });
+  if (!branchNames(branch, branches) && recorded === null) return null;
   const { inbox, shipped } = ctx.layout.dirs;
   const base = baseRef(ctx, exec);
   const onBase = base ? { inbox: treeFolders(ctx, base, inbox, exec), shipped: treeFolders(ctx, base, shipped, exec) } : null;
   const folders = [...checkoutFolders(ctx, inbox), ...checkoutFolders(ctx, shipped), ...(onBase ? [...onBase.inbox, ...onBase.shipped] : [])];
-  const found = whichPrd({ branch, branches, folders });
+  const found = whichPrd({ branch, branches, folders, recorded });
   if (!found) return null;
   const feature = base ? featureFacts(ctx, { base, topic: found.topic, folder: found.folder }, exec) : null;
   return {
@@ -142,7 +146,7 @@ function readPrd(ctx, folder, exec) {
 }
 
 /**
- * @param {{ currentDir: string | null, projectDir: string | null }} input `parseInput`'s result
+ * @param {{ currentDir: string | null, projectDir: string | null, sessionId: string | null }} input `parseInput`'s result
  * @param {{ cwd: string, exec: Function }} options the process's own folder, and `execFileSync`
  * @returns {{ installed: boolean, askOn: boolean, prd: { number: number, topic: string, slice: string | null,
  *   stage: string | null, openItems: number } | null }}
@@ -153,6 +157,6 @@ export function readFacts(input, { cwd, exec }) {
   return {
     installed: ctx !== null,
     askOn: askModeOn(input.projectDir),
-    prd: ctx ? readPrd(ctx, folder, exec) : null,
+    prd: ctx ? readPrd(ctx, { folder, sessionId: input.sessionId }, exec) : null,
   };
 }

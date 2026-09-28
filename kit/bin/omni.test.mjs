@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { cpSync, existsSync as exists, mkdirSync as mkdir, mkdtempSync, readFileSync } from 'node:fs';
+import { cpSync, existsSync as exists, mkdirSync as mkdir, mkdtempSync, readFileSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeRepo } from '../test/fixture.mjs';
-import { main } from './omni.mjs';
+import { main, prdNamedBy } from './omni.mjs';
 import { sliceTimeGuardCommand } from '../lib/policy/outbox-policy.mjs';
 
 function io() {
@@ -320,4 +320,151 @@ describe('omni bundle', () => {
     const out = execFileSync('node', ['.omni-loop/bin/omni.mjs', 'prd', '42'], { cwd: root, encoding: 'utf8' });
     expect(out).toMatch(/0042-a/);
   }, 30000);
+});
+
+// PRD #324, slice s5: a command that names one PRD records it for the Claude session it runs in, in
+// the main checkout, before it runs; its output and exit code stay exactly as they were. The session
+// id is always passed in `env`, so the session running these tests never records into them.
+describe('omni — the PRD a command names, recorded for the Claude session', () => {
+  const SESSION = { CLAUDE_CODE_SESSION_ID: 'abc' };
+  const RECORD = '.omni-loop/local/sessions/abc.json';
+  const SPEC_7 = '---\nprd: 7\ntitle: Bravo\nblocked-by: none\nspec: file\n---\n\n# Bravo\n';
+  const PLAN_7 = ['# A plan', '', '| id | slice | territory | blocked by | wave |', '| --- | --- | --- | --- | --- |', '| s1 | Alpha | `a/` | — | 1 |', ''].join('\n');
+  const FILES = { ...CONFIG, '.omni-loop/delivery/inbox/0007-bravo/spec.md': SPEC_7, '.omni-loop/delivery/inbox/0007-bravo/plan.md': PLAN_7 };
+  /** An empty sign-in store: `omni dossier` never reads the real one. */
+  const NO_SIGN_IN = { read: () => null, write() {} };
+
+  /** `execFileSync` for git; `gh pr list` lists nothing, and any other `gh` call fails: no test calls GitHub. */
+  const noGitHub = (file, args, options) => {
+    if (file !== 'gh') return execFileSync(file, args, options);
+    if (args[0] === 'pr' && args[1] === 'list') return '[]';
+    throw new Error(`no gh here: ${args.join(' ')}`);
+  };
+
+  /** `omni <argv>` in `cwd` with `env`: its exit code and its output, the fixture's own folder written `<root>`. */
+  async function omni(argv, { root, cwd = root, env = {} }) {
+    const s = io();
+    const code = await main(argv, { cwd, ...s, exec: noGitHub, env, tokens: NO_SIGN_IN });
+    const clean = (text) => text.split(realpathSync(root)).join('<root>').split(root).join('<root>');
+    return { code, out: clean(s.out.join('')), err: clean(s.err.join('')) };
+  }
+
+  const FORMS = [
+    ['prd', '7'],
+    ['board', '7'],
+    ['status', '7'],
+    ['phase0', '7'],
+    ['ship', '7'],
+    ['harvest', '7', '--pr', '3'],
+    ['dossier', 'push', '7'],
+    ['plan', 'check', '7'],
+    ['rework', 'plan', '7'],
+    ['check', '--prd', '7'],
+    ['rework', 'close', 's1-01-x', '--prd', '7', '--pr', '3'],
+    ['item', 'new', '--prd', '7', '--slice', 's1', '--file', 'missing.json'],
+  ];
+
+  it.each(FORMS.map((argv) => [argv.join(' '), argv]))('`omni %s` records PRD 7, and prints and exits as it does without', async (_name, argv) => {
+    const without = makeRepo({ git: true, files: FILES });
+    const within = makeRepo({ git: true, files: FILES });
+    const before = Date.now();
+    const recorded = await omni(argv, { root: within.root, env: SESSION });
+    const after = Date.now();
+    expect(recorded).toEqual(await omni(argv, { root: without.root }));
+    const { prd, at, ...rest } = JSON.parse(within.read(RECORD));
+    expect({ prd, rest }).toEqual({ prd: 7, rest: {} });
+    expect(new Date(Date.parse(at)).toISOString()).toBe(at);
+    expect(Date.parse(at)).toBeGreaterThanOrEqual(before);
+    expect(Date.parse(at)).toBeLessThanOrEqual(after);
+    expect(exists(join(without.root, '.omni-loop/local'))).toBe(false);
+  });
+
+  it('records in the main checkout when the command runs in one of its worktrees', async () => {
+    const { root, read } = makeRepo({ git: true, files: FILES });
+    const worktree = join(mkdtempSync(join(tmpdir(), 'omni-worktree-')), 'wt');
+    execFileSync('git', ['worktree', 'add', '-q', '-b', 'feat/bravo--s1', worktree], { cwd: root, stdio: 'ignore' });
+    const run = await omni(['prd', '7'], { root, cwd: worktree, env: SESSION });
+    expect(run.code).toBe(0);
+    expect(JSON.parse(read(RECORD)).prd).toBe(7);
+    expect(exists(join(worktree, '.omni-loop/local'))).toBe(false);
+  });
+
+  it('lets the latest command win, whatever it returns', async () => {
+    const { root, read } = makeRepo({ git: true, files: FILES });
+    expect((await omni(['prd', '7'], { root, env: SESSION })).code).toBe(0);
+    expect((await omni(['prd', '42'], { root, env: SESSION })).code).toBe(1);
+    expect(JSON.parse(read(RECORD)).prd).toBe(42);
+  });
+
+  it('records nothing without the variable, with an id that is not safe, or for a number that is no PRD', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const runs = [
+      [['prd', '7'], {}],
+      [['prd', '7'], { CLAUDE_CODE_SESSION_ID: '' }],
+      [['prd', '7'], { CLAUDE_CODE_SESSION_ID: '../abc' }],
+      [['prd', '7'], { CLAUDE_CODE_SESSION_ID: 'a b' }],
+      [['prd', 'seven'], SESSION],
+      [['prd', '0'], SESSION],
+      [['prd', '-7'], SESSION],
+      [['prd', '7.5'], SESSION],
+      [['check', '--prd', 'seven'], SESSION],
+      [['config'], SESSION],
+      [['nope', '--prd', '7'], SESSION],
+    ];
+    for (const [argv, env] of runs) await omni(argv, { root, env });
+    expect(exists(join(root, '.omni-loop/local'))).toBe(false);
+  });
+
+  it('runs the command exactly as before when the record cannot be written', async () => {
+    const without = makeRepo({ git: true, files: FILES });
+    const within = makeRepo({ git: true, files: { ...FILES, '.omni-loop/local': 'a file where the folder would be\n' } });
+    const recorded = await omni(['prd', '7'], { root: within.root, env: SESSION });
+    expect(recorded).toEqual(await omni(['prd', '7'], { root: without.root }));
+    expect(recorded.code).toBe(0);
+  });
+});
+
+describe('prdNamedBy: the one PRD a command names', () => {
+  it('reads the number after the command', () => {
+    for (const name of ['prd', 'board', 'status', 'phase0', 'ship', 'harvest']) expect(prdNamedBy([name, '7'])).toBe(7);
+    expect(prdNamedBy(['board', '7', '--json'])).toBe(7);
+    expect(prdNamedBy(['harvest', '7', '--pr', '12'])).toBe(7);
+    expect(prdNamedBy(['status', '324', '--labels', 'a,b'])).toBe(324);
+  });
+
+  it('reads the number after the subcommand for `dossier push`, `plan check` and `rework plan`', () => {
+    expect(prdNamedBy(['dossier', 'push', '7'])).toBe(7);
+    expect(prdNamedBy(['plan', 'check', '7'])).toBe(7);
+    expect(prdNamedBy(['rework', 'plan', '7', '--json'])).toBe(7);
+    expect(prdNamedBy(['dossier', 'open', '7'])).toBeNull();
+    expect(prdNamedBy(['dossier', '7'])).toBeNull();
+    expect(prdNamedBy(['plan', '7'])).toBeNull();
+    expect(prdNamedBy(['rework', 'close', '7'])).toBeNull();
+  });
+
+  it('reads the value of `--prd`, for any command', () => {
+    expect(prdNamedBy(['check', '--prd', '7'])).toBe(7);
+    expect(prdNamedBy(['check', 'coverage', '--base', 'origin/feat/x', '--prd', '324'])).toBe(324);
+    expect(prdNamedBy(['comment', '--prd', '7', '--branch', 'feat/x'])).toBe(7);
+    expect(prdNamedBy(['item', 'new', '--prd', '7', '--slice', 's1', '--file', 'x.json'])).toBe(7);
+    expect(prdNamedBy(['replies', '--prd', '7', '--pr', '12'])).toBe(7);
+    expect(prdNamedBy(['rework', 'close', 's1-01-x', '--prd', '7', '--pr', '12'])).toBe(7);
+    expect(prdNamedBy(['board', '--prd', '7'])).toBe(7);
+  });
+
+  it('reads nothing where no argument names a PRD, or where the number is no positive integer', () => {
+    for (const argv of [[], ['config'], ['prd'], ['board', '--json', '7'], ['harvest', '--pr', '12', '7'], ['check', '--prd'], ['check', '--prd', '--base']]) {
+      expect(prdNamedBy(argv)).toBeNull();
+    }
+    for (const value of ['seven', '0', '-7', '7.5', '', 'NaN']) {
+      expect(prdNamedBy(['prd', value])).toBeNull();
+      expect(prdNamedBy(['check', '--prd', value])).toBeNull();
+    }
+  });
+
+  it('reads nothing when a command names two different PRDs, and the one it names twice', () => {
+    expect(prdNamedBy(['status', '7', '--prd', '9'])).toBeNull();
+    expect(prdNamedBy(['check', '--prd', '7', '--prd', '9'])).toBeNull();
+    expect(prdNamedBy(['status', '7', '--prd', '7'])).toBe(7);
+  });
 });

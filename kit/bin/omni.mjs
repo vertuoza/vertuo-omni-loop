@@ -1,14 +1,74 @@
 #!/usr/bin/env node
 // omni — the kit's one entry point. Installed into a repository as .omni-loop/bin/omni.mjs (bundled),
 // called by the skills and by the outbox workflow. Exit 0 ok, 1 red, 2 usage or configuration.
+//
+// Before a command runs, the one PRD it names is recorded for the Claude session it runs in (PRD
+// 324's spec, "The record"), so that the status line can show it on a branch that names no PRD: when
+// `CLAUDE_CODE_SESSION_ID` is set and safe, `../lib/statusline/sessions.mjs` writes it in the main
+// checkout. A record that cannot be written is ignored: the command runs, prints and exits exactly as
+// it does without one.
 import { execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ConfigError } from '../lib/config.mjs';
 import { loadContext } from '../lib/context.mjs';
+import { recordSession } from '../lib/statusline/sessions.mjs';
+import { positiveInt } from './args.mjs';
 import { COMMAND_TABLE } from './commands/index.mjs';
 
 const USAGE = `usage: omni <command> [args]\ncommands: ${Object.keys(COMMAND_TABLE).join(', ')}\n`;
+
+// The commands that name their PRD by position: the argument right after the command, or right after
+// the subcommand listed here (`omni prd 7`, `omni dossier push 7`). Any command names one with
+// `--prd <n>` as well.
+const PRD_BY_POSITION = Object.freeze({
+  prd: [],
+  board: [],
+  status: [],
+  phase0: [],
+  ship: [],
+  harvest: [],
+  dossier: ['push'],
+  plan: ['check'],
+  rework: ['plan'],
+});
+const PRD_FLAG = '--prd';
+
+/** `value` as a PRD number, read as the commands read it (`positiveInt`), or `null`. */
+function prdNumber(value) {
+  try {
+    return positiveInt('', '', value);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The one PRD `argv` (`[command, ...args]`) names: the number at the command's position, and the
+ * value of every `--prd`. `null` when none of them is a positive integer, or when they name two
+ * different PRDs.
+ */
+export function prdNamedBy(argv) {
+  const [name, ...rest] = argv;
+  const named = [];
+  const subcommands = Object.hasOwn(PRD_BY_POSITION, name ?? '') ? PRD_BY_POSITION[name] : null;
+  if (subcommands && subcommands.every((sub, index) => rest[index] === sub)) named.push(rest[subcommands.length]);
+  rest.forEach((arg, index) => {
+    if (arg === PRD_FLAG) named.push(rest[index + 1]);
+  });
+  const numbers = new Set(named.map(prdNumber).filter((number) => number !== null));
+  return numbers.size === 1 ? [...numbers][0] : null;
+}
+
+/** Records the PRD `argv` names for the Claude session `env` names; never throws, never prints. */
+function recordPrd(argv, { cwd, env, exec }) {
+  try {
+    const prd = prdNamedBy(argv);
+    if (prd !== null) recordSession({ cwd, exec, sessionId: env?.CLAUDE_CODE_SESSION_ID, prd, now: Date.now() });
+  } catch {
+    // A record that cannot be written changes nothing: the command runs as it does without one.
+  }
+}
 
 export async function main(
   argv,
@@ -20,6 +80,7 @@ export async function main(
     stderr.write(USAGE);
     return 2;
   }
+  recordPrd(argv, { cwd, env, exec });
   try {
     // `init` runs before a config exists: it finds the root itself. `more` is its injected stdin,
     // bundle and prompt; an option left out keeps the command's own default.

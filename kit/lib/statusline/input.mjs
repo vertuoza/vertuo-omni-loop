@@ -11,6 +11,8 @@
 //   `resets_at` is read as Unix seconds when it is a number, and as a date when it is text.
 // - `currentDir` — the session's folder: `workspace.current_dir`, else `cwd`.
 // - `projectDir` — the folder Claude Code was launched from: `workspace.project_dir`.
+// - `sessionId` — the session's id, `session_id`, as sent: it names the session's record
+//   (`sessions.mjs`), which reads only a safe one.
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const text = (value) => (typeof value === 'string' && value.length > 0 ? value : null);
@@ -35,7 +37,7 @@ function fiveHourOf(json) {
 /**
  * @param {unknown} source the text on stdin
  * @returns {{ model: string | null, contextPercent: number | null, fiveHour: { percent: number, resetsAt: number } | null,
- *   currentDir: string | null, projectDir: string | null } | null}
+ *   currentDir: string | null, projectDir: string | null, sessionId: string | null } | null}
  */
 export function parseInput(source) {
   if (typeof source !== 'string') return null;
@@ -53,5 +55,6 @@ export function parseInput(source) {
     fiveHour: fiveHourOf(json),
     currentDir: text(field(workspace, 'current_dir')) ?? text(json.cwd),
     projectDir: text(field(workspace, 'project_dir')),
+    sessionId: text(json.session_id),
   };
 }
