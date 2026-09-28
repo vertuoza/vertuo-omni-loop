@@ -1,0 +1,689 @@
+{
+  "prd": 499,
+  "runs": [
+    {
+      "featurePr": {
+        "mergeSha": "17d8f03ae437038c06e1bafd14685acf91655e6d",
+        "mergedAt": "2026-09-28T18:44:35Z",
+        "number": 502,
+        "openedAt": "2026-09-28T15:12:05Z",
+        "title": "feat(galaxy): waiting-for-you notifications — tab count, menu badges and bell (PRD 499)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/502"
+      },
+      "findings": [
+        {
+          "evidence": [
+            {
+              "label": "#506",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/506/files"
+            }
+          ],
+          "happened": "Slice s1 changed 1 path outside its territory and off the plan’s shared ground: `apps/galaxy/src/switch/headers.test.ts`.",
+          "id": "territory:s1",
+          "kind": "territory",
+          "ref": "F1",
+          "source": "delivery",
+          "title": "Slice s1 changed files outside its territory"
+        },
+        {
+          "evidence": [
+            {
+              "label": "#509",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/509/files"
+            }
+          ],
+          "happened": "Slice s4 changed 1 path outside its territory and off the plan’s shared ground: `apps/galaxy/src/switch/headers.test.ts`.",
+          "id": "territory:s4",
+          "kind": "territory",
+          "ref": "F2",
+          "source": "delivery",
+          "title": "Slice s4 changed files outside its territory"
+        },
+        {
+          "evidence": [
+            {
+              "label": "2edb8d5 (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/2edb8d546c7ae024a64e41c053e77e8b72428cf3"
+            },
+            {
+              "label": "1b1ea94 (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/1b1ea9472d165b2a2470eb2a35a64cd72846d872"
+            },
+            {
+              "label": "5aac7c0 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/5aac7c080d7c83fe0127824c224c460b723c9852"
+            },
+            {
+              "label": "`apps/galaxy/src/nav/Sidebar.render.test.ts` lines 28-28, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/e473d3587315991ab73b3651a552b8772088b0f8/apps/galaxy/src/nav/Sidebar.render.test.ts#L28-L28"
+            }
+          ],
+          "happened": "Lines 28-28 of `apps/galaxy/src/nav/Sidebar.render.test.ts`, as merged, were written and rewritten in 3 commits, in s1 and s3; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/nav/Sidebar.render.test.ts:28-28",
+          "kind": "churn",
+          "ref": "F3",
+          "source": "churn",
+          "title": "Lines 28-28 of `apps/galaxy/src/nav/Sidebar.render.test.ts` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "2edb8d5 (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/2edb8d546c7ae024a64e41c053e77e8b72428cf3"
+            },
+            {
+              "label": "5aac7c0 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/5aac7c080d7c83fe0127824c224c460b723c9852"
+            },
+            {
+              "label": "994ebc7 (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/994ebc78fb7869be8b0f952fb6e2b9c770160e93"
+            },
+            {
+              "label": "`apps/galaxy/src/waiting/WaitingProvider.tsx` lines 13-13, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/e473d3587315991ab73b3651a552b8772088b0f8/apps/galaxy/src/waiting/WaitingProvider.tsx#L13-L13"
+            }
+          ],
+          "happened": "Lines 13-13 of `apps/galaxy/src/waiting/WaitingProvider.tsx`, as merged, were written and rewritten in 3 commits, in s1, s3 and s5; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/waiting/WaitingProvider.tsx:13-13",
+          "kind": "churn",
+          "ref": "F4",
+          "source": "churn",
+          "title": "Lines 13-13 of `apps/galaxy/src/waiting/WaitingProvider.tsx` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "#508",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/508"
+            }
+          ],
+          "happened": "Slice s3 took 80 minutes from its claim to its merge, against a median of 22 minutes; the rules flag a slice slower than 3 times the median.",
+          "id": "slow-slice:s3",
+          "kind": "slow-slice",
+          "ref": "F5",
+          "source": "timeline",
+          "title": "Slice s3 took far longer than the others"
+        },
+        {
+          "evidence": [
+            {
+              "label": "#509",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/509"
+            }
+          ],
+          "happened": "Slice s4 took 146 minutes from its claim to its merge, against a median of 22 minutes; the rules flag a slice slower than 3 times the median.",
+          "id": "slow-slice:s4",
+          "kind": "slow-slice",
+          "ref": "F6",
+          "source": "timeline",
+          "title": "Slice s4 took far longer than the others"
+        }
+      ],
+      "kinds": {
+        "churn": {
+          "added": 2287,
+          "churn": 38,
+          "commits": 20,
+          "files": [
+            {
+              "added": 221,
+              "churn": 23,
+              "commits": 3,
+              "finalAdded": 198,
+              "path": "apps/galaxy/src/waiting/WaitingProvider.tsx",
+              "percent": 12
+            },
+            {
+              "added": 125,
+              "churn": 5,
+              "commits": 2,
+              "finalAdded": 120,
+              "path": "apps/galaxy/src/nav/Bell.tsx",
+              "percent": 4
+            },
+            {
+              "added": 40,
+              "churn": 3,
+              "commits": 3,
+              "finalAdded": 37,
+              "path": "apps/galaxy/src/nav/Sidebar.render.test.ts",
+              "percent": 8
+            },
+            {
+              "added": 13,
+              "churn": 3,
+              "commits": 2,
+              "finalAdded": 10,
+              "path": "apps/galaxy/src/nav/sidebar.ts",
+              "percent": 30
+            },
+            {
+              "added": 13,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 11,
+              "path": "apps/galaxy/src/nav/Sidebar.tsx",
+              "percent": 18
+            },
+            {
+              "added": 139,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 138,
+              "path": "apps/galaxy/src/nav/Bell.render.test.ts",
+              "percent": 1
+            },
+            {
+              "added": 97,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 96,
+              "path": "apps/galaxy/src/nav/bell.ts",
+              "percent": 1
+            }
+          ],
+          "finalAdded": 2249,
+          "leftOut": {
+            "delivery": [
+              ".omni-loop/delivery/outbox/0499-waiting-notifications/s1-01-own-question-counts-while-page-can-answer.md",
+              ".omni-loop/delivery/outbox/0499-waiting-notifications/s1-02-app-headers-test-questions-badge.md",
+              ".omni-loop/delivery/outbox/0499-waiting-notifications/s2-01-outbox-item-id-joins-dossier.md",
+              ".omni-loop/delivery/outbox/0499-waiting-notifications/s3-01-outbox-read-when-tab-returns-early.md",
+              ".omni-loop/delivery/outbox/0499-waiting-notifications/s4-01-bell-age-past-a-day.md",
+              ".omni-loop/delivery/outbox/0499-waiting-notifications/s4-02-app-headers-test-bell.md",
+              ".omni-loop/delivery/outbox/0499-waiting-notifications/s5-01-no-notifications-reads-blocked.md"
+            ],
+            "generated": [],
+            "lockfile": []
+          },
+          "noPatch": [],
+          "notCounted": [],
+          "pulls": 5,
+          "ranges": [
+            {
+              "commits": [
+                "2edb8d5",
+                "1b1ea94",
+                "5aac7c0"
+              ],
+              "from": 28,
+              "path": "apps/galaxy/src/nav/Sidebar.render.test.ts",
+              "slices": [
+                "s1",
+                "s3"
+              ],
+              "to": 28
+            },
+            {
+              "commits": [
+                "2edb8d5",
+                "5aac7c0",
+                "994ebc7"
+              ],
+              "from": 13,
+              "path": "apps/galaxy/src/waiting/WaitingProvider.tsx",
+              "slices": [
+                "s1",
+                "s3",
+                "s5"
+              ],
+              "to": 13
+            }
+          ],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [],
+          "redRuns": [],
+          "slices": [
+            "s1",
+            "s2",
+            "s3",
+            "s4",
+            "s5"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 0,
+            "commits": 0,
+            "red": 0,
+            "runs": 0,
+            "slices": 0
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 7,
+            "agreed": 0,
+            "byRank": {
+              "medium": 7
+            },
+            "drifted": 0,
+            "drifts": [],
+            "file": ".omni-loop/delivery/shipped/0499-waiting-notifications/outbox/settled.md",
+            "raised": 7,
+            "reworked": 0
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "stuck": 0
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  506
+                ],
+                "slice": "s1",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  507
+                ],
+                "slice": "s2",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  508
+                ],
+                "slice": "s3",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  509
+                ],
+                "slice": "s4",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  511
+                ],
+                "slice": "s5",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 6,
+              "red": 0,
+              "reviews": 0,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 0,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 502,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/502"
+              },
+              {
+                "pr": 506,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/506"
+              },
+              {
+                "pr": 507,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s2",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/507"
+              },
+              {
+                "pr": 508,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s3",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/508"
+              },
+              {
+                "pr": 509,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s4",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/509"
+              },
+              {
+                "pr": 511,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s5",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/511"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 2,
+              "graded": 5,
+              "shared": 0,
+              "unplanned": 0,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [
+                  "apps/galaxy/src/switch/headers.test.ts"
+                ],
+                "files": 24,
+                "pr": 506,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/506"
+              },
+              {
+                "breaches": [],
+                "files": 5,
+                "pr": 507,
+                "shared": [],
+                "slice": "s2",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/507"
+              },
+              {
+                "breaches": [],
+                "files": 10,
+                "pr": 508,
+                "shared": [],
+                "slice": "s3",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/508"
+              },
+              {
+                "breaches": [
+                  "apps/galaxy/src/switch/headers.test.ts"
+                ],
+                "files": 11,
+                "pr": 509,
+                "shared": [],
+                "slice": "s4",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/509"
+              },
+              {
+                "breaches": [],
+                "files": 8,
+                "pr": 511,
+                "shared": [],
+                "slice": "s5",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/511"
+              }
+            ],
+            "reason": null,
+            "sharedGround": [
+              "apps/galaxy/src/waiting/",
+              "apps/galaxy/src/nav/Sidebar",
+              "apps/galaxy/src/nav/sidebar",
+              "apps/galaxy/src/nav/AppBar",
+              "apps/galaxy/src/nav/Bell",
+              "apps/galaxy/src/nav/bell"
+            ]
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-09-28T18:44:35Z",
+            "minutes": 213,
+            "number": 502,
+            "openedAt": "2026-09-28T15:12:05Z",
+            "readyAt": "2026-09-28T18:28:16Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/502"
+          },
+          "medianMinutes": 22,
+          "sliceCount": 5,
+          "slices": [
+            {
+              "closedAt": "2026-09-28T15:40:52Z",
+              "mergedAt": "2026-09-28T15:40:51Z",
+              "mergedWave": 1,
+              "minutes": 21,
+              "openedAt": "2026-09-28T15:19:22Z",
+              "plannedWave": 1,
+              "pr": 506,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/506"
+            },
+            {
+              "closedAt": "2026-09-28T15:41:30Z",
+              "mergedAt": "2026-09-28T15:41:30Z",
+              "mergedWave": 1,
+              "minutes": 22,
+              "openedAt": "2026-09-28T15:19:32Z",
+              "plannedWave": 1,
+              "pr": 507,
+              "slice": "s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/507"
+            },
+            {
+              "closedAt": "2026-09-28T17:08:45Z",
+              "mergedAt": "2026-09-28T17:08:45Z",
+              "mergedWave": 2,
+              "minutes": 80,
+              "openedAt": "2026-09-28T15:49:06Z",
+              "plannedWave": 2,
+              "pr": 508,
+              "slice": "s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/508"
+            },
+            {
+              "closedAt": "2026-09-28T18:15:33Z",
+              "mergedAt": "2026-09-28T18:15:33Z",
+              "mergedWave": 2,
+              "minutes": 146,
+              "openedAt": "2026-09-28T15:49:14Z",
+              "plannedWave": 2,
+              "pr": 509,
+              "slice": "s4",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/509"
+            },
+            {
+              "closedAt": "2026-09-28T18:25:36Z",
+              "mergedAt": "2026-09-28T18:25:36Z",
+              "mergedWave": 3,
+              "minutes": 7,
+              "openedAt": "2026-09-28T18:18:15Z",
+              "plannedWave": 3,
+              "pr": 511,
+              "slice": "s5",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/511"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 3,
+            "planned": 3
+          }
+        }
+      },
+      "prd": {
+        "folder": ".omni-loop/delivery/shipped/0499-waiting-notifications",
+        "number": 499,
+        "state": "shipped",
+        "title": "Waiting-for-you notifications — tab count, menu badges and bell, live on every page",
+        "topic": "waiting-notifications"
+      },
+      "rules": {
+        "fieldCaps": {
+          "lesson": 400,
+          "reason": 300,
+          "summary": 1200,
+          "title": 90,
+          "why": 300,
+          "whyItMatters": 600
+        },
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "thresholds": {
+          "afterMergeDays": 14,
+          "churnFileLines": 40,
+          "churnFilePercent": 50,
+          "churnRangeCommits": 3,
+          "failingTestRuns": 2,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "slowSliceFactor": 3
+        },
+        "version": 1
+      },
+      "run": "merge",
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": [
+          {
+            "field": "findings.territory:s1.whyItMatters",
+            "reason": "it holds a word the rules refuse"
+          }
+        ]
+      },
+      "verdict": {
+        "worthIt": true,
+        "reason": "Two slices breaching territory on the same test file teaches a planning lesson about declaring common test files as shared, which nothing recorded already says."
+      },
+      "lessons": [
+        {
+          "text": "When several slices will all have to touch a common test file, the plan's table should declare that file as shared ground so the edits are expected and graded as such.",
+          "findings": [
+            "territory:s1",
+            "territory:s4"
+          ]
+        }
+      ],
+      "issues": {
+        "territory:s1": {
+          "number": 512,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/512",
+          "state": "open"
+        },
+        "territory:s4": {
+          "number": 513,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/513",
+          "state": "open"
+        }
+      }
+    }
+  ]
+}
