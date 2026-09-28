@@ -40,6 +40,7 @@ one `omni` subcommand each. Source sha: `vertuo-ai-domain@c4a210122`.
   shorthand for `--base <repo.remote>/<repo.defaultBranch>`. An unreadable base is a `UsageError`
   (exit 2) instead of an uncaught throw. `$GITHUB_OUTPUT` / `$GITHUB_STEP_SUMMARY` appends kept, read
   from the `env` `main` is given (default `process.env`). A missing `<prd>` is exit 2 (upstream: 1).
+- **status, bare** (PRD 315): `omni status [--fetch]` with no `<prd>` is the repository's overview (new, `kit/lib/status/`, no upstream); the gate, `omni status <prd>`, is unchanged.
 - **settle / adopt**: `adopt` is its own command (`omni adopt <file>`) rather than `outbox-settle adopt`.
   Giving both `--answer` and `--answer-file` is now a usage error (upstream silently preferred the file).
 - **replies**: `ghClient` → `githubClientFor` (`kit/bin/github.mjs`), which adds the `github.user`
