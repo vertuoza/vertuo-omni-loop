@@ -4,7 +4,7 @@ import { filtered, type HistoryChoices, type HistoryFilters, type HistoryItem } 
 
 // The workspace's history (PRD 144): a form of filters and a search, sent as a GET to this same page
 // so it works before any script runs, and the rounds that pass, newest first, each opening
-// /ask/q/<round>. And the ask header's link to it.
+// /ask/q/<round>. The sidebar's History item leads here (PRD 438).
 
 const LABELS: Record<string, string> = Object.fromEntries(CATEGORIES.map((c) => [CATEGORY_LABELS[c], c]));
 
@@ -101,9 +101,4 @@ export function WorkspaceHistory({ items, choices, filters }: { items: HistoryIt
       )}
     </div>
   );
-}
-
-/** The ask header's link to the history. */
-export function HistoryLink() {
-  return <a className="ask-for-me-nav" href="/ask/history">History</a>;
 }

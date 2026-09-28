@@ -1,5 +1,4 @@
 import 'server-only';
-import type { User } from '@supabase/supabase-js';
 import { forMeCount } from '../ask/page/for-me-live';
 import { DEMO_YOU } from '../dashboard/demo';
 import { arcadeMode } from '../data/mode';
@@ -16,7 +15,13 @@ export type Viewer = ViewerView;
 
 export const SIGNED_OUT: Viewer = SIGNED_OUT_VIEWER;
 
-type Person = Pick<User, 'id' | 'email' | 'user_metadata' | 'identities'>;
+/** What the viewer reads of a Supabase user: a narrow shape, so a fake is easy to write. */
+type Person = {
+  id: string;
+  email?: string;
+  user_metadata?: Record<string, unknown>;
+  identities?: ReadonlyArray<{ provider: string; identity_data?: Record<string, unknown> }>;
+};
 
 /** Where the viewer is read from: the three reads, each allowed to throw. */
 export interface ViewerSource {
@@ -68,7 +73,7 @@ export async function viewerLive(): Promise<Viewer> {
   }
   if (mode === 'closed' || !supabaseEnv()) return SIGNED_OUT;
   return readViewer({
-    user: async () => {
+    user: async (): Promise<Person | null> => {
       const { data: { user } } = await (await supabaseServer()).auth.getUser();
       return user;
     },

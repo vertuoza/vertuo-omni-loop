@@ -1,38 +1,19 @@
 import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { APP_HOME, GAME_HOME, SECTIONS } from './switch';
+import { SIDEBAR } from '../nav/sidebar.ts';
+import { APP_HOME, GAME_HOME } from './switch';
 
-// The app's sections and the two homes (PRD 238): one list draws /app's cards, and each path it
-// names is a page on disk, so a renamed route fails here before a card leads nowhere. Release notes
-// are no card since PRD 346: every page reaches them from the top bar's menu (src/nav/menu.ts).
+// The app's sections and the two homes (PRD 238): the sidebar's Work items (src/nav/sidebar.ts, PRD
+// 438, which replaced /app's cards) each name a page on disk, so a renamed route fails here before an
+// item leads nowhere.
 
 const pageOf = (path: string) => new URL(`../../app${path}/page.tsx`, import.meta.url);
 
 describe('the app\'s sections', () => {
-  it('are My PRDs (PRD 413), Questions, For me, History, Knowledge map and Fleets, in that order: no Release notes', () => {
-    expect(SECTIONS.map((s) => [s.title, s.path])).toEqual([
-      ['My PRDs', '/prd'],
-      ['Questions', '/ask'],
-      ['For me', '/ask/for-me'],
-      ['History', '/ask/history'],
-      ['Knowledge map', '/knowledge'],
-      ['Fleets', '/app/fleets'],
-    ]);
-  });
-
-  it('each say what they hold, in one line', () => {
-    expect(SECTIONS.map((s) => s.line)).toEqual([
-      'The PRDs you opened, drafts included',
-      'The questions Claude is asking you now',
-      'Questions a teammate shared with you',
-      'Every question your workspace was asked',
-      'Principles, rules and invariants, as a map',
-      'Your workspace’s fleets, set up by its owner',
-    ]);
-  });
-
-  it('each open a page that exists', () => {
-    for (const { path } of SECTIONS) expect(existsSync(pageOf(path)), `app${path}/page.tsx`).toBe(true);
+  it('are the sidebar\'s Work items, each opening a page that exists', () => {
+    const work = SIDEBAR.find((g) => g.id === 'work')!.items.flatMap((i) => [i, ...(i.children ?? [])]);
+    expect(work.map((i) => i.path)).toEqual(['/app', '/prd', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/fleets']);
+    for (const { path } of work) expect(existsSync(pageOf(path)), `app${path}/page.tsx`).toBe(true);
   });
 });
 
