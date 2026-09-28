@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD Stage Header</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --void: #07061c; --deep: #0e0d33; --cab: #120f3a; --navy: #2f3fc4; --white: #f2f4ff;
+    --dim: #8a90d6; --slate: #5b5f80; --yellow: #ffd84a; --red: #ff3b5c; --green: #4ee08a;
+    --plasma: #a45cff; --cyan: #6ff0ff; --magenta: #ff3ea5;
+    --pixel: 'Press Start 2P', ui-monospace, 'SF Mono', Menlo, monospace;
+    --display: 'Anton', 'Impact', 'Haettenschweiler', 'Arial Narrow Bold', sans-serif;
+    --body: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--white); font: 15px/1.55 var(--body); padding: 32px 16px 64px; }
+  main { max-width: 1080px; margin: 0 auto; display: grid; gap: 44px; }
+  h1 { font: 44px/1.05 var(--display); letter-spacing: .01em; margin: 0; text-wrap: balance; text-transform: uppercase; }
+  h1 em { font-style: normal; color: var(--yellow); }
+  .lede { max-width: 66ch; color: var(--dim); margin: 12px 0 0; }
+  .meta { font: 10px/1.6 var(--pixel); color: var(--slate); letter-spacing: .08em; margin-bottom: 14px; }
+  section { display: grid; gap: 14px; }
+  h2 { font: 12px/1.6 var(--pixel); color: var(--cyan); margin: 0; letter-spacing: .06em; text-transform: uppercase; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .pair { grid-template-columns: 1fr; } h1 { font-size: 34px; } }
+  .side { display: grid; gap: 8px; align-content: start; }
+  .tag { font: 9px/1 var(--pixel); letter-spacing: .1em; padding: 6px 8px; justify-self: start; }
+  .today .tag { background: var(--slate); color: var(--void); }
+  .after .tag { background: var(--green); color: var(--void); }
+  .screen { background: var(--deep); border: 3px solid var(--navy); padding: 16px; display: grid; gap: 12px; align-content: start; font-size: 13.5px; }
+  .today .screen { border-color: var(--slate); }
+  .note { color: var(--dim); font-size: 13.5px; margin: 0; }
+  code { font: 12.5px/1.4 ui-monospace, 'SF Mono', Menlo, monospace; color: var(--cyan); }
+
+  .ttl { font: 20px/1.15 var(--display); text-transform: uppercase; }
+  .ttl .n { color: var(--yellow); margin-right: 8px; }
+  .ttl a.n { text-decoration: underline; text-underline-offset: 3px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; color: var(--dim); }
+  .chip { font: 11px/1 ui-monospace, Menlo, monospace; border: 1px solid var(--navy); padding: 4px 8px; border-radius: 10px; color: var(--white); }
+  .tabs { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 2px solid var(--navy); }
+  .tab { font: 9px/1 var(--pixel); padding: 8px 7px 7px; color: var(--dim); letter-spacing: .03em; }
+  .tab small { font: inherit; color: var(--slate); margin-left: 3px; }
+  .tab.on { color: var(--void); background: var(--yellow); }
+  .tab.on small { color: var(--void); }
+  .tab.off { color: var(--slate); opacity: .6; }
+  .tab.new { outline: 2px dashed var(--green); outline-offset: -2px; }
+
+  .track { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font: 9px/1 var(--pixel); letter-spacing: .03em; }
+  .st { padding: 7px 7px; color: var(--slate); border: 2px solid var(--cab); }
+  .st.done { color: var(--green); border-color: var(--cab); }
+  .st.done::before { content: '✓ '; }
+  .st.now { color: var(--void); background: var(--yellow); border-color: var(--void); box-shadow: 3px 3px 0 var(--void); }
+  .dash { color: var(--slate); }
+  .sr { font-size: 12px; color: var(--dim); }
+  .act { justify-self: start; font: 10px/1.3 var(--pixel); padding: 11px 14px; background: var(--yellow); color: var(--void); border: 3px solid var(--void); box-shadow: 4px 4px 0 var(--void); letter-spacing: .03em; }
+  .act small { display: block; font: 12px/1.3 var(--body); margin-top: 4px; letter-spacing: 0; }
+  .links { display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12.5px; }
+  .links a { color: var(--cyan); }
+  .links .m { color: var(--green); font-size: 11px; margin-left: 3px; }
+  .links .o { color: var(--yellow); font-size: 11px; margin-left: 3px; }
+  .plain { color: var(--white); }
+  .gone { color: var(--slate); font-style: italic; }
+
+  .item { border: 2px solid var(--navy); background: var(--cab); padding: 10px 12px; display: grid; gap: 5px; }
+  .rank { font: 8px/1 var(--pixel); padding: 4px 5px; justify-self: start; }
+  .rank.high { background: var(--red); color: var(--void); }
+  .rank.med { background: var(--slate); color: var(--void); }
+  .rec { font-size: 12px; color: var(--green); }
+  .opts { font-size: 12.5px; color: var(--dim); margin: 0; padding-left: 18px; }
+  .sub { font: 9px/1.4 var(--pixel); color: var(--dim); letter-spacing: .05em; }
+  .btn2 { justify-self: start; font: 9px/1.3 var(--pixel); padding: 8px 10px; border: 2px solid var(--navy); color: var(--cyan); }
+  .md h4 { margin: 0; font-size: 15px; }
+  .md p { margin: 0; color: var(--dim); font-size: 13px; }
+
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--navy); vertical-align: top; }
+  th { font: 9px/1.6 var(--pixel); color: var(--dim); letter-spacing: .08em; font-weight: 400; }
+  td b { color: var(--yellow); font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="meta">PRD #426 · BEFORE / AFTER · APPS/GALAXY /PRD/&lt;ID&gt; · FOLLOWS PRD 384</div>
+    <h1>The PRD page shows <em>its stage and what to do next</em></h1>
+    <p class="lede">A header with the six stages of the loop and the one thing a person does next, "PRD #n" as a link to
+      its issue, and two new tabs, Outbox and Retro. The galaxy app reads all of it from GitHub through the Omni Loop
+      GitHub App, cached a minute. No migration, no kit change.</p>
+  </header>
+
+  <section>
+    <h2>1 · The header: stage, next action, links</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">TODAY</span>
+        <div class="screen">
+          <div class="ttl"><span class="n">PRD #426</span>The PRD page shows its stage…</div>
+          <div class="chips"><span class="chip">vertuoza/vertuo-omni-loop</span> opened by PIERRE · 28 Sep 2026</div>
+          <div class="tabs"><span class="tab on">Questions<small>9/9</small></span><span class="tab">Before/after</span><span class="tab">Spec<small>v1</small></span><span class="tab">Plan</span></div>
+          <p class="note">Where is it? Who has to act? Go to GitHub and piece it together from an issue and three PRs. "PRD #426" is plain text.</p>
+        </div>
+      </div>
+      <div class="side after"><span class="tag">AFTER</span>
+        <div class="screen">
+          <div class="ttl"><a class="n">PRD #426 ↗</a>The PRD page shows its stage…</div>
+          <div class="track" aria-label="Stage: PRD">
+            <span class="st done">idea</span><span class="dash">─</span><span class="st now">PRD</span><span class="dash">─</span><span class="st">inbox</span><span class="dash">─</span><span class="st">outbox</span><span class="dash">─</span><span class="st">shipped</span><span class="dash">─</span><span class="st">retro</span>
+          </div>
+          <div class="sr">Stage: PRD · waiting for the spec to be approved</div>
+          <span class="act">▶ APPROVE SPEC<small>opens the phase-0 PR #428 on GitHub</small></span>
+          <div class="links"><a>issue #426</a><span class="o">open</span> <a>phase-0 #428</a><span class="o">open</span> <a>feature #427</a><span class="o">draft</span></div>
+          <div class="chips"><span class="chip">vertuoza/vertuo-omni-loop</span> opened by PIERRE · 28 Sep 2026</div>
+          <div class="tabs"><span class="tab on">Questions<small>9/9</small></span><span class="tab">Before/after<small>v1</small></span><span class="tab">Spec<small>v1</small></span><span class="tab">Plan<small>v1</small></span><span class="tab off new">Outbox</span><span class="tab off new">Retro</span></div>
+        </div>
+        <p class="note">The title links to the issue. The stage is lit and written in words. One button for the next thing to do. Links only for what exists.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · The next action follows the stage</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>STAGE</th><th>WHEN (READ FROM GITHUB)</th><th>THE ONE BUTTON</th></tr></thead>
+        <tbody>
+          <tr><td>idea</td><td>a draft dossier, no PRD number yet</td><td class="gone">none: "Brainstorm in progress"</td></tr>
+          <tr><td>PRD</td><td>issue open, phase-0 PR not merged</td><td><b>Approve spec</b> → the phase-0 PR</td></tr>
+          <tr><td>inbox</td><td>phase-0 merged, no slice merged yet</td><td><b>Build it</b> → copies <code>/omni:yolo 426</code></td></tr>
+          <tr><td>outbox</td><td>a slice merged, feature PR not merged</td><td><b>Answer the outbox</b> (open decisions) · <b>Review &amp; merge</b> (ready, none open) · else "Being built · 3/5 slices"</td></tr>
+          <tr><td>shipped</td><td>feature PR merged, no retro PR</td><td class="gone">none: "Shipped · the retro is written next"</td></tr>
+          <tr><td>retro</td><td>a retro PR, open or merged</td><td><b>Read the retro</b> → the retro PR</td></tr>
+          <tr><td>unknown</td><td>GitHub did not answer, or the App is not on the repo</td><td class="gone">none: "Stage unknown: GitHub did not answer."</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · The outbox, on the page</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">TODAY</span>
+        <div class="screen">
+          <p class="note">The decisions the agents took live in files on the feature branch, and in one long comment on the feature PR. The PRD page shows none of them.</p>
+        </div>
+      </div>
+      <div class="side after"><span class="tag">AFTER</span>
+        <div class="screen">
+          <div class="track" aria-label="Stage: outbox">
+            <span class="st done">idea</span><span class="dash">─</span><span class="st done">PRD</span><span class="dash">─</span><span class="st done">inbox</span><span class="dash">─</span><span class="st now">outbox</span><span class="dash">─</span><span class="st">shipped</span><span class="dash">─</span><span class="st">retro</span>
+          </div>
+          <span class="act">▶ ANSWER THE OUTBOX<small>1 decision waits for you · feature PR #427</small></span>
+          <div class="tabs"><span class="tab">Questions</span><span class="tab">Before/after</span><span class="tab">Spec</span><span class="tab">Plan<small>v1</small></span><span class="tab on">Outbox<small>1 open</small></span><span class="tab off">Retro</span></div>
+          <span class="btn2">ANSWER ON THE PR ↗</span>
+          <div class="item">
+            <span class="rank high">HIGH</span>
+            <b>Should an unreadable repository hide the Outbox tab?</b>
+            <ol class="opts" type="A"><li>Keep it, dimmed, saying why</li><li>Hide it until GitHub answers</li></ol>
+            <span class="rec">Recommended: A</span>
+          </div>
+          <div class="sub">SETTLED · 6</div>
+          <div class="item"><b>s1-01 · the version picker keeps every tab</b><span class="note">adopted · "Adopted the moment it was raised"</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4 · The retro, on the page</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">TODAY</span>
+        <div class="screen">
+          <p class="note">The retro is a <code>retro.md</code> on an unmerged <code>docs/retro-*</code> branch. Nothing on the PRD page says it exists.</p>
+        </div>
+      </div>
+      <div class="side after"><span class="tag">AFTER</span>
+        <div class="screen">
+          <div class="track" aria-label="Stage: retro">
+            <span class="st done">idea</span><span class="dash">─</span><span class="st done">PRD</span><span class="dash">─</span><span class="st done">inbox</span><span class="dash">─</span><span class="st done">outbox</span><span class="dash">─</span><span class="st done">shipped</span><span class="dash">─</span><span class="st now">retro</span>
+          </div>
+          <span class="act">▶ READ THE RETRO<small>retro PR #394 · open</small></span>
+          <div class="links"><a>issue #384</a><span class="m">✓ closed</span> <a>phase-0 #387</a><span class="m">✓ merged</span> <a>feature #386</a><span class="m">✓ merged</span> <a>retro #394</a><span class="o">open</span></div>
+          <div class="tabs"><span class="tab">Questions</span><span class="tab">Before/after</span><span class="tab">Spec</span><span class="tab">Plan</span><span class="tab">Outbox<small>8 settled</small></span><span class="tab on">Retro<small>open PR</small></span></div>
+          <div class="md"><h4>Retro · PRD 384</h4><p>5 slices in 4 waves, merged in 1 h 21. What went well, what held it, what to change…</p></div>
+        </div>
+        <p class="note">Read from the retro branch while its PR is open, from <code>main</code> once merged.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What stays the same</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>THING</th><th>AFTER THIS PRD</th></tr></thead>
+        <tbody>
+          <tr><td>Questions, Before/after, Spec, Plan</td><td>Unchanged, and still shown when GitHub does not answer</td></tr>
+          <tr><td>Answering the outbox, approving the spec</td><td>Still on GitHub; the page links there</td></tr>
+          <tr><td>The database, the kit, the GitHub App</td><td>No migration, no change to <code>omni dossier push</code>, nothing new in the App</td></tr>
+          <tr><td>Refreshing</td><td>PRD 384's 2-second check, which never calls GitHub: the GitHub summary is cached 60 s</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+</body>
+</html>
