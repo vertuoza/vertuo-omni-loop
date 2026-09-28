@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SIDEBAR, currentItem, pageTitle } from './sidebar';
+import { SIDEBAR, badgeOf, currentItem, pageTitle } from './sidebar';
 
 // The app's sidebar as data (PRD 438): the Work group, then the Omni group, and the two pure reads
 // the shell makes of a path, the item it falls under and the top bar's title.
@@ -60,5 +60,20 @@ describe('currentItem and pageTitle', () => {
   it('reads no item from nothing', () => {
     expect(currentItem(null)).toBeNull();
     expect(pageTitle(null)).toBeNull();
+  });
+});
+
+describe('badgeOf', () => {
+  const counts = { questions: 3, shared: 1, outbox: 2, total: 5 };
+
+  it('gives Questions the Questions part, and Shared with me the shared questions only', () => {
+    expect(badgeOf('questions', counts)).toBe(3);
+    expect(badgeOf('for-me', counts)).toBe(1);
+  });
+
+  it('gives no badge at 0, nor to an item that counts nothing', () => {
+    expect(badgeOf('questions', { ...counts, questions: 0 })).toBeNull();
+    expect(badgeOf('for-me', { ...counts, shared: 0 })).toBeNull();
+    for (const id of ['home', 'history', 'knowledge', 'fleets', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
   });
 });

@@ -14,7 +14,7 @@ vi.mock('next/navigation', () => ({ usePathname: () => at.path }));
 
 const { AppBar } = await import('./AppBar.tsx');
 
-const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, workspaceName: 'Acme', forMe: 3 };
+const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, workspaceName: 'Acme', waiting: null };
 
 const render = (path: string | null, viewer: ViewerView = SIGNED_OUT_VIEWER) => {
   at.path = path;
