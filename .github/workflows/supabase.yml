@@ -22,6 +22,12 @@ jobs:
       - uses: supabase/setup-cli@v1
         with: { version: 2.117.0 }   # pinned: `latest` asks the GitHub API, which rate-limits
       - run: supabase db start      # applies supabase/migrations, then supabase/seed.sql
+      - name: Who may sign up, and how a workspace is born
+        # The hook: any GitHub account, with or without an email, and no other provider. Installing
+        # the App makes one workspace per GitHub account, its installer the owner; a replay makes
+        # nothing. Joining by GitHub org: installed workspaces only. Only the service role runs either
+        # function; a person reads only their own sign-up requests.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/signup.sql
       - name: Who may read and write the galaxy
         # Signed out: nothing. A member of a workspace: that workspace's galaxy and nothing of another,
         # and only their own player row, never their GitHub login. Joining by domain: a confirmed
