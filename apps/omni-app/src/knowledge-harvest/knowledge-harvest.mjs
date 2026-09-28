@@ -13,19 +13,24 @@
 //   step "write"           the same tip again, and the ids the other open knowledge branches take:
 //                          write the knowledge, run both checks, drop what fails (`finishHarvest`)
 //   step "publish"         one commit on `branches.knowledge`, cut from that tip; one knowledge PR
+//   step "verdict"         only when there is nothing to publish: one comment on the merged PR, marked
+//                          `<markers.prefix>-knowledge-verdict`, "Knowledge: nothing new — <n>
+//                          candidates stayed local." (PRD 487), rewritten in place on a replay
 //   onFailure              one comment on the merged PR: "The knowledge harvest could not run: <reason>"
 //
 // The files are read at the tip "settle" reads, never at the merge commit: the merge only supplies
 // the provenance. A replay finds the branch, sees its commit, never commits twice, and rewrites the
-// PR's body. Nothing to harvest opens nothing. Settling and shipping never need the model.
+// PR's body. Nothing to publish opens no branch and no PR, only the verdict comment: with no
+// promotion, the kit's `finishHarvest` writes no "Stays here" note. Settling and shipping never need
+// the model.
 import { NonRetriableError } from 'inngest';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
 import { classifyCandidate, finishHarvest, noEdits, prepareHarvest } from 'vertuo-omni-plan/kit/lib/knowledge/pipeline.mjs';
 import { addCommit, branchHead, refuseDefault, upsertPull } from '../git-write/git-write.mjs';
 import { HARVEST_EVENT, inngest } from '../inngest-client.mjs';
 import { installationOctokit } from '../outbox-check/outbox-check.mjs';
-import { listComments } from '../outbox-check/github.mjs';
 import { qualify } from '../retro/qualify.mjs';
+import { upsertComment } from '../verdict-comment/verdict-comment.mjs';
 import { filesIn, readMerge, takenElsewhere, tipOf, withTreeAt } from './github.mjs';
 import { commitMarker, commitMessage, knowledgeBody, knowledgeTitle, toCommit } from './render.mjs';
 
@@ -37,6 +42,15 @@ export const CONCURRENCY = Object.freeze({ key: 'event.data.repository', limit: 
 /** The prefix of the failure comment's marker. The config may be what failed to read, so the kit's default. */
 const MARKER_PREFIX = parseConfig('kit: 1\n').markers.prefix;
 export const FAILURE_MARKER = `<!-- ${MARKER_PREFIX}-knowledge-harvest-failed -->`;
+
+/** The marker of the "nothing new" comment, under the repository's `markers.prefix`. */
+export const verdictMarker = (prefix) => `<!-- ${prefix}-knowledge-verdict -->`;
+/** The marker under the kit's default prefix. */
+export const VERDICT_MARKER = verdictMarker(MARKER_PREFIX);
+
+/** The comment a harvest with nothing to publish leaves on the merged feature PR. */
+export const nothingNewText = (count) =>
+  `Knowledge: nothing new — ${count} ${count === 1 ? 'candidate' : 'candidates'} stayed local.`;
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -152,6 +166,18 @@ export function createKnowledgeHarvest({ client, octokitFor, env = process.env, 
         return { branch, commit, committed: !already, pr: { number: pull.number, url: pull.url, created: pull.created } };
       });
 
+      const verdict = published
+        ? null
+        : await step.run('verdict', async () =>
+            upsertComment(await github(), {
+              owner,
+              repo,
+              prNumber,
+              marker: verdictMarker(config.markers.prefix),
+              text: nothingNewText(prepared.candidates.length),
+            }),
+          );
+
       return {
         prd: prd.number,
         settled: prepared.settled.length,
@@ -159,6 +185,7 @@ export function createKnowledgeHarvest({ client, octokitFor, env = process.env, 
         placed: written.placed.length,
         notPlaced: written.notPlaced.length,
         published,
+        verdict,
       };
     },
   );
@@ -174,29 +201,13 @@ export function createHarvestFailureHandler({ octokitFor }) {
     const { installationId, owner, repo, prNumber } = event.data.event.data ?? {};
     if (!installationId || !prNumber) return { skipped: 'not a merge' };
     const reason = firstLine(error?.message ?? event.data.error?.message);
-    const body = `${FAILURE_MARKER}\nThe knowledge harvest could not run: ${reason}\n`;
+    const text = `The knowledge harvest could not run: ${reason}`;
 
     const run = (id, fn) => (step?.run ? step.run(id, fn) : fn());
     return run('comment-failure', async () => {
       const octokit = await octokitFor(installationId);
-      const comments = await listComments(octokit, { owner, repo, prNumber });
-      const existing = comments.find((comment) => comment.body.includes(FAILURE_MARKER));
-      if (existing) {
-        await octokit.request('PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}', {
-          owner,
-          repo,
-          comment_id: existing.id,
-          body,
-        });
-        return { commentId: existing.id, reason, created: false };
-      }
-      const { data } = await octokit.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
-        owner,
-        repo,
-        issue_number: prNumber,
-        body,
-      });
-      return { commentId: data.id, reason, created: true };
+      const posted = await upsertComment(octokit, { owner, repo, prNumber, marker: FAILURE_MARKER, text });
+      return { ...posted, reason };
     });
   };
 }

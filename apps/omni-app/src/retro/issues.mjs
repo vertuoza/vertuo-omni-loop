@@ -1,6 +1,7 @@
-// The retro issues (PRD 72, decision 4): one issue per finding, worst first, at most
-// `ISSUES_PER_RUN` per run, labelled `labels.retro` and never `labels.prd`, its body ending with the
-// YAML block `/omni:retro-apply` reads.
+// The retro issues (PRD 72, decision 4): one issue per finding the judge kept (PRD 487), worst
+// first, at most `ISSUES_PER_RUN` per run; a finding not kept, or a retro not judged, opens none.
+// Each is labelled `labels.retro` and never `labels.prd`, its body ending with the YAML block
+// `/omni:retro-apply` reads.
 //
 // Idempotent, so a replay or a retry after a half-done step completes it rather than duplicating it:
 // each issue is found again by its marker (`<!-- <markers.prefix>-retro: prd=<n> finding=<id> -->`)
@@ -26,7 +27,7 @@ import { ISSUES_PER_RUN } from './rules.mjs';
  * @returns {Promise<Record<string, IssueLink>>}
  */
 export async function publishIssues(octokit, { owner, repo, config, sheet, prose, retroPath }) {
-  const chosen = sheet.findings.slice(0, ISSUES_PER_RUN);
+  const chosen = sheet.findings.filter((finding) => isKept(prose, finding.id)).slice(0, ISSUES_PER_RUN);
   if (chosen.length === 0) return {};
 
   const label = config.labels.retro;
@@ -64,6 +65,11 @@ export async function publishIssues(octokit, { owner, repo, config, sheet, prose
     links[finding.id] = { number: data.number, url: data.html_url, state: 'open' };
   }
   return links;
+}
+
+/** Whether the judge kept the finding `id`: only a verdict `guard` accepted carries a `keep`. */
+export function isKept(prose, id) {
+  return prose?.findings?.[id]?.keep === true;
 }
 
 /**
@@ -104,6 +110,7 @@ export function renderIssue({ sheet, finding, prose, retroPath, retroPr, prefix 
     '',
     lessonOf(finding, words, prose),
     '',
+    ...(words.keep === true && typeof words.why === 'string' && words.why ? ['## Why it is kept', '', words.why, ''] : []),
     '## Evidence',
     '',
     ...(evidence.length > 0 ? evidence.map((item) => `- [${item.label}](${item.url})`) : ['None recorded.']),

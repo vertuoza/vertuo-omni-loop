@@ -33,8 +33,8 @@ html:has(.km-root) body { height: auto; overflow: visible; }
 
 /* ── The page ─────────────────────────────────────────────────────────────── */
 
-.km-main { width: 100%; max-width: 1180px; display: grid; gap: 18px; min-width: 0; }
-.km { width: 100%; max-width: 1180px; display: grid; gap: 18px; min-width: 0; }
+.km-main { width: 100%; justify-self: start; display: grid; gap: 18px; min-width: 0; }
+.km { width: 100%; justify-self: start; display: grid; gap: 18px; min-width: 0; }
 
 .km-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
 /* `.km` outranks ask.css's `.ask a`, which colours every link cyan: a tab and an index row are

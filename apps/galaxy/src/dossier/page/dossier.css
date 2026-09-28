@@ -8,14 +8,18 @@
 
 /* ── The header box (PRD 476): the title row with its actions, the facts strip, the tabs ── */
 
+/* Edge to edge (PRD 498): no box on the page but the page's top. Negative margins against .ask-main's
+   padding pull it up to the top bar (28 px, .ask-main's top padding in src/ask/ask.css) and out to the
+   sidebar and the window's right edge (the page gutter, --ask-gutter, declared in ask.css); the rows keep
+   the gutter as their padding, so the title and the tabs line up with the content below. */
 .dossier-head {
   display: grid;
   gap: 14px;
   min-width: 0;
-  padding: 16px 18px 0;
+  margin: -28px calc(-1 * var(--ask-gutter, 16px)) 0;
+  padding: 16px var(--ask-gutter, 16px) 0;
   background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line-strong);
-  border-radius: 12px;
+  border-bottom: 1.5px solid var(--ask-line-strong);
 }
 /* Pinned while the page scrolls, from where the sidebar stops being a drawer (src/nav/drawer.ts) and on
    a screen tall enough to keep the box under about a third of it; below either, it scrolls away. Above
@@ -122,13 +126,13 @@
 .dossier-delete { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .dossier-copy .ask-share-link { flex: 1 1 260px; }
 
-/* ── The artifact tabs, on the box's bottom edge: links, the current one underlined ── */
+/* ── The artifact tabs, on the header's bottom edge, their rule across its full width: links, the current one underlined ── */
 
 .dossier-tabs {
   display: flex;
   gap: 4px;
-  margin: 0 -18px;
-  padding: 0 8px;
+  margin: 0 calc(-1 * var(--ask-gutter, 16px));
+  padding: 0 max(0px, calc(var(--ask-gutter, 16px) - 14px));
   border-top: 1px solid var(--ask-line-strong);
   overflow-x: auto;
   scrollbar-width: thin;
@@ -221,21 +225,64 @@
 .dossier-md td { padding: 6px 10px; border: 1px solid var(--ask-line); text-align: left; vertical-align: top; }
 .dossier-md th { background: var(--ask-surface); }
 
-/* ── The Questions tab: a card per round, in the order asked, across the page ── */
+/* ── The Questions tab (PRD 498): a strip counting the questions, then one outlined list, a line per round ── */
 
-.dossier-rounds { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; min-width: 0; }
-.dossier-round {
+.dossier-progress { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; min-width: 0; }
+.dossier-progress-words { margin: 0; font-weight: 700; }
+.dossier-meter { display: block; flex: 0 1 260px; min-width: 120px; height: 8px; background: var(--ask-sunk); border-radius: 999px; overflow: hidden; }
+.dossier-meter > span { display: block; height: 100%; background: var(--ask-green); }
+/* What is left to answer: the yellow badge, on the tab, in the strip and on an open round's line. */
+.dossier-left {
+  display: inline-block;
+  font: 700 12px/1.2 var(--ask-mono);
+  color: var(--ask-on-yellow);
+  background: var(--ask-yellow);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.dossier-rounds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: grid;
-  gap: 12px;
-  padding: 16px 18px;
   min-width: 0;
   background: var(--ask-surface);
   border: 1.5px solid var(--ask-line-strong);
-  border-left: 4px solid var(--ask-plasma);
   border-radius: 12px;
+  overflow: hidden;
 }
-.dossier-round[data-rule='delivery'] { border-left-color: var(--ask-cyan); }
-.dossier-round-top { margin: 0; display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
+.dossier-round { min-width: 0; }
+.dossier-round + .dossier-round { border-top: 1px solid var(--ask-line); }
+/* An open round is never folded: on the sunk surface, with a yellow edge. */
+.dossier-round[data-state='open'] { background: var(--ask-sunk); border-left: 4px solid var(--ask-yellow); }
+
+/* A round's line: mark, rule · category — headers, count, when, outcome. Folded rounds click it open. */
+.dossier-round-line {
+  display: flex;
+  align-items: center;
+  gap: 6px 14px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  min-width: 0;
+}
+summary.dossier-round-line { cursor: pointer; list-style: none; }
+summary.dossier-round-line::-webkit-details-marker { display: none; }
+summary.dossier-round-line::before { content: '▸'; color: var(--ask-muted); width: 12px; flex: none; transition: transform 0.15s; }
+.dossier-fold[open] > summary.dossier-round-line::before { transform: rotate(90deg); }
+summary.dossier-round-line:hover { background: var(--ask-sunk); }
+summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: -2px; }
+.dossier-round[data-state='open'] .dossier-round-line { padding-left: 38px; }
+.dossier-mark { display: inline-grid; place-items: center; width: 14px; height: 14px; flex: none; font-weight: 800; line-height: 1; }
+.dossier-mark[data-state='answered'] { color: var(--ask-green); }
+.dossier-mark[data-state='open'] { width: 10px; height: 10px; border-radius: 50%; background: var(--ask-yellow); box-shadow: 0 0 0 2px var(--ask-on-yellow); }
+.dossier-mark[data-state='moved'] { width: 10px; height: 10px; border-radius: 50%; background: var(--ask-muted); }
+.dossier-round-title { flex: 1 1 280px; display: inline-flex; align-items: center; gap: 6px 8px; flex-wrap: wrap; min-width: 0; }
+.dossier-round-headers { color: var(--ask-muted); overflow-wrap: anywhere; }
+.dossier-round-count { font: 600 13px/1.2 var(--ask-mono); color: var(--ask-muted); white-space: nowrap; }
+.dossier-round-when { font-size: 14px; white-space: nowrap; }
+.dossier-round-body { display: grid; gap: 12px; padding: 4px 16px 14px 44px; min-width: 0; }
 .dossier-rule,
 .dossier-category {
   font: 700 12px/1 var(--ask-body);
@@ -248,6 +295,8 @@
 .dossier-round[data-rule='delivery'] .dossier-rule { color: var(--ask-ink); background: var(--ask-sunk); border: 1px solid var(--ask-cyan); }
 .dossier-category { color: var(--ask-ink); background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); }
 .dossier-category[data-category='unsorted'] { color: var(--ask-muted); border-style: dashed; }
+/* The round-top line of an Outbox card (OutboxPane.tsx) keeps its chips on one row. */
+.dossier-round-top { margin: 0; display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
 
 .dossier-q { display: grid; gap: 8px; min-width: 0; }
 .dossier-q + .dossier-q { padding-top: 12px; border-top: 1px solid var(--ask-line); }
@@ -266,8 +315,19 @@
 .dossier-option-label { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 700; overflow-wrap: anywhere; }
 .dossier-option-desc { font-size: 15px; color: var(--ask-muted); overflow-wrap: anywhere; }
 .dossier-answer { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+/* An answered question, on one line: chip · question (muted) → what was chosen (ink), in no box. */
+.dossier-q-line { font-size: 16px; font-weight: 400; text-wrap: pretty; }
+.dossier-q-asked { color: var(--ask-muted); }
+.dossier-chosen { display: inline; }
+.dossier-choice + .dossier-choice::before { content: ', '; }
+.dossier-choice .dossier-option-label { display: inline-flex; color: var(--ask-ink); }
+.dossier-choice .dossier-option-desc { margin-left: 8px; }
+/* An open question's options: outlined buttons, no fill, side by side. */
+.dossier-round .dossier-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.dossier-round[data-state='open'] .dossier-option { border: 1.5px solid var(--ask-line-strong); max-width: 420px; }
 .dossier-outcome { margin: 0; font-size: 15px; }
-.dossier-round-foot { margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; }
+.dossier-round-foot { margin: 0; display: flex; align-items: baseline; gap: 6px 16px; flex-wrap: wrap; }
+.dossier-round-foot .dossier-round-link { margin-left: auto; }
 .dossier-round-foot .ask-hint { overflow-wrap: anywhere; min-width: 0; }
 .ask a.dossier-round-link { font-size: 15px; white-space: nowrap; }
 /* The way back from a question's own page lands on its round, clear of the top edge; with the header
@@ -331,7 +391,7 @@
 
 /* ── The history, /prd: the filters and the search, then a card per dossier, newest activity first ── */
 
-.dossier-history { max-width: 880px; }
+.dossier-history { width: 100%; }
 .dossier-history-filters {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -386,11 +446,12 @@
   .dossier-title { font-size: 23px; }
   .ask a.dossier-history-row { padding: 12px 14px; }
   .dossier-actions { justify-content: flex-start; }
-  .dossier-head { padding: 14px 14px 0; }
-  .dossier-tabs { margin: 0 -14px; }
+  .dossier-head { padding-top: 14px; }
   .dossier-facts { display: grid; gap: 12px; margin: 0; clip-path: none; }
   .dossier-fact { padding: 0; border-left: 0; }
   .dossier-frame iframe { height: 70vh; min-height: 360px; }
-  .dossier-round { padding: 14px; }
+  .dossier-round-line { padding: 10px 12px; }
+  .dossier-round[data-state='open'] .dossier-round-line { padding-left: 12px; }
+  .dossier-round-body { padding: 4px 12px 12px; }
   .outbox-item { padding: 14px; }
 }

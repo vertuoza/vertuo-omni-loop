@@ -57,7 +57,9 @@
           "summary": 1200,
           "title": 90,
           "whyItMatters": 600,
-          "lesson": 400
+          "lesson": 400,
+          "reason": 300,
+          "why": 300
         }
       },
       "prd": {

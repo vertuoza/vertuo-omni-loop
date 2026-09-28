@@ -10,8 +10,13 @@
 // `retro.md` holds, in order: the summary, every finding (ranked, with what happened, why it matters,
 // the lesson and its evidence), the proposed lessons, one section per kind that has something to say
 // (its own lines, then its findings, in the registry's order), the rules the run used, and the
-// sections of the kinds that take part only in the day-14 run.
+// sections of the kinds that take part only in the day-14 run. Each finding the judge kept (PRD 487)
+// is marked kept, with its `why`, and the front matter names the judge's version (`judge:`).
+//
+// When the retro is not worth a pull request, or was not judged, nothing of that is written:
+// `verdictComment` gives instead the one comment the retro keeps on the merged feature PR.
 import { KINDS } from './kinds/index.mjs';
+import { JUDGE_VERSION } from './narrate.mjs';
 
 /**
  * @typedef {{ [findingId: string]: { number: number, url: string, state: 'open' | 'closed' } }} IssueLinks
@@ -65,6 +70,7 @@ export function render({ doc, featurePr, prose = null, kinds = KINDS }) {
     `runs: [${runs.map((run) => run.run).join(', ')}]`,
     `model: ${latest.narration?.model ?? 'none'}`,
     `rules: ${latest.rules.version}`,
+    `judge: ${JUDGE_VERSION}`,
     '---',
     '',
     `# Retro — PRD ${latest.prd.number}, ${latest.prd.title}`,
@@ -138,6 +144,7 @@ function findingBlock(finding, prose, issues) {
   if (why) lines.push(`- **Why it matters:** ${why}`);
   const lesson = field(words.lesson);
   if (lesson) lines.push(`- **Proposed lesson:** ${lesson}`);
+  if (words.keep === true) lines.push(`- **Kept:** ${typeof words.why === 'string' && words.why ? words.why : 'yes'}`);
   const evidence = (finding.evidence ?? []).map((item) => `[${item.label}](${item.url})`);
   lines.push(`- **Evidence:** ${evidence.length > 0 ? evidence.join(', ') : 'none recorded'}`, '');
   return lines;
@@ -204,4 +211,42 @@ function prBody(latest, findings, prose, issues) {
     'Merging keeps this retro as history and changes nothing else.',
   ];
   return `${lines.join('\n')}\n`;
+}
+
+/**
+ * The comment a retro not worth a pull request keeps on the merged feature PR, without its marker:
+ * `Retro: no new lesson — <reason>` or `Retro: not judged — <reason>`, the timeline in two lines,
+ * then one line per finding (its id, title and key). Pure.
+ * @param {{ judged: boolean, reason: string, runs: RunRecord[], prose?: object | null }} input
+ * @returns {string}
+ */
+export function verdictComment({ judged, reason, runs, prose = null }) {
+  const first = runs[0];
+  const findings = uniqueFindings(runs);
+  const timeline = runs.map((run) => run.kinds?.timeline).find((facts) => facts) ?? null;
+  const minutes = timeline?.featurePr?.minutes ?? minutesBetween(first.featurePr.openedAt, first.featurePr.mergedAt);
+  const lines = [
+    `Retro: ${judged ? 'no new lesson' : 'not judged'} — ${oneLine(reason)}`,
+    '',
+    `- Feature PR #${first.featurePr.number}: ${minutes === null ? 'time not known' : `${minutes} minutes`} from open to merge.`,
+    timeline
+      ? `- ${timeline.sliceCount} slices in ${timeline.waves.merged} waves as merged${
+          timeline.waves.planned === null ? '' : `, ${timeline.waves.planned} planned`
+        }.`
+      : '- Slices and waves: not counted.',
+    '',
+    ...(findings.length === 0
+      ? ['No findings: nothing crossed a threshold of the rules.']
+      : findings.map((finding) => `- ${finding.ref} · ${titleOf(finding, prose)} — \`${finding.id}\``)),
+  ];
+  return `${lines.join('\n')}\n`;
+}
+
+function minutesBetween(from, to) {
+  const ms = Date.parse(to) - Date.parse(from);
+  return Number.isFinite(ms) ? Math.round(ms / 60000) : null;
+}
+
+function oneLine(text) {
+  return String(text ?? '').replace(/\s+/g, ' ').trim() || 'no reason given';
 }

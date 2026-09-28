@@ -133,14 +133,14 @@ describe('who may delete', () => {
 });
 
 describe('the tabs', () => {
-  it('reads Questions, answered out of asked, then Before/after, Spec, Plan, each with its latest version, then Outbox and Retro, dimmed while empty', () => {
+  it('reads Questions, questions answered out of asked and how many are left, then Before/after, Spec, Plan, each with its latest version, then Outbox and Retro, dimmed while empty', () => {
     expect(view().tabs).toEqual([
-      { kind: 'questions', label: 'Questions', badge: '2/4 answered', href: `/prd/${ID}`, current: true, empty: false },
-      { kind: 'before-after', label: 'Before/after', badge: 'v2', href: `/prd/${ID}?tab=before-after`, current: false, empty: false },
-      { kind: 'spec', label: 'Spec', badge: 'v3', href: `/prd/${ID}?tab=spec`, current: false, empty: false },
-      { kind: 'plan', label: 'Plan', badge: null, href: `/prd/${ID}?tab=plan`, current: false, empty: false },
-      { kind: 'outbox', label: 'Outbox', badge: null, href: `/prd/${ID}?tab=outbox`, current: false, empty: true },
-      { kind: 'retro', label: 'Retro', badge: null, href: `/prd/${ID}?tab=retro`, current: false, empty: true },
+      { kind: 'questions', label: 'Questions', badge: '2/4', alert: '1 to answer', href: `/prd/${ID}`, current: true, empty: false },
+      { kind: 'before-after', label: 'Before/after', badge: 'v2', alert: null, href: `/prd/${ID}?tab=before-after`, current: false, empty: false },
+      { kind: 'spec', label: 'Spec', badge: 'v3', alert: null, href: `/prd/${ID}?tab=spec`, current: false, empty: false },
+      { kind: 'plan', label: 'Plan', badge: null, alert: null, href: `/prd/${ID}?tab=plan`, current: false, empty: false },
+      { kind: 'outbox', label: 'Outbox', badge: null, alert: null, href: `/prd/${ID}?tab=outbox`, current: false, empty: true },
+      { kind: 'retro', label: 'Retro', badge: null, alert: null, href: `/prd/${ID}?tab=retro`, current: false, empty: true },
     ]);
   });
 
@@ -168,6 +168,36 @@ describe('the tabs', () => {
   it('counts no question when none was asked, or when they could not be read', () => {
     expect(view(readPick({}), numbered, PIERRE.user_id, versions, []).tabs[0].badge).toBeNull();
     expect(view(readPick({}), numbered, PIERRE.user_id, versions, null).tabs[0].badge).toBeNull();
+    expect(view(readPick({}), numbered, PIERRE.user_id, versions, []).tabs[0].alert).toBeNull();
+  });
+
+  it('counts questions, not rounds (PRD 498): 3 + 1 answered, 2 open and 1 moved read 4/7 · 2 to answer', () => {
+    const q = (n: number) => ({ ...SHAPE, question: `Question ${n}?`, header: `H${n}` });
+    const answers = (...ns: number[]) => Object.fromEntries(ns.map((n) => [`Question ${n}?`, 'Hexagonal']));
+    const answered = { status: 'answered' as const, answered_via: 'page' as const, answered_by: PIERRE.user_id, answered_at: '2026-09-27T10:00:00Z' };
+    const mixed = [
+      round('a3', 'brainstorm', '2026-09-27T09:00:00Z', { questions: [q(1), q(2), q(3)], answers: answers(1, 2, 3), ...answered }),
+      round('a1', 'brainstorm', '2026-09-27T09:10:00Z', { questions: [q(4)], answers: answers(4), ...answered }),
+      round('o2', 'delivery', '2026-09-27T09:20:00Z', { questions: [q(5), q(6)] }),
+      round('m1', 'delivery', '2026-09-27T09:30:00Z', { questions: [q(7)], status: 'abandoned' }),
+    ];
+    const v = view(readPick({}), numbered, PIERRE.user_id, versions, mixed);
+    expect(v.questions).toMatchObject({ asked: 7, answered: 4, open: 2 });
+    expect(v.tabs[0]).toMatchObject({ badge: '4/7', alert: '2 to answer' });
+    const settled = view(readPick({}), numbered, PIERRE.user_id, versions, mixed.slice(0, 2));
+    expect(settled.questions).toMatchObject({ asked: 4, answered: 4, open: 0 });
+    expect(settled.tabs[0]).toMatchObject({ badge: '4/4 answered', alert: null });
+  });
+
+  it('gives each round its line: its state, its headers in lower case, its count and when it was asked (PRD 498)', () => {
+    const [first, second, third, fourth] = view().questions.rounds ?? [];
+    expect(first).toMatchObject({ state: 'answered', headers: 'shape', count: '1/1', when: '27 Sep, 09:15' });
+    expect(second).toMatchObject({ state: 'answered', headers: 'checks', count: '1/1' });
+    expect(third).toMatchObject({ state: 'moved', count: 'moved to the terminal', when: '28 Sep, 08:00' });
+    expect(fourth).toMatchObject({ state: 'open', count: '1 to answer' });
+    const two = round('o2', 'delivery', '2026-09-27T09:20:00Z', { questions: [SHAPE, CHECKS] });
+    const [open] = view(readPick({}), numbered, PIERRE.user_id, versions, [two]).questions.rounds ?? [];
+    expect(open).toMatchObject({ headers: 'shape, checks', count: '2 to answer' });
   });
 
   it('opens the tab the address names, whatever the default', () => {
@@ -296,7 +326,7 @@ describe('the Questions tab', () => {
   it('lists every round in the order it was asked, brainstorm or delivery, answered out of asked', () => {
     const q = questions().questions;
     expect(q.rounds?.map((r) => [r.id, r.rule])).toEqual([['r1', 'brainstorm'], ['r2', 'brainstorm'], ['r3', 'delivery'], ['r4', 'delivery']]);
-    expect([q.answered, q.asked]).toEqual([2, 4]);
+    expect([q.answered, q.asked, q.open]).toEqual([2, 4, 1]);
   });
 
   it('shows an answered question with only its chosen option, and the answer as given', () => {
@@ -373,7 +403,7 @@ describe('the Questions tab', () => {
   });
 
   it('has no rounds to list when they could not be read', () => {
-    expect(view(readPick({ tab: 'questions' }), numbered, PIERRE.user_id, versions, null).questions).toEqual({ rounds: null, asked: 0, answered: 0 });
+    expect(view(readPick({ tab: 'questions' }), numbered, PIERRE.user_id, versions, null).questions).toEqual({ rounds: null, asked: 0, answered: 0, open: 0 });
   });
 });
 

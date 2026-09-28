@@ -64,6 +64,10 @@ export const FIELD_CAPS = Object.freeze({
   title: 90,
   whyItMatters: 600,
   lesson: 400,
+  /** The judge's verdict: why the retro is worth a PR, or not (PRD 487). */
+  reason: 300,
+  /** Why the judge keeps a finding, or not (PRD 487). */
+  why: 300,
 });
 
 /**

@@ -43,11 +43,32 @@ const clean = () => ({
       title: 'The end-to-end check kept failing',
       whyItMatters: 'Each red run held a slice back and hid whether the change itself was sound.',
       lesson: 'Fix the unsteady step before the next wave starts.',
+      keep: true,
+      why: 'No earlier lesson asks for the unsteady step to be fixed first.',
     },
-    'slow-slice:s3': { title: 'One slice dragged on', whyItMatters: 'The last slice kept the whole feature waiting.' },
+    'slow-slice:s3': { title: 'One slice dragged on', whyItMatters: 'The last slice kept the whole feature waiting.', keep: false },
   },
   lessons: [{ text: 'Keep the end-to-end check green between waves.', findings: ['repeated-red:e2e'] }],
+  verdict: { worthIt: true, reason: 'One lesson about the end-to-end check is new.' },
 });
+
+/** The clean reply with its verdict and its findings' keep and why changed by `edit`. */
+function judged(edit) {
+  const reply = clean();
+  edit(reply);
+  return reply;
+}
+
+/** The prose `guard` gives for a verdict it drops: the verdict replaced by its reason, no keep and no why. */
+function withoutJudgement(reply, reason) {
+  const prose = structuredClone(reply);
+  prose.verdict = { dropped: reason };
+  for (const words of Object.values(prose.findings)) {
+    delete words.keep;
+    delete words.why;
+  }
+  return prose;
+}
 
 /** The clean reply with one prose field replaced. */
 function withTitle(text, id = 'repeated-red:e2e') {
@@ -82,6 +103,8 @@ describe('guard — a digit', () => {
       title: { dropped: DROPPED.digit },
       whyItMatters: clean().findings['repeated-red:e2e'].whyItMatters,
       lesson: clean().findings['repeated-red:e2e'].lesson,
+      keep: true,
+      why: clean().findings['repeated-red:e2e'].why,
     });
     expect(prose.summary).toBe(clean().summary);
     expect(dropped).toEqual([{ field: 'findings.repeated-red:e2e.title', reason: DROPPED.digit }]);
@@ -195,5 +218,94 @@ describe('guard — the lessons', () => {
     const reply = clean();
     reply.lessons = [{ text: 'A'.repeat(FIELD_CAPS.lesson + 1), findings: ['repeated-red:e2e'] }];
     expect(guard({ reply, sheet }).dropped).toEqual([{ field: 'lessons.0', reason: DROPPED.tooLong }]);
+  });
+});
+
+describe('guard — the verdict', () => {
+  it('keeps a verdict not worth it with no finding kept', () => {
+    const reply = judged((r) => {
+      r.verdict = { worthIt: false, reason: 'Both lessons are in the knowledge already.' };
+      r.findings['repeated-red:e2e'].keep = false;
+    });
+    const { prose, dropped } = guard({ reply, sheet });
+    expect(prose.verdict).toEqual(reply.verdict);
+    expect(prose.findings['repeated-red:e2e'].keep).toBe(false);
+    expect(dropped).toEqual([]);
+  });
+
+  it('drops a missing verdict: the retro is not judged', () => {
+    const reply = judged((r) => delete r.verdict);
+    const { prose, dropped } = guard({ reply, sheet });
+    expect(prose).toEqual(withoutJudgement(reply, DROPPED.noVerdict));
+    expect(dropped).toEqual([{ field: 'verdict', reason: DROPPED.noVerdict }]);
+  });
+
+  it('drops a verdict whose worthIt is not true or false', () => {
+    const reply = judged((r) => (r.verdict.worthIt = 'yes'));
+    const { prose, dropped } = guard({ reply, sheet });
+    expect(prose.verdict).toEqual({ dropped: DROPPED.notYesOrNo });
+    expect(dropped).toEqual([{ field: 'verdict.worthIt', reason: DROPPED.notYesOrNo }]);
+  });
+
+  it('drops a verdict worth it that keeps no finding', () => {
+    const reply = judged((r) => (r.findings['repeated-red:e2e'].keep = false));
+    const { prose, dropped } = guard({ reply, sheet });
+    expect(prose).toEqual(withoutJudgement(reply, DROPPED.nothingKept));
+    expect(dropped).toEqual([{ field: 'verdict', reason: DROPPED.nothingKept }]);
+  });
+
+  it('drops a verdict worth it whose only kept finding keeps an unknown finding', () => {
+    const reply = judged((r) => {
+      r.findings['repeated-red:e2e'].keep = false;
+      r.findings['flaky:lint'] = { title: 'Lint wobbled', lesson: 'Watch lint.', keep: true };
+    });
+    expect(guard({ reply, sheet }).prose.verdict).toEqual({ dropped: DROPPED.nothingKept });
+  });
+
+  it('drops a verdict that keeps a finding with no lesson, or a lesson it dropped', () => {
+    const none = judged((r) => (r.findings['slow-slice:s3'].keep = true));
+    expect(guard({ reply: none, sheet }).dropped).toEqual([{ field: 'findings.slow-slice:s3.keep', reason: DROPPED.keptNoLesson }]);
+    expect(guard({ reply: none, sheet }).prose.verdict).toEqual({ dropped: DROPPED.keptNoLesson });
+
+    const refused = judged((r) => (r.findings['repeated-red:e2e'].lesson = 'Fix it within 2 days.'));
+    const { prose, dropped } = guard({ reply: refused, sheet });
+    expect(prose.verdict).toEqual({ dropped: DROPPED.keptNoLesson });
+    expect(dropped).toEqual([
+      { field: 'findings.repeated-red:e2e.lesson', reason: DROPPED.digit },
+      { field: 'findings.repeated-red:e2e.keep', reason: DROPPED.keptNoLesson },
+    ]);
+  });
+
+  it('drops a verdict whose reason passes its cap, or breaks a rule of the prose', () => {
+    const long = judged((r) => (r.verdict.reason = 'A'.repeat(FIELD_CAPS.reason + 1)));
+    expect(guard({ reply: long, sheet }).dropped).toEqual([{ field: 'verdict.reason', reason: DROPPED.tooLong }]);
+    expect(guard({ reply: long, sheet }).prose.verdict).toEqual({ dropped: DROPPED.tooLong });
+    const atCap = judged((r) => (r.verdict.reason = 'A'.repeat(FIELD_CAPS.reason)));
+    expect(guard({ reply: atCap, sheet }).dropped).toEqual([]);
+
+    const digit = judged((r) => (r.verdict.reason = 'Two of 3 lessons are new.'));
+    expect(guard({ reply: digit, sheet }).prose.verdict).toEqual({ dropped: DROPPED.digit });
+    const notText = judged((r) => (r.verdict.reason = 4));
+    expect(guard({ reply: notText, sheet }).prose.verdict).toEqual({ dropped: DROPPED.notText });
+  });
+
+  it('drops the verdict when a why passes its cap, or is not text', () => {
+    const long = judged((r) => (r.findings['repeated-red:e2e'].why = 'A'.repeat(FIELD_CAPS.why + 1)));
+    const { prose, dropped } = guard({ reply: long, sheet });
+    expect(prose).toEqual(withoutJudgement(long, DROPPED.tooLong));
+    expect(dropped).toEqual([{ field: 'findings.repeated-red:e2e.why', reason: DROPPED.tooLong }]);
+
+    const atCap = judged((r) => (r.findings['repeated-red:e2e'].why = 'A'.repeat(FIELD_CAPS.why)));
+    expect(guard({ reply: atCap, sheet }).dropped).toEqual([]);
+    const notText = judged((r) => (r.findings['slow-slice:s3'].why = ['new']));
+    expect(guard({ reply: notText, sheet }).prose.verdict).toEqual({ dropped: DROPPED.notText });
+  });
+
+  it('keeps the other prose when it drops the verdict', () => {
+    const reply = judged((r) => delete r.verdict);
+    const { prose } = guard({ reply, sheet });
+    expect(prose.summary).toBe(clean().summary);
+    expect(prose.lessons).toEqual(clean().lessons);
+    expect(prose.findings['repeated-red:e2e'].lesson).toBe(clean().findings['repeated-red:e2e'].lesson);
   });
 });
