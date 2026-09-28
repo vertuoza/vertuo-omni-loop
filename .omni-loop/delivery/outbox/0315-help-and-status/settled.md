@@ -472,3 +472,158 @@ A few lines of prose in one skill. No code, no stored data, no command changes.
 ```
 
 <!-- /omni-outbox-settled: s4-01-prd-number-still-shows-the-overview -->
+
+<!-- omni-outbox-settled: s3-01-one-open-item-waits -->
+
+## s3-01-one-open-item-waits — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-one-open-item-waits
+prd: 315
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+When exactly one question of yours waits for an answer, how should the overview's row say it?
+
+## The decision, in plain words
+
+It says 1 open item waits for an answer, so the verb agrees with a single item. With two or more it says they wait, as the spec writes it.
+
+## The intro, for fun
+
+The spec wrote the row for a crowd of questions, never for one on its own.
+
+## The punchline, for fun
+
+One lonely question now waits, and a crowd of them still wait together.
+
+## The options, in plain words
+
+A. Make the verb agree: 1 open item waits, 2 open items wait: the option built.
+B. Keep the spec's letter for every count: 1 open item wait for an answer.
+C. Word it so no verb has to agree, such as open items: 1, waiting for an answer.
+
+## What I had to decide
+
+The words of an outbox row of yours when exactly one open item is left. The spec and the plan give them as `<k> open item(s) wait for an answer`: the `(s)` says the noun follows the count, but the verb is written only for many, so `1 open item wait for an answer` would follow the letter of the plan's check.
+
+## What I did meanwhile
+
+`standing` in `kit/lib/status/format.mjs` prints `1 open item waits for an answer` for one and `<k> open items wait for an answer` for more. Pinned in `kit/lib/status/format.test.mjs` and `kit/bin/status.test.mjs`.
+
+## What it costs to change later
+
+One condition in `kit/lib/status/format.mjs` and the lines of the tests that pin it. No stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec and the plan write the row as a template, `<k> open item(s) wait for an answer`, and never show it with one item.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-one-open-item-waits -->
+
+<!-- omni-outbox-settled: s3-02-shipped-list-wraps-under-the-rows -->
+
+## s3-02-shipped-list-wraps-under-the-rows — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-shipped-list-wraps-under-the-rows
+prd: 315
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+When the list of your shipped PRDs runs onto a second line, where should that line start?
+
+## The decision, in plain words
+
+It starts where the numbers of the rows above it start, as the spec's example draws it, not under the first shipped PRD of the list.
+
+## The intro, for fun
+
+The spec's picture and the plan's sentence disagree by exactly four spaces.
+
+## The punchline, for fun
+
+The picture won, and the list now lines up with the rows above it.
+
+## The options, in plain words
+
+A. Start the next lines where the rows' numbers start, as the spec's example draws it: the option built.
+B. Start them under the first shipped PRD of the list, four columns further right, as the plan's sentence reads.
+
+## What I had to decide
+
+Where the continuation lines of the `shipped` row of yours start. The spec's example starts them at the same column as the `#` of the rows above, under the count `24:`. The plan's check says the list is wrapped at 80 columns under the first entry, which read literally is four columns further right, under `#301`.
+
+## What I did meanwhile
+
+`shippedRow` in `kit/lib/status/format.mjs` starts every continuation line at column 13, the column the line under the bar and the other rows' numbers start at, and never ends a line on the separator. Pinned against the spec's example in `kit/lib/status/format.test.mjs`.
+
+## What it costs to change later
+
+One indent in `kit/lib/status/format.mjs` and the lines of the tests that pin it. No stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec's example and the plan's check place the second line of the shipped list at two different columns; the spec was taken as the source of truth.
+
+```
+
+<!-- /omni-outbox-settled: s3-02-shipped-list-wraps-under-the-rows -->
