@@ -1,8 +1,8 @@
 // What the status line reads besides Claude Code's JSON (PRD 324's spec, "How it is built"): the one
 // module that touches git and the disk (with `sessions.mjs`, through which it reads the session's
-// record), so that `input.mjs`, `which-prd.mjs`, `stage.mjs` and `render.mjs` stay pure. Each fact is read on its own, and one that cannot be read counts as absent:
-// nothing here prints, fetches, runs `gh` or writes a file. Every git call goes through the injected
-// `exec`.
+// record), so that `input.mjs`, `which-prd.mjs`, `stage.mjs` and `render.mjs` stay pure. Each fact
+// is read on its own, and one that cannot be read counts as absent: nothing here prints, fetches,
+// runs `gh` or writes a file. Every git call goes through the injected `exec`.
 //
 // - `installed` — a config loads in the checkout of the session's folder (`input.currentDir`, else
 //   the process's own folder): the loop is installed there, and line 2 is printed.
