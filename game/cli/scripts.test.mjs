@@ -23,9 +23,9 @@ beforeEach(async () => {
   writeFileSync(join(tmp, 'gh.log'), '');
   tables = {
     workspaces: [
-      { id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan', join_domain: 'vertuoza.com', theme: {}, created_at: '2026-09-26T12:00:00+00:00' },
-      { id: ACME, slug: 'acme', name: 'Acme', github_org: 'acme-gh', plan_repo: 'acme-plan', join_domain: null, theme: {}, created_at: '2026-09-27T12:00:00+00:00' },
-      { id: BARE, slug: 'bare', name: 'Bare', github_org: null, plan_repo: null, join_domain: null, theme: {}, created_at: '2026-09-27T12:00:00+00:00' },
+      { id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan', theme: {}, created_at: '2026-09-26T12:00:00+00:00' },
+      { id: ACME, slug: 'acme', name: 'Acme', github_org: 'acme-gh', plan_repo: 'acme-plan', theme: {}, created_at: '2026-09-27T12:00:00+00:00' },
+      { id: BARE, slug: 'bare', name: 'Bare', github_org: null, plan_repo: null, theme: {}, created_at: '2026-09-27T12:00:00+00:00' },
     ],
     sectors: [{ workspace_id: VERTUOZA, name: 'core', repos: ['vertuo-core'] }],
     teams: [{ workspace_id: VERTUOZA, name: 'beaver', home: 'core', label: 'BEAVER', color: '#d08a4a', motto: '', mascot: 'beaver', sort: 10, retired_at: null }],

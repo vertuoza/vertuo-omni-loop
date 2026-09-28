@@ -102,7 +102,7 @@ describe('the sign-in', () => {
   it('says the history lists the PRDs of the person\'s workspaces', () => {
     const html = renderToStaticMarkup(createElement(DossierSignIn, { supabase: SUPABASE, returnPath: '/prd/callback', error: null, what: 'history' }));
     expect(html).toContain('Sign in to see your workspace&#x27;s PRDs');
-    expect(html).toContain('>Sign in with Google</button>');
+    expect(html).toContain('>Sign in with GitHub</button>');
     expect(html).not.toContain('Sign in to read this PRD');
   });
 });

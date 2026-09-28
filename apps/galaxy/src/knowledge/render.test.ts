@@ -195,7 +195,7 @@ describe('everyone else', () => {
   it('asks a visitor who is signed out to sign in, to come back to /knowledge', () => {
     const html = screen({ kind: 'sign-in' });
     expect(html).toContain('Sign in to read the knowledge map');
-    expect(html).toContain('Sign in with Google');
+    expect(html).toContain('Sign in with GitHub');
   });
 
   it('tells a person without a crew account that the map is for the crew', () => {

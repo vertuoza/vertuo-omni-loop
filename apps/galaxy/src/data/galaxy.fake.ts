@@ -2,16 +2,20 @@
 // written as one signed-in person under the row-level security of
 // supabase/migrations/20260926120000_workspaces.sql (a person reads their own memberships, a member
 // reads their workspaces' rows and nothing of another's, a member with GitHub linked writes only
-// their own player row), with join_by_domain(), link_github() and submit_score()
-// (supabase/migrations/20260926180000_arcade_scores.sql). It answers the query shapes src/data
-// sends, records every one, and nothing else. The database's own rules are proved by
+// their own player row), with link_github() and submit_score()
+// (supabase/migrations/20260926180000_arcade_scores.sql), and, for the service role only,
+// join_workspaces_by_github() (supabase/migrations/20261001090000_github_sign_up.sql, by the rule
+// src/data/github-orgs.ts states). It answers the query shapes src/data sends, records every one,
+// and nothing else. The database's own rules are proved by
 // supabase/checks/access.sql, not here.
+
+import { workspacesToJoin, type JoinableWorkspace } from './github-orgs';
 
 type Row = Record<string, unknown>;
 type Failure = { code?: string; message: string };
 type Result = { data: unknown; error: Failure | null };
 
-export type FakeUser = { id: string; email: string; confirmed?: boolean; github?: { id: number; login: string } };
+export type FakeUser = { id: string; email: string; github?: { id: number; login: string } };
 export type FakeTable = 'workspaces' | 'workspace_members' | 'sectors' | 'teams' | 'players' | 'ledger_events' | 'player_xp' | 'arcade_scores';
 export type FakeTables = Record<FakeTable, Row[]>;
 
@@ -170,9 +174,28 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     }
   }
 
-  async function rpc(me: FakeUser | null, fn: string, args?: Record<string, unknown>): Promise<Result> {
+  /** The slugs of every workspace the person belongs to, the one joined first first. */
+  const slugsOf = (userId: unknown) => tables.workspace_members.filter((m) => m.user_id === userId)
+    .map((m) => ({ at: String(m.joined_at), slug: String(tables.workspaces.find((w) => w.id === m.workspace_id)?.slug) }))
+    .sort((a, b) => (a.at === b.at ? (a.slug < b.slug ? -1 : 1) : a.at < b.at ? -1 : 1))
+    .map((m) => m.slug);
+
+  async function rpc(me: FakeUser | null, fn: string, args?: Record<string, unknown>, service = false): Promise<Result> {
     calls.push(args === undefined ? { kind: 'rpc', fn } : { kind: 'rpc', fn, args: clone(args) });
     if (state.fail) return { data: null, error: state.fail };
+    if (fn === 'join_workspaces_by_github') {
+      if (!service) return { data: null, error: { code: '42501', message: 'permission denied for function join_workspaces_by_github' } };
+      const { p_user_id: userId, p_logins: logins } = args ?? {};
+      if (typeof userId !== 'string') return { data: null, error: { code: '22023', message: 'Joining needs a person.' } };
+      const at = stamp();
+      const joins = workspacesToJoin((logins ?? []) as string[], tables.workspaces as unknown as (Row & JoinableWorkspace)[]);
+      for (const w of joins) {
+        if (!tables.workspace_members.some((m) => m.workspace_id === w.id && m.user_id === userId)) {
+          tables.workspace_members.push({ workspace_id: w.id, user_id: userId, role: 'member', joined_at: at });
+        }
+      }
+      return { data: slugsOf(userId), error: null };
+    }
     if (fn === 'submit_score') {
       // A player of the workspace, with the game in their player_xp row's unlocked, a score from 0 to
       // the cap; the higher of the stored best and the score is kept, and returned.
@@ -193,19 +216,6 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
       return { data: row ? row.best : score, error: null };
     }
     if (!me) return { data: null, error: { code: '42501', message: 'Sign in first.' } };
-    if (fn === 'join_by_domain') {
-      const domain = me.email.toLowerCase().split('@')[1];
-      if (me.confirmed !== false) {
-        const at = stamp();
-        for (const w of tables.workspaces) {
-          if (w.join_domain === domain && !isMember(me, w.id)) tables.workspace_members.push({ workspace_id: w.id, user_id: me.id, role: 'member', joined_at: at });
-        }
-      }
-      const mine = tables.workspace_members.filter((m) => m.user_id === me.id)
-        .map((m) => ({ at: String(m.joined_at), slug: String(tables.workspaces.find((w) => w.id === m.workspace_id)?.slug) }))
-        .sort((a, b) => (a.at === b.at ? (a.slug < b.slug ? -1 : 1) : a.at < b.at ? -1 : 1));
-      return { data: mine.map((m) => m.slug), error: null };
-    }
     if (fn === 'link_github') {
       if (!tables.workspace_members.some((m) => m.user_id === me.id)) {
         return { data: null, error: { code: '42501', message: 'Sign in with an account of a workspace first.' } };
@@ -230,7 +240,12 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     };
   }
 
-  return { tables, calls, state, client };
+  /** The service role's client, as galaxy's server holds it (SUPABASE_SERVICE_ROLE_KEY): RPCs only. */
+  function service() {
+    return { rpc: (fn: string, args?: Record<string, unknown>) => rpc(null, fn, args, true) };
+  }
+
+  return { tables, calls, state, client, service };
 }
 
 // ── Two workspaces, side by side ─────────────────────────────────────────────
@@ -258,15 +273,15 @@ const player = (workspace_id: string, user_id: string, display_name: string, tea
 
 /**
  * People: ADA, a Vertuoza player; WILE, an Acme player; BOTH, a player of each (Acme joined
- * first); BEA, a confirmed vertuoza.com account from before workspaces, in none yet; UNA, the same
- * but unconfirmed; EVE, of a domain no workspace joins.
+ * first); BEA, a member of the vertuoza org on GitHub, in no workspace yet; UNA, a session from
+ * before GitHub sign-in, no GitHub linked, in none; EVE, in no org any workspace joins.
  */
 export const PEOPLE = {
   ada: { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com', github: { id: 11, login: 'ada-gh' } },
   wile: { id: '00000000-0000-4000-8000-0000000000b1', email: 'wile@acme.test', github: { id: 21, login: 'wile-gh' } },
   both: { id: '00000000-0000-4000-8000-0000000000c1', email: 'both@vertuoza.com', github: { id: 31, login: 'both-gh' } },
   bea: { id: '00000000-0000-4000-8000-0000000000d1', email: 'bea@vertuoza.com', github: { id: 41, login: 'bea-gh' } },
-  una: { id: '00000000-0000-4000-8000-0000000000d2', email: 'una@vertuoza.com', confirmed: false },
+  una: { id: '00000000-0000-4000-8000-0000000000d2', email: 'una@vertuoza.com' },
   eve: { id: '00000000-0000-4000-8000-0000000000e1', email: 'eve@example.com' },
 } satisfies Record<string, FakeUser>;
 
@@ -275,8 +290,8 @@ export function twoWorkspaces(): Partial<FakeTables> {
   const { ada, wile, both } = PEOPLE;
   return {
     workspaces: [
-      { id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan', join_domain: 'vertuoza.com', theme: {} },
-      { id: ACME, slug: 'acme', name: 'Acme', github_org: 'acme', plan_repo: 'acme-plan', join_domain: 'acme.test', theme: { plasma: '#2fc6a4', 'plasma-dark': '#178a80' } },
+      { id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan', github_installation_id: 91001, github_account_type: 'Organization', theme: {} },
+      { id: ACME, slug: 'acme', name: 'Acme', github_org: 'acme', plan_repo: 'acme-plan', github_installation_id: 91002, github_account_type: 'Organization', theme: { plasma: '#2fc6a4', 'plasma-dark': '#178a80' } },
     ],
     workspace_members: [
       { workspace_id: VERTUOZA, user_id: ada.id, role: 'member', joined_at: '2026-09-26T08:00:00Z' },
@@ -316,8 +331,8 @@ export function twoWorkspaces(): Partial<FakeTables> {
   };
 }
 
-/** Supabase Auth's user for one of the people, as the page reads it: a Google first name, and the
- * GitHub identity when they linked one. */
+/** Supabase Auth's user for one of the people, as the page reads it: a first name, and the GitHub
+ * identity they signed in with (none for a session from before GitHub sign-in). */
 export function authUser(person: FakeUser) {
   const local = person.email.split('@')[0];
   return {

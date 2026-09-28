@@ -8,8 +8,8 @@ const ev = (id, at, extra = {}) => ({ id, at, type: 'ZONE_SECURED', planet: 2332
 const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';
 const ACME = 'b0000000-0000-4000-8000-000000000002';
 const workspaces = () => [
-  { id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan', join_domain: 'vertuoza.com', theme: {}, created_at: '2026-09-26T12:00:00+00:00' },
-  { id: ACME, slug: 'acme', name: 'Acme', github_org: 'acme-gh', plan_repo: 'acme-plan', join_domain: null, theme: { plasma: '#2fc6a4' }, created_at: '2026-09-27T12:00:00+00:00' },
+  { id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan', theme: {}, created_at: '2026-09-26T12:00:00+00:00' },
+  { id: ACME, slug: 'acme', name: 'Acme', github_org: 'acme-gh', plan_repo: 'acme-plan', theme: { plasma: '#2fc6a4' }, created_at: '2026-09-27T12:00:00+00:00' },
 ];
 const restOn = (fake) => supabaseRest({ url: 'https://x.supabase.co', key: 'k', fetch: fake.fetch });
 
