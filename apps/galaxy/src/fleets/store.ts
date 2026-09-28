@@ -1,3 +1,4 @@
+import { MASCOTS as LIBRARY } from '@omni/design';
 import { lookOf } from '@omni/galaxy';
 import type { FleetRow } from '../arcade/types';
 import { refusalOf, type Refusal } from './refusal';
@@ -26,8 +27,8 @@ export interface FleetsPort {
 }
 
 /** The mascot keys an owner may pick, as fleet_mascots() lists them (s1-01): the demo's list, and the
- * page's when that function cannot be read. */
-export const MASCOTS: readonly string[] = ['beaver', 'octopod', 'picsou', 'cia', 'pirate', 'invincible'];
+ * page's when that function cannot be read. The one list is @omni/design's mascot library. */
+export const MASCOTS: readonly string[] = LIBRARY;
 
 type TeamRow = { name: string; home?: string | null; label?: string; color?: string; motto?: string | null; mascot?: string | null; sort?: number; retired_at?: string | null };
 
