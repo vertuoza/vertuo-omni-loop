@@ -13,7 +13,7 @@ import { createContext } from '../context.mjs';
 import { findRoot } from '../init/repo.mjs';
 
 /** The context of the checkout `folder` sits in, or `null` when it is no repository or its config does not load. */
-export function checkoutContext(folder, exec) {
+function checkoutContext(folder, exec) {
   try {
     const root = findRoot(folder, exec);
     return createContext(root, loadConfig(root));
