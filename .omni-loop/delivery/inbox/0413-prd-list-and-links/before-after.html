@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 413 · Every PRD, one click away</title>
+<style>
+  :root {
+    --ground: #f3f4f8; --paper: #ffffff; --ink: #161a26; --muted: #5b6275; --line: #d9dce6;
+    --accent: #d8313b; --accent-soft: #fbe3e4; --new: #1f7a4d; --new-soft: #dff3e8; --term: #12151f; --term-ink: #d6dbe8;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e1018; --paper: #171a25; --ink: #eef0f6; --muted: #9aa1b5; --line: #2b3040;
+      --accent: #ff5a63; --accent-soft: #3a1c22; --new: #5fd39a; --new-soft: #173226; --term: #07080d; --term-ink: #d6dbe8;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e1018; --paper: #171a25; --ink: #eef0f6; --muted: #9aa1b5; --line: #2b3040;
+    --accent: #ff5a63; --accent-soft: #3a1c22; --new: #5fd39a; --new-soft: #173226; --term: #07080d; --term-ink: #d6dbe8;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 32px 16px 48px; }
+  main { max-width: 1100px; margin: 0 auto; display: grid; gap: 40px; }
+  h1 { margin: 0; font-size: 26px; text-wrap: balance; }
+  h2 { margin: 0 0 12px; font-size: 17px; }
+  .lede { color: var(--muted); max-width: 65ch; margin: 6px 0 0; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+  .side { display: grid; gap: 8px; align-content: start; }
+  .tag { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+  .tag.after { color: var(--new); }
+  .frame { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .mark { font-weight: 800; letter-spacing: .06em; }
+  .sub { color: var(--muted); }
+  .end { margin-left: auto; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .item { color: var(--muted); }
+  .hl { background: var(--new-soft); color: var(--new); font-weight: 700; padding: 2px 8px; border-radius: 4px; outline: 2px dashed var(--new); outline-offset: 1px; }
+  .gone { text-decoration: line-through; color: var(--accent); }
+  .body { padding: 14px; display: grid; gap: 10px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+  .card { border: 1px solid var(--line); border-radius: 6px; padding: 10px; font-size: 13px; font-weight: 600; }
+  .card.hl { outline-offset: -2px; border-color: transparent; }
+  .note { font-size: 13px; color: var(--muted); }
+  .note b { color: var(--ink); }
+  .toggle { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; font-size: 12px; }
+  .toggle span { padding: 3px 10px; }
+  .toggle .on { background: var(--ink); color: var(--paper); font-weight: 700; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
+  .chip { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+  .row { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
+  .num { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .draft { color: var(--accent); font-weight: 700; font-size: 11px; letter-spacing: .06em; }
+  .who { color: var(--muted); font-size: 12px; }
+  .dim { opacity: .45; }
+  .term { background: var(--term); color: var(--term-ink); border-radius: 8px; padding: 14px 16px; font: 12.5px/1.6 ui-monospace, "SF Mono", Menlo, monospace; white-space: pre-wrap; overflow-x: auto; margin: 0; }
+  .term .p { color: #8b93a8; }
+  .term .u { color: #ffb35c; }
+  .term .l { color: #6fe3a5; }
+  .term .x { color: #ff7a82; }
+  .same { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; }
+  .same ul { margin: 6px 0 0; padding-left: 18px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>PRD 413: every PRD one click away, and its link in every answer</h1>
+    <p class="lede">Today the list of PRDs at <code>/prd</code> exists, but nothing in the app leads to it, it shows the whole workspace, and Claude answers about a PRD without its link. After, the app bar and the dashboard open the list, which starts on the PRDs you opened. Every answer about a PRD carries its page.</p>
+  </header>
+
+  <section>
+    <h2>1 · The app bar, on every page</h2>
+    <div class="pair">
+      <div class="side">
+        <span class="tag">Today</span>
+        <div class="frame"><div class="bar"><span class="mark">OMNI LOOP</span><span class="sub">App</span><span class="end"><span class="item">Release notes</span><span class="item">Docs</span><span class="item">☀</span><span class="item">Game mode</span></span></div></div>
+        <p class="note">No way to reach the list. On a dossier page an extra <b>All PRDs</b> link shows, and nowhere else.</p>
+      </div>
+      <div class="side">
+        <span class="tag after">After</span>
+        <div class="frame"><div class="bar"><span class="mark">OMNI LOOP</span><span class="sub">App</span><span class="end"><span class="hl">PRDs</span><span class="item">Release notes</span><span class="item">Docs</span><span class="item">☀</span><span class="item">Game mode</span></span></div></div>
+        <p class="note"><b>PRDs</b> is the menu's first item, top right, on every page. It opens <code>/prd</code>. The dossier pages' <span class="gone">All PRDs</span> extra goes.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · The dashboard, <code>/app</code></h2>
+    <div class="pair">
+      <div class="side">
+        <span class="tag">Today</span>
+        <div class="frame"><div class="body"><div class="cards"><div class="card">Questions</div><div class="card">For me</div><div class="card">History</div><div class="card">Knowledge map</div></div></div></div>
+      </div>
+      <div class="side">
+        <span class="tag after">After</span>
+        <div class="frame"><div class="body"><div class="cards"><div class="card hl">My PRDs</div><div class="card">Questions</div><div class="card">For me</div><div class="card">History</div><div class="card">Knowledge map</div></div></div></div>
+        <p class="note"><b>My PRDs</b>: "The PRDs you opened, drafts included". It opens <code>/prd</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · The list, <code>/prd</code></h2>
+    <div class="pair">
+      <div class="side">
+        <span class="tag">Today</span>
+        <div class="frame"><div class="body">
+          <div class="filters"><span class="chip">repo ▾</span><span class="chip">draft / PRD ▾</span><span class="chip">search…</span></div>
+          <div>
+            <div class="row"><span class="num">#400</span><span>Your own fleets, or none <span class="who">· a teammate</span></span><span class="who">v2</span></div>
+            <div class="row"><span class="draft">DRAFT</span><span>The app lists every PRD… <span class="who">· you</span></span><span class="who">v1</span></div>
+            <div class="row"><span class="num">#394</span><span>HOME hero polish <span class="who">· a teammate</span></span><span class="who">v3</span></div>
+            <div class="row"><span class="num">#384</span><span>PRD page usability <span class="who">· you</span></span><span class="who">v4</span></div>
+          </div>
+        </div></div>
+        <p class="note">Everyone's PRDs, mixed together. Yours are in there somewhere.</p>
+      </div>
+      <div class="side">
+        <span class="tag after">After</span>
+        <div class="frame"><div class="body">
+          <div class="filters"><span class="toggle"><span class="on">Mine</span><span>All</span></span><span class="chip">repo ▾</span><span class="chip">draft / PRD ▾</span><span class="chip">search…</span></div>
+          <div>
+            <div class="row"><span class="draft">DRAFT</span><span>The app lists every PRD…</span><span class="who">v1</span></div>
+            <div class="row"><span class="num">#384</span><span>PRD page usability</span><span class="who">v4</span></div>
+            <div class="row dim"><span class="num">#400</span><span>Your own fleets, or none <span class="who">· under All</span></span><span class="who">v2</span></div>
+          </div>
+        </div></div>
+        <p class="note"><b>Mine</b> by default: the dossiers you opened, drafts included. <b>All</b> (<code>?who=all</code>) is today's list. Switching keeps the other filters. If you haven't opened any, it says "You have not opened a PRD yet." and links to All.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4 · Claude, answering about a PRD</h2>
+    <div class="pair">
+      <div class="side">
+        <span class="tag">Today</span>
+<pre class="term"><span class="u">› where is PRD 400 at?</span>
+
+PRD 400 (own fleets) has its phase-0 merged (#407);
+the feature PR #403 is still draft, wave 2 of 4.
+
+<span class="x">(no link to the PRD's page: find it yourself)</span></pre>
+      </div>
+      <div class="side">
+        <span class="tag after">After</span>
+<pre class="term"><span class="u">› where is PRD 400 at?</span>
+
+<span class="p">$ omni dossier link 400</span>
+<span class="l">https://vertuo-omni-loop-galaxy.vercel.app/prd/6f1c…</span>
+
+PRD 400 (own fleets) · <span class="l">https://…/prd/6f1c…</span>
+Phase-0 merged (#407); feature PR #403 draft, wave 2 of 4.</pre>
+        <p class="note">A new briefing rule, read by every session, plus every skill's hand-off (plan, wave, yolo, yolo-fix, status, brainstorm). The command asks the app by number, so it works on any laptop. For a PRD with no page, Claude says so and gives the GitHub issue.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="same">
+    <h2>What stays the same</h2>
+    <ul>
+      <li>The dossier page <code>/prd/&lt;id&gt;</code>, its tabs, versions and questions.</li>
+      <li>The database: no migration. The lookup reads as you, under the same row-level security as the list.</li>
+      <li><code>omni dossier open</code>, <code>push</code> and <code>status</code>.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
