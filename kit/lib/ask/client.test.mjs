@@ -160,6 +160,18 @@ describe('the ask contract client', () => {
     const { client } = await setUp();
     await expect(client.openRound('no-such-session', QUESTIONS)).rejects.toMatchObject({ status: 404 });
   });
+
+  it('a refused call keeps the server\'s reason, and none when the reply carries none (PRD 459)', async () => {
+    const tokens = memoryTokens({ 'omni.example': { access_token: 'access-1', refresh_token: 'refresh-1' } });
+    const reply = (status, body) => async () => new Response(body, { status });
+    const reason = 'you are not a member of Globex, which owns globex/web';
+    const refused = askClient({ baseUrl: 'https://omni.example', host: 'omni.example', tokens, fetch: reply(403, JSON.stringify({ error: reason })) });
+    await expect(refused.openSession('t')).rejects.toMatchObject({ name: 'AskCallError', status: 403, reason });
+    for (const body of ['', '{}', 'not json', JSON.stringify({ error: 7 }), JSON.stringify({ error: '  ' })]) {
+      const bare = askClient({ baseUrl: 'https://omni.example', host: 'omni.example', tokens, fetch: reply(403, body) });
+      await expect(bare.openSession('t'), body).rejects.toMatchObject({ status: 403, reason: null });
+    }
+  });
 });
 
 describe('the dossier calls (PRD 216)', () => {

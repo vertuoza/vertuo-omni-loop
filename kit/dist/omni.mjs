@@ -13898,11 +13898,17 @@ init_define_OMNI_BUNDLE();
 init_define_OMNI_BUNDLE();
 var CALL_TIMEOUT_MS = 5e3;
 var AskCallError = class extends Error {
-  constructor(message, { status: status3 = null } = {}) {
+  /** `status`: the server's, null when it could not be reached. `reason`: its `{error}`, when it gave one. */
+  constructor(message, { status: status3 = null, reason: reason2 = null } = {}) {
     super(message);
     this.name = "AskCallError";
     this.status = status3;
+    this.reason = reason2;
   }
+};
+var reasonOf = (body) => {
+  const text4 = typeof body?.error === "string" ? body.error.replace(/\s+/g, " ").trim() : "";
+  return text4 || null;
 };
 var withContext = (body, context) => context && typeof context === "object" ? { ...body, context } : body;
 function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = CALL_TIMEOUT_MS }) {
@@ -13958,7 +13964,10 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
       if (!fresh) throw new AskCallError(`${method} ${path}: sign-in refused`, { status: 401 });
       response = await send(method, path, { body, token: fresh.access_token, timeoutMs });
     }
-    if (!response.ok) throw new AskCallError(`${method} ${path}: ${response.status}`, { status: response.status });
+    if (!response.ok) {
+      const reason2 = reasonOf(await bodyOf(response));
+      throw new AskCallError(`${method} ${path}: ${response.status}${reason2 ? ` ${reason2}` : ""}`, { status: response.status, reason: reason2 });
+    }
     return bodyOf(response);
   }
   async function renew() {
@@ -17807,7 +17816,8 @@ function claudeSessionOf(env) {
 }
 function skipLine(error) {
   if (!(error instanceof AskCallError)) throw error;
-  return error.status === null ? "unreachable" : `refused (${error.status})`;
+  if (error.status === null) return "unreachable";
+  return error.status === 403 && error.reason ? `refused (403): ${error.reason}` : `refused (${error.status})`;
 }
 var isText4 = (value) => typeof value === "string" && value.length > 0;
 function addedLine({ added, unchanged }) {
