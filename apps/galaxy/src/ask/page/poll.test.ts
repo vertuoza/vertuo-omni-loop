@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
+import { WAITING_MS } from '../../waiting/waiting';
 import { POLL_MS, poll } from './poll';
 
 /** A document whose visibility a test flips. */
@@ -34,6 +35,27 @@ describe('polling', () => {
     expect(tick).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(4000);
     expect(tick).toHaveBeenCalledTimes(3);
+    stop();
+  });
+
+  it('reads the waiting list every 5 s, and at once when the tab shows again (PRD 499)', async () => {
+    const p = page();
+    const tick = vi.fn(async () => true);
+    const stop = poll(tick, p.doc, WAITING_MS);
+    await vi.advanceTimersByTimeAsync(4999);
+    expect(tick).toHaveBeenCalledTimes(0);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(tick).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(tick).toHaveBeenCalledTimes(3);
+    p.show(false);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(tick).toHaveBeenCalledTimes(3);
+    p.show(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(tick).toHaveBeenCalledTimes(4);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(tick).toHaveBeenCalledTimes(5);
     stop();
   });
 
