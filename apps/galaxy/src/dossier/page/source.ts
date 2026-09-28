@@ -10,7 +10,9 @@
 // reads dossier_list() whole, as the viewer: every dossier of their workspaces.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { readMembers } from '../../ask/page/source';
-import { dossierList, dossierReader, dossierRounds, type DossierListRow, type DossierRoundRow } from '../store';
+import {
+  dossierList, dossierPulse, dossierReader, dossierRounds, type DossierListRow, type DossierPulse, type DossierRoundRow,
+} from '../store';
 import type { DossierRead } from './view';
 
 export type Db = Pick<SupabaseClient, 'from' | 'rpc'>;
@@ -51,6 +53,12 @@ export async function readDossier(db: Db, id: string): Promise<DossierRead | nul
     reader.versions(id), readMembers(db, dossier.workspace_id), readRounds(db, id), readRepos(db, id),
   ]);
   return { dossier, versions, members, rounds, repos };
+}
+
+/** The dossier's pulse, for the change check (PRD 384): one small read, as the viewer, from the browser;
+ * null when they may not read it, or the id is no dossier's. */
+export async function readPulse(db: Pick<Db, 'rpc'>, id: string): Promise<DossierPulse | null> {
+  return isDossierId(id) ? dossierPulse(db, id) : null;
 }
 
 /** Every dossier of the viewer's workspaces, as the history lists them. */
