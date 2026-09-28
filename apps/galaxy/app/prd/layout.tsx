@@ -3,17 +3,16 @@ import '@omni/design/fonts.css';
 import '../../src/ask/ask.css';
 import '../../src/ask/page/share.css';
 import '../../src/dossier/page/dossier.css';
-import { ThemeScript } from '../../src/ask/theme-script';
-import { TOKENS, themeCss } from '../../src/ask/theme-tokens';
-import { TopBar } from '../../src/nav/TopBar';
+import { TOKENS } from '../../src/ask/theme-tokens';
+import { AppShell } from '../../src/nav/AppShell';
+import { viewerLive } from '../../src/nav/viewer';
 
 // Every /prd page (PRD 216): the ask pages' reading surface, apart from the arcade. Their tokens come
 // first as CSS custom properties; their theme script is the root's first child, so it marks the root
 // with the stored theme before anything in it is parsed, and before the first paint; their switch
 // offers Omni, Light and Dark. Their faces, from @omni/design's fonts.css, served from this origin.
-// The header is the app's one top bar (TopBar, PRD 346), its menu's PRDs marked current (PRD 413),
-// which replaced the "All PRDs" extra. The before/after page's sandboxed route is a
-// route handler: no layout wraps it.
+// They sit inside the app shell (PRD 438): the sidebar, PRDs marked current, and the top bar. The
+// before/after page's sandboxed route is a route handler: no layout wraps it.
 
 export const metadata: Metadata = {
   title: 'PRD · OMNI LOOP',
@@ -28,17 +27,6 @@ export const viewport: Viewport = {
   colorScheme: 'light dark',
 };
 
-export default function DossierLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: themeCss() }} />
-      {/* The script marks this root with the theme before anything in it is parsed; React leaves
-          those two attributes alone. */}
-      <div className="ask" suppressHydrationWarning>
-        <ThemeScript />
-        <TopBar sub="PRD dossier" current="prds" />
-        <main className="ask-main">{children}</main>
-      </div>
-    </>
-  );
+export default async function DossierLayout({ children }: { children: React.ReactNode }) {
+  return <AppShell viewer={await viewerLive()}>{children}</AppShell>;
 }

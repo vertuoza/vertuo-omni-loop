@@ -1,5 +1,5 @@
-/* The top bar of the normal app (PRD 346): its end (the page's extras, the menu, the theme switch,
-   Game mode) and the menu's items. Drawn on the ask pages' reading surface: every colour is a token
+/* The public bar (PRD 346, reshaped by PRD 438), on /docs and /releases: its end (the menu, Open the
+   app →, the theme switch, Game mode), the menu's items and the link to the app. Drawn on the ask pages' reading surface: every colour is a token
    of src/ask/theme-tokens.ts (the --ask-* properties the ask root carries, per theme), so Omni,
    light and dark follow the theme switch. Scoped to the ask root, as ask.css is. On a phone the end
    wraps rather than push the page sideways, and Game mode, on a row of its own, keeps the right end
@@ -25,3 +25,17 @@
   color: var(--ask-plasma);
   border-color: var(--ask-plasma);
 }
+
+/* Open the app → (PRD 438): the way from Omni's public pages into the app, shown to everyone. Drawn
+   as the menu's items are, in the accent, so it reads as the way in rather than one more page. */
+.ask a.top-bar-open {
+  font: 700 14px/1 var(--ask-body);
+  color: var(--ask-plasma);
+  text-decoration: none;
+  white-space: nowrap;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ask-plasma);
+  background: var(--ask-surface);
+}
+.ask a.top-bar-open:hover { background: var(--ask-plasma-soft); }

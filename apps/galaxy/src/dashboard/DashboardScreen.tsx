@@ -1,6 +1,5 @@
 import { Notice } from '../ask/page/Notice';
 import { SwitchAccount } from '../ask/page/SignInCard';
-import { SectionCards } from './Cards';
 import { Dashboard } from './Dashboard';
 import { DashboardSignIn } from './DashboardSignIn';
 import type { DashboardData } from './load';
@@ -8,7 +7,7 @@ import { APP_CALLBACK } from './sign-in';
 
 // /app in each situation of the spec's States table (PRD 328), decided once by the page, top to
 // bottom: the demo and a member get the dashboard (a failed read empties only its own part); a
-// deployment with no database says the dashboard is not open here, then shows the section cards;
+// deployment with no database says the dashboard is not open here (the sidebar still leads everywhere);
 // signed out, only the sign-in card; signed in to an account in no workspace, the notice with a way
 // to switch account, as /knowledge does.
 
@@ -30,14 +29,9 @@ export interface DashboardScreenProps {
 
 function Closed() {
   return (
-    <>
-      <Notice title="The dashboard is not open here">
-        <p className="ask-muted">This deployment has no database, so it knows nobody’s hero, fleet or season.</p>
-      </Notice>
-      <div className="dash">
-        <SectionCards />
-      </div>
-    </>
+    <Notice title="The dashboard is not open here">
+      <p className="ask-muted">This deployment has no database, so it knows nobody’s hero, fleet or season.</p>
+    </Notice>
   );
 }
 

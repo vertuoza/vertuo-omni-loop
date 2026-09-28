@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { FleetRow } from '../arcade/types';
-import { SectionCards } from '../dashboard/Cards';
+import { SIDEBAR } from '../nav/sidebar.ts';
 import { FleetsScreen, type FleetsScreenView } from './FleetsScreen';
 import { FleetsView, ONLY_OWNER } from './FleetsView';
 import { fleetsReducer, initialState, type FleetsAction, type FleetsState } from './model';
@@ -198,9 +198,9 @@ describe('/app/fleets in each situation', () => {
   });
 });
 
-describe('/app\'s Fleets card', () => {
+describe('the sidebar\'s Fleets item (PRD 438, which replaced /app\'s card)', () => {
   it('links to /app/fleets', () => {
-    const html = renderToStaticMarkup(createElement(SectionCards));
-    expect(html).toMatch(/<a class="dash-card" href="\/app\/fleets">Fleets<\/a>/);
+    const items = SIDEBAR.flatMap((g) => g.items);
+    expect(items.find((i) => i.id === 'fleets')).toMatchObject({ label: 'Fleets', path: '/app/fleets' });
   });
 });
