@@ -25,13 +25,33 @@ function io() {
  * list` returns it and a `label create` adds to it, so a second run sees the first run's labels.
  * `labelsFail` makes every `gh label` call fail, as it does when gh has no permission.
  */
-function fakeExec({ slug = 'acme/widgets', defaultBranch = 'trunk', ghFails = false, labels = [], labelsFail = false } = {}) {
+function fakeExec({
+  slug = 'acme/widgets', defaultBranch = 'trunk', ghFails = false, labels = [], labelsFail = false,
+  realCommit = false, pushFails = false, openPr = null,
+} = {}) {
   const calls = [];
+  // Every outward step of the install pull request, in the order it ran, as `cmd verb`.
+  const install = [];
   const present = labels.map((label) => ({ description: '', ...label }));
   const exec = (cmd, args, options) => {
+    if (cmd === 'git' && ['switch', 'add', 'commit', 'push'].includes(args[0])) {
+      install.push({ cmd: `git ${args[0]}`, args });
+      // The commit and the push are faked unless the test asks for a real commit: the footprint tests
+      // read what init left in the working tree.
+      if (args[0] === 'push') {
+        if (pushFails) throw new Error('! [remote rejected]');
+        return '';
+      }
+      if ((args[0] === 'add' || args[0] === 'commit') && !realCommit) return '';
+    }
     if (cmd !== 'gh') return execFileSync(cmd, args, options);
     calls.push(args);
     if (ghFails) throw new Error('gh: not logged in');
+    if (args[0] === 'pr') {
+      install.push({ cmd: `gh pr ${args[1]}`, args });
+      if (args[1] === 'list') return JSON.stringify(openPr ? [openPr] : []);
+      if (args[1] === 'create') return `https://github.com/${slug}/pull/7\n`;
+    }
     if (args[0] === 'repo' && args[1] === 'view') {
       return JSON.stringify({ nameWithOwner: slug, defaultBranchRef: { name: defaultBranch } });
     }
@@ -45,7 +65,7 @@ function fakeExec({ slug = 'acme/widgets', defaultBranch = 'trunk', ghFails = fa
     }
     return '';
   };
-  return { exec, calls };
+  return { exec, calls, install };
 }
 
 const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge'];
@@ -68,6 +88,12 @@ async function init(root, argv = [], extra = {}) {
 }
 
 const readConfig = (read) => parseConfig(read('.omni-loop/config.yml'));
+
+const INSTALL_BLOCK = '\nInstall pull request:\n';
+/** What init prints before its install pull request block: the closing steps. */
+const closing = (out) => out.slice(0, out.indexOf(INSTALL_BLOCK));
+/** The install pull request block init prints last, one line per entry. */
+const installBlock = (out) => out.slice(out.indexOf(INSTALL_BLOCK) + INSTALL_BLOCK.length).split('\n').filter(Boolean);
 
 const KNOWLEDGE = '.omni-loop/knowledge';
 const SETTINGS = '.claude/settings.json';
@@ -616,6 +642,12 @@ const FIRST_RUN = [
   '',
   ...REMOVAL,
   '',
+  'Install pull request:',
+  '  branch  created chore/install-omni-loop',
+  '  commit  chore: install the Omni Loop',
+  '  pushed  chore/install-omni-loop to origin',
+  '  PR      opened https://github.com/acme/widgets/pull/7',
+  '',
 ];
 
 describe('omni init — the closing steps (AC 8)', () => {
@@ -672,6 +704,7 @@ describe('omni init — the closing steps (AC 8)', () => {
     // A form is never overwritten, so a kept one is never listed: the steps follow the labels line.
     const secondRun = FIRST_RUN.slice(5 + FORM_FILES.length);
     secondRun[1] = 'Nothing new to commit. By hand, unless already done:';
+    secondRun[secondRun.indexOf('  branch  created chore/install-omni-loop')] = '  branch  on chore/install-omni-loop already';
     expect(out.split('\n').slice(5)).toEqual(secondRun);
   });
 
@@ -852,7 +885,7 @@ describe('omni init — the status line (PRD 324)', () => {
     expect(code).toBe(0);
     expect(read(SETTINGS)).toBe(settingsText({ statusLine: KIT_LINE }));
     expect(out).toContain('\n  wrote   .claude/settings.json  (statusLine)\n');
-    expect(out.endsWith(ON)).toBe(true);
+    expect(closing(out).endsWith(ON)).toBe(true);
   });
 
   it('keeps every other key of the file, in its order and with its value', async () => {
@@ -871,7 +904,7 @@ describe('omni init — the status line (PRD 324)', () => {
     expect(kept.code).toBe(0);
     expect(read(SETTINGS)).toBe(older);
     expect(kept.out).toContain('\n  kept    .claude/settings.json  (statusLine)\n');
-    expect(kept.out.endsWith(ON)).toBe(true);
+    expect(closing(kept.out).endsWith(ON)).toBe(true);
 
     const forced = await init(root, ['--force']);
     expect(forced.code).toBe(0);
@@ -887,7 +920,7 @@ describe('omni init — the status line (PRD 324)', () => {
       expect(read(SETTINGS)).toBe(THEIRS);
       expect(out).toContain('\n  kept    .claude/settings.json  (its statusLine is not the kit\'s)\n');
       expect(out).not.toContain('settings.local.json');
-      expect(out.endsWith(`\n\n${REMOVAL_WITHOUT_KEY}\n`)).toBe(true);
+      expect(closing(out).endsWith(`\n\n${REMOVAL_WITHOUT_KEY}\n`)).toBe(true);
     }
   });
 
@@ -901,7 +934,7 @@ describe('omni init — the status line (PRD 324)', () => {
       expect(read(SETTINGS)).toBe(text);
       expect(out).toContain('\n  skipped .claude/settings.json: not valid JSON, no status line added\n');
       expect(out).not.toContain('settings.local.json');
-      expect(out.endsWith(`\n\n${REMOVAL_WITHOUT_KEY}\n`)).toBe(true);
+      expect(closing(out).endsWith(`\n\n${REMOVAL_WITHOUT_KEY}\n`)).toBe(true);
       expect(gitStatus(root).some((path) => path.startsWith('.claude/'))).toBe(false);
     }
   });
@@ -923,5 +956,101 @@ describe('omni init — the status line (PRD 324)', () => {
       `  labels  already there: ${LOOP_LABELS.join(', ')}`,
     ]);
     expect(out).toContain('\nCommit .claude/settings.json and merge it into trunk, then, by hand:\n');
+  });
+});
+
+describe('omni init — the install pull request (PRD 420)', () => {
+  const BRANCH = 'chore/install-omni-loop';
+  const git = (root, ...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  /** A fixture repository whose commits need no global identity, and one tracked file of the person's. */
+  function repo() {
+    const made = makeRepo({ git: true, files: { 'README.md': 'hello\n' } });
+    git(made.root, 'config', 'user.email', 't@t');
+    git(made.root, 'config', 'user.name', 't');
+    return made;
+  }
+
+  it('switches, commits only its own files, pushes and opens the pull request, in that order, and prints its link', async () => {
+    const { root, write } = repo();
+    write('README.md', 'the person was editing this\n');
+    const fake = fakeExec({ realCommit: true });
+    const { code, out } = await init(root, [], { fake });
+    expect(code).toBe(0);
+    expect(fake.install.map((step) => step.cmd)).toEqual(['git switch', 'git add', 'git commit', 'git push', 'gh pr list', 'gh pr create']);
+    expect(fake.install[0].args).toEqual(['switch', '-c', BRANCH]);
+    expect(fake.install[3].args).toEqual(['push', '-u', 'origin', BRANCH]);
+    expect(fake.install[5].args.slice(0, 8)).toEqual(['pr', 'create', '--base', 'trunk', '--head', BRANCH, '--title', 'chore: install the Omni Loop']);
+    expect(git(root, 'branch', '--show-current')).toBe(BRANCH);
+    expect(git(root, 'log', '-1', '--format=%s')).toBe('chore: install the Omni Loop');
+    const committed = git(root, 'show', '--name-only', '--format=', 'HEAD').split('\n');
+    expect(committed.every((path) => path.startsWith('.omni-loop/') || path === SETTINGS)).toBe(true);
+    expect(committed).toContain(SETTINGS);
+    expect(gitStatus(root)).toEqual(['README.md']);
+    expect(installBlock(out).at(-1)).toBe('  PR      opened https://github.com/acme/widgets/pull/7');
+  });
+
+  it('already on the install branch, it stays there', async () => {
+    const { root } = repo();
+    git(root, 'switch', '-q', '-c', BRANCH);
+    const fake = fakeExec();
+    const { out } = await init(root, [], { fake });
+    expect(fake.install.some((step) => step.cmd === 'git switch')).toBe(false);
+    expect(git(root, 'branch', '--show-current')).toBe(BRANCH);
+    expect(installBlock(out)[0]).toBe(`  branch  on ${BRANCH} already`);
+  });
+
+  it('a pull request that already exists is printed with "already", and none is created', async () => {
+    const { root } = repo();
+    const fake = fakeExec({ openPr: { url: 'https://github.com/acme/widgets/pull/3', number: 3 } });
+    const { code, out } = await init(root, [], { fake });
+    expect(code).toBe(0);
+    expect(fake.install.some((step) => step.cmd === 'gh pr create')).toBe(false);
+    expect(installBlock(out)).toContain('  PR      already open: https://github.com/acme/widgets/pull/3');
+  });
+
+  it('a push refused: exit 0, and the push and gh lines to type', async () => {
+    const { root } = repo();
+    const { code, out } = await init(root, [], { fake: fakeExec({ pushFails: true }) });
+    expect(code).toBe(0);
+    expect(installBlock(out)).toEqual([
+      `  branch  created ${BRANCH}`,
+      '  commit  chore: install the Omni Loop',
+      '  push    origin refused the push',
+      'Type these to finish the install pull request:',
+      `     git push -u origin ${BRANCH}`,
+      `     gh pr create --base trunk --head ${BRANCH} --title "chore: install the Omni Loop" --fill`,
+      `     or open https://github.com/acme/widgets/compare/trunk...${BRANCH}?expand=1`,
+    ]);
+  });
+
+  it('gh missing: exit 0, pushed, and the gh line to type', async () => {
+    const { root } = repo();
+    git(root, 'remote', 'add', 'origin', 'git@github.com:acme/gadgets.git');
+    const { code, out } = await init(root, [], { fake: fakeExec({ ghFails: true }) });
+    expect(code).toBe(0);
+    expect(installBlock(out)).toEqual([
+      `  branch  created ${BRANCH}`,
+      '  commit  chore: install the Omni Loop',
+      `  pushed  ${BRANCH} to origin`,
+      '  PR      gh could not open the pull request',
+      'Type these to finish the install pull request:',
+      `     gh pr create --base main --head ${BRANCH} --title "chore: install the Omni Loop" --fill`,
+      `     or open https://github.com/acme/gadgets/compare/main...${BRANCH}?expand=1`,
+    ]);
+  });
+
+  it('a rerun with nothing new commits nothing and finds the pull request', async () => {
+    const { root } = repo();
+    await init(root, [], { fake: fakeExec({ realCommit: true }) });
+    const head = git(root, 'rev-parse', 'HEAD');
+    const fake = fakeExec({ realCommit: true, openPr: { url: 'https://github.com/acme/widgets/pull/7', number: 7 } });
+    const { out } = await init(root, [], { fake });
+    expect(git(root, 'rev-parse', 'HEAD')).toBe(head);
+    expect(installBlock(out)).toEqual([
+      `  branch  on ${BRANCH} already`,
+      '  commit  nothing new to commit, already committed',
+      `  pushed  ${BRANCH} to origin`,
+      '  PR      already open: https://github.com/acme/widgets/pull/7',
+    ]);
   });
 });
