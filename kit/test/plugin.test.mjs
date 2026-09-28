@@ -316,6 +316,32 @@ describe('the status skill in this repository', () => {
   });
 });
 
+// PRD 315: `/omni:help` is a thin skill too. It runs `omni help`, passing the name the person gave
+// when there is one, prints the output as is in a text block, and names no other command.
+describe('the help skill in this repository', () => {
+  const read = () => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/help/SKILL.md'), 'utf8');
+
+  it('is named help, and its description says what triggers it', () => {
+    const { name, description } = frontmatter(read()) ?? {};
+    expect(name).toBe('help');
+    expect(description).toMatch(/\bTriggers on\b.*"\/omni:help"/);
+  });
+
+  it('runs omni help, alone or with the name the person gave, and names no other command', () => {
+    const text = read();
+    expect(new Set(commandMentions(text))).toEqual(new Set(['help']));
+    expect(text).toMatch(/^node \.omni-loop\/bin\/omni\.mjs help$/m);
+    expect(text).toMatch(/^node \.omni-loop\/bin\/omni\.mjs help <name>$/m);
+    expect(text).toContain('the name the person gave');
+  });
+
+  it('prints the output as is, in a text block', () => {
+    const text = read();
+    expect(text).toContain('as is');
+    expect(text).toMatch(/^```text$/m);
+  });
+});
+
 describe('the plugin guard catches what it is for', () => {
   it('passes a well-formed fixture and one with no skills', () => {
     const good = fixture(GOOD);
