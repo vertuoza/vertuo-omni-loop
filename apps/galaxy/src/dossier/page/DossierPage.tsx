@@ -32,9 +32,9 @@ const EMPTY: Record<DossierKind, string> = {
   plan: 'The plan has no version yet.',
 };
 
-function Pane({ view, markdown }: Pick<Props, 'view' | 'markdown'>) {
+function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 'supabase'>) {
   const { shown, tab } = view;
-  if (tab === 'questions') return <QuestionsPane questions={view.questions} />;
+  if (tab === 'questions') return <QuestionsPane questions={view.questions} supabase={supabase} />;
   if (!shown) {
     return (
       <p className="dossier-empty">
@@ -101,7 +101,7 @@ export function DossierPage({ view, markdown, supabase, live }: Props) {
       </nav>
       {live}
       <section className="dossier-pane" aria-label={TAB_LABELS[view.tab]}>
-        <Pane view={view} markdown={markdown} />
+        <Pane view={view} markdown={markdown} supabase={supabase} />
       </section>
     </div>
   );

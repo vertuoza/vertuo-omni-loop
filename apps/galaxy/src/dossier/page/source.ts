@@ -8,8 +8,12 @@
 // Its repositories (dossier_list(), step 4: its home, its questions' and its planet's regions) are its
 // header's chips; when they cannot be read, the chip is its home repository alone. /prd, the history,
 // reads dossier_list() whole, as the viewer: every dossier of their workspaces.
+// Which of its rounds the viewer may answer on the list (PRD 384) is decided here, on the server, from
+// the rounds' sessions and the shares the viewer reads (PRD 144's rule: the session's owner, or a
+// member the round is shared with); the database's own rule still refuses anyone else.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { readMembers } from '../../ask/page/source';
+import { readMembers, sendAnswers } from '../../ask/page/source';
+import { askShares } from '../../ask/store';
 import {
   dossierList, dossierPulse, dossierReader, dossierRounds, type DossierListRow, type DossierPulse, type DossierRoundRow,
 } from '../store';
@@ -42,9 +46,28 @@ async function readRepos(db: Pick<Db, 'rpc'>, id: string): Promise<string[] | nu
   }
 }
 
-/** The dossier, its versions (without their content), its workspace's members, its rounds and its
- * repositories; null when the viewer may not read it, or it does not exist. */
-export async function readDossier(db: Db, id: string): Promise<DossierRead | null> {
+/** The rounds shared with `me`; none when the shares cannot be read (their owner still answers). */
+async function readSharedWithMe(db: Db, me: string): Promise<Set<string>> {
+  try {
+    return new Set((await askShares(db).withMe(me)).map((share) => share.round_id));
+  } catch (error) {
+    console.error(error);
+    return new Set();
+  }
+}
+
+/** The open rounds `me` may answer: those of a session they own, and those shared with them. */
+async function readAnswerable(db: Db, rounds: DossierRoundRow[] | null, me: string | null): Promise<string[]> {
+  const open = (rounds ?? []).filter((round) => round.status === 'open');
+  if (me === null || !open.length) return [];
+  const shared = open.some((round) => round.asked_by !== me) ? await readSharedWithMe(db, me) : new Set<string>();
+  return open.filter((round) => round.asked_by === me || shared.has(round.round_id)).map((round) => round.round_id);
+}
+
+/** The dossier, its versions (without their content), its workspace's members, its rounds, its
+ * repositories, and the open rounds `me` may answer; null when the viewer may not read it, or it does
+ * not exist. */
+export async function readDossier(db: Db, id: string, me: string | null = null): Promise<DossierRead | null> {
   if (!isDossierId(id)) return null;
   const reader = dossierReader(db);
   const dossier = await reader.dossier(id);
@@ -52,7 +75,24 @@ export async function readDossier(db: Db, id: string): Promise<DossierRead | nul
   const [versions, members, rounds, repos] = await Promise.all([
     reader.versions(id), readMembers(db, dossier.workspace_id), readRounds(db, id), readRepos(db, id),
   ]);
-  return { dossier, versions, members, rounds, repos };
+  return { dossier, versions, members, rounds, repos, answerable: await readAnswerable(db, rounds, me) };
+}
+
+/** What one click on a quick round did: answered it, or found it taken — answered first by someone
+ * (`by`, null when the terminal answered with no one named), or moved to the terminal. */
+export type QuickOutcome =
+  | { kind: 'answered' }
+  | { kind: 'taken'; by: string | null; via: 'page' | 'terminal' | null; moved: boolean };
+
+/** Answers a quick round from the list, as the viewer, through the question page's own path
+ * (`sendAnswers`, `answered_via: 'page'`, only while it is still open); when it was taken, reads who
+ * came first. Throws when the database cannot be reached. */
+export async function answerQuick(db: Pick<Db, 'from'>, roundId: string, question: string, value: string): Promise<QuickOutcome> {
+  if ((await sendAnswers(db, roundId, { [question]: value })) === 'answered') return { kind: 'answered' };
+  const { data, error } = await db.from('ask_rounds').select('status, answered_by, answered_via').eq('id', roundId).maybeSingle();
+  if (error) throw new Error(`read the round: ${error.message}`);
+  const row = data as Pick<DossierRoundRow, 'status' | 'answered_by' | 'answered_via'> | null;
+  return { kind: 'taken', by: row?.answered_by ?? null, via: row?.answered_via ?? null, moved: row?.status !== 'answered' };
 }
 
 /** The dossier's pulse, for the change check (PRD 384): one small read, as the viewer, from the browser;
