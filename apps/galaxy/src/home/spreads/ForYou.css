@@ -1,0 +1,21 @@
+/* What's in it for you? (HOME, PRD 285): the three role cards. Every colour and face is a variable
+   from @omni/design; nothing here is declared on :root. */
+
+.home-roles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.home-role {
+  background: var(--void);
+  border: 2px solid var(--navy-dark);
+  border-top: 5px solid var(--yellow);
+  padding: 16px;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+.home-role-name { margin: 0; font: 10px/1.5 var(--font-pixel); letter-spacing: 0.06em; color: var(--cyan); }
+.home-role-promise { margin: 0; font: 400 24px/1.1 var(--font-display); color: var(--yellow); }
+.home-role-proofs { margin: 0; padding-left: 18px; display: grid; gap: 8px; color: var(--highlight); }
+.home-role-proofs code { font-family: var(--font-pixel); font-size: 0.8em; color: var(--white); }
+
+@media (max-width: 760px) {
+  .home-roles { grid-template-columns: minmax(0, 1fr); }
+}
