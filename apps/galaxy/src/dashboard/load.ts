@@ -11,8 +11,8 @@ import { loadWeek, type WeekValue } from './week/load';
 import { loadYou, loginOf, nameOf, type YouValue } from './you';
 
 // The dashboard's read (PRD 328), as the signed-in person: row-level security decides what each read
-// returns. First the workspace they joined first (joined by domain once, when they belong to none
-// yet: src/data/workspace.ts) and their player row in it, which say who they are to the game: their
+// returns. First the workspace they joined first (joined by GitHub org at sign-in, PRD 359:
+// src/data/sign-in.ts) and their player row in it, which say who they are to the game: their
 // GitHub login and their fleet. Then the hero block and every part, in parallel, each on its own
 // (part.ts): a part whose read fails reads 'unreadable', its error logged, and the rest renders. The
 // galaxy (the whole ledger, folded) is read once, for whichever parts ask for it.

@@ -278,8 +278,8 @@ describe('pnpm game:contributions, as a process', () => {
   });
 
   const workspaces = [
-    { id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-loop', join_domain: 'vertuoza.com', theme: {}, created_at: '2026-09-26T12:00:00+00:00' },
-    { id: ACME, slug: 'acme', name: 'Acme', github_org: null, plan_repo: null, join_domain: null, theme: {}, created_at: '2026-09-27T12:00:00+00:00' },
+    { id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-loop', theme: {}, created_at: '2026-09-26T12:00:00+00:00' },
+    { id: ACME, slug: 'acme', name: 'Acme', github_org: null, plan_repo: null, theme: {}, created_at: '2026-09-27T12:00:00+00:00' },
   ];
   // The process reads the clock: its world is dated from now.
   const ago = (hours) => new Date(Date.now() - hours * 3_600_000).toISOString().replace(/\.\d{3}Z$/, 'Z');

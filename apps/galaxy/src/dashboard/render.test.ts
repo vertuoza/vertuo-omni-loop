@@ -151,7 +151,7 @@ describe('the other situations', () => {
   it('signed out: the sign-in card and nothing else', () => {
     const html = render({ kind: 'sign-in' });
     expect(h1s(html)).toEqual(['Sign in to see your dashboard']);
-    expect(html).toMatch(/<button type="button" class="ask-button">Sign in with Google<\/button>/);
+    expect(html).toMatch(/<button type="button" class="ask-button">Sign in with GitHub<\/button>/);
     expect(html).not.toContain('dash-cards');
     expect(html).not.toContain('data-part');
     expect(html.match(/<section\b/g)).toHaveLength(1);

@@ -1,11 +1,11 @@
 'use client';
 import { useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
+import { startGithubSignIn } from '../../data/sign-in-github';
 
-// Signed out on /prd/<id> or /prd (PRD 216): the galaxy's Google sign-in, as on the ask pages
-// (hd=vertuoza.com filters Google's account chooser; the sign-in hook and every policy enforce the
-// domain), coming back to the page's own callback, which exchanges the code and goes back to the same
-// page. `what` says which page asks: a dossier, or the history of them all.
+// Signed out on /prd/<id> or /prd (PRD 216): the galaxy's GitHub sign-in, as on the ask pages
+// (PRD 359; src/data/sign-in-github.ts), coming back to the page's own callback, which exchanges the
+// code, joins the workspaces of the person's GitHub orgs and goes back to the same page. `what` says
+// which page asks: a dossier, or the history of them all.
 
 type Supabase = { url: string; key: string };
 
@@ -29,12 +29,9 @@ export function DossierSignIn({ supabase, returnPath, error, what = 'dossier' }:
   async function signIn() {
     setBusy(true);
     setProblem(null);
-    const { error: failed } = await createBrowserClient(supabase.url, supabase.key).auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}${returnPath}`, queryParams: { hd: 'vertuoza.com' } },
-    });
+    const failed = await startGithubSignIn(supabase, `${window.location.origin}${returnPath}`);
     if (failed) {
-      setProblem(`Google sign-in could not start: ${failed.message}`);
+      setProblem(failed);
       setBusy(false);
     }
   }
@@ -44,11 +41,11 @@ export function DossierSignIn({ supabase, returnPath, error, what = 'dossier' }:
       <section className="ask-card" aria-labelledby="dossier-signin-title">
         <h1 id="dossier-signin-title">{COPY[what].title}</h1>
         <p className="ask-muted">
-          {COPY[what].body} Sign in with your Vertuoza Google account, and you come straight back here.
+          {COPY[what].body} Sign in with your GitHub account, and you come straight back here.
         </p>
         {problem && <p className="ask-error" role="alert">{problem}</p>}
         <button type="button" className="ask-button" onClick={signIn} disabled={busy}>
-          {busy ? 'Opening Google…' : 'Sign in with Google'}
+          {busy ? 'Opening GitHub…' : 'Sign in with GitHub'}
         </button>
       </section>
     </div>

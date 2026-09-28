@@ -1,0 +1,2 @@
+/* /signup (PRD 359): the ask pages' reading surface, with the install link drawn as their button. */
+.signup-link.ask-button { display: inline-block; text-decoration: none; }

@@ -1,4 +1,4 @@
-// The production account: Google sign-in and GitHub linking through Supabase Auth, the player's row
+// The production account: GitHub sign-in through Supabase Auth (PRD 359), the player's row
 // through the database, in the workspace the page plays (src/data/players.ts), with row-level
 // security deciding what they may change (their name, fleet and hero; never their GitHub login,
 // which comes from the linked identity), and refusing a row to a visitor who has not linked GitHub.
@@ -6,6 +6,7 @@
 // (src/data/scores.ts).
 import { createBrowserClient } from '@supabase/ssr';
 import { savePlayer } from '../data/players';
+import { githubSignIn } from '../data/sign-in-github';
 import { loadScores, submitScore } from '../data/scores';
 import type { Account, Player, PlayerPatch } from './types';
 
@@ -22,15 +23,14 @@ export function supabaseAccount({ url, key, workspace }: { url: string; key: str
   return {
     kind: 'supabase',
     async signIn() {
-      const { error } = await db.auth.signInWithOAuth({
-        provider: 'google',
-        // hd filters Google's account chooser; the sign-in hook and every policy enforce membership.
-        options: { redirectTo: callback(), queryParams: { hd: 'vertuoza.com' } },
-      });
-      if (error) throw fail('Google sign-in', error.message);
+      // The callback joins the workspaces of the person's GitHub orgs and links GitHub (src/data/sign-in.ts).
+      const { error } = await db.auth.signInWithOAuth(githubSignIn(callback()));
+      if (error) throw fail('GitHub sign-in', error.message);
     },
     async linkGithub() {
-      const { error } = await db.auth.linkIdentity({ provider: 'github', options: { redirectTo: callback('link') } });
+      // Every sign-in is GitHub's and links it: the arcade's link step signs in again, and the
+      // callback answers the linked login (until the step goes, PRD 359 s3).
+      const { error } = await db.auth.signInWithOAuth(githubSignIn(callback('link')));
       if (error) throw fail('GitHub', error.message);
     },
     async save(patch: PlayerPatch, current: Player | null) {

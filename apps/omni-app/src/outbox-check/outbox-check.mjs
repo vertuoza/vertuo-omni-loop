@@ -1,13 +1,18 @@
 // `outbox-check`: the Inngest function wiring the app's units together (PRD 28, "Flow").
 //
-//   step "in-progress"  create the check run, `in_progress`, on the head SHA
+//   step "in-progress"  create the check run, `in_progress`, on the head SHA — unless the base branch
+//                       has no `.omni-loop/config.yml`: then the run ends there, and nothing is posted
 //   step "evaluate"     snapshot into /tmp + evaluate — one step, because /tmp does not survive steps
 //   step "publish"      complete the check run; rewrite the comment unless the head moved on
-//   onFailure           complete the check run as `failure` — never left `in_progress`
+//   onFailure           complete the check run as `failure` — never left `in_progress`; on a repository
+//                       without the loop's config, nothing
 //
 // Runs are debounced per repository and pull request, so a burst of pushes and label changes is one
 // evaluation of the latest state. A snapshot over its bound is not retried: the same bound fails the
 // same way, so it goes straight to the failure handler with the bound as its reason.
+//
+// The app is public (PRD 359): it is installed on repositories that never asked for the loop, so a
+// repository without the loop's config gets no check run and no comment, not even a `skipped` one.
 //
 // `createOutboxCheck` takes the Inngest client and `octokitFor(installationId)`, so a test runs the
 // real function against a stubbed GitHub; `outboxCheck` is the one the app serves, wired to the app's
@@ -17,13 +22,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { App } from '@octokit/app';
 import { NonRetriableError } from 'inngest';
-import { evaluate } from '../evaluate/evaluate.mjs';
+import { NOT_ACTIVE_ON_REPO, evaluate } from '../evaluate/evaluate.mjs';
 import { inngest, OUTBOX_CHECK_EVENT } from '../inngest-client.mjs';
 import { DEFAULT_CHECK_NAME, publish, startCheck } from '../publish/publish.mjs';
 import { SnapshotBoundError, snapshot } from '../snapshot/snapshot.mjs';
-import { changedFiles, checkName, completeAsFailure, listComments, readBaseConfig, readPull } from './github.mjs';
+import { changedFiles, checkTarget, completeAsFailure, listComments, readBaseConfig, readPull } from './github.mjs';
 
 export const FUNCTION_ID = 'outbox-check';
+
+/** What a run returns when it posted nothing: the repository has not installed the loop. */
+const SILENT = Object.freeze({ posted: false, reason: NOT_ACTIVE_ON_REPO });
 
 /** One evaluation per repository and pull request at a time: the latest event wins. */
 export const DEBOUNCE = Object.freeze({
@@ -54,10 +62,12 @@ export function createOutboxCheck({ client, octokitFor }) {
       const started = await step.run('in-progress', async () => {
         const octokit = await octokitFor(installationId);
         const { baseSha } = await readPull(octokit, { owner, repo, prNumber });
-        const name = await checkName(octokit, { owner, repo, baseSha });
+        const { active, name } = await checkTarget(octokit, { owner, repo, baseSha });
+        if (!active) return null;
         const checkRunId = await startCheck(octokit, { owner, repo, headSha, name });
         return { checkRunId, name };
       });
+      if (!started) return { ...SILENT };
 
       const verdict = await step.run('evaluate', async () => {
         const octokit = await octokitFor(installationId);
@@ -136,7 +146,9 @@ export function createFailureHandler({ octokitFor }) {
       let name = DEFAULT_CHECK_NAME;
       try {
         const { baseSha } = await readPull(octokit, { owner, repo, prNumber });
-        name = await checkName(octokit, { owner, repo, baseSha });
+        const target = await checkTarget(octokit, { owner, repo, baseSha });
+        if (!target.active) return { ...SILENT };
+        name = target.name;
       } catch {
         // The failure may be GitHub itself: fall back to the default name rather than fail twice.
       }

@@ -1,10 +1,10 @@
 'use client';
 import { useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
+import { startGithubSignIn } from '../data/sign-in-github';
 
-// Signed out on /app (PRD 328): only this card. The galaxy's Google sign-in (hd=vertuoza.com filters
-// Google's account chooser; the sign-in hook and every policy enforce the domain), coming back through
-// /app/callback, which exchanges the code, joins the account's workspaces and returns to /app.
+// Signed out on /app (PRD 328): only this card. The galaxy's GitHub sign-in (PRD 359;
+// src/data/sign-in-github.ts), coming back through /app/callback, which exchanges the code, joins the
+// workspaces of the person's GitHub orgs and returns to /app.
 
 type Supabase = { url: string; key: string };
 
@@ -15,12 +15,9 @@ export function DashboardSignIn({ supabase, returnPath, error }: { supabase: Sup
   async function signIn() {
     setBusy(true);
     setProblem(null);
-    const { error: failed } = await createBrowserClient(supabase.url, supabase.key).auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}${returnPath}`, queryParams: { hd: 'vertuoza.com' } },
-    });
+    const failed = await startGithubSignIn(supabase, `${window.location.origin}${returnPath}`);
     if (failed) {
-      setProblem(`Google sign-in could not start: ${failed.message}`);
+      setProblem(failed);
       setBusy(false);
     }
   }
@@ -31,11 +28,11 @@ export function DashboardSignIn({ supabase, returnPath, error }: { supabase: Sup
         <h1 id="dash-signin-title">Sign in to see your dashboard</h1>
         <p className="ask-muted">
           Your dashboard shows your hero, your fleet and your season, what you merged this week, and the questions
-          waiting for you. Sign in with your Vertuoza Google account, and you come straight back here.
+          waiting for you. Sign in with your GitHub account, and you come straight back here.
         </p>
         {problem && <p className="ask-error" role="alert">{problem}</p>}
         <button type="button" className="ask-button" onClick={signIn} disabled={busy}>
-          {busy ? 'Opening Google…' : 'Sign in with Google'}
+          {busy ? 'Opening GitHub…' : 'Sign in with GitHub'}
         </button>
       </section>
     </div>

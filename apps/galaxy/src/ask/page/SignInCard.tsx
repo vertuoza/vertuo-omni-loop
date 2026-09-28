@@ -1,10 +1,11 @@
 'use client';
 import { useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import { startGithubSignIn } from '../../data/sign-in-github';
 
-// Signed out on an ask page: the galaxy's Google sign-in (hd=vertuoza.com filters Google's account
-// chooser; the sign-in hook and every policy enforce the domain), coming back to `returnPath`,
-// which exchanges the code and goes back to the page (/ask/<id>/callback for a session).
+// Signed out on an ask page: the galaxy's GitHub sign-in (PRD 359; src/data/sign-in-github.ts),
+// coming back to `returnPath`, which exchanges the code and goes back to the page
+// (/ask/<id>/callback for a session).
 
 type Supabase = { url: string; key: string };
 
@@ -15,12 +16,9 @@ export function SignInCard({ supabase, returnPath, error }: { supabase: Supabase
   async function signIn() {
     setBusy(true);
     setProblem(null);
-    const { error: failed } = await createBrowserClient(supabase.url, supabase.key).auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}${returnPath}`, queryParams: { hd: 'vertuoza.com' } },
-    });
+    const failed = await startGithubSignIn(supabase, `${window.location.origin}${returnPath}`);
     if (failed) {
-      setProblem(`Google sign-in could not start: ${failed.message}`);
+      setProblem(failed);
       setBusy(false);
     }
   }
@@ -31,11 +29,11 @@ export function SignInCard({ supabase, returnPath, error }: { supabase: Supabase
         <h1 id="ask-signin-title">Sign in to answer Claude</h1>
         <p className="ask-muted">
           This page shows Claude&apos;s questions to the person who switched ask mode on. Sign in with the same
-          Vertuoza Google account, and you come straight back here.
+          GitHub account, and you come straight back here.
         </p>
         {problem && <p className="ask-error" role="alert">{problem}</p>}
         <button type="button" className="ask-button" onClick={signIn} disabled={busy}>
-          {busy ? 'Opening Google…' : 'Sign in with Google'}
+          {busy ? 'Opening GitHub…' : 'Sign in with GitHub'}
         </button>
       </section>
     </div>

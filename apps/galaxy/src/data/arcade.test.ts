@@ -79,7 +79,7 @@ describe('a member', () => {
     for (const call of world.dossiers.calls.filter((c) => c.kind === 'from')) expect(call.eq).toMatchObject({ workspace_id: VERTUOZA });
   });
 
-  it('is not joined again: a member triggers no call to join_by_domain()', async () => {
+  it('is not joined again: a member triggers no call at all', async () => {
     const { rpcs } = await page(PEOPLE.ada);
     expect(rpcs).toEqual([]);
   });
@@ -111,20 +111,28 @@ describe('a member of two workspaces', () => {
 });
 
 describe('joining', () => {
-  it('joins a session from before workspaces once, then plays', async () => {
+  it('happens at sign-in only: the page joins nobody, not even a member of the org (PRD 359)', async () => {
     const { data, world, rpcs } = await page(PEOPLE.bea);
-    expect(rpcs).toEqual([{ kind: 'rpc', fn: 'join_by_domain' }]);
-    expect(world.tables.workspace_members).toContainEqual(expect.objectContaining({ workspace_id: VERTUOZA, user_id: PEOPLE.bea.id }));
+    expect(rpcs).toEqual([]);
+    expect(world.tables.workspace_members.some((m) => m.user_id === PEOPLE.bea.id)).toBe(false);
+    expect(data.workspace).toBeNull();
+    expect(data.session?.crew).toBe(false);
+  });
+
+  it('plays once the sign-in joined: a new member, with no player row yet', async () => {
+    const { data } = await page(PEOPLE.bea, (world) => {
+      world.tables.workspace_members.push({ workspace_id: VERTUOZA, user_id: PEOPLE.bea.id, role: 'member', joined_at: '2026-09-28T08:00:00Z' });
+    });
     expect(data.workspace).toBe(VERTUOZA);
     expect(data.session?.crew).toBe(true);
     expect(data.me).toBeNull();
     expect(data.fleets.map((f) => f.name)).toEqual(['beaver', 'pirates', 'invincible-team']);
   });
 
-  it('leaves an account no workspace joins outside: no crew, and nothing read of any workspace', async () => {
+  it('leaves an account in no workspace outside: no crew, and nothing read of any workspace', async () => {
     for (const person of [PEOPLE.eve, PEOPLE.una]) {
       const { data, reads, rpcs } = await page(person);
-      expect(rpcs, person.email).toHaveLength(1);
+      expect(rpcs, person.email).toHaveLength(0);
       expect(reads.every((c) => c.table === 'workspace_members'), person.email).toBe(true);
       expect(data, person.email).toEqual({
         view: null, fleets: demoFleets(), session: expect.objectContaining({ id: person.id, crew: false }), workspace: null,
@@ -148,7 +156,9 @@ describe('the player\'s XP', () => {
 
   it('lower-cases a login GitHub spells with capitals, and finds XP earned before the player row existed', async () => {
     const bea = { ...PEOPLE.bea, github: { id: 41, login: 'Bea-GH' } };
-    const { data, reads } = await page(bea);
+    const { data, reads } = await page(bea, (world) => {
+      world.tables.workspace_members.push({ workspace_id: VERTUOZA, user_id: bea.id, role: 'member', joined_at: '2026-09-28T08:00:00Z' });
+    });
     expect(data.me).toBeNull();
     expect(data.xp).toEqual({ xp: 10, level: 1, unlocked: ['invaders'] });
     expect(reads.find((c) => c.table === 'player_xp')?.eq).toEqual({ workspace_id: VERTUOZA, github_login: 'bea-gh' });

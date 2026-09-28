@@ -1,0 +1,40 @@
+import { describe, expect, it } from 'vitest';
+import { SIGN_UP_ATTR, signUp, type SignUpPorts } from './sign-up';
+
+// HOME's SIGN UP WITH GITHUB (PRD 359, s5): the GitHub sign-in s2 made, coming back to the
+// galaxy's own callback, which joins the person's workspaces and sends them on.
+
+function ports(supabase: SignUpPorts['supabase'], answer: string | null = null) {
+  const calls: string[] = [];
+  const at: SignUpPorts = {
+    supabase,
+    origin: 'https://galaxy.example',
+    start: async (env, redirectTo) => { calls.push(`start ${env.url} ${redirectTo}`); return answer; },
+    go: (href) => { calls.push(`go ${href}`); },
+  };
+  return { at, calls };
+}
+
+describe('pressing SIGN UP WITH GITHUB', () => {
+  it('is marked by its own attribute, for Controls to answer', () => {
+    expect(SIGN_UP_ATTR).toBe('data-sign-up');
+  });
+
+  it('starts the GitHub sign-in, coming back to the galaxy\'s callback', async () => {
+    const { at, calls } = ports({ url: 'https://db.example.com', key: 'k' });
+    expect(await signUp(at)).toBeNull();
+    expect(calls).toEqual(['start https://db.example.com https://galaxy.example/auth/callback']);
+  });
+
+  it('says why when GitHub sign-in could not start, and goes nowhere', async () => {
+    const { at, calls } = ports({ url: 'https://db.example.com', key: 'k' }, 'GitHub sign-in could not start: provider is not enabled');
+    expect(await signUp(at)).toBe('GitHub sign-in could not start: provider is not enabled');
+    expect(calls).toHaveLength(1);
+  });
+
+  it('without Supabase (the demo), opens the game instead', async () => {
+    const { at, calls } = ports(null);
+    expect(await signUp(at)).toBeNull();
+    expect(calls).toEqual(['go /play']);
+  });
+});

@@ -157,7 +157,7 @@ export function supabaseLedger(rest, workspaceId) {
 export async function exportWorkspace(rest, workspaceId) {
   const inWorkspace = scope(workspaceId);
   return {
-    workspace: await rest.select('workspaces', `select=id,slug,name,github_org,plan_repo,join_domain,theme,created_at&id=eq.${encodeURIComponent(workspaceId)}`),
+    workspace: await rest.select('workspaces', `select=id,slug,name,github_org,plan_repo,theme,created_at&id=eq.${encodeURIComponent(workspaceId)}`),
     ledger_events: await rest.select('ledger_events', `select=workspace_id,id,at,type,planet,region,contributor,team,data&${inWorkspace}&order=at.asc,id.asc`),
     sectors: await rest.select('sectors', `select=workspace_id,name,repos&${inWorkspace}&order=name`),
     teams: await rest.select('teams', `select=workspace_id,name,home,label,color,motto,mascot,sort,retired_at&${inWorkspace}&order=sort,name`),

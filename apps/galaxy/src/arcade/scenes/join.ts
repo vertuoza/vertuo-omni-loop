@@ -1,5 +1,5 @@
 // The join group on the canvas: the coin, leaving the arcade, the gate (and the outsider's), the
-// intro, the GitHub link, ready and welcome back. Each scene stands its pieces where its grid's
+// intro, ready and welcome back. Each scene stands its pieces where its grid's
 // stage says: the wide grid as it always was, or the tall one (the Game Boy held upright), where
 // the same pieces stack in a narrower, taller frame.
 import { drawPlanet } from '@omni/design';
@@ -13,7 +13,7 @@ import {
  * The join group's scenes laid out on the tall grid. A scene not listed is drawn on the wide
  * grid, letterboxed in the Game Boy's lens (grid.ts reads this list).
  */
-export const TALL_SCENES: readonly SceneName[] = ['coin', 'away', 'outsider', 'gate', 'intro', 'link', 'ready', 'welcome'];
+export const TALL_SCENES: readonly SceneName[] = ['coin', 'away', 'outsider', 'gate', 'intro', 'ready', 'welcome'];
 /** The join group's scenes are one page each. */
 export const PAGES: Pages = {};
 
@@ -34,7 +34,6 @@ interface Stage {
    * every other one `stagger` lower, at `scale`.
    */
   intro: { nebula: Nebula; omniX: number; from: number; to: number; fleets: { left: number; right: number; top: number; stagger: number; scale: number } };
-  link: { nebula: Nebula; pedestal: Plinth; hero: At & { scale: number }; mascot: At };
   /** The hero rises from `from` to `to`, the mascot beside it. */
   ready: { heroX: number; mascotX: number; from: number; to: number };
   /** The sparkles land inside `stars`. */
@@ -49,10 +48,6 @@ const STAGES: Record<GridName, Stage> = {
     intro: {
       nebula: { key: 'intro', x: 110, y: 30, w: 420, h: 260 }, omniX: 288, from: 380, to: 50,
       fleets: { left: 0, right: W, top: 250, stagger: 0, scale: 2 },
-    },
-    link: {
-      nebula: { key: 'link', x: -30, y: 40, w: 360, h: 280 }, pedestal: { cx: 118, cy: 256, rx: 50 },
-      hero: { x: 86, y: 150, scale: 2 }, mascot: { x: 150, y: 208 },
     },
     ready: { heroX: 240, mascotX: 320, from: 380, to: 80 },
     welcome: {
@@ -69,10 +64,6 @@ const STAGES: Record<GridName, Stage> = {
     intro: {
       nebula: { key: 'intro-tall', x: 20, y: 10, w: 280, h: 200 }, omniX: 128, from: 300, to: 14,
       fleets: { left: 20, right: 300, top: 196, stagger: 16, scale: 1 },
-    },
-    link: {
-      nebula: { key: 'link-tall', x: 50, y: -10, w: 220, h: 110 }, pedestal: { cx: 148, cy: 58, rx: 32 },
-      hero: { x: 124, y: 6, scale: 1 }, mascot: { x: 156, y: 22 },
     },
     ready: { heroX: 80, mascotX: 160, from: 300, to: 64 },
     welcome: {
@@ -98,7 +89,7 @@ function warp(ctx: CanvasRenderingContext2D, s: FrameState, k: number) {
   }
 }
 
-// Leaving the arcade (for Google or GitHub): a loading bar on black.
+// Leaving the arcade (for GitHub): a loading bar on black.
 export function drawAway(ctx: CanvasRenderingContext2D, s: FrameState) {
   const { bar } = stageOf(s);
   ctx.fillStyle = '#05040f';
@@ -158,16 +149,6 @@ export function drawIntro(ctx: CanvasRenderingContext2D, s: FrameState) {
     });
   }
   if (st > 19.4) flash(ctx, '#ffffff', (st - 19.4) * 1.6);
-}
-
-export function drawLink(ctx: CanvasRenderingContext2D, s: FrameState) {
-  if (s.join.away) return drawAway(ctx, s);
-  const { nebula, pedestal: p, hero, mascot } = stageOf(s).link;
-  space(ctx, s, 0.4);
-  ctx.drawImage(nebulaFor(nebula.key, 1, nebula.w, nebula.h), nebula.x, nebula.y);
-  pedestal(ctx, p.cx, p.cy, p.rx, fleet(s.join.team).color);
-  drawHero(ctx, s, s.join.hero, s.join.team, hero.x, hero.y + bobOf(s, 0, 2), { scale: hero.scale, frame: frameOf(s, 2) });
-  if (s.join.team) drawFleetMascot(ctx, s, s.join.team, mascot.x, mascot.y + bobOf(s, 1, 2), { frame: frameOf(s, 2.4) });
 }
 
 export function drawReady(ctx: CanvasRenderingContext2D, s: FrameState) {

@@ -19,7 +19,7 @@ import { keyAction, type Action } from './keys';
 import type { SongName } from './score';
 import { BootOverlay, HeroesOverlay, TitleOverlay, titlePhaseAt } from './scenes/attract.tsx';
 import {
-  CoinOverlay, GateOverlay, IntroOverlay, LinkOverlay, OutsiderOverlay, ReadyOverlay, WelcomeOverlay, type LinkState,
+  CoinOverlay, GateOverlay, IntroOverlay, OutsiderOverlay, ReadyOverlay, SIGNUP_PATH, WelcomeOverlay,
 } from './scenes/join.tsx';
 import { BuilderOverlay, NameOverlay, SelectOverlay } from './scenes/recruit.tsx';
 import { BriefingOverlay, doorOf, MenuOverlay, menuItems } from './scenes/menu.tsx';
@@ -42,7 +42,7 @@ import { stripesOf, themeVars } from './theme';
 import { Stripes } from './Sprite';
 import { foldChar, foldName, nameInit, nameReduce, nameValue, NAME_RULE, type NameAction, type NameState } from './name-entry';
 import { BUILDER_ROWS, cycleHero } from './builder';
-import { afterGate, afterReturn, afterStart, allowed, arrive, backStep, isDisbanded, isLinked, nextStep, readReturn, type Flow, type Step } from './onboarding';
+import { afterGate, afterReturn, afterStart, allowed, arrive, backStep, isDisbanded, isPlayer, nextStep, readReturn, type Flow, type Step } from './onboarding';
 import { createSeen, fanfareOf, levelUpFor, type LevelUp, type Local } from './levelup';
 import { addressAt, landing } from './deep-link';
 import { leaveMove, openOver } from './leave.ts';
@@ -52,7 +52,7 @@ import './shell.css';
 
 // The music each screen plays; the rest are silent but for their effects.
 const TRACK: Partial<Record<SceneName, SongName>> = {
-  intro: 'intro', select: 'select', name: 'name', hero: 'name', link: 'name', ready: 'launch', welcome: 'welcome',
+  intro: 'intro', select: 'select', name: 'name', hero: 'name', ready: 'launch', welcome: 'welcome',
 };
 
 // What Entropy Invaders sounds like: its march is the marching bass, a note a step; the rest are effects.
@@ -70,7 +70,6 @@ export interface UI {
   pick: number; lockedAt: number | null; lockSaved: boolean; confirm: boolean;
   name: NameState; shake: number;
   hero: Hero; heroRow: number;
-  link: LinkState; linkLogin: string | null;
   away: boolean;
   error: string | null;
   toast: string | null;
@@ -81,7 +80,6 @@ export interface UI {
   leaving: boolean; // OPEN THE APP? is up, over the scene (leave.ts): the scene under it is left as it was
 }
 
-const FLOW_KEY = 'omni-loop:flow'; // survives the trip to GitHub and back
 const GAMES_SEEN_KEY = 'omni-loop:games-seen'; // GAMES carries a NEW tag until the room is opened on this device
 // This browser's storage, where each login's last celebrated level is kept (levelup.ts): reaching it can throw.
 const LOCAL: Local = () => window.localStorage;
@@ -109,11 +107,6 @@ function readMuted() {
 function readGamesSeen() {
   try { return window.localStorage.getItem(GAMES_SEEN_KEY) === '1'; } catch { return true; } // no storage: no tag that never goes
 }
-
-const store = {
-  get(key: string) { try { return window.sessionStorage.getItem(key); } catch { return null; } },
-  set(key: string, v: string | null) { try { if (v === null) window.sessionStorage.removeItem(key); else window.sessionStorage.setItem(key, v); } catch { /* ignore */ } },
-};
 
 export interface ArcadeProps {
   /** The galaxy; null while signed out (or when it cannot be read: see `problem`). */
@@ -180,7 +173,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     scene: 'boot', sel: firstPlanet, tab: 0, menu: 0, fleet: 0, since: 0, page: 0,
     flow: 'onboard', pick: 0, lockedAt: null, lockSaved: false, confirm: false,
     name: nameInit(''), shake: -1, hero: me0?.hero ?? { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 }, heroRow: 0,
-    link: 'ask', linkLogin: null, away: false, error: null, toast: null,
+    away: false, error: null, toast: null,
     sun: 0, world: 0, card: false, cardPage: 0, cabinet: 0, levelUp: null, leaving: false,
   }));
   const [muted, setMuted] = useState(false);
@@ -247,7 +240,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const levelUpDue = useRef<() => LevelUp | null>(() => null);
   levelUpDue.current = () => {
     const login = loginOf();
-    return login ? levelUpFor(xpStatus(isLinked(sessionRef.current, meRef.current), xp), seen.get(login)) : null;
+    return login ? levelUpFor(xpStatus(isPlayer(sessionRef.current), xp), seen.get(login)) : null;
   };
 
   const go = useCallback((patch: Partial<UI>, effect?: Sfx) => {
@@ -273,7 +266,6 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     }
     if (step === 'name') extra.name = nameInit(m?.display_name ?? foldName(s?.givenName ?? ''));
     if (step === 'hero') { extra.hero = m?.hero ?? randomHero(); extra.heroRow = 0; }
-    if (step === 'link') extra.link = 'ask';
     if (step === 'menu') extra.flow = 'onboard';
     go({ ...extra, ...patch, scene: step as SceneName }, effect);
   }, [active, go]);
@@ -312,7 +304,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     return row;
   }, [account]);
 
-  // ── First render: the demo's remembered guest, a return from Google or GitHub, a deep link ──
+  // ── First render: the demo's remembered guest, a return from GitHub, a deep link ──
   useEffect(() => {
     setMuted(readMuted());
     setGamesSeen(readGamesSeen());
@@ -325,22 +317,13 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const back = readReturn(window.location.search);
     if (back) {
       window.history.replaceState(null, '', window.location.pathname);
-      const flow = (store.get(FLOW_KEY) as Flow | null) ?? 'link';
-      store.set(FLOW_KEY, null);
       const step = afterReturn(back, s, m, fleets);
       if (back.kind === 'signin_error') return open('coin', { error: back.message });
       if (step === 'coin') return open('coin');
-      if (back.kind === 'linked') {
-        // Show the login the database holds (link_github() set it), never one read from the URL.
-        const login = account.kind === 'supabase' ? s?.github ?? m?.github_login ?? null : back.login || s?.github || m?.github_login || null;
-        if (!login) return open('link', { flow, link: 'error', error: 'Linking GitHub did not finish. Try again.' });
-        return open('link', { flow, link: 'done', linkLogin: login });
-      }
-      if (back.kind === 'link_error') return open('link', { flow, link: 'error', error: back.message });
       return open(step, { flow: 'onboard' });
     }
     // A deep link, through the one door; the menu's, like every route to it, through `go`.
-    const link = landing(window.location.hash, { view, session: s, linked: isLinked(s, m) });
+    const link = landing(window.location.hash, { view, session: s });
     if (link) go(link);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -366,8 +349,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   // The one door: whatever route led here (a deep link, a crafted return URL, a stale screen after
   // signing out), nothing past INSERT COIN shows without a session.
   useEffect(() => {
-    const door = allowed(ui.scene, session, isLinked(session, me));
-    if (door !== ui.scene) setUi((u) => ({ ...u, scene: door as SceneName, since: now(), page: 0, away: false, error: null, link: 'ask' }));
+    const door = allowed(ui.scene, session);
+    if (door !== ui.scene) setUi((u) => ({ ...u, scene: door as SceneName, since: now(), page: 0, away: false, error: null }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ui.scene, session, me]);
   useEffect(() => { setAudioMuted(muted); }, [muted]);
@@ -427,29 +410,18 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     return () => window.clearTimeout(id);
   }, [ui.toast, go]);
 
-  // ── Leaving for Google or GitHub ──
+  // ── Leaving for GitHub ──
   const signIn = useCallback(() => {
     go({ away: true, error: null }, 'coin');
-    account.signIn().then((s) => {
-      if (!s) return; // Supabase: the page is leaving for Google
+    account.signIn().then(async (signedIn) => {
+      if (!signedIn) return; // Supabase: the page is leaving for GitHub
+      // Signing in is GitHub's, and links it (PRD 359): the demo, which simulates both, links its
+      // guest here, so the guest plays at once as every account does.
+      const s = signedIn.github ? signedIn : { ...signedIn, github: (await account.linkGithub()) || null };
       setSession(s); sessionRef.current = s;
       open(afterStart(s, meRef.current, fleets) === 'welcome' ? 'welcome' : 'gate', { flow: 'onboard' }, 'start');
     }).catch((err: Error) => go({ away: false, error: err.message }, 'buzz'));
   }, [account, fleets, go, open]);
-
-  const linkGithub = useCallback(() => {
-    store.set(FLOW_KEY, uiRef.current.flow);
-    go({ link: 'away', error: null }, 'away');
-    account.linkGithub().then((login) => {
-      if (!login) return; // Supabase: the page is leaving for GitHub
-      store.set(FLOW_KEY, null);
-      const s = sessionRef.current ? { ...sessionRef.current, github: login } : null;
-      if (s) { setSession(s); sessionRef.current = s; }
-      const m = meRef.current ? { ...meRef.current, github_login: login } : null;
-      if (m) { setMe(m); meRef.current = m; setCrew((c) => [...c.filter((p) => p.id !== m.id), m]); }
-      go({ link: 'done', linkLogin: login }, 'linked');
-    }).catch((err: Error) => go({ link: 'error', error: err.message }, 'buzz'));
-  }, [account, go]);
 
   const signOut = useCallback(() => {
     account.signOut().then(() => {
@@ -514,17 +486,17 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   /** Opens the menu's item `i`: with A or START on the row under the cursor, or with a tap on any row. */
   const openItem = useCallback((i: number) => {
-    const items = menuItems({ joined: Boolean(meRef.current?.team), linked: isLinked(sessionRef.current, meRef.current), signedIn: Boolean(sessionRef.current), newGames: !gamesSeen, app: Boolean(app) });
+    const items = menuItems({ joined: Boolean(meRef.current?.team), signedIn: Boolean(sessionRef.current), newGames: !gamesSeen, app: Boolean(app) });
     const item = items[i];
     if (!item) return;
     const door = doorOf(item, { view, chart: knowledge, problem });
     if (door) return 'scene' in door ? go({ scene: door.scene, menu: i, card: false }, 'select') : go({ menu: i, toast: door.refused }, 'buzz');
     if (item.id === 'myhero') return open('name', { flow: 'myhero', menu: i }, 'select');
     if (item.id === 'change') return open('select', { flow: 'change', menu: i }, 'select');
-    if (item.id === 'link') return open('link', { flow: 'link', menu: i }, 'select');
+    if (item.id === 'play') return open(afterGate(meRef.current, fleets), { flow: 'onboard', menu: i }, 'select');
     if (item.id === 'app') return askLeave({ menu: i });
     if (item.id === 'signout') return signOut();
-  }, [view, knowledge, go, open, signOut, problem, gamesSeen, app, askLeave]);
+  }, [view, fleets, knowledge, go, open, signOut, problem, gamesSeen, app, askLeave]);
 
   const act = useCallback((action: Action) => {
     const u = uiRef.current;
@@ -537,7 +509,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       return;
     }
     const planets = view?.planets.length ?? 0;
-    const items = menuItems({ joined: Boolean(meRef.current?.team), linked: isLinked(sessionRef.current, meRef.current), signedIn: Boolean(sessionRef.current), newGames: !gamesSeen, app: Boolean(app) });
+    const items = menuItems({ joined: Boolean(meRef.current?.team), signedIn: Boolean(sessionRef.current), newGames: !gamesSeen, app: Boolean(app) });
     switch (u.scene) {
       case 'boot': return go({ scene: 'title' });
       case 'title':
@@ -553,11 +525,12 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'b') return go({ scene: 'title', error: null }, 'back');
         return;
       case 'outsider':
-        if (action === 'a' || action === 'start') return signOut();
-        if (action === 'b') return go({ scene: 'title' }, 'back');
+        // A: sign up, which installs Omni Loop on the visitor's org or account (PRD 359); B: sign out.
+        if (action === 'a' || action === 'start') { sfx('start'); return window.location.assign(SIGNUP_PATH); }
+        if (action === 'b') return signOut();
         return;
       case 'gate':
-        if (action === 'a' || action === 'start') return open(afterGate(meRef.current, fleets, sessionRef.current), { flow: 'onboard' }, 'start');
+        if (action === 'a' || action === 'start') return open(afterGate(meRef.current, fleets), { flow: 'onboard' }, 'start');
         return;
       case 'intro':
         if (action === 'a' || action === 'start') return open('select', { flow: 'onboard' }, 'select');
@@ -604,12 +577,6 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'b') return leave('hero');
         return;
       }
-      case 'link':
-        if (u.link === 'away') return;
-        if (u.link === 'done') return open(afterGate(meRef.current, fleets, sessionRef.current), { flow: 'onboard' }, 'start');
-        if (action === 'a' || action === 'start') return linkGithub();
-        if (action === 'b') return open('menu', {}, 'back'); // visit only
-        return;
       case 'ready':
         if (now() - u.since > 0.6) open('menu', {}, 'select');
         return;
@@ -653,7 +620,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       }
       case 'games': {
         // ◀ ▶ choose a cabinet on the wide grid and turn the page on the tall one: one cursor for both.
-        const status = xpStatus(isLinked(sessionRef.current, meRef.current), xp);
+        const status = xpStatus(isPlayer(sessionRef.current), xp);
         const room = cabinets(status);
         const at = Math.min(u.cabinet, room.length - 1);
         if (action === 'left' || action === 'right') return go({ cabinet: turnPage(at, room.length, action) }, 'move');
@@ -720,7 +687,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'b' || action === 'start') return go({ scene: 'menu' }, 'back');
       }
     }
-  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, linkGithub, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, showHud, sendScore, seen, problem, dossiers, app]);
+  }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, showHud, sendScore, seen, problem, dossiers, app]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
   // Fullscreen hears every key first (and every click and touch press on its own): the first press
@@ -809,7 +776,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       const frame: FrameState = {
         scene: u.scene, grid: f.grid, page: f.page, view: f.view, layout: f.layout, sel: u.sel, fleetSel: u.fleet, t, sceneT: t - u.since, reduced: reducedQuery.matches, mark: f.mark, logo: f.logo, theme: f.theme,
         join: {
-          fleets: f.active, pick: u.pick, lockedAt: u.lockedAt, away: u.away || u.link === 'away',
+          fleets: f.active, pick: u.pick, lockedAt: u.lockedAt, away: u.away,
           team: picking ?? f.me?.team ?? null,
           hero: u.scene === 'hero' ? u.hero : f.me?.hero ?? u.hero,
         },
@@ -824,7 +791,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // A click on a key hint ("[A] LINK GITHUB"), or a press of a Game Boy's control, presses that key.
+  // A click on a key hint ("[A] SIGN IN WITH GITHUB"), or a press of a Game Boy's control, presses that key.
   const press = useCallback((action: Action) => { unlock(); act(action); }, [act]);
   // The Game Boy's GAME ▮▯ APP switch: no key, but OPEN THE APP?, on any scene. None without an app.
   const switchToApp = useCallback(() => { unlock(); askLeave(); }, [askLeave]);
@@ -835,7 +802,6 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const u = uiRef.current;
     if (u.leaving) return; // the scene under OPEN THE APP? reads no tap
     if (u.scene === 'boot' || u.scene === 'title' || u.scene === 'gate' || u.scene === 'ready' || u.scene === 'welcome') return act('start');
-    if (u.scene === 'link' && u.link === 'done') return act('start');
     if (u.scene === 'chart') {
       const hit = sunAt(chart, p);
       if (!hit) return;
@@ -868,8 +834,8 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   const phase = titlePhaseAt(now() - ui.since);
   const sel = view?.planets[ui.sel];
-  const items = menuItems({ joined: Boolean(me?.team), linked: isLinked(session, me), signedIn: Boolean(session), newGames: !gamesSeen, app: Boolean(app) });
-  const xpNow = xpStatus(isLinked(session, me), xp);
+  const items = menuItems({ joined: Boolean(me?.team), signedIn: Boolean(session), newGames: !gamesSeen, app: Boolean(app) });
+  const xpNow = xpStatus(isPlayer(session), xp);
   const displayName = me?.display_name ?? (session ? foldName(session.givenName) || 'RECRUIT' : '');
   const who = session
     ? `${account.kind === 'demo' ? 'DEMO · ' : ''}P1 ${displayName}`
@@ -879,7 +845,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'boot': return <BootOverlay brand={brand} />;
       case 'title': return <TitleOverlay view={view} phase={view ? phase : phase === 'hiscore' ? 'title' : phase} sceneT={now() - ui.since} who={who} signedIn={Boolean(session)} brand={brand} />;
       case 'coin': return <CoinOverlay away={ui.away} error={ui.error} demo={account.kind === 'demo'} closed={account.kind === 'closed'} />;
-      case 'outsider': return <OutsiderOverlay email={session?.email ?? ''} />;
+      case 'outsider': return <OutsiderOverlay who={session?.github ? `@${session.github}` : session?.email ?? ''} />;
       case 'gate': return <GateOverlay name={me?.team ? me.display_name : null} />;
       case 'intro': return <IntroOverlay fleets={active} />;
       case 'select': return (
@@ -889,7 +855,6 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       );
       case 'name': return <NameOverlay state={ui.name} shake={now() - ui.shake < 0.35} team={me?.team ?? null} error={ui.error} />;
       case 'hero': return <BuilderOverlay hero={ui.hero} row={ui.heroRow} team={me?.team ?? null} name={displayName} error={ui.error} onRow={(i) => { if (i === ui.heroRow) act('a'); else go({ heroRow: i }, 'move'); }} />;
-      case 'link': return <LinkOverlay state={ui.link} name={displayName} login={ui.linkLogin ?? session?.github ?? me?.github_login ?? null} error={ui.error} demo={account.kind === 'demo'} />;
       case 'ready': return <ReadyOverlay name={displayName} team={me?.team ?? null} />;
       case 'welcome': return <WelcomeOverlay name={displayName} team={me?.team ?? null} />;
       case 'menu': return <MenuOverlay view={view} items={items} index={Math.min(ui.menu, items.length - 1)} me={me} onPick={openItem} chart={knowledge} xp={xpNow} />;

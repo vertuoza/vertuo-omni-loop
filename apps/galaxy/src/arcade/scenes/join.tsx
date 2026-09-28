@@ -1,6 +1,6 @@
 'use client';
-// The join group's text layer: the coin (and leaving for Google), the outsider, the gate, the intro,
-// the GitHub link, ready and welcome back, over the canvas in join.ts. Each scene's words sit in one
+// The join group's text layer: the coin (and leaving for GitHub), the outsider, the gate, the intro,
+// ready and welcome back, over the canvas in join.ts. Each scene's words sit in one
 // root naming its state (`join join-coin`), which join.css lays out on the grid the scene is drawn on:
 // the wide one, or the tall one on the Game Boy held upright. Both grids show every word.
 import { fleet } from '../fleets';
@@ -16,7 +16,7 @@ export function CoinOverlay({ away, error, demo, closed }: { away: boolean; erro
         <div className="j-center">
           <p className="j-h">INSERT COIN</p>
           <p className="j-sub">SIGN-IN IS NOT OPEN YET</p>
-          <p className="j-txt j-dim">The arcade opens once Google sign-in is connected. Only @vertuoza.com accounts will get in.</p>
+          <p className="j-txt j-dim">The arcade opens once GitHub sign-in is connected.</p>
         </div>
         <p className="j-hint"><Hint k="B">BACK</Hint></p>
       </div>
@@ -27,7 +27,7 @@ export function CoinOverlay({ away, error, demo, closed }: { away: boolean; erro
       <div className="join join-away">
         <div className="j-center">
           <p className="j-sub j-dim">LEAVING THE ARCADE…</p>
-          <p className="j-h j-small">GOOGLE SIGN-IN</p>
+          <p className="j-h j-small">GITHUB SIGN-IN</p>
           {demo && <p className="j-txt j-dim">Demo galaxy: no real sign-in, you come back as a guest.</p>}
         </div>
       </div>
@@ -37,24 +37,28 @@ export function CoinOverlay({ away, error, demo, closed }: { away: boolean; erro
     <div className="join join-coin">
       <div className="j-center">
         <p className="j-h blink">INSERT COIN</p>
-        <p className="j-sub">SIGN IN WITH YOUR VERTUOZA ACCOUNT</p>
-        <p className="j-txt j-dim">@vertuoza.com accounts only</p>
+        <p className="j-sub">SIGN IN WITH YOUR GITHUB ACCOUNT</p>
+        <p className="j-txt j-dim">You join the workspaces of your GitHub orgs.</p>
         {error && <p className="j-txt j-error" role="alert">{error}</p>}
       </div>
-      <p className="j-hint"><Hint k="A">SIGN IN WITH GOOGLE</Hint> &nbsp; <Hint k="B">BACK</Hint></p>
+      <p className="j-hint"><Hint k="A">SIGN IN WITH GITHUB</Hint> &nbsp; <Hint k="B">BACK</Hint></p>
     </div>
   );
 }
 
-export function OutsiderOverlay({ email }: { email: string }) {
+/** Where a signed-in account with no workspace gets one: installing Omni Loop (PRD 359). */
+export const SIGNUP_PATH = '/signup';
+
+/** Signed in, in no workspace: `who` is the account as the visitor knows it (their GitHub login, or their email). */
+export function OutsiderOverlay({ who }: { who: string }) {
   return (
     <div className="join join-outsider">
       <div className="j-center">
-        <p className="j-h">WRONG CARTRIDGE</p>
-        <p className="j-sub">OMNI LOOP IS FOR @VERTUOZA.COM ACCOUNTS</p>
-        <p className="j-txt j-dim">You are signed in as {email}. Sign out, then sign in with your Vertuoza account.</p>
+        <p className="j-h">NO WORKSPACE YET</p>
+        <p className="j-txt j-dim">You are signed in as {who}, and none of your GitHub orgs uses Omni Loop yet.</p>
+        <p className="j-txt">Install Omni Loop on your GitHub org, or on your own account, to <a href={SIGNUP_PATH}>sign up</a>.</p>
       </div>
-      <p className="j-hint"><Hint k="A">SIGN OUT</Hint> &nbsp; <Hint k="B">BACK</Hint></p>
+      <p className="j-hint"><Hint k="A">SIGN UP</Hint> &nbsp; <Hint k="B">SIGN OUT</Hint></p>
     </div>
   );
 }
@@ -92,47 +96,6 @@ export function IntroOverlay({ fleets }: { fleets: FleetRow[] }) {
         ))}
       </div>
       <p className="j-hint j-right"><Hint k="START">SKIP</Hint></p>
-    </div>
-  );
-}
-
-export type LinkState = 'ask' | 'away' | 'done' | 'error';
-
-export function LinkOverlay({ state, name, login, error, demo }: {
-  state: LinkState; name: string; login: string | null; error: string | null; demo: boolean;
-}) {
-  if (state === 'away') {
-    return (
-      <div className="join join-away">
-        <div className="j-center">
-          <p className="j-sub j-dim">LEAVING THE ARCADE…</p>
-          <p className="j-h j-small">GITHUB</p>
-          {demo && <p className="j-txt j-dim">Demo galaxy: no real GitHub, you come back with a made-up login.</p>}
-        </div>
-      </div>
-    );
-  }
-  if (state === 'done') {
-    return (
-      <div className="join join-linked">
-        <div className="j-panel">
-          <p className="j-good">✓ LINKED AS @{(login ?? '').toUpperCase()}</p>
-          <p className="j-txt">You are a player now. Your pull requests will score for your fleet.</p>
-          <p className="j-press blink j-small">PRESS START</p>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className={`join join-link join-link-${state}`}>
-      <div className="j-panel">
-        <p className="j-gold">TO PLAY, {name}, LINK YOUR GITHUB.</p>
-        <p className="j-tiny">YOUR PULL REQUESTS WILL SCORE</p>
-        <p className="j-tiny">FOR THE FLEET YOU JOIN.</p>
-        <p className="j-txt j-dim">Signed in with Google, you can look around. Linking GitHub, once, makes you a player.</p>
-        {state === 'error' && error && <p className="j-txt j-error" role="alert">{error}</p>}
-        <p className="j-tiny"><Hint k="A">{state === 'error' ? 'TRY AGAIN' : 'LINK GITHUB'}</Hint> &nbsp; <Hint k="B">VISIT ONLY</Hint></p>
-      </div>
     </div>
   );
 }

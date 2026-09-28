@@ -1,29 +1,112 @@
-// What the auth callback (app/auth/callback/route.ts) does once Google's or GitHub's code is a
-// session: every sign-in joins the workspaces of the account's confirmed email domain
-// (join_by_domain()), before anything that needs a workspace — link_github() in the arcade's
-// return, ask_cli_code_issue() in the terminal's (`omni signin`). Joining is best effort: a failure
-// is logged, the page joins once more itself, and what needs a workspace refuses with its own
-// message.
+// What a sign-in callback does once GitHub's code is a session (PRD 359). Every account signs in
+// with GitHub, with the `read:org` scope, so the callback:
+//   1. joins by GitHub org: reads the person's login and orgs once, with the provider token Supabase
+//      hands back with the new session (src/data/github-orgs.ts), and makes them a member of every
+//      workspace of those logins that has an installation (join_workspaces_by_github(), run by
+//      galaxy's server as the service role). The token is used for those two reads and dropped: it is
+//      never stored, and never sent to the database;
+//   2. completes the person's pending sign-up requests (src/signup/installed.ts) whose org, one they
+//      still belong to, now has the App installed: create_workspace_from_installation() makes them
+//      the new workspace's owner, or a member of the one the org's owner made first;
+//   3. links GitHub (link_github()), so the account is a player at once.
+// All are best effort (ADR 0044): a failure is logged, and the sign-in carries on; what needs a
+// workspace then refuses with its own message.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CliCallbackDeps, CliSession } from '../ask/cli-code';
-import { joinByDomain } from './workspace';
+import { belongsTo, type SignupDeps } from '../signup/installation';
+import { joinLogins, type GithubAccount } from './github-orgs';
 
 type Rpc = Pick<SupabaseClient, 'rpc'>;
+
+/** The new session, as far as joining needs it: whose it is, and GitHub's token when Supabase handed one. */
+export type SignedIn = { user: { id: string }; provider_token?: string | null };
+
+/** What joining reaches outside the person's own session: GitHub, and the service role's join; and,
+ * to complete sign-up requests, the App's view of GitHub and the service role's sign-up writes. */
+export interface SignInDeps {
+  readGithub(token: string): Promise<GithubAccount>;
+  joinByGithub(userId: string, logins: string[]): Promise<string[]>;
+  signup?: SignupDeps;
+}
 
 /** The query-string entry the arcade reads on its return (readReturn() in src/arcade/onboarding.ts). */
 export type SignInReturn = ['signin', 'ok'] | ['linked', string] | ['link_error', string];
 
-async function join(run: () => Promise<unknown>) {
-  try { await run(); } catch (err) { console.error(`auth callback: ${(err as Error).message}`); }
+const log = (err: unknown) => console.error(`auth callback: ${err instanceof Error ? err.message : String(err)}`);
+
+async function bestEffort(run: () => Promise<unknown>) {
+  try { await run(); } catch (err) { log(err); }
 }
 
-/** After a sign-in (`next` null) or a GitHub link (`next` 'link'): join, then link when asked. */
-export async function afterSignIn(db: Rpc, next: string | null): Promise<SignInReturn> {
-  await join(() => joinByDomain(db));
-  if (next !== 'link') return ['signin', 'ok'];
-  const { data, error } = await db.rpc('link_github');
-  if (error) return ['link_error', error.message];
-  return ['linked', (data as { github_login?: string } | null)?.github_login ?? ''];
+/** Who the person is on GitHub, read once with the sign-in's provider token. Throws when it cannot. */
+async function readAccount(session: SignedIn, deps: SignInDeps): Promise<GithubAccount> {
+  const token = session.provider_token;
+  if (!token) throw new Error('no GitHub token came back with this sign-in: nobody joined by org');
+  return deps.readGithub(token);
+}
+
+/** Finishes each pending sign-up request whose org the person still belongs to and that now has the
+ * App installed, one at a time: a failure is logged and leaves that request pending. */
+async function completeRequests(userId: string, account: GithubAccount, signup: SignupDeps): Promise<void> {
+  const pending = (await signup.pendingRequests(userId)).filter((org) => belongsTo(account, org));
+  for (const org of pending) {
+    await bestEffort(async () => {
+      const installation = await signup.orgInstallation(org);
+      if (!installation) return;
+      await signup.createWorkspace(userId, installation);
+      await signup.dropRequest(userId, org);
+    });
+  }
+}
+
+type Linked = { login: string; error: null } | { login: null; error: string };
+
+/** Runs link_github() as the person. Never throws: answers the login, or the refusal. */
+export async function linkGithub(db: Rpc): Promise<Linked> {
+  try {
+    const { data, error } = await db.rpc('link_github');
+    if (error) return { login: null, error: error.message };
+    return { login: (data as { github_login?: string } | null)?.github_login ?? '', error: null };
+  } catch (err) {
+    return { login: null, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Joins by GitHub org, completes sign-up requests, then links GitHub as the person (`db`). Never throws. */
+export async function settleSignIn(db: Rpc, session: SignedIn, deps: SignInDeps): Promise<Linked> {
+  let account: GithubAccount | null = null;
+  try { account = await readAccount(session, deps); } catch (err) { log(err); }
+  if (account) {
+    const known: GithubAccount = account;
+    await bestEffort(() => deps.joinByGithub(session.user.id, joinLogins(known)));
+    const { signup } = deps;
+    if (signup) await bestEffort(() => completeRequests(session.user.id, known, signup));
+  }
+  return linkGithub(db);
+}
+
+/** After an arcade sign-in: settles it, then answers what the arcade shows. `next` 'link' is the
+ * arcade's link step, which answers the linked login or the refusal; a plain sign-in only logs one. */
+export async function afterSignIn(db: Rpc, session: SignedIn | null, deps: SignInDeps, next: string | null): Promise<SignInReturn> {
+  if (!session) return ['signin', 'ok'];
+  const linked = await settleSignIn(db, session, deps);
+  if (next === 'link') return linked.error === null ? ['linked', linked.login] : ['link_error', linked.error];
+  if (linked.error !== null) log(linked.error);
+  return ['signin', 'ok'];
+}
+
+/** Supabase's exchangeCodeForSession, as far as a page's callback reads it. */
+export type SessionExchange = (code: string) => Promise<{ data: { session: SignedIn | null } | null; error: { message: string } | null }>;
+
+/** For a page's own callback (ask, knowledge, dossiers): the exchange, then the sign-in settled as
+ * the arcade's is, before the page reads as the person. Answers only the exchange's error. */
+export function settlingExchange(exchange: SessionExchange, db: Rpc, deps: SignInDeps) {
+  return async (code: string): Promise<{ error: { message: string } | null }> => {
+    const { data, error } = await exchange(code);
+    if (error) return { error };
+    if (data?.session) await settleSignIn(db, data.session, deps);
+    return { error: null };
+  };
 }
 
 /** The terminal's sign-in steps, joining as the new sign-in before its one-time code is issued. */
@@ -31,7 +114,7 @@ export function joinBeforeIssue(deps: CliCallbackDeps, joinAs: (session: CliSess
   return {
     ...deps,
     async issue(session, codeHash) {
-      await join(() => joinAs(session));
+      await bestEffort(() => joinAs(session));
       return deps.issue(session, codeHash);
     },
   };
