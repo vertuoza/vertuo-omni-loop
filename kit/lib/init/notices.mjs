@@ -1,6 +1,7 @@
 // What `omni init` warns about, read from the repository and never acted on: an older copy of the loop
-// already running in it, and a formatter whose check would reject the bundled bin. `init` writes only
-// under `.omni-loop/`, so each notice is a step for a person, not an edit.
+// already running in it, and a formatter whose check would reject the bundled bin. `init` writes
+// nothing outside `.omni-loop/` but the `statusLine` key of `.claude/settings.json`, so each notice
+// is a step for a person, not an edit.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 

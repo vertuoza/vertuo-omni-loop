@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -70,6 +70,7 @@ async function init(root, argv = [], extra = {}) {
 const readConfig = (read) => parseConfig(read('.omni-loop/config.yml'));
 
 const KNOWLEDGE = '.omni-loop/knowledge';
+const SETTINGS = '.claude/settings.json';
 
 /**
  * What `omni kb init` lays down in a repository with none of it, in the order it writes them: the
@@ -493,12 +494,12 @@ describe('omni init — running from source (AC 9)', () => {
 });
 
 describe('omni init — footprint (AC 7)', () => {
-  it('on a clean fixture, git status lists only paths under .omni-loop/', async () => {
+  it('on a clean fixture, git status lists only paths under .omni-loop/, and .claude/settings.json', async () => {
     const { root } = makeRepo({ git: true, files: { 'package.json': fixture('pnpm/package.json'), 'pnpm-lock.yaml': '' } });
     await init(root);
     const status = execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: root, encoding: 'utf8' });
     const paths = status.split('\n').filter(Boolean).map((line) => line.slice(3));
-    expect(paths.sort()).toEqual(['.omni-loop/bin/omni.mjs', '.omni-loop/config.yml', ...FORM_FILES].sort());
+    expect(paths.sort()).toEqual(['.omni-loop/bin/omni.mjs', '.omni-loop/config.yml', ...FORM_FILES, SETTINGS].sort());
   });
 });
 
@@ -557,15 +558,28 @@ describe('omni init — the real bundle', () => {
 
 const KIT_HOME = 'vertuoza/vertuo-omni-loop';
 
+/** What the closing steps say of the status line while the kit's own is in place, and how to remove the loop then. */
+const STATUS_LINE_STEPS = [
+  'The status line is on for everyone who opens Claude Code in this repository. A person who wants',
+  'their own sets statusLine in .claude/settings.local.json, which Claude Code reads first.',
+];
+const REMOVAL = [
+  'To remove the loop: delete .omni-loop/ and the statusLine key of .claude/settings.json, and commit.',
+  'The labels and the App installation stay.',
+];
+/** The removal line while the settings file holds no line of the kit's: init added nothing there. */
+const REMOVAL_WITHOUT_KEY = 'To remove the loop: delete .omni-loop/ and commit. The labels and the App installation stay.';
+
 /** The closing steps of a first run on a bare repository, as `acme/widgets` on `trunk` sees them. */
 const FIRST_RUN = [
   'omni init — acme/widgets is set up.',
   '  wrote   .omni-loop/config.yml',
   '  wrote   .omni-loop/bin/omni.mjs',
   ...FORM_FILES.map((path) => `  wrote   ${path}`),
+  '  wrote   .claude/settings.json  (statusLine)',
   '  labels  created omni:prd, omni:phase-0, omni:feature, omni:sub, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge',
   '',
-  'Commit .omni-loop/ and merge it into trunk, then, by hand:',
+  'Commit .omni-loop/ and .claude/settings.json, and merge them into trunk, then, by hand:',
   '  1. Install the omni plugin in Claude Code:',
   `       /plugin marketplace add ${KIT_HOME}`,
   '       /plugin install omni@omni-loop',
@@ -584,7 +598,9 @@ const FIRST_RUN = [
   '  commands.preflight (--preflight <cmd>)',
   '  commands.preflightFull (--preflight-full <cmd>)',
   '',
-  'To remove the loop: delete .omni-loop/ and commit. The labels and the App installation stay.',
+  ...STATUS_LINE_STEPS,
+  '',
+  ...REMOVAL,
   '',
 ];
 
@@ -606,7 +622,7 @@ describe('omni init — the closing steps (AC 8)', () => {
     const b = await run('globex/billing-api', 'develop');
     expect(a).toBe(b);
     expect(a).toContain('https://github.com/<slug>/settings/branches');
-    expect(a).toContain('merge it into <branch>, then');
+    expect(a).toContain('merge them into <branch>, then');
   });
 
   it('names only the commands left null, each with its flag', async () => {
@@ -632,24 +648,26 @@ describe('omni init — the closing steps (AC 8)', () => {
     await init(root, [], { fake });
     const { code, out } = await init(root, [], { fake });
     expect(code).toBe(0);
-    expect(out.split('\n').slice(0, 4)).toEqual([
+    expect(out.split('\n').slice(0, 5)).toEqual([
       'omni init — acme/widgets is set up.',
       '  kept    .omni-loop/config.yml    (pass --force to overwrite)',
       '  kept    .omni-loop/bin/omni.mjs  (pass --force to overwrite)',
+      '  kept    .claude/settings.json  (statusLine)',
       `  labels  already there: ${LOOP_LABELS.join(', ')}`,
     ]);
     // A form is never overwritten, so a kept one is never listed: the steps follow the labels line.
-    const secondRun = FIRST_RUN.slice(4 + FORM_FILES.length);
+    const secondRun = FIRST_RUN.slice(5 + FORM_FILES.length);
     secondRun[1] = 'Nothing new to commit. By hand, unless already done:';
-    expect(out.split('\n').slice(4)).toEqual(secondRun);
+    expect(out.split('\n').slice(5)).toEqual(secondRun);
   });
 
-  it('a second run with --force wrote the files again, so it asks for a commit', async () => {
+  it('a second run with --force wrote the files and the key again, so it asks for a commit', async () => {
     const { root } = makeRepo({ git: true });
     const fake = fakeExec();
     await init(root, [], { fake });
     const { out } = await init(root, ['--force'], { fake });
-    expect(out).toContain('Commit .omni-loop/ and merge it into trunk, then, by hand:\n');
+    expect(out).toContain('  wrote   .claude/settings.json  (statusLine)\n');
+    expect(out).toContain('Commit .omni-loop/ and .claude/settings.json, and merge them into trunk, then, by hand:\n');
   });
 
   it('with neither gh nor a remote to name the repository, it says so instead of a link', async () => {
@@ -657,7 +675,7 @@ describe('omni init — the closing steps (AC 8)', () => {
     const { code, out } = await init(root, [], { fake: fakeExec({ ghFails: true }) });
     expect(code).toBe(0);
     expect(out).toContain('omni init — this repository is set up.\n');
-    expect(out).toContain('merge it into main, then');
+    expect(out).toContain('merge them into main, then');
     expect(out).toContain('  2. Install the omni-loop GitHub App on this repository:\n');
     expect(out).toContain('       https://github.com/<owner>/<repository>/settings/branches\n');
   });
@@ -673,7 +691,7 @@ describe('omni init — the closing steps (AC 8)', () => {
 describe('omni init — the heads-up', () => {
   const OUTBOX_WORKFLOW = 'name: outbox\non: pull_request\njobs:\n  status:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ci/outbox\n';
 
-  it('names the outbox workflow of an older loop, and writes nothing outside .omni-loop/', async () => {
+  it('names the outbox workflow of an older loop, and writes nothing outside .omni-loop/ but .claude/settings.json', async () => {
     const { root } = makeRepo({ git: true, files: { '.github/workflows/outbox.yml': OUTBOX_WORKFLOW, '.github/workflows/ci.yml': 'name: ci\n' } });
     const { code, out } = await init(root);
     expect(code).toBe(0);
@@ -682,8 +700,7 @@ describe('omni init — the heads-up', () => {
         + '  - An older copy of the loop already runs here (.github/workflows/outbox.yml). Two loops mean\n'
         + '    two outbox checks and two label sets: decide which one stays before merging .omni-loop/.\n',
     );
-    const status = execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' });
-    expect(status.split('\n').filter(Boolean).every((line) => line.slice(3).startsWith('.omni-loop/'))).toBe(true);
+    expect(gitStatus(root).filter((path) => !path.startsWith('.omni-loop/'))).toEqual([SETTINGS]);
   });
 
   it('tells a Prettier repository to ignore the bin, and leaves .prettierignore alone', async () => {
@@ -717,7 +734,7 @@ describe('omni init — the forms (PRD 45, AC 11)', () => {
       const fake = fakeExec();
       const first = await init(root, [], { fake });
       expect(first.code).toBe(0);
-      expect(gitStatus(root)).toEqual(['.omni-loop/bin/omni.mjs', '.omni-loop/config.yml', ...FORM_FILES].sort());
+      expect(gitStatus(root)).toEqual(['.omni-loop/bin/omni.mjs', '.omni-loop/config.yml', ...FORM_FILES, SETTINGS].sort());
       for (const id of FORM_IDS) {
         const file = id === 'decisions' ? `${KNOWLEDGE}/adr/README.md` : `${KNOWLEDGE}/playbook/${id}.md`;
         const parsed = parseForm(read(file), { file });
@@ -782,13 +799,14 @@ describe('omni init — the forms (PRD 45, AC 11)', () => {
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/bin/omni.mjs': 'bin\n' } });
     const { code, out } = await init(root);
     expect(code).toBe(0);
-    expect(gitStatus(root)).toEqual([...FORM_FILES].sort());
-    expect(out.split('\n').slice(1, 3 + FORM_FILES.length)).toEqual([
+    expect(gitStatus(root)).toEqual([...FORM_FILES, SETTINGS].sort());
+    expect(out.split('\n').slice(1, 4 + FORM_FILES.length)).toEqual([
       '  kept    .omni-loop/config.yml    (pass --force to overwrite)',
       '  kept    .omni-loop/bin/omni.mjs  (pass --force to overwrite)',
       ...FORM_FILES.map((path) => `  wrote   ${path}`),
+      '  wrote   .claude/settings.json  (statusLine)',
     ]);
-    expect(out).toContain('Commit .omni-loop/ and merge it into trunk, then, by hand:\n');
+    expect(out).toContain('Commit .omni-loop/ and .claude/settings.json, and merge them into trunk, then, by hand:\n');
   });
 
   it('writes no form outside .omni-loop/: a kept config whose playbook lies elsewhere leaves them to /omni:invade', async () => {
@@ -796,9 +814,100 @@ describe('omni init — the forms (PRD 45, AC 11)', () => {
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/bin/omni.mjs': 'bin\n' } });
     const { code, out } = await init(root);
     expect(code).toBe(0);
-    expect(gitStatus(root)).toEqual([]);
+    expect(gitStatus(root)).toEqual([SETTINGS]);
     expect(out).toContain('  kept    .omni-loop/bin/omni.mjs  (pass --force to overwrite)\n  forms   not written: docs/ is outside .omni-loop/ — see step 4 below\n');
     expect(out).toContain('  4. Fill the forms in docs/ with what the repository can prove, in Claude Code:\n       /omni:invade\n');
-    expect(out).toContain('Nothing new to commit. By hand, unless already done:\n');
+    expect(out).toContain('Commit .claude/settings.json and merge it into trunk, then, by hand:\n');
+  });
+});
+
+describe('omni init — the status line (PRD 324)', () => {
+  // The spec's key, verbatim ("The install"): the bin init installs, run as `statusline`.
+  const KIT_LINE = {
+    type: 'command',
+    command: 'node "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}/.omni-loop/bin/omni.mjs" statusline',
+    refreshInterval: 30,
+  };
+  const settingsText = (value) => `${JSON.stringify(value, null, 2)}\n`;
+  const THEIRS = settingsText({ model: 'opus', statusLine: { type: 'command', command: 'npx claude-hud' } });
+  const ON = `\n${STATUS_LINE_STEPS.join('\n')}\n\n${REMOVAL.join('\n')}\n`;
+
+  it('creates .claude/settings.json holding the key, prints that it wrote it, and says who sees it and how to remove it', async () => {
+    const { root, read } = makeRepo({ git: true });
+    const { code, out } = await init(root);
+    expect(code).toBe(0);
+    expect(read(SETTINGS)).toBe(settingsText({ statusLine: KIT_LINE }));
+    expect(out).toContain('\n  wrote   .claude/settings.json  (statusLine)\n');
+    expect(out.endsWith(ON)).toBe(true);
+  });
+
+  it('keeps every other key of the file, in its order and with its value', async () => {
+    const before = { hooks: { SessionStart: [{ hooks: [{ type: 'command', command: 'echo hi' }] }] }, enabledPlugins: { 'omni@omni-loop': true } };
+    const { root, read } = makeRepo({ git: true, files: { [SETTINGS]: JSON.stringify(before) } });
+    const { code, out } = await init(root);
+    expect(code).toBe(0);
+    expect(read(SETTINGS)).toBe(settingsText({ ...before, statusLine: KIT_LINE }));
+    expect(out).toContain('\n  wrote   .claude/settings.json  (statusLine)\n');
+  });
+
+  it('keeps the kit\'s own line as it is, and rewrites it with --force', async () => {
+    const older = settingsText({ statusLine: { type: 'command', command: 'node "$(git rev-parse --show-toplevel)/.omni-loop/bin/omni.mjs" statusline' }, model: 'opus' });
+    const { root, read } = makeRepo({ git: true, files: { [SETTINGS]: older } });
+    const kept = await init(root);
+    expect(kept.code).toBe(0);
+    expect(read(SETTINGS)).toBe(older);
+    expect(kept.out).toContain('\n  kept    .claude/settings.json  (statusLine)\n');
+    expect(kept.out.endsWith(ON)).toBe(true);
+
+    const forced = await init(root, ['--force']);
+    expect(forced.code).toBe(0);
+    expect(read(SETTINGS)).toBe(settingsText({ statusLine: KIT_LINE, model: 'opus' }));
+    expect(forced.out).toContain('\n  wrote   .claude/settings.json  (statusLine)\n');
+  });
+
+  it('never touches someone else\'s line, even with --force, and then claims no status line of its own', async () => {
+    for (const argv of [[], ['--force']]) {
+      const { root, read } = makeRepo({ git: true, files: { [SETTINGS]: THEIRS } });
+      const { code, out } = await init(root, argv);
+      expect(code, argv.join(' ')).toBe(0);
+      expect(read(SETTINGS)).toBe(THEIRS);
+      expect(out).toContain('\n  kept    .claude/settings.json  (its statusLine is not the kit\'s)\n');
+      expect(out).not.toContain('settings.local.json');
+      expect(out.endsWith(`\n\n${REMOVAL_WITHOUT_KEY}\n`)).toBe(true);
+    }
+  });
+
+  it('leaves a file that is not valid JSON byte-identical, says so, and still exits 0', async () => {
+    for (const argv of [[], ['--force']]) {
+      const text = '{\n  // mine\n  "model": "opus",\n}\n';
+      const { root, read } = makeRepo({ git: true, files: { [SETTINGS]: text } });
+      const { code, out, err } = await init(root, argv);
+      expect(code, argv.join(' ')).toBe(0);
+      expect(err).toBe('');
+      expect(read(SETTINGS)).toBe(text);
+      expect(out).toContain('\n  skipped .claude/settings.json: not valid JSON, no status line added\n');
+      expect(out).not.toContain('settings.local.json');
+      expect(out.endsWith(`\n\n${REMOVAL_WITHOUT_KEY}\n`)).toBe(true);
+      expect(gitStatus(root).some((path) => path.startsWith('.claude/'))).toBe(false);
+    }
+  });
+
+  it('a repository that already has the loop gets the key by running init again, keeping the config and the bin', async () => {
+    const { root, read } = makeRepo({ git: true });
+    const fake = fakeExec();
+    await init(root, [], { fake });
+    rmSync(join(root, '.claude'), { recursive: true });
+    const config = read('.omni-loop/config.yml');
+    const { code, out } = await init(root, [], { fake });
+    expect(code).toBe(0);
+    expect(read('.omni-loop/config.yml')).toBe(config);
+    expect(read(SETTINGS)).toBe(settingsText({ statusLine: KIT_LINE }));
+    expect(out.split('\n').slice(1, 5)).toEqual([
+      '  kept    .omni-loop/config.yml    (pass --force to overwrite)',
+      '  kept    .omni-loop/bin/omni.mjs  (pass --force to overwrite)',
+      '  wrote   .claude/settings.json  (statusLine)',
+      `  labels  already there: ${LOOP_LABELS.join(', ')}`,
+    ]);
+    expect(out).toContain('\nCommit .claude/settings.json and merge it into trunk, then, by hand:\n');
   });
 });

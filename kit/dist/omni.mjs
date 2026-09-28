@@ -4062,10 +4062,10 @@ var require_resolve_block_map = __commonJS({
       let offset = bm.offset;
       let commentEnd = null;
       for (const collItem of bm.items) {
-        const { start, key, sep, value } = collItem;
+        const { start, key, sep: sep2, value } = collItem;
         const keyProps = resolveProps.resolveProps(start, {
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key ?? sep2?.[0],
           offset,
           onError,
           parentIndent: bm.indent,
@@ -4079,7 +4079,7 @@ var require_resolve_block_map = __commonJS({
             else if ("indent" in key && key.indent !== bm.indent)
               onError(offset, "BAD_INDENT", startColMsg);
           }
-          if (!keyProps.anchor && !keyProps.tag && !sep) {
+          if (!keyProps.anchor && !keyProps.tag && !sep2) {
             commentEnd = keyProps.end;
             if (keyProps.comment) {
               if (map.comment)
@@ -4103,7 +4103,7 @@ var require_resolve_block_map = __commonJS({
         ctx.atKey = false;
         if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
           onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
-        const valueProps = resolveProps.resolveProps(sep ?? [], {
+        const valueProps = resolveProps.resolveProps(sep2 ?? [], {
           indicator: "map-value-ind",
           next: value,
           offset: keyNode.range[2],
@@ -4119,7 +4119,7 @@ var require_resolve_block_map = __commonJS({
             if (ctx.options.strict && keyProps.start < valueProps.found.offset - 1024)
               onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key");
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep, null, valueProps, onError);
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep2, null, valueProps, onError);
           if (ctx.schema.compat)
             utilFlowIndentCheck.flowIndentCheck(bm.indent, value, onError);
           offset = valueNode.range[2];
@@ -4212,7 +4212,7 @@ var require_resolve_end = __commonJS({
       let comment2 = "";
       if (end) {
         let hasSpace = false;
-        let sep = "";
+        let sep2 = "";
         for (const token of end) {
           const { source, type } = token;
           switch (type) {
@@ -4226,13 +4226,13 @@ var require_resolve_end = __commonJS({
               if (!comment2)
                 comment2 = cb;
               else
-                comment2 += sep + cb;
-              sep = "";
+                comment2 += sep2 + cb;
+              sep2 = "";
               break;
             }
             case "newline":
               if (comment2)
-                sep += source;
+                sep2 += source;
               hasSpace = true;
               break;
             default:
@@ -4276,18 +4276,18 @@ var require_resolve_flow_collection = __commonJS({
       let offset = fc.offset + fc.start.source.length;
       for (let i = 0; i < fc.items.length; ++i) {
         const collItem = fc.items[i];
-        const { start, key, sep, value } = collItem;
+        const { start, key, sep: sep2, value } = collItem;
         const props = resolveProps.resolveProps(start, {
           flow: fcName,
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key ?? sep2?.[0],
           offset,
           onError,
           parentIndent: fc.indent,
           startOnNewline: false
         });
         if (!props.found) {
-          if (!props.anchor && !props.tag && !sep && !value) {
+          if (!props.anchor && !props.tag && !sep2 && !value) {
             if (i === 0 && props.comma)
               onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
             else if (i < fc.items.length - 1)
@@ -4341,8 +4341,8 @@ var require_resolve_flow_collection = __commonJS({
             }
           }
         }
-        if (!isMap && !sep && !props.found) {
-          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep, null, props, onError);
+        if (!isMap && !sep2 && !props.found) {
+          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep2, null, props, onError);
           coll.items.push(valueNode);
           offset = valueNode.range[2];
           if (isBlock(value))
@@ -4354,7 +4354,7 @@ var require_resolve_flow_collection = __commonJS({
           if (isBlock(key))
             onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
           ctx.atKey = false;
-          const valueProps = resolveProps.resolveProps(sep ?? [], {
+          const valueProps = resolveProps.resolveProps(sep2 ?? [], {
             flow: fcName,
             indicator: "map-value-ind",
             next: value,
@@ -4365,8 +4365,8 @@ var require_resolve_flow_collection = __commonJS({
           });
           if (valueProps.found) {
             if (!isMap && !props.found && ctx.options.strict) {
-              if (sep)
-                for (const st of sep) {
+              if (sep2)
+                for (const st of sep2) {
                   if (st === valueProps.found)
                     break;
                   if (st.type === "newline") {
@@ -4383,7 +4383,7 @@ var require_resolve_flow_collection = __commonJS({
             else
               onError(valueProps.start, "MISSING_CHAR", `Missing , or : between ${fcName} items`);
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep, null, valueProps, onError) : null;
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep2, null, valueProps, onError) : null;
           if (valueNode) {
             if (isBlock(value))
               onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
@@ -4565,7 +4565,7 @@ var require_resolve_block_scalar = __commonJS({
           chompStart = i + 1;
       }
       let value = "";
-      let sep = "";
+      let sep2 = "";
       let prevMoreIndented = false;
       for (let i = 0; i < contentStart; ++i)
         value += lines[i][0].slice(trimIndent) + "\n";
@@ -4582,24 +4582,24 @@ var require_resolve_block_scalar = __commonJS({
           indent = "";
         }
         if (type === Scalar.Scalar.BLOCK_LITERAL) {
-          value += sep + indent.slice(trimIndent) + content;
-          sep = "\n";
+          value += sep2 + indent.slice(trimIndent) + content;
+          sep2 = "\n";
         } else if (indent.length > trimIndent || content[0] === "	") {
-          if (sep === " ")
-            sep = "\n";
-          else if (!prevMoreIndented && sep === "\n")
-            sep = "\n\n";
-          value += sep + indent.slice(trimIndent) + content;
-          sep = "\n";
+          if (sep2 === " ")
+            sep2 = "\n";
+          else if (!prevMoreIndented && sep2 === "\n")
+            sep2 = "\n\n";
+          value += sep2 + indent.slice(trimIndent) + content;
+          sep2 = "\n";
           prevMoreIndented = true;
         } else if (content === "") {
-          if (sep === "\n")
+          if (sep2 === "\n")
             value += "\n";
           else
-            sep = "\n";
+            sep2 = "\n";
         } else {
-          value += sep + content;
-          sep = " ";
+          value += sep2 + content;
+          sep2 = " ";
           prevMoreIndented = false;
         }
       }
@@ -4783,25 +4783,25 @@ var require_resolve_flow_scalar = __commonJS({
         trimBoth = /^[ \t]+|[ \t]+$/g;
       }
       let res = match[1].replace(trimEnd, "");
-      let sep = " ";
+      let sep2 = " ";
       let pos = line.lastIndex;
       while (match = line.exec(source)) {
         const lm = match[1].replace(trimBoth, "");
         if (lm === "") {
-          if (sep === "\n")
-            res += sep;
+          if (sep2 === "\n")
+            res += sep2;
           else
-            sep = "\n";
+            sep2 = "\n";
         } else {
-          res += sep + lm;
-          sep = " ";
+          res += sep2 + lm;
+          sep2 = " ";
         }
         pos = line.lastIndex;
       }
       const last = /[ \t]*(.*)/sy;
       last.lastIndex = pos;
       match = last.exec(source);
-      return res + sep + (match?.[1] ?? "");
+      return res + sep2 + (match?.[1] ?? "");
     }
     function doubleQuotedValue(source, onError) {
       let res = "";
@@ -5618,14 +5618,14 @@ var require_cst_stringify = __commonJS({
         }
       }
     }
-    function stringifyItem({ start, key, sep, value }) {
+    function stringifyItem({ start, key, sep: sep2, value }) {
       let res = "";
       for (const st of start)
         res += st.source;
       if (key)
         res += stringifyToken(key);
-      if (sep)
-        for (const st of sep)
+      if (sep2)
+        for (const st of sep2)
           res += st.source;
       if (value)
         res += stringifyToken(value);
@@ -6797,18 +6797,18 @@ var require_parser = __commonJS({
         if (this.type === "map-value-ind") {
           const prev = getPrevProps(this.peek(2));
           const start = getFirstKeyStartProps(prev);
-          let sep;
+          let sep2;
           if (scalar.end) {
-            sep = scalar.end;
-            sep.push(this.sourceToken);
+            sep2 = scalar.end;
+            sep2.push(this.sourceToken);
             delete scalar.end;
           } else
-            sep = [this.sourceToken];
+            sep2 = [this.sourceToken];
           const map = {
             type: "block-map",
             offset: scalar.offset,
             indent: scalar.indent,
-            items: [{ start, key: scalar, sep }]
+            items: [{ start, key: scalar, sep: sep2 }]
           };
           this.onKeyLine = true;
           this.stack[this.stack.length - 1] = map;
@@ -6961,15 +6961,15 @@ var require_parser = __commonJS({
                 } else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
                   const start2 = getFirstKeyStartProps(it.start);
                   const key = it.key;
-                  const sep = it.sep;
-                  sep.push(this.sourceToken);
+                  const sep2 = it.sep;
+                  sep2.push(this.sourceToken);
                   delete it.key;
                   delete it.sep;
                   this.stack.push({
                     type: "block-map",
                     offset: this.offset,
                     indent: this.indent,
-                    items: [{ start: start2, key, sep }]
+                    items: [{ start: start2, key, sep: sep2 }]
                   });
                 } else if (start.length > 0) {
                   it.sep = it.sep.concat(start, this.sourceToken);
@@ -7163,13 +7163,13 @@ var require_parser = __commonJS({
             const prev = getPrevProps(parent);
             const start = getFirstKeyStartProps(prev);
             fixFlowSeqItems(fc);
-            const sep = fc.end.splice(1, fc.end.length);
-            sep.push(this.sourceToken);
+            const sep2 = fc.end.splice(1, fc.end.length);
+            sep2.push(this.sourceToken);
             const map = {
               type: "block-map",
               offset: fc.offset,
               indent: fc.indent,
-              items: [{ start, key: fc, sep }]
+              items: [{ start, key: fc, sep: sep2 }]
             };
             this.onKeyLine = true;
             this.stack[this.stack.length - 1] = map;
@@ -18615,9 +18615,9 @@ var harvest = {
 
 // kit/bin/commands/init.mjs
 init_define_OMNI_BUNDLE();
-import { chmodSync as chmodSync3, copyFileSync, existsSync as existsSync32, mkdirSync as mkdirSync9, readFileSync as readFileSync28, writeFileSync as writeFileSync12 } from "node:fs";
+import { chmodSync as chmodSync3, copyFileSync, existsSync as existsSync32, mkdirSync as mkdirSync10, readFileSync as readFileSync29, writeFileSync as writeFileSync13 } from "node:fs";
 import { createInterface } from "node:readline/promises";
-import { dirname as dirname12, join as join36, posix as posix4 } from "node:path";
+import { dirname as dirname13, join as join37, posix as posix5 } from "node:path";
 
 // kit/lib/init/bundle.mjs
 init_define_OMNI_BUNDLE();
@@ -18843,15 +18843,74 @@ function formatterToExclude(root, dir) {
 
 // kit/lib/init/steps.mjs
 init_define_OMNI_BUNDLE();
-import { dirname as dirname10 } from "node:path";
+import { dirname as dirname11 } from "node:path";
+
+// kit/lib/init/settings.mjs
+init_define_OMNI_BUNDLE();
+import { mkdirSync as mkdirSync8, readFileSync as readFileSync28, writeFileSync as writeFileSync11 } from "node:fs";
+import { dirname as dirname10, join as join35, posix as posix3, sep } from "node:path";
+var SETTINGS_FILE = posix3.join(".claude", "settings.json");
+var PERSONAL_SETTINGS_FILE = posix3.join(".claude", "settings.local.json");
+var STATUS_LINE_KEY = "statusLine";
+var REFRESH_SECONDS = 30;
+var commandPath = (bin) => bin.split(sep).join(posix3.sep);
+function statusLineSetting(bin) {
+  return {
+    type: "command",
+    command: `node "\${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}/${commandPath(bin)}" statusline`,
+    refreshInterval: REFRESH_SECONDS
+  };
+}
+function isKitStatusLine(value, bin) {
+  return typeof value?.command === "string" && value.command.includes(`${commandPath(bin)}" statusline`);
+}
+function readSettings(file) {
+  try {
+    return readFileSync28(file, "utf8");
+  } catch (error) {
+    return error?.code === "ENOENT" ? null : void 0;
+  }
+}
+function parseSettings(text4) {
+  try {
+    const value = JSON.parse(text4);
+    return value !== null && typeof value === "object" && !Array.isArray(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+function writeStatusLine(root, { bin, force = false }) {
+  const file = join35(root, SETTINGS_FILE);
+  const text4 = readSettings(file);
+  const settings = text4 === null ? {} : parseSettings(text4 ?? "");
+  if (!settings) return { path: SETTINGS_FILE, outcome: "invalid" };
+  if (Object.hasOwn(settings, STATUS_LINE_KEY)) {
+    if (!isKitStatusLine(settings[STATUS_LINE_KEY], bin)) return { path: SETTINGS_FILE, outcome: "foreign" };
+    if (!force) return { path: SETTINGS_FILE, outcome: "kept" };
+  }
+  settings[STATUS_LINE_KEY] = statusLineSetting(bin);
+  mkdirSync8(dirname10(file), { recursive: true });
+  writeFileSync11(file, `${JSON.stringify(settings, null, 2)}
+`);
+  return { path: SETTINGS_FILE, outcome: "wrote" };
+}
+
+// kit/lib/init/steps.mjs
 var APP = { name: "omni-loop", slug: "omni-loop-invader" };
 var MARKETPLACE = "omni-loop";
 var PLUGIN = "omni";
 var GITHUB = "https://github.com";
 var PLACEHOLDER_SLUG = "<owner>/<repository>";
-function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, files, forms, labels, unfilled, notices = {} }) {
+var STATUS_LINE = {
+  wrote: (path) => `  wrote   ${path}  (${STATUS_LINE_KEY})`,
+  kept: (path) => `  kept    ${path}  (${STATUS_LINE_KEY})`,
+  foreign: (path) => `  kept    ${path}  (its ${STATUS_LINE_KEY} is not the kit's)`,
+  invalid: (path) => `  skipped ${path}: not valid JSON, no status line added`
+};
+var KIT_LINE_IN_PLACE = /* @__PURE__ */ new Set(["wrote", "kept"]);
+function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, files, forms, settings, labels, unfilled, notices = {} }) {
   const repo = slug ?? PLACEHOLDER_SLUG;
-  const dir = dirname10(files[0].path);
+  const dir = dirname11(files[0].path);
   const lines = [`omni init \u2014 ${slug ?? "this repository"} is set up.`];
   const width = Math.max(...files.map((file) => file.path.length));
   for (const { path, wrote } of files) {
@@ -18890,6 +18949,7 @@ function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, fil
     `     /${PLUGIN}:invade`
   ]);
   if (forms.outside) lines.push(`  forms   not written: ${forms.dir}/ is outside ${dir}/ \u2014 see step ${formsStep} below`);
+  lines.push(STATUS_LINE[settings.outcome](settings.path));
   const done = [];
   if (labels.created.length) done.push(`created ${labels.created.join(", ")}`);
   if (labels.present.length) {
@@ -18915,9 +18975,12 @@ function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, fil
     lines.push("", "Heads-up:");
     for (const line of headsUp) lines.push(line.startsWith("  ") ? `  ${line}` : `  - ${line}`);
   }
+  const toCommit = [];
+  if (files.some((file) => file.wrote) || forms.wrote.length) toCommit.push(`${dir}/`);
+  if (settings.outcome === "wrote") toCommit.push(settings.path);
   lines.push(
     "",
-    files.some((file) => file.wrote) || forms.wrote.length ? `Commit ${dir}/ and merge it into ${defaultBranch}, then, by hand:` : "Nothing new to commit. By hand, unless already done:"
+    toCommit.length === 2 ? `Commit ${toCommit.join(" and ")}, and merge them into ${defaultBranch}, then, by hand:` : toCommit.length ? `Commit ${toCommit[0]} and merge it into ${defaultBranch}, then, by hand:` : "Nothing new to commit. By hand, unless already done:"
   );
   steps.forEach(([first, ...rest], index) => {
     lines.push(`  ${index + 1}. ${first}`, ...rest.map((line) => `  ${line}`));
@@ -18926,7 +18989,18 @@ function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, fil
     lines.push("", `Not filled \u2014 set them in ${files[0].path} or rerun with the flag:`);
     for (const { key, flag } of unfilled) lines.push(`  commands.${key} (--${flag} <cmd>)`);
   }
-  lines.push("", `To remove the loop: delete ${dir}/ and commit. The labels and the App installation stay.`);
+  if (KIT_LINE_IN_PLACE.has(settings.outcome)) {
+    lines.push(
+      "",
+      "The status line is on for everyone who opens Claude Code in this repository. A person who wants",
+      `their own sets ${STATUS_LINE_KEY} in ${PERSONAL_SETTINGS_FILE}, which Claude Code reads first.`,
+      "",
+      `To remove the loop: delete ${dir}/ and the ${STATUS_LINE_KEY} key of ${settings.path}, and commit.`,
+      "The labels and the App installation stay."
+    );
+  } else {
+    lines.push("", `To remove the loop: delete ${dir}/ and commit. The labels and the App installation stay.`);
+  }
   return `${lines.join("\n")}
 `;
 }
@@ -18934,12 +19008,12 @@ function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, fil
 // kit/lib/playbook/write-forms.mjs
 init_define_OMNI_BUNDLE();
 var import_yaml4 = __toESM(require_dist(), 1);
-import { existsSync as existsSync31, mkdirSync as mkdirSync8, writeFileSync as writeFileSync11 } from "node:fs";
-import { dirname as dirname11, join as join35, posix as posix3 } from "node:path";
+import { existsSync as existsSync31, mkdirSync as mkdirSync9, writeFileSync as writeFileSync12 } from "node:fs";
+import { dirname as dirname12, join as join36, posix as posix4 } from "node:path";
 var PROVENANCE = /^<!-- Ported from .*-->\n+/gm;
 var REGISTER_TITLES = { "principles.md": "Product principles", "rules.md": "Product rules", "invariants.md": "Product invariants" };
 function samePath(a, b) {
-  const clean = (path) => posix3.normalize(path).replace(/\/+$/, "");
+  const clean = (path) => posix4.normalize(path).replace(/\/+$/, "");
   return clean(a) === clean(b);
 }
 function pointerTarget(id, ctx) {
@@ -18980,19 +19054,19 @@ None yet.
     }
   }
   return planned.map(({ path, text: text4 }) => {
-    const absolute = join35(ctx.root, path);
+    const absolute = join36(ctx.root, path);
     if (existsSync31(absolute)) return { path, wrote: false };
-    mkdirSync8(dirname11(absolute), { recursive: true });
-    writeFileSync11(absolute, text4());
+    mkdirSync9(dirname12(absolute), { recursive: true });
+    writeFileSync12(absolute, text4());
     return { path, wrote: true };
   });
 }
 
 // kit/bin/commands/init.mjs
-var LOOP_DIR = dirname12(CONFIG_FILE);
-var BIN_FILE = join36(LOOP_DIR, "bin", "omni.mjs");
+var LOOP_DIR = dirname13(CONFIG_FILE);
+var BIN_FILE = join37(LOOP_DIR, "bin", "omni.mjs");
 function insideLoop(path) {
-  const clean = posix4.normalize(path).replace(/\/+$/, "");
+  const clean = posix5.normalize(path).replace(/\/+$/, "");
   return clean === LOOP_DIR || clean.startsWith(`${LOOP_DIR}/`);
 }
 var FLAGS = { test: "test", preflight: "preflight", preflightFull: "preflight-full" };
@@ -19031,10 +19105,10 @@ var init = {
     const force = flags.force === true;
     const root = findRoot(cwd, exec);
     const defaults = ConfigSchema.parse({ kit: CONFIG_VERSION });
-    const configPath = join36(root, CONFIG_FILE);
-    const binPath = join36(root, BIN_FILE);
+    const configPath = join37(root, CONFIG_FILE);
+    const binPath = join37(root, BIN_FILE);
     const keepConfig = !force && existsSync32(configPath);
-    let config2 = keepConfig ? parseConfig(readFileSync28(configPath, "utf8"), CONFIG_FILE) : null;
+    let config2 = keepConfig ? parseConfig(readFileSync29(configPath, "utf8"), CONFIG_FILE) : null;
     const copyBin = force || !existsSync32(binPath);
     if (copyBin && !bundle) {
       throw usageError(
@@ -19049,17 +19123,18 @@ var init = {
       const rendered = renderConfig({ ...repo, commands, lawsSource });
       config2 = rendered.config;
       const { text: text4 } = rendered;
-      mkdirSync9(dirname12(configPath), { recursive: true });
-      writeFileSync12(configPath, text4);
+      mkdirSync10(dirname13(configPath), { recursive: true });
+      writeFileSync13(configPath, text4);
     }
     if (copyBin) {
-      mkdirSync9(dirname12(binPath), { recursive: true });
+      mkdirSync10(dirname13(binPath), { recursive: true });
       copyFileSync(bundle, binPath);
       chmodSync3(binPath, 493);
     }
     const ctx = createContext(root, config2);
     const outside = !insideLoop(ctx.layout.frontDoor);
     const forms = outside ? [] : writeForms({ ctx });
+    const settings = writeStatusLine(root, { bin: BIN_FILE, force });
     const labels = reconcileLabels(root, { exec, labels: config2.labels });
     const slug = config2.repo.slug ?? readRepo(root, { exec, remote: config2.repo.remote }).slug;
     stdout.write(closingSteps({
@@ -19069,6 +19144,7 @@ var init = {
       outboxCheck: config2.ci.outboxContext,
       files: [{ path: CONFIG_FILE, wrote: !keepConfig }, { path: BIN_FILE, wrote: copyBin }],
       forms: { dir: ctx.layout.frontDoor, wrote: forms.filter((file) => file.wrote).map((file) => file.path), outside },
+      settings,
       labels,
       unfilled: COMMAND_KEYS.filter((key) => config2.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] })),
       notices: { legacyWorkflows: legacyLoopWorkflows(root), formatter: formatterToExclude(root, LOOP_DIR) }
@@ -19079,8 +19155,8 @@ var init = {
 
 // kit/bin/commands/item.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync33, mkdirSync as mkdirSync10, readFileSync as readFileSync29, writeFileSync as writeFileSync13 } from "node:fs";
-import { basename as basename7, join as join37 } from "node:path";
+import { existsSync as existsSync33, mkdirSync as mkdirSync11, readFileSync as readFileSync30, writeFileSync as writeFileSync14 } from "node:fs";
+import { basename as basename7, join as join38 } from "node:path";
 
 // kit/lib/policy/outbox-policy.mjs
 init_define_OMNI_BUNDLE();
@@ -19404,9 +19480,9 @@ function spentIds(prd2, { ctx }) {
   const ids = new Set(
     outboxItemFiles({ ctx }).filter((path) => path.startsWith(prefix)).map((path) => basename7(path, ".md"))
   );
-  const settledFile = join37(ctx.root, outboxDir, SETTLED_FILE);
+  const settledFile = join38(ctx.root, outboxDir, SETTLED_FILE);
   if (existsSync33(settledFile)) {
-    for (const entry of parseSettledEntries(readFileSync29(settledFile, "utf8"), ctx.markers)) {
+    for (const entry of parseSettledEntries(readFileSync30(settledFile, "utf8"), ctx.markers)) {
       ids.add(entry.id);
     }
   }
@@ -19555,8 +19631,8 @@ async function runNew(args, { ctx, stdout, stderr }) {
 }
 function writeItemFile(ctx, outboxDir, id, text4) {
   const file = `${outboxDir}/${id}.md`;
-  mkdirSync10(join37(ctx.root, outboxDir), { recursive: true });
-  writeFileSync13(join37(ctx.root, file), text4);
+  mkdirSync11(join38(ctx.root, outboxDir), { recursive: true });
+  writeFileSync14(join38(ctx.root, file), text4);
   return file;
 }
 var item = {
@@ -19994,8 +20070,8 @@ var phase0 = {
 
 // kit/bin/commands/plan.mjs
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync30 } from "node:fs";
-import { join as join38 } from "node:path";
+import { readFileSync as readFileSync31 } from "node:fs";
+import { join as join39 } from "node:path";
 var USAGE11 = "usage: omni plan check <prd>";
 function duplicateIds(slices) {
   const counts = /* @__PURE__ */ new Map();
@@ -20026,7 +20102,7 @@ function checkPlan(prd2, { ctx }) {
   if (planPath === null) throw usageError(`omni plan check: PRD ${prd2} has no inbox or shipped folder.`);
   let markdown;
   try {
-    markdown = readFileSync30(join38(ctx.root, planPath), "utf8");
+    markdown = readFileSync31(join39(ctx.root, planPath), "utf8");
   } catch (error) {
     if (error?.code === "ENOENT") throw usageError(`omni plan check: no plan at ${planPath}.`);
     throw error;
@@ -20081,11 +20157,11 @@ init_define_OMNI_BUNDLE();
 // kit/lib/delivery/prd.mjs
 init_define_OMNI_BUNDLE();
 import { readdirSync as readdirSync15 } from "node:fs";
-import { join as join39 } from "node:path";
+import { join as join40 } from "node:path";
 function whereIs(ctx, prd2) {
   const where = ctx.layout.whereIs(prd2);
   if (!where) return null;
-  const absolute = join39(ctx.root, where.dir);
+  const absolute = join40(ctx.root, where.dir);
   const files = readdirSync15(absolute, { withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => `${where.dir}/${entry.name}`).sort();
   const outboxDir = ctx.layout.outboxDir(prd2);
   return {
@@ -20130,8 +20206,8 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/outbox/replies.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync34, readFileSync as readFileSync31, writeFileSync as writeFileSync14 } from "node:fs";
-import { join as join40 } from "node:path";
+import { existsSync as existsSync34, readFileSync as readFileSync32, writeFileSync as writeFileSync15 } from "node:fs";
+import { join as join41 } from "node:path";
 var WRITER_ASSOCIATIONS = /* @__PURE__ */ new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 var NUMBERED_LINE = /^\s*(\d+)\s*:\s*(.+)$/;
 var APPROVE_ALL_LINE = /^\s*approve all\s*$/i;
@@ -20318,11 +20394,11 @@ function appendObjection({ ctx, prd: prd2, adoptedEntry, item: item2, answer, ju
     };
   }
   const settledFile = `${ctx.layout.outboxDir(prd2)}/${SETTLED_FILE}`;
-  const absoluteSettled = join40(ctx.root, settledFile);
+  const absoluteSettled = join41(ctx.root, settledFile);
   if (!existsSync34(absoluteSettled)) {
     return { ok: false, errors: [`${settledFile}: no ledger holds the adopted item ${item2.id}.`] };
   }
-  const existing = readFileSync31(absoluteSettled, "utf8");
+  const existing = readFileSync32(absoluteSettled, "utf8");
   const separator = existing.endsWith("\n") ? "\n" : "\n\n";
   const entry = renderSettledEntry({
     item: item2,
@@ -20331,7 +20407,7 @@ function appendObjection({ ctx, prd: prd2, adoptedEntry, item: item2, answer, ju
     judgement,
     markers: ctx.markers
   });
-  writeFileSync14(absoluteSettled, `${existing}${separator}${entry}`);
+  writeFileSync15(absoluteSettled, `${existing}${separator}${entry}`);
   return { ok: true, settledFile };
 }
 function readReplies({ ctx, prd: prd2, pr, post = false }, client) {
@@ -20444,8 +20520,8 @@ Outbox round ${result.round.number} (not posted \u2014 pass --post):
 
 // kit/bin/commands/rework.mjs
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync32, writeFileSync as writeFileSync15 } from "node:fs";
-import { join as join41 } from "node:path";
+import { readFileSync as readFileSync33, writeFileSync as writeFileSync16 } from "node:fs";
+import { join as join42 } from "node:path";
 
 // kit/lib/policy/rework.mjs
 init_define_OMNI_BUNDLE();
@@ -20621,7 +20697,7 @@ var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
   try {
-    return readFileSync32(join41(ctx.root, path), "utf8");
+    return readFileSync33(join42(ctx.root, path), "utf8");
   } catch (error) {
     if (error?.code === "ENOENT") return "";
     throw error;
@@ -20695,7 +20771,7 @@ async function runClose(args, { ctx, stdout }) {
   } catch (error) {
     throw usageError(error.message.split("\n")[0]);
   }
-  writeFileSync15(join41(ctx.root, settledFile), closedText);
+  writeFileSync16(join42(ctx.root, settledFile), closedText);
   println(
     stdout,
     `omni rework close \u2014 PRD ${prd2}: ${id} closed by ${pullRequest2}; ${settledFile} amended. Commit the amendment.`

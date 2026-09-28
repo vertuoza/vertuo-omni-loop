@@ -11,6 +11,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, posix, sep } from 'node:path';
 
 export const SETTINGS_FILE = posix.join('.claude', 'settings.json');
+// Where a person keeps a line of their own: Claude Code reads it before the committed file.
+export const PERSONAL_SETTINGS_FILE = posix.join('.claude', 'settings.local.json');
 export const STATUS_LINE_KEY = 'statusLine';
 
 // Claude Code sends no event while a session waits on background subagents: run the line anyway.
