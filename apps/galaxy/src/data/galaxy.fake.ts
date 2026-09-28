@@ -6,24 +6,64 @@
 // (supabase/migrations/20260926180000_arcade_scores.sql). It answers the query shapes src/data
 // sends, records every one, and nothing else. The database's own rules are proved by
 // supabase/checks/access.sql, not here.
+// The dashboard (PRD 328) adds the `contributions` table the game workflow fills (a member reads
+// their workspace's rows, nobody signed in writes one: supabase/checks/contributions.sql proves it),
+// and the filters its loaders send to read a week, a season or a prefix: neq, gt, gte, lt, lte, in,
+// like, ilike and is, and a count (`select(columns, { count: 'exact', head })`).
 
 type Row = Record<string, unknown>;
 type Failure = { code?: string; message: string };
-type Result = { data: unknown; error: Failure | null };
+type Result = { data: unknown; error: Failure | null; count?: number | null };
 
 export type FakeUser = { id: string; email: string; confirmed?: boolean; github?: { id: number; login: string } };
-export type FakeTable = 'workspaces' | 'workspace_members' | 'sectors' | 'teams' | 'players' | 'ledger_events' | 'player_xp' | 'arcade_scores';
+export type FakeTable = 'workspaces' | 'workspace_members' | 'sectors' | 'teams' | 'players' | 'ledger_events' | 'player_xp' | 'arcade_scores' | 'contributions';
 export type FakeTables = Record<FakeTable, Row[]>;
 
-/** One call the client received: a table's query with its `eq` filters, or an RPC with its arguments. */
+/** A filter other than `eq`, as PostgREST's builder names it. */
+export type FakeFilterOp = 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'like' | 'ilike' | 'is';
+export type FakeFilter = { column: string; op: FakeFilterOp; value: unknown };
+
+/** One call the client received: a table's query with its `eq` filters (and its other filters, when
+ * it sent any), or an RPC with its arguments. */
 export type FakeCall =
-  | { kind: 'from'; table: FakeTable; op: 'select' | 'insert' | 'update'; eq: Record<string, unknown> }
+  | { kind: 'from'; table: FakeTable; op: 'select' | 'insert' | 'update'; eq: Record<string, unknown>; filters?: FakeFilter[] }
   | { kind: 'rpc'; fn: string; args?: Record<string, unknown> };
 
 /** The highest score submit_score() takes. */
 const SCORE_CAP = 9_999_999;
 
 const clone = <T>(value: T): T => (value === undefined ? value : JSON.parse(JSON.stringify(value)));
+
+/** Two stored values, in their order: numbers as numbers, instants as instants
+ * (`2026-09-01T02:00:00+02:00` is `2026-09-01T00:00:00Z`), anything else as text. */
+const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+function compare(a: unknown, b: unknown): number {
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  if (typeof a === 'string' && typeof b === 'string' && ISO.test(a) && ISO.test(b)) return Date.parse(a) - Date.parse(b);
+  const x = String(a ?? ''), y = String(b ?? '');
+  return x === y ? 0 : x < y ? -1 : 1;
+}
+
+/** A LIKE pattern (`%` any run, `_` one character) as a regular expression over the whole value. */
+const likeOf = (pattern: string, flags = '') =>
+  new RegExp(`^${[...pattern].map((c) => (c === '%' ? '.*' : c === '_' ? '.' : c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))).join('')}$`, flags);
+
+/** Whether a row passes one filter, as PostgREST reads it: a range never holds a null. */
+function passes(row: Row, { column, op, value }: FakeFilter): boolean {
+  const cell = row[column];
+  const known = cell !== null && cell !== undefined;
+  switch (op) {
+    case 'neq': return cell !== value;
+    case 'gt': return known && compare(cell, value) > 0;
+    case 'gte': return known && compare(cell, value) >= 0;
+    case 'lt': return known && compare(cell, value) < 0;
+    case 'lte': return known && compare(cell, value) <= 0;
+    case 'in': return (value as unknown[]).includes(cell);
+    case 'like': return typeof cell === 'string' && likeOf(String(value)).test(cell);
+    case 'ilike': return typeof cell === 'string' && likeOf(String(value), 'i').test(cell);
+    case 'is': return (cell ?? null) === value;
+  }
+}
 
 /** `a, b:c, d:table(x, y)` → its items, split on the commas outside parentheses. */
 function items(columns: string): string[] {
@@ -41,6 +81,7 @@ function items(columns: string): string[] {
 export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] = []) {
   const tables: FakeTables = {
     workspaces: [], workspace_members: [], sectors: [], teams: [], players: [], ledger_events: [], player_xp: [], arcade_scores: [],
+    contributions: [],
     ...clone(seed),
   };
   const calls: FakeCall[] = [];
@@ -84,6 +125,9 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     private values: Row = {};
     private columns = '*';
     private eqs: Record<string, unknown> = {};
+    private filters: FakeFilter[] = [];
+    private counting = false;
+    private head = false;
     private orders: Array<{ column: string; ascending: boolean }> = [];
     private window: [number, number] | null = null;
     private most: number | null = null;
@@ -91,10 +135,25 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
 
     constructor(private table: FakeTable, private me: FakeUser | null) {}
 
-    select(columns = '*') { this.columns = columns; return this; }
+    select(columns = '*', options: { count?: 'exact' | 'planned' | 'estimated'; head?: boolean } = {}) {
+      this.columns = columns;
+      this.counting = options.count !== undefined;
+      this.head = options.head ?? false;
+      return this;
+    }
     insert(values: Row) { this.op = 'insert'; this.values = values; return this; }
     update(values: Row) { this.op = 'update'; this.values = values; return this; }
     eq(column: string, value: unknown) { this.eqs[column] = value; return this; }
+    private where(column: string, op: FakeFilterOp, value: unknown) { this.filters.push({ column, op, value }); return this; }
+    neq(column: string, value: unknown) { return this.where(column, 'neq', value); }
+    gt(column: string, value: unknown) { return this.where(column, 'gt', value); }
+    gte(column: string, value: unknown) { return this.where(column, 'gte', value); }
+    lt(column: string, value: unknown) { return this.where(column, 'lt', value); }
+    lte(column: string, value: unknown) { return this.where(column, 'lte', value); }
+    in(column: string, values: readonly unknown[]) { return this.where(column, 'in', [...values]); }
+    like(column: string, pattern: string) { return this.where(column, 'like', pattern); }
+    ilike(column: string, pattern: string) { return this.where(column, 'ilike', pattern); }
+    is(column: string, value: null | boolean) { return this.where(column, 'is', value); }
     order(column: string, options: { ascending?: boolean } = {}) { this.orders.push({ column, ascending: options.ascending ?? true }); return this; }
     range(from: number, to: number) { this.window = [from, to]; return this; }
     limit(count: number) { this.most = count; return this; }
@@ -106,12 +165,16 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     }
 
     private run(): Result {
-      calls.push({ kind: 'from', table: this.table, op: this.op, eq: { ...this.eqs } });
+      calls.push({
+        kind: 'from', table: this.table, op: this.op, eq: { ...this.eqs },
+        ...(this.filters.length ? { filters: clone(this.filters) } : {}),
+      });
       if (state.fail) return { data: null, error: state.fail };
       if (state.failOn === this.table) return { data: null, error: { message: `fake: ${this.table} is out of reach` } };
       const rows = this.op === 'insert' ? this.insertRow() : this.op === 'update' ? this.updateRows() : this.matching();
       if ('error' in rows) return { data: null, error: rows.error };
       const shaped = rows.map((row) => project(row, this.columns, this.me));
+      if (this.counting) return { data: this.head ? null : shaped, error: null, count: shaped.length };
       if (this.shape === 'many') return { data: shaped, error: null };
       if (shaped.length > 1 || (this.shape === 'single' && shaped.length === 0)) {
         return { data: null, error: { code: 'PGRST116', message: `JSON object requested, ${shaped.length} rows returned` } };
@@ -122,7 +185,8 @@ export function fakeGalaxyDb(seed: Partial<FakeTables> = {}, users: FakeUser[] =
     private matching(): Row[] {
       const rows = tables[this.table]
         .filter((row) => visible(this.table, row, this.me))
-        .filter((row) => Object.entries(this.eqs).every(([column, value]) => row[column] === value));
+        .filter((row) => Object.entries(this.eqs).every(([column, value]) => row[column] === value))
+        .filter((row) => this.filters.every((filter) => passes(row, filter)));
       const sorted = [...rows].sort((a, b) => {
         for (const { column, ascending } of this.orders) {
           const numbers = typeof a[column] === 'number' && typeof b[column] === 'number';
@@ -255,6 +319,12 @@ export const score = (workspace_id: string, user_id: string, best: number, at: s
 const player = (workspace_id: string, user_id: string, display_name: string, team: string, github_login: string) => ({
   workspace_id, user_id, display_name, team, team_since: '2026-09-21T10:00:00Z', hero: HERO, github_id: 1, github_login,
 });
+/** A row of public.contributions, as `pnpm game:contributions` writes it: a pull request merged into
+ * its repository's default branch (`pr-merged`, at its merge) or an `omni:prd` issue opened
+ * (`prd-opened`, at its creation), under its author's login in lower case. */
+export const contribution = (
+  workspace_id: string, kind: 'pr-merged' | 'prd-opened', repo: string, number: number, login: string, at: string,
+) => ({ workspace_id, kind, repo, number, login: login.toLowerCase(), at, seen_at: '2026-09-26T09:00:00Z' });
 
 /**
  * People: ADA, a Vertuoza player; WILE, an Acme player; BOTH, a player of each (Acme joined
@@ -312,6 +382,22 @@ export function twoWorkspaces(): Partial<FakeTables> {
       score(VERTUOZA, ada.id, 1240, '2026-09-26T08:30:00Z'),
       score(VERTUOZA, both.id, 385, '2026-09-26T08:40:00Z'),
       score(ACME, wile.id, 9210, '2026-09-26T08:50:00Z'),
+    ],
+    // What the game workflow found in each workspace's sector repositories (PRD 328), around Saturday
+    // 26 September 2026: ADA's merges this week, and one on the last evening of August (already
+    // 1 September in Brussels, still August's season in UTC); her PRDs of this season and of the last;
+    // and BOTH's in each of the two workspaces, which never mix.
+    contributions: [
+      contribution(VERTUOZA, 'pr-merged', 'vertuo-core', 101, 'ada-gh', '2026-09-22T09:30:00Z'),
+      contribution(VERTUOZA, 'pr-merged', 'vertuo-core', 102, 'ada-gh', '2026-09-24T14:00:00Z'),
+      contribution(VERTUOZA, 'pr-merged', 'vertuo-core', 103, 'ada-gh', '2026-09-24T16:10:00Z'),
+      contribution(VERTUOZA, 'pr-merged', 'vertuo-core', 95, 'ada-gh', '2026-08-31T22:30:00Z'),
+      contribution(VERTUOZA, 'prd-opened', 'vertuo-core', 7, 'ada-gh', '2026-09-03T08:00:00Z'),
+      contribution(VERTUOZA, 'prd-opened', 'vertuo-core', 4, 'ada-gh', '2026-08-28T08:00:00Z'),
+      contribution(VERTUOZA, 'pr-merged', 'vertuo-core', 104, 'both-gh', '2026-09-25T10:00:00Z'),
+      contribution(ACME, 'pr-merged', 'acme-api', 55, 'both-gh', '2026-09-25T11:00:00Z'),
+      contribution(ACME, 'prd-opened', 'acme-api', 9, 'both-gh', '2026-09-10T09:00:00Z'),
+      contribution(ACME, 'pr-merged', 'acme-api', 56, 'wile-gh', '2026-09-23T12:00:00Z'),
     ],
   };
 }
