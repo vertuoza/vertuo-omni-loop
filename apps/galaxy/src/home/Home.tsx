@@ -10,8 +10,9 @@ import './home.css';
 // work per request. Its first child is the forwarding of the arcade's old deep links, so a bookmark
 // to `/#planet-12` is on its way to /play before anything paints. Then the poster above the fold,
 // the magazine spreads under it (the high scores counted when the page is built, the demo world's
-// invented fleets as trading cards: no workspace's own, PRD 400), and the page's one client
-// component, Controls: Enter, the Konami code, every PRESS START and the cards' flips.
+// invented fleets as trading cards: no workspace's own, PRD 400). The page ships two client
+// components: Controls (Enter, the Konami code, every PRESS START and the cards' flips) and, inside
+// the poster, PosterPlanet, which turns the planet (PRD 394).
 export function Home() {
   return (
     <main className="home">

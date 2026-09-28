@@ -6,6 +6,8 @@ import { renderMarkdown, type RenderedMarkdown } from '../../../src/dossier/mark
 import { DEMO_VIEWER, demoContent, demoDossier } from '../../../src/dossier/page/demo';
 import { DossierPage } from '../../../src/dossier/page/DossierPage';
 import { DossierSignIn } from '../../../src/dossier/page/DossierSignIn';
+import { pulseOf, signature } from '../../../src/dossier/page/live';
+import { LiveRefresh } from '../../../src/dossier/page/live-refresh';
 import { dossierCallbackPath } from '../../../src/dossier/page/sign-in';
 import { readContent, readDossier } from '../../../src/dossier/page/source';
 import { dossierView, readPick, type DossierRead } from '../../../src/dossier/page/view';
@@ -15,7 +17,9 @@ import { dossierView, readPick, type DossierRead } from '../../../src/dossier/pa
 // /prd/<id>/callback; a member of the dossier's workspace, the dossier; anyone else — a member of
 // another workspace, a dossier that never was — not found, in the same words. `?tab=` and `?v=` pick the
 // artifact and its version. After its opener deletes a draft, `?deleted=1` says it is gone. Without a
-// database it plays the demo dossier in development.
+// database it plays the demo dossier in development. With one, the page refreshes itself (PRD 384):
+// LiveRefresh starts from the signature of what was read here and re-renders only when it moves. Which
+// open rounds the signed-in person may answer on the list is read here too, on the server.
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -60,7 +64,7 @@ export default async function DossierRoute({ params, searchParams }: Props) {
 
   let read: DossierRead | null;
   try {
-    read = await readDossier(db, id);
+    read = await readDossier(db, id, user.id);
   } catch (error) {
     console.error(error);
     return (
@@ -81,5 +85,7 @@ export default async function DossierRoute({ params, searchParams }: Props) {
   const view = dossierView(read, user.id, pick);
   const shown = view.shown;
   const markdown = shown && !shown.frame ? await markdownOf(() => readContent(db, shown.id)) : null;
-  return <DossierPage view={view} markdown={markdown} supabase={env} />;
+  const pulse = pulseOf(read);
+  const live = <LiveRefresh supabase={env} id={view.id} signature={pulse ? signature(pulse) : null} />;
+  return <DossierPage view={view} markdown={markdown} supabase={env} live={live} />;
 }

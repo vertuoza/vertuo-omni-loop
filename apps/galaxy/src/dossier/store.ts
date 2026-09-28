@@ -216,3 +216,23 @@ export const LIST_FIELDS = [
 export async function dossierList(db: Pick<SupabaseClient, 'rpc'>, dossierId: string | null = null): Promise<DossierListRow[]> {
   return settle<DossierListRow[]>('read the history', await db.rpc('dossier_list', { p_dossier: dossierId })) ?? [];
 }
+
+// ── The change check (PRD 384, part 5) ──────────────────────────────────────────
+// The open page asks every 2 s whether anything changed: how many rounds, how many answered, and the
+// latest version number of each artifact. dossier_list() with the dossier named answers exactly that in
+// one row, as the caller, so the page's own access rule decides: no new function, no migration.
+
+/** What the change check compares: counts, never rows. */
+export type DossierPulse = { asked: number; answered: number; latest: Partial<Record<DossierKind, number>> };
+
+/** The dossier's pulse, or null when the caller may not read it, or it is gone. */
+export async function dossierPulse(db: Pick<SupabaseClient, 'rpc'>, dossierId: string): Promise<DossierPulse | null> {
+  const row = (await dossierList(db, dossierId))[0];
+  if (!row) return null;
+  const latest: Partial<Record<DossierKind, number>> = {};
+  for (const kind of DOSSIER_KINDS) {
+    const version = row.latest?.[kind]?.version;
+    if (typeof version === 'number') latest[kind] = version;
+  }
+  return { asked: row.asked ?? 0, answered: row.answered ?? 0, latest };
+}

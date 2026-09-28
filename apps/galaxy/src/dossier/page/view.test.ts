@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
-import { dossierView, readPick, sandboxPath, shortDay, stamp, versionSource } from './view';
+import { dossierView, isQuick, readPick, sandboxPath, shortDay, stamp, versionSource, wayBack } from './view';
 
 // /prd/<id> (PRD 216), as pure functions of the rows the viewer may read, the workspace's members and
 // what the address picks: the header, the tabs, each artifact's versions, newest first, and the
@@ -114,24 +114,52 @@ describe('who may delete', () => {
 });
 
 describe('the tabs', () => {
-  it('reads Before/after, Spec, Plan, each with its latest version, then Questions, answered out of asked', () => {
+  it('reads Questions, answered out of asked, then Before/after, Spec, Plan, each with its latest version', () => {
     expect(view().tabs).toEqual([
-      { kind: 'before-after', label: 'Before/after', badge: 'v2', href: `/prd/${ID}`, current: true },
+      { kind: 'questions', label: 'Questions', badge: '2/4 answered', href: `/prd/${ID}`, current: true },
+      { kind: 'before-after', label: 'Before/after', badge: 'v2', href: `/prd/${ID}?tab=before-after`, current: false },
       { kind: 'spec', label: 'Spec', badge: 'v3', href: `/prd/${ID}?tab=spec`, current: false },
       { kind: 'plan', label: 'Plan', badge: null, href: `/prd/${ID}?tab=plan`, current: false },
-      { kind: 'questions', label: 'Questions', badge: '2/4 answered', href: `/prd/${ID}?tab=questions`, current: false },
     ]);
   });
 
-  it('counts no question when none was asked, or when they could not be read', () => {
-    expect(view(readPick({}), numbered, PIERRE.user_id, versions, []).tabs.at(-1)?.badge).toBeNull();
-    expect(view(readPick({}), numbered, PIERRE.user_id, versions, null).tabs.at(-1)?.badge).toBeNull();
+  it('opens on Questions when at least one round was asked, its link naming no tab', () => {
+    const one = view(readPick({}), numbered, PIERRE.user_id, versions, [rounds[3]]);
+    expect(one.tab).toBe('questions');
+    expect(one.tabs.find((t) => t.current)).toMatchObject({ kind: 'questions', href: `/prd/${ID}` });
   });
 
-  it('opens the tab the address names', () => {
-    const v = view(readPick({ tab: 'spec' }));
-    expect(v.tab).toBe('spec');
-    expect(v.tabs.find((t) => t.current)?.kind).toBe('spec');
+  it('opens on Before/after when no round was asked, or none could be read, its link naming no tab', () => {
+    for (const asked of [[], null]) {
+      const v = view(readPick({}), numbered, PIERRE.user_id, versions, asked);
+      expect(v.tab, String(asked)).toBe('before-after');
+      expect(v.tabs.map((t) => [t.kind, t.href, t.current]), String(asked)).toEqual([
+        ['questions', `/prd/${ID}?tab=questions`, false],
+        ['before-after', `/prd/${ID}`, true],
+        ['spec', `/prd/${ID}?tab=spec`, false],
+        ['plan', `/prd/${ID}?tab=plan`, false],
+      ]);
+    }
+  });
+
+  it('counts no question when none was asked, or when they could not be read', () => {
+    expect(view(readPick({}), numbered, PIERRE.user_id, versions, []).tabs[0].badge).toBeNull();
+    expect(view(readPick({}), numbered, PIERRE.user_id, versions, null).tabs[0].badge).toBeNull();
+  });
+
+  it('opens the tab the address names, whatever the default', () => {
+    for (const asked of [rounds, []]) {
+      for (const tab of ['questions', 'before-after', 'spec', 'plan'] as const) {
+        const v = view(readPick({ tab }), numbered, PIERRE.user_id, versions, asked);
+        expect(v.tab, `${tab}, ${asked.length} rounds`).toBe(tab);
+        expect(v.tabs.find((t) => t.current)?.kind).toBe(tab);
+      }
+    }
+  });
+
+  it('falls back to the default for a tab it does not know', () => {
+    expect(view(readPick({ tab: 'outbox' })).tab).toBe('questions');
+    expect(view(readPick({ tab: 'outbox' }), numbered, PIERRE.user_id, versions, []).tab).toBe('before-after');
   });
 });
 
@@ -163,8 +191,13 @@ describe('the version picker', () => {
   });
 
   it('points each version of the before/after page at its sandboxed route', () => {
-    const page = view();
+    const page = view(readPick({ tab: 'before-after' }));
     expect(page.shown).toMatchObject({ number: 2, frame: `/prd/${ID}/v/2/page` });
+    expect(page.versions.map((v) => v.href)).toEqual([`/prd/${ID}?tab=before-after&v=2`, `/prd/${ID}?tab=before-after&v=1`]);
+  });
+
+  it('names no tab in a version\'s link when Before/after is the default', () => {
+    const page = view(readPick({}), numbered, PIERRE.user_id, versions, []);
     expect(page.versions.map((v) => v.href)).toEqual([`/prd/${ID}?v=2`, `/prd/${ID}?v=1`]);
   });
 });
@@ -186,17 +219,49 @@ describe('the Questions tab', () => {
     expect([q.answered, q.asked]).toEqual([2, 4]);
   });
 
-  it('shows each question with its options, the chosen ones marked, and the answer as given', () => {
-    const [first, second] = questions().questions.rounds ?? [];
+  it('shows an answered question with only its chosen option, and the answer as given', () => {
+    const [first] = questions().questions.rounds ?? [];
     expect(first.questions).toEqual([{
-      header: 'Shape', question: 'Square or hexagonal tiles?', multiSelect: false, answer: 'Square (Recommended)',
-      options: [
-        { label: 'Square', recommended: true, description: 'cheaper', chosen: true },
-        { label: 'Hexagonal', recommended: false, description: 'prettier', chosen: false },
-      ],
+      header: 'Shape', question: 'Square or hexagonal tiles?', multiSelect: false, shape: 'answered', answer: 'Square (Recommended)', written: null,
+      options: [{ label: 'Square', recommended: true, description: 'cheaper', chosen: true }],
     }]);
-    expect(second.questions[0].options.map((o) => [o.label, o.chosen])).toEqual([['Unit', true], ['Access', true], ['Manual', false]]);
-    expect(second.questions[0].answer).toBe('Unit, Access');
+  });
+
+  it('shows each chosen option of a multi-select answer, and none it did not choose', () => {
+    const [, second] = questions().questions.rounds ?? [];
+    expect(second.questions[0].options.map((o) => [o.label, o.description, o.chosen])).toEqual([['Unit', '', true], ['Access', 'two accounts', true]]);
+    expect(second.questions[0]).toMatchObject({ shape: 'answered', answer: 'Unit, Access', written: null });
+  });
+
+  it('shows an answer that matches no option as the text given, with no option', () => {
+    const other = round('r5', 'brainstorm', '2026-09-27T10:00:00Z', {
+      status: 'answered', answers: { [SHAPE.question]: 'Triangles, obviously' }, answered_via: 'page', answered_by: PIERRE.user_id,
+      answered_at: '2026-09-27T10:01:00Z',
+    });
+    const [only] = view(readPick({ tab: 'questions' }), numbered, PIERRE.user_id, versions, [other]).questions.rounds ?? [];
+    expect(only.questions[0]).toMatchObject({ shape: 'answered', options: [], written: 'Triangles, obviously' });
+  });
+
+  it('shows the chosen options of a multi-select answer, and the rest as the text given', () => {
+    const mixed = round('r6', 'brainstorm', '2026-09-27T10:00:00Z', {
+      questions: [CHECKS], status: 'answered', answers: { [CHECKS.question]: 'Access, Load test' }, answered_via: 'page',
+      answered_by: PIERRE.user_id, answered_at: '2026-09-27T10:01:00Z',
+    });
+    const [only] = view(readPick({ tab: 'questions' }), numbered, PIERRE.user_id, versions, [mixed]).questions.rounds ?? [];
+    expect(only.questions[0].options.map((o) => o.label)).toEqual(['Access']);
+    expect(only.questions[0].written).toBe('Load test');
+  });
+
+  it('shows every option of an open question, none chosen', () => {
+    const [, , , fourth] = questions().questions.rounds ?? [];
+    expect(fourth.questions[0]).toMatchObject({ shape: 'open', answer: null, written: null });
+    expect(fourth.questions[0].options.map((o) => [o.label, o.chosen])).toEqual([['Square', false], ['Hexagonal', false]]);
+  });
+
+  it('shows no option for a question moved to the terminal', () => {
+    const [, , third] = questions().questions.rounds ?? [];
+    expect(third.questions[0]).toMatchObject({ shape: 'moved', question: 'Square or hexagonal tiles?', options: [], answer: null, written: null });
+    expect(third.outcome).toBe('moved to the terminal, no answer recorded');
   });
 
   it('says who answered, after how long and where, or that nobody did', () => {
@@ -210,7 +275,7 @@ describe('the Questions tab', () => {
 
   it('names who asked it and when, its category, where it came from, and links to the question', () => {
     const [first, second, third, fourth] = questions().questions.rounds ?? [];
-    expect(first).toMatchObject({ asked: 'asked by Pierre · 27 Sep 2026, 09:15 UTC', category: 'UX/UI', categoryValue: 'ux-ui', href: '/ask/q/r1' });
+    expect(first).toMatchObject({ asked: 'asked by Pierre · 27 Sep 2026, 09:15 UTC', category: 'UX/UI', categoryValue: 'ux-ui', href: `/ask/q/r1?from=${ID}` });
     expect(second).toMatchObject({ category: 'Harness', categoryValue: 'harness' });
     expect(third).toMatchObject({ asked: 'asked by marie@vertuoza.com · 28 Sep 2026, 08:00 UTC', category: 'unsorted', categoryValue: null });
     expect(third.context).toEqual(['vertuoza/vertuo-omni-loop', 'feat/prd-dossiers--s3', 'PRD #216', '/omni:do-work']);
@@ -223,7 +288,7 @@ describe('the Questions tab', () => {
       answered_by: 'u-gone', answered_at: '2026-09-28T10:00:42Z',
     });
     const [only] = view(readPick({ tab: 'questions' }), numbered, PIERRE.user_id, versions, [odd]).questions.rounds ?? [];
-    expect(only.questions).toEqual([{ header: '', question: 'Asked in the terminal?', multiSelect: false, options: [], answer: 'Yes' }]);
+    expect(only.questions).toEqual([{ header: '', question: 'Asked in the terminal?', multiSelect: false, shape: 'answered', options: [], answer: 'Yes', written: 'Yes' }]);
     expect(only.outcome).toBe('answered by someone who left the workspace after 42 s, in the terminal');
   });
 
@@ -237,10 +302,11 @@ describe('what the address picks', () => {
     expect(readPick({ tab: 'plan', v: '4' })).toEqual({ tab: 'plan', version: 4 });
     expect(readPick({ tab: ['spec', 'plan'], v: ['2'] })).toEqual({ tab: 'spec', version: 2 });
     expect(readPick({ tab: 'questions' })).toEqual({ tab: 'questions', version: null });
+    expect(readPick({ tab: 'before-after' })).toEqual({ tab: 'before-after', version: null });
   });
 
-  it('opens Before/after for a tab it does not know, and the latest version for a version that is not one', () => {
-    for (const tab of [undefined, 'Questions', 'spec.md', '']) expect(readPick({ tab }), String(tab)).toEqual({ tab: 'before-after', version: null });
+  it('names no tab for a tab it does not know, and the latest version for a version that is not one', () => {
+    for (const tab of [undefined, 'Questions', 'spec.md', '']) expect(readPick({ tab }), String(tab)).toEqual({ tab: null, version: null });
     for (const v of ['0', '-1', 'v2', '1.5', '99999999999', '']) expect(readPick({ tab: 'spec', v }), v).toEqual({ tab: 'spec', version: null });
   });
 });
@@ -259,5 +325,96 @@ describe('the words', () => {
 
   it('builds the sandboxed route of a version', () => {
     expect(sandboxPath(ID, 3)).toBe(`/prd/${ID}/v/3/page`);
+  });
+});
+
+describe('the way back from a question answered on its own page (PRD 384)', () => {
+  const SESSION = '00000000-0000-4000-8000-0000000000a5';
+  const back = (from: string | null, asked: DossierRoundRow[] | null = rounds, roundId = 'r1') => wayBack({ from, sessionId: SESSION, roundId, rounds: asked });
+
+  it('goes to the Questions tab of the dossier it came from, at the next round still open', () => {
+    expect(back(ID)).toBe(`/prd/${ID}?tab=questions#r4`);
+  });
+
+  it('picks the first round still open in the order asked, never the one just answered', () => {
+    const early = round('r0', 'brainstorm', '2026-09-27T09:00:00Z');
+    const answeredNow = round('r5', 'brainstorm', '2026-09-27T08:00:00Z');
+    expect(back(ID, [...rounds, early, answeredNow], 'r5')).toBe(`/prd/${ID}?tab=questions#r0`);
+  });
+
+  it('goes to the Questions tab alone when no round is left open, or the rounds cannot be read', () => {
+    const settled = rounds.filter((r) => r.status !== 'open');
+    expect(back(ID, settled)).toBe(`/prd/${ID}?tab=questions`);
+    expect(back(ID, [])).toBe(`/prd/${ID}?tab=questions`);
+    expect(back(ID, null)).toBe(`/prd/${ID}?tab=questions`);
+  });
+
+  it("goes to the ask page of the question's session when it came from no dossier", () => {
+    expect(back(null)).toBe(`/ask/${SESSION}`);
+    for (const from of ['', 'https://evil.example/prd', '//evil.example', `${ID}/../x`, 'not-a-dossier']) {
+      expect(back(from), from).toBe(`/ask/${SESSION}`);
+    }
+  });
+});
+
+describe('a quick round, answered on the list (PRD 384)', () => {
+  const AT = '2026-09-28T09:00:00Z';
+  const SOON = Date.parse(AT) + 60_000;
+  const LATE = Date.parse(AT) + 540_000;
+  const PREVIEWED = { ...SHAPE, options: [{ label: 'Square', description: '', preview: '[ ]' }, { label: 'Hexagonal', description: '' }] };
+  const quick = (more: Partial<DossierRoundRow> = {}, now = SOON) => isQuick(round('q', 'brainstorm', AT, more), now);
+
+  it('is an open round of one single-choice question with no preview, with time left', () => {
+    expect(quick()).toBe(true);
+  });
+
+  it('is not quick once answered or moved, or once its time is up', () => {
+    expect(quick({ status: 'answered', answers: { [SHAPE.question]: 'Hexagonal' } })).toBe(false);
+    expect(quick({ status: 'abandoned' })).toBe(false);
+    expect(quick({}, LATE)).toBe(false);
+    expect(quick({}, LATE - 1)).toBe(true);
+  });
+
+  it('is not quick with several questions, a multi-select, a preview, or no option', () => {
+    expect(quick({ questions: [SHAPE, SHAPE] })).toBe(false);
+    expect(quick({ questions: [CHECKS] })).toBe(false);
+    expect(quick({ questions: [PREVIEWED] })).toBe(false);
+    expect(quick({ questions: [{ ...SHAPE, options: [] }] })).toBe(false);
+    expect(quick({ questions: [] })).toBe(false);
+  });
+
+  const asked = [
+    round('a', 'brainstorm', '2026-09-28T08:59:00Z', { status: 'answered', answers: { [SHAPE.question]: 'Hexagonal' } }),
+    round('q1', 'brainstorm', AT),
+    round('q2', 'brainstorm', '2026-09-28T09:00:30Z', { questions: [CHECKS] }),
+  ];
+  const quickView = (me: string, answerable: string[]) =>
+    dossierView({ dossier: numbered, versions, members: MEMBERS, rounds: asked, answerable }, me, readPick({}), SOON).questions.rounds!;
+
+  it('gives a viewer who may answer a button per option, the answer exactly as offered, and the next open round', () => {
+    const [answered, first, second] = quickView(PIERRE.user_id, ['q1', 'q2']);
+    expect(answered.quick).toBeNull();
+    expect(second.quick).toBeNull();
+    expect(first.quick).toEqual({
+      question: SHAPE.question,
+      choices: [
+        { label: 'Square', recommended: true, description: 'cheaper', value: 'Square (Recommended)' },
+        { label: 'Hexagonal', recommended: false, description: 'prettier', value: 'Hexagonal' },
+      ],
+      canAnswer: true,
+      owner: 'Pierre',
+      next: 'q2',
+      names: { [PIERRE.user_id]: 'Pierre', [MARIE.user_id]: 'marie@vertuoza.com' },
+    });
+  });
+
+  it('decides who may answer from what the server read, never from the viewer alone', () => {
+    const [, first] = quickView(PIERRE.user_id, []);
+    expect(first.quick).toMatchObject({ canAnswer: false, owner: 'Pierre', names: {} });
+    expect(quickView(MARIE.user_id, ['q1'])[1].quick).toMatchObject({ canAnswer: true });
+  });
+
+  it('keeps each round id as the id the way back lands on', () => {
+    expect(quickView(PIERRE.user_id, []).map((r) => r.id)).toEqual(['a', 'q1', 'q2']);
   });
 });

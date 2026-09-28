@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { DossierKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
 import { CopyLink } from './CopyLink';
@@ -21,6 +22,8 @@ type Props = {
   markdown: RenderedMarkdown | null;
   /** Where the browser deletes a draft from; null when this deployment has no database (the demo). */
   supabase: { url: string; key: string } | null;
+  /** The change check (PRD 384), shown below the tabs; none in the demo. */
+  live?: ReactNode;
 };
 
 const EMPTY: Record<DossierKind, string> = {
@@ -29,9 +32,9 @@ const EMPTY: Record<DossierKind, string> = {
   plan: 'The plan has no version yet.',
 };
 
-function Pane({ view, markdown }: Pick<Props, 'view' | 'markdown'>) {
+function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 'supabase'>) {
   const { shown, tab } = view;
-  if (tab === 'questions') return <QuestionsPane questions={view.questions} />;
+  if (tab === 'questions') return <QuestionsPane questions={view.questions} supabase={supabase} />;
   if (!shown) {
     return (
       <p className="dossier-empty">
@@ -69,7 +72,7 @@ function Pane({ view, markdown }: Pick<Props, 'view' | 'markdown'>) {
   );
 }
 
-export function DossierPage({ view, markdown, supabase }: Props) {
+export function DossierPage({ view, markdown, supabase, live }: Props) {
   return (
     <div className="dossier">
       <header className="dossier-head">
@@ -96,8 +99,9 @@ export function DossierPage({ view, markdown, supabase }: Props) {
           </a>
         ))}
       </nav>
+      {live}
       <section className="dossier-pane" aria-label={TAB_LABELS[view.tab]}>
-        <Pane view={view} markdown={markdown} />
+        <Pane view={view} markdown={markdown} supabase={supabase} />
       </section>
     </div>
   );

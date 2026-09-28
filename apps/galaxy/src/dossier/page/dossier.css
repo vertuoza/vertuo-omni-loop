@@ -182,18 +182,35 @@
 .dossier-option[data-chosen='true'] { border-color: var(--ask-plasma); background: var(--ask-plasma-soft); }
 .dossier-option-label { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 700; overflow-wrap: anywhere; }
 .dossier-option-desc { font-size: 15px; color: var(--ask-muted); overflow-wrap: anywhere; }
-.dossier-chosen {
-  font: 600 12px/1 var(--ask-mono);
-  color: var(--ask-plasma);
-  border: 1px solid var(--ask-plasma);
-  border-radius: 4px;
-  padding: 3px 6px;
-}
 .dossier-answer { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .dossier-outcome { margin: 0; font-size: 15px; }
 .dossier-round-foot { margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; }
 .dossier-round-foot .ask-hint { overflow-wrap: anywhere; min-width: 0; }
 .ask a.dossier-round-link { font-size: 15px; white-space: nowrap; }
+/* The way back from a question's own page lands on its round, clear of the top edge. */
+.dossier-round { scroll-margin-top: 16px; }
+
+/* ── A quick round (PRD 384): its options as buttons, one click answers ── */
+
+.dossier-quick { display: grid; gap: 8px; min-width: 0; }
+.dossier-quick-choices { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ask .dossier-quick-choice {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+  font: inherit;
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-plasma);
+  border-radius: 8px;
+  cursor: pointer;
+  min-width: 0;
+}
+.ask .dossier-quick-choice:hover:not(:disabled) { background: var(--ask-plasma-soft); }
+.ask .dossier-quick-choice:disabled { border-color: var(--ask-line); cursor: default; }
+.dossier-quick-note { margin: 0; font-size: 15px; color: var(--ask-muted); }
 
 /* ── The history, /prd: the filters and the search, then a card per dossier, newest activity first ── */
 
