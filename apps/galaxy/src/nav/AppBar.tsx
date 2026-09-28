@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { ThemeSwitch } from '../ask/theme-switch';
 import { APP_HOME } from '../switch/switch';
 import { GameModeButton } from '../switch/GameModeButton';
+import { Bell } from './Bell.tsx';
 import { useDrawer } from './drawer-context';
 import { pageTitle } from './sidebar.ts';
 import { SignInButton, UserMenu } from './UserMenu.tsx';
@@ -12,11 +13,12 @@ import './app-bar.css';
 
 // The app's top bar (PRD 438), over the page's content, to the right of the sidebar: where you are
 // and how you see it. The page's title on the left (its sidebar item, a nested item's parent first),
-// then the theme switch and Game mode, both unchanged (PRD 284, PRD 238), then you: signed in, the
-// avatar that opens the user menu; signed out, Sign in with GitHub in its place.
+// then the theme switch and Game mode, both unchanged (PRD 284, PRD 238), then, signed in, the bell
+// that says what waits for you (PRD 499, src/nav/Bell.tsx), then you: signed in, the avatar that
+// opens the user menu; signed out, Sign in with GitHub in its place.
 // Below 900 px the sidebar hides: the bar opens with ☰, which opens it as a drawer, and the crest.
-// Its first row holds ☰, the crest, the title and you; the theme switch and Game mode wrap to a
-// second row (app-bar.css).
+// Its first row holds ☰, the crest, the title and you; the theme switch, Game mode and the bell wrap
+// to a second row (app-bar.css).
 
 const CREST = logoSvg('mark', { scale: 2, title: null });
 
@@ -44,6 +46,7 @@ export function AppBar({ viewer }: { viewer: ViewerView }) {
         <span className="app-bar-view">
           <ThemeSwitch />
           <GameModeButton />
+          {viewer.signedIn && <Bell />}
         </span>
         <span className="app-bar-you">
           {viewer.signedIn ? <UserMenu viewer={viewer} /> : <SignInButton />}

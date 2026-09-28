@@ -5,6 +5,8 @@
    title and you; the theme switch and Game mode wrap to a second row. */
 
 .app-bar {
+  /* The bell's panel hangs from the bar on a phone (bell.css). */
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
