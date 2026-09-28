@@ -1,0 +1,92 @@
+import { describe, expect, it } from 'vitest';
+import { EMPTY_WAITING, type WaitingOutbox, type WaitingQuestion } from '../waiting/waiting';
+import { bell, bellName, bellPanel, CLOSED_BELL, waitedFor } from './bell';
+
+// The top bar's bell (PRD 499), as pure functions: its accessible name, how long a question has
+// waited, the panel's groups and lines, and the panel's open and close.
+
+const NOW = Date.parse('2026-09-28T10:00:00Z');
+const MIN = 60_000;
+
+const q = (id: string, ago: number, sharedBy: string | null = null): WaitingQuestion => ({
+  kind: 'question', id, sessionTitle: `terminal ${id}`, question: `question ${id}`, askedAt: NOW - ago, sharedBy,
+});
+const o = (id: string, prd: number, rank: WaitingOutbox['rank'] = 'high'): WaitingOutbox => ({
+  kind: 'outbox', id, prd, dossierId: `d-${prd}`, title: `PRD title ${prd}`, rank, question: `outbox ${id}?`,
+});
+
+describe('the bell\'s accessible name', () => {
+  it('says how many wait, or that nothing does', () => {
+    expect(bellName(0)).toBe('Nothing waiting for you');
+    expect(bellName(3)).toBe('Waiting for you: 3');
+  });
+});
+
+describe('how long a question has waited', () => {
+  it('reads in minutes, then hours, then days', () => {
+    expect(waitedFor(20_000)).toBe('just now');
+    expect(waitedFor(3 * MIN)).toBe('3 min');
+    expect(waitedFor(59 * MIN)).toBe('59 min');
+    expect(waitedFor(2 * 60 * MIN + 5 * MIN)).toBe('2 h');
+    expect(waitedFor(3 * 24 * 60 * MIN)).toBe('3 d');
+    expect(waitedFor(-5000)).toBe('just now');
+  });
+});
+
+describe('the panel', () => {
+  it('says nothing waits when both groups are empty and both parts were read', () => {
+    expect(bellPanel(EMPTY_WAITING, {}, NOW)).toEqual({ groups: [], empty: true });
+  });
+
+  it('lists the Questions group then the Outbox group, each oldest first, with their links', () => {
+    const panel = bellPanel({ questions: [q('late', MIN), q('early', 5 * MIN, 'Bob')], outbox: [o('i1', 459), o('i2', 460, 'human-action')] }, {}, NOW);
+    expect(panel.empty).toBe(false);
+    expect(panel.groups.map((g) => g.label)).toEqual(['Questions', 'Outbox']);
+    expect(panel.groups[0].lines).toEqual([
+      { id: 'early', href: '/ask/q/early', head: 'terminal early', text: 'question early', meta: '5 min · shared by Bob' },
+      { id: 'late', href: '/ask/q/late', head: 'terminal late', text: 'question late', meta: '1 min' },
+    ]);
+    expect(panel.groups[1].lines).toEqual([
+      { id: 'i1', href: '/prd/d-459?tab=outbox', head: 'PRD 459 · PRD title 459', text: 'outbox i1?', meta: 'high' },
+      { id: 'i2', href: '/prd/d-460?tab=outbox', head: 'PRD 460 · PRD title 460', text: 'outbox i2?', meta: 'human-action' },
+    ]);
+  });
+
+  it('shows only a group that has items', () => {
+    const panel = bellPanel({ questions: [], outbox: [o('i1', 459)] }, {}, NOW);
+    expect(panel.groups.map((g) => g.label)).toEqual(['Outbox']);
+  });
+
+  it('keeps a part that could not be read, saying it is retried, with the items it last had', () => {
+    const panel = bellPanel({ questions: [q('a', MIN)], outbox: [] }, { outbox: true }, NOW);
+    expect(panel.empty).toBe(false);
+    expect(panel.groups).toEqual([
+      expect.objectContaining({ label: 'Questions', problem: null }),
+      { label: 'Outbox', problem: 'Outbox couldn\'t be read — retrying.', lines: [] },
+    ]);
+    const kept = bellPanel({ questions: [q('a', MIN)], outbox: [] }, { questions: true }, NOW);
+    expect(kept.groups[0]).toMatchObject({ label: 'Questions', problem: 'Questions couldn\'t be read — retrying.' });
+    expect(kept.groups[0].lines).toHaveLength(1);
+  });
+
+  it('says how many PRDs could not be read beside the outbox items it did read', () => {
+    const panel = bellPanel({ questions: [], outbox: [o('i1', 459)] }, { outboxPrds: 2 }, NOW);
+    expect(panel.groups[0]).toMatchObject({ label: 'Outbox', problem: '2 PRDs couldn\'t be read' });
+    expect(bellPanel({ questions: [], outbox: [] }, { outboxPrds: 1 }, NOW).groups[0].problem).toBe('1 PRD couldn\'t be read');
+  });
+});
+
+describe('the panel\'s open and close', () => {
+  it('opens on the bell, and closes on the bell again, Escape, a click outside or choosing an item', () => {
+    const open = bell(CLOSED_BELL, 'toggle');
+    expect(open).toEqual({ open: true, focus: 'none' });
+    expect(bell(open, 'toggle')).toEqual({ open: false, focus: 'none' });
+    expect(bell(open, 'escape')).toEqual({ open: false, focus: 'bell' });
+    expect(bell(open, 'outside')).toEqual({ open: false, focus: 'none' });
+    expect(bell(open, 'choose')).toEqual({ open: false, focus: 'none' });
+  });
+
+  it('stays closed on anything but the bell while closed', () => {
+    for (const event of ['escape', 'outside', 'choose'] as const) expect(bell(CLOSED_BELL, event)).toBe(CLOSED_BELL);
+  });
+});

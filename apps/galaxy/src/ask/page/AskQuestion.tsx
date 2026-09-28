@@ -8,10 +8,13 @@ import { CategoryChip } from './CategoryChip';
 import { ContextLine } from './ContextLine';
 import { demoQuestionPort } from './demo';
 import { History } from './History';
+import { useWaiting } from '../../waiting/WaitingProvider';
+import { titled } from '../../waiting/waiting';
 import { poll } from './poll';
 import { answeredTitle, questionView, type Member, type QuestionState } from './question';
 import { RoundForm } from './RoundForm';
 import { questionPort, type QuestionPort } from './source';
+import { askTitle } from './tabs';
 import { categoryChip, contextParts, minutesLeft, withCategory } from './view';
 
 // One question, at /ask/q/<round> (PRD 144): the link a session's owner shares. While it is open, the
@@ -49,12 +52,13 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
   const getPort = useCallback(() => (port.current ??= makePort(source, initial)), [source, initial]);
   const clock = useCallback(() => Date.now() + offset, [offset]);
 
+  const total = useWaiting().counts.total;
   const view = useMemo(() => questionView(state, me, members, now), [state, me, members, now]);
   const live = view.kind === 'open';
 
   useEffect(() => {
-    document.title = view.kind === 'open' && view.canAnswer ? '● Claude asks · OMNI LOOP' : 'Ask · OMNI LOOP';
-  }, [view]);
+    document.title = titled(askTitle(view.kind === 'open' && view.canAnswer), total);
+  }, [view, total]);
 
   useEffect(() => {
     if (!live) return;

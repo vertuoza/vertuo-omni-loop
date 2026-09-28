@@ -2,22 +2,32 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { WaitingView } from '../waiting/view';
+import type { WaitingOutbox, WaitingQuestion } from '../waiting/waiting';
 import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
 
 // The app's sidebar as the server renders it (PRD 438): the crest, the workspace's name, the Work
-// group, then the Omni group, the current item marked, For me's count as a badge.
+// group, then the Omni group, the current item marked, and what waits for the person as badges, from
+// the waiting provider (PRD 499): Questions the Questions part, Shared with me the shared ones.
 
 const at = { path: '/app' as string | null };
 vi.mock('next/navigation', () => ({ usePathname: () => at.path }));
 
 const { Sidebar } = await import('./Sidebar.tsx');
+const { WaitingProvider } = await import('../waiting/WaitingProvider');
 
-const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, workspaceName: 'Acme', forMe: 3 };
+const question = (id: string, sharedBy: string | null = null): WaitingQuestion => ({ kind: 'question', id, sessionTitle: 'feat/x', question: 'Why?', askedAt: 1, sharedBy });
+/** Five questions wait: two of Ada's own sessions', three shared with her. */
+const FIVE = [question('a'), question('b'), question('c', 'Bob'), question('d', 'Bob'), question('e', 'Bob')];
+const waiting = (questions: WaitingQuestion[]): WaitingView => ({ questions, unread: false, source: null });
 
-const render = (viewer: ViewerView = ADA, path: string | null = '/app') => {
+const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, workspaceName: 'Acme', waiting: waiting(FIVE) };
+
+const render = (viewer: ViewerView = ADA, path: string | null = '/app', outbox: WaitingOutbox[] = []) => {
   at.path = path;
-  return renderToStaticMarkup(createElement(Sidebar, { viewer }));
+  return renderToStaticMarkup(createElement(WaitingProvider, { view: viewer.waiting, outbox, children: createElement(Sidebar, { viewer }) }));
 };
+const gate = (id: string): WaitingOutbox => ({ kind: 'outbox', id, prd: 459, dossierId: 'd459', title: 'Gate', rank: 'high', question: 'Why?' });
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 const links = (html: string) => [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)].map((m) => ({ attrs: m[1], text: text(m[2]) }));
 
@@ -41,7 +51,7 @@ describe('the sidebar', () => {
 
   it('lists Work, then Omni, their items in order', () => {
     const html = render();
-    expect(text(html)).toMatch(/^OMNI LOOP Acme Work Home PRDs Questions Shared with me 3 History Knowledge Fleets Omni Docs ↗ Release notes ↗$/);
+    expect(text(html)).toMatch(/^OMNI LOOP Acme Work Home PRDs Questions 5 Shared with me 3 History Knowledge Fleets Omni Docs ↗ Release notes ↗$/);
     expect(links(html).slice(1).map((l) => /href="([^"]+)"/.exec(l.attrs)?.[1])).toEqual([
       '/app', '/prd', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/fleets', '/docs', '/releases',
     ]);
@@ -49,14 +59,31 @@ describe('the sidebar', () => {
 
   it('nests For me and History under Questions', () => {
     const html = render();
-    expect(html).toMatch(/href="\/ask"[^>]*>Questions<\/a><ul class="app-sidebar-children">.*href="\/ask\/for-me".*href="\/ask\/history".*<\/ul><\/li>/);
+    expect(html).toMatch(/href="\/ask"[^>]*>Questions(?:<span[^>]*>\d+<\/span>)?<\/a><ul class="app-sidebar-children">.*href="\/ask\/for-me".*href="\/ask\/history".*<\/ul><\/li>/);
   });
 
-  it('shows For me\'s count as a badge at 3, and no badge at 0 or when it could not be read', () => {
-    expect(render()).toMatch(/<a class="app-sidebar-item" href="\/ask\/for-me" aria-label="Shared with me: 3 waiting">Shared with me<span class="app-sidebar-badge" aria-hidden="true">3<\/span><\/a>/);
-    for (const forMe of [0, null]) {
-      const html = render({ ...ADA, forMe });
+  it('shows the Questions part\'s count on Questions, and the shared ones\' on Shared with me', () => {
+    const html = render();
+    expect(html).toMatch(/<a class="app-sidebar-item" href="\/ask" aria-label="Questions: 5 waiting">Questions<span class="app-sidebar-badge" aria-hidden="true">5<\/span><\/a>/);
+    expect(html).toMatch(/<a class="app-sidebar-item" href="\/ask\/for-me" aria-label="Shared with me: 3 waiting">Shared with me<span class="app-sidebar-badge" aria-hidden="true">3<\/span><\/a>/);
+  });
+
+  it('shows no Shared with me badge when only my own sessions ask', () => {
+    const html = render({ ...ADA, waiting: waiting([question('a')]) });
+    expect(html).toMatch(/aria-label="Questions: 1 waiting">Questions<span class="app-sidebar-badge" aria-hidden="true">1<\/span>/);
+    expect(html).toMatch(/<a class="app-sidebar-item" href="\/ask\/for-me">Shared with me<\/a>/);
+  });
+
+  it('shows the Outbox part\'s count on PRDs, and none at 0', () => {
+    expect(render(ADA, '/app', [gate('a'), gate('b')])).toMatch(/<a class="app-sidebar-item" href="\/prd" aria-label="PRDs: 2 waiting">PRDs<span class="app-sidebar-badge" aria-hidden="true">2<\/span><\/a>/);
+    expect(render()).toMatch(/<a class="app-sidebar-item" href="\/prd">PRDs<\/a>/);
+  });
+
+  it('shows no badge at 0, nor signed out', () => {
+    for (const viewer of [{ ...ADA, waiting: waiting([]) }, SIGNED_OUT_VIEWER]) {
+      const html = render(viewer);
       expect(html).not.toContain('app-sidebar-badge');
+      expect(html).toMatch(/<a class="app-sidebar-item" href="\/ask">Questions<\/a>/);
       expect(html).toMatch(/<a class="app-sidebar-item" href="\/ask\/for-me">Shared with me<\/a>/);
     }
   });

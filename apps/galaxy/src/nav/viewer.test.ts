@@ -17,10 +17,14 @@ const ADA = {
   identities: [{ provider: 'github', identity_data: { user_name: 'ada' } }],
 };
 
+const WAITING = [{ kind: 'question' as const, id: 'r1', sessionTitle: 'feat/ada', question: 'Which storage?', askedAt: 1, sharedBy: null }];
+const LIVE = { kind: 'database' as const, url: 'https://db.example', key: 'anon', me: 'u-ada' };
+
 const fake = (over: Partial<Source> = {}): Source => ({
   user: async () => ADA,
   workspace: async () => ({ name: 'Acme' }),
-  forMe: async () => 3,
+  questions: async () => WAITING,
+  live: () => LIVE,
   ...over,
 });
 
@@ -36,22 +40,27 @@ describe('the viewer', () => {
       login: 'ada',
       avatarUrl: 'https://avatars.example/ada.png',
       workspaceName: 'Acme',
-      forMe: 3,
+      waiting: { questions: WAITING, unread: false, source: LIVE },
     });
   });
 
-  it('asks for the workspace of the person signed in', async () => {
+  it('asks for the workspace, the questions and where to read them again, of the person signed in', async () => {
     const workspace = vi.fn(async () => ({ name: 'Acme' }));
-    await readViewer(fake({ workspace }));
+    const questions = vi.fn(async () => WAITING);
+    const live = vi.fn(() => LIVE);
+    await readViewer(fake({ workspace, questions, live }));
     expect(workspace).toHaveBeenCalledWith('u-ada');
+    expect(questions).toHaveBeenCalledWith('u-ada');
+    expect(live).toHaveBeenCalledWith('u-ada');
   });
 
   it('is signed out with no session, and reads nothing else', async () => {
     const workspace = vi.fn(async () => ({ name: 'Acme' }));
-    const forMe = vi.fn(async () => 3);
-    expect(await readViewer(fake({ user: async () => null, workspace, forMe }))).toEqual(SIGNED_OUT);
+    const questions = vi.fn(async () => WAITING);
+    expect(await readViewer(fake({ user: async () => null, workspace, questions }))).toEqual(SIGNED_OUT);
+    expect(SIGNED_OUT.waiting).toBeNull();
     expect(workspace).not.toHaveBeenCalled();
-    expect(forMe).not.toHaveBeenCalled();
+    expect(questions).not.toHaveBeenCalled();
   });
 
   it('is signed out when the session cannot be read', async () => {
@@ -59,17 +68,18 @@ describe('the viewer', () => {
   });
 
   it('has no workspace name when the workspace read throws, or finds none', async () => {
-    expect(await readViewer(fake({ workspace: boom }))).toMatchObject({ signedIn: true, workspaceName: null, forMe: 3 });
+    expect(await readViewer(fake({ workspace: boom }))).toMatchObject({ signedIn: true, workspaceName: null, waiting: { questions: WAITING } });
     expect(await readViewer(fake({ workspace: async () => null }))).toMatchObject({ signedIn: true, workspaceName: null });
   });
 
-  it('has forMe: null when the For me count throws', async () => {
-    expect(await readViewer(fake({ forMe: boom }))).toMatchObject({ signedIn: true, workspaceName: 'Acme', forMe: null });
+  it('holds no questions, marked unread, when their read throws, and still says where to read them again', async () => {
+    expect(await readViewer(fake({ questions: boom }))).toMatchObject({ signedIn: true, workspaceName: 'Acme', waiting: { questions: [], unread: true, source: LIVE } });
   });
 
   it('never throws, even when every read does', async () => {
-    await expect(readViewer({ user: boom, workspace: boom, forMe: boom })).resolves.toEqual(SIGNED_OUT);
-    await expect(readViewer(fake({ workspace: boom, forMe: boom }))).resolves.toMatchObject({ signedIn: true, workspaceName: null, forMe: null });
+    await expect(readViewer({ user: boom, workspace: boom, questions: boom, live: () => { throw new Error('down'); } })).resolves.toEqual(SIGNED_OUT);
+    await expect(readViewer(fake({ workspace: boom, questions: boom, live: () => { throw new Error('down'); } })))
+      .resolves.toMatchObject({ signedIn: true, workspaceName: null, waiting: { questions: [], unread: true, source: null } });
   });
 
   it('falls back on the email\'s name, and on no login or avatar, when the account has none', async () => {
