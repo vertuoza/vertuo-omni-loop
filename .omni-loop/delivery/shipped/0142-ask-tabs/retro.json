@@ -1,0 +1,563 @@
+{
+  "prd": 142,
+  "runs": [
+    {
+      "featurePr": {
+        "mergeSha": "f3fadbcf444522b33133eb3ce92f7bfdd14cc9ce",
+        "mergedAt": "2026-09-26T15:12:38Z",
+        "number": 145,
+        "openedAt": "2026-09-26T08:53:22Z",
+        "title": "feat(ask): one page, a tab per terminal (PRD 142)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/145"
+      },
+      "findings": [
+        {
+          "evidence": [
+            {
+              "label": "9e78f84 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/9e78f846dfd8a5e7d88e5ce0e030520f9afba2ce"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0142-ask-tabs/settled.md` had 84 lines added across 1 commits, none of them in the final diff: 84 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0142-ask-tabs/settled.md",
+          "kind": "churn",
+          "ref": "F1",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0142-ask-tabs/settled.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "736089d (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/736089dc0a1617be2a2ed427f0c089122744f29e"
+            },
+            {
+              "label": "9e78f84 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/9e78f846dfd8a5e7d88e5ce0e030520f9afba2ce"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0142-ask-tabs/s3-01-live-proof-two-terminals.md` had 53 lines added across 2 commits, none of them in the final diff: 53 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0142-ask-tabs/s3-01-live-proof-two-terminals.md",
+          "kind": "churn",
+          "ref": "F2",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0142-ask-tabs/s3-01-live-proof-two-terminals.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "d856c33 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/d856c33a1effcd4e6f7b2cb8388fc35b082e6fa7"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0142-ask-tabs/s2-01-tab-switch-drops-draft.md` had 49 lines added across 1 commits, none of them in the final diff: 49 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0142-ask-tabs/s2-01-tab-switch-drops-draft.md",
+          "kind": "churn",
+          "ref": "F3",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0142-ask-tabs/s2-01-tab-switch-drops-draft.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "55595d4 (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/55595d42a4f7828cd1cad9dbbb036747f442b417"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0142-ask-tabs/s1-01-closed-session-found-on-post.md` had 48 lines added across 1 commits, none of them in the final diff: 48 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0142-ask-tabs/s1-01-closed-session-found-on-post.md",
+          "kind": "churn",
+          "ref": "F4",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0142-ask-tabs/s1-01-closed-session-found-on-post.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "d856c33 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/d856c33a1effcd4e6f7b2cb8388fc35b082e6fa7"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0142-ask-tabs/s2-02-empty-page-picks-nothing.md` had 48 lines added across 1 commits, none of them in the final diff: 48 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0142-ask-tabs/s2-02-empty-page-picks-nothing.md",
+          "kind": "churn",
+          "ref": "F5",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0142-ask-tabs/s2-02-empty-page-picks-nothing.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "#157",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/157"
+            }
+          ],
+          "happened": "Slice s3 took 289 minutes from its claim to its merge, against a median of 12 minutes; the rules flag a slice slower than 3 times the median.",
+          "id": "slow-slice:s3",
+          "kind": "slow-slice",
+          "ref": "F6",
+          "source": "timeline",
+          "title": "Slice s3 took far longer than the others"
+        }
+      ],
+      "kinds": {
+        "churn": {
+          "added": 1930,
+          "churn": 322,
+          "commits": 13,
+          "files": [
+            {
+              "added": 84,
+              "churn": 84,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0142-ask-tabs/settled.md",
+              "percent": null
+            },
+            {
+              "added": 53,
+              "churn": 53,
+              "commits": 2,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0142-ask-tabs/s3-01-live-proof-two-terminals.md",
+              "percent": null
+            },
+            {
+              "added": 49,
+              "churn": 49,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0142-ask-tabs/s2-01-tab-switch-drops-draft.md",
+              "percent": null
+            },
+            {
+              "added": 48,
+              "churn": 48,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0142-ask-tabs/s1-01-closed-session-found-on-post.md",
+              "percent": null
+            },
+            {
+              "added": 48,
+              "churn": 48,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0142-ask-tabs/s2-02-empty-page-picks-nothing.md",
+              "percent": null
+            },
+            {
+              "added": 60,
+              "churn": 9,
+              "commits": 2,
+              "finalAdded": 51,
+              "path": "apps/galaxy/src/ask/page/demo.ts",
+              "percent": 18
+            },
+            {
+              "added": 134,
+              "churn": 8,
+              "commits": 3,
+              "finalAdded": 126,
+              "path": "apps/galaxy/src/ask/page/tabs.ts",
+              "percent": 6
+            },
+            {
+              "added": 30,
+              "churn": 8,
+              "commits": 2,
+              "finalAdded": 22,
+              "path": "apps/galaxy/src/ask/theme-tokens.test.ts",
+              "percent": 36
+            },
+            {
+              "added": 70,
+              "churn": 7,
+              "commits": 2,
+              "finalAdded": 63,
+              "path": "apps/galaxy/src/ask/ask.css",
+              "percent": 11
+            },
+            {
+              "added": 149,
+              "churn": 7,
+              "commits": 2,
+              "finalAdded": 142,
+              "path": "apps/galaxy/src/ask/page/AskPage.tsx",
+              "percent": 5
+            },
+            {
+              "added": 156,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 155,
+              "path": "apps/galaxy/src/ask/page/tabs.test.ts",
+              "percent": 1
+            }
+          ],
+          "finalAdded": 1608,
+          "leftOut": {
+            "generated": [
+              "kit/dist/omni.mjs"
+            ],
+            "lockfile": []
+          },
+          "noPatch": [],
+          "notCounted": [],
+          "pulls": 3,
+          "ranges": [],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [],
+          "redRuns": [],
+          "slices": [
+            "s1",
+            "s2",
+            "s3"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 0,
+            "commits": 0,
+            "red": 0,
+            "runs": 0,
+            "slices": 0
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 3,
+            "agreed": 1,
+            "byRank": {
+              "human-action": 1,
+              "medium": 3
+            },
+            "drifted": 0,
+            "drifts": [],
+            "file": ".omni-loop/delivery/shipped/0142-ask-tabs/outbox/settled.md",
+            "raised": 4,
+            "reworked": 0
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "stuck": 0
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  155
+                ],
+                "slice": "s1",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  156
+                ],
+                "slice": "s2",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  157
+                ],
+                "slice": "s3",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 4,
+              "red": 0,
+              "reviews": 0,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 0,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 145,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/145"
+              },
+              {
+                "pr": 155,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/155"
+              },
+              {
+                "pr": 156,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s2",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/156"
+              },
+              {
+                "pr": 157,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s3",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/157"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 0,
+              "graded": 3,
+              "shared": 0,
+              "unplanned": 0,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [],
+                "files": 13,
+                "pr": 155,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/155"
+              },
+              {
+                "breaches": [],
+                "files": 21,
+                "pr": 156,
+                "shared": [],
+                "slice": "s2",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/156"
+              },
+              {
+                "breaches": [],
+                "files": 7,
+                "pr": 157,
+                "shared": [],
+                "slice": "s3",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/157"
+              }
+            ],
+            "reason": null,
+            "sharedGround": [
+              "apps/galaxy/src/ask/page/",
+              "apps/galaxy/src/ask/ask.css",
+              "apps/galaxy/src/ask/theme-tokens.test.ts"
+            ]
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-09-26T15:12:38Z",
+            "minutes": 379,
+            "number": 145,
+            "openedAt": "2026-09-26T08:53:22Z",
+            "readyAt": "2026-09-26T15:11:54Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/145"
+          },
+          "medianMinutes": 12,
+          "sliceCount": 3,
+          "slices": [
+            {
+              "closedAt": "2026-09-26T10:16:21Z",
+              "mergedAt": "2026-09-26T10:16:20Z",
+              "mergedWave": 1,
+              "minutes": 9,
+              "openedAt": "2026-09-26T10:07:21Z",
+              "plannedWave": 1,
+              "pr": 155,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/155"
+            },
+            {
+              "closedAt": "2026-09-26T10:19:31Z",
+              "mergedAt": "2026-09-26T10:19:31Z",
+              "mergedWave": 1,
+              "minutes": 12,
+              "openedAt": "2026-09-26T10:07:28Z",
+              "plannedWave": 1,
+              "pr": 156,
+              "slice": "s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/156"
+            },
+            {
+              "closedAt": "2026-09-26T15:09:14Z",
+              "mergedAt": "2026-09-26T15:09:14Z",
+              "mergedWave": 2,
+              "minutes": 289,
+              "openedAt": "2026-09-26T10:20:44Z",
+              "plannedWave": 2,
+              "pr": 157,
+              "slice": "s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/157"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 2,
+            "planned": 2
+          }
+        }
+      },
+      "prd": {
+        "folder": ".omni-loop/delivery/shipped/0142-ask-tabs",
+        "number": 142,
+        "state": "shipped",
+        "title": "Ask mode — one page, a tab per terminal",
+        "topic": "ask-tabs"
+      },
+      "rules": {
+        "fieldCaps": {
+          "lesson": 400,
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600
+        },
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "thresholds": {
+          "afterMergeDays": 14,
+          "churnFileLines": 40,
+          "churnFilePercent": 50,
+          "churnRangeCommits": 3,
+          "failingTestRuns": 2,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "slowSliceFactor": 3
+        },
+        "version": 1
+      },
+      "run": "merge",
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": []
+      },
+      "issues": {
+        "churn:.omni-loop/delivery/outbox/0142-ask-tabs/settled.md": {
+          "number": 169,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/169",
+          "state": "open"
+        },
+        "churn:.omni-loop/delivery/outbox/0142-ask-tabs/s3-01-live-proof-two-terminals.md": {
+          "number": 170,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/170",
+          "state": "open"
+        },
+        "churn:.omni-loop/delivery/outbox/0142-ask-tabs/s2-01-tab-switch-drops-draft.md": {
+          "number": 171,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/171",
+          "state": "open"
+        },
+        "churn:.omni-loop/delivery/outbox/0142-ask-tabs/s1-01-closed-session-found-on-post.md": {
+          "number": 172,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/172",
+          "state": "open"
+        },
+        "churn:.omni-loop/delivery/outbox/0142-ask-tabs/s2-02-empty-page-picks-nothing.md": {
+          "number": 173,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/173",
+          "state": "open"
+        }
+      }
+    }
+  ]
+}
