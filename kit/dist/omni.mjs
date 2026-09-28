@@ -19459,6 +19459,11 @@ function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, fil
     lines.push("", `Not filled \u2014 set them in ${files[0].path} or rerun with the flag:`);
     for (const { key, flag } of unfilled) lines.push(`  commands.${key} (--${flag} <cmd>)`);
   }
+  lines.push(
+    "",
+    `To update the loop later: node ${dir}/bin/omni.mjs update opens the pull request that brings`,
+    `this repository to the latest kit, then updates the ${PLUGIN} plugin on your machine.`
+  );
   lines.push("", `To remove the loop: delete ${dir}/ and commit. The labels and the App installation stay.`);
   return `${lines.join("\n")}
 `;
@@ -21788,7 +21793,7 @@ var status2 = {
 init_define_OMNI_BUNDLE();
 import { mkdtempSync as mkdtempSync2, rmSync as rmSync7 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join44 } from "node:path";
+import { join as join45 } from "node:path";
 
 // kit/lib/update/apply.mjs
 init_define_OMNI_BUNDLE();
@@ -22001,15 +22006,49 @@ ${trailer}` : updateTitle(version2)], worktree);
   }
 }
 
+// kit/lib/update/installed.mjs
+init_define_OMNI_BUNDLE();
+import { existsSync as existsSync36, readFileSync as readFileSync36 } from "node:fs";
+import { join as join44 } from "node:path";
+var STAMP = /define_OMNI_BUNDLE_default = \{[^}]*?\bversion: "([^"]+)"/;
+function bundleVersion(text3) {
+  const match = STAMP.exec(text3);
+  return match ? parseVersion(match[1]) : null;
+}
+function installedVersion({ root, running, bundle }) {
+  const bin = join44(root, BIN_FILE2);
+  if (!existsSync36(bin)) return null;
+  const text3 = readFileSync36(bin);
+  if (bundle && existsSync36(bundle) && readFileSync36(bundle).equals(text3)) return running.version;
+  return bundleVersion(text3.toString("utf8"));
+}
+
+// kit/lib/update/plugin.mjs
+init_define_OMNI_BUNDLE();
+var QUIET7 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 12e4 };
+function updatePlugin({ version: version2 = null, exec, println: println2 }) {
+  try {
+    exec("claude", ["plugin", "marketplace", "update", MARKETPLACE], QUIET7);
+    exec("claude", ["plugin", "update", `${PLUGIN}@${MARKETPLACE}`], QUIET7);
+  } catch {
+    println2("  plugin   not updated from here; in Claude Code, type:");
+    println2(`     /plugin marketplace update ${MARKETPLACE}`);
+    println2(`     /plugin update ${PLUGIN}@${MARKETPLACE}`);
+    return false;
+  }
+  println2(`  plugin   updated${version2 ? ` to v${version2}` : ""}, run /reload-plugins`);
+  return true;
+}
+
 // kit/bin/commands/update.mjs
 var USAGE16 = "usage: omni update [--to <version>]";
-function handOver({ cwd, running, target, exec }) {
-  const dir = mkdtempSync2(join44(tmpdir2(), "omni-update-"));
+function handOver({ cwd, home, from, target, exec }) {
+  const dir = mkdtempSync2(join45(tmpdir2(), "omni-update-"));
   try {
-    const bundle = downloadBundle({ home: running.home, version: target, dir, exec });
-    const from = running.version ? ["--from", running.version] : [];
+    const bundle = downloadBundle({ home, version: target, dir, exec });
+    const fromFlag = from ? ["--from", from] : [];
     try {
-      exec("node", [bundle, "update", "--apply", ...from], { cwd, stdio: "inherit" });
+      exec("node", [bundle, "update", "--apply", ...fromFlag], { cwd, stdio: "inherit" });
       return 0;
     } catch (error) {
       return Number.isInteger(error?.status) ? error.status : 1;
@@ -22017,6 +22056,30 @@ function handOver({ cwd, running, target, exec }) {
   } finally {
     rmSync7(dir, { recursive: true, force: true });
   }
+}
+function rootOf(cwd, exec) {
+  try {
+    return findRoot(cwd, exec);
+  } catch {
+    return null;
+  }
+}
+function updateRepository({ cwd, flags, running, file, exec, out }) {
+  if (running.source) {
+    out(`omni runs from the kit source${running.version ? ` (v${running.version})` : ""}: there is no bin to update here.`);
+    return { code: 0, target: null };
+  }
+  const target = findTarget({ home: running.home, to: flags.to ?? null, exec });
+  const root = rootOf(cwd, exec);
+  const from = root ? installedVersion({ root, running, bundle: file }) : running.version;
+  if (from === target) {
+    out(`omni v${target} is up to date.`);
+    return { code: 0, target };
+  }
+  if (root && file && running.version === target) {
+    return { code: applyUpdate({ root, bundle: file, version: target, from, home: running.home, exec, println: out }), target };
+  }
+  return { code: handOver({ cwd, home: running.home, from, target, exec }), target };
 }
 var update = {
   withoutContext: true,
@@ -22026,26 +22089,19 @@ var update = {
     if (flags.to !== void 0 && !parseVersion(flags.to)) throw usageError(`omni update: --to takes a version like v0.0.12, got "${flags.to}".`);
     if (flags.from !== void 0 && !parseVersion(flags.from)) throw usageError(`omni update: --from takes a version like 0.0.12, got "${flags.from}".`);
     const running = kit ?? runningKit({ exec });
+    const file = bundle === void 0 ? runningBundle() : bundle;
     const out = (line) => println(stdout, line);
     try {
       if (flags.apply) {
-        const file = bundle === void 0 ? runningBundle() : bundle;
         if (running.source || !file || !running.version) {
           throw usageError("omni update --apply: this omni runs from the kit source, or carries no version; only a release bundle applies an update.");
         }
         const root = findRoot(cwd, exec);
         return applyUpdate({ root, bundle: file, version: running.version, from: flags.from ? parseVersion(flags.from) : null, home: running.home, exec, println: out });
       }
-      if (running.source) {
-        out(`omni runs from the kit source${running.version ? ` (v${running.version})` : ""}: there is no bin to update here.`);
-        return 0;
-      }
-      const target = findTarget({ home: running.home, to: flags.to ?? null, exec });
-      if (running.version === target) {
-        out(`omni v${target} is up to date.`);
-        return 0;
-      }
-      return handOver({ cwd, running, target, exec });
+      const { code, target } = updateRepository({ cwd, flags, running, file, exec, out });
+      if (code === 0) updatePlugin({ version: target, exec, println: out });
+      return code;
     } catch (error) {
       if (!(error instanceof UpdateError)) throw error;
       stderr.write(`${error.message}
