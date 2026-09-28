@@ -38,11 +38,37 @@ Game Boy's buttons on a phone (design:
 
 ## HOME at `/`, the arcade at `/play`
 
-`/` is **HOME**, Omni Loop's front door, drawn as a retro print ad (PRD 261): JOIN THE LOOP!, what
-loop engineering is, and PRESS START, which opens the game. It is a static page: it reads no
-session and no database, and looks the same to every visitor. Its parts live in `src/home/`
-(`app/page.tsx` renders them). Shared, a link to `/` previews as the ad: the page's title and
-description, and an Open Graph image of the crest and JOIN THE LOOP! on the starfield
+`/` is **HOME**, Omni Loop's front door, drawn as a retro print ad (PRD 261) that says what the loop
+is worth (PRD 285). It is a static page: it reads no session and no database, and looks the same to
+every visitor. Its parts live in `src/home/` (`app/page.tsx` renders them), top to bottom:
+
+1. **The poster** (`src/home/poster/`): the kicker THE DELIVERY FRAMEWORK FOR CODING AGENTS, the
+   page's one headline **AGENTS SHIP. YOU STEER.**, the pitch, the promise strip (ONE FOLDER IN, ONE
+   FOLDER OUT · EVERY DECISION WRITTEN DOWN · A PERSON ALWAYS MERGES), OmniMan, the disabled sign-up,
+   the invaded planet, the crest and PRESS START.
+2. **What's in it for you?**: three cards, HEAD OF ENGINEERING, DEVELOPER and PRODUCT MANAGER, each a
+   promise and three proofs, all visible.
+3. **Strategy guide: the loop, level by level**: seven levels, SET UP to SHIP and the KNOWLEDGE bonus,
+   with OmniMan running the path and the LOOP LINGO sidebar.
+4. **You see everything**: six bullets; the release notes one links to `/releases`.
+5. **Easy in, easy out**: the four GET IN steps, and GET OUT: delete `.omni-loop/` and commit.
+6. **High scores: the loop built this**: FEATURES SHIPPED, SLICES MERGED and DECISIONS ADOPTED,
+   counted from `.omni-loop/delivery/shipped/` when the page is built (`src/home/scores.ts`).
+7. **The game: Entropy you can see**: why the game exists, and the built-in fleets as trading cards.
+8. **Join the loop!**: the order form, with PRESS START and the Konami tip.
+
+Each spread is its own component under `src/home/spreads/`, composed by `Spreads.tsx`. HOME links
+nowhere but `/play` and `/releases`.
+
+**LOOP LINGO** (`src/home/lingo.ts`) keeps HOME in plain words. It glosses the five loop terms HOME
+uses (HARNESS, PRD, SLICE, WAVE, OUTBOX) and names the loop words it never says (phase-0, worktree,
+sub-PR, dossier, territory, yolo). Its guard, `lingo.test.ts`, renders HOME and reads the text a
+visitor reads, leaving out `<code>`, `<kbd>`, the fleet cards and the sidebar itself: every term it
+finds must be glossed, every gloss used, and no banned word said. A new sentence that trips it is
+reworded, or its term added to the sidebar.
+
+Shared, a link to `/` previews as the ad: the title `OMNI LOOP · AGENTS SHIP. YOU STEER.`, its
+description, and an Open Graph image of the crest and AGENTS SHIP. YOU STEER. on the starfield
 (`app/opengraph-image.tsx`, drawn from `src/home/share.tsx`).
 
 The arcade is at **`/play`** (`app/play/page.tsx`), in the same modes as before. Signing in with

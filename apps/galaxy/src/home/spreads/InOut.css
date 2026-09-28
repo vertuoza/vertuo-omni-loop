@@ -1,0 +1,44 @@
+/* Easy in, easy out's spread (HOME, PRD 285). Every colour and face is a variable from
+   @omni/design; nothing here is declared on :root. */
+
+/* GET IN and GET OUT: two columns side by side, stacked on a phone. */
+.home-inout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.home-inout-col {
+  background: var(--deep);
+  border: 2px solid var(--navy-dark);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+.home-inout-head {
+  margin: 0;
+  font: 400 20px/1 var(--font-display);
+  letter-spacing: 0.02em;
+  color: var(--yellow);
+}
+.home-inout-steps,
+.home-inout-out {
+  margin: 0;
+  padding-left: 22px;
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.home-inout-steps li::marker { font: 10px/1 var(--font-pixel); color: var(--yellow); }
+.home-inout-out b { font-weight: 700; color: var(--highlight); }
+.home-inout code {
+  font: 0.92em/1 var(--font-mono);
+  color: var(--yellow);
+  overflow-wrap: anywhere;
+}
+.home-inout .home-fine { margin: 0; }
+
+@media (max-width: 760px) {
+  .home-inout { grid-template-columns: 1fr; }
+}
