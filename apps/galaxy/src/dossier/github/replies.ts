@@ -35,14 +35,16 @@ function doorOf(body: string | null | undefined): AnswerDoor {
   return match[1] === 'in the terminal' ? 'terminal' : 'page';
 }
 
-function answersOf(plan: { settle: Planned[]; held: Planned[] }): Map<number, Planned> {
-  return new Map([...plan.settle, ...plan.held].map((p) => [p.number, p]));
+/** What the kit's reply reader decides: the answers it would settle and those it holds, by number. */
+function answersOf(plan: unknown): Map<number, Planned> {
+  const { settle, held } = plan as { settle: Planned[]; held: Planned[] };
+  return new Map([...settle, ...held].map((p) => [p.number, p]));
 }
 
 export function outboxReplies({ comments, items, adopted, markers }: {
   comments: PrComment[]; items: KitItem[]; adopted: KitAdopted[]; markers: Markers;
 }): OutboxReplies {
-  const prComment = findPrMarkerComment(comments, markers) as PrComment | null;
+  const prComment = findPrMarkerComment(comments as { id: number; body?: string }[], markers) as PrComment | null;
   const numbering = (parseNumbersMarker(prComment?.body, markers) as { number: number; id: string }[])
     .map(({ number, id }) => ({ number, id }));
   const counted = answersOf(planReplies({ comments, items, adopted, markers }));
