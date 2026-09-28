@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { main } from '../bin/omni.mjs';
 import { makeRepo } from '../test/fixture.mjs';
-import { CONFIG_FILE, ConfigError, dossierSwitch, loadConfig, parseConfig } from './config.mjs';
+import { CONFIG_FILE, ConfigError, MIGRATIONS, dossierSwitch, loadConfig, migrateConfig, parseConfig } from './config.mjs';
 
 describe('parseConfig', () => {
   it('fills every section from defaults when only the version is given', () => {
@@ -267,5 +267,33 @@ describe('loadConfig', () => {
     mkdirSync(join(root, '.omni-loop'));
     writeFileSync(join(root, CONFIG_FILE), 'kit: 1\nrepo:\n  slug: acme/widgets\n');
     expect(loadConfig(root).repo.slug).toBe('acme/widgets');
+  });
+});
+
+describe('branches.update and the migration step (PRD 347)', () => {
+  it('names the update branch chore/omni-update-{version} when the file does not', () => {
+    expect(parseConfig('kit: 1\n').branches.update).toBe('chore/omni-update-{version}');
+  });
+
+  it('keeps an update branch the file sets, and refuses an empty one', () => {
+    expect(parseConfig('kit: 1\nbranches:\n  update: kit/{version}\n').branches.update).toBe('kit/{version}');
+    expect(() => parseConfig('kit: 1\nbranches:\n  update: ""\n', 'c.yml')).toThrow(/c\.yml.*branches\.update/);
+  });
+
+  it('has no migration yet: a kit-1 file reads the same through the migration step', () => {
+    expect(MIGRATIONS).toEqual([]);
+    const raw = { kit: 1, branches: { feature: 'f/{topic}' } };
+    expect(migrateConfig(raw)).toEqual(raw);
+    expect(parseConfig('kit: 1\n', CONFIG_FILE, { migrate: true })).toEqual(parseConfig('kit: 1\n'));
+  });
+
+  it("runs each migration from the file's kit up, keeping every value", () => {
+    const migrations = [
+      { from: 1, migrate: (raw) => ({ ...raw, kit: 2, moved: raw.old }) },
+      { from: 2, migrate: (raw) => ({ ...raw, kit: 3 }) },
+    ];
+    expect(migrateConfig({ kit: 1, old: 'x' }, migrations)).toEqual({ kit: 3, old: 'x', moved: 'x' });
+    expect(migrateConfig({ kit: 2 }, migrations)).toEqual({ kit: 3 });
+    expect(migrateConfig({ kit: 3 }, migrations)).toEqual({ kit: 3 });
   });
 });
