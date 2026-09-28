@@ -54,6 +54,8 @@ export const ConfigSchema = z
       retro: text.default('docs/retro-{topic}'),
       knowledge: text.default('docs/knowledge-{topic}'),
       invade: text.default('docs/omni-invade'),
+      // PRD 347: the branch `omni update` opens its pull request from; `{version}` is `v<x.y.z>`.
+      update: text.default('chore/omni-update-{version}'),
     }),
     worktrees: text.default('.claude/worktrees'),
     paths: section({
@@ -184,16 +186,35 @@ function describeIssue(issue) {
 }
 
 /**
- * Parses config text. Throws ConfigError whose FIRST line names `file` and the first offending key —
- * the CLI prints only that line — and whose later lines list every other issue.
+ * The migrations from one `kit:` format to the next (PRD 347), in order: `{ from, migrate(raw) → raw }`,
+ * each keeping every value and returning a file one `kit:` higher. None yet: `CONFIG_VERSION` is 1.
+ * `omni update` runs them on the parsed YAML, in memory, before checking it; the file itself is never
+ * rewritten by an update.
  */
-export function parseConfig(source, file = CONFIG_FILE) {
+export const MIGRATIONS = Object.freeze([]);
+
+/** `raw` (parsed YAML) brought from its own `kit:` up through every migration that applies. */
+export function migrateConfig(raw, migrations = MIGRATIONS) {
+  let current = raw;
+  for (const { from, migrate } of migrations) {
+    if (current?.kit === from) current = migrate(current);
+  }
+  return current;
+}
+
+/**
+ * Parses config text. Throws ConfigError whose FIRST line names `file` and the first offending key —
+ * the CLI prints only that line — and whose later lines list every other issue. With `migrate`, the
+ * migration step runs first, as `omni update` checks a file written for an older kit.
+ */
+export function parseConfig(source, file = CONFIG_FILE, { migrate = false } = {}) {
   let raw;
   try {
     raw = parse(source) ?? {};
   } catch (error) {
     throw new ConfigError(`${file}: not valid YAML — ${error.message.split('\n')[0]}`);
   }
+  if (migrate) raw = migrateConfig(raw);
   const renamed = renamedKey(raw);
   if (renamed) {
     const { section: name, from, to } = renamed;
