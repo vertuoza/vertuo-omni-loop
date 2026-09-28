@@ -5,6 +5,7 @@ merge-sha: a1b2c3d
 runs: [merge]
 model: anthropic/claude-opus-5.5
 rules: 1
+judge: 1
 ---
 
 # Retro — PRD 7, Widgets that remember their colour
@@ -18,6 +19,7 @@ The widgets shipped, but one check kept failing and one slice dragged on.
 - **What happened:** The check e2e was red on 4 commits in 2 slices.
 - **Why it matters:** Each red run held a slice back and hid whether the change itself was sound.
 - **Proposed lesson:** Fix the flaky step before the next wave starts.
+- **Kept:** No earlier lesson says to fix a flaky step between waves.
 - **Evidence:** [run 7001](https://github.com/acme/widgets/actions/runs/7001), [run 7002](https://github.com/acme/widgets/actions/runs/7002)
 
 ### F2 · Slice s3 took far longer than the others — `slow-slice:s3` · [#89](https://github.com/acme/widgets/issues/89) (closed)

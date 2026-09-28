@@ -55,7 +55,7 @@ import { detect } from './detect.mjs';
 import { knowledgeSummary } from 'vertuo-omni-plan/kit/lib/knowledge/classify.mjs';
 import { withTreeAt } from '../knowledge-harvest/github.mjs';
 import { upsertComment } from '../verdict-comment/verdict-comment.mjs';
-import { listFolder, listPullsInto, readFiles } from './github.mjs';
+import { listPullsInto } from './github.mjs';
 import { guard } from './guard.mjs';
 import { publishIssues } from './issues.mjs';
 import { followUpAt } from './kinds/after-merge.mjs';
@@ -273,24 +273,48 @@ function lessonsOf(prose) {
  * kit's `knowledgeSummary`, over the knowledge folder snapshotted through the harvest's `withTreeAt`)
  * and the lessons of the retros already merged (every `lessons[].text` of each run in the
  * `retro.json` files of the shipped folder), oldest PRD first, each once. Only the config and the
- * knowledge folders are snapshotted, never the whole delivery folder: of it only the `retro.json`
- * files are read.
+ * knowledge folders are snapshotted, never the whole delivery folder: of it, the shipped folder is
+ * listed in one request and only its `retro.json` files are read.
  * @returns {Promise<{ knowledge: { principles: object[], laws: object[], decisions: object[] }, lessons: string[] }>}
  */
 export async function gatherKnowledge(octokit, { owner, repo, sha, config }) {
   const narrowed = { ...config, paths: { ...config.paths, delivery: null, playbook: null, glossary: null } };
   const summary = await withTreeAt(octokit, { owner, repo, sha, config: narrowed }, (ctx) => knowledgeSummary({ ctx }));
   const shipped = foldersLayout('', config.paths).dirs.shipped;
-  const entries = (await listFolder(octokit, { owner, repo, ref: sha, path: shipped })) ?? [];
-  const paths = entries
-    .filter((entry) => entry.type === 'tree')
-    .map((entry) => `${shipped}/${entry.name}/retro.json`)
-    .sort();
-  const files = paths.length > 0 ? await readFiles(octokit, { owner, repo, ref: sha, paths }) : {};
   return {
     knowledge: { principles: summary.principles, laws: summary.laws, decisions: summary.decisions },
-    lessons: lessonsIn(paths.map((path) => files[path])),
+    lessons: lessonsIn(await retroFilesAt(octokit, { owner, repo, sha, dir: shipped })),
   };
+}
+
+const TREE = 'GET /repos/{owner}/{repo}/git/trees/{tree_sha}';
+const BLOB = 'GET /repos/{owner}/{repo}/git/blobs/{file_sha}';
+const RETRO_JSON = /^[^/]+\/retro\.json$/;
+
+/**
+ * The text of every `<folder>/retro.json` directly under `dir` at `sha`, by folder name: the tree
+ * walked down to `dir`, `dir` listed in one recursive request, then one blob read per file. Nothing
+ * when the commit holds no `dir`.
+ * @returns {Promise<string[]>}
+ */
+async function retroFilesAt(octokit, { owner, repo, sha, dir }) {
+  let treeSha = sha;
+  for (const name of dir.split('/').filter(Boolean)) {
+    const { data } = await octokit.request(TREE, { owner, repo, tree_sha: treeSha });
+    const entry = data.tree.find((candidate) => candidate.path === name && candidate.type === 'tree');
+    if (!entry) return [];
+    treeSha = entry.sha;
+  }
+  const { data } = await octokit.request(TREE, { owner, repo, tree_sha: treeSha, recursive: '1' });
+  const files = data.tree
+    .filter((entry) => entry.type === 'blob' && RETRO_JSON.test(entry.path))
+    .sort((a, b) => a.path.localeCompare(b.path));
+  const texts = [];
+  for (const file of files) {
+    const { data: blob } = await octokit.request(BLOB, { owner, repo, file_sha: file.sha });
+    texts.push(Buffer.from(blob.content ?? '', blob.encoding === 'base64' ? 'base64' : 'utf8').toString('utf8'));
+  }
+  return texts;
 }
 
 /** Every `lessons[].text` of the runs in these `retro.json` texts, in order, each once; a file that is not JSON gives none. */
