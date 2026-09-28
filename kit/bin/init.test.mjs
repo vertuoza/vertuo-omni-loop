@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { makeRepo } from '../test/fixture.mjs';
 import { parseConfig } from '../lib/config.mjs';
+import { credentials } from '../lib/ask/credentials.mjs';
 import { LABEL_STYLES } from '../lib/init/labels.mjs';
 import { FORM_IDS, parseForm } from '../lib/playbook/forms.mjs';
 import { main } from './omni.mjs';
@@ -27,9 +28,12 @@ function io() {
  */
 function fakeExec({
   slug = 'acme/widgets', defaultBranch = 'trunk', ghFails = false, labels = [], labelsFail = false,
-  realCommit = false, pushFails = false, openPr = null,
+  realCommit = false, pushFails = false, openPr = null, claude = 'ok',
 } = {}) {
   const calls = [];
+  // Every `claude` call, as `claude args…`: never a real one. `claude` is `ok`, `installed` (the plugin
+  // is there already), `missing` (no binary) or `fails` (the install is refused).
+  const plugin = [];
   // Every outward step of the install pull request, in the order it ran, as `cmd verb`.
   const install = [];
   const present = labels.map((label) => ({ description: '', ...label }));
@@ -43,6 +47,14 @@ function fakeExec({
         return '';
       }
       if ((args[0] === 'add' || args[0] === 'commit') && !realCommit) return '';
+    }
+    if (cmd === 'claude') {
+      plugin.push(`claude ${args.join(' ')}`);
+      if (claude === 'missing') throw new Error('spawn claude ENOENT');
+      if (args.join(' ') === 'plugin list --json') return JSON.stringify(claude === 'installed' ? [{ id: 'omni@omni-loop' }] : []);
+      if (args.join(' ') === 'plugin marketplace list --json') return '[]';
+      if (claude === 'fails' && args[1] === 'install') throw new Error('plugin not found');
+      return '';
     }
     if (cmd !== 'gh') return execFileSync(cmd, args, options);
     calls.push(args);
@@ -65,7 +77,7 @@ function fakeExec({
     }
     return '';
   };
-  return { exec, calls, install };
+  return { exec, calls, install, plugin };
 }
 
 const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge'];
@@ -80,20 +92,32 @@ function fakeBundle() {
   return file;
 }
 
+/** A home folder of the test's own: the credentials init reads are never the person's. */
+const freshHome = () => mkdtempSync(join(tmpdir(), 'omni-home-'));
+
 async function init(root, argv = [], extra = {}) {
   const s = io();
   const { exec, calls } = extra.fake ?? fakeExec();
-  const code = await main(['init', ...argv], { cwd: root, ...s, exec, bundle: 'bundle' in extra ? extra.bundle : fakeBundle(), ...extra.options });
+  const code = await main(['init', ...argv], { cwd: root, ...s, exec, bundle: 'bundle' in extra ? extra.bundle : fakeBundle(), home: freshHome(), ...extra.options });
   return { code, out: s.out.join(''), err: s.err.join(''), calls };
 }
 
 const readConfig = (read) => parseConfig(read('.omni-loop/config.yml'));
 
 const INSTALL_BLOCK = '\nInstall pull request:\n';
-/** What init prints before its install pull request block: the closing steps. */
-const closing = (out) => out.slice(0, out.indexOf(INSTALL_BLOCK));
-/** The install pull request block init prints last, one line per entry. */
-const installBlock = (out) => out.slice(out.indexOf(INSTALL_BLOCK) + INSTALL_BLOCK.length).split('\n').filter(Boolean);
+const COMPUTER_BLOCK = '\nOn this computer:\n';
+const CLOSING_BLOCK = /\n(Heads-up|Then, by hand):\n/;
+/** The lines of the block that starts at `heading`, up to the next one, one line per entry. */
+const block = (out, heading, next) => {
+  const from = out.slice(out.indexOf(heading) + heading.length);
+  return from.slice(0, from.search(next)).split('\n').filter(Boolean);
+};
+/** The install pull request block, one line per entry. */
+const installBlock = (out) => block(out, INSTALL_BLOCK, /\nOn this computer:\n/);
+/** What init did on this computer: the plugin and the sign-in, one line per entry. */
+const computerBlock = (out) => block(out, COMPUTER_BLOCK, CLOSING_BLOCK);
+/** What init prints last: the heads-up and the closing steps. */
+const closing = (out) => out.slice(out.search(CLOSING_BLOCK));
 
 const KNOWLEDGE = '.omni-loop/knowledge';
 const SETTINGS = '.claude/settings.json';
@@ -584,7 +608,11 @@ describe('omni init — the real bundle', () => {
     // No gh on PATH: the repository has no remote, so the slug is null, and nothing reaches the network.
     // Where a runner does ship gh in /usr/bin, it gets no token, no login and no target repository,
     // so its `label` calls fail and no real label is ever created.
-    const env = { ...process.env, PATH: [dirname(process.execPath), '/usr/bin', '/bin'].join(':'), GH_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'no-gh-')) };
+    // A `claude` that always fails comes first on the PATH: a real one, beside node, would install the
+    // plugin on this computer.
+    const stubs = mkdtempSync(join(tmpdir(), 'no-claude-'));
+    writeFileSync(join(stubs, 'claude'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    const env = { ...process.env, PATH: [stubs, dirname(process.execPath), '/usr/bin', '/bin'].join(':'), GH_CONFIG_DIR: mkdtempSync(join(tmpdir(), 'no-gh-')) };
     for (const key of ['GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN', 'GH_REPO', 'GH_HOST']) delete env[key];
     execFileSync('node', [dist, 'init'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
     expect(readFileSync(join(root, '.omni-loop/bin/omni.mjs'))).toEqual(readFileSync(dist));
@@ -607,7 +635,10 @@ const REMOVAL = [
 /** The removal line while the settings file holds no line of the kit's: init added nothing there. */
 const REMOVAL_WITHOUT_KEY = 'To remove the loop: delete .omni-loop/ and commit. The labels and the App installation stay.';
 
-/** The closing steps of a first run on a bare repository, as `acme/widgets` on `trunk` sees them. */
+/** The host of the ask.url init writes: the Omni Loop home page. */
+const ASK_HOST = 'vertuo-omni-loop-galaxy.vercel.app';
+
+/** What a first run on a bare repository prints, as `acme/widgets` on `trunk` sees it, with no terminal. */
 const FIRST_RUN = [
   'omni init — acme/widgets is set up.',
   '  wrote   .omni-loop/config.yml',
@@ -616,12 +647,24 @@ const FIRST_RUN = [
   '  wrote   .claude/settings.json  (statusLine)',
   '  labels  created omni:prd, omni:phase-0, omni:feature, omni:sub, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge',
   '',
-  'Commit .omni-loop/ and .claude/settings.json, and merge them into trunk, then, by hand:',
-  '  1. Install the omni plugin in Claude Code:',
-  `       /plugin marketplace add ${KIT_HOME}`,
-  '       /plugin install omni@omni-loop',
-  '  2. Install the omni-loop GitHub App on acme/widgets:',
+  'Install pull request:',
+  '  branch  created chore/install-omni-loop',
+  '  commit  chore: install the Omni Loop',
+  '  pushed  chore/install-omni-loop to origin',
+  '  PR      opened https://github.com/acme/widgets/pull/7',
+  '',
+  'On this computer:',
+  '  plugin  installed omni@omni-loop, run /reload-plugins in an open Claude Code',
+  `  signin  not signed in to ${ASK_HOST}: no terminal`,
+  '',
+  'Type this in a terminal to sign in later:',
+  '     omni signin',
+  '',
+  'Then, by hand:',
+  '  1. Install the omni-loop GitHub App on acme/widgets:',
   '       https://github.com/apps/omni-loop-invader/installations/new',
+  '  2. Merge PR #7 into trunk:',
+  '       https://github.com/acme/widgets/pull/7',
   '  3. (Optional) Require the `outbox` check on trunk:',
   '       https://github.com/acme/widgets/settings/branches',
   '     Warning: a required check that is never posted blocks every pull request in this repository.',
@@ -641,12 +684,6 @@ const FIRST_RUN = [
   ...STATUS_LINE_STEPS,
   '',
   ...REMOVAL,
-  '',
-  'Install pull request:',
-  '  branch  created chore/install-omni-loop',
-  '  commit  chore: install the Omni Loop',
-  '  pushed  chore/install-omni-loop to origin',
-  '  PR      opened https://github.com/acme/widgets/pull/7',
   '',
 ];
 
@@ -668,7 +705,7 @@ describe('omni init — the closing steps (AC 8)', () => {
     const b = await run('globex/billing-api', 'develop');
     expect(a).toBe(b);
     expect(a).toContain('https://github.com/<slug>/settings/branches');
-    expect(a).toContain('merge them into <branch>, then');
+    expect(a).toContain('  2. Merge PR #7 into <branch>:\n       https://github.com/<slug>/pull/7\n');
   });
 
   it('names only the commands left null, each with its flag', async () => {
@@ -703,18 +740,18 @@ describe('omni init — the closing steps (AC 8)', () => {
     ]);
     // A form is never overwritten, so a kept one is never listed: the steps follow the labels line.
     const secondRun = FIRST_RUN.slice(5 + FORM_FILES.length);
-    secondRun[1] = 'Nothing new to commit. By hand, unless already done:';
     secondRun[secondRun.indexOf('  branch  created chore/install-omni-loop')] = '  branch  on chore/install-omni-loop already';
     expect(out.split('\n').slice(5)).toEqual(secondRun);
   });
 
-  it('a second run with --force wrote the files and the key again, so it asks for a commit', async () => {
+  it('a second run with --force wrote the files and the key again, and commits them on the install branch', async () => {
     const { root } = makeRepo({ git: true });
     const fake = fakeExec();
     await init(root, [], { fake });
     const { out } = await init(root, ['--force'], { fake });
+    expect(out).toContain('  wrote   .omni-loop/config.yml\n');
     expect(out).toContain('  wrote   .claude/settings.json  (statusLine)\n');
-    expect(out).toContain('Commit .omni-loop/ and .claude/settings.json, and merge them into trunk, then, by hand:\n');
+    expect(installBlock(out)).toContain('  commit  chore: install the Omni Loop');
   });
 
   it('with neither gh nor a remote to name the repository, it says so instead of a link', async () => {
@@ -722,8 +759,8 @@ describe('omni init — the closing steps (AC 8)', () => {
     const { code, out } = await init(root, [], { fake: fakeExec({ ghFails: true }) });
     expect(code).toBe(0);
     expect(out).toContain('omni init — this repository is set up.\n');
-    expect(out).toContain('merge them into main, then');
-    expect(out).toContain('  2. Install the omni-loop GitHub App on this repository:\n');
+    expect(out).toContain('  2. Merge the install pull request into main, once it is open (see above).\n');
+    expect(out).toContain('  1. Install the omni-loop GitHub App on this repository:\n');
     expect(out).toContain('       https://github.com/<owner>/<repository>/settings/branches\n');
   });
 
@@ -853,7 +890,7 @@ describe('omni init — the forms (PRD 45, AC 11)', () => {
       ...FORM_FILES.map((path) => `  wrote   ${path}`),
       '  wrote   .claude/settings.json  (statusLine)',
     ]);
-    expect(out).toContain('Commit .omni-loop/ and .claude/settings.json, and merge them into trunk, then, by hand:\n');
+    expect(installBlock(out)).toContain('  commit  chore: install the Omni Loop');
   });
 
   it('writes no form outside .omni-loop/: a kept config whose playbook lies elsewhere leaves them to /omni:invade', async () => {
@@ -864,7 +901,7 @@ describe('omni init — the forms (PRD 45, AC 11)', () => {
     expect(gitStatus(root)).toEqual([SETTINGS]);
     expect(out).toContain('  kept    .omni-loop/bin/omni.mjs  (pass --force to overwrite)\n  forms   not written: docs/ is outside .omni-loop/ — see step 4 below\n');
     expect(out).toContain('  4. Fill the forms in docs/ with what the repository can prove, in Claude Code:\n       /omni:invade\n');
-    expect(out).toContain('Commit .claude/settings.json and merge it into trunk, then, by hand:\n');
+    expect(installBlock(out)).toContain('  commit  chore: install the Omni Loop');
   });
 });
 
@@ -955,7 +992,7 @@ describe('omni init — the status line (PRD 324)', () => {
       '  wrote   .claude/settings.json  (statusLine)',
       `  labels  already there: ${LOOP_LABELS.join(', ')}`,
     ]);
-    expect(out).toContain('\nCommit .claude/settings.json and merge it into trunk, then, by hand:\n');
+    expect(installBlock(out)).toContain('  commit  chore: install the Omni Loop');
   });
 });
 
@@ -1052,5 +1089,114 @@ describe('omni init — the install pull request (PRD 420)', () => {
       `  pushed  ${BRANCH} to origin`,
       '  PR      already open: https://github.com/acme/widgets/pull/7',
     ]);
+  });
+});
+
+describe('omni init — the plugin and the sign-in (PRD 420)', () => {
+  const PLUGIN_TODO = [
+    'Type these in Claude Code to install the plugin:',
+    `     /plugin marketplace add ${KIT_HOME}`,
+    '     /plugin install omni@omni-loop',
+  ];
+  const ENTRY = { access_token: 'a', refresh_token: 'r', expires_at: null, email: 'ada@example.test' };
+
+  /** A terminal: stdin and stdout are TTYs, and every command question is answered empty. */
+  async function onTerminal(root, { fake = fakeExec(), home = freshHome(), signIn } = {}) {
+    const s = io();
+    s.stdout.isTTY = true;
+    const code = await main(['init'], { cwd: root, ...s, exec: fake.exec, bundle: fakeBundle(), home, signIn, stdin: { isTTY: true }, ask: async () => '' });
+    return { code, out: s.out.join('') };
+  }
+
+  it('adds the marketplace, then installs the plugin, with the names omni update uses', async () => {
+    const { root } = makeRepo({ git: true });
+    const fake = fakeExec();
+    const { code, out } = await init(root, [], { fake });
+    expect(code).toBe(0);
+    expect(fake.plugin.filter((call) => !call.endsWith('--json'))).toEqual([
+      `claude plugin marketplace add ${KIT_HOME}`,
+      'claude plugin install omni@omni-loop',
+    ]);
+    expect(computerBlock(out)[0]).toBe('  plugin  installed omni@omni-loop, run /reload-plugins in an open Claude Code');
+  });
+
+  it('claude missing, or the install failing: exit 0, and the two /plugin lines to type', async () => {
+    for (const claude of ['missing', 'fails']) {
+      const { root } = makeRepo({ git: true });
+      const { code, out } = await init(root, [], { fake: fakeExec({ claude }) });
+      expect(code, claude).toBe(0);
+      const lines = computerBlock(out);
+      expect(lines[0], claude).toBe('  plugin  could not install omni@omni-loop from here');
+      expect(lines.slice(2, 5), claude).toEqual(PLUGIN_TODO);
+    }
+  });
+
+  it('a plugin installed already says "already", and nothing is installed', async () => {
+    const { root } = makeRepo({ git: true });
+    const fake = fakeExec({ claude: 'installed' });
+    const { out } = await init(root, [], { fake });
+    expect(fake.plugin).toEqual(['claude plugin list --json']);
+    expect(computerBlock(out)[0]).toBe('  plugin  omni@omni-loop installed already');
+  });
+
+  it('on a terminal and signed out, it runs the sign-in flow, and prints who signed in', async () => {
+    const { root } = makeRepo({ git: true });
+    const home = freshHome();
+    let flows = 0;
+    const signIn = async () => {
+      flows += 1;
+      credentials({ home }).write(ASK_HOST, ENTRY);
+      return 0;
+    };
+    const { code, out } = await onTerminal(root, { home, signIn });
+    expect(code).toBe(0);
+    expect(flows).toBe(1);
+    expect(computerBlock(out)).toEqual([
+      '  plugin  installed omni@omni-loop, run /reload-plugins in an open Claude Code',
+      `  signin  signed in to ${ASK_HOST} as ${ENTRY.email}`,
+    ]);
+  });
+
+  it('signed in already: "already", and no flow runs', async () => {
+    const { root } = makeRepo({ git: true });
+    const home = freshHome();
+    credentials({ home }).write(ASK_HOST, ENTRY);
+    let flows = 0;
+    const { out } = await onTerminal(root, { home, signIn: async () => { flows += 1; return 0; } });
+    expect(flows).toBe(0);
+    expect(computerBlock(out)[1]).toBe(`  signin  signed in to ${ASK_HOST} already, as ${ENTRY.email}`);
+  });
+
+  it('a sign-in refused or timed out: exit 0, and omni signin as a later step', async () => {
+    const { root } = makeRepo({ git: true });
+    const { code, out } = await onTerminal(root, { signIn: async () => 1 });
+    expect(code).toBe(0);
+    expect(computerBlock(out).slice(1)).toEqual([
+      `  signin  not signed in to ${ASK_HOST}: did not finish`,
+      'Type this in a terminal to sign in later:',
+      '     omni signin',
+    ]);
+  });
+
+  it('a rerun on an installed repository prints "already" for each step that is done', async () => {
+    const { root } = makeRepo({ git: true });
+    for (const [key, value] of [['user.email', 't@t'], ['user.name', 't']]) execFileSync('git', ['config', key, value], { cwd: root });
+    const home = freshHome();
+    await init(root, [], { fake: fakeExec({ realCommit: true }), options: { home } });
+    credentials({ home }).write(ASK_HOST, ENTRY);
+    const fake = fakeExec({ realCommit: true, claude: 'installed', openPr: { url: 'https://github.com/acme/widgets/pull/7', number: 7 } });
+    const { code, out } = await init(root, [], { fake, options: { home } });
+    expect(code).toBe(0);
+    expect(installBlock(out)).toEqual([
+      '  branch  on chore/install-omni-loop already',
+      '  commit  nothing new to commit, already committed',
+      '  pushed  chore/install-omni-loop to origin',
+      '  PR      already open: https://github.com/acme/widgets/pull/7',
+    ]);
+    expect(computerBlock(out)).toEqual([
+      '  plugin  omni@omni-loop installed already',
+      `  signin  signed in to ${ASK_HOST} already, as ${ENTRY.email}`,
+    ]);
+    expect(closing(out)).toContain('  2. Merge PR #7 into trunk:\n       https://github.com/acme/widgets/pull/7\n');
   });
 });
