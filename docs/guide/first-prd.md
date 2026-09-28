@@ -14,9 +14,6 @@ the rest:
 
 Nothing reaches your default branch unless you merge it yourself.
 
-On this page, `omni` is short for `node .omni-loop/bin/omni.mjs`, run from the root of your
-repository. The code blocks spell it out in full, so you can paste them as they are.
-
 ## Before you start
 
 Your repository has the loop installed and invaded: you followed [Install](/docs/install) and
@@ -208,8 +205,8 @@ Dossiers need you signed in on this computer (see [Install](/docs/install)). To 
 sees, at any time:
 
 ```bash terminal agent
-node .omni-loop/bin/omni.mjs status
-node .omni-loop/bin/omni.mjs status 7
+omni status
+omni status 7
 ```
 
 The first lists your PRDs and where each one stands; the second says whether PRD 7 still has open
