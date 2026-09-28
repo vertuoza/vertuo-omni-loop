@@ -260,3 +260,52 @@ Why: Public pages can be seen by anyone, so showing a customer's teams there wou
 Source: .omni-loop/delivery/shipped/0141-design-system/outbox/settled.md, entry s6-01-design-page-shows-the-built-in-fleets, PRD #141
 Merged: @pierrederval, 2026-09-26, PR #153
 Proposed: harvest 2026-09-26
+
+## P-PRODUCT-30
+
+In the game, one part that cannot be read never hides the parts that were read; the unreadable part is named as out of reach, and no made-up data fills the gap.
+
+Why: People should still see and play what loaded, and be told honestly which piece is missing rather than losing the whole page.
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entries s2-01-xp-read-in-the-workspace-played and s5-04-scores-read-on-their-own, PRD #160
+Merged: @pierrederval, 2026-09-27, PR #161
+Proposed: harvest 2026-09-27
+
+## P-PRODUCT-31
+
+Turning the phone never changes the state of a game in progress; only the next game adapts to the new screen.
+
+Why: A player who turns the phone mid-game should not lose or disrupt their game.
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s3-03-a-game-keeps-its-field, PRD #160
+Merged: @pierrederval, 2026-09-27, PR #161
+Proposed: harvest 2026-09-27
+
+## P-PRODUCT-32
+
+In the arcade games, what a player sees reflects the game's actual rules, so a change to the rules never leaves the screen telling a different story.
+
+Why: The person asked that the top row pay most; tying the layout to the values keeps that promise when the scoring changes.
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s3-04-rows-follow-the-close-values, PRD #160
+Merged: @pierrederval, 2026-09-27, PR #161
+Proposed: harvest 2026-09-27
+
+## P-PRODUCT-33
+
+A person who leaves a workspace takes their game record with them; nothing of theirs stays on show to the crew.
+
+Why: A departed person should not keep a public presence in a space they no longer belong to, and removing a member should never be blocked by leftover data.
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s5-01-scores-leave-with-the-player, PRD #160
+Merged: @pierrederval, 2026-09-27, PR #161
+Proposed: harvest 2026-09-27
+
+## P-PRODUCT-34
+
+Merged into P-PRODUCT-30, which says the same thing.
+
+## P-PRODUCT-35
+
+A player is always told about a game they unlocked, even when they climbed past its unlock level between two visits.
+
+Why: Returning players and the demo guest skip levels, and a game that opened silently would never be announced.
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s6-02-levels-climbed-between-visits, PRD #160
+Merged: @pierrederval, 2026-09-27, PR #161
+Proposed: harvest 2026-09-27
