@@ -72,7 +72,11 @@ export function countHighScores({ cwd = process.cwd(), log = console.error }: { 
   return {
     prdsShipped: prds.length,
     slicesMerged: sum('slices merged', (folder) => parsePlanSlices(readFileSync(join(folder, 'plan.md'), 'utf8')).length),
-    decisionsAdopted: sum('decisions adopted', (folder) =>
-      parseSettledEntries(readFileSync(join(folder, 'outbox', 'settled.md'), 'utf8'), markers).filter((entry) => entry.verdict === ADOPTED_VERDICT).length),
+    // A PRD that raised no decision ships with no outbox (PRD 373): it adopted none.
+    decisionsAdopted: sum('decisions adopted', (folder) => {
+      const file = join(folder, 'outbox', 'settled.md');
+      if (!existsSync(/*turbopackIgnore: true*/ join(folder, 'outbox'))) return 0;
+      return parseSettledEntries(readFileSync(file, 'utf8'), markers).filter((entry) => entry.verdict === ADOPTED_VERDICT).length;
+    }),
   };
 }

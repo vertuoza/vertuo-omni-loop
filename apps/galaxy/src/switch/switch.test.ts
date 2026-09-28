@@ -9,8 +9,9 @@ import { APP_HOME, GAME_HOME, SECTIONS } from './switch';
 const pageOf = (path: string) => new URL(`../../app${path}/page.tsx`, import.meta.url);
 
 describe('the app\'s sections', () => {
-  it('are Questions, For me, History, Knowledge map and Fleets, in that order: no Release notes', () => {
+  it('are My PRDs (PRD 413), Questions, For me, History, Knowledge map and Fleets, in that order: no Release notes', () => {
     expect(SECTIONS.map((s) => [s.title, s.path])).toEqual([
+      ['My PRDs', '/prd'],
       ['Questions', '/ask'],
       ['For me', '/ask/for-me'],
       ['History', '/ask/history'],
@@ -21,6 +22,7 @@ describe('the app\'s sections', () => {
 
   it('each say what they hold, in one line', () => {
     expect(SECTIONS.map((s) => s.line)).toEqual([
+      'The PRDs you opened, drafts included',
       'The questions Claude is asking you now',
       'Questions a teammate shared with you',
       'Every question your workspace was asked',

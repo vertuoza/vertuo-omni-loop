@@ -75,7 +75,7 @@ function granted(table: string): string[] {
 function querying(answer: { data: unknown; error: { code?: string; message: string } | null }) {
   const calls: Array<[string, ...unknown[]]> = [];
   const builder: Record<string, unknown> = {};
-  for (const step of ['select', 'eq', 'order', 'delete']) {
+  for (const step of ['select', 'eq', 'order', 'limit', 'delete']) {
     builder[step] = (...args: unknown[]) => { calls.push([step, ...args]); return builder; };
   }
   builder.maybeSingle = () => { calls.push(['maybeSingle']); return Promise.resolve(answer); };
@@ -120,6 +120,20 @@ describe('reading a dossier as its members do (the page to share)', () => {
     const refused = querying({ data: [], error: null });
     expect(await dossierReader(refused.db).deleteDraft('d1')).toBe(false);
     expect(refused.calls).toEqual([['from', 'dossiers'], ['delete'], ['eq', 'id', 'd1'], ['select', 'id']]);
+  });
+
+  it('finds a PRD\'s dossier by its repository, lower-cased, and its number: the most recently numbered first', async () => {
+    const { calls, db } = querying({ data: [{ id: 'd2' }], error: null });
+    expect(await dossierReader(db).numbered('Acme/Widgets', 7)).toBe('d2');
+    expect(calls).toEqual([
+      ['from', 'dossiers'], ['select', 'id'], ['eq', 'home_repo', 'acme/widgets'], ['eq', 'prd', 7],
+      ['order', 'numbered_at', { ascending: false, nullsFirst: false }], ['order', 'id', { ascending: true }], ['limit', 1],
+    ]);
+  });
+
+  it('finds no dossier when row-level security hides every row, or there is none', async () => {
+    expect(await dossierReader(querying({ data: [], error: null }).db).numbered('acme/widgets', 7)).toBeNull();
+    expect(await dossierReader(querying({ data: null, error: null }).db).numbered('acme/widgets', 7)).toBeNull();
   });
 
   it('turns a failed read into a DossierStoreError', async () => {
