@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import MarkdownIt from 'markdown-it';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import type { MetaData, Source } from 'fumadocs-core/source';
+import type { TOCItemType } from 'fumadocs-core/toc';
 import { describe, expect, it } from 'vitest';
 import { DocsPage } from './DocsPage';
 import { plain } from './DocsSearch';
@@ -18,8 +20,11 @@ import { guideLoader, sidebarItems } from './tree';
 const GUIDE = fileURLToPath(new URL('../../../../docs/guide', import.meta.url));
 const markdown = new MarkdownIt();
 
+/** A page as the test hands it to the loader: its body as markdown-it's HTML. */
+type TestPage = { title?: string; html: string; toc: TOCItemType[] };
+
 /** docs/guide/ as a fumadocs source: its meta.json, and each page with a body markdown-it renders. */
-function source() {
+function source(): Source<{ pageData: TestPage; metaData: MetaData }> {
   const meta = JSON.parse(readFileSync(join(GUIDE, 'meta.json'), 'utf8'));
   const pages = readGuide(GUIDE).pages.map((page) => ({
     type: 'page' as const,
