@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { UNREAD, type GithubSummary, type OutboxItem } from '../github/summary';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
-import { dossierView, GITHUB_UNREAD, isQuick, OUTBOX_EMPTY, readPick, sandboxPath, shortDay, stamp, versionSource, wayBack } from './view';
+import { dossierView, GITHUB_UNREAD, isQuick, OUTBOX_EMPTY, readPick, RETRO_EMPTY, sandboxPath, shortDay, stamp, versionSource, wayBack } from './view';
 
 // /prd/<id> (PRD 216), as pure functions of the rows the viewer may read, the workspace's members and
 // what the address picks: the header, the tabs, each artifact's versions, newest first, and the
@@ -133,13 +133,14 @@ describe('who may delete', () => {
 });
 
 describe('the tabs', () => {
-  it('reads Questions, answered out of asked, then Before/after, Spec, Plan, each with its latest version, then Outbox, dimmed while empty', () => {
+  it('reads Questions, answered out of asked, then Before/after, Spec, Plan, each with its latest version, then Outbox and Retro, dimmed while empty', () => {
     expect(view().tabs).toEqual([
       { kind: 'questions', label: 'Questions', badge: '2/4 answered', href: `/prd/${ID}`, current: true, empty: false },
       { kind: 'before-after', label: 'Before/after', badge: 'v2', href: `/prd/${ID}?tab=before-after`, current: false, empty: false },
       { kind: 'spec', label: 'Spec', badge: 'v3', href: `/prd/${ID}?tab=spec`, current: false, empty: false },
       { kind: 'plan', label: 'Plan', badge: null, href: `/prd/${ID}?tab=plan`, current: false, empty: false },
       { kind: 'outbox', label: 'Outbox', badge: null, href: `/prd/${ID}?tab=outbox`, current: false, empty: true },
+      { kind: 'retro', label: 'Retro', badge: null, href: `/prd/${ID}?tab=retro`, current: false, empty: true },
     ]);
   });
 
@@ -159,6 +160,7 @@ describe('the tabs', () => {
         ['spec', `/prd/${ID}?tab=spec`, false],
         ['plan', `/prd/${ID}?tab=plan`, false],
         ['outbox', `/prd/${ID}?tab=outbox`, false],
+        ['retro', `/prd/${ID}?tab=retro`, false],
       ]);
     }
   });
@@ -170,7 +172,7 @@ describe('the tabs', () => {
 
   it('opens the tab the address names, whatever the default', () => {
     for (const asked of [rounds, []]) {
-      for (const tab of ['questions', 'before-after', 'spec', 'plan', 'outbox'] as const) {
+      for (const tab of ['questions', 'before-after', 'spec', 'plan', 'outbox', 'retro'] as const) {
         const v = view(readPick({ tab }), numbered, PIERRE.user_id, versions, asked);
         expect(v.tab, `${tab}, ${asked.length} rounds`).toBe(tab);
         expect(v.tabs.find((t) => t.current)?.kind).toBe(tab);
@@ -375,12 +377,56 @@ describe('the Questions tab', () => {
   });
 });
 
+describe('the Retro tab (PRD 426, s3)', () => {
+  const RETRO_PR = { number: 230, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/230', draft: false };
+  const github = (more: Partial<GithubSummary>): GithubSummary => ({
+    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null,
+    phase0: { number: 220, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
+    feature: { number: 221, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'merged', draft: false },
+    mergedSlices: 3, retro: null, retroText: null, ...more,
+  });
+  const retroOf = (summary: GithubSummary | null | undefined, dossier = numbered) =>
+    dossierView({ dossier, versions, members: MEMBERS, rounds, github: summary }, PIERRE.user_id, readPick({ tab: 'retro' }));
+  const tabOf = (v: ReturnType<typeof retroOf>) => v.tabs.find((t) => t.kind === 'retro');
+
+  it('shows retro.md with the retro PR on top, badged "open PR" while it is open', () => {
+    const v = retroOf(github({ retro: { ...RETRO_PR, state: 'open' }, retroText: '# Retro\n' }));
+    expect(v.tab).toBe('retro');
+    expect(v.versions).toEqual([]);
+    expect(tabOf(v)).toMatchObject({ label: 'Retro', badge: 'open PR', empty: false, current: true });
+    expect(v.retro).toEqual({ state: 'text', words: null, prUrl: RETRO_PR.url, text: '# Retro\n' });
+  });
+
+  it('is badged "merged" once the retro PR is merged', () => {
+    expect(tabOf(retroOf(github({ retro: { ...RETRO_PR, state: 'merged' }, retroText: '# Retro\n' })))).toMatchObject({ badge: 'merged', empty: false });
+  });
+
+  it('is empty, dimmed and says why, with no retro PR, for a draft, when GitHub was not asked, and while retro.md is not there', () => {
+    for (const v of [retroOf(github({})), retroOf(undefined), retroOf(undefined, draft), retroOf(github({ retroText: undefined }))]) {
+      expect(tabOf(v)).toMatchObject({ badge: null, empty: true });
+      expect(v.retro).toEqual({ state: 'empty', words: RETRO_EMPTY, prUrl: null, text: null });
+    }
+    const pending = retroOf(github({ retro: { ...RETRO_PR, state: 'open' }, retroText: null }));
+    expect(tabOf(pending)).toMatchObject({ badge: 'open PR', empty: true });
+    expect(pending.retro).toEqual({ state: 'empty', words: RETRO_EMPTY, prUrl: RETRO_PR.url, text: null });
+    expect(RETRO_EMPTY).toBe('The retro is written when the feature PR merges.');
+  });
+
+  it('says GitHub did not answer when the summary, the retro PR or retro.md could not be read', () => {
+    for (const v of [retroOf(null), retroOf(github({ retro: UNREAD })), retroOf(github({ retro: { ...RETRO_PR, state: 'open' }, retroText: UNREAD }))]) {
+      expect(v.retro).toMatchObject({ state: 'unread', words: GITHUB_UNREAD, text: null });
+      expect(tabOf(v)).toMatchObject({ empty: true });
+    }
+  });
+});
+
 describe('what the address picks', () => {
   it('reads the tab and the version', () => {
     expect(readPick({ tab: 'plan', v: '4' })).toEqual({ tab: 'plan', version: 4 });
     expect(readPick({ tab: ['spec', 'plan'], v: ['2'] })).toEqual({ tab: 'spec', version: 2 });
     expect(readPick({ tab: 'questions' })).toEqual({ tab: 'questions', version: null });
     expect(readPick({ tab: 'before-after' })).toEqual({ tab: 'before-after', version: null });
+    expect(readPick({ tab: 'retro' })).toEqual({ tab: 'retro', version: null });
   });
 
   it('names no tab for a tab it does not know, and the latest version for a version that is not one', () => {

@@ -51,4 +51,7 @@ export type GithubSummary = {
   outbox?: Read<Outbox | null>;
   /** The feature PR's outbox comment, found by its marker; null when there is none. */
   outboxComment?: Read<string | null>;
+  /** The retro, `retro.md` as markdown (PRD 426, s3): from the retro branch while its PR is open, from the
+   * default branch once merged; null when there is no retro PR or no file yet. Left out by a summary made before it. */
+  retroText?: Read<string | null>;
 };

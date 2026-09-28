@@ -195,6 +195,7 @@ describe('the tabs', () => {
       ['Spec', 'v2', `/prd/${ID}?tab=spec`, false],
       ['Plan', null, `/prd/${ID}?tab=plan`, false],
       ['Outbox', null, `/prd/${ID}?tab=outbox`, false, 'dimmed'],
+      ['Retro', null, `/prd/${ID}?tab=retro`, false, 'dimmed'],
     ]);
     expect(page()).toContain('dossier-rounds');
   });
@@ -207,6 +208,7 @@ describe('the tabs', () => {
       ['Spec', 'v2', `/prd/${ID}?tab=spec`, false],
       ['Plan', null, `/prd/${ID}?tab=plan`, false],
       ['Outbox', null, `/prd/${ID}?tab=outbox`, false, 'dimmed'],
+      ['Retro', null, `/prd/${ID}?tab=retro`, false, 'dimmed'],
     ]);
     expect(html).toContain(`src="/prd/${ID}/v/2/page"`);
   });
@@ -261,6 +263,44 @@ describe('the Outbox tab (PRD 426)', () => {
     expect(empty).toContain('<p class="dossier-empty">No decision yet: the outbox fills while the PRD is built.</p>');
     for (const html of [outbox(null), outbox(outboxSummary(UNREAD))]) {
       expect(html).toContain('<p class="ask-problem" role="alert">GitHub did not answer. The page tries again within a minute.</p>');
+    }
+  });
+});
+
+describe('the Retro tab (PRD 426, s3)', () => {
+  const RETRO_URL = 'https://github.com/vertuoza/vertuo-omni-loop/pull/230';
+  const retroSummary = (retro: GithubSummary['retro'], retroText: GithubSummary['retroText']): GithubSummary => ({
+    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null,
+    phase0: { number: 220, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
+    feature: { number: 221, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'merged', draft: false },
+    mergedSlices: 3, retro, retroText,
+  });
+  const pr = (state: PullRef['state']): PullRef => ({ number: 230, url: RETRO_URL, state, draft: false });
+  const retro = (github: GithubSummary | null) => page({ pick: tab('retro'), github });
+  const RETRO = '# How PRD 216 went\n\nThree waves, <script>alert(1)</script> one rework.\n';
+
+  it('shows Open the retro PR on top, then retro.md rendered from markdown, raw HTML off, as the sixth tab', () => {
+    const html = retro(retroSummary(pr('open'), RETRO));
+    expect(html).toContain('<section class="dossier-pane" aria-label="Retro">');
+    expect(html).toContain(`<a class="ask-button" href="${RETRO_URL}" target="_blank" rel="noopener noreferrer">Open the retro PR</a>`);
+    expect(html).toContain('<article class="dossier-md"><h1>How PRD 216 went</h1>');
+    expect(html).not.toContain('<script>');
+    expect(html).toContain(`<a class="dossier-tab" href="/prd/${ID}?tab=retro" aria-current="page">Retro<small>open PR</small></a>`);
+    expect(html.indexOf('>Outbox')).toBeLessThan(html.indexOf('>Retro<'));
+  });
+
+  it('is badged merged once the retro PR is merged', () => {
+    expect(retro(retroSummary(pr('merged'), RETRO))).toContain('Retro<small>merged</small></a>');
+  });
+
+  it('is dimmed and says why while there is no retro, and says when GitHub did not answer', () => {
+    const empty = retro(retroSummary(null, null));
+    expect(empty).toContain(`<a class="dossier-tab dossier-tab-empty" href="/prd/${ID}?tab=retro" aria-current="page">Retro</a>`);
+    expect(empty).toContain('<p class="dossier-empty">The retro is written when the feature PR merges.</p>');
+    expect(empty).not.toContain('Open the retro PR');
+    for (const html of [retro(null), retro(retroSummary(pr('open'), UNREAD))]) {
+      expect(html).toContain('<p class="ask-problem" role="alert">GitHub did not answer. The page tries again within a minute.</p>');
+      expect(html).not.toContain('dossier-md');
     }
   });
 });

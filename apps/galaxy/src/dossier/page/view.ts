@@ -26,6 +26,10 @@
 // The Outbox tab (PRD 426, s2) comes after Plan: the open decisions, highest rank first, then the
 // settled ones in the order settled.md holds them, read from the GitHub summary. Its badge counts
 // the open ones, else the settled ones; empty, it stays in the bar, dimmed, and says why.
+//
+// The Retro tab (PRD 426, s3) comes last: retro.md as the GitHub summary holds it (from the retro
+// branch while its PR is open, from the default branch once merged), with the retro PR on top. Its
+// badge says whether that PR is open or merged; with no retro.md yet, it is dimmed and says why.
 import { readQuestions, shownLabel } from '../../ask/answer-model';
 import { CATEGORY_LABELS, isCategory, type Category } from '../../ask/classify';
 import { nameOf, type Member } from '../../ask/page/question';
@@ -36,23 +40,26 @@ import { isDossierId } from './source';
 import { outboxAnswerUrl, stageView, type StageView } from './stage';
 
 /** The page's tabs: an artifact's, the questions that shaped it, or the decisions taken while it was built. */
-export type DossierTab = DossierKind | 'questions' | 'outbox';
+export type DossierTab = DossierKind | 'questions' | 'outbox' | 'retro';
 
 /** The tabs the dossier itself keeps, in the order a PRD is made (PRD 384): the questions first, then
  * the before/after, the spec and the plan. The history lists these. */
 export const TABS: readonly (DossierKind | 'questions')[] = ['questions', 'before-after', 'spec', 'plan'];
 
 /** Every tab of the page, in order: the dossier's, then what GitHub holds (PRD 426). */
-export const PAGE_TABS: readonly DossierTab[] = [...TABS, 'outbox'];
+export const PAGE_TABS: readonly DossierTab[] = [...TABS, 'outbox', 'retro'];
 
 export const TAB_LABELS: Readonly<Record<DossierTab, string>> = {
-  'before-after': 'Before/after', spec: 'Spec', plan: 'Plan', questions: 'Questions', outbox: 'Outbox',
+  'before-after': 'Before/after', spec: 'Spec', plan: 'Plan', questions: 'Questions', outbox: 'Outbox', retro: 'Retro',
 };
 
-const isDossierTab = (value: unknown): value is DossierTab => value === 'questions' || value === 'outbox' || isDossierKind(value);
+const isDossierTab = (value: unknown): value is DossierTab =>
+  value === 'questions' || value === 'outbox' || value === 'retro' || isDossierKind(value);
 
 /** An empty Outbox tab says why. */
 export const OUTBOX_EMPTY = 'No decision yet: the outbox fills while the PRD is built.';
+/** An empty Retro tab says why. */
+export const RETRO_EMPTY = 'The retro is written when the feature PR merges.';
 /** A tab read from GitHub, when GitHub did not answer. */
 export const GITHUB_UNREAD = 'GitHub did not answer. The page tries again within a minute.';
 
@@ -147,6 +154,10 @@ export type OutboxView = {
   state: 'items' | 'empty' | 'unread'; words: string | null; answerUrl: string | null; open: OutboxEntry[]; settled: SettledItem[];
 };
 
+/** The Retro tab: retro.md as markdown (`text`), none yet (`empty`), or GitHub unread; `words` says why
+ * it is empty, and `prUrl` is the retro PR (null when there is none). */
+export type RetroView = { state: 'text' | 'empty' | 'unread'; words: string | null; prUrl: string | null; text: string | null };
+
 export type VersionEntry = {
   id: string;
   number: number;
@@ -184,6 +195,8 @@ export type DossierView = {
   questions: QuestionsView;
   /** The decisions taken while it was built (PRD 426). */
   outbox: OutboxView;
+  /** The retro, once written (PRD 426, s3). */
+  retro: RetroView;
 };
 
 /** One option of a question, as it was offered: its label without "(Recommended)", which becomes a
@@ -352,10 +365,13 @@ export function dossierView(
   const ofKind = (kind: DossierKind) => versions.filter((v) => v.kind === kind);
   const fallback = defaultTab(rounds);
   const tab = pick.tab ?? fallback;
-  const mine = tab === 'questions' || tab === 'outbox' ? [] : ofKind(tab);
+  const mine = tab === 'questions' || tab === 'outbox' || tab === 'retro' ? [] : ofKind(tab);
   const questions = questionsView(rounds, members, dossier.id, answerable, now);
   const outbox = outboxView(dossier.prd === null ? undefined : github);
+  const retro = retroView(dossier.prd === null ? undefined : github);
+  const retroPr = dossier.prd !== null && github && github.retro !== UNREAD ? github.retro : null;
   const badgeOf = (kind: DossierTab) => {
+    if (kind === 'retro') return retroPr ? (retroPr.state === 'open' ? 'open PR' : 'merged') : null;
     if (kind === 'outbox') return outbox.open.length ? `${outbox.open.length} open` : outbox.settled.length ? `${outbox.settled.length} settled` : null;
     if (kind !== 'questions') return ofKind(kind).length ? `v${ofKind(kind).length}` : null;
     return questions.asked ? `${questions.answered}/${questions.asked} answered` : null;
@@ -390,13 +406,14 @@ export function dossierView(
       badge: badgeOf(kind),
       href: hrefOf(dossier.id, kind, null, fallback),
       current: kind === tab,
-      empty: kind === 'outbox' && outbox.state !== 'items',
+      empty: (kind === 'outbox' && outbox.state !== 'items') || (kind === 'retro' && retro.state !== 'text'),
     })),
     tab,
     versions: entries,
     shown: entries.find((e) => e.current) ?? null,
     questions,
     outbox,
+    retro,
   };
 }
 
@@ -422,6 +439,18 @@ export function outboxView(github: GithubSummary | null | undefined): OutboxView
       personSteps: item.personSteps,
     }));
   return { state: 'items', words: null, answerUrl: github ? outboxAnswerUrl(github) : null, open, settled: outbox.settled };
+}
+
+/** The Retro tab, from the GitHub summary: null when it could not be read, left out when it was not asked for. */
+export function retroView(github: GithubSummary | null | undefined): RetroView {
+  const unread: RetroView = { state: 'unread', words: GITHUB_UNREAD, prUrl: null, text: null };
+  if (github === null) return unread;
+  const pr = github?.retro ?? null;
+  if (pr === UNREAD) return unread;
+  const text = github?.retroText ?? null;
+  if (text === UNREAD) return { ...unread, prUrl: pr?.url ?? null };
+  if (!pr || text === null) return { state: 'empty', words: RETRO_EMPTY, prUrl: pr?.url ?? null, text: null };
+  return { state: 'text', words: null, prUrl: pr.url, text };
 }
 
 /** What the way back from a round's own page needs: the `from` it was opened with (null: none), the

@@ -5,6 +5,7 @@ import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
 import { OutboxPane } from './OutboxPane';
 import { QuestionsPane } from './QuestionsPane';
+import { RetroPane } from './RetroPane';
 import { FRAME_SANDBOX } from './sandbox';
 import { StageHeader } from './StageHeader';
 import { VersionPicker } from './VersionPicker';
@@ -19,7 +20,8 @@ import { dossierPath, TAB_LABELS, type DossierView } from './view';
 // tabs and the picker are links and a GET form, so it all works before any script runs.
 // PRD 426 puts the stage header on top: "PRD #n ↗" linking to its issue, the track, the one button and
 // the links line (StageHeader.tsx); the chips, who opened it, Copy link and Delete draft stay below it.
-// Its Outbox tab (OutboxPane.tsx) lists the decisions taken while it was built; empty, it is dimmed.
+// Its Outbox tab (OutboxPane.tsx) lists the decisions taken while it was built, and its Retro tab
+// (RetroPane.tsx) renders the retro once written; empty, each is dimmed.
 
 type Props = {
   view: DossierView;
@@ -41,6 +43,7 @@ function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 's
   const { shown, tab } = view;
   if (tab === 'questions') return <QuestionsPane questions={view.questions} supabase={supabase} />;
   if (tab === 'outbox') return <OutboxPane outbox={view.outbox} />;
+  if (tab === 'retro') return <RetroPane retro={view.retro} />;
   if (!shown) {
     return (
       <p className="dossier-empty">
