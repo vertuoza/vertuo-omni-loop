@@ -1,13 +1,13 @@
 ---
 prd: 438
 title: App sidebar navigation
-blocked-by: none
+blocked-by: [400]
 spec: file
 ---
 
 # App sidebar navigation
 
-**Date:** 2026-09-28 · **PRD:** #438 · **Follows:** PRD 346 (the shared TopBar), PRD 238 (Game mode)
+**Date:** 2026-09-28 · **PRD:** #438 · **Follows:** PRD 346 (the shared TopBar), PRD 238 (Game mode), PRD 413 (PRDs in the menu) · **Blocked by:** PRD 400 (own fleets, `/app/fleets`)
 · **Touches:** the galaxy app's shell only:
 - `apps/galaxy/app/{app,ask,prd,knowledge,docs,releases}/layout.tsx`
 - `apps/galaxy/src/nav/`, `src/switch/`, `src/dashboard/`
@@ -21,12 +21,12 @@ The classic app is the reading pages at `/app`, `/prd`, `/ask` and `/knowledge`.
 bar, the shared `TopBar` (`src/nav/TopBar.tsx`), which puts three concerns in one row with no clear
 order:
 
-- **The workspace's work.** Questions, For me, History, the Knowledge map and PRDs are not in the
-  bar. They are cards at the foot of `/app` (`SECTIONS`, `src/switch/switch.ts`), or links that only
-  one page adds as its bar extras: History and For me on `/ask`, All PRDs on `/prd`. **PRDs cannot be
-  reached from the navigation at all**, only from a link someone shared.
-- **Omni's own pages.** Release notes and Docs are the bar's only menu items, so the product's help
-  pages look like the app's sections.
+- **The workspace's work.** Questions, For me, History, the Knowledge map and, once PRD 400 lands,
+  Fleets (`/app/fleets`) are not in the bar. They are cards at the foot of `/app` (`SECTIONS` in
+  `src/switch/switch.ts`), or links that only one page adds as its bar extras: History and For me on
+  `/ask`. PRDs reached the bar in PRD 413, but as a menu item beside Release notes and Docs.
+- **Omni's own pages.** Release notes and Docs share that menu with PRDs, so the product's help
+  pages look like the app's sections, on the app's pages and on the public ones alike.
 - **The person's account.** There is no user menu, and **no way to sign out** anywhere in the
   classic app: sign-out lives only in the arcade's menu.
 
@@ -49,7 +49,7 @@ From top to bottom:
 | Part | Contents |
 |---|---|
 | Header | The OMNI LOOP crest and wordmark, linked to `/app`. Under it, when the person is signed in and in a workspace, the workspace's name as a plain label, with no switcher. |
-| **Work** | **Home** `/app` · **PRDs** `/prd` · **Questions** `/ask`, with **For me** `/ask/for-me` and **History** `/ask/history` nested under it · **Knowledge** `/knowledge` |
+| **Work** | **Home** `/app` · **PRDs** `/prd` · **Questions** `/ask`, with **For me** `/ask/for-me` and **History** `/ask/history` nested under it · **Knowledge** `/knowledge` · **Fleets** `/app/fleets` |
 | **Omni** | **Docs** `/docs` · **Release notes** `/releases`. Each is marked as leaving the app with a ↗ glyph, and has an accessible name ending "(leaves the app)". |
 
 - **For me** carries the count of questions waiting for the person as a badge. A count of 0, or a
@@ -60,6 +60,8 @@ From top to bottom:
   - `/ask/<session>` and `/ask/q/<round>` highlight Questions.
   - `/ask/for-me` highlights For me, and `/ask/history` highlights History.
   - `/knowledge?domain=…` highlights Knowledge.
+  - `/app/fleets` highlights Fleets, not Home: the longest matching path wins.
+  - `/prd?who=all` highlights PRDs: the query never counts.
   - A path that matches no item highlights nothing.
 - Nothing is scoped to one repository. The navigation is workspace-wide, and a repository stays a
   filter inside a page (as `/prd?repo=` already does).
@@ -90,9 +92,11 @@ items, Escape closes the menu, and focus returns to the button. It holds, in ord
 ### 4. Docs and Release notes keep their own public bar
 
 `/docs` and `/releases` are public pages: HOME links to them, and signed-out visitors read them.
-`/docs` already has its own Guide sidebar. They keep the public `TopBar` as it is (its menu, the
-theme switch and Game mode), with one addition:
+`/docs` already has its own Guide sidebar. They keep the public `TopBar`, with its theme switch and
+Game mode, and two changes:
 
+- Its menu holds only Omni's pages again: **Release notes** and **Docs**. PRDs, which PRD 413 put
+  first in it, leaves it: PRDs is a Work item, and lives in the app's sidebar.
 - An **Open the app →** link to `/app`, shown to everyone.
 
 The public pages never read the session, so they stay static. A signed-out visitor who follows the
@@ -100,11 +104,12 @@ link lands on `/app`'s sign-in card.
 
 ### 5. The pages
 
-- **`/app` (Home)** keeps the You block and the notes, and **drops the section cards**: the sidebar
+- **`/app` (Home)** keeps the You block and the notes, and **drops the section cards** (My PRDs,
+  Questions, For me, History, Knowledge map, Fleets): the sidebar
   does their job. `SECTIONS` and `src/dashboard/Cards.tsx` are deleted.
 - **`/ask`** loses `AskBar`. Its History and For me links are sidebar items now. The terminal tabs of
   a session stay inside the page.
-- **`/prd`** loses its "All PRDs" bar link: the PRDs item in the sidebar is that link.
+- **`/prd`** is unchanged: it opens on Mine, with Mine and All inside the page (PRD 413).
 - **`/knowledge`** no longer draws its own bar:
   - The repository chip, shown in the brand today, moves into the page's own heading.
   - The link "Open the star chart →" stays in the page.
@@ -133,9 +138,9 @@ These units live in `apps/galaxy/src/nav/`, one job per unit:
 | `Sidebar.tsx` | Client component. Draws the sidebar from `SIDEBAR` and the viewer, and marks the current item with `usePathname()` and `currentItem()`. It is also the phone drawer. |
 | `AppBar.tsx` | Client component: the top bar (section 2). It reuses `ThemeSwitch` and `GameModeButton` unchanged, and holds ☰ on a phone. |
 | `UserMenu.tsx` | Client component: the avatar button and its menu (section 3). |
-| `TopBar.tsx` | Kept for `/docs` and `/releases` only, gaining **Open the app →**. |
+| `TopBar.tsx` | Kept for `/docs` and `/releases` only: its menu loses PRDs, and it gains **Open the app →**. |
 
-`menu.ts` keeps Release notes and Docs for the public bar. The colours come from the ask tokens
+`menu.ts` holds Release notes and Docs for the public bar, and no longer PRDs. The colours come from the ask tokens
 (`--ask-*`, `src/ask/theme-tokens.ts`), so Omni, Light and Dark all follow the theme switch. The
 shell adds no colour of its own.
 
@@ -151,6 +156,11 @@ shell adds no colour of its own.
 - **Workspace-wide, with no repository switcher.** The repository stays a filter inside the pages.
 - **No workspace switcher.** The workspace name is a label; switching is its own future PRD.
 - **`/app` stays as Home**, and loses only its cards.
+- **PRDs leaves the public bar's menu** (it was added by PRD 413): the public bar holds Omni's pages,
+  and the sidebar holds the work.
+- **Fleets is a sidebar item, and this PRD waits for PRD 400.** `/app/fleets` comes with PRD 400
+  (#403). Its only way in is a card on `/app`, which this PRD removes, so PRD 438 is built once PRD
+  400 is merged, and the Fleets item never links to a page that does not exist.
 - **Docs and Release notes keep a public layout** with its own bar, rather than the app shell. That
   avoids a sidebar inside a sidebar, and keeps them static for signed-out visitors. Their bar keeps
   its theme switch and Game mode, like the app bar.
@@ -201,7 +211,8 @@ viewer read is tested with a fake client.
   - `SIDEBAR` pins the groups, their items, their order and their paths.
   - `currentItem` and `pageTitle` are checked on `/app`, `/prd`, `/prd/<id>`, `/ask`,
     `/ask/<session>`, `/ask/q/<round>`, `/ask/for-me`, `/ask/history`, `/knowledge`,
-    `/knowledge?domain=x`, and an unknown path (`null`).
+    `/knowledge?domain=x`, `/app/fleets` (Fleets, not Home), `/prd?who=all` (PRDs), and an unknown
+    path (`null`).
 - **`Sidebar` render tests:**
   - Signed out, it shows no workspace name. Signed in with a workspace, it shows the workspace's name.
   - For me shows a badge at 3, and no badge at 0 or `null`.
@@ -217,8 +228,8 @@ viewer read is tested with a fake client.
   - No session gives a signed-out viewer.
   - A workspace read that throws gives a viewer with no workspace name.
   - A For me count that throws gives `forMe: null`.
-- **`TopBar.test.ts`**, updated: **Open the app →** links to `/app`, and the menu, the theme switch
-  and Game mode are unchanged.
+- **`TopBar.test.ts`**, updated: **Open the app →** links to `/app`, the menu is Release notes then
+  Docs (no PRDs), and the theme switch and Game mode are unchanged.
 - **Dashboard and switch render tests**, updated: no section cards, and the You block and notes
   still render.
 - **A manual browser pass**, in all three themes:
@@ -242,12 +253,12 @@ viewer read is tested with a fake client.
 
 ## Acceptance criteria
 
-1. The pages `/app`, `/prd`, `/prd/<id>`, `/ask`, `/ask/<session>`, `/ask/for-me`, `/ask/history`
-   and `/knowledge` each show the sidebar, with these items in order:
-   - Work: Home, PRDs, Questions (For me, History), Knowledge
+1. The pages `/app`, `/app/fleets`, `/prd`, `/prd/<id>`, `/ask`, `/ask/<session>`, `/ask/for-me`,
+   `/ask/history` and `/knowledge` each show the sidebar, with these items in order:
+   - Work: Home, PRDs, Questions (For me, History), Knowledge, Fleets
    - Omni: Docs ↗, Release notes ↗
 2. On each of those pages, exactly one sidebar item is marked current: the one section 1 names for
-   that path.
+   that path. On `/app/fleets` that is Fleets, not Home.
 3. On each of those pages, the top bar shows, in order:
    - the page's title (for example "Questions / For me" on `/ask/for-me`)
    - Omni / Light / Dark
@@ -262,12 +273,12 @@ viewer read is tested with a fake client.
    card.
 8. Signed out, **Sign in with GitHub** in the top bar starts the GitHub sign-in.
 9. `/app` shows no section cards, and still shows the You block and the notes.
-10. `/docs` and `/releases` show no sidebar. Their bar keeps its menu, the theme switch and Game mode,
-    and adds **Open the app →**, which links to `/app`.
+10. `/docs` and `/releases` show no sidebar. Their bar's menu reads Release notes, Docs (no PRDs),
+    it keeps the theme switch and Game mode, and it adds **Open the app →**, which links to `/app`.
 11. At 375px wide:
     - The sidebar is hidden, and ☰ opens it as a drawer.
     - Choosing an item navigates and closes the drawer.
     - The page never scrolls sideways.
-12. `/ask` no longer shows History and For me in a bar, `/prd` no longer shows "All PRDs", and
-    `/knowledge` shows its repository chip in its heading.
+12. `/ask` no longer shows History and For me in a bar, and `/knowledge` shows its repository chip
+    in its heading.
 13. `pnpm test` is green.

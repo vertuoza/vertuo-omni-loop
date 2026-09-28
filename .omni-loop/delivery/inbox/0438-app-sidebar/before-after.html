@@ -47,7 +47,7 @@
   .pg .h { font: 18px/1.1 var(--display); text-transform: uppercase; }
   .row { background: var(--cab); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; color: var(--dim); }
   .row b { color: var(--white); }
-  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
   .cards div { border: 1px dashed var(--magenta); border-radius: 8px; padding: 8px; font-weight: 700; }
   .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--dim); }
   .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
@@ -106,7 +106,7 @@
       <div class="screen">
         <div class="bar"><span class="mark">OMNI LOOP</span><span class="subt">Claude asks</span>
           <span class="chip x">History</span><span class="chip x">For me <span class="count">3</span></span>
-          <span class="chip">Release notes</span><span class="chip">Docs</span>
+          <span class="chip">PRDs</span><span class="chip">Release notes</span><span class="chip">Docs</span>
           <span class="theme"><span class="on">Omni</span><span>Light</span><span>Dark</span></span>
           <span class="game">Game mode</span></div>
         <div class="pg"><div class="h">Questions</div>
@@ -114,7 +114,7 @@
           <div class="row"><b>omni-plan · terminal 1</b> · answered</div></div>
       </div>
       <ul class="notes">
-        <li><span class="bad">No way to reach PRDs or Knowledge</span> from this bar.</li>
+        <li><span class="bad">No way to reach Knowledge or Fleets</span> from this bar, and PRDs sits in one menu with Docs and Release notes.</li>
         <li>History and For me show up only on /ask.</li>
         <li>Theme and Game mode share a row with Docs, and there is no sign-out.</li>
       </ul>
@@ -130,7 +130,7 @@
           <div class="it cur">Questions</div>
           <div class="it nest">For me<span class="sp"></span><span class="count">3</span></div>
           <div class="it nest">History</div>
-          <div class="it">Knowledge</div>
+          <div class="it">Knowledge</div><div class="it">Fleets</div>
           <div class="grp">OMNI</div>
           <div class="it">Docs<span class="sp"></span><span class="out">↗</span></div>
           <div class="it">Release notes<span class="sp"></span><span class="out">↗</span></div>
@@ -157,15 +157,15 @@
       <span class="tag b">TODAY</span>
       <div class="screen">
         <div class="bar"><span class="mark">OMNI LOOP</span><span class="subt">App</span>
-          <span class="chip">Release notes</span><span class="chip">Docs</span>
+          <span class="chip">PRDs</span><span class="chip">Release notes</span><span class="chip">Docs</span>
           <span class="theme"><span class="on">Omni</span><span>Light</span><span>Dark</span></span>
           <span class="game">Game mode</span></div>
         <div class="pg"><div class="h">Pierre Derval</div>
           <div class="row">You · hero, fleet, season</div>
           <div class="row">Notes · what you merged this week</div>
-          <div class="cards"><div>Questions</div><div>For me</div><div>History</div><div>Knowledge map</div></div></div>
+          <div class="cards"><div>My PRDs</div><div>Questions</div><div>For me</div><div>History</div><div>Knowledge map</div><div>Fleets</div></div></div>
       </div>
-      <ul class="notes"><li>The only way into the sections is <b>four cards at the foot of the page</b>.</li><li>Sign-out exists only inside the game.</li></ul>
+      <ul class="notes"><li>The only way into most sections is <b>six cards at the foot of the page</b>, Fleets (PRD 400) included.</li><li>Sign-out exists only inside the game.</li></ul>
     </div>
     <div>
       <span class="tag a">AFTER</span>
@@ -175,7 +175,7 @@
           <div class="ws">vertuoza</div>
           <div class="grp">WORK</div>
           <div class="it cur">Home</div><div class="it">PRDs</div><div class="it">Questions</div>
-          <div class="it nest">For me<span class="sp"></span><span class="count">3</span></div><div class="it nest">History</div><div class="it">Knowledge</div>
+          <div class="it nest">For me<span class="sp"></span><span class="count">3</span></div><div class="it nest">History</div><div class="it">Knowledge</div><div class="it">Fleets</div>
           <div class="grp">OMNI</div>
           <div class="it">Docs<span class="sp"></span><span class="out">↗</span></div><div class="it">Release notes<span class="sp"></span><span class="out">↗</span></div>
         </aside>
@@ -188,7 +188,7 @@
           <div class="row">You · hero, fleet, season</div>
           <div class="row">Notes · what you merged this week</div></div></div>
       </div></div>
-      <ul class="notes"><li>The cards are gone because the sidebar does their job.</li><li><span class="good">Sign out</span> is finally in the classic app, under your avatar at the right of the top bar, and it works from the keyboard.</li></ul>
+      <ul class="notes"><li>The cards are gone because the sidebar does their job. Fleets is a sidebar item, and <code>/app/fleets</code> marks Fleets, not Home.</li><li><span class="good">Sign out</span> is finally in the classic app, under your avatar at the right of the top bar, and it works from the keyboard.</li></ul>
     </div>
   </div>
 </section>
@@ -200,7 +200,7 @@
       <span class="tag b">TODAY</span>
       <div class="screen" style="min-height:0">
         <div class="bar"><span class="mark">OMNI LOOP</span><span class="subt">Docs</span>
-          <span class="chip">Release notes</span><span class="chip cur">Docs</span>
+          <span class="chip x">PRDs</span><span class="chip">Release notes</span><span class="chip cur">Docs</span>
           <span class="theme"><span class="on">Omni</span><span>Light</span><span>Dark</span></span><span class="game">Game mode</span></div>
         <div class="pg"><div class="row"><b>Guide</b> sidebar · Getting started · Install…</div></div>
       </div>
@@ -213,7 +213,7 @@
           <span class="theme"><span class="on">Omni</span><span>Light</span><span>Dark</span></span><span class="game">Game mode</span><span class="chip" style="color:var(--yellow)">Open the app →</span></div>
         <div class="pg"><div class="row"><b>Guide</b> sidebar · unchanged</div></div>
       </div>
-      <ul class="notes"><li>These pages stay public and static, with no app sidebar.</li><li>The bar keeps its theme switch and Game mode, and gains <b>Open the app →</b> to /app.</li></ul>
+      <ul class="notes"><li>These pages stay public and static, with no app sidebar.</li><li>The menu holds only Omni's pages again, since PRDs moved to the app's sidebar. The bar keeps its theme switch and Game mode, and gains <b>Open the app →</b> to /app.</li></ul>
     </div>
   </div>
 </section>
@@ -227,7 +227,7 @@
         <aside class="side">
           <div class="brand"><span class="crest"></span><span class="mark">OMNI LOOP</span></div>
           <div class="grp">WORK</div>
-          <div class="it">Home</div><div class="it cur">PRDs</div><div class="it">Questions</div><div class="it nest">For me</div><div class="it nest">History</div><div class="it">Knowledge</div>
+          <div class="it">Home</div><div class="it cur">PRDs</div><div class="it">Questions</div><div class="it nest">For me</div><div class="it nest">History</div><div class="it">Knowledge</div><div class="it">Fleets</div>
           <div class="grp">OMNI</div>
           <div class="it">Docs<span class="sp"></span><span class="out">↗</span></div><div class="it">Release notes<span class="sp"></span><span class="out">↗</span></div>
         </aside>
@@ -244,7 +244,7 @@
           <div class="pg"><div class="row"><b>terminal 2</b> · waiting</div><div class="row"><b>terminal 1</b> · answered</div></div>
           <div class="scrim"></div>
           <div class="drawer"><aside class="side">
-            <div class="grp">WORK</div><div class="it">Home</div><div class="it">PRDs</div><div class="it cur">Questions</div><div class="it nest">For me<span class="sp"></span><span class="count">3</span></div><div class="it nest">History</div><div class="it">Knowledge</div>
+            <div class="grp">WORK</div><div class="it">Home</div><div class="it">PRDs</div><div class="it cur">Questions</div><div class="it nest">For me<span class="sp"></span><span class="count">3</span></div><div class="it nest">History</div><div class="it">Knowledge</div><div class="it">Fleets</div>
             <div class="grp">OMNI</div><div class="it">Docs ↗</div><div class="it">Release notes ↗</div>
           </aside></div>
         </div>

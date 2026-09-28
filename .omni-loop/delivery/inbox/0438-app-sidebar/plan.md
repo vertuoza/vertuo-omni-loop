@@ -8,10 +8,10 @@ feature branch, with `Part of #438`.
 
 | id | slice | territory | blocked by | wave |
 | --- | --- | --- | --- | --- |
-| s1 | Every app page (`/app`, `/prd`, `/ask`, `/knowledge`) sits in one AppShell: the left sidebar (Work: Home, PRDs, Questions with For me and History, Knowledge; Omni: Docs ↗, Release notes ↗; the current item marked; the For me badge) and the top bar (the page's title, Omni/Light/Dark, Game mode). The old bars, the ask and prd bar links and /app's section cards are gone | `apps/galaxy/src/nav/sidebar` `apps/galaxy/src/nav/Sidebar` `apps/galaxy/src/nav/AppBar` `apps/galaxy/src/nav/app-bar` `apps/galaxy/src/nav/viewer` `apps/galaxy/src/nav/AppShell` `apps/galaxy/app/app/layout.tsx` `apps/galaxy/app/ask/layout.tsx` `apps/galaxy/app/prd/layout.tsx` `apps/galaxy/app/knowledge/layout.tsx` `apps/galaxy/src/ask/page/AskBar.tsx` `apps/galaxy/src/ask/page/ForMe.tsx` `apps/galaxy/src/ask/page/WorkspaceHistory.tsx` `apps/galaxy/src/ask/page/history-render.test.ts` `apps/galaxy/src/ask/page/share-render.test.ts` `apps/galaxy/src/ask/ask.css` `apps/galaxy/src/ask/page/history.css` `apps/galaxy/src/ask/page/share.css` `apps/galaxy/src/dossier/page/history.ts` `apps/galaxy/src/dossier/page/DossierHistory.tsx` `apps/galaxy/src/dossier/page/page.test.ts` `apps/galaxy/src/knowledge/KnowledgeScreen.tsx` `apps/galaxy/src/knowledge/render.test.ts` `apps/galaxy/src/knowledge/knowledge.css` `apps/galaxy/src/dashboard/` `apps/galaxy/src/switch/switch.ts` `apps/galaxy/src/switch/switch.test.ts` `apps/galaxy/src/switch/render.test.ts` `apps/galaxy/src/switch/headers.test.ts` | — | 1 |
+| s1 | Every app page (`/app`, `/prd`, `/ask`, `/knowledge`) sits in one AppShell: the left sidebar (Work: Home, PRDs, Questions with For me and History, Knowledge, Fleets; Omni: Docs ↗, Release notes ↗; the current item marked; the For me badge) and the top bar (the page's title, Omni/Light/Dark, Game mode). The old bars, the ask bar links and /app's section cards are gone | `apps/galaxy/src/nav/sidebar` `apps/galaxy/src/nav/Sidebar` `apps/galaxy/src/nav/AppBar` `apps/galaxy/src/nav/app-bar` `apps/galaxy/src/nav/viewer` `apps/galaxy/src/nav/AppShell` `apps/galaxy/app/app/layout.tsx` `apps/galaxy/app/ask/layout.tsx` `apps/galaxy/app/prd/layout.tsx` `apps/galaxy/app/knowledge/layout.tsx` `apps/galaxy/src/ask/page/AskBar.tsx` `apps/galaxy/src/ask/page/ForMe.tsx` `apps/galaxy/src/ask/page/WorkspaceHistory.tsx` `apps/galaxy/src/ask/page/history-render.test.ts` `apps/galaxy/src/ask/page/share-render.test.ts` `apps/galaxy/src/ask/ask.css` `apps/galaxy/src/ask/page/history.css` `apps/galaxy/src/ask/page/share.css` `apps/galaxy/src/dossier/page/history.ts` `apps/galaxy/src/dossier/page/DossierHistory.tsx` `apps/galaxy/src/dossier/page/page.test.ts` `apps/galaxy/src/knowledge/KnowledgeScreen.tsx` `apps/galaxy/src/knowledge/render.test.ts` `apps/galaxy/src/knowledge/knowledge.css` `apps/galaxy/src/dashboard/` `apps/galaxy/src/switch/switch.ts` `apps/galaxy/src/switch/switch.test.ts` `apps/galaxy/src/switch/render.test.ts` `apps/galaxy/src/switch/headers.test.ts` | — | 1 |
 | s2 | The top bar ends with you: signed in, the avatar opens the user menu (the name and login, then Sign out) following the menu-button pattern, and Sign out ends the session and lands on `/`. Signed out, **Sign in with GitHub** takes the avatar's place | `apps/galaxy/src/nav/UserMenu` `apps/galaxy/src/nav/user-menu` `apps/galaxy/src/nav/AppBar` `apps/galaxy/src/nav/app-bar` | s1 | 2 |
 | s3 | Below 900px the sidebar hides, the top bar gains ☰ and wraps the theme switch and Game mode to a second row, and ☰ opens the sidebar as a drawer that closes on Escape, a tap outside or choosing an item, with no sideways scroll | `apps/galaxy/src/nav/drawer` `apps/galaxy/src/nav/AppShell` `apps/galaxy/src/nav/AppBar` `apps/galaxy/src/nav/app-bar` `apps/galaxy/src/nav/Sidebar` `apps/galaxy/src/nav/sidebar` | s1, s2 | 3 |
-| s4 | The public bar on `/docs` and `/releases` gains **Open the app →** to `/app`, shown to everyone; its menu, theme switch and Game mode are unchanged | `apps/galaxy/src/nav/TopBar` `apps/galaxy/src/nav/menu.ts` `apps/galaxy/src/nav/nav.css` `apps/galaxy/src/switch/headers.test.ts` | s1 | 2 |
+| s4 | The public bar on `/docs` and `/releases` holds Omni's pages only (Release notes, Docs: PRDs leaves its menu) and gains **Open the app →** to `/app`, shown to everyone; its theme switch and Game mode are unchanged | `apps/galaxy/src/nav/TopBar` `apps/galaxy/src/nav/menu.ts` `apps/galaxy/src/nav/nav.css` `apps/galaxy/src/switch/headers.test.ts` | s1 | 2 |
 
 **Shared ground.**
 - `src/nav/AppBar` and `src/nav/app-bar` (the top bar and its stylesheet) are declared by s1, s2
@@ -26,14 +26,15 @@ feature branch, with `Part of #438`.
 **s1: the sidebar, the top bar and the shell**
 - `sidebar.test.ts` pins `SIDEBAR`:
   - Work: Home `/app`, PRDs `/prd`, Questions `/ask` with For me `/ask/for-me` and History
-    `/ask/history`, Knowledge `/knowledge`.
+    `/ask/history`, Knowledge `/knowledge`, Fleets `/app/fleets`.
   - Omni: Docs `/docs` and Release notes `/releases`, marked as leaving the app.
 - `currentItem` and `pageTitle` give:
 
   | Path | `currentItem` | `pageTitle` |
   | --- | --- | --- |
   | `/app` | home | Home |
-  | `/prd`, `/prd/<id>` | prds | PRDs |
+  | `/app/fleets` | fleets | Fleets |
+  | `/prd`, `/prd/<id>`, `/prd?who=all` | prds | PRDs |
   | `/ask`, `/ask/<session>`, `/ask/q/<round>` | questions | Questions |
   | `/ask/for-me` | for-me | Questions / For me |
   | `/ask/history` | history | Questions / History |
@@ -59,9 +60,9 @@ feature branch, with `Part of #438`.
   - `AskBar` is deleted.
 - The pages:
   - `/ask` shows no History or For me bar links.
-  - `/prd` shows no "All PRDs" link.
   - `/knowledge` draws no bar of its own, and shows its repository chip in its heading.
-  - `/app` renders the You block and the notes with no section cards. `Cards.tsx` and `SECTIONS`
+  - `/app` renders the You block and the notes with no section cards (My PRDs and Fleets
+    included). `Cards.tsx` and `SECTIONS`
     are deleted.
 - `pnpm test` is green.
 
@@ -92,7 +93,8 @@ feature branch, with `Part of #438`.
 **s4: the public bar**
 - `TopBar.test.ts`:
   - An **Open the app →** link to `/app`.
-  - The menu (Release notes, Docs), the theme switch and Game mode are still there.
+  - The menu reads Release notes then Docs: PRDs is gone.
+  - The theme switch and Game mode are still there.
 - `/docs` and `/releases` render no sidebar, and their layouts read no session.
 - `headers.test.ts` matches: the public bar on `/docs` and `/releases`, and the sidebar and top bar
   on the app pages.
