@@ -323,8 +323,12 @@ The markers never move: "you are here" is always under PRD, because a brainstorm
 its phase-0 PR open, and "merging the phase-0 PR moves it here" is always under inbox.
 
 **3. What is next?** Three short numbered steps, then the command alone on the reply's last line.
-Step 1 links the phase-0 PR. Its second line, in brackets, appears only when `/omni:dossier-push`
-printed a dossier link; otherwise step 1 is the phase-0 PR alone.
+Step 1 links the phase-0 PR, and its second line, in brackets, always gives the PRD's page. Run
+`node .omni-loop/bin/omni.mjs dossier link <n>`: exit `0` prints the page's link on one line, which
+is `<dossier link>` below. Anything else (`none`, `off`, `no sign-in (omni signin)`, `unreachable`,
+`refused (<status>)`, or exit `2` from a kit without the verb) means it has no page to show: the
+bracketed line is then `(PRD <n> has no page yet: https://github.com/<owner>/<repo>/issues/<n>)`.
+It never stops the hand-off.
 
 ```markdown
 **What is next?**

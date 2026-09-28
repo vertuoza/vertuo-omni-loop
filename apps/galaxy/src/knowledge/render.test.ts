@@ -118,8 +118,8 @@ describe('the top bar, in every state of the page', () => {
     expect(bar(view)).toMatch(/<a class="ask-mark" href="\/app">OMNI LOOP<\/a><span class="ask-brand-sub">Knowledge map<\/span>/);
   });
 
-  it.each(states)('%s: keeps the star chart, then ends with Release notes, Docs, the theme switch and Game mode (PRD 346)', (_, view) => {
-    expect(controls(bar(view))).toEqual(['OMNI LOOP', 'Open the star chart →', 'Release notes', 'Docs', 'Omni', 'Light', 'Dark', 'Game mode']);
+  it.each(states)('%s: keeps the star chart, then ends with PRDs, Release notes, Docs, the theme switch and Game mode (PRD 346, 413)', (_, view) => {
+    expect(controls(bar(view))).toEqual(['OMNI LOOP', 'Open the star chart →', 'PRDs', 'Release notes', 'Docs', 'Omni', 'Light', 'Dark', 'Game mode']);
     expect(bar(view)).toMatch(/<a class="km-chart" href="\/#chart">/);
     expect(bar(view)).toMatch(/<dialog [^>]*class="game-mode-dialog"/);
   });
