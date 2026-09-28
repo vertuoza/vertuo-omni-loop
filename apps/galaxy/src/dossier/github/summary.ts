@@ -15,6 +15,25 @@ export type IssueRef = { number: number; url: string; state: 'open' | 'closed' }
  * closed, unmerged one counts as absent). `draft` is GitHub's, and only means something while open. */
 export type PullRef = { number: number; url: string; state: 'open' | 'merged'; draft: boolean };
 
+/** An open outbox item, as the Outbox tab shows it: its rank, the question and the decision in plain
+ * words, and its options (A, the one built, first); a human-action item has person steps instead. */
+export type OutboxItem = {
+  id: string;
+  rank: 'human-action' | 'high' | 'medium';
+  question: string;
+  decision: string | null;
+  options: { letter: string; text: string }[];
+  personSteps: string | null;
+};
+
+/** A settled outbox entry, in the order settled.md holds it: its title (the item's question in plain
+ * words, else its id), its verdict and the answer as it was given. */
+export type SettledItem = { id: string; title: string; verdict: string; answer: string };
+
+/** The PRD's outbox: the open items and the settled ones, from the feature branch before shipping and
+ * from the shipped folder after. */
+export type Outbox = { open: OutboxItem[]; settled: SettledItem[] };
+
 export type GithubSummary = {
   /** The dossier's home repository, `owner/name`. */
   repo: string;
@@ -28,4 +47,8 @@ export type GithubSummary = {
   retro: Read<PullRef | null>;
   /** The sub-PRs merged into the feature branch. */
   mergedSlices: Read<number>;
+  /** The outbox (PRD 426, s2); null when there is none yet. Left out by a summary made before it. */
+  outbox?: Read<Outbox | null>;
+  /** The feature PR's outbox comment, found by its marker; null when there is none. */
+  outboxComment?: Read<string | null>;
 };
