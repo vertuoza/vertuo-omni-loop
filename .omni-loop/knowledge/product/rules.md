@@ -535,3 +535,51 @@ Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-27
 Merged: @pierrederval, 2026-09-27, PR #263
 Proposed: harvest 2026-09-27
+
+## BR-PRODUCT-46
+
+A fleet's mascot is one of six keys held in a database list: beaver, octopus, duck, spy, pirate or invincible hero. The commander, the enemy, the plain heroes and the small icons are refused.
+
+Serves: P-PRODUCT-43
+Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-01-mascot-choices, PRD #400
+Enforced by: unenforced
+Stated: 2026-09-28
+Decided: nobody — adopted when raised (medium), 2026-09-28
+Merged: @pierrederval, 2026-09-28, PR #403
+Proposed: harvest 2026-09-28
+
+## BR-PRODUCT-47
+
+A new fleet's key is its label lowercased, with each run of non-letters and non-digits turned into a dash (c-i-a). When that key is already taken, even by a retired fleet, a number is added (beaver-2).
+
+Serves: P-PRODUCT-44
+Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-03-fleet-key-from-label, PRD #400
+Enforced by: unenforced
+Stated: 2026-09-28
+Decided: nobody — adopted when raised (medium), 2026-09-28
+Merged: @pierrederval, 2026-09-28, PR #403
+Proposed: harvest 2026-09-28
+
+## BR-PRODUCT-48
+
+When a workspace has no fleets, the arcade menu keeps its FLEETS entry, hinted as no fleets yet, and it opens the invitation screen instead of the empty fleets wall; the Hall of Heroes fleet column and TOP FLEETS are hidden.
+
+Serves: P-PRODUCT-45
+Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-01-fleets-menu-with-none, PRD #400
+Enforced by: unenforced
+Stated: 2026-09-28
+Decided: nobody — adopted when raised (medium), 2026-09-28
+Merged: @pierrederval, 2026-09-28, PR #403
+Proposed: harvest 2026-09-28
+
+## BR-PRODUCT-49
+
+A player whose fleet was retired is sent to pick a fleet only while at least one fleet in the workspace is active. When none is, they count as ready, go straight to the menu under the retired fleet's name, and their stored fleet stays unchanged.
+
+Serves: P-PRODUCT-46
+Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-02-disbanded-with-no-fleets, PRD #400
+Enforced by: unenforced
+Stated: 2026-09-28
+Decided: nobody — adopted when raised (medium), 2026-09-28
+Merged: @pierrederval, 2026-09-28, PR #403
+Proposed: harvest 2026-09-28

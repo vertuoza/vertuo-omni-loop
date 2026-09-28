@@ -369,3 +369,39 @@ Why: Keyboard and assistive-technology users must be able to rely on Enter activ
 Source: .omni-loop/delivery/shipped/0261-home/outbox/settled.md, entry s3-02-enter-on-focused-controls, PRD #261
 Merged: @pierrederval, 2026-09-27, PR #263
 Proposed: harvest 2026-09-27
+
+## P-PRODUCT-43
+
+An owner can only pick a fleet mascot from a fixed list of fleet characters the game already draws; arbitrary keys are never stored.
+
+Why: Rejecting unknown keys at the database means the app never has to guess or fall back to a stand-in picture.
+Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-01-mascot-choices, PRD #400
+Merged: @pierrederval, 2026-09-28, PR #403
+Proposed: harvest 2026-09-28
+
+## P-PRODUCT-44
+
+A fleet's key never changes once made and never names more than one fleet, retired fleets included.
+
+Why: Anything that points at a fleet by its key must keep reaching that fleet and never be silently redirected to a newer one.
+Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-03-fleet-key-from-label, PRD #400
+Merged: @pierrederval, 2026-09-28, PR #403
+Proposed: harvest 2026-09-28
+
+## P-PRODUCT-45
+
+In the game, a person can always reach the way forward from an empty state; hiding an empty view never hides the invitation to fill it.
+
+Why: If both the fleet step and the menu entry vanished, owners and members would never learn how to set fleets up.
+Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-01-fleets-menu-with-none, PRD #400
+Merged: @pierrederval, 2026-09-28, PR #403
+Proposed: harvest 2026-09-28
+
+## P-PRODUCT-46
+
+In the game, a player is never left on a screen with no way forward; when no choice exists, they play on as they are.
+
+Why: A pick screen with nothing to pick is a dead end, and a fleet is optional, so blocking play there would lock a player out.
+Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-02-disbanded-with-no-fleets, PRD #400
+Merged: @pierrederval, 2026-09-28, PR #403
+Proposed: harvest 2026-09-28
