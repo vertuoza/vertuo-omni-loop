@@ -1,5 +1,6 @@
-// PRD #324, slices s1 and s4: the status line's lines, drawn from what was read — the context bar and
-// its colours, the 5-hour usage, `ask on`, the PRD line and the no-PRD line, the width and `NO_COLOR`.
+// PRD #324, slices s1, s4 and s6: the status line's lines, drawn from what was read — the context bar
+// and its colours, the 5-hour usage, `ask on`, the PRD line with its slices and the no-PRD line, the
+// width and `NO_COLOR`.
 import { describe, expect, it } from 'vitest';
 import {
   columnsOf,
@@ -12,6 +13,7 @@ import {
   renderLines,
   resetIn,
   sessionLine,
+  slicesPart,
   usagePart,
   visibleLength,
 } from './render.mjs';
@@ -271,6 +273,79 @@ describe('line 2: the PRD', () => {
       expect(line).not.toContain('\x1b');
       if (columns < 63) expect(line).toMatch(/^PRD 324 statusl[^ ]*… · s4 · /);
       else expect(line).toBe('PRD 324 statusline-for-claude-code · s4 · outbox · 3 open items');
+    }
+  });
+});
+
+describe('line 2: the slices, from the board (slice s6)', () => {
+  const slice = (id, wave, state) => ({ id, wave, state });
+  /** Five slices over four waves: three merged, the lowest wave not all merged is 2. */
+  const FIVE = [slice('s1', 1, 'merged'), slice('s2', 1, 'merged'), slice('s3', 2, 'merged'), slice('s4', 2, 'runnable'), slice('s5', 4, 'blocked')];
+  const HELP = { number: 315, topic: 'help-and-status', slice: null, stage: 'outbox', openItems: 2 };
+
+  it('reads the lowest wave not all merged, the highest wave, and the slices merged', () => {
+    expect(slicesPart(FIVE)).toBe('wave 2 of 4 · 3/5 slices merged');
+    expect(slicesPart([slice('s1', 1, 'runnable'), slice('s2', 3, 'blocked')])).toBe('wave 1 of 3 · 0/2 slices merged');
+  });
+
+  it('adds the slices in flight, counting `in-flight` and `claimed-stale`', () => {
+    expect(slicesPart([...FIVE.slice(0, 3), slice('s4', 2, 'in-flight'), slice('s5', 4, 'blocked')])).toBe('wave 2 of 4 · 3/5 slices merged, 1 in flight');
+    expect(slicesPart([...FIVE.slice(0, 3), slice('s4', 2, 'in-flight'), slice('s5', 2, 'claimed-stale')])).toBe('wave 2 of 2 · 3/5 slices merged, 2 in flight');
+  });
+
+  it('adds the slices stuck, in red unless colour is off', () => {
+    const stuck = [...FIVE.slice(0, 3), slice('s4', 2, 'stuck'), slice('s5', 4, 'blocked')];
+    expect(slicesPart(stuck)).toBe('wave 2 of 4 · 3/5 slices merged, 1 stuck');
+    expect(slicesPart(stuck, { color: true })).toBe(`wave 2 of 4 · 3/5 slices merged, ${RED}1 stuck${RESET}`);
+  });
+
+  it('says in flight before stuck, each only when not zero', () => {
+    const both = [...FIVE.slice(0, 3), slice('s4', 2, 'claimed-stale'), slice('s5', 4, 'stuck')];
+    expect(slicesPart(both)).toBe('wave 2 of 4 · 3/5 slices merged, 1 in flight, 1 stuck');
+    expect(slicesPart(FIVE)).not.toMatch(/in flight|stuck/);
+  });
+
+  it('reads `all slices merged` when every slice is merged', () => {
+    expect(slicesPart([slice('s1', 1, 'merged'), slice('s2', 2, 'merged')], { color: true })).toBe('all slices merged');
+  });
+
+  it('is left out without a board, or with a board of no slices', () => {
+    expect(slicesPart(null)).toBeNull();
+    expect(slicesPart(undefined)).toBeNull();
+    expect(slicesPart([])).toBeNull();
+  });
+
+  it('sits in the outbox line after the stage and before the open items', () => {
+    const stuck = [...FIVE.slice(0, 3), slice('s4', 2, 'stuck'), slice('s5', 4, 'blocked')];
+    expect(prdLine({ ...HELP, slices: stuck })).toBe('PRD 315 help-and-status · outbox · wave 2 of 4 · 3/5 slices merged, 1 stuck · 2 open items');
+    expect(prdLine({ ...HELP, slice: 's2', openItems: 0, slices: FIVE })).toBe('PRD 315 help-and-status · s2 · outbox · wave 2 of 4 · 3/5 slices merged');
+    expect(prdLine({ ...HELP, slices: null })).toBe('PRD 315 help-and-status · outbox · 2 open items');
+  });
+
+  it('shows the slices in the outbox only', () => {
+    expect(prdLine({ ...HELP, stage: 'inbox', openItems: 0, slices: FIVE })).toBe('PRD 315 help-and-status · inbox');
+    expect(prdLine({ ...HELP, stage: 'shipped', slices: FIVE })).toBe('PRD 315 help-and-status · shipped');
+    expect(prdLine({ ...HELP, stage: 'in review', slices: FIVE })).toBe('PRD 315 help-and-status · in review');
+  });
+
+  it('colours the stuck count in the printed line, and nothing under NO_COLOR', () => {
+    const facts = { installed: true, askOn: false, prd: { ...HELP, slices: [slice('s1', 1, 'merged'), slice('s2', 2, 'stuck')] } };
+    const [, coloured] = renderLines({ input: INPUT, facts, env: { COLUMNS: '200' }, now: NOW });
+    expect(coloured).toBe(`PRD 315 help-and-status · outbox · wave 2 of 2 · 1/2 slices merged, ${RED}1 stuck${RESET} · 2 open items`);
+    const [, plain] = renderLines({ input: INPUT, facts, env: { COLUMNS: '200', NO_COLOR: '1' }, now: NOW });
+    expect(plain).toBe('PRD 315 help-and-status · outbox · wave 2 of 2 · 1/2 slices merged, 1 stuck · 2 open items');
+  });
+
+  it.each([40, 80, 200])('fits the line with its slices within COLUMNS=%i, the topic cut first, colour codes not counted', (columns) => {
+    const facts = { installed: true, askOn: false, prd: { ...HELP, slices: [slice('s1', 1, 'merged'), slice('s2', 2, 'stuck')] } };
+    const full = 'PRD 315 help-and-status · outbox · wave 2 of 2 · 1/2 slices merged, 1 stuck · 2 open items';
+    for (const env of [{ COLUMNS: String(columns) }, { COLUMNS: String(columns), NO_COLOR: '1' }]) {
+      const [, line] = renderLines({ input: INPUT, facts, env, now: NOW });
+      expect(visibleLength(line)).toBeLessThanOrEqual(columns);
+      const shown = line.replace(/\x1b\[[0-9;]*m/g, '');
+      if (columns >= full.length) expect(shown).toBe(full);
+      else expect(shown.startsWith('PRD 315 help-an… · outbox · wave 2 of 2')).toBe(true);
+      if (columns === 80) expect(shown).toBe('PRD 315 help-an… · outbox · wave 2 of 2 · 1/2 slices merged, 1 stuck · 2 open i…');
     }
   });
 });
