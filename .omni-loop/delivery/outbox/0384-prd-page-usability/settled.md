@@ -391,3 +391,236 @@ One line; undoing it is putting the old expected link back.
 ```
 
 <!-- /omni-outbox-settled: s3-02-render-test-follows-the-new-link -->
+
+<!-- omni-outbox-settled: s4-01-page-frame-hands-the-database-to-the-list -->
+
+## s4-01-page-frame-hands-the-database-to-the-list — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-page-frame-hands-the-database-to-the-list
+prd: 384
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 4
+---
+
+## The question, in plain words
+
+The one-click buttons need to know where to send the answer, and the page frame that holds the question list is not among this slice's files. May this slice pass that along through the frame?
+
+## The decision, in plain words
+
+Yes: the page frame now hands the list the same connection it already gives the delete button, one added line, and nothing else in it changed.
+
+## The intro, for fun
+
+The buttons were ready to talk, but the phone line ran through a room they had no key to.
+
+## The punchline, for fun
+
+One extension cord later, the call goes through.
+
+## The options, in plain words
+
+A. A. Pass the connection through the page frame: what was built; one line, the list answers through the same connection as the delete button.
+B. B. Carry the connection inside the page's computed view instead: no change to the frame, but settings would mix into what is meant to be plain page data.
+C. C. Show no buttons until a later slice owns the frame: nothing outside the slice changes, but the one-click answer would not work.
+
+## What I had to decide
+
+Whether the page frame, which no slice of this wave declares for this work, may pass the database connection down to the question list.
+
+## What I did meanwhile
+
+The page frame passes its existing connection to the question list; with no database, as in the demo, the list shows no buttons.
+
+## What it costs to change later
+
+One line in the page frame; undoing it is removing the pass-through and finding another way to reach the list.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan names the question list and the one-click piece for this slice, but not the page frame between them, which slice s5 declared in wave 1.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-page-frame-hands-the-database-to-the-list -->
+
+<!-- omni-outbox-settled: s4-02-buttons-off-without-script -->
+
+## s4-02-buttons-off-without-script — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-buttons-off-without-script
+prd: 384
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 4
+---
+
+## The question, in plain words
+
+With scripts turned off, should a quick question still show its one-click buttons, even though a click cannot send anything?
+
+## The decision, in plain words
+
+The buttons still show but stay greyed out until the page's script is running; without a script, the link to the question's own page is the way to answer.
+
+## The intro, for fun
+
+A doorbell that is not wired yet still looks like a doorbell.
+
+## The punchline, for fun
+
+So it stays greyed out until the wiring arrives, and the side door is right there.
+
+## The options, in plain words
+
+A. A. Show the buttons greyed out until the script runs: what was built; the page does not jump when the buttons switch on.
+B. B. Hide the buttons until the script runs, and show the plain option list instead: nothing on screen that cannot be clicked, but the round changes shape once loaded.
+
+## What I had to decide
+
+How a quick question looks before, or without, the page's script: the buttons hidden, shown but off, or shown and dead.
+
+## What I did meanwhile
+
+The buttons render greyed out on the server and switch on once the script runs; the link to the question's own page is always there.
+
+## What it costs to change later
+
+One condition in the one-click piece; hiding them instead is a small change to that piece and its test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a quick question with no script shows its link, but not whether the buttons should be hidden or shown greyed out.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-buttons-off-without-script -->
+
+<!-- omni-outbox-settled: s4-03-list-ignores-ask-mode-switched-off -->
+
+## s4-03-list-ignores-ask-mode-switched-off — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s4
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-list-ignores-ask-mode-switched-off
+prd: 384
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 4
+---
+
+## The question, in plain words
+
+If ask mode is switched off while a quick question is still waiting, should the list keep offering the one-click buttons until the question's time is up?
+
+## The decision, in plain words
+
+Yes for now: the list reads only whether the question is open and has time left, so buttons stay until it moves to the terminal, while the question's own page already says the session is closed.
+
+## The intro, for fun
+
+The shop put the closed sign up, but the side window still takes orders for a few minutes.
+
+## The punchline, for fun
+
+Nobody is at the counter to read them, though.
+
+## The options, in plain words
+
+A. A. Offer buttons on open questions with time left, as built: no extra read, a rare answer may land in a closed session.
+B. B. Also read each question's session on the server and hide buttons once it is closed: one more read per page view.
+C. C. Add the session's state to the database's question list: exact, but a migration, which this PRD rules out.
+
+## What I had to decide
+
+Whether the list must also know whether the question's session was switched off, which the list's data does not carry today.
+
+## What I did meanwhile
+
+A quick question of a session switched off keeps its buttons until its time is up; an answer sent then is recorded but nobody in the terminal reads it.
+
+## What it costs to change later
+
+Knowing it means the list reading each session's state, one more small read on the server, or one more column from the database's question list, which is a migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) How often ask mode is switched off while a question still waits on a page someone has open (author).
+
+```
+
+<!-- /omni-outbox-settled: s4-03-list-ignores-ask-mode-switched-off -->
