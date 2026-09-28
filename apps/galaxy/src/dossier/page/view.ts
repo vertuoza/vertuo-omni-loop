@@ -10,12 +10,15 @@
 // asked: each question with the options it shows (PRD 384: an answered one only what was chosen, an
 // open one every option, a moved one none), the answer, who answered and after how long, its category
 // (PRD 144), and whether the brainstorm or the delivery asked it. Its label counts the rounds answered
-// out of those asked.
+// out of those asked. Each round links to its own page with the dossier it came from
+// (`/ask/q/<round>?from=<dossier id>`), and `wayBack` says where that page goes once it is answered:
+// back to this Questions tab, at the next round still open.
 import { readQuestions, shownLabel } from '../../ask/answer-model';
 import { CATEGORY_LABELS, isCategory, type Category } from '../../ask/classify';
 import { nameOf, type Member } from '../../ask/page/question';
 import { duration } from '../../ask/page/view';
 import { isDossierKind, type DossierKind, type DossierRoundRow, type DossierRow, type DossierVersionRow, type RoundRule } from '../store';
+import { isDossierId } from './source';
 
 /** The page's tabs: an artifact's, or the questions that shaped it. */
 export type DossierTab = DossierKind | 'questions';
@@ -145,7 +148,7 @@ export type RoundQuestion = {
 export type RoundEntry = {
   id: string;
   rule: RoundRule;
-  /** The question on its own page, where any member may change its category. */
+  /** The question on its own page, where any member may change its category, carrying the dossier it came from. */
   href: string;
   questions: RoundQuestion[];
   /** `answered by Pierre after 1 min 35 s, on the page`, `moved to the terminal, no answer recorded`, or `not answered yet`. */
@@ -211,15 +214,20 @@ function outcomeOf(row: DossierRoundRow, members: Member[]): string {
   return row.status === 'abandoned' ? 'moved to the terminal, no answer recorded' : 'not answered yet';
 }
 
-const askedOrder = (a: DossierRoundRow, b: DossierRoundRow) =>
+type Asked = Pick<DossierRoundRow, 'round_id' | 'created_at'>;
+const askedOrder = (a: Asked, b: Asked) =>
   Date.parse(a.created_at) - Date.parse(b.created_at) || a.round_id.localeCompare(b.round_id);
 
-export function questionsView(rows: DossierRoundRow[] | null, members: Member[]): QuestionsView {
+/** A round's own page, carrying the dossier it is opened from, so that page can bring the person back. */
+export const roundPath = (roundId: string, dossierId: string) =>
+  `/ask/q/${encodeURIComponent(roundId)}?from=${encodeURIComponent(dossierId)}`;
+
+export function questionsView(rows: DossierRoundRow[] | null, members: Member[], dossierId: string): QuestionsView {
   if (rows === null) return { rounds: null, asked: 0, answered: 0 };
   const rounds = [...rows].sort(askedOrder).map((row): RoundEntry => ({
     id: row.round_id,
     rule: row.rule,
-    href: `/ask/q/${encodeURIComponent(row.round_id)}`,
+    href: roundPath(row.round_id, dossierId),
     questions: roundQuestions(row),
     outcome: outcomeOf(row, members),
     asked: `asked by ${nameOf(row.asked_by, members)} · ${stamp(row.created_at)}`,
@@ -235,7 +243,7 @@ export function dossierView({ dossier, versions, members, rounds, repos }: Dossi
   const fallback = defaultTab(rounds);
   const tab = pick.tab ?? fallback;
   const mine = tab === 'questions' ? [] : ofKind(tab);
-  const questions = questionsView(rounds, members);
+  const questions = questionsView(rounds, members, dossier.id);
   const badgeOf = (kind: DossierTab) => {
     if (kind !== 'questions') return ofKind(kind).length ? `v${ofKind(kind).length}` : null;
     return questions.asked ? `${questions.answered}/${questions.asked} answered` : null;
@@ -274,4 +282,26 @@ export function dossierView({ dossier, versions, members, rounds, repos }: Dossi
     shown: entries.find((e) => e.current) ?? null,
     questions,
   };
+}
+
+/** What the way back from a round's own page needs: the `from` it was opened with (null: none), the
+ * round's session and id, and the rounds of that dossier as read after the answer (null: not read). */
+export type WayBack = {
+  from: string | null;
+  sessionId: string;
+  roundId: string;
+  rounds: readonly Pick<DossierRoundRow, 'round_id' | 'status' | 'created_at'>[] | null;
+};
+
+/** Where the question page goes once its round is answered (PRD 384): the dossier's Questions tab at
+ * the first round still open in the order asked (`/prd/<id>?tab=questions#<round>`), or that tab alone
+ * when none is left; the ask page of the round's session when `from` names no dossier, so the
+ * parameter can never send anyone to another site. */
+export function wayBack({ from, sessionId, roundId, rounds }: WayBack): string {
+  if (from === null || !isDossierId(from)) return `/ask/${encodeURIComponent(sessionId)}`;
+  const tab = `${dossierPath(from)}?tab=questions`;
+  const next = [...(rounds ?? [])]
+    .filter((row) => row.status === 'open' && row.round_id !== roundId)
+    .sort(askedOrder)[0];
+  return next ? `${tab}#${encodeURIComponent(next.round_id)}` : tab;
 }

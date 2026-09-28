@@ -3,6 +3,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { createBrowserClient } from '@supabase/ssr';
 import { emptyDraft, roundAnswers, type Draft } from '../answer-model';
 import type { Category } from '../classify';
+import { backAfterSend, dossierRoundsReader, noRounds } from './back';
 import { CategoryChip } from './CategoryChip';
 import { ContextLine } from './ContextLine';
 import { demoQuestionPort } from './demo';
@@ -17,17 +18,26 @@ import { categoryChip, contextParts, minutesLeft, withCategory } from './view';
 // owner and the member it is shared with answer it here, with the session's earlier rounds below for
 // context and the time left before the question moves to the terminal; any other member reads it.
 // Once answered, whoever comes second reads who answered first, with the answer. Read again every 2 s
-// while the tab is visible, until it is answered, moved or closed.
+// while the tab is visible, until it is answered, moved or closed. Once this person's answer is read
+// back, the page goes back where it came from (PRD 384, src/ask/page/back.ts): the PRD page it was
+// opened from, at its next open round, or the session's ask page.
 
 export type QuestionSource = { kind: 'database'; url: string; key: string } | { kind: 'demo' };
 
-type Props = { source: QuestionSource; initial: QuestionState; serverNow: number; me: string | null; members: Member[] };
+type Props = {
+  source: QuestionSource; initial: QuestionState; serverNow: number; me: string | null; members: Member[];
+  /** The dossier the page was opened from (`?from=`), as given: back.ts ignores anything that is no dossier id. */
+  from?: string | null;
+};
 
 function makePort(source: QuestionSource, seed: QuestionState): QuestionPort {
   return source.kind === 'demo' ? demoQuestionPort(seed) : questionPort(createBrowserClient(source.url, source.key), seed.round.id);
 }
 
-export function AskQuestion({ source, initial, serverNow, me, members }: Props) {
+const roundsOf = (source: QuestionSource) =>
+  source.kind === 'demo' ? noRounds : dossierRoundsReader(createBrowserClient(source.url, source.key));
+
+export function AskQuestion({ source, initial, serverNow, me, members, from = null }: Props) {
   const [state, setState] = useState(initial);
   const [offset] = useState(() => serverNow - Date.now());
   const [now, setNow] = useState(serverNow);
@@ -80,14 +90,19 @@ export function AskQuestion({ source, initial, serverNow, me, members }: Props) 
       await getPort().send(state.round.id, answers);
       // Answered, or someone came first: either way the next read says who.
       const next = await getPort().read();
+      const at = clock();
       if (next) setState(next);
-      setNow(clock());
+      setNow(at);
+      const target = next && await backAfterSend({
+        view: questionView(next, me, members, at), from, sessionId: next.session.id, roundId: next.round.id, readRounds: roundsOf(source),
+      });
+      if (target) window.location.assign(target);
     } catch {
       setProblem('Your answer did not go through. Check your connection and send it again.');
     } finally {
       setSending(false);
     }
-  }, [answers, sending, getPort, state.round.id, clock]);
+  }, [answers, sending, getPort, state.round.id, clock, me, members, from, source]);
 
   const onSort = useCallback(async (category: Category | null) => {
     setSorting(true);

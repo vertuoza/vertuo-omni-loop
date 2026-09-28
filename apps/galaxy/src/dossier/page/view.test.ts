@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
-import { dossierView, readPick, sandboxPath, shortDay, stamp, versionSource } from './view';
+import { dossierView, readPick, sandboxPath, shortDay, stamp, versionSource, wayBack } from './view';
 
 // /prd/<id> (PRD 216), as pure functions of the rows the viewer may read, the workspace's members and
 // what the address picks: the header, the tabs, each artifact's versions, newest first, and the
@@ -275,7 +275,7 @@ describe('the Questions tab', () => {
 
   it('names who asked it and when, its category, where it came from, and links to the question', () => {
     const [first, second, third, fourth] = questions().questions.rounds ?? [];
-    expect(first).toMatchObject({ asked: 'asked by Pierre · 27 Sep 2026, 09:15 UTC', category: 'UX/UI', categoryValue: 'ux-ui', href: '/ask/q/r1' });
+    expect(first).toMatchObject({ asked: 'asked by Pierre · 27 Sep 2026, 09:15 UTC', category: 'UX/UI', categoryValue: 'ux-ui', href: `/ask/q/r1?from=${ID}` });
     expect(second).toMatchObject({ category: 'Harness', categoryValue: 'harness' });
     expect(third).toMatchObject({ asked: 'asked by marie@vertuoza.com · 28 Sep 2026, 08:00 UTC', category: 'unsorted', categoryValue: null });
     expect(third.context).toEqual(['vertuoza/vertuo-omni-loop', 'feat/prd-dossiers--s3', 'PRD #216', '/omni:do-work']);
@@ -325,5 +325,34 @@ describe('the words', () => {
 
   it('builds the sandboxed route of a version', () => {
     expect(sandboxPath(ID, 3)).toBe(`/prd/${ID}/v/3/page`);
+  });
+});
+
+describe('the way back from a question answered on its own page (PRD 384)', () => {
+  const SESSION = '00000000-0000-4000-8000-0000000000a5';
+  const back = (from: string | null, asked: DossierRoundRow[] | null = rounds, roundId = 'r1') => wayBack({ from, sessionId: SESSION, roundId, rounds: asked });
+
+  it('goes to the Questions tab of the dossier it came from, at the next round still open', () => {
+    expect(back(ID)).toBe(`/prd/${ID}?tab=questions#r4`);
+  });
+
+  it('picks the first round still open in the order asked, never the one just answered', () => {
+    const early = round('r0', 'brainstorm', '2026-09-27T09:00:00Z');
+    const answeredNow = round('r5', 'brainstorm', '2026-09-27T08:00:00Z');
+    expect(back(ID, [...rounds, early, answeredNow], 'r5')).toBe(`/prd/${ID}?tab=questions#r0`);
+  });
+
+  it('goes to the Questions tab alone when no round is left open, or the rounds cannot be read', () => {
+    const settled = rounds.filter((r) => r.status !== 'open');
+    expect(back(ID, settled)).toBe(`/prd/${ID}?tab=questions`);
+    expect(back(ID, [])).toBe(`/prd/${ID}?tab=questions`);
+    expect(back(ID, null)).toBe(`/prd/${ID}?tab=questions`);
+  });
+
+  it("goes to the ask page of the question's session when it came from no dossier", () => {
+    expect(back(null)).toBe(`/ask/${SESSION}`);
+    for (const from of ['', 'https://evil.example/prd', '//evil.example', `${ID}/../x`, 'not-a-dossier']) {
+      expect(back(from), from).toBe(`/ask/${SESSION}`);
+    }
   });
 });
