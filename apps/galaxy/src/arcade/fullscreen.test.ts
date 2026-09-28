@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { ESC_AFTER_LEAVING_MS, fullscreenFor, type FullscreenPage, type FullscreenPress } from './fullscreen';
+import type { Form } from './form';
 import type { SceneName } from './scenes/common.ts';
 
 const key = (k: string, scene: SceneName = 'menu', more: Partial<{ modified: boolean; repeat: boolean }> = {}): FullscreenPress =>
   ({ kind: 'key', key: k, scene, modified: false, repeat: false, ...more });
 const tap: FullscreenPress = { kind: 'pointer' };
+const toggle: FullscreenPress = { kind: 'toggle' };
 
 /**
  * A page as a browser shows it: every request is recorded, a granted one enters or leaves at once,
  * and `refuse` makes it refuse the way a browser does (a rejected promise, or a throw).
  */
-function fakePage({ enabled = true, refuse = null as null | 'reject' | 'throw', api = true } = {}) {
+function fakePage({ enabled = true, refuse = null as null | 'reject' | 'throw', api = true, form = 'handheld' as Form } = {}) {
   const asked: string[] = [];
   let clock = 0;
   const page: FullscreenPage & { fullscreenElement: unknown } = {
@@ -34,7 +36,7 @@ function fakePage({ enabled = true, refuse = null as null | 'reject' | 'throw', 
       return Promise.resolve();
     };
   }
-  const fs = fullscreenFor(page, () => clock);
+  const fs = fullscreenFor(page, () => clock, () => form);
   return {
     fs, asked,
     /** Time passes. */
@@ -47,7 +49,7 @@ function fakePage({ enabled = true, refuse = null as null | 'reject' | 'throw', 
 /** Lets a rejected promise surface: a refusal left unhandled would fail the run here. */
 const settle = () => new Promise((r) => setTimeout(r, 0));
 
-describe('fullscreen, asked on the first press of each page load', () => {
+describe('fullscreen, asked on the first press of each page load on a phone (handheld and advance)', () => {
   it('asks on the first key press, and the key still counts for the game', () => {
     const p = fakePage();
     expect(p.fs.press(key('Enter', 'boot'))).toBe(false);
@@ -111,6 +113,16 @@ describe('fullscreen, asked on the first press of each page load', () => {
     p.leave();
     expect(p.fs.press(key('f', 'menu', { repeat: true }))).toBe(true);
     expect(p.fs.press(key('f', 'menu', { modified: true }))).toBe(false);
+    expect(p.asked).toEqual(['enter']);
+  });
+
+  it('asks on the first press on advance too, and not again after the player leaves', () => {
+    const p = fakePage({ form: 'advance' });
+    p.fs.press(tap);
+    p.leave();
+    p.wait(2000);
+    p.fs.press(tap);
+    p.fs.press(key('Enter'));
     expect(p.asked).toEqual(['enter']);
   });
 
@@ -197,5 +209,77 @@ describe('a refused request is ignored silently', () => {
     expect(() => p.fs.press(tap)).not.toThrow();
     expect(p.fs.press(key('f'))).toBe(false);
     expect(p.asked).toEqual([]);
+  });
+});
+
+describe('on desktop (full), no press asks for fullscreen on its own', () => {
+  it('asks nothing on the first key press, click or touch press, nor on any later one', () => {
+    const p = fakePage({ form: 'full' });
+    expect(p.fs.press(key('Enter', 'boot'))).toBe(false);
+    expect(p.fs.press(tap)).toBe(false);
+    p.fs.press(key('ArrowDown'));
+    p.wait(2000);
+    p.fs.press(tap);
+    expect(p.fs.press(key('Escape'))).toBe(false); // never fullscreen: Esc is B
+    expect(p.asked).toEqual([]);
+  });
+
+  it('still toggles on F, and the Esc that leaves is never also B', () => {
+    const p = fakePage({ form: 'full' });
+    expect(p.fs.press(key('f'))).toBe(true);
+    expect(p.asked).toEqual(['enter']);
+    expect(p.fs.press(key('Escape'))).toBe(true);
+    expect(p.asked).toEqual(['enter', 'exit']);
+    p.fs.press(tap);
+    expect(p.asked).toEqual(['enter', 'exit']);
+  });
+
+  it('lets F type an F on the name screen', () => {
+    const p = fakePage({ form: 'full' });
+    expect(p.fs.press(key('f', 'name'))).toBe(false);
+    expect(p.asked).toEqual([]);
+  });
+
+  it('reads the form at each press: a desktop press asks nothing, the next press as a phone asks', () => {
+    let form: Form = 'full';
+    const asked: string[] = [];
+    const page: FullscreenPage = {
+      fullscreenEnabled: true,
+      fullscreenElement: null,
+      documentElement: { requestFullscreen: () => { asked.push('enter'); } },
+    };
+    const fs = fullscreenFor(page, () => 0, () => form);
+    fs.press(tap);
+    expect(asked).toEqual([]);
+    form = 'handheld';
+    fs.press(tap);
+    expect(asked).toEqual(['enter']);
+  });
+});
+
+describe('the toggle press (the full-screen button)', () => {
+  it('enters when off and leaves when on, and is spent', () => {
+    const p = fakePage({ form: 'full' });
+    expect(p.fs.press(toggle)).toBe(true);
+    expect(p.asked).toEqual(['enter']);
+    expect(p.fs.press(toggle)).toBe(true);
+    expect(p.asked).toEqual(['enter', 'exit']);
+  });
+
+  it('works on a phone too, and counts as the first press there', () => {
+    const p = fakePage();
+    p.fs.press(toggle);
+    p.leave();
+    p.wait(2000);
+    p.fs.press(tap);
+    expect(p.asked).toEqual(['enter']);
+  });
+
+  it('asks nothing where fullscreen is not allowed', () => {
+    const p = fakePage({ form: 'full', enabled: false });
+    expect(p.fs.press(toggle)).toBe(false);
+    const q = fakePage({ form: 'full', api: false });
+    expect(q.fs.press(toggle)).toBe(false);
+    expect([...p.asked, ...q.asked]).toEqual([]);
   });
 });
