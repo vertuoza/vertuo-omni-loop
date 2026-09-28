@@ -77,6 +77,39 @@ describe('outbox-check — the three steps', () => {
   });
 });
 
+describe('outbox-check — silent where the loop is not installed (PRD 359)', () => {
+  const inactiveGitHub = () => featureGitHub({ commits: { base1: fixture('base-inactive'), head1: fixture('head-open') } });
+
+  it('a pull request on a repository without .omni-loop posts no check and no comment', async () => {
+    const github = inactiveGitHub();
+    const { ctx, result } = await engine(github).execute();
+    expect(ctx.step.run.mock.calls.map(([id]) => id)).toEqual(['in-progress']);
+    expect(result).toEqual({ posted: false, reason: 'omni-loop is not active on this repo' });
+    expect(github.state.checkRuns).toEqual([]);
+    expect(github.state.comments).toEqual([]);
+    const writes = github.state.requests.filter((r) => r.route.startsWith('POST ') || r.route.startsWith('PATCH '));
+    expect(writes).toEqual([]);
+  });
+
+  it('a broken config still gets its check: omni-loop is installed there, and says what is wrong', async () => {
+    const github = featureGitHub({ commits: { base1: fixture('base-broken'), head1: fixture('head-open') } });
+    await engine(github).execute();
+    expect(github.state.checkRuns).toHaveLength(1);
+    expect(github.state.checkRuns[0]).toMatchObject({ status: 'completed', conclusion: 'failure' });
+  });
+
+  it('the failure handler posts nothing either on a repository without .omni-loop', async () => {
+    const github = inactiveGitHub();
+    const handler = createFailureHandler({ octokitFor: () => github.octokit });
+    const out = await handler({
+      event: { name: 'inngest/function.failed', data: { event: event(), error: { message: 'boom' } } },
+      error: new Error('boom'),
+    });
+    expect(out).toEqual({ posted: false, reason: 'omni-loop is not active on this repo' });
+    expect(github.state.checkRuns).toEqual([]);
+  });
+});
+
 describe('outbox-check — the function’s configuration', () => {
   it('is triggered by the event /api/github sends', () => {
     expect(outboxCheck.id()).toBe(FUNCTION_ID);

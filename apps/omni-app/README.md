@@ -1,13 +1,15 @@
 # omni-loop — the GitHub App behind the outbox check, the retro and the knowledge harvest
 
-`apps/omni-app` is the webhook server of **omni-loop**, a private GitHub App owned by the vertuoza org
-(PRD 28). It does three jobs: the **outbox check** on every pull request, and, after every feature pull
-request merges, a **retro** (PRD 72) and a **knowledge harvest** (PRD 82), below. Once the app is installed on a repository, every pull
+`apps/omni-app` is the webhook server of **omni-loop**, a public GitHub App owned by the vertuoza org
+(PRD 28; public since PRD 359, so anyone can install it and a workspace is born from the installation).
+It does three jobs: the **outbox check** on every pull request, and, after every feature pull
+request merges, a **retro** (PRD 72) and a **knowledge harvest** (PRD 82), below. Once the app is
+installed on a repository that has the loop (a `.omni-loop/config.yml` on the base branch), every pull
 request carries one check run named **outbox** (shown as **omni-loop · outbox**):
 
 | Situation | Conclusion |
 |---|---|
-| No `.omni-loop/config.yml` on the base branch | `skipped` — omni-loop is not active on this repo |
+| No `.omni-loop/config.yml` on the base branch | no check run and no comment: the app stays silent |
 | Not a feature PR (sub-PR, other branch, no PRD folder) | `skipped` — omni-loop is not active on this PR |
 | Outbox clear | `success` |
 | Open items, unreworked drift or unaccounted risky changes | `failure` |
@@ -77,9 +79,11 @@ GitHub ── pull_request / check_run.rerequested ──▶ /api/github    veri
              every other handled action   → omni-loop/outbox.check.requested
 Inngest ──▶ /api/inngest   function "outbox-check" (debounced per repo + PR)
               step "in-progress"  create the check run, in_progress, on the head SHA
+                                  (no base config: stop here, post nothing)
               step "evaluate"     snapshot base config + head delivery folder into /tmp, evaluate
               step "publish"      complete the check run; rewrite the outbox comment unless the head moved on
             onFailure          complete the check run as failure — never left in_progress
+                               (no base config: post nothing)
 Inngest ──▶ /api/inngest   function "retro" (one at a time per repository)
               step "qualify"          the config at the merge SHA; a feature PR; its PRD folder
               step "gather-pulls"     the sub-PRs into the feature branch
@@ -131,10 +135,11 @@ replay PRD 50 as GitHub returned it (`test/fixtures/prd-50/`), offline.
 
 None of these is taken by the code; a person does each once.
 
-1. **Register and install the app.** An org admin registers the app from [`app.yml`](app.yml) (private
-   to vertuoza) and installs it on `vertuoza/vertuo-omni-loop`. Check that the manifest's host matches
-   the Vercel project's production domain (step 2) before registering; the webhook URL can also be
-   corrected later in the app's settings. Keep the app's private key; it is shown once. In the app's
+1. **Register and install the app.** An org admin registers the app from [`app.yml`](app.yml) and
+   installs it on `vertuoza/vertuo-omni-loop`. Check that the manifest's hosts match the production
+   domains before registering: `url` and the webhook this app's Vercel project (step 2), `setup_url`
+   galaxy's. Both can also be corrected later in the app's settings. Keep the app's private key; it
+   is shown once. In the app's
    settings, upload [`assets/logo.png`](assets/logo.png) as the logo (OmniMan landing on a planet,
    drawn from `@omni/sprites`) and set the badge background colour to `#07061c`.
 2. **Create the Vercel project** for `apps/omni-app` (root directory `apps/omni-app`, its own project,
@@ -157,6 +162,27 @@ None of these is taken by the code; a person does each once.
    > remedy is to remove the requirement in branch protection — never to fake a status. Inngest's run
    > history shows whether a run was attempted.
 5. **Labels.** Run `npx github:vertuoza/vertuo-omni-loop init` in the repository: it creates the missing `omni:*` labels.
+
+### Making the app public — human steps (PRD 359)
+
+None of these is taken by the code. Until they are done, only the vertuoza org can install the app,
+and GitHub sends no installer to galaxy's sign-up.
+
+1. **Make the app public.** In the app's settings (Advanced → Danger zone), make it public. Anyone can
+   then install it on the repositories they pick; the installation carries the outbox check, the retro
+   and the harvest, with `contents: write` on those repositories only. Its permissions and events do
+   not change.
+2. **Set the setup URL** to galaxy's `https://<galaxy's production domain>/signup/installed`
+   (Post installation → Setup URL, the manifest's `setup_url`).
+   GitHub sends the installer there with `installation_id` and `setup_action` (`install`, or `request`
+   when they are not the org's admin); galaxy checks the installation and creates the workspace.
+3. **Give galaxy the app's identity:** the same app id and private key, and the app's slug, in
+   galaxy's Vercel project (galaxy's README lists the variable names).
+4. **To roll back,** make the app private again from the same settings page. GitHub may first ask
+   for the installations on other accounts to be removed.
+
+A repository that installs the app without the loop gets nothing from it: no check run, no comment,
+no retro, no harvest.
 
 ### The retro — human steps (PRD 72)
 
@@ -194,4 +220,4 @@ environment.
 
 With the app installed on this repository, PRD 28's acceptance criteria 1–6 are re-run by hand on a
 feature PR: red with an open item, green once settled, neutral under `omni:outbox-go`, skipped on a sub-PR,
-skipped on a repository without `.omni-loop/config.yml`, re-evaluated by **Re-run**.
+nothing at all on a repository without `.omni-loop/config.yml` (PRD 359), re-evaluated by **Re-run**.
