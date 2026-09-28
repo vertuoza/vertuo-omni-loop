@@ -1,6 +1,8 @@
-/* The app's top bar (PRD 438): the page's title on the left, the theme switch and Game mode on the
-   right. Every colour is a token of src/ask/theme-tokens.ts, so Omni, light and dark follow the
-   theme switch. Its end wraps rather than push the page sideways. */
+/* The app's top bar (PRD 438): the page's title on the left, the theme switch and Game mode, then
+   you, on the right. Every colour is a token of src/ask/theme-tokens.ts, so Omni, light and dark
+   follow the theme switch. Its end wraps rather than push the page sideways.
+   Below 900 px (src/nav/drawer.ts) the sidebar is a drawer: the first row holds ☰, the crest, the
+   title and you; the theme switch and Game mode wrap to a second row. */
 
 .app-bar {
   display: flex;
@@ -18,10 +20,52 @@
   color: var(--ask-ink);
   overflow-wrap: anywhere;
 }
-.app-bar-end {
+.app-bar-view {
   display: inline-flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
   margin-left: auto;
+}
+.app-bar-you {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ☰ and the crest are the phone's: the sidebar holds the crest from 900 px. */
+.app-bar-menu,
+.app-bar-crest { display: none; }
+
+.app-bar-menu {
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1.5px solid var(--ask-line);
+  border-radius: 6px;
+  background: var(--ask-surface);
+  color: var(--ask-ink);
+  font: 700 18px/1 var(--ask-body);
+  cursor: pointer;
+}
+.app-bar-menu[aria-expanded='true'] { border-color: var(--ask-ink); }
+.ask a.app-bar-crest { align-items: center; line-height: 0; text-decoration: none; }
+
+@media (max-width: 899.98px) {
+  .app-bar {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'menu crest title you'
+      'view view view view';
+    column-gap: 10px;
+    row-gap: 10px;
+  }
+  .app-bar-menu { display: inline-grid; grid-area: menu; }
+  .ask a.app-bar-crest { display: inline-flex; grid-area: crest; }
+  .app-bar-title { grid-area: title; min-width: 0; }
+  .app-bar-you { grid-area: you; justify-self: end; }
+  .app-bar-view { grid-area: view; margin-left: 0; }
 }

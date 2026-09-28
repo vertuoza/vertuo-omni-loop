@@ -28,7 +28,7 @@ beforeEach(() => {
 describe('the sidebar', () => {
   it('opens with the crest and OMNI LOOP, linked to /app', () => {
     const html = render();
-    expect(html).toMatch(/^<aside class="app-sidebar" aria-label="Sidebar">/);
+    expect(html).toMatch(/^<aside class="app-sidebar" id="app-sidebar" aria-label="Sidebar">/);
     expect(links(html)[0]).toMatchObject({ text: 'OMNI LOOP' });
     expect(links(html)[0].attrs).toContain('href="/app"');
   });
@@ -87,6 +87,12 @@ describe('the sidebar', () => {
     expect(html.match(/leaves the app/g)).toHaveLength(2);
   });
 
+  it('is closed as a drawer until ☰ opens it: no scrim, no open mark', () => {
+    const html = render();
+    expect(html).not.toContain('app-drawer-scrim');
+    expect(html).not.toContain('data-open');
+  });
+
   it('names each group\'s list by the group', () => {
     const html = render();
     expect(html).toMatch(/<p class="app-sidebar-label" id="app-sidebar-work">Work<\/p><ul class="app-sidebar-items" aria-labelledby="app-sidebar-work">/);
@@ -101,5 +107,11 @@ describe('its stylesheet', () => {
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
     expect(css).not.toMatch(/\b(?:rgba?|hsla?|oklch|color-mix)\(/i);
     expect(css).not.toMatch(/(?<![\w-])(?:white|black)(?![\w-])/);
+  });
+
+  it('hides the sidebar below 900px unless the drawer is open, and never lets it scroll the page sideways', () => {
+    const phone = css.slice(css.indexOf('@media (max-width: 899.98px)'));
+    expect(phone).toMatch(/\.app-shell > \.app-sidebar\s*\{[^}]*display:\s*none/);
+    expect(phone).toMatch(/\.app-shell > \.app-sidebar\[data-open\]\s*\{[^}]*position:\s*fixed[^}]*max-width:\s*calc\(100vw - \d+px\)/);
   });
 });

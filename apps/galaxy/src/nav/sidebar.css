@@ -1,13 +1,13 @@
 /* The app shell (PRD 438): the sidebar on the left, the top bar and the page to its right. Drawn on
    the ask pages' reading surface: every colour is a token of src/ask/theme-tokens.ts (the --ask-*
    properties the ask root carries, per theme), so Omni, light and dark follow the theme switch. The
-   shell adds no colour of its own. Below 900 px the sidebar sits above the page, full width, until
-   the phone drawer replaces it. */
+   shell adds no colour of its own. Below 900 px (src/nav/drawer.ts) the sidebar hides, and the top
+   bar's ☰ opens it as a drawer over the page, never wider than the screen. */
 
 .ask.app-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto 1fr;
 }
 
 .app-sidebar {
@@ -18,6 +18,23 @@
   border-bottom: 1px solid var(--ask-line);
   background: var(--ask-surface);
   min-width: 0;
+}
+
+@media (max-width: 899.98px) {
+  .app-shell > .app-sidebar { display: none; }
+  .app-shell > .app-sidebar[data-open] {
+    display: grid;
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    width: 280px;
+    max-width: calc(100vw - 48px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-left: max(16px, env(safe-area-inset-left));
+    border-bottom: 0;
+    border-right: 1px solid var(--ask-line);
+  }
 }
 
 @media (min-width: 900px) {
