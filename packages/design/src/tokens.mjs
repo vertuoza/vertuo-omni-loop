@@ -64,6 +64,9 @@ export const ASK = Object.freeze({
     surface: ARCADE.cab,
     sunk: INK.deep,
     line: INK.navyDark,
+    // What outlines a chip, a card or a control (PRD 476): 3:1 on ground, surface and sunk, where
+    // `line` stays the quiet divider.
+    lineStrong: '#5a60c4',
     ink: INK.white,
     muted: ARCADE.dim,
     // The signal is comic yellow with the void's text on it, as HOME's PRESS START.
@@ -84,6 +87,7 @@ export const ASK = Object.freeze({
     surface: '#ffffff',
     sunk: '#eceaf8',
     line: '#d9d6ee',
+    lineStrong: '#85819f',
     ink: '#17153d',
     muted: '#4f5486',
     plasma: INK.plasmaDark,
@@ -100,6 +104,7 @@ export const ASK = Object.freeze({
     surface: '#16144a',
     sunk: '#1d1a58',
     line: '#2f2c78',
+    lineStrong: '#6d6acc',
     ink: INK.white,
     muted: '#a9aee6',
     plasma: '#b37cff',
@@ -143,6 +148,9 @@ export const ASK_UI_PAIRS = Object.freeze([
   { text: 'plasma', on: 'surface', where: 'the selected option\'s edge' },
   { text: 'plasma', on: 'plasmaSoft', where: 'the selected option\'s edge, inside' },
   { text: 'muted', on: 'surface', where: 'an empty checkbox or radio' },
+  { text: 'lineStrong', on: 'ground', where: 'a chip, a badge, a control or the tab bar on the page' },
+  { text: 'lineStrong', on: 'surface', where: 'a card or a control on a card' },
+  { text: 'lineStrong', on: 'sunk', where: 'a chip or a key cap on the sunk panel' },
 ]);
 
 function luminance(hex) {
