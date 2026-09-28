@@ -8,14 +8,18 @@
 
 /* ── The header box (PRD 476): the title row with its actions, the facts strip, the tabs ── */
 
+/* Edge to edge (PRD 498): no box on the page but the page's top. Negative margins against .ask-main's
+   padding pull it up to the top bar (28 px, .ask-main's top padding in src/ask/ask.css) and out to the
+   sidebar and the window's right edge (the page gutter, --ask-gutter, declared in ask.css); the rows keep
+   the gutter as their padding, so the title and the tabs line up with the content below. */
 .dossier-head {
   display: grid;
   gap: 14px;
   min-width: 0;
-  padding: 16px 18px 0;
+  margin: -28px calc(-1 * var(--ask-gutter, 16px)) 0;
+  padding: 16px var(--ask-gutter, 16px) 0;
   background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line-strong);
-  border-radius: 12px;
+  border-bottom: 1.5px solid var(--ask-line-strong);
 }
 /* Pinned while the page scrolls, from where the sidebar stops being a drawer (src/nav/drawer.ts) and on
    a screen tall enough to keep the box under about a third of it; below either, it scrolls away. Above
@@ -122,13 +126,13 @@
 .dossier-delete { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .dossier-copy .ask-share-link { flex: 1 1 260px; }
 
-/* ── The artifact tabs, on the box's bottom edge: links, the current one underlined ── */
+/* ── The artifact tabs, on the header's bottom edge, their rule across its full width: links, the current one underlined ── */
 
 .dossier-tabs {
   display: flex;
   gap: 4px;
-  margin: 0 -18px;
-  padding: 0 8px;
+  margin: 0 calc(-1 * var(--ask-gutter, 16px));
+  padding: 0 max(0px, calc(var(--ask-gutter, 16px) - 14px));
   border-top: 1px solid var(--ask-line-strong);
   overflow-x: auto;
   scrollbar-width: thin;
@@ -331,7 +335,7 @@
 
 /* ── The history, /prd: the filters and the search, then a card per dossier, newest activity first ── */
 
-.dossier-history { max-width: 880px; }
+.dossier-history { width: 100%; }
 .dossier-history-filters {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -386,8 +390,7 @@
   .dossier-title { font-size: 23px; }
   .ask a.dossier-history-row { padding: 12px 14px; }
   .dossier-actions { justify-content: flex-start; }
-  .dossier-head { padding: 14px 14px 0; }
-  .dossier-tabs { margin: 0 -14px; }
+  .dossier-head { padding-top: 14px; }
   .dossier-facts { display: grid; gap: 12px; margin: 0; clip-path: none; }
   .dossier-fact { padding: 0; border-left: 0; }
   .dossier-frame iframe { height: 70vh; min-height: 360px; }
