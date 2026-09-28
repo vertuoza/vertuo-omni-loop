@@ -71,6 +71,11 @@ describe('badgeOf', () => {
     expect(badgeOf('for-me', counts)).toBe(1);
   });
 
+  it('gives PRDs the Outbox part', () => {
+    expect(badgeOf('prds', counts)).toBe(2);
+    expect(badgeOf('prds', { ...counts, outbox: 0 })).toBeNull();
+  });
+
   it('gives no badge at 0, nor to an item that counts nothing', () => {
     expect(badgeOf('questions', { ...counts, questions: 0 })).toBeNull();
     expect(badgeOf('for-me', { ...counts, shared: 0 })).toBeNull();

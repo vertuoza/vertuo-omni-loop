@@ -13,8 +13,8 @@ import './drawer.css';
 // The app's sidebar (PRD 438), on /app, /prd, /ask and /knowledge: the crest and OMNI LOOP, linked to
 // /app, the workspace's name under it, then the Work group and the Omni group (src/nav/sidebar.ts).
 // The item the page falls under carries aria-current="page"; Questions and Shared with me carry how
-// many questions wait there, live from the waiting provider (PRD 499); Docs and Release notes say they
-// leave the app.
+// many questions wait there, and PRDs how many outbox items, live from the waiting provider (PRD 499);
+// Docs and Release notes say they leave the app.
 // Below 900 px it is the phone drawer: hidden until the top bar's ☰ opens it over the page, a scrim
 // behind it. Escape, a tap on the scrim or choosing an item closes it (src/nav/drawer-context.tsx).
 

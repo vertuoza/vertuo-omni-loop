@@ -88,9 +88,9 @@ export function pageTitle(pathname: string | null | undefined): string | null {
   return entry.parent ? `${entry.parent.label} / ${entry.item.label}` : entry.item.label;
 }
 
-/** The badge an item carries: Questions the Questions part, Shared with me the shared questions; null
- * at 0, and for an item that counts nothing. */
+/** The badge an item carries: Questions the Questions part, Shared with me the shared questions, PRDs
+ * the Outbox part; null at 0, and for an item that counts nothing. */
 export function badgeOf(id: SidebarId, counts: WaitingCounts): number | null {
-  const count = id === 'questions' ? counts.questions : id === 'for-me' ? counts.shared : 0;
+  const count = id === 'questions' ? counts.questions : id === 'for-me' ? counts.shared : id === 'prds' ? counts.outbox : 0;
   return count > 0 ? count : null;
 }
