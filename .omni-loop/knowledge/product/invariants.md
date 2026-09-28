@@ -57,7 +57,7 @@ Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-6
 
-omni init never writes a file outside .omni-loop/. When a kept config puts the playbook elsewhere, it writes no knowledge forms, says so in its closing message and leaves them to /omni:terraform, which runs omni kb init.
+omni init writes no file in the repository outside .omni-loop/ and the statusLine key of .claude/settings.json; it also creates a branch, commits, pushes and opens a pull request with what it wrote, and installs the Claude Code plugin on the computer it runs on. When a kept config puts the playbook elsewhere, it writes no knowledge forms, says so in its closing message and leaves them to /omni:terraform, which runs omni kb init.
 
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s4-04-install-writes-no-form-outside-its-folder, PRD #45
 Enforced by: unenforced

@@ -251,3 +251,12 @@ Why: An outage would otherwise tell real members their account is wrong, and RLS
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s5-02-out-of-reach-is-not-outsider, PRD #100
 Merged: @pierrederval, 2026-09-26, PR #101
 Proposed: harvest 2026-09-26
+
+## P-PRODUCT-29
+
+A page open to visitors without an account never shows a workspace's own data, such as its teams or fleets.
+
+Why: Public pages can be seen by anyone, so showing a customer's teams there would expose them to people outside the workspace.
+Source: .omni-loop/delivery/shipped/0141-design-system/outbox/settled.md, entry s6-01-design-page-shows-the-built-in-fleets, PRD #141
+Merged: @pierrederval, 2026-09-26, PR #153
+Proposed: harvest 2026-09-26
