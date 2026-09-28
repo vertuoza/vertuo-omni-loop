@@ -5,9 +5,10 @@ description: Shows where the repository's PRDs stand, on one screen — how many
 
 # Status: where the PRDs are
 
-`omni` below is `node .omni-loop/bin/omni.mjs`. This skill only runs `omni status` with no PRD
-number, the repository's overview, and prints what it printed. It changes nothing. It never runs the
-outbox gate, which is `omni status` given one PRD's number: the skills that ship run that one.
+`omni` below is `node .omni-loop/bin/omni.mjs`. This skill runs `omni status` with no PRD number,
+the repository's overview, and prints what it printed, then `omni dossier link` for the pages of
+the PRDs still in progress that are yours. It changes nothing. It never runs the outbox gate, which
+is `omni status` given one PRD's number: the skills that ship run that one.
 
 The overview reads git only, on this computer: the default branch as it was last fetched, and the
 feature and phase-0 branches fetched beside it. It never calls GitHub, and its header says when the
@@ -39,9 +40,20 @@ Add nothing else to either line.
 
 | exit | what you do |
 |---|---|
-| `0` | Print its output as is, in a text block (below). A first line `fetch failed: …; showing your last fetch` is part of it: the fetch did not work, and the overview is as old as its header says. Add nothing but the one line **Input** asks for. |
+| `0` | Print its output as is, in a text block (below). A first line `fetch failed: …; showing your last fetch` is part of it: the fetch did not work, and the overview is as old as its header says. Add nothing but the one line **Input** asks for and the pages below. |
 | `2` | It printed one line on stderr: print it as is and stop. One naming `--fetch` means this checkout has fetched no default branch and holds none of its own: say that `/omni:status --fetch` fetches it first, and never fetch for them. Any other line: the kit is not installed here, or its config does not read. |
 | anything else | The command failed. Print its first line as is and stop. With no `.omni-loop/bin/omni.mjs` in this repository, the kit is not installed here. |
+
+## The pages of your PRDs
+
+Under the text block, give the page of each PRD the overview lists as yours that is still in the
+inbox or the outbox, one line each, in the order the overview lists them; a shipped one gets none.
+When they gave a PRD number, that PRD gets its line too, first, whatever its stage. For each `<n>`,
+run `node .omni-loop/bin/omni.mjs dossier link <n>`: exit `0` prints the page's link on one line, so
+the line is `PRD <n>: <link>`. Anything else (`none`, `off`, `no sign-in (omni signin)`,
+`unreachable`, `refused (<status>)`, or exit `2` from a kit without the verb) means it has no page
+to show: the line is `PRD <n>: no page yet, https://github.com/<owner>/<repo>/issues/<n>`. None of
+these lines goes inside the block, and none of them stops the skill.
 
 ## The text block
 
