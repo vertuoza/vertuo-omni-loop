@@ -6,7 +6,9 @@ import { filtered, HISTORY_PATH, historyAddress, type HistoryFilters, type Histo
 // title, its repository chips, which artifacts it has and how many versions of each, its questions
 // answered out of asked, and its last activity. Every title is text: React escapes it. PRD 413: Mine / All,
 // two links at the head of the filters that keep every other filter; the form carries who=all under All so
-// filtering stays there, and Clear keeps it; an empty Mine points to All at the same address.
+// filtering stays there, and Clear keeps it; an empty Mine points to All at the same address. PRD 251: a
+// row shows its outbox's open questions as the Outbox tab counts them (`Outbox 2 open`), and the
+// Needs an answer box keeps only those rows.
 
 type Choices = { repos: string[] };
 type Option = { value: string; label: string };
@@ -50,6 +52,10 @@ function Filters({ choices, filters }: { choices: Choices; filters: HistoryFilte
         name="state" label="Draft or PRD" any="Drafts and PRDs" value={filters.state}
         options={[{ value: 'draft', label: 'Drafts' }, { value: 'prd', label: 'PRDs' }]}
       />
+      <label className="dossier-history-field">
+        <span className="ask-hint">Outbox</span>
+        <span><input type="checkbox" name="needs" value="answer" defaultChecked={filters.needsAnswer === true} /> Needs an answer</span>
+      </label>
       <p className="dossier-history-actions">
         <button type="submit" className="ask-button">Filter</button>
         {filtered(filters) && <a className="dossier-history-clear" href={historyAddress({ who: filters.who })}>Clear</a>}
@@ -75,6 +81,7 @@ function Row({ item }: { item: HistoryItem }) {
               ? <span className="ask-hint">no artifact yet</span>
               : item.artifacts.map((a) => <span key={a.kind} className="dossier-history-artifact">{a.label} <small>{a.badge}</small></span>)}
           </span>
+          {item.open && <span className="dossier-history-artifact dossier-history-open">Outbox <small>{item.open}</small></span>}
           <span className="ask-hint">{item.questions}</span>
           <time className="ask-hint" dateTime={item.at}>{item.activity}</time>
         </span>
