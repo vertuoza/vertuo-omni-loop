@@ -131,18 +131,42 @@ git pull
 
 The loop reads `.omni-loop/` from the default branch, so nothing below works until it is merged.
 
-### A shortcut for the omni command
+### Put omni on your PATH
 
 The kit's command is the file `.omni-loop/bin/omni.mjs`, run with Node. These pages write it
-`omni`. To type it that way too, add a shortcut in the terminal you work in:
+`omni`. Paste this block once on your laptop, in a terminal, so you can type it that way from any
+folder of your repository, in every terminal you open from now on:
 
 ```bash terminal
-alias omni='node .omni-loop/bin/omni.mjs'
+mkdir -p ~/.local/bin
+cat > ~/.local/bin/omni <<'EOF'
+#!/bin/sh
+root=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$root" ] || [ ! -f "$root/.omni-loop/bin/omni.mjs" ]; then
+  echo "omni: no Omni Loop kit here (.omni-loop/bin/omni.mjs). cd into a repository that has it." >&2
+  exit 2
+fi
+exec node "$root/.omni-loop/bin/omni.mjs" "$@"
+EOF
+chmod +x ~/.local/bin/omni
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+exec zsh
 ```
 
-It works from the root of your repository. Add the same line to `~/.zshrc` (or `~/.bashrc`) to keep
-it in every new terminal. Without the shortcut, type `node .omni-loop/bin/omni.mjs` wherever these
-pages say `omni`.
+It writes a small script, `~/.local/bin/omni`, that finds the repository you are in and runs that
+repository's own copy of the kit: `omni` always matches the kit version the repository has, and
+nothing is installed globally. It then adds `~/.local/bin` to your PATH in `~/.zshrc` and restarts
+the shell. If your terminal runs bash rather than zsh, write `~/.bashrc` in place of `~/.zshrc` and
+`exec bash` in place of `exec zsh`.
+
+Check it from any folder of your repository:
+
+```bash terminal agent
+omni help
+```
+
+It prints the loop in one screen. When it says `command not found: omni`, see
+[When something goes wrong](/docs/troubleshooting).
 
 ## 3. In Claude Code
 

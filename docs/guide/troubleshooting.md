@@ -6,8 +6,12 @@ description: The errors a first run meets, and their fix.
 The errors below are the ones a first run meets. Each one shows what you see, word for word where
 the kit prints it, then why it happens and how to fix it.
 
-On this page, `omni` is short for `node .omni-loop/bin/omni.mjs`, run from the root of your
-repository. The code blocks spell it out in full, so you can paste them as they are.
+## `command not found: omni`
+
+Your terminal does not know the `omni` command yet (zsh says `zsh: command not found: omni`). Either
+the "Put omni on your PATH" step of [Install](/docs/install) was skipped, or this terminal was
+opened before it ran. Open a new terminal and try again; if it still says so, do that step: it is
+one block, pasted once per laptop.
 
 ## `omni config` fails: the kit is not installed
 
@@ -15,14 +19,14 @@ Every skill starts by running `omni config`. When it fails, Claude stops at once
 line that the repository is not installed. Run it yourself to see why:
 
 ```bash terminal agent
-node .omni-loop/bin/omni.mjs config
+omni config
 ```
 
 It prints the repository's settings when all is well. Otherwise, one of three things:
 
-- **`Error: Cannot find module '…/.omni-loop/bin/omni.mjs'`**. There is no kit where you ran it.
-  Either you are not at the root of the repository (run `cd` to the folder holding `.omni-loop/`,
-  and open Claude Code there), or the kit is not on the branch you have checked out. The install
+- **`omni: no Omni Loop kit here (.omni-loop/bin/omni.mjs). cd into a repository that has it.`**
+  There is no kit where you ran it. Either you are not inside the repository (`cd` into it, and
+  open Claude Code at its root), or the kit is not on the branch you have checked out. The install
   pull request must be merged, and your checkout up to date:
 
   ```bash terminal agent
@@ -74,7 +78,7 @@ this computer has not signed in to the Omni Loop app yet, or its sign-in has exp
 Sign in once, yourself, in a terminal at the root of the repository:
 
 ```bash terminal agent
-node .omni-loop/bin/omni.mjs signin
+omni signin
 ```
 
 It opens your browser. Sign in there with the GitHub account your invite was sent to, and the
