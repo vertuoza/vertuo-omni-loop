@@ -1,0 +1,552 @@
+{
+  "prd": 384,
+  "runs": [
+    {
+      "featurePr": {
+        "mergeSha": "ae8230858377471f9a033c445841dc787976d097",
+        "mergedAt": "2026-09-28T10:40:30Z",
+        "number": 386,
+        "openedAt": "2026-09-28T09:16:14Z",
+        "title": "feat(galaxy): the PRD page is easier to use (PRD 384)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/386"
+      },
+      "findings": [
+        {
+          "evidence": [
+            {
+              "label": "#388",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/388/files"
+            }
+          ],
+          "happened": "Slice s1 changed 1 path outside its territory and off the plan’s shared ground: `apps/galaxy/src/dossier/page/VersionPicker.tsx`.",
+          "id": "territory:s1",
+          "kind": "territory",
+          "ref": "F1",
+          "source": "delivery",
+          "title": "Slice s1 changed files outside its territory"
+        },
+        {
+          "evidence": [
+            {
+              "label": "#393",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/393/files"
+            }
+          ],
+          "happened": "Slice s4 changed 1 path outside its territory and off the plan’s shared ground: `apps/galaxy/src/dossier/page/DossierPage.tsx`.",
+          "id": "territory:s4",
+          "kind": "territory",
+          "ref": "F2",
+          "source": "delivery",
+          "title": "Slice s4 changed files outside its territory"
+        }
+      ],
+      "kinds": {
+        "churn": {
+          "added": 1288,
+          "churn": 24,
+          "commits": 19,
+          "files": [
+            {
+              "added": 159,
+              "churn": 15,
+              "commits": 5,
+              "finalAdded": 144,
+              "path": "apps/galaxy/src/dossier/page/view.ts",
+              "percent": 10
+            },
+            {
+              "added": 186,
+              "churn": 5,
+              "commits": 6,
+              "finalAdded": 181,
+              "path": "apps/galaxy/src/dossier/page/view.test.ts",
+              "percent": 3
+            },
+            {
+              "added": 33,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 31,
+              "path": "apps/galaxy/src/dossier/page/QuestionsPane.tsx",
+              "percent": 6
+            },
+            {
+              "added": 10,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 9,
+              "path": "apps/galaxy/app/prd/[id]/page.tsx",
+              "percent": 11
+            },
+            {
+              "added": 155,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 154,
+              "path": "apps/galaxy/src/dossier/page/source.test.ts",
+              "percent": 1
+            }
+          ],
+          "finalAdded": 1264,
+          "leftOut": {
+            "delivery": [
+              ".omni-loop/delivery/outbox/0384-prd-page-usability/s1-01-version-picker-keeps-every-tab.md",
+              ".omni-loop/delivery/outbox/0384-prd-page-usability/s2-01-answered-question-drops-repeat-lines.md",
+              ".omni-loop/delivery/outbox/0384-prd-page-usability/s3-01-no-anchor-on-the-list-yet.md",
+              ".omni-loop/delivery/outbox/0384-prd-page-usability/s3-02-render-test-follows-the-new-link.md",
+              ".omni-loop/delivery/outbox/0384-prd-page-usability/s4-01-page-frame-hands-the-database-to-the-list.md",
+              ".omni-loop/delivery/outbox/0384-prd-page-usability/s4-02-buttons-off-without-script.md",
+              ".omni-loop/delivery/outbox/0384-prd-page-usability/s4-03-list-ignores-ask-mode-switched-off.md",
+              ".omni-loop/delivery/outbox/0384-prd-page-usability/s5-01-moved-round-refresh.md"
+            ],
+            "generated": [],
+            "lockfile": []
+          },
+          "noPatch": [],
+          "notCounted": [],
+          "pulls": 5,
+          "ranges": [],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [],
+          "redRuns": [],
+          "slices": [
+            "s1",
+            "s5",
+            "s2",
+            "s3",
+            "s4"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 0,
+            "commits": 0,
+            "red": 0,
+            "runs": 0,
+            "slices": 0
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 8,
+            "agreed": 0,
+            "byRank": {
+              "medium": 8
+            },
+            "drifted": 0,
+            "drifts": [],
+            "file": ".omni-loop/delivery/shipped/0384-prd-page-usability/outbox/settled.md",
+            "raised": 8,
+            "reworked": 0
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "stuck": 0
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  388
+                ],
+                "slice": "s1",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  389
+                ],
+                "slice": "s5",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  390
+                ],
+                "slice": "s2",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  391
+                ],
+                "slice": "s3",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  393
+                ],
+                "slice": "s4",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 6,
+              "red": 0,
+              "reviews": 0,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 0,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 386,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/386"
+              },
+              {
+                "pr": 388,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/388"
+              },
+              {
+                "pr": 389,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s5",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/389"
+              },
+              {
+                "pr": 390,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s2",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/390"
+              },
+              {
+                "pr": 391,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s3",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/391"
+              },
+              {
+                "pr": 393,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s4",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/393"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 2,
+              "graded": 5,
+              "shared": 1,
+              "unplanned": 0,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [
+                  "apps/galaxy/src/dossier/page/VersionPicker.tsx"
+                ],
+                "files": 5,
+                "pr": 388,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/388"
+              },
+              {
+                "breaches": [],
+                "files": 11,
+                "pr": 389,
+                "shared": [],
+                "slice": "s5",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/389"
+              },
+              {
+                "breaches": [],
+                "files": 6,
+                "pr": 390,
+                "shared": [],
+                "slice": "s2",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/390"
+              },
+              {
+                "breaches": [],
+                "files": 9,
+                "pr": 391,
+                "shared": [
+                  "apps/galaxy/src/dossier/page/render.test.ts"
+                ],
+                "slice": "s3",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/391"
+              },
+              {
+                "breaches": [
+                  "apps/galaxy/src/dossier/page/DossierPage.tsx"
+                ],
+                "files": 15,
+                "pr": 393,
+                "shared": [],
+                "slice": "s4",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/393"
+              }
+            ],
+            "reason": null,
+            "sharedGround": [
+              "apps/galaxy/src/dossier/page/view.ts",
+              "apps/galaxy/src/dossier/page/view.test.ts",
+              "apps/galaxy/src/dossier/page/render.test.ts",
+              "apps/galaxy/src/dossier/page/source.ts",
+              "apps/galaxy/src/dossier/page/source.test.ts",
+              "apps/galaxy/src/dossier/store.ts",
+              "apps/galaxy/src/dossier/store.test.ts",
+              "apps/galaxy/src/dossier/store.fake.ts",
+              "apps/galaxy/app/prd/[id]/page.tsx",
+              "apps/galaxy/src/dossier/page/page.test.ts",
+              "apps/galaxy/src/dossier/page/QuestionsPane.tsx",
+              "apps/galaxy/src/dossier/page/dossier.css"
+            ]
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-09-28T10:40:30Z",
+            "minutes": 84,
+            "number": 386,
+            "openedAt": "2026-09-28T09:16:14Z",
+            "readyAt": "2026-09-28T10:15:39Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/386"
+          },
+          "medianMinutes": 11,
+          "sliceCount": 5,
+          "slices": [
+            {
+              "closedAt": "2026-09-28T09:32:01Z",
+              "mergedAt": "2026-09-28T09:32:01Z",
+              "mergedWave": 1,
+              "minutes": 11,
+              "openedAt": "2026-09-28T09:21:09Z",
+              "plannedWave": 1,
+              "pr": 388,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/388"
+            },
+            {
+              "closedAt": "2026-09-28T09:32:24Z",
+              "mergedAt": "2026-09-28T09:32:23Z",
+              "mergedWave": 1,
+              "minutes": 11,
+              "openedAt": "2026-09-28T09:21:18Z",
+              "plannedWave": 1,
+              "pr": 389,
+              "slice": "s5",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/389"
+            },
+            {
+              "closedAt": "2026-09-28T09:42:30Z",
+              "mergedAt": "2026-09-28T09:42:30Z",
+              "mergedWave": 2,
+              "minutes": 7,
+              "openedAt": "2026-09-28T09:35:01Z",
+              "plannedWave": 2,
+              "pr": 390,
+              "slice": "s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/390"
+            },
+            {
+              "closedAt": "2026-09-28T09:54:43Z",
+              "mergedAt": "2026-09-28T09:54:43Z",
+              "mergedWave": 3,
+              "minutes": 10,
+              "openedAt": "2026-09-28T09:44:28Z",
+              "plannedWave": 3,
+              "pr": 391,
+              "slice": "s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/391"
+            },
+            {
+              "closedAt": "2026-09-28T10:10:35Z",
+              "mergedAt": "2026-09-28T10:10:35Z",
+              "mergedWave": 4,
+              "minutes": 14,
+              "openedAt": "2026-09-28T09:56:56Z",
+              "plannedWave": 4,
+              "pr": 393,
+              "slice": "s4",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/393"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 4,
+            "planned": 4
+          }
+        }
+      },
+      "prd": {
+        "folder": ".omni-loop/delivery/shipped/0384-prd-page-usability",
+        "number": 384,
+        "state": "shipped",
+        "title": "The PRD page is easier to use",
+        "topic": "prd-page-usability"
+      },
+      "rules": {
+        "fieldCaps": {
+          "lesson": 400,
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600
+        },
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "thresholds": {
+          "afterMergeDays": 14,
+          "churnFileLines": 40,
+          "churnFilePercent": 50,
+          "churnRangeCommits": 3,
+          "failingTestRuns": 2,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "slowSliceFactor": 3
+        },
+        "version": 1
+      },
+      "run": "merge",
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": []
+      },
+      "issues": {
+        "territory:s1": {
+          "number": 404,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/404",
+          "state": "open"
+        },
+        "territory:s4": {
+          "number": 405,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/405",
+          "state": "open"
+        }
+      }
+    }
+  ]
+}
