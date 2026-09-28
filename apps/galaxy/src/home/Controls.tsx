@@ -1,6 +1,6 @@
 'use client';
-// HOME's one client component (PRD 261): every interaction on the page, and nothing else ships
-// JavaScript. It listens on the whole page for Enter and the Konami code, makes a click on any
+// One of HOME's two client components (PRD 261): every interaction on the page. The other,
+// PosterPlanet, only turns the poster's planet (PRD 394); nothing else ships JavaScript. It listens on the whole page for Enter and the Konami code, makes a click on any
 // PRESS START (an element carrying `data-press-start`) start the game, flips a trading card on a
 // click (spreads/flip.ts), flashes CHEAT ACTIVATED!, and makes a click on SIGN UP WITH GITHUB (an
 // element carrying `data-sign-up`) start the GitHub sign-in (sign-up.ts, PRD 359).

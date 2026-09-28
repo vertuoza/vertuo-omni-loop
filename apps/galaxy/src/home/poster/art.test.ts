@@ -1,6 +1,6 @@
-import { SURFACES } from '@omni/design';
+import { spritePixels, SURFACES } from '@omni/design';
 import { describe, expect, it } from 'vitest';
-import { crestSvg, omniSvg, PLANET_PROGRESS, planetPixels, planetSvgs, starfieldSvg } from './art';
+import { crestSvg, FLYBY_POSE, flybySvg, omniSvg, PLANET_PROGRESS, planetPixels, planetSvgs, starfieldSvg } from './art';
 
 // The poster's pictures, drawn on the server from @omni/design and the game's own renderers.
 
@@ -51,5 +51,22 @@ describe('the crest, OmniMan and the stars', () => {
     expect(svg).toContain('preserveAspectRatio="xMidYMid slice"');
     expect(svg).toContain('aria-hidden="true"');
     expect(svg.match(/<path /g)?.length).toBeGreaterThan(1);
+  });
+});
+
+describe('OmniMan flying past (PRD 394)', () => {
+  it('flies in the omni-cheer-cape pose: fist up, cape out', () => {
+    expect(FLYBY_POSE).toBe('omni-cheer-cape');
+  });
+
+  it('draws the real omni-cheer-cape sprite from @omni/design, pixel for pixel', () => {
+    const { w, h, pixels } = spritePixels('omni-cheer-cape', { frame: 0 });
+    const svg = flybySvg();
+    expect(svg).toMatch(new RegExp(`^<svg [^>]*viewBox="0 0 ${w} ${h}"[^>]*shape-rendering="crispEdges"`));
+    for (const colour of new Set(pixels.filter(Boolean))) expect(svg).toContain(`<path fill="${colour}"`);
+  });
+
+  it('is not the pointing pose', () => {
+    expect(flybySvg()).not.toBe(omniSvg());
   });
 });

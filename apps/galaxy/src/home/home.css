@@ -32,31 +32,31 @@ html:has(.home) body {
 .home-poster {
   display: grid;
   grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  min-height: min(100svh, 820px);
+  min-height: 100svh;
   background: var(--starfield);
 }
 
 .home-col {
   background: var(--ad-purple);
-  padding: 36px 32px 0;
+  padding: 36px 32px;
   display: grid;
   gap: 16px;
-  align-content: start;
+  align-content: center;
 }
 
 .home-kicker {
   font: 400 clamp(15px, 1.9vw, 22px)/1.05 var(--font-display);
-  color: var(--red);
-  transform: skewX(var(--type-display-s-slant));
-  transform-origin: 0 100%;
+  color: var(--cyan);
+  font-style: italic;
 }
 
-/* The headline: the display role at its largest step, slanted. */
+/* The headline: the display role at its largest step, slanted. Its letters lean, never its box: a
+   skewed box pushes its upper lines right, off the column's one left edge (PRD 394). Anton has
+   only an upright face, and browsers synthesize `italic` from it but not an `oblique <angle>`. */
 .home-head {
   font: 400 clamp(44px, 5.8vw, var(--type-display-xl-size))/var(--type-display-xl-line) var(--type-display-xl-family);
   color: var(--white);
-  transform: skewX(var(--type-display-xl-slant));
-  transform-origin: 0 100%;
+  font-style: italic;
   text-wrap: balance;
 }
 
@@ -84,8 +84,7 @@ html:has(.home) body {
 .home-quote {
   font: 400 clamp(18px, 2.2vw, 26px)/1.05 var(--font-display);
   color: var(--yellow);
-  transform: skewX(var(--type-display-s-slant));
-  transform-origin: 0 100%;
+  font-style: italic;
   margin-top: 8px;
 }
 
@@ -130,11 +129,12 @@ html:has(.home) body {
   padding: 10px 12px;
 }
 
-/* The starfield side: the invaded planet, the crest where the ad puts its logo, PRESS START. */
+/* The starfield side: the invaded planet, the crest right under it where the ad puts its logo, then
+   PRESS START, one group centred vertically. */
 .home-sky {
   position: relative;
   display: grid;
-  grid-template-rows: 1fr auto auto;
+  align-content: center;
   justify-items: center;
   gap: 20px;
   padding: 28px 20px 36px;
@@ -145,7 +145,6 @@ html:has(.home) body {
 
 .home-planet {
   position: relative;
-  align-self: center;
   display: grid;
   width: min(224px, 56vw);
 }
@@ -162,8 +161,52 @@ html:has(.home) body {
   0% { opacity: 1; }
   33.333% { opacity: 0; }
 }
+/* Once the browser allows motion, PosterPlanet turns the planet on a canvas over the frames, drawn
+   at the frames' own size; the frames hide only once the canvas has drawn. */
+.home-planet-canvas {
+  grid-area: 1 / 1;
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+.home-planet[data-turning] .home-planet-frame { visibility: hidden; }
 
 .home-crest { position: relative; width: min(100%, 560px); }
+
+/* OmniMan flies past (PRD 394): the omni-cheer-cape sprite crosses the starfield from its left edge
+   to its right on a gentle arc over the planet, tilted along his path, a short plasma trail behind
+   him. About 2.5 s of every 12 s (21 % of the cycle), then gone. CSS only; no clicks. */
+.home-flyby {
+  position: absolute;
+  top: 22%;
+  left: 0;
+  z-index: 1;
+  width: 96px;
+  line-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  animation: home-flyby 12s linear infinite;
+}
+.home-flyby::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 50%;
+  width: 72px;
+  height: 6px;
+  transform: translateY(-50%) rotate(-90deg);
+  transform-origin: right center;
+  background: linear-gradient(to left, var(--cyan), transparent);
+  opacity: 0.8;
+}
+@keyframes home-flyby {
+  0% { left: -120px; opacity: 1; transform: translateY(48px) rotate(62deg); }
+  10.5% { transform: translateY(0) rotate(90deg); }
+  20.9% { left: 100%; opacity: 1; transform: translateY(48px) rotate(118deg); }
+  21% { left: 100%; opacity: 0; }
+  100% { left: 100%; opacity: 0; }
+}
 
 .home-start {
   position: relative;
@@ -196,8 +239,10 @@ html:has(.home) body {
 
 @media (prefers-reduced-motion: reduce) {
   .home-blink, .home-cheat { animation: none; }
-  .home-planet-frame { animation: none; }
+  .home-planet-frame { animation: none; visibility: visible; }
   .home-planet-frame:last-child { opacity: 1; }
+  .home-planet-canvas { display: none; }
+  .home-flyby { animation: none; display: none; }
 }
 
 /* On a phone the poster stacks: the crest, the headline and PRESS START first, on the starfield,
@@ -212,9 +257,10 @@ html:has(.home) body {
   .home-col, .home-sky { display: contents; }
   .home-stars { z-index: 0; }
   .home-crest { order: 1; align-self: center; width: min(100% - 32px, 480px); margin-top: 28px; }
-  .home-head { order: 2; position: relative; padding: 20px 16px 0; font-size: clamp(40px, 13vw, 64px); text-align: center; transform-origin: center; }
+  .home-head { order: 2; position: relative; padding: 20px 16px 0; font-size: clamp(40px, 13vw, 64px); text-align: center; }
   .home-poster .home-start { order: 3; align-self: center; margin: 20px 0 8px; }
   .home-planet { order: 4; align-self: center; margin: 12px 0 24px; }
+  .home-flyby { top: 40px; width: 64px; }
   .home-kicker { order: 5; }
   .home-dots { order: 6; }
   .home-pitch { order: 7; }
@@ -228,8 +274,6 @@ html:has(.home) body {
     padding: 8px 16px;
   }
   .home-kicker { padding-top: 28px; }
-  /* A slanted box would slant its purple band: on a phone the words lean, not the box. */
-  .home-kicker, .home-quote { transform: none; font-style: oblique 12deg; }
   .home-dots { border-top: 0; padding-block: 8px; background-image: none; }
   .home-dots::before { content: ''; display: block; border-top: 5px dotted var(--yellow); }
   .home-spokes { padding-bottom: 0; }
