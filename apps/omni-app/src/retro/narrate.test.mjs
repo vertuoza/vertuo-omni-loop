@@ -4,9 +4,11 @@ import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it, vi } from 'vitest';
 import { inngest } from '../inngest-client.mjs';
 import { widgetScenario } from '../../test/retro-scenario.mjs';
+import { LOOK_RULE } from 'vertuo-omni-plan/kit/lib/knowledge/look-rule.mjs';
 import {
   CHARS_PER_TOKEN,
   DEFAULT_MODEL,
+  JUDGE_VERSION,
   MODEL_CALL,
   NO_MODEL_KEY,
   OPENROUTER_URL,
@@ -52,10 +54,27 @@ const SLOW = {
 const REPLY = {
   summary: 'The widgets shipped, but one check kept failing and one slice dragged on.',
   findings: {
-    'repeated-red:e2e': { title: 'The end-to-end check kept failing', whyItMatters: 'Each red run held a slice back.' },
+    'repeated-red:e2e': {
+      title: 'The end-to-end check kept failing',
+      whyItMatters: 'Each red run held a slice back.',
+      lesson: 'Keep the end-to-end check green between waves.',
+      keep: true,
+      why: 'No earlier lesson says to hold the end-to-end check green between waves.',
+    },
   },
   lessons: [{ text: 'Keep the end-to-end check green between waves.', findings: ['repeated-red:e2e'] }],
+  verdict: { worthIt: true, reason: 'One lesson about the end-to-end check is new.' },
 };
+
+/** A knowledge summary as the kit's `knowledgeSummary` builds it, and the lessons of earlier retros. */
+const KNOWLEDGE = {
+  places: { adr: true, knowledge: true },
+  domains: [{ name: 'cart', firstLine: 'The cart.' }],
+  principles: [{ id: 'PR-PRODUCT-1', place: 'product', statement: 'A widget keeps what it was given.' }],
+  decisions: [{ number: 3, title: 'Widgets store their colour on the server' }],
+  laws: [{ id: 'BR-CART-2', kind: 'rule', place: 'cart', statement: 'A cart never holds a widget twice.' }],
+};
+const EARLIER = ['Split a slice that grows past its plan.'];
 
 /** OpenRouter's streamed reply: a keep-alive comment, the content in pieces, split mid-line, then [DONE]. */
 function streamed(content, { error = null } = {}) {
@@ -180,7 +199,7 @@ describe('narrate — the model unavailable', () => {
 
 describe('narrate — a reply that fails its schema', () => {
   it('is repaired once: the second request shows the model its reply and what is wrong with it', async () => {
-    const broken = JSON.stringify({ summary: 7, findings: {}, lessons: [] });
+    const broken = JSON.stringify({ summary: 7, findings: {}, lessons: [], verdict: { worthIt: false, reason: 'Nothing new.' } });
     const fetch = stubFetch(streamed(broken), streamed(JSON.stringify(REPLY)));
     expect(await ask(fetch)).toEqual({ model: DEFAULT_MODEL, reply: REPLY, reason: null });
     expect(fetch).toHaveBeenCalledTimes(2);
@@ -206,7 +225,108 @@ describe('narrate — a reply that fails its schema', () => {
       'findings["b"].title must be a string',
       'lessons[0].findings must be a list of finding ids',
       'lessons[1] must be an object',
+      'verdict must be an object: { worthIt, reason }',
     ]);
+  });
+});
+
+describe('narrate — the verdict and what each finding keeps', () => {
+  it('accepts a verdict and a keep and why per finding, and keeps their types', () => {
+    const { errors, reply } = checkReply(REPLY);
+    expect(errors).toEqual([]);
+    expect(reply.verdict).toEqual(REPLY.verdict);
+    expect(reply.findings['repeated-red:e2e']).toMatchObject({ keep: true, why: REPLY.findings['repeated-red:e2e'].why });
+  });
+
+  it('accepts a finding without keep or why: it is not kept', () => {
+    const reply = { ...REPLY, findings: { 'slow-slice:s3': { title: 'One slice dragged on' } } };
+    expect(checkReply(reply)).toEqual({ errors: [], reply });
+  });
+
+  it('rejects a reply without a verdict', () => {
+    const { verdict, ...rest } = REPLY;
+    expect(checkReply(rest)).toEqual({ errors: ['verdict must be an object: { worthIt, reason }'], reply: null });
+  });
+
+  it('rejects a verdict, a keep or a why of the wrong type', () => {
+    const wrong = {
+      ...REPLY,
+      verdict: { worthIt: 'yes', reason: 4 },
+      findings: { 'repeated-red:e2e': { title: 'Red', keep: 'true', why: ['new'] } },
+    };
+    expect(checkReply(wrong).errors).toEqual([
+      'findings["repeated-red:e2e"].keep must be true or false',
+      'findings["repeated-red:e2e"].why must be a string',
+      'verdict.worthIt must be true or false',
+      'verdict.reason must be a string',
+    ]);
+    expect(checkReply({ ...REPLY, verdict: [] }).errors).toEqual(['verdict must be an object: { worthIt, reason }']);
+  });
+
+  it('repairs a reply with no verdict once, like any other broken reply', async () => {
+    const { verdict, ...rest } = REPLY;
+    const fetch = stubFetch(streamed(JSON.stringify(rest)), streamed(JSON.stringify(REPLY)));
+    expect(await ask(fetch)).toEqual({ model: DEFAULT_MODEL, reply: REPLY, reason: null });
+    expect(fetch.calls[1].body.messages[3].content).toContain('verdict must be an object');
+  });
+});
+
+describe('narrate — the judge', () => {
+  it('has a version of its own, apart from the rules', () => {
+    expect(JUDGE_VERSION).toBe(1);
+  });
+
+  it('gives the knowledge summary, one line per entry, and the lessons of earlier retros', () => {
+    const input = JSON.parse(modelInput({ sheet: sheetOf(), prd: PRD, knowledge: KNOWLEDGE, lessons: EARLIER }).user);
+    expect(input.knowledge).toEqual([
+      { id: 'PR-PRODUCT-1', line: 'A widget keeps what it was given.' },
+      { id: 'BR-CART-2', line: 'A cart never holds a widget twice.' },
+      { id: 'ADR-0003', line: 'Widgets store their colour on the server' },
+    ]);
+    expect(input.earlierLessons).toEqual(EARLIER);
+  });
+
+  it('gives an empty knowledge summary and no earlier lessons when it has none', () => {
+    const input = JSON.parse(modelInput({ sheet: sheetOf(), prd: PRD }).user);
+    expect(input.knowledge).toEqual([]);
+    expect(input.earlierLessons).toEqual([]);
+  });
+
+  it('quotes the look rule word for word, and asks for new lessons about behaviour only', () => {
+    const { system } = modelInput({ sheet: sheetOf(), prd: PRD, knowledge: KNOWLEDGE, lessons: EARLIER });
+    expect(system).toContain(LOOK_RULE);
+    for (const word of ['"verdict"', '"worthIt"', '"reason"', '"keep"', '"why"', 'new', 'behaviour']) expect(system).toContain(word);
+  });
+
+  it('masks the knowledge and the earlier lessons too', () => {
+    const token = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+    const { user } = modelInput({
+      sheet: sheetOf(),
+      prd: PRD,
+      knowledge: { ...KNOWLEDGE, laws: [{ id: 'BR-CART-3', statement: `never log ${token}` }] },
+      lessons: [`rotate ${token}`],
+    });
+    expect(user).not.toContain(token);
+  });
+
+  it('cuts the earlier lessons, then the knowledge, before any finding', () => {
+    const cap = LIMITS.modelInputTokens * CHARS_PER_TOKEN;
+    const many = Array.from({ length: 400 }, (_, i) => `LESSON-${i} ${'x'.repeat(cap / 400)}`);
+    const laws = Array.from({ length: 400 }, (_, i) => ({ id: `BR-CART-${i}`, statement: `LAW-${i} ${'y'.repeat(cap / 400)}` }));
+    const out = modelInput({ sheet: sheetOf(), prd: PRD, knowledge: { ...KNOWLEDGE, laws }, lessons: many });
+    expect(out.system.length + out.user.length).toBeLessThanOrEqual(cap);
+    const input = JSON.parse(out.user);
+    expect(input.findings.map((finding) => finding.id)).toEqual([RED.id, SLOW.id]);
+    expect(input.earlierLessons).toEqual([]);
+    expect(input.knowledge.length).toBeGreaterThan(0);
+  });
+
+  it('sends the knowledge and the earlier lessons narrate is given', async () => {
+    const fetch = stubFetch(streamed(JSON.stringify(REPLY)));
+    await ask(fetch, { knowledge: KNOWLEDGE, lessons: EARLIER });
+    const sent = JSON.parse(fetch.calls[0].body.messages[1].content);
+    expect(sent.earlierLessons).toEqual(EARLIER);
+    expect(sent.knowledge).toHaveLength(3);
   });
 });
 
@@ -355,6 +475,7 @@ describe('narrate and guard in the retro function', () => {
         },
       },
       lessons: [{ text: 'Split a slice that grows past its plan.', findings: ['slow-slice:s3'] }],
+      verdict: { worthIt: false, reason: 'Splitting a long slice is an earlier lesson.' },
     };
     const { md, json } = await runRetro(stubFetch(streamed(JSON.stringify(reply))));
     expect(md).toContain(`\n${reply.summary}\n`);
