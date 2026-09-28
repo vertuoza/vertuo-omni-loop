@@ -236,3 +236,158 @@ Putting the answer line or the chosen tag back is a few lines in the Questions p
 ```
 
 <!-- /omni-outbox-settled: s2-01-answered-question-drops-repeat-lines -->
+
+<!-- omni-outbox-settled: s3-01-no-anchor-on-the-list-yet -->
+
+## s3-01-no-anchor-on-the-list-yet — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-no-anchor-on-the-list-yet
+prd: 384
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+After answering, the person is sent to the PRD's questions with a marker naming the next open question, but the list gives its questions no marker to jump to yet. Should this slice add those markers?
+
+## The decision, in plain words
+
+Not in this slice: the way back already names the next open question, and the list that must carry the markers is left to the later slice that owns it, so for now the person lands at the top of the questions.
+
+## The intro, for fun
+
+The return ticket names a seat, but the seats have no numbers painted on them yet.
+
+## The punchline, for fun
+
+The next crew brings the paint.
+
+## The options, in plain words
+
+A. Leave the list to s4: what was built; the marker in the way back starts working the day the list carries it.
+B. Add the markers now, outside this slice's files: the landing works at once, but s4 would meet a change it did not plan for.
+C. Drop the marker from the way back: nothing half-done, but the spec asks for it.
+
+## What I had to decide
+
+Whether the list of questions, which this slice may not change, should carry a marker on each question now, so the way back lands on the next open one.
+
+## What I did meanwhile
+
+The way back ends with the next open question's marker; the list is unchanged, so the browser shows the top of the questions until a marker exists.
+
+## What it costs to change later
+
+One attribute on each question of the list; the later slice that owns the list can add it with no other change.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The list of questions is not in this slice's declared files; slice s4 owns it in the next wave (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-01-no-anchor-on-the-list-yet -->
+
+<!-- omni-outbox-settled: s3-02-render-test-follows-the-new-link -->
+
+## s3-02-render-test-follows-the-new-link — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-render-test-follows-the-new-link
+prd: 384
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+The link to each question now says which PRD it was opened from, and one page test outside this slice's listed files still expected the old link. May this slice update that one expectation?
+
+## The decision, in plain words
+
+Yes: one line of that page test now expects the new link, since the plan's shared-files note lists it for this slice even though the slice table leaves it out.
+
+## The intro, for fun
+
+The sign on the door changed, and one inspector still had the old sign in the checklist.
+
+## The punchline, for fun
+
+The checklist got a one-word update.
+
+## The options, in plain words
+
+A. Update the one expected link: what was built; the test keeps checking the link, now in its new form.
+B. Leave the test red for another slice to fix: no file outside the table touched, but the whole run stays red.
+
+## What I had to decide
+
+Whether a page test the slice table does not list for this slice, but its shared-files note does, may change to follow the new link.
+
+## What I did meanwhile
+
+That test now expects the link carrying the PRD it came from; nothing else in it changed.
+
+## What it costs to change later
+
+One line; undoing it is putting the old expected link back.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The plan's slice table and its shared-files note disagree on whether this page test belongs to s3 (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-02-render-test-follows-the-new-link -->
