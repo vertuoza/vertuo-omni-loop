@@ -423,6 +423,7 @@ describe('retro — fourteen days later', () => {
       summary: 'The widgets shipped in the waves planned, but one slice ran far past the others.',
       findings: { 'slow-slice:s3': { title: 'One slice ran far past the others', whyItMatters: 'It held the whole feature back.' } },
       lessons: [],
+      verdict: { worthIt: false, reason: 'A slow slice is a known pattern.' },
     };
     const answers = [Response.json({ choices: [{ message: { content: JSON.stringify(reply) } }] }), new Response('{}', { status: 401 })];
     const fetch = vi.fn(async () => answers.shift() ?? new Response('{}', { status: 401 }));
