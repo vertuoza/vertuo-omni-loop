@@ -235,3 +235,158 @@ One line added to the help entry and its test; no stored data involved.
 ```
 
 <!-- /omni-outbox-settled: s4-01-help-entry-lacks-link -->
+
+<!-- omni-outbox-settled: s5-01-status-pages-which-prds -->
+
+## s5-01-status-pages-which-prds — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-status-pages-which-prds
+prd: 413
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 2
+---
+
+## The question, in plain words
+
+The status overview lists many PRDs. Which of them should also get their page's link printed under it?
+
+## The decision, in plain words
+
+Only your own PRDs that are still waiting or being built get a link, one line each, and a PRD someone asked about gets one first. Finished PRDs get none, so a long history does not mean dozens of lookups.
+
+## The intro, for fun
+
+The overview lists every PRD you ever finished, and each one could have its link.
+
+## The punchline, for fun
+
+We kept the links for the ones still moving.
+
+## The options, in plain words
+
+A. A. Links for your PRDs still in progress, and for one asked about (built).
+B. B. A link for every PRD of yours, shipped ones included.
+C. C. No links in the overview; only a PRD someone asks about gets one.
+
+## What I had to decide
+
+Which PRDs of the status overview get a page link printed under it.
+
+## What I did meanwhile
+
+Links for your PRDs still in the inbox or the outbox, plus the one asked about; none for shipped ones; each link is printed outside the overview block.
+
+## What it costs to change later
+
+Changing which PRDs get a line is a sentence in one skill; nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the status summary of a PRD prints its link, but the overview has no view of one PRD, so which rows count is not written down.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-status-pages-which-prds -->
+
+<!-- omni-outbox-settled: s5-02-tests-outside-territory -->
+
+## s5-02-tests-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-tests-outside-territory
+prd: 413
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 2
+---
+
+## The question, in plain words
+
+Teaching two commands about the new link changed what two existing tests expect. Should this part of the work update those tests itself, though they sit outside its planned ground?
+
+## The decision, in plain words
+
+Yes. It updated the status skill's test to allow the link lookup, and added the link to the built-in help with its test, as the earlier adopted decision asked, and changed nothing else there.
+
+## The intro, for fun
+
+Two old tests noticed the new link and raised a hand.
+
+## The punchline, for fun
+
+We answered them in the same breath.
+
+## The options, in plain words
+
+A. A. This slice updates the help text and the test its change breaks (built).
+B. B. Leave them for a follow-up slice that owns those files.
+
+## What I had to decide
+
+Whether this slice may change the help text and the status skill's test, which belong to no slice of this PRD.
+
+## What I did meanwhile
+
+The help lists the link verb, the status skill's test allows it, and the full run is green apart from the one failure that already exists on the default branch.
+
+## What it costs to change later
+
+Reverting is two small edits; no stored data involved.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan names the help skill and the skills folder, not the help text file or the plugin's shared test, so whether they were meant to be covered is not written down.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-tests-outside-territory -->
