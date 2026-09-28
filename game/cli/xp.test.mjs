@@ -104,7 +104,7 @@ describe('pnpm game:xp, as a process', () => {
   let server;
   afterEach(async () => { await server?.close(); server = null; });
 
-  const workspaces = [{ id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan', join_domain: 'vertuoza.com', theme: {}, created_at: '2026-09-26T12:00:00+00:00' }];
+  const workspaces = [{ id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan', theme: {}, created_at: '2026-09-26T12:00:00+00:00' }];
   async function xp(args, env = {}) {
     try {
       const { stdout, stderr } = await promisify(execFile)(process.execPath, [join(here, 'xp.mjs'), ...args], {

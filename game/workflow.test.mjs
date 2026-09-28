@@ -82,7 +82,7 @@ describe('game workflow: the scores backup (PRD 160)', () => {
 
   it('exports arcade_scores, which nothing can rebuild, and leaves player_xp out, which the ledger rebuilds', async () => {
     const fake = fakeSupabase({
-      workspaces: [{ id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan', join_domain: 'vertuoza.com', theme: {}, created_at: 'c' }],
+      workspaces: [{ id: VERTUOZA, slug: 'vertuoza', name: 'Vertuoza', github_org: 'vertuoza', plan_repo: 'vertuo-omni-plan', theme: {}, created_at: 'c' }],
       arcade_scores: [score(VERTUOZA, 'u1', 1240), score(ACME, 'u9', 385)],
       player_xp: [{ workspace_id: VERTUOZA, github_login: 'alice', xp: 180, level: 3, unlocked: ['invaders'], computed_at: 'c' }],
     });
