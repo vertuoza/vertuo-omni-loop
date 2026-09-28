@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { DossierPulse } from '../store';
-import { FAILURES_BEFORE_PROBLEM, LIVE_PROBLEM, pulseOf, signature, watchChanges } from './live';
+import type { GithubSummary } from '../github/summary';
+import type { DossierListRow, DossierPulse } from '../store';
+import {
+  FAILURES_BEFORE_PROBLEM, GITHUB_EVERY_MS, LIVE_PROBLEM, everyFew, githubPulse, liveGithub, pulseOf, signature, watchChanges,
+} from './live';
 import type { DossierRead } from './view';
 
 // The page refreshes itself (PRD 384, part 5): a signature of the dossier's counts compared tick to
@@ -28,6 +31,100 @@ describe('the signature', () => {
   });
 });
 
+// PRD 426, part 5: the signature also covers the stage and the number of open outbox items, read
+// from the GitHub summary the server caches 60 s.
+const FEATURE = { number: 20, url: 'https://github.com/acme/widgets/pull/20', state: 'open', draft: true } as const;
+const OUTBOX: GithubSummary = {
+  repo: 'acme/widgets', prd: 7, folder: '0007-team-inbox', topic: 'team-inbox',
+  issue: { number: 7, url: 'https://github.com/acme/widgets/issues/7', state: 'open' },
+  phase0: { number: 12, url: 'https://github.com/acme/widgets/pull/12', state: 'merged', draft: false },
+  feature: FEATURE,
+  retro: null, mergedSlices: 2,
+  outbox: { open: [{ id: 'o1', rank: 'high', question: 'Which?', decision: 'This.', options: [], personSteps: null }], settled: [] },
+  outboxComment: 'https://github.com/acme/widgets/pull/20#issuecomment-1',
+};
+
+describe('the GitHub part of the signature', () => {
+  it('reads the stage and the open outbox count from the summary', () => {
+    expect(githubPulse(7, OUTBOX)).toEqual({ stage: 'outbox', open: 1 });
+    expect(githubPulse(7, { ...OUTBOX, mergedSlices: 0 })).toEqual({ stage: 'inbox', open: 1 });
+    expect(githubPulse(7, { ...OUTBOX, outbox: 'unread' })).toEqual({ stage: 'unknown', open: null });
+    expect(githubPulse(7, null)).toEqual({ stage: 'unknown', open: null });
+  });
+
+  it('is left out for a draft, and for a summary that was not asked for', () => {
+    expect(githubPulse(null, OUTBOX)).toBeUndefined();
+    expect(githubPulse(7, undefined)).toBeUndefined();
+  });
+
+  it('moves the signature when the stage or the open outbox count changes, and not otherwise', () => {
+    const at = (github: GithubSummary | null) => signature({ ...PULSE, github: githubPulse(7, github) });
+    const base = at(OUTBOX);
+    expect(at({ ...OUTBOX })).toBe(base);
+    expect(at({ ...OUTBOX, feature: { ...FEATURE, draft: false } })).toBe(base);
+    expect(at({ ...OUTBOX, mergedSlices: 3 })).toBe(base);
+    expect(at({ ...OUTBOX, feature: { ...FEATURE, state: 'merged' } })).not.toBe(base);
+    expect(at({ ...OUTBOX, outbox: { open: [], settled: [] } })).not.toBe(base);
+    expect(at(null)).not.toBe(base);
+  });
+
+  it('keeps the counts\' signature as it was when there is no GitHub part', () => {
+    expect(signature({ ...PULSE, github: undefined })).toBe(signature(PULSE));
+    expect(signature({ ...PULSE, github: githubPulse(7, OUTBOX) })).not.toBe(signature(PULSE));
+  });
+});
+
+describe('the GitHub part, read for the open page', () => {
+  const row = (prd: number | null) => ({ id: 'd-1', home_repo: 'acme/widgets', prd }) as DossierListRow;
+
+  it('reads the cached summary of a numbered dossier the viewer may read', async () => {
+    const summary = vi.fn(async () => OUTBOX);
+    expect(await liveGithub(row(7), { summary })).toEqual({ stage: 'outbox', open: 1 });
+    expect(summary).toHaveBeenCalledWith({ id: 'd-1', home_repo: 'acme/widgets', prd: 7 });
+  });
+
+  it('asks GitHub nothing for a dossier the viewer may not read, or a draft', async () => {
+    const summary = vi.fn(async () => OUTBOX);
+    expect(await liveGithub(null, { summary })).toBeUndefined();
+    expect(await liveGithub(row(null), { summary })).toBeUndefined();
+    expect(summary).not.toHaveBeenCalled();
+  });
+
+  it('reads a summary that failed, or no reader at all, as the stage unknown', async () => {
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(await liveGithub(row(7), { summary: async () => { throw new Error('down'); } })).toEqual({ stage: 'unknown', open: null });
+    expect(await liveGithub(row(7), null)).toEqual({ stage: 'unknown', open: null });
+    quiet.mockRestore();
+  });
+});
+
+describe('asking the server only every few seconds', () => {
+  it('reads again only once the period is over, and gives the last answer in between', async () => {
+    expect(GITHUB_EVERY_MS).toBe(15_000);
+    let now = 0;
+    const answers = ['a', 'b'];
+    const read = vi.fn(async () => answers.shift());
+    const ask = everyFew(read, 15_000, () => now);
+    expect(await ask()).toBe('a');
+    now = 14_999;
+    expect(await ask()).toBe('a');
+    now = 15_000;
+    expect(await ask()).toBe('b');
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the last answer when a read fails, and tries again at the next tick', async () => {
+    let now = 0;
+    const reads: Array<string | Error> = ['a', new Error('down'), 'c'];
+    const ask = everyFew(async () => { const next = reads.shift(); if (next instanceof Error) throw next; return next; }, 10, () => now);
+    expect(await ask()).toBe('a');
+    now = 10;
+    expect(await ask()).toBe('a');
+    now = 11;
+    expect(await ask()).toBe('c');
+  });
+});
+
 describe('the pulse of what the page rendered', () => {
   const version = (kind: string, n: number) => ({ id: `${kind}-${n}`, kind }) as never;
   const round = (status: string) => ({ status }) as never;
@@ -44,6 +141,13 @@ describe('the pulse of what the page rendered', () => {
 
   it('is null when the rounds could not be read: the first check then sets the baseline', () => {
     expect(pulseOf(read(null))).toBeNull();
+  });
+
+  it('carries the stage and the open outbox count when the page read the GitHub summary', () => {
+    const numbered = (github?: GithubSummary | null): DossierRead => ({ ...read([]), dossier: { prd: 7 } as never, github });
+    expect(pulseOf(numbered(OUTBOX))?.github).toEqual({ stage: 'outbox', open: 1 });
+    expect(pulseOf(numbered(null))?.github).toEqual({ stage: 'unknown', open: null });
+    expect(pulseOf(numbered())?.github).toBeUndefined();
   });
 });
 
@@ -76,6 +180,20 @@ describe('watching for changes', () => {
     expect(w.onChange).not.toHaveBeenCalled();
     await w.tick();
     expect(w.onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('compares the GitHub part only when both sides have one, the last one known, so a page rendered without it does not refresh for nothing', async () => {
+    const outbox = { ...PULSE, github: { stage: 'outbox' as const, open: 1 } };
+    const w = watcher(signature(PULSE), [outbox, outbox, { ...outbox, github: { stage: 'outbox' as const, open: 0 } }, PULSE, outbox]);
+    await w.tick();
+    await w.tick();
+    expect(w.onChange).not.toHaveBeenCalled();
+    await w.tick();
+    expect(w.onChange).toHaveBeenCalledTimes(1);
+    await w.tick();
+    expect(w.onChange).toHaveBeenCalledTimes(1);
+    await w.tick();
+    expect(w.onChange).toHaveBeenCalledTimes(2);
   });
 
   it('shows nothing for one or two failed reads, the problem at the third in a row, and clears it once a read works', async () => {

@@ -16,7 +16,9 @@ import { readMembers, sendAnswers } from '../../ask/page/source';
 import { askShares } from '../../ask/store';
 import {
   dossierList, dossierPulse, dossierReader, dossierRounds, type DossierListRow, type DossierPulse, type DossierRoundRow,
+  type DossierVersionRow,
 } from '../store';
+import { parsePlanSlices } from 'vertuo-omni-plan/kit/lib/inbox/territory.mjs';
 import type { DossierRead } from './view';
 
 export type Db = Pick<SupabaseClient, 'from' | 'rpc'>;
@@ -103,6 +105,21 @@ export async function readPulse(db: Pick<Db, 'rpc'>, id: string): Promise<Dossie
 
 /** Every dossier of the viewer's workspaces, as the history lists them. */
 export const readHistory = (db: Pick<Db, 'rpc'>): Promise<DossierListRow[]> => dossierList(db);
+
+/** The slices of the dossier's latest plan version (PRD 426: the stage's "m/t slices"); null when
+ * there is no plan version, or it cannot be read or holds no slice table. */
+export async function readPlanSlices(db: Pick<Db, 'from'>, versions: readonly DossierVersionRow[]): Promise<number | null> {
+  const plans = versions.filter((v) => v.kind === 'plan');
+  const latest = plans[plans.length - 1];
+  if (!latest) return null;
+  try {
+    const content = await dossierReader(db).content(latest.id);
+    return content === null ? null : parsePlanSlices(content).length;
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+}
 
 /** One version's content, or null when the viewer may not read it. */
 export const readContent = (db: Pick<Db, 'from'>, versionId: string) => dossierReader(db).content(versionId);

@@ -28,6 +28,48 @@
   padding: 6px 9px;
   border-radius: 4px;
 }
+.ask a.dossier-number { text-decoration: none; }
+.ask a.dossier-number:hover,
+.ask a.dossier-number:focus-visible { text-decoration: underline; }
+
+/* ── The stage (PRD 426): the track, the stage in words, one button, the links ── */
+
+.stage-head { display: grid; gap: 10px; min-width: 0; }
+.stage-row { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; min-width: 0; }
+.stage-track {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font: 600 12px/1 var(--ask-mono);
+}
+.stage-stop {
+  padding: 6px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--ask-line);
+  color: var(--ask-muted);
+  white-space: nowrap;
+}
+.stage-passed { color: var(--ask-ink); background: var(--ask-sunk); }
+.stage-current { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); }
+.stage-ahead { opacity: 0.6; }
+.stage-words { margin: 0; overflow-wrap: anywhere; }
+.stage-copy { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.stage-command { font: 13px/1 var(--ask-mono); color: var(--ask-muted); }
+.stage-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 13px;
+  flex-basis: 100%;
+}
+.stage-links li + li::before { content: '·'; color: var(--ask-muted); margin-right: 12px; }
+
 .dossier-meta { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; min-width: 0; }
 .dossier-repos { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
 .dossier-repo {
@@ -68,6 +110,8 @@
 .ask a.dossier-tab:hover { color: var(--ask-ink); }
 .ask a.dossier-tab[aria-current='page'] { color: var(--ask-ink); border-bottom-color: var(--ask-plasma); }
 .dossier-tab small { font: 600 12px/1 var(--ask-mono); color: var(--ask-muted); }
+/* An empty tab read from GitHub stays in the bar, dimmed, so the journey reads left to right (PRD 426). */
+.ask a.dossier-tab-empty { opacity: 0.55; }
 
 /* ── A tab's pane: the version picker, then the frame or the rendered markdown ── */
 
@@ -190,6 +234,32 @@
 /* The way back from a question's own page lands on its round, clear of the top edge. */
 .dossier-round { scroll-margin-top: 16px; }
 
+/* ── The Outbox tab (PRD 426): the open decisions, then the settled ones, on the reading measure ── */
+
+.outbox-answer { margin: 0; }
+.outbox-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; max-width: 780px; min-width: 0; }
+.outbox-item {
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  min-width: 0;
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line);
+  border-left: 4px solid var(--ask-plasma);
+  border-radius: 12px;
+}
+.outbox-item[data-state='settled'] { border-left-color: var(--ask-line); }
+.outbox-rank,
+.outbox-verdict {
+  font: 700 12px/1 var(--ask-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  padding: 5px 8px;
+}
+.outbox-rank { color: var(--ask-on-plasma); background: var(--ask-plasma); }
+.outbox-verdict { color: var(--ask-ink); background: var(--ask-sunk); border: 1px solid var(--ask-line); }
+
 /* ── A quick round (PRD 384): its options as buttons, one click answers ── */
 
 .dossier-quick { display: grid; gap: 8px; min-width: 0; }
@@ -271,4 +341,5 @@
   .dossier-actions { margin-left: 0; }
   .dossier-frame iframe { height: 70vh; min-height: 360px; }
   .dossier-round { padding: 14px; }
+  .outbox-item { padding: 14px; }
 }

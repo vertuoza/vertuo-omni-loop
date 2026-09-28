@@ -8,7 +8,12 @@
 // The history's demo (/prd, step 4): that dossier as dossier_list() would list it, a draft whose
 // brainstorm asked a question in another repository, and a PRD the page read from the repository, so
 // every filter has something to keep and something to leave out.
+//
+// Its GitHub summary (PRD 426, part 6) is built in, so demo mode makes no GitHub call: the PRD is in
+// the outbox stage, three of its five slices merged into the feature branch, two decisions open and
+// two settled, and no retro yet.
 import { DEMO_MEMBERS, DEMO_OWNER } from '../../ask/page/demo';
+import type { GithubSummary } from '../github/summary';
 import { DOSSIER_KINDS, type DossierListRow, type DossierRoundRow, type DossierVersionRow, type LatestVersion } from '../store';
 import type { DossierRead } from './view';
 
@@ -132,8 +137,51 @@ function demoRounds(opened: number): DossierRoundRow[] {
   ];
 }
 
+const DEMO_REPO = 'vertuoza/vertuo-omni-loop';
+const pull = (n: number) => `https://github.com/${DEMO_REPO}/pull/${n}`;
+
+/** The demo's GitHub summary: PRD 71 in the outbox stage, two decisions open and two settled, no retro. */
+export const DEMO_GITHUB: GithubSummary = {
+  repo: DEMO_REPO, prd: 71, folder: '0071-ask-mode', topic: 'ask-mode',
+  issue: { number: 71, url: `https://github.com/${DEMO_REPO}/issues/71`, state: 'open' },
+  phase0: { number: 74, url: pull(74), state: 'merged', draft: false },
+  feature: { number: 76, url: pull(76), state: 'open', draft: true },
+  retro: null,
+  mergedSlices: 3,
+  outbox: {
+    open: [
+      {
+        id: 's2-01-poll-interval', rank: 'medium',
+        question: 'How often should the page look for a new question?',
+        decision: 'Every two seconds while the tab is visible, and not at all while it is hidden.',
+        options: [
+          { letter: 'A', text: 'Every two seconds while the tab is visible (built)' },
+          { letter: 'B', text: 'Every five seconds, always' },
+        ],
+        personSteps: null,
+      },
+      {
+        id: 's3-01-terminal-takeover', rank: 'high',
+        question: 'How long should the page wait before the terminal takes the question back?',
+        decision: 'Five minutes, then the terminal asks the same question itself.',
+        options: [
+          { letter: 'A', text: 'Five minutes (built)' },
+          { letter: 'B', text: 'Two minutes' },
+          { letter: 'C', text: 'Never: the page keeps it until someone answers' },
+        ],
+        personSteps: null,
+      },
+    ],
+    settled: [
+      { id: 's1-01-page-host', title: 'Where should the question page live?', verdict: 'agreed', answer: 'On the galaxy app, as built.' },
+      { id: 's1-02-raw-html', title: 'How should raw HTML in a question show?', verdict: 'changed', answer: 'As plain text, never rendered.' },
+    ],
+  },
+  outboxComment: `${pull(76)}#issuecomment-4242`,
+};
+
 /** The demo dossier's repositories: its home, then its planet's regions. */
-const DEMO_REPOS = ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-core', 'vertuoza/vertuo-web'];
+const DEMO_REPOS = [DEMO_REPO, 'vertuoza/vertuo-core', 'vertuoza/vertuo-web'];
 
 export function demoDossier(now: number): DossierRead {
   const opened = now - 3 * 24 * 60 * MIN;
@@ -155,6 +203,8 @@ export function demoDossier(now: number): DossierRead {
     members: DEMO_MEMBERS,
     rounds: demoRounds(opened),
     repos: DEMO_REPOS,
+    github: DEMO_GITHUB,
+    slices: 5,
   };
 }
 

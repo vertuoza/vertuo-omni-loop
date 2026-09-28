@@ -1,0 +1,359 @@
+import { generateKeyPairSync } from 'node:crypto';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { githubReader, latestPull, SUMMARY_TTL_MS } from './reader';
+import { UNREAD } from './summary';
+
+// The PRD page's GitHub reader (PRD 426, part 1), against a stubbed `fetch`: never GitHub itself.
+// A small fake GitHub answers by route; each test says what the repository holds.
+
+const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+const CREDS = { appId: '123456', privateKey: privateKey.export({ type: 'pkcs1', format: 'pem' }).toString() };
+const NOW = Date.parse('2026-09-28T10:00:00Z');
+const DOSSIER = { id: 'd-426', home_repo: 'acme/widgets', prd: 426 };
+
+const CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\n  defaultBranch: trunk\nbranches:\n  feature: feature/{topic}\npaths:\n  delivery: loop/delivery\n';
+
+type Route = (url: URL, init: RequestInit) => Response | Promise<Response> | undefined;
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+const pull = (number: number, head: string, more: Record<string, unknown> = {}) => ({
+  number, html_url: `https://github.com/acme/widgets/pull/${number}`, state: 'open' as 'open' | 'closed', draft: false, merged_at: null as string | null,
+  created_at: `2026-09-${String(10 + (number % 18)).padStart(2, '0')}T00:00:00Z`, head: { ref: head }, body: null, ...more,
+});
+const merged = (number: number, head: string, more: Record<string, unknown> = {}) =>
+  pull(number, head, { state: 'closed', merged_at: '2026-09-27T00:00:00Z', ...more });
+
+/** A fake GitHub: the App's installation and token routes, then the repository's contents and pulls. */
+function fakeGithub(repo: {
+  config?: string | null;
+  shipped?: string[];
+  inbox?: string[];
+  issue?: unknown;
+  pulls?: ReturnType<typeof pull>[];
+  installed?: boolean;
+  fail?: RegExp;
+  /** Files by `<ref>:<path>`; a directory lists the files and folders right under it. */
+  files?: Record<string, string>;
+  /** The comments of each issue or pull request, by number. */
+  comments?: Record<number, { id: number; html_url: string; body: string }[]>;
+}) {
+  const calls: string[] = [];
+  let tokens = 0;
+  const routes: Route[] = [
+    (url) => (url.pathname === '/repos/acme/widgets/installation'
+      ? (repo.installed === false ? json({}, 404) : json({ id: 5001, account: { login: 'acme', type: 'Organization' } })) : undefined),
+    (url, init) => {
+      if (url.pathname !== '/app/installations/5001/access_tokens' || init.method !== 'POST') return undefined;
+      tokens += 1;
+      return json({ token: `ghs_${tokens}`, expires_at: new Date(NOW + 60 * 60_000).toISOString() }, 201);
+    },
+    (url) => (url.pathname === '/repos/acme/widgets/contents/.omni-loop/config.yml'
+      ? (repo.config === null ? json({}, 404) : new Response(repo.config ?? CONFIG)) : undefined),
+    (url) => {
+      const dir = /^\/repos\/acme\/widgets\/contents\/loop\/delivery\/(shipped|inbox)$/.exec(url.pathname)?.[1] as 'shipped' | 'inbox' | undefined;
+      if (!dir || url.searchParams.get('ref') !== 'trunk') return undefined;
+      const names = repo[dir];
+      return names ? json(names.map((name) => ({ name, type: 'dir' }))) : json({}, 404);
+    },
+    (url) => (url.pathname === '/repos/acme/widgets/issues/426'
+      ? (repo.issue === undefined ? json({}, 404) : json(repo.issue)) : undefined),
+    (url, init) => {
+      const at = /^\/repos\/acme\/widgets\/contents\/(.+)$/.exec(url.pathname)?.[1];
+      if (!at) return undefined;
+      const key = `${url.searchParams.get('ref')}:${decodeURIComponent(at)}`;
+      const files = repo.files ?? {};
+      if (key in files) {
+        expect((init.headers as Record<string, string>).accept).toContain('raw');
+        return new Response(files[key]);
+      }
+      const under = Object.keys(files).filter((k) => k.startsWith(`${key}/`)).map((k) => k.slice(key.length + 1));
+      if (!under.length) return json({ message: 'Not Found' }, 404);
+      const names = [...new Set(under.map((rest) => rest.split('/')[0]))];
+      return json(names.map((name) => ({ name, type: under.includes(name) ? 'file' : 'dir' })));
+    },
+    (url) => {
+      const n = /^\/repos\/acme\/widgets\/issues\/(\d+)\/comments$/.exec(url.pathname)?.[1];
+      return n ? json(repo.comments?.[Number(n)] ?? []) : undefined;
+    },
+    (url) => {
+      if (url.pathname !== '/repos/acme/widgets/pulls') return undefined;
+      const head = url.searchParams.get('head');
+      const base = url.searchParams.get('base');
+      return json((repo.pulls ?? []).filter((p) => (head ? `acme:${p.head.ref}` === head : true))
+        .filter((p) => (base ? (p as { base?: string }).base === base && p.state === 'closed' : true)));
+    },
+  ];
+  const fetchImpl = vi.fn(async (href: string, init: RequestInit) => {
+    const url = new URL(href);
+    calls.push(`${url.pathname}${url.search}`);
+    if (repo.fail?.test(`${url.pathname}${url.search}`)) return json({ message: 'boom' }, 502);
+    for (const route of routes) {
+      const answer = await route(url, init);
+      if (answer) return answer;
+    }
+    throw new Error(`unexpected GitHub call ${href}`);
+  });
+  return { fetchImpl, calls, tokens: () => tokens };
+}
+
+beforeEach(() => { vi.spyOn(console, 'error').mockImplementation(() => {}); });
+afterEach(() => { vi.restoreAllMocks(); });
+
+const ISSUE = { number: 426, html_url: 'https://github.com/acme/widgets/issues/426', state: 'open' };
+const sub = (number: number, isMerged: boolean) =>
+  ({ ...(isMerged ? merged(number, `feature/prd-page-stage--s${number}`) : pull(number, `feature/prd-page-stage--s${number}`, { state: 'closed' })), base: 'feature/prd-page-stage' });
+
+describe('the GitHub summary of a numbered dossier', () => {
+  it('reads the issue, each PR by the branch shapes of the repository\'s own config, and counts merged sub-PRs', async () => {
+    const gh = fakeGithub({
+      inbox: ['0425-other', '0426-prd-page-stage'],
+      issue: ISSUE,
+      pulls: [merged(431, 'docs/phase-0-prd-page-stage'), pull(433, 'feature/prd-page-stage', { draft: true }), sub(434, true), sub(435, true), sub(436, false)],
+    });
+    const summary = await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER);
+    expect(summary).toEqual({
+      repo: 'acme/widgets', prd: 426, folder: '0426-prd-page-stage', topic: 'prd-page-stage',
+      issue: { number: 426, url: 'https://github.com/acme/widgets/issues/426', state: 'open' },
+      phase0: { number: 431, url: 'https://github.com/acme/widgets/pull/431', state: 'merged', draft: false },
+      feature: { number: 433, url: 'https://github.com/acme/widgets/pull/433', state: 'open', draft: true },
+      retro: null,
+      mergedSlices: 2,
+      outbox: null,
+      outboxComment: null,
+      retroText: null,
+    });
+    expect(gh.calls).toContain('/repos/acme/widgets/pulls?state=all&per_page=100&head=acme%3Afeature%2Fprd-page-stage&sort=created&direction=desc');
+    expect(gh.calls).toContain('/repos/acme/widgets/pulls?state=closed&per_page=100&base=feature%2Fprd-page-stage');
+    expect(JSON.stringify(summary)).not.toContain('ghs_');
+  });
+
+  it('finds the folder under shipped first, and the retro PR on the retro branch', async () => {
+    const gh = fakeGithub({
+      shipped: ['0426-prd-page-stage'],
+      issue: { ...ISSUE, state: 'closed' },
+      pulls: [merged(431, 'docs/phase-0-prd-page-stage'), merged(433, 'feature/prd-page-stage'), pull(440, 'docs/retro-prd-page-stage')],
+    });
+    const summary = await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER);
+    expect(summary).toMatchObject({ folder: '0426-prd-page-stage', feature: { state: 'merged' }, retro: { number: 440, state: 'open' } });
+    expect(gh.calls.some((c) => c.includes('/contents/loop/delivery/inbox'))).toBe(false);
+  });
+
+  it('counts a closed, unmerged PR as absent and takes the most recent open or merged one', () => {
+    const closed = pull(9, 'x', { state: 'closed', created_at: '2026-09-28T00:00:00Z' });
+    expect(latestPull([closed])).toBeNull();
+    expect(latestPull([closed, merged(3, 'x', { created_at: '2026-09-01T00:00:00Z' }), pull(5, 'x', { created_at: '2026-09-05T00:00:00Z' })]))
+      .toMatchObject({ number: 5, state: 'open' });
+  });
+
+  it('before phase-0 merges, finds the topic from the PR that carries the PRD\'s link line', async () => {
+    const gh = fakeGithub({
+      issue: ISSUE,
+      pulls: [pull(4260, 'docs/phase-0-other', { body: 'Refs #4260' }), pull(430, 'docs/phase-0-prd-page-stage', { body: 'Spec.\n\nRefs #426' })],
+    });
+    expect(await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({
+      folder: null, topic: 'prd-page-stage', phase0: { number: 430, state: 'open' }, feature: null, retro: null, mergedSlices: 0,
+    });
+  });
+
+  it('answers "none yet" when no folder and no PR name the PRD', async () => {
+    const gh = fakeGithub({ issue: ISSUE });
+    expect(await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({
+      topic: null, phase0: null, feature: null, retro: null, mergedSlices: 0, issue: { number: 426 },
+    });
+  });
+
+  it('lets one read fail while the others answer', async () => {
+    const gh = fakeGithub({
+      inbox: ['0426-prd-page-stage'], issue: ISSUE,
+      pulls: [merged(431, 'docs/phase-0-prd-page-stage')], fail: /\/issues\/426|head=acme%3Afeature/,
+    });
+    expect(await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({
+      issue: UNREAD, feature: UNREAD, phase0: { number: 431, state: 'merged' }, retro: null,
+    });
+  });
+
+  it('is null when the App is not installed on the repository, when it has no config, and when GitHub is unreachable', async () => {
+    expect(await githubReader(CREDS, fakeGithub({ installed: false }).fetchImpl, () => NOW).summary(DOSSIER)).toBeNull();
+    expect(await githubReader(CREDS, fakeGithub({ config: null }).fetchImpl, () => NOW).summary(DOSSIER)).toBeNull();
+    expect(await githubReader(CREDS, async () => { throw new TypeError('fetch failed'); }, () => NOW).summary(DOSSIER)).toBeNull();
+  });
+
+  it('never puts an odd repository in a GitHub address', async () => {
+    const gh = fakeGithub({});
+    expect(await githubReader(CREDS, gh.fetchImpl, () => NOW).summary({ ...DOSSIER, home_repo: '../evil' })).toBeNull();
+    expect(gh.fetchImpl).not.toHaveBeenCalled();
+  });
+});
+
+describe('the cache and the token', () => {
+  it('makes no call on a second read within 60 s, and reads again after', async () => {
+    let now = NOW;
+    const gh = fakeGithub({ inbox: ['0426-prd-page-stage'], issue: ISSUE });
+    const reader = githubReader(CREDS, gh.fetchImpl, () => now);
+    const first = await reader.summary(DOSSIER);
+    const count = gh.fetchImpl.mock.calls.length;
+    now += SUMMARY_TTL_MS - 1;
+    expect(await reader.summary(DOSSIER)).toEqual(first);
+    expect(gh.fetchImpl.mock.calls.length).toBe(count);
+    now += 1;
+    await reader.summary(DOSSIER);
+    expect(gh.fetchImpl.mock.calls.length).toBeGreaterThan(count);
+  });
+
+  it('keeps an unreadable answer for 60 s too', async () => {
+    const gh = fakeGithub({ installed: false });
+    const reader = githubReader(CREDS, gh.fetchImpl, () => NOW);
+    await reader.summary(DOSSIER);
+    await reader.summary(DOSSIER);
+    expect(gh.fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('reuses the installation token until a minute before it expires', async () => {
+    let now = NOW;
+    const gh = fakeGithub({ inbox: ['0426-prd-page-stage'], issue: ISSUE });
+    const reader = githubReader(CREDS, gh.fetchImpl, () => now);
+    await reader.summary(DOSSIER);
+    now += 30 * 60_000;
+    await reader.summary(DOSSIER);
+    expect(gh.tokens()).toBe(1);
+    now = NOW + 59 * 60_000;
+    await reader.summary(DOSSIER);
+    expect(gh.tokens()).toBe(2);
+    const authorizations = gh.fetchImpl.mock.calls
+      .filter(([href]) => String(href).includes('/issues/426'))
+      .map(([, init]) => (init.headers as Record<string, string>).authorization);
+    expect(authorizations).toEqual(['Bearer ghs_1', 'Bearer ghs_1', 'Bearer ghs_2']);
+  });
+});
+
+const item = (id: string, rank: 'high' | 'medium' | 'human-action', question: string) => [
+  '---', `id: ${id}`, 'prd: 426', `slice: ${id.split('-')[0]}`, `rank: ${rank}`, 'bears-on: none', 'raised: 2026-09-28', 'wave: 1', '---', '',
+  '## The question, in plain words', '', question, '',
+  '## The decision, in plain words', '', `Decided: ${question}`, '',
+  ...(rank === 'human-action'
+    ? ['## What a person must do', '', 'Add the secret on the host.', '']
+    : ['## The options, in plain words', '', 'A. Keep what was built.', 'B. Change it.', '']),
+  '## What I had to decide', '', 'x', '', '## What I did meanwhile', '', 'x', '',
+  '## What it costs to change later', '', 'x', '', '## What I could not know', '', 'x', '',
+].join('\n');
+const settledEntry = (id: string, verdict: string, answer: string, itemText: string) => [
+  `<!-- omni-outbox-settled: ${id} -->`, '', `## ${id} — ${verdict}`, '', `- Verdict: ${verdict}`, '- Rank: medium', '',
+  '### The answer, as it was given', '', '```text', answer, '```', '', '### The item, as it was raised', '', '```text', itemText, '```', '',
+  `<!-- /omni-outbox-settled: ${id} -->`, '',
+].join('\n');
+const SETTLED = `# Settled outbox items — PRD 426\n\n${settledEntry('s1-02-zeta', 'adopted', 'Adopted when raised.', item('s1-02-zeta', 'medium', 'Zeta or eta?'))}${settledEntry('s1-01-alpha', 'agreed', 'Yes, A.', 'not an item')}`;
+const OUTBOX = 'loop/delivery/outbox/0426-prd-page-stage';
+
+describe('the outbox', () => {
+  it('before shipping, reads the open items and settled.md from the feature branch, and finds the outbox comment by its marker', async () => {
+    const gh = fakeGithub({
+      inbox: ['0426-prd-page-stage'], issue: ISSUE,
+      pulls: [merged(431, 'docs/phase-0-prd-page-stage'), pull(433, 'feature/prd-page-stage'), sub(434, true)],
+      files: {
+        [`feature/prd-page-stage:${OUTBOX}/s1-03-medium-one.md`]: item('s1-03-medium-one', 'medium', 'Medium one?'),
+        [`feature/prd-page-stage:${OUTBOX}/s2-01-high-one.md`]: item('s2-01-high-one', 'high', 'High one?'),
+        [`feature/prd-page-stage:${OUTBOX}/s2-02-person.md`]: item('s2-02-person', 'human-action', 'A secret?'),
+        [`feature/prd-page-stage:${OUTBOX}/s2-09-broken.md`]: 'not an item',
+        [`feature/prd-page-stage:${OUTBOX}/settled.md`]: SETTLED,
+        [`feature/prd-page-stage:${OUTBOX}/accounts/s1.md`]: '---\nprd: 426\n---\n',
+      },
+      comments: { 433: [
+        { id: 1, html_url: 'https://github.com/acme/widgets/pull/433#issuecomment-1', body: 'hello' },
+        { id: 2, html_url: 'https://github.com/acme/widgets/pull/433#issuecomment-2', body: 'Questions\n<!-- omni-outbox-pr -->' },
+      ] },
+    });
+    const summary = await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER);
+    expect(summary?.outboxComment).toBe('https://github.com/acme/widgets/pull/433#issuecomment-2');
+    expect(summary?.outbox).toEqual({
+      open: [
+        { id: 's1-03-medium-one', rank: 'medium', question: 'Medium one?', decision: 'Decided: Medium one?',
+          options: [{ letter: 'A', text: 'Keep what was built.' }, { letter: 'B', text: 'Change it.' }], personSteps: null },
+        { id: 's2-01-high-one', rank: 'high', question: 'High one?', decision: 'Decided: High one?',
+          options: [{ letter: 'A', text: 'Keep what was built.' }, { letter: 'B', text: 'Change it.' }], personSteps: null },
+        { id: 's2-02-person', rank: 'human-action', question: 'A secret?', decision: 'Decided: A secret?', options: [], personSteps: 'Add the secret on the host.' },
+      ],
+      settled: [
+        { id: 's1-02-zeta', title: 'Zeta or eta?', verdict: 'adopted', answer: 'Adopted when raised.' },
+        { id: 's1-01-alpha', title: 's1-01-alpha', verdict: 'agreed', answer: 'Yes, A.' },
+      ],
+    });
+  });
+
+  it('takes the plain outbox comment when the feature PR has no numbered one, and none when neither is there', async () => {
+    const base = { inbox: ['0426-prd-page-stage'], issue: ISSUE, pulls: [pull(433, 'feature/prd-page-stage')] };
+    const plain = fakeGithub({ ...base, comments: { 433: [{ id: 3, html_url: 'https://github.com/acme/widgets/pull/433#issuecomment-3', body: '<!-- omni-outbox -->' }] } });
+    expect((await githubReader(CREDS, plain.fetchImpl, () => NOW).summary(DOSSIER))?.outboxComment).toBe('https://github.com/acme/widgets/pull/433#issuecomment-3');
+    const none = fakeGithub(base);
+    expect(await githubReader(CREDS, none.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({ outbox: null, outboxComment: null });
+  });
+
+  it('once shipped, reads the shipped folder\'s outbox on the default branch, not the feature branch', async () => {
+    const gh = fakeGithub({
+      shipped: ['0426-prd-page-stage'], issue: { ...ISSUE, state: 'closed' },
+      pulls: [merged(431, 'docs/phase-0-prd-page-stage'), merged(433, 'feature/prd-page-stage')],
+      files: { 'trunk:loop/delivery/shipped/0426-prd-page-stage/outbox/settled.md': SETTLED },
+    });
+    const summary = await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER);
+    expect(summary?.outbox).toMatchObject({ open: [], settled: [{ id: 's1-02-zeta' }, { id: 's1-01-alpha' }] });
+    expect(gh.calls.some((c) => c.includes('ref=feature'))).toBe(false);
+  });
+
+  it('before phase-0 merges, finds the folder under inbox on the feature branch', async () => {
+    const gh = fakeGithub({
+      issue: ISSUE,
+      pulls: [pull(430, 'docs/phase-0-prd-page-stage', { body: 'Refs #426' }), pull(433, 'feature/prd-page-stage', { body: 'Closes #426' })],
+      files: {
+        'feature/prd-page-stage:loop/delivery/inbox/0426-prd-page-stage/spec.md': '# spec',
+        [`feature/prd-page-stage:${OUTBOX}/s1-01-a.md`]: item('s1-01-a', 'high', 'A?'),
+      },
+    });
+    expect(await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({
+      folder: '0426-prd-page-stage', outbox: { open: [{ id: 's1-01-a' }], settled: [] },
+    });
+  });
+
+  it('lets the outbox and its comment fail on their own', async () => {
+    const gh = fakeGithub({
+      inbox: ['0426-prd-page-stage'], issue: ISSUE, pulls: [pull(433, 'feature/prd-page-stage')],
+      files: { [`feature/prd-page-stage:${OUTBOX}/settled.md`]: SETTLED }, fail: /\/contents\/loop\/delivery\/outbox|\/comments/,
+    });
+    expect(await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({
+      outbox: UNREAD, outboxComment: UNREAD, feature: { number: 433 }, issue: { number: 426 },
+    });
+  });
+});
+
+describe('the retro (s3)', () => {
+  const RETRO = 'loop/delivery/shipped/0426-prd-page-stage/retro.md';
+  const shipped = (retroPr: ReturnType<typeof pull>, files: Record<string, string>, fail?: RegExp) => fakeGithub({
+    shipped: ['0426-prd-page-stage'], issue: { ...ISSUE, state: 'closed' },
+    pulls: [merged(431, 'docs/phase-0-prd-page-stage'), merged(433, 'feature/prd-page-stage'), retroPr], files, fail,
+  });
+
+  it('reads retro.md from the retro branch while its PR is open', async () => {
+    const gh = shipped(pull(440, 'docs/retro-prd-page-stage'), {
+      [`docs/retro-prd-page-stage:${RETRO}`]: '# Retro\n\nFrom the branch.\n', [`trunk:${RETRO}`]: 'stale',
+    });
+    expect(await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({
+      retro: { number: 440, state: 'open' }, retroText: '# Retro\n\nFrom the branch.\n',
+    });
+  });
+
+  it('reads it from the default branch once the retro PR is merged', async () => {
+    const gh = shipped(merged(440, 'docs/retro-prd-page-stage'), { [`trunk:${RETRO}`]: '# Retro\n\nMerged.\n' });
+    expect((await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER))?.retroText).toBe('# Retro\n\nMerged.\n');
+    expect(gh.calls.some((c) => c.includes('retro.md') && c.includes('ref=docs'))).toBe(false);
+  });
+
+  it('is none with no retro PR, and makes no read for it', async () => {
+    const gh = fakeGithub({ shipped: ['0426-prd-page-stage'], issue: ISSUE, pulls: [merged(433, 'feature/prd-page-stage')] });
+    expect((await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER))?.retroText).toBeNull();
+    expect(gh.calls.some((c) => c.includes('retro.md'))).toBe(false);
+  });
+
+  it('fails on its own while the others answer', async () => {
+    const gh = shipped(pull(440, 'docs/retro-prd-page-stage'), {}, /retro\.md/);
+    expect(await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({
+      retroText: UNREAD, retro: { number: 440 }, feature: { state: 'merged' },
+    });
+  });
+});
