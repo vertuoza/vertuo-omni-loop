@@ -28,15 +28,23 @@ const commit = (cwd, message) => {
 /** One PRD folder's spec, as a file map entry. */
 const folder = (stage, name) => ({ [`${DELIVERY}/${stage}/${name}/spec.md`]: `# ${name}\n` });
 
-/** A seed repository holding `files`, its bare copy, and a clone of the bare copy to run in. */
-function cloned(files = {}) {
-  const seed = makeRepo({ git: true, files: { ...CONFIG, ...files } });
+/** The email the clone `omni status` runs in is configured with, and someone else's. */
+const ME = 'me@example.com';
+const OTHER = 'other@example.com';
+
+/** A bare copy of `seed`, and a clone of the bare copy to run in, its `user.email` set to `ME` so
+ * the output never depends on the machine's own git config. */
+function cloneOf(seed) {
   const bare = join(mkdtempSync(join(tmpdir(), 'omni-bare-')), 'origin.git');
   git(seed.root, 'clone', '-q', '--bare', seed.root, bare);
   const root = join(mkdtempSync(join(tmpdir(), 'omni-clone-')), 'work');
   git(seed.root, 'clone', '-q', bare, root);
+  git(root, 'config', 'user.email', ME);
   return { seed, bare, root };
 }
+
+/** A seed repository holding `files`, its bare copy, and a clone of the bare copy to run in. */
+const cloned = (files = {}) => cloneOf(makeRepo({ git: true, files: { ...CONFIG, ...files } }));
 
 const THREE_AND_TWO = {
   ...folder('shipped', '0001-first'),
@@ -60,6 +68,9 @@ describe('omni status — the overview (PRD 315, slice s1)', () => {
       '',
       `  delivered  ${'█'.repeat(18)}${'░'.repeat(12)}  3 of 5 · 60%`,
       '             2 in progress: 2 in the inbox',
+      '',
+      '  Yours · me@example.com',
+      '  none yet',
       '',
       'omni help: the loop and every command',
       '',
@@ -378,5 +389,124 @@ describe('omni status — the fetch time in a linked worktree (PRD 315, slice s2
     const back = io();
     expect(await main(['status'], { cwd: root, ...back })).toBe(0);
     expect(back.out.join('').split('\n')[0]).toBe('omni status · acme/widgets · origin/main, fetched 2 hours ago');
+  });
+});
+
+describe('omni status — your PRDs (PRD 315, slice s3)', () => {
+  /** Commits `files` as `email` on the seed's `branch`, cutting it from `main` when it is new. */
+  function commitOn(seed, branch, email, files) {
+    const exists = git(seed.root, 'branch', '--list', branch).trim() !== '';
+    if (branch !== 'main') git(seed.root, 'checkout', '-q', ...(exists ? [branch] : ['-b', branch, 'main']));
+    for (const [path, text] of Object.entries(files)) seed.write(path, text);
+    git(seed.root, 'add', '-A');
+    git(seed.root, '-c', `user.email=${email}`, '-c', 'user.name=someone', 'commit', '-q', '-m', `${email} on ${branch}`);
+    git(seed.root, 'checkout', '-q', 'main');
+  }
+
+  /**
+   * On `main`: PRDs 1 to 3 shipped and 4 to 8 in the inbox, 1 and 6 written by me, 3 written by
+   * someone else and its plan by me, the rest by someone else. `feat/fourth` carries their code,
+   * `feat/fifth` theirs and mine, `feat/seventh` an open item of mine; `docs/phase-0-eighth` my
+   * change to 8's spec, and `docs/phase-0-ninth` and `docs/phase-0-tenth` the PRDs 9 (mine) and 10
+   * (theirs) in review.
+   */
+  function seeded() {
+    const seed = makeRepo({ git: true, files: CONFIG });
+    commitOn(seed, 'main', ME, folder('shipped', '0001-first'));
+    commitOn(seed, 'main', OTHER, {
+      ...folder('shipped', '0002-second'),
+      ...folder('shipped', '0003-third'),
+      ...folder('inbox', '0004-fourth'),
+      ...folder('inbox', '0005-fifth'),
+      ...folder('inbox', '0007-seventh'),
+      ...folder('inbox', '0008-eighth'),
+    });
+    commitOn(seed, 'main', ME, { ...folder('inbox', '0006-sixth'), [`${DELIVERY}/shipped/0003-third/plan.md`]: '# plan\n' });
+    commitOn(seed, 'main', ME, { 'src/elsewhere.mjs': 'export const elsewhere = 1;\n' });
+    commitOn(seed, 'feat/fourth', OTHER, { 'src/fourth.mjs': 'export const fourth = 1;\n' });
+    commitOn(seed, 'feat/fifth', OTHER, { 'src/fifth.mjs': 'export const fifth = 1;\n' });
+    commitOn(seed, 'feat/fifth', ME, { 'src/fifth-more.mjs': 'export const more = 1;\n' });
+    commitOn(seed, 'feat/seventh', ME, { [`${OUTBOX}/0007-seventh/s1-01-a.md`]: '# a\n' });
+    commitOn(seed, 'docs/phase-0-eighth', ME, { [`${DELIVERY}/inbox/0008-eighth/spec.md`]: '# eighth, again\n' });
+    commitOn(seed, 'docs/phase-0-ninth', ME, folder('inbox', '0009-ninth'));
+    commitOn(seed, 'docs/phase-0-tenth', OTHER, folder('inbox', '0010-tenth'));
+    return seed;
+  }
+
+  const MINE = [
+    '  outbox     #7  seventh    1 open item waits for an answer',
+    '  outbox     #5  fifth      being built',
+    '  inbox      #8  eighth     ready to build: /omni:yolo 8',
+    '  inbox      #6  sixth      ready to build: /omni:yolo 6',
+    '  in review  #9  ninth      its phase-0 PR waits for a merge',
+    '  shipped    2: #3 third · #1 first',
+  ];
+
+  /** `omni status` in `root`, its lines. */
+  async function statusIn(root, exec) {
+    const s = io();
+    expect(await main(['status'], { cwd: root, ...s, ...(exec ? { exec } : {}) })).toBe(0);
+    expect(s.err.join('')).toBe('');
+    return s.out.join('').split('\n');
+  }
+
+  /** The lines between the one under the bar and the pointer to help. */
+  const yoursIn = (out) => out.slice(out.findIndex((line) => line.includes('in progress')) + 2, -3);
+
+  it('lists the PRDs whose folder you touched, or whose feature branch carries a commit of yours, each with where it stands', async () => {
+    const { root } = cloneOf(seeded());
+    const out = await statusIn(root);
+    expect(out[2]).toBe('  SHIPPED 3     INBOX 2     OUTBOX 3 · 1 open item     IN REVIEW 2');
+    expect(yoursIn(out)).toEqual(['  Yours · me@example.com', ...MINE]);
+    for (const line of out) expect(line.length).toBeLessThanOrEqual(80);
+  });
+
+  it('compares the email ignoring case', async () => {
+    const { root } = cloneOf(seeded());
+    git(root, 'config', 'user.email', 'Me@Example.com');
+    expect(yoursIn(await statusIn(root))).toEqual(['  Yours · Me@Example.com', ...MINE]);
+  });
+
+  it('lists only what is theirs for someone else', async () => {
+    const { root } = cloneOf(seeded());
+    git(root, 'config', 'user.email', OTHER);
+    expect(yoursIn(await statusIn(root))).toEqual([
+      '  Yours · other@example.com',
+      '  outbox     #7   seventh    1 open item waits for an answer',
+      '  outbox     #5   fifth      being built',
+      '  outbox     #4   fourth     being built',
+      '  inbox      #8   eighth     ready to build: /omni:yolo 8',
+      '  in review  #10  tenth      its phase-0 PR waits for a merge',
+      '  shipped    2: #3 third · #2 second',
+    ]);
+  });
+
+  it('says none yet when no PRD is yours, the counts and the bar still shown', async () => {
+    const { root } = cloneOf(seeded());
+    git(root, 'config', 'user.email', 'nobody@example.com');
+    const out = await statusIn(root);
+    expect(yoursIn(out)).toEqual(['  Yours · nobody@example.com', '  none yet']);
+    expect(out[2]).toBe('  SHIPPED 3     INBOX 2     OUTBOX 3 · 1 open item     IN REVIEW 2');
+  });
+
+  it('says one line without a user.email, the counts and the bar still shown', async () => {
+    const { root } = cloneOf(seeded());
+    git(root, 'config', '--unset', 'user.email');
+    const bare = (command, args, options) => execFileSync(command, args, { ...options, env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' } });
+    const out = await statusIn(root, bare);
+    expect(yoursIn(out)).toEqual(['  set git config user.email to see yours']);
+    expect(out[2]).toBe('  SHIPPED 3     INBOX 2     OUTBOX 3 · 1 open item     IN REVIEW 2');
+    expect(out.some((line) => line.endsWith('3 of 8 · 37%'))).toBe(true);
+  });
+
+  it('says one line in a shallow clone, the counts and the bar still shown', async () => {
+    const { bare } = cloneOf(seeded());
+    const root = join(mkdtempSync(join(tmpdir(), 'omni-shallow-')), 'work');
+    git(tmpdir(), 'clone', '-q', '--depth', '1', `file://${bare}`, root);
+    git(root, 'config', 'user.email', ME);
+    const out = await statusIn(root);
+    expect(yoursIn(out)).toEqual(['  this clone is shallow: git fetch --unshallow to see yours']);
+    expect(out[2]).toBe('  SHIPPED 3     INBOX 5');
+    expect(out.some((line) => line.endsWith('3 of 8 · 37%'))).toBe(true);
   });
 });
