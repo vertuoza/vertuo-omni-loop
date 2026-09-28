@@ -30,7 +30,7 @@
     "galaxy:shots": "pnpm --filter @omni/galaxy-app shots"
   },
   "devDependencies": {
-    "esbuild": "^0.24.0",
+    "esbuild": "^0.28.1",
     "vitest": "^2.1.0",
     "yaml": "^2.5.0",
     "zod": "^3.23.8"
