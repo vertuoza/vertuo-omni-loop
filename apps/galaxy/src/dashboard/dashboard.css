@@ -9,7 +9,7 @@
 @import './counts/counts.css';
 @import './rankings/rankings.css';
 
-.dash { width: 100%; max-width: 960px; display: grid; gap: 32px; }
+.dash { width: 100%; justify-self: start; display: grid; gap: 32px; }
 .dash > * { min-width: 0; }
 
 /* ── You: the hero, beside the name, the fleet, the points and the places ──── */
