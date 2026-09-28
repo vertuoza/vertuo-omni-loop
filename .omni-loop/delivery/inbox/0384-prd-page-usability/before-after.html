@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD Page Usability</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --void: #07061c; --deep: #0e0d33; --cab: #120f3a; --navy: #2f3fc4; --white: #f2f4ff;
+    --dim: #8a90d6; --slate: #5b5f80; --yellow: #ffd84a; --red: #ff3b5c; --green: #4ee08a;
+    --plasma: #a45cff; --cyan: #6ff0ff;
+    --pixel: 'Press Start 2P', ui-monospace, 'SF Mono', Menlo, monospace;
+    --display: 'Anton', 'Impact', 'Haettenschweiler', 'Arial Narrow Bold', sans-serif;
+    --body: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--white); font: 15px/1.55 var(--body); padding: 32px 16px 64px; }
+  main { max-width: 1080px; margin: 0 auto; display: grid; gap: 44px; }
+  h1 { font: 44px/1.05 var(--display); letter-spacing: .01em; margin: 0; text-wrap: balance; text-transform: uppercase; }
+  h1 em { font-style: normal; color: var(--yellow); }
+  .lede { max-width: 66ch; color: var(--dim); margin: 12px 0 0; }
+  .meta { font: 10px/1.6 var(--pixel); color: var(--slate); letter-spacing: .08em; margin-bottom: 14px; }
+  section { display: grid; gap: 14px; }
+  h2 { font: 12px/1.6 var(--pixel); color: var(--cyan); margin: 0; letter-spacing: .06em; text-transform: uppercase; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .pair { grid-template-columns: 1fr; } h1 { font-size: 34px; } }
+  .side { display: grid; gap: 8px; align-content: start; }
+  .tag { font: 9px/1 var(--pixel); letter-spacing: .1em; padding: 6px 8px; justify-self: start; }
+  .today .tag { background: var(--slate); color: var(--void); }
+  .after .tag { background: var(--green); color: var(--void); }
+  .screen { background: var(--deep); border: 3px solid var(--navy); padding: 16px; display: grid; gap: 10px; align-content: start; font-size: 13.5px; }
+  .today .screen { border-color: var(--slate); }
+  .note { color: var(--dim); font-size: 13.5px; margin: 0; }
+  code { font: 12.5px/1.4 ui-monospace, 'SF Mono', Menlo, monospace; color: var(--cyan); }
+
+  /* the PRD page, drawn small */
+  .ttl { font: 20px/1.1 var(--display); text-transform: uppercase; }
+  .ttl .n { color: var(--yellow); margin-right: 8px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 2px solid var(--navy); }
+  .tab { font: 9px/1 var(--pixel); padding: 8px 8px 7px; color: var(--dim); letter-spacing: .04em; }
+  .tab small { font: inherit; color: var(--slate); margin-left: 4px; }
+  .tab.on { color: var(--void); background: var(--yellow); }
+  .tab.on small { color: var(--void); }
+  .body-ph { height: 64px; border: 2px dashed var(--slate); display: grid; place-items: center; color: var(--slate); font: 9px/1.4 var(--pixel); }
+  .url { font: 11px/1.3 ui-monospace, 'SF Mono', Menlo, monospace; color: var(--slate); background: var(--void); padding: 5px 8px; border: 1px solid var(--navy); overflow-wrap: anywhere; }
+  .url b { color: var(--cyan); font-weight: 400; }
+
+  .q { border: 2px solid var(--navy); background: var(--cab); padding: 10px 12px; display: grid; gap: 6px; }
+  .q.focus { border-color: var(--yellow); box-shadow: 4px 4px 0 var(--void); }
+  .qt { font-weight: 700; }
+  .chip { font: 8px/1 var(--pixel); background: var(--navy); color: var(--white); padding: 4px 5px; margin-right: 6px; vertical-align: 2px; }
+  .opts { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+  .opt { border: 1px solid var(--slate); padding: 5px 8px; color: var(--dim); }
+  .opt.ch { border-color: var(--green); color: var(--white); }
+  .opt .d { display: block; font-size: 12px; color: var(--slate); }
+  .ok { font: 8px/1 var(--pixel); color: var(--green); margin-left: 6px; }
+  .ans { display: flex; gap: 8px; align-items: baseline; }
+  .ans .k { font: 8px/1 var(--pixel); color: var(--green); letter-spacing: .06em; flex: none; }
+  .out { font-size: 12px; color: var(--slate); }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .btn { font: 9px/1.3 var(--pixel); padding: 8px 10px; background: var(--yellow); color: var(--void); border: 2px solid var(--void); box-shadow: 3px 3px 0 var(--void); letter-spacing: .03em; }
+  .btn.ghost { background: transparent; color: var(--cyan); border-color: var(--navy); box-shadow: none; }
+  .link { color: var(--cyan); font-size: 12.5px; text-decoration: underline; }
+  .wait { font-size: 12px; color: var(--dim); }
+  .new { font: 8px/1 var(--pixel); color: var(--void); background: var(--plasma); padding: 4px 5px; margin-left: 6px; vertical-align: 2px; }
+  .arrow { font: 10px/1.4 var(--pixel); color: var(--yellow); text-align: center; }
+  .reload { font: 9px/1.4 var(--pixel); color: var(--red); }
+  .live { font: 9px/1.4 var(--pixel); color: var(--green); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--navy); vertical-align: top; }
+  th { font: 9px/1.6 var(--pixel); color: var(--dim); letter-spacing: .08em; font-weight: 400; }
+  .tablewrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="meta">PRD #384 · BEFORE / AFTER · APPS/GALAXY /PRD/&lt;ID&gt;</div>
+    <h1>The PRD page is <em>easier to use</em></h1>
+    <p class="lede">Five changes to the dossier page and the single-question page, for whoever follows or answers a PRD.
+      No new data, no migration, no kit change. The stage header and the GitHub links come in the next PRD.</p>
+  </header>
+
+  <section>
+    <h2>1 · Tabs in the order a PRD is made</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">TODAY</span>
+        <div class="screen">
+          <div class="ttl"><span class="n">PRD #347</span>CLI releases</div>
+          <div class="tabs"><span class="tab on">Before/after<small>v2</small></span><span class="tab">Spec<small>v3</small></span><span class="tab">Plan<small>v1</small></span><span class="tab">Questions<small>11/12</small></span></div>
+          <div class="body-ph">OPENS ON BEFORE/AFTER</div>
+        </div>
+        <p class="note">Questions come last, though a PRD starts with them.</p>
+      </div>
+      <div class="side after"><span class="tag">AFTER</span>
+        <div class="screen">
+          <div class="ttl"><span class="n">PRD #347</span>CLI releases</div>
+          <div class="tabs"><span class="tab on">Questions<small>11/12</small></span><span class="tab">Before/after<small>v2</small></span><span class="tab">Spec<small>v3</small></span><span class="tab">Plan<small>v1</small></span></div>
+          <div class="body-ph">OPENS ON QUESTIONS</div>
+        </div>
+        <p class="note">No question yet: it opens on Before/after. Every <code>?tab=</code> link still works.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · An answered question shows its answer only</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">TODAY</span>
+        <div class="screen">
+          <div class="q">
+            <div class="qt"><span class="chip">AUTO-REFRESH</span>What should refresh on its own?</div>
+            <ul class="opts">
+              <li class="opt ch">Whole page, quick check <span class="ok">CHOSEN</span><span class="d">Every 2 s a light check asks "anything new?"</span></li>
+              <li class="opt">Questions only<span class="d">Only the Questions tab updates live.</span></li>
+              <li class="opt">Whole page, every 10 s<span class="d">Less load, up to 10 s late.</span></li>
+            </ul>
+            <div class="ans"><span class="k">ANSWER</span><b>Whole page, quick check</b></div>
+            <div class="out">answered by Pierre after 40 s, on the page</div>
+          </div>
+        </div>
+        <p class="note">Every option stays, the chosen one only tagged.</p>
+      </div>
+      <div class="side after"><span class="tag">AFTER</span>
+        <div class="screen">
+          <div class="q">
+            <div class="qt"><span class="chip">AUTO-REFRESH</span>What should refresh on its own?</div>
+            <div class="ans"><span class="k">ANSWER</span><span><b>Whole page, quick check</b><br><span class="out">Every 2 s a light check asks "anything new?"</span></span></div>
+            <div class="out">answered by Pierre after 40 s, on the page</div>
+          </div>
+        </div>
+        <p class="note">Only the chosen option, with its description. An "Other" answer shows as written. Open questions still show every option.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · Back to where you came from</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">TODAY</span>
+        <div class="screen">
+          <div class="url">/ask/q/<b>r_81c2</b></div>
+          <div class="q"><div class="qt">Answered by you</div><div class="out">Which questions can be answered on the list? → Pick-one rounds</div></div>
+          <div class="arrow">…AND YOU STAY HERE</div>
+          <p class="note">Finding the PRD again is up to you.</p>
+        </div>
+      </div>
+      <div class="side after"><span class="tag">AFTER</span>
+        <div class="screen">
+          <div class="url">/ask/q/r_81c2<b>?from=bfe4c666-…</b></div>
+          <div class="arrow">SEND ▼</div>
+          <div class="url">/prd/bfe4c666-…<b>?tab=questions#r_91d0</b></div>
+          <div class="q focus"><div class="qt">Next open question</div><div class="out">scrolled into view</div></div>
+          <p class="note">No <code>from</code> (a shared link): you land on that terminal's ask page, <code>/ask/&lt;session&gt;</code>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4 · Answer a quick question on the list</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">TODAY</span>
+        <div class="screen">
+          <div class="q">
+            <div class="qt"><span class="chip">TABS</span>Where do Outbox and Retro go?</div>
+            <ul class="opts">
+              <li class="opt">Reorder, add later</li><li class="opt">All six now, greyed</li><li class="opt">Keep Before/after default</li>
+            </ul>
+            <div class="out">not answered yet</div>
+            <a class="link">Open the question</a>
+          </div>
+        </div>
+        <p class="note">Read-only: even one click means a trip to another page.</p>
+      </div>
+      <div class="side after"><span class="tag">AFTER</span>
+        <div class="screen">
+          <div class="q focus">
+            <div class="qt"><span class="chip">TABS</span>Where do Outbox and Retro go?</div>
+            <div class="row"><span class="btn">Reorder, add later</span><span class="btn">All six now, greyed</span><span class="btn">Keep Before/after default</span></div>
+            <a class="link">Open the question</a>
+          </div>
+          <div class="q">
+            <div class="qt"><span class="chip">BRIEF</span>Two questions in one round…</div>
+            <span class="btn ghost" style="justify-self:start">Open</span>
+          </div>
+          <div class="q"><div class="qt"><span class="chip">SCOPE</span>Someone else's round</div><div class="wait">Waiting for Pierre</div></div>
+        </div>
+        <p class="note">Quick = one question, pick one, no preview. Buttons only for the session's owner or someone it is shared with; decided on the server.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>5 · The page refreshes itself</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">TODAY</span>
+        <div class="screen">
+          <div class="tabs"><span class="tab on">Questions<small>3/3</small></span><span class="tab">Spec<small>v1</small></span></div>
+          <div class="q"><div class="qt">…three answered rounds</div></div>
+          <div class="reload">⟳ RELOAD BY HAND TO SEE THE NEXT QUESTION</div>
+        </div>
+      </div>
+      <div class="side after"><span class="tag">AFTER</span>
+        <div class="screen">
+          <div class="tabs"><span class="tab on">Questions<small>3/4</small></span><span class="tab">Spec<small>v2</small></span></div>
+          <div class="q"><div class="qt">…three answered rounds</div></div>
+          <div class="q focus"><div class="qt">Is this design approved?<span class="new">NEW</span></div></div>
+          <div class="live">● LIVE · CHECKS EVERY 2 S WHILE THE TAB IS VISIBLE</div>
+        </div>
+        <p class="note">Re-renders only when counts or versions change; keeps your tab, your scroll and a <code>?v=</code> you picked.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What stays the same</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>THING</th><th>AFTER THIS PRD</th></tr></thead>
+        <tbody>
+          <tr><td>The header (PRD #n, title, repos)</td><td>Unchanged; the stage header and the issue link are the next PRD</td></tr>
+          <tr><td>The question page for big questions</td><td>Unchanged form, multi-select, previews and Other; only where it goes after a send changes</td></tr>
+          <tr><td>Who may answer</td><td>The same rule: the session's owner or a member it is shared with</td></tr>
+          <tr><td>The database and the kit</td><td>No migration, no change to <code>omni dossier push</code></td></tr>
+          <tr><td>Without script</td><td>The page still renders; quick rounds fall back to their Open link</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+</body>
+</html>
