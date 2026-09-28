@@ -4,12 +4,14 @@ import { cliCallbackDeps } from '../../../src/ask/cli-code-live';
 import { afterSignIn, joinBeforeIssue, settleSignIn, type SignedIn } from '../../../src/data/sign-in';
 import { signInDeps } from '../../../src/data/sign-in-live';
 import { supabaseAs, supabaseEnv, supabaseServer } from '../../../src/data/supabase-server';
+import { landingAfterSignIn } from '../../../src/data/workspace';
 
 // Where GitHub sends the player back (PRD 359). The code becomes a session cookie, and every
 // sign-in joins the workspaces of the person's GitHub orgs, then runs link_github(), which copies
 // the GitHub login onto the player from the identity Supabase recorded, never from anything the
 // browser sends (src/data/sign-in.ts). Then back to the arcade at /play (HOME is at /, PRD 261),
-// with the outcome in the query string for it to show.
+// with the outcome in the query string for it to show; or, for someone still in no workspace, on to
+// /signup to install Omni Loop.
 // With `?next=ask-cli` it is `omni signin` coming back instead: the code becomes a sign-in for the
 // terminal, not a cookie, which joins and links as well before its one-time code is issued, and the
 // browser goes on to the terminal's loopback address with that code, or back to /ask/signin with the
@@ -46,6 +48,11 @@ export async function GET(request: NextRequest) {
     return back('signin_error', 'That sign-in could not be finished. Start again from this browser.');
   }
 
-  const [key, value] = await afterSignIn(db, (data?.session as SignedIn | null | undefined) ?? null, signInDeps, params.get('next'));
+  const session = (data?.session as SignedIn | null | undefined) ?? null;
+  const [key, value] = await afterSignIn(db, session, signInDeps, params.get('next'));
+  // Someone still in no workspace goes straight on to sign-up, not to the arcade's dead end.
+  if (session && key === 'signin' && (await landingAfterSignIn(db, session.user.id)) === '/signup') {
+    return NextResponse.redirect(new URL('/signup', origin(request)));
+  }
   return back(key, value);
 }

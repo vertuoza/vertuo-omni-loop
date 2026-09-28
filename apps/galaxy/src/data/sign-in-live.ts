@@ -27,6 +27,7 @@ const store = () => signupStore(serviceDb());
 export const signupDeps: SignupDeps = {
   installation: (id) => app().installation(id),
   orgInstallation: (org) => app().orgInstallation(org),
+  userInstallation: (login) => app().userInstallation(login),
   createWorkspace: (userId, installation) => store().createWorkspace(userId, installation),
   pendingRequests: (userId) => store().pendingRequests(userId),
   recordRequest: (userId, org) => store().recordRequest(userId, org),

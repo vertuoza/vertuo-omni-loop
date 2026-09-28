@@ -1,5 +1,5 @@
-// GitHub as the omni-loop App sees it (PRD 359): a JWT signed with the App's private key, then two
-// reads, an installation by id and an org's installation. galaxy's server holds the App's id and key
+// GitHub as the omni-loop App sees it (PRD 359): a JWT signed with the App's private key, then three
+// reads, an installation by id, an org's installation and a person's own account's installation. galaxy's server holds the App's id and key
 // (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, server only: never a NEXT_PUBLIC_ variable, never imported
 // by a client component); the install link needs only the App's public slug (GITHUB_APP_SLUG).
 import { createSign } from 'node:crypto';
@@ -60,6 +60,10 @@ export function githubApp(creds: AppCredentials, fetchImpl: Fetch = fetch, clock
     orgInstallation(org: string) {
       if (!LOGIN.test(org)) return Promise.reject(new Error(`${JSON.stringify(org)} is not a GitHub login`));
       return read(`/orgs/${org}/installation`);
+    },
+    userInstallation(login: string) {
+      if (!LOGIN.test(login)) return Promise.reject(new Error(`${JSON.stringify(login)} is not a GitHub login`));
+      return read(`/users/${login}/installation`);
     },
   };
 }

@@ -35,6 +35,10 @@ export function signupWorld(opts: {
       github();
       return installations.find((i) => i.account.type === 'Organization' && i.account.login.toLowerCase() === org.toLowerCase()) ?? null;
     }),
+    userInstallation: vi.fn(async (login: string) => {
+      github();
+      return installations.find((i) => i.account.type === 'User' && i.account.login.toLowerCase() === login.toLowerCase()) ?? null;
+    }),
     createWorkspace: vi.fn(async (userId: string, inst: Installation): Promise<WorkspaceMade> => {
       db();
       let ws = workspaces.find((w) => w.github_installation_id === inst.id)
@@ -80,7 +84,10 @@ export function signupWorld(opts: {
         members.push({ workspace_id: w.id, user_id: userId, role: 'member' });
       }
     }
-    return [];
+    // As join_workspaces_by_github() answers: the slugs of every workspace the person belongs to.
+    return members.filter((m) => m.user_id === userId)
+      .map((m) => workspaces.find((w) => w.id === m.workspace_id)?.slug)
+      .filter((slug): slug is string => Boolean(slug));
   });
   const linkGithub = vi.fn(async () => ({ data: { github_login: 'linked' }, error: null }));
 

@@ -14,7 +14,7 @@ describe('the order form', () => {
     expect(markup).toMatch(/<button [^>]*data-sign-up=""[^>]*>[\s\S]*?SIGN UP WITH GITHUB/);
     expect(markup).not.toMatch(/disabled|COMING SOON/);
     expect(markup).toMatch(/<a [^>]*href="\/play"[^>]*>PRESS START<\/a>/);
-    expect(text(markup)).toContain('Omni Loop runs on Claude Code. Invite-only while in beta.');
+    expect(text(markup)).toContain('Omni Loop runs on Claude Code. Free while in beta: sign up with GitHub.');
     expect(text(markup)).toContain('↑ ↑ ↓ ↓ ← → ← → B A FLASHES CHEAT ACTIVATED! AND DROPS YOU IN THE GAME.');
   });
 

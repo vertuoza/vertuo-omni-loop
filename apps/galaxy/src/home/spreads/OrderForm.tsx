@@ -21,7 +21,7 @@ export function OrderForm() {
           <PressStart />
           <GettingStarted />
         </div>
-        <p className="home-fine">Omni Loop runs on Claude Code. Invite-only while in beta.</p>
+        <p className="home-fine">Omni Loop runs on Claude Code. Free while in beta: sign up with GitHub.</p>
       </div>
       <p className="home-psst">PSST: <kbd><span className="home-glyph">↑ ↑ ↓ ↓ ← → ← →</span> B A</kbd> FLASHES CHEAT ACTIVATED! AND DROPS YOU IN THE GAME.</p>
     </section>
