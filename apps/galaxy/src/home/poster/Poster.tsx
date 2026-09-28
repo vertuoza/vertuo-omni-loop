@@ -1,12 +1,13 @@
 import { PLAY } from '../forward';
 import { SIGN_UP_ATTR } from '../sign-up';
 import { PRESS_START_ATTR } from '../start';
-import { CREST_FORM, crestSvg, OMNI_POSE, omniSvg, planetSvgs, starfieldSvg } from './art';
+import { CREST_FORM, crestSvg, OMNI_POSE, omniSvg, PLANET_PROGRESS, planetPixels, planetSvgs, starfieldSvg } from './art';
+import { PosterPlanet } from './PosterPlanet';
 
 // The poster above HOME's fold (PRD 261), drawn as a retro print ad: a text column in the ad's
 // purple beside a starfield, the Star Fox split. Every picture is an SVG drawn on the server
-// (art.ts), so the poster ships no script; the one client component on the page (Controls) makes
-// every PRESS START start the game. Its styles are in home.css. PRD 285 put value first: the column
+// (art.ts); the page ships two client components: Controls makes every PRESS START start the game,
+// and PosterPlanet turns the planet on a canvas once the browser allows motion (PRD 394). Its styles are in home.css. PRD 285 put value first: the column
 // says what the loop gives a team, AGENTS SHIP. YOU STEER., then its three promises.
 
 /** The promise strip under the pitch, in its order. */
@@ -70,11 +71,11 @@ export function Poster() {
       </div>
       <div className="home-sky">
         <div className="home-stars" aria-hidden="true" dangerouslySetInnerHTML={{ __html: starfieldSvg() }} />
-        <div className="home-planet" role="img" aria-label="A pixel planet, green patches of secured ground spreading across it: the invasion">
+        <PosterPlanet size={planetPixels(PLANET_PROGRESS[0]).w}>
           {planetSvgs().map((svg, i) => (
             <span key={i} className="home-planet-frame" aria-hidden="true" dangerouslySetInnerHTML={{ __html: svg }} />
           ))}
-        </div>
+        </PosterPlanet>
         <div className="home-crest" data-logo={CREST_FORM}><Svg svg={crestSvg()} /></div>
         <PressStart blink />
       </div>

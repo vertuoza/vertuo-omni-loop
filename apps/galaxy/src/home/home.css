@@ -160,6 +160,16 @@ html:has(.home) body {
   0% { opacity: 1; }
   33.333% { opacity: 0; }
 }
+/* Once the browser allows motion, PosterPlanet turns the planet on a canvas over the frames, drawn
+   at the frames' own size; the frames hide only once the canvas has drawn. */
+.home-planet-canvas {
+  grid-area: 1 / 1;
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+.home-planet[data-turning] .home-planet-frame { visibility: hidden; }
 
 .home-crest { position: relative; width: min(100%, 560px); }
 
@@ -194,8 +204,9 @@ html:has(.home) body {
 
 @media (prefers-reduced-motion: reduce) {
   .home-blink, .home-cheat { animation: none; }
-  .home-planet-frame { animation: none; }
+  .home-planet-frame { animation: none; visibility: visible; }
   .home-planet-frame:last-child { opacity: 1; }
+  .home-planet-canvas { display: none; }
 }
 
 /* On a phone the poster stacks: the crest, the headline and PRESS START first, on the starfield,
