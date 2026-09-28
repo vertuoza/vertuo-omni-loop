@@ -7,6 +7,7 @@ import {
 } from './scenes';
 import { useForm } from './form';
 import { useFullscreen } from './fullscreen';
+import { FullscreenButton, useFullscreenState } from './FullscreenButton';
 import { frameFor, gridFor, pagesFor, TALL, turnPage, WIDE } from './grid';
 import { planetAt, Screen, type GridPoint, type ScreenInfo } from './Screen';
 import { Handheld, Lens } from './Handheld';
@@ -709,6 +710,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   // first press of the page load asks for it, on desktop none does, F toggles it in every form, and
   // the Esc that leaves it is never also B.
   const fullscreen = useFullscreen(form);
+  const fullscreenState = useFullscreenState();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const modified = e.metaKey || e.ctrlKey || e.altKey;
@@ -905,6 +907,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
             {ui.toast && <p className="j-toast" role="status">{ui.toast}</p>}
           </Screen>
         </Lens>
+        <FullscreenButton form={form} {...fullscreenState} fullscreen={fullscreen} />
         <HeldPad.Provider value={ui.scene === 'invaders' ? held : null}>
           {form === 'handheld' && <Handheld {...body} />}
           {form === 'advance' && <Advance {...body} />}
