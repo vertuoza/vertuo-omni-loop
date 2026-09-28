@@ -132,14 +132,54 @@ describe('the Questions tab', () => {
     expect(html).not.toContain('<iframe');
   });
 
-  it('shows the question, as text, with its options, the chosen one marked, and the answer', () => {
+  it('shows an answered question, as text, with only its chosen option and its description', () => {
     const html = questions();
     expect(html).toContain('Square or &lt;b&gt;hexagonal&lt;/b&gt; tiles?');
     expect(html).not.toContain('<b>hexagonal</b>');
-    expect(html).toMatch(/<li class="dossier-option" data-chosen="true"><span class="dossier-option-label">Square<span class="ask-rec">Recommended<\/span><span class="dossier-chosen">chosen<\/span><\/span><span class="dossier-option-desc">cheaper<\/span><\/li>/);
-    expect(html).toMatch(/<li class="dossier-option"><span class="dossier-option-label">Hexagonal<\/span><span class="dossier-option-desc">prettier<\/span><\/li>/);
-    expect(html).toContain('<p class="dossier-answer"><span class="ask-hint">Answer</span> <b>Square (Recommended)</b></p>');
-    expect(html).toContain('<p class="dossier-answer"><span class="ask-hint">No answer</span></p>');
+    expect(html).toContain('<ul class="dossier-options" aria-label="Chosen option">'
+      + '<li class="dossier-option" data-chosen="true"><span class="dossier-option-label">Square<span class="ask-rec">Recommended</span></span>'
+      + '<span class="dossier-option-desc">cheaper</span></li></ul>');
+    expect(html).not.toContain('Hexagonal');
+    expect(html).not.toContain('prettier');
+  });
+
+  it('shows each chosen option of a multi-select answer, and an answer matching no option as its text', () => {
+    const checks = {
+      question: 'Which checks?', header: 'Checks', multiSelect: true,
+      options: [{ label: 'Unit', description: 'fast' }, { label: 'Access', description: 'two accounts' }, { label: 'Manual', description: 'slow' }],
+    };
+    const html = questions({
+      questions: [
+        asked('r5', 'brainstorm', '2026-09-27T10:00:00Z', {
+          questions: [checks], status: 'answered', answers: { [checks.question]: 'Unit, Access' }, answered_via: 'page', answered_by: PIERRE.user_id,
+          answered_at: '2026-09-27T10:01:00Z',
+        }),
+        asked('r6', 'brainstorm', '2026-09-27T10:05:00Z', {
+          status: 'answered', answers: { [SHAPE.question]: 'Triangles, <i>obviously</i>' }, answered_via: 'page', answered_by: PIERRE.user_id,
+          answered_at: '2026-09-27T10:06:00Z',
+        }),
+      ],
+    });
+    expect([...html.matchAll(/<span class="dossier-option-label">([^<]+)/g)].map((m) => m[1])).toEqual(['Unit', 'Access']);
+    expect(html).toContain('<ul class="dossier-options" aria-label="Chosen options">');
+    expect(html).not.toContain('Manual');
+    expect(html).not.toContain('Hexagonal');
+    expect(html).toContain('<p class="dossier-answer"><span class="ask-hint">Answer</span> <b>Triangles, &lt;i&gt;obviously&lt;/i&gt;</b></p>');
+  });
+
+  it('shows every option of an open question', () => {
+    const html = questions({ questions: [asked('r7', 'brainstorm', '2026-09-27T10:00:00Z')] });
+    expect(html).toContain('<ul class="dossier-options" aria-label="Options, one could be chosen">');
+    expect([...html.matchAll(/<span class="dossier-option-label">([^<]+)/g)].map((m) => m[1])).toEqual(['Square', 'Hexagonal']);
+    expect(html).not.toContain('data-chosen');
+    expect(html).toContain('not answered yet');
+  });
+
+  it('shows a question moved to the terminal with no option', () => {
+    const html = questions({ questions: [rounds[1]] });
+    expect(html).toContain('Square or &lt;b&gt;hexagonal&lt;/b&gt; tiles?');
+    expect(html).not.toContain('dossier-option');
+    expect(html).toContain('<p class="dossier-outcome">moved to the terminal, no answer recorded</p>');
   });
 
   it('says who answered and after how long, its category, who asked and where, and links to the question', () => {

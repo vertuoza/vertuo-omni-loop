@@ -7,7 +7,8 @@
 // (`?tab=spec&v=2`), so every view is a link and the page works before any script runs.
 //
 // The Questions tab (PRD 216, step 3) lists the rounds that shaped the PRD, in the order they were
-// asked: each question with its options, the answer, who answered and after how long, its category
+// asked: each question with the options it shows (PRD 384: an answered one only what was chosen, an
+// open one every option, a moved one none), the answer, who answered and after how long, its category
 // (PRD 144), and whether the brainstorm or the delivery asked it. Its label counts the rounds answered
 // out of those asked.
 import { readQuestions, shownLabel } from '../../ask/answer-model';
@@ -130,8 +131,16 @@ export type DossierView = {
  * badge, and whether the answer chose it. */
 export type RoundOption = { label: string; recommended: boolean; description: string; chosen: boolean };
 
-/** One question of a round, with its answer exactly as given (the chosen labels, or the text typed). */
-export type RoundQuestion = { header: string; question: string; multiSelect: boolean; options: RoundOption[]; answer: string | null };
+/** How a question reads (PRD 384): answered, with only what was chosen; open, with every option it
+ * offers; or moved to the terminal, with no option. */
+export type QuestionShape = 'answered' | 'open' | 'moved';
+
+/** One question of a round: the options it shows (only the chosen ones once answered, none once
+ * moved), its answer exactly as given (the chosen labels, or the text typed), and what of that answer
+ * matches no option, shown as the text written. */
+export type RoundQuestion = {
+  header: string; question: string; multiSelect: boolean; shape: QuestionShape; options: RoundOption[]; answer: string | null; written: string | null;
+};
 
 export type RoundEntry = {
   id: string;
@@ -158,10 +167,24 @@ function chose(label: string, answer: string | null, multiSelect: boolean) {
   return answer !== null && (answer === label || (multiSelect && answer.split(', ').includes(label)));
 }
 
+const shapeOf = (row: DossierRoundRow): QuestionShape =>
+  row.status === 'answered' ? 'answered' : row.status === 'abandoned' ? 'moved' : 'open';
+
+/** What of an answer matches no option: the whole answer of a single choice, or the parts of a
+ * multi-select no option names; null when every part is an option. */
+function writtenOf(answer: string | null, labels: string[], multiSelect: boolean): string | null {
+  if (answer === null || labels.includes(answer)) return null;
+  if (!multiSelect) return answer;
+  const rest = answer.split(', ').filter((part) => !labels.includes(part));
+  return rest.length ? rest.join(', ') : null;
+}
+
 function roundQuestions(row: DossierRoundRow): RoundQuestion[] {
   const asked = readQuestions(row.questions);
   const answers = row.answers ?? {};
   const named = new Set(asked.map((q) => q.question));
+  const shape = shapeOf(row);
+  const shows = (option: RoundOption) => shape === 'open' || (shape === 'answered' && option.chosen);
   return [
     ...asked.map((q): RoundQuestion => {
       const answer = answers[q.question] ?? null;
@@ -169,11 +192,12 @@ function roundQuestions(row: DossierRoundRow): RoundQuestion[] {
         const shown = shownLabel(o.label);
         return { label: shown.text, recommended: shown.recommended, description: o.description, chosen: chose(o.label, answer, q.multiSelect) };
       });
-      return { header: q.header, question: q.question, multiSelect: q.multiSelect, options, answer };
+      const written = shape === 'answered' ? writtenOf(answer, q.options.map((o) => o.label), q.multiSelect) : null;
+      return { header: q.header, question: q.question, multiSelect: q.multiSelect, shape, options: options.filter(shows), answer, written };
     }),
-    // An answer to a question the round does not name (an older kit's) is still shown.
+    // An answer to a question the round does not name (an older kit's) is still shown, as its text.
     ...Object.entries(answers).filter(([question]) => !named.has(question))
-      .map(([question, answer]): RoundQuestion => ({ header: '', question, multiSelect: false, options: [], answer })),
+      .map(([question, answer]): RoundQuestion => ({ header: '', question, multiSelect: false, shape, options: [], answer, written: answer })),
   ];
 }
 
