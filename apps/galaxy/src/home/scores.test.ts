@@ -71,6 +71,13 @@ const TWO_SHIPPED = {
 };
 
 describe('countHighScores — the high scores, counted from the shipped delivery folder', () => {
+  it('counts a shipped PRD with no outbox as no decision adopted, and logs nothing', () => {
+    const { app } = checkout({ ...TWO_SHIPPED, [`${SHIPPED}/0009-quiet/plan.md`]: plan('s1') });
+    const log = vi.fn();
+    expect(countHighScores({ cwd: app, log })).toEqual({ prdsShipped: 3, slicesMerged: 6, decisionsAdopted: 3 });
+    expect(log).not.toHaveBeenCalled();
+  });
+
   it('counts the shipped PRDs, the rows of their slice tables and the decisions adopted', () => {
     const { app } = checkout(TWO_SHIPPED);
     const log = vi.fn();
