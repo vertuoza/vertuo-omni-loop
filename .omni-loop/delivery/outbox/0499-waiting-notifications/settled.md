@@ -235,3 +235,237 @@ Changing it is one line in the route and its tests; nothing is stored, and the a
 ```
 
 <!-- /omni-outbox-settled: s2-01-outbox-item-id-joins-dossier -->
+
+<!-- omni-outbox-settled: s3-01-outbox-read-when-tab-returns-early -->
+
+## s3-01-outbox-read-when-tab-returns-early — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-outbox-read-when-tab-returns-early
+prd: 499
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 2
+---
+
+## The question, in plain words
+
+When you come back to the tab less than a minute after the last outbox check, should the page check again right away, or wait?
+
+## The decision, in plain words
+
+It waits: the outbox is never checked twice within a minute, so a quick return to the tab shows what the last check found, and the next check comes a minute after that return at the latest.
+
+## The intro, for fun
+
+You glance away for ten seconds and come back hoping for news.
+
+## The punchline, for fun
+
+The outbox still answers at most once a minute, like a polite doorman.
+
+## The options, in plain words
+
+A. A. Skip the check when the last one is under a minute old, and check again a minute after the return (built).
+B. B. Skip the check, but keep the next one at the minute mark of the last check.
+C. C. Always check at once when the tab shows again, even within the minute.
+
+## What I had to decide
+
+Whether 'at once when the tab becomes visible again' or 'never more than once per 60 s' wins when the two meet, and when the next regular check falls after a skipped one.
+
+## What I did meanwhile
+
+A return to the tab within a minute of the last check reads nothing, and the next regular check comes a minute after that return, so the longest gap between two checks stays under two minutes while the tab is visible.
+
+## What it costs to change later
+
+One line in the outbox poller to check again at the minute mark instead of a minute after the return.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec asks for both a check at once when the tab shows again and no two checks within 60 s; it does not say which wins, nor when the next check falls after a skipped one.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-outbox-read-when-tab-returns-early -->
+
+<!-- omni-outbox-settled: s4-01-bell-age-past-a-day -->
+
+## s4-01-bell-age-past-a-day — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-bell-age-past-a-day
+prd: 499
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 2
+---
+
+## The question, in plain words
+
+The design says how long a question has waited in minutes or hours. It does not say what the bell shows for a question waiting more than a day, or less than a minute.
+
+## The decision, in plain words
+
+Under a minute the bell says just now, and past a day it counts whole days, like 3 d, so a line never grows into a long number of hours.
+
+## The intro, for fun
+
+A question left overnight still deserves a tidy label.
+
+## The punchline, for fun
+
+Nobody wants to read 49 h and do the maths.
+
+## The options, in plain words
+
+A. A: 'just now', 'N min', 'N h', then 'N d' past a day
+B. B: hours only, however long ('49 h')
+C. C: the date and time it was asked, past a day
+
+## What I had to decide
+
+How the bell's panel words a wait shorter than a minute or longer than a day.
+
+## What I did meanwhile
+
+Built: under a minute reads 'just now' (as the ask tabs already say), under an hour 'N min', under a day 'N h', beyond that 'N d'.
+
+## What it costs to change later
+
+One small function and its test; changing the wording is a constant, no stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- No one was asked how long questions usually wait; a wait past a day is a guess at what a person would find readable (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-01-bell-age-past-a-day -->
+
+<!-- omni-outbox-settled: s4-02-app-headers-test-bell -->
+
+## s4-02-app-headers-test-bell — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-app-headers-test-bell
+prd: 499
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 2
+---
+
+## The question, in plain words
+
+May this slice change a test of every app page's top bar that lies outside its own ground, now that the top bar holds a bell?
+
+## The decision, in plain words
+
+Yes: the shared test of every app page's top bar now expects the bell after Game mode when someone is signed in, and leaves its closed panel out as it already does for the account menu. Nothing else in it changed.
+
+## The intro, for fun
+
+The top bar grew a bell, and an old test counted one button too many.
+
+## The punchline, for fun
+
+It now knows the bell is meant to be there.
+
+## The options, in plain words
+
+A. A: change the shared test to expect the bell
+B. B: leave the shared test alone and hide the bell from it some other way
+C. C: move the check of the bell's place out of the shared test into the bell's own tests only
+
+## What I had to decide
+
+Whether to widen this slice's ground by one test file that pins every app page's top bar.
+
+## What I did meanwhile
+
+Changed that one test: it drops the bell's closed panel before reading the bar's controls, and expects the bell (with or without a count) after Game mode on a signed-in page.
+
+## What it costs to change later
+
+Two lines of a test; undoing it is reverting them.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The plan's territory for this slice did not list the shared top-bar test; whether it was left out on purpose is unknown (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-02-app-headers-test-bell -->
