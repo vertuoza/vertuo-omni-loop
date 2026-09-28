@@ -36,6 +36,20 @@ whenever the page cannot answer, the question shows in the terminal as usual. Th
 kept: the whole workspace reads them, sorted and searchable, on the page's History, and a live one
 can be shared with a teammate, who answers it on its own link.
 
+**The status line** shows two lines at the bottom of every Claude Code session opened in the
+repository or one of its worktrees: the model, how full the context window is (a bar of 10 cells,
+green under 50 %, yellow from 50, red from 80), the 5-hour usage and when it resets, and `ask on`
+while ask mode is on; then the PRD the session works on (its branch's, else the last one a command
+of the session named), with its stage and, in the outbox, the wave, the slices merged, in flight or
+stuck, and the open items. `omni init` switches it on for the whole repository: it adds a
+`statusLine` key to the committed `.claude/settings.json`, which runs `omni statusline` on Claude
+Code's own events and every 30 seconds. It keeps every other key of the file, keeps the kit's own
+line unless given `--force`, never touches a status line that is not the kit's, even with `--force`,
+and leaves a file that is not valid JSON as it is. A person who wants their own line sets
+`statusLine` in `.claude/settings.local.json`, which Claude Code reads first. The line never
+fetches and never waits on GitHub (the slices come from a board refreshed in the background at most
+once a minute), and it always exits `0`. Deleting the key switches it off.
+
 **Dossiers** keep each PRD's `spec.md`, `plan.md` and `before-after.html` on the same page, every
 version of each, with the questions that shaped it, for the whole workspace to read.
 `omni dossier open "<title>"` opens a draft for an idea and prints its link;

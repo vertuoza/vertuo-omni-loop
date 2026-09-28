@@ -199,9 +199,11 @@ export const ENTRIES = deepFreeze([
     detail:
       'Installs the Omni Loop on the repository it runs in: writes .omni-loop/config.yml, copies ' +
       'the running omni to .omni-loop/bin/omni.mjs, lays down the blank playbook forms and creates ' +
-      'the loop labels the repository lacks, then prints the steps a person still has to take. It ' +
-      'writes nothing outside .omni-loop/. --force writes the config and the copy again; the other ' +
-      'flags give the commands that test the repository.',
+      'the loop labels the repository lacks, switches the status line on in .claude/settings.json, ' +
+      'then prints the steps a person still has to take. It writes nothing outside .omni-loop/ but ' +
+      "that statusLine key, and never replaces someone else's. --force writes the config, the copy " +
+      "and the kit's own status line again; the other flags give the commands that test the " +
+      'repository.',
   },
   {
     name: 'config',
@@ -394,6 +396,20 @@ export const ENTRIES = deepFreeze([
       "closes every terminal's session there, status says which. hook is what the plugin's hooks " +
       'run around each question; with the mode off it prints nothing. /omni:ask runs on, off and ' +
       'status for you.',
+  },
+  {
+    name: 'statusline',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni statusline', 'omni statusline --refresh <prd>'],
+    summary: "Claude Code's status line: the session, then the PRD",
+    detail:
+      'What Claude Code runs as its status line, from the statusLine key omni init writes in ' +
+      '.claude/settings.json: it reads the session on stdin and prints two lines, the model, the ' +
+      "context bar, the 5-hour usage and ask mode, then the PRD this session works on, its stage, " +
+      'and in the outbox its wave and slices. It never fetches, never calls GitHub and always exits ' +
+      "0. --refresh is the background half: it rebuilds a PRD's board, as omni board does, into a " +
+      'file the status line reads.',
   },
 
   // Skills you type in Claude. Their order is the overview's.

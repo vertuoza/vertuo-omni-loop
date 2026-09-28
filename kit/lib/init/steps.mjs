@@ -1,9 +1,11 @@
 // What `omni init` prints last: what it wrote or kept, then the steps only a person can take — the
 // plugin, the GitHub App, the loop labels gh could not make, the optional branch protection, filling
-// the forms with /omni:invade — the commands it could not fill, what it noticed and left alone, how
-// to update the loop later (`omni update`), and how to remove it again. Only the repository's slug and default branch (and the kit's own
-// address, see bundle.mjs) vary from one repository to the next.
+// the forms with /omni:invade — the commands it could not fill, what it noticed and left alone, who
+// sees the status line it switched on, how to update the loop later (`omni update`), and how to remove
+// it again. Only the repository's slug and default branch (and the kit's own address, see bundle.mjs)
+// vary from one repository to the next.
 import { dirname } from 'node:path';
+import { PERSONAL_SETTINGS_FILE, STATUS_LINE_KEY } from './settings.mjs';
 
 // The App, the marketplace and the plugin a repository installs by hand, named once.
 export const APP = { name: 'omni-loop', slug: 'omni-loop-invader' };
@@ -12,6 +14,16 @@ export const PLUGIN = 'omni';
 
 const GITHUB = 'https://github.com';
 const PLACEHOLDER_SLUG = '<owner>/<repository>';
+
+// What became of the status line (settings.mjs's outcomes), one line each; `wrote` and `kept` leave
+// the kit's own line in place.
+const STATUS_LINE = {
+  wrote: (path) => `  wrote   ${path}  (${STATUS_LINE_KEY})`,
+  kept: (path) => `  kept    ${path}  (${STATUS_LINE_KEY})`,
+  foreign: (path) => `  kept    ${path}  (its ${STATUS_LINE_KEY} is not the kit's)`,
+  invalid: (path) => `  skipped ${path}: not valid JSON, no status line added`,
+};
+const KIT_LINE_IN_PLACE = new Set(['wrote', 'kept']);
 
 /**
  * @param {object} s
@@ -23,13 +35,15 @@ const PLACEHOLDER_SLUG = '<owner>/<repository>';
  * @param {{ dir: string, wrote: string[], outside: boolean }} s.forms   the forms' front door, and each
  *   file of it this run wrote — a form is never overwritten, so one already there is not listed;
  *   `outside` when the front door lies outside init's folder, and so nothing was written there
+ * @param {{ path: string, outcome: 'wrote' | 'kept' | 'foreign' | 'invalid' }} s.settings   the settings
+ *   file the status line goes in, and what this run did with it (see settings.mjs)
  * @param {{ created: string[], present: string[], byHand: string[] }} s.labels
  * @param {{ key: string, flag: string }[]} s.unfilled   each `commands.*` left null, with its flag
  * @param {{ legacyWorkflows?: string[], formatter?: { tool: string, file: string } | null }} [s.notices]
  *   an older loop's workflows found in the repository, and a formatter that would check the bin
  * @returns {string} the closing steps, newline-terminated
  */
-export function closingSteps({ slug, defaultBranch, kitHome, outboxCheck, files, forms, labels, unfilled, notices = {} }) {
+export function closingSteps({ slug, defaultBranch, kitHome, outboxCheck, files, forms, settings, labels, unfilled, notices = {} }) {
   const repo = slug ?? PLACEHOLDER_SLUG;
   const dir = dirname(files[0].path);
   const lines = [`omni init — ${slug ?? 'this repository'} is set up.`];
@@ -74,6 +88,7 @@ export function closingSteps({ slug, defaultBranch, kitHome, outboxCheck, files,
   ]);
 
   if (forms.outside) lines.push(`  forms   not written: ${forms.dir}/ is outside ${dir}/ — see step ${formsStep} below`);
+  lines.push(STATUS_LINE[settings.outcome](settings.path));
   const done = [];
   if (labels.created.length) done.push(`created ${labels.created.join(', ')}`);
   if (labels.present.length) {
@@ -101,11 +116,17 @@ export function closingSteps({ slug, defaultBranch, kitHome, outboxCheck, files,
     for (const line of headsUp) lines.push(line.startsWith('  ') ? `  ${line}` : `  - ${line}`);
   }
 
+  // What to commit: the loop's folder when this run wrote in it, the settings file when it wrote the key.
+  const toCommit = [];
+  if (files.some((file) => file.wrote) || forms.wrote.length) toCommit.push(`${dir}/`);
+  if (settings.outcome === 'wrote') toCommit.push(settings.path);
   lines.push(
     '',
-    files.some((file) => file.wrote) || forms.wrote.length
-      ?`Commit ${dir}/ and merge it into ${defaultBranch}, then, by hand:`
-      : 'Nothing new to commit. By hand, unless already done:',
+    toCommit.length === 2
+      ? `Commit ${toCommit.join(' and ')}, and merge them into ${defaultBranch}, then, by hand:`
+      : toCommit.length
+        ? `Commit ${toCommit[0]} and merge it into ${defaultBranch}, then, by hand:`
+        : 'Nothing new to commit. By hand, unless already done:',
   );
   steps.forEach(([first, ...rest], index) => {
     lines.push(`  ${index + 1}. ${first}`, ...rest.map((line) => `  ${line}`));
@@ -121,6 +142,19 @@ export function closingSteps({ slug, defaultBranch, kitHome, outboxCheck, files,
     `To update the loop later: node ${dir}/bin/omni.mjs update opens the pull request that brings`,
     `this repository to the latest kit, then updates the ${PLUGIN} plugin on your machine.`,
   );
-  lines.push('', `To remove the loop: delete ${dir}/ and commit. The labels and the App installation stay.`);
+  // The status line and its removal are named only while the kit's own line is in place: someone
+  // else's, or a file init could not read, is none of the loop's to switch on or to delete.
+  if (KIT_LINE_IN_PLACE.has(settings.outcome)) {
+    lines.push(
+      '',
+      'The status line is on for everyone who opens Claude Code in this repository. A person who wants',
+      `their own sets ${STATUS_LINE_KEY} in ${PERSONAL_SETTINGS_FILE}, which Claude Code reads first.`,
+      '',
+      `To remove the loop: delete ${dir}/ and the ${STATUS_LINE_KEY} key of ${settings.path}, and commit.`,
+      'The labels and the App installation stay.',
+    );
+  } else {
+    lines.push('', `To remove the loop: delete ${dir}/ and commit. The labels and the App installation stay.`);
+  }
   return `${lines.join('\n')}\n`;
 }
