@@ -1,8 +1,9 @@
 // What `omni init` prints last: what it wrote or kept, then the steps only a person can take — the
 // plugin, the GitHub App, the loop labels gh could not make, the optional branch protection, filling
 // the forms with /omni:invade — the commands it could not fill, what it noticed and left alone, who
-// sees the status line it switched on, and how to remove the loop again. Only the repository's slug
-// and default branch (and the kit's own address, see bundle.mjs) vary from one repository to the next.
+// sees the status line it switched on, how to update the loop later (`omni update`), and how to remove
+// it again. Only the repository's slug and default branch (and the kit's own address, see bundle.mjs)
+// vary from one repository to the next.
 import { dirname } from 'node:path';
 import { PERSONAL_SETTINGS_FILE, STATUS_LINE_KEY } from './settings.mjs';
 
@@ -136,6 +137,11 @@ export function closingSteps({ slug, defaultBranch, kitHome, outboxCheck, files,
     for (const { key, flag } of unfilled) lines.push(`  commands.${key} (--${flag} <cmd>)`);
   }
 
+  lines.push(
+    '',
+    `To update the loop later: node ${dir}/bin/omni.mjs update opens the pull request that brings`,
+    `this repository to the latest kit, then updates the ${PLUGIN} plugin on your machine.`,
+  );
   // The status line and its removal are named only while the kit's own line is in place: someone
   // else's, or a file init could not read, is none of the loop's to switch on or to delete.
   if (KIT_LINE_IN_PLACE.has(settings.outcome)) {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
-import { afterGate, afterReturn, afterStart, allowed, arrive, backStep, isDisbanded, isLinked, isReady, nextStep, readReturn } from './onboarding';
+import { afterGate, afterReturn, afterStart, allowed, arrive, backStep, isDisbanded, isPlayer, isReady, nextStep, readReturn } from './onboarding';
 import type { FleetRow, Player, Session } from './types';
 import { arcadeFor } from '../data/arcade';
 import { authUser, fakeGalaxyDb, PEOPLE, twoWorkspaces, type FakeUser } from '../data/galaxy.fake';
@@ -9,11 +9,10 @@ vi.mock('server-only', () => ({}));
 
 const fleet = (name: string, retired = false): FleetRow => ({ name, home: null, label: name.toUpperCase(), color: '#2fc6a4', motto: '', mascot: null, sort: 0, retired });
 const FLEETS = [fleet('beaver'), fleet('pirates'), fleet('invincible-team', true)];
-/** Signed in with Google, GitHub not linked: a visitor. */
-const crew: Session = { id: 'u1', email: 'ada@vertuoza.com', givenName: 'ADA', crew: true, github: null };
-/** Signed in with Google, GitHub linked: a player. */
-const linked: Session = { ...crew, github: 'ada-gh' };
-const outsider: Session = { ...crew, email: 'eve@example.com', crew: false };
+/** Signed in with GitHub, in a workspace: a player at once (PRD 359). */
+const crew: Session = { id: 'u1', email: 'ada@vertuoza.com', givenName: 'ADA', crew: true, github: 'ada-gh' };
+/** Signed in with GitHub, in no workspace: the outsider screen sends them to sign up. */
+const outsider: Session = { ...crew, email: 'eve@example.com', crew: false, github: 'eve-gh' };
 const player = (over: Partial<Player> = {}): Player => ({
   id: 'u1', display_name: 'ADA', team: 'pirates', team_since: '2026-09-25T10:00:00Z',
   hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 }, github_login: 'ada-gh', ...over,
@@ -41,7 +40,7 @@ describe('crew is membership', () => {
   };
 
   it('lets a session with a workspace in, whatever its email\'s domain', async () => {
-    for (const person of [PEOPLE.ada, PEOPLE.wile, PEOPLE.bea]) {
+    for (const person of [PEOPLE.ada, PEOPLE.wile]) {
       const session = await sessionOf(person);
       expect(session?.crew, person.email).toBe(true);
       expect(afterStart(session, null, FLEETS), person.email).toBe('gate');
@@ -49,8 +48,8 @@ describe('crew is membership', () => {
     }
   });
 
-  it('sends a session without one to the outsider screen, a vertuoza.com address included', async () => {
-    for (const person of [PEOPLE.eve, PEOPLE.una]) {
+  it('sends a session without one to the outsider screen, a vertuoza.com address and an org member who has not signed in since included', async () => {
+    for (const person of [PEOPLE.eve, PEOPLE.una, PEOPLE.bea]) {
       const session = await sessionOf(person);
       expect(session?.crew, person.email).toBe(false);
       expect(afterStart(session, null, FLEETS), person.email).toBe('outsider');
@@ -60,50 +59,42 @@ describe('crew is membership', () => {
 });
 
 describe('PRESS START', () => {
-  it('asks a visitor to link GitHub before anything else', () => {
-    expect(afterGate(null, FLEETS, crew)).toBe('link');
-    expect(afterGate(null, FLEETS)).toBe('link');
-    // Joined before GitHub was required: linking comes first all the same.
-    expect(afterGate(player({ github_login: null }), FLEETS, crew)).toBe('link');
+  it('sends a signed-in account straight on to the fleets, with no GitHub link step', () => {
+    expect(afterGate(null, FLEETS)).toBe('intro');
+    // Joined before GitHub was the sign-in: no link step either.
+    expect(afterGate(player({ github_login: null, team: null }), FLEETS)).toBe('intro');
+    expect(afterGate(player({ github_login: null }), FLEETS)).toBe('welcome');
   });
 
   it('plays the intro to a new player, the fleets to a disbanded one, the welcome to a returning one', () => {
-    expect(afterGate(null, FLEETS, linked)).toBe('intro');
-    expect(afterGate(player({ team: 'invincible-team' }), FLEETS, linked)).toBe('select');
-    expect(afterGate(player(), FLEETS, linked)).toBe('welcome');
+    expect(afterGate(null, FLEETS)).toBe('intro');
+    expect(afterGate(player({ team: 'invincible-team' }), FLEETS)).toBe('select');
     expect(afterGate(player(), FLEETS)).toBe('welcome');
   });
 
-  it('knows a retired fleet from an active one, and a player from a visitor', () => {
+  it('knows a retired fleet from an active one, and a signed-in account is a player', () => {
     expect(isDisbanded(player({ team: 'invincible-team' }), FLEETS)).toBe(true);
     expect(isDisbanded(player(), FLEETS)).toBe(false);
     expect(isReady(player(), FLEETS)).toBe(true);
-    expect(isReady(player({ github_login: null }), FLEETS)).toBe(false);
+    expect(isReady(player({ github_login: null }), FLEETS)).toBe(true);
     expect(isReady(player({ hero: { v: 1, body: 'girl', skin: 9, hair: 0, suit: 0, cape: 0 } }), FLEETS)).toBe(false);
-    expect(isLinked(crew, null)).toBe(false);
-    expect(isLinked(linked, null)).toBe(true);
-    expect(isLinked(crew, player())).toBe(true);
-    expect(isLinked(null, null)).toBe(false);
+    expect(isPlayer(crew)).toBe(true);
+    expect(isPlayer({ ...crew, github: null })).toBe(true);
+    expect(isPlayer(outsider)).toBe(false);
+    expect(isPlayer(null)).toBe(false);
   });
 });
 
 describe('the first visit', () => {
-  it('runs GitHub → intro → fleet → name → hero → ready → menu', () => {
-    const route: string[] = [afterGate(null, FLEETS, crew)];
-    let session = crew;
+  it('runs straight to the fleet pick: intro → fleet → name → hero → ready → menu, no link step', () => {
+    const route: string[] = [afterGate(null, FLEETS)];
     let me: Player | null = null;
     while (route.at(-1) !== 'menu') {
       const step = route.at(-1) as never;
-      if (step === 'link') { session = linked; route.push(afterGate(me, FLEETS, session)); continue; }
       if (step === 'select') me = player();
       route.push(nextStep(step, 'onboard', me));
     }
-    expect(route).toEqual(['link', 'intro', 'select', 'name', 'hero', 'ready', 'menu']);
-  });
-
-  it('lets a visitor say no to GitHub and look around: B leads to the menu', () => {
-    expect(nextStep('link', 'onboard', null)).toBe('menu');
-    expect(backStep('link', 'onboard')).toBe('menu');
+    expect(route).toEqual(['intro', 'select', 'name', 'hero', 'ready', 'menu']);
   });
 
   it('goes back one screen with B, and to the title from the fleets', () => {
@@ -118,7 +109,6 @@ describe('menu flows', () => {
     expect(nextStep('select', 'change', player())).toBe('menu');
     expect(nextStep('name', 'myhero', player())).toBe('hero');
     expect(nextStep('hero', 'myhero', player())).toBe('menu');
-    expect(nextStep('link', 'link', player())).toBe('menu');
     expect(backStep('hero', 'myhero')).toBe('name');
     expect(backStep('name', 'myhero')).toBe('menu');
     expect(backStep('select', 'change')).toBe('menu');
@@ -132,7 +122,7 @@ describe('arriving at the menu', () => {
   });
 
   it('leaves every other screen as it is, due or not', () => {
-    for (const scene of ['title', 'games', 'invaders', 'map', 'welcome', 'ready', 'link'] as const) {
+    for (const scene of ['title', 'games', 'invaders', 'map', 'welcome', 'ready'] as const) {
       expect(arrive(scene, true), scene).toBe(scene);
       expect(arrive(scene, false), scene).toBe(scene);
     }
@@ -145,12 +135,12 @@ describe('arriving at the menu', () => {
   });
 });
 
-describe('returns from Google and GitHub', () => {
-  it('reads what the callback put in the query string', () => {
+describe('returns from GitHub', () => {
+  it('reads what the callback put in the query string, and nothing of a link step', () => {
     expect(readReturn('?signin=ok')).toEqual({ kind: 'signin' });
-    expect(readReturn('?signin_error=OMNI%20LOOP%20is%20for%20%40vertuoza.com%20accounts%20only.')).toEqual({ kind: 'signin_error', message: 'OMNI LOOP is for @vertuoza.com accounts only.' });
-    expect(readReturn('?linked=ada-gh')).toEqual({ kind: 'linked', login: 'ada-gh' });
-    expect(readReturn('?link_error=taken')).toEqual({ kind: 'link_error', message: 'taken' });
+    expect(readReturn('?signin_error=Omni%20Loop%20signs%20in%20with%20GitHub%20only.')).toEqual({ kind: 'signin_error', message: 'Omni Loop signs in with GitHub only.' });
+    expect(readReturn('?linked=ada-gh')).toBeNull();
+    expect(readReturn('?link_error=taken')).toBeNull();
     expect(readReturn('')).toBeNull();
   });
 
@@ -159,54 +149,25 @@ describe('returns from Google and GitHub', () => {
     expect(afterReturn({ kind: 'signin' }, crew, player(), FLEETS)).toBe('gate');
     expect(afterReturn({ kind: 'signin' }, outsider, null, FLEETS)).toBe('outsider');
     expect(afterReturn({ kind: 'signin_error', message: 'x' }, null, null, FLEETS)).toBe('coin');
-    expect(afterReturn({ kind: 'linked', login: 'ada-gh' }, linked, null, FLEETS)).toBe('link');
-    expect(afterReturn({ kind: 'link_error', message: 'taken' }, crew, null, FLEETS)).toBe('link');
   });
 });
 
 describe('the one door', () => {
   it('shows nothing past INSERT COIN without a session, whatever the route', () => {
-    for (const scene of ['gate', 'intro', 'select', 'name', 'hero', 'link', 'ready', 'welcome', 'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'chart', 'system']) {
+    for (const scene of ['gate', 'intro', 'select', 'name', 'hero', 'ready', 'welcome', 'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'chart', 'system', 'games', 'invaders', 'levelup']) {
       expect(allowed(scene, null), scene).toBe('coin');
-      expect(allowed(scene, linked, true), scene).toBe(scene);
+      expect(allowed(scene, crew), scene).toBe(scene);
     }
     for (const scene of ['boot', 'title', 'coin', 'outsider']) expect(allowed(scene, null)).toBe(scene);
   });
 
-  it('shows a visitor the galaxy, and sends them to GitHub for anything that plays', () => {
-    for (const scene of ['intro', 'select', 'name', 'hero', 'ready', 'welcome']) {
-      expect(allowed(scene, crew), scene).toBe('link');
-      expect(allowed(scene, crew, false), scene).toBe('link');
-      expect(allowed(scene, linked, true), scene).toBe(scene);
-    }
-    for (const scene of ['gate', 'link', 'menu', 'map', 'planet', 'fleets', 'heroes', 'briefing', 'chart', 'system']) {
+  it('lets every signed-in account play: the fleets, the game room, Entropy Invaders and the level-up', () => {
+    for (const scene of ['intro', 'select', 'name', 'hero', 'ready', 'welcome', 'games', 'invaders', 'levelup']) {
       expect(allowed(scene, crew), scene).toBe(scene);
     }
   });
 
-  it('keeps the game room behind a sign-in, and lets a visitor in to see every cabinet locked', () => {
-    expect(allowed('games', null)).toBe('coin');
-    expect(allowed('games', crew)).toBe('games');
-    expect(allowed('games', crew, false)).toBe('games');
-    expect(allowed('games', linked, true)).toBe('games');
-  });
-
-  it('plays Entropy Invaders only for a signed-in player: a visitor is sent to link GitHub', () => {
-    expect(allowed('invaders', null)).toBe('coin');
-    expect(allowed('invaders', crew)).toBe('link');
-    expect(allowed('invaders', crew, false)).toBe('link');
-    expect(allowed('invaders', linked, true)).toBe('invaders');
-  });
-
-  it('plays the level-up only for a signed-in player: a visitor has no XP to celebrate', () => {
-    expect(allowed('levelup', null)).toBe('coin');
-    expect(allowed('levelup', crew)).toBe('link');
-    expect(allowed('levelup', linked, true)).toBe('levelup');
-  });
-
   it('ignores a crafted return URL when nobody is signed in', () => {
-    expect(afterReturn({ kind: 'linked', login: 'someone' }, null, null, FLEETS)).toBe('coin');
-    expect(afterReturn({ kind: 'link_error', message: 'x' }, null, null, FLEETS)).toBe('coin');
     expect(afterReturn({ kind: 'signin' }, null, null, FLEETS)).toBe('coin');
   });
 });

@@ -1,9 +1,9 @@
 import { SectionCards } from './Cards';
-import { Counts } from './counts/Counts';
+import { Counts } from './counts/CountTiles';
 import type { DashboardData } from './load';
 import { Rankings } from './rankings/Rankings';
 import { Week } from './week/Week';
-import { You } from './You';
+import { You } from './YouBlock';
 
 // The dashboard (PRD 328), top to bottom in the spec's order: you (the hero block), a week of merges,
 // the four counts, the rankings, then the app's sections. Each part draws itself from its own value

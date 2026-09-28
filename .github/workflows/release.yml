@@ -1,0 +1,41 @@
+# The kit's release (PRD 347): every push to main cuts the next version, v0.0.1, v0.0.2, … The logic
+# lives in kit/release/release.mjs, with its tests; this workflow only checks out main with its whole
+# history and tags, installs, and calls it. The script stamps the version in package.json, plugin.json
+# and the bundle, commits them to main as `chore(release): v0.0.N`, tags it and publishes the GitHub
+# Release with the bundle attached. That commit is the one push to main a person does not make (the
+# briefing's Never section). A push whose head is a release commit cuts nothing.
+# It works while main has no branch protection; protection added later needs a bypass for this push.
+name: release
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  release:
+    if: >-
+      ${{ !startsWith(github.event.head_commit.message, 'chore(release): ') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: release              # one release at a time, and a queued one is never cancelled
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GIT_AUTHOR_NAME: github-actions[bot]
+      GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+      GIT_COMMITTER_NAME: github-actions[bot]
+      GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+    steps:
+      - uses: actions/checkout@v4
+        # main as it is now, not the commit that started the run: a queued run releases what the
+        # runs before it left.
+        with: { ref: main, fetch-depth: 0, fetch-tags: true }
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: node kit/release/release.mjs

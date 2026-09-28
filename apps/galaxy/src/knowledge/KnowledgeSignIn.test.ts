@@ -1,0 +1,21 @@
+import { readFileSync } from 'node:fs';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it } from 'vitest';
+import { KnowledgeSignIn } from './KnowledgeSignIn';
+
+const SUPABASE = { url: 'http://127.0.0.1:54321', key: 'anon' };
+
+describe('the knowledge map\'s sign-in card (PRD 359)', () => {
+  it('offers only GitHub', () => {
+    const html = renderToStaticMarkup(createElement(KnowledgeSignIn, { supabase: SUPABASE, returnPath: '/knowledge/callback' }));
+    expect(html).toContain('>Sign in with GitHub</button>');
+    expect(html).not.toMatch(/google/i);
+  });
+
+  it('starts the sign-in through githubSignIn, which asks for read:org', () => {
+    const source = readFileSync(new URL('./KnowledgeSignIn.tsx', import.meta.url), 'utf8');
+    expect(source).toContain('startGithubSignIn(supabase,');
+    expect(source).not.toMatch(/google|\bhd\b/i);
+  });
+});

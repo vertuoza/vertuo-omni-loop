@@ -5,6 +5,16 @@ and the `omni` plugin for Claude Code (`kit/plugin/`: its skills and hooks). A r
 both to run the Omni Loop; everything specific to that repository is read from its
 `.omni-loop/config.yml`.
 
+**Updating.** Every merge to the kit's `main` cuts a release (`v0.0.1`, `v0.0.2`, …), and
+`omni version` says which one a repository runs and whether a newer one exists. A repository moves
+only when someone runs `omni update` in it (`--to <version>` for another release than the latest):
+it opens one pull request that replaces the bin, keeps `config.yml` as it is, and creates only the
+knowledge forms the repository lacks, then updates the `omni` plugin on the machine that runs it
+(`claude plugin marketplace update omni-loop` and `claude plugin update omni@omni-loop`, then
+`/reload-plugins`; without `claude`, it prints the two `/plugin` lines to type in Claude Code). A
+repository installed before versions existed has a bin with no `update` command: run
+`npx github:vertuoza/vertuo-omni-loop update` in it once, and `omni update` from then on.
+
 **Help and status** are two read-only commands a person types, in the terminal or inside Claude.
 `omni help` (also `omni --help`, `omni -h` and `/omni:help`) prints one screen: the loop's six
 stages from idea to retro, its principles, the slash commands, the terminal commands and the ones

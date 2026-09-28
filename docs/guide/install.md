@@ -11,6 +11,12 @@ The kit lives in the GitHub repository `vertuoza/vertuo-omni-loop`, which is pri
 Loop is in beta. Your GitHub account needs read access to it: ask the Omni Loop team for it with
 your invite.
 
+Each code block on these pages says where it goes, at its top right: **TERMINAL** is a terminal on
+your laptop, **CODING AGENT** is Claude Code's prompt, **FILE** names the file the lines go in, and
+**GITHUB COMMENT** is a reply on a pull request. A terminal command that also shows CODING AGENT
+runs from Claude Code too: type it there with `!` before it (`!git pull`), and Claude Code runs it
+and shows what it prints.
+
 ## 1. On your laptop
 
 ### Node 22 or later
@@ -18,7 +24,7 @@ your invite.
 Install Node from [nodejs.org](https://nodejs.org) (take the LTS version), then check it in a new
 terminal:
 
-```bash
+```bash terminal agent
 node --version
 ```
 
@@ -29,7 +35,7 @@ It prints `v22` or higher. An older version cannot run the kit.
 Install `gh` from [cli.github.com](https://cli.github.com) (on a Mac with Homebrew:
 `brew install gh`), then sign in with the GitHub account that administers your repository:
 
-```bash
+```bash terminal
 gh auth login
 ```
 
@@ -37,7 +43,7 @@ Answer `GitHub.com`, then `HTTPS`, then yes to authenticating Git with your GitH
 log in with a web browser. The kit calls `gh` to create labels and open pull requests, and Git uses
 the same sign-in to fetch the kit. Check it:
 
-```bash
+```bash terminal agent
 gh auth status
 ```
 
@@ -47,7 +53,7 @@ It says `Logged in to github.com account <you>`.
 
 Install it with npm, which came with Node:
 
-```bash
+```bash terminal
 npm install -g @anthropic-ai/claude-code
 ```
 
@@ -61,13 +67,13 @@ Claude Code.
 Open a terminal in a clone of your repository, on its default branch and up to date, and start a
 branch for the install:
 
-```bash
+```bash terminal agent
 git switch -c chore/install-omni-loop
 ```
 
 Then install the kit:
 
-```bash
+```bash terminal
 npx github:vertuoza/vertuo-omni-loop init
 ```
 
@@ -99,7 +105,7 @@ Two warnings it may print under **Heads-up**:
 Signing in, the questions page and the PRD dossiers all go through the Omni Loop app. Open
 `.omni-loop/config.yml` and add these lines at the end:
 
-```yaml
+```yaml file=.omni-loop/config.yml
 ask:
   url: https://vertuo-omni-loop-galaxy.vercel.app
 dossier:
@@ -108,7 +114,7 @@ dossier:
 
 ### Commit it and merge it
 
-```bash
+```bash terminal
 git add .omni-loop
 git commit -m "chore: install the Omni Loop"
 git push -u origin chore/install-omni-loop
@@ -118,36 +124,60 @@ gh pr create --fill
 Merge that pull request on GitHub, then bring your default branch up to date (use your default
 branch's name if it is not `main`):
 
-```bash
+```bash terminal agent
 git switch main
 git pull
 ```
 
 The loop reads `.omni-loop/` from the default branch, so nothing below works until it is merged.
 
-### A shortcut for the omni command
+### Put omni on your PATH
 
 The kit's command is the file `.omni-loop/bin/omni.mjs`, run with Node. These pages write it
-`omni`. To type it that way too, add a shortcut in the terminal you work in:
+`omni`. Paste this block once on your laptop, in a terminal, so you can type it that way from any
+folder of your repository, in every terminal you open from now on:
 
-```bash
-alias omni='node .omni-loop/bin/omni.mjs'
+```bash terminal
+mkdir -p ~/.local/bin
+cat > ~/.local/bin/omni <<'EOF'
+#!/bin/sh
+root=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$root" ] || [ ! -f "$root/.omni-loop/bin/omni.mjs" ]; then
+  echo "omni: no Omni Loop kit here (.omni-loop/bin/omni.mjs). cd into a repository that has it." >&2
+  exit 2
+fi
+exec node "$root/.omni-loop/bin/omni.mjs" "$@"
+EOF
+chmod +x ~/.local/bin/omni
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+exec zsh
 ```
 
-It works from the root of your repository. Add the same line to `~/.zshrc` (or `~/.bashrc`) to keep
-it in every new terminal. Without the shortcut, type `node .omni-loop/bin/omni.mjs` wherever these
-pages say `omni`.
+It writes a small script, `~/.local/bin/omni`, that finds the repository you are in and runs that
+repository's own copy of the kit: `omni` always matches the kit version the repository has, and
+nothing is installed globally. It then adds `~/.local/bin` to your PATH in `~/.zshrc` and restarts
+the shell. If your terminal runs bash rather than zsh, write `~/.bashrc` in place of `~/.zshrc` and
+`exec bash` in place of `exec zsh`.
+
+Check it from any folder of your repository:
+
+```bash terminal agent
+omni help
+```
+
+It prints the loop in one screen. When it says `command not found: omni`, see
+[When something goes wrong](/docs/troubleshooting).
 
 ## 3. In Claude Code
 
 Start Claude Code in your repository (`claude`), then add the kit's plugin marketplace and install
 the `omni` plugin, one command at a time:
 
-```text
+```text agent
 /plugin marketplace add vertuoza/vertuo-omni-loop
 ```
 
-```text
+```text agent
 /plugin install omni@omni-loop
 ```
 
@@ -166,7 +196,7 @@ an agent raised waits for your answer.
 
 In a terminal at the root of your repository:
 
-```bash
+```bash terminal agent
 omni signin
 ```
 
@@ -180,20 +210,20 @@ repository you run the loop in shares it. When it prints
 
 Three commands, at the root of your repository:
 
-```bash
+```bash terminal agent
 omni config
 ```
 
 It prints the loop's settings as JSON, with your repository's name under `repo`. When it fails, the
 kit is not installed in this checkout: see [When something goes wrong](/docs/troubleshooting).
 
-```bash
+```bash terminal agent
 omni help
 ```
 
 It prints the loop in one screen: its stages, from an idea to a retro, and every command.
 
-```bash
+```bash terminal agent
 omni status
 ```
 

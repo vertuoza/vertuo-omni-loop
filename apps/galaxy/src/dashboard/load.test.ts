@@ -47,7 +47,10 @@ const NOGH: FakeUser = { id: '00000000-0000-4000-8000-0000000000f1', email: 'nog
 function world(arrange: (w: ReturnType<typeof fakeGalaxyDb>) => void = () => {}) {
   const seed = twoWorkspaces();
   seed.ledger_events = [...(seed.ledger_events ?? []), ...SEASON];
-  seed.workspace_members = [...(seed.workspace_members ?? []), { workspace_id: VERTUOZA, user_id: NOGH.id, role: 'member', joined_at: '2026-09-26T08:00:00Z' }];
+  // Bea joined Vertuoza by her GitHub org when she signed in (PRD 359): the page itself never joins.
+  seed.workspace_members = [...(seed.workspace_members ?? []),
+    { workspace_id: VERTUOZA, user_id: NOGH.id, role: 'member', joined_at: '2026-09-26T08:00:00Z' },
+    { workspace_id: VERTUOZA, user_id: PEOPLE.bea.id, role: 'member', joined_at: '2026-09-26T09:00:00Z' }];
   seed.players = [...(seed.players ?? []), {
     workspace_id: VERTUOZA, user_id: NOGH.id, display_name: 'NOGH', team: 'beaver', team_since: '2026-09-21T10:00:00Z',
     hero: { v: 1, body: 'boy', skin: 2, hair: 1, suit: 0, cape: 0 }, github_id: null, github_login: null,
@@ -156,10 +159,10 @@ describe('each situation of a signed-in person', () => {
     for (const load of Object.values(parts)) expect(load).not.toHaveBeenCalled();
   });
 
-  it('an account of the domain in no workspace yet is joined, then has its dashboard', async () => {
+  it('a member who joined by GitHub org at sign-in has its dashboard, and the page joins nothing', async () => {
     const { load, w } = await dashboardOf(PEOPLE.bea);
     expect(load.kind).toBe('dashboard');
-    expect(w.calls).toContainEqual({ kind: 'rpc', fn: 'join_by_domain' });
+    expect(w.calls.filter((c) => c.kind === 'rpc')).toEqual([]);
   });
 
   it('a member who never joined a fleet: no hero block, their first name as the heading, and the parts counting by their linked GitHub', async () => {

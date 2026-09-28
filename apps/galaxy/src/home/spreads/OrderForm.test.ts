@@ -10,10 +10,11 @@ describe('the order form', () => {
     expect(text(markup)).toMatch(/^Join the loop! To join instantly: sign up with GitHub /);
   });
 
-  it('keeps the disabled sign-up, PRESS START to /play, the fine print and the Konami tip', () => {
-    expect(markup).toMatch(/<button [^>]*disabled=""[^>]*>[\s\S]*?SIGN UP WITH GITHUB/);
+  it('keeps the sign-up, now enabled (PRD 359), PRESS START to /play, the fine print and the Konami tip', () => {
+    expect(markup).toMatch(/<button [^>]*data-sign-up=""[^>]*>[\s\S]*?SIGN UP WITH GITHUB/);
+    expect(markup).not.toMatch(/disabled|COMING SOON/);
     expect(markup).toMatch(/<a [^>]*href="\/play"[^>]*>PRESS START<\/a>/);
-    expect(text(markup)).toContain('Omni Loop runs on Claude Code. Invite-only while in beta.');
+    expect(text(markup)).toContain('Omni Loop runs on Claude Code. Free while in beta: sign up with GitHub.');
     expect(text(markup)).toContain('↑ ↑ ↓ ↓ ← → ← → B A FLASHES CHEAT ACTIVATED! AND DROPS YOU IN THE GAME.');
   });
 

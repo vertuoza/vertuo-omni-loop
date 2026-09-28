@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 // Each part's view, as the dashboard places it: a marker of its own, carrying what it was given, so
 // these tests hold whatever the parts become (week/, counts/ and rankings/ test their own views).
 vi.mock('./week/Week', () => ({ Week: ({ part }: { part: unknown }) => createElement('p', { 'data-part': 'week' }, `week ${JSON.stringify(part)}`) }));
-vi.mock('./counts/Counts', () => ({ Counts: ({ part }: { part: unknown }) => createElement('p', { 'data-part': 'counts' }, `counts ${JSON.stringify(part)}`) }));
+vi.mock('./counts/CountTiles', () => ({ Counts: ({ part }: { part: unknown }) => createElement('p', { 'data-part': 'counts' }, `counts ${JSON.stringify(part)}`) }));
 vi.mock('./rankings/Rankings', () => ({ Rankings: ({ part }: { part: unknown }) => createElement('p', { 'data-part': 'rankings' }, `rankings ${JSON.stringify(part)}`) }));
 
 import { SECTIONS } from '../switch/switch';
@@ -151,7 +151,7 @@ describe('the other situations', () => {
   it('signed out: the sign-in card and nothing else', () => {
     const html = render({ kind: 'sign-in' });
     expect(h1s(html)).toEqual(['Sign in to see your dashboard']);
-    expect(html).toMatch(/<button type="button" class="ask-button">Sign in with Google<\/button>/);
+    expect(html).toMatch(/<button type="button" class="ask-button">Sign in with GitHub<\/button>/);
     expect(html).not.toContain('dash-cards');
     expect(html).not.toContain('data-part');
     expect(html.match(/<section\b/g)).toHaveLength(1);

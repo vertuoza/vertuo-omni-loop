@@ -2,11 +2,14 @@
 // HOME's one client component (PRD 261): every interaction on the page, and nothing else ships
 // JavaScript. It listens on the whole page for Enter and the Konami code, makes a click on any
 // PRESS START (an element carrying `data-press-start`) start the game, flips a trading card on a
-// click (spreads/flip.ts), and flashes CHEAT ACTIVATED!
+// click (spreads/flip.ts), flashes CHEAT ACTIVATED!, and makes a click on SIGN UP WITH GITHUB (an
+// element carrying `data-sign-up`) start the GitHub sign-in (sign-up.ts, PRD 359).
 // Without JavaScript, PRESS START is still a plain link to /play.
 import { useEffect, useRef, useState } from 'react';
 import { play } from '../arcade/sound';
+import { startGithubSignIn } from '../data/sign-in-github';
 import { konami } from './konami';
+import { SIGN_UP_ATTR, signUp } from './sign-up';
 import { flipCard } from './spreads/flip';
 import { PRESS_START_ATTR, pressStart, startsOnKey } from './start';
 
@@ -16,13 +19,22 @@ export const CHEAT_MS = 900;
 /** What answers Enter by itself when focused: Enter there is never PRESS START's. */
 const CONTROL = 'a[href], button, input, textarea, select, summary, [contenteditable], [role="button"]';
 
+/** The galaxy's Supabase, inlined into the browser bundle when the page is built; null on the demo. */
+function supabase(): { url: string; key: string } | null {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  return url && key ? { url, key } : null;
+}
+
 function storage(): Storage | null {
   try { return window.localStorage; } catch { return null; }
 }
 
 export function Controls() {
   const [cheat, setCheat] = useState(false);
+  const [signUpError, setSignUpError] = useState<string | null>(null);
   const started = useRef(false);
+  const signingUp = useRef(false);
 
   useEffect(() => {
     const start = (holdMs = 0) => {
@@ -54,6 +66,26 @@ export function Controls() {
       if (e.defaultPrevented || e.button !== 0 || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
       const target = e.target instanceof Element ? e.target : null;
       if (flipCard(target)) return;
+      const button = target?.closest(`[${SIGN_UP_ATTR}]`);
+      if (button) {
+        e.preventDefault();
+        if (signingUp.current) return;
+        signingUp.current = true;
+        button.setAttribute('aria-busy', 'true');
+        setSignUpError(null);
+        void signUp({
+          supabase: supabase(),
+          origin: window.location.origin,
+          start: startGithubSignIn,
+          go: (href) => window.location.assign(href),
+        }).then((failure) => {
+          if (!failure) return;
+          signingUp.current = false;
+          button.removeAttribute('aria-busy');
+          setSignUpError(failure);
+        });
+        return;
+      }
       if (!target?.closest(`[${PRESS_START_ATTR}]`)) return;
       e.preventDefault();
       start();
@@ -68,8 +100,11 @@ export function Controls() {
   }, []);
 
   return (
-    <div className="home-cheat" role="status" aria-live="assertive" hidden={!cheat}>
-      {cheat ? 'CHEAT ACTIVATED!' : null}
-    </div>
+    <>
+      <div className="home-cheat" role="status" aria-live="assertive" hidden={!cheat}>
+        {cheat ? 'CHEAT ACTIVATED!' : null}
+      </div>
+      {signUpError ? <p className="home-signup-error" role="alert">{signUpError}</p> : null}
+    </>
   );
 }

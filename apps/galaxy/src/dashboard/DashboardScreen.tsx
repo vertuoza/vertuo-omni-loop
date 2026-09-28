@@ -51,7 +51,7 @@ export function DashboardScreen({ view, supabase, signinError }: DashboardScreen
       return (
         <Notice title="Your account is not in a workspace">
           <p className="ask-muted">
-            The dashboard is for the members of a workspace. Sign in with your Vertuoza Google account to see yours.
+            The dashboard is for the members of a workspace. Sign in with your GitHub account to see yours.
           </p>
           {supabase && <SwitchAccount supabase={supabase} />}
         </Notice>

@@ -3,7 +3,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { seasonBounds } from '../season';
-import { Counts } from './Counts';
+import { Counts } from './CountTiles';
 import { ASK, FOR_ME } from './counts';
 import type { CountsValue } from './load';
 

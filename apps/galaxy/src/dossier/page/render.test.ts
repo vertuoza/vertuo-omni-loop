@@ -363,11 +363,12 @@ describe('the pieces the browser takes over', () => {
     );
   });
 
-  it('the sign-in card asks for the workspace\'s Google account and says the link opens for its members', () => {
+  it('the sign-in card offers only GitHub and says the link opens for its members', () => {
     const html = renderToStaticMarkup(createElement(DossierSignIn, { supabase: SUPABASE, returnPath: `/prd/${ID}/callback`, error: 'Not allowed' }));
     expect(html).toContain('Sign in to read this PRD');
     expect(html).toContain('members of its workspace');
-    expect(html).toContain('>Sign in with Google</button>');
+    expect(html).toContain('>Sign in with GitHub</button>');
+    expect(html).not.toMatch(/google/i);
     expect(html).toContain('role="alert">Not allowed</p>');
   });
 });

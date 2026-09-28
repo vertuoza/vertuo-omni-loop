@@ -17,8 +17,9 @@ import { positiveInt } from './args.mjs';
 import { COMMAND_TABLE } from './commands/index.mjs';
 
 const USAGE = `usage: omni <command> [args]\ncommands: ${Object.keys(COMMAND_TABLE).join(', ')}\nomni help: what each command does\n`;
-// `omni --help` and `omni -h` are `omni help`.
+// `omni --help` and `omni -h` are `omni help`; `omni --version` is `omni version`.
 const HELP_FLAGS = ['--help', '-h'];
+const VERSION_FLAG = '--version';
 
 // The commands that name their PRD by position: the argument right after the command, or right after
 // the subcommand listed here (`omni prd 7`, `omni dossier push 7`). Any command names one with
@@ -77,7 +78,7 @@ export async function main(
   { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync, env = process.env, ...more } = {},
 ) {
   const [first, ...rest] = argv;
-  const name = HELP_FLAGS.includes(first) ? 'help' : first;
+  const name = HELP_FLAGS.includes(first) ? 'help' : first === VERSION_FLAG ? 'version' : first;
   const command = Object.hasOwn(COMMAND_TABLE, name ?? '') ? COMMAND_TABLE[name] : undefined;
   if (!command) {
     stderr.write(USAGE);

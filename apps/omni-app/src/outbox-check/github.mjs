@@ -68,14 +68,17 @@ export async function readBaseConfig(octokit, { owner, repo, baseSha, dest }) {
 }
 
 /**
- * The check's name: `ci.outboxContext` from the base branch's config, or the kit's default when
- * the base branch has no config or a broken one (the check still has to appear, to say so).
+ * Whether the base branch has the loop installed, and the check's name there: `ci.outboxContext`
+ * from its config, or the kit's default when that config is broken (the check still has to appear,
+ * to say so). A base branch with no config at all is not active: the app posts nothing there
+ * (PRD 359), since a public app is installed on repositories that never asked for the loop.
+ * @returns {Promise<{ active: boolean, name: string }>}
  */
-export async function checkName(octokit, { owner, repo, baseSha }) {
+export async function checkTarget(octokit, { owner, repo, baseSha }) {
   const folder = mkdtempSync(join(tmpdir(), 'omni-name-'));
   try {
-    const { config } = await readBaseConfig(octokit, { owner, repo, baseSha, dest: folder });
-    return config?.ci.outboxContext ?? DEFAULT_CHECK_NAME;
+    const { config, error } = await readBaseConfig(octokit, { owner, repo, baseSha, dest: folder });
+    return { active: Boolean(config || error), name: config?.ci.outboxContext ?? DEFAULT_CHECK_NAME };
   } finally {
     rmSync(folder, { recursive: true, force: true });
   }

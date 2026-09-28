@@ -8,8 +8,8 @@ function GettingStarted() {
   return <a className="home-start" href={DOCS}>GETTING STARTED</a>;
 }
 
-// The order form (PRD 261): JOIN THE LOOP!, moved here from the poster by PRD 285, over the disabled
-// sign-up, PRESS START, GETTING STARTED (PRD 346), the fine print and the Konami tip.
+// The order form (PRD 261): JOIN THE LOOP!, moved here from the poster by PRD 285, over the
+// sign-up (enabled by PRD 359), PRESS START, GETTING STARTED (PRD 346), the fine print and the Konami tip.
 export function OrderForm() {
   return (
     <section className="home-spread" aria-labelledby="home-order">
@@ -21,7 +21,7 @@ export function OrderForm() {
           <PressStart />
           <GettingStarted />
         </div>
-        <p className="home-fine">Omni Loop runs on Claude Code. Invite-only while in beta.</p>
+        <p className="home-fine">Omni Loop runs on Claude Code. Free while in beta: sign up with GitHub.</p>
       </div>
       <p className="home-psst">PSST: <kbd><span className="home-glyph">↑ ↑ ↓ ↓ ← → ← →</span> B A</kbd> FLASHES CHEAT ACTIVATED! AND DROPS YOU IN THE GAME.</p>
     </section>

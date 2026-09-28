@@ -12,8 +12,8 @@ begin
   if (select count(*) from public.workspaces) <> 1 then raise exception 'FAIL: the migrations left % workspaces, not one', (select count(*) from public.workspaces); end if;
   select * into w from public.workspaces where slug = 'vertuoza';
   if not found then raise exception 'FAIL: there is no vertuoza workspace'; end if;
-  if (w.name, w.github_org, w.plan_repo, w.join_domain, w.theme)
-     is distinct from ('Vertuoza'::text, 'vertuoza'::text, 'vertuo-omni-loop'::text, 'vertuoza.com'::text, '{}'::jsonb) then
+  if (w.name, w.github_org, w.plan_repo, w.theme)
+     is distinct from ('Vertuoza'::text, 'vertuoza'::text, 'vertuo-omni-loop'::text, '{}'::jsonb) then
     raise exception 'FAIL: the vertuoza workspace is not as the spec sets it: %', row_to_json(w);
   end if;
   -- The real sectors (20260926160000), whatever the demo seed adds beside them.
@@ -49,8 +49,8 @@ end $$;
 -- ── The cast ──
 -- A second workspace, Acme, with its own sector, two fleets (one named like a Vertuoza fleet) and
 -- one event whose id Vertuoza's ledger holds too.
-insert into public.workspaces (id, slug, name, github_org, plan_repo, join_domain) values
-  ('00000000-0000-4000-8000-0000000000a2', 'acme', 'Acme', 'acme', 'acme-plan', 'acme.test');
+insert into public.workspaces (id, slug, name, github_org, plan_repo) values
+  ('00000000-0000-4000-8000-0000000000a2', 'acme', 'Acme', 'acme', 'acme-plan');
 insert into public.sectors (workspace_id, name, repos) values
   ('00000000-0000-4000-8000-0000000000a2', 'dust-belt', array['acme-api']);
 insert into public.teams (workspace_id, name, label, color, home, sort) values
@@ -82,7 +82,7 @@ insert into auth.identities (user_id, provider, provider_id, identity_data) valu
   ('00000000-0000-4000-8000-00000000000d', 'github', '2002', '{"user_name": "dan-gh"}'),
   ('00000000-0000-4000-8000-00000000000e', 'github', '4004', '{"user_name": "eve-gh"}'),
   ('00000000-0000-4000-8000-00000000000f', 'github', '3003', '{"user_name": "fay-gh"}');
--- Fay's domain joins nothing: she is a member of both workspaces because someone added her.
+-- Fay's orgs join nothing: she is a member of both workspaces because someone added her.
 insert into public.workspace_members (workspace_id, user_id)
 select id, '00000000-0000-4000-8000-00000000000f' from public.workspaces;
 
@@ -108,46 +108,47 @@ begin
 end $$;
 reset role;
 
--- ── Joining by email domain, on a confirmed address only ──
-set local role authenticated;
+-- ── Joining: by GitHub org, through the service role (PRD 359); the email domain joins nobody ──
 do $$
 begin
-  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000a', 'ada@vertuoza.com');
-  if public.join_by_domain() is distinct from array['vertuoza'] then
-    raise exception 'FAIL: a confirmed vertuoza.com account did not join vertuoza';
+  if to_regprocedure('public.join_by_domain()') is not null then
+    raise exception 'FAIL: join_by_domain() still exists';
   end if;
-  begin
-    if public.join_by_domain() is distinct from array['vertuoza'] or (select count(*) from public.workspace_members) <> 1 then
-      raise exception 'FAIL: a second join_by_domain() changed the memberships';
-    end if;
-  exception when unique_violation then
-    raise exception 'FAIL: a second join_by_domain() failed (%)', sqlerrm;
-  end;
-
-  perform pg_temp.sign_in('00000000-0000-4000-8000-000000000011', 'una@vertuoza.com');
-  if public.join_by_domain() <> '{}'::text[] or exists (select 1 from public.workspace_members) then
-    raise exception 'FAIL: an unconfirmed vertuoza.com address joined a workspace';
-  end if;
-
-  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000e', 'eve@example.com');
-  if public.join_by_domain() <> '{}'::text[] or exists (select 1 from public.workspace_members) then
-    raise exception 'FAIL: an address of another domain joined a workspace';
-  end if;
-
-  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000f', 'fay@example.com');
-  if public.join_by_domain() is distinct from array['acme', 'vertuoza'] then
-    raise exception 'FAIL: join_by_domain() did not answer every workspace of the caller, first joined first';
-  end if;
-
-  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000b', 'bob@vertuoza.com');
-  perform public.join_by_domain();
-  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000c', 'carol@vertuoza.com');
-  perform public.join_by_domain();
-  perform pg_temp.sign_in('00000000-0000-4000-8000-00000000000d', 'dan@acme.test');
-  if public.join_by_domain() is distinct from array['acme'] then
-    raise exception 'FAIL: a confirmed acme.test account did not join acme';
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'workspaces' and column_name = 'join_domain') then
+    raise exception 'FAIL: workspaces.join_domain still exists';
   end if;
 end $$;
+-- Both workspaces own an installation of the App, as sign-up records it; only then do their orgs join.
+update public.workspaces set github_installation_id = 91001, github_account_type = 'Organization' where slug = 'vertuoza';
+update public.workspaces set github_installation_id = 91002, github_account_type = 'Organization' where id = '00000000-0000-4000-8000-0000000000a2';
+set local role service_role;
+do $$
+begin
+  if public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000a', array['ada-gh', 'Vertuoza']) is distinct from array['vertuoza'] then
+    raise exception 'FAIL: a member of the vertuoza org did not join vertuoza';
+  end if;
+  if public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000a', array['ada-gh', 'vertuoza']) is distinct from array['vertuoza']
+     or (select count(*) from public.workspace_members where user_id = '00000000-0000-4000-8000-00000000000a') <> 1 then
+    raise exception 'FAIL: joining twice changed the memberships';
+  end if;
+  -- Una's address is vertuoza.com, but she is in no org: she joins nothing.
+  if public.join_workspaces_by_github('00000000-0000-4000-8000-000000000011', array['una-gh']) <> '{}'::text[] then
+    raise exception 'FAIL: an account in no org joined a workspace';
+  end if;
+  if public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000e', array['eve-gh', 'example']) <> '{}'::text[] then
+    raise exception 'FAIL: an account of another org joined a workspace';
+  end if;
+  if public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000f', array['fay-gh']) is distinct from array['acme', 'vertuoza'] then
+    raise exception 'FAIL: joining did not answer every workspace of the caller, first joined first';
+  end if;
+  perform public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000b', array['bob-gh', 'vertuoza']);
+  perform public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000c', array['carol-gh', 'vertuoza']);
+  if public.join_workspaces_by_github('00000000-0000-4000-8000-00000000000d', array['dan-gh', 'ACME']) is distinct from array['acme'] then
+    raise exception 'FAIL: a member of the acme org did not join acme';
+  end if;
+end $$;
+set local role authenticated;
 
 -- ── Signed in, in no workspace: nothing, even with GitHub linked ──
 select pg_temp.sign_in('00000000-0000-4000-8000-00000000000e', 'eve@example.com');
@@ -251,7 +252,7 @@ begin
   if n <> 0 then raise exception 'FAIL: a player changed someone else''s fleet'; end if;
 end $$;
 
--- ── A visitor: signed in with Google, no GitHub linked. Looks, does not play ──
+-- ── A visitor: signed in, no GitHub identity linked (a session from before PRD 359). Looks, does not play ──
 select pg_temp.sign_in('00000000-0000-4000-8000-00000000000c', 'carol@vertuoza.com');
 do $$
 begin
@@ -661,25 +662,12 @@ begin
   end if;
 end $$;
 
--- ── The sign-up hook: a domain no workspace joins is refused, by a message naming no company ──
+-- ── The sign-up hook: an email domain lets nobody in any more (PRD 359) ──
+-- What it lets in (GitHub, with or without an email) and what it refuses: supabase/checks/signup.sql.
 do $$
-declare refusal jsonb;
 begin
-  if public.hook_before_user_created('{"user": {"email": "Ada@Vertuoza.com"}}') <> '{}'::jsonb then
-    raise exception 'FAIL: the hook refused a vertuoza.com account';
-  end if;
-  if public.hook_before_user_created('{"user": {"email": "dan@acme.test"}}') <> '{}'::jsonb then
-    raise exception 'FAIL: the hook refused the domain of a second workspace';
-  end if;
-  if public.hook_before_user_created('{"user": {"email": "eve@notvertuoza.com"}}') -> 'error' ->> 'http_code' is distinct from '403' then
-    raise exception 'FAIL: the hook let a look-alike domain in';
-  end if;
-  refusal := public.hook_before_user_created('{"user": {"email": "eve@example.com"}}');
-  if refusal -> 'error' ->> 'http_code' is distinct from '403' then
-    raise exception 'FAIL: the hook let a domain in that no workspace joins';
-  end if;
-  if refusal -> 'error' ->> 'message' is distinct from 'OMNI LOOP is not open to example.com yet.' then
-    raise exception 'FAIL: the hook''s refusal reads %', refusal -> 'error' ->> 'message';
+  if public.hook_before_user_created('{"user": {"email": "ada@vertuoza.com", "app_metadata": {"provider": "google"}}}') -> 'error' ->> 'http_code' is distinct from '403' then
+    raise exception 'FAIL: the hook let a vertuoza.com account in through Google';
   end if;
   if has_function_privilege('authenticated', 'public.hook_before_user_created(jsonb)', 'execute')
      or has_function_privilege('anon', 'public.hook_before_user_created(jsonb)', 'execute')
@@ -726,7 +714,7 @@ begin
   if stale is not null then raise exception 'FAIL: is_crew() is still called by %', stale; end if;
 end $$;
 
--- Una never confirmed her vertuoza.com address, so she joined no workspace; the session she opened
+-- Una is in no org with a workspace, so she joined none; the session she opened
 -- when an address was enough is still hers.
 insert into public.ask_sessions (id, owner, title) values
   ('00000000-0000-4000-8000-0000000a5a01', '00000000-0000-4000-8000-000000000011', 'una, from before');

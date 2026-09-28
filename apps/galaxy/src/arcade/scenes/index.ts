@@ -9,7 +9,7 @@ import { drawFleets } from './fleets.ts';
 import { drawGames } from './games.ts';
 import { drawInvaders } from './invaders.ts';
 import { drawLevelUp } from './levelup.ts';
-import { drawAway, drawCoin, drawGate, drawIntro, drawLink, drawReady, drawWelcome } from './join.ts';
+import { drawAway, drawCoin, drawGate, drawIntro, drawReady, drawWelcome } from './join.ts';
 import { drawMap } from './map.ts';
 import { drawBriefing, drawMenu } from './menu.ts';
 import { drawPlanetScene } from './planet.ts';
@@ -43,7 +43,6 @@ export function drawFrame(ctx: CanvasRenderingContext2D, s: FrameState, titlePha
     case 'select': return drawSelect(ctx, s);
     case 'name': return drawName(ctx, s);
     case 'hero': return drawBuilder(ctx, s);
-    case 'link': return drawLink(ctx, s);
     case 'ready': return drawReady(ctx, s);
     case 'welcome': return drawWelcome(ctx, s);
     case 'chart': return drawChart(ctx, s);
