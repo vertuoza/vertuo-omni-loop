@@ -63,7 +63,7 @@ export interface IndividualRow { rank: number; name: string; points: number; you
 
 /** What the rankings show: every fleet, the individuals around you, and where you stand among them:
  * ranked, with no points yet this season, or with no GitHub login to find you by. */
-export interface Rankings {
+export interface RankingsValue {
   fleets: FleetRank[];
   individuals: (IndividualRow | Gap)[];
   you: 'ranked' | 'no-points' | 'no-github';
@@ -78,7 +78,7 @@ export function rankingsOf(
   crew: readonly Pick<Player, 'display_name' | 'github_login'>[],
   login: string | null,
   team: string | null,
-): Rankings {
+): RankingsValue {
   const names = new Map<string, string>();
   for (const p of crew) {
     const name = p.display_name?.trim();
