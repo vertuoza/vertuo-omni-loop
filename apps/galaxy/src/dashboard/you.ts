@@ -9,7 +9,8 @@ import { UNREADABLE, type PartInput, type Read } from './part';
 // workspace's fleets; the points and places from the galaxy (loadGalaxy), this season. Each of those
 // two fails on its own: with the galaxy out of reach, the hero and the fleet still show and only the
 // figures say so. Without a player row there is no hero block, only the card that sends you to the
-// arcade to join a fleet; without a GitHub login, the figures say to link it there.
+// arcade to play; without a GitHub login, the figures say to link it there. A fleet is optional (PRD
+// 400): a player row with no fleet is a solo player, and the block reads SOLO for their fleet.
 
 /** A place in a ranking: `#rank of of`. */
 export interface Place { rank: number; of: number }
@@ -25,9 +26,16 @@ export interface Score {
 /** Your fleet, as the block names it: its label, in its colour. */
 export interface FleetTag { name: string; label: string; color: string }
 
+/** A player who plays with no fleet (PRD 400): their player row has no team. */
+export const SOLO = 'solo';
+
+/** A player's fleet, as the block shows it: their fleet, SOLO with none, or null when their fleet is
+ * one the workspace no longer knows. */
+export type YouFleet = FleetTag | typeof SOLO | null;
+
 export type YouValue =
   | { kind: 'no-player' }
-  | { kind: 'player'; hero: Hero; fleet: FleetTag | null; score: Score | 'unreadable' | 'no-github' };
+  | { kind: 'player'; hero: Hero; fleet: YouFleet; score: Score | 'unreadable' | 'no-github' };
 
 /** The demo guest's hero, and anyone's whose stored hero cannot be drawn (src/arcade/account-demo.ts). */
 export const DEFAULT_HERO: Hero = { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 };
@@ -74,7 +82,7 @@ export async function loadYou(input: PartInput, me: Read<Player | null>, fleets:
   if (me === UNREADABLE) return UNREADABLE;
   if (!me) return { kind: 'no-player' };
   const found = me.team ? (await fleets()).find((f) => f.name === me.team) : undefined;
-  const fleet = found ? { name: found.name, label: found.label, color: found.color } : null;
+  const fleet: YouFleet = !me.team ? SOLO : found ? { name: found.name, label: found.label, color: found.color } : null;
   const hero = validHero(me.hero) ? me.hero : DEFAULT_HERO;
   if (!input.login) return { kind: 'player', hero, fleet, score: 'no-github' };
   let score: Score | 'unreadable';

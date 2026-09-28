@@ -67,6 +67,14 @@ describe('the dashboard', () => {
     expect(text(html)).toContain('X fleet');
   });
 
+  it('a solo player reads SOLO where a fleet is named, and no fleet\'s place', () => {
+    const html = dashboard({ you: { ...PLAYER, fleet: 'solo', score: { points: 30, you: { rank: 3, of: 4 }, fleet: null } } as YouValue });
+    expect(text(html)).toContain('SOLO');
+    expect(text(html)).not.toContain('fleet');
+    expect(text(html)).not.toContain('UNCREWED');
+    expect(html).not.toContain('--dash-fleet');
+  });
+
   it('says the season\'s points and both places', () => {
     const t = text(dashboard());
     expect(t).toContain('1,240 pts · September season');
@@ -137,10 +145,11 @@ describe('the dashboard, when part of it cannot be shown', () => {
     expect(html).toContain('class="dash-cards"');
   });
 
-  it('a member who never joined a fleet: the card that sends them to the arcade, in place of the hero block', () => {
+  it('a member who never played: the card that sends them to the arcade, in place of the hero block, never asking for a fleet', () => {
     const html = dashboard({ name: 'Pierre', you: { kind: 'no-player' } });
     expect(h1s(html)).toEqual(['Pierre']);
-    expect(html).toMatch(/<a [^>]*href="\/play"[^>]*>Join a fleet in the arcade to get your hero and your score<\/a>/);
+    expect(html).toMatch(/<a [^>]*href="\/play"[^>]*>Play in the arcade to get your hero and your score<\/a>/);
+    expect(text(html)).not.toMatch(/join a fleet/i);
     expect(html).not.toContain('<svg');
     expect(text(html)).not.toContain('pts');
     for (const part of ['week', 'counts', 'rankings']) expect(html).toContain(`data-part="${part}"`);

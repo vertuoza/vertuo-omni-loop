@@ -4,13 +4,13 @@ import { pixelSvg } from '../design/pixel-svg';
 import { ARCADE, CouldNotLoad, LinkGithub } from './Notes';
 import { UNREADABLE, type Read } from './part';
 import type { Season } from './season';
-import type { Score, YouValue } from './you';
+import { SOLO, type Score, type YouValue } from './you';
 
 // The hero block (PRD 328): your hero, drawn on the server as a pixel SVG in your fleet's colour (as
 // /design draws its sprites: no script, no canvas), then your name, the page's one heading, your
-// fleet, your season's points and your two places. A member with no player row gets, in its place,
-// the card that sends them to the arcade to join a fleet; a figure that cannot be read or counted
-// says why, and nothing else of the block goes with it.
+// fleet (SOLO for a player with none, PRD 400), your season's points and your two places. A member
+// with no player row gets, in its place, the card that sends them to the arcade to play; a figure
+// that cannot be read or counted says why, and nothing else of the block goes with it.
 
 const COUNT = new Intl.NumberFormat('en-US');
 
@@ -39,12 +39,13 @@ export function You({ name, you, season }: { name: string; you: Read<YouValue>; 
           {heading}
           {you === UNREADABLE
             ? <CouldNotLoad />
-            : <p className="dash-join"><a href={ARCADE}>Join a fleet in the arcade to get your hero and your score</a></p>}
+            : <p className="dash-join"><a href={ARCADE}>Play in the arcade to get your hero and your score</a></p>}
         </div>
       </section>
     );
   }
-  const colour = you.fleet && HEX.test(you.fleet.color) ? you.fleet.color : undefined;
+  const fleet = you.fleet === SOLO ? null : you.fleet;
+  const colour = fleet && HEX.test(fleet.color) ? fleet.color : undefined;
   const look = heroLook(you.hero, colour);
   const svg = pixelSvg(spritePixels(look.sprite, { tint: look.tint }), { scale: 2, title: `${name}’s hero` });
   return (
@@ -52,12 +53,13 @@ export function You({ name, you, season }: { name: string; you: Read<YouValue>; 
       <span className="dash-hero" dangerouslySetInnerHTML={{ __html: svg }} />
       <div className="dash-who">
         {heading}
-        {you.fleet && (
+        {fleet && (
           <p className="dash-fleet" style={colour ? ({ '--dash-fleet': colour } as CSSProperties) : undefined}>
             <span className="dash-fleet-pip" aria-hidden="true" />
-            <span><span className="dash-fleet-name">{you.fleet.label}</span> fleet</span>
+            <span><span className="dash-fleet-name">{fleet.label}</span> fleet</span>
           </p>
         )}
+        {you.fleet === SOLO && <p className="dash-fleet"><span className="dash-fleet-name">SOLO</span></p>}
         <Figures score={you.score} season={season} />
       </div>
     </section>
