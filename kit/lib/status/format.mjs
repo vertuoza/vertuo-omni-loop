@@ -34,7 +34,7 @@ function counts({ shipped, inbox }) {
 
 /** The bar and the line under it; one line, `nothing yet`, with no PRD at all. */
 function bar({ bar: { delivered, total, percent, filled }, inProgress }) {
-  if (total === 0) return [`${LABEL}nothing yet: /omni:brainstorm to start`];
+  if (total === 0) return ['  nothing yet: /omni:brainstorm to start'];
   const cells = `${'█'.repeat(filled)}${'░'.repeat(BAR_CELLS - filled)}`;
   const parts = [[inProgress.inbox, 'in the inbox']].filter(([count]) => count > 0).map(([count, where]) => `${count} ${where}`);
   const under = inProgress.total === 0 ? 'nothing in progress' : `${inProgress.total} in progress: ${parts.join(', ')}`;

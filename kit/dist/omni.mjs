@@ -20949,7 +20949,7 @@ function counts({ shipped, inbox }) {
   return `  ${[`SHIPPED ${shipped}`, `INBOX ${inbox}`].join(GAP)}`;
 }
 function bar({ bar: { delivered, total, percent, filled }, inProgress }) {
-  if (total === 0) return [`${LABEL2}nothing yet: /omni:brainstorm to start`];
+  if (total === 0) return ["  nothing yet: /omni:brainstorm to start"];
   const cells2 = `${"\u2588".repeat(filled)}${"\u2591".repeat(BAR_CELLS - filled)}`;
   const parts = [[inProgress.inbox, "in the inbox"]].filter(([count3]) => count3 > 0).map(([count3, where]) => `${count3} ${where}`);
   const under = inProgress.total === 0 ? "nothing in progress" : `${inProgress.total} in progress: ${parts.join(", ")}`;

@@ -124,7 +124,8 @@ describe('omni status — the overview (PRD 315, slice s1)', () => {
     expect(await main(['status'], { cwd: root, ...s })).toBe(0);
     const out = s.out.join('');
     expect(out).toContain('  SHIPPED 0     INBOX 0\n');
-    expect(out).toContain('  delivered  nothing yet: /omni:brainstorm to start\n');
+    expect(out).toContain('\n  nothing yet: /omni:brainstorm to start\n');
+    expect(out).not.toContain('delivered');
   });
 
   it('never fetches without --fetch', async () => {

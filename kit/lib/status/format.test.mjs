@@ -65,7 +65,8 @@ describe('formatOverview', () => {
   it('says nothing yet with no PRD at all', () => {
     const text = formatOverview(overview({ shipped: 0, inbox: 0 }), { now: NOW });
     expect(text).toContain('  SHIPPED 0     INBOX 0\n');
-    expect(text).toContain('\n  delivered  nothing yet: /omni:brainstorm to start\n');
+    expect(text).toContain('\n\n  nothing yet: /omni:brainstorm to start\n\n');
+    expect(text).not.toContain('delivered');
     expect(text).not.toContain('░');
     expect(text).not.toContain('in progress');
   });
