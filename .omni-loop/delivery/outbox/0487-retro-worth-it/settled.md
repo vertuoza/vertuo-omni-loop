@@ -316,3 +316,315 @@ Two lines in test files; reverting them only moves the work to the next slice.
 ```
 
 <!-- /omni-outbox-settled: s3-02-two-test-files-past-the-fence -->
+
+<!-- omni-outbox-settled: s4-01-day-14-falls-back-on-the-merge-verdict -->
+
+## s4-01-day-14-falls-back-on-the-merge-verdict — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-day-14-falls-back-on-the-merge-verdict
+prd: 487
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+Fourteen days after a merge the retro asks the judge again. If the judge cannot be reached that day, should the retro keep the answer it got at the merge, or count as not judged?
+
+## The decision, in plain words
+
+It keeps the answer from the merge, the same way it already keeps the merge's words. And when the later run is worth a pull request while the first was not, it also opens the issues for the first run's kept findings, which never got any.
+
+## The intro, for fun
+
+Two weeks later the judge is out for lunch.
+
+## The punchline, for fun
+
+So the retro goes with what the judge said last time.
+
+## The options, in plain words
+
+A. A failed day-14 call keeps the merge run's verdict with its words, and a late PR also opens the first run's kept issues; the option built.
+B. A failed day-14 call counts as not judged: the comment is rewritten and nothing is added to an open PR.
+C. Keep the merge verdict, but open issues at day 14 only for the day-14 run's own findings.
+
+## What I had to decide
+
+The spec says the day-14 run is judged the same way on both runs' findings, and that no verdict means no PR. It does not say what the day-14 run does when its own model call fails, nor whether the merge run's kept findings get issues when only the day-14 run opens a PR.
+
+## What I did meanwhile
+
+At day 14, `prose = guarded.prose ?? earlier.prose`, as before, and the verdict comes with those words: a failed day-14 call acts on the merge run's verdict (a merge run with an open PR gets its After merge commit; a quiet merge run's comment is rewritten). When the day-14 run is worth it and the merge run opened no PR, its issues are published over both runs' findings (kept ones only, merge run's first); otherwise over its own. A "no new lesson" comment left by the merge run stays as it is when day 14 opens the PR.
+
+## What it costs to change later
+
+A constant: dropping the fallback is one expression in the retro function, and the issue range is one condition.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) When day 14 opens the PR after a quiet merge run, the earlier verdict comment is left in place and now disagrees with the PR; the spec does not say whether to rewrite or delete it.
+- (author) Issues over both runs are ranked merge run first, not worst first across both runs.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-day-14-falls-back-on-the-merge-verdict -->
+
+<!-- omni-outbox-settled: s4-02-retro-reads-less-than-the-harvest -->
+
+## s4-02-retro-reads-less-than-the-harvest — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-retro-reads-less-than-the-harvest
+prd: 487
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+To give the judge the knowledge base and the earlier lessons, should the retro copy the whole delivery folder at the merge, as the knowledge harvest does, or only what it needs?
+
+## The decision, in plain words
+
+It copies only the settings and the knowledge folder, and reads the earlier retro records one by one from a single listing of the shipped folder. The delivery folder is several megabytes and hundreds of files that the judge never reads.
+
+## The intro, for fun
+
+Asked for last year's lessons, the retro was about to carry the whole library home.
+
+## The punchline, for fun
+
+It took the index and one shelf instead.
+
+## The options, in plain words
+
+A. Copy only the settings and the knowledge folder, and read each earlier retro record from one listing; the option built.
+B. Copy every loop folder as the harvest does, and read the records from that copy.
+
+## What I had to decide
+
+The spec says the new step reads the knowledge folder and the shipped retro.json files "through the harvest's tree reader", which snapshots every loop folder, the delivery folder included (about 250 files and 5 MB on this repository at PRD 438's merge).
+
+## What I did meanwhile
+
+`gatherKnowledge` calls the harvest's `withTreeAt` with the config's delivery, playbook and glossary paths set to null, so only the config and the knowledge folders are snapshotted, and builds the summary with the kit's `knowledgeSummary`. The retro.json files are found with one recursive tree listing of the shipped folder and read blob by blob.
+
+## What it costs to change later
+
+A constant: passing the config unchanged to the tree reader and reading the files from its snapshot instead.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the spec's wording meant the whole snapshot or only the reader: it gives no size budget for the step.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-retro-reads-less-than-the-harvest -->
+
+<!-- omni-outbox-settled: s4-03-lessons-kept-in-the-retro-record -->
+
+## s4-03-lessons-kept-in-the-retro-record — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-lessons-kept-in-the-retro-record
+prd: 487
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+The judge compares each retro with the lessons of earlier retros, but the retro record never stored its lessons. Where should they be kept so the next retro can read them?
+
+## The decision, in plain words
+
+Each run of a retro now also keeps, in its record file, the lessons that passed the checks and the verdict, and the next retro reads those lessons. Older records hold none, so the first retros compare only with the knowledge base.
+
+## The intro, for fun
+
+The judge was told to remember old lessons, but nobody had ever written them down.
+
+## The punchline, for fun
+
+So now the notebook comes with the lesson.
+
+## The options, in plain words
+
+A. Each run of the record keeps its accepted lessons and the verdict, and the next retro reads them from every run; the option built.
+B. The record keeps one list of lessons for the whole retro at its top, rewritten by each run.
+C. Only the lessons of findings the judge kept are stored, so the next judge compares with kept lessons alone.
+
+## What I had to decide
+
+The spec asks the judge for "every lessons[].text in the retro.json files", but retro.json has only ever held the fact sheet, the narration outcome and the issues: no retro wrote its lessons. The shape of where they live was not settled.
+
+## What I did meanwhile
+
+Each run record in retro.json gains two optional fields: `lessons` (the lessons `guard` accepted, text and cited finding ids, dropped ones left out) and `verdict` (as `guard` kept it). `gather-knowledge` reads `runs[].lessons[].text` from every `<shipped>/<prd>/retro.json` at the merge commit, oldest PRD first, each text once.
+
+## What it costs to change later
+
+A constant: the field name and where it sits in the record. Moving it to the top of the file is one line to write and one to read; no stored record holds lessons yet.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec names the field `lessons[].text` without saying whether it is per run or per file; per run keeps a day-14 run's lessons apart from the merge run's.
+- (author) Whether lessons of findings the judge did not keep should be kept too: every accepted lesson is kept, so a later judge sees more, not less.
+
+```
+
+<!-- /omni-outbox-settled: s4-03-lessons-kept-in-the-retro-record -->
+
+<!-- omni-outbox-settled: s4-04-four-test-files-past-the-fence -->
+
+## s4-04-four-test-files-past-the-fence — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-04-four-test-files-past-the-fence
+prd: 487
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+Now that a retro nobody could judge opens no pull request, four older tests outside this slice's files fail because they expected one. Should the slice change them?
+
+## The decision, in plain words
+
+Yes, as little as possible: two tests now give the retro a stand-in judge that keeps every finding, one test expects the comment instead of the pull request, and the recorded replay of an older feature expects the comment and reads its counts from the retro's own step.
+
+## The intro, for fun
+
+The new rule was polite to everyone except four old tests.
+
+## The punchline, for fun
+
+They got a stand-in judge and a new script.
+
+## The options, in plain words
+
+A. Change the four tests as little as the new rule needs, with a shared stand-in judge; the option built.
+B. Leave them failing and raise a follow-up slice that owns them.
+
+## What I had to decide
+
+The plan's territory for this slice is the retro's retro, issues, render and publish files, the retro scenario, the replay helper and the fixtures. Four test files outside it ran the whole retro without a model key and expected a retro PR, which the spec now forbids.
+
+## What I did meanwhile
+
+Changed outside the territory: `src/retro/kinds/churn.test.mjs` and `src/retro/kinds/ci.test.mjs` (the retro built with the scenario's stubbed judge), `src/retro/narrate.test.mjs` (a 500 now ends in the "not judged" comment; the stubbed reply keeps its finding so the file is still written), and `test/prd-50.test.mjs` (the verdict comment and its golden instead of retro.md, the timeline read from the step "facts"). `createRetro` gained a `fetch` dependency so a test hands the judge in without stubbing globals. PRD 50's `retro.golden.md` was replaced by `verdict.golden.md`, and its recording gained the knowledge reads.
+
+## What it costs to change later
+
+A constant: each change is a test's expectation or its setup, with no product code outside the territory.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the plan meant these tests to move with the slice; it names only the retro's own test file.
+
+```
+
+<!-- /omni-outbox-settled: s4-04-four-test-files-past-the-fence -->
