@@ -11,7 +11,7 @@
   font: 400 15px/1.2 var(--ask-body);
   color: var(--ask-ink);
   background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   border-radius: 8px;
   padding: 11px 12px;
   min-width: 0;
@@ -34,7 +34,7 @@
   color: var(--ask-ink);
   text-decoration: none;
   background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   border-radius: 12px;
 }
 .ask a.ask-for-me-link:hover { border-color: var(--ask-plasma); }

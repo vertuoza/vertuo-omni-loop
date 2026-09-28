@@ -101,7 +101,7 @@
   color: var(--ask-ink);
   text-decoration: none;
 }
-.ask a.app-sidebar-item:hover { border-color: var(--ask-line); }
+.ask a.app-sidebar-item:hover { border-color: var(--ask-line-strong); }
 .ask a.app-sidebar-item[aria-current='page'] {
   color: var(--ask-plasma);
   border-color: var(--ask-plasma);

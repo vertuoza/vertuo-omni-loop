@@ -81,7 +81,7 @@ html:has(.ask[data-ask-theme]) body {
 .ask-switch {
   display: inline-flex;
   padding: 2px;
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 999px;
   background: var(--ask-surface);
 }
@@ -134,7 +134,7 @@ html:has(.ask[data-ask-theme]) body {
   color: var(--ask-ink);
   text-decoration: none;
 }
-.ask .ask-tab:hover { background: var(--ask-surface); border-color: var(--ask-line); }
+.ask .ask-tab:hover { background: var(--ask-surface); border-color: var(--ask-line-strong); }
 .ask .ask-tab[aria-current='page'] { background: var(--ask-surface); border-color: var(--ask-plasma); }
 .ask-tab-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; overflow-wrap: anywhere; }
 .ask-tab-header { font-size: 14px; color: var(--ask-muted); overflow-wrap: anywhere; }
@@ -154,7 +154,7 @@ html:has(.ask[data-ask-theme]) body {
     width: 100%;
     min-height: 44px;
     padding: 10px 14px;
-    border: 1.5px solid var(--ask-line);
+    border: 1.5px solid var(--ask-line-strong);
     border-radius: 10px;
     background: var(--ask-surface);
     color: var(--ask-ink);
@@ -220,7 +220,7 @@ html:has(.ask[data-ask-theme]) body {
   padding: 12px 14px;
   background: var(--ask-surface);
   color: var(--ask-ink);
-  border: 1.5px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   border-radius: 10px;
   cursor: pointer;
 }
@@ -270,7 +270,7 @@ html:has(.ask[data-ask-theme]) body {
   font: 16px/1.5 var(--ask-body);
   color: var(--ask-ink);
   background: var(--ask-surface);
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 6px;
   padding: 8px 10px;
 }
@@ -286,7 +286,7 @@ html:has(.ask[data-ask-theme]) body {
   tab-size: 2;
   color: var(--ask-ink);
   background: var(--ask-sunk);
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 10px;
 }
 .ask-preview-for { display: block; margin-bottom: 8px; font: 700 12px/1.3 var(--ask-body); color: var(--ask-muted); white-space: normal; }
@@ -302,7 +302,7 @@ html:has(.ask[data-ask-theme]) body {
 .ask kbd {
   font: 600 12px/1 var(--ask-mono);
   color: var(--ask-ink);
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-bottom-width: 2px;
   border-radius: 4px;
   padding: 2px 5px;
@@ -316,7 +316,7 @@ html:has(.ask[data-ask-theme]) body {
   padding: 13px 20px;
 }
 .ask-button:disabled { color: var(--ask-muted); background: var(--ask-sunk); cursor: not-allowed; }
-.ask-button.quiet { color: var(--ask-ink); background: var(--ask-surface); border: 1.5px solid var(--ask-line); }
+.ask-button.quiet { color: var(--ask-ink); background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); }
 /* A link drawn as a button (Approve spec, Review & merge…): `.ask a` would paint it cyan and
    underlined, unreadable on plasma (PRD 476). Focus keeps the cyan ring of `.ask :focus-visible`. */
 .ask a.ask-button { color: var(--ask-on-plasma); text-decoration: none; }
@@ -334,7 +334,7 @@ html:has(.ask[data-ask-theme]) body {
   justify-items: start;
   padding: 24px;
   background: var(--ask-surface);
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 12px;
 }
 .ask-card h1,
@@ -385,7 +385,7 @@ html:has(.ask[data-ask-theme]) body {
   flex: none;
   font: 600 12px/1 var(--ask-mono);
   color: var(--ask-muted);
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 4px;
   padding: 3px 6px;
 }
@@ -403,13 +403,13 @@ html:has(.ask[data-ask-theme]) body {
   text-transform: uppercase;
   color: var(--ask-ink);
   background: var(--ask-sunk);
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 4px;
   padding: 5px 8px;
   cursor: pointer;
 }
 .ask-category[data-category="unsorted"] .ask-category-pick { color: var(--ask-muted); border-style: dashed; }
-.ask-category-pick:disabled { cursor: progress; opacity: 0.7; }
+.ask-category-pick:disabled { cursor: progress; color: var(--ask-muted); }
 .ask-category-pick:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
 .ask-category-by { color: var(--ask-muted); }
 
