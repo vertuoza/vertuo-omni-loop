@@ -549,3 +549,549 @@ A constant: replace isCrewEmail with a workspace membership check in two call si
 ```
 
 <!-- /omni-outbox-settled: s2-04-ask-mode-still-gated-by-email -->
+
+<!-- omni-outbox-settled: s3-01-leftover-link-code-outside-territory -->
+
+## s3-01-leftover-link-code-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-leftover-link-code-outside-territory
+prd: 359
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+The arcade no longer has a step to link GitHub, but some pieces that served it live in files this slice may not touch. Should this slice remove them, or leave them for a later tidy-up?
+
+## The decision, in plain words
+
+This slice leaves those pieces in place, unused by the arcade. The practice arcade, which only pretends to sign in, now also pretends to link GitHub at sign-in, so its guest can play at once like everyone else.
+
+## The intro, for fun
+
+The arcade tore down the old GitHub bridge, but the signposts are on the neighbour's lawn.
+
+## The punchline, for fun
+
+They stay up for now, pointing proudly at nothing.
+
+## The options, in plain words
+
+A. A: leave the unused pieces where they are, and let the practice arcade link its guest when it signs in (built)
+B. B: let this slice remove the unused pieces, and have the practice arcade give its guest a GitHub name at sign-in
+C. C: remove the unused pieces in a later tidy-up slice
+
+## What I had to decide
+
+Whether to remove the now-unused link-step code that sits outside s3's territory.
+
+## What I did meanwhile
+
+The arcade no longer calls the link step. Left in place, unused by the arcade: Account.linkGithub in src/arcade/types.ts and its three implementations (account-supabase.ts, account-demo.ts, account-closed.ts); the callback's next=link answer in src/data/sign-in.ts (['linked', …] / ['link_error', …]); and games/room.ts's 'LINK GITHUB TO EARN XP' visitor label, which no signed-in account reaches now. The demo account's signIn does not set a GitHub login and its save refuses a guest without one, so ArcadeApp's signIn calls account.linkGithub() once when the session it gets back has no login: the demo guest is linked at sign-in and plays at once.
+
+## What it costs to change later
+
+A constant: a follow-up deletes the unused method, the next=link branch and the label, and moves the demo's made-up login into its signIn.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The plan names no slice for the Account interface, sign-in.ts's next=link path or games/room.ts once the link step goes (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-01-leftover-link-code-outside-territory -->
+
+<!-- omni-outbox-settled: s3-02-outsider-keys-and-play-row -->
+
+## s3-02-outsider-keys-and-play-row — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-outsider-keys-and-play-row
+prd: 359
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+Someone signed in who belongs to no workspace sees a screen sending them to sign up. Which buttons should it offer, and what should the menu offer someone signed in who has not picked a team yet?
+
+## The decision, in plain words
+
+On that screen the main button goes to sign-up and the back button signs out. In the menu, someone without a team still sees a Play row, which now leads straight to picking a team.
+
+## The intro, for fun
+
+A visitor with no workspace walks up to the cabinet and presses every button.
+
+## The punchline, for fun
+
+One says sign up, the other says goodbye; both are honest.
+
+## The options, in plain words
+
+A. A: the main button goes to sign-up, the back button signs out, and the menu keeps a Play row for someone without a team (built)
+B. B: the main button goes to sign-up, the back button returns to the title, and signing out stays in the menu only
+C. C: drop the Play row, so the start screen is the only way to pick a team
+
+## What I had to decide
+
+The outsider screen's keys, and what replaces the menu row that used to lead to the link step.
+
+## What I did meanwhile
+
+OutsiderOverlay (src/arcade/scenes/join.tsx) shows NO WORKSPACE YET, the account as @login (or the email when there is none), and a link to /signup; A (or START) goes to /signup, B signs out (it used to be A sign out, B back to the title). The menu's PLAY row, shown to a signed-in account with no fleet, is kept with the id 'play' and opens afterGate (the intro, or the fleets) instead of the link screen.
+
+## What it costs to change later
+
+A constant: the keys in ArcadeApp's outsider case and the row in menuItems.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec asks only that the outsider screen point at /signup; it does not name the keys or the menu row (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-02-outsider-keys-and-play-row -->
+
+<!-- omni-outbox-settled: s4-01-request-waits-on-every-org -->
+
+## s4-01-request-waits-on-every-org — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-request-waits-on-every-org
+prd: 359
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+When someone who is not their org's admin asks for Omni Loop, GitHub does not tell us which org they asked for. Which org should they be told they are waiting on?
+
+## The decision, in plain words
+
+They are recorded as waiting on every GitHub org of theirs that does not have Omni Loop yet, and the waiting screen names them all. Whichever of those orgs gets Omni Loop first, their next sign-in puts them in its workspace.
+
+## The intro, for fun
+
+GitHub passes on the request but loses the envelope with the org's name on it.
+
+## The punchline, for fun
+
+So the visitor waits politely at every door they have a key to.
+
+## The options, in plain words
+
+A. A: record a request for every org of theirs without the App (built)
+B. B: ask the visitor on the waiting screen which org they asked for, and record only that one
+C. C: have /signup ask for the org first and send it through GitHub's state parameter
+
+## What I had to decide
+
+Which org a sign-up request is recorded for, when GitHub's setup address carries no installation and no org.
+
+## What I did meanwhile
+
+On setup_action=request, finishSetup() reads the visitor's orgs with a fresh GitHub token, keeps those the App reports no installation for (GET /orgs/{org}/installation answering 404), and records one signup_requests row for each; /signup?waiting=<orgs> names them. At a later sign-in, completeRequests() only acts on an org the person still belongs to, so a request never outlives the membership.
+
+## What it costs to change later
+
+A constant: the set of orgs recorded is chosen in one loop; the table and the completion rule stay as they are.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the request is recorded with its org, but GitHub's setup redirect for a request names no org, and the plan does not say how to learn it
+
+```
+
+<!-- /omni-outbox-settled: s4-01-request-waits-on-every-org -->
+
+<!-- omni-outbox-settled: s4-02-setup-signs-in-again -->
+
+## s4-02-setup-signs-in-again — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-setup-signs-in-again
+prd: 359
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+After someone installs Omni Loop, we must check they really belong to the org they installed it on, and that needs a fresh look at their GitHub account. How do we get that look, since we never keep their GitHub key?
+
+## The decision, in plain words
+
+Coming back from the install, the visitor is quietly signed in with GitHub once more, which takes a blink and asks nothing since they already agreed. That fresh sign-in is what proves who they are before any workspace is made.
+
+## The intro, for fun
+
+The bouncer forgot your face between the coat check and the dance floor.
+
+## The punchline, for fun
+
+So you flash your badge again, and he pretends he knew it was you.
+
+## The options, in plain words
+
+A. A: sign the visitor in with GitHub again on the way back, silently (built)
+B. B: keep the visitor's org list from their last sign-in, briefly, and check against it
+C. C: add the members read permission to the App and ask GitHub with the App's own key
+
+## What I had to decide
+
+How /signup/installed learns the visitor's GitHub login and orgs, given the provider token is never stored and the App has no members permission.
+
+## What I did meanwhile
+
+/signup/installed validates the address, then starts GitHub's sign-in from the server (signInWithOAuth with skipBrowserRedirect, read:org) coming back to /signup/installed/callback with the setup in its query; the callback exchanges the code, reads the account once, joins by org, checks the installation, makes the workspace and links GitHub. It also signs in a visitor who arrives straight from GitHub. Supabase's redirect allow-list must accept that callback (the README's '/**' entries do). setup_action=update is read as an install, since making the workspace is idempotent.
+
+## What it costs to change later
+
+A constant: the check could read orgs kept from the last sign-in instead, in the one route that starts the sign-in.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says to check the visitor against the installation's account but not where their orgs come from at that moment; the App's permissions exclude reading org members
+- (author) Not proven live: that GitHub skips its consent screen on the second sign-in, and that the session cookie set in the route survives the redirect (the auth callback relies on the same)
+
+```
+
+<!-- /omni-outbox-settled: s4-02-setup-signs-in-again -->
+
+<!-- omni-outbox-settled: s4-03-no-workspace-lands-on-play -->
+
+## s4-03-no-workspace-lands-on-play — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-no-workspace-lands-on-play
+prd: 359
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+The design says a person who signs in and belongs to no workspace goes straight to the sign-up page. Should the sign-in itself send them there, or should the game's own screen point them to it?
+
+## The decision, in plain words
+
+The sign-in still sends everyone to the game. A person with no workspace sees the game's 'wrong cartridge' screen, which points them to the sign-up page, one click away.
+
+## The intro, for fun
+
+The front door opens onto the arcade even for people who have no ticket yet.
+
+## The punchline, for fun
+
+The machine they reach kindly tells them where the ticket booth is.
+
+## The options, in plain words
+
+A. A: keep landing on the game, whose outsider screen points at sign-up (built)
+B. B: have the sign-in send a person in no workspace to the sign-up page directly, in a rework slice
+
+## What I had to decide
+
+Whether the arcade sign-in callback redirects a person in no workspace to /signup, as the spec's diagram shows.
+
+## What I did meanwhile
+
+apps/galaxy/app/auth/callback (s2's territory, not s4's) still redirects every arcade sign-in to /play; s3's outsider screen links to /signup. This slice's afterSignIn completes requests but does not choose the redirect.
+
+## What it costs to change later
+
+A constant: one membership read and one branch in the callback's redirect.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan gives the callback route to s2 and the outsider screen to s3, and names no slice for the redirect the spec's diagram draws
+
+```
+
+<!-- /omni-outbox-settled: s4-03-no-workspace-lands-on-play -->
+
+<!-- omni-outbox-settled: s5-01-fine-print-still-invite-only -->
+
+## s5-01-fine-print-still-invite-only — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-fine-print-still-invite-only
+prd: 359
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+The front page's order form still says Omni Loop is invite-only while in beta, but the sign-up button now lets anyone with GitHub in. Should the fine print change?
+
+## The decision, in plain words
+
+The fine print was left as it is: the spec asks only for the button to work, and nobody has said what the new line should be.
+
+## The intro, for fun
+
+The door now opens for anyone, and the sign beside it still says members only.
+
+## The punchline, for fun
+
+The sign stays until someone picks the new words.
+
+## The options, in plain words
+
+A. A: keep 'Invite-only while in beta.' (built)
+B. B: drop the invite-only clause, keeping 'Omni Loop runs on Claude Code.'
+C. C: replace it with a line about installing Omni Loop on your GitHub org
+
+## What I had to decide
+
+Whether to change the order form's fine print, which says invite-only, now that sign-up is open.
+
+## What I did meanwhile
+
+Kept 'Omni Loop runs on Claude Code. Invite-only while in beta.' under the enabled button in apps/galaxy/src/home/spreads/OrderForm.tsx; its test still pins that line.
+
+## What it costs to change later
+
+A constant: one sentence and the test line that pins it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec and the plan do not mention the fine print; whether the beta is still meant to feel invite-only is a product call
+
+```
+
+<!-- /omni-outbox-settled: s5-01-fine-print-still-invite-only -->
+
+<!-- omni-outbox-settled: s5-02-sign-up-without-a-database -->
+
+## s5-02-sign-up-without-a-database — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-sign-up-without-a-database
+prd: 359
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+When the front page runs without its database, as in the demo, there is nobody to sign up with. What should the sign-up button do there?
+
+## The decision, in plain words
+
+It opens the game, just like the start button, instead of showing an error.
+
+## The intro, for fun
+
+A sign-up desk with no guest book behind it.
+
+## The punchline, for fun
+
+So the clerk just waves you through to the arcade.
+
+## The options, in plain words
+
+A. A: open the game at /play (built)
+B. B: keep the button disabled on the demo
+C. C: show a message that sign-up needs the real deployment
+
+## What I had to decide
+
+What SIGN UP WITH GITHUB does when the build has no Supabase configured.
+
+## What I did meanwhile
+
+signUp() in apps/galaxy/src/home/sign-up.ts goes to /play when the browser has no Supabase URL and key; with them, it starts the GitHub sign-in back to /auth/callback.
+
+## What it costs to change later
+
+A constant: one branch in signUp() and its test.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec describes the button only on a deployment with Supabase
+
+```
+
+<!-- /omni-outbox-settled: s5-02-sign-up-without-a-database -->
