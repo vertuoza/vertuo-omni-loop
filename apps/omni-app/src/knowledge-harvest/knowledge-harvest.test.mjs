@@ -16,6 +16,7 @@ import {
   FEATURE,
   FILES,
   GADGETS_FEATURE,
+  D,
   INBOX,
   K,
   KEY,
@@ -23,6 +24,7 @@ import {
   MERGED_AT,
   NOT_HARVESTED,
   OUTBOX,
+  REPLIES,
   SHIPPED,
   TIP,
   fakeFetch,
@@ -33,9 +35,12 @@ import {
   CONCURRENCY,
   FAILURE_MARKER,
   HARVEST_FUNCTION_ID,
+  VERDICT_MARKER,
   createHarvestFailureHandler,
   createKnowledgeHarvest,
   knowledgeHarvest,
+  nothingNewText,
+  verdictMarker,
 } from './knowledge-harvest.mjs';
 
 const markers = makeMarkers('omni-outbox');
@@ -267,6 +272,69 @@ describe('knowledge-harvest — replays and ids', () => {
     expect(result.published).toBeNull();
     expect(knowledgePulls(github)).toHaveLength(1);
     expect(commitsMade(github)).toHaveLength(1);
+  });
+});
+
+describe('knowledge-harvest — no promotion, no PR (PRD 487)', () => {
+  const GADGETS_BRANCH = 'docs/knowledge-gadgets';
+  // PRD 44 is already shipped with nothing open: without a promotion, the harvest has nothing to write.
+  const LOCAL = {
+    ...REPLIES,
+    's1-01-gadget-record': { kind: 'stays-here', statement: 'A local numbering choice.', reason: 'a local choice' },
+    's1-02-gadget-rule': { kind: 'covered', covers: 'ADR-0001', reason: 'the record says it' },
+  };
+  const gadgets = (github, fetch = fakeFetch(LOCAL)) => engine(github, { event: harvestEvent(GADGETS_FEATURE.number), fetch }).run.execute();
+  const verdicts = (github) => github.state.comments.filter((comment) => comment.body.includes(VERDICT_MARKER));
+
+  it('creates no ref, opens no PR, and says so in one comment on the merged feature PR', async () => {
+    const github = harvestScenario();
+    const { result, error } = await gadgets(github);
+    expect(error).toBeUndefined();
+    expect(result.published).toBeNull();
+    expect(github.state.refs.has(`heads/${GADGETS_BRANCH}`)).toBe(false);
+    expect(github.state.requests.filter((r) => r.route === 'POST /repos/{owner}/{repo}/git/refs')).toEqual([]);
+    expect(github.state.requests.filter((r) => r.route === 'POST /repos/{owner}/{repo}/pulls')).toEqual([]);
+    expect(commitsMade(github)).toEqual([]);
+    expect(verdicts(github)).toHaveLength(1);
+    expect(verdicts(github)[0]).toMatchObject({
+      issue: GADGETS_FEATURE.number,
+      body: `${VERDICT_MARKER}\nKnowledge: nothing new — 2 candidates stayed local.\n`,
+    });
+    expect(result.verdict).toMatchObject({ created: true });
+  });
+
+  it('a replay edits the same comment, never a second one', async () => {
+    const github = harvestScenario();
+    await gadgets(github);
+    verdicts(github)[0].body = `${VERDICT_MARKER}\nedited by hand`;
+    const { result, error } = await gadgets(github);
+    expect(error).toBeUndefined();
+    expect(verdicts(github)).toHaveLength(1);
+    expect(verdicts(github)[0].body).toBe(`${VERDICT_MARKER}\nKnowledge: nothing new — 2 candidates stayed local.\n`);
+    expect(result.verdict).toMatchObject({ created: false });
+    expect(knowledgePulls(github, GADGETS_BRANCH)).toEqual([]);
+  });
+
+  it('with one promotion, opens the PR as before, "Stays here" note included, and leaves no verdict comment', async () => {
+    const github = harvestScenario();
+    const { result, error } = await gadgets(github, fakeFetch({ ...LOCAL, 's1-01-gadget-record': REPLIES['s1-01-gadget-record'], 's1-02-gadget-rule': LOCAL['s1-01-gadget-record'] }));
+    expect(error).toBeUndefined();
+    expect(knowledgePulls(github, GADGETS_BRANCH)).toHaveLength(1);
+    expect(result.published.pr.created).toBe(true);
+    expect(result.verdict).toBeNull();
+    expect(verdicts(github)).toEqual([]);
+    const ledger = github.filesAt(GADGETS_BRANCH, [`${D}/shipped/0044-gadgets/outbox/settled.md`])[`${D}/shipped/0044-gadgets/outbox/settled.md`];
+    expect(ledger).toContain('Stays here');
+  });
+
+  it('counts one candidate in the singular', () => {
+    expect(nothingNewText(1)).toBe('Knowledge: nothing new — 1 candidate stayed local.');
+    expect(nothingNewText(0)).toBe('Knowledge: nothing new — 0 candidates stayed local.');
+  });
+
+  it('marks the comment with the configured prefix', () => {
+    expect(VERDICT_MARKER).toBe('<!-- omni-outbox-knowledge-verdict -->');
+    expect(verdictMarker('acme')).toBe('<!-- acme-knowledge-verdict -->');
   });
 });
 
