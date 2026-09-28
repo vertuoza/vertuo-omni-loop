@@ -70,7 +70,7 @@ function checkKnowledge({ ctx, stdout, stderr }) {
     println(stdout, formatPass(`check knowledge — no knowledge folder at ${root}; nothing to grade (laws.source is "${ctx.config.laws.source}").`));
     return true;
   }
-  const files = trackedFiles(ctx).filter((file) => file.startsWith(`${root}/`) && file.endsWith('.md'));
+  const files = trackedFiles(ctx, root).filter((file) => file.endsWith('.md'));
   const { violations, wishes, proposals } = gradeKnowledge({ ctx, files });
   for (const wish of wishes) println(stderr, `warning: ${wish}`);
   for (const proposal of proposals) println(stderr, `warning: ${proposal}`);

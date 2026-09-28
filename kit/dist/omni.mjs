@@ -14331,8 +14331,11 @@ init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync5 } from "node:child_process";
 import { readFileSync as readFileSync12 } from "node:fs";
 import { join as join14 } from "node:path";
-function trackedFiles(ctx) {
-  return execFileSync5("git", ["ls-files"], { cwd: ctx.root, encoding: "utf8" }).split("\n").filter(Boolean).sort();
+var LIST_MAX_BYTES = 256 * 1024 * 1024;
+function trackedFiles(ctx, dir) {
+  const args = ["ls-files", "-z"];
+  if (dir) args.push("--", `${dir.replace(/\/+$/, "")}/`);
+  return execFileSync5("git", args, { cwd: ctx.root, encoding: "utf8", maxBuffer: LIST_MAX_BYTES }).split("\0").filter(Boolean).sort();
 }
 function readRepoFile(ctx, path) {
   return readFileSync12(join14(ctx.root, path), "utf8");
@@ -16041,7 +16044,7 @@ function checkKnowledge({ ctx, stdout, stderr }) {
     println(stdout, formatPass(`check knowledge \u2014 no knowledge folder at ${root}; nothing to grade (laws.source is "${ctx.config.laws.source}").`));
     return true;
   }
-  const files = trackedFiles(ctx).filter((file) => file.startsWith(`${root}/`) && file.endsWith(".md"));
+  const files = trackedFiles(ctx, root).filter((file) => file.endsWith(".md"));
   const { violations, wishes, proposals } = gradeKnowledge({ ctx, files });
   for (const wish of wishes) println(stderr, `warning: ${wish}`);
   for (const proposal of proposals) println(stderr, `warning: ${proposal}`);
