@@ -109,16 +109,15 @@ describe('end to end — a signed webhook to a completed check', () => {
     expect(github.state.comments).toHaveLength(0);
   });
 
-  it('5. a repository with no .omni-loop/config.yml shows the check skipped: not active on this repo', async () => {
+  it('5. a repository with no .omni-loop/config.yml gets no outbox check at all (PRD 359)', async () => {
     const pull = featurePull();
     const github = fakeGitHub({ commits: { base1: fixture('base-inactive'), head1: fixture('head-open') }, pull });
     await deliver(github, pullRequestDelivery(pull, 'opened'));
-    expect(latest(github)).toMatchObject({
-      name: 'outbox',
-      conclusion: 'skipped',
-      output: { title: 'omni-loop is not active on this repo' },
-    });
+    await deliver(github, rerunDelivery(pull));
+    expect(github.state.checkRuns).toEqual([]);
+    expect(github.state.comments).toEqual([]);
     const routes = github.state.requests.map((r) => r.route);
+    expect(routes.filter((route) => route.includes('check-runs') || route.includes('/comments'))).toEqual([]);
     expect(routes).not.toContain('GET /repos/{owner}/{repo}/compare/{basehead}');
   });
 
