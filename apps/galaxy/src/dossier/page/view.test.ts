@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { UNREAD, type GithubSummary, type OutboxItem } from '../github/summary';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
-import { dossierView, isQuick, readPick, sandboxPath, shortDay, stamp, versionSource, wayBack } from './view';
+import { dossierView, GITHUB_UNREAD, isQuick, OUTBOX_EMPTY, readPick, sandboxPath, shortDay, stamp, versionSource, wayBack } from './view';
 
 // /prd/<id> (PRD 216), as pure functions of the rows the viewer may read, the workspace's members and
 // what the address picks: the header, the tabs, each artifact's versions, newest first, and the
@@ -132,12 +133,13 @@ describe('who may delete', () => {
 });
 
 describe('the tabs', () => {
-  it('reads Questions, answered out of asked, then Before/after, Spec, Plan, each with its latest version', () => {
+  it('reads Questions, answered out of asked, then Before/after, Spec, Plan, each with its latest version, then Outbox, dimmed while empty', () => {
     expect(view().tabs).toEqual([
-      { kind: 'questions', label: 'Questions', badge: '2/4 answered', href: `/prd/${ID}`, current: true },
-      { kind: 'before-after', label: 'Before/after', badge: 'v2', href: `/prd/${ID}?tab=before-after`, current: false },
-      { kind: 'spec', label: 'Spec', badge: 'v3', href: `/prd/${ID}?tab=spec`, current: false },
-      { kind: 'plan', label: 'Plan', badge: null, href: `/prd/${ID}?tab=plan`, current: false },
+      { kind: 'questions', label: 'Questions', badge: '2/4 answered', href: `/prd/${ID}`, current: true, empty: false },
+      { kind: 'before-after', label: 'Before/after', badge: 'v2', href: `/prd/${ID}?tab=before-after`, current: false, empty: false },
+      { kind: 'spec', label: 'Spec', badge: 'v3', href: `/prd/${ID}?tab=spec`, current: false, empty: false },
+      { kind: 'plan', label: 'Plan', badge: null, href: `/prd/${ID}?tab=plan`, current: false, empty: false },
+      { kind: 'outbox', label: 'Outbox', badge: null, href: `/prd/${ID}?tab=outbox`, current: false, empty: true },
     ]);
   });
 
@@ -156,6 +158,7 @@ describe('the tabs', () => {
         ['before-after', `/prd/${ID}`, true],
         ['spec', `/prd/${ID}?tab=spec`, false],
         ['plan', `/prd/${ID}?tab=plan`, false],
+        ['outbox', `/prd/${ID}?tab=outbox`, false],
       ]);
     }
   });
@@ -167,7 +170,7 @@ describe('the tabs', () => {
 
   it('opens the tab the address names, whatever the default', () => {
     for (const asked of [rounds, []]) {
-      for (const tab of ['questions', 'before-after', 'spec', 'plan'] as const) {
+      for (const tab of ['questions', 'before-after', 'spec', 'plan', 'outbox'] as const) {
         const v = view(readPick({ tab }), numbered, PIERRE.user_id, versions, asked);
         expect(v.tab, `${tab}, ${asked.length} rounds`).toBe(tab);
         expect(v.tabs.find((t) => t.current)?.kind).toBe(tab);
@@ -176,8 +179,65 @@ describe('the tabs', () => {
   });
 
   it('falls back to the default for a tab it does not know', () => {
-    expect(view(readPick({ tab: 'outbox' })).tab).toBe('questions');
-    expect(view(readPick({ tab: 'outbox' }), numbered, PIERRE.user_id, versions, []).tab).toBe('before-after');
+    expect(view(readPick({ tab: 'elsewhere' })).tab).toBe('questions');
+    expect(view(readPick({ tab: 'elsewhere' }), numbered, PIERRE.user_id, versions, []).tab).toBe('before-after');
+  });
+});
+
+describe('the Outbox tab (PRD 426)', () => {
+  const item = (id: string, rank: OutboxItem['rank'], more: Partial<OutboxItem> = {}): OutboxItem => ({
+    id, rank, question: `${id}?`, decision: `Did ${id}.`, options: [{ letter: 'A', text: 'Built.' }, { letter: 'B', text: 'Other.' }], personSteps: null, ...more,
+  });
+  const settled = (id: string, verdict: string) => ({ id, title: `${id}?`, verdict, answer: `Answer to ${id}.` });
+  const github = (outbox: GithubSummary['outbox'], more: Partial<GithubSummary> = {}): GithubSummary => ({
+    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
+    phase0: { number: 220, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
+    feature: { number: 221, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open', draft: true },
+    mergedSlices: 1, outbox, outboxComment: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221#issuecomment-7', ...more,
+  });
+  const outboxOf = (summary: GithubSummary | null | undefined, dossier = numbered) =>
+    dossierView({ dossier, versions, members: MEMBERS, rounds, github: summary }, PIERRE.user_id, readPick({ tab: 'outbox' }));
+  const tabOf = (v: ReturnType<typeof outboxOf>) => v.tabs.find((t) => t.kind === 'outbox');
+
+  it('lists the open items highest rank first, then the settled ones in file order, and answers on the outbox comment', () => {
+    const v = outboxOf(github({
+      open: [item('s1-01-m', 'medium'), item('s2-01-h', 'high'), item('s2-02-p', 'human-action', { options: [], personSteps: 'Add the key.' }), item('s3-01-h', 'high')],
+      settled: [settled('s1-02-z', 'adopted'), settled('s1-01-a', 'agreed')],
+    }));
+    expect(v.tab).toBe('outbox');
+    expect(v.versions).toEqual([]);
+    expect(tabOf(v)).toMatchObject({ badge: '4 open', empty: false, current: true });
+    expect(v.outbox.state).toBe('items');
+    expect(v.outbox.answerUrl).toBe('https://github.com/vertuoza/vertuo-omni-loop/pull/221#issuecomment-7');
+    expect(v.outbox.open.map((i) => [i.id, i.rank])).toEqual([['s2-02-p', 'needs a person'], ['s2-01-h', 'high'], ['s3-01-h', 'high'], ['s1-01-m', 'medium']]);
+    expect(v.outbox.open[1]).toEqual({
+      id: 's2-01-h', rank: 'high', question: 's2-01-h?', recommendation: 'Did s2-01-h.', personSteps: null,
+      options: [{ letter: 'A', text: 'Built.', built: true }, { letter: 'B', text: 'Other.', built: false }],
+    });
+    expect(v.outbox.open[0]).toMatchObject({ options: [], personSteps: 'Add the key.' });
+    expect(v.outbox.settled).toEqual([settled('s1-02-z', 'adopted'), settled('s1-01-a', 'agreed')]);
+  });
+
+  it('counts the settled ones when none is open, and answers on the feature PR when no outbox comment is found', () => {
+    const v = outboxOf(github({ open: [], settled: [settled('s1-01-a', 'agreed')] }, { outboxComment: null }));
+    expect(tabOf(v)).toMatchObject({ badge: '1 settled', empty: false });
+    expect(v.outbox.answerUrl).toBe('https://github.com/vertuoza/vertuo-omni-loop/pull/221');
+  });
+
+  it('is empty, dimmed and says why, when there is no outbox yet, for a draft, and when GitHub was not asked', () => {
+    for (const v of [outboxOf(github(null)), outboxOf(github({ open: [], settled: [] })), outboxOf(undefined), outboxOf(undefined, draft)]) {
+      expect(tabOf(v)).toMatchObject({ badge: null, empty: true });
+      expect(v.outbox).toEqual({ state: 'empty', words: OUTBOX_EMPTY, answerUrl: null, open: [], settled: [] });
+    }
+  });
+
+  it('says GitHub did not answer when the summary or its outbox could not be read', () => {
+    for (const v of [outboxOf(null), outboxOf(github(UNREAD))]) {
+      expect(v.outbox).toMatchObject({ state: 'unread', words: GITHUB_UNREAD, open: [], settled: [] });
+      expect(tabOf(v)).toMatchObject({ badge: null, empty: true });
+    }
+    expect(GITHUB_UNREAD).toBe('GitHub did not answer. The page tries again within a minute.');
+    expect(OUTBOX_EMPTY).toBe('No decision yet: the outbox fills while the PRD is built.');
   });
 });
 

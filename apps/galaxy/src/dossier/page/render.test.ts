@@ -185,8 +185,8 @@ describe('Delete', () => {
 });
 
 describe('the tabs', () => {
-  const tabsOf = (html: string) => [...html.matchAll(/<a class="dossier-tab" href="([^"]+)"( aria-current="page")?>([^<]+)(?:<small>([^<]+)<\/small>)?<\/a>/g)]
-    .map((m) => [m[3], m[4] ?? null, m[1].replaceAll('&amp;', '&'), Boolean(m[2])]);
+  const tabsOf = (html: string) => [...html.matchAll(/<a class="dossier-tab( dossier-tab-empty)?" href="([^"]+)"( aria-current="page")?>([^<]+)(?:<small>([^<]+)<\/small>)?<\/a>/g)]
+    .map((m) => [m[4], m[5] ?? null, m[2].replaceAll('&amp;', '&'), Boolean(m[3]), ...(m[1] ? ['dimmed'] : [])]);
 
   it('reads Questions with answered out of asked, then Before/after, Spec and Plan with their latest versions, opening on Questions', () => {
     expect(tabsOf(page())).toEqual([
@@ -194,6 +194,7 @@ describe('the tabs', () => {
       ['Before/after', 'v2', `/prd/${ID}?tab=before-after`, false],
       ['Spec', 'v2', `/prd/${ID}?tab=spec`, false],
       ['Plan', null, `/prd/${ID}?tab=plan`, false],
+      ['Outbox', null, `/prd/${ID}?tab=outbox`, false, 'dimmed'],
     ]);
     expect(page()).toContain('dossier-rounds');
   });
@@ -205,8 +206,62 @@ describe('the tabs', () => {
       ['Before/after', 'v2', `/prd/${ID}`, true],
       ['Spec', 'v2', `/prd/${ID}?tab=spec`, false],
       ['Plan', null, `/prd/${ID}?tab=plan`, false],
+      ['Outbox', null, `/prd/${ID}?tab=outbox`, false, 'dimmed'],
     ]);
     expect(html).toContain(`src="/prd/${ID}/v/2/page"`);
+  });
+});
+
+describe('the Outbox tab (PRD 426)', () => {
+  const outboxSummary = (outbox: GithubSummary['outbox'], outboxComment: GithubSummary['outboxComment'] = 'https://github.com/vertuoza/vertuo-omni-loop/pull/221#issuecomment-7'): GithubSummary => ({
+    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
+    phase0: { number: 220, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged', draft: false },
+    feature: { number: 221, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open', draft: false },
+    mergedSlices: 2, outbox, outboxComment,
+  });
+  const OPEN = [
+    { id: 's1-01-medium', rank: 'medium' as const, question: 'Keep <i>tabs</i> in the address?', decision: 'Kept them.', personSteps: null,
+      options: [{ letter: 'A', text: 'Keep them.' }, { letter: 'B', text: 'Drop them.' }] },
+    { id: 's2-01-key', rank: 'human-action' as const, question: 'Who adds the key?', decision: null, options: [], personSteps: 'Add the key on the host.' },
+  ];
+  const SETTLED = [{ id: 's1-02-zeta', title: 'Zeta or eta?', verdict: 'agreed', answer: 'Zeta, as built.' }];
+  const outbox = (github: GithubSummary | null) => page({ pick: tab('outbox'), github });
+
+  it('shows Answer on the PR, the open items highest rank first, then the settled ones', () => {
+    const html = outbox(outboxSummary({ open: OPEN, settled: SETTLED }));
+    expect(html).toContain('<section class="dossier-pane" aria-label="Outbox">');
+    expect(html).toContain('<a class="ask-button" href="https://github.com/vertuoza/vertuo-omni-loop/pull/221#issuecomment-7" target="_blank" rel="noopener noreferrer">Answer on the PR</a>');
+    expect([...html.matchAll(/<li id="(s\d-\d\d-[a-z]+)" class="outbox-item" data-state="(open|settled)">/g)].map((m) => `${m[1]}:${m[2]}`))
+      .toEqual(['s2-01-key:open', 's1-01-medium:open', 's1-02-zeta:settled']);
+    expect([...html.matchAll(/<span class="outbox-rank">([^<]+)<\/span>/g)].map((m) => m[1])).toEqual(['needs a person', 'medium']);
+    expect(html).toContain('Keep &lt;i&gt;tabs&lt;/i&gt; in the address?');
+    expect(html).not.toContain('<i>tabs</i>');
+    expect(html).toContain('<li class="dossier-option" data-chosen="true"><span class="dossier-option-label">A. Keep them.<span class="ask-rec">Built</span></span></li>');
+    expect(html).toContain('<li class="dossier-option"><span class="dossier-option-label">B. Drop them.</span></li>');
+    expect(html).toContain('<span class="ask-hint">Recommendation</span> Kept them.');
+    expect(html).toContain('<span class="ask-hint">What a person must do</span> Add the key on the host.');
+    expect(html).toContain('<span class="outbox-verdict">agreed</span>');
+    expect(html).toContain('Zeta or eta?');
+    expect(html).toContain('<span class="ask-hint">Answer</span> Zeta, as built.');
+    expect(html).toContain('<small>2 open</small>');
+    expect(html).toContain('<strong>Stage: outbox</strong>');
+    expect(html).toContain('>Answer the outbox</a>');
+  });
+
+  it('with none open, lists the settled ones with no Answer on the PR, and counts them on the tab', () => {
+    const html = outbox(outboxSummary({ open: [], settled: SETTLED }));
+    expect(html).not.toContain('Answer on the PR');
+    expect(html).toContain('<small>1 settled</small>');
+    expect(html).toContain('>Review &amp; merge</a>');
+  });
+
+  it('is dimmed and says why while empty, and says when GitHub did not answer', () => {
+    const empty = outbox(outboxSummary(null));
+    expect(empty).toContain('<a class="dossier-tab dossier-tab-empty" href="/prd/00000000-0000-4000-8000-0000000000d1?tab=outbox" aria-current="page">Outbox</a>');
+    expect(empty).toContain('<p class="dossier-empty">No decision yet: the outbox fills while the PRD is built.</p>');
+    for (const html of [outbox(null), outbox(outboxSummary(UNREAD))]) {
+      expect(html).toContain('<p class="ask-problem" role="alert">GitHub did not answer. The page tries again within a minute.</p>');
+    }
   });
 });
 

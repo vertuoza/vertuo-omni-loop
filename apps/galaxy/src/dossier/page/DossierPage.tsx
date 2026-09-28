@@ -3,6 +3,7 @@ import type { DossierKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
 import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
+import { OutboxPane } from './OutboxPane';
 import { QuestionsPane } from './QuestionsPane';
 import { FRAME_SANDBOX } from './sandbox';
 import { StageHeader } from './StageHeader';
@@ -18,6 +19,7 @@ import { dossierPath, TAB_LABELS, type DossierView } from './view';
 // tabs and the picker are links and a GET form, so it all works before any script runs.
 // PRD 426 puts the stage header on top: "PRD #n ↗" linking to its issue, the track, the one button and
 // the links line (StageHeader.tsx); the chips, who opened it, Copy link and Delete draft stay below it.
+// Its Outbox tab (OutboxPane.tsx) lists the decisions taken while it was built; empty, it is dimmed.
 
 type Props = {
   view: DossierView;
@@ -38,6 +40,7 @@ const EMPTY: Record<DossierKind, string> = {
 function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 'supabase'>) {
   const { shown, tab } = view;
   if (tab === 'questions') return <QuestionsPane questions={view.questions} supabase={supabase} />;
+  if (tab === 'outbox') return <OutboxPane outbox={view.outbox} />;
   if (!shown) {
     return (
       <p className="dossier-empty">
@@ -93,7 +96,7 @@ export function DossierPage({ view, markdown, supabase, live }: Props) {
       </header>
       <nav className="dossier-tabs" aria-label="Artifacts">
         {view.tabs.map((t) => (
-          <a key={t.kind} className="dossier-tab" href={t.href} aria-current={t.current ? 'page' : undefined}>
+          <a key={t.kind} className={t.empty ? 'dossier-tab dossier-tab-empty' : 'dossier-tab'} href={t.href} aria-current={t.current ? 'page' : undefined}>
             {t.label}
             {t.badge !== null && <small>{t.badge}</small>}
           </a>
