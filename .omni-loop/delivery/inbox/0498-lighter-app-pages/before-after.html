@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRD 498 before/after</title>
+<style>
+/* Light theme tokens of packages/design/src/tokens.mjs (ASK.light) */
+:root{--ground:#f5f4fc;--surface:#fff;--sunk:#eceaf8;--line:#d9d6ee;--ls:#85819f;--ink:#17153d;--muted:#4f5486;--plasma:#6a2fd0;--psoft:#efe7ff;--yellow:#ffd84a;--onY:#3a2c00;--cyan:#0b6f86;--green:#15703f;--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:#e6e4f2;color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:24px 16px 64px}
+h1{margin:0 0 4px;font-size:22px;text-wrap:balance}.lead{margin:0 0 20px;color:var(--muted);max-width:90ch}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}@media(max-width:1100px){.cols{grid-template-columns:1fr}}
+.lbl{font:800 12px var(--mono);letter-spacing:.12em;margin:0 0 8px}
+.frame{border:1px solid #b9b6d2;background:var(--ground);overflow:hidden;border-radius:4px}
+.app{display:grid;grid-template-columns:150px 1fr}
+.side{background:var(--surface);border-right:1px solid var(--line);padding:12px 10px;font-size:13px}
+.side .logo{font:800 12px var(--mono);color:var(--plasma);margin-bottom:12px}.side div{padding:3px 6px;font-weight:600}.side .on{color:var(--plasma);border:1.5px solid var(--plasma);border-radius:5px}
+.bar{display:flex;align-items:center;gap:8px;height:44px;padding:0 14px;font-weight:750}.bar .sp{flex:1}
+.pill{font-size:11px;border:1px solid currentColor;border-radius:99px;padding:2px 8px;font-weight:600}
+.bar.today{border-bottom:1px solid var(--line)}
+.bar.after{background:var(--surface);border-bottom:2px solid var(--ls)}
+.ht{margin:0;font-size:17px;font-weight:800;line-height:1.25}.ht a{color:var(--cyan);text-decoration:none}
+.facts{display:flex;gap:16px;font-size:11px;color:var(--muted);flex-wrap:wrap}.facts b{display:block;font:700 9px var(--mono);letter-spacing:.1em;color:var(--ink)}
+.tabs{display:flex;gap:18px;font-weight:750;font-size:13px}.tabs div{padding:8px 0}.tabs .cur{box-shadow:inset 0 -3px var(--plasma)}
+.tabs small{font:500 10px var(--mono);color:var(--muted)}
+.badge{background:var(--yellow);color:var(--onY);border-radius:99px;padding:1px 7px;font:700 10px var(--mono);margin-left:4px;white-space:nowrap}
+.rec{font-size:9px;font-weight:700;background:var(--yellow);color:var(--onY);border-radius:3px;padding:0 4px;margin-left:5px}
+.chip{font:700 9px var(--mono);letter-spacing:.07em;color:var(--muted);text-transform:uppercase;border:1px solid var(--ls);border-radius:3px;padding:0 4px;margin-right:4px}
+/* today */
+.t-main{padding:14px 12px 20px;display:grid;gap:12px}
+.t-head{background:var(--surface);border:1.5px solid var(--ls);border-radius:10px;padding:12px 12px 0;display:grid;gap:8px}
+.t-head .tabs{border-top:1px solid var(--ls)}
+.t-round{background:var(--surface);border:1.5px solid var(--ls);border-left:4px solid var(--plasma);border-radius:8px;padding:10px;display:grid;gap:6px;font-size:12px}
+.t-round .top{display:flex;gap:6px;align-items:center}.t-rule{background:var(--plasma);color:#fff;font:700 9px var(--mono);padding:1px 5px;border-radius:3px}
+.t-q{font-weight:700}.t-opt{border:1.5px solid var(--plasma);background:var(--psoft);border-radius:6px;padding:5px 8px}.t-opt small{display:block;color:var(--muted);font-weight:400}
+.t-opt.plain{border-color:var(--ls);background:var(--surface)}
+.t-foot{color:var(--muted);font-size:11px}
+/* after */
+.a-head{background:var(--surface);border-bottom:1.5px solid var(--ls)}
+.a-head .in{padding:12px 16px 10px;display:grid;gap:8px}
+.a-head .tabs{border-top:1px solid var(--line);padding:0 16px}
+.a-main{padding:14px 16px 20px;display:grid;gap:10px}
+.strip{display:flex;align-items:center;gap:10px;font-weight:750;font-size:12px}.meter{width:140px;height:6px;background:var(--sunk);border-radius:99px;overflow:hidden}.meter i{display:block;height:100%;width:57%;background:var(--green)}
+.list{border:1px solid var(--ls);background:var(--surface);font-size:12px}
+.rl{display:flex;gap:8px;align-items:center;padding:8px 10px;list-style:none;cursor:pointer}
+.rl::-webkit-details-marker{display:none}
+.round+.round{border-top:1px solid var(--line)}
+.rl .t{flex:1;min-width:0}.rl .c{font:600 11px var(--mono);color:var(--muted);white-space:nowrap}.rl .m{color:var(--muted);font-size:11px;white-space:nowrap}
+.caret{width:10px;color:var(--muted)}details[open] .caret{transform:rotate(90deg)}
+.ok{color:var(--green);font-weight:800}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}.dot.o{background:var(--yellow);box-shadow:inset 0 0 0 2px var(--onY)}.dot.m{background:var(--muted)}
+.open{background:var(--sunk);box-shadow:inset 4px 0 var(--yellow)}
+.body{padding:0 10px 10px 36px;display:grid;gap:8px}
+.aq .q{color:var(--muted)}.aq b{color:var(--ink)}
+.oq .q{font-weight:700}.opts{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}.opt{border:1.5px solid var(--ls);background:var(--surface);border-radius:6px;padding:3px 8px;font-weight:600}
+.foot{font-size:11px;color:var(--muted);display:flex;justify-content:space-between}.foot a{color:var(--cyan)}
+.notes{margin-top:24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.note{background:var(--surface);border:1px solid var(--line);padding:12px 14px;border-radius:4px}.note b{display:block;margin-bottom:4px}.note p{margin:0;color:var(--muted)}
+</style></head><body>
+<h1>PRD 498 · Lighter app pages</h1>
+<p class="lead">The PRD page in the Light theme, as it is today and after this PRD, with the same PRD shown in both. The header runs edge to edge, the top bar gets a surface and a strong rule, and the content takes the full width. On the Questions tab, answered rounds fold to one line, an open round is always unfolded, and the tab counts questions.</p>
+<div class="cols">
+<section><p class="lbl">TODAY</p><div class="frame"><div class="app">
+<div class="side"><div class="logo">OMNI LOOP</div><div>Home</div><div class="on">PRDs</div><div>Questions</div><div>History</div><div>Knowledge</div></div>
+<div><div class="bar today">PRDs<span class="sp"></span><span class="pill">Omni · Light · Dark</span><span class="pill">Game mode</span></div>
+<div class="t-main">
+<div class="t-head"><p class="ht"><a>PRD #476 ↗</a> PRD page — a pinned compact header</p><div class="facts"><div><b>STAGE</b>outbox</div><div><b>REPO</b>vertuo-omni-loop</div><div><b>OPENED</b>by PIERRE · 28 Sep</div></div>
+<div class="tabs"><div class="cur">Questions <small>3/4 answered</small></div><div>Spec <small>v1</small></div><div>Plan <small>v1</small></div><div>Outbox</div></div></div>
+<div class="t-round"><div class="top"><span class="t-rule">BRAINSTORM</span><span class="chip">UX/UI</span><span class="t-foot">asked by PIERRE · 28 Sep 13:50</span></div>
+<div class="t-q"><span class="chip">Header</span>Which header design should the PRD page use?</div><div class="t-opt">E · Compact bar<small>The title and buttons share one line, with a strip of labelled cells below.</small></div>
+<div class="t-q"><span class="chip">Width</span>How wide should the content under the header go?</div><div class="t-opt">Full width, text capped<span class="rec">Recommended</span><small>Cards use the whole area. Long prose keeps ~900px.</small></div>
+<div class="t-q"><span class="chip">Contrast</span>Should the contrast fix apply everywhere?</div><div class="t-opt">Everywhere<span class="rec">Recommended</span><small>Add a stronger outline colour to the tokens.</small></div>
+<div class="t-foot">answered by PIERRE after 4 min 26 s, on the page</div><div class="t-foot">vertuoza/vertuo-omni-loop · <a style="color:var(--cyan)">Open the question</a></div></div>
+<div class="t-round"><div class="top"><span class="t-rule">DELIVERY</span><span class="chip">UX/UI</span><span class="t-foot">asked by PIERRE · 28 Sep 16:20</span></div>
+<div class="t-q"><span class="chip">Tabs</span>Should the tabs scroll sideways on phones?</div><div class="t-opt plain">Scroll sideways<span class="rec">Recommended</span></div><div class="t-opt plain">Wrap to two lines</div>
+<div class="t-q"><span class="chip">Copy link</span>Keep "Copy link" in the header?</div><div class="t-opt plain">Keep in the header</div><div class="t-opt plain">Move to a ⋯ menu</div>
+<div class="t-foot">not answered yet</div></div>
+<div class="t-round"><div class="top"><span class="t-rule">BRAINSTORM</span><span class="t-foot">asked by PIERRE · 28 Sep 13:54</span></div><div class="t-q">…two more answered rounds, each drawn in full</div></div>
+</div></div></div></div>
+<p class="t-foot" style="margin-top:6px">The page is a box inside the padding, each round is a box inside it, and each chosen option is a purple box inside that. The tab's "3/4" counts rounds, and the one open round looks like the answered ones.</p></section>
+
+<section><p class="lbl">AFTER</p><div class="frame"><div class="app">
+<div class="side"><div class="logo">OMNI LOOP</div><div>Home</div><div class="on">PRDs</div><div>Questions</div><div>History</div><div>Knowledge</div></div>
+<div><div class="bar after">PRDs<span class="sp"></span><span class="pill">Omni · Light · Dark</span><span class="pill">Game mode</span></div>
+<header class="a-head"><div class="in"><p class="ht"><a>PRD #476 ↗</a> PRD page — a pinned compact header</p><div class="facts"><div><b>STAGE</b>outbox</div><div><b>REPO</b>vertuo-omni-loop</div><div><b>OPENED</b>by PIERRE · 28 Sep</div></div></div>
+<div class="tabs"><div class="cur">Questions <small>6/8</small><span class="badge">2 to answer</span></div><div>Spec <small>v1</small></div><div>Plan <small>v1</small></div><div>Outbox</div></div></header>
+<div class="a-main">
+<div class="strip">6 of 8 answered · <span class="badge" style="margin:0">2 to answer</span><span class="meter"><i style="width:75%"></i></span></div>
+<div class="list">
+<details class="round"><summary class="rl"><span class="caret">▸</span><span class="ok">✓</span><span class="t"><b>Brainstorm · UX/UI</b> <span class="m">— header, width, contrast</span></span><span class="c">3/3</span><span class="m">28 Sep 13:50 · PIERRE, 4 min</span></summary>
+<div class="body"><div class="aq"><span class="chip">Header</span><span class="q">Which header design should the PRD page use?</span> → <b>E · Compact bar</b></div>
+<div class="aq"><span class="chip">Width</span><span class="q">How wide should the content go?</span> → <b>Full width, text capped</b><span class="rec">Recommended</span></div>
+<div class="aq"><span class="chip">Contrast</span><span class="q">Should the contrast fix apply everywhere?</span> → <b>Everywhere</b><span class="rec">Recommended</span></div>
+<div class="foot"><span>vertuoza/vertuo-omni-loop</span><a>Open the question</a></div></div></details>
+<details class="round"><summary class="rl"><span class="caret">▸</span><span class="ok">✓</span><span class="t"><b>Brainstorm · UX/UI</b> <span class="m">— header, pinned</span></span><span class="c">2/2</span><span class="m">28 Sep 13:54 · PIERRE, 1 min</span></summary><div class="body"><div class="aq"><span class="chip">Pinned</span><span class="q">Pin on short screens?</span> → <b>Only at ≥ 900×700</b></div></div></details>
+<details class="round"><summary class="rl"><span class="caret">▸</span><span class="dot m"></span><span class="t"><b>Delivery · s2</b> <span class="m">— facts</span></span><span class="c">moved to the terminal</span><span class="m">28 Sep 15:02</span></summary><div class="body"><div class="aq"><span class="chip">Facts</span><span class="q">Reset the dividers on wrap?</span> — no answer recorded</div></div></details>
+<div class="round open"><div class="rl" style="cursor:default"><span class="caret"></span><span class="dot o"></span><span class="t"><b>Delivery · s3</b> <span class="m">— tabs, copy link</span></span><span class="c">0/2 <span class="badge">2 to answer</span></span><span class="m">28 Sep 16:20</span></div>
+<div class="body"><div class="oq"><span class="chip">Tabs</span><span class="q">Should the tabs scroll sideways on phones?</span><div class="opts"><span class="opt">Scroll sideways<span class="rec">Recommended</span></span><span class="opt">Wrap to two lines</span><span class="opt">A dropdown</span></div></div>
+<div class="oq"><span class="chip">Copy link</span><span class="q">Keep "Copy link" in the header?</span><div class="opts"><span class="opt">Keep in the header</span><span class="opt">Move to a ⋯ menu</span></div></div>
+<div class="foot"><span>vertuoza/vertuo-omni-loop · s3</span><a>Open the question</a></div></div></div>
+</div></div></div></div></div>
+<p class="t-foot" style="margin-top:6px">The header touches the bar, the sidebar and the right edge, and the rule above the tabs runs edge to edge. Answered and moved rounds are one line each (click to unfold). The open round stays unfolded. The tab counts questions: 6/8 · 2 to answer.</p></section>
+</div>
+<div class="notes">
+<div class="note"><b>Top bar (T1)</b><p>A surface background with a 2px lineStrong rule, in Omni, Light and Dark. Nothing in the bar moves.</p></div>
+<div class="note"><b>Every page full width</b><p>Home, PRDs, Questions, Shared with me, History, Fleets, Knowledge and Docs lose their 680–1180px caps. The spec, the plan and docs articles keep a 900px column, and form fields are capped at 900px.</p></div>
+<div class="note"><b>What stays the same</b><p>Rounds keep the order they were asked in, quick rounds keep their one-click buttons, <code>#round-id</code> links still land on the round, and the page works without a script (<code>&lt;details&gt;</code>).</p></div>
+</div>
+</body></html>
