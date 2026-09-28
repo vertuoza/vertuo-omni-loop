@@ -1,8 +1,15 @@
 import { PressStart, SignUp } from '../poster/Poster';
 import './OrderForm.css';
 
+// GETTING STARTED: a plain link to the docs, in PRESS START's button style but without its start sound.
+const DOCS = '/docs';
+
+function GettingStarted() {
+  return <a className="home-start" href={DOCS}>GETTING STARTED</a>;
+}
+
 // The order form (PRD 261): JOIN THE LOOP!, moved here from the poster by PRD 285, over the
-// sign-up (enabled by PRD 359), PRESS START, the fine print and the Konami tip.
+// sign-up (enabled by PRD 359), PRESS START, GETTING STARTED (PRD 346), the fine print and the Konami tip.
 export function OrderForm() {
   return (
     <section className="home-spread" aria-labelledby="home-order">
@@ -12,6 +19,7 @@ export function OrderForm() {
         <div className="home-order-row">
           <SignUp />
           <PressStart />
+          <GettingStarted />
         </div>
         <p className="home-fine">Omni Loop runs on Claude Code. Invite-only while in beta.</p>
       </div>

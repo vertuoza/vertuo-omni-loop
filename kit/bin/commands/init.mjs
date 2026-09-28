@@ -1,10 +1,11 @@
 // `omni init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]` — installs the
 // loop on the repository it runs in: writes `.omni-loop/config.yml`, copies the running bundle to
-// `.omni-loop/bin/omni.mjs`, lays down the blank knowledge forms as `omni kb init` does, creates the
-// loop labels the repository lacks, then prints the closing steps a person still has to take, with a
-// heads-up for an older copy of the loop or a formatter that would reject the bin. The one command
-// that runs before a config exists, so `main()` hands it no context. It writes nothing outside
-// `.omni-loop/`.
+// `.omni-loop/bin/omni.mjs`, lays down the blank knowledge forms as `omni kb init` does, switches on
+// the kit's status line in `.claude/settings.json`, creates the loop labels the repository lacks,
+// then prints the closing steps a person still has to take, with a heads-up for an older copy of the
+// loop or a formatter that would reject the bin. The one command that runs before a config exists,
+// so `main()` hands it no context. It writes nothing outside `.omni-loop/` but the `statusLine` key
+// of `.claude/settings.json`.
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { dirname, join, posix } from 'node:path';
@@ -18,6 +19,7 @@ import { reconcileLabels } from '../../lib/init/labels.mjs';
 import { formatterToExclude, legacyLoopWorkflows } from '../../lib/init/notices.mjs';
 import { closingSteps } from '../../lib/init/steps.mjs';
 import { findRoot, readRepo } from '../../lib/init/repo.mjs';
+import { writeStatusLine } from '../../lib/init/settings.mjs';
 import { writeForms } from '../../lib/playbook/write-forms.mjs';
 
 const LOOP_DIR = dirname(CONFIG_FILE);
@@ -106,6 +108,10 @@ export const init = {
     const outside = !insideLoop(ctx.layout.frontDoor);
     const forms = outside ? [] : writeForms({ ctx });
 
+    // Then the status line, the one key init writes outside its folder: it runs the bin just
+    // installed, and a line that is not the kit's, or a file that is not JSON, is left as it is.
+    const settings = writeStatusLine(root, { bin: BIN_FILE, force });
+
     // Last: the files are the install, the labels a convenience — a label gh cannot make is a human step.
     const labels = reconcileLabels(root, { exec, labels: config.labels });
 
@@ -118,6 +124,7 @@ export const init = {
       outboxCheck: config.ci.outboxContext,
       files: [{ path: CONFIG_FILE, wrote: !keepConfig }, { path: BIN_FILE, wrote: copyBin }],
       forms: { dir: ctx.layout.frontDoor, wrote: forms.filter((file) => file.wrote).map((file) => file.path), outside },
+      settings,
       labels,
       unfilled: COMMAND_KEYS.filter((key) => config.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] })),
       notices: { legacyWorkflows: legacyLoopWorkflows(root), formatter: formatterToExclude(root, LOOP_DIR) },

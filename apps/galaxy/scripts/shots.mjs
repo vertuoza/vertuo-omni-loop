@@ -1,5 +1,5 @@
-// pnpm galaxy:shots — a screenshot of every scene of the arcade, at the three sizes it is checked
-// at, and a report of the text in the screen too small to read on a phone held upright.
+// pnpm galaxy:shots — a screenshot of every scene of the arcade, and of the app's home, /app, at the
+// three sizes they are checked at, and a report of the text too small to read on a phone held upright.
 //
 // It walks the demo galaxy from the keyboard, as a player would: the boot, the title's three
 // phases, INSERT COIN, the simulated Google sign-in and GitHub link, the whole joining flow, the
@@ -10,7 +10,14 @@
 // reading card, the game room, and Entropy Invaders' score table, play and pause), then the welcome
 // back.
 // The page's clock is Playwright's, advanced step by step, so every screenshot is taken at the same
-// moment of its scene on every run. Nothing here runs in `pnpm test`.
+// moment of its scene on every run.
+//
+// Then /app, your dashboard (PRD 328), as the demo draws it: signed in as the demo's *you*, one of
+// the demo world's heroes. It picks each theme on the app bar's switch, Omni, Light and Dark, with a
+// finger or the mouse, and saves the whole page in each; a page wider than the window, which a
+// person would have to scroll sideways, fails the run and names what sticks out. The page is drawn on
+// the server with the server's clock, so its week of merges moves with the day it is shot on.
+// Nothing here runs in `pnpm test`.
 //
 // Needs `pnpm galaxy:dev` running, and Playwright's Chromium installed once:
 //   pnpm --filter @omni/galaxy-app exec playwright install chromium
@@ -19,8 +26,11 @@ import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
-// The arcade is at /play since HOME took `/` (PRD 261). Another dev server: GALAXY_URL=http://localhost:3001/
-const BASE = new URL('play', process.env.GALAXY_URL ?? 'http://localhost:3000/').href;
+// The arcade is at /play since HOME took `/` (PRD 261), the app's home at /app. Another dev server:
+// GALAXY_URL=http://localhost:3001/
+const ROOT = process.env.GALAXY_URL ?? 'http://localhost:3000/';
+const BASE = new URL('play', ROOT).href;
+const APP = new URL('app', ROOT).href;
 const OUT = fileURLToPath(new URL('../shots/', import.meta.url));
 const SMALLEST = 8; // CSS px: the smallest text a player should have to read
 
@@ -32,17 +42,30 @@ const SIZES = [
 
 // Every screenshot, in walk order: the 24 scenes, with the title's phases, the planet's tabs, a
 // system's reading card and Entropy Invaders' ready screen, play and pause each its own, and OPEN THE
-// APP? over the menu (`leave`). The number in a file's name is its place here.
+// APP? over the menu (`leave`); then /app in each of its three themes. The number in a file's name is
+// its place here.
 const SHOTS = [
   'boot', 'title', 'title-story', 'title-hiscore', 'coin', 'away', 'gate', 'link', 'intro', 'select', 'name', 'hero',
   'ready', 'levelup', 'menu', 'leave', 'map', 'planet-status', 'planet-zones', 'planet-entropy', 'planet-log', 'chart', 'system',
   'system-card', 'fleets', 'heroes', 'games', 'invaders', 'invaders-play', 'invaders-paused', 'briefing', 'welcome', 'outsider',
+  'app-omni', 'app-light', 'app-dark',
 ];
+
+/** The app's themes, in the order its switch lists them (src/ask/theme.ts). */
+const THEMES = ['omni', 'light', 'dark'];
+
+/** Where a screenshot is saved: its place in SHOTS, then its name. */
+const shotFile = (dir, name) => `${dir}/${String(SHOTS.indexOf(name) + 1).padStart(2, '0')}-${name}.png`;
+
+/** Finite CSS animations (a line typing in, a title zooming) are shown finished, and the dev
+ * server's own badge is left out. */
+const STILL = { animations: 'disabled', caret: 'hide', style: 'nextjs-portal { display: none !important; }' };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ── In the page ──────────────────────────────────────────────────────────────
-// The screen is the element that carries the scene's class (`scene-title`); these run in the page.
+// The screen is the element that carries the scene's class (`scene-title`), and on /app the app's
+// reading surface (`.ask`); these run in the page.
 
 function sceneInPage() {
   for (const el of document.querySelectorAll('[class*="scene-"]')) {
@@ -63,7 +86,7 @@ function hydratedInPage() {
  */
 function smallTextInPage(min) {
   const screen = [...document.querySelectorAll('[class*="scene-"]')]
-    .find((el) => [...el.classList].some((c) => /^scene-[a-z]+$/.test(c)));
+    .find((el) => [...el.classList].some((c) => /^scene-[a-z]+$/.test(c))) ?? document.querySelector('.ask');
   if (!screen) return [];
   const scaleOf = (el) => {
     let k = 1;
@@ -93,6 +116,38 @@ function smallTextInPage(min) {
     }
   }
   return found;
+}
+
+/** Whether React owns /app yet: the app bar's theme switch presses its button once it has hydrated. */
+function appHydratedInPage() {
+  return Boolean(document.querySelector('.ask-switch button[aria-pressed="true"]'));
+}
+
+/**
+ * What /app shows: the theme it wears, its one heading (the dashboard's is your name, `.dash-name`),
+ * and, when the page is wider than the window, the innermost elements that stick out past its right
+ * edge (their ancestors, widened by them, are left out).
+ */
+function appInPage() {
+  const page = document.scrollingElement;
+  const width = page.clientWidth;
+  let out = [];
+  if (page.scrollWidth > width) {
+    for (const el of document.querySelectorAll('body *')) {
+      const box = el.getBoundingClientRect();
+      if (box.width && box.right > width + 0.5) out.push(el);
+    }
+    out = out.filter((el) => !out.some((other) => other !== el && el.contains(other)));
+  }
+  const h1 = document.querySelector('.ask h1');
+  return {
+    theme: document.querySelector('.ask')?.getAttribute('data-ask-theme') ?? null,
+    dashboard: Boolean(h1?.classList.contains('dash-name')),
+    heading: h1?.textContent?.trim() ?? null,
+    width,
+    scrollWidth: page.scrollWidth,
+    out: out.slice(0, 5).map((el) => el.tagName.toLowerCase() + [...el.classList].map((c) => `.${c}`).join('')),
+  };
 }
 
 // ── Driving one page ─────────────────────────────────────────────────────────
@@ -157,11 +212,37 @@ function driver(page, size, dir, small) {
     async shot(name, want, ms) {
       await hold(ms);
       await expect(want, `the ${name} screenshot`);
-      const file = `${dir}/${String(SHOTS.indexOf(name) + 1).padStart(2, '0')}-${name}.png`;
-      // Finite CSS animations (a line typing in, a title zooming) are shown finished, and the
-      // dev server's own badge is left out.
-      await page.screenshot({ path: file, animations: 'disabled', caret: 'hide', style: 'nextjs-portal { display: none !important; }' });
+      await page.screenshot({ path: shotFile(dir, name), ...STILL });
       if (size.report) for (const hit of await page.evaluate(smallTextInPage, SMALLEST)) small.push({ shot: name, ...hit });
+      return name;
+    },
+  };
+}
+
+/**
+ * Driving /app: a reading page, not a scene. It is drawn on the server and holds still, so no clock
+ * is moved; a theme is picked on the app bar's switch as a person picks it, and a screenshot is the
+ * whole page, however far down it runs. `wide` collects every screenshot of a page wider than the
+ * window.
+ */
+function appDriver(page, size, dir, small, wide) {
+  return {
+    /** Picks `choice` on the theme switch, with a finger or the mouse, and checks the page wears it. */
+    async theme(choice) {
+      const button = `.ask-switch button[data-choice="${choice}"]`;
+      if (size.touch) await page.tap(button);
+      else await page.click(button);
+      await sleep(200);
+      const { theme } = await page.evaluate(appInPage);
+      if (theme !== choice) throw new WalkError(`picking ${choice} on /app's theme switch should show it; the page wears ${theme ?? 'no theme'}`);
+    },
+    /** Checks /app shows the dashboard, saves the whole page, measures its text and its width. */
+    async shot(name) {
+      const seen = await page.evaluate(appInPage);
+      if (!seen.dashboard) throw new WalkError(`the ${name} screenshot should show the demo's dashboard; /app's heading reads ${seen.heading ?? 'nothing'}`);
+      await page.screenshot({ path: shotFile(dir, name), fullPage: true, ...STILL });
+      if (size.report) for (const hit of await page.evaluate(smallTextInPage, SMALLEST)) small.push({ shot: name, ...hit });
+      if (seen.scrollWidth > seen.width) wide.push({ shot: name, ...seen });
       return name;
     },
   };
@@ -182,6 +263,19 @@ async function openArcade(context, errors) {
     await sleep(50);
   }
   await sleep(500); // its effects run: the keys are listened to, the game loop asks for frames
+  return page;
+}
+
+/** A fresh page on /app, once React owns it and its faces are loaded. Its clock is the real one. */
+async function openApp(context, errors) {
+  const page = await context.newPage();
+  page.on('pageerror', (err) => errors.push(err.message));
+  await page.goto(APP, { waitUntil: 'load', timeout: 120_000 });
+  await Promise.race([page.evaluate(() => document.fonts.ready.then(() => true)), sleep(10_000)]);
+  for (let waited = 0; !(await page.evaluate(appHydratedInPage)); waited += 50) {
+    if (waited > 60_000) throw new WalkError('/app never started: React did not hydrate its theme switch');
+    await sleep(50);
+  }
   return page;
 }
 
@@ -325,12 +419,23 @@ async function walkOutsider(d, taken, rewritten) {
   taken.push(await d.shot('outsider', 'outsider', 500));
 }
 
+/**
+ * /app, the app's home: the dashboard the demo draws, signed in as its *you*, in each theme of the
+ * app bar's switch, Omni (the default) first.
+ */
+async function walkApp(d, taken) {
+  for (const theme of THEMES) {
+    await d.theme(theme);
+    taken.push(await d.shot(`app-${theme}`));
+  }
+}
+
 // ── One size, then all of them ───────────────────────────────────────────────
 
 async function shootSize(browser, size) {
   const dir = `${OUT}${size.name}`;
   mkdirSync(dir, { recursive: true });
-  const taken = [], small = [], problems = [];
+  const taken = [], small = [], wide = [], problems = [];
   const newContext = async () => {
     const context = await browser.newContext({
       viewport: { width: size.width, height: size.height },
@@ -346,12 +451,18 @@ async function shootSize(browser, size) {
     return context;
   };
   const errors = [];
-  for (const [walk, prepare] of [[walkGuest, null], [walkOutsider, asOutsider]]) {
+  // Each walk: its page, how it is driven, and what the context needs first.
+  const walks = [
+    [walkGuest, openArcade, driver, null],
+    [walkOutsider, openArcade, driver, asOutsider],
+    [walkApp, openApp, appDriver, null],
+  ];
+  for (const [walk, open, drive, prepare] of walks) {
     const context = await newContext();
     try {
       const rewritten = prepare ? await prepare(context) : null;
-      const page = await openArcade(context, errors);
-      await walk(driver(page, size, dir, small), taken, rewritten);
+      const page = await open(context, errors);
+      await walk(drive(page, size, dir, small, wide), taken, rewritten);
     } catch (err) {
       // One walk stuck does not stop the others: what it missed is listed, and the run fails.
       problems.push(err instanceof WalkError ? err.message : `${err.name}: ${err.message.split('\n')[0]}`);
@@ -360,17 +471,22 @@ async function shootSize(browser, size) {
     }
   }
   const missed = SHOTS.filter((s) => !taken.includes(s));
-  return { size, taken, missed, small, problems, errors };
+  return { size, taken, missed, small, wide, problems, errors };
 }
 
 function report(results) {
   let failed = false;
-  for (const { size, taken, missed, problems, errors } of results) {
+  for (const { size, taken, missed, wide, problems, errors } of results) {
     console.log(`${size.name.padEnd(9)} ${String(taken.length).padStart(2)}/${SHOTS.length} screenshots (${size.what})`);
     if (missed.length) {
       failed = true;
       for (const p of problems) console.log(`          stopped: ${p}`);
       console.log(`          missed: ${missed.join(', ')}`);
+    }
+    // A page a person would have to scroll sideways fails the run, its screenshot saved all the same.
+    for (const { shot, width, scrollWidth, out } of wide) {
+      failed = true;
+      console.log(`          scrolls sideways: ${shot} is ${scrollWidth} px wide in a ${width} px window${out.length ? `; past its edge: ${out.join(', ')}` : ''}`);
     }
     for (const e of [...new Set(errors)]) console.log(`          page error: ${e}`);
   }

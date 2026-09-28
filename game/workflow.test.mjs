@@ -75,6 +75,47 @@ describe('game workflow: XP (PRD 160)', () => {
   });
 });
 
+describe('game workflow: contributions (PRD 328)', () => {
+  const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+
+  it('records contributions as the ledger job\'s step right after pnpm game:xp, with the game token, and never fails the job', () => {
+    const steps = wf.jobs.ledger.steps;
+    const xp = steps.findIndex((s) => s.run === 'pnpm game:xp');
+    const project = steps.findIndex((s) => s.run === 'pnpm game:project');
+    expect(xp).toBeGreaterThanOrEqual(0);
+    const step = steps[xp + 1];
+    expect(step.run).toBe('pnpm game:contributions');
+    expect(step['continue-on-error']).toBe(true);
+    expect(step.env.GH_TOKEN).toBe('${{ secrets.OMNI_GAME_TOKEN }}');
+    expect(step.env.GH_TOKEN).toBe(steps[project].env.GH_TOKEN);
+    expect(wf.jobs.rankings.steps.map((s) => s.run ?? '')).not.toContain('pnpm game:contributions');
+  });
+
+  it('has a root script for it, beside the other game scripts', () => {
+    const pkg = JSON.parse(read('package.json'));
+    expect(pkg.scripts['game:contributions']).toBe('node --env-file-if-exists=apps/galaxy/.env.local game/cli/contributions.mjs');
+  });
+
+  it('is in the game README: the command, its window and its table, among the outputs, and never the ledger', () => {
+    const readme = read('game/README.md');
+    expect(readme).toContain('`pnpm game:contributions --workspace <slug>`');
+    const outputs = readme.slice(readme.indexOf('Its only outputs are'), readme.indexOf('Delete `game/`'));
+    expect(outputs).toContain('`public.contributions`');
+    const section = readme.slice(readme.indexOf('## Contributions'), readme.indexOf('## Setup'));
+    expect(section).toContain('40 days');
+    expect(section).toContain('never writes the ledger');
+    expect(readme).toMatch(/`game:project`,\s+then `game:xp`,\s+then `game:contributions`,\s+then `game:dossiers`/);
+  });
+
+  it('has its access proved by the supabase workflow, beside the other checks', () => {
+    const supabase = parse(read('.github/workflows/supabase.yml'));
+    const runs = supabase.jobs.check.steps.map((s) => s.run ?? '');
+    const at = (file) => runs.findIndex((r) => r.endsWith(`-v ON_ERROR_STOP=1 -f supabase/checks/${file}`));
+    expect(at('contributions.sql')).toBeGreaterThan(at('access.sql'));
+    expect(at('access.sql')).toBeGreaterThan(0);
+  });
+});
+
 describe('game workflow: the scores backup (PRD 160)', () => {
   const VERTUOZA = 'a0000000-0000-4000-8000-000000000001';
   const ACME = 'b0000000-0000-4000-8000-000000000002';

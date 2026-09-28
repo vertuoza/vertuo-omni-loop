@@ -1,17 +1,21 @@
 import { readFileSync } from 'node:fs';
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { GameModeButton } from './GameModeButton';
 import { SECTIONS } from './switch';
 
+vi.mock('server-only', () => ({}));
+
 // /app and the Game mode button as the server renders them: what a person sees before any script
-// runs (PRD 238).
+// runs (PRD 238). /app is your dashboard (PRD 328): here in the demo, as development serves it
+// without a database; its every situation is src/dashboard/render.test.ts's.
 
 const { default: Page } = await import('../../app/app/page.tsx');
 const { default: Layout, metadata } = await import('../../app/app/layout.tsx');
 
-const app = renderToStaticMarkup(createElement(Layout, null, Page() as ReactElement));
+const page = (await Page({ searchParams: Promise.resolve({}) })) as ReactElement;
+const app = renderToStaticMarkup(createElement(Layout, null, page));
 const button = renderToStaticMarkup(createElement(GameModeButton));
 
 /** The part of the markup from one marker to the next. */
@@ -49,10 +53,11 @@ describe('the Game mode button', () => {
 });
 
 describe('/app', () => {
-  it('heads the page with OMNI LOOP · App, linked home, then the theme switch, then Game mode', () => {
+  it('heads the page with OMNI LOOP · App, linked home, then Release notes, the theme switch and Game mode', () => {
     const bar = between(app, '<header class="ask-bar', '</header>');
     expect(bar).toMatch(/<a class="ask-mark[^"]*" href="\/app">OMNI LOOP<\/a>/);
     expect(bar).toContain('<span class="ask-brand-sub">App</span>');
+    expect(bar).toContain('<a class="top-bar-item" href="/releases">Release notes</a>');
     const theme = bar.indexOf('aria-label="Theme"'), game = bar.indexOf('>Game mode');
     expect(theme).toBeGreaterThan(0);
     expect(game).toBeGreaterThan(theme);
@@ -62,18 +67,23 @@ describe('/app', () => {
     expect(after.slice(after.indexOf('</dialog>'))).not.toMatch(/<(button|a) /);
   });
 
-  it('says what it is: a heading and one line', () => {
-    expect(app).toMatch(/<h1[^>]*>Omni Loop<\/h1>/);
-    expect(app).toContain('The loop’s questions and knowledge, as pages. The game is one tap away.');
+  it('is your dashboard: headed by your name, the page\'s one h1 (the demo\'s DAM-DEV), beside your hero', () => {
+    expect([...app.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/g)].map((m) => m[1])).toEqual(['DAM-DEV']);
+    expect(app).toMatch(/<svg [^>]*role="img"[^>]*aria-label="DAM-DEV’s hero"/);
+    expect(app).not.toContain('The loop’s questions and knowledge, as pages.');
   });
 
-  it('lists every section as a link, in order, each with its line', () => {
-    const cards = [...app.matchAll(/<a class="app-card" href="([^"]+)">([\s\S]*?)<\/a>/g)];
-    expect(cards.map((m) => m[1])).toEqual(SECTIONS.map((s) => s.path));
-    cards.forEach(([, , inner], i) => {
-      expect(inner).toContain(SECTIONS[i].title);
-      expect(inner).toContain(SECTIONS[i].line);
-    });
+  it('ends with four sections: Questions, For me, History and Knowledge map, none of them Release notes', () => {
+    const cards = [...app.matchAll(/<a class="dash-card" href="([^"]+)">/g)].map((m) => m[1]);
+    expect(cards).toEqual(['/ask', '/ask/for-me', '/ask/history', '/knowledge']);
+  });
+
+  it('ends with every section as a compact link, in order: its title, without its line or path', () => {
+    const cards = [...app.matchAll(/<a class="dash-card" href="([^"]+)">([\s\S]*?)<\/a>/g)];
+    expect(cards.map((m) => [m[1], m[2]])).toEqual(SECTIONS.map((s) => [s.path, s.title]));
+    for (const s of SECTIONS) expect(app).not.toContain(s.line);
+    const main = between(app, '<main', '</main>');
+    expect(main.slice(main.indexOf('</nav>'))).not.toMatch(/<(a|p|section|h\d)\b/);
   });
 
   it('reads the ask pages\' reading surface: the ask root, its theme script first', () => {
@@ -84,13 +94,19 @@ describe('/app', () => {
     expect(metadata.robots).toEqual({ index: false, follow: false });
   });
 
-  it('reads nothing: no session, no cookie, no database', () => {
-    for (const file of ['page.tsx', 'layout.tsx']) {
-      const source = readFileSync(new URL(`../../app/app/${file}`, import.meta.url), 'utf8');
-      const imports = [...source.matchAll(/from '([^']+)'/g)].map((m) => m[1]);
-      for (const path of imports) expect(path, `${file}: ${path}`).not.toMatch(/src\/(data|arcade)\/|supabase|next\/headers|live/);
-      expect(source).not.toMatch(/\bawait\b|cookies\(|headers\(/);
-    }
+  it('keeps its layout reading nothing: no session, no cookie, no database', () => {
+    const source = readFileSync(new URL('../../app/app/layout.tsx', import.meta.url), 'utf8');
+    const imports = [...source.matchAll(/from '([^']+)'/g)].map((m) => m[1]);
+    for (const path of imports) expect(path, `layout.tsx: ${path}`).not.toMatch(/src\/(data|arcade)\/|supabase|next\/headers|live/);
+    expect(source).not.toMatch(/\bawait\b|cookies\(|headers\(/);
+  });
+
+  it('renders per request, as the signed-in person: the page reads the address, then the session', () => {
+    const source = readFileSync(new URL('../../app/app/page.tsx', import.meta.url), 'utf8');
+    expect(source).toMatch(/export default async function/);
+    expect(source).toMatch(/await searchParams/);
+    expect(source).toMatch(/supabaseServer\(\)/);
+    expect(source).not.toMatch(/export const dynamic|generateStaticParams/);
   });
 });
 
@@ -114,9 +130,9 @@ describe('the stylesheets', () => {
     expect(onGround.join()).not.toContain("data-ask-theme='light'");
   });
 
-  it('lays the cards out one to a row on a phone, two from a wider screen', () => {
-    const css = readFileSync(new URL('./home.css', import.meta.url), 'utf8');
-    expect(css).toMatch(/\.app-cards \{[^}]*grid-template-columns: minmax\(0, 1fr\);/);
-    expect(css).toMatch(/@media \(min-width: \d+px\) \{\s*\.app-cards \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
+  it('keeps nothing of /app in home.css: its bar went to nav.css (PRD 346), its cards to the dashboard (PRD 328)', () => {
+    const css = readFileSync(new URL('./home.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(css.trim()).toBe('');
+    expect(css).not.toMatch(/\.app-(card|cards|intro|heading|line|home)\b/);
   });
 });
