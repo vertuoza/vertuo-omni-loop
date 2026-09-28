@@ -236,3 +236,159 @@ Undoing it is removing four lines; nothing stored changes.
 ```
 
 <!-- /omni-outbox-settled: s2-02-init-shows-the-sign-in-line -->
+
+<!-- omni-outbox-settled: s3-01-refused-repo-keeps-ask-mode-on -->
+
+## s3-01-refused-repo-keeps-ask-mode-on — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-refused-repo-keeps-ask-mode-on
+prd: 459
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+When someone switches ask mode on in a repository whose questions cannot go to any page, should ask mode still switch on?
+
+## The decision, in plain words
+
+Ask mode switches on anyway and prints the reason under the page link; every question then comes back to the terminal, as it does whenever the page cannot take one. The page gives 'nowhere, and here is why' as a normal answer, not as an error.
+
+## The intro, for fun
+
+The letterbox is painted on a wall with no door behind it.
+
+## The punchline, for fun
+
+The post still arrives, it just lands back on your own desk.
+
+## The options, in plain words
+
+A. Switch ask mode on and print the reason; questions fall back to the terminal.
+B. Leave ask mode off, print the reason as an error, and stop with a failure.
+C. Switch ask mode on but print the reason as a warning on the error stream.
+
+## What I had to decide
+
+Whether a refused repository should keep ask mode off, or switch it on with the reason shown.
+
+## What I did meanwhile
+
+Ask mode switches on, the second line names the reason, and each question falls back to the terminal because the page refuses the session.
+
+## What it costs to change later
+
+Refusing instead is a few lines in the ask command and one test; nothing stored changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec says to print the reason but not whether ask mode should then stay off (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-01-refused-repo-keeps-ask-mode-on -->
+
+<!-- omni-outbox-settled: s3-02-ask-command-tests-outside-territory -->
+
+## s3-02-ask-command-tests-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s3
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-ask-command-tests-outside-territory
+prd: 459
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+The tests for switching ask mode on, and the pretend page they talk to, sit in two files the plan did not list for this piece of work. May this piece change them?
+
+## The decision, in plain words
+
+Yes: both were changed, only to teach the pretend page the new question and to check the new lines; nothing else in them moved.
+
+## The intro, for fun
+
+The plan drew the fence one step short of the vegetable patch.
+
+## The punchline, for fun
+
+We watered the tomatoes anyway and left the gate as we found it.
+
+## The options, in plain words
+
+A. Change the two test files, as done.
+B. Move the new checks into a new test file inside the listed ground, with a stubbed page there.
+C. Widen the plan's ground to name both files, then keep the change.
+
+## What I had to decide
+
+Whether changing the ask command's tests and the pretend page, outside the listed ground, is fine.
+
+## What I did meanwhile
+
+Both files carry the new checks; the other tests using the pretend page are untouched and pass.
+
+## What it costs to change later
+
+Nothing to undo: moving the checks elsewhere is a copy of a few tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The plan names the ask command's folder, but its tests live one level up, beside the other command tests (author).
+
+```
+
+<!-- /omni-outbox-settled: s3-02-ask-command-tests-outside-territory -->
