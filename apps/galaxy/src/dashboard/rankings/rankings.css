@@ -1,2 +1,19 @@
-/* The rankings (PRD 328, slice s3): empty until they are drawn. The dashboard's stylesheet imports
-   this one; every colour here is a token of src/ask/theme-tokens.ts, as in dashboard.css. */
+/* The rankings (PRD 328): two tables, Fleets then Individuals, side by side where they fit and one
+   above the other on a phone. The dashboard's stylesheet imports this one; every colour here is a
+   token of src/ask/theme-tokens.ts, as in dashboard.css: your rows wear the selected option's colours
+   (ink and plasma on plasma-soft), the ranks and the skipped ranks the muted ink. */
+
+.dash-rankings { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 24px 32px; align-items: start; }
+.dash-rank { display: grid; gap: 10px; min-width: 0; }
+.dash-rank h2 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ask-muted); overflow-wrap: anywhere; }
+
+.dash-rank-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.dash-rank-table thead th,
+.dash-rank-table thead td { padding: 0; border: 0; }
+.dash-rank-table tbody td { padding: 6px 8px; border-bottom: 1px solid var(--ask-line); vertical-align: baseline; }
+.dash-rank-rank { width: 3.5ch; color: var(--ask-muted); text-align: right; }
+.dash-rank-name { font-weight: 700; overflow-wrap: anywhere; }
+.dash-rank-points { text-align: right; white-space: nowrap; }
+.dash-rank-mark { width: 2.5ch; color: var(--ask-plasma); text-align: center; }
+.dash-rank-gap td { color: var(--ask-muted); }
+.dash-rank-table tr[aria-current='true'] td { background: var(--ask-plasma-soft); }
