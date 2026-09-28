@@ -44,7 +44,7 @@ export const CAST = Object.keys(SPRITE_DEFS).filter((name) => !ICONS.includes(na
 
 export const POSES = OMNI_POSES;
 
-/** The fleets the game ships with (the demo and the seed migration), in their order. */
+/** The demo world's invented fleets, in their order: each fleet's hero is shown in its colours. */
 export const FLEETS = Object.entries(DEMO_PROJECTS.teams)
   .map(([name, f]) => ({ name, label: f.label ?? name.toUpperCase(), color: f.color ?? INK.white, sort: f.sort ?? 0 }))
   .sort((a, b) => a.sort - b.sort);

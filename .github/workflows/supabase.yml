@@ -54,6 +54,13 @@ jobs:
         # workspace, nothing. Nobody signed in inserts, updates or deletes one: only the service role
         # (pnpm game:contributions) writes, an upsert on the key that a second run leaves unchanged.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/contributions.sql
+      - name: Who may write the fleets
+        # Only a workspace's owner creates, restyles, retires and restores its fleets, through the four
+        # fleet functions; a member, another workspace's owner and anyone signed out are refused, and
+        # nothing changes. Each field is checked at its edges, a refusal names its field, at most 12
+        # fleets are active, and a fleet's name is derived once and never changes. Nobody signed in
+        # writes public.teams directly. The member whose GitHub login is pierrederval owns vertuoza.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/fleets.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

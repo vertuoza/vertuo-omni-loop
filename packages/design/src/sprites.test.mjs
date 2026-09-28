@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 import { FLAT, RAMPS, forge } from './forge.mjs';
-import { SPRITE_DEFS, FLEET_SPRITE, WOUND_TINT, woundTint } from './sprites.mjs';
+import { SPRITE_DEFS, MASCOTS, WOUND_TINT, woundTint } from './sprites.mjs';
 import { drawSprite, planetTexture, posterImage, posterPixels, spriteImage, spritePixels } from './draw.mjs';
 import { heroLook, heroPose, OMNI_POSES } from './heroes.mjs';
 import { WOUND_KINDS } from '../../../game/events.mjs';
@@ -70,15 +70,15 @@ describe('sprites', () => {
   });
 
   it('gives heroes GBA detail: 32 wide, with at least a dozen distinct colours', () => {
-    for (const name of ['omni', ...Object.values(FLEET_SPRITE)]) {
+    for (const name of ['omni', ...MASCOTS]) {
       const { w, pixels } = spritePixels(name);
       expect(w).toBe(32);
       expect(new Set(pixels.filter(Boolean)).size, name).toBeGreaterThanOrEqual(12);
     }
   });
 
-  it('has a hero for every fleet and a tint for every wound kind', () => {
-    for (const sprite of Object.values(FLEET_SPRITE)) expect(SPRITE_DEFS[sprite]).toBeDefined();
+  it('draws every mascot of the library, and has a tint for every wound kind', () => {
+    for (const sprite of MASCOTS) expect(SPRITE_DEFS[sprite]).toBeDefined();
     expect(Object.keys(WOUND_TINT).sort()).toEqual([...WOUND_KINDS].sort());
     for (const k of WOUND_KINDS) expect(woundTint(k).Z).toHaveLength(4);
   });

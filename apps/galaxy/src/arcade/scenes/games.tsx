@@ -6,7 +6,7 @@ import type { WoundKind } from '@omni/galaxy';
 import { woundTint } from '@omni/design';
 import { useScreen } from '../Screen';
 import { HeroSprite, Sprite } from '../Sprite';
-import { fleet } from '../fleets';
+import { crewLook } from '../fleets';
 import { Hint } from '../hint';
 import type { Player, ScoresRead } from '../types';
 import { barFill, cabinets, type Cabinet, type XpStatus, XP_LINE } from '../games/room';
@@ -106,11 +106,11 @@ export function GamesOverlay({ xp, me, index, scores = {}, onPick }: {
   const at = Math.max(0, Math.min(index, room.length - 1));
   const tall = grid.name === 'tall';
   const shown = tall ? [at] : room.map((_, i) => i);
-  const f = fleet(me?.team);
+  const f = crewLook(me?.team);
   return (
     <div className="games">
       <h2>GAME ROOM</h2>
-      {me?.team && me.github_login
+      {me && me.github_login
         ? <span className="j-badge" style={{ ['--fc' as string]: f.color }}>{badgeOf(me, xp)}</span>
         : <span className="j-badge" style={{ ['--fc' as string]: '#8a90d6' }}>VISITOR</span>}
       <XpHeader xp={xp} />
