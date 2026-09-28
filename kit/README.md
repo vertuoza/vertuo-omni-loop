@@ -5,6 +5,18 @@ and the `omni` plugin for Claude Code (`kit/plugin/`: its skills and hooks). A r
 both to run the Omni Loop; everything specific to that repository is read from its
 `.omni-loop/config.yml`.
 
+**Help and status** are two read-only commands a person types, in the terminal or inside Claude.
+`omni help` (also `omni --help`, `omni -h` and `/omni:help`) prints one screen: the loop's six
+stages from idea to retro, its principles, the slash commands, the terminal commands and the ones
+only the skills run; `omni help <name>` prints one command or skill (`board`, `yolo` or
+`/omni:yolo`) with its usage, who runs it and what it does, both entries for a name that is both. It
+needs no config: outside an installed repository it uses the kit's defaults. A bare `omni status`
+(also `/omni:status`) prints the repository's overview, read from git only, never from GitHub: how
+many PRDs have shipped, wait in the inbox, are being built in the outbox or wait for review, a bar
+of delivered against in progress, and the PRDs that are yours (by `git config user.email`), each
+with where it stands. It reads the default branch as last fetched, and `--fetch` fetches it first.
+`omni status <prd>`, the outbox gate, is unchanged.
+
 **Ask mode** puts the questions Claude asks through `AskUserQuestion` on a web page: sign in once per
 computer with `omni signin`, then `/omni:ask on` in a checkout prints the page's link, and
 `/omni:ask off` turns it off. The mode is per checkout: `on` replaces nothing, and every Claude Code
