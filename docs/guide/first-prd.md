@@ -187,16 +187,13 @@ the feature pull request, and once merged it sits in the shipped folder, at
 The **Release notes** page of the Omni Loop app lists the releases of Omni Loop itself for now;
 the release notes of your own repository will be shown there in a later version.
 
-## Two switches worth turning on
+## A switch worth turning on
 
-A fresh install leaves dossiers and release notes off. To turn both on, add these lines to
-`.omni-loop/config.yml`, then commit and merge the change:
+`omni init` switches dossiers on and points the kit at the Omni Loop app, but it leaves release
+notes off. To turn them on, add these lines to `.omni-loop/config.yml`, then commit and merge the
+change:
 
 ```yaml file=.omni-loop/config.yml
-ask:
-  url: https://vertuo-omni-loop-galaxy.vercel.app
-dossier:
-  enabled: true
 releaseNotes:
   enabled: true
 ```

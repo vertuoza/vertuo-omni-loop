@@ -8,10 +8,46 @@ the kit prints it, then why it happens and how to fix it.
 
 ## `command not found: omni`
 
-Your terminal does not know the `omni` command yet (zsh says `zsh: command not found: omni`). Either
-the "Put omni on your PATH" step of [Install](/docs/install) was skipped, or this terminal was
-opened before it ran. Open a new terminal and try again; if it still says so, do that step: it is
-one block, pasted once per laptop.
+Your terminal does not know the `omni` command yet (zsh says `zsh: command not found: omni`). Step 1
+of [Install](/docs/install), the npm line that installs `omni` once per laptop, has not run on this
+laptop, or it failed. Run it again, and read what npm prints: its last lines say whether it
+installed `omni`. When it says `EACCES` or `repository not found`, see the two entries below.
+
+## npm says `EACCES` while installing omni
+
+npm could not write to its global folder: on some laptops that folder belongs to the system, not to
+you. Do not run the npm line with `sudo`. Follow npm's own page on it,
+[Resolving EACCES permissions errors](https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally),
+which moves npm's global folder to one of yours (or installs Node with a version manager), then run
+the npm line of [Install](/docs/install) again.
+
+## npm says `repository not found` while installing omni
+
+The kit's repository, `vertuoza/vertuo-omni-loop`, is private while Omni Loop is in beta, and npm
+fetches it with git, which found no sign-in that can read it. Two things to check:
+
+- **Your GitHub account can read the repository.** Open
+  [github.com/vertuoza/vertuo-omni-loop](https://github.com/vertuoza/vertuo-omni-loop) while signed
+  in: if GitHub says the page is not found, ask the Omni Loop team for read access.
+- **git uses gh's sign-in.** Run this once, then the npm line again:
+
+  ```bash terminal
+  gh auth setup-git
+  ```
+
+## An old `~/.local/bin/omni`
+
+Before this version, the guide had you write a small script, `~/.local/bin/omni`, and add
+`~/.local/bin` to your PATH. It is harmless: it runs your repository's own copy of the kit, as the
+`omni` npm installs does. To remove it, delete the script:
+
+```bash terminal
+rm ~/.local/bin/omni
+```
+
+Then open `~/.zshrc` (or `~/.bashrc`) and delete the line
+`export PATH="$HOME/.local/bin:$PATH"` if nothing else of yours lives in `~/.local/bin`. Open a new
+terminal: `omni --version` now runs the one npm installed.
 
 ## `omni config` fails: the kit is not installed
 
@@ -24,7 +60,7 @@ omni config
 
 It prints the repository's settings when all is well. Otherwise, one of three things:
 
-- **`omni: no Omni Loop kit here (.omni-loop/bin/omni.mjs). cd into a repository that has it.`**
+- **`omni: no Omni Loop kit here — run omni init in your repository`**
   There is no kit where you ran it. Either you are not inside the repository (`cd` into it, and
   open Claude Code at its root), or the kit is not on the branch you have checked out. The install
   pull request must be merged, and your checkout up to date:
@@ -37,14 +73,13 @@ It prints the repository's settings when all is well. Otherwise, one of three th
   If the repository has no `.omni-loop/` folder at all, install the kit: see
   [Install](/docs/install).
 - **`This repository is not installed: .omni-loop/config.yml is missing.`** The folder is there,
-  but its config is not. Run the install command again, from the root of the repository, then
-  commit and merge what it writes:
+  but its config is not. Run `omni init` again, from the root of the repository, then merge
+  the pull request it opens:
 
   ```bash terminal
-  npx github:vertuoza/vertuo-omni-loop init
+  omni init
   ```
 
-  The message ends with "Run `omni-loop init`": the command above is the one that does it.
 - **`.omni-loop/config.yml is not a valid Omni Loop config: …`**. The file was edited by hand and
   something in it is wrong. The rest of the line names the key: fix or remove it, and run
   `omni config` again until it prints the settings.
@@ -58,11 +93,11 @@ they open the pull request without it and tell you, as a step for you, "create l
 its name. Typed by hand, `gh` refuses with `could not add label: 'omni:prd' not found`.
 
 Without its label, the loop cannot find its own pull requests, so fix it before you carry on. Run
-the install command again, from the root of the repository: it keeps your config and creates every
+`omni init` again, from the root of the repository: it keeps your config and creates every
 label that is missing.
 
 ```bash terminal
-npx github:vertuoza/vertuo-omni-loop init
+omni init
 ```
 
 If it says it could not create them ("gh could not create …"), `gh` is not signed in, or your
@@ -88,17 +123,23 @@ prompt by typing `!` before it. The next dossier update goes through.
 Two related lines:
 
 - **`ask mode is not set up for this repository (ask.url)`**, from `omni signin`: the repository's
-  config does not say where the Omni Loop app is. Add it to `.omni-loop/config.yml`, then commit and
-  merge the change:
+  config does not say where the Omni Loop app is: it was installed before `omni init` wrote that
+  line, or the install pull request is not merged yet. Add it to `.omni-loop/config.yml`, then
+  commit and merge the change:
 
   ```yaml file=.omni-loop/config.yml
   ask:
     url: https://vertuo-omni-loop-galaxy.vercel.app
   ```
 
-- **`off`**, instead of a dossier link: dossiers are switched off in this repository, which is how
-  a fresh install starts. Nothing is wrong. To switch them on, see "Two switches worth turning on"
-  on [Your first PRD](/docs/first-prd).
+- **`off`**, instead of a dossier link: dossiers are switched off in this repository. Nothing is
+  wrong. `omni init` switches them on in a new install; in one made before, add these lines to
+  `.omni-loop/config.yml`, then commit and merge the change:
+
+  ```yaml file=.omni-loop/config.yml
+  dossier:
+    enabled: true
+  ```
 
 ## "Deployment was blocked" on Vercel
 
