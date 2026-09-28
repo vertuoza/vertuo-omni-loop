@@ -251,3 +251,157 @@ Why: An outage would otherwise tell real members their account is wrong, and RLS
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry s5-02-out-of-reach-is-not-outsider, PRD #100
 Merged: @pierrederval, 2026-09-26, PR #101
 Proposed: harvest 2026-09-26
+
+## P-PRODUCT-29
+
+A page open to visitors without an account never shows a workspace's own data, such as its teams or fleets.
+
+Why: Public pages can be seen by anyone, so showing a customer's teams there would expose them to people outside the workspace.
+Source: .omni-loop/delivery/shipped/0141-design-system/outbox/settled.md, entry s6-01-design-page-shows-the-built-in-fleets, PRD #141
+Merged: @pierrederval, 2026-09-26, PR #153
+Proposed: harvest 2026-09-26
+
+## P-PRODUCT-30
+
+In the game, one part that cannot be read never hides the parts that were read; the unreadable part is named as out of reach, and no made-up data fills the gap.
+
+Why: People should still see and play what loaded, and be told honestly which piece is missing rather than losing the whole page.
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entries s2-01-xp-read-in-the-workspace-played and s5-04-scores-read-on-their-own, PRD #160
+Merged: @pierrederval, 2026-09-27, PR #161
+Proposed: harvest 2026-09-27
+
+## P-PRODUCT-31
+
+Turning the phone never changes the state of a game in progress; only the next game adapts to the new screen.
+
+Why: A player who turns the phone mid-game should not lose or disrupt their game.
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s3-03-a-game-keeps-its-field, PRD #160
+Merged: @pierrederval, 2026-09-27, PR #161
+Proposed: harvest 2026-09-27
+
+## P-PRODUCT-32
+
+In the arcade games, what a player sees reflects the game's actual rules, so a change to the rules never leaves the screen telling a different story.
+
+Why: The person asked that the top row pay most; tying the layout to the values keeps that promise when the scoring changes.
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s3-04-rows-follow-the-close-values, PRD #160
+Merged: @pierrederval, 2026-09-27, PR #161
+Proposed: harvest 2026-09-27
+
+## P-PRODUCT-33
+
+A person who leaves a workspace takes their game record with them; nothing of theirs stays on show to the crew.
+
+Why: A departed person should not keep a public presence in a space they no longer belong to, and removing a member should never be blocked by leftover data.
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s5-01-scores-leave-with-the-player, PRD #160
+Merged: @pierrederval, 2026-09-27, PR #161
+Proposed: harvest 2026-09-27
+
+## P-PRODUCT-34
+
+Merged into P-PRODUCT-30, which says the same thing.
+
+## P-PRODUCT-35
+
+A player is always told about a game they unlocked, even when they climbed past its unlock level between two visits.
+
+Why: Returning players and the demo guest skip levels, and a game that opened silently would never be announced.
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s6-02-levels-climbed-between-visits, PRD #160
+Merged: @pierrederval, 2026-09-27, PR #161
+
+## P-PRODUCT-36
+
+The app never shows a guessed cost; what it cannot price from its own list stays blank.
+
+Why: A cost estimated from a similar model looks exact but may be wrong, so people would trust a number nobody checked.
+Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s1-03-price-table-values, PRD #144
+Merged: @pierrederval, 2026-09-27, PR #147
+Proposed: harvest 2026-09-27
+
+## P-PRODUCT-37
+
+In the game, a person's choice always outranks the model's guess; the model only fills what nobody has decided.
+
+Why: People must trust that what they sorted stays sorted, and the app holds no key that could write over them.
+Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s3-02-model-guess-never-overrides, PRD #144
+Merged: @pierrederval, 2026-09-27, PR #147
+Proposed: harvest 2026-09-27
+
+## P-PRODUCT-38
+
+A person's name or email address is shown only to people who share a workspace with them, never to anyone outside it.
+
+Why: Members need a recognisable label to share questions with each other, but outsiders must not learn who belongs to a workspace.
+Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s4-01-teammates-named-by-email, PRD #144
+Merged: @pierrederval, 2026-09-27, PR #147
+
+## P-PRODUCT-39
+
+Every way into the game's menu behaves the same, so a player never misses a celebration because of the route they took.
+
+Why: A deep link that skipped the level-up would make the celebration depend on navigation, not on the player's progress.
+Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s1-02-level-up-before-menu-link, PRD #238
+Merged: @pierrederval, 2026-09-27, PR #239
+Proposed: harvest 2026-09-27
+
+## P-PRODUCT-40
+
+A link into the game never lands a person somewhere the home address would not take them.
+
+Why: So a person always reaches the screen meant for them, never a menu they cannot use.
+Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s1-03-menu-link-without-galaxy, PRD #238
+Merged: @pierrederval, 2026-09-27, PR #239
+Proposed: harvest 2026-09-27
+
+## P-PRODUCT-41
+
+While the arcade asks a person a question, the game never moves on beneath it; declining leaves them on the screen they were on.
+
+Why: A person who says no should find the same screen they left, not one that changed while they were deciding.
+Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s3-02-timed-screens-wait-under-confirm, PRD #238
+Merged: @pierrederval, 2026-09-27, PR #239
+
+## P-PRODUCT-42
+
+A page-wide keyboard shortcut in the game never takes over a control that has the focus; the focused control keeps its own meaning.
+
+Why: Keyboard and assistive-technology users must be able to rely on Enter activating what they focused, not something else.
+Source: .omni-loop/delivery/shipped/0261-home/outbox/settled.md, entry s3-02-enter-on-focused-controls, PRD #261
+Merged: @pierrederval, 2026-09-27, PR #263
+Proposed: harvest 2026-09-27
+
+## P-PRODUCT-43
+
+An owner can only pick a fleet mascot from a fixed list of fleet characters the game already draws; arbitrary keys are never stored.
+
+Why: Rejecting unknown keys at the database means the app never has to guess or fall back to a stand-in picture.
+Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-01-mascot-choices, PRD #400
+Merged: @pierrederval, 2026-09-28, PR #403
+Proposed: harvest 2026-09-28
+
+## P-PRODUCT-44
+
+A fleet's key never changes once made and never names more than one fleet, retired fleets included.
+
+Why: Anything that points at a fleet by its key must keep reaching that fleet and never be silently redirected to a newer one.
+Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-03-fleet-key-from-label, PRD #400
+Merged: @pierrederval, 2026-09-28, PR #403
+Proposed: harvest 2026-09-28
+
+## P-PRODUCT-45
+
+In the game, a person can always reach the way forward from an empty state; hiding an empty view never hides the invitation to fill it.
+
+Why: If both the fleet step and the menu entry vanished, owners and members would never learn how to set fleets up.
+Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-01-fleets-menu-with-none, PRD #400
+Merged: @pierrederval, 2026-09-28, PR #403
+Proposed: harvest 2026-09-28
+
+## P-PRODUCT-46
+
+In the game, a player is never left on a screen with no way forward; when no choice exists, they play on as they are.
+
+Why: A pick screen with nothing to pick is a dead end, and a fleet is optional, so blocking play there would lock a player out.
+Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-02-disbanded-with-no-fleets, PRD #400
+Merged: @pierrederval, 2026-09-28, PR #403
+Proposed: harvest 2026-09-28

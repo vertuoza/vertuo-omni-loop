@@ -57,7 +57,7 @@ Proposed: harvest 2026-09-26
 
 ## N-PRODUCT-6
 
-omni init never writes a file outside .omni-loop/. When a kept config puts the playbook elsewhere, it writes no knowledge forms, says so in its closing message and leaves them to /omni:terraform, which runs omni kb init.
+omni init writes no file in the repository outside .omni-loop/ and the statusLine key of .claude/settings.json; it also creates a branch, commits, pushes and opens a pull request with what it wrote, and installs the Claude Code plugin on the computer it runs on. When a kept config puts the playbook elsewhere, it writes no knowledge forms, says so in its closing message and leaves them to /omni:terraform, which runs omni kb init.
 
 Source: .omni-loop/delivery/shipped/0045-knowledge-forms/outbox/settled.md, entry s4-04-install-writes-no-form-outside-its-folder, PRD #45
 Enforced by: unenforced
@@ -98,3 +98,24 @@ Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-25
 Merged: @pierrederval, 2026-09-26, PR #101
 Proposed: harvest 2026-09-26
+
+## N-PRODUCT-10
+
+A player with no level is stored in player_xp with level 0, never an empty value, and every screen that shows a level reads 0 as no level and shows none.
+
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s1-03-no-level-stored-as-zero, PRD #160
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-27, PR #161
+
+## N-PRODUCT-11
+
+The front page forwards every link that names an arcade screen to /play, reading the list from the arcade's DEEP_LINKS table, so no game-screen link ever lands on HOME.
+
+Source: .omni-loop/delivery/shipped/0261-home/outbox/settled.md, entry s1-01-forward-every-arcade-link, PRD #261
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-27
+Merged: @pierrederval, 2026-09-27, PR #263
+Proposed: harvest 2026-09-27

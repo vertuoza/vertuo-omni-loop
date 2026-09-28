@@ -3,7 +3,7 @@ import { dossierRounds } from '../store';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
 import { pulseOf, signature } from './live';
 import { fakeSupabase as askFake } from '../../ask/store.fake';
-import { answerQuick, deleteDraft, readContent, readDossier, readHistory, readPulse, readSandboxed } from './source';
+import { answerQuick, deleteDraft, readContent, readDossier, readHistory, readPlanSlices, readPulse, readSandboxed } from './source';
 
 // Where /prd/<id> reads: straight from the database as the viewer (the stubbed client of
 // ../store.fake.ts, which keeps the migration's access rules), so a member of the dossier's workspace
@@ -406,5 +406,28 @@ describe('answering a quick round from the list (PRD 384)', () => {
     const { fake, id, as } = await round();
     fake.state.fail = { message: 'down' };
     await expect(answerQuick(as('ada'), id, QUESTION, 'Memory')).rejects.toThrow();
+  });
+});
+
+describe('the plan\'s slice count, for the stage (PRD 426)', () => {
+  const PLAN = (rows: string[]) => `# Plan\n\n| id | slice | territory | blocked by | wave |\n| --- | --- | --- | --- | --- |\n${rows.join('\n')}\n`;
+  const row = (id: string) => `| ${id} | A slice | \`src/${id}\` | — | 1 |`;
+
+  it('counts the slices of the latest plan version', async () => {
+    const { fake, as, numbered } = await world();
+    for (const plan of [PLAN([row('s1')]), PLAN([row('s1'), row('s2'), row('s3')])]) {
+      await fake.client('ada').rpc('dossier_push', { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'plan', content: plan }] });
+    }
+    const read = await readDossier(as('bob'), numbered);
+    expect(await readPlanSlices(as('bob'), read!.versions)).toBe(3);
+  });
+
+  it('is null with no plan version, or one with no slice table', async () => {
+    const { fake, as, numbered } = await world();
+    expect(await readPlanSlices(as('bob'), (await readDossier(as('bob'), numbered))!.versions)).toBeNull();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    await fake.client('ada').rpc('dossier_push', { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'plan', content: '# Plan\n\nNo table.\n' }] });
+    expect(await readPlanSlices(as('bob'), (await readDossier(as('bob'), numbered))!.versions)).toBeNull();
+    vi.restoreAllMocks();
   });
 });

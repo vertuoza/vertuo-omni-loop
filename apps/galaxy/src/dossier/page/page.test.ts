@@ -23,6 +23,8 @@ const given = vi.hoisted(() => ({
   token: null as string | null,
   fake: null as unknown as ReturnType<typeof import('../store.fake').fakeSupabase>,
   path: '/prd',
+  // The GitHub reader (PRD 426), stubbed: the tests never call GitHub.
+  summary: null as unknown as import('vitest').Mock,
 }));
 
 vi.mock('server-only', () => ({}));
@@ -32,6 +34,7 @@ vi.mock('next/navigation', async (original) => ({
   useRouter: () => ({ refresh: () => {} }),
   usePathname: () => given.path,
 }));
+vi.mock('../github/server', () => ({ dossierGithub: () => ({ summary: given.summary }) }));
 vi.mock('../../data/mode', () => ({ arcadeMode: () => given.mode }));
 vi.mock('../../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
@@ -60,6 +63,7 @@ beforeEach(async () => {
     p_artifacts: [{ kind: 'spec', content: SPEC }, { kind: 'before-after', content: PAGE }],
   });
   numbered = (pushed.data as { id: string }).id;
+  given.summary = vi.fn(async () => null);
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => { vi.restoreAllMocks(); });
@@ -73,7 +77,7 @@ describe('the page to share', () => {
   it('shows a member of the workspace the dossier', async () => {
     given.token = 'bob';
     const page = await html(numbered);
-    expect(page).toContain('<span class="dossier-number">PRD #7</span>');
+    expect(page).toContain('<a class="dossier-number" href="https://github.com/acme/widgets/issues/7" target="_blank" rel="noopener noreferrer">PRD #7 ↗</a>');
     expect(page).toContain('Team inbox');
     expect(page).toContain('<li class="dossier-repo">acme/widgets</li>');
     expect(page).toContain('opened by ADA · ');
@@ -167,7 +171,8 @@ describe('the page to share', () => {
     expect(live?.props).toEqual({
       supabase: { url: 'http://127.0.0.1:54321', key: 'anon' },
       id: numbered,
-      signature: signature({ asked: 2, answered: 1, latest: { spec: 1, 'before-after': 1 } }),
+      // The GitHub part the page was rendered with (no reader here: unknown) is part of the start.
+      signature: signature({ asked: 2, answered: 1, latest: { spec: 1, 'before-after': 1 }, github: { stage: 'unknown', open: null } }),
     });
     const markup = renderToStaticMarkup(page);
     expect(markup).not.toContain('Cannot reach the server');
@@ -247,6 +252,43 @@ describe('the page to share', () => {
     expect(questions).toContain('<span class="dossier-rule">delivery</span>');
     expect(questions).toMatch(/Questions<small>\d+\/\d+ answered<\/small>/);
     expect(((await open('anything')).props as { live?: unknown }).live).toBeUndefined();
+  });
+});
+
+describe('the stage, read from GitHub (PRD 426)', () => {
+  const inbox = {
+    repo: 'acme/widgets', prd: 7, folder: '0007-team-inbox', topic: 'team-inbox',
+    issue: { number: 7, url: 'https://github.com/acme/widgets/issues/7', state: 'open' },
+    phase0: { number: 12, url: 'https://github.com/acme/widgets/pull/12', state: 'merged', draft: false },
+    feature: null, retro: null, mergedSlices: 0,
+  };
+
+  it('reads GitHub for a signed-in member on a numbered dossier, and shows its stage', async () => {
+    given.summary.mockResolvedValue(inbox);
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(given.summary).toHaveBeenCalledWith({ id: numbered, home_repo: 'acme/widgets', prd: 7 });
+    expect(page).toContain('<strong>Stage: inbox</strong>');
+    expect(page).toContain('title="/omni:yolo 7">Build it</button>');
+    expect(page).toContain('>phase-0 #12</a> <span class="ask-hint">✓</span>');
+  });
+
+  it('says the stage is unknown when GitHub did not answer, and still shows the dossier', async () => {
+    given.summary.mockRejectedValue(new Error('GitHub is down'));
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(page).toContain('Stage unknown: GitHub did not answer.');
+    expect(page).toContain(`src="/prd/${numbered}/v/1/page"`);
+  });
+
+  it('makes no GitHub call for a signed-out visitor, a draft, or demo mode', async () => {
+    await html(numbered);
+    given.token = 'ada';
+    const page = await html(draft);
+    expect(page).toContain('<strong>Stage: idea</strong>');
+    given.mode = 'demo';
+    await html('anything');
+    expect(given.summary).not.toHaveBeenCalled();
   });
 });
 

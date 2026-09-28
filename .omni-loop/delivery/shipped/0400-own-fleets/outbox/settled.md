@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-28
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-46, P-PRODUCT-43
 
 ### The answer, as it was given
 
@@ -97,6 +98,7 @@ One list in one migration.
 - Raised: 2026-09-28
 - Slice: s1
 - Wave: 1
+- Became: ADR-0050
 
 ### The answer, as it was given
 
@@ -175,6 +177,7 @@ The wording and hints of four refusals, and the page's mapping.
 - Raised: 2026-09-28
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-47, P-PRODUCT-44
 
 ### The answer, as it was given
 
@@ -253,6 +256,7 @@ A few lines in one function; existing keys never move.
 - Raised: 2026-09-28
 - Slice: s2
 - Wave: 1
+- Became: BR-PRODUCT-48, P-PRODUCT-45
 
 ### The answer, as it was given
 
@@ -331,6 +335,7 @@ A constant: dropping the entry when there are no fleets is one condition in the 
 - Raised: 2026-09-28
 - Slice: s2
 - Wave: 1
+- Became: BR-PRODUCT-49, P-PRODUCT-46
 
 ### The answer, as it was given
 
@@ -409,6 +414,7 @@ A constant: one condition in the rule that says who is ready.
 - Raised: 2026-09-28
 - Slice: s5
 - Wave: 1
+- Stays here: A copy choice for one line of UI, cheap to change; no lasting rule, invariant or architectural decision to record.
 
 ### The answer, as it was given
 
@@ -487,6 +493,7 @@ One sentence and its test to change.
 - Raised: 2026-09-28
 - Slice: s3
 - Wave: 2
+- Stays here: A local UI layout choice, cheap to reverse (one entry, two test lines); no lasting rule or architecture to record.
 
 ### The answer, as it was given
 
@@ -565,6 +572,7 @@ One entry and two test lines to move back.
 - Raised: 2026-09-28
 - Slice: s3
 - Wave: 2
+- Stays here: A local wording choice for one page line; a small database function can name the owner later, and no lasting rule or principle is set.
 
 ### The answer, as it was given
 
@@ -643,6 +651,7 @@ A small database function plus one line on the page, whenever the owner's name s
 - Raised: 2026-09-28
 - Slice: s4
 - Wave: 2
+- Stays here: A local content choice held in one six-entry list that is cheap to change. No lasting rule or build decision follows from it beyond what the ledger records.
 
 ### The answer, as it was given
 
@@ -722,6 +731,7 @@ One list of six entries in the practice world; the home page's cards follow it.
 - Raised: 2026-09-28
 - Slice: s4
 - Wave: 2
+- Stays here: A test's folder and file list, cheap to change, and not a lasting product rule; no domain or existing entry covers it, so it stays in the ledger.
 
 ### The answer, as it was given
 
@@ -801,6 +811,7 @@ A folder list and a file list in one test.
 - Raised: 2026-09-28
 - Slice: s4
 - Wave: 2
+- Stays here: A one-off, easily reverted scoping choice for this slice; it sets no lasting rule, invariant or design decision for the knowledge base.
 
 ### The answer, as it was given
 
@@ -880,6 +891,7 @@ Four small edits, each undone by reverting a line or two.
 - Raised: 2026-09-28
 - Slice: s4
 - Wave: 2
+- Stays here: A local layout choice in the attract loop, cheap to change (one line and one condition), with no lasting rule or build decision to keep.
 
 ### The answer, as it was given
 

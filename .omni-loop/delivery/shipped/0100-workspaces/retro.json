@@ -1,0 +1,1027 @@
+{
+  "prd": 100,
+  "runs": [
+    {
+      "featurePr": {
+        "mergeSha": "5bc4c2a62910d10d23b2c9fd3e8c8b1eff25eddf",
+        "mergedAt": "2026-09-26T14:41:45Z",
+        "number": 101,
+        "openedAt": "2026-09-25T20:32:27Z",
+        "title": "feat(galaxy): workspaces — Vertuoza becomes the first of many (PRD 100)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/101"
+      },
+      "findings": [
+        {
+          "evidence": [
+            {
+              "excerpt": "8e6c5c97bf68: Pull complete\ne444c598c86a: Pull complete\nfbaa7199dd0a: Pull complete\n162486ca1388: Pull complete\nDigest: sha256:6942962433a569e87f228b4d4ab7e11db5deca64e43babb3a038443ad6c4f1bb\nStatus: Downloaded newer image for public.ecr.aws/supabase/postgres:17.6.1.167\npublic.ecr.aws/supabase/postgres:17.6.1.167\nInitialising schema...\nError response from daemon: toomanyrequests: Rate exceeded\nRetrying after 4s: public.ecr.aws/supabase/realtime:v2.130.0\nv2.130.0: Pulling from supabase/realtime\n062e450697fa: Pulling fs layer\naadc1df55248: Pulling fs layer\n07f6c7f37eb7: Pulling fs layer\n219bccc39f10: Pulling fs layer\n9d445f162b30: Pulling fs layer\nf066bdfa8565: Pulling fs layer\n0ced55f3e717: Pulling fs layer\ne39a20378c07: Pulling fs layer\n4683247db99b: Pulling fs layer\n8554b32c0e17: Pulling fs layer\n9ae803165790: Pulling fs layer\n4f4fb700ef54: Pulling fs layer\n219bccc39f10: Waiting\n9d445f162b30: Waiting\nf066bdfa8565: Waiting\n0ced55f3e717: Waiting\ne39a20378c07: Waiting\n4683247db99b: Waiting\n8554b32c0e17: Waiting\n9ae803165790: Waiting\n4f4fb700ef54: Waiting\n062e450697fa: Verifying Checksum\n062e450697fa: Download complete\naadc1df55248: Verifying Checksum\naadc1df55248: Download complete\n07f6c7f37eb7: Verifying Checksum\n07f6c7f37eb7: Download complete\n219bccc39f10: Verifying Checksum\n219bccc39f10: Download complete\n9d445f162b30: Verifying Checksum\n9d445f162b30: Download complete\n0ced55f3e717: Verifying Checksum\n0ced55f3e717: Download complete\nf066bdfa8565: Verifying Checksum\nf066bdfa8565: Download complete\ne39a20378c07: Verifying Checksum\ne39a20378c07: Download complete\n4683247db99b: Verifying Checksum\n4683247db99b: Download complete\n4f4fb700ef54: Verifying Checksum\n4f4fb700ef54: Download complete\n9ae803165790: Verifying Checksum\n9ae803165790: Download complete\n8554b32c0e17: Verifying Checksum\n8554b32c0e17: Download complete\n062e450697fa: Pull complete\naadc1df55248: Pull complete\n07f6c7f37eb7: Pull complete\n219bccc39f10: Pull complete\n9d445f162b30: Pull complete\nf066bdfa8565: Pull complete\n0ced55f3e717: Pull complete\ne39a20378c07: Pull complete\n4683247db99b: Pull complete\n8554b32c0e17: Pull complete\n9ae803165790: Pull complete\n4f4fb700ef54: Pull complete\nDigest: sha256:002193c9ff840a4946918641901bb6aa9e2036dc9ff7590e2b11e91d1e06bf86\nStatus: Downloaded newer image for public.ecr.aws/supabase/realtime:v2.130.0\npublic.ecr.aws/supabase/realtime:v2.130.0\nv1.72.1: Pulling from supabase/storage-api\ntoomanyrequests: Rate exceeded\nRetrying after 4s: public.ecr.aws/supabase/storage-api:v1.72.1\nv1.72.1: Pulling from supabase/storage-api\ne6f31ffc071e: Already exists\nd7e873383d31: Pulling fs layer\n00981fef6de8: Pulling fs layer\n264aff2833b7: Pulling fs layer\n0a85b149f5b7: Pulling fs layer\n36a353320488: Pulling fs layer\n76b324f24cfb: Pulling fs layer\n61c321d9f410: Pulling fs layer\nbe454d00abf2: Pulling fs layer\n5736866015f8: Pulling fs layer\nf53a344a92f3: Pulling fs layer\n6fd202ee6889: Pulling fs layer\n0eb861f233e4: Pulling fs layer\n39732d1dd9ac: Pulling fs layer\nbe454d00abf2: Waiting\n5736866015f8: Waiting\nf53a344a92f3: Waiting\n6fd202ee6889: Waiting\n0eb861f233e4: Waiting\n39732d1dd9ac: Waiting\n36a353320488: Waiting\n76b324f24cfb: Waiting\n61c321d9f410: Waiting\n0a85b149f5b7: Waiting\n264aff2833b7: Download complete\n00981fef6de8: Verifying Checksum\n00981fef6de8: Download complete\n36a353320488: Verifying Checksum\n36a353320488: Download complete\nd7e873383d31: Verifying Checksum\nd7e873383d31: Download complete\n76b324f24cfb: Verifying Checksum\n76b324f24cfb: Download complete\n61c321d9f410: Verifying Checksum\n61c321d9f410: Download complete\nbe454d00abf2: Verifying Checksum\nbe454d00abf2: Download complete\n5736866015f8: Verifying Checksum\n5736866015f8: Download complete\n0a85b149f5b7: Verifying Checksum\n0a85b149f5b7: Download complete\n6fd202ee6889: Verifying Checksum\n6fd202ee6889: Download complete\n0eb861f233e4: Verifying Checksum\n0eb861f233e4: Download complete\n39732d1dd9ac: Verifying Checksum\n39732d1dd9ac: Download complete\nf53a344a92f3: Verifying Checksum\nf53a344a92f3: Download complete\nd7e873383d31: Pull complete\n00981fef6de8: Pull complete\n264aff2833b7: Pull complete\n0a85b149f5b7: Pull complete\n36a353320488: Pull complete\n76b324f24cfb: Pull complete\n61c321d9f410: Pull complete\nbe454d00abf2: Pull complete\n5736866015f8: Pull complete\nf53a344a92f3: Pull complete\n6fd202ee6889: Pull complete\n0eb861f233e4: Pull complete\n39732d1dd9ac: Pull complete\nDigest: sha256:105a2584129c9600aebed6f5ac49ca4371c92b996ecd1af7179750333e9e2120\nStatus: Downloaded newer image for public.ecr.aws/supabase/storage-api:v1.72.1\npublic.ecr.aws/supabase/storage-api:v1.72.1\nv2.196.0: Pulling from supabase/gotrue\n55afa1ecc21d: Already exists\n565df2d910df: Pulling fs layer\ndc286a8aa197: Pulling fs layer\n518a41cba818: Pulling fs layer\n1278e66a267c: Pulling fs layer\n44c4479b4ddc: Pulling fs layer\n1278e66a267c: Waiting\n44c4479b4ddc: Waiting\n565df2d910df: Verifying Checksum\n565df2d910df: Download complete\ndc286a8aa197: Verifying Checksum\ndc286a8aa197: Download complete\n565df2d910df: Pull complete\n518a41cba818: Verifying Checksum\n518a41cba818: Download complete\n1278e66a267c: Verifying Checksum\n1278e66a267c: Download complete\n44c4479b4ddc: Verifying Checksum\n44c4479b4ddc: Download complete\ndc286a8aa197: Pull complete\n518a41cba818: Pull complete\n1278e66a267c: Pull complete\n44c4479b4ddc: Pull complete\nDigest: sha256:c0c25187a6b835e65a6f6e6c6b39d090e832d40e6de5186f2c038e0411944232\nStatus: Downloaded newer image for public.ecr.aws/supabase/gotrue:v2.196.0\npublic.ecr.aws/supabase/gotrue:v2.196.0\nSeeding globals from roles.sql...\nApplying migration 20260925080000_galaxy_ledger.sql...\nApplying migration 20260925120000_galaxy_grants.sql...\nApplying migration 20260925150000_fleets_and_players.sql...\nApplying migration 20260925170000_github_to_play.sql...\nSeeding data from supabase/seed.sql...\nA new version of Supabase CLI is available: v2.118.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run psql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/access.sql\npsql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/access.sql\nshell: /usr/bin/bash -e {0}\n##[endgroup]\nBEGIN\npsql:supabase/checks/access.sql:37: ERROR:  type \"public.workspaces\" does not exist\nLINE 2: declare w public.workspaces;\n                  ^\n##[error]Process completed with exit code 3.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/82b53e81-72de-4549-9a04-0fa4e946adc8' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "label": "check on d107a8c in s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/36190067365/job/108252789695"
+            },
+            {
+              "excerpt": "e444c598c86a: Pull complete\nfbaa7199dd0a: Pull complete\n162486ca1388: Pull complete\nDigest: sha256:6942962433a569e87f228b4d4ab7e11db5deca64e43babb3a038443ad6c4f1bb\nStatus: Downloaded newer image for public.ecr.aws/supabase/postgres:17.6.1.167\npublic.ecr.aws/supabase/postgres:17.6.1.167\nInitialising schema...\nv2.130.0: Pulling from supabase/realtime\ntoomanyrequests: Rate exceeded\nRetrying after 4s: public.ecr.aws/supabase/realtime:v2.130.0\nv2.130.0: Pulling from supabase/realtime\n062e450697fa: Pulling fs layer\naadc1df55248: Pulling fs layer\n07f6c7f37eb7: Pulling fs layer\n219bccc39f10: Pulling fs layer\n9d445f162b30: Pulling fs layer\nf066bdfa8565: Pulling fs layer\n0ced55f3e717: Pulling fs layer\ne39a20378c07: Pulling fs layer\n4683247db99b: Pulling fs layer\n8554b32c0e17: Pulling fs layer\n9ae803165790: Pulling fs layer\n4f4fb700ef54: Pulling fs layer\n219bccc39f10: Waiting\n9d445f162b30: Waiting\nf066bdfa8565: Waiting\n0ced55f3e717: Waiting\ne39a20378c07: Waiting\n4683247db99b: Waiting\n8554b32c0e17: Waiting\n9ae803165790: Waiting\n4f4fb700ef54: Waiting\n062e450697fa: Verifying Checksum\n062e450697fa: Download complete\naadc1df55248: Verifying Checksum\naadc1df55248: Download complete\n07f6c7f37eb7: Verifying Checksum\n07f6c7f37eb7: Download complete\n9d445f162b30: Verifying Checksum\n9d445f162b30: Download complete\n219bccc39f10: Verifying Checksum\n219bccc39f10: Download complete\nf066bdfa8565: Verifying Checksum\nf066bdfa8565: Download complete\ne39a20378c07: Verifying Checksum\ne39a20378c07: Download complete\n4683247db99b: Verifying Checksum\n4683247db99b: Download complete\n0ced55f3e717: Verifying Checksum\n0ced55f3e717: Download complete\n4f4fb700ef54: Verifying Checksum\n4f4fb700ef54: Download complete\n9ae803165790: Verifying Checksum\n9ae803165790: Download complete\n8554b32c0e17: Verifying Checksum\n8554b32c0e17: Download complete\n062e450697fa: Pull complete\naadc1df55248: Pull complete\n07f6c7f37eb7: Pull complete\n219bccc39f10: Pull complete\n9d445f162b30: Pull complete\nf066bdfa8565: Pull complete\n0ced55f3e717: Pull complete\ne39a20378c07: Pull complete\n4683247db99b: Pull complete\n8554b32c0e17: Pull complete\n9ae803165790: Pull complete\n4f4fb700ef54: Pull complete\nDigest: sha256:002193c9ff840a4946918641901bb6aa9e2036dc9ff7590e2b11e91d1e06bf86\nStatus: Downloaded newer image for public.ecr.aws/supabase/realtime:v2.130.0\npublic.ecr.aws/supabase/realtime:v2.130.0\nv1.72.1: Pulling from supabase/storage-api\ne6f31ffc071e: Already exists\nd7e873383d31: Pulling fs layer\n00981fef6de8: Pulling fs layer\n264aff2833b7: Pulling fs layer\n0a85b149f5b7: Pulling fs layer\n36a353320488: Pulling fs layer\n76b324f24cfb: Pulling fs layer\n61c321d9f410: Pulling fs layer\nbe454d00abf2: Pulling fs layer\n5736866015f8: Pulling fs layer\nf53a344a92f3: Pulling fs layer\n6fd202ee6889: Pulling fs layer\n0eb861f233e4: Pulling fs layer\n39732d1dd9ac: Pulling fs layer\n36a353320488: Waiting\n76b324f24cfb: Waiting\n61c321d9f410: Waiting\nbe454d00abf2: Waiting\n5736866015f8: Waiting\nf53a344a92f3: Waiting\n6fd202ee6889: Waiting\n0eb861f233e4: Waiting\n39732d1dd9ac: Waiting\n0a85b149f5b7: Waiting\n264aff2833b7: Verifying Checksum\n264aff2833b7: Download complete\n00981fef6de8: Verifying Checksum\n00981fef6de8: Download complete\nd7e873383d31: Verifying Checksum\nd7e873383d31: Download complete\n36a353320488: Verifying Checksum\n36a353320488: Download complete\n76b324f24cfb: Verifying Checksum\n76b324f24cfb: Download complete\n61c321d9f410: Download complete\n0a85b149f5b7: Verifying Checksum\n0a85b149f5b7: Download complete\n5736866015f8: Verifying Checksum\n5736866015f8: Download complete\nbe454d00abf2: Download complete\n6fd202ee6889: Verifying Checksum\n6fd202ee6889: Download complete\n0eb861f233e4: Verifying Checksum\n0eb861f233e4: Download complete\n39732d1dd9ac: Verifying Checksum\n39732d1dd9ac: Download complete\nf53a344a92f3: Verifying Checksum\nf53a344a92f3: Download complete\nd7e873383d31: Pull complete\n00981fef6de8: Pull complete\n264aff2833b7: Pull complete\n0a85b149f5b7: Pull complete\n36a353320488: Pull complete\n76b324f24cfb: Pull complete\n61c321d9f410: Pull complete\nbe454d00abf2: Pull complete\n5736866015f8: Pull complete\nf53a344a92f3: Pull complete\n6fd202ee6889: Pull complete\n0eb861f233e4: Pull complete\n39732d1dd9ac: Pull complete\nDigest: sha256:105a2584129c9600aebed6f5ac49ca4371c92b996ecd1af7179750333e9e2120\nStatus: Downloaded newer image for public.ecr.aws/supabase/storage-api:v1.72.1\npublic.ecr.aws/supabase/storage-api:v1.72.1\nv2.196.0: Pulling from supabase/gotrue\n55afa1ecc21d: Already exists\n565df2d910df: Pulling fs layer\ndc286a8aa197: Pulling fs layer\n518a41cba818: Pulling fs layer\n1278e66a267c: Pulling fs layer\n44c4479b4ddc: Pulling fs layer\n1278e66a267c: Waiting\n44c4479b4ddc: Waiting\n565df2d910df: Verifying Checksum\n565df2d910df: Download complete\n565df2d910df: Pull complete\ndc286a8aa197: Verifying Checksum\ndc286a8aa197: Download complete\ndc286a8aa197: Pull complete\n1278e66a267c: Verifying Checksum\n1278e66a267c: Download complete\n518a41cba818: Verifying Checksum\n518a41cba818: Download complete\n44c4479b4ddc: Verifying Checksum\n44c4479b4ddc: Download complete\n518a41cba818: Pull complete\n1278e66a267c: Pull complete\n44c4479b4ddc: Pull complete\nDigest: sha256:c0c25187a6b835e65a6f6e6c6b39d090e832d40e6de5186f2c038e0411944232\nStatus: Downloaded newer image for public.ecr.aws/supabase/gotrue:v2.196.0\npublic.ecr.aws/supabase/gotrue:v2.196.0\nSeeding globals from roles.sql...\nApplying migration 20260925080000_galaxy_ledger.sql...\nApplying migration 20260925120000_galaxy_grants.sql...\nApplying migration 20260925150000_fleets_and_players.sql...\nApplying migration 20260925170000_github_to_play.sql...\nApplying migration 20260926090000_ask_sessions.sql...\nApplying migration 20260926100000_ask_cli_codes.sql...\nApplying migration 20260926120000_workspaces.sql...\nStopping containers...\nERROR: cannot drop function is_crew() because other objects depend on it (SQLSTATE 2BP01)\npolicy a person sees their own ask sessions on table ask_sessions depends on function is_crew()\npolicy a person opens ask sessions as themself on table ask_sessions depends on function is_crew()\npolicy a person keeps and closes their own ask sessions on table ask_sessions depends on function is_crew()\npolicy a person sees the rounds of their own sessions on table ask_rounds depends on function is_crew()\npolicy a person asks in their own open sessions on table ask_rounds depends on function is_crew()\npolicy a person answers the rounds of their own sessions on table ask_rounds depends on function is_crew()\nAt statement: 1\n-- their policies, grants and triggers go with them\ndrop function public.is_crew()\nTry rerunning the command with --debug to troubleshoot the error.\n##[error]Process completed with exit code 1.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/83198b6e-7702-4574-b7c9-45e25853510a' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "label": "check on 045fdbd in fix-s1-01-migration-after-ask-mode",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/36229136647/job/108368805417"
+            }
+          ],
+          "happened": "The check `check` was red on 2 commits in 2 slices (s1, fix-s1-01-migration-after-ask-mode): 2 of its 11 runs were red. The rules flag a check red on 2 or more commits, or in 2 or more slices.",
+          "id": "repeated-red:check",
+          "kind": "repeated-red",
+          "ref": "F1",
+          "source": "ci",
+          "title": "Check check was red again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "#143",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/143/files"
+            }
+          ],
+          "happened": "Slice s6 changed 2 paths outside its territory and off the plan’s shared ground: `supabase/checks/access.sql`, `supabase/migrations/20260926120000_workspaces.sql`.",
+          "id": "territory:s6",
+          "kind": "territory",
+          "ref": "F2",
+          "source": "delivery",
+          "title": "Slice s6 changed files outside its territory"
+        },
+        {
+          "evidence": [
+            {
+              "label": "07cb2dd (fix-s1-01-migration-after-ask-mode)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/07cb2dd513d55ae8b46bfc36a94d3674fc1317c1"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0100-workspaces/fix-s1-01-migration-after-ask-mode-01-ask-mode-crew-is-any-workspace.md` had 52 lines added across 1 commits, none of them in the final diff: 52 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0100-workspaces/fix-s1-01-migration-after-ask-mode-01-ask-mode-crew-is-any-workspace.md",
+          "kind": "churn",
+          "ref": "F3",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0100-workspaces/fix-s1-01-migration-after-ask-mode-01-ask-mode-crew-is-any-workspace.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "5f20491 (s6)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/5f20491e60b7f1deeb6475559dd023a65ece83e8"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0100-workspaces/s6-01-game-boy-body-colours-are-tokens.md` had 51 lines added across 1 commits, none of them in the final diff: 51 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0100-workspaces/s6-01-game-boy-body-colours-are-tokens.md",
+          "kind": "churn",
+          "ref": "F4",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0100-workspaces/s6-01-game-boy-body-colours-are-tokens.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "ee599f7 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/ee599f70d8db3484e464bc4fdafca378c92b7cbe"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0100-workspaces/s2-01-letters-take-five-stripes.md` had 50 lines added across 1 commits, none of them in the final diff: 50 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0100-workspaces/s2-01-letters-take-five-stripes.md",
+          "kind": "churn",
+          "ref": "F5",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0100-workspaces/s2-01-letters-take-five-stripes.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "f88e62c (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/f88e62c059907e6817dcad9ee3e19cce85b7428d"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0100-workspaces/s5-01-ask-mode-keeps-its-email-check.md` had 50 lines added across 1 commits, none of them in the final diff: 50 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0100-workspaces/s5-01-ask-mode-keeps-its-email-check.md",
+          "kind": "churn",
+          "ref": "F6",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0100-workspaces/s5-01-ask-mode-keeps-its-email-check.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "5f20491 (s6)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/5f20491e60b7f1deeb6475559dd023a65ece83e8"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0100-workspaces/s6-02-what-follows-a-theme.md` had 50 lines added across 1 commits, none of them in the final diff: 50 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0100-workspaces/s6-02-what-follows-a-theme.md",
+          "kind": "churn",
+          "ref": "F7",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0100-workspaces/s6-02-what-follows-a-theme.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "a5d6c13 (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/a5d6c13e73cf7396e6afe8f4ca0cb7e09cbbbf1c"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0100-workspaces/s1-01-migration-after-ask-mode.md` had 49 lines added across 1 commits, none of them in the final diff: 49 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0100-workspaces/s1-01-migration-after-ask-mode.md",
+          "kind": "churn",
+          "ref": "F8",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0100-workspaces/s1-01-migration-after-ask-mode.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "a5d6c13 (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/a5d6c13e73cf7396e6afe8f4ca0cb7e09cbbbf1c"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0100-workspaces/s1-02-theme-colours-lowercase.md` had 49 lines added across 1 commits, none of them in the final diff: 49 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0100-workspaces/s1-02-theme-colours-lowercase.md",
+          "kind": "churn",
+          "ref": "F9",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0100-workspaces/s1-02-theme-colours-lowercase.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "7e7ab40 (s4)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/7e7ab408d3cf85d532ae317bb41530d572ac0c33"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0100-workspaces/s4-01-game-scripts-refuse-stray-arguments.md` had 49 lines added across 1 commits, none of them in the final diff: 49 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0100-workspaces/s4-01-game-scripts-refuse-stray-arguments.md",
+          "kind": "churn",
+          "ref": "F10",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0100-workspaces/s4-01-game-scripts-refuse-stray-arguments.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "f88e62c (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/f88e62c059907e6817dcad9ee3e19cce85b7428d"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0100-workspaces/s5-02-out-of-reach-is-not-outsider.md` had 49 lines added across 1 commits, none of them in the final diff: 49 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0100-workspaces/s5-02-out-of-reach-is-not-outsider.md",
+          "kind": "churn",
+          "ref": "F11",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0100-workspaces/s5-02-out-of-reach-is-not-outsider.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "a5d6c13 (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/a5d6c13e73cf7396e6afe8f4ca0cb7e09cbbbf1c"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0100-workspaces/s1-03-link-github-needs-a-workspace.md` had 48 lines added across 1 commits, none of them in the final diff: 48 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0100-workspaces/s1-03-link-github-needs-a-workspace.md",
+          "kind": "churn",
+          "ref": "F12",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0100-workspaces/s1-03-link-github-needs-a-workspace.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "f88e62c (s5)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/f88e62c059907e6817dcad9ee3e19cce85b7428d"
+            }
+          ],
+          "happened": "`.omni-loop/delivery/outbox/0100-workspaces/s5-03-joining-at-sign-in-is-best-effort.md` had 48 lines added across 1 commits, none of them in the final diff: 48 lines of churn. The rules flag a file whose churn is at least 50% of its final added lines and at least 40 lines.",
+          "id": "churn:.omni-loop/delivery/outbox/0100-workspaces/s5-03-joining-at-sign-in-is-best-effort.md",
+          "kind": "churn",
+          "ref": "F13",
+          "source": "churn",
+          "title": "Much of `.omni-loop/delivery/outbox/0100-workspaces/s5-03-joining-at-sign-in-is-best-effort.md` was written, then rewritten"
+        },
+        {
+          "evidence": [
+            {
+              "label": "0882516 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/0882516bb9b55e1fd4b29dbe26ac48929dada467"
+            },
+            {
+              "label": "e50a7b9 (s6)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/e50a7b96e6c483b8a2fbf6c6e01a27b159a55509"
+            },
+            {
+              "label": "4055b28 (s6)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/4055b287ec6964835d9deb3799ac2f002b38debf"
+            },
+            {
+              "label": "`apps/galaxy/src/arcade/mark.ts` lines 93-94, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/bdcc9452b9691ee3bae624e64ab8d31d0fb2ca0d/apps/galaxy/src/arcade/mark.ts#L93-L94"
+            }
+          ],
+          "happened": "Lines 93-94 of `apps/galaxy/src/arcade/mark.ts`, as merged, were written and rewritten in 3 commits, in s2 and s6; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:apps/galaxy/src/arcade/mark.ts:93-94",
+          "kind": "churn",
+          "ref": "F14",
+          "source": "churn",
+          "title": "Lines 93-94 of `apps/galaxy/src/arcade/mark.ts` were rewritten again and again"
+        }
+      ],
+      "kinds": {
+        "churn": {
+          "added": 4439,
+          "churn": 594,
+          "commits": 36,
+          "files": [
+            {
+              "added": 52,
+              "churn": 52,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0100-workspaces/fix-s1-01-migration-after-ask-mode-01-ask-mode-crew-is-any-workspace.md",
+              "percent": null
+            },
+            {
+              "added": 51,
+              "churn": 51,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0100-workspaces/s6-01-game-boy-body-colours-are-tokens.md",
+              "percent": null
+            },
+            {
+              "added": 50,
+              "churn": 50,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0100-workspaces/s2-01-letters-take-five-stripes.md",
+              "percent": null
+            },
+            {
+              "added": 50,
+              "churn": 50,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0100-workspaces/s5-01-ask-mode-keeps-its-email-check.md",
+              "percent": null
+            },
+            {
+              "added": 50,
+              "churn": 50,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0100-workspaces/s6-02-what-follows-a-theme.md",
+              "percent": null
+            },
+            {
+              "added": 49,
+              "churn": 49,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0100-workspaces/s1-01-migration-after-ask-mode.md",
+              "percent": null
+            },
+            {
+              "added": 49,
+              "churn": 49,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0100-workspaces/s1-02-theme-colours-lowercase.md",
+              "percent": null
+            },
+            {
+              "added": 49,
+              "churn": 49,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0100-workspaces/s4-01-game-scripts-refuse-stray-arguments.md",
+              "percent": null
+            },
+            {
+              "added": 49,
+              "churn": 49,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0100-workspaces/s5-02-out-of-reach-is-not-outsider.md",
+              "percent": null
+            },
+            {
+              "added": 48,
+              "churn": 48,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0100-workspaces/s1-03-link-github-needs-a-workspace.md",
+              "percent": null
+            },
+            {
+              "added": 48,
+              "churn": 48,
+              "commits": 1,
+              "finalAdded": 0,
+              "path": ".omni-loop/delivery/outbox/0100-workspaces/s5-03-joining-at-sign-in-is-best-effort.md",
+              "percent": null
+            },
+            {
+              "added": 500,
+              "churn": 17,
+              "commits": 4,
+              "finalAdded": 483,
+              "path": "supabase/checks/access.sql",
+              "percent": 4
+            },
+            {
+              "added": 101,
+              "churn": 12,
+              "commits": 3,
+              "finalAdded": 89,
+              "path": "apps/galaxy/src/arcade/mark.ts",
+              "percent": 13
+            },
+            {
+              "added": 35,
+              "churn": 7,
+              "commits": 2,
+              "finalAdded": 28,
+              "path": "apps/galaxy/src/arcade/ArcadeApp.tsx",
+              "percent": 25
+            },
+            {
+              "added": 112,
+              "churn": 3,
+              "commits": 2,
+              "finalAdded": 109,
+              "path": "apps/galaxy/src/arcade/mark.test.ts",
+              "percent": 3
+            },
+            {
+              "added": 26,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 24,
+              "path": "apps/galaxy/src/arcade/brand.ts",
+              "percent": 8
+            },
+            {
+              "added": 431,
+              "churn": 2,
+              "commits": 3,
+              "finalAdded": 429,
+              "path": "supabase/migrations/20260926120000_workspaces.sql",
+              "percent": 0
+            },
+            {
+              "added": 84,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 83,
+              "path": "apps/galaxy/src/arcade/scenes/attract.test.ts",
+              "percent": 1
+            },
+            {
+              "added": 5,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 4,
+              "path": "apps/galaxy/src/arcade/scenes/index.test.ts",
+              "percent": 25
+            },
+            {
+              "added": 18,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 17,
+              "path": "apps/galaxy/src/arcade/scenes/join.test.ts",
+              "percent": 6
+            },
+            {
+              "added": 5,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 4,
+              "path": "apps/galaxy/src/arcade/scenes/menu.test.ts",
+              "percent": 25
+            },
+            {
+              "added": 5,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 4,
+              "path": "apps/galaxy/src/arcade/scenes/planet.test.ts",
+              "percent": 25
+            },
+            {
+              "added": 12,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 11,
+              "path": "apps/galaxy/src/data/supabase-server.ts",
+              "percent": 9
+            }
+          ],
+          "finalAdded": 3850,
+          "leftOut": {
+            "generated": [],
+            "lockfile": [
+              "pnpm-lock.yaml"
+            ]
+          },
+          "noPatch": [],
+          "notCounted": [],
+          "pulls": 7,
+          "ranges": [
+            {
+              "commits": [
+                "0882516",
+                "e50a7b9",
+                "4055b28"
+              ],
+              "from": 93,
+              "path": "apps/galaxy/src/arcade/mark.ts",
+              "slices": [
+                "s2",
+                "s6"
+              ],
+              "to": 94
+            }
+          ],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [
+            {
+              "check": "check",
+              "red": 2,
+              "redCommits": [
+                "d107a8c",
+                "045fdbd"
+              ],
+              "redSlices": [
+                "s1",
+                "fix-s1-01-migration-after-ask-mode"
+              ],
+              "redThenGreen": [],
+              "runs": 11
+            }
+          ],
+          "redRuns": [
+            {
+              "attempt": 1,
+              "check": "check",
+              "commit": "d107a8c",
+              "counts": null,
+              "excerpt": "8e6c5c97bf68: Pull complete\ne444c598c86a: Pull complete\nfbaa7199dd0a: Pull complete\n162486ca1388: Pull complete\nDigest: sha256:6942962433a569e87f228b4d4ab7e11db5deca64e43babb3a038443ad6c4f1bb\nStatus: Downloaded newer image for public.ecr.aws/supabase/postgres:17.6.1.167\npublic.ecr.aws/supabase/postgres:17.6.1.167\nInitialising schema...\nError response from daemon: toomanyrequests: Rate exceeded\nRetrying after 4s: public.ecr.aws/supabase/realtime:v2.130.0\nv2.130.0: Pulling from supabase/realtime\n062e450697fa: Pulling fs layer\naadc1df55248: Pulling fs layer\n07f6c7f37eb7: Pulling fs layer\n219bccc39f10: Pulling fs layer\n9d445f162b30: Pulling fs layer\nf066bdfa8565: Pulling fs layer\n0ced55f3e717: Pulling fs layer\ne39a20378c07: Pulling fs layer\n4683247db99b: Pulling fs layer\n8554b32c0e17: Pulling fs layer\n9ae803165790: Pulling fs layer\n4f4fb700ef54: Pulling fs layer\n219bccc39f10: Waiting\n9d445f162b30: Waiting\nf066bdfa8565: Waiting\n0ced55f3e717: Waiting\ne39a20378c07: Waiting\n4683247db99b: Waiting\n8554b32c0e17: Waiting\n9ae803165790: Waiting\n4f4fb700ef54: Waiting\n062e450697fa: Verifying Checksum\n062e450697fa: Download complete\naadc1df55248: Verifying Checksum\naadc1df55248: Download complete\n07f6c7f37eb7: Verifying Checksum\n07f6c7f37eb7: Download complete\n219bccc39f10: Verifying Checksum\n219bccc39f10: Download complete\n9d445f162b30: Verifying Checksum\n9d445f162b30: Download complete\n0ced55f3e717: Verifying Checksum\n0ced55f3e717: Download complete\nf066bdfa8565: Verifying Checksum\nf066bdfa8565: Download complete\ne39a20378c07: Verifying Checksum\ne39a20378c07: Download complete\n4683247db99b: Verifying Checksum\n4683247db99b: Download complete\n4f4fb700ef54: Verifying Checksum\n4f4fb700ef54: Download complete\n9ae803165790: Verifying Checksum\n9ae803165790: Download complete\n8554b32c0e17: Verifying Checksum\n8554b32c0e17: Download complete\n062e450697fa: Pull complete\naadc1df55248: Pull complete\n07f6c7f37eb7: Pull complete\n219bccc39f10: Pull complete\n9d445f162b30: Pull complete\nf066bdfa8565: Pull complete\n0ced55f3e717: Pull complete\ne39a20378c07: Pull complete\n4683247db99b: Pull complete\n8554b32c0e17: Pull complete\n9ae803165790: Pull complete\n4f4fb700ef54: Pull complete\nDigest: sha256:002193c9ff840a4946918641901bb6aa9e2036dc9ff7590e2b11e91d1e06bf86\nStatus: Downloaded newer image for public.ecr.aws/supabase/realtime:v2.130.0\npublic.ecr.aws/supabase/realtime:v2.130.0\nv1.72.1: Pulling from supabase/storage-api\ntoomanyrequests: Rate exceeded\nRetrying after 4s: public.ecr.aws/supabase/storage-api:v1.72.1\nv1.72.1: Pulling from supabase/storage-api\ne6f31ffc071e: Already exists\nd7e873383d31: Pulling fs layer\n00981fef6de8: Pulling fs layer\n264aff2833b7: Pulling fs layer\n0a85b149f5b7: Pulling fs layer\n36a353320488: Pulling fs layer\n76b324f24cfb: Pulling fs layer\n61c321d9f410: Pulling fs layer\nbe454d00abf2: Pulling fs layer\n5736866015f8: Pulling fs layer\nf53a344a92f3: Pulling fs layer\n6fd202ee6889: Pulling fs layer\n0eb861f233e4: Pulling fs layer\n39732d1dd9ac: Pulling fs layer\nbe454d00abf2: Waiting\n5736866015f8: Waiting\nf53a344a92f3: Waiting\n6fd202ee6889: Waiting\n0eb861f233e4: Waiting\n39732d1dd9ac: Waiting\n36a353320488: Waiting\n76b324f24cfb: Waiting\n61c321d9f410: Waiting\n0a85b149f5b7: Waiting\n264aff2833b7: Download complete\n00981fef6de8: Verifying Checksum\n00981fef6de8: Download complete\n36a353320488: Verifying Checksum\n36a353320488: Download complete\nd7e873383d31: Verifying Checksum\nd7e873383d31: Download complete\n76b324f24cfb: Verifying Checksum\n76b324f24cfb: Download complete\n61c321d9f410: Verifying Checksum\n61c321d9f410: Download complete\nbe454d00abf2: Verifying Checksum\nbe454d00abf2: Download complete\n5736866015f8: Verifying Checksum\n5736866015f8: Download complete\n0a85b149f5b7: Verifying Checksum\n0a85b149f5b7: Download complete\n6fd202ee6889: Verifying Checksum\n6fd202ee6889: Download complete\n0eb861f233e4: Verifying Checksum\n0eb861f233e4: Download complete\n39732d1dd9ac: Verifying Checksum\n39732d1dd9ac: Download complete\nf53a344a92f3: Verifying Checksum\nf53a344a92f3: Download complete\nd7e873383d31: Pull complete\n00981fef6de8: Pull complete\n264aff2833b7: Pull complete\n0a85b149f5b7: Pull complete\n36a353320488: Pull complete\n76b324f24cfb: Pull complete\n61c321d9f410: Pull complete\nbe454d00abf2: Pull complete\n5736866015f8: Pull complete\nf53a344a92f3: Pull complete\n6fd202ee6889: Pull complete\n0eb861f233e4: Pull complete\n39732d1dd9ac: Pull complete\nDigest: sha256:105a2584129c9600aebed6f5ac49ca4371c92b996ecd1af7179750333e9e2120\nStatus: Downloaded newer image for public.ecr.aws/supabase/storage-api:v1.72.1\npublic.ecr.aws/supabase/storage-api:v1.72.1\nv2.196.0: Pulling from supabase/gotrue\n55afa1ecc21d: Already exists\n565df2d910df: Pulling fs layer\ndc286a8aa197: Pulling fs layer\n518a41cba818: Pulling fs layer\n1278e66a267c: Pulling fs layer\n44c4479b4ddc: Pulling fs layer\n1278e66a267c: Waiting\n44c4479b4ddc: Waiting\n565df2d910df: Verifying Checksum\n565df2d910df: Download complete\ndc286a8aa197: Verifying Checksum\ndc286a8aa197: Download complete\n565df2d910df: Pull complete\n518a41cba818: Verifying Checksum\n518a41cba818: Download complete\n1278e66a267c: Verifying Checksum\n1278e66a267c: Download complete\n44c4479b4ddc: Verifying Checksum\n44c4479b4ddc: Download complete\ndc286a8aa197: Pull complete\n518a41cba818: Pull complete\n1278e66a267c: Pull complete\n44c4479b4ddc: Pull complete\nDigest: sha256:c0c25187a6b835e65a6f6e6c6b39d090e832d40e6de5186f2c038e0411944232\nStatus: Downloaded newer image for public.ecr.aws/supabase/gotrue:v2.196.0\npublic.ecr.aws/supabase/gotrue:v2.196.0\nSeeding globals from roles.sql...\nApplying migration 20260925080000_galaxy_ledger.sql...\nApplying migration 20260925120000_galaxy_grants.sql...\nApplying migration 20260925150000_fleets_and_players.sql...\nApplying migration 20260925170000_github_to_play.sql...\nSeeding data from supabase/seed.sql...\nA new version of Supabase CLI is available: v2.118.0 (currently installed v2.117.0)\nWe recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli\n##[group]Run psql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/access.sql\npsql '***127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/access.sql\nshell: /usr/bin/bash -e {0}\n##[endgroup]\nBEGIN\npsql:supabase/checks/access.sql:37: ERROR:  type \"public.workspaces\" does not exist\nLINE 2: declare w public.workspaces;\n                  ^\n##[error]Process completed with exit code 3.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/82b53e81-72de-4549-9a04-0fa4e946adc8' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 108252789695,
+              "log": "read",
+              "reporter": null,
+              "slice": "s1",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/36190067365/job/108252789695"
+            },
+            {
+              "attempt": 1,
+              "check": "check",
+              "commit": "045fdbd",
+              "counts": null,
+              "excerpt": "e444c598c86a: Pull complete\nfbaa7199dd0a: Pull complete\n162486ca1388: Pull complete\nDigest: sha256:6942962433a569e87f228b4d4ab7e11db5deca64e43babb3a038443ad6c4f1bb\nStatus: Downloaded newer image for public.ecr.aws/supabase/postgres:17.6.1.167\npublic.ecr.aws/supabase/postgres:17.6.1.167\nInitialising schema...\nv2.130.0: Pulling from supabase/realtime\ntoomanyrequests: Rate exceeded\nRetrying after 4s: public.ecr.aws/supabase/realtime:v2.130.0\nv2.130.0: Pulling from supabase/realtime\n062e450697fa: Pulling fs layer\naadc1df55248: Pulling fs layer\n07f6c7f37eb7: Pulling fs layer\n219bccc39f10: Pulling fs layer\n9d445f162b30: Pulling fs layer\nf066bdfa8565: Pulling fs layer\n0ced55f3e717: Pulling fs layer\ne39a20378c07: Pulling fs layer\n4683247db99b: Pulling fs layer\n8554b32c0e17: Pulling fs layer\n9ae803165790: Pulling fs layer\n4f4fb700ef54: Pulling fs layer\n219bccc39f10: Waiting\n9d445f162b30: Waiting\nf066bdfa8565: Waiting\n0ced55f3e717: Waiting\ne39a20378c07: Waiting\n4683247db99b: Waiting\n8554b32c0e17: Waiting\n9ae803165790: Waiting\n4f4fb700ef54: Waiting\n062e450697fa: Verifying Checksum\n062e450697fa: Download complete\naadc1df55248: Verifying Checksum\naadc1df55248: Download complete\n07f6c7f37eb7: Verifying Checksum\n07f6c7f37eb7: Download complete\n9d445f162b30: Verifying Checksum\n9d445f162b30: Download complete\n219bccc39f10: Verifying Checksum\n219bccc39f10: Download complete\nf066bdfa8565: Verifying Checksum\nf066bdfa8565: Download complete\ne39a20378c07: Verifying Checksum\ne39a20378c07: Download complete\n4683247db99b: Verifying Checksum\n4683247db99b: Download complete\n0ced55f3e717: Verifying Checksum\n0ced55f3e717: Download complete\n4f4fb700ef54: Verifying Checksum\n4f4fb700ef54: Download complete\n9ae803165790: Verifying Checksum\n9ae803165790: Download complete\n8554b32c0e17: Verifying Checksum\n8554b32c0e17: Download complete\n062e450697fa: Pull complete\naadc1df55248: Pull complete\n07f6c7f37eb7: Pull complete\n219bccc39f10: Pull complete\n9d445f162b30: Pull complete\nf066bdfa8565: Pull complete\n0ced55f3e717: Pull complete\ne39a20378c07: Pull complete\n4683247db99b: Pull complete\n8554b32c0e17: Pull complete\n9ae803165790: Pull complete\n4f4fb700ef54: Pull complete\nDigest: sha256:002193c9ff840a4946918641901bb6aa9e2036dc9ff7590e2b11e91d1e06bf86\nStatus: Downloaded newer image for public.ecr.aws/supabase/realtime:v2.130.0\npublic.ecr.aws/supabase/realtime:v2.130.0\nv1.72.1: Pulling from supabase/storage-api\ne6f31ffc071e: Already exists\nd7e873383d31: Pulling fs layer\n00981fef6de8: Pulling fs layer\n264aff2833b7: Pulling fs layer\n0a85b149f5b7: Pulling fs layer\n36a353320488: Pulling fs layer\n76b324f24cfb: Pulling fs layer\n61c321d9f410: Pulling fs layer\nbe454d00abf2: Pulling fs layer\n5736866015f8: Pulling fs layer\nf53a344a92f3: Pulling fs layer\n6fd202ee6889: Pulling fs layer\n0eb861f233e4: Pulling fs layer\n39732d1dd9ac: Pulling fs layer\n36a353320488: Waiting\n76b324f24cfb: Waiting\n61c321d9f410: Waiting\nbe454d00abf2: Waiting\n5736866015f8: Waiting\nf53a344a92f3: Waiting\n6fd202ee6889: Waiting\n0eb861f233e4: Waiting\n39732d1dd9ac: Waiting\n0a85b149f5b7: Waiting\n264aff2833b7: Verifying Checksum\n264aff2833b7: Download complete\n00981fef6de8: Verifying Checksum\n00981fef6de8: Download complete\nd7e873383d31: Verifying Checksum\nd7e873383d31: Download complete\n36a353320488: Verifying Checksum\n36a353320488: Download complete\n76b324f24cfb: Verifying Checksum\n76b324f24cfb: Download complete\n61c321d9f410: Download complete\n0a85b149f5b7: Verifying Checksum\n0a85b149f5b7: Download complete\n5736866015f8: Verifying Checksum\n5736866015f8: Download complete\nbe454d00abf2: Download complete\n6fd202ee6889: Verifying Checksum\n6fd202ee6889: Download complete\n0eb861f233e4: Verifying Checksum\n0eb861f233e4: Download complete\n39732d1dd9ac: Verifying Checksum\n39732d1dd9ac: Download complete\nf53a344a92f3: Verifying Checksum\nf53a344a92f3: Download complete\nd7e873383d31: Pull complete\n00981fef6de8: Pull complete\n264aff2833b7: Pull complete\n0a85b149f5b7: Pull complete\n36a353320488: Pull complete\n76b324f24cfb: Pull complete\n61c321d9f410: Pull complete\nbe454d00abf2: Pull complete\n5736866015f8: Pull complete\nf53a344a92f3: Pull complete\n6fd202ee6889: Pull complete\n0eb861f233e4: Pull complete\n39732d1dd9ac: Pull complete\nDigest: sha256:105a2584129c9600aebed6f5ac49ca4371c92b996ecd1af7179750333e9e2120\nStatus: Downloaded newer image for public.ecr.aws/supabase/storage-api:v1.72.1\npublic.ecr.aws/supabase/storage-api:v1.72.1\nv2.196.0: Pulling from supabase/gotrue\n55afa1ecc21d: Already exists\n565df2d910df: Pulling fs layer\ndc286a8aa197: Pulling fs layer\n518a41cba818: Pulling fs layer\n1278e66a267c: Pulling fs layer\n44c4479b4ddc: Pulling fs layer\n1278e66a267c: Waiting\n44c4479b4ddc: Waiting\n565df2d910df: Verifying Checksum\n565df2d910df: Download complete\n565df2d910df: Pull complete\ndc286a8aa197: Verifying Checksum\ndc286a8aa197: Download complete\ndc286a8aa197: Pull complete\n1278e66a267c: Verifying Checksum\n1278e66a267c: Download complete\n518a41cba818: Verifying Checksum\n518a41cba818: Download complete\n44c4479b4ddc: Verifying Checksum\n44c4479b4ddc: Download complete\n518a41cba818: Pull complete\n1278e66a267c: Pull complete\n44c4479b4ddc: Pull complete\nDigest: sha256:c0c25187a6b835e65a6f6e6c6b39d090e832d40e6de5186f2c038e0411944232\nStatus: Downloaded newer image for public.ecr.aws/supabase/gotrue:v2.196.0\npublic.ecr.aws/supabase/gotrue:v2.196.0\nSeeding globals from roles.sql...\nApplying migration 20260925080000_galaxy_ledger.sql...\nApplying migration 20260925120000_galaxy_grants.sql...\nApplying migration 20260925150000_fleets_and_players.sql...\nApplying migration 20260925170000_github_to_play.sql...\nApplying migration 20260926090000_ask_sessions.sql...\nApplying migration 20260926100000_ask_cli_codes.sql...\nApplying migration 20260926120000_workspaces.sql...\nStopping containers...\nERROR: cannot drop function is_crew() because other objects depend on it (SQLSTATE 2BP01)\npolicy a person sees their own ask sessions on table ask_sessions depends on function is_crew()\npolicy a person opens ask sessions as themself on table ask_sessions depends on function is_crew()\npolicy a person keeps and closes their own ask sessions on table ask_sessions depends on function is_crew()\npolicy a person sees the rounds of their own sessions on table ask_rounds depends on function is_crew()\npolicy a person asks in their own open sessions on table ask_rounds depends on function is_crew()\npolicy a person answers the rounds of their own sessions on table ask_rounds depends on function is_crew()\nAt statement: 1\n-- their policies, grants and triggers go with them\ndrop function public.is_crew()\nTry rerunning the command with --debug to troubleshoot the error.\n##[error]Process completed with exit code 1.\nPost job cleanup.\n[command]/usr/bin/git version\ngit version 2.55.0\nTemporarily overriding HOME='/home/runner/work/_temp/83198b6e-7702-4574-b7c9-45e25853510a' before making global git config changes\nAdding repository directory to the temporary git global config as a safe directory\n[command]/usr/bin/git config --global --add safe.directory /home/runner/work/vertuo-omni-loop/vertuo-omni-loop\n[command]/usr/bin/git config --local --name-only --get-regexp core\\.sshCommand\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'core\\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp http\\.https\\:\\/\\/github\\.com\\/\\.extraheader\nhttp.https://github.com/.extraheader\n[command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader\n[command]/usr/bin/git submodule foreach --recursive sh -c \"git config --local --name-only --get-regexp 'http\\.https\\:\\/\\/github\\.com\\/\\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\"\n[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\\.gitdir:\n[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url\nCleaning up orphan processes\n##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, supabase/setup-cli@v1. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/",
+              "id": 108368805417,
+              "log": "read",
+              "reporter": null,
+              "slice": "fix-s1-01-migration-after-ask-mode",
+              "tests": [],
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/actions/runs/36229136647/job/108368805417"
+            }
+          ],
+          "slices": [
+            "s1",
+            "s3",
+            "s4",
+            "s2",
+            "fix-s1-01-migration-after-ask-mode",
+            "s5",
+            "s6"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 1,
+            "commits": 11,
+            "red": 2,
+            "runs": 11,
+            "slices": 3
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 11,
+            "agreed": 0,
+            "byRank": {
+              "medium": 11
+            },
+            "drifted": 0,
+            "drifts": [],
+            "file": ".omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md",
+            "raised": 11,
+            "reworked": 0
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "stuck": 0
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  107
+                ],
+                "slice": "s1",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  108
+                ],
+                "slice": "s3",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  117
+                ],
+                "slice": "s4",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  137
+                ],
+                "slice": "s2",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  138
+                ],
+                "slice": "fix-s1-01-migration-after-ask-mode",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  139
+                ],
+                "slice": "s5",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  143
+                ],
+                "slice": "s6",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 8,
+              "red": 0,
+              "reviews": 0,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 0,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 101,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/101"
+              },
+              {
+                "pr": 107,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/107"
+              },
+              {
+                "pr": 108,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s3",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/108"
+              },
+              {
+                "pr": 117,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s4",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/117"
+              },
+              {
+                "pr": 137,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s2",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/137"
+              },
+              {
+                "pr": 138,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "fix-s1-01-migration-after-ask-mode",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/138"
+              },
+              {
+                "pr": 139,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s5",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/139"
+              },
+              {
+                "pr": 143,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s6",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/143"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 2,
+              "graded": 6,
+              "shared": 0,
+              "unplanned": 1,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [],
+                "files": 11,
+                "pr": 107,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/107"
+              },
+              {
+                "breaches": [],
+                "files": 4,
+                "pr": 108,
+                "shared": [],
+                "slice": "s3",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/108"
+              },
+              {
+                "breaches": [],
+                "files": 17,
+                "pr": 117,
+                "shared": [],
+                "slice": "s4",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/117"
+              },
+              {
+                "breaches": [],
+                "files": 13,
+                "pr": 137,
+                "shared": [],
+                "slice": "s2",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/137"
+              },
+              {
+                "breaches": null,
+                "files": 4,
+                "pr": 138,
+                "shared": null,
+                "slice": "fix-s1-01-migration-after-ask-mode",
+                "status": "unplanned",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/138"
+              },
+              {
+                "breaches": [],
+                "files": 20,
+                "pr": 139,
+                "shared": [],
+                "slice": "s5",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/139"
+              },
+              {
+                "breaches": [
+                  "supabase/checks/access.sql",
+                  "supabase/migrations/20260926120000_workspaces.sql"
+                ],
+                "files": 30,
+                "pr": 143,
+                "shared": [],
+                "slice": "s6",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/143"
+              }
+            ],
+            "reason": null,
+            "sharedGround": [
+              "README.md",
+              "apps/galaxy/README.md",
+              "apps/galaxy/src/arcade/ArcadeApp.tsx",
+              "apps/galaxy/src/arcade/mark",
+              "apps/galaxy/src/arcade/brand",
+              "apps/galaxy/src/arcade/scenes/"
+            ]
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-09-26T14:41:45Z",
+            "minutes": 1089,
+            "number": 101,
+            "openedAt": "2026-09-25T20:32:27Z",
+            "readyAt": "2026-09-26T09:25:18Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/101"
+          },
+          "medianMinutes": 22,
+          "sliceCount": 7,
+          "slices": [
+            {
+              "closedAt": "2026-09-25T21:27:12Z",
+              "mergedAt": "2026-09-25T21:27:12Z",
+              "mergedWave": 1,
+              "minutes": 28,
+              "openedAt": "2026-09-25T20:59:29Z",
+              "plannedWave": 1,
+              "pr": 107,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/107"
+            },
+            {
+              "closedAt": "2026-09-25T21:27:48Z",
+              "mergedAt": "2026-09-25T21:27:48Z",
+              "mergedWave": 1,
+              "minutes": 28,
+              "openedAt": "2026-09-25T20:59:36Z",
+              "plannedWave": 1,
+              "pr": 108,
+              "slice": "s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/108"
+            },
+            {
+              "closedAt": "2026-09-25T21:43:44Z",
+              "mergedAt": "2026-09-25T21:43:44Z",
+              "mergedWave": 2,
+              "minutes": 14,
+              "openedAt": "2026-09-25T21:29:25Z",
+              "plannedWave": 2,
+              "pr": 117,
+              "slice": "s4",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/117"
+            },
+            {
+              "closedAt": "2026-09-26T08:29:15Z",
+              "mergedAt": "2026-09-26T08:29:15Z",
+              "mergedWave": 3,
+              "minutes": 22,
+              "openedAt": "2026-09-26T08:07:05Z",
+              "plannedWave": 1,
+              "pr": 137,
+              "slice": "s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/137"
+            },
+            {
+              "closedAt": "2026-09-26T08:22:04Z",
+              "mergedAt": "2026-09-26T08:22:04Z",
+              "mergedWave": 3,
+              "minutes": 15,
+              "openedAt": "2026-09-26T08:07:10Z",
+              "plannedWave": null,
+              "pr": 138,
+              "slice": "fix-s1-01-migration-after-ask-mode",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/138"
+            },
+            {
+              "closedAt": "2026-09-26T08:46:42Z",
+              "mergedAt": "2026-09-26T08:46:42Z",
+              "mergedWave": 4,
+              "minutes": 16,
+              "openedAt": "2026-09-26T08:30:37Z",
+              "plannedWave": 2,
+              "pr": 139,
+              "slice": "s5",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/139"
+            },
+            {
+              "closedAt": "2026-09-26T09:20:46Z",
+              "mergedAt": "2026-09-26T09:20:46Z",
+              "mergedWave": 5,
+              "minutes": 33,
+              "openedAt": "2026-09-26T08:47:54Z",
+              "plannedWave": 3,
+              "pr": 143,
+              "slice": "s6",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/143"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 5,
+            "planned": 3
+          }
+        }
+      },
+      "prd": {
+        "folder": ".omni-loop/delivery/shipped/0100-workspaces",
+        "number": 100,
+        "state": "shipped",
+        "title": "Workspaces — Vertuoza becomes the first of many",
+        "topic": "workspaces"
+      },
+      "rules": {
+        "fieldCaps": {
+          "lesson": 400,
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600
+        },
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "thresholds": {
+          "afterMergeDays": 14,
+          "churnFileLines": 40,
+          "churnFilePercent": 50,
+          "churnRangeCommits": 3,
+          "failingTestRuns": 2,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "slowSliceFactor": 3
+        },
+        "version": 1
+      },
+      "run": "merge",
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": []
+      },
+      "issues": {
+        "repeated-red:check": {
+          "number": 178,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/178",
+          "state": "open"
+        },
+        "territory:s6": {
+          "number": 179,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/179",
+          "state": "open"
+        },
+        "churn:.omni-loop/delivery/outbox/0100-workspaces/fix-s1-01-migration-after-ask-mode-01-ask-mode-crew-is-any-workspace.md": {
+          "number": 180,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/180",
+          "state": "open"
+        },
+        "churn:.omni-loop/delivery/outbox/0100-workspaces/s6-01-game-boy-body-colours-are-tokens.md": {
+          "number": 181,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/181",
+          "state": "open"
+        },
+        "churn:.omni-loop/delivery/outbox/0100-workspaces/s2-01-letters-take-five-stripes.md": {
+          "number": 182,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/182",
+          "state": "open"
+        }
+      }
+    }
+  ]
+}

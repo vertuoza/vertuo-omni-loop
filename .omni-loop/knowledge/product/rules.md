@@ -358,3 +358,228 @@ Stated: 2026-09-26
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-26, PR #101
 Proposed: harvest 2026-09-26
+
+## BR-PRODUCT-31
+
+The public /design page dresses its heroes only in the six built-in fleets of the demo galaxy, never in any workspace's own fleets, whoever is viewing.
+
+Serves: P-PRODUCT-29
+Source: .omni-loop/delivery/shipped/0141-design-system/outbox/settled.md, entry s6-01-design-page-shows-the-built-in-fleets, PRD #141
+Enforced by: unenforced
+Stated: 2026-09-26
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-26, PR #153
+Proposed: harvest 2026-09-26
+
+## BR-PRODUCT-32
+
+The arcade shows only the XP earned in the workspace it plays for a person, the one they joined first. A failed XP read shows XP out of reach with no level, while the galaxy, fleets and crew still show as read.
+
+Serves: P-PRODUCT-30
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s2-01-xp-read-in-the-workspace-played, PRD #160
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-27, PR #161
+Proposed: harvest 2026-09-27
+
+## BR-PRODUCT-33
+
+When the phone turns during an invaders game, the game keeps the field it started on (wide: ten columns and four shields; tall: six and three), letterboxed, until it ends. The next game uses the field of the current screen.
+
+Serves: P-PRODUCT-31
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s3-03-a-game-keeps-its-field, PRD #160
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-27, PR #161
+Proposed: harvest 2026-09-27
+
+## BR-PRODUCT-34
+
+In the arcade invaders game, alien rows are ordered by what each Entropy kind pays (woundClose), highest on top, with ties kept in the spec's order, so the top row always pays most whatever the values become.
+
+Serves: P-PRODUCT-32
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s3-04-rows-follow-the-close-values, PRD #160
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-27, PR #161
+Proposed: harvest 2026-09-27
+
+## BR-PRODUCT-35
+
+When a member leaves a workspace, their player row and every arcade_scores row keyed to it are removed with them, so the crew's score table never shows a departed player.
+
+Serves: P-PRODUCT-33
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s5-01-scores-leave-with-the-player, PRD #160
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-27, PR #161
+Proposed: harvest 2026-09-27
+
+## BR-PRODUCT-36
+
+The arcade reads high scores only for players who linked GitHub, separately from the galaxy. A failed read shows SCORES OUT OF REACH on the cabinet while the galaxy, level and XP still show and the game plays. The demo's table holds only the guest's own best.
+
+Serves: P-PRODUCT-30
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s5-04-scores-read-on-their-own, PRD #160
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-27, PR #161
+Proposed: harvest 2026-09-27
+
+## BR-PRODUCT-37
+
+The level-up screen names the first registry game whose unlock level is above the level this device last celebrated and at or below the level reached, and only when the player's saved record holds it as unlocked.
+
+Serves: P-PRODUCT-35
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s6-02-levels-climbed-between-visits, PRD #160
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-27, PR #161
+
+## BR-PRODUCT-38
+
+Each question's cost uses the price list's per-million-token prices. Cache reads cost 0.1× and cache writes 1.25× the input price unless the model's own entry says otherwise. A model not on the list shows no cost, never a guess.
+
+Serves: P-PRODUCT-36
+Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s1-03-price-table-values, PRD #144
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-27, PR #147
+Proposed: harvest 2026-09-27
+
+## BR-PRODUCT-39
+
+An ask session that belongs to no workspace is kept, and nobody can read it, its owner included, until a person moves it into a workspace by hand. The change never deletes such a session.
+
+Serves: P-PRODUCT-27
+Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s2-02-session-of-owner-in-no-workspace, PRD #144
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-27, PR #147
+Proposed: harvest 2026-09-27
+
+## BR-PRODUCT-40
+
+The model's guessed category is written only while no person has set one, through a function only the session's owner may call, under the asker's own sign-in. A category a person set is never replaced by the guess.
+
+Serves: P-PRODUCT-37
+Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s3-02-model-guess-never-overrides, PRD #144
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-27, PR #147
+Proposed: harvest 2026-09-27
+
+## BR-PRODUCT-41
+
+The share list and the already-answered note name each workspace member by their arcade name, or by their email address when they have none. The list is given only to members of that same workspace.
+
+Serves: P-PRODUCT-38
+Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s4-01-teammates-named-by-email, PRD #144
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-26
+Merged: @pierrederval, 2026-09-27, PR #147
+
+## BR-PRODUCT-42
+
+Whenever a player enters the arcade menu, including through the #menu link, with a level this device has not yet celebrated, the LEVEL UP screen plays first and the menu opens once it is done.
+
+Serves: P-PRODUCT-39
+Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s1-02-level-up-before-menu-link, PRD #238
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-27
+Merged: @pierrederval, 2026-09-27, PR #239
+Proposed: harvest 2026-09-27
+
+## BR-PRODUCT-43
+
+When a signed-in person with no galaxy on their page follows a link to the game's menu, the arcade starts from the intro as the home address does, then shows the outside-the-crew screen or the menu with the galaxy out of reach.
+
+Serves: P-PRODUCT-40
+Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s1-03-menu-link-without-galaxy, PRD #238
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-27
+Merged: @pierrederval, 2026-09-27, PR #239
+Proposed: harvest 2026-09-27
+
+## BR-PRODUCT-44
+
+While the OPEN THE APP? confirm is open, the arcade's timed hand-overs (boot, intro, welcome, fleet lock-in) wait. After a no, the same screen shows and restarts its timer in full, except the fleet lock-in, which still counts from when it began.
+
+Serves: P-PRODUCT-41
+Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s3-02-timed-screens-wait-under-confirm, PRD #238
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-27
+Merged: @pierrederval, 2026-09-27, PR #239
+
+## BR-PRODUCT-45
+
+On HOME, pressing Enter starts the game unless the focus is on a button, link or field, which then does what that control does; a focused PRESS START still starts the game.
+
+Serves: P-PRODUCT-42
+Source: .omni-loop/delivery/shipped/0261-home/outbox/settled.md, entry s3-02-enter-on-focused-controls, PRD #261
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-27
+Merged: @pierrederval, 2026-09-27, PR #263
+Proposed: harvest 2026-09-27
+
+## BR-PRODUCT-46
+
+A fleet's mascot is one of six keys held in a database list: beaver, octopus, duck, spy, pirate or invincible hero. The commander, the enemy, the plain heroes and the small icons are refused.
+
+Serves: P-PRODUCT-43
+Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-01-mascot-choices, PRD #400
+Enforced by: unenforced
+Stated: 2026-09-28
+Decided: nobody — adopted when raised (medium), 2026-09-28
+Merged: @pierrederval, 2026-09-28, PR #403
+Proposed: harvest 2026-09-28
+
+## BR-PRODUCT-47
+
+A new fleet's key is its label lowercased, with each run of non-letters and non-digits turned into a dash (c-i-a). When that key is already taken, even by a retired fleet, a number is added (beaver-2).
+
+Serves: P-PRODUCT-44
+Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-03-fleet-key-from-label, PRD #400
+Enforced by: unenforced
+Stated: 2026-09-28
+Decided: nobody — adopted when raised (medium), 2026-09-28
+Merged: @pierrederval, 2026-09-28, PR #403
+Proposed: harvest 2026-09-28
+
+## BR-PRODUCT-48
+
+When a workspace has no fleets, the arcade menu keeps its FLEETS entry, hinted as no fleets yet, and it opens the invitation screen instead of the empty fleets wall; the Hall of Heroes fleet column and TOP FLEETS are hidden.
+
+Serves: P-PRODUCT-45
+Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-01-fleets-menu-with-none, PRD #400
+Enforced by: unenforced
+Stated: 2026-09-28
+Decided: nobody — adopted when raised (medium), 2026-09-28
+Merged: @pierrederval, 2026-09-28, PR #403
+Proposed: harvest 2026-09-28
+
+## BR-PRODUCT-49
+
+A player whose fleet was retired is sent to pick a fleet only while at least one fleet in the workspace is active. When none is, they count as ready, go straight to the menu under the retired fleet's name, and their stored fleet stays unchanged.
+
+Serves: P-PRODUCT-46
+Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s2-02-disbanded-with-no-fleets, PRD #400
+Enforced by: unenforced
+Stated: 2026-09-28
+Decided: nobody — adopted when raised (medium), 2026-09-28
+Merged: @pierrederval, 2026-09-28, PR #403
+Proposed: harvest 2026-09-28

@@ -87,4 +87,24 @@ describe('what the App reads from GitHub', () => {
     expect(await githubApp(CREDS, async () => answer(404, {})).userInstallation('nobody')).toBeNull();
     await expect(githubApp(CREDS, fetchImpl).userInstallation('../app')).rejects.toThrow(/not a GitHub login/);
   });
+
+  it('finds the App\'s installation on a repository, or null when it is not installed there (PRD 426)', async () => {
+    const fetchImpl = vi.fn(async () => answer(200, INSTALLATION));
+    expect(await githubApp(CREDS, fetchImpl).repoInstallation('Acme/widgets.js')).toEqual({ id: 5001, account: { login: 'Acme', type: 'Organization' } });
+    expect((fetchImpl.mock.calls[0] as unknown as [string])[0]).toBe('https://api.github.com/repos/Acme/widgets.js/installation');
+    expect(await githubApp(CREDS, async () => answer(404, {})).repoInstallation('acme/none')).toBeNull();
+    await expect(githubApp(CREDS, fetchImpl).repoInstallation('acme/../x/y')).rejects.toThrow(/not a GitHub repository/);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('creates an installation access token with a POST signed by the App (PRD 426)', async () => {
+    const fetchImpl = vi.fn(async () => answer(201, { token: 'ghs_abc', expires_at: '2026-09-28T11:00:00Z', permissions: {} }));
+    expect(await githubApp(CREDS, fetchImpl, () => NOW).installationToken(5001)).toEqual({ token: 'ghs_abc', expiresAt: Date.parse('2026-09-28T11:00:00Z') });
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('https://api.github.com/app/installations/5001/access_tokens');
+    expect(init.method).toBe('POST');
+    expect((init.headers as Record<string, string>).authorization).toBe(`Bearer ${appJwt(CREDS, NOW)}`);
+    await expect(githubApp(CREDS, async () => answer(403, {})).installationToken(5001)).rejects.toThrow(/403/);
+    await expect(githubApp(CREDS, async () => answer(201, { token: '' })).installationToken(5001)).rejects.toThrow(/shape/);
+  });
 });

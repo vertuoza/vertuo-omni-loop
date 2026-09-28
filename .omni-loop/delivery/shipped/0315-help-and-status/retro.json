@@ -1,0 +1,832 @@
+{
+  "prd": 315,
+  "runs": [
+    {
+      "featurePr": {
+        "mergeSha": "e203ca7b3ad1ec4cf422db9d43f3859b6a25468a",
+        "mergedAt": "2026-09-28T07:09:39Z",
+        "number": 316,
+        "openedAt": "2026-09-28T05:12:15Z",
+        "title": "feat(kit): omni help and omni status — the loop explained, and where your PRDs are (PRD 315)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/316"
+      },
+      "findings": [
+        {
+          "evidence": [
+            {
+              "label": "efaa48a (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/efaa48a7d6c32729bf43de319f3dc69e2933d251"
+            },
+            {
+              "label": "22b2d37 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/22b2d37d9a83fe9dfa633ef05233c840b75c0180"
+            },
+            {
+              "label": "ea08c5a (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/ea08c5a1df72de372409fd41fbc36fef4fb76852"
+            },
+            {
+              "label": "`kit/lib/status/facts.mjs` lines 2-3, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/edfe59bf9cda4f089a5a9c9436f7a47725ecdcb7/kit/lib/status/facts.mjs#L2-L3"
+            }
+          ],
+          "happened": "Lines 2-3 of `kit/lib/status/facts.mjs`, as merged, were written and rewritten in 3 commits, in s1, s2 and s3; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:kit/lib/status/facts.mjs:2-3",
+          "kind": "churn",
+          "ref": "F1",
+          "source": "churn",
+          "title": "Lines 2-3 of `kit/lib/status/facts.mjs` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "efaa48a (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/efaa48a7d6c32729bf43de319f3dc69e2933d251"
+            },
+            {
+              "label": "22b2d37 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/22b2d37d9a83fe9dfa633ef05233c840b75c0180"
+            },
+            {
+              "label": "ea08c5a (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/ea08c5a1df72de372409fd41fbc36fef4fb76852"
+            },
+            {
+              "label": "`kit/lib/status/facts.mjs` lines 275-278, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/edfe59bf9cda4f089a5a9c9436f7a47725ecdcb7/kit/lib/status/facts.mjs#L275-L278"
+            }
+          ],
+          "happened": "Lines 275-278 of `kit/lib/status/facts.mjs`, as merged, were written and rewritten in 3 commits, in s1, s2 and s3; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:kit/lib/status/facts.mjs:275-278",
+          "kind": "churn",
+          "ref": "F2",
+          "source": "churn",
+          "title": "Lines 275-278 of `kit/lib/status/facts.mjs` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "efaa48a (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/efaa48a7d6c32729bf43de319f3dc69e2933d251"
+            },
+            {
+              "label": "22b2d37 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/22b2d37d9a83fe9dfa633ef05233c840b75c0180"
+            },
+            {
+              "label": "ea08c5a (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/ea08c5a1df72de372409fd41fbc36fef4fb76852"
+            },
+            {
+              "label": "`kit/lib/status/facts.mjs` lines 298-298, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/edfe59bf9cda4f089a5a9c9436f7a47725ecdcb7/kit/lib/status/facts.mjs#L298-L298"
+            }
+          ],
+          "happened": "Lines 298-298 of `kit/lib/status/facts.mjs`, as merged, were written and rewritten in 3 commits, in s1, s2 and s3; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:kit/lib/status/facts.mjs:298-298",
+          "kind": "churn",
+          "ref": "F3",
+          "source": "churn",
+          "title": "Lines 298-298 of `kit/lib/status/facts.mjs` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "efaa48a (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/efaa48a7d6c32729bf43de319f3dc69e2933d251"
+            },
+            {
+              "label": "22b2d37 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/22b2d37d9a83fe9dfa633ef05233c840b75c0180"
+            },
+            {
+              "label": "51ec6b2 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/51ec6b22e09ddd5a07329141e9725362b7a5e32f"
+            },
+            {
+              "label": "`kit/lib/status/format.test.mjs` lines 16-16, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/edfe59bf9cda4f089a5a9c9436f7a47725ecdcb7/kit/lib/status/format.test.mjs#L16-L16"
+            }
+          ],
+          "happened": "Lines 16-16 of `kit/lib/status/format.test.mjs`, as merged, were written and rewritten in 3 commits, in s1, s2 and s3; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:kit/lib/status/format.test.mjs:16-16",
+          "kind": "churn",
+          "ref": "F4",
+          "source": "churn",
+          "title": "Lines 16-16 of `kit/lib/status/format.test.mjs` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "efaa48a (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/efaa48a7d6c32729bf43de319f3dc69e2933d251"
+            },
+            {
+              "label": "22b2d37 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/22b2d37d9a83fe9dfa633ef05233c840b75c0180"
+            },
+            {
+              "label": "51ec6b2 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/51ec6b22e09ddd5a07329141e9725362b7a5e32f"
+            },
+            {
+              "label": "`kit/lib/status/overview.mjs` lines 111-115, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/edfe59bf9cda4f089a5a9c9436f7a47725ecdcb7/kit/lib/status/overview.mjs#L111-L115"
+            }
+          ],
+          "happened": "Lines 111-115 of `kit/lib/status/overview.mjs`, as merged, were written and rewritten in 3 commits, in s1, s2 and s3; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:kit/lib/status/overview.mjs:111-115",
+          "kind": "churn",
+          "ref": "F5",
+          "source": "churn",
+          "title": "Lines 111-115 of `kit/lib/status/overview.mjs` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "efaa48a (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/efaa48a7d6c32729bf43de319f3dc69e2933d251"
+            },
+            {
+              "label": "22b2d37 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/22b2d37d9a83fe9dfa633ef05233c840b75c0180"
+            },
+            {
+              "label": "51ec6b2 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/51ec6b22e09ddd5a07329141e9725362b7a5e32f"
+            },
+            {
+              "label": "`kit/lib/status/overview.mjs` lines 130-130, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/edfe59bf9cda4f089a5a9c9436f7a47725ecdcb7/kit/lib/status/overview.mjs#L130-L130"
+            }
+          ],
+          "happened": "Lines 130-130 of `kit/lib/status/overview.mjs`, as merged, were written and rewritten in 3 commits, in s1, s2 and s3; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:kit/lib/status/overview.mjs:130-130",
+          "kind": "churn",
+          "ref": "F6",
+          "source": "churn",
+          "title": "Lines 130-130 of `kit/lib/status/overview.mjs` were rewritten again and again"
+        },
+        {
+          "evidence": [
+            {
+              "label": "efaa48a (s1)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/efaa48a7d6c32729bf43de319f3dc69e2933d251"
+            },
+            {
+              "label": "22b2d37 (s2)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/22b2d37d9a83fe9dfa633ef05233c840b75c0180"
+            },
+            {
+              "label": "51ec6b2 (s3)",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/commit/51ec6b22e09ddd5a07329141e9725362b7a5e32f"
+            },
+            {
+              "label": "`kit/lib/status/overview.test.mjs` lines 7-8, as merged",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/blob/edfe59bf9cda4f089a5a9c9436f7a47725ecdcb7/kit/lib/status/overview.test.mjs#L7-L8"
+            }
+          ],
+          "happened": "Lines 7-8 of `kit/lib/status/overview.test.mjs`, as merged, were written and rewritten in 3 commits, in s1, s2 and s3; the rules flag a line range rewritten in 3 or more commits.",
+          "id": "churn:kit/lib/status/overview.test.mjs:7-8",
+          "kind": "churn",
+          "ref": "F7",
+          "source": "churn",
+          "title": "Lines 7-8 of `kit/lib/status/overview.test.mjs` were rewritten again and again"
+        }
+      ],
+      "kinds": {
+        "churn": {
+          "added": 3180,
+          "churn": 115,
+          "commits": 22,
+          "files": [
+            {
+              "added": 340,
+              "churn": 40,
+              "commits": 3,
+              "finalAdded": 300,
+              "path": "kit/lib/status/facts.mjs",
+              "percent": 13
+            },
+            {
+              "added": 143,
+              "churn": 31,
+              "commits": 2,
+              "finalAdded": 112,
+              "path": "kit/lib/help/render.mjs",
+              "percent": 28
+            },
+            {
+              "added": 361,
+              "churn": 13,
+              "commits": 3,
+              "finalAdded": 348,
+              "path": "kit/lib/status/overview.test.mjs",
+              "percent": 4
+            },
+            {
+              "added": 153,
+              "churn": 11,
+              "commits": 3,
+              "finalAdded": 142,
+              "path": "kit/lib/status/overview.mjs",
+              "percent": 8
+            },
+            {
+              "added": 308,
+              "churn": 9,
+              "commits": 4,
+              "finalAdded": 299,
+              "path": "kit/lib/status/format.test.mjs",
+              "percent": 3
+            },
+            {
+              "added": 154,
+              "churn": 7,
+              "commits": 4,
+              "finalAdded": 147,
+              "path": "kit/lib/status/format.mjs",
+              "percent": 5
+            },
+            {
+              "added": 516,
+              "churn": 4,
+              "commits": 4,
+              "finalAdded": 512,
+              "path": "kit/bin/status.test.mjs",
+              "percent": 1
+            }
+          ],
+          "finalAdded": 3065,
+          "leftOut": {
+            "delivery": [
+              ".omni-loop/delivery/outbox/0315-help-and-status/s1-01-failed-fetch-keeps-last-fetch-time.md",
+              ".omni-loop/delivery/outbox/0315-help-and-status/s1-02-nothing-in-progress-under-a-full-bar.md",
+              ".omni-loop/delivery/outbox/0315-help-and-status/s2-01-counts-line-leaves-empty-stages-out.md",
+              ".omni-loop/delivery/outbox/0315-help-and-status/s2-02-fetch-time-read-across-worktrees.md",
+              ".omni-loop/delivery/outbox/0315-help-and-status/s2-03-branch-without-shared-history-skipped.md",
+              ".omni-loop/delivery/outbox/0315-help-and-status/s3-01-one-open-item-waits.md",
+              ".omni-loop/delivery/outbox/0315-help-and-status/s3-02-shipped-list-wraps-under-the-rows.md",
+              ".omni-loop/delivery/outbox/0315-help-and-status/s4-01-prd-number-still-shows-the-overview.md",
+              ".omni-loop/delivery/outbox/0315-help-and-status/s5-01-ask-command-run-by-the-skills.md"
+            ],
+            "generated": [
+              "kit/dist/omni.mjs"
+            ],
+            "lockfile": []
+          },
+          "noPatch": [],
+          "notCounted": [],
+          "pulls": 5,
+          "ranges": [
+            {
+              "commits": [
+                "efaa48a",
+                "22b2d37",
+                "ea08c5a"
+              ],
+              "from": 2,
+              "path": "kit/lib/status/facts.mjs",
+              "slices": [
+                "s1",
+                "s2",
+                "s3"
+              ],
+              "to": 3
+            },
+            {
+              "commits": [
+                "efaa48a",
+                "22b2d37",
+                "ea08c5a"
+              ],
+              "from": 275,
+              "path": "kit/lib/status/facts.mjs",
+              "slices": [
+                "s1",
+                "s2",
+                "s3"
+              ],
+              "to": 278
+            },
+            {
+              "commits": [
+                "efaa48a",
+                "22b2d37",
+                "ea08c5a"
+              ],
+              "from": 298,
+              "path": "kit/lib/status/facts.mjs",
+              "slices": [
+                "s1",
+                "s2",
+                "s3"
+              ],
+              "to": 298
+            },
+            {
+              "commits": [
+                "efaa48a",
+                "22b2d37",
+                "51ec6b2"
+              ],
+              "from": 16,
+              "path": "kit/lib/status/format.test.mjs",
+              "slices": [
+                "s1",
+                "s2",
+                "s3"
+              ],
+              "to": 16
+            },
+            {
+              "commits": [
+                "efaa48a",
+                "22b2d37",
+                "51ec6b2"
+              ],
+              "from": 111,
+              "path": "kit/lib/status/overview.mjs",
+              "slices": [
+                "s1",
+                "s2",
+                "s3"
+              ],
+              "to": 115
+            },
+            {
+              "commits": [
+                "efaa48a",
+                "22b2d37",
+                "51ec6b2"
+              ],
+              "from": 130,
+              "path": "kit/lib/status/overview.mjs",
+              "slices": [
+                "s1",
+                "s2",
+                "s3"
+              ],
+              "to": 130
+            },
+            {
+              "commits": [
+                "efaa48a",
+                "22b2d37",
+                "51ec6b2"
+              ],
+              "from": 7,
+              "path": "kit/lib/status/overview.test.mjs",
+              "slices": [
+                "s1",
+                "s2",
+                "s3"
+              ],
+              "to": 8
+            }
+          ],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [],
+          "redRuns": [],
+          "slices": [
+            "s1",
+            "s2",
+            "s4",
+            "s3",
+            "s5"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 0,
+            "commits": 0,
+            "red": 0,
+            "runs": 0,
+            "slices": 0
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 9,
+            "agreed": 0,
+            "byRank": {
+              "medium": 9
+            },
+            "drifted": 0,
+            "drifts": [],
+            "file": ".omni-loop/delivery/shipped/0315-help-and-status/outbox/settled.md",
+            "raised": 9,
+            "reworked": 0
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "stuck": 0
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  320
+                ],
+                "slice": "s1",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  321
+                ],
+                "slice": "s2",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  322
+                ],
+                "slice": "s4",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  323
+                ],
+                "slice": "s3",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  325
+                ],
+                "slice": "s5",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 6,
+              "red": 0,
+              "reviews": 0,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 0,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 316,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/316"
+              },
+              {
+                "pr": 320,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/320"
+              },
+              {
+                "pr": 321,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s2",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/321"
+              },
+              {
+                "pr": 322,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s4",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/322"
+              },
+              {
+                "pr": 323,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s3",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/323"
+              },
+              {
+                "pr": 325,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s5",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/325"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 0,
+              "graded": 5,
+              "shared": 0,
+              "unplanned": 0,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [],
+                "files": 11,
+                "pr": 320,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/320"
+              },
+              {
+                "breaches": [],
+                "files": 10,
+                "pr": 321,
+                "shared": [],
+                "slice": "s2",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/321"
+              },
+              {
+                "breaches": [],
+                "files": 3,
+                "pr": 322,
+                "shared": [],
+                "slice": "s4",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/322"
+              },
+              {
+                "breaches": [],
+                "files": 9,
+                "pr": 323,
+                "shared": [],
+                "slice": "s3",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/323"
+              },
+              {
+                "breaches": [],
+                "files": 14,
+                "pr": 325,
+                "shared": [],
+                "slice": "s5",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/325"
+              }
+            ],
+            "reason": null,
+            "sharedGround": [
+              "kit/lib/status/",
+              "kit/bin/status",
+              "kit/dist/omni.mjs",
+              "kit/test/plugin.test.mjs"
+            ]
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-09-28T07:09:39Z",
+            "minutes": 117,
+            "number": 316,
+            "openedAt": "2026-09-28T05:12:15Z",
+            "readyAt": "2026-09-28T06:59:21Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/316"
+          },
+          "medianMinutes": 16,
+          "sliceCount": 5,
+          "slices": [
+            {
+              "closedAt": "2026-09-28T05:50:59Z",
+              "mergedAt": "2026-09-28T05:50:59Z",
+              "mergedWave": 1,
+              "minutes": 16,
+              "openedAt": "2026-09-28T05:35:20Z",
+              "plannedWave": 1,
+              "pr": 320,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/320"
+            },
+            {
+              "closedAt": "2026-09-28T06:09:50Z",
+              "mergedAt": "2026-09-28T06:09:50Z",
+              "mergedWave": 2,
+              "minutes": 16,
+              "openedAt": "2026-09-28T05:54:06Z",
+              "plannedWave": 2,
+              "pr": 321,
+              "slice": "s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/321"
+            },
+            {
+              "closedAt": "2026-09-28T06:10:06Z",
+              "mergedAt": "2026-09-28T06:10:06Z",
+              "mergedWave": 2,
+              "minutes": 16,
+              "openedAt": "2026-09-28T05:54:09Z",
+              "plannedWave": 2,
+              "pr": 322,
+              "slice": "s4",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/322"
+            },
+            {
+              "closedAt": "2026-09-28T06:31:38Z",
+              "mergedAt": "2026-09-28T06:31:38Z",
+              "mergedWave": 3,
+              "minutes": 18,
+              "openedAt": "2026-09-28T06:13:17Z",
+              "plannedWave": 3,
+              "pr": 323,
+              "slice": "s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/323"
+            },
+            {
+              "closedAt": "2026-09-28T06:52:23Z",
+              "mergedAt": "2026-09-28T06:52:23Z",
+              "mergedWave": 4,
+              "minutes": 18,
+              "openedAt": "2026-09-28T06:34:14Z",
+              "plannedWave": 4,
+              "pr": 325,
+              "slice": "s5",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/325"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 4,
+            "planned": 4
+          }
+        }
+      },
+      "prd": {
+        "folder": ".omni-loop/delivery/shipped/0315-help-and-status",
+        "number": 315,
+        "state": "shipped",
+        "title": "omni help and omni status, the loop explained and where your PRDs are",
+        "topic": "help-and-status"
+      },
+      "rules": {
+        "fieldCaps": {
+          "lesson": 400,
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600
+        },
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "thresholds": {
+          "afterMergeDays": 14,
+          "churnFileLines": 40,
+          "churnFilePercent": 50,
+          "churnRangeCommits": 3,
+          "failingTestRuns": 2,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "slowSliceFactor": 3
+        },
+        "version": 1
+      },
+      "run": "merge",
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": []
+      },
+      "issues": {
+        "churn:kit/lib/status/facts.mjs:2-3": {
+          "number": 336,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/336",
+          "state": "open"
+        },
+        "churn:kit/lib/status/facts.mjs:275-278": {
+          "number": 337,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/337",
+          "state": "open"
+        },
+        "churn:kit/lib/status/facts.mjs:298-298": {
+          "number": 338,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/338",
+          "state": "open"
+        },
+        "churn:kit/lib/status/format.test.mjs:16-16": {
+          "number": 339,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/339",
+          "state": "open"
+        },
+        "churn:kit/lib/status/overview.mjs:111-115": {
+          "number": 340,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/340",
+          "state": "open"
+        }
+      }
+    }
+  ]
+}
