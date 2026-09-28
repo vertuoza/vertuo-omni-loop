@@ -96,9 +96,14 @@ describe('fleets', () => {
     expect(g.sectors.flatMap((s) => s.fleets)).not.toContain('ghosts');
   });
 
-  it('flies PIRATES in the demo galaxy, and retires INVINCIBLE', () => {
+  it('flies invented fleets in the demo galaxy, none of them Vertuoza\'s, and retires one', () => {
     const g = buildGalaxy(demoEvents(NOW), { projects: DEMO_PROJECTS, now: NOW });
-    expect(g.teams.map((t) => t.name).sort()).toEqual(['beaver', 'cia', 'octopod', 'picsou', 'pirates']);
-    expect(g.teams.find((t) => t.name === 'pirates')).toMatchObject({ label: 'PIRATES', mascot: 'pirate', color: '#2fc6a4' });
+    expect(g.teams.map((t) => t.name).sort()).toEqual(['builders', 'coiners', 'corsairs', 'inklings', 'night-owls']);
+    expect(g.teams.find((t) => t.name === 'corsairs')).toMatchObject({ label: 'CORSAIRS', mascot: 'pirate', color: '#35b89a' });
+    expect(g.teams.find((t) => t.name === 'night-owls')).toMatchObject({ mascot: null });
+    expect(DEMO_PROJECTS.teams.capes.retired).toBe(true);
+    const vertuoza = ['beaver', 'octopod', 'picsou', 'cia', 'pirates', 'invincible-team'];
+    for (const name of Object.keys(DEMO_PROJECTS.teams)) expect(vertuoza).not.toContain(name);
   });
+
 });

@@ -1,5 +1,5 @@
 import type { PlanetState, WoundKind } from '@omni/galaxy';
-import { FLEET_SPRITE, fleetSprite, heroLook, type Hero, type Tint } from '@omni/design';
+import { fleetSprite, heroLook, MASCOTS as LIBRARY, type Hero, type Tint } from '@omni/design';
 import type { FleetRow } from './types';
 
 export interface FleetLook { label: string; sprite: string; tint: Tint | null; color: string; motto: string; retired: boolean }
@@ -41,7 +41,7 @@ export const heroOf = (hero: Hero, team: string | null | undefined) => heroLook(
  * The mascot library, one of each drawn mascot: the parade the "raise your own" screen marches
  * across when a workspace has no fleets yet.
  */
-export const MASCOTS: readonly string[] = [...new Set(Object.values(FLEET_SPRITE) as string[])];
+export const MASCOTS: readonly string[] = LIBRARY;
 
 // A state's and a wound's colour, as the DOM panels write it: a theme token's custom property where
 // the colour is one (theme.ts), so a workspace's theme recolours it.

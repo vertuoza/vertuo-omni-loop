@@ -27,7 +27,7 @@ export const RAMPS = Object.freeze({
   Z: ['#ff9ae8', '#c23ab4', '#7a1a78', '#3e0a44'], // Entropy (recoloured per wound kind)
   C: ['#e6ffff', '#6ff0ff', '#22b8d8', '#0e6a86'], // cyan glow
   g: ['#b8ffd0', '#4ee08a', '#1d9f5a', '#0e5a34'], // terraform green
-  K: ['#a8f5e2', '#2fc6a4', '#178a80', '#0b4d52'], // sea teal (the pirates' coat)
+  K: ['#a8f5e2', '#2fc6a4', '#178a80', '#0b4d52'], // sea teal (the pirate's coat)
 });
 
 // Flat colours: never shaded, never outlined by the lit-side rule. forge()'s `flat` recolours them.

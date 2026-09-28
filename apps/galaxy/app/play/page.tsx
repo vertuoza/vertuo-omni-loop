@@ -9,8 +9,8 @@ import { supabaseEnv, supabaseServer } from '../../src/data/supabase-server';
 import { APP_HOME } from '../../src/switch/switch';
 
 // Rendered per request (it reads the session cookie): signed out, the arcade plays its attract mode
-// with the built-in fleets and reads nothing; signed in, the workspace the person joined first, as
-// they may read it, under its brand (src/data/arcade.ts). Without Supabase: the demo galaxy in
+// with no fleet, inviting the visitor to raise their own (PRD 400), and reads nothing; signed in, the
+// workspace the person joined first, as they may read it, under its brand (src/data/arcade.ts). Without Supabase: the demo galaxy in
 // development only (or OMNI_LOOP_DEMO=1); any other build is closed, and nobody gets past INSERT
 // COIN (src/data/mode.ts). The star chart's knowledge goes where the galaxy goes, to the crew and the
 // demo only: anyone else's page carries no entry. The player's XP and the crew's high scores come
@@ -28,7 +28,7 @@ export default async function Page() {
     const now = new Date();
     return <ArcadeClient mode="demo" supabase={null} app={APP_HOME} view={demoGalaxy(now)} fleets={demoFleets()} knowledge={loadKnowledge()} xp={demoXp(now)} dossiers={demoDossiers(now)} />;
   }
-  if (mode === 'closed' || !env) return <ArcadeClient mode="closed" supabase={null} app={APP_HOME} view={null} fleets={demoFleets()} />;
+  if (mode === 'closed' || !env) return <ArcadeClient mode="closed" supabase={null} app={APP_HOME} view={null} fleets={[]} />;
 
   const db = await supabaseServer();
   const { data: { user } } = await db.auth.getUser();
