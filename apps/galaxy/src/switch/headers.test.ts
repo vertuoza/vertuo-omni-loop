@@ -87,10 +87,13 @@ describe('every app page', () => {
     const bar = part(await renderAt(layout, pathOf(name)), '<header class="app-bar"', '</header>');
     expect(bar).toContain(`<p class="app-bar-title">${title}</p>`);
     // The user menu's own items left out: it is closed until the avatar opens it.
-    const shown = bar.replace(/<div [^>]*role="menu"[\s\S]*?<\/div><\/div>/g, '');
+    // The bell's panel left out too (PRD 499): it is closed until the bell opens it.
+    const shown = bar.replace(/<div [^>]*role="menu"[\s\S]*?<\/div><\/div>/g, '').replace(/<div [^>]*class="bell-panel"[\s\S]*?<\/div>(?=<\/div><\/span><span class="app-bar-you">)/, '');
     // ☰ and the crest open the bar for a phone only (PRD 438 s3): the stylesheet hides them from 900px.
     expect(controls(shown).slice(0, 2)).toEqual(['☰', '']);
-    expect(controls(shown).slice(2, -1)).toEqual(THEME_THEN_GAME);
+    // Signed in, the bell (PRD 499) sits after Game mode, before you.
+    const bell = /class="bell-button"/.test(shown) ? [expect.stringMatching(/^\d*$/)] : [];
+    expect(controls(shown).slice(2, -1)).toEqual([...THEME_THEN_GAME, ...bell]);
     expect(shown).toMatch(/aria-haspopup="menu"|>Sign in with GitHub<\/button>/);
     expect(bar).toMatch(/<dialog [^>]*class="game-mode-dialog"/);
     expect(bar).not.toMatch(/<dialog [^>]*\bopen\b/);

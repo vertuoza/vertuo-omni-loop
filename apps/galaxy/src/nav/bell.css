@@ -1,0 +1,119 @@
+/* The top bar's bell (PRD 499): the waiting count as a red badge, and the panel under it. Every colour
+   is a token of src/ask/theme-tokens.ts, so Omni, light and dark follow the theme switch. Below 900 px
+   (src/nav/drawer.ts) the panel takes the screen's width under the top bar. */
+
+.bell {
+  position: relative;
+  display: inline-flex;
+}
+.bell-button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 6px;
+  background: var(--ask-surface);
+  color: var(--ask-ink);
+  cursor: pointer;
+}
+.bell-button[aria-expanded='true'] { border-color: var(--ask-ink); }
+.bell-icon { display: block; }
+.bell-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 18px;
+  padding: 3px 5px;
+  border-radius: 999px;
+  font: 700 11px/1 var(--ask-body);
+  text-align: center;
+  color: var(--ask-ground);
+  background: var(--ask-red);
+}
+
+.bell-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 10px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  max-height: min(70vh, 520px);
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 10px;
+  background: var(--ask-surface);
+}
+.bell-panel[hidden] { display: none; }
+.bell-empty {
+  margin: 0;
+  padding: 8px;
+  font: 400 14px/1.4 var(--ask-body);
+  color: var(--ask-muted);
+}
+.bell-group { display: grid; gap: 4px; }
+.bell-group-label {
+  margin: 0;
+  padding: 0 8px;
+  font: 700 12px/1.3 var(--ask-body);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ask-muted);
+}
+.bell-problem {
+  margin: 0;
+  padding: 0 8px;
+  font: 400 13px/1.3 var(--ask-body);
+  color: var(--ask-muted);
+}
+.bell-lines {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ask a.bell-line {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border-radius: 6px;
+  color: var(--ask-ink);
+  text-decoration: none;
+}
+.ask a.bell-line:hover,
+.ask a.bell-line:focus { background: var(--ask-sunk); }
+.bell-line-head {
+  font: 700 13px/1.3 var(--ask-body);
+  overflow-wrap: anywhere;
+}
+.bell-line-text {
+  overflow: hidden;
+  font: 400 14px/1.3 var(--ask-body);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.bell-line-meta {
+  font: 400 12px/1.3 var(--ask-body);
+  color: var(--ask-muted);
+}
+
+@media (max-width: 899.98px) {
+  /* The panel hangs from the top bar itself, the width of the screen. */
+  .bell { position: static; }
+  .bell-panel {
+    top: 100%;
+    left: 0;
+    right: 0;
+    width: auto;
+    max-width: none;
+    border-radius: 0;
+    border-width: 1px 0;
+  }
+}
