@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.36" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.39" };
   }
 });
 
@@ -18419,6 +18419,10 @@ function readDecisions({ ctx }) {
   return { dir, records, shared, next: String(highest + 1).padStart(4, "0") };
 }
 
+// kit/lib/knowledge/look-rule.mjs
+init_define_OMNI_BUNDLE();
+var LOOK_RULE = "An entry states what the product does and guarantees, never how it looks: no colour, size, layout, position, count of visual elements, font, or exact label or copy. A candidate that is only about the look stays local. A candidate that mixes both is written as the behaviour alone.";
+
 // kit/lib/knowledge/classify.mjs
 var CLASSIFICATION_KINDS = (
   /** @type {const} */
@@ -18593,6 +18597,7 @@ function classificationPrompt({ candidate, summary }) {
     `\`statement\` and \`principle\`'s fields are one or two plain sentences, at most ${CAPS.statement} characters.`,
     `\`reason\` says why this kind and this place, at most ${CAPS.reason} characters.`,
     "Prefer `covered` when the knowledge base below already says it, and `stays-here` for a local choice.",
+    LOOK_RULE,
     "",
     `## The decision: ${candidate.id}`,
     "",
@@ -19046,6 +19051,7 @@ function runChecks(ctx) {
   return { knowledge: knowledge2, outbox };
 }
 var newOnes = (after, before) => after.filter((line) => !before.includes(line));
+var PROMOTIONS = Object.freeze(["adr", "rule", "invariant"]);
 function finishHarvest({ ctx, prepared, classified, merge, taken = {}, date }) {
   return inScratch(ctx, (scratch) => {
     applyHarvestEdits({ root: scratch.root, edits: prepared.edits });
@@ -19079,12 +19085,13 @@ function finishHarvest({ ctx, prepared, classified, merge, taken = {}, date }) {
       }
       result = attempt7(null);
     }
-    applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves: [], writes: result.writes } });
+    const writes = result.placed.some((entry) => PROMOTIONS.includes(entry.kind)) ? result.writes : [];
+    applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves: [], writes } });
     const checks = runChecks(scratch);
     const edits = {
       deletes: prepared.edits.deletes,
       moves: prepared.edits.moves,
-      writes: mergeWrites([...prepared.edits.writes, ...result.writes])
+      writes: mergeWrites([...prepared.edits.writes, ...writes])
     };
     return { edits, placed: result.placed, notPlaced: result.notPlaced, checks };
   });
