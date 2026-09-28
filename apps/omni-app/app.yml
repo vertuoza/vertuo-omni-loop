@@ -1,5 +1,8 @@
-# The omni-loop GitHub App manifest (PRD 28). An org admin registers the app from this file, private
-# to the vertuoza org, then installs it on each repository that should carry the outbox check.
+# The omni-loop GitHub App manifest (PRD 28). An org admin registers the app from this file. It is
+# public (PRD 359): anyone can install it on the repositories they pick, and installing it is how a
+# workspace is born. After an installation (or an install request) GitHub sends the installer to
+# `setup_url`, galaxy's `/signup/installed`, which checks the installation and creates the workspace.
+# On a repository without `.omni-loop/config.yml` the app posts nothing.
 #
 # Least privilege: these permissions and events are what the outbox check and the retro use, nothing
 # more. `test/app-yml.test.mjs` fails on any permission or event beyond them. The retro (PRD 72)
@@ -9,12 +12,13 @@
 # closed; check_run: rerequested) are filtered in `src/webhook/` — a manifest subscribes to whole
 # events.
 #
-# The URLs point at the app's Vercel project; replace the host with the project's production domain
-# before registering if it differs.
+# `url` and the webhook point at the app's Vercel project, `setup_url` at galaxy's; replace a host with
+# its project's production domain before registering if it differs.
 name: omni-loop
 description: Posts the omni-loop outbox check on every pull request, and a retro after every feature pull request merges.
 url: https://omni-loop.vercel.app
-public: false
+public: true
+setup_url: https://vertuo-omni-loop-galaxy.vercel.app/signup/installed
 hook_attributes:
   url: https://omni-loop.vercel.app/api/github
   active: true

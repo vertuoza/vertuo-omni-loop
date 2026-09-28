@@ -7,13 +7,22 @@ import { HANDLED } from '../src/webhook/webhook.mjs';
 // The GitHub App manifest the org admin registers the app from (PRD 28, "The app's manifest").
 // Least privilege (decision 9): exactly these permissions and events, nothing more. PRD 72 widens
 // the permissions once, for the retro (its decision 11): `contents: write`, `issues: write` and
-// `actions: read`; the events stay the same.
+// `actions: read`; the events stay the same. PRD 359 makes the app public, so anyone can install it
+// and a workspace is born from the installation (its decision 4): `public: true` and a `setup_url`
+// at galaxy's `/signup/installed`, permissions and events unchanged.
 const manifest = parse(readFileSync(fileURLToPath(new URL('../app.yml', import.meta.url)), 'utf8'));
 
 describe('app.yml — the GitHub App manifest', () => {
-  it('names the app omni-loop and keeps it private to its owner', () => {
+  it('names the app omni-loop and makes it public: anyone can install it', () => {
     expect(manifest.name).toBe('omni-loop');
-    expect(manifest.public).toBe(false);
+    expect(manifest.public).toBe(true);
+  });
+
+  it('sends an installer to galaxy’s /signup/installed, over https', () => {
+    const setup = new URL(manifest.setup_url);
+    expect(setup.protocol).toBe('https:');
+    expect(setup.pathname).toBe('/signup/installed');
+    expect(setup.search).toBe('');
   });
 
   it('asks for exactly the spec’s permissions: the outbox check’s, widened once for the retro', () => {
