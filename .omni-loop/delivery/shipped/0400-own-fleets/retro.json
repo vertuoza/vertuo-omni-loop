@@ -1,0 +1,553 @@
+{
+  "prd": 400,
+  "runs": [
+    {
+      "featurePr": {
+        "mergeSha": "90c173341661ddd9b430a1ad75b925b9ce65eeff",
+        "mergedAt": "2026-09-28T12:34:14Z",
+        "number": 403,
+        "openedAt": "2026-09-28T10:41:58Z",
+        "title": "feat(galaxy): your own fleets, or none (PRD 400)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/403"
+      },
+      "findings": [
+        {
+          "evidence": [
+            {
+              "label": "#424",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/424/files"
+            }
+          ],
+          "happened": "Slice s3 changed 3 paths outside its territory and off the plan’s shared ground: `apps/galaxy/src/switch/render.test.ts`, `apps/galaxy/src/switch/switch.test.ts`, `apps/galaxy/src/switch/switch.ts`.",
+          "id": "territory:s3",
+          "kind": "territory",
+          "ref": "F1",
+          "source": "delivery",
+          "title": "Slice s3 changed files outside its territory"
+        },
+        {
+          "evidence": [
+            {
+              "label": "#425",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/425/files"
+            }
+          ],
+          "happened": "Slice s4 changed 3 paths outside its territory and off the plan’s shared ground: `apps/galaxy/src/arcade/ArcadeApp.tsx`, `apps/galaxy/src/arcade/fleets.ts`, `packages/design/src/forge.mjs`.",
+          "id": "territory:s4",
+          "kind": "territory",
+          "ref": "F2",
+          "source": "delivery",
+          "title": "Slice s4 changed files outside its territory"
+        }
+      ],
+      "kinds": {
+        "churn": {
+          "added": 2763,
+          "churn": 6,
+          "commits": 20,
+          "files": [
+            {
+              "added": 15,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 13,
+              "path": "apps/galaxy/app/play/page.tsx",
+              "percent": 15
+            },
+            {
+              "added": 20,
+              "churn": 2,
+              "commits": 2,
+              "finalAdded": 18,
+              "path": "apps/galaxy/src/arcade/fleets.ts",
+              "percent": 11
+            },
+            {
+              "added": 46,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 45,
+              "path": "apps/galaxy/src/arcade/ArcadeApp.tsx",
+              "percent": 2
+            },
+            {
+              "added": 39,
+              "churn": 1,
+              "commits": 2,
+              "finalAdded": 38,
+              "path": "apps/galaxy/src/arcade/scenes/attract.tsx",
+              "percent": 3
+            }
+          ],
+          "finalAdded": 2759,
+          "leftOut": {
+            "delivery": [
+              ".omni-loop/delivery/outbox/0400-own-fleets/s1-01-mascot-choices.md",
+              ".omni-loop/delivery/outbox/0400-own-fleets/s1-02-fleet-refusal-shape.md",
+              ".omni-loop/delivery/outbox/0400-own-fleets/s1-03-fleet-key-from-label.md",
+              ".omni-loop/delivery/outbox/0400-own-fleets/s2-01-fleets-menu-with-none.md",
+              ".omni-loop/delivery/outbox/0400-own-fleets/s2-02-disbanded-with-no-fleets.md",
+              ".omni-loop/delivery/outbox/0400-own-fleets/s3-01-fleets-card-in-app-sections.md",
+              ".omni-loop/delivery/outbox/0400-own-fleets/s3-02-member-cannot-see-owner-name.md",
+              ".omni-loop/delivery/outbox/0400-own-fleets/s4-01-demo-fleets-invented.md",
+              ".omni-loop/delivery/outbox/0400-own-fleets/s4-02-scan-reach-and-spy-key.md",
+              ".omni-loop/delivery/outbox/0400-own-fleets/s4-03-outside-territory-touches.md",
+              ".omni-loop/delivery/outbox/0400-own-fleets/s4-04-title-invite-placement.md",
+              ".omni-loop/delivery/outbox/0400-own-fleets/s5-01-dashboard-play-copy.md"
+            ],
+            "generated": [],
+            "lockfile": []
+          },
+          "noPatch": [],
+          "notCounted": [],
+          "pulls": 5,
+          "ranges": [],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [
+            {
+              "check": "check",
+              "red": 0,
+              "redCommits": [],
+              "redSlices": [],
+              "redThenGreen": [],
+              "runs": 2
+            }
+          ],
+          "redRuns": [],
+          "slices": [
+            "s1",
+            "s2",
+            "s5",
+            "s3",
+            "s4"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 1,
+            "commits": 2,
+            "red": 0,
+            "runs": 2,
+            "slices": 1
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 12,
+            "agreed": 0,
+            "byRank": {
+              "medium": 12
+            },
+            "drifted": 0,
+            "drifts": [],
+            "file": ".omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md",
+            "raised": 12,
+            "reworked": 0
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "stuck": 0
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  410
+                ],
+                "slice": "s1",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  411
+                ],
+                "slice": "s2",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  412
+                ],
+                "slice": "s5",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  424
+                ],
+                "slice": "s3",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  425
+                ],
+                "slice": "s4",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 6,
+              "red": 0,
+              "reviews": 0,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 0,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 403,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/403"
+              },
+              {
+                "pr": 410,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/410"
+              },
+              {
+                "pr": 411,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s2",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/411"
+              },
+              {
+                "pr": 412,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s5",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/412"
+              },
+              {
+                "pr": 424,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s3",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/424"
+              },
+              {
+                "pr": 425,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s4",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/425"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 6,
+              "graded": 5,
+              "shared": 2,
+              "unplanned": 0,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [],
+                "files": 6,
+                "pr": 410,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/410"
+              },
+              {
+                "breaches": [],
+                "files": 22,
+                "pr": 411,
+                "shared": [],
+                "slice": "s2",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/411"
+              },
+              {
+                "breaches": [],
+                "files": 12,
+                "pr": 412,
+                "shared": [],
+                "slice": "s5",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/412"
+              },
+              {
+                "breaches": [
+                  "apps/galaxy/src/switch/render.test.ts",
+                  "apps/galaxy/src/switch/switch.test.ts",
+                  "apps/galaxy/src/switch/switch.ts"
+                ],
+                "files": 20,
+                "pr": 424,
+                "shared": [],
+                "slice": "s3",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/424"
+              },
+              {
+                "breaches": [
+                  "apps/galaxy/src/arcade/ArcadeApp.tsx",
+                  "apps/galaxy/src/arcade/fleets.ts",
+                  "packages/design/src/forge.mjs"
+                ],
+                "files": 34,
+                "pr": 425,
+                "shared": [
+                  "apps/galaxy/src/arcade/scenes/fleets.css",
+                  "apps/galaxy/src/arcade/scenes/recruit.tsx"
+                ],
+                "slice": "s4",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/425"
+              }
+            ],
+            "reason": null,
+            "sharedGround": [
+              "apps/galaxy/src/arcade/scenes/",
+              "apps/galaxy/src/data/arcade",
+              "apps/galaxy/src/dashboard/"
+            ]
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-09-28T12:34:14Z",
+            "minutes": 112,
+            "number": 403,
+            "openedAt": "2026-09-28T10:41:58Z",
+            "readyAt": "2026-09-28T12:09:46Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/403"
+          },
+          "medianMinutes": 19,
+          "sliceCount": 5,
+          "slices": [
+            {
+              "closedAt": "2026-09-28T11:35:23Z",
+              "mergedAt": "2026-09-28T11:35:23Z",
+              "mergedWave": 1,
+              "minutes": 19,
+              "openedAt": "2026-09-28T11:16:11Z",
+              "plannedWave": 1,
+              "pr": 410,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/410"
+            },
+            {
+              "closedAt": "2026-09-28T11:35:39Z",
+              "mergedAt": "2026-09-28T11:35:39Z",
+              "mergedWave": 1,
+              "minutes": 19,
+              "openedAt": "2026-09-28T11:16:19Z",
+              "plannedWave": 1,
+              "pr": 411,
+              "slice": "s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/411"
+            },
+            {
+              "closedAt": "2026-09-28T11:35:54Z",
+              "mergedAt": "2026-09-28T11:35:54Z",
+              "mergedWave": 1,
+              "minutes": 19,
+              "openedAt": "2026-09-28T11:16:26Z",
+              "plannedWave": 1,
+              "pr": 412,
+              "slice": "s5",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/412"
+            },
+            {
+              "closedAt": "2026-09-28T12:02:04Z",
+              "mergedAt": "2026-09-28T12:02:04Z",
+              "mergedWave": 2,
+              "minutes": 22,
+              "openedAt": "2026-09-28T11:40:05Z",
+              "plannedWave": 2,
+              "pr": 424,
+              "slice": "s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/424"
+            },
+            {
+              "closedAt": "2026-09-28T12:02:19Z",
+              "mergedAt": "2026-09-28T12:02:19Z",
+              "mergedWave": 2,
+              "minutes": 22,
+              "openedAt": "2026-09-28T11:40:14Z",
+              "plannedWave": 2,
+              "pr": 425,
+              "slice": "s4",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/425"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 2,
+            "planned": 2
+          }
+        }
+      },
+      "prd": {
+        "folder": ".omni-loop/delivery/shipped/0400-own-fleets",
+        "number": 400,
+        "state": "shipped",
+        "title": "Your own fleets, or none",
+        "topic": "own-fleets"
+      },
+      "rules": {
+        "fieldCaps": {
+          "lesson": 400,
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600
+        },
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "thresholds": {
+          "afterMergeDays": 14,
+          "churnFileLines": 40,
+          "churnFilePercent": 50,
+          "churnRangeCommits": 3,
+          "failingTestRuns": 2,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "slowSliceFactor": 3
+        },
+        "version": 1
+      },
+      "run": "merge",
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": []
+      },
+      "issues": {
+        "territory:s3": {
+          "number": 444,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/444",
+          "state": "open"
+        },
+        "territory:s4": {
+          "number": 445,
+          "url": "https://github.com/vertuoza/vertuo-omni-loop/issues/445",
+          "state": "open"
+        }
+      }
+    }
+  ]
+}
