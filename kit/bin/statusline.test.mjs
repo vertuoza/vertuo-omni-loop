@@ -1,7 +1,8 @@
-// PRD #324, slice s1: `omni statusline` through `main()` — Claude Code's JSON on stdin, the session
-// line out, the no-PRD line where the loop is installed, exit 0 and nothing on stderr every time.
+// PRD #324, slices s1 and s4: `omni statusline` through `main()` — Claude Code's JSON on stdin, the
+// session line out, then the PRD of the session's branch with its stage (or the no-PRD line) where the
+// loop is installed, exit 0 and nothing on stderr every time.
 import { execFile, execFileSync } from 'node:child_process';
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -179,5 +180,125 @@ describe('omni statusline', () => {
       child.stdin.end(payload(root, { rate_limits: undefined }));
     });
     expect(run).toEqual({ code: 0, stderr: '', stdout: `Opus 5.5 · context ${BAR} 58%\n${NO_PRD}\n` });
+  });
+});
+
+const DELIVERY = '.omni-loop/delivery';
+const LONG_TOPIC = 'statusline-for-claude-code';
+
+/** Runs git in `cwd` as a fixture author. */
+const git = (cwd, ...args) => execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { cwd, stdio: 'pipe', encoding: 'utf8' });
+
+/** Writes `files` under `root` and commits them. */
+function commit(root, files, message = 'change') {
+  for (const [path, text] of Object.entries(files)) {
+    mkdirSync(join(root, path, '..'), { recursive: true });
+    writeFileSync(join(root, path), text);
+  }
+  git(root, 'add', '-A');
+  git(root, 'commit', '-q', '-m', message);
+}
+
+/**
+ * A checkout cloned from a local bare repository whose default branch holds the shipped folder
+ * `0003-alpha` and the inbox folders `0007-bravo`, `0009-charlie` and `0013-<LONG_TOPIC>`, with the
+ * remote branches `feat/bravo` (a source file and two open items), `feat/charlie` (only its phase-0
+ * copy), `feat/<LONG_TOPIC>` (one open item and nothing else) and `docs/phase-0-delta` (the folder
+ * `0011-delta`, not on the default branch). `on(branch, start)` checks `branch` out in a worktree of
+ * its own and returns its folder.
+ */
+function originFixture() {
+  const seed = makeRepo({ git: true, files: CONFIG });
+  const withConfigOnly = git(seed.root, 'rev-parse', 'HEAD').trim();
+  const charlie = {
+    [`${DELIVERY}/inbox/0009-charlie/spec.md`]: '# charlie\n',
+    'acceptance/charlie.feature.pending': 'Feature: charlie\n',
+  };
+  commit(seed.root, {
+    [`${DELIVERY}/shipped/0003-alpha/spec.md`]: '# alpha\n',
+    [`${DELIVERY}/inbox/0007-bravo/spec.md`]: '# bravo\n',
+    [`${DELIVERY}/inbox/0013-${LONG_TOPIC}/spec.md`]: '# long\n',
+    ...charlie,
+  }, 'the PRDs');
+  git(seed.root, 'checkout', '-q', '-b', 'feat/bravo');
+  commit(seed.root, {
+    'src/app.mjs': 'export const app = 1;\n',
+    [`${DELIVERY}/outbox/0007-bravo/s1-01-first.md`]: '# first\n',
+    [`${DELIVERY}/outbox/0007-bravo/s1-02-second.md`]: '# second\n',
+    [`${DELIVERY}/outbox/0007-bravo/settled.md`]: '# settled\n',
+    [`${DELIVERY}/outbox/0007-bravo/accounts/s1.md`]: '# account\n',
+  });
+  git(seed.root, 'checkout', '-q', '-b', `feat/${LONG_TOPIC}`, 'main');
+  commit(seed.root, { [`${DELIVERY}/outbox/0013-${LONG_TOPIC}/s1-01-only.md`]: '# only\n' });
+  git(seed.root, 'checkout', '-q', '-b', 'feat/charlie', withConfigOnly);
+  commit(seed.root, charlie, 'phase-0 copy');
+  git(seed.root, 'checkout', '-q', '-b', 'docs/phase-0-delta', 'main');
+  commit(seed.root, { [`${DELIVERY}/inbox/0011-delta/spec.md`]: '# delta\n' });
+  git(seed.root, 'checkout', '-q', 'main');
+
+  const bare = mkdtempSync(join(tmpdir(), 'omni-origin-'));
+  git(bare, 'init', '-q', '--bare', '-b', 'main');
+  git(seed.root, 'remote', 'add', 'origin', bare);
+  git(seed.root, 'push', '-q', 'origin', 'main', 'feat/bravo', 'feat/charlie', `feat/${LONG_TOPIC}`, 'docs/phase-0-delta');
+  const root = join(mkdtempSync(join(tmpdir(), 'omni-clone-')), 'work');
+  git(tmpdir(), 'clone', '-q', bare, root);
+  const on = (branch, start = 'origin/main') => {
+    const dir = join(mkdtempSync(join(tmpdir(), 'omni-worktree-')), 'wt');
+    git(root, 'worktree', 'add', '-q', '-b', branch, dir, start);
+    return dir;
+  };
+  return { root, on };
+}
+
+describe('omni statusline: line 2 names the PRD of the session branch', () => {
+  const fixture = originFixture();
+  const line2 = async (dir, options = {}) => {
+    const run = await statusline(dir, payload(dir), options);
+    expect({ code: run.code, err: run.err }).toEqual({ code: 0, err: '' });
+    expect(neverFetches(run.calls)).toBe(true);
+    return run.out.split('\n')[1];
+  };
+
+  it('names the slice, the stage and the open items on a slice branch', async () => {
+    expect(await line2(fixture.on('feat/bravo--s2', 'origin/feat/bravo'))).toBe('PRD 7 bravo · s2 · outbox · 2 open items');
+  });
+
+  it('names the stage and the open items on the feature branch', async () => {
+    expect(await line2(fixture.on('feat/bravo', 'origin/feat/bravo'))).toBe('PRD 7 bravo · outbox · 2 open items');
+  });
+
+  it('reads inbox for a feature branch that is only its phase-0 copy', async () => {
+    expect(await line2(fixture.on('feat/charlie', 'origin/feat/charlie'))).toBe('PRD 9 charlie · inbox');
+  });
+
+  it('reads in review on a phase-0 branch whose folder is not on the default branch', async () => {
+    expect(await line2(fixture.on('docs/phase-0-delta', 'origin/docs/phase-0-delta'))).toBe('PRD 11 delta · in review');
+  });
+
+  it('reads shipped, and nothing after, on a branch naming a shipped PRD', async () => {
+    expect(await line2(fixture.on('feat/alpha'))).toBe('PRD 3 alpha · shipped');
+    expect(await line2(fixture.on('feat/alpha--s9'))).toBe('PRD 3 alpha · shipped');
+  });
+
+  it('reads outbox for open items alone, and says `1 open item`', async () => {
+    const dir = fixture.on(`feat/${LONG_TOPIC}--s4`, `origin/feat/${LONG_TOPIC}`);
+    expect(await line2(dir, { env: { ...PLAIN, COLUMNS: '200' } })).toBe(`PRD 13 ${LONG_TOPIC} · s4 · outbox · 1 open item`);
+  });
+
+  it('cuts the topic to 8 characters ending in `…` before anything else when the line is too wide', async () => {
+    const dir = fixture.on(`feat/${LONG_TOPIC}--s5`, `origin/feat/${LONG_TOPIC}`);
+    expect(await line2(dir, { env: { ...PLAIN, COLUMNS: '43' } })).toBe('PRD 13 statusl… · s5 · outbox · 1 open item');
+    expect(await line2(dir, { env: { ...PLAIN, COLUMNS: '40' } })).toBe('PRD 13 statusl… · s5 · outbox · 1 open …');
+  });
+
+  it('reads no PRD on the default branch, and on a branch whose topic has no folder', async () => {
+    expect(await line2(fixture.root)).toBe(NO_PRD);
+    expect(await line2(fixture.on('feat/zulu'))).toBe(NO_PRD);
+  });
+
+  it('reads the PRD from the session folder the JSON names, from anywhere in its checkout', async () => {
+    const dir = fixture.on('feat/bravo--s3', 'origin/feat/bravo');
+    const run = await statusline(fixture.root, payload(join(dir, 'src')));
+    expect(run.out.split('\n')[1]).toBe('PRD 7 bravo · s3 · outbox · 2 open items');
   });
 });

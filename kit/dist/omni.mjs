@@ -12633,14 +12633,14 @@ function renderSettledEntry({ item: item2, itemText, answer, judgement, markers,
 function parseSettledEntries(text4, markers) {
   return latestPerId(rawSettledEntries(text4, markers));
 }
-function latestPerId(entries) {
+function latestPerId(entries2) {
   const byId = /* @__PURE__ */ new Map();
-  for (const entry of entries) byId.set(entry.id, entry);
+  for (const entry of entries2) byId.set(entry.id, entry);
   return [...byId.values()];
 }
 function rawSettledEntries(text4, markers) {
   const lines = text4.split("\n");
-  const entries = [];
+  const entries2 = [];
   let current = null;
   for (let index = 0; index < lines.length; index += 1) {
     const openMatch = lines[index].match(markers.settledOpenRe);
@@ -12653,7 +12653,7 @@ function rawSettledEntries(text4, markers) {
       const [answerText = "", itemText = ""] = current.blocks;
       const closed = /^yes\b/.test(current.fields.Closed ?? "");
       const became = (current.fields.Became ?? "").split(",").map((id) => id.trim()).filter(Boolean);
-      entries.push({
+      entries2.push({
         id: current.id,
         verdict: current.fields.Verdict,
         closed,
@@ -12678,7 +12678,7 @@ function rawSettledEntries(text4, markers) {
     const fieldMatch = lines[index].match(/^- ([A-Za-z][A-Za-z ]*): (.*)$/);
     if (fieldMatch) current.fields[fieldMatch[1]] = fieldMatch[2];
   }
-  return entries;
+  return entries2;
 }
 function locate(root, file) {
   const absoluteFile = isAbsolute(file) ? file : join5(root, file);
@@ -14320,22 +14320,22 @@ function readProposed(file, id, value) {
   };
 }
 function splitEntries(text4) {
-  const entries = [];
+  const entries2 = [];
   let current = null;
   for (const line of text4.split("\n")) {
     const match = line.match(ENTRY_HEADING);
     if (match) {
-      if (current) entries.push(current);
+      if (current) entries2.push(current);
       current = { id: match[1], lines: [] };
     } else if (ANY_H2.test(line)) {
-      if (current) entries.push(current);
+      if (current) entries2.push(current);
       current = null;
     } else if (current) {
       current.lines.push(line);
     }
   }
-  if (current) entries.push(current);
-  return entries;
+  if (current) entries2.push(current);
+  return entries2;
 }
 function parseEntryFile(file, text4, place) {
   return splitEntries(text4).map(({ id, lines }) => {
@@ -14386,7 +14386,7 @@ function crossDomainDir(ctx) {
   return `${ctx.layout.knowledgeRoot}/cross-domain`;
 }
 function readKnowledge({ ctx }) {
-  const entries = [];
+  const entries2 = [];
   const PRODUCT_DIR = productDir(ctx);
   const DOMAINS_DIR = domainsDir(ctx);
   const CROSS_DOMAIN_DIR = crossDomainDir(ctx);
@@ -14394,7 +14394,7 @@ function readKnowledge({ ctx }) {
   for (const [name, kind] of Object.entries(LAYER_FILES)) {
     if (!productFiles.includes(name)) continue;
     const file = `${PRODUCT_DIR}/${name}`;
-    entries.push(
+    entries2.push(
       ...parseEntryFile(file, readFileSync11(join13(ctx.root, file), "utf8"), {
         scope: "product",
         domain: "product",
@@ -14410,7 +14410,7 @@ function readKnowledge({ ctx }) {
     for (const [layer, kind] of Object.entries(LAYER_FILES)) {
       if (!files.includes(layer)) continue;
       const file = `${dir}/${layer}`;
-      entries.push(
+      entries2.push(
         ...parseEntryFile(file, readFileSync11(join13(ctx.root, file), "utf8"), {
           scope: "domain",
           domain: name,
@@ -14431,7 +14431,7 @@ function readKnowledge({ ctx }) {
     const halves = name.split("--");
     const pair = halves.length === 2 && halves.every(Boolean) ? halves : null;
     const file = `${CROSS_DOMAIN_DIR}/${fileName}`;
-    entries.push(
+    entries2.push(
       ...parseEntryFile(file, readFileSync11(join13(ctx.root, file), "utf8"), {
         scope: "cross-domain",
         domain: name,
@@ -14441,15 +14441,15 @@ function readKnowledge({ ctx }) {
     );
     return { file, name, pair };
   });
-  return { entries, domains, crossDomainFiles, productFiles };
+  return { entries: entries2, domains, crossDomainFiles, productFiles };
 }
 function readRegisters({ ctx }) {
-  const { entries } = readKnowledge({ ctx });
+  const { entries: entries2 } = readKnowledge({ ctx });
   return {
-    entries,
-    principles: entries.filter((entry) => entry.kind === "principle"),
-    rules: entries.filter((entry) => entry.kind === "rule"),
-    invariants: entries.filter((entry) => entry.kind === "invariant")
+    entries: entries2,
+    principles: entries2.filter((entry) => entry.kind === "principle"),
+    rules: entries2.filter((entry) => entry.kind === "rule"),
+    invariants: entries2.filter((entry) => entry.kind === "invariant")
   };
 }
 function registerCounts({ ctx }) {
@@ -14468,8 +14468,8 @@ function registerCounts({ ctx }) {
 function resolveId(id, { ctx }) {
   return readKnowledge({ ctx }).entries.find((entry) => entry.id === id) ?? null;
 }
-function servedBy(entries, id) {
-  return entries.filter((entry) => entry.serves === id);
+function servedBy(entries2, id) {
+  return entries2.filter((entry) => entry.serves === id);
 }
 
 // kit/lib/inbox/inbox.mjs
@@ -14759,10 +14759,10 @@ function findCrossDomainFileViolations(knowledge2) {
   }
   return violations;
 }
-function findReusedIds(entries) {
+function findReusedIds(entries2) {
   const firstSeenIn = /* @__PURE__ */ new Map();
   const violations = [];
-  for (const { id, file } of entries) {
+  for (const { id, file } of entries2) {
     const seenIn = firstSeenIn.get(id);
     if (seenIn) {
       violations.push(violation(file, id, `already used in ${seenIn} \u2014 an id is never reused.`));
@@ -14907,10 +14907,10 @@ function servesViolations(entry, principles) {
   }
   return [];
 }
-function findEntryViolations(ctx, entries) {
-  const principles = entries.filter((entry) => entry.kind === "principle");
+function findEntryViolations(ctx, entries2) {
+  const principles = entries2.filter((entry) => entry.kind === "principle");
   const violations = [];
-  for (const entry of entries) {
+  for (const entry of entries2) {
     violations.push(...idShapeViolations(entry));
     violations.push(...(entry.problems ?? []).map((problem) => ({ text: problem })));
     if (entry.scope === "cross-domain" && !entry.kind) {
@@ -14982,13 +14982,13 @@ function findEntryViolations(ctx, entries) {
 function findUnresolvedCitations(file, text4, resolve2) {
   return idsCitedIn(text4).filter((id) => !resolve2(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
 }
-function findWishes(entries) {
-  return entries.filter((entry) => entry.kind === "principle" && servedBy(entries, entry.id).length === 0).map(
+function findWishes(entries2) {
+  return entries2.filter((entry) => entry.kind === "principle" && servedBy(entries2, entry.id).length === 0).map(
     (entry) => violation(entry.file, entry.id, "is a wish \u2014 no rule or invariant serves it yet.")
   );
 }
-function findProposals(entries) {
-  return entries.filter((entry) => entry.proposed !== null && entry.proposed.by !== null).map(
+function findProposals(entries2) {
+  return entries2.filter((entry) => entry.proposed !== null && entry.proposed.by !== null).map(
     (entry) => violation(
       entry.file,
       entry.id,
@@ -15270,7 +15270,7 @@ function parseEntries(content) {
     };
   }
   const errors = [];
-  const entries = [];
+  const entries2 = [];
   for (let i = 0; i < lines.length; i += 3) {
     const [pathLine, ruleLine, accountLine] = lines.slice(i, i + 3);
     const pathMatch = pathLine.match(ENTRY_PATH_LINE);
@@ -15292,13 +15292,13 @@ function parseEntries(content) {
     }
     const [, kind, rawValue] = accountMatch;
     const value = rawValue.trim();
-    entries.push({
+    entries2.push({
       path: pathMatch[1],
       rule: ruleMatch[1],
       account: kind === "item" ? { kind: "item", id: value } : { kind: "spec", where: value }
     });
   }
-  return { errors, entries };
+  return { errors, entries: entries2 };
 }
 function validateBody(body) {
   const found = parseHeadingSections2(body);
@@ -15317,9 +15317,9 @@ function validateBody(body) {
     errors.push(`missing section: "## ${RISKY_CHANGES_HEADING}"`);
     return { errors, entries: [] };
   }
-  const { errors: entryErrors, entries } = parseEntries(riskyChangesSection.content);
+  const { errors: entryErrors, entries: entries2 } = parseEntries(riskyChangesSection.content);
   errors.push(...entryErrors);
-  return { errors, entries };
+  return { errors, entries: entries2 };
 }
 function parseAccount(text4, { file = null } = {}) {
   const blockMatch = text4.match(FRONT_MATTER_BLOCK4);
@@ -15340,7 +15340,7 @@ function parseAccount(text4, { file = null } = {}) {
       errors.push(withFile4(file, `${field2}: ${issue.message}`));
     }
   }
-  const { errors: bodyErrors, entries } = validateBody(body);
+  const { errors: bodyErrors, entries: entries2 } = validateBody(body);
   errors.push(...bodyErrors.map((message) => withFile4(file, message)));
   if (errors.length > 0) return { ok: false, errors };
   const fm = parsedFrontMatter.data;
@@ -15348,7 +15348,7 @@ function parseAccount(text4, { file = null } = {}) {
     prd: fm.prd,
     slice: fm.slice,
     graded: fm.graded,
-    entries,
+    entries: entries2,
     file
   };
   return { ok: true, account };
@@ -15395,14 +15395,14 @@ function entryKey(change) {
   return `${change.path}\0${change.rule}`;
 }
 function compare(risky, accounts) {
-  const entries = accounts.flatMap(
+  const entries2 = accounts.flatMap(
     (account) => account.entries.map((entry) => ({ ...entry, slice: account.slice, file: account.file }))
   );
-  const namedKeys = new Set(entries.map(entryKey));
+  const namedKeys = new Set(entries2.map(entryKey));
   const riskyKeys = new Set(risky.map(entryKey));
   const accounted = risky.filter((change) => namedKeys.has(entryKey(change)));
   const unaccounted = risky.filter((change) => !namedKeys.has(entryKey(change)));
-  const stale = entries.filter((entry) => !riskyKeys.has(entryKey(entry)));
+  const stale = entries2.filter((entry) => !riskyKeys.has(entryKey(entry)));
   return { accounted, unaccounted, stale };
 }
 
@@ -15436,9 +15436,9 @@ function isStoredShape(change, { ctx }) {
   return ctx.config.risk.storedShape.some((source) => new RegExp(source).test(change.path));
 }
 function enforcedByPaths({ ctx }) {
-  const { entries } = readRegisters({ ctx });
+  const { entries: entries2 } = readRegisters({ ctx });
   const paths = /* @__PURE__ */ new Set();
-  for (const entry of entries) {
+  for (const entry of entries2) {
     if (!entry.enforcedBy || entry.enforcedBy === "unenforced") continue;
     for (const rawPath of entry.enforcedBy.split(",")) {
       const path = rawPath.replace(/`/g, "").trim();
@@ -16129,8 +16129,8 @@ function unreworkedDrift(prd2, { ctx }) {
   if (outboxDir === null) return [];
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
   if (!existsSync18(`${ctx.root}/${settledFile}`)) return [];
-  const entries = parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers);
-  return entries.filter((entry) => entry.verdict === "drifted" && !entry.closed).map((entry) => ({ id: entry.id, closedLine: entry.fields.Closed }));
+  const entries2 = parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers);
+  return entries2.filter((entry) => entry.verdict === "drifted" && !entry.closed).map((entry) => ({ id: entry.id, closedLine: entry.fields.Closed }));
 }
 function gateResult(prd2, { ctx, labels = [], changes = null } = {}) {
   const items = openItems(prd2, { ctx });
@@ -17241,13 +17241,13 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/dossier/draft.mjs
 init_define_OMNI_BUNDLE();
-function chooseDraft(entries, { prd: prd2, claudeSessionId }) {
-  const unnumbered = entries.filter((entry) => entry.prd === null);
+function chooseDraft(entries2, { prd: prd2, claudeSessionId }) {
+  const unnumbered = entries2.filter((entry) => entry.prd === null);
   if (claudeSessionId) {
     const mine = unnumbered.filter((entry) => entry.claudeSessionId === claudeSessionId);
     if (mine.length > 0) return mine[mine.length - 1];
   }
-  if (entries.some((entry) => entry.prd === prd2)) return null;
+  if (entries2.some((entry) => entry.prd === prd2)) return null;
   const free = claudeSessionId ? unnumbered.filter((entry) => entry.claudeSessionId === null) : unnumbered;
   return free.length === 1 ? free[0] : null;
 }
@@ -17335,12 +17335,12 @@ function readDossiers(root) {
   }
   return Array.isArray(value) ? value.map(entryOf).filter(Boolean) : [];
 }
-function writeDossiers(root, entries) {
+function writeDossiers(root, entries2) {
   const dir = join25(root, LOCAL_DIR);
   mkdirSync4(dir, { recursive: true });
   const ignore = join25(dir, ".gitignore");
   if (!existsSync21(ignore)) writeFileSync7(ignore, "*\n");
-  writeFileSync7(join25(root, DOSSIERS_FILE), `${JSON.stringify(entries, null, 2)}
+  writeFileSync7(join25(root, DOSSIERS_FILE), `${JSON.stringify(entries2, null, 2)}
 `);
 }
 function recordDraft(root, entry) {
@@ -17561,12 +17561,12 @@ function runCheck(check2, value) {
 }
 async function ask2({ fetch, sleep, call, deadline, key, title, body }) {
   let outcome = { ok: false, status: "timeout", retry: false };
-  for (let attempt4 = 1; attempt4 <= call.attempts; attempt4 += 1) {
+  for (let attempt5 = 1; attempt5 <= call.attempts; attempt5 += 1) {
     const remaining = deadline - Date.now();
     if (remaining <= 0) return { ok: false, status: "timeout" };
     outcome = await once({ fetch, key, title, body, signal: AbortSignal.timeout(remaining) });
-    if (outcome.ok || !outcome.retry || attempt4 === call.attempts) return outcome;
-    const pause = call.backoffMs[attempt4 - 1] ?? call.backoffMs.at(-1) ?? 0;
+    if (outcome.ok || !outcome.retry || attempt5 === call.attempts) return outcome;
+    const pause = call.backoffMs[attempt5 - 1] ?? call.backoffMs.at(-1) ?? 0;
     if (Date.now() + pause >= deadline) return outcome;
     await sleep(pause);
   }
@@ -17801,7 +17801,7 @@ function settleAtMerge({ ctx, prd: prd2, merge }) {
   const existing = existsSync23(join27(ctx.root, settledFile)) ? readRepoFile(ctx, settledFile) : null;
   const answer = mergeAnswer(facts);
   const errors = [];
-  const entries = [];
+  const entries2 = [];
   const deletes = [];
   for (const file of openItemFiles(prd2, { ctx })) {
     const itemText = readRepoFile(ctx, file);
@@ -17818,7 +17818,7 @@ function settleAtMerge({ ctx, prd: prd2, merge }) {
       markers: ctx.markers,
       closed: `yes \u2014 adopted at the merge by @${facts.by}`
     });
-    entries.push({ id: parsed.item.id, from: "open", entry });
+    entries2.push({ id: parsed.item.id, from: "open", entry });
     deletes.push(file);
   }
   if (errors.length > 0) return { ok: false, errors };
@@ -17833,15 +17833,15 @@ function settleAtMerge({ ctx, prd: prd2, merge }) {
       markers: ctx.markers,
       closed: `yes \u2014 merged without rework, by @${facts.by}`
     });
-    entries.push({ id: settled.id, from: "drift", entry });
+    entries2.push({ id: settled.id, from: "drift", entry });
   }
-  if (entries.length === 0) {
-    return { ok: true, settledFile, entries, append: "", text: null, deletes };
+  if (entries2.length === 0) {
+    return { ok: true, settledFile, entries: entries2, append: "", text: null, deletes };
   }
   const base = existing ?? settledHeader(prd2, { ctx });
   const separator = base.endsWith("\n") ? "\n" : "\n\n";
-  const append = `${separator}${entries.map((e) => e.entry).join("\n")}`;
-  return { ok: true, settledFile, entries, append, text: `${base}${append}`, deletes };
+  const append = `${separator}${entries2.map((e) => e.entry).join("\n")}`;
+  return { ok: true, settledFile, entries: entries2, append, text: `${base}${append}`, deletes };
 }
 
 // kit/lib/knowledge/classify.mjs
@@ -18505,7 +18505,7 @@ function finishHarvest({ ctx, prepared, classified, merge, taken = {}, date }) {
     const replies2 = new Map(classified.map((entry) => [entry.id, entry]));
     const candidates = harvestCandidates({ ctx: scratch, prd: prepared.prd });
     const dropped = /* @__PURE__ */ new Map();
-    const attempt4 = (keep) => {
+    const attempt5 = (keep) => {
       const input = candidates.map((candidate) => {
         const given = replies2.get(candidate.id);
         if (dropped.has(candidate.id)) return { candidate, reply: null, reason: dropped.get(candidate.id) };
@@ -18520,16 +18520,16 @@ function finishHarvest({ ctx, prepared, classified, merge, taken = {}, date }) {
       const after = runChecks(trial);
       return [...newOnes(after.knowledge, before.knowledge), ...newOnes(after.outbox, before.outbox)];
     });
-    let result = attempt4(null);
+    let result = attempt5(null);
     if (failures(result).length > 0) {
       const kept = [];
       for (const entry of result.placed) {
-        const trial = attempt4([...kept, entry.id]);
+        const trial = attempt5([...kept, entry.id]);
         const failed = failures(trial);
         if (failed.length > 0) dropped.set(entry.id, `the checks refused it: ${failed.join("; ")}`);
         else kept.push(entry.id);
       }
-      result = attempt4(null);
+      result = attempt5(null);
     }
     applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves: [], writes: result.writes } });
     const checks = runChecks(scratch);
@@ -19672,9 +19672,9 @@ function graphEntry(entry, pairs) {
     file: entry.file
   };
 }
-function countsOf(entries) {
+function countsOf(entries2) {
   const counts = { principles: 0, rules: 0, invariants: 0, laws: 0, proposed: 0 };
-  for (const entry of entries) {
+  for (const entry of entries2) {
     counts[`${entry.kind}s`] += 1;
     counts[entry.status === "law" ? "laws" : "proposed"] += 1;
   }
@@ -19682,15 +19682,15 @@ function countsOf(entries) {
 }
 function buildGraph(knowledge2, { repo }) {
   const pairs = new Map(knowledge2.crossDomainFiles.map(({ file, pair }) => [file, pair ?? []]));
-  const entries = knowledge2.entries.filter((entry) => KINDS3.includes(entry.kind)).map((entry) => graphEntry(entry, pairs));
-  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const entries2 = knowledge2.entries.filter((entry) => KINDS3.includes(entry.kind)).map((entry) => graphEntry(entry, pairs));
+  const byId = new Map(entries2.map((entry) => [entry.id, entry]));
   const domainRows = [
     ...knowledge2.productFiles.length > 0 ? [{ name: "product", code: PRODUCT_CODE, scope: "product" }] : [],
     ...knowledge2.domains.map(({ name, code }) => ({ name, code, scope: "domain" }))
   ];
-  const domains = domainRows.map((row) => ({ ...row, counts: countsOf(entries.filter((entry) => entry.domain === row.name)) }));
+  const domains = domainRows.map((row) => ({ ...row, counts: countsOf(entries2.filter((entry) => entry.domain === row.name)) }));
   const links = [];
-  for (const entry of entries) {
+  for (const entry of entries2) {
     const served2 = entry.kind === "principle" ? void 0 : byId.get(entry.serves);
     if (served2?.kind === "principle") links.push({ from: entry.id, to: served2.id, kind: "serves" });
     const cited = idsCitedIn([entry.statement, entry.why ?? ""].join("\n"));
@@ -19700,9 +19700,9 @@ function buildGraph(knowledge2, { repo }) {
   }
   const serving = new Set(links.filter((link) => link.kind === "serves").map((link) => link.from));
   const served = new Set(links.filter((link) => link.kind === "serves").map((link) => link.to));
-  const loose = entries.filter((entry) => entry.kind !== "principle" && !serving.has(entry.id)).map((entry) => entry.id);
-  const unserved = entries.filter((entry) => entry.kind === "principle" && !served.has(entry.id)).map((entry) => entry.id);
-  return { version: GRAPH_VERSION, repo, domains, entries, links, loose, unserved };
+  const loose = entries2.filter((entry) => entry.kind !== "principle" && !serving.has(entry.id)).map((entry) => entry.id);
+  const unserved = entries2.filter((entry) => entry.kind === "principle" && !served.has(entry.id)).map((entry) => entry.id);
+  return { version: GRAPH_VERSION, repo, domains, entries: entries2, links, loose, unserved };
 }
 function readGraph({ ctx }) {
   return buildGraph(readKnowledge({ ctx }), { repo: ctx.config.repo.slug });
@@ -19768,7 +19768,7 @@ function statusText({ frontDoor, forms, registers }) {
   }
   const questions = forms.flatMap(({ form: form2, file, questions: open2 }) => open2.map(({ slot, question }) => `  ${form2}#${slot} (${file}): ${question}`));
   const stale = forms.flatMap(
-    ({ form: form2, file, stale: entries }) => entries.map(({ path, hash, now }) => `  ${form2} (${file}): ${path}@${hash} \u2014 ${now === null ? "gone" : `now ${now.slice(0, 7)}`}`)
+    ({ form: form2, file, stale: entries2 }) => entries2.map(({ path, hash, now }) => `  ${form2} (${file}): ${path}@${hash} \u2014 ${now === null ? "gone" : `now ${now.slice(0, 7)}`}`)
   );
   lines.push(...registerLines(registers));
   lines.push(questions.length > 0 ? `Open questions: ${questions.length}` : "Open questions: none.", ...questions);
@@ -19789,9 +19789,9 @@ function columns({ principles, rules, invariants, laws, proposed }) {
   ];
 }
 var pairOf = (entry) => entry.domains.length === 2 ? entry.domains.join("--") : entry.file;
-function graphText({ domains, entries, links, loose, unserved }) {
+function graphText({ domains, entries: entries2, links, loose, unserved }) {
   const pairs = /* @__PURE__ */ new Map();
-  for (const entry of entries.filter((one) => one.domain === null)) pairs.set(pairOf(entry), [...pairs.get(pairOf(entry)) ?? [], entry]);
+  for (const entry of entries2.filter((one) => one.domain === null)) pairs.set(pairOf(entry), [...pairs.get(pairOf(entry)) ?? [], entry]);
   const rows = [
     ...domains.map(({ name, counts }) => [name, ...columns(counts)]),
     ...[...pairs].map(([name, held]) => [name, ...columns(countsOf(held))])
@@ -19800,7 +19800,7 @@ function graphText({ domains, entries, links, loose, unserved }) {
   const kindsWidth = Math.max(0, ...rows.map(([, kinds]) => kinds.length));
   const ids = (label, list3) => `  ${label}${list3.length > 0 ? ` (${list3.length}): ${list3.join(", ")}` : ": none"}`;
   return [
-    `kb graph \u2014 ${count2(domains.length, "domain", "domains")}, ${count2(entries.length, "entry", "entries")}, ${count2(links.length, "link", "links")}`,
+    `kb graph \u2014 ${count2(domains.length, "domain", "domains")}, ${count2(entries2.length, "entry", "entries")}, ${count2(links.length, "link", "links")}`,
     ...rows.map(([name, kinds, status3]) => `  ${name.padEnd(nameWidth)}    ${kinds.padEnd(kindsWidth)}    ${status3}`),
     ids("unserved principles", unserved),
     ids("loose entries", loose)
@@ -20946,6 +20946,97 @@ function parseInput(source) {
 
 // kit/lib/statusline/facts.mjs
 init_define_OMNI_BUNDLE();
+import { readdirSync as readdirSync16 } from "node:fs";
+import { join as join43 } from "node:path";
+
+// kit/lib/statusline/stage.mjs
+init_define_OMNI_BUNDLE();
+var SHIPPED = "shipped";
+var OUTBOX = "outbox";
+var INBOX = "inbox";
+var IN_REVIEW = "in review";
+var ACCOUNTS_DIR2 = "accounts";
+function isOpenItem(path) {
+  const segments = String(path).split("/");
+  const name = segments.pop();
+  if (segments.includes(ACCOUNTS_DIR2)) return false;
+  return name.endsWith(".md") && name !== SETTLED_FILE;
+}
+function openItemCount(paths) {
+  return (paths ?? []).filter(isOpenItem).length;
+}
+function isBuilt({ forkChanges, stillDiffers, delivery }) {
+  const inside = `${String(delivery).replace(/\/+$/, "")}/`;
+  const differs = new Set(stillDiffers ?? []);
+  return (forkChanges ?? []).some((path) => !path.startsWith(inside) && differs.has(path));
+}
+function inOutbox(feature) {
+  return Boolean(feature?.built) || (feature?.openItems ?? 0) > 0;
+}
+function stageOf({ folder, base, feature }) {
+  if (!base) return null;
+  if (base.shipped.includes(folder)) return SHIPPED;
+  if (!base.inbox.includes(folder)) return IN_REVIEW;
+  return inOutbox(feature) ? OUTBOX : INBOX;
+}
+
+// kit/lib/statusline/which-prd.mjs
+init_define_OMNI_BUNDLE();
+var TEMPLATE_ORDER = ["slice", "feature", "phase0"];
+var PLACEHOLDER2 = /\{(topic|slice)\}/g;
+var escapeLiteral = (text4) => text4.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+function templatePattern(template) {
+  const seen = /* @__PURE__ */ new Set();
+  let source = "";
+  let last = 0;
+  for (const match of template.matchAll(PLACEHOLDER2)) {
+    source += escapeLiteral(template.slice(last, match.index));
+    const key = match[1];
+    if (seen.has(key)) source += `\\k<${key}>`;
+    else source += key === "topic" ? "(?<topic>.+?)" : "(?<slice>[^/]+)";
+    seen.add(key);
+    last = match.index + match[0].length;
+  }
+  source += escapeLiteral(template.slice(last));
+  return new RegExp(`^${source}$`, "u");
+}
+function branchNames(branch, branches) {
+  if (typeof branch !== "string" || branch === "") return null;
+  for (const key of TEMPLATE_ORDER) {
+    const template = branches?.[key];
+    if (typeof template !== "string" || !template.includes("{topic}")) continue;
+    const match = templatePattern(template).exec(branch);
+    if (match) return { topic: match.groups.topic, slice: match.groups.slice ?? null };
+  }
+  return null;
+}
+function folderOfTopic(folders, topic) {
+  let found = null;
+  for (const name of folders ?? []) {
+    const parsed = parseFolderName(name);
+    if (!parsed || parsed.topic !== topic) continue;
+    if (!found || parsed.prd > found.prd) found = { prd: parsed.prd, topic, folder: name };
+  }
+  return found;
+}
+function whichPrd({ branch, branches, folders }) {
+  const named = branchNames(branch, branches);
+  if (!named) return null;
+  const found = folderOfTopic(folders, named.topic);
+  return found ? { ...found, slice: named.slice } : null;
+}
+
+// kit/lib/statusline/facts.mjs
+var QUIET6 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
+function attempt4(fn, fallback) {
+  try {
+    return fn();
+  } catch {
+    return fallback;
+  }
+}
+var git3 = (exec, cwd, args) => String(exec("git", args, { cwd, ...QUIET6 }));
+var entries = (text4) => text4.split("\0").filter(Boolean);
 function checkoutContext(folder, exec) {
   try {
     const root = findRoot(folder, exec);
@@ -20962,9 +21053,76 @@ function askModeOn(projectDir) {
     return false;
   }
 }
+function branchOf(folder, exec) {
+  return attempt4(() => git3(exec, folder, ["rev-parse", "--abbrev-ref", "HEAD"]).trim(), null);
+}
+function refExists3(ctx, ref, exec) {
+  return attempt4(() => {
+    git3(exec, ctx.root, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]);
+    return true;
+  }, false);
+}
+function baseRef(ctx, exec) {
+  const { remote, defaultBranch } = ctx.config.repo;
+  const refs = [`refs/remotes/${remote}/${defaultBranch}`, `refs/heads/${defaultBranch}`];
+  return refs.find((ref) => refExists3(ctx, ref, exec)) ?? null;
+}
+function treeFolders(ctx, ref, dir, exec) {
+  return attempt4(() => entries(git3(exec, ctx.root, ["ls-tree", "-z", "-d", "--name-only", `${ref}:${dir}`])), []);
+}
+function treeFiles(ctx, ref, dir, exec) {
+  return attempt4(() => entries(git3(exec, ctx.root, ["ls-tree", "-z", "-r", "--name-only", `${ref}:${dir}`])), []);
+}
+function checkoutFolders(ctx, dir) {
+  return attempt4(
+    () => readdirSync16(join43(ctx.root, dir), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name),
+    []
+  );
+}
+function changedPaths2(ctx, { from, to, sinceFork }, exec) {
+  const range = sinceFork ? [`${from}...${to}`] : [from, to];
+  return attempt4(() => entries(git3(exec, ctx.root, ["diff", "--name-only", "-z", "--no-renames", ...range, "--"])), []);
+}
+function featureFacts(ctx, { base, topic, folder }, exec) {
+  const { remote } = ctx.config.repo;
+  const feature = `refs/remotes/${remote}/${fillBranch(ctx.config.branches.feature, { topic })}`;
+  if (!refExists3(ctx, feature, exec)) return null;
+  return {
+    built: isBuilt({
+      forkChanges: changedPaths2(ctx, { from: base, to: feature, sinceFork: true }, exec),
+      stillDiffers: changedPaths2(ctx, { from: base, to: feature, sinceFork: false }, exec),
+      delivery: ctx.config.paths.delivery
+    }),
+    openItems: openItemCount(treeFiles(ctx, feature, `${ctx.layout.dirs.outbox}/${folder}`, exec))
+  };
+}
+function readPrd(ctx, folder, exec) {
+  const branch = branchOf(folder, exec);
+  const { branches } = ctx.config;
+  if (!branchNames(branch, branches)) return null;
+  const { inbox, shipped } = ctx.layout.dirs;
+  const base = baseRef(ctx, exec);
+  const onBase = base ? { inbox: treeFolders(ctx, base, inbox, exec), shipped: treeFolders(ctx, base, shipped, exec) } : null;
+  const folders = [...checkoutFolders(ctx, inbox), ...checkoutFolders(ctx, shipped), ...onBase ? [...onBase.inbox, ...onBase.shipped] : []];
+  const found = whichPrd({ branch, branches, folders });
+  if (!found) return null;
+  const feature = base ? featureFacts(ctx, { base, topic: found.topic, folder: found.folder }, exec) : null;
+  return {
+    number: found.prd,
+    topic: found.topic,
+    slice: found.slice,
+    stage: stageOf({ folder: found.folder, base: onBase, feature }),
+    openItems: feature?.openItems ?? 0
+  };
+}
 function readFacts(input, { cwd, exec }) {
-  const ctx = checkoutContext(input.currentDir ?? cwd, exec);
-  return { installed: ctx !== null, askOn: askModeOn(input.projectDir) };
+  const folder = input.currentDir ?? cwd;
+  const ctx = checkoutContext(folder, exec);
+  return {
+    installed: ctx !== null,
+    askOn: askModeOn(input.projectDir),
+    prd: ctx ? readPrd(ctx, folder, exec) : null
+  };
 }
 
 // kit/lib/statusline/render.mjs
@@ -20978,6 +21136,7 @@ var FILLED = "\u2588";
 var EMPTY = "\u2591";
 var CUT = "\u2026";
 var MINUTE = 6e4;
+var TOPIC_FLOOR = 8;
 var RESET = "\x1B[0m";
 var COLOURS = { green: "\x1B[32m", yellow: "\x1B[33m", red: "\x1B[31m" };
 var TOKEN = /\x1b\[[0-9;]*m|[\s\S]/gu;
@@ -21038,11 +21197,27 @@ function fit(line, width) {
   }
   return `${out}${open2 ? RESET : ""}${CUT}`;
 }
+function itemsPart(count3) {
+  if (!(count3 > 0)) return null;
+  return `${count3} open item${count3 === 1 ? "" : "s"}`;
+}
+var cutTo = (text4, length) => `${[...text4].slice(0, length - 1).join("")}${CUT}`;
+function prdLine({ number, topic, slice, stage, openItems: openItems2 }, width = Number.POSITIVE_INFINITY) {
+  const draw = (shown2) => {
+    if (stage === SHIPPED) return `PRD ${number} ${shown2}${SEPARATOR}${SHIPPED}`;
+    return [`PRD ${number} ${shown2}`, slice, stage, stage === OUTBOX ? itemsPart(openItems2) : null].filter(Boolean).join(SEPARATOR);
+  };
+  const line = draw(topic);
+  const over = visibleLength(line) - width;
+  const length = [...topic].length;
+  if (over <= 0 || length <= TOPIC_FLOOR) return fit(line, width);
+  return fit(draw(cutTo(topic, Math.max(TOPIC_FLOOR, length - over))), width);
+}
 function renderLines({ input, facts, env, now }) {
   const width = columnsOf(env);
   if (!input) return [fit(UNREADABLE_LINE, width)];
   const lines = [sessionLine({ ...input, askOn: facts?.askOn === true }, { now, color: colorOn(env) })];
-  if (facts?.installed) lines.push(NO_PRD_LINE);
+  if (facts?.installed) lines.push(facts.prd ? prdLine(facts.prd, width) : NO_PRD_LINE);
   return lines.map((line) => fit(line, width));
 }
 
