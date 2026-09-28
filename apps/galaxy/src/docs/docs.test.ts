@@ -7,6 +7,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { MetaData, Source } from 'fumadocs-core/source';
 import type { TOCItemType } from 'fumadocs-core/toc';
 import { describe, expect, it } from 'vitest';
+import { badgedBlock, codeKinds, type HastNode } from './badges';
 import { DocsPage } from './DocsPage';
 import { plain } from './DocsSearch';
 import { readGuide } from './guide';
@@ -15,10 +16,27 @@ import { guideLoader, sidebarItems } from './tree';
 // The guide's pages as /docs serves them (PRD 346): fumadocs-core's loader over docs/guide/, in
 // meta.json's order, each page drawn by DocsPage with the sidebar, its title, its body and its table
 // of contents. In the app fumadocs-mdx compiles the bodies at build time; here markdown-it stands in
-// for it, over the same files, since a test runs no bundler.
+// for it, over the same files, since a test runs no bundler. The compile step's badges (PRD 373) are
+// set above each block by the same badgedBlock the rehype plugin calls, around markdown-it's <pre>.
 
 const GUIDE = fileURLToPath(new URL('../../../../docs/guide', import.meta.url));
 const markdown = new MarkdownIt();
+
+/** The few hast nodes badgedBlock builds, as HTML; `raw` is markdown-it's own <pre>. */
+const toHtml = (node: HastNode): string => {
+  if (node.type === 'text' || node.type === 'raw') return node.type === 'raw' ? node.value ?? '' : markdown.utils.escapeHtml(node.value ?? '');
+  if (!('tagName' in node)) return '';
+  const attributes = Object.entries(node.properties).map(([name, value]) => name === 'className'
+    ? ` class="${(value as string[]).join(' ')}"`
+    : ` ${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${String(value)}"`).join('');
+  return `<${node.tagName}${attributes}>${node.children.map(toHtml).join('')}</${node.tagName}>`;
+};
+const fence = markdown.renderer.rules.fence!;
+markdown.renderer.rules.fence = (tokens, i, options, env, self) => {
+  const pre = fence(tokens, i, options, env, self);
+  const kinds = codeKinds(tokens[i].info.trim().split(/\s+/).slice(1).join(' '));
+  return kinds.length > 0 ? toHtml(badgedBlock(kinds, { type: 'raw', value: pre })) : pre;
+};
 
 /** A page as the test hands it to the loader: its body as markdown-it's HTML. */
 type TestPage = { title?: string; html: string; toc: TOCItemType[] };
@@ -118,6 +136,40 @@ describe('the pages', () => {
   });
 });
 
+describe('a code block', () => {
+  /** Every code block of a page: its badges' text, then the start of its code. */
+  const blocks = (html: string) => [...html.matchAll(/<div class="docs-code"><div class="docs-badges">([\s\S]*?)<\/div><pre><code[^>]*>([^\n]*)/g)]
+    .map(([, badges, code]) => [[...badges.matchAll(/<span class="docs-badge" data-kind="[a-z]+">([^<]*)<\/span>/g)].map((m) => m[1]).join(' + '), code]);
+
+  it('shows where it goes, as badge text above its code, on every page', () => {
+    for (const slug of [['install'], ['invade'], ['first-prd'], ['troubleshooting']]) {
+      const html = render(slug);
+      expect(html.match(/<pre>/g)?.length, slug.join()).toBe(blocks(html).length);
+    }
+  });
+
+  it('reads TERMINAL, CODING AGENT, FILE · <path> and GITHUB COMMENT', () => {
+    const install = blocks(render(['install']));
+    expect(install).toContainEqual(['TERMINAL + CODING AGENT', 'omni signin']);
+    expect(install).toContainEqual(['TERMINAL + CODING AGENT', 'omni config']);
+    expect(install).toContainEqual(['TERMINAL + CODING AGENT', 'git switch main']);
+    expect(install).toContainEqual(['TERMINAL', 'gh auth login']);
+    expect(install).toContainEqual(['TERMINAL', 'npm install -g @anthropic-ai/claude-code']);
+    expect(install).toContainEqual(['TERMINAL', 'npx github:vertuoza/vertuo-omni-loop init']);
+    expect(install).toContainEqual(['TERMINAL', 'git add .omni-loop']);
+    expect(install).toContainEqual(['CODING AGENT', '/plugin install omni@omni-loop']);
+    expect(install).toContainEqual(['FILE · .omni-loop/config.yml', 'ask:']);
+    const firstPrd = blocks(render(['first-prd']));
+    expect(firstPrd).toContainEqual(['TERMINAL', 'git switch main']);
+    expect(firstPrd).toContainEqual(['CODING AGENT', '/omni:brainstorm Let people export their invoices as a CSV file']);
+    expect(firstPrd).toContainEqual(['GITHUB COMMENT', '1: A']);
+  });
+
+  it('shows a path that is neither run nor pasted as inline code, not as a block', () => {
+    expect(render(['first-prd'])).toContain('<code>.omni-loop/delivery/shipped/&lt;n&gt;-&lt;topic&gt;/release.md</code>.');
+  });
+});
+
 describe('a search result', () => {
   it('reads as plain text: no <mark>, no markdown emphasis', () => {
     expect(plain('Run <mark>omni</mark> `signin` **once**')).toBe('Run omni signin once');
@@ -131,5 +183,19 @@ describe('its stylesheet', () => {
     expect(css).toMatch(/\.docs-toc \{ display: none;/);
     expect(css).toMatch(/@media \(min-width: 720px\) \{\s*\.docs \{ grid-template-columns: 220px minmax\(0, 1fr\);/);
     expect(css).toMatch(/@media \(min-width: 1100px\) \{[^@]*\.docs-toc \{ display: block;/);
+  });
+
+  it('draws the badges as arcade chips above the code, never copied with it', () => {
+    const rule = (selector: string) => new RegExp(`${selector.replace(/[.[\]()]/g, '\\$&')} \\{([^}]*)\\}`).exec(css)?.[1] ?? '';
+    expect(rule('.docs-badges')).toMatch(/justify-content: flex-end;/);
+    expect(rule('.docs-badges')).toMatch(/user-select: none;/);
+    expect(rule('.docs-badges')).toMatch(/gap: 6px;/);
+    expect(rule('.docs-badge')).toMatch(/font: 8px\/1 var\(--ask-px\);/);
+    expect(rule('.docs-badge')).toMatch(/border: 2px solid currentColor;/);
+    expect(rule('.docs-badge')).toMatch(/box-shadow: 2px 2px 0 currentColor;/);
+    expect(rule('.docs-badge')).toMatch(/background: var\(--ask-sunk\);/);
+    for (const [kind, token] of [['terminal', 'cyan'], ['agent', 'plasma'], ['file', 'muted'], ['github', 'green']]) {
+      expect(rule(`.docs-badge[data-kind='${kind}']`)).toMatch(new RegExp(`color: var\\(--ask-${token}\\);`));
+    }
   });
 });
