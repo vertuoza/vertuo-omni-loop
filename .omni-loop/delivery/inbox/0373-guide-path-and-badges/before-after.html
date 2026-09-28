@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 373 · Before and after</title>
+<style>
+:root {
+  --ground: #07061c; --surface: #120f3a; --sunk: #0e0d33; --line: #1a2170; --ink: #f2f4ff;
+  --muted: #8a90d6; --plasma: #ffd84a; --cyan: #6ff0ff; --green: #4ee08a; --red: #ff6b86;
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --px: 'Press Start 2P', ui-monospace, monospace;
+  --body: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --ground: #f5f4fc; --surface: #ffffff; --sunk: #eceaf8; --line: #d9d6ee; --ink: #17153d;
+    --muted: #4f5486; --plasma: #6a2fd0; --cyan: #0b6f86; --green: #15703f; --red: #b3122f;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.55 var(--body); }
+header { padding: 24px 16px 8px; max-width: 1240px; margin: 0 auto; }
+h1 { margin: 0 0 6px; font-size: 24px; }
+header p { margin: 0; color: var(--muted); max-width: 760px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; padding: 16px; max-width: 1240px; margin: 0 auto; }
+.col > h2 { margin: 0 0 10px; font: 700 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.col.after > h2 { color: var(--plasma); }
+.page { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 18px 6px; }
+.page h3 { margin: 18px 0 6px; font-size: 18px; }
+.page h3:first-child { margin-top: 0; }
+.page p { margin: 0 0 12px; font-size: 15px; }
+code { font-family: var(--mono); font-size: .9em; padding: 1px 5px; background: var(--sunk); border-radius: 4px; }
+pre { position: relative; margin: 0 0 14px; padding: 14px 16px; font: 13.5px/1.55 var(--mono); background: var(--sunk); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; white-space: pre; }
+pre code { padding: 0; background: none; }
+pre.badged { padding-top: 40px; }
+.chips { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; user-select: none; }
+.chip { --k: var(--cyan); font: 8px/1 var(--px); padding: 6px 7px; text-transform: uppercase; color: var(--k); border: 2px solid var(--k); box-shadow: 2px 2px 0 var(--k); background: var(--sunk); white-space: nowrap; }
+.chip.agent { --k: var(--plasma); }
+.chip.file { --k: var(--muted); text-transform: none; }
+.chip.github { --k: var(--green); }
+.pain { border-left: 3px solid var(--red); padding: 2px 0 2px 10px; color: var(--muted); font-size: 14px; margin: 0 0 14px; }
+.note { border-left: 3px solid var(--green); padding: 2px 0 2px 10px; color: var(--muted); font-size: 14px; margin: 0 0 14px; }
+.same { max-width: 1240px; margin: 0 auto; padding: 0 16px 32px; }
+.same h2 { font-size: 18px; margin: 12px 0 6px; }
+.same ul { margin: 0; padding-left: 1.3em; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>PRD 373: <code>omni</code> on the PATH, and a badge on every code block</h1>
+  <p>The Install page of the Getting Started guide at <code>/docs/install</code>, today and after, in excerpts. The same badges go on every code block of all five guide pages.</p>
+</header>
+
+<div class="cols">
+  <section class="col before">
+    <h2>Today</h2>
+    <div class="page">
+      <h3>A shortcut for the omni command</h3>
+      <p>The kit's command is the file <code>.omni-loop/bin/omni.mjs</code>, run with Node. These pages write it <code>omni</code>. To type it that way too, add a shortcut in the terminal you work in:</p>
+      <pre><code>alias omni='node .omni-loop/bin/omni.mjs'</code></pre>
+      <p class="pain">Optional, only at the repository's root, gone in the next terminal. Skip it and the next step fails with <code>command not found: omni</code>.</p>
+
+      <h3>3. In Claude Code</h3>
+      <p>Start Claude Code in your repository (<code>claude</code>), then add the kit's plugin marketplace and install the <code>omni</code> plugin:</p>
+      <pre><code>/plugin install omni@omni-loop</code></pre>
+
+      <h3>5. Sign in, once per computer</h3>
+      <pre><code>omni signin</code></pre>
+      <p class="pain">Which of these goes in the terminal and which in Claude Code? Every block looks the same.</p>
+
+      <h3>Point the kit at the Omni Loop app</h3>
+      <pre><code>ask:
+  url: https://vertuo-omni-loop-galaxy.vercel.app</code></pre>
+      <p class="pain">Your first PRD and When something goes wrong write <code>node .omni-loop/bin/omni.mjs status</code> in full: two spellings of one command.</p>
+    </div>
+  </section>
+
+  <section class="col after">
+    <h2>After</h2>
+    <div class="page">
+      <h3>Put omni on your PATH</h3>
+      <p>Once per laptop. This writes a small <code>omni</code> command that runs the kit of whichever repository you are in, from any folder of it:</p>
+      <pre class="badged"><span class="chips"><span class="chip">Terminal</span></span><code>mkdir -p ~/.local/bin
+cat &gt; ~/.local/bin/omni &lt;&lt;'SH'
+#!/bin/sh
+root=$(git rev-parse --show-toplevel 2&gt;/dev/null)
+kit="$root/.omni-loop/bin/omni.mjs"
+if [ -z "$root" ] || [ ! -f "$kit" ]; then
+  echo "omni: no Omni Loop kit here (.omni-loop/bin/omni.mjs). cd into a repository that has it." &gt;&amp;2
+  exit 2
+fi
+exec node "$kit" "$@"
+SH
+chmod +x ~/.local/bin/omni
+echo 'export PATH="$HOME/.local/bin:$PATH"' &gt;&gt; ~/.zshrc
+exec zsh</code></pre>
+      <p>On bash, write <code>~/.bashrc</code> and <code>exec bash</code> instead. Check it, from any folder of your repository:</p>
+      <pre class="badged"><span class="chips"><span class="chip">Terminal</span><span class="chip agent">Coding agent</span></span><code>omni help</code></pre>
+      <p class="note">A block with both badges also runs in Claude Code: type it there with <code>!</code> in front, like <code>! omni help</code>.</p>
+
+      <h3>3. In Claude Code</h3>
+      <pre class="badged"><span class="chips"><span class="chip agent">Coding agent</span></span><code>/plugin install omni@omni-loop</code></pre>
+
+      <h3>5. Sign in, once per computer</h3>
+      <pre class="badged"><span class="chips"><span class="chip">Terminal</span><span class="chip agent">Coding agent</span></span><code>omni signin</code></pre>
+
+      <h3>Point the kit at the Omni Loop app</h3>
+      <pre class="badged"><span class="chips"><span class="chip file">FILE · .omni-loop/config.yml</span></span><code>ask:
+  url: https://vertuo-omni-loop-galaxy.vercel.app</code></pre>
+
+      <h3>On Your first PRD: answering the outbox</h3>
+      <pre class="badged"><span class="chips"><span class="chip github">GitHub comment</span></span><code>1: A
+2: B because the export must include cancelled invoices</code></pre>
+    </div>
+  </section>
+</div>
+
+<section class="same">
+  <h2>What stays the same</h2>
+  <ul>
+    <li>The five pages, their order, their Next → links, the sidebar, search and the table of contents.</li>
+    <li>The <code>omni</code> CLI and <code>omni init</code>: nothing in the kit changes. The skills keep calling <code>node .omni-loop/bin/omni.mjs</code>.</li>
+    <li>The code blocks' own look: same background, border and face. The badge is added at the top right.</li>
+  </ul>
+</section>
+</body>
+</html>
