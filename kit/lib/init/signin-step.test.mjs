@@ -47,6 +47,20 @@ describe('signInStep', () => {
     expect(calls).toEqual([]);
   });
 
+  it('carries the line the sign-in ended on, naming where the repository goes (PRD 459)', async () => {
+    const home = freshHome();
+    const line = 'signed in as ada — acme/api goes to Acme';
+    const signIn = async () => { credentials({ home }).write(HOST, ENTRY); return { code: 0, line }; };
+    expect(await signInStep({ askUrl: ASK_URL, home, interactive: true, signIn })).toEqual({ outcome: 'signed-in', host: HOST, email: ENTRY.email, line });
+  });
+
+  it('names the GitHub login of a sign-in kept without an email', async () => {
+    const home = freshHome();
+    credentials({ home }).write(HOST, { access_token: 'a', refresh_token: 'r', expires_at: null, login: 'ned' });
+    const step = await signInStep({ askUrl: ASK_URL, home, interactive: true, signIn: flow(home).signIn });
+    expect(step).toEqual({ outcome: 'already', host: HOST, email: 'ned' });
+  });
+
   it('a sign-in refused, timed out or throwing: later', async () => {
     const home = freshHome();
     expect((await signInStep({ askUrl: ASK_URL, home, interactive: true, signIn: flow(home, 1).signIn })).outcome).toBe('later');
@@ -66,6 +80,16 @@ describe('signInLines', () => {
   it('one status line when signed in, now or already', () => {
     expect(signInLines({ outcome: 'signed-in', host: HOST, email: ENTRY.email })).toEqual({ status: [`  signin  signed in to ${HOST} as ${ENTRY.email}`], todo: [] });
     expect(signInLines({ outcome: 'already', host: HOST, email: ENTRY.email })).toEqual({ status: [`  signin  signed in to ${HOST} already, as ${ENTRY.email}`], todo: [] });
+  });
+
+  it('the sign-in\'s own line when it has one, whichever of the three it is (PRD 459)', () => {
+    for (const line of [
+      'signed in as ada — acme/api goes to Acme',
+      'signed in as ada — no workspace owns acme/api yet — install the Omni App: https://github.com/apps/omni-loop/installations/new',
+      'signed in as ada — you are not a member of Globex, which owns acme/api',
+    ]) {
+      expect(signInLines({ outcome: 'signed-in', host: HOST, email: 'ada', line })).toEqual({ status: [`  signin  ${line}`], todo: [] });
+    }
   });
 
   it('omni signin as a later step when it could not be done now', () => {

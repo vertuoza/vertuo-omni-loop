@@ -93,6 +93,40 @@ describe('omni signin', () => {
     expect(homeTokens({ home }).read(server.host)).toEqual(kept[server.host]);
   });
 
+  describe('names where the checkout\'s repository goes, and exits 0 on each (PRD 459)', () => {
+    const INSTALL = 'https://github.com/apps/omni-loop/installations/new';
+    const cases = [
+      [{ workspace: { slug: 'acme', name: 'Acme' } }, 'signed in as ned — acme/api goes to Acme'],
+      [{ workspace: null, reason: `no workspace owns acme/api yet — install the Omni App: ${INSTALL}` }, `signed in as ned — no workspace owns acme/api yet — install the Omni App: ${INSTALL}`],
+      [{ workspace: null, reason: 'you are not a member of Globex, which owns acme/api' }, 'signed in as ned — you are not a member of Globex, which owns acme/api'],
+    ];
+    for (const [where, line] of cases) {
+      it(line, async () => {
+        // The fake page, with the token reply the real one gives: the login, where the repository
+        // goes, and no email (a GitHub account that keeps it private).
+        server = await startFakeAskServer({ codes: ['code-1'] });
+        const sent = [];
+        const fetch = async (url, init) => {
+          const response = await globalThis.fetch(url, init);
+          if (!String(url).endsWith('/api/ask/token')) return response;
+          sent.push(JSON.parse(init.body));
+          const { email: _hidden, ...tokens } = await response.json();
+          return Response.json({ ...tokens, login: 'ned', ...where }, { status: response.status });
+        };
+        const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': `kit: 1\nrepo:\n  slug: acme/api\nask:\n  url: ${server.url}\n` } });
+        const home = freshHome();
+        const std = io();
+
+        expect(await main(['signin'], { cwd: root, ...std, home, openBrowser: fakeBrowser().open, fetch })).toBe(0);
+
+        expect(std.errors()).toBe('');
+        expect(std.text().trim().split('\n').at(-1)).toBe(line);
+        expect(sent).toEqual([{ code: 'code-1', repo: 'acme/api' }]);
+        expect(credentialsOf(home)[server.host]).toEqual({ access_token: 'access-2', refresh_token: 'refresh-2', expires_at: expect.any(Number), login: 'ned' });
+      });
+    }
+  });
+
   it('opens a new state on every run', async () => {
     server = await startFakeAskServer({ codes: ['code-1', 'code-2'] });
     const { root } = repoWith(server.url);

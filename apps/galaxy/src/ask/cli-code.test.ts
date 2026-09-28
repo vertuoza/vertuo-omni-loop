@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   CODE_TTL_MS,
   cliCallbackPath,
@@ -16,10 +16,14 @@ import {
   type TokenDeps,
 } from './cli-code';
 
-const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
-const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
-const EVE = { id: '00000000-0000-4000-8000-0000000000e1', email: 'eve@example.com' };
-type Account = typeof ADA;
+type Account = { id: string; email?: string | null; user_metadata?: { user_name?: string } };
+const ADA: Account = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com', user_metadata: { user_name: 'ada' } };
+const BOB: Account = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com', user_metadata: { user_name: 'bob' } };
+const EVE: Account = { id: '00000000-0000-4000-8000-0000000000e1', email: 'eve@example.com', user_metadata: { user_name: 'eve' } };
+/** A GitHub account that keeps its email private, in no workspace. */
+const NED: Account = { id: '00000000-0000-4000-8000-0000000000f1', email: null, user_metadata: { user_name: 'ned' } };
+
+const INSTALL = 'https://github.com/apps/omni-loop/installations/new';
 
 const ORIGIN = 'https://ask.example';
 const START = Date.parse('2026-09-26T09:00:00Z');
@@ -37,9 +41,21 @@ function world() {
   const refreshTokens = new Map<string, Account>();
   const codes = new Map<string, { owner: string; refresh_token: string; expires_at: string }>();
   const revoked: string[] = [];
-  const calls = { exchange: [] as string[], issue: [] as string[], refresh: [] as string[], redeem: [] as string[] };
+  const calls = { exchange: [] as string[], issue: [] as string[], refresh: [] as string[], redeem: [] as string[], place: [] as string[] };
   let issued = 0;
-  const state = { authDown: false, rpcFails: false, issueFails: false };
+  const state = { authDown: false, rpcFails: false, issueFails: false, placeFails: false };
+  /** Accounts in no workspace: ask_cli_code_issue() refuses them (42501), the server's own issue does not. */
+  const outside = new Set<string>([NED.id]);
+  /** repo_workspace(), for the accounts and repositories these tests name (PRD 459's table). */
+  const places: Record<string, Record<string, { workspace_id: string | null; refusal: string | null }>> = {
+    [ADA.id]: {
+      'vertuoza/api': { workspace_id: 'w-vertuoza', refusal: null },
+      'globex/web': { workspace_id: null, refusal: 'you are not a member of Globex, which owns globex/web' },
+      'ada/scratch': { workspace_id: 'w-vertuoza', refusal: null },
+    },
+    [NED.id]: { 'ned/tools': { workspace_id: null, refusal: 'no workspace owns ned/tools yet — install the Omni App' } },
+  };
+  const workspaces: Record<string, { slug: string; name: string }> = { 'w-vertuoza': { slug: 'vertuoza', name: 'Vertuoza' } };
 
   function newSession(account: Account): CliSession & { expires_at: number } {
     issued += 1;
@@ -81,6 +97,12 @@ function world() {
     async issue(session, codeHash) {
       calls.issue.push(codeHash);
       if (state.issueFails) return { error: { message: 'permission denied' } };
+      if (outside.has(session.user.id)) return { error: { message: 'Sign in with an account of a workspace first.', code: '42501' } };
+      codes.set(codeHash, { owner: session.user.id, refresh_token: session.refresh_token, expires_at: new Date(clock.now + CODE_TTL_MS).toISOString() });
+      return { error: null };
+    },
+    async issueOutsideWorkspaces(session, codeHash) {
+      calls.issue.push(`server:${codeHash}`);
       codes.set(codeHash, { owner: session.user.id, refresh_token: session.refresh_token, expires_at: new Date(clock.now + CODE_TTL_MS).toISOString() });
       return { error: null };
     },
@@ -95,6 +117,13 @@ function world() {
     async revoke(accessToken) {
       revoked.push(accessToken);
     },
+    async place(userId, repo) {
+      calls.place.push(`${userId} ${repo}`);
+      if (state.placeFails) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set');
+      const pick = places[userId]?.[repo] ?? { workspace_id: null, refusal: `no workspace owns ${repo} yet — install the Omni App` };
+      return { workspace: pick.workspace_id ? workspaces[pick.workspace_id] : null, reason: pick.refusal };
+    },
+    installLink: INSTALL,
   };
 
   /** Google signs `account` in, and the callback runs: where the browser goes next. */
@@ -199,6 +228,24 @@ describe('the auth callback, for omni signin', () => {
     expect(w.revoked).toEqual([]);
   });
 
+  it('hands a code to an account in no workspace too: the server issues it when the database will not (PRD 459)', async () => {
+    const w = world();
+    const back = await w.signIn(NED);
+    expect(back.origin).toBe('http://127.0.0.1:49152');
+    const code = back.searchParams.get('code')!;
+    expect(w.codes.get(hashCode(code))?.owner).toBe(NED.id);
+    expect(w.calls.issue).toEqual([hashCode(code), `server:${hashCode(code)}`]);
+    expect(w.revoked).toEqual([]);
+  });
+
+  it('never has the server issue for an account the database refused for another reason', async () => {
+    const w = world();
+    w.state.issueFails = true;
+    const back = await w.signIn(ADA);
+    expect(back.origin).toBe(ORIGIN);
+    expect(w.calls.issue).toHaveLength(1);
+  });
+
   it('comes back to the sign-in page with Google\'s or Supabase\'s reason, exchanging nothing', async () => {
     const w = world();
     const url = new URL(`${ORIGIN}/auth/callback?next=ask-cli&port=49152&state=${STATE}&error=access_denied&error_description=OMNI+LOOP+is+for+%40vertuoza.com+accounts+only.`);
@@ -242,13 +289,13 @@ describe('the auth callback, for omni signin', () => {
 });
 
 describe('POST /api/ask/token', () => {
-  it('trades a code for the account\'s own sign-in: {access_token, refresh_token, expires_at, email}', async () => {
+  it('trades a code for the account\'s own sign-in: {access_token, refresh_token, expires_at, login, workspace, email}', async () => {
     const w = world();
     const code = await w.codeFor(ADA);
     const reply = await w.token({ code });
     expect(reply.status).toBe(200);
     expect(reply.headers.get('cache-control')).toBe('no-store');
-    expect(reply.body).toEqual({ access_token: 'access-2', refresh_token: 'refresh-2', expires_at: 1790000002, email: ADA.email });
+    expect(reply.body).toEqual({ access_token: 'access-2', refresh_token: 'refresh-2', expires_at: 1790000002, login: 'ada', workspace: null, email: ADA.email });
     // The code's refresh token was used once, for a sign-in only the terminal holds.
     expect(w.calls.refresh).toEqual(['refresh-1']);
     expect(w.codes.size).toBe(0);
@@ -316,14 +363,70 @@ describe('POST /api/ask/token', () => {
     const first = await w.token({ code });
     const renewed = await w.token({ refresh_token: first.body.refresh_token });
     expect(renewed.status).toBe(200);
-    expect(renewed.body).toEqual({ access_token: 'access-3', refresh_token: 'refresh-3', expires_at: 1790000003, email: ADA.email });
+    expect(renewed.body).toEqual({ access_token: 'access-3', refresh_token: 'refresh-3', expires_at: 1790000003, login: 'ada', workspace: null, email: ADA.email });
     const reused = await w.token({ refresh_token: first.body.refresh_token });
     expect(reused.status).toBe(401);
   });
 
+  it('names the workspace the repository goes to, given the code and the repository (PRD 459)', async () => {
+    const w = world();
+    const reply = await w.token({ code: await w.codeFor(ADA), repo: 'vertuoza/api' });
+    expect(reply.status).toBe(200);
+    expect(reply.body).toMatchObject({ login: 'ada', workspace: { slug: 'vertuoza', name: 'Vertuoza' }, email: ADA.email });
+    expect(reply.body).not.toHaveProperty('reason');
+    expect(w.calls.place).toEqual([`${ADA.id} vertuoza/api`]);
+    // A repository no workspace owns takes the person's first workspace (the fallback).
+    expect((await w.token({ code: await w.codeFor(ADA), repo: 'ada/scratch' })).body.workspace).toEqual({ slug: 'vertuoza', name: 'Vertuoza' });
+  });
+
+  it('signs in all the same, with the reason, when another workspace owns the repository', async () => {
+    const w = world();
+    const reply = await w.token({ code: await w.codeFor(ADA), repo: 'globex/web' });
+    expect(reply.status).toBe(200);
+    expect(reply.body).toMatchObject({ access_token: expect.any(String), login: 'ada', workspace: null, reason: 'you are not a member of Globex, which owns globex/web' });
+    expect(w.revoked).toEqual([]);
+  });
+
+  it('signs in an account in no workspace, with a hidden email, and the install link after the hint', async () => {
+    const w = world();
+    const reply = await w.token({ code: await w.codeFor(NED), repo: 'ned/tools' });
+    expect(reply.status).toBe(200);
+    expect(reply.body).toEqual({
+      access_token: expect.any(String), refresh_token: expect.any(String), expires_at: expect.any(Number),
+      login: 'ned', workspace: null, reason: `no workspace owns ned/tools yet — install the Omni App: ${INSTALL}`,
+    });
+    expect(reply.body).not.toHaveProperty('email');
+  });
+
+  it('answers workspace null and no reason to an older kit that sends no repository, looking nothing up', async () => {
+    const w = world();
+    const reply = await w.token({ code: await w.codeFor(ADA) });
+    expect(reply.body).toMatchObject({ login: 'ada', workspace: null, email: ADA.email });
+    expect(reply.body).not.toHaveProperty('reason');
+    expect(w.calls.place).toEqual([]);
+  });
+
+  it('still signs in, with workspace null and no reason, when the workspace cannot be looked up', async () => {
+    const w = world();
+    w.state.placeFails = true;
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const reply = await w.token({ code: await w.codeFor(ADA), repo: 'vertuoza/api' });
+      expect(reply.status).toBe(200);
+      expect(reply.body).toMatchObject({ login: 'ada', workspace: null });
+      expect(reply.body).not.toHaveProperty('reason');
+      expect(spy).toHaveBeenCalledTimes(1);
+      // No lookup on this deployment at all: the same.
+      const bare = await w.token({ code: await w.codeFor(ADA), repo: 'vertuoza/api' }, { ...w.tokenDeps, place: undefined });
+      expect(bare.body).toMatchObject({ workspace: null });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('refuses a body that is not {code} or {refresh_token}', async () => {
     const w = world();
-    for (const body of ['not json', '[]', '{}', { code: 'a', refresh_token: 'b' }, { code: 7 }, { refresh_token: '' }, { token: 'x' }]) {
+    for (const body of ['not json', '[]', '{}', { code: 'a', refresh_token: 'b' }, { code: 7 }, { refresh_token: '' }, { token: 'x' }, { refresh_token: 'r', repo: 7 }, { refresh_token: 'r', repo: 'no-slash' }, { refresh_token: 'r', repo: 'a/b/c' }]) {
       expect((await w.token(body)).status).toBe(400);
     }
     const huge = await exchangeToken(w.post({ refresh_token: 'x'.repeat(20_000) }), w.tokenDeps);
