@@ -108,4 +108,14 @@ Enforced by: unenforced
 Stated: 2026-09-27
 Decided: nobody — adopted when raised (medium), 2026-09-26
 Merged: @pierrederval, 2026-09-27, PR #161
+
+## N-PRODUCT-11
+
+The front page forwards every link that names an arcade screen to /play, reading the list from the arcade's DEEP_LINKS table, so no game-screen link ever lands on HOME.
+
+Source: .omni-loop/delivery/shipped/0261-home/outbox/settled.md, entry s1-01-forward-every-arcade-link, PRD #261
+Enforced by: unenforced
+Stated: 2026-09-27
+Decided: nobody — adopted when raised (medium), 2026-09-27
+Merged: @pierrederval, 2026-09-27, PR #263
 Proposed: harvest 2026-09-27

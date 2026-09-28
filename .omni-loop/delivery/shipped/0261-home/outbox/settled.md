@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-27
 - Slice: s1
 - Wave: 1
+- Became: N-PRODUCT-11
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ Narrowing it back to five is a one-line change in apps/galaxy/src/home/forward.t
 - Raised: 2026-09-27
 - Slice: s1
 - Wave: 1
+- Stays here: A one-off territory exception for this slice's move; nothing lasting to record, and no existing entry covers it.
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ None to undo: the file must point at the moved page either way, or the tests wou
 - Raised: 2026-09-27
 - Slice: s1
 - Wave: 1
+- Stays here: A local choice to leave the proxy matcher unchanged, cheap to reverse with one pattern; no lasting rule or build decision beyond this slice.
 
 ### The answer, as it was given
 
@@ -253,6 +256,7 @@ Excluding `/` later is one pattern added to the proxy's matcher in apps/galaxy/p
 - Raised: 2026-09-27
 - Slice: s3
 - Wave: 1
+- Stays here: A tunable UI timing choice, one number each in HOME code; nothing lasting or provable to keep, and no existing entry covers it.
 
 ### The answer, as it was given
 
@@ -331,6 +335,7 @@ Changing either pause is one number each in the HOME code, with no data to move.
 - Raised: 2026-09-27
 - Slice: s3
 - Wave: 1
+- Became: BR-PRODUCT-45, P-PRODUCT-42
 
 ### The answer, as it was given
 
@@ -409,6 +414,7 @@ One rule in the HOME code; nothing is stored.
 - Raised: 2026-09-27
 - Slice: s4
 - Wave: 2
+- Stays here: A local presentation choice for one poster, cheap to change later; no existing entry covers it and it sets no lasting rule for the codebase.
 
 ### The answer, as it was given
 
@@ -487,6 +493,7 @@ Small: the frames live in one file of the poster, and a live canvas would be one
 - Raised: 2026-09-27
 - Slice: s4
 - Wave: 2
+- Stays here: A local layout choice for one page's phone styles, cheap to change and not a lasting rule, invariant or architectural decision.
 
 ### The answer, as it was given
 
@@ -565,6 +572,7 @@ A few lines of the page's styles for phones.
 - Raised: 2026-09-27
 - Slice: s6
 - Wave: 2
+- Stays here: A local file placement within one slice, cheap to move and carrying no contract; no existing entry or lasting rule is needed.
 
 ### The answer, as it was given
 
@@ -642,6 +650,7 @@ Moving two new files; no stored shape, no contract.
 - Raised: 2026-09-27
 - Slice: s6
 - Wave: 2
+- Stays here: A local styling choice for one image file, cheap to reverse by loading a TTF/WOFF copy; it sets no lasting rule, invariant or architecture.
 
 ### The answer, as it was given
 
@@ -720,6 +729,7 @@ A few lines: load a TTF/WOFF copy of the display face in `app/opengraph-image.ts
 - Raised: 2026-09-27
 - Slice: s6
 - Wave: 2
+- Stays here: A local, cheaply reversible choice about share previews pending the production domain; no lasting rule or build pattern for the knowledge base to keep.
 
 ### The answer, as it was given
 
@@ -798,6 +808,7 @@ Moving one file into a route group, or adding a card per page; setting `metadata
 - Raised: 2026-09-27
 - Slice: s5
 - Wave: 3
+- Stays here: A local placement choice within one slice, cheap to reverse; no lasting build rule or business rule to keep beyond the ledger.
 
 ### The answer, as it was given
 

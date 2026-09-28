@@ -360,4 +360,12 @@ While the arcade asks a person a question, the game never moves on beneath it; d
 Why: A person who says no should find the same screen they left, not one that changed while they were deciding.
 Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s3-02-timed-screens-wait-under-confirm, PRD #238
 Merged: @pierrederval, 2026-09-27, PR #239
+
+## P-PRODUCT-42
+
+A page-wide keyboard shortcut in the game never takes over a control that has the focus; the focused control keeps its own meaning.
+
+Why: Keyboard and assistive-technology users must be able to rely on Enter activating what they focused, not something else.
+Source: .omni-loop/delivery/shipped/0261-home/outbox/settled.md, entry s3-02-enter-on-focused-controls, PRD #261
+Merged: @pierrederval, 2026-09-27, PR #263
 Proposed: harvest 2026-09-27
