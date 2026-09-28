@@ -2,10 +2,17 @@ import type { QuestionsView, RoundEntry, RoundQuestion } from './view';
 
 // The Questions tab of /prd/<id> (PRD 216, step 3): the rounds that shaped the PRD, in the order they
 // were asked. Each says whether the brainstorm or the delivery asked it, its category (PRD 144), who
-// asked it and when, each question with the options it offered — the chosen ones marked in words, not
-// only in colour — and the answer as it was given, then who answered and after how long, where it came
-// from, and a link to the question on its own page. Every question and answer is text: React escapes
-// it, so markup in a question shows as written. Rendered on the server, with no script.
+// asked it and when, and each question as it reads now (PRD 384): answered, with only the options
+// chosen, each with its description, and any answer no option names as the text written; open, with
+// every option it offers; moved to the terminal, with none. Then who answered and after how long (or
+// that it moved), where it came from, and a link to the question on its own page. Every question and
+// answer is text: React escapes it, so markup in a question shows as written. Rendered on the server,
+// with no script.
+
+function optionsLabel(question: RoundQuestion) {
+  if (question.shape === 'answered') return question.options.length > 1 ? 'Chosen options' : 'Chosen option';
+  return question.multiSelect ? 'Options, any number could be chosen' : 'Options, one could be chosen';
+}
 
 function Question({ question }: { question: RoundQuestion }) {
   return (
@@ -14,22 +21,21 @@ function Question({ question }: { question: RoundQuestion }) {
         {question.header && <span className="ask-chip">{question.header}</span>} {question.question}
       </h3>
       {question.options.length > 0 && (
-        <ul className="dossier-options" aria-label={question.multiSelect ? 'Options, any number could be chosen' : 'Options, one could be chosen'}>
+        <ul className="dossier-options" aria-label={optionsLabel(question)}>
           {question.options.map((option) => (
             <li key={option.label} className="dossier-option" data-chosen={option.chosen ? 'true' : undefined}>
               <span className="dossier-option-label">
                 {option.label}
                 {option.recommended && <span className="ask-rec">Recommended</span>}
-                {option.chosen && <span className="dossier-chosen">chosen</span>}
               </span>
               {option.description && <span className="dossier-option-desc">{option.description}</span>}
             </li>
           ))}
         </ul>
       )}
-      <p className="dossier-answer">
-        {question.answer !== null ? <><span className="ask-hint">Answer</span> <b>{question.answer}</b></> : <span className="ask-hint">No answer</span>}
-      </p>
+      {question.written !== null && (
+        <p className="dossier-answer"><span className="ask-hint">Answer</span> <b>{question.written}</b></p>
+      )}
     </div>
   );
 }

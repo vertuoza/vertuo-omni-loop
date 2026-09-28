@@ -219,17 +219,49 @@ describe('the Questions tab', () => {
     expect([q.answered, q.asked]).toEqual([2, 4]);
   });
 
-  it('shows each question with its options, the chosen ones marked, and the answer as given', () => {
-    const [first, second] = questions().questions.rounds ?? [];
+  it('shows an answered question with only its chosen option, and the answer as given', () => {
+    const [first] = questions().questions.rounds ?? [];
     expect(first.questions).toEqual([{
-      header: 'Shape', question: 'Square or hexagonal tiles?', multiSelect: false, answer: 'Square (Recommended)',
-      options: [
-        { label: 'Square', recommended: true, description: 'cheaper', chosen: true },
-        { label: 'Hexagonal', recommended: false, description: 'prettier', chosen: false },
-      ],
+      header: 'Shape', question: 'Square or hexagonal tiles?', multiSelect: false, shape: 'answered', answer: 'Square (Recommended)', written: null,
+      options: [{ label: 'Square', recommended: true, description: 'cheaper', chosen: true }],
     }]);
-    expect(second.questions[0].options.map((o) => [o.label, o.chosen])).toEqual([['Unit', true], ['Access', true], ['Manual', false]]);
-    expect(second.questions[0].answer).toBe('Unit, Access');
+  });
+
+  it('shows each chosen option of a multi-select answer, and none it did not choose', () => {
+    const [, second] = questions().questions.rounds ?? [];
+    expect(second.questions[0].options.map((o) => [o.label, o.description, o.chosen])).toEqual([['Unit', '', true], ['Access', 'two accounts', true]]);
+    expect(second.questions[0]).toMatchObject({ shape: 'answered', answer: 'Unit, Access', written: null });
+  });
+
+  it('shows an answer that matches no option as the text given, with no option', () => {
+    const other = round('r5', 'brainstorm', '2026-09-27T10:00:00Z', {
+      status: 'answered', answers: { [SHAPE.question]: 'Triangles, obviously' }, answered_via: 'page', answered_by: PIERRE.user_id,
+      answered_at: '2026-09-27T10:01:00Z',
+    });
+    const [only] = view(readPick({ tab: 'questions' }), numbered, PIERRE.user_id, versions, [other]).questions.rounds ?? [];
+    expect(only.questions[0]).toMatchObject({ shape: 'answered', options: [], written: 'Triangles, obviously' });
+  });
+
+  it('shows the chosen options of a multi-select answer, and the rest as the text given', () => {
+    const mixed = round('r6', 'brainstorm', '2026-09-27T10:00:00Z', {
+      questions: [CHECKS], status: 'answered', answers: { [CHECKS.question]: 'Access, Load test' }, answered_via: 'page',
+      answered_by: PIERRE.user_id, answered_at: '2026-09-27T10:01:00Z',
+    });
+    const [only] = view(readPick({ tab: 'questions' }), numbered, PIERRE.user_id, versions, [mixed]).questions.rounds ?? [];
+    expect(only.questions[0].options.map((o) => o.label)).toEqual(['Access']);
+    expect(only.questions[0].written).toBe('Load test');
+  });
+
+  it('shows every option of an open question, none chosen', () => {
+    const [, , , fourth] = questions().questions.rounds ?? [];
+    expect(fourth.questions[0]).toMatchObject({ shape: 'open', answer: null, written: null });
+    expect(fourth.questions[0].options.map((o) => [o.label, o.chosen])).toEqual([['Square', false], ['Hexagonal', false]]);
+  });
+
+  it('shows no option for a question moved to the terminal', () => {
+    const [, , third] = questions().questions.rounds ?? [];
+    expect(third.questions[0]).toMatchObject({ shape: 'moved', question: 'Square or hexagonal tiles?', options: [], answer: null, written: null });
+    expect(third.outcome).toBe('moved to the terminal, no answer recorded');
   });
 
   it('says who answered, after how long and where, or that nobody did', () => {
@@ -256,7 +288,7 @@ describe('the Questions tab', () => {
       answered_by: 'u-gone', answered_at: '2026-09-28T10:00:42Z',
     });
     const [only] = view(readPick({ tab: 'questions' }), numbered, PIERRE.user_id, versions, [odd]).questions.rounds ?? [];
-    expect(only.questions).toEqual([{ header: '', question: 'Asked in the terminal?', multiSelect: false, options: [], answer: 'Yes' }]);
+    expect(only.questions).toEqual([{ header: '', question: 'Asked in the terminal?', multiSelect: false, shape: 'answered', options: [], answer: 'Yes', written: 'Yes' }]);
     expect(only.outcome).toBe('answered by someone who left the workspace after 42 s, in the terminal');
   });
 
