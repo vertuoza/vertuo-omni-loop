@@ -19,8 +19,8 @@ import { isDossierKind, type DossierKind, type DossierRoundRow, type DossierRow,
 /** The page's tabs: an artifact's, or the questions that shaped it. */
 export type DossierTab = DossierKind | 'questions';
 
-/** The tabs, in order: the page to look at first, then what to read, then how it was decided. */
-export const TABS: readonly DossierTab[] = ['before-after', 'spec', 'plan', 'questions'];
+/** The tabs, in the order a PRD is made (PRD 384): the questions first, then the before/after, the spec and the plan. */
+export const TABS: readonly DossierTab[] = ['questions', 'before-after', 'spec', 'plan'];
 
 export const TAB_LABELS: Readonly<Record<DossierTab, string>> = {
   'before-after': 'Before/after', spec: 'Spec', plan: 'Plan', questions: 'Questions',
@@ -28,8 +28,8 @@ export const TAB_LABELS: Readonly<Record<DossierTab, string>> = {
 
 const isDossierTab = (value: unknown): value is DossierTab => value === 'questions' || isDossierKind(value);
 
-/** What the address picks: a tab, and a version of its artifact (null: the latest). */
-export type DossierPick = { tab: DossierTab; version: number | null };
+/** What the address picks: a tab (null: none named, the page's default), and a version of its artifact (null: the latest). */
+export type DossierPick = { tab: DossierTab | null; version: number | null };
 
 type Query = Record<string, string | string[] | undefined>;
 
@@ -39,8 +39,12 @@ const VERSION = /^[1-9]\d{0,8}$/;
 export function readPick(query: Query): DossierPick {
   const tab = one(query.tab);
   const version = one(query.v);
-  return { tab: isDossierTab(tab) ? tab : 'before-after', version: version !== null && VERSION.test(version) ? Number(version) : null };
+  return { tab: isDossierTab(tab) ? tab : null, version: version !== null && VERSION.test(version) ? Number(version) : null };
 }
+
+/** The tab the page opens on when the address names none: Questions once a round was asked, else
+ * Before/after, so nobody lands on an empty tab. */
+export const defaultTab = (rounds: readonly unknown[] | null): DossierTab => (rounds?.length ? 'questions' : 'before-after');
 
 /** The page's own address, the one Copy link gives. */
 export const dossierPath = (id: string) => `/prd/${encodeURIComponent(id)}`;
@@ -48,9 +52,10 @@ export const dossierPath = (id: string) => `/prd/${encodeURIComponent(id)}`;
 /** Where a version of the before/after page is served, sandboxed. */
 export const sandboxPath = (id: string, number: number) => `${dossierPath(id)}/v/${number}/page`;
 
-function hrefOf(id: string, tab: DossierTab, version: number | null) {
+/** A view's link; the default tab leaves `tab` out. */
+function hrefOf(id: string, tab: DossierTab, version: number | null, fallback: DossierTab) {
   const query = new URLSearchParams();
-  if (tab !== 'before-after') query.set('tab', tab);
+  if (tab !== fallback) query.set('tab', tab);
   if (version !== null) query.set('v', String(version));
   return String(query) ? `${dossierPath(id)}?${query}` : dossierPath(id);
 }
@@ -203,7 +208,8 @@ export function questionsView(rows: DossierRoundRow[] | null, members: Member[])
 
 export function dossierView({ dossier, versions, members, rounds, repos }: DossierRead, me: string | null, pick: DossierPick): DossierView {
   const ofKind = (kind: DossierKind) => versions.filter((v) => v.kind === kind);
-  const tab = pick.tab;
+  const fallback = defaultTab(rounds);
+  const tab = pick.tab ?? fallback;
   const mine = tab === 'questions' ? [] : ofKind(tab);
   const questions = questionsView(rounds, members);
   const badgeOf = (kind: DossierTab) => {
@@ -217,7 +223,7 @@ export function dossierView({ dossier, versions, members, rounds, repos }: Dossi
       id: version.id,
       number,
       label: `v${number} · ${shortDay(version.created_at)} · ${versionSource(version, members)}`,
-      href: hrefOf(dossier.id, tab, number),
+      href: hrefOf(dossier.id, tab, number, fallback),
       current: number === picked,
       frame: tab === 'before-after' ? sandboxPath(dossier.id, number) : null,
     };
@@ -236,7 +242,7 @@ export function dossierView({ dossier, versions, members, rounds, repos }: Dossi
       kind,
       label: TAB_LABELS[kind],
       badge: badgeOf(kind),
-      href: hrefOf(dossier.id, kind, null),
+      href: hrefOf(dossier.id, kind, null, fallback),
       current: kind === tab,
     })),
     tab,

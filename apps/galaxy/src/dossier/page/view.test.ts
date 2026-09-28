@@ -114,24 +114,52 @@ describe('who may delete', () => {
 });
 
 describe('the tabs', () => {
-  it('reads Before/after, Spec, Plan, each with its latest version, then Questions, answered out of asked', () => {
+  it('reads Questions, answered out of asked, then Before/after, Spec, Plan, each with its latest version', () => {
     expect(view().tabs).toEqual([
-      { kind: 'before-after', label: 'Before/after', badge: 'v2', href: `/prd/${ID}`, current: true },
+      { kind: 'questions', label: 'Questions', badge: '2/4 answered', href: `/prd/${ID}`, current: true },
+      { kind: 'before-after', label: 'Before/after', badge: 'v2', href: `/prd/${ID}?tab=before-after`, current: false },
       { kind: 'spec', label: 'Spec', badge: 'v3', href: `/prd/${ID}?tab=spec`, current: false },
       { kind: 'plan', label: 'Plan', badge: null, href: `/prd/${ID}?tab=plan`, current: false },
-      { kind: 'questions', label: 'Questions', badge: '2/4 answered', href: `/prd/${ID}?tab=questions`, current: false },
     ]);
   });
 
-  it('counts no question when none was asked, or when they could not be read', () => {
-    expect(view(readPick({}), numbered, PIERRE.user_id, versions, []).tabs.at(-1)?.badge).toBeNull();
-    expect(view(readPick({}), numbered, PIERRE.user_id, versions, null).tabs.at(-1)?.badge).toBeNull();
+  it('opens on Questions when at least one round was asked, its link naming no tab', () => {
+    const one = view(readPick({}), numbered, PIERRE.user_id, versions, [rounds[3]]);
+    expect(one.tab).toBe('questions');
+    expect(one.tabs.find((t) => t.current)).toMatchObject({ kind: 'questions', href: `/prd/${ID}` });
   });
 
-  it('opens the tab the address names', () => {
-    const v = view(readPick({ tab: 'spec' }));
-    expect(v.tab).toBe('spec');
-    expect(v.tabs.find((t) => t.current)?.kind).toBe('spec');
+  it('opens on Before/after when no round was asked, or none could be read, its link naming no tab', () => {
+    for (const asked of [[], null]) {
+      const v = view(readPick({}), numbered, PIERRE.user_id, versions, asked);
+      expect(v.tab, String(asked)).toBe('before-after');
+      expect(v.tabs.map((t) => [t.kind, t.href, t.current]), String(asked)).toEqual([
+        ['questions', `/prd/${ID}?tab=questions`, false],
+        ['before-after', `/prd/${ID}`, true],
+        ['spec', `/prd/${ID}?tab=spec`, false],
+        ['plan', `/prd/${ID}?tab=plan`, false],
+      ]);
+    }
+  });
+
+  it('counts no question when none was asked, or when they could not be read', () => {
+    expect(view(readPick({}), numbered, PIERRE.user_id, versions, []).tabs[0].badge).toBeNull();
+    expect(view(readPick({}), numbered, PIERRE.user_id, versions, null).tabs[0].badge).toBeNull();
+  });
+
+  it('opens the tab the address names, whatever the default', () => {
+    for (const asked of [rounds, []]) {
+      for (const tab of ['questions', 'before-after', 'spec', 'plan'] as const) {
+        const v = view(readPick({ tab }), numbered, PIERRE.user_id, versions, asked);
+        expect(v.tab, `${tab}, ${asked.length} rounds`).toBe(tab);
+        expect(v.tabs.find((t) => t.current)?.kind).toBe(tab);
+      }
+    }
+  });
+
+  it('falls back to the default for a tab it does not know', () => {
+    expect(view(readPick({ tab: 'outbox' })).tab).toBe('questions');
+    expect(view(readPick({ tab: 'outbox' }), numbered, PIERRE.user_id, versions, []).tab).toBe('before-after');
   });
 });
 
@@ -163,8 +191,13 @@ describe('the version picker', () => {
   });
 
   it('points each version of the before/after page at its sandboxed route', () => {
-    const page = view();
+    const page = view(readPick({ tab: 'before-after' }));
     expect(page.shown).toMatchObject({ number: 2, frame: `/prd/${ID}/v/2/page` });
+    expect(page.versions.map((v) => v.href)).toEqual([`/prd/${ID}?tab=before-after&v=2`, `/prd/${ID}?tab=before-after&v=1`]);
+  });
+
+  it('names no tab in a version\'s link when Before/after is the default', () => {
+    const page = view(readPick({}), numbered, PIERRE.user_id, versions, []);
     expect(page.versions.map((v) => v.href)).toEqual([`/prd/${ID}?v=2`, `/prd/${ID}?v=1`]);
   });
 });
@@ -237,10 +270,11 @@ describe('what the address picks', () => {
     expect(readPick({ tab: 'plan', v: '4' })).toEqual({ tab: 'plan', version: 4 });
     expect(readPick({ tab: ['spec', 'plan'], v: ['2'] })).toEqual({ tab: 'spec', version: 2 });
     expect(readPick({ tab: 'questions' })).toEqual({ tab: 'questions', version: null });
+    expect(readPick({ tab: 'before-after' })).toEqual({ tab: 'before-after', version: null });
   });
 
-  it('opens Before/after for a tab it does not know, and the latest version for a version that is not one', () => {
-    for (const tab of [undefined, 'Questions', 'spec.md', '']) expect(readPick({ tab }), String(tab)).toEqual({ tab: 'before-after', version: null });
+  it('names no tab for a tab it does not know, and the latest version for a version that is not one', () => {
+    for (const tab of [undefined, 'Questions', 'spec.md', '']) expect(readPick({ tab }), String(tab)).toEqual({ tab: null, version: null });
     for (const v of ['0', '-1', 'v2', '1.5', '99999999999', '']) expect(readPick({ tab: 'spec', v }), v).toEqual({ tab: 'spec', version: null });
   });
 });
