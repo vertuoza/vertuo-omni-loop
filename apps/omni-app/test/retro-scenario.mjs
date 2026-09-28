@@ -124,3 +124,68 @@ export function retroEvent(over = {}) {
     },
   };
 }
+
+/** The environment that lets the retro ask its judge: a model key, never sent anywhere (see `judge`). */
+export const JUDGE_ENV = Object.freeze({ OPENROUTER_API_KEY: 'test-key' });
+
+/** The lesson and the why `judge` gives each finding: no digit, no refused word. */
+export const KEPT_LESSON = 'Keep each slice small enough to merge within the day.';
+export const KEPT_WHY = 'Neither the knowledge nor an earlier lesson says this yet.';
+export const NOT_KEPT_WHY = 'The knowledge already says this.';
+
+/**
+ * A stubbed model for the retro's judge (PRD 487), handed to `createRetro` as its `fetch`: it
+ * answers every request with a reply about exactly the findings it was asked about, keeping those
+ * `keep(id)` accepts, and says the retro is worth a pull request when `worthIt` and one is kept.
+ * Each request's user message is kept in `fetch.asked`, parsed. Nothing reaches OpenRouter.
+ * @param {{ worthIt?: boolean, keep?: (id: string) => boolean, reason?: string, summary?: string }} [options]
+ */
+export function judge({ worthIt = true, keep = () => worthIt, reason, summary = 'The delivery went as planned, and one slice ran long.' } = {}) {
+  const asked = [];
+  const fetch = async (_url, init) => {
+    const input = JSON.parse(JSON.parse(init.body).messages[1].content);
+    asked.push(input);
+    const ids = input.findings.map((finding) => finding.id);
+    const kept = ids.filter((id) => keep(id));
+    const reply = {
+      summary,
+      findings: Object.fromEntries(
+        ids.map((id) => [id, kept.includes(id) ? { lesson: KEPT_LESSON, keep: true, why: KEPT_WHY } : { keep: false, why: NOT_KEPT_WHY }]),
+      ),
+      lessons: kept.length > 0 ? [{ text: KEPT_LESSON, findings: kept }] : [],
+      verdict: {
+        worthIt: worthIt && kept.length > 0,
+        reason: reason ?? (worthIt && kept.length > 0 ? 'One lesson is new.' : 'Every finding repeats a known pattern.'),
+      },
+    };
+    return Response.json({ choices: [{ message: { content: JSON.stringify(reply) } }] });
+  };
+  fetch.asked = asked;
+  return fetch;
+}
+
+/**
+ * The knowledge base and one earlier retro at the merge commit, for the judge to compare with: one
+ * product principle, one ADR, and PRD 3's `retro.json` holding one lesson.
+ */
+export const KNOWLEDGE_FILES = Object.freeze({
+  '.omni-loop/knowledge/README.md': '# Knowledge\n',
+  '.omni-loop/knowledge/product/principles.md': [
+    '# Product principles',
+    '',
+    '## P-PRODUCT-1',
+    '',
+    'A widget keeps what a person chose for it.',
+    '',
+    'Why: nothing is chosen twice.',
+    'Decided: @ada, 2026-09-01',
+    'Source: spec.md',
+    '',
+  ].join('\n'),
+  '.omni-loop/knowledge/adr/0001-colours-stored-per-widget.md':
+    '# ADR-0001 — Colours are stored per widget\n\n**Status:** accepted · **Date:** 2026-09-01\n\n## Context\n\nA widget forgets.\n',
+  '.omni-loop/delivery/shipped/0003-older/retro.json': `${JSON.stringify({
+    prd: 3,
+    runs: [{ run: 'merge', lessons: [{ text: 'Answer decisions before the wave that builds on them.', findings: ['drift:s1-01'] }] }],
+  })}\n`,
+});
