@@ -124,7 +124,9 @@ In:
 - `apps/omni-app/src/retro/`: `narrate.mjs` (the judge's input and reply shape), `guard.mjs` (the
   verdict), `retro.mjs` (the branch on the verdict for both runs), `issues.mjs` (kept findings only),
   `render.mjs` (the kept mark, `judge:` in the front matter, the verdict comment), `rules.mjs`
-  (`FIELD_CAPS.reason`, `FIELD_CAPS.why`), and a new `verdict-comment.mjs` (upsert by marker).
+  (`FIELD_CAPS.reason`, `FIELD_CAPS.why`).
+- `apps/omni-app/src/verdict-comment/` (new): upsert one comment on a PR by its marker, shared by
+  the retro and the harvest.
 - `apps/omni-app/src/knowledge-harvest/`: no PR and a verdict comment when there is no promotion.
 - `kit/lib/knowledge/`: `look-rule.mjs` (new), `classify.mjs` (quote the rule; its prompt snapshot
   moves), `pipeline.mjs` (`finishHarvest` returns no edits without a promotion).
