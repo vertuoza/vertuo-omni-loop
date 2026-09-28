@@ -13,9 +13,9 @@
 // and hands the terminal only a one-time code: a random value, stored as its SHA-256, bound to the
 // account, good once and for 2 minutes. Redeeming it renews the stored refresh token, so the tokens
 // the terminal receives were never seen by the browser either. Asking needs no player row and no
-// GitHub link: a crew account is all it takes.
+// GitHub link. No account is refused for its address (PRD 459): workspace membership is the only
+// gate, and the database keeps it.
 import { createHash, randomBytes } from 'node:crypto';
-import { isCrewEmail } from './auth';
 
 /** How long a one-time code works. */
 export const CODE_TTL_MS = 2 * 60_000;
@@ -72,7 +72,6 @@ export type CliCallbackDeps = {
 };
 
 const UNFINISHED = 'That sign-in could not be finished. Start again from this browser.';
-const NOT_CREW = 'Ask mode is for @vertuoza.com accounts only.';
 const NOT_HANDED = 'The sign-in could not be handed to the terminal. Run omni signin again.';
 
 /** Where the ask-cli branch of the auth callback sends the browser: the terminal's loopback address
@@ -94,10 +93,6 @@ export async function cliSignInReturn(url: URL, origin: string, deps: CliCallbac
     return back(UNFINISHED);
   }
   const end = () => deps.revoke(session).catch(() => {});
-  if (!isCrewEmail(session.user.email)) {
-    await end();
-    return back(NOT_CREW);
-  }
   const code = newCode();
   const { error: issueError } = await deps.issue(session, hashCode(code));
   if (issueError) {
@@ -175,7 +170,7 @@ async function redeem(client: TokenClient, code: string) {
 
 /** The contract's token exchange: a one-time code or a refresh token in, the account's tokens out.
  * 400 for a body of any other shape, 413 when too large; 401 for a code unknown, used, expired or
- * issued to another account, or a refresh token refused; 403 outside the crew; 503 with no database
+ * issued to another account, or a refresh token refused; 503 with no database
  * or Auth down; 500 when the code table fails. */
 export async function exchangeToken(request: Request, deps: TokenDeps): Promise<Response> {
   const given = await grant(request);
@@ -211,10 +206,6 @@ export async function exchangeToken(request: Request, deps: TokenDeps): Promise<
   if (owner !== null && session.user.id !== owner) {
     await end();
     return refuse(401, CODE_ELSEWHERE);
-  }
-  if (!isCrewEmail(session.user.email)) {
-    await end();
-    return refuse(403, NOT_CREW);
   }
   return reply(200, {
     access_token: session.access_token,

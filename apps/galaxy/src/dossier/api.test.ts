@@ -17,6 +17,7 @@ const NELL = { id: '00000000-0000-4000-8000-0000000000f1', email: 'nell@vertuoza
 const DANA = { id: '00000000-0000-4000-8000-0000000000d1', email: 'dana@vertuoza.com', workspaces: [OTHER, FAKE_WORKSPACE] };
 const START = Date.parse('2026-09-28T09:00:00Z');
 const MISSING = '00000000-0000-4000-8000-00000000ffff';
+const INSTALL = 'https://github.com/apps/omni-loop-invader/installations/new';
 
 const SPEC = '---\nprd: 7\ntitle: Team inbox\n---\n\n# Team inbox\n';
 const PLAN = '# Plan: team inbox\n';
@@ -32,7 +33,7 @@ function world({ database = true } = {}) {
     () => clock.now,
   );
   // The stub answers only the calls the store makes, so it is not a whole Supabase client.
-  const deps: DossierDeps = { connect: database ? fake.client as unknown as DossierDeps['connect'] : null };
+  const deps: DossierDeps = { connect: database ? fake.client as unknown as DossierDeps['connect'] : null, installLink: INSTALL };
   const request = (path: string, { token = 'ada-token', body, raw, headers = {} }: Call = {}) =>
     new Request(`https://omni.example${path}`, {
       method: 'POST',
@@ -62,7 +63,7 @@ const CALLS = [
   { name: 'POST /api/dossiers/push', call: (w: ReturnType<typeof world>, c: Call) => w.push(PUSH, c) },
 ];
 
-describe('every dossier call checks the bearer token, the crew and the database', () => {
+describe('every dossier call checks the bearer token, and leaves membership to the database', () => {
   for (const { name, call } of CALLS) {
     it(`${name}: 401 without a token, with another scheme, or with a token the Auth server refuses`, async () => {
       const w = world();
@@ -74,13 +75,23 @@ describe('every dossier call checks the bearer token, the crew and the database'
       expect(w.fake.tables.dossiers).toEqual([]);
     });
 
-    it(`${name}: 403 for an account outside the crew, and for an account in no workspace`, async () => {
+    it(`${name}: lets a member through whatever their address, and refuses one in no workspace with 403`, async () => {
       const w = world();
-      for (const token of ['eve-token', 'nell-token']) {
-        const { status, body } = await call(w, { token });
-        expect(status, token).toBe(403);
-        expect(body.error).toEqual(expect.any(String));
-      }
+      const eve = await call(w, { token: 'eve-token' });
+      expect(eve.status).toBeLessThan(300);
+      const nell = await call(w, { token: 'nell-token' });
+      expect(nell.status).toBe(403);
+      expect(nell.body.error).toEqual(expect.any(String));
+      expect(nell.body.error).not.toMatch(/vertuoza\.com/);
+    });
+
+    it(`${name}: 403 with the database's reason, and the App's install link after its install hint (PRD 459)`, async () => {
+      const w = world();
+      w.fake.state.fail = { code: '42501', message: 'you are not a member of Globex, which owns globex/web' };
+      expect(await call(w, {})).toEqual({ status: 403, body: { error: 'you are not a member of Globex, which owns globex/web' } });
+      w.fake.state.fail = { code: '42501', message: 'no workspace owns acme/widgets yet — install the Omni App' };
+      expect(await call(w, {})).toEqual({ status: 403, body: { error: `no workspace owns acme/widgets yet — install the Omni App: ${INSTALL}` } });
+      w.fake.state.fail = null;
       expect(w.fake.tables.dossiers).toEqual([]);
     });
 

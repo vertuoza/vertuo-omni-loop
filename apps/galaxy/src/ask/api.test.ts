@@ -10,12 +10,14 @@ const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.c
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
 // Dan belongs to Ada's workspace too, under the arcade name he picked there.
 const DAN = { id: '00000000-0000-4000-8000-0000000000d1', email: 'dan@vertuoza.com', name: 'DAN' };
-const EVE = { id: '00000000-0000-4000-8000-0000000000e1', email: 'eve@example.com' };
+// Eve, of no Vertuoza address, belongs to no workspace.
+const EVE = { id: '00000000-0000-4000-8000-0000000000e1', email: 'eve@example.com', workspaces: [] };
 // Ada and Bob belong to one workspace (the fake's default), Carl to another.
 const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@vertuoza.com', workspaces: ['00000000-0000-4000-8000-00000000aced'] };
 const START = Date.parse('2026-09-26T09:00:00Z');
 const HOUR = 60 * 60 * 1000;
 const MISSING = '00000000-0000-4000-8000-00000000ffff';
+const INSTALL = 'https://github.com/apps/omni-loop-invader/installations/new';
 
 // AskUserQuestion's input, as Claude sends it: stored and returned exactly as given.
 const QUESTIONS = [
@@ -47,6 +49,7 @@ function world() {
   const deps: AskDeps = {
     // The stub answers only the query shapes the store sends, so it is not a whole Supabase client.
     connect: fake.client as unknown as AskDeps['connect'],
+    installLink: INSTALL,
     now: () => clock.now,
     async sleep(ms) {
       sleeps.push(ms);
@@ -88,7 +91,7 @@ const CALLS = [
   { name: 'POST /rounds/:id/abandon', call: (w: ReturnType<typeof world>, c: Call, id = MISSING) => abandonRound(w.request('POST', `/api/ask/rounds/${id}/abandon`, c), id, w.deps) },
 ];
 
-describe('every ask call checks the bearer token and the crew', () => {
+describe('every ask call checks the bearer token, and leaves membership to the database', () => {
   for (const { name, call } of CALLS) {
     it(`${name}: 401 without a token, with another scheme, or with a token the Auth server refuses`, async () => {
       const w = world();
@@ -100,11 +103,16 @@ describe('every ask call checks the bearer token and the crew', () => {
       expect(w.fake.tables.ask_sessions).toEqual([]);
     });
 
-    it(`${name}: 403 for an account outside the crew`, async () => {
+    it(`${name}: lets an account of any address through, and the database refuses one in no workspace`, async () => {
       const w = world();
       const { status, body } = await w.read(await call(w, { token: 'eve-token' }));
-      expect(status).toBe(403);
-      expect(body.error).toMatch(/vertuoza\.com/);
+      expect(body.error ?? '').not.toMatch(/vertuoza\.com/);
+      if (name === 'POST /sessions') {
+        expect(status).toBe(403);
+        expect(body.error).toBe(`no workspace owns this repository yet — install the Omni App: ${INSTALL}`);
+      } else {
+        expect(status).toBe(404);
+      }
       expect(w.fake.tables.ask_sessions).toEqual([]);
     });
 
@@ -167,6 +175,26 @@ describe('POST /api/ask/sessions', () => {
     const w = world();
     const response = await openSession(w.request('POST', '/api/ask/sessions', { body: { title: 't', pad: 'x'.repeat(300 * 1024) } }), w.deps);
     expect(response.status).toBe(413);
+  });
+
+  it('answers 403 with the database\'s reason, never 500, when the session has no workspace to go to (PRD 459)', async () => {
+    const w = world();
+    const open = (token: string, repo?: string) =>
+      openSession(w.request('POST', '/api/ask/sessions', { token, body: { title: 't', ...(repo ? { context: { repo } } : {}) } }), w.deps);
+
+    const unowned = await w.read(await open('eve-token', 'nobody/tools'));
+    expect(unowned).toEqual({ status: 403, body: { error: `no workspace owns nobody/tools yet — install the Omni App: ${INSTALL}` } });
+
+    // A repository another workspace owns: the database's refusal names it, and no link follows.
+    w.fake.state.fail = { code: '42501', message: 'you are not a member of Globex, which owns globex/web' };
+    const owned = await w.read(await open('ada-token', 'globex/web'));
+    w.fake.state.fail = null;
+    expect(owned).toEqual({ status: 403, body: { error: 'you are not a member of Globex, which owns globex/web' } });
+
+    // Without an install link here, the reason goes as the database wrote it.
+    const bare = await w.read(await openSession(w.request('POST', '/api/ask/sessions', { token: 'eve-token', body: { title: 't' } }), { ...w.deps, installLink: null }));
+    expect(bare).toEqual({ status: 403, body: { error: 'no workspace owns this repository yet — install the Omni App' } });
+    expect(w.fake.tables.ask_sessions).toEqual([]);
   });
 });
 
@@ -525,11 +553,11 @@ describe('DELETE /api/ask/sessions/:id (PRD 144)', () => {
     expect(w.row('ask_sessions', sessionId)).toBeDefined();
   });
 
-  it('checks the bearer token and the crew like every other call', async () => {
+  it('checks the bearer token like every other call, and reads as missing to an account in no workspace', async () => {
     const w = world();
     const sessionId = await w.session();
     expect((await remove(w, sessionId, null)).status).toBe(401);
-    expect((await remove(w, sessionId, 'eve-token')).status).toBe(403);
+    expect((await remove(w, sessionId, 'eve-token')).status).toBe(404);
     expect((await remove({ ...w, deps: { connect: null } }, sessionId)).status).toBe(503);
     expect(w.row('ask_sessions', sessionId)).toBeDefined();
   });
@@ -656,11 +684,11 @@ describe('PATCH /api/ask/rounds/:id/category (PRD 144)', () => {
     expect(w.row('ask_rounds', roundId)).toMatchObject({ category: null, category_by: null });
   });
 
-  it('checks the bearer token and the crew like every other call', async () => {
+  it('checks the bearer token like every other call, and reads as missing to an account in no workspace', async () => {
     const w = world();
     const roundId = await w.round(await w.session());
     expect((await sort(w, roundId, { category: 'other' }, null)).status).toBe(401);
-    expect((await sort(w, roundId, { category: 'other' }, 'eve-token')).status).toBe(403);
+    expect((await sort(w, roundId, { category: 'other' }, 'eve-token')).status).toBe(404);
     expect((await sort({ ...w, deps: { connect: null } }, roundId, { category: 'other' })).status).toBe(503);
     expect(w.row('ask_rounds', roundId)).toMatchObject({ category: null });
   });
@@ -726,11 +754,11 @@ describe('POST /api/ask/rounds/:id/shares (PRD 144)', () => {
     expect(w.fake.tables.ask_shares).toEqual([]);
   });
 
-  it('checks the bearer token and the crew like every other call, and answers 500 when the database fails', async () => {
+  it('checks the bearer token like every other call, and reads as missing to an account in no workspace, and answers 500 when the database fails', async () => {
     const w = world();
     const roundId = await w.round(await w.session());
     expect((await share(w, roundId, { member: BOB.id }, null)).status).toBe(401);
-    expect((await share(w, roundId, { member: BOB.id }, 'eve-token')).status).toBe(403);
+    expect((await share(w, roundId, { member: BOB.id }, 'eve-token')).status).toBe(404);
     expect((await share({ ...w, deps: { connect: null } }, roundId, { member: BOB.id })).status).toBe(503);
     w.fake.state.fail = { message: 'connection reset' };
     expect((await share(w, roundId, { member: BOB.id })).status).toBe(500);

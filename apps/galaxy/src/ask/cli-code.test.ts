@@ -189,18 +189,14 @@ describe('the auth callback, for omni signin', () => {
     expect(w.revoked).toEqual([]);
   });
 
-  it('refuses an account outside the crew on the page: no code, and its new sign-in ended', async () => {
+  it('turns any account\'s sign-in into a code, whatever its address: no domain is refused (PRD 459)', async () => {
     const w = world();
     const back = await w.signIn(EVE);
-    expect(back.origin).toBe(ORIGIN);
-    expect(back.pathname).toBe('/ask/signin');
-    expect(back.searchParams.get('signin_error')).toMatch(/@vertuoza\.com accounts only/);
-    expect(back.searchParams.get('port')).toBe('49152');
-    expect(back.searchParams.get('state')).toBe(STATE);
-    expect(back.searchParams.has('code')).toBe(false);
-    expect(w.calls.issue).toEqual([]);
-    expect(w.codes.size).toBe(0);
-    expect(w.revoked).toEqual(['access-1']);
+    expect(back.origin).toBe('http://127.0.0.1:49152');
+    const code = back.searchParams.get('code')!;
+    expect([...w.codes.keys()]).toEqual([hashCode(code)]);
+    expect(w.codes.get(hashCode(code))?.owner).toBe(EVE.id);
+    expect(w.revoked).toEqual([]);
   });
 
   it('comes back to the sign-in page with Google\'s or Supabase\'s reason, exchanging nothing', async () => {
@@ -305,12 +301,13 @@ describe('POST /api/ask/token', () => {
     expect(w.calls.refresh).toEqual([]);
   });
 
-  it('refuses an account outside the crew', async () => {
+  it('hands any account its tokens, whatever its address: no domain is refused (PRD 459)', async () => {
     const w = world();
-    const eves = w.newSession(EVE);
-    const reply = await w.token({ refresh_token: eves.refresh_token });
-    expect(reply.status).toBe(403);
-    expect(reply.body).not.toHaveProperty('access_token');
+    const code = await w.codeFor(EVE);
+    const reply = await w.token({ code });
+    expect(reply.status).toBe(200);
+    expect(reply.body).toMatchObject({ access_token: expect.any(String), refresh_token: expect.any(String), email: EVE.email });
+    expect(w.revoked).toEqual([]);
   });
 
   it('trades a refresh token for a new sign-in, once', async () => {
