@@ -10,23 +10,24 @@ export const DEMO_PROJECTS = Object.freeze({
     'ai-nebula': { repos: ['vertuo-ai-domain'] },
     'field-rim': { repos: ['vertuo-web', 'vertuo-mobile'] },
   },
-  // The same fleets the migration seeds (supabase/migrations/*_fleets_and_players.sql).
+  // Invented fleets, like everything else here: no workspace's own (PRD 400). Each flies a mascot of
+  // the sprite library but one, drawn as a hero in its colour, and one is retired.
   teams: {
-    beaver: { home: 'core-belt', label: 'BEAVER', color: '#d08a4a', motto: 'Builds the dam. Secures the zone.', mascot: 'beaver', sort: 10, retired: false },
-    octopod: { home: 'ai-nebula', label: 'OCTOPOD', color: '#b07cff', motto: 'Eight arms, eight sub-PRs.', mascot: 'octopod', sort: 20, retired: false },
-    picsou: { home: 'core-belt', label: 'PICSOU', color: '#ffd84a', motto: 'Every coin counted twice.', mascot: 'picsou', sort: 30, retired: false },
-    cia: { home: 'field-rim', label: 'C.I.A.', color: '#9aa3c8', motto: 'Knows every open question.', mascot: 'cia', sort: 40, retired: false },
-    pirates: { home: 'field-rim', label: 'PIRATES', color: '#2fc6a4', motto: 'Takes the zones nobody claims.', mascot: 'pirate', sort: 50, retired: false },
-    'invincible-team': { home: null, label: 'INVINCIBLE', color: '#4fb0ff', motto: 'Think, Mark. Then ship it.', mascot: 'invincible', sort: 90, retired: true },
+    builders: { home: 'core-belt', label: 'BUILDERS', color: '#c9824a', motto: 'Every zone gets a wall.', mascot: 'beaver', sort: 10, retired: false },
+    inklings: { home: 'ai-nebula', label: 'INKLINGS', color: '#a070f0', motto: 'All arms on deck.', mascot: 'octopod', sort: 20, retired: false },
+    coiners: { home: 'core-belt', label: 'COINERS', color: '#f5c842', motto: 'Pays out in shipped slices.', mascot: 'picsou', sort: 30, retired: false },
+    'night-owls': { home: 'field-rim', label: 'NIGHT OWLS', color: '#8f9ac0', motto: 'Reads every open question.', mascot: null, sort: 40, retired: false },
+    corsairs: { home: 'field-rim', label: 'CORSAIRS', color: '#35b89a', motto: 'Boards the zones nobody holds.', mascot: 'pirate', sort: 50, retired: false },
+    capes: { home: null, label: 'CAPES', color: '#58a8f0', motto: 'Retired, never forgotten.', mascot: 'invincible', sort: 90, retired: true },
   },
 });
 
 const DEMO_TEAMS = {
-  'pm-lina': 'beaver', 'bo-builder': 'beaver', 'dam-dev': 'beaver',
-  'pm-otto': 'octopod', inky: 'octopod', 'kraken-k': 'octopod',
-  'pm-penny': 'picsou', dime: 'picsou', 'gold-rush': 'picsou',
-  'pm-cecil': 'cia', 'agent-k': 'cia', 'gda-ro': 'cia',
-  'pm-anne': 'pirates', 'bonny-b': 'pirates', 'long-john': 'pirates',
+  'pm-lina': 'builders', 'bo-builder': 'builders', 'dam-dev': 'builders',
+  'pm-otto': 'inklings', inky: 'inklings', 'kraken-k': 'inklings',
+  'pm-penny': 'coiners', dime: 'coiners', 'gold-rush': 'coiners',
+  'pm-cecil': 'night-owls', 'agent-k': 'night-owls', 'gda-ro': 'night-owls',
+  'pm-anne': 'corsairs', 'bonny-b': 'corsairs', 'long-john': 'corsairs',
 };
 
 const iso = (d) => d.toISOString().replace(/\.\d{3}Z$/, 'Z');

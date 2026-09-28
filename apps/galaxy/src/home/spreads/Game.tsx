@@ -8,7 +8,7 @@ import { FLIP_ATTR } from './flip';
 import './Game.css';
 
 // The game: Entropy you can see (PRD 285, was COLLECT ALL THE FLEETS! in PRD 261): why the game
-// exists, then the built-in fleets as trading cards. Controls flips a card on a click.
+// exists, then the demo world's invented fleets as trading cards. Controls flips a card on a click.
 export function Game({ fleets }: { fleets: readonly FleetRow[] }) {
   return (
     <section className="home-spread" aria-labelledby="home-fleets">

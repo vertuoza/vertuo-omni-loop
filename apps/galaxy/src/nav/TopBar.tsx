@@ -6,8 +6,8 @@ import { MENU, type MenuId } from './menu';
 import './nav.css';
 
 // The one header of the normal app (PRD 346), on /app, /releases, /prd, /ask and /knowledge: the
-// OMNI LOOP mark linking to /app, the page's sub-title, then the page's own extras ("All PRDs" on
-// /prd, History and For me on /ask, the star chart on /knowledge), the menu, the theme switch, and
+// OMNI LOOP mark linking to /app, the page's sub-title, then the page's own extras (History and For
+// me on /ask, the star chart on /knowledge), the menu, the theme switch, and
 // Game mode last, at the top right (PRD 238). The item of the page being shown carries
 // aria-current="page". Nothing else differs between bars: a page's classes only let its own
 // stylesheet lay its bar out.

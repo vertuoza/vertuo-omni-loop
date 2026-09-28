@@ -161,7 +161,14 @@ run `git fetch <remote>`, then `git worktree add --detach <path> <remote>/<featu
 
 ## 6. Report
 
-One table, then the items still open. This is what `/omni:yolo` reads.
+The PRD's page beside its number, then one table, then the items still open. This is what
+`/omni:yolo` reads.
+
+The first line is the PRD's page. Run `node .omni-loop/bin/omni.mjs dossier link <n>`: exit `0`
+prints the page's link on one line, so the line is `PRD <n>: <link>`. Anything else (`none`, `off`,
+`no sign-in (omni signin)`, `unreachable`, `refused (<status>)`, or exit `2` from a kit without the
+verb) means it has no page to show: the line is
+`PRD <n>: no page yet, https://github.com/<owner>/<repo>/issues/<n>`. It never stops the report.
 
 | slice | sub-PR | outcome | territory | items | summary | risks |
 |---|---|---|---|---|---|---|

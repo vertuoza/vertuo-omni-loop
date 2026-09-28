@@ -211,7 +211,10 @@ for `labels.needsFix`) and write the final status comment, `done` or `stuck`.
 
 ## 8. Hand off
 
-Report, in one block: what step 3 settled (agreed or drifted, by question number) and whether a
+Report, in one block: the PRD's page beside its number, as `/omni:yolo` §7 prints it (run
+`node .omni-loop/bin/omni.mjs dossier link <n>`; on exit `0` print `PRD <n>: <link>`, and on
+anything else `PRD <n>: no page yet, https://github.com/<owner>/<repo>/issues/<n>`, never stopping
+the hand-off); what step 3 settled (agreed or drifted, by question number) and whether a
 round was posted; the leftovers adopted; every drifted item, the rework sub-PR that closed it, the
 bound it stayed inside, any territory breach; each rework not merged, with its reason; the checks
 that ran and did not; the gate verdict and the feature PR's state.

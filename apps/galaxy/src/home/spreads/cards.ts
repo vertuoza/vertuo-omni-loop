@@ -1,7 +1,7 @@
 import { RULEBOOK } from 'vertuo-omni-plan/game/rulebook.mjs';
 import type { FleetRow } from '../../arcade/types';
 
-// COLLECT ALL THE FLEETS! (PRD 261): the fleets as trading cards. The front is the fleet's mascot,
+// COLLECT ALL THE FLEETS! (PRD 261): the demo world's fleets as trading cards. The front is the fleet's mascot,
 // label and motto; the back its colour and one scoring value, read from the game's rulebook so a
 // card never states a number the rulebook does not hold.
 
@@ -19,13 +19,13 @@ export const RULES: readonly CardRule[] = [
   rule('rescue', RULEBOOK.rescue, 'A rescue'),
 ];
 
-/** The value each built-in fleet's card carries, as the approved ad deals them. */
-const RULE_OF: Readonly<Record<string, string>> = {
+/** The value a card carries by its fleet's mascot (PRD 400: keyed by mascot, never by name), as the approved ad deals them. */
+const RULE_BY_MASCOT: Readonly<Record<string, string>> = {
   beaver: 'zoneSecured',
   octopod: 'woundClose.unconfirmed-ground',
   picsou: 'woundClose.fault-line',
   cia: 'woundClose.beacon',
-  pirates: 'rescue',
+  pirate: 'rescue',
 };
 
 export interface Card {
@@ -37,12 +37,12 @@ export interface Card {
   rule: string;
 }
 
-/** One card per fleet that is not retired, in the fleets' order. A fleet with no value of its own takes the next in turn. */
+/** One card per fleet that is not retired, in the fleets' order. A fleet whose mascot has no value takes the next in turn. */
 export function cardsOf(fleets: readonly FleetRow[]): Card[] {
   return fleets
     .filter((f) => !f.retired)
     .map((f, i) => {
-      const own = RULES.find((r) => r.key === RULE_OF[f.name]);
+      const own = f.mascot && Object.hasOwn(RULE_BY_MASCOT, f.mascot) ? RULES.find((r) => r.key === RULE_BY_MASCOT[f.mascot!]) : undefined;
       return { name: f.name, label: f.label, motto: f.motto, color: f.color, mascot: f.mascot, rule: (own ?? RULES[i % RULES.length]).text };
     });
 }

@@ -3,6 +3,7 @@
 // stay one line each:
 //
 //   POST /api/dossiers       {title, repo, claudeSessionId?}                         → 201 {id, url}
+//   GET  /api/dossiers?repo=<owner/name>&prd=<n>                                      → 200 {id, url}
 //   POST /api/dossiers/push  {repo, prd, title, draftId?, artifacts: [{kind, content}]}
 //                                             → 200 {id, url, added: [{kind, version}], unchanged: [kind]}
 //
@@ -10,17 +11,19 @@
 // one keyed by workspace, repository and PRD, else a new one), numbers a draft — merging it into a
 // dossier already keyed the same — and adds a version of each kind only when the hash of its content
 // differs from the latest. The database computes the hash, from the content: a hash in the request
-// is never read. Each kind it received comes back, added or unchanged.
+// is never read. Each kind it received comes back, added or unchanged. A lookup (PRD 413) only reads:
+// the dossier of that repository (lower-cased) and PRD the caller may read, the most recently numbered
+// when two of their workspaces hold one, or 404 when there is none.
 //
-// Refusals follow ADR-0029, each `{error}` in plain words: 400 a malformed body (or a draft of another
-// repository, or one already another PRD), 401 no valid bearer token, 403 an account outside the crew
-// or in no workspace, 404 a draft the caller cannot read, 413 a body over its cap or an artifact over
+// Refusals follow ADR-0029, each `{error}` in plain words: 400 a malformed body or query (or a draft of
+// another repository, or one already another PRD), 401 no valid bearer token, 403 an account outside the crew
+// or in no workspace, 404 a draft the caller cannot read (or no dossier for a lookup), 413 a body over its cap or an artifact over
 // 512 KiB, 503 no database here or the sign-in service down; 500 the database failed.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authenticate, type TokenCheck } from '../ask/auth';
 import {
-  ARTIFACT_MAX_BYTES, DOSSIER_KINDS, dossierStore, DossierStoreError, isDossierKind, TITLE_MAX,
-  type DossierArtifact, type DossierStore,
+  ARTIFACT_MAX_BYTES, DOSSIER_KINDS, dossierReader, dossierStore, DossierStoreError, isDossierKind, TITLE_MAX,
+  type DossierArtifact,
 } from './store';
 
 /** The largest push: three artifacts of 512 KiB and their JSON. */
@@ -28,8 +31,8 @@ export const MAX_PUSH_BYTES = 2 * 1024 * 1024;
 /** The largest draft to open: a title, a repository and a session id. */
 export const MAX_OPEN_BYTES = 64 * 1024;
 
-/** A Supabase client acting as one access token: the Auth server's check, and the functions. */
-export type DossierClient = TokenCheck & Pick<SupabaseClient, 'rpc'>;
+/** A Supabase client acting as one access token: the Auth server's check, the functions and the tables. */
+export type DossierClient = TokenCheck & Pick<SupabaseClient, 'rpc' | 'from'>;
 
 export type DossierDeps = {
   /** A client acting as the given access token, or null when no database is configured. */
@@ -57,12 +60,12 @@ function origin(request: Request) {
 
 const linkTo = (request: Request, id: string) => `${origin(request)}/prd/${id}`;
 
-/** A store acting as the caller, or the Response that refuses them. */
-async function signIn(request: Request, deps: DossierDeps): Promise<DossierStore | Response> {
+/** A client acting as the caller, or the Response that refuses them. */
+async function signIn(request: Request, deps: DossierDeps): Promise<DossierClient | Response> {
   if (!deps.connect) return refuse(503, 'Dossiers are not available here: this deployment has no database.');
   const auth = await authenticate(request.headers.get('authorization'), deps.connect);
   if (!auth.ok) return refuse(auth.status, auth.error);
-  return dossierStore(deps.connect(auth.caller.token));
+  return deps.connect(auth.caller.token);
 }
 
 /** The database's refusal as the contract's answer; a failure is a 500, never a guess. */
@@ -76,10 +79,10 @@ function refusal(error: DossierStoreError): Response {
 }
 
 /** Runs a handler as the signed-in caller, turning the database's refusals into the contract's. */
-async function handle(request: Request, deps: DossierDeps, run: (store: DossierStore) => Promise<Response>): Promise<Response> {
+async function handle(request: Request, deps: DossierDeps, run: (client: DossierClient) => Promise<Response>): Promise<Response> {
   try {
-    const store = await signIn(request, deps);
-    return store instanceof Response ? store : await run(store);
+    const client = await signIn(request, deps);
+    return client instanceof Response ? client : await run(client);
   } catch (error) {
     if (!(error instanceof DossierStoreError)) throw error;
     return refusal(error);
@@ -108,8 +111,30 @@ function titleOf(value: unknown): string | null {
 
 const repoOf = (value: unknown): string | null => (typeof value === 'string' && value.length <= 200 && REPO.test(value) ? value : null);
 
+/** A PRD's number as a query sends it: digits only, 1 to 2³¹−1; or null. */
+const prdOf = (value: string | null): number | null => {
+  if (value === null || !/^\d{1,10}$/.test(value)) return null;
+  const prd = Number(value);
+  return prd >= 1 && prd <= PRD_MAX ? prd : null;
+};
+
+/** Where PRD n of a repository lives: its dossier's id and link, as the caller may read it. */
+export function findDossier(request: Request, deps: DossierDeps): Promise<Response> {
+  return handle(request, deps, async (client) => {
+    const query = new URL(request.url).searchParams;
+    const repo = repoOf(query.get('repo'));
+    if (!repo) return refuse(400, 'A lookup names its repository as owner/name.');
+    const prd = prdOf(query.get('prd'));
+    if (prd === null) return refuse(400, '`prd` is the PRD\'s number.');
+    const id = await dossierReader(client).numbered(repo, prd);
+    if (!id) return refuse(404, `No dossier for PRD #${prd} of ${repo.toLowerCase()}.`);
+    return reply(200, { id, url: linkTo(request, id) });
+  });
+}
+
 export function openDossier(request: Request, deps: DossierDeps): Promise<Response> {
-  return handle(request, deps, async (store) => {
+  return handle(request, deps, async (client) => {
+    const store = dossierStore(client);
     const sent = await body(request, MAX_OPEN_BYTES);
     if (sent instanceof Response) return sent;
     const title = titleOf(sent.title);
@@ -144,7 +169,8 @@ function artifactsOf(value: unknown): { artifacts: DossierArtifact[] } | { statu
 }
 
 export function pushDossier(request: Request, deps: DossierDeps): Promise<Response> {
-  return handle(request, deps, async (store) => {
+  return handle(request, deps, async (client) => {
+    const store = dossierStore(client);
     const sent = await body(request, MAX_PUSH_BYTES);
     if (sent instanceof Response) return sent;
     const repo = repoOf(sent.repo);

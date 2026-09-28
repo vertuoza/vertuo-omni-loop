@@ -1,0 +1,9 @@
+/* NO FLEETS YET — RAISE YOUR OWN! (raise.tsx): the heading, the mascot parade under it, the pointer. */
+.raise { top: 110px; padding: 0 16px; }
+.raise-h { line-height: 1.6; }
+.raise-parade { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 12px; margin: 8px 0; }
+.raise a { color: var(--yellow); }
+.grid-tall .raise { top: 70px; padding: 0 10px; gap: 6px; }
+.grid-tall .raise-h { font-size: 12px; }
+.grid-tall .raise .j-txt { font-size: 16px; max-width: none; overflow-wrap: anywhere; }
+.grid-tall .raise-parade { gap: 6px; }

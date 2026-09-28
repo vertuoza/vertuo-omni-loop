@@ -6,17 +6,18 @@
 import { Fragment, type ReactNode } from 'react';
 import type { Hero } from '@omni/design';
 import { BUILDER_ROWS, rowValue, type BuilderRow } from '../builder';
-import { fleet } from '../fleets';
+import { crewLook, SOLO } from '../fleets';
 import { Hint } from '../hint';
 import { hintKey } from '../keys';
 import { NAME_MAX, WHEEL, type NameState } from '../name-entry';
 import { useScreen } from '../Screen';
 import type { FleetRow } from '../types';
+import { RaiseOverlay } from './raise.tsx';
 import { cardRow } from './recruit.ts';
 import './common.css';
 import './recruit.css';
 
-// Ends a sentence on a fleet's label without doubling its own full stop (C.I.A.).
+// Ends a sentence on a fleet's label without doubling its own full stop (a label like S.W.A.T.).
 const stop = (label: string) => (label.endsWith('.') ? '' : '.');
 
 /**
@@ -35,34 +36,44 @@ function HintLine({ sep, children }: { sep: string[]; children: ReactNode[] }) {
 
 const SPACED = '   ';
 
-export function SelectOverlay({ fleets, pick, change, locked, confirm, current, disbanded, crew, onPick }: {
+/**
+ * The fleet step: a card per active fleet, then PLAY SOLO (PRD 400), at `pick` = `fleets.length`.
+ * With no fleets it is the "raise your own" screen: `owner` says whether the workspace's owner reads it.
+ */
+export function SelectOverlay({ fleets, pick, change, locked, confirm, current, disbanded, crew, onPick, owner = false }: {
   fleets: FleetRow[]; pick: number; change: boolean; locked: boolean; confirm: boolean;
-  current: string | null; disbanded: boolean; crew: Record<string, number>; onPick: (i: number) => void;
+  current: string | null; disbanded: boolean; crew: Record<string, number>; onPick: (i: number) => void; owner?: boolean;
 }) {
   const { grid } = useScreen();
-  const f = fleets[pick];
-  if (!f) return <div className="j-center r-select-none"><p className="j-h">NO FLEETS YET</p></div>;
-  const from = fleet(current);
-  const count = crew[f.name] ?? 0;
-  const row = cardRow(fleets.length, pick, grid);
+  if (!fleets.length) return <RaiseOverlay owner={owner} />;
+  const solo = pick >= fleets.length;
+  const f = solo ? { ...SOLO, name: null } : fleets[pick];
+  const from = crewLook(current);
+  const count = f.name ? crew[f.name] ?? 0 : 0;
+  const row = cardRow(fleets.length + 1, pick, grid);
+  const cards: { key: string; label: string }[] = [...fleets.map((fl) => ({ key: fl.name, label: fl.label })), { key: 'solo', label: 'PLAY SOLO' }];
+  const mine = solo ? change && !current : f.name === current;
   return (
     <>
       <div className="j-center r-select-head">
-        <p className="j-h">{change ? 'CHANGE FLEET' : 'SELECT YOUR FLEET'}</p>
+        <p className="j-h">{change ? (current ? 'CHANGE FLEET' : 'JOIN A FLEET') : 'SELECT YOUR FLEET'}</p>
         {disbanded && <p className="j-sub j-warn">YOUR FLEET WAS DISBANDED. CHOOSE A NEW ONE.</p>}
       </div>
       <span className="j-arrow r-arrow-left blink" style={{ color: f.color }} aria-hidden="true">◀</span>
       <span className="j-arrow r-arrow-right blink" style={{ color: f.color }} aria-hidden="true">▶</span>
       <div className="j-center r-select-info" aria-live="polite">
-        <p className="j-fleet" style={{ color: f.color }}>{f.label}</p>
+        <p className="j-fleet" style={{ color: f.color }}>{solo ? 'PLAY SOLO' : f.label}</p>
         <p className="j-txt">{f.motto}</p>
-        <p className="j-tiny j-dim">{count ? `CREW ${count}` : 'NEW FLEET · BE THE FIRST'}{f.name === current ? ' · YOUR FLEET' : ''}</p>
+        <p className="j-tiny j-dim">
+          {solo ? 'NO FLEET · PERSONAL POINTS ONLY' : count ? `CREW ${count}` : 'NEW FLEET · BE THE FIRST'}
+          {mine ? (solo ? ' · YOUR CHOICE' : ' · YOUR FLEET') : ''}
+        </p>
       </div>
       <div className="j-cards">
-        {fleets.slice(row.first, row.first + row.count).map((fl, k) => {
+        {cards.slice(row.first, row.first + row.count).map((card, k) => {
           const i = row.first + k;
           return (
-            <button key={fl.name} type="button" className="j-card" aria-label={fl.label} aria-pressed={i === pick} onClick={() => onPick(i)}
+            <button key={card.key} type="button" className="j-card" aria-label={card.label} aria-pressed={i === pick} onClick={() => onPick(i)}
               style={{ left: row.x0 + k * (row.w + row.gap), top: row.y, width: row.w, height: row.h }} />
           );
         })}
@@ -73,7 +84,9 @@ export function SelectOverlay({ fleets, pick, change, locked, confirm, current, 
       {locked && <div className="j-center j-zoom r-locked"><p className="j-big" style={{ ['--glow' as string]: f.color }}>{f.label}!</p></div>}
       {confirm && (
         <div className="j-panel r-confirm" role="dialog" aria-label="Confirm the change of fleet">
-          <p>YOUR FUTURE POINTS GO TO <span style={{ color: f.color }}>{f.label}</span>{stop(f.label)}</p>
+          {solo
+            ? <p>YOUR FUTURE POINTS ARE YOUR OWN.</p>
+            : <p>YOUR FUTURE POINTS GO TO <span style={{ color: f.color }}>{f.label}</span>{stop(f.label)}</p>}
           <p>YOUR PAST POINTS STAY WITH <span style={{ color: from.color }}>{from.label}</span>{stop(from.label)}</p>
           <p className="j-tiny j-dim"><Hint k="A">CONFIRM</Hint> &nbsp; <Hint k="B">CANCEL</Hint></p>
         </div>
@@ -84,7 +97,7 @@ export function SelectOverlay({ fleets, pick, change, locked, confirm, current, 
 
 export function NameOverlay({ state, shake, team, error }: { state: NameState; shake: boolean; team: string | null; error: string | null }) {
   const tall = useScreen().grid.name === 'tall';
-  const f = fleet(team);
+  const f = crewLook(team);
   const cur = state.cursor < NAME_MAX ? state.cursor : -1;
   const badge = team && <span className="j-badge r-badge" style={{ ['--fc' as string]: f.color }}>{f.label}</span>;
   const alert = error && <p className="j-txt j-error" role="alert">{error}</p>;
@@ -128,7 +141,7 @@ export function BuilderOverlay({ hero, row, team, name, error, onRow }: {
   hero: Hero; row: number; team: string | null; name: string; error: string | null; onRow: (i: number) => void;
 }) {
   const { form } = useScreen();
-  const f = fleet(team);
+  const f = crewLook(team);
   return (
     <>
       <p className="j-h j-left r-hero-head">BUILD YOUR HERO</p>

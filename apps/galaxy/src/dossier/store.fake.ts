@@ -214,13 +214,14 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
    * A query on one of the two tables, as `me` under the migration's access rules: a member of the
    * dossier's workspace reads it and its versions, and nobody else reads anything; the opener deletes
    * their own draft (its versions go with it), and no other delete removes a row. Only the steps the
-   * page's reads take: select, eq, order, maybeSingle, delete.
+   * page's reads and the lookup take: select, eq, order (nulls where Postgres puts them, or where `nullsFirst` says), limit, maybeSingle, delete.
    */
   function query(me: FakeAccount | null, table: 'dossiers' | 'dossier_versions' | 'ask_shares') {
     let columns: string[] | null = null;
     let removing = false;
     const filters: Array<(row: Row) => boolean> = [];
-    const orders: Array<{ column: string; ascending: boolean }> = [];
+    const orders: Array<{ column: string; ascending: boolean; nullsFirst: boolean }> = [];
+    let most = Infinity;
 
     const readable = (row: Row): boolean => {
       if (!me) return false;
@@ -236,7 +237,8 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     const deletable = (row: Row) => table === 'dossiers' && me !== null && row.opened_by === me.id && row.prd === null;
     const project = (row: Row) => (columns ? Object.fromEntries(columns.map((c) => [c, row[c]])) : { ...row });
     const compare = (a: Row, b: Row) => {
-      for (const { column, ascending } of orders) {
+      for (const { column, ascending, nullsFirst } of orders) {
+        if ((a[column] === null) !== (b[column] === null)) return (a[column] === null) === nullsFirst ? -1 : 1;
         const [x, y] = [String(a[column]), String(b[column])];
         if (x !== y) return (x < y ? -1 : 1) * (ascending ? 1 : -1);
       }
@@ -247,7 +249,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
       state.calls += 1;
       if (state.fail) return { data: null, error: state.fail };
       const rows = (tables[table] as Row[]).filter((row) => readable(row) && filters.every((f) => f(row)));
-      if (!removing) return { data: [...rows].sort(compare).map(project), error: null };
+      if (!removing) return { data: [...rows].sort(compare).slice(0, most).map(project), error: null };
       const gone = new Set(rows.filter(deletable).map((row) => row.id));
       tables.dossiers = tables.dossiers.filter((d) => !gone.has(d.id));
       tables.dossier_versions = tables.dossier_versions.filter((v) => !gone.has(v.dossier_id));
@@ -258,7 +260,11 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
       select(list = '*') { columns = list === '*' ? null : list.split(',').map((c) => c.trim()); return builder; },
       delete() { removing = true; return builder; },
       eq(column: string, value: unknown) { filters.push((row) => row[column] === value); return builder; },
-      order(column: string, { ascending = true }: { ascending?: boolean } = {}) { orders.push({ column, ascending }); return builder; },
+      order(column: string, { ascending = true, nullsFirst = !ascending }: { ascending?: boolean; nullsFirst?: boolean } = {}) {
+        orders.push({ column, ascending, nullsFirst });
+        return builder;
+      },
+      limit(count: number) { most = count; return builder; },
       maybeSingle: () => Promise.resolve().then((): Result => {
         const result = run();
         if (result.error) return result;

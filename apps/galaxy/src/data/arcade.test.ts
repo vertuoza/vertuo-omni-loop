@@ -6,7 +6,6 @@ vi.mock('server-only', () => ({}));
 import type { DossierListRow } from '../dossier/store';
 import { arcadeFor, OUT_OF_REACH } from './arcade';
 import { withDossiers, type FakeDossier } from './dossiers.fake';
-import { demoFleets } from './load-galaxy';
 import { ACME, authUser, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
 
 const NOW = new Date('2026-09-26T10:00:00Z');
@@ -50,10 +49,10 @@ async function page(person: FakeUser | null, arrange: (world: World) => void = (
 afterEach(() => { vi.restoreAllMocks(); });
 
 describe('signed out', () => {
-  it('makes no database call, and plays the built-in fleets under the house brand', async () => {
+  it('makes no database call, and plays the attract mode with no fleet of anyone\'s, under the house brand', async () => {
     const { data, world } = await page(null);
     expect(world.calls).toEqual([]);
-    expect(data).toEqual({ view: null, fleets: demoFleets(), session: null, workspace: null });
+    expect(data).toEqual({ view: null, fleets: [], session: null, workspace: null });
   });
 });
 
@@ -87,6 +86,44 @@ describe('a member', () => {
   it('gets the workspace\'s name and theme as the arcade\'s brand', async () => {
     expect((await page(PEOPLE.ada)).data.brand).toEqual({ name: 'Vertuoza', theme: {} });
     expect((await page(PEOPLE.wile)).data.brand).toEqual({ name: 'Acme', theme: { plasma: '#2fc6a4', 'plasma-dark': '#178a80' } });
+  });
+});
+
+describe('the viewer\'s role (PRD 400)', () => {
+  it('says whether the member owns the workspace they play, read as themselves', async () => {
+    expect((await page(PEOPLE.ada)).data.owner).toBe(false);
+    const { data, reads } = await page(PEOPLE.ada, (world) => {
+      world.tables.workspace_members.find((m) => m.user_id === PEOPLE.ada.id && m.workspace_id === VERTUOZA)!.role = 'owner';
+    });
+    expect(data.owner).toBe(true);
+    expect(reads.filter((c) => c.table === 'workspace_members').map((c) => c.eq)).toContainEqual({ workspace_id: VERTUOZA, user_id: PEOPLE.ada.id });
+  });
+
+  it('owns only the workspace played: owning another one changes nothing', async () => {
+    const { data } = await page(PEOPLE.both, (world) => {
+      world.tables.workspace_members.find((m) => m.user_id === PEOPLE.both.id && m.workspace_id === VERTUOZA)!.role = 'owner';
+    });
+    expect(data.workspace).toBe(ACME);
+    expect(data.owner).toBe(false);
+  });
+
+  it('reads as a member when the role is out of reach, and shows the galaxy all the same', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { data } = await page(PEOPLE.ada, (world) => {
+      world.tables.workspace_members.find((m) => m.user_id === PEOPLE.ada.id)!.role = 'owner';
+      const members = world.tables.workspace_members;
+      // The role's read, and only it, fails: the membership read that picks the workspace comes first.
+      let reads = 0;
+      world.tables.workspace_members = new Proxy(members, {
+        get(target, prop) {
+          if (prop === 'filter' && ++reads > 1) throw new Error('fake: role out of reach');
+          return Reflect.get(target, prop);
+        },
+      });
+    });
+    expect(data.view).not.toBeNull();
+    expect(data.problem).toBeUndefined();
+    expect(data.owner).toBe(false);
   });
 });
 
@@ -135,7 +172,7 @@ describe('joining', () => {
       expect(rpcs, person.email).toHaveLength(0);
       expect(reads.every((c) => c.table === 'workspace_members'), person.email).toBe(true);
       expect(data, person.email).toEqual({
-        view: null, fleets: demoFleets(), session: expect.objectContaining({ id: person.id, crew: false }), workspace: null,
+        view: null, fleets: [], session: expect.objectContaining({ id: person.id, crew: false }), workspace: null,
       });
     }
   });
@@ -276,11 +313,11 @@ describe('the session', () => {
 });
 
 describe('the database out of reach', () => {
-  it('plays the attract mode with the built-in fleets, and says so', async () => {
+  it('says so, and shows no demo fleet: never another workspace\'s fleets for its own', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { data } = await page(PEOPLE.ada, (world) => { world.state.fail = { message: 'relation "public.workspace_members" does not exist' }; });
     expect(data).toEqual({
-      view: null, fleets: demoFleets(), session: expect.objectContaining({ id: PEOPLE.ada.id }), workspace: null, problem: OUT_OF_REACH,
+      view: null, fleets: [], session: expect.objectContaining({ id: PEOPLE.ada.id }), workspace: null, problem: OUT_OF_REACH,
     });
     expect(console.error).toHaveBeenCalled();
   });
@@ -294,7 +331,7 @@ describe('the database out of reach', () => {
   it('keeps the workspace\'s brand when only the galaxy is out of reach', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const { data } = await page(PEOPLE.wile, (world) => { world.state.failOn = 'ledger_events'; });
-    expect(data).toMatchObject({ view: null, fleets: demoFleets(), workspace: ACME, brand: { name: 'Acme' }, problem: OUT_OF_REACH });
+    expect(data).toMatchObject({ view: null, fleets: [], workspace: ACME, brand: { name: 'Acme' }, problem: OUT_OF_REACH });
     expect(data.session?.crew).toBe(true);
   });
 });
