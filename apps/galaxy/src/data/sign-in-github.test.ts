@@ -28,6 +28,13 @@ describe('starting a sign-in', () => {
     expect(GITHUB_SCOPES).toBe('read:org');
   });
 
+  it('started by the server (sign-up signs the visitor in again), answers GitHub\'s address instead of leaving', () => {
+    expect(githubSignIn('https://galaxy.example/signup/installed/callback', { fromServer: true })).toEqual({
+      provider: 'github',
+      options: { redirectTo: 'https://galaxy.example/signup/installed/callback', scopes: 'read:org', skipBrowserRedirect: true },
+    });
+  });
+
   it('leaves for GitHub from a sign-in card, coming back to the card\'s callback', async () => {
     signInWithOAuth.mockClear();
     expect(await startGithubSignIn({ url: 'https://db.example.com', key: 'k' }, 'https://galaxy.example/ask/callback')).toBeNull();
