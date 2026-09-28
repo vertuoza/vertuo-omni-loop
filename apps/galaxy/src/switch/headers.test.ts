@@ -88,7 +88,9 @@ describe('every app page', () => {
     expect(bar).toContain(`<p class="app-bar-title">${title}</p>`);
     // The user menu's own items left out: it is closed until the avatar opens it.
     const shown = bar.replace(/<div [^>]*role="menu"[\s\S]*?<\/div><\/div>/g, '');
-    expect(controls(shown).slice(0, -1)).toEqual(THEME_THEN_GAME);
+    // ☰ and the crest open the bar for a phone only (PRD 438 s3): the stylesheet hides them from 900px.
+    expect(controls(shown).slice(0, 2)).toEqual(['☰', '']);
+    expect(controls(shown).slice(2, -1)).toEqual(THEME_THEN_GAME);
     expect(shown).toMatch(/aria-haspopup="menu"|>Sign in with GitHub<\/button>/);
     expect(bar).toMatch(/<dialog [^>]*class="game-mode-dialog"/);
     expect(bar).not.toMatch(/<dialog [^>]*\bopen\b/);

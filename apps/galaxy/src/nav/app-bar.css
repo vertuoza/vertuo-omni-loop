@@ -20,13 +20,14 @@
   color: var(--ask-ink);
   overflow-wrap: anywhere;
 }
-.app-bar-view {
+.app-bar-end {
   display: inline-flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
   margin-left: auto;
 }
+.app-bar-view,
 .app-bar-you {
   display: inline-flex;
   align-items: center;
@@ -67,5 +68,7 @@
   .ask a.app-bar-crest { display: inline-flex; grid-area: crest; }
   .app-bar-title { grid-area: title; min-width: 0; }
   .app-bar-you { grid-area: you; justify-self: end; }
-  .app-bar-view { grid-area: view; margin-left: 0; }
+  /* Its two halves take their own places in the bar's grid. */
+  .app-bar-end { display: contents; }
+  .app-bar-view { grid-area: view; }
 }

@@ -40,12 +40,14 @@ export function AppBar({ viewer }: { viewer: ViewerView }) {
         <span aria-hidden="true" dangerouslySetInnerHTML={{ __html: CREST }} />
       </a>
       {title && <p className="app-bar-title">{title}</p>}
-      <span className="app-bar-view">
-        <ThemeSwitch />
-        <GameModeButton />
-      </span>
-      <span className="app-bar-you">
-        {viewer.signedIn ? <UserMenu viewer={viewer} /> : <SignInButton />}
+      <span className="app-bar-end">
+        <span className="app-bar-view">
+          <ThemeSwitch />
+          <GameModeButton />
+        </span>
+        <span className="app-bar-you">
+          {viewer.signedIn ? <UserMenu viewer={viewer} /> : <SignInButton />}
+        </span>
       </span>
     </header>
   );
