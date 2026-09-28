@@ -2,12 +2,14 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect, vi } from 'vitest';
 import { renderMarkdown } from '../markdown';
+import { UNREAD, type GithubSummary, type PullRef } from '../github/summary';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
 import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
 import { DossierPage } from './DossierPage';
 import { DossierSignIn } from './DossierSignIn';
 import { takenLine } from './QuickAnswer';
+import { COPY_WORDS, copyCommand } from './StageHeaderCopy';
 import { dossierView, readPick, type DossierPick } from './view';
 
 // A quick round's buttons (PRD 384) refresh through the app router, which a static render has none of.
@@ -63,9 +65,9 @@ const rounds = [
 function page({
   dossier = numbered, rows = versions, pick = readPick({}), me = MARIE.user_id, markdown = null as string | null,
   supabase = SUPABASE as typeof SUPABASE | null, questions = rounds as DossierRoundRow[] | null,
-  answerable = [] as string[], now = Date.now(),
+  answerable = [] as string[], now = Date.now(), github = undefined as GithubSummary | null | undefined, slices = null as number | null,
 } = {}) {
-  const view = dossierView({ dossier, versions: rows, members: [PIERRE, MARIE], rounds: questions, answerable }, me, pick, now);
+  const view = dossierView({ dossier, versions: rows, members: [PIERRE, MARIE], rounds: questions, answerable, github, slices }, me, pick, now);
   return renderToStaticMarkup(createElement(DossierPage, { view, markdown: markdown === null ? null : renderMarkdown(markdown), supabase }));
 }
 const tab = (name: DossierPick['tab'], v?: number): DossierPick => ({ tab: name, version: v ?? null });
@@ -73,7 +75,7 @@ const tab = (name: DossierPick['tab'], v?: number): DossierPick => ({ tab: name,
 describe('the header', () => {
   it('shows PRD #n, the title, the repository chips, who opened it and when, and Copy link', () => {
     const html = page();
-    expect(html).toMatch(/<h1 class="dossier-title"><span class="dossier-number">PRD #216<\/span> ?<span>PRD dossiers<\/span><\/h1>/);
+    expect(html).toMatch(/<h1 class="dossier-title"><a class="dossier-number" href="https:\/\/github.com\/vertuoza\/vertuo-omni-loop\/issues\/216" target="_blank" rel="noopener noreferrer">PRD #216 ↗<\/a> ?<span>PRD dossiers<\/span><\/h1>/);
     expect(html).toContain('<li class="dossier-repo">vertuoza/vertuo-omni-loop</li>');
     expect(html).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
     expect(html).toContain('>Copy link</button>');
@@ -84,6 +86,86 @@ describe('the header', () => {
     expect(html).toContain('<span class="dossier-draft">DRAFT</span>');
     expect(html).toContain('Offline quotes on the site app');
     expect(html).not.toContain('PRD #');
+    expect(html).not.toContain('/issues/');
+    expect(html).toContain('<li class="stage-stop stage-current" aria-current="step">idea</li>');
+    expect(html).toContain('<strong>Stage: idea</strong><span class="ask-hint"> · Brainstorm in progress</span>');
+  });
+});
+
+describe('the stage header (PRD 426)', () => {
+  const pr = (number: number, state: PullRef['state'], draft = false): PullRef =>
+    ({ number, url: `https://github.com/vertuoza/vertuo-omni-loop/pull/${number}`, state, draft });
+  const summary = (more: Partial<GithubSummary> = {}): GithubSummary => ({
+    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers',
+    issue: { number: 216, url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'open' },
+    phase0: null, feature: null, retro: null, mergedSlices: 0, ...more,
+  });
+  const track = (html: string) => [...html.matchAll(/<li class="stage-stop stage-(\w+)"[^>]*>(?:<span aria-hidden="true">✓ <\/span>)?([^<]+)<\/li>/g)]
+    .map((m) => `${m[2]}:${m[1]}`);
+  const button = (html: string) => /<a class="ask-button stage-action" href="([^"]+)"[^>]*>([^<]+)<\/a>/.exec(html)?.slice(1) ?? null;
+  const links = (html: string) => [...html.matchAll(/<li><a href="[^"]+" target="_blank" rel="noopener noreferrer">([^<]+)<\/a> <span class="ask-hint">([^<]+)<\/span><\/li>/g)]
+    .map((m) => `${m[1]} ${m[2]}`);
+
+  it('shows no track when GitHub was not asked', () => {
+    expect(page()).not.toContain('stage-track');
+  });
+
+  it('in the PRD stage, Approve spec opens the phase-0 PR; with none open yet, no button and "Spec being written"', () => {
+    const html = page({ github: summary({ phase0: pr(220, 'open') }) });
+    expect(track(html)).toEqual(['idea:passed', 'PRD:current', 'inbox:ahead', 'outbox:ahead', 'shipped:ahead', 'retro:ahead']);
+    expect(html).toContain('<strong>Stage: PRD</strong>');
+    expect(button(html)).toEqual(['https://github.com/vertuoza/vertuo-omni-loop/pull/220', 'Approve spec']);
+    expect(links(html)).toEqual(['issue #216 open', 'phase-0 #220 open']);
+    const writing = page({ github: summary() });
+    expect(button(writing)).toBeNull();
+    expect(writing).toContain('Spec being written');
+  });
+
+  it('in the inbox stage, Build it is a button carrying the command to copy', () => {
+    const html = page({ github: summary({ phase0: pr(220, 'merged') }) });
+    expect(html).toContain('<strong>Stage: inbox</strong>');
+    expect(html).toContain('<button type="button" class="ask-button stage-action" title="/omni:yolo 216">Build it</button>');
+    expect(html).toContain('<code class="stage-command">/omni:yolo 216</code>');
+    expect(links(html)).toEqual(['issue #216 open', 'phase-0 #220 ✓']);
+  });
+
+  it('Build it copies /omni:yolo <n> and says "Copied", or asks to copy by hand where the clipboard refuses', async () => {
+    const writeText = vi.fn(async () => {});
+    expect(await copyCommand('/omni:yolo 216', { writeText })).toBe('copied');
+    expect(writeText).toHaveBeenCalledWith('/omni:yolo 216');
+    expect(COPY_WORDS.copied).toBe('Copied');
+    expect(await copyCommand('/omni:yolo 216', { writeText: async () => { throw new Error('denied'); } })).toBe('refused');
+    expect(await copyCommand('/omni:yolo 216', undefined)).toBe('refused');
+  });
+
+  it('in the outbox stage, being built with the slices merged out of the plan\'s, then Review & merge once the feature PR is ready', () => {
+    const building = summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open', true), mergedSlices: 2 });
+    const html = page({ github: building, slices: 5 });
+    expect(html).toContain('<strong>Stage: outbox</strong><span class="ask-hint"> · Being built · 2/5 slices</span>');
+    expect(button(html)).toBeNull();
+    expect(button(page({ github: { ...building, feature: pr(221, 'open') } }))).toEqual(['https://github.com/vertuoza/vertuo-omni-loop/pull/221', 'Review &amp; merge']);
+  });
+
+  it('in the shipped stage, no button and the retro comes next; in the retro stage, Read the retro opens the retro PR', () => {
+    const shipped = summary({ issue: { number: 216, url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'closed' }, phase0: pr(220, 'merged'), feature: pr(221, 'merged'), mergedSlices: 5 });
+    const html = page({ github: shipped });
+    expect(html).toContain('Shipped · the retro is written next');
+    expect(button(html)).toBeNull();
+    const retro = page({ github: { ...shipped, retro: pr(230, 'open') } });
+    expect(track(retro)).toEqual(['idea:passed', 'PRD:passed', 'inbox:passed', 'outbox:passed', 'shipped:passed', 'retro:current']);
+    expect(button(retro)).toEqual(['https://github.com/vertuoza/vertuo-omni-loop/pull/230', 'Read the retro']);
+    expect(links(retro)).toEqual(['issue #216 ✓', 'phase-0 #220 ✓', 'feature #221 ✓', 'retro #230 open']);
+  });
+
+  it('when GitHub did not answer, lights nothing, says so, and still shows the rest of the page', () => {
+    for (const github of [null, summary({ retro: UNREAD })]) {
+      const html = page({ github });
+      expect(track(html).every((stop) => stop.endsWith(':ahead'))).toBe(true);
+      expect(html).toContain('<p class="stage-words" role="status"><strong>Stage unknown: GitHub did not answer.</strong></p>');
+      expect(button(html)).toBeNull();
+      expect(html).toContain('PRD #216 ↗');
+      expect(html).toContain('<nav class="dossier-tabs"');
+    }
   });
 });
 

@@ -17,12 +17,19 @@
 // preview, time left) is answered with one click on the list by whoever may answer it — its session's
 // owner or a member it is shared with, decided on the server when the page is read (`answerable`) —
 // and reads "Waiting for <owner>" to anyone else.
+//
+// The stage header (PRD 426): "PRD #n" links to its issue on the dossier's home repository (no GitHub
+// call needed), and the stage, its one button and its links are worked out from the GitHub summary
+// the route read (./stage.ts). A draft is the idea stage without any read; a numbered dossier whose
+// summary was not asked for (demo mode) shows no track.
 import { readQuestions, shownLabel } from '../../ask/answer-model';
 import { CATEGORY_LABELS, isCategory, type Category } from '../../ask/classify';
 import { nameOf, type Member } from '../../ask/page/question';
 import { duration, HOOK_WAIT_MS } from '../../ask/page/view';
 import { isDossierKind, type DossierKind, type DossierRoundRow, type DossierRow, type DossierVersionRow, type RoundRule } from '../store';
+import type { GithubSummary } from '../github/summary';
 import { isDossierId } from './source';
+import { stageView, type StageView } from './stage';
 
 /** The page's tabs: an artifact's, or the questions that shaped it. */
 export type DossierTab = DossierKind | 'questions';
@@ -53,6 +60,10 @@ export function readPick(query: Query): DossierPick {
 /** The tab the page opens on when the address names none: Questions once a round was asked, else
  * Before/after, so nobody lands on an empty tab. */
 export const defaultTab = (rounds: readonly unknown[] | null): DossierTab => (rounds?.length ? 'questions' : 'before-after');
+
+/** A PRD's issue on GitHub: its number is the issue's. */
+export const issueUrl = (repo: string, prd: number) =>
+  `https://github.com/${repo.split('/').map(encodeURIComponent).join('/')}/issues/${prd}`;
 
 /** The page's own address, the one Copy link gives. */
 export const dossierPath = (id: string) => `/prd/${encodeURIComponent(id)}`;
@@ -97,6 +108,10 @@ export function versionSource(version: Pick<DossierVersionRow, 'source' | 'uploa
 export type DossierRead = {
   dossier: DossierRow; versions: DossierVersionRow[]; members: Member[]; rounds: DossierRoundRow[] | null; repos?: string[] | null;
   answerable?: readonly string[];
+  /** The GitHub summary (PRD 426): null when it could not be read, left out when it was not asked for. */
+  github?: GithubSummary | null;
+  /** The slices of the dossier's latest plan version; null or left out when not known. */
+  slices?: number | null;
 };
 
 /** A tab and what its label adds: an artifact's latest version (`v3`), or the questions answered out
@@ -118,6 +133,10 @@ export type DossierView = {
   /** `PRD #216`, or `DRAFT`. */
   heading: string;
   draft: boolean;
+  /** The PRD's issue on the home repository; null for a draft. */
+  issueUrl: string | null;
+  /** Where the PRD is and what to do next; null when GitHub was not asked (demo mode). */
+  stage: StageView | null;
   title: string;
   repos: string[];
   /** `opened by Pierre · 27 Sep 2026, 09:12 UTC`, or `read from GitHub · …` when the fallback made it. */
@@ -297,7 +316,7 @@ export function questionsView(
 }
 
 export function dossierView(
-  { dossier, versions, members, rounds, repos, answerable = [] }: DossierRead, me: string | null, pick: DossierPick, now: number = Date.now(),
+  { dossier, versions, members, rounds, repos, answerable = [], github, slices = null }: DossierRead, me: string | null, pick: DossierPick, now: number = Date.now(),
 ): DossierView {
   const ofKind = (kind: DossierKind) => versions.filter((v) => v.kind === kind);
   const fallback = defaultTab(rounds);
@@ -325,6 +344,8 @@ export function dossierView(
     id: dossier.id,
     heading: dossier.prd === null ? 'DRAFT' : `PRD #${dossier.prd}`,
     draft: dossier.prd === null,
+    issueUrl: dossier.prd === null ? null : issueUrl(dossier.home_repo, dossier.prd),
+    stage: dossier.prd === null || github !== undefined ? stageView(dossier.prd, github ?? null, slices) : null,
     title: dossier.title,
     repos: repos?.length ? repos : [dossier.home_repo],
     opened: `${opener} · ${stamp(dossier.created_at)}`,

@@ -28,6 +28,48 @@
   padding: 6px 9px;
   border-radius: 4px;
 }
+.ask a.dossier-number { text-decoration: none; }
+.ask a.dossier-number:hover,
+.ask a.dossier-number:focus-visible { text-decoration: underline; }
+
+/* ── The stage (PRD 426): the track, the stage in words, one button, the links ── */
+
+.stage-head { display: grid; gap: 10px; min-width: 0; }
+.stage-row { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; min-width: 0; }
+.stage-track {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font: 600 12px/1 var(--ask-mono);
+}
+.stage-stop {
+  padding: 6px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--ask-line);
+  color: var(--ask-muted);
+  white-space: nowrap;
+}
+.stage-passed { color: var(--ask-ink); background: var(--ask-sunk); }
+.stage-current { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); }
+.stage-ahead { opacity: 0.6; }
+.stage-words { margin: 0; overflow-wrap: anywhere; }
+.stage-copy { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.stage-command { font: 13px/1 var(--ask-mono); color: var(--ask-muted); }
+.stage-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 13px;
+  flex-basis: 100%;
+}
+.stage-links li + li::before { content: '·'; color: var(--ask-muted); margin-right: 12px; }
+
 .dossier-meta { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; min-width: 0; }
 .dossier-repos { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
 .dossier-repo {

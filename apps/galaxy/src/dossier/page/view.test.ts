@@ -83,6 +83,24 @@ describe('the header', () => {
     expect(view(readPick({}), draft)).toMatchObject({ heading: 'DRAFT', draft: true, title: 'Offline quotes' });
   });
 
+  it('links PRD #n to its issue, and gives a draft no link but the idea stage (PRD 426)', () => {
+    expect(view().issueUrl).toBe('https://github.com/vertuoza/vertuo-omni-loop/issues/216');
+    expect(view(readPick({}), draft)).toMatchObject({ issueUrl: null, stage: { id: 'idea', caption: 'Brainstorm in progress' } });
+  });
+
+  it('shows no track when GitHub was not asked, and the stage worked out from the summary when it was (PRD 426)', () => {
+    expect(view().stage).toBeNull();
+    const read = { dossier: numbered, versions, members: [PIERRE], rounds };
+    expect(dossierView({ ...read, github: null }, null, readPick({})).stage).toMatchObject({ id: 'unknown', words: 'Stage unknown: GitHub did not answer.' });
+    const github = {
+      repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
+      phase0: { number: 220, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged' as const, draft: false },
+      feature: { number: 221, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open' as const, draft: true },
+      mergedSlices: 1,
+    };
+    expect(dossierView({ ...read, github, slices: 5 }, null, readPick({})).stage).toMatchObject({ id: 'outbox', caption: 'Being built · 1/5 slices' });
+  });
+
   it('names an opener by their email when they chose no name, and one who left as such', () => {
     expect(view(readPick({}), { ...numbered, opened_by: MARIE.user_id }).opened).toMatch(/^opened by marie@vertuoza\.com · /);
     expect(view(readPick({}), { ...numbered, opened_by: 'u-gone' }).opened).toMatch(/^opened by someone who left the workspace · /);
