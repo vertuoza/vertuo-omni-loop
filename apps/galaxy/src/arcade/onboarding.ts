@@ -2,7 +2,10 @@
 //
 //   START ─ signed out ─▶ INSERT COIN ─▶ GitHub ─▶ PRESS START ─▶ INTRO ─▶ FLEET ─▶ NAME ─▶ HERO ─▶ READY ─▶ MENU
 //         ├ in no workspace ─▶ OUTSIDER (the way to /signup)
-//         └ a player with an active fleet ─▶ WELCOME BACK ─▶ MENU
+//         └ a player (in a fleet or solo) ─▶ WELCOME BACK ─▶ MENU
+//
+// A fleet is optional (PRD 400): the FLEET step offers the workspace's active fleets and PLAY SOLO,
+// and is skipped when there are none; a solo player's row has no team.
 //
 //   … ─▶ MENU, a level not yet celebrated on this device ─▶ LEVEL UP ─▶ MENU (A on a game it opened: the game)
 //
@@ -17,16 +20,20 @@ import type { FleetRow, Player, Session } from './types';
 export type Flow = 'onboard' | 'myhero' | 'change';
 export type Step = 'coin' | 'outsider' | 'gate' | 'intro' | 'select' | 'name' | 'hero' | 'ready' | 'welcome' | 'menu';
 
-const activeFleet = (fleets: FleetRow[], name: string | null | undefined) => fleets.find((f) => f.name === name && !f.retired) ?? null;
+/** The workspace has a fleet to join: at least one active one. */
+export const hasFleets = (fleets: FleetRow[]): boolean => fleets.some((f) => !f.retired);
 
 /** Signed in, in a workspace: this account plays (its GitHub is its sign-in). */
 export function isPlayer(session: Session | null): boolean {
   return Boolean(session?.crew);
 }
 
-/** A player who can go straight to the menu: an active fleet and a hero. */
+/**
+ * A player who can go straight to the menu: a player row and a hero, in a fleet or solo. One whose
+ * fleet was retired picks again while another fleet flies, and plays on when none does.
+ */
 export function isReady(me: Player | null, fleets: FleetRow[]): boolean {
-  return Boolean(me && activeFleet(fleets, me.team) && validHero(me.hero));
+  return Boolean(me && validHero(me.hero) && !(isDisbanded(me, fleets) && hasFleets(fleets)));
 }
 
 /** A player whose fleet was retired since they chose it. */
@@ -43,20 +50,20 @@ export function afterStart(session: Session | null, me: Player | null, fleets: F
 }
 
 /**
- * Where PRESS START leads: a returning player to the welcome, a disbanded player to the fleets, a
- * new player to the intro and on to the fleets.
+ * Where PRESS START leads: a returning player to the welcome, a disbanded player to the fleets (while
+ * any fly), a new player to the intro.
  */
 export function afterGate(me: Player | null, fleets: FleetRow[]): Step {
   if (isReady(me, fleets)) return 'welcome';
-  if (isDisbanded(me, fleets)) return 'select';
-  if (me && activeFleet(fleets, me.team)) return 'welcome';
+  if (isDisbanded(me, fleets) && hasFleets(fleets)) return 'select';
+  if (me) return 'welcome';
   return 'intro';
 }
 
-/** The screen after a step is done, in a flow. */
-export function nextStep(step: Step, flow: Flow, me: Player | null): Step {
+/** The screen after a step is done, in a flow: the intro leads to the fleets, or past them when there are none. */
+export function nextStep(step: Step, flow: Flow, me: Player | null, fleets: FleetRow[]): Step {
   switch (step) {
-    case 'intro': return 'select';
+    case 'intro': return hasFleets(fleets) ? 'select' : 'name';
     case 'select': return flow === 'change' ? 'menu' : 'name';
     case 'name': return 'hero';
     case 'hero': return flow === 'onboard' ? 'ready' : 'menu';
@@ -66,11 +73,11 @@ export function nextStep(step: Step, flow: Flow, me: Player | null): Step {
 }
 
 /** The screen B leads back to from a step, in a flow. */
-export function backStep(step: Step, flow: Flow): Step | 'title' {
+export function backStep(step: Step, flow: Flow, fleets: FleetRow[]): Step | 'title' {
   if (flow !== 'onboard') return step === 'hero' && flow === 'myhero' ? 'name' : 'menu';
   switch (step) {
     case 'select': return 'title';
-    case 'name': return 'select';
+    case 'name': return hasFleets(fleets) ? 'select' : 'title';
     case 'hero': return 'name';
     default: return 'title';
   }

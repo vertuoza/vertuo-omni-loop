@@ -9,7 +9,8 @@ import { GAP, type FleetRank, type IndividualRow } from './rank';
 // neighbours, `⋯` standing for the ranks skipped. Yours are marked with ◀, which a screen reader
 // hears as words instead (aria-current, and a visually hidden "your fleet" or "you"). With no points
 // this season, or no GitHub login to find you by, the individuals' table says which below the top 3;
-// when the galaxy cannot be read, both tables say they could not load.
+// when the galaxy cannot be read, both tables say they could not load. A season with no fleet to rank
+// (a workspace with no fleets, PRD 400) has no Fleets table, and no heading for one.
 
 const COUNT = new Intl.NumberFormat('en-US');
 
@@ -49,7 +50,6 @@ function Row({ rank, name, points, mark }: { rank: number; name: string; points:
 }
 
 function Fleets({ fleets }: { fleets: FleetRank[] }) {
-  if (!fleets.length) return null;
   return (
     <Table labelledBy="dash-rank-fleets" name="Fleet">
       {fleets.map((f) => <Row key={f.name} rank={f.rank} name={f.label} points={f.points} mark={f.yours ? 'your fleet' : null} />)}
@@ -80,10 +80,12 @@ function Individuals({ rows, you }: { rows: (IndividualRow | typeof GAP)[]; you:
 export function Rankings({ part, season }: PartProps<RankingsValue>) {
   return (
     <section className="dash-rankings" aria-label="The rankings">
-      <div className="dash-rank">
-        <h2 id="dash-rank-fleets">{`Fleets · ${season.name}`}</h2>
-        {part === UNREADABLE ? <CouldNotLoad /> : <Fleets fleets={part.fleets} />}
-      </div>
+      {(part === UNREADABLE || part.fleets.length > 0) && (
+        <div className="dash-rank">
+          <h2 id="dash-rank-fleets">{`Fleets · ${season.name}`}</h2>
+          {part === UNREADABLE ? <CouldNotLoad /> : <Fleets fleets={part.fleets} />}
+        </div>
+      )}
       <div className="dash-rank">
         <h2 id="dash-rank-heroes">{`Individuals · ${season.name}`}</h2>
         {part === UNREADABLE ? <CouldNotLoad /> : <Individuals rows={part.individuals} you={part.you} />}

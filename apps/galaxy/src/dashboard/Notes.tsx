@@ -2,7 +2,7 @@
 // its read failed, or it counts by a GitHub login the person has not linked yet. Parts draw these
 // rather than their own words, so the page says each thing one way.
 
-/** Where a person joins a fleet, builds their hero and links their GitHub: the arcade. */
+/** Where a person builds their hero, joins a fleet if they like, and links their GitHub: the arcade. */
 export const ARCADE = '/play';
 
 export const NOTE = {

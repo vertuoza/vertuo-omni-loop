@@ -28,7 +28,8 @@ describe('START', () => {
     expect(afterStart(crew, player(), FLEETS)).toBe('welcome');
     expect(afterStart(crew, null, FLEETS)).toBe('gate');
     expect(afterStart(crew, player({ team: 'invincible-team' }), FLEETS)).toBe('gate');
-    expect(afterStart(crew, player({ team: null }), FLEETS)).toBe('gate');
+    // A solo player (a row with no fleet) is ready too (PRD 400).
+    expect(afterStart(crew, player({ team: null }), FLEETS)).toBe('welcome');
   });
 });
 
@@ -62,7 +63,7 @@ describe('PRESS START', () => {
   it('sends a signed-in account straight on to the fleets, with no GitHub link step', () => {
     expect(afterGate(null, FLEETS)).toBe('intro');
     // Joined before GitHub was the sign-in: no link step either.
-    expect(afterGate(player({ github_login: null, team: null }), FLEETS)).toBe('intro');
+    expect(afterGate(player({ github_login: null, team: null }), FLEETS)).toBe('welcome');
     expect(afterGate(player({ github_login: null }), FLEETS)).toBe('welcome');
   });
 
@@ -92,26 +93,78 @@ describe('the first visit', () => {
     while (route.at(-1) !== 'menu') {
       const step = route.at(-1) as never;
       if (step === 'select') me = player();
-      route.push(nextStep(step, 'onboard', me));
+      route.push(nextStep(step, 'onboard', me, FLEETS));
     }
     expect(route).toEqual(['intro', 'select', 'name', 'hero', 'ready', 'menu']);
   });
 
   it('goes back one screen with B, and to the title from the fleets', () => {
-    expect(backStep('select', 'onboard')).toBe('title');
-    expect(backStep('name', 'onboard')).toBe('select');
-    expect(backStep('hero', 'onboard')).toBe('name');
+    expect(backStep('select', 'onboard', FLEETS)).toBe('title');
+    expect(backStep('name', 'onboard', FLEETS)).toBe('select');
+    expect(backStep('hero', 'onboard', FLEETS)).toBe('name');
+  });
+});
+
+describe('a fleet is optional (PRD 400)', () => {
+  const NONE: FleetRow[] = [];
+  const ONLY_RETIRED = [fleet('invincible-team', true)];
+  /** The first visit's screens, from PRESS START to the menu; `pick` is what the fleet step locks in. */
+  const firstVisit = (fleets: FleetRow[], pick: string | null) => {
+    const route: string[] = [afterGate(null, fleets)];
+    let me: Player | null = null;
+    while (route.at(-1) !== 'menu') {
+      const step = route.at(-1) as never;
+      if (step === 'select') me = player({ team: pick });
+      if (step === 'name' && !me) me = player({ team: null });
+      route.push(nextStep(step, 'onboard', me, fleets));
+    }
+    return { route, me };
+  };
+
+  it('skips the fleet step when the workspace has no fleets, and the player has no team', () => {
+    for (const fleets of [NONE, ONLY_RETIRED]) {
+      const { route, me } = firstVisit(fleets, null);
+      expect(route).toEqual(['intro', 'name', 'hero', 'ready', 'menu']);
+      expect(me?.team).toBeNull();
+      expect(isReady(me, fleets)).toBe(true);
+    }
+  });
+
+  it('offers the fleet step when it has fleets, a fleet or solo alike', () => {
+    expect(firstVisit(FLEETS, 'beaver').route).toEqual(['intro', 'select', 'name', 'hero', 'ready', 'menu']);
+    const solo = firstVisit(FLEETS, null);
+    expect(solo.route).toEqual(['intro', 'select', 'name', 'hero', 'ready', 'menu']);
+    expect(solo.me?.team).toBeNull();
+  });
+
+  it('counts a solo player as ready, with fleets or without', () => {
+    for (const fleets of [FLEETS, NONE]) {
+      expect(isReady(player({ team: null }), fleets)).toBe(true);
+      expect(afterStart(crew, player({ team: null }), fleets)).toBe('welcome');
+      expect(afterGate(player({ team: null }), fleets)).toBe('welcome');
+    }
+  });
+
+  it('sends a disbanded player to the fleets while any fly, and lets them play on when none do', () => {
+    expect(afterGate(player({ team: 'invincible-team' }), FLEETS)).toBe('select');
+    expect(afterGate(player({ team: 'invincible-team' }), ONLY_RETIRED)).toBe('welcome');
+    expect(isReady(player({ team: 'invincible-team' }), ONLY_RETIRED)).toBe(true);
+  });
+
+  it('goes back from the name to the title with no fleet step, and to the fleets with one', () => {
+    expect(backStep('name', 'onboard', NONE)).toBe('title');
+    expect(backStep('name', 'onboard', FLEETS)).toBe('select');
   });
 });
 
 describe('menu flows', () => {
   it('returns to the menu when the one thing asked is done', () => {
-    expect(nextStep('select', 'change', player())).toBe('menu');
-    expect(nextStep('name', 'myhero', player())).toBe('hero');
-    expect(nextStep('hero', 'myhero', player())).toBe('menu');
-    expect(backStep('hero', 'myhero')).toBe('name');
-    expect(backStep('name', 'myhero')).toBe('menu');
-    expect(backStep('select', 'change')).toBe('menu');
+    expect(nextStep('select', 'change', player(), FLEETS)).toBe('menu');
+    expect(nextStep('name', 'myhero', player(), FLEETS)).toBe('hero');
+    expect(nextStep('hero', 'myhero', player(), FLEETS)).toBe('menu');
+    expect(backStep('hero', 'myhero', FLEETS)).toBe('name');
+    expect(backStep('name', 'myhero', FLEETS)).toBe('menu');
+    expect(backStep('select', 'change', FLEETS)).toBe('menu');
   });
 });
 
@@ -129,9 +182,9 @@ describe('arriving at the menu', () => {
   });
 
   it('runs welcome back → level up → menu, and ready → level up → menu, once a level is due', () => {
-    expect(arrive(nextStep('welcome', 'onboard', player()), true)).toBe('levelup');
-    expect(arrive(nextStep('ready', 'onboard', player()), true)).toBe('levelup');
-    expect(arrive(nextStep('hero', 'myhero', player()), true)).toBe('levelup');
+    expect(arrive(nextStep('welcome', 'onboard', player(), FLEETS), true)).toBe('levelup');
+    expect(arrive(nextStep('ready', 'onboard', player(), FLEETS), true)).toBe('levelup');
+    expect(arrive(nextStep('hero', 'myhero', player(), FLEETS), true)).toBe('levelup');
   });
 });
 

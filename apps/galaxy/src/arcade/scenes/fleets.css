@@ -60,7 +60,7 @@
 .grid-tall .fleets h2 { font-size: 16px; }
 .grid-tall .cards-page { position: absolute; top: 10px; right: 8px; margin: 0; font-size: 8px; color: var(--dim); }
 .grid-tall .cards { gap: 4px; margin-top: 10px; }
-/* 58 grid px wide, a 1px frame: the eight-letter labels (OCTOPOD, PIRATES) fit inside it. */
+/* 58 grid px wide, a 1px frame: an eight-letter label (CORSAIRS) fits inside it. */
 .grid-tall .card {
   box-sizing: border-box;
   grid-template-columns: minmax(0, 1fr);

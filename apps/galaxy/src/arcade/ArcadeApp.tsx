@@ -143,9 +143,19 @@ export interface ArcadeProps {
    * the page). None in the single-file artifact, which has no app: no row, and nothing leaves.
    */
   app?: string;
+  /**
+   * The signed-in person owns the workspace (PRD 400): with no fleets yet, the fleet screens point
+   * them at /app/fleets, where they set fleets up, and tell anyone else to ask the owner.
+   */
+  owner?: boolean;
 }
 
-export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null, brand = HOUSE_BRAND, knowledge = null, xp = 'unreadable', scores: scores0, dossiers, app }: ArcadeProps) {
+/** The menu for who is at the cabinet: a player row makes a player, in a fleet or solo (PRD 400). */
+function menuFor(me: Player | null, session: Session | null, active: FleetRow[], newGames: boolean, app: boolean) {
+  return menuItems({ joined: Boolean(me), solo: Boolean(me && !me.team), fleets: active.length > 0, signedIn: Boolean(session), newGames, app });
+}
+
+export function ArcadeApp({ view, fleets, account, session: session0 = null, me: me0 = null, crew: crew0 = [], problem = null, brand = HOUSE_BRAND, knowledge = null, xp = 'unreadable', scores: scores0, dossiers, app, owner = false }: ArcadeProps) {
   setFleets(fleets);
   // The brand's look: its theme, written as custom properties on the root element below and read by
   // the canvas, and its mark in the theme's colours. The theme {} is today's arcade.
@@ -261,8 +271,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const m = meRef.current, s = sessionRef.current;
     const extra: Partial<UI> = { error: null, away: false, confirm: false, lockedAt: null, lockSaved: false };
     if (step === 'select') {
+      // The cursor starts on the player's fleet, on PLAY SOLO (after the fleets) for a solo player,
+      // and on the first fleet for a newcomer.
       const i = active.findIndex((f) => f.name === m?.team);
-      extra.pick = i >= 0 ? i : 0;
+      extra.pick = i >= 0 ? i : m && !m.team ? active.length : 0;
     }
     if (step === 'name') extra.name = nameInit(m?.display_name ?? foldName(s?.givenName ?? ''));
     if (step === 'hero') { extra.hero = m?.hero ?? randomHero(); extra.heroRow = 0; }
@@ -395,15 +407,15 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     const later = (ms: number, fn: () => void) => { const id = window.setTimeout(fn, ms); return () => window.clearTimeout(id); };
     if (ui.leaving) return undefined;
     if (ui.scene === 'boot') return later(3200, () => go({ scene: 'title' }));
-    if (ui.scene === 'intro') return later(20200, () => open('select', { flow: 'onboard' }));
+    if (ui.scene === 'intro') return later(20200, () => open(nextStep('intro', 'onboard', meRef.current, fleets), { flow: 'onboard' }));
     if (ui.scene === 'welcome') return later(3200, () => open('menu'));
     // The lock-in plays for 1.8 s, and moves on once the fleet is saved (whichever comes last).
     if (ui.scene === 'select' && ui.lockedAt !== null && ui.lockSaved) {
-      return later(Math.max(0, 1800 - (now() - ui.lockedAt) * 1000), () => open(nextStep('select', uiRef.current.flow, meRef.current)));
+      return later(Math.max(0, 1800 - (now() - ui.lockedAt) * 1000), () => open(nextStep('select', uiRef.current.flow, meRef.current, fleets)));
     }
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ui.scene, ui.lockedAt, ui.lockSaved, ui.leaving, go, open]);
+  }, [ui.scene, ui.lockedAt, ui.lockSaved, ui.leaving, go, open, fleets]);
   useEffect(() => {
     if (!ui.toast) return;
     const id = window.setTimeout(() => go({ toast: null }), 2600);
@@ -431,16 +443,17 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     }).catch((err: Error) => go({ toast: err.message }, 'buzz'));
   }, [account, go]);
 
-  // ── The fleet is locked in: the player row is created (or its fleet changed) ──
+  // ── The fleet (or PLAY SOLO, after the fleets) is locked in: the player row is created, or its fleet changed ──
   const lockIn = useCallback(() => {
-    const u = uiRef.current, f = active[u.pick];
-    if (!f) return;
+    const u = uiRef.current;
+    if (!active.length) return;
+    const team = active[u.pick]?.name ?? null; // past the fleets: PLAY SOLO, no team
     const m = meRef.current, s = sessionRef.current;
-    if (u.flow === 'change' && m?.team === f.name) return open('menu', {}, 'back');
+    if (u.flow === 'change' && m && (m.team ?? null) === team) return open('menu', {}, 'back');
     if (u.flow === 'change' && m?.team && !u.confirm) return go({ confirm: true }, 'select');
     const patch: PlayerPatch = m
-      ? { team: f.name }
-      : { team: f.name, display_name: foldName(s?.givenName ?? '') || 'PLAYER-1', hero: randomHero() };
+      ? { team }
+      : { team, display_name: foldName(s?.givenName ?? '') || 'PLAYER-1', hero: randomHero() };
     go({ confirm: false, lockedAt: now(), lockSaved: false });
     music('fanfare');
     save(patch)
@@ -452,21 +465,23 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const nameDone = useCallback(() => {
     const u = uiRef.current, value = nameValue(u.name);
     if (!NAME_RULE.test(value)) return go({ shake: now(), error: 'A name needs at least one letter or number.' }, 'buzz');
-    save({ display_name: value })
-      .then(() => open(nextStep('name', u.flow, meRef.current), { flow: u.flow }, 'select'))
+    // No fleet step came before (the workspace has no fleets): the name creates the player row, solo.
+    const patch: PlayerPatch = meRef.current ? { display_name: value } : { display_name: value, team: null, hero: randomHero() };
+    save(patch)
+      .then(() => open(nextStep('name', u.flow, meRef.current, fleets), { flow: u.flow }, 'select'))
       .catch((err: Error) => go({ error: err.message }, 'buzz'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [go, open, save]);
+  }, [go, open, save, fleets]);
 
   const heroDone = useCallback(() => {
     const u = uiRef.current;
     save({ hero: u.hero })
       .then((row) => {
-        const next = nextStep('hero', u.flow, row);
+        const next = nextStep('hero', u.flow, row, fleets);
         open(next, next === 'menu' ? {} : { flow: u.flow }, 'select');
       })
       .catch((err: Error) => go({ error: err.message }, 'buzz'));
-  }, [go, open, save]);
+  }, [go, open, save, fleets]);
 
   const nameAction = useCallback((a: NameAction) => {
     const { state, sound } = nameReduce(uiRef.current.name, a);
@@ -479,14 +494,14 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   }, []);
 
   const leave = useCallback((step: Step) => {
-    const to = backStep(step, uiRef.current.flow);
+    const to = backStep(step, uiRef.current.flow, fleets);
     if (to === 'title') return go({ scene: 'title', flow: 'onboard' }, 'back');
     return open(to, to === 'menu' ? {} : { flow: uiRef.current.flow }, 'back');
-  }, [go, open]);
+  }, [go, open, fleets]);
 
   /** Opens the menu's item `i`: with A or START on the row under the cursor, or with a tap on any row. */
   const openItem = useCallback((i: number) => {
-    const items = menuItems({ joined: Boolean(meRef.current?.team), signedIn: Boolean(sessionRef.current), newGames: !gamesSeen, app: Boolean(app) });
+    const items = menuFor(meRef.current, sessionRef.current, active, !gamesSeen, Boolean(app));
     const item = items[i];
     if (!item) return;
     const door = doorOf(item, { view, chart: knowledge, problem });
@@ -496,7 +511,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
     if (item.id === 'play') return open(afterGate(meRef.current, fleets), { flow: 'onboard', menu: i }, 'select');
     if (item.id === 'app') return askLeave({ menu: i });
     if (item.id === 'signout') return signOut();
-  }, [view, fleets, knowledge, go, open, signOut, problem, gamesSeen, app, askLeave]);
+  }, [view, fleets, active, knowledge, go, open, signOut, problem, gamesSeen, app, askLeave]);
 
   const act = useCallback((action: Action) => {
     const u = uiRef.current;
@@ -509,7 +524,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       return;
     }
     const planets = view?.planets.length ?? 0;
-    const items = menuItems({ joined: Boolean(meRef.current?.team), signedIn: Boolean(sessionRef.current), newGames: !gamesSeen, app: Boolean(app) });
+    const items = menuFor(meRef.current, sessionRef.current, active, !gamesSeen, Boolean(app));
     switch (u.scene) {
       case 'boot': return go({ scene: 'title' });
       case 'title':
@@ -533,7 +548,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
         if (action === 'a' || action === 'start') return open(afterGate(meRef.current, fleets), { flow: 'onboard' }, 'start');
         return;
       case 'intro':
-        if (action === 'a' || action === 'start') return open('select', { flow: 'onboard' }, 'select');
+        if (action === 'a' || action === 'start') return open(nextStep('intro', 'onboard', meRef.current, fleets), { flow: 'onboard' }, 'select');
         return;
       case 'select': {
         if (u.lockedAt !== null) return;
@@ -543,10 +558,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           return;
         }
         if (action === 'left' || action === 'right' || action === 'up' || action === 'down' || action === 'select') {
-          const n = active.length || 1;
+          const n = active.length + 1; // the fleets, then PLAY SOLO
           const pick = (u.pick + (action === 'left' || action === 'up' ? n - 1 : 1)) % n;
           go({ pick });
-          if (active[pick]) motif(active[pick].name);
+          if (active[pick]) motif(active[pick]);
           return;
         }
         if (action === 'a' || action === 'start') return lockIn();
@@ -834,7 +849,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
 
   const phase = titlePhaseAt(now() - ui.since);
   const sel = view?.planets[ui.sel];
-  const items = menuItems({ joined: Boolean(me?.team), signedIn: Boolean(session), newGames: !gamesSeen, app: Boolean(app) });
+  const items = menuFor(me, session, active, !gamesSeen, Boolean(app));
   const xpNow = xpStatus(isPlayer(session), xp);
   const displayName = me?.display_name ?? (session ? foldName(session.givenName) || 'RECRUIT' : '');
   const who = session
@@ -843,15 +858,15 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   const overlay = (() => {
     switch (ui.scene) {
       case 'boot': return <BootOverlay brand={brand} />;
-      case 'title': return <TitleOverlay view={view} phase={view ? phase : phase === 'hiscore' ? 'title' : phase} sceneT={now() - ui.since} who={who} signedIn={Boolean(session)} brand={brand} />;
+      case 'title': return <TitleOverlay view={view} phase={view ? phase : phase === 'hiscore' ? 'title' : phase} sceneT={now() - ui.since} who={who} signedIn={Boolean(session)} brand={brand} fleets={active.length} />;
       case 'coin': return <CoinOverlay away={ui.away} error={ui.error} demo={account.kind === 'demo'} closed={account.kind === 'closed'} />;
       case 'outsider': return <OutsiderOverlay who={session?.github ? `@${session.github}` : session?.email ?? ''} />;
-      case 'gate': return <GateOverlay name={me?.team ? me.display_name : null} />;
+      case 'gate': return <GateOverlay name={me ? me.display_name : null} />;
       case 'intro': return <IntroOverlay fleets={active} />;
       case 'select': return (
         <SelectOverlay fleets={active} pick={ui.pick} change={ui.flow === 'change'} locked={ui.lockedAt !== null} confirm={ui.confirm}
-          current={me?.team ?? null} disbanded={isDisbanded(me, fleets)} crew={crewCount}
-          onPick={(i) => { if (i === ui.pick) act('a'); else { go({ pick: i }); motif(active[i].name); } }} />
+          current={me?.team ?? null} disbanded={isDisbanded(me, fleets)} crew={crewCount} owner={owner}
+          onPick={(i) => { if (i === ui.pick) act('a'); else { go({ pick: i }); if (active[i]) motif(active[i]); } }} />
       );
       case 'name': return <NameOverlay state={ui.name} shake={now() - ui.shake < 0.35} team={me?.team ?? null} error={ui.error} />;
       case 'hero': return <BuilderOverlay hero={ui.hero} row={ui.heroRow} team={me?.team ?? null} name={displayName} error={ui.error} onRow={(i) => { if (i === ui.heroRow) act('a'); else go({ heroRow: i }, 'move'); }} />;
@@ -863,7 +878,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'invaders': return view ? <InvadersOverlay hud={hud} values={view.rules.woundClose} hero={me?.hero ?? ui.hero} team={me?.team ?? null} hi={hiOf(scores[INVADERS])} send={send} /> : null;
       case 'map': return view ? <MapOverlay view={view} layout={layout} sel={ui.sel} onLand={() => act('a')} /> : null;
       case 'planet': return view && sel ? <PlanetOverlay view={view} planet={sel} tab={ui.tab} onTab={(tab) => go({ tab }, 'tab')} dossier={dossierOf(dossiers, sel.prd)} /> : null;
-      case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => go({ fleet: i }, 'move')} /> : null;
+      case 'fleets': return view ? <FleetsOverlay view={view} crew={crew} index={ui.fleet} onPick={(i) => go({ fleet: i }, 'move')} owner={owner} /> : null;
       case 'heroes': return view ? <HeroesOverlay view={view} crew={crew} /> : null;
       case 'briefing': return view ? <BriefingOverlay view={view} /> : null;
       case 'chart': return <ChartOverlay source={knowledge} layout={chart} sun={ui.sun} onEnter={() => act('a')} />;

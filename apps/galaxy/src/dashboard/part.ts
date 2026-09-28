@@ -62,8 +62,8 @@ export interface DemoInput {
   galaxy: GalaxyView;
   /** The demo *you*'s login, in lower case: one of the demo world's heroes. */
   login: string;
-  /** The demo *you*'s fleet. */
-  team: string;
+  /** The demo *you*'s fleet: none, *you* play solo (PRD 400). */
+  team: string | null;
 }
 
 /** A part's demo: its value in the demo, made up and fixed where the demo world has none. */

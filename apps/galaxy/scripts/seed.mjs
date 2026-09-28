@@ -1,6 +1,7 @@
 // pnpm galaxy:seed — regenerate supabase/seed.sql from the demo world, dated now.
 // `supabase db reset` loads it, so a local stack opens on the same galaxy the demo mode shows.
-// The demo galaxy is the `vertuoza` workspace's, which the migrations create with its fleets.
+// The demo galaxy is played in the `vertuoza` workspace, which the migrations create, with the demo
+// world's invented fleets beside the workspace's own.
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
@@ -25,7 +26,7 @@ const lines = [
   ') as v (name, repos)',
   'on conflict (workspace_id, name) do update set repos = excluded.repos;',
   '',
-  '-- The migrations already hold the fleets; the demo gives them home sectors.',
+  '-- The demo world\'s invented fleets, with their home sectors (a fleet already there keeps its look).',
   'insert into public.teams (workspace_id, name, label, color, motto, mascot, sort, retired_at, home)',
   `select ${ws}, v.name, v.label, v.color, v.motto, v.mascot, v.sort, v.retired_at::timestamptz, v.home from (values`,
   Object.entries(DEMO_PROJECTS.teams).map(([name, t]) => `  (${[lit(name), lit(t.label), lit(t.color), lit(t.motto), lit(t.mascot), t.sort, t.retired ? 'now()' : 'null', lit(t.home)].join(', ')})`).join(',\n'),

@@ -154,7 +154,7 @@ export function music(name: SongName | null) {
   run(ac.currentTime + 0.06);
 }
 
-// ── Each fleet's motif, played when the cursor lands on it ──
+// ── Each mascot's motif, played when the cursor lands on a fleet that flies it ──
 
 const MOTIFS: Record<string, (o: AudioNode, t: number) => void> = {
   beaver(o, t) { // two woody knocks and a hop
@@ -176,7 +176,7 @@ const MOTIFS: Record<string, (o: AudioNode, t: number) => void> = {
     note(o, freqOf('G4')!, t + 0.16, 0.13, 'p25', 0.05);
     note(o, freqOf('F#4')!, t + 0.32, 0.3, 'p25', 0.05, { vib: 0.01 });
   },
-  pirates(o, t) { // yo-ho, and a cannon
+  pirate(o, t) { // yo-ho, and a cannon
     for (const [n, at, len] of [['D5', 0, 0.15], ['A4', 0.18, 0.26]] as const) {
       note(o, freqOf(n)!, t + at, len, 'triangle', 0.16);
       note(o, freqOf(n)!, t + at, len, 'p12', 0.03);
@@ -201,12 +201,18 @@ function out() {
   return g;
 }
 
-/** A fleet's motif. */
-export function motif(fleet: string) {
+/** The mascot whose written motif a fleet plays (PRD 400: keyed by mascot, never by name), or null. */
+export function writtenMotif(f: { name: string; mascot: string | null }): string | null {
+  return f.mascot && Object.hasOwn(MOTIFS, f.mascot) ? f.mascot : null;
+}
+
+/** A fleet's motif: its mascot's written one, or three notes from its name. */
+export function motif(f: { name: string; mascot: string | null }) {
   if (!ac) return;
   const o = out(), t = ac.currentTime + 0.01;
-  if (MOTIFS[fleet]) return MOTIFS[fleet](o, t);
-  motifNotes(fleet).forEach((n, i) => note(o, freqOf(n)!, t + i * 0.1, i === 2 ? 0.24 : 0.09, 'p25', 0.045));
+  const written = writtenMotif(f);
+  if (written) return MOTIFS[written](o, t);
+  motifNotes(f.name).forEach((n, i) => note(o, freqOf(n)!, t + i * 0.1, i === 2 ? 0.24 : 0.09, 'p25', 0.045));
 }
 
 /** A sound effect. */

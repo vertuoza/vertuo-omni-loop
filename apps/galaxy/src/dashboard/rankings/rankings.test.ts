@@ -98,6 +98,13 @@ describe('the rankings\' read', () => {
     expect(r.fleets.some((f) => f.yours)).toBe(false);
   });
 
+  it('with no fleets: no Fleets heading and no table, only the individuals', () => {
+    const html = render({ ...VALUE, fleets: [] });
+    expect([...html.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => text(m[1]))).toEqual(['Individuals · September']);
+    expect(text(html)).not.toContain('Fleets');
+    expect([...html.matchAll(/<table\b/g)]).toHaveLength(1);
+  });
+
   it('when the galaxy cannot be read: unreadable, as the page settles it, and the error logged', async () => {
     const { input } = world();
     const r = await settle('the rankings', () => loadRankings(input({ galaxy: async () => { throw new Error('ledger out of reach'); } })));
@@ -204,13 +211,13 @@ describe('the rankings, drawn', () => {
 // ── The demo ──────────────────────────────────────────────────────────────────
 
 describe('the rankings in the demo', () => {
-  const demoInput = (now: Date): DemoInput => ({ now, season: seasonBounds(now), galaxy: demoGalaxy(now), login: 'dam-dev', team: 'beaver' });
+  const demoInput = (now: Date): DemoInput => ({ now, season: seasonBounds(now), galaxy: demoGalaxy(now), login: 'dam-dev', team: null });
 
-  it('are the demo world\'s own: its fleets ranked with BEAVER marked, and the heroes around DAM-DEV, by login', () => {
+  it('are the demo world\'s own: whatever fleets it ranks, none marked yours (a solo *you*), and the heroes around DAM-DEV, by login', () => {
     const input = demoInput(new Date('2026-09-28T10:00:00Z'));
     const r = demoRankings(input) as RankingsValue;
     expect(r.fleets.map((f) => f.name)).toEqual(input.galaxy.teams.map((t) => t.name));
-    expect(r.fleets.filter((f) => f.yours).map((f) => f.name)).toEqual(['beaver']);
+    expect(r.fleets.some((f) => f.yours)).toBe(false);
     const me = input.galaxy.heroes.find((h) => h.name === 'dam-dev')!;
     expect(me.rank).toBeGreaterThan(5);
     expect(r.individuals.filter((row) => row !== GAP && row.you)).toEqual([{ rank: me.rank, name: 'dam-dev', points: me.points, you: true }]);

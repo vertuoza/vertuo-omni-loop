@@ -1,5 +1,5 @@
 import type { PlanetState, WoundKind } from '@omni/galaxy';
-import { fleetSprite, heroLook, type Hero, type Tint } from '@omni/design';
+import { fleetSprite, heroLook, MASCOTS as LIBRARY, type Hero, type Tint } from '@omni/design';
 import type { FleetRow } from './types';
 
 export interface FleetLook { label: string; sprite: string; tint: Tint | null; color: string; motto: string; retired: boolean }
@@ -25,8 +25,23 @@ export function fleet(name: string | null | undefined): FleetLook {
   return look;
 }
 
-/** A player's hero, in their fleet's colour. */
-export const heroOf = (hero: Hero, team: string | null | undefined) => heroLook(hero, fleet(team).color);
+/** How a player with no fleet reads (PRD 400): SOLO, in the arcade's neutral colour. */
+export const SOLO: FleetLook = Object.freeze({ label: 'SOLO', sprite: 'ship', tint: null, color: '#8a90d6', motto: 'Flies alone. Every point is your own.', retired: false });
+
+/**
+ * A player's fleet look: their fleet's, or SOLO when they fly alone. A planet nobody owns stays
+ * UNCREWED (`fleet(null)`): only a player is solo.
+ */
+export const crewLook = (team: string | null | undefined): FleetLook => (team ? fleet(team) : SOLO);
+
+/** A player's hero, in their fleet's colour (SOLO's when they have none). */
+export const heroOf = (hero: Hero, team: string | null | undefined) => heroLook(hero, crewLook(team).color);
+
+/**
+ * The mascot library, one of each drawn mascot: the parade the "raise your own" screen marches
+ * across when a workspace has no fleets yet.
+ */
+export const MASCOTS: readonly string[] = LIBRARY;
 
 // A state's and a wound's colour, as the DOM panels write it: a theme token's custom property where
 // the colour is one (theme.ts), so a workspace's theme recolours it.

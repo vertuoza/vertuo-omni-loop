@@ -74,9 +74,9 @@ describe('/app', () => {
     expect(app).not.toContain('The loop’s questions and knowledge, as pages.');
   });
 
-  it('ends with five sections: My PRDs first (PRD 413), then Questions, For me, History and Knowledge map, none of them Release notes', () => {
+  it('ends with six sections: My PRDs first (PRD 413), then Questions, For me, History, Knowledge map and Fleets, none of them Release notes', () => {
     const cards = [...app.matchAll(/<a class="dash-card" href="([^"]+)">/g)].map((m) => m[1]);
-    expect(cards).toEqual(['/prd', '/ask', '/ask/for-me', '/ask/history', '/knowledge']);
+    expect(cards).toEqual(['/prd', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/fleets']);
   });
 
   it('ends with every section as a compact link, in order: its title, without its line or path', () => {

@@ -155,7 +155,7 @@ export const SPRITE_DEFS = Object.freeze({
   'omni-cheer-cape': { w: 32, h: 48, draw: omniPose('cheer', true) },
   'omni-run-cape': { w: 32, h: 48, draw: omniPose('run', true) },
 
-  // beaver fleet: goggles, buck teeth, a wrench.
+  // beaver mascot: goggles, buck teeth, a wrench.
   beaver: {
     w: 32, h: 32,
     draw(d, f) {
@@ -181,7 +181,7 @@ export const SPRITE_DEFS = Object.freeze({
     },
   },
 
-  // octopod fleet: a big violet head, pink spots, six curling tentacles, a suit collar.
+  // octopod mascot: a big violet head, pink spots, six curling tentacles, a suit collar.
   octopod: {
     w: 32, h: 32,
     draw(d, f) {
@@ -200,7 +200,7 @@ export const SPRITE_DEFS = Object.freeze({
     },
   },
 
-  // picsou fleet: a duck in goggles, a dollar on the chest, flipping a gold coin.
+  // picsou mascot: a duck in goggles, a dollar on the chest, flipping a gold coin.
   picsou: {
     w: 32, h: 32,
     draw(d, f) {
@@ -221,7 +221,7 @@ export const SPRITE_DEFS = Object.freeze({
     },
   },
 
-  // cia fleet: the agency man. Sunglasses, earpiece, dark suit, red tie.
+  // cia mascot: the agency man. Sunglasses, earpiece, dark suit, red tie.
   cia: {
     w: 32, h: 32,
     draw(d, f) {
@@ -243,7 +243,7 @@ export const SPRITE_DEFS = Object.freeze({
     },
   },
 
-  // invincible-team fleet: yellow suit, navy cowl with white lenses, navy gloves and legs.
+  // invincible mascot: yellow suit, navy cowl with white lenses, navy gloves and legs.
   invincible: {
     w: 32, h: 32,
     draw(d, f) {
@@ -263,7 +263,7 @@ export const SPRITE_DEFS = Object.freeze({
     },
   },
 
-  // pirates fleet: a tricorn with a white skull, an eye patch and a gold tooth, a striped shirt under
+  // pirate mascot: a tricorn with a white skull, an eye patch and a gold tooth, a striped shirt under
   // a sea-teal coat, a peg leg, a raised cutlass, and a parrot on the shoulder flapping its wing.
   pirate: {
     w: 32, h: 32,
@@ -369,11 +369,10 @@ export const SPRITE_DEFS = Object.freeze({
   cursor: { w: 8, h: 8, draw(d) { d.rect(0, 0, 4, 1, 'Y', 1).rect(0, 0, 1, 4, 'Y', 1); }, outline: false },
 });
 
-// Mascots by fleet, as seeded in public.teams › mascot. A fleet added later names its own, or none
-// (heroes.mjs › fleetSprite then draws it as a hero in its colour).
-export const FLEET_SPRITE = Object.freeze({
-  beaver: 'beaver', octopod: 'octopod', picsou: 'picsou', cia: 'cia', pirates: 'pirate', 'invincible-team': 'invincible',
-});
+// The mascot library: every fleet mascot drawn above, the keys an owner may pick for a fleet
+// (public.fleet_mascots() holds the same list, and a fleet stores its pick in public.teams › mascot).
+// A fleet with none is drawn as a hero in its colour (heroes.mjs › fleetSprite).
+export const MASCOTS = Object.freeze(['beaver', 'octopod', 'picsou', 'cia', 'pirate', 'invincible']);
 
 // Entropy recoloured per wound kind (spec §5.3): the shape is the enemy, the colour says which one.
 // `ramp` replaces the Entropy material; `p` is the bright tone for map specks and labels.
