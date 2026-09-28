@@ -269,5 +269,40 @@ exception when insufficient_privilege then null;
 end $$;
 reset role;
 
+-- ── A workspace sign-up makes has the standard fleets to pick from ──
+set local role service_role;
+do $$
+declare
+  ada  constant uuid := '00000000-0000-4000-8000-0000000005a1';
+  fleets text[];
+begin
+  select array_agg(t.name order by t.sort) into fleets
+    from public.teams t join public.workspaces w on w.id = t.workspace_id
+   where w.slug = 'acme-corp' and t.retired_at is null;
+  if fleets is distinct from array['beaver', 'octopod', 'picsou', 'cia', 'pirates'] then
+    raise exception 'FAIL: a new workspace''s fleets are %, not the standard five', fleets;
+  end if;
+
+  -- A workspace sign-up made before the fix, with no fleet: the next sign-up call gives it the five.
+  insert into public.workspaces (slug, name, github_org, github_installation_id, github_account_type)
+  values ('bare-org', 'bare-org', 'bare-org', 7777, 'User');
+  perform public.create_workspace_from_installation(ada, 7777, 'bare-org', 'User');
+  if (select count(*) from public.teams t join public.workspaces w on w.id = t.workspace_id
+       where w.slug = 'bare-org' and t.retired_at is null) <> 5 then
+    raise exception 'FAIL: a fleetless workspace got no fleets from sign-up';
+  end if;
+end $$;
+reset role;
+
+-- Nobody signed in may add fleets to a workspace.
+set local role authenticated;
+do $$
+begin
+  perform public.add_default_fleets((select id from public.workspaces where slug = 'acme-corp'));
+  raise exception 'FAIL: a signed-in user ran add_default_fleets()';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
+
 select 'sign-up checks passed' as result;
 rollback;
