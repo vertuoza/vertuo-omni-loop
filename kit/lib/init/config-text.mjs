@@ -1,7 +1,10 @@
 // The `.omni-loop/config.yml` that `omni init` writes: minimal and commented. Only `kit`, `repo`,
-// `labels.autoCreate`, `commands`, `laws` and `signature` are written; every other key keeps its
-// schema default. `signature` is written with its default values, so who signs the loop's work is
-// visible and editable in the repository rather than hidden in the kit.
+// `labels.autoCreate`, `commands`, `laws`, `ask`, `dossier` and `signature` are written; every other
+// key keeps its schema default. `signature` is written with its default values, so who signs the
+// loop's work is visible and editable in the repository rather than hidden in the kit. `ask.url` is
+// written as the Omni Loop home page (`signature.home`'s default, ADR-0047) and `dossier.enabled` as
+// true (PRD 420): init writes them, the schema's own defaults stay null and false, so a config
+// written before reads as it did.
 // The text is returned only once the kit's own parser accepts it.
 import { stringify } from 'yaml';
 import { CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig } from '../config.mjs';
@@ -31,6 +34,12 @@ export function renderConfig({ slug, defaultBranch, commands, lawsSource }) {
     '',
     '# Where the laws a slice must not break are read from: knowledge, claudeMdInvariants or none.',
     section('laws', { source: lawsSource }),
+    '',
+    "# The Omni page ask mode's questions and the dossiers go to. null: ask mode and dossiers off.",
+    section('ask', { url: signature.home }),
+    '',
+    "# Whether omni dossier sends this repository's PRD folders to ask.url.",
+    section('dossier', { enabled: true }),
     '',
     "# Who co-signs the loop's commits, pull requests and issues. null: nobody.",
     section('signature', signature),
