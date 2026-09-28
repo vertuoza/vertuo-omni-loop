@@ -3,9 +3,12 @@
 // `.omni-loop/bin/omni.mjs`, lays down the blank knowledge forms as `omni kb init` does, switches on
 // the kit's status line in `.claude/settings.json`, creates the loop labels the repository lacks,
 // then prints the closing steps a person still has to take, with a heads-up for an older copy of the
-// loop or a formatter that would reject the bin. The one command that runs before a config exists,
-// so `main()` hands it no context. It writes nothing outside `.omni-loop/` but the `statusLine` key
-// of `.claude/settings.json`.
+// loop or a formatter that would reject the bin. Around those writes it opens the install pull
+// request (PRD 420): it switches to `chore/install-omni-loop` first, and last commits only what it
+// wrote, pushes that branch and opens (or finds) its pull request, printing the commands left to type
+// for any step git or gh could not do. The one command that runs before a config exists, so `main()`
+// hands it no context. It writes no file outside `.omni-loop/` but the `statusLine` key of
+// `.claude/settings.json` (N-PRODUCT-6).
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 import { dirname, join, posix } from 'node:path';
@@ -18,6 +21,7 @@ import { COMMAND_KEYS, detectCommands, detectLawsSource } from '../../lib/init/d
 import { reconcileLabels } from '../../lib/init/labels.mjs';
 import { formatterToExclude, legacyLoopWorkflows } from '../../lib/init/notices.mjs';
 import { closingSteps } from '../../lib/init/steps.mjs';
+import { installLines, openInstallPr, switchToInstallBranch } from '../../lib/init/install-pr.mjs';
 import { findRoot, readRepo } from '../../lib/init/repo.mjs';
 import { writeStatusLine } from '../../lib/init/settings.mjs';
 import { writeForms } from '../../lib/playbook/write-forms.mjs';
@@ -30,6 +34,9 @@ function insideLoop(path) {
   const clean = posix.normalize(path).replace(/\/+$/, '');
   return clean === LOOP_DIR || clean.startsWith(`${LOOP_DIR}/`);
 }
+
+// The status-line outcomes that leave the kit's own line in the settings file (settings.mjs).
+const OWN_STATUS_LINE = new Set(['wrote', 'kept']);
 
 const FLAGS = { test: 'test', preflight: 'preflight', preflightFull: 'preflight-full' };
 const QUESTIONS = {
@@ -84,6 +91,10 @@ export const init = {
       );
     }
 
+    // The install branch comes first, so everything written below lands on it, never on the branch
+    // the person was on. A branch git refuses is reported with the install pull request below.
+    const branch = switchToInstallBranch(root, { exec });
+
     if (!keepConfig) {
       const interactive = Boolean(stdin?.isTTY && stdout?.isTTY);
       const commands = await resolveCommands(root, flags, { interactive, ask });
@@ -129,6 +140,13 @@ export const init = {
       unfilled: COMMAND_KEYS.filter((key) => config.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] })),
       notices: { legacyWorkflows: legacyLoopWorkflows(root), formatter: formatterToExclude(root, LOOP_DIR) },
     }));
+
+    // Last, the install pull request: only init's own paths are committed — the loop's folder, and the
+    // settings file while the kit's status line is in it.
+    const paths = [LOOP_DIR, ...(OWN_STATUS_LINE.has(settings.outcome) ? [settings.path] : [])];
+    const pr = { paths, remote: config.repo.remote, base: config.repo.defaultBranch, slug };
+    const install = openInstallPr(root, { exec, branch, ...pr });
+    stdout.write(['', 'Install pull request:', ...installLines(install, pr), ''].join('\n'));
     return 0;
   },
 };
