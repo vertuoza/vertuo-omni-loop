@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-28
 - Slice: s2
 - Wave: 2
+- Stays here: A local testing choice for one component, cheap to reverse (one dev dependency, one test file); no lasting rule or principle to keep.
 
 ### The answer, as it was given
 
