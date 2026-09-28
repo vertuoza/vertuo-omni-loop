@@ -1,32 +1,6 @@
 /* Sharing a question, and For me (PRD 144). Every colour is a token of src/ask/theme-tokens.ts, as in
    src/ask/ask.css, so light, dark and system follow the theme switch. */
 
-/* ── The header's For me link and its count ─────────────────────────────── */
-
-.ask-bar-end { display: inline-flex; align-items: center; gap: 12px; }
-.ask a.ask-for-me-nav {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font: 700 14px/1 var(--ask-body);
-  color: var(--ask-ink);
-  text-decoration: none;
-  padding: 7px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--ask-line);
-  background: var(--ask-surface);
-}
-.ask a.ask-for-me-nav:hover { border-color: var(--ask-muted); }
-.ask-count {
-  min-width: 20px;
-  padding: 3px 6px;
-  border-radius: 999px;
-  font: 700 12px/1 var(--ask-body);
-  text-align: center;
-  color: var(--ask-on-plasma);
-  background: var(--ask-plasma);
-}
-
 /* ── Share, on an open round ─────────────────────────────────────────────── */
 
 .ask-share { margin: 0; display: grid; gap: 8px; }
@@ -37,7 +11,7 @@
   font: 400 15px/1.2 var(--ask-body);
   color: var(--ask-ink);
   background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   border-radius: 8px;
   padding: 11px 12px;
   min-width: 0;
@@ -60,7 +34,7 @@
   color: var(--ask-ink);
   text-decoration: none;
   background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   border-radius: 12px;
 }
 .ask a.ask-for-me-link:hover { border-color: var(--ask-plasma); }

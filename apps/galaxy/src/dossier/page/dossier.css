@@ -1,14 +1,30 @@
 /* The page to share, /prd/<id> (PRD 216), and the history of them all, /prd (its step 4), on the ask
    pages' reading surface: their tokens, faces and theme switch. Every colour is a token of
    src/ask/theme-tokens.ts, as in src/ask/ask.css, so light, dark and system follow the switch; nothing
-   here names a colour. Wider than the ask column: a before/after page needs room, and a spec keeps a
-   reading measure inside it. */
+   here names a colour. The whole content area (PRD 476): a before/after page and the question cards
+   use the width, and the spec and the plan keep a 900 px reading measure inside it. */
 
-.dossier { width: 100%; max-width: 1180px; min-width: 0; display: grid; gap: 20px; }
+.dossier { width: 100%; min-width: 0; display: grid; gap: 20px; }
 
-/* ── The header: PRD #n or DRAFT, the title, the repositories, who opened it ── */
+/* ── The header box (PRD 476): the title row with its actions, the facts strip, the tabs ── */
 
-.dossier-head { display: grid; gap: 12px; min-width: 0; }
+.dossier-head {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px 18px 0;
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 12px;
+}
+/* Pinned while the page scrolls, from where the sidebar stops being a drawer (src/nav/drawer.ts) and on
+   a screen tall enough to keep the box under about a third of it; below either, it scrolls away. Above
+   the content, under the user menu, the drawer and its scrim. */
+@media (min-width: 900px) and (min-height: 700px) {
+  .dossier-head { position: sticky; top: 0; z-index: 10; }
+}
+.dossier-head-top { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; min-width: 0; }
+.dossier-head-top .dossier-title { flex: 1 1 320px; min-width: 0; }
 .dossier-title {
   margin: 0;
   font-size: 28px;
@@ -32,10 +48,32 @@
 .ask a.dossier-number:hover,
 .ask a.dossier-number:focus-visible { text-decoration: underline; }
 
+/* ── The facts strip: labelled cells split by rules, wrapping to more rows, one column on a phone ── */
+
+/* Each cell carries its rule on its left; the strip reaches 19 px left of the box's content and clips
+   those 19 px, so the cell that starts a row, wrapped or first, shows no rule of its own. */
+.dossier-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 0;
+  margin: 0 0 0 -19px;
+  min-width: 0;
+  clip-path: inset(-4px -4px -4px 19px);
+}
+.dossier-fact {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 18px;
+  border-left: 1px solid var(--ask-line-strong);
+}
+.dossier-fact dt { font: 700 11px/1 var(--ask-body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ask-muted); }
+.dossier-fact dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.dossier-fact-stage dd { display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; }
+
 /* ── The stage (PRD 426): the track, the stage in words, one button, the links ── */
 
-.stage-head { display: grid; gap: 10px; min-width: 0; }
-.stage-row { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; min-width: 0; }
 .stage-track {
   list-style: none;
   margin: 0;
@@ -48,13 +86,13 @@
 .stage-stop {
   padding: 6px 9px;
   border-radius: 999px;
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   color: var(--ask-muted);
   white-space: nowrap;
 }
 .stage-passed { color: var(--ask-ink); background: var(--ask-sunk); }
 .stage-current { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); }
-.stage-ahead { opacity: 0.6; }
+.stage-ahead { color: var(--ask-muted); }
 .stage-words { margin: 0; overflow-wrap: anywhere; }
 .stage-copy { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .stage-command { font: 13px/1 var(--ask-mono); color: var(--ask-muted); }
@@ -66,32 +104,32 @@
   flex-wrap: wrap;
   gap: 4px 12px;
   font-size: 13px;
-  flex-basis: 100%;
 }
 .stage-links li + li::before { content: '·'; color: var(--ask-muted); margin-right: 12px; }
 
-.dossier-meta { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; min-width: 0; }
 .dossier-repos { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
 .dossier-repo {
   font: 600 13px/1 var(--ask-mono);
   color: var(--ask-ink);
   background: var(--ask-sunk);
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 999px;
   padding: 6px 10px;
   overflow-wrap: anywhere;
 }
-.dossier-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dossier-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .dossier-copy,
 .dossier-delete { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .dossier-copy .ask-share-link { flex: 1 1 260px; }
 
-/* ── The artifact tabs: links, the current one underlined ─────────────────── */
+/* ── The artifact tabs, on the box's bottom edge: links, the current one underlined ── */
 
 .dossier-tabs {
   display: flex;
   gap: 4px;
-  border-bottom: 1px solid var(--ask-line);
+  margin: 0 -18px;
+  padding: 0 8px;
+  border-top: 1px solid var(--ask-line-strong);
   overflow-x: auto;
   scrollbar-width: thin;
 }
@@ -100,18 +138,19 @@
   align-items: baseline;
   gap: 6px;
   padding: 10px 14px;
-  margin-bottom: -1px;
-  color: var(--ask-muted);
+  color: var(--ask-ink);
   font-weight: 700;
   text-decoration: none;
   white-space: nowrap;
   border-bottom: 3px solid transparent;
 }
-.ask a.dossier-tab:hover { color: var(--ask-ink); }
+.ask a.dossier-tab:hover { border-bottom-color: var(--ask-line-strong); }
+/* An empty tab read from GitHub stays in the bar, muted, so the journey reads left to right (PRD 426);
+   muted rather than faded, so it still passes contrast (PRD 476). The current tab, empty or not, reads
+   in ink over its plasma underline: its rule comes after. */
+.ask a.dossier-tab-empty { color: var(--ask-muted); }
 .ask a.dossier-tab[aria-current='page'] { color: var(--ask-ink); border-bottom-color: var(--ask-plasma); }
 .dossier-tab small { font: 600 12px/1 var(--ask-mono); color: var(--ask-muted); }
-/* An empty tab read from GitHub stays in the bar, dimmed, so the journey reads left to right (PRD 426). */
-.ask a.dossier-tab-empty { opacity: 0.55; }
 
 /* ── A tab's pane: the version picker, then the frame or the rendered markdown ── */
 
@@ -119,7 +158,7 @@
 .dossier-picker { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; margin: 0; }
 .dossier-picker-field { display: grid; gap: 4px; min-width: 0; }
 .dossier-picker .ask-share-pick { max-width: 100%; }
-.dossier-empty { margin: 0; padding: 20px; color: var(--ask-muted); background: var(--ask-surface); border: 1px dashed var(--ask-line); border-radius: 12px; }
+.dossier-empty { margin: 0; padding: 20px; color: var(--ask-muted); background: var(--ask-surface); border: 1px dashed var(--ask-line-strong); border-radius: 12px; }
 
 .dossier-frame { margin: 0; display: grid; gap: 8px; }
 .dossier-frame iframe {
@@ -127,13 +166,13 @@
   width: 100%;
   height: 80vh;
   min-height: 480px;
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 12px;
   background: var(--ask-surface);
 }
 
 .dossier-front {
-  max-width: 780px;
+  max-width: 900px;
   margin: 0;
   padding: 8px 12px;
   font: 13px/1.5 var(--ask-mono);
@@ -145,12 +184,12 @@
 
 /* The spec and the plan, as markdown-it renders them: a reading measure, and tables and code that
    scroll within it rather than widen the page. */
-.dossier-md { max-width: 780px; min-width: 0; overflow-wrap: anywhere; }
+.dossier-md { max-width: 900px; min-width: 0; overflow-wrap: anywhere; }
 .dossier-md > :first-child { margin-top: 0; }
 .dossier-md h1,
 .dossier-md h2,
 .dossier-md h3,
-.dossier-md h4 { line-height: 1.3; margin: 1.6em 0 0.5em; text-wrap: balance; }
+.dossier-md h4 { line-height: 1.3; margin: 1.6em 0 0.5em; text-wrap: balance; scroll-margin-top: 16px; }
 .dossier-md h1 { font-size: 28px; }
 .dossier-md h2 { font-size: 22px; padding-bottom: 6px; border-bottom: 1px solid var(--ask-line); }
 .dossier-md h3 { font-size: 18px; }
@@ -182,16 +221,16 @@
 .dossier-md td { padding: 6px 10px; border: 1px solid var(--ask-line); text-align: left; vertical-align: top; }
 .dossier-md th { background: var(--ask-surface); }
 
-/* ── The Questions tab: a card per round, in the order asked, on a reading measure ── */
+/* ── The Questions tab: a card per round, in the order asked, across the page ── */
 
-.dossier-rounds { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; max-width: 780px; min-width: 0; }
+.dossier-rounds { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; min-width: 0; }
 .dossier-round {
   display: grid;
   gap: 12px;
   padding: 16px 18px;
   min-width: 0;
   background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   border-left: 4px solid var(--ask-plasma);
   border-radius: 12px;
 }
@@ -207,7 +246,7 @@
 }
 .dossier-rule { color: var(--ask-on-plasma); background: var(--ask-plasma); }
 .dossier-round[data-rule='delivery'] .dossier-rule { color: var(--ask-ink); background: var(--ask-sunk); border: 1px solid var(--ask-cyan); }
-.dossier-category { color: var(--ask-ink); background: var(--ask-sunk); border: 1px solid var(--ask-line); }
+.dossier-category { color: var(--ask-ink); background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); }
 .dossier-category[data-category='unsorted'] { color: var(--ask-muted); border-style: dashed; }
 
 .dossier-q { display: grid; gap: 8px; min-width: 0; }
@@ -219,7 +258,7 @@
   display: grid;
   gap: 2px;
   padding: 8px 12px;
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 8px;
   min-width: 0;
 }
@@ -231,8 +270,16 @@
 .dossier-round-foot { margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; }
 .dossier-round-foot .ask-hint { overflow-wrap: anywhere; min-width: 0; }
 .ask a.dossier-round-link { font-size: 15px; white-space: nowrap; }
-/* The way back from a question's own page lands on its round, clear of the top edge. */
+/* The way back from a question's own page lands on its round, clear of the top edge; with the header
+   box pinned, just under it (PRD 476: PinnedHead.tsx writes its height). A markdown heading too. */
 .dossier-round { scroll-margin-top: 16px; }
+@media (min-width: 900px) and (min-height: 700px) {
+  .dossier-round,
+  .dossier-md h1,
+  .dossier-md h2,
+  .dossier-md h3,
+  .dossier-md h4 { scroll-margin-top: calc(var(--dossier-head-h, 0px) + 16px); }
+}
 
 /* ── The Outbox tab (PRD 426; PRD 251, s9): the questions, and the context rail beside them. Wide
    (960px and up, as outbox-context.tsx's WIDE), the rail sits on the right and stays in view while
@@ -240,13 +287,14 @@
    outbox.css; every colour is a token. ── */
 
 .outbox { display: grid; gap: 16px; min-width: 0; }
+.outbox-answer { margin: 0; }
 .outbox-main { display: grid; gap: 12px; align-content: start; min-width: 0; }
 .outbox-pr { margin: 0; }
 
 .outbox-context {
   min-width: 0;
   background: var(--ask-surface);
-  border: 1px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   border-radius: 12px;
   padding: 12px;
 }
@@ -256,7 +304,7 @@
 .ask a.outbox-switch-link {
   padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   color: var(--ask-muted);
   font-weight: 700;
   font-size: 14px;
@@ -271,15 +319,17 @@
 @media (min-width: 960px) {
   .outbox { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
   .outbox-main { grid-column: 1; grid-row: 1; }
+  .outbox-context { grid-column: 2; grid-row: 1; }
+  .outbox-context > summary { display: none; }
+}
+/* Tall enough for PRD 476's pinned header, the rail stays in view just under it. */
+@media (min-width: 900px) and (min-height: 700px) {
   .outbox-context {
-    grid-column: 2;
-    grid-row: 1;
     position: sticky;
-    top: 16px;
-    max-height: calc(100vh - 32px);
+    top: calc(var(--dossier-head-h, 0px) + 16px);
+    max-height: calc(100vh - var(--dossier-head-h, 0px) - 32px);
     overflow: auto;
   }
-  .outbox-context > summary { display: none; }
 }
 
 .outbox-answers { display: grid; gap: 14px; min-width: 0; }
@@ -290,7 +340,7 @@
   padding: 14px 16px;
   border-radius: 12px;
   background: var(--ask-sunk);
-  border: 1px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
 }
 .outbox-nothing { font-weight: 700; }
 .outbox-cards { display: grid; gap: 12px; min-width: 0; }
@@ -303,7 +353,7 @@
   min-width: 0;
   padding: 16px;
   background: var(--ask-surface);
-  border: 1px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   border-left: 4px solid var(--ask-plasma);
   border-radius: 12px;
   overflow-wrap: anywhere;
@@ -345,7 +395,7 @@
   align-items: baseline;
   gap: 4px 8px;
   padding: 8px 10px;
-  border: 1px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   border-radius: 8px;
   cursor: pointer;
 }
@@ -361,7 +411,7 @@
   font: inherit;
   color: var(--ask-ink);
   background: var(--ask-ground);
-  border: 1px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   border-radius: 8px;
   padding: 8px 10px;
   resize: vertical;
@@ -373,7 +423,7 @@
 .outbox-details h4 { margin: 12px 0 4px; font-size: 15px; }
 
 .outbox-settled-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.outbox-settled { padding: 12px 14px; border: 1px solid var(--ask-line); border-radius: 10px; background: var(--ask-surface); }
+.outbox-settled { padding: 12px 14px; border: 1.5px solid var(--ask-line-strong); border-radius: 10px; background: var(--ask-surface); }
 .outbox-settled p { margin: 0; }
 .outbox-settled-answer { margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
 
@@ -396,7 +446,7 @@
   min-width: 0;
 }
 .ask .dossier-quick-choice:hover:not(:disabled) { background: var(--ask-plasma-soft); }
-.ask .dossier-quick-choice:disabled { border-color: var(--ask-line); cursor: default; }
+.ask .dossier-quick-choice:disabled { border-color: var(--ask-line-strong); cursor: default; }
 .dossier-quick-note { margin: 0; font-size: 15px; color: var(--ask-muted); }
 
 /* ── The history, /prd: the filters and the search, then a card per dossier, newest activity first ── */
@@ -408,7 +458,7 @@
   gap: 12px;
   padding: 16px;
   background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   border-radius: 12px;
 }
 .dossier-history-field { display: grid; gap: 4px; min-width: 0; }
@@ -419,7 +469,7 @@
 .ask a.dossier-history-clear { color: var(--ask-muted); font-size: 15px; }
 
 /* Mine / All (PRD 413): two links, the current one filled. */
-.dossier-history-whos { display: inline-flex; gap: 4px; margin: 0 0 12px; padding: 4px; background: var(--ask-surface); border: 1.5px solid var(--ask-line); border-radius: 999px; }
+.dossier-history-whos { display: inline-flex; gap: 4px; margin: 0 0 12px; padding: 4px; background: var(--ask-surface); border: 1.5px solid var(--ask-line-strong); border-radius: 999px; }
 .ask a.dossier-history-who { font: 700 14px/1 var(--ask-body); color: var(--ask-ink); text-decoration: none; padding: 8px 16px; border-radius: 999px; }
 .ask a.dossier-history-who:hover { background: var(--ask-sunk); }
 .ask a.dossier-history-who[aria-current="page"] { color: var(--ask-on-plasma); background: var(--ask-plasma); }
@@ -434,7 +484,7 @@
   color: var(--ask-ink);
   text-decoration: none;
   background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   border-radius: 12px;
 }
 .ask a.dossier-history-row:hover { border-color: var(--ask-plasma); }
@@ -446,7 +496,7 @@
   font: 700 13px/1 var(--ask-body);
   color: var(--ask-ink);
   background: var(--ask-sunk);
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 4px;
   padding: 5px 8px;
 }
@@ -455,7 +505,11 @@
 @media (max-width: 719.98px) {
   .dossier-title { font-size: 23px; }
   .ask a.dossier-history-row { padding: 12px 14px; }
-  .dossier-actions { margin-left: 0; }
+  .dossier-actions { justify-content: flex-start; }
+  .dossier-head { padding: 14px 14px 0; }
+  .dossier-tabs { margin: 0 -14px; }
+  .dossier-facts { display: grid; gap: 12px; margin: 0; clip-path: none; }
+  .dossier-fact { padding: 0; border-left: 0; }
   .dossier-frame iframe { height: 70vh; min-height: 360px; }
   .dossier-round { padding: 14px; }
   .outbox-card { padding: 14px; }

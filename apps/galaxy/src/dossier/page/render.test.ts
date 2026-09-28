@@ -8,6 +8,7 @@ import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
 import { DossierPage } from './DossierPage';
 import { DossierSignIn } from './DossierSignIn';
+import { headHeight } from './PinnedHead';
 import { takenLine } from './QuickAnswer';
 import { COPY_WORDS, copyCommand } from './StageHeaderCopy';
 import { dossierView, readPick, type DossierPick } from './view';
@@ -66,8 +67,9 @@ function page({
   dossier = numbered, rows = versions, pick = readPick({}), me = MARIE.user_id, markdown = null as string | null,
   supabase = SUPABASE as typeof SUPABASE | null, questions = rounds as DossierRoundRow[] | null,
   answerable = [] as string[], now = Date.now(), github = undefined as GithubSummary | null | undefined, slices = null as number | null,
+  repos = null as string[] | null,
 } = {}) {
-  const view = dossierView({ dossier, versions: rows, members: [PIERRE, MARIE], rounds: questions, answerable, github, slices }, me, pick, now);
+  const view = dossierView({ dossier, versions: rows, members: [PIERRE, MARIE], rounds: questions, repos, answerable, github, slices }, me, pick, now);
   return renderToStaticMarkup(createElement(DossierPage, { view, markdown: markdown === null ? null : renderMarkdown(markdown), supabase }));
 }
 const tab = (name: DossierPick['tab'], v?: number): DossierPick => ({ tab: name, version: v ?? null });
@@ -165,6 +167,107 @@ describe('the stage header (PRD 426)', () => {
       expect(button(html)).toBeNull();
       expect(html).toContain('PRD #216 ↗');
       expect(html).toContain('<nav class="dossier-tabs"');
+    }
+  });
+});
+
+describe('the header box (PRD 476)', () => {
+  const pr = (number: number, state: PullRef['state'], draft = false): PullRef =>
+    ({ number, url: `https://github.com/vertuoza/vertuo-omni-loop/pull/${number}`, state, draft });
+  const summary = (more: Partial<GithubSummary> = {}): GithubSummary => ({
+    repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers',
+    issue: { number: 216, url: 'https://github.com/vertuoza/vertuo-omni-loop/issues/216', state: 'open' },
+    phase0: null, feature: null, retro: null, mergedSlices: 0, ...more,
+  });
+  /** The one header box: everything between its opening tag and its end. */
+  const box = (html: string) => {
+    const start = html.indexOf('<header class="dossier-head">');
+    expect(start, 'one header box').toBeGreaterThanOrEqual(0);
+    expect(html.indexOf('<header', start + 1), 'only one header').toBe(-1);
+    return html.slice(start, html.indexOf('</header>', start) + '</header>'.length);
+  };
+  /** The title row: the title, then its actions. */
+  const titleRow = (html: string) => {
+    const head = box(html);
+    return head.slice(head.indexOf('<div class="dossier-head-top">'), head.indexOf('<dl class="dossier-facts"'));
+  };
+  const cells = (html: string) => [...box(html).matchAll(/<dt>([^<]+)<\/dt>/g)].map((m) => m[1]);
+  /** The label of each action in the title row, in order. */
+  const actions = (html: string) => [...titleRow(html).matchAll(/<(?:a|button)[^>]*class="ask-button[^"]*"[^>]*>([^<]+)<\/(?:a|button)>/g)].map((m) => m[1]);
+  const cell = (html: string, label: string) => {
+    const head = box(html);
+    const at = head.indexOf(`<dt>${label}</dt>`);
+    return at === -1 ? null : head.slice(at, head.indexOf('</div>', at));
+  };
+
+  it('holds the title row, the facts strip and the tabs, in that order, with the pane after it', () => {
+    const html = page({ github: summary({ phase0: pr(220, 'open') }) });
+    const head = box(html);
+    const top = head.indexOf('<div class="dossier-head-top"><h1 class="dossier-title">');
+    const facts = head.indexOf('<dl class="dossier-facts">');
+    const tabs = head.indexOf('<nav class="dossier-tabs" aria-label="Artifacts">');
+    expect(top).toBeGreaterThan(0);
+    expect(facts).toBeGreaterThan(top);
+    expect(tabs).toBeGreaterThan(facts);
+    expect(html.indexOf('<section class="dossier-pane"')).toBeGreaterThan(html.indexOf('</header>'));
+  });
+
+  it('puts the actions in the title row: the stage\'s button, then Copy link', () => {
+    expect(actions(page({ github: summary({ phase0: pr(220, 'open') }) }))).toEqual(['Approve spec', 'Copy link']);
+    const inbox = page({ github: summary({ phase0: pr(220, 'merged') }) });
+    expect(actions(inbox)).toEqual(['Build it', 'Copy link']);
+    expect(titleRow(inbox)).toContain('<code class="stage-command">/omni:yolo 216</code>');
+    expect(actions(page({ github: summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open'), mergedSlices: 2 }) }))).toEqual(['Review &amp; merge', 'Copy link']);
+    expect(actions(page())).toEqual(['Copy link']);
+  });
+
+  it('puts Delete draft last in the title row, for a draft\'s opener only', () => {
+    expect(actions(page({ dossier: draft, me: PIERRE.user_id }))).toEqual(['Copy link', 'Delete draft']);
+    expect(actions(page({ dossier: draft, me: MARIE.user_id }))).toEqual(['Copy link']);
+  });
+
+  it('shows Stage, Repo, On GitHub and Opened for a PRD in every stage', () => {
+    const stages: [GithubSummary, string][] = [
+      [summary(), 'Stage: PRD'],
+      [summary({ phase0: pr(220, 'open') }), 'Stage: PRD'],
+      [summary({ phase0: pr(220, 'merged') }), 'Stage: inbox'],
+      [summary({ phase0: pr(220, 'merged'), feature: pr(221, 'open', true), mergedSlices: 2 }), 'Stage: outbox'],
+      [summary({ phase0: pr(220, 'merged'), feature: pr(221, 'merged'), mergedSlices: 5 }), 'Stage: shipped'],
+      [summary({ phase0: pr(220, 'merged'), feature: pr(221, 'merged'), mergedSlices: 5, retro: pr(230, 'open') }), 'Stage: retro'],
+    ];
+    for (const [github, words] of stages) {
+      const html = page({ github });
+      expect(cells(html), words).toEqual(['Stage', 'Repo', 'On GitHub', 'Opened']);
+      expect(cell(html, 'Stage')).toContain('<ol class="stage-track" aria-label="Stages">');
+      expect(cell(html, 'Stage')).toContain(`<strong>${words}</strong>`);
+      expect(cell(html, 'On GitHub')).toContain('<ul class="stage-links" aria-label="On GitHub">');
+      expect(cell(html, 'Repo')).toContain('<li class="dossier-repo">vertuoza/vertuo-omni-loop</li>');
+      expect(cell(html, 'Opened')).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
+    }
+  });
+
+  it('says Repos for more than one repository, each a chip', () => {
+    const html = page({ repos: ['vertuoza/vertuo-omni-loop', 'vertuoza/vertuo-web'] });
+    expect(cells(html)).toEqual(['Repos', 'Opened']);
+    expect(cell(html, 'Repos')).toContain('<ul class="dossier-repos" aria-label="Repositories"><li class="dossier-repo">vertuoza/vertuo-omni-loop</li><li class="dossier-repo">vertuoza/vertuo-web</li></ul>');
+  });
+
+  it('shows a draft its idea stage, with no On GitHub cell', () => {
+    const html = page({ dossier: draft, me: PIERRE.user_id });
+    expect(cells(html)).toEqual(['Stage', 'Repo', 'Opened']);
+    expect(titleRow(html)).toContain('<span class="dossier-draft">DRAFT</span>');
+  });
+
+  it('shows no Stage cell where GitHub was not asked, as in demo mode', () => {
+    expect(cells(page())).toEqual(['Repo', 'Opened']);
+    expect(box(page())).not.toContain('stage-track');
+  });
+
+  it('says in the Stage cell, as a status, that GitHub did not answer', () => {
+    for (const github of [null, summary({ retro: UNREAD })]) {
+      const html = page({ github });
+      expect(cells(html)).toEqual(github ? ['Stage', 'Repo', 'On GitHub', 'Opened'] : ['Stage', 'Repo', 'Opened']);
+      expect(cell(html, 'Stage')).toContain('<p class="stage-words" role="status"><strong>Stage unknown: GitHub did not answer.</strong></p>');
     }
   });
 });
@@ -530,6 +633,14 @@ describe('the pieces the browser takes over', () => {
     expect(renderToStaticMarkup(createElement(CopyLink, { path: `/prd/${ID}` }))).toBe(
       '<span class="dossier-copy"><button type="button" class="ask-button">Copy link</button></span>',
     );
+  });
+
+  it('the header box writes its height as whole pixels, never negative, for the rounds to land under (PRD 476)', () => {
+    expect(headHeight(212)).toBe('212px');
+    expect(headHeight(211.2)).toBe('212px');
+    expect(headHeight(0)).toBe('0px');
+    expect(headHeight(-4)).toBe('0px');
+    expect(headHeight(Number.NaN)).toBe('0px');
   });
 
   it('Delete draft is one quiet button', () => {

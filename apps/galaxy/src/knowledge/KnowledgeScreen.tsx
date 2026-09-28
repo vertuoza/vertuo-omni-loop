@@ -1,15 +1,14 @@
 import { Notice } from '../ask/page/Notice';
 import { SwitchAccount } from '../ask/page/SignInCard';
-import { TopBar } from '../nav/TopBar';
 import type { KnowledgeView } from './access';
 import { KnowledgeMap } from './KnowledgeMap';
 import { KnowledgeSignIn } from './KnowledgeSignIn';
 import { knowledgeCallbackPath } from './sign-in';
 import { select } from './view';
 
-// The /knowledge page, in each of its states: the app's one top bar (TopBar, PRD 346: its OMNI LOOP
-// mark a link to /app, the star chart before its menu, and Game mode its last control: PRD 238), then the map for the crew (and the demo), or the card that
-// says why there is none. Only the map state holds the graph; every other state renders from nothing
+// The /knowledge page, in each of its states, inside the app shell (PRD 438), which draws the sidebar
+// and the top bar: the page's own heading (the repository it reads, as a chip, and the star chart),
+// then the map for the crew (and the demo), or the card that says why there is none. Only the map state holds the graph; every other state renders from nothing
 // but its kind, so its markup cannot carry an entry.
 
 type Supabase = { url: string; key: string };
@@ -22,14 +21,12 @@ export type KnowledgeScreenProps = {
   signinError: string | null;
 };
 
-function KnowledgeBar({ repo }: { repo: string | null }) {
+function KnowledgeHead({ repo }: { repo: string | null }) {
   return (
-    <TopBar
-      sub="Knowledge map"
-      brandExtra={repo && <code className="km-repo">{repo}</code>}
-      extras={<a className="km-chart" href="/#chart">Open the star chart →</a>}
-      classes={{ bar: 'km-bar', brand: 'km-brand', end: 'km-bar-end' }}
-    />
+    <div className="km-page-head">
+      {repo && <code className="km-repo">{repo}</code>}
+      <a className="km-chart" href="/#chart">Open the star chart →</a>
+    </div>
   );
 }
 
@@ -77,11 +74,9 @@ function Body({ view, wanted, supabase, signinError }: KnowledgeScreenProps) {
 
 export function KnowledgeScreen(props: KnowledgeScreenProps) {
   return (
-    <>
-      <KnowledgeBar repo={props.view.kind === 'map' ? props.view.graph.repo : null} />
-      <main className="ask-main km-main">
-        <Body {...props} />
-      </main>
-    </>
+    <div className="km-main">
+      <KnowledgeHead repo={props.view.kind === 'map' ? props.view.graph.repo : null} />
+      <Body {...props} />
+    </div>
   );
 }

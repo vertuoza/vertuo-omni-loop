@@ -10,19 +10,30 @@ html:has(.km-root) body { height: auto; overflow: visible; }
 
 .km-root { --km-kind: var(--ask-muted); }
 
-/* ── The top bar ──────────────────────────────────────────────────────────── */
+/* ── The page's heading: the repository it reads, the star chart ─────────── */
 
-.km-brand { flex-wrap: wrap; row-gap: 2px; min-width: 0; }
-.km-repo { font-size: 13px; color: var(--ask-muted); overflow-wrap: anywhere; }
-.km-bar-end { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.km-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  min-width: 0;
+}
+.km-repo {
+  font-size: 13px;
+  color: var(--ask-muted);
+  overflow-wrap: anywhere;
+  padding: 2px 8px;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 999px;
+}
 .km-chart { font-size: 15px; font-weight: 700; text-decoration: none; }
 .km-chart:hover { text-decoration: underline; }
-/* Game mode, the bar's last control (PRD 238): on a row of its own, it keeps the right end of it. */
-.km-bar-end > .game-mode { margin-left: auto; }
 
 /* ── The page ─────────────────────────────────────────────────────────────── */
 
-.km-main { padding-top: 20px; }
+.km-main { width: 100%; max-width: 1180px; display: grid; gap: 18px; min-width: 0; }
 .km { width: 100%; max-width: 1180px; display: grid; gap: 18px; min-width: 0; }
 
 .km-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -33,7 +44,7 @@ html:has(.km-root) body { height: auto; overflow: visible; }
   align-items: baseline;
   gap: 8px;
   padding: 7px 14px;
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 999px;
   background: var(--ask-surface);
   color: var(--ask-ink);
@@ -66,7 +77,7 @@ html:has(.km-root) body { height: auto; overflow: visible; }
   display: grid;
   gap: 10px;
   background: var(--ask-surface);
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 12px;
   min-width: 0;
 }
@@ -126,7 +137,7 @@ html:has(.km-root) body { height: auto; overflow: visible; }
   align-content: start;
   padding: 20px;
   background: var(--ask-surface);
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 12px;
   min-width: 0;
 }
@@ -140,7 +151,7 @@ html:has(.km-root) body { height: auto; overflow: visible; }
   line-height: 1;
   padding: 5px 10px;
   border-radius: 999px;
-  border: 1.5px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   color: var(--ask-muted);
 }
 .km-chip[data-kind] { border-color: var(--km-kind); color: var(--km-kind); }
@@ -166,7 +177,7 @@ html:has(.km-root) body { height: auto; overflow: visible; }
   font: 16px/1.4 var(--ask-body);
   color: var(--ask-ink);
   background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   border-radius: 8px;
   padding: 8px 12px;
 }
@@ -210,14 +221,13 @@ html:has(.km-root) body { height: auto; overflow: visible; }
   font-size: 12.5px;
   font-weight: 700;
   color: var(--ask-muted);
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 4px;
   padding: 1px 6px;
 }
 
 /* On a narrow phone the id sits above its statement. */
 @media (max-width: 479px) {
-  .km-bar-end { width: 100%; justify-content: space-between; gap: 10px; }
   .km-chart { font-size: 14px; }
   .km .km-row { grid-template-columns: 11px minmax(0, 1fr); }
   .km-row .km-text { grid-column: 2; }

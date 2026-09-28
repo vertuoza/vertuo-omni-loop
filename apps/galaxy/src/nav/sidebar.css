@@ -1,0 +1,121 @@
+/* The app shell (PRD 438): the sidebar on the left, the top bar and the page to its right. Drawn on
+   the ask pages' reading surface: every colour is a token of src/ask/theme-tokens.ts (the --ask-*
+   properties the ask root carries, per theme), so Omni, light and dark follow the theme switch. The
+   shell adds no colour of its own. Below 900 px (src/nav/drawer.ts) the sidebar hides, and the top
+   bar's ☰ opens it as a drawer over the page, never wider than the screen. */
+
+.ask.app-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+}
+
+.app-sidebar {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  padding: 16px;
+  border-bottom: 1px solid var(--ask-line);
+  background: var(--ask-surface);
+  min-width: 0;
+}
+
+@media (max-width: 899.98px) {
+  .app-shell > .app-sidebar { display: none; }
+  .app-shell > .app-sidebar[data-open] {
+    display: grid;
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    width: 280px;
+    max-width: calc(100vw - 48px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-left: max(16px, env(safe-area-inset-left));
+    border-bottom: 0;
+    border-right: 1px solid var(--ask-line);
+  }
+}
+
+@media (min-width: 900px) {
+  .ask.app-shell {
+    grid-template-columns: 240px minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+  .app-shell > .app-sidebar {
+    grid-row: 1 / span 2;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100dvh;
+    overflow-y: auto;
+    border-bottom: 0;
+    border-right: 1px solid var(--ask-line);
+  }
+  .app-shell > .app-bar,
+  .app-shell > .ask-main { grid-column: 2; }
+}
+
+/* ── The header: the crest, OMNI LOOP, the workspace ─────────────────────── */
+
+.app-sidebar-head { display: grid; gap: 6px; }
+.ask a.app-sidebar-crest {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+.app-sidebar-logo { display: inline-flex; line-height: 0; }
+.app-sidebar-workspace {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ask-muted);
+  overflow-wrap: anywhere;
+}
+
+/* ── The groups and their items ───────────────────────────────────────────── */
+
+.app-sidebar-nav { display: grid; gap: 18px; }
+.app-sidebar-group { display: grid; gap: 4px; }
+.app-sidebar-label {
+  margin: 0;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ask-muted);
+}
+.app-sidebar-items,
+.app-sidebar-children { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.app-sidebar-children { padding-left: 14px; margin-top: 2px; }
+
+.ask a.app-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font: 700 15px/1.3 var(--ask-body);
+  color: var(--ask-ink);
+  text-decoration: none;
+}
+.ask a.app-sidebar-item:hover { border-color: var(--ask-line-strong); }
+.ask a.app-sidebar-item[aria-current='page'] {
+  color: var(--ask-plasma);
+  border-color: var(--ask-plasma);
+  background: var(--ask-ground);
+}
+
+.app-sidebar-badge {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  font: 700 12px/1 var(--ask-body);
+  text-align: center;
+  color: var(--ask-on-plasma);
+  background: var(--ask-plasma);
+}
+.app-sidebar-out { margin-left: auto; color: var(--ask-muted); font-weight: 400; }

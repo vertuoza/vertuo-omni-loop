@@ -2,12 +2,14 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { GAME_MODE } from '../switch/switch';
 import { MENU } from './menu';
 import { TopBar } from './TopBar';
 
-// The one header of the normal app (PRD 346): the OMNI LOOP mark to /app, the page's sub-title, the
-// page's own extras, the menu (PRDs since PRD 413, Release notes, Docs), the theme switch and Game mode, in that order. The
-// item of the page being shown is marked current.
+// The public bar (PRD 346, reshaped by PRD 438), on /docs and /releases only: the OMNI LOOP mark to
+// /app, the page's sub-title, the menu of Omni's own pages (Release notes, Docs: PRDs left it for the
+// app's sidebar), Open the app → to /app, shown to everyone, then the theme switch and Game mode, last.
+// The item of the page being shown is marked current.
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 const controls = (bar: string) =>
@@ -16,68 +18,56 @@ const controls = (bar: string) =>
 const render = (props: Parameters<typeof TopBar>[0]) => renderToStaticMarkup(createElement(TopBar, props));
 
 describe('the menu', () => {
-  it('holds PRDs, to /prd, first (PRD 413), then Release notes, to /releases, then Docs, to /docs', () => {
+  it('holds Omni\'s pages only: Release notes, to /releases, then Docs, to /docs, and no PRDs', () => {
     expect(MENU.map((m) => [m.id, m.label, m.path])).toEqual([
-      ['prds', 'PRDs', '/prd'],
       ['releases', 'Release notes', '/releases'],
       ['docs', 'Docs', '/docs'],
     ]);
   });
 });
 
-describe('the top bar', () => {
+describe('the public bar', () => {
   it('reads OMNI LOOP, linked to /app, then the sub-title', () => {
-    const bar = render({ sub: 'App' });
+    const bar = render({ sub: 'Docs' });
     expect(bar).toMatch(/^<header class="ask-bar top-bar">/);
-    expect(bar).toContain('<a class="ask-mark" href="/app">OMNI LOOP</a><span class="ask-brand-sub">App</span>');
+    expect(bar).toContain('<a class="ask-mark" href="/app">OMNI LOOP</a><span class="ask-brand-sub">Docs</span>');
   });
 
-  it('offers OMNI LOOP, PRDs, Release notes, Docs, the theme switch and Game mode, in that order', () => {
-    expect(controls(render({ sub: 'App' }))).toEqual(['OMNI LOOP', 'PRDs', 'Release notes', 'Docs', 'Omni', 'Light', 'Dark', 'Game mode']);
+  it('offers OMNI LOOP, Release notes, Docs, Open the app →, the theme switch and Game mode, in that order', () => {
+    expect(controls(render({ sub: 'Docs' }))).toEqual(['OMNI LOOP', 'Release notes', 'Docs', 'Open the app →', 'Omni', 'Light', 'Dark', 'Game mode']);
   });
 
-  it('links PRDs to /prd, Release notes to /releases and Docs to /docs, inside a navigation named Menu', () => {
-    const bar = render({ sub: 'App' });
-    expect(bar).toMatch(/<nav class="top-bar-menu" aria-label="Menu"><a class="top-bar-item" href="\/prd">PRDs<\/a><a class="top-bar-item" href="\/releases">Release notes<\/a><a class="top-bar-item" href="\/docs">Docs<\/a><\/nav>/);
+  it('links Release notes to /releases and Docs to /docs, inside a navigation named Menu, and PRDs nowhere', () => {
+    const bar = render({ sub: 'Docs' });
+    expect(bar).toMatch(/<nav class="top-bar-menu" aria-label="Menu"><a class="top-bar-item" href="\/releases">Release notes<\/a><a class="top-bar-item" href="\/docs">Docs<\/a><\/nav>/);
+    expect(bar).not.toContain('href="/prd"');
+    expect(text(bar)).not.toContain('PRDs');
+  });
+
+  it('links Open the app → to /app on every page, and never marks it current', () => {
+    for (const current of [undefined, 'docs', 'releases'] as const) {
+      expect(render({ sub: 'Docs', current })).toContain('<a class="top-bar-open" href="/app">Open the app →</a>');
+    }
   });
 
   it('marks the current item with aria-current="page", and no other', () => {
     expect(render({ sub: 'Releases', current: 'releases' })).toContain('<a class="top-bar-item" href="/releases" aria-current="page">Release notes</a>');
-    expect(render({ sub: 'App' })).not.toContain('aria-current');
+    expect(render({ sub: 'Docs' })).not.toContain('aria-current');
   });
 
   it('marks Docs current on /docs, and Release notes not', () => {
     const bar = render({ sub: 'Docs', current: 'docs' });
     expect(bar).toContain('<a class="top-bar-item" href="/docs" aria-current="page">Docs</a>');
     expect(bar).toContain('<a class="top-bar-item" href="/releases">Release notes</a>');
-  });
-
-  it('marks PRDs current on /prd pages, and no other item', () => {
-    const bar = render({ sub: 'PRD dossier', current: 'prds' });
-    expect(bar).toContain('<a class="top-bar-item" href="/prd" aria-current="page">PRDs</a>');
     expect(bar.match(/aria-current/g)).toHaveLength(1);
   });
 
-  it('puts the page\'s extras before the menu', () => {
-    const bar = render({ sub: 'Claude asks', extras: createElement('a', { className: 'ask-for-me-nav', href: '/ask/history' }, 'History') });
-    expect(controls(bar)).toEqual(['OMNI LOOP', 'History', 'PRDs', 'Release notes', 'Docs', 'Omni', 'Light', 'Dark', 'Game mode']);
-  });
-
-  it('puts what follows the sub-title inside the brand, and keeps a page\'s own classes', () => {
-    const bar = render({
-      sub: 'Knowledge map',
-      brandExtra: createElement('code', { className: 'km-repo' }, 'acme/widgets'),
-      classes: { bar: 'km-bar', brand: 'km-brand', end: 'km-bar-end' },
-    });
-    expect(bar).toMatch(/^<header class="ask-bar top-bar km-bar"><span class="ask-brand km-brand">/);
-    expect(bar).toContain('<span class="ask-brand-sub">Knowledge map</span><code class="km-repo">acme/widgets</code></span>');
-    expect(bar).toContain('<span class="ask-bar-end top-bar-end km-bar-end">');
-  });
-
-  it('holds the Game mode dialog, closed', () => {
-    const bar = render({ sub: 'App' });
-    expect(bar).toMatch(/<dialog [^>]*class="game-mode-dialog"/);
+  it('holds the Game mode dialog, closed, in exactly GAME_MODE\'s words', () => {
+    const bar = render({ sub: 'Docs' });
+    const dialog = bar.slice(bar.indexOf('<dialog'), bar.indexOf('</dialog>'));
+    expect(dialog).toMatch(/<dialog [^>]*class="game-mode-dialog"/);
     expect(bar).not.toMatch(/<dialog [^>]*\bopen\b/);
+    expect(text(dialog)).toBe([GAME_MODE.title, GAME_MODE.line, GAME_MODE.stay, GAME_MODE.go].join(' '));
   });
 });
 
@@ -93,5 +83,9 @@ describe('its stylesheet', () => {
   it('wraps the bar\'s end on a phone, Game mode keeping the right end of its row', () => {
     expect(css).toMatch(/\.top-bar-end \{[^}]*flex-wrap: wrap;/);
     expect(css).toMatch(/\.top-bar-end > \.game-mode \{ margin-left: auto; \}/);
+  });
+
+  it('never breaks Open the app → across lines', () => {
+    expect(css).toMatch(/\.ask a\.top-bar-open \{[^}]*white-space: nowrap;/);
   });
 });
