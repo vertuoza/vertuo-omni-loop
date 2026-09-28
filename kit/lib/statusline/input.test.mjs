@@ -1,4 +1,4 @@
-// PRD #324, slice s1: Claude Code's status line JSON, read with every field optional.
+// PRD #324, slices s1 and s5: Claude Code's status line JSON, read with every field optional.
 import { describe, expect, it } from 'vitest';
 import { parseInput } from './input.mjs';
 
@@ -17,7 +17,7 @@ const FULL = {
   rate_limits: { five_hour: { used_percentage: 25.4, resets_at: RESETS_AT / 1000 } },
 };
 
-const EMPTY = { model: null, contextPercent: null, fiveHour: null, currentDir: null, projectDir: null };
+const EMPTY = { model: null, contextPercent: null, fiveHour: null, currentDir: null, projectDir: null, sessionId: null };
 
 describe('parseInput', () => {
   it('reads a full payload', () => {
@@ -27,6 +27,7 @@ describe('parseInput', () => {
       fiveHour: { percent: 25.4, resetsAt: RESETS_AT },
       currentDir: '/work/repo/kit',
       projectDir: '/work/repo',
+      sessionId: 'abc-123',
     });
   });
 
@@ -45,8 +46,14 @@ describe('parseInput', () => {
       context_window: { used_percentage: '58' },
       rate_limits: { five_hour: { used_percentage: -3, resets_at: RESETS_AT / 1000 } },
       workspace: { current_dir: '', project_dir: ['x'] },
+      session_id: 7,
     };
     expect(parseInput(JSON.stringify(odd))).toEqual(EMPTY);
+  });
+
+  it('reads the session id as sent, whatever its characters: the record reader decides what is safe', () => {
+    expect(parseInput(JSON.stringify({ session_id: '../abc' })).sessionId).toBe('../abc');
+    expect(parseInput(JSON.stringify({ session_id: '' })).sessionId).toBeNull();
   });
 
   it('falls back to cwd when workspace.current_dir is missing', () => {

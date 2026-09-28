@@ -1,6 +1,7 @@
-// PRD #324, slices s1 and s4: `omni statusline` through `main()` — Claude Code's JSON on stdin, the
-// session line out, then the PRD of the session's branch with its stage (or the no-PRD line) where the
-// loop is installed, exit 0 and nothing on stderr every time.
+// PRD #324, slices s1, s4 and s5: `omni statusline` through `main()` — Claude Code's JSON on stdin,
+// the session line out, then the PRD of the session's branch, else the one the session last worked
+// on, with its stage (or the no-PRD line) where the loop is installed, exit 0 and nothing on stderr
+// every time.
 import { execFile, execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -300,5 +301,46 @@ describe('omni statusline: line 2 names the PRD of the session branch', () => {
     const dir = fixture.on('feat/bravo--s3', 'origin/feat/bravo');
     const run = await statusline(fixture.root, payload(join(dir, 'src')));
     expect(run.out.split('\n')[1]).toBe('PRD 7 bravo · s3 · outbox · 2 open items');
+  });
+});
+
+describe('omni statusline: line 2 names the PRD the session last worked on', () => {
+  const fixture = originFixture();
+  /** `omni <argv>` in `cwd`, run as Claude Code runs a command of the session `abc`: its exit code. */
+  const inSession = (argv, cwd) => main(argv, { cwd, stdout: { write() {} }, stderr: { write() {} }, env: { CLAUDE_CODE_SESSION_ID: 'abc' } });
+  const line2 = async (dir, more = {}) => {
+    const run = await statusline(dir, payload(dir, more));
+    expect({ code: run.code, err: run.err }).toEqual({ code: 0, err: '' });
+    expect(neverFetches(run.calls)).toBe(true);
+    return run.out.split('\n')[1];
+  };
+
+  it('names on the default branch the PRD the latest command of the session named', async () => {
+    expect(await line2(fixture.root)).toBe(NO_PRD);
+    expect(await inSession(['prd', '7'], fixture.root)).toBe(0);
+    expect(await line2(fixture.root)).toBe('PRD 7 bravo · outbox · 2 open items');
+    expect(await inSession(['prd', '9'], fixture.root)).toBe(0);
+    expect(await line2(fixture.root)).toBe('PRD 9 charlie · inbox');
+  });
+
+  it('reads a record written from a worktree, in the main checkout', async () => {
+    const worktree = fixture.on('scratch');
+    expect(await inSession(['prd', '3'], worktree)).toBe(0);
+    expect(await line2(fixture.root)).toBe('PRD 3 alpha · shipped');
+    expect(await line2(worktree)).toBe('PRD 3 alpha · shipped');
+  });
+
+  it('lets the branch win over the record', async () => {
+    expect(await inSession(['prd', '7'], fixture.root)).toBe(0);
+    expect(await line2(fixture.on('feat/charlie', 'origin/feat/charlie'))).toBe('PRD 9 charlie · inbox');
+    expect(await line2(fixture.on('feat/zulu'))).toBe('PRD 7 bravo · outbox · 2 open items');
+  });
+
+  it('reads no PRD for a record whose PRD has no folder, and for a session with no record', async () => {
+    expect(await inSession(['prd', '7'], fixture.root)).toBe(0);
+    expect(await line2(fixture.root, { session_id: 'someone-else' })).toBe(NO_PRD);
+    expect(await line2(fixture.root, { session_id: '../abc' })).toBe(NO_PRD);
+    expect(await inSession(['prd', '42'], fixture.root)).toBe(1);
+    expect(await line2(fixture.root)).toBe(NO_PRD);
   });
 });

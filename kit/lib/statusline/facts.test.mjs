@@ -1,6 +1,7 @@
-// PRD #324, slices s1 and s4: what the status line reads besides its stdin — whether the loop is
+// PRD #324, slices s1, s4 and s5: what the status line reads besides its stdin — whether the loop is
 // installed in the session's folder, whether ask mode is on in the launch folder's checkout, and the
-// PRD the session's branch names, with its stage read from git as of the last fetch.
+// PRD the session's branch names (else the one its record names), with its stage read from git as of
+// the last fetch.
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -9,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.mjs';
 import { writeMode } from '../ask/local-state.mjs';
 import { readFacts } from './facts.mjs';
+import { writeRecord } from './sessions.mjs';
 
 const CONFIG = { '.omni-loop/config.yml': 'kit: 1\n' };
 const DELIVERY = '.omni-loop/delivery';
@@ -23,7 +25,7 @@ function recordingExec() {
   return { calls, exec };
 }
 
-const input = (fields = {}) => ({ model: null, contextPercent: null, fiveHour: null, currentDir: null, projectDir: null, ...fields });
+const input = (fields = {}) => ({ model: null, contextPercent: null, fiveHour: null, currentDir: null, projectDir: null, sessionId: null, ...fields });
 
 describe('readFacts', () => {
   it('reads the loop installed in the session folder, and ask mode on in the launch folder', () => {
@@ -156,5 +158,67 @@ describe('readFacts: the PRD of the session branch', () => {
     const { root } = makeRepo({ git: true, files: { [`${DELIVERY}/inbox/0007-bravo/spec.md`]: '# bravo\n' } });
     git(root, 'checkout', '-q', '-b', 'feat/bravo');
     expect(readFacts(input({ currentDir: root }), { cwd: root, exec: execFileSync })).toMatchObject({ installed: false, prd: null });
+  });
+});
+
+describe('readFacts: what the session last worked on', () => {
+  const NOW = Date.now();
+
+  /** `localRepo` on `main`, holding PRD 9 in its inbox beside PRD 7. */
+  function twoPrds(options = {}) {
+    const repo = localRepo({ branch: 'main', ...options });
+    commit(repo.root, { [`${DELIVERY}/inbox/0009-charlie/spec.md`]: '# charlie\n' });
+    return repo;
+  }
+
+  it('reads the PRD the record names on a branch that names none, with its stage and no slice', () => {
+    const { root } = twoPrds();
+    writeRecord(root, 'abc', 7, NOW);
+    expect(readFacts(input({ currentDir: root, sessionId: 'abc' }), { cwd: root, exec: execFileSync }).prd).toEqual({
+      number: 7,
+      topic: 'bravo',
+      slice: null,
+      stage: 'inbox',
+      openItems: 0,
+    });
+  });
+
+  it('reads the record in the main checkout from a worktree, and never fetches', () => {
+    const { root } = twoPrds();
+    writeRecord(root, 'abc', 9, NOW);
+    const worktree = join(mkdtempSync(join(tmpdir(), 'omni-worktree-')), 'wt');
+    git(root, 'worktree', 'add', '-q', '-b', 'scratch', worktree);
+    const { calls, exec } = recordingExec();
+    expect(readFacts(input({ currentDir: worktree, sessionId: 'abc' }), { cwd: tmpdir(), exec }).prd).toMatchObject({ number: 9, topic: 'charlie', slice: null });
+    expect(calls.some((call) => /\bfetch\b/.test(call) || call.startsWith('gh '))).toBe(false);
+  });
+
+  it('lets a branch that names a PRD win over the record', () => {
+    const { root } = twoPrds();
+    writeRecord(root, 'abc', 7, NOW);
+    git(root, 'checkout', '-q', '-b', 'feat/charlie--s1');
+    expect(readFacts(input({ currentDir: root, sessionId: 'abc' }), { cwd: root, exec: execFileSync }).prd).toMatchObject({ number: 9, slice: 's1' });
+  });
+
+  it('reads the record when the branch names a topic with no folder', () => {
+    const { root } = twoPrds();
+    writeRecord(root, 'abc', 7, NOW);
+    git(root, 'checkout', '-q', '-b', 'feat/zulu');
+    expect(readFacts(input({ currentDir: root, sessionId: 'abc' }), { cwd: root, exec: execFileSync }).prd).toMatchObject({ number: 7, slice: null });
+  });
+
+  it('reads no PRD for a record whose PRD has no folder, for another session, without a session id or with an unsafe one', () => {
+    const { root } = twoPrds();
+    writeRecord(root, 'abc', 42, NOW);
+    writeRecord(root, 'def', 7, NOW);
+    for (const sessionId of ['abc', 'ghi', null, '../def']) {
+      expect(readFacts(input({ currentDir: root, sessionId }), { cwd: root, exec: execFileSync }).prd).toBeNull();
+    }
+  });
+
+  it('reads no PRD from a record where the loop is not installed', () => {
+    const { root } = makeRepo({ git: true, files: { [`${DELIVERY}/inbox/0007-bravo/spec.md`]: '# bravo\n' } });
+    writeRecord(root, 'abc', 7, NOW);
+    expect(readFacts(input({ currentDir: root, sessionId: 'abc' }), { cwd: root, exec: execFileSync })).toMatchObject({ installed: false, prd: null });
   });
 });

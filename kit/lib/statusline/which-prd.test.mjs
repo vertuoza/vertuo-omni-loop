@@ -1,7 +1,8 @@
-// PRD #324, slice s4: which PRD a session works on, read from its branch — the slice, feature and
-// phase-0 templates, a slice branch read as a slice first, and the topic to its folder.
+// PRD #324, slices s4 and s5: which PRD a session works on, read from its branch — the slice, feature
+// and phase-0 templates, a slice branch read as a slice first, and the topic to its folder — and,
+// when the branch names none, from the record of what the session last worked on.
 import { describe, expect, it } from 'vitest';
-import { branchNames, folderOfTopic, templatePattern, whichPrd } from './which-prd.mjs';
+import { branchNames, folderOfNumber, folderOfTopic, templatePattern, whichPrd } from './which-prd.mjs';
 
 const BRANCHES = {
   feature: 'feat/{topic}',
@@ -106,5 +107,44 @@ describe('whichPrd', () => {
   it('names no PRD on a branch no template reads', () => {
     expect(whichPrd({ branch: 'main', branches: BRANCHES, folders: FOLDERS })).toBeNull();
     expect(whichPrd({ branch: null, branches: BRANCHES, folders: FOLDERS })).toBeNull();
+  });
+});
+
+describe('whichPrd: what the session last worked on', () => {
+  it('names the PRD of the record on `main`, with no slice, and no PRD without a record', () => {
+    expect(whichPrd({ branch: 'main', branches: BRANCHES, folders: FOLDERS, recorded: 7 })).toEqual({ prd: 7, topic: 'bravo', folder: '0007-bravo', slice: null });
+    expect(whichPrd({ branch: 'main', branches: BRANCHES, folders: FOLDERS, recorded: null })).toBeNull();
+    expect(whichPrd({ branch: null, branches: BRANCHES, folders: FOLDERS, recorded: 3 })).toMatchObject({ prd: 3, topic: 'alpha' });
+  });
+
+  it('lets a branch that names a PRD win over the record', () => {
+    expect(whichPrd({ branch: 'feat/charlie', branches: BRANCHES, folders: FOLDERS, recorded: 7 })).toMatchObject({ prd: 9, topic: 'charlie' });
+    expect(whichPrd({ branch: 'feat/bravo--s2', branches: BRANCHES, folders: FOLDERS, recorded: 9 })).toMatchObject({ prd: 7, slice: 's2' });
+  });
+
+  it('reads the record when the branch names a topic with no folder', () => {
+    expect(whichPrd({ branch: 'feat/zulu', branches: BRANCHES, folders: FOLDERS, recorded: 9 })).toEqual({ prd: 9, topic: 'charlie', folder: '0009-charlie', slice: null });
+  });
+
+  it('names no PRD for a record whose PRD has no folder', () => {
+    expect(whichPrd({ branch: 'main', branches: BRANCHES, folders: FOLDERS, recorded: 42 })).toBeNull();
+    expect(whichPrd({ branch: 'main', branches: BRANCHES, folders: ['notes', '42-x'], recorded: 42 })).toBeNull();
+  });
+});
+
+describe('folderOfNumber', () => {
+  it('finds the folder `<nnnn>-<topic>` carrying the number', () => {
+    expect(folderOfNumber(FOLDERS, 11)).toEqual({ prd: 11, topic: 'delta', folder: '0011-delta' });
+    expect(folderOfNumber(['12345-wide'], 12345)).toEqual({ prd: 12345, topic: 'wide', folder: '12345-wide' });
+  });
+
+  it('finds nothing for a number no folder carries, or no number', () => {
+    expect(folderOfNumber(FOLDERS, 42)).toBeNull();
+    expect(folderOfNumber(FOLDERS, null)).toBeNull();
+    expect(folderOfNumber(undefined, 7)).toBeNull();
+  });
+
+  it('reads the first folder carrying the number, in the order found', () => {
+    expect(folderOfNumber(['0007-bravo', '0007-bravo-renamed'], 7)).toMatchObject({ folder: '0007-bravo' });
   });
 });

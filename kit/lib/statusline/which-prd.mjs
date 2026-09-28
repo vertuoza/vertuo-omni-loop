@@ -6,8 +6,9 @@
 //
 // The topic names the PRD whose folder is `<nnnn>-<topic>` among the folders the caller found (under
 // the delivery folder's inbox and shipped folders, in the session's checkout or on the base). A
-// branch no template reads, or whose topic has no folder, names no PRD: `whichPrd` returns `null`,
-// and the caller may look elsewhere (what the session last worked on) before it reads no PRD.
+// branch no template reads, or whose topic has no folder, names no PRD; then what the session last
+// worked on answers (the spec's D10): the PRD number its record names, whose folder is found among the
+// same folders. A record whose PRD has no folder names no PRD either.
 import { parseFolderName } from '../layout.mjs';
 
 const TEMPLATE_ORDER = ['slice', 'feature', 'phase0'];
@@ -58,15 +59,28 @@ export function folderOfTopic(folders, topic) {
   return found;
 }
 
+/** The PRD folder among `folders` (names) whose number is `prd`: `{ prd, topic, folder }`, the first
+ * found when several carry it, or `null`. */
+export function folderOfNumber(folders, prd) {
+  for (const name of folders ?? []) {
+    const parsed = parseFolderName(name);
+    if (parsed && parsed.prd === prd) return { prd, topic: parsed.topic, folder: name };
+  }
+  return null;
+}
+
 /**
- * The PRD the session's branch names: `{ prd, topic, folder, slice }`, or `null`.
+ * The PRD the session works on: the one its branch names, else the one its record names, as
+ * `{ prd, topic, folder, slice }` (`slice` only from a slice branch), or `null`.
  *
- * @param {{ branch: string | null, branches: object, folders: string[] }} facts the session's
- *   branch, the config's `branches`, and the PRD folder names found in the checkout or on the base
+ * @param {{ branch: string | null, branches: object, folders: string[], recorded?: number | null }} facts
+ *   the session's branch, the config's `branches`, the PRD folder names found in the checkout or on
+ *   the base, and the PRD number the session's record names
  */
-export function whichPrd({ branch, branches, folders }) {
+export function whichPrd({ branch, branches, folders, recorded = null }) {
   const named = branchNames(branch, branches);
-  if (!named) return null;
-  const found = folderOfTopic(folders, named.topic);
-  return found ? { ...found, slice: named.slice } : null;
+  const fromBranch = named ? folderOfTopic(folders, named.topic) : null;
+  if (fromBranch) return { ...fromBranch, slice: named.slice };
+  const fromRecord = recorded === null ? null : folderOfNumber(folders, recorded);
+  return fromRecord ? { ...fromRecord, slice: null } : null;
 }
