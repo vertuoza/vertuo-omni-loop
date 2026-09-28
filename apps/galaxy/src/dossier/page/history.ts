@@ -5,7 +5,9 @@
 // repositories: its home, its questions' and its planet's regions, so a dossier with three shows under
 // each — and by draft or PRD, and searched by the words of a title. Each row shows #n or DRAFT, the
 // title, its repository chips, which artifacts it has and how many versions of each, and its questions
-// answered out of asked, and opens /prd/<id>.
+// answered out of asked, and opens /prd/<id>. PRD 413: Mine by default — the dossiers the viewer opened,
+// drafts and numbered alike, so one the GitHub fallback created (no opener) shows only under All — and All
+// with `who=all`; who combines with every other filter, and clearing the filters keeps it.
 import type { DossierKind, DossierListRow } from '../store';
 import { dossierPath, stamp, TAB_LABELS, TABS } from './view';
 
@@ -13,8 +15,12 @@ import { dossierPath, stamp, TAB_LABELS, TABS } from './view';
 export const HISTORY_PATH = '/prd';
 export const HISTORY_CALLBACK = '/prd/callback';
 
-/** What the history is narrowed to: each filter left out lets every dossier through. */
+/** Mine (the dossiers the viewer opened) or All (every dossier of the viewer's workspaces). */
+export type HistoryWho = 'mine' | 'all';
+
+/** What the history is narrowed to: `who` always, and each other filter left out lets every dossier through. */
 export type HistoryFilters = {
+  who: HistoryWho;
   /** A repository, owner/name in lower case, as dossier_list() gives them. */
   repo?: string;
   state?: 'draft' | 'prd';
@@ -49,9 +55,9 @@ const one = (value: string | string[] | undefined) => {
   return first ? first : undefined;
 };
 
-/** The filters an address carries: `repo`, `state` (`draft` or `prd`), `q`. */
+/** The filters an address carries: `who` (`all`, or else Mine), `repo`, `state` (`draft` or `prd`), `q`. */
 export function readHistoryFilters(query: Query): HistoryFilters {
-  const filters: HistoryFilters = {};
+  const filters: HistoryFilters = { who: one(query.who) === 'all' ? 'all' : 'mine' };
   const repo = one(query.repo);
   if (repo) filters.repo = repo.toLowerCase();
   const state = one(query.state);
@@ -61,10 +67,22 @@ export function readHistoryFilters(query: Query): HistoryFilters {
   return filters;
 }
 
-/** Whether any filter is set: the page then offers to clear them. */
-export const filtered = (filters: HistoryFilters) => Object.keys(filters).length > 0;
+/** Whether any filter but `who` is set: the page then offers to clear them, keeping `who`. */
+export const filtered = ({ who: _who, ...rest }: HistoryFilters) => Object.keys(rest).length > 0;
 
-function passes(row: DossierListRow, filters: HistoryFilters): boolean {
+/** The history's address for these filters: `repo`, `state`, `q`, then `who=all` for All (Mine is the default). */
+export function historyAddress(filters: HistoryFilters): string {
+  const params = new URLSearchParams();
+  if (filters.repo) params.set('repo', filters.repo);
+  if (filters.state) params.set('state', filters.state);
+  if (filters.search) params.set('q', filters.search);
+  if (filters.who === 'all') params.set('who', 'all');
+  const query = params.toString();
+  return query ? `${HISTORY_PATH}?${query}` : HISTORY_PATH;
+}
+
+function passes(row: DossierListRow, filters: HistoryFilters, viewer: string | null): boolean {
+  if (filters.who === 'mine' && (viewer === null || row.opened_by !== viewer)) return false;
   if (filters.repo && !row.repos.includes(filters.repo)) return false;
   if (filters.state === 'draft' && row.prd !== null) return false;
   if (filters.state === 'prd' && row.prd === null) return false;
@@ -78,9 +96,9 @@ function passes(row: DossierListRow, filters: HistoryFilters): boolean {
 const newestFirst = (a: DossierListRow, b: DossierListRow) =>
   Date.parse(b.last_activity) - Date.parse(a.last_activity) || a.id.localeCompare(b.id);
 
-/** The dossiers the filters let through, newest activity first, as the history lists them. */
-export function historyItems(rows: DossierListRow[], filters: HistoryFilters): HistoryItem[] {
-  return rows.filter((row) => passes(row, filters)).sort(newestFirst).map((row): HistoryItem => ({
+/** The dossiers the filters let through for this viewer (their user id), newest activity first, as the history lists them. */
+export function historyItems(rows: DossierListRow[], filters: HistoryFilters, viewer: string | null): HistoryItem[] {
+  return rows.filter((row) => passes(row, filters, viewer)).sort(newestFirst).map((row): HistoryItem => ({
     id: row.id,
     href: dossierPath(row.id),
     heading: row.prd === null ? 'DRAFT' : `#${row.prd}`,
