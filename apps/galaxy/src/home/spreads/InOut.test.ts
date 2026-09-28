@@ -24,26 +24,29 @@ describe('Easy in, easy out', () => {
     expect(getIn).toMatch(/<ol\b/);
     const steps = items(getIn);
     expect(steps.map(text)).toEqual([
-      'omni init adds one folder to your repository: .omni-loop/ .',
+      'omni init adds one folder to your repository, .omni-loop/ , and a status line to .claude/settings.json .',
       'Install the omni plugin in Claude Code, and the omni-loop GitHub App.',
       '/omni:invade writes your harness from what your repository already proves. You merge it as one pull request of docs.',
       '/omni:brainstorm your first feature.',
     ]);
     expect(steps[0]).toContain('<code>omni init</code>');
     expect(steps[0]).toContain('<code>.omni-loop/</code>');
+    expect(steps[0]).toContain('<code>.claude/settings.json</code>');
     expect(steps[2]).toContain('<code>/omni:invade</code>');
     expect(steps[3]).toContain('<code>/omni:brainstorm</code>');
   });
 
-  it('gets out by deleting one folder, with the fine print about the labels and the App', () => {
+  it('gets out by deleting the folder and the status line, with the fine print about the labels and the App', () => {
     const getOut = column(html(InOut()), 'GET OUT');
     const lines = items(getOut);
     expect(lines.map(text)).toEqual([
-      'Delete .omni-loop/ and commit. That\'s it.',
+      'Delete .omni-loop/ and the statusLine in .claude/settings.json , and commit. That\'s it.',
       'Everything the agents shipped is ordinary code, ordinary pull requests and git history. Nothing to migrate.',
     ]);
     expect(lines[0]).toContain('<code>.omni-loop/</code>');
-    expect(lines[0]).toMatch(/^<(b|strong)>/);
+    expect(lines[0]).toContain('<code>statusLine</code>');
+    expect(lines[0]).toContain('<code>.claude/settings.json</code>');
+    expect(lines[0]).toMatch(/^<(b|strong)>[\s\S]*<\/(b|strong)>$/);
     expect(getOut).toMatch(/<p class="home-fine">The GitHub labels and the App installation stay until you remove them\.<\/p>/);
   });
 

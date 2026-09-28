@@ -34,7 +34,7 @@ Every Claude Code session opened in a repository where the loop is installed, or
 worktrees, shows two lines at the bottom of the terminal:
 
 ```text
-Opus 5.5 · context ██████░░░░ 58% · usage 25%, resets in 1h30 · ask on
+Opus 5.5 · context █████░░░░░ 58% · usage 25%, resets in 1h30 · ask on
 PRD 315 help-and-status · outbox · wave 2 of 4 · 3/5 slices merged, 1 stuck · 2 open items
 ```
 

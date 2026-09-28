@@ -7,6 +7,10 @@
 // the GraphQL node-limit even at a small page size, so a head commit date is fetched with a second,
 // per-pull-request `gh pr view --json commits` call, and only for the pull requests that could
 // possibly be `claimed-stale` in the first place.
+//
+// `buildBoard` is that whole building part, exported so that the status line's background refresh
+// (`omni statusline --refresh <n>`, PRD 324) builds the board exactly as `omni board` does; the
+// command itself only prints what it returns.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { boardFor, fillBranch } from '../../lib/board.mjs';
@@ -111,32 +115,47 @@ function tableLine(row) {
   return `  ${row.id.padEnd(6)} w${row.wave}  ${row.state.padEnd(STATE_WIDTH)}  ${prCol.padEnd(6)} ${row.title}`;
 }
 
+/**
+ * PRD `prd`'s board, built as `omni board` builds it: the plan's slices, this feature's own pull
+ * requests from `gh pr list` (with a head commit date for each that could be `claimed-stale`), and
+ * `boardFor`. Throws a `UsageError` for a PRD with no folder, no plan or a plan that cannot be read,
+ * and whatever `gh` throws.
+ *
+ * @param {number} prd
+ * @param {{ ctx: object, exec: Function, env?: object, repo?: string, now?: number }} options `repo`
+ *   is `--repo`'s value, when given
+ * @returns {{ slices: object[], result: ReturnType<typeof boardFor> }} the plan's slices, and the board
+ */
+export function buildBoard(prd, { ctx, exec, env, repo: repoFlag, now = Date.now() }) {
+  const { markdown } = readPlan(prd, { ctx });
+  let slices;
+  try {
+    slices = parsePlanSlices(markdown);
+  } catch (error) {
+    throw usageError(`omni board: ${error.message}`);
+  }
+  const topic = topicFor(prd, { ctx });
+  const featureBranch = fillBranch(ctx.config.branches.feature, { topic });
+  const repo = repoSlug('board', ctx, repoFlag);
+  const ghEnv = githubEnv(ctx, { exec, env });
+  const matchBy = ctx.config.board.matchBy;
+  const subLabel = ctx.config.labels.sub;
+  const staleMinutes = ctx.config.limits.claimStaleMinutes;
+
+  const listed = fetchPrList({ repo, exec, env: ghEnv, matchBy, featureBranch, subLabel });
+  const prs = fetchHeadCommitDates(listed, { repo, exec, env: ghEnv, now, staleMinutes });
+
+  const result = boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic } });
+  return { slices, result };
+}
+
 export const board = {
   async run(args, { ctx, stdout, exec, env }) {
     const { positional, flags } = parseArgs('board', args, { values: ['repo'], booleans: ['json'] });
     if (positional.length !== 1) throw usageError(USAGE);
     const prd = positiveInt('board', '<prd>', positional[0]);
 
-    const { markdown } = readPlan(prd, { ctx });
-    let slices;
-    try {
-      slices = parsePlanSlices(markdown);
-    } catch (error) {
-      throw usageError(`omni board: ${error.message}`);
-    }
-    const topic = topicFor(prd, { ctx });
-    const featureBranch = fillBranch(ctx.config.branches.feature, { topic });
-    const repo = repoSlug('board', ctx, flags.repo);
-    const ghEnv = githubEnv(ctx, { exec, env });
-    const now = Date.now();
-    const matchBy = ctx.config.board.matchBy;
-    const subLabel = ctx.config.labels.sub;
-    const staleMinutes = ctx.config.limits.claimStaleMinutes;
-
-    const listed = fetchPrList({ repo, exec, env: ghEnv, matchBy, featureBranch, subLabel });
-    const prs = fetchHeadCommitDates(listed, { repo, exec, env: ghEnv, now, staleMinutes });
-
-    const result = boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic } });
+    const { slices, result } = buildBoard(prd, { ctx, exec, env, repo: flags.repo });
 
     if (flags.json) {
       println(stdout, JSON.stringify(result, null, 2));
