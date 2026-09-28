@@ -1,7 +1,8 @@
 // `omni statusline` — the command Claude Code runs as its status line (PRD 324's spec): it reads the
 // session's JSON on stdin and prints line 1 (the model, the context bar, the 5-hour usage, `ask on`)
-// and, where the loop is installed, line 2: the PRD the session's branch names, with its slice, its
-// stage and its open items (`PRD 7 bravo · s2 · outbox · 2 open items`), or
+// and, where the loop is installed, line 2: the PRD the session's branch names, else the one the
+// session last worked on (the record its `session_id` names, written by the commands that name a
+// PRD), with its slice, its stage and its open items (`PRD 7 bravo · s2 · outbox · 2 open items`), or
 // `no PRD · /omni:brainstorm to start`.
 //
 // It never breaks Claude Code: it always exits 0 and prints at least one line, never writes to

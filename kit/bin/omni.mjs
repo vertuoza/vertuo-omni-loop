@@ -37,7 +37,7 @@ const PRD_FLAG = '--prd';
 /** `value` as a PRD number, read as the commands read it (`positiveInt`), or `null`. */
 function prdNumber(value) {
   try {
-    return positiveInt('', '', value);
+    return positiveInt('record', '<prd>', value);
   } catch {
     return null;
   }
