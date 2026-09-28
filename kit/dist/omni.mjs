@@ -12633,14 +12633,14 @@ function renderSettledEntry({ item: item2, itemText, answer, judgement, markers,
 function parseSettledEntries(text3, markers) {
   return latestPerId(rawSettledEntries(text3, markers));
 }
-function latestPerId(entries) {
+function latestPerId(entries2) {
   const byId = /* @__PURE__ */ new Map();
-  for (const entry of entries) byId.set(entry.id, entry);
+  for (const entry of entries2) byId.set(entry.id, entry);
   return [...byId.values()];
 }
 function rawSettledEntries(text3, markers) {
   const lines = text3.split("\n");
-  const entries = [];
+  const entries2 = [];
   let current = null;
   for (let index = 0; index < lines.length; index += 1) {
     const openMatch = lines[index].match(markers.settledOpenRe);
@@ -12653,7 +12653,7 @@ function rawSettledEntries(text3, markers) {
       const [answerText = "", itemText = ""] = current.blocks;
       const closed = /^yes\b/.test(current.fields.Closed ?? "");
       const became = (current.fields.Became ?? "").split(",").map((id) => id.trim()).filter(Boolean);
-      entries.push({
+      entries2.push({
         id: current.id,
         verdict: current.fields.Verdict,
         closed,
@@ -12678,7 +12678,7 @@ function rawSettledEntries(text3, markers) {
     const fieldMatch = lines[index].match(/^- ([A-Za-z][A-Za-z ]*): (.*)$/);
     if (fieldMatch) current.fields[fieldMatch[1]] = fieldMatch[2];
   }
-  return entries;
+  return entries2;
 }
 function locate(root, file) {
   const absoluteFile = isAbsolute(file) ? file : join5(root, file);
@@ -14320,22 +14320,22 @@ function readProposed(file, id, value) {
   };
 }
 function splitEntries(text3) {
-  const entries = [];
+  const entries2 = [];
   let current = null;
   for (const line of text3.split("\n")) {
     const match = line.match(ENTRY_HEADING);
     if (match) {
-      if (current) entries.push(current);
+      if (current) entries2.push(current);
       current = { id: match[1], lines: [] };
     } else if (ANY_H2.test(line)) {
-      if (current) entries.push(current);
+      if (current) entries2.push(current);
       current = null;
     } else if (current) {
       current.lines.push(line);
     }
   }
-  if (current) entries.push(current);
-  return entries;
+  if (current) entries2.push(current);
+  return entries2;
 }
 function parseEntryFile(file, text3, place) {
   return splitEntries(text3).map(({ id, lines }) => {
@@ -14386,7 +14386,7 @@ function crossDomainDir(ctx) {
   return `${ctx.layout.knowledgeRoot}/cross-domain`;
 }
 function readKnowledge({ ctx }) {
-  const entries = [];
+  const entries2 = [];
   const PRODUCT_DIR = productDir(ctx);
   const DOMAINS_DIR = domainsDir(ctx);
   const CROSS_DOMAIN_DIR = crossDomainDir(ctx);
@@ -14394,7 +14394,7 @@ function readKnowledge({ ctx }) {
   for (const [name, kind] of Object.entries(LAYER_FILES)) {
     if (!productFiles.includes(name)) continue;
     const file = `${PRODUCT_DIR}/${name}`;
-    entries.push(
+    entries2.push(
       ...parseEntryFile(file, readFileSync11(join13(ctx.root, file), "utf8"), {
         scope: "product",
         domain: "product",
@@ -14410,7 +14410,7 @@ function readKnowledge({ ctx }) {
     for (const [layer, kind] of Object.entries(LAYER_FILES)) {
       if (!files.includes(layer)) continue;
       const file = `${dir}/${layer}`;
-      entries.push(
+      entries2.push(
         ...parseEntryFile(file, readFileSync11(join13(ctx.root, file), "utf8"), {
           scope: "domain",
           domain: name,
@@ -14431,7 +14431,7 @@ function readKnowledge({ ctx }) {
     const halves = name.split("--");
     const pair = halves.length === 2 && halves.every(Boolean) ? halves : null;
     const file = `${CROSS_DOMAIN_DIR}/${fileName}`;
-    entries.push(
+    entries2.push(
       ...parseEntryFile(file, readFileSync11(join13(ctx.root, file), "utf8"), {
         scope: "cross-domain",
         domain: name,
@@ -14441,15 +14441,15 @@ function readKnowledge({ ctx }) {
     );
     return { file, name, pair };
   });
-  return { entries, domains, crossDomainFiles, productFiles };
+  return { entries: entries2, domains, crossDomainFiles, productFiles };
 }
 function readRegisters({ ctx }) {
-  const { entries } = readKnowledge({ ctx });
+  const { entries: entries2 } = readKnowledge({ ctx });
   return {
-    entries,
-    principles: entries.filter((entry) => entry.kind === "principle"),
-    rules: entries.filter((entry) => entry.kind === "rule"),
-    invariants: entries.filter((entry) => entry.kind === "invariant")
+    entries: entries2,
+    principles: entries2.filter((entry) => entry.kind === "principle"),
+    rules: entries2.filter((entry) => entry.kind === "rule"),
+    invariants: entries2.filter((entry) => entry.kind === "invariant")
   };
 }
 function registerCounts({ ctx }) {
@@ -14468,8 +14468,8 @@ function registerCounts({ ctx }) {
 function resolveId(id, { ctx }) {
   return readKnowledge({ ctx }).entries.find((entry) => entry.id === id) ?? null;
 }
-function servedBy(entries, id) {
-  return entries.filter((entry) => entry.serves === id);
+function servedBy(entries2, id) {
+  return entries2.filter((entry) => entry.serves === id);
 }
 
 // kit/lib/inbox/inbox.mjs
@@ -14759,10 +14759,10 @@ function findCrossDomainFileViolations(knowledge2) {
   }
   return violations;
 }
-function findReusedIds(entries) {
+function findReusedIds(entries2) {
   const firstSeenIn = /* @__PURE__ */ new Map();
   const violations = [];
-  for (const { id, file } of entries) {
+  for (const { id, file } of entries2) {
     const seenIn = firstSeenIn.get(id);
     if (seenIn) {
       violations.push(violation(file, id, `already used in ${seenIn} \u2014 an id is never reused.`));
@@ -14907,10 +14907,10 @@ function servesViolations(entry, principles) {
   }
   return [];
 }
-function findEntryViolations(ctx, entries) {
-  const principles = entries.filter((entry) => entry.kind === "principle");
+function findEntryViolations(ctx, entries2) {
+  const principles = entries2.filter((entry) => entry.kind === "principle");
   const violations = [];
-  for (const entry of entries) {
+  for (const entry of entries2) {
     violations.push(...idShapeViolations(entry));
     violations.push(...(entry.problems ?? []).map((problem) => ({ text: problem })));
     if (entry.scope === "cross-domain" && !entry.kind) {
@@ -14982,13 +14982,13 @@ function findEntryViolations(ctx, entries) {
 function findUnresolvedCitations(file, text3, resolve3) {
   return idsCitedIn(text3).filter((id) => !resolve3(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
 }
-function findWishes(entries) {
-  return entries.filter((entry) => entry.kind === "principle" && servedBy(entries, entry.id).length === 0).map(
+function findWishes(entries2) {
+  return entries2.filter((entry) => entry.kind === "principle" && servedBy(entries2, entry.id).length === 0).map(
     (entry) => violation(entry.file, entry.id, "is a wish \u2014 no rule or invariant serves it yet.")
   );
 }
-function findProposals(entries) {
-  return entries.filter((entry) => entry.proposed !== null && entry.proposed.by !== null).map(
+function findProposals(entries2) {
+  return entries2.filter((entry) => entry.proposed !== null && entry.proposed.by !== null).map(
     (entry) => violation(
       entry.file,
       entry.id,
@@ -15270,7 +15270,7 @@ function parseEntries(content) {
     };
   }
   const errors = [];
-  const entries = [];
+  const entries2 = [];
   for (let i = 0; i < lines.length; i += 3) {
     const [pathLine, ruleLine, accountLine] = lines.slice(i, i + 3);
     const pathMatch = pathLine.match(ENTRY_PATH_LINE);
@@ -15292,13 +15292,13 @@ function parseEntries(content) {
     }
     const [, kind, rawValue] = accountMatch;
     const value = rawValue.trim();
-    entries.push({
+    entries2.push({
       path: pathMatch[1],
       rule: ruleMatch[1],
       account: kind === "item" ? { kind: "item", id: value } : { kind: "spec", where: value }
     });
   }
-  return { errors, entries };
+  return { errors, entries: entries2 };
 }
 function validateBody(body) {
   const found = parseHeadingSections2(body);
@@ -15317,9 +15317,9 @@ function validateBody(body) {
     errors.push(`missing section: "## ${RISKY_CHANGES_HEADING}"`);
     return { errors, entries: [] };
   }
-  const { errors: entryErrors, entries } = parseEntries(riskyChangesSection.content);
+  const { errors: entryErrors, entries: entries2 } = parseEntries(riskyChangesSection.content);
   errors.push(...entryErrors);
-  return { errors, entries };
+  return { errors, entries: entries2 };
 }
 function parseAccount(text3, { file = null } = {}) {
   const blockMatch = text3.match(FRONT_MATTER_BLOCK4);
@@ -15340,7 +15340,7 @@ function parseAccount(text3, { file = null } = {}) {
       errors.push(withFile4(file, `${field}: ${issue.message}`));
     }
   }
-  const { errors: bodyErrors, entries } = validateBody(body);
+  const { errors: bodyErrors, entries: entries2 } = validateBody(body);
   errors.push(...bodyErrors.map((message) => withFile4(file, message)));
   if (errors.length > 0) return { ok: false, errors };
   const fm = parsedFrontMatter.data;
@@ -15348,7 +15348,7 @@ function parseAccount(text3, { file = null } = {}) {
     prd: fm.prd,
     slice: fm.slice,
     graded: fm.graded,
-    entries,
+    entries: entries2,
     file
   };
   return { ok: true, account };
@@ -15395,14 +15395,14 @@ function entryKey(change) {
   return `${change.path}\0${change.rule}`;
 }
 function compare(risky, accounts) {
-  const entries = accounts.flatMap(
+  const entries2 = accounts.flatMap(
     (account) => account.entries.map((entry) => ({ ...entry, slice: account.slice, file: account.file }))
   );
-  const namedKeys = new Set(entries.map(entryKey));
+  const namedKeys = new Set(entries2.map(entryKey));
   const riskyKeys = new Set(risky.map(entryKey));
   const accounted = risky.filter((change) => namedKeys.has(entryKey(change)));
   const unaccounted = risky.filter((change) => !namedKeys.has(entryKey(change)));
-  const stale = entries.filter((entry) => !riskyKeys.has(entryKey(entry)));
+  const stale = entries2.filter((entry) => !riskyKeys.has(entryKey(entry)));
   return { accounted, unaccounted, stale };
 }
 
@@ -15436,9 +15436,9 @@ function isStoredShape(change, { ctx }) {
   return ctx.config.risk.storedShape.some((source) => new RegExp(source).test(change.path));
 }
 function enforcedByPaths({ ctx }) {
-  const { entries } = readRegisters({ ctx });
+  const { entries: entries2 } = readRegisters({ ctx });
   const paths = /* @__PURE__ */ new Set();
-  for (const entry of entries) {
+  for (const entry of entries2) {
     if (!entry.enforcedBy || entry.enforcedBy === "unenforced") continue;
     for (const rawPath of entry.enforcedBy.split(",")) {
       const path = rawPath.replace(/`/g, "").trim();
@@ -16129,8 +16129,8 @@ function unreworkedDrift(prd2, { ctx }) {
   if (outboxDir === null) return [];
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
   if (!existsSync18(`${ctx.root}/${settledFile}`)) return [];
-  const entries = parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers);
-  return entries.filter((entry) => entry.verdict === "drifted" && !entry.closed).map((entry) => ({ id: entry.id, closedLine: entry.fields.Closed }));
+  const entries2 = parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers);
+  return entries2.filter((entry) => entry.verdict === "drifted" && !entry.closed).map((entry) => ({ id: entry.id, closedLine: entry.fields.Closed }));
 }
 function gateResult(prd2, { ctx, labels = [], changes = null } = {}) {
   const items = openItems(prd2, { ctx });
@@ -17241,13 +17241,13 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/dossier/draft.mjs
 init_define_OMNI_BUNDLE();
-function chooseDraft(entries, { prd: prd2, claudeSessionId }) {
-  const unnumbered = entries.filter((entry) => entry.prd === null);
+function chooseDraft(entries2, { prd: prd2, claudeSessionId }) {
+  const unnumbered = entries2.filter((entry) => entry.prd === null);
   if (claudeSessionId) {
     const mine = unnumbered.filter((entry) => entry.claudeSessionId === claudeSessionId);
     if (mine.length > 0) return mine[mine.length - 1];
   }
-  if (entries.some((entry) => entry.prd === prd2)) return null;
+  if (entries2.some((entry) => entry.prd === prd2)) return null;
   const free = claudeSessionId ? unnumbered.filter((entry) => entry.claudeSessionId === null) : unnumbered;
   return free.length === 1 ? free[0] : null;
 }
@@ -17335,12 +17335,12 @@ function readDossiers(root) {
   }
   return Array.isArray(value) ? value.map(entryOf).filter(Boolean) : [];
 }
-function writeDossiers(root, entries) {
+function writeDossiers(root, entries2) {
   const dir = join25(root, LOCAL_DIR);
   mkdirSync4(dir, { recursive: true });
   const ignore = join25(dir, ".gitignore");
   if (!existsSync21(ignore)) writeFileSync7(ignore, "*\n");
-  writeFileSync7(join25(root, DOSSIERS_FILE), `${JSON.stringify(entries, null, 2)}
+  writeFileSync7(join25(root, DOSSIERS_FILE), `${JSON.stringify(entries2, null, 2)}
 `);
 }
 function recordDraft(root, entry) {
@@ -17801,7 +17801,7 @@ function settleAtMerge({ ctx, prd: prd2, merge }) {
   const existing = existsSync23(join27(ctx.root, settledFile)) ? readRepoFile(ctx, settledFile) : null;
   const answer = mergeAnswer(facts);
   const errors = [];
-  const entries = [];
+  const entries2 = [];
   const deletes = [];
   for (const file of openItemFiles(prd2, { ctx })) {
     const itemText = readRepoFile(ctx, file);
@@ -17818,7 +17818,7 @@ function settleAtMerge({ ctx, prd: prd2, merge }) {
       markers: ctx.markers,
       closed: `yes \u2014 adopted at the merge by @${facts.by}`
     });
-    entries.push({ id: parsed.item.id, from: "open", entry });
+    entries2.push({ id: parsed.item.id, from: "open", entry });
     deletes.push(file);
   }
   if (errors.length > 0) return { ok: false, errors };
@@ -17833,15 +17833,15 @@ function settleAtMerge({ ctx, prd: prd2, merge }) {
       markers: ctx.markers,
       closed: `yes \u2014 merged without rework, by @${facts.by}`
     });
-    entries.push({ id: settled.id, from: "drift", entry });
+    entries2.push({ id: settled.id, from: "drift", entry });
   }
-  if (entries.length === 0) {
-    return { ok: true, settledFile, entries, append: "", text: null, deletes };
+  if (entries2.length === 0) {
+    return { ok: true, settledFile, entries: entries2, append: "", text: null, deletes };
   }
   const base = existing ?? settledHeader(prd2, { ctx });
   const separator = base.endsWith("\n") ? "\n" : "\n\n";
-  const append = `${separator}${entries.map((e) => e.entry).join("\n")}`;
-  return { ok: true, settledFile, entries, append, text: `${base}${append}`, deletes };
+  const append = `${separator}${entries2.map((e) => e.entry).join("\n")}`;
+  return { ok: true, settledFile, entries: entries2, append, text: `${base}${append}`, deletes };
 }
 
 // kit/lib/knowledge/classify.mjs
@@ -19596,9 +19596,9 @@ function graphEntry(entry, pairs) {
     file: entry.file
   };
 }
-function countsOf(entries) {
+function countsOf(entries2) {
   const counts2 = { principles: 0, rules: 0, invariants: 0, laws: 0, proposed: 0 };
-  for (const entry of entries) {
+  for (const entry of entries2) {
     counts2[`${entry.kind}s`] += 1;
     counts2[entry.status === "law" ? "laws" : "proposed"] += 1;
   }
@@ -19606,15 +19606,15 @@ function countsOf(entries) {
 }
 function buildGraph(knowledge2, { repo }) {
   const pairs = new Map(knowledge2.crossDomainFiles.map(({ file, pair }) => [file, pair ?? []]));
-  const entries = knowledge2.entries.filter((entry) => KINDS3.includes(entry.kind)).map((entry) => graphEntry(entry, pairs));
-  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+  const entries2 = knowledge2.entries.filter((entry) => KINDS3.includes(entry.kind)).map((entry) => graphEntry(entry, pairs));
+  const byId = new Map(entries2.map((entry) => [entry.id, entry]));
   const domainRows = [
     ...knowledge2.productFiles.length > 0 ? [{ name: "product", code: PRODUCT_CODE, scope: "product" }] : [],
     ...knowledge2.domains.map(({ name, code }) => ({ name, code, scope: "domain" }))
   ];
-  const domains = domainRows.map((row) => ({ ...row, counts: countsOf(entries.filter((entry) => entry.domain === row.name)) }));
+  const domains = domainRows.map((row) => ({ ...row, counts: countsOf(entries2.filter((entry) => entry.domain === row.name)) }));
   const links = [];
-  for (const entry of entries) {
+  for (const entry of entries2) {
     const served2 = entry.kind === "principle" ? void 0 : byId.get(entry.serves);
     if (served2?.kind === "principle") links.push({ from: entry.id, to: served2.id, kind: "serves" });
     const cited = idsCitedIn([entry.statement, entry.why ?? ""].join("\n"));
@@ -19624,9 +19624,9 @@ function buildGraph(knowledge2, { repo }) {
   }
   const serving = new Set(links.filter((link) => link.kind === "serves").map((link) => link.from));
   const served = new Set(links.filter((link) => link.kind === "serves").map((link) => link.to));
-  const loose = entries.filter((entry) => entry.kind !== "principle" && !serving.has(entry.id)).map((entry) => entry.id);
-  const unserved = entries.filter((entry) => entry.kind === "principle" && !served.has(entry.id)).map((entry) => entry.id);
-  return { version: GRAPH_VERSION, repo, domains, entries, links, loose, unserved };
+  const loose = entries2.filter((entry) => entry.kind !== "principle" && !serving.has(entry.id)).map((entry) => entry.id);
+  const unserved = entries2.filter((entry) => entry.kind === "principle" && !served.has(entry.id)).map((entry) => entry.id);
+  return { version: GRAPH_VERSION, repo, domains, entries: entries2, links, loose, unserved };
 }
 function readGraph({ ctx }) {
   return buildGraph(readKnowledge({ ctx }), { repo: ctx.config.repo.slug });
@@ -19692,7 +19692,7 @@ function statusText({ frontDoor, forms, registers }) {
   }
   const questions = forms.flatMap(({ form: form2, file, questions: open2 }) => open2.map(({ slot, question }) => `  ${form2}#${slot} (${file}): ${question}`));
   const stale = forms.flatMap(
-    ({ form: form2, file, stale: entries }) => entries.map(({ path, hash, now }) => `  ${form2} (${file}): ${path}@${hash} \u2014 ${now === null ? "gone" : `now ${now.slice(0, 7)}`}`)
+    ({ form: form2, file, stale: entries2 }) => entries2.map(({ path, hash, now }) => `  ${form2} (${file}): ${path}@${hash} \u2014 ${now === null ? "gone" : `now ${now.slice(0, 7)}`}`)
   );
   lines.push(...registerLines(registers));
   lines.push(questions.length > 0 ? `Open questions: ${questions.length}` : "Open questions: none.", ...questions);
@@ -19713,9 +19713,9 @@ function columns({ principles, rules, invariants, laws, proposed }) {
   ];
 }
 var pairOf = (entry) => entry.domains.length === 2 ? entry.domains.join("--") : entry.file;
-function graphText({ domains, entries, links, loose, unserved }) {
+function graphText({ domains, entries: entries2, links, loose, unserved }) {
   const pairs = /* @__PURE__ */ new Map();
-  for (const entry of entries.filter((one) => one.domain === null)) pairs.set(pairOf(entry), [...pairs.get(pairOf(entry)) ?? [], entry]);
+  for (const entry of entries2.filter((one) => one.domain === null)) pairs.set(pairOf(entry), [...pairs.get(pairOf(entry)) ?? [], entry]);
   const rows = [
     ...domains.map(({ name, counts: counts2 }) => [name, ...columns(counts2)]),
     ...[...pairs].map(([name, held]) => [name, ...columns(countsOf(held))])
@@ -19724,7 +19724,7 @@ function graphText({ domains, entries, links, loose, unserved }) {
   const kindsWidth = Math.max(0, ...rows.map(([, kinds]) => kinds.length));
   const ids = (label, list3) => `  ${label}${list3.length > 0 ? ` (${list3.length}): ${list3.join(", ")}` : ": none"}`;
   return [
-    `kb graph \u2014 ${count2(domains.length, "domain", "domains")}, ${count2(entries.length, "entry", "entries")}, ${count2(links.length, "link", "links")}`,
+    `kb graph \u2014 ${count2(domains.length, "domain", "domains")}, ${count2(entries2.length, "entry", "entries")}, ${count2(links.length, "link", "links")}`,
     ...rows.map(([name, kinds, status3]) => `  ${name.padEnd(nameWidth)}    ${kinds.padEnd(kindsWidth)}    ${status3}`),
     ids("unserved principles", unserved),
     ids("loose entries", loose)
@@ -20804,6 +20804,7 @@ import { resolve as resolve2 } from "node:path";
 function git3(ctx, exec, args) {
   return exec("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
+var entries = (output) => output.split("\0").filter(Boolean);
 function commitOf(ctx, exec, ref) {
   try {
     return git3(ctx, exec, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]).trim() || null;
@@ -20822,18 +20823,22 @@ function readBase(ctx, exec) {
   const local = commitOf(ctx, exec, `refs/heads/${names.local}`);
   return local ? { name: names.local, commit: local } : null;
 }
-function foldersAt(ctx, exec, commit, dir) {
-  return git3(ctx, exec, ["ls-tree", "-z", "-d", "--name-only", commit, "--", `${dir}/`]).split("\0").filter(Boolean).map((path) => parseFolderName(path.slice(path.lastIndexOf("/") + 1))).filter(Boolean);
+function foldersAt(ctx, exec, ref, dir) {
+  return entries(git3(ctx, exec, ["ls-tree", "-z", "-d", "--name-only", ref, "--", `${dir}/`])).map((path) => {
+    const name = path.slice(path.lastIndexOf("/") + 1);
+    const folder = parseFolderName(name);
+    return folder && { ...folder, name };
+  }).filter(Boolean);
 }
-function fetchHeadPath(ctx, exec) {
+function gitPath(ctx, exec, args) {
   try {
-    return resolve2(ctx.root, git3(ctx, exec, ["rev-parse", "--git-path", "FETCH_HEAD"]).trim());
+    return resolve2(ctx.root, git3(ctx, exec, ["rev-parse", ...args]).trim());
   } catch {
     return null;
   }
 }
-function fetchedAt(ctx, exec) {
-  const path = fetchHeadPath(ctx, exec);
+var fetchHeadPath = (ctx, exec) => gitPath(ctx, exec, ["--git-path", "FETCH_HEAD"]);
+function fetchTime(path) {
   if (path === null) return null;
   try {
     const stat = statSync4(path);
@@ -20841,6 +20846,11 @@ function fetchedAt(ctx, exec) {
   } catch {
     return null;
   }
+}
+function fetchedAt(ctx, exec) {
+  const common = gitPath(ctx, exec, ["--git-common-dir"]);
+  const times = [fetchHeadPath(ctx, exec), common && resolve2(common, "FETCH_HEAD")].map(fetchTime).filter((time3) => time3 !== null);
+  return times.length ? Math.max(...times) : null;
 }
 function snapshot(path) {
   if (path === null) return null;
@@ -20874,16 +20884,72 @@ function fetchRemote({ ctx, exec = execFileSync9 }) {
     return said ?? `${error?.message ?? error}`.split("\n")[0];
   }
 }
+function remoteBranches(ctx, exec) {
+  const prefix = `refs/remotes/${ctx.config.repo.remote}/`;
+  const refs = git3(ctx, exec, ["for-each-ref", "--format=%(refname)", prefix]).split("\n").filter(Boolean);
+  return new Map(refs.map((ref) => [ref.slice(prefix.length), ref]));
+}
+function topicOf2(branch, template) {
+  if (!template.includes("{topic}")) return null;
+  const [head, tail] = template.split("{topic}");
+  if (branch.length <= head.length + tail.length || !branch.startsWith(head) || !branch.endsWith(tail)) return null;
+  return branch.slice(head.length, branch.length - tail.length);
+}
+function changedOutside(ctx, exec, range) {
+  const delivery = `${ctx.config.paths.delivery}/`;
+  return entries(git3(ctx, exec, ["diff", "--name-only", "-z", "--no-renames", "--no-ext-diff", ...range, "--"])).filter((path) => !path.startsWith(delivery));
+}
+function filesUnder2(ctx, exec, ref, dir) {
+  return entries(git3(ctx, exec, ["ls-tree", "-r", "-z", "--name-only", ref, "--", `${dir}/`])).map((path) => path.slice(dir.length + 1));
+}
+function unlessUnreadable(read2) {
+  try {
+    return read2();
+  } catch {
+    return null;
+  }
+}
+function featuresOf(ctx, exec, base, inbox, remote) {
+  const out = [];
+  for (const { topic, name } of inbox) {
+    const branch = fillBranch(ctx.config.branches.feature, { topic });
+    const ref = remote.get(branch);
+    if (!ref) continue;
+    const feature = unlessUnreadable(() => ({
+      branch,
+      topic,
+      forked: changedOutside(ctx, exec, [`${base}...${ref}`]),
+      differs: changedOutside(ctx, exec, [base, ref]),
+      outbox: filesUnder2(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name}`)
+    }));
+    if (feature) out.push(feature);
+  }
+  return out;
+}
+function phase0Of(ctx, exec, remote) {
+  const out = [];
+  for (const [branch, ref] of remote) {
+    const topic = topicOf2(branch, ctx.config.branches.phase0);
+    if (!topic) continue;
+    const inbox = unlessUnreadable(() => foldersAt(ctx, exec, ref, ctx.layout.dirs.inbox));
+    if (inbox) out.push({ branch, topic, inbox });
+  }
+  return out;
+}
 function readFacts({ ctx, exec = execFileSync9 }) {
   const base = readBase(ctx, exec);
   if (!base) return null;
   const { dirs } = ctx.layout;
+  const inbox = foldersAt(ctx, exec, base.commit, dirs.inbox);
+  const remote = remoteBranches(ctx, exec);
   return {
     slug: ctx.config.repo.slug,
     base: base.name,
     fetchedAt: fetchedAt(ctx, exec),
     shipped: foldersAt(ctx, exec, base.commit, dirs.shipped),
-    inbox: foldersAt(ctx, exec, base.commit, dirs.inbox)
+    inbox,
+    features: featuresOf(ctx, exec, base.commit, inbox, remote),
+    phase0: phase0Of(ctx, exec, remote)
   };
 }
 
@@ -20912,17 +20978,51 @@ function barFor(delivered, total) {
     filled: Math.floor(delivered * BAR_CELLS / total)
   };
 }
+function isOpenItem(path) {
+  const parts = path.split("/");
+  const file = parts.pop();
+  return file.endsWith(".md") && file !== SETTLED_FILE && !parts.includes(ACCOUNTS_DIR);
+}
+function isBuilt({ forked, differs }) {
+  const now = new Set(differs);
+  return forked.some((path) => now.has(path));
+}
+function outboxOf(inbox, features) {
+  const out = [];
+  for (const { prd: prd2, topic } of inbox) {
+    const mine = features.filter((feature) => feature.topic === topic);
+    if (mine.length === 0) continue;
+    const openItems2 = mine.reduce((sum, feature) => sum + feature.outbox.filter(isOpenItem).length, 0);
+    if (openItems2 > 0 || mine.some(isBuilt)) out.push({ prd: prd2, topic, openItems: openItems2 });
+  }
+  return out;
+}
+function inReviewOf(phase02, taken) {
+  const held = phase02.flatMap(({ topic, inbox }) => inbox.filter((folder) => folder.topic === topic));
+  return stage(held, taken);
+}
 function overviewFor(facts) {
   const shipped = stage(facts.shipped);
-  const inbox = stage(facts.inbox, new Set(shipped.map(({ prd: prd2 }) => prd2)));
+  const onBase = stage(facts.inbox, new Set(shipped.map(({ prd: prd2 }) => prd2)));
+  const outbox = outboxOf(onBase, facts.features);
+  const inOutbox = new Set(outbox.map(({ prd: prd2 }) => prd2));
+  const inbox = onBase.filter(({ prd: prd2 }) => !inOutbox.has(prd2));
+  const inReview = inReviewOf(facts.phase0, new Set([...facts.shipped, ...facts.inbox].map(({ prd: prd2 }) => prd2)));
+  const inProgress = inbox.length + outbox.length;
   return {
     slug: facts.slug,
     base: facts.base,
     fetchedAt: facts.fetchedAt,
-    stages: { shipped, inbox },
-    counts: { shipped: shipped.length, inbox: inbox.length },
-    bar: barFor(shipped.length, shipped.length + inbox.length),
-    inProgress: { total: inbox.length, inbox: inbox.length }
+    stages: { shipped, outbox, inbox, inReview },
+    counts: {
+      shipped: shipped.length,
+      inbox: inbox.length,
+      outbox: outbox.length,
+      openItems: outbox.reduce((sum, { openItems: openItems2 }) => sum + openItems2, 0),
+      inReview: inReview.length
+    },
+    bar: barFor(shipped.length, shipped.length + inProgress),
+    inProgress: { total: inProgress, inbox: inbox.length, outbox: outbox.length }
   };
 }
 
@@ -20930,6 +21030,8 @@ function overviewFor(facts) {
 var MINUTE = 60 * 1e3;
 var HOUR = 60 * MINUTE;
 var DAY = 24 * HOUR;
+var WIDTH = 80;
+var INDENT = "  ";
 var LABEL2 = "  delivered  ";
 var UNDER_BAR = " ".repeat(LABEL2.length);
 var GAP = "     ";
@@ -20945,13 +21047,25 @@ function fetchedAgo(fetchedAt2, now) {
 function header({ slug, base, fetchedAt: fetchedAt2 }, now) {
   return ["omni status", ...slug ? [slug] : [], `${base}, ${fetchedAgo(fetchedAt2, now)}`].join(" \xB7 ");
 }
-function counts({ shipped, inbox }) {
-  return `  ${[`SHIPPED ${shipped}`, `INBOX ${inbox}`].join(GAP)}`;
+function counts({ shipped, inbox, outbox, openItems: openItems2, inReview }) {
+  const parts = [
+    `SHIPPED ${shipped}`,
+    `INBOX ${inbox}`,
+    ...outbox > 0 ? [`OUTBOX ${outbox} \xB7 ${plural2(openItems2, "open item")}`] : [],
+    ...inReview > 0 ? [`IN REVIEW ${inReview}`] : []
+  ];
+  const out = [];
+  for (const part of parts) {
+    const joined2 = out.length ? `${out.at(-1)}${GAP}${part}` : null;
+    if (joined2 !== null && joined2.length <= WIDTH) out[out.length - 1] = joined2;
+    else out.push(`${INDENT}${part}`);
+  }
+  return out;
 }
 function bar({ bar: { delivered, total, percent, filled }, inProgress }) {
   if (total === 0) return ["  nothing yet: /omni:brainstorm to start"];
   const cells2 = `${"\u2588".repeat(filled)}${"\u2591".repeat(BAR_CELLS - filled)}`;
-  const parts = [[inProgress.inbox, "in the inbox"]].filter(([count3]) => count3 > 0).map(([count3, where]) => `${count3} ${where}`);
+  const parts = [[inProgress.inbox, "in the inbox"], [inProgress.outbox, "in the outbox"]].filter(([count3]) => count3 > 0).map(([count3, where]) => `${count3} ${where}`);
   const under = inProgress.total === 0 ? "nothing in progress" : `${inProgress.total} in progress: ${parts.join(", ")}`;
   return [`${LABEL2}${cells2}  ${delivered} of ${total} \xB7 ${percent}%`, `${UNDER_BAR}${under}`];
 }
@@ -20959,7 +21073,7 @@ function formatOverview(overview2, { now }) {
   return [
     header(overview2, now),
     "",
-    counts(overview2.counts),
+    ...counts(overview2.counts),
     "",
     ...bar(overview2),
     "",
