@@ -8,7 +8,12 @@
 //   2. completes the person's pending sign-up requests (src/signup/installed.ts) whose org, one they
 //      still belong to, now has the App installed: create_workspace_from_installation() makes them
 //      the new workspace's owner, or a member of the one the org's owner made first;
-//   3. links GitHub (link_github()), so the account is a player at once.
+//   3. when they are still in no workspace, picks up an installation that already exists on their
+//      own account or on an org of theirs (an install whose setup never finished, or an org that
+//      installed the App before anyone signed up): each becomes their workspace, as the setup would
+//      have made it. So a sign-up that stopped half way finishes at the next sign-in, with nothing to
+//      type;
+//   4. links GitHub (link_github()), so the account is a player at once.
 // All are best effort (ADR 0044): a failure is logged, and the sign-in carries on; what needs a
 // workspace then refuses with its own message.
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -59,6 +64,18 @@ async function completeRequests(userId: string, account: GithubAccount, signup: 
   }
 }
 
+/** Makes a workspace of every installation of the App already on the person's own account or on an
+ * org of theirs, one at a time: a failure is logged and the next is tried. */
+async function adoptInstallations(userId: string, account: GithubAccount, signup: SignupDeps): Promise<void> {
+  const lookups = [() => signup.userInstallation(account.login), ...account.orgs.map((org) => () => signup.orgInstallation(org))];
+  for (const lookup of lookups) {
+    await bestEffort(async () => {
+      const installation = await lookup();
+      if (installation) await signup.createWorkspace(userId, installation);
+    });
+  }
+}
+
 type Linked = { login: string; error: null } | { login: null; error: string };
 
 /** Runs link_github() as the person. Never throws: answers the login, or the refusal. */
@@ -72,15 +89,22 @@ export async function linkGithub(db: Rpc): Promise<Linked> {
   }
 }
 
-/** Joins by GitHub org, completes sign-up requests, then links GitHub as the person (`db`). Never throws. */
+/** Joins by GitHub org, completes sign-up requests, picks up an existing installation when the
+ * person is still in no workspace, then links GitHub as the person (`db`). Never throws. */
 export async function settleSignIn(db: Rpc, session: SignedIn, deps: SignInDeps): Promise<Linked> {
   let account: GithubAccount | null = null;
   try { account = await readAccount(session, deps); } catch (err) { log(err); }
   if (account) {
     const known: GithubAccount = account;
-    await bestEffort(() => deps.joinByGithub(session.user.id, joinLogins(known)));
+    const userId = session.user.id;
+    let joined: string[] | null = null;
+    try { joined = await deps.joinByGithub(userId, joinLogins(known)); } catch (err) { log(err); }
     const { signup } = deps;
-    if (signup) await bestEffort(() => completeRequests(session.user.id, known, signup));
+    if (signup) {
+      await bestEffort(() => completeRequests(userId, known, signup));
+      // Only when joining answered, and answered no workspace: a failed join says nothing either way.
+      if (joined !== null && joined.length === 0) await bestEffort(() => adoptInstallations(userId, known, signup));
+    }
   }
   return linkGithub(db);
 }

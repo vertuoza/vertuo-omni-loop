@@ -25,6 +25,9 @@ export interface SignupDeps {
   installation(id: number): Promise<Installation | null>;
   /** The App's installation on that org; null when it has none. Throws when GitHub answers an error. */
   orgInstallation(org: string): Promise<Installation | null>;
+  /** The App's installation on the person's own account; null when it has none. Throws when GitHub
+   * answers an error. */
+  userInstallation(login: string): Promise<Installation | null>;
   createWorkspace(userId: string, installation: Installation): Promise<WorkspaceMade>;
   /** The orgs the person asked to have Omni Loop installed on, still waiting. */
   pendingRequests(userId: string): Promise<string[]>;

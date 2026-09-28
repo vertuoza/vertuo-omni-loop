@@ -47,10 +47,16 @@ describe('after a sign-in, a pending sign-up request', () => {
     expect(w.signup.createWorkspace).not.toHaveBeenCalled();
   });
 
-  it('asks GitHub nothing more when the person has no request', async () => {
-    const w = world({ requests: [] });
+  it('asks GitHub nothing more when the person has no request and is in a workspace', async () => {
+    const w = signupWorld({
+      accounts: { [MIA]: { login: 'mia-gh', orgs: ['acme'] } },
+      installations: [ACME],
+      workspaces: [{ id: 'ws-acme', slug: 'acme', github_org: 'Acme', github_installation_id: 5001 }],
+      members: [{ workspace_id: 'ws-acme', user_id: MIA, role: 'owner' }],
+    });
     await afterSignIn(w.db, w.session(MIA), w.deps, null);
     expect(w.signup.orgInstallation).not.toHaveBeenCalled();
+    expect(w.signup.userInstallation).not.toHaveBeenCalled();
   });
 
   it('joins an existing workspace as a member when the org\'s owner made it first', async () => {

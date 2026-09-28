@@ -54,5 +54,17 @@ export async function memberWorkspace(db: SupabaseClient, userId: string): Promi
   return firstWorkspace(db, userId);
 }
 
+/** Where a sign-in lands: the arcade for a member of a workspace, sign-up for anyone in none (PRD
+ * 359), so a newcomer goes straight on to installing Omni Loop. A failed read lands on the arcade,
+ * which says so itself. */
+export async function landingAfterSignIn(db: SupabaseClient, userId: string): Promise<'/play' | '/signup'> {
+  try {
+    return (await firstWorkspace(db, userId)) ? '/play' : '/signup';
+  } catch (err) {
+    console.error(`auth callback: ${err instanceof Error ? err.message : String(err)}`);
+    return '/play';
+  }
+}
+
 /** Whose arcade it is: the workspace's name and colours. */
 export const brandOf = ({ name, theme }: Workspace): Brand => ({ name, theme });

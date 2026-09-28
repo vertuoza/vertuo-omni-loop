@@ -78,4 +78,13 @@ describe('what the App reads from GitHub', () => {
     await expect(githubApp(CREDS, fetchImpl).orgInstallation('../app')).rejects.toThrow(/not a GitHub login/);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
+
+  it('finds the installation on a person\'s own account, or null when it has none', async () => {
+    const own = { id: 7001, account: { login: 'dan-gh', type: 'User' } };
+    const fetchImpl = vi.fn(async () => answer(200, own));
+    expect(await githubApp(CREDS, fetchImpl).userInstallation('dan-gh')).toEqual(own);
+    expect((fetchImpl.mock.calls[0] as unknown as [string])[0]).toBe('https://api.github.com/users/dan-gh/installation');
+    expect(await githubApp(CREDS, async () => answer(404, {})).userInstallation('nobody')).toBeNull();
+    await expect(githubApp(CREDS, fetchImpl).userInstallation('../app')).rejects.toThrow(/not a GitHub login/);
+  });
 });
