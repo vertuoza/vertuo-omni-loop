@@ -238,3 +238,159 @@ Moving the block is a few lines in one file and its tests.
 ```
 
 <!-- /omni-outbox-settled: s3-01-install-pr-lines-after-closing-steps -->
+
+<!-- omni-outbox-settled: s4-01-init-closing-message-order -->
+
+## s4-01-init-closing-message-order — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-init-closing-message-order
+prd: 420
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+In what order does the install command tell a person what it did and what is left for them, now that it also installs the plugin and signs in?
+
+## The decision, in plain words
+
+It lists what it wrote, then the install pull request, then what it did on this computer, then the steps left for a person, numbered: the GitHub App, merging the pull request by its number, the optional protection, and filling the forms. A step it could not do shows the exact lines to type right below its own status.
+
+## The intro, for fun
+
+The install command had a lot to say and one terminal to say it in.
+
+## The punchline, for fun
+
+So it spoke in the order it worked, and saved the chores for last.
+
+## The options, in plain words
+
+A. A. Four blocks: written, install pull request, this computer, then the numbered steps by hand; each fallback under its block (built).
+B. B. Fold every fallback (the /plugin lines, omni signin) into the numbered steps by hand, and keep only status lines above.
+C. C. One flat list of status lines for every step, then one block of everything left to type.
+
+## What I had to decide
+
+Where the plugin and sign-in status lines and their fallback lines print, and what replaces the old commit-and-merge-by-hand line in the closing steps.
+
+## What I did meanwhile
+
+Four blocks in order: what was written, `Install pull request:`, `On this computer:` (plugin, then sign-in, each fallback printed under the block), then `Then, by hand:` with the App link, `Merge PR #N into <default branch>` and its link, the optional branch protection and `/omni:invade`. The setup and pull request lines print before the plugin and sign-in run, so a person sees progress before the browser opens. This settles the layout the wave 2 item left open.
+
+## What it costs to change later
+
+A few lines in the closing-steps module and the expected output in the init tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec orders the steps and lists what the closing lines print, but not where each step's fallback lines go or what the header of the closing steps says.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-init-closing-message-order -->
+
+<!-- omni-outbox-settled: s4-02-plugin-and-signin-already -->
+
+## s4-02-plugin-and-signin-already — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s4
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-plugin-and-signin-already
+prd: 420
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 3
+---
+
+## The question, in plain words
+
+How does the install command know the plugin is already installed or the computer already signed in, and what does it do when the repository has no Omni page address?
+
+## The decision, in plain words
+
+It asks Claude Code which plugins are installed, and counts any kept sign-in as signed in, even an old one. With no Omni page address set, it skips the sign-in and says so.
+
+## The intro, for fun
+
+The plugin moved in last week, and the install command came knocking again.
+
+## The punchline, for fun
+
+The install command checks the list before ringing the bell again.
+
+## The options, in plain words
+
+A. A. Ask Claude Code for its plugin list, count any kept sign-in, and skip the sign-in when there is no Omni page address (built).
+B. B. Always run both plugin commands and read their output for already, and renew an old sign-in before saying already.
+C. C. As A, but with no Omni page address still print omni signin as a later step.
+
+## What I had to decide
+
+How init detects an installed plugin and a held sign-in, and what the sign-in step does when `ask.url` is null in a kept config.
+
+## What I did meanwhile
+
+`claude plugin list --json` naming `omni@omni-loop` means already installed; `claude plugin marketplace add` runs only when `claude plugin marketplace list --json` lacks the marketplace. Any entry in the credentials file for the `ask.url` host counts as signed in, whatever its expiry (the hooks renew it). With `ask.url` null the step prints `signin  skipped: ask.url is not set` and nothing to type.
+
+## What it costs to change later
+
+A constant: a condition in each of the two step modules and their tests.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a plugin already installed or a sign-in already held prints already, but not how either is detected, nor what happens when a kept config has no ask.url.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-plugin-and-signin-already -->
