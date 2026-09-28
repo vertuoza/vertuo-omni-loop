@@ -185,15 +185,24 @@ the hero builder), **M** mutes: the keys the screens show are the keys to press.
 letters type instead: Backspace erases, Enter confirms, Escape goes back. No step needs a mouse;
 clicks and taps still work (a key hint such as "[A] LINK GITHUB" is a button too).
 
-**Fullscreen** (`src/arcade/fullscreen.ts`). The first key press, click or touch press of a page
-load asks the browser for fullscreen, so the arcade runs like a console game with no tabs or
-address bar.
+**Fullscreen** (`src/arcade/fullscreen.ts`). On a phone (`handheld` and `advance`), the first key
+press, click or touch press of a page load asks the browser for fullscreen, so the Game Boy runs
+like a console game with no tabs or address bar. On desktop (`full`), no press asks on its own: a
+click or a key leaves the browser window as it is, and the player opts in with **F** or the ⛶
+button.
 
+- **The ⛶ button** (`src/arcade/FullscreenButton.tsx`), on desktop only: a dim button in the page's
+  bottom-right corner, outside the screen, named "Full screen (F)", fully lit on hover and on
+  keyboard focus. A click sends a `toggle` press; a mouse press takes no focus, so Enter and Space
+  keep meaning START and A. It hides while the page is fullscreen and comes back once Esc or F
+  leaves it; it is never drawn on the Game Boy bodies, nor where the browser refuses fullscreen.
+
+- **F** toggles fullscreen, in every form, except on the name screen, where F types an F.
 - Esc leaves it and the scene stays: the Esc that leaves fullscreen is never also B. While
   fullscreen, B and X are the back keys; outside it, Esc still means B.
-- Once the player has left, the next press does not ask again. **F** toggles fullscreen, in every
-  form, except on the name screen, where F types an F. A new page load asks again on its first
-  press.
+- On a phone, once the player has left, the next press does not ask again; a new page load asks
+  again on its first press.
+- A `toggle` press enters fullscreen when off and leaves it when on; the game never reads it.
 - A refused request is ignored: no error, no toast. iPhone Safari has no fullscreen for web pages,
   and the single-file artifact's frame may refuse it.
 

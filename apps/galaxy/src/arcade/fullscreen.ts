@@ -1,11 +1,14 @@
-// Fullscreen, asked on the first press of each page load and never forced back, so the arcade runs
-// like a console game with no tabs or address bar. The first key press, click or touch press of a
-// page load asks for it; once the player has left, the next press does not ask again, until F (but
-// on the name screen, where F types an F) or a new page load. Browsers keep Esc for leaving
+// Fullscreen, never forced back. On a phone (the `handheld` and `advance` forms) it is asked on the
+// first press of each page load, so the Game Boy runs like a console game with no tabs or address
+// bar: the first key press, click or touch press asks for it, and once the player has left, the next
+// press does not ask again, until F or a new page load. On desktop (`full`) no press asks on its own:
+// the player opts in with F (but on the name screen, where F types an F) or the full-screen button,
+// whose `toggle` press enters and leaves it. Browsers keep Esc for leaving
 // fullscreen, so the Esc that leaves it is never also B: while fullscreen, B and X are the back
 // keys, and outside it Esc still means B. A refused request (no Fullscreen API, as on iPhone
 // Safari, or a frame without the permission, as the single-file artifact's) is ignored silently.
 import { useCallback, useEffect } from 'react';
+import type { Form } from './form';
 import type { SceneName } from './scenes/common.ts';
 
 /**
@@ -14,10 +17,14 @@ import type { SceneName } from './scenes/common.ts';
  */
 export const ESC_AFTER_LEAVING_MS = 500;
 
-/** A press the arcade hears: a key (on the scene it was pressed on), or a click or a touch press. */
+/**
+ * A press the arcade hears: a key (on the scene it was pressed on), a click or a touch press, or the
+ * full-screen button's `toggle`, which is fullscreen's alone.
+ */
 export type FullscreenPress =
   | { kind: 'key'; key: string; scene: SceneName; /** Ctrl, Cmd or Alt held: the browser's, not the game's. */ modified: boolean; repeat: boolean }
-  | { kind: 'pointer' };
+  | { kind: 'pointer' }
+  | { kind: 'toggle' };
 
 /** What the rule remembers, for one page load. */
 export interface FullscreenState {
@@ -30,8 +37,11 @@ export interface FullscreenState {
 /** A new page load: nothing asked yet. */
 export const FRESH: FullscreenState = { asked: false, leftAt: null };
 
-/** The page at the moment of the press: whether it may go fullscreen, whether it is, and the time. */
-export interface FullscreenNow { allowed: boolean; on: boolean; at: number }
+/**
+ * The page at the moment of the press: whether it may go fullscreen, whether it is, the time, and the
+ * arcade's form (only a phone's asks on its own).
+ */
+export interface FullscreenNow { allowed: boolean; on: boolean; at: number; form: Form }
 
 export interface FullscreenVerdict {
   state: FullscreenState;
@@ -48,6 +58,7 @@ export function fullscreenPress(state: FullscreenState, press: FullscreenPress, 
   const pass = (request: FullscreenVerdict['request'] = null, next = state): FullscreenVerdict => ({ state: next, request, spent: false });
   const spend = (request: FullscreenVerdict['request'] = null, next = state): FullscreenVerdict => ({ state: next, request, spent: true });
   if (!now.allowed) return pass();
+  if (press.kind === 'toggle') return spend(now.on ? 'exit' : 'enter', { ...state, asked: true });
   if (press.kind === 'key') {
     if (press.modified) return pass(); // Ctrl+R, Cmd+F: the browser's own
     if (press.key === 'Escape') {
@@ -60,6 +71,7 @@ export function fullscreenPress(state: FullscreenState, press: FullscreenPress, 
       return spend(now.on ? 'exit' : 'enter', { ...state, asked: true });
     }
   }
+  if (now.form === 'full') return pass(); // desktop: only F and the button ask
   if (state.asked || now.on) return pass(null, { ...state, asked: true });
   return pass('enter', { ...state, asked: true });
 }
@@ -77,8 +89,11 @@ export interface FullscreenPage {
   exitFullscreen?: () => Promise<void> | void;
 }
 
-/** One page load's fullscreen: `press` on every press (true when the key is spent), `changed` on each change. */
-export function fullscreenFor(page: FullscreenPage, clock: () => number) {
+/**
+ * One page load's fullscreen: `press` on every press (true when the key is spent), `changed` on each
+ * change. `form` is read at each press, so turning a device that changes the form is heard at once.
+ */
+export function fullscreenFor(page: FullscreenPage, clock: () => number, form: () => Form) {
   let state = FRESH;
   const ask = (request: 'enter' | 'exit') => {
     try {
@@ -91,7 +106,7 @@ export function fullscreenFor(page: FullscreenPage, clock: () => number) {
   return {
     press(press: FullscreenPress): boolean {
       const allowed = Boolean(page.fullscreenEnabled && page.documentElement.requestFullscreen);
-      const verdict = fullscreenPress(state, press, { allowed, on: Boolean(page.fullscreenElement), at: clock() });
+      const verdict = fullscreenPress(state, press, { allowed, on: Boolean(page.fullscreenElement), at: clock(), form: form() });
       state = verdict.state;
       if (verdict.request) ask(verdict.request);
       return verdict.spent;
@@ -104,15 +119,19 @@ export function fullscreenFor(page: FullscreenPage, clock: () => number) {
 
 type Fullscreen = ReturnType<typeof fullscreenFor>;
 
-// One per page load: the module is loaded once per page, so a new page load starts fresh.
+// One per page load: the module is loaded once per page, so a new page load starts fresh. The form
+// is the arcade's latest, set on each render of the hook.
 let pageFullscreen: Fullscreen | null = null;
-const forThisPage = () => (pageFullscreen ??= fullscreenFor(document, () => performance.now()));
+let pageForm: Form = 'full';
+const forThisPage = () => (pageFullscreen ??= fullscreenFor(document, () => performance.now(), () => pageForm));
 
 /**
- * Fullscreen for the arcade: listens to every click and touch press itself, and returns what the
- * keyboard handler calls first with each key, which says whether the game must leave that key alone.
+ * Fullscreen for the arcade, in its current form: listens to every click and touch press itself, and
+ * returns what the keyboard handler (and the full-screen button, with `toggle`) calls first with each
+ * press, which says whether the game must leave that press alone.
  */
-export function useFullscreen(): (press: FullscreenPress) => boolean {
+export function useFullscreen(form: Form): (press: FullscreenPress) => boolean {
+  pageForm = form;
   useEffect(() => {
     const fs = forThisPage();
     // A browser lets a page go fullscreen on a mouse press on the way down, and on a touch or a pen
