@@ -1,3 +1,4 @@
+import type { DesktopState } from '../waiting/alerts';
 import type { WaitingList, WaitingOutbox, WaitingQuestion } from '../waiting/waiting';
 
 // The top bar's bell (PRD 499), as pure functions. The bell carries the waiting list's count; its panel
@@ -5,11 +6,19 @@ import type { WaitingList, WaitingOutbox, WaitingQuestion } from '../waiting/wai
 // as the list holds it. A question links to its round's page, an outbox item to its PRD's Outbox tab.
 // A part that could not be read says so in its place, above the items it last had. The panel opens on
 // the bell and closes on the bell again, Escape (the focus back on the bell), a click outside it, or
-// choosing an item.
+// choosing an item. Its foot holds the two alert switches, Desktop alerts and Chime (s5).
 
 /** What the list's parts could not read: a part whose last read failed, and PRDs whose outbox the
  * last read could not reach. */
 export type BellUnread = { questions?: boolean; outbox?: boolean; outboxPrds?: number };
+
+/** The two alert switches at the panel's foot, and what flipping one asks. */
+export type BellAlerts = {
+  desktop: DesktopState;
+  chime: boolean;
+  onDesktop?: (on: boolean) => void;
+  onChime?: (on: boolean) => void;
+};
 
 export type BellLine = { id: string; href: string; head: string; text: string; meta: string };
 
