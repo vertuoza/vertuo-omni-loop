@@ -1,2 +1,30 @@
-/* The week of merges (PRD 328, slice s4): empty until it is drawn. The dashboard's stylesheet
-   imports this one; every colour here is a token of src/ask/theme-tokens.ts, as in dashboard.css. */
+/* The week of merges (PRD 328): a heading with the week's total at its top right, then the chart,
+   drawn in inline SVG (Week.tsx). The dashboard's stylesheet imports this one; every colour here is a
+   token of src/ask/theme-tokens.ts, as in dashboard.css. The bars wear the page's signal, the only
+   loud thing in the chart; the grid is a hairline one step off the ground, and the axis's marks and
+   the weekdays are quiet ink, today's in full ink. Across, the chart takes the column's width, so at
+   393 px it is narrower, never wider. */
+
+.dash-week { display: grid; gap: 8px; }
+.dash-week-head { display: flex; align-items: baseline; justify-content: space-between; gap: 4px 16px; flex-wrap: wrap; }
+.dash-week-title { margin: 0; font-size: 17px; line-height: 1.4; overflow-wrap: anywhere; }
+.dash-week-total { margin: 0; color: var(--ask-muted); white-space: nowrap; }
+.dash-week-total b { color: var(--ask-ink); font-size: 20px; }
+
+.dash-week-chart { display: block; width: 100%; height: 160px; overflow: visible; }
+.dash-week-grid { stroke: var(--ask-line); stroke-width: 1; }
+.dash-week-tick,
+.dash-week-name { fill: var(--ask-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.dash-week-name.is-today { fill: var(--ask-ink); font-weight: 700; }
+.dash-week-bar { fill: var(--ask-plasma); }
+/* A day's column is its pointer target, wider than its bar: resting on it names the day's count. */
+.dash-week-hit { fill: transparent; }
+.dash-week-day:hover .dash-week-bar { opacity: 0.8; }
+
+/* Forced colours: the bars and the grid take the system's own. */
+@media (forced-colors: active) {
+  .dash-week-bar { fill: CanvasText; }
+  .dash-week-grid { stroke: GrayText; }
+  .dash-week-tick,
+  .dash-week-name { fill: CanvasText; }
+}
