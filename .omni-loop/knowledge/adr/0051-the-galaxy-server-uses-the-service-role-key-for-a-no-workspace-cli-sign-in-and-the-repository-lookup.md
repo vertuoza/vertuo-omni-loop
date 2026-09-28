@@ -23,4 +23,4 @@ The option chosen: A. The web app's server uses its full-access key for these tw
 
 ## Source
 
-`.omni-loop/delivery/outbox/0459-workspace-gate/settled.md`, entry `s2-01-server-issues-sign-in-for-no-workspace`
+`.omni-loop/delivery/shipped/0459-workspace-gate/outbox/settled.md`, entry `s2-01-server-issues-sign-in-for-no-workspace`
