@@ -13,7 +13,8 @@ vi.mock('next/navigation', () => ({ usePathname: () => at.path, useRouter: () =>
 //   /app, the Work and Omni groups, the page's item marked current) and the top bar (the page's
 //   title, the theme switch, then Game mode, last);
 // - the public pages (/releases, PRD 262, and /docs) keep the public top bar (TopBar, PRD 346): the
-//   OMNI LOOP mark to /app, its menu, the theme switch and Game mode, last.
+//   OMNI LOOP mark to /app, its menu of Omni's pages (Release notes, Docs: no PRDs), Open the app →
+//   to /app, the theme switch and Game mode, last.
 
 const { default: AppLayout } = await import('../../app/app/layout.tsx');
 const { default: DossierLayout } = await import('../../app/prd/layout.tsx');
@@ -99,8 +100,8 @@ const PUBLIC: Array<[string, Layout, string]> = [
   ['/releases', ReleasesLayout, '/releases'],
   ['/docs', DocsLayout, '/docs'],
 ];
-/** The public bar's menu, then the theme switch and Game mode. */
-const MENU_THEN_THEME = ['PRDs', 'Release notes', 'Docs', ...THEME_THEN_GAME];
+/** The public bar's menu, Open the app →, then the theme switch and Game mode. */
+const MENU_THEN_THEME = ['Release notes', 'Docs', 'Open the app →', ...THEME_THEN_GAME];
 
 describe('the public pages', () => {
   it.each(PUBLIC)('%s: keep the public top bar, and no sidebar', async (name, layout) => {
@@ -110,10 +111,12 @@ describe('the public pages', () => {
     expect(html).not.toContain('app-bar');
   });
 
-  it.each(PUBLIC)('%s: the OMNI LOOP mark leads to /app, then the menu, the theme switch and Game mode, last', async (name, layout) => {
+  it.each(PUBLIC)('%s: the OMNI LOOP mark leads to /app, then the menu, Open the app →, the theme switch and Game mode, last', async (name, layout) => {
     const bar = part(await renderAt(layout, name), '<header', '</header>');
     expect(bar).toMatch(new RegExp(`<a class="ask-mark" href="${APP_HOME}">OMNI LOOP</a>`));
     expect(controls(bar).slice(-7)).toEqual(MENU_THEN_THEME);
+    expect(bar).toContain(`<a class="top-bar-open" href="${APP_HOME}">Open the app →</a>`);
+    expect(controls(bar)).not.toContain('PRDs');
     expect(bar).toMatch(/<dialog [^>]*class="game-mode-dialog"/);
     expect(bar).not.toMatch(/<dialog [^>]*\bopen\b/);
     expect(controls(bar)).not.toContain('System');

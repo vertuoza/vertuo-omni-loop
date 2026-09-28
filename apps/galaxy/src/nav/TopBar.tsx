@@ -1,42 +1,31 @@
-import type { ReactNode } from 'react';
 import { ThemeSwitch } from '../ask/theme-switch';
 import { GameModeButton } from '../switch/GameModeButton';
 import { APP_HOME } from '../switch/switch';
 import { MENU, type MenuId } from './menu';
 import './nav.css';
 
-// The one header of the normal app (PRD 346), on /app, /releases, /prd, /ask and /knowledge: the
-// OMNI LOOP mark linking to /app, the page's sub-title, then the page's own extras (History and For
-// me on /ask, the star chart on /knowledge), the menu, the theme switch, and
-// Game mode last, at the top right (PRD 238). The item of the page being shown carries
-// aria-current="page". Nothing else differs between bars: a page's classes only let its own
-// stylesheet lay its bar out.
+// The public bar (PRD 346, reshaped by PRD 438), on /docs and /releases only: the app's pages sit in
+// the app shell (AppShell) instead. It reads, in order: the OMNI LOOP mark linking to /app, the
+// page's sub-title, the menu of Omni's own pages, Open the app → to /app, then the theme switch, and
+// Game mode last, at the top right (PRD 238). Open the app → is shown to everyone, so these pages
+// never read the session and stay static; a signed-out visitor lands on /app's sign-in card. The
+// item of the page being shown carries aria-current="page".
 
 export type TopBarProps = {
   /** The page's sub-title, beside the wordmark. */
   sub: string;
   /** The menu item of the page being shown, when it is one. */
   current?: MenuId;
-  /** The page's own links, before the menu. */
-  extras?: ReactNode;
-  /** What follows the sub-title, inside the brand (the repository /knowledge reads). */
-  brandExtra?: ReactNode;
-  /** A page's own classes on the bar, its brand and its end, added to the shared ones. */
-  classes?: { bar?: string; brand?: string; end?: string };
 };
 
-const join = (...names: Array<string | undefined>) => names.filter(Boolean).join(' ');
-
-export function TopBar({ sub, current, extras, brandExtra, classes = {} }: TopBarProps) {
+export function TopBar({ sub, current }: TopBarProps) {
   return (
-    <header className={join('ask-bar top-bar', classes.bar)}>
-      <span className={join('ask-brand', classes.brand)}>
+    <header className="ask-bar top-bar">
+      <span className="ask-brand">
         <a className="ask-mark" href={APP_HOME}>OMNI LOOP</a>
         <span className="ask-brand-sub">{sub}</span>
-        {brandExtra}
       </span>
-      <span className={join('ask-bar-end top-bar-end', classes.end)}>
-        {extras}
+      <span className="ask-bar-end top-bar-end">
         <nav className="top-bar-menu" aria-label="Menu">
           {MENU.map((item) => (
             <a key={item.id} className="top-bar-item" href={item.path} aria-current={item.id === current ? 'page' : undefined}>
@@ -44,6 +33,7 @@ export function TopBar({ sub, current, extras, brandExtra, classes = {} }: TopBa
             </a>
           ))}
         </nav>
+        <a className="top-bar-open" href={APP_HOME}>Open the app →</a>
         <ThemeSwitch />
         <GameModeButton />
       </span>
