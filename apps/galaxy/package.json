@@ -18,6 +18,8 @@
     "@omni/galaxy": "workspace:*",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.1",
+    "fumadocs-core": "^16.15.15",
+    "fumadocs-mdx": "^15.4.5",
     "markdown-it": "^15.0.2",
     "next": "^16.3.6",
     "react": "^19.2.0",
@@ -27,6 +29,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/mdx": "^2.0.14",
     "@types/node": "^22.10.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

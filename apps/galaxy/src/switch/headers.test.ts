@@ -12,13 +12,14 @@ import { APP_HOME } from './switch';
 // Every header of the app, as the server renders it (PRD 238): its OMNI LOOP mark leads home to
 // /app, and Game mode is its last control, right after the theme switch, at the top right. /app's own
 // header, /releases' (PRD 262), /prd's, the /ask pages' (AskBar, which app/ask/layout.tsx renders)
-// and the /knowledge bar. Since PRD 346 they are all one: TopBar (src/nav/), with the menu's Release
-// notes, marked current on /releases. The /knowledge bar in each of the page's states is
+// and the /knowledge bar, and /docs'. Since PRD 346 they are all one: TopBar (src/nav/), with the
+// menu's Release notes and Docs, the one of the page being shown marked current. The /knowledge bar in each of the page's states is
 // src/knowledge/render.test.ts's.
 
 const { default: AppLayout } = await import('../../app/app/layout.tsx');
 const { default: ReleasesLayout } = await import('../../app/releases/layout.tsx');
 const { default: DossierLayout } = await import('../../app/prd/layout.tsx');
+const { default: DocsLayout } = await import('../../app/docs/layout.tsx');
 
 /** The header in the markup, its Game mode dialog included. */
 const header = (html: string) => {
@@ -35,7 +36,7 @@ const controls = (bar: string) =>
 /** The theme switch, Omni first (PRD 284), then Game mode. */
 const THEME_THEN_GAME = ['Omni', 'Light', 'Dark', 'Game mode'];
 /** The menu (PRD 346), then the theme switch and Game mode. */
-const MENU_THEN_THEME = ['Release notes', ...THEME_THEN_GAME];
+const MENU_THEN_THEME = ['Release notes', 'Docs', ...THEME_THEN_GAME];
 
 const askBar = (waiting = 0) =>
   header(renderToStaticMarkup(createElement(AskBar, null, createElement(HistoryLink), createElement(ForMeLink, { count: waiting }))));
@@ -48,7 +49,11 @@ const HEADERS: Array<[string, () => string]> = [
   ['/knowledge', () => header(renderToStaticMarkup(createElement(KnowledgeScreen, {
     view: { kind: 'map', graph: GRAPH }, wanted: { domain: null, entry: null }, supabase: null, signinError: null,
   })))],
+  ['/docs', () => header(renderToStaticMarkup(createElement(DocsLayout, null, createElement('p')) as ReactElement))],
 ];
+
+/** The page whose menu item each header marks current, if any. */
+const CURRENT: Record<string, string> = { '/releases': '/releases', '/docs': '/docs' };
 
 describe('every header of the app', () => {
   it.each(HEADERS)('%s: the OMNI LOOP mark is a link to /app', (_, bar) => {
@@ -59,14 +64,16 @@ describe('every header of the app', () => {
     expect(controls(bar()).slice(-4)).toEqual(THEME_THEN_GAME);
   });
 
-  it.each(HEADERS)('%s: is the shared top bar, with Release notes right before the theme switch', (_, bar) => {
+  it.each(HEADERS)('%s: is the shared top bar, with Release notes and Docs right before the theme switch', (_, bar) => {
     expect(bar()).toMatch(/^<header class="ask-bar top-bar[" ]/);
-    expect(controls(bar()).slice(-5)).toEqual(MENU_THEN_THEME);
+    expect(controls(bar()).slice(-6)).toEqual(MENU_THEN_THEME);
     expect(bar()).toMatch(/<a class="top-bar-item" href="\/releases"( aria-current="page")?>Release notes<\/a>/);
+    expect(bar()).toMatch(/<a class="top-bar-item" href="\/docs"( aria-current="page")?>Docs<\/a>/);
   });
 
-  it.each(HEADERS)('%s: marks Release notes current on /releases only', (name, bar) => {
-    expect(bar().includes('aria-current="page"')).toBe(name === '/releases');
+  it.each(HEADERS)('%s: marks Release notes current on /releases only, and Docs on /docs only', (name, bar) => {
+    const current = [...bar().matchAll(/<a [^>]*href="([^"]+)" aria-current="page"/g)].map((m) => m[1]);
+    expect(current).toEqual(CURRENT[name] ? [CURRENT[name]] : []);
   });
 
   it.each(HEADERS)('%s: offers no System theme', (_, bar) => {
@@ -81,7 +88,7 @@ describe('every header of the app', () => {
 });
 
 describe('the layouts', () => {
-  it.each(['app/app/layout.tsx', 'app/releases/layout.tsx', 'app/prd/layout.tsx', 'app/ask/layout.tsx', 'src/ask/page/AskBar.tsx', 'src/knowledge/KnowledgeScreen.tsx'])(
+  it.each(['app/app/layout.tsx', 'app/releases/layout.tsx', 'app/prd/layout.tsx', 'app/ask/layout.tsx', 'app/docs/layout.tsx', 'src/ask/page/AskBar.tsx', 'src/knowledge/KnowledgeScreen.tsx'])(
     '%s copies no header of its own: it renders TopBar',
     (file) => {
       const source = readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
