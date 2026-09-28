@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Help and Status</title>
+<style>
+  /* Ask mode's palette (PRD 71, 144, 216), as the before/after pages around it use. No web font and
+     no external request: the Omni page shows it inside a sandbox whose policy is default-src 'none'.
+     The terminals print plain text, with no colour: only the prompt line is dimmed here. The branches
+     behind the outbox and in-review rows are made up; the shipped and inbox counts are this repository's. */
+  :root {
+    --ground: #f5f4fc;
+    --surface: #ffffff;
+    --sunk: #eceaf8;
+    --line: #d9d6ee;
+    --ink: #17153d;
+    --muted: #4f5486;
+    --plasma: #6a2fd0;
+    --plasma-soft: #efe7ff;
+    /* The terminal is drawn the same in both themes, as a terminal is. */
+    --t-ground: #0d0c26;
+    --t-ink: #e8eaff;
+    --t-dim: #8f95cf;
+    --t-red: #ff7a8a;
+    --t-line: #2f2c78;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --px: "Press Start 2P", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+      --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+    --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.55 var(--body); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 40px 64px; display: grid; gap: 56px; }
+  header { display: grid; gap: 12px; max-width: 72ch; }
+  .eyebrow { font: 10px/1.6 var(--px); letter-spacing: .08em; color: var(--plasma); text-transform: uppercase; }
+  h1 { margin: 0; font-size: clamp(28px, 4vw, 40px); line-height: 1.15; text-wrap: balance; }
+  h2 { margin: 0; font-size: 22px; line-height: 1.25; text-wrap: balance; }
+  p { margin: 0; }
+  code { font: 0.88em var(--mono); background: var(--sunk); border-radius: 4px; padding: 1px 5px; }
+  .lede { color: var(--muted); }
+  section { display: grid; gap: 16px; }
+  section > p { max-width: 72ch; color: var(--muted); }
+  .pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr); gap: 20px; align-items: start; }
+  @media (max-width: 960px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+  .side { display: grid; gap: 10px; min-width: 0; }
+  .tag { justify-self: start; font: 600 12px/1 var(--mono); padding: 5px 8px; border-radius: 4px; }
+  .tag.today { background: var(--sunk); color: var(--muted); }
+  .tag.after { background: var(--plasma-soft); color: var(--plasma); }
+  .note { font-size: 14px; color: var(--muted); max-width: 70ch; }
+
+  /* Terminal */
+  .term { background: var(--t-ground); color: var(--t-ink); border-radius: 10px; border: 1px solid var(--t-line); overflow-x: auto; }
+  .term-bar { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--t-line); color: var(--t-dim); font: 12px var(--mono); align-items: center; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--t-line); }
+  .term pre { margin: 0; padding: 12px 14px 14px; font: 13px/1.6 var(--mono); white-space: pre; }
+  .t-dim { color: var(--t-dim); }
+  .t-red { color: var(--t-red); }
+
+  /* What changes, what stays */
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; background: var(--surface); border: 1px solid var(--line); }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 600 12px var(--mono); color: var(--muted); background: var(--sunk); }
+  tr:last-child td { border-bottom: 0; }
+  td.same { color: var(--muted); }
+  td.new { color: var(--ink); }
+  td.new b { color: var(--plasma); }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <header>
+    <span class="eyebrow">PRD 315 · before / after</span>
+    <h1>Ask the loop what it is, and where things stand</h1>
+    <p class="lede">Today <code>omni help</code> and a bare <code>omni status</code> are usage errors: two lines
+      on stderr, exit 2. After, <code>omni help</code> explains the loop and every command, and <code>omni
+      status</code> shows the repository's PRDs by stage, a bar of delivered against in progress, and the PRDs
+      you worked on. Both are typeable inside Claude too, as <code>/omni:help</code> and <code>/omni:status</code>.
+      <code>omni status &lt;prd&gt;</code>, the outbox gate, does not change.</p>
+  </header>
+
+  <section aria-labelledby="help">
+    <h2 id="help"><code>omni help</code>: the loop and every command</h2>
+    <p>One screen. The folders come from the repository's config, so another repository sees its own paths.</p>
+    <div class="pair">
+      <div class="side">
+        <span class="tag today">today</span>
+        <div class="term" aria-label="omni help, today">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal</span></div>
+<pre><span class="t-dim">$ omni help</span>
+usage: omni &lt;command&gt; [args]
+commands: config, prd, status, settle,
+adopt, replies, comment, ship, harvest,
+check, knowledge, kb, item, plan, board,
+rework, phase0, init, ask, signin,
+signout, whoami, sign, credits, dossier
+<span class="t-dim">$ echo $?</span>
+<span class="t-red">2</span>
+
+<span class="t-dim">Which of these do I type? What is a
+PRD, the inbox, the outbox? What are
+/omni:brainstorm and /omni:yolo?
+Nothing here says.</span></pre>
+        </div>
+        <p class="note"><code>omni</code> and <code>omni --help</code> print the same two lines. The command list is
+          wrapped here to fit; it is one line in the terminal.</p>
+      </div>
+      <div class="side">
+        <span class="tag after">after</span>
+        <div class="term" aria-label="omni help, after">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal</span></div>
+<pre><span class="t-dim">$ omni help</span>
+omni: the Omni Loop's command line
+
+THE LOOP
+  idea ──▶ PRD ──▶ inbox ──▶ outbox ──▶ shipped ──▶ retro
+
+  idea     talked through with /omni:brainstorm, nothing written yet
+  PRD      spec, plan and before/after written, in a phase-0 PR a person reviews
+  inbox    phase-0 PR merged: approved, ready to build
+           .omni-loop/delivery/inbox/
+  outbox   being built in waves of slices; what the agents decided alone
+           waits for you
+  shipped  feature PR merged: the change is on main
+           .omni-loop/delivery/shipped/
+  retro    a retro PR tells how it went; a knowledge PR keeps what it taught
+
+  The folder is the status. Only a person merges into main. Every decision
+  an agent takes alone becomes an outbox item that you answer or adopt.
+
+IN CLAUDE (type these)
+  /omni:brainstorm        an idea, to a design, to a PRD and its phase-0 PR
+  /omni:yolo &lt;n&gt;          build a whole PRD: plan, waves, the outbox gate, ship
+  /omni:yolo-fix &lt;n&gt;      rework what you answered on the feature PR
+  /omni:plan &lt;n&gt;          slice a PRD into waves (yolo runs it when needed)
+  /omni:wave &lt;n&gt;          build one wave        /omni:do-work   build one slice
+  /omni:pr                open, watch and finish a pull request
+  /omni:invade            set up this repository's knowledge base
+  /omni:ask on|off        answer Claude's questions on a web page
+  /omni:status            where your PRDs are     /omni:help   this page
+
+IN THE TERMINAL
+  omni status             your PRDs, the inbox, the outbox, what has shipped
+  omni status &lt;n&gt;         the outbox gate for PRD n (exit 0 green, 1 red)
+  omni prd &lt;n&gt;            where PRD n lives and its files
+  omni board &lt;n&gt;          PRD n's slices and what can run next
+  omni check [all]        the repository's guards
+  omni kb show &lt;form&gt;     one form of the playbook
+  omni knowledge &lt;id&gt;     one rule of the knowledge base
+  omni signin | whoami    sign in to the Omni page, once per computer
+  omni dossier …          a PRD's dossier on the Omni page
+  omni init · config · credits · signout
+
+  Run by the skills: settle, adopt, replies, comment, ship, harvest, item, plan,
+  rework, phase0, sign; and /omni:dossier-open, /omni:dossier-push.
+
+omni help &lt;command&gt; tells more about any of them.</pre>
+        </div>
+        <p class="note">Exit 0. <code>omni --help</code> and <code>omni -h</code> print the same. A bare
+          <code>omni</code> keeps its usage line and exit 2, with one line added: <code>omni help: what each
+          command does</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="one">
+    <h2 id="one"><code>omni help &lt;name&gt;</code>: one command, or one skill</h2>
+    <p>Any of the 26 commands or 13 skills, named as <code>board</code>, <code>yolo</code> or
+      <code>/omni:yolo</code>. A name that is both (<code>plan</code>, <code>ask</code>, <code>status</code>,
+      <code>help</code>) prints the command, then the skill.</p>
+    <div class="pair">
+      <div class="side">
+        <span class="tag today">today</span>
+        <div class="term" aria-label="omni help board, today">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal</span></div>
+<pre><span class="t-dim">$ omni help board</span>
+usage: omni &lt;command&gt; [args]
+commands: config, prd, status, …
+<span class="t-dim">$ omni board</span>
+usage: omni board &lt;prd&gt; [--json]
+[--repo &lt;owner/name&gt;]
+
+<span class="t-dim">The usage, but never what it does,
+nor that it needs gh.</span></pre>
+        </div>
+      </div>
+      <div class="side">
+        <span class="tag after">after</span>
+        <div class="term" aria-label="omni help board and omni help /omni:yolo, after">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal</span></div>
+<pre><span class="t-dim">$ omni help board</span>
+omni board &lt;prd&gt; [--json] [--repo &lt;owner/name&gt;]            for you
+
+PRD n's slices as the loop sees them, rebuilt from GitHub on every run: each
+slice's state (merged, stuck, in flight, runnable, blocked) and the wave that
+can run next. Needs gh logged in.
+
+<span class="t-dim">$ omni help /omni:yolo</span>
+/omni:yolo &lt;n&gt;                                               for you
+
+Builds a whole PRD with nothing asked along the way: plans it if needed, runs
+the waves until every slice is merged, then runs the outbox gate. Green, it
+ships and marks the feature PR ready; red, the questions wait on the feature
+PR. It never merges into main.
+
+<span class="t-dim">$ omni help teleport</span>
+omni help: no command "teleport"; omni help lists them all   <span class="t-dim">(exit 2)</span></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="status">
+    <h2 id="status"><code>omni status</code>: the inbox, the outbox, what shipped, and yours</h2>
+    <p>Read from git only, as last fetched: the default branch for the inbox and shipped folders, the feature
+      branches for the outbox and its open items, the phase-0 branches for the PRDs in review. Nothing is read
+      from GitHub. <code>--fetch</code> fetches first.</p>
+    <div class="pair">
+      <div class="side">
+        <span class="tag today">today</span>
+        <div class="term" aria-label="omni status, today">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal</span></div>
+<pre><span class="t-dim">$ omni status</span>
+usage: omni status &lt;prd&gt; [--labels a,b]
+[--base &lt;ref&gt; | --changes]
+<span class="t-dim">$ ls .omni-loop/delivery/inbox</span>
+0251-outbox-answers  0285-home-value
+<span class="t-dim">$ ls .omni-loop/delivery/shipped | wc -l</span>
+26
+
+<span class="t-dim">Which PRDs are being built? Which are
+waiting for review? How many questions
+wait for an answer? Which ones are
+mine? The outbox is on other branches:
+listing folders cannot tell.</span></pre>
+        </div>
+      </div>
+      <div class="side">
+        <span class="tag after">after</span>
+        <div class="term" aria-label="omni status, after">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal</span></div>
+<pre><span class="t-dim">$ omni status</span>
+omni status · vertuoza/vertuo-omni-loop · origin/main, fetched 2 hours ago
+
+  SHIPPED 26     INBOX 2     OUTBOX 1 · 3 open items     IN REVIEW 1
+
+  delivered  ██████████████████████████░░░░  26 of 29 · 89%
+             3 in progress: 2 in the inbox, 1 in the outbox
+
+  Yours · pierre.derval@vertuoza.com
+  outbox     #251  outbox-answers     3 open items wait for an answer
+  inbox      #285  home-value         ready to build: /omni:yolo 285
+  in review  #310  cli-help-status    its phase-0 PR waits for a merge
+  shipped    24: #301 yolo-what-is-next · #292 what-is-next · #284 omni-theme
+             #262 release-notes · #261 home · #238 game-app-switch
+             #216 prd-dossiers · #215 linked-signature · #160 game-room · …
+
+omni help: the loop and every command</pre>
+        </div>
+        <p class="note">An example: the branches behind the outbox and in-review rows are made up, and the
+          <code>…</code> stands for the rest of the list, which is printed in full. The bar counts shipped
+          against shipped + inbox + outbox; in review is counted but stays out of it. With no
+          <code>user.email</code>, or in a shallow clone, the "Yours" section is one line saying how to fix it, and
+          the counts and the bar still show.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="claude">
+    <h2 id="claude">Inside Claude: <code>/omni:help</code> and <code>/omni:status</code></h2>
+    <p>Two thin skills. Each runs its command and prints the output as is, so the terminal and Claude show the
+      same text.</p>
+    <div class="pair">
+      <div class="side">
+        <span class="tag today">today</span>
+        <div class="term" aria-label="Asking Claude where the PRDs are, today">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>claude</span></div>
+<pre><span class="t-dim">&gt; where are my PRDs?</span>
+
+<span class="t-dim">Claude lists folders, reads branches
+and guesses at what "mine" means,
+differently each time.</span></pre>
+        </div>
+      </div>
+      <div class="side">
+        <span class="tag after">after</span>
+        <div class="term" aria-label="/omni:status inside Claude, after">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>claude</span></div>
+<pre><span class="t-dim">&gt; /omni:status</span>
+
+omni status · vertuoza/vertuo-omni-loop · origin/main, fetched 2 hours ago
+
+  SHIPPED 26     INBOX 2     OUTBOX 1 · 3 open items     IN REVIEW 1
+  <span class="t-dim">… the same text as the terminal, line for line …</span></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="same">
+    <h2 id="same">What changes, what stays</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Part</th><th>Today</th><th>After</th></tr></thead>
+        <tbody>
+          <tr><td><code>omni help</code>, <code>omni --help</code>, <code>omni -h</code></td><td class="same">usage error, exit 2</td><td class="new"><b>the loop and every command</b>, exit 0</td></tr>
+          <tr><td><code>omni help &lt;name&gt;</code></td><td class="same">usage error, exit 2</td><td class="new"><b>one command or skill</b>: usage, who runs it, what it does</td></tr>
+          <tr><td>A bare <code>omni</code>, an unknown command</td><td class="same">usage line, exit 2</td><td class="new">usage line, exit 2, <b>plus one line naming <code>omni help</code></b></td></tr>
+          <tr><td>A bare <code>omni status</code></td><td class="same">usage error, exit 2</td><td class="new"><b>the overview</b>: counts, the bar, yours; exit 0</td></tr>
+          <tr><td><code>omni status &lt;prd&gt;</code>, the outbox gate</td><td class="same">report, exit 0 green, 1 red</td><td class="same">unchanged: same flags, report, exit codes and workflow outputs</td></tr>
+          <tr><td>Reading GitHub</td><td class="same">only the commands that need it</td><td class="same">unchanged: the overview reads git only</td></tr>
+          <tr><td>The skills</td><td class="same">11</td><td class="new">13: <b><code>/omni:help</code> and <code>/omni:status</code></b> added; every other skill unchanged</td></tr>
+          <tr><td>What any command writes</td><td class="same">as today</td><td class="same">unchanged: both new commands only read (<code>--fetch</code> updates the remote-tracking branches, as any fetch does)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>
