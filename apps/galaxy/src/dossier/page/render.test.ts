@@ -190,7 +190,7 @@ describe('the Questions tab', () => {
     expect(html).toContain('<span class="dossier-category" data-category="unsorted">unsorted</span>');
     expect(html).toContain('asked by Pierre · 27 Sep 2026, 09:15 UTC');
     expect(html).toContain('vertuoza/vertuo-omni-loop · feat/prd-dossiers--s3 · PRD #216 · /omni:do-work');
-    expect(html).toContain('<a class="dossier-round-link" href="/ask/q/r1">Open the question</a>');
+    expect(html).toContain(`<a class="dossier-round-link" href="/ask/q/r1?from=${ID}">Open the question</a>`);
   });
 
   it('says when no question was asked yet', () => {
