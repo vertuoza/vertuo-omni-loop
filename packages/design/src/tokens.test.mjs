@@ -100,6 +100,7 @@ describe('Ask\'s tokens', () => {
       surface: '#120f3a',
       sunk: INK.deep,
       line: INK.navyDark,
+      lineStrong: '#5a60c4',
       ink: INK.white,
       muted: '#8a90d6',
       plasma: INK.yellow,
@@ -116,12 +117,12 @@ describe('Ask\'s tokens', () => {
 
   it('keep light and dark as they were, token for token', () => {
     expect(ASK.light).toEqual({
-      ground: '#f5f4fc', surface: '#ffffff', sunk: '#eceaf8', line: '#d9d6ee', ink: '#17153d', muted: '#4f5486',
+      ground: '#f5f4fc', surface: '#ffffff', sunk: '#eceaf8', line: '#d9d6ee', lineStrong: '#85819f', ink: '#17153d', muted: '#4f5486',
       plasma: '#6a2fd0', plasmaSoft: '#efe7ff', onPlasma: '#ffffff', yellow: '#ffd84a', onYellow: '#3a2c00',
       cyan: '#0b6f86', green: '#15703f', red: '#b3122f',
     });
     expect(ASK.dark).toEqual({
-      ground: '#0e0d33', surface: '#16144a', sunk: '#1d1a58', line: '#2f2c78', ink: '#f2f4ff', muted: '#a9aee6',
+      ground: '#0e0d33', surface: '#16144a', sunk: '#1d1a58', line: '#2f2c78', lineStrong: '#6d6acc', ink: '#f2f4ff', muted: '#a9aee6',
       plasma: '#b37cff', plasmaSoft: '#2a1d66', onPlasma: '#0e0d33', yellow: '#ffd84a', onYellow: '#3a2c00',
       cyan: '#6ff0ff', green: '#4ee08a', red: '#ff6b86',
     });
@@ -147,6 +148,12 @@ describe('Ask\'s tokens', () => {
       }
     }
     expect(failures).toEqual([]);
+  });
+
+  it('outline chips, cards and controls with lineStrong at 3:1 on the ground, a card and the sunk panel (PRD 476)', () => {
+    for (const on of ['ground', 'surface', 'sunk']) {
+      expect(ASK_UI_PAIRS.some((p) => p.text === 'lineStrong' && p.on === on), on).toBe(true);
+    }
   });
 
   it('name only tokens the table has', () => {
