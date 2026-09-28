@@ -1,0 +1,27 @@
+/* The top bar of the normal app (PRD 346): its end (the page's extras, the menu, the theme switch,
+   Game mode) and the menu's items. Drawn on the ask pages' reading surface: every colour is a token
+   of src/ask/theme-tokens.ts (the --ask-* properties the ask root carries, per theme), so Omni,
+   light and dark follow the theme switch. Scoped to the ask root, as ask.css is. On a phone the end
+   wraps rather than push the page sideways, and Game mode, on a row of its own, keeps the right end
+   of it. */
+
+.top-bar-end { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.top-bar-end > .game-mode { margin-left: auto; }
+
+.top-bar-menu { display: inline-flex; align-items: center; gap: 8px; }
+
+.ask a.top-bar-item {
+  font: 700 14px/1 var(--ask-body);
+  color: var(--ask-ink);
+  text-decoration: none;
+  white-space: nowrap;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ask-line);
+  background: var(--ask-surface);
+}
+.ask a.top-bar-item:hover { border-color: var(--ask-muted); }
+.ask a.top-bar-item[aria-current='page'] {
+  color: var(--ask-plasma);
+  border-color: var(--ask-plasma);
+}
