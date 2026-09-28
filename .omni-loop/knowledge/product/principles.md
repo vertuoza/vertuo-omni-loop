@@ -334,4 +334,30 @@ A person's name or email address is shown only to people who share a workspace w
 Why: Members need a recognisable label to share questions with each other, but outsiders must not learn who belongs to a workspace.
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s4-01-teammates-named-by-email, PRD #144
 Merged: @pierrederval, 2026-09-27, PR #147
+
+## P-PRODUCT-39
+
+Every way into the game's menu behaves the same, so a player never misses a celebration because of the route they took.
+
+Why: A deep link that skipped the level-up would make the celebration depend on navigation, not on the player's progress.
+Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s1-02-level-up-before-menu-link, PRD #238
+Merged: @pierrederval, 2026-09-27, PR #239
+Proposed: harvest 2026-09-27
+
+## P-PRODUCT-40
+
+A link into the game never lands a person somewhere the home address would not take them.
+
+Why: So a person always reaches the screen meant for them, never a menu they cannot use.
+Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s1-03-menu-link-without-galaxy, PRD #238
+Merged: @pierrederval, 2026-09-27, PR #239
+Proposed: harvest 2026-09-27
+
+## P-PRODUCT-41
+
+While the arcade asks a person a question, the game never moves on beneath it; declining leaves them on the screen they were on.
+
+Why: A person who says no should find the same screen they left, not one that changed while they were deciding.
+Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s3-02-timed-screens-wait-under-confirm, PRD #238
+Merged: @pierrederval, 2026-09-27, PR #239
 Proposed: harvest 2026-09-27
