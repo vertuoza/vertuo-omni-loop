@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HOME hero polish</title>
+<style>
+  /* The arcade's own tokens (packages/design/tokens.css). One dark world, like HOME itself. */
+  :root {
+    color-scheme: dark;
+    --void: #07061c; --white: #f2f4ff; --yellow: #ffd84a; --red: #ff3b5c; --cyan: #6ff0ff;
+    --highlight: #fff3a8; --ad-purple: #5b1a86; --starfield: #05040f; --magenta: #ff4fd8;
+    --deep: #120f33; --dim: #8c8ab8; --green: #3ee07a; --sea: #2a6fd6;
+    --display: Impact, "Anton", "Oswald", "Arial Narrow", sans-serif;
+    --body: -apple-system, "Segoe UI", system-ui, sans-serif;
+    --pixel: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--white); font: 14px/1.5 var(--body); padding: 24px 16px 40px; }
+  main { max-width: 1240px; margin: 0 auto; display: grid; gap: 24px; }
+  h1 { margin: 0; font: 400 30px/1.1 var(--display); letter-spacing: 0.02em; text-transform: uppercase; }
+  h1 em { font-style: normal; color: var(--yellow); }
+  .lede { margin: 0; color: var(--dim); max-width: 70ch; }
+  .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  figure { margin: 0; display: grid; gap: 10px; }
+  figcaption { font: 12px/1.3 var(--pixel); letter-spacing: 0.1em; color: var(--dim); }
+  figcaption b { color: var(--white); font-weight: 400; }
+  .after figcaption b { color: var(--cyan); }
+
+  /* A browser window holding the hero, at 16:10 like a 1440×900 laptop screen. */
+  .screen { position: relative; aspect-ratio: 16 / 10; border: 2px solid #2a2660; background: var(--starfield); overflow: hidden; container-type: inline-size; }
+  .hero { position: absolute; inset: 0; display: grid; grid-template-columns: 5fr 7fr; }
+  .before .hero { bottom: 14%; }            /* capped at 820 px: the next spread peeks in under it */
+  .peek { position: absolute; inset: 86% 0 0; background: #111036; border-top: 2px solid #2a2660; padding: 1.2cqi 2.4cqi; font: 400 2.4cqi/1 var(--display); }
+  .peek em { font-style: normal; color: var(--yellow); }
+
+  .col { background: var(--ad-purple); padding: 3cqi 2.6cqi; display: grid; gap: 1.2cqi; align-content: start; }
+  .after .col { align-content: center; }
+  .kicker { font: 400 1.9cqi/1.05 var(--display); margin: 0; }
+  .head { font: 400 5.6cqi/0.95 var(--display); margin: 0; color: var(--white); }
+  .dots { border-top: 0.45cqi dotted var(--yellow); }
+  .pitch { margin: 0; font-size: 1.25cqi; line-height: 1.5; color: var(--highlight); max-width: 36ch; }
+  .promises { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.5cqi; font: 400 1.5cqi/1.1 var(--display); }
+  .promises span { color: var(--yellow); }
+  .quote { margin: 0; font: 400 2cqi/1.05 var(--display); color: var(--yellow); }
+  .spokes { display: flex; align-items: center; gap: 1.4cqi; }
+  .omni { width: 5cqi; aspect-ratio: 2 / 3; background:
+      linear-gradient(var(--void) 0 18%, #f0b58a 18% 34%, #2d4fd6 34% 80%, var(--void) 80%); border-radius: 0.3cqi; }
+  .signup { font: 0.9cqi/1.4 var(--pixel); border: 0.2cqi solid var(--yellow); background: var(--deep); padding: 0.8cqi 1cqi; box-shadow: 0.3cqi 0.3cqi 0 var(--magenta); }
+
+  /* Before: the whole box skewed from its bottom-left, so upper lines drift right; red kicker. */
+  .before .kicker, .before .head, .before .quote { transform: skewX(-12deg); transform-origin: 0 100%; }
+  .before .kicker { color: var(--red); }
+  /* After: the letters lean, the lines stay on one edge; cyan kicker. */
+  .after .kicker, .after .head, .after .quote { font-style: oblique 12deg; }
+  .after .kicker { color: var(--cyan); }
+  .edge { position: absolute; top: 0; bottom: 0; left: calc(2.6cqi + 0px); border-left: 1px dashed rgba(111, 240, 255, 0.55); pointer-events: none; }
+
+  .sky { position: relative; display: grid; justify-items: center; padding: 2.4cqi 2cqi 3cqi; gap: 1.6cqi;
+    background-image: radial-gradient(1px 1px at 12% 20%, #fff 50%, transparent), radial-gradient(1px 1px at 70% 12%, #fff 50%, transparent),
+      radial-gradient(1px 1px at 40% 70%, #9fb2ff 50%, transparent), radial-gradient(1px 1px at 85% 55%, #fff 50%, transparent),
+      radial-gradient(1px 1px at 25% 88%, #fff 50%, transparent), radial-gradient(1px 1px at 58% 38%, #ffd84a 50%, transparent); }
+  .before .sky { grid-template-rows: 1fr auto auto; }
+  .after .sky { align-content: center; }
+  .planet { width: 14cqi; aspect-ratio: 1; border-radius: 50%; align-self: center; box-shadow: inset -2.4cqi -1.4cqi 0 rgba(0,0,0,0.55), 0 0 0 0.3cqi rgba(143,216,255,0.35);
+    background: radial-gradient(circle at 30% 35%, var(--green) 0 18%, transparent 19%), radial-gradient(circle at 68% 60%, var(--green) 0 14%, transparent 15%),
+      radial-gradient(circle at 45% 80%, var(--green) 0 10%, transparent 11%), var(--sea); background-size: 200% 100%; }
+  .after .planet { animation: turn 8s linear infinite; }
+  @keyframes turn { to { background-position: -200% 0, -200% 0, -200% 0, 0 0; } }
+  .crest { font: 400 4.6cqi/1 var(--display); letter-spacing: 0.04em; color: var(--yellow); text-shadow: 0.4cqi 0.4cqi 0 var(--magenta); }
+  .crest i { color: var(--cyan); font-style: normal; }
+  .start { font: 1.2cqi/1 var(--pixel); background: var(--yellow); color: var(--void); padding: 1cqi 1.6cqi; box-shadow: 0.35cqi 0.35cqi 0 var(--magenta); }
+
+  /* After: Omni-man crosses the sky every 12 s on a gentle arc, a plasma trail behind him. */
+  .flyby { position: absolute; top: 18%; left: -8%; width: 3cqi; aspect-ratio: 2 / 3; animation: fly 12s linear infinite; opacity: 0; }
+  .flyby::before { content: ''; position: absolute; inset: 0; background: linear-gradient(var(--void) 0 18%, #f0b58a 18% 34%, #2d4fd6 34% 80%, var(--void) 80%); transform: rotate(70deg); }
+  .flyby::after { content: ''; position: absolute; right: 90%; top: 40%; width: 7cqi; height: 0.5cqi; background: linear-gradient(90deg, transparent, var(--magenta), var(--cyan)); }
+  @keyframes fly {
+    0% { opacity: 1; transform: translate(0, 0); }
+    10% { transform: translate(28cqi, -5cqi); }
+    20% { opacity: 1; transform: translate(62cqi, 3cqi); }
+    20.01%, 100% { opacity: 0; transform: translate(62cqi, 3cqi); }
+  }
+  @media (prefers-reduced-motion: reduce) { .after .planet, .flyby { animation: none; } }
+
+  .notes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .notes ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: var(--highlight); }
+  .notes .before-list { color: var(--dim); }
+  .notes h2 { margin: 0 0 8px; font: 12px/1.3 var(--pixel); letter-spacing: 0.1em; color: var(--dim); }
+  .notes .after-head { color: var(--cyan); }
+  .same { border-top: 1px solid #2a2660; padding-top: 16px; color: var(--dim); max-width: 80ch; }
+  .same b { color: var(--white); font-weight: 600; }
+  @media (max-width: 760px) { .pair, .notes { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>HOME hero: <em>today beside after</em></h1>
+  <p class="lede">PRD 394. The poster above HOME's fold on a 1440×900 desktop screen. The dashed cyan line on each is the column's left edge, where the pitch and the promises start.</p>
+
+  <div class="pair">
+    <figure class="before">
+      <figcaption><b>TODAY</b> · skewed boxes, red kicker, 820 px cap</figcaption>
+      <div class="screen">
+        <div class="hero">
+          <div class="col">
+            <p class="kicker">THE DELIVERY FRAMEWORK<br>FOR CODING AGENTS</p>
+            <p class="head">AGENTS SHIP.<br>YOU STEER.</p>
+            <div class="dots"></div>
+            <p class="pitch">Describe the feature once. Coding agents plan it, build it test-first and open the pull requests. Your team owns the product and the rules, and sees every decision the agents took.</p>
+            <ul class="promises"><li><span>★</span> ONE FOLDER IN, ONE FOLDER OUT</li><li><span>★</span> EVERY DECISION WRITTEN DOWN</li><li><span>★</span> A PERSON ALWAYS MERGES</li></ul>
+            <p class="quote">“TO JOIN INSTANTLY,<br>SIGN UP WITH GITHUB!”</p>
+            <div class="spokes"><div class="omni"></div><div class="signup">SIGN UP WITH GITHUB</div></div>
+          </div>
+          <div class="sky">
+            <div class="planet" role="img" aria-label="The planet, still"></div>
+            <div class="crest">OMNI<i>·</i>LOOP</div>
+            <div class="start">PRESS START</div>
+          </div>
+        </div>
+        <div class="edge"></div>
+        <div class="peek">WHAT'S IN IT <em>FOR YOU?</em></div>
+      </div>
+    </figure>
+
+    <figure class="after">
+      <figcaption><b>AFTER</b> · one left edge, cyan kicker, 100svh, planet turning, Omni-man flying past</figcaption>
+      <div class="screen">
+        <div class="hero">
+          <div class="col">
+            <p class="kicker">THE DELIVERY FRAMEWORK<br>FOR CODING AGENTS</p>
+            <p class="head">AGENTS SHIP.<br>YOU STEER.</p>
+            <div class="dots"></div>
+            <p class="pitch">Describe the feature once. Coding agents plan it, build it test-first and open the pull requests. Your team owns the product and the rules, and sees every decision the agents took.</p>
+            <ul class="promises"><li><span>★</span> ONE FOLDER IN, ONE FOLDER OUT</li><li><span>★</span> EVERY DECISION WRITTEN DOWN</li><li><span>★</span> A PERSON ALWAYS MERGES</li></ul>
+            <p class="quote">“TO JOIN INSTANTLY,<br>SIGN UP WITH GITHUB!”</p>
+            <div class="spokes"><div class="omni"></div><div class="signup">SIGN UP WITH GITHUB</div></div>
+          </div>
+          <div class="sky">
+            <div class="planet" role="img" aria-label="The planet, turning"></div>
+            <div class="crest">OMNI<i>·</i>LOOP</div>
+            <div class="start">PRESS START</div>
+            <div class="flyby" aria-hidden="true"></div>
+          </div>
+        </div>
+        <div class="edge"></div>
+      </div>
+    </figure>
+  </div>
+
+  <div class="notes">
+    <div>
+      <h2>TODAY</h2>
+      <ul class="before-list">
+        <li>Kicker, headline and quote are skewed boxes: "AGENTS SHIP." starts right of "YOU STEER.", and neither sits on the pitch's edge.</li>
+        <li>Kicker is red on purple, about 3:1 contrast.</li>
+        <li>Hero is capped at 820 px: on a tall screen the next spread shows under it, and the column hugs the top.</li>
+        <li>The planet swaps three still frames and never turns; nothing moves in the sky.</li>
+        <li>The crest and PRESS START sink to the bottom, far from the planet.</li>
+      </ul>
+    </div>
+    <div>
+      <h2 class="after-head">AFTER</h2>
+      <ul>
+        <li>The letters lean (oblique); every line starts on the column's left edge.</li>
+        <li>Kicker is cyan: at least 4.5:1 on the purple, tested with <code>contrast()</code>.</li>
+        <li>Hero is exactly 100svh on a desktop, full width; the column's content is centred vertically.</li>
+        <li>The planet turns on a canvas with the game's own <code>drawPlanet</code>, the invasion still spreading.</li>
+        <li>Every 12 s Omni-man (<code>omni-run-cape</code>) crosses the sky past the planet, CSS only.</li>
+        <li>Planet, crest and PRESS START form one centred group: the crest sits right under the planet.</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="same"><b>Stays the same:</b> the poster's words, the phone layout's order, the magazine spreads, the game at /play. <b>Reduced motion:</b> the planet shows its three still frames and Omni-man never flies. <b>Without JavaScript:</b> the still frames show and the flyby still runs.</p>
+</main>
+</body>
+</html>
