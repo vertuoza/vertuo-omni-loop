@@ -1,15 +1,37 @@
 /* The strategy guide's spread (HOME, PRD 285). Every colour and face is a variable from
    @omni/design; nothing here is declared on :root. */
 
-/* The strategy guide: the loop's stages as a world map's levels, OmniMan running the path. */
+/* The strategy guide: the loop's stages as a world map's levels, OmniMan running the path, and the
+   LOOP LINGO sidebar beside the map (under it on a phone). */
+.home-guide {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 280px);
+  gap: 16px;
+  align-items: start;
+}
 .home-map {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
+.home-stage-line code { font-size: 12px; color: var(--white); overflow-wrap: anywhere; }
+.home-lingo {
+  background: var(--deep);
+  border: 2px dashed var(--yellow);
+  padding: 14px 14px 10px;
+}
+.home-lingo-head {
+  margin: 0 0 10px;
+  font: 10px/1.4 var(--font-pixel);
+  color: var(--yellow);
+  text-transform: uppercase;
+}
+.home-lingo dl { margin: 0; display: grid; gap: 4px; }
+.home-lingo dt { font: 400 15px/1.1 var(--font-display); letter-spacing: 0.02em; color: var(--white); }
+.home-lingo dd { margin: 0 0 8px; font-size: 13px; line-height: 1.45; color: var(--dim); }
 .home-stage {
   background: var(--deep);
   border: 2px solid var(--navy-dark);
@@ -32,5 +54,6 @@
 .home-runner { width: 40px; flex: none; }
 
 @media (max-width: 760px) {
+  .home-guide { grid-template-columns: minmax(0, 1fr); }
   .home-map { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
