@@ -1,0 +1,90 @@
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { pageUrl } from './paths';
+
+// The guide's markdown, read from the folder (PRD 346): docs/guide/*.md, one file per page, and
+// meta.json, the order the sidebar shows them in. The docs guard (guide.test.ts) runs guideProblems on
+// it: a page with no title, a Next link to no page, a /omni:<skill> the plugin does not have, or an
+// `omni <command>` the CLI does not have, is a problem. Nothing here renders: fumadocs does
+// (source.ts), from the same files.
+
+/** One page of the guide, as its file says. */
+export interface GuidePage {
+  /** The file's name without `.md`: `index`, `install`… */
+  slug: string;
+  /** Its frontmatter's title, or null when it has none. */
+  title: string | null;
+  /** Where its "Next →" link points, or null when it has none. */
+  next: string | null;
+  /** The markdown after the frontmatter. */
+  body: string;
+}
+
+/** The guide: its pages as the order file lists them, then any page it leaves out. */
+export interface Guide {
+  /** meta.json's `pages`, as written. */
+  order: string[];
+  pages: GuidePage[];
+}
+
+const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
+const NEXT = /\[Next →[^\]]*\]\(([^)\s]+)\)/;
+
+/** One page's markdown, read into its title, its Next link and its body. */
+export function parsePage(slug: string, markdown: string): GuidePage {
+  const front = FRONTMATTER.exec(markdown);
+  const title = front?.[1].match(/^title:\s*(.+?)\s*$/m)?.[1].replace(/^(['"])(.*)\1$/, '$2') ?? null;
+  const body = front ? markdown.slice(front[0].length) : markdown;
+  return { slug, title: title || null, next: NEXT.exec(body)?.[1] ?? null, body };
+}
+
+/** The guide in `dir`: its order file and every page. */
+export function readGuide(dir: string): Guide {
+  const metaFile = join(dir, 'meta.json');
+  const order: string[] = existsSync(metaFile) ? (JSON.parse(readFileSync(metaFile, 'utf8')).pages ?? []) : [];
+  const slugs = readdirSync(dir).filter((name) => name.endsWith('.md')).map((name) => name.slice(0, -'.md'.length));
+  const sorted = [...order.filter((slug) => slugs.includes(slug)), ...slugs.filter((slug) => !order.includes(slug)).sort()];
+  return { order, pages: sorted.map((slug) => parsePage(slug, readFileSync(join(dir, `${slug}.md`), 'utf8'))) };
+}
+
+/** The code a page shows: its fenced blocks and its inline code spans. */
+function code(markdown: string): string[] {
+  const fenced = [...markdown.matchAll(/^(```|~~~)[^\n]*\n([\s\S]*?)^\1/gm)].map((m) => m[2]);
+  const prose = markdown.replace(/^(```|~~~)[^\n]*\n[\s\S]*?^\1/gm, '');
+  return [...fenced, ...[...prose.matchAll(/`([^`\n]+)`/g)].map((m) => m[1])];
+}
+
+/** Every `/omni:<skill>` a page names, anywhere in it. */
+export const skillsNamed = (markdown: string) => [...new Set([...markdown.matchAll(/\/omni:([a-z][a-z0-9-]*)/g)].map((m) => m[1]))];
+
+/** Every `omni <command>` a page shows as code: the words that follow `omni` at a command's start. */
+export const commandsNamed = (markdown: string) =>
+  [...new Set(code(markdown).flatMap((text) => [...text.matchAll(/(?:^|[\s;&|(])omni ([a-z][a-z0-9-]*)/gm)].map((m) => m[1])))];
+
+/** Where the plugin's skills and the CLI's commands live, in the kit. */
+export interface Kit {
+  skills: string;
+  commands: string;
+}
+
+/** Everything wrong with the guide in `dir`, one line each; empty when the guide holds. */
+export function guideProblems(dir: string, kit: Kit): string[] {
+  const { order, pages } = readGuide(dir);
+  const urls = new Set(pages.map((page) => pageUrl(page.slug)));
+  const problems: string[] = [];
+  for (const slug of order) if (!pages.some((page) => page.slug === slug)) problems.push(`meta.json: lists ${slug}, which has no ${slug}.md`);
+  for (const page of pages) {
+    const where = `${page.slug}.md`;
+    if (!order.includes(page.slug)) problems.push(`${where}: not in meta.json`);
+    if (!page.title) problems.push(`${where}: no title`);
+    if (!page.next) problems.push(`${where}: no Next → link`);
+    else if (!urls.has(page.next) || page.next === pageUrl(page.slug)) problems.push(`${where}: Next → ${page.next} is no other page of the guide`);
+    for (const skill of skillsNamed(page.body)) {
+      if (!existsSync(join(kit.skills, skill))) problems.push(`${where}: /omni:${skill} is no skill of the plugin`);
+    }
+    for (const command of commandsNamed(page.body)) {
+      if (!existsSync(join(kit.commands, `${command}.mjs`))) problems.push(`${where}: omni ${command} is no command of the CLI`);
+    }
+  }
+  return problems;
+}

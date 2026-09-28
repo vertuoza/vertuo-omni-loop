@@ -53,10 +53,11 @@ describe('the Game mode button', () => {
 });
 
 describe('/app', () => {
-  it('heads the page with OMNI LOOP · App, linked home, then the theme switch, then Game mode', () => {
+  it('heads the page with OMNI LOOP · App, linked home, then Release notes, the theme switch and Game mode', () => {
     const bar = between(app, '<header class="ask-bar', '</header>');
     expect(bar).toMatch(/<a class="ask-mark[^"]*" href="\/app">OMNI LOOP<\/a>/);
     expect(bar).toContain('<span class="ask-brand-sub">App</span>');
+    expect(bar).toContain('<a class="top-bar-item" href="/releases">Release notes</a>');
     const theme = bar.indexOf('aria-label="Theme"'), game = bar.indexOf('>Game mode');
     expect(theme).toBeGreaterThan(0);
     expect(game).toBeGreaterThan(theme);
@@ -70,6 +71,11 @@ describe('/app', () => {
     expect([...app.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/g)].map((m) => m[1])).toEqual(['DAM-DEV']);
     expect(app).toMatch(/<svg [^>]*role="img"[^>]*aria-label="DAM-DEV’s hero"/);
     expect(app).not.toContain('The loop’s questions and knowledge, as pages.');
+  });
+
+  it('ends with four sections: Questions, For me, History and Knowledge map, none of them Release notes', () => {
+    const cards = [...app.matchAll(/<a class="dash-card" href="([^"]+)">/g)].map((m) => m[1]);
+    expect(cards).toEqual(['/ask', '/ask/for-me', '/ask/history', '/knowledge']);
   });
 
   it('ends with every section as a compact link, in order: its title, without its line or path', () => {

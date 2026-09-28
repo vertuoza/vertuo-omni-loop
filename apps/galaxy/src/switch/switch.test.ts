@@ -3,19 +3,18 @@ import { describe, expect, it } from 'vitest';
 import { APP_HOME, GAME_HOME, SECTIONS } from './switch';
 
 // The app's sections and the two homes (PRD 238): one list draws /app's cards, and each path it
-// names is a page on disk, so a renamed route fails here before a card leads nowhere. The fifth card,
-// Release notes, opens the public /releases (PRD 262).
+// names is a page on disk, so a renamed route fails here before a card leads nowhere. Release notes
+// are no card since PRD 346: every page reaches them from the top bar's menu (src/nav/menu.ts).
 
 const pageOf = (path: string) => new URL(`../../app${path}/page.tsx`, import.meta.url);
 
 describe('the app\'s sections', () => {
-  it('are Questions, For me, History, Knowledge map and Release notes, in that order', () => {
+  it('are Questions, For me, History and Knowledge map, in that order: no Release notes', () => {
     expect(SECTIONS.map((s) => [s.title, s.path])).toEqual([
       ['Questions', '/ask'],
       ['For me', '/ask/for-me'],
       ['History', '/ask/history'],
       ['Knowledge map', '/knowledge'],
-      ['Release notes', '/releases'],
     ]);
   });
 
@@ -25,7 +24,6 @@ describe('the app\'s sections', () => {
       'Questions a teammate shared with you',
       'Every question your workspace was asked',
       'Principles, rules and invariants, as a map',
-      'What Omni Loop shipped, week by week',
     ]);
   });
 

@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url';
+import { createMDX } from 'fumadocs-mdx/next';
 
 // The monorepo root: the app imports the game layer (game/*.mjs) through the workspace packages.
 const root = fileURLToPath(new URL('../..', import.meta.url));
@@ -16,10 +17,14 @@ const KNOWLEDGE_FILES = [
   '../../.omni-loop/knowledge/cross-domain/*.md',
 ];
 
+// The guide at /docs (PRD 346): fumadocs-mdx compiles docs/guide/*.md (source.config.ts) into .source/
+// and teaches the bundler to load them; the pages are built statically, so nothing is traced.
+const withMDX = createMDX();
+
 /** @type {import('next').NextConfig} */
-export default {
+export default withMDX({
   transpilePackages: ['@omni/galaxy', '@omni/design', 'vertuo-omni-plan'],
   turbopack: { root },
   outputFileTracingRoot: root,
   outputFileTracingIncludes: { '/': KNOWLEDGE_FILES },
-};
+});

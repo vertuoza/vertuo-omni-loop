@@ -1,5 +1,3 @@
-/* /app's app bar (PRD 238): the end of the header, the theme switch then Game mode, wrapping on a
-   phone. The page below it is the dashboard (PRD 328), styled by src/dashboard/dashboard.css, which
-   draws the app's sections as compact cards: PRD 238's card styles went with the menu. */
-
-.app-bar-end { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* /app (PRD 238). Its header is the app's one top bar, styled by src/nav/nav.css (PRD 346); the page
+   below it is the dashboard (PRD 328), styled by src/dashboard/dashboard.css, which draws the app's
+   sections as compact cards. Nothing of /app's own is left here. */

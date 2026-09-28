@@ -19,14 +19,14 @@ export interface Section {
   line: string;
 }
 
-/** /app's cards, in order, at the foot of the dashboard. A new section of the app is one entry here. */
+/** /app's cards, in order, at the foot of the dashboard. A new section of the app is one entry here.
+ * Release notes are no section: every page reaches them from the top bar's menu (src/nav/menu.ts,
+ * PRD 346). */
 export const SECTIONS: readonly Section[] = [
   { title: 'Questions', path: '/ask', line: 'The questions Claude is asking you now' },
   { title: 'For me', path: '/ask/for-me', line: 'Questions a teammate shared with you' },
   { title: 'History', path: '/ask/history', line: 'Every question your workspace was asked' },
   { title: 'Knowledge map', path: '/knowledge', line: 'Principles, rules and invariants, as a map' },
-  // Public, unlike the others: anyone reads it, signed in or not (PRD 262).
-  { title: 'Release notes', path: '/releases', line: 'What Omni Loop shipped, week by week' },
 ];
 
 /** /app's own words: the sub-title beside the wordmark. The page's heading is your name (PRD 328). */
