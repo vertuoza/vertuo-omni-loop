@@ -237,3 +237,393 @@ Two lines of the dashboard's stylesheet.
 ```
 
 <!-- /omni-outbox-settled: s2-03-fleet-name-on-light-theme -->
+
+<!-- omni-outbox-settled: s3-01-individuals-without-github -->
+
+## s3-01-individuals-without-github — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-individuals-without-github
+prd: 328
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 2
+---
+
+## The question, in plain words
+
+When someone has not linked their GitHub account, the individual rankings cannot find them. What should the table say below the top three?
+
+## The decision, in plain words
+
+It shows the top three, then the line asking them to link their GitHub in the arcade, the same line the rest of the page uses, rather than telling them they have no points.
+
+## The intro, for fun
+
+The rankings looked for you everywhere, but you never told them your GitHub name.
+
+## The punchline, for fun
+
+So they send you to the arcade instead of guessing you scored nothing.
+
+## The options, in plain words
+
+A. The top three, then the line asking to link GitHub in the arcade, the option built.
+B. The top three, then No points yet this season, as for someone who has not scored.
+C. The top three alone, with no line below them.
+
+## What I had to decide
+
+What the individuals table shows below the top 3 for a person with no GitHub login: the spec's States table says the rankings show for a player with no GitHub linked, but not what stands in place of your rows.
+
+## What I did meanwhile
+
+Below the top 3, the individuals table shows the dashboard's shared 'Link your GitHub in the arcade' line (Notes.tsx, linking to /play), as the hero block, the chart and the two GitHub counts do. 'No points yet this season' stays for a person the season can find by login and who has not scored.
+
+## What it costs to change later
+
+One line of the rankings' view (Rankings.tsx), and the value's 'no-github' case.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec and the plan name the rankings as shown for a player with no GitHub linked, and do not say what the individuals table shows in place of their rows (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-01-individuals-without-github -->
+
+<!-- omni-outbox-settled: s3-02-rankings-when-names-fail -->
+
+## s3-02-rankings-when-names-fail — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-rankings-when-names-fail
+prd: 328
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 2
+---
+
+## The question, in plain words
+
+The rankings need the season's scores and the players' names. If only the names cannot be loaded, should the rankings still show, with GitHub names in place of display names?
+
+## The decision, in plain words
+
+No: when either cannot be loaded, both rankings tables say they could not load, as every other part of the page does when one of its reads fails.
+
+## The intro, for fun
+
+The scores arrived on time, but the name tags got lost in the post.
+
+## The punchline, for fun
+
+Rather than seat everyone under their GitHub handle, the tables ask for a reload.
+
+## The options, in plain words
+
+A. Both tables say they could not load, the option built.
+B. Both tables show, each person named by their GitHub login, and the error kept in the server's log.
+C. The fleets table shows, and only the individuals table says it could not load.
+
+## What I had to decide
+
+What the rankings show when the season's galaxy is read but the workspace's players, whose display names the individuals wear, cannot be. The spec and the plan name only the galaxy's failure for the rankings.
+
+## What I did meanwhile
+
+The rankings' loader reads the galaxy and the workspace's players (loadCrew) in parallel; either failing throws, the page's settle logs the error and marks the whole part 'unreadable', and both tables read 'Couldn’t load this. Reload in a moment.'
+
+## What it costs to change later
+
+A few lines of the rankings' loader: catch the players' read, log it, and name every hero by login.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec and the plan say what the rankings show when the galaxy cannot be read, and do not name the players' read failing on its own (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-02-rankings-when-names-fail -->
+
+<!-- omni-outbox-settled: s4-01-week-axis-marks -->
+
+## s4-01-week-axis-marks — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-week-axis-marks
+prd: 328
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 2
+---
+
+## The question, in plain words
+
+The chart's side scale marks whole numbers from zero to the busiest day. On a busy week, should it mark every single number, even when there are a dozen of them stacked in a small space?
+
+## The decision, in plain words
+
+Up to five merges on the busiest day, every whole number is marked. Past five, the scale counts in round steps of two, five or ten, and always marks the busiest day's number at the top, so it never crowds.
+
+## The intro, for fun
+
+Twelve merges in one day is a great week, and a terrible ladder to print every rung of.
+
+## The punchline, for fun
+
+So past five the scale skips rungs, and the top one always shows the record.
+
+## The options, in plain words
+
+A. Every whole number up to five, then round steps with the busiest day's number at the top, the option built.
+B. Every whole number, however many, the marks growing closer as the week gets busier.
+C. Only zero and the busiest day's number, whatever the week.
+
+## What I had to decide
+
+How the week chart's y-axis marks its whole numbers when the busiest day has more than five merges: every whole number, as the spec's words could be read, or a round step.
+
+## What I did meanwhile
+
+Every whole number from 0 to the busiest day while it is five or fewer; past five, the smallest step of 2, 5, 10, 20, 50 and so on that keeps five steps or fewer, plus the busiest day's own number at the top, dropping the step's last mark when it would sit within half a step of the top. The busiest bar always reaches the top mark, and no mark is ever a fraction.
+
+## What it costs to change later
+
+One small function in the week's folder and its tests: nothing is stored, and no other part reads it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the axis marks whole numbers only, from 0 to the highest bar, and its sketch shows a week of at most three; it does not say whether a busier week marks every number
+- (author) How busy a person's busiest day usually is was not measured: the table fills only once the game workflow runs
+
+```
+
+<!-- /omni-outbox-settled: s4-01-week-axis-marks -->
+
+<!-- omni-outbox-settled: s5-01-waiting-as-the-pages-show -->
+
+## s5-01-waiting-as-the-pages-show — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-waiting-as-the-pages-show
+prd: 328
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 2
+---
+
+## The question, in plain words
+
+The spec counts a question as waiting while it is still open. Some questions stay open after the terminal has taken them over, or after their session has closed: should the Waiting for you tile count those?
+
+## The decision, in plain words
+
+It counts a question only while the Omni page can still answer it, exactly as the questions page and the shared-with-me page show it. A question the terminal already took over, or one in a closed session, does not count.
+
+## The intro, for fun
+
+A question left open by a terminal that went home is still, technically, open.
+
+## The punchline, for fun
+
+So the tile only counts the ones someone could actually answer right now.
+
+## The options, in plain words
+
+A. Count only the questions the page can still answer, as the questions pages show them (the option built).
+B. Count every question still marked open, as the spec words it, even one the terminal took over or one in a closed session.
+
+## What I had to decide
+
+Whether Waiting for you counts every question whose round is still open, as the spec words it, or only those the page it links to would show as waiting.
+
+## What I did meanwhile
+
+waitingCount runs the ask pages' own rules over what readTabs and readForMe return: a session's newest open round counts while it is under nine minutes old (the hook's wait) and its session is not closed, as the tab list shows it needing you; a shared open round counts while forMeList would list it. The tile and the pages it links to always agree.
+
+## What it costs to change later
+
+One function in the counts' folder: dropping the time rule is two lines, and nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) whether a round is always marked as moved when its terminal stops waiting, which would make the spec's literal rule agree with the pages, was not checked against the stored rounds
+
+```
+
+<!-- /omni-outbox-settled: s5-01-waiting-as-the-pages-show -->
+
+<!-- omni-outbox-settled: s5-02-ask-counts-across-workspaces -->
+
+## s5-02-ask-counts-across-workspaces — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s5
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-ask-counts-across-workspaces
+prd: 328
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 2
+---
+
+## The question, in plain words
+
+Someone can belong to several workspaces, and the dashboard shows one of them. Should Questions answered and Waiting for you count only that workspace's questions, or all of that person's questions?
+
+## The decision, in plain words
+
+They count all of the person's questions, as the questions pages do, since a question waiting in another workspace still waits for them. Outbox settled and PRDs created count only the workspace shown, like the rest of the dashboard.
+
+## The intro, for fun
+
+Two workspaces, one pile of questions, and a dashboard that can only wear one badge.
+
+## The punchline, for fun
+
+The game's numbers stay home, and the questions follow you wherever you go.
+
+## The options, in plain words
+
+A. Count the person's questions in every workspace, as the questions pages do (the option built).
+B. Count only the questions of the workspace the dashboard shows, and let the page the tile links to show more than the tile.
+
+## What I had to decide
+
+Whether the two counts read from the ask tables are narrowed to the workspace the dashboard shows, as the part contract says of every read, or read as the ask pages read them, across every workspace the person belongs to.
+
+## What I did meanwhile
+
+Questions answered counts the rounds the person answered in any workspace they can read; Waiting for you uses readTabs and readForMe unchanged, which read every workspace. Outbox settled and PRDs created filter on the workspace shown. For a person in one workspace, both readings give the same numbers.
+
+## What it costs to change later
+
+One filter per read in the counts' folder; nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) how many people belong to more than one workspace today was not checked
+- (author) the part contract's line that every read filters on the workspace was written before the ask reads were built, and the spec's data table names no workspace for them
+
+```
+
+<!-- /omni-outbox-settled: s5-02-ask-counts-across-workspaces -->
