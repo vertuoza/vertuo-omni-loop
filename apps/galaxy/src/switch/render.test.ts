@@ -130,9 +130,11 @@ describe('the stylesheets', () => {
     expect(onGround.join()).not.toContain("data-ask-theme='light'");
   });
 
-  it('keeps only the app bar in home.css: PRD 238\'s card styles went with the menu (PRD 328)', () => {
-    const css = readFileSync(new URL('./home.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-    expect(css).toMatch(/\.app-bar-end \{[^}]*flex-wrap: wrap;/);
-    expect(css).not.toMatch(/\.app-(card|cards|intro|heading|line|home)\b/);
+  it('keeps nothing of /app in home.css: the bar is the top bar\'s (PRD 346), the cards went with the menu (PRD 328)', () => {
+    const strip = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
+    const home = strip(readFileSync(new URL('./home.css', import.meta.url), 'utf8'));
+    expect(home.trim()).toBe('');
+    const nav = strip(readFileSync(new URL('../nav/nav.css', import.meta.url), 'utf8'));
+    expect(nav).toMatch(/\.top-bar-end \{[^}]*flex-wrap: wrap;/);
   });
 });
