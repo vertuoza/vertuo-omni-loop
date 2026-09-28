@@ -30,7 +30,9 @@ export function firstAdded(root: string, paths: string[], run: Git = git): Map<s
   // Newest first: each older addition of a path replaces the one read before it.
   for (const record of log.split(RECORD).slice(1)) {
     const [header, ...files] = record.split('\n');
-    const [commit, committedAt] = header.trim().split(' ');
+    const [commit, date] = header.trim().split(' ');
+    // Git 2.50 and later print a UTC date as `Z`, earlier ones as `+00:00`: keep one form either way.
+    const committedAt = date.replace(/Z$/, '+00:00');
     for (const file of files) if (file !== '') found.set(file, { commit, committedAt });
   }
   return found;

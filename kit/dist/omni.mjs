@@ -43,7 +43,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: null };
   }
 });
 
@@ -342,13 +342,13 @@ var require_directives = __commonJS({
               onError(0, "%YAML directive should contain exactly one part");
               return false;
             }
-            const [version] = parts;
-            if (version === "1.1" || version === "1.2") {
-              this.yaml.version = version;
+            const [version2] = parts;
+            if (version2 === "1.1" || version2 === "1.2") {
+              this.yaml.version = version2;
               return true;
             } else {
-              const isValid2 = /^\d+\.\d+$/.test(version);
-              onError(6, `Unsupported YAML version ${version}`, isValid2);
+              const isValid2 = /^\d+\.\d+$/.test(version2);
+              onError(6, `Unsupported YAML version ${version2}`, isValid2);
               return false;
             }
           }
@@ -3493,14 +3493,14 @@ var require_Document = __commonJS({
           version: "1.2"
         }, options);
         this.options = opt2;
-        let { version } = opt2;
+        let { version: version2 } = opt2;
         if (options?._directives) {
           this.directives = options._directives.atDocument();
           if (this.directives.yaml.explicit)
-            version = this.directives.yaml.version;
+            version2 = this.directives.yaml.version;
         } else
-          this.directives = new directives.Directives({ version });
-        this.setSchema(version, options);
+          this.directives = new directives.Directives({ version: version2 });
+        this.setSchema(version2, options);
         this.contents = value === void 0 ? null : this.createNode(value, _replacer, options);
       }
       /**
@@ -3680,11 +3680,11 @@ var require_Document = __commonJS({
        *
        * Overrides all previously set schema options.
        */
-      setSchema(version, options = {}) {
-        if (typeof version === "number")
-          version = String(version);
+      setSchema(version2, options = {}) {
+        if (typeof version2 === "number")
+          version2 = String(version2);
         let opt2;
-        switch (version) {
+        switch (version2) {
           case "1.1":
             if (this.directives)
               this.directives.yaml.version = "1.1";
@@ -3695,9 +3695,9 @@ var require_Document = __commonJS({
           case "1.2":
           case "next":
             if (this.directives)
-              this.directives.yaml.version = version;
+              this.directives.yaml.version = version2;
             else
-              this.directives = new directives.Directives({ version });
+              this.directives = new directives.Directives({ version: version2 });
             opt2 = { resolveKnownTags: true, schema: "core" };
             break;
           case null:
@@ -3706,7 +3706,7 @@ var require_Document = __commonJS({
             opt2 = null;
             break;
           default: {
-            const sv = JSON.stringify(version);
+            const sv = JSON.stringify(version2);
             throw new Error(`Expected '1.1', '1.2' or null as first argument, but found: ${sv}`);
           }
         }
@@ -8461,11 +8461,11 @@ function datetimeRegex(args) {
   regex = `${regex}(${opts.join("|")})`;
   return new RegExp(`^${regex}$`);
 }
-function isValidIP(ip, version) {
-  if ((version === "v4" || !version) && ipv4Regex.test(ip)) {
+function isValidIP(ip, version2) {
+  if ((version2 === "v4" || !version2) && ipv4Regex.test(ip)) {
     return true;
   }
-  if ((version === "v6" || !version) && ipv6Regex.test(ip)) {
+  if ((version2 === "v6" || !version2) && ipv6Regex.test(ip)) {
     return true;
   }
   return false;
@@ -8492,11 +8492,11 @@ function isValidJWT(jwt, alg) {
     return false;
   }
 }
-function isValidCidr(ip, version) {
-  if ((version === "v4" || !version) && ipv4CidrRegex.test(ip)) {
+function isValidCidr(ip, version2) {
+  if ((version2 === "v4" || !version2) && ipv4CidrRegex.test(ip)) {
     return true;
   }
-  if ((version === "v6" || !version) && ipv6CidrRegex.test(ip)) {
+  if ((version2 === "v6" || !version2) && ipv6CidrRegex.test(ip)) {
     return true;
   }
   return false;
@@ -17368,7 +17368,7 @@ var isText4 = (value) => typeof value === "string" && value.length > 0;
 function addedLine({ added, unchanged }) {
   const got = Array.isArray(added) ? added.filter((a) => isText4(a?.kind) && Number.isInteger(a?.version)) : [];
   const kept = Array.isArray(unchanged) ? unchanged.filter(isText4) : [];
-  const parts = [`added: ${got.length ? got.map(({ kind, version }) => `${kind} v${version}`).join(", ") : "none"}`];
+  const parts = [`added: ${got.length ? got.map(({ kind, version: version2 }) => `${kind} v${version2}`).join(", ") : "none"}`];
   if (kept.length) parts.push(`unchanged: ${kept.join(", ")}`);
   return parts.join(" \xB7 ");
 }
@@ -18717,6 +18717,15 @@ var ENTRIES = deepFreeze([
     detail: "A PRD's dossier on the Omni page, where the whole workspace reads every version of its spec, plan and before/after. open opens a draft for an idea and prints its link; push sends PRD n's files and adds a version only where a file changed; status says whether dossiers are on here. It never holds up the skill that runs it: anything that stops it exits 1 with one line."
   },
   {
+    name: "version",
+    kind: "command",
+    who: "you",
+    usage: ["omni version", "omni --version"],
+    label: "omni version",
+    summary: "which kit runs, and whether a newer one exists",
+    detail: "The version of the kit this omni runs, marked (source) when it runs from the kit source, or (unversioned) for a build that carries none. It then asks GitHub, through gh, for the kit's latest release, for up to 5 seconds: (latest) when it is the one running, a second line saying to run omni update when a newer one exists, nothing more when GitHub does not answer. It needs no config, and always exits 0."
+  },
+  {
     name: "help",
     kind: "command",
     who: "you",
@@ -19107,12 +19116,13 @@ var help = {
 
 // kit/bin/commands/init.mjs
 init_define_OMNI_BUNDLE();
-import { chmodSync as chmodSync3, copyFileSync, existsSync as existsSync32, mkdirSync as mkdirSync9, readFileSync as readFileSync28, writeFileSync as writeFileSync12 } from "node:fs";
+import { chmodSync as chmodSync3, copyFileSync, existsSync as existsSync32, mkdirSync as mkdirSync9, readFileSync as readFileSync29, writeFileSync as writeFileSync12 } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import { dirname as dirname12, join as join36, posix as posix4 } from "node:path";
 
 // kit/lib/init/bundle.mjs
 init_define_OMNI_BUNDLE();
+import { readFileSync as readFileSync26 } from "node:fs";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 var MARKER2 = typeof define_OMNI_BUNDLE_default === "undefined" ? null : define_OMNI_BUNDLE_default;
 function runningBundle() {
@@ -19126,6 +19136,17 @@ function kitHome({ exec }) {
   } catch {
     return null;
   }
+}
+function runningKit({ exec }) {
+  if (MARKER2) return { home: MARKER2.home ?? null, version: MARKER2.version ?? null, source: false };
+  let version2 = null;
+  try {
+    const pkg = JSON.parse(readFileSync26(fileURLToPath2(new URL("../../../package.json", import.meta.url)), "utf8"));
+    version2 = typeof pkg.version === "string" && pkg.version ? pkg.version : null;
+  } catch {
+    version2 = null;
+  }
+  return { home: kitHome({ exec }), version: version2, source: true };
 }
 function installCommand(home) {
   return `npx ${home ? `github:${home}` : "github:<owner>/<kit repository>"} init`;
@@ -19164,13 +19185,13 @@ function renderConfig({ slug, defaultBranch, commands, lawsSource }) {
 
 // kit/lib/init/detect.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync29, readFileSync as readFileSync26 } from "node:fs";
+import { existsSync as existsSync29, readFileSync as readFileSync27 } from "node:fs";
 import { join as join33 } from "node:path";
 var COMMAND_KEYS = Object.freeze(["test", "preflight", "preflightFull"]);
 var NONE = Object.freeze({ test: null, preflight: null, preflightFull: null });
 function readJson2(file) {
   try {
-    return JSON.parse(readFileSync26(file, "utf8"));
+    return JSON.parse(readFileSync27(file, "utf8"));
   } catch {
     return {};
   }
@@ -19198,7 +19219,7 @@ function fromComposer(root) {
   return { test, preflight, preflightFull: preflight };
 }
 function fromMakefile(root) {
-  const text3 = readFileSync26(join33(root, "Makefile"), "utf8");
+  const text3 = readFileSync27(join33(root, "Makefile"), "utf8");
   const target = (name) => new RegExp(`^${name}\\s*:(?!=)`, "m").test(text3);
   const test = target("test") ? "make test" : null;
   const preflight = target("preflight") ? "make preflight" : test;
@@ -19218,7 +19239,7 @@ function detectLawsSource({ ctx }) {
   if (principles.length + rules.length + invariants.length > 0) return "knowledge";
   const claudeMd = join33(ctx.root, "CLAUDE.md");
   const heading = ctx.config.laws.claudeMdHeading;
-  if (existsSync29(claudeMd) && readFileSync26(claudeMd, "utf8").split("\n").some((line) => line.trim() === heading)) {
+  if (existsSync29(claudeMd) && readFileSync27(claudeMd, "utf8").split("\n").some((line) => line.trim() === heading)) {
     return "claudeMdInvariants";
   }
   return "none";
@@ -19277,7 +19298,7 @@ function reconcileLabels(root, { exec, labels }) {
 
 // kit/lib/init/notices.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync30, readdirSync as readdirSync14, readFileSync as readFileSync27 } from "node:fs";
+import { existsSync as existsSync30, readdirSync as readdirSync14, readFileSync as readFileSync28 } from "node:fs";
 import { join as join34 } from "node:path";
 var WORKFLOWS = join34(".github", "workflows");
 var PRETTIER_CONFIGS = [
@@ -19299,7 +19320,7 @@ var PRETTIER_IGNORE = ".prettierignore";
 var BIOME_CONFIGS = ["biome.json", "biome.jsonc"];
 function read(root, path) {
   try {
-    return readFileSync27(join34(root, path), "utf8");
+    return readFileSync28(join34(root, path), "utf8");
   } catch {
     return null;
   }
@@ -19526,7 +19547,7 @@ var init = {
     const configPath = join36(root, CONFIG_FILE);
     const binPath = join36(root, BIN_FILE);
     const keepConfig = !force && existsSync32(configPath);
-    let config2 = keepConfig ? parseConfig(readFileSync28(configPath, "utf8"), CONFIG_FILE) : null;
+    let config2 = keepConfig ? parseConfig(readFileSync29(configPath, "utf8"), CONFIG_FILE) : null;
     const copyBin = force || !existsSync32(binPath);
     if (copyBin && !bundle) {
       throw usageError(
@@ -19571,7 +19592,7 @@ var init = {
 
 // kit/bin/commands/item.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync33, mkdirSync as mkdirSync10, readFileSync as readFileSync29, writeFileSync as writeFileSync13 } from "node:fs";
+import { existsSync as existsSync33, mkdirSync as mkdirSync10, readFileSync as readFileSync30, writeFileSync as writeFileSync13 } from "node:fs";
 import { basename as basename7, join as join37 } from "node:path";
 
 // kit/lib/policy/outbox-policy.mjs
@@ -19898,7 +19919,7 @@ function spentIds(prd2, { ctx }) {
   );
   const settledFile = join37(ctx.root, outboxDir, SETTLED_FILE);
   if (existsSync33(settledFile)) {
-    for (const entry of parseSettledEntries(readFileSync29(settledFile, "utf8"), ctx.markers)) {
+    for (const entry of parseSettledEntries(readFileSync30(settledFile, "utf8"), ctx.markers)) {
       ids.add(entry.id);
     }
   }
@@ -20486,7 +20507,7 @@ var phase0 = {
 
 // kit/bin/commands/plan.mjs
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync30 } from "node:fs";
+import { readFileSync as readFileSync31 } from "node:fs";
 import { join as join38 } from "node:path";
 var USAGE11 = "usage: omni plan check <prd>";
 function duplicateIds(slices) {
@@ -20518,7 +20539,7 @@ function checkPlan(prd2, { ctx }) {
   if (planPath === null) throw usageError(`omni plan check: PRD ${prd2} has no inbox or shipped folder.`);
   let markdown;
   try {
-    markdown = readFileSync30(join38(ctx.root, planPath), "utf8");
+    markdown = readFileSync31(join38(ctx.root, planPath), "utf8");
   } catch (error) {
     if (error?.code === "ENOENT") throw usageError(`omni plan check: no plan at ${planPath}.`);
     throw error;
@@ -20622,7 +20643,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/outbox/replies.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync34, readFileSync as readFileSync31, writeFileSync as writeFileSync14 } from "node:fs";
+import { existsSync as existsSync34, readFileSync as readFileSync32, writeFileSync as writeFileSync14 } from "node:fs";
 import { join as join40 } from "node:path";
 var WRITER_ASSOCIATIONS = /* @__PURE__ */ new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 var NUMBERED_LINE = /^\s*(\d+)\s*:\s*(.+)$/;
@@ -20814,7 +20835,7 @@ function appendObjection({ ctx, prd: prd2, adoptedEntry, item: item2, answer, ju
   if (!existsSync34(absoluteSettled)) {
     return { ok: false, errors: [`${settledFile}: no ledger holds the adopted item ${item2.id}.`] };
   }
-  const existing = readFileSync31(absoluteSettled, "utf8");
+  const existing = readFileSync32(absoluteSettled, "utf8");
   const separator = existing.endsWith("\n") ? "\n" : "\n\n";
   const entry = renderSettledEntry({
     item: item2,
@@ -20936,7 +20957,7 @@ Outbox round ${result.round.number} (not posted \u2014 pass --post):
 
 // kit/bin/commands/rework.mjs
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync32, writeFileSync as writeFileSync15 } from "node:fs";
+import { readFileSync as readFileSync33, writeFileSync as writeFileSync15 } from "node:fs";
 import { join as join41 } from "node:path";
 
 // kit/lib/policy/rework.mjs
@@ -21113,7 +21134,7 @@ var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
   try {
-    return readFileSync32(join41(ctx.root, path), "utf8");
+    return readFileSync33(join41(ctx.root, path), "utf8");
   } catch (error) {
     if (error?.code === "ENOENT") return "";
     throw error;
@@ -21291,7 +21312,7 @@ import { appendFileSync } from "node:fs";
 // kit/lib/status/facts.mjs
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync9 } from "node:child_process";
-import { readFileSync as readFileSync33, rmSync as rmSync6, statSync as statSync4, utimesSync, writeFileSync as writeFileSync16 } from "node:fs";
+import { readFileSync as readFileSync34, rmSync as rmSync6, statSync as statSync4, utimesSync, writeFileSync as writeFileSync16 } from "node:fs";
 import { resolve as resolve2 } from "node:path";
 function git3(ctx, exec, args) {
   return exec("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -21348,7 +21369,7 @@ function snapshot(path) {
   if (path === null) return null;
   try {
     const stat = statSync4(path);
-    return { path, bytes: readFileSync33(path), atime: stat.atime, mtime: stat.mtime };
+    return { path, bytes: readFileSync34(path), atime: stat.atime, mtime: stat.mtime };
   } catch {
     return { path, bytes: null };
   }
@@ -21743,8 +21764,58 @@ var status2 = {
   }
 };
 
+// kit/bin/commands/version.mjs
+init_define_OMNI_BUNDLE();
+
+// kit/lib/version/version.mjs
+init_define_OMNI_BUNDLE();
+var VERSION = /^v?(\d+)\.(\d+)\.(\d+)$/;
+function parseVersion(text3) {
+  const match = VERSION.exec(String(text3 ?? "").trim());
+  return match ? `${match[1]}.${match[2]}.${match[3]}` : null;
+}
+function compareVersions(a, b) {
+  const [pa, pb] = [a, b].map((v) => v.split(".").map(Number));
+  for (let i = 0; i < 3; i += 1) if (pa[i] !== pb[i]) return pa[i] - pb[i];
+  return 0;
+}
+function latestRelease({ home, exec, timeoutMs = 5e3 }) {
+  if (!home) return null;
+  try {
+    const out = exec("gh", ["release", "view", "--repo", home, "--json", "tagName", "--jq", ".tagName"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: timeoutMs
+    });
+    return parseVersion(out);
+  } catch {
+    return null;
+  }
+}
+function versionLines({ version: version2, source, latest }) {
+  const first = `omni ${version2 ? `v${version2}` : "(unversioned)"}${source ? " (source)" : ""}`;
+  if (!version2 || !latest) return [first];
+  const order = compareVersions(version2, latest);
+  if (order === 0) return [`${first} (latest)`];
+  if (order < 0) return [first, `latest v${latest}, run: omni update`];
+  return [first];
+}
+
+// kit/bin/commands/version.mjs
+var version = {
+  withoutContext: true,
+  async run(args, { stdout, exec, kit }) {
+    const { positional } = parseArgs("version", args);
+    if (positional.length) throw usageError("usage: omni version");
+    const running = kit ?? runningKit({ exec });
+    const latest = running.version ? latestRelease({ home: running.home, exec }) : null;
+    for (const line of versionLines({ ...running, latest })) println(stdout, line);
+    return 0;
+  }
+};
+
 // kit/bin/commands/index.mjs
-var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, init, ask, signin, signout, whoami, sign, credits, dossier, help });
+var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, init, ask, signin, signout, whoami, sign, credits, dossier, version, help });
 
 // kit/bin/omni.mjs
 var USAGE16 = `usage: omni <command> [args]
@@ -21752,9 +21823,10 @@ commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 omni help: what each command does
 `;
 var HELP_FLAGS = ["--help", "-h"];
+var VERSION_FLAG = "--version";
 async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync10, env = process.env, ...more } = {}) {
   const [first, ...rest] = argv;
-  const name = HELP_FLAGS.includes(first) ? "help" : first;
+  const name = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
   const command = Object.hasOwn(COMMAND_TABLE, name ?? "") ? COMMAND_TABLE[name] : void 0;
   if (!command) {
     stderr.write(USAGE16);
