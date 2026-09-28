@@ -1,0 +1,20 @@
+/* The order form's spread (HOME, PRD 285). Every colour and face is a variable from
+   @omni/design; nothing here is declared on :root. */
+
+/* The order form, in a double yellow rule. */
+.home-order {
+  display: grid;
+  gap: 14px;
+  border: 4px double var(--yellow);
+  padding: 18px;
+  background: var(--void);
+}
+.home-order-call {
+  font: 400 clamp(18px, 2.2vw, 24px)/1.05 var(--font-display);
+  text-transform: uppercase;
+  color: var(--yellow);
+}
+.home-order-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.home-fine { font-size: 12px; color: var(--dim); }
+.home-psst { font: 10px/1.6 var(--font-pixel); color: var(--dim); }
+.home-psst kbd { font: inherit; color: var(--yellow); }
