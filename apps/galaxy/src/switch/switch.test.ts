@@ -9,12 +9,13 @@ import { APP_HOME, GAME_HOME, SECTIONS } from './switch';
 const pageOf = (path: string) => new URL(`../../app${path}/page.tsx`, import.meta.url);
 
 describe('the app\'s sections', () => {
-  it('are Questions, For me, History and Knowledge map, in that order: no Release notes', () => {
+  it('are Questions, For me, History, Knowledge map and Fleets, in that order: no Release notes', () => {
     expect(SECTIONS.map((s) => [s.title, s.path])).toEqual([
       ['Questions', '/ask'],
       ['For me', '/ask/for-me'],
       ['History', '/ask/history'],
       ['Knowledge map', '/knowledge'],
+      ['Fleets', '/app/fleets'],
     ]);
   });
 
@@ -24,6 +25,7 @@ describe('the app\'s sections', () => {
       'Questions a teammate shared with you',
       'Every question your workspace was asked',
       'Principles, rules and invariants, as a map',
+      'Your workspace’s fleets, set up by its owner',
     ]);
   });
 
