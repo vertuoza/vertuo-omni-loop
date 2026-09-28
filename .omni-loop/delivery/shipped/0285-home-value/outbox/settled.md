@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-28
 - Slice: s2
 - Wave: 1
+- Stays here: A local copy and layout choice for one image, changed in one line; no lasting rule, invariant or build decision, and nothing in the knowledge base covers it.
 
 ### The answer, as it was given
 
