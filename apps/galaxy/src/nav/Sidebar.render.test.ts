@@ -3,7 +3,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WaitingView } from '../waiting/view';
-import type { WaitingQuestion } from '../waiting/waiting';
+import type { WaitingOutbox, WaitingQuestion } from '../waiting/waiting';
 import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
 
 // The app's sidebar as the server renders it (PRD 438): the crest, the workspace's name, the Work
@@ -23,10 +23,11 @@ const waiting = (questions: WaitingQuestion[]): WaitingView => ({ questions, unr
 
 const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, workspaceName: 'Acme', waiting: waiting(FIVE) };
 
-const render = (viewer: ViewerView = ADA, path: string | null = '/app') => {
+const render = (viewer: ViewerView = ADA, path: string | null = '/app', outbox: WaitingOutbox[] = []) => {
   at.path = path;
-  return renderToStaticMarkup(createElement(WaitingProvider, { view: viewer.waiting, children: createElement(Sidebar, { viewer }) }));
+  return renderToStaticMarkup(createElement(WaitingProvider, { view: viewer.waiting, outbox, children: createElement(Sidebar, { viewer }) }));
 };
+const gate = (id: string): WaitingOutbox => ({ kind: 'outbox', id, prd: 459, dossierId: 'd459', title: 'Gate', rank: 'high', question: 'Why?' });
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 const links = (html: string) => [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)].map((m) => ({ attrs: m[1], text: text(m[2]) }));
 
@@ -71,6 +72,11 @@ describe('the sidebar', () => {
     const html = render({ ...ADA, waiting: waiting([question('a')]) });
     expect(html).toMatch(/aria-label="Questions: 1 waiting">Questions<span class="app-sidebar-badge" aria-hidden="true">1<\/span>/);
     expect(html).toMatch(/<a class="app-sidebar-item" href="\/ask\/for-me">Shared with me<\/a>/);
+  });
+
+  it('shows the Outbox part\'s count on PRDs, and none at 0', () => {
+    expect(render(ADA, '/app', [gate('a'), gate('b')])).toMatch(/<a class="app-sidebar-item" href="\/prd" aria-label="PRDs: 2 waiting">PRDs<span class="app-sidebar-badge" aria-hidden="true">2<\/span><\/a>/);
+    expect(render()).toMatch(/<a class="app-sidebar-item" href="\/prd">PRDs<\/a>/);
   });
 
   it('shows no badge at 0, nor signed out', () => {
