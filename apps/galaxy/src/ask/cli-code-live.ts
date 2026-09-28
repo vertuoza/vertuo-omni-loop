@@ -1,13 +1,20 @@
 import 'server-only';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
+import { serviceDb } from '../data/sign-in-live';
 import { supabaseEnv } from '../data/supabase-server';
-import type { CliCallbackDeps, CliSession, TokenClient, TokenDeps } from './cli-code';
+import { installUrl } from '../signup/github-app';
+import { CODE_TTL_MS, type CliCallbackDeps, type CliSession, type Placement, type TokenClient, type TokenDeps } from './cli-code';
 
 // The terminal's sign-in, wired to the real Supabase (src/ask/cli-code.ts says what each step does).
-// Never a service key: the callback acts as the sign-in it just made, and /api/ask/token acts as
-// nobody; the code table is reached only through its two functions. Without Supabase configured
-// (the demo galaxy, a closed build) every step answers that ask mode is not available here.
+// The callback acts as the sign-in it just made, and /api/ask/token trades codes and tokens acting as
+// nobody; the code table is reached through its two functions. The service role
+// (SUPABASE_SERVICE_ROLE_KEY, server only) does two things only, both for PRD 459: it issues the code
+// of a person in no workspace, whom ask_cli_code_issue() still refuses, and it asks repo_workspace()
+// where the repository the terminal named goes, which no signed-in role may call. Without that key
+// the first sign-in is not handed over and the second says nothing; the sign-in itself still works.
+// Without Supabase configured (the demo galaxy, a closed build) every step answers that ask mode is
+// not available here.
 
 type Env = { url: string; key: string };
 type Cookie = { name: string; value: string };
@@ -59,7 +66,22 @@ export function cliCallbackDeps(cookies: Cookie[]): { deps: CliCallbackDeps; spe
         p_code_hash: codeHash,
         p_refresh_token: session.refresh_token,
       });
-      return { error: error ? { message: error.message } : null };
+      return { error: error ? { message: error.message, code: error.code } : null };
+    },
+    async issueOutsideWorkspaces(session, codeHash) {
+      try {
+        const db = serviceDb();
+        await db.from('ask_cli_codes').delete().lt('expires_at', new Date().toISOString());
+        const { error } = await db.from('ask_cli_codes').insert({
+          code_hash: codeHash,
+          owner: session.user.id,
+          refresh_token: session.refresh_token,
+          expires_at: new Date(Date.now() + CODE_TTL_MS).toISOString(),
+        });
+        return { error: error ? { message: error.message } : null };
+      } catch (error) {
+        return { error: { message: error instanceof Error ? error.message : String(error) } };
+      }
     },
     async revoke(session) {
       if (env) await revokeToken(env, session.access_token);
@@ -81,5 +103,19 @@ export function tokenDeps(): TokenDeps {
       };
     },
     revoke: (accessToken) => revokeToken(env, accessToken),
+    place: placeRepo,
+    installLink: installUrl(process.env.GITHUB_APP_SLUG),
   };
+}
+
+/** repo_workspace() for a person and a repository, as the service role, with the workspace's slug and name. */
+async function placeRepo(userId: string, repo: string): Promise<Placement> {
+  const db = serviceDb();
+  const { data, error } = await db.rpc('repo_workspace', { person: userId, repo });
+  if (error) throw new Error(`repo_workspace: ${error.message}`);
+  const row = (Array.isArray(data) ? data[0] : data) as { workspace_id?: string | null; refusal?: string | null } | null;
+  if (!row?.workspace_id) return { workspace: null, reason: row?.refusal ?? null };
+  const { data: found, error: readError } = await db.from('workspaces').select('slug, name').eq('id', row.workspace_id).maybeSingle();
+  if (readError || !found) throw new Error(`workspaces: ${readError?.message ?? 'not found'}`);
+  return { workspace: { slug: String(found.slug), name: String(found.name) }, reason: null };
 }

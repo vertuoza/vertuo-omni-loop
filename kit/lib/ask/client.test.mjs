@@ -160,6 +160,18 @@ describe('the ask contract client', () => {
     const { client } = await setUp();
     await expect(client.openRound('no-such-session', QUESTIONS)).rejects.toMatchObject({ status: 404 });
   });
+
+  it('a refused call keeps the server\'s reason, and none when the reply carries none (PRD 459)', async () => {
+    const tokens = memoryTokens({ 'omni.example': { access_token: 'access-1', refresh_token: 'refresh-1' } });
+    const reply = (status, body) => async () => new Response(body, { status });
+    const reason = 'you are not a member of Globex, which owns globex/web';
+    const refused = askClient({ baseUrl: 'https://omni.example', host: 'omni.example', tokens, fetch: reply(403, JSON.stringify({ error: reason })) });
+    await expect(refused.openSession('t')).rejects.toMatchObject({ name: 'AskCallError', status: 403, reason });
+    for (const body of ['', '{}', 'not json', JSON.stringify({ error: 7 }), JSON.stringify({ error: '  ' })]) {
+      const bare = askClient({ baseUrl: 'https://omni.example', host: 'omni.example', tokens, fetch: reply(403, body) });
+      await expect(bare.openSession('t'), body).rejects.toMatchObject({ status: 403, reason: null });
+    }
+  });
 });
 
 describe('the dossier calls (PRD 216)', () => {
@@ -218,5 +230,50 @@ describe('the dossier lookup (PRD 413)', () => {
   it('a PRD with no dossier is a refusal carrying 404', async () => {
     const { client } = stubbed(() => new Response('{}', { status: 404 }));
     await expect(client.findDossier({ repo: 'acme/widgets', prd: 7 })).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+describe('where a repository\'s questions land (PRD 459)', () => {
+  const ACME = { workspace: { slug: 'acme', name: 'Acme' }, reason: null };
+
+  it('asks GET /api/ask/workspace with the repository, and answers the page\'s reply', async () => {
+    const { client } = await setUp({ place: (repo) => (repo === 'acme/widgets' ? ACME : { workspace: null, reason: 'no' }) });
+    expect(await client.whereQuestionsGo('acme/widgets')).toEqual(ACME);
+    expect(server.calls.map((call) => `${call.method} ${call.path} ${call.authorization}`)).toEqual(['GET /api/ask/workspace Bearer access-1']);
+  });
+
+  it('sends the repository encoded as a query', async () => {
+    const seen = [];
+    const tokens = memoryTokens({ 'omni.example': { access_token: 'access-1' } });
+    const fetch = async (url) => { seen.push(url); return new Response(JSON.stringify(ACME), { status: 200 }); };
+    await askClient({ baseUrl: 'https://omni.example', host: 'omni.example', tokens, fetch }).whereQuestionsGo('acme/web.site');
+    expect(seen).toEqual(['https://omni.example/api/ask/workspace?repo=acme%2Fweb.site']);
+  });
+
+  it('from a server older than the call, is a 404 error', async () => {
+    const { client } = await setUp();
+    await expect(client.whereQuestionsGo('acme/widgets')).rejects.toMatchObject({ name: 'AskCallError', status: 404 });
+  });
+});
+
+describe('a renewed sign-in keeps only the sign-in', () => {
+  const EXTRAS = { login: 'ada', workspace: { slug: 'acme', name: 'Acme' }, reason: null };
+
+  it('on a 401\'s refresh, keeps the tokens, the email and the login, not where a repository went', async () => {
+    const { client, tokens } = await setUp({ tokenExtras: EXTRAS }, { access_token: 'access-1', refresh_token: 'refresh-1', email: 'ada@example.com' });
+    const { id } = server.openSession();
+    server.expireAccess();
+    await client.openRound(id, QUESTIONS);
+    expect(tokens.store[server.host]).toEqual({
+      access_token: 'access-2', refresh_token: 'refresh-2', expires_at: expect.any(Number), email: 'person@example.com', login: 'ada',
+    });
+  });
+
+  it('on renew(), the same', async () => {
+    const { client, tokens } = await setUp({ tokenExtras: EXTRAS }, { access_token: 'access-1', refresh_token: 'refresh-1', login: 'ada' });
+    expect(await client.renew()).toBe('renewed');
+    expect(tokens.store[server.host]).toEqual({
+      access_token: 'access-2', refresh_token: 'refresh-2', expires_at: expect.any(Number), email: 'person@example.com', login: 'ada',
+    });
   });
 });

@@ -715,9 +715,12 @@ begin
 end $$;
 
 -- Una is in no org with a workspace, so she joined none; the session she opened
--- when an address was enough is still hers.
+-- when an address was enough is still hers. Written as it was then, with no workspace, past the
+-- trigger that now refuses a session with nowhere to go (PRD 459).
+alter table public.ask_sessions disable trigger ask_sessions_place;
 insert into public.ask_sessions (id, owner, title) values
   ('00000000-0000-4000-8000-0000000a5a01', '00000000-0000-4000-8000-000000000011', 'una, from before');
+alter table public.ask_sessions enable trigger ask_sessions_place;
 insert into public.ask_rounds (id, session_id, questions) values
   ('00000000-0000-4000-8000-0000000a5a02', '00000000-0000-4000-8000-0000000a5a01', '[{"question": "Still there?"}]');
 

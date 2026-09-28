@@ -44,7 +44,7 @@
   width: 36px;
   height: 36px;
   padding: 0;
-  border: 1.5px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   border-radius: 6px;
   background: var(--ask-surface);
   color: var(--ask-ink);

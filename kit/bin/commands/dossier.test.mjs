@@ -133,6 +133,16 @@ describe('omni dossier link skips as open and push do', () => {
     expect(await link(['7'], { root, fetch })).toEqual({ code: 1, out: '', err: 'refused (500)\n' });
   });
 
+  it('a refusal with a reason prints it after the status, on one line (PRD 459)', async () => {
+    const { root } = checkout();
+    const reason = 'you are not a member of Globex, which owns globex/web';
+    expect(await link(['7'], { root, fetch: stubFetch(() => json(403, { error: reason })).fetch }))
+      .toEqual({ code: 1, out: '', err: `refused (403): ${reason}\n` });
+    expect(await link(['7'], { root, fetch: stubFetch(() => json(403, { error: 'two\nlines' })).fetch }))
+      .toEqual({ code: 1, out: '', err: 'refused (403): two lines\n' });
+    expect(await link(['7'], { root, fetch: stubFetch(() => json(403)).fetch })).toEqual({ code: 1, out: '', err: 'refused (403)\n' });
+  });
+
   it('a 401 after one refresh: refused (401)', async () => {
     const { root } = checkout();
     const { calls, fetch } = stubFetch((url) => (url.endsWith('/api/ask/token') ? json(200, { access_token: 'access-2' }) : json(401)));
@@ -166,5 +176,33 @@ describe('omni dossier link refuses what it cannot run', () => {
     }
     for (const args of [[], ['x']]) expect((await link(args, { root, fetch })).err).toMatch(/^usage: .*omni dossier link <n>/);
     expect(calls).toEqual([]);
+  });
+});
+
+describe('omni dossier open and push print the server\'s reason (PRD 459)', () => {
+  const REASON = 'no workspace owns acme/widgets yet — install the Omni App: https://github.com/apps/omni-loop-invader/installations/new';
+
+  async function run(args, { root, fetch }) {
+    const out = [];
+    const err = [];
+    const code = await main(['dossier', ...args], {
+      cwd: root, tokens: signedIn(), env: {}, fetch,
+      stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) },
+    });
+    return { code, out: out.join(''), err: err.join('') };
+  }
+
+  it('open: refused (403): <reason>, and no draft recorded', async () => {
+    const { root } = checkout();
+    expect(await run(['open', 'An idea'], { root, fetch: stubFetch(() => json(403, { error: REASON })).fetch }))
+      .toEqual({ code: 1, out: '', err: `refused (403): ${REASON}\n` });
+    expect(existsSync(join(root, DOSSIERS_FILE))).toBe(false);
+  });
+
+  it('push: refused (403): <reason>', async () => {
+    const { root, write } = checkout();
+    write('.omni-loop/delivery/inbox/0007-team-inbox/spec.md', '---\nprd: 7\ntitle: Team inbox\nblocked-by: none\nspec: file\n---\n\n# Team inbox\n');
+    expect(await run(['push', '7'], { root, fetch: stubFetch(() => json(403, { error: REASON })).fetch }))
+      .toEqual({ code: 1, out: '', err: `refused (403): ${REASON}\n` });
   });
 });

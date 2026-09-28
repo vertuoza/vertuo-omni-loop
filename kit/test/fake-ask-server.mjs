@@ -9,6 +9,9 @@
 // real server does: 400 for a malformed body, 404 for a draft it does not have, 413 past the body or
 // artifact cap.
 //
+// With `place`, it answers `GET /api/ask/workspace?repo=owner/name` (PRD 459) with what `place(repo)`
+// returns, `{ workspace, reason }`; without it, that call is a 404, as from a server older than it.
+//
 // In a test:   const server = await startFakeAskServer({ answer: (round) => ({ ... }) });
 // By hand:     node kit/test/fake-ask-server.mjs [--port <p>] [--answer first|none] [--token <t>]
 //              prints one JSON line `{ url, host, sessionId, accessToken, refreshToken }`, then one
@@ -64,6 +67,9 @@ const sha256 = (content) => createHash('sha256').update(content, 'utf8').digest(
  *   answer?: (round: { id: string, questions: object[] }) => (Record<string, string> | null),
  *                                answers a round the moment it is posted, or leaves it open (null)
  *   onCall?: (call: object) => void,
+ *   place?: (repo: string) => ({ workspace: { slug: string, name: string } | null, reason: string | null }),
+ *                                where a repository's questions land; absent: the call is a 404
+ *   tokenExtras?: object,        more fields in every token reply (the real one adds login, workspace, reason)
  * }} [options]
  */
 export async function startFakeAskServer({
@@ -77,6 +83,8 @@ export async function startFakeAskServer({
   onCall = () => {},
   dossierBodyBytes = 2 * 1024 * 1024,
   artifactBytes = 512 * 1024,
+  place = null,
+  tokenExtras = {},
 } = {}) {
   const access = new Set([accessToken]);
   const refresh = new Set([refreshToken]);
@@ -98,7 +106,7 @@ export async function startFakeAskServer({
 
   function issueTokens() {
     issued += 1;
-    const tokens = { access_token: `access-${issued}`, refresh_token: `refresh-${issued}`, expires_at: Date.now() + 3600_000, email };
+    const tokens = { access_token: `access-${issued}`, refresh_token: `refresh-${issued}`, expires_at: Date.now() + 3600_000, email, ...tokenExtras };
     access.add(tokens.access_token);
     refresh.add(tokens.refresh_token);
     return tokens;
@@ -215,6 +223,11 @@ export async function startFakeAskServer({
     if (method === 'POST' && path === '/api/dossiers/push') {
       const { status, body: reply } = pushDossier(body, raw);
       return json(response, status, reply);
+    }
+    if (method === 'GET' && path === '/api/ask/workspace' && place) {
+      const repo = new URL(request.url, 'http://fake').searchParams.get('repo') ?? '';
+      if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) return json(response, 400, { error: '`repo` must be the repository as owner/name.' });
+      return json(response, 200, place(repo));
     }
     if (method === 'POST' && path === '/api/ask/sessions') return json(response, 200, openSession(body?.title, body?.context ?? null));
     if (method === 'POST' && (match = /^\/api\/ask\/sessions\/([^/]+)\/close$/.exec(path))) {

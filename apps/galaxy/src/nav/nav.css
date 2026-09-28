@@ -17,7 +17,7 @@
   white-space: nowrap;
   padding: 7px 10px;
   border-radius: 999px;
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   background: var(--ask-surface);
 }
 .ask a.top-bar-item:hover { border-color: var(--ask-muted); }

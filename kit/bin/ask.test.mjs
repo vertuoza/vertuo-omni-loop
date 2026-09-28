@@ -50,6 +50,11 @@ function runCli(args, { cwd, env = {} }) {
   });
 }
 
+/** The calls the server got, but the one asking where questions land (PRD 459). */
+const sessionCalls = () => server.calls.filter((call) => call.path !== '/api/ask/workspace');
+const WHERE = 'GET /api/ask/workspace';
+const whereCalls = () => server.calls.filter((call) => `${call.method} ${call.path}` === WHERE);
+
 let server;
 afterEach(async () => {
   await server?.close();
@@ -83,7 +88,7 @@ describe('omni ask on', () => {
     expect(run.code).toBe(0);
     expect(run.out()).toBe(`${server.url}/ask\n`);
     expect(JSON.parse(readFileSync(join(root, LOCAL_DIR, 'ask.json'), 'utf8'))).toEqual({ host: server.host });
-    expect(server.calls).toEqual([]);
+    expect(sessionCalls()).toEqual([]);
     // The hooks now see the mode as on, and send their calls to ask.url.
     expect(activeMode(root)).toEqual({ host: server.host, baseUrl: server.url });
   });
@@ -100,7 +105,7 @@ describe('omni ask on', () => {
     expect(second.out()).toBe(first.out());
     expect(readFileSync(join(root, LOCAL_DIR, 'ask.json'), 'utf8')).toBe(before);
     expect(readTerminal(root, 'term-a')).toEqual({ sessionId: 'sess-a', host: server.host });
-    expect(server.calls).toEqual([]);
+    expect(sessionCalls()).toEqual([]);
   });
 
   it('in a second terminal, leaves the first terminal\'s session open and its mode on', async () => {
@@ -124,6 +129,50 @@ describe('omni ask on', () => {
     write(`${LOCAL_DIR}/ask.json`, JSON.stringify(legacy));
     expect((await ask('on', { root, tokens })).out()).toBe(`${server.url}/ask\n`);
     expect(readMode(root)).toEqual({ host: server.host, sessionId: 'sess-71' });
+  });
+
+  it('says where the checkout\'s questions land: its workspace\'s page (PRD 459)', async () => {
+    const { root, tokens } = await signedIn({ place: () => ({ workspace: { slug: 'acme', name: 'Acme' }, reason: null }) });
+    const run = await ask('on', { root, tokens });
+    expect(run.err()).toBe('');
+    expect(run.code).toBe(0);
+    expect(run.out()).toBe(`${server.url}/ask\nquestions go to Acme's page\n`);
+    expect(whereCalls().map((call) => call.authorization)).toEqual(['Bearer access-1']);
+    expect(activeMode(root)).toEqual({ host: server.host, baseUrl: server.url });
+  });
+
+  it('asks for the checkout\'s repository, repo.slug', async () => {
+    const asked = [];
+    const { root, tokens } = await signedIn({ place: (repo) => { asked.push(repo); return { workspace: { slug: 'acme', name: 'Acme' }, reason: null }; } });
+    await ask('on', { root, tokens });
+    expect(asked).toEqual(['acme/widgets']);
+  });
+
+  it('prints the page\'s reason when the repository goes nowhere, and still turns ask mode on', async () => {
+    const reason = 'you are not a member of Globex, which owns acme/widgets';
+    const { root, tokens } = await signedIn({ place: () => ({ workspace: null, reason }) });
+    const run = await ask('on', { root, tokens });
+    expect(run.code).toBe(0);
+    expect(run.out()).toBe(`${server.url}/ask\n${reason}\n`);
+    expect(run.err()).toBe('');
+    expect(activeMode(root)).toEqual({ host: server.host, baseUrl: server.url });
+  });
+
+  it('with the page unreachable, an older page, or nothing it can say, prints the page alone and turns ask mode on', async () => {
+    for (const setUp of [
+      async () => { const repo = await signedIn(); await server.close(); return repo; },
+      () => signedIn(),
+      () => signedIn({ place: () => ({ workspace: null, reason: null }) }),
+    ]) {
+      const { root, tokens } = await setUp();
+      const url = server.url;
+      const run = await ask('on', { root, tokens });
+      expect(run.code).toBe(0);
+      expect(run.out()).toBe(`${url}/ask\n`);
+      expect(run.err()).toBe('');
+      expect(activeMode(root)).toEqual({ host: server.host, baseUrl: url });
+      await server.close();
+    }
   });
 
   it('signed out, exits 1, says omni signin, and writes nothing', async () => {
@@ -263,16 +312,41 @@ describe('omni ask off', () => {
 });
 
 describe('omni ask status', () => {
-  it('prints the person\'s page while the mode is on, and off otherwise, calling nothing', async () => {
+  it('prints the person\'s page while the mode is on, and off otherwise, calling nothing while off', async () => {
     const { root, tokens } = await signedIn();
     expect((await ask('status', { root, tokens })).out()).toBe('off\n');
+    expect(server.calls).toEqual([]);
     const on = await ask('on', { root, tokens });
     const status = await ask('status', { root, tokens });
     expect(status.code).toBe(0);
     expect(status.out()).toBe(on.out());
     await ask('off', { root, tokens });
+    const calls = server.calls.length;
     expect((await ask('status', { root, tokens })).out()).toBe('off\n');
-    expect(server.calls).toEqual([]);
+    expect(server.calls).toHaveLength(calls);
+    expect(sessionCalls()).toEqual([]);
+  });
+
+  it('while on, says where the questions land, or the page\'s reason (PRD 459)', async () => {
+    let placed = { workspace: { slug: 'acme', name: 'Acme' }, reason: null };
+    const { root, tokens } = await signedIn({ place: () => placed });
+    await ask('on', { root, tokens });
+    expect((await ask('status', { root, tokens })).out()).toBe(`${server.url}/ask\nquestions go to Acme's page\n`);
+    placed = { workspace: null, reason: 'no workspace owns acme/widgets yet — install the Omni App: https://github.com/apps/omni/installations/new' };
+    const refused = await ask('status', { root, tokens });
+    expect(refused.code).toBe(0);
+    expect(refused.out()).toBe(`${server.url}/ask\n${placed.reason}\n`);
+  });
+
+  it('while on, with the page unreachable, prints the page alone', async () => {
+    const { root, tokens } = await signedIn({ place: () => ({ workspace: { slug: 'acme', name: 'Acme' }, reason: null }) });
+    await ask('on', { root, tokens });
+    const url = server.url;
+    await server.close();
+    const status = await ask('status', { root, tokens });
+    expect(status).toMatchObject({ code: 0 });
+    expect(status.out()).toBe(`${url}/ask\n`);
+    expect(status.err()).toBe('');
   });
 
   it('reads an ask.json in PRD 71\'s shape as on', async () => {

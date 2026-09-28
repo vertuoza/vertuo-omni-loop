@@ -7,7 +7,8 @@ import { OutboxPane } from './OutboxPane';
 import { QuestionsPane } from './QuestionsPane';
 import { RetroPane } from './RetroPane';
 import { FRAME_SANDBOX } from './sandbox';
-import { StageHeader } from './StageHeader';
+import { PinnedHead } from './PinnedHead';
+import { DossierTitle, StageAction, StageLinks, StageTrack } from './StageHeader';
 import { VersionPicker } from './VersionPicker';
 import { dossierPath, TAB_LABELS, type DossierView } from './view';
 
@@ -18,10 +19,13 @@ import { dossierPath, TAB_LABELS, type DossierView } from './view';
 // artifact tab with a version has its version picker; one with none says so. Questions lists the rounds
 // that shaped it, and its label counts those answered out of those asked. Rendered on the server: the
 // tabs and the picker are links and a GET form, so it all works before any script runs.
-// PRD 426 puts the stage header on top: "PRD #n ↗" linking to its issue, the track, the one button and
-// the links line (StageHeader.tsx); the chips, who opened it, Copy link and Delete draft stay below it.
+// PRD 426 put the stage on top: "PRD #n ↗" linking to its issue, the track, the one button and the
+// links (StageHeader.tsx). PRD 476 gathers the header into one box in three rows: the title with its
+// actions (the stage's button, Copy link, Delete draft for a draft's opener), the facts strip (Stage,
+// Repo or Repos, On GitHub, Opened; a cell with nothing to show is left out), then the tabs. From
+// 900 × 700 px the box is pinned while the page scrolls (PinnedHead.tsx measures it).
 // Its Outbox tab (OutboxPane.tsx) lists the decisions taken while it was built, and its Retro tab
-// (RetroPane.tsx) renders the retro once written; empty, each is dimmed.
+// (RetroPane.tsx) renders the retro once written; empty, each reads muted.
 
 type Props = {
   view: DossierView;
@@ -82,29 +86,53 @@ function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 's
 }
 
 export function DossierPage({ view, markdown, supabase, live }: Props) {
+  const { stage } = view;
   return (
     <div className="dossier">
-      <header className="dossier-head">
-        <StageHeader heading={view.heading} draft={view.draft} title={view.title} issueUrl={view.issueUrl} stage={view.stage} />
-        <div className="dossier-meta">
-          <ul className="dossier-repos" aria-label="Repositories">
-            {view.repos.map((repo) => <li key={repo} className="dossier-repo">{repo}</li>)}
-          </ul>
-          <span className="ask-hint">{view.opened}</span>
-          <span className="dossier-actions">
+      <PinnedHead>
+        <div className="dossier-head-top">
+          <DossierTitle heading={view.heading} draft={view.draft} title={view.title} issueUrl={view.issueUrl} />
+          <div className="dossier-actions">
+            <StageAction stage={stage} />
             <CopyLink path={view.link} />
             {view.canDelete && supabase && <DeleteDraft supabase={supabase} id={view.id} />}
-          </span>
+          </div>
         </div>
-      </header>
-      <nav className="dossier-tabs" aria-label="Artifacts">
-        {view.tabs.map((t) => (
-          <a key={t.kind} className={t.empty ? 'dossier-tab dossier-tab-empty' : 'dossier-tab'} href={t.href} aria-current={t.current ? 'page' : undefined}>
-            {t.label}
-            {t.badge !== null && <small>{t.badge}</small>}
-          </a>
-        ))}
-      </nav>
+        <dl className="dossier-facts">
+          {stage && (
+            <div className="dossier-fact dossier-fact-stage">
+              <dt>Stage</dt>
+              <dd><StageTrack stage={stage} /></dd>
+            </div>
+          )}
+          <div className="dossier-fact">
+            <dt>{view.repos.length > 1 ? 'Repos' : 'Repo'}</dt>
+            <dd>
+              <ul className="dossier-repos" aria-label="Repositories">
+                {view.repos.map((repo) => <li key={repo} className="dossier-repo">{repo}</li>)}
+              </ul>
+            </dd>
+          </div>
+          {stage && stage.links.length > 0 && (
+            <div className="dossier-fact">
+              <dt>On GitHub</dt>
+              <dd><StageLinks links={stage.links} /></dd>
+            </div>
+          )}
+          <div className="dossier-fact">
+            <dt>Opened</dt>
+            <dd className="ask-hint">{view.opened}</dd>
+          </div>
+        </dl>
+        <nav className="dossier-tabs" aria-label="Artifacts">
+          {view.tabs.map((t) => (
+            <a key={t.kind} className={t.empty ? 'dossier-tab dossier-tab-empty' : 'dossier-tab'} href={t.href} aria-current={t.current ? 'page' : undefined}>
+              {t.label}
+              {t.badge !== null && <small>{t.badge}</small>}
+            </a>
+          ))}
+        </nav>
+      </PinnedHead>
       {live}
       <section className="dossier-pane" aria-label={TAB_LABELS[view.tab]}>
         <Pane view={view} markdown={markdown} supabase={supabase} />

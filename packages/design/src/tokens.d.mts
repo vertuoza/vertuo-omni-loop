@@ -9,7 +9,7 @@ export function tokensCss(): string;
 
 export type AskTheme = 'omni' | 'light' | 'dark';
 export type AskToken =
-  | 'ground' | 'surface' | 'sunk' | 'line' | 'ink' | 'muted'
+  | 'ground' | 'surface' | 'sunk' | 'line' | 'lineStrong' | 'ink' | 'muted'
   | 'plasma' | 'plasmaSoft' | 'onPlasma' | 'yellow' | 'onYellow' | 'cyan' | 'green' | 'red';
 export type AskPair = { readonly text: AskToken; readonly on: AskToken; readonly where: string };
 /** Ask's semantic tokens: Omni, light and dark. In Omni, `yellow` holds magenta (the Recommended badge). */
