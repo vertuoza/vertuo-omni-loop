@@ -1,5 +1,6 @@
-// The overview as text: the header, the counts, the bar and the pointer to help. Plain text with no
-// colour, so it reads the same in a terminal and inside Claude, and no line wider than 80 columns.
+// The overview as text: the header, the counts, the bar, your PRDs and the pointer to help. Plain
+// text with no colour, so it reads the same in a terminal and inside Claude, and no line wider than
+// 80 columns.
 // Pure: the clock comes in as `now`.
 import { BAR_CELLS } from './overview.mjs';
 
@@ -58,6 +59,78 @@ function bar({ bar: { delivered, total, percent, filled }, inProgress }) {
   return [`${LABEL}${cells}  ${delivered} of ${total} · ${percent}%`, `${UNDER_BAR}${under}`];
 }
 
+/** Each row of yours starts with its stage, in a column as wide as the widest stage and a gap: the
+ * rows' own columns then start under the line under the bar. */
+const STAGE_WORDS = { outbox: 'outbox', inbox: 'inbox', inReview: 'in review', shipped: 'shipped' };
+/** The gap between a row's PRD number and its topic, and between its topic and what it says. */
+const NUMBER_GAP = '  ';
+const TOPIC_GAP = '    ';
+/** Between two shipped PRDs of yours on one line. */
+const SEPARATOR = ' · ';
+
+/** `text` cut to `width` columns, its last one `…`, when it is wider. */
+const cut = (text, width) => (text.length <= width ? text : `${text.slice(0, Math.max(0, width - 1))}…`);
+
+/** A row's first columns: the indent and its stage, padded so what follows starts under the bar. */
+const stageColumn = (stage) => `${INDENT}${STAGE_WORDS[stage].padEnd(UNDER_BAR.length - INDENT.length)}`;
+
+/** Where a PRD of yours stands, in words. */
+function standing({ stage, prd, openItems }) {
+  if (stage === 'outbox') return openItems > 0 ? `${plural(openItems, 'open item')} wait${openItems === 1 ? 's' : ''} for an answer` : 'being built';
+  if (stage === 'inbox') return `ready to build: /omni:yolo ${prd}`;
+  return 'its phase-0 PR waits for a merge';
+}
+
+/** The rows of yours in the outbox, the inbox and in review, their numbers, topics and words each in
+ * a column. A topic that would push a row past `WIDTH` is cut with `…`. */
+function rows(entries) {
+  const lines = entries.map((row) => ({ stage: stageColumn(row.stage), number: `#${row.prd}`, topic: row.topic, words: standing(row) }));
+  const numberWidth = Math.max(...lines.map(({ number }) => number.length)) + NUMBER_GAP.length;
+  const wordsWidth = Math.max(...lines.map(({ words }) => words.length));
+  const room = WIDTH - UNDER_BAR.length - numberWidth - TOPIC_GAP.length - wordsWidth;
+  const topicWidth = Math.min(Math.max(...lines.map(({ topic }) => topic.length)), Math.max(1, room));
+  return lines.map(({ stage, number, topic, words }) => `${stage}${number.padEnd(numberWidth)}${cut(topic, topicWidth).padEnd(topicWidth)}${TOPIC_GAP}${words}`);
+}
+
+/** `#<n> <topic>`, its topic cut with `…` when the whole would be wider than `width`. */
+function shippedEntry({ prd, topic }, width) {
+  const number = `#${prd} `;
+  return `${number}${cut(topic, width - number.length)}`;
+}
+
+/** The shipped row: how many PRDs of yours shipped, then every one of them, newest first, `SEPARATOR`
+ * apart, wrapped at `WIDTH` with each next line starting under the bar. */
+function shippedRow(shipped) {
+  const out = [];
+  let line = `${stageColumn('shipped')}${shipped.length}: `;
+  let fresh = true;
+  for (const entry of shipped) {
+    if (!fresh) {
+      const joined = `${line}${SEPARATOR}${shippedEntry(entry, Infinity)}`;
+      if (joined.length <= WIDTH) {
+        line = joined;
+        continue;
+      }
+      out.push(line);
+      line = UNDER_BAR;
+    }
+    line = `${line}${shippedEntry(entry, WIDTH - line.length)}`;
+    fresh = false;
+  }
+  out.push(line);
+  return out;
+}
+
+/** The PRDs that are yours: one line when it cannot tell whose they are, else a heading naming you,
+ * then a row per PRD in progress or in review and one row for the shipped, or `none yet`. */
+function yours({ state, email, rows: inFlight, shipped }) {
+  if (state === 'no-email') return [`${INDENT}set git config user.email to see yours`];
+  if (state === 'shallow') return [`${INDENT}this clone is shallow: git fetch --unshallow to see yours`];
+  const heading = cut(`${INDENT}Yours · ${email}`, WIDTH);
+  if (inFlight.length === 0 && shipped.length === 0) return [heading, `${INDENT}none yet`];
+  return [heading, ...(inFlight.length ? rows(inFlight) : []), ...(shipped.length ? shippedRow(shipped) : [])];
+}
+
 /** The overview `overviewFor` returns, as the lines `omni status` prints. */
 export function formatOverview(overview, { now }) {
   return [
@@ -66,6 +139,8 @@ export function formatOverview(overview, { now }) {
     ...counts(overview.counts),
     '',
     ...bar(overview),
+    '',
+    ...yours(overview.yours),
     '',
     'omni help: the loop and every command',
   ].join('\n');

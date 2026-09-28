@@ -1,5 +1,6 @@
 // Every git call of `omni status`'s overview, and nothing else: it reads the base — the default
-// branch as last fetched — and the remote feature and phase-0 branches, and returns plain data for
+// branch as last fetched — and the remote feature and phase-0 branches, who wrote which of their
+// commits, the checkout's `user.email` and whether it is a shallow clone, and returns plain data for
 // `overview.mjs`. It never reads the working tree, and it touches the network only when asked to
 // fetch; the fetch is also the only thing it writes, and a failed one leaves the checkout's
 // `FETCH_HEAD` as it found it.
@@ -160,6 +161,57 @@ function filesUnder(ctx, exec, ref, dir) {
     .map((path) => path.slice(dir.length + 1));
 }
 
+/** What `git config user.email` gives in this checkout, or `null` when it gives nothing. */
+function userEmail(ctx, exec) {
+  try {
+    return git(ctx, exec, ['config', 'user.email']).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Whether this checkout is a shallow clone, whose history stops short of who wrote what. */
+function isShallow(ctx, exec) {
+  try {
+    return git(ctx, exec, ['rev-parse', '--is-shallow-repository']).trim() === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/** What starts each commit in `commitsIn`'s log: a byte no email holds. */
+const COMMIT_MARK = '\x01';
+
+/** The commits `git log <range> -- <paths>` lists, each as `{ email, paths }`: the email it was
+ * authored with and the paths it changed. Every commit is listed, even one whose change the history
+ * later undid; a merge lists no path. */
+function commitsIn(ctx, exec, range, paths = []) {
+  const log = git(ctx, exec, ['log', '-z', '--name-only', '--no-renames', '--full-history', '--format=%x01%ae', range, '--', ...paths]);
+  return log.split(COMMIT_MARK).filter(Boolean).map((commit) => {
+    const [email, ...changed] = commit.split('\0');
+    return { email, paths: changed.map((path) => path.replace(/^\n/, '')).filter(Boolean) };
+  });
+}
+
+/** Each author's email once. */
+const authorsOf = (commits) => [...new Set(commits.map(({ email }) => email))];
+
+/** The PRD folders `commits` touched under the delivery folder (`<paths.delivery>/<stage>/<prd>-<topic>/…`),
+ * as `{ prd, email }`, each pair once. */
+function touchedBy(ctx, commits) {
+  const delivery = `${ctx.config.paths.delivery}/`;
+  const seen = new Map();
+  for (const { email, paths } of commits) {
+    for (const path of paths) {
+      if (!path.startsWith(delivery)) continue;
+      const parts = path.slice(delivery.length).split('/');
+      const folder = parts.length > 2 ? parseFolderName(parts[1]) : null;
+      if (folder) seen.set(`${folder.prd}\0${email}`, { prd: folder.prd, email });
+    }
+  }
+  return [...seen.values()];
+}
+
 /** What `read` returns, or `null` when it throws: a branch that cannot be read is skipped, and the
  * overview never fails because of one. */
 function unlessUnreadable(read) {
@@ -172,9 +224,11 @@ function unlessUnreadable(read) {
 
 /**
  * The feature branch (`branches.feature` with the folder's topic) of each PRD in the base's inbox
- * that has one on the remote, as `{ branch, topic, forked, differs, outbox }`: `forked` holds the
- * paths outside the delivery folder it changed since it forked from the base, `differs` those that
- * differ from the base now, and `outbox` every file under the PRD's outbox folder on it.
+ * that has one on the remote, as `{ branch, topic, forked, differs, outbox, authors, touched }`:
+ * `forked` holds the paths outside the delivery folder it changed since it forked from the base,
+ * `differs` those that differ from the base now, `outbox` every file under the PRD's outbox folder
+ * on it, `authors` the emails of its commits beyond the base, and `touched` the PRD folders those
+ * commits touched.
  */
 function featuresOf(ctx, exec, base, inbox, remote) {
   const out = [];
@@ -182,34 +236,46 @@ function featuresOf(ctx, exec, base, inbox, remote) {
     const branch = fillBranch(ctx.config.branches.feature, { topic });
     const ref = remote.get(branch);
     if (!ref) continue;
-    const feature = unlessUnreadable(() => ({
-      branch,
-      topic,
-      forked: changedOutside(ctx, exec, [`${base}...${ref}`]),
-      differs: changedOutside(ctx, exec, [base, ref]),
-      outbox: filesUnder(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name}`),
-    }));
+    const feature = unlessUnreadable(() => {
+      const beyond = commitsIn(ctx, exec, `${base}..${ref}`);
+      return {
+        branch,
+        topic,
+        forked: changedOutside(ctx, exec, [`${base}...${ref}`]),
+        differs: changedOutside(ctx, exec, [base, ref]),
+        outbox: filesUnder(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name}`),
+        authors: authorsOf(beyond),
+        touched: touchedBy(ctx, beyond),
+      };
+    });
     if (feature) out.push(feature);
   }
   return out;
 }
 
-/** Every remote branch shaped like `branches.phase0`, with its topic and the PRD folders in its
- * inbox, as `{ branch, topic, inbox }`. */
-function phase0Of(ctx, exec, remote) {
+/** Every remote branch shaped like `branches.phase0`, with its topic, the PRD folders in its inbox
+ * and those its commits beyond the base touched, as `{ branch, topic, inbox, touched }`. */
+function phase0Of(ctx, exec, base, remote) {
   const out = [];
   for (const [branch, ref] of remote) {
     const topic = topicOf(branch, ctx.config.branches.phase0);
     if (!topic) continue;
-    const inbox = unlessUnreadable(() => foldersAt(ctx, exec, ref, ctx.layout.dirs.inbox));
-    if (inbox) out.push({ branch, topic, inbox });
+    const phase0 = unlessUnreadable(() => ({
+      branch,
+      topic,
+      inbox: foldersAt(ctx, exec, ref, ctx.layout.dirs.inbox),
+      touched: touchedBy(ctx, commitsIn(ctx, exec, `${base}..${ref}`, [`${ctx.config.paths.delivery}/`])),
+    }));
+    if (phase0) out.push(phase0);
   }
   return out;
 }
 
 /**
- * What the overview needs: `{ slug, base, fetchedAt, shipped, inbox, features, phase0 }` — `base`
- * the name the base was read under, `shipped` and `inbox` its PRD folders, `features` the feature
+ * What the overview needs: `{ slug, base, fetchedAt, email, shallow, shipped, inbox, touched,
+ * features, phase0 }` — `base` the name the base was read under, `email` what `user.email` gives
+ * (or `null`), `shallow` whether the clone is, `shipped` and `inbox` the base's PRD folders,
+ * `touched` the PRD folders each author's commits on the base touched, `features` the feature
  * branches of its inbox's PRDs and `phase0` the phase-0 branches, both read on `<repo.remote>`.
  * `null` when neither the remote-tracking default branch nor the local one exists.
  */
@@ -223,9 +289,12 @@ export function readFacts({ ctx, exec = execFileSync }) {
     slug: ctx.config.repo.slug,
     base: base.name,
     fetchedAt: fetchedAt(ctx, exec),
+    email: userEmail(ctx, exec),
+    shallow: isShallow(ctx, exec),
     shipped: foldersAt(ctx, exec, base.commit, dirs.shipped),
     inbox,
+    touched: touchedBy(ctx, commitsIn(ctx, exec, base.commit, [`${ctx.config.paths.delivery}/`])),
     features: featuresOf(ctx, exec, base.commit, inbox, remote),
-    phase0: phase0Of(ctx, exec, remote),
+    phase0: phase0Of(ctx, exec, base.commit, remote),
   };
 }

@@ -7,8 +7,13 @@ const MINUTE = 60 * SECOND;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
+const ME = 'me@example.com';
+
+/** Yours as `overviewFor` returns it: known, with no PRD of yours unless given. */
+const known = ({ rows = [], shipped = [], email = ME } = {}) => ({ state: 'known', email, rows, shipped });
+
 /** An overview as `overviewFor` returns it. */
-function overview({ shipped = 3, inbox = 2, outbox = 0, openItems = 0, inReview = 0, slug = 'acme/widgets', base = 'origin/main', fetchedAt = null } = {}) {
+function overview({ shipped = 3, inbox = 2, outbox = 0, openItems = 0, inReview = 0, slug = 'acme/widgets', base = 'origin/main', fetchedAt = null, yours = known() } = {}) {
   const total = shipped + inbox + outbox;
   return {
     slug,
@@ -23,13 +28,14 @@ function overview({ shipped = 3, inbox = 2, outbox = 0, openItems = 0, inReview 
       filled: total === 0 ? 0 : Math.floor((shipped * 30) / total),
     },
     inProgress: { total: inbox + outbox, inbox, outbox },
+    yours,
   };
 }
 
 const lines = (text) => text.split('\n');
 
 describe('formatOverview', () => {
-  it('prints the header, the counts, the bar and the pointer to help', () => {
+  it('prints the header, the counts, the bar, yours and the pointer to help', () => {
     expect(formatOverview(overview({ fetchedAt: NOW - 2 * HOUR }), { now: NOW })).toBe([
       'omni status · acme/widgets · origin/main, fetched 2 hours ago',
       '',
@@ -37,6 +43,9 @@ describe('formatOverview', () => {
       '',
       `  delivered  ${'█'.repeat(18)}${'░'.repeat(12)}  3 of 5 · 60%`,
       '             2 in progress: 2 in the inbox',
+      '',
+      '  Yours · me@example.com',
+      '  none yet',
       '',
       'omni help: the loop and every command',
     ].join('\n'));
@@ -121,6 +130,143 @@ describe('formatOverview — the outbox and in review (PRD 315, slice s2)', () =
       '  SHIPPED 12345     INBOX 67890     OUTBOX 12345 · 67890 open items',
       '  IN REVIEW 12345',
     ]);
+  });
+});
+
+describe('formatOverview — yours (PRD 315, slice s3)', () => {
+  const row = (stage, prd, topic, more = {}) => ({ stage, prd, topic, ...more });
+  const entry = (prd, topic) => ({ prd, topic });
+
+  /** The lines of the yours section: between the blank line after the bar and the one before help. */
+  function yoursLines(text) {
+    const all = lines(text);
+    const end = all.lastIndexOf('');
+    const start = all.lastIndexOf('', end - 1);
+    return all.slice(start + 1, end);
+  }
+
+  it('prints each PRD of yours with where it stands, and the shipped list wrapped under the first line', () => {
+    const yours = known({
+      rows: [
+        row('outbox', 251, 'outbox-answers', { openItems: 3 }),
+        row('inbox', 285, 'home-value'),
+        row('inReview', 310, 'cli-help-status'),
+      ],
+      shipped: [
+        entry(301, 'yolo-what-is-next'),
+        entry(292, 'what-is-next'),
+        entry(284, 'omni-theme'),
+        entry(262, 'release-notes'),
+        entry(261, 'home'),
+        entry(238, 'game-app-switch'),
+      ],
+    });
+    const text = formatOverview(overview({ shipped: 26, inbox: 2, outbox: 1, openItems: 3, inReview: 1, yours }), { now: NOW });
+    expect(lines(text).slice(6)).toEqual([
+      '',
+      '  Yours · me@example.com',
+      '  outbox     #251  outbox-answers     3 open items wait for an answer',
+      '  inbox      #285  home-value         ready to build: /omni:yolo 285',
+      '  in review  #310  cli-help-status    its phase-0 PR waits for a merge',
+      '  shipped    6: #301 yolo-what-is-next · #292 what-is-next · #284 omni-theme',
+      '             #262 release-notes · #261 home · #238 game-app-switch',
+      '',
+      'omni help: the loop and every command',
+    ]);
+  });
+
+  it('says one open item waits, and being built for an outbox PRD with none open', () => {
+    const yours = known({ rows: [row('outbox', 12, 'twelve', { openItems: 1 }), row('outbox', 7, 'seven', { openItems: 0 })] });
+    expect(yoursLines(formatOverview(overview({ yours }), { now: NOW }))).toEqual([
+      '  Yours · me@example.com',
+      '  outbox     #12  twelve    1 open item waits for an answer',
+      '  outbox     #7   seven     being built',
+    ]);
+  });
+
+  it('prints only the shipped row when every PRD of yours shipped, and no shipped row when none did', () => {
+    expect(yoursLines(formatOverview(overview({ yours: known({ shipped: [entry(3, 'third')] }) }), { now: NOW }))).toEqual([
+      '  Yours · me@example.com',
+      '  shipped    1: #3 third',
+    ]);
+    expect(yoursLines(formatOverview(overview({ yours: known({ rows: [row('inbox', 5, 'fifth')] }) }), { now: NOW }))).toEqual([
+      '  Yours · me@example.com',
+      '  inbox      #5  fifth    ready to build: /omni:yolo 5',
+    ]);
+  });
+
+  it('lists every shipped PRD of yours, each line within 80 columns and none ending on a separator', () => {
+    const shipped = Array.from({ length: 40 }, (_, index) => entry(400 - index, `topic-number-${index}`));
+    const list = yoursLines(formatOverview(overview({ yours: known({ shipped }) }), { now: NOW })).slice(1);
+    expect(list.length).toBeGreaterThan(2);
+    expect(list[0].startsWith('  shipped    40: #400 topic-number-0 · #399 topic-number-1 · ')).toBe(true);
+    for (const line of list.slice(1)) expect(line).toMatch(/^ {13}#\d/);
+    for (const line of list) {
+      expect(line.length).toBeLessThanOrEqual(80);
+      expect(line.endsWith('·')).toBe(false);
+      expect(line.endsWith(' ')).toBe(false);
+    }
+    const listed = list.join(' · ').replace(/^ {2}shipped {4}40: /, '').split(/\s+·\s+/);
+    expect(listed).toEqual(shipped.map(({ prd, topic }) => `#${prd} ${topic}`));
+  });
+
+  it('cuts with … a topic that would push a row past 80 columns, and keeps the rows aligned', () => {
+    const long = 'a-very-long-topic-that-goes-on-and-on-and-on-and-never-seems-to-end';
+    const yours = known({ rows: [row('outbox', 7, long, { openItems: 2 }), row('inReview', 12, 'short')] });
+    const out = yoursLines(formatOverview(overview({ yours }), { now: NOW }));
+    expect(out.slice(1)).toEqual([
+      `  outbox     #7   ${long.slice(0, 25)}…    2 open items wait for an answer`,
+      `  in review  #12  ${'short'.padEnd(26)}    its phase-0 PR waits for a merge`,
+    ]);
+    expect(out[2].length).toBe(80);
+  });
+
+  it('cuts with … a shipped topic too long for a line of its own', () => {
+    const long = 'x'.repeat(100);
+    const out = yoursLines(formatOverview(overview({ yours: known({ shipped: [entry(2, 'two'), entry(1, long)] }) }), { now: NOW }));
+    expect(out.slice(1)).toEqual([
+      '  shipped    2: #2 two',
+      `             #1 ${'x'.repeat(80 - 13 - 3 - 1)}…`,
+    ]);
+  });
+
+  it('cuts with … an email too long for the heading', () => {
+    const email = `${'m'.repeat(90)}@example.com`;
+    const [heading] = yoursLines(formatOverview(overview({ yours: known({ email }) }), { now: NOW }));
+    expect(heading).toBe(`  Yours · ${email.slice(0, 80 - 10 - 1)}…`);
+  });
+
+  it('says none yet when no PRD is yours', () => {
+    expect(yoursLines(formatOverview(overview(), { now: NOW }))).toEqual(['  Yours · me@example.com', '  none yet']);
+  });
+
+  it('says one line without an email, and one in a shallow clone, the counts and the bar still shown', () => {
+    for (const [yours, line] of [
+      [{ state: 'no-email', email: null, rows: [], shipped: [] }, '  set git config user.email to see yours'],
+      [{ state: 'shallow', email: ME, rows: [], shipped: [] }, '  this clone is shallow: git fetch --unshallow to see yours'],
+    ]) {
+      const text = formatOverview(overview({ yours }), { now: NOW });
+      expect(yoursLines(text)).toEqual([line]);
+      expect(text).toContain('\n  SHIPPED 3     INBOX 2\n');
+      expect(text).toContain('  3 of 5 · 60%\n');
+      expect(text).not.toContain('Yours');
+    }
+  });
+
+  it('keeps every line within 80 columns, however many digits and long words', () => {
+    const topic = 'b'.repeat(70);
+    const yours = known({
+      email: `${'e'.repeat(75)}@x.io`,
+      rows: [
+        row('outbox', 123456, topic, { openItems: 98765 }),
+        row('outbox', 1, topic, { openItems: 0 }),
+        row('inbox', 99999, topic),
+        row('inReview', 7, topic),
+      ],
+      shipped: Array.from({ length: 30 }, (_, index) => entry(100000 - index, index % 2 ? topic : 'c')),
+    });
+    const text = formatOverview(overview({ shipped: 30, inbox: 2, outbox: 2, openItems: 98765, inReview: 1, yours }), { now: NOW });
+    for (const line of lines(text)) expect(line.length).toBeLessThanOrEqual(80);
   });
 });
 

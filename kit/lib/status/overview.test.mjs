@@ -4,14 +4,18 @@ import { BAR_CELLS, overviewFor } from './overview.mjs';
 /** One PRD folder as `readFacts` reads it: `n` becomes `{ prd: n, topic: 't<n>', name: '000n-t<n>' }`. */
 const folder = (prd) => ({ prd, topic: `t${prd}`, name: `${String(prd).padStart(4, '0')}-t${prd}` });
 
-/** Facts as `readFacts` returns them, with a PRD per number, and no feature or phase-0 branch. */
+/** Facts as `readFacts` returns them, with a PRD per number, no feature or phase-0 branch, no
+ * `user.email` and no commit touching a PRD folder. */
 function facts({ shipped = [], inbox = [], ...more } = {}) {
   return {
     slug: 'acme/widgets',
     base: 'origin/main',
     fetchedAt: null,
+    email: null,
+    shallow: false,
     shipped: shipped.map(folder),
     inbox: inbox.map(folder),
+    touched: [],
     features: [],
     phase0: [],
     ...more,
@@ -20,20 +24,30 @@ function facts({ shipped = [], inbox = [], ...more } = {}) {
 
 /** A feature branch as `readFacts` reads it, cut for topic `t<prd>`: the paths outside the
  * delivery folder it changed since it forked (`forked`), those that differ from the base now
- * (`differs`), and every file under its PRD's outbox folder (`outbox`). */
-const feature = (prd, { forked = [], differs = [], outbox = [], topic = `t${prd}` } = {}) => ({
+ * (`differs`), every file under its PRD's outbox folder (`outbox`), the authors of its commits
+ * beyond the base (`authors`) and the PRD folders those commits touched (`touched`). */
+const feature = (prd, { forked = [], differs = [], outbox = [], authors = [], touched = [], topic = `t${prd}` } = {}) => ({
   branch: `feat/${topic}`,
   topic,
   forked,
   differs,
   outbox,
+  authors,
+  touched,
 });
 
 /** Code the feature branch changed, still differing from the base: a built branch. */
 const CODE = { forked: ['src/widget.mjs'], differs: ['src/widget.mjs'] };
 
-/** A phase-0 branch cut for topic `t<prd>`, whose inbox holds the folders numbered `inbox`. */
-const phase0 = (prd, { inbox = [prd], topic = `t${prd}` } = {}) => ({ branch: `docs/phase-0-${topic}`, topic, inbox: inbox.map(folder) });
+/** A phase-0 branch cut for topic `t<prd>`, whose inbox holds the folders numbered `inbox`, and
+ * whose commits beyond the base touched the PRD folders `touched`. */
+const phase0 = (prd, { inbox = [prd], topic = `t${prd}`, touched = [] } = {}) => ({ branch: `docs/phase-0-${topic}`, topic, inbox: inbox.map(folder), touched });
+
+/** A commit by `email` touching PRD `prd`'s folder, as `touched` lists it. */
+const touch = (prd, email = ME) => ({ prd, email });
+
+const ME = 'me@example.com';
+const OTHER = 'other@example.com';
 
 describe('overviewFor — the shipped and inbox stages', () => {
   it('counts the shipped and the inbox folders of the base', () => {
@@ -212,5 +226,123 @@ describe('overviewFor — in review (PRD 315, slice s2)', () => {
 
   it('shows nothing yet in the bar when the only PRD is in review', () => {
     expect(overviewFor(facts({ phase0: [phase0(9)] })).bar).toEqual({ delivered: 0, total: 0, percent: null, filled: 0 });
+  });
+});
+
+describe('overviewFor — yours (PRD 315, slice s3)', () => {
+  /** The PRD numbers of each row of yours, and of your shipped list. */
+  const numbers = ({ rows, shipped }) => ({ rows: rows.map(({ stage, prd }) => `${stage} ${prd}`), shipped: shipped.map(({ prd }) => prd) });
+
+  it('lists the PRDs whose folder a commit of yours touched on the base, and none of anyone else\'s', () => {
+    const overview = overviewFor(facts({
+      email: ME,
+      shipped: [1, 2],
+      inbox: [3, 4],
+      touched: [touch(1), touch(2, OTHER), touch(3), touch(4, OTHER)],
+    }));
+    expect(overview.yours).toMatchObject({ state: 'known', email: ME });
+    expect(numbers(overview.yours)).toEqual({ rows: ['inbox 3'], shipped: [1] });
+  });
+
+  it('counts a folder commit of yours on a feature or a phase-0 branch', () => {
+    const overview = overviewFor(facts({
+      email: ME,
+      inbox: [3, 4],
+      features: [feature(4, { outbox: ['a.md'], authors: [OTHER], touched: [touch(4)] })],
+      phase0: [phase0(9, { touched: [touch(9)] }), phase0(8, { touched: [touch(8, OTHER)] })],
+    }));
+    expect(numbers(overview.yours)).toEqual({ rows: ['outbox 4', 'inReview 9'], shipped: [] });
+  });
+
+  it('counts the PRD whose feature branch carries a commit of yours beyond the base, folder untouched', () => {
+    const overview = overviewFor(facts({
+      email: ME,
+      inbox: [3, 4, 5],
+      touched: [touch(3, OTHER), touch(4, OTHER), touch(5, OTHER)],
+      features: [feature(4, { ...CODE, authors: [OTHER, ME] }), feature(5, { ...CODE, authors: [OTHER] })],
+    }));
+    expect(numbers(overview.yours)).toEqual({ rows: ['outbox 4'], shipped: [] });
+  });
+
+  it('counts a feature branch of yours for its inbox PRD even while it is not built', () => {
+    const overview = overviewFor(facts({ email: ME, inbox: [4], features: [feature(4, { authors: [ME] })] }));
+    expect(numbers(overview.yours)).toEqual({ rows: ['inbox 4'], shipped: [] });
+  });
+
+  it('compares the email ignoring case', () => {
+    const overview = overviewFor(facts({
+      email: 'Me@Example.com',
+      inbox: [3, 4],
+      touched: [touch(3, 'ME@EXAMPLE.COM')],
+      features: [feature(4, { authors: ['me@EXAMPLE.com'] })],
+    }));
+    expect(overview.yours.email).toBe('Me@Example.com');
+    expect(numbers(overview.yours)).toEqual({ rows: ['inbox 4', 'inbox 3'], shipped: [] });
+  });
+
+  it('compares the email exactly otherwise', () => {
+    const overview = overviewFor(facts({ email: ME, inbox: [3, 4], touched: [touch(3, 'me@example.co'), touch(4, 'xme@example.com')] }));
+    expect(overview.yours.rows).toEqual([]);
+  });
+
+  it('lists the outbox, then the inbox, then in review, each newest first, then the shipped newest first', () => {
+    const overview = overviewFor(facts({
+      email: ME,
+      shipped: [1, 3, 2],
+      inbox: [4, 7, 5, 6],
+      touched: [1, 2, 3, 4, 5, 6, 7].map((prd) => touch(prd)),
+      features: [feature(4, { outbox: ['a.md', 'b.md'] }), feature(6, CODE)],
+      phase0: [phase0(8, { touched: [touch(8)] }), phase0(9, { touched: [touch(9)] })],
+    }));
+    expect(overview.yours.rows).toEqual([
+      { stage: 'outbox', prd: 6, topic: 't6', openItems: 0 },
+      { stage: 'outbox', prd: 4, topic: 't4', openItems: 2 },
+      { stage: 'inbox', prd: 7, topic: 't7' },
+      { stage: 'inbox', prd: 5, topic: 't5' },
+      { stage: 'inReview', prd: 9, topic: 't9' },
+      { stage: 'inReview', prd: 8, topic: 't8' },
+    ]);
+    expect(overview.yours.shipped).toEqual([{ prd: 3, topic: 't3' }, { prd: 2, topic: 't2' }, { prd: 1, topic: 't1' }]);
+  });
+
+  it('lists a PRD once, in the stage it is counted in', () => {
+    const overview = overviewFor(facts({
+      email: ME,
+      shipped: [1],
+      inbox: [1, 4],
+      touched: [touch(1), touch(4), touch(4)],
+      features: [feature(4, { ...CODE, authors: [ME], touched: [touch(4)] })],
+      phase0: [phase0(4, { touched: [touch(4)] })],
+    }));
+    expect(numbers(overview.yours)).toEqual({ rows: ['outbox 4'], shipped: [1] });
+  });
+
+  it('leaves out a PRD of yours that is in no stage, and a feature branch whose topic names no inbox PRD', () => {
+    const overview = overviewFor(facts({
+      email: ME,
+      shipped: [1],
+      inbox: [2],
+      touched: [touch(7)],
+      features: [feature(1, { ...CODE, authors: [ME] }), feature(9, { ...CODE, authors: [ME] })],
+      phase0: [phase0(8, { inbox: [8], topic: 'elsewhere', touched: [touch(8)] })],
+    }));
+    expect(numbers(overview.yours)).toEqual({ rows: [], shipped: [] });
+  });
+
+  it('has no row and no shipped PRD when none is yours', () => {
+    const overview = overviewFor(facts({ email: ME, shipped: [1], inbox: [2], touched: [touch(1, OTHER), touch(2, OTHER)] }));
+    expect(overview.yours).toEqual({ state: 'known', email: ME, rows: [], shipped: [] });
+  });
+
+  it('cannot tell without an email', () => {
+    const overview = overviewFor(facts({ shipped: [1], touched: [touch(1)] }));
+    expect(overview.yours).toEqual({ state: 'no-email', email: null, rows: [], shipped: [] });
+    expect(overview.counts.shipped).toBe(1);
+  });
+
+  it('cannot tell in a shallow clone', () => {
+    const overview = overviewFor(facts({ email: ME, shallow: true, shipped: [1], touched: [touch(1)] }));
+    expect(overview.yours).toEqual({ state: 'shallow', email: ME, rows: [], shipped: [] });
+    expect(overview.bar).toEqual({ delivered: 1, total: 1, percent: 100, filled: 30 });
   });
 });

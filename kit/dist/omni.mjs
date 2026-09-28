@@ -13955,8 +13955,8 @@ function stateFor({ pr, blockersMerged, now, limits, needsFixLabel }) {
   return "in-flight";
 }
 var TAKEABLE_STATES = /* @__PURE__ */ new Set(["runnable", "claimed-stale"]);
-function runnableFrontier(rows) {
-  const takeableRows = rows.filter((row) => TAKEABLE_STATES.has(row.state));
+function runnableFrontier(rows2) {
+  const takeableRows = rows2.filter((row) => TAKEABLE_STATES.has(row.state));
   if (takeableRows.length === 0) return { wave: null, runnable: [], takeable: [], excluded: [], collisions: [] };
   const wave = Math.min(...takeableRows.map((row) => row.wave));
   const inWave = takeableRows.filter((row) => row.wave === wave);
@@ -13998,13 +13998,13 @@ function boardFor({ slices, prs = [], now = Date.now(), limits, config: config2,
     })
   );
   const mergedById = new Map([...matched].map(([id, pr]) => [id, Boolean(pr && isMerged(pr))]));
-  const rows = slices.map((slice) => {
+  const rows2 = slices.map((slice) => {
     const pr = matched.get(slice.id) ?? null;
     const blockersMerged = (slice.blockedBy ?? []).every((blockerId) => mergedById.get(blockerId) === true);
     const state = stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config2.labels.needsFix });
     return { ...slice, pr, state };
   });
-  return { prd: { topic }, slices: rows, frontier: runnableFrontier(rows) };
+  return { prd: { topic }, slices: rows2, frontier: runnableFrontier(rows2) };
 }
 
 // kit/bin/github.mjs
@@ -17093,11 +17093,11 @@ function readCredits({ owner, repo, since, labels, signature, exec = execFileSyn
   const search = (query, fields, keyword = null) => {
     const tail = keyword === null ? [] : ["--", keyword];
     const text3 = gh([...query, "--limit", String(SEARCH_CAP), "--json", fields, ...tail]).trim();
-    const rows = text3 ? JSON.parse(text3) : [];
-    if (rows.length >= SEARCH_CAP) {
+    const rows2 = text3 ? JSON.parse(text3) : [];
+    if (rows2.length >= SEARCH_CAP) {
       warnings.push(`gh ${[...query, ...tail].map(shown).join(" ")} hit GitHub's 1,000-result cap: some items may be missing; narrow it with --since or --repo.`);
     }
-    return rows;
+    return rows2;
   };
   const prs = /* @__PURE__ */ new Map();
   const issues = /* @__PURE__ */ new Map();
@@ -17177,7 +17177,7 @@ function creditsReport({ name, scope, since, summary }) {
   return lines;
 }
 function creditsList(items) {
-  const rows = items.map((item2) => [
+  const rows2 = items.map((item2) => [
     shortName(item2.repo),
     `#${item2.number}`,
     item2.kind,
@@ -17186,8 +17186,8 @@ function creditsList(items) {
     item2.signature ?? "-",
     item2.title
   ]);
-  const widths = rows.reduce((max, row) => max.map((width, index) => Math.max(width, row[index].length)), Array(6).fill(0));
-  return rows.map((row) => [...widths.map((width, index) => row[index].padEnd(width)), row[6]].join(" "));
+  const widths = rows2.reduce((max, row) => max.map((width, index) => Math.max(width, row[index].length)), Array(6).fill(0));
+  return rows2.map((row) => [...widths.map((width, index) => row[index].padEnd(width)), row[6]].join(" "));
 }
 
 // kit/bin/commands/credits.mjs
@@ -18144,8 +18144,8 @@ function mergedLine(merge) {
 function slugOf(title) {
   const slug = title.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   if (slug.length <= SLUG_MAX) return slug;
-  const cut = slug.slice(0, SLUG_MAX + 1);
-  return cut.slice(0, cut.lastIndexOf("-") > 0 ? cut.lastIndexOf("-") : SLUG_MAX);
+  const cut2 = slug.slice(0, SLUG_MAX + 1);
+  return cut2.slice(0, cut2.lastIndexOf("-") > 0 ? cut2.lastIndexOf("-") : SLUG_MAX);
 }
 function chosenOption(candidate) {
   if (candidate.verdict === "drifted") {
@@ -18551,8 +18551,8 @@ var today = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 function landedText(entry) {
   if (entry.kind === "stays-here") return "stays here";
   if (entry.kind === "covered") return `covered by ${entry.landedAs.join(", ")}`;
-  const standing = entry.kind === "adr" ? entry.status : entry.proposed ? "proposed" : "confirmed";
-  return `${entry.landedAs.join(", ")} (new, ${standing})`;
+  const standing2 = entry.kind === "adr" ? entry.status : entry.proposed ? "proposed" : "confirmed";
+  return `${entry.landedAs.join(", ")} (new, ${standing2})`;
 }
 function checkLine(name, violations) {
   return violations.length === 0 ? `omni check ${name} \u2713` : `omni check ${name} \u2717 (${violations.length})`;
@@ -19716,16 +19716,16 @@ var pairOf = (entry) => entry.domains.length === 2 ? entry.domains.join("--") : 
 function graphText({ domains, entries: entries2, links, loose, unserved }) {
   const pairs = /* @__PURE__ */ new Map();
   for (const entry of entries2.filter((one) => one.domain === null)) pairs.set(pairOf(entry), [...pairs.get(pairOf(entry)) ?? [], entry]);
-  const rows = [
+  const rows2 = [
     ...domains.map(({ name, counts: counts2 }) => [name, ...columns(counts2)]),
     ...[...pairs].map(([name, held]) => [name, ...columns(countsOf(held))])
   ];
-  const nameWidth = Math.max(0, ...rows.map(([name]) => name.length));
-  const kindsWidth = Math.max(0, ...rows.map(([, kinds]) => kinds.length));
+  const nameWidth = Math.max(0, ...rows2.map(([name]) => name.length));
+  const kindsWidth = Math.max(0, ...rows2.map(([, kinds]) => kinds.length));
   const ids = (label, list3) => `  ${label}${list3.length > 0 ? ` (${list3.length}): ${list3.join(", ")}` : ": none"}`;
   return [
     `kb graph \u2014 ${count2(domains.length, "domain", "domains")}, ${count2(entries2.length, "entry", "entries")}, ${count2(links.length, "link", "links")}`,
-    ...rows.map(([name, kinds, status3]) => `  ${name.padEnd(nameWidth)}    ${kinds.padEnd(kindsWidth)}    ${status3}`),
+    ...rows2.map(([name, kinds, status3]) => `  ${name.padEnd(nameWidth)}    ${kinds.padEnd(kindsWidth)}    ${status3}`),
     ids("unserved principles", unserved),
     ids("loose entries", loose)
   ].join("\n");
@@ -20054,14 +20054,14 @@ var plan = {
     const { positional } = parseArgs("plan check", rest);
     if (positional.length !== 1) throw usageError(USAGE11);
     const prd2 = positiveInt("plan check", "<prd>", positional[0]);
-    const { planPath, slices, waves, rows, violations } = checkPlan(prd2, { ctx });
+    const { planPath, slices, waves, rows: rows2, violations } = checkPlan(prd2, { ctx });
     println(
       stdout,
       `omni plan check \u2014 PRD ${prd2}: ${slices.length} slice(s) across wave(s) ${waves.join(", ")} (${planPath}).`
     );
-    if (rows.length > 0) {
-      println(stdout, `omni plan check \u2014 collision matrix (${rows.length} pair(s) sharing ground):`);
-      for (const row of rows) println(stdout, `  ${row.pair}: ${row.shared} \u2014 ${row.resolved}`);
+    if (rows2.length > 0) {
+      println(stdout, `omni plan check \u2014 collision matrix (${rows2.length} pair(s) sharing ground):`);
+      for (const row of rows2) println(stdout, `  ${row.pair}: ${row.shared} \u2014 ${row.resolved}`);
     }
     if (violations.length > 0) {
       println(stdout, formatFailure(`omni plan check \u2014 PRD ${prd2}: violation(s):`, violations));
@@ -20902,6 +20902,42 @@ function changedOutside(ctx, exec, range) {
 function filesUnder2(ctx, exec, ref, dir) {
   return entries(git3(ctx, exec, ["ls-tree", "-r", "-z", "--name-only", ref, "--", `${dir}/`])).map((path) => path.slice(dir.length + 1));
 }
+function userEmail(ctx, exec) {
+  try {
+    return git3(ctx, exec, ["config", "user.email"]).trim() || null;
+  } catch {
+    return null;
+  }
+}
+function isShallow(ctx, exec) {
+  try {
+    return git3(ctx, exec, ["rev-parse", "--is-shallow-repository"]).trim() === "true";
+  } catch {
+    return false;
+  }
+}
+var COMMIT_MARK = "";
+function commitsIn(ctx, exec, range, paths = []) {
+  const log = git3(ctx, exec, ["log", "-z", "--name-only", "--no-renames", "--full-history", "--format=%x01%ae", range, "--", ...paths]);
+  return log.split(COMMIT_MARK).filter(Boolean).map((commit) => {
+    const [email, ...changed] = commit.split("\0");
+    return { email, paths: changed.map((path) => path.replace(/^\n/, "")).filter(Boolean) };
+  });
+}
+var authorsOf = (commits) => [...new Set(commits.map(({ email }) => email))];
+function touchedBy(ctx, commits) {
+  const delivery = `${ctx.config.paths.delivery}/`;
+  const seen = /* @__PURE__ */ new Map();
+  for (const { email, paths } of commits) {
+    for (const path of paths) {
+      if (!path.startsWith(delivery)) continue;
+      const parts = path.slice(delivery.length).split("/");
+      const folder = parts.length > 2 ? parseFolderName(parts[1]) : null;
+      if (folder) seen.set(`${folder.prd}\0${email}`, { prd: folder.prd, email });
+    }
+  }
+  return [...seen.values()];
+}
 function unlessUnreadable(read2) {
   try {
     return read2();
@@ -20915,24 +20951,34 @@ function featuresOf(ctx, exec, base, inbox, remote) {
     const branch = fillBranch(ctx.config.branches.feature, { topic });
     const ref = remote.get(branch);
     if (!ref) continue;
-    const feature = unlessUnreadable(() => ({
-      branch,
-      topic,
-      forked: changedOutside(ctx, exec, [`${base}...${ref}`]),
-      differs: changedOutside(ctx, exec, [base, ref]),
-      outbox: filesUnder2(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name}`)
-    }));
+    const feature = unlessUnreadable(() => {
+      const beyond = commitsIn(ctx, exec, `${base}..${ref}`);
+      return {
+        branch,
+        topic,
+        forked: changedOutside(ctx, exec, [`${base}...${ref}`]),
+        differs: changedOutside(ctx, exec, [base, ref]),
+        outbox: filesUnder2(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name}`),
+        authors: authorsOf(beyond),
+        touched: touchedBy(ctx, beyond)
+      };
+    });
     if (feature) out.push(feature);
   }
   return out;
 }
-function phase0Of(ctx, exec, remote) {
+function phase0Of(ctx, exec, base, remote) {
   const out = [];
   for (const [branch, ref] of remote) {
     const topic = topicOf2(branch, ctx.config.branches.phase0);
     if (!topic) continue;
-    const inbox = unlessUnreadable(() => foldersAt(ctx, exec, ref, ctx.layout.dirs.inbox));
-    if (inbox) out.push({ branch, topic, inbox });
+    const phase02 = unlessUnreadable(() => ({
+      branch,
+      topic,
+      inbox: foldersAt(ctx, exec, ref, ctx.layout.dirs.inbox),
+      touched: touchedBy(ctx, commitsIn(ctx, exec, `${base}..${ref}`, [`${ctx.config.paths.delivery}/`]))
+    }));
+    if (phase02) out.push(phase02);
   }
   return out;
 }
@@ -20946,10 +20992,13 @@ function readFacts({ ctx, exec = execFileSync9 }) {
     slug: ctx.config.repo.slug,
     base: base.name,
     fetchedAt: fetchedAt(ctx, exec),
+    email: userEmail(ctx, exec),
+    shallow: isShallow(ctx, exec),
     shipped: foldersAt(ctx, exec, base.commit, dirs.shipped),
     inbox,
+    touched: touchedBy(ctx, commitsIn(ctx, exec, base.commit, [`${ctx.config.paths.delivery}/`])),
     features: featuresOf(ctx, exec, base.commit, inbox, remote),
-    phase0: phase0Of(ctx, exec, remote)
+    phase0: phase0Of(ctx, exec, base.commit, remote)
   };
 }
 
@@ -21001,6 +21050,23 @@ function inReviewOf(phase02, taken) {
   const held = phase02.flatMap(({ topic, inbox }) => inbox.filter((folder) => folder.topic === topic));
   return stage(held, taken);
 }
+function yourNumbers(facts, onBase, me) {
+  const isMe = (email) => email.toLowerCase() === me;
+  const touched = [facts.touched, ...facts.features.map(({ touched: touched2 }) => touched2), ...facts.phase0.map(({ touched: touched2 }) => touched2)].flat();
+  const mine = new Set(touched.filter(({ email }) => isMe(email)).map(({ prd: prd2 }) => prd2));
+  const helped = new Set(facts.features.filter(({ authors }) => authors.some(isMe)).map(({ topic }) => topic));
+  for (const { prd: prd2, topic } of onBase) if (helped.has(topic)) mine.add(prd2);
+  return mine;
+}
+function yoursOf(facts, stages, onBase) {
+  const none = { email: facts.email ?? null, rows: [], shipped: [] };
+  if (!facts.email) return { state: "no-email", ...none };
+  if (facts.shallow) return { state: "shallow", ...none };
+  const mine = yourNumbers(facts, onBase, facts.email.toLowerCase());
+  const yours2 = (entries2) => entries2.filter(({ prd: prd2 }) => mine.has(prd2));
+  const rows2 = ["outbox", "inbox", "inReview"].flatMap((stage2) => yours2(stages[stage2]).map((entry) => ({ stage: stage2, ...entry })));
+  return { state: "known", email: facts.email, rows: rows2, shipped: yours2(stages.shipped) };
+}
 function overviewFor(facts) {
   const shipped = stage(facts.shipped);
   const onBase = stage(facts.inbox, new Set(shipped.map(({ prd: prd2 }) => prd2)));
@@ -21009,11 +21075,12 @@ function overviewFor(facts) {
   const inbox = onBase.filter(({ prd: prd2 }) => !inOutbox.has(prd2));
   const inReview = inReviewOf(facts.phase0, new Set([...facts.shipped, ...facts.inbox].map(({ prd: prd2 }) => prd2)));
   const inProgress = inbox.length + outbox.length;
+  const stages = { shipped, outbox, inbox, inReview };
   return {
     slug: facts.slug,
     base: facts.base,
     fetchedAt: facts.fetchedAt,
-    stages: { shipped, outbox, inbox, inReview },
+    stages,
     counts: {
       shipped: shipped.length,
       inbox: inbox.length,
@@ -21022,7 +21089,8 @@ function overviewFor(facts) {
       inReview: inReview.length
     },
     bar: barFor(shipped.length, shipped.length + inProgress),
-    inProgress: { total: inProgress, inbox: inbox.length, outbox: outbox.length }
+    inProgress: { total: inProgress, inbox: inbox.length, outbox: outbox.length },
+    yours: yoursOf(facts, stages, onBase)
   };
 }
 
@@ -21069,6 +21137,56 @@ function bar({ bar: { delivered, total, percent, filled }, inProgress }) {
   const under = inProgress.total === 0 ? "nothing in progress" : `${inProgress.total} in progress: ${parts.join(", ")}`;
   return [`${LABEL2}${cells2}  ${delivered} of ${total} \xB7 ${percent}%`, `${UNDER_BAR}${under}`];
 }
+var STAGE_WORDS = { outbox: "outbox", inbox: "inbox", inReview: "in review", shipped: "shipped" };
+var NUMBER_GAP = "  ";
+var TOPIC_GAP = "    ";
+var SEPARATOR = " \xB7 ";
+var cut = (text3, width) => text3.length <= width ? text3 : `${text3.slice(0, Math.max(0, width - 1))}\u2026`;
+var stageColumn = (stage2) => `${INDENT}${STAGE_WORDS[stage2].padEnd(UNDER_BAR.length - INDENT.length)}`;
+function standing({ stage: stage2, prd: prd2, openItems: openItems2 }) {
+  if (stage2 === "outbox") return openItems2 > 0 ? `${plural2(openItems2, "open item")} wait${openItems2 === 1 ? "s" : ""} for an answer` : "being built";
+  if (stage2 === "inbox") return `ready to build: /omni:yolo ${prd2}`;
+  return "its phase-0 PR waits for a merge";
+}
+function rows(entries2) {
+  const lines = entries2.map((row) => ({ stage: stageColumn(row.stage), number: `#${row.prd}`, topic: row.topic, words: standing(row) }));
+  const numberWidth = Math.max(...lines.map(({ number }) => number.length)) + NUMBER_GAP.length;
+  const wordsWidth = Math.max(...lines.map(({ words }) => words.length));
+  const room = WIDTH - UNDER_BAR.length - numberWidth - TOPIC_GAP.length - wordsWidth;
+  const topicWidth = Math.min(Math.max(...lines.map(({ topic }) => topic.length)), Math.max(1, room));
+  return lines.map(({ stage: stage2, number, topic, words }) => `${stage2}${number.padEnd(numberWidth)}${cut(topic, topicWidth).padEnd(topicWidth)}${TOPIC_GAP}${words}`);
+}
+function shippedEntry({ prd: prd2, topic }, width) {
+  const number = `#${prd2} `;
+  return `${number}${cut(topic, width - number.length)}`;
+}
+function shippedRow(shipped) {
+  const out = [];
+  let line = `${stageColumn("shipped")}${shipped.length}: `;
+  let fresh = true;
+  for (const entry of shipped) {
+    if (!fresh) {
+      const joined2 = `${line}${SEPARATOR}${shippedEntry(entry, Infinity)}`;
+      if (joined2.length <= WIDTH) {
+        line = joined2;
+        continue;
+      }
+      out.push(line);
+      line = UNDER_BAR;
+    }
+    line = `${line}${shippedEntry(entry, WIDTH - line.length)}`;
+    fresh = false;
+  }
+  out.push(line);
+  return out;
+}
+function yours({ state, email, rows: inFlight, shipped }) {
+  if (state === "no-email") return [`${INDENT}set git config user.email to see yours`];
+  if (state === "shallow") return [`${INDENT}this clone is shallow: git fetch --unshallow to see yours`];
+  const heading = cut(`${INDENT}Yours \xB7 ${email}`, WIDTH);
+  if (inFlight.length === 0 && shipped.length === 0) return [heading, `${INDENT}none yet`];
+  return [heading, ...inFlight.length ? rows(inFlight) : [], ...shipped.length ? shippedRow(shipped) : []];
+}
 function formatOverview(overview2, { now }) {
   return [
     header(overview2, now),
@@ -21076,6 +21194,8 @@ function formatOverview(overview2, { now }) {
     ...counts(overview2.counts),
     "",
     ...bar(overview2),
+    "",
+    ...yours(overview2.yours),
     "",
     "omni help: the loop and every command"
   ].join("\n");
