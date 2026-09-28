@@ -7,7 +7,7 @@
 // pull request on each of the phase-0, feature and retro branches, and the sub-PRs merged into the
 // feature branch, the outbox (the feature branch's open items and settled.md before shipping, the
 // shipped folder's after; items parsed by the kit's own reader) and the feature PR's outbox comment,
-// found by its marker (s2). Each of those reads fails on its own (`UNREAD`); the App not installed, or no
+// found by its marker (s2), and the retro's retro.md (./retro.ts, s3). Each of those reads fails on its own (`UNREAD`); the App not installed, or no
 // config, and the whole summary is null. Every answer, null included, is cached 60 s per dossier.
 // The token never leaves this module: the summary holds only numbers, states and github.com links.
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
@@ -16,6 +16,7 @@ import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.mjs';
 import { parseOutboxItem, SETTLED_FILE } from 'vertuo-omni-plan/kit/lib/outbox/outbox.mjs';
 import { parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.mjs';
 import { z } from 'zod';
+import { readRetro } from './retro';
 import { githubApp, REPO, type AppCredentials, type InstallationToken } from '../../signup/github-app';
 import { UNREAD, type GithubSummary, type IssueRef, type Outbox, type OutboxItem, type PullRef, type Read, type SettledItem } from './summary';
 
@@ -207,6 +208,11 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
         const find = (marker: string) => comments.find((c) => c.body?.includes(marker))?.html_url ?? null;
         return find(markers.prComment) ?? find(markers.comment);
       },
+      /** A file's text on `ref`; null when it is not there. */
+      async raw(file: string, ref: string): Promise<string | null> {
+        const text = await contents(file, ref, true);
+        return typeof text === 'string' ? text : null;
+      },
       async mergedInto(branch: string): Promise<number> {
         return (await pulls({ base: branch, state: 'closed' })).filter((p) => p.merged_at !== null).length;
       },
@@ -250,11 +256,13 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
     const outboxRead = shipped
       ? () => gh.outbox(`${config.delivery}/shipped/${shipped}/outbox`, main, config.markers)
       : folder && topic ? () => gh.outbox(`${config.delivery}/outbox/${folder}`, branch(config.branches.feature), config.markers) : none;
-    const [outbox, outboxComment] = await Promise.all([
+    const retroWhere = { delivery: config.delivery, folder: shipped ?? folder, defaultBranch: main, retroBranch: branch(config.branches.retro) };
+    const [outbox, outboxComment, retroText] = await Promise.all([
       part('the outbox', outboxRead),
       part('the outbox comment', feature !== UNREAD && feature ? () => gh.outboxComment(feature.number, config.markers) : none),
+      part('the retro', retro !== UNREAD && retro ? () => readRetro(retro, retroWhere, gh.raw) : none),
     ]);
-    return { repo, prd, folder, topic, issue, phase0, feature, retro, mergedSlices, outbox, outboxComment };
+    return { repo, prd, folder, topic, issue, phase0, feature, retro, mergedSlices, outbox, outboxComment, retroText };
   }
 
   return {

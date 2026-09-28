@@ -119,6 +119,7 @@ describe('the GitHub summary of a numbered dossier', () => {
       mergedSlices: 2,
       outbox: null,
       outboxComment: null,
+      retroText: null,
     });
     expect(gh.calls).toContain('/repos/acme/widgets/pulls?state=all&per_page=100&head=acme%3Afeature%2Fprd-page-stage&sort=created&direction=desc');
     expect(gh.calls).toContain('/repos/acme/widgets/pulls?state=closed&per_page=100&base=feature%2Fprd-page-stage');
@@ -317,6 +318,42 @@ describe('the outbox', () => {
     });
     expect(await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({
       outbox: UNREAD, outboxComment: UNREAD, feature: { number: 433 }, issue: { number: 426 },
+    });
+  });
+});
+
+describe('the retro (s3)', () => {
+  const RETRO = 'loop/delivery/shipped/0426-prd-page-stage/retro.md';
+  const shipped = (retroPr: ReturnType<typeof pull>, files: Record<string, string>, fail?: RegExp) => fakeGithub({
+    shipped: ['0426-prd-page-stage'], issue: { ...ISSUE, state: 'closed' },
+    pulls: [merged(431, 'docs/phase-0-prd-page-stage'), merged(433, 'feature/prd-page-stage'), retroPr], files, fail,
+  });
+
+  it('reads retro.md from the retro branch while its PR is open', async () => {
+    const gh = shipped(pull(440, 'docs/retro-prd-page-stage'), {
+      [`docs/retro-prd-page-stage:${RETRO}`]: '# Retro\n\nFrom the branch.\n', [`trunk:${RETRO}`]: 'stale',
+    });
+    expect(await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({
+      retro: { number: 440, state: 'open' }, retroText: '# Retro\n\nFrom the branch.\n',
+    });
+  });
+
+  it('reads it from the default branch once the retro PR is merged', async () => {
+    const gh = shipped(merged(440, 'docs/retro-prd-page-stage'), { [`trunk:${RETRO}`]: '# Retro\n\nMerged.\n' });
+    expect((await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER))?.retroText).toBe('# Retro\n\nMerged.\n');
+    expect(gh.calls.some((c) => c.includes('retro.md') && c.includes('ref=docs'))).toBe(false);
+  });
+
+  it('is none with no retro PR, and makes no read for it', async () => {
+    const gh = fakeGithub({ shipped: ['0426-prd-page-stage'], issue: ISSUE, pulls: [merged(433, 'feature/prd-page-stage')] });
+    expect((await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER))?.retroText).toBeNull();
+    expect(gh.calls.some((c) => c.includes('retro.md'))).toBe(false);
+  });
+
+  it('fails on its own while the others answer', async () => {
+    const gh = shipped(pull(440, 'docs/retro-prd-page-stage'), {}, /retro\.md/);
+    expect(await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({
+      retroText: UNREAD, retro: { number: 440 }, feature: { state: 'merged' },
     });
   });
 });
