@@ -124,10 +124,12 @@ Outside the arcade, the app (PRD 238): `/app`, its home, beside `/ask`, `/ask/fo
 `/knowledge` and `/releases`, all on the ask pages' reading surface, in three themes: **Omni**, the
 default, HOME's palette (the void, the cabinet's navy, comic yellow), then **Light** and **Dark**
 (PRD 284). The theme switch reads `Omni · Light · Dark`; only colours change between them, and a
-choice of Light or Dark is remembered in the browser, Omni being the absence of one. `/app` is a
-card per section (`SECTIONS` in `src/switch/switch.ts`), each a link to its page; it reads nothing and
-opens without signing in, and each page it opens signs the visitor in on its own, except
-`/releases`, which is public ([Release notes](#release-notes)). Every app page's header
+choice of Light or Dark is remembered in the browser, Omni being the absence of one. `/app` is **your
+dashboard** (PRD 328, [Your dashboard, `/app`](#your-dashboard-app)): your hero, fleet, season points
+and places, a week of merges, four counts and the rankings, then a compact card per section
+(`SECTIONS` in `src/switch/switch.ts`), each a link to its page. It asks you to sign in, and each page
+it links to signs the visitor in on its own, except `/releases`, which is public
+([Release notes](#release-notes)). Every app page's header
 links its `OMNI LOOP` mark to `/app` and ends with **Game mode**, which asks *Switch to game mode?*:
 Switch opens `/#menu` in the same tab, and Stay, Esc or a click outside leaves the page as it was.
 
@@ -242,6 +244,7 @@ cancel, several at once.
 ```
 GitHub ──pnpm game:project (game workflow, every 15 min)──▶ Supabase: ledger_events, sectors, teams, players
        then pnpm game:xp, from the whole ledger ──────────▶           player_xp
+       then pnpm game:contributions, the last 40 days ────▶           contributions
                                                                  │  row-level security: a member reads their
                                                                  │  workspace, a player writes only their own row,
                                                                  │  and a score only through submit_score()
@@ -353,6 +356,92 @@ panels, wears `stripe-*`. Fonts are not tokens.
 `pnpm --filter @omni/design tokens` regenerates `tokens.css`; unless only the canvas draws it), its
 name in `theme.ts`, and `valid_theme()`'s list, in a new migration. `src/arcade/theme.test.ts` fails until the three agree, and while `shell.css` or a canvas
 scene writes a token's colour as a literal.
+
+## Your dashboard, `/app`
+
+`/app` is the app's home (PRD 238) and **your dashboard** (PRD 328): what the game knows about you,
+without the Game Boy. Both sides land on it: the arcade's APP MODE row and GAME ▮▯ APP switch, and
+every app page's `OMNI LOOP` mark. It renders per request, as the signed-in person, the way `/prd`
+does, so row-level security decides what each read returns (`app/app/page.tsx`, the module
+`src/dashboard/`). Top to bottom (`Dashboard.tsx`):
+
+1. **You** (`You.tsx`, `you.ts`). Your hero, drawn on the server as a pixel SVG in your fleet's colour
+   (`pixelSvg` over `heroLook`, as `/design` draws sprites: no script, no canvas). Beside it your name,
+   the page's one `h1`; your fleet, its label beside a square in its colour (the label itself wears the
+   colour on Omni and Dark, and the ink on Light, where a pale fleet would not read); your season's
+   points, *1,240 pts · September season*; and your two places, *You #7 of 23 · BEAVER #2 of 5*, or
+   *No points yet this season · BEAVER #2 of 5*.
+2. **A week of merges** (`week/`). *PRs merged into main · last 7 days*: a bar per day, the six days
+   before today and today, in Brussels days, today last and in bold, each under its weekday, and the
+   week's total at the top right. Inline SVG drawn on the server, with no chart library and no script.
+   The y-axis marks every whole number up to 5; past 5, a round step (2, 5, 10…) and the busiest
+   day's own number at the top. A screen reader reads, in its place, a list of the seven days and
+   their counts. An empty week adds the line *No PRs merged into main in the last 7 days*.
+3. **Four counts** (`counts/`), a tile each: **Questions answered**, **Outbox settled** and **PRDs
+   created**, this season, and **Waiting for you**, right now. **Waiting for you** links to
+   `/ask/for-me` when at least one question waits and every one waiting was shared with you, and to
+   `/ask` otherwise. Two by two on a phone, in one row from 720 px. A 0 shows as 0, and no tile is
+   ever hidden.
+4. **The rankings** (`rankings/`), this season, side by side where they fit. **Fleets**: every fleet
+   the season knows, ranked by points, yours marked ◀. **Individuals**: the top 3, then you with the
+   person just above and just below, `⋯` for the ranks skipped; ranking 1 to 4 shows ranks 1 to 5 with
+   no gap, and ranking last shows no one below. Each row is a rank, a display name (the GitHub login
+   when that person never picked one) and the points.
+5. **The app's sections** (`Cards.tsx`): `SECTIONS`, compact, a title and an arrow each, on one row
+   that wraps.
+
+**The season** is the UTC calendar month, the one the game's economy scores (`seasonBounds()` in
+`season.ts`; `buildGalaxy` scores `now.toISOString().slice(0, 7)`): the points, both rankings and the
+three season counts reset together. The week alone counts Brussels days, because a person reads
+"today" in their own time.
+
+**Its situations**, decided once, top to bottom (`DashboardScreen.tsx`):
+
+| Situation | What `/app` shows |
+|---|---|
+| **Demo** (development, or a build with `OMNI_LOOP_DEMO=1`) | The whole dashboard on the demo world, signed in as its *you*: DAM-DEV of BEAVER, one of the demo galaxy's heroes, wearing the demo guest's default hero. The points, places and rankings are the demo galaxy's own; the week (nine merges) and the counts (14, 3, 2 and 1) are made up and fixed, each in its folder's `demo.ts` |
+| **Closed** (a build with no database) | *The dashboard is not open here*, then the section cards |
+| **Signed out** | Only a sign-in card: *Sign in to see your dashboard* and **Sign in with Google** (`@vertuoza.com`). Google comes back to `/app/callback`, which turns the code into the session cookie, joins the workspaces of the email's domain (`join_by_domain()`) and returns to `/app`, or to `/app?signin_error=…`, whose reason the card says |
+| **Signed in, in no workspace** | *Your account is not in a workspace*, with **Switch account**, as `/knowledge` does |
+| **A member who never joined a fleet** (no `players` row) | The heading is the Google account's first name, and in place of the hero, the points and the places, a card: *Join a fleet in the arcade to get your hero and your score*, linking to `/play`. The week, the counts and the rankings still show, counted by the account's linked GitHub identity when it has one |
+| **No GitHub login** (neither `players.github_login` nor a linked identity) | *Link your GitHub in the arcade*, linking to `/play`, in place of the points and places, the week, **Outbox settled** and **PRDs created**, and below the individuals' top 3. The hero, the fleet, the fleets table, **Questions answered** and **Waiting for you** still show: they need no GitHub |
+| **One read fails** | Only its part reads *Couldn't load this. Reload in a moment.*, its error logged on the server, and the rest renders. Each tile fails alone; the rankings need the galaxy and the workspace's players both, so either failing empties both tables. When even the workspace cannot be read, every part says so, and nobody is turned away |
+
+**Where each number is read from.** `load.ts` finds the workspace joined first and your player row in
+it, then runs the reads in parallel, each on its own:
+
+| On the page | Read from |
+|---|---|
+| hero, name, fleet | your `players` row (`hero`, `display_name`, `team`), and `teams` for the fleet's label and colour |
+| season points, your place, both rankings | `loadGalaxy`, the ledger folded by `buildGalaxy` as `/play` does: its `heroes` and `teams`, read once for every part that asks |
+| names in the individuals table | the workspace's `players`, by GitHub login (`loadCrew`) |
+| the week | `contributions` of the workspace, kind `pr-merged`, your login, the last 7 Brussels days |
+| PRDs created | `contributions` of the workspace, kind `prd-opened`, your login, this season |
+| Outbox settled | `ledger_events` of the workspace, type `WOUND_CLOSED`, id starting `outbox:`, `contributor` your login, this season |
+| Questions answered | `ask_rounds` whose `answered_by` is you, with `answered_at` this season, in every workspace you belong to, as the ask pages read them |
+| Waiting for you | `readTabs` and `readForMe`, the ask pages' own readers, counted as those pages show them: your sessions whose newest round is open and the page can still answer (not once the terminal has taken it over, nor in a closed session), plus the open questions shared with you |
+
+Your GitHub login is `players.github_login`, else the account's linked GitHub identity, and every
+comparison with a stored login ignores case. A bot's login never matches a person, so bots never
+appear on anyone's week or counts; the individuals table shows whoever the ledger credits.
+
+**Numbers that read 0 for now.** The points, the places, the rankings and **Outbox settled** come
+from the ledger, whose projector reads each repository's `docs/inbox/*.md` and the plan repository's
+PRD issues only (`game/sources/github.mjs`), while the kit writes `.omni-loop/delivery/{inbox,shipped}/`.
+So it most likely records no slice, feature PR or outbox settle for today's repositories, and these
+read 0 until a later PRD teaches the projector the kit's delivery folders. The page says nothing about
+it. The week and **PRDs created** read 0 while the game workflow is off: `pnpm game:contributions`
+fills `contributions` at each poll ([`game/README.md` › Contributions](../../game/README.md#contributions)).
+**Questions answered** and **Waiting for you** read the ask tables, and count today.
+
+**The code.** `src/dashboard/` holds the hero block and the files that compose the page
+(`Dashboard.tsx`, `load.ts`, `demo.ts`, `dashboard.css`), and a folder per part (`week/`, `counts/`,
+`rankings/`), each with its pure functions, loader, view, demo, stylesheet and tests. Every part keeps
+one contract (`part.ts`): its loader is given the database as the person, the workspace, their user
+id, their GitHub login in lower case, their fleet, the time, the season and the galaxy, and resolves
+with its value or `'unreadable'`; its view is drawn on the server from that value and the season.
+The page adds no script beyond the sign-in card's button and the app bar's controls, its styles use
+the ask pages' tokens only (`src/design-system.test.ts`), and nothing is wider than a 393 px window.
 
 ## The knowledge map
 
@@ -585,7 +674,7 @@ From the repository root:
 
 ```bash
 pnpm install
-pnpm galaxy:dev          # http://localhost:3000: HOME; the demo galaxy at /play (no Supabase needed)
+pnpm galaxy:dev          # http://localhost:3000: HOME; the demo galaxy at /play, its dashboard at /app (no Supabase needed)
 ```
 
 ### With a local Supabase
@@ -613,7 +702,7 @@ true` on both providers in `supabase/config.toml`, and restart the stack. Both c
 `pnpm galaxy:seed` regenerates `supabase/seed.sql` from the demo world, dated now, in the `vertuoza`
 workspace the migrations create.
 
-### Screenshots of every scene
+### Screenshots of every scene, and of `/app`
 
 `pnpm galaxy:shots` walks the demo galaxy from the keyboard in a headless Chromium, from the boot
 through the joining flow and the level-up (the demo guest's borrowed level, new in that browser) to
@@ -623,17 +712,24 @@ Entropy Invaders' score table, play and pause each on their own; the star chart 
 checkout's knowledge) at three sizes: 393×700 upright
 touch (an iPhone with Safari's bars), 852×393 sideways touch and 1440×900 with a mouse.
 
+Then it opens `/app`, the dashboard the demo draws, signed in as its *you*, picks Omni, Light and
+Dark on the app bar's theme switch (a finger on the two touch sizes, the mouse on a computer), and
+saves the whole page in each, at the same three sizes (`34-app-omni.png` to `36-app-dark.png`).
+
 ```bash
 pnpm --filter @omni/galaxy-app exec playwright install chromium   # once: Playwright's Chromium
 pnpm galaxy:dev          # in one terminal
 pnpm galaxy:shots        # in another: apps/galaxy/shots/<width>x<height>/, which git ignores
 ```
 
-- It prints every text element in the screen that renders below 8 CSS px at 393×700, with its
-  scene. The list is a report, not a failure.
-- Each screenshot is taken at the same moment of its scene on every run (the page's clock is
-  Playwright's), so two runs can be compared screen by screen. Only the demo galaxy's own dates
-  move, since it is dated now.
+- It prints every text element in the screen (on `/app`, the page) that renders below 8 CSS px at
+  393×700, with its screenshot. The list is a report, not a failure.
+- `/app` wider than its window, which a person would have to scroll sideways, fails the run: it names
+  the elements past the right edge, and saves the screenshot all the same.
+- Each screenshot of the arcade is taken at the same moment of its scene on every run (the page's
+  clock is Playwright's), so two runs can be compared screen by screen. Only the demo galaxy's own
+  dates move, since it is dated now. `/app` is drawn on the server, with its clock: its week of
+  merges moves with the day it is shot on.
 - The demo guest always has a `@vertuoza.com` account. To reach the "wrong cartridge" screen, the
   script makes it an account from another domain, in the browser only.
 - Without `pnpm galaxy:dev` running, it stops and says so. `pnpm test` never starts it.
@@ -794,6 +890,15 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
   anyone signed out), a game their `player_xp.unlocked` does not hold, and a score outside
   0..9,999,999. It keeps the higher of the stored best and the score, and returns the best as
   stored.
+- `contributions` (PRD 328): who authored each pull request merged into a sector repository's
+  default branch (`kind` `pr-merged`, `at` when it merged) and who opened each `omni:prd` issue
+  (`prd-opened`, `at` when it was opened), key `(workspace_id, kind, repo, number)`, with the
+  author's `login` in lower case. The game workflow upserts the last 40 days at each poll
+  (`pnpm game:contributions`); `/app`'s week and PRDs created read it. It is not the ledger: a row
+  can be rewritten or deleted and the table dropped, and it rebuilds from GitHub within its window,
+  so the backup leaves it out. A member reads their workspace's rows, and only the service role
+  writes; `supabase/checks/contributions.sql` proves both on every pull request that touches
+  `supabase/`.
 - `dossiers` (PRD 216): one per PRD, keyed by `(workspace_id, home_repo, prd)`; `home_repo` is the
   repository whose issue the PRD is, `owner/name` in lower case, and `prd` is null while the dossier
   is a draft (`numbered_at` is set with it). Also its `title`, `opened_by` (null when the fallback
@@ -825,11 +930,12 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
   person in the database. `supabase/checks/releases.sql` proves both on every pull request that
   touches `supabase/` ([Release notes](#release-notes)).
 - Row-level security, by membership (`is_member(workspace)`): a member reads their workspaces,
-  their own memberships, and their workspace's sectors, fleets, players, ledger, XP and high
-  scores, and nothing of any other workspace. A member with GitHub linked inserts their own player
-  row there, and updates only its name, fleet and hero (column grants). Anonymous visitors read
-  nothing but `releases`, fleets included. The service role reads everything, appends to the
-  ledger, and writes workspaces, memberships, sectors, fleets and `player_xp`, and adds releases.
+  their own memberships, and their workspace's sectors, fleets, players, ledger, XP, high scores
+  and contributions, and nothing of any other workspace. A member with GitHub linked inserts their
+  own player row there, and updates only its name, fleet and hero (column grants). Anonymous
+  visitors read nothing but `releases`, fleets included. The service role reads everything, appends
+  to the ledger, and writes workspaces, memberships, sectors, fleets, `player_xp` and
+  `contributions`, and adds releases.
 - Explicit grants: Supabase projects created since 2026-05-30 no longer grant the API roles access
   to new tables. The local stack matches (`auto_expose_new_tables = false`), so a table added
   without its grants fails locally and in the pull request check, not in production. The
