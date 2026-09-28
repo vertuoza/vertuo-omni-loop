@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Status Line</title>
+<style>
+  /* Ask mode's palette (PRD 71, 144, 216), as the before/after pages around it use. No web font and
+     no external request: the Omni page shows it inside a sandbox whose policy is default-src 'none'.
+     The terminals are drawn the same in both themes, as a terminal is. The PRDs, waves and counts
+     in the status lines are examples; the model name is whatever Claude Code reports. */
+  :root {
+    --ground: #f5f4fc;
+    --surface: #ffffff;
+    --sunk: #eceaf8;
+    --line: #d9d6ee;
+    --ink: #17153d;
+    --muted: #4f5486;
+    --plasma: #6a2fd0;
+    --plasma-soft: #efe7ff;
+    --t-ground: #0d0c26;
+    --t-raised: #15133a;
+    --t-ink: #e8eaff;
+    --t-dim: #8f95cf;
+    --t-line: #2f2c78;
+    --t-green: #5fe3a1;
+    --t-yellow: #ffd166;
+    --t-red: #ff7a8a;
+    --t-violet: #b37cff;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --px: "Press Start 2P", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+      --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+    --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.55 var(--body); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 40px 64px; display: grid; gap: 56px; }
+  header { display: grid; gap: 12px; max-width: 72ch; }
+  .eyebrow { font: 10px/1.6 var(--px); letter-spacing: .08em; color: var(--plasma); text-transform: uppercase; }
+  h1 { margin: 0; font-size: clamp(28px, 4vw, 40px); line-height: 1.15; text-wrap: balance; }
+  h2 { margin: 0; font-size: 22px; line-height: 1.25; text-wrap: balance; }
+  h3 { margin: 0; font: 600 14px/1.4 var(--body); }
+  p { margin: 0; }
+  code { font: 0.88em var(--mono); background: var(--sunk); border-radius: 4px; padding: 1px 5px; }
+  .lede { color: var(--muted); }
+  section { display: grid; gap: 16px; }
+  section > p { max-width: 72ch; color: var(--muted); }
+  .pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 960px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+  .pair.stack { grid-template-columns: minmax(0, 1fr); }
+  .side { display: grid; gap: 10px; min-width: 0; }
+  .tag { justify-self: start; font: 600 12px/1 var(--mono); padding: 5px 8px; border-radius: 4px; }
+  .tag.today { background: var(--sunk); color: var(--muted); }
+  .tag.after { background: var(--plasma-soft); color: var(--plasma); }
+  .note { font-size: 14px; color: var(--muted); max-width: 70ch; }
+
+  /* Terminal */
+  .term { background: var(--t-ground); color: var(--t-ink); border-radius: 10px; border: 1px solid var(--t-line); overflow-x: auto; }
+  .term-bar { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--t-line); color: var(--t-dim); font: 12px var(--mono); align-items: center; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--t-line); }
+  .term pre { margin: 0; padding: 12px 14px 14px; font: 13px/1.6 var(--mono); white-space: pre; }
+  .term .input { margin: 0 14px; border: 1px solid var(--t-line); border-radius: 6px; padding: 8px 10px; font: 13px/1.4 var(--mono); color: var(--t-dim); white-space: pre; }
+  .term .foot { padding: 8px 14px 12px; font: 13px/1.6 var(--mono); white-space: pre; }
+  .t-dim { color: var(--t-dim); }
+  .t-green { color: var(--t-green); }
+  .t-yellow { color: var(--t-yellow); }
+  .t-red { color: var(--t-red); }
+  .t-violet { color: var(--t-violet); }
+
+  /* The gallery of line-2 states */
+  .states { display: grid; gap: 12px; }
+  .state { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); gap: 12px 20px; align-items: center; }
+  @media (max-width: 760px) { .state { grid-template-columns: minmax(0, 1fr); gap: 6px; } }
+  .state .when { font-size: 14px; color: var(--muted); }
+  .state .when b { color: var(--ink); font-weight: 600; }
+  .strip { background: var(--t-ground); color: var(--t-ink); border: 1px solid var(--t-line); border-radius: 8px; padding: 8px 12px; font: 13px/1.6 var(--mono); white-space: pre; overflow-x: auto; }
+
+  /* What changes, what stays */
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; background: var(--surface); border: 1px solid var(--line); }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 600 12px var(--mono); color: var(--muted); background: var(--sunk); }
+  tr:last-child td { border-bottom: 0; }
+  td.same { color: var(--muted); }
+  td.new { color: var(--ink); }
+  td.new b { color: var(--plasma); }
+
+  /* HOME's spread, drawn plainly */
+  .home { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; display: grid; gap: 10px; }
+  .home h3 { font: 10px/1.6 var(--px); letter-spacing: .08em; color: var(--plasma); }
+  .home ol, .home ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 15px; }
+  .home mark { background: var(--plasma-soft); color: var(--ink); border-radius: 3px; padding: 0 2px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <header>
+    <span class="eyebrow">PRD 324 · before / after</span>
+    <h1>Your context and your PRD, always in view</h1>
+    <p class="lede">Today the bottom of Claude Code shows keyboard hints. To know how full the context is, or where
+      the PRD you are building stands, you ask. After, every session opened in a repository with the loop shows
+      two lines there: the model, the context bar, your 5-hour usage and ask mode; then the PRD this session works
+      on, its stage, the wave and slices while it is built, and its open outbox items. <code>omni init</code>
+      switches it on for the whole repository.</p>
+  </header>
+
+  <section aria-labelledby="bottom">
+    <h2 id="bottom">The bottom of Claude Code, during <code>/omni:yolo 315</code></h2>
+    <p>The session was started on <code>main</code>. The agents are building wave 2; the session waits on them.</p>
+    <div class="pair stack">
+      <div class="side">
+        <span class="tag today">today</span>
+        <div class="term" aria-label="Claude Code, today">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>claude · vertuo-omni-loop</span></div>
+<pre><span class="t-dim">● Dispatching wave 2: s2, s4 …</span>
+<span class="t-dim">  Waiting on 2 background agents.</span></pre>
+          <div class="input">&gt; </div>
+<div class="foot"><span class="t-dim">? for shortcuts</span>
+
+<span class="t-dim">Which model? How full is the context?
+Which wave is it on, and is a slice stuck?
+Nothing here says: you ask, or run
+omni board 315 in another terminal.</span></div>
+        </div>
+      </div>
+      <div class="side">
+        <span class="tag after">after</span>
+        <div class="term" aria-label="Claude Code, after">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>claude · vertuo-omni-loop</span></div>
+<pre><span class="t-dim">● Dispatching wave 2: s2, s4 …</span>
+<span class="t-dim">  Waiting on 2 background agents.</span></pre>
+          <div class="input">&gt; </div>
+<div class="foot">Opus 5.5 · context <span class="t-yellow">██████░░░░ 58%</span> · usage 25%, resets in 1h30 · <span class="t-violet">ask on</span>
+PRD 315 help-and-status · outbox · wave 2 of 4 · 3/5 slices merged, <span class="t-red">1 stuck</span> · 2 open items</div>
+        </div>
+        <p class="note">It keeps moving while the session waits: the line runs every 30 seconds, and the slices come
+          from a board refreshed in the background at most once a minute, so it never waits on GitHub.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="context">
+    <h2 id="context">Line 1: the session</h2>
+    <p>The model, a 10-cell context bar that turns yellow from 50% and red from 80%, the 5-hour usage when Claude
+      Code sends it (Pro and Max), and <code>ask on</code> while ask mode sends questions to the web page.</p>
+    <div class="states">
+      <div class="state"><p class="when"><b>First turn</b>, no percentage yet</p><div class="strip">Opus 5.5 · context —</div></div>
+      <div class="state"><p class="when"><b>Under 50%</b>, no usage window</p><div class="strip">Sonnet 5 · context <span class="t-green">███░░░░░░░ 31%</span></div></div>
+      <div class="state"><p class="when"><b>From 80%</b>: time to <code>/compact</code> or <code>/clear</code></p><div class="strip">Opus 5.5 · context <span class="t-red">████████░░ 86%</span> · usage 71%, resets in 45m · <span class="t-violet">ask on</span></div></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="prd">
+    <h2 id="prd">Line 2: the PRD this session works on</h2>
+    <p>Found from the branch the session is on, and otherwise from the last <code>omni</code> command this
+      session ran that named a PRD. The stage is read from git, as of the last fetch.</p>
+    <div class="states">
+      <div class="state"><p class="when"><b>A slice's worktree</b>, <code>feat/help-and-status--s2</code></p><div class="strip">PRD 315 help-and-status · s2 · outbox · wave 2 of 4 · 3/5 slices merged, 1 in flight</div></div>
+      <div class="state"><p class="when"><b>Every slice merged</b>, the gate is next</p><div class="strip">PRD 315 help-and-status · outbox · all slices merged · 1 open item</div></div>
+      <div class="state"><p class="when"><b>Phase-0 PR open</b>, <code>docs/phase-0-statusline</code></p><div class="strip">PRD 324 statusline · in review</div></div>
+      <div class="state"><p class="when"><b>Approved</b>, nothing built yet</p><div class="strip">PRD 324 statusline · inbox</div></div>
+      <div class="state"><p class="when"><b>Merged</b> into <code>main</code></p><div class="strip">PRD 262 release-notes · shipped</div></div>
+      <div class="state"><p class="when"><b>No PRD</b>, just talking on <code>main</code></p><div class="strip">no PRD · /omni:brainstorm to start</div></div>
+      <div class="state"><p class="when"><b>No <code>gh</code></b>, or offline</p><div class="strip">PRD 315 help-and-status · outbox · 2 open items</div></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="init">
+    <h2 id="init"><code>omni init</code>: switched on for everyone</h2>
+    <p>One key in the repository's committed <code>.claude/settings.json</code>. A status line that is not the
+      kit's is never overwritten; a person who prefers their own keeps it in <code>.claude/settings.local.json</code>.</p>
+    <div class="pair">
+      <div class="side">
+        <span class="tag today">today</span>
+        <div class="term" aria-label="omni init, today">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal</span></div>
+<pre><span class="t-dim">$ omni init</span>
+omni init — acme/widgets is set up.
+  wrote   .omni-loop/config.yml
+  wrote   .omni-loop/bin/omni.mjs
+  <span class="t-dim">…</span>
+
+To remove the loop: delete .omni-loop/ and
+commit. The labels and the App installation
+stay.</pre>
+        </div>
+      </div>
+      <div class="side">
+        <span class="tag after">after</span>
+        <div class="term" aria-label="omni init, after">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>terminal</span></div>
+<pre><span class="t-dim">$ omni init</span>
+omni init — acme/widgets is set up.
+  wrote   .omni-loop/config.yml
+  wrote   .omni-loop/bin/omni.mjs
+  wrote   .claude/settings.json  (statusLine)
+  <span class="t-dim">…</span>
+
+The status line is on for everyone who opens
+Claude Code here; to use your own, set
+statusLine in .claude/settings.local.json.
+
+To remove the loop: delete .omni-loop/ and the
+statusLine key of .claude/settings.json, and
+commit. The labels and the App installation
+stay.</pre>
+        </div>
+        <p class="note">Someone else's status line prints <code>kept … (its statusLine is not the kit's)</code>, even
+          with <code>--force</code>. A <code>settings.json</code> that is not valid JSON is left untouched.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="home">
+    <h2 id="home">HOME: Easy in, easy out</h2>
+    <p>The one-folder promise is no longer exact, so HOME says what <code>omni init</code> now writes and what to
+      delete to stop.</p>
+    <div class="pair">
+      <div class="side">
+        <span class="tag today">today</span>
+        <div class="home">
+          <h3>GET IN</h3>
+          <ol><li><code>omni init</code> adds one folder to your repository: <code>.omni-loop/</code>.</li><li>…</li></ol>
+          <h3>GET OUT</h3>
+          <ul><li><b>Delete <code>.omni-loop/</code> and commit. That's it.</b></li></ul>
+        </div>
+      </div>
+      <div class="side">
+        <span class="tag after">after</span>
+        <div class="home">
+          <h3>GET IN</h3>
+          <ol><li><code>omni init</code> adds one folder to your repository, <code>.omni-loop/</code>, <mark>and a status line to <code>.claude/settings.json</code></mark>.</li><li>…</li></ol>
+          <h3>GET OUT</h3>
+          <ul><li><b>Delete <code>.omni-loop/</code> <mark>and the <code>statusLine</code> in <code>.claude/settings.json</code></mark>, and commit. That's it.</b></li></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="same">
+    <h2 id="same">What changes, what stays</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Part</th><th>Today</th><th>After</th></tr></thead>
+        <tbody>
+          <tr><td>The bottom of Claude Code</td><td class="same">keyboard hints</td><td class="new"><b>two lines</b>: the session, then the PRD</td></tr>
+          <tr><td><code>omni statusline</code></td><td class="same">no such command</td><td class="new"><b>reads Claude Code's JSON</b>, prints the two lines, always exits 0</td></tr>
+          <tr><td>Commands that name a PRD (<code>omni prd 315</code>, <code>--prd 315</code>, …)</td><td class="same">run</td><td class="new">run exactly as before, and <b>record the PRD for this Claude session</b> in <code>.omni-loop/local/</code></td></tr>
+          <tr><td><code>omni init</code></td><td class="same">writes only <code>.omni-loop/</code></td><td class="new">also writes <b>the <code>statusLine</code> key</b> of <code>.claude/settings.json</code>; never overwrites someone else's</td></tr>
+          <tr><td><code>omni board</code>, <code>omni status &lt;prd&gt;</code></td><td class="same">as today</td><td class="same">unchanged: same output, same exit codes</td></tr>
+          <tr><td>GitHub and the network</td><td class="same">only the commands that need them</td><td class="same">the line never fetches and never calls <code>gh</code>; one detached refresh a minute per PRD does</td></tr>
+          <tr><td>The skills</td><td class="same">as today</td><td class="same">unchanged: not one skill's text changes</td></tr>
+          <tr><td>HOME</td><td class="same">one folder in, one folder out</td><td class="new">names <b><code>.claude/settings.json</code></b> in GET IN and GET OUT</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>
