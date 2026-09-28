@@ -1,4 +1,4 @@
-// `omni dossier open "<title>" | push <n> | status` — a PRD's dossier on the Omni page (PRD 216's
+// `omni dossier open "<title>" | push <n> | link <n> | status` — a PRD's dossier on the Omni page (PRD 216's
 // spec, "The kit"): its artifacts, every version of each, uploaded with the terminal's sign-in.
 //
 // - `open` opens a draft for this repository, sending the Claude session id `CLAUDE_CODE_SESSION_ID`
@@ -8,6 +8,10 @@
 //   with the spec's title. It names the draft to number when one is recorded for it
 //   (`../../lib/dossier/draft.mjs`), prints the dossier's link and the versions it added, and records
 //   the draft as numbered. A draft the server no longer has is forgotten, and the push goes by the key.
+// - `link <n>` prints PRD n's link (PRD 413): it asks the app by the repository and the number, so it
+//   works on a machine that never opened or pushed the dossier, and prints `none` when the app has
+//   none. Only when the app cannot be reached does it fall back to a numbered entry for n in the local
+//   record. It writes nothing.
 // - `status` prints `on` with the switch's source, or `off` with the reason, and calls nothing.
 //
 // It never blocks the skill that runs it: every call has the contract's 5-second limit and one token
@@ -27,7 +31,7 @@ import { readDossierFolder, TITLE_MAX } from '../../lib/dossier/folder.mjs';
 import { forgetDraft, mainCheckout, markNumbered, readDossiers, recordDraft } from '../../lib/dossier/local.mjs';
 import { parseArgs, positiveInt, println, usageError } from '../args.mjs';
 
-const USAGE = 'usage: omni dossier open "<title>" | omni dossier push <n> | omni dossier status';
+const USAGE = 'usage: omni dossier open "<title>" | omni dossier push <n> | omni dossier link <n> | omni dossier status';
 const NO_SIGN_IN = 'no sign-in (omni signin)';
 
 /** The Claude session id this terminal runs in, or null: sent only when it could be a real one. */
@@ -107,15 +111,42 @@ async function push(prd, { ctx, repo, client, home, claudeSessionId, stdout, std
   return folder.tooLarge.length ? 1 : 0;
 }
 
+async function link(prd, { repo, client, home, stdout, stderr }) {
+  let found;
+  try {
+    found = await client.findDossier({ repo, prd });
+  } catch (error) {
+    if (!(error instanceof AskCallError)) throw error;
+    if (error.status === 404) {
+      println(stderr, 'none');
+      return 1;
+    }
+    // The app cannot be reached: a link this computer recorded for PRD n is the best there is.
+    const recorded = error.status === null && home ? readDossiers(home).filter((entry) => entry.prd === prd).at(-1) : null;
+    if (!recorded) {
+      println(stderr, skipLine(error));
+      return 1;
+    }
+    found = recorded;
+  }
+  if (!isText(found?.url)) {
+    println(stderr, 'refused (no dossier in the reply)');
+    return 1;
+  }
+  println(stdout, found.url);
+  return 0;
+}
+
 export const dossier = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, env = process.env, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }) {
     const { positional } = parseArgs('dossier', args);
     const [verb, ...rest] = positional;
     const title = verb === 'open' && rest.length === 1 ? rest[0].trim().slice(0, TITLE_MAX) : '';
-    const runnable = (verb === 'status' && rest.length === 0) || (verb === 'push' && rest.length === 1) || title.length > 0;
+    const runnable = (verb === 'status' && rest.length === 0) || (['push', 'link'].includes(verb) && rest.length === 1) || title.length > 0;
     if (!runnable) throw usageError(USAGE);
-    const prd = verb === 'push' ? positiveInt('dossier push', '<n>', rest[0]) : null;
+    if (verb === 'link' && !/^[1-9]\d*$/.test(rest[0])) throw usageError(USAGE);
+    const prd = verb === 'push' || verb === 'link' ? positiveInt(`dossier ${verb}`, '<n>', rest[0]) : null;
 
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
@@ -138,6 +169,7 @@ export const dossier = {
     }
     const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...(callMs ? { callMs } : {}) });
     const options = { ctx, repo, client, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(env), stdout, stderr, now };
+    if (verb === 'link') return link(prd, options);
     return verb === 'open' ? open(title, options) : push(prd, options);
   },
 };

@@ -6,10 +6,18 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-/** Every file `git` tracks in `ctx.root`, sorted. */
-export function trackedFiles(ctx) {
-  return execFileSync('git', ['ls-files'], { cwd: ctx.root, encoding: 'utf8' })
-    .split('\n')
+/** How much `git ls-files` may print: far above any real repository, yet a runaway git still stops. */
+const LIST_MAX_BYTES = 256 * 1024 * 1024;
+
+/**
+ * Every file `git` tracks in `ctx.root` — or only under the folder `dir`, relative to it — sorted.
+ * `-z` hands back every path exactly as git stores it, unquoted.
+ */
+export function trackedFiles(ctx, dir) {
+  const args = ['ls-files', '-z'];
+  if (dir) args.push('--', `${dir.replace(/\/+$/, '')}/`);
+  return execFileSync('git', args, { cwd: ctx.root, encoding: 'utf8', maxBuffer: LIST_MAX_BYTES })
+    .split('\0')
     .filter(Boolean)
     .sort();
 }

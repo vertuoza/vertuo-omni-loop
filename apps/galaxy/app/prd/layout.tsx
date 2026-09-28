@@ -3,7 +3,6 @@ import '@omni/design/fonts.css';
 import '../../src/ask/ask.css';
 import '../../src/ask/page/share.css';
 import '../../src/dossier/page/dossier.css';
-import { HISTORY_PATH } from '../../src/dossier/page/history';
 import { ThemeScript } from '../../src/ask/theme-script';
 import { TOKENS, themeCss } from '../../src/ask/theme-tokens';
 import { TopBar } from '../../src/nav/TopBar';
@@ -12,8 +11,8 @@ import { TopBar } from '../../src/nav/TopBar';
 // first as CSS custom properties; their theme script is the root's first child, so it marks the root
 // with the stored theme before anything in it is parsed, and before the first paint; their switch
 // offers Omni, Light and Dark. Their faces, from @omni/design's fonts.css, served from this origin.
-// The header is the app's one top bar (TopBar, PRD 346), with a link to /prd, every PRD of the
-// workspace, before its menu. The before/after page's sandboxed route is a
+// The header is the app's one top bar (TopBar, PRD 346), its menu's PRDs marked current (PRD 413),
+// which replaced the "All PRDs" extra. The before/after page's sandboxed route is a
 // route handler: no layout wraps it.
 
 export const metadata: Metadata = {
@@ -37,7 +36,7 @@ export default function DossierLayout({ children }: { children: React.ReactNode 
           those two attributes alone. */}
       <div className="ask" suppressHydrationWarning>
         <ThemeScript />
-        <TopBar sub="PRD dossier" extras={<a className="ask-for-me-nav" href={HISTORY_PATH}>All PRDs</a>} />
+        <TopBar sub="PRD dossier" current="prds" />
         <main className="ask-main">{children}</main>
       </div>
     </>

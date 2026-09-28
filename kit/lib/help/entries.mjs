@@ -136,15 +136,16 @@ export const ENTRIES = deepFreeze([
     name: 'dossier',
     kind: 'command',
     who: 'you',
-    usage: ['omni dossier open "<title>"', 'omni dossier push <n>', 'omni dossier status'],
+    usage: ['omni dossier open "<title>"', 'omni dossier push <n>', 'omni dossier link <n>', 'omni dossier status'],
     label: 'omni dossier …',
     summary: "a PRD's dossier on the Omni page",
     detail:
       "A PRD's dossier on the Omni page, where the whole workspace reads every version of its " +
       'spec, plan and before/after. open opens a draft for an idea and prints its link; push sends ' +
-      "PRD n's files and adds a version only where a file changed; status says whether dossiers " +
-      'are on here. It never holds up the skill that runs it: anything that stops it exits 1 with ' +
-      'one line.',
+      "PRD n's files and adds a version only where a file changed; link prints PRD n's page, on " +
+      'any computer, or none when it has no dossier, and writes nothing; status says whether ' +
+      'dossiers are on here. It never holds up the skill that runs it: anything that stops it ' +
+      'exits 1 with one line.',
   },
   {
     name: 'version',

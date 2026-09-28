@@ -162,7 +162,12 @@ change the check.
 
 ## 7. Hand off
 
-Print the slice table and the waves `omni plan check` reported. Then:
+Print the slice table and the waves `omni plan check` reported, then the PRD's page beside its
+number. Run `node .omni-loop/bin/omni.mjs dossier link <n>`: exit `0` prints the page's link on one
+line, so print `PRD <n>: <link>`. Anything else (`none`, `off`, `no sign-in (omni signin)`,
+`unreachable`, `refused (<status>)`, or exit `2` from a kit without the verb) means it has no page
+to show: print `PRD <n>: no page yet, https://github.com/<owner>/<repo>/issues/<n>` instead. It
+never stops the hand-off. Then:
 
 - **Followed by `/omni:brainstorm` or `/omni:yolo`:** return to it, and print no **What is next?**.
   The caller says what is next, so the reply never carries two.

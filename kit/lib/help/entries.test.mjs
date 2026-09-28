@@ -65,6 +65,12 @@ describe('the help table in this repository', () => {
     expect(PRINCIPLES).toHaveLength(3);
   });
 
+  it('lists every verb of omni dossier, link included (PRD 413)', () => {
+    const dossier = ENTRIES.find((e) => e.name === 'dossier' && e.kind === 'command');
+    expect(dossier.usage).toEqual(['omni dossier open "<title>"', 'omni dossier push <n>', 'omni dossier link <n>', 'omni dossier status']);
+    expect(dossier.detail).toMatch(/\blink prints PRD n's page\b/);
+  });
+
   it('is frozen, down to each entry and its usage', () => {
     expect(Object.isFrozen(ENTRIES)).toBe(true);
     for (const e of ENTRIES) {

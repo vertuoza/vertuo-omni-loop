@@ -277,9 +277,10 @@ describe('the status skill in this repository', () => {
     expect(description).toMatch(/\bTriggers on\b.*"\/omni:status"/);
   });
 
-  it('runs a bare omni status, adds --fetch for fresh data only, and names no other command', () => {
+  it('runs a bare omni status, adds --fetch for fresh data only, and names no other command but dossier link', () => {
     const text = read();
-    expect(new Set(commandMentions(text))).toEqual(new Set(['status']));
+    expect(new Set(commandMentions(text))).toEqual(new Set(['status', 'dossier']));
+    expect(text).toMatch(/omni\.mjs dossier link <n>/);
     expect(text).toMatch(/^node \.omni-loop\/bin\/omni\.mjs status$/m);
     expect(text).toMatch(/^node \.omni-loop\/bin\/omni\.mjs status --fetch$/m);
     expect(text).toContain('fresh data');
