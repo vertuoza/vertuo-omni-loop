@@ -705,9 +705,10 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
   }, [view, fleets, active, layout, chart, system, graph, go, open, leave, signIn, signOut, lockIn, nameAction, nameDone, heroDone, openItem, xp, gamesSeen, playInvaders, showHud, sendScore, seen, problem, dossiers, app]);
 
   // ── Keyboard: the pad everywhere, a text mode on the name screen ──
-  // Fullscreen hears every key first (and every click and touch press on its own): the first press
-  // of the page load asks for it, F toggles it, and the Esc that leaves it is never also B.
-  const fullscreen = useFullscreen();
+  // Fullscreen hears every key first (and every click and touch press on its own): on a phone the
+  // first press of the page load asks for it, on desktop none does, F toggles it in every form, and
+  // the Esc that leaves it is never also B.
+  const fullscreen = useFullscreen(form);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const modified = e.metaKey || e.ctrlKey || e.altKey;
