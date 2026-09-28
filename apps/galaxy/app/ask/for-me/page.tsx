@@ -9,7 +9,7 @@ import { FOR_ME_CALLBACK } from '../../../src/ask/page/sign-in';
 // time left, each opening /ask/q/<round>. Rendered per request; signed out, a sign-in card that comes
 // back here.
 
-export const metadata: Metadata = { title: 'For me · Ask · OMNI LOOP' };
+export const metadata: Metadata = { title: 'Shared with me · Ask · OMNI LOOP' };
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
