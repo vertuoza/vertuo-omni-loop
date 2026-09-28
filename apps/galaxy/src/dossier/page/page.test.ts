@@ -3,6 +3,8 @@ import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
+import { signature } from './live';
+import { LiveRefresh } from './live-refresh';
 import { SANDBOX_CSP } from './sandbox';
 
 // /prd/<id> and its sandboxed route (PRD 216), called as the server calls them, reading as the viewer
@@ -23,6 +25,11 @@ const given = vi.hoisted(() => ({
 }));
 
 vi.mock('server-only', () => ({}));
+// The page's change check (PRD 384) refreshes through the app router, which a static render has none of.
+vi.mock('next/navigation', async (original) => ({
+  ...(await original<typeof import('next/navigation')>()),
+  useRouter: () => ({ refresh: () => {} }),
+}));
 vi.mock('../../data/mode', () => ({ arcadeMode: () => given.mode }));
 vi.mock('../../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
@@ -125,6 +132,33 @@ describe('the page to share', () => {
     expect(page).toContain('The questions could not be read.');
   });
 
+  it('refreshes itself: a member\'s page carries the change check, starting from the signature it was rendered with', async () => {
+    given.fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [
+      { created_at: new Date(Date.now() + 60_000).toISOString(), prd: 7, status: 'answered', answered_at: new Date(Date.now() + 120_000).toISOString() },
+      { created_at: new Date(Date.now() + 180_000).toISOString(), prd: 7 },
+    ]);
+    given.token = 'bob';
+    const page = await open(numbered, { tab: 'spec', v: '1' });
+    const live = (page.props as { live?: ReactElement }).live;
+    expect(live?.type).toBe(LiveRefresh);
+    expect(live?.props).toEqual({
+      supabase: { url: 'http://127.0.0.1:54321', key: 'anon' },
+      id: numbered,
+      signature: signature({ asked: 2, answered: 1, latest: { spec: 1, 'before-after': 1 } }),
+    });
+    const markup = renderToStaticMarkup(page);
+    expect(markup).not.toContain('Cannot reach the server');
+  });
+
+  it('starts the change check with no signature when the questions could not be read: its first read sets it', async () => {
+    const client = given.fake.client('bob');
+    given.fake = { ...given.fake, client: () => ({ ...client, rpc: (name: string, args: Record<string, unknown>) =>
+      name === 'dossier_rounds' ? Promise.resolve({ data: null, error: { message: 'down' } }) : client.rpc(name, args) }) } as never;
+    given.token = 'bob';
+    const live = ((await open(numbered)).props as { live?: ReactElement<{ signature: string | null }> }).live;
+    expect(live?.props.signature).toBeNull();
+  });
+
   it('says an artifact with no version yet has none', async () => {
     given.token = 'bob';
     expect(await html(numbered, { tab: 'plan' })).toContain('The plan has no version yet.');
@@ -189,6 +223,7 @@ describe('the page to share', () => {
     expect(questions).toContain('<span class="dossier-rule">brainstorm</span>');
     expect(questions).toContain('<span class="dossier-rule">delivery</span>');
     expect(questions).toMatch(/Questions<small>\d+\/\d+ answered<\/small>/);
+    expect(((await open('anything')).props as { live?: unknown }).live).toBeUndefined();
   });
 });
 
