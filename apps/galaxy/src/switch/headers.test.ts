@@ -82,10 +82,13 @@ describe('every app page', () => {
     expect([...side.matchAll(/href="([^"]+)"[^>]*aria-current="page"/g)].map((m) => m[1])).toEqual([current]);
   });
 
-  it.each(APP_PAGES)('%s: the top bar reads the page\'s title, then the theme switch, then Game mode, last', async (name, layout, _, title) => {
+  it.each(APP_PAGES)('%s: the top bar reads the page\'s title, then the theme switch, then Game mode, then you, last', async (name, layout, _, title) => {
     const bar = part(await renderAt(layout, pathOf(name)), '<header class="app-bar"', '</header>');
     expect(bar).toContain(`<p class="app-bar-title">${title}</p>`);
-    expect(controls(bar)).toEqual(THEME_THEN_GAME);
+    // The user menu's own items left out: it is closed until the avatar opens it.
+    const shown = bar.replace(/<div [^>]*role="menu"[\s\S]*?<\/div><\/div>/g, '');
+    expect(controls(shown).slice(0, -1)).toEqual(THEME_THEN_GAME);
+    expect(shown).toMatch(/aria-haspopup="menu"|>Sign in with GitHub<\/button>/);
     expect(bar).toMatch(/<dialog [^>]*class="game-mode-dialog"/);
     expect(bar).not.toMatch(/<dialog [^>]*\bopen\b/);
     expect(bar).not.toContain('data-choice="system"');
