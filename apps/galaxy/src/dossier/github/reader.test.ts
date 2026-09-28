@@ -34,7 +34,7 @@ function fakeGithub(repo: {
   /** Files by `<ref>:<path>`; a directory lists the files and folders right under it. */
   files?: Record<string, string>;
   /** The comments of each issue or pull request, by number. */
-  comments?: Record<number, { id: number; html_url: string; body: string }[]>;
+  comments?: Record<number, { id: number; html_url: string; body: string; created_at?: string; user?: { login: string }; author_association?: string }[]>;
 }) {
   const calls: string[] = [];
   let tokens = 0;
@@ -113,12 +113,13 @@ describe('the GitHub summary of a numbered dossier', () => {
     expect(summary).toEqual({
       repo: 'acme/widgets', prd: 426, folder: '0426-prd-page-stage', topic: 'prd-page-stage',
       issue: { number: 426, url: 'https://github.com/acme/widgets/issues/426', state: 'open' },
-      phase0: { number: 431, url: 'https://github.com/acme/widgets/pull/431', state: 'merged', draft: false },
-      feature: { number: 433, url: 'https://github.com/acme/widgets/pull/433', state: 'open', draft: true },
+      phase0: { number: 431, url: 'https://github.com/acme/widgets/pull/431', state: 'merged', draft: false, mergedAt: '2026-09-27T00:00:00Z' },
+      feature: { number: 433, url: 'https://github.com/acme/widgets/pull/433', state: 'open', draft: true, mergedAt: null },
       retro: null,
       mergedSlices: 2,
       outbox: null,
       outboxComment: null,
+      replies: { numbering: [], pending: [] },
       retroText: null,
     });
     expect(gh.calls).toContain('/repos/acme/widgets/pulls?state=all&per_page=100&head=acme%3Afeature%2Fprd-page-stage&sort=created&direction=desc');
@@ -263,7 +264,7 @@ describe('the outbox', () => {
     });
     const summary = await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER);
     expect(summary?.outboxComment).toBe('https://github.com/acme/widgets/pull/433#issuecomment-2');
-    expect(summary?.outbox).toEqual({
+    expect(summary?.outbox).toMatchObject({
       open: [
         { id: 's1-03-medium-one', rank: 'medium', question: 'Medium one?', decision: 'Decided: Medium one?',
           options: [{ letter: 'A', text: 'Keep what was built.' }, { letter: 'B', text: 'Change it.' }], personSteps: null },
@@ -355,5 +356,72 @@ describe('the retro (s3)', () => {
     expect(await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({
       retroText: UNREAD, retro: { number: 440 }, feature: { state: 'merged' },
     });
+  });
+});
+
+describe('the numbering and the pending answers (PRD 251, s9)', () => {
+  const PR = 'https://github.com/acme/widgets/pull/433';
+  const NUMBERS = '<!-- omni-outbox-numbers: 1=s2-02-person@2026-09-20T00:00:00Z,2=s2-01-high-one@2026-09-20T00:00:00Z,3=s1-03-medium-one@2026-09-20T00:00:00Z,4=s1-02-zeta@2026-09-20T00:00:00Z -->';
+  const reply = (id: number, body: string, login = 'marie', association = 'MEMBER', at = `2026-09-2${Math.min(id, 7)}T10:00:00Z`) =>
+    ({ id, html_url: `${PR}#issuecomment-${id}`, body, created_at: at, user: { login }, author_association: association });
+  const ADOPTED = `# Settled outbox items — PRD 426\n\n${settledEntry('s1-02-zeta', 'adopted', 'Adopted when raised.', item('s1-02-zeta', 'medium', 'Zeta or eta?'))}`;
+  const withComments = (comments: ReturnType<typeof reply>[], fail?: RegExp) => fakeGithub({
+    inbox: ['0426-prd-page-stage'], issue: ISSUE, pulls: [pull(433, 'feature/prd-page-stage')], fail,
+    files: {
+      [`feature/prd-page-stage:${OUTBOX}/s1-03-medium-one.md`]: item('s1-03-medium-one', 'medium', 'Medium one?'),
+      [`feature/prd-page-stage:${OUTBOX}/s2-01-high-one.md`]: item('s2-01-high-one', 'high', 'High one?'),
+      [`feature/prd-page-stage:${OUTBOX}/s2-02-person.md`]: item('s2-02-person', 'human-action', 'A secret?'),
+      [`feature/prd-page-stage:${OUTBOX}/settled.md`]: ADOPTED,
+    },
+    comments: { 433: [reply(1, `Questions\n<!-- omni-outbox-pr -->\n${NUMBERS}`, 'omni-loop[bot]', 'NONE'), ...comments] },
+  });
+  const read = async (gh: ReturnType<typeof fakeGithub>) => githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER);
+
+  it('keeps the outbox comment\'s numbering, and reads each adopted medium back as its item', async () => {
+    const summary = await read(withComments([]));
+    expect(summary?.replies).toEqual({
+      numbering: [{ number: 1, id: 's2-02-person' }, { number: 2, id: 's2-01-high-one' }, { number: 3, id: 's1-03-medium-one' }, { number: 4, id: 's1-02-zeta' }],
+      pending: [],
+    });
+    expect(summary?.outbox).toMatchObject({ adopted: [{ id: 's1-02-zeta', rank: 'medium', question: 'Zeta or eta?', bearsOn: 'none' }] });
+    expect(summary?.outbox !== UNREAD && summary?.outbox?.open[0]).toMatchObject({
+      intro: null, punchline: null, bearsOn: 'none', details: { decide: 'x', meanwhile: 'x', cost: 'x', unknown: 'x' },
+    });
+  });
+
+  it('reads one pending answer per number with the kit\'s reply reader: its text, who, when, link, door and whether it counts', async () => {
+    const summary = await read(withComments([
+      reply(2, '2: B because it is cheaper\n1: ok'),
+      reply(3, '2: A\n\n_answered on the Omni page · PRD 426_', 'pierre'),
+      reply(4, '4: B because we object', 'uma', 'CONTRIBUTOR'),
+      reply(5, '3: no idea what this is'),
+    ]));
+    expect(summary?.replies !== UNREAD && summary?.replies?.pending).toEqual([
+      { number: 1, id: 's2-02-person', text: 'ok', by: 'marie', at: '2026-09-22T10:00:00Z', url: `${PR}#issuecomment-2`, counted: true, door: 'github' },
+      { number: 2, id: 's2-01-high-one', text: 'A', by: 'pierre', at: '2026-09-23T10:00:00Z', url: `${PR}#issuecomment-3`, counted: true, door: 'page' },
+      { number: 3, id: 's1-03-medium-one', text: 'no idea what this is', by: 'marie', at: '2026-09-25T10:00:00Z', url: `${PR}#issuecomment-5`, counted: true, door: 'github' },
+      { number: 4, id: 's1-02-zeta', text: 'B because we object', by: 'uma', at: '2026-09-24T10:00:00Z', url: `${PR}#issuecomment-4`, counted: false, door: 'github' },
+    ]);
+  });
+
+  it('lets the latest reply per number win, a counted one over one that does not count, and reads the terminal\'s door line', async () => {
+    const summary = await read(withComments([
+      reply(2, '2: B'),
+      reply(3, '2: A\n\n_answered in the terminal · PRD 426_', 'pierre'),
+      reply(4, '2: C', 'stranger', 'NONE'),
+    ]));
+    expect(summary?.replies !== UNREAD && summary?.replies?.pending).toEqual([
+      { number: 2, id: 's2-01-high-one', text: 'A', by: 'pierre', at: '2026-09-23T10:00:00Z', url: `${PR}#issuecomment-3`, counted: true, door: 'terminal' },
+    ]);
+  });
+
+  it('leaves the outbox shown and the pending answers unread when the comments cannot be read', async () => {
+    const summary = await read(withComments([reply(2, '2: B')], /\/comments/));
+    expect(summary).toMatchObject({ replies: UNREAD, outboxComment: UNREAD, outbox: { open: [{ id: 's1-03-medium-one' }, { id: 's2-01-high-one' }, { id: 's2-02-person' }] } });
+  });
+
+  it('has no replies without a feature PR', async () => {
+    const gh = fakeGithub({ inbox: ['0426-prd-page-stage'], issue: ISSUE });
+    expect((await read(gh))?.replies).toBeNull();
   });
 });
