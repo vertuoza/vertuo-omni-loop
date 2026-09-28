@@ -12,6 +12,20 @@ import { CREST_FORM, crestSvg, OMNI_POSE, omniSvg, planetSvgs, starfieldSvg } fr
 /** The promise strip under the pitch, in its order. */
 export const PROMISES = ['ONE FOLDER IN, ONE FOLDER OUT', 'EVERY DECISION WRITTEN DOWN', 'A PERSON ALWAYS MERGES'] as const;
 
+/** The colour token the text column sits on (PRD 394). */
+export const POSTER_BACKGROUND = 'ad-purple';
+
+/** Every text colour the poster sets on POSTER_BACKGROUND, by the rule in home.css that sets it:
+ * each reads at 4.5:1 or better (contrast.test.ts), and red is not one of them. */
+export const POSTER_TEXT = [
+  { selector: '.home-kicker', colour: 'cyan' },
+  { selector: '.home-head', colour: 'white' },
+  { selector: '.home-pitch', colour: 'highlight' },
+  { selector: '.home-promises', colour: 'white' },
+  { selector: '.home-promises .home-glyph', colour: 'yellow' },
+  { selector: '.home-quote', colour: 'yellow' },
+] as const;
+
 /** A string of SVG markup, as an element's only child. */
 export const Svg = ({ svg }: { svg: string }) => <span className="home-svg" dangerouslySetInnerHTML={{ __html: svg }} />;
 
