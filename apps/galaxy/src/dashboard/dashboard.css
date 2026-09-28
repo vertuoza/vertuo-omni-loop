@@ -1,7 +1,7 @@
 /* The dashboard, /app (PRD 328), on the ask pages' reading surface. It composes each part's own
    stylesheet (week/, counts/ and rankings/, each styled inside its folder), then draws what it owns:
-   its column, the hero block, the lines a part shows in place of its figures, and the app's sections,
-   compact. Every colour is a token of src/ask/theme-tokens.ts, as in src/ask/ask.css; a fleet's own
+   its column, the hero block and the lines a part shows in place of its figures. The app's sections
+   are the sidebar's (PRD 438), not cards here. Every colour is a token of src/ask/theme-tokens.ts, as in src/ask/ask.css; a fleet's own
    colour comes from the data, as --dash-fleet on the element that shows it. Nothing is wider than the
    window: at 393 px everything wraps. */
 
@@ -39,22 +39,3 @@
   background: var(--ask-surface);
   overflow-wrap: anywhere;
 }
-
-/* ── The app's sections: a title and an arrow each, one row that wraps ───── */
-
-.dash-cards ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 10px; }
-.ask a.dash-card {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border: 1px solid var(--ask-line);
-  border-radius: 999px;
-  background: var(--ask-surface);
-  color: var(--ask-ink);
-  font-size: 15px;
-  font-weight: 700;
-  text-decoration: none;
-}
-.ask a.dash-card::after { content: '→'; color: var(--ask-plasma); }
-.ask a.dash-card:hover { border-color: var(--ask-plasma); }

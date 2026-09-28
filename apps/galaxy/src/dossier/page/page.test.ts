@@ -22,6 +22,7 @@ const given = vi.hoisted(() => ({
   mode: 'supabase' as 'demo' | 'closed' | 'supabase',
   token: null as string | null,
   fake: null as unknown as ReturnType<typeof import('../store.fake').fakeSupabase>,
+  path: '/prd',
 }));
 
 vi.mock('server-only', () => ({}));
@@ -29,6 +30,7 @@ vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', async (original) => ({
   ...(await original<typeof import('next/navigation')>()),
   useRouter: () => ({ refresh: () => {} }),
+  usePathname: () => given.path,
 }));
 vi.mock('../../data/mode', () => ({ arcadeMode: () => given.mode }));
 vi.mock('../../data/supabase-server', () => ({
@@ -363,12 +365,12 @@ describe('the sandboxed route', () => {
 });
 
 describe('the layout', () => {
-  it('is the ask pages\' reading surface: their tokens, their theme script first, their theme switch', () => {
-    const page = renderToStaticMarkup(createElement(Layout, null, createElement('p', null, 'inside')));
+  it('is the ask pages\' reading surface: their tokens, their theme script first, their theme switch', async () => {
+    const page = renderToStaticMarkup(await Layout({ children: createElement('p', null, 'inside') }));
     expect(page).toContain('--ask-ground');
     expect(page).toContain('.ask:not([data-ask-theme]) { color-scheme: dark;');
     expect(page).not.toContain('prefers-color-scheme');
-    expect(page).toMatch(/<div class="ask"><script[^>]*>\(function\(\)\{/);
+    expect(page).toMatch(/<div class="ask app-shell"><script[^>]*>\(function\(\)\{/);
     expect(page).toContain('aria-label="Theme"');
     const choices = page.slice(page.indexOf('aria-label="Theme"'), page.indexOf('</div>', page.indexOf('aria-label="Theme"')));
     expect([...choices.matchAll(/>([^<]*)<\/button>/g)].map((m) => m[1])).toEqual(['Omni', 'Light', 'Dark']);
@@ -376,9 +378,11 @@ describe('the layout', () => {
     expect(page).toContain('<main class="ask-main"><p>inside</p></main>');
   });
 
-  it('links to the history of every PRD through the menu\'s PRDs, marked current (PRD 413)', () => {
-    const page = renderToStaticMarkup(createElement(Layout, null, null));
-    expect(page).toContain('<a class="top-bar-item" href="/prd" aria-current="page">PRDs</a>');
+  it('links to the history of every PRD through the sidebar\'s PRDs, marked current (PRD 438)', async () => {
+    given.path = '/prd/3f2a';
+    const page = renderToStaticMarkup(await Layout({ children: null }));
+    expect(page).toMatch(/<a class="app-sidebar-item" href="\/prd" aria-current="page">PRDs<\/a>/);
+    expect(page).toContain('<p class="app-bar-title">PRDs</p>');
     expect(page).not.toContain('All PRDs');
   });
 });

@@ -1,4 +1,3 @@
-import { SectionCards } from './Cards';
 import { Counts } from './counts/CountTiles';
 import type { DashboardData } from './load';
 import { Rankings } from './rankings/Rankings';
@@ -6,7 +5,7 @@ import { Week } from './week/Week';
 import { You } from './YouBlock';
 
 // The dashboard (PRD 328), top to bottom in the spec's order: you (the hero block), a week of merges,
-// the four counts, the rankings, then the app's sections. Each part draws itself from its own value
+// the four counts, then the rankings. The app's sections are its sidebar (PRD 438). Each part draws itself from its own value
 // (or 'unreadable') and the season, inside its own folder (part.ts); this file only places them.
 
 export function Dashboard({ dashboard }: { dashboard: DashboardData }) {
@@ -17,7 +16,6 @@ export function Dashboard({ dashboard }: { dashboard: DashboardData }) {
       <Week part={dashboard.week} season={season} />
       <Counts part={dashboard.counts} season={season} />
       <Rankings part={dashboard.rankings} season={season} />
-      <SectionCards />
     </div>
   );
 }

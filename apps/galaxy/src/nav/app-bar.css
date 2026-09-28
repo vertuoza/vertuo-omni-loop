@@ -1,0 +1,27 @@
+/* The app's top bar (PRD 438): the page's title on the left, the theme switch and Game mode on the
+   right. Every colour is a token of src/ask/theme-tokens.ts, so Omni, light and dark follow the
+   theme switch. Its end wraps rather than push the page sideways. */
+
+.app-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+  padding: 10px max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
+  border-bottom: 1px solid var(--ask-line);
+}
+.app-bar-title {
+  margin: 0;
+  font: 700 16px/1.3 var(--ask-body);
+  color: var(--ask-ink);
+  overflow-wrap: anywhere;
+}
+.app-bar-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}

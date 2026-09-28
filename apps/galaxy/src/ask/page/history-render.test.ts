@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect } from 'vitest';
 import { DEMO_MEMBERS, demoHistory } from './demo';
-import { HistoryLink, WorkspaceHistory } from './WorkspaceHistory';
+import { WorkspaceHistory } from './WorkspaceHistory';
 import { historyChoices, historyList, type HistoryFilters } from './workspace-history';
 
 // /ask/history (PRD 144), as the server renders it: a form of filters that works before any script
@@ -54,11 +54,5 @@ describe('the history page', () => {
     expect(page({ search: 'no such word anywhere' })).toContain('No question matches');
     const empty = renderToStaticMarkup(createElement(WorkspaceHistory, { items: [], choices: historyChoices([], []), filters: {} }));
     expect(empty).toContain('No question yet');
-  });
-});
-
-describe('the header link', () => {
-  it('goes to the history', () => {
-    expect(renderToStaticMarkup(createElement(HistoryLink))).toBe('<a class="ask-for-me-nav" href="/ask/history">History</a>');
   });
 });

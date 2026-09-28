@@ -3,19 +3,18 @@ import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { GameModeButton } from './GameModeButton';
-import { SECTIONS } from './switch';
-
 vi.mock('server-only', () => ({}));
+vi.mock('next/navigation', () => ({ usePathname: () => '/app' }));
 
 // /app and the Game mode button as the server renders them: what a person sees before any script
-// runs (PRD 238). /app is your dashboard (PRD 328): here in the demo, as development serves it
-// without a database; its every situation is src/dashboard/render.test.ts's.
+// runs (PRD 238). /app is your dashboard (PRD 328), inside the app shell (PRD 438): here in the demo,
+// as development serves it without a database; its every situation is src/dashboard/render.test.ts's.
 
 const { default: Page } = await import('../../app/app/page.tsx');
 const { default: Layout, metadata } = await import('../../app/app/layout.tsx');
 
 const page = (await Page({ searchParams: Promise.resolve({}) })) as ReactElement;
-const app = renderToStaticMarkup(createElement(Layout, null, page));
+const app = renderToStaticMarkup((await Layout({ children: page })) as ReactElement);
 const button = renderToStaticMarkup(createElement(GameModeButton));
 
 /** The part of the markup from one marker to the next. */
@@ -53,19 +52,18 @@ describe('the Game mode button', () => {
 });
 
 describe('/app', () => {
-  it('heads the page with OMNI LOOP · App, linked home, then PRDs, Release notes, the theme switch and Game mode', () => {
-    const bar = between(app, '<header class="ask-bar', '</header>');
-    expect(bar).toMatch(/<a class="ask-mark[^"]*" href="\/app">OMNI LOOP<\/a>/);
-    expect(bar).toContain('<span class="ask-brand-sub">App</span>');
-    expect(bar).toContain('<a class="top-bar-item" href="/prd">PRDs</a>');
-    expect(bar).toContain('<a class="top-bar-item" href="/releases">Release notes</a>');
+  it('sits in the app shell: the sidebar, Home marked current, then the top bar titled Home, the theme switch and Game mode', () => {
+    const side = between(app, '<aside class="app-sidebar"', '</aside>');
+    expect(side).toMatch(/<a class="app-sidebar-crest" href="\/app">/);
+    expect([...side.matchAll(/href="([^"]+)"[^>]*aria-current="page"/g)].map((m) => m[1])).toEqual(['/app']);
+    const bar = between(app, '<header class="app-bar"', '</header>');
+    expect(bar).toContain('<p class="app-bar-title">Home</p>');
     const theme = bar.indexOf('aria-label="Theme"'), game = bar.indexOf('>Game mode');
     expect(theme).toBeGreaterThan(0);
     expect(game).toBeGreaterThan(theme);
-    // Game mode is the header's last control: after it, only its own dialog, closed.
-    const [controls, after] = bar.split('<dialog');
-    expect(controls.lastIndexOf('<button')).toBeLessThan(game);
-    expect(after.slice(after.indexOf('</dialog>'))).not.toMatch(/<(button|a) /);
+    expect(app.indexOf('</aside>')).toBeLessThan(app.indexOf('<header class="app-bar"'));
+    expect(app.indexOf('</header>')).toBeLessThan(app.indexOf('<main class="ask-main">'));
+    expect(app).not.toContain('top-bar');
   });
 
   it('is your dashboard: headed by your name, the page\'s one h1 (the demo\'s DAM-DEV), beside your hero', () => {
@@ -74,32 +72,26 @@ describe('/app', () => {
     expect(app).not.toContain('The loop’s questions and knowledge, as pages.');
   });
 
-  it('ends with six sections: My PRDs first (PRD 413), then Questions, For me, History, Knowledge map and Fleets, none of them Release notes', () => {
-    const cards = [...app.matchAll(/<a class="dash-card" href="([^"]+)">/g)].map((m) => m[1]);
-    expect(cards).toEqual(['/prd', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/fleets']);
-  });
-
-  it('ends with every section as a compact link, in order: its title, without its line or path', () => {
-    const cards = [...app.matchAll(/<a class="dash-card" href="([^"]+)">([\s\S]*?)<\/a>/g)];
-    expect(cards.map((m) => [m[1], m[2]])).toEqual(SECTIONS.map((s) => [s.path, s.title]));
-    for (const s of SECTIONS) expect(app).not.toContain(s.line);
+  it('draws no section cards: the sidebar leads to every section (PRD 438)', () => {
+    expect(app).not.toContain('dash-card');
     const main = between(app, '<main', '</main>');
-    expect(main.slice(main.indexOf('</nav>'))).not.toMatch(/<(a|p|section|h\d)\b/);
+    expect(main).not.toContain('<nav');
   });
 
   it('reads the ask pages\' reading surface: the ask root, its theme script first', () => {
-    expect(app).toMatch(/^<style>[\s\S]*--ask-ground[\s\S]*<\/style><div class="ask[^"]*"><script/);
+    expect(app).toMatch(/^<style>[\s\S]*--ask-ground[\s\S]*<\/style><div class="ask app-shell"><script/);
   });
 
   it('is kept out of search engines', () => {
     expect(metadata.robots).toEqual({ index: false, follow: false });
   });
 
-  it('keeps its layout reading nothing: no session, no cookie, no database', () => {
+  it('keeps its layout reading only the viewer, through the app shell: no database of its own', () => {
     const source = readFileSync(new URL('../../app/app/layout.tsx', import.meta.url), 'utf8');
     const imports = [...source.matchAll(/from '([^']+)'/g)].map((m) => m[1]);
     for (const path of imports) expect(path, `layout.tsx: ${path}`).not.toMatch(/src\/(data|arcade)\/|supabase|next\/headers|live/);
-    expect(source).not.toMatch(/\bawait\b|cookies\(|headers\(/);
+    expect(source).toMatch(/<AppShell viewer=\{await viewerLive\(\)\}>/);
+    expect(source).not.toMatch(/cookies\(|headers\(/);
   });
 
   it('renders per request, as the signed-in person: the page reads the address, then the session', () => {
