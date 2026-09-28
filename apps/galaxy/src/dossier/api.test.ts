@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
-import { MAX_OPEN_BYTES, MAX_PUSH_BYTES, openDossier, pushDossier, type DossierDeps } from './api';
+import { findDossier, MAX_OPEN_BYTES, MAX_PUSH_BYTES, openDossier, pushDossier, type DossierDeps } from './api';
 import { ARTIFACT_MAX_BYTES } from './store';
 import { FAKE_WORKSPACE, fakeSupabase } from './store.fake';
 
@@ -13,6 +13,8 @@ const EVE = { id: '00000000-0000-4000-8000-0000000000e1', email: 'eve@example.co
 const OTHER = '00000000-0000-4000-8000-00000000aced';
 const CARL = { id: '00000000-0000-4000-8000-0000000000c1', email: 'carl@vertuoza.com', workspaces: [OTHER] };
 const NELL = { id: '00000000-0000-4000-8000-0000000000f1', email: 'nell@vertuoza.com', workspaces: [] };
+// Dana belongs to both workspaces.
+const DANA = { id: '00000000-0000-4000-8000-0000000000d1', email: 'dana@vertuoza.com', workspaces: [OTHER, FAKE_WORKSPACE] };
 const START = Date.parse('2026-09-28T09:00:00Z');
 const MISSING = '00000000-0000-4000-8000-00000000ffff';
 
@@ -25,7 +27,7 @@ type Call = { token?: string | null; body?: unknown; raw?: string; headers?: Rec
 function world({ database = true } = {}) {
   const clock = { now: START };
   const fake = fakeSupabase(
-    { 'ada-token': ADA, 'bob-token': BOB, 'eve-token': EVE, 'carl-token': CARL, 'nell-token': NELL },
+    { 'ada-token': ADA, 'bob-token': BOB, 'eve-token': EVE, 'carl-token': CARL, 'nell-token': NELL, 'dana-token': DANA },
     { [FAKE_WORKSPACE]: 'acme', [OTHER]: 'other-org' },
     () => clock.now,
   );
@@ -40,9 +42,13 @@ function world({ database = true } = {}) {
   const read = async (response: Response) => ({ status: response.status, body: await response.json() });
   const open = async (body: unknown, call: Call = {}) => read(await openDossier(request('/api/dossiers', { body, ...call }), deps));
   const push = async (body: unknown, call: Call = {}) => read(await pushDossier(request('/api/dossiers/push', { body, ...call }), deps));
+  const find = async (query: string, { token = 'ada-token', headers = {} }: Call = {}) =>
+    read(await findDossier(new Request(`https://omni.example/api/dossiers${query}`, {
+      method: 'GET', headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers },
+    }), deps));
   const dossier = (id: string) => fake.tables.dossiers.find((d) => d.id === id);
   const versions = (id: string) => fake.tables.dossier_versions.filter((v) => v.dossier_id === id);
-  return { clock, fake, deps, request, read, open, push, dossier, versions };
+  return { clock, fake, deps, request, read, open, push, find, dossier, versions };
 }
 
 const PUSH = {
@@ -337,11 +343,85 @@ describe('POST /api/dossiers/push: a push lands versions', () => {
   });
 });
 
+describe('GET /api/dossiers: a PRD\'s link by its number', () => {
+  it('answers 200 {id, url} for a dossier the caller can read, with the link the caller reached', async () => {
+    const w = world();
+    const made = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 7, title: 'Team inbox' });
+    const { status, body } = await w.find('?repo=acme/widgets&prd=7', { headers: { 'x-forwarded-host': 'omni.vertuoza.dev', 'x-forwarded-proto': 'https' } });
+    expect(status).toBe(200);
+    expect(body).toEqual({ id: made.id, url: `https://omni.vertuoza.dev/prd/${made.id}` });
+  });
+
+  it('compares the repository lower-cased', async () => {
+    const w = world();
+    const made = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 7, title: 'Team inbox' });
+    const { status, body } = await w.find('?repo=Acme/Widgets&prd=7');
+    expect(status).toBe(200);
+    expect(body.id).toBe(made.id);
+  });
+
+  it('answers 404 when there is none: no such number, a draft, another repository, or another workspace\'s', async () => {
+    const w = world();
+    w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 7, title: 'Team inbox' });
+    await w.open({ title: 'A draft', repo: 'acme/widgets' });
+    for (const [query, token] of [['?repo=acme/widgets&prd=8', 'ada-token'], ['?repo=acme/gadgets&prd=7', 'ada-token'], ['?repo=acme/widgets&prd=7', 'carl-token'], ['?repo=acme/widgets&prd=7', 'nell-token']]) {
+      const { status, body } = await w.find(query, { token });
+      expect(status, `${query} ${token}`).toBe(404);
+      expect(body.error).toEqual(expect.any(String));
+    }
+  });
+
+  it('answers the most recently numbered one when two of the caller\'s workspaces hold one', async () => {
+    const w = world();
+    w.fake.seedFromGithub({ workspace: OTHER, repo: 'acme/widgets', prd: 7, title: 'Older' });
+    w.clock.now += 60_000;
+    const newer = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 7, title: 'Newer' });
+    expect((await w.find('?repo=acme/widgets&prd=7', { token: 'dana-token' })).body.id).toBe(newer.id);
+  });
+
+  it('refuses 400 a repository missing or not owner/name, and a number that is not a PRD\'s', async () => {
+    const w = world();
+    for (const query of [
+      '?prd=7', '?repo=&prd=7', '?repo=widgets&prd=7', '?repo=acme/widgets/extra&prd=7', `?repo=${'a'.repeat(200)}/b&prd=7`,
+      '?repo=acme/widgets', '?repo=acme/widgets&prd=', '?repo=acme/widgets&prd=0', '?repo=acme/widgets&prd=-3',
+      '?repo=acme/widgets&prd=x', '?repo=acme/widgets&prd=7.5', '?repo=acme/widgets&prd=1e3', `?repo=acme/widgets&prd=${2 ** 31}`,
+    ]) {
+      const { status, body } = await w.find(query);
+      expect(status, query).toBe(400);
+      expect(body.error).toEqual(expect.any(String));
+    }
+    expect((await w.find(`?repo=acme/widgets&prd=${2 ** 31 - 1}`)).status).toBe(404);
+  });
+
+  it('refuses 401 without a valid token, and 503 without a database', async () => {
+    const w = world();
+    expect((await w.find('?repo=acme/widgets&prd=7', { token: null })).status).toBe(401);
+    expect((await w.find('?repo=acme/widgets&prd=7', { token: 'forged-token' })).status).toBe(401);
+    expect((await world({ database: false }).find('?repo=acme/widgets&prd=7')).status).toBe(503);
+  });
+
+  it('answers 500, not a guess, when the database fails', async () => {
+    const w = world();
+    w.fake.state.fail = { message: 'connection reset' };
+    expect((await w.find('?repo=acme/widgets&prd=7')).status).toBe(500);
+  });
+
+  it('writes nothing', async () => {
+    const w = world();
+    w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 7, title: 'Team inbox' });
+    const before = JSON.stringify(w.fake.tables);
+    await w.find('?repo=acme/widgets&prd=7');
+    await w.find('?repo=acme/widgets&prd=8');
+    expect(JSON.stringify(w.fake.tables)).toBe(before);
+  });
+});
+
 describe('the dossier routes', () => {
   const app = (path: string) => fileURLToPath(new URL(`../../app/api/${path}/route.ts`, import.meta.url));
   const ROUTES: Array<[string, string, string]> = [
     ['dossiers', 'POST', 'openDossier'],
     ['dossiers/push', 'POST', 'pushDossier'],
+    ['dossiers', 'GET', 'findDossier'],
   ];
 
   for (const [path, method, handler] of ROUTES) {

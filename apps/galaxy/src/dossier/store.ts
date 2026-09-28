@@ -127,6 +127,16 @@ export function dossierReader(db: Pick<SupabaseClient, 'from'>) {
       return row?.content ?? null;
     },
 
+    /** The id of PRD `prd`'s dossier in `repo` (compared lower-cased, as the table keeps it), or null when
+     * the caller may read none. Two workspaces of the caller may each hold one: the most recently
+     * numbered is the answer. */
+    async numbered(repo: string, prd: number): Promise<string | null> {
+      const rows = settle<Array<{ id: string }>>('find the dossier', await db.from('dossiers').select('id')
+        .eq('home_repo', repo.toLowerCase()).eq('prd', prd)
+        .order('numbered_at', { ascending: false, nullsFirst: false }).order('id', { ascending: true }).limit(1));
+      return rows?.[0]?.id ?? null;
+    },
+
     /** Deletes a draft: true when it went, false when the caller is not its opener, it is numbered, or
      * it was gone already. Its versions go with it. */
     async deleteDraft(id: string): Promise<boolean> {
