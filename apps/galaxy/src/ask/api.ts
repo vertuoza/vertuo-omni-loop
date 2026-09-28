@@ -11,6 +11,7 @@
 //   POST /api/ask/rounds/:id/abandon                           → {id, status: "abandoned"}
 //   PATCH /api/ask/rounds/:id/category    {category}           → {id, category, category_by}
 //   POST /api/ask/rounds/:id/shares       {member}             → {roundId, sharedWith, url}
+//   GET  /api/ask/workspace?repo=owner/name                    → {workspace: {slug, name} | null, reason: string | null}
 //
 // Every call is refused 401 without a valid bearer token. Any signed-in account is let through: what it
 // may do is the database's call, by workspace membership (PRD 459). Opening a session with no workspace
@@ -39,7 +40,13 @@
 // The session's owner shares a round (PRD 144) with another member of the session's workspace, who may
 // then answer it on the page while it is open (/ask/q/<round>). Sharing any other round is refused:
 // 403 for a member who is not the owner, 400 for someone outside the workspace (or the owner themself).
+//
+// Where a repository's questions land (PRD 459) is asked by `omni ask on` and `omni ask status`: the
+// workspace, or the database's reason why none (repo_workspace(), through the same service-role lookup
+// the terminal sign-in uses), both as 200: it is a question of fact, not a refusal of the call. When
+// this deployment cannot look it up (no service role), both are null and the terminal says nothing more.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Placement } from './cli-code';
 import { authenticate, withInstallLink, type AskCaller, type TokenCheck } from './auth';
 import { CATEGORIES, isCategory, type Category, type Classifier, type ClassifyInput } from './classify';
 import { costUsd } from './prices';
@@ -71,6 +78,8 @@ export type AskDeps = {
   later?: (task: () => Promise<void>) => void;
   /** The App's install link, put after the database's install hint; null or missing: the hint alone. */
   installLink?: string | null;
+  /** Where a person's calls for a repository go (repo_workspace()); absent: nobody can say here. */
+  place?: (userId: string, repo: string) => Promise<Placement>;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -423,5 +432,23 @@ export function shareRound(request: Request, id: string, deps: AskDeps): Promise
     if (typeof member !== 'string' || !UUID.test(member)) return outside();
     if (!(await who.shares.share(round.id, member))) return outside();
     return reply(200, { roundId: round.id, sharedWith: member, url: `${origin(request)}/ask/q/${round.id}` });
+  });
+}
+
+/** Where the caller's questions for `?repo=owner/name` land: the workspace, or the database's reason. */
+export function whereQuestionsGo(request: Request, deps: AskDeps): Promise<Response> {
+  return handle(request, deps, async (who) => {
+    const repo = new URL(request.url).searchParams.get('repo');
+    if (!isRepo(repo)) return refuse(400, '`repo` must be the repository as owner/name.');
+    if (!deps.place) return reply(200, { workspace: null, reason: null });
+    let placed: Placement;
+    try {
+      placed = await deps.place(who.caller.id, repo);
+    } catch (error) {
+      console.error(`ask: where ${repo} goes: ${error instanceof Error ? error.message : String(error)}`);
+      return refuse(500, 'The ask database could not say where this repository\'s questions go. Try again.');
+    }
+    if (placed.workspace) return reply(200, { workspace: { slug: placed.workspace.slug, name: placed.workspace.name }, reason: null });
+    return reply(200, { workspace: null, reason: placed.reason ? withInstallLink(placed.reason, deps.installLink) : null });
   });
 }

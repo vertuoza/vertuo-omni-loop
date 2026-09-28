@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
-import { abandonRound, addRound, answerRound, categorizeRound, closeSession, deleteSession, openSession, shareRound, waitRound, type AskDeps } from './api';
+import { abandonRound, addRound, answerRound, categorizeRound, closeSession, deleteSession, openSession, shareRound, waitRound, whereQuestionsGo, type AskDeps } from './api';
 import type { Category, ClassifyInput } from './classify';
 import { askStore } from './store';
 import { fakeSupabase } from './store.fake';
@@ -839,6 +839,61 @@ describe('the first answer wins (PRD 144)', () => {
   });
 });
 
+describe('GET /api/ask/workspace?repo= (PRD 459)', () => {
+  const GLOBEX = 'you are not a member of Globex, which owns globex/web';
+  // repo_workspace(), as the live route asks it: acme owns acme/*, Globex owns globex/*, and Eve is in no workspace.
+  const place = async (userId: string, repo: string) => {
+    if (userId === EVE.id) return { workspace: null, reason: `no workspace owns ${repo} yet — install the Omni App` };
+    if (repo.startsWith('globex/')) return { workspace: null, reason: GLOBEX };
+    return { workspace: { slug: 'acme', name: 'Acme' }, reason: null };
+  };
+  const ask = async (w: ReturnType<typeof world>, repo: string | null, { token = 'ada-token', deps = {} as Partial<AskDeps> } = {}) => {
+    const query = repo === null ? '' : `?${new URLSearchParams({ repo })}`;
+    return w.read(await whereQuestionsGo(w.request('GET', `/api/ask/workspace${query}`, { token }), { ...w.deps, place, ...deps }));
+  };
+
+  it('answers the workspace a placed repository\'s questions go to', async () => {
+    const w = world();
+    expect(await ask(w, 'acme/api')).toEqual({ status: 200, body: { workspace: { slug: 'acme', name: 'Acme' }, reason: null } });
+  });
+
+  it('answers the database\'s reason for a refused repository, with the install link after its install hint', async () => {
+    const w = world();
+    expect(await ask(w, 'globex/web')).toEqual({ status: 200, body: { workspace: null, reason: GLOBEX } });
+    expect(await ask(w, 'nobody/tools', { token: 'eve-token' })).toEqual({
+      status: 200, body: { workspace: null, reason: `no workspace owns nobody/tools yet — install the Omni App: ${INSTALL}` },
+    });
+  });
+
+  it('answers nothing known when this deployment cannot look it up', async () => {
+    const w = world();
+    expect(await ask(w, 'acme/api', { deps: { place: undefined } })).toEqual({ status: 200, body: { workspace: null, reason: null } });
+  });
+
+  it('answers 500 when the lookup fails', async () => {
+    const w = world();
+    const failing = async () => { throw new Error('repo_workspace: connection reset'); };
+    const { status, body } = await ask(w, 'acme/api', { deps: { place: failing } });
+    expect(status).toBe(500);
+    expect(body.error).toEqual(expect.any(String));
+  });
+
+  it('refuses 400 without a repository of the shape owner/name', async () => {
+    const w = world();
+    for (const repo of [null, '', 'acme', 'acme/api/extra', 'a b/c']) {
+      const { status, body } = await ask(w, repo);
+      expect(status, String(repo)).toBe(400);
+      expect(body.error).toMatch(/owner\/name/);
+    }
+  });
+
+  it('is 401 without a valid sign-in, and 503 without a database', async () => {
+    const w = world();
+    expect((await ask(w, 'acme/api', { token: 'forged-token' })).status).toBe(401);
+    expect((await ask(w, 'acme/api', { deps: { connect: null } })).status).toBe(503);
+  });
+});
+
 describe('the ask routes', () => {
   const app = (path: string) => fileURLToPath(new URL(`../../app/api/ask/${path}/route.ts`, import.meta.url));
   const ROUTES: Array<[string, string, string]> = [
@@ -851,6 +906,7 @@ describe('the ask routes', () => {
     ['rounds/[id]/abandon', 'POST', 'abandonRound'],
     ['rounds/[id]/category', 'PATCH', 'categorizeRound'],
     ['rounds/[id]/shares', 'POST', 'shareRound'],
+    ['workspace', 'GET', 'whereQuestionsGo'],
   ];
 
   for (const [path, method, handler] of ROUTES) {
