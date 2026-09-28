@@ -704,3 +704,159 @@ One line in `kit/bin/plan.test.mjs` to revert. No stored data: records live only
 ```
 
 <!-- /omni-outbox-settled: s5-01-plan-test-runs-without-session -->
+
+<!-- omni-outbox-settled: s6-01-board-refreshed-for-inbox-prds-only -->
+
+## s6-01-board-refreshed-for-inbox-prds-only — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s6
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-board-refreshed-for-inbox-prds-only
+prd: 324
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 5
+---
+
+## The question, in plain words
+
+The status line keeps a copy of a PRD's slices fresh in the background, asking GitHub once a minute. For which PRDs should it do that?
+
+## The decision, in plain words
+
+Only for a PRD waiting in the inbox or being built, the two stages where the slices show or can change the stage. A shipped PRD, one still in review, or one read without a main branch never makes it ask GitHub.
+
+## The intro, for fun
+
+The line could ask GitHub about any PRD it names, so it had to pick which ones earn a knock every minute.
+
+## The punchline, for fun
+
+Shipped and in-review PRDs now rest in peace, and nobody knocks on their door.
+
+## The options, in plain words
+
+A. Keep the copy fresh only for PRDs in the inbox or being built, where the slices show or change the stage: the option built.
+B. Keep it fresh for every PRD the line names, shipped and in review included, so it is ready the moment it is needed.
+C. Keep it fresh only for PRDs the line already shows as being built, so a PRD that only its slices would move there never gets one.
+
+## What I had to decide
+
+For which PRDs the status line starts the background refresh (`omni statusline --refresh <n>`) when the cached board is missing or a minute old. The spec's "The board" says when a board is refreshed, not for which PRDs. The board only matters for a PRD whose folder is in the base inbox: its slices show in the outbox only, and by D9 it moves a PRD from inbox to outbox.
+
+## What I did meanwhile
+
+`readPrd` in `kit/lib/statusline/facts.mjs` reads the board, and starts its refresh, only when the PRD's folder is in `inbox/` on the base and not in `shipped/`. A shipped PRD, a PRD in review and a PRD with no base (no stage) read no board and start no refresh; `kit/lib/statusline/facts.test.mjs` and `kit/bin/statusline.test.mjs` pin it.
+
+## What it costs to change later
+
+One condition in `kit/lib/statusline/facts.mjs` and the cases pinning it in its test and in `kit/bin/statusline.test.mjs`. No stored data: a board file is rewritten on every refresh.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says when a refresh starts (a board missing or 60 seconds old, no live lock) but not whether it starts for a PRD whose line can never show slices: shipped, in review, or read with no stage.
+
+```
+
+<!-- /omni-outbox-settled: s6-01-board-refreshed-for-inbox-prds-only -->
+
+<!-- omni-outbox-settled: s6-02-refresh-gives-up-after-a-minute -->
+
+## s6-02-refresh-gives-up-after-a-minute — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s6
+- Wave: 5
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-refresh-gives-up-after-a-minute
+prd: 324
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 5
+---
+
+## The question, in plain words
+
+The background check asks GitHub for a PRD's slices. If GitHub never answers, how long should the check wait before it gives up?
+
+## The decision, in plain words
+
+Each question it asks gives up after one minute, and the check then records a failure, so the next try comes a minute later. A check that hangs never piles up behind the ones that follow.
+
+## The intro, for fun
+
+GitHub sometimes picks up the phone and just breathes, and the check had to decide how long to hold the line.
+
+## The punchline, for fun
+
+It hangs up after a minute, writes down the silence, and calls back a minute later.
+
+## The options, in plain words
+
+A. Give up on each question after one minute and record the failure: the option built.
+B. Set no limit, as the board command itself does, and let a stuck check run until it ends on its own.
+C. Give up on the whole check after two minutes, when its lock reads as abandoned, however many questions it asked.
+
+## What I had to decide
+
+How long the refresh (`omni statusline --refresh <n>`) waits on one `gh` or `git` call. The spec abandons a lock after 2 minutes and writes any failure as the error entry, but sets no limit on the refresh itself: a `gh` stuck on a dead connection would keep its detached process alive for good, and every 2 minutes the status line would start another beside it.
+
+## What I did meanwhile
+
+`refresh` in `kit/bin/commands/statusline.mjs` hands `buildBoard` and `loadContext` an `exec` that adds a 60-second `timeout` to every call; a call cut off throws, and the refresh writes it as the error entry. The lock is removed only by the refresh that took it (`releaseLock` in `kit/lib/statusline/board-cache.mjs` compares its owner token), so one that ends after a takeover leaves the newer lock alone.
+
+## What it costs to change later
+
+One constant in `kit/bin/commands/statusline.mjs`, and the owner check in `kit/lib/statusline/board-cache.mjs` with its test. No stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says a lock older than 2 minutes is abandoned, but not how long a refresh may run, nor what a refresh still running after its lock was taken over does with that lock.
+
+```
+
+<!-- /omni-outbox-settled: s6-02-refresh-gives-up-after-a-minute -->
