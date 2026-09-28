@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRD 476 · Before/after</title>
+<style>
+:root{
+  --ground:#07061c;--surface:#120f3a;--sunk:#0e0d33;--line:#1a2170;--line-strong:#5a60c4;
+  --ink:#f2f4ff;--muted:#8a90d6;--plasma:#ffd84a;--on-plasma:#07061c;--cyan:#6ff0ff;--green:#4ee08a;
+  --body:'Atkinson Hyperlegible Next','Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:16px/1.45 var(--body);padding:24px 16px 48px}
+h1.page{margin:0 0 4px;font-size:22px}
+.lede{margin:0 0 24px;color:var(--muted);max-width:900px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr));gap:24px}
+.col>h2{margin:0 0 10px;font:700 13px/1 var(--mono);letter-spacing:.12em}
+.today>h2{color:var(--muted)} .after>h2{color:var(--plasma)}
+.screen{border:1px dashed var(--muted);border-radius:12px;padding:18px;overflow:hidden;min-width:0}
+a{color:var(--cyan);text-underline-offset:3px}
+.btn{display:inline-flex;align-items:center;font:700 14px/1 var(--body);color:var(--on-plasma);background:var(--plasma);border:0;border-radius:8px;padding:11px 16px;text-decoration:none;white-space:nowrap}
+.btn.bad{color:var(--cyan);text-decoration:underline}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line-strong)}
+.chips{display:flex;gap:4px;flex-wrap:wrap;list-style:none;margin:0;padding:0;font:600 11px/1 var(--mono)}
+.chip{padding:5px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.chip.done{color:var(--ink);background:var(--sunk)}
+.chip.now{background:var(--plasma);color:var(--on-plasma);border-color:var(--plasma)}
+.today .chip.ahead{opacity:.6}
+.after .chip{border-color:var(--line-strong)}
+.links{display:flex;gap:4px 10px;flex-wrap:wrap;font-size:13px;list-style:none;margin:0;padding:0}
+.hint{color:var(--muted);font-size:13px}
+.repo{font:600 12px/1 var(--mono);background:var(--sunk);border:1px solid var(--line);border-radius:999px;padding:5px 9px;white-space:nowrap}
+.after .repo{border-color:var(--line-strong)}
+.title{margin:0;font-size:21px;line-height:1.25;font-weight:800}
+.num{color:var(--plasma);text-decoration:none;white-space:nowrap}
+.tabs{display:flex;gap:2px;overflow-x:auto;font-size:14px}
+.tab{padding:10px 10px;color:var(--muted);font-weight:700;border-bottom:3px solid transparent;white-space:nowrap}
+.tab small{font:600 11px/1 var(--mono);color:var(--muted);margin-left:4px}
+.tab.on{color:var(--ink);border-bottom-color:var(--plasma)}
+.today .tabs{border-bottom:1px solid var(--line)}
+.today .tab.empty{opacity:.55}
+.after .tab{color:var(--ink)} .after .tab.on{color:var(--ink)} .after .tab.empty{color:var(--muted)}
+.card{background:var(--surface);border:1.5px solid var(--line);border-left:4px solid var(--plasma);border-radius:12px;padding:12px 14px;font-size:14px}
+.after .card{border-color:var(--line-strong);border-left-color:var(--plasma)}
+.card p{margin:8px 0 0;font-weight:700}
+.badge{display:inline-block;font:700 11px/1 var(--mono);letter-spacing:.08em;padding:5px 7px;border-radius:4px;background:var(--plasma);color:var(--on-plasma);margin-right:4px}
+.cat{display:inline-block;font:700 11px/1 var(--mono);letter-spacing:.08em;padding:4px 7px;border-radius:4px;border:1px solid var(--line)}
+.after .cat{border-color:var(--line-strong)}
+/* today: loose lines, content capped at 780 of 1180 → drawn at 66% */
+.today .head{display:grid;gap:10px;margin-bottom:14px}
+.today .row{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap}
+.today .row .right{margin-left:auto}
+.today .card{width:66%}
+.today .empty-space{color:var(--muted);font-size:12px;font-style:italic;margin-top:6px}
+/* after: the box */
+.box{background:var(--surface);border:1.5px solid var(--line-strong);border-radius:14px;margin-bottom:14px;position:relative}
+.box .t{display:flex;align-items:flex-start;gap:10px 14px;flex-wrap:wrap;padding:14px 16px}
+.box .t .title{flex:1 1 300px}
+.box .acts{display:flex;gap:6px;flex-wrap:wrap}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border-top:1px solid var(--line-strong);margin:0}
+.fact{padding:9px 14px;border-right:1px solid var(--line-strong);display:grid;gap:5px;align-content:start;min-width:0}
+.fact:last-child{border-right:0}
+.fact dt{font:700 10px/1 var(--mono);letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+.fact dd{margin:0;font-size:13px;display:grid;gap:5px}
+.box .tabs{border-top:1px solid var(--line-strong);padding:0 6px}
+.pin{position:absolute;top:-10px;right:14px;font:700 10px/1 var(--mono);letter-spacing:.1em;background:var(--plasma);color:var(--on-plasma);padding:4px 7px;border-radius:4px}
+.after .card{width:100%}
+.prose{margin-top:10px;border:1px dashed var(--line-strong);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--muted);width:75%}
+.changes{margin-top:32px;max-width:1100px}
+.changes h2{font-size:18px;margin:0 0 10px}
+table{border-collapse:collapse;font-size:14px;width:100%}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:var(--surface)}
+.stay{margin-top:18px;color:var(--muted);font-size:14px}
+</style></head><body>
+<h1 class="page">PRD 476 · the PRD page's header, width and contrast</h1>
+<p class="lede">PRD 459's page in the Omni theme. <strong>Today</strong>: loose header lines, an unreadable Approve spec, cards stopping at 780 px, faded chips and tabs. <strong>After</strong>: one box, pinned on large screens, a readable button, full-width cards, and outlines you can see.</p>
+
+<div class="cols">
+  <div class="col today"><h2>TODAY</h2>
+    <div class="screen">
+      <div class="head">
+        <h1 class="title"><a class="num" href="#">PRD #459 ↗</a> Open the Omni page to every workspace member, not only @vertuoza.com</h1>
+        <div class="row">
+          <ol class="chips"><li class="chip done">✓ idea</li><li class="chip now">PRD</li><li class="chip ahead">inbox</li><li class="chip ahead">outbox</li><li class="chip ahead">shipped</li><li class="chip ahead">retro</li></ol>
+          <strong style="font-size:14px">Stage: PRD</strong>
+          <a class="btn bad" href="#">Approve spec</a>
+        </div>
+        <ul class="links"><li><a href="#">issue #459</a> <span class="hint">open</span></li><li><a href="#">phase-0 #461</a> <span class="hint">open</span></li><li><a href="#">feature #460</a> <span class="hint">open</span></li></ul>
+        <div class="row"><span class="repo">vertuoza/vertuo-omni-loop</span><span class="hint">opened by PIERRE · 28 Sep 2026, 13:20 UTC</span><span class="right"><button class="btn">Copy link</button></span></div>
+      </div>
+      <nav class="tabs"><span class="tab on">Questions<small>5/5</small></span><span class="tab">Before/after<small>v1</small></span><span class="tab">Spec<small>v1</small></span><span class="tab">Plan<small>v1</small></span><span class="tab empty">Outbox</span><span class="tab empty">Retro</span></nav>
+      <div style="margin-top:14px" class="card"><span class="badge">BRAINSTORM</span><span class="cat">PRODUCT</span><p>Is that brief right: SQL is already membership-based, so this PRD removes the TypeScript email gate…</p></div>
+      <p class="empty-space">↑ cards stop at 780 px; the rest of the width stays empty. The header scrolls away.</p>
+    </div>
+  </div>
+
+  <div class="col after"><h2>AFTER</h2>
+    <div class="screen">
+      <header class="box">
+        <span class="pin">PINNED ≥ 900×700</span>
+        <div class="t">
+          <h1 class="title"><a class="num" href="#">PRD #459 ↗</a> Open the Omni page to every workspace member, not only @vertuoza.com</h1>
+          <div class="acts"><a class="btn" href="#">Approve spec</a><button class="btn ghost">Copy link</button></div>
+        </div>
+        <dl class="facts">
+          <div class="fact"><dt>Stage</dt><dd><ol class="chips"><li class="chip done">✓ idea</li><li class="chip now">PRD</li><li class="chip">inbox</li><li class="chip">outbox</li><li class="chip">shipped</li><li class="chip">retro</li></ol><strong>Stage: PRD</strong></dd></div>
+          <div class="fact"><dt>Repo</dt><dd><span><span class="repo">vertuoza/vertuo-omni-loop</span></span></dd></div>
+          <div class="fact"><dt>On GitHub</dt><dd><ul class="links"><li><a href="#">issue #459</a> <span class="hint">open</span></li><li><a href="#">phase-0 #461</a> <span class="hint">open</span></li><li><a href="#">feature #460</a> <span class="hint">open</span></li></ul></dd></div>
+          <div class="fact"><dt>Opened</dt><dd>PIERRE · 28 Sep 2026, 13:20 UTC</dd></div>
+        </dl>
+        <nav class="tabs"><span class="tab on">Questions<small>5/5</small></span><span class="tab">Before/after<small>v1</small></span><span class="tab">Spec<small>v1</small></span><span class="tab">Plan<small>v1</small></span><span class="tab empty">Outbox</span><span class="tab empty">Retro</span></nav>
+      </header>
+      <div class="card"><span class="badge">BRAINSTORM</span><span class="cat">PRODUCT</span><p>Is that brief right: SQL is already membership-based, so this PRD removes the TypeScript email gate…</p></div>
+      <div class="prose">Spec / Plan tab: the prose keeps a 900 px measure; tables and code scroll inside it.</div>
+    </div>
+  </div>
+</div>
+
+<section class="changes">
+  <h2>What changes</h2>
+  <table>
+    <tr><th></th><th>Today</th><th>After</th></tr>
+    <tr><td>Header</td><td>Loose lines on the page background; Copy link floats far right</td><td>One bordered box: title + actions, a facts strip (Stage · Repo · On GitHub · Opened), the tabs</td></tr>
+    <tr><td>Scrolling</td><td>The header scrolls away</td><td>Pinned at the top from 900 px wide and 700 px tall; scrolls away on a phone</td></tr>
+    <tr><td>Approve spec (Omni)</td><td>Cyan on yellow, underlined: 1.03:1</td><td>Dark on yellow, no underline: 14.4:1 (every <code>a.ask-button</code>)</td></tr>
+    <tr><td>Width</td><td><code>.dossier</code> 1180 px; cards, outbox, spec 780 px</td><td>Full content width; spec and plan prose 900 px</td></tr>
+    <tr><td>Stages ahead / empty tabs</td><td>Faded by opacity: ~3.05:1 / ~2.72:1</td><td>Muted colour, no opacity: ≥ 6.1:1</td></tr>
+    <tr><td>Outlines (chips, cards, controls)</td><td><code>--ask-line</code>, 1.3–1.6:1</td><td>New <code>--ask-line-strong</code>, ≥ 3:1 in Omni, Light and Dark, on every Ask-coloured page</td></tr>
+  </table>
+  <p class="stay"><strong>Stays the same:</strong> what the page shows (no new data); the stage logic and its buttons; the tabs and their order; the PRD list at <code>/prd</code>; dividers (table cells, rules) keep <code>--ask-line</code>; the sidebar and the app bar.</p>
+</section>
+</body></html>
