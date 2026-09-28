@@ -6,8 +6,9 @@
 //
 // It never breaks Claude Code: it always exits 0 and prints at least one line, never writes to
 // stderr, never fetches and never runs `gh`; what it cannot read leaves its part out. JSON that cannot
-// be read prints `omni`; a reader that fails prints line 1 from the JSON alone. It runs before a context exists, like `init` and `ask`, so
-// that no checkout, config or folder can turn it into an error; `main()` hands it
+// be read prints `omni`; a reader that fails prints line 1 from the JSON alone. It runs before a
+// context exists, like `init` and `ask`, so that no checkout, config or folder can turn it into an
+// error; `main()` hands it
 // `{ cwd, stdout, stderr, exec, env }`, and a test also passes `stdin` (the text), `now` (a clock in
 // milliseconds) and `readFacts` (the reader). Its arguments are not read.
 import { parseInput } from '../../lib/statusline/input.mjs';
