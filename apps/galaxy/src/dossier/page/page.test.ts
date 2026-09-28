@@ -253,9 +253,9 @@ describe('the history', () => {
     renderToStaticMarkup((await HistoryPage({ searchParams: Promise.resolve(query) })) as ReactElement);
   const rows = (page: string) => [...page.matchAll(/<a class="dossier-history-row" href="\/prd\/([^"]+)">/g)].map((m) => m[1]);
 
-  it('lists every dossier of a member\'s workspace, newest activity first, each opening its page', async () => {
+  it('lists every dossier of a member\'s workspace under All, newest activity first, each opening its page', async () => {
     given.token = 'bob';
-    const page = await list();
+    const page = await list({ who: 'all' });
     expect(rows(page)).toEqual([numbered, draft]);
     expect(page).toContain('<span class="dossier-number">#7</span> <span>Team inbox</span>');
     expect(page).toContain('<span class="dossier-draft">DRAFT</span> <span>An idea</span>');
@@ -265,23 +265,37 @@ describe('the history', () => {
   it('filters by a repository: a dossier with three shows under each', async () => {
     given.fake.seedPlanet({ planRepo: 'widgets', prd: 7, regions: ['core', 'web'] });
     given.token = 'bob';
-    for (const repo of ['acme/core', 'acme/web']) expect(rows(await list({ repo })), repo).toEqual([numbered]);
-    expect(rows(await list({ repo: 'acme/widgets' }))).toEqual([numbered, draft]);
-    expect(rows(await list({ repo: 'acme/gadgets' }))).toEqual([]);
-    expect(await list({ repo: 'acme/gadgets' })).toContain('No PRD matches');
+    for (const repo of ['acme/core', 'acme/web']) expect(rows(await list({ repo, who: 'all' })), repo).toEqual([numbered]);
+    expect(rows(await list({ repo: 'acme/widgets', who: 'all' }))).toEqual([numbered, draft]);
+    expect(rows(await list({ repo: 'acme/gadgets', who: 'all' }))).toEqual([]);
+    expect(await list({ repo: 'acme/gadgets', who: 'all' })).toContain('No PRD matches');
   });
 
   it('filters by draft or PRD, and finds a dossier by a word of its title', async () => {
     given.token = 'bob';
+    expect(rows(await list({ state: 'draft', who: 'all' }))).toEqual([draft]);
+    expect(rows(await list({ state: 'prd', who: 'all' }))).toEqual([numbered]);
+    expect(rows(await list({ q: 'INBOX', who: 'all' }))).toEqual([numbered]);
+    expect(rows(await list({ q: 'idea', state: 'prd', who: 'all' }))).toEqual([]);
+  });
+
+  it('starts on Mine: the dossiers the signed-in person opened, drafts and numbered alike (PRD 413)', async () => {
+    given.token = 'ada';
+    expect(rows(await list())).toEqual([numbered, draft]);
     expect(rows(await list({ state: 'draft' }))).toEqual([draft]);
-    expect(rows(await list({ state: 'prd' }))).toEqual([numbered]);
-    expect(rows(await list({ q: 'INBOX' }))).toEqual([numbered]);
-    expect(rows(await list({ q: 'idea', state: 'prd' }))).toEqual([]);
+  });
+
+  it('an empty Mine says so and links to All, which lists the workspace (PRD 413)', async () => {
+    given.token = 'bob';
+    const page = await list();
+    expect(rows(page)).toEqual([]);
+    expect(page).toContain('You have not opened a PRD yet.');
+    expect(page).toContain('href="/prd?who=all"');
   });
 
   it('lists nothing of a workspace to a member of another', async () => {
     given.token = 'carl';
-    const page = await list();
+    const page = await list({ who: 'all' });
     expect(rows(page)).toEqual([]);
     expect(page).toContain('No PRD yet');
     expect(page).not.toContain('Team inbox');
@@ -311,7 +325,8 @@ describe('the history', () => {
     expect(page).toContain('<span class="dossier-number">#71</span>');
     expect(page).toContain('<span class="dossier-draft">DRAFT</span>');
     expect(rows(await list({ repo: 'vertuoza/vertuo-web' }))).toHaveLength(1);
-    expect(rows(await list({ repo: 'vertuoza/vertuo-omni-loop' }))).toHaveLength(3);
+    expect(rows(await list({ repo: 'vertuoza/vertuo-omni-loop' }))).toHaveLength(2);
+    expect(rows(await list({ repo: 'vertuoza/vertuo-omni-loop', who: 'all' }))).toHaveLength(3);
   });
 });
 
