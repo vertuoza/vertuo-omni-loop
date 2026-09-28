@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-28
 - Slice: s1
 - Wave: 1
+- Stays here: A one-line UI fix in the picker, cheap to undo; no existing principle or record covers it and it sets no lasting rule for the kit.
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ One line in the version picker; undoing it is putting the old condition back.
 - Raised: 2026-09-28
 - Slice: s5
 - Wave: 1
+- Stays here: A narrow refresh-signal choice limited to what the spec named. It is cheap to widen later, and no principle or rule depends on it, so it has no lasting knowledge to keep.
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ Counting moved questions means adding one count to the database's list function,
 - Raised: 2026-09-28
 - Slice: s2
 - Wave: 2
+- Stays here: A presentational choice in one pane, cheap to reverse with no data impact; nothing lasting or provable beyond the UI layout.
 
 ### The answer, as it was given
 
@@ -251,6 +254,7 @@ Putting the answer line or the chosen tag back is a few lines in the Questions p
 - Raised: 2026-09-28
 - Slice: s3
 - Wave: 3
+- Stays here: A slice-sequencing choice with a trivial later change; nothing lasting about how the product must behave or be built.
 
 ### The answer, as it was given
 
@@ -329,6 +333,7 @@ One attribute on each question of the list; the later slice that owns the list c
 - Raised: 2026-09-28
 - Slice: s3
 - Wave: 3
+- Stays here: A one-line, local test fix following a changed link; nothing lasting to record, and it is cheap to undo.
 
 ### The answer, as it was given
 
@@ -406,6 +411,7 @@ One line; undoing it is putting the old expected link back.
 - Raised: 2026-09-28
 - Slice: s4
 - Wave: 4
+- Stays here: A one-line local wiring choice about slice territory; nothing lasting for the knowledge base, and it is cheap to change.
 
 ### The answer, as it was given
 
@@ -484,6 +490,7 @@ One line in the page frame; undoing it is removing the pass-through and finding 
 - Raised: 2026-09-28
 - Slice: s4
 - Wave: 4
+- Stays here: A local presentation choice in one component, cheap to reverse, that sets no lasting rule, invariant or architecture decision beyond this piece.
 
 ### The answer, as it was given
 
@@ -561,6 +568,7 @@ One condition in the one-click piece; hiding them instead is a small change to t
 - Raised: 2026-09-28
 - Slice: s4
 - Wave: 4
+- Stays here: A temporary limit of this slice that falls short of P-PRODUCT-12 rather than a lasting rule; it stays in the ledger so it can be revisited when the list reads each session's state.
 
 ### The answer, as it was given
 
