@@ -135,17 +135,18 @@ describe('the poster', () => {
     expect(html).toMatch(/class="home-stars"[^>]*aria-hidden="true"/);
   });
 
-  it('shows sign-up buttons that are disabled, say coming soon, and go nowhere: the poster\'s and the order form\'s', async () => {
+  it('shows sign-up buttons that are enabled and start the GitHub sign-in: the poster\'s and the order form\'s (PRD 359)', async () => {
     const html = await render();
     const buttons = [...html.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)].map(([b]) => b);
     const signUp = buttons.filter((b) => /SIGN UP WITH GITHUB/.test(b));
     expect(signUp).toHaveLength(2);
     for (const button of signUp) {
-      expect(text(button)).toBe('SIGN UP WITH GITHUB · COMING SOON');
-      expect(button).toMatch(/<button [^>]*disabled=""/);
+      expect(text(button)).toBe('SIGN UP WITH GITHUB');
+      expect(button).not.toMatch(/disabled/);
+      expect(button).not.toMatch(/coming soon/i);
       expect(button).toMatch(/type="button"/);
-      expect(/aria-label="([^"]*)"/.exec(button)?.[1]).toMatch(/coming soon/i);
-      expect(button).not.toMatch(/href=|formaction=|onclick=/i);
+      expect(button).toContain('data-sign-up=""');
+      expect(/aria-label="([^"]*)"/.exec(button)?.[1]).toBe('Sign up with GitHub');
     }
   });
 

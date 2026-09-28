@@ -1,4 +1,5 @@
 import { PLAY } from '../forward';
+import { SIGN_UP_ATTR } from '../sign-up';
 import { PRESS_START_ATTR } from '../start';
 import { CREST_FORM, crestSvg, OMNI_POSE, omniSvg, planetSvgs, starfieldSvg } from './art';
 
@@ -14,11 +15,12 @@ export const PROMISES = ['ONE FOLDER IN, ONE FOLDER OUT', 'EVERY DECISION WRITTE
 /** A string of SVG markup, as an element's only child. */
 export const Svg = ({ svg }: { svg: string }) => <span className="home-svg" dangerouslySetInnerHTML={{ __html: svg }} />;
 
-/** The call to action this PRD only shows: signing up with GitHub is the next PRD's. It goes nowhere. */
+/** SIGN UP WITH GITHUB (PRD 359): a plain button, marked for Controls, which starts the GitHub
+ * sign-in on a click (sign-up.ts). HOME stays static: the page itself reaches no database. */
 export function SignUp() {
   return (
-    <button type="button" className="home-signup" disabled aria-label="Sign up with GitHub, coming soon">
-      <b>SIGN UP WITH GITHUB</b> <span className="home-signup-sep">·</span> COMING SOON
+    <button type="button" className="home-signup" aria-label="Sign up with GitHub" {...{ [SIGN_UP_ATTR]: '' }}>
+      <b>SIGN UP WITH GITHUB</b>
     </button>
   );
 }
