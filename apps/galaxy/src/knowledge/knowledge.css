@@ -25,7 +25,7 @@ html:has(.km-root) body { height: auto; overflow: visible; }
   color: var(--ask-muted);
   overflow-wrap: anywhere;
   padding: 2px 8px;
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 999px;
 }
 .km-chart { font-size: 15px; font-weight: 700; text-decoration: none; }
@@ -44,7 +44,7 @@ html:has(.km-root) body { height: auto; overflow: visible; }
   align-items: baseline;
   gap: 8px;
   padding: 7px 14px;
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 999px;
   background: var(--ask-surface);
   color: var(--ask-ink);
@@ -77,7 +77,7 @@ html:has(.km-root) body { height: auto; overflow: visible; }
   display: grid;
   gap: 10px;
   background: var(--ask-surface);
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 12px;
   min-width: 0;
 }
@@ -137,7 +137,7 @@ html:has(.km-root) body { height: auto; overflow: visible; }
   align-content: start;
   padding: 20px;
   background: var(--ask-surface);
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 12px;
   min-width: 0;
 }
@@ -151,7 +151,7 @@ html:has(.km-root) body { height: auto; overflow: visible; }
   line-height: 1;
   padding: 5px 10px;
   border-radius: 999px;
-  border: 1.5px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   color: var(--ask-muted);
 }
 .km-chip[data-kind] { border-color: var(--km-kind); color: var(--km-kind); }
@@ -177,7 +177,7 @@ html:has(.km-root) body { height: auto; overflow: visible; }
   font: 16px/1.4 var(--ask-body);
   color: var(--ask-ink);
   background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   border-radius: 8px;
   padding: 8px 12px;
 }
@@ -221,7 +221,7 @@ html:has(.km-root) body { height: auto; overflow: visible; }
   font-size: 12.5px;
   font-weight: 700;
   color: var(--ask-muted);
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 4px;
   padding: 1px 6px;
 }

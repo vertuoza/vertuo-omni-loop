@@ -442,4 +442,90 @@ describe('the stylesheet', () => {
       expect(value.trim(), declaration).toMatch(/var\(--ask-|\btransparent\b|^none$|^inherit$|^0$/);
     }
   });
+  /** Every rule of the stylesheet, with the media query it sits in ('' at the top level). */
+  const rules = (() => {
+    const found: { media: string; selectors: string[]; body: string }[] = [];
+    const walk = (text: string, media: string) => {
+      let at = 0;
+      while (at < text.length) {
+        const open = text.indexOf('{', at);
+        if (open === -1) break;
+        const head = text.slice(at, open).trim();
+        let depth = 1;
+        let end = open + 1;
+        while (depth > 0 && end < text.length) {
+          if (text[end] === '{') depth += 1;
+          if (text[end] === '}') depth -= 1;
+          end += 1;
+        }
+        const inner = text.slice(open + 1, end - 1);
+        if (head.startsWith('@media')) walk(inner, head);
+        else found.push({ media, selectors: head.split(',').map((s) => s.trim()), body: inner });
+        at = end;
+      }
+    };
+    walk(css, '');
+    return found;
+  })();
+  /** The declarations of every rule naming `selector` exactly, joined. */
+  const of = (selector: string, media = '') =>
+    rules.filter((r) => r.media === media && r.selectors.includes(selector)).map((r) => r.body).join(';');
+  const PINNED = '@media (min-width: 900px) and (min-height: 700px)';
+
+  it('pins the header box only from 900 × 700 px, above the content and under the drawer (PRD 476)', () => {
+    const pinned = of('.dossier-head', PINNED);
+    expect(pinned).toMatch(/position:\s*sticky/);
+    expect(pinned).toMatch(/top:\s*0/);
+    expect(pinned).toMatch(/z-index:\s*(\d+)/);
+    expect(Number(/z-index:\s*(\d+)/.exec(pinned)?.[1])).toBeLessThan(20);
+    for (const rule of rules.filter((r) => r.media !== PINNED)) expect(rule.body, rule.selectors.join(', ')).not.toMatch(/sticky/);
+  });
+
+  it('draws the header box on the surface with a strong outline (PRD 476)', () => {
+    const head = of('.dossier-head');
+    expect(head).toMatch(/background:\s*var\(--ask-surface\)/);
+    expect(head).toMatch(/border:\s*[^;]*var\(--ask-line-strong\)/);
+  });
+
+  it('lands a round and a markdown heading just under the pinned box (PRD 476)', () => {
+    for (const selector of ['.dossier-round', '.dossier-md h2']) {
+      expect(of(selector), selector).toMatch(/scroll-margin-top:\s*16px/);
+      expect(of(selector, PINNED), selector).toMatch(/scroll-margin-top:\s*calc\(var\(--dossier-head-h, 0px\) \+ 16px\)/);
+    }
+  });
+
+  it('spans the page, with a 900 px measure for prose only (PRD 476)', () => {
+    for (const selector of ['.dossier', '.dossier-rounds', '.outbox-items', '.dossier-frame']) {
+      expect(of(selector), selector).not.toMatch(/max-width/);
+    }
+    for (const selector of ['.dossier-md', '.dossier-front']) expect(of(selector), selector).toMatch(/max-width:\s*900px/);
+  });
+
+  it('dims no text with opacity: stages ahead and empty tabs read muted, a tab with content in ink (PRD 476)', () => {
+    for (const rule of rules) {
+      for (const [, value] of rule.body.matchAll(/opacity:\s*([\d.]+)/g)) expect(Number(value), rule.selectors.join(', ')).toBeGreaterThanOrEqual(1);
+    }
+    expect(of('.stage-ahead')).toMatch(/color:\s*var\(--ask-muted\)/);
+    expect(of('.ask a.dossier-tab')).toMatch(/color:\s*var\(--ask-ink\)/);
+    expect(of('.ask a.dossier-tab-empty')).toMatch(/color:\s*var\(--ask-muted\)/);
+    expect(of(".ask a.dossier-tab[aria-current='page']")).toMatch(/color:\s*var\(--ask-ink\)/);
+    expect(of(".ask a.dossier-tab[aria-current='page']")).toMatch(/border-bottom-color:\s*var\(--ask-plasma\)/);
+  });
+
+  it('outlines chips, badges, cards, controls and the tab bar with --ask-line-strong, and keeps --ask-line for dividers (PRD 476)', () => {
+    const outlined = [
+      '.dossier-head', '.stage-stop', '.dossier-repo', '.dossier-tabs', '.dossier-empty', '.dossier-frame iframe',
+      '.dossier-round', '.dossier-category', '.dossier-option', '.outbox-item', '.outbox-verdict',
+      '.ask .dossier-quick-choice:disabled', '.dossier-history-filters', '.dossier-history-whos',
+      '.ask a.dossier-history-row', '.dossier-history-artifact',
+    ];
+    for (const selector of outlined) {
+      const body = of(selector);
+      expect(body, selector).toMatch(/border(?:-top|-bottom)?(?:-color)?:\s*[^;]*var\(--ask-line-strong\)/);
+      expect(body, selector).not.toMatch(/border(?:-top|-bottom)?(?:-color)?:\s*[^;]*var\(--ask-line\)/);
+    }
+    for (const selector of ['.dossier-md th', '.dossier-md hr', '.dossier-md h2', '.dossier-q + .dossier-q']) {
+      expect(of(selector), selector).toMatch(/border(?:-top|-bottom)?:\s*[^;]*var\(--ask-line\)/);
+    }
+  });
 });

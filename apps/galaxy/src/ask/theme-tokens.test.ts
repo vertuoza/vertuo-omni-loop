@@ -32,6 +32,14 @@ describe('the stylesheet the table becomes', () => {
     }
   });
 
+  it('declares --ask-line-strong, the outline colour, for every theme (PRD 476)', () => {
+    for (const theme of ['omni', 'light', 'dark'] as const) {
+      const declared = block(`:is(html:has(.ask[data-ask-theme="${theme}"]), .ask[data-ask-theme="${theme}"])`);
+      expect(declared, theme).toContain(`--ask-line-strong: ${TOKENS[theme].lineStrong};`);
+    }
+    expect(block('.ask:not([data-ask-theme])')).toContain(`--ask-line-strong: ${TOKENS.omni.lineStrong};`);
+  });
+
   it('shows Omni when no script ran, whatever the system prefers', () => {
     const unmarked = block('.ask:not([data-ask-theme])');
     expect(unmarked).toContain('color-scheme: dark;');
@@ -57,6 +65,20 @@ describe('the stylesheet', () => {
       expect(pressed, choice).toContain(`.ask[data-ask-choice='${choice}'] .ask-switch [data-choice='${choice}']`);
     }
     expect(css).not.toContain("'system'");
+  });
+
+  it('draws a link shaped as a button dark on plasma, not as a cyan underlined link (PRD 476)', () => {
+    // `.ask a` (cyan, underlined) outranks `.ask-button`: without this rule Approve spec read cyan on yellow.
+    const link = rules.find((r) => r.selector === '.ask a.ask-button');
+    expect(link?.body).toContain('color: var(--ask-on-plasma);');
+    expect(link?.body).toContain('text-decoration: none;');
+    const states = rules.filter((r) => /\.ask a\.ask-button:(?:hover|focus-visible)/.test(r.selector));
+    expect(states.map((r) => r.body).join('')).toContain('color: var(--ask-on-plasma);');
+    // A quiet link keeps the ink on its card.
+    expect(rules.find((r) => r.selector.split(',').map((one) => one.trim()).includes('.ask a.ask-button.quiet'))?.body)
+      .toContain('color: var(--ask-ink);');
+    // Focus keeps the cyan ring every control has.
+    expect(rules.find((r) => r.selector === '.ask :focus-visible')?.body).toContain('outline: 2px solid var(--ask-cyan);');
   });
 
   it('sets the page in Atkinson Hyperlegible Next', () => {
