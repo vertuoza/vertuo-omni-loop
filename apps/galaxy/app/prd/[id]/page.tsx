@@ -18,7 +18,8 @@ import { dossierView, readPick, type DossierRead } from '../../../src/dossier/pa
 // another workspace, a dossier that never was — not found, in the same words. `?tab=` and `?v=` pick the
 // artifact and its version. After its opener deletes a draft, `?deleted=1` says it is gone. Without a
 // database it plays the demo dossier in development. With one, the page refreshes itself (PRD 384):
-// LiveRefresh starts from the signature of what was read here and re-renders only when it moves.
+// LiveRefresh starts from the signature of what was read here and re-renders only when it moves. Which
+// open rounds the signed-in person may answer on the list is read here too, on the server.
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -63,7 +64,7 @@ export default async function DossierRoute({ params, searchParams }: Props) {
 
   let read: DossierRead | null;
   try {
-    read = await readDossier(db, id);
+    read = await readDossier(db, id, user.id);
   } catch (error) {
     console.error(error);
     return (

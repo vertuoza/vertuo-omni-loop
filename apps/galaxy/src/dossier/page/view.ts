@@ -151,14 +151,17 @@ export type RoundQuestion = {
   header: string; question: string; multiSelect: boolean; shape: QuestionShape; options: RoundOption[]; answer: string | null; written: string | null;
 };
 
-/** One option of a quick round, as its button shows it (`label`, `recommended`) and as the answer
- * records it (`value`: the label exactly as the question offered it). */
-export type QuickChoice = { label: string; recommended: boolean; value: string };
+/** One option of a quick round, as its button shows it (`label`, `recommended`, `description`) and as
+ * the answer records it (`value`: the label exactly as the question offered it). */
+export type QuickChoice = { label: string; recommended: boolean; description: string; value: string };
 
 /** A quick round, answered on the list: its one question, a button per option for a viewer who may
  * answer it, "Waiting for <owner>" for anyone else, and the next round still open, to scroll to once
- * it is answered. */
-export type QuickRound = { question: string; choices: QuickChoice[]; canAnswer: boolean; owner: string; next: string | null };
+ * it is answered. `names` names the workspace's members, so "Already answered by …" can say who came
+ * first; empty for a viewer who may not answer. */
+export type QuickRound = {
+  question: string; choices: QuickChoice[]; canAnswer: boolean; owner: string; next: string | null; names: Record<string, string>;
+};
 
 export type RoundEntry = {
   /** The round's id, also its element's id on the list, so `#<round id>` lands on it. */
@@ -256,15 +259,17 @@ function nextOpen(rows: readonly Opened[], roundId: string): string | null {
 function quickOf(row: DossierRoundRow, rows: readonly DossierRoundRow[], members: Member[], answerable: readonly string[], now: number): QuickRound | null {
   if (!isQuick(row, now)) return null;
   const [only] = readQuestions(row.questions);
+  const canAnswer = answerable.includes(row.round_id);
   return {
     question: only.question,
     choices: only.options.map((o) => {
       const shown = shownLabel(o.label);
-      return { label: shown.text, recommended: shown.recommended, value: o.label };
+      return { label: shown.text, recommended: shown.recommended, description: o.description, value: o.label };
     }),
-    canAnswer: answerable.includes(row.round_id),
+    canAnswer,
     owner: nameOf(row.asked_by, members),
     next: nextOpen(rows, row.round_id),
+    names: canAnswer ? Object.fromEntries(members.map((m) => [m.user_id, nameOf(m.user_id, members)])) : {},
   };
 }
 

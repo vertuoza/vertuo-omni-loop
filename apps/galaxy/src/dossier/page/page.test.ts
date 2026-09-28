@@ -112,6 +112,27 @@ describe('the page to share', () => {
     await expect(open(numbered, { tab: 'questions' })).rejects.toMatchObject(notFound);
   });
 
+  it('decides on the server who may answer a quick round on the list: its owner and a member it is shared with (PRD 384)', async () => {
+    const quick = [{ question: 'Ship it?', header: '', multiSelect: false, options: [{ label: 'Yes', description: '' }, { label: 'No', description: '' }] }];
+    const { rounds: [round] } = given.fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [
+      { created_at: new Date(Date.now() - 60_000).toISOString(), prd: 7, questions: quick },
+    ]);
+    const buttons = (page: string) => [...page.matchAll(/class="dossier-quick-choice"[^>]*><span class="dossier-option-label">([^<]+)/g)].map((m) => m[1]);
+
+    given.token = 'ada';
+    const owner = await html(numbered, { tab: 'questions' });
+    expect(buttons(owner)).toEqual(['Yes', 'No']);
+    expect(owner).toContain(`<li id="${round.id}" class="dossier-round"`);
+
+    given.token = 'bob';
+    const other = await html(numbered, { tab: 'questions' });
+    expect(buttons(other)).toEqual([]);
+    expect(other).toContain('Waiting for ADA');
+
+    given.fake.seedShare(round.id, BOB.id, ADA.id);
+    expect(buttons(await html(numbered, { tab: 'questions' }))).toEqual(['Yes', 'No']);
+  });
+
   it('shows the questions of the brainstorm that opened a draft, in its Claude session', async () => {
     const opened = (await given.fake.client('ada').rpc('dossier_open', { p_title: 'Offline quotes', p_repo: 'acme/widgets', p_claude_session_id: 'sess-a' })).data as string;
     given.fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets', claudeSessionId: 'sess-a' }, [{ created_at: new Date(Date.now() + 60_000).toISOString() }]);

@@ -397,16 +397,20 @@ describe('a quick round, answered on the list (PRD 384)', () => {
     expect(second.quick).toBeNull();
     expect(first.quick).toEqual({
       question: SHAPE.question,
-      choices: [{ label: 'Square', recommended: true, value: 'Square (Recommended)' }, { label: 'Hexagonal', recommended: false, value: 'Hexagonal' }],
+      choices: [
+        { label: 'Square', recommended: true, description: 'cheaper', value: 'Square (Recommended)' },
+        { label: 'Hexagonal', recommended: false, description: 'prettier', value: 'Hexagonal' },
+      ],
       canAnswer: true,
       owner: 'Pierre',
       next: 'q2',
+      names: { [PIERRE.user_id]: 'Pierre', [MARIE.user_id]: 'marie@vertuoza.com' },
     });
   });
 
   it('decides who may answer from what the server read, never from the viewer alone', () => {
     const [, first] = quickView(PIERRE.user_id, []);
-    expect(first.quick).toMatchObject({ canAnswer: false, owner: 'Pierre' });
+    expect(first.quick).toMatchObject({ canAnswer: false, owner: 'Pierre', names: {} });
     expect(quickView(MARIE.user_id, ['q1'])[1].quick).toMatchObject({ canAnswer: true });
   });
 

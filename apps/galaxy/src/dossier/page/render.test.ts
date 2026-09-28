@@ -1,13 +1,20 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { renderMarkdown } from '../markdown';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
 import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
 import { DossierPage } from './DossierPage';
 import { DossierSignIn } from './DossierSignIn';
+import { takenLine } from './QuickAnswer';
 import { dossierView, readPick, type DossierPick } from './view';
+
+// A quick round's buttons (PRD 384) refresh through the app router, which a static render has none of.
+vi.mock('next/navigation', async (original) => ({
+  ...(await original<typeof import('next/navigation')>()),
+  useRouter: () => ({ refresh: () => {} }),
+}));
 
 // /prd/<id> as the server renders it (PRD 216): what a person sees before any script runs, in each of
 // its states — numbered or draft, each artifact tab, a version picked, an artifact with no version yet,
@@ -56,8 +63,9 @@ const rounds = [
 function page({
   dossier = numbered, rows = versions, pick = readPick({}), me = MARIE.user_id, markdown = null as string | null,
   supabase = SUPABASE as typeof SUPABASE | null, questions = rounds as DossierRoundRow[] | null,
+  answerable = [] as string[], now = Date.now(),
 } = {}) {
-  const view = dossierView({ dossier, versions: rows, members: [PIERRE, MARIE], rounds: questions }, me, pick);
+  const view = dossierView({ dossier, versions: rows, members: [PIERRE, MARIE], rounds: questions, answerable }, me, pick, now);
   return renderToStaticMarkup(createElement(DossierPage, { view, markdown: markdown === null ? null : renderMarkdown(markdown), supabase }));
 }
 const tab = (name: DossierPick['tab'], v?: number): DossierPick => ({ tab: name, version: v ?? null });
@@ -126,7 +134,8 @@ describe('the Questions tab', () => {
   it('lists each round in the order asked, marked brainstorm or delivery, with no picker and no frame', () => {
     const html = questions();
     expect(html).toContain('<ol class="dossier-rounds" aria-label="Questions, in the order they were asked">');
-    expect([...html.matchAll(/<li class="dossier-round" data-rule="([a-z]+)">/g)].map((m) => m[1])).toEqual(['brainstorm', 'delivery']);
+    expect([...html.matchAll(/<li id="(r\d)" class="dossier-round" data-rule="([a-z]+)">/g)].map((m) => [m[1], m[2]]))
+      .toEqual([['r1', 'brainstorm'], ['r2', 'delivery']]);
     expect([...html.matchAll(/<span class="dossier-rule">([a-z]+)<\/span>/g)].map((m) => m[1])).toEqual(['brainstorm', 'delivery']);
     expect(html).not.toContain('<select');
     expect(html).not.toContain('<iframe');
@@ -203,6 +212,70 @@ describe('the Questions tab', () => {
     const html = questions({ questions: null });
     expect(html).toContain('role="alert">The questions could not be read.');
     expect(html).toContain('PRD #216');
+  });
+});
+
+describe('a quick round on the Questions tab (PRD 384)', () => {
+  const AT = '2026-09-28T09:00:00Z';
+  const SOON = Date.parse(AT) + 60_000;
+  const open = asked('q1', 'brainstorm', AT);
+  const later = asked('q2', 'brainstorm', '2026-09-28T09:00:30Z', { questions: [SHAPE, SHAPE] });
+  const quick = (more: Parameters<typeof page>[0] = {}) => page({ pick: tab('questions'), questions: [open, later], now: SOON, ...more });
+  const buttons = (html: string) => [...html.matchAll(/<button type="button" class="dossier-quick-choice"[^>]*><span class="dossier-option-label">([^<]+)/g)].map((m) => m[1]);
+
+  it('shows a person who may answer it one button per option, in place of the option list, with its Open link', () => {
+    const html = quick({ answerable: ['q1'], questions: [open] });
+    expect(buttons(html)).toEqual(['Square', 'Hexagonal']);
+    expect(html).toContain('<ul class="dossier-quick-choices" aria-label="Answer with one click">');
+    expect(html).toContain('<span class="dossier-option-desc">prettier</span>');
+    expect(html).not.toContain('aria-label="Options, one could be chosen"><li');
+    expect(html).toContain(`href="/ask/q/q1?from=${ID}">Open the question</a>`);
+    expect(html).not.toContain('Waiting for');
+  });
+
+  it('keeps its buttons off until the script runs: with no script, the Open link answers it', () => {
+    expect(quick({ answerable: ['q1'] })).toMatch(/<button type="button" class="dossier-quick-choice" disabled="">/);
+  });
+
+  it('shows anyone else its options and "Waiting for <owner>", with no button', () => {
+    const html = quick({ answerable: [] });
+    expect(buttons(html)).toEqual([]);
+    expect(html).not.toContain('dossier-quick-choice');
+    expect(html).toContain('aria-label="Options, one could be chosen"');
+    expect(html).toContain('<p class="dossier-quick-note">Waiting for Pierre</p>');
+  });
+
+  it('shows a round that is not quick with its Open link only', () => {
+    const html = quick({ answerable: ['q1', 'q2'], questions: [later] });
+    expect(html).not.toContain('dossier-quick-choice');
+    expect(html).not.toContain('Waiting for');
+    expect(html).toContain(`href="/ask/q/q2?from=${ID}">Open the question</a>`);
+  });
+
+  it('shows no button once its time is up', () => {
+    const html = quick({ answerable: ['q1'], now: Date.parse(AT) + 540_000 });
+    expect(html).not.toContain('dossier-quick-choice');
+    expect(html).not.toContain('Waiting for');
+  });
+
+  it('shows no button where the page has no database to answer through (the demo)', () => {
+    const html = quick({ answerable: ['q1'], supabase: null });
+    expect(html).not.toContain('dossier-quick-choice');
+    expect(html).toContain('aria-label="Options, one could be chosen"');
+  });
+
+  it('gives each round its id, so the way back lands on the next open round', () => {
+    expect(quick()).toContain('<li id="q2" class="dossier-round"');
+  });
+});
+
+describe('what a click that came second says', () => {
+  const names = { 'u-marie': 'Marie' };
+  it('names who came first, or says it moved', () => {
+    expect(takenLine({ kind: 'taken', by: 'u-marie', via: 'page', moved: false }, names)).toBe('Already answered by Marie');
+    expect(takenLine({ kind: 'taken', by: 'u-gone', via: 'page', moved: false }, names)).toBe('Already answered by someone who left the workspace');
+    expect(takenLine({ kind: 'taken', by: null, via: 'terminal', moved: false }, names)).toBe('Already answered in the terminal.');
+    expect(takenLine({ kind: 'taken', by: null, via: null, moved: true }, names)).toBe('This question moved to the terminal before your answer.');
   });
 });
 
