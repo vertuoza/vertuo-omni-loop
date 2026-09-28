@@ -1,5 +1,6 @@
 // GitHub as the omni-loop App sees it (PRD 359): a JWT signed with the App's private key, then three
-// reads, an installation by id, an org's installation and a person's own account's installation. galaxy's server holds the App's id and key
+// reads, an installation by id, an org's installation and a person's own account's installation. The
+// PRD page (PRD 426) adds two: a repository's installation, and an installation access token for it. galaxy's server holds the App's id and key
 // (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, server only: never a NEXT_PUBLIC_ variable, never imported
 // by a client component); the install link needs only the App's public slug (GITHUB_APP_SLUG).
 import { createSign } from 'node:crypto';
@@ -40,14 +41,25 @@ const InstallationAnswer = z.object({
   account: z.object({ login: z.string().regex(LOGIN), type: z.enum(['Organization', 'User']) }),
 });
 
+const TokenAnswer = z.object({ token: z.string().min(1), expires_at: z.string().datetime({ offset: true }) });
+
+/** An installation access token and when it expires (epoch ms). Server memory only: never sent to a page. */
+export interface InstallationToken { token: string; expiresAt: number }
+
+/** `owner/name`, as GitHub spells a repository. */
+export const REPO = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/;
+
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
 export function githubApp(creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now) {
+  const call = (path: string, method: 'GET' | 'POST' = 'GET') => fetchImpl(`${GITHUB}${path}`, {
+    method,
+    headers: { authorization: `Bearer ${appJwt(creds, clock())}`, accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28' },
+    cache: 'no-store',
+  });
+
   async function read(path: string): Promise<Installation | null> {
-    const res = await fetchImpl(`${GITHUB}${path}`, {
-      headers: { authorization: `Bearer ${appJwt(creds, clock())}`, accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28' },
-      cache: 'no-store',
-    });
+    const res = await call(path);
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`GitHub answered ${res.status} to ${path}`);
     const parsed = InstallationAnswer.safeParse(await res.json());
@@ -64,6 +76,21 @@ export function githubApp(creds: AppCredentials, fetchImpl: Fetch = fetch, clock
     userInstallation(login: string) {
       if (!LOGIN.test(login)) return Promise.reject(new Error(`${JSON.stringify(login)} is not a GitHub login`));
       return read(`/users/${login}/installation`);
+    },
+    /** The App's installation on the repository `owner/name`; null when it is not installed there. */
+    repoInstallation(repo: string) {
+      if (!REPO.test(repo)) return Promise.reject(new Error(`${JSON.stringify(repo)} is not a GitHub repository`));
+      return read(`/repos/${repo}/installation`);
+    },
+    /** A fresh installation access token. Throws when GitHub answers an error or an odd shape. */
+    async installationToken(id: number): Promise<InstallationToken> {
+      if (!Number.isInteger(id) || id < 1) throw new Error(`${JSON.stringify(id)} is not an installation id`);
+      const path = `/app/installations/${id}/access_tokens`;
+      const res = await call(path, 'POST');
+      if (!res.ok) throw new Error(`GitHub answered ${res.status} to ${path}`);
+      const parsed = TokenAnswer.safeParse(await res.json());
+      if (!parsed.success) throw new Error(`GitHub's answer to ${path} is not the shape it documents`);
+      return { token: parsed.data.token, expiresAt: Date.parse(parsed.data.expires_at) };
     },
   };
 }
