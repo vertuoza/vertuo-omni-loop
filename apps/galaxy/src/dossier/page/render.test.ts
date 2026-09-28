@@ -72,7 +72,7 @@ describe('the header', () => {
   });
 
   it('shows DRAFT for a draft', () => {
-    const html = page({ dossier: draft });
+    const html = page({ dossier: draft, pick: tab('before-after') });
     expect(html).toContain('<span class="dossier-draft">DRAFT</span>');
     expect(html).toContain('Offline quotes on the site app');
     expect(html).not.toContain('PRD #');
@@ -95,16 +95,28 @@ describe('Delete', () => {
 });
 
 describe('the tabs', () => {
-  it('reads Before/after, Spec and Plan with their latest versions, then Questions with answered out of asked', () => {
-    const html = page();
-    const tabs = [...html.matchAll(/<a class="dossier-tab" href="([^"]+)"( aria-current="page")?>([^<]+)(?:<small>([^<]+)<\/small>)?<\/a>/g)]
-      .map((m) => [m[3], m[4] ?? null, m[1].replaceAll('&amp;', '&'), Boolean(m[2])]);
-    expect(tabs).toEqual([
+  const tabsOf = (html: string) => [...html.matchAll(/<a class="dossier-tab" href="([^"]+)"( aria-current="page")?>([^<]+)(?:<small>([^<]+)<\/small>)?<\/a>/g)]
+    .map((m) => [m[3], m[4] ?? null, m[1].replaceAll('&amp;', '&'), Boolean(m[2])]);
+
+  it('reads Questions with answered out of asked, then Before/after, Spec and Plan with their latest versions, opening on Questions', () => {
+    expect(tabsOf(page())).toEqual([
+      ['Questions', '1/2 answered', `/prd/${ID}`, true],
+      ['Before/after', 'v2', `/prd/${ID}?tab=before-after`, false],
+      ['Spec', 'v2', `/prd/${ID}?tab=spec`, false],
+      ['Plan', null, `/prd/${ID}?tab=plan`, false],
+    ]);
+    expect(page()).toContain('dossier-rounds');
+  });
+
+  it('opens on Before/after when no question was asked yet', () => {
+    const html = page({ questions: [] });
+    expect(tabsOf(html)).toEqual([
+      ['Questions', null, `/prd/${ID}?tab=questions`, false],
       ['Before/after', 'v2', `/prd/${ID}`, true],
       ['Spec', 'v2', `/prd/${ID}?tab=spec`, false],
       ['Plan', null, `/prd/${ID}?tab=plan`, false],
-      ['Questions', '1/2 answered', `/prd/${ID}?tab=questions`, false],
     ]);
+    expect(html).toContain(`src="/prd/${ID}/v/2/page"`);
   });
 });
 
@@ -156,7 +168,7 @@ describe('the Questions tab', () => {
 
 describe('the Before/after tab', () => {
   it('frames the latest version on its sandboxed route, with scripts allowed and nothing else', () => {
-    const html = page();
+    const html = page({ pick: tab('before-after') });
     const frame = html.match(/<iframe[^>]*>/)?.[0] ?? '';
     expect(frame).toContain(`src="/prd/${ID}/v/2/page"`);
     expect(frame).toContain('sandbox="allow-scripts"');
@@ -208,8 +220,8 @@ describe('the version picker', () => {
     expect(html).toMatch(/<select[^>]*name="v"/);
   });
 
-  it('keeps no tab for Before/after, the page\'s default', () => {
-    expect(page()).not.toContain('name="tab"');
+  it('keeps the Before/after tab too, so a version picked there does not land on Questions', () => {
+    expect(page({ pick: tab('before-after') })).toContain('<input type="hidden" name="tab" value="before-after"/>');
   });
 });
 
@@ -218,7 +230,7 @@ describe('an artifact with no version yet', () => {
     const plan = page({ pick: tab('plan') });
     expect(plan).toContain('The plan has no version yet.');
     expect(plan).not.toContain('<select');
-    const empty = page({ dossier: draft, rows: [] });
+    const empty = page({ dossier: draft, rows: [], questions: [] });
     expect(empty).toContain('The before/after page has no version yet.');
     expect(empty).not.toContain('<iframe');
     expect(page({ dossier: draft, rows: [], pick: tab('spec') })).toContain('The spec has no version yet.');
