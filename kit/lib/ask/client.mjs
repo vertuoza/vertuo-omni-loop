@@ -1,7 +1,8 @@
 // The ask contract, from the kit's side: one small client over `fetch` for the calls under
 // `<ask.url>/api/ask/*` (PRD 71's spec, "The contract"), and since PRD 216 the two dossier calls under
 // `<ask.url>/api/dossiers`. The kit knows only this URL and these calls; any server that honours
-// them will do.
+// them will do. Since PRD 459 it also asks where a repository's questions land (`GET
+// /api/ask/workspace`), for `omni ask on` and `omni ask status`.
 //
 // Every call but the token exchange carries `Authorization: Bearer <access token>`, read from a
 // token store keyed by the host of `ask.url`. A 401 refreshes the token once (or takes the tokens
@@ -26,6 +27,16 @@ const reasonOf = (body) => {
   const text = typeof body?.error === 'string' ? body.error.replace(/\s+/g, ' ').trim() : '';
   return text || null;
 };
+
+/** The fields of a sign-in a renewal keeps: the token reply also says where a repository went
+ * (PRD 459), which is no part of the sign-in. */
+const SIGN_IN_FIELDS = ['access_token', 'refresh_token', 'expires_at', 'email', 'login'];
+
+/** `current` renewed by `fresh`, the token reply: only the sign-in's own fields are taken. */
+const renewed = (current, fresh) => ({
+  ...current,
+  ...Object.fromEntries(SIGN_IN_FIELDS.filter((key) => fresh[key] !== undefined).map((key) => [key, fresh[key]])),
+});
 
 /** `body` with `context` added only when there is one: an older server never sees the field. */
 const withContext = (body, context) => (context && typeof context === 'object' ? { ...body, context } : body);
@@ -87,7 +98,7 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     if (!response.ok) return null;
     const fresh = await bodyOf(response);
     if (typeof fresh.access_token !== 'string' || !fresh.access_token) return null;
-    const kept = { ...current, ...fresh };
+    const kept = renewed(current, fresh);
     tokens.write(host, kept);
     return kept;
   }
@@ -126,7 +137,7 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     if (!response.ok) return 'unreachable';
     const fresh = await bodyOf(response);
     if (typeof fresh.access_token !== 'string' || !fresh.access_token) return 'unreachable';
-    tokens.write(host, { ...current, ...fresh });
+    tokens.write(host, renewed(current, fresh));
     return 'renewed';
   }
 
@@ -145,6 +156,9 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     /** An answer given in the terminal. */
     answer: (roundId, answers) => call('POST', `/api/ask/rounds/${segment(roundId)}/answers`, { body: { answers, via: 'terminal' } }),
     abandon: (roundId) => call('POST', `/api/ask/rounds/${segment(roundId)}/abandon`),
+    /** PRD 459: where the caller's questions for `repo` (owner/name) land — a 404 from a server older
+     * than the call. @returns {Promise<{ workspace: { slug: string, name: string } | null, reason: string | null }>} */
+    whereQuestionsGo: (repo) => call('GET', `/api/ask/workspace?${new URLSearchParams({ repo })}`),
     /** PRD 216: opens a draft dossier for `repo`. The Claude session id is sent only when there is
      * one. @returns {Promise<{ id: string, url: string }>} */
     openDossier: ({ title, repo, claudeSessionId = null }) =>

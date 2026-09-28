@@ -13910,6 +13910,11 @@ var reasonOf = (body) => {
   const text4 = typeof body?.error === "string" ? body.error.replace(/\s+/g, " ").trim() : "";
   return text4 || null;
 };
+var SIGN_IN_FIELDS = ["access_token", "refresh_token", "expires_at", "email", "login"];
+var renewed = (current, fresh) => ({
+  ...current,
+  ...Object.fromEntries(SIGN_IN_FIELDS.filter((key) => fresh[key] !== void 0).map((key) => [key, fresh[key]]))
+});
 var withContext = (body, context) => context && typeof context === "object" ? { ...body, context } : body;
 function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = CALL_TIMEOUT_MS }) {
   const root = baseUrl.replace(/\/+$/, "");
@@ -13951,7 +13956,7 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     if (!response.ok) return null;
     const fresh = await bodyOf(response);
     if (typeof fresh.access_token !== "string" || !fresh.access_token) return null;
-    const kept = { ...current, ...fresh };
+    const kept = renewed(current, fresh);
     tokens.write(host, kept);
     return kept;
   }
@@ -13983,7 +13988,7 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     if (!response.ok) return "unreachable";
     const fresh = await bodyOf(response);
     if (typeof fresh.access_token !== "string" || !fresh.access_token) return "unreachable";
-    tokens.write(host, { ...current, ...fresh });
+    tokens.write(host, renewed(current, fresh));
     return "renewed";
   }
   return {
@@ -14000,6 +14005,9 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     /** An answer given in the terminal. */
     answer: (roundId, answers) => call("POST", `/api/ask/rounds/${segment(roundId)}/answers`, { body: { answers, via: "terminal" } }),
     abandon: (roundId) => call("POST", `/api/ask/rounds/${segment(roundId)}/abandon`),
+    /** PRD 459: where the caller's questions for `repo` (owner/name) land — a 404 from a server older
+     * than the call. @returns {Promise<{ workspace: { slug: string, name: string } | null, reason: string | null }>} */
+    whereQuestionsGo: (repo) => call("GET", `/api/ask/workspace?${new URLSearchParams({ repo })}`),
     /** PRD 216: opens a draft dossier for `repo`. The Claude session id is sent only when there is
      * one. @returns {Promise<{ id: string, url: string }>} */
     openDossier: ({ title, repo, claudeSessionId = null }) => call("POST", "/api/dossiers", { body: { title, repo, ...claudeSessionId ? { claudeSessionId } : {} } }),
@@ -14683,13 +14691,30 @@ async function runHook(kind, { cwd, exec, stdin, tokens, fetch, limits }) {
     return null;
   }
 }
+async function whereLine({ baseUrl, host, slug, tokens, fetch }) {
+  if (!slug) return null;
+  try {
+    const { workspace, reason: reason2 } = await askClient({ baseUrl, host, tokens, fetch }).whereQuestionsGo(slug);
+    if (typeof workspace?.name === "string" && workspace.name) return `questions go to ${workspace.name}'s page`;
+    return typeof reason2 === "string" && reason2.trim() ? reason2.replace(/\s+/g, " ").trim() : null;
+  } catch {
+    return null;
+  }
+}
 async function runMode(mode, { cwd, stdout, stderr, exec, tokens, fetch }) {
   const ctx = loadContext(cwd, { exec });
   const { root } = ctx;
   const askUrl2 = ctx.config.ask.url;
   const store = tokens ?? homeTokens();
+  const slug = ctx.config.repo?.slug ?? null;
+  const printWhere = async (baseUrl) => {
+    const line = await whereLine({ baseUrl, host: new URL(baseUrl).host, slug, tokens: store, fetch });
+    if (line) println(stdout, line);
+  };
   if (mode === "status") {
-    println(stdout, modeStatus(root) ?? "off");
+    const page2 = modeStatus(root);
+    println(stdout, page2 ?? "off");
+    if (page2) await printWhere(activeMode(root).baseUrl);
     return 0;
   }
   if (mode === "off") {
@@ -14706,12 +14731,13 @@ async function runMode(mode, { cwd, stdout, stderr, exec, tokens, fetch }) {
   }
   try {
     println(stdout, turnOn({ root, askUrl: askUrl2, tokens: store }).url);
-    return 0;
   } catch (error) {
     if (!(error instanceof AskModeError)) throw error;
     println(stderr, `omni ask on: ${error.message}`);
     return 1;
   }
+  await printWhere(askUrl2);
+  return 0;
 }
 var ask = {
   withoutContext: true,
