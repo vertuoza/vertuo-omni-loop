@@ -41,7 +41,7 @@ describe('crew is membership', () => {
   };
 
   it('lets a session with a workspace in, whatever its email\'s domain', async () => {
-    for (const person of [PEOPLE.ada, PEOPLE.wile, PEOPLE.bea]) {
+    for (const person of [PEOPLE.ada, PEOPLE.wile]) {
       const session = await sessionOf(person);
       expect(session?.crew, person.email).toBe(true);
       expect(afterStart(session, null, FLEETS), person.email).toBe('gate');
@@ -49,8 +49,8 @@ describe('crew is membership', () => {
     }
   });
 
-  it('sends a session without one to the outsider screen, a vertuoza.com address included', async () => {
-    for (const person of [PEOPLE.eve, PEOPLE.una]) {
+  it('sends a session without one to the outsider screen, a vertuoza.com address and an org member who has not signed in since included', async () => {
+    for (const person of [PEOPLE.eve, PEOPLE.una, PEOPLE.bea]) {
       const session = await sessionOf(person);
       expect(session?.crew, person.email).toBe(false);
       expect(afterStart(session, null, FLEETS), person.email).toBe('outsider');

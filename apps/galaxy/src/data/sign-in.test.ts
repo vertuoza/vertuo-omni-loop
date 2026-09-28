@@ -1,55 +1,153 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cliSignInReturn, type CliCallbackDeps, type CliSession } from '../ask/cli-code';
-import { afterSignIn, joinBeforeIssue } from './sign-in';
+import type { GithubAccount } from './github-orgs';
+import { afterSignIn, joinBeforeIssue, settleSignIn, settlingExchange, type SignedIn, type SignInDeps } from './sign-in';
 import { fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
+import { joinByGithub } from './workspace';
 
-function as(person: FakeUser) {
-  const world = fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE));
-  return { world, db: world.client(person) as unknown as SupabaseClient };
+const TOKEN = 'gho_provider-token-of-the-sign-in';
+
+/** GitHub as the provider token reads it: each person's login and orgs. */
+const GITHUB: Record<string, GithubAccount> = {
+  [PEOPLE.bea.id]: { login: 'bea-gh', orgs: ['Vertuoza', 'some-club'] },
+  [PEOPLE.eve.id]: { login: 'eve-gh', orgs: ['example'] },
+};
+
+function world(person: FakeUser, github = GITHUB[person.id]) {
+  const w = fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE));
+  const readGithub = vi.fn(async (token: string) => {
+    if (token !== TOKEN) throw new Error('GitHub answered 401 to /user');
+    return github;
+  });
+  const joining = vi.fn((userId: string, logins: string[]) => joinByGithub(w.service() as unknown as SupabaseClient, userId, logins));
+  const deps: SignInDeps = { readGithub, joinByGithub: joining };
+  const session: SignedIn = { user: { id: person.id }, provider_token: TOKEN };
+  return { w, db: w.client(person) as unknown as SupabaseClient, deps, session, readGithub, joining };
 }
+
+const memberOf = (w: ReturnType<typeof fakeGalaxyDb>, person: FakeUser) =>
+  w.tables.workspace_members.filter((m) => m.user_id === person.id).map((m) => m.workspace_id);
 
 afterEach(() => { vi.restoreAllMocks(); });
 
-describe('after a sign-in with Google', () => {
-  it('joins the workspaces of the account\'s domain, then goes back to the arcade', async () => {
-    const { world, db } = as(PEOPLE.bea);
-    expect(await afterSignIn(db, null)).toEqual(['signin', 'ok']);
-    expect(world.calls).toEqual([{ kind: 'rpc', fn: 'join_by_domain' }]);
-    expect(world.tables.workspace_members).toContainEqual(expect.objectContaining({ workspace_id: VERTUOZA, user_id: PEOPLE.bea.id }));
+describe('after a sign-in with GitHub', () => {
+  it('joins the workspaces of the person\'s orgs, links GitHub, then goes back to the arcade', async () => {
+    const { w, db, deps, session, joining } = world(PEOPLE.bea);
+    expect(await afterSignIn(db, session, deps, null)).toEqual(['signin', 'ok']);
+    expect(joining).toHaveBeenCalledWith(PEOPLE.bea.id, ['bea-gh', 'Vertuoza', 'some-club']);
+    expect(memberOf(w, PEOPLE.bea)).toEqual([VERTUOZA]);
+    expect(w.calls).toEqual([
+      { kind: 'rpc', fn: 'join_workspaces_by_github', args: { p_user_id: PEOPLE.bea.id, p_logins: ['bea-gh', 'Vertuoza', 'some-club'] } },
+      { kind: 'rpc', fn: 'link_github' },
+    ]);
   });
 
-  it('still goes back to the arcade when joining fails: the page joins once more itself', async () => {
+  it('joins as the service role, never as the person: they cannot run the join themselves', async () => {
+    const { w } = world(PEOPLE.bea);
+    const { error } = await w.client(PEOPLE.bea).rpc('join_workspaces_by_github', { p_user_id: PEOPLE.bea.id, p_logins: ['vertuoza'] });
+    expect(error?.code).toBe('42501');
+  });
+
+  it('never hands the provider token to the database: only the person\'s id and logins go there', async () => {
+    const { w, db, deps, session } = world(PEOPLE.bea);
+    await afterSignIn(db, session, deps, null);
+    expect(JSON.stringify(w.calls)).not.toContain(TOKEN);
+    expect(JSON.stringify(w.tables)).not.toContain(TOKEN);
+  });
+
+  it('links GitHub on every sign-in, a member\'s too', async () => {
+    const { w, db, deps } = world(PEOPLE.ada, { login: 'ada-gh', orgs: ['vertuoza'] });
+    expect(await afterSignIn(db, { user: { id: PEOPLE.ada.id }, provider_token: TOKEN }, deps, null)).toEqual(['signin', 'ok']);
+    expect(w.calls.map((c) => c.kind === 'rpc' && c.fn)).toEqual(['join_workspaces_by_github', 'link_github']);
+  });
+
+  it('leaves a person in no org of a workspace in none, and still goes back to the arcade', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const { world, db } = as(PEOPLE.bea);
-    world.state.fail = { message: 'timeout' };
-    expect(await afterSignIn(db, null)).toEqual(['signin', 'ok']);
-    expect(console.error).toHaveBeenCalled();
+    const { w, db, deps, session } = world(PEOPLE.eve);
+    expect(await afterSignIn(db, session, deps, null)).toEqual(['signin', 'ok']);
+    expect(memberOf(w, PEOPLE.eve)).toEqual([]);
+    // link_github() refuses a person in no workspace: logged, never a failed sign-in.
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Sign in with an account of a workspace first.'));
+  });
+
+  it('still links and goes back to the arcade when GitHub refuses the token (ADR 0044)', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { w, db, deps } = world(PEOPLE.ada);
+    expect(await afterSignIn(db, { user: { id: PEOPLE.ada.id }, provider_token: 'expired' }, deps, null)).toEqual(['signin', 'ok']);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('401'));
+    expect(w.calls).toEqual([{ kind: 'rpc', fn: 'link_github' }]);
+  });
+
+  it('still goes back to the arcade when the database fails to join', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { w, db, deps, session } = world(PEOPLE.bea);
+    w.state.fail = { message: 'timeout' };
+    expect(await afterSignIn(db, session, deps, null)).toEqual(['signin', 'ok']);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('timeout'));
+  });
+
+  it('asks GitHub nothing when Supabase handed no provider token, and says so in the log', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { db, deps, readGithub, joining } = world(PEOPLE.bea);
+    expect(await afterSignIn(db, { user: { id: PEOPLE.bea.id }, provider_token: null }, deps, null)).toEqual(['signin', 'ok']);
+    expect(readGithub).not.toHaveBeenCalled();
+    expect(joining).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('no GitHub token'));
+  });
+
+  it('does nothing without a session (an exchange that answered none)', async () => {
+    const { w, db, deps } = world(PEOPLE.bea);
+    expect(await afterSignIn(db, null, deps, null)).toEqual(['signin', 'ok']);
+    expect(w.calls).toEqual([]);
   });
 });
 
-describe('after linking GitHub', () => {
-  it('joins before link_github(), so a session from before workspaces is answered', async () => {
-    const { world, db } = as(PEOPLE.bea);
-    expect(await afterSignIn(db, 'link')).toEqual(['linked', 'bea-gh']);
-    expect(world.calls).toEqual([{ kind: 'rpc', fn: 'join_by_domain' }, { kind: 'rpc', fn: 'link_github' }]);
+describe('after the arcade\'s link step (next=link, until the step goes)', () => {
+  it('answers the linked login', async () => {
+    const { db, deps, session } = world(PEOPLE.bea);
+    expect(await afterSignIn(db, session, deps, 'link')).toEqual(['linked', 'bea-gh']);
   });
 
   it('brings link_github()\'s refusal back to the arcade', async () => {
-    const { db } = as(PEOPLE.una);
-    expect(await afterSignIn(db, 'link')).toEqual(['link_error', 'Sign in with an account of a workspace first.']);
+    const { db, deps, session } = world(PEOPLE.eve);
+    expect(await afterSignIn(db, session, deps, 'link')).toEqual(['link_error', 'Sign in with an account of a workspace first.']);
+  });
+});
+
+describe('a page\'s own callback (ask, knowledge, dossiers)', () => {
+  it('exchanges the code, then joins and links before the page reads as the person', async () => {
+    const { w, db, deps, session } = world(PEOPLE.bea);
+    const exchange = vi.fn(async () => ({ data: { session }, error: null }));
+    expect(await settlingExchange(exchange, db, deps)('code')).toEqual({ error: null });
+    expect(exchange).toHaveBeenCalledWith('code');
+    expect(memberOf(w, PEOPLE.bea)).toEqual([VERTUOZA]);
+    expect(w.calls.map((c) => c.kind === 'rpc' && c.fn)).toEqual(['join_workspaces_by_github', 'link_github']);
+  });
+
+  it('answers a refused exchange as it came, and joins nobody', async () => {
+    const { w, db, deps } = world(PEOPLE.bea);
+    expect(await settlingExchange(async () => ({ data: null, error: { message: 'expired' } }), db, deps)('old')).toEqual({ error: { message: 'expired' } });
+    expect(w.calls).toEqual([]);
+  });
+
+  it('never fails the sign-in when joining and linking fail', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { w, db, deps, session } = world(PEOPLE.bea);
+    w.state.fail = { message: 'timeout' };
+    expect(await settlingExchange(async () => ({ data: { session }, error: null }), db, deps)('code')).toEqual({ error: null });
   });
 });
 
 describe('the terminal\'s sign-in (omni signin)', () => {
-  const session = (person: FakeUser): CliSession => ({ access_token: `access-${person.id}`, refresh_token: 'refresh', user: { id: person.id, email: person.email } });
+  const cli = (person: FakeUser): CliSession & SignedIn => ({ access_token: `access-${person.id}`, refresh_token: 'refresh', user: { id: person.id, email: person.email }, provider_token: TOKEN });
 
   it('joins before the one-time code is issued', async () => {
     const order: string[] = [];
     const issue = vi.fn(async () => { order.push('issue'); return { error: null }; });
     const deps: CliCallbackDeps = { exchange: null, issue, revoke: async () => {} };
     const join = vi.fn(async () => { order.push('join'); });
-    const s = session(PEOPLE.bea);
+    const s = cli(PEOPLE.bea);
     expect(await joinBeforeIssue(deps, join).issue(s, 'hash')).toEqual({ error: null });
     expect(join).toHaveBeenCalledWith(s);
     expect(issue).toHaveBeenCalledWith(s, 'hash');
@@ -60,24 +158,25 @@ describe('the terminal\'s sign-in (omni signin)', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const issue = vi.fn(async () => ({ error: null }));
     const wrapped = joinBeforeIssue({ exchange: null, issue, revoke: async () => {} }, async () => { throw new Error('timeout'); });
-    expect(await wrapped.issue(session(PEOPLE.bea), 'hash')).toEqual({ error: null });
+    expect(await wrapped.issue(cli(PEOPLE.bea), 'hash')).toEqual({ error: null });
     expect(issue).toHaveBeenCalled();
     expect(console.error).toHaveBeenCalled();
   });
 
-  it('hands a code to a vertuoza.com account that has not opened the arcade since workspaces', async () => {
-    const { world } = as(PEOPLE.bea);
-    const bea = session(PEOPLE.bea);
+  it('hands a code to a member of a workspace\'s org who never signed in before', async () => {
+    const { w, deps: signIn } = world(PEOPLE.bea);
+    const bea = cli(PEOPLE.bea);
     const deps: CliCallbackDeps = {
       exchange: async () => ({ session: bea, error: null }),
       // As ask_cli_code_issue() does: members of a workspace only.
-      issue: async (s) => (world.tables.workspace_members.some((m) => m.user_id === s.user.id)
+      issue: async (s) => (w.tables.workspace_members.some((m) => m.user_id === s.user.id)
         ? { error: null }
         : { error: { message: 'Sign in with an account of a workspace first.' } }),
       revoke: async () => {},
     };
-    const url = new URL('https://galaxy.example/auth/callback?next=ask-cli&port=49152&state=Zm9vYmFyYmF6cXV4LXN0YXRl&code=google');
-    const join = async () => { await world.client(PEOPLE.bea).rpc('join_by_domain'); };
+    const url = new URL('https://galaxy.example/auth/callback?next=ask-cli&port=49152&state=Zm9vYmFyYmF6cXV4LXN0YXRl&code=github');
+    const join = (s: CliSession) => settleSignIn(w.client(PEOPLE.bea) as unknown as SupabaseClient, s as CliSession & SignedIn, signIn);
     expect(await cliSignInReturn(url, 'https://galaxy.example', joinBeforeIssue(deps, join))).toMatch(/^http:\/\/127\.0\.0\.1:49152\/callback\?/);
+    expect(memberOf(w, PEOPLE.bea)).toEqual([VERTUOZA]);
   });
 });

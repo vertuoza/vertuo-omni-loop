@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { dossierCallbackPath, dossierSignInReturn, historySignInReturn } from './sign-in';
 
-// Signing in from /prd/<id> (PRD 216): Google comes back to /prd/<id>/callback, which turns the code
-// into the session cookie, joins the workspaces of the account's domain, and goes back to the same
+// Signing in from /prd/<id> (PRD 216): GitHub comes back to /prd/<id>/callback, which turns the code
+// into the session cookie, joins the workspaces of the person's GitHub orgs, and goes back to the same
 // dossier, carrying the reason when the sign-in was refused.
 
 const ID = '00000000-0000-4000-8000-0000000000d1';
@@ -29,7 +29,7 @@ describe('the way back after signing in on a dossier', () => {
     quiet.mockRestore();
   });
 
-  it('carries the reason when Google refused, and joins nothing', async () => {
+  it('carries the reason when GitHub refused, and joins nothing', async () => {
     const join = vi.fn(async () => {});
     const url = new URL(await dossierSignInReturn(back('?error=access_denied&error_description=Not+allowed'), ORIGIN, ID, async () => ({ error: null }), join));
     expect(url.pathname).toBe(`/prd/${ID}`);
@@ -67,7 +67,7 @@ describe('the way back after signing in on the history', () => {
     expect(steps).toEqual(['exchange abc', 'join']);
   });
 
-  it('carries the reason when Google refused, and joins nothing', async () => {
+  it('carries the reason when GitHub refused, and joins nothing', async () => {
     const join = vi.fn(async () => {});
     const url = new URL(await historySignInReturn(history('?error=access_denied&error_description=Not+allowed'), ORIGIN, async () => ({ error: null }), join));
     expect(url.pathname).toBe('/prd');
