@@ -64,7 +64,7 @@ const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const path = (p: string) => p.split('/').map(encodeURIComponent).join('/');
 
 function repoConfig(text: string): RepoConfig {
-  const config = parseConfig(text, CONFIG_PATH) as {
+  const config = parseConfig(text, CONFIG_PATH) as unknown as {
     repo: { defaultBranch: string };
     branches: { feature: string; phase0: string; retro: string };
     paths: { delivery: string };

@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 import { Notice } from '../../../src/ask/page/Notice';
 import { arcadeMode } from '../../../src/data/mode';
 import { supabaseEnv, supabaseServer } from '../../../src/data/supabase-server';
+import { dossierGithub } from '../../../src/dossier/github/server';
+import type { GithubSummary } from '../../../src/dossier/github/summary';
 import { renderMarkdown, type RenderedMarkdown } from '../../../src/dossier/markdown';
 import { DEMO_VIEWER, demoContent, demoDossier } from '../../../src/dossier/page/demo';
 import { DossierPage } from '../../../src/dossier/page/DossierPage';
@@ -9,7 +11,7 @@ import { DossierSignIn } from '../../../src/dossier/page/DossierSignIn';
 import { pulseOf, signature } from '../../../src/dossier/page/live';
 import { LiveRefresh } from '../../../src/dossier/page/live-refresh';
 import { dossierCallbackPath } from '../../../src/dossier/page/sign-in';
-import { readContent, readDossier } from '../../../src/dossier/page/source';
+import { readContent, readDossier, readPlanSlices, type Db } from '../../../src/dossier/page/source';
 import { dossierView, readPick, type DossierRead } from '../../../src/dossier/page/view';
 
 // /prd/<id>, the page to share (PRD 216): one PRD's dossier. Rendered per request, as the signed-in
@@ -20,6 +22,9 @@ import { dossierView, readPick, type DossierRead } from '../../../src/dossier/pa
 // database it plays the demo dossier in development. With one, the page refreshes itself (PRD 384):
 // LiveRefresh starts from the signature of what was read here and re-renders only when it moves. Which
 // open rounds the signed-in person may answer on the list is read here too, on the server.
+// For a numbered dossier and a signed-in member only, the page reads its PRD's GitHub summary (PRD 426)
+// through the server's one reader, cached 60 s; a draft, a signed-out visitor and demo mode make no
+// GitHub call.
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -27,6 +32,22 @@ type Props = {
 };
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
+
+/** The GitHub summary of a numbered dossier the member reads, and its plan's slice count; null when
+ * GitHub could not be read (the stage is unknown), nothing for a draft. */
+async function githubOf(db: Db, read: DossierRead): Promise<{ github?: GithubSummary | null; slices?: number | null }> {
+  const { dossier } = read;
+  if (dossier.prd === null) return {};
+  const reader = dossierGithub();
+  const [github, slices] = await Promise.all([
+    reader ? reader.summary({ id: dossier.id, home_repo: dossier.home_repo, prd: dossier.prd }).catch((error: unknown) => {
+      console.error(error);
+      return null;
+    }) : Promise.resolve(null),
+    readPlanSlices(db, read.versions),
+  ]);
+  return { github, slices };
+}
 
 /** The shown Spec or Plan, rendered; null when it could not be read (the pane says so). */
 async function markdownOf(read: () => Promise<string | null>): Promise<RenderedMarkdown | null> {
@@ -82,7 +103,7 @@ export default async function DossierRoute({ params, searchParams }: Props) {
   }
   if (!read) notFound();
 
-  const view = dossierView(read, user.id, pick);
+  const view = dossierView({ ...read, ...(await githubOf(db, read)) }, user.id, pick);
   const shown = view.shown;
   const markdown = shown && !shown.frame ? await markdownOf(() => readContent(db, shown.id)) : null;
   const pulse = pulseOf(read);

@@ -5,6 +5,7 @@ import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
 import { QuestionsPane } from './QuestionsPane';
 import { FRAME_SANDBOX } from './sandbox';
+import { StageHeader } from './StageHeader';
 import { VersionPicker } from './VersionPicker';
 import { dossierPath, TAB_LABELS, type DossierView } from './view';
 
@@ -15,6 +16,8 @@ import { dossierPath, TAB_LABELS, type DossierView } from './view';
 // artifact tab with a version has its version picker; one with none says so. Questions lists the rounds
 // that shaped it, and its label counts those answered out of those asked. Rendered on the server: the
 // tabs and the picker are links and a GET form, so it all works before any script runs.
+// PRD 426 puts the stage header on top: "PRD #n ↗" linking to its issue, the track, the one button and
+// the links line (StageHeader.tsx); the chips, who opened it, Copy link and Delete draft stay below it.
 
 type Props = {
   view: DossierView;
@@ -76,10 +79,7 @@ export function DossierPage({ view, markdown, supabase, live }: Props) {
   return (
     <div className="dossier">
       <header className="dossier-head">
-        <h1 className="dossier-title">
-          {view.draft ? <span className="dossier-draft">DRAFT</span> : <span className="dossier-number">{view.heading}</span>}{' '}
-          <span>{view.title}</span>
-        </h1>
+        <StageHeader heading={view.heading} draft={view.draft} title={view.title} issueUrl={view.issueUrl} stage={view.stage} />
         <div className="dossier-meta">
           <ul className="dossier-repos" aria-label="Repositories">
             {view.repos.map((repo) => <li key={repo} className="dossier-repo">{repo}</li>)}

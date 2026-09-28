@@ -16,7 +16,7 @@ const CONFIG = 'kit: 1\nrepo:\n  slug: acme/widgets\n  defaultBranch: trunk\nbra
 type Route = (url: URL, init: RequestInit) => Response | Promise<Response> | undefined;
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 const pull = (number: number, head: string, more: Record<string, unknown> = {}) => ({
-  number, html_url: `https://github.com/acme/widgets/pull/${number}`, state: 'open', draft: false, merged_at: null,
+  number, html_url: `https://github.com/acme/widgets/pull/${number}`, state: 'open' as 'open' | 'closed', draft: false, merged_at: null as string | null,
   created_at: `2026-09-${String(10 + (number % 18)).padStart(2, '0')}T00:00:00Z`, head: { ref: head }, body: null, ...more,
 });
 const merged = (number: number, head: string, more: Record<string, unknown> = {}) =>
