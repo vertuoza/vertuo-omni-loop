@@ -25,7 +25,7 @@ const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', av
 
 const render = (viewer: ViewerView = ADA, path: string | null = '/app') => {
   at.path = path;
-  return renderToStaticMarkup(createElement(WaitingProvider, { view: viewer.waiting }, createElement(Sidebar, { viewer })));
+  return renderToStaticMarkup(createElement(WaitingProvider, { view: viewer.waiting, children: createElement(Sidebar, { viewer }) }));
 };
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 const links = (html: string) => [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)].map((m) => ({ attrs: m[1], text: text(m[2]) }));

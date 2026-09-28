@@ -2,8 +2,8 @@
 // each one's newest round, and the time. A tab needs the person while its newest round is open and
 // the hook still waits for the page; the ones that do come first, oldest question first, then the
 // others, most recently active first. The page opens on the first tab, or on the one its link names,
-// and never changes the selection by itself: a question arriving elsewhere only badges that tab and
-// counts in the browser title.
+// and never changes the selection by itself: a question arriving elsewhere only badges that tab. The
+// browser title's count is the waiting list's, prefixed on every app page alike (PRD 499).
 import { readQuestions } from '../answer-model';
 import { sessionClosed, type AskRoundStatus } from '../store';
 import { HOOK_WAIT_MS, type SessionRow, type SessionState } from './view';
@@ -72,8 +72,12 @@ export const tabsOf = (rows: TabRow[], now: number): Tab[] => rows.map((r) => ta
 /** How many tabs need the person. */
 export const needsYou = (tabs: Tab[]) => tabs.filter((t) => t.state === 'needs-you').length;
 
-/** The browser tab's title: a question waiting anywhere shows even with the page in the background. */
-export const tabsTitle = (count: number) => (count > 0 ? `● (${count}) Claude asks · OMNI LOOP` : 'Ask · OMNI LOOP');
+/** A question page's title: Claude asks while the person may answer it. The waiting list prefixes
+ * the count (PRD 499). */
+export const askTitle = (asking: boolean) => (asking ? 'Claude asks · OMNI LOOP' : 'Ask · OMNI LOOP');
+
+/** /ask's title, whatever waits: the waiting list prefixes the count (PRD 499). */
+export const tabsTitle = () => askTitle(true);
 
 /** The tab /ask selects: the first in the order. */
 export const firstTab = (tabs: Tab[]) => tabs[0]?.id ?? null;
