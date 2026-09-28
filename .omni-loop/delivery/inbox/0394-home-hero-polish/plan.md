@@ -45,7 +45,7 @@ assertions go in its own test file under its own prefix.
   as today.
 
 **s3: Omni-man flies past**
-- `art.ts` draws the `omni-run-cape` sprite as an SVG for the flyby (`art.test.ts`).
+- `art.ts` draws the `omni-cheer-cape` sprite as an SVG for the flyby (`art.test.ts`).
 - The rendered poster holds the flyby inside the starfield side, `aria-hidden`, with the sprite's
   SVG (`poster/flyby.test.ts`).
 - The stylesheet animates it on a 12 s cycle, visible for about 2.5 s of it, with

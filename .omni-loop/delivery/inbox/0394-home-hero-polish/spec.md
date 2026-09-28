@@ -65,8 +65,8 @@ badly:
 
 ### 4. Omni-man flies past
 
-- Every 12 s, Omni-man (the `omni-run-cape` sprite, drawn on the server as an SVG like the pointing
-  pose) crosses the starfield from its left edge to its right on a gentle arc passing over the
+- Every 12 s, Omni-man (the `omni-cheer-cape` sprite from `@omni/design`: fist up, cape out, drawn on the server as
+  an SVG like the pointing pose, tilted to follow his path) crosses the starfield from its left edge to its right on a gentle arc passing over the
   planet, in about 2.5 s, with a short plasma trail behind him, then is gone until the next pass.
 - It is CSS only: no script moves him. He is `aria-hidden` and takes no clicks
   (`pointer-events: none`).
@@ -95,6 +95,9 @@ badly:
   planets. The server-drawn frames stay as the fallback.
 - **The flyby is CSS, not script.** It needs no state, no randomness and no timing the CSS
   animation cannot give, and it keeps working without JavaScript.
+- **Omni-man flies in `omni-cheer-cape`.** Of the poses `@omni/design` draws (`omni`,
+  `omni-point`, `omni-run`, `omni-run-cape`, `omni-cheer-cape`), the fist-up pose with the cape out
+  reads as flying; chosen by the PRD's author from the rendered sprites. No new sprite is drawn.
 - **Cyan, not yellow, for the kicker.** Yellow is already the quote, the dotted rule and the stars;
   cyan is the arcade's other accent and reads well on purple.
 - **Oblique letters, not a compensated skew.** Offsetting a skewed box by hand breaks each time the
@@ -122,7 +125,7 @@ phone layout's order; any new colour token.
 ## Test seams
 
 - **Poster markup** (a page test, `renderToStaticMarkup` of HOME as `home.test.ts` renders it):
-  the flyby's Omni-man is present, `aria-hidden`, and holds the `omni-run-cape` sprite's SVG; the
+  the flyby's Omni-man is present, `aria-hidden`, and holds the `omni-cheer-cape` sprite's SVG; the
   three server-drawn planet frames are still present inside the planet's labelled box; the kicker,
   the headline and the quote are still in the page with their words.
 - **Contrast** (a unit test beside the poster): every (text colour, `--ad-purple`) pair the poster
@@ -165,7 +168,7 @@ phone layout's order; any new colour token.
    growing `rot`) while the invasion steps through 25 %, 50 % and 80 % secured.
 6. Without JavaScript, or under reduced motion, the three server-drawn planet frames show as today,
    and no canvas is mounted under reduced motion.
-7. With motion allowed, Omni-man (`omni-run-cape`) crosses the starfield once every 12 s, is
+7. With motion allowed, Omni-man (`omni-cheer-cape`) crosses the starfield once every 12 s, is
    `aria-hidden` and takes no clicks; under reduced motion he never appears.
 8. On a phone (375 px), the poster stacks in today's order, with Omni-man flying across the
    starfield band.
