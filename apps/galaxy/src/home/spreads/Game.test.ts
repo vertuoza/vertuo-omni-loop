@@ -4,7 +4,7 @@ import { demoFleets } from '../../data/load-galaxy';
 import { Game } from './Game';
 import { heading, html, text } from './render';
 
-// The built-in fleets are read on the server: the test reads them the same way.
+// The demo world's fleets are read on the server: the test reads them the same way.
 vi.mock('server-only', () => ({}));
 
 describe('the game', () => {
@@ -16,7 +16,7 @@ describe('the game', () => {
     expect(text(line)).toBe('Every feature is a planet your teams terraform together. Unanswered questions, stuck work and shipped bugs are Entropy: they cost the owning fleet points until someone closes them.');
   });
 
-  it('deals one flipping card per built-in fleet that is not retired, each a button', () => {
+  it('deals one flipping card per demo fleet that is not retired, each a button', () => {
     const cards = [...markup.matchAll(/<button [^>]*class="home-card"[^>]*>[\s\S]*?<\/button>/g)].map(([b]) => b);
     const live = demoFleets().filter((f) => !f.retired);
     expect(cards).toHaveLength(live.length);
@@ -28,7 +28,8 @@ describe('the game', () => {
       expect(cards[i]).toContain('data-flip=""');
       expect(cards[i]).toContain(`--fleet:${f.color}`);
     });
-    expect(text(markup)).not.toContain('INVINCIBLE');
+    for (const f of demoFleets().filter((d) => d.retired)) expect(text(markup)).not.toContain(f.label);
+    for (const name of ['BEAVER', 'OCTOPOD', 'PICSOU', 'C.I.A.', 'PIRATES', 'INVINCIBLE']) expect(text(markup)).not.toContain(name);
   });
 
   it('flips under reduced motion with a crossfade, never a turn', () => {

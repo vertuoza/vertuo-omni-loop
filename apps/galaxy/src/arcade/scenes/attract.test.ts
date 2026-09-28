@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf, type GalaxyView } from '@omni/galaxy';
-import { drawSprite, logoPixels, logoSvg, spriteSize } from '@omni/design';
+import { drawSprite, logoPixels, logoSvg, MASCOTS, spriteSize } from '@omni/design';
 import { gridFor, pagesFor } from '../grid';
 import { ScreenContext, type ScreenInfo } from '../Screen';
 import { setFleets } from '../fleets';
@@ -392,5 +392,35 @@ describe('the attract line counts the real fleets (PRD 400)', () => {
     const shown = text(screen({ form: 'full', grid: WIDE }, createElement(TitleOverlay, { view, phase: 'story', sceneT: 30, who: '', signedIn: true, brand: HOUSE_BRAND, fleets: 2 })));
     expect(shown).toContain('TWO FLEETS. ONE COMMANDER.');
     expect(shown).not.toContain('FIVE FLEETS');
+  });
+});
+
+describe('the title with no fleets, as a signed-out visitor sees it (PRD 400)', () => {
+  const none = (grid: Grid): FrameState => { const f = frame('title', grid); return { ...f, join: { ...f.join, fleets: [] } }; };
+
+  it('flies the mascot parade around the commander instead of anyone\'s fleets, inside the screen', () => {
+    for (const grid of [WIDE, TALL]) {
+      vi.mocked(drawSprite).mockClear();
+      drawTitle(recorder().ctx, none(grid));
+      const drawn = spritesDrawn();
+      expect(drawn.map((s) => s.name)).toEqual(['omni', ...MASCOTS.slice(0, 5)]);
+      for (const s of drawn) expect(inside(s, grid), `${grid.name}: ${s.name} at ${s.x},${s.y}`).toBe(true);
+    }
+  });
+
+  it('reads NO FLEETS YET — RAISE YOUR OWN!, the same on both grids, and no fleet\'s name', () => {
+    const props = { view: null, phase: 'title' as const, sceneT: 1, who: '', signedIn: false, brand: HOUSE_BRAND };
+    const wide = text(screen({ form: 'full', grid: WIDE }, createElement(TitleOverlay, props)));
+    expect(wide).toContain('NO FLEETS YET — RAISE YOUR OWN!');
+    expect(text(screen({ grid: TALL }, createElement(TitleOverlay, props)))).toBe(wide);
+    for (const name of ['BEAVER', 'OCTOPOD', 'PICSOU', 'C.I.A.', 'PIRATES', 'INVINCIBLE']) expect(wide).not.toContain(name);
+  });
+
+  it('keeps the title as it was once a fleet flies', () => {
+    const shown = text(screen({ form: 'full', grid: WIDE }, createElement(TitleOverlay, { view, phase: 'title', sceneT: 1, who: '', signedIn: true, brand: HOUSE_BRAND, fleets: 3 })));
+    expect(shown).not.toContain('RAISE YOUR OWN');
+    vi.mocked(drawSprite).mockClear();
+    drawTitle(recorder().ctx, frame('title', WIDE));
+    expect(spritesDrawn().map((s) => s.name)).not.toContain(MASCOTS[3]);
   });
 });
