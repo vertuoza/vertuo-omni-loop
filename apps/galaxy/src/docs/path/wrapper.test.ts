@@ -25,7 +25,7 @@ function pathBlock(markdown: string): string {
 describe('Put omni on your PATH', () => {
   let dir = '';
   let home = '';
-  let env: NodeJS.ProcessEnv = {};
+  let env: NodeJS.ProcessEnv = process.env;
 
   beforeEach(() => {
     dir = realpathSync(mkdtempSync(join(tmpdir(), 'omni-path-')));
