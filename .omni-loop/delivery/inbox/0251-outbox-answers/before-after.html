@@ -221,12 +221,12 @@
   <section aria-labelledby="doors">
     <h2 id="doors">Three doors, one record</h2>
     <p>Today there is one door, the pull request. After, there are three, and they meet in one place: a
-      reply on the feature pull request. The omni-loop App, which already checks every push, now also checks every
-      comment and sends the Omni page what it read.</p>
+      reply on the feature pull request. The Omni page reads the pull request itself, as the omni-loop App
+      (PRD 426's reader): the questions, the replies already given and the settled ones. The App does not change.</p>
     <div class="diagram">
       <svg viewBox="0 0 750 372" role="img" aria-labelledby="dg-t dg-d">
         <title id="dg-t">Three doors to one reply</title>
-        <desc id="dg-d">The terminal, the Omni page and the pull request each lead to one reply on the feature pull request, which /omni:yolo-fix settles into settled.md. The omni-loop App reads the pull request and keeps the Omni page current.</desc>
+        <desc id="dg-d">The terminal, the Omni page and the pull request each lead to one reply on the feature pull request, which /omni:yolo-fix settles into settled.md. The Omni page reads the pull request as the omni-loop App, so it shows the answers already given.</desc>
         <defs>
           <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path class="d-head" d="M0,0 L10,5 L0,10 z"/>
@@ -237,8 +237,8 @@
         </defs>
 
         <rect class="d-app" x="270" y="8" width="210" height="44" rx="8"/>
-        <text class="d-t" x="375" y="27" text-anchor="middle">omni-loop App</text>
-        <text class="d-s" x="375" y="43" text-anchor="middle">every push, every comment</text>
+        <text class="d-t" x="375" y="27" text-anchor="middle">PRD 426's reader</text>
+        <text class="d-s" x="375" y="43" text-anchor="middle">as the App · 60 s cache</text>
 
         <rect class="d-door" x="20" y="96" width="210" height="62" rx="8"/>
         <text class="d-t" x="125" y="122" text-anchor="middle">Terminal</text>
@@ -253,7 +253,7 @@
         <text class="d-s" x="625" y="141" text-anchor="middle">a reply, as today</text>
 
         <path class="d-feed" d="M375,52 L375,92" marker-end="url(#ahf)"/>
-        <text class="d-label" x="384" y="78">sends the outbox</text>
+        <text class="d-label" x="384" y="78">questions + replies</text>
         <path class="d-feed" d="M625,96 L625,30 L484,30" marker-end="url(#ahf)"/>
         <text class="d-label" x="634" y="66">reads</text>
 
@@ -332,9 +332,9 @@
 
   <section aria-labelledby="page">
     <h2 id="page">2 · The PRD's page in the Omni page</h2>
-    <p>Today the dossier (PRD 216) shows the before/after page, the spec, the plan and the brainstorm, but not the
-      questions that block the PRD. After, an Outbox tab puts them beside that context, and Send posts the answers
-      on the pull request as the person.</p>
+    <p>Today the PRD page's Outbox tab (PRD 426) lists the open questions and the settled ones, read-only, and sends the
+      person to GitHub. It does not show the answers already typed there. After, the tab takes the answers itself, beside
+      the before/after page, the spec and the brainstorm, and Send posts them on the pull request as the person.</p>
     <div class="stack">
       <div class="side">
         <span class="tag today">Today</span>
@@ -347,13 +347,21 @@
               <div class="p-meta"><span class="repo">vertuoza/vertuo-omni-loop</span><span>opened 27 Sep · UTC</span></div>
             </div>
             <div class="tabs">
-              <span class="tab on">Before/after <small>v1</small></span>
+              <span class="tab">Before/after <small>v1</small></span>
               <span class="tab">Spec <small>v2</small></span>
               <span class="tab">Plan <small>v1</small></span>
               <span class="tab">Questions <small>11/12</small></span>
+              <span class="tab on">Outbox <span class="badge">3 open</span></span>
             </div>
-            <div class="frame">the before/after page, sandboxed</div>
-            <p class="missing">Nothing here says that 3 questions block this PRD. They are on pull request #219, on GitHub.</p>
+            <article class="q" aria-label="Question 19, read-only">
+              <div class="q-top"><span class="qn">Q19</span><span class="rank action">human-action</span></div>
+              <p class="q-text">The last checks need the released site, a real sign-in and a real terminal session.</p>
+            </article>
+            <article class="q" aria-label="Question 1, read-only">
+              <div class="q-top"><span class="qn">Q1</span><span class="rank high">high</span></div>
+              <p class="q-text">Should the database keep the repository name in lower case?</p>
+            </article>
+            <p class="missing">Read-only: <u>Answer on GitHub ↗</u>. Q2 was already answered there, but the tab cannot tell; the spec is two tabs away.</p>
           </div>
         </div>
       </div>
@@ -490,7 +498,7 @@
           <tr><td>Who counts</td><td class="same">A reply by an owner, member or collaborator of the repository</td><td><span class="yes">Same.</span> The Omni page posts as the person, so GitHub decides.</td></tr>
           <tr><td><code>omni replies</code> and <code>/omni:yolo-fix</code></td><td class="same">Read the pull request, settle, rework drift, ship</td><td><span class="yes">Same.</span> <code>/omni:yolo</code> follows the same steps when you answer at its end.</td></tr>
           <tr><td>The ledger</td><td class="same"><code>settled.md</code>: approver, time, channel, the reply's link</td><td><span class="yes">Same.</span> The approver is the person who picked, whichever door they used.</td></tr>
-          <tr><td>The outbox check</td><td class="same">Red while a human-action or high item is open</td><td><span class="yes">Same verdict.</span> It now also re-checks on every comment.</td></tr>
+          <tr><td>The outbox check</td><td class="same">Red while a human-action or high item is open</td><td><span class="yes">Same.</span> The omni-loop App does not change.</td></tr>
           <tr><td>Medium items</td><td class="same">Adopted when raised; a merge ratifies them</td><td><span class="yes">Same.</span> Never asked in the terminal; objections from the Omni page or the pull request.</td></tr>
         </tbody>
       </table>
@@ -507,7 +515,7 @@
         <ul>
           <li>The kit's default, and what <code>omni init</code> writes.</li>
           <li><code>/omni:yolo</code> asks at its end when its gate is red.</li>
-          <li>The App sends the outbox to the Omni page named by <code>ask.url</code>.</li>
+          <li>The outbox comment links the Omni page named by <code>ask.url</code>.</li>
         </ul>
       </div>
       <div class="sw">
@@ -516,7 +524,7 @@
   enabled: false</pre>
         <ul>
           <li><code>/omni:yolo</code> ends exactly as today.</li>
-          <li>The App sends nothing; outboxes already on the Omni page stay readable.</li>
+          <li>The outbox comment has no Omni page line; the Outbox tab still answers.</li>
           <li>The pull request still takes replies.</li>
         </ul>
       </div>
