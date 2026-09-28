@@ -9,6 +9,10 @@ export const CREST_FORM = 'full' as const;
 /** OmniMan's pose on the poster: pointing across at the crest. */
 export const OMNI_POSE = 'omni-point' as const;
 
+/** OmniMan's pose as he flies past the planet (PRD 394): fist up, cape out, the one that reads as
+ * flying. Chosen by the PRD's author from the sprites @omni/design draws. */
+export const FLYBY_POSE = 'omni-cheer-cape' as const;
+
 /** The planet's radius on its own grid, and the seed of its ground. */
 export const PLANET = { r: 28, seed: 7 } as const;
 /** How much of the planet is secured in each frame the poster cycles through: the invasion spreading. */
@@ -25,6 +29,12 @@ export function crestSvg(): string {
 /** OmniMan's `omni-point` pose at poster scale. */
 export function omniSvg(): string {
   return pixelSvg(spritePixels(OMNI_POSE, { frame: 0 }), { scale: 4, title: 'OmniMan pointing at the crest' });
+}
+
+/** OmniMan flying past: the `omni-cheer-cape` sprite at poster scale. The page tilts him along his
+ * path and hides him from a screen reader; the title only names the picture. */
+export function flybySvg(): string {
+  return pixelSvg(spritePixels(FLYBY_POSE, { frame: 0 }), { scale: 4, title: 'OmniMan flying past the planet' });
 }
 
 const hex = (v: number) => v.toString(16).padStart(2, '0');
