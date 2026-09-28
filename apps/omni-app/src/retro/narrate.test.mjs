@@ -451,17 +451,18 @@ describe('narrate and guard in the retro function', () => {
       vi.unstubAllGlobals();
     }
     const files = scenario.github.filesAt(BRANCH, [`${FOLDER}/retro.md`, `${FOLDER}/retro.json`]);
-    return { scenario, md: files[`${FOLDER}/retro.md`], json: JSON.parse(files[`${FOLDER}/retro.json`]) };
+    const json = files[`${FOLDER}/retro.json`];
+    return { scenario, md: files[`${FOLDER}/retro.md`] ?? null, json: json ? JSON.parse(json) : null };
   }
 
-  it('a stubbed 500 after the retries: the retro still goes out, "Facts only: model unavailable (500)"', async () => {
+  it('a stubbed 500 after the retries: the retro is not judged, and says so in one comment instead of a PR (PRD 487)', async () => {
     const fetch = stubFetch(failed(500));
     const { scenario, md, json } = await runRetro(fetch);
     expect(fetch).toHaveBeenCalledTimes(MODEL_CALL.attempts);
-    expect(md).toContain('\nFacts only: model unavailable (500)\n');
-    expect(md).toContain(`model: ${DEFAULT_MODEL}`);
-    expect(json.runs[0].narration).toEqual({ model: DEFAULT_MODEL, reason: 'model unavailable (500)', dropped: [] });
-    expect(scenario.github.state.comments).toEqual([]);
+    expect(md).toBeNull();
+    expect(json).toBeNull();
+    const bodies = scenario.github.state.comments.map((comment) => comment.body);
+    expect(bodies).toEqual([expect.stringContaining('\nRetro: not judged — model unavailable (500)\n')]);
   });
 
   it('a stubbed reply: each field kept or dropped on its own, and the drop recorded in retro.json', async () => {
@@ -472,10 +473,12 @@ describe('narrate and guard in the retro function', () => {
           title: 'One slice ran far past the others',
           whyItMatters: 'It took 120 minutes, which held the whole feature back.',
           lesson: 'Split a slice that grows past its plan.',
+          keep: true,
+          why: 'No earlier lesson says to split a slice.',
         },
       },
       lessons: [{ text: 'Split a slice that grows past its plan.', findings: ['slow-slice:s3'] }],
-      verdict: { worthIt: false, reason: 'Splitting a long slice is an earlier lesson.' },
+      verdict: { worthIt: true, reason: 'Splitting a long slice is a new lesson.' },
     };
     const { md, json } = await runRetro(stubFetch(streamed(JSON.stringify(reply))));
     expect(md).toContain(`\n${reply.summary}\n`);

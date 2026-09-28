@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
 import { inngest } from '../../inngest-client.mjs';
 import { replayGitHub } from '../../../test/github-replay.mjs';
-import { FEATURE, OWNER, PLAN, REPO, SUB_PULLS, widgetScenario } from '../../../test/retro-scenario.mjs';
+import { FEATURE, JUDGE_ENV, OWNER, PLAN, REPO, SUB_PULLS, judge, widgetScenario } from '../../../test/retro-scenario.mjs';
 import { listPullsInto } from '../github.mjs';
 import { createRetro } from '../retro.mjs';
 import { LIMITS } from '../rules.mjs';
@@ -355,7 +355,7 @@ describe('ci — through the retro function', () => {
 
   async function retroOf() {
     const scenario = widgetScenario({ recording: recording() });
-    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env: {} });
+    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env: JUDGE_ENV, fetch: judge() });
     const { error } = await new InngestTestEngine({ function: fn, events: [scenario.event] }).execute();
     const files = scenario.github.filesAt(BRANCH, [`${FOLDER}/retro.md`, `${FOLDER}/retro.json`]);
     return { error, github: scenario.github, markdown: files[`${FOLDER}/retro.md`], json: files[`${FOLDER}/retro.json`] };

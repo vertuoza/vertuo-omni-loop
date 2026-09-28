@@ -5,6 +5,7 @@ merge-sha: a1b2c3d
 runs: [merge]
 model: none
 rules: 1
+judge: 1
 ---
 
 # Retro — PRD 7, Widgets that remember their colour

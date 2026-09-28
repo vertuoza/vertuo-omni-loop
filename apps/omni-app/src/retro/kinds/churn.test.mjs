@@ -2,7 +2,7 @@ import { InngestTestEngine } from '@inngest/test';
 import { describe, expect, it } from 'vitest';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
 import { failing, replayGitHub } from '../../../test/github-replay.mjs';
-import { MERGE_SHA, mergeFiles, widgetScenario } from '../../../test/retro-scenario.mjs';
+import { JUDGE_ENV, MERGE_SHA, judge, mergeFiles, widgetScenario } from '../../../test/retro-scenario.mjs';
 import { inngest } from '../../inngest-client.mjs';
 import { listPullsInto } from '../github.mjs';
 import { createRetro } from '../retro.mjs';
@@ -318,7 +318,7 @@ describe('churn — in the retro', () => {
       subPulls: [UNMERGED, ...SUB_PULLS],
       recording,
     });
-    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env: {} });
+    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env: JUDGE_ENV, fetch: judge() });
     const { result, error } = await new InngestTestEngine({ function: fn, events: [scenario.event] }).execute();
     expect(error).toBeUndefined();
     expect(result.findings).toBe(4);

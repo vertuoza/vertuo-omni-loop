@@ -16,6 +16,10 @@ Fix the flaky step before the next wave starts.
 - Keep the end-to-end check green between waves.
 - Answer decisions before the wave that builds on them.
 
+## Why it is kept
+
+No earlier lesson says to fix a flaky step between waves.
+
 ## Evidence
 
 - [run 7001](https://github.com/acme/widgets/actions/runs/7001)
