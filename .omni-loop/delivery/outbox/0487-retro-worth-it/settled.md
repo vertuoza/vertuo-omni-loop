@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 487
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-no-promotion-keeps-the-ship -->
+
+## s1-01-no-promotion-keeps-the-ship — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s1
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-no-promotion-keeps-the-ship
 prd: 487
@@ -48,3 +78,7 @@ One line in the harvest's finishing step: return no changes at all instead of on
 
 - (author) The spec says the harvest returns no edits and the app opens no pull request; it does not say what should happen to a feature still in the inbox at merge, whose move would then never be made by anyone.
 - (author) Without the local notes, a replayed harvest asks the model about the same candidates again; the spec does not say whether that matters.
+
+```
+
+<!-- /omni-outbox-settled: s1-01-no-promotion-keeps-the-ship -->
