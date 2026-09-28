@@ -213,7 +213,9 @@ describe('the stylesheet', () => {
 
   it('keeps every part inside the page\'s width on a phone', () => {
     const css = uncommented(read('./dashboard.css'));
-    expect(css).toMatch(/\.dash \{[^}]*width: 100%;[^}]*max-width: \d+px;/);
+    // Full width since PRD 498: no cap, so nothing is wider than the page.
+    expect(css).toMatch(/\.dash \{[^}]*width: 100%;/);
+    expect(css).not.toMatch(/\.dash \{[^}]*max-width/);
     expect(css).toMatch(/\.dash > \* \{ min-width: 0; \}/);
   });
 });
