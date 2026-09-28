@@ -31,6 +31,10 @@ function fakeGithub(repo: {
   pulls?: ReturnType<typeof pull>[];
   installed?: boolean;
   fail?: RegExp;
+  /** Files by `<ref>:<path>`; a directory lists the files and folders right under it. */
+  files?: Record<string, string>;
+  /** The comments of each issue or pull request, by number. */
+  comments?: Record<number, { id: number; html_url: string; body: string }[]>;
 }) {
   const calls: string[] = [];
   let tokens = 0;
@@ -46,13 +50,30 @@ function fakeGithub(repo: {
       ? (repo.config === null ? json({}, 404) : new Response(repo.config ?? CONFIG)) : undefined),
     (url) => {
       const dir = /^\/repos\/acme\/widgets\/contents\/loop\/delivery\/(shipped|inbox)$/.exec(url.pathname)?.[1] as 'shipped' | 'inbox' | undefined;
-      if (!dir) return undefined;
-      expect(url.searchParams.get('ref')).toBe('trunk');
+      if (!dir || url.searchParams.get('ref') !== 'trunk') return undefined;
       const names = repo[dir];
       return names ? json(names.map((name) => ({ name, type: 'dir' }))) : json({}, 404);
     },
     (url) => (url.pathname === '/repos/acme/widgets/issues/426'
       ? (repo.issue === undefined ? json({}, 404) : json(repo.issue)) : undefined),
+    (url, init) => {
+      const at = /^\/repos\/acme\/widgets\/contents\/(.+)$/.exec(url.pathname)?.[1];
+      if (!at) return undefined;
+      const key = `${url.searchParams.get('ref')}:${decodeURIComponent(at)}`;
+      const files = repo.files ?? {};
+      if (key in files) {
+        expect((init.headers as Record<string, string>).accept).toContain('raw');
+        return new Response(files[key]);
+      }
+      const under = Object.keys(files).filter((k) => k.startsWith(`${key}/`)).map((k) => k.slice(key.length + 1));
+      if (!under.length) return json({ message: 'Not Found' }, 404);
+      const names = [...new Set(under.map((rest) => rest.split('/')[0]))];
+      return json(names.map((name) => ({ name, type: under.includes(name) ? 'file' : 'dir' })));
+    },
+    (url) => {
+      const n = /^\/repos\/acme\/widgets\/issues\/(\d+)\/comments$/.exec(url.pathname)?.[1];
+      return n ? json(repo.comments?.[Number(n)] ?? []) : undefined;
+    },
     (url) => {
       if (url.pathname !== '/repos/acme/widgets/pulls') return undefined;
       const head = url.searchParams.get('head');
@@ -96,6 +117,8 @@ describe('the GitHub summary of a numbered dossier', () => {
       feature: { number: 433, url: 'https://github.com/acme/widgets/pull/433', state: 'open', draft: true },
       retro: null,
       mergedSlices: 2,
+      outbox: null,
+      outboxComment: null,
     });
     expect(gh.calls).toContain('/repos/acme/widgets/pulls?state=all&per_page=100&head=acme%3Afeature%2Fprd-page-stage&sort=created&direction=desc');
     expect(gh.calls).toContain('/repos/acme/widgets/pulls?state=closed&per_page=100&base=feature%2Fprd-page-stage');
@@ -198,5 +221,102 @@ describe('the cache and the token', () => {
       .filter(([href]) => String(href).includes('/issues/426'))
       .map(([, init]) => (init.headers as Record<string, string>).authorization);
     expect(authorizations).toEqual(['Bearer ghs_1', 'Bearer ghs_1', 'Bearer ghs_2']);
+  });
+});
+
+const item = (id: string, rank: 'high' | 'medium' | 'human-action', question: string) => [
+  '---', `id: ${id}`, 'prd: 426', `slice: ${id.split('-')[0]}`, `rank: ${rank}`, 'bears-on: none', 'raised: 2026-09-28', 'wave: 1', '---', '',
+  '## The question, in plain words', '', question, '',
+  '## The decision, in plain words', '', `Decided: ${question}`, '',
+  ...(rank === 'human-action'
+    ? ['## What a person must do', '', 'Add the secret on the host.', '']
+    : ['## The options, in plain words', '', 'A. Keep what was built.', 'B. Change it.', '']),
+  '## What I had to decide', '', 'x', '', '## What I did meanwhile', '', 'x', '',
+  '## What it costs to change later', '', 'x', '', '## What I could not know', '', 'x', '',
+].join('\n');
+const settledEntry = (id: string, verdict: string, answer: string, itemText: string) => [
+  `<!-- omni-outbox-settled: ${id} -->`, '', `## ${id} — ${verdict}`, '', `- Verdict: ${verdict}`, '- Rank: medium', '',
+  '### The answer, as it was given', '', '```text', answer, '```', '', '### The item, as it was raised', '', '```text', itemText, '```', '',
+  `<!-- /omni-outbox-settled: ${id} -->`, '',
+].join('\n');
+const SETTLED = `# Settled outbox items — PRD 426\n\n${settledEntry('s1-02-zeta', 'adopted', 'Adopted when raised.', item('s1-02-zeta', 'medium', 'Zeta or eta?'))}${settledEntry('s1-01-alpha', 'agreed', 'Yes, A.', 'not an item')}`;
+const OUTBOX = 'loop/delivery/outbox/0426-prd-page-stage';
+
+describe('the outbox', () => {
+  it('before shipping, reads the open items and settled.md from the feature branch, and finds the outbox comment by its marker', async () => {
+    const gh = fakeGithub({
+      inbox: ['0426-prd-page-stage'], issue: ISSUE,
+      pulls: [merged(431, 'docs/phase-0-prd-page-stage'), pull(433, 'feature/prd-page-stage'), sub(434, true)],
+      files: {
+        [`feature/prd-page-stage:${OUTBOX}/s1-03-medium-one.md`]: item('s1-03-medium-one', 'medium', 'Medium one?'),
+        [`feature/prd-page-stage:${OUTBOX}/s2-01-high-one.md`]: item('s2-01-high-one', 'high', 'High one?'),
+        [`feature/prd-page-stage:${OUTBOX}/s2-02-person.md`]: item('s2-02-person', 'human-action', 'A secret?'),
+        [`feature/prd-page-stage:${OUTBOX}/s2-09-broken.md`]: 'not an item',
+        [`feature/prd-page-stage:${OUTBOX}/settled.md`]: SETTLED,
+        [`feature/prd-page-stage:${OUTBOX}/accounts/s1.md`]: '---\nprd: 426\n---\n',
+      },
+      comments: { 433: [
+        { id: 1, html_url: 'https://github.com/acme/widgets/pull/433#issuecomment-1', body: 'hello' },
+        { id: 2, html_url: 'https://github.com/acme/widgets/pull/433#issuecomment-2', body: 'Questions\n<!-- omni-outbox-pr -->' },
+      ] },
+    });
+    const summary = await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER);
+    expect(summary?.outboxComment).toBe('https://github.com/acme/widgets/pull/433#issuecomment-2');
+    expect(summary?.outbox).toEqual({
+      open: [
+        { id: 's1-03-medium-one', rank: 'medium', question: 'Medium one?', decision: 'Decided: Medium one?',
+          options: [{ letter: 'A', text: 'Keep what was built.' }, { letter: 'B', text: 'Change it.' }], personSteps: null },
+        { id: 's2-01-high-one', rank: 'high', question: 'High one?', decision: 'Decided: High one?',
+          options: [{ letter: 'A', text: 'Keep what was built.' }, { letter: 'B', text: 'Change it.' }], personSteps: null },
+        { id: 's2-02-person', rank: 'human-action', question: 'A secret?', decision: 'Decided: A secret?', options: [], personSteps: 'Add the secret on the host.' },
+      ],
+      settled: [
+        { id: 's1-02-zeta', title: 'Zeta or eta?', verdict: 'adopted', answer: 'Adopted when raised.' },
+        { id: 's1-01-alpha', title: 's1-01-alpha', verdict: 'agreed', answer: 'Yes, A.' },
+      ],
+    });
+  });
+
+  it('takes the plain outbox comment when the feature PR has no numbered one, and none when neither is there', async () => {
+    const base = { inbox: ['0426-prd-page-stage'], issue: ISSUE, pulls: [pull(433, 'feature/prd-page-stage')] };
+    const plain = fakeGithub({ ...base, comments: { 433: [{ id: 3, html_url: 'https://github.com/acme/widgets/pull/433#issuecomment-3', body: '<!-- omni-outbox -->' }] } });
+    expect((await githubReader(CREDS, plain.fetchImpl, () => NOW).summary(DOSSIER))?.outboxComment).toBe('https://github.com/acme/widgets/pull/433#issuecomment-3');
+    const none = fakeGithub(base);
+    expect(await githubReader(CREDS, none.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({ outbox: null, outboxComment: null });
+  });
+
+  it('once shipped, reads the shipped folder\'s outbox on the default branch, not the feature branch', async () => {
+    const gh = fakeGithub({
+      shipped: ['0426-prd-page-stage'], issue: { ...ISSUE, state: 'closed' },
+      pulls: [merged(431, 'docs/phase-0-prd-page-stage'), merged(433, 'feature/prd-page-stage')],
+      files: { 'trunk:loop/delivery/shipped/0426-prd-page-stage/outbox/settled.md': SETTLED },
+    });
+    const summary = await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER);
+    expect(summary?.outbox).toMatchObject({ open: [], settled: [{ id: 's1-02-zeta' }, { id: 's1-01-alpha' }] });
+    expect(gh.calls.some((c) => c.includes('ref=feature'))).toBe(false);
+  });
+
+  it('before phase-0 merges, finds the folder under inbox on the feature branch', async () => {
+    const gh = fakeGithub({
+      issue: ISSUE,
+      pulls: [pull(430, 'docs/phase-0-prd-page-stage', { body: 'Refs #426' }), pull(433, 'feature/prd-page-stage', { body: 'Closes #426' })],
+      files: {
+        'feature/prd-page-stage:loop/delivery/inbox/0426-prd-page-stage/spec.md': '# spec',
+        [`feature/prd-page-stage:${OUTBOX}/s1-01-a.md`]: item('s1-01-a', 'high', 'A?'),
+      },
+    });
+    expect(await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({
+      folder: '0426-prd-page-stage', outbox: { open: [{ id: 's1-01-a' }], settled: [] },
+    });
+  });
+
+  it('lets the outbox and its comment fail on their own', async () => {
+    const gh = fakeGithub({
+      inbox: ['0426-prd-page-stage'], issue: ISSUE, pulls: [pull(433, 'feature/prd-page-stage')],
+      files: { [`feature/prd-page-stage:${OUTBOX}/settled.md`]: SETTLED }, fail: /\/contents\/loop\/delivery\/outbox|\/comments/,
+    });
+    expect(await githubReader(CREDS, gh.fetchImpl, () => NOW).summary(DOSSIER)).toMatchObject({
+      outbox: UNREAD, outboxComment: UNREAD, feature: { number: 433 }, issue: { number: 426 },
+    });
   });
 });

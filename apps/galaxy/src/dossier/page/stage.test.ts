@@ -41,6 +41,27 @@ describe('the stage of a PRD', () => {
     });
   });
 
+  it('in the outbox stage, an open item makes the button Answer the outbox: the outbox comment, else the feature PR', () => {
+    const item = { id: 's1-01-x', rank: 'high' as const, question: 'Q?', decision: 'D.', options: [], personSteps: null };
+    const open = summary({
+      phase0: pr(431, 'merged'), feature: pr(433, 'open'), mergedSlices: 2,
+      outbox: { open: [item], settled: [] }, outboxComment: 'https://github.com/acme/widgets/pull/433#issuecomment-9',
+    });
+    expect(stageOf(426, open, 4)).toEqual({
+      id: 'outbox', action: { kind: 'link', label: 'Answer the outbox', href: 'https://github.com/acme/widgets/pull/433#issuecomment-9' }, caption: null,
+    });
+    for (const outboxComment of [null, UNREAD] as const) {
+      expect(stageOf(426, { ...open, feature: pr(433, 'open', true), outboxComment }, 4).action)
+        .toEqual({ kind: 'link', label: 'Answer the outbox', href: 'https://github.com/acme/widgets/pull/433' });
+    }
+    // Nothing open, the settled ones do not count: Review & merge once the feature PR is ready.
+    const settled = { id: 's1-01-x', title: 'Q?', verdict: 'adopted', answer: 'ok' };
+    expect(stageOf(426, { ...open, outbox: { open: [], settled: [settled] } }, 4).action).toMatchObject({ label: 'Review & merge' });
+    expect(stageOf(426, { ...open, outbox: null }, 4).action).toMatchObject({ label: 'Review & merge' });
+    // An outbox that could not be read decides nothing: the stage is unknown.
+    expect(stageOf(426, { ...open, outbox: UNREAD }, 4).id).toBe('unknown');
+  });
+
   it('is shipped once the feature PR merged and there is no retro PR', () => {
     expect(stageOf(426, summary({ phase0: pr(431, 'merged'), feature: pr(433, 'merged'), mergedSlices: 4 }))).toEqual({
       id: 'shipped', action: null, caption: 'Shipped · the retro is written next',

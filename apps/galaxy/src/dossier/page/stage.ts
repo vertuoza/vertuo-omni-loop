@@ -3,6 +3,8 @@
 // whose condition holds wins. A summary that could not be read, or a part the deciding row needs that
 // could not be read, gives the stage unknown: nothing is guessed. The track, the words, the one
 // button and the links line of the header are worked out here too, so the header only renders.
+// In the outbox stage (s2), an open outbox item makes the button Answer the outbox: the feature PR's
+// outbox comment, else the feature PR. An outbox that could not be read decides nothing: unknown.
 import { UNREAD, type GithubSummary, type IssueRef, type PullRef, type Read } from '../github/summary';
 
 export type StageId = 'idea' | 'prd' | 'inbox' | 'outbox' | 'shipped' | 'retro';
@@ -26,6 +28,13 @@ export const UNKNOWN_WORDS = 'Stage unknown: GitHub did not answer.';
 const unknown: Stage = { id: 'unknown', action: null, caption: null };
 const known = <T,>(value: Read<T>): value is T => value !== UNREAD;
 
+/** Where the outbox is answered: the feature PR's outbox comment, else the feature PR; null when neither is known. */
+export function outboxAnswerUrl(summary: GithubSummary): string | null {
+  const comment = summary.outboxComment ?? null;
+  if (known(comment) && comment) return comment;
+  return known(summary.feature) && summary.feature ? summary.feature.url : null;
+}
+
 /** The stage and its next action. `slices` is the plan's slice count; null when it is not known. */
 export function stageOf(prd: number | null, summary: GithubSummary | null, slices: number | null = null): Stage {
   if (prd === null) return { id: 'idea', action: null, caption: 'Brainstorm in progress' };
@@ -37,7 +46,13 @@ export function stageOf(prd: number | null, summary: GithubSummary | null, slice
   if (feature?.state === 'merged') return { id: 'shipped', action: null, caption: 'Shipped · the retro is written next' };
   if (!known(mergedSlices)) return unknown;
   if (mergedSlices > 0) {
-    if (feature && !feature.draft) return { id: 'outbox', action: { kind: 'link', label: 'Review & merge', href: feature.url }, caption: null };
+    const outbox = summary.outbox ?? null;
+    if (!known(outbox)) return unknown;
+    const answerAt = outboxAnswerUrl(summary);
+    if (outbox && outbox.open.length > 0 && answerAt) {
+      return { id: 'outbox', action: { kind: 'link', label: 'Answer the outbox', href: answerAt }, caption: null };
+    }
+    if (feature && !feature.draft && !(outbox && outbox.open.length > 0)) return { id: 'outbox', action: { kind: 'link', label: 'Review & merge', href: feature.url }, caption: null };
     const built = slices === null ? `${mergedSlices} slice${mergedSlices === 1 ? '' : 's'} merged` : `${mergedSlices}/${slices} slices`;
     return { id: 'outbox', action: null, caption: `Being built · ${built}` };
   }
