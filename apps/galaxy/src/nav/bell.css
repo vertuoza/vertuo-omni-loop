@@ -104,6 +104,27 @@
   color: var(--ask-muted);
 }
 
+/* The foot: the Desktop alerts and Chime switches. */
+.bell-alerts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 8px 8px 2px;
+  border-top: 1px solid var(--ask-line-strong);
+}
+.bell-switch {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font: 400 13px/1.3 var(--ask-body);
+  color: var(--ask-ink);
+  cursor: pointer;
+}
+.bell-switch input { margin: 0; accent-color: var(--ask-red); }
+.bell-switch input:disabled { cursor: not-allowed; }
+.bell-switch-note { color: var(--ask-muted); }
+
 @media (max-width: 899.98px) {
   /* The panel hangs from the top bar itself, the width of the screen. */
   .bell { position: static; }

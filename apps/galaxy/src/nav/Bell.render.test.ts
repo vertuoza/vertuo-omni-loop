@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { EMPTY_WAITING, type WaitingList, type WaitingOutbox, type WaitingQuestion } from '../waiting/waiting';
 import { BellView } from './Bell.tsx';
-import type { BellUnread } from './bell';
+import type { BellAlerts, BellUnread } from './bell';
 
 // The top bar's bell (PRD 499) as the server renders it: its count badge and accessible name, and its
 // panel, closed at first, listing the Questions and Outbox groups, or that nothing waits.
@@ -77,6 +77,44 @@ describe('the bell', () => {
     expect(body).not.toContain('Nothing waiting for you.');
     const kept = panel(render({ questions: [q('a', MIN)], outbox: [] }, { questions: true }));
     expect(text(kept)).toMatch(/Questions couldn't be read — retrying\. .*Which a\?/);
+  });
+});
+
+describe('its alert switches', () => {
+  const withAlerts = (alerts: BellAlerts, list: WaitingList = EMPTY_WAITING) =>
+    renderToStaticMarkup(createElement(BellView, { list, unread: {}, now: NOW, alerts }));
+  const foot = (html: string) => html.match(/<footer class="bell-alerts"[\s\S]*?<\/footer>/)?.[0] ?? '';
+  const box = (html: string, label: string) =>
+    html.match(new RegExp(`<label class="bell-switch"[^>]*>(?:(?!</label>)[\\s\\S])*${label}(?:(?!</label>)[\\s\\S])*</label>`))?.[0] ?? '';
+
+  it('sit at the foot of the panel, both off by default, whether or not something waits', () => {
+    for (const list of [EMPTY_WAITING, { questions: [q('a', MIN)], outbox: [o('i1', 459, 'high')] }]) {
+      const html = withAlerts({ desktop: 'off', chime: false }, list);
+      const body = panel(html);
+      expect(body.trimEnd()).toMatch(/<\/footer><\/div><\/div>$/);
+      expect(text(foot(html))).toBe('Desktop alerts Chime');
+      expect(box(html, 'Desktop alerts')).toMatch(/<input type="checkbox"(?![^>]*checked)[^>]*>/);
+      expect(box(html, 'Chime')).toMatch(/<input type="checkbox"(?![^>]*checked)[^>]*>/);
+    }
+  });
+
+  it('show what is switched on', () => {
+    const html = withAlerts({ desktop: 'on', chime: true });
+    expect(box(html, 'Desktop alerts')).toMatch(/<input type="checkbox"[^>]*checked=""/);
+    expect(box(html, 'Chime')).toMatch(/<input type="checkbox"[^>]*checked=""/);
+  });
+
+  it('read "Blocked by the browser" when the browser denied it, and cannot be turned on from the page', () => {
+    const html = withAlerts({ desktop: 'blocked', chime: true });
+    const desktop = box(html, 'Desktop alerts');
+    expect(text(desktop)).toBe('Desktop alerts Blocked by the browser');
+    expect(desktop).toMatch(/<input type="checkbox"[^>]*disabled=""/);
+    expect(desktop).not.toMatch(/checked=""/);
+    expect(box(html, 'Chime')).not.toMatch(/disabled=""/);
+  });
+
+  it('are not drawn without an alerts view', () => {
+    expect(render(EMPTY_WAITING)).not.toContain('bell-alerts');
   });
 });
 

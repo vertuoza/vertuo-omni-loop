@@ -1,23 +1,32 @@
 'use client';
 import { useEffect, useId, useReducer, useRef, useState } from 'react';
-import { useWaiting } from '../waiting/WaitingProvider';
+import { BLOCKED_BY_BROWSER } from '../waiting/alerts';
+import { useAlerts, useWaiting } from '../waiting/WaitingProvider';
 import type { WaitingList } from '../waiting/waiting';
-import { bell, bellName, bellPanel, CLOSED_BELL, NOTHING_WAITING, type BellUnread } from './bell';
+import { bell, bellName, bellPanel, CLOSED_BELL, NOTHING_WAITING, type BellAlerts, type BellUnread } from './bell';
 import './bell.css';
 
 // The top bar's bell (PRD 499), between Game mode and the avatar: the waiting list's count as a red
 // badge, and a panel under it listing what waits, Questions then Outbox (src/nav/bell.ts). Escape
 // (the focus back on the bell), a click outside it or choosing an item closes it. Below 900 px the
-// panel takes the screen's width under the top bar (bell.css).
+// panel takes the screen's width under the top bar (bell.css). The panel's foot holds the Desktop
+// alerts and Chime switches (s5), kept by the waiting provider.
 
 export function Bell() {
   const { list, unread, unreadPrds } = useWaiting();
+  const alerts = useAlerts();
   const [now, setNow] = useState(() => Date.now());
-  return <BellView list={list} unread={{ ...unread, outboxPrds: unreadPrds }} now={now} onOpen={() => setNow(Date.now())} />;
+  return <BellView list={list} unread={{ ...unread, outboxPrds: unreadPrds }} now={now} onOpen={() => setNow(Date.now())} alerts={alerts} />;
 }
 
 /** The bell as it draws a given list: what the render tests pin. */
-export function BellView({ list, unread, now, onOpen }: { list: WaitingList; unread: BellUnread; now: number; onOpen?: () => void }) {
+export function BellView({ list, unread, now, onOpen, alerts }: {
+  list: WaitingList;
+  unread: BellUnread;
+  now: number;
+  onOpen?: () => void;
+  alerts?: BellAlerts;
+}) {
   const [state, send] = useReducer(bell, CLOSED_BELL);
   const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -86,7 +95,26 @@ export function BellView({ list, unread, now, onOpen }: { list: WaitingList; unr
             )}
           </section>
         ))}
+        {alerts && <AlertSwitches {...alerts} />}
       </div>
     </div>
+  );
+}
+
+/** The panel's foot: Desktop alerts (which the browser may block) and Chime. */
+function AlertSwitches({ desktop, chime, onDesktop, onChime }: BellAlerts) {
+  const blocked = desktop === 'blocked';
+  return (
+    <footer className="bell-alerts">
+      <label className="bell-switch">
+        <input type="checkbox" checked={desktop === 'on'} disabled={blocked} onChange={(e) => onDesktop?.(e.currentTarget.checked)} />
+        <span className="bell-switch-label">Desktop alerts</span>
+        {blocked && <span className="bell-switch-note">{BLOCKED_BY_BROWSER}</span>}
+      </label>
+      <label className="bell-switch">
+        <input type="checkbox" checked={chime} onChange={(e) => onChime?.(e.currentTarget.checked)} />
+        <span className="bell-switch-label">Chime</span>
+      </label>
+    </footer>
   );
 }
