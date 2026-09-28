@@ -6,7 +6,7 @@ import { MENU } from './menu';
 import { TopBar } from './TopBar';
 
 // The one header of the normal app (PRD 346): the OMNI LOOP mark to /app, the page's sub-title, the
-// page's own extras, the menu (Release notes), the theme switch and Game mode, in that order. The
+// page's own extras, the menu (Release notes, Docs), the theme switch and Game mode, in that order. The
 // item of the page being shown is marked current.
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -16,8 +16,8 @@ const controls = (bar: string) =>
 const render = (props: Parameters<typeof TopBar>[0]) => renderToStaticMarkup(createElement(TopBar, props));
 
 describe('the menu', () => {
-  it('holds Release notes, to /releases', () => {
-    expect(MENU.map((m) => [m.id, m.label, m.path])).toEqual([['releases', 'Release notes', '/releases']]);
+  it('holds Release notes, to /releases, then Docs, to /docs', () => {
+    expect(MENU.map((m) => [m.id, m.label, m.path])).toEqual([['releases', 'Release notes', '/releases'], ['docs', 'Docs', '/docs']]);
   });
 });
 
@@ -28,13 +28,13 @@ describe('the top bar', () => {
     expect(bar).toContain('<a class="ask-mark" href="/app">OMNI LOOP</a><span class="ask-brand-sub">App</span>');
   });
 
-  it('offers OMNI LOOP, Release notes, the theme switch and Game mode, in that order', () => {
-    expect(controls(render({ sub: 'App' }))).toEqual(['OMNI LOOP', 'Release notes', 'Omni', 'Light', 'Dark', 'Game mode']);
+  it('offers OMNI LOOP, Release notes, Docs, the theme switch and Game mode, in that order', () => {
+    expect(controls(render({ sub: 'App' }))).toEqual(['OMNI LOOP', 'Release notes', 'Docs', 'Omni', 'Light', 'Dark', 'Game mode']);
   });
 
-  it('links Release notes to /releases, inside a navigation named Menu', () => {
+  it('links Release notes to /releases and Docs to /docs, inside a navigation named Menu', () => {
     const bar = render({ sub: 'App' });
-    expect(bar).toMatch(/<nav class="top-bar-menu" aria-label="Menu"><a class="top-bar-item" href="\/releases">Release notes<\/a><\/nav>/);
+    expect(bar).toMatch(/<nav class="top-bar-menu" aria-label="Menu"><a class="top-bar-item" href="\/releases">Release notes<\/a><a class="top-bar-item" href="\/docs">Docs<\/a><\/nav>/);
   });
 
   it('marks the current item with aria-current="page", and no other', () => {
@@ -42,9 +42,15 @@ describe('the top bar', () => {
     expect(render({ sub: 'App' })).not.toContain('aria-current');
   });
 
+  it('marks Docs current on /docs, and Release notes not', () => {
+    const bar = render({ sub: 'Docs', current: 'docs' });
+    expect(bar).toContain('<a class="top-bar-item" href="/docs" aria-current="page">Docs</a>');
+    expect(bar).toContain('<a class="top-bar-item" href="/releases">Release notes</a>');
+  });
+
   it('puts the page\'s extras before the menu', () => {
     const bar = render({ sub: 'PRD dossier', extras: createElement('a', { className: 'ask-for-me-nav', href: '/prd' }, 'All PRDs') });
-    expect(controls(bar)).toEqual(['OMNI LOOP', 'All PRDs', 'Release notes', 'Omni', 'Light', 'Dark', 'Game mode']);
+    expect(controls(bar)).toEqual(['OMNI LOOP', 'All PRDs', 'Release notes', 'Docs', 'Omni', 'Light', 'Dark', 'Game mode']);
   });
 
   it('puts what follows the sub-title inside the brand, and keeps a page\'s own classes', () => {
