@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Waiting For You</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --void: #07061c; --deep: #0e0d33; --cab: #120f3a; --line: #1a2170; --strong: #5a60c4; --white: #f2f4ff;
+    --dim: #8a90d6; --yellow: #ffd84a; --red: #ff3b5c; --green: #4ee08a; --plasma: #a45cff; --cyan: #6ff0ff;
+    --chrome: #1d1b3f; --tabon: #2a2766;
+    --pixel: 'Press Start 2P', ui-monospace, 'SF Mono', Menlo, monospace;
+    --display: 'Anton', 'Impact', 'Haettenschweiler', 'Arial Narrow Bold', sans-serif;
+    --body: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--white); font: 15px/1.55 var(--body); padding: 32px 16px 64px; }
+  main { max-width: 1120px; margin: 0 auto; display: grid; gap: 44px; }
+  h1 { font: 44px/1.05 var(--display); margin: 0; text-wrap: balance; text-transform: uppercase; }
+  h1 em { font-style: normal; color: var(--yellow); }
+  h2 { font: 24px/1.1 var(--display); text-transform: uppercase; margin: 0 0 6px; letter-spacing: .01em; }
+  .lede { max-width: 70ch; color: var(--dim); margin: 12px 0 0; }
+  .meta { font: 10px/1.6 var(--pixel); color: var(--dim); letter-spacing: .04em; margin-top: 14px; }
+  .sub { color: var(--dim); margin: 0 0 14px; max-width: 75ch; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 860px) { .pair { grid-template-columns: 1fr; } }
+  .tag { font: 10px/1 var(--pixel); letter-spacing: .06em; display: inline-block; padding: 6px 8px; border-radius: 4px; margin-bottom: 10px; }
+  .tag.b { background: var(--deep); color: var(--dim); border: 1px solid var(--line); }
+  .tag.a { background: var(--yellow); color: var(--void); }
+  .notes { margin: 10px 0 0; padding-left: 18px; color: var(--dim); font-size: 14px; }
+  .notes b { color: var(--white); }
+  .bad { color: var(--red); } .good { color: var(--green); }
+
+  /* browser tab strip */
+  .strip { background: var(--chrome); border: 1px solid var(--line); border-radius: 10px; padding: 8px 8px 0; display: flex; gap: 4px; overflow-x: auto; }
+  .btab { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 0 1 220px; padding: 8px 10px; border-radius: 8px 8px 0 0; font-size: 12.5px; color: var(--dim); white-space: nowrap; }
+  .btab.on { background: var(--tabon); color: var(--white); }
+  .btab span { overflow: hidden; text-overflow: ellipsis; }
+  .fav { position: relative; flex: none; width: 16px; height: 16px; }
+  .fav svg { display: block; }
+  .dot { position: absolute; top: -3px; right: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--chrome); }
+  .btab.on .dot { box-shadow: 0 0 0 2px var(--tabon); }
+  .count { color: var(--yellow); font-weight: 700; }
+
+  /* app screen */
+  .screen { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--void); display: grid; grid-template-columns: 150px 1fr; min-height: 380px; font-size: 13px; }
+  @media (max-width: 480px) { .screen { grid-template-columns: 1fr; } .side { display: none; } }
+  .side { background: var(--cab); border-right: 1px solid var(--line); padding: 12px 10px; display: grid; align-content: start; gap: 4px; }
+  .side .brand { font: 9px/1.4 var(--pixel); color: var(--yellow); margin-bottom: 8px; }
+  .side .grp { font: 8px/1 var(--pixel); color: var(--dim); letter-spacing: .08em; margin: 8px 0 4px; }
+  .it { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 8px; border-radius: 6px; }
+  .it.cur { background: var(--deep); color: var(--yellow); }
+  .it.child { padding-left: 20px; color: var(--dim); font-size: 12px; }
+  .badge { font: 700 11px/1 var(--body); background: var(--red); color: var(--white); border-radius: 999px; padding: 3px 6px; min-width: 20px; text-align: center; font-variant-numeric: tabular-nums; }
+  .stale { font-size: 10px; color: var(--dim); font-style: italic; }
+  .col { display: flex; flex-direction: column; min-width: 0; }
+  .bar { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--cab); border-bottom: 1px solid var(--line); position: relative; }
+  .bar .title { font-weight: 700; flex: 1; }
+  .ctl { border: 1px solid var(--strong); border-radius: 999px; padding: 3px 8px; font-size: 11px; color: var(--dim); }
+  .ava { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, var(--plasma), var(--cyan)); flex: none; }
+  .bell { position: relative; width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--strong); display: grid; place-items: center; background: var(--deep); flex: none; }
+  .bell.open { border-color: var(--yellow); }
+  .bell .badge { position: absolute; top: -7px; right: -9px; font-size: 10px; padding: 2px 5px; min-width: 18px; }
+  .body { padding: 14px; color: var(--dim); display: grid; gap: 8px; align-content: start; position: relative; flex: 1; }
+  .row { height: 10px; border-radius: 4px; background: var(--deep); }
+  .panel { position: absolute; top: 4px; right: 10px; width: min(330px, calc(100% - 20px)); background: var(--cab); border: 1px solid var(--strong); border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,.5); padding: 10px; display: grid; gap: 8px; color: var(--white); z-index: 2; }
+  .panel h4 { margin: 0; font: 8px/1 var(--pixel); color: var(--dim); letter-spacing: .08em; display: flex; justify-content: space-between; }
+  .item { display: grid; gap: 2px; padding: 7px 8px; border-radius: 7px; background: var(--deep); border: 1px solid var(--line); }
+  .item .top { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--dim); }
+  .item .q { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rank { font: 700 10px/1 var(--body); padding: 2px 6px; border-radius: 999px; border: 1px solid var(--red); color: var(--red); }
+  .rank.h { border-color: var(--yellow); color: var(--yellow); }
+  .foot { display: flex; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--line); padding-top: 8px; font-size: 11.5px; color: var(--dim); }
+  .sw { display: inline-flex; align-items: center; gap: 6px; }
+  .sw i { width: 24px; height: 13px; border-radius: 999px; background: var(--line); position: relative; }
+  .sw i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 9px; height: 9px; border-radius: 50%; background: var(--dim); }
+  .sw.on i { background: var(--green); } .sw.on i::after { left: 13px; background: var(--white); }
+  .refresh { margin: auto; text-align: center; border: 1px dashed var(--red); border-radius: 8px; padding: 12px; color: var(--red); max-width: 260px; }
+
+  /* desktop notification */
+  .os { background: #22223a; border: 1px solid #3a3a5c; border-radius: 14px; padding: 12px 14px; display: flex; gap: 12px; max-width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+  .os .ic { width: 34px; height: 34px; border-radius: 8px; background: var(--deep); display: grid; place-items: center; flex: none; }
+  .os b { display: block; font-size: 13.5px; } .os small { color: var(--dim); font-size: 12.5px; }
+  .none { color: var(--dim); border: 1px dashed var(--line); border-radius: 12px; padding: 18px; max-width: 420px; }
+
+  /* timing table */
+  .tw { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 9px/1.4 var(--pixel); color: var(--dim); letter-spacing: .06em; font-weight: 400; }
+  td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Something is <em>waiting for you</em></h1>
+    <p class="lede">Today a question from Claude only shows while you are on /ask, and the menu's count only moves when you reload. After PRD 499, every app page shows what waits for you: your sessions' questions, the ones shared with you, and the human-action and high outbox items of the PRDs you opened. It shows in the browser tab, the menu and a new bell, and updates without a reload.</p>
+    <div class="meta">PRD 499 · GALAXY APP ONLY · NO MIGRATION · QUESTIONS EVERY 5 S · OUTBOX EVERY 60 S</div>
+  </header>
+
+  <section>
+    <h2>1 · The browser tab</h2>
+    <p class="sub">Three browser tabs are open. Claude asked a question five minutes ago and an outbox item waits on PRD 459. You are reading a PRD.</p>
+    <div class="pair">
+      <div>
+        <span class="tag b">TODAY</span>
+        <div class="strip" aria-label="Browser tabs today">
+          <div class="btab on"><span class="fav"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#ffd84a" stroke-width="2"/><circle cx="8" cy="8" r="2" fill="#ffd84a"/></svg></span><span>PRDs · OMNI LOOP</span></div>
+          <div class="btab"><span class="fav"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="3" fill="#6ff0ff"/></svg></span><span>vertuo-omni-loop · Pull #460</span></div>
+          <div class="btab"><span class="fav"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="3" fill="#a45cff"/></svg></span><span>Figma · Sidebar</span></div>
+        </div>
+        <ul class="notes"><li class="bad">Nothing says Claude is blocked. Only /ask shows <b>● (1) Claude asks</b>.</li></ul>
+      </div>
+      <div>
+        <span class="tag a">AFTER</span>
+        <div class="strip" aria-label="Browser tabs after">
+          <div class="btab on"><span class="fav"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#ffd84a" stroke-width="2"/><circle cx="8" cy="8" r="2" fill="#ffd84a"/></svg><span class="dot"></span></span><span><span class="count">(2)</span> PRDs · OMNI LOOP</span></div>
+          <div class="btab"><span class="fav"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="3" fill="#6ff0ff"/></svg></span><span>vertuo-omni-loop · Pull #460</span></div>
+          <div class="btab"><span class="fav"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="3" fill="#a45cff"/></svg></span><span>Figma · Sidebar</span></div>
+        </div>
+        <ul class="notes"><li class="good">A <b>(2)</b> in front of the page's own title, and a red dot on the crest. Both are gone at 0.</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · The menu and the top bar</h2>
+    <p class="sub">The same moment, on the PRD list. After shows the bell's panel open.</p>
+    <div class="pair">
+      <div>
+        <span class="tag b">TODAY</span>
+        <div class="screen">
+          <nav class="side" aria-label="Sidebar today">
+            <div class="brand">OMNI LOOP</div>
+            <div class="grp">WORK</div>
+            <div class="it">Home</div>
+            <div class="it cur">PRDs</div>
+            <div class="it">Questions</div>
+            <div class="it child">Shared with me <span class="stale">as loaded</span></div>
+            <div class="it child">History</div>
+            <div class="it">Knowledge</div>
+            <div class="it">Fleets</div>
+          </nav>
+          <div class="col">
+            <div class="bar"><span class="title">PRDs</span><span class="ctl">Omni ▾</span><span class="ctl">Game mode</span><span class="ava"></span></div>
+            <div class="body">
+              <div class="row" style="width:80%"></div><div class="row" style="width:65%"></div><div class="row" style="width:72%"></div>
+              <div class="refresh">No bell. No count on Questions. You reload to find out.</div>
+            </div>
+          </div>
+        </div>
+        <ul class="notes">
+          <li class="bad"><b>Questions</b> has no count for your own sessions.</li>
+          <li class="bad"><b>Shared with me</b> is read once, when the page renders.</li>
+          <li class="bad">Outbox items show only on the PRD's own page.</li>
+        </ul>
+      </div>
+      <div>
+        <span class="tag a">AFTER</span>
+        <div class="screen">
+          <nav class="side" aria-label="Sidebar after">
+            <div class="brand">OMNI LOOP</div>
+            <div class="grp">WORK</div>
+            <div class="it">Home</div>
+            <div class="it cur">PRDs <span class="badge">1</span></div>
+            <div class="it">Questions <span class="badge">1</span></div>
+            <div class="it child">Shared with me</div>
+            <div class="it child">History</div>
+            <div class="it">Knowledge</div>
+            <div class="it">Fleets</div>
+          </nav>
+          <div class="col">
+            <div class="bar"><span class="title">PRDs</span><span class="ctl">Omni ▾</span><span class="ctl">Game mode</span>
+              <span class="bell open" role="img" aria-label="Waiting for you: 2"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5a4.5 4.5 0 0 0-4.5 4.5v3L2 11.5h12L12.5 9V6A4.5 4.5 0 0 0 8 1.5z" fill="#ffd84a"/><rect x="6.2" y="12.5" width="3.6" height="2" rx="1" fill="#ffd84a"/></svg><span class="badge">2</span></span>
+              <span class="ava"></span></div>
+            <div class="body">
+              <div class="row" style="width:80%"></div><div class="row" style="width:65%"></div>
+              <div class="panel" aria-label="Bell panel">
+                <h4><span>QUESTIONS</span><span>1</span></h4>
+                <div class="item"><div class="top"><span>vertuo-omni-loop</span><span>5 min</span></div><div class="q">Which rank should count as waiting on the outbox?</div></div>
+                <h4><span>OUTBOX</span><span>1</span></h4>
+                <div class="item"><div class="top"><span>PRD 459 · Workspace gate</span><span class="rank">high</span></div><div class="q">Keep the first-workspace fallback for people with no membership?</div></div>
+                <div class="foot"><span class="sw on"><i></i>Desktop alerts</span><span class="sw"><i></i>Chime</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <ul class="notes">
+          <li class="good"><b>Questions</b> counts your sessions and the ones shared with you. <b>PRDs</b> counts the outbox items.</li>
+          <li class="good">The bell lists each item: a question opens it, an outbox item opens the PRD's Outbox tab.</li>
+          <li class="good">Nothing waiting: a plain bell, and "Nothing waiting for you." in its panel.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · When you are in another app</h2>
+    <p class="sub">Claude asks a new question while you work in Figma. Desktop alerts and the chime are off until you switch them on in the bell's panel.</p>
+    <div class="pair">
+      <div>
+        <span class="tag b">TODAY</span>
+        <div class="none">Nothing. Claude waits until you happen to look.</div>
+      </div>
+      <div>
+        <span class="tag a">AFTER</span>
+        <div class="os" role="img" aria-label="A desktop notification">
+          <div class="ic"><svg width="20" height="20" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#ffd84a" stroke-width="2"/><circle cx="8" cy="8" r="2" fill="#ffd84a"/></svg></div>
+          <div><b>Claude is asking</b><small>Should the bell panel close when an item is chosen?</small></div>
+        </div>
+        <ul class="notes">
+          <li class="good">One notification and one short chime, even with three Omni tabs open.</li>
+          <li class="good">Only for what is new since the last check. What was already waiting when the page loaded stays quiet.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4 · How fast it moves</h2>
+    <div class="tw">
+      <table>
+        <thead><tr><th>WHAT</th><th>TODAY</th><th>AFTER</th></tr></thead>
+        <tbody>
+          <tr><td>Questions from your sessions</td><td>Live on /ask only (every 2 s)</td><td class="n">Every app page, every 5 s while the tab is visible</td></tr>
+          <tr><td>Questions shared with you</td><td>When the page renders</td><td class="n">Every app page, every 5 s</td></tr>
+          <tr><td>Human-action and high outbox items of PRDs you opened</td><td>Only on that PRD's page</td><td class="n">Every app page, every 60 s (GitHub, cached)</td></tr>
+          <tr><td>A tab you come back to</td><td>Stale until reload</td><td class="n">Read at once</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+</body>
+</html>
