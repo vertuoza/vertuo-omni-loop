@@ -108,7 +108,9 @@ describe('omni plan check', () => {
   it('passes on this repository\'s own PRD 7 plan', async () => {
     const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
     const s = io();
-    const code = await main(['plan', 'check', '7'], { cwd: repoRoot, ...s });
+    // No `CLAUDE_CODE_SESSION_ID` from the session running the tests: it would record PRD 7 for that
+    // session in this repository's own `.omni-loop/local/`.
+    const code = await main(['plan', 'check', '7'], { cwd: repoRoot, ...s, env: {} });
     expect(s.out.join('')).not.toMatch(/violation/);
     expect(code).toBe(0);
   });
