@@ -12111,8 +12111,8 @@ function reconcileLabels(root, { exec, labels }) {
   const wanted = loopLabels(labels);
   let existing;
   try {
-    const listed = JSON.parse(exec("gh", ["label", "list", "--json", "name", "--limit", String(LIST_LIMIT)], { cwd: root, ...QUIET }));
-    existing = new Set(listed.map((label) => String(label.name).toLowerCase()));
+    const listed2 = JSON.parse(exec("gh", ["label", "list", "--json", "name", "--limit", String(LIST_LIMIT)], { cwd: root, ...QUIET }));
+    existing = new Set(listed2.map((label) => String(label.name).toLowerCase()));
   } catch {
     return { created: [], present: [], byHand: wanted.map((label) => label.name) };
   }
@@ -15037,8 +15037,8 @@ function buildBoard(prd2, { ctx, exec, env, repo: repoFlag, now = Date.now() }) 
   const matchBy = ctx.config.board.matchBy;
   const subLabel = ctx.config.labels.sub;
   const staleMinutes = ctx.config.limits.claimStaleMinutes;
-  const listed = fetchPrList({ repo, exec, env: ghEnv, matchBy, featureBranch, subLabel });
-  const prs = fetchHeadCommitDates(listed, { repo, exec, env: ghEnv, now, staleMinutes });
+  const listed2 = fetchPrList({ repo, exec, env: ghEnv, matchBy, featureBranch, subLabel });
+  const prs = fetchHeadCommitDates(listed2, { repo, exec, env: ghEnv, now, staleMinutes });
   const result = boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic } });
   return { slices, result };
 }
@@ -15338,8 +15338,8 @@ function findOwningLibraryViolations(ctx, knowledge2) {
     if (!existsSync15(join23(ctx.root, readme))) continue;
     const section4 = readFileSync17(join23(ctx.root, readme), "utf8").split(/^## Owning libraries\s*$/m)[1];
     if (!section4) continue;
-    const listed = section4.split(/^## /m)[0];
-    for (const match of listed.matchAll(/`((?:libs|apps)\/[^`\s]+)`/g)) {
+    const listed2 = section4.split(/^## /m)[0];
+    for (const match of listed2.matchAll(/`((?:libs|apps)\/[^`\s]+)`/g)) {
       const path = match[1].replace(/\/$/, "");
       if (!existsSync15(join23(ctx.root, path))) {
         violations.push(
@@ -19832,8 +19832,9 @@ var STATUS_LINE = {
   invalid: (path) => `  skipped ${path}: not valid JSON, no status line added`
 };
 var KIT_LINE_IN_PLACE = /* @__PURE__ */ new Set(["wrote", "kept"]);
-function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, files, forms, settings, labels, unfilled, notices = {} }) {
-  const repo = slug ?? PLACEHOLDER_SLUG;
+var LABELS_STEP = 3;
+var formsStep = (labels) => labels.byHand.length ? 5 : 4;
+function setupLines({ slug, files, forms, settings, labels }) {
   const dir = dirname13(files[0].path);
   const lines = [`omni init \u2014 ${slug ?? "this repository"} is set up.`];
   const width = Math.max(...files.map((file) => file.path.length));
@@ -19841,38 +19842,7 @@ function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, fil
     lines.push(wrote ? `  wrote   ${path}` : `  kept    ${path.padEnd(width)}  (pass --force to overwrite)`);
   }
   for (const path of forms.wrote) lines.push(`  wrote   ${path}`);
-  const steps = [
-    [
-      `Install the ${PLUGIN} plugin in Claude Code:`,
-      `     /plugin marketplace add ${kitHome2 ?? "<owner>/<kit repository>"}`,
-      `     /plugin install ${PLUGIN}@${MARKETPLACE}`
-    ],
-    [
-      `Install the ${APP.name} GitHub App on ${slug ?? "this repository"}:`,
-      `     ${GITHUB}/apps/${APP.slug}/installations/new`
-    ]
-  ];
-  const labelsStep = labels.byHand.length ? steps.length + 1 : null;
-  if (labelsStep) {
-    steps.push([
-      "Create the labels gh could not create:",
-      `     ${GITHUB}/${repo}/labels`,
-      `     ${labels.byHand.join(", ")}`
-    ]);
-  }
-  steps.push([
-    `(Optional) Require the \`${outboxCheck}\` check on ${defaultBranch}:`,
-    `     ${GITHUB}/${repo}/settings/branches`,
-    "   Warning: a required check that is never posted blocks every pull request in this repository.",
-    "   If the app is uninstalled, its deploy is broken or Inngest is down, nothing can merge. The remedy",
-    "   is to remove the requirement, never to fake a status."
-  ]);
-  const formsStep = steps.length + 1;
-  steps.push([
-    `Fill the forms in ${forms.dir}/ with what the repository can prove, in Claude Code:`,
-    `     /${PLUGIN}:invade`
-  ]);
-  if (forms.outside) lines.push(`  forms   not written: ${forms.dir}/ is outside ${dir}/ \u2014 see step ${formsStep} below`);
+  if (forms.outside) lines.push(`  forms   not written: ${forms.dir}/ is outside ${dir}/ \u2014 see step ${formsStep(labels)} below`);
   lines.push(STATUS_LINE[settings.outcome](settings.path));
   const done = [];
   if (labels.created.length) done.push(`created ${labels.created.join(", ")}`);
@@ -19881,7 +19851,19 @@ function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, fil
     done.push(labels.created.length ? `   (${present})` : present);
   }
   if (done.length) lines.push(`  labels  ${done.join("")}`);
-  if (labelsStep) lines.push(`  labels  gh could not create ${labels.byHand.join(", ")} \u2014 see step ${labelsStep} below`);
+  if (labels.byHand.length) lines.push(`  labels  gh could not create ${labels.byHand.join(", ")} \u2014 see step ${LABELS_STEP} below`);
+  return lines;
+}
+function computerLines(plugin, signin2) {
+  const lines = ["On this computer:", ...plugin.status, ...signin2.status];
+  if (plugin.todo.length) lines.push("", "Type these in Claude Code to install the plugin:", ...plugin.todo.map((line) => `     ${line}`));
+  if (signin2.todo.length) lines.push("", "Type this in a terminal to sign in later:", ...signin2.todo.map((line) => `     ${line}`));
+  return lines;
+}
+function closingSteps({ slug, defaultBranch, configPath, outboxCheck, pr, forms, settings, labels, unfilled, notices = {} }) {
+  const repo = slug ?? PLACEHOLDER_SLUG;
+  const dir = dirname13(configPath);
+  const lines = [];
   const headsUp = [];
   if (notices.legacyWorkflows?.length) {
     headsUp.push(
@@ -19899,18 +19881,37 @@ function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, fil
     lines.push("", "Heads-up:");
     for (const line of headsUp) lines.push(line.startsWith("  ") ? `  ${line}` : `  - ${line}`);
   }
-  const toCommit = [];
-  if (files.some((file) => file.wrote) || forms.wrote.length) toCommit.push(`${dir}/`);
-  if (settings.outcome === "wrote") toCommit.push(settings.path);
-  lines.push(
-    "",
-    toCommit.length === 2 ? `Commit ${toCommit.join(" and ")}, and merge them into ${defaultBranch}, then, by hand:` : toCommit.length ? `Commit ${toCommit[0]} and merge it into ${defaultBranch}, then, by hand:` : "Nothing new to commit. By hand, unless already done:"
-  );
+  const steps = [
+    [
+      `Install the ${APP.name} GitHub App on ${slug ?? "this repository"}:`,
+      `     ${GITHUB}/apps/${APP.slug}/installations/new`
+    ],
+    pr ? [`Merge ${pr.number ? `PR #${pr.number}` : "the install pull request"} into ${defaultBranch}:`, `     ${pr.url}`] : [`Merge the install pull request into ${defaultBranch}, once it is open (see above).`]
+  ];
+  if (labels.byHand.length) {
+    steps.push([
+      "Create the labels gh could not create:",
+      `     ${GITHUB}/${repo}/labels`,
+      `     ${labels.byHand.join(", ")}`
+    ]);
+  }
+  steps.push([
+    `(Optional) Require the \`${outboxCheck}\` check on ${defaultBranch}:`,
+    `     ${GITHUB}/${repo}/settings/branches`,
+    "   Warning: a required check that is never posted blocks every pull request in this repository.",
+    "   If the app is uninstalled, its deploy is broken or Inngest is down, nothing can merge. The remedy",
+    "   is to remove the requirement, never to fake a status."
+  ]);
+  steps.push([
+    `Fill the forms in ${forms.dir}/ with what the repository can prove, in Claude Code:`,
+    `     /${PLUGIN}:invade`
+  ]);
+  lines.push("", "Then, by hand:");
   steps.forEach(([first, ...rest], index) => {
     lines.push(`  ${index + 1}. ${first}`, ...rest.map((line) => `  ${line}`));
   });
   if (unfilled.length) {
-    lines.push("", `Not filled \u2014 set them in ${files[0].path} or rerun with the flag:`);
+    lines.push("", `Not filled \u2014 set them in ${configPath} or rerun with the flag:`);
     for (const { key, flag } of unfilled) lines.push(`  commands.${key} (--${flag} <cmd>)`);
   }
   lines.push(
@@ -19930,15 +19931,76 @@ function closingSteps({ slug, defaultBranch, kitHome: kitHome2, outboxCheck, fil
   } else {
     lines.push("", `To remove the loop: delete ${dir}/ and commit. The labels and the App installation stay.`);
   }
-  return `${lines.join("\n")}
-`;
+  return lines;
+}
+
+// kit/lib/init/plugin.mjs
+init_define_OMNI_BUNDLE();
+var QUIET7 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 12e4 };
+var ID = `${PLUGIN}@${MARKETPLACE}`;
+var PLACEHOLDER_HOME = "<owner>/<kit repository>";
+function listed(exec, args) {
+  try {
+    const value = JSON.parse(exec("claude", [...args, "--json"], QUIET7));
+    return Array.isArray(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+function installPlugin({ exec, kitHome: kitHome2 }) {
+  if (listed(exec, ["plugin", "list"])?.some((plugin) => plugin?.id === ID)) return { outcome: "already" };
+  if (!kitHome2) return { outcome: "failed" };
+  try {
+    const marketplaces = listed(exec, ["plugin", "marketplace", "list"]);
+    if (!marketplaces?.some((marketplace) => marketplace?.name === MARKETPLACE)) {
+      exec("claude", ["plugin", "marketplace", "add", kitHome2], QUIET7);
+    }
+    exec("claude", ["plugin", "install", ID], QUIET7);
+  } catch {
+    return { outcome: "failed" };
+  }
+  return { outcome: "installed" };
+}
+function pluginLines({ outcome }, { kitHome: kitHome2 }) {
+  if (outcome === "installed") return { status: [`  plugin  installed ${ID}, run /reload-plugins in an open Claude Code`], todo: [] };
+  if (outcome === "already") return { status: [`  plugin  ${ID} installed already`], todo: [] };
+  return {
+    status: [`  plugin  could not install ${ID} from here`],
+    todo: [`/plugin marketplace add ${kitHome2 ?? PLACEHOLDER_HOME}`, `/plugin install ${ID}`]
+  };
+}
+
+// kit/lib/init/signin-step.mjs
+init_define_OMNI_BUNDLE();
+async function signInStep({ askUrl: askUrl2, home, interactive, signIn }) {
+  if (!askUrl2) return { outcome: "unset" };
+  const host = credentialsHost(askUrl2);
+  const store = credentials({ home });
+  const held = store.read(host);
+  if (held) return { outcome: "already", host, email: held.email };
+  if (!interactive) return { outcome: "later", host, why: "no terminal" };
+  let code;
+  try {
+    code = await signIn();
+  } catch {
+    code = 1;
+  }
+  const entry = code === 0 ? store.read(host) : null;
+  if (!entry) return { outcome: "later", host, why: "did not finish" };
+  return { outcome: "signed-in", host, email: entry.email };
+}
+function signInLines({ outcome, host, email, why: why2 }) {
+  if (outcome === "signed-in") return { status: [`  signin  signed in to ${host} as ${email}`], todo: [] };
+  if (outcome === "already") return { status: [`  signin  signed in to ${host} already, as ${email}`], todo: [] };
+  if (outcome === "later") return { status: [`  signin  not signed in to ${host}: ${why2}`], todo: ["omni signin"] };
+  return { status: ["  signin  skipped: ask.url is not set"], todo: [] };
 }
 
 // kit/lib/init/install-pr.mjs
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync35 } from "node:fs";
 import { join as join41 } from "node:path";
-var QUIET7 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
+var QUIET8 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
 var INSTALL_BRANCH = "chore/install-omni-loop";
 var INSTALL_COMMIT = "chore: install the Omni Loop";
 var PR_BODY = [
@@ -19954,21 +20016,21 @@ function attempt4(fn) {
   }
 }
 function currentBranch2(root, exec) {
-  const { value } = attempt4(() => exec("git", ["branch", "--show-current"], { cwd: root, ...QUIET7 }));
+  const { value } = attempt4(() => exec("git", ["branch", "--show-current"], { cwd: root, ...QUIET8 }));
   return typeof value === "string" ? value.trim() : null;
 }
 function switchToInstallBranch(root, { exec }) {
   const branch = INSTALL_BRANCH;
   if (currentBranch2(root, exec) === branch) return { outcome: "stayed", branch };
-  const exists = attempt4(() => exec("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], { cwd: root, ...QUIET7 })).ok;
+  const exists = attempt4(() => exec("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], { cwd: root, ...QUIET8 })).ok;
   const args = exists ? ["switch", branch] : ["switch", "-c", branch];
-  if (!attempt4(() => exec("git", args, { cwd: root, ...QUIET7 })).ok) return { outcome: "failed", branch };
+  if (!attempt4(() => exec("git", args, { cwd: root, ...QUIET8 })).ok) return { outcome: "failed", branch };
   return { outcome: exists ? "switched" : "created", branch };
 }
 function findPr(root, exec) {
-  const listed = attempt4(() => JSON.parse(exec("gh", ["pr", "list", "--head", INSTALL_BRANCH, "--state", "open", "--json", "url,number"], { cwd: root, ...QUIET7 })));
-  if (!listed.ok || !Array.isArray(listed.value)) return void 0;
-  const [pr] = listed.value;
+  const listed2 = attempt4(() => JSON.parse(exec("gh", ["pr", "list", "--head", INSTALL_BRANCH, "--state", "open", "--json", "url,number"], { cwd: root, ...QUIET8 })));
+  if (!listed2.ok || !Array.isArray(listed2.value)) return void 0;
+  const [pr] = listed2.value;
   return pr?.url ? { url: pr.url, number: Number(pr.number) || null, already: true } : null;
 }
 var prNumber = (url) => Number(/\/pull\/(\d+)/.exec(url)?.[1]) || null;
@@ -19985,18 +20047,18 @@ function openInstallPr(root, { exec, paths: wanted, remote, base, branch }) {
     result.branch = { ...result.branch, outcome: "failed" };
     return result;
   }
-  const changed = attempt4(() => exec("git", ["status", "--porcelain", "--untracked-files=all", "--", ...paths], { cwd: root, ...QUIET7 }));
+  const changed = attempt4(() => exec("git", ["status", "--porcelain", "--untracked-files=all", "--", ...paths], { cwd: root, ...QUIET8 }));
   if (changed.ok && !changed.value.trim()) {
     result.commit = "nothing";
   } else {
     const committed = attempt4(() => {
-      exec("git", ["add", "--", ...paths], { cwd: root, ...QUIET7 });
-      return exec("git", ["commit", "-q", "-m", INSTALL_COMMIT, "--", ...paths], { cwd: root, ...QUIET7 });
+      exec("git", ["add", "--", ...paths], { cwd: root, ...QUIET8 });
+      return exec("git", ["commit", "-q", "-m", INSTALL_COMMIT, "--", ...paths], { cwd: root, ...QUIET8 });
     });
     result.commit = committed.ok ? "committed" : "failed";
     if (!committed.ok) return result;
   }
-  result.push = attempt4(() => exec("git", ["push", "-u", remote, INSTALL_BRANCH], { cwd: root, ...QUIET7 })).ok ? "pushed" : "failed";
+  result.push = attempt4(() => exec("git", ["push", "-u", remote, INSTALL_BRANCH], { cwd: root, ...QUIET8 })).ok ? "pushed" : "failed";
   if (result.push === "failed") return result;
   const found = findPr(root, exec);
   if (found) {
@@ -20004,7 +20066,7 @@ function openInstallPr(root, { exec, paths: wanted, remote, base, branch }) {
     return result;
   }
   if (found === void 0) return result;
-  const created = attempt4(() => exec("gh", ["pr", "create", "--base", base, "--head", INSTALL_BRANCH, "--title", INSTALL_COMMIT, "--body", PR_BODY], { cwd: root, ...QUIET7 }));
+  const created = attempt4(() => exec("gh", ["pr", "create", "--base", base, "--head", INSTALL_BRANCH, "--title", INSTALL_COMMIT, "--body", PR_BODY], { cwd: root, ...QUIET8 }));
   const url = created.ok ? String(created.value).trim().split("\n").pop() : null;
   if (url?.startsWith("http")) result.pr = { url, number: prNumber(url), already: false };
   else result.pr = findPr(root, exec) ?? null;
@@ -20089,7 +20151,7 @@ async function resolveCommands(root, flags, { interactive, ask: ask3 }) {
 }
 var init = {
   withoutContext: true,
-  async run(args, { cwd, stdout, exec, stdin = process.stdin, bundle = runningBundle(), ask: ask3 = askTerminal }) {
+  async run(args, { cwd, stdout, stderr, exec, stdin = process.stdin, bundle = runningBundle(), ask: ask3 = askTerminal, home: userHome, signIn }) {
     const { positional, flags } = parseArgs("init", args, { values: Object.values(FLAGS), booleans: ["force"] });
     if (positional.length) throw usageError("usage: omni init [--force] [--test <cmd>] [--preflight <cmd>] [--preflight-full <cmd>]");
     const force = flags.force === true;
@@ -20106,8 +20168,8 @@ var init = {
       );
     }
     const branch = switchToInstallBranch(root, { exec });
+    const interactive = Boolean(stdin?.isTTY && stdout?.isTTY);
     if (!keepConfig) {
-      const interactive = Boolean(stdin?.isTTY && stdout?.isTTY);
       const commands = await resolveCommands(root, flags, { interactive, ask: ask3 });
       const repo = readRepo(root, { exec, remote: defaults.repo.remote });
       const lawsSource = detectLawsSource({ ctx: createContext(root, defaults) });
@@ -20128,22 +20190,41 @@ var init = {
     const settings = writeStatusLine(root, { bin: BIN_FILE2, force });
     const labels = reconcileLabels(root, { exec, labels: config2.labels });
     const slug = config2.repo.slug ?? readRepo(root, { exec, remote: config2.repo.remote }).slug;
-    stdout.write(closingSteps({
-      slug,
-      defaultBranch: config2.repo.defaultBranch,
-      kitHome: kitHome({ exec }),
-      outboxCheck: config2.ci.outboxContext,
-      files: [{ path: CONFIG_FILE, wrote: !keepConfig }, { path: BIN_FILE2, wrote: copyBin }],
-      forms: { dir: ctx.layout.frontDoor, wrote: forms.filter((file) => file.wrote).map((file) => file.path), outside },
-      settings,
-      labels,
-      unfilled: COMMAND_KEYS.filter((key) => config2.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] })),
-      notices: { legacyWorkflows: legacyLoopWorkflows(root), formatter: formatterToExclude(root, LOOP_DIR2) }
-    }));
+    const filesWritten = [{ path: CONFIG_FILE, wrote: !keepConfig }, { path: BIN_FILE2, wrote: copyBin }];
+    const formsDone = { dir: ctx.layout.frontDoor, wrote: forms.filter((file) => file.wrote).map((file) => file.path), outside };
+    const out = setupLines({ slug, files: filesWritten, forms: formsDone, settings, labels });
     const paths = [LOOP_DIR2, ...OWN_STATUS_LINE.has(settings.outcome) ? [settings.path] : []];
     const pr = { paths, remote: config2.repo.remote, base: config2.repo.defaultBranch, slug };
     const install = openInstallPr(root, { exec, branch, ...pr });
-    stdout.write(["", "Install pull request:", ...installLines(install, pr), ""].join("\n"));
+    out.push("", "Install pull request:", ...installLines(install, pr));
+    stdout.write(`${out.join("\n")}
+`);
+    const kit = kitHome({ exec });
+    const plugin = pluginLines(installPlugin({ exec, kitHome: kit }), { kitHome: kit });
+    const signedIn = await signInStep({
+      askUrl: config2.ask.url,
+      home: userHome,
+      interactive,
+      signIn: signIn ?? (() => signin.run([], { cwd: root, stdout, stderr, exec, home: userHome }))
+    });
+    const closing = [
+      "",
+      ...computerLines(plugin, signInLines(signedIn)),
+      ...closingSteps({
+        slug,
+        defaultBranch: config2.repo.defaultBranch,
+        configPath: CONFIG_FILE,
+        outboxCheck: config2.ci.outboxContext,
+        pr: install.pr,
+        forms: formsDone,
+        settings,
+        labels,
+        unfilled: COMMAND_KEYS.filter((key) => config2.commands[key] === null).map((key) => ({ key, flag: FLAGS[key] })),
+        notices: { legacyWorkflows: legacyLoopWorkflows(root), formatter: formatterToExclude(root, LOOP_DIR2) }
+      })
+    ];
+    stdout.write(`${closing.join("\n")}
+`);
     return 0;
   }
 };
@@ -22568,7 +22649,7 @@ function whichPrd({ branch, branches, folders, recorded = null }) {
 }
 
 // kit/lib/statusline/facts.mjs
-var QUIET8 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
+var QUIET9 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
 function attempt6(fn, fallback) {
   try {
     return fn();
@@ -22576,7 +22657,7 @@ function attempt6(fn, fallback) {
     return fallback;
   }
 }
-var git4 = (exec, cwd, args) => String(exec("git", args, { cwd, ...QUIET8 }));
+var git4 = (exec, cwd, args) => String(exec("git", args, { cwd, ...QUIET9 }));
 var entries2 = (text4) => text4.split("\0").filter(Boolean);
 function checkoutContext(folder, exec) {
   try {
@@ -22915,11 +22996,11 @@ function installedVersion({ root, running, bundle }) {
 
 // kit/lib/update/plugin.mjs
 init_define_OMNI_BUNDLE();
-var QUIET9 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 12e4 };
+var QUIET10 = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 12e4 };
 function updatePlugin({ version: version2 = null, exec, println: println2 }) {
   try {
-    exec("claude", ["plugin", "marketplace", "update", MARKETPLACE], QUIET9);
-    exec("claude", ["plugin", "update", `${PLUGIN}@${MARKETPLACE}`], QUIET9);
+    exec("claude", ["plugin", "marketplace", "update", MARKETPLACE], QUIET10);
+    exec("claude", ["plugin", "update", `${PLUGIN}@${MARKETPLACE}`], QUIET10);
   } catch {
     println2("  plugin   not updated from here; in Claude Code, type:");
     println2(`     /plugin marketplace update ${MARKETPLACE}`);
