@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { UNREAD, type GithubSummary, type OutboxItem } from '../github/summary';
+import { UNREAD, type GithubSummary, type Outbox, type OutboxItem } from '../github/summary';
 import { renderMarkdown } from '../markdown';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
 import { DossierPage } from './DossierPage';
@@ -93,7 +93,7 @@ describe('the states', () => {
   });
 
   it('nothing open: says so, then Adopted and Settled', () => {
-    const html = tab({ github: summary({ outbox: { ...summary().outbox as object, open: [] } as GithubSummary['outbox'] }) });
+    const html = tab({ github: summary({ outbox: { open: [], adopted: [NAME], settled: (summary().outbox as Outbox).settled } }) });
     expect(html).toContain('Nothing is waiting on you.');
     expect(html).toContain('<summary>Adopted unless you object · 1</summary>');
     expect(html).toContain('<summary>Settled · 1</summary>');

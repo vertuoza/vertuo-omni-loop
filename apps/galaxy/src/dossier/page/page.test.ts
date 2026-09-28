@@ -170,7 +170,7 @@ describe('the page to share', () => {
       supabase: { url: 'http://127.0.0.1:54321', key: 'anon' },
       id: numbered,
       // The GitHub part the page was rendered with (no reader here: unknown) is part of the start.
-      signature: signature({ asked: 2, answered: 1, latest: { spec: 1, 'before-after': 1 }, github: { stage: 'unknown', open: null } }),
+      signature: signature({ asked: 2, answered: 1, latest: { spec: 1, 'before-after': 1 }, github: { stage: 'unknown', open: null, answers: null } }),
     });
     const markup = renderToStaticMarkup(page);
     expect(markup).not.toContain('Cannot reach the server');
