@@ -9,6 +9,10 @@
 // - inbox: its folder is in the base's inbox folder, and it is not in the outbox;
 // - in review: a phase-0 branch holds an inbox folder of its topic whose PRD number is in neither
 //   folder of the base. It is counted, but kept out of the bar.
+//
+// A PRD is yours when a commit authored with `user.email` (compared ignoring case) touched its
+// folder, on the base or on a feature or phase-0 branch read, or sits on its feature branch beyond
+// the base.
 import { ACCOUNTS_DIR } from '../outbox/account.mjs';
 import { SETTLED_FILE } from '../outbox/outbox.mjs';
 
@@ -75,11 +79,40 @@ function inReviewOf(phase0, taken) {
   return stage(held, taken);
 }
 
+/** The PRD numbers that are yours: those whose folder a commit of `me` touched, on the base or on a
+ * feature or phase-0 branch, and the inbox PRD of each feature branch carrying a commit of `me`. */
+function yourNumbers(facts, onBase, me) {
+  const isMe = (email) => email.toLowerCase() === me;
+  const touched = [facts.touched, ...facts.features.map(({ touched }) => touched), ...facts.phase0.map(({ touched }) => touched)].flat();
+  const mine = new Set(touched.filter(({ email }) => isMe(email)).map(({ prd }) => prd));
+  const helped = new Set(facts.features.filter(({ authors }) => authors.some(isMe)).map(({ topic }) => topic));
+  for (const { prd, topic } of onBase) if (helped.has(topic)) mine.add(prd);
+  return mine;
+}
+
+/** Your PRDs, as `{ state, email, rows, shipped }`: `state` is `no-email` without a `user.email`,
+ * `shallow` in a shallow clone, whose history cannot tell, and `known` otherwise. `rows` are your
+ * PRDs in the outbox, then the inbox, then in review, each newest first and each with its `stage`;
+ * `shipped` your shipped PRDs, newest first. */
+function yoursOf(facts, stages, onBase) {
+  const none = { email: facts.email ?? null, rows: [], shipped: [] };
+  if (!facts.email) return { state: 'no-email', ...none };
+  if (facts.shallow) return { state: 'shallow', ...none };
+  const mine = yourNumbers(facts, onBase, facts.email.toLowerCase());
+  const yours = (entries) => entries.filter(({ prd }) => mine.has(prd));
+  const rows = ['outbox', 'inbox', 'inReview'].flatMap((stage) => yours(stages[stage]).map((entry) => ({ stage, ...entry })));
+  return { state: 'known', email: facts.email, rows, shipped: yours(stages.shipped) };
+}
+
 /**
  * @param {{ slug: string | null, base: string, fetchedAt: number | null,
+ *   email: string | null, shallow: boolean,
  *   shipped: { prd: number, topic: string }[], inbox: { prd: number, topic: string }[],
- *   features: { branch: string, topic: string, forked: string[], differs: string[], outbox: string[] }[],
- *   phase0: { branch: string, topic: string, inbox: { prd: number, topic: string }[] }[] }} facts
+ *   touched: { prd: number, email: string }[],
+ *   features: { branch: string, topic: string, forked: string[], differs: string[], outbox: string[],
+ *     authors: string[], touched: { prd: number, email: string }[] }[],
+ *   phase0: { branch: string, topic: string, inbox: { prd: number, topic: string }[],
+ *     touched: { prd: number, email: string }[] }[] }} facts
  */
 export function overviewFor(facts) {
   const shipped = stage(facts.shipped);
@@ -89,11 +122,12 @@ export function overviewFor(facts) {
   const inbox = onBase.filter(({ prd }) => !inOutbox.has(prd));
   const inReview = inReviewOf(facts.phase0, new Set([...facts.shipped, ...facts.inbox].map(({ prd }) => prd)));
   const inProgress = inbox.length + outbox.length;
+  const stages = { shipped, outbox, inbox, inReview };
   return {
     slug: facts.slug,
     base: facts.base,
     fetchedAt: facts.fetchedAt,
-    stages: { shipped, outbox, inbox, inReview },
+    stages,
     counts: {
       shipped: shipped.length,
       inbox: inbox.length,
@@ -103,5 +137,6 @@ export function overviewFor(facts) {
     },
     bar: barFor(shipped.length, shipped.length + inProgress),
     inProgress: { total: inProgress, inbox: inbox.length, outbox: outbox.length },
+    yours: yoursOf(facts, stages, onBase),
   };
 }
