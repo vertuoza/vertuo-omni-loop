@@ -1,0 +1,367 @@
+{
+  "prd": 394,
+  "runs": [
+    {
+      "featurePr": {
+        "mergeSha": "254c96d0adfbe0c4f8d13b7cd8fa8594d5d17063",
+        "mergedAt": "2026-09-28T10:40:14Z",
+        "number": 396,
+        "openedAt": "2026-09-28T10:04:23Z",
+        "title": "feat(galaxy): HOME hero polish — aligned, readable, alive, full screen (PRD 394)",
+        "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/396"
+      },
+      "findings": [],
+      "kinds": {
+        "churn": {
+          "added": 558,
+          "churn": 2,
+          "commits": 7,
+          "files": [
+            {
+              "added": 23,
+              "churn": 2,
+              "commits": 3,
+              "finalAdded": 21,
+              "path": "apps/galaxy/src/home/poster/Poster.tsx",
+              "percent": 10
+            }
+          ],
+          "finalAdded": 557,
+          "leftOut": {
+            "delivery": [
+              ".omni-loop/delivery/outbox/0394-home-hero-polish/s2-01-planet-tested-without-a-browser.md"
+            ],
+            "generated": [],
+            "lockfile": []
+          },
+          "noPatch": [],
+          "notCounted": [],
+          "pulls": 3,
+          "ranges": [],
+          "unread": {
+            "commits": [],
+            "pulls": []
+          }
+        },
+        "ci": {
+          "checks": [],
+          "redRuns": [],
+          "slices": [
+            "s1",
+            "s2",
+            "s3"
+          ],
+          "tests": [],
+          "totals": {
+            "checks": 0,
+            "commits": 0,
+            "red": 0,
+            "runs": 0,
+            "slices": 0
+          },
+          "unread": []
+        },
+        "delivery": {
+          "decisions": {
+            "adopted": 1,
+            "agreed": 0,
+            "byRank": {
+              "medium": 1
+            },
+            "drifted": 0,
+            "drifts": [],
+            "file": ".omni-loop/delivery/shipped/0394-home-hero-polish/outbox/settled.md",
+            "raised": 1,
+            "reworked": 0
+          },
+          "friction": {
+            "counts": {
+              "commentsUnread": 0,
+              "eventsUnread": 0,
+              "needsFix": 0,
+              "reclaimed": 0,
+              "stuck": 0
+            },
+            "label": "omni:needs-fix",
+            "slices": [
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  398
+                ],
+                "slice": "s1",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  399
+                ],
+                "slice": "s2",
+                "stuck": []
+              },
+              {
+                "claims": 1,
+                "needsFix": [],
+                "prs": [
+                  401
+                ],
+                "slice": "s3",
+                "stuck": []
+              }
+            ]
+          },
+          "override": {
+            "label": "omni:outbox-go",
+            "mergedUnder": false
+          },
+          "review": {
+            "counts": {
+              "pulls": 4,
+              "red": 0,
+              "reviews": 0,
+              "reviewsByBots": 0,
+              "reviewsByPeople": 0,
+              "reviewsUnread": 0,
+              "threads": 0,
+              "threadsByBots": 0,
+              "threadsByPeople": 0,
+              "threadsUnread": 0,
+              "unresolved": 0
+            },
+            "pulls": [
+              {
+                "pr": 396,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": null,
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/396"
+              },
+              {
+                "pr": 398,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s1",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/398"
+              },
+              {
+                "pr": 399,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s2",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/399"
+              },
+              {
+                "pr": 401,
+                "red": [],
+                "reviews": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "slice": "s3",
+                "threads": {
+                  "bots": 0,
+                  "people": 0
+                },
+                "unresolved": [],
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/401"
+              }
+            ]
+          },
+          "territory": {
+            "counts": {
+              "breaches": 0,
+              "graded": 3,
+              "shared": 0,
+              "unplanned": 0,
+              "unread": 0
+            },
+            "pulls": [
+              {
+                "breaches": [],
+                "files": 4,
+                "pr": 398,
+                "shared": [],
+                "slice": "s1",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/398"
+              },
+              {
+                "breaches": [],
+                "files": 8,
+                "pr": 399,
+                "shared": [],
+                "slice": "s2",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/399"
+              },
+              {
+                "breaches": [],
+                "files": 5,
+                "pr": 401,
+                "shared": [],
+                "slice": "s3",
+                "status": "graded",
+                "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/401"
+              }
+            ],
+            "reason": null,
+            "sharedGround": [
+              "apps/galaxy/src/home/home.css",
+              "apps/galaxy/src/home/poster/Poster.tsx"
+            ]
+          }
+        },
+        "timeline": {
+          "featurePr": {
+            "mergedAt": "2026-09-28T10:40:14Z",
+            "minutes": 36,
+            "number": 396,
+            "openedAt": "2026-09-28T10:04:23Z",
+            "readyAt": "2026-09-28T10:34:07Z",
+            "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/396"
+          },
+          "medianMinutes": 7,
+          "sliceCount": 3,
+          "slices": [
+            {
+              "closedAt": "2026-09-28T10:14:29Z",
+              "mergedAt": "2026-09-28T10:14:29Z",
+              "mergedWave": 1,
+              "minutes": 7,
+              "openedAt": "2026-09-28T10:07:47Z",
+              "plannedWave": 1,
+              "pr": 398,
+              "slice": "s1",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/398"
+            },
+            {
+              "closedAt": "2026-09-28T10:23:10Z",
+              "mergedAt": "2026-09-28T10:23:10Z",
+              "mergedWave": 2,
+              "minutes": 7,
+              "openedAt": "2026-09-28T10:16:05Z",
+              "plannedWave": 2,
+              "pr": 399,
+              "slice": "s2",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/399"
+            },
+            {
+              "closedAt": "2026-09-28T10:29:55Z",
+              "mergedAt": "2026-09-28T10:29:55Z",
+              "mergedWave": 3,
+              "minutes": 5,
+              "openedAt": "2026-09-28T10:24:34Z",
+              "plannedWave": 3,
+              "pr": 401,
+              "slice": "s3",
+              "url": "https://github.com/vertuoza/vertuo-omni-loop/pull/401"
+            }
+          ],
+          "slowFactor": 3,
+          "waves": {
+            "merged": 3,
+            "planned": 3
+          }
+        }
+      },
+      "prd": {
+        "folder": ".omni-loop/delivery/shipped/0394-home-hero-polish",
+        "number": 394,
+        "state": "shipped",
+        "title": "HOME hero polish — aligned, readable, alive, full screen",
+        "topic": "home-hero-polish"
+      },
+      "rules": {
+        "fieldCaps": {
+          "lesson": 400,
+          "summary": 1200,
+          "title": 90,
+          "whyItMatters": 600
+        },
+        "findingOrder": [
+          [
+            "bug"
+          ],
+          [
+            "override"
+          ],
+          [
+            "drift"
+          ],
+          [
+            "repeated-red",
+            "flaky"
+          ],
+          [
+            "failing-test"
+          ],
+          [
+            "review"
+          ],
+          [
+            "friction"
+          ],
+          [
+            "territory"
+          ],
+          [
+            "churn"
+          ],
+          [
+            "slow-slice"
+          ]
+        ],
+        "issuesPerRun": 5,
+        "limits": {
+          "logTailLines": 200,
+          "modelInputTokens": 40000
+        },
+        "thresholds": {
+          "afterMergeDays": 14,
+          "churnFileLines": 40,
+          "churnFilePercent": 50,
+          "churnRangeCommits": 3,
+          "failingTestRuns": 2,
+          "repeatedRedCommits": 2,
+          "repeatedRedSlices": 2,
+          "slowSliceFactor": 3
+        },
+        "version": 1
+      },
+      "run": "merge",
+      "narration": {
+        "model": "anthropic/claude-opus-5.5",
+        "reason": null,
+        "dropped": []
+      },
+      "issues": {}
+    }
+  ]
+}
