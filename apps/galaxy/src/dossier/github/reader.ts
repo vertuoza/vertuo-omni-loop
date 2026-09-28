@@ -155,7 +155,12 @@ function settledItems(entries: LedgerEntry[]): SettledItem[] {
 /** An outbox as the tab shows it, and what the kit's reply reader needs of it. */
 type OutboxRead = { outbox: Outbox; items: KitItem[]; adopted: KitAdopted[] };
 
-export type GithubReader = { summary(dossier: DossierRef): Promise<GithubSummary | null> };
+export type GithubReader = {
+  summary(dossier: DossierRef): Promise<GithubSummary | null>;
+  /** Drops the dossier's cached summary, so the next read is fresh (PRD 251, s11: a send reads the
+   * outbox fresh, and clears it once posted so the answer shows at once). */
+  forget(dossierId: string): void;
+};
 
 export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now): GithubReader {
   const app = githubApp(creds, fetchImpl, clock);
@@ -331,6 +336,9 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
       }
       summaries.set(dossier.id, { at: clock(), value });
       return value;
+    },
+    forget(dossierId) {
+      summaries.delete(dossierId);
     },
   };
 }

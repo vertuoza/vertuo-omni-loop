@@ -200,6 +200,20 @@ describe('the cache and the token', () => {
     expect(gh.fetchImpl.mock.calls.length).toBeGreaterThan(count);
   });
 
+  it('reads again at once once a dossier is forgotten, and keeps the other dossiers (PRD 251, s11)', async () => {
+    const gh = fakeGithub({ inbox: ['0426-prd-page-stage'], issue: ISSUE });
+    const reader = githubReader(CREDS, gh.fetchImpl, () => NOW);
+    const other = { ...DOSSIER, id: 'd-other' };
+    await reader.summary(DOSSIER);
+    await reader.summary(other);
+    const count = gh.fetchImpl.mock.calls.length;
+    reader.forget(DOSSIER.id);
+    await reader.summary(other);
+    expect(gh.fetchImpl.mock.calls.length).toBe(count);
+    await reader.summary(DOSSIER);
+    expect(gh.fetchImpl.mock.calls.length).toBeGreaterThan(count);
+  });
+
   it('keeps an unreadable answer for 60 s too', async () => {
     const gh = fakeGithub({ installed: false });
     const reader = githubReader(CREDS, gh.fetchImpl, () => NOW);
