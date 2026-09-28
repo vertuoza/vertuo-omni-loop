@@ -71,6 +71,12 @@
   .menu .mi { padding: 6px 8px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
   .menu .mi.f { background: var(--soft); outline: 2px solid var(--cyan); outline-offset: -2px; }
   .signin { width: 100%; text-align: center; padding: 7px; border-radius: 6px; background: var(--yellow); color: var(--void); font-weight: 800; }
+  .col { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .abar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 9px 12px; background: var(--cab); border-bottom: 1px solid var(--line); position: relative; }
+  .abar .t { font-weight: 800; margin-right: auto; }
+  .abar .game { margin-left: 0; }
+  .abar .menu { left: auto; right: 8px; bottom: auto; top: 40px; width: 180px; z-index: 2; }
+  .signin.sm { width: auto; padding: 5px 9px; }
   .phone { max-width: 300px; margin: 0 auto; width: 100%; }
   .tbar { display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--cab); border-bottom: 1px solid var(--line); }
   .burger { width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 6px; display: grid; place-items: center; font-weight: 800; }
@@ -85,7 +91,7 @@
 <header>
   <div class="meta">PRD 438 · BEFORE / AFTER</div>
   <h1>The app gets a <em>sidebar</em></h1>
-  <p class="lede">Today one top bar mixes three concerns. The workspace's work, Omni's own pages and your account all share a row, and most sections are not in it. After this PRD, a left sidebar sorts them: <b>Work</b> at the top, <b>Omni</b> below it, and <b>you</b> in an avatar menu at the foot.</p>
+  <p class="lede">Today one top bar mixes three concerns. The workspace's work, Omni's own pages and your account all share a row, and most sections are not in it. After this PRD, a left sidebar holds where you can go: <b>Work</b>, then <b>Omni</b>. A top bar holds where you are and how you see it: the page's title, the theme switch, Game mode and your avatar.</p>
   <div class="legend" style="margin-top:14px">
     <span><i style="background:var(--yellow)"></i>the page you are on</span>
     <span><i style="border:1px dashed var(--magenta)"></i>a link only this one page shows, or a card that duplicates navigation</span>
@@ -128,16 +134,17 @@
           <div class="grp">OMNI</div>
           <div class="it">Docs<span class="sp"></span><span class="out">↗</span></div>
           <div class="it">Release notes<span class="sp"></span><span class="out">↗</span></div>
-          <div class="me"><span class="av"></span>Pierre Derval</div>
         </aside>
-        <div class="pg"><div class="h">Questions</div>
+        <div class="col"><div class="abar"><span class="t">Questions</span><span class="theme"><span class="on">Omni</span><span>Light</span><span>Dark</span></span><span class="game">Game mode</span><span class="av"></span></div>
+        <div class="pg">
           <div class="row"><b>omni-plan · terminal 2</b> · waiting for you</div>
-          <div class="row"><b>omni-plan · terminal 1</b> · answered</div></div>
+          <div class="row"><b>omni-plan · terminal 1</b> · answered</div></div></div>
       </div></div>
       <ul class="notes">
         <li><span class="good">Every section is one click away</span> from every app page, PRDs included.</li>
         <li>The For me count shows on every page.</li>
         <li>Omni's pages are grouped apart, with ↗ because they open outside the app.</li>
+        <li>The top bar keeps the theme switch and Game mode, and adds the page's title and your avatar.</li>
       </ul>
     </div>
   </div>
@@ -171,20 +178,17 @@
           <div class="it nest">For me<span class="sp"></span><span class="count">3</span></div><div class="it nest">History</div><div class="it">Knowledge</div>
           <div class="grp">OMNI</div>
           <div class="it">Docs<span class="sp"></span><span class="out">↗</span></div><div class="it">Release notes<span class="sp"></span><span class="out">↗</span></div>
-          <div class="me"><span class="av"></span>Pierre Derval
+        </aside>
+        <div class="col"><div class="abar"><span class="t">Home</span><span class="theme"><span class="on">Omni</span><span>Light</span><span>Dark</span></span><span class="game">Game mode</span><span class="av"></span>
             <div class="menu">
               <div class="who">Pierre Derval<small>@pierre-derval</small></div>
-              <div class="mi">Theme <span class="theme"><span class="on">Omni</span><span>Light</span><span>Dark</span></span></div>
-              <div class="mi f">Game mode</div>
-              <div class="mi">Sign out</div>
-            </div>
-          </div>
-        </aside>
+              <div class="mi f">Sign out</div>
+            </div></div>
         <div class="pg"><div class="h">Pierre Derval</div>
           <div class="row">You · hero, fleet, season</div>
-          <div class="row">Notes · what you merged this week</div></div>
+          <div class="row">Notes · what you merged this week</div></div></div>
       </div></div>
-      <ul class="notes"><li>The cards are gone because the sidebar does their job.</li><li><span class="good">Theme, Game mode and Sign out</span> sit together under your avatar and work from the keyboard.</li></ul>
+      <ul class="notes"><li>The cards are gone because the sidebar does their job.</li><li><span class="good">Sign out</span> is finally in the classic app, under your avatar at the right of the top bar, and it works from the keyboard.</li></ul>
     </div>
   </div>
 </section>
@@ -206,10 +210,10 @@
       <div class="screen" style="min-height:0">
         <div class="bar"><span class="mark">OMNI LOOP</span><span class="subt">Docs</span>
           <span class="chip">Release notes</span><span class="chip cur">Docs</span>
-          <span class="theme"><span class="on">Omni</span><span>Light</span><span>Dark</span></span><span class="chip" style="margin-left:auto;color:var(--yellow)">Open the app →</span></div>
+          <span class="theme"><span class="on">Omni</span><span>Light</span><span>Dark</span></span><span class="game">Game mode</span><span class="chip" style="color:var(--yellow)">Open the app →</span></div>
         <div class="pg"><div class="row"><b>Guide</b> sidebar · unchanged</div></div>
       </div>
-      <ul class="notes"><li>These pages stay public and static, with no app sidebar.</li><li>Game mode moves out of this bar, and <b>Open the app →</b> leads to /app.</li></ul>
+      <ul class="notes"><li>These pages stay public and static, with no app sidebar.</li><li>The bar keeps its theme switch and Game mode, and gains <b>Open the app →</b> to /app.</li></ul>
     </div>
   </div>
 </section>
@@ -226,16 +230,16 @@
           <div class="it">Home</div><div class="it cur">PRDs</div><div class="it">Questions</div><div class="it nest">For me</div><div class="it nest">History</div><div class="it">Knowledge</div>
           <div class="grp">OMNI</div>
           <div class="it">Docs<span class="sp"></span><span class="out">↗</span></div><div class="it">Release notes<span class="sp"></span><span class="out">↗</span></div>
-          <div class="me"><span class="signin">Sign in with GitHub</span></div>
         </aside>
-        <div class="pg"><div class="h">PRDs</div><div class="row">The page's own sign-in card, as today</div></div>
+        <div class="col"><div class="abar"><span class="t">PRDs</span><span class="theme"><span class="on">Omni</span><span>Light</span><span>Dark</span></span><span class="game">Game mode</span><span class="signin sm">Sign in with GitHub</span></div>
+        <div class="pg"><div class="row">The page's own sign-in card, as today</div></div></div>
       </div></div>
-      <ul class="notes"><li>Every section still shows, and the footer offers sign-in.</li></ul>
+      <ul class="notes"><li>Every section still shows, and the top bar offers sign-in where the avatar would be.</li></ul>
     </div>
     <div>
       <span class="tag a">AFTER · PHONE, 375PX</span>
       <div class="screen phone">
-        <div class="tbar"><span class="burger">☰</span><span class="crest"></span><b>Questions</b><span style="flex:1"></span><span class="av"></span></div>
+        <div class="tbar" style="flex-wrap:wrap"><span class="burger">☰</span><span class="crest"></span><b>Questions</b><span style="flex:1"></span><span class="av"></span><span style="flex-basis:100%;display:flex;gap:8px;align-items:center"><span class="theme"><span class="on">Omni</span><span>Light</span><span>Dark</span></span><span class="game" style="margin-left:0">Game mode</span></span></div>
         <div class="drawerwrap">
           <div class="pg"><div class="row"><b>terminal 2</b> · waiting</div><div class="row"><b>terminal 1</b> · answered</div></div>
           <div class="scrim"></div>
@@ -245,7 +249,7 @@
           </aside></div>
         </div>
       </div>
-      <ul class="notes"><li>Below 900px, ☰ opens the same sidebar as a drawer. Choosing an item or pressing Escape closes it, and nothing scrolls sideways.</li></ul>
+      <ul class="notes"><li>Below 900px, ☰ opens the same sidebar as a drawer. The theme switch and Game mode wrap to a second row of the bar. Choosing an item or pressing Escape closes the drawer, and nothing scrolls sideways.</li></ul>
     </div>
   </div>
 </section>
