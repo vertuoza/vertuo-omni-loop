@@ -257,6 +257,91 @@ describe('the dossier skills in this repository', () => {
   });
 });
 
+// PRD 315: `/omni:status` is a thin skill, like `/omni:ask`. It runs a bare `omni status`, the
+// repository's overview, adding `--fetch` only when the person asks for fresh data, and prints the
+// output as is in a text block. It never runs the outbox gate, `omni status` with a PRD number.
+// `omni status` or `omni.mjs status` followed, on its line, by a PRD, a placeholder or a gate flag.
+const GATE_RUN = /\bomni(?:\.mjs)?[ \t]+status[ \t]+(?:<|\d|--(?:labels|base|changes)\b)/;
+
+/** Every line of a text that runs the outbox gate, or shows how to, as `<line>: <text>`. */
+function gateRuns(text) {
+  return text.split('\n').flatMap((line, index) => (GATE_RUN.test(line) ? [`${index + 1}: ${line.trim()}`] : []));
+}
+
+describe('the status skill in this repository', () => {
+  const read = () => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/status/SKILL.md'), 'utf8');
+
+  it('is named status, and its description says what triggers it', () => {
+    const { name, description } = frontmatter(read()) ?? {};
+    expect(name).toBe('status');
+    expect(description).toMatch(/\bTriggers on\b.*"\/omni:status"/);
+  });
+
+  it('runs a bare omni status, adds --fetch for fresh data only, and names no other command', () => {
+    const text = read();
+    expect(new Set(commandMentions(text))).toEqual(new Set(['status']));
+    expect(text).toMatch(/^node \.omni-loop\/bin\/omni\.mjs status$/m);
+    expect(text).toMatch(/^node \.omni-loop\/bin\/omni\.mjs status --fetch$/m);
+    expect(text).toContain('fresh data');
+  });
+
+  it('never runs the gate: no omni status < form, and no PRD number or gate flag after it', () => {
+    const text = read();
+    expect(text).toContain('omni status');
+    expect(text).not.toContain('omni status <');
+    expect(gateRuns(text)).toEqual([]);
+  });
+
+  it('prints the output as is, in a text block', () => {
+    const text = read();
+    expect(text).toContain('as is');
+    expect(text).toMatch(/^```text$/m);
+  });
+
+  it('the gate check flags every form of the gate, and none of the overview', () => {
+    const text = [
+      'Run `node .omni-loop/bin/omni.mjs status`, or `omni status --fetch` for fresh data.',
+      'It runs omni status alone, never /omni:status 7.',
+      'node .omni-loop/bin/omni.mjs status <prd>',
+      'Run `omni status 315`.',
+      'Or `omni status --labels a,b`, then omni.mjs status --changes.',
+      'Or `omni status  --base origin/main`.',
+    ].join('\n');
+    expect(gateRuns(text)).toEqual([
+      '3: node .omni-loop/bin/omni.mjs status <prd>',
+      '4: Run `omni status 315`.',
+      '5: Or `omni status --labels a,b`, then omni.mjs status --changes.',
+      '6: Or `omni status  --base origin/main`.',
+    ]);
+  });
+});
+
+// PRD 315: `/omni:help` is a thin skill too. It runs `omni help`, passing the name the person gave
+// when there is one, prints the output as is in a text block, and names no other command.
+describe('the help skill in this repository', () => {
+  const read = () => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/help/SKILL.md'), 'utf8');
+
+  it('is named help, and its description says what triggers it', () => {
+    const { name, description } = frontmatter(read()) ?? {};
+    expect(name).toBe('help');
+    expect(description).toMatch(/\bTriggers on\b.*"\/omni:help"/);
+  });
+
+  it('runs omni help, alone or with the name the person gave, and names no other command', () => {
+    const text = read();
+    expect(new Set(commandMentions(text))).toEqual(new Set(['help']));
+    expect(text).toMatch(/^node \.omni-loop\/bin\/omni\.mjs help$/m);
+    expect(text).toMatch(/^node \.omni-loop\/bin\/omni\.mjs help <name>$/m);
+    expect(text).toContain('the name the person gave');
+  });
+
+  it('prints the output as is, in a text block', () => {
+    const text = read();
+    expect(text).toContain('as is');
+    expect(text).toMatch(/^```text$/m);
+  });
+});
+
 describe('the plugin guard catches what it is for', () => {
   it('passes a well-formed fixture and one with no skills', () => {
     const good = fixture(GOOD);

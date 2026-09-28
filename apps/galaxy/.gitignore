@@ -6,3 +6,4 @@ artifact/dist/
 *.tsbuildinfo
 .vercel
 /shots/
+.source/

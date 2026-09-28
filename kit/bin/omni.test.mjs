@@ -56,6 +56,7 @@ describe('omni', () => {
     const s = io();
     expect(await main(['nope'], { cwd: root, ...s })).toBe(2);
     expect(s.err.join('')).toMatch(/usage: omni <command>/);
+    expect(s.err.join('')).toMatch(/\nomni help: what each command does\n$/);
   });
 });
 

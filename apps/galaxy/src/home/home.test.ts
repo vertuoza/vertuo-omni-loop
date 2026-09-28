@@ -208,12 +208,13 @@ describe('the spreads', () => {
     }
   });
 
-  it('link nowhere but the game at /play and the release notes at /releases, the one page open without signing in', async () => {
+  it('link nowhere but the game at /play, the release notes at /releases and the docs at /docs (PRD 346), the pages open without signing in', async () => {
     const html = await render();
     const hrefs = [...html.matchAll(/<a\b[^>]*\bhref="([^"]*)"/g)].map(([, href]) => href);
     expect(hrefs).toContain('/play');
     expect(hrefs).toContain('/releases');
-    expect(new Set(hrefs)).toEqual(new Set(['/play', '/releases']));
+    expect(hrefs).toContain('/docs');
+    expect(new Set(hrefs)).toEqual(new Set(['/play', '/releases', '/docs']));
     expect(html.match(/<a\b/g)?.length, 'every link has an href').toBe(hrefs.length);
     expect(html).not.toMatch(/<(?:form|area|link)\b[^>]*\b(?:action|href)=/);
   });

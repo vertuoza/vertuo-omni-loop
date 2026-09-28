@@ -1,0 +1,141 @@
+/* The guide at /docs (PRD 346): the sidebar, the page and its table of contents, drawn on the ask
+   pages' reading surface. Every colour is a token of src/ask/theme-tokens.ts (the --ask-* properties
+   the ask root carries, per theme, from @omni/design), so Omni, light and dark follow the theme
+   switch, and no colour is named here. On a phone the sidebar sits above the page and the table of
+   contents is left out; from 720 px the sidebar sits beside it; from 1100 px the table of contents
+   joins them on the right. The sidebar and the table of contents stick while the page scrolls. */
+
+.docs {
+  width: 100%;
+  max-width: 1180px;
+  display: grid;
+  gap: 24px;
+  align-items: start;
+  min-width: 0;
+}
+
+/* ── The sidebar: search, then every page in order ── */
+
+.docs-side { display: grid; gap: 16px; min-width: 0; }
+.docs-nav ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.ask .docs-nav a {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--ask-ink);
+  text-decoration: none;
+  font-size: 15px;
+  line-height: 1.3;
+  border-left: 3px solid transparent;
+}
+.ask .docs-nav a:hover { background: var(--ask-surface); }
+.ask .docs-nav a[aria-current='page'] {
+  font-weight: 700;
+  color: var(--ask-plasma);
+  background: var(--ask-plasma-soft);
+  border-left-color: var(--ask-plasma);
+}
+
+/* ── The search box and its results ── */
+
+.docs-search { display: grid; gap: 6px; position: relative; }
+.docs-search-label { font-size: 13px; color: var(--ask-muted); }
+.docs-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  font: 15px/1.3 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line);
+  border-radius: 8px;
+}
+.docs-search-input:focus { border-color: var(--ask-plasma); outline: none; }
+.docs-search-results {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  display: grid;
+  gap: 2px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line);
+  border-radius: 8px;
+}
+.ask .docs-search-results a {
+  display: block;
+  padding: 6px 8px;
+  border-radius: 6px;
+  color: var(--ask-ink);
+  text-decoration: none;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.ask .docs-search-results a:hover { background: var(--ask-sunk); }
+.docs-search-results [data-type='page'] a { font-weight: 700; }
+.docs-search-results [data-type='text'] a { color: var(--ask-muted); }
+.docs-search-note { padding: 6px 8px; font-size: 14px; color: var(--ask-muted); }
+
+/* ── The page ── */
+
+.docs-article { min-width: 0; max-width: 760px; }
+.docs-title { margin: 0 0 8px; font-size: 32px; line-height: 1.2; text-wrap: balance; }
+.docs-lede { margin: 0 0 28px; font-size: 18px; color: var(--ask-muted); }
+
+.docs-md { min-width: 0; overflow-wrap: anywhere; }
+.docs-md > :first-child { margin-top: 0; }
+.docs-md h2,
+.docs-md h3,
+.docs-md h4 { line-height: 1.3; margin: 1.6em 0 0.5em; text-wrap: balance; scroll-margin-top: 16px; }
+.docs-md h2 { font-size: 23px; padding-bottom: 6px; border-bottom: 1px solid var(--ask-line); }
+.docs-md h3 { font-size: 19px; }
+.docs-md h4 { font-size: 17px; color: var(--ask-muted); }
+.docs-md p,
+.docs-md ul,
+.docs-md ol,
+.docs-md blockquote,
+.docs-md pre,
+.docs-md table { margin: 0 0 1em; }
+.docs-md ul,
+.docs-md ol { padding-left: 1.4em; }
+.docs-md li + li { margin-top: 0.35em; }
+.docs-md blockquote { padding: 4px 16px; color: var(--ask-muted); border-left: 3px solid var(--ask-line); }
+.docs-md hr { border: 0; border-top: 1px solid var(--ask-line); margin: 2em 0; }
+.docs-md code { padding: 1px 5px; background: var(--ask-sunk); border-radius: 4px; }
+.docs-md pre {
+  padding: 14px 16px;
+  overflow-x: auto;
+  font: 14px/1.55 var(--ask-mono);
+  background: var(--ask-sunk);
+  border: 1px solid var(--ask-line);
+  border-radius: 10px;
+  overflow-wrap: normal;
+}
+.docs-md pre code { padding: 0; background: none; font-size: inherit; }
+.docs-md table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 15px; overflow-wrap: normal; }
+.docs-md th,
+.docs-md td { padding: 6px 10px; border: 1px solid var(--ask-line); text-align: left; vertical-align: top; }
+.docs-md th { background: var(--ask-surface); }
+/* The page's last paragraph is its "Next →" link: set apart, at the end. */
+.docs-md > p:last-child:has(> a:only-child) { margin-top: 2.5em; padding-top: 16px; border-top: 1px solid var(--ask-line); text-align: right; }
+.ask .docs-md > p:last-child > a:only-child { font-weight: 700; color: var(--ask-plasma); text-decoration: none; }
+
+/* ── The table of contents ── */
+
+.docs-toc { display: none; min-width: 0; }
+.docs-toc-head { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: var(--ask-muted); }
+.docs-toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; border-left: 1px solid var(--ask-line); }
+.docs-toc li { padding-left: 12px; }
+.docs-toc li[data-depth='3'] { padding-left: 24px; }
+.docs-toc li[data-depth='4'] { padding-left: 36px; }
+.ask .docs-toc a { color: var(--ask-muted); text-decoration: none; font-size: 14px; line-height: 1.35; }
+.ask .docs-toc a:hover { color: var(--ask-ink); }
+
+@media (min-width: 720px) {
+  .docs { grid-template-columns: 220px minmax(0, 1fr); gap: 40px; }
+  .docs-side { position: sticky; top: 16px; }
+}
+
+@media (min-width: 1100px) {
+  .docs { grid-template-columns: 220px minmax(0, 1fr) 200px; }
+  .docs-toc { display: block; position: sticky; top: 16px; }
+}

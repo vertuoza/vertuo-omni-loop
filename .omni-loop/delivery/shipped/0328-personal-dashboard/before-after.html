@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Your Dashboard on /app</title>
+<style>
+  /* The page around the mockups uses the reading pages' light and dark palettes. The mockups are /app
+     itself, drawn in the app's default theme, Omni (PRD 284): the void, the cabinet's navy and comic
+     yellow, the same in both themes. There is no web font and no external request, so the page
+     looks the same wherever it is opened. */
+  :root {
+    --ground: #f5f4fc;
+    --surface: #ffffff;
+    --sunk: #eceaf8;
+    --line: #d9d6ee;
+    --ink: #17153d;
+    --muted: #4f5486;
+    --accent: #6a2fd0;
+    --accent-soft: #efe7ff;
+    --new: #17804a;
+    --new-soft: #e3f6ea;
+    /* Omni, the app's theme: the mockups never change with the page's theme. */
+    --o-ground: #07061c;
+    --o-surface: #120f3a;
+    --o-sunk: #0e0d33;
+    --o-line: #262b86;
+    --o-ink: #f2f4ff;
+    --o-muted: #8a90d6;
+    --o-signal: #ffd84a;
+    --o-on-signal: #07061c;
+    --o-soft: #2a2350;
+    --o-cyan: #6ff0ff;
+    --o-red: #ff6b86;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+      --ink: #f2f4ff; --muted: #a9aee6; --accent: #b37cff; --accent-soft: #2a1d66;
+      --new: #4ee08a; --new-soft: #12352a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+    --ink: #f2f4ff; --muted: #a9aee6; --accent: #b37cff; --accent-soft: #2a1d66;
+    --new: #4ee08a; --new-soft: #12352a;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.55 var(--body); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 40px 64px; display: grid; gap: 56px; }
+  h1, h2, h3 { text-wrap: balance; margin: 0; }
+  p { margin: 0; }
+  code { font-family: var(--mono); font-size: 0.88em; }
+  .eyebrow { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+
+  header.page { display: grid; gap: 12px; max-width: 72ch; }
+  header.page h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.15; }
+  header.page p { color: var(--muted); font-size: 18px; }
+
+  section { display: grid; gap: 20px; }
+  section > h2 { font-size: 24px; }
+  section > .lede { color: var(--muted); max-width: 72ch; }
+
+  /* Before and after, side by side from 980 px. */
+  .pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; align-items: start; }
+  @media (min-width: 980px) { .pair { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); } }
+  .side { display: grid; gap: 10px; }
+  .side-label { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .tag { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; background: var(--sunk); color: var(--muted); }
+  .tag.after { background: var(--accent-soft); color: var(--accent); }
+  .side-label span:last-child { color: var(--muted); font-size: 15px; }
+
+  /* ── The app, in Omni ── */
+  .app { background: var(--o-ground); color: var(--o-ink); border-radius: 14px; overflow: hidden; border: 1px solid var(--line); font-size: 15px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--o-line); }
+  .mark { font-weight: 800; letter-spacing: 0.06em; }
+  .mark small { font-weight: 400; color: var(--o-muted); letter-spacing: 0; margin-left: 6px; font-size: 14px; }
+  .bar-end { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .themes { display: flex; border: 1px solid var(--o-line); border-radius: 999px; overflow: hidden; font-size: 13px; }
+  .themes span { padding: 3px 9px; color: var(--o-muted); }
+  .themes span:first-child { background: var(--o-signal); color: var(--o-on-signal); font-weight: 700; }
+  .game { font-size: 13px; border: 1px solid var(--o-line); border-radius: 8px; padding: 3px 9px; }
+  .app-main { padding: 18px 16px 20px; display: grid; gap: 16px; }
+
+  /* Before: the menu. */
+  .menu-head h3 { font-size: 24px; }
+  .menu-head p { color: var(--o-muted); margin-top: 4px; }
+  .cards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  @media (min-width: 520px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .card { display: grid; gap: 3px; padding: 12px 14px; background: var(--o-surface); border: 1px solid var(--o-line); border-radius: 12px; }
+  .card b { display: flex; justify-content: space-between; gap: 8px; }
+  .card b::after { content: "→"; color: var(--o-signal); }
+  .card span { color: var(--o-muted); font-size: 14px; line-height: 1.4; }
+  .card code { color: var(--o-muted); font-size: 12px; margin-top: 4px; }
+
+  /* After: the dashboard. */
+  .you { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .hero-frame { background: var(--o-sunk); border: 1px solid var(--o-line); border-radius: 12px; padding: 8px 14px; line-height: 0; }
+  .hero-svg { display: block; width: 64px; height: 96px; }
+  .who { display: grid; gap: 4px; min-width: 0; }
+  .who h3 { font-size: 26px; letter-spacing: 0.04em; }
+  .fleet { display: inline-flex; gap: 8px; align-items: center; font-weight: 700; letter-spacing: 0.05em; }
+  .fleet i { width: 12px; height: 12px; border-radius: 3px; background: #d08a4a; }
+  .pts { font-variant-numeric: tabular-nums; }
+  .pts b { color: var(--o-signal); font-size: 20px; }
+  .places { color: var(--o-muted); font-variant-numeric: tabular-nums; }
+  .places b { color: var(--o-ink); }
+
+  .panel { background: var(--o-surface); border: 1px solid var(--o-line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; }
+  .panel-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .panel-head b { font-size: 15px; }
+  .panel-head span { color: var(--o-muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+  .panel-head span strong { color: var(--o-ink); }
+  .chart { width: 100%; height: auto; display: block; }
+  .chart .grid { stroke: var(--o-line); stroke-width: 1; }
+  .chart .tick, .chart .day { fill: var(--o-muted); font: 11px var(--body); }
+  .chart .day.today { fill: var(--o-ink); font-weight: 700; }
+  .chart .bar-mark { fill: var(--o-signal); }
+  .chart .count { fill: var(--o-ink); font: 700 11px var(--body); }
+  .chart .count.zero { fill: var(--o-muted); font-weight: 400; }
+
+  .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  @media (min-width: 1180px) { .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .tile { background: var(--o-surface); border: 1px solid var(--o-line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 2px; align-content: start; }
+  .tile span { color: var(--o-muted); font-size: 13px; line-height: 1.3; }
+  .tile b { font-size: 26px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .tile small { color: var(--o-muted); font-size: 12px; }
+  .tile.waiting { border-color: var(--o-signal); }
+  .tile.waiting b { display: flex; justify-content: space-between; }
+  .tile.waiting b::after { content: "→"; color: var(--o-signal); font-size: 20px; }
+
+  .boards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  @media (min-width: 560px) { .boards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .board { background: var(--o-surface); border: 1px solid var(--o-line); border-radius: 12px; padding: 10px 12px; }
+  .board b { display: block; font-size: 14px; margin-bottom: 6px; }
+  .board b small { color: var(--o-muted); font-weight: 400; }
+  .board ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .board li { display: grid; grid-template-columns: 2ch minmax(0, 1fr) auto; gap: 8px; padding: 3px 6px; border-radius: 6px; }
+  .board li .r { color: var(--o-muted); text-align: right; }
+  .board li .n { overflow-wrap: anywhere; }
+  .board li.me { background: var(--o-soft); font-weight: 700; }
+  .board li.me .n::after { content: " ◀"; color: var(--o-signal); }
+  .board li.gap { color: var(--o-muted); padding-block: 0; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: 1px; }
+
+  .go { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; padding-top: 4px; border-top: 1px solid var(--o-line); }
+  .go span { padding-top: 8px; }
+  .go span::after { content: " →"; color: var(--o-signal); }
+
+  /* The other situations. */
+  .states { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  @media (min-width: 700px) { .states { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .state { display: grid; gap: 8px; align-content: start; }
+  .state h3 { font-size: 17px; }
+  .state > p { color: var(--muted); font-size: 15px; }
+  .mini { background: var(--o-ground); color: var(--o-ink); border-radius: 12px; border: 1px solid var(--line); padding: 14px; display: grid; gap: 10px; font-size: 14px; }
+  .mini .panel p { color: var(--o-muted); }
+  .mini .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mini h4 { margin: 0; font-size: 17px; }
+  .btn { justify-self: start; background: var(--o-signal); color: var(--o-on-signal); font-weight: 700; border-radius: 8px; padding: 6px 12px; font-size: 14px; }
+  .link { color: var(--o-cyan); }
+  .muted-tile b { font-size: 14px; color: var(--o-muted); font-weight: 400; }
+  .error-tile { border-color: var(--o-red); }
+  .error-tile b { font-size: 14px; color: var(--o-red); font-weight: 400; }
+
+  /* Where the numbers come from. */
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .node { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; display: grid; gap: 1px; }
+  .node small { color: var(--muted); font-size: 13px; }
+  .node.new { border-color: var(--new); background: var(--new-soft); }
+  .arrow { color: var(--muted); }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); background: var(--sunk); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; margin-left: 6px; }
+  .pill.new { background: var(--new-soft); color: var(--new); }
+  .pill.zero { background: var(--sunk); color: var(--muted); }
+
+  .same { display: grid; gap: 8px; padding-left: 20px; margin: 0; max-width: 80ch; }
+  .same li::marker { color: var(--accent); }
+  footer { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="page">
+  <span class="eyebrow">PRD 328 · apps/galaxy · /app</span>
+  <h1>Your dashboard, the app's home</h1>
+  <p>Today <code>/app</code> is a menu, the same for everyone. After this PRD it shows the person who
+  opened it: their hero, their fleet, their season, a week of merges into <code>main</code>, four
+  counts, the rankings, and the app's sections underneath.</p>
+</header>
+
+<section aria-labelledby="pair">
+  <h2 id="pair">Before and after</h2>
+  <div class="pair">
+
+    <div class="side">
+      <div class="side-label"><span class="tag">Today</span><span>A menu that reads nothing</span></div>
+      <div class="app" role="img" aria-label="Today's /app: the heading Omni Loop, one line, and five section cards">
+        <div class="bar">
+          <span class="mark">OMNI LOOP<small>App</small></span>
+          <span class="bar-end"><span class="themes"><span>Omni</span><span>Light</span><span>Dark</span></span><span class="game">Game mode</span></span>
+        </div>
+        <div class="app-main">
+          <div class="menu-head">
+            <h3>Omni Loop</h3>
+            <p>The loop’s questions and knowledge, as pages. The game is one tap away.</p>
+          </div>
+          <ul class="cards">
+            <li class="card"><b>Questions</b><span>The questions Claude is asking you now</span><code>/ask</code></li>
+            <li class="card"><b>For me</b><span>Questions a teammate shared with you</span><code>/ask/for-me</code></li>
+            <li class="card"><b>History</b><span>Every question your workspace was asked</span><code>/ask/history</code></li>
+            <li class="card"><b>Knowledge map</b><span>Principles, rules and invariants, as a map</span><code>/knowledge</code></li>
+            <li class="card"><b>Release notes</b><span>What Omni Loop shipped, week by week</span><code>/releases</code></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="side-label"><span class="tag after">After</span><span>Signed in as a player with GitHub linked</span></div>
+      <div class="app">
+        <div class="bar">
+          <span class="mark">OMNI LOOP<small>App</small></span>
+          <span class="bar-end"><span class="themes"><span>Omni</span><span>Light</span><span>Dark</span></span><span class="game">Game mode</span></span>
+        </div>
+        <div class="app-main">
+
+          <div class="you">
+            <div class="hero-frame"><svg class="hero-svg" xmlns="http://www.w3.org/2000/svg" width="64" height="96" viewBox="0 0 32 48" shape-rendering="crispEdges" role="img" aria-label="PIERRE, a hero of the BEAVER fleet"><title>PIERRE, a hero of the BEAVER fleet</title><path fill="#963f0e" d="M10 0h1v1h-1zM12 0h3v1h-3zM17 0h2v1h-2zM20 0h1v1h-1zM10 1h1v1h-1zM21 1h1v1h-1zM9 2h1v1h-1zM22 2h1v1h-1zM8 3h1v1h-1zM8 4h1v1h-1zM8 5h1v1h-1zM8 6h1v1h-1zM8 7h1v1h-1z"/><path fill="#f1e9b7" d="M11 0h1v1h-1zM15 0h2v1h-2zM19 0h1v1h-1zM11 1h4v1h-4zM10 2h4v1h-4zM9 3h3v1h-3zM9 4h2v1h-2z"/><path fill="#e8c15a" d="M15 1h6v1h-6zM14 2h8v1h-8zM12 3h8v1h-8zM11 4h8v1h-8zM9 5h8v1h-8zM9 6h7v1h-7zM9 7h5v1h-5z"/><path fill="#d87d19" d="M20 3h3v1h-3zM19 4h4v1h-4zM17 5h6v1h-6zM16 6h7v1h-7zM14 7h9v1h-9z"/><path fill="#0b0a26" d="M23 3h1v1h-1zM23 4h1v1h-1zM23 5h1v1h-1zM23 6h1v1h-1zM23 7h1v1h-1zM23 9h1v1h-1zM23 10h1v1h-1zM22 11h1v1h-1zM22 12h1v1h-1zM21 13h1v1h-1zM20 14h1v1h-1zM19 15h1v1h-1zM29 20h1v1h-1zM29 21h1v1h-1zM28 22h1v1h-1zM28 23h1v1h-1zM28 24h1v1h-1zM28 25h1v1h-1zM28 26h1v1h-1zM29 29h1v1h-1zM29 30h1v1h-1zM29 31h1v1h-1zM28 32h1v1h-1zM28 34h1v1h-1zM28 35h1v1h-1zM28 36h1v1h-1zM28 37h1v1h-1zM28 38h1v1h-1zM28 39h1v1h-1zM29 41h1v1h-1zM29 42h1v1h-1zM29 43h1v1h-1zM3 44h6v1h-6zM22 44h7v1h-7zM15 45h1v1h-1zM22 45h1v1h-1zM10 46h5v1h-5zM17 46h5v1h-5z"/><path fill="#9b241d" d="M9 8h1v1h-1zM22 8h1v1h-1zM8 9h1v1h-1zM8 10h1v1h-1zM9 11h1v1h-1zM9 12h1v1h-1zM13 12h1v1h-1zM18 12h1v1h-1zM10 13h1v1h-1zM14 13h4v1h-4zM11 14h1v1h-1zM12 15h1v1h-1zM12 16h1v1h-1z"/><path fill="#f0e0cc" d="M10 8h7v1h-7zM10 9h2v1h-2zM14 9h2v1h-2zM10 10h4v1h-4zM10 11h3v1h-3zM10 12h2v1h-2z"/><path fill="#dfa377" d="M17 8h5v1h-5zM16 9h2v1h-2zM20 9h2v1h-2zM14 10h8v1h-8zM13 11h3v1h-3zM17 11h4v1h-4zM12 12h1v1h-1zM14 12h4v1h-4zM19 12h1v1h-1zM11 13h3v1h-3zM18 13h1v1h-1zM12 14h6v1h-6zM13 15h4v1h-4zM13 16h3v1h-3zM13 17h2v1h-2zM13 18h1v1h-1z"/><path fill="#d35531" d="M9 9h1v1h-1zM22 9h1v1h-1zM9 10h1v1h-1zM22 10h1v1h-1zM16 11h1v1h-1zM21 11h1v1h-1zM20 12h2v1h-2zM19 13h2v1h-2zM18 14h2v1h-2zM17 15h2v1h-2zM16 16h3v1h-3zM15 17h4v1h-4zM14 18h5v1h-5z"/><path fill="#ffffff" d="M12 9h1v1h-1zM19 9h1v1h-1z"/><path fill="#38b4e0" d="M13 9h1v1h-1zM18 9h1v1h-1z"/><path fill="#9c0053" d="M7 16h5v1h-5zM19 16h6v1h-6zM6 17h1v1h-1zM4 33h1v1h-1zM27 33h1v1h-1zM3 34h1v1h-1zM3 35h1v1h-1zM3 36h1v1h-1zM3 37h1v1h-1zM3 38h1v1h-1zM3 39h1v1h-1zM3 40h1v1h-1zM28 40h1v1h-1zM2 41h1v1h-1zM2 42h1v1h-1zM2 43h1v1h-1z"/><path fill="#141c62" d="M5 17h1v1h-1zM25 17h2v1h-2zM4 18h1v1h-1zM27 18h1v1h-1zM3 19h1v1h-1zM28 19h1v1h-1zM2 20h1v1h-1zM2 21h1v1h-1zM3 25h1v1h-1zM3 26h1v1h-1zM4 27h1v1h-1z"/><path fill="#ff3b5c" d="M7 17h6v1h-6zM19 17h6v1h-6zM12 21h7v1h-7zM8 33h2v1h-2zM6 34h4v1h-4zM24 34h4v1h-4zM6 35h4v1h-4zM24 35h4v1h-4zM5 36h5v1h-5zM23 36h5v1h-5zM5 37h4v1h-4zM23 37h4v1h-4zM4 38h5v1h-5zM22 38h5v1h-5zM4 39h4v1h-4zM22 39h4v1h-4zM4 40h3v1h-3zM21 40h4v1h-4zM4 41h3v1h-3zM22 41h3v1h-3zM3 42h3v1h-3zM15 42h2v1h-2zM22 42h2v1h-2zM3 43h3v1h-3zM15 43h2v1h-2zM22 43h2v1h-2zM15 44h2v1h-2z"/><path fill="#5a6cf0" d="M5 18h3v1h-3zM22 18h3v1h-3zM4 19h4v1h-4zM22 19h3v1h-3zM3 20h4v1h-4zM22 20h2v1h-2zM3 21h1v1h-1zM6 21h1v1h-1zM22 21h2v1h-2zM6 22h1v1h-1zM21 22h3v1h-3zM21 23h2v1h-2zM21 24h2v1h-2zM21 25h2v1h-2zM21 26h1v1h-1zM21 27h1v1h-1zM21 28h1v1h-1zM20 29h2v1h-2zM20 30h1v1h-1zM20 33h1v1h-1z"/><path fill="#3346cc" d="M8 18h2v1h-2zM25 18h2v1h-2zM8 19h2v1h-2zM25 19h3v1h-3zM7 20h3v1h-3zM24 20h5v1h-5zM7 21h3v1h-3zM24 21h2v1h-2zM27 21h1v1h-1zM7 22h4v1h-4zM24 22h2v1h-2zM6 23h5v1h-5zM23 23h2v1h-2zM7 24h4v1h-4zM23 24h2v1h-2zM4 25h1v1h-1zM7 25h4v1h-4zM23 25h2v1h-2zM27 25h1v1h-1zM4 26h1v1h-1zM7 26h3v1h-3zM22 26h3v1h-3zM27 26h1v1h-1zM5 27h1v1h-1zM7 27h3v1h-3zM22 27h2v1h-2zM26 27h1v1h-1zM9 28h1v1h-1zM21 30h1v1h-1zM21 31h1v1h-1zM21 32h1v1h-1zM21 33h1v1h-1zM20 34h2v1h-2zM20 35h2v1h-2zM20 36h1v1h-1zM20 37h1v1h-1zM20 38h1v1h-1zM20 39h1v1h-1z"/><path fill="#e1c79f" d="M10 18h3v1h-3zM19 18h1v1h-1zM10 19h6v1h-6zM10 20h5v1h-5zM5 21h1v1h-1zM10 21h2v1h-2zM26 21h1v1h-1zM4 22h1v1h-1zM11 22h2v1h-2zM4 23h1v1h-1zM11 23h2v1h-2zM4 24h1v1h-1zM11 24h1v1h-1zM25 24h1v1h-1zM12 33h4v1h-4zM12 34h4v1h-4zM12 35h3v1h-3zM12 36h2v1h-2zM12 37h1v1h-1zM12 38h1v1h-1z"/><path fill="#d08a4a" d="M20 18h2v1h-2zM16 19h6v1h-6zM15 20h7v1h-7zM19 21h2v1h-2zM5 22h1v1h-1zM13 22h7v1h-7zM26 22h1v1h-1zM5 23h1v1h-1zM13 23h1v1h-1zM26 23h1v1h-1zM5 24h1v1h-1zM12 24h7v1h-7zM26 24h1v1h-1zM5 25h1v1h-1zM11 25h1v1h-1zM25 25h2v1h-2zM11 26h6v1h-6zM25 26h1v1h-1zM11 27h3v1h-3zM11 28h5v1h-5zM12 29h3v1h-3zM12 30h2v1h-2zM15 32h2v1h-2zM16 33h4v1h-4zM16 34h4v1h-4zM15 35h4v1h-4zM14 36h4v1h-4zM13 37h5v1h-5zM13 38h4v1h-4zM12 39h4v1h-4zM12 40h4v1h-4z"/><path fill="#22309a" d="M4 21h1v1h-1zM28 21h1v1h-1zM25 23h1v1h-1zM10 26h1v1h-1zM10 27h1v1h-1zM24 27h1v1h-1zM10 28h1v1h-1zM22 28h1v1h-1zM10 29h2v1h-2zM10 30h2v1h-2zM10 31h1v1h-1zM10 32h1v1h-1zM10 33h2v1h-2zM10 34h2v1h-2zM10 35h2v1h-2zM10 36h2v1h-2zM21 36h1v1h-1zM11 37h1v1h-1zM11 38h1v1h-1zM11 39h1v1h-1zM11 40h1v1h-1zM20 40h1v1h-1z"/><path fill="#a24926" d="M21 21h1v1h-1zM20 22h1v1h-1zM27 22h1v1h-1zM20 23h1v1h-1zM27 23h1v1h-1zM6 24h1v1h-1zM19 24h2v1h-2zM27 24h1v1h-1zM6 25h1v1h-1zM19 25h2v1h-2zM5 26h2v1h-2zM17 26h4v1h-4zM26 26h1v1h-1zM19 27h2v1h-2zM16 28h5v1h-5zM15 29h5v1h-5zM14 30h6v1h-6zM19 35h1v1h-1zM18 36h2v1h-2zM18 37h2v1h-2zM17 38h3v1h-3zM16 39h4v1h-4zM16 40h4v1h-4zM15 41h2v1h-2z"/><path fill="#661f16" d="M3 22h1v1h-1zM3 23h1v1h-1zM3 24h1v1h-1z"/><path fill="#ff7aa8" d="M14 23h6v1h-6z"/><path fill="#b07cff" d="M12 25h7v1h-7z"/><path fill="#3a4796" d="M6 27h1v1h-1zM25 27h1v1h-1zM4 28h2v1h-2zM23 28h2v1h-2zM3 29h2v1h-2zM22 29h2v1h-2zM3 30h1v1h-1zM22 30h1v1h-1zM11 31h5v1h-5zM10 41h3v1h-3zM17 41h3v1h-3zM10 42h2v1h-2zM17 42h2v1h-2zM10 43h1v1h-1zM17 43h1v1h-1z"/><path fill="#5b7bff" d="M14 27h5v1h-5z"/><path fill="#0c1030" d="M27 27h1v1h-1zM3 28h1v1h-1zM28 28h1v1h-1zM2 29h1v1h-1zM2 30h1v1h-1zM2 31h1v1h-1zM3 32h1v1h-1zM9 44h1v1h-1zM9 45h1v1h-1zM16 45h1v1h-1z"/><path fill="#222b6e" d="M6 28h3v1h-3zM25 28h3v1h-3zM5 29h4v1h-4zM24 29h4v1h-4zM4 30h4v1h-4zM23 30h4v1h-4zM3 31h4v1h-4zM16 31h5v1h-5zM22 31h4v1h-4zM4 32h2v1h-2zM11 32h3v1h-3zM23 32h2v1h-2zM13 41h2v1h-2zM20 41h2v1h-2zM12 42h2v1h-2zM19 42h2v1h-2zM11 43h3v1h-3zM18 43h3v1h-3zM10 44h3v1h-3zM17 44h3v1h-3zM10 45h2v1h-2zM17 45h2v1h-2z"/><path fill="#161d4d" d="M9 29h1v1h-1zM28 29h1v1h-1zM8 30h2v1h-2zM27 30h2v1h-2zM7 31h3v1h-3zM26 31h3v1h-3zM6 32h3v1h-3zM14 32h1v1h-1zM17 32h4v1h-4zM25 32h3v1h-3zM6 33h1v1h-1zM25 33h1v1h-1zM14 42h1v1h-1zM21 42h1v1h-1zM14 43h1v1h-1zM21 43h1v1h-1zM13 44h2v1h-2zM20 44h2v1h-2zM12 45h3v1h-3zM19 45h3v1h-3z"/><path fill="#faa6a9" d="M9 32h1v1h-1zM22 32h1v1h-1zM5 33h1v1h-1zM7 33h1v1h-1zM22 33h3v1h-3zM26 33h1v1h-1zM4 34h2v1h-2zM22 34h2v1h-2zM4 35h2v1h-2zM22 35h2v1h-2zM4 36h1v1h-1zM22 36h1v1h-1zM4 37h1v1h-1zM21 37h2v1h-2zM21 38h1v1h-1zM21 39h1v1h-1zM3 41h1v1h-1z"/><path fill="#e80056" d="M9 37h2v1h-2zM27 37h1v1h-1zM9 38h2v1h-2zM27 38h1v1h-1zM8 39h3v1h-3zM26 39h2v1h-2zM7 40h4v1h-4zM25 40h3v1h-3zM7 41h3v1h-3zM25 41h4v1h-4zM6 42h4v1h-4zM24 42h5v1h-5zM6 43h4v1h-4zM24 43h5v1h-5z"/></svg></div>
+            <div class="who">
+              <h3>PIERRE</h3>
+              <span class="fleet"><i aria-hidden="true"></i>BEAVER fleet</span>
+              <span class="pts"><b>1,240</b> pts · September season</span>
+              <span class="places">You <b>#7</b> of 23 · BEAVER <b>#2</b> of 5</span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><b>PRs merged into main · last 7 days</b><span><strong>9</strong> total</span></div>
+            <svg class="chart" viewBox="0 0 340 150" role="img" aria-labelledby="chart-t chart-d">
+              <title id="chart-t">PRs you authored that merged into main, per day</title>
+              <desc id="chart-d">Tuesday 2, Wednesday 1, Thursday 3, Friday 1, Saturday 0, Sunday 0, Monday (today) 2. 9 in all.</desc>
+              <!-- y scale: 0 at y=120, 3 at y=24 (32 per PR). Slots 44 wide from x=28. -->
+              <line class="grid" x1="28" y1="120" x2="336" y2="120"/>
+              <line class="grid" x1="28" y1="88" x2="336" y2="88" stroke-dasharray="2 4"/>
+              <line class="grid" x1="28" y1="56" x2="336" y2="56" stroke-dasharray="2 4"/>
+              <line class="grid" x1="28" y1="24" x2="336" y2="24" stroke-dasharray="2 4"/>
+              <text class="tick" x="18" y="124" text-anchor="end">0</text>
+              <text class="tick" x="18" y="92" text-anchor="end">1</text>
+              <text class="tick" x="18" y="60" text-anchor="end">2</text>
+              <text class="tick" x="18" y="28" text-anchor="end">3</text>
+              <rect class="bar-mark" x="39" y="56" width="22" height="64" rx="2"/>
+              <rect class="bar-mark" x="83" y="88" width="22" height="32" rx="2"/>
+              <rect class="bar-mark" x="127" y="24" width="22" height="96" rx="2"/>
+              <rect class="bar-mark" x="171" y="88" width="22" height="32" rx="2"/>
+              <rect class="bar-mark" x="303" y="56" width="22" height="64" rx="2"/>
+              <text class="count" x="50" y="50" text-anchor="middle">2</text>
+              <text class="count" x="94" y="82" text-anchor="middle">1</text>
+              <text class="count" x="138" y="18" text-anchor="middle">3</text>
+              <text class="count" x="182" y="82" text-anchor="middle">1</text>
+              <text class="count zero" x="226" y="114" text-anchor="middle">0</text>
+              <text class="count zero" x="270" y="114" text-anchor="middle">0</text>
+              <text class="count" x="314" y="50" text-anchor="middle">2</text>
+              <text class="day" x="50" y="140" text-anchor="middle">Tue</text>
+              <text class="day" x="94" y="140" text-anchor="middle">Wed</text>
+              <text class="day" x="138" y="140" text-anchor="middle">Thu</text>
+              <text class="day" x="182" y="140" text-anchor="middle">Fri</text>
+              <text class="day" x="226" y="140" text-anchor="middle">Sat</text>
+              <text class="day" x="270" y="140" text-anchor="middle">Sun</text>
+              <text class="day today" x="314" y="140" text-anchor="middle">Mon</text>
+            </svg>
+          </div>
+
+          <div class="tiles">
+            <div class="tile"><span>Questions answered</span><b>14</b><small>this season</small></div>
+            <div class="tile"><span>Outbox settled</span><b>3</b><small>this season</small></div>
+            <div class="tile"><span>PRDs created</span><b>2</b><small>this season</small></div>
+            <div class="tile waiting"><span>Waiting for you</span><b>1</b><small>now · opens /ask</small></div>
+          </div>
+
+          <div class="boards">
+            <div class="board">
+              <b>Fleets <small>· September</small></b>
+              <ol>
+                <li><span class="r">1</span><span class="n"><i class="dot" style="background:#b07cff"></i>OCTOPOD</span><span>2,300</span></li>
+                <li class="me"><span class="r">2</span><span class="n"><i class="dot" style="background:#d08a4a"></i>BEAVER</span><span>1,900</span></li>
+                <li><span class="r">3</span><span class="n"><i class="dot" style="background:#ffd84a"></i>PICSOU</span><span>1,400</span></li>
+                <li><span class="r">4</span><span class="n"><i class="dot" style="background:#9aa3c8"></i>C.I.A.</span><span>700</span></li>
+                <li><span class="r">5</span><span class="n"><i class="dot" style="background:#2fc6a4"></i>PIRATES</span><span>150</span></li>
+              </ol>
+            </div>
+            <div class="board">
+              <b>Individuals <small>· September</small></b>
+              <ol>
+                <li><span class="r">1</span><span class="n">INKY</span><span>980</span></li>
+                <li><span class="r">2</span><span class="n">DIME</span><span>870</span></li>
+                <li><span class="r">3</span><span class="n">OTTO</span><span>820</span></li>
+                <li class="gap" aria-label="ranks 4 and 5 skipped"><span class="r">⋯</span><span></span><span></span></li>
+                <li><span class="r">6</span><span class="n">MAX</span><span>300</span></li>
+                <li class="me"><span class="r">7</span><span class="n">PIERRE</span><span>280</span></li>
+                <li><span class="r">8</span><span class="n">LEA</span><span>120</span></li>
+              </ol>
+            </div>
+          </div>
+
+          <nav class="go" aria-label="The app's sections"><span>Questions</span><span>For me</span><span>History</span><span>Knowledge map</span><span>Release notes</span></nav>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section aria-labelledby="states">
+  <h2 id="states">When there is no full dashboard to show</h2>
+  <p class="lede">Each part empties on its own. A 0 is shown as 0, and no tile is hidden for being empty.</p>
+  <div class="states">
+    <div class="state">
+      <h3>Signed out</h3>
+      <p>Only the sign-in card. Google brings the person back through <code>/app/callback</code>, which also joins the workspace of their email's domain.</p>
+      <div class="mini">
+        <div class="panel"><h4>Sign in to see your dashboard</h4><p>Your hero, your fleet, your season and the PRs you merged, with the Vertuoza Google account you play with.</p><span class="btn">Sign in with Google</span></div>
+      </div>
+    </div>
+    <div class="state">
+      <h3>A member who never joined a fleet</h3>
+      <p>An invitation takes the hero block's place. The rankings, the chart and the tiles still show.</p>
+      <div class="mini">
+        <div class="panel"><h4>Join a fleet in the arcade to get your hero and your score</h4><span class="link">Open the arcade →</span></div>
+      </div>
+    </div>
+    <div class="state">
+      <h3>A player with no GitHub linked</h3>
+      <p>Points and place, the chart, Outbox settled and PRDs created ask for the link. Questions answered and Waiting for you still count.</p>
+      <div class="mini">
+        <div class="tiles">
+          <div class="tile"><span>Questions answered</span><b>14</b><small>this season</small></div>
+          <div class="tile muted-tile"><span>PRDs created</span><b>Link your GitHub in the arcade</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="state">
+      <h3>One read fails</h3>
+      <p>Only that part says so, and the rest of the page renders. The error goes to the server's log.</p>
+      <div class="mini">
+        <div class="tiles">
+          <div class="tile error-tile"><span>Outbox settled</span><b>Couldn't load this. Reload in a moment.</b></div>
+          <div class="tile"><span>PRDs created</span><b>2</b><small>this season</small></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="data">
+  <h2 id="data">Where each number comes from</h2>
+  <p class="lede">One thing is new. The game workflow already polls GitHub every 15 minutes. Now it also records who authored which pull request merged into <code>main</code>, and who opened which PRD issue. Everything else is read from what already exists.</p>
+  <div class="flow" aria-label="GitHub, then the game workflow's new step, then the contributions table, then /app">
+    <div class="node"><b>GitHub</b><small>each sector repository</small></div>
+    <span class="arrow" aria-hidden="true">→</span>
+    <div class="node new"><b><code>game:contributions</code></b><small>after <code>game:xp</code>, every 15 min</small></div>
+    <span class="arrow" aria-hidden="true">→</span>
+    <div class="node new"><b><code>contributions</code></b><small>new table · members read, the workflow writes</small></div>
+    <span class="arrow" aria-hidden="true">→</span>
+    <div class="node"><b><code>/app</code></b><small>read as you, per visit</small></div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>On the page</th><th>Read from</th><th>Period</th></tr></thead>
+      <tbody>
+        <tr><td>Hero, name, fleet</td><td>your <code>players</code> row, and <code>teams</code></td><td>now</td></tr>
+        <tr><td>Points, your place, both rankings</td><td>the ledger, folded by <code>buildGalaxy</code> as the arcade does <span class="pill zero">0 until the projector PRD</span></td><td>this season</td></tr>
+        <tr><td>PRs merged into main</td><td><code>contributions</code>, <code>pr-merged</code> <span class="pill new">new</span></td><td>last 7 days, Brussels time</td></tr>
+        <tr><td>PRDs created</td><td><code>contributions</code>, <code>prd-opened</code> <span class="pill new">new</span></td><td>this season</td></tr>
+        <tr><td>Outbox settled</td><td>ledger <code>WOUND_CLOSED</code> events with an <code>outbox:</code> id <span class="pill zero">0 until the projector PRD</span></td><td>this season</td></tr>
+        <tr><td>Questions answered</td><td><code>ask_rounds.answered_by</code></td><td>this season</td></tr>
+        <tr><td>Waiting for you</td><td>your open sessions' newest rounds, and rounds shared with you</td><td>now</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="same">
+  <h2 id="same">What stays the same</h2>
+  <ul class="same">
+    <li><code>/</code> (HOME) and the arcade at <code>/play</code>. The arcade's APP MODE row and GAME ▮▯ APP switch still land on <code>/app</code>.</li>
+    <li>The app bar: the <code>OMNI LOOP · App</code> mark, the Omni, Light and Dark themes, and Game mode.</li>
+    <li>The sections themselves (<code>/ask</code>, <code>/ask/for-me</code>, <code>/ask/history</code>, <code>/knowledge</code>, <code>/releases</code>). Only their cards on <code>/app</code> get smaller.</li>
+    <li>The ledger and the game's scoring. The dashboard adds no points, no XP and no ledger event.</li>
+    <li>The season: the calendar month the arcade already scores.</li>
+  </ul>
+</section>
+
+<footer>PRD 328 · spec, plan and this page in <code>.omni-loop/delivery/shipped/0328-personal-dashboard/</code>. The names and numbers above are examples.</footer>
+
+</div>
+</body>
+</html>

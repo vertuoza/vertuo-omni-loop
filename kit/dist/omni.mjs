@@ -1349,9 +1349,9 @@ ${indent}`) + "'";
         start = start.replace(/\n+/g, `$&${indent}`);
       }
       const indentSize = indent ? "2" : "1";
-      let header = (startWithSpace ? indentSize : "") + chomp;
+      let header2 = (startWithSpace ? indentSize : "") + chomp;
       if (comment2) {
-        header += " " + commentString(comment2.replace(/ ?[\r\n]+/g, " "));
+        header2 += " " + commentString(comment2.replace(/ ?[\r\n]+/g, " "));
         if (onComment)
           onComment();
       }
@@ -1366,11 +1366,11 @@ ${indent}`) + "'";
         }
         const body = foldFlowLines.foldFlowLines(`${start}${foldedValue}${end}`, indent, foldFlowLines.FOLD_BLOCK, foldOptions);
         if (!literalFallback)
-          return `>${header}
+          return `>${header2}
 ${indent}${body}`;
       }
       value = value.replace(/\n+/g, `$&${indent}`);
-      return `|${header}
+      return `|${header2}
 ${indent}${start}${value}${end}`;
     }
     function plainString(item2, ctx, onComment, onChompKeep) {
@@ -4516,10 +4516,10 @@ var require_resolve_block_scalar = __commonJS({
     var Scalar = require_Scalar();
     function resolveBlockScalar(ctx, scalar, onError) {
       const start = scalar.offset;
-      const header = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
-      if (!header)
+      const header2 = parseBlockScalarHeader(scalar, ctx.options.strict, onError);
+      if (!header2)
         return { value: "", type: null, comment: "", range: [start, start, start] };
-      const type = header.mode === ">" ? Scalar.Scalar.BLOCK_FOLDED : Scalar.Scalar.BLOCK_LITERAL;
+      const type = header2.mode === ">" ? Scalar.Scalar.BLOCK_FOLDED : Scalar.Scalar.BLOCK_LITERAL;
       const lines = scalar.source ? splitLines(scalar.source) : [];
       let chompStart = lines.length;
       for (let i = lines.length - 1; i >= 0; --i) {
@@ -4530,26 +4530,26 @@ var require_resolve_block_scalar = __commonJS({
           break;
       }
       if (chompStart === 0) {
-        const value2 = header.chomp === "+" && lines.length > 0 ? "\n".repeat(Math.max(1, lines.length - 1)) : "";
-        let end2 = start + header.length;
+        const value2 = header2.chomp === "+" && lines.length > 0 ? "\n".repeat(Math.max(1, lines.length - 1)) : "";
+        let end2 = start + header2.length;
         if (scalar.source)
           end2 += scalar.source.length;
-        return { value: value2, type, comment: header.comment, range: [start, end2, end2] };
+        return { value: value2, type, comment: header2.comment, range: [start, end2, end2] };
       }
-      let trimIndent = scalar.indent + header.indent;
-      let offset = scalar.offset + header.length;
+      let trimIndent = scalar.indent + header2.indent;
+      let offset = scalar.offset + header2.length;
       let contentStart = 0;
       for (let i = 0; i < chompStart; ++i) {
         const [indent, content] = lines[i];
         if (content === "" || content === "\r") {
-          if (header.indent === 0 && indent.length > trimIndent)
+          if (header2.indent === 0 && indent.length > trimIndent)
             trimIndent = indent.length;
         } else {
           if (indent.length < trimIndent) {
             const message = "Block scalars with more-indented leading empty lines must use an explicit indentation indicator";
             onError(offset + indent.length, "MISSING_CHAR", message);
           }
-          if (header.indent === 0)
+          if (header2.indent === 0)
             trimIndent = indent.length;
           contentStart = i;
           if (trimIndent === 0 && !ctx.atRoot) {
@@ -4576,7 +4576,7 @@ var require_resolve_block_scalar = __commonJS({
         if (crlf)
           content = content.slice(0, -1);
         if (content && indent.length < trimIndent) {
-          const src = header.indent ? "explicit indentation indicator" : "first line";
+          const src = header2.indent ? "explicit indentation indicator" : "first line";
           const message = `Block scalar lines must not be less indented than their ${src}`;
           onError(offset - content.length - (crlf ? 2 : 1), "BAD_INDENT", message);
           indent = "";
@@ -4603,7 +4603,7 @@ var require_resolve_block_scalar = __commonJS({
           prevMoreIndented = false;
         }
       }
-      switch (header.chomp) {
+      switch (header2.chomp) {
         case "-":
           break;
         case "+":
@@ -4615,8 +4615,8 @@ var require_resolve_block_scalar = __commonJS({
         default:
           value += "\n";
       }
-      const end = start + header.length + scalar.source.length;
-      return { value, type, comment: header.comment, range: [start, end, end] };
+      const end = start + header2.length + scalar.source.length;
+      return { value, type, comment: header2.comment, range: [start, end, end] };
     }
     function parseBlockScalarHeader({ offset, props }, strict, onError) {
       if (props[0].type !== "block-scalar-header") {
@@ -5462,10 +5462,10 @@ var require_cst_scalar = __commonJS({
             type = "QUOTE_DOUBLE";
             break;
           case "block-scalar": {
-            const header = token.props[0];
-            if (header.type !== "block-scalar-header")
+            const header2 = token.props[0];
+            if (header2.type !== "block-scalar-header")
               throw new Error("Invalid block scalar header");
-            type = header.source[0] === ">" ? "BLOCK_FOLDED" : "BLOCK_LITERAL";
+            type = header2.source[0] === ">" ? "BLOCK_FOLDED" : "BLOCK_LITERAL";
             break;
           }
           default:
@@ -5497,10 +5497,10 @@ var require_cst_scalar = __commonJS({
       const head = source.substring(0, he);
       const body = source.substring(he + 1) + "\n";
       if (token.type === "block-scalar") {
-        const header = token.props[0];
-        if (header.type !== "block-scalar-header")
+        const header2 = token.props[0];
+        if (header2.type !== "block-scalar-header")
           throw new Error("Invalid block scalar header");
-        header.source = head;
+        header2.source = head;
         token.source = body;
       } else {
         const { offset } = token;
@@ -7454,7 +7454,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/bin/omni.mjs
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync9 } from "node:child_process";
+import { execFileSync as execFileSync10 } from "node:child_process";
 import { realpathSync as realpathSync4 } from "node:fs";
 import { fileURLToPath as fileURLToPath4 } from "node:url";
 
@@ -8474,10 +8474,10 @@ function isValidJWT(jwt, alg) {
   if (!jwtRegex.test(jwt))
     return false;
   try {
-    const [header] = jwt.split(".");
-    if (!header)
+    const [header2] = jwt.split(".");
+    if (!header2)
       return false;
-    const base64 = header.replace(/-/g, "+").replace(/_/g, "/").padEnd(header.length + (4 - header.length % 4) % 4, "=");
+    const base64 = header2.replace(/-/g, "+").replace(/_/g, "/").padEnd(header2.length + (4 - header2.length % 4) % 4, "=");
     const decoded = JSON.parse(atob(base64));
     if (typeof decoded !== "object" || decoded === null)
       return false;
@@ -12196,12 +12196,12 @@ function readDossiers(root) {
   }
   return Array.isArray(value) ? value.map(entryOf).filter(Boolean) : [];
 }
-function writeDossiers(root, entries2) {
+function writeDossiers(root, entries3) {
   const dir = join5(root, LOCAL_DIR);
   mkdirSync2(dir, { recursive: true });
   const ignore = join5(dir, ".gitignore");
   if (!existsSync5(ignore)) writeFileSync2(ignore, "*\n");
-  writeFileSync2(join5(root, DOSSIERS_FILE), `${JSON.stringify(entries2, null, 2)}
+  writeFileSync2(join5(root, DOSSIERS_FILE), `${JSON.stringify(entries3, null, 2)}
 `);
 }
 function recordDraft(root, entry) {
@@ -12921,14 +12921,14 @@ function renderSettledEntry({ item: item2, itemText, answer, judgement, markers,
 function parseSettledEntries(text4, markers) {
   return latestPerId(rawSettledEntries(text4, markers));
 }
-function latestPerId(entries2) {
+function latestPerId(entries3) {
   const byId = /* @__PURE__ */ new Map();
-  for (const entry of entries2) byId.set(entry.id, entry);
+  for (const entry of entries3) byId.set(entry.id, entry);
   return [...byId.values()];
 }
 function rawSettledEntries(text4, markers) {
   const lines = text4.split("\n");
-  const entries2 = [];
+  const entries3 = [];
   let current = null;
   for (let index = 0; index < lines.length; index += 1) {
     const openMatch = lines[index].match(markers.settledOpenRe);
@@ -12941,7 +12941,7 @@ function rawSettledEntries(text4, markers) {
       const [answerText = "", itemText = ""] = current.blocks;
       const closed = /^yes\b/.test(current.fields.Closed ?? "");
       const became = (current.fields.Became ?? "").split(",").map((id) => id.trim()).filter(Boolean);
-      entries2.push({
+      entries3.push({
         id: current.id,
         verdict: current.fields.Verdict,
         closed,
@@ -12966,7 +12966,7 @@ function rawSettledEntries(text4, markers) {
     const fieldMatch = lines[index].match(/^- ([A-Za-z][A-Za-z ]*): (.*)$/);
     if (fieldMatch) current.fields[fieldMatch[1]] = fieldMatch[2];
   }
-  return entries2;
+  return entries3;
 }
 function locate(root, file) {
   const absoluteFile = isAbsolute2(file) ? file : join9(root, file);
@@ -13680,8 +13680,8 @@ var sameText = (a, b) => {
 async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
   if (typeof state !== "string" || state.length === 0) throw new LoopbackError("the listener needs a state to compare with.");
   let settle2;
-  const code = new Promise((resolve2, reject) => {
-    settle2 = { resolve: resolve2, reject };
+  const code = new Promise((resolve3, reject) => {
+    settle2 = { resolve: resolve3, reject };
   });
   code.catch(() => {
   });
@@ -13701,8 +13701,8 @@ async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
     return answer(200, SIGNED_IN);
   });
   let closedResolve;
-  const closed = new Promise((resolve2) => {
-    closedResolve = resolve2;
+  const closed = new Promise((resolve3) => {
+    closedResolve = resolve3;
   });
   let timer;
   function finish(outcome) {
@@ -13712,11 +13712,11 @@ async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
     server.close(() => closedResolve());
     server.closeAllConnections();
   }
-  await new Promise((resolve2, reject) => {
+  await new Promise((resolve3, reject) => {
     server.once("error", reject);
     server.listen(0, HOST, () => {
       server.off("error", reject);
-      resolve2();
+      resolve3();
     });
   });
   const { port, address } = server.address();
@@ -13962,8 +13962,8 @@ function parsePlanSlices(markdown) {
     const line = lines[i];
     if (isTableRow(line) && /^\|\s*id\s*\|/i.test(line.trim())) {
       foundAnyIdTable = true;
-      const header2 = cells(line).map((name) => name.toLowerCase());
-      if (header2.indexOf("territory") !== -1) {
+      const header3 = cells(line).map((name) => name.toLowerCase());
+      if (header3.indexOf("territory") !== -1) {
         headerIndex = i;
         break;
       }
@@ -13977,8 +13977,8 @@ function parsePlanSlices(markdown) {
     }
     throw new Error("No slice table was found in this plan; its slices declare no territory.");
   }
-  const header = cells(lines[headerIndex]).map((name) => name.toLowerCase());
-  const column = (name) => header.indexOf(name);
+  const header2 = cells(lines[headerIndex]).map((name) => name.toLowerCase());
+  const column = (name) => header2.indexOf(name);
   const slices = [];
   for (let index = headerIndex + 1; index < lines.length; index += 1) {
     const line = lines[index];
@@ -14077,8 +14077,8 @@ function stateFor({ pr, blockersMerged, now, limits, needsFixLabel }) {
   return "in-flight";
 }
 var TAKEABLE_STATES = /* @__PURE__ */ new Set(["runnable", "claimed-stale"]);
-function runnableFrontier(rows) {
-  const takeableRows = rows.filter((row) => TAKEABLE_STATES.has(row.state));
+function runnableFrontier(rows2) {
+  const takeableRows = rows2.filter((row) => TAKEABLE_STATES.has(row.state));
   if (takeableRows.length === 0) return { wave: null, runnable: [], takeable: [], excluded: [], collisions: [] };
   const wave = Math.min(...takeableRows.map((row) => row.wave));
   const inWave = takeableRows.filter((row) => row.wave === wave);
@@ -14120,13 +14120,13 @@ function boardFor({ slices, prs = [], now = Date.now(), limits, config: config2,
     })
   );
   const mergedById = new Map([...matched].map(([id, pr]) => [id, Boolean(pr && isMerged(pr))]));
-  const rows = slices.map((slice) => {
+  const rows2 = slices.map((slice) => {
     const pr = matched.get(slice.id) ?? null;
     const blockersMerged = (slice.blockedBy ?? []).every((blockerId) => mergedById.get(blockerId) === true);
     const state = stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config2.labels.needsFix });
     return { ...slice, pr, state };
   });
-  return { prd: { topic }, slices: rows, frontier: runnableFrontier(rows) };
+  return { prd: { topic }, slices: rows2, frontier: runnableFrontier(rows2) };
 }
 
 // kit/bin/github.mjs
@@ -14407,7 +14407,7 @@ function idParts(id) {
 }
 function readFields(lines) {
   const fields = {};
-  const counts = {};
+  const counts2 = {};
   let fieldAt = -1;
   let open2 = null;
   lines.forEach((line, index) => {
@@ -14415,8 +14415,8 @@ function readFields(lines) {
     if (match) {
       if (fieldAt === -1) fieldAt = index;
       const key = FIELD_KEY[match[1]];
-      counts[key] = (counts[key] ?? 0) + 1;
-      if (counts[key] === 1) {
+      counts2[key] = (counts2[key] ?? 0) + 1;
+      if (counts2[key] === 1) {
         fields[key] = match[2].trim();
         open2 = key;
       } else {
@@ -14430,7 +14430,7 @@ function readFields(lines) {
     }
     if (open2) fields[open2] = `${fields[open2]} ${line.trim()}`.trim();
   });
-  return { fields, counts, fieldAt };
+  return { fields, counts: counts2, fieldAt };
 }
 var PROPOSED_VALUE = /^(\S.*?)\s+(\d{4}-\d{2}-\d{2})$/;
 function readProposed(file, id, value) {
@@ -14445,26 +14445,26 @@ function readProposed(file, id, value) {
   };
 }
 function splitEntries(text4) {
-  const entries2 = [];
+  const entries3 = [];
   let current = null;
   for (const line of text4.split("\n")) {
     const match = line.match(ENTRY_HEADING);
     if (match) {
-      if (current) entries2.push(current);
+      if (current) entries3.push(current);
       current = { id: match[1], lines: [] };
     } else if (ANY_H2.test(line)) {
-      if (current) entries2.push(current);
+      if (current) entries3.push(current);
       current = null;
     } else if (current) {
       current.lines.push(line);
     }
   }
-  if (current) entries2.push(current);
-  return entries2;
+  if (current) entries3.push(current);
+  return entries3;
 }
 function parseEntryFile(file, text4, place) {
   return splitEntries(text4).map(({ id, lines }) => {
-    const { fields, counts, fieldAt } = readFields(lines);
+    const { fields, counts: counts2, fieldAt } = readFields(lines);
     const statement2 = (fieldAt === -1 ? lines : lines.slice(0, fieldAt)).filter((line) => line.trim().length > 0).join(" ").trim();
     const kind = place.kind ?? (fields.kindLine === "rule" || fields.kindLine === "invariant" ? fields.kindLine : null);
     const enforcedBy = fields.enforcedBy ?? null;
@@ -14488,7 +14488,7 @@ function parseEntryFile(file, text4, place) {
       proposed,
       kindLine: fields.kindLine ?? null,
       keptId: fields.keptId ?? null,
-      fieldCounts: counts,
+      fieldCounts: counts2,
       problems
     };
   });
@@ -14511,7 +14511,7 @@ function crossDomainDir(ctx) {
   return `${ctx.layout.knowledgeRoot}/cross-domain`;
 }
 function readKnowledge({ ctx }) {
-  const entries2 = [];
+  const entries3 = [];
   const PRODUCT_DIR = productDir(ctx);
   const DOMAINS_DIR = domainsDir(ctx);
   const CROSS_DOMAIN_DIR = crossDomainDir(ctx);
@@ -14519,7 +14519,7 @@ function readKnowledge({ ctx }) {
   for (const [name, kind] of Object.entries(LAYER_FILES)) {
     if (!productFiles.includes(name)) continue;
     const file = `${PRODUCT_DIR}/${name}`;
-    entries2.push(
+    entries3.push(
       ...parseEntryFile(file, readFileSync13(join15(ctx.root, file), "utf8"), {
         scope: "product",
         domain: "product",
@@ -14535,7 +14535,7 @@ function readKnowledge({ ctx }) {
     for (const [layer, kind] of Object.entries(LAYER_FILES)) {
       if (!files.includes(layer)) continue;
       const file = `${dir}/${layer}`;
-      entries2.push(
+      entries3.push(
         ...parseEntryFile(file, readFileSync13(join15(ctx.root, file), "utf8"), {
           scope: "domain",
           domain: name,
@@ -14556,7 +14556,7 @@ function readKnowledge({ ctx }) {
     const halves = name.split("--");
     const pair = halves.length === 2 && halves.every(Boolean) ? halves : null;
     const file = `${CROSS_DOMAIN_DIR}/${fileName}`;
-    entries2.push(
+    entries3.push(
       ...parseEntryFile(file, readFileSync13(join15(ctx.root, file), "utf8"), {
         scope: "cross-domain",
         domain: name,
@@ -14566,15 +14566,15 @@ function readKnowledge({ ctx }) {
     );
     return { file, name, pair };
   });
-  return { entries: entries2, domains, crossDomainFiles, productFiles };
+  return { entries: entries3, domains, crossDomainFiles, productFiles };
 }
 function readRegisters({ ctx }) {
-  const { entries: entries2 } = readKnowledge({ ctx });
+  const { entries: entries3 } = readKnowledge({ ctx });
   return {
-    entries: entries2,
-    principles: entries2.filter((entry) => entry.kind === "principle"),
-    rules: entries2.filter((entry) => entry.kind === "rule"),
-    invariants: entries2.filter((entry) => entry.kind === "invariant")
+    entries: entries3,
+    principles: entries3.filter((entry) => entry.kind === "principle"),
+    rules: entries3.filter((entry) => entry.kind === "rule"),
+    invariants: entries3.filter((entry) => entry.kind === "invariant")
   };
 }
 function registerCounts({ ctx }) {
@@ -14593,8 +14593,8 @@ function registerCounts({ ctx }) {
 function resolveId(id, { ctx }) {
   return readKnowledge({ ctx }).entries.find((entry) => entry.id === id) ?? null;
 }
-function servedBy(entries2, id) {
-  return entries2.filter((entry) => entry.serves === id);
+function servedBy(entries3, id) {
+  return entries3.filter((entry) => entry.serves === id);
 }
 
 // kit/lib/inbox/inbox.mjs
@@ -14884,10 +14884,10 @@ function findCrossDomainFileViolations(knowledge2) {
   }
   return violations;
 }
-function findReusedIds(entries2) {
+function findReusedIds(entries3) {
   const firstSeenIn = /* @__PURE__ */ new Map();
   const violations = [];
-  for (const { id, file } of entries2) {
+  for (const { id, file } of entries3) {
     const seenIn = firstSeenIn.get(id);
     if (seenIn) {
       violations.push(violation(file, id, `already used in ${seenIn} \u2014 an id is never reused.`));
@@ -15032,10 +15032,10 @@ function servesViolations(entry, principles) {
   }
   return [];
 }
-function findEntryViolations(ctx, entries2) {
-  const principles = entries2.filter((entry) => entry.kind === "principle");
+function findEntryViolations(ctx, entries3) {
+  const principles = entries3.filter((entry) => entry.kind === "principle");
   const violations = [];
-  for (const entry of entries2) {
+  for (const entry of entries3) {
     violations.push(...idShapeViolations(entry));
     violations.push(...(entry.problems ?? []).map((problem) => ({ text: problem })));
     if (entry.scope === "cross-domain" && !entry.kind) {
@@ -15104,16 +15104,16 @@ function findEntryViolations(ctx, entries2) {
   }
   return violations;
 }
-function findUnresolvedCitations(file, text4, resolve2) {
-  return idsCitedIn(text4).filter((id) => !resolve2(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
+function findUnresolvedCitations(file, text4, resolve3) {
+  return idsCitedIn(text4).filter((id) => !resolve3(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
 }
-function findWishes(entries2) {
-  return entries2.filter((entry) => entry.kind === "principle" && servedBy(entries2, entry.id).length === 0).map(
+function findWishes(entries3) {
+  return entries3.filter((entry) => entry.kind === "principle" && servedBy(entries3, entry.id).length === 0).map(
     (entry) => violation(entry.file, entry.id, "is a wish \u2014 no rule or invariant serves it yet.")
   );
 }
-function findProposals(entries2) {
-  return entries2.filter((entry) => entry.proposed !== null && entry.proposed.by !== null).map(
+function findProposals(entries3) {
+  return entries3.filter((entry) => entry.proposed !== null && entry.proposed.by !== null).map(
     (entry) => violation(
       entry.file,
       entry.id,
@@ -15123,7 +15123,7 @@ function findProposals(entries2) {
 }
 function gradeKnowledge({ ctx, files = [], glossaryText } = {}) {
   const knowledge2 = readKnowledge({ ctx });
-  const resolve2 = (id) => knowledge2.entries.find((entry) => entry.id === id);
+  const resolve3 = (id) => knowledge2.entries.find((entry) => entry.id === id);
   const text4 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
   const violations = [
     ...findLayoutViolations(ctx, knowledge2, { glossaryText: text4 }),
@@ -15131,7 +15131,7 @@ function gradeKnowledge({ ctx, files = [], glossaryText } = {}) {
     ...findCrossDomainFileViolations(knowledge2),
     ...findReusedIds(knowledge2.entries),
     ...findEntryViolations(ctx, knowledge2.entries),
-    ...files.flatMap((file) => findUnresolvedCitations(file, readRepoFile(ctx, file), resolve2))
+    ...files.flatMap((file) => findUnresolvedCitations(file, readRepoFile(ctx, file), resolve3))
   ];
   return {
     violations: violations.map(formatViolation),
@@ -15178,7 +15178,7 @@ function lawsFor(ctx) {
     }
     return invariants;
   };
-  function resolve2(bearsOn) {
+  function resolve3(bearsOn) {
     if (bearsOn === "none") return { ok: true };
     const adr = ADR_ID.exec(bearsOn);
     if (adr) {
@@ -15200,7 +15200,7 @@ function lawsFor(ctx) {
     if (source === "claudeMdInvariants") return invariantSet().has(bearsOn);
     return false;
   }
-  return Object.freeze({ source, resolve: resolve2, floorsHigh });
+  return Object.freeze({ source, resolve: resolve3, floorsHigh });
 }
 
 // kit/lib/outbox/check-outbox.mjs
@@ -15395,7 +15395,7 @@ function parseEntries(content) {
     };
   }
   const errors = [];
-  const entries2 = [];
+  const entries3 = [];
   for (let i = 0; i < lines.length; i += 3) {
     const [pathLine, ruleLine, accountLine] = lines.slice(i, i + 3);
     const pathMatch = pathLine.match(ENTRY_PATH_LINE);
@@ -15417,13 +15417,13 @@ function parseEntries(content) {
     }
     const [, kind, rawValue] = accountMatch;
     const value = rawValue.trim();
-    entries2.push({
+    entries3.push({
       path: pathMatch[1],
       rule: ruleMatch[1],
       account: kind === "item" ? { kind: "item", id: value } : { kind: "spec", where: value }
     });
   }
-  return { errors, entries: entries2 };
+  return { errors, entries: entries3 };
 }
 function validateBody(body) {
   const found = parseHeadingSections2(body);
@@ -15442,9 +15442,9 @@ function validateBody(body) {
     errors.push(`missing section: "## ${RISKY_CHANGES_HEADING}"`);
     return { errors, entries: [] };
   }
-  const { errors: entryErrors, entries: entries2 } = parseEntries(riskyChangesSection.content);
+  const { errors: entryErrors, entries: entries3 } = parseEntries(riskyChangesSection.content);
   errors.push(...entryErrors);
-  return { errors, entries: entries2 };
+  return { errors, entries: entries3 };
 }
 function parseAccount(text4, { file = null } = {}) {
   const blockMatch = text4.match(FRONT_MATTER_BLOCK4);
@@ -15465,7 +15465,7 @@ function parseAccount(text4, { file = null } = {}) {
       errors.push(withFile4(file, `${field2}: ${issue.message}`));
     }
   }
-  const { errors: bodyErrors, entries: entries2 } = validateBody(body);
+  const { errors: bodyErrors, entries: entries3 } = validateBody(body);
   errors.push(...bodyErrors.map((message) => withFile4(file, message)));
   if (errors.length > 0) return { ok: false, errors };
   const fm = parsedFrontMatter.data;
@@ -15473,7 +15473,7 @@ function parseAccount(text4, { file = null } = {}) {
     prd: fm.prd,
     slice: fm.slice,
     graded: fm.graded,
-    entries: entries2,
+    entries: entries3,
     file
   };
   return { ok: true, account };
@@ -15520,14 +15520,14 @@ function entryKey(change) {
   return `${change.path}\0${change.rule}`;
 }
 function compare(risky, accounts) {
-  const entries2 = accounts.flatMap(
+  const entries3 = accounts.flatMap(
     (account) => account.entries.map((entry) => ({ ...entry, slice: account.slice, file: account.file }))
   );
-  const namedKeys = new Set(entries2.map(entryKey));
+  const namedKeys = new Set(entries3.map(entryKey));
   const riskyKeys = new Set(risky.map(entryKey));
   const accounted = risky.filter((change) => namedKeys.has(entryKey(change)));
   const unaccounted = risky.filter((change) => !namedKeys.has(entryKey(change)));
-  const stale = entries2.filter((entry) => !riskyKeys.has(entryKey(entry)));
+  const stale = entries3.filter((entry) => !riskyKeys.has(entryKey(entry)));
   return { accounted, unaccounted, stale };
 }
 
@@ -15561,9 +15561,9 @@ function isStoredShape(change, { ctx }) {
   return ctx.config.risk.storedShape.some((source) => new RegExp(source).test(change.path));
 }
 function enforcedByPaths({ ctx }) {
-  const { entries: entries2 } = readRegisters({ ctx });
+  const { entries: entries3 } = readRegisters({ ctx });
   const paths = /* @__PURE__ */ new Set();
-  for (const entry of entries2) {
+  for (const entry of entries3) {
     if (!entry.enforcedBy || entry.enforcedBy === "unenforced") continue;
     for (const rawPath of entry.enforcedBy.split(",")) {
       const path = rawPath.replace(/`/g, "").trim();
@@ -16047,12 +16047,12 @@ var FORM_STATES2 = ["filled", "pointer", "blank", "missing"];
 function checkKb({ ctx, stdout, stderr, exec }) {
   const { violations, warnings, forms } = gradePlaybook({ ctx, exec });
   for (const warning of warnings) println(stderr, `warning: ${warning}`);
-  const counts = FORM_STATES2.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count3]) => count3 > 0).map(([state, count3]) => `${count3} ${state}`);
+  const counts2 = FORM_STATES2.map((state) => [state, forms.filter((form2) => form2.state === state).length]).filter(([, count3]) => count3 > 0).map(([state, count3]) => `${count3} ${state}`);
   return report(
     stdout,
     "check kb \u2014 a form does not hold what it claims:",
     violations,
-    `check kb \u2014 ${forms.length} form(s): ${counts.join(", ")}; ${warnings.length} warning(s).`
+    `check kb \u2014 ${forms.length} form(s): ${counts2.join(", ")}; ${warnings.length} warning(s).`
   );
 }
 function checkReleases({ ctx, stdout }) {
@@ -16254,8 +16254,8 @@ function unreworkedDrift(prd2, { ctx }) {
   if (outboxDir === null) return [];
   const settledFile = `${outboxDir}/${SETTLED_FILE}`;
   if (!existsSync20(`${ctx.root}/${settledFile}`)) return [];
-  const entries2 = parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers);
-  return entries2.filter((entry) => entry.verdict === "drifted" && !entry.closed).map((entry) => ({ id: entry.id, closedLine: entry.fields.Closed }));
+  const entries3 = parseSettledEntries(readRepoFile(ctx, settledFile), ctx.markers);
+  return entries3.filter((entry) => entry.verdict === "drifted" && !entry.closed).map((entry) => ({ id: entry.id, closedLine: entry.fields.Closed }));
 }
 function gateResult(prd2, { ctx, labels = [], changes = null } = {}) {
   const items = openItems(prd2, { ctx });
@@ -16758,11 +16758,11 @@ function upsertOutboxPrComment({ prd: prd2, ctx, now = () => (/* @__PURE__ */ ne
   };
 }
 function countsByRank(items) {
-  const counts = {};
+  const counts2 = {};
   for (const item2 of items) {
-    counts[item2.rank] = (counts[item2.rank] ?? 0) + 1;
+    counts2[item2.rank] = (counts2[item2.rank] ?? 0) + 1;
   }
-  return counts;
+  return counts2;
 }
 function slackEscape(text4) {
   return text4.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
@@ -16789,7 +16789,7 @@ function slackLine({
   prd: prd2,
   title,
   owner,
-  counts,
+  counts: counts2,
   adoptedCount = 0,
   unaccountedCount = 0,
   url
@@ -16798,7 +16798,7 @@ function slackLine({
   const name = cleanTitle ? `PRD #${prd2} \xB7 ${slackEscape(cleanTitle)}` : `PRD #${prd2}`;
   const who = ownerText(owner);
   const head = who ? `*${name}* \u2014 owner ${who}` : `*${name}*`;
-  const waiting = Object.values(counts).reduce((sum, count3) => sum + count3, 0);
+  const waiting = Object.values(counts2).reduce((sum, count3) => sum + count3, 0);
   const parts = [];
   if (waiting > 0) {
     parts.push(`${waiting} question${waiting === 1 ? " needs" : "s need"} a decision`);
@@ -16850,7 +16850,7 @@ function upsertOutboxComment({ prd: prd2, owner, repo, branch, ref = branch, ctx
   const unaccounted = unaccountedChanges(prd2, changes, { ctx });
   const unreworked = unreworkedDrift(prd2, { ctx });
   const body = formatOutboxComment({ prd: prd2, owner, repo, branch, ref, items, unaccounted, unreworked, labels, ctx });
-  const counts = countsByRank(items);
+  const counts2 = countsByRank(items);
   const adoptedCount = adoptedEntriesForPrd(prd2, { ctx }).length;
   const existing = findMarkerComment(client.listComments(), ctx.markers);
   const hasSomethingToList = items.length > 0 || unaccounted.length > 0;
@@ -16862,7 +16862,7 @@ function upsertOutboxComment({ prd: prd2, owner, repo, branch, ref = branch, ctx
       itemCount: 0,
       unaccountedCount: 0,
       newCount: 0,
-      counts,
+      counts: counts2,
       adoptedCount,
       body
     };
@@ -16882,7 +16882,7 @@ function upsertOutboxComment({ prd: prd2, owner, repo, branch, ref = branch, ctx
       itemCount: items.length,
       unaccountedCount: unaccounted.length,
       newCount,
-      counts,
+      counts: counts2,
       adoptedCount,
       body
     };
@@ -16895,7 +16895,7 @@ function upsertOutboxComment({ prd: prd2, owner, repo, branch, ref = branch, ctx
     itemCount: items.length,
     unaccountedCount: unaccounted.length,
     newCount,
-    counts,
+    counts: counts2,
     adoptedCount,
     body
   };
@@ -17117,12 +17117,12 @@ function creditCommits(commits) {
 }
 var zeros = (keys) => Object.fromEntries(keys.map((key) => [key, 0]));
 function tally(items, keyFor) {
-  const counts = /* @__PURE__ */ new Map();
+  const counts2 = /* @__PURE__ */ new Map();
   for (const item2 of items) {
     const key = keyFor(item2);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    counts2.set(key, (counts2.get(key) ?? 0) + 1);
   }
-  return [...counts];
+  return [...counts2];
 }
 function summarize(items, { commits = null, app = false } = {}) {
   const prs = { total: 0, states: { merged: 0, open: 0 }, kinds: zeros(KINDS2), signatures: zeros(SIGNATURES) };
@@ -17218,11 +17218,11 @@ function readCredits({ owner, repo, since, labels, signature, exec = execFileSyn
   const search = (query, fields, keyword = null) => {
     const tail = keyword === null ? [] : ["--", keyword];
     const text4 = gh([...query, "--limit", String(SEARCH_CAP), "--json", fields, ...tail]).trim();
-    const rows = text4 ? JSON.parse(text4) : [];
-    if (rows.length >= SEARCH_CAP) {
+    const rows2 = text4 ? JSON.parse(text4) : [];
+    if (rows2.length >= SEARCH_CAP) {
       warnings.push(`gh ${[...query, ...tail].map(shown).join(" ")} hit GitHub's 1,000-result cap: some items may be missing; narrow it with --since or --repo.`);
     }
-    return rows;
+    return rows2;
   };
   const prs = /* @__PURE__ */ new Map();
   const issues = /* @__PURE__ */ new Map();
@@ -17302,7 +17302,7 @@ function creditsReport({ name, scope, since, summary }) {
   return lines;
 }
 function creditsList(items) {
-  const rows = items.map((item2) => [
+  const rows2 = items.map((item2) => [
     shortName(item2.repo),
     `#${item2.number}`,
     item2.kind,
@@ -17311,8 +17311,8 @@ function creditsList(items) {
     item2.signature ?? "-",
     item2.title
   ]);
-  const widths = rows.reduce((max, row) => max.map((width, index) => Math.max(width, row[index].length)), Array(6).fill(0));
-  return rows.map((row) => [...widths.map((width, index) => row[index].padEnd(width)), row[6]].join(" "));
+  const widths = rows2.reduce((max, row) => max.map((width, index) => Math.max(width, row[index].length)), Array(6).fill(0));
+  return rows2.map((row) => [...widths.map((width, index) => row[index].padEnd(width)), row[6]].join(" "));
 }
 
 // kit/bin/commands/credits.mjs
@@ -17366,13 +17366,13 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/dossier/draft.mjs
 init_define_OMNI_BUNDLE();
-function chooseDraft(entries2, { prd: prd2, claudeSessionId }) {
-  const unnumbered = entries2.filter((entry) => entry.prd === null);
+function chooseDraft(entries3, { prd: prd2, claudeSessionId }) {
+  const unnumbered = entries3.filter((entry) => entry.prd === null);
   if (claudeSessionId) {
     const mine = unnumbered.filter((entry) => entry.claudeSessionId === claudeSessionId);
     if (mine.length > 0) return mine[mine.length - 1];
   }
-  if (entries2.some((entry) => entry.prd === prd2)) return null;
+  if (entries3.some((entry) => entry.prd === prd2)) return null;
   const free = claudeSessionId ? unnumbered.filter((entry) => entry.claudeSessionId === null) : unnumbered;
   return free.length === 1 ? free[0] : null;
 }
@@ -17723,7 +17723,7 @@ function parseJson(text4) {
   }
 }
 function wait(ms) {
-  return new Promise((resolve2) => setTimeout(resolve2, ms));
+  return new Promise((resolve3) => setTimeout(resolve3, ms));
 }
 
 // kit/lib/knowledge/pipeline.mjs
@@ -17868,7 +17868,7 @@ function settleAtMerge({ ctx, prd: prd2, merge }) {
   const existing = existsSync24(join28(ctx.root, settledFile)) ? readRepoFile(ctx, settledFile) : null;
   const answer = mergeAnswer(facts);
   const errors = [];
-  const entries2 = [];
+  const entries3 = [];
   const deletes = [];
   for (const file of openItemFiles(prd2, { ctx })) {
     const itemText = readRepoFile(ctx, file);
@@ -17885,7 +17885,7 @@ function settleAtMerge({ ctx, prd: prd2, merge }) {
       markers: ctx.markers,
       closed: `yes \u2014 adopted at the merge by @${facts.by}`
     });
-    entries2.push({ id: parsed.item.id, from: "open", entry });
+    entries3.push({ id: parsed.item.id, from: "open", entry });
     deletes.push(file);
   }
   if (errors.length > 0) return { ok: false, errors };
@@ -17900,15 +17900,15 @@ function settleAtMerge({ ctx, prd: prd2, merge }) {
       markers: ctx.markers,
       closed: `yes \u2014 merged without rework, by @${facts.by}`
     });
-    entries2.push({ id: settled.id, from: "drift", entry });
+    entries3.push({ id: settled.id, from: "drift", entry });
   }
-  if (entries2.length === 0) {
-    return { ok: true, settledFile, entries: entries2, append: "", text: null, deletes };
+  if (entries3.length === 0) {
+    return { ok: true, settledFile, entries: entries3, append: "", text: null, deletes };
   }
   const base = existing ?? settledHeader(prd2, { ctx });
   const separator = base.endsWith("\n") ? "\n" : "\n\n";
-  const append = `${separator}${entries2.map((e) => e.entry).join("\n")}`;
-  return { ok: true, settledFile, entries: entries2, append, text: `${base}${append}`, deletes };
+  const append = `${separator}${entries3.map((e) => e.entry).join("\n")}`;
+  return { ok: true, settledFile, entries: entries3, append, text: `${base}${append}`, deletes };
 }
 
 // kit/lib/knowledge/classify.mjs
@@ -18211,8 +18211,8 @@ function mergedLine(merge) {
 function slugOf(title) {
   const slug = title.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   if (slug.length <= SLUG_MAX) return slug;
-  const cut = slug.slice(0, SLUG_MAX + 1);
-  return cut.slice(0, cut.lastIndexOf("-") > 0 ? cut.lastIndexOf("-") : SLUG_MAX);
+  const cut2 = slug.slice(0, SLUG_MAX + 1);
+  return cut2.slice(0, cut2.lastIndexOf("-") > 0 ? cut2.lastIndexOf("-") : SLUG_MAX);
 }
 function chosenOption(candidate) {
   if (candidate.verdict === "drifted") {
@@ -18618,8 +18618,8 @@ var today = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 function landedText(entry) {
   if (entry.kind === "stays-here") return "stays here";
   if (entry.kind === "covered") return `covered by ${entry.landedAs.join(", ")}`;
-  const standing = entry.kind === "adr" ? entry.status : entry.proposed ? "proposed" : "confirmed";
-  return `${entry.landedAs.join(", ")} (new, ${standing})`;
+  const standing2 = entry.kind === "adr" ? entry.status : entry.proposed ? "proposed" : "confirmed";
+  return `${entry.landedAs.join(", ")} (new, ${standing2})`;
 }
 function checkLine(name, violations) {
   return violations.length === 0 ? `omni check ${name} \u2713` : `omni check ${name} \u2717 (${violations.length})`;
@@ -18676,6 +18676,506 @@ var harvest = {
     for (const violation2 of [...result.checks.knowledge, ...result.checks.outbox]) lines.push(`    ${violation2}`);
     lines.push(noEdits(result.edits) ? "Nothing changed." : "Review the diff and commit it.");
     println(stdout, lines.join("\n"));
+    return 0;
+  }
+};
+
+// kit/bin/commands/help.mjs
+init_define_OMNI_BUNDLE();
+
+// kit/lib/help/render.mjs
+init_define_OMNI_BUNDLE();
+
+// kit/lib/help/entries.mjs
+init_define_OMNI_BUNDLE();
+var deepFreeze = (value) => {
+  if (value && typeof value === "object") {
+    for (const inner of Object.values(value)) deepFreeze(inner);
+    Object.freeze(value);
+  }
+  return value;
+};
+var STAGES = deepFreeze([
+  { name: "idea", line: "talked through with /omni:brainstorm, nothing written yet" },
+  { name: "PRD", line: "spec, plan and before/after, in a phase-0 PR a person reviews" },
+  { name: "inbox", line: "phase-0 PR merged: approved, ready to build", folder: "{inbox}" },
+  { name: "outbox", line: "being built in waves; what the agents decided alone waits for you" },
+  { name: "shipped", line: "feature PR merged: the change is on {defaultBranch}", folder: "{shipped}" },
+  { name: "retro", line: "a retro PR tells how it went; a knowledge PR keeps what it taught" }
+]);
+var PRINCIPLES = deepFreeze([
+  "The folder is the status.",
+  "Only a person merges into {defaultBranch}.",
+  "Every decision an agent takes alone becomes an outbox item that you answer or adopt."
+]);
+var ENTRIES = deepFreeze([
+  // Commands you type in the terminal. Their order is the overview's.
+  {
+    name: "status",
+    kind: "command",
+    who: "you",
+    usage: ["omni status [--fetch]", "omni status <prd> [--labels a,b] [--base <ref> | --changes]"],
+    label: "omni status",
+    summary: "your PRDs, the inbox, the outbox, what has shipped",
+    also: [["omni status <n>", "the outbox gate for PRD n (exit 0 green, 1 red)"]],
+    detail: "With no PRD number, the overview of this repository, read from git only: how many PRDs have shipped, wait in the inbox, are being built in the outbox or wait for review, a bar of delivered against in progress, and the PRDs that are yours, each with where it stands. It reads {remote}/{defaultBranch} as last fetched; --fetch fetches it first. With a PRD number, the outbox gate the loop runs before a feature PR merges: exit 0 when its outbox lets it through, 1 while an item is open, a drift is not reworked or a risky change is not accounted for."
+  },
+  {
+    name: "prd",
+    kind: "command",
+    who: "you",
+    usage: ["omni prd <n>"],
+    label: "omni prd <n>",
+    summary: "where PRD n lives and its files",
+    detail: "Where PRD n lives today: its state, inbox or shipped, its folder, the files in it, its outbox folder and the open items waiting there. The folder is the status, so this is the one lookup the skills run before following any delivery path. Exit 1 when the PRD is in neither {inbox} nor {shipped}."
+  },
+  {
+    name: "board",
+    kind: "command",
+    who: "you",
+    usage: ["omni board <prd> [--json] [--repo <owner/name>]"],
+    label: "omni board <n>",
+    summary: "PRD n's slices and what can run next",
+    detail: "PRD n's slices as the loop sees them, rebuilt from GitHub on every run: each slice's state (merged, stuck, in flight, runnable, blocked) and the wave that can run next. --json prints it as one document, the one /omni:wave acts on. Needs gh logged in."
+  },
+  {
+    name: "check",
+    kind: "command",
+    who: "you",
+    usage: ["omni check [inbox|outbox|knowledge|kb|releases|coverage|all]", "  [--base <ref>] [--prd <n>]"],
+    label: "omni check [all]",
+    summary: "the repository's guards",
+    detail: "The repository's guards, each printing its violations or one line saying it passed: inbox (the PRDs waiting to be built), outbox (the open items), knowledge (the registers), kb (the playbook's forms), releases (the release notes) and coverage (every risky change of a branch accounted for, against --base). all, the default, runs every one, and skips coverage when {remote}/{defaultBranch} has not been fetched. Exit 1 on any violation."
+  },
+  {
+    name: "kb",
+    kind: "command",
+    who: "you",
+    usage: ["omni kb show <form> [--json]", "omni kb status [--json]", "omni kb graph [--json]", "omni kb init"],
+    label: "omni kb show <form>",
+    summary: "one form of the playbook",
+    detail: "The playbook: one form per question an agent asks while delivering (testing, architecture, conventions and more). show prints one form section by section, each saying where it comes from: this repository's own words, a page it points to, or the kit default. status prints the map of every form and register and every open question; graph the knowledge registers as one graph; init lays down every missing form, blank, and changes no file that exists."
+  },
+  {
+    name: "knowledge",
+    kind: "command",
+    who: "you",
+    usage: ["omni knowledge <id>"],
+    label: "omni knowledge <id>",
+    summary: "one rule of the knowledge base",
+    detail: "One entry of the knowledge base, a principle, a rule or an invariant, by its id (such as P-PRODUCT-1), with every entry that serves it. A proposed entry says who proposed it and when: it describes the product, but it is no law until a person confirms it."
+  },
+  {
+    name: "signin",
+    kind: "command",
+    who: "you",
+    usage: ["omni signin"],
+    label: "omni signin",
+    summary: "sign in to the Omni page, once per computer",
+    detail: "Signs you in to the Omni page, the one the config's ask.url names: it opens the page in your browser, then keeps the sign-in in your home folder, for that host. Ask mode and dossiers both use it. Once per computer is enough; omni whoami says who is signed in, omni signout forgets it."
+  },
+  {
+    name: "dossier",
+    kind: "command",
+    who: "you",
+    usage: ['omni dossier open "<title>"', "omni dossier push <n>", "omni dossier status"],
+    label: "omni dossier \u2026",
+    summary: "a PRD's dossier on the Omni page",
+    detail: "A PRD's dossier on the Omni page, where the whole workspace reads every version of its spec, plan and before/after. open opens a draft for an idea and prints its link; push sends PRD n's files and adds a version only where a file changed; status says whether dossiers are on here. It never holds up the skill that runs it: anything that stops it exits 1 with one line."
+  },
+  {
+    name: "help",
+    kind: "command",
+    who: "you",
+    usage: ["omni help [<name>]"],
+    label: "omni help [<name>]",
+    summary: "this page, or one command or skill",
+    detail: "With no name, the loop, its principles and every command, on one screen. With a name, one command (board), skill (yolo) or slash command (/omni:yolo): its usage, who runs it and what it does. A name that is both a command and a skill prints both. omni --help and omni -h print the same screen. It needs no config: outside an installed repository it uses the kit's defaults."
+  },
+  {
+    name: "init",
+    kind: "command",
+    who: "you",
+    usage: ["omni init [--force] [--test <cmd>] [--preflight <cmd>]", "  [--preflight-full <cmd>]"],
+    summary: "install the loop on this repository",
+    detail: "Installs the Omni Loop on the repository it runs in: writes .omni-loop/config.yml, copies the running omni to .omni-loop/bin/omni.mjs, lays down the blank playbook forms and creates the loop labels the repository lacks, switches the status line on in .claude/settings.json, then prints the steps a person still has to take. It writes nothing outside .omni-loop/ but that statusLine key, and never replaces someone else's. --force writes the config, the copy and the kit's own status line again; the other flags give the commands that test the repository."
+  },
+  {
+    name: "config",
+    kind: "command",
+    who: "you",
+    usage: ["omni config [key.path]"],
+    summary: "this repository's config, or one value of it",
+    detail: "The repository's config, .omni-loop/config.yml with every default filled in, as JSON; with a key path such as paths.delivery, that one value alone. Every skill reads its folders, branches, labels and commands from here rather than spelling them."
+  },
+  {
+    name: "credits",
+    kind: "command",
+    who: "you",
+    usage: ["omni credits [--repo <owner/name>] [--since <YYYY-MM>]", "  [--list] [--json]"],
+    summary: "what the loop worked on across the organisation",
+    detail: "Counts what the loop's signature worked on across the organisation that owns this repository: its pull requests, its PRD issues and the commits it co-authored on default branches. --repo narrows it to one repository, --since to what was created from that month on; --list adds one line per item, --json prints the whole report as one document. It reads GitHub through gh and stores nothing."
+  },
+  {
+    name: "whoami",
+    kind: "command",
+    who: "you",
+    usage: ["omni whoami"],
+    summary: "who is signed in to the Omni page",
+    detail: "The email signed in to the Omni page on this computer, or signed out. Past its expiry it renews the sign-in first; when the page refuses, it says the sign-in is no longer valid and exits 1."
+  },
+  {
+    name: "signout",
+    kind: "command",
+    who: "you",
+    usage: ["omni signout"],
+    summary: "forget this computer's sign-in",
+    detail: "Forgets this computer's sign-in to the Omni page the config's ask.url names. omni signin signs in again."
+  },
+  // Commands the skills run. Their order is the "Run by the skills" line's.
+  {
+    name: "settle",
+    kind: "command",
+    who: "skills",
+    usage: [
+      "omni settle <item-file> --by <who> --at <iso>",
+      "  --channel prd-issue|feature-pull-request --number <n>",
+      '  (--answer "<text>" | --answer-file <path>) [--url <u>]',
+      "  [--verdict agreed|drifted]"
+    ],
+    summary: "settle one answered outbox item",
+    detail: "Settles one open outbox item with the answer a person gave: appends the question and the answer, word for word, to the PRD's settled ledger, then deletes the open file. The ledger is append-only: nothing in it is ever rewritten."
+  },
+  {
+    name: "adopt",
+    kind: "command",
+    who: "skills",
+    usage: ["omni adopt <item-text-file>"],
+    summary: "adopt a medium outbox item",
+    detail: "Adopts a medium outbox item, as it is raised or once it is open: appends its entry to the PRD's settled ledger and removes the open file. An adopted decision stands unless someone objects later. /omni:wave adopts a wave's medium items once the wave has merged."
+  },
+  {
+    name: "replies",
+    kind: "command",
+    who: "skills",
+    usage: ["omni replies --prd <n> --pr <n>", "  [--repo <owner/name>] [--post]"],
+    summary: "read the numbered answers on the feature PR",
+    detail: "Reads the numbered replies a person left on the feature PR, settles each outbox item they answer, and with --post posts the next round of questions. /omni:yolo-fix starts from it."
+  },
+  {
+    name: "comment",
+    kind: "command",
+    who: "skills",
+    usage: [
+      "omni comment --prd <n> --branch <feature-branch>",
+      "  [--repo <owner/name>] [--base <ref>] [--ref <sha>] [--labels <a,b>]",
+      "  [--slack-note <file>] [--title <t>] [--owner-slack-id <id>]",
+      "  [--owner-login <login>] [--pr-comment <file>]",
+      "omni comment --prd <n> --pr <n> [--repo <owner/name>] [--result <file>]"
+    ],
+    summary: "the outbox's comments on the feature PR and the PRD issue",
+    detail: "Writes the outbox's comments, keeping one of each up to date. With --branch, the PRD issue's: the open items and the changes no account covers, then the Slack note file. With --pr, the plain-words comment on the feature PR: its open, answered and adopted questions. /omni:yolo runs it when the gate is red."
+  },
+  {
+    name: "ship",
+    kind: "command",
+    who: "skills",
+    usage: ["omni ship <prd>"],
+    summary: "move a PRD from the inbox to shipped",
+    detail: "Moves PRD n's folder from {inbox} to {shipped}, its outbox inside it, and rewrites the paths that named them. It stages the moves and never commits. Exit 1 when it refuses, naming every reason (with release notes on, a missing or failing note is one); exit 2 when the delivery folder holds uncommitted changes."
+  },
+  {
+    name: "harvest",
+    kind: "command",
+    who: "skills",
+    usage: ["omni harvest <prd> --pr <feature pull request>"],
+    summary: "keep what a shipped PRD taught, as knowledge",
+    detail: "The knowledge harvest, run on this computer: the pipeline the loop's app runs on a merged feature PR. It asks a model where each decision of the PRD belongs in the knowledge base and writes the files into the working tree, staging and committing nothing. It needs gh and OPENROUTER_API_KEY. Exit 1 when the PR is not merged into {defaultBranch}."
+  },
+  {
+    name: "item",
+    kind: "command",
+    who: "skills",
+    usage: ["omni item new --prd <n> --slice <id> --file <file>", "  [--adopt] [--json]"],
+    summary: "record a decision an agent took alone",
+    detail: "Records one decision an agent took without asking as an outbox item, from a JSON file: the kit picks its rank and its id. A decision that would break a named law stops the slice instead, and one that needs a person's action blocks it. --adopt sends a medium item straight to the settled ledger."
+  },
+  {
+    name: "plan",
+    kind: "command",
+    who: "skills",
+    usage: ["omni plan check <prd>"],
+    summary: "grade a PRD's plan",
+    detail: "Grades PRD n's plan.md before anyone builds from it: every blocker names a slice of the same plan in an earlier wave, no id is used twice, and no two slices of one wave share ground. It prints the slices, the waves and where they meet, then every violation; exit 1 on any."
+  },
+  {
+    name: "rework",
+    kind: "command",
+    who: "skills",
+    usage: ["omni rework plan <prd> [--json]", "omni rework close <id> --prd <n> --pr <n>"],
+    summary: "what a drifted PRD needs reworked",
+    detail: "The terminal half of /omni:yolo-fix. plan derives, from the PRD's settled ledger, every decision a person disagreed with that still needs reworking, each as a slice; close records that a sub-PR reworked one."
+  },
+  {
+    name: "phase0",
+    kind: "command",
+    who: "skills",
+    usage: ["omni phase0 <prd> [--base <ref>]"],
+    summary: "grade a phase-0 PR",
+    detail: "Grades a phase-0 PR's own diff: docs only, and carrying the spec, the plan and the before/after of the one PRD it asks a person to approve. Every commit must carry the loop's signature, unless signing is off. --base defaults to {remote}/{defaultBranch}."
+  },
+  {
+    name: "sign",
+    kind: "command",
+    who: "skills",
+    usage: ["omni sign trailer|footer"],
+    summary: "the line the loop signs its work with",
+    detail: "The line the loop signs its work with: trailer ends every commit a skill makes, footer every pull request and issue a skill opens. With signing off in the config it prints nothing, so a skill runs unchanged."
+  },
+  {
+    name: "ask",
+    kind: "command",
+    who: "skills",
+    usage: ["omni ask on|off|status", "omni ask hook <pre|post|prompt|end>"],
+    summary: "ask mode, as /omni:ask switches it",
+    detail: "Ask mode in this checkout: on prints the page where Claude's questions are answered, off closes every terminal's session there, status says which. hook is what the plugin's hooks run around each question; with the mode off it prints nothing. /omni:ask runs on, off and status for you."
+  },
+  {
+    name: "statusline",
+    kind: "command",
+    who: "skills",
+    usage: ["omni statusline", "omni statusline --refresh <prd>"],
+    summary: "Claude Code's status line: the session, then the PRD",
+    detail: "What Claude Code runs as its status line, from the statusLine key omni init writes in .claude/settings.json: it reads the session on stdin and prints two lines, the model, the context bar, the 5-hour usage and ask mode, then the PRD this session works on, its stage, and in the outbox its wave and slices. It never fetches, never calls GitHub and always exits 0. --refresh is the background half: it rebuilds a PRD's board, as omni board does, into a file the status line reads."
+  },
+  // Skills you type in Claude. Their order is the overview's.
+  {
+    name: "brainstorm",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:brainstorm"],
+    label: "/omni:brainstorm",
+    summary: "an idea, to a design, to a PRD and its phase-0 PR",
+    detail: "Turns an idea into an approved design, then into a PRD the loop can build: the PRD issue, the spec, the before/after page and the plan, in a docs-only phase-0 PR a person reviews and merges before any code is written. It writes no code and merges nothing, and ends with the /omni:yolo line that builds it."
+  },
+  {
+    name: "yolo",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:yolo <n>"],
+    label: "/omni:yolo <n>",
+    summary: "build a whole PRD: plan, waves, the outbox gate, ship",
+    detail: "Builds a whole PRD with nothing asked along the way: plans it if needed, runs /omni:wave until every slice is merged into the feature branch or nothing more can move, then runs the outbox gate. Green, it ships and marks the feature PR ready for a person to merge; red, the PR stays a draft with the outbox questions posted on it. It never merges into {defaultBranch}."
+  },
+  {
+    name: "yolo-fix",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:yolo-fix <n>"],
+    label: "/omni:yolo-fix <n>",
+    summary: "rework what you answered on the feature PR",
+    detail: "Brings a PRD back in line with what a person answered on its feature PR: settles the replies, reworks every decision they disagreed with as its own slice, inside the bound its item stated, checks the whole feature, then ships it when the gate is green. It asks no question of its own and never merges into {defaultBranch}."
+  },
+  {
+    name: "plan",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:plan <n>"],
+    label: "/omni:plan <n>",
+    summary: "slice a PRD into waves (yolo runs it when needed)",
+    detail: "Turns one PRD in the inbox into a plan of thin slices, each with its territory, what blocks it and its wave, written as plan.md beside the spec and graded by omni plan check. It commits the plan on the PRD's feature branch and opens the draft feature PR. It writes no code; /omni:yolo runs it when a PRD has no plan yet."
+  },
+  {
+    name: "wave",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:wave <n>"],
+    label: "/omni:wave <n>",
+    summary: "build one wave of a PRD's slices",
+    detail: "Builds one wave of a PRD in parallel: claims every slice that can run, has one agent build each in a worktree of its own through /omni:do-work, then merges their sub-PRs into the feature branch one at a time, checks the wave together and adopts its medium decisions. /omni:yolo runs it for each wave. It never merges into {defaultBranch}."
+  },
+  {
+    name: "do-work",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:do-work <n> <slice>"],
+    label: "/omni:do-work",
+    summary: "build one slice of a PRD",
+    detail: "Builds one slice of a PRD to standard: reads the repository's own context first, works test-first, changes only the slice's territory, records every decision it takes without asking as an outbox item, and ships the slice as a sub-PR into the feature branch. Each agent of /omni:wave does this job; you may run it on one slice."
+  },
+  {
+    name: "pr",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:pr"],
+    label: "/omni:pr",
+    summary: "open, watch and finish a pull request",
+    detail: "Opens, updates, watches and finishes a pull request of the loop: a feature PR into {defaultBranch}, a sub-PR into a feature branch, or a standalone PR. It keeps its status comment current and works on it while CI is red or it conflicts. The other skills hand their pull requests to it."
+  },
+  {
+    name: "invade",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:invade [--refresh]"],
+    label: "/omni:invade",
+    summary: "set up this repository's knowledge base",
+    detail: "Sets up this repository's knowledge base from what the repository can prove: it explores it without changing it, shows one map and takes every answer in one message, then writes proposed entries and fills the playbook's forms from evidence, leaving a question for a person where proof is missing. It ends with one docs-only PR a person merges. --refresh redoes only what went stale."
+  },
+  {
+    name: "ask",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:ask on|off|status"],
+    label: "/omni:ask on|off",
+    summary: "answer Claude's questions on a web page",
+    detail: "Switches ask mode on or off in this checkout, or says whether it is on. While it is on, every question Claude asks goes to a web page, a tab per terminal, and the terminal takes over whenever the page cannot answer. It needs a sign-in first: omni signin, once per computer."
+  },
+  {
+    name: "status",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:status [--fetch]"],
+    label: "/omni:status",
+    summary: "where your PRDs are",
+    detail: "Runs omni status inside Claude and prints its overview as is: how many PRDs have shipped, wait in the inbox, are being built in the outbox or wait for review, and the PRDs that are yours, each with where it stands. It fetches first only when you ask for fresh data, and never runs the outbox gate of one PRD."
+  },
+  {
+    name: "help",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:help [<name>]"],
+    label: "/omni:help [<name>]",
+    summary: "this page, or one command or skill",
+    detail: "Runs omni help inside Claude and prints its output as is: this page, or, given a name, one command or skill."
+  },
+  // Skills other skills run.
+  {
+    name: "dossier-open",
+    kind: "skill",
+    who: "skills",
+    usage: ['/omni:dossier-open "<one line of the idea>"'],
+    summary: "open a draft dossier for an idea",
+    detail: "Opens a draft dossier for an idea on the Omni page, linked to this Claude session, so the people the idea is for can follow it before the first question is asked. /omni:brainstorm runs it first; it never stops the skill that runs it."
+  },
+  {
+    name: "dossier-push",
+    kind: "skill",
+    who: "skills",
+    usage: ["/omni:dossier-push <n>"],
+    summary: "send a PRD's files to its dossier",
+    detail: "Sends PRD n's spec, plan and before/after page to its dossier on the Omni page, adding a version only where a file changed. /omni:brainstorm runs it after each of its pushes, and /omni:plan after it pushes the plan; it never stops the skill that runs it."
+  }
+]);
+
+// kit/lib/help/render.mjs
+var HELP_WIDTH = 78;
+var HELP_INDENT = "  ";
+var LABEL_COLUMN = 24;
+var STAGE_COLUMN = 9;
+var WHO_RUNS = Object.freeze({ you: "for you", skills: "run by the skills" });
+var HELP_CLOSING = "omni help <command> tells more about any of them.";
+function repositoryWords(config2) {
+  const delivery = config2.paths.delivery;
+  return {
+    delivery,
+    inbox: `${delivery}/inbox/`,
+    shipped: `${delivery}/shipped/`,
+    remote: config2.repo.remote,
+    defaultBranch: config2.repo.defaultBranch
+  };
+}
+var fillerFor = (words) => (text4) => text4.replace(/\{(\w+)\}/g, (whole, key) => Object.hasOwn(words, key) ? words[key] : whole);
+function wrapWords(text4, { width = HELP_WIDTH, indent = "" } = {}) {
+  const lines = [];
+  let line = "";
+  for (const word of text4.split(/\s+/).filter(Boolean)) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && indent.length + next.length > width) {
+      lines.push(indent + line);
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(indent + line);
+  return lines;
+}
+var overviewRow = (label, text4) => `${HELP_INDENT}${label.padEnd(Math.max(LABEL_COLUMN, label.length + 2))}${text4}`;
+function renderOverview(config2, { entries: entries3 = ENTRIES } = {}) {
+  const fill2 = fillerFor(repositoryWords(config2));
+  const under = " ".repeat(HELP_INDENT.length + STAGE_COLUMN);
+  const lines = [
+    "omni: the Omni Loop's command line",
+    "",
+    "THE LOOP",
+    `${HELP_INDENT}${STAGES.map((stage2) => stage2.name).join(" \u2500\u2500\u25B6 ")}`,
+    ""
+  ];
+  for (const stage2 of STAGES) {
+    const [first, ...more] = wrapWords(fill2(stage2.line), { width: HELP_WIDTH - under.length });
+    lines.push(`${HELP_INDENT}${stage2.name.padEnd(STAGE_COLUMN)}${first}`, ...more.map((line) => under + line));
+    if (stage2.folder) lines.push(under + fill2(stage2.folder));
+  }
+  lines.push("", ...wrapWords(PRINCIPLES.map(fill2).join(" "), { indent: HELP_INDENT }), "");
+  lines.push("IN CLAUDE (type these)");
+  for (const entry of entries3.filter((e) => e.kind === "skill" && e.who === "you")) {
+    lines.push(overviewRow(fill2(entry.label), fill2(entry.summary)));
+  }
+  lines.push("", "IN THE TERMINAL");
+  const yours2 = entries3.filter((e) => e.kind === "command" && e.who === "you");
+  for (const entry of yours2.filter((e) => e.label)) {
+    lines.push(overviewRow(fill2(entry.label), fill2(entry.summary)));
+    for (const [label, text4] of entry.also ?? []) lines.push(overviewRow(fill2(label), fill2(text4)));
+  }
+  const unlabelled = yours2.filter((e) => !e.label).map((e) => e.name);
+  if (unlabelled.length) lines.push(`${HELP_INDENT}omni ${unlabelled.join(" \xB7 ")}`);
+  const commands = entries3.filter((e) => e.kind === "command" && e.who === "skills").map((e) => e.name);
+  const skills = entries3.filter((e) => e.kind === "skill" && e.who === "skills").map((e) => `/omni:${e.name}`);
+  if (commands.length || skills.length) {
+    const named = [commands.join(", "), skills.join(", ")].filter(Boolean).join("; and ");
+    lines.push("", ...wrapWords(`Run by the skills: ${named}.`, { indent: HELP_INDENT }));
+  }
+  lines.push("", HELP_CLOSING);
+  return lines.join("\n");
+}
+function entryLines(entry, fill2) {
+  const [first, ...more] = entry.usage.map(fill2);
+  const who = WHO_RUNS[entry.who];
+  const head = first.length + 2 + who.length <= HELP_WIDTH ? [`${first.padEnd(HELP_WIDTH - who.length)}${who}`, ...more] : [first, ...more, who.padStart(HELP_WIDTH)];
+  const paragraphs = entry.detail.split(/\n\s*\n/).map((paragraph) => wrapWords(fill2(paragraph)));
+  return [...head, "", ...paragraphs.flatMap((lines, index) => index ? ["", ...lines] : lines)];
+}
+function renderEntry(name, config2, { entries: entries3 = ENTRIES } = {}) {
+  const slash = /^\/omni:(.+)$/.exec(name);
+  const found = slash ? entries3.filter((e) => e.kind === "skill" && e.name === slash[1]) : ["command", "skill"].flatMap((kind) => entries3.filter((e) => e.kind === kind && e.name === name));
+  if (found.length === 0) return null;
+  const fill2 = fillerFor(repositoryWords(config2));
+  return found.map((entry) => entryLines(entry, fill2).join("\n")).join("\n\n");
+}
+
+// kit/bin/commands/help.mjs
+function configAt(cwd, exec) {
+  try {
+    return loadContext(cwd, { exec }).config;
+  } catch (error) {
+    if (error instanceof ConfigError || error?.name === "ConfigError") return ConfigSchema.parse({ kit: CONFIG_VERSION });
+    throw error;
+  }
+}
+var help = {
+  withoutContext: true,
+  async run(args, { cwd, stdout, exec }) {
+    const { positional } = parseArgs("help", args);
+    if (positional.length > 1) throw usageError("usage: omni help [<name>]");
+    const config2 = configAt(cwd, exec);
+    if (positional.length === 0) {
+      println(stdout, renderOverview(config2));
+      return 0;
+    }
+    const [name] = positional;
+    const text4 = renderEntry(name, config2);
+    if (text4 === null) throw usageError(`omni help: no command "${name}"; omni help lists them all`);
+    println(stdout, text4);
     return 0;
   }
 };
@@ -19739,25 +20239,25 @@ function graphEntry(entry, pairs) {
     file: entry.file
   };
 }
-function countsOf(entries2) {
-  const counts = { principles: 0, rules: 0, invariants: 0, laws: 0, proposed: 0 };
-  for (const entry of entries2) {
-    counts[`${entry.kind}s`] += 1;
-    counts[entry.status === "law" ? "laws" : "proposed"] += 1;
+function countsOf(entries3) {
+  const counts2 = { principles: 0, rules: 0, invariants: 0, laws: 0, proposed: 0 };
+  for (const entry of entries3) {
+    counts2[`${entry.kind}s`] += 1;
+    counts2[entry.status === "law" ? "laws" : "proposed"] += 1;
   }
-  return counts;
+  return counts2;
 }
 function buildGraph(knowledge2, { repo }) {
   const pairs = new Map(knowledge2.crossDomainFiles.map(({ file, pair }) => [file, pair ?? []]));
-  const entries2 = knowledge2.entries.filter((entry) => KINDS3.includes(entry.kind)).map((entry) => graphEntry(entry, pairs));
-  const byId = new Map(entries2.map((entry) => [entry.id, entry]));
+  const entries3 = knowledge2.entries.filter((entry) => KINDS3.includes(entry.kind)).map((entry) => graphEntry(entry, pairs));
+  const byId = new Map(entries3.map((entry) => [entry.id, entry]));
   const domainRows = [
     ...knowledge2.productFiles.length > 0 ? [{ name: "product", code: PRODUCT_CODE, scope: "product" }] : [],
     ...knowledge2.domains.map(({ name, code }) => ({ name, code, scope: "domain" }))
   ];
-  const domains = domainRows.map((row) => ({ ...row, counts: countsOf(entries2.filter((entry) => entry.domain === row.name)) }));
+  const domains = domainRows.map((row) => ({ ...row, counts: countsOf(entries3.filter((entry) => entry.domain === row.name)) }));
   const links = [];
-  for (const entry of entries2) {
+  for (const entry of entries3) {
     const served2 = entry.kind === "principle" ? void 0 : byId.get(entry.serves);
     if (served2?.kind === "principle") links.push({ from: entry.id, to: served2.id, kind: "serves" });
     const cited = idsCitedIn([entry.statement, entry.why ?? ""].join("\n"));
@@ -19767,9 +20267,9 @@ function buildGraph(knowledge2, { repo }) {
   }
   const serving = new Set(links.filter((link) => link.kind === "serves").map((link) => link.from));
   const served = new Set(links.filter((link) => link.kind === "serves").map((link) => link.to));
-  const loose = entries2.filter((entry) => entry.kind !== "principle" && !serving.has(entry.id)).map((entry) => entry.id);
-  const unserved = entries2.filter((entry) => entry.kind === "principle" && !served.has(entry.id)).map((entry) => entry.id);
-  return { version: GRAPH_VERSION, repo, domains, entries: entries2, links, loose, unserved };
+  const loose = entries3.filter((entry) => entry.kind !== "principle" && !serving.has(entry.id)).map((entry) => entry.id);
+  const unserved = entries3.filter((entry) => entry.kind === "principle" && !served.has(entry.id)).map((entry) => entry.id);
+  return { version: GRAPH_VERSION, repo, domains, entries: entries3, links, loose, unserved };
 }
 function readGraph({ ctx }) {
   return buildGraph(readKnowledge({ ctx }), { repo: ctx.config.repo.slug });
@@ -19827,15 +20327,15 @@ function statusText({ frontDoor, forms, registers }) {
   const width = Math.max(...forms.map(({ form: form2 }) => form2.length));
   const lines = [`kb status \u2014 ${forms.length} form(s) in ${frontDoor}`];
   for (const { form: form2, kind, state, source, questions: questions2, stale: stale2 } of forms) {
-    const counts = [];
-    if (questions2.length > 0) counts.push(`${questions2.length} open question(s)`);
-    if (stale2.length > 0) counts.push(`${stale2.length} stale evidence`);
-    const columns2 = [form2.padEnd(width), kind.padEnd(8), state.padEnd(7), SOURCE_LABEL[source].padEnd(11), counts.join(" \xB7 ")];
+    const counts2 = [];
+    if (questions2.length > 0) counts2.push(`${questions2.length} open question(s)`);
+    if (stale2.length > 0) counts2.push(`${stale2.length} stale evidence`);
+    const columns2 = [form2.padEnd(width), kind.padEnd(8), state.padEnd(7), SOURCE_LABEL[source].padEnd(11), counts2.join(" \xB7 ")];
     lines.push(`  ${columns2.join("  ").trimEnd()}`);
   }
   const questions = forms.flatMap(({ form: form2, file, questions: open2 }) => open2.map(({ slot, question }) => `  ${form2}#${slot} (${file}): ${question}`));
   const stale = forms.flatMap(
-    ({ form: form2, file, stale: entries2 }) => entries2.map(({ path, hash, now }) => `  ${form2} (${file}): ${path}@${hash} \u2014 ${now === null ? "gone" : `now ${now.slice(0, 7)}`}`)
+    ({ form: form2, file, stale: entries3 }) => entries3.map(({ path, hash, now }) => `  ${form2} (${file}): ${path}@${hash} \u2014 ${now === null ? "gone" : `now ${now.slice(0, 7)}`}`)
   );
   lines.push(...registerLines(registers));
   lines.push(questions.length > 0 ? `Open questions: ${questions.length}` : "Open questions: none.", ...questions);
@@ -19856,19 +20356,19 @@ function columns({ principles, rules, invariants, laws, proposed }) {
   ];
 }
 var pairOf = (entry) => entry.domains.length === 2 ? entry.domains.join("--") : entry.file;
-function graphText({ domains, entries: entries2, links, loose, unserved }) {
+function graphText({ domains, entries: entries3, links, loose, unserved }) {
   const pairs = /* @__PURE__ */ new Map();
-  for (const entry of entries2.filter((one) => one.domain === null)) pairs.set(pairOf(entry), [...pairs.get(pairOf(entry)) ?? [], entry]);
-  const rows = [
-    ...domains.map(({ name, counts }) => [name, ...columns(counts)]),
+  for (const entry of entries3.filter((one) => one.domain === null)) pairs.set(pairOf(entry), [...pairs.get(pairOf(entry)) ?? [], entry]);
+  const rows2 = [
+    ...domains.map(({ name, counts: counts2 }) => [name, ...columns(counts2)]),
     ...[...pairs].map(([name, held]) => [name, ...columns(countsOf(held))])
   ];
-  const nameWidth = Math.max(0, ...rows.map(([name]) => name.length));
-  const kindsWidth = Math.max(0, ...rows.map(([, kinds]) => kinds.length));
+  const nameWidth = Math.max(0, ...rows2.map(([name]) => name.length));
+  const kindsWidth = Math.max(0, ...rows2.map(([, kinds]) => kinds.length));
   const ids = (label, list3) => `  ${label}${list3.length > 0 ? ` (${list3.length}): ${list3.join(", ")}` : ": none"}`;
   return [
-    `kb graph \u2014 ${count2(domains.length, "domain", "domains")}, ${count2(entries2.length, "entry", "entries")}, ${count2(links.length, "link", "links")}`,
-    ...rows.map(([name, kinds, status3]) => `  ${name.padEnd(nameWidth)}    ${kinds.padEnd(kindsWidth)}    ${status3}`),
+    `kb graph \u2014 ${count2(domains.length, "domain", "domains")}, ${count2(entries3.length, "entry", "entries")}, ${count2(links.length, "link", "links")}`,
+    ...rows2.map(([name, kinds, status3]) => `  ${name.padEnd(nameWidth)}    ${kinds.padEnd(kindsWidth)}    ${status3}`),
     ids("unserved principles", unserved),
     ids("loose entries", loose)
   ].join("\n");
@@ -20141,9 +20641,9 @@ import { readFileSync as readFileSync32 } from "node:fs";
 import { join as join40 } from "node:path";
 var USAGE11 = "usage: omni plan check <prd>";
 function duplicateIds(slices) {
-  const counts = /* @__PURE__ */ new Map();
-  for (const slice of slices) counts.set(slice.id, (counts.get(slice.id) ?? 0) + 1);
-  return [...counts.entries()].filter(([, count3]) => count3 > 1).map(([id]) => id);
+  const counts2 = /* @__PURE__ */ new Map();
+  for (const slice of slices) counts2.set(slice.id, (counts2.get(slice.id) ?? 0) + 1);
+  return [...counts2.entries()].filter(([, count3]) => count3 > 1).map(([id]) => id);
 }
 function blockedByViolations2(slices) {
   const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
@@ -20197,14 +20697,14 @@ var plan = {
     const { positional } = parseArgs("plan check", rest);
     if (positional.length !== 1) throw usageError(USAGE11);
     const prd2 = positiveInt("plan check", "<prd>", positional[0]);
-    const { planPath, slices, waves, rows, violations } = checkPlan(prd2, { ctx });
+    const { planPath, slices, waves, rows: rows2, violations } = checkPlan(prd2, { ctx });
     println(
       stdout,
       `omni plan check \u2014 PRD ${prd2}: ${slices.length} slice(s) across wave(s) ${waves.join(", ")} (${planPath}).`
     );
-    if (rows.length > 0) {
-      println(stdout, `omni plan check \u2014 collision matrix (${rows.length} pair(s) sharing ground):`);
-      for (const row of rows) println(stdout, `  ${row.pair}: ${row.shared} \u2014 ${row.resolved}`);
+    if (rows2.length > 0) {
+      println(stdout, `omni plan check \u2014 collision matrix (${rows2.length} pair(s) sharing ground):`);
+      for (const row of rows2) println(stdout, `  ${row.pair}: ${row.shared} \u2014 ${row.resolved}`);
     }
     if (violations.length > 0) {
       println(stdout, formatFailure(`omni plan check \u2014 PRD ${prd2}: violation(s):`, violations));
@@ -20938,10 +21438,433 @@ var sign = {
 // kit/bin/commands/status.mjs
 init_define_OMNI_BUNDLE();
 import { appendFileSync } from "node:fs";
+
+// kit/lib/status/facts.mjs
+init_define_OMNI_BUNDLE();
+import { execFileSync as execFileSync9 } from "node:child_process";
+import { readFileSync as readFileSync35, rmSync as rmSync7, statSync as statSync5, utimesSync, writeFileSync as writeFileSync18 } from "node:fs";
+import { resolve as resolve2 } from "node:path";
+function git3(ctx, exec, args) {
+  return exec("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+}
+var entries = (output) => output.split("\0").filter(Boolean);
+function commitOf(ctx, exec, ref) {
+  try {
+    return git3(ctx, exec, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]).trim() || null;
+  } catch {
+    return null;
+  }
+}
+function baseNames(ctx) {
+  const { remote, defaultBranch } = ctx.config.repo;
+  return { remote: `${remote}/${defaultBranch}`, local: defaultBranch };
+}
+function readBase(ctx, exec) {
+  const names = baseNames(ctx);
+  const remote = commitOf(ctx, exec, `refs/remotes/${names.remote}`);
+  if (remote) return { name: names.remote, commit: remote };
+  const local = commitOf(ctx, exec, `refs/heads/${names.local}`);
+  return local ? { name: names.local, commit: local } : null;
+}
+function foldersAt(ctx, exec, ref, dir) {
+  return entries(git3(ctx, exec, ["ls-tree", "-z", "-d", "--name-only", ref, "--", `${dir}/`])).map((path) => {
+    const name = path.slice(path.lastIndexOf("/") + 1);
+    const folder = parseFolderName(name);
+    return folder && { ...folder, name };
+  }).filter(Boolean);
+}
+function gitPath(ctx, exec, args) {
+  try {
+    return resolve2(ctx.root, git3(ctx, exec, ["rev-parse", ...args]).trim());
+  } catch {
+    return null;
+  }
+}
+var fetchHeadPath = (ctx, exec) => gitPath(ctx, exec, ["--git-path", "FETCH_HEAD"]);
+function fetchTime(path) {
+  if (path === null) return null;
+  try {
+    const stat = statSync5(path);
+    return stat.size > 0 ? stat.mtimeMs : null;
+  } catch {
+    return null;
+  }
+}
+function fetchedAt(ctx, exec) {
+  const common = gitPath(ctx, exec, ["--git-common-dir"]);
+  const times = [fetchHeadPath(ctx, exec), common && resolve2(common, "FETCH_HEAD")].map(fetchTime).filter((time3) => time3 !== null);
+  return times.length ? Math.max(...times) : null;
+}
+function snapshot(path) {
+  if (path === null) return null;
+  try {
+    const stat = statSync5(path);
+    return { path, bytes: readFileSync35(path), atime: stat.atime, mtime: stat.mtime };
+  } catch {
+    return { path, bytes: null };
+  }
+}
+function putBack(saved) {
+  if (saved === null) return;
+  try {
+    if (saved.bytes === null) {
+      rmSync7(saved.path, { force: true });
+    } else {
+      writeFileSync18(saved.path, saved.bytes);
+      utimesSync(saved.path, saved.atime, saved.mtime);
+    }
+  } catch {
+  }
+}
+function fetchRemote({ ctx, exec = execFileSync9 }) {
+  const saved = snapshot(fetchHeadPath(ctx, exec));
+  try {
+    git3(ctx, exec, ["fetch", "--prune", ctx.config.repo.remote]);
+    return null;
+  } catch (error) {
+    putBack(saved);
+    const said = `${error?.stderr ?? ""}`.split("\n").map((line) => line.trim()).find(Boolean);
+    return said ?? `${error?.message ?? error}`.split("\n")[0];
+  }
+}
+function remoteBranches(ctx, exec) {
+  const prefix = `refs/remotes/${ctx.config.repo.remote}/`;
+  const refs = git3(ctx, exec, ["for-each-ref", "--format=%(refname)", prefix]).split("\n").filter(Boolean);
+  return new Map(refs.map((ref) => [ref.slice(prefix.length), ref]));
+}
+function topicOf2(branch, template) {
+  if (!template.includes("{topic}")) return null;
+  const [head, tail] = template.split("{topic}");
+  if (branch.length <= head.length + tail.length || !branch.startsWith(head) || !branch.endsWith(tail)) return null;
+  return branch.slice(head.length, branch.length - tail.length);
+}
+function changedOutside(ctx, exec, range) {
+  const delivery = `${ctx.config.paths.delivery}/`;
+  return entries(git3(ctx, exec, ["diff", "--name-only", "-z", "--no-renames", "--no-ext-diff", ...range, "--"])).filter((path) => !path.startsWith(delivery));
+}
+function filesUnder2(ctx, exec, ref, dir) {
+  return entries(git3(ctx, exec, ["ls-tree", "-r", "-z", "--name-only", ref, "--", `${dir}/`])).map((path) => path.slice(dir.length + 1));
+}
+function userEmail(ctx, exec) {
+  try {
+    return git3(ctx, exec, ["config", "user.email"]).trim() || null;
+  } catch {
+    return null;
+  }
+}
+function isShallow(ctx, exec) {
+  try {
+    return git3(ctx, exec, ["rev-parse", "--is-shallow-repository"]).trim() === "true";
+  } catch {
+    return false;
+  }
+}
+var COMMIT_MARK = "";
+function commitsIn(ctx, exec, range, paths = []) {
+  const log = git3(ctx, exec, ["log", "-z", "--name-only", "--no-renames", "--full-history", "--format=%x01%ae", range, "--", ...paths]);
+  return log.split(COMMIT_MARK).filter(Boolean).map((commit) => {
+    const [email, ...changed] = commit.split("\0");
+    return { email, paths: changed.map((path) => path.replace(/^\n/, "")).filter(Boolean) };
+  });
+}
+var authorsOf = (commits) => [...new Set(commits.map(({ email }) => email))];
+function touchedBy(ctx, commits) {
+  const delivery = `${ctx.config.paths.delivery}/`;
+  const seen = /* @__PURE__ */ new Map();
+  for (const { email, paths } of commits) {
+    for (const path of paths) {
+      if (!path.startsWith(delivery)) continue;
+      const parts = path.slice(delivery.length).split("/");
+      const folder = parts.length > 2 ? parseFolderName(parts[1]) : null;
+      if (folder) seen.set(`${folder.prd}\0${email}`, { prd: folder.prd, email });
+    }
+  }
+  return [...seen.values()];
+}
+function unlessUnreadable(read2) {
+  try {
+    return read2();
+  } catch {
+    return null;
+  }
+}
+function featuresOf(ctx, exec, base, inbox, remote) {
+  const out = [];
+  for (const { topic, name } of inbox) {
+    const branch = fillBranch(ctx.config.branches.feature, { topic });
+    const ref = remote.get(branch);
+    if (!ref) continue;
+    const feature = unlessUnreadable(() => {
+      const beyond = commitsIn(ctx, exec, `${base}..${ref}`);
+      return {
+        branch,
+        topic,
+        forked: changedOutside(ctx, exec, [`${base}...${ref}`]),
+        differs: changedOutside(ctx, exec, [base, ref]),
+        outbox: filesUnder2(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name}`),
+        authors: authorsOf(beyond),
+        touched: touchedBy(ctx, beyond)
+      };
+    });
+    if (feature) out.push(feature);
+  }
+  return out;
+}
+function phase0Of(ctx, exec, base, remote) {
+  const out = [];
+  for (const [branch, ref] of remote) {
+    const topic = topicOf2(branch, ctx.config.branches.phase0);
+    if (!topic) continue;
+    const phase02 = unlessUnreadable(() => ({
+      branch,
+      topic,
+      inbox: foldersAt(ctx, exec, ref, ctx.layout.dirs.inbox),
+      touched: touchedBy(ctx, commitsIn(ctx, exec, `${base}..${ref}`, [`${ctx.config.paths.delivery}/`]))
+    }));
+    if (phase02) out.push(phase02);
+  }
+  return out;
+}
+function readFacts({ ctx, exec = execFileSync9 }) {
+  const base = readBase(ctx, exec);
+  if (!base) return null;
+  const { dirs } = ctx.layout;
+  const inbox = foldersAt(ctx, exec, base.commit, dirs.inbox);
+  const remote = remoteBranches(ctx, exec);
+  return {
+    slug: ctx.config.repo.slug,
+    base: base.name,
+    fetchedAt: fetchedAt(ctx, exec),
+    email: userEmail(ctx, exec),
+    shallow: isShallow(ctx, exec),
+    shipped: foldersAt(ctx, exec, base.commit, dirs.shipped),
+    inbox,
+    touched: touchedBy(ctx, commitsIn(ctx, exec, base.commit, [`${ctx.config.paths.delivery}/`])),
+    features: featuresOf(ctx, exec, base.commit, inbox, remote),
+    phase0: phase0Of(ctx, exec, base.commit, remote)
+  };
+}
+
+// kit/lib/status/format.mjs
+init_define_OMNI_BUNDLE();
+
+// kit/lib/status/overview.mjs
+init_define_OMNI_BUNDLE();
+var BAR_CELLS = 30;
+function stage(folders, taken = /* @__PURE__ */ new Set()) {
+  const seen = new Set(taken);
+  const out = [];
+  for (const folder of [...folders].sort((a, b) => b.prd - a.prd)) {
+    if (seen.has(folder.prd)) continue;
+    seen.add(folder.prd);
+    out.push({ prd: folder.prd, topic: folder.topic });
+  }
+  return out;
+}
+function barFor(delivered, total) {
+  if (total === 0) return { delivered, total, percent: null, filled: 0 };
+  return {
+    delivered,
+    total,
+    percent: Math.floor(delivered * 100 / total),
+    filled: Math.floor(delivered * BAR_CELLS / total)
+  };
+}
+function isOpenItem(path) {
+  const parts = path.split("/");
+  const file = parts.pop();
+  return file.endsWith(".md") && file !== SETTLED_FILE && !parts.includes(ACCOUNTS_DIR);
+}
+function isBuilt({ forked, differs }) {
+  const now = new Set(differs);
+  return forked.some((path) => now.has(path));
+}
+function outboxOf(inbox, features) {
+  const out = [];
+  for (const { prd: prd2, topic } of inbox) {
+    const mine = features.filter((feature) => feature.topic === topic);
+    if (mine.length === 0) continue;
+    const openItems2 = mine.reduce((sum, feature) => sum + feature.outbox.filter(isOpenItem).length, 0);
+    if (openItems2 > 0 || mine.some(isBuilt)) out.push({ prd: prd2, topic, openItems: openItems2 });
+  }
+  return out;
+}
+function inReviewOf(phase02, taken) {
+  const held = phase02.flatMap(({ topic, inbox }) => inbox.filter((folder) => folder.topic === topic));
+  return stage(held, taken);
+}
+function yourNumbers(facts, onBase, me) {
+  const isMe = (email) => email.toLowerCase() === me;
+  const touched = [facts.touched, ...facts.features.map(({ touched: touched2 }) => touched2), ...facts.phase0.map(({ touched: touched2 }) => touched2)].flat();
+  const mine = new Set(touched.filter(({ email }) => isMe(email)).map(({ prd: prd2 }) => prd2));
+  const helped = new Set(facts.features.filter(({ authors }) => authors.some(isMe)).map(({ topic }) => topic));
+  for (const { prd: prd2, topic } of onBase) if (helped.has(topic)) mine.add(prd2);
+  return mine;
+}
+function yoursOf(facts, stages, onBase) {
+  const none = { email: facts.email ?? null, rows: [], shipped: [] };
+  if (!facts.email) return { state: "no-email", ...none };
+  if (facts.shallow) return { state: "shallow", ...none };
+  const mine = yourNumbers(facts, onBase, facts.email.toLowerCase());
+  const yours2 = (entries3) => entries3.filter(({ prd: prd2 }) => mine.has(prd2));
+  const rows2 = ["outbox", "inbox", "inReview"].flatMap((stage2) => yours2(stages[stage2]).map((entry) => ({ stage: stage2, ...entry })));
+  return { state: "known", email: facts.email, rows: rows2, shipped: yours2(stages.shipped) };
+}
+function overviewFor(facts) {
+  const shipped = stage(facts.shipped);
+  const onBase = stage(facts.inbox, new Set(shipped.map(({ prd: prd2 }) => prd2)));
+  const outbox = outboxOf(onBase, facts.features);
+  const inOutbox2 = new Set(outbox.map(({ prd: prd2 }) => prd2));
+  const inbox = onBase.filter(({ prd: prd2 }) => !inOutbox2.has(prd2));
+  const inReview = inReviewOf(facts.phase0, new Set([...facts.shipped, ...facts.inbox].map(({ prd: prd2 }) => prd2)));
+  const inProgress = inbox.length + outbox.length;
+  const stages = { shipped, outbox, inbox, inReview };
+  return {
+    slug: facts.slug,
+    base: facts.base,
+    fetchedAt: facts.fetchedAt,
+    stages,
+    counts: {
+      shipped: shipped.length,
+      inbox: inbox.length,
+      outbox: outbox.length,
+      openItems: outbox.reduce((sum, { openItems: openItems2 }) => sum + openItems2, 0),
+      inReview: inReview.length
+    },
+    bar: barFor(shipped.length, shipped.length + inProgress),
+    inProgress: { total: inProgress, inbox: inbox.length, outbox: outbox.length },
+    yours: yoursOf(facts, stages, onBase)
+  };
+}
+
+// kit/lib/status/format.mjs
+var MINUTE = 60 * 1e3;
+var HOUR = 60 * MINUTE;
+var DAY = 24 * HOUR;
+var WIDTH = 80;
+var INDENT = "  ";
+var LABEL2 = "  delivered  ";
+var UNDER_BAR = " ".repeat(LABEL2.length);
+var GAP = "     ";
+var plural2 = (count3, word) => `${count3} ${word}${count3 === 1 ? "" : "s"}`;
+function fetchedAgo(fetchedAt2, now) {
+  if (fetchedAt2 === null || fetchedAt2 === void 0) return "never fetched";
+  const age = Math.max(0, now - fetchedAt2);
+  if (age < MINUTE) return "fetched just now";
+  if (age < HOUR) return `fetched ${plural2(Math.floor(age / MINUTE), "minute")} ago`;
+  if (age < DAY) return `fetched ${plural2(Math.floor(age / HOUR), "hour")} ago`;
+  return `fetched ${plural2(Math.floor(age / DAY), "day")} ago`;
+}
+function header({ slug, base, fetchedAt: fetchedAt2 }, now) {
+  return ["omni status", ...slug ? [slug] : [], `${base}, ${fetchedAgo(fetchedAt2, now)}`].join(" \xB7 ");
+}
+function counts({ shipped, inbox, outbox, openItems: openItems2, inReview }) {
+  const parts = [
+    `SHIPPED ${shipped}`,
+    `INBOX ${inbox}`,
+    ...outbox > 0 ? [`OUTBOX ${outbox} \xB7 ${plural2(openItems2, "open item")}`] : [],
+    ...inReview > 0 ? [`IN REVIEW ${inReview}`] : []
+  ];
+  const out = [];
+  for (const part of parts) {
+    const joined2 = out.length ? `${out.at(-1)}${GAP}${part}` : null;
+    if (joined2 !== null && joined2.length <= WIDTH) out[out.length - 1] = joined2;
+    else out.push(`${INDENT}${part}`);
+  }
+  return out;
+}
+function bar({ bar: { delivered, total, percent, filled }, inProgress }) {
+  if (total === 0) return ["  nothing yet: /omni:brainstorm to start"];
+  const cells2 = `${"\u2588".repeat(filled)}${"\u2591".repeat(BAR_CELLS - filled)}`;
+  const parts = [[inProgress.inbox, "in the inbox"], [inProgress.outbox, "in the outbox"]].filter(([count3]) => count3 > 0).map(([count3, where]) => `${count3} ${where}`);
+  const under = inProgress.total === 0 ? "nothing in progress" : `${inProgress.total} in progress: ${parts.join(", ")}`;
+  return [`${LABEL2}${cells2}  ${delivered} of ${total} \xB7 ${percent}%`, `${UNDER_BAR}${under}`];
+}
+var STAGE_WORDS = { outbox: "outbox", inbox: "inbox", inReview: "in review", shipped: "shipped" };
+var NUMBER_GAP = "  ";
+var TOPIC_GAP = "    ";
+var SEPARATOR = " \xB7 ";
+var cut = (text4, width) => text4.length <= width ? text4 : `${text4.slice(0, Math.max(0, width - 1))}\u2026`;
+var stageColumn = (stage2) => `${INDENT}${STAGE_WORDS[stage2].padEnd(UNDER_BAR.length - INDENT.length)}`;
+function standing({ stage: stage2, prd: prd2, openItems: openItems2 }) {
+  if (stage2 === "outbox") return openItems2 > 0 ? `${plural2(openItems2, "open item")} wait${openItems2 === 1 ? "s" : ""} for an answer` : "being built";
+  if (stage2 === "inbox") return `ready to build: /omni:yolo ${prd2}`;
+  return "its phase-0 PR waits for a merge";
+}
+function rows(entries3) {
+  const lines = entries3.map((row) => ({ stage: stageColumn(row.stage), number: `#${row.prd}`, topic: row.topic, words: standing(row) }));
+  const numberWidth = Math.max(...lines.map(({ number }) => number.length)) + NUMBER_GAP.length;
+  const wordsWidth = Math.max(...lines.map(({ words }) => words.length));
+  const room = WIDTH - UNDER_BAR.length - numberWidth - TOPIC_GAP.length - wordsWidth;
+  const topicWidth = Math.min(Math.max(...lines.map(({ topic }) => topic.length)), Math.max(1, room));
+  return lines.map(({ stage: stage2, number, topic, words }) => `${stage2}${number.padEnd(numberWidth)}${cut(topic, topicWidth).padEnd(topicWidth)}${TOPIC_GAP}${words}`);
+}
+function shippedEntry({ prd: prd2, topic }, width) {
+  const number = `#${prd2} `;
+  return `${number}${cut(topic, width - number.length)}`;
+}
+function shippedRow(shipped) {
+  const out = [];
+  let line = `${stageColumn("shipped")}${shipped.length}: `;
+  let fresh = true;
+  for (const entry of shipped) {
+    if (!fresh) {
+      const joined2 = `${line}${SEPARATOR}${shippedEntry(entry, Infinity)}`;
+      if (joined2.length <= WIDTH) {
+        line = joined2;
+        continue;
+      }
+      out.push(line);
+      line = UNDER_BAR;
+    }
+    line = `${line}${shippedEntry(entry, WIDTH - line.length)}`;
+    fresh = false;
+  }
+  out.push(line);
+  return out;
+}
+function yours({ state, email, rows: inFlight, shipped }) {
+  if (state === "no-email") return [`${INDENT}set git config user.email to see yours`];
+  if (state === "shallow") return [`${INDENT}this clone is shallow: git fetch --unshallow to see yours`];
+  const heading = cut(`${INDENT}Yours \xB7 ${email}`, WIDTH);
+  if (inFlight.length === 0 && shipped.length === 0) return [heading, `${INDENT}none yet`];
+  return [heading, ...inFlight.length ? rows(inFlight) : [], ...shipped.length ? shippedRow(shipped) : []];
+}
+function formatOverview(overview2, { now }) {
+  return [
+    header(overview2, now),
+    "",
+    ...counts(overview2.counts),
+    "",
+    ...bar(overview2),
+    "",
+    ...yours(overview2.yours),
+    "",
+    "omni help: the loop and every command"
+  ].join("\n");
+}
+
+// kit/bin/commands/status.mjs
+var USAGE15 = "usage: omni status [--fetch] | omni status <prd> [--labels a,b] [--base <ref> | --changes]";
+function overview({ ctx, stdout, exec, fetch }) {
+  if (fetch) {
+    const failure2 = fetchRemote({ ctx, exec });
+    if (failure2 !== null) println(stdout, `fetch failed: ${failure2}; showing your last fetch`);
+  }
+  const facts = readFacts({ ctx, exec });
+  if (facts === null) {
+    const names = baseNames(ctx);
+    throw usageError(`omni status: cannot read ${names.remote} or ${names.local}; run omni status --fetch`);
+  }
+  println(stdout, formatOverview(overviewFor(facts), { now: Date.now() }));
+  return 0;
+}
 var status2 = {
   async run(args, { ctx, stdout, exec, env }) {
-    const { positional, flags } = parseArgs("status", args, { values: ["labels", "base"], booleans: ["changes"] });
-    if (positional.length !== 1) throw usageError("usage: omni status <prd> [--labels a,b] [--base <ref> | --changes]");
+    const { positional, flags } = parseArgs("status", args, { values: ["labels", "base"], booleans: ["changes", "fetch"] });
+    const gateFlags = flags.labels !== void 0 || flags.base !== void 0 || flags.changes === true;
+    if (positional.length === 0 && !gateFlags) return overview({ ctx, stdout, exec, fetch: flags.fetch === true });
+    if (positional.length !== 1 || flags.fetch === true) throw usageError(USAGE15);
     const prd2 = positiveInt("status", "<prd>", positional[0]);
     const labels = list(flags.labels);
     const base = flags.base ?? (flags.changes ? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}` : null);
@@ -20978,7 +21901,7 @@ import { spawn as spawnProcess } from "node:child_process";
 // kit/lib/statusline/board-cache.mjs
 init_define_OMNI_BUNDLE();
 import { randomUUID } from "node:crypto";
-import { closeSync, existsSync as existsSync36, mkdirSync as mkdirSync13, openSync, readFileSync as readFileSync35, renameSync as renameSync2, rmSync as rmSync7, statSync as statSync5, writeFileSync as writeFileSync18 } from "node:fs";
+import { closeSync, existsSync as existsSync36, mkdirSync as mkdirSync13, openSync, readFileSync as readFileSync36, renameSync as renameSync2, rmSync as rmSync8, statSync as statSync6, writeFileSync as writeFileSync19 } from "node:fs";
 import { join as join44 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 var BOARD_DIR = join44(LOCAL_DIR, "statusline");
@@ -21001,7 +21924,7 @@ function omniScript() {
   return runningBundle() ?? fileURLToPath3(new URL("../../bin/omni.mjs", import.meta.url));
 }
 function readBoard(root, prd2) {
-  const value = attempt4(() => JSON.parse(readFileSync35(boardFile(root, prd2), "utf8")), null);
+  const value = attempt4(() => JSON.parse(readFileSync36(boardFile(root, prd2), "utf8")), null);
   if (!isObject(value) || typeof value.at !== "string") return null;
   const at = Date.parse(value.at);
   if (Number.isNaN(at)) return null;
@@ -21025,8 +21948,8 @@ function refreshDue(board2, now) {
 }
 function lockedAt(path) {
   if (!existsSync36(path)) return null;
-  const at = attempt4(() => Date.parse(JSON.parse(readFileSync35(path, "utf8")).at), Number.NaN);
-  return Number.isNaN(at) ? attempt4(() => statSync5(path).mtimeMs, null) : at;
+  const at = attempt4(() => Date.parse(JSON.parse(readFileSync36(path, "utf8")).at), Number.NaN);
+  return Number.isNaN(at) ? attempt4(() => statSync6(path).mtimeMs, null) : at;
 }
 function lockHeld(root, prd2, now) {
   const at = lockedAt(lockFile(root, prd2));
@@ -21057,18 +21980,18 @@ function cachedSlices({ root, prd: prd2, now, cwd, spawn: spawn2 = null, script,
 function ensureBoardDir(root) {
   mkdirSync13(join44(root, BOARD_DIR), { recursive: true });
   const ignore = join44(root, LOCAL_DIR, ".gitignore");
-  if (!existsSync36(ignore)) writeFileSync18(ignore, "*\n");
+  if (!existsSync36(ignore)) writeFileSync19(ignore, "*\n");
 }
 function writeBoard(root, prd2, entry) {
   ensureBoardDir(root);
   const path = boardFile(root, prd2);
   const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
   try {
-    writeFileSync18(temporary, `${JSON.stringify(entry)}
+    writeFileSync19(temporary, `${JSON.stringify(entry)}
 `);
     renameSync2(temporary, path);
   } finally {
-    rmSync7(temporary, { force: true });
+    rmSync8(temporary, { force: true });
   }
 }
 function createLock(path, now) {
@@ -21081,7 +22004,7 @@ function createLock(path, now) {
     throw error;
   }
   try {
-    writeFileSync18(fd, `${JSON.stringify({ at: new Date(now).toISOString(), owner })}
+    writeFileSync19(fd, `${JSON.stringify({ at: new Date(now).toISOString(), owner })}
 `);
   } finally {
     closeSync(fd);
@@ -21093,13 +22016,13 @@ function takeLock(root, prd2, now) {
   const path = lockFile(root, prd2);
   const owner = createLock(path, now);
   if (owner !== null || lockHeld(root, prd2, now)) return owner;
-  rmSync7(path, { force: true });
+  rmSync8(path, { force: true });
   return createLock(path, now);
 }
 function releaseLock(root, prd2, owner) {
   const path = lockFile(root, prd2);
-  const held = attempt4(() => JSON.parse(readFileSync35(path, "utf8")).owner, null);
-  if (held === owner) rmSync7(path, { force: true });
+  const held = attempt4(() => JSON.parse(readFileSync36(path, "utf8")).owner, null);
+  if (held === owner) rmSync8(path, { force: true });
 }
 var oneLine3 = (error) => String(error?.message ?? error).split("\n")[0].trim() || "the board could not be built";
 function refreshBoard({ root, prd: prd2, now, build }) {
@@ -21135,16 +22058,16 @@ var MERGED = "merged";
 var STUCK = "stuck";
 var IN_FLIGHT = Object.freeze(["in-flight", "claimed-stale"]);
 var ACCOUNTS_DIR2 = "accounts";
-function isOpenItem(path) {
+function isOpenItem2(path) {
   const segments = String(path).split("/");
   const name = segments.pop();
   if (segments.includes(ACCOUNTS_DIR2)) return false;
   return name.endsWith(".md") && name !== SETTLED_FILE;
 }
 function openItemCount(paths) {
-  return (paths ?? []).filter(isOpenItem).length;
+  return (paths ?? []).filter(isOpenItem2).length;
 }
-function isBuilt({ forkChanges, stillDiffers, delivery }) {
+function isBuilt2({ forkChanges, stillDiffers, delivery }) {
   const inside = `${String(delivery).replace(/\/+$/, "")}/`;
   const differs = new Set(stillDiffers ?? []);
   return (forkChanges ?? []).some((path) => !path.startsWith(inside) && differs.has(path));
@@ -21225,8 +22148,8 @@ function attempt5(fn, fallback) {
     return fallback;
   }
 }
-var git3 = (exec, cwd, args) => String(exec("git", args, { cwd, ...QUIET6 }));
-var entries = (text4) => text4.split("\0").filter(Boolean);
+var git4 = (exec, cwd, args) => String(exec("git", args, { cwd, ...QUIET6 }));
+var entries2 = (text4) => text4.split("\0").filter(Boolean);
 function checkoutContext(folder, exec) {
   try {
     const root = findRoot(folder, exec);
@@ -21244,11 +22167,11 @@ function askModeOn(projectDir) {
   }
 }
 function branchOf(folder, exec) {
-  return attempt5(() => git3(exec, folder, ["rev-parse", "--abbrev-ref", "HEAD"]).trim(), null);
+  return attempt5(() => git4(exec, folder, ["rev-parse", "--abbrev-ref", "HEAD"]).trim(), null);
 }
 function refExists3(ctx, ref, exec) {
   return attempt5(() => {
-    git3(exec, ctx.root, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]);
+    git4(exec, ctx.root, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]);
     return true;
   }, false);
 }
@@ -21258,10 +22181,10 @@ function baseRef(ctx, exec) {
   return refs.find((ref) => refExists3(ctx, ref, exec)) ?? null;
 }
 function treeFolders(ctx, ref, dir, exec) {
-  return attempt5(() => entries(git3(exec, ctx.root, ["ls-tree", "-z", "-d", "--name-only", `${ref}:${dir}`])), []);
+  return attempt5(() => entries2(git4(exec, ctx.root, ["ls-tree", "-z", "-d", "--name-only", `${ref}:${dir}`])), []);
 }
 function treeFiles(ctx, ref, dir, exec) {
-  return attempt5(() => entries(git3(exec, ctx.root, ["ls-tree", "-z", "-r", "--name-only", `${ref}:${dir}`])), []);
+  return attempt5(() => entries2(git4(exec, ctx.root, ["ls-tree", "-z", "-r", "--name-only", `${ref}:${dir}`])), []);
 }
 function checkoutFolders(ctx, dir) {
   return attempt5(
@@ -21271,14 +22194,14 @@ function checkoutFolders(ctx, dir) {
 }
 function changedPaths2(ctx, { from, to, sinceFork }, exec) {
   const range = sinceFork ? [`${from}...${to}`] : [from, to];
-  return attempt5(() => entries(git3(exec, ctx.root, ["diff", "--name-only", "-z", "--no-renames", ...range, "--"])), []);
+  return attempt5(() => entries2(git4(exec, ctx.root, ["diff", "--name-only", "-z", "--no-renames", ...range, "--"])), []);
 }
 function featureFacts(ctx, { base, topic, folder }, exec) {
   const { remote } = ctx.config.repo;
   const feature = `refs/remotes/${remote}/${fillBranch(ctx.config.branches.feature, { topic })}`;
   if (!refExists3(ctx, feature, exec)) return null;
   return {
-    built: isBuilt({
+    built: isBuilt2({
       forkChanges: changedPaths2(ctx, { from: base, to: feature, sinceFork: true }, exec),
       stillDiffers: changedPaths2(ctx, { from: base, to: feature, sinceFork: false }, exec),
       delivery: ctx.config.paths.delivery
@@ -21313,7 +22236,7 @@ function readPrd(ctx, { folder, sessionId, now, spawn: spawn2, env }, exec) {
     slices
   };
 }
-function readFacts(input, { cwd, exec, now = Date.now(), spawn: spawn2 = null, env }) {
+function readFacts2(input, { cwd, exec, now = Date.now(), spawn: spawn2 = null, env }) {
   const folder = input.currentDir ?? cwd;
   const ctx = checkoutContext(folder, exec);
   return {
@@ -21365,13 +22288,13 @@ function parseInput(source) {
 init_define_OMNI_BUNDLE();
 var NO_PRD_LINE = "no PRD \xB7 /omni:brainstorm to start";
 var UNREADABLE_LINE = "omni";
-var SEPARATOR = " \xB7 ";
+var SEPARATOR2 = " \xB7 ";
 var DEFAULT_COLUMNS = 80;
-var BAR_CELLS = 10;
+var BAR_CELLS2 = 10;
 var FILLED = "\u2588";
 var EMPTY = "\u2591";
 var CUT = "\u2026";
-var MINUTE = 6e4;
+var MINUTE2 = 6e4;
 var TOPIC_FLOOR = 8;
 var RESET = "\x1B[0m";
 var COLOURS = { green: "\x1B[32m", yellow: "\x1B[33m", red: "\x1B[31m" };
@@ -21395,12 +22318,12 @@ function contextColour(percent) {
 function contextPart(percent, { color = false } = {}) {
   if (typeof percent !== "number" || !Number.isFinite(percent)) return "context \u2014";
   const shown2 = Math.floor(percent);
-  const filled = Math.max(0, Math.min(BAR_CELLS, Math.floor(shown2 / 10)));
-  const bar = FILLED.repeat(filled) + EMPTY.repeat(BAR_CELLS - filled);
-  return `context ${paint(`${bar} ${shown2}%`, contextColour(shown2), color)}`;
+  const filled = Math.max(0, Math.min(BAR_CELLS2, Math.floor(shown2 / 10)));
+  const bar2 = FILLED.repeat(filled) + EMPTY.repeat(BAR_CELLS2 - filled);
+  return `context ${paint(`${bar2} ${shown2}%`, contextColour(shown2), color)}`;
 }
 function resetIn(ms) {
-  const minutes = Math.ceil(ms / MINUTE);
+  const minutes = Math.ceil(ms / MINUTE2);
   if (minutes < 60) return `${minutes}m`;
   return `${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, "0")}`;
 }
@@ -21409,7 +22332,7 @@ function usagePart(fiveHour, now) {
   return `usage ${Math.floor(fiveHour.percent)}%, resets in ${resetIn(fiveHour.resetsAt - now)}`;
 }
 function sessionLine({ model, contextPercent, fiveHour, askOn }, { now, color }) {
-  return [model, contextPart(contextPercent, { color }), usagePart(fiveHour, now), askOn ? "ask on" : null].filter(Boolean).join(SEPARATOR);
+  return [model, contextPart(contextPercent, { color }), usagePart(fiveHour, now), askOn ? "ask on" : null].filter(Boolean).join(SEPARATOR2);
 }
 function visibleLength(line) {
   let length = 0;
@@ -21447,17 +22370,17 @@ function slicesPart(slices, { color = false } = {}) {
   const inFlight = count3((state) => IN_FLIGHT.includes(state));
   const stuck = count3((state) => state === STUCK);
   return [
-    `wave ${wave} of ${last}${SEPARATOR}${merged}/${slices.length} slices merged`,
+    `wave ${wave} of ${last}${SEPARATOR2}${merged}/${slices.length} slices merged`,
     inFlight > 0 ? `, ${inFlight} in flight` : "",
     stuck > 0 ? `, ${paint(`${stuck} stuck`, "red", color)}` : ""
   ].join("");
 }
 var cutTo = (text4, length) => `${[...text4].slice(0, length - 1).join("")}${CUT}`;
-function prdLine({ number, topic, slice, stage, openItems: openItems2, slices = null }, width = Number.POSITIVE_INFINITY, { color = false } = {}) {
-  const inOutbox2 = stage === OUTBOX;
+function prdLine({ number, topic, slice, stage: stage2, openItems: openItems2, slices = null }, width = Number.POSITIVE_INFINITY, { color = false } = {}) {
+  const inOutbox2 = stage2 === OUTBOX;
   const draw = (shown2) => {
-    if (stage === SHIPPED) return `PRD ${number} ${shown2}${SEPARATOR}${SHIPPED}`;
-    return [`PRD ${number} ${shown2}`, slice, stage, inOutbox2 ? slicesPart(slices, { color }) : null, inOutbox2 ? itemsPart(openItems2) : null].filter(Boolean).join(SEPARATOR);
+    if (stage2 === SHIPPED) return `PRD ${number} ${shown2}${SEPARATOR2}${SHIPPED}`;
+    return [`PRD ${number} ${shown2}`, slice, stage2, inOutbox2 ? slicesPart(slices, { color }) : null, inOutbox2 ? itemsPart(openItems2) : null].filter(Boolean).join(SEPARATOR2);
   };
   const line = draw(topic);
   const over = visibleLength(line) - width;
@@ -21485,14 +22408,14 @@ async function readText(stdin) {
   for await (const chunk of stdin) text4 += chunk;
   return text4;
 }
-async function statusLines({ cwd, exec, env, stdin, now, readFacts: readFacts2, spawn: spawn2 }) {
+async function statusLines({ cwd, exec, env, stdin, now, readFacts: readFacts3, spawn: spawn2 }) {
   try {
     const input = parseInput(await readText(stdin).catch(() => ""));
     const instant2 = now();
     let facts = null;
     if (input) {
       try {
-        facts = readFacts2(input, { cwd, exec, now: instant2, spawn: spawn2, env });
+        facts = readFacts3(input, { cwd, exec, now: instant2, spawn: spawn2, env });
       } catch {
         facts = null;
       }
@@ -21524,12 +22447,12 @@ function refresh(value, { cwd, exec, env, now }) {
 }
 var statusline = {
   withoutContext: true,
-  async run(args, { cwd, stdout, exec, env, stdin = process.stdin, now = Date.now, readFacts: readFacts2 = readFacts, spawn: spawn2 = spawnProcess }) {
+  async run(args, { cwd, stdout, exec, env, stdin = process.stdin, now = Date.now, readFacts: readFacts3 = readFacts2, spawn: spawn2 = spawnProcess }) {
     if (args[0] === REFRESH_FLAG) {
       refresh(args[1], { cwd, exec, env, now });
       return 0;
     }
-    const lines = await statusLines({ cwd, exec, env, stdin, now, readFacts: readFacts2, spawn: spawn2 });
+    const lines = await statusLines({ cwd, exec, env, stdin, now, readFacts: readFacts3, spawn: spawn2 });
     try {
       stdout.write(`${lines.join("\n")}
 `);
@@ -21540,12 +22463,14 @@ var statusline = {
 };
 
 // kit/bin/commands/index.mjs
-var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, init, ask, signin, signout, whoami, sign, credits, dossier, statusline });
+var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, init, ask, signin, signout, whoami, sign, credits, dossier, help, statusline });
 
 // kit/bin/omni.mjs
-var USAGE15 = `usage: omni <command> [args]
+var USAGE16 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
+omni help: what each command does
 `;
+var HELP_FLAGS = ["--help", "-h"];
 var PRD_BY_POSITION = Object.freeze({
   prd: [],
   board: [],
@@ -21583,11 +22508,12 @@ function recordPrd(argv, { cwd, env, exec }) {
   } catch {
   }
 }
-async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync9, env = process.env, ...more } = {}) {
-  const [name, ...rest] = argv;
+async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync10, env = process.env, ...more } = {}) {
+  const [first, ...rest] = argv;
+  const name = HELP_FLAGS.includes(first) ? "help" : first;
   const command = Object.hasOwn(COMMAND_TABLE, name ?? "") ? COMMAND_TABLE[name] : void 0;
   if (!command) {
-    stderr.write(USAGE15);
+    stderr.write(USAGE16);
     return 2;
   }
   recordPrd(argv, { cwd, env, exec });
