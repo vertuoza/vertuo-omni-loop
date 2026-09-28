@@ -1,8 +1,8 @@
 import { PressStart, SignUp } from '../poster/Poster';
 import './OrderForm.css';
 
-// The order form (PRD 261): JOIN THE LOOP!, moved here from the poster by PRD 285, over the disabled
-// sign-up, PRESS START, the fine print and the Konami tip.
+// The order form (PRD 261): JOIN THE LOOP!, moved here from the poster by PRD 285, over the
+// sign-up (enabled by PRD 359), PRESS START, the fine print and the Konami tip.
 export function OrderForm() {
   return (
     <section className="home-spread" aria-labelledby="home-order">
