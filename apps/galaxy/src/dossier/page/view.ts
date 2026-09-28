@@ -20,8 +20,8 @@
 //
 // The stage header (PRD 426): "PRD #n" links to its issue on the dossier's home repository (no GitHub
 // call needed), and the stage, its one button and its links are worked out from the GitHub summary
-// the route read (./stage.ts). A draft is the idea stage without any read; a numbered dossier whose
-// summary was not asked for (demo mode) shows no track.
+// the route read (./stage.ts). A draft is the idea stage without any read; demo mode shows its
+// built-in sample summary (./demo.ts).
 //
 // The Outbox tab (PRD 426, s2) comes after Plan: the open decisions, highest rank first, then the
 // settled ones in the order settled.md holds them, read from the GitHub summary. Its badge counts

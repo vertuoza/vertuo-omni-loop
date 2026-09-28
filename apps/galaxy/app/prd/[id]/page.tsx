@@ -103,10 +103,11 @@ export default async function DossierRoute({ params, searchParams }: Props) {
   }
   if (!read) notFound();
 
-  const view = dossierView({ ...read, ...(await githubOf(db, read)) }, user.id, pick);
+  const withGithub = { ...read, ...(await githubOf(db, read)) };
+  const view = dossierView(withGithub, user.id, pick);
   const shown = view.shown;
   const markdown = shown && !shown.frame ? await markdownOf(() => readContent(db, shown.id)) : null;
-  const pulse = pulseOf(read);
+  const pulse = pulseOf(withGithub);
   const live = <LiveRefresh supabase={env} id={view.id} signature={pulse ? signature(pulse) : null} />;
   return <DossierPage view={view} markdown={markdown} supabase={env} live={live} />;
 }
