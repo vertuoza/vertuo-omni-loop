@@ -15,9 +15,9 @@ insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test'),
   ('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
 -- Ask mode's crew is whoever belongs to a workspace (PRD 100). A second workspace, Acme, owns the
--- GitHub organisation acme. Ada joined Vertuoza first, then Acme; Bob belongs to Vertuoza, Carl to
--- Acme, Eve to none.
-insert into public.workspaces (slug, name, github_org) values ('acme', 'Acme', 'acme');
+-- GitHub organisation acme, and a third, Globex, owns globex and has no member here. Ada joined
+-- Vertuoza first, then Acme; Bob belongs to Vertuoza, Carl to Acme, Eve to none.
+insert into public.workspaces (slug, name, github_org) values ('acme', 'Acme', 'acme'), ('globex', 'Globex', 'globex');
 insert into public.workspace_members (workspace_id, user_id, joined_at)
 select w.id, m.user_id, m.joined_at
   from (values
@@ -283,6 +283,59 @@ begin
     raise exception 'FAIL: an outsider opened an ask session';
   exception when insufficient_privilege then null; end;
   if (select count(*) from public.ask_sessions) <> 0 then raise exception 'FAIL: an outsider read the ask sessions'; end if;
+end $$;
+
+-- ── Where a session goes (PRD 459): the repository's owner decides, and membership is the only gate ──
+-- Carl belongs to Acme only; Eve to none. Everything this block opens is undone at its end.
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
+do $$
+declare
+  sid uuid;
+begin
+  begin
+    -- A repository his workspace owns: that workspace.
+    insert into public.ask_sessions (title, repo) values ('api', 'acme/api') returning id into sid;
+    if (select w.slug from public.ask_sessions s join public.workspaces w on w.id = s.workspace_id where s.id = sid) <> 'acme' then
+      raise exception 'FAIL: a member''s session of a repository their workspace owns did not go to it';
+    end if;
+    -- A repository another workspace owns: refused, naming it.
+    begin
+      insert into public.ask_sessions (title, repo) values ('web', 'Globex/web');
+      raise exception 'FAIL: a session of a repository another workspace owns was opened';
+    exception when insufficient_privilege then
+      if sqlerrm <> 'you are not a member of Globex, which owns Globex/web' then
+        raise exception 'FAIL: the refusal of a repository another workspace owns reads %', sqlerrm;
+      end if;
+    end;
+    -- A repository no workspace owns: the workspace he joined first.
+    insert into public.ask_sessions (title, repo) values ('tools', 'nobody/tools') returning id into sid;
+    if (select w.slug from public.ask_sessions s join public.workspaces w on w.id = s.workspace_id where s.id = sid) <> 'acme' then
+      raise exception 'FAIL: a session of a repository no workspace owns did not go to the workspace its owner joined first';
+    end if;
+    raise exception 'undo' using errcode = 'U0459';
+  exception when sqlstate 'U0459' then null;
+  end;
+end $$;
+
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
+do $$
+begin
+  begin
+    insert into public.ask_sessions (title, repo) values ('tools', 'nobody/tools');
+    raise exception 'FAIL: an account in no workspace opened a session';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'no workspace owns nobody/tools yet — install the Omni App' then
+      raise exception 'FAIL: the refusal of an account in no workspace reads %', sqlerrm;
+    end if;
+  end;
+  begin
+    insert into public.ask_sessions (title, repo) values ('api', 'acme/api');
+    raise exception 'FAIL: an account in no workspace opened a session of a repository a workspace owns';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'you are not a member of Acme, which owns acme/api' then
+      raise exception 'FAIL: the refusal of an account in no workspace, for an owned repository, reads %', sqlerrm;
+    end if;
+  end;
 end $$;
 
 -- ── Back to Ada: her rows are intact, and a round only moves forward ──
@@ -576,8 +629,12 @@ begin
      or has_function_privilege('authenticated', 'public.ask_sweep()', 'execute') then
     raise exception 'FAIL: the API roles may run the sweep';
   end if;
-  if has_function_privilege('authenticated', 'public.ask_session_workspace(uuid, text)', 'execute') then
+  if has_function_privilege('anon', 'public.repo_workspace(uuid, text)', 'execute')
+     or has_function_privilege('authenticated', 'public.repo_workspace(uuid, text)', 'execute') then
     raise exception 'FAIL: the API roles may call the workspace picker';
+  end if;
+  if to_regprocedure('public.ask_session_workspace(uuid, text)') is not null then
+    raise exception 'FAIL: the picker that sent a repository another workspace owns to the caller''s first workspace is still there';
   end if;
   if has_table_privilege('anon', 'public.ask_sessions', 'select, insert, update, delete, truncate')
      or has_table_privilege('anon', 'public.ask_rounds', 'select, insert, update, delete, truncate') then

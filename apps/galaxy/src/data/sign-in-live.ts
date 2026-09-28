@@ -14,7 +14,8 @@ import { joinByGithub } from './workspace';
 // GITHUB_APP_PRIVATE_KEY, server only) and the service role's sign-up writes. Each is read when a call
 // needs it, so a deployment without them still signs people in.
 
-function serviceDb() {
+/** The service role's client. Throws when this deployment has no service role key. */
+export function serviceDb() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set on this deployment: nobody joins by GitHub org');

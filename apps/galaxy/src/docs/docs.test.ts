@@ -119,7 +119,22 @@ describe('the pages', () => {
     expect(html).toContain('<nav class="docs-toc" aria-label="On this page">');
     expect(html).toContain('<a href="#what-you-will-have-at-the-end">What you will have at the end</a>');
     expect(html).toContain('<a href="#what-you-need-first">What you need first</a>');
-    expect(html).toContain('An Omni Loop invite.');
+    expect(html).toContain('The Omni App on your account or an org of yours.');
+  });
+
+  it('asks for no invite, no read access to a private repository and no gh auth setup-git (PRD 459)', () => {
+    for (const page of readGuide(GUIDE).pages) {
+      expect(page.body, page.slug).not.toMatch(/invit/i);
+      expect(page.body, page.slug).not.toMatch(/private|read access/i);
+      expect(page.body, page.slug).not.toContain('gh auth setup-git');
+      expect(page.body, page.slug).not.toContain('repository not found');
+    }
+  });
+
+  it('explains the two lines a terminal call answers outside a workspace (PRD 459)', () => {
+    const html = render(['troubleshooting']);
+    expect(html).toContain('<code>refused (403): you are not a member of &lt;workspace&gt;, which owns &lt;owner/repo&gt;</code>');
+    expect(html).toContain('<code>no workspace owns &lt;owner/repo&gt; yet — install the Omni App: &lt;link&gt;</code>');
   });
 
   it('draws no table of contents for a page with no headings', () => {
@@ -157,7 +172,7 @@ describe('a code block', () => {
     expect(install).toContainEqual(['TERMINAL + CODING AGENT', 'omni config']);
     expect(install).toContainEqual(['CODING AGENT', '/omni:help']);
     const troubleshooting = blocks(render(['troubleshooting']));
-    expect(troubleshooting).toContainEqual(['TERMINAL', 'gh auth setup-git']);
+    expect(troubleshooting).toContainEqual(['TERMINAL + CODING AGENT', 'omni signin']);
     expect(troubleshooting).toContainEqual(['FILE · .omni-loop/config.yml', 'ask:']);
     const firstPrd = blocks(render(['first-prd']));
     expect(firstPrd).toContainEqual(['TERMINAL', 'git switch main']);

@@ -20,9 +20,10 @@ insert into auth.users (id, email) values
   ('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com'),
   ('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test'),
   ('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
--- A second workspace, Acme, owns the GitHub organisation acme. Ada joined Vertuoza first, then Acme;
--- Bob belongs to Vertuoza, Carl to Acme, Eve to none.
-insert into public.workspaces (slug, name, github_org) values ('acme', 'Acme', 'acme');
+-- A second workspace, Acme, owns the GitHub organisation acme, and a third, Globex, owns globex and has
+-- no member here. Ada joined Vertuoza first, then Acme; Bob belongs to Vertuoza, Carl to Acme, Eve to
+-- none.
+insert into public.workspaces (slug, name, github_org) values ('acme', 'Acme', 'acme'), ('globex', 'Globex', 'globex');
 insert into public.workspace_members (workspace_id, user_id, joined_at)
 select w.id, m.user_id, m.joined_at
   from (values
@@ -235,10 +236,55 @@ begin
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FAIL: an account of another workspace deleted a draft'; end if;
 
-  -- The same repository and PRD from Acme is Acme's own dossier, and adds nothing to Vertuoza's.
-  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "spec", "content": "spec one"}]');
-  if (pushed ->> 'id')::uuid = did then raise exception 'FAIL: a push from another workspace reached Vertuoza''s dossier'; end if;
-  if pushed -> 'added' <> '[{"kind": "spec", "version": 1}]'::jsonb then raise exception 'FAIL: Acme''s own dossier did not start at v1: %', pushed; end if;
+  -- A repository Vertuoza owns is Vertuoza's (PRD 459): a push from Acme is refused, naming Vertuoza,
+  -- and adds nothing to Vertuoza's dossier.
+  begin
+    pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "spec", "content": "spec one"}]');
+    raise exception 'FAIL: a push from another workspace went through for a repository Vertuoza owns: %', pushed;
+  exception when insufficient_privilege then
+    if sqlerrm <> 'you are not a member of Vertuoza, which owns vertuoza/vertuo-omni-loop' then
+      raise exception 'FAIL: the refusal of a push for a repository another workspace owns reads %', sqlerrm;
+    end if;
+  end;
+  begin
+    perform public.dossier_open('An idea', 'vertuoza/vertuo-omni-loop', null);
+    raise exception 'FAIL: an account of another workspace opened a draft for a repository Vertuoza owns';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'you are not a member of Vertuoza, which owns vertuoza/vertuo-omni-loop' then
+      raise exception 'FAIL: the refusal of a draft for a repository another workspace owns reads %', sqlerrm;
+    end if;
+  end;
+
+  -- Where the rest goes (PRD 459): a repository Acme owns, and one no workspace owns, go to Acme; one
+  -- Globex owns is refused, naming Globex. Undone at the end of the block.
+  begin
+    if (select w.slug from public.dossiers d join public.workspaces w on w.id = d.workspace_id
+         where d.id = public.dossier_open('An api', 'acme/api', null)) <> 'acme' then
+      raise exception 'FAIL: a member''s draft of a repository their workspace owns did not go to it';
+    end if;
+    pushed := public.dossier_push('nobody/tools', 7, 'Tools', null, '[{"kind": "spec", "content": "spec one"}]');
+    if (select w.slug from public.dossiers d join public.workspaces w on w.id = d.workspace_id where d.id = (pushed ->> 'id')::uuid) <> 'acme' then
+      raise exception 'FAIL: a push for a repository no workspace owns did not go to the workspace its caller joined first';
+    end if;
+    begin
+      perform public.dossier_open('A web', 'globex/web', null);
+      raise exception 'FAIL: a draft of a repository another workspace owns was opened';
+    exception when insufficient_privilege then
+      if sqlerrm <> 'you are not a member of Globex, which owns globex/web' then
+        raise exception 'FAIL: the refusal of a draft for a Globex repository reads %', sqlerrm;
+      end if;
+    end;
+    begin
+      perform public.dossier_push('globex/web', 7, 'A web', null, '[{"kind": "spec", "content": "spec one"}]');
+      raise exception 'FAIL: a push for a repository another workspace owns went through';
+    exception when insufficient_privilege then
+      if sqlerrm <> 'you are not a member of Globex, which owns globex/web' then
+        raise exception 'FAIL: the refusal of a push for a Globex repository reads %', sqlerrm;
+      end if;
+    end;
+    raise exception 'undo' using errcode = 'U0459';
+  exception when sqlstate 'U0459' then null;
+  end;
 end $$;
 
 -- ── Eve, in no workspace: refused, and reads nothing ──
@@ -253,6 +299,22 @@ begin
     perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "spec", "content": "spec three"}]');
     raise exception 'FAIL: dossier_push() did not refuse an account in no workspace';
   exception when insufficient_privilege then null; end;
+  begin
+    perform public.dossier_open('An idea', 'nobody/tools', null);
+    raise exception 'FAIL: an account in no workspace opened a draft for a repository no workspace owns';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'no workspace owns nobody/tools yet — install the Omni App' then
+      raise exception 'FAIL: the refusal of a draft by an account in no workspace reads %', sqlerrm;
+    end if;
+  end;
+  begin
+    perform public.dossier_push('nobody/tools', 7, 'Tools', null, '[{"kind": "spec", "content": "spec three"}]');
+    raise exception 'FAIL: an account in no workspace pushed for a repository no workspace owns';
+  exception when insufficient_privilege then
+    if sqlerrm <> 'no workspace owns nobody/tools yet — install the Omni App' then
+      raise exception 'FAIL: the refusal of a push by an account in no workspace reads %', sqlerrm;
+    end if;
+  end;
   if exists (select 1 from public.dossiers) or exists (select 1 from public.dossier_versions) then
     raise exception 'FAIL: an account in no workspace read a dossier';
   end if;
@@ -387,8 +449,12 @@ begin
   values (bob, 'tiles · feat/tiles--s2', 'vertuoza/tiles', 'feat/tiles--s2', 'sess-bob') returning id into s_bob;
   insert into public.ask_sessions (owner, title, repo, branch, claude_session_id)
   values (bob, 'stones · feat/stones', 'vertuoza/stones', 'feat/stones', 'sess-stones') returning id into s_stones;
-  insert into public.ask_sessions (owner, title, repo, branch, claude_session_id)
-  values (carl, 'tiles at acme', 'vertuoza/tiles', 'main', 'sess-r') returning id into s_carl;
+  -- Carl's, of Acme, for a repository Vertuoza owns: opened before PRD 459 refused that, when it still
+  -- landed in his own workspace. Written as it was then, past the trigger that now refuses it.
+  alter table public.ask_sessions disable trigger ask_sessions_place;
+  insert into public.ask_sessions (owner, title, repo, branch, claude_session_id, workspace_id)
+  values (carl, 'tiles at acme', 'vertuoza/tiles', 'main', 'sess-r', acme) returning id into s_carl;
+  alter table public.ask_sessions enable trigger ask_sessions_place;
   if (select w.slug from public.ask_sessions s join public.workspaces w on w.id = s.workspace_id where s.id = s_carl) <> 'acme'
      or (select w.slug from public.ask_sessions s join public.workspaces w on w.id = s.workspace_id where s.id = s_ada) <> 'vertuoza' then
     raise exception 'FAIL: the ask sessions of the rounds checks did not land in the workspaces they need';

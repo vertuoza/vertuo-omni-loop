@@ -24,8 +24,8 @@ Use this page when getting a checkout ready to build, test, and run locally.
   sets up.
 - pnpm: the lockfile is `pnpm-lock.yaml`, lockfile version 9.0; the `game` workflow installs
   pnpm 9.
-- The GitHub CLI, logged in with read access to the vertuoza organisation, as the README's
-  prerequisites ask. The tests do not need it: they never call GitHub.
+- The GitHub CLI, logged in, as the README's prerequisites ask. The tests do not need it: they
+  never call GitHub.
 
 ## Install
 <!-- slot: install · required · by: terraform · verified: 2026-09-25 -->

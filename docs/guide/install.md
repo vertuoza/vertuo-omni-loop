@@ -30,7 +30,7 @@ It prints the version you installed. Inside a repository that has the kit, `omni
 repository's own copy, so every repository keeps the version it installed. To get a newer `omni`
 for installing, run the same npm line again.
 
-When npm says `EACCES` or `repository not found`, or the check says `command not found: omni`, see
+When npm says `EACCES`, or the check says `command not found: omni`, see
 [When something goes wrong](/docs/troubleshooting).
 
 ## 2. Run omni init in your repository
@@ -58,8 +58,9 @@ Then it does the rest, one line per step:
   pull request and prints its link.
 - **The plugin.** It installs the `omni` plugin in Claude Code.
 - **Sign-in.** When this computer has not signed in to the Omni Loop app yet, it opens the app in
-  your browser: sign in there with the account your invite was sent to. The sign-in is kept on this
-  computer, so every repository you run the loop in shares it.
+  your browser: sign in there with your GitHub account. The terminal then says which workspace this
+  repository goes to, or why none does yet. The sign-in is kept on this computer, so every
+  repository you run the loop in shares it.
 
 A step it cannot do prints the exact lines to type instead, and `init` carries on: type them when
 it ends. Run `omni init` again at any time: a step already done says "already" and moves on.
@@ -75,7 +76,9 @@ It ends with the steps left to you, the next two below. Two warnings it may prin
 
 Open the GitHub App link `omni init` printed. Pick your account or organization, choose **Only
 select repositories**, pick your repository, and install. The App posts the `outbox` check on the
-loop's pull requests: it goes red while a question an agent raised waits for your answer.
+loop's pull requests: it goes red while a question an agent raised waits for your answer. Installing
+it is also your sign-up: it makes the workspace your dossiers and ask mode land in, and the members
+of the organization you picked are its members.
 
 ## 4. Merge the install pull request
 

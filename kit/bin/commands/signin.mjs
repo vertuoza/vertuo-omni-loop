@@ -4,9 +4,13 @@
 // - `signin` starts a one-shot listener on 127.0.0.1, opens `<ask.url>/ask/signin?port=<p>&state=<s>`
 //   in the browser, catches the one-time code the page sends back, trades it for tokens
 //   (`POST <ask.url>/api/ask/token {code}`) and keeps them in `~/.config/omni/credentials.json` at
-//   mode 0600, keyed by the host of `ask.url`. It prints `signed in as <email>`.
+//   mode 0600, keyed by the host of `ask.url`. It sends the checkout's `repo.slug` with the code, and
+//   prints one line (PRD 459), exiting 0 on each: `signed in as <login> — <owner/repo> goes to
+//   <workspace>`, `… — no workspace owns <owner/repo> yet — install the Omni App: <link>`, or `… —
+//   you are not a member of <workspace>, which owns <owner/repo>`; just `signed in as <login>` when
+//   the page says nothing of the repository (an older page, or no repo.slug).
 // - `signout` forgets that host's sign-in on this computer.
-// - `whoami` prints the email kept for that host, or `signed out`. Past its expiry, it renews the
+// - `whoami` prints the email kept for that host (the GitHub login when there is none), or `signed out`. Past its expiry, it renews the
 //   sign-in first: refused, it says the sign-in is no longer valid and exits 1.
 //
 // Each reads `ask.url` from the repository's config; with none, each exits 1 with one line. They run
@@ -15,7 +19,7 @@
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { askClient } from '../../lib/ask/client.mjs';
-import { askEndpoint, credentials, credentialsHost, exchangeCode, SignInError } from '../../lib/ask/credentials.mjs';
+import { askEndpoint, credentials, credentialsHost, exchangeCode, signedInLine, SignInError } from '../../lib/ask/credentials.mjs';
 import { LOOPBACK_WAIT_MS, LoopbackError, startLoopback } from '../../lib/ask/loopback.mjs';
 import { loadContext } from '../../lib/context.mjs';
 import { parseArgs, println, usageError } from '../args.mjs';
@@ -38,6 +42,12 @@ function askUrlOf(cwd, exec) {
   return loadContext(cwd, { exec }).config.ask.url;
 }
 
+/** `ask.url` and `repo.slug` from the repository's config, each or `null`. */
+function signInConfig(cwd, exec) {
+  const { config } = loadContext(cwd, { exec });
+  return { askUrl: config.ask.url, repo: config.repo?.slug ?? null };
+}
+
 /** The command's arguments: none. */
 function noArguments(name, args) {
   const { positional } = parseArgs(name, args);
@@ -46,9 +56,10 @@ function noArguments(name, args) {
 
 export const signin = {
   withoutContext: true,
-  async run(args, { cwd, stdout, stderr, exec, home, openBrowser = openInBrowser, fetch = globalThis.fetch, waitMs = LOOPBACK_WAIT_MS }) {
+  /** `onSignedIn`, when given (by `omni init`), takes the closing line instead of stdout. */
+  async run(args, { cwd, stdout, stderr, exec, home, openBrowser = openInBrowser, fetch = globalThis.fetch, waitMs = LOOPBACK_WAIT_MS, onSignedIn }) {
     noArguments('signin', args);
-    const askUrl = askUrlOf(cwd, exec);
+    const { askUrl, repo } = signInConfig(cwd, exec);
     if (!askUrl) {
       println(stderr, ASK_URL_UNSET);
       return 1;
@@ -66,9 +77,11 @@ export const signin = {
         // No browser here: the link above opens by hand, and the listener waits all the same.
       }
       const code = await listener.code;
-      const entry = await exchangeCode({ askUrl, code, fetch });
+      const { entry, ...where } = await exchangeCode({ askUrl, code, repo, fetch });
       credentials({ home }).write(credentialsHost(askUrl), entry);
-      println(stdout, `signed in as ${entry.email}`);
+      const line = signedInLine({ ...where, repo });
+      if (onSignedIn) onSignedIn(line);
+      else println(stdout, line);
       return 0;
     } catch (error) {
       if (!(error instanceof LoopbackError) && !(error instanceof SignInError)) throw error;
@@ -111,14 +124,14 @@ export const whoami = {
       println(stdout, 'signed out');
       return 0;
     }
-    const who = entry.email ?? `signed in to ${host}`;
+    const who = entry.email ?? entry.login ?? `signed in to ${host}`;
     if (!expired(entry)) {
       println(stdout, who);
       return 0;
     }
     const outcome = await askClient({ baseUrl: askUrl, host, tokens: store, fetch }).renew();
     if (outcome === 'refused') {
-      println(stderr, `the sign-in of ${entry.email ?? 'this computer'} to ${host} is no longer valid: run \`omni signin\` again`);
+      println(stderr, `the sign-in of ${entry.email ?? entry.login ?? 'this computer'} to ${host} is no longer valid: run \`omni signin\` again`);
       return 1;
     }
     println(stdout, outcome === 'renewed' ? who : `${who} (not checked: ${host} is unreachable)`);

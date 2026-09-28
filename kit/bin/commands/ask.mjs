@@ -8,6 +8,11 @@
 //   one line when it cannot.
 // - `off` closes every terminal's session of this checkout, deletes `ask.json` and the terminals'
 //   files, then prints `off`. `status` prints the page, or `off`.
+// - While the mode is on, `on` and `status` then ask the page where this checkout's questions land
+//   (PRD 459): one call for `repo.slug`, and a second line, `questions go to <workspace>'s page` or the
+//   page's reason why they go nowhere. That line is all it changes: a page that cannot be reached, is
+//   older than the call or cannot say leaves the page's line alone, and a refusal still leaves the
+//   mode on (the hooks fall back to the terminal, as whenever a call fails).
 // - `hook <kind>` is run by the plugin's `hooks/hooks.json`: each reads the hook's JSON on stdin and
 //   prints the hook's output, or nothing. A hook never fails a session: with the mode off (no
 //   `.omni-loop/local/ask.json`, or `ask.url` null) — or with no repository, no config, a server
@@ -73,6 +78,18 @@ async function runHook(kind, { cwd, exec, stdin, tokens, fetch, limits }) {
   }
 }
 
+/** The line saying where `slug`'s questions land, or `null` when the page cannot say. Never throws. */
+async function whereLine({ baseUrl, host, slug, tokens, fetch }) {
+  if (!slug) return null;
+  try {
+    const { workspace, reason } = await askClient({ baseUrl, host, tokens, fetch }).whereQuestionsGo(slug);
+    if (typeof workspace?.name === 'string' && workspace.name) return `questions go to ${workspace.name}'s page`;
+    return typeof reason === 'string' && reason.trim() ? reason.replace(/\s+/g, ' ').trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 /** `on`, `off` or `status`, with the repository's context. A config error surfaces as exit 2. */
 async function runMode(mode, { cwd, stdout, stderr, exec, tokens, fetch }) {
   const ctx = loadContext(cwd, { exec });
@@ -80,8 +97,16 @@ async function runMode(mode, { cwd, stdout, stderr, exec, tokens, fetch }) {
   const askUrl = ctx.config.ask.url;
   const store = tokens ?? homeTokens();
 
+  const slug = ctx.config.repo?.slug ?? null;
+  const printWhere = async (baseUrl) => {
+    const line = await whereLine({ baseUrl, host: new URL(baseUrl).host, slug, tokens: store, fetch });
+    if (line) println(stdout, line);
+  };
+
   if (mode === 'status') {
-    println(stdout, modeStatus(root) ?? 'off');
+    const page = modeStatus(root);
+    println(stdout, page ?? 'off');
+    if (page) await printWhere(activeMode(root).baseUrl);
     return 0;
   }
 
@@ -100,12 +125,13 @@ async function runMode(mode, { cwd, stdout, stderr, exec, tokens, fetch }) {
   }
   try {
     println(stdout, turnOn({ root, askUrl, tokens: store }).url);
-    return 0;
   } catch (error) {
     if (!(error instanceof AskModeError)) throw error;
     println(stderr, `omni ask on: ${error.message}`);
     return 1;
   }
+  await printWhere(askUrl);
+  return 0;
 }
 
 export const ask = {

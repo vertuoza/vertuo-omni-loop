@@ -16,8 +16,8 @@
 //
 // It never blocks the skill that runs it: every call has the contract's 5-second limit and one token
 // refresh, and anything that stops it is exit 1 with one line — `off`, `no sign-in (omni signin)`,
-// `unreachable`, `refused (<status>)` or `too large: <file>`. Exit 2 is the kit not installed here,
-// a config that does not read, or arguments it cannot run.
+// `unreachable`, `refused (<status>)`, `refused (403): <the server's reason>` or `too large: <file>`.
+// Exit 2 is the kit not installed here, a config that does not read, or arguments it cannot run.
 //
 // It runs before a context exists, like `ask`, so that a test can hand it `tokens` (the token store),
 // `home` (where the real one lives), `fetch` and `callMs`; it loads the context itself.
@@ -40,10 +40,12 @@ function claudeSessionOf(env) {
   return id.length >= 1 && id.length <= TITLE_MAX ? id : null;
 }
 
-/** The one line a failed call is reported with. */
+/** The one line a failed call is reported with: a 403 carries the server's reason (PRD 459), when it
+ * gave one — which workspace owns the repository, or how to get one. */
 function skipLine(error) {
   if (!(error instanceof AskCallError)) throw error;
-  return error.status === null ? 'unreachable' : `refused (${error.status})`;
+  if (error.status === null) return 'unreachable';
+  return error.status === 403 && error.reason ? `refused (403): ${error.reason}` : `refused (${error.status})`;
 }
 
 const isText = (value) => typeof value === 'string' && value.length > 0;
