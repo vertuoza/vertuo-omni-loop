@@ -27,6 +27,7 @@ export const SECTIONS: readonly Section[] = [
   { title: 'For me', path: '/ask/for-me', line: 'Questions a teammate shared with you' },
   { title: 'History', path: '/ask/history', line: 'Every question your workspace was asked' },
   { title: 'Knowledge map', path: '/knowledge', line: 'Principles, rules and invariants, as a map' },
+  { title: 'Fleets', path: '/app/fleets', line: 'Your workspace’s fleets, set up by its owner' },
 ];
 
 /** /app's own words: the sub-title beside the wordmark. The page's heading is your name (PRD 328). */
