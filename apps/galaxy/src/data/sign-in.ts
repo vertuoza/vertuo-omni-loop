@@ -5,11 +5,15 @@
 //      workspace of those logins that has an installation (join_workspaces_by_github(), run by
 //      galaxy's server as the service role). The token is used for those two reads and dropped: it is
 //      never stored, and never sent to the database;
-//   2. links GitHub (link_github()), so the account is a player at once.
-// Both are best effort (ADR 0044): a failure is logged, and the sign-in carries on; what needs a
+//   2. completes the person's pending sign-up requests (src/signup/installed.ts) whose org, one they
+//      still belong to, now has the App installed: create_workspace_from_installation() makes them
+//      the new workspace's owner, or a member of the one the org's owner made first;
+//   3. links GitHub (link_github()), so the account is a player at once.
+// All are best effort (ADR 0044): a failure is logged, and the sign-in carries on; what needs a
 // workspace then refuses with its own message.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CliCallbackDeps, CliSession } from '../ask/cli-code';
+import { belongsTo, type SignupDeps } from '../signup/installation';
 import { joinLogins, type GithubAccount } from './github-orgs';
 
 type Rpc = Pick<SupabaseClient, 'rpc'>;
@@ -17,10 +21,12 @@ type Rpc = Pick<SupabaseClient, 'rpc'>;
 /** The new session, as far as joining needs it: whose it is, and GitHub's token when Supabase handed one. */
 export type SignedIn = { user: { id: string }; provider_token?: string | null };
 
-/** What joining reaches outside the person's own session: GitHub, and the service role's join. */
+/** What joining reaches outside the person's own session: GitHub, and the service role's join; and,
+ * to complete sign-up requests, the App's view of GitHub and the service role's sign-up writes. */
 export interface SignInDeps {
   readGithub(token: string): Promise<GithubAccount>;
   joinByGithub(userId: string, logins: string[]): Promise<string[]>;
+  signup?: SignupDeps;
 }
 
 /** The query-string entry the arcade reads on its return (readReturn() in src/arcade/onboarding.ts). */
@@ -32,17 +38,31 @@ async function bestEffort(run: () => Promise<unknown>) {
   try { await run(); } catch (err) { log(err); }
 }
 
-/** Joins the workspaces of the person's GitHub orgs. Throws when it cannot. */
-async function joinByOrgs(session: SignedIn, deps: SignInDeps): Promise<void> {
+/** Who the person is on GitHub, read once with the sign-in's provider token. Throws when it cannot. */
+async function readAccount(session: SignedIn, deps: SignInDeps): Promise<GithubAccount> {
   const token = session.provider_token;
   if (!token) throw new Error('no GitHub token came back with this sign-in: nobody joined by org');
-  const account = await deps.readGithub(token);
-  await deps.joinByGithub(session.user.id, joinLogins(account));
+  return deps.readGithub(token);
+}
+
+/** Finishes each pending sign-up request whose org the person still belongs to and that now has the
+ * App installed, one at a time: a failure is logged and leaves that request pending. */
+async function completeRequests(userId: string, account: GithubAccount, signup: SignupDeps): Promise<void> {
+  const pending = (await signup.pendingRequests(userId)).filter((org) => belongsTo(account, org));
+  for (const org of pending) {
+    await bestEffort(async () => {
+      const installation = await signup.orgInstallation(org);
+      if (!installation) return;
+      await signup.createWorkspace(userId, installation);
+      await signup.dropRequest(userId, org);
+    });
+  }
 }
 
 type Linked = { login: string; error: null } | { login: null; error: string };
 
-async function link(db: Rpc): Promise<Linked> {
+/** Runs link_github() as the person. Never throws: answers the login, or the refusal. */
+export async function linkGithub(db: Rpc): Promise<Linked> {
   try {
     const { data, error } = await db.rpc('link_github');
     if (error) return { login: null, error: error.message };
@@ -52,10 +72,17 @@ async function link(db: Rpc): Promise<Linked> {
   }
 }
 
-/** Joins by GitHub org, then links GitHub as the person (`db`). Never throws. */
+/** Joins by GitHub org, completes sign-up requests, then links GitHub as the person (`db`). Never throws. */
 export async function settleSignIn(db: Rpc, session: SignedIn, deps: SignInDeps): Promise<Linked> {
-  await bestEffort(() => joinByOrgs(session, deps));
-  return link(db);
+  let account: GithubAccount | null = null;
+  try { account = await readAccount(session, deps); } catch (err) { log(err); }
+  if (account) {
+    const known: GithubAccount = account;
+    await bestEffort(() => deps.joinByGithub(session.user.id, joinLogins(known)));
+    const { signup } = deps;
+    if (signup) await bestEffort(() => completeRequests(session.user.id, known, signup));
+  }
+  return linkGithub(db);
 }
 
 /** After an arcade sign-in: settles it, then answers what the arcade shows. `next` 'link' is the
