@@ -14,7 +14,7 @@ repository. The code blocks spell it out in full, so you can paste them as they 
 Every skill starts by running `omni config`. When it fails, Claude stops at once and says in one
 line that the repository is not installed. Run it yourself to see why:
 
-```bash
+```bash terminal agent
 node .omni-loop/bin/omni.mjs config
 ```
 
@@ -25,7 +25,7 @@ It prints the repository's settings when all is well. Otherwise, one of three th
   and open Claude Code there), or the kit is not on the branch you have checked out. The install
   pull request must be merged, and your checkout up to date:
 
-  ```bash
+  ```bash terminal agent
   git switch main
   git pull
   ```
@@ -36,7 +36,7 @@ It prints the repository's settings when all is well. Otherwise, one of three th
   but its config is not. Run the install command again, from the root of the repository, then
   commit and merge what it writes:
 
-  ```bash
+  ```bash terminal
   npx github:vertuoza/vertuo-omni-loop init
   ```
 
@@ -57,7 +57,7 @@ Without its label, the loop cannot find its own pull requests, so fix it before 
 the install command again, from the root of the repository: it keeps your config and creates every
 label that is missing.
 
-```bash
+```bash terminal
 npx github:vertuoza/vertuo-omni-loop init
 ```
 
@@ -73,7 +73,7 @@ this computer has not signed in to the Omni Loop app yet, or its sign-in has exp
 
 Sign in once, yourself, in a terminal at the root of the repository:
 
-```bash
+```bash terminal agent
 node .omni-loop/bin/omni.mjs signin
 ```
 
@@ -87,7 +87,7 @@ Two related lines:
   config does not say where the Omni Loop app is. Add it to `.omni-loop/config.yml`, then commit and
   merge the change:
 
-  ```yaml
+  ```yaml file=.omni-loop/config.yml
   ask:
     url: https://vertuo-omni-loop-galaxy.vercel.app
   ```
@@ -107,21 +107,21 @@ it. The loop's commits are made on your computer, with your git settings, so thi
 uses an email that is not the one your GitHub account on the Vercel team knows (a personal address
 on a work repository, say). Check which one it uses:
 
-```bash
+```bash terminal agent
 git config user.email
 ```
 
 Set it, for this repository only, to the email of the GitHub account that is a member of the Vercel
 team:
 
-```bash
+```bash terminal agent
 git config user.email you@your-company.com
 ```
 
 Every commit from now on carries it. For a pull request that is already red, push a new commit with
 the right author, and Vercel deploys that one:
 
-```bash
+```bash terminal agent
 git switch <the pull request's branch>
 git pull
 git commit --allow-empty -m "chore: redeploy with the right author"

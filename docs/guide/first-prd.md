@@ -23,7 +23,7 @@ Your repository has the loop installed and invaded: you followed [Install](/docs
 [Invade](/docs/invade), and merged both pull requests. Bring your checkout up to date, then open
 Claude Code at the root of the repository:
 
-```bash
+```bash terminal
 git switch main
 git pull
 claude
@@ -40,7 +40,7 @@ every step in an afternoon.
 
 In Claude Code, type `/omni:brainstorm`, followed by your idea in one sentence:
 
-```text
+```text agent
 /omni:brainstorm Let people export their invoices as a CSV file
 ```
 
@@ -100,7 +100,7 @@ Start from a clean session: type `/clear` (or open a new terminal and run `claud
 Everything the next step needs is in the repository and on GitHub, so nothing is lost. Then run
 `/omni:yolo` with the PRD's number, for example:
 
-```text
+```text agent
 /omni:yolo 7
 ```
 
@@ -128,7 +128,7 @@ When it has finished, the reply ends with the same three blocks, the "you are he
 
 `/omni:yolo` leaves your checkout on a detached commit. To come back to your default branch:
 
-```bash
+```bash terminal agent
 git switch main
 ```
 
@@ -138,7 +138,7 @@ On the feature pull request, a comment lists every open question, each under a n
 question in plain words, the options, and which one was built (always **A**, the recommended one).
 Reply to it in a new comment on that pull request, one line per question:
 
-```text
+```text github
 1: A
 2: B because the export must include cancelled invoices
 ```
@@ -151,7 +151,7 @@ Reply to it in a new comment on that pull request, one line per question:
 Only people with write access to the repository are read. A reply changes nothing on its own: once
 you have answered, type `/clear`, then run:
 
-```text
+```text agent
 /omni:yolo-fix 7
 ```
 
@@ -184,11 +184,8 @@ label). Review and merge each.
 When release notes are switched on in your repository, the loop writes one before it marks the
 feature pull request ready: `release.md`, in the PRD's folder beside `spec.md`, a title and one
 short paragraph saying what shipped, for people outside the team. You review it with the rest of
-the feature pull request, and once merged it sits in the shipped folder:
-
-```text
-.omni-loop/delivery/shipped/<n>-<topic>/release.md
-```
+the feature pull request, and once merged it sits in the shipped folder, at
+`.omni-loop/delivery/shipped/<n>-<topic>/release.md`.
 
 The **Release notes** page of the Omni Loop app lists the releases of Omni Loop itself for now;
 the release notes of your own repository will be shown there in a later version.
@@ -198,7 +195,7 @@ the release notes of your own repository will be shown there in a later version.
 A fresh install leaves dossiers and release notes off. To turn both on, add these lines to
 `.omni-loop/config.yml`, then commit and merge the change:
 
-```yaml
+```yaml file=.omni-loop/config.yml
 ask:
   url: https://vertuo-omni-loop-galaxy.vercel.app
 dossier:
@@ -210,7 +207,7 @@ releaseNotes:
 Dossiers need you signed in on this computer (see [Install](/docs/install)). To check what the loop
 sees, at any time:
 
-```bash
+```bash terminal agent
 node .omni-loop/bin/omni.mjs status
 node .omni-loop/bin/omni.mjs status 7
 ```
