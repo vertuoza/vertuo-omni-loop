@@ -32,31 +32,30 @@ html:has(.home) body {
 .home-poster {
   display: grid;
   grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  min-height: min(100svh, 820px);
+  min-height: 100svh;
   background: var(--starfield);
 }
 
 .home-col {
   background: var(--ad-purple);
-  padding: 36px 32px 0;
+  padding: 36px 32px;
   display: grid;
   gap: 16px;
-  align-content: start;
+  align-content: center;
 }
 
 .home-kicker {
   font: 400 clamp(15px, 1.9vw, 22px)/1.05 var(--font-display);
-  color: var(--red);
-  transform: skewX(var(--type-display-s-slant));
-  transform-origin: 0 100%;
+  color: var(--cyan);
+  font-style: oblique calc(-1 * var(--type-display-s-slant));
 }
 
-/* The headline: the display role at its largest step, slanted. */
+/* The headline: the display role at its largest step, slanted. Its letters lean, never its box: a
+   skewed box pushes its upper lines right, off the column's one left edge (PRD 394). */
 .home-head {
   font: 400 clamp(44px, 5.8vw, var(--type-display-xl-size))/var(--type-display-xl-line) var(--type-display-xl-family);
   color: var(--white);
-  transform: skewX(var(--type-display-xl-slant));
-  transform-origin: 0 100%;
+  font-style: oblique calc(-1 * var(--type-display-xl-slant));
   text-wrap: balance;
 }
 
@@ -84,8 +83,7 @@ html:has(.home) body {
 .home-quote {
   font: 400 clamp(18px, 2.2vw, 26px)/1.05 var(--font-display);
   color: var(--yellow);
-  transform: skewX(var(--type-display-s-slant));
-  transform-origin: 0 100%;
+  font-style: oblique calc(-1 * var(--type-display-s-slant));
   margin-top: 8px;
 }
 
@@ -130,11 +128,12 @@ html:has(.home) body {
   padding: 10px 12px;
 }
 
-/* The starfield side: the invaded planet, the crest where the ad puts its logo, PRESS START. */
+/* The starfield side: the invaded planet, the crest right under it where the ad puts its logo, then
+   PRESS START, one group centred vertically. */
 .home-sky {
   position: relative;
   display: grid;
-  grid-template-rows: 1fr auto auto;
+  align-content: center;
   justify-items: center;
   gap: 20px;
   padding: 28px 20px 36px;
@@ -145,7 +144,6 @@ html:has(.home) body {
 
 .home-planet {
   position: relative;
-  align-self: center;
   display: grid;
   width: min(224px, 56vw);
 }
@@ -212,7 +210,7 @@ html:has(.home) body {
   .home-col, .home-sky { display: contents; }
   .home-stars { z-index: 0; }
   .home-crest { order: 1; align-self: center; width: min(100% - 32px, 480px); margin-top: 28px; }
-  .home-head { order: 2; position: relative; padding: 20px 16px 0; font-size: clamp(40px, 13vw, 64px); text-align: center; transform-origin: center; }
+  .home-head { order: 2; position: relative; padding: 20px 16px 0; font-size: clamp(40px, 13vw, 64px); text-align: center; }
   .home-poster .home-start { order: 3; align-self: center; margin: 20px 0 8px; }
   .home-planet { order: 4; align-self: center; margin: 12px 0 24px; }
   .home-kicker { order: 5; }
@@ -228,8 +226,6 @@ html:has(.home) body {
     padding: 8px 16px;
   }
   .home-kicker { padding-top: 28px; }
-  /* A slanted box would slant its purple band: on a phone the words lean, not the box. */
-  .home-kicker, .home-quote { transform: none; font-style: oblique 12deg; }
   .home-dots { border-top: 0; padding-block: 8px; background-image: none; }
   .home-dots::before { content: ''; display: block; border-top: 5px dotted var(--yellow); }
   .home-spokes { padding-bottom: 0; }
