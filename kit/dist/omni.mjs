@@ -13221,7 +13221,10 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     openDossier: ({ title, repo, claudeSessionId = null }) => call("POST", "/api/dossiers", { body: { title, repo, ...claudeSessionId ? { claudeSessionId } : {} } }),
     /** PRD 216: sends a PRD folder's artifacts, whole; the draft is named only when there is one.
      * @returns {Promise<{ id: string, url: string, added: Array<{ kind: string, version: number }>, unchanged: string[] }>} */
-    pushDossier: ({ repo, prd: prd2, title, draftId = null, artifacts }) => call("POST", "/api/dossiers/push", { body: { repo, prd: prd2, title, ...draftId ? { draftId } : {}, artifacts } })
+    pushDossier: ({ repo, prd: prd2, title, draftId = null, artifacts }) => call("POST", "/api/dossiers/push", { body: { repo, prd: prd2, title, ...draftId ? { draftId } : {}, artifacts } }),
+    /** PRD 413: PRD `prd`'s dossier for `repo`, as the caller may read it; a 404 when it has none.
+     * @returns {Promise<{ id: string, url: string }>} */
+    findDossier: ({ repo, prd: prd2 }) => call("GET", `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd2) })}`)
   };
 }
 
@@ -17432,7 +17435,7 @@ function readDossierFolder(ctx, prd2) {
 }
 
 // kit/bin/commands/dossier.mjs
-var USAGE6 = 'usage: omni dossier open "<title>" | omni dossier push <n> | omni dossier status';
+var USAGE6 = 'usage: omni dossier open "<title>" | omni dossier push <n> | omni dossier link <n> | omni dossier status';
 var NO_SIGN_IN = "no sign-in (omni signin)";
 function claudeSessionOf(env) {
   const id = typeof env?.CLAUDE_CODE_SESSION_ID === "string" ? env.CLAUDE_CODE_SESSION_ID.trim() : "";
@@ -17500,15 +17503,40 @@ async function push(prd2, { ctx, repo, client, home, claudeSessionId, stdout, st
   for (const { path } of folder.tooLarge) println(stderr, `too large: ${path}`);
   return folder.tooLarge.length ? 1 : 0;
 }
+async function link(prd2, { repo, client, home, stdout, stderr }) {
+  let found;
+  try {
+    found = await client.findDossier({ repo, prd: prd2 });
+  } catch (error) {
+    if (!(error instanceof AskCallError)) throw error;
+    if (error.status === 404) {
+      println(stderr, "none");
+      return 1;
+    }
+    const recorded = error.status === null && home ? readDossiers(home).filter((entry) => entry.prd === prd2).at(-1) : null;
+    if (!recorded) {
+      println(stderr, skipLine(error));
+      return 1;
+    }
+    found = recorded;
+  }
+  if (!isText4(found?.url)) {
+    println(stderr, "refused (no dossier in the reply)");
+    return 1;
+  }
+  println(stdout, found.url);
+  return 0;
+}
 var dossier = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, env = process.env, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }) {
     const { positional } = parseArgs("dossier", args);
     const [verb, ...rest] = positional;
     const title = verb === "open" && rest.length === 1 ? rest[0].trim().slice(0, TITLE_MAX3) : "";
-    const runnable = verb === "status" && rest.length === 0 || verb === "push" && rest.length === 1 || title.length > 0;
+    const runnable = verb === "status" && rest.length === 0 || ["push", "link"].includes(verb) && rest.length === 1 || title.length > 0;
     if (!runnable) throw usageError(USAGE6);
-    const prd2 = verb === "push" ? positiveInt("dossier push", "<n>", rest[0]) : null;
+    if (verb === "link" && !/^[1-9]\d*$/.test(rest[0])) throw usageError(USAGE6);
+    const prd2 = verb === "push" || verb === "link" ? positiveInt(`dossier ${verb}`, "<n>", rest[0]) : null;
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
     if (verb === "status") {
@@ -17529,6 +17557,7 @@ var dossier = {
     }
     const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...callMs ? { callMs } : {} });
     const options = { ctx, repo, client, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(env), stdout, stderr, now };
+    if (verb === "link") return link(prd2, options);
     return verb === "open" ? open(title, options) : push(prd2, options);
   }
 };
@@ -20311,8 +20340,8 @@ function buildGraph(knowledge2, { repo }) {
       if (id !== entry.id && byId.has(id)) links.push({ from: entry.id, to: id, kind: "cites" });
     }
   }
-  const serving = new Set(links.filter((link) => link.kind === "serves").map((link) => link.from));
-  const served = new Set(links.filter((link) => link.kind === "serves").map((link) => link.to));
+  const serving = new Set(links.filter((link2) => link2.kind === "serves").map((link2) => link2.from));
+  const served = new Set(links.filter((link2) => link2.kind === "serves").map((link2) => link2.to));
   const loose = entries3.filter((entry) => entry.kind !== "principle" && !serving.has(entry.id)).map((entry) => entry.id);
   const unserved = entries3.filter((entry) => entry.kind === "principle" && !served.has(entry.id)).map((entry) => entry.id);
   return { version: GRAPH_VERSION, repo, domains, entries: entries3, links, loose, unserved };
