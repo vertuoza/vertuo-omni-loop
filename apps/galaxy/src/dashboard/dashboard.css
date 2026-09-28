@@ -1,0 +1,60 @@
+/* The dashboard, /app (PRD 328), on the ask pages' reading surface. It composes each part's own
+   stylesheet (week/, counts/ and rankings/, each styled inside its folder), then draws what it owns:
+   its column, the hero block, the lines a part shows in place of its figures, and the app's sections,
+   compact. Every colour is a token of src/ask/theme-tokens.ts, as in src/ask/ask.css; a fleet's own
+   colour comes from the data, as --dash-fleet on the element that shows it. Nothing is wider than the
+   window: at 393 px everything wraps. */
+
+@import './week/week.css';
+@import './counts/counts.css';
+@import './rankings/rankings.css';
+
+.dash { width: 100%; max-width: 960px; display: grid; gap: 32px; }
+.dash > * { min-width: 0; }
+
+/* ── You: the hero, beside the name, the fleet, the points and the places ──── */
+
+.dash-you { display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap; }
+.dash-hero { flex: none; line-height: 0; }
+.dash-hero svg { display: block; image-rendering: pixelated; }
+.dash-who { display: grid; gap: 2px; min-width: 0; }
+.dash-name { margin: 0 0 4px; font-size: 28px; line-height: 1.2; overflow-wrap: anywhere; text-wrap: balance; }
+.dash-fleet { margin: 0; display: flex; align-items: center; gap: 8px; font-weight: 700; overflow-wrap: anywhere; }
+.dash-fleet-pip { flex: none; width: 10px; height: 10px; border-radius: 2px; background: var(--dash-fleet, var(--ask-muted)); }
+.dash-fleet-name { color: var(--dash-fleet, var(--ask-ink)); }
+/* On the light ground a pale fleet colour cannot be read as text: the pip carries it alone. */
+.ask[data-ask-theme='light'] .dash-fleet-name { color: var(--ask-ink); }
+.dash-points { margin: 0; overflow-wrap: anywhere; }
+.dash-points b { font-size: 20px; }
+.dash-places { margin: 0; color: var(--ask-muted); overflow-wrap: anywhere; }
+
+/* ── In place of a part's figures ────────────────────────────────────────── */
+
+.dash-note { margin: 0; color: var(--ask-muted); overflow-wrap: anywhere; }
+.dash-join {
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--ask-line);
+  border-radius: 12px;
+  background: var(--ask-surface);
+  overflow-wrap: anywhere;
+}
+
+/* ── The app's sections: a title and an arrow each, one row that wraps ───── */
+
+.dash-cards ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 10px; }
+.ask a.dash-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--ask-line);
+  border-radius: 999px;
+  background: var(--ask-surface);
+  color: var(--ask-ink);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.ask a.dash-card::after { content: '→'; color: var(--ask-plasma); }
+.ask a.dash-card:hover { border-color: var(--ask-plasma); }

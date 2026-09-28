@@ -18,7 +18,7 @@ import { loadYou, loginOf, nameOf, type YouValue } from './you';
 // galaxy (the whole ledger, folded) is read once, for whichever parts ask for it.
 
 /** Everything /app shows a member, each part as its value or 'unreadable'. */
-export interface Dashboard {
+export interface DashboardData {
   /** The page's one heading: the player's name, else the account's first name. */
   name: string;
   season: Season;
@@ -29,7 +29,7 @@ export interface Dashboard {
 }
 
 /** What /app shows a signed-in person: their dashboard, or the notice for an account in no workspace. */
-export type DashboardLoad = { kind: 'no-workspace' } | { kind: 'dashboard'; dashboard: Dashboard };
+export type DashboardLoad = { kind: 'no-workspace' } | { kind: 'dashboard'; dashboard: DashboardData };
 
 export async function loadDashboard(db: SupabaseClient, user: User, now: Date): Promise<DashboardLoad> {
   const season = seasonBounds(now);
