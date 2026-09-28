@@ -1,8 +1,10 @@
 // What the status line reads besides Claude Code's JSON (PRD 324's spec, "How it is built"): the one
 // module that touches git and the disk (with `sessions.mjs`, through which it reads the session's
-// record), so that `input.mjs`, `which-prd.mjs`, `stage.mjs` and `render.mjs` stay pure. Each fact
-// is read on its own, and one that cannot be read counts as absent: nothing here prints, fetches,
-// runs `gh` or writes a file. Every git call goes through the injected `exec`.
+// record, and `board-cache.mjs`, through which it reads the cached board), so that `input.mjs`,
+// `which-prd.mjs`, `stage.mjs` and `render.mjs` stay pure. Each fact is read on its own, and one that
+// cannot be read counts as absent: nothing here prints, fetches, runs `gh` or writes a file. Every
+// git call goes through the injected `exec`; the one process it may start, the board's background
+// refresh, through the injected `spawn` (none without it).
 //
 // - `installed` — a config loads in the checkout of the session's folder (`input.currentDir`, else
 //   the process's own folder): the loop is installed there, and line 2 is printed.
@@ -18,14 +20,20 @@
 //   - the PRD folders: the delivery folder's inbox and shipped folders in the checkout's working tree
 //     and on the base;
 //   - the feature branch: `<repo.remote>/<branches.feature>` with the topic, its changes against the
-//     base (`git diff`) and the files of its outbox folder (`git ls-tree`).
+//     base (`git diff`) and the files of its outbox folder (`git ls-tree`);
+//   - the board, for a PRD whose folder is in the base inbox only: the cached board file in the main
+//     checkout of the session's folder, whose slices count for the stage and show in the outbox
+//     while under 10 minutes old; when it is missing or a minute old, its refresh is started in the
+//     session's folder, never waited for.
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { readMode } from '../ask/local-state.mjs';
 import { fillBranch } from '../board.mjs';
 import { loadConfig } from '../config.mjs';
 import { createContext } from '../context.mjs';
+import { mainCheckout } from '../dossier/local.mjs';
 import { findRoot } from '../init/repo.mjs';
+import { cachedSlices } from './board-cache.mjs';
 import { recordedPrd } from './sessions.mjs';
 import { isBuilt, openItemCount, stageOf } from './stage.mjs';
 import { branchNames, whichPrd } from './which-prd.mjs';
@@ -122,9 +130,16 @@ function featureFacts(ctx, { base, topic, folder }, exec) {
   };
 }
 
+/** The slices PRD `prd`'s cached board shows, read in the main checkout of `folder`, its refresh
+ * started in `folder` when due and `spawn` is given; `null` for none. */
+function boardSlices({ folder, prd, now, spawn, env }, exec) {
+  const root = attempt(() => mainCheckout(folder, exec), null);
+  return root ? cachedSlices({ root, prd, now, cwd: folder, spawn, env }) : null;
+}
+
 /** The PRD the branch checked out in `folder` names, else the one session `sessionId`'s record names,
  * and where it stands; `null` for no PRD. */
-function readPrd(ctx, { folder, sessionId }, exec) {
+function readPrd(ctx, { folder, sessionId, now, spawn, env }, exec) {
   const branch = branchOf(folder, exec);
   const { branches } = ctx.config;
   const recorded = recordedPrd({ cwd: folder, exec, sessionId });
@@ -136,27 +151,32 @@ function readPrd(ctx, { folder, sessionId }, exec) {
   const found = whichPrd({ branch, branches, folders, recorded });
   if (!found) return null;
   const feature = base ? featureFacts(ctx, { base, topic: found.topic, folder: found.folder }, exec) : null;
+  const inBaseInbox = Boolean(onBase?.inbox.includes(found.folder) && !onBase.shipped.includes(found.folder));
+  const slices = inBaseInbox ? boardSlices({ folder, prd: found.prd, now, spawn, env }, exec) : null;
   return {
     number: found.prd,
     topic: found.topic,
     slice: found.slice,
-    stage: stageOf({ folder: found.folder, base: onBase, feature }),
+    stage: stageOf({ folder: found.folder, base: onBase, feature, slices }),
     openItems: feature?.openItems ?? 0,
+    slices,
   };
 }
 
 /**
  * @param {{ currentDir: string | null, projectDir: string | null, sessionId: string | null }} input `parseInput`'s result
- * @param {{ cwd: string, exec: Function }} options the process's own folder, and `execFileSync`
+ * @param {{ cwd: string, exec: Function, now?: number, spawn?: Function | null, env?: object }} options the
+ *   process's own folder, `execFileSync`, the clock in milliseconds, and `spawn` with the environment
+ *   the board's refresh starts with (no refresh starts without `spawn`)
  * @returns {{ installed: boolean, askOn: boolean, prd: { number: number, topic: string, slice: string | null,
- *   stage: string | null, openItems: number } | null }}
+ *   stage: string | null, openItems: number, slices: { id: string, wave: number, state: string }[] | null } | null }}
  */
-export function readFacts(input, { cwd, exec }) {
+export function readFacts(input, { cwd, exec, now = Date.now(), spawn = null, env }) {
   const folder = input.currentDir ?? cwd;
   const ctx = checkoutContext(folder, exec);
   return {
     installed: ctx !== null,
     askOn: askModeOn(input.projectDir),
-    prd: ctx ? readPrd(ctx, { folder, sessionId: input.sessionId }, exec) : null,
+    prd: ctx ? readPrd(ctx, { folder, sessionId: input.sessionId, now, spawn, env }, exec) : null,
   };
 }
