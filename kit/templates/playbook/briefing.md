@@ -32,6 +32,12 @@ A hook that refuses a commit or a push names what to fix: fix the cause, and nev
 An escape hatch that skips one exists for emergencies only, and the pull request says why it was
 used.
 
+## Links
+<!-- slot: links · optional -->
+Any answer that names a PRD gives its page on the Omni app: run `omni dossier link <n>` and
+print the link beside the number. When it prints `none` or cannot reach the app, say that the
+PRD has no page yet and give its GitHub issue instead.
+
 ## Where to read next
 <!-- slot: next · optional -->
 The rest of this playbook, one form per question, through `omni kb show <form>`; the knowledge

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formText, makeRepo } from '../../test/fixture.mjs';
+import { main } from '../../bin/omni.mjs';
 import { FORM_IDS, FORMS, parseForm, readForm, resolvePlaybookId } from './forms.mjs';
 
 const FILE = '.omni-loop/knowledge/playbook/testing.md';
@@ -32,7 +33,7 @@ describe('FORMS — the spec’s forms table, the contract with the templates an
       FORMS.map((form) => [form.id, form.slots.map((slot) => (slot.required ? `*${slot.id}` : slot.id)).join(' ')]),
     );
     expect(table).toEqual({
-      briefing: '*never hooks next',
+      briefing: '*never hooks links next',
       setup: '*prerequisites *install run env',
       architecture: '*layout *boundaries patterns',
       testing: '*commands *layout levels *never data',
@@ -50,6 +51,42 @@ describe('FORMS — the spec’s forms table, the contract with the templates an
 
   it('marks the glossary, and only the glossary, as a pointer-only form', () => {
     expect(FORMS.filter((form) => form.pointerOnly).map((form) => form.id)).toEqual(['glossary']);
+  });
+});
+
+describe('the briefing — the links rule (PRD 413, Decision 7)', () => {
+  const RULE =
+    'Any answer that names a PRD gives its page on the Omni app: run `omni dossier link <n>` and\n' +
+    'print the link beside the number. When it prints `none` or cannot reach the app, say that the\n' +
+    'PRD has no page yet and give its GitHub issue instead.';
+
+  /** `omni kb show briefing` run from the kit's source in a repository holding `files`. */
+  async function showBriefing(files) {
+    const config = { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n' };
+    const { root } = makeRepo({ git: true, files: { ...config, ...files } });
+    const out = [];
+    const code = await main(['kb', 'show', 'briefing'], { cwd: root, stdout: { write: (s) => out.push(s) }, stderr: { write() {} } });
+    return { code, out: out.join('') };
+  }
+
+  it('prints a links section at its kit default when the repository leaves it blank', async () => {
+    const briefing = formText({
+      frontMatter: { form: 'briefing', state: 'filled' },
+      title: 'Briefing',
+      opener: 'Use this page when a session starts: the rules that cost the most when broken.',
+      slots: [{ id: 'never', heading: 'Never', required: true, body: '- Never merge into main.' }],
+    });
+    const { code, out } = await showBriefing({ '.omni-loop/knowledge/playbook/briefing.md': briefing });
+    expect(code).toBe(0);
+    expect(out).toContain('## Links  [kit default]');
+    expect(out).toContain(RULE);
+  });
+
+  it('prints the same rule when the repository has no briefing at all', async () => {
+    const { code, out } = await showBriefing({});
+    expect(code).toBe(0);
+    expect(out).toContain('## Links  [kit default]');
+    expect(out).toContain(RULE);
   });
 });
 
