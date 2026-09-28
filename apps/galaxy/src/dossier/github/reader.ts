@@ -7,18 +7,21 @@
 // pull request on each of the phase-0, feature and retro branches, and the sub-PRs merged into the
 // feature branch, the outbox (the feature branch's open items and settled.md before shipping, the
 // shipped folder's after; items parsed by the kit's own reader) and the feature PR's outbox comment,
-// found by its marker (s2), and the retro's retro.md (./retro.ts, s3). Each of those reads fails on its own (`UNREAD`); the App not installed, or no
-// config, and the whole summary is null. Every answer, null included, is cached 60 s per dossier.
+// found by its marker (s2), and the retro's retro.md (./retro.ts, s3). From the feature PR's comments it
+// also keeps the outbox comment's numbering and the answers nobody has settled yet (PRD 251, s9,
+// ./replies.ts), and from settled.md the adopted mediums, each read back as its item. Each of those
+// reads fails on its own (`UNREAD`); the App not installed, or no config, and the whole summary is null. Every answer, null included, is cached 60 s per dossier.
 // The token never leaves this module: the summary holds only numbers, states and github.com links.
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
 import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
 import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.mjs';
 import { parseOutboxItem, SETTLED_FILE } from 'vertuo-omni-plan/kit/lib/outbox/outbox.mjs';
-import { parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.mjs';
+import { ADOPTED_VERDICT, parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.mjs';
 import { z } from 'zod';
+import { outboxReplies, type KitAdopted, type KitItem, type PrComment } from './replies';
 import { readRetro } from './retro';
 import { githubApp, REPO, type AppCredentials, type InstallationToken } from '../../signup/github-app';
-import { UNREAD, type GithubSummary, type IssueRef, type Outbox, type OutboxItem, type PullRef, type Read, type SettledItem } from './summary';
+import { UNREAD, type GithubSummary, type IssueRef, type Outbox, type OutboxDetails, type OutboxItem, type OutboxReplies, type PullRef, type Read, type SettledItem } from './summary';
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -56,14 +59,23 @@ type Pull = z.infer<typeof Pull>;
 const Pulls = z.array(Pull);
 const Issue = z.object({ number: z.number().int().positive(), html_url: z.string().url(), state: z.enum(['open', 'closed']) });
 const Entries = z.array(z.object({ name: z.string(), type: z.string() }));
-const Comments = z.array(z.object({ html_url: z.string().url(), body: z.string().nullable().optional().default(null) }));
+const Comments = z.array(z.object({
+  id: z.number().int(),
+  html_url: z.string().url(),
+  body: z.string().nullable().optional().default(null),
+  created_at: z.string().optional(),
+  user: z.object({ login: z.string() }).nullable().optional(),
+  author_association: z.string().optional(),
+}));
 
 /** The pull request a branch counts: the most recent open or merged one; a closed, unmerged one is absent. */
 export function latestPull(pulls: readonly Pull[]): PullRef | null {
   const counted = pulls.filter((p) => p.state === 'open' || p.merged_at !== null)
     .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at) || b.number - a.number);
   const [pull] = counted;
-  return pull ? { number: pull.number, url: pull.html_url, state: pull.state === 'open' ? 'open' : 'merged', draft: pull.draft } : null;
+  return pull
+    ? { number: pull.number, url: pull.html_url, state: pull.state === 'open' ? 'open' : 'merged', draft: pull.draft, mergedAt: pull.merged_at }
+    : null;
 }
 
 const fill = (shape: string, values: Record<string, string>) =>
@@ -88,17 +100,28 @@ function repoConfig(text: string): RepoConfig {
   };
 }
 
-/** An open item as the Outbox tab shows it; null when the file is not a well-formed item. */
-function outboxItem(text: string, file: string): OutboxItem | null {
-  const parsed = parseOutboxItem(text, { file }) as
-    | { ok: true; item: { id: string; rank: OutboxItem['rank']; sections: Record<string, unknown> } }
-    | { ok: false; errors: string[] };
-  if (!parsed.ok) {
-    console.error(`PRD page: an outbox item could not be read: ${parsed.errors.join('; ')}`);
-    return null;
-  }
-  const { id, rank, sections } = parsed.item;
+type ParsedItem = KitItem & { rank: OutboxItem['rank']; bearsOn: string };
+
+/** An item as the kit's parser reads it; null, said on the server's log, when it is not well formed. */
+function parsedItem(text: string, file: string | null): ParsedItem | null {
+  const parsed = parseOutboxItem(text, { file }) as { ok: true; item: ParsedItem } | { ok: false; errors: string[] };
+  if (parsed.ok) return parsed.item;
+  console.error(`PRD page: an outbox item could not be read: ${parsed.errors.join('; ')}`);
+  return null;
+}
+
+const DETAIL_FIELDS = [
+  ['decide', 'whatIHadToDecide'], ['meanwhile', 'whatIDidMeanwhile'], ['cost', 'whatItCostsToChangeLater'], ['unknown', 'whatICouldNotKnow'],
+] as const;
+
+/** An item as the Outbox tab shows it. */
+function outboxItem({ id, rank, bearsOn, sections }: ParsedItem): OutboxItem {
   const text_ = (key: string) => (typeof sections[key] === 'string' ? (sections[key] as string) : null);
+  const details: OutboxDetails = {};
+  for (const [key, field] of DETAIL_FIELDS) {
+    const text = text_(field);
+    if (text !== null) details[key] = text;
+  }
   return {
     id,
     rank,
@@ -106,18 +129,31 @@ function outboxItem(text: string, file: string): OutboxItem | null {
     decision: text_('decisionPlain') ?? text_('whatIDidMeanwhile'),
     options: Array.isArray(sections.options) ? (sections.options as OutboxItem['options']) : [],
     personSteps: text_('personSteps'),
+    bearsOn,
+    intro: text_('introFun'),
+    punchline: text_('punchlineFun'),
+    details,
   };
 }
 
+/** A settled entry as the kit's ledger reader gives it (the latest per id). */
+type LedgerEntry = { id: string; verdict?: string; answerText: string; itemText: string; fields: Record<string, string | undefined> };
+
 /** The settled entries, in the order settled.md holds them (the latest per id). */
-function settledItems(text: string, markers: RepoConfig['markers']): SettledItem[] {
-  const entries = parseSettledEntries(text, markers) as { id: string; verdict?: string; answerText: string; itemText: string }[];
+function settledItems(entries: LedgerEntry[]): SettledItem[] {
   return entries.map((entry) => {
     const parsed = parseOutboxItem(entry.itemText) as { ok: boolean; item?: { sections: Record<string, unknown> } };
     const question = parsed.ok ? parsed.item?.sections.questionPlain : undefined;
-    return { id: entry.id, title: typeof question === 'string' ? question : entry.id, verdict: entry.verdict ?? 'settled', answer: entry.answerText };
+    const field = (name: string) => entry.fields[name]?.trim() || null;
+    return {
+      id: entry.id, title: typeof question === 'string' ? question : entry.id, verdict: entry.verdict ?? 'settled', answer: entry.answerText,
+      by: field('Approved by'), at: field('Approved at'), url: field('Channel URL'),
+    };
   });
 }
+
+/** An outbox as the tab shows it, and what the kit's reply reader needs of it. */
+type OutboxRead = { outbox: Outbox; items: KitItem[]; adopted: KitAdopted[] };
 
 export type GithubReader = { summary(dossier: DossierRef): Promise<GithubSummary | null> };
 
@@ -188,8 +224,8 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
       async pullOn(branch: string): Promise<PullRef | null> {
         return latestPull(await pulls({ head: `${owner}:${branch}`, sort: 'created', direction: 'desc' }));
       },
-      /** The outbox under `dir` on `ref`: its open items in file order, and settled.md; null when there is none. */
-      async outbox(dir: string, ref: string, markers: RepoConfig['markers']): Promise<Outbox | null> {
+      /** The outbox under `dir` on `ref`: its open items in file order, settled.md and the adopted items; null when there is none. */
+      async outbox(dir: string, ref: string, markers: RepoConfig['markers']): Promise<OutboxRead | null> {
         const listed = await contents(dir, ref, false);
         if (listed === null || !Array.isArray(listed)) return null;
         const files = Entries.parse(listed).filter((e) => e.type === 'file' && e.name.endsWith('.md'));
@@ -198,15 +234,21 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
           if (typeof text !== 'string') throw new Error(`${dir}/${name} vanished while it was read`);
           return text;
         };
-        const items = await Promise.all(files.filter((f) => f.name !== SETTLED_FILE).map(async (f) => outboxItem(await raw(f.name), f.name)));
-        const settled = files.some((f) => f.name === SETTLED_FILE) ? settledItems(await raw(SETTLED_FILE), markers) : [];
-        return { open: items.filter((i): i is OutboxItem => i !== null), settled };
+        const parsed = await Promise.all(files.filter((f) => f.name !== SETTLED_FILE).map(async (f) => parsedItem(await raw(f.name), f.name)));
+        const items = parsed.filter((i): i is ParsedItem => i !== null);
+        const ledger = files.some((f) => f.name === SETTLED_FILE)
+          ? (parseSettledEntries(await raw(SETTLED_FILE), markers) as LedgerEntry[]) : [];
+        const adopted = ledger.filter((entry) => entry.verdict === ADOPTED_VERDICT);
+        const adoptedItems = adopted.map((entry) => parsedItem(entry.itemText, null)).filter((i): i is ParsedItem => i !== null);
+        return {
+          outbox: { open: items.map(outboxItem), settled: settledItems(ledger), adopted: adoptedItems.map(outboxItem) },
+          items,
+          adopted,
+        };
       },
-      /** The link of the pull request's outbox comment, found by its marker (the numbered one first); null when there is none. */
-      async outboxComment(pr: number, markers: RepoConfig['markers']): Promise<string | null> {
-        const comments = Comments.parse((await json(`/issues/${pr}/comments?per_page=100`)) ?? []);
-        const find = (marker: string) => comments.find((c) => c.body?.includes(marker))?.html_url ?? null;
-        return find(markers.prComment) ?? find(markers.comment);
+      /** The pull request's comments: at most the first 100, as GitHub lists them. */
+      async comments(pr: number): Promise<PrComment[]> {
+        return Comments.parse((await json(`/issues/${pr}/comments?per_page=100`)) ?? []);
       },
       /** A file's text on `ref`; null when it is not there. */
       async raw(file: string, ref: string): Promise<string | null> {
@@ -257,12 +299,23 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
       ? () => gh.outbox(`${config.delivery}/shipped/${shipped}/outbox`, main, config.markers)
       : folder && topic ? () => gh.outbox(`${config.delivery}/outbox/${folder}`, branch(config.branches.feature), config.markers) : none;
     const retroWhere = { delivery: config.delivery, folder: shipped ?? folder, defaultBranch: main, retroBranch: branch(config.branches.retro) };
-    const [outbox, outboxComment, retroText] = await Promise.all([
+    const [outboxRead_, comments, retroText] = await Promise.all([
       part('the outbox', outboxRead),
-      part('the outbox comment', feature !== UNREAD && feature ? () => gh.outboxComment(feature.number, config.markers) : none),
+      part('the outbox comment', feature !== UNREAD && feature ? () => gh.comments(feature.number) : none),
       part('the retro', retro !== UNREAD && retro ? () => readRetro(retro, retroWhere, gh.raw) : none),
     ]);
-    return { repo, prd, folder, topic, issue, phase0, feature, retro, mergedSlices, outbox, outboxComment, retroText };
+    const outbox = outboxRead_ === UNREAD ? UNREAD : outboxRead_?.outbox ?? null;
+    const find = (list: PrComment[], marker: string) => list.find((c) => c.body?.includes(marker))?.html_url ?? null;
+    const outboxComment = comments === UNREAD ? UNREAD
+      : comments ? find(comments, config.markers.prComment) ?? find(comments, config.markers.comment) : null;
+    // The pending answers are read against the outbox's items: unread when either read failed.
+    let replies: Read<OutboxReplies | null> = null;
+    if (comments === UNREAD || (comments && outboxRead_ === UNREAD)) replies = UNREAD;
+    else if (comments && outboxRead_ !== UNREAD) {
+      const kit = outboxRead_ ?? { items: [], adopted: [] };
+      replies = await part('the pending answers', async () => outboxReplies({ comments, items: kit.items, adopted: kit.adopted, markers: config.markers }));
+    }
+    return { repo, prd, folder, topic, issue, phase0, feature, retro, mergedSlices, outbox, outboxComment, replies, retroText };
   }
 
   return {
