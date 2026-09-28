@@ -288,8 +288,8 @@ describe('Delete', () => {
 });
 
 describe('the tabs', () => {
-  const tabsOf = (html: string) => [...html.matchAll(/<a class="dossier-tab( dossier-tab-empty)?" href="([^"]+)"( aria-current="page")?>([^<]+)(?:<small>([^<]+)<\/small>)?<\/a>/g)]
-    .map((m) => [m[4], m[5] ?? null, m[2].replaceAll('&amp;', '&'), Boolean(m[3]), ...(m[1] ? ['dimmed'] : [])]);
+  const tabsOf = (html: string) => [...html.matchAll(/<a class="dossier-tab( dossier-tab-empty)?" href="([^"]+)"( aria-current="page")?>([^<]+)(?:<small>([^<]+)<\/small>)?(?:<span class="dossier-left">([^<]+)<\/span>)?<\/a>/g)]
+    .map((m) => [m[4], m[6] ? `${m[5]} · ${m[6]}` : m[5] ?? null, m[2].replaceAll('&amp;', '&'), Boolean(m[3]), ...(m[1] ? ['dimmed'] : [])]);
 
   it('reads Questions with answered out of asked, then Before/after, Spec and Plan with their latest versions, opening on Questions', () => {
     expect(tabsOf(page())).toEqual([
@@ -301,6 +301,11 @@ describe('the tabs', () => {
       ['Retro', null, `/prd/${ID}?tab=retro`, false, 'dimmed'],
     ]);
     expect(page()).toContain('dossier-rounds');
+  });
+
+  it('reads the questions answered out of asked, and how many are left to answer as a badge (PRD 498)', () => {
+    const html = page({ questions: [...rounds, asked('r3', 'brainstorm', '2026-09-28T09:00:00Z', { questions: [SHAPE, { ...SHAPE, question: 'Why?' }] })] });
+    expect(tabsOf(html)[0]).toEqual(['Questions', '1/4 · 2 to answer', `/prd/${ID}`, true]);
   });
 
   it('opens on Before/after when no question was asked yet', () => {
@@ -414,20 +419,37 @@ describe('the Questions tab', () => {
   it('lists each round in the order asked, marked brainstorm or delivery, with no picker and no frame', () => {
     const html = questions();
     expect(html).toContain('<ol class="dossier-rounds" aria-label="Questions, in the order they were asked">');
-    expect([...html.matchAll(/<li id="(r\d)" class="dossier-round" data-rule="([a-z]+)">/g)].map((m) => [m[1], m[2]]))
-      .toEqual([['r1', 'brainstorm'], ['r2', 'delivery']]);
+    expect([...html.matchAll(/<li id="(r\d)" class="dossier-round" data-rule="([a-z]+)" data-state="([a-z]+)">/g)].map((m) => [m[1], m[2], m[3]]))
+      .toEqual([['r1', 'brainstorm', 'answered'], ['r2', 'delivery', 'moved']]);
     expect([...html.matchAll(/<span class="dossier-rule">([a-z]+)<\/span>/g)].map((m) => m[1])).toEqual(['brainstorm', 'delivery']);
     expect(html).not.toContain('<select');
     expect(html).not.toContain('<iframe');
   });
 
-  it('shows an answered question, as text, with only its chosen option and its description', () => {
+  it('folds an answered round: a closed <details> whose <summary> is its line (PRD 498)', () => {
+    const html = questions({ questions: [rounds[0]] });
+    expect(html).toMatch(/<li id="r1" class="dossier-round" data-rule="brainstorm" data-state="answered"><details class="dossier-fold"><summary class="dossier-round-line">/);
+    expect(html).not.toMatch(/<details[^>]* open/);
+    const line = html.slice(html.indexOf('<summary'), html.indexOf('</summary>'));
+    expect(line).toContain('<span class="dossier-mark" data-state="answered"');
+    expect(line).toContain('<span class="dossier-rule">brainstorm</span>');
+    expect(line).toContain('<span class="dossier-category" data-category="ux-ui">UX/UI</span>');
+    expect(line).toContain('— shape');
+    expect(line).toContain('<span class="dossier-round-count">1/1</span>');
+    expect(line).toContain('27 Sep, 09:15');
+    expect(line).toContain('<span class="dossier-outcome">answered by Marie after 1 min 35 s, on the page</span>');
+  });
+
+  it('shows an answered question, as text, on one line: chip · question → the chosen option, in no box', () => {
     const html = questions();
     expect(html).toContain('Square or &lt;b&gt;hexagonal&lt;/b&gt; tiles?');
     expect(html).not.toContain('<b>hexagonal</b>');
-    expect(html).toContain('<ul class="dossier-options" aria-label="Chosen option">'
-      + '<li class="dossier-option" data-chosen="true"><span class="dossier-option-label">Square<span class="ask-rec">Recommended</span></span>'
-      + '<span class="dossier-option-desc">cheaper</span></li></ul>');
+    expect(html).toContain('<p class="dossier-q-text dossier-q-line"><span class="ask-chip">Shape</span> '
+      + '<span class="dossier-q-asked">Square or &lt;b&gt;hexagonal&lt;/b&gt; tiles?</span> → '
+      + '<span class="dossier-chosen" aria-label="Chosen option"><span class="dossier-choice"><span class="dossier-option-label">Square<span class="ask-rec">Recommended</span></span>'
+      + '<span class="dossier-option-desc">cheaper</span></span></span></p>');
+    expect(html).not.toContain('dossier-option"');
+    expect(html).not.toContain('data-chosen');
     expect(html).not.toContain('Hexagonal');
     expect(html).not.toContain('prettier');
   });
@@ -450,25 +472,41 @@ describe('the Questions tab', () => {
       ],
     });
     expect([...html.matchAll(/<span class="dossier-option-label">([^<]+)/g)].map((m) => m[1])).toEqual(['Unit', 'Access']);
-    expect(html).toContain('<ul class="dossier-options" aria-label="Chosen options">');
+    expect(html).toContain('<span class="dossier-chosen" aria-label="Chosen options">');
     expect(html).not.toContain('Manual');
     expect(html).not.toContain('Hexagonal');
-    expect(html).toContain('<p class="dossier-answer"><span class="ask-hint">Answer</span> <b>Triangles, &lt;i&gt;obviously&lt;/i&gt;</b></p>');
+    expect(html).toContain('→ <span class="dossier-answer">Triangles, &lt;i&gt;obviously&lt;/i&gt;</span>');
   });
 
-  it('shows every option of an open question', () => {
+  it('never folds an open round: no <details>, its line no control, and every option shown (PRD 498)', () => {
     const html = questions({ questions: [asked('r7', 'brainstorm', '2026-09-27T10:00:00Z')] });
+    expect(html).toContain('<li id="r7" class="dossier-round" data-rule="brainstorm" data-state="open"><div class="dossier-round-line">');
+    expect(html).not.toContain('<details');
+    expect(html).not.toContain('<summary');
+    expect(html).toContain('<span class="dossier-round-count"><span class="dossier-left">1 to answer</span></span>');
     expect(html).toContain('<ul class="dossier-options" aria-label="Options, one could be chosen">');
     expect([...html.matchAll(/<span class="dossier-option-label">([^<]+)/g)].map((m) => m[1])).toEqual(['Square', 'Hexagonal']);
     expect(html).not.toContain('data-chosen');
     expect(html).toContain('not answered yet');
   });
 
-  it('shows a question moved to the terminal with no option', () => {
+  it('folds a round moved to the terminal, its line saying so, with no option', () => {
     const html = questions({ questions: [rounds[1]] });
+    expect(html).toMatch(/<li id="r2" class="dossier-round" data-rule="delivery" data-state="moved"><details class="dossier-fold"><summary class="dossier-round-line">/);
+    const line = html.slice(html.indexOf('<summary'), html.indexOf('</summary>'));
+    expect(line).toContain('<span class="dossier-round-count">moved to the terminal</span>');
     expect(html).toContain('Square or &lt;b&gt;hexagonal&lt;/b&gt; tiles?');
     expect(html).not.toContain('dossier-option');
     expect(html).toContain('<p class="dossier-outcome">moved to the terminal, no answer recorded</p>');
+  });
+
+  it('counts the questions in a strip above the list, with a meter (PRD 498)', () => {
+    const open = asked('r3', 'brainstorm', '2026-09-28T09:00:00Z', { questions: [SHAPE, { ...SHAPE, question: 'Why?' }] });
+    const html = questions({ questions: [...rounds, open] });
+    expect(html).toContain('<div class="dossier-progress"><p class="dossier-progress-words">1 of 4 answered <span class="dossier-left">2 to answer</span></p>'
+      + '<span class="dossier-meter" role="meter" aria-label="Questions answered" aria-valuemin="0" aria-valuemax="4" aria-valuenow="1"><span style="width:25%"></span></span></div>');
+    expect(html.indexOf('dossier-progress')).toBeLessThan(html.indexOf('dossier-rounds'));
+    expect(questions()).toContain('<p class="dossier-progress-words">1 of 2 answered</p>');
   });
 
   it('says who answered and after how long, its category, who asked and where, and links to the question', () => {
@@ -546,6 +584,7 @@ describe('a quick round on the Questions tab (PRD 384)', () => {
 
   it('gives each round its id, so the way back lands on the next open round', () => {
     expect(quick()).toContain('<li id="q2" class="dossier-round"');
+    expect(quick()).toContain('<li id="q1" class="dossier-round" data-rule="brainstorm" data-state="open">');
   });
 });
 
