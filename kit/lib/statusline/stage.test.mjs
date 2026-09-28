@@ -40,6 +40,27 @@ describe('stageOf', () => {
   });
 });
 
+describe('stageOf, with the board (slice s6)', () => {
+  const board = (...states) => states.map((state, index) => ({ id: `s${index + 1}`, wave: index + 1, state }));
+
+  it.each(['merged', 'in-flight', 'claimed-stale'])('reads outbox for a PRD git reads as inbox, when its board shows a slice %s', (state) => {
+    expect(stageOf({ folder: FOLDER, base: BASE, feature: NOTHING, slices: board('runnable', state, 'blocked') })).toBe('outbox');
+    expect(stageOf({ folder: FOLDER, base: BASE, feature: null, slices: board(state) })).toBe('outbox');
+  });
+
+  it('keeps inbox for a board whose slices are only runnable, blocked or stuck, and without a board', () => {
+    expect(stageOf({ folder: FOLDER, base: BASE, feature: NOTHING, slices: board('runnable', 'blocked', 'stuck') })).toBe('inbox');
+    expect(stageOf({ folder: FOLDER, base: BASE, feature: NOTHING, slices: [] })).toBe('inbox');
+    expect(stageOf({ folder: FOLDER, base: BASE, feature: NOTHING, slices: null })).toBe('inbox');
+  });
+
+  it('never lets the board move a shipped PRD, one in review, or one with no base', () => {
+    expect(stageOf({ folder: '0003-alpha', base: BASE, feature: NOTHING, slices: board('in-flight') })).toBe('shipped');
+    expect(stageOf({ folder: '0011-delta', base: BASE, feature: NOTHING, slices: board('merged') })).toBe('in review');
+    expect(stageOf({ folder: FOLDER, base: null, feature: NOTHING, slices: board('merged') })).toBeNull();
+  });
+});
+
 describe('isBuilt', () => {
   it('is built when a path outside the delivery folder changed since the fork and still differs', () => {
     expect(isBuilt({ forkChanges: ['src/app.mjs', `${DELIVERY}/outbox/${FOLDER}/s1-01-a.md`], stillDiffers: ['src/app.mjs'], delivery: DELIVERY })).toBe(true);

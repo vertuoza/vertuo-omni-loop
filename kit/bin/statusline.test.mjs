@@ -1,14 +1,17 @@
-// PRD #324, slices s1, s4 and s5: `omni statusline` through `main()` — Claude Code's JSON on stdin,
-// the session line out, then the PRD of the session's branch, else the one the session last worked
-// on, with its stage (or the no-PRD line) where the loop is installed, exit 0 and nothing on stderr
-// every time.
+// PRD #324, slices s1, s4, s5 and s6: `omni statusline` through `main()` — Claude Code's JSON on
+// stdin, the session line out, then the PRD of the session's branch, else the one the session last
+// worked on, with its stage and, in the outbox, the slices of its cached board (or the no-PRD line)
+// where the loop is installed, exit 0 and nothing on stderr every time; and `--refresh <n>`, the
+// background half that builds the board with `gh` and writes it. The spawn is injected: no test here
+// starts a real refresh.
 import { execFile, execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { writeMode } from '../lib/ask/local-state.mjs';
+import { BOARD_DIR, boardFile, lockFile } from '../lib/statusline/board-cache.mjs';
 import { makeRepo } from '../test/fixture.mjs';
 import { COMMAND_TABLE } from './commands/index.mjs';
 import { main } from './omni.mjs';
@@ -46,12 +49,23 @@ function recordingExec() {
   return { calls, exec };
 }
 
-/** Runs `omni statusline` in `cwd` with `stdin` as its input: `{ code, out, err, calls }`. */
-async function statusline(cwd, stdin, options = {}) {
+/** A spawn that starts nothing: it records each call as `{ command, args, options }`. */
+function recordingSpawn() {
+  const spawns = [];
+  const spawn = (command, args, options) => {
+    spawns.push({ command, args, options });
+    return { unref() {}, on() { return this; } };
+  };
+  return { spawns, spawn };
+}
+
+/** Runs `omni statusline` in `cwd` with `stdin` as its input: `{ code, out, err, calls, spawns }`. */
+async function statusline(cwd, stdin, options = {}, args = []) {
   const out = [];
   const err = [];
   const { calls, exec } = recordingExec();
-  const code = await main(['statusline'], {
+  const { spawns, spawn } = recordingSpawn();
+  const code = await main(['statusline', ...args], {
     cwd,
     stdout: { write: (s) => out.push(s) },
     stderr: { write: (s) => err.push(s) },
@@ -59,9 +73,10 @@ async function statusline(cwd, stdin, options = {}) {
     env: PLAIN,
     now: () => NOW,
     stdin,
+    spawn,
     ...options,
   });
-  return { code, out: out.join(''), err: err.join(''), calls };
+  return { code, out: out.join(''), err: err.join(''), calls, spawns };
 }
 
 const neverFetches = (calls) => calls.every((call) => !/^git\b.*\bfetch\b/.test(call) && !/^gh\b/.test(call));
@@ -146,6 +161,7 @@ describe('omni statusline', () => {
       stderr: { write: (s) => err.push(s) },
       env: PLAIN,
       stdin: payload(root),
+      spawn: recordingSpawn().spawn,
     });
     expect({ code, err: err.join('') }).toEqual({ code: 0, err: '' });
   });
@@ -342,5 +358,278 @@ describe('omni statusline: line 2 names the PRD the session last worked on', () 
     expect(await line2(fixture.root, { session_id: '../abc' })).toBe(NO_PRD);
     expect(await inSession(['prd', '42'], fixture.root)).toBe(1);
     expect(await line2(fixture.root)).toBe(NO_PRD);
+  });
+});
+
+const SECOND = 1000;
+const iso = (ms) => new Date(ms).toISOString();
+
+describe('omni statusline: the slices, from a board refreshed in the background', () => {
+  const fixture = originFixture();
+  const slice = (id, wave, state) => ({ id, wave, state });
+  const FIVE = [slice('s1', 1, 'merged'), slice('s2', 1, 'merged'), slice('s3', 2, 'merged'), slice('s4', 2, 'claimed-stale'), slice('s5', 4, 'stuck')];
+  const WIDE = { ...PLAIN, COLUMNS: '200' };
+
+  /** PRD `prd`'s board in the fixture's main checkout, written `age` milliseconds before `NOW`. */
+  function plantBoard(prd, age, body) {
+    mkdirSync(join(fixture.root, BOARD_DIR), { recursive: true });
+    writeFileSync(boardFile(fixture.root, prd), JSON.stringify({ at: iso(NOW - age), ...body }));
+  }
+
+  /** Line 2 in `dir`, and the refreshes the run started; exit 0, nothing on stderr, no `gh`, no fetch. */
+  async function run(dir, env = WIDE) {
+    const result = await statusline(dir, payload(dir), { env });
+    expect({ code: result.code, err: result.err }).toEqual({ code: 0, err: '' });
+    expect(neverFetches(result.calls)).toBe(true);
+    return { line: result.out.split('\n')[1], spawns: result.spawns };
+  }
+
+  it('shows the wave, the slices merged, in flight and stuck, after the stage and before the open items', async () => {
+    plantBoard(7, 30 * SECOND, { slices: FIVE });
+    const dir = fixture.on('feat/bravo--s6', 'origin/feat/bravo');
+    expect(await run(dir)).toEqual({ line: 'PRD 7 bravo · s6 · outbox · wave 2 of 4 · 3/5 slices merged, 1 in flight, 1 stuck · 2 open items', spawns: [] });
+  });
+
+  it('colours the stuck count red, unless NO_COLOR is set', async () => {
+    plantBoard(7, 30 * SECOND, { slices: FIVE });
+    const dir = fixture.on('feat/bravo--s7', 'origin/feat/bravo');
+    const { line } = await run(dir, { COLUMNS: '200' });
+    expect(line).toBe('PRD 7 bravo · s7 · outbox · wave 2 of 4 · 3/5 slices merged, 1 in flight, \x1b[31m1 stuck\x1b[0m · 2 open items');
+  });
+
+  it('reads `all slices merged` when every slice is merged', async () => {
+    plantBoard(7, 30 * SECOND, { slices: [slice('s1', 1, 'merged'), slice('s2', 2, 'merged')] });
+    expect((await run(fixture.on('feat/bravo--s8', 'origin/feat/bravo'))).line).toBe('PRD 7 bravo · s8 · outbox · all slices merged · 2 open items');
+  });
+
+  it('reads outbox for a PRD git reads as inbox once its board shows a slice in flight', async () => {
+    plantBoard(9, 30 * SECOND, { slices: [slice('s1', 1, 'in-flight'), slice('s2', 2, 'blocked')] });
+    const dir = fixture.on('feat/charlie--s1', 'origin/feat/charlie');
+    expect(await run(dir)).toEqual({ line: 'PRD 9 charlie · s1 · outbox · wave 1 of 2 · 0/2 slices merged, 1 in flight', spawns: [] });
+    plantBoard(9, 30 * SECOND, { slices: [slice('s1', 1, 'runnable'), slice('s2', 2, 'blocked')] });
+    expect((await run(dir)).line).toBe('PRD 9 charlie · s1 · inbox');
+  });
+
+  it('starts one detached refresh in the session folder when the board is a minute old, and shows it meanwhile', async () => {
+    plantBoard(7, 60 * SECOND, { slices: FIVE });
+    const dir = fixture.on('feat/bravo--s9', 'origin/feat/bravo');
+    const { line, spawns } = await run(dir);
+    expect(line).toBe('PRD 7 bravo · s9 · outbox · wave 2 of 4 · 3/5 slices merged, 1 in flight, 1 stuck · 2 open items');
+    expect(spawns).toHaveLength(1);
+    const [{ command, args, options }] = spawns;
+    expect(command).toBe(process.execPath);
+    expect(args).toEqual([CLI, 'statusline', '--refresh', '7']);
+    expect(options).toMatchObject({ cwd: dir, detached: true, stdio: 'ignore' });
+  });
+
+  it('shows the stage alone from a board 10 minutes old, or with no board, and starts one refresh', async () => {
+    plantBoard(7, 10 * 60 * SECOND, { slices: FIVE });
+    const dir = fixture.on('feat/bravo--s10', 'origin/feat/bravo');
+    expect(await run(dir)).toMatchObject({ line: 'PRD 7 bravo · s10 · outbox · 2 open items', spawns: [{ args: [CLI, 'statusline', '--refresh', '7'] }] });
+    const missing = fixture.on(`feat/${LONG_TOPIC}--s1`, `origin/feat/${LONG_TOPIC}`);
+    expect(await run(missing)).toMatchObject({ line: `PRD 13 ${LONG_TOPIC} · s1 · outbox · 1 open item`, spawns: [{ args: [CLI, 'statusline', '--refresh', '13'] }] });
+  });
+
+  it('starts none while a refresh holds the lock', async () => {
+    plantBoard(7, 5 * 60 * SECOND, { slices: FIVE });
+    writeFileSync(lockFile(fixture.root, 7), JSON.stringify({ at: iso(NOW - 30 * SECOND) }));
+    try {
+      expect((await run(fixture.on('feat/bravo--s11', 'origin/feat/bravo'))).spawns).toEqual([]);
+    } finally {
+      writeFileSync(lockFile(fixture.root, 7), JSON.stringify({ at: iso(NOW - 2 * 60 * SECOND) }));
+    }
+    expect((await run(fixture.on('feat/bravo--s12', 'origin/feat/bravo'))).spawns).toHaveLength(1);
+  });
+
+  it('hides the slices after a failed refresh, and tries again 60 seconds after it', async () => {
+    plantBoard(7, 59 * SECOND, { error: 'gh: command not found' });
+    const dir = fixture.on('feat/bravo--s13', 'origin/feat/bravo');
+    expect(await run(dir)).toEqual({ line: 'PRD 7 bravo · s13 · outbox · 2 open items', spawns: [] });
+    plantBoard(7, 60 * SECOND, { error: 'gh: command not found' });
+    expect((await run(dir)).spawns).toHaveLength(1);
+  });
+
+  it('starts no refresh for a shipped PRD, a PRD in review, or no PRD', async () => {
+    for (const [dir, line] of [
+      [fixture.on('feat/alpha--s1'), 'PRD 3 alpha · shipped'],
+      [fixture.on('docs/phase-0-delta', 'origin/docs/phase-0-delta'), 'PRD 11 delta · in review'],
+      [fixture.root, NO_PRD],
+    ]) {
+      expect(await run(dir)).toEqual({ line, spawns: [] });
+    }
+  });
+
+  it('prints the plain status line for an argument it does not know', async () => {
+    const dir = fixture.on('feat/bravo--s14', 'origin/feat/bravo');
+    plantBoard(7, 30 * SECOND, { slices: FIVE });
+    for (const args of [['--bogus'], ['7'], ['--json']]) {
+      const result = await statusline(dir, payload(dir), { env: WIDE }, args);
+      expect(result).toMatchObject({ code: 0, err: '', spawns: [] });
+      expect(result.out.split('\n')[1]).toBe('PRD 7 bravo · s14 · outbox · wave 2 of 4 · 3/5 slices merged, 1 in flight, 1 stuck · 2 open items');
+    }
+  });
+});
+
+describe('omni statusline --refresh <n>', () => {
+  const HOUR = 60 * MINUTE;
+  const PLAN = [
+    '# A plan',
+    '',
+    '| id | slice | territory | blocked by | wave |',
+    '| --- | --- | --- | --- | --- |',
+    '| s1 | Alpha | `a/` | — | 1 |',
+    '| s2 | Beta | `b/` | s1 | 2 |',
+    '| s3 | Gamma | `c/` | s1 | 2 |',
+    '| s4 | Delta | `d/` | s2 | 3 |',
+    '',
+  ].join('\n');
+  const FILES = {
+    '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\n',
+    '.omni-loop/delivery/inbox/0007-widgets/plan.md': PLAN,
+  };
+
+  /** A pull request of the feature `widgets`, as `gh pr list` returns one. */
+  function pr(number, slice, more = {}) {
+    return {
+      number,
+      title: slice,
+      headRefName: `feat/widgets--${slice}`,
+      baseRefName: 'feat/widgets',
+      state: 'OPEN',
+      isDraft: false,
+      mergedAt: null,
+      body: '',
+      labels: [],
+      updatedAt: iso(NOW - MINUTE),
+      createdAt: iso(NOW - 5 * MINUTE),
+      ...more,
+    };
+  }
+  const PRS = [
+    pr(1, 's1', { state: 'MERGED', mergedAt: iso(NOW - HOUR) }),
+    pr(2, 's2', { isDraft: true }),
+    pr(3, 's3', { labels: [{ name: 'omni:needs-fix' }] }),
+  ];
+
+  /** `execFileSync` for git, and a stub for `gh`: `pr list` returns `prs`, and any `gh` throws when `ghFails`. */
+  function stubbedExec({ prs = PRS, ghFails = false } = {}) {
+    const calls = [];
+    const exec = (file, args, options) => {
+      calls.push([file, ...args].join(' '));
+      if (file !== 'gh') return execFileSync(file, args, options);
+      if (ghFails) throw new Error('spawnSync gh ENOENT\n    at stub');
+      if (args[0] === 'pr' && args[1] === 'list') return JSON.stringify(prs);
+      if (args[0] === 'pr' && args[1] === 'view') return JSON.stringify({ commits: [] });
+      throw new Error(`unexpected gh ${args.join(' ')}`);
+    };
+    return { calls, exec };
+  }
+
+  /** `omni statusline --refresh <prd>` in `cwd`: `{ code, out, err, calls }`. */
+  async function refresh(cwd, prd = '7', stub = stubbedExec()) {
+    const out = [];
+    const err = [];
+    const code = await main(['statusline', '--refresh', prd], {
+      cwd,
+      stdout: { write: (s) => out.push(s) },
+      stderr: { write: (s) => err.push(s) },
+      exec: stub.exec,
+      env: { ...PLAIN, CLAUDE_CODE_SESSION_ID: 'abc' },
+      now: () => NOW,
+      stdin: '',
+      spawn: () => {
+        throw new Error('a refresh starts no process');
+      },
+    });
+    return { code, out: out.join(''), err: err.join(''), calls: stub.calls };
+  }
+
+  const readBoardJson = (root, prd = 7) => JSON.parse(readFileSync(boardFile(root, prd), 'utf8'));
+
+  it('writes board-7.json with each slice id, wave and state, built as omni board builds it, and removes the lock', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const run = await refresh(root);
+    expect(run).toMatchObject({ code: 0, out: '', err: '' });
+    expect(readBoardJson(root)).toEqual({
+      at: iso(NOW),
+      slices: [
+        { id: 's1', wave: 1, state: 'merged' },
+        { id: 's2', wave: 2, state: 'in-flight' },
+        { id: 's3', wave: 2, state: 'stuck' },
+        { id: 's4', wave: 3, state: 'blocked' },
+      ],
+    });
+    expect(existsSync(lockFile(root, 7))).toBe(false);
+    expect(run.calls.filter((call) => call.startsWith('gh '))).toEqual([
+      'gh pr list --repo acme/widgets --json number,title,headRefName,baseRefName,state,isDraft,mergedAt,body,labels,updatedAt,createdAt --state all --limit 200 --base feat/widgets',
+    ]);
+    expect(readFileSync(join(root, '.omni-loop/local/.gitignore'), 'utf8')).toBe('*\n');
+    expect(existsSync(join(root, '.omni-loop/local/sessions'))).toBe(false);
+  });
+
+  it('writes nothing and exits 0 while another refresh holds the lock', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    mkdirSync(join(root, BOARD_DIR), { recursive: true });
+    writeFileSync(lockFile(root, 7), JSON.stringify({ at: iso(NOW - 30 * SECOND) }));
+    const run = await refresh(root);
+    expect(run).toMatchObject({ code: 0, out: '', err: '' });
+    expect(existsSync(boardFile(root, 7))).toBe(false);
+    expect(existsSync(lockFile(root, 7))).toBe(true);
+    expect(run.calls.some((call) => call.startsWith('gh '))).toBe(false);
+  });
+
+  it('takes over a lock 2 minutes old', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    mkdirSync(join(root, BOARD_DIR), { recursive: true });
+    writeFileSync(lockFile(root, 7), JSON.stringify({ at: iso(NOW - 2 * MINUTE) }));
+    expect((await refresh(root)).code).toBe(0);
+    expect(readBoardJson(root).slices).toHaveLength(4);
+    expect(existsSync(lockFile(root, 7))).toBe(false);
+  });
+
+  it('writes the error entry when gh fails, when there is no plan, or no such PRD', async () => {
+    const { root } = makeRepo({ git: true, files: { ...FILES, '.omni-loop/delivery/inbox/0009-nothing/spec.md': '# nothing\n' } });
+    expect((await refresh(root, '7', stubbedExec({ ghFails: true }))).code).toBe(0);
+    expect(readBoardJson(root)).toEqual({ at: iso(NOW), error: 'spawnSync gh ENOENT' });
+    expect((await refresh(root, '9')).code).toBe(0);
+    expect(readBoardJson(root, 9)).toEqual({ at: iso(NOW), error: 'omni board: no plan at .omni-loop/delivery/inbox/0009-nothing/plan.md.' });
+    expect((await refresh(root, '42')).code).toBe(0);
+    expect(readBoardJson(root, 42)).toEqual({ at: iso(NOW), error: 'omni board: PRD 42 has no inbox or shipped folder.' });
+    for (const prd of [7, 9, 42]) expect(existsSync(lockFile(root, prd))).toBe(false);
+  });
+
+  it('writes the board in the main checkout when run from a worktree', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const worktree = join(mkdtempSync(join(tmpdir(), 'omni-worktree-')), 'wt');
+    git(root, 'worktree', 'add', '-q', '-b', 'feat/widgets--s2', worktree);
+    expect((await refresh(worktree)).code).toBe(0);
+    expect(readBoardJson(root).slices).toHaveLength(4);
+    expect(existsSync(join(worktree, '.omni-loop/local'))).toBe(false);
+  });
+
+  it('writes nothing and exits 0 for a PRD that is not a positive integer, or outside any repository', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    for (const prd of ['seven', '0', '-7', '']) {
+      expect(await refresh(root, prd)).toMatchObject({ code: 0, out: '', err: '' });
+    }
+    expect(existsSync(join(root, '.omni-loop/local'))).toBe(false);
+    const outside = mkdtempSync(join(tmpdir(), 'omni-outside-'));
+    expect(await refresh(outside)).toMatchObject({ code: 0, out: '', err: '' });
+    expect(existsSync(join(outside, '.omni-loop'))).toBe(false);
+  });
+
+  it('is what the status line shows next', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const bare = mkdtempSync(join(tmpdir(), 'omni-origin-'));
+    git(bare, 'init', '-q', '--bare', '-b', 'main');
+    git(root, 'remote', 'add', 'origin', bare);
+    git(root, 'push', '-q', 'origin', 'main');
+    git(root, 'fetch', '-q', 'origin');
+    git(root, 'checkout', '-q', '-b', 'feat/widgets--s4');
+    expect((await refresh(root)).code).toBe(0);
+    const shown = await statusline(root, payload(root), { env: { ...PLAIN, COLUMNS: '200' } });
+    expect(shown.out.split('\n')[1]).toBe('PRD 7 widgets · s4 · outbox · wave 2 of 3 · 1/4 slices merged, 1 in flight, 1 stuck');
+    expect(shown.spawns).toEqual([]);
+    expect(neverFetches(shown.calls)).toBe(true);
   });
 });

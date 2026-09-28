@@ -1,14 +1,16 @@
-// PRD #324, slices s1, s4 and s5: what the status line reads besides its stdin — whether the loop is
-// installed in the session's folder, whether ask mode is on in the launch folder's checkout, and the
-// PRD the session's branch names (else the one its record names), with its stage read from git as of
-// the last fetch.
+// PRD #324, slices s1, s4, s5 and s6: what the status line reads besides its stdin — whether the loop
+// is installed in the session's folder, whether ask mode is on in the launch folder's checkout, and
+// the PRD the session's branch names (else the one its record names), with its stage read from git as
+// of the last fetch and the slices of its cached board, whose refresh it starts through the injected
+// spawn.
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.mjs';
 import { writeMode } from '../ask/local-state.mjs';
+import { BOARD_DIR, boardFile, lockFile } from './board-cache.mjs';
 import { readFacts } from './facts.mjs';
 import { writeRecord } from './sessions.mjs';
 
@@ -99,6 +101,7 @@ describe('readFacts: the PRD of the session branch', () => {
       slice: null,
       stage: 'inbox',
       openItems: 0,
+      slices: null,
     });
   });
 
@@ -116,6 +119,7 @@ describe('readFacts: the PRD of the session branch', () => {
       slice: 's2',
       stage: null,
       openItems: 0,
+      slices: null,
     });
   });
 
@@ -180,6 +184,7 @@ describe('readFacts: what the session last worked on', () => {
       slice: null,
       stage: 'inbox',
       openItems: 0,
+      slices: null,
     });
   });
 
@@ -220,5 +225,102 @@ describe('readFacts: what the session last worked on', () => {
     const { root } = makeRepo({ git: true, files: { [`${DELIVERY}/inbox/0007-bravo/spec.md`]: '# bravo\n' } });
     writeRecord(root, 'abc', 7, NOW);
     expect(readFacts(input({ currentDir: root, sessionId: 'abc' }), { cwd: root, exec: execFileSync })).toMatchObject({ installed: false, prd: null });
+  });
+});
+
+describe('readFacts: the board (slice s6)', () => {
+  const NOW = Date.parse('2026-09-28T12:00:00Z');
+  const SECOND = 1000;
+  const MINUTE = 60 * SECOND;
+  const IN_FLIGHT = [{ id: 's1', wave: 1, state: 'in-flight' }, { id: 's2', wave: 2, state: 'blocked' }];
+
+  /** A board file in the checkout at `root`, written `age` milliseconds before `NOW`. */
+  function plantBoard(root, prd, age, body = { slices: IN_FLIGHT }) {
+    mkdirSync(join(root, BOARD_DIR), { recursive: true });
+    writeFileSync(boardFile(root, prd), JSON.stringify({ at: new Date(NOW - age).toISOString(), ...body }));
+  }
+
+  /** A spawn that starts nothing and records each call. */
+  function fakeSpawn() {
+    const calls = [];
+    const spawn = (command, args, options) => {
+      calls.push({ command, args, options });
+      return { unref() {}, on() { return this; } };
+    };
+    return { calls, spawn };
+  }
+
+  /** `readFacts` on the session folder `folder` at `NOW`, with a recording exec and spawn. */
+  function read(folder, more = {}) {
+    const { calls, exec } = recordingExec();
+    const spawned = fakeSpawn();
+    const facts = readFacts(input({ currentDir: folder, ...more }), { cwd: folder, exec, now: NOW, spawn: spawned.spawn });
+    expect(calls.some((call) => /\bfetch\b/.test(call) || call.startsWith('gh '))).toBe(false);
+    return { prd: facts.prd, spawns: spawned.calls };
+  }
+
+  it('reads a PRD git reads as inbox as outbox when its fresh board shows a slice in flight, with its slices', () => {
+    const { root } = localRepo();
+    plantBoard(root, 7, 30 * SECOND);
+    expect(read(root)).toEqual({
+      prd: { number: 7, topic: 'bravo', slice: null, stage: 'outbox', openItems: 0, slices: IN_FLIGHT },
+      spawns: [],
+    });
+  });
+
+  it('shows no slices from a board 10 minutes old, reads the stage from git alone, and starts one refresh in the session folder', () => {
+    const { root } = localRepo({ branch: 'feat/bravo--s2' });
+    plantBoard(root, 7, 10 * MINUTE);
+    const { prd, spawns } = read(root);
+    expect(prd).toMatchObject({ number: 7, stage: 'inbox', slices: null });
+    expect(spawns).toHaveLength(1);
+    expect(spawns[0].args.slice(1)).toEqual(['statusline', '--refresh', '7']);
+    expect(spawns[0].options).toMatchObject({ cwd: root, detached: true, stdio: 'ignore' });
+  });
+
+  it('starts one refresh without a board, none while a refresh holds the lock, and none without a spawn', () => {
+    const { root } = localRepo();
+    expect(read(root).spawns).toHaveLength(1);
+    mkdirSync(join(root, BOARD_DIR), { recursive: true });
+    writeFileSync(lockFile(root, 7), JSON.stringify({ at: new Date(NOW - MINUTE).toISOString() }));
+    expect(read(root).spawns).toHaveLength(0);
+    const quiet = localRepo();
+    expect(readFacts(input({ currentDir: quiet.root }), { cwd: quiet.root, exec: execFileSync, now: NOW }).prd).toMatchObject({ stage: 'inbox', slices: null });
+  });
+
+  it('reads the board in the main checkout from a worktree, and starts its refresh in the worktree', () => {
+    const { root } = localRepo({ branch: 'main' });
+    plantBoard(root, 7, 70 * SECOND, { slices: [{ id: 's1', wave: 1, state: 'merged' }] });
+    const worktree = join(mkdtempSync(join(tmpdir(), 'omni-worktree-')), 'wt');
+    git(root, 'worktree', 'add', '-q', '-b', 'feat/bravo--s3', worktree);
+    const { prd, spawns } = read(worktree);
+    expect(prd).toMatchObject({ number: 7, slice: 's3', stage: 'outbox', slices: [{ id: 's1', wave: 1, state: 'merged' }] });
+    expect(spawns.map((spawn) => spawn.options.cwd)).toEqual([worktree]);
+    expect(existsSync(join(worktree, BOARD_DIR))).toBe(false);
+  });
+
+  it('reads no board for a shipped PRD, one in review, or one with no stage, and starts no refresh', () => {
+    const shipped = localRepo({ branch: 'main' });
+    mkdirSync(join(shipped.root, DELIVERY, 'shipped'), { recursive: true });
+    git(shipped.root, 'mv', `${DELIVERY}/inbox/0007-bravo`, `${DELIVERY}/shipped/0007-bravo`);
+    git(shipped.root, 'commit', '-q', '-m', 'ship bravo');
+    git(shipped.root, 'checkout', '-q', '-b', 'feat/bravo');
+    plantBoard(shipped.root, 7, 30 * SECOND);
+    expect(read(shipped.root)).toMatchObject({ prd: { stage: 'shipped', slices: null }, spawns: [] });
+
+    const review = localRepo({ branch: 'docs/phase-0-delta' });
+    commit(review.root, { [`${DELIVERY}/inbox/0011-delta/spec.md`]: '# delta\n' });
+    expect(read(review.root)).toMatchObject({ prd: { number: 11, stage: 'in review', slices: null }, spawns: [] });
+
+    const noBase = localRepo({ config: 'kit: 1\nrepo:\n  defaultBranch: trunk\n' });
+    plantBoard(noBase.root, 7, 30 * SECOND);
+    expect(read(noBase.root)).toMatchObject({ prd: { stage: null, slices: null }, spawns: [] });
+  });
+
+  it('reads the PRD a record names with its board too', () => {
+    const { root } = localRepo({ branch: 'main' });
+    writeRecord(root, 'abc', 7, NOW);
+    plantBoard(root, 7, 0);
+    expect(read(root, { sessionId: 'abc' })).toMatchObject({ prd: { number: 7, stage: 'outbox', slices: IN_FLIGHT }, spawns: [] });
   });
 });

@@ -6,15 +6,19 @@
 //   when it has nothing to say; the context always says something (`context —` without a
 //   percentage).
 // - Line 2, only where the loop is installed: the PRD this session works on,
-//   `PRD <n> <topic>[ · <slice>] · <stage>[ · <k> open item(s)]` (the open items in the outbox only,
-//   the stage left out when there is none), `PRD <n> <topic> · shipped` and nothing after, or the
-//   no-PRD line.
+//   `PRD <n> <topic>[ · <slice>] · <stage>[ · <slices>][ · <k> open item(s)]` (the slices and the
+//   open items in the outbox only, the stage left out when there is none), `PRD <n> <topic> · shipped`
+//   and nothing after, or the no-PRD line.
+// - `<slices>`, from the board the status line shows: `wave <w> of <W> · <m>/<n> slices merged`,
+//   `<w>` the lowest wave holding a slice not merged and `<W>` the highest, followed by
+//   `, <i> in flight` (`in-flight` and `claimed-stale`) and `, <s> stuck`, each only when not zero;
+//   `all slices merged` when every slice is; left out without a board.
 // - Every line fits `COLUMNS` (80 when it is unset or not a number), counting characters, never
 //   colour codes: a line too wide cuts its topic first, down to 8 characters ending in `…`, and a
 //   line still too wide is cut at its end with `…`.
-// - Colour is ANSI, on the context bar with its percentage only, and none when `NO_COLOR` is set to
-//   anything but an empty string.
-import { OUTBOX, SHIPPED } from './stage.mjs';
+// - Colour is ANSI, on the context bar with its percentage and on the stuck count (red) only, and
+//   none when `NO_COLOR` is set to anything but an empty string.
+import { IN_FLIGHT, MERGED, OUTBOX, SHIPPED, STUCK } from './stage.mjs';
 
 export const NO_PRD_LINE = 'no PRD · /omni:brainstorm to start';
 /** What the status line prints for JSON it could not read. */
@@ -117,6 +121,30 @@ export function itemsPart(count) {
   return `${count} open item${count === 1 ? '' : 's'}`;
 }
 
+/**
+ * `wave <w> of <W> · <m>/<n> slices merged[, <i> in flight][, <s> stuck]`, or `all slices merged`,
+ * from the board's slices; `null` without a board, or with one of no slices. The stuck count is red
+ * when `color` is on.
+ *
+ * @param {{ id: string, wave: number, state: string }[] | null | undefined} slices
+ * @param {{ color?: boolean }} [options]
+ */
+export function slicesPart(slices, { color = false } = {}) {
+  if (!Array.isArray(slices) || slices.length === 0) return null;
+  const count = (test) => slices.filter((slice) => test(slice.state)).length;
+  const merged = count((state) => state === MERGED);
+  if (merged === slices.length) return 'all slices merged';
+  const wave = Math.min(...slices.filter((slice) => slice.state !== MERGED).map((slice) => slice.wave));
+  const last = Math.max(...slices.map((slice) => slice.wave));
+  const inFlight = count((state) => IN_FLIGHT.includes(state));
+  const stuck = count((state) => state === STUCK);
+  return [
+    `wave ${wave} of ${last}${SEPARATOR}${merged}/${slices.length} slices merged`,
+    inFlight > 0 ? `, ${inFlight} in flight` : '',
+    stuck > 0 ? `, ${paint(`${stuck} stuck`, 'red', color)}` : '',
+  ].join('');
+}
+
 /** `text` cut to `length` characters, the last one `…`. */
 const cutTo = (text, length) => `${[...text].slice(0, length - 1).join('')}${CUT}`;
 
@@ -124,13 +152,16 @@ const cutTo = (text, length) => `${[...text].slice(0, length - 1).join('')}${CUT
  * Line 2 for a PRD, within `width`: its topic cut first (never below 8 characters), then the line at
  * its end.
  *
- * @param {{ number: number, topic: string, slice: string | null, stage: string | null, openItems: number }} prd
+ * @param {{ number: number, topic: string, slice: string | null, stage: string | null, openItems: number,
+ *   slices?: { id: string, wave: number, state: string }[] | null }} prd `slices`: the board shown
  * @param {number} [width]
+ * @param {{ color?: boolean }} [options]
  */
-export function prdLine({ number, topic, slice, stage, openItems }, width = Number.POSITIVE_INFINITY) {
+export function prdLine({ number, topic, slice, stage, openItems, slices = null }, width = Number.POSITIVE_INFINITY, { color = false } = {}) {
+  const inOutbox = stage === OUTBOX;
   const draw = (shown) => {
     if (stage === SHIPPED) return `PRD ${number} ${shown}${SEPARATOR}${SHIPPED}`;
-    return [`PRD ${number} ${shown}`, slice, stage, stage === OUTBOX ? itemsPart(openItems) : null]
+    return [`PRD ${number} ${shown}`, slice, stage, inOutbox ? slicesPart(slices, { color }) : null, inOutbox ? itemsPart(openItems) : null]
       .filter(Boolean)
       .join(SEPARATOR);
   };
@@ -152,7 +183,8 @@ export function prdLine({ number, topic, slice, stage, openItems }, width = Numb
 export function renderLines({ input, facts, env, now }) {
   const width = columnsOf(env);
   if (!input) return [fit(UNREADABLE_LINE, width)];
-  const lines = [sessionLine({ ...input, askOn: facts?.askOn === true }, { now, color: colorOn(env) })];
-  if (facts?.installed) lines.push(facts.prd ? prdLine(facts.prd, width) : NO_PRD_LINE);
+  const color = colorOn(env);
+  const lines = [sessionLine({ ...input, askOn: facts?.askOn === true }, { now, color })];
+  if (facts?.installed) lines.push(facts.prd ? prdLine(facts.prd, width, { color }) : NO_PRD_LINE);
   return lines.map((line) => fit(line, width));
 }
