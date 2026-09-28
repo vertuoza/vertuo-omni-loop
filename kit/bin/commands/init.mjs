@@ -153,7 +153,11 @@ export const init = {
       askUrl: config.ask.url,
       home: userHome,
       interactive,
-      signIn: signIn ?? (() => signin.run([], { cwd: root, stdout, stderr, exec, home: userHome })),
+      signIn: signIn ?? (async () => {
+        let line;
+        const code = await signin.run([], { cwd: root, stdout, stderr, exec, home: userHome, onSignedIn: (said) => { line = said; } });
+        return { code, line };
+      }),
     });
     const closing = [
       '',

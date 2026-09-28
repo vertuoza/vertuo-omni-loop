@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { startFakeAskServer } from '../../test/fake-ask-server.mjs';
 import { homeTokens } from './client-tokens.mjs';
-import { credentials, credentialsHost, exchangeCode, SignInError, tokenEntry } from './credentials.mjs';
+import { credentials, credentialsHost, exchangeCode, signedInLine, SignInError, tokenEntry } from './credentials.mjs';
 
 const FILE = ['.config', 'omni', 'credentials.json'];
 const ENTRY = { access_token: 'a', refresh_token: 'r', expires_at: 1790000000, email: 'ada@example.com' };
@@ -82,26 +82,70 @@ describe('the credentials omni signin keeps', () => {
 });
 
 describe('the token exchange reply', () => {
-  it('keeps exactly the four fields of the contract', () => {
-    expect(tokenEntry({ ...ENTRY, extra: 'dropped' })).toEqual(ENTRY);
+  it('keeps the tokens, their expiry, and the email and GitHub login when the reply has them', () => {
+    expect(tokenEntry({ ...ENTRY, extra: 'dropped', workspace: null, reason: 'dropped too' })).toEqual(ENTRY);
     expect(tokenEntry({ access_token: 'a', refresh_token: 'r', email: 'ada@example.com' })).toEqual({
       access_token: 'a', refresh_token: 'r', expires_at: null, email: 'ada@example.com',
     });
+    expect(tokenEntry({ ...ENTRY, login: 'ada' })).toEqual({ ...ENTRY, login: 'ada' });
   });
 
-  it('is refused without an access token, a refresh token or an email', () => {
-    for (const reply of [null, [], 'text', {}, { ...ENTRY, access_token: '' }, { ...ENTRY, refresh_token: 7 }, { ...ENTRY, email: undefined }]) {
+  it('is kept without an email: GitHub lets a person keep theirs private (PRD 459)', () => {
+    expect(tokenEntry({ access_token: 'a', refresh_token: 'r', expires_at: 1, login: 'ned' })).toEqual({ access_token: 'a', refresh_token: 'r', expires_at: 1, login: 'ned' });
+    expect(tokenEntry({ access_token: 'a', refresh_token: 'r', email: null })).toEqual({ access_token: 'a', refresh_token: 'r', expires_at: null });
+  });
+
+  it('is refused without an access token or a refresh token', () => {
+    for (const reply of [null, [], 'text', {}, { ...ENTRY, access_token: '' }, { ...ENTRY, refresh_token: 7 }]) {
       expect(tokenEntry(reply)).toBeNull();
     }
+  });
+});
+
+describe('the line a sign-in ends on (PRD 459)', () => {
+  const repo = 'acme/api';
+  it('names the workspace the repository goes to', () => {
+    expect(signedInLine({ login: 'ada', repo, workspace: { slug: 'acme', name: 'Acme' }, reason: null })).toBe('signed in as ada — acme/api goes to Acme');
+  });
+
+  it('says no workspace owns it yet, with the install link the server added', () => {
+    const reason = 'no workspace owns acme/api yet — install the Omni App: https://github.com/apps/omni-loop/installations/new';
+    expect(signedInLine({ login: 'ada', repo, workspace: null, reason })).toBe(`signed in as ada — ${reason}`);
+  });
+
+  it('says whose workspace owns it when the person is not a member', () => {
+    const reason = 'you are not a member of Globex, which owns acme/api';
+    expect(signedInLine({ login: 'ada', repo, workspace: null, reason })).toBe(`signed in as ada — ${reason}`);
+  });
+
+  it('names only the account when the server said nothing about the repository (an older page, or no repo.slug)', () => {
+    expect(signedInLine({ login: 'ada', email: 'ada@example.com', repo, workspace: null, reason: null })).toBe('signed in as ada');
+    expect(signedInLine({ email: 'ada@example.com', repo: null })).toBe('signed in as ada@example.com');
+    expect(signedInLine({ login: 'ada', repo: null, workspace: { slug: 'acme', name: 'Acme' } })).toBe('signed in as ada');
+    expect(signedInLine({})).toBe('signed in');
   });
 });
 
 describe('exchanging a one-time code', () => {
   it('posts {code} to <ask.url>/api/ask/token and returns the tokens', async () => {
     server = await startFakeAskServer({ codes: ['code-1'], email: 'ada@example.com' });
-    const entry = await exchangeCode({ askUrl: `${server.url}/`, code: 'code-1' });
+    const { entry, workspace, reason } = await exchangeCode({ askUrl: `${server.url}/`, code: 'code-1' });
     expect(entry).toMatchObject({ access_token: 'access-2', refresh_token: 'refresh-2', email: 'ada@example.com' });
+    expect({ workspace, reason }).toEqual({ workspace: null, reason: null });
     expect(server.calls.at(-1)).toMatchObject({ method: 'POST', path: '/api/ask/token', body: { code: 'code-1' }, authorization: null });
+  });
+
+  it('sends the repository with the code, and returns where it goes (PRD 459)', async () => {
+    const sent = [];
+    const fetch = async (_url, init) => {
+      sent.push(JSON.parse(init.body));
+      return Response.json({ access_token: 'a', refresh_token: 'r', expires_at: 1, login: 'ned', workspace: { slug: 'acme', name: 'Acme', extra: 1 } });
+    };
+    const out = await exchangeCode({ askUrl: 'https://ask.example.com', code: 'c', repo: 'acme/api', fetch });
+    expect(sent).toEqual([{ code: 'c', repo: 'acme/api' }]);
+    expect(out).toEqual({ entry: { access_token: 'a', refresh_token: 'r', expires_at: 1, login: 'ned' }, login: 'ned', email: null, workspace: { slug: 'acme', name: 'Acme' }, reason: null });
+    const refused = async () => Response.json({ access_token: 'a', refresh_token: 'r', login: 'ned', workspace: null, reason: 'you are not a member of Acme, which owns acme/api' });
+    expect(await exchangeCode({ askUrl: 'https://ask.example.com', code: 'c', repo: 'acme/api', fetch: refused })).toMatchObject({ workspace: null, reason: 'you are not a member of Acme, which owns acme/api' });
   });
 
   it('is refused with the server\'s reason for a code it does not know, or knew once', async () => {
