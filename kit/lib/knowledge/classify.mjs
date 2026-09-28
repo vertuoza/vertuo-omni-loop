@@ -22,6 +22,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { readDecisions } from '../playbook/decisions.mjs';
+import { LOOK_RULE } from './look-rule.mjs';
 import { PRODUCT_CODE, domainsDir, readKnowledge } from './registers.mjs';
 
 /** Every kind a reply may name, in the order the prompt lists them. */
@@ -272,6 +273,7 @@ export function classificationPrompt({ candidate, summary }) {
     `\`statement\` and \`principle\`'s fields are one or two plain sentences, at most ${CAPS.statement} characters.`,
     `\`reason\` says why this kind and this place, at most ${CAPS.reason} characters.`,
     'Prefer `covered` when the knowledge base below already says it, and `stays-here` for a local choice.',
+    LOOK_RULE,
     '',
     `## The decision: ${candidate.id}`,
     '',
