@@ -1,10 +1,11 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { answered, keepKnown, pickable, picksKey, readPicks, recommend, type Pick, type Picks } from './outbox-picks';
+import { answered, dropPicks, keepKnown, pickable, picksKey, readPicks, recommend, type Pick, type Picks } from './outbox-picks';
+import { OutboxSend } from './OutboxSend';
 import { NOT_NUMBERED, type Chip, type SettledEntry } from './outbox-view';
 
 // Ported from archive/outbox-answers-v1:apps/galaxy/src/outbox/OutboxAnswers.tsx (PRD 251, s9), on
-// PRD 426's reader: Send is shown, not wired yet (s11 wires it).
+// PRD 426's reader; Send is wired by s11 (./OutboxSend.tsx).
 //
 // The questions of the Outbox tab (PRD 251, "The Outbox tab"): the toolbar — Select every
 // recommendation and Send n answers — then every open question, highest rank first, then two collapsed
@@ -49,8 +50,6 @@ type Props = {
   /** Why Send is off, or null when it may send. */
   sendOff: string | null;
 };
-
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 function Html({ html, className }: { html: string | null; className: string }) {
   return html ? <div className={className} dangerouslySetInnerHTML={{ __html: html }} /> : null;
@@ -268,6 +267,17 @@ export function OutboxAnswers({ dossierId, open, adopted, settled, readOnly, not
     }
   }
 
+  // Picks answered by a posted send, or settled meanwhile (PRD 251, s11): read against the latest picks.
+  const drop = (numbers: number[]) => setPicks((current) => {
+    const next = dropPicks(current, numbers);
+    try {
+      window.localStorage.setItem(key, JSON.stringify(next));
+    } catch {
+      // As above.
+    }
+    return next;
+  });
+
   const onPick = (number: number, pick: Pick | null) => {
     const next = { ...picks };
     if (pick) next[number] = pick;
@@ -288,10 +298,7 @@ export function OutboxAnswers({ dossierId, open, adopted, settled, readOnly, not
           <button type="button" className="ask-button quiet" onClick={() => change(recommend(questions, picks))} disabled={!openDecisions}>
             Select every recommendation
           </button>
-          <button type="button" className="ask-button" disabled>
-            Send {plural(count, 'answer')}
-          </button>
-          {sendOff && <span className="ask-hint">{sendOff}</span>}
+          <OutboxSend dossierId={dossierId} questions={questions} picks={picks} count={count} sendOff={sendOff} onDrop={drop} />
         </div>
       )}
       {open.length === 0 ? (

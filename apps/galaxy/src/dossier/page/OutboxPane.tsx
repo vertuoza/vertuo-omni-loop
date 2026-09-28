@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import { renderMarkdown, type RenderedMarkdown } from '../markdown';
 import { OutboxAnswers, type ShownCard } from './outbox-answers';
 import { ContextDisclosure } from './outbox-context';
-import type { ContextView, OutboxCard, OutboxView } from './outbox-view';
+import { sendOpen } from '../../outbox/open';
+import { SEND_OFF, type ContextView, type OutboxCard, type OutboxView } from './outbox-view';
 import { FRAME_SANDBOX } from './sandbox';
 
 // The Outbox tab of /prd/<id> (PRD 426, part 4; PRD 251, s9): the place to answer the decisions the
@@ -12,10 +13,13 @@ import { FRAME_SANDBOX } from './sandbox';
 // off) or the brainstorm's questions with their answers — switched by links, so it works before any
 // script runs. Wide, the rail sits on the right and stays where it is while the questions scroll; tall,
 // it is a Context disclosure above them. Item text is rendered here, on the server, raw HTML off; the
-// page ships the HTML, never the renderer.
+// page ships the HTML, never the renderer. Send is open once this deployment knows the omni-loop App's
+// client (PRD 251, s11, ./OutboxSend.tsx).
 
 type Props = {
   dossierId: string;
+  /** Whether this deployment may send (PRD 251, s11); read from the server's environment when left out. */
+  canSend?: boolean;
   outbox: OutboxView;
   /** The latest spec, rendered, while the rail shows it; null otherwise, or when it could not be read. */
   spec: RenderedMarkdown | null;
@@ -82,7 +86,13 @@ function Rail({ context, spec }: { context: ContextView; spec: RenderedMarkdown 
   );
 }
 
-export function OutboxPane({ dossierId, outbox, spec }: Props) {
+/** Why Send is off: the view's reason, unless it is only that sending is not wired here and this
+ * deployment may send (PRD 251, s11). */
+export function sendOffOf(view: OutboxView, canSend: boolean): string | null {
+  return view.sendOff === SEND_OFF.notYet && canSend ? null : view.sendOff;
+}
+
+export function OutboxPane({ dossierId, outbox, spec, canSend = sendOpen() }: Props) {
   if (outbox.state === 'unread') return <p className="ask-problem" role="alert">{outbox.words}</p>;
   if (outbox.state === 'empty') return <p className="dossier-empty">{outbox.words}</p>;
   return (
@@ -103,7 +113,7 @@ export function OutboxPane({ dossierId, outbox, spec }: Props) {
           readOnly={outbox.readOnly}
           note={outbox.note}
           signIn={outbox.signIn}
-          sendOff={outbox.sendOff}
+          sendOff={sendOffOf(outbox, canSend)}
         />
       </div>
     </div>
