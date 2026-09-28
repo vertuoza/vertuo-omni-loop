@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import {
-  ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierList, dossierReader, dossierRounds, dossierStore, DossierStoreError, LIST_FIELDS,
+  ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierList, dossierPulse, dossierReader, dossierRounds, dossierStore, DossierStoreError, LIST_FIELDS,
   ROUND_FIELDS, TITLE_MAX, VERSION_COLUMNS,
 } from './store';
 
@@ -189,5 +189,25 @@ describe('reading the history', () => {
     const error = await dossierList(recording({ data: null, error: { code: '42501', message: 'permission denied' } }).db).catch((e) => e);
     expect(error).toBeInstanceOf(DossierStoreError);
     expect(error).toMatchObject({ code: '42501' });
+  });
+});
+
+// ── The change check (PRD 384, part 5) ──────────────────────────────────────────
+
+describe('reading the change check', () => {
+  it('reads one dossier\'s counts and latest version numbers in one dossier_list() call', async () => {
+    const row = {
+      id: 'd1', repos: ['acme/widgets'], asked: 3, answered: 2,
+      latest: { spec: { id: 'v1', version: 2, source: 'kit', created_at: 'x' }, 'before-after': { id: 'v2', version: 1, source: 'kit', created_at: 'x' } },
+    };
+    const { calls, db } = recording({ data: [row], error: null });
+    expect(await dossierPulse(db, 'd1')).toEqual({ asked: 3, answered: 2, latest: { spec: 2, 'before-after': 1 } });
+    expect(calls).toEqual([{ name: 'dossier_list', args: { p_dossier: 'd1' } }]);
+  });
+
+  it('reads a dossier the caller may not read as null, and turns a failure into a DossierStoreError', async () => {
+    expect(await dossierPulse(recording({ data: [], error: null }).db, 'd1')).toBeNull();
+    const error = await dossierPulse(recording({ data: null, error: { message: 'down' } }).db, 'd1').catch((e) => e);
+    expect(error).toBeInstanceOf(DossierStoreError);
   });
 });

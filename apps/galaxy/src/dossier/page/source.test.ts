@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { dossierRounds } from '../store';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
-import { deleteDraft, readContent, readDossier, readHistory, readSandboxed } from './source';
+import { pulseOf, signature } from './live';
+import { deleteDraft, readContent, readDossier, readHistory, readPulse, readSandboxed } from './source';
 
 // Where /prd/<id> reads: straight from the database as the viewer (the stubbed client of
 // ../store.fake.ts, which keeps the migration's access rules), so a member of the dossier's workspace
@@ -253,5 +254,50 @@ describe('reading the history', () => {
     expect(read?.repos).toBeNull();
     expect(read?.rounds).toHaveLength(2);
     quiet.mockRestore();
+  });
+});
+
+describe('reading the change check (PRD 384)', () => {
+  it('reads the counts and the latest versions a member sees, and moves when a round is asked, answered or a version pushed', async () => {
+    const { fake, as, numbered } = await world();
+    const first = await readPulse(as('bob'), numbered);
+    expect(first).toEqual({ asked: 0, answered: 0, latest: { spec: 1, 'before-after': 2 } });
+
+    const [round] = fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [{ created_at: '2026-09-28T10:00:00.000Z', prd: 7 }]).rounds;
+    const asked = await readPulse(as('bob'), numbered);
+    expect(asked).toMatchObject({ asked: 1, answered: 0 });
+    expect(signature(asked)).not.toBe(signature(first));
+
+    Object.assign(round, { status: 'answered', answers: { 'A question?': 'Yes' }, answered_at: '2026-09-28T10:01:00.000Z' });
+    const answered = await readPulse(as('bob'), numbered);
+    expect(answered).toMatchObject({ asked: 1, answered: 1 });
+    expect(signature(answered)).not.toBe(signature(asked));
+
+    await fake.client('ada').rpc('dossier_push', {
+      p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'plan', content: '# Plan' }],
+    });
+    const pushed = await readPulse(as('bob'), numbered);
+    expect(pushed?.latest).toEqual({ spec: 1, plan: 1, 'before-after': 2 });
+    expect(signature(pushed)).not.toBe(signature(answered));
+    expect(signature(await readPulse(as('bob'), numbered))).toBe(signature(pushed));
+  });
+
+  it('agrees with what the page rendered, so a page read and a check of the same dossier match', async () => {
+    const { fake, as, numbered } = await world();
+    fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [
+      { created_at: '2026-09-28T10:00:00.000Z', prd: 7, status: 'answered', answered_at: '2026-09-28T10:01:00.000Z' },
+      { created_at: '2026-09-28T10:02:00.000Z', prd: 7 },
+    ]);
+    const read = await readDossier(as('bob'), numbered);
+    expect(signature(pulseOf(read!))).toBe(signature(await readPulse(as('bob'), numbered)));
+  });
+
+  it('reads nothing for someone who cannot read the dossier, or an id that is not a dossier\'s', async () => {
+    const { fake, as, numbered } = await world();
+    expect(await readPulse(as('carl'), numbered)).toBeNull();
+    expect(await readPulse(as(null), numbered)).toBeNull();
+    const calls = fake.state.calls;
+    expect(await readPulse(as('bob'), 'not-a-uuid')).toBeNull();
+    expect(fake.state.calls).toBe(calls);
   });
 });
