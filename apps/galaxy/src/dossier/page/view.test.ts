@@ -337,8 +337,8 @@ describe('the way back from a question answered on its own page (PRD 384)', () =
   });
 
   it('picks the first round still open in the order asked, never the one just answered', () => {
-    const early = round('r0', '2026-09-27T09:00:00Z');
-    const answeredNow = round('r5', '2026-09-27T08:00:00Z');
+    const early = round('r0', 'brainstorm', '2026-09-27T09:00:00Z');
+    const answeredNow = round('r5', 'brainstorm', '2026-09-27T08:00:00Z');
     expect(back(ID, [...rounds, early, answeredNow], 'r5')).toBe(`/prd/${ID}?tab=questions#r0`);
   });
 
