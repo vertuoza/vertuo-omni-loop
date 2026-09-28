@@ -37,7 +37,7 @@ export const SIDEBAR: readonly SidebarGroup[] = [
         label: 'Questions',
         path: '/ask',
         children: [
-          { id: 'for-me', label: 'For me', path: '/ask/for-me' },
+          { id: 'for-me', label: 'Shared with me', path: '/ask/for-me' },
           { id: 'history', label: 'History', path: '/ask/history' },
         ],
       },

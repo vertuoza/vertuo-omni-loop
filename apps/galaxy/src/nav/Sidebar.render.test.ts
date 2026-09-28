@@ -41,7 +41,7 @@ describe('the sidebar', () => {
 
   it('lists Work, then Omni, their items in order', () => {
     const html = render();
-    expect(text(html)).toMatch(/^OMNI LOOP Acme Work Home PRDs Questions For me 3 History Knowledge Fleets Omni Docs ↗ Release notes ↗$/);
+    expect(text(html)).toMatch(/^OMNI LOOP Acme Work Home PRDs Questions Shared with me 3 History Knowledge Fleets Omni Docs ↗ Release notes ↗$/);
     expect(links(html).slice(1).map((l) => /href="([^"]+)"/.exec(l.attrs)?.[1])).toEqual([
       '/app', '/prd', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/fleets', '/docs', '/releases',
     ]);
@@ -53,11 +53,11 @@ describe('the sidebar', () => {
   });
 
   it('shows For me\'s count as a badge at 3, and no badge at 0 or when it could not be read', () => {
-    expect(render()).toMatch(/<a class="app-sidebar-item" href="\/ask\/for-me" aria-label="For me: 3 waiting">For me<span class="app-sidebar-badge" aria-hidden="true">3<\/span><\/a>/);
+    expect(render()).toMatch(/<a class="app-sidebar-item" href="\/ask\/for-me" aria-label="Shared with me: 3 waiting">Shared with me<span class="app-sidebar-badge" aria-hidden="true">3<\/span><\/a>/);
     for (const forMe of [0, null]) {
       const html = render({ ...ADA, forMe });
       expect(html).not.toContain('app-sidebar-badge');
-      expect(html).toMatch(/<a class="app-sidebar-item" href="\/ask\/for-me">For me<\/a>/);
+      expect(html).toMatch(/<a class="app-sidebar-item" href="\/ask\/for-me">Shared with me<\/a>/);
     }
   });
 

@@ -17,7 +17,7 @@ describe('SIDEBAR', () => {
     expect(work.items.map((i) => [i.id, i.label, i.path, (i.children ?? []).map((c) => [c.id, c.label, c.path])])).toEqual([
       ['home', 'Home', '/app', []],
       ['prds', 'PRDs', '/prd', []],
-      ['questions', 'Questions', '/ask', [['for-me', 'For me', '/ask/for-me'], ['history', 'History', '/ask/history']]],
+      ['questions', 'Questions', '/ask', [['for-me', 'Shared with me', '/ask/for-me'], ['history', 'History', '/ask/history']]],
       ['knowledge', 'Knowledge', '/knowledge', []],
       ['fleets', 'Fleets', '/app/fleets', []],
     ]);
@@ -43,7 +43,7 @@ describe('currentItem and pageTitle', () => {
     ['/ask', 'questions', 'Questions'],
     ['/ask/7c1e', 'questions', 'Questions'],
     ['/ask/q/42', 'questions', 'Questions'],
-    ['/ask/for-me', 'for-me', 'Questions / For me'],
+    ['/ask/for-me', 'for-me', 'Questions / Shared with me'],
     ['/ask/history', 'history', 'Questions / History'],
     ['/knowledge', 'knowledge', 'Knowledge'],
     ['/knowledge?domain=x', 'knowledge', 'Knowledge'],
