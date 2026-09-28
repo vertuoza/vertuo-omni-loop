@@ -1,5 +1,5 @@
 {
-  "about": "PRD 50 (feature PR #51 and its sub-PRs #54, #56, #57), as GitHub returned them to the retro’s reads, recorded 2026-09-25. Pull requests, their files and reviews were read through the GitHub connector and kept in the REST shape, trimmed to what the retro reads: no bodies, no patches. The trees and blobs at the merge SHA are the merge commit’s own git objects.",
+  "about": "PRD 50 (feature PR #51 and its sub-PRs #54, #56, #57), as GitHub returned them to the retro’s reads, recorded 2026-09-25. Pull requests, their files and reviews were read through the GitHub connector and kept in the REST shape, trimmed to what the retro reads: no bodies, no patches. The trees and blobs at the merge SHA are the merge commit’s own git objects. The knowledge folder's trees and blobs and the shipped folder's recursive tree at the merge SHA, which the retro's judge reads (PRD 487), were added 2026-09-28 from the GitHub API.",
   "notRecorded": [
     "GET /repos/{owner}/{repo}/issues/{issue_number}/events — the connector cannot read issue events, so the replay does not know when #51 was marked ready.",
     "Issue and review comments, commits and check runs of the sub-PRs."
@@ -792,6 +792,446 @@
         "size": 12594,
         "encoding": "base64",
         "content": "IyBTZXR0bGVkIG91dGJveCBpdGVtcyDigJQgUFJEIDUwCgpBcHBlbmQtb25s\neS4gRWFjaCBlbnRyeSBiZWxvdyBpcyBvbmUgb3V0Ym94IGl0ZW0gYSBodW1h\nbiBhbnN3ZXJlZDogdGhlIHF1ZXN0aW9uIGV4YWN0bHkgYXMgaXQKd2FzIHJh\naXNlZCwgdGhlIGFuc3dlciBleGFjdGx5IGFzIGl0IHdhcyBnaXZlbiwgd2hv\nIGFwcHJvdmVkIGl0LCB3aGVuLCB0aHJvdWdoIHdoaWNoIGNoYW5uZWwsCmFu\nZCB0aGUgdmVyZGljdC4gTm90aGluZyBoZXJlIGlzIGV2ZXIgcmV3cml0dGVu\nIOKAlCBzZWUgYC5vbW5pLWxvb3AvZGVsaXZlcnkvUkVBRE1FLm1kYC4KCjwh\nLS0gb21uaS1vdXRib3gtc2V0dGxlZDogczEtMDEtZnVuLWxpbmUtc2VudGVu\nY2UtY291bnQgLS0+CgojIyBzMS0wMS1mdW4tbGluZS1zZW50ZW5jZS1jb3Vu\ndCDigJQgYWRvcHRlZAoKLSBWZXJkaWN0OiBhZG9wdGVkCi0gQXBwcm92ZWQg\nYnk6IG5vYm9keQotIEFwcHJvdmVkIGF0OiAyMDI2LTA5LTI1Ci0gQmFzaXM6\nIGFkb3B0ZWQtd2hlbi1yYWlzZWQg4oCUIGEgbWVkaXVtIGl0ZW0gaXMgYWRv\ncHRlZCB0aGUgbW9tZW50IGl0IGlzIHJhaXNlZCDigJQgbm9ib2R5IGFwcHJv\ndmVzIGl0LCBhbmQgaXQgc3RhbmRzIHVubGVzcyBzb21lb25lIGxhdGVyIG9i\namVjdHMKLSBDbG9zZWQ6IHllcyDigJQgYWRvcHRlZCB3aGVuIGl0IHdhcyBy\nYWlzZWQ7IG5vdGhpbmcgdG8gcmV3b3JrIHVubGVzcyBzb21lb25lIG9iamVj\ndHMKLSBSYW5rOiBtZWRpdW0KLSBCZWFycyBvbjogbm9uZQotIFJhaXNlZDog\nMjAyNi0wOS0yNQotIFNsaWNlOiBzMQotIFdhdmU6IDEKCiMjIyBUaGUgYW5z\nd2VyLCBhcyBpdCB3YXMgZ2l2ZW4KCmBgYHRleHQKQWRvcHRlZCB0aGUgbW9t\nZW50IGl0IHdhcyByYWlzZWQg4oCUIG5vYm9keSBhcHByb3ZlZCBpdCwgYW5k\nIGl0IHN0YW5kcyB1bmxlc3Mgc29tZW9uZSBvYmplY3RzLgpgYGAKCiMjIyBU\naGUgaXRlbSwgYXMgaXQgd2FzIHJhaXNlZAoKYGBgdGV4dAotLS0KaWQ6IHMx\nLTAxLWZ1bi1saW5lLXNlbnRlbmNlLWNvdW50CnByZDogNTAKc2xpY2U6IHMx\nCnJhbms6IG1lZGl1bQpiZWFycy1vbjogbm9uZQpyYWlzZWQ6IDIwMjYtMDkt\nMjUKd2F2ZTogMQotLS0KCiMjIFRoZSBxdWVzdGlvbiwgaW4gcGxhaW4gd29y\nZHMKClNob3VsZCB0aGUgY2hlY2sgcmVmdXNlIGFuIGludHJvIG9yIGEgcHVu\nY2hsaW5lIG1hZGUgb2YgdHdvIHNob3J0IHNlbnRlbmNlcywgc2luY2UgdGhl\nIHNwZWMgYXNrcyBmb3Igb25lIHNlbnRlbmNlIHdoaWxlIGl0cyBvd24gZXhh\nbXBsZSBwdW5jaGxpbmUgaGFzIHR3bz8KCiMjIFRoZSBkZWNpc2lvbiwgaW4g\ncGxhaW4gd29yZHMKClRoZSBjaGVjayByZWZ1c2VzIGEgbGluZSBvbmx5IHdo\nZW4gaXQgcnVucyBwYXN0IDEyMCBjaGFyYWN0ZXJzIG9yIGlzIG5vdCBpbiBw\nbGFpbiB3b3JkcywgYW5kIHBsYWluIHdvcmRzIGFscmVhZHkgYWxsb3cgdHdv\nIHNob3J0IHNlbnRlbmNlcyBhdCBtb3N0LiBLZWVwaW5nIHRvIG9uZSBzZW50\nZW5jZSBzdGF5cyBhZHZpY2UgZm9yIHdob2V2ZXIgd3JpdGVzIHRoZSBsaW5l\nLgoKIyMgVGhlIG9wdGlvbnMsIGluIHBsYWluIHdvcmRzCgpBLiBSZWZ1c2Ug\nYSBsaW5lIG9ubHkgd2hlbiBpdCBpcyB0b28gbG9uZyBvciBub3QgaW4gcGxh\naW4gd29yZHMsIHdoaWNoIGFsbG93cyB0d28gc2hvcnQgc2VudGVuY2VzLCB0\naGUgb3B0aW9uIGJ1aWx0LgpCLiBBbHNvIHJlZnVzZSBhIGxpbmUgb2YgbW9y\nZSB0aGFuIG9uZSBzZW50ZW5jZSwgd2hpY2ggd291bGQgcmVmdXNlIHRoZSBz\ncGVjJ3Mgb3duIGV4YW1wbGUgcHVuY2hsaW5lLgoKIyMgV2hhdCBJIGhhZCB0\nbyBkZWNpZGUKCldoZXRoZXIgYGZ1bkxpbmVQcm9ibGVtc2AgYWxzbyBjYXBz\nIGFuIGludHJvIG9yIGEgcHVuY2hsaW5lIGF0IG9uZSBzZW50ZW5jZS4gVGhl\nIHNwZWMncyAiV2hhdCBhIGxpbmUgbWF5IHNheSIgc2F5cyBvbmUgc2VudGVu\nY2UsIGluIHBsYWluIHdvcmRzLCAidGhlIHNhbWUgYHBsYWluV29yZHNQcm9i\nbGVtc2AgcnVsZXMgYXMgdGhlIHF1ZXN0aW9uIGFuZCB0aGUgZGVjaXNpb24i\nIOKAlCBhbmQgYHBsYWluV29yZHNQcm9ibGVtc2AgYWxsb3dzIHR3by4gVGhl\nIHNwZWMncyBvd24gZXhhbXBsZSBwdW5jaGxpbmUgaW4gaXRzIFNvbHV0aW9u\nIGlzIHR3byBzZW50ZW5jZXMuIEFjY2VwdGFuY2UgY3JpdGVyaWEgMiBhbmQg\nMyBuYW1lIG9ubHkgdGhlIDEyMC1jaGFyYWN0ZXIgY2FwIGFuZCB0aGUgcGxh\naW4td29yZHMgcnVsZXMuCgojIyBXaGF0IEkgZGlkIG1lYW53aGlsZQoKYGZ1\nbkxpbmVQcm9ibGVtc2AgaXMgYHBsYWluV29yZHNQcm9ibGVtc2AgKHdoaWNo\nIHJlZnVzZXMgbW9yZSB0aGFuIHR3byBzZW50ZW5jZXMpIHBsdXMgdGhlIDEy\nMC1jaGFyYWN0ZXIgY2FwLCBhbmQgbm90aGluZyBlbHNlLiBUaGUgb25lLXNl\nbnRlbmNlIHJ1bGUgaXMgbGVmdCB0byB0aGUgd3JpdGVyOiBzbGljZSBzMyBw\ndXRzIGl0IGluIGAvb21uaTpkby13b3JrYCdzIHByb3NlLgoKIyMgV2hhdCBp\ndCBjb3N0cyB0byBjaGFuZ2UgbGF0ZXIKCkEgb25lLXNlbnRlbmNlIGNhcCBp\ncyBvbmUgbW9yZSBjaGVjayBpbiBgZnVuTGluZVByb2JsZW1zYCBhbmQgYSBj\nb3VwbGUgb2YgdGVzdHMuIEFueSBvcGVuIGl0ZW0gYWxyZWFkeSBjYXJyeWlu\nZyBhIHR3by1zZW50ZW5jZSBsaW5lIHdvdWxkIHRoZW4gZmFpbCBgb21uaSBj\naGVjayBvdXRib3hgIHVudGlsIHJld29yZGVkOyBzZXR0bGVkIGVudHJpZXMg\nYXJlIG5ldmVyIGdyYWRlZCwgc28gbm9uZSBvZiB0aGVtIGlzIGFmZmVjdGVk\nLgoKIyMgV2hhdCBJIGNvdWxkIG5vdCBrbm93CgooYXV0aG9yKSBUaGUgUFJE\nLCB0aGUgcmVnaXN0ZXJzIGFuZCB0aGUgZ2xvc3NhcnkgZG8gbm90IHNldHRs\nZSB0aGlzOgoKLSB3aGV0aGVyIHRoZSBzcGVjJ3MgdHdvLXNlbnRlbmNlIGV4\nYW1wbGUgcHVuY2hsaW5lIGlzIG1lYW50IGFzIGFsbG93ZWQsIG9yIG9ubHkg\nYXMgYW4gaWxsdXN0cmF0aW9uIG9mIHRvbmUKCmBgYAoKPCEtLSAvb21uaS1v\ndXRib3gtc2V0dGxlZDogczEtMDEtZnVuLWxpbmUtc2VudGVuY2UtY291bnQg\nLS0+Cgo8IS0tIG9tbmktb3V0Ym94LXNldHRsZWQ6IHMxLTAyLWZ1bi1saW5l\nLXJlZnVzYWwtc2hhcGUgLS0+CgojIyBzMS0wMi1mdW4tbGluZS1yZWZ1c2Fs\nLXNoYXBlIOKAlCBhZG9wdGVkCgotIFZlcmRpY3Q6IGFkb3B0ZWQKLSBBcHBy\nb3ZlZCBieTogbm9ib2R5Ci0gQXBwcm92ZWQgYXQ6IDIwMjYtMDktMjUKLSBC\nYXNpczogYWRvcHRlZC13aGVuLXJhaXNlZCDigJQgYSBtZWRpdW0gaXRlbSBp\ncyBhZG9wdGVkIHRoZSBtb21lbnQgaXQgaXMgcmFpc2VkIOKAlCBub2JvZHkg\nYXBwcm92ZXMgaXQsIGFuZCBpdCBzdGFuZHMgdW5sZXNzIHNvbWVvbmUgbGF0\nZXIgb2JqZWN0cwotIENsb3NlZDogeWVzIOKAlCBhZG9wdGVkIHdoZW4gaXQg\nd2FzIHJhaXNlZDsgbm90aGluZyB0byByZXdvcmsgdW5sZXNzIHNvbWVvbmUg\nb2JqZWN0cwotIFJhbms6IG1lZGl1bQotIEJlYXJzIG9uOiBub25lCi0gUmFp\nc2VkOiAyMDI2LTA5LTI1Ci0gU2xpY2U6IHMxCi0gV2F2ZTogMQoKIyMjIFRo\nZSBhbnN3ZXIsIGFzIGl0IHdhcyBnaXZlbgoKYGBgdGV4dApBZG9wdGVkIHRo\nZSBtb21lbnQgaXQgd2FzIHJhaXNlZCDigJQgbm9ib2R5IGFwcHJvdmVkIGl0\nLCBhbmQgaXQgc3RhbmRzIHVubGVzcyBzb21lb25lIG9iamVjdHMuCmBgYAoK\nIyMjIFRoZSBpdGVtLCBhcyBpdCB3YXMgcmFpc2VkCgpgYGB0ZXh0Ci0tLQpp\nZDogczEtMDItZnVuLWxpbmUtcmVmdXNhbC1zaGFwZQpwcmQ6IDUwCnNsaWNl\nOiBzMQpyYW5rOiBtZWRpdW0KYmVhcnMtb246IG5vbmUKcmFpc2VkOiAyMDI2\nLTA5LTI1CndhdmU6IDEKLS0tCgojIyBUaGUgcXVlc3Rpb24sIGluIHBsYWlu\nIHdvcmRzCgpXaGVuIHRoZSBjb21tYW5kIHRoYXQgcmFpc2VzIGFuIGl0ZW0g\naXMgaGFuZGVkIGFuIGludHJvIG9yIGEgcHVuY2hsaW5lIHRoYXQgYnJlYWtz\nIHRoZSBydWxlcywgaG93IHNob3VsZCBpdCBzYXkgc28/CgojIyBUaGUgZGVj\naXNpb24sIGluIHBsYWluIHdvcmRzCgpJdCByZWZ1c2VzIGF0IG9uY2Ugd2l0\naCBhIG9uZS1saW5lIGVycm9yIG5hbWluZyB0aGUgZmllbGQsIHRoZSB3YXkg\naXQgcmVmdXNlcyBhbnkgb3RoZXIgYmFkIGZpZWxkLCBhbmQgd3JpdGVzIG5v\ndGhpbmcuIEluIGl0cyBzdHJ1Y3R1cmVkIG1vZGUgdGhhdCBpcyBhbiBlcnJv\nciBsaW5lIHJhdGhlciB0aGFuIHRoZSBzdHJ1Y3R1cmVkIGFuc3dlciBhIGJh\nZGx5IHdvcmRlZCBxdWVzdGlvbiBnZXRzLgoKIyMgVGhlIG9wdGlvbnMsIGlu\nIHBsYWluIHdvcmRzCgpBLiBSZWZ1c2UgYXQgb25jZSBuYW1pbmcgdGhlIGZp\nZWxkLCBhcyBmb3IgYW55IG90aGVyIGJhZCBmaWVsZCwgdGhlIG9wdGlvbiBi\ndWlsdC4KQi4gUmVmdXNlIGFmdGVyIGRyYWZ0aW5nIHRoZSBpdGVtLCBuYW1p\nbmcgdGhlIHNlY3Rpb24sIGFuZCBhbnN3ZXIgaW4gdGhlIHN0cnVjdHVyZWQg\nZm9ybS4KQy4gTmFtZSB0aGUgZmllbGQgYW5kIGFuc3dlciBpbiB0aGUgc3Ry\ndWN0dXJlZCBmb3JtIGFzIHdlbGwuCgojIyBXaGF0IEkgaGFkIHRvIGRlY2lk\nZQoKV2hlcmUgYG9tbmkgaXRlbSBuZXdgIGdyYWRlcyBgaW50cm9GdW5gIGFu\nZCBgcHVuY2hsaW5lRnVuYC4gQWNjZXB0YW5jZSBjcml0ZXJpb24gMiBhc2tz\nIHRoYXQgaXQgIm5hbWVzIHRoZSBmaWVsZCIuIFRoZSBwcmUtd3JpdGUgYGNo\nZWNrSXRlbVRleHRgIHBhc3Mgd291bGQgbmFtZSB0aGUgc2VjdGlvbiBoZWFk\naW5nIChgIyMgVGhlIGludHJvLCBmb3IgZnVuYCkgYW5kLCB1bmRlciBgLS1q\nc29uYCwgcHJpbnQgYG91dGNvbWU6IG51bGxgIHdpdGggdGhlIHJlYXNvbiBv\nbiBzdGRvdXQuIFRoZSBpbnB1dCBzY2hlbWEgbmFtZXMgdGhlIEpTT04gZmll\nbGQgYnV0LCBsaWtlIGV2ZXJ5IHNjaGVtYSBlcnJvciwgcHJpbnRzIG9uZSBs\naW5lIG9uIHN0ZGVyciBhbmQgbm90aGluZyBvbiBzdGRvdXQsIGAtLWpzb25g\nIG9yIG5vdC4KCiMjIFdoYXQgSSBkaWQgbWVhbndoaWxlCgpUaGUgaW5wdXQg\nc2NoZW1hIGhvbGRzIGVhY2ggZmllbGQgdG8gYGZ1bkxpbmVQcm9ibGVtc2Ag\nKGEgem9kIHJlZmluZW1lbnQpLCBzbyB0aGUgZXJyb3IgcmVhZHMgYCJpbnRy\nb0Z1biIg4oCUIGludHJvRnVuIGlzIDEyNSBjaGFyYWN0ZXJzIGxvbmcg4oCU\nIGtlZXAgaXQgdG8gMTIwIGNoYXJhY3RlcnMgYXQgbW9zdC5gLCBleGl0IDIs\nIG5vdGhpbmcgd3JpdHRlbiBvciBhZG9wdGVkLiBgY2hlY2tJdGVtVGV4dGAg\nc3RpbGwgZ3JhZGVzIHRoZSByZW5kZXJlZCBpdGVtIGFzIHdlbGwsIGFzIGEg\nc2Vjb25kIG5ldC4gR2l2aW5nIG9uZSBmaWVsZCB3aXRob3V0IHRoZSBvdGhl\nciBpcyB0aGUgc2FtZSBraW5kIG9mIGVycm9yLCBuYW1pbmcgdGhlIG1pc3Np\nbmcgZmllbGQuCgojIyBXaGF0IGl0IGNvc3RzIHRvIGNoYW5nZSBsYXRlcgoK\nTW92aW5nIHRoZSByZWZ1c2FsIHRvIHRoZSBwcmUtd3JpdGUgcGFzcyBpcyBk\nZWxldGluZyB0aGUgdHdvIHNjaGVtYSByZWZpbmVtZW50cyBhbmQgYWRqdXN0\naW5nIGEgZmV3IHRlc3RzIGluIGBraXQvYmluL2l0ZW0udGVzdC5tanNgOyBu\nbyBzdG9yZWQgc2hhcGUgY2hhbmdlcy4gQW5zd2VyaW5nIGluIEpTT04gYXMg\nd2VsbCBpcyBhIHNwZWNpYWwgY2FzZSBpbiBgcmVhZEl0ZW1JbnB1dGAuCgoj\nIyBXaGF0IEkgY291bGQgbm90IGtub3cKCihhdXRob3IpIFRoZSBQUkQsIHRo\nZSByZWdpc3RlcnMgYW5kIHRoZSBnbG9zc2FyeSBkbyBub3Qgc2V0dGxlIHRo\naXM6CgotIHdoZXRoZXIgYSBjYWxsZXIgb2YgYC0tanNvbmAgKHRoZSBgL29t\nbmk6ZG8td29ya2Agc2tpbGwpIG5lZWRzIGEgSlNPTiBhbnN3ZXIgZm9yIHRo\naXMgcmVmdXNhbCwgb3IgcmVhZHMgdGhlIHN0ZGVyciBsaW5lIGFzIGl0IGFs\ncmVhZHkgZG9lcyBmb3IgYSBtaXNzaW5nIGZpZWxkCgpgYGAKCjwhLS0gL29t\nbmktb3V0Ym94LXNldHRsZWQ6IHMxLTAyLWZ1bi1saW5lLXJlZnVzYWwtc2hh\ncGUgLS0+Cgo8IS0tIG9tbmktb3V0Ym94LXNldHRsZWQ6IHMyLTAxLWFuc3dl\ncmVkLXF1ZXN0aW9uLWZyZWVzLWl0cy1saW5lIC0tPgoKIyMgczItMDEtYW5z\nd2VyZWQtcXVlc3Rpb24tZnJlZXMtaXRzLWxpbmUg4oCUIGFkb3B0ZWQKCi0g\nVmVyZGljdDogYWRvcHRlZAotIEFwcHJvdmVkIGJ5OiBub2JvZHkKLSBBcHBy\nb3ZlZCBhdDogMjAyNi0wOS0yNQotIEJhc2lzOiBhZG9wdGVkLXdoZW4tcmFp\nc2VkIOKAlCBhIG1lZGl1bSBpdGVtIGlzIGFkb3B0ZWQgdGhlIG1vbWVudCBp\ndCBpcyByYWlzZWQg4oCUIG5vYm9keSBhcHByb3ZlcyBpdCwgYW5kIGl0IHN0\nYW5kcyB1bmxlc3Mgc29tZW9uZSBsYXRlciBvYmplY3RzCi0gQ2xvc2VkOiB5\nZXMg4oCUIGFkb3B0ZWQgd2hlbiBpdCB3YXMgcmFpc2VkOyBub3RoaW5nIHRv\nIHJld29yayB1bmxlc3Mgc29tZW9uZSBvYmplY3RzCi0gUmFuazogbWVkaXVt\nCi0gQmVhcnMgb246IG5vbmUKLSBSYWlzZWQ6IDIwMjYtMDktMjUKLSBTbGlj\nZTogczIKLSBXYXZlOiAyCgojIyMgVGhlIGFuc3dlciwgYXMgaXQgd2FzIGdp\ndmVuCgpgYGB0ZXh0CkFkb3B0ZWQgdGhlIG1vbWVudCBpdCB3YXMgcmFpc2Vk\nIOKAlCBub2JvZHkgYXBwcm92ZWQgaXQsIGFuZCBpdCBzdGFuZHMgdW5sZXNz\nIHNvbWVvbmUgb2JqZWN0cy4KYGBgCgojIyMgVGhlIGl0ZW0sIGFzIGl0IHdh\ncyByYWlzZWQKCmBgYHRleHQKLS0tCmlkOiBzMi0wMS1hbnN3ZXJlZC1xdWVz\ndGlvbi1mcmVlcy1pdHMtbGluZQpwcmQ6IDUwCnNsaWNlOiBzMgpyYW5rOiBt\nZWRpdW0KYmVhcnMtb246IG5vbmUKcmFpc2VkOiAyMDI2LTA5LTI1CndhdmU6\nIDIKLS0tCgojIyBUaGUgcXVlc3Rpb24sIGluIHBsYWluIHdvcmRzCgpXaGVu\nIGFuIGFuc3dlcmVkIHF1ZXN0aW9uIGxlYXZlcyB0aGUgbGlzdCwgc2hvdWxk\nIGl0IGtlZXAgaG9sZGluZyBpdHMgZmFsbGJhY2sgaW50cm8gYW5kIHB1bmNo\nbGluZSwgc28gdGhhdCBubyBsYXRlciBxdWVzdGlvbidzIGxpbmVzIGV2ZXIg\nY2hhbmdlPwoKIyMgVGhlIGRlY2lzaW9uLCBpbiBwbGFpbiB3b3JkcwoKT25s\neSB0aGUgcXVlc3Rpb25zIHN0aWxsIHNob3duIGhvbGQgYSBmYWxsYmFjayBs\naW5lLiBXaGVuIGFuIGVhcmxpZXIgcXVlc3Rpb24gaXMgYW5zd2VyZWQsIGEg\nbGF0ZXIgb25lIHRoYXQgaGFkIHRvIHNraXAgcGFzdCBpdHMgbGluZSBtYXkg\nbW92ZSB0byBpdCwgc28gdGhhdCBsYXRlciBxdWVzdGlvbidzIGxpbmVzIGNo\nYW5nZSBvbmNlLgoKIyMgVGhlIG9wdGlvbnMsIGluIHBsYWluIHdvcmRzCgpB\nLiBPbmx5IHRoZSBxdWVzdGlvbnMgc3RpbGwgc2hvd24gaG9sZCBhIGZhbGxi\nYWNrIGxpbmUsIHNvIG5vIGxpbmUgcmVwZWF0cyBpbiB0aGUgY29tbWVudCB3\naGlsZSB0aGUgcG9vbCBoYXMgb25lIHVudXNlZCwgdGhlIG9wdGlvbiBidWls\ndC4KQi4gRXZlcnkgcXVlc3Rpb24gZXZlciBudW1iZXJlZCBrZWVwcyBpdHMg\nZmFsbGJhY2sgbGluZSBhZnRlciBpdCBpcyBhbnN3ZXJlZCwgc28gbm8gbGlu\nZSBldmVyIG1vdmVzLCBhdCB0aGUgcHJpY2Ugb2YgcmVwZWF0cyBvbmNlIGEg\ncHVsbCByZXF1ZXN0IGhhcyBhc2tlZCBtb3JlIHF1ZXN0aW9ucyB0aGFuIHRo\nZSBwb29sIGhhcyBsaW5lcy4KCiMjIFdoYXQgSSBoYWQgdG8gZGVjaWRlCgpX\naGljaCBxdWVzdGlvbnMgdGFrZSBhIGxpbmUgZnJvbSB0aGUgZmFsbGJhY2sg\ncG9vbC4gVGhlIHNwZWMncyBkZWNpc2lvbiA1IHNheXMgZWFjaCBxdWVzdGlv\nbiBza2lwcyAiYSBsaW5lIGFuIGVhcmxpZXIgcXVlc3Rpb24gaW4gdGhlIHNh\nbWUgY29tbWVudCBhbHJlYWR5IHRvb2siLCBhbmQgYWxzbyB0aGF0ICJyZXdy\naXRpbmcgdGhlIGNvbW1lbnQgbmV2ZXIgY2hhbmdlcyBhIHF1ZXN0aW9uJ3Mg\nbGluZXMiLiBBbiBhbnN3ZXJlZCBxdWVzdGlvbiBsZWF2ZXMgdGhlIG9wZW4g\nYW5kIGFkb3B0ZWQgc2VjdGlvbnMgZm9yIHRoZSBBbnN3ZXJlZCBzZWN0aW9u\nLCB3aGljaCBzaG93cyBubyBsaW5lczogdW5kZXIgdGhlIGZpcnN0IHJ1bGUg\naXQgbm8gbG9uZ2VyIHRha2VzIG9uZSwgc28gYSBsYXRlciBxdWVzdGlvbiB0\naGF0IGhhZCBza2lwcGVkIHBhc3QgaXRzIGxpbmUgbWF5IG1vdmUgdG8gaXQs\nIHdoaWNoIHRoZSBzZWNvbmQgcnVsZSBzZWVtcyB0byBmb3JiaWQuIEFjY2Vw\ndGFuY2UgY3JpdGVyaW9uIDUgbmFtZXMgb25seSB0d28gcmVuZGVycyBvZiB0\naGUgc2FtZSBjb21tZW50IGFuZCBhZGRpbmcgYSBxdWVzdGlvbi4KCiMjIFdo\nYXQgSSBkaWQgbWVhbndoaWxlCgpgcXVlc3Rpb25CYW50ZXJgIGluIGBraXQv\nbGliL291dGJveC9jb21tZW50Lm1qc2Agc2VydmVzIG9ubHkgdGhlIHF1ZXN0\naW9ucyB0aGUgY29tbWVudCBzaG93cyAob3BlbiBhbmQgYWRvcHRlZCksIGlu\nIHF1ZXN0aW9uLW51bWJlciBvcmRlciwgdGhyb3VnaCBgYXNzaWduQmFudGVy\nYCBpbiBga2l0L2xpYi9vdXRib3gvYmFudGVyLm1qc2AuIFJlbmRlcmluZyB0\nd2ljZSwgcmV3cml0aW5nIGluIHBsYWNlIGFuZCBhZGRpbmcgYSBxdWVzdGlv\nbiBuZXZlciBjaGFuZ2UgYSBsaW5lOyBhbiBhbnN3ZXIgY2FuIGNoYW5nZSB0\naGUgZmFsbGJhY2sgbGluZXMgb2YgYSBsYXRlciBxdWVzdGlvbiB3aG9zZSBp\nZCBoYXNoZWQgdG8gdGhlIHNhbWUgbGluZSBhcyB0aGUgYW5zd2VyZWQgb25l\nLgoKIyMgV2hhdCBpdCBjb3N0cyB0byBjaGFuZ2UgbGF0ZXIKClN3aXRjaGlu\nZyB0byBCIGlzIG9uZSBjaGFuZ2UgaW4gYHF1ZXN0aW9uQmFudGVyYDogc2Vy\ndmUgZXZlcnkgaWQgdGhlIG51bWJlcmluZyBtYXJrZXIgbGlzdHMgKGl0IGFs\ncmVhZHkgcmVjb3JkcyBldmVyeSBudW1iZXIgZXZlciBhc3NpZ25lZCkgYW5k\nIHNob3cgb25seSB0aGUgc2hvd24gcXVlc3Rpb25zJyBsaW5lcywgcGx1cyBh\nIHRlc3QuIE5vIHN0b3JlZCBzaGFwZSBjaGFuZ2VzLCBzaW5jZSB0aGUgbGlu\nZXMgYXJlIHJlY29tcHV0ZWQgb24gZXZlcnkgcmV3cml0ZTsgdGhlIHN3aXRj\naCBpdHNlbGYgbW92ZXMgc29tZSBmYWxsYmFjayBsaW5lcyBvbmNlLgoKIyMg\nV2hhdCBJIGNvdWxkIG5vdCBrbm93CgooYXV0aG9yKSBUaGUgUFJELCB0aGUg\ncmVnaXN0ZXJzIGFuZCB0aGUgZ2xvc3NhcnkgZG8gbm90IHNldHRsZSB0aGlz\nOgoKLSB3aGV0aGVyIGEgcXVlc3Rpb24gdGhhdCB3YXMgYW5zd2VyZWQsIGFu\nZCBzbyBsZWZ0IHRoZSBvcGVuIGFuZCBhZG9wdGVkIHNlY3Rpb25zLCBzdGls\nbCBjb3VudHMgYXMgImluIHRoZSBzYW1lIGNvbW1lbnQiIHdoZW4gdGhlIGZh\nbGxiYWNrIGxpbmVzIGFyZSBoYW5kZWQgb3V0CgpgYGAKCjwhLS0gL29tbmkt\nb3V0Ym94LXNldHRsZWQ6IHMyLTAxLWFuc3dlcmVkLXF1ZXN0aW9uLWZyZWVz\nLWl0cy1saW5lIC0tPgoKPCEtLSBvbW5pLW91dGJveC1zZXR0bGVkOiBzMy0w\nMS1pbnN0YWxsZWQtbm90LXRlcnJhZm9ybWVkIC0tPgoKIyMgczMtMDEtaW5z\ndGFsbGVkLW5vdC10ZXJyYWZvcm1lZCDigJQgYWRvcHRlZAoKLSBWZXJkaWN0\nOiBhZG9wdGVkCi0gQXBwcm92ZWQgYnk6IG5vYm9keQotIEFwcHJvdmVkIGF0\nOiAyMDI2LTA5LTI1Ci0gQmFzaXM6IGFkb3B0ZWQtd2hlbi1yYWlzZWQg4oCU\nIGEgbWVkaXVtIGl0ZW0gaXMgYWRvcHRlZCB0aGUgbW9tZW50IGl0IGlzIHJh\naXNlZCDigJQgbm9ib2R5IGFwcHJvdmVzIGl0LCBhbmQgaXQgc3RhbmRzIHVu\nbGVzcyBzb21lb25lIGxhdGVyIG9iamVjdHMKLSBDbG9zZWQ6IHllcyDigJQg\nYWRvcHRlZCB3aGVuIGl0IHdhcyByYWlzZWQ7IG5vdGhpbmcgdG8gcmV3b3Jr\nIHVubGVzcyBzb21lb25lIG9iamVjdHMKLSBSYW5rOiBtZWRpdW0KLSBCZWFy\ncyBvbjogbm9uZQotIFJhaXNlZDogMjAyNi0wOS0yNQotIFNsaWNlOiBzMwot\nIFdhdmU6IDIKCiMjIyBUaGUgYW5zd2VyLCBhcyBpdCB3YXMgZ2l2ZW4KCmBg\nYHRleHQKQWRvcHRlZCB0aGUgbW9tZW50IGl0IHdhcyByYWlzZWQg4oCUIG5v\nYm9keSBhcHByb3ZlZCBpdCwgYW5kIGl0IHN0YW5kcyB1bmxlc3Mgc29tZW9u\nZSBvYmplY3RzLgpgYGAKCiMjIyBUaGUgaXRlbSwgYXMgaXQgd2FzIHJhaXNl\nZAoKYGBgdGV4dAotLS0KaWQ6IHMzLTAxLWluc3RhbGxlZC1ub3QtdGVycmFm\nb3JtZWQKcHJkOiA1MApzbGljZTogczMKcmFuazogbWVkaXVtCmJlYXJzLW9u\nOiBub25lCnJhaXNlZDogMjAyNi0wOS0yNQp3YXZlOiAyCi0tLQoKIyMgVGhl\nIHF1ZXN0aW9uLCBpbiBwbGFpbiB3b3JkcwoKU2hvdWxkIHRoZSBndWlkZSB0\naGUgYWdlbnQgZm9sbG93cyB0byBidWlsZCBhIHNsaWNlIHN0b3Agc2F5aW5n\nIGEgcmVwb3NpdG9yeSBpcyB0ZXJyYWZvcm1lZCwgc2luY2UgdGhhdCB3b3Jk\nIGFsc28gYmVsb25ncyB0byB0aGUgZ2FtZSBhbmQgdGhlIGd1aWRlIG11c3Qg\nbmFtZSBub25lPwoKIyMgVGhlIGRlY2lzaW9uLCBpbiBwbGFpbiB3b3JkcwoK\nVGhhdCBndWlkZSBub3cgc2F5cyB0aGUga2l0IGlzIG5vdCBpbnN0YWxsZWQg\naW4gdGhpcyByZXBvc2l0b3J5LCBpbiBwbGFjZSBvZiBzYXlpbmcgdGhlIHJl\ncG9zaXRvcnkgaXMgbm90IHRlcnJhZm9ybWVkLiBUaGUgb3RoZXIgZ3VpZGVz\nLCBhbmQgdGhlIGtpdCdzIG93biBlcnJvciBtZXNzYWdlLCBzdGlsbCB1c2Ug\ndGhlIG9sZCB3b3JkLgoKIyMgVGhlIG9wdGlvbnMsIGluIHBsYWluIHdvcmRz\nCgpBLiBSZXdvcmQgb25seSB0aGlzIGd1aWRlJ3MgbGluZSwgc28gaXQgaG9s\nZHMgbm8gd29yZCBmcm9tIHRoZSBnYW1lLCB0aGUgb3B0aW9uIGJ1aWx0LgpC\nLiBLZWVwIHRoZSBvbGQgd29yZCBoZXJlLCBhcyB0aGUga2l0J3Mgb3duIG5h\nbWUgZm9yIGEgcmVwb3NpdG9yeSB3aXRoIHRoZSBsb29wIGluc3RhbGxlZC4K\nQy4gUmV3b3JkIGl0IGluIGV2ZXJ5IGd1aWRlIGFuZCBpbiB0aGUga2l0J3Mg\nZXJyb3IgbWVzc2FnZSB0b28sIGFzIGEgZm9sbG93LXVwLgoKIyMgV2hhdCBJ\nIGhhZCB0byBkZWNpZGUKCldoZXRoZXIgdG8gcmV3b3JkIHRoZSBvbmUgU3Rl\ncCAwIGxpbmUgb2YgYGtpdC9wbHVnaW4vc2tpbGxzL2RvLXdvcmsvU0tJTEwu\nbWRgIHRoYXQgc2FpZCAidGhlIHJlcG9zaXRvcnkgaXMgbm90IHRlcnJhZm9y\nbWVkIi4gVGhlIHBsYW4ncyBkb25lLXdoZW4gZm9yIHMzIGFza3MgdGhhdCB0\naGlzIFNLSUxMLm1kIG5hbWUgbm8gZ2FtZSB3b3JkLCBhbmQgdGhlIHdhdmUn\ncyBicmllZiBsaXN0cyAidGVycmFmb3JtIiBhbW9uZyB0aGUgZ2FtZSB3b3Jk\ncy4gWWV0IHRoZSBraXQgdXNlcyAidGVycmFmb3JtZWQiIGFzIGl0cyBvd24g\nd29yZCBmb3IgYSByZXBvc2l0b3J5IHRoZSBsb29wIGlzIGluc3RhbGxlZCBp\nbjogUFJEIDMncyBzcGVjICjCpzMsICJUaGUgZm9vdHByaW50IGluIGEgdGVy\ncmFmb3JtZWQgcmVwb3NpdG9yeSIpLCB0aGUgbWlzc2luZy1jb25maWcgZXJy\nb3IgaW4gYGtpdC9saWIvY29uZmlnLm1qc2AsIGFuZCB0aGUgc2FtZSBTdGVw\nIDAgbGluZSBpbiBgL29tbmk6cGxhbmAgYW5kIGAvb21uaTpicmFpbnN0b3Jt\nYCwgYm90aCBvdXRzaWRlIHRoaXMgc2xpY2UncyB0ZXJyaXRvcnkuIFBSRCA0\nNSAoa25vd2xlZGdlIGZvcm1zLCBvbiBpdHMgb3duIGZlYXR1cmUgYnJhbmNo\nKSBnb2VzIGZ1cnRoZXIgYW5kIGFkZHMgYW4gYC9vbW5pOnRlcnJhZm9ybWAg\nc2tpbGwgYW5kIGEgYGJyYW5jaGVzLnRlcnJhZm9ybWAga2V5LgoKIyMgV2hh\ndCBJIGRpZCBtZWFud2hpbGUKClN0ZXAgMCBvZiBgL29tbmk6ZG8td29ya2Ag\nbm93IHJlYWRzICJ0aGUgT21uaSBMb29wIGtpdCBpcyBub3QgaW5zdGFsbGVk\nIGluIHRoaXMgcmVwb3NpdG9yeSIsIHRoZSB3b3JkaW5nIGBvbW5pIGluaXRg\nIHVzZXMgZm9yIGl0c2VsZi4gTm90aGluZyBlbHNlIGNoYW5nZWQ6IGAvb21u\naTpwbGFuYCBhbmQgYC9vbW5pOmJyYWluc3Rvcm1gIHN0aWxsIHNheSAibm90\nIHRlcnJhZm9ybWVkIiwgc28gdGhlIHRocmVlIFN0ZXAgMCBsaW5lcyBubyBs\nb25nZXIgbWF0Y2guIFJlY29yZGVkIGluIGBraXQvcG9ydGluZy9wbHVnaW4t\nLWRvLXdvcmsubWRgLgoKIyMgV2hhdCBpdCBjb3N0cyB0byBjaGFuZ2UgbGF0\nZXIKClB1dHRpbmcgdGhlIHdvcmQgYmFjayBpcyBhIG9uZS1saW5lIHJldmVy\ndCBvZiBwcm9zZTsgbm8gc3RvcmVkIHNoYXBlLCBubyB0ZXN0LiBSZXdvcmRp\nbmcgdGhlIG90aGVyIHR3byBza2lsbHMgYW5kIHRoZSBjb25maWcgZXJyb3Ig\naW5zdGVhZCBpcyBhIHNtYWxsIGZvbGxvdy11cCBhY3Jvc3MgdGhyZWUgZmls\nZXMgcGx1cyBhbnkgdGVzdCBhc3NlcnRpbmcgdGhhdCBtZXNzYWdlLiBQUkQg\nNDUgYWxzbyBjaGFuZ2VzIGBraXQvcGx1Z2luL3NraWxscy9kby13b3JrL2As\nIGFuZCBuYW1pbmcgYC9vbW5pOnRlcnJhZm9ybWAgdGhlcmUgd291bGQgYnJp\nbmcgdGhlIHdvcmQgYmFjaywgc28gd2hpY2hldmVyIFBSRCBzaGlwcyBzZWNv\nbmQgc2V0dGxlcyBpdCB3aGVuIGl0IG1lcmdlcyBgbWFpbmAuCgojIyBXaGF0\nIEkgY291bGQgbm90IGtub3cKCihhdXRob3IpIFRoZSBQUkQsIHRoZSByZWdp\nc3RlcnMgYW5kIHRoZSBnbG9zc2FyeSBkbyBub3Qgc2V0dGxlIHRoaXM6Cgot\nIHdoZXRoZXIgdGhlIGtpdCdzIG93biB3b3JkIGZvciBhbiBpbnN0YWxsZWQg\ncmVwb3NpdG9yeSBjb3VudHMgYXMgYSB3b3JkIGZyb20gdGhlIGdhbWUsIHNp\nbmNlIFBSRCAzIG5hbWVzIHRoZSBwcmluY2lwbGUgYnV0IGxpc3RzIG5vIHdv\ncmRzCi0gd2hldGhlciBQUkQgNDUncyBuZXcgc2tpbGwgbmFtZSBtYWtlcyB0\naGUgd29yZCBwYXJ0IG9mIHRoZSBraXQncyB2b2NhYnVsYXJ5IHJhdGhlciB0\naGFuIHRoZSBnYW1lJ3MKCmBgYAoKPCEtLSAvb21uaS1vdXRib3gtc2V0dGxl\nZDogczMtMDEtaW5zdGFsbGVkLW5vdC10ZXJyYWZvcm1lZCAtLT4K\n"
+      }
+    },
+    {
+      "route": "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+      "params": {
+        "owner": "vertuoza",
+        "repo": "vertuo-omni-loop",
+        "tree_sha": "a6eb70280bf3f7a766cb1d44786633e1b4e7ecf5",
+        "recursive": "1"
+      },
+      "data": {
+        "sha": "a6eb70280bf3f7a766cb1d44786633e1b4e7ecf5",
+        "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/a6eb70280bf3f7a766cb1d44786633e1b4e7ecf5",
+        "tree": [
+          {
+            "path": "adr",
+            "mode": "040000",
+            "type": "tree",
+            "sha": "c04495ac340bcf1163e79a6b6ef0907142bf2f7d",
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/c04495ac340bcf1163e79a6b6ef0907142bf2f7d"
+          },
+          {
+            "path": "adr/0001-outbox-check-as-github-app.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "3ae738d4d9ffb3aabc9c071075f33ce1b506c1a0",
+            "size": 2869,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/3ae738d4d9ffb3aabc9c071075f33ce1b506c1a0"
+          },
+          {
+            "path": "product",
+            "mode": "040000",
+            "type": "tree",
+            "sha": "6f3c38b07264c469318567032bbed2939484b934",
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/6f3c38b07264c469318567032bbed2939484b934"
+          },
+          {
+            "path": "product/invariants.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "b7b2573f5754843615d7cc8492856a26eb4fbb76",
+            "size": 135,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/b7b2573f5754843615d7cc8492856a26eb4fbb76"
+          },
+          {
+            "path": "product/principles.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "dfa5a26df2d62acdf2e4cd07127717e9d2669af0",
+            "size": 135,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/dfa5a26df2d62acdf2e4cd07127717e9d2669af0"
+          },
+          {
+            "path": "product/rules.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "76417f14dc6475e30ba3deed3536872105c1dd47",
+            "size": 130,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/76417f14dc6475e30ba3deed3536872105c1dd47"
+          }
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "route": "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+      "params": {
+        "owner": "vertuoza",
+        "repo": "vertuo-omni-loop",
+        "tree_sha": "a6eb70280bf3f7a766cb1d44786633e1b4e7ecf5"
+      },
+      "data": {
+        "sha": "a6eb70280bf3f7a766cb1d44786633e1b4e7ecf5",
+        "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/a6eb70280bf3f7a766cb1d44786633e1b4e7ecf5",
+        "tree": [
+          {
+            "path": "adr",
+            "mode": "040000",
+            "type": "tree",
+            "sha": "c04495ac340bcf1163e79a6b6ef0907142bf2f7d",
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/c04495ac340bcf1163e79a6b6ef0907142bf2f7d"
+          },
+          {
+            "path": "product",
+            "mode": "040000",
+            "type": "tree",
+            "sha": "6f3c38b07264c469318567032bbed2939484b934",
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/6f3c38b07264c469318567032bbed2939484b934"
+          }
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "route": "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+      "params": {
+        "owner": "vertuoza",
+        "repo": "vertuo-omni-loop",
+        "tree_sha": "c04495ac340bcf1163e79a6b6ef0907142bf2f7d",
+        "recursive": "1"
+      },
+      "data": {
+        "sha": "c04495ac340bcf1163e79a6b6ef0907142bf2f7d",
+        "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/c04495ac340bcf1163e79a6b6ef0907142bf2f7d",
+        "tree": [
+          {
+            "path": "0001-outbox-check-as-github-app.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "3ae738d4d9ffb3aabc9c071075f33ce1b506c1a0",
+            "size": 2869,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/3ae738d4d9ffb3aabc9c071075f33ce1b506c1a0"
+          }
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "route": "GET /repos/{owner}/{repo}/git/blobs/{file_sha}",
+      "params": {
+        "owner": "vertuoza",
+        "repo": "vertuo-omni-loop",
+        "file_sha": "3ae738d4d9ffb3aabc9c071075f33ce1b506c1a0"
+      },
+      "data": {
+        "sha": "3ae738d4d9ffb3aabc9c071075f33ce1b506c1a0",
+        "node_id": "B_kwDOUpICfNoAKDNhZTczOGQ0ZDlmZmIzYWFiYzljMDcxMDc1ZjMzY2UxYjUwNmMxYTA",
+        "size": 2869,
+        "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/3ae738d4d9ffb3aabc9c071075f33ce1b506c1a0",
+        "content": "IyBBRFItMDAwMSDigJQgVGhlIG91dGJveCBnYXRlIHJ1bnMgYXMgYSBHaXRI\ndWIgQXBwLCBub3QgYSBwZXItcmVwb3NpdG9yeSB3b3JrZmxvdwoKKipTdGF0\ndXM6KiogYWNjZXB0ZWQgwrcgKipEYXRlOioqIDIwMjYtMDktMjUgwrcgKipQ\nUkQ6KiogIzI4IMK3ICoqU3VwZXJzZWRlczoqKiBwYXJ0cyBvZiBQUkQgMydz\nIHNwZWMKKGAub21uaS1sb29wL2RlbGl2ZXJ5L3NoaXBwZWQvMDAwMy1vbW5p\nLWxvb3Ata2l0L3NwZWMubWRgKSwgbmFtZWQgYmVsb3cKCiMjIENvbnRleHQK\nClRoZSBvdXRib3ggZ2F0ZSBleGlzdHMgYXMgdGVzdGVkIGtpdCBjb2RlIChg\nZ2F0ZVJlc3VsdGAsIGBvbW5pIHN0YXR1c2AsIGBvbW5pIGNvbW1lbnRgKSwg\nYnV0IG5vdGhpbmcKcnVucyBpdCBvbiBhIHB1bGwgcmVxdWVzdDogaXQgcnVu\ncyBvbmx5IHdoZW4gYSBgL29tbmk6eW9sb2Agc2Vzc2lvbiBjYWxscyBpdC4g\nUFJEIDMgcGxhbm5lZCBhIHdvcmtmbG93LApga2l0L2NpL29tbmktb3V0Ym94\nLnltbGAsIGNvcGllZCBpbnRvIGV2ZXJ5IHRlcnJhZm9ybWVkIHJlcG9zaXRv\ncnkgYnkgdGhlIGluc3RhbGxlciBhbmQgcG9zdGluZyBhCmBjaS9vdXRib3hg\nIGNvbW1pdCBzdGF0dXMuIE5laXRoZXIgdGhlIHdvcmtmbG93IG5vciB0aGUg\naW5zdGFsbGVyIHdhcyBidWlsdC4gQSB3b3JrZmxvdyB3b3VsZCBwdXQKc2Vj\ncmV0cyBhbmQgYSBjb3B5IG9mIHRoZSBnYXRlJ3MgcGx1bWJpbmcgaW50byBl\ndmVyeSBpbnN0YWxsZWQgcmVwb3NpdG9yeSwgYW5kIGEgY29tbWl0IHN0YXR1\ncyBoYXMgbm8KKnNraXBwZWQqIHN0YXRlIGFuZCBubyBkZXRhaWxzIHBhZ2Uu\nCgojIyBEZWNpc2lvbgoKVGhlIGdhdGUgcnVucyBhcyBhIHByaXZhdGUgR2l0\nSHViIEFwcCBuYW1lZCAqKmBvbW5pLWxvb3BgKiosIG93bmVkIGJ5IHRoZSBv\ncmcsIGJhY2tlZCBieSB0aGUgd2ViaG9vawpzZXJ2ZXIgaW4gYGFwcHMvb21u\naS1hcHBgLCB3aXRoIGl0cyBldmVudHMgcnVuIHRocm91Z2ggSW5uZ2VzdC4g\nSW5zdGFsbGluZyB0aGUgYXBwIGlzIHRoZSB3aG9sZSBzZXR1cDoKZXZlcnkg\ncHVsbCByZXF1ZXN0IHRoZW4gY2FycmllcyBvbmUgY2hlY2sgcnVuIG5hbWVk\nIGBjaS5vdXRib3hDb250ZXh0YCwgd2hvc2UgZGVmYXVsdCBjaGFuZ2VzIGZy\nb20KYGNpL291dGJveGAgdG8gYG91dGJveGAgKHNob3duIGFzICoqb21uaS1s\nb29wIMK3IG91dGJveCoqKS4gVGhlIGNoZWNrIGlzIHBvc3RlZCBieSB0aGUg\nYXBwIG9yIG5vdCBhdCBhbGw6Cm5vIGBHSVRIVUJfVE9LRU5gIGNoZWNrIHJ1\nbiBhbmQgbm8gY29tbWl0LXN0YXR1cyBmYWxsYmFjaywgc28gYnJhbmNoIHBy\nb3RlY3Rpb24gY2FuIHJlcXVpcmUgaXQgZnJvbSB0aGUKYXBwIGFuZCBubyB3\nb3JrZmxvdyBjYW4gc3Bvb2YgaXQuIE5vIGZpbGUgdW5kZXIgYC5naXRodWIv\nYCBhbmQgbm8gc2VjcmV0IGVudGVycyBhbiBpbnN0YWxsZWQKcmVwb3NpdG9y\neS4KCiMjIFdoYXQgaXQgc3VwZXJzZWRlcyBpbiBQUkQgMydzIHNwZWMKCi0g\nKirCpzMgVGhlIGZvb3RwcmludCoqIOKAlCB0aGUgYC5naXRodWIvd29ya2Zs\nb3dzL29tbmktb3V0Ym94LnltbGAgbGluZSAobWFuaWZlc3QtbGlzdGVkKSBp\ncyBkcm9wcGVkLgotICoqwqc3IFRoZSBvdXRib3gqKiDigJQgdGhlIGdhdGUg\naXMgcG9zdGVkIGFzIHRoZSBgY2kub3V0Ym94Q29udGV4dGAgY2hlY2sgcnVu\nIGJ5IHRoZSBhcHAsIG5vdCBhcyBhCiAgY29tbWl0IHN0YXR1cyBieSBhIHdv\ncmtmbG93LgotICoqwqc4IFRhbGtpbmcgdG8gcGVvcGxlKiog4oCUIHRoZSBy\nb3dzIHdyaXR0ZW4gYnkgYG9tbmktb3V0Ym94LnltbGA6IHRoZSBgY2kvb3V0\nYm94YCBjb21taXQgc3RhdHVzCiAgYmVjb21lcyB0aGUgYXBwJ3MgY2hlY2sg\ncnVuLCBhbmQgdGhlIGZlYXR1cmUgUFIncyBvdXRib3ggY29tbWVudCBpcyBy\nZXdyaXR0ZW4gYnkgdGhlIGFwcC4gVGhlIFBSRAogIGlzc3VlIGNvbW1lbnQg\nYW5kIHRoZSBTbGFjayBub3RlIGhhdmUgbm8gd3JpdGVyIHVudGlsIGEgbGF0\nZXIgUFJELgotICoqwqcxMCBUZXJyYWZvcm1pbmcqKiDigJQgdGhlIGh1bWFu\nIHN0ZXAgImFkZCBgY2kvb3V0Ym94YCB0byBicmFuY2ggcHJvdGVjdGlvbiIg\nYmVjb21lcyAib3B0aW9uYWxseSwKICByZXF1aXJlICoqb3V0Ym94KiogZnJv\nbSB0aGUgYG9tbmktbG9vcGAgYXBwIi4KLSAqKsKnMTEgVGhpcyByZXBvc2l0\nb3J5J3MgbGF5b3V0Kiog4oCUIGBraXQvY2kvYCAodGhlIGBvbW5pLW91dGJv\neC55bWxgIHRlbXBsYXRlIGFuZCBpdHMgc2hhcGUgdGVzdCkgaXMKICBub3Qg\nYnVpbHQuCi0gKirCpzEzIFBoYXNlcywgcGhhc2UgMioqIOKAlCBga2l0L2Np\nL29tbmktb3V0Ym94LnltbGAgaXMgcmVwbGFjZWQgYnkgYGFwcHMvb21uaS1h\ncHBgIChQUkQgMjgpLgoKIyMgQ29uc2VxdWVuY2VzCgotIEEgbmV3IHZlbmRv\nciwgSW5uZ2VzdCwgc2l0cyBvbiB0aGUgZ2F0ZSdzIHBhdGg6IHdoZW4gaXQg\naXMgZG93biB0aGUgY2hlY2sgaXMgbm90IHBvc3RlZCwgYW5kIGEKICByZXF1\naXJlZCBjaGVjayB0aGVuIGJsb2NrcyBtZXJnZXMuIFRoZSBvdmVycmlkZSBp\ncyB0byByZW1vdmUgdGhlIHJlcXVpcmVtZW50LCBuZXZlciB0byBmYWtlIGEg\nc3RhdHVzLgotIEEgcmVwb3NpdG9yeSB3aXRob3V0IGAub21uaS1sb29wL2Nv\nbmZpZy55bWxgIG9uIHRoZSBiYXNlIGJyYW5jaCBzdGlsbCBnZXRzIHRoZSBj\naGVjaywgYHNraXBwZWRgLCBhcwogIHByb29mIHRoZSBhcHAgaXMgaW5zdGFs\nbGVkOyB0aGUgZGVmYXVsdCBuYW1lIGFwcGxpZXMgdGhlcmUsIHNvIHRoZSBu\nYW1lIGlzIHRoZSBzYW1lIGV2ZXJ5d2hlcmUuCi0gTGF0ZXIgYXV0b21hdGlv\nbiAoYXV0b21hdGVkIFBScykgd2lkZW5zIHRoZSBhcHAncyBwZXJtaXNzaW9u\ncyBvbmNlLCBhY2NlcHRlZCBieSBhbiBvcmcgYWRtaW4uCg==\n",
+        "encoding": "base64"
+      }
+    },
+    {
+      "route": "GET /repos/{owner}/{repo}/git/blobs/{file_sha}",
+      "params": {
+        "owner": "vertuoza",
+        "repo": "vertuo-omni-loop",
+        "file_sha": "b7b2573f5754843615d7cc8492856a26eb4fbb76"
+      },
+      "data": {
+        "sha": "b7b2573f5754843615d7cc8492856a26eb4fbb76",
+        "node_id": "B_kwDOUpICfNoAKGI3YjI1NzNmNTc1NDg0MzYxNWQ3Y2M4NDkyODU2YTI2ZWI0ZmJiNzY",
+        "size": 135,
+        "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/b7b2573f5754843615d7cc8492856a26eb4fbb76",
+        "content": "IyBQcm9kdWN0IGludmFyaWFudHMKCk5vbmUgeWV0LiBUaGlzIGZpbGUgZXhp\nc3RzIHNvIHRoZSBrbm93bGVkZ2UgZm9sZGVyLCB3aGljaCBob2xkcyB0aGUg\nQURScywgZ3JhZGVzIGNsZWFuOyBgbGF3cy5zb3VyY2VgIGlzIGBub25lYC4K\n",
+        "encoding": "base64"
+      }
+    },
+    {
+      "route": "GET /repos/{owner}/{repo}/git/blobs/{file_sha}",
+      "params": {
+        "owner": "vertuoza",
+        "repo": "vertuo-omni-loop",
+        "file_sha": "dfa5a26df2d62acdf2e4cd07127717e9d2669af0"
+      },
+      "data": {
+        "sha": "dfa5a26df2d62acdf2e4cd07127717e9d2669af0",
+        "node_id": "B_kwDOUpICfNoAKGRmYTVhMjZkZjJkNjJhY2RmMmU0Y2QwNzEyNzcxN2U5ZDI2NjlhZjA",
+        "size": 135,
+        "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/dfa5a26df2d62acdf2e4cd07127717e9d2669af0",
+        "content": "IyBQcm9kdWN0IHByaW5jaXBsZXMKCk5vbmUgeWV0LiBUaGlzIGZpbGUgZXhp\nc3RzIHNvIHRoZSBrbm93bGVkZ2UgZm9sZGVyLCB3aGljaCBob2xkcyB0aGUg\nQURScywgZ3JhZGVzIGNsZWFuOyBgbGF3cy5zb3VyY2VgIGlzIGBub25lYC4K\n",
+        "encoding": "base64"
+      }
+    },
+    {
+      "route": "GET /repos/{owner}/{repo}/git/blobs/{file_sha}",
+      "params": {
+        "owner": "vertuoza",
+        "repo": "vertuo-omni-loop",
+        "file_sha": "76417f14dc6475e30ba3deed3536872105c1dd47"
+      },
+      "data": {
+        "sha": "76417f14dc6475e30ba3deed3536872105c1dd47",
+        "node_id": "B_kwDOUpICfNoAKDc2NDE3ZjE0ZGM2NDc1ZTMwYmEzZGVlZDM1MzY4NzIxMDVjMWRkNDc",
+        "size": 130,
+        "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/76417f14dc6475e30ba3deed3536872105c1dd47",
+        "content": "IyBQcm9kdWN0IHJ1bGVzCgpOb25lIHlldC4gVGhpcyBmaWxlIGV4aXN0cyBz\nbyB0aGUga25vd2xlZGdlIGZvbGRlciwgd2hpY2ggaG9sZHMgdGhlIEFEUnMs\nIGdyYWRlcyBjbGVhbjsgYGxhd3Muc291cmNlYCBpcyBgbm9uZWAuCg==\n",
+        "encoding": "base64"
+      }
+    },
+    {
+      "route": "GET /repos/{owner}/{repo}/git/trees/{tree_sha}",
+      "params": {
+        "owner": "vertuoza",
+        "repo": "vertuo-omni-loop",
+        "tree_sha": "224be16eb7c231b3eb7b89f8a0816da25c8f220c",
+        "recursive": "1"
+      },
+      "data": {
+        "sha": "224be16eb7c231b3eb7b89f8a0816da25c8f220c",
+        "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/224be16eb7c231b3eb7b89f8a0816da25c8f220c",
+        "tree": [
+          {
+            "path": "0003-omni-loop-kit",
+            "mode": "040000",
+            "type": "tree",
+            "sha": "b54a2f34d82d5b89bf459855cf9a8f7524cf108f",
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/b54a2f34d82d5b89bf459855cf9a8f7524cf108f"
+          },
+          {
+            "path": "0003-omni-loop-kit/before-after.html",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "3ea28a1d7c76700d2da054247a1b7a5fbe9dd62f",
+            "size": 28218,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/3ea28a1d7c76700d2da054247a1b7a5fbe9dd62f"
+          },
+          {
+            "path": "0003-omni-loop-kit/outbox",
+            "mode": "040000",
+            "type": "tree",
+            "sha": "8d4f92995a1585d385932d5b9e29cababa7dc344",
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/8d4f92995a1585d385932d5b9e29cababa7dc344"
+          },
+          {
+            "path": "0003-omni-loop-kit/outbox/settled.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "b7af7beae53a2aa0b33cf0f8e07ee35396116f4f",
+            "size": 18600,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/b7af7beae53a2aa0b33cf0f8e07ee35396116f4f"
+          },
+          {
+            "path": "0003-omni-loop-kit/plan.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "cd835d843aab44d91dc52dff7ce9e038efa313b4",
+            "size": 98728,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/cd835d843aab44d91dc52dff7ce9e038efa313b4"
+          },
+          {
+            "path": "0003-omni-loop-kit/spec.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "4c33f55ade1aff7d52c9d9ae7c6408906cbd74fd",
+            "size": 19819,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/4c33f55ade1aff7d52c9d9ae7c6408906cbd74fd"
+          },
+          {
+            "path": "0007-omni-loop-skills",
+            "mode": "040000",
+            "type": "tree",
+            "sha": "d8e26f3d6ff2cbd5a8b93fac7c27e94a2f123dfa",
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/d8e26f3d6ff2cbd5a8b93fac7c27e94a2f123dfa"
+          },
+          {
+            "path": "0007-omni-loop-skills/before-after.html",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "de5ee53a542d87078cee83412c930eeb1e653fdd",
+            "size": 3733,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/de5ee53a542d87078cee83412c930eeb1e653fdd"
+          },
+          {
+            "path": "0007-omni-loop-skills/outbox",
+            "mode": "040000",
+            "type": "tree",
+            "sha": "27d1448a4da0f900b857adf2e3734fe6def2877f",
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/27d1448a4da0f900b857adf2e3734fe6def2877f"
+          },
+          {
+            "path": "0007-omni-loop-skills/outbox/settled.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "6021a9e5362db08dc4edf9061cd1f51cf9ec77ff",
+            "size": 78198,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/6021a9e5362db08dc4edf9061cd1f51cf9ec77ff"
+          },
+          {
+            "path": "0007-omni-loop-skills/plan.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "0ac65836adbabd46ce9fece0e04ed92356f431a7",
+            "size": 4315,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/0ac65836adbabd46ce9fece0e04ed92356f431a7"
+          },
+          {
+            "path": "0007-omni-loop-skills/spec.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "76abb4c45cd045334a04b5021fdbabc33283eed2",
+            "size": 6786,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/76abb4c45cd045334a04b5021fdbabc33283eed2"
+          },
+          {
+            "path": "0028-omni-app-outbox-check",
+            "mode": "040000",
+            "type": "tree",
+            "sha": "7a7234236fefc8d16c4a693075aa4cd644f81fff",
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/7a7234236fefc8d16c4a693075aa4cd644f81fff"
+          },
+          {
+            "path": "0028-omni-app-outbox-check/before-after.html",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "27a3d5bbe15fd7d13943e9ae3b95d6a7d58d3796",
+            "size": 8289,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/27a3d5bbe15fd7d13943e9ae3b95d6a7d58d3796"
+          },
+          {
+            "path": "0028-omni-app-outbox-check/outbox",
+            "mode": "040000",
+            "type": "tree",
+            "sha": "488c12847e0dd82c55c88c066c2cd5124fc4b00e",
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/488c12847e0dd82c55c88c066c2cd5124fc4b00e"
+          },
+          {
+            "path": "0028-omni-app-outbox-check/outbox/accounts",
+            "mode": "040000",
+            "type": "tree",
+            "sha": "92af111024906e1571f240eb95e2e29baae3e4a3",
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/92af111024906e1571f240eb95e2e29baae3e4a3"
+          },
+          {
+            "path": "0028-omni-app-outbox-check/outbox/accounts/s2.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "d156ba1f8915faed6a5322b39cb4986a7dea2d2d",
+            "size": 531,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/d156ba1f8915faed6a5322b39cb4986a7dea2d2d"
+          },
+          {
+            "path": "0028-omni-app-outbox-check/outbox/settled.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "e0cf18e527f17895e0bee4f0ecf0782ec6d3cb50",
+            "size": 25958,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/e0cf18e527f17895e0bee4f0ecf0782ec6d3cb50"
+          },
+          {
+            "path": "0028-omni-app-outbox-check/plan.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "d40a266423570c205e2eb4a9fd004f90581a1bfd",
+            "size": 5349,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/d40a266423570c205e2eb4a9fd004f90581a1bfd"
+          },
+          {
+            "path": "0028-omni-app-outbox-check/spec.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "bc45a25444d7336ba35df447f69a5a2c26ce9eac",
+            "size": 11400,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/bc45a25444d7336ba35df447f69a5a2c26ce9eac"
+          },
+          {
+            "path": "0039-omni-init",
+            "mode": "040000",
+            "type": "tree",
+            "sha": "b6c20ea583ab1262ffbcdda86c522c82b3233358",
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/b6c20ea583ab1262ffbcdda86c522c82b3233358"
+          },
+          {
+            "path": "0039-omni-init/before-after.html",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "1cc96318205f8c538221179516a9384ac051fe19",
+            "size": 8348,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/1cc96318205f8c538221179516a9384ac051fe19"
+          },
+          {
+            "path": "0039-omni-init/outbox",
+            "mode": "040000",
+            "type": "tree",
+            "sha": "17d055dce944dd91aca464444fa3c2193b8b3e70",
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/17d055dce944dd91aca464444fa3c2193b8b3e70"
+          },
+          {
+            "path": "0039-omni-init/outbox/settled.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "b8f97ec759053997e2fec6cb96587c4d01140219",
+            "size": 15822,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/b8f97ec759053997e2fec6cb96587c4d01140219"
+          },
+          {
+            "path": "0039-omni-init/plan.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "a7d21ff9dadf92043c00654f029a9f035f4e3634",
+            "size": 6062,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/a7d21ff9dadf92043c00654f029a9f035f4e3634"
+          },
+          {
+            "path": "0039-omni-init/spec.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "c4354244be737a687098c64f58ee6a8b3876d8dc",
+            "size": 18533,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/c4354244be737a687098c64f58ee6a8b3876d8dc"
+          },
+          {
+            "path": "0050-question-intros",
+            "mode": "040000",
+            "type": "tree",
+            "sha": "c93af4e286e6dd076cd50eabbd8841640e0bb435",
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/c93af4e286e6dd076cd50eabbd8841640e0bb435"
+          },
+          {
+            "path": "0050-question-intros/before-after.html",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "c311b3ad54cb2666f392d4743355e2c435ff5c3f",
+            "size": 12891,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/c311b3ad54cb2666f392d4743355e2c435ff5c3f"
+          },
+          {
+            "path": "0050-question-intros/outbox",
+            "mode": "040000",
+            "type": "tree",
+            "sha": "7d548c1df5969433463c2d6e7efc2df39321e177",
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/trees/7d548c1df5969433463c2d6e7efc2df39321e177"
+          },
+          {
+            "path": "0050-question-intros/outbox/settled.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "3d7a8080fddd391208e2eff658d1aa8a9fc5184d",
+            "size": 12594,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/3d7a8080fddd391208e2eff658d1aa8a9fc5184d"
+          },
+          {
+            "path": "0050-question-intros/plan.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "694bbca9020494cec6bcd987836e0f1a24417548",
+            "size": 4684,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/694bbca9020494cec6bcd987836e0f1a24417548"
+          },
+          {
+            "path": "0050-question-intros/spec.md",
+            "mode": "100644",
+            "type": "blob",
+            "sha": "383f6fe534e6ed3cc623dedaeb26c71b3beb5434",
+            "size": 8829,
+            "url": "https://api.github.com/repos/vertuoza/vertuo-omni-loop/git/blobs/383f6fe534e6ed3cc623dedaeb26c71b3beb5434"
+          }
+        ],
+        "truncated": false
       }
     }
   ]

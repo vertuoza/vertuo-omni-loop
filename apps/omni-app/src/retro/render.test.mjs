@@ -6,7 +6,7 @@ import { replayGitHub } from '../../test/github-replay.mjs';
 import { FEATURE, OWNER, PLAN, REPO, SUB_PULLS } from '../../test/retro-scenario.mjs';
 import { detect } from './detect.mjs';
 import { listPullsInto } from './github.mjs';
-import { mergeRuns, render, retroTitle } from './render.mjs';
+import { mergeRuns, render, retroTitle, verdictComment } from './render.mjs';
 import { refusedWordsIn } from './rules.mjs';
 
 const GOLDEN = fileURLToPath(new URL('./render.golden/', import.meta.url));
@@ -106,7 +106,7 @@ describe('render — retro.md, facts only', () => {
 });
 
 describe('render — with prose and issue links', () => {
-  it('matches its golden file: the model’s summary, titles, why it matters and lessons, and each issue linked', async () => {
+  it('matches its golden file: the model’s summary, titles, why it matters and lessons, the kept finding marked, and each issue linked', async () => {
     const issues = {
       'repeated-red:e2e': { number: 88, url: 'https://github.com/acme/widgets/issues/88', state: 'open' },
       'slow-slice:s3': { number: 89, url: 'https://github.com/acme/widgets/issues/89', state: 'closed' },
@@ -119,14 +119,68 @@ describe('render — with prose and issue links', () => {
           title: 'The end-to-end check kept failing',
           whyItMatters: 'Each red run held a slice back and hid whether the change itself was sound.',
           lesson: 'Fix the flaky step before the next wave starts.',
+          keep: true,
+          why: 'No earlier lesson says to fix a flaky step between waves.',
         },
-        'slow-slice:s3': { title: { dropped: 'it holds a digit' }, whyItMatters: 'The last slice kept the whole feature waiting.' },
+        'slow-slice:s3': {
+          title: { dropped: 'it holds a digit' },
+          whyItMatters: 'The last slice kept the whole feature waiting.',
+          keep: false,
+          why: 'A slow slice is a known pattern.',
+        },
       },
       lessons: [{ text: 'Keep the end-to-end check green between waves.', findings: ['repeated-red:e2e'] }],
+      verdict: { worthIt: true, reason: 'The flaky step is new.' },
     };
     const out = render({ doc: mergeRuns(null, sheet), featurePr: 12, prose });
     golden('retro-prose.md', out.markdown);
     golden('pr-body-prose.md', out.prBody);
+  });
+});
+
+describe('render — the judge', () => {
+  it('names the judge’s version in the front matter, and marks only the kept findings, with their why', async () => {
+    const sheet = await widgetSheet({ extra: [RED] });
+    const prose = {
+      findings: { 'repeated-red:e2e': { lesson: 'Fix the flaky step first.', keep: true, why: 'It is new.' }, 'slow-slice:s3': { keep: false, why: 'Known.' } },
+      lessons: [],
+      verdict: { worthIt: true, reason: 'New.' },
+    };
+    const { markdown } = render({ doc: mergeRuns(null, sheet), featurePr: 12, prose });
+    expect(markdown).toContain('\nrules: 1\njudge: 1\n---\n');
+    expect(markdown.match(/- \*\*Kept:\*\* /g)).toEqual(['- **Kept:** ']);
+    expect(markdown).toContain('- **Proposed lesson:** Fix the flaky step first.\n- **Kept:** It is new.\n');
+    expect(markdown).not.toContain('Known.');
+  });
+});
+
+describe('verdictComment — a retro not worth a pull request', () => {
+  it('matches its golden file: "Retro: no new lesson", the timeline in two lines, one line per finding', async () => {
+    const sheet = await widgetSheet({ extra: [RED] });
+    const prose = { findings: { 'repeated-red:e2e': { title: 'The end-to-end check kept failing' } }, lessons: [], verdict: { worthIt: false, reason: 'Both are known.' } };
+    golden('verdict-comment.md', verdictComment({ judged: true, reason: 'Both are known.', runs: [sheet], prose }));
+  });
+
+  it('reads "Retro: not judged — <reason>" when there was no verdict, and says when nothing was found', async () => {
+    const text = verdictComment({ judged: false, reason: 'no model key', runs: [await widgetSheet()] });
+    expect(text.split('\n')[0]).toBe('Retro: not judged — no model key');
+    const none = await widgetSheet();
+    none.findings = [];
+    expect(verdictComment({ judged: false, reason: 'no model key', runs: [none] })).toContain('\nNo findings: nothing crossed a threshold of the rules.\n');
+  });
+
+  it('counts the minutes from the pull request when no timeline was read', async () => {
+    const sheet = await widgetSheet();
+    sheet.kinds = {};
+    const text = verdictComment({ judged: true, reason: 'Known.', runs: [sheet] });
+    expect(text).toContain('\n- Feature PR #12: 180 minutes from open to merge.\n- Slices and waves: not counted.\n');
+  });
+
+  it('holds one line per finding of every run, each once', async () => {
+    const first = await widgetSheet({ extra: [RED] });
+    const later = { ...first, run: 'day-14', findings: [{ ...RED, ref: 'F3', id: 'bug:40', title: 'Bug #40 was reported' }] };
+    const lines = verdictComment({ judged: true, reason: 'Known.', runs: [first, later] }).split('\n').filter((line) => /^- F\d/.test(line));
+    expect(lines.map((line) => line.slice(0, 4))).toEqual(['- F1', '- F2', '- F3']);
   });
 });
 

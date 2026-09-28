@@ -10,14 +10,24 @@
 //   - holds a digit, once set aside: the backtick spans copied verbatim from the evidence (its labels,
 //     URLs and excerpts, and the finding ids) that hold a letter, and the evidence URLs themselves.
 //     A bare number in backticks is still a number, so it is never set aside.
-// A field breaking several rules is dropped for the first of them, in that order. The reasons are
+// A field breaking several rules is dropped for the first of them, in that order.
+//
+// The judge's verdict (PRD 487) is checked as one: `worthIt` true or false, `reason` a field like any
+// other (capped at `FIELD_CAPS.reason`), each finding's `keep` true or false and its `why` a field
+// capped at `FIELD_CAPS.why`, and a verdict worth it keeping at least one finding the retro found
+// with a lesson it kept. A kept finding without a kept lesson drops it too. A verdict failing any of
+// these is dropped whole, for its first failure, and every `keep` and `why` with it: the retro is
+// then **not judged**. The reasons are
 // fixed sentences: they never repeat the text refused, so no refused word or number reaches the retro
 // through them.
 //
 // The contract `render` relies on:
 //   out: { prose: Prose | null, dropped: [{ field, reason }] }
-//   Prose: { summary?: Field, findings: { [id]: { title?: Field, whyItMatters?: Field, lesson?: Field } },
-//            lessons: [{ text: string, findings: [id] }] }
+//   Prose: { summary?: Field, findings: { [id]: { title?: Field, whyItMatters?: Field, lesson?: Field,
+//                                                 keep?: boolean, why?: string } },
+//            lessons: [{ text: string, findings: [id] }],
+//            verdict: { worthIt: boolean, reason: string } | { dropped: '<reason>' } }
+//          `keep` and `why` are only there when the verdict is: a dropped verdict keeps no finding.
 //   Field: a string, or `{ dropped: '<reason>' }` for a field refused, which `render` writes as one
 //          line naming the reason. A lesson of the list has no such form, so a refused one keeps its
 //          place as that same line (`_Dropped: <reason>._`), citing only the findings the retro found.
@@ -32,6 +42,10 @@ export const DROPPED = Object.freeze({
   unknownFinding: 'it names a finding the retro did not find',
   noFinding: 'it cites no finding',
   digit: 'it holds a digit',
+  noVerdict: 'it gives no verdict',
+  notYesOrNo: 'it is not true or false',
+  nothingKept: 'it is worth a pull request but keeps no finding',
+  keptNoLesson: 'it keeps a finding with no lesson',
 });
 
 const FINDING_FIELDS = Object.freeze(['title', 'whyItMatters', 'lesson']);
@@ -91,7 +105,50 @@ export function guard({ reply, sheet }) {
     prose.lessons.push({ text: `_Dropped: ${reason}._`, findings: known });
   });
 
+  prose.verdict = judge(reply, prose, evidence, dropped);
   return { prose, dropped };
+}
+
+/**
+ * The verdict `guard` keeps, with each finding's `keep` and `why` written into `prose.findings`; or
+ * `{ dropped }` for the first check it fails, the failure pushed onto `dropped`.
+ */
+function judge(reply, prose, evidence, dropped) {
+  const failed = (field, reason) => {
+    dropped.push({ field, reason });
+    return { dropped: reason };
+  };
+  const verdict = reply.verdict;
+  if (!isObject(verdict)) return failed('verdict', DROPPED.noVerdict);
+  if (typeof verdict.worthIt !== 'boolean') return failed('verdict.worthIt', DROPPED.notYesOrNo);
+  const reasonRefused = refusal(verdict.reason, FIELD_CAPS.reason, evidence);
+  if (reasonRefused) return failed('verdict.reason', reasonRefused);
+
+  const judged = {};
+  let keptOne = false;
+  for (const [id, kept] of Object.entries(prose.findings)) {
+    const words = reply.findings[id];
+    const field = `findings.${id}`;
+    const marks = {};
+    if (words.keep !== undefined) {
+      if (typeof words.keep !== 'boolean') return failed(`${field}.keep`, DROPPED.notYesOrNo);
+      marks.keep = words.keep;
+    }
+    if (words.why !== undefined) {
+      const whyRefused = refusal(words.why, FIELD_CAPS.why, evidence);
+      if (whyRefused) return failed(`${field}.why`, whyRefused);
+      marks.why = words.why;
+    }
+    if (marks.keep) {
+      if (typeof kept.lesson !== 'string') return failed(`${field}.keep`, DROPPED.keptNoLesson);
+      keptOne = true;
+    }
+    judged[id] = marks;
+  }
+  if (verdict.worthIt && !keptOne) return failed('verdict', DROPPED.nothingKept);
+
+  for (const [id, marks] of Object.entries(judged)) Object.assign(prose.findings[id], marks);
+  return { worthIt: verdict.worthIt, reason: verdict.reason };
 }
 
 /** Why a field is refused, or `null` when it is kept. */
