@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-28
 - Slice: s1
 - Wave: 1
+- Stays here: A local styling choice, a one-line stylesheet change each; no principle, rule or record in the knowledge base needs to carry it.
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ A one-line stylesheet change each.
 - Raised: 2026-09-28
 - Slice: s1
 - Wave: 1
+- Stays here: A local styling choice for borderline borders, cheap to change and not a lasting rule; nothing in the knowledge base covers border colours.
 
 ### The answer, as it was given
 
@@ -174,6 +176,7 @@ Moving one border is a one-word stylesheet change and one line in the outline te
 - Raised: 2026-09-28
 - Slice: s2
 - Wave: 2
+- Stays here: A local layout choice in one stylesheet, cheap to change later; no lasting rule, invariant or architectural decision to record.
 
 ### The answer, as it was given
 
