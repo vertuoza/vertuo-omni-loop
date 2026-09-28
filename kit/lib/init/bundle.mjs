@@ -1,6 +1,7 @@
 // Whether this `omni` is the bundle, and where the kit comes from. `kit/build.mjs` defines
-// `__OMNI_BUNDLE__` at build time: the bundle carries it, the kit source never does. Only the bundle
+// `__OMNI_BUNDLE__` at build time (`{ home, version }`): the bundle carries it, the kit source never does. Only the bundle
 // may be installed as a repository's `.omni-loop/bin/omni.mjs`; a shim onto source never is.
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { slugFromRemote } from '../context.mjs';
 
@@ -24,6 +25,25 @@ export function kitHome({ exec }) {
   } catch {
     return null;
   }
+}
+
+/**
+ * The running kit: its home, its version and whether it runs from source. The bundle's version is
+ * the one its build read from package.json (`null` when there was none); from source, it is the
+ * kit checkout's package.json `version`, read now.
+ *
+ * @returns {{ home: string | null, version: string | null, source: boolean }}
+ */
+export function runningKit({ exec }) {
+  if (MARKER) return { home: MARKER.home ?? null, version: MARKER.version ?? null, source: false };
+  let version = null;
+  try {
+    const pkg = JSON.parse(readFileSync(fileURLToPath(new URL('../../../package.json', import.meta.url)), 'utf8'));
+    version = typeof pkg.version === 'string' && pkg.version ? pkg.version : null;
+  } catch {
+    version = null;
+  }
+  return { home: kitHome({ exec }), version, source: true };
 }
 
 /** The one-line install, as a person types it. */

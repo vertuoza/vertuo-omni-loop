@@ -9,15 +9,16 @@ import { loadContext } from '../lib/context.mjs';
 import { COMMAND_TABLE } from './commands/index.mjs';
 
 const USAGE = `usage: omni <command> [args]\ncommands: ${Object.keys(COMMAND_TABLE).join(', ')}\nomni help: what each command does\n`;
-// `omni --help` and `omni -h` are `omni help`.
+// `omni --help` and `omni -h` are `omni help`; `omni --version` is `omni version`.
 const HELP_FLAGS = ['--help', '-h'];
+const VERSION_FLAG = '--version';
 
 export async function main(
   argv,
   { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync, env = process.env, ...more } = {},
 ) {
   const [first, ...rest] = argv;
-  const name = HELP_FLAGS.includes(first) ? 'help' : first;
+  const name = HELP_FLAGS.includes(first) ? 'help' : first === VERSION_FLAG ? 'version' : first;
   const command = Object.hasOwn(COMMAND_TABLE, name ?? '') ? COMMAND_TABLE[name] : undefined;
   if (!command) {
     stderr.write(USAGE);
