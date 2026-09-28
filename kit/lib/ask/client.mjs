@@ -12,12 +12,20 @@
 export const CALL_TIMEOUT_MS = 5000;
 
 export class AskCallError extends Error {
-  constructor(message, { status = null } = {}) {
+  /** `status`: the server's, null when it could not be reached. `reason`: its `{error}`, when it gave one. */
+  constructor(message, { status = null, reason = null } = {}) {
     super(message);
     this.name = 'AskCallError';
     this.status = status;
+    this.reason = reason;
   }
 }
+
+/** The server's `{error}` text, on one line, or null when the reply carries none. */
+const reasonOf = (body) => {
+  const text = typeof body?.error === 'string' ? body.error.replace(/\s+/g, ' ').trim() : '';
+  return text || null;
+};
 
 /** `body` with `context` added only when there is one: an older server never sees the field. */
 const withContext = (body, context) => (context && typeof context === 'object' ? { ...body, context } : body);
@@ -93,7 +101,10 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
       if (!fresh) throw new AskCallError(`${method} ${path}: sign-in refused`, { status: 401 });
       response = await send(method, path, { body, token: fresh.access_token, timeoutMs });
     }
-    if (!response.ok) throw new AskCallError(`${method} ${path}: ${response.status}`, { status: response.status });
+    if (!response.ok) {
+      const reason = reasonOf(await bodyOf(response));
+      throw new AskCallError(`${method} ${path}: ${response.status}${reason ? ` ${reason}` : ''}`, { status: response.status, reason });
+    }
     return bodyOf(response);
   }
 

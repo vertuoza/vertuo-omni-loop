@@ -2,7 +2,8 @@
 // token check, and the row-level security of the migrations (PRD 144: every member of a session's
 // workspace reads it and its rounds; only its owner changes or deletes it, asks and answers in it; a
 // round is asked only in an open session, and a deleted session takes its rounds with it). A new
-// session belongs to the caller's first workspace: which one the database picks is proved by
+// session belongs to the caller's first workspace, and one in no workspace is refused with the
+// database's reason: which one the database picks, and every refusal, is proved by
 // supabase/checks/ask.sql, not here. It answers the query
 // shapes src/ask/store.ts sends, and nothing else. The database's own rules (a round only moves
 // forward, the grants) are proved by supabase/checks/ask.sql, not here. Like the database's trigger, it
@@ -131,7 +132,10 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, now: () => n
           ...clone(this.values),
           workspace_id: workspacesOf(this.me)[0] ?? null,
         };
-        if (!row.workspace_id) return refused;
+        // Like the trigger (repo_workspace(), PRD 459): a session with nowhere to go is refused with the reason.
+        if (!row.workspace_id) {
+          return { error: { code: '42501', message: `no workspace owns ${(row.repo as string | null) ?? 'this repository'} yet — install the Omni App` } };
+        }
         tables.ask_sessions.push(row);
         return [row];
       }

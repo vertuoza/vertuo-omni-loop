@@ -16,11 +16,12 @@
 // when two of their workspaces hold one, or 404 when there is none.
 //
 // Refusals follow ADR-0029, each `{error}` in plain words: 400 a malformed body or query (or a draft of
-// another repository, or one already another PRD), 401 no valid bearer token, 403 an account outside the crew
-// or in no workspace, 404 a draft the caller cannot read (or no dossier for a lookup), 413 a body over its cap or an artifact over
+// another repository, or one already another PRD), 401 no valid bearer token, 403 the database's refusal
+// by workspace membership (PRD 459: its reason as it wrote it, and the App's install link after its install
+// hint; any signed-in account is let through to it, whatever its address), 404 a draft the caller cannot read (or no dossier for a lookup), 413 a body over its cap or an artifact over
 // 512 KiB, 503 no database here or the sign-in service down; 500 the database failed.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { authenticate, type TokenCheck } from '../ask/auth';
+import { authenticate, withInstallLink, type TokenCheck } from '../ask/auth';
 import {
   ARTIFACT_MAX_BYTES, DOSSIER_KINDS, dossierReader, dossierStore, DossierStoreError, isDossierKind, TITLE_MAX,
   type DossierArtifact,
@@ -37,6 +38,8 @@ export type DossierClient = TokenCheck & Pick<SupabaseClient, 'rpc' | 'from'>;
 export type DossierDeps = {
   /** A client acting as the given access token, or null when no database is configured. */
   connect: ((token: string) => DossierClient) | null;
+  /** The App's install link, put after the database's install hint; null or missing: the hint alone. */
+  installLink?: string | null;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -69,8 +72,8 @@ async function signIn(request: Request, deps: DossierDeps): Promise<DossierClien
 }
 
 /** The database's refusal as the contract's answer; a failure is a 500, never a guess. */
-function refusal(error: DossierStoreError): Response {
-  if (error.code === '42501') return refuse(403, 'Join a workspace first: a dossier belongs to one.');
+function refusal(error: DossierStoreError, deps: DossierDeps): Response {
+  if (error.code === '42501') return refuse(403, withInstallLink(error.reason, deps.installLink));
   if (error.code === 'P0002') return refuse(404, 'No such draft dossier.');
   if (error.code === '54000') return refuse(413, `An artifact holds ${ARTIFACT_MAX_BYTES / 1024} KiB at most.`);
   if (error.code === '22023' || error.code === '23514') return refuse(400, error.reason);
@@ -85,7 +88,7 @@ async function handle(request: Request, deps: DossierDeps, run: (client: Dossier
     return client instanceof Response ? client : await run(client);
   } catch (error) {
     if (!(error instanceof DossierStoreError)) throw error;
-    return refusal(error);
+    return refusal(error, deps);
   }
 }
 

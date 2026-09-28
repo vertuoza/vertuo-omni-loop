@@ -12,7 +12,10 @@
 //   PATCH /api/ask/rounds/:id/category    {category}           → {id, category, category_by}
 //   POST /api/ask/rounds/:id/shares       {member}             → {roundId, sharedWith, url}
 //
-// Every call is refused 401 without a valid bearer token and 403 outside the crew; a session or
+// Every call is refused 401 without a valid bearer token. Any signed-in account is let through: what it
+// may do is the database's call, by workspace membership (PRD 459). Opening a session with no workspace
+// to go to — a repository another workspace owns, or none owns and the caller is in no workspace — is
+// 403 with the database's reason (and the App's install link after its install hint), never 500. A session or
 // round of another owner is 404, like one that does not exist — except a delete by a member of the
 // session's workspace who is not its owner, who reads it (PRD 144) and is refused 403. A closed session (or one 12 hours
 // idle) takes no new round: 409 with `status: "closed"`. A round that is already answered is left
@@ -37,7 +40,7 @@
 // then answer it on the page while it is open (/ask/q/<round>). Sharing any other round is refused:
 // 403 for a member who is not the owner, 400 for someone outside the workspace (or the owner themself).
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { authenticate, type AskCaller, type TokenCheck } from './auth';
+import { authenticate, withInstallLink, type AskCaller, type TokenCheck } from './auth';
 import { CATEGORIES, isCategory, type Category, type Classifier, type ClassifyInput } from './classify';
 import { costUsd } from './prices';
 import {
@@ -66,6 +69,8 @@ export type AskDeps = {
   classify?: Classifier | null;
   /** Runs a task once the response has gone (Next's after()); without it, the task just starts. */
   later?: (task: () => Promise<void>) => void;
+  /** The App's install link, put after the database's install hint; null or missing: the hint alone. */
+  installLink?: string | null;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -214,8 +219,14 @@ export function openSession(request: Request, deps: AskDeps): Promise<Response> 
     if (title.length < 1 || title.length > 200) return refuse(400, 'A session needs a title of 1 to 200 characters.');
     const read = readContext(sent, ['repo']);
     if ('problem' in read) return refuse(400, read.problem);
-    const { id } = await who.store.openSession(title, read.context.repo);
-    return reply(200, { id, url: `${origin(request)}/ask/${id}` });
+    try {
+      const { id } = await who.store.openSession(title, read.context.repo);
+      return reply(200, { id, url: `${origin(request)}/ask/${id}` });
+    } catch (error) {
+      // Nowhere to go (repo_workspace()): the database's reason, not a failure.
+      if (error instanceof AskStoreError && error.code === '42501') return refuse(403, withInstallLink(error.reason, deps.installLink));
+      throw error;
+    }
   });
 }
 
