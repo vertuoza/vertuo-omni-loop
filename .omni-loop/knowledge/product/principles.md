@@ -308,4 +308,30 @@ A player is always told about a game they unlocked, even when they climbed past 
 Why: Returning players and the demo guest skip levels, and a game that opened silently would never be announced.
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s6-02-levels-climbed-between-visits, PRD #160
 Merged: @pierrederval, 2026-09-27, PR #161
+
+## P-PRODUCT-36
+
+The app never shows a guessed cost; what it cannot price from its own list stays blank.
+
+Why: A cost estimated from a similar model looks exact but may be wrong, so people would trust a number nobody checked.
+Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s1-03-price-table-values, PRD #144
+Merged: @pierrederval, 2026-09-27, PR #147
+Proposed: harvest 2026-09-27
+
+## P-PRODUCT-37
+
+In the game, a person's choice always outranks the model's guess; the model only fills what nobody has decided.
+
+Why: People must trust that what they sorted stays sorted, and the app holds no key that could write over them.
+Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s3-02-model-guess-never-overrides, PRD #144
+Merged: @pierrederval, 2026-09-27, PR #147
+Proposed: harvest 2026-09-27
+
+## P-PRODUCT-38
+
+A person's name or email address is shown only to people who share a workspace with them, never to anyone outside it.
+
+Why: Members need a recognisable label to share questions with each other, but outsiders must not learn who belongs to a workspace.
+Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s4-01-teammates-named-by-email, PRD #144
+Merged: @pierrederval, 2026-09-27, PR #147
 Proposed: harvest 2026-09-27

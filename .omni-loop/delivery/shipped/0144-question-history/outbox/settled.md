@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-26
 - Slice: s1
 - Wave: 1
+- Stays here: A local scope choice about touching one file outside the slice's list; it is easily undone, and nothing lasting beyond the ledger entry needs keeping.
 
 ### The answer, as it was given
 
@@ -95,6 +96,7 @@ Undoing it is removing one argument; the server treats the field as optional.
 - Raised: 2026-09-26
 - Slice: s1
 - Wave: 1
+- Stays here: A local data-shape choice that is cheap to change later (two optional columns); it states no lasting rule or architecture worth a record.
 
 ### The answer, as it was given
 
@@ -172,6 +174,7 @@ Moving them onto each question later is two optional columns and a small change 
 - Raised: 2026-09-26
 - Slice: s1
 - Wave: 1
+- Became: BR-PRODUCT-38, P-PRODUCT-36
 
 ### The answer, as it was given
 
@@ -249,6 +252,7 @@ Changing a price is editing one line of the list; nothing stored needs a migrati
 - Raised: 2026-09-26
 - Slice: s2
 - Wave: 2
+- Became: BR-PRODUCT-39
 
 ### The answer, as it was given
 
@@ -327,6 +331,7 @@ Letting the owner read them later is one line added to a reading rule; deleting 
 - Raised: 2026-09-26
 - Slice: s3
 - Wave: 3
+- Stays here: A local, easily changed tuning choice (one constant, no data moves), with no lasting rule or architecture to record.
 
 ### The answer, as it was given
 
@@ -406,6 +411,7 @@ Changing either is one constant; no data moves, and rounds sorted so far keep th
 - Raised: 2026-09-26
 - Slice: s3
 - Wave: 3
+- Became: BR-PRODUCT-40, P-PRODUCT-37
 
 ### The answer, as it was given
 
@@ -485,6 +491,7 @@ Replacing the second function, or granting the app a key of its own, is one smal
 - Raised: 2026-09-26
 - Slice: s3
 - Wave: 3
+- Stays here: A local display choice that is cheap to change later, since nothing stored changes; no lasting rule or architecture decision to keep.
 
 ### The answer, as it was given
 
@@ -563,6 +570,7 @@ Showing names later is a read of the workspace's players on the page; nothing st
 - Raised: 2026-09-26
 - Slice: s4
 - Wave: 4
+- Became: BR-PRODUCT-41, P-PRODUCT-38
 
 ### The answer, as it was given
 
@@ -642,6 +650,7 @@ Showing only arcade names is a change to one database function and one line of t
 - Raised: 2026-09-26
 - Slice: s4
 - Wave: 4
+- Stays here: A local UI refresh choice. It is cheap to change later, stores nothing, and no existing entry covers it, so nothing lasting is worth keeping.
 
 ### The answer, as it was given
 
@@ -720,6 +729,7 @@ Adding a refresh later is a small change to the header and the list; nothing sto
 - Raised: 2026-09-27
 - Slice: s2
 - Wave: 4
+- Stays here: A page-layout choice for how the tabs and a teammate's link fit together; it is cheap to change, touching only the route and tab list, so there is nothing lasting to record.
 
 ### The answer, as it was given
 
@@ -1047,6 +1057,7 @@ Nothing to undo: the acceptance only records evidence on the sub-PR. Until it ru
 - Raised: 2026-09-26
 - Slice: s5
 - Wave: 5
+- Became: ADR-0049
 
 ### The answer, as it was given
 
