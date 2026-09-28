@@ -16,4 +16,12 @@ describe('the order form', () => {
     expect(text(markup)).toContain('Omni Loop runs on Claude Code. Invite-only while in beta.');
     expect(text(markup)).toContain('↑ ↑ ↓ ↓ ← → ← → B A FLASHES CHEAT ACTIVATED! AND DROPS YOU IN THE GAME.');
   });
+
+  it('offers GETTING STARTED, a plain link to /docs beside PRESS START, in its button style', () => {
+    const start = /<a class="home-start" href="\/docs">GETTING STARTED<\/a>/;
+    expect(markup).toMatch(start);
+    const row = markup.match(/<div class="home-order-row">([\s\S]*?)<\/div>/)?.[1] ?? '';
+    expect(row).toMatch(/PRESS START<\/a><a [^>]*>GETTING STARTED<\/a>$/);
+    expect(row.match(start)?.[0]).not.toContain('data-press-start');
+  });
 });
