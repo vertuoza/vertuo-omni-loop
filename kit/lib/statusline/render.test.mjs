@@ -1,7 +1,20 @@
-// PRD #324, slice s1: the status line's lines, drawn from what was read — the context bar and its
-// colours, the 5-hour usage, `ask on`, the no-PRD line, the width and `NO_COLOR`.
+// PRD #324, slices s1 and s4: the status line's lines, drawn from what was read — the context bar and
+// its colours, the 5-hour usage, `ask on`, the PRD line and the no-PRD line, the width and `NO_COLOR`.
 import { describe, expect, it } from 'vitest';
-import { columnsOf, colorOn, contextPart, fit, NO_PRD_LINE, renderLines, resetIn, sessionLine, usagePart, visibleLength } from './render.mjs';
+import {
+  columnsOf,
+  colorOn,
+  contextPart,
+  fit,
+  itemsPart,
+  NO_PRD_LINE,
+  prdLine,
+  renderLines,
+  resetIn,
+  sessionLine,
+  usagePart,
+  visibleLength,
+} from './render.mjs';
 
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
@@ -187,5 +200,77 @@ describe('fit and visibleLength', () => {
     expect(fit('abcdef', 1)).toBe('…');
     expect(fit(`ab${RED}cdef${RESET}gh`, 5)).toBe(`ab${RED}cd${RESET}…`);
     expect(fit(`ab${RED}c${RESET}defgh`, 5)).toBe(`ab${RED}c${RESET}d…`);
+  });
+});
+
+describe('line 2: the PRD', () => {
+  const BRAVO = { number: 7, topic: 'bravo', slice: null, stage: 'outbox', openItems: 2 };
+  const LONG = { number: 324, topic: 'statusline-for-claude-code', slice: 's4', stage: 'outbox', openItems: 3 };
+
+  it('names the PRD, its topic, its stage and its open items', () => {
+    expect(prdLine(BRAVO)).toBe('PRD 7 bravo · outbox · 2 open items');
+  });
+
+  it('names the slice on a slice branch, between the topic and the stage', () => {
+    expect(prdLine({ ...BRAVO, slice: 's2' })).toBe('PRD 7 bravo · s2 · outbox · 2 open items');
+  });
+
+  it('says `1 open item`, and leaves the part out at zero', () => {
+    expect(itemsPart(1)).toBe('1 open item');
+    expect(itemsPart(2)).toBe('2 open items');
+    expect(itemsPart(0)).toBeNull();
+    expect(prdLine({ ...BRAVO, openItems: 1 })).toBe('PRD 7 bravo · outbox · 1 open item');
+    expect(prdLine({ ...BRAVO, openItems: 0 })).toBe('PRD 7 bravo · outbox');
+  });
+
+  it('shows open items in the outbox only', () => {
+    expect(prdLine({ ...BRAVO, stage: 'inbox', openItems: 0 })).toBe('PRD 7 bravo · inbox');
+    expect(prdLine({ ...BRAVO, number: 11, topic: 'delta', stage: 'in review' })).toBe('PRD 11 delta · in review');
+  });
+
+  it('reads `PRD <n> <topic> · shipped`, and nothing after', () => {
+    expect(prdLine({ number: 3, topic: 'alpha', slice: 's2', stage: 'shipped', openItems: 4 })).toBe('PRD 3 alpha · shipped');
+  });
+
+  it('leaves the stage out without one', () => {
+    expect(prdLine({ ...BRAVO, stage: null })).toBe('PRD 7 bravo');
+    expect(prdLine({ ...BRAVO, slice: 's2', stage: null })).toBe('PRD 7 bravo · s2');
+  });
+
+  it('cuts the topic first, just enough to fit, ending in `…`', () => {
+    expect(prdLine(LONG, 200)).toBe('PRD 324 statusline-for-claude-code · s4 · outbox · 3 open items');
+    const line = prdLine(LONG, 50);
+    expect(line).toBe('PRD 324 statusline-f… · s4 · outbox · 3 open items');
+    expect(visibleLength(line)).toBe(50);
+  });
+
+  it('cuts the topic down to 8 characters at most, then the line at its end', () => {
+    expect(prdLine(LONG, 45)).toBe('PRD 324 statusl… · s4 · outbox · 3 open items');
+    expect(prdLine(LONG, 40)).toBe('PRD 324 statusl… · s4 · outbox · 3 open…');
+  });
+
+  it('never cuts a topic of 8 characters or fewer: the line is cut at its end', () => {
+    expect(prdLine({ ...BRAVO, topic: 'abcdefgh' }, 30)).toBe('PRD 7 abcdefgh · outbox · 2 o…');
+    expect(prdLine({ ...BRAVO, topic: 'abcdefghi' }, 36)).toBe('PRD 7 abcdefg… · outbox · 2 open it…');
+  });
+
+  it('prints the PRD line where the loop is installed and a PRD was read', () => {
+    const facts = { installed: true, askOn: true, prd: { ...BRAVO, slice: 's2' } };
+    expect(renderLines({ input: INPUT, facts, env: { NO_COLOR: '1' }, now: NOW })).toEqual([LINE_1, 'PRD 7 bravo · s2 · outbox · 2 open items']);
+    const none = { installed: true, askOn: true, prd: null };
+    expect(renderLines({ input: INPUT, facts: none, env: { NO_COLOR: '1' }, now: NOW })).toEqual([LINE_1, NO_PRD_LINE]);
+    const notInstalled = { installed: false, askOn: true, prd: BRAVO };
+    expect(renderLines({ input: INPUT, facts: notInstalled, env: { NO_COLOR: '1' }, now: NOW })).toEqual([LINE_1]);
+  });
+
+  it.each([40, 80, 200])('fits the PRD line within COLUMNS=%i, the topic cut before anything else', (columns) => {
+    const facts = { installed: true, askOn: true, prd: LONG };
+    for (const env of [{ COLUMNS: String(columns) }, { COLUMNS: String(columns), NO_COLOR: '1' }]) {
+      const [, line] = renderLines({ input: INPUT, facts, env, now: NOW });
+      expect(visibleLength(line)).toBeLessThanOrEqual(columns);
+      expect(line).not.toContain('\x1b');
+      if (columns < 63) expect(line).toMatch(/^PRD 324 statusl[^ ]*… · s4 · /);
+      else expect(line).toBe('PRD 324 statusline-for-claude-code · s4 · outbox · 3 open items');
+    }
   });
 });

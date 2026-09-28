@@ -1,11 +1,14 @@
 // `omni statusline` — the command Claude Code runs as its status line (PRD 324's spec): it reads the
 // session's JSON on stdin and prints line 1 (the model, the context bar, the 5-hour usage, `ask on`)
-// and, where the loop is installed, line 2 (`no PRD · /omni:brainstorm to start`).
+// and, where the loop is installed, line 2: the PRD the session's branch names, with its slice, its
+// stage and its open items (`PRD 7 bravo · s2 · outbox · 2 open items`), or
+// `no PRD · /omni:brainstorm to start`.
 //
 // It never breaks Claude Code: it always exits 0 and prints at least one line, never writes to
-// stderr, never fetches and never runs `gh`. JSON that cannot be read prints `omni`; a reader that
-// fails prints line 1 from the JSON alone. It runs before a context exists, like `init` and `ask`, so
-// that no checkout, config or folder can turn it into an error; `main()` hands it
+// stderr, never fetches and never runs `gh`; what it cannot read leaves its part out. JSON that cannot
+// be read prints `omni`; a reader that fails prints line 1 from the JSON alone. It runs before a
+// context exists, like `init` and `ask`, so that no checkout, config or folder can turn it into an
+// error; `main()` hands it
 // `{ cwd, stdout, stderr, exec, env }`, and a test also passes `stdin` (the text), `now` (a clock in
 // milliseconds) and `readFacts` (the reader). Its arguments are not read.
 import { parseInput } from '../../lib/statusline/input.mjs';
