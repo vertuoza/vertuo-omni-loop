@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { ThemeScript } from '../ask/theme-script';
 import { themeCss } from '../ask/theme-tokens';
 import { AppBar } from './AppBar.tsx';
+import { DrawerProvider } from './drawer-context';
 import { Sidebar } from './Sidebar.tsx';
 import type { ViewerView } from './viewer-view';
 
@@ -9,7 +10,8 @@ import type { ViewerView } from './viewer-view';
 // ask pages' tokens as CSS custom properties; the ask root, its theme script its first child, so the
 // stored theme is applied before the first paint; the sidebar; the top bar; then the page. The
 // layouts read the viewer and hand it here; a page's own stylesheet rules go in `css`, its own
-// classes on the root in `className`.
+// classes on the root in `className`. The sidebar and the top bar share the phone drawer: below
+// 900 px the bar's ☰ opens the sidebar over the page.
 
 export interface AppShellProps {
   viewer: ViewerView;
@@ -28,8 +30,10 @@ export function AppShell({ viewer, children, css, className }: AppShellProps) {
           those two attributes alone. */}
       <div className={['ask app-shell', className].filter(Boolean).join(' ')} suppressHydrationWarning>
         <ThemeScript />
-        <Sidebar viewer={viewer} />
-        <AppBar viewer={viewer} />
+        <DrawerProvider>
+          <Sidebar viewer={viewer} />
+          <AppBar viewer={viewer} />
+        </DrawerProvider>
         <main className="ask-main">{children}</main>
       </div>
     </>

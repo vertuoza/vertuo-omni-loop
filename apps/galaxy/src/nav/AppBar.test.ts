@@ -35,7 +35,27 @@ describe('the top bar', () => {
     expect(game).toBeGreaterThan(theme);
     const avatar = bar.indexOf('aria-haspopup="menu"');
     expect(avatar).toBeGreaterThan(game);
-    expect(controls(bar)).toEqual(['Omni', 'Light', 'Dark', 'Game mode', 'A']);
+    expect(controls(bar)).toEqual(['☰', '', 'Omni', 'Light', 'Dark', 'Game mode', 'A']);
+  });
+
+  it('opens, for a phone, with ☰ ("Menu"), closed, which opens the sidebar, then the crest linked to /app', () => {
+    const bar = render('/app', ADA);
+    const [menu] = bar.match(/<button\b[^>]*class="app-bar-menu"[^>]*>/) ?? [''];
+    expect(menu).toContain('aria-label="Menu"');
+    expect(menu).toContain('aria-expanded="false"');
+    expect(menu).toContain('aria-controls="app-sidebar"');
+    expect(bar.indexOf('app-bar-menu')).toBeLessThan(bar.indexOf('app-bar-crest'));
+    expect(bar.indexOf('app-bar-crest')).toBeLessThan(bar.indexOf('app-bar-title'));
+    expect(bar).toMatch(/<a class="app-bar-crest" href="\/app" aria-label="OMNI LOOP, Home">/);
+  });
+
+  it('keeps the theme switch and Game mode together, the row that wraps on a phone, and you apart', () => {
+    const bar = render('/app', ADA);
+    const view = bar.slice(bar.indexOf('<span class="app-bar-view">'), bar.indexOf('<span class="app-bar-you">'));
+    expect(view).toContain('aria-label="Theme"');
+    expect(view).toContain('>Game mode');
+    expect(view).not.toContain('aria-haspopup="menu"');
+    expect(bar.slice(bar.indexOf('<span class="app-bar-you">'))).toContain('aria-haspopup="menu"');
   });
 
   it('ends, signed in, with the avatar button that opens the user menu', () => {
@@ -48,7 +68,7 @@ describe('the top bar', () => {
 
   it('ends, signed out, with Sign in with GitHub in the avatar\'s place', () => {
     const bar = render('/app');
-    expect(controls(bar)).toEqual(['Omni', 'Light', 'Dark', 'Game mode', 'Sign in with GitHub']);
+    expect(controls(bar)).toEqual(['☰', '', 'Omni', 'Light', 'Dark', 'Game mode', 'Sign in with GitHub']);
     expect(bar).not.toContain('aria-haspopup="menu"');
   });
 
@@ -81,6 +101,11 @@ describe('the top bar', () => {
 
 describe('its stylesheet', () => {
   const css = readFileSync(new URL('./app-bar.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  it('below 900px shows ☰ and the crest, and above hides them', () => {
+    expect(css).toMatch(/\.app-bar-menu,\s*\.app-bar-crest\s*\{\s*display:\s*none;?\s*\}/);
+    expect(css).toMatch(/@media \(max-width: 899\.98px\)[\s\S]*\.app-bar-menu/);
+  });
 
   it('names no colour of its own: every colour comes from the ask pages\' tokens', () => {
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
