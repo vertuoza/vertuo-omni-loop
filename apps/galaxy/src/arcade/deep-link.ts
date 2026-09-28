@@ -35,10 +35,10 @@ export function readHash(hash: string, view: GalaxyView | null): Landing | null 
 }
 
 /** Where the arcade opens on an address's hash, through the one door; null: at the boot. */
-export function landing(hash: string, at: { view: GalaxyView | null; session: Session | null; linked: boolean }): Landing | null {
+export function landing(hash: string, at: { view: GalaxyView | null; session: Session | null }): Landing | null {
   const link = readHash(hash, at.view);
   if (!link || (at.session && !at.view)) return null;
-  return { ...link, scene: allowed(link.scene, at.session, at.linked) as SceneName };
+  return { ...link, scene: allowed(link.scene, at.session) as SceneName };
 }
 
 /** The hash of the screen the arcade is on: a deep link's own, or none. */

@@ -24,7 +24,7 @@ function SourceChip({ view }: { view: GalaxyView }) {
 
 // ── Menu ─────────────────────────────────────────────────────────────────────
 
-export type MenuId = 'map' | 'chart' | 'fleets' | 'heroes' | 'games' | 'briefing' | 'myhero' | 'change' | 'link' | 'app' | 'signout';
+export type MenuId = 'map' | 'chart' | 'fleets' | 'heroes' | 'games' | 'briefing' | 'myhero' | 'change' | 'play' | 'app' | 'signout';
 /** A row of the menu. `tag` is the small label beside it: NEW on GAMES until the room is seen. */
 export interface MenuItem { id: MenuId; label: string; scene?: SceneName; fresh?: boolean; tag?: 'NEW' }
 
@@ -40,21 +40,21 @@ const APP: MenuItem = { id: 'app', label: 'APP MODE' };
 
 /**
  * The menu for who is at the cabinet: the galaxy and the game room for everyone signed in; then, for
- * a player, their hero and fleet; for a visitor, the way to play (linking GitHub). `newGames`: the
+ * a player, their hero and fleet; for a visitor with no fleet yet, the way to play (the fleets). `newGames`: the
  * game room was never opened on this device, and GAMES carries a NEW tag. `app`: the arcade has an
  * app to leave for (not in the single-file artifact), and APP MODE stands just above SIGN OUT, since
  * both leave the game.
  */
-export function menuItems({ joined, linked, signedIn, newGames = false, app = false }: {
-  joined: boolean; linked: boolean; signedIn: boolean; newGames?: boolean; app?: boolean;
+export function menuItems({ joined, signedIn, newGames = false, app = false }: {
+  joined: boolean; signedIn: boolean; newGames?: boolean; app?: boolean;
 }): MenuItem[] {
   const games: MenuItem = { id: 'games', label: 'GAMES', scene: 'games', ...(newGames ? { tag: 'NEW' as const } : {}) };
   return [
-    ...(signedIn && !linked ? [{ id: 'link', label: 'PLAY', fresh: true }] as MenuItem[] : []),
+    ...(signedIn && !joined ? [{ id: 'play', label: 'PLAY', fresh: true }] as MenuItem[] : []),
     ...GALAXY,
     ...(signedIn ? [games] : []),
     BRIEFING,
-    ...(joined && linked ? [{ id: 'myhero', label: 'MY HERO', fresh: true }, { id: 'change', label: 'CHANGE FLEET', fresh: true }] as MenuItem[] : []),
+    ...(signedIn && joined ? [{ id: 'myhero', label: 'MY HERO', fresh: true }, { id: 'change', label: 'CHANGE FLEET', fresh: true }] as MenuItem[] : []),
     ...(app ? [APP] : []),
     ...(signedIn ? [{ id: 'signout', label: 'SIGN OUT' }] as MenuItem[] : []),
   ];
@@ -93,7 +93,7 @@ export function MenuOverlay({ view, items, index, me, onPick, chart = null, xp =
     briefing: 'How points are won and lost',
     myhero: 'Your name and your look',
     change: 'Your future points follow you',
-    link: 'Link your GitHub to join a fleet',
+    play: 'Join a fleet: your pull requests score for it',
     app: 'Leave the game for the app',
     signout: 'Back to the title',
   };
@@ -101,13 +101,13 @@ export function MenuOverlay({ view, items, index, me, onPick, chart = null, xp =
   return (
     <div className={`menu${items.length > 4 ? ' long' : ''}`}>
       <h2>SELECT MODE</h2>
-      {me?.team && me.github_login
+      {me?.team
         ? <span className="j-badge" style={{ ['--fc' as string]: f.color }}>{badgeOf(me, xp)}</span>
         : <span className="j-badge" style={{ ['--fc' as string]: '#8a90d6' }}>VISITOR</span>}
       <ul>
         {items.map((m, i) => (
           <li key={m.id}>
-            <button type="button" className={`${i === index ? 'active' : ''}${m.id === 'link' ? ' nudge' : ''}`} onClick={() => onPick(i)}>
+            <button type="button" className={`${i === index ? 'active' : ''}${m.id === 'play' ? ' nudge' : ''}`} onClick={() => onPick(i)}>
               <span className="cursor" aria-hidden="true">{i === index ? '▶' : ''}</span>
               <span className="menu-label">{m.label}{m.tag && <i className="menu-tag">{m.tag}</i>}</span>
               <span className="menu-hint">{hint[m.id]}</span>

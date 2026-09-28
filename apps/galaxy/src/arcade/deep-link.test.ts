@@ -11,7 +11,6 @@ const now = new Date('2026-09-25T10:00:00Z');
 const view = buildGalaxy(demoEvents(now), { projects: DEMO_PROJECTS, now, source: 'demo' });
 const planet = view.planets[2];
 const crew: Session = { id: 'u1', email: 'ada@vertuoza.com', givenName: 'Ada', crew: true, github: 'ada-gh' };
-const visitor: Session = { ...crew, github: null };
 const outsider: Session = { ...crew, email: 'eve@elsewhere.example', crew: false, github: null };
 
 describe('the deep links', () => {
@@ -39,16 +38,16 @@ describe('the deep links', () => {
 
 describe('/#menu', () => {
   it('opens SELECT MODE for a player, past the boot and the title', () => {
-    expect(landing('#menu', { view, session: crew, linked: true })).toEqual({ scene: 'menu' });
+    expect(landing('#menu', { view, session: crew })).toEqual({ scene: 'menu' });
   });
 
-  it('opens SELECT MODE for a visitor who has not linked GitHub', () => {
-    expect(landing('#menu', { view, session: visitor, linked: false })).toEqual({ scene: 'menu' });
+  it('opens SELECT MODE for a signed-in account that has joined no fleet yet: no GitHub link step', () => {
+    expect(landing('#menu', { view, session: { ...crew, github: null } })).toEqual({ scene: 'menu' });
   });
 
   it('shows INSERT COIN to anyone signed out, whether the page holds a galaxy or not', () => {
-    expect(landing('#menu', { view: null, session: null, linked: false })).toEqual({ scene: 'coin' });
-    expect(landing('#menu', { view, session: null, linked: false })).toEqual({ scene: 'coin' });
+    expect(landing('#menu', { view: null, session: null })).toEqual({ scene: 'coin' });
+    expect(landing('#menu', { view, session: null })).toEqual({ scene: 'coin' });
   });
 
   it('is the address at the menu', () => {
@@ -59,25 +58,25 @@ describe('/#menu', () => {
 describe('every deep link, through the one door', () => {
   it('lands on INSERT COIN signed out', () => {
     for (const scene of DEEP_LINKS) {
-      expect(landing(`#${scene}`, { view: null, session: null, linked: false }), scene).toEqual({ scene: 'coin' });
-      expect(landing(`#${scene}`, { view, session: null, linked: false }), scene).toEqual({ scene: 'coin' });
+      expect(landing(`#${scene}`, { view: null, session: null }), scene).toEqual({ scene: 'coin' });
+      expect(landing(`#${scene}`, { view, session: null }), scene).toEqual({ scene: 'coin' });
     }
-    expect(landing(`#planet-${planet.prd}`, { view, session: null, linked: false })).toEqual({ scene: 'coin', sel: 2 });
+    expect(landing(`#planet-${planet.prd}`, { view, session: null })).toEqual({ scene: 'coin', sel: 2 });
   });
 
   it('opens the screen it names for a player', () => {
-    for (const scene of DEEP_LINKS) expect(landing(`#${scene}`, { view, session: crew, linked: true }), scene).toEqual({ scene });
-    expect(landing(`#planet-${planet.prd}`, { view, session: crew, linked: true })).toEqual({ scene: 'planet', sel: 2 });
+    for (const scene of DEEP_LINKS) expect(landing(`#${scene}`, { view, session: crew }), scene).toEqual({ scene });
+    expect(landing(`#planet-${planet.prd}`, { view, session: crew })).toEqual({ scene: 'planet', sel: 2 });
   });
 
   it('starts at the boot, as at /, for someone signed in whose page holds no galaxy', () => {
-    expect(landing('#menu', { view: null, session: outsider, linked: false })).toBeNull();
-    expect(landing('#map', { view: null, session: crew, linked: true })).toBeNull();
+    expect(landing('#menu', { view: null, session: outsider })).toBeNull();
+    expect(landing('#map', { view: null, session: crew })).toBeNull();
   });
 
   it('starts at the boot when the hash names no screen', () => {
-    expect(landing('', { view, session: crew, linked: true })).toBeNull();
-    expect(landing('#title', { view, session: null, linked: false })).toBeNull();
+    expect(landing('', { view, session: crew })).toBeNull();
+    expect(landing('#title', { view, session: null })).toBeNull();
   });
 });
 

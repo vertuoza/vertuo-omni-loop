@@ -30,7 +30,7 @@ export const TALL: Grid = { name: 'tall', w: 320, h: 288 };
 
 export type SceneName =
   | 'boot' | 'title' | 'menu' | 'map' | 'planet' | 'fleets' | 'heroes' | 'briefing'
-  | 'coin' | 'away' | 'gate' | 'intro' | 'select' | 'name' | 'hero' | 'link' | 'ready' | 'welcome' | 'outsider'
+  | 'coin' | 'away' | 'gate' | 'intro' | 'select' | 'name' | 'hero' | 'ready' | 'welcome' | 'outsider'
   | 'chart' | 'system' | 'games' | 'invaders' | 'levelup';
 
 /** What the joining screens draw: the fleets to pick from, the player's fleet and hero. */
@@ -40,7 +40,7 @@ export interface JoinFrame {
   lockedAt: number | null; // when the fleet was locked in (seconds, same clock as t)
   team: string | null;    // the player's fleet
   hero: Hero;             // the player's hero (the builder's draft on the builder)
-  away: boolean;          // leaving the arcade for Google or GitHub
+  away: boolean;          // leaving the arcade for GitHub
 }
 
 export interface FrameState {

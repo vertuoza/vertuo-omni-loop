@@ -10,7 +10,7 @@ import type { FleetRow } from '../types';
 // Every scene the arcade can open, each listed once: a scene missing here fails the typecheck.
 const SCENES: Record<SceneName, true> = {
   boot: true, title: true, menu: true, map: true, planet: true, fleets: true, heroes: true, briefing: true,
-  coin: true, away: true, gate: true, intro: true, select: true, name: true, hero: true, link: true, ready: true,
+  coin: true, away: true, gate: true, intro: true, select: true, name: true, hero: true, ready: true,
   welcome: true, outsider: true, chart: true, system: true, games: true, invaders: true, levelup: true,
 };
 
@@ -97,13 +97,13 @@ describe('drawFrame', () => {
     expect(drawn.fills + drawn.images).toBeGreaterThan(0);
   });
 
-  it('draws the intro at every beat, and the joining screens while the player is away', () => {
+  it('draws the intro at every beat, and the coin while the player is away', () => {
     for (const sceneT of [1, 6, 15, 19.8]) {
       const { ctx, drawn } = recorder();
       drawFrame(ctx, frame('intro', sceneT), 'title');
       expect(drawn.fills + drawn.images).toBeGreaterThan(0);
     }
-    for (const scene of ['coin', 'link'] as const) {
+    for (const scene of ['coin'] as const) {
       const { ctx, drawn } = recorder();
       drawFrame(ctx, { ...frame(scene), join: { ...frame(scene).join, away: true } }, 'title');
       expect(drawn.fills).toBeGreaterThan(0);

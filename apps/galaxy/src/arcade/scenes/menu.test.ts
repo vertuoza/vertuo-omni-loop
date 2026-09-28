@@ -111,11 +111,13 @@ describe('the menu on the canvas', () => {
 });
 
 describe('the menu', () => {
-  const visitor = menuItems({ joined: false, linked: false, signedIn: true });
-  const playing = menuItems({ joined: true, linked: true, signedIn: true });
+  const visitor = menuItems({ joined: false, signedIn: true });
+  const playing = menuItems({ joined: true, signedIn: true });
 
   it('holds a visitor\'s eight items and a player\'s nine, STAR CHART right after GALAXY MAP', () => {
-    expect(visitor.map((m) => m.id)).toEqual(['link', 'map', 'chart', 'fleets', 'heroes', 'games', 'briefing', 'signout']);
+    // A visitor here has signed in and joined no fleet yet: PLAY leads to the fleets, with no GitHub link step.
+    expect(visitor[0]).toEqual({ id: 'play', label: 'PLAY', fresh: true });
+    expect(visitor.map((m) => m.id)).toEqual(['play', 'map', 'chart', 'fleets', 'heroes', 'games', 'briefing', 'signout']);
     expect(playing.map((m) => m.id)).toEqual(['map', 'chart', 'fleets', 'heroes', 'games', 'briefing', 'myhero', 'change', 'signout']);
     for (const items of [visitor, playing]) {
       const at = items.findIndex((m) => m.label === 'GALAXY MAP');
@@ -136,28 +138,28 @@ describe('the menu', () => {
 });
 
 describe('APP MODE on the menu', () => {
-  const visitor = menuItems({ joined: false, linked: false, signedIn: true, app: true });
-  const playing = menuItems({ joined: true, linked: true, signedIn: true, app: true });
+  const visitor = menuItems({ joined: false, signedIn: true, app: true });
+  const playing = menuItems({ joined: true, signedIn: true, app: true });
   const APP: MenuItem = { id: 'app', label: 'APP MODE' };
 
   it('stands just above SIGN OUT, for a visitor and for a player, with the app', () => {
-    expect(visitor.map((m) => m.id)).toEqual(['link', 'map', 'chart', 'fleets', 'heroes', 'games', 'briefing', 'app', 'signout']);
+    expect(visitor.map((m) => m.id)).toEqual(['play', 'map', 'chart', 'fleets', 'heroes', 'games', 'briefing', 'app', 'signout']);
     expect(playing.map((m) => m.id)).toEqual(['map', 'chart', 'fleets', 'heroes', 'games', 'briefing', 'myhero', 'change', 'app', 'signout']);
     for (const items of [visitor, playing]) expect(items.at(-2)).toEqual(APP);
   });
 
-  it('makes a linked player\'s menu ten rows, its longest', () => {
+  it('makes a player\'s menu ten rows, its longest', () => {
     expect(playing).toHaveLength(10);
-    expect(menuItems({ joined: true, linked: true, signedIn: true, app: true, newGames: true })).toHaveLength(10);
+    expect(menuItems({ joined: true, signedIn: true, app: true, newGames: true })).toHaveLength(10);
   });
 
   it('is last, with no SIGN OUT under it, for anyone signed out', () => {
-    expect(menuItems({ joined: false, linked: false, signedIn: false, app: true }).map((m) => m.id))
+    expect(menuItems({ joined: false, signedIn: false, app: true }).map((m) => m.id))
       .toEqual(['map', 'chart', 'fleets', 'heroes', 'briefing', 'app']);
   });
 
   it('is not there without the app (the single-file artifact has none), and the menu is as it was', () => {
-    for (const who of [{ joined: false, linked: false, signedIn: true }, { joined: true, linked: true, signedIn: true }, { joined: false, linked: false, signedIn: false }]) {
+    for (const who of [{ joined: false, signedIn: true }, { joined: true, signedIn: true }, { joined: false, signedIn: false }]) {
       expect(menuItems(who).map((m) => m.id)).not.toContain('app');
       expect(menuItems({ ...who, app: false })).toEqual(menuItems(who));
       expect(menuItems({ ...who, app: true }).filter((m) => m.id !== 'app')).toEqual(menuItems(who));
@@ -183,8 +185,8 @@ describe('APP MODE on the menu', () => {
 });
 
 describe('GAMES on the menu', () => {
-  const visitor = menuItems({ joined: false, linked: false, signedIn: true });
-  const playing = menuItems({ joined: true, linked: true, signedIn: true });
+  const visitor = menuItems({ joined: false, signedIn: true });
+  const playing = menuItems({ joined: true, signedIn: true });
   const withXp = xpStatus(true, { xp: 180, level: 3, unlocked: ['invaders'] });
   const shown = (items: MenuItem[], me: Player | null, xp?: XpStatus, grid: Grid = WIDE) =>
     textOf(createElement(MenuOverlay, { view, items, index: 0, me, onPick: () => {}, xp }), grid);
@@ -195,7 +197,7 @@ describe('GAMES on the menu', () => {
       const at = items.findIndex((m) => m.id === 'heroes');
       expect(items[at + 1]).toEqual({ id: 'games', label: 'GAMES', scene: 'games' });
     }
-    expect(menuItems({ joined: false, linked: false, signedIn: false }).map((m) => m.id)).not.toContain('games');
+    expect(menuItems({ joined: false, signedIn: false }).map((m) => m.id)).not.toContain('games');
     const games = playing.find((m) => m.id === 'games')!;
     expect(doorOf(games, { view, chart: null, problem: null })).toEqual({ scene: 'games' });
     expect(doorOf(games, { view: null, chart: null, problem: 'THE GALAXY IS OUT OF REACH.' })).toEqual({ refused: 'THE GALAXY IS OUT OF REACH.' });
@@ -228,7 +230,7 @@ describe('GAMES on the menu', () => {
   });
 
   it('carries a NEW tag until the room is seen', () => {
-    const fresh = menuItems({ joined: true, linked: true, signedIn: true, newGames: true });
+    const fresh = menuItems({ joined: true, signedIn: true, newGames: true });
     expect(fresh.find((m) => m.id === 'games')).toEqual({ id: 'games', label: 'GAMES', scene: 'games', tag: 'NEW' });
     expect(fresh.filter((m) => m.tag).map((m) => m.id)).toEqual(['games']);
     const text = shown(fresh, player, withXp);
@@ -366,7 +368,7 @@ describe('the star chart on the menu', () => {
     })),
     links: [], loose: [], unserved: [],
   };
-  const items = menuItems({ joined: true, linked: true, signedIn: true });
+  const items = menuItems({ joined: true, signedIn: true });
   const chart = items.find((m) => m.id === 'chart')!;
   const hintOf = (source: KnowledgeGraph | 'none' | null) => {
     const text = textOf(createElement(MenuOverlay, { view, items, index: 0, me: player, onPick: () => {}, chart: source }), WIDE);

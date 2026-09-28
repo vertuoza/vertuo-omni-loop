@@ -1,4 +1,4 @@
-/* The join group: the coin, the gate, the intro, the GitHub link, ready and welcome back. Each
+/* The join group: the coin, the outsider, the gate, the intro, ready and welcome back. Each
    scene's words sit in one root naming its state (`.join.join-coin`, join.tsx): the rules below lay
    them out on the wide grid, then on the tall one (the screen carries `grid-tall`). */
 
@@ -29,9 +29,8 @@
 .join-coin .j-center { top: 158px; }
 .join-away .j-center { top: 118px; }
 .join-outsider .j-center { top: 70px; }
+.join-outsider a { color: var(--yellow); }
 .join-gate .j-center { top: 84px; }
-.join-link .j-panel { left: 236px; right: 30px; top: 62px; }
-.join-linked .j-panel { left: 236px; right: 30px; top: 110px; }
 .join-ready .j-center { top: 20px; }
 .join-welcome .j-center { top: 40px; }
 
@@ -50,24 +49,21 @@
 .grid-tall .join .j-press { margin-top: 10px; }
 .grid-tall .join .j-press.j-small { margin-top: 4px; }
 
-/* INSERT COIN under the coin, and the GitHub link under the hero: an error line of any length keeps
+/* INSERT COIN under the coin: an error line of any length keeps
    the words on screen and clear of the hint, as the block rises over the picture above it rather
    than running off the bottom. The first row gives the block its place, and gives way when the
    block needs the room. */
-.grid-tall .join-coin,
-.grid-tall .join-link {
+.grid-tall .join-coin {
   position: absolute; inset: 0; box-sizing: border-box; display: grid; align-content: start;
   grid-template-rows: minmax(0, var(--j-top)) auto;
 }
 .grid-tall .join-coin { --j-top: 100px; padding-bottom: 30px; }
-.grid-tall .join-link { --j-top: 68px; padding: 0 8px 8px; }
-.grid-tall .join-coin > .j-center,
-.grid-tall .join-link > .j-panel { grid-row: 2; position: relative; inset: auto; }
+.grid-tall .join-coin > .j-center { grid-row: 2; position: relative; inset: auto; }
 
-/* Leaving for Google or GitHub, above the loading bar. */
+/* Leaving for GitHub, above the loading bar. */
 .grid-tall .join-away .j-center { top: 84px; }
 
-/* WRONG CARTRIDGE and the gate above OMNI-MAN and the planet; the outsider's hint on a dark strip,
+/* NO WORKSPACE YET and the gate above OMNI-MAN and the planet; the outsider's hint on a dark strip,
    over the planet's bright rim. */
 .grid-tall .join-outsider .j-center { top: 22px; }
 .grid-tall .join-gate .j-center { top: 42px; }
@@ -78,19 +74,12 @@
 .grid-tall .join-intro .j-intro-names { left: 20px; right: 20px; top: 232px; }
 .grid-tall .join-intro .j-intro-names span:nth-child(even) { top: 16px; }
 
-/* The GitHub link: the panel across the screen, under the hero and the fleet on their pedestal. */
-.grid-tall .join-link .j-panel,
-.grid-tall .join-linked .j-panel { gap: 6px; padding: 10px 12px; }
-.grid-tall .join-linked .j-panel { left: 8px; right: 8px; top: 68px; }
-.grid-tall .join-link .j-tiny { line-height: 1.6; }
-.grid-tall .join-linked .j-good { line-height: 1.5; overflow-wrap: anywhere; }
-
 /* PLAYER 1 READY over the rising hero, welcome back over the pedestal. */
 .grid-tall .join-ready .j-center { top: 14px; }
 .grid-tall .join-ready .j-bottom { bottom: 16px; }
 .grid-tall .join-welcome .j-center { top: 16px; }
 
 /* A toast over a join scene (a sign-out that failed, say) keeps inside the tall screen, readable. */
-.grid-tall:is(.scene-coin, .scene-away, .scene-outsider, .scene-gate, .scene-intro, .scene-link, .scene-ready, .scene-welcome) .j-toast {
+.grid-tall:is(.scene-coin, .scene-away, .scene-outsider, .scene-gate, .scene-intro, .scene-ready, .scene-welcome) .j-toast {
   max-width: 296px; box-sizing: border-box; font-size: 8px;
 }
