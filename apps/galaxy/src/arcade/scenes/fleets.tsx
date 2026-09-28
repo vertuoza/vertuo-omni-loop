@@ -9,11 +9,16 @@ import { useScreen } from '../Screen';
 import type { Player } from '../types';
 import { byLogin } from './common.tsx';
 import { cardsShown } from './fleets.ts';
+import { RaiseOverlay } from './raise.tsx';
 import './common.css';
 import './fleets.css';
 
-export function FleetsOverlay({ view, crew, index, onPick }: { view: GalaxyView; crew: Player[]; index: number; onPick: (i: number) => void }) {
+/** The fleets wall; with zero fleets, the "raise your own" screen instead (PRD 400), `owner` saying who reads it. */
+export function FleetsOverlay({ view, crew, index, onPick, owner = false }: {
+  view: GalaxyView; crew: Player[]; index: number; onPick: (i: number) => void; owner?: boolean;
+}) {
   const { grid } = useScreen();
+  if (!view.teams.length) return <RaiseOverlay owner={owner} />;
   const players = byLogin(crew);
   const nameOf = (login: string) => players.get(login.toLowerCase())?.display_name ?? `@${login}`;
   const t = view.teams[index];

@@ -16,6 +16,8 @@ import { readXp } from './xp';
 //   yet). A member gets its galaxy, fleets, crew and their own player row, and its name and theme as
 //   the arcade's brand. One with no workspace is no crew, reads nothing, and meets the outsider
 //   screen.
+// - A member also gets whether they own the workspace (PRD 400): its fleet screens point the owner
+//   at /app/fleets when it has no fleets yet.
 // - A member with GitHub linked also gets their player_xp row in that workspace, by lower-cased
 //   login, and each game's crew table (its top five, and their own best): each read on its own, so
 //   XP or scores out of reach leave the galaxy shown, and say so.
@@ -42,6 +44,8 @@ export interface ArcadeData {
   dossiers?: DossiersRead;
   brand?: Brand;
   problem?: string;
+  /** The member owns the workspace played (PRD 400): the fleet screens point an owner at /app/fleets. */
+  owner?: boolean;
 }
 
 const givenName = (user: User) => {
@@ -56,6 +60,21 @@ const githubLogin = (user: User) => {
   return typeof login === 'string' && login ? login : null;
 };
 
+/**
+ * Whether the person owns the workspace (workspace_members.role), read as themselves. Out of reach,
+ * they read as a member: the role only changes a pointer on the fleet screens, never the galaxy.
+ */
+async function ownsWorkspace(db: SupabaseClient, workspace: string, userId: string): Promise<boolean> {
+  try {
+    const { data, error } = await db.from('workspace_members').select('role').eq('workspace_id', workspace).eq('user_id', userId).maybeSingle();
+    if (error) throw new Error(error.message);
+    return (data as { role?: string } | null)?.role === 'owner';
+  } catch (err) {
+    console.error(`Supabase: could not read your role (${err instanceof Error ? err.message : String(err)})`);
+    return false;
+  }
+}
+
 /** Who is at the cabinet. `crew`: they belong to a workspace, whatever their email's domain. */
 const sessionOf = (user: User, crew: boolean): Session =>
   ({ id: user.id, email: user.email ?? '', givenName: givenName(user), crew, github: githubLogin(user) });
@@ -67,7 +86,9 @@ export async function arcadeFor(db: SupabaseClient, user: User | null, now = new
     workspace = await memberWorkspace(db, user.id);
     if (!workspace) return { view: null, fleets: demoFleets(), session: sessionOf(user, false), workspace: null };
     const id = workspace.id;
-    const [view, fleets, me, crew] = await Promise.all([loadGalaxy(db, id, now), loadFleets(db, id), loadMe(db, id, user.id), loadCrew(db, id)]);
+    const [view, fleets, me, crew, owner] = await Promise.all([
+      loadGalaxy(db, id, now), loadFleets(db, id), loadMe(db, id, user.id), loadCrew(db, id), ownsWorkspace(db, id, user.id),
+    ]);
     const session = sessionOf(user, true);
     const login = me?.github_login ?? session.github;
     const prds = view.planets.map((p) => p.prd);
@@ -76,7 +97,7 @@ export async function arcadeFor(db: SupabaseClient, user: User | null, now = new
       login ? readScores(db, id, user.id) : {},
       readDossiers(db, id, prds),
     ]);
-    return { view, fleets, session, workspace: id, me, crew, xp, scores, dossiers, brand: brandOf(workspace) };
+    return { view, fleets, session, workspace: id, me, crew, xp, scores, dossiers, brand: brandOf(workspace), owner };
   } catch (err) {
     // Out of reach: whether they belong to a workspace may be unknown, so nobody is turned away as an
     // outsider; the arcade says the galaxy is out of reach instead.

@@ -12,7 +12,7 @@ import { DEFAULT_THEME } from '../theme';
 import type { FleetRow } from '../types';
 import { TALL, WIDE, type FrameState, type Grid, type SceneName } from './common.ts';
 import { drawBoot, drawStory, drawTitle, hallPage, hallPages, PAGES, TALL_SCENES } from './attract.ts';
-import { BootOverlay, HeroesOverlay, TitleOverlay } from './attract.tsx';
+import { BootOverlay, HeroesOverlay, storyLines, TitleOverlay } from './attract.tsx';
 
 // The sprites are drawn on a recording context: which sprite, where and how large.
 vi.mock('@omni/design', async (original) => ({
@@ -356,9 +356,41 @@ describe('the Hall of Heroes', () => {
     expect(wide).not.toContain('PAGE');
   });
 
+  it('hides the fleet column and TOP FLEETS with zero fleets, and reads SOLO for a solo hero (PRD 400)', () => {
+    const none: GalaxyView = { ...view, teams: [] };
+    const shown = text(screen({ form: 'full', grid: WIDE }, createElement(HeroesOverlay, { view: none, crew: [] })));
+    expect(shown).not.toContain('TOP FLEETS');
+    expect(shown).toMatch(/RANK HERO SCORE/);
+    expect(shown).not.toMatch(/\bFLEET\b/);
+    const solo: GalaxyView = { ...view, heroes: view.heroes.slice(0, 2).map((h) => ({ ...h, team: null })) };
+    const withSolo = text(screen({ form: 'full', grid: WIDE }, createElement(HeroesOverlay, { view: solo, crew: [] })));
+    expect(withSolo).toContain('SOLO');
+    expect(withSolo).not.toContain('UNCREWED');
+  });
+
   it('says so when nobody has scored, on one page', () => {
     const empty = text(screen({}, createElement(HeroesOverlay, { view: withHeroes(0), crew: [] })));
     expect(empty).toContain('NO SCORES THIS SEASON YET');
     expect(empty).not.toContain('PAGE');
+  });
+});
+
+describe('the attract line counts the real fleets (PRD 400)', () => {
+  it('names how many fleets fly, in words, one commander always', () => {
+    expect(storyLines(5)).toContain('FIVE FLEETS. ONE COMMANDER.');
+    expect(storyLines(1)).toContain('ONE FLEET. ONE COMMANDER.');
+    expect(storyLines(12)).toContain('TWELVE FLEETS. ONE COMMANDER.');
+  });
+
+  it('is gone with no fleets, the rest of the story unchanged', () => {
+    const none = storyLines(0);
+    expect(none.join(' ')).not.toMatch(/FLEET/);
+    expect(none).toEqual(storyLines(3).filter((l) => !l.includes('FLEETS')));
+  });
+
+  it('is what the story phase shows', () => {
+    const shown = text(screen({ form: 'full', grid: WIDE }, createElement(TitleOverlay, { view, phase: 'story', sceneT: 30, who: '', signedIn: true, brand: HOUSE_BRAND, fleets: 2 })));
+    expect(shown).toContain('TWO FLEETS. ONE COMMANDER.');
+    expect(shown).not.toContain('FIVE FLEETS');
   });
 });

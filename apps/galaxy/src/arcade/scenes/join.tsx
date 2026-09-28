@@ -3,7 +3,7 @@
 // ready and welcome back, over the canvas in join.ts. Each scene's words sit in one
 // root naming its state (`join join-coin`), which join.css lays out on the grid the scene is drawn on:
 // the wide one, or the tall one on the Game Boy held upright. Both grids show every word.
-import { fleet } from '../fleets';
+import { crewLook } from '../fleets';
 import { Hint } from '../hint';
 import type { FleetRow } from '../types';
 import './common.css';
@@ -80,13 +80,16 @@ const LINES = [
   { text: 'THE GALAXY NEEDS HEROES.', at: 10, color: 'var(--white)' },
   { text: 'CHOOSE YOUR FLEET.', at: 12, color: 'var(--yellow)' },
 ];
+/** The intro's last line when the workspace has no fleets: the fleet step is skipped (PRD 400). */
+const NO_FLEET_LINE = { text: 'BUILD YOUR HERO.', at: 12, color: 'var(--yellow)' };
 
 export function IntroOverlay({ fleets }: { fleets: FleetRow[] }) {
   const shown = fleets.slice(0, 5);
+  const lines = fleets.length ? LINES : [...LINES.slice(0, 2), NO_FLEET_LINE];
   return (
     <div className="join join-intro">
       <div className="j-center j-intro">
-        {LINES.map((l) => (
+        {lines.map((l) => (
           <span key={l.text} className="j-type" style={{ ['--n' as string]: l.text.length, ['--at' as string]: `${l.at}s`, color: l.color }}>{l.text}</span>
         ))}
       </div>
@@ -101,7 +104,7 @@ export function IntroOverlay({ fleets }: { fleets: FleetRow[] }) {
 }
 
 export function ReadyOverlay({ name, team }: { name: string; team: string | null }) {
-  const f = fleet(team);
+  const f = crewLook(team);
   return (
     <div className="join join-ready">
       <div className="j-center">
@@ -114,7 +117,7 @@ export function ReadyOverlay({ name, team }: { name: string; team: string | null
 }
 
 export function WelcomeOverlay({ name, team }: { name: string; team: string | null }) {
-  const f = fleet(team);
+  const f = crewLook(team);
   return (
     <div className="join join-welcome">
       <div className="j-center">
