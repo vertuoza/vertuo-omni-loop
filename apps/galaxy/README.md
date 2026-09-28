@@ -23,8 +23,9 @@ Game Boy's buttons on a phone (design:
   (`forge.mjs`): a 4-tone ramp per material lit from the top left, and coloured outlines (the
   material's darkest tone on the lit side, near-black on the shadow side). Heroes are 32×32
   (OmniMan 32×48) with two idle frames, and OmniMan also points, cheers and runs: OmniMan in the navy-and-white suit, the fleet mascots
-  (beaver, octopod, picsou, cia, pirate; the retired invincible), Entropy (24×24) recoloured per
-  wound kind, 16×16 icons.
+  (the library `MASCOTS`: a beaver, an octopus, a duck, a spy, a pirate and a caped hero), Entropy
+  (24×24) recoloured per wound kind, 16×16 icons. A fleet's flavour (its sprite, its motif, its
+  HOME card's rule) is keyed by its mascot, never by its name: a workspace names its own fleets.
 - Every player's hero is the OmniMan body (a girl or a boy, 32×48) recoloured: skin, hair, suit and
   cape are ramp swaps on one material each (`packages/design/src/heroes.mjs`). A fleet without a
   drawn mascot flies as a hero in its own colour.
@@ -54,7 +55,8 @@ every visitor. Its parts live in `src/home/` (`app/page.tsx` renders them), top 
 5. **Easy in, easy out**: the four GET IN steps, and GET OUT: delete `.omni-loop/` and commit.
 6. **High scores: the loop built this**: FEATURES SHIPPED, SLICES MERGED and DECISIONS ADOPTED,
    counted from `.omni-loop/delivery/shipped/` when the page is built (`src/home/scores.ts`).
-7. **The game: Entropy you can see**: why the game exists, and the built-in fleets as trading cards.
+7. **The game: Entropy you can see**: why the game exists, and the demo world's invented fleets as
+   trading cards.
 8. **Join the loop!**: the order form, with PRESS START and the Konami tip.
 
 Each spread is its own component under `src/home/spreads/`, composed by `Spreads.tsx`. HOME links
@@ -259,13 +261,14 @@ points and rankings come from `game/economy.mjs`, decay and threat weights from
 `game/rulebook.mjs`, working hours from `game/calendar.mjs`, XP, levels and unlocks from
 `game/experience.mjs` (the view's rules carry the rulebook's `xp` block, for How to play). The demo
 galaxy is a fictional GitHub snapshot run through the real projector, so demo events are exactly
-what `pnpm game:project` would append.
+what `pnpm game:project` would append. Its fleets are invented too (`demoFleets()`): no workspace's
+own, and nobody's but the demo mode's, HOME's and the artifact's.
 
 What the page reads is decided in `src/data/arcade.ts`, always with the visitor's own session, so
 the database's policies decide what they see:
 
-- **Signed out**, it reads nothing: the attract mode plays the built-in fleets (`demoFleets()`,
-  Vertuoza's) under the house brand.
+- **Signed out**, it reads nothing: the attract mode plays under the house brand with no fleet, its
+  title reading NO FLEETS YET — RAISE YOUR OWN! over the mascot parade.
 - **Signed in**, it reads the person's memberships and plays **the workspace they joined first**
   (by `joined_at`, then `slug`; PRD 2 brings switching). Every loader in `src/data/load-galaxy.ts`
   (the galaxy, the fleets, the crew, the player's own row) filters by that workspace, and its
@@ -288,8 +291,8 @@ the database's policies decide what they see:
 - **Crew means "has a workspace"**, never an email domain. Joining happens at sign-in, where
   GitHub's token is at hand ([Sign-in and sign-up](#sign-in-and-sign-up)); a signed-in person who
   belongs to none gets the "wrong cartridge" screen, pointing at `/signup`, and reads nothing.
-- **The database out of reach**: the attract mode, the built-in fleets, and "THE GALAXY IS OUT OF
-  REACH". Nobody is turned away as an outsider when the page cannot tell.
+- **The database out of reach**: the attract mode and "THE GALAXY IS OUT OF REACH", with no fleet:
+  never the demo's. Nobody is turned away as an outsider when the page cannot tell.
 
 `proxy.ts` refreshes the session before each render. `app/auth/callback` turns GitHub's code into
 that session and settles the sign-in (`src/data/sign-in.ts`); the terminal's sign-in (`omni signin`,
@@ -750,7 +753,7 @@ Signing in locally needs a GitHub OAuth client: export `SUPABASE_AUTH_EXTERNAL_G
 demo galaxy instead.
 
 `pnpm galaxy:seed` regenerates `supabase/seed.sql` from the demo world, dated now, in the `vertuoza`
-workspace the migrations create.
+workspace the migrations create, with the demo world's invented fleets.
 
 ### Screenshots of every scene, and of `/app`
 

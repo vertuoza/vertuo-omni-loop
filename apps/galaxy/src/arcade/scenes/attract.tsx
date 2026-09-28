@@ -53,13 +53,19 @@ export function storyLines(fleets: number): string[] {
   ];
 }
 
+/**
+ * With no fleet to fly (signed out, or a workspace with none yet), the title invites the visitor to
+ * raise their own over the mascot parade, as the fleet screens do (PRD 400).
+ */
+export const RAISE_CALL = 'NO FLEETS YET — RAISE YOUR OWN!';
+
 // The title's logo is the product's crest, whoever's brand the arcade is under: the game is Omni
 // Loop. Drawn crisp at a whole-number scale: 3× on the wide grid, 2× on the tall one.
 const TITLE_LOGO = { wide: logoSvg(OMNI_LOOP.logo, { scale: 3, title: OMNI_LOOP.name }), tall: logoSvg(OMNI_LOOP.logo, { scale: 2, title: OMNI_LOOP.name }) };
 
 export function TitleOverlay({ view, phase, sceneT, who, signedIn, brand, fleets = 0 }: {
   view: GalaxyView | null; phase: 'title' | 'story' | 'hiscore'; sceneT: number; who: string; signedIn: boolean; brand: Brand;
-  /** How many fleets fly: the story's fleets line counts them. */
+  /** How many fleets fly: the story's fleets line counts them, and with none the title invites. */
   fleets?: number;
 }) {
   const { grid } = useScreen();
@@ -96,6 +102,7 @@ export function TitleOverlay({ view, phase, sceneT, who, signedIn, brand, fleets
     <div className="title">
       <h1 className="logo" dangerouslySetInnerHTML={{ __html: TITLE_LOGO[grid.name] }} />
       <p className="tagline">{OMNI_LOOP.tagline.toUpperCase()}</p>
+      {fleets === 0 && <p className="title-raise">{RAISE_CALL}</p>}
       <p className="press blink">{cta}</p>
       <footer className="title-foot">
         <span>{`© 2026 ${brandWord(brand)}`}</span>

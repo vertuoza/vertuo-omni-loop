@@ -4,14 +4,15 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 import type { Brand } from '../arcade/brand';
 import type { DossiersRead, FleetRow, Player, ScoresRead, Session, XpRead } from '../arcade/types';
 import { readDossiers } from './dossiers';
-import { demoFleets, loadCrew, loadFleets, loadGalaxy, loadMe } from './load-galaxy';
+import { loadCrew, loadFleets, loadGalaxy, loadMe } from './load-galaxy';
 import { readScores } from './scores';
 import { brandOf, memberWorkspace, type Workspace } from './workspace';
 import { readXp } from './xp';
 
 // What the page hands the arcade when Supabase is configured, read with the visitor's own session.
 //
-// - Signed out: nothing is read. The attract mode plays the built-in fleets under the house brand.
+// - Signed out: nothing is read. The attract mode plays under the house brand with no fleet: its
+//   title invites the visitor to raise their own over the mascot parade (PRD 400).
 // - Signed in: the workspace they joined first (joined by domain once, when they belong to none
 //   yet). A member gets its galaxy, fleets, crew and their own player row, and its name and theme as
 //   the arcade's brand. One with no workspace is no crew, reads nothing, and meets the outsider
@@ -24,7 +25,8 @@ import { readXp } from './xp';
 // - Every member, visitor or player, also gets the planets' dossiers (PRD 216: each planet's PRD in the
 //   workspace's plan repository, src/data/dossiers.ts), read on their own after the galaxy in the same
 //   way: out of reach, the planet's DOSSIER tab says so and the rest of the planet is unchanged.
-// - The database out of reach: the attract mode, the built-in fleets, and a message saying so.
+// - The database out of reach: the attract mode and a message saying so, with no fleet: never the
+//   demo's, which are nobody's (PRD 400).
 
 export const OUT_OF_REACH = 'THE GALAXY IS OUT OF REACH. TRY AGAIN SOON.';
 
@@ -80,11 +82,11 @@ const sessionOf = (user: User, crew: boolean): Session =>
   ({ id: user.id, email: user.email ?? '', givenName: givenName(user), crew, github: githubLogin(user) });
 
 export async function arcadeFor(db: SupabaseClient, user: User | null, now = new Date()): Promise<ArcadeData> {
-  if (!user) return { view: null, fleets: demoFleets(), session: null, workspace: null };
+  if (!user) return { view: null, fleets: [], session: null, workspace: null };
   let workspace: Workspace | null = null;
   try {
     workspace = await memberWorkspace(db, user.id);
-    if (!workspace) return { view: null, fleets: demoFleets(), session: sessionOf(user, false), workspace: null };
+    if (!workspace) return { view: null, fleets: [], session: sessionOf(user, false), workspace: null };
     const id = workspace.id;
     const [view, fleets, me, crew, owner] = await Promise.all([
       loadGalaxy(db, id, now), loadFleets(db, id), loadMe(db, id, user.id), loadCrew(db, id), ownsWorkspace(db, id, user.id),
@@ -103,6 +105,6 @@ export async function arcadeFor(db: SupabaseClient, user: User | null, now = new
     // outsider; the arcade says the galaxy is out of reach instead.
     console.error(err);
     const known = workspace ? { workspace: workspace.id, brand: brandOf(workspace) } : { workspace: null };
-    return { view: null, fleets: demoFleets(), session: sessionOf(user, true), ...known, problem: OUT_OF_REACH };
+    return { view: null, fleets: [], session: sessionOf(user, true), ...known, problem: OUT_OF_REACH };
   }
 }

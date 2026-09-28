@@ -1,7 +1,7 @@
 // The attract group on the canvas: the boot, the title's three phases (title, story, high scores)
 // and the Hall of Heroes, on the wide grid (640×360) and on the tall one (320×288).
 import { drawLogo, drawPlanet, logoPixels, spriteSize, WOUND_TINT, woundTint } from '@omni/design';
-import { fleet } from '../fleets';
+import { fleet, MASCOTS } from '../fleets';
 import { bootMark, frameOf, H, nebulaFor, plasmaTrail, RING, space, sprite, TALL, W, type FrameState, type Grid, type Pages, type SceneName } from './common.ts';
 
 /**
@@ -107,10 +107,13 @@ export function drawTitle(ctx: CanvasRenderingContext2D, s: FrameState) {
   const bob = (phase: number, amp = 4) => (s.reduced ? 0 : Math.round(Math.sin(s.t * 2 + phase) * amp));
   plasmaTrail(ctx, s, at.trail.x, at.trail.y + bob(0), at.trail.len);
   sprite(ctx, s, 'omni', at.omni.x, at.omni.y + bob(0), { scale: at.omni.scale, frame: frameOf(s, 1.5), glow: s.theme.plasma });
-  // The fleets fly in formation around the commander: the first five active ones.
-  s.join.fleets.slice(0, at.spots.length).forEach((f, i) => {
+  // The fleets fly in formation around the commander: the first five active ones. With none (signed
+  // out, or a workspace with no fleets yet), the mascot parade flies instead (PRD 400).
+  const flying = s.join.fleets.length
+    ? s.join.fleets.map((f) => fleet(f.name))
+    : MASCOTS.map((m) => ({ sprite: m, tint: null }));
+  flying.slice(0, at.spots.length).forEach((look, i) => {
     const [x, y, rate, phase] = at.spots[i];
-    const look = fleet(f.name);
     const k = at.fleetScale;
     sprite(ctx, s, look.sprite, x, y + bob(i + 1) - (spriteSize(look.sprite).h - 32) * k, { scale: k, tint: look.tint ?? undefined, flip: i === 4, frame: frameOf(s, rate, phase) });
   });

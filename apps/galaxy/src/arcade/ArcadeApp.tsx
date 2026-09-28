@@ -561,7 +561,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
           const n = active.length + 1; // the fleets, then PLAY SOLO
           const pick = (u.pick + (action === 'left' || action === 'up' ? n - 1 : 1)) % n;
           go({ pick });
-          if (active[pick]) motif(active[pick].name);
+          if (active[pick]) motif(active[pick]);
           return;
         }
         if (action === 'a' || action === 'start') return lockIn();
@@ -866,7 +866,7 @@ export function ArcadeApp({ view, fleets, account, session: session0 = null, me:
       case 'select': return (
         <SelectOverlay fleets={active} pick={ui.pick} change={ui.flow === 'change'} locked={ui.lockedAt !== null} confirm={ui.confirm}
           current={me?.team ?? null} disbanded={isDisbanded(me, fleets)} crew={crewCount} owner={owner}
-          onPick={(i) => { if (i === ui.pick) act('a'); else { go({ pick: i }); if (active[i]) motif(active[i].name); } }} />
+          onPick={(i) => { if (i === ui.pick) act('a'); else { go({ pick: i }); if (active[i]) motif(active[i]); } }} />
       );
       case 'name': return <NameOverlay state={ui.name} shake={now() - ui.shake < 0.35} team={me?.team ?? null} error={ui.error} />;
       case 'hero': return <BuilderOverlay hero={ui.hero} row={ui.heroRow} team={me?.team ?? null} name={displayName} error={ui.error} onRow={(i) => { if (i === ui.heroRow) act('a'); else go({ heroRow: i }, 'move'); }} />;

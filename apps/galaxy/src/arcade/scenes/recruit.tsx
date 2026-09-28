@@ -17,7 +17,7 @@ import { cardRow } from './recruit.ts';
 import './common.css';
 import './recruit.css';
 
-// Ends a sentence on a fleet's label without doubling its own full stop (C.I.A.).
+// Ends a sentence on a fleet's label without doubling its own full stop (a label like S.W.A.T.).
 const stop = (label: string) => (label.endsWith('.') ? '' : '.');
 
 /**
