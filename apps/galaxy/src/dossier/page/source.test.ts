@@ -2,7 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { dossierRounds } from '../store';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
 import { pulseOf, signature } from './live';
-import { deleteDraft, readContent, readDossier, readHistory, readPulse, readSandboxed } from './source';
+import { fakeSupabase as askFake } from '../../ask/store.fake';
+import { answerQuick, deleteDraft, readContent, readDossier, readHistory, readPulse, readSandboxed } from './source';
 
 // Where /prd/<id> reads: straight from the database as the viewer (the stubbed client of
 // ../store.fake.ts, which keeps the migration's access rules), so a member of the dossier's workspace
@@ -299,5 +300,111 @@ describe('reading the change check (PRD 384)', () => {
     const calls = fake.state.calls;
     expect(await readPulse(as('bob'), 'not-a-uuid')).toBeNull();
     expect(fake.state.calls).toBe(calls);
+  });
+});
+
+describe('who may answer a round on the list (PRD 384), decided on the server', () => {
+  const DORA = { id: '00000000-0000-4000-8000-0000000000d7', email: 'dora@vertuoza.com' };
+  const ACCOUNTS = { ada: ADA, bob: BOB, dora: DORA };
+
+  async function asked() {
+    const fake = fakeSupabase(ACCOUNTS, { [FAKE_WORKSPACE]: 'acme' });
+    const pushed = await fake.client('ada').rpc('dossier_push', {
+      p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'spec', content: SPEC }],
+    });
+    const id = (pushed.data as { id: string }).id;
+    const [shared, own, done] = fake.seedAsk({ owner: ADA.id, repo: 'acme/widgets' }, [
+      { created_at: '2026-09-28T10:00:00.000Z', prd: 7 },
+      { created_at: '2026-09-28T10:01:00.000Z', prd: 7 },
+      { created_at: '2026-09-28T10:02:00.000Z', prd: 7, status: 'answered', answers: { 'A question?': 'Yes' } },
+    ]).rounds.map((r) => r.id);
+    fake.seedShare(shared, BOB.id, ADA.id);
+    fake.seedShare(done, BOB.id, ADA.id);
+    const read = async (token: keyof typeof ACCOUNTS) => (await readDossier(fake.client(token) as never, id, ACCOUNTS[token].id))?.answerable;
+    return { fake, id, read, shared, own };
+  }
+
+  it("lets the session's owner answer every open round of it", async () => {
+    const { read, shared, own } = await asked();
+    expect(await read('ada')).toEqual([shared, own]);
+  });
+
+  it('lets a member answer only the open rounds shared with them', async () => {
+    const { read, shared } = await asked();
+    expect(await read('bob')).toEqual([shared]);
+  });
+
+  it('lets any other member answer nothing', async () => {
+    const { read } = await asked();
+    expect(await read('dora')).toEqual([]);
+  });
+
+  it('lets nobody answer when the viewer is not named', async () => {
+    const { fake, id } = await asked();
+    expect((await readDossier(fake.client('ada') as never, id))?.answerable).toEqual([]);
+  });
+
+  it('still lets the owner answer when the shares cannot be read, and nobody else', async () => {
+    const { fake, id, own, shared } = await asked();
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const failing = (token: string) => {
+      const client = fake.client(token);
+      return {
+        rpc: client.rpc,
+        from: (table: string) => (table === 'ask_shares'
+          ? { select: () => ({ eq: async () => ({ data: null, error: { message: 'down' } }) }) }
+          : client.from(table as 'dossiers')),
+      } as never;
+    };
+    expect((await readDossier(failing('ada'), id, ADA.id))?.answerable).toEqual([shared, own]);
+    expect((await readDossier(failing('bob'), id, BOB.id))?.answerable).toEqual([]);
+    quiet.mockRestore();
+  });
+});
+
+describe('answering a quick round from the list (PRD 384)', () => {
+  const QUESTION = 'Which storage?';
+  const START = Date.parse('2026-09-28T09:00:00Z');
+
+  async function round() {
+    const fake = askFake({ ada: ADA, bob: BOB }, () => START);
+    const ada = fake.client('ada');
+    const { data: session } = await ada.from('ask_sessions').insert({ title: 'omni' }).select('id').single() as { data: { id: string } };
+    const questions = [{ question: QUESTION, header: '', multiSelect: false, options: [{ label: 'Postgres (Recommended)' }, { label: 'Memory' }] }];
+    const { data } = await ada.from('ask_rounds').insert({ session_id: session.id, questions }).select('id').single() as { data: { id: string } };
+    return { fake, id: data.id, as: (token: string) => fake.client(token) as never };
+  }
+
+  it('records the option as the answer, answered on the page', async () => {
+    const { fake, id, as } = await round();
+    expect(await answerQuick(as('ada'), id, QUESTION, 'Postgres (Recommended)')).toEqual({ kind: 'answered' });
+    expect(fake.tables.ask_rounds[0]).toMatchObject({
+      status: 'answered', answers: { [QUESTION]: 'Postgres (Recommended)' }, answered_via: 'page', answered_by: ADA.id,
+    });
+  });
+
+  it('says who came first when the round was answered already, and changes nothing', async () => {
+    const { fake, id, as } = await round();
+    await answerQuick(as('ada'), id, QUESTION, 'Memory');
+    expect(await answerQuick(as('ada'), id, QUESTION, 'Postgres (Recommended)')).toEqual({ kind: 'taken', by: ADA.id, via: 'page', moved: false });
+    expect(fake.tables.ask_rounds[0]).toMatchObject({ answers: { [QUESTION]: 'Memory' } });
+  });
+
+  it('says it moved when the terminal took it over', async () => {
+    const { fake, id, as } = await round();
+    fake.tables.ask_rounds[0].status = 'abandoned';
+    expect(await answerQuick(as('ada'), id, QUESTION, 'Memory')).toMatchObject({ kind: 'taken', by: null, moved: true });
+  });
+
+  it('answers nothing for a member it is not shared with', async () => {
+    const { fake, id, as } = await round();
+    expect(await answerQuick(as('bob'), id, QUESTION, 'Memory')).toMatchObject({ kind: 'taken', by: null });
+    expect(fake.tables.ask_rounds[0]).toMatchObject({ status: 'open', answers: null });
+  });
+
+  it('throws when the database cannot be reached', async () => {
+    const { fake, id, as } = await round();
+    fake.state.fail = { message: 'down' };
+    await expect(answerQuick(as('ada'), id, QUESTION, 'Memory')).rejects.toThrow();
   });
 });
