@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>After the Yolo</title>
+<style>
+  /* Ask mode's palette (PRD 71, 144, 216), so this page reads as the same product as the pages
+     around it. No web font and no external request: the Omni page shows it inside a sandbox whose
+     policy is default-src 'none'. Illustrated with this PRD, 301; the PR numbers and the item are examples. */
+  :root {
+    --ground: #f5f4fc;
+    --surface: #ffffff;
+    --sunk: #eceaf8;
+    --line: #d9d6ee;
+    --ink: #17153d;
+    --muted: #4f5486;
+    --plasma: #6a2fd0;
+    --plasma-soft: #efe7ff;
+    --green: #17804a;
+    /* The terminal is drawn the same in both themes, as a terminal is. */
+    --t-ground: #0d0c26;
+    --t-ink: #e8eaff;
+    --t-dim: #8f95cf;
+    --t-plasma: #c29bff;
+    --t-green: #4ee08a;
+    --t-yellow: #ffd84a;
+    --t-cyan: #6ff0ff;
+    --t-red: #ff7a8a;
+    --t-line: #2f2c78;
+    --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    --px: "Press Start 2P", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+      --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66; --green: #4ee08a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e0d33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78;
+    --ink: #f2f4ff; --muted: #a9aee6; --plasma: #b37cff; --plasma-soft: #2a1d66; --green: #4ee08a;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.55 var(--body); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 40px 64px; display: grid; gap: 56px; }
+  header { display: grid; gap: 12px; max-width: 72ch; }
+  .eyebrow { font: 10px/1.6 var(--px); letter-spacing: .08em; color: var(--plasma); text-transform: uppercase; }
+  h1 { margin: 0; font-size: clamp(28px, 4vw, 40px); line-height: 1.15; text-wrap: balance; }
+  h2 { margin: 0; font-size: 22px; line-height: 1.25; text-wrap: balance; }
+  p { margin: 0; }
+  code { font: 0.88em var(--mono); background: var(--sunk); border-radius: 4px; padding: 1px 5px; }
+  .lede { color: var(--muted); }
+  section { display: grid; gap: 16px; }
+  section > p { max-width: 72ch; color: var(--muted); }
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 20px; align-items: start; }
+  .pair.wide { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); }
+  @media (max-width: 900px) { .pair.wide { grid-template-columns: minmax(0, 1fr); } }
+  .side { display: grid; gap: 10px; min-width: 0; }
+  .tag { justify-self: start; font: 600 12px/1 var(--mono); padding: 5px 8px; border-radius: 4px; }
+  .tag.today { background: var(--sunk); color: var(--muted); }
+  .tag.after { background: var(--plasma-soft); color: var(--plasma); }
+  .note { font-size: 14px; color: var(--muted); max-width: 70ch; }
+
+  /* Terminal */
+  .term { background: var(--t-ground); color: var(--t-ink); border-radius: 10px; border: 1px solid var(--t-line); overflow-x: auto; }
+  .term-bar { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--t-line); color: var(--t-dim); font: 12px var(--mono); align-items: center; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--t-line); }
+  .term pre { margin: 0; padding: 12px 14px 14px; font: 13px/1.6 var(--mono); white-space: pre; }
+  .t-dim { color: var(--t-dim); }
+  .t-plasma { color: var(--t-plasma); }
+  .t-green { color: var(--t-green); }
+  .t-yellow { color: var(--t-yellow); }
+  .t-cyan { color: var(--t-cyan); }
+  .t-red { color: var(--t-red); }
+  .t-b { font-weight: 700; color: var(--t-ink); }
+  .t-cmd { color: var(--t-yellow); font-weight: 700; }
+  .t-gap { color: var(--t-dim); font-style: italic; }
+
+  /* Same, today and after */
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; background: var(--surface); border: 1px solid var(--line); }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font: 600 12px var(--mono); color: var(--muted); background: var(--sunk); }
+  tr:last-child td { border-bottom: 0; }
+  td.same { color: var(--muted); }
+  td.new { color: var(--ink); }
+  td.new b { color: var(--plasma); }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <header>
+    <span class="eyebrow">PRD 301 · before / after</span>
+    <h1>What is next, after the build</h1>
+    <p class="lede">Today <code>/omni:yolo</code> ends on a report written for someone who knows the loop, then
+      "A person merges the feature PR". After, the end of the reply shows where the PRD's files are now, where the
+      PRD is in the loop, and short steps to follow. There is one set for each way the run can end: green, red or held.
+      <code>/omni:yolo-fix</code> ends the same way.</p>
+  </header>
+
+  <section aria-labelledby="green">
+    <h2 id="green">Green: the gate passed and the feature PR is ready</h2>
+    <p>The report on top stays as it is. Everything under it is new.</p>
+    <div class="pair wide">
+      <div class="side">
+        <span class="tag today">today</span>
+        <div class="term" aria-label="The end of a green yolo, today">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>/omni:yolo 301</span></div>
+<pre><span class="t-dim">Feature PR  </span> #302 <span class="t-green">ready</span>
+<span class="t-dim">Slices      </span> 2 / 2 merged
+<span class="t-dim">Checks      </span> <span class="t-green">✓</span> pnpm test  <span class="t-green">✓</span> check all  <span class="t-green">✓</span> status 301
+<span class="t-dim">Outbox      </span> nothing open
+
+A person merges the feature PR into main.
+
+<span class="t-gap">Is it shipped? Where did the files go?
+What comes after the merge? Nothing here says.</span></pre>
+        </div>
+      </div>
+      <div class="side">
+        <span class="tag after">after</span>
+        <div class="term" aria-label="The end of a green yolo, after">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>/omni:yolo 301</span></div>
+<pre><span class="t-dim">Feature PR  </span> #302 <span class="t-green">ready</span>
+<span class="t-dim">Slices      </span> 2 / 2 merged
+<span class="t-dim">Checks      </span> <span class="t-green">✓</span> pnpm test  <span class="t-green">✓</span> check all  <span class="t-green">✓</span> status 301
+<span class="t-dim">Outbox      </span> nothing open
+
+<span class="t-b">PRD 301's folder</span><span class="t-dim">: on the feature PR now, on main once it merges</span>
+
+  <span class="t-cyan">.omni-loop/delivery/shipped/0301-yolo-what-is-next/</span>
+  ├── spec.md            <span class="t-dim">what changes, and why</span>
+  ├── plan.md            <span class="t-dim">how it is built, slice by slice</span>
+  ├── before-after.html  <span class="t-dim">today beside after</span>
+  ├── release.md         <span class="t-dim">what ships, in plain words</span>
+  └── outbox/            <span class="t-dim">every decision the agents took, and how each was settled</span>
+
+<span class="t-b">Where it is</span>
+
+  idea ──▶ PRD ──▶ inbox ──▶ <span class="t-yellow">outbox</span> ──▶ <span class="t-plasma">shipped</span> ──▶ retro
+                               <span class="t-yellow">▲</span>           <span class="t-plasma">▲</span>
+                               <span class="t-yellow">│</span>           <span class="t-plasma">└─ merging the feature PR moves it here</span>
+                               <span class="t-yellow">└─ you are here</span>
+
+  <span class="t-dim">idea   </span>  talked through, nothing written
+  <span class="t-dim">PRD    </span>  spec, plan and before/after written, in the phase-0 PR
+  <span class="t-dim">inbox  </span>  phase-0 PR merged: approved, ready to build
+  <span class="t-yellow">outbox </span>  being built: what the agents decided alone waits for you
+  <span class="t-plasma">shipped</span>  feature PR merged: the change is on main
+  <span class="t-dim">retro  </span>  a retro PR tells how the delivery went
+
+<span class="t-b">What is next?</span>
+
+1. Review the change: <span class="t-cyan">https://github.com/vertuoza/vertuo-omni-loop/pull/302</span>
+   <span class="t-dim">(the diff, and the outbox comment listing every decision the agents took)</span>
+2. Merge that PR. → PRD 301 is shipped: the change is on main.
+3. If the omni-loop app is installed, it then opens a retro PR (how the delivery went)
+   and a knowledge PR (the decisions, written back): review and merge each.
+
+<span class="t-cmd">Nothing to run: merging #302 is yours.</span></pre>
+        </div>
+        <p class="note">When the ready PR's CI ended stuck, the line in brackets names the red check instead, so
+          nobody merges a red PR.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="red">
+    <h2 id="red">Red: every slice merged, questions wait for a person</h2>
+    <p>The folder has not shipped, so it is still in the inbox, and its outbox is a folder of its own. The six
+      stages read as above: you are at outbox.</p>
+    <div class="pair wide">
+      <div class="side">
+        <span class="tag today">today</span>
+        <div class="term" aria-label="The end of a red yolo, today">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>/omni:yolo 301</span></div>
+<pre><span class="t-dim">Feature PR  </span> #302 <span class="t-yellow">draft, gate red</span>
+<span class="t-dim">Slices      </span> 2 / 2 merged
+<span class="t-dim">Checks      </span> <span class="t-green">✓</span> pnpm test  <span class="t-green">✓</span> check all  <span class="t-red">✗</span> status 301
+<span class="t-dim">Outbox      </span> s1-02  high  .omni-loop/delivery/outbox/
+             0301-yolo-what-is-next/s1-02-held-command.md
+
+the outbox is open: a person answers on the feature PR, as
+the posted comment explains, then runs /omni:yolo-fix 301.
+A person merges the feature PR into main.
+
+<span class="t-gap">Which comment? Answer how? Merge now, or later?</span></pre>
+        </div>
+      </div>
+      <div class="side">
+        <span class="tag after">after</span>
+        <div class="term" aria-label="The end of a red yolo, after">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>/omni:yolo 301</span></div>
+<pre><span class="t-dim">… the report, as today …</span>
+
+<span class="t-b">PRD 301's folder</span><span class="t-dim">: on the feature PR now, on main once it merges</span>
+
+  <span class="t-cyan">.omni-loop/delivery/shipped/0301-yolo-what-is-next/</span>
+  ├── spec.md            <span class="t-dim">what changes, and why</span>
+  ├── plan.md            <span class="t-dim">how it is built, slice by slice</span>
+  └── before-after.html  <span class="t-dim">today beside after</span>
+
+  <span class="t-cyan">.omni-loop/delivery/shipped/0301-yolo-what-is-next/outbox/</span>
+  ├── s1-02-held-command.md  <span class="t-dim">open: a question waiting for you</span>
+  └── settled.md             <span class="t-dim">the decisions already settled</span>
+
+<span class="t-b">Where it is</span>  <span class="t-dim">… the six stages, you are here: outbox …</span>
+
+<span class="t-b">What is next?</span>
+
+1. Read the questions: <span class="t-cyan">https://github.com/vertuoza/vertuo-omni-loop/pull/302#issuecomment-…</span>
+2. Answer each one in a comment on that PR, as the questions explain: <span class="t-b">2: A</span>,
+   <span class="t-b">2: B because …</span>, or <span class="t-b">go with recommendation</span> for all of them. Nothing changes until step 3.
+3. Once you've answered, type <span class="t-b">/clear</span> (or open a new terminal), then run:
+
+<span class="t-cmd">/omni:yolo-fix 301</span></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="held">
+    <h2 id="held">Held: something stops the build</h2>
+    <p>A slice is stuck, stopped, blocked or taken by someone else, or a check stayed red. The folder and the
+      stages read as in the red case. What changes is the last block.</p>
+    <div class="pair wide">
+      <div class="side">
+        <span class="tag today">today</span>
+        <div class="term" aria-label="The end of a held yolo, today">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>/omni:yolo 301</span></div>
+<pre><span class="t-dim">Feature PR  </span> #302 <span class="t-yellow">draft, held</span>
+<span class="t-dim">Slices      </span> 1 / 2 merged
+             s2 stuck: #305, check all red after 3 attempts
+<span class="t-dim">Checks      </span> <span class="t-green">✓</span> pnpm test  <span class="t-red">✗</span> check all
+
+A person merges the feature PR into main.
+
+<span class="t-gap">Merge a held build? Run what, once it's fixed?</span></pre>
+        </div>
+      </div>
+      <div class="side">
+        <span class="tag after">after</span>
+        <div class="term" aria-label="The end of a held yolo, after">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>/omni:yolo 301</span></div>
+<pre><span class="t-dim">… the report, the folders, where it is …</span>
+
+<span class="t-b">What is next?</span>
+
+1. See what holds it: <span class="t-cyan">https://github.com/vertuoza/vertuo-omni-loop/pull/305</span>
+2. Fix the red check on that sub-PR: its status comment says what is stuck.
+3. Once that's done, type <span class="t-b">/clear</span> (or open a new terminal), then run:
+
+<span class="t-cmd">/omni:yolo 301</span></pre>
+        </div>
+        <p class="note">Step 2 is the "human steps" line of the run's final status comment, in words a person can act
+          on.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="fix">
+    <h2 id="fix">The end of <code>/omni:yolo-fix</code></h2>
+    <p>Yolo-fix already finishes, gates and ships as <code>/omni:yolo</code> does. Now it hands off as
+      <code>/omni:yolo</code> does too: the same three blocks. Only the held ending's command differs, because a
+      held rework resumes with yolo-fix.</p>
+    <div class="pair">
+      <div class="side">
+        <span class="tag today">today</span>
+        <div class="term" aria-label="The last line of yolo-fix, today">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>/omni:yolo-fix 301</span></div>
+<pre><span class="t-dim">… settled, reworks, checks, gate …</span>
+
+A person merges #302 into main.</pre>
+        </div>
+      </div>
+      <div class="side">
+        <span class="tag after">after</span>
+        <div class="term" aria-label="The last line of yolo-fix, after, by ending">
+          <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span>/omni:yolo-fix 301</span></div>
+<pre><span class="t-dim">… the report, the folder, where it is, What is next? …</span>
+
+<span class="t-dim">green </span> <span class="t-cmd">Nothing to run: merging #302 is yours.</span>
+<span class="t-dim">red   </span> <span class="t-cmd">/omni:yolo-fix 301</span>
+<span class="t-dim">held  </span> <span class="t-cmd">/omni:yolo-fix 301</span></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="same">
+    <h2 id="same">What changes, what stays</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Part</th><th>Today</th><th>After</th></tr></thead>
+        <tbody>
+          <tr><td>The report (feature PR, slices, checks, open items)</td><td class="same">shown</td><td class="same">shown, unchanged</td></tr>
+          <tr><td>The PRD's folder</td><td class="same">not shown</td><td class="new"><b>a tree</b> from <code>omni prd</code>: shipped with its outbox inside, or inbox beside its outbox folder</td></tr>
+          <tr><td>Where the PRD is in the loop</td><td class="same">not shown</td><td class="new"><b>the brainstorm's six stages</b>, "you are here" on outbox, the merge on shipped</td></tr>
+          <tr><td>What to do next</td><td class="same">"A person merges the feature PR", whatever the ending</td><td class="new"><b>three steps per ending</b>: merge, answer, or clear what holds it</td></tr>
+          <tr><td>The last line</td><td class="same">the merge sentence</td><td class="new"><b>the ending's own</b>: nothing to run, <code>/omni:yolo-fix &lt;n&gt;</code> or <code>/omni:yolo &lt;n&gt;</code></td></tr>
+          <tr><td>A run that stops before it picks up the feature PR</td><td class="same">one line</td><td class="same">one line, unchanged</td></tr>
+          <tr><td>What the skills build, check, ship, label, comment or mark ready</td><td class="same">as today</td><td class="same">unchanged: only the reply's ending moves</td></tr>
+          <tr><td>The brainstorm's and the plan's endings, every other skill</td><td class="same">as today</td><td class="same">unchanged</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+</body>
+</html>

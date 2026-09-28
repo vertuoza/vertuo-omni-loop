@@ -1,6 +1,6 @@
 // The one source of colour. The pixel palette and INK live in palette.mjs, where the sprites read
 // them; this module adds the arcade's own colours (its cabinet, its dim text and the Game Boy's
-// body), Ask's light and dark reading tokens, and the generator of tokens.css, the :root custom
+// body), Ask's Omni, light and dark reading tokens, and the generator of tokens.css, the :root custom
 // properties every stylesheet reads. Change a colour here, then run `pnpm --filter @omni/design
 // tokens`: tokens.test.mjs fails while the committed tokens.css differs from what this writes.
 import { INK } from './palette.mjs';
@@ -55,9 +55,30 @@ export function tokensCss() {
 
 // Ask's reading surface: the galaxy's hues turned into signals. Plasma marks the selected option,
 // yellow the Recommended badge, cyan links and focus, green what is answered, red errors only. The
-// light theme darkens the same hues on an off-white ground.
-/** Ask's semantic tokens, light and dark. */
+// light theme darkens the same hues on an off-white ground. Omni is HOME's own palette on the same
+// surface (PRD 284): the void and the cabinet's navy, with comic yellow as the signal.
+/** Ask's semantic tokens: Omni, light and dark. */
 export const ASK = Object.freeze({
+  omni: Object.freeze({
+    ground: INK.void,
+    surface: ARCADE.cab,
+    sunk: INK.deep,
+    line: INK.navyDark,
+    ink: INK.white,
+    muted: ARCADE.dim,
+    // The signal is comic yellow with the void's text on it, as HOME's PRESS START.
+    plasma: INK.yellow,
+    // Omni's own: a deep purple between the cabinet and the ad's purple, where the hint stays readable.
+    plasmaSoft: '#2a2350',
+    onPlasma: INK.void,
+    // `yellow` holds magenta here: the Recommended badge must never read as a selection, and the
+    // signal is already yellow. The token keeps its name so no stylesheet has to change.
+    yellow: INK.magenta,
+    onYellow: INK.void,
+    cyan: INK.cyan,
+    green: INK.green,
+    red: '#ff6b86', // the dark theme's red
+  }),
   light: Object.freeze({
     ground: '#f5f4fc',
     surface: '#ffffff',

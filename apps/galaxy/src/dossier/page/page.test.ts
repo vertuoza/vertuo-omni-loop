@@ -295,10 +295,13 @@ describe('the layout', () => {
   it('is the ask pages\' reading surface: their tokens, their theme script first, their theme switch', () => {
     const page = renderToStaticMarkup(createElement(Layout, null, createElement('p', null, 'inside')));
     expect(page).toContain('--ask-ground');
-    expect(page).toContain('@media (prefers-color-scheme: dark)');
+    expect(page).toContain('.ask:not([data-ask-theme]) { color-scheme: dark;');
+    expect(page).not.toContain('prefers-color-scheme');
     expect(page).toMatch(/<div class="ask"><script[^>]*>\(function\(\)\{/);
     expect(page).toContain('aria-label="Theme"');
-    for (const choice of ['System', 'Light', 'Dark']) expect(page).toContain(`>${choice}</button>`);
+    const choices = page.slice(page.indexOf('aria-label="Theme"'), page.indexOf('</div>', page.indexOf('aria-label="Theme"')));
+    expect([...choices.matchAll(/>([^<]*)<\/button>/g)].map((m) => m[1])).toEqual(['Omni', 'Light', 'Dark']);
+    expect(page).not.toContain('>System</button>');
     expect(page).toContain('<main class="ask-main"><p>inside</p></main>');
   });
 
@@ -311,7 +314,7 @@ describe('the layout', () => {
 describe('the stylesheet', () => {
   const css = readFileSync(new URL('./dossier.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 
-  it('names no colour of its own: every colour is a token, so light, dark and system follow the switch', () => {
+  it('names no colour of its own: every colour is a token, so Omni, light and dark follow the switch', () => {
     expect(css).not.toMatch(/#[0-9a-f]{3,8}\b/i);
     expect(css).not.toMatch(/\b(?:rgba?|hsla?|oklch|color-mix)\(/i);
     const painted = /(?:^|[\s;{])((?:color|background(?:-color)?|border(?:-(?:top|right|bottom|left))?(?:-color)?|outline)\s*:\s*([^;]+));/g;

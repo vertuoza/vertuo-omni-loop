@@ -109,7 +109,7 @@ The PRD's number is its issue's number, and it names the inbox folder, so the is
 
 ## Handoff
 
-- Next command: `/omni:yolo <n>`
+- Next command: `/omni:yolo <n>`, once the phase-0 PR is merged
 - Branch: `<feature branch>`
 - Scenarios: `<file>`, … (only when `acceptance.enabled`; "none — no observable behaviour" when there are none)
 - Before/after: `<folder>/before-after.html`
@@ -282,14 +282,64 @@ yet. That is what a person can review cheaply, so this is where a brainstorm end
 ## 10. Hand off
 
 Report the PRD issue, the feature PR, the phase-0 PR, the waves `omni plan check` printed, and every
-check that ran or did not. Then print, as the very last line of your reply and alone on it:
+check that ran or did not. Then always end the reply with three blocks, in this order, written for
+someone who knows nothing about the loop and just does what it says, one step at a time. Fill every
+placeholder with a real path, number or link.
+
+**1. The PRD's folder,** in a code block so the tree lines up: its path, `<folder>/` (the
+repository path step 2 named, which is the `dir` that `omni prd <n>` printed), then each file that
+command lists, with a few words each. When `acceptance.enabled`, list each scenario file, by its
+path, under the tree.
 
 ```text
+PRD <n>'s folder: on the phase-0 PR now, on <repo.defaultBranch> once it merges
+
+  <folder>/
+  ├── spec.md            what changes, and why
+  ├── plan.md            how it gets built, slice by slice
+  └── before-after.html  today beside after
+```
+
+**2. Where it is,** in a code block: the six stages of the loop on one line, a marker under PRD and
+one under inbox, then one plain line per stage.
+
+```text
+Where it is
+
+  idea ──▶ PRD ──▶ inbox ──▶ outbox ──▶ shipped ──▶ retro
+            ▲        ▲
+            │        └─ merging the phase-0 PR moves it here
+            └─ you are here
+
+  idea     talked through, nothing written
+  PRD      spec, plan and before/after written, in the phase-0 PR
+  inbox    phase-0 PR merged: approved, ready to build
+  outbox   being built: what the agents decided alone waits for you
+  shipped  feature PR merged: the change is on <repo.defaultBranch>
+  retro    a retro PR tells how the delivery went
+```
+
+The markers never move: "you are here" is always under PRD, because a brainstorm always ends with
+its phase-0 PR open, and "merging the phase-0 PR moves it here" is always under inbox.
+
+**3. What is next?** Three short numbered steps, then the command alone on the reply's last line.
+Step 1 links the phase-0 PR. Its second line, in brackets, appears only when `/omni:dossier-push`
+printed a dossier link; otherwise step 1 is the phase-0 PR alone.
+
+```markdown
+**What is next?**
+
+1. Review the PRD: https://github.com/<owner>/<repo>/pull/<phase-0 PR>
+   (spec, plan and before/after side by side: <dossier link>)
+2. Merge that PR. → PRD <n> moves into the inbox.
+3. Once it's merged, type /clear (or open a new terminal), then run:
+
 /omni:yolo <n>
 ```
 
-Never a planning command: planning already ran in step 8. Everything the next session needs is in
-the repository and on GitHub, so clearing the session loses nothing.
+The command is the very last line of the reply, alone on it, and never a planning command: planning
+already ran in step 8. Everything the next session needs is in the repository and on GitHub, so
+clearing the session loses nothing.
 
 ## Scaling
 
