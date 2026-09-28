@@ -481,10 +481,10 @@ describe('the stylesheet', () => {
     for (const rule of rules.filter((r) => r.media !== PINNED)) expect(rule.body, rule.selectors.join(', ')).not.toMatch(/sticky/);
   });
 
-  it('draws the header box on the surface with a strong outline (PRD 476)', () => {
+  it('draws the header on the surface with a strong bottom rule (PRD 476, edge to edge since PRD 498)', () => {
     const head = of('.dossier-head');
     expect(head).toMatch(/background:\s*var\(--ask-surface\)/);
-    expect(head).toMatch(/border:\s*[^;]*var\(--ask-line-strong\)/);
+    expect(head).toMatch(/border-bottom:\s*[^;]*var\(--ask-line-strong\)/);
   });
 
   it('lands a round and a markdown heading just under the pinned box (PRD 476)', () => {
