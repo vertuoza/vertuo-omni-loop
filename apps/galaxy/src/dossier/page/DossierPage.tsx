@@ -17,7 +17,8 @@ import { dossierPath, TAB_LABELS, type DossierView } from './view';
 // per artifact and the Questions tab. Before/after frames the version shown on its sandboxed route;
 // Spec and Plan show it rendered from markdown, raw HTML off, the front matter as a line above. Each
 // artifact tab with a version has its version picker; one with none says so. Questions lists the rounds
-// that shaped it, and its label counts those answered out of those asked. Rendered on the server: the
+// that shaped it, and its label counts the questions answered out of those asked, with a yellow
+// `N to answer` badge while any is open (PRD 498). Rendered on the server: the
 // tabs and the picker are links and a GET form, so it all works before any script runs.
 // PRD 426 put the stage on top: "PRD #n ↗" linking to its issue, the track, the one button and the
 // links (StageHeader.tsx). PRD 476 gathers the header into one box in three rows: the title with its
@@ -129,6 +130,7 @@ export function DossierPage({ view, markdown, supabase, live }: Props) {
             <a key={t.kind} className={t.empty ? 'dossier-tab dossier-tab-empty' : 'dossier-tab'} href={t.href} aria-current={t.current ? 'page' : undefined}>
               {t.label}
               {t.badge !== null && <small>{t.badge}</small>}
+              {t.alert !== null && <span className="dossier-left">{t.alert}</span>}
             </a>
           ))}
         </nav>

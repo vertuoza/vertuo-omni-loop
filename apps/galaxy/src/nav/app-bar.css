@@ -1,6 +1,7 @@
 /* The app's top bar (PRD 438): the page's title on the left, the theme switch and Game mode, then
    you, on the right. Every colour is a token of src/ask/theme-tokens.ts, so Omni, light and dark
-   follow the theme switch. Its end wraps rather than push the page sideways.
+   follow the theme switch. It stands apart from the page on the surface, over a 2 px strong rule
+   (PRD 498, T1). Its end wraps rather than push the page sideways.
    Below 900 px (src/nav/drawer.ts) the sidebar is a drawer: the first row holds ☰, the crest, the
    title and you; the theme switch and Game mode wrap to a second row. */
 
@@ -12,7 +13,8 @@
   flex-wrap: wrap;
   min-width: 0;
   padding: 10px max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
-  border-bottom: 1px solid var(--ask-line);
+  background: var(--ask-surface);
+  border-bottom: 2px solid var(--ask-line-strong);
 }
 .app-bar-title {
   margin: 0;

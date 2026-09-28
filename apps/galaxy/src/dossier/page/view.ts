@@ -9,8 +9,10 @@
 // The Questions tab (PRD 216, step 3) lists the rounds that shaped the PRD, in the order they were
 // asked: each question with the options it shows (PRD 384: an answered one only what was chosen, an
 // open one every option, a moved one none), the answer, who answered and after how long, its category
-// (PRD 144), and whether the brainstorm or the delivery asked it. Its label counts the rounds answered
-// out of those asked. Each round links to its own page with the dossier it came from
+// (PRD 144), and whether the brainstorm or the delivery asked it. PRD 498 counts questions, not rounds:
+// its label reads the questions answered out of those asked, and how many are left to answer (a moved
+// round's count only as asked); each round has a line (its state, its headers, its count, when it was
+// asked) for the folded list. Each round links to its own page with the dossier it came from
 // (`/ask/q/<round>?from=<dossier id>`), and `wayBack` says where that page goes once it is answered:
 // back to this Questions tab, at the next round still open. Each round carries its id as its element's
 // id, so that way back lands on it. A quick round (`isQuick`: open, one single-choice question with no
@@ -135,8 +137,9 @@ export type DossierRead = {
 };
 
 /** A tab and what its label adds: an artifact's latest version (`v3`), or the questions answered out
- * of asked (`11/12 answered`); null when there is nothing yet. */
-export type TabEntry = { kind: DossierTab; label: string; badge: string | null; href: string; current: boolean;
+ * of asked (`7/10`, or `10/10 answered` once none is left); null when there is nothing yet. `alert` is
+ * what is left to answer (`3 to answer`), null when nothing is. */
+export type TabEntry = { kind: DossierTab; label: string; badge: string | null; alert: string | null; href: string; current: boolean;
   /** Nothing to show yet: the tab stays in the bar, dimmed. */
   empty: boolean };
 
@@ -230,6 +233,14 @@ export type RoundEntry = {
   /** The round's id, also its element's id on the list, so `#<round id>` lands on it. */
   id: string;
   rule: RoundRule;
+  /** Open (never folded), answered or moved to the terminal (both folded) (PRD 498). */
+  state: QuestionShape;
+  /** Its question headers in lower case, joined: `shape, checks`; empty when none has one. */
+  headers: string;
+  /** `3/3` answered, `2 to answer` open, or `moved to the terminal`. */
+  count: string;
+  /** When it was asked, for its line: `27 Sep, 09:15`. */
+  when: string;
   /** The question on its own page, where any member may change its category, carrying the dossier it came from. */
   href: string;
   questions: RoundQuestion[];
@@ -246,8 +257,15 @@ export type RoundEntry = {
   quick: QuickRound | null;
 };
 
-/** The rounds, in the order they were asked (null when they could not be read), and how many were asked and answered. */
-export type QuestionsView = { rounds: RoundEntry[] | null; asked: number; answered: number };
+/** The rounds, in the order they were asked (null when they could not be read), and how many questions
+ * were asked, answered, and are still open (PRD 498): a moved round's questions count only as asked. */
+export type QuestionsView = { rounds: RoundEntry[] | null; asked: number; answered: number; open: number };
+
+/** What the tab and the strip read (PRD 498): `4/7` and `3 to answer`, or `4/4 answered` and nothing left. */
+export function questionsCount({ asked, answered, open }: Pick<QuestionsView, 'asked' | 'answered' | 'open'>): { badge: string | null; alert: string | null } {
+  if (!asked) return { badge: null, alert: null };
+  return open ? { badge: `${answered}/${asked}`, alert: `${open} to answer` } : { badge: `${answered}/${asked} answered`, alert: null };
+}
 
 /** Whether `label` is part of `answer`: the label itself, or one of several joined with ", ". */
 function chose(label: string, answer: string | null, multiSelect: boolean) {
@@ -340,23 +358,47 @@ function quickOf(row: DossierRoundRow, rows: readonly DossierRoundRow[], members
 export const roundPath = (roundId: string, dossierId: string) =>
   `/ask/q/${encodeURIComponent(roundId)}?from=${encodeURIComponent(dossierId)}`;
 
+/** `27 Sep, 09:15`, in UTC. */
+const whenOf = (iso: string) => {
+  const at = new Date(iso);
+  return `${shortDay(iso)}, ${pad(at.getUTCHours())}:${pad(at.getUTCMinutes())}`;
+};
+
+/** How many questions a round holds: those it shows, and never fewer than one, so no round goes uncounted. */
+const sizeOf = (questions: readonly RoundQuestion[]) => Math.max(1, questions.length);
+
+function countOf(state: QuestionShape, size: number): string {
+  if (state === 'answered') return `${size}/${size}`;
+  return state === 'open' ? `${size} to answer` : 'moved to the terminal';
+}
+
 export function questionsView(
   rows: DossierRoundRow[] | null, members: Member[], dossierId: string, answerable: readonly string[] = [], now: number = Date.now(),
 ): QuestionsView {
-  if (rows === null) return { rounds: null, asked: 0, answered: 0 };
-  const rounds = [...rows].sort(askedOrder).map((row): RoundEntry => ({
-    id: row.round_id,
-    rule: row.rule,
-    href: roundPath(row.round_id, dossierId),
-    questions: roundQuestions(row),
-    outcome: outcomeOf(row, members),
-    asked: `asked by ${nameOf(row.asked_by, members)} · ${stamp(row.created_at)}`,
-    category: isCategory(row.category) ? CATEGORY_LABELS[row.category] : 'unsorted',
-    categoryValue: isCategory(row.category) ? row.category : null,
-    context: [row.repo, row.branch, row.prd ? `PRD #${row.prd}` : null, row.skill].filter((part): part is string => typeof part === 'string' && part !== ''),
-    quick: quickOf(row, rows, members, answerable, now),
-  }));
-  return { rounds, asked: rows.length, answered: rows.filter((row) => row.status === 'answered').length };
+  if (rows === null) return { rounds: null, asked: 0, answered: 0, open: 0 };
+  const rounds = [...rows].sort(askedOrder).map((row): RoundEntry => {
+    const questions = roundQuestions(row);
+    const state = shapeOf(row);
+    return {
+      id: row.round_id,
+      rule: row.rule,
+      state,
+      headers: questions.map((q) => q.header.trim().toLowerCase()).filter(Boolean).join(', '),
+      count: countOf(state, sizeOf(questions)),
+      when: whenOf(row.created_at),
+      href: roundPath(row.round_id, dossierId),
+      questions,
+      outcome: outcomeOf(row, members),
+      asked: `asked by ${nameOf(row.asked_by, members)} · ${stamp(row.created_at)}`,
+      category: isCategory(row.category) ? CATEGORY_LABELS[row.category] : 'unsorted',
+      categoryValue: isCategory(row.category) ? row.category : null,
+      context: [row.repo, row.branch, row.prd ? `PRD #${row.prd}` : null, row.skill].filter((part): part is string => typeof part === 'string' && part !== ''),
+      quick: quickOf(row, rows, members, answerable, now),
+    };
+  });
+  const total = (state: QuestionShape | null) =>
+    rounds.filter((r) => state === null || r.state === state).reduce((sum, r) => sum + sizeOf(r.questions), 0);
+  return { rounds, asked: total(null), answered: total('answered'), open: total('open') };
 }
 
 export function dossierView(
@@ -370,11 +412,12 @@ export function dossierView(
   const outbox = outboxView(dossier.prd === null ? undefined : github);
   const retro = retroView(dossier.prd === null ? undefined : github);
   const retroPr = dossier.prd !== null && github && github.retro !== UNREAD ? github.retro : null;
+  const counted = questionsCount(questions);
   const badgeOf = (kind: DossierTab) => {
     if (kind === 'retro') return retroPr ? (retroPr.state === 'open' ? 'open PR' : 'merged') : null;
     if (kind === 'outbox') return outbox.open.length ? `${outbox.open.length} open` : outbox.settled.length ? `${outbox.settled.length} settled` : null;
     if (kind !== 'questions') return ofKind(kind).length ? `v${ofKind(kind).length}` : null;
-    return questions.asked ? `${questions.answered}/${questions.asked} answered` : null;
+    return counted.badge;
   };
   const picked = pick.version !== null && pick.version <= mine.length ? pick.version : mine.length;
   const entries = mine.map((version, i): VersionEntry => {
@@ -404,6 +447,7 @@ export function dossierView(
       kind,
       label: TAB_LABELS[kind],
       badge: badgeOf(kind),
+      alert: kind === 'questions' ? counted.alert : null,
       href: hrefOf(dossier.id, kind, null, fallback),
       current: kind === tab,
       empty: (kind === 'outbox' && outbox.state !== 'items') || (kind === 'retro' && retro.state !== 'text'),
