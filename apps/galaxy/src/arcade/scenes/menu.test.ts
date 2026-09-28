@@ -137,6 +137,43 @@ describe('the menu', () => {
   );
 });
 
+describe('the menu of a solo player (PRD 400)', () => {
+  const solo: Player = { ...player, team: null };
+  const ids = (items: MenuItem[]) => items.map((m) => m.id);
+
+  it('shows MY HERO to anyone with a player row, and JOIN A FLEET to a solo player while fleets exist', () => {
+    const items = menuItems({ joined: true, solo: true, signedIn: true, fleets: true });
+    expect(ids(items)).toEqual(['map', 'chart', 'fleets', 'heroes', 'games', 'briefing', 'myhero', 'change', 'signout']);
+    expect(items.find((m) => m.id === 'change')).toEqual({ id: 'change', label: 'JOIN A FLEET', fresh: true });
+    expect(menuItems({ joined: true, signedIn: true, fleets: true }).find((m) => m.id === 'change')?.label).toBe('CHANGE FLEET');
+  });
+
+  it('shows neither fleet item with no fleets, and MY HERO still', () => {
+    for (const solo_ of [true, false]) {
+      const items = menuItems({ joined: true, solo: solo_, signedIn: true, fleets: false });
+      expect(ids(items)).toContain('myhero');
+      expect(ids(items)).not.toContain('change');
+      expect(items.map((m) => m.label)).not.toContain('JOIN A FLEET');
+    }
+  });
+
+  it('badges a solo player SOLO, never UNCREWED nor VISITOR', () => {
+    const items = menuItems({ joined: true, solo: true, signedIn: true, fleets: true });
+    const text = textOf(createElement(MenuOverlay, { view, items, index: 0, me: solo, onPick: () => {} }), WIDE).join(' ');
+    expect(text).toContain('P1 MAXIMILIAN · SOLO');
+    expect(text).not.toContain('UNCREWED');
+    expect(text).not.toContain('VISITOR');
+    expect(text).toContain('Pick a fleet: your future points follow you');
+  });
+
+  it('says there are no fleets yet beside FLEETS, rather than an empty lead', () => {
+    const items = menuItems({ joined: true, solo: true, signedIn: true, fleets: false });
+    const text = textOf(createElement(MenuOverlay, { view: { ...view, teams: [] }, items, index: 0, me: solo, onPick: () => {} }), WIDE);
+    expect(text[text.indexOf('FLEETS') + 1]).toBe('No fleets yet');
+    expect(text.join(' ')).not.toContain('UNCREWED');
+  });
+});
+
 describe('APP MODE on the menu', () => {
   const visitor = menuItems({ joined: false, signedIn: true, app: true });
   const playing = menuItems({ joined: true, signedIn: true, app: true });

@@ -90,6 +90,44 @@ describe('a member', () => {
   });
 });
 
+describe('the viewer\'s role (PRD 400)', () => {
+  it('says whether the member owns the workspace they play, read as themselves', async () => {
+    expect((await page(PEOPLE.ada)).data.owner).toBe(false);
+    const { data, reads } = await page(PEOPLE.ada, (world) => {
+      world.tables.workspace_members.find((m) => m.user_id === PEOPLE.ada.id && m.workspace_id === VERTUOZA)!.role = 'owner';
+    });
+    expect(data.owner).toBe(true);
+    expect(reads.filter((c) => c.table === 'workspace_members').map((c) => c.eq)).toContainEqual({ workspace_id: VERTUOZA, user_id: PEOPLE.ada.id });
+  });
+
+  it('owns only the workspace played: owning another one changes nothing', async () => {
+    const { data } = await page(PEOPLE.both, (world) => {
+      world.tables.workspace_members.find((m) => m.user_id === PEOPLE.both.id && m.workspace_id === VERTUOZA)!.role = 'owner';
+    });
+    expect(data.workspace).toBe(ACME);
+    expect(data.owner).toBe(false);
+  });
+
+  it('reads as a member when the role is out of reach, and shows the galaxy all the same', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { data } = await page(PEOPLE.ada, (world) => {
+      world.tables.workspace_members.find((m) => m.user_id === PEOPLE.ada.id)!.role = 'owner';
+      const members = world.tables.workspace_members;
+      // The role's read, and only it, fails: the membership read that picks the workspace comes first.
+      let reads = 0;
+      world.tables.workspace_members = new Proxy(members, {
+        get(target, prop) {
+          if (prop === 'filter' && ++reads > 1) throw new Error('fake: role out of reach');
+          return Reflect.get(target, prop);
+        },
+      });
+    });
+    expect(data.view).not.toBeNull();
+    expect(data.problem).toBeUndefined();
+    expect(data.owner).toBe(false);
+  });
+});
+
 describe('a member of two workspaces', () => {
   it('plays the one they joined first, and reads nothing of the other', async () => {
     const { data } = await page(PEOPLE.both);
