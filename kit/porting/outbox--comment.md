@@ -305,3 +305,36 @@ territory.
 `pnpm vitest run kit/lib/outbox/comment.test.mjs kit/lib/outbox/banter.test.mjs
 kit/test/no-literals.test.mjs` — 152/152 pass (134 in `comment.test.mjs`, 16 in
 `banter.test.mjs`, 2 in `no-literals.test.mjs`).
+
+## PRD 251, slice s10: the Omni page line
+
+Not a re-port: upstream's `scripts/outbox-comment.mjs` has no Omni page. A kit-local widening of
+the pull request comment, recorded here because `comment.mjs` is this record's territory. Carried
+over unchanged from the first build's slice s4 (tag `archive/outbox-answers-v1`, sub-PR #258).
+
+- New export `omniPageLink(prd, ctx)`: `<ask.url>/prd/at/<repo.slug>/<prd>`, a trailing slash of
+  `ask.url` dropped, or `null` unless `answers.enabled` is on, `ask.url` is set, `repo.slug` is set
+  and `prd` is a positive integer. It names only the address the repository configured; the kit
+  still never names the page behind it.
+- `formatOutboxPrComment({ …, ctx })` → `formatOutboxPrComment({ …, prd = null, ctx })`: when
+  `omniPageLink` gives an address, one line right under the header (whichever it is, "No open
+  items." included), then an empty line: `Answer here, or on the Omni page: <address>`. Without
+  `prd`, no line, so every existing call renders byte for byte as before.
+- `upsertOutboxPrComment` passes its `prd` through. The omni-loop App's evaluation calls it, so the
+  comment the App posts carries the line on the same conditions.
+- Unchanged: every other section, `formatOutboxComment` (the PRD issue's comment), the markers.
+
+### Test (`comment.test.mjs`)
+
+- **Added** `the Omni page line (PRD 251, "The Outbox tab")`: the line right under the header with
+  the switch on and `ask.url` set, exactly once; under "No open items." too; a trailing slash
+  dropped; absent with the switch off, without `ask.url`, without a slug, and without the PRD; and
+  written by `upsertOutboxPrComment`. RED: four of the seven failed before `comment.mjs` wrote the
+  line; the three absences passed from the start, pinning what stays the same.
+- No existing assertion changed or deleted.
+
+### Gate (this update)
+
+`pnpm vitest run kit/lib/outbox/comment.test.mjs kit/test/no-literals.test.mjs
+kit/test/dist.test.mjs kit/test/no-game-words.test.mjs` — 154/154 pass, with the bundle rebuilt by
+`pnpm kit:build`.
