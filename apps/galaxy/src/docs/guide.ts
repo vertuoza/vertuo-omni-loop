@@ -1,11 +1,13 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { fenceProblem } from './badges';
 import { pageUrl } from './paths';
 
 // The guide's markdown, read from the folder (PRD 346): docs/guide/*.md, one file per page, and
 // meta.json, the order the sidebar shows them in. The docs guard (guide.test.ts) runs guideProblems on
 // it: a page with no title, a Next link to no page, a /omni:<skill> the plugin does not have, or an
-// `omni <command>` the CLI does not have, is a problem. Nothing here renders: fumadocs does
+// `omni <command>` the CLI does not have, or a code block that does not say where it goes (PRD 373:
+// its fence words, badges.ts), is a problem. Nothing here renders: fumadocs does
 // (source.ts), from the same files.
 
 /** One page of the guide, as its file says. */
@@ -18,6 +20,8 @@ export interface GuidePage {
   next: string | null;
   /** The markdown after the frontmatter. */
   body: string;
+  /** The line of the file the body starts on: 1 when the page has no frontmatter. */
+  bodyLine: number;
 }
 
 /** The guide: its pages as the order file lists them, then any page it leaves out. */
@@ -35,7 +39,33 @@ export function parsePage(slug: string, markdown: string): GuidePage {
   const front = FRONTMATTER.exec(markdown);
   const title = front?.[1].match(/^title:\s*(.+?)\s*$/m)?.[1].replace(/^(['"])(.*)\1$/, '$2') ?? null;
   const body = front ? markdown.slice(front[0].length) : markdown;
-  return { slug, title: title || null, next: NEXT.exec(body)?.[1] ?? null, body };
+  const bodyLine = (front?.[0].match(/\n/g)?.length ?? 0) + 1;
+  return { slug, title: title || null, next: NEXT.exec(body)?.[1] ?? null, body, bodyLine };
+}
+
+/** A fenced code block's opening fence: the line it is on (1 = the markdown's first) and the words
+ * after its language. A fence may be indented, inside a list, and hold shorter fences. */
+export interface Fence {
+  line: number;
+  meta: string;
+}
+
+/** Every fenced code block a page's markdown opens. */
+export function fences(markdown: string): Fence[] {
+  const found: Fence[] = [];
+  let open: { marker: string; length: number } | null = null;
+  markdown.split('\n').forEach((text, i) => {
+    const fence = /^\s*(`{3,}|~{3,})(.*)$/.exec(text);
+    if (!fence) return;
+    const [, marker, info] = fence;
+    if (open) {
+      if (marker[0] === open.marker && marker.length >= open.length && !info.trim()) open = null;
+      return;
+    }
+    open = { marker: marker[0], length: marker.length };
+    found.push({ line: i + 1, meta: info.trim().split(/\s+/).slice(1).join(' ') });
+  });
+  return found;
 }
 
 /** The guide in `dir`: its order file and every page. */
@@ -81,6 +111,10 @@ export function guideProblems(dir: string, kit: Kit): string[] {
     else if (!urls.has(page.next) || page.next === pageUrl(page.slug)) problems.push(`${where}: Next → ${page.next} is no other page of the guide`);
     for (const skill of skillsNamed(page.body)) {
       if (!existsSync(join(kit.skills, skill))) problems.push(`${where}: /omni:${skill} is no skill of the plugin`);
+    }
+    for (const fence of fences(page.body)) {
+      const problem = fenceProblem(fence.meta);
+      if (problem) problems.push(`${where}:${page.bodyLine + fence.line - 1}: the code block ${problem}`);
     }
     for (const command of commandsNamed(page.body)) {
       if (!existsSync(join(kit.commands, `${command}.mjs`))) problems.push(`${where}: omni ${command} is no command of the CLI`);

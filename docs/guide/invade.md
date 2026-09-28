@@ -14,7 +14,7 @@ Do this once, after the kit is merged into your default branch ([Install](/docs/
 
 Start Claude Code at the root of your repository, on your default branch and up to date, and type:
 
-```text
+```text agent
 /omni:invade
 ```
 
@@ -89,20 +89,20 @@ It never merges it. **You do.**
 3. Keep or drop the config commit.
 4. When the pull request is green, merge it on GitHub, then bring your checkout up to date:
 
-```bash
+```bash terminal agent
 git pull
 ```
 
 From now on, every agent that builds in your repository reads what you merged. To read one form as
 the agents see it:
 
-```bash
+```bash terminal agent
 omni kb show testing
 ```
 
 and to read one entry of the registers, by an id from your own registers:
 
-```bash
+```bash terminal agent
 omni knowledge BR-QUOTE-1
 ```
 

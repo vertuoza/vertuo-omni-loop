@@ -111,6 +111,41 @@
   overflow-wrap: normal;
 }
 .docs-md pre code { padding: 0; background: none; font-size: inherit; }
+
+/* ── A code block's badges: where it goes (PRD 373) ──
+   The compile step (badges.ts) sets them above the code, in a row at the block's top right: the
+   arcade chip, the pixel face at 8 px in the kind's colour, a 2 px border and a hard 2 px shadow in
+   the same colour, on the block's own sunk background. They sit in the flow, above the code, so they
+   never cover it, even wrapped on a phone; and they are left out when the code is selected. */
+.docs-code {
+  margin: 0 0 1em;
+  min-width: 0;
+  background: var(--ask-sunk);
+  border: 1px solid var(--ask-line);
+  border-radius: 10px;
+}
+.docs-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 10px 10px 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.docs-badge {
+  font: 8px/1 var(--ask-px);
+  padding: 4px 6px;
+  background: var(--ask-sunk);
+  border: 2px solid currentColor;
+  box-shadow: 2px 2px 0 currentColor;
+  overflow-wrap: anywhere;
+}
+.docs-badge[data-kind='terminal'] { color: var(--ask-cyan); }
+.docs-badge[data-kind='agent'] { color: var(--ask-plasma); }
+.docs-badge[data-kind='file'] { color: var(--ask-muted); }
+.docs-badge[data-kind='github'] { color: var(--ask-green); }
+.docs-md .docs-code > pre { margin: 0; padding-top: 10px; background: none; border: 0; border-radius: 0; }
 .docs-md table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 15px; overflow-wrap: normal; }
 .docs-md th,
 .docs-md td { padding: 6px 10px; border: 1px solid var(--ask-line); text-align: left; vertical-align: top; }
