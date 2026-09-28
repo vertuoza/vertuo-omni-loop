@@ -54,7 +54,7 @@ const APP_PAGES: Array<[string, Layout, string, string]> = [
   ['/prd/<id>', DossierLayout, '/prd', 'PRDs'],
   ['/ask', AskLayout, '/ask', 'Questions'],
   ['/ask/<session>', AskLayout, '/ask', 'Questions'],
-  ['/ask/for-me', AskLayout, '/ask/for-me', 'Questions / For me'],
+  ['/ask/for-me', AskLayout, '/ask/for-me', 'Questions / Shared with me'],
   ['/ask/history', AskLayout, '/ask/history', 'Questions / History'],
   ['/knowledge', KnowledgeLayout, '/knowledge', 'Knowledge'],
 ];
@@ -75,7 +75,7 @@ describe('every app page', () => {
   it.each(APP_PAGES)('%s: the sidebar\'s crest leads to /app, and lists Work then Omni', async (name, layout) => {
     const side = part(await renderAt(layout, pathOf(name)), '<aside', '</aside>');
     expect(side).toMatch(new RegExp(`<a class="app-sidebar-crest" href="${APP_HOME}">`));
-    expect(controls(side)).toEqual(['OMNI LOOP', 'Home', 'PRDs', 'Questions', expect.stringMatching(/^For me( \d+)?$/), 'History', 'Knowledge', 'Fleets', 'Docs ↗', 'Release notes ↗']);
+    expect(controls(side)).toEqual(['OMNI LOOP', 'Home', 'PRDs', 'Questions', expect.stringMatching(/^Shared with me( \d+)?$/), 'History', 'Knowledge', 'Fleets', 'Docs ↗', 'Release notes ↗']);
   });
 
   it.each(APP_PAGES)('%s: marks exactly one sidebar item current: %s', async (name, layout, current) => {

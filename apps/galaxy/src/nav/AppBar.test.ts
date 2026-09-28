@@ -28,7 +28,7 @@ describe('the top bar', () => {
   it('is a header holding the page\'s title, then Omni/Light/Dark, then Game mode, then the avatar, in that order', () => {
     const bar = render('/ask/for-me', ADA);
     expect(bar).toMatch(/^<header class="app-bar">/);
-    expect(bar).toContain('<p class="app-bar-title">Questions / For me</p>');
+    expect(bar).toContain('<p class="app-bar-title">Questions / Shared with me</p>');
     const title = bar.indexOf('app-bar-title'), theme = bar.indexOf('aria-label="Theme"'), game = bar.indexOf('>Game mode');
     expect(title).toBeGreaterThan(0);
     expect(theme).toBeGreaterThan(title);

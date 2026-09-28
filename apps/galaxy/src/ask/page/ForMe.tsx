@@ -7,7 +7,7 @@ import type { ForMeEntry } from './question';
 export function ForMe({ entries }: { entries: ForMeEntry[] }) {
   return (
     <div className="ask-col">
-      <p className="ask-title">For me</p>
+      <p className="ask-title">Shared with me</p>
       {entries.length === 0 ? (
         <section className="ask-card">
           <h1>Nothing waits for you</h1>
