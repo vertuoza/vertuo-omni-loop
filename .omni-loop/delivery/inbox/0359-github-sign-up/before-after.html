@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitHub Sign-up</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --void: #07061c; --deep: #0e0d33; --cab: #120f3a; --navy: #2f3fc4; --white: #f2f4ff;
+    --dim: #8a90d6; --slate: #5b5f80; --yellow: #ffd84a; --red: #ff3b5c; --green: #4ee08a;
+    --plasma: #a45cff; --cyan: #6ff0ff;
+    --pixel: 'Press Start 2P', ui-monospace, 'SF Mono', Menlo, monospace;
+    --display: 'Anton', 'Impact', 'Haettenschweiler', 'Arial Narrow Bold', sans-serif;
+    --body: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--white); font: 15px/1.55 var(--body); padding: 32px 16px 64px; }
+  main { max-width: 1080px; margin: 0 auto; display: grid; gap: 40px; }
+  h1 { font: 44px/1.05 var(--display); letter-spacing: .01em; margin: 0; text-wrap: balance; text-transform: uppercase; }
+  h1 em { font-style: normal; color: var(--yellow); }
+  .lede { max-width: 66ch; color: var(--dim); margin: 12px 0 0; }
+  .meta { font: 10px/1.6 var(--pixel); color: var(--slate); letter-spacing: .08em; margin-bottom: 14px; }
+  section { display: grid; gap: 14px; }
+  h2 { font: 12px/1.6 var(--pixel); color: var(--cyan); margin: 0; letter-spacing: .06em; text-transform: uppercase; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .pair { grid-template-columns: 1fr; } h1 { font-size: 34px; } }
+  .side { display: grid; gap: 8px; align-content: start; }
+  .tag { font: 9px/1 var(--pixel); letter-spacing: .1em; padding: 6px 8px; justify-self: start; }
+  .today .tag { background: var(--slate); color: var(--void); }
+  .after .tag { background: var(--green); color: var(--void); }
+  .screen { background: var(--deep); border: 3px solid var(--navy); padding: 20px; min-height: 180px; display: grid; gap: 12px; align-content: center; justify-items: center; text-align: center; }
+  .today .screen { border-color: var(--slate); }
+  .note { color: var(--dim); font-size: 13.5px; margin: 0; }
+  .btn { font: 11px/1.4 var(--pixel); padding: 12px 14px; border: 3px solid var(--void); box-shadow: 4px 4px 0 var(--void); letter-spacing: .04em; }
+  .btn.gh { background: var(--yellow); color: var(--void); }
+  .btn.google { background: var(--white); color: var(--void); }
+  .btn.off { background: var(--slate); color: var(--deep); }
+  .sub { font: 9px/1.6 var(--pixel); color: var(--dim); }
+  .big { font: 26px/1.1 var(--display); text-transform: uppercase; }
+  .warn { color: var(--red); }
+  .ok { color: var(--green); }
+  code { font: 12.5px/1.4 ui-monospace, 'SF Mono', Menlo, monospace; color: var(--cyan); }
+  .gh-page { background: #f6f8fa; color: #1f2328; border-color: #d0d7de; justify-items: stretch; text-align: left; font-family: system-ui, sans-serif; }
+  .gh-page b { font-size: 14px; }
+  .gh-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #d0d7de; background: #fff; border-radius: 6px; font-size: 13px; }
+  .gh-row.sel { border-color: #0969da; box-shadow: 0 0 0 1px #0969da; }
+  .av { width: 22px; height: 22px; border-radius: 4px; background: var(--plasma); flex: none; }
+  .av.u { border-radius: 50%; background: var(--navy); }
+  .gh-btn { justify-self: start; background: #1f883d; color: #fff; border-radius: 6px; padding: 6px 14px; font-size: 13px; font-weight: 600; }
+  .flow { overflow-x: auto; background: var(--cab); border: 3px solid var(--navy); padding: 18px; }
+  .flow svg { display: block; min-width: 760px; width: 100%; height: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--navy); vertical-align: top; }
+  th { font: 9px/1.6 var(--pixel); color: var(--dim); letter-spacing: .08em; font-weight: 400; }
+  .tablewrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="meta">PRD 359 · BEFORE / AFTER · APPS/GALAXY · SUPABASE · APPS/OMNI-APP</div>
+    <h1>Sign up with <em>GitHub</em>, in one click</h1>
+    <p class="lede">Today only a <code>@vertuoza.com</code> Google account gets in. After this PRD, anyone signs in with GitHub, installs Omni Loop on an org or their own account, and lands in a workspace named after it. Google sign-in goes away.</p>
+  </header>
+
+  <section>
+    <h2>The whole flow, after</h2>
+    <div class="flow">
+      <svg viewBox="0 0 1000 250" role="img" aria-label="Sign-up flow: HOME, GitHub sign-in, auth callback, then either play or signup, GitHub install page, workspace created or waiting for the org owner">
+        <g font-family="ui-monospace, Menlo, monospace" font-size="13" fill="#f2f4ff">
+          <rect x="10" y="20" width="150" height="56" fill="#0e0d33" stroke="#ffd84a" stroke-width="3"/>
+          <text x="85" y="44" text-anchor="middle">HOME</text><text x="85" y="62" text-anchor="middle" fill="#8a90d6" font-size="11">SIGN UP WITH GITHUB</text>
+          <rect x="200" y="20" width="170" height="56" fill="#0e0d33" stroke="#2f3fc4" stroke-width="3"/>
+          <text x="285" y="44" text-anchor="middle">GitHub sign-in</text><text x="285" y="62" text-anchor="middle" fill="#8a90d6" font-size="11">scope read:org</text>
+          <rect x="410" y="20" width="190" height="56" fill="#0e0d33" stroke="#2f3fc4" stroke-width="3"/>
+          <text x="505" y="44" text-anchor="middle">/auth/callback</text><text x="505" y="62" text-anchor="middle" fill="#8a90d6" font-size="11">join by org · link player</text>
+          <rect x="650" y="20" width="150" height="56" fill="#0e0d33" stroke="#4ee08a" stroke-width="3"/>
+          <text x="725" y="44" text-anchor="middle">/play</text><text x="725" y="62" text-anchor="middle" fill="#8a90d6" font-size="11">already a member</text>
+          <rect x="410" y="150" width="190" height="56" fill="#0e0d33" stroke="#2f3fc4" stroke-width="3"/>
+          <text x="505" y="174" text-anchor="middle">/signup</text><text x="505" y="192" text-anchor="middle" fill="#8a90d6" font-size="11">no workspace yet</text>
+          <rect x="650" y="150" width="160" height="56" fill="#f6f8fa" stroke="#d0d7de" stroke-width="3"/>
+          <text x="730" y="174" text-anchor="middle" fill="#1f2328">GitHub install</text><text x="730" y="192" text-anchor="middle" fill="#57606a" font-size="11">pick org or self</text>
+          <rect x="850" y="110" width="140" height="56" fill="#0e0d33" stroke="#4ee08a" stroke-width="3"/>
+          <text x="920" y="134" text-anchor="middle">workspace</text><text x="920" y="152" text-anchor="middle" fill="#8a90d6" font-size="11">you are owner</text>
+          <rect x="850" y="186" width="140" height="56" fill="#0e0d33" stroke="#ff3b5c" stroke-width="3"/>
+          <text x="920" y="210" text-anchor="middle">waiting</text><text x="920" y="228" text-anchor="middle" fill="#8a90d6" font-size="11">org owner approves</text>
+        </g>
+        <g stroke="#8a90d6" stroke-width="2" fill="none">
+          <path d="M160 48 H196"/><path d="M370 48 H406"/><path d="M600 48 H646"/>
+          <path d="M505 76 V146"/><path d="M600 178 H646"/>
+          <path d="M810 170 L846 140"/><path d="M810 186 L846 212"/>
+        </g>
+        <g fill="#8a90d6">
+          <path d="M196 43 l8 5 -8 5z"/><path d="M406 43 l8 5 -8 5z"/><path d="M646 43 l8 5 -8 5z"/>
+          <path d="M500 146 l5 8 5 -8z"/><path d="M646 173 l8 5 -8 5z"/>
+          <path d="M842 135 l9 1 -3 8z"/><path d="M842 217 l9 -1 -5 -7z"/>
+        </g>
+        <g font-family="ui-monospace, Menlo, monospace" font-size="11" fill="#8a90d6">
+          <text x="512" y="118">member of none</text><text x="822" y="126">install</text><text x="822" y="232">request</text>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <section>
+    <h2>1 · HOME's button</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">TODAY</span>
+        <div class="screen"><span class="btn off">SIGN UP WITH GITHUB · COMING SOON</span><span class="sub">disabled</span></div>
+        <p class="note"><code>SignUp()</code> in <code>src/home/poster/Poster.tsx</code> is hard-disabled.</p></div>
+      <div class="side after"><span class="tag">AFTER</span>
+        <div class="screen"><span class="btn gh">SIGN UP WITH GITHUB</span><span class="sub">starts GitHub sign-in</span></div>
+        <p class="note">Enabled. It starts GitHub OAuth with the <code>read:org</code> scope.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · Every sign-in card (arcade, ask, knowledge, dossier, terminal)</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">TODAY</span>
+        <div class="screen"><span class="btn google">SIGN IN WITH GOOGLE</span><span class="sub">hd: vertuoza.com</span></div>
+        <p class="note">Google only, one domain. GitHub is linked later, in the arcade, as a second step.</p></div>
+      <div class="side after"><span class="tag">AFTER</span>
+        <div class="screen"><span class="btn gh">SIGN IN WITH GITHUB</span><span class="sub">any GitHub account</span></div>
+        <p class="note">GitHub only. You are a player from your first sign-in, with no separate link step.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · Signed in, but no workspace yet</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">TODAY</span>
+        <div class="screen"><span class="big warn">Wrong cartridge</span><span class="sub">OMNI LOOP IS FOR @VERTUOZA.COM ACCOUNTS</span></div>
+        <p class="note">In practice nobody sees it: the sign-up hook refuses any other domain, and any hidden email, before the account exists.</p></div>
+      <div class="side after"><span class="tag">AFTER</span>
+        <div class="screen"><span class="big">Install Omni Loop on your org</span><span class="btn gh">INSTALL ON GITHUB</span><span class="sub">or on your own account</span></div>
+        <p class="note">New page <code>/signup</code>. It goes to GitHub's install page for the omni-loop App, which is now public.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4 · Picking the org</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">TODAY</span>
+        <div class="screen"><span class="big warn">No way in</span><span class="sub">WORKSPACES ARE MADE BY MIGRATION</span></div>
+        <p class="note">Only the service role inserts a workspace, and nothing ever sets an owner. The App is private to vertuoza.</p></div>
+      <div class="side after"><span class="tag">AFTER</span>
+        <div class="screen gh-page"><b>Install omni-loop on…</b>
+          <div class="gh-row sel"><span class="av"></span>acme-robotics <span style="margin-left:auto;color:#57606a">Organization</span></div>
+          <div class="gh-row"><span class="av u"></span>jdoe <span style="margin-left:auto;color:#57606a">Personal account</span></div>
+          <span class="gh-btn">Install</span></div>
+        <p class="note">This is GitHub's own page, so we build no org picker. galaxy verifies the installation with the App's key, then creates workspace <code>acme-robotics</code> with you as owner.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>5 · You are not the org's admin</h2>
+    <div class="pair">
+      <div class="side today"><span class="tag">TODAY</span>
+        <div class="screen"><span class="sub">does not exist</span></div>
+        <p class="note">No request is recorded anywhere.</p></div>
+      <div class="side after"><span class="tag">AFTER</span>
+        <div class="screen"><span class="big">Waiting for acme-robotics's owner</span><span class="sub">SIGN IN AGAIN ONCE THEY APPROVE OMNI LOOP</span></div>
+        <p class="note">GitHub sends the install request. We record it, and the first sign-in after approval makes you the workspace's owner.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What changes underneath, and what stays</h2>
+    <div class="tablewrap"><table>
+      <tr><th>AREA</th><th>TODAY</th><th>AFTER</th></tr>
+      <tr><td>Sign-up hook</td><td>Email domain must be a <code>join_domain</code></td><td>Provider must be <code>github</code>. A missing email is fine.</td></tr>
+      <tr><td>Joining</td><td><code>join_by_domain()</code>, by email</td><td>By GitHub org membership (<code>read:org</code>, read once and never stored)</td></tr>
+      <tr><td>Workspace</td><td>Created by migration</td><td>Created by <code>create_workspace_from_installation()</code>, which stores <code>github_installation_id</code></td></tr>
+      <tr><td>omni-loop App</td><td>Private, vertuoza only</td><td>Public, with a setup URL. <span class="ok">Permissions and events unchanged.</span></td></tr>
+      <tr><td>Existing Google members</td><td>Sign in with Google</td><td>They start fresh with GitHub. An account that already linked GitHub keeps its history.</td></tr>
+      <tr><td>Game, sectors, projector</td><td colspan="2" class="ok">Unchanged. A new workspace starts empty and points to Getting Started (<code>/docs</code>).</td></tr>
+    </table></div>
+  </section>
+</main>
+</body>
+</html>

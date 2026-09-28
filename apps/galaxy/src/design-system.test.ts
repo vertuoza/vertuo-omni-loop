@@ -14,7 +14,7 @@ const REPO = fileURLToPath(new URL('../../../', import.meta.url));
 const SELF = fileURLToPath(import.meta.url);
 const GALAXY = join(REPO, 'apps/galaxy');
 /** Folders a build or an install writes: never the galaxy's own source. */
-const SKIP = new Set(['node_modules', '.next', 'dist', 'shots', '.vercel', '.turbo']);
+const SKIP = new Set(['node_modules', '.next', 'dist', 'shots', '.vercel', '.turbo', '.source']);
 
 /** Every file under `dir` whose name ends in one of `ends`, skipping build and install output. */
 function files(dir: string, ends: readonly string[]): string[] {
@@ -91,6 +91,26 @@ describe('the galaxy', () => {
     const read = (Object.keys(TOKENS) as Token[]).filter((t) => !/^(mark|stripe)-/.test(t));
     expect(read.length).toBeGreaterThan(0);
     for (const t of read) expect(TOKENS[t], t).toBe(COLOURS[t]);
+  });
+});
+
+/** Every colour a stylesheet names itself, rather than reading a token: a hex, a colour function, a
+ * named colour of the few a hand reaches for. */
+function ownColours(css: string): string[] {
+  return [...uncommented(css).matchAll(/#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color|color-mix)\([^)]*\)|(?<![\w-])(?:white|black|red|blue|green|gray|grey)(?![\w-])/gi)].map(([c]) => c);
+}
+
+describe('the docs (PRD 346)', () => {
+  it('the detector finds a colour named in a stylesheet, and not a token', () => {
+    expect(ownColours('.a { color: #fff; background: rgb(1 2 3); border-color: white; }')).toEqual(['#fff', 'rgb(1 2 3)', 'white']);
+    expect(ownColours('.a { color: var(--ask-ink); border: 3px solid transparent; } /* #fff */')).toEqual([]);
+  });
+
+  it('draw with @omni/design\'s tokens only: src/docs/*.css names no colour of its own', () => {
+    const sheets = files(join(GALAXY, 'src/docs'), ['.css']);
+    expect(sheets.map((path) => relative(GALAXY, path))).toEqual(['src/docs/docs.css']);
+    const found = sheets.flatMap((path) => ownColours(readFileSync(path, 'utf8')).map((c) => `${relative(REPO, path)}: ${c}`));
+    expect(found).toEqual([]);
   });
 });
 

@@ -43,6 +43,11 @@ jobs:
         # role (pnpm releases:sync) adds releases and refreshes their text, and it never renumbers,
         # redates or deletes one. Release 1 is shared; a release above 1 belongs to one PRD.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/releases.sql
+      - name: Who may read and write the contributions
+        # A member of a workspace reads its contributions and nothing of another; signed out, or in no
+        # workspace, nothing. Nobody signed in inserts, updates or deletes one: only the service role
+        # (pnpm game:contributions) writes, an upsert on the key that a second run leaves unchanged.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/contributions.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''
