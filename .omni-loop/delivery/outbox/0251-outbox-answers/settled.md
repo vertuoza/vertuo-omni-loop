@@ -315,3 +315,393 @@ A constant: which of the two readings wins is one line in the reader; hiding unc
 ```
 
 <!-- /omni-outbox-settled: s9-02-uncounted-answers-shown -->
+
+<!-- omni-outbox-settled: s8-01-door-inside-release-step -->
+
+## s8-01-door-inside-release-step — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s8
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s8-01-door-inside-release-step
+prd: 251
+slice: s8
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 2
+---
+
+## The question, in plain words
+
+Where in the build's closing steps should the offer to answer the questions in the terminal sit, now that the last step is the hand-off another skill points to by number?
+
+## The decision, in plain words
+
+The offer sits at the end of the release step, so every step keeps its number and the fix-up skill's pointer to the hand-off stays right.
+
+## The intro, for fun
+
+Every step wanted to keep its house number, so the new guest moved into the back room.
+
+## The punchline, for fun
+
+Nobody had to reprint the street map.
+
+## The options, in plain words
+
+A. The door is the last part of step 6; every step keeps its number.
+B. The door becomes step 7 and the hand-off step 8, with the yolo-fix skill's pointer and the tests renumbered in a follow-up.
+
+## What I had to decide
+
+The first build made the terminal door its own step 7 and pushed the report to step 8. Today the yolo's step 7 is a long hand-off that the yolo-fix skill names as `/omni:yolo` §7, and plugin tests pin it as step 7. Renumbering would need an edit to the yolo-fix skill, outside this slice's ground.
+
+## What I did meanwhile
+
+The door is a `### Answer here, when the gate ends red` part at the end of step 6 (Release), after the final status comment; the hand-off stays step 7, and the test pins the part inside step 6 and before step 7.
+
+## What it costs to change later
+
+A constant: moving the part to a step of its own is a heading change in the yolo skill, one line in the yolo-fix skill's pointer, and the test's heading.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a person prefers the door as its own numbered step for readability (author).
+
+```
+
+<!-- /omni-outbox-settled: s8-01-door-inside-release-step -->
+
+<!-- omni-outbox-settled: s10-01-list-counts-every-listed-prd -->
+
+## s10-01-list-counts-every-listed-prd — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s10
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-01-list-counts-every-listed-prd
+prd: 251
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 2
+---
+
+## The question, in plain words
+
+To show how many questions wait on each plan in the list of plans, how much should the list read from GitHub each time someone opens it?
+
+## The decision, in plain words
+
+The list asks GitHub about every numbered plan it is about to show, all at once, reusing what was read in the last minute. A plan GitHub could not answer for shows no count, and is left out when someone asks for the plans that need an answer.
+
+## The intro, for fun
+
+Counting everyone's homework before class starts takes a moment.
+
+## The punchline, for fun
+
+The teacher remembers the answers for a minute, which helps.
+
+## The options, in plain words
+
+A. Read every numbered plan the other filters let through, all at once, and treat a plan that could not be read as having nothing waiting.
+B. Read at most the first twenty plans shown, and mark the rest as not counted.
+C. Read the plans a few at a time, so a long list never sends many GitHub reads at once.
+D. Show an unknown mark on a plan that could not be read, and keep it under Needs an answer.
+
+## What I had to decide
+
+The spec says the count comes from the same cached reader, and that a row not read in the last minute is read when the list is. It does not say how many rows to read, nor what Needs an answer does with a row that could not be read.
+
+## What I did meanwhile
+
+Only the numbered dossiers that pass the other filters (Mine or All, repository, draft or PRD, the search) are read, in parallel, through the one reader and its 60-second cache. A dossier whose summary or outbox could not be read gets no badge and is not kept by Needs an answer.
+
+## What it costs to change later
+
+One function in the history module: a cap on how many rows are read, a concurrency limit, or an unknown mark instead of nothing. No stored data changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- How many numbered dossiers a workspace lists in practice, and so how many GitHub reads a cold list costs against the App's rate limit.
+
+```
+
+<!-- /omni-outbox-settled: s10-01-list-counts-every-listed-prd -->
+
+<!-- omni-outbox-settled: s10-02-list-badge-reuses-chip-look -->
+
+## s10-02-list-badge-reuses-chip-look — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s10
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-02-list-badge-reuses-chip-look
+prd: 251
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 2
+---
+
+## The question, in plain words
+
+How should the count of waiting questions and the Needs an answer choice look in the list of plans?
+
+## The decision, in plain words
+
+The count looks like the other small labels on a row and reads Outbox 2 open, the same words as the tab on the plan's page. Needs an answer is a plain tick box among the other filters, with no new styling.
+
+## The intro, for fun
+
+A new label walked into the list and borrowed a neighbour's jacket.
+
+## The punchline, for fun
+
+It fits well enough, though nobody tailored it.
+
+## The options, in plain words
+
+A. Reuse the existing chip look for the count, and a plain tick box for the filter.
+B. Give the count its own accent colour so waiting questions stand out, and style the tick box like the Mine and All switch.
+C. Make Needs an answer a third switch beside Mine and All instead of a tick box.
+
+## What I had to decide
+
+The spec asks for n open on each row and a Needs an answer filter, but gives no look. The page's stylesheet belongs to another slice, so this slice adds no style to it.
+
+## What I did meanwhile
+
+The count reuses the existing artifact chip look, reading Outbox then 2 open, placed after the artifact chips. The filter is a checkbox inside the same field layout as the other picks, under a hint reading Outbox.
+
+## What it costs to change later
+
+A few lines of markup and a small stylesheet change, in a later slice or a follow-up. Nothing stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the count should stand out more than the artifact chips, for instance in the accent colour, so waiting questions catch the eye.
+
+```
+
+<!-- /omni-outbox-settled: s10-02-list-badge-reuses-chip-look -->
+
+<!-- omni-outbox-settled: s10-03-page-line-needs-repo-name -->
+
+## s10-03-page-line-needs-repo-name — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s10
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s10-03-page-line-needs-repo-name
+prd: 251
+slice: s10
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 2
+---
+
+## The question, in plain words
+
+When a repository's settings do not name the repository itself, should the question list on the pull request still point at the Omni page?
+
+## The decision, in plain words
+
+No: without the repository's name the short link cannot be written, so the list leaves the line out and people answer on the pull request as before.
+
+## The intro, for fun
+
+A link needs an address, and this one was missing a street name.
+
+## The punchline, for fun
+
+No address, no signpost; the old road still works.
+
+## The options, in plain words
+
+A. Leave the line out when the settings do not name the repository.
+B. Have the GitHub helper pass the repository's name it already knows, so the line is always there.
+C. Point at the plans list instead of the plan when the name is missing.
+
+## What I had to decide
+
+The spec says the list points at the Omni page when the answers switch is on and the page address is set. The short link also needs the repository's owner and name, which a repository's settings may leave out.
+
+## What I did meanwhile
+
+The line is written only when the switch is on, the page address is set, the settings name the repository and the plan's number is known; otherwise the comment reads exactly as before. Carried over from the first build, where the same decision was adopted.
+
+## What it costs to change later
+
+One condition in the kit's comment writer, and a rebuilt bundle. The helper could read the name from the pull request instead, which it knows.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- How many installed repositories leave their own name out of their settings.
+
+```
+
+<!-- /omni-outbox-settled: s10-03-page-line-needs-repo-name -->
+
+<!-- omni-outbox-settled: s11-01-send-wiring-crosses-two-tab-files -->
+
+## s11-01-send-wiring-crosses-two-tab-files — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-28
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-28
+- Slice: s11
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s11-01-send-wiring-crosses-two-tab-files
+prd: 251
+slice: s11
+rank: medium
+bears-on: none
+raised: 2026-09-28
+wave: 2
+---
+
+## The question, in plain words
+
+To make Send work, this slice had to touch two small pieces owned by the slice that built the Outbox tab. Is that acceptable?
+
+## The decision, in plain words
+
+Yes. The page's reader gained a way to forget what it remembers about one PRD, so a sent answer shows at once, and the tab's disabled Send button was swapped for the working one, with nothing else changed.
+
+## The intro, for fun
+
+The Send button lived in a room this slice had no key to.
+
+## The punchline, for fun
+
+It knocked, stepped in, swapped one button, and left the furniture where it was.
+
+## The options, in plain words
+
+A. A. Keep the two small changes outside the territory, as built.
+B. B. Move the Send slot into the pane: the answers component takes a render prop, and the pane supplies the Send component.
+C. C. Leave the cache alone and let a sent answer show within the minute the cache already allows.
+
+## What I had to decide
+
+The plan gives this slice the new Send component and the tab's pane, but the Send button sits in the answers component (s9's `outbox-answers.tsx`), and clearing the dossier's cached summary needs the reader (`apps/galaxy/src/dossier/github/reader.ts`), neither in the territory. Without them Send cannot be wired and the answer cannot show as pending at once.
+
+## What I did meanwhile
+
+Added `forget(dossierId)` to the reader (three lines, with a test in `reader.test.ts`) and replaced the disabled button in `outbox-answers.tsx` with `<OutboxSend>`, plus a `drop` helper that removes picks the send answered. The fresh read for a send is `forget` then `summary` on the server's one reader, so the reader's cache and token are reused.
+
+## What it costs to change later
+
+A constant: reverting is deleting `forget` and putting the disabled button back. No stored shape or contract changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan may have meant `OutboxPane` to pass a Send slot into the answers component; that would still have needed a change to the answers component's props.
+
+```
+
+<!-- /omni-outbox-settled: s11-01-send-wiring-crosses-two-tab-files -->
