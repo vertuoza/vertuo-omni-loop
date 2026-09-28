@@ -361,9 +361,10 @@ describe('the layout', () => {
     expect(page).toContain('<main class="ask-main"><p>inside</p></main>');
   });
 
-  it('links to the history of every PRD', () => {
+  it('links to the history of every PRD through the menu\'s PRDs, marked current (PRD 413)', () => {
     const page = renderToStaticMarkup(createElement(Layout, null, null));
-    expect(page).toContain('<a class="ask-for-me-nav" href="/prd">All PRDs</a>');
+    expect(page).toContain('<a class="top-bar-item" href="/prd" aria-current="page">PRDs</a>');
+    expect(page).not.toContain('All PRDs');
   });
 });
 

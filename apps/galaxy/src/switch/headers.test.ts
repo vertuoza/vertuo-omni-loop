@@ -13,7 +13,7 @@ import { APP_HOME } from './switch';
 // /app, and Game mode is its last control, right after the theme switch, at the top right. /app's own
 // header, /releases' (PRD 262), /prd's, the /ask pages' (AskBar, which app/ask/layout.tsx renders)
 // and the /knowledge bar, and /docs'. Since PRD 346 they are all one: TopBar (src/nav/), with the
-// menu's Release notes and Docs, the one of the page being shown marked current. The /knowledge bar in each of the page's states is
+// menu's PRDs (PRD 413), Release notes and Docs, the one of the page being shown marked current. The /knowledge bar in each of the page's states is
 // src/knowledge/render.test.ts's.
 
 const { default: AppLayout } = await import('../../app/app/layout.tsx');
@@ -35,8 +35,8 @@ const controls = (bar: string) =>
 
 /** The theme switch, Omni first (PRD 284), then Game mode. */
 const THEME_THEN_GAME = ['Omni', 'Light', 'Dark', 'Game mode'];
-/** The menu (PRD 346), then the theme switch and Game mode. */
-const MENU_THEN_THEME = ['Release notes', 'Docs', ...THEME_THEN_GAME];
+/** The menu (PRD 346, PRDs first since PRD 413), then the theme switch and Game mode. */
+const MENU_THEN_THEME = ['PRDs', 'Release notes', 'Docs', ...THEME_THEN_GAME];
 
 const askBar = (waiting = 0) =>
   header(renderToStaticMarkup(createElement(AskBar, null, createElement(HistoryLink), createElement(ForMeLink, { count: waiting }))));
@@ -53,7 +53,7 @@ const HEADERS: Array<[string, () => string]> = [
 ];
 
 /** The page whose menu item each header marks current, if any. */
-const CURRENT: Record<string, string> = { '/releases': '/releases', '/docs': '/docs' };
+const CURRENT: Record<string, string> = { '/prd': '/prd', '/releases': '/releases', '/docs': '/docs' };
 
 describe('every header of the app', () => {
   it.each(HEADERS)('%s: the OMNI LOOP mark is a link to /app', (_, bar) => {
@@ -64,14 +64,15 @@ describe('every header of the app', () => {
     expect(controls(bar()).slice(-4)).toEqual(THEME_THEN_GAME);
   });
 
-  it.each(HEADERS)('%s: is the shared top bar, with Release notes and Docs right before the theme switch', (_, bar) => {
+  it.each(HEADERS)('%s: is the shared top bar, with PRDs, Release notes and Docs right before the theme switch', (_, bar) => {
     expect(bar()).toMatch(/^<header class="ask-bar top-bar[" ]/);
-    expect(controls(bar()).slice(-6)).toEqual(MENU_THEN_THEME);
+    expect(controls(bar()).slice(-7)).toEqual(MENU_THEN_THEME);
+    expect(bar()).toMatch(/<a class="top-bar-item" href="\/prd"( aria-current="page")?>PRDs<\/a>/);
     expect(bar()).toMatch(/<a class="top-bar-item" href="\/releases"( aria-current="page")?>Release notes<\/a>/);
     expect(bar()).toMatch(/<a class="top-bar-item" href="\/docs"( aria-current="page")?>Docs<\/a>/);
   });
 
-  it.each(HEADERS)('%s: marks Release notes current on /releases only, and Docs on /docs only', (name, bar) => {
+  it.each(HEADERS)('%s: marks PRDs current on /prd only, Release notes on /releases only, and Docs on /docs only', (name, bar) => {
     const current = [...bar().matchAll(/<a [^>]*href="([^"]+)" aria-current="page"/g)].map((m) => m[1]);
     expect(current).toEqual(CURRENT[name] ? [CURRENT[name]] : []);
   });
@@ -99,11 +100,12 @@ describe('the layouts', () => {
 });
 
 describe('/prd\'s header', () => {
-  it('reads OMNI LOOP · PRD dossier, then All PRDs, before the menu', () => {
+  it('reads OMNI LOOP · PRD dossier, then the menu, PRDs marked current: no All PRDs extra (PRD 413)', () => {
     const bar = header(renderToStaticMarkup(createElement(DossierLayout, null, createElement('p')) as ReactElement));
     expect(bar).toContain('<span class="ask-brand-sub">PRD dossier</span>');
-    expect(bar).toContain('<a class="ask-for-me-nav" href="/prd">All PRDs</a>');
-    expect(controls(bar)).toEqual(['OMNI LOOP', 'All PRDs', ...MENU_THEN_THEME]);
+    expect(bar).toContain('<a class="top-bar-item" href="/prd" aria-current="page">PRDs</a>');
+    expect(bar).not.toContain('All PRDs');
+    expect(controls(bar)).toEqual(['OMNI LOOP', ...MENU_THEN_THEME]);
   });
 });
 
