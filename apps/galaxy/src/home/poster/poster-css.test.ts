@@ -24,7 +24,7 @@ describe('the poster stylesheet', () => {
   it('skews no box under the poster: the kicker, the headline and the quote lean their letters', () => {
     expect(poster).not.toMatch(/skewX/);
     for (const selector of ['.home-kicker', '.home-head', '.home-quote']) {
-      expect(rule(selector), selector).toMatch(/font-style: oblique /);
+      expect(rule(selector), selector).toMatch(/font-style: italic;/);
       expect(rule(selector), selector).not.toMatch(/transform/);
     }
   });

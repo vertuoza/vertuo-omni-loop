@@ -47,15 +47,16 @@ html:has(.home) body {
 .home-kicker {
   font: 400 clamp(15px, 1.9vw, 22px)/1.05 var(--font-display);
   color: var(--cyan);
-  font-style: oblique calc(-1 * var(--type-display-s-slant));
+  font-style: italic;
 }
 
 /* The headline: the display role at its largest step, slanted. Its letters lean, never its box: a
-   skewed box pushes its upper lines right, off the column's one left edge (PRD 394). */
+   skewed box pushes its upper lines right, off the column's one left edge (PRD 394). Anton has
+   only an upright face, and browsers synthesize `italic` from it but not an `oblique <angle>`. */
 .home-head {
   font: 400 clamp(44px, 5.8vw, var(--type-display-xl-size))/var(--type-display-xl-line) var(--type-display-xl-family);
   color: var(--white);
-  font-style: oblique calc(-1 * var(--type-display-xl-slant));
+  font-style: italic;
   text-wrap: balance;
 }
 
@@ -83,7 +84,7 @@ html:has(.home) body {
 .home-quote {
   font: 400 clamp(18px, 2.2vw, 26px)/1.05 var(--font-display);
   color: var(--yellow);
-  font-style: oblique calc(-1 * var(--type-display-s-slant));
+  font-style: italic;
   margin-top: 8px;
 }
 
