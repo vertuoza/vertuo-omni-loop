@@ -7,9 +7,12 @@ import { createBrowserClient } from '@supabase/ssr';
 /** The scopes galaxy asks GitHub for, beyond Supabase's own (the account and its email). */
 export const GITHUB_SCOPES = 'read:org';
 
-/** The argument to Supabase's signInWithOAuth, coming back to `redirectTo`. */
-export function githubSignIn(redirectTo: string) {
-  return { provider: 'github' as const, options: { redirectTo, scopes: GITHUB_SCOPES } };
+/** The argument to Supabase's signInWithOAuth, coming back to `redirectTo`. Started `fromServer` (a
+ * route that redirects the visitor itself, like /signup/installed), it answers GitHub's address
+ * instead of leaving for it. */
+export function githubSignIn(redirectTo: string, { fromServer = false } = {}) {
+  const options = { redirectTo, scopes: GITHUB_SCOPES };
+  return { provider: 'github' as const, options: fromServer ? { ...options, skipBrowserRedirect: true } : options };
 }
 
 /** A sign-in card's button, in the browser: leaves for GitHub, coming back to `redirectTo`. Resolves
