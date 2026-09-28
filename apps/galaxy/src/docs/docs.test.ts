@@ -105,7 +105,12 @@ describe('the pages', () => {
   });
 
   it('draws no table of contents for a page with no headings', () => {
-    expect(render(['install'])).not.toContain('docs-toc');
+    // Every page of the guide has headings once written in full, so the page is drawn with none.
+    const html = renderToStaticMarkup(createElement(DocsPage, {
+      items, url: '/docs/install', title: 'Install', toc: [],
+      children: createElement('div', { dangerouslySetInnerHTML: { __html: '<p>Words.</p>' } }),
+    }));
+    expect(html).not.toContain('docs-toc');
   });
 
   it('opens with the search box, labelled', () => {
