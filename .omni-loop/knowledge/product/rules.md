@@ -337,7 +337,7 @@ Proposed: harvest 2026-09-26
 
 ## BR-PRODUCT-29
 
-Ask mode is open to any account that belongs to at least one workspace, whichever it is, and each person sees only their own sessions and rounds. An account in no workspace is refused, even with a vertuoza.com email.
+Ask mode is open to any workspace member, whatever the account's email or with none: membership is the only gate, never an email domain. A session goes to the workspace that owns its repository, and is refused when the person is not a member of it; a repository no workspace owns goes to the person's first workspace. An account in no workspace is refused, and each person sees only their own sessions and rounds.
 
 Serves: P-PRODUCT-27
 Source: .omni-loop/delivery/shipped/0100-workspaces/outbox/settled.md, entry fix-s1-01-migration-after-ask-mode-01-ask-mode-crew-is-any-workspace, PRD #100

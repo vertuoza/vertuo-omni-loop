@@ -38,10 +38,10 @@ You also need:
 
 - **A GitHub repository you administer.** The loop opens branches and pull requests in it, and you
   install a GitHub App on it. Administrator rights are what let you do both.
-- **An Omni Loop invite.** The Omni Loop app is invite-only while it is in beta: ask the Omni Loop
-  team for one before you start, with the GitHub account you will use. The kit's repository is
-  private during the beta too, so that account needs read access to it: ask for it with your
-  invite.
+- **The Omni App on your account or an org of yours.** Installing the Omni Loop GitHub App is how
+  you sign up: it makes a workspace for the account or the org you install it on, and the org's
+  members are the workspace's members. Install it on the owner of your repository: step 3 of
+  [Install](/docs/install) shows how. Any GitHub account will do, with no other sign-up.
 
 ## The pages
 
