@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PRD 420 · Before and after</title>
+<style>
+:root {
+  --ground: #07061c; --surface: #120f3a; --sunk: #0e0d33; --line: #1a2170; --ink: #f2f4ff;
+  --muted: #8a90d6; --plasma: #ffd84a; --cyan: #6ff0ff; --green: #4ee08a; --red: #ff6b86;
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --px: 'Press Start 2P', ui-monospace, monospace;
+  --body: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --ground: #f5f4fc; --surface: #ffffff; --sunk: #eceaf8; --line: #d9d6ee; --ink: #17153d;
+    --muted: #4f5486; --plasma: #6a2fd0; --cyan: #0b6f86; --green: #15703f; --red: #b3122f;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --ground: #f5f4fc; --surface: #ffffff; --sunk: #eceaf8; --line: #d9d6ee; --ink: #17153d;
+  --muted: #4f5486; --plasma: #6a2fd0; --cyan: #0b6f86; --green: #15703f; --red: #b3122f;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.55 var(--body); }
+header { padding: 24px 16px 8px; max-width: 1240px; margin: 0 auto; }
+h1 { margin: 0 0 6px; font-size: 24px; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 760px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; padding: 16px; max-width: 1240px; margin: 0 auto; }
+.col > h2 { margin: 0 0 10px; font: 700 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+.col.after > h2 { color: var(--plasma); }
+.count { font-variant-numeric: tabular-nums; }
+.page { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 18px 6px; }
+.page h3 { margin: 18px 0 6px; font-size: 17px; }
+.page h3:first-child { margin-top: 0; }
+.page p { margin: 0 0 12px; font-size: 15px; }
+code { font-family: var(--mono); font-size: .9em; padding: 1px 5px; background: var(--sunk); border-radius: 4px; }
+pre { position: relative; margin: 0 0 14px; padding: 14px 16px; font: 13px/1.55 var(--mono); background: var(--sunk); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; white-space: pre; }
+pre.badged { padding-top: 40px; }
+.chip { position: absolute; top: 10px; right: 10px; font: 8px/1 var(--px); padding: 6px 7px; text-transform: uppercase; color: var(--k, var(--cyan)); border: 2px solid var(--k, var(--cyan)); box-shadow: 2px 2px 0 var(--k, var(--cyan)); background: var(--sunk); white-space: nowrap; }
+.chip.agent { --k: var(--plasma); }
+.chip.file { --k: var(--green); }
+ol.steps { margin: 0 0 14px; padding-left: 22px; font-size: 15px; display: grid; gap: 4px; }
+ol.steps li.gone { color: var(--muted); }
+ol.steps li.gone .why { color: var(--red); font: 12px var(--mono); }
+.pain { border-left: 3px solid var(--red); padding: 2px 0 2px 12px; margin: 0 0 14px; color: var(--ink); font-size: 14px; }
+.pain b { color: var(--red); }
+.checks { width: 100%; border-collapse: collapse; margin: 0 0 14px; font-size: 14px; }
+.checks th, .checks td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.checks th { font: 700 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.term .ok { color: var(--green); }
+.term .skip { color: var(--plasma); }
+.term .dim { color: var(--muted); }
+.note { font-size: 13px; color: var(--muted); }
+footer { max-width: 1240px; margin: 0 auto; padding: 0 16px 32px; }
+footer .page { padding-bottom: 12px; }
+footer ul { margin: 0; padding-left: 20px; font-size: 15px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>PRD 420 · One-line install</h1>
+  <p>The Install page of the Getting Started guide (<code>/docs/install</code>), today beside after. Node, git, gh and Claude Code become prerequisites you check, <code>omni</code> arrives with one npm line, and <code>omni init</code> does the chores.</p>
+</header>
+
+<div class="cols">
+  <section class="col before">
+    <h2><span>Today</span><span class="count">12 steps · 8 blocks</span></h2>
+    <div class="page">
+      <h3>Install</h3>
+      <ol class="steps">
+        <li class="gone">Install Node 22 <span class="why">→ prerequisite</span></li>
+        <li class="gone">Install gh, <code>gh auth login</code> <span class="why">→ prerequisite</span></li>
+        <li class="gone">Install Claude Code <span class="why">→ prerequisite</span></li>
+        <li class="gone"><code>git switch -c chore/install-omni-loop</code> <span class="why">→ init</span></li>
+        <li><code>npx github:vertuoza/vertuo-omni-loop init</code></li>
+        <li class="gone">Edit <code>config.yml</code> by hand (ask, dossier) <span class="why">→ init</span></li>
+        <li class="gone">add, commit, push, <code>gh pr create</code>, merge, pull <span class="why">→ init</span></li>
+        <li class="gone">Put omni on your PATH (13 lines) <span class="why">→ npm -g</span></li>
+        <li class="gone">Two <code>/plugin</code> commands in Claude Code <span class="why">→ init</span></li>
+        <li>Install the GitHub App</li>
+        <li class="gone"><code>omni signin</code> <span class="why">→ init</span></li>
+        <li>Check: <code>omni config</code>, <code>omni status</code>, <code>/omni:help</code></li>
+      </ol>
+
+      <h3>8 · Put omni on your PATH</h3>
+      <pre class="badged"><span class="chip">terminal</span>mkdir -p ~/.local/bin
+cat &gt; ~/.local/bin/omni &lt;&lt;'EOF'
+#!/bin/sh
+root=$(git rev-parse --show-toplevel 2&gt;/dev/null)
+if [ -z "$root" ] || [ ! -f "$root/.omni-loop/bin/omni.mjs" ]; then
+  echo "omni: no Omni Loop kit here ..." &gt;&amp;2
+  exit 2
+fi
+exec node "$root/.omni-loop/bin/omni.mjs" "$@"
+EOF
+chmod +x ~/.local/bin/omni
+echo 'export PATH="$HOME/.local/bin:$PATH"' &gt;&gt; ~/.zshrc
+exec zsh</pre>
+      <p class="pain"><b>zsh only.</b> Bash users are told to edit it by hand. Pasting it twice adds the PATH line twice.</p>
+
+      <h3>6 · Turn on ask mode and dossiers</h3>
+      <pre class="badged"><span class="chip file">file · .omni-loop/config.yml</span>ask:
+  url: https://vertuo-omni-loop-galaxy.vercel.app
+dossier:
+  enabled: true</pre>
+    </div>
+  </section>
+
+  <section class="col after">
+    <h2><span>After</span><span class="count">5 steps · 2 blocks</span></h2>
+    <div class="page">
+      <h3>What you need first</h3>
+      <p>Have these on your laptop before you start. Each has its own install guide; run the check to be sure.</p>
+      <div style="overflow-x:auto">
+      <table class="checks">
+        <thead><tr><th>You need</th><th>Check</th></tr></thead>
+        <tbody>
+          <tr><td>Node 22 or later</td><td><code>node --version</code></td></tr>
+          <tr><td>git</td><td><code>git --version</code></td></tr>
+          <tr><td>gh, signed in</td><td><code>gh auth status</code></td></tr>
+          <tr><td>Claude Code, signed in</td><td><code>claude --version</code></td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <h3>1 · Install omni</h3>
+      <pre class="badged"><span class="chip">terminal</span>npm install -g github:vertuoza/vertuo-omni-loop</pre>
+      <p class="note">Once per laptop. Works in zsh, bash and fish; no shell file is edited. Inside a repository, <code>omni</code> always runs that repository's own pinned copy.</p>
+
+      <h3>2 · Install the loop in your repository</h3>
+      <pre class="badged"><span class="chip">terminal</span>omni init</pre>
+      <pre class="term"><span class="dim">$ omni init</span>
+  branch   <span class="ok">chore/install-omni-loop</span>
+  config   <span class="ok">written</span> (ask mode, dossiers on)
+  kit      <span class="ok">.omni-loop/ ready</span>, labels created
+  PR       <span class="ok">opened</span> https://github.com/acme/widgets/pull/12
+  plugin   <span class="ok">installed</span> omni@omni-loop, run /reload-plugins
+  sign-in  <span class="ok">signed in as ada@acme.dev</span>
+
+  Next:
+   1. Install the GitHub App: https://github.com/apps/omni-loop-invader/installations/new
+   2. Merge PR #12
+   3. In Claude Code: /omni:invade</pre>
+      <p class="note">A step it cannot do (no <code>claude</code>, a push refused, no terminal) prints <span style="color:var(--plasma)">the exact lines to type</span> instead, and <code>init</code> still finishes.</p>
+
+      <h3>3 · Install the GitHub App</h3>
+      <p>Open the link <code>init</code> printed.</p>
+      <h3>4 · Merge the install pull request</h3>
+      <p>The one <code>init</code> opened.</p>
+      <h3>5 · Check</h3>
+      <pre class="badged"><span class="chip agent">coding agent</span>/omni:help</pre>
+    </div>
+  </section>
+</div>
+
+<footer>
+  <div class="page">
+    <h3>What stays the same</h3>
+    <ul>
+      <li>Every skill still runs <code>node .omni-loop/bin/omni.mjs</code>; the repository pins its version, and <code>omni update</code> keeps it current.</li>
+      <li>Nothing reaches the default branch unless a person merges it: <code>init</code> opens the install PR and stops.</li>
+      <li>Repositories installed before keep working as they are; an old <code>~/.local/bin/omni</code> does no harm (Troubleshooting says how to remove it).</li>
+    </ul>
+  </div>
+</footer>
+</body>
+</html>
