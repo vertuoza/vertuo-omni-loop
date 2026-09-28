@@ -6,10 +6,11 @@ A read-only projection of PRD delivery as a planet-terraforming game. Design:
 
 It never writes to an engineering repository, nor to this one. Its only outputs are rows appended
 to the ledger in Supabase (`public.ledger_events`, append-only), each login's XP in
-`public.player_xp`, recomputed from that ledger at every poll, the PRD dossiers read from each
-repository's delivery folders (`public.dossiers` and `public.dossier_versions`, a version only where
-a file changed), one weekly comment on the pinned Hall of Heroes issue, and a weekly backup kept as a
-workflow artifact. Delete `game/` and `.github/workflows/game.yml` to remove it.
+`public.player_xp`, recomputed from that ledger at every poll, who authored each pull request merged
+into a default branch and each PRD issue (`public.contributions`, for the app's dashboard), the PRD
+dossiers read from each repository's delivery folders (`public.dossiers` and
+`public.dossier_versions`, a version only where a file changed), one weekly comment on the pinned
+Hall of Heroes issue, and a weekly backup kept as a workflow artifact. Delete `game/` and `.github/workflows/game.yml` to remove it.
 
 The commands read and write Supabase: set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (locally,
 `npx supabase status` prints both; `apps/galaxy/.env.local` is read if it exists).
@@ -28,6 +29,9 @@ the workspace `vertuoza`.
   into a season. With no season: the current month, and on the 1st–7th also the previous month,
   whose final standings become the rankings page written to `<file>`
 - `pnpm game:banner <prd> --workspace <slug>` — print one planet's banner; reads only that planet and the planets it is blocked by
+- `pnpm game:contributions --workspace <slug>` — record who authored each pull request merged into
+  a sector repository's default branch, and who opened each `omni:prd` issue, over the last 40 days,
+  in `contributions`; logs what it skipped ([Contributions](#contributions))
 - `pnpm game:dossiers --workspace <slug>` — read each repository's delivery folders on its default
   branch into the PRD dossiers: finds or creates each PRD's dossier, and adds a version wherever a
   file changed; logs what it skipped ([PRD dossiers](#prd-dossiers))
@@ -102,6 +106,35 @@ The crew's high scores, `public.arcade_scores`, are the other half: the arcade p
 `submit_score()`, which checks the game against the player's `player_xp.unlocked`. Nothing rebuilds
 them, so `game:export` backs them up.
 
+## Contributions
+
+The app's dashboard (`/app`, PRD 328) charts the pull requests each person got into `main` over the
+last 7 days, and counts the PRDs they opened this season. The ledger cannot say either: it records a
+feature PR's merge with no author, and no PRD's author at all. **`pnpm game:contributions`**
+(`game/cli/contributions.mjs`) is the ledger job's step right after `pnpm game:xp`. At each poll,
+for each repository of the workspace's sectors, under its `github_org`, it reads through `gh`:
+
+1. the repository's default branch;
+2. its pull requests merged into that branch in the last 40 days (`number`, `author`, `mergedAt`).
+   A sub-PR merges into a feature branch, so it never counts;
+3. its `omni:prd` issues created in the last 40 days, in any state (`number`, `author`,
+   `createdAt`).
+
+Forty days cover the current season and the chart's week, even on a month's first days. It upserts
+one row per pull request (`kind` `pr-merged`, `at` its `mergedAt`) and per issue (`prd-opened`, `at`
+its `createdAt`), with the author's login in lower case, keyed by `(workspace_id, kind, repo,
+number)`: a rerun on the same answers writes identical rows, and a row outside the window is left as
+it is. An item with no author (a deleted account) is skipped. A repository it cannot read is skipped
+and logged, and the others still land; the step runs with `continue-on-error`, so it never fails the
+ledger job. A failed read of the sectors, or a failed write, writes nothing and exits 1. It needs
+`pull requests: read` and `issues: read` from the token.
+
+**`public.contributions`** is not the ledger, and the command never writes the ledger: a row can be
+rewritten, backfilled or deleted, and the table dropped, without touching its permanent history. The
+ledger and the economy never read it. The workspace's members read it, and only the service role
+writes it. It rebuilds from GitHub within its window, so the backup leaves it out. Until the workflow
+is switched on, it holds no row, and the dashboard's chart and PRDs created read 0.
+
 ## PRD dossiers
 
 A dossier keeps a PRD's `spec.md`, `plan.md` and `before-after.html`, every version of each
@@ -149,7 +182,7 @@ The workflow `.github/workflows/game.yml` does nothing until it is switched on.
    the arcade: the first poll backfills history with everyone's fleet as it stands then.
 
 Two jobs: `ledger` runs on every schedule and dispatch (concurrency `game-ledger`): `game:project`,
-then `game:xp`, then `game:dossiers`; `rankings` runs on the Monday schedule, or a dispatch with `post_rankings: true`
+then `game:xp`, then `game:contributions`, then `game:dossiers`; `rankings` runs on the Monday schedule, or a dispatch with `post_rankings: true`
 (concurrency `game-rankings`): it exports the backup (kept 90 days), then posts. Both time out after
 20 minutes.
 
