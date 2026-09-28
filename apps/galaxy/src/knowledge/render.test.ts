@@ -29,7 +29,7 @@ const between = (html: string, start: string, end: string) => {
   const to = html.indexOf(end, from + start.length);
   return html.slice(from, to < 0 ? undefined : to);
 };
-/** The orrery: the page's diagram (the header's Game mode glyph is an svg too). */
+/** The orrery: the page's diagram. */
 const diagram = (html: string) => between(html, '<svg class="km-orrery"', '</svg>');
 const index = (html: string) => between(html, 'class="km-index"', '</section>');
 const panel = (html: string) => between(html, 'class="km-panel"', '</section>');
@@ -40,13 +40,10 @@ const count = (html: string, pattern: RegExp) => html.match(new RegExp(pattern.s
 describe('the map, for the crew', () => {
   const html = map();
 
-  it('shows the top bar: OMNI LOOP · Knowledge map, the repository, the star chart and the theme switch', () => {
-    const bar = between(html, '<header', '</header>');
-    expect(bar).toContain('OMNI LOOP');
-    expect(bar).toContain('Knowledge map');
-    expect(bar).toContain('acme/widgets');
-    expect(bar).toMatch(/<a [^>]*href="\/#chart"/);
-    expect(bar).toContain('aria-label="Theme"');
+  it('heads the page with the repository it reads, as a chip, and the star chart', () => {
+    const head = between(html, '<div class="km-page-head">', '</div>');
+    expect(head).toContain('<code class="km-repo">acme/widgets</code>');
+    expect(head).toMatch(/<a class="km-chart" href="\/#chart">Open the star chart →<\/a>/);
   });
 
   it('shows one tab per domain with its entry count, then Between domains', () => {
@@ -99,7 +96,7 @@ describe('the map, for the crew', () => {
   });
 });
 
-describe('the top bar, in every state of the page', () => {
+describe('the page\'s own heading, in every state of the page', () => {
   const states: Array<[string, KnowledgeView]> = [
     ['a build with no database', { kind: 'closed' }],
     ['signed out', { kind: 'sign-in' }],
@@ -108,20 +105,22 @@ describe('the top bar, in every state of the page', () => {
     ['the map', { kind: 'map', graph: GRAPH }],
     ['no knowledge yet', { kind: 'map', graph: { ...GRAPH, domains: [], entries: [], links: [], loose: [], unserved: [] } }],
   ];
-  const bar = (view: KnowledgeView) => between(screen(view), '<header', '</header>');
-  /** The bar's links and buttons, in order, by name; the Game mode dialog's own left out. */
-  const controls = (html: string) =>
-    [...html.replace(/<dialog[\s\S]*?<\/dialog>/g, '').matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)]
-      .map((m) => m[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
 
-  it.each(states)('%s: links the OMNI LOOP mark to /app', (_, view) => {
-    expect(bar(view)).toMatch(/<a class="ask-mark" href="\/app">OMNI LOOP<\/a><span class="ask-brand-sub">Knowledge map<\/span>/);
+  it.each(states)('%s: draws no bar of its own and no main: the app shell holds them (PRD 438)', (_, view) => {
+    const html = screen(view);
+    expect(html).not.toMatch(/<header class="(ask-bar|app-bar|top-bar)/);
+    expect(html).not.toContain('<main');
+    expect(html).not.toContain('OMNI LOOP');
+    expect(html).not.toContain('game-mode');
   });
 
-  it.each(states)('%s: keeps the star chart, then ends with PRDs, Release notes, Docs, the theme switch and Game mode (PRD 346, 413)', (_, view) => {
-    expect(controls(bar(view))).toEqual(['OMNI LOOP', 'Open the star chart →', 'PRDs', 'Release notes', 'Docs', 'Omni', 'Light', 'Dark', 'Game mode']);
-    expect(bar(view)).toMatch(/<a class="km-chart" href="\/#chart">/);
-    expect(bar(view)).toMatch(/<dialog [^>]*class="game-mode-dialog"/);
+  it.each(states)('%s: keeps the star chart link in the page', (_, view) => {
+    expect(screen(view)).toMatch(/^<div class="km-main"><div class="km-page-head">(<code class="km-repo">[^<]+<\/code>)?<a class="km-chart" href="\/#chart">Open the star chart →<\/a><\/div>/);
+  });
+
+  it('shows the repository chip only with the map', () => {
+    expect(screen({ kind: 'map', graph: GRAPH })).toContain('<code class="km-repo">acme/widgets</code>');
+    expect(screen({ kind: 'closed' })).not.toContain('km-repo');
   });
 });
 

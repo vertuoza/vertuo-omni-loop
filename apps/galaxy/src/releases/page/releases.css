@@ -13,7 +13,7 @@
 .rel-notice {
   margin: 0;
   padding: 16px 18px;
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 12px;
   background: var(--ask-surface);
   color: var(--ask-muted);
@@ -48,7 +48,7 @@
   cursor: pointer;
   list-style: none;
   padding: 12px 14px;
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 10px;
   background: var(--ask-surface);
 }

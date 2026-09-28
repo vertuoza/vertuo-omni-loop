@@ -1,13 +1,13 @@
 import type { ForMeEntry } from './question';
 
 // For me (PRD 144): the open questions shared with the person looking, the soonest to move to the
-// terminal first, each with its time left and who shared it, each opening /ask/q/<round>. And the
-// header's link to it, with their count.
+// terminal first, each with its time left and who shared it, each opening /ask/q/<round>. The
+// sidebar's For me item carries their count (PRD 438).
 
 export function ForMe({ entries }: { entries: ForMeEntry[] }) {
   return (
     <div className="ask-col">
-      <p className="ask-title">For me</p>
+      <p className="ask-title">Shared with me</p>
       {entries.length === 0 ? (
         <section className="ask-card">
           <h1>Nothing waits for you</h1>
@@ -29,14 +29,5 @@ export function ForMe({ entries }: { entries: ForMeEntry[] }) {
         </ol>
       )}
     </div>
-  );
-}
-
-/** The ask header's link to For me, with how many questions wait there (none: no count). */
-export function ForMeLink({ count }: { count: number }) {
-  return (
-    <a className="ask-for-me-nav" href="/ask/for-me" aria-label={count > 0 ? `For me: ${count} waiting` : 'For me'}>
-      For me{count > 0 && <span className="ask-count">{count}</span>}
-    </a>
   );
 }

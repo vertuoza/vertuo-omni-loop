@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retro Worth It</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f5f6f8; --panel:#ffffff; --ink:#1b2130; --muted:#5b6475; --line:#d9dde5;
+  --accent:#2f5bd3; --closed:#b3261e; --closed-bg:#fbe9e7; --ok:#1d7a46; --ok-bg:#e5f4ea;
+  --code:#eef1f6; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12151c; --panel:#1a1f29; --ink:#e6e9ef; --muted:#9aa3b4; --line:#2c3342;
+    --accent:#7d9bf0; --closed:#f2877e; --closed-bg:#3a1f1d; --ok:#6ccf94; --ok-bg:#16301f;
+    --code:#222938; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12151c; --panel:#1a1f29; --ink:#e6e9ef; --muted:#9aa3b4; --line:#2c3342;
+  --accent:#7d9bf0; --closed:#f2877e; --closed-bg:#3a1f1d; --ok:#6ccf94; --ok-bg:#16301f;
+  --code:#222938; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,sans-serif;padding-inline:16px;padding-block:32px 48px}
+main{max-width:1080px;margin:0 auto;display:grid;gap:36px}
+h1{font-size:26px;line-height:1.2;margin:0 0 6px;text-wrap:balance;font-weight:600}
+h2{font-size:18px;margin:0 0 12px;font-weight:600;text-wrap:balance}
+p{margin:0;max-width:68ch}
+.lede{color:var(--muted)}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px}
+code{background:var(--code);padding:1px 5px;border-radius:4px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+.col{display:grid;gap:12px;align-content:start}
+.tag{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:grid;gap:8px}
+.row{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.pill{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.pill.closed{background:var(--closed-bg);color:var(--closed)}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.none{background:var(--code);color:var(--muted)}
+.title{font-weight:500}
+.meta{color:var(--muted);font-size:13px}
+ul{margin:0;padding-left:18px;display:grid;gap:3px}
+.comment{border-left:3px solid var(--accent)}
+.comment pre{margin:0;white-space:pre-wrap;font:13px/1.5 "IBM Plex Mono",ui-monospace,monospace;color:var(--ink)}
+.struck{text-decoration:line-through;color:var(--muted)}
+.rule{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px;display:grid;gap:10px}
+.rule blockquote{margin:0;padding-left:12px;border-left:3px solid var(--accent);max-width:72ch}
+.table-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:14px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td.num{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>PRD 487 · A retro or knowledge PR opens only when it adds lasting knowledge</h1>
+  <p class="lede">What the omni-loop app does after a feature PR merges, today beside after. The example is PRD 438 (App sidebar), feature PR #440, merged 2026-09-28.</p>
+</header>
+
+<section>
+  <h2>After PRD 438 merged</h2>
+  <div class="cols">
+    <div class="col">
+      <span class="tag">Today</span>
+      <div class="card">
+        <div class="row"><span class="pill closed">closed</span><span class="title">#467 docs(retro): PRD 438 — App sidebar navigation</span></div>
+        <div class="meta mono">+843 lines · retro.md, retro.json</div>
+        <ul>
+          <li>F1 a slice edited a test outside its territory</li>
+          <li>F2 <code>AppBar.tsx</code> lines 43–50 rewritten in each slice</li>
+          <li>F3 one CSS line in <code>app-bar.css</code> changed three times</li>
+          <li>F4, F5 <code>AppBar.test.ts</code> assertions followed the markup</li>
+          <li>F6 header expectations kept moving</li>
+        </ul>
+        <div class="meta">Closed: "repeats a pattern seen in the other retros".</div>
+      </div>
+      <div class="card">
+        <div class="row"><span class="pill closed">closed</span><span class="title">Issues #462 to #466</span></div>
+        <div class="meta">One retro issue per finding, five in all.</div>
+      </div>
+      <div class="card">
+        <div class="row"><span class="pill closed">closed</span><span class="title">#469 docs(knowledge): PRD 438 — App sidebar navigation</span></div>
+        <div class="meta mono">+6 lines · settled.md only</div>
+        <ul>
+          <li>Stays here: a local layout choice…</li>
+          <li>Stays here: a one-off test fix…</li>
+          <li class="meta">4 more "Stays here" lines, no entry became knowledge</li>
+        </ul>
+      </div>
+    </div>
+    <div class="col">
+      <span class="tag">After</span>
+      <div class="card">
+        <div class="row"><span class="pill none">not opened</span><span class="title struck">retro PR, retro issues</span></div>
+        <div class="meta">The model found no new lesson: territory and churn are known patterns, and F3 to F5 are about the look.</div>
+      </div>
+      <div class="card">
+        <div class="row"><span class="pill none">not opened</span><span class="title struck">knowledge PR</span></div>
+        <div class="meta">No candidate became a register entry or an ADR, so nothing is written.</div>
+      </div>
+      <div class="card comment">
+        <div class="meta">Comment on #440, by omni-loop · edited in place on a replay</div>
+<pre>Retro: no new lesson — every finding repeats a known pattern
+(slices editing outside their territory, a component reshaped
+across slices) or is about the look of the bar.
+
+Feature PR #440: 92 minutes from open to merge.
+4 slices in 3 waves, as planned.
+
+F1 territory:s1 — first slice edited a test outside its territory
+F2 churn:AppBar.tsx:43-50 — core lines rewritten in every slice
+F3 churn:app-bar.css:23 — one style rule kept changing
+F4 churn:AppBar.test.ts:38-58 — assertions rewritten each slice
+F5 churn:AppBar.test.ts:71 — one assertion changed in every slice
+F6 churn:headers.test.ts:91-93 — header expectations kept moving</pre>
+      </div>
+      <div class="card comment">
+        <div class="meta">Comment on #440, by omni-loop</div>
+<pre>Knowledge: nothing new — 6 candidates stayed local.</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>When a retro does teach something</h2>
+  <div class="cols">
+    <div class="col">
+      <span class="tag">Today</span>
+      <div class="card">
+        <div class="row"><span class="pill ok">open</span><span class="title">retro PR with every finding</span></div>
+        <div class="meta">One issue per finding, up to five, whether or not it holds a lesson.</div>
+      </div>
+    </div>
+    <div class="col">
+      <span class="tag">After</span>
+      <div class="card">
+        <div class="row"><span class="pill ok">open</span><span class="title">retro PR, the kept findings marked</span></div>
+        <div class="meta">For example, a check red on several commits whose cause no knowledge entry names. <code>retro.md</code> still lists every finding. Issues open only for kept findings.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="rule">
+  <h2>One rule for the look, shared by the harvest and the retro</h2>
+  <blockquote>An entry states what the product does and guarantees, never how it looks: no colour, size, layout, position, count of visual elements, font, or exact label or copy. A candidate that is only about the look stays local. A candidate that mixes both is written as the behaviour alone.</blockquote>
+  <p class="meta">Forward only: entries already in the knowledge base are left as they are.</p>
+</section>
+
+<section>
+  <h2>What decides, and what stays the same</h2>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Situation</th><th>Today</th><th>After</th></tr></thead>
+    <tbody>
+      <tr><td>Retro with no finding</td><td>PR (e.g. #402)</td><td>Comment only</td></tr>
+      <tr><td>Findings the model judges known, or about the look</td><td>PR and issues</td><td>Comment only</td></tr>
+      <tr><td>At least one new lesson</td><td>PR and issues</td><td>PR; issues for kept findings only</td></tr>
+      <tr><td>Model not reachable, or its verdict refused</td><td>PR, facts only</td><td>Comment: "not judged — reason"</td></tr>
+      <tr><td>Day-14 run finds a new lesson, no retro PR yet</td><td>New PR</td><td>New PR</td></tr>
+      <tr><td>Harvest promotes nothing</td><td>PR of "Stays here" lines</td><td>Comment only, ledger untouched</td></tr>
+      <tr><td>Harvest promotes at least one entry</td><td>PR</td><td>PR, unchanged</td></tr>
+      <tr><td>What counts as a finding (thresholds, kinds)</td><td colspan="2">Unchanged</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="meta" style="margin-top:10px">Of the last 18 retro PRs, 11 were closed. Of the last 15 knowledge PRs, 7 were closed, and each of those promoted nothing.</p>
+</section>
+</main>
+</body>
+</html>

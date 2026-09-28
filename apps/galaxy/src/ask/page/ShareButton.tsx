@@ -62,7 +62,7 @@ export function ShareButton({ roundId, candidates, onShare, origin, initial = { 
   if (stage.kind === 'shared') {
     return (
       <section className="ask-share" aria-live="polite">
-        <p className="ask-muted">Shared with {labelOf(stage.with)}. It shows under their For me; send them the link:</p>
+        <p className="ask-muted">Shared with {labelOf(stage.with)}. It shows under their Shared with me; send them the link:</p>
         <div className="ask-share-row">
           <input ref={field} id={`${id}-link`} className="ask-share-link" readOnly value={link} aria-label="Link to this question" onFocus={(e) => e.target.select()} />
           <button type="button" className="ask-button quiet" onClick={copy}>Copy</button>

@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { AskQuestion } from './AskQuestion';
 import { AskSession } from './AskSession';
 import { DEMO_MEMBERS, DEMO_OWNER, DEMO_TEAMMATE, demoQuestion, demoState } from './demo';
-import { ForMe, ForMeLink } from './ForMe';
+import { ForMe } from './ForMe';
 import { ShareButton } from './ShareButton';
 
 // Sharing a question and For me (PRD 144), as the server renders them: what a person sees before any
@@ -100,16 +100,10 @@ describe('For me', () => {
     expect(renderToStaticMarkup(createElement(ForMe, { entries: [] }))).toContain('Nothing waits for you');
   });
 
-  it('shows the count on the ask header, and none when nothing waits', () => {
-    expect(renderToStaticMarkup(createElement(ForMeLink, { count: 2 }))).toBe(
-      '<a class="ask-for-me-nav" href="/ask/for-me" aria-label="For me: 2 waiting">For me<span class="ask-count">2</span></a>',
-    );
-    expect(renderToStaticMarkup(createElement(ForMeLink, { count: 0 }))).not.toContain('ask-count');
-  });
-
-  it('is linked from the ask header, with its count', () => {
+  it('is reached from the sidebar, not the ask header: the layout renders the app shell (PRD 438)', () => {
     const layout = readFileSync(new URL('../../../app/ask/layout.tsx', import.meta.url), 'utf8');
-    expect(layout).toMatch(/<ForMeLink count=\{waiting \?\? 0\} \/>/);
+    expect(layout).toMatch(/<AppShell\b/);
+    expect(layout).not.toMatch(/ForMeLink|HistoryLink|AskBar/);
     expect(layout).toContain("import '../../src/ask/page/share.css';");
   });
 });

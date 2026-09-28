@@ -9,7 +9,6 @@ vi.mock('./week/Week', () => ({ Week: ({ part }: { part: unknown }) => createEle
 vi.mock('./counts/CountTiles', () => ({ Counts: ({ part }: { part: unknown }) => createElement('p', { 'data-part': 'counts' }, `counts ${JSON.stringify(part)}`) }));
 vi.mock('./rankings/Rankings', () => ({ Rankings: ({ part }: { part: unknown }) => createElement('p', { 'data-part': 'rankings' }, `rankings ${JSON.stringify(part)}`) }));
 
-import { SECTIONS } from '../switch/switch';
 import { DashboardScreen, type DashboardView } from './DashboardScreen';
 import type { DashboardData } from './load';
 import { seasonBounds } from './season';
@@ -94,10 +93,10 @@ describe('the dashboard', () => {
     expect(t).not.toContain('fleet');
   });
 
-  it('places the parts in the spec\'s order: the hero block, the week, the counts, the rankings, then the section cards', () => {
+  it('places the parts in the spec\'s order: the hero block, the week, the counts, then the rankings', () => {
     const html = dashboard();
     const at = (marker: string) => html.indexOf(marker);
-    const order = ['<h1', 'data-part="week"', 'data-part="counts"', 'data-part="rankings"', 'class="dash-cards"'].map(at);
+    const order = ['<h1', 'data-part="week"', 'data-part="counts"', 'data-part="rankings"'].map(at);
     expect(order.every((n) => n >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
@@ -109,13 +108,11 @@ describe('the dashboard', () => {
     expect(t).toContain('rankings "R"');
   });
 
-  it('ends with the section cards, compact: one link per section, its title only, in order', () => {
+  it('draws no section cards: the sidebar leads to every section (PRD 438)', () => {
     const html = dashboard();
-    const cards = html.slice(html.indexOf('class="dash-cards"'));
-    const links = [...cards.matchAll(/<a class="dash-card" href="([^"]+)">([\s\S]*?)<\/a>/g)];
-    expect(links.map((m) => [m[1], text(m[2])])).toEqual(SECTIONS.map((s) => [s.path, s.title]));
-    for (const s of SECTIONS) expect(cards).not.toContain(s.line);
-    expect(html.slice(html.indexOf('</nav>') + '</nav>'.length)).not.toMatch(/<(a|p|section|h\d)\b/);
+    expect(html).not.toContain('dash-card');
+    expect(html).not.toContain('<nav');
+    expect(html.slice(html.indexOf('data-part="rankings"'))).not.toMatch(/<a\b/);
   });
 });
 
@@ -142,7 +139,7 @@ describe('the dashboard, when part of it cannot be shown', () => {
     expect(text(html)).toContain(UNREADABLE_LINE);
     expect(html).not.toContain('<svg');
     expect(html).toContain('data-part="week"');
-    expect(html).toContain('class="dash-cards"');
+    expect(html).toContain('data-part="rankings"');
   });
 
   it('a member who never played: the card that sends them to the arcade, in place of the hero block, never asking for a fleet', () => {
@@ -177,11 +174,10 @@ describe('the other situations', () => {
     expect(html).not.toContain('dash-cards');
   });
 
-  it('a deployment with no database: the notice, then the section cards', () => {
+  it('a deployment with no database: the notice and nothing else, no section cards', () => {
     const html = render({ kind: 'closed' }, null);
     expect(h1s(html)).toEqual(['The dashboard is not open here']);
-    expect(html.indexOf('The dashboard is not open here')).toBeLessThan(html.indexOf('class="dash-cards"'));
-    expect([...html.matchAll(/class="dash-card"/g)]).toHaveLength(SECTIONS.length);
+    expect(html).not.toContain('dash-card');
     expect(html).not.toContain('data-part');
   });
 
@@ -211,8 +207,8 @@ describe('the stylesheet', () => {
     expect(css).not.toMatch(/:root\b/);
   });
 
-  it('lays the section cards out on one row that wraps, rather than push the page sideways', () => {
-    expect(uncommented(read('./dashboard.css'))).toMatch(/\.dash-cards ul \{[^}]*display: flex;[^}]*flex-wrap: wrap;/);
+  it('keeps no rule for the section cards, gone since PRD 438', () => {
+    expect(uncommented(read('./dashboard.css'))).not.toMatch(/\.dash-cards?\b/);
   });
 
   it('keeps every part inside the page\'s width on a phone', () => {

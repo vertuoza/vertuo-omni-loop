@@ -1,0 +1,15 @@
+/* The phone drawer's scrim (PRD 438): below 900 px (src/nav/drawer.ts), behind the open sidebar and
+   over the page; a tap on it closes the drawer. It is the page's own ground, dimmed, so Omni, light
+   and dark follow the theme switch; it names no colour of its own. */
+
+.app-drawer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  background: var(--ask-ground);
+  opacity: 0.72;
+}
+
+@media (min-width: 900px) {
+  .app-drawer-scrim { display: none; }
+}

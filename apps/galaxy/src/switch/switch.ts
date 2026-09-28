@@ -4,37 +4,12 @@
 // `#menu` deep link, src/arcade/deep-link.ts). The app's words live here; the arcade's in its own
 // files.
 
-/** The app's home: your dashboard (PRD 328), ending with a card per section. */
+/** The app's home: your dashboard (PRD 328). The app's sections are its sidebar (src/nav/sidebar.ts,
+ * PRD 438). */
 export const APP_HOME = '/app';
 
 /** The game's home: the arcade on SELECT MODE. */
 export const GAME_HOME = '/#menu';
-
-/** One of the app's sections: /app's card for it shows its title and opens its page. */
-export interface Section {
-  title: string;
-  /** The page the card opens, from the site's root. */
-  path: string;
-  /** What the section holds, in one line. The dashboard's compact card leaves it out (PRD 328). */
-  line: string;
-}
-
-/** /app's cards, in order, at the foot of the dashboard. A new section of the app is one entry here.
- * Release notes are no section: every page reaches them from the top bar's menu (src/nav/menu.ts,
- * PRD 346). My PRDs comes first since PRD 413: the PRD list, starting on the PRDs you opened. */
-export const SECTIONS: readonly Section[] = [
-  { title: 'My PRDs', path: '/prd', line: 'The PRDs you opened, drafts included' },
-  { title: 'Questions', path: '/ask', line: 'The questions Claude is asking you now' },
-  { title: 'For me', path: '/ask/for-me', line: 'Questions a teammate shared with you' },
-  { title: 'History', path: '/ask/history', line: 'Every question your workspace was asked' },
-  { title: 'Knowledge map', path: '/knowledge', line: 'Principles, rules and invariants, as a map' },
-  { title: 'Fleets', path: '/app/fleets', line: 'Your workspace’s fleets, set up by its owner' },
-];
-
-/** /app's own words: the sub-title beside the wordmark. The page's heading is your name (PRD 328). */
-export const HOME = {
-  sub: 'App',
-} as const;
 
 /** The Game mode button, and the dialog it opens before the app is left for the game. */
 export const GAME_MODE = {

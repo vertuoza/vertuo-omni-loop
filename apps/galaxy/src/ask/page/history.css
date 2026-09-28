@@ -1,9 +1,6 @@
 /* The workspace's history (PRD 144). Every colour is a token of src/ask/theme-tokens.ts, as in
    src/ask/ask.css, so light, dark and system follow the theme switch. */
 
-/* The header now holds History beside For me: neither label breaks on a phone. */
-.ask a.ask-for-me-nav { white-space: nowrap; }
-
 /* ── The filters and the search ──────────────────────────────────────────── */
 
 .ask-history-filters {
@@ -12,7 +9,7 @@
   gap: 12px;
   padding: 16px;
   background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   border-radius: 12px;
 }
 .ask-history-field { display: grid; gap: 4px; min-width: 0; }
@@ -34,7 +31,7 @@
   color: var(--ask-ink);
   text-decoration: none;
   background: var(--ask-surface);
-  border: 1.5px solid var(--ask-line);
+  border: 1.5px solid var(--ask-line-strong);
   border-radius: 12px;
   min-width: 0;
 }
@@ -48,7 +45,7 @@
   text-transform: uppercase;
   color: var(--ask-ink);
   background: var(--ask-sunk);
-  border: 1px solid var(--ask-line);
+  border: 1px solid var(--ask-line-strong);
   border-radius: 4px;
   padding: 5px 8px;
 }
