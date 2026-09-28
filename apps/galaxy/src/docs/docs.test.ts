@@ -150,15 +150,15 @@ describe('a code block', () => {
 
   it('reads TERMINAL, CODING AGENT, FILE · <path> and GITHUB COMMENT', () => {
     const install = blocks(render(['install']));
-    expect(install).toContainEqual(['TERMINAL + CODING AGENT', 'omni signin']);
-    expect(install).toContainEqual(['TERMINAL + CODING AGENT', 'omni config']);
+    expect(install).toContainEqual(['TERMINAL', 'npm install -g github:vertuoza/vertuo-omni-loop']);
+    expect(install).toContainEqual(['TERMINAL + CODING AGENT', 'omni --version']);
+    expect(install).toContainEqual(['TERMINAL', 'omni init']);
     expect(install).toContainEqual(['TERMINAL + CODING AGENT', 'git switch main']);
-    expect(install).toContainEqual(['TERMINAL', 'gh auth login']);
-    expect(install).toContainEqual(['TERMINAL', 'npm install -g @anthropic-ai/claude-code']);
-    expect(install).toContainEqual(['TERMINAL', 'npx github:vertuoza/vertuo-omni-loop init']);
-    expect(install).toContainEqual(['TERMINAL', 'git add .omni-loop']);
-    expect(install).toContainEqual(['CODING AGENT', '/plugin install omni@omni-loop']);
-    expect(install).toContainEqual(['FILE · .omni-loop/config.yml', 'ask:']);
+    expect(install).toContainEqual(['TERMINAL + CODING AGENT', 'omni config']);
+    expect(install).toContainEqual(['CODING AGENT', '/omni:help']);
+    const troubleshooting = blocks(render(['troubleshooting']));
+    expect(troubleshooting).toContainEqual(['TERMINAL', 'gh auth setup-git']);
+    expect(troubleshooting).toContainEqual(['FILE · .omni-loop/config.yml', 'ask:']);
     const firstPrd = blocks(render(['first-prd']));
     expect(firstPrd).toContainEqual(['TERMINAL', 'git switch main']);
     expect(firstPrd).toContainEqual(['CODING AGENT', '/omni:brainstorm Let people export their invoices as a CSV file']);

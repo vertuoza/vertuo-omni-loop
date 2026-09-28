@@ -1,15 +1,11 @@
 ---
 title: Install
-description: The tools on your laptop, the kit in your repository, the plugin in Claude Code, the GitHub App, and signing in.
+description: omni on your laptop, then one command that installs the kit, the plugin and your sign-in; then the GitHub App.
 ---
 
-Four things get installed: three tools on your laptop, the Omni Loop kit in your repository, the
-`omni` plugin in Claude Code, and a GitHub App on your repository. Then you sign in once. Do the
-steps in order: each one needs the one before.
-
-The kit lives in the GitHub repository `vertuoza/vertuo-omni-loop`, which is private while Omni
-Loop is in beta. Your GitHub account needs read access to it: ask the Omni Loop team for it with
-your invite.
+Five steps, each one a single line to type or a click. They need the four tools listed under
+[What you need first](/docs#what-you-need-first): Node, git, gh signed in, and Claude Code signed
+in. Do the steps in order: each one needs the one before.
 
 Each code block on these pages says where it goes, at its top right: **TERMINAL** is a terminal on
 your laptop, **CODING AGENT** is Claude Code's prompt, **FILE** names the file the lines go in, and
@@ -17,219 +13,111 @@ your laptop, **CODING AGENT** is Claude Code's prompt, **FILE** names the file t
 runs from Claude Code too: type it there with `!` before it (`!git pull`), and Claude Code runs it
 and shows what it prints.
 
-## 1. On your laptop
-
-### Node 22 or later
-
-Install Node from [nodejs.org](https://nodejs.org) (take the LTS version), then check it in a new
-terminal:
-
-```bash terminal agent
-node --version
-```
-
-It prints `v22` or higher. An older version cannot run the kit.
-
-### The GitHub CLI, signed in
-
-Install `gh` from [cli.github.com](https://cli.github.com) (on a Mac with Homebrew:
-`brew install gh`), then sign in with the GitHub account that administers your repository:
+## 1. Install omni, once per laptop
 
 ```bash terminal
-gh auth login
+npm install -g github:vertuoza/vertuo-omni-loop
 ```
 
-Answer `GitHub.com`, then `HTTPS`, then yes to authenticating Git with your GitHub credentials, and
-log in with a web browser. The kit calls `gh` to create labels and open pull requests, and Git uses
-the same sign-in to fetch the kit. Check it:
+npm installs the `omni` command in its global folder, which is already on your PATH: no shell file
+to edit, whatever shell you use. Check it, in any folder:
 
 ```bash terminal agent
-gh auth status
+omni --version
 ```
 
-It says `Logged in to github.com account <you>`.
+It prints the version you installed. Inside a repository that has the kit, `omni` always runs that
+repository's own copy, so every repository keeps the version it installed. To get a newer `omni`
+for installing, run the same npm line again.
 
-### Claude Code
+When npm says `EACCES` or `repository not found`, or the check says `command not found: omni`, see
+[When something goes wrong](/docs/troubleshooting).
 
-Install it with npm, which came with Node:
+## 2. Run omni init in your repository
+
+Open a terminal in a clone of your repository, on its default branch and up to date, and run:
 
 ```bash terminal
-npm install -g @anthropic-ai/claude-code
+omni init
 ```
 
-Run `claude` once and sign in when it asks. Every step of the loop is a command typed inside
-Claude Code.
+When it cannot find how your repository runs its tests, it asks for three commands, one at a time:
+the command that runs the tests, the preflight a slice must pass before its pull request is ready,
+and the full preflight run before a feature is ready. Type each one (`npm test`, `pnpm test`,
+`make test`…), or press Enter to leave one empty and fill it in later in `.omni-loop/config.yml`.
 
-## 2. In your repository
+Then it does the rest, one line per step:
 
-### Install the kit
+- **The install branch.** It switches to a new branch, `chore/install-omni-loop`.
+- **The kit.** It writes everything it installs under `.omni-loop/`: `config.yml`, the loop's
+  settings for this repository, already pointed at the Omni Loop app; `bin/omni.mjs`, the `omni`
+  command itself; and the blank knowledge forms under `knowledge/`, which the next page fills. It
+  also adds the loop's status line to `.claude/settings.json`, and creates the loop's labels on
+  GitHub (`omni:prd`, `omni:feature`, `omni:sub` and the others).
+- **The install pull request.** It commits only the files it wrote, pushes the branch, opens the
+  pull request and prints its link.
+- **The plugin.** It installs the `omni` plugin in Claude Code.
+- **Sign-in.** When this computer has not signed in to the Omni Loop app yet, it opens the app in
+  your browser: sign in there with the account your invite was sent to. The sign-in is kept on this
+  computer, so every repository you run the loop in shares it.
 
-Open a terminal in a clone of your repository, on its default branch and up to date, and start a
-branch for the install:
+A step it cannot do prints the exact lines to type instead, and `init` carries on: type them when
+it ends. Run `omni init` again at any time: a step already done says "already" and moves on.
 
-```bash terminal agent
-git switch -c chore/install-omni-loop
-```
-
-Then install the kit:
-
-```bash terminal
-npx github:vertuoza/vertuo-omni-loop init
-```
-
-npx asks `Ok to proceed? (y)` the first time: answer `y`. When it cannot find how your repository
-runs its tests, it asks for three commands, one at a time: the command that runs the tests, the
-preflight a slice must pass before its pull request is ready, and the full preflight run before a
-feature is ready. Type each one (`npm test`, `pnpm test`, `make test`…), or press Enter to leave one
-empty and fill it in later in `.omni-loop/config.yml`.
-
-It writes everything it installs under `.omni-loop/`, and nothing anywhere else:
-
-- `.omni-loop/config.yml`, the loop's settings for this repository;
-- `.omni-loop/bin/omni.mjs`, the `omni` command itself;
-- the blank knowledge forms under `.omni-loop/knowledge/`, which the next page fills.
-
-It also creates the loop's labels on GitHub (`omni:prd`, `omni:feature`, `omni:sub` and the
-others). It ends by printing the steps left to do by hand: this page walks through each of them.
-When it says it could not create some labels, create them by hand at the link it prints, with the
-names it lists.
-
-Two warnings it may print under **Heads-up**:
+It ends with the steps left to you, the next two below. Two warnings it may print under
+**Heads-up**:
 
 - **An older copy of the loop already runs here:** decide which one stays before you merge.
 - **Prettier or Biome checks this repository:** add `.omni-loop/bin/` to the file it names, or your
   format check rejects the kit's bundled file.
 
-### Point the kit at the Omni Loop app
+## 3. Install the GitHub App
 
-Signing in, the questions page and the PRD dossiers all go through the Omni Loop app. Open
-`.omni-loop/config.yml` and add these lines at the end:
+Open the GitHub App link `omni init` printed. Pick your account or organization, choose **Only
+select repositories**, pick your repository, and install. The App posts the `outbox` check on the
+loop's pull requests: it goes red while a question an agent raised waits for your answer.
 
-```yaml file=.omni-loop/config.yml
-ask:
-  url: https://vertuo-omni-loop-galaxy.vercel.app
-dossier:
-  enabled: true
-```
+## 4. Merge the install pull request
 
-### Commit it and merge it
-
-```bash terminal
-git add .omni-loop
-git commit -m "chore: install the Omni Loop"
-git push -u origin chore/install-omni-loop
-gh pr create --fill
-```
-
-Merge that pull request on GitHub, then bring your default branch up to date (use your default
-branch's name if it is not `main`):
+Merge the pull request `omni init` opened (it printed "merge PR #" and its number) on GitHub, then
+bring your default branch up to date:
 
 ```bash terminal agent
 git switch main
+```
+
+```bash terminal agent
 git pull
 ```
 
-The loop reads `.omni-loop/` from the default branch, so nothing below works until it is merged.
+Use your default branch's name if it is not `main`. The loop reads `.omni-loop/` from the default
+branch, so nothing below works until it is merged.
 
-### Put omni on your PATH
+## 5. Check it in Claude Code
 
-The kit's command is the file `.omni-loop/bin/omni.mjs`, run with Node. These pages write it
-`omni`. Paste this block once on your laptop, in a terminal, so you can type it that way from any
-folder of your repository, in every terminal you open from now on:
-
-```bash terminal
-mkdir -p ~/.local/bin
-cat > ~/.local/bin/omni <<'EOF'
-#!/bin/sh
-root=$(git rev-parse --show-toplevel 2>/dev/null)
-if [ -z "$root" ] || [ ! -f "$root/.omni-loop/bin/omni.mjs" ]; then
-  echo "omni: no Omni Loop kit here (.omni-loop/bin/omni.mjs). cd into a repository that has it." >&2
-  exit 2
-fi
-exec node "$root/.omni-loop/bin/omni.mjs" "$@"
-EOF
-chmod +x ~/.local/bin/omni
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
-exec zsh
-```
-
-It writes a small script, `~/.local/bin/omni`, that finds the repository you are in and runs that
-repository's own copy of the kit: `omni` always matches the kit version the repository has, and
-nothing is installed globally. It then adds `~/.local/bin` to your PATH in `~/.zshrc` and restarts
-the shell. If your terminal runs bash rather than zsh, write `~/.bashrc` in place of `~/.zshrc` and
-`exec bash` in place of `exec zsh`.
-
-Check it from any folder of your repository:
-
-```bash terminal agent
-omni help
-```
-
-It prints the loop in one screen. When it says `command not found: omni`, see
-[When something goes wrong](/docs/troubleshooting).
-
-## 3. In Claude Code
-
-Start Claude Code in your repository (`claude`), then add the kit's plugin marketplace and install
-the `omni` plugin, one command at a time:
+Start Claude Code at the root of your repository (`claude`), and type:
 
 ```text agent
-/plugin marketplace add vertuoza/vertuo-omni-loop
+/omni:help
 ```
 
-```text agent
-/plugin install omni@omni-loop
-```
+It prints the loop in one screen: its stages, from an idea to a retro, and every command. The plugin
+is installed. If Claude Code does not know `/omni:help`, restart it; if it still does not, type the
+two `/plugin` lines `omni init` printed.
 
-If Claude Code says to restart it, quit it and run `claude` again. The loop's commands now show when you type `/omni:`, such as
-`/omni:help`.
-
-## 4. On GitHub: the App
-
-Install the `omni-loop` GitHub App on your repository:
-[github.com/apps/omni-loop-invader/installations/new](https://github.com/apps/omni-loop-invader/installations/new).
-Pick your account or organization, choose **Only select repositories**, pick your repository, and
-install. The App posts the `outbox` check on the loop's pull requests: it goes red while a question
-an agent raised waits for your answer.
-
-## 5. Sign in, once per computer
-
-In a terminal at the root of your repository:
-
-```bash terminal agent
-omni signin
-```
-
-It opens the Omni Loop app in your browser: sign in there with the account your invite was sent to.
-The terminal then prints `signed in as <your email>`. The sign-in is kept on this computer, so every
-repository you run the loop in shares it. When it prints
-`ask mode is not set up for this repository (ask.url)`, the `ask:` lines above are missing from
-`.omni-loop/config.yml`, or not merged yet.
-
-## Check that it worked
-
-Three commands, at the root of your repository:
+Two more checks, if you like, in a terminal at the root of your repository:
 
 ```bash terminal agent
 omni config
 ```
 
-It prints the loop's settings as JSON, with your repository's name under `repo`. When it fails, the
-kit is not installed in this checkout: see [When something goes wrong](/docs/troubleshooting).
-
-```bash terminal agent
-omni help
-```
-
-It prints the loop in one screen: its stages, from an idea to a retro, and every command.
+It prints the loop's settings as JSON, with your repository's name under `repo`.
 
 ```bash terminal agent
 omni status
 ```
 
-It prints where your repository's PRDs are. On a new install it reads `SHIPPED 0` and `INBOX 0`,
-then `nothing yet: /omni:brainstorm to start`: that is right.
-
-In Claude Code, `/omni:help` prints the same screen as `omni help`: the plugin is installed.
+On a new install it reads `SHIPPED 0` and `INBOX 0`, then `nothing yet: /omni:brainstorm to
+start`: that is right.
 
 [Next → Invade](/docs/invade)

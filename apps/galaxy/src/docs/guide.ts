@@ -7,7 +7,9 @@ import { pageUrl } from './paths';
 // meta.json, the order the sidebar shows them in. The docs guard (guide.test.ts) runs guideProblems on
 // it: a page with no title, a Next link to no page, a /omni:<skill> the plugin does not have, or an
 // `omni <command>` the CLI does not have, or a code block that does not say where it goes (PRD 373:
-// its fence words, badges.ts), is a problem. Nothing here renders: fumadocs does
+// its fence words, badges.ts), is a problem; so is, since PRD 420, a TERMINAL block of more than one
+// line on the install page, or a page other than troubleshooting that still names the old
+// ~/.local/bin/omni wrapper. Nothing here renders: fumadocs does
 // (source.ts), from the same files.
 
 /** One page of the guide, as its file says. */
@@ -43,27 +45,34 @@ export function parsePage(slug: string, markdown: string): GuidePage {
   return { slug, title: title || null, next: NEXT.exec(body)?.[1] ?? null, body, bodyLine };
 }
 
-/** A fenced code block's opening fence: the line it is on (1 = the markdown's first) and the words
- * after its language. A fence may be indented, inside a list, and hold shorter fences. */
+/** A fenced code block's opening fence: the line it is on (1 = the markdown's first), the words
+ * after its language, and how many lines of code it holds. A fence may be indented, inside a list,
+ * and hold shorter fences. */
 export interface Fence {
   line: number;
   meta: string;
+  lines: number;
 }
 
 /** Every fenced code block a page's markdown opens. */
 export function fences(markdown: string): Fence[] {
   const found: Fence[] = [];
-  let open: { marker: string; length: number } | null = null;
+  let open: { marker: string; length: number; fence: Fence } | null = null;
   markdown.split('\n').forEach((text, i) => {
     const fence = /^\s*(`{3,}|~{3,})(.*)$/.exec(text);
-    if (!fence) return;
-    const [, marker, info] = fence;
-    if (open) {
-      if (marker[0] === open.marker && marker.length >= open.length && !info.trim()) open = null;
+    if (open && !(fence && fence[1][0] === open.marker && fence[1].length >= open.length && !fence[2].trim())) {
+      open.fence.lines += 1;
       return;
     }
-    open = { marker: marker[0], length: marker.length };
-    found.push({ line: i + 1, meta: info.trim().split(/\s+/).slice(1).join(' ') });
+    if (!fence) return;
+    if (open) {
+      open = null;
+      return;
+    }
+    const [, marker, info] = fence;
+    const opened: Fence = { line: i + 1, meta: info.trim().split(/\s+/).slice(1).join(' '), lines: 0 };
+    open = { marker: marker[0], length: marker.length, fence: opened };
+    found.push(opened);
   });
   return found;
 }
@@ -97,6 +106,13 @@ export interface Kit {
   commands: string;
 }
 
+/** The page whose TERMINAL blocks must each be one line (PRD 420): a newcomer pastes them one by one. */
+const ONE_LINE_PAGE = 'install';
+/** The PATH wrapper PRD 373 had people write, which the global `omni` replaced (PRD 420): only the
+ * troubleshooting page names it, to say how to remove it. */
+const OLD_WRAPPER = '~/.local/bin/omni';
+const OLD_WRAPPER_PAGE = 'troubleshooting';
+
 /** Everything wrong with the guide in `dir`, one line each; empty when the guide holds. */
 export function guideProblems(dir: string, kit: Kit): string[] {
   const { order, pages } = readGuide(dir);
@@ -115,7 +131,11 @@ export function guideProblems(dir: string, kit: Kit): string[] {
     for (const fence of fences(page.body)) {
       const problem = fenceProblem(fence.meta);
       if (problem) problems.push(`${where}:${page.bodyLine + fence.line - 1}: the code block ${problem}`);
+      else if (page.slug === ONE_LINE_PAGE && fence.lines > 1 && fence.meta.split(/\s+/).includes('terminal')) {
+        problems.push(`${where}:${page.bodyLine + fence.line - 1}: the TERMINAL block is ${fence.lines} lines: every one on the install page is one line`);
+      }
     }
+    if (page.slug !== OLD_WRAPPER_PAGE && page.body.includes(OLD_WRAPPER)) problems.push(`${where}: names ${OLD_WRAPPER}, the old PATH wrapper: only troubleshooting may`);
     for (const command of commandsNamed(page.body)) {
       if (!existsSync(join(kit.commands, `${command}.mjs`))) problems.push(`${where}: omni ${command} is no command of the CLI`);
     }
