@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Workspace gate</title>
+<style>
+:root {
+  --ground: #f3f4f7; --paper: #ffffff; --ink: #1b1e27; --muted: #5b6072; --line: #d9dce5;
+  --term: #161923; --term-ink: #d7dbe6; --term-dim: #7d8499;
+  --ok: #2f9e6b; --bad: #d24b4b; --warn: #c98a1b; --accent: #d7263d;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #10121a; --paper: #181b25; --ink: #e6e8ef; --muted: #9aa0b3; --line: #2b2f3d;
+    --term: #0b0d13; --term-ink: #d7dbe6; --term-dim: #7d8499;
+    --ok: #4cc58f; --bad: #ef6b6b; --warn: #e3a93c; --accent: #ff4d63;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #10121a; --paper: #181b25; --ink: #e6e8ef; --muted: #9aa0b3; --line: #2b2f3d;
+  --term: #0b0d13; --term-ink: #d7dbe6; --term-dim: #7d8499;
+  --ok: #4cc58f; --bad: #ef6b6b; --warn: #e3a93c; --accent: #ff4d63;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--ink);
+  font: 15px/1.55 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1080px; margin: 0 auto; padding: 32px 16px 56px; display: grid; gap: 28px; }
+h1 { font-size: 1.7rem; line-height: 1.2; margin: 0; text-wrap: balance; }
+h2 { font-size: 1.1rem; margin: 0; text-wrap: balance; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+.lede { color: var(--muted); }
+section { display: grid; gap: 12px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 720px) { .pair { grid-template-columns: 1fr; } }
+.side { display: grid; gap: 6px; align-content: start; }
+.tag { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+pre { margin: 0; background: var(--term); color: var(--term-ink); border-radius: 8px; padding: 14px 16px;
+  font: 13px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace; overflow-x: auto; white-space: pre; }
+.d { color: var(--term-dim); } .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+table { border-collapse: collapse; width: 100%; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.tw { overflow-x: auto; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: .75rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+ul { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
+.same { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid;gap:8px">
+    <div class="eyebrow">PRD 459 · before / after</div>
+    <h1>Membership is the gate, not an @vertuoza.com address</h1>
+    <p class="lede">What someone outside Vertuoza sees in the terminal today, beside what they see after. Anna belongs to the workspace <b>acme</b>, made when she installed the Omni App on her GitHub org; her GitHub email is private.</p>
+  </header>
+
+  <section>
+    <h2>1 · omni init, in a clone of acme/api</h2>
+    <div class="pair">
+      <div class="side"><span class="tag">Today</span>
+<pre><span class="d">$</span> omni init
+<span class="d">…</span>
+omni signin: the sign-in was refused:
+  Ask mode is for @vertuoza.com accounts only.
+<span class="bad">signin  not signed in to vertuo-omni-loop-galaxy.vercel.app: did not finish</span></pre>
+      </div>
+      <div class="side"><span class="tag">After</span>
+<pre><span class="d">$</span> omni init
+<span class="d">…</span>
+<span class="ok">signin  signed in as anna-k — acme/api goes to acme</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · Pushing a dossier, and turning ask mode on</h2>
+    <div class="pair">
+      <div class="side"><span class="tag">Today</span>
+<pre><span class="d">$</span> omni dossier push 12
+<span class="bad">refused (403)</span>
+<span class="d">$</span> omni ask on
+ask mode on
+<span class="d"># every question silently stays in the terminal</span></pre>
+      </div>
+      <div class="side"><span class="tag">After</span>
+<pre><span class="d">$</span> omni dossier push 12
+https://…/prd/…  <span class="d">spec v1, before-after v1</span>
+<span class="d">$</span> omni ask on
+<span class="ok">ask mode on — questions go to acme's page</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · A repository another workspace owns</h2>
+    <p class="lede">Anna clones globex/web. The Omni App is installed on globex, and she is not in that workspace.</p>
+    <div class="pair">
+      <div class="side"><span class="tag">Today</span>
+<pre><span class="d">$</span> omni dossier open 'Faster checkout'
+<span class="bad">refused (403)</span>
+<span class="d"># (a Vertuoza member: the draft lands in their
+#  first workspace, though globex owns the repo)</span></pre>
+      </div>
+      <div class="side"><span class="tag">After</span>
+<pre><span class="d">$</span> omni dossier open 'Faster checkout'
+<span class="bad">refused (403): you are not a member of globex,
+  which owns globex/web</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4 · Nobody has installed the App yet</h2>
+    <p class="lede">Ben signs in before anyone installs the Omni App on his org, bensco.</p>
+    <div class="pair">
+      <div class="side"><span class="tag">Today</span>
+<pre><span class="bad">signin  not signed in to vertuo-omni-loop-galaxy.vercel.app: did not finish</span></pre>
+      </div>
+      <div class="side"><span class="tag">After</span>
+<pre><span class="ok">signin  signed in as ben — no workspace owns bensco/app yet</span>
+<span class="warn">        install the Omni App: https://github.com/apps/…</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Which workspace a call goes to</h2>
+    <div class="tw"><table>
+      <thead><tr><th>The repository's owner is…</th><th>Today</th><th>After</th></tr></thead>
+      <tbody>
+        <tr><td>a workspace you belong to</td><td>that workspace, if your email is @vertuoza.com</td><td>that workspace</td></tr>
+        <tr><td>a workspace you do not belong to</td><td>your first workspace</td><td>refused, naming the workspace</td></tr>
+        <tr><td>no workspace</td><td>your first workspace</td><td>your first workspace (unchanged)</td></tr>
+        <tr><td>no workspace, and you are in none</td><td>refused: 403 for the email, or 500</td><td>sign-in green, with the install link</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>The guide</h2>
+    <div class="pair">
+      <div class="side"><span class="tag">Today</span>
+        <div class="same"><ul>
+          <li>“An Omni Loop invite. The app is invite-only while it is in beta.”</li>
+          <li>“The kit's repository is private… that account needs read access.”</li>
+          <li>Troubleshooting: “npm says <code>repository not found</code>” → ask for access, run <code>gh auth setup-git</code>.</li>
+          <li>“Sign in with the GitHub account your invite was sent to.”</li>
+        </ul></div>
+      </div>
+      <div class="side"><span class="tag">After</span>
+        <div class="same"><ul>
+          <li>You need a GitHub account, and the Omni App installed on your account or an org of yours.</li>
+          <li>No private-repository or invite text anywhere.</li>
+          <li>Troubleshooting: “<code>refused (403)</code>: you are not a member of …”</li>
+          <li>Troubleshooting: “no workspace owns … yet” → install the App.</li>
+        </ul></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What stays the same</h2>
+    <div class="same"><ul>
+      <li>Vertuoza colleagues: same sign-in, same ask pages, same dossiers, through the vertuoza workspace.</li>
+      <li>The web pages: you see only your own workspaces' dossiers and questions, as today.</li>
+      <li>How workspaces are made (PRD 359): your account, your org, or the org you pick on GitHub's install screen.</li>
+      <li>No workspace is seeded with anything.</li>
+    </ul></div>
+  </section>
+</main>
+</body>
+</html>
