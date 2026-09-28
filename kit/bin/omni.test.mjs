@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cpSync, existsSync as exists, mkdirSync as mkdir, mkdtempSync, readFileSync, realpathSync } from 'node:fs';
+import { cpSync, existsSync as exists, mkdirSync as mkdir, mkdtempSync, readFileSync, realpathSync, symlinkSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -468,4 +468,41 @@ describe('prdNamedBy: the one PRD a command names', () => {
     expect(prdNamedBy(['check', '--prd', '7', '--prd', '9'])).toBeNull();
     expect(prdNamedBy(['status', '7', '--prd', '7'])).toBe(7);
   });
+});
+
+// PRD 420: run as a program (the global `omni`), the entry is a launcher. These start the real CLI.
+describe('omni — the launcher', () => {
+  const CLI = fileURLToPath(new URL('./omni.mjs', import.meta.url));
+  const run = (argv, { cwd, input = '' }) => {
+    try {
+      return { code: 0, out: execFileSync(process.execPath, [CLI, ...argv], { cwd, input, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }), err: '' };
+    } catch (error) {
+      return { code: error.status, out: String(error.stdout), err: String(error.stderr) };
+    }
+  };
+  // A repository whose own omni prints its arguments and stdin, and exits 7.
+  const ECHO = "let s='';process.stdin.on('data',(d)=>{s+=d;});process.stdin.on('end',()=>{process.stdout.write(JSON.stringify({argv:process.argv.slice(2),stdin:s}));process.exit(7);});\n";
+
+  it('hands over to the repository’s own bin, with the same arguments and stdin, and its exit code', () => {
+    const { root } = makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/bin/omni.mjs': ECHO, 'src/x.txt': 'x' } });
+    const got = run(['status', '42', '--labels', 'a b'], { cwd: join(root, 'src'), input: 'hello' });
+    expect(got.code).toBe(7);
+    expect(JSON.parse(got.out)).toEqual({ argv: ['status', '42', '--labels', 'a b'], stdin: 'hello' });
+  }, 30000);
+
+  it('runs its own commands when the repository’s bin is the running file', () => {
+    const { root } = makeRepo({ git: true, files: CONFIG });
+    mkdir(join(root, '.omni-loop/bin'), { recursive: true });
+    symlinkSync(CLI, join(root, '.omni-loop/bin/omni.mjs'));
+    expect(run(['config', 'repo.slug'], { cwd: root })).toEqual({ code: 0, out: 'acme/widgets\n', err: '' });
+  }, 30000);
+
+  it('outside a repository with the kit, runs help and --version, and refuses status with one line', () => {
+    for (const cwd of [mkdtempSync(join(tmpdir(), 'omni-nogit-')), makeRepo({ git: true }).root]) {
+      expect(run(['help'], { cwd }).code, cwd).toBe(0);
+      expect(run(['--version'], { cwd }).code, cwd).toBe(0);
+      expect(run(['status'], { cwd }), cwd).toEqual({ code: 2, out: '', err: 'omni: no Omni Loop kit here — run omni init in your repository\n' });
+      expect(run(['init', '--nope'], { cwd }).err, cwd).not.toMatch(/no Omni Loop kit here/);
+    }
+  }, 30000);
 });
