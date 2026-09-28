@@ -584,6 +584,9 @@ const FIRST_RUN = [
   '  commands.preflight (--preflight <cmd>)',
   '  commands.preflightFull (--preflight-full <cmd>)',
   '',
+  'To update the loop later: node .omni-loop/bin/omni.mjs update opens the pull request that brings',
+  'this repository to the latest kit, then updates the omni plugin on your machine.',
+  '',
   'To remove the loop: delete .omni-loop/ and commit. The labels and the App installation stay.',
   '',
 ];
