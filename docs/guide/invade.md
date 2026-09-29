@@ -109,4 +109,4 @@ omni knowledge BR-QUOTE-1
 When your repository changes a lot, run `/omni:invade --refresh`: it redoes only what went stale,
 and never rewrites what a person wrote.
 
-[Next → Your first PRD](/docs/first-prd)
+[Next → How the loop works](/docs/loop)
