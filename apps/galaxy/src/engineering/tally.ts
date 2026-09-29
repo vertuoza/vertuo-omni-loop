@@ -1,4 +1,5 @@
 import { brusselsDay, type PeriodWindow } from '../dashboard/board/period';
+import type { Face } from './faces';
 
 // The Engineering board's math (PRD 612 s3), pure, so the loader, the demo and the tests draw the
 // same board. It reads the rows omni-app's prStats collector writes (public.pull_requests and
@@ -70,7 +71,8 @@ export interface RepositoryStats {
   lines: number;
 }
 
-export interface Ranked { login: string; count: number }
+/** A person in a top-5 list; `face` is set once the loader has read the faces (PRD 645 s1). */
+export interface Ranked { login: string; count: number; face?: Face }
 
 export interface OmniPanel {
   /** Merged PRs Omni-man signed, of every merged PR. */
