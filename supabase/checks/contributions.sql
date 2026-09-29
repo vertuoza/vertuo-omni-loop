@@ -5,7 +5,8 @@
 -- workspace's rows, and nothing of another; signed out, or in no workspace, nothing. Nobody signed in
 -- inserts, updates or deletes a row, and no policy lets them. Only the service role writes, as
 -- `pnpm game:contributions` does: an upsert on (workspace_id, kind, repo, number), which a second run
--- leaves at one row per item. `kind` is `pr-merged` or `prd-opened`, and a workspace's rows go with it.
+-- leaves at one row per item. `kind` is `pr-merged`, `prd-opened`, `prd-started` or `prd-shipped`
+-- (PRD 572), and a workspace's rows go with it.
 -- One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
@@ -75,6 +76,8 @@ begin
         (v,    'pr-merged',  'vertuo-core',      41,  'ada-gh',  '2026-09-27 22:30:00+00'),
         (v,    'prd-opened', 'vertuo-omni-loop', 328, 'ada-gh',  '2026-09-28 07:00:00+00'),
         (v,    'prd-opened', 'vertuo-core',      41,  'fay-gh',  '2026-09-20 09:00:00+00'),  -- the kind is in the key
+        (v,    'prd-started', 'vertuo-omni-loop', 328, 'ada-gh', '2026-09-28 12:00:00+00'),  -- a PRD's phase-0 merged
+        (v,    'prd-shipped', 'vertuo-omni-loop', 328, 'ada-gh', '2026-09-29 16:00:00+00'),  -- its feature PR merged
         (acme, 'pr-merged',  'acme-api',         7,   'carl-gh', '2026-09-20 10:00:00+00')
       on conflict (workspace_id, kind, repo, number) do update
         set workspace_id = excluded.workspace_id, kind = excluded.kind, repo = excluded.repo,
@@ -83,7 +86,7 @@ begin
       raise exception 'FAIL: the service role cannot upsert public.contributions (%)', sqlerrm;
     end;
   end loop;
-  if (select count(*) from public.contributions where workspace_id in (v, acme)) <> 4 then
+  if (select count(*) from public.contributions where workspace_id in (v, acme)) <> 6 then
     raise exception 'FAIL: two runs on the same answers did not leave one row per item';
   end if;
   if (select seen_at from public.contributions where workspace_id = v and kind = 'pr-merged' and number = 41) is null then
@@ -92,7 +95,7 @@ begin
 
   begin
     insert into public.contributions (workspace_id, kind, repo, number, login, at) values (v, 'pr-opened', 'vertuo-core', 42, 'ada-gh', now());
-    raise exception 'FAIL: public.contributions stored a kind other than pr-merged or prd-opened';
+    raise exception 'FAIL: public.contributions stored a kind other than pr-merged, prd-opened, prd-started or prd-shipped';
   exception when check_violation then null; end;
   begin
     insert into public.contributions (workspace_id, kind, repo, number, login, at) values (v, 'pr-merged', 'vertuo-core', 41, 'mallory', now());
