@@ -10,8 +10,7 @@ import type { Period } from '../dashboard/board/period';
 import { MERGED } from '../dashboard/board/tally';
 import { allPages, type Page } from '../data/all-pages';
 import type { PullRequestRow, ReviewRow } from '../engineering/tally';
-import { dossierGithub } from '../dossier/github/server';
-import type { FixSummary } from '../dossier/github/fix';
+import { fixFactsStore } from '../fixes/facts/store';
 import { DEMO_VIEWER as DEMO_DOSSIER_VIEWER, demoHistory } from '../dossier/page/demo';
 import { readCurrentStages } from '../dossier/page/history';
 import { readHistory } from '../dossier/page/source';
@@ -85,23 +84,13 @@ export function supabaseProfileReads(db: SupabaseClient, workspace: string, gala
       return (await readHistory(db)).filter((row) => row.workspace_id === workspace);
     },
     stages: (rows) => readCurrentStages(rows, stageStore(db)),
-    fixFacts,
-  };
-}
-
-/** What GitHub says of each numbered fix, by dossier id, through the fix lists' cached reader; a fix it
- * could not read is left out (`—`), and so is every fix without the App's credentials. */
-async function fixFacts(rows: DossierListRow[]): Promise<FixFacts> {
-  const reader = dossierGithub();
-  if (!reader) return new Map();
-  const read = await Promise.all(rows.filter((row) => row.prd !== null).map(async (row): Promise<[string, FixSummary | null]> => {
-    const fix = await reader.fix({ id: row.id, home_repo: row.home_repo, prd: row.prd! }).catch((error: unknown) => {
+    // PRD 691: what GitHub said of each fix, from the stored facts, one read for this workspace; a
+    // workspace whose facts could not be read shows every fix as `—`.
+    fixFacts: (rows) => fixFactsStore(db).readFacts(workspace, rows.map((row) => row.id)).catch((error: unknown) => {
       console.error(error);
-      return null;
-    });
-    return [row.id, fix];
-  }));
-  return new Map(read);
+      return new Map();
+    }),
+  };
 }
 
 /** The profile of `login` in the workspace the viewer joined first. */
