@@ -3,7 +3,9 @@ import { readForMeLive } from '../ask/page/for-me-live';
 import { DEMO_YOU } from '../dashboard/demo';
 import { arcadeMode } from '../data/mode';
 import { supabaseEnv, supabaseServer } from '../data/supabase-server';
+import { loadFleets, loadMe } from '../data/load-galaxy';
 import { firstWorkspace } from '../data/workspace';
+import { faceOf } from '../people/face';
 import { readWaitingQuestions } from '../waiting/source';
 import type { WaitingSource } from '../waiting/view';
 import type { WaitingQuestion } from '../waiting/waiting';
@@ -13,7 +15,8 @@ import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
 // per request by the app shell's layouts. Each part that fails to read falls back on its own, and the
 // read never throws: no session is signed out, no workspace is no name, no questions read is an empty
 // Questions part marked unread, which the browser reads again (PRD 499). A failed read leaves the page
-// rendering as signed out.
+// rendering as signed out. PRD 652: the viewer's own player row in that workspace gives the user menu
+// their hero; with none, or a failed read, the menu keeps their GitHub avatar or initial.
 
 export type Viewer = ViewerView;
 
@@ -27,10 +30,12 @@ type Person = {
   identities?: ReadonlyArray<{ provider: string; identity_data?: Record<string, unknown> }>;
 };
 
-/** Where the viewer is read from: the four reads, each allowed to throw. */
+/** Where the viewer is read from: the five reads, each allowed to throw. */
 export interface ViewerSource {
   user(): Promise<Person | null>;
-  workspace(userId: string): Promise<{ name: string } | null>;
+  workspace(userId: string): Promise<{ id: string; name: string } | null>;
+  /** Their player row in the workspace: its stored hero, unchecked, and their fleet's colour. */
+  player(userId: string, workspaceId: string): Promise<{ hero: unknown; color: string | null } | null>;
   /** The waiting list's Questions part (PRD 499). */
   questions(userId: string): Promise<WaitingQuestion[]>;
   /** Where the browser reads it again. */
@@ -58,11 +63,18 @@ async function settle<T>(read: () => Promise<T>, fallback: T): Promise<T> {
   }
 }
 
+/** The hero of a player row, drawn as every person's face is (faceOf), or null when it holds none. */
+function heroOf(player: { hero: unknown; color: string | null } | null): string | null {
+  if (!player) return null;
+  const face = faceOf({ name: '', hero: player.hero, color: player.color });
+  return face.kind === 'hero' ? face.svg : null;
+}
+
 export async function readViewer(source: ViewerSource): Promise<Viewer> {
   const user = await settle(() => source.user(), null);
   if (!user) return SIGNED_OUT;
-  const [workspace, questions, live] = await Promise.all([
-    settle(() => source.workspace(user.id), null),
+  const [[workspace, player], questions, live] = await Promise.all([
+    settle(() => source.workspace(user.id), null).then(async (w) => [w, w ? await settle(() => source.player(user.id, w.id), null) : null] as const),
     settle(() => source.questions(user.id), null),
     settle(async () => source.live(user.id), null),
   ]);
@@ -71,6 +83,7 @@ export async function readViewer(source: ViewerSource): Promise<Viewer> {
     name: nameOf(user),
     login: loginOf(user),
     avatarUrl: text(user.user_metadata?.avatar_url),
+    heroSvg: heroOf(player),
     workspaceName: text(workspace?.name),
     waiting: { questions: questions ?? [], unread: questions === null, source: live },
   };
@@ -99,6 +112,11 @@ export async function viewerLive(): Promise<Viewer> {
       return user;
     },
     workspace: async (userId) => firstWorkspace(await supabaseServer(), userId),
+    player: async (userId, workspaceId) => {
+      const db = await supabaseServer();
+      const [me, fleets] = await Promise.all([loadMe(db, workspaceId, userId), loadFleets(db, workspaceId)]);
+      return me && { hero: me.hero, color: fleets.find((f) => f.name === me.team)?.color ?? null };
+    },
     questions: async (userId) => readWaitingQuestions(await supabaseServer(), userId, Date.now()),
     live: (userId) => ({ kind: 'database', url: env.url, key: env.key, me: userId }),
   });

@@ -20,9 +20,12 @@ const ADA = {
 const WAITING = [{ kind: 'question' as const, id: 'r1', sessionTitle: 'feat/ada', question: 'Which storage?', askedAt: 1, sharedBy: null }];
 const LIVE = { kind: 'database' as const, url: 'https://db.example', key: 'anon', me: 'u-ada' };
 
+const HERO = { v: 1, body: 'girl', skin: 2, hair: 3, suit: 0, cape: 8 };
+
 const fake = (over: Partial<Source> = {}): Source => ({
   user: async () => ADA,
-  workspace: async () => ({ name: 'Acme' }),
+  workspace: async () => ({ id: 'w-acme', name: 'Acme' }),
+  player: async () => null,
   questions: async () => WAITING,
   live: () => LIVE,
   ...over,
@@ -40,6 +43,7 @@ describe('the viewer', () => {
       login: 'ada',
       avatarUrl: 'https://avatars.example/ada.png',
       workspaceName: 'Acme',
+      heroSvg: null,
       waiting: { questions: WAITING, unread: false, source: LIVE },
     });
   });
@@ -77,9 +81,34 @@ describe('the viewer', () => {
   });
 
   it('never throws, even when every read does', async () => {
-    await expect(readViewer({ user: boom, workspace: boom, questions: boom, live: () => { throw new Error('down'); } })).resolves.toEqual(SIGNED_OUT);
+    await expect(readViewer({ user: boom, workspace: boom, player: boom, questions: boom, live: () => { throw new Error('down'); } })).resolves.toEqual(SIGNED_OUT);
     await expect(readViewer(fake({ workspace: boom, questions: boom, live: () => { throw new Error('down'); } })))
       .resolves.toMatchObject({ signedIn: true, workspaceName: null, waiting: { questions: [], unread: true, source: null } });
+  });
+
+  it('holds the viewer\'s hero, as a decorative pixel SVG, when their player row in the workspace has a valid one (PRD 652)', async () => {
+    const player = vi.fn(async () => ({ hero: HERO, color: '#3355ff' }));
+    const viewer = await readViewer(fake({ player }));
+    expect(player).toHaveBeenCalledWith('u-ada', 'w-acme');
+    expect(viewer.heroSvg).toMatch(/^<svg\b/);
+    expect(viewer.heroSvg).not.toContain('<title>');
+    expect(viewer.heroSvg).not.toContain('aria-label');
+    expect(viewer.avatarUrl).toBe('https://avatars.example/ada.png');
+    const other = await readViewer(fake({ player: async () => ({ hero: HERO, color: '#ff3355' }) }));
+    expect(other.heroSvg).not.toBe(viewer.heroSvg);
+  });
+
+  it('holds no hero, and keeps the avatar, with no player row, an invalid hero, a failed player read or no workspace', async () => {
+    const player = vi.fn(async () => ({ hero: HERO, color: null }));
+    for (const over of [
+      { player: async () => null },
+      { player: async () => ({ hero: { v: 9 }, color: '#3355ff' }) },
+      { player: boom },
+    ] as Partial<Source>[]) {
+      expect(await readViewer(fake(over))).toMatchObject({ signedIn: true, heroSvg: null, avatarUrl: 'https://avatars.example/ada.png', workspaceName: 'Acme' });
+    }
+    expect(await readViewer(fake({ workspace: async () => null, player }))).toMatchObject({ heroSvg: null });
+    expect(player).not.toHaveBeenCalled();
   });
 
   it('falls back on the email\'s name, and on no login or avatar, when the account has none', async () => {
