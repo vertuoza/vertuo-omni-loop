@@ -49,9 +49,12 @@ export function select(graph: KnowledgeGraph, query: { domain?: string | null; e
   return { domain: tab.key, entry: firstEntry(tabEntries(graph, tab.key))?.id ?? null };
 }
 
-/** The shareable address of a selection. */
-export function entryHref({ domain, entry }: Selection): string {
-  const query = new URLSearchParams({ domain });
+/** The shareable address of a selection, in `repo` when the map shows a repository other than the
+ * deployed checkout (the menu's `?repo=`). */
+export function entryHref({ domain, entry }: Selection, repo: string | null = null): string {
+  const query = new URLSearchParams();
+  if (repo) query.set('repo', repo);
+  query.set('domain', domain);
   if (entry) query.set('entry', entry);
   return `/knowledge?${query}`;
 }

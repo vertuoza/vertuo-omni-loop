@@ -52,11 +52,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 31 commands and the 14 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(31);
-    expect(skillFolders()).toHaveLength(14);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(31);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(14);
+  it('holds the 32 commands and the 15 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(32);
+    expect(skillFolders()).toHaveLength(15);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(32);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(15);
   });
 
   it('lists /omni:visual-fix for you, with its usage and when to use it (PRD 541)', () => {
@@ -64,6 +64,16 @@ describe('the help table in this repository', () => {
     expect(visualFix).toMatchObject({ who: 'you', usage: ['/omni:visual-fix <line or n>'], label: '/omni:visual-fix' });
     expect(visualFix.detail).toMatch(/\bsmall visual change\b/);
     expect(visualFix.detail).toMatch(/\/omni:brainstorm\b/);
+  });
+
+  it('has /omni:mega-invade for you, with --sync, after /omni:invade (PRD 522)', () => {
+    const skills = ENTRIES.filter((e) => e.kind === 'skill');
+    const mega = skills.find((e) => e.name === 'mega-invade');
+    expect(mega).toMatchObject({ who: 'you', usage: ['/omni:mega-invade [--sync]'], label: '/omni:mega-invade' });
+    expect(skills.indexOf(mega)).toBe(skills.findIndex((e) => e.name === 'invade') + 1);
+    expect(mega.detail).toMatch(/\bplan repository\b/);
+    expect(mega.detail).toMatch(/\bomni targets\b/);
+    expect(mega.detail).toMatch(/--sync/);
   });
 
   it('names the six stages of the loop in order, each with one line, and three principles', () => {

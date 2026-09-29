@@ -29,9 +29,10 @@ import { signin, signout, whoami } from './signin.mjs';
 import { ship } from './ship.mjs';
 import { sign } from './sign.mjs';
 import { status } from './status.mjs';
+import { targets } from './targets.mjs';
 import { statusline } from './statusline.mjs';
 import { update } from './update.mjs';
 import { version } from './version.mjs';
 import { visual } from './visual.mjs';
 
-export const COMMAND_TABLE = Object.freeze({ config, prd, status, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, visual, init, ask, signin, signout, whoami, sign, credits, dossier, version, update, help, statusline });
+export const COMMAND_TABLE = Object.freeze({ config, prd, status, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, visual, init, ask, signin, signout, whoami, sign, credits, dossier, version, update, help, statusline, targets });
