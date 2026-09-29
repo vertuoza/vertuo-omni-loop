@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { fakePrdOutboxStore } from '../../stages/outbox/store.fake';
 import type { DossierListRow } from '../store';
-import { UNREAD, type GithubSummary, type OutboxItem } from '../github/summary';
 import {
   filtered, historyAddress, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readOpenCounts,
   stageKeyOf, type CurrentStages, type HistoryFilters, type OpenCounts,
@@ -39,11 +39,6 @@ const ASK = row('00000000-0000-4000-8000-0000000000d3', {
   latest: { plan: { id: 'p1', version: 1, source: 'kit', created_at: '2026-09-10T11:00:00Z' } }, last_activity: '2026-09-12T08:00:00Z',
 });
 const ROWS = [ASK, DOSSIERS, QUOTES];
-
-const OPEN_ITEM: OutboxItem = { id: 's1-01-a', rank: 'high', question: 'q', decision: 'd', options: [], personSteps: null };
-const summary = (more: Partial<GithubSummary>): GithubSummary => ({
-  repo: 'vertuoza/vertuo-omni-loop', prd: 1, folder: null, topic: null, issue: null, phase0: null, feature: null, retro: null, mergedSlices: 0, ...more,
-});
 
 describe('the filters in the address', () => {
   it('reads a repository, draft or PRD, and a search; anything else is no filter', () => {
@@ -205,36 +200,42 @@ describe('the open questions (PRD 251)', () => {
     expect(historyToRead(rows, { who: 'mine' }, 'u-nobody')).toEqual([]);
   });
 
-  it('counts each dossier\'s open outbox items from the reader, leaving out what it could not read', async () => {
-    const summaries: Record<number, GithubSummary | null> = {
-      216: summary({ outbox: { open: [OPEN_ITEM, OPEN_ITEM], settled: [] } }),
-      251: summary({ outbox: UNREAD }),
-      71: null,
-    };
-    const asked: { id: string; home_repo: string; prd: number }[] = [];
-    const counts = await readOpenCounts(historyToRead(rows, ALL, 'u-pierre'), {
-      summary: async (dossier) => {
-        asked.push(dossier);
-        return summaries[dossier.prd];
-      },
-    });
-    expect(asked).toEqual([
-      { id: DOSSIERS.id, home_repo: DOSSIERS.home_repo, prd: 216 },
-      { id: WAITING.id, home_repo: WAITING.home_repo, prd: 251 },
-      { id: ASK.id, home_repo: ASK.home_repo, prd: 71 },
+  it('reads each dossier\'s open questions from the stored outboxes, one read per workspace, and never GitHub (PRD 657, s5)', async () => {
+    const OTHER = row('00000000-0000-4000-8000-0000000000da', { prd: 216, workspace_id: 'w2', title: 'Same number, other workspace', last_activity: '2026-09-01T10:00:00Z' });
+    const store = fakePrdOutboxStore();
+    await store.record([
+      { workspace_id: 'w1', repository: DOSSIERS.home_repo, prd: 216, open_questions: 2, waiting: [] },
+      { workspace_id: 'w1', repository: WAITING.home_repo, prd: 251, open_questions: 0, waiting: [] },
+      { workspace_id: 'w2', repository: OTHER.home_repo, prd: 216, open_questions: 5, waiting: [] },
+      { workspace_id: 'w1', repository: 'vertuoza/elsewhere', prd: 71, open_questions: 9, waiting: [] },
     ]);
-    expect([...counts]).toEqual([[DOSSIERS.id, 2]]);
+    const github = vi.fn();
+    vi.stubGlobal('fetch', github);
+    const counts = await readOpenCounts([...historyToRead(rows, ALL, 'u-pierre'), OTHER, QUOTES], store);
+    vi.unstubAllGlobals();
+    expect(github).not.toHaveBeenCalled();
+    expect(store.reads.sort()).toEqual(['w1 3', 'w2 1']);
+    expect([...counts].sort()).toEqual([[DOSSIERS.id, 2], [WAITING.id, 0], [OTHER.id, 5]].sort());
+    // The same counts give the same badges and the same Needs an answer as before.
+    expect(historyItems([...rows, OTHER], all({ needsAnswer: true }), 'u-pierre', counts).map((i) => [i.heading, i.open]))
+      .toEqual([['#216', '2 open'], ['#216', '5 open']]);
   });
 
-  it('counts nothing without a reader, and a reader that throws leaves that row out', async () => {
+  it('counts nothing without a store, and a workspace whose outboxes cannot be read leaves its rows out', async () => {
     expect((await readOpenCounts([WAITING], null)).size).toBe(0);
-    const counts = await readOpenCounts([WAITING, ASK], {
-      summary: async (dossier) => {
-        if (dossier.prd === 251) throw new Error('boom');
-        return summary({ outbox: { open: [OPEN_ITEM], settled: [] } });
-      },
-    });
-    expect([...counts]).toEqual([[ASK.id, 1]]);
+    const OTHER = row('00000000-0000-4000-8000-0000000000db', { prd: 9, workspace_id: 'w2' });
+    const store = fakePrdOutboxStore();
+    await store.record([{ workspace_id: 'w2', repository: OTHER.home_repo, prd: 9, open_questions: 1, waiting: [] }]);
+    const countsOf = store.countsOf.bind(store);
+    store.countsOf = async (workspace, prds) => {
+      if (workspace === 'w1') throw new Error('boom');
+      return countsOf(workspace, prds);
+    };
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const counts = await readOpenCounts([WAITING, OTHER], store);
+    expect([...counts]).toEqual([[OTHER.id, 1]]);
+    expect(log).toHaveBeenCalled();
+    log.mockRestore();
   });
 });
 

@@ -21,8 +21,10 @@
 //    the stored hash; otherwise nothing is posted and nothing recorded. The code is traded for a user
 //    token, the reply is posted on the feature pull request with it, the token is dropped, and the
 //    comment's link and author — or the error — are recorded on the send, once. Once posted, the
-//    dossier's cached summary is cleared, so the answer shows as pending at once. The token is never
-//    stored, logged or sent to the browser. GitHub takes a code once, so a replayed callback cannot post
+//    dossier's cached summary is cleared, so the answer shows as pending at once, and its PRD's open
+//    questions are recounted into prd_outbox (PRD 657, s5), which /prd reads; a recount that fails is
+//    logged, and the person still lands on the tab. The token is never stored, logged or sent to the
+//    browser. GitHub takes a code once, so a replayed callback cannot post
 //    a second time even before the outcome is recorded.
 //
 // The comment is the person's own, so `omni replies` counts it like any other when GitHub lists them as
@@ -99,6 +101,8 @@ export type SendDeps = {
   outbox: OutboxSource;
   github: () => GitHubUser;
   nonce?: () => string;
+  /** Recounts the dossier's PRD's open outbox questions once a reply is posted (PRD 657, s5); none, no recount. */
+  recount?: (dossierId: string) => Promise<void>;
 };
 
 // ── GitHub, over fetch ─────────────────────────────────────────────────────────
@@ -331,7 +335,14 @@ export async function finishSend(request: Request, deps: SendDeps): Promise<Resp
     console.error(`outbox send ${send.id}: ${error.message}`);
     outcome = { error: failureWords(error, repo, send.pr_number) };
   }
-  if (!('error' in outcome)) deps.outbox.forget(send.dossier_id);
+  if (!('error' in outcome)) {
+    deps.outbox.forget(send.dossier_id);
+    try {
+      await deps.recount?.(send.dossier_id);
+    } catch (error) {
+      console.error(`outbox send ${send.id}: the PRD's open questions could not be recounted: ${(error as Error).message}`);
+    }
+  }
   try {
     await store.done(send.id, outcome);
   } catch (error) {

@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { DossierRef } from '../../dossier/github/reader';
+import type { GithubSummary } from '../../dossier/github/summary';
+import { fakePrdOutboxStore } from '../outbox/store.fake';
 import { fakeStageStore } from '../store.fake';
 import { syncConfig, type RepoSnapshot } from './core';
 import { syncStages, type SyncDeps, type SyncWorkspace } from './sync';
@@ -188,5 +191,50 @@ describe('the stages sync route', () => {
     const res = await syncStages(post(`Bearer ${SECRET}`), d);
     expect(res.status).toBe(500);
     expect(store.writes).toEqual([]);
+  });
+});
+
+describe('the open outbox questions (PRD 657, s5)', () => {
+  const building = { number: 5, head: 'feat/teeth--s1', base: 'feat/teeth', state: 'closed' as const, draft: false, merged_at: '2026-09-20T00:00:00Z', created_at: '2026-09-19T00:00:00Z', ready_at: null };
+  const outboxOf = (open: number): GithubSummary => ({
+    repo: 'acme/gears', prd: 7, folder: '0007-teeth', topic: 'teeth', issue: null, phase0: null, retro: null, mergedSlices: 1,
+    feature: { number: 6, url: 'https://github.com/acme/gears/pull/6', state: 'open', draft: true },
+    outbox: { open: Array.from({ length: open }, (_, i) => ({ id: `s1-0${i}-x`, rank: 'high' as const, question: `Q${i}?`, decision: null, options: [], personSteps: null })), settled: [] },
+  });
+
+  function withOutbox(summary: GithubSummary | null) {
+    const setup = deps();
+    setup.snapshots['acme/gears'] = snap('acme/gears', { inbox: ['0007-teeth'], pulls: [building] });
+    const outbox = fakePrdOutboxStore(() => NOW);
+    const asked: DossierRef[] = [];
+    setup.d.outbox = { store: outbox, summary: async (ref) => { asked.push(ref); return summary; } };
+    return { ...setup, outbox, asked };
+  }
+
+  it('stores the open questions of a PRD at building, and 0 for every other PRD seen, reading GitHub for the first only', async () => {
+    const { d, outbox, asked } = withOutbox(outboxOf(2));
+    expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
+    expect(asked.map((r) => `${r.home_repo}#${r.prd}`)).toEqual(['acme/gears#7']);
+    expect(outbox.writes).toEqual(['w-acme acme/widgets#42 0', 'w-acme acme/gears#7 2', 'w-globex globex/core#3 0']);
+    expect(outbox.rows.find((r) => r.prd === 7)).toMatchObject({ synced_at: NOW, waiting: [{ id: 's1-00-x', rank: 'high', question: 'Q0?' }, { id: 's1-01-x', rank: 'high', question: 'Q1?' }] });
+  });
+
+  it('keeps a PRD\'s counts when GitHub cannot be read, and a refused recount leaves the stages recorded', async () => {
+    const { d, outbox, store, lines } = withOutbox(null);
+    await outbox.record([{ workspace_id: 'w-acme', repository: 'acme/gears', prd: 7, open_questions: 4, waiting: [] }]);
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(outbox.rows.find((r) => r.prd === 7)?.open_questions).toBe(4);
+
+    outbox.fail = 'boom';
+    const body = await (await syncStages(post(`Bearer ${SECRET}`), d)).json();
+    expect(body.skipped).toEqual([]);
+    expect(store.stages.some((s) => s.repository === 'acme/gears' && s.stage === 'building')).toBe(true);
+    expect(lines.some((l) => l.includes('outboxes of acme/gears'))).toBe(true);
+  });
+
+  it('recounts nothing without the outbox deps', async () => {
+    const { d, store } = deps();
+    expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
+    expect(store.writes.length).toBeGreaterThan(0);
   });
 });
