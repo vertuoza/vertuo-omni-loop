@@ -77,7 +77,7 @@ Reply with one JSON object and nothing else, in this shape:
 - verdict: worthIt is true only when at least one finding is kept, and reason says in one sentence why the retro teaches something new, or why it does not. When in doubt, keep nothing: a retro that teaches nothing new is not worth a pull request.
 
 Each field is checked on its own, and a field breaking one of these rules is thrown away; a verdict, a keep or a why breaking one throws the whole verdict away:
-- No digits. The one exception: a name copied character for character from the evidence (a test, a file, a check), or a finding id, written between backticks.
+- No digits. The one exception: a name copied character for character from the evidence (a test, a file, a check), or a finding id, written between backticks. A why and the verdict's reason may hold digits.
 - Name only the finding ids you were given, between backticks.
 - No links: the evidence is linked beside your words already.
 - At most ${FIELD_CAPS.summary} characters for the summary, ${FIELD_CAPS.title} for a title, ${FIELD_CAPS.whyItMatters} for why it matters, ${FIELD_CAPS.lesson} for a lesson, ${FIELD_CAPS.why} for a why and ${FIELD_CAPS.reason} for the verdict's reason.
