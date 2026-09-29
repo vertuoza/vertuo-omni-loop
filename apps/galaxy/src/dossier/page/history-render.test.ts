@@ -58,6 +58,27 @@ describe('the filters', () => {
     expect(html).not.toContain('>Clear</a>');
   });
 
+  it('keep the search and Filter on one bar, and fold the repository, draft or PRD and the outbox box under More filters (issue #703)', () => {
+    const html = history();
+    expect(html).toMatch(/<div class="dossier-history-bar"><input[^>]*aria-label="Search the titles"[^>]*type="search"[^>]*name="q"[^>]*\/><button type="submit" class="ask-button">Filter<\/button><\/div>/);
+    expect(html).toContain('<details class="dossier-history-more"><summary>More filters');
+    const fold = html.slice(html.indexOf('<details'), html.indexOf('</details>'));
+    expect(fold).toContain('name="repo"');
+    expect(fold).toContain('name="state"');
+    expect(fold).toContain('name="needs"');
+    expect(fold).not.toContain('name="q"');
+  });
+
+  it('open the fold by itself when a filter it holds is set, so a set filter is never hidden (issue #703)', () => {
+    const open = (filters: HistoryFilters) => history(filters).includes('<details class="dossier-history-more" open="">');
+    expect(open({ who: 'all', repo: 'vertuoza/vertuo-core' })).toBe(true);
+    expect(open({ who: 'all', state: 'draft' })).toBe(true);
+    expect(open({ who: 'all', needsAnswer: true })).toBe(true);
+    expect(open(ALL)).toBe(false);
+    expect(open({ who: 'all', search: 'dossiers' })).toBe(false);
+    expect(open({ who: 'all', stage: 'building' })).toBe(false);
+  });
+
   it('keep what the address picked, and offer to clear it', () => {
     const html = history({ who: 'mine', repo: 'vertuoza/vertuo-core', state: 'prd', search: 'dossiers' });
     expect(html).toMatch(/<input[^>]*name="q"[^>]*value="dossiers"/);
@@ -72,6 +93,7 @@ describe('Mine and All', () => {
     const html = history({ who: 'mine' });
     expect(toggle(html)).toEqual([['Mine', '/prd', true], ['All', '/prd?who=all', false]]);
     expect(html.indexOf('dossier-history-who')).toBeLessThan(html.indexOf('<form'));
+    expect(html).toContain('<div class="dossier-history-head"><h1 class="dossier-title">PRDs</h1><nav class="dossier-history-whos"');
     expect(toggle(history(ALL))).toEqual([['Mine', '/prd', false], ['All', '/prd?who=all', true]]);
   });
 
@@ -245,6 +267,11 @@ describe('the stages (PRD 587)', () => {
     const pills = [...html.matchAll(/<a class="dossier-history-row"[\s\S]*?<\/a>/g)]
       .map((m) => m[0].match(/<span class="stage-stop stage-current">([^<]+)<\/span>/)?.[1] ?? null);
     expect(pills).toEqual(['building', null, 'idea']);
+  });
+
+  it('puts the pill beside the title, not inside it, so it keeps its own size (issue #703)', () => {
+    const html = render(ALL);
+    expect(html).toContain('<span class="dossier-history-top"><span class="dossier-history-title"><span class="dossier-number">#216</span> <span>PRD dossiers &lt;b&gt;shared&lt;/b&gt;</span></span><span class="stage-stop stage-current">building</span></span>');
   });
 
   it('without a bar given, shows none', () => {
