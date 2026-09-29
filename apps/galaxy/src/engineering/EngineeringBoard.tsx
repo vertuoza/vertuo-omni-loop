@@ -25,7 +25,7 @@ import './engineering.css';
 export const ENGINEERING_PATH = '/app/engineering';
 
 /** A repository's page: `/app/engineering/<owner>/<repo>`, each part escaped. */
-export const repositoryPath = (repo: string) => `${ENGINEERING_PATH}/${repo.split('/').map(encodeURIComponent).join('/')}`;
+const repositoryPath = (repo: string) => `${ENGINEERING_PATH}/${repo.split('/').map(encodeURIComponent).join('/')}`;
 const REPOSITORIES_PATH = '/app/settings/repositories';
 
 const COUNT = new Intl.NumberFormat('en-US');

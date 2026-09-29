@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { settle, UNREADABLE, type Read } from '../dashboard/part';
 import { periodWindow, type Period } from '../dashboard/board/period';
+import { allPages, type Page } from '../data/all-pages';
 import { memberWorkspace, type Workspace } from '../data/workspace';
 import { loginsShown, withFaces, type FacePlayer } from './faces';
 import { engineeringOf, type EngineeringValue, type PullRequestRow, type ReviewRow, type SortKey } from './tally';
@@ -107,28 +108,12 @@ export async function loadEngineeringRepositoryBoard(
 
 // ── The reads, from Supabase ────────────────────────────────────────────
 
-const PAGE = 1000;
-
 type StoredPullRequest = {
   repo: string; number: number; author: string | null; author_is_bot: boolean; opened_at: string; merged_at: string | null;
   closed_at: string | null; merged_by: string | null; commits: number; additions: number; deletions: number; omni_signed: boolean;
 };
 type StoredReview = { repo: string; number: number; reviewer: string; first_at: string };
 type StoredFace = { github_login: string; hero: unknown; teams: { color: string } | null };
-
-type Page<T> = (start: number, end: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
-
-/** Every row of a read, a page of a thousand at a time: PostgREST answers no more at once. */
-async function allRows<T>(what: string, page: Page<T>): Promise<T[]> {
-  const rows: T[] = [];
-  for (let start = 0; ; start += PAGE) {
-    const { data, error } = await page(start, start + PAGE - 1);
-    if (error) throw new Error(`Supabase: could not read the ${what} (${error.message})`);
-    const got = (data ?? []) as T[];
-    rows.push(...got);
-    if (got.length < PAGE) return rows;
-  }
-}
 
 const PR_COLUMNS = 'repo, number, author, author_is_bot, opened_at, merged_at, closed_at, merged_by, commits, additions, deletions, omni_signed';
 
@@ -141,7 +126,7 @@ export function supabaseEngineeringReads(db: SupabaseClient, workspace: string):
     },
     async pullRequests(from, repos) {
       const at = `"${from.toISOString()}"`;
-      const rows = await allRows<StoredPullRequest>('pull requests', (start, end) => db
+      const rows = await allPages('the pull requests', (start, end) => db
         .from('pull_requests')
         .select(PR_COLUMNS)
         .eq('workspace_id', workspace)
@@ -149,14 +134,14 @@ export function supabaseEngineeringReads(db: SupabaseClient, workspace: string):
         .or(`opened_at.gte.${at},merged_at.gte.${at},and(merged_at.is.null,closed_at.is.null)`)
         .order('repo', { ascending: true })
         .order('number', { ascending: true })
-        .range(start, end));
+        .range(start, end) as unknown as Page<StoredPullRequest>);
       return rows.map((r) => ({
         repo: r.repo, number: r.number, author: r.author, authorIsBot: r.author_is_bot, openedAt: r.opened_at, mergedAt: r.merged_at,
         closedAt: r.closed_at, mergedBy: r.merged_by, commits: r.commits, additions: r.additions, deletions: r.deletions, omniSigned: r.omni_signed,
       }));
     },
     async reviews(from, to, repos) {
-      const rows = await allRows<StoredReview>('reviews', (start, end) => db
+      const rows = await allPages('the reviews', (start, end) => db
         .from('pull_request_reviews')
         .select('repo, number, reviewer, first_at')
         .eq('workspace_id', workspace)
@@ -166,7 +151,7 @@ export function supabaseEngineeringReads(db: SupabaseClient, workspace: string):
         .order('repo', { ascending: true })
         .order('number', { ascending: true })
         .order('reviewer', { ascending: true })
-        .range(start, end));
+        .range(start, end) as unknown as Page<StoredReview>);
       return rows.map((r) => ({ repo: r.repo, number: r.number, reviewer: r.reviewer, firstAt: r.first_at }));
     },
     async faces(logins) {
