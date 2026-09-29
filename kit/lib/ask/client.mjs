@@ -2,7 +2,8 @@
 // `<ask.url>/api/ask/*` (PRD 71's spec, "The contract"), and since PRD 216 the two dossier calls under
 // `<ask.url>/api/dossiers`. The kit knows only this URL and these calls; any server that honours
 // them will do. Since PRD 459 it also asks where a repository's questions land (`GET
-// /api/ask/workspace`), for `omni ask on` and `omni ask status`.
+// /api/ask/workspace`), for `omni ask on` and `omni ask status`. Since PRD 620 it downloads the
+// screenshots an answer carries, from the signed links `wait` hands back: those carry no token.
 //
 // Every call but the token exchange carries `Authorization: Bearer <access token>`, read from a
 // token store keyed by the host of `ask.url`. A 401 refreshes the token once (or takes the tokens
@@ -141,8 +142,29 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
     return 'renewed';
   }
 
+  /**
+   * The bytes a screenshot's signed link serves. The link is its own permission: no bearer token goes
+   * with it. Anything but a 2xx, a network failure or a timeout is an `AskCallError`.
+   * @returns {Promise<Uint8Array>}
+   */
+  async function download(url, { timeoutMs = callMs } = {}) {
+    let response;
+    try {
+      response = await fetch(url, { method: 'GET', headers: {}, signal: AbortSignal.timeout(timeoutMs) });
+    } catch (error) {
+      throw new AskCallError(`GET a screenshot: ${error?.name === 'TimeoutError' ? 'timed out' : 'unreachable'}`);
+    }
+    if (!response.ok) throw new AskCallError(`GET a screenshot: ${response.status}`, { status: response.status });
+    try {
+      return new Uint8Array(await response.arrayBuffer());
+    } catch {
+      throw new AskCallError('GET a screenshot: cut off');
+    }
+  }
+
   return {
     renew,
+    download,
     /** `context`, when given, is `{ repo }` (PRD 144): optional, an older server ignores it.
      * @returns {Promise<{ id: string, url: string }>} */
     openSession: (title, context) => call('POST', '/api/ask/sessions', { body: withContext({ title }, context) }),
@@ -151,7 +173,10 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * from and what it cost (`./context.mjs`). @returns {Promise<{ roundId: string }>} */
     openRound: (sessionId, questions, context) =>
       call('POST', `/api/ask/sessions/${segment(sessionId)}/rounds`, { body: withContext({ questions }, context) }),
-    /** Held by the server up to 50 s. @returns {Promise<{ status: 'open'|'answered'|'abandoned'|'closed', answers?: Record<string, string> }>} */
+    /** Held by the server up to 50 s. An answer given on the page with screenshots (PRD 620) also
+     * carries, per question, each one's name and a signed link (null when none could be made).
+     * @returns {Promise<{ status: 'open'|'answered'|'abandoned'|'closed', answers?: Record<string, string>,
+     *   attachments?: Record<string, Array<{ name: string, url: string | null }>> }>} */
     wait: (roundId, { timeoutMs = callMs } = {}) => call('GET', `/api/ask/rounds/${segment(roundId)}/wait`, { timeoutMs }),
     /** An answer given in the terminal. */
     answer: (roundId, answers) => call('POST', `/api/ask/rounds/${segment(roundId)}/answers`, { body: { answers, via: 'terminal' } }),
