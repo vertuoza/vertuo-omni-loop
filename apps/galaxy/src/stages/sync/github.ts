@@ -2,7 +2,9 @@
 // Loop App through the installation the workspace owns. It reads the repository's `.omni-loop` config
 // on its default branch (none: an empty snapshot, which gives nothing), the PRD folders in `inbox/` and
 // `shipped/` there, every issue carrying the config's `labels.prd`, every pull request, and, for each
-// open, non-draft feature PR of a folder's topic, when it was last marked ready for review. Any other
+// open, non-draft feature PR of a folder's topic, when it was last marked ready for review. Given when
+// the repository was last synced (issue 642), it reads only the issues and pull requests updated since
+// then: the folders are still read in full, and a stage already stored keeps its date. Any other
 // failure throws, and the route skips the repository. An installation token is kept in server memory
 // until a minute before it expires, and never leaves this module.
 import { z } from 'zod';
@@ -30,6 +32,7 @@ const Pulls = z.array(z.object({
   draft: z.boolean().optional().default(false),
   merged_at: z.string().nullable().optional().default(null),
   created_at: z.string(),
+  updated_at: z.string().optional(),
   head: z.object({ ref: z.string() }),
   base: z.object({ ref: z.string() }),
 }));
@@ -38,8 +41,9 @@ const Events = z.array(z.object({ event: z.string(), created_at: z.string() }));
 const path = (p: string) => p.split('/').map(encodeURIComponent).join('/');
 
 export type StagesReader = {
-  /** The repository as installation `installation` sees it. */
-  snapshot(installation: number, repository: string): Promise<RepoSnapshot>;
+  /** The repository as installation `installation` sees it; given `since`, only the issues and pull
+   * requests updated since then. */
+  snapshot(installation: number, repository: string, since?: string | null): Promise<RepoSnapshot>;
 };
 
 export function stagesReader(creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now): StagesReader {
@@ -47,7 +51,7 @@ export function stagesReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
   const tokenFor = keptInstallationTokens((id) => app.installationToken(id), clock);
 
   return {
-    async snapshot(installation, repository) {
+    async snapshot(installation, repository, since = null) {
       if (!REPO.test(repository)) throw new Error(`${repository} is not a repository name`);
       const token = await tokenFor(installation);
       /** A GitHub answer; null on 404. Throws on any other error. */
@@ -64,12 +68,13 @@ export function stagesReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
         if (!res.ok) throw new Error(`GitHub answered ${res.status} to ${route}`);
         return raw ? res.text() : res.json();
       }
-      async function pages<T>(route: (page: number) => string, parse: (data: unknown) => T[]): Promise<T[]> {
+      /** Every page, up to MAX_PAGES; the ones after a page that `last` says ends the read are not asked for. */
+      async function pages<T>(route: (page: number) => string, parse: (data: unknown) => T[], last: (found: T[]) => boolean = () => false): Promise<T[]> {
         const all: T[] = [];
         for (let page = 1; page <= MAX_PAGES; page += 1) {
           const found = parse((await get(route(page))) ?? []);
           all.push(...found);
-          if (found.length < 100) break;
+          if (found.length < 100 || last(found)) break;
         }
         return all;
       }
@@ -86,14 +91,17 @@ export function stagesReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
       const [inbox, shipped] = await Promise.all([folders('inbox'), folders('shipped')]);
 
       const issues = (await pages(
-        (page) => `/issues?${new URLSearchParams({ labels: config.prdLabel, state: 'all', per_page: '100', page: String(page) })}`,
+        (page) => `/issues?${new URLSearchParams({ labels: config.prdLabel, state: 'all', per_page: '100', page: String(page), ...(since ? { since } : {}) })}`,
         (data) => Issues.parse(data),
       )).filter((i) => i.pull_request === undefined).map(({ number, created_at }) => ({ number, created_at }));
 
-      const listed = await pages(
-        (page) => `/pulls?${new URLSearchParams({ state: 'all', sort: 'created', direction: 'desc', per_page: '100', page: String(page) })}`,
+      // Since a sync: most recently updated first, up to the first one updated before it.
+      const before = (p: { updated_at?: string }) => since !== null && Date.parse(p.updated_at ?? '') < Date.parse(since);
+      const listed = (await pages(
+        (page) => `/pulls?${new URLSearchParams({ state: 'all', sort: since ? 'updated' : 'created', direction: 'desc', per_page: '100', page: String(page) })}`,
         (data) => Pulls.parse(data),
-      );
+        (found) => found.some(before),
+      )).filter((p) => !before(p));
       const features = new Set([...inbox, ...shipped]
         .map((name) => (parseFolderName(name) as { topic: string } | null)?.topic)
         .filter((t): t is string => Boolean(t))

@@ -35,6 +35,9 @@ export type StageStore = {
   stageCounts(workspace: string, prds?: readonly PrdRef[]): Promise<StageCounts>;
   /** The PRD whose folder has this topic in the repository; null when none is known. */
   prdByTopic(workspace: string, repository: string, topic: string): Promise<number | null>;
+  /** When the sync last recorded the repository: the latest synced_at of its PRD stages, which only the
+   * sync writes (a stage event never does); null when it holds none. */
+  lastSynced(workspace: string, repository: string): Promise<string | null>;
 };
 
 /** A PRD's key within a workspace: `owner/name#7`, the repository in lower case. */
@@ -137,6 +140,15 @@ export function stageStore(db: Pick<SupabaseClient, 'from'>): StageStore {
       settle(`find the PRD of topic ${topic}`, error);
       const row = data as { prd?: unknown } | null;
       return row && row.prd !== undefined && row.prd !== null ? Number(row.prd) : null;
+    },
+
+    async lastSynced(workspace, repository) {
+      const { data, error } = await db.from(STAGES_TABLE).select('synced_at')
+        .eq('workspace_id', workspace).eq('repository', lower(repository)).eq('stage', 'prd')
+        .order('synced_at', { ascending: false }).limit(1).maybeSingle();
+      settle(`read when ${lower(repository)} was last synced`, error);
+      const row = data as { synced_at?: unknown } | null;
+      return row && typeof row.synced_at === 'string' ? row.synced_at : null;
     },
   };
   return store;
