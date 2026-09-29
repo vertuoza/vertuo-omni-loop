@@ -92,6 +92,12 @@ update the PRD on the feature branch and on the phase-0 pull request alike. When
 **merge the phase-0 pull request** on GitHub. The PRD is now in the
 **inbox**: approved, and ready to build.
 
+The phase-0 pull request goes into your default branch, not into the PRD's feature branch, which
+holds the same documents already. That merge is what puts the PRD in the inbox: the loop reads the
+inbox on the default branch, so until then `omni status` shows the PRD as `in review`, and the
+merge is your approval on record. [How the loop works](/docs/loop#why-the-phase-0-pull-request-goes-into-the-default-branch)
+gives all four reasons.
+
 ## 3. Build it: `/clear`, then `/omni:yolo <n>`
 
 Start from a clean session: type `/clear` (or open a new terminal and run `claude` again).

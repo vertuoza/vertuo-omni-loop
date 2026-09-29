@@ -33,8 +33,9 @@ Three rules hold the loop together:
 
 ## Your three gates
 
-1. **The phase-0 pull request.** Merging it approves the PRD. It holds documents only, no code: this
-   is the cheapest moment to change your mind.
+1. **The phase-0 pull request.** Merging it approves the PRD and puts it in the inbox, on the
+   default branch (why, below). It holds documents only, no code: this is the cheapest moment to
+   change your mind.
 2. **The outbox.** When the build is done, the feature pull request lists every question the agents
    met, in plain words, each with the option they built (always A) and the others. You answer them
    all in one comment, and `/omni:yolo-fix` rebuilds what you changed. The lighter decisions are
@@ -46,6 +47,29 @@ Three rules hold the loop together:
 Between two gates, nothing asks you anything. Only two things hold a slice: a confirmed rule of your
 knowledge base it would break, and an action only a person can take, such as adding a secret. Both
 come back to you with what to do.
+
+### Why the phase-0 pull request goes into the default branch
+
+The PRD's feature branch already holds the spec, the plan and the before/after: `/omni:brainstorm`
+wrote them there. The phase-0 pull request carries the same files, byte for byte, into the
+**default branch**, and it is that merge which puts the PRD in the **inbox**. It matters for four
+reasons:
+
+- **The inbox is read on the default branch.** The folder is the status, and `omni status`, the
+  status line and every teammate's checkout read the folders from the default branch. Until the
+  phase-0 pull request is merged, they show the PRD as `in review`: counted apart, not yet
+  approved. Once merged, its folder sits in `.omni-loop/delivery/inbox/` for everyone: approved,
+  ready to build.
+- **The merge is the approval, on record.** Only a person merges into the default branch. The merge
+  says who approved which spec and which plan, and when, before a line of code was written.
+- **The next PRDs can build on it.** Every new PRD starts from the default branch, so from then on
+  it can read this spec and this plan, and name this PRD among the ones it waits for
+  (`blocked-by`), which the kit accepts only for a PRD already in the inbox or shipped.
+- **The feature pull request stays about the code.** Before it ships, `/omni:yolo` merges the
+  default branch into the feature branch; the two copies of the documents are identical, so they
+  reconcile to nothing. The feature pull request then shows what changed since the approval: the
+  code, and the PRD's folder moving from `inbox/` to `shipped/`. You read the documents once, at
+  phase 0, and the code once, at the end.
 
 ## The pull requests you will see
 

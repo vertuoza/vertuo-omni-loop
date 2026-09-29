@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 360" width="800" height="360">
   <title>Branches and pull requests of one PRD</title>
-  <desc>The phase-0 PR carries the PRD into the default branch, docs only. The feature branch holds the build: one sub-PR per slice, merged into it by the agents, wave after wave. Then the PRD ships on the feature branch, and a person merges the feature PR. The Omni App then opens the retro and knowledge PRs.</desc>
+  <desc>The phase-0 PR carries the PRD into the default branch, docs only: merged, the PRD is in the inbox. The feature branch holds the build: one sub-PR per slice, merged into it by the agents, wave after wave. Then the PRD ships on the feature branch, and a person merges the feature PR. The Omni App then opens the retro and knowledge PRs.</desc>
   <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
        tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
   <style>
@@ -56,7 +56,8 @@
   <text x="315" y="48" class="dg-small" text-anchor="middle">spec, plan, before/after</text>
   <circle cx="380" cy="132" r="6" class="dg-head dg-you"/>
   <text x="380" y="158" class="dg-tag dg-you" text-anchor="middle">YOU MERGE</text>
-  <text x="380" y="174" class="dg-small" text-anchor="middle">the phase-0 PR</text>
+  <text x="380" y="174" class="dg-small" text-anchor="middle">the phase-0 PR:</text>
+  <text x="380" y="190" class="dg-small dg-muted" text-anchor="middle">the PRD is in the inbox</text>
   <!-- the feature branch, cut by /omni:brainstorm, its draft PR opened by /omni:plan -->
   <path d="M196 132 C216 132, 212 204, 232 204 L644 204 C664 204, 660 132, 680 132" class="dg-line"/>
   <circle cx="196" cy="132" r="5" class="dg-box"/>

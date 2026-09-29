@@ -46,6 +46,15 @@ describe('docs/guide', () => {
     for (const never of ['omni init', 'installing the GitHub App', '/omni:invade']) expect(join?.body).toContain(never);
   });
 
+  it('says why the phase-0 pull request goes into the default branch, and links it where a PRD is approved', () => {
+    const { pages } = readGuide(GUIDE);
+    const body = (slug: string) => pages.find((page) => page.slug === slug)?.body ?? '';
+    expect(body('loop')).toContain('### Why the phase-0 pull request goes into the default branch');
+    for (const slug of ['first-prd', 'use-cases']) {
+      expect(body(slug), slug).toContain('](/docs/loop#why-the-phase-0-pull-request-goes-into-the-default-branch)');
+    }
+  });
+
   it('draws the loop, its pull requests and its skills on the loop page', () => {
     const loop = readGuide(GUIDE).pages.find((page) => page.slug === 'loop');
     expect(diagramsNamed(loop?.body ?? '').map((diagram) => [diagram.src, diagram.alone])).toEqual([

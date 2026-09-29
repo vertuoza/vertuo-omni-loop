@@ -36,8 +36,10 @@ design before it writes anything. A **spike**, a "can we…?" question, ends the
 no pull request. Anything bigger ends with the PRD issue, the **phase-0 pull request** (the PRD's
 documents, going into your default branch) and a draft **feature pull request**.
 
-**Then:** read the phase-0 pull request, and merge it when it is what you want. Something wrong?
-Do not merge: tell Claude what to change, in the same session. The whole walk is
+**Then:** read the phase-0 pull request, and merge it when it is what you want. It goes into your
+default branch on purpose: that merge puts the PRD in the inbox, approved, for everyone
+([why](/docs/loop#why-the-phase-0-pull-request-goes-into-the-default-branch)). Something wrong? Do
+not merge: tell Claude what to change, in the same session. The whole walk is
 [Your first PRD](/docs/first-prd).
 
 ## Build
