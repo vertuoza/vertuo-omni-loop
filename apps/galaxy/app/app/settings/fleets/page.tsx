@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
-import '../../../src/fleets/fleets.css';
-import { arcadeMode } from '../../../src/data/mode';
-import { supabaseEnv, supabaseServer } from '../../../src/data/supabase-server';
-import { FleetsScreen, type FleetsScreenView } from '../../../src/fleets/FleetsScreen';
-import { loadFleetsPage } from '../../../src/fleets/load';
-import { MASCOTS } from '../../../src/fleets/store';
+import '../../../../src/fleets/fleets.css';
+import { arcadeMode } from '../../../../src/data/mode';
+import { supabaseEnv, supabaseServer } from '../../../../src/data/supabase-server';
+import { FleetsScreen, type FleetsScreenView } from '../../../../src/fleets/FleetsScreen';
+import { loadFleetsPage } from '../../../../src/fleets/load';
+import { MASCOTS } from '../../../../src/fleets/store';
 
-// /app/fleets (PRD 400 s3): the workspace's fleets, under the app's shared top bar (app/app/layout.tsx).
+// /app/settings/fleets (PRD 400 s3; moved from /app/fleets by PRD 572, which now redirects here): the
+// workspace's fleets, under the app's shared top bar (app/app/layout.tsx).
 // Its owner creates, edits, retires and restores them through the owner-only fleet functions; every
 // other member reads them. Rendered per request, as the signed-in person, so row-level security
 // decides what the read returns. In development (or OMNI_LOOP_DEMO=1), the demo: an owner with no

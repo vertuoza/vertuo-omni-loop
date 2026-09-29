@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { FleetRow } from '../arcade/types';
 import { activeFleets, BLANK_COLOR, fleetsReducer, initialState, previewOf, retiredFleets, type FleetsState } from './model';
 
-// /app/fleets's state (PRD 400 s3): the workspace's fleets, the one form being filled (a new fleet or
+// /app/settings/fleets's state (PRD 400 s3): the workspace's fleets, the one form being filled (a new fleet or
 // an edit), the retire awaiting its confirmation, and the last refusal. Pure, so every step of the
 // owner's page is proven here and the view only draws a state.
 

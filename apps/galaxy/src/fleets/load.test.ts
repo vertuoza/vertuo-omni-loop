@@ -13,7 +13,7 @@ import type { User } from '@supabase/supabase-js';
 import { loadFleetsPage } from './load';
 import { MASCOTS } from './store';
 
-// /app/fleets's read (PRD 400 s3), as the signed-in person: their workspace (the one joined first, as
+// /app/settings/fleets's read (PRD 400 s3), as the signed-in person: their workspace (the one joined first, as
 // /app's), its fleets, retired ones included, whether they own it (is_owner(), s1) and the mascots an
 // owner may pick (fleet_mascots(), s1).
 

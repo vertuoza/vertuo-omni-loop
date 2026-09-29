@@ -1,7 +1,7 @@
 import type { FleetRow } from '../arcade/types';
 import type { Refusal } from './refusal';
 
-// /app/fleets's state (PRD 400 s3), as a reducer: the workspace's fleets, the one form being filled
+// /app/settings/fleets's state (PRD 400 s3), as a reducer: the workspace's fleets, the one form being filled
 // (a new fleet, or an edit of one), the retire awaiting its confirmation on the page, the last
 // refusal, and whether a call is on its way. The client component (FleetsPage.tsx) keeps it and
 // calls the fleet functions; the view (FleetsView.tsx) only draws it.

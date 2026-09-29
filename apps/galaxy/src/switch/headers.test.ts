@@ -10,7 +10,7 @@ vi.mock('next/navigation', () => ({ usePathname: () => at.path, useRouter: () =>
 
 // Every header of the app, as the server renders it (PRD 238). Two kinds since PRD 438:
 // - the app's pages (/app, /prd, /ask, /knowledge) sit in the app shell: the sidebar (the crest to
-//   /app, the Work and Omni groups, the page's item marked current) and the top bar (the page's
+//   /app, the Dashboard, Work, Settings and Omni groups since PRD 572, the page's item marked current) and the top bar (the page's
 //   title, the theme switch, then Game mode, last);
 // - the public pages (/releases, PRD 262, and /docs) keep the public top bar (TopBar, PRD 346): the
 //   OMNI LOOP mark to /app, its menu of Omni's pages (Release notes, Docs: no PRDs), Open the app →
@@ -49,7 +49,9 @@ const THEME_THEN_GAME = ['Omni', 'Light', 'Dark', 'Game mode'];
 /** Each app page: its layout, a path under it, the sidebar item marked current, the top bar's title. */
 const APP_PAGES: Array<[string, Layout, string, string]> = [
   ['/app', AppLayout, '/app', 'Home'],
-  ['/app/fleets', AppLayout, '/app/fleets', 'Fleets'],
+  ['/app/fleet', AppLayout, '/app/fleet', 'Fleet'],
+  ['/app/workspace', AppLayout, '/app/workspace', 'Workspace'],
+  ['/app/settings/fleets', AppLayout, '/app/settings/fleets', 'Fleets'],
   ['/prd', DossierLayout, '/prd', 'PRDs'],
   ['/prd/<id>', DossierLayout, '/prd', 'PRDs'],
   ['/ask', AskLayout, '/ask', 'Questions'],
@@ -72,10 +74,10 @@ describe('every app page', () => {
     expect(html).not.toContain('ask-bar');
   });
 
-  it.each(APP_PAGES)('%s: the sidebar\'s crest leads to /app, and lists Work then Omni', async (name, layout) => {
+  it.each(APP_PAGES)('%s: the sidebar\'s crest leads to /app, and lists Dashboard, Work, Settings then Omni', async (name, layout) => {
     const side = part(await renderAt(layout, pathOf(name)), '<aside', '</aside>');
     expect(side).toMatch(new RegExp(`<a class="app-sidebar-crest" href="${APP_HOME}">`));
-    expect(controls(side)).toEqual(['OMNI LOOP', 'Home', 'PRDs', expect.stringMatching(/^Questions( \d+)?$/), expect.stringMatching(/^Shared with me( \d+)?$/), 'History', 'Knowledge', 'Fleets', 'Docs', 'Release notes']);
+    expect(controls(side)).toEqual(['OMNI LOOP', 'Home', 'Fleet', 'Workspace', 'PRDs', expect.stringMatching(/^Questions( \d+)?$/), expect.stringMatching(/^Shared with me( \d+)?$/), 'History', 'Knowledge', 'Fleets', 'Docs', 'Release notes']);
   });
 
   it.each(APP_PAGES)('%s: marks exactly one sidebar item current: %s', async (name, layout, current) => {

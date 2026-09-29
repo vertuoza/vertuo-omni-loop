@@ -8,7 +8,7 @@ import './common.css';
 import './raise.css';
 
 /** Where the workspace's owner sets up its fleets. */
-export const FLEETS_PAGE = '/app/fleets';
+export const FLEETS_PAGE = '/app/settings/fleets';
 
 export function RaiseOverlay({ owner }: { owner: boolean }) {
   return (
