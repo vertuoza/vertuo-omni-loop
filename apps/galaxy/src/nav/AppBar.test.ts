@@ -87,7 +87,9 @@ describe('the top bar', () => {
 
   it.each([
     ['/app', 'Home'],
-    ['/app/fleets', 'Fleets'],
+    ['/app/fleet', 'Fleet'],
+    ['/app/workspace', 'Workspace'],
+    ['/app/settings/fleets', 'Fleets'],
     ['/prd/3f2a', 'PRDs'],
     ['/ask/history', 'Questions / History'],
     ['/knowledge', 'Knowledge'],

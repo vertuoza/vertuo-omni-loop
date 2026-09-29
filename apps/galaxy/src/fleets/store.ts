@@ -3,7 +3,7 @@ import { lookOf } from '@omni/galaxy';
 import type { FleetRow } from '../arcade/types';
 import { refusalOf, type Refusal } from './refusal';
 
-// /app/fleets's four calls (PRD 400 s3). In production, the owner-only fleet functions of
+// /app/settings/fleets's four calls (PRD 400 s3). In production, the owner-only fleet functions of
 // supabase/migrations/20261003090000_own_fleets.sql, called as the signed-in person: each answers the
 // public.teams row it saved, or refuses (refusal.ts). In the demo, the same rules kept in memory, so
 // the page can be tried with no database.

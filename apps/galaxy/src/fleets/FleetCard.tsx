@@ -4,7 +4,7 @@ import type { FleetRow } from '../arcade/types';
 import { pixelSvg } from '../design/pixel-svg';
 import { NEUTRAL } from './model';
 
-// A fleet's card on /app/fleets (PRD 400 s3): its mascot drawn on the server as a pixel SVG (a fleet
+// A fleet's card on /app/settings/fleets (PRD 400 s3): its mascot drawn on the server as a pixel SVG (a fleet
 // with none is a hero in its colour, as the arcade draws it: fleetSprite()), its label and its motto,
 // edged in its colour. The form's live preview is one of these, drawn from the form.
 

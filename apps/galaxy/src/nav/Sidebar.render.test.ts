@@ -6,8 +6,8 @@ import type { WaitingView } from '../waiting/view';
 import type { WaitingOutbox, WaitingQuestion } from '../waiting/waiting';
 import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
 
-// The app's sidebar as the server renders it (PRD 438): the crest, the workspace's name, the Work
-// group, then the Omni group, the current item marked, and what waits for the person as badges, from
+// The app's sidebar as the server renders it (PRD 438): the crest, the workspace's name, the
+// Dashboard, Work and Settings groups (PRD 572), then the Omni group, the current item marked, and what waits for the person as badges, from
 // the waiting provider (PRD 499): Questions the Questions part, Shared with me the shared ones.
 
 const at = { path: '/app' as string | null };
@@ -51,11 +51,11 @@ describe('the sidebar', () => {
     expect(render(SIGNED_OUT_VIEWER)).not.toContain('app-sidebar-workspace');
   });
 
-  it('lists Work, then Omni, their items in order', () => {
+  it('lists Dashboard, Work, Settings, then Omni, their items in order (PRD 572)', () => {
     const html = render();
-    expect(text(html)).toMatch(/^OMNI LOOP Acme Work Home PRDs Questions 5 Shared with me 3 History Knowledge Fleets Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
+    expect(text(html)).toMatch(/^OMNI LOOP Acme Dashboard Home Fleet Workspace Work PRDs Questions 5 Shared with me 3 History Knowledge Settings Fleets Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
     expect(links(html).slice(1).map((l) => /href="([^"]+)"/.exec(l.attrs)?.[1])).toEqual([
-      '/app', '/prd', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/fleets', '/docs', '/releases',
+      '/app', '/app/fleet', '/app/workspace', '/prd', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/settings/fleets', '/docs', '/releases',
     ]);
   });
 
@@ -92,7 +92,10 @@ describe('the sidebar', () => {
 
   it.each([
     ['/app', '/app'],
-    ['/app/fleets', '/app/fleets'],
+    ['/app/fleet', '/app/fleet'],
+    ['/app/fleet?fleet=beaver', '/app/fleet'],
+    ['/app/workspace', '/app/workspace'],
+    ['/app/settings/fleets', '/app/settings/fleets'],
     ['/prd/3f2a', '/prd'],
     ['/ask/q/42', '/ask'],
     ['/ask/for-me', '/ask/for-me'],
@@ -135,9 +138,11 @@ describe('the sidebar', () => {
     expect(html).not.toContain('data-open');
   });
 
-  it('names each group\'s list by the group: Work by its label, Omni\'s foot row by its name', () => {
+  it('names each group\'s list by the group: Dashboard, Work and Settings by their labels, Omni\'s foot row by its name', () => {
     const html = render();
-    expect(html).toMatch(/<p class="app-sidebar-label" id="app-sidebar-work">Work<\/p><ul class="app-sidebar-items" aria-labelledby="app-sidebar-work">/);
+    for (const [id, label] of [['dashboard', 'Dashboard'], ['work', 'Work'], ['settings', 'Settings']]) {
+      expect(html).toContain(`<p class="app-sidebar-label" id="app-sidebar-${id}">${label}</p><ul class="app-sidebar-items" aria-labelledby="app-sidebar-${id}">`);
+    }
     expect(html).toContain('<ul class="app-sidebar-links" aria-label="Omni">');
   });
 });

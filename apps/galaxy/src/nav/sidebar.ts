@@ -1,12 +1,14 @@
 // The app's sidebar (PRD 438): where a person can go from any app page (/app, /prd, /ask,
-// /knowledge). The Work group holds the workspace's work, the Omni group Omni's own pages, which
-// leave the app for the public ones. A new section is one entry here. Two pure reads of a path: the
-// item it falls under, by the longest matching path (so /app/fleets is Fleets, not Home), and the top
+// /knowledge). Since PRD 572 it has three groups, then Omni: Dashboard (the three boards: Home, your
+// fleet's, the workspace's), Work (the workspace's work), Settings (Fleets, at /app/settings/fleets),
+// and Omni's own pages, which leave the app for the public ones. A new section is one entry here. Two
+// pure reads of a path: the item it falls under, by the longest matching path (so
+// /app/settings/fleets is Fleets and /app/fleet is Fleet, not Home), and the top
 // bar's title, a nested item's parent first. The query and the hash never count. An item that counts
 // what waits for the person (PRD 499) carries its count as a badge, none at 0.
 import type { WaitingCounts } from '../waiting/waiting';
 
-export type SidebarId = 'home' | 'prds' | 'questions' | 'for-me' | 'history' | 'knowledge' | 'fleets' | 'docs' | 'releases';
+export type SidebarId = 'home' | 'fleet' | 'workspace' | 'prds' | 'questions' | 'for-me' | 'history' | 'knowledge' | 'fleets' | 'docs' | 'releases';
 
 /** One item of the sidebar. */
 export interface SidebarItem {
@@ -21,7 +23,7 @@ export interface SidebarItem {
 }
 
 export interface SidebarGroup {
-  id: 'work' | 'omni';
+  id: 'dashboard' | 'work' | 'settings' | 'omni';
   label: string;
   items: readonly SidebarItem[];
 }
@@ -29,10 +31,18 @@ export interface SidebarGroup {
 /** The sidebar, in order. */
 export const SIDEBAR: readonly SidebarGroup[] = [
   {
+    id: 'dashboard',
+    label: 'Dashboard',
+    items: [
+      { id: 'home', label: 'Home', path: '/app' },
+      { id: 'fleet', label: 'Fleet', path: '/app/fleet' },
+      { id: 'workspace', label: 'Workspace', path: '/app/workspace' },
+    ],
+  },
+  {
     id: 'work',
     label: 'Work',
     items: [
-      { id: 'home', label: 'Home', path: '/app' },
       { id: 'prds', label: 'PRDs', path: '/prd' },
       {
         id: 'questions',
@@ -44,8 +54,12 @@ export const SIDEBAR: readonly SidebarGroup[] = [
         ],
       },
       { id: 'knowledge', label: 'Knowledge', path: '/knowledge' },
-      { id: 'fleets', label: 'Fleets', path: '/app/fleets' },
     ],
+  },
+  {
+    id: 'settings',
+    label: 'Settings',
+    items: [{ id: 'fleets', label: 'Fleets', path: '/app/settings/fleets' }],
   },
   {
     id: 'omni',

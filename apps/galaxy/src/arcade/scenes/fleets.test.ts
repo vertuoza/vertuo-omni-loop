@@ -132,8 +132,8 @@ describe('the fleets wall with zero fleets (PRD 400)', () => {
     expect(html).not.toContain('UNCREWED');
   });
 
-  it('points the owner at /app/fleets', () => {
+  it('points the owner at /app/settings/fleets', () => {
     expect(empty(true)).toContain('SET THEM UP AT');
-    expect(empty(true)).toContain('href="/app/fleets"');
+    expect(empty(true)).toContain('href="/app/settings/fleets"');
   });
 });

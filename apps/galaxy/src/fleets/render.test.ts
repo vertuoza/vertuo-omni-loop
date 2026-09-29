@@ -8,7 +8,7 @@ import { FleetsView, ONLY_OWNER } from './FleetsView';
 import { fleetsReducer, initialState, type FleetsAction, type FleetsState } from './model';
 import { MASCOTS } from './store';
 
-// /app/fleets as the server renders it (PRD 400 s3): the owner's view (New fleet, the form with its
+// /app/settings/fleets as the server renders it (PRD 400 s3): the owner's view (New fleet, the form with its
 // live preview, Edit, Retire confirmed on the page, the retired fleets under a fold with Restore), a
 // member's read-only view, and each refusal next to its field.
 
@@ -163,7 +163,7 @@ describe('a member\'s fleets page', () => {
   });
 });
 
-describe('/app/fleets in each situation', () => {
+describe('/app/settings/fleets in each situation', () => {
   const screen = (view: FleetsScreenView) => renderToStaticMarkup(createElement(FleetsScreen, { view }));
   const h1 = (html: string) => text(/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1] ?? '');
 
@@ -198,9 +198,9 @@ describe('/app/fleets in each situation', () => {
   });
 });
 
-describe('the sidebar\'s Fleets item (PRD 438, which replaced /app\'s card)', () => {
-  it('links to /app/fleets', () => {
-    const items = SIDEBAR.flatMap((g) => g.items);
-    expect(items.find((i) => i.id === 'fleets')).toMatchObject({ label: 'Fleets', path: '/app/fleets' });
+describe('the sidebar\'s Fleets item (PRD 438, which replaced /app\'s card; under Settings since PRD 572)', () => {
+  it('links to /app/settings/fleets', () => {
+    const settings = SIDEBAR.find((g) => g.id === 'settings')!.items;
+    expect(settings.find((i) => i.id === 'fleets')).toMatchObject({ label: 'Fleets', path: '/app/settings/fleets' });
   });
 });

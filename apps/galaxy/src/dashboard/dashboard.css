@@ -1,13 +1,11 @@
-/* The dashboard, /app (PRD 328), on the ask pages' reading surface. It composes each part's own
-   stylesheet (week/, counts/ and rankings/, each styled inside its folder), then draws what it owns:
+/* The dashboard, /app (PRD 328, reshaped by PRD 572), on the ask pages' reading surface. It composes
+   Waiting for you's stylesheet (counts/; the board brings its own), then draws what it owns:
    its column, the hero block and the lines a part shows in place of its figures. The app's sections
    are the sidebar's (PRD 438), not cards here. Every colour is a token of src/ask/theme-tokens.ts, as in src/ask/ask.css; a fleet's own
    colour comes from the data, as --dash-fleet on the element that shows it. Nothing is wider than the
    window: at 393 px everything wraps. */
 
-@import './week/week.css';
 @import './counts/counts.css';
-@import './rankings/rankings.css';
 
 .dash { width: 100%; justify-self: start; display: grid; gap: 32px; }
 .dash > * { min-width: 0; }
