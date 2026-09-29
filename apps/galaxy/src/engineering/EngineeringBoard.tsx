@@ -3,8 +3,9 @@ import { CouldNotLoad } from '../dashboard/Notes';
 import { UNREADABLE, type Read } from '../dashboard/part';
 import { Bars, type Column } from '../dashboard/board/Board';
 import { dayName } from '../dashboard/board/chart';
-import { hrefWith, periodHref, type Query } from '../dashboard/board/links';
-import { PERIODS, type Period } from '../dashboard/board/period';
+import { hrefWith, type Query } from '../dashboard/board/links';
+import { PeriodSwitch } from '../dashboard/board/PeriodSwitch';
+import type { Period } from '../dashboard/board/period';
 import { faceOf } from '../people/face';
 import { PersonChip } from '../people/PersonChip';
 import { durationWords, SORTS, type EngineeringValue, type MergedDay, type Ranked, type SortKey } from './tally';
@@ -31,20 +32,6 @@ const REPOSITORIES_PATH = '/app/settings/repositories';
 const COUNT = new Intl.NumberFormat('en-US');
 const n = (value: number) => COUNT.format(value);
 const PERIOD_WORDS: Record<Period, string> = { '7d': 'last 7 days', '30d': 'last 30 days', season: 'this season' };
-
-function PeriodSwitch({ path, period, query }: { path: string; period: Period; query: Query }) {
-  return (
-    <nav className="board-period" aria-label="Period">
-      <ul>
-        {PERIODS.map((p) => (
-          <li key={p.id}>
-            <a href={periodHref(path, query, p.id)} aria-current={p.id === period ? 'page' : undefined}>{p.label}</a>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
-}
 
 // ── Tiles ────────────────────────────────────────────────────────────────
 

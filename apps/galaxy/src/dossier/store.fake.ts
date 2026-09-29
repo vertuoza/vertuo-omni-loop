@@ -67,9 +67,9 @@ export type FakeVersion = {
 };
 
 /** What workspace_roster() adds to a member (PRD 652): each left out reads null. */
-export type FakePlayer = { login?: string; avatar?: string; fleet?: string; hero?: unknown };
+type FakePlayer = { login?: string; avatar?: string; fleet?: string; hero?: unknown };
 /** A fleet of a workspace, as `teams` holds it (PRD 400, PRD 652). */
-export type FakeFleet = { workspace_id: string; name: string; label: string; color: string | null; mascot: string | null };
+type FakeFleet = { workspace_id: string; name: string; label: string; color: string | null; mascot: string | null };
 
 /** An ask session (PRD 71, PRD 144), with the workspace PRD 144 placed it in. */
 export type FakeAskSession = {

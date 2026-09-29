@@ -494,62 +494,84 @@ export function questionsView(
   return { rounds, asked: total(null), answered: total('answered'), open: total('open') };
 }
 
-export function dossierView(
-  { dossier, versions, members, rounds, repos, answerable = [], github, slices = null, stages, demo = false, fix, people = NOBODY }: DossierRead, me: string | null, pick: DossierPick, now: number = Date.now(),
-): DossierView {
-  const work = kindOf(dossier);
-  const pageTabs = KIND_TABS[work];
-  const ofKind = (kind: ArtifactKind) => versions.filter((v) => v.kind === kind);
-  const fallback = work === 'prd' ? defaultTab(rounds) : pageTabs[0];
-  const tab = pick.tab !== null && pageTabs.includes(pick.tab) ? pick.tab : fallback;
-  const mine = isArtifactTab(tab) ? ofKind(tab) : [];
-  const href = (to: DossierTab, version: number | null = null) => hrefOf(dossier.id, to, version, fallback, null, work);
-  const questions = questionsView(rounds, members, dossier.id, answerable, now, people);
-  const context = pick.context ?? 'before-after';
-  const outbox = outboxView(dossier.prd === null ? undefined : github, {
-    canAnswer: me !== null, demo, people, sender: me === null ? null : people.byId(me, nameOf(me, members)).face, context: tab === 'outbox' ? contextView(dossier.id, versions, questions, context, fallback) : null,
+/** What the page is read for: the rows, the viewer, the dossier's kind and tabs, the tab picked (its
+ * default the `fallback`), the links between its views, and the GitHub summary a numbered PRD reads
+ * (left out for a draft). */
+type Page = {
+  read: DossierRead; me: string | null; people: People; work: WorkKind; tabs: readonly DossierTab[]; tab: DossierTab; fallback: DossierTab;
+  href: (to: DossierTab, version?: number | null) => string;
+  numbered: GithubSummary | null | undefined;
+};
+
+function pageOf(read: DossierRead, me: string | null, pick: DossierPick): Page {
+  const work = kindOf(read.dossier);
+  const tabs = KIND_TABS[work];
+  const fallback = work === 'prd' ? defaultTab(read.rounds) : tabs[0];
+  const tab = pick.tab !== null && tabs.includes(pick.tab) ? pick.tab : fallback;
+  const href = (to: DossierTab, version: number | null = null) => hrefOf(read.dossier.id, to, version, fallback, null, work);
+  return { read, me, people: read.people ?? NOBODY, work, tabs, tab, fallback, href, numbered: read.dossier.prd === null ? undefined : read.github };
+}
+
+/** The Outbox tab, with its context rail while it is the tab shown. */
+function outboxOf({ read, me, people, tab, fallback, numbered }: Page, questions: QuestionsView, context: ContextKind): OutboxView {
+  return outboxView(numbered, {
+    canAnswer: me !== null,
+    demo: read.demo ?? false,
+    people,
+    sender: me === null ? null : people.byId(me, nameOf(me, read.members)).face,
+    context: tab === 'outbox' ? contextView(read.dossier.id, read.versions, questions, context, fallback) : null,
   });
-  const retro = retroView(dossier.prd === null ? undefined : github);
-  const retroPr = dossier.prd !== null && github && github.retro !== UNREAD ? github.retro : null;
-  const counted = questionsCount(questions);
-  const badgeOf = (kind: DossierTab) => {
-    if (kind === 'retro') return retroPr ? (retroPr.state === 'open' ? 'open PR' : 'merged') : null;
-    if (kind === 'outbox') return outbox.open.length ? `${outbox.open.length} open` : outbox.ledger ? `${outbox.ledger} settled` : null;
-    if (kind === 'variations') return roundsBadge(ofKind(kind).length);
-    if (kind === 'questions') return counted.badge;
-    if (!isArtifactTab(kind)) return null;
-    return ofKind(kind).length ? `v${ofKind(kind).length}` : null;
-  };
-  const picked = pick.version !== null && pick.version <= mine.length ? pick.version : mine.length;
-  const entries = mine.map((version, i): VersionEntry => {
+}
+
+/** The tab's versions, newest first, the picked one (else the latest) current. */
+function versionEntries({ read, tab, work, href }: Page, version: number | null): VersionEntry[] {
+  const mine = isArtifactTab(tab) ? read.versions.filter((v) => v.kind === tab) : [];
+  const picked = version !== null && version <= mine.length ? version : mine.length;
+  return mine.map((row, i): VersionEntry => {
     const number = i + 1;
     return {
-      id: version.id,
+      id: row.id,
       number,
-      label: `${tab === 'variations' ? `Round ${number}` : `v${number}`} · ${shortDay(version.created_at)} · ${versionSource(version, members)}`,
+      label: `${tab === 'variations' ? `Round ${number}` : `v${number}`} · ${shortDay(row.created_at)} · ${versionSource(row, read.members)}`,
       href: href(tab, number),
       current: number === picked,
-      frame: tab === 'before-after' || tab === 'variations' ? sandboxPath(dossier.id, number, work, tab) : null,
+      frame: tab === 'before-after' || tab === 'variations' ? sandboxPath(read.dossier.id, number, work, tab) : null,
     };
   }).reverse();
-  // The rail's spec is rendered by the route, as the Spec tab's is: its latest version is `shown`.
-  const specs = ofKind('spec');
-  const railSpec: VersionEntry | null = tab === 'outbox' && context === 'spec' && specs.length ? {
-    id: specs[specs.length - 1].id, number: specs.length, label: `v${specs.length}`,
-    href: href('spec'), current: true, frame: null,
-  } : null;
+}
+
+/** The rail's spec is rendered by the route, as the Spec tab's is: its latest version; null with none. */
+function railSpecOf({ read, href }: Page): VersionEntry | null {
+  const specs = read.versions.filter((v) => v.kind === 'spec');
+  if (!specs.length) return null;
+  return { id: specs[specs.length - 1].id, number: specs.length, label: `v${specs.length}`, href: href('spec'), current: true, frame: null };
+}
+
+/** `DRAFT`, `PRD #216`, or a fix's `#548`. */
+const headingOf = (prd: number | null, work: WorkKind) => (prd === null ? 'DRAFT' : `${work === 'prd' ? 'PRD ' : ''}#${prd}`);
+
+/** A PRD's stage: a draft's from its questions, a numbered one's from its stored stages when they were
+ * asked for; none for a fix. */
+function stageOf({ read: { dossier, stages, github, slices = null }, work }: Page, questions: QuestionsView): StageView | null {
+  if (work !== 'prd') return null;
+  if (dossier.prd === null) return stageView({ prd: null, answered: questions.answered > 0, rows: [] });
+  return stages !== undefined ? stageView({ prd: dossier.prd, rows: stages ?? [], github, slices }) : null;
+}
+
+type DossierHeader = Pick<DossierView,
+  'id' | 'kind' | 'heading' | 'badge' | 'draft' | 'issueUrl' | 'stage' | 'title' | 'repos' | 'opened' | 'openedBy' | 'openedAt' | 'link' | 'canDelete'>;
+
+function headerOf(page: Page, questions: QuestionsView): DossierHeader {
+  const { read: { dossier, members, repos }, work, me, people } = page;
   const opener = dossier.opened_by === null ? 'read from GitHub' : `opened by ${nameOf(dossier.opened_by, members)}`;
-  const fixed = work !== 'prd';
   return {
     id: dossier.id,
     kind: work,
-    heading: dossier.prd === null ? 'DRAFT' : `${fixed ? '' : 'PRD '}#${dossier.prd}`,
+    heading: headingOf(dossier.prd, work),
     badge: WORK_NAMES[work].badge,
     draft: dossier.prd === null,
     issueUrl: dossier.prd === null ? null : issueUrl(dossier.home_repo, dossier.prd),
-    stage: fixed ? null : dossier.prd === null
-      ? stageView({ prd: null, answered: questions.answered > 0, rows: [] })
-      : stages !== undefined ? stageView({ prd: dossier.prd, rows: stages ?? [], github, slices }) : null,
+    stage: stageOf(page, questions),
     title: dossier.title,
     repos: repos?.length ? repos : [dossier.home_repo],
     opened: `${opener} · ${stamp(dossier.created_at)}`,
@@ -557,36 +579,82 @@ export function dossierView(
     openedAt: stamp(dossier.created_at),
     link: dossierPath(dossier.id, work),
     canDelete: dossier.prd === null && me !== null && dossier.opened_by === me,
-    tabs: pageTabs.map((kind) => ({
-      kind,
-      label: TAB_LABELS[kind],
-      badge: badgeOf(kind),
-      alert: kind === 'questions' ? counted.alert : null,
-      href: href(kind),
-      current: kind === tab,
-      empty: (kind === 'outbox' && outbox.state !== 'items') || (kind === 'retro' && retro.state !== 'text'),
-    })),
-    tab,
-    versions: entries,
-    shown: railSpec ?? entries.find((e) => e.current) ?? null,
+  };
+}
+
+/** What the tabs' badges read from: the retro PR's, the outbox, the questions' count, and how many
+ * versions each artifact has. */
+type Badges = { retro: string | null; outbox: OutboxView; counted: { badge: string | null; alert: string | null }; count: (kind: ArtifactKind) => number };
+
+/** The Retro tab's badge: whether the retro PR is open or merged; null with none, or GitHub unread. */
+function retroBadge(github: GithubSummary | null | undefined): string | null {
+  const pr = github && github.retro !== UNREAD ? github.retro : null;
+  if (!pr) return null;
+  return pr.state === 'open' ? 'open PR' : 'merged';
+}
+
+/** The Outbox tab's badge: the open decisions, else the settled ones; null with none. */
+const outboxBadge = ({ open, ledger }: OutboxView) => (open.length ? `${open.length} open` : ledger ? `${ledger} settled` : null);
+
+function badgeOf(kind: DossierTab, badges: Badges): string | null {
+  if (kind === 'retro') return badges.retro;
+  if (kind === 'outbox') return outboxBadge(badges.outbox);
+  if (kind === 'variations') return roundsBadge(badges.count(kind));
+  if (kind === 'questions') return badges.counted.badge;
+  if (!isArtifactTab(kind)) return null;
+  return badges.count(kind) ? `v${badges.count(kind)}` : null;
+}
+
+function tabEntry(kind: DossierTab, { tab, href }: Page, badges: Badges, retro: RetroView): TabEntry {
+  return {
+    kind,
+    label: TAB_LABELS[kind],
+    badge: badgeOf(kind, badges),
+    alert: kind === 'questions' ? badges.counted.alert : null,
+    href: href(kind),
+    current: kind === tab,
+    empty: (kind === 'outbox' && badges.outbox.state !== 'items') || (kind === 'retro' && retro.state !== 'text'),
+  };
+}
+
+export function dossierView(read: DossierRead, me: string | null, pick: DossierPick, now: number = Date.now()): DossierView {
+  const page = pageOf(read, me, pick);
+  const questions = questionsView(read.rounds, read.members, read.dossier.id, read.answerable ?? [], now, page.people);
+  const context = pick.context ?? 'before-after';
+  const outbox = outboxOf(page, questions, context);
+  const retro = retroView(page.numbered);
+  const count = (kind: ArtifactKind) => read.versions.filter((v) => v.kind === kind).length;
+  const badges: Badges = { retro: retroBadge(page.numbered), outbox, counted: questionsCount(questions), count };
+  const versions = versionEntries(page, pick.version);
+  const railSpec = page.tab === 'outbox' && context === 'spec' ? railSpecOf(page) : null;
+  return {
+    ...headerOf(page, questions),
+    tabs: page.tabs.map((kind) => tabEntry(kind, page, badges, retro)),
+    tab: page.tab,
+    versions,
+    shown: railSpec ?? versions.find((e) => e.current) ?? null,
     questions,
     outbox,
     retro,
-    fix: fixed ? fix ?? null : null,
+    fix: page.work === 'prd' ? null : read.fix ?? null,
   };
 }
 
 /** The Variations tab's badge: how many rounds were shown (`2 rounds`); null with none. */
 const roundsBadge = (count: number) => (count ? `${count} round${count === 1 ? '' : 's'}` : null);
 
+const retroUnread = (prUrl: string | null = null): RetroView => ({ state: 'unread', words: GITHUB_UNREAD, prUrl, text: null });
+
 /** The Retro tab, from the GitHub summary: null when it could not be read, left out when it was not asked for. */
 export function retroView(github: GithubSummary | null | undefined): RetroView {
-  const unread: RetroView = { state: 'unread', words: GITHUB_UNREAD, prUrl: null, text: null };
-  if (github === null) return unread;
-  const pr = github?.retro ?? null;
-  if (pr === UNREAD) return unread;
-  const text = github?.retroText ?? null;
-  if (text === UNREAD) return { ...unread, prUrl: pr?.url ?? null };
+  if (github === null) return retroUnread();
+  return github === undefined ? retroOf(null, null) : retroOf(github.retro ?? null, github.retroText ?? null);
+}
+
+/** The Retro tab from its PR and its retro.md, either unread from GitHub, or null when there is none. */
+function retroOf(pr: NonNullable<GithubSummary['retro']> | null, text: NonNullable<GithubSummary['retroText']> | null): RetroView {
+  if (pr === UNREAD) return retroUnread();
+  if (text === UNREAD) return retroUnread(pr?.url ?? null);
   if (!pr || text === null) return { state: 'empty', words: RETRO_EMPTY, prUrl: pr?.url ?? null, text: null };
   return { state: 'text', words: null, prUrl: pr.url, text };
 }

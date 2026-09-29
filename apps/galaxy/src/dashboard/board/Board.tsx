@@ -6,9 +6,10 @@ import { CouldNotLoad } from '../Notes';
 import { UNREADABLE, type Read } from '../part';
 import { fleetTagOf, type FleetRank } from '../rankings/rank';
 import { axisTicks, columnLabels, dayName } from './chart';
-import { periodHref, type Query } from './links';
+import type { Query } from './links';
 import type { BoardValue } from './load';
-import { PERIODS, type Period } from './period';
+import type { Period } from './period';
+import { PeriodSwitch } from './PeriodSwitch';
 import { EVENTS, GROUPS, type ChartDay, type EventDay, type PersonRow, type PrdEvent, type RepoRow, type StageTally } from './tally';
 import './board.css';
 
@@ -41,20 +42,6 @@ export interface BoardProps {
   peopleNote?: ReactNode;
   /** Whether to end with the season's fleet ranking (Workspace). */
   fleets?: boolean;
-}
-
-function PeriodSwitch({ period, path, query }: { period: Period; path: string; query: Query }) {
-  return (
-    <nav className="board-period" aria-label="Period">
-      <ul>
-        {PERIODS.map((p) => (
-          <li key={p.id}>
-            <a href={periodHref(path, query, p.id)} aria-current={p.id === period ? 'page' : undefined}>{p.label}</a>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
 }
 
 // ── Tiles ────────────────────────────────────────────────────────────────

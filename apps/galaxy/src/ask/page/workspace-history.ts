@@ -5,6 +5,7 @@
 // /ask/q/<round>.
 import { readQuestions } from '../answer-model';
 import { CATEGORY_LABELS, isCategory, type Category } from '../classify';
+import { one, type Query } from '../../nav/query';
 import type { Face } from '../../people/face';
 import { faceOfMember, nameOf, type Member } from './question';
 import { contextParts, entry, type RoundRow, type SessionRow } from './view';
@@ -45,13 +46,6 @@ export type HistoryItem = {
   category: string;
   at: string;
   context: string[];
-};
-
-type Query = Record<string, string | string[] | undefined>;
-
-const one = (value: string | string[] | undefined) => {
-  const first = (Array.isArray(value) ? value[0] : value)?.trim();
-  return first ? first : undefined;
 };
 
 /** The filters an address carries: `category`, `repo`, `prd`, `skill`, `asked`, `answered`, `q`. */

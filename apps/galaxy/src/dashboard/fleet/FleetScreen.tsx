@@ -22,11 +22,11 @@ import './fleet.css';
 
 type Supabase = { url: string; key: string };
 
-export const FLEET_PATH = '/app/fleet';
+const FLEET_PATH = '/app/fleet';
 /** Where a workspace's fleets are made (PRD 572 moves them under Settings). */
-export const FLEETS_SETTINGS_PATH = '/app/settings/fleets';
+const FLEETS_SETTINGS_PATH = '/app/settings/fleets';
 
-export const FLEET_LINE = {
+const FLEET_LINE = {
   pick: 'Pick a fleet to see its board',
   none: 'This workspace has no fleet yet',
 } as const;

@@ -14,7 +14,7 @@ import { You } from './YouBlock';
 // PRD 652: the People table is headed **Your fleet** and your fleet's chip (its mascot and label in
 // its colour), or **Your fleet · SOLO** with no fleet of your own.
 
-export const HOME_PATH = '/app';
+const HOME_PATH = '/app';
 
 function FleetTitle({ fleet }: { fleet: DashboardData['board']['peopleFleet'] | undefined }) {
   if (!fleet) return <>Your fleet</>;

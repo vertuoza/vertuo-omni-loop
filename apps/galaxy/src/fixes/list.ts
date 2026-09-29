@@ -18,6 +18,7 @@ import { isArtifactTab, KIND_TABS, stamp, TAB_LABELS } from '../dossier/page/vie
 import { fixState, STATE_LABELS, type FixState } from './timeline';
 import { ofWork, WORK_PATHS, workPath } from '../dossier/page/work';
 import { NOBODY, type PeopleIn } from './people';
+import { one, type Query } from '../nav/query';
 import type { People } from '../people/load';
 import type { Person } from '../people/types';
 
@@ -60,13 +61,6 @@ export type FixItem = {
   risk: string | null;
   /** A bug fix whose issue carries the regression label. */
   regression: boolean;
-};
-
-type Query = Record<string, string | string[] | undefined>;
-
-const one = (value: string | string[] | undefined) => {
-  const first = (Array.isArray(value) ? value[0] : value)?.trim();
-  return first ? first : undefined;
 };
 
 /** The filters an address carries: `who` (`all`, or else Mine), `repo`, `q`. */

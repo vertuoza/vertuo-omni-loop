@@ -10,7 +10,7 @@ import './people.css';
 
 export type ChipSize = 'table' | 'inline';
 
-export function PersonFace({ face }: { face: Face }) {
+function PersonFace({ face }: { face: Face }) {
   if (face.kind === 'hero') return <span className="person-face is-hero" aria-hidden="true" dangerouslySetInnerHTML={{ __html: face.svg }} />;
   if (face.kind === 'photo') return <img className="person-face is-photo" src={face.url} alt="" loading="lazy" decoding="async" />;
   return <span className="person-face is-initial" aria-hidden="true" data-initial={face.letter} />;
