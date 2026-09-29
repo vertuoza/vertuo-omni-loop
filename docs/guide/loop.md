@@ -133,6 +133,8 @@ omni board 7
 | `/omni:ask on` | you would rather answer Claude's questions on a web page | the page's link |
 | `/omni:dossier-open`, `/omni:dossier-push` | never: `/omni:brainstorm` and `/omni:plan` run them | the PRD's page on the Omni page |
 
+Every skill, what it does and when to use it: [Skills](/docs/skills).
+
 Given a name, `/omni:help` explains one skill or command: `/omni:help yolo`.
 
 ## In a terminal
