@@ -1,3 +1,4 @@
+import { SPRITE_DEFS } from '@omni/design';
 import { describe, expect, it } from 'vitest';
 import { SIDEBAR, badgeOf, currentItem, pageTitle, type SidebarItem } from './sidebar';
 
@@ -12,6 +13,17 @@ describe('SIDEBAR', () => {
       ['settings', 'Settings'],
       ['omni', 'Omni'],
     ]);
+  });
+
+  it('gives every Dashboard and Work section its own 16 px sprite, and Settings and Omni none (issue 653)', () => {
+    const [dashboard, work, settings, omni] = SIDEBAR;
+    expect([...dashboard.items, ...work.items].map((i) => [i.id, i.sprite])).toEqual([
+      ['home', 'menu-home'], ['fleet', 'menu-fleet'], ['workspace', 'menu-workspace'], ['engineering', 'menu-engineering'],
+      ['prds', 'menu-prds'], ['bugs', 'menu-bugs'], ['visual', 'menu-visual'], ['questions', 'menu-questions'], ['knowledge', 'menu-knowledge'],
+    ]);
+    for (const item of [...dashboard.items, ...work.items]) expect([SPRITE_DEFS[item.sprite!]?.w, SPRITE_DEFS[item.sprite!]?.h], item.id).toEqual([16, 16]);
+    const rest = [...settings.items, ...omni.items, ...work.items.flatMap((i) => i.children ?? [])];
+    expect(rest.filter((i) => i.sprite)).toEqual([]);
   });
 
   const rows = (items: readonly SidebarItem[]) => items.map((i) => [i.id, i.label, i.path, (i.children ?? []).map((c) => [c.id, c.label, c.path])]);

@@ -119,6 +119,9 @@
   color: var(--ask-on-plasma);
   background: var(--ask-plasma);
 }
+/* A section's sprite (issue 653): its own pixels at 16 px, never smoothed. */
+.app-sidebar-sprite { display: inline-flex; flex: none; line-height: 0; }
+.app-sidebar-sprite svg { image-rendering: pixelated; }
 .app-sidebar-out { margin-left: auto; display: inline-flex; color: var(--ask-muted); }
 
 /* ── The foot: Docs · Release notes in one small row, the release running under it (issue 561) ── */
