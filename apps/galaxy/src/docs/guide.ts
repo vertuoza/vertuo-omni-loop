@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fenceProblem } from './badges';
+import { diagramsNamed, svgProblem } from './diagrams';
 import { pageUrl } from './paths';
 
 // The guide's markdown, read from the folder (PRD 346): docs/guide/*.md, one file per page, and
@@ -9,7 +10,8 @@ import { pageUrl } from './paths';
 // `omni <command>` the CLI does not have, or a code block that does not say where it goes (PRD 373:
 // its fence words, badges.ts), is a problem; so is, since PRD 420, a TERMINAL block of more than one
 // line on the install page, or a page other than troubleshooting that still names the old
-// ~/.local/bin/omni wrapper. Nothing here renders: fumadocs does
+// ~/.local/bin/omni wrapper; and a diagram (diagrams.ts) that is no file of the guide, has no alt
+// text, does not stand alone on its line, or does not read. Nothing here renders: fumadocs does
 // (source.ts), from the same files.
 
 /** One page of the guide, as its file says. */
@@ -133,6 +135,17 @@ export function guideProblems(dir: string, kit: Kit): string[] {
       if (problem) problems.push(`${where}:${page.bodyLine + fence.line - 1}: the code block ${problem}`);
       else if (page.slug === ONE_LINE_PAGE && fence.lines > 1 && fence.meta.split(/\s+/).includes('terminal')) {
         problems.push(`${where}:${page.bodyLine + fence.line - 1}: the TERMINAL block is ${fence.lines} lines: every one on the install page is one line`);
+      }
+    }
+    for (const diagram of diagramsNamed(page.body)) {
+      const at = `${where}:${page.bodyLine + diagram.line - 1}: the diagram ${diagram.src}`;
+      if (!diagram.alone) problems.push(`${at} does not stand alone on its line`);
+      if (!diagram.alt.trim()) problems.push(`${at} has no alt text`);
+      const file = join(dir, diagram.src);
+      if (!existsSync(file)) problems.push(`${at} is no file of the guide`);
+      else {
+        const problem = svgProblem(readFileSync(file, 'utf8'));
+        if (problem) problems.push(`${at} does not read: ${problem}`);
       }
     }
     if (page.slug !== OLD_WRAPPER_PAGE && page.body.includes(OLD_WRAPPER)) problems.push(`${where}: names ${OLD_WRAPPER}, the old PATH wrapper: only troubleshooting may`);

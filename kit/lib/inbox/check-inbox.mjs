@@ -93,8 +93,11 @@ function blockedByViolations(records, ctx) {
   return violations;
 }
 
-/** The size violation for one folder's before-after.html, or `null` when it is absent or within the cap. */
-function beforeAfterViolation(file, ctx) {
+/**
+ * The size violation for one before-after.html, or `null` when it is absent or within the cap. Also
+ * `omni visual`'s size check (`kit/lib/visual/verdict.mjs`), so both read one cap one way.
+ */
+export function beforeAfterViolation(file, ctx) {
   const absolute = join(ctx.root, file);
   if (!existsSync(absolute)) return null;
   const { size } = statSync(absolute);

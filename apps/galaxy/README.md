@@ -543,11 +543,34 @@ the domain grouped by principle, with its loose entries and unserved principles 
 selection is kept in the address, `/knowledge?domain=<name>&entry=<id>`, so a link to one entry can
 be shared. On a phone the page stacks and scrolls down, never sideways.
 
-**Where the data comes from.** The knowledge of the checkout the app is deployed from, read on the
-server at request time through the kit's own register parser (`src/data/load-knowledge.ts`): no
-Supabase table, no GitHub call. `next.config.mjs` traces the config and the register files into the
-deployment, since nothing imports them. When they cannot be read, the loader logs why, both maps say
-the knowledge is out of reach, and nothing else in the arcade changes.
+**The repository menu.** The page opens on the checkout the app is deployed from. When the crew's
+workspaces have other repositories set up with Omni Loop, a **Repository** menu takes the place of
+the repository's chip: the deployed checkout first, then, by name and each once, every repository
+that the Omni Loop App (omni-loop-invader) installation of one of the viewer's workspaces reaches
+and that carries a `.omni-loop/config.yml` on its default branch (what `omni init` and
+`/omni:invade` leave); archived repositories are left out. Picking one opens
+`/knowledge?repo=<owner/name>` on its first domain, and every address on the page keeps the `repo`,
+so a link to one of its entries can be shared; the star chart link is shown for the deployed
+checkout only, which is all the arcade charts. The menu is a GET form with a **Show** button, so it
+works before any script runs. A repository the menu does not offer is never read: `?repo=` naming
+one says it is not on the menu. A repository set up without knowledge yet says so, and that
+`/omni:invade` proposes some. The demo in development, with no database, offers no menu.
+
+**Where the data comes from.** The deployed checkout's knowledge is read on the server at request
+time through the kit's own register parser (`src/data/load-knowledge.ts`): no Supabase table, no
+GitHub call. `next.config.mjs` traces the config and the register files into the deployment, since
+nothing imports them. When they cannot be read, the loader logs why, both maps say the knowledge is
+out of reach, and nothing else in the arcade changes. Another repository's is read from GitHub as
+the Omni Loop App (`src/knowledge/github.ts`), with the App's `GITHUB_APP_ID` and
+`GITHUB_APP_PRIVATE_KEY`: the menu lists the repositories of each of the viewer's workspaces'
+installation (the one it stored, else the App's installation on its GitHub org, else on that user
+account), a hundred per page and at most ten pages, checking fifty configs per GraphQL call, and a
+picked repository's `product/`, `domains/` and `cross-domain/` registers, under the knowledge folder
+its config names, are read in one more call at its default branch's tip and built into the same
+graph by the same parser (`graphOfTexts` in `kit/lib/knowledge/graph.mjs`). The token stays in
+server memory; the listing is kept five minutes per installation and a graph one minute per
+repository. Without the App's credentials, or when the workspaces or GitHub cannot be read, the menu
+offers only what it could read (the log says why), and the deployed checkout is always there.
 
 **Who sees it.** Whoever sees the galaxy: a crew member (a member of a workspace) signed in, or the
 demo in development. Anyone else's page carries no entry: in the arcade STAR CHART reads
@@ -616,16 +639,18 @@ A repository opts in with `dossier: { enabled: true }` in its `.omni-loop/config
 **`/prd`, the history.** Every dossier of the signed-in person's workspaces, newest activity first
 (its latest version, question or answer, or its opening or numbering). Each row shows `#n` or
 DRAFT, the title, its repository chips, which artifacts it has and their latest version, and the
-questions answered out of asked.
-Filters: a repository (a dossier shows under each of its repositories: its home repository, its
+questions answered out of asked, and `n open` when its outbox has open questions (PRD 251, read
+through the same cached GitHub reader as the Outbox tab).
+Filters: **Needs an answer** (`?needs=answer`, only the rows with open questions), a repository (a dossier shows under each of its repositories: its home repository, its
 questions' repositories and, for a PRD of the plan repository, its planet's regions), draft or PRD,
 and a search over the words of the titles. Each row opens `/prd/<id>`.
 
 **`/prd/<id>`, the page to share.** The header reads `PRD #n` or DRAFT, the title, the repository
-chips, who opened it and when (or that it was read from GitHub), and **Copy link**. Four tabs:
+chips, who opened it and when (or that it was read from GitHub), and **Copy link**. Its tabs:
 **Before/after**, **Spec**, **Plan** (markdown rendered by `markdown-it` with raw HTML off, the front
-matter as a line above) and **Questions** (each round's questions, options and answer, who answered
-and after how long, its category, and `brainstorm` or `delivery`). Each artifact tab has a version
+matter as a line above), **Questions** (each round's questions, options and answer, who answered
+and after how long, its category, and `brainstorm` or `delivery`) and **Outbox**, with `n open` in
+its label ([The Outbox tab](#the-outbox-tab-prd-251)). Each artifact tab has a version
 picker, newest first (`v3 · 27 Sep · Pierre (kit)`, `v4 · 28 Sep · commit a1b2c3d (github)`); the
 tab and the version live in the address (`?tab=spec&v=2`). The opener of a draft may delete it;
 nobody deletes a numbered dossier.
@@ -639,6 +664,64 @@ nobody deletes a numbered dossier.
   member of another workspace included, gets not found, in the words a dossier that never was gets.
   Omni, Light and Dark themes, Omni the default, as the `/ask` pages.
 - **Without a database**, in development, both pages play a demo dossier.
+
+### The Outbox tab (PRD 251)
+
+A person answers the PRD's outbox questions on `/prd/<id>?tab=outbox`, beside what they are about,
+as well as on the feature pull request or at the end of `/omni:yolo`. Every door ends as the
+person's own reply on the feature pull request, so `/omni:yolo-fix` settles it like any other
+(ADR-0052).
+
+- **What it shows** is read from GitHub, as the omni-loop App, by PRD 426's reader
+  (`src/dossier/github/reader.ts`, cached 60 seconds per dossier); nothing of the outbox is stored.
+  The open questions carry the outbox comment's numbers (`Q1`, `Q19`), as the pull request shows
+  them: a decision card with its options as a radio group, A marked `built · recommended`, an
+  optional reason, its `bears-on` chips linking to `/knowledge` and a details disclosure; a
+  human-action card with its steps, then **Done** or **Not done**, which needs a reason. Each
+  pending answer (the kit's `planReplies` run on the pull request's comments: what it said, who,
+  where from its door line, and when; the latest answer wins) shows on its card, which can be
+  answered again. Then two collapsed groups: *Adopted unless you object*, each with **Object**, and
+  *Settled*. Item text is rendered with the dossier's markdown renderer, raw HTML off.
+- **The context rail.** On a wide screen, the questions sit beside a rail that switches between
+  Before/after (the sandboxed frame), Spec and Brainstorm (the dossier's brainstorm rounds, each
+  question with its answer). On a tall one the rail is a Context disclosure above the questions.
+- **The toolbar.** **Select every recommendation** picks A on every open decision and never marks a
+  human action done. **Send n answers** posts the picks. Picks survive a reload (the browser's
+  storage, a convenience only).
+- **The states:** no outbox yet; nothing waiting on you; read-only once the pull request merged or
+  closed (what was still open was adopted); GitHub out of reach (the other tabs unchanged);
+  signed out, or not a member of the workspace, read-only with *Sign in with GitHub to answer
+  here*; and, without a database, a demo outbox with Send off.
+
+**Send** posts the reply as the person, never as the App's bot:
+
+1. `POST /api/outbox/send` (`src/outbox/send.ts`), as the signed-in person, who must be a member of
+   the dossier's workspace, reads the outbox fresh from GitHub (not from the cache) and checks each
+   pick against it. A pick whose question was settled meanwhile is dropped, and the tab names it.
+   The kit's reply writer (`kit/lib/outbox/answers.mjs`) writes the reply, and it is recorded as a
+   send, a row of `outbox_sends`.
+2. The person goes through GitHub's authorisation of the omni-loop App (`GITHUB_APP_CLIENT_ID`),
+   whose `state` names the send and carries a nonce, also held in a short-lived, http-only cookie;
+   only the nonce's hash is stored. A person who authorised it before comes straight back.
+3. `/prd/github/callback` checks the nonce and that the send is the caller's and not yet posted,
+   trades the code for a user token (`GITHUB_APP_CLIENT_SECRET`), posts the reply once, drops the
+   token (never stored, logged or sent to the browser), records the comment's link and author, or
+   the error, clears the dossier's cached summary, and goes back to the tab: *Sent as @login*, the
+   link, and `/omni:yolo-fix <n>` to copy; the answers just sent show as pending at once. GitHub
+   brings the person back only to a host listed as a callback URL in the App's settings, so a
+   preview deployment cannot send.
+4. An author GitHub does not list as `OWNER`, `MEMBER` or `COLLABORATOR` is reported: `omni replies`
+   will not count that reply. Any failure (the authorisation refused, a wrong `state`, GitHub down,
+   no access, the pull request gone) posts nothing, keeps the picks and names why.
+
+**The routes.**
+
+| Route | What it does |
+|---|---|
+| `POST /api/outbox/send` | Send's first half, above: answers `{ send, authorize, dropped }`, or 503 *not open here* without the App's client id and secret. |
+| `GET /api/outbox/send?id=<send>` | A send's outcome, for its owner's Outbox tab. |
+| `GET /prd/github/callback` | Send's second half, above. |
+| `/prd/at/<owner>/<repo>/<n>` | The short address the outbox comment links (with `answers.enabled` on and `ask.url` set): redirects to that PRD's Outbox tab as the signed-in person, or not found (a dossier of another workspace included). Signed out, the sign-in card, back through `/prd/at/<owner>/<repo>/<n>/callback`. |
 
 **The planet's DOSSIER tab.** The planet screen's fifth tab, after LOG. A planet's dossier is the one
 whose home repository is the workspace's plan repository (`<github_org>/<plan_repo>`) and whose number
@@ -882,6 +965,12 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
    then sorts each question into one of six categories (business, product, UX/UI, architecture,
    harness, other) a moment after it is asked. Without it, questions stay unsorted and nothing fails;
    anyone in the workspace can still sort them on the page.
+   For Send on the Outbox tab (PRD 251), two more, server only: `GITHUB_APP_CLIENT_ID` and
+   `GITHUB_APP_CLIENT_SECRET`, the omni-loop App's Client ID and a client secret generated on its
+   settings page. Then, in the App's settings, add the callback URL
+   `https://<galaxy host>/prd/github/callback`, beside any it already lists (a GitHub App keeps
+   several). Without the two variables, the tab still reads the questions and Send says sending is
+   not open here; without the callback URL, Send fails with GitHub's reason.
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
    arcade still plays its attract mode and says the galaxy is out of reach. `/releases` reads the
    database at build time instead, as nobody, and again at most every 5 minutes.
@@ -1005,6 +1094,12 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
   rows and updates `title` and `description` only (column grants), and nobody deletes a row but a
   person in the database. `supabase/checks/releases.sql` proves both on every pull request that
   touches `supabase/` ([Release notes](#release-notes)).
+- `outbox_sends` (PRD 251): each reply the Outbox tab posts as a person (`dossier_id`, `pr_number`,
+  `reply`, the nonce's hash, then `posted_at`, `comment_url`, `login`, `counted` or `error`). Its
+  owner, a member of the dossier's workspace, inserts it and reads it, and records its outcome once
+  through `outbox_send_done()`. Nobody else reads it, nobody updates it otherwise, and nobody
+  deletes it. The outbox itself is never stored: the page reads it from GitHub (ADR-0052).
+  `supabase/checks/outbox_sends.sql` proves these rules in the `supabase` workflow.
 - Row-level security, by membership (`is_member(workspace)`): a member reads their workspaces,
   their own memberships, and their workspace's sectors, fleets, players, ledger, XP, high scores
   and contributions, and nothing of any other workspace. A member with GitHub linked inserts their
@@ -1028,7 +1123,8 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
   shrink. A scrolling map comes when the galaxy needs it.
 - **A system fits one screen.** Past about 150 entries in one domain on the Game Boy held upright,
   worlds reach their smallest size and start to touch; paging comes when a knowledge base needs it.
-  The star chart shows this repository's knowledge only; each sector's repositories' is later work.
+  The star chart shows this repository's knowledge only; `/knowledge`'s repository menu reads the
+  others, and the arcade charting them is later work.
 - **An iPhone keeps Safari's bars.** iPhone Safari offers web pages neither fullscreen nor
   vibration, so the Game Boy shows under the address bar and a press makes no buzz. A device that
   misreports its primary pointer gets the other form; the keyboard and taps work in both.

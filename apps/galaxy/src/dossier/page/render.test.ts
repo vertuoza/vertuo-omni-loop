@@ -337,30 +337,28 @@ describe('the Outbox tab (PRD 426)', () => {
   const SETTLED = [{ id: 's1-02-zeta', title: 'Zeta or eta?', verdict: 'agreed', answer: 'Zeta, as built.' }];
   const outbox = (github: GithubSummary | null) => page({ pick: tab('outbox'), github });
 
-  it('shows Answer on the PR, the open items highest rank first, then the settled ones', () => {
+  it('links the outbox comment, lists the open items highest rank first, then the settled ones, raw HTML off', () => {
     const html = outbox(outboxSummary({ open: OPEN, settled: SETTLED }));
     expect(html).toContain('<section class="dossier-pane" aria-label="Outbox">');
-    expect(html).toContain('<a class="ask-button" href="https://github.com/vertuoza/vertuo-omni-loop/pull/221#issuecomment-7" target="_blank" rel="noopener noreferrer">Answer on the PR</a>');
-    expect([...html.matchAll(/<li id="(s\d-\d\d-[a-z]+)" class="outbox-item" data-state="(open|settled)">/g)].map((m) => `${m[1]}:${m[2]}`))
-      .toEqual(['s2-01-key:open', 's1-01-medium:open', 's1-02-zeta:settled']);
-    expect([...html.matchAll(/<span class="outbox-rank">([^<]+)<\/span>/g)].map((m) => m[1])).toEqual(['needs a person', 'medium']);
+    expect(html).toContain('<a href="https://github.com/vertuoza/vertuo-omni-loop/pull/221#issuecomment-7" target="_blank" rel="noopener noreferrer">on the pull request</a>');
+    expect([...html.matchAll(/<article id="(s\d-\d\d-[a-z]+)" class="outbox-card"/g)].map((m) => m[1])).toEqual(['s2-01-key', 's1-01-medium']);
+    expect([...html.matchAll(/<span class="outbox-rank" data-rank="[a-z-]+">([^<]+)<\/span>/g)].map((m) => m[1])).toEqual(['needs a person', 'medium', 'agreed']);
     expect(html).toContain('Keep &lt;i&gt;tabs&lt;/i&gt; in the address?');
     expect(html).not.toContain('<i>tabs</i>');
-    expect(html).toContain('<li class="dossier-option" data-chosen="true"><span class="dossier-option-label">A. Keep them.<span class="ask-rec">Built</span></span></li>');
-    expect(html).toContain('<li class="dossier-option"><span class="dossier-option-label">B. Drop them.</span></li>');
-    expect(html).toContain('<span class="ask-hint">Recommendation</span> Kept them.');
-    expect(html).toContain('<span class="ask-hint">What a person must do</span> Add the key on the host.');
-    expect(html).toContain('<span class="outbox-verdict">agreed</span>');
+    expect(html).toContain('<span class="ask-rec">built · recommended</span><span class="outbox-option-text"><p>Keep them.</p>');
+    expect(html).toContain('<span class="ask-hint">Decision taken</span><div class="dossier-md"><p>Kept them.</p>');
+    expect(html).toContain('<div class="dossier-md outbox-steps"><p>Add the key on the host.</p>');
+    expect(html).toContain('<summary>Settled · 1</summary>');
     expect(html).toContain('Zeta or eta?');
-    expect(html).toContain('<span class="ask-hint">Answer</span> Zeta, as built.');
+    expect(html).toContain('<p class="outbox-settled-answer">Zeta, as built.</p>');
     expect(html).toContain('<small>2 open</small>');
     expect(html).toContain('<strong>Stage: outbox</strong>');
     expect(html).toContain('>Answer the outbox</a>');
   });
 
-  it('with none open, lists the settled ones with no Answer on the PR, and counts them on the tab', () => {
+  it('with none open, says nothing is waiting, lists the settled ones, and counts them on the tab', () => {
     const html = outbox(outboxSummary({ open: [], settled: SETTLED }));
-    expect(html).not.toContain('Answer on the PR');
+    expect(html).toContain('<p class="outbox-nothing">Nothing is waiting on you.</p>');
     expect(html).toContain('<small>1 settled</small>');
     expect(html).toContain('>Review &amp; merge</a>');
   });

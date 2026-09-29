@@ -3,6 +3,9 @@ title: Install
 description: omni on your laptop, then one command that installs the kit, the plugin and your sign-in; then the GitHub App.
 ---
 
+Joining a team that already runs the loop? Skip this page and the next: your repository is
+installed, and [Join a team](/docs/join) is all you need.
+
 Five steps, each one a single line to type or a click. They need the four tools listed under
 [What you need first](/docs#what-you-need-first): Node, git, gh signed in, and Claude Code signed
 in. Do the steps in order: each one needs the one before.
@@ -75,7 +78,9 @@ It ends with the steps left to you, the next two below. Two warnings it may prin
 ## 3. Install the GitHub App
 
 Open the GitHub App link `omni init` printed. Pick your account or organization, choose **Only
-select repositories**, pick your repository, and install. The App posts the `outbox` check on the
+select repositories**, pick your repository, and install. When the App is on your organization
+already, for another repository, do not install it twice: add this repository to it instead, under
+**Configure**, then **Repository access** (an owner of the organization can). The App posts the `outbox` check on the
 loop's pull requests: it goes red while a question an agent raised waits for your answer. Installing
 it is also your sign-up: it makes the workspace your dossiers and ask mode land in, and the members
 of the organization you picked are its members.
