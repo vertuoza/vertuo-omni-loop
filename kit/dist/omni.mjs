@@ -27,9 +27,9 @@ var __commonJS = (cb, mod) => function __require2() {
     throw mod = 0, e;
   }
 };
-var __export = (target, all) => {
+var __export = (target2, all) => {
   for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
+    __defProp(target2, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
@@ -39,12 +39,12 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+var __toESM = (mod, isNodeMode, target2) => (target2 = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
   // If the importer is in node compatibility mode or this is not an ESM
   // file that has been converted to a CommonJS file using a Babel-
   // compatible transform (i.e. "__esModule" has not been set), then set
   // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target2, "default", { value: mod, enumerable: true }) : target2,
   mod
 ));
 
@@ -6504,12 +6504,12 @@ var require_parser = __commonJS({
       }
       return prev.splice(i, prev.length);
     }
-    function arrayPushArray(target, source) {
+    function arrayPushArray(target2, source) {
       if (source.length < 1e5)
-        Array.prototype.push.apply(target, source);
+        Array.prototype.push.apply(target2, source);
       else
         for (let i = 0; i < source.length; ++i)
-          target.push(source[i]);
+          target2.push(source[i]);
     }
     function fixFlowSeqItems(fc) {
       if (fc.start.type === "flow-seq-start") {
@@ -7357,7 +7357,7 @@ var require_public_api = __commonJS({
       }
       return doc;
     }
-    function parse3(src, reviver, options) {
+    function parse4(src, reviver, options) {
       let _reviver = void 0;
       if (typeof reviver === "function") {
         _reviver = reviver;
@@ -7398,7 +7398,7 @@ var require_public_api = __commonJS({
         return value.toString(options);
       return new Document.Document(value, _replacer, options).toString(options);
     }
-    exports.parse = parse3;
+    exports.parse = parse4;
     exports.parseAllDocuments = parseAllDocuments;
     exports.parseDocument = parseDocument;
     exports.stringify = stringify3;
@@ -7463,7 +7463,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/bin/omni.mjs
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync11 } from "node:child_process";
+import { execFileSync as execFileSync12 } from "node:child_process";
 import { realpathSync as realpathSync5 } from "node:fs";
 import { fileURLToPath as fileURLToPath4 } from "node:url";
 
@@ -8417,8 +8417,8 @@ var ZodType = class {
       description
     });
   }
-  pipe(target) {
-    return ZodPipeline.create(this, target);
+  pipe(target2) {
+    return ZodPipeline.create(this, target2);
   }
   readonly() {
     return ZodReadonly.create(this);
@@ -11571,6 +11571,29 @@ var httpsUrl = external_exports.string().refine((value) => {
     return false;
   }
 }, "an absolute https URL");
+var TARGET_KNOWLEDGE = Object.freeze(["own", "imported", "none"]);
+var target = external_exports.object({
+  repo: external_exports.string().regex(/^[\w.-]+\/[\w.-]+$/, "owner/name"),
+  role: external_exports.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "one kebab-case word, such as back-end"),
+  knowledge: external_exports.enum(TARGET_KNOWLEDGE),
+  readAt: external_exports.string().regex(/^[0-9a-f]{40}$/, "the full 40-character commit the copy was read at").nullable().default(null)
+}).strict();
+var planSection = external_exports.object({
+  guide: nullableText.default(null),
+  targets: external_exports.array(target).min(1, "at least one target")
+}).strict().superRefine(({ targets: targets2 }, issues) => {
+  const seen = /* @__PURE__ */ new Set();
+  targets2.forEach(({ repo, knowledge: knowledge2, readAt }, index) => {
+    if (seen.has(repo)) issues.addIssue({ code: "custom", path: ["targets", index, "repo"], message: `${repo} is listed twice` });
+    seen.add(repo);
+    if (knowledge2 === "imported" && readAt === null) {
+      issues.addIssue({ code: "custom", path: ["targets", index, "readAt"], message: "required when knowledge is imported" });
+    }
+    if (knowledge2 !== "imported" && readAt !== null) {
+      issues.addIssue({ code: "custom", path: ["targets", index, "readAt"], message: `only an imported target has one, and this one is ${knowledge2}` });
+    }
+  });
+});
 var ConfigSchema = external_exports.object({
   kit: external_exports.literal(CONFIG_VERSION),
   repo: section({
@@ -11589,7 +11612,9 @@ var ConfigSchema = external_exports.object({
     knowledge: text.default("docs/knowledge-{topic}"),
     invade: text.default("docs/omni-invade"),
     // PRD 347: the branch `omni update` opens its pull request from; `{version}` is `v<x.y.z>`.
-    update: text.default("chore/omni-update-{version}")
+    update: text.default("chore/omni-update-{version}"),
+    // PRD 522: the branch `/omni:mega-invade` opens its one docs-only pull request from.
+    megaInvade: text.default("docs/omni-mega-invade")
   }),
   worktrees: text.default(".claude/worktrees"),
   paths: section({
@@ -11674,7 +11699,8 @@ var ConfigSchema = external_exports.object({
     email: trailerPart.default("333776611+omni-loop-invader[bot]@users.noreply.github.com"),
     home: httpsUrl.default("https://vertuo-omni-loop-galaxy.vercel.app"),
     footer: text.default("\u{1F9B8} {name} by [Omni Loop]({home}) \xA9")
-  }).strict().nullable().default({})
+  }).strict().nullable().default({}),
+  plan: planSection.optional()
 }).strict();
 function dossierSwitch(config2) {
   if (!config2.dossier.enabled) return { on: false, reason: "dossier.enabled is false" };
@@ -12456,10 +12482,10 @@ function resolveSlot(kitSlot, repoSlot, { ctx, formId, file, problems }) {
   }
   if (body?.kind === "pointer") {
     const { path, anchor } = body.see;
-    const target = readTarget(path, null, { ctx });
-    if (target.missing) problems.push(`${file}: "## ${repoSlot.heading}" See: ${path} does not exist`);
+    const target2 = readTarget(path, null, { ctx });
+    if (target2.missing) problems.push(`${file}: "## ${repoSlot.heading}" See: ${path} does not exist`);
     const pointer = anchor ? `${path}#${anchor}` : path;
-    return { ...base, source: "pointer", label: `[\u2192 ${pointer}]`, text: target.text, questions: [] };
+    return { ...base, source: "pointer", label: `[\u2192 ${pointer}]`, text: target2.text, questions: [] };
   }
   const kit = fillConfig(kitSlot.body.text, ctx.config);
   for (const { key, reason: reason2 } of kit.unresolved) {
@@ -12488,9 +12514,9 @@ ${kit.errors.join("\n")}`);
   }
   const title = repo?.title ?? kit.form.title;
   if (repo?.state === "pointer") {
-    const target = readTarget(repo.pointsTo, repo.index, { ctx });
-    if (target.missing) problems.push(`${file}: ${target.missing === repo.pointsTo ? "points-to" : "index"} ${target.missing} does not exist`);
-    const section4 = { slot: null, heading: title, source: "pointer", label: `[\u2192 ${repo.pointsTo}]`, text: target.text, questions: [] };
+    const target2 = readTarget(repo.pointsTo, repo.index, { ctx });
+    if (target2.missing) problems.push(`${file}: ${target2.missing === repo.pointsTo ? "points-to" : "index"} ${target2.missing} does not exist`);
+    const section4 = { slot: null, heading: title, source: "pointer", label: `[\u2192 ${repo.pointsTo}]`, text: target2.text, questions: [] };
     return { form: formId, file, state, title, sections: [section4], problems };
   }
   const sections = kit.form.slots.map((kitSlot) => {
@@ -12545,11 +12571,11 @@ function blankForm(id, { ctx }) {
   if (!kit.ok) throw new Error(`the kit's template for ${id} does not parse:
 ${kit.errors.join("\n")}`);
   const { formVersion, title, opener, slots } = kit.form;
-  const target = pointerTarget(id, ctx);
-  const frontMatter = { form: id, "form-version": formVersion, state: target ? "pointer" : "blank", "points-to": target, evidence: [], invaded: null };
+  const target2 = pointerTarget(id, ctx);
+  const frontMatter = { form: id, "form-version": formVersion, state: target2 ? "pointer" : "blank", "points-to": target2, evidence: [], invaded: null };
   const lines = ["---", (0, import_yaml3.stringify)(frontMatter).trimEnd(), "---", "", `# ${title}`, ""];
   if (opener) lines.push(opener, "");
-  if (!target) {
+  if (!target2) {
     for (const slot of slots) lines.push(`## ${slot.heading}`, `<!-- slot: ${slot.id} \xB7 ${slot.required ? "required" : "optional"} -->`, "");
   }
   return lines.join("\n");
@@ -15608,22 +15634,22 @@ function servesViolations(entry, principles) {
       )
     ];
   }
-  const target = entry.serves.replace(/`/g, "").trim();
-  if (!/^P-[A-Z0-9]+-\d+$/.test(target)) {
+  const target2 = entry.serves.replace(/`/g, "").trim();
+  if (!/^P-[A-Z0-9]+-\d+$/.test(target2)) {
     return [
       violation(entry.file, entry.id, `serves "${entry.serves}", which is not one principle id.`)
     ];
   }
-  const principle = principles.find((candidate) => candidate.id === target);
+  const principle = principles.find((candidate) => candidate.id === target2);
   if (!principle) {
-    return [violation(entry.file, entry.id, `serves ${target}, which no principle claims.`)];
+    return [violation(entry.file, entry.id, `serves ${target2}, which no principle claims.`)];
   }
   if (entry.scope === "domain" && principle.scope !== "product" && principle.domain !== entry.domain) {
     return [
       violation(
         entry.file,
         entry.id,
-        `serves ${target}, a principle of "${principle.domain}" \u2014 an entry of one domain serves a product principle or its own; where two domains meet, it is a cross-domain entry.`
+        `serves ${target2}, a principle of "${principle.domain}" \u2014 an entry of one domain serves a product principle or its own; where two domains meet, it is a cross-domain entry.`
       )
     ];
   }
@@ -15634,7 +15660,7 @@ function servesViolations(entry, principles) {
         violation(
           entry.file,
           entry.id,
-          `serves ${target}, a principle of "${principle.domain}" \u2014 a cross-domain entry serves a product principle or one of its own pair's.`
+          `serves ${target2}, a principle of "${principle.domain}" \u2014 a cross-domain entry serves a product principle or one of its own pair's.`
         )
       ];
     }
@@ -19323,6 +19349,14 @@ var ENTRIES = deepFreeze([
     detail: "Counts what the loop's signature worked on across the organisation that owns this repository: its pull requests, its PRD issues and the commits it co-authored on default branches. --repo narrows it to one repository, --since to what was created from that month on; --list adds one line per item, --json prints the whole report as one document. It reads GitHub through gh and stores nothing."
   },
   {
+    name: "targets",
+    kind: "command",
+    who: "you",
+    usage: ["omni targets [--json]"],
+    summary: "a plan repository's target repositories, and where each stands",
+    detail: "In a plan repository, one whose config has a plan section, one row per target repository, in config order: its role, where its knowledge lives (own, imported or none), the kit version its default branch runs, and its state. ok; stale when an imported copy was read before a change to a file it was drawn from; drifted when the config no longer says what the repository has; unreachable when gh cannot read it. It reads GitHub through gh, clones nothing and refreshes nothing. --json prints the same rows as one document. Exit 0 when every row is ok, 1 otherwise, or 1 with not a plan repository."
+  },
+  {
     name: "whoami",
     kind: "command",
     who: "you",
@@ -19798,9 +19832,9 @@ function fromComposer(root) {
 }
 function fromMakefile(root) {
   const text4 = readFileSync29(join38(root, "Makefile"), "utf8");
-  const target = (name) => new RegExp(`^${name}\\s*:(?!=)`, "m").test(text4);
-  const test = target("test") ? "make test" : null;
-  const preflight = target("preflight") ? "make preflight" : test;
+  const target2 = (name) => new RegExp(`^${name}\\s*:(?!=)`, "m").test(text4);
+  const test = target2("test") ? "make test" : null;
+  const preflight = target2("preflight") ? "make preflight" : test;
   return { test, preflight, preflightFull: preflight };
 }
 var SOURCES = [
@@ -20201,9 +20235,9 @@ function installLines({ branch, commit, push: push2, pr }, { paths, remote, base
   const lines = [];
   const todo = [];
   const b = INSTALL_BRANCH;
-  const ghLine = `gh pr create --base ${base} --head ${b} --title "${INSTALL_COMMIT}" --fill`;
+  const ghLine2 = `gh pr create --base ${base} --head ${b} --title "${INSTALL_COMMIT}" --fill`;
   const prTodo = () => {
-    todo.push(ghLine);
+    todo.push(ghLine2);
     if (slug) todo.push(`or open ${GITHUB2}/${slug}/compare/${base}...${b}?expand=1`);
   };
   if (branch.outcome === "failed") {
@@ -22529,6 +22563,184 @@ var status2 = {
   }
 };
 
+// kit/bin/commands/targets.mjs
+init_define_OMNI_BUNDLE();
+
+// kit/lib/plan-repo/targets.mjs
+init_define_OMNI_BUNDLE();
+var import_yaml5 = __toESM(require_dist(), 1);
+import { execFileSync as execFileSync11 } from "node:child_process";
+import { existsSync as existsSync40, readdirSync as readdirSync17, readFileSync as readFileSync39 } from "node:fs";
+import { join as join49 } from "node:path";
+
+// kit/lib/update/installed.mjs
+init_define_OMNI_BUNDLE();
+import { existsSync as existsSync39, readFileSync as readFileSync38 } from "node:fs";
+import { join as join48 } from "node:path";
+var STAMP = /define_OMNI_BUNDLE_default = \{[^}]*?\bversion: "([^"]+)"/;
+function bundleVersion(text4) {
+  const match = STAMP.exec(text4);
+  return match ? parseVersion(match[1]) : null;
+}
+function installedVersion({ root, running, bundle }) {
+  const bin = join48(root, BIN_FILE);
+  if (!existsSync39(bin)) return null;
+  const text4 = readFileSync38(bin);
+  if (bundle && existsSync39(bundle) && readFileSync38(bundle).equals(text4)) return running.version;
+  return bundleVersion(text4.toString("utf8"));
+}
+
+// kit/lib/plan-repo/targets.mjs
+var CONFIG_PATH = ".omni-loop/config.yml";
+var BIN_PATH = ".omni-loop/bin/omni.mjs";
+var DEFAULT_PLAYBOOK = ".omni-loop/knowledge/playbook";
+var FRONT_MATTER2 = /^---\r?\n([\s\S]*?)\r?\n---/;
+function ghLine(error) {
+  const text4 = `${error?.stderr ?? ""}
+${error?.message ?? ""}`;
+  const line = text4.split("\n").map((l) => l.trim()).find((l) => l.startsWith("gh:")) ?? text4.split("\n").map((l) => l.trim()).find(Boolean);
+  return line ?? "gh could not read it";
+}
+var isNotFound = (error) => /HTTP 404/.test(`${error?.stderr ?? ""}
+${error?.message ?? ""}`);
+var Unreachable = class extends Error {
+};
+function ghReader({ exec, env }) {
+  const api = (args) => String(exec("gh", ["api", ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...env ? { env } : {} }));
+  const call = (args) => {
+    try {
+      return api(args);
+    } catch (error) {
+      if (isNotFound(error)) return null;
+      throw new Unreachable(ghLine(error));
+    }
+  };
+  const contents = (repo, path, ref) => `repos/${repo}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${encodeURIComponent(ref)}`;
+  return {
+    // The repository itself: any failure, a 404 included, means gh cannot read it.
+    repository(repo) {
+      try {
+        return JSON.parse(api([`repos/${repo}`]));
+      } catch (error) {
+        throw new Unreachable(ghLine(error));
+      }
+    },
+    file: (repo, path, ref) => call(["-H", "Accept: application/vnd.github.raw", contents(repo, path, ref)]),
+    dir(repo, path, ref) {
+      const out = call([contents(repo, path, ref)]);
+      if (out === null) return null;
+      const listed2 = JSON.parse(out);
+      return Array.isArray(listed2) ? listed2 : null;
+    },
+    compare(repo, base, head) {
+      const out = call([`repos/${repo}/compare/${base}...${encodeURIComponent(head)}`]);
+      return out === null ? null : JSON.parse(out);
+    }
+  };
+}
+function playbookOf(configText) {
+  try {
+    const playbook = (0, import_yaml5.parse)(configText)?.paths?.playbook;
+    return typeof playbook === "string" && playbook.trim() ? playbook.replace(/\/+$/, "") : DEFAULT_PLAYBOOK;
+  } catch {
+    return DEFAULT_PLAYBOOK;
+  }
+}
+function isFilled(text4) {
+  const block = FRONT_MATTER2.exec(text4 ?? "");
+  if (!block) return false;
+  try {
+    return (0, import_yaml5.parse)(block[1])?.state === "filled";
+  } catch {
+    return false;
+  }
+}
+function hasFilledForm(gh, repo, playbook, ref) {
+  const listed2 = gh.dir(repo, playbook, ref) ?? [];
+  return listed2.filter((entry) => entry.type === "file" && entry.name.endsWith(".md")).some((entry) => isFilled(gh.file(repo, entry.path, ref)));
+}
+var plural3 = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+function staleness(gh, { repo, readAt }, branch, evidence) {
+  const compared = gh.compare(repo, readAt, branch);
+  if (compared === null) return `readAt ${readAt.slice(0, 7)} cannot be compared with the default branch`;
+  const ahead = compared.ahead_by ?? 0;
+  if (ahead === 0) return null;
+  const touched = new Set((compared.files ?? []).flatMap((f) => [f.filename, f.previous_filename].filter(Boolean)));
+  const changed = [...evidence].filter((path) => touched.has(path)).length;
+  if (changed === 0) return null;
+  return `${plural3(ahead, "commit", "commits")}, ${plural3(changed, "evidence file", "evidence files")} changed`;
+}
+function readTarget2(target2, { exec = execFileSync11, env, evidence = /* @__PURE__ */ new Set() } = {}) {
+  const { repo, role, knowledge: knowledge2 } = target2;
+  const row = (loop, state, detail = null) => ({ repo, role, knowledge: knowledge2, loop, state, detail });
+  const gh = ghReader({ exec, env });
+  try {
+    const branch = gh.repository(repo).default_branch;
+    const config2 = gh.file(repo, CONFIG_PATH, branch);
+    const installed = config2 !== null;
+    const version2 = installed ? bundleVersion(gh.file(repo, BIN_PATH, branch) ?? "") : null;
+    const loop = installed ? version2 ? `v${version2}` : "installed" : "not installed";
+    const filled = installed && hasFilledForm(gh, repo, playbookOf(config2), branch);
+    if (knowledge2 === "own") {
+      if (!installed) return row(loop, "drifted", "the config says own, but the loop is not installed");
+      if (!filled) return row(loop, "drifted", "the config says own, but no form is filled");
+      return row(loop, "ok");
+    }
+    if (installed && filled) return row(loop, "drifted", `the config says ${knowledge2}, but it has the loop and a filled form`);
+    if (knowledge2 === "imported") {
+      const stale = staleness(gh, target2, branch, evidence);
+      if (stale) return row(loop, "stale", stale);
+    }
+    return row(loop, "ok");
+  } catch (error) {
+    if (error instanceof Unreachable) return row("\u2014", "unreachable", error.message);
+    throw error;
+  }
+}
+function copyFolder(repo, { ctx }) {
+  return join49(ctx.config.paths.knowledge, "repos", repo.split("/")[1]);
+}
+function copyEvidence(repo, { ctx }) {
+  const dir = join49(ctx.root, copyFolder(repo, { ctx }), "playbook");
+  const paths = /* @__PURE__ */ new Set();
+  if (!existsSync40(dir)) return paths;
+  for (const name of readdirSync17(dir).filter((n) => n.endsWith(".md")).sort()) {
+    const parsed = parseForm(readFileSync39(join49(dir, name), "utf8"), { file: name });
+    if (!parsed.ok) continue;
+    for (const { path } of parsed.form.evidence) paths.add(path);
+  }
+  return paths;
+}
+function readTargets(targets2, { ctx, exec = execFileSync11, env } = {}) {
+  return targets2.map(
+    (target2) => readTarget2(target2, { exec, env, evidence: target2.knowledge === "imported" ? copyEvidence(target2.repo, { ctx }) : /* @__PURE__ */ new Set() })
+  );
+}
+var COLUMNS = ["repo", "role", "knowledge", "loop", "state"];
+function targetsTable(rows2) {
+  const cells2 = [COLUMNS, ...rows2.map((r) => [r.repo, r.role, r.knowledge, r.loop, r.detail ? `${r.state} (${r.detail})` : r.state])];
+  const widths = COLUMNS.map((_, i) => Math.max(...cells2.map((line) => line[i].length)));
+  return cells2.map((line) => line.map((cell2, i) => i === line.length - 1 ? cell2 : cell2.padEnd(widths[i])).join("  "));
+}
+
+// kit/bin/commands/targets.mjs
+var USAGE16 = "usage: omni targets [--json]";
+var targets = {
+  async run(args, { ctx, stdout, exec, env }) {
+    const { positional, flags } = parseArgs("targets", args, { booleans: ["json"] });
+    if (positional.length) throw usageError(USAGE16);
+    const plan2 = ctx.config.plan;
+    if (!plan2) {
+      println(stdout, "not a plan repository");
+      return 1;
+    }
+    const rows2 = readTargets(plan2.targets, { ctx, exec, env: githubEnv(ctx, { exec, env }) });
+    if (flags.json) println(stdout, JSON.stringify(rows2, null, 2));
+    else for (const line of targetsTable(rows2)) println(stdout, line);
+    return rows2.every((row) => row.state === "ok") ? 0 : 1;
+  }
+};
+
 // kit/bin/commands/statusline.mjs
 init_define_OMNI_BUNDLE();
 import { spawn as spawnProcess } from "node:child_process";
@@ -22536,16 +22748,16 @@ import { spawn as spawnProcess } from "node:child_process";
 // kit/lib/statusline/board-cache.mjs
 init_define_OMNI_BUNDLE();
 import { randomUUID } from "node:crypto";
-import { closeSync, existsSync as existsSync39, mkdirSync as mkdirSync14, openSync, readFileSync as readFileSync38, renameSync as renameSync2, rmSync as rmSync8, statSync as statSync6, writeFileSync as writeFileSync19 } from "node:fs";
-import { join as join48 } from "node:path";
+import { closeSync, existsSync as existsSync41, mkdirSync as mkdirSync14, openSync, readFileSync as readFileSync40, renameSync as renameSync2, rmSync as rmSync8, statSync as statSync6, writeFileSync as writeFileSync19 } from "node:fs";
+import { join as join50 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
-var BOARD_DIR = join48(LOCAL_DIR, "statusline");
+var BOARD_DIR = join50(LOCAL_DIR, "statusline");
 var REFRESH_AFTER_MS = 60 * 1e3;
 var SHOWN_UNDER_MS = 10 * 60 * 1e3;
 var LOCK_ABANDONED_MS = 2 * 60 * 1e3;
 var UNREADABLE = "the board file holds no slices it can read";
-var boardFile = (root, prd2) => join48(root, BOARD_DIR, `board-${prd2}.json`);
-var lockFile = (root, prd2) => join48(root, BOARD_DIR, `board-${prd2}.lock`);
+var boardFile = (root, prd2) => join50(root, BOARD_DIR, `board-${prd2}.json`);
+var lockFile = (root, prd2) => join50(root, BOARD_DIR, `board-${prd2}.lock`);
 var isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 var isSlice = (value) => isObject(value) && typeof value.id === "string" && Number.isInteger(value.wave) && typeof value.state === "string";
 function attempt5(fn, fallback) {
@@ -22559,7 +22771,7 @@ function omniScript() {
   return runningBundle() ?? fileURLToPath3(new URL("../../bin/omni.mjs", import.meta.url));
 }
 function readBoard(root, prd2) {
-  const value = attempt5(() => JSON.parse(readFileSync38(boardFile(root, prd2), "utf8")), null);
+  const value = attempt5(() => JSON.parse(readFileSync40(boardFile(root, prd2), "utf8")), null);
   if (!isObject(value) || typeof value.at !== "string") return null;
   const at = Date.parse(value.at);
   if (Number.isNaN(at)) return null;
@@ -22582,8 +22794,8 @@ function refreshDue(board2, now) {
   return age === null || age >= REFRESH_AFTER_MS;
 }
 function lockedAt(path) {
-  if (!existsSync39(path)) return null;
-  const at = attempt5(() => Date.parse(JSON.parse(readFileSync38(path, "utf8")).at), Number.NaN);
+  if (!existsSync41(path)) return null;
+  const at = attempt5(() => Date.parse(JSON.parse(readFileSync40(path, "utf8")).at), Number.NaN);
   return Number.isNaN(at) ? attempt5(() => statSync6(path).mtimeMs, null) : at;
 }
 function lockHeld(root, prd2, now) {
@@ -22613,9 +22825,9 @@ function cachedSlices({ root, prd: prd2, now, cwd, spawn: spawn2 = null, script,
   return shownSlices(board2, now);
 }
 function ensureBoardDir(root) {
-  mkdirSync14(join48(root, BOARD_DIR), { recursive: true });
-  const ignore = join48(root, LOCAL_DIR, ".gitignore");
-  if (!existsSync39(ignore)) writeFileSync19(ignore, "*\n");
+  mkdirSync14(join50(root, BOARD_DIR), { recursive: true });
+  const ignore = join50(root, LOCAL_DIR, ".gitignore");
+  if (!existsSync41(ignore)) writeFileSync19(ignore, "*\n");
 }
 function writeBoard(root, prd2, entry) {
   ensureBoardDir(root);
@@ -22656,7 +22868,7 @@ function takeLock(root, prd2, now) {
 }
 function releaseLock(root, prd2, owner) {
   const path = lockFile(root, prd2);
-  const held = attempt5(() => JSON.parse(readFileSync38(path, "utf8")).owner, null);
+  const held = attempt5(() => JSON.parse(readFileSync40(path, "utf8")).owner, null);
   if (held === owner) rmSync8(path, { force: true });
 }
 var oneLine3 = (error) => String(error?.message ?? error).split("\n")[0].trim() || "the board could not be built";
@@ -22680,8 +22892,8 @@ function refreshBoard({ root, prd: prd2, now, build }) {
 
 // kit/lib/statusline/facts.mjs
 init_define_OMNI_BUNDLE();
-import { readdirSync as readdirSync17 } from "node:fs";
-import { join as join49 } from "node:path";
+import { readdirSync as readdirSync18 } from "node:fs";
+import { join as join51 } from "node:path";
 
 // kit/lib/statusline/stage.mjs
 init_define_OMNI_BUNDLE();
@@ -22823,7 +23035,7 @@ function treeFiles(ctx, ref, dir, exec) {
 }
 function checkoutFolders(ctx, dir) {
   return attempt6(
-    () => readdirSync17(join49(ctx.root, dir), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name),
+    () => readdirSync18(join51(ctx.root, dir), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name),
     []
   );
 }
@@ -23101,24 +23313,7 @@ var statusline = {
 init_define_OMNI_BUNDLE();
 import { mkdtempSync as mkdtempSync2, rmSync as rmSync9 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join51 } from "node:path";
-
-// kit/lib/update/installed.mjs
-init_define_OMNI_BUNDLE();
-import { existsSync as existsSync40, readFileSync as readFileSync39 } from "node:fs";
-import { join as join50 } from "node:path";
-var STAMP = /define_OMNI_BUNDLE_default = \{[^}]*?\bversion: "([^"]+)"/;
-function bundleVersion(text4) {
-  const match = STAMP.exec(text4);
-  return match ? parseVersion(match[1]) : null;
-}
-function installedVersion({ root, running, bundle }) {
-  const bin = join50(root, BIN_FILE);
-  if (!existsSync40(bin)) return null;
-  const text4 = readFileSync39(bin);
-  if (bundle && existsSync40(bundle) && readFileSync39(bundle).equals(text4)) return running.version;
-  return bundleVersion(text4.toString("utf8"));
-}
+import { join as join52 } from "node:path";
 
 // kit/lib/update/plugin.mjs
 init_define_OMNI_BUNDLE();
@@ -23138,11 +23333,11 @@ function updatePlugin({ version: version2 = null, exec, println: println2 }) {
 }
 
 // kit/bin/commands/update.mjs
-var USAGE16 = "usage: omni update [--to <version>]";
-function handOver2({ cwd, home, from, target, exec }) {
-  const dir = mkdtempSync2(join51(tmpdir2(), "omni-update-"));
+var USAGE17 = "usage: omni update [--to <version>]";
+function handOver2({ cwd, home, from, target: target2, exec }) {
+  const dir = mkdtempSync2(join52(tmpdir2(), "omni-update-"));
   try {
-    const bundle = downloadBundle({ home, version: target, dir, exec });
+    const bundle = downloadBundle({ home, version: target2, dir, exec });
     const fromFlag = from ? ["--from", from] : [];
     try {
       exec("node", [bundle, "update", "--apply", ...fromFlag], { cwd, stdio: "inherit" });
@@ -23166,23 +23361,23 @@ function updateRepository({ cwd, flags, running, file, exec, out }) {
     out(`omni runs from the kit source${running.version ? ` (v${running.version})` : ""}: there is no bin to update here.`);
     return { code: 0, target: null };
   }
-  const target = findTarget({ home: running.home, to: flags.to ?? null, exec });
+  const target2 = findTarget({ home: running.home, to: flags.to ?? null, exec });
   const root = rootOf(cwd, exec);
   const from = root ? installedVersion({ root, running, bundle: file }) : running.version;
-  if (from === target) {
-    out(`omni v${target} is up to date.`);
-    return { code: 0, target };
+  if (from === target2) {
+    out(`omni v${target2} is up to date.`);
+    return { code: 0, target: target2 };
   }
-  if (root && file && running.version === target) {
-    return { code: applyUpdate({ root, bundle: file, version: target, from, home: running.home, exec, println: out }), target };
+  if (root && file && running.version === target2) {
+    return { code: applyUpdate({ root, bundle: file, version: target2, from, home: running.home, exec, println: out }), target: target2 };
   }
-  return { code: handOver2({ cwd, home: running.home, from, target, exec }), target };
+  return { code: handOver2({ cwd, home: running.home, from, target: target2, exec }), target: target2 };
 }
 var update = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, kit, bundle }) {
     const { positional, flags } = parseArgs("update", args, { values: ["to", "from"], booleans: ["apply"] });
-    if (positional.length) throw usageError(USAGE16);
+    if (positional.length) throw usageError(USAGE17);
     if (flags.to !== void 0 && !parseVersion(flags.to)) throw usageError(`omni update: --to takes a version like v0.0.12, got "${flags.to}".`);
     if (flags.from !== void 0 && !parseVersion(flags.from)) throw usageError(`omni update: --from takes a version like 0.0.12, got "${flags.from}".`);
     const running = kit ?? runningKit({ exec });
@@ -23196,8 +23391,8 @@ var update = {
         const root = findRoot(cwd, exec);
         return applyUpdate({ root, bundle: file, version: running.version, from: flags.from ? parseVersion(flags.from) : null, home: running.home, exec, println: out });
       }
-      const { code, target } = updateRepository({ cwd, flags, running, file, exec, out });
-      if (code === 0) updatePlugin({ version: target, exec, println: out });
+      const { code, target: target2 } = updateRepository({ cwd, flags, running, file, exec, out });
+      if (code === 0) updatePlugin({ version: target2, exec, println: out });
       return code;
     } catch (error) {
       if (!(error instanceof UpdateError)) throw error;
@@ -23223,10 +23418,10 @@ var version = {
 };
 
 // kit/bin/commands/index.mjs
-var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, init, ask, signin, signout, whoami, sign, credits, dossier, version, update, help, statusline });
+var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, init, ask, signin, signout, whoami, sign, credits, dossier, version, update, help, statusline, targets });
 
 // kit/bin/omni.mjs
-var USAGE17 = `usage: omni <command> [args]
+var USAGE18 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 omni help: what each command does
 `;
@@ -23269,12 +23464,12 @@ function recordPrd(argv, { cwd, env, exec }) {
   } catch {
   }
 }
-async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync11, env = process.env, ...more } = {}) {
+async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync12, env = process.env, ...more } = {}) {
   const [first, ...rest] = argv;
   const name = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
   const command = Object.hasOwn(COMMAND_TABLE, name ?? "") ? COMMAND_TABLE[name] : void 0;
   if (!command) {
-    stderr.write(USAGE17);
+    stderr.write(USAGE18);
     return 2;
   }
   recordPrd(argv, { cwd, env, exec });
