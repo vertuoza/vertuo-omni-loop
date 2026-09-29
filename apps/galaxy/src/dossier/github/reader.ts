@@ -18,6 +18,7 @@ import { makeMarkers } from 'vertuo-omni-plan/kit/lib/markers.mjs';
 import { parseOutboxItem, SETTLED_FILE } from 'vertuo-omni-plan/kit/lib/outbox/outbox.mjs';
 import { ADOPTED_VERDICT, parseSettledEntries } from 'vertuo-omni-plan/kit/lib/outbox/settle.mjs';
 import { z } from 'zod';
+import { readFix, type FixSummary } from './fix';
 import { outboxReplies, type KitAdopted, type KitItem, type PrComment } from './replies';
 import { readRetro } from './retro';
 import { githubApp, REPO, type AppCredentials, type InstallationToken } from '../../signup/github-app';
@@ -36,6 +37,9 @@ const TOPIC = '([a-z0-9]+(?:-[a-z0-9]+)*)';
 /** What the reader needs of a dossier: its id (the cache key), its home repository and its PRD. */
 export type DossierRef = { id: string; home_repo: string; prd: number };
 
+/** A fix (PRD 627, s5): its issue's number is its `prd`. */
+export type FixRef = DossierRef;
+
 /** What the reader takes from the repository's config. */
 type RepoConfig = {
   defaultBranch: string;
@@ -43,6 +47,8 @@ type RepoConfig = {
   delivery: string;
   links: { feature: string; phase0: string };
   markers: ReturnType<typeof makeMarkers>;
+  /** A fix's branch shape and the labels its list row reads (PRD 627, s5). */
+  fix: { branch: string; risk: string[]; regression: string };
 };
 
 const Pull = z.object({
@@ -86,10 +92,11 @@ const path = (p: string) => p.split('/').map(encodeURIComponent).join('/');
 function repoConfig(text: string): RepoConfig {
   const config = parseConfig(text, CONFIG_PATH) as unknown as {
     repo: { defaultBranch: string };
-    branches: { feature: string; phase0: string; retro: string };
+    branches: { feature: string; phase0: string; retro: string; fix: string };
     paths: { delivery: string };
     prLinks: { feature: string; phase0: string };
     markers: { prefix: string };
+    labels: { riskCritical: string; riskHigh: string; riskMedium: string; riskLow: string; regression: string };
   };
   return {
     defaultBranch: config.repo.defaultBranch,
@@ -97,6 +104,11 @@ function repoConfig(text: string): RepoConfig {
     delivery: config.paths.delivery.replace(/\/+$/, ''),
     links: { feature: config.prLinks.feature, phase0: config.prLinks.phase0 },
     markers: makeMarkers(config.markers.prefix),
+    fix: {
+      branch: config.branches.fix,
+      risk: [config.labels.riskCritical, config.labels.riskHigh, config.labels.riskMedium, config.labels.riskLow],
+      regression: config.labels.regression,
+    },
   };
 }
 
@@ -160,12 +172,16 @@ export type GithubReader = {
   /** Drops the dossier's cached summary, so the next read is fresh (PRD 251, s11: a send reads the
    * outbox fresh, and clears it once posted so the answer shows at once). */
   forget(dossierId: string): void;
+  /** What GitHub says of a fix (./fix.ts), through the same 60-second cache; null when the App is not
+   * installed on its repository, or its config could not be read. */
+  fix(ref: FixRef): Promise<FixSummary | null>;
 };
 
 export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now): GithubReader {
   const app = githubApp(creds, fetchImpl, clock);
   const tokens = new Map<string, InstallationToken>();
   const summaries = new Map<string, { at: number; value: GithubSummary | null }>();
+  const fixes = new Map<string, { at: number; value: FixSummary | null }>();
 
   /** A token for `repo`, reused until a minute before it expires; null when the App is not installed there. */
   async function tokenFor(repo: string): Promise<string | null> {
@@ -260,6 +276,8 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
         const text = await contents(file, ref, true);
         return typeof text === 'string' ? text : null;
       },
+      /** Any route of the repository, as JSON; null on 404 (./fix.ts reads through it). */
+      json,
       async mergedInto(branch: string): Promise<number> {
         return (await pulls({ base: branch, state: 'closed' })).filter((p) => p.merged_at !== null).length;
       },
@@ -339,6 +357,23 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
     },
     forget(dossierId) {
       summaries.delete(dossierId);
+    },
+    async fix(ref) {
+      const kept = fixes.get(ref.id);
+      if (kept && clock() - kept.at < SUMMARY_TTL_MS) return kept.value;
+      let value: FixSummary | null = null;
+      try {
+        const token = REPO.test(ref.home_repo) ? await tokenFor(ref.home_repo) : null;
+        if (token) {
+          const gh = await read(ref.home_repo, token);
+          const { fix } = await gh.config();
+          value = await readFix((route) => gh.json(route), ref.prd, fix.branch, { risk: fix.risk, regression: fix.regression });
+        }
+      } catch (error) {
+        console.error(`Fix page: GitHub could not be read for ${ref.home_repo}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      fixes.set(ref.id, { at: clock(), value });
+      return value;
     },
   };
 }

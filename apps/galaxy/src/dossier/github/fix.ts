@@ -6,7 +6,6 @@
 // says *unknown* rather than failing. ./reader.ts gives it the repository's token, config and 60-second
 // cache; this module only reads through the `get` it is handed.
 import { z } from 'zod';
-import { latestPull } from './reader';
 import { UNREAD, type Read } from './summary';
 
 /** A GitHub answer on the repository's route, as JSON; null on 404. Throws on any other failure. */
@@ -45,7 +44,6 @@ const Pulls = z.array(z.object({
   number: z.number().int().positive(),
   html_url: z.string().url(),
   state: z.enum(['open', 'closed']),
-  draft: z.boolean().optional().default(false),
   merged_at: z.string().nullable().optional().default(null),
   created_at: z.string(),
   head: z.object({ ref: z.string() }),
@@ -97,13 +95,16 @@ export async function readFix(get: FixGet, n: number, fixShape: string, labels: 
     }),
     part('the fix PR', async () => {
       const listed = Pulls.parse((await get(`/pulls?${new URLSearchParams({ state: 'all', per_page: '100', sort: 'created', direction: 'desc' })}`)) ?? []);
-      return latestPull(listed.filter((p) => branch.test(p.head.ref)).map((p) => ({ ...p, body: null })));
+      // As the PRD page counts a branch's PR: the most recent open or merged one; a closed, unmerged one is absent.
+      const [latest] = listed.filter((p) => branch.test(p.head.ref) && (p.state === 'open' || p.merged_at !== null))
+        .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at) || b.number - a.number);
+      return latest ? { number: latest.number, url: latest.html_url, state: latest.state === 'open' ? 'open' as const : 'merged' as const, mergedAt: latest.merged_at } : null;
     }),
   ]);
   if (found === UNREAD) return { issue, pull: UNREAD, approvals: UNREAD, release: UNREAD };
   if (found === null) return { issue, pull: null, approvals: [], release: null };
 
-  const mergedAt = found.state === 'merged' ? found.mergedAt ?? null : null;
+  const mergedAt = found.state === 'merged' ? found.mergedAt : null;
   const [mergedBy, approvals, release] = await Promise.all([
     part('who merged the fix PR', async () => (mergedAt === null ? null : Merged.parse((await get(`/pulls/${found.number}`)) ?? {}).merged_by?.login ?? null)),
     part('the fix PR\'s reviews', async () => Reviews.parse((await get(`/pulls/${found.number}/reviews?per_page=100`)) ?? [])
