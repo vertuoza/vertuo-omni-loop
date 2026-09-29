@@ -104,21 +104,38 @@ async function markdownOf(read: () => Promise<string | null>): Promise<RenderedM
   }
 }
 
+/** The shown Spec or Plan of `view`, rendered through `read`; null for a framed artifact or none. */
+async function shownMarkdown(view: ReturnType<typeof dossierView>, read: (id: string) => Promise<string | null>) {
+  const shown = view.shown;
+  return shown && !shown.frame ? markdownOf(() => read(shown.id)) : null;
+}
+
+type Query = Record<string, string | string[] | undefined>;
+
+/** The demo's one dossier, a PRD's: another route is sent to /prd/<id>. */
+async function demoPage(route: WorkKind, id: string, query: Query, pick: ReturnType<typeof readPick>) {
+  const elsewhere = misrouted('prd', route, id, query);
+  if (elsewhere) redirect(elsewhere);
+  const view = dossierView(demoDossier(Date.now()), DEMO_VIEWER, pick);
+  const markdown = await shownMarkdown(view, async (shownId) => demoContent(shownId));
+  return <DossierPage view={view} markdown={markdown} supabase={null} />;
+}
+
+function DraftDeleted() {
+  return (
+    <Notice title="Draft deleted">
+      <p className="ask-muted">Nothing is left of it but the questions it asked, which stay in the ask history.</p>
+    </Notice>
+  );
+}
+
 /** The page of dossier `id` on `route`'s route: /prd/<id>, /visual/<id> or /bugs/<id>. */
 export async function dossierRoute(route: WorkKind, { params, searchParams }: DossierRouteProps) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
   const pick = readPick(query);
   const mode = arcadeMode(process.env);
 
-  if (mode === 'demo') {
-    // The demo's one dossier is a PRD's.
-    const elsewhere = misrouted('prd', route, id, query);
-    if (elsewhere) redirect(elsewhere);
-    const view = dossierView(demoDossier(Date.now()), DEMO_VIEWER, pick);
-    const shown = view.shown;
-    const markdown = shown && !shown.frame ? await markdownOf(async () => demoContent(shown.id)) : null;
-    return <DossierPage view={view} markdown={markdown} supabase={null} />;
-  }
+  if (mode === 'demo') return demoPage(route, id, query, pick);
   const session = await dossierSession(mode);
   if (!session) return <DossiersClosed />;
   const { env, db, user } = session;
@@ -131,13 +148,7 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
     console.error(error);
     return <DossierDatabaseDown />;
   }
-  if (!read && one(query.deleted) === '1') {
-    return (
-      <Notice title="Draft deleted">
-        <p className="ask-muted">Nothing is left of it but the questions it asked, which stay in the ask history.</p>
-      </Notice>
-    );
-  }
+  if (!read && one(query.deleted) === '1') return <DraftDeleted />;
   if (!read) notFound();
   const elsewhere = misrouted(kindOf(read.dossier), route, id, query);
   if (elsewhere) redirect(elsewhere);
@@ -145,8 +156,7 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   const [github, fix] = await Promise.all([githubOf(db, read), fixOf(db, read)]);
   const withGithub = { ...read, ...github, ...fix };
   const view = dossierView(withGithub, user.id, pick);
-  const shown = view.shown;
-  const markdown = shown && !shown.frame ? await markdownOf(() => readContent(db, shown.id)) : null;
+  const markdown = await shownMarkdown(view, (shownId) => readContent(db, shownId));
   const pulse = pulseOf(withGithub);
   const live = <LiveRefresh supabase={env} id={view.id} signature={pulse ? signature(pulse) : null} />;
   return <DossierPage view={view} markdown={markdown} supabase={env} live={live} />;

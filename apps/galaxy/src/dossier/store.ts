@@ -232,6 +232,20 @@ export async function dossierRounds(db: Pick<SupabaseClient, 'rpc'>, dossierId: 
 /** An artifact's latest version: its number is how many versions of its kind there are. */
 export type LatestVersion = { id: string; version: number; source: 'kit' | 'github'; created_at: string };
 
+/** The latest version of each of `kinds` among `versions`, oldest first; a kind with none is left out. */
+export function latestVersions<K extends string>(
+  versions: ReadonlyArray<{ id: string; kind: string; source: 'kit' | 'github'; created_at: string }>,
+  kinds: readonly K[],
+): Partial<Record<K, LatestVersion>> {
+  const latest: Partial<Record<K, LatestVersion>> = {};
+  for (const kind of kinds) {
+    const ofKind = versions.filter((v) => v.kind === kind);
+    const last = ofKind.at(-1);
+    if (last) latest[kind] = { id: last.id, version: ofKind.length, source: last.source, created_at: last.created_at };
+  }
+  return latest;
+}
+
 /** A dossier as the history lists it. */
 export type DossierListRow = DossierRow & {
   /** The home repository first, then the others in order, each once, in lower case. */

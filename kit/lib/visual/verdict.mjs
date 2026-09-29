@@ -20,7 +20,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAfterViolation } from '../inbox/check-inbox.mjs';
-import { carriesTrailer, trailerLine } from '../signature.mjs';
+import { fixVerdict } from '../fix-verdict.mjs';
 
 const PAGE = 'before-after.html';
 
@@ -86,15 +86,6 @@ function folderViolations(ctx, folder) {
   ];
 }
 
-function signatureViolations(ctx, commits) {
-  const { signature } = ctx.config;
-  const trailer = trailerLine(signature);
-  if (trailer === null || commits === undefined) return [];
-  return commits
-    .filter((commit) => !carriesTrailer(commit.message, signature))
-    .map((commit) => `unsigned: ${commit.sha} ${commit.message.split('\n')[0]} has no "${trailer}" line.`);
-}
-
 /**
  * Grades one issue's visual fix on the working tree, and the branch's commits when given.
  *
@@ -102,17 +93,8 @@ function signatureViolations(ctx, commits) {
  * @returns {{ ok: boolean, folder: string | null, failures: string[] }}
  */
 export function visualVerdict({ ctx, issue, commits }) {
-  const failures = [];
-  const folders = issueFolders(ctx, issue);
-  let folder = null;
-  if (folders.length === 0) {
-    failures.push(`no folder ${visualRoot(ctx)}/${folderPrefix(issue)}<slug>/ for issue ${issue}.`);
-  } else if (folders.length > 1) {
-    failures.push(`${folders.length} folders for issue ${issue}, one expected: ${folders.join(', ')}.`);
-  } else {
-    [folder] = folders;
-    failures.push(...pageViolations(ctx, `${folder}/${PAGE}`), ...folderViolations(ctx, folder));
-  }
-  failures.push(...signatureViolations(ctx, commits));
-  return { ok: failures.length === 0, folder, failures };
+  return fixVerdict({
+    ctx, issue, commits, root: visualRoot(ctx), prefix: folderPrefix(issue), folders: issueFolders(ctx, issue),
+    grade: (folder) => [...pageViolations(ctx, `${folder}/${PAGE}`), ...folderViolations(ctx, folder)],
+  });
 }

@@ -56,7 +56,10 @@ const EMPTY: Record<ArtifactKind, string> = {
   'bug-record': 'The bug record has no version yet.',
 };
 
-function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 'supabase'>) {
+type PaneProps = Pick<Props, 'view' | 'markdown' | 'supabase'>;
+type Shown = NonNullable<DossierView['shown']>;
+
+function Pane({ view, markdown, supabase }: PaneProps) {
   const { shown, tab } = view;
   if (tab === 'questions') return <QuestionsPane questions={view.questions} supabase={supabase} />;
   if (tab === 'outbox') return <OutboxPane dossierId={view.id} outbox={view.outbox} spec={markdown} />;
@@ -69,6 +72,11 @@ function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 's
       </p>
     );
   }
+  return <ArtifactPane view={view} tab={tab} shown={shown} markdown={markdown} />;
+}
+
+/** The shown version of an artifact tab under its picker: framed, or rendered from markdown. */
+function ArtifactPane({ view, tab, shown, markdown }: { view: DossierView; tab: ArtifactKind; shown: Shown; markdown: RenderedMarkdown | null }) {
   const round = tab === 'variations';
   const picker = <VersionPicker action={view.link} tab={tab} versions={view.versions} shown={shown.number} noun={round ? 'Round' : 'Version'} />;
   if (shown.frame) {
@@ -88,14 +96,17 @@ function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 's
   return (
     <>
       {picker}
-      {markdown ? (
-        <>
-          {markdown.front && <p className="dossier-front">{markdown.front}</p>}
-          <article className="dossier-md" dangerouslySetInnerHTML={{ __html: markdown.html }} />
-        </>
-      ) : (
-        <p className="ask-problem" role="alert">This version could not be read. Reload the page in a moment.</p>
-      )}
+      <MarkdownVersion markdown={markdown} />
+    </>
+  );
+}
+
+function MarkdownVersion({ markdown }: { markdown: RenderedMarkdown | null }) {
+  if (!markdown) return <p className="ask-problem" role="alert">This version could not be read. Reload the page in a moment.</p>;
+  return (
+    <>
+      {markdown.front && <p className="dossier-front">{markdown.front}</p>}
+      <article className="dossier-md" dangerouslySetInnerHTML={{ __html: markdown.html }} />
     </>
   );
 }

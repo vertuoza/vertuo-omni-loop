@@ -40,19 +40,18 @@
 // activity (its opening, numbering, versions and rounds asked or answered), newest first.
 import { createHash } from 'node:crypto';
 import {
-  ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, KIND_ARTIFACTS, TITLE_MAX, WORK_KINDS, type ArtifactKind, type DossierListRow, type DossierRoundRow,
-  type LatestVersion, type RoundRule, type WorkKind,
+  ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, KIND_ARTIFACTS, latestVersions, TITLE_MAX, WORK_KINDS, type ArtifactKind, type DossierListRow, type DossierRoundRow,
+  type RoundRule, type WorkKind,
 } from './store';
+import { FAKE_WORKSPACE, type FakeAccount } from '../ask/store.fake';
 
 type Row = Record<string, unknown>;
 type Failure = { code?: string; message: string };
 type Result = { data: unknown; error: Failure | null };
 
-/** An account, and the workspaces it belongs to in the order it joined them: FAKE_WORKSPACE when none is
- * named. `name`: the arcade name ask_members() gives, when they picked one. */
-export type FakeAccount = { id: string; email: string; workspaces?: string[]; name?: string };
-
-export const FAKE_WORKSPACE = '00000000-0000-4000-8000-00000000a0a0';
+// An account, and the workspaces it belongs to in the order it joined them: FAKE_WORKSPACE when none is
+// named. `name`: the arcade name ask_members() gives, when they picked one. The ask fake's own.
+export { FAKE_WORKSPACE, type FakeAccount };
 
 export type FakeDossier = {
   id: string; workspace_id: string; home_repo: string; prd: number | null; kind: WorkKind; title: string;
@@ -329,12 +328,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     return dossiers.map((d): DossierListRow => {
       const asked = rounds(me, d.id);
       const versions = tables.dossier_versions.filter((v) => v.dossier_id === d.id).sort((a, b) => a.created_at.localeCompare(b.created_at));
-      const latest: Partial<Record<ArtifactKind, LatestVersion>> = {};
-      for (const kind of ARTIFACT_KINDS) {
-        const ofKind = versions.filter((v) => v.kind === kind);
-        const last = ofKind.at(-1);
-        if (last) latest[kind] = { id: last.id, version: ofKind.length, source: last.source, created_at: last.created_at };
-      }
+      const latest = latestVersions(versions, ARTIFACT_KINDS);
       const org = orgs[d.workspace_id] ?? null;
       const plan = tables.plan_repos[d.workspace_id] ?? null;
       const regions = d.kind === 'prd' && org && plan && d.home_repo === `${org}/${plan}`.toLowerCase()

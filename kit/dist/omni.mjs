@@ -16752,6 +16752,31 @@ init_define_OMNI_BUNDLE();
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync17, readdirSync as readdirSync10, readFileSync as readFileSync18, statSync as statSync4 } from "node:fs";
 import { isAbsolute as isAbsolute4, join as join22, normalize } from "node:path";
+
+// kit/lib/fix-verdict.mjs
+init_define_OMNI_BUNDLE();
+function signatureViolations(ctx, commits) {
+  const { signature } = ctx.config;
+  const trailer = trailerLine(signature);
+  if (trailer === null || commits === void 0) return [];
+  return commits.filter((commit) => !carriesTrailer(commit.message, signature)).map((commit) => `unsigned: ${commit.sha} ${commit.message.split("\n")[0]} has no "${trailer}" line.`);
+}
+function fixVerdict({ ctx, issue, root, prefix, folders, grade, commits }) {
+  const failures = [];
+  let folder = null;
+  if (folders.length === 0) {
+    failures.push(`no folder ${root}/${prefix}<slug>/ for issue ${issue}.`);
+  } else if (folders.length > 1) {
+    failures.push(`${folders.length} folders for issue ${issue}, one expected: ${folders.join(", ")}.`);
+  } else {
+    [folder] = folders;
+    failures.push(...grade(folder));
+  }
+  failures.push(...signatureViolations(ctx, commits));
+  return { ok: failures.length === 0, folder, failures };
+}
+
+// kit/lib/bug/verdict.mjs
 var RECORD = "bug.md";
 var SECTIONS = ["Triage", "Reproduction", "Fix", "Guard", "Mutation"];
 var RISK_LEVELS = ["critical", "high", "medium", "low"];
@@ -16834,27 +16859,17 @@ function recordViolations(ctx, record, changed) {
   }
   return violations;
 }
-function signatureViolations(ctx, commits) {
-  const { signature } = ctx.config;
-  const trailer = trailerLine(signature);
-  if (trailer === null || commits === void 0) return [];
-  return commits.filter((commit) => !carriesTrailer(commit.message, signature)).map((commit) => `unsigned: ${commit.sha} ${commit.message.split("\n")[0]} has no "${trailer}" line.`);
-}
 function bugVerdict({ ctx, issue, changed, commits }) {
-  const failures = [];
-  const folders = issueFolders(ctx, issue);
-  let folder = null;
-  if (folders.length === 0) {
-    failures.push(`no folder ${bugRoot(ctx)}/${folderPrefix(issue)}<slug>/ for issue ${issue}.`);
-  } else if (folders.length > 1) {
-    failures.push(`${folders.length} folders for issue ${issue}, one expected: ${folders.join(", ")}.`);
-  } else {
-    [folder] = folders;
-    const changedSet = changed === void 0 ? void 0 : new Set([...changed].map((path) => normalize(path)));
-    failures.push(...recordViolations(ctx, `${folder}/${RECORD}`, changedSet));
-  }
-  failures.push(...signatureViolations(ctx, commits));
-  return { ok: failures.length === 0, folder, failures };
+  const changedSet = changed === void 0 ? void 0 : new Set([...changed].map((path) => normalize(path)));
+  return fixVerdict({
+    ctx,
+    issue,
+    commits,
+    root: bugRoot(ctx),
+    prefix: folderPrefix(issue),
+    folders: issueFolders(ctx, issue),
+    grade: (folder) => recordViolations(ctx, `${folder}/${RECORD}`, changedSet)
+  });
 }
 
 // kit/bin/commands/bug.mjs
@@ -24822,26 +24837,16 @@ function folderViolations(ctx, folder) {
     ...others.sort(byName).map((name) => `${folder}/${name}: not part of a visual fix; the folder holds ${PAGE} and variations-r<k>.html only.`)
   ];
 }
-function signatureViolations2(ctx, commits) {
-  const { signature } = ctx.config;
-  const trailer = trailerLine(signature);
-  if (trailer === null || commits === void 0) return [];
-  return commits.filter((commit) => !carriesTrailer(commit.message, signature)).map((commit) => `unsigned: ${commit.sha} ${commit.message.split("\n")[0]} has no "${trailer}" line.`);
-}
 function visualVerdict({ ctx, issue, commits }) {
-  const failures = [];
-  const folders = issueFolders2(ctx, issue);
-  let folder = null;
-  if (folders.length === 0) {
-    failures.push(`no folder ${visualRoot(ctx)}/${folderPrefix2(issue)}<slug>/ for issue ${issue}.`);
-  } else if (folders.length > 1) {
-    failures.push(`${folders.length} folders for issue ${issue}, one expected: ${folders.join(", ")}.`);
-  } else {
-    [folder] = folders;
-    failures.push(...pageViolations(ctx, `${folder}/${PAGE}`), ...folderViolations(ctx, folder));
-  }
-  failures.push(...signatureViolations2(ctx, commits));
-  return { ok: failures.length === 0, folder, failures };
+  return fixVerdict({
+    ctx,
+    issue,
+    commits,
+    root: visualRoot(ctx),
+    prefix: folderPrefix2(issue),
+    folders: issueFolders2(ctx, issue),
+    grade: (folder) => [...pageViolations(ctx, `${folder}/${PAGE}`), ...folderViolations(ctx, folder)]
+  });
 }
 
 // kit/bin/commands/visual.mjs

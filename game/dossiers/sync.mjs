@@ -169,6 +169,15 @@ async function syncRepository({ exec, store, workspaceId, slug, now, log }) {
       return skip(`its dossiers cannot be read: ${err.message}`, true);
     }
   }
+  await syncPrds({ exec, store, slug, homeRepo, workspaceId, head, folders, known, now, log, report });
+  if (fixed.folders.length) {
+    report.fixes = await syncFixes({ exec, store, slug, homeRepo, workspaceId, head, folders: fixed.folders, now, log, report });
+  }
+  logReport({ slug, head, folders, report, log });
+  return report;
+}
+
+async function syncPrds({ exec, store, slug, homeRepo, workspaceId, head, folders, known, now, log, report }) {
   for (const folder of folders) {
     try {
       await syncFolder({
@@ -182,10 +191,10 @@ async function syncRepository({ exec, store, workspaceId, slug, now, log }) {
       log.warn(`  ! skipped PRD ${folder.prd} of ${slug}: ${err.message}`);
     }
   }
-  if (fixed.folders.length) {
-    report.fixes = await syncFixes({ exec, store, slug, homeRepo, workspaceId, head, folders: fixed.folders, now, log, report });
-  }
+}
 
+/** One line per repository: its folders, the dossiers created, the files fetched and the versions added. */
+function logReport({ slug, head, folders, report, log }) {
   const fixes = report.fixes ?? { folders: 0, created: [], added: [] };
   const parts = [plural(folders.length, 'PRD folder')];
   if (fixes.folders) parts.push(plural(fixes.folders, 'fix folder'));
@@ -198,7 +207,6 @@ async function syncRepository({ exec, store, workspaceId, slug, now, log }) {
   ];
   parts.push(added.length ? `added: ${added.join(', ')}` : 'nothing added');
   log.log(`${slug} @ ${head.commit.slice(0, 8)} (${head.branch}): ${parts.join(' · ')}`);
-  return report;
 }
 
 /**

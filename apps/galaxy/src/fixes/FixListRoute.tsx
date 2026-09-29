@@ -25,7 +25,7 @@ type Query = Record<string, string | string[] | undefined>;
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
 
 /** Where a list of fixes signs in and comes back. */
-export const fixCallbackPath = (kind: FixKind) => `${WORK_PATHS[kind]}/callback`;
+const fixCallbackPath = (kind: FixKind) => `${WORK_PATHS[kind]}/callback`;
 
 export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>) {
   const query = await searchParams;

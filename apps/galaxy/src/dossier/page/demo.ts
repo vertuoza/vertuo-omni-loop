@@ -18,7 +18,7 @@
 import { DEMO_MEMBERS, DEMO_OWNER } from '../../ask/page/demo';
 import type { StageRow } from '../../stages/stage';
 import type { GithubSummary } from '../github/summary';
-import { DOSSIER_KINDS, type DossierListRow, type DossierRoundRow, type DossierVersionRow, type LatestVersion } from '../store';
+import { DOSSIER_KINDS, latestVersions, type DossierListRow, type DossierRoundRow, type DossierVersionRow } from '../store';
 import type { DossierRead } from './view';
 
 export const DEMO_DOSSIER_ID = '00000000-0000-4000-8000-00000000d055';
@@ -264,12 +264,7 @@ export function demoDossier(now: number): DossierRead {
 
 /** A dossier the page read, as dossier_list() lists it. */
 function listed({ dossier, versions, rounds, repos }: DossierRead): DossierListRow {
-  const latest: Partial<Record<(typeof DOSSIER_KINDS)[number], LatestVersion>> = {};
-  for (const kind of DOSSIER_KINDS) {
-    const ofKind = versions.filter((v) => v.kind === kind);
-    const last = ofKind.at(-1);
-    if (last) latest[kind] = { id: last.id, version: ofKind.length, source: last.source, created_at: last.created_at };
-  }
+  const latest = latestVersions(versions, DOSSIER_KINDS);
   const asked = rounds ?? [];
   const times = [dossier.created_at, dossier.numbered_at, ...versions.map((v) => v.created_at), ...asked.flatMap((r) => [r.created_at, r.answered_at])]
     .filter((t): t is string => t !== null);
