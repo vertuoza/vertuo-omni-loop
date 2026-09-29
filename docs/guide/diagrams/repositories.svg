@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 460" width="800" height="460">
+  <title>A plan repository and its targets</title>
+  <desc>The plan repository vertuo-automation-plan sits in the middle: it holds the PRDs, their plans, the one outbox and the imported knowledge drafts, and no product code. Around it, its target repositories, each with its role and where its knowledge lives: vertuo-backend-php, the back-end, with imported knowledge, builds s1 of PRD 600; vertuo-apps, the front-end, with knowledge of its own, builds s2 and s3; vertuo-legacy, with none, gets no slice. /omni:mega-invade sets up the map, and omni targets says where each target stands.</desc>
+  <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
+       tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
+  <style>
+    svg { background: #f5f4fc; }
+    text { font-family: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 14px; fill: #17153d; }
+    .dg-px { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 10px; }
+    .dg-tag { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 8px; }
+    .dg-small { font-size: 12.5px; }
+    .dg-code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; }
+    .dg-muted { fill: #4f5486; }
+    .dg-box { fill: #ffffff; stroke: #85819f; stroke-width: 2; }
+    .dg-shadow { fill: #85819f; }
+    .dg-line { fill: none; stroke: #85819f; stroke-width: 2; }
+    .dg-dash { stroke-dasharray: 6 5; }
+    .dg-head { fill: #85819f; }
+    .dg-edge-you { stroke: #6a2fd0; }
+    .dg-key { fill: #efe7ff; stroke: #6a2fd0; }
+    .dg-edge-agents { stroke: #0b6f86; }
+    .dg-edge-app { stroke: #15703f; }
+    .dg-you { fill: #6a2fd0; }
+    .dg-agents { fill: #0b6f86; }
+    .dg-app { fill: #15703f; }
+    @media (prefers-color-scheme: dark) {
+      svg { background: #0e0d33; }
+      text { fill: #f2f4ff; }
+      .dg-muted { fill: #a9aee6; }
+      .dg-box { fill: #16144a; stroke: #6d6acc; }
+      .dg-shadow { fill: #6d6acc; }
+      .dg-line { stroke: #6d6acc; }
+      .dg-head { fill: #6d6acc; }
+      .dg-edge-you { stroke: #b37cff; }
+      .dg-key { fill: #2a1d66; stroke: #b37cff; }
+      .dg-edge-agents { stroke: #6ff0ff; }
+      .dg-edge-app { stroke: #4ee08a; }
+      .dg-you { fill: #b37cff; }
+      .dg-agents { fill: #6ff0ff; }
+      .dg-app { fill: #4ee08a; }
+    }
+  </style>
+  <!-- the plan repository, in the middle -->
+  <rect x="273" y="179" width="260" height="120" class="dg-shadow"/>
+  <rect x="270" y="176" width="260" height="120" class="dg-box"/>
+  <text x="400" y="198" class="dg-tag dg-you" text-anchor="middle">PLAN REPOSITORY</text>
+  <text x="400" y="220" class="dg-code" text-anchor="middle">vertuo-automation-plan</text>
+  <text x="400" y="242" class="dg-small" text-anchor="middle">PRDs, plans, the one outbox</text>
+  <text x="400" y="262" class="dg-small dg-muted" text-anchor="middle">imported knowledge drafts</text>
+  <text x="400" y="282" class="dg-small dg-muted" text-anchor="middle">no product code</text>
+
+  <!-- its targets, around it -->
+  <rect x="33" y="43" width="230" height="96" class="dg-shadow"/>
+  <rect x="30" y="40" width="230" height="96" class="dg-box"/>
+  <text x="145" y="60" class="dg-tag dg-agents" text-anchor="middle">TARGET</text>
+  <text x="145" y="80" class="dg-code" text-anchor="middle">vertuo-backend-php</text>
+  <text x="145" y="100" class="dg-small" text-anchor="middle">role: back-end</text>
+  <text x="145" y="120" class="dg-small dg-muted" text-anchor="middle">knowledge: imported</text>
+
+  <rect x="543" y="43" width="230" height="96" class="dg-shadow"/>
+  <rect x="540" y="40" width="230" height="96" class="dg-box"/>
+  <text x="655" y="60" class="dg-tag dg-agents" text-anchor="middle">TARGET</text>
+  <text x="655" y="80" class="dg-code" text-anchor="middle">vertuo-apps</text>
+  <text x="655" y="100" class="dg-small" text-anchor="middle">role: front-end</text>
+  <text x="655" y="120" class="dg-small dg-muted" text-anchor="middle">knowledge: own</text>
+
+  <rect x="288" y="343" width="230" height="96" class="dg-shadow"/>
+  <rect x="285" y="340" width="230" height="96" class="dg-box"/>
+  <text x="400" y="360" class="dg-tag dg-agents" text-anchor="middle">TARGET</text>
+  <text x="400" y="380" class="dg-code" text-anchor="middle">vertuo-legacy</text>
+  <text x="400" y="400" class="dg-small" text-anchor="middle">role: legacy</text>
+  <text x="400" y="420" class="dg-small dg-muted" text-anchor="middle">knowledge: none</text>
+
+  <!-- where PRD 600's slices land -->
+  <path d="M270 206 L145 206 L145 145" class="dg-line dg-edge-agents"/>
+  <polygon points="145,136 139.5,145 150.5,145" class="dg-head dg-agents"/>
+  <text x="207" y="198" class="dg-small dg-agents" text-anchor="middle">PRD 600: s1</text>
+  <path d="M530 206 L655 206 L655 145" class="dg-line dg-edge-agents"/>
+  <polygon points="655,136 649.5,145 660.5,145" class="dg-head dg-agents"/>
+  <text x="592" y="198" class="dg-small dg-agents" text-anchor="middle">PRD 600: s2, s3</text>
+  <path d="M400 296 L400 331" class="dg-line"/>
+  <polygon points="400,340 394.5,331 405.5,331" class="dg-head"/>
+  <text x="410" y="322" class="dg-small dg-muted">no slice in PRD 600</text>
+
+  <!-- where each target stands -->
+  <text x="30" y="356" class="dg-code">omni targets</text>
+  <text x="30" y="376" class="dg-small dg-muted">one row per target: its role,</text>
+  <text x="30" y="394" class="dg-small dg-muted">where its knowledge lives,</text>
+  <text x="30" y="412" class="dg-small dg-muted">the loop's version, its state</text>
+
+  <!-- how the map is set up -->
+  <rect x="573" y="343" width="164" height="40" class="dg-shadow"/>
+  <rect x="570" y="340" width="164" height="40" class="dg-box dg-key"/>
+  <text x="652" y="365" class="dg-code dg-you" text-anchor="middle">/omni:mega-invade</text>
+  <text x="652" y="404" class="dg-small dg-muted" text-anchor="middle">sets up the map;</text>
+  <text x="652" y="422" class="dg-small dg-muted" text-anchor="middle">--sync refreshes the drafts</text>
+</svg>

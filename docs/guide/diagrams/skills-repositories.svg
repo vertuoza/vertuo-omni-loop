@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 480" width="760" height="480">
+  <title>Which skill runs which, across repositories</title>
+  <desc>In the plan repository you type /omni:mega-invade, /omni:mega-brainstorm, /omni:ultra-yolo and /omni:ultra-yolo-fix. Mega-invade sets up the targets. Mega-brainstorm runs the dossier skills and /omni:plan; ultra-yolo runs /omni:ultra-wave for each wave, which runs one /omni:do-work agent per slice, in the slice's target; ultra-yolo-fix runs one /omni:do-work agent per rework. /omni:do-work (with --target) and /omni:pr (with --repo) are the same skills the single-repository loop runs.</desc>
+  <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
+       tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
+  <style>
+    svg { background: #f5f4fc; }
+    text { font-family: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 14px; fill: #17153d; }
+    .dg-px { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 10px; }
+    .dg-tag { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 8px; }
+    .dg-small { font-size: 12.5px; }
+    .dg-code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; }
+    .dg-muted { fill: #4f5486; }
+    .dg-box { fill: #ffffff; stroke: #85819f; stroke-width: 2; }
+    .dg-shadow { fill: #85819f; }
+    .dg-line { fill: none; stroke: #85819f; stroke-width: 2; }
+    .dg-dash { stroke-dasharray: 6 5; }
+    .dg-head { fill: #85819f; }
+    .dg-edge-you { stroke: #6a2fd0; }
+    .dg-key { fill: #efe7ff; stroke: #6a2fd0; }
+    .dg-edge-agents { stroke: #0b6f86; }
+    .dg-edge-app { stroke: #15703f; }
+    .dg-you { fill: #6a2fd0; }
+    .dg-agents { fill: #0b6f86; }
+    .dg-app { fill: #15703f; }
+    @media (prefers-color-scheme: dark) {
+      svg { background: #0e0d33; }
+      text { fill: #f2f4ff; }
+      .dg-muted { fill: #a9aee6; }
+      .dg-box { fill: #16144a; stroke: #6d6acc; }
+      .dg-shadow { fill: #6d6acc; }
+      .dg-line { stroke: #6d6acc; }
+      .dg-head { fill: #6d6acc; }
+      .dg-edge-you { stroke: #b37cff; }
+      .dg-key { fill: #2a1d66; stroke: #b37cff; }
+      .dg-edge-agents { stroke: #6ff0ff; }
+      .dg-edge-app { stroke: #4ee08a; }
+      .dg-you { fill: #b37cff; }
+      .dg-agents { fill: #6ff0ff; }
+      .dg-app { fill: #4ee08a; }
+    }
+  </style>
+  <!-- the key -->
+  <rect x="20" y="9" width="14" height="12" class="dg-box dg-key"/>
+  <text x="42" y="20" class="dg-small">you type it, in the plan repository</text>
+  <rect x="290" y="9" width="14" height="12" class="dg-box"/>
+  <text x="312" y="20" class="dg-small">a skill runs it</text>
+  <!-- what you type -->
+  <rect x="19" y="47" width="164" height="40" class="dg-shadow"/>
+  <rect x="16" y="44" width="164" height="40" class="dg-box dg-key"/>
+  <text x="98" y="69" class="dg-code dg-you" text-anchor="middle">/omni:mega-invade</text>
+  <rect x="199" y="47" width="172" height="40" class="dg-shadow"/>
+  <rect x="196" y="44" width="172" height="40" class="dg-box dg-key"/>
+  <text x="282" y="69" class="dg-code dg-you" text-anchor="middle">/omni:mega-brainstorm</text>
+  <rect x="391" y="47" width="160" height="40" class="dg-shadow"/>
+  <rect x="388" y="44" width="160" height="40" class="dg-box dg-key"/>
+  <text x="468" y="69" class="dg-code dg-you" text-anchor="middle">/omni:ultra-yolo &lt;n&gt;</text>
+  <rect x="571" y="47" width="180" height="40" class="dg-shadow"/>
+  <rect x="568" y="44" width="180" height="40" class="dg-box dg-key"/>
+  <text x="658" y="69" class="dg-code dg-you" text-anchor="middle">/omni:ultra-yolo-fix &lt;n&gt;</text>
+  <text x="98" y="106" class="dg-small dg-muted" text-anchor="middle">sets up the targets</text>
+  <!-- the dossier skills: two in one box -->
+  <rect x="23" y="153" width="160" height="58" class="dg-shadow"/>
+  <rect x="20" y="150" width="160" height="58" class="dg-box"/>
+  <text x="100" y="174" class="dg-code" text-anchor="middle">/omni:dossier-open</text>
+  <text x="100" y="194" class="dg-code" text-anchor="middle">/omni:dossier-push</text>
+  <rect x="233" y="153" width="140" height="40" class="dg-shadow"/>
+  <rect x="230" y="150" width="140" height="40" class="dg-box"/>
+  <text x="300" y="175" class="dg-code" text-anchor="middle">/omni:plan &lt;n&gt;</text>
+  <rect x="413" y="153" width="160" height="40" class="dg-shadow"/>
+  <rect x="410" y="150" width="160" height="40" class="dg-box"/>
+  <text x="490" y="175" class="dg-code" text-anchor="middle">/omni:ultra-wave &lt;n&gt;</text>
+  <!-- one do-work agent per slice, each in its target, side by side -->
+  <rect x="551" y="271" width="184" height="40" class="dg-shadow"/>
+  <rect x="548" y="268" width="184" height="40" class="dg-box"/>
+  <rect x="545" y="265" width="184" height="40" class="dg-shadow"/>
+  <rect x="542" y="262" width="184" height="40" class="dg-box"/>
+  <rect x="539" y="259" width="184" height="40" class="dg-shadow"/>
+  <rect x="536" y="256" width="184" height="40" class="dg-box"/>
+  <text x="628" y="281" class="dg-code" text-anchor="middle">/omni:do-work --target</text>
+  <!-- the edges -->
+  <path d="M250 88 L128.3 140.4" class="dg-line"/>
+  <polygon points="120,144 126.1,135.4 130.4,145.5" class="dg-head"/>
+  <text x="196" y="126" class="dg-small dg-muted">its page</text>
+  <path d="M300 88 L300 135" class="dg-line"/>
+  <polygon points="300,144 294.5,135 305.5,135" class="dg-head"/>
+  <text x="308" y="120" class="dg-small dg-muted">then plans it</text>
+  <path d="M470 88 L478.4 135.1" class="dg-line"/>
+  <polygon points="480,144 473,136.1 483.8,134.2" class="dg-head"/>
+  <text x="486" y="116" class="dg-small dg-muted">each wave</text>
+  <path d="M540 196 L593.3 244" class="dg-line dg-edge-agents"/>
+  <polygon points="600,250 589.6,248.1 597,239.9" class="dg-head dg-agents"/>
+  <text x="566" y="226" class="dg-small dg-agents" text-anchor="end">one agent per slice,</text>
+  <text x="566" y="242" class="dg-small dg-agents" text-anchor="end">in the slice's target</text>
+  <path d="M690 88 L690 241" class="dg-line"/>
+  <polygon points="690,250 684.5,241 695.5,241" class="dg-head"/>
+  <text x="698" y="170" class="dg-small dg-muted">one per</text>
+  <text x="698" y="186" class="dg-small dg-muted">rework</text>
+  <!-- every pull request goes through /omni:pr -->
+  <rect x="23" y="349" width="720" height="46" class="dg-shadow"/>
+  <rect x="20" y="346" width="720" height="46" class="dg-box"/>
+  <text x="40" y="374" class="dg-code">/omni:pr --repo</text>
+  <text x="170" y="374" class="dg-small dg-muted">every PR, in the plan repository or a target: the claim, the body, CI until green</text>
+  <!-- the two shared with the single-repository loop -->
+  <text x="20" y="424" class="dg-tag dg-agents">SHARED WITH ONE REPOSITORY</text>
+  <text x="20" y="446" class="dg-small dg-muted">/omni:do-work and /omni:pr are the skills /omni:wave and /omni:yolo run in one repository:</text>
+  <text x="20" y="464" class="dg-small dg-muted">--target builds a slice in its target, and --repo opens and follows its PR there.</text>
+</svg>
