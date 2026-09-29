@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import config, { TEST_TIMEOUT_MS } from '../../vitest.config.mjs';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
+const SELF = 'kit/test/test-timeouts.test.mjs';
 
 // A test's own limit: a number of 1000 or more after an `it`/`test` body (`}, 20_000);`, while a timer's
 // short delay, `}, 50);`, is not one), a `{ timeout: … }` option on a `describe`, `it` or `test`, or
@@ -31,7 +32,8 @@ export function ownLimit(source) {
 function testFiles() {
   return execFileSync('git', ['ls-files', '-z', '--', '*.test.mjs', '*.test.ts'], { cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
     .split('\0')
-    .filter((path) => path !== '' && !path.includes('node_modules/'));
+    // This file's own examples of a limit are strings under test, never a limit it sets.
+    .filter((path) => path !== '' && !path.includes('node_modules/') && path !== SELF);
 }
 
 describe('the suite\'s time limits', () => {

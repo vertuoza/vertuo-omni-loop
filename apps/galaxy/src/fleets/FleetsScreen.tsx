@@ -2,7 +2,7 @@ import { Notice } from '../ask/page/Notice';
 import { APP_HOME } from '../switch/switch';
 import { FleetsPage, type FleetsPageProps } from './FleetsPage';
 
-// /app/fleets in each situation (PRD 400 s3), decided once by the page: no database here; signed out
+// /app/settings/fleets in each situation (PRD 400 s3), decided once by the page: no database here; signed out
 // (sign in on /app, then come back); an account in no workspace; the fleets that could not be read;
 // or the fleets themselves, the owner's to change and a member's to read.
 

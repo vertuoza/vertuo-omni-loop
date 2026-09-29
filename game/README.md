@@ -116,15 +116,26 @@ feature PR's merge with no author, and no PRD's author at all. **`pnpm game:cont
 for each repository of the workspace's sectors, under its `github_org`, it reads through `gh`:
 
 1. the repository's default branch;
-2. its pull requests merged into that branch in the last 40 days (`number`, `author`, `mergedAt`).
-   A sub-PR merges into a feature branch, so it never counts;
+2. its pull requests merged into that branch in the last 40 days (`number`, `author`, `mergedAt`,
+   `labels`, `body`). A sub-PR merges into a feature branch, so it never counts;
 3. its `omni:prd` issues created in the last 40 days, in any state (`number`, `author`,
    `createdAt`).
 
 Forty days cover the current season and the chart's week, even on a month's first days. It upserts
 one row per pull request (`kind` `pr-merged`, `at` its `mergedAt`) and per issue (`prd-opened`, `at`
-its `createdAt`), with the author's login in lower case, keyed by `(workspace_id, kind, repo,
-number)`: a rerun on the same answers writes identical rows, and a row outside the window is left as
+its `createdAt`), with the author's login in lower case. It also writes each PRD's stages (PRD 572),
+for the dashboards' PRDs per day:
+
+| kind | when | `number` | `login` | `at` |
+|---|---|---|---|---|
+| `prd-opened` | the `omni:prd` issue is created — drafted | the issue | its author | `createdAt` |
+| `prd-started` | a merged PR labelled `omni:phase-0` whose body holds `Refs #<n>` — in progress | the PRD issue `<n>` | the PRD issue's author | the PR's `mergedAt` |
+| `prd-shipped` | a merged PR labelled `omni:feature` whose body holds `Closes #<n>` — shipped | the PRD issue `<n>` | the PRD issue's author | the PR's `mergedAt` |
+
+A labelled PR with no link gives no stage, and its merge still counts as `pr-merged`. The PRD
+issue's author comes from the `omni:prd` issues already listed, else from `gh issue view <n> --json
+author`, once per PRD; a PRD whose issue cannot be read is skipped and logged, and the rest of its
+repository still lands. Every row is keyed by `(workspace_id, kind, repo, number)`: a rerun on the same answers writes identical rows, and a row outside the window is left as
 it is. An item with no author (a deleted account) is skipped. A repository it cannot read is skipped
 and logged, and the others still land; the step runs with `continue-on-error`, so it never fails the
 ledger job. A failed read of the sectors, or a failed write, writes nothing and exits 1. It needs

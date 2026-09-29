@@ -42,6 +42,8 @@ const DIVIDERS = new Set([
   'nav/sidebar.css .app-sidebar-foot',
   'dashboard/week/week.css .dash-week-grid',
   'dashboard/rankings/rankings.css .dash-rank-table tbody td',
+  'dashboard/board/board.css .board-grid',
+  'dashboard/board/board.css .board-table td',
   'docs/docs.css .docs-md h2',
   'docs/docs.css .docs-md blockquote',
   'docs/docs.css .docs-md hr',

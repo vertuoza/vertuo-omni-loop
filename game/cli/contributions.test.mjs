@@ -27,8 +27,12 @@ const KEY = 'workspace_id,kind,repo,number';
  * comes back. An unknown repository, or one marked unreadable, fails as gh does. Self-contained, so the
  * process test can write it out as the source of an executable `gh`.
  *
- * world: { 'owner/name': { branch?: 'main', merged?: [{ number, author, mergedAt, base? }],
- *          issues?: [{ number, author, createdAt, labels? }], unreadable?: true, unreadableIssues?: true } }
+ * A merged pull request comes with its labels' names and its body; one issue is viewed by number, among
+ * the listed issues and the `older` ones the list's date search leaves out.
+ *
+ * world: { 'owner/name': { branch?: 'main', merged?: [{ number, author, mergedAt, base?, labels?, body? }],
+ *          issues?: [{ number, author, createdAt, labels? }], older?: [{ number, author, createdAt }],
+ *          unreadable?: true, unreadableIssues?: true, unreadablePrds?: [number] } }
  */
 function answerGh(world, args) {
   const notFound = (what) => Object.assign(new Error(`Command failed: gh ${what}\ngh: Not Found (HTTP 404)`), { stderr: 'gh: Not Found (HTTP 404)\n' });
@@ -52,11 +56,19 @@ function answerGh(world, args) {
   }
   const slug = flag('-R');
   const repo = world[slug];
-  if (verb === 'pr' && sub === 'list' && flag('--state') === 'merged' && flag('--json') === 'number,author,mergedAt' && flag('--base')) {
+  if (verb === 'pr' && sub === 'list' && flag('--state') === 'merged' && flag('--json') === 'number,author,mergedAt,labels,body' && flag('--base')) {
     if (!repo || repo.unreadable) throw notFound(`pr list -R ${slug}`);
     const base = flag('--base');
     const merged = (repo.merged ?? []).filter((pr) => (pr.base ?? repo.branch ?? 'main') === base && onOrAfter('merged', flag('--search'), pr.mergedAt));
-    return JSON.stringify(merged.map(({ number, author, mergedAt }) => ({ number, author, mergedAt })));
+    return JSON.stringify(merged.map(({ number, author, mergedAt, labels = [], body = '' }) => ({
+      number, author, mergedAt, labels: labels.map((name) => ({ id: `L_${name}`, name, description: '', color: 'ededed' })), body,
+    })));
+  }
+  if (verb === 'issue' && sub === 'view' && flag('--json') === 'author') {
+    const number = Number(args[2]);
+    const issue = (repo?.issues ?? []).concat(repo?.older ?? []).find((i) => i.number === number);
+    if (!repo || repo.unreadable || !issue || (repo.unreadablePrds ?? []).includes(number)) throw notFound(`issue view ${args[2]} -R ${slug}`);
+    return JSON.stringify({ author: issue.author });
   }
   if (verb === 'issue' && sub === 'list' && flag('--state') === 'all' && flag('--json') === 'number,author,createdAt' && flag('--label')) {
     if (!repo || repo.unreadable || repo.unreadableIssues) throw notFound(`issue list -R ${slug}`);
@@ -147,7 +159,7 @@ describe('runContributions', () => {
     await run(fakeSupabase(tablesOf()), gh);
     const reads = (repo, branch) => [
       `api repos/vertuoza/${repo} --jq .default_branch`,
-      `pr list -R vertuoza/${repo} --base ${branch} --state merged --search merged:>=2026-08-19 --limit 1000 --json number,author,mergedAt`,
+      `pr list -R vertuoza/${repo} --base ${branch} --state merged --search merged:>=2026-08-19 --limit 1000 --json number,author,mergedAt,labels,body`,
       `issue list -R vertuoza/${repo} --label omni:prd --state all --search created:>=2026-08-19 --limit 1000 --json number,author,createdAt`,
     ];
     expect(gh.calls).toEqual([
@@ -187,8 +199,8 @@ describe('runContributions', () => {
     expect(report.skipped).toEqual([{ repo: 'vertuo-api', why: 'gh: Not Found (HTTP 404)' }]);
     expect(lines).toEqual(['vertuoza/vertuo-api skipped: gh: Not Found (HTTP 404)']);
     expect(report.read).toEqual([
-      { repo: 'vertuo-core', merged: 2, opened: 1 },
-      { repo: 'vertuo-flow', merged: 1, opened: 1 },
+      { repo: 'vertuo-core', merged: 2, opened: 1, started: 0, shipped: 0 },
+      { repo: 'vertuo-flow', merged: 1, opened: 1, started: 0, shipped: 0 },
     ]);
     expect(fake.tables.contributions).toEqual(EXPECTED);
   });
@@ -266,6 +278,74 @@ describe('runContributions', () => {
   });
 });
 
+describe('PRD stages', () => {
+  // vertuo-core's PRD 328 was opened in the window; PRD 12 before it, so only `gh issue view` knows its author.
+  const stages = () => ({
+    'vertuoza/vertuo-core': {
+      merged: [
+        { number: 50, author: person('Bob'), mergedAt: '2026-09-20T10:00:00Z', labels: ['omni:phase-0'], body: 'The spec and the plan.\n\nRefs #328\n' },
+        { number: 51, author: person('alice'), mergedAt: '2026-09-27T18:00:00Z', labels: ['omni:feature', 'omni:in-progress'], body: 'Closes #328' },
+        { number: 52, author: person('alice'), mergedAt: '2026-09-02T08:00:00Z', labels: ['omni:phase-0'], body: 'Refs #12' },
+        { number: 53, author: person('bob'), mergedAt: '2026-09-10T08:00:00Z', labels: ['omni:feature'], body: 'closes #12' },
+        { number: 54, author: person('bob'), mergedAt: '2026-09-11T08:00:00Z', labels: ['omni:feature'], body: 'No link here.' },
+        { number: 55, author: person('bob'), mergedAt: '2026-09-12T08:00:00Z', labels: ['omni:phase-0'], body: null },
+        { number: 56, author: person('bob'), mergedAt: '2026-09-13T08:00:00Z', labels: [], body: 'Closes #328' },
+      ],
+      issues: [{ number: 328, author: person('Pierre-D'), createdAt: '2026-09-18T07:00:00Z' }],
+      older: [{ number: 12, author: person('Carol'), createdAt: '2026-07-01T07:00:00Z' }],
+    },
+  });
+  const oneRepo = () => ({ ...tablesOf(), sectors: [{ workspace_id: VERTUOZA, name: 'core-belt', repos: ['vertuo-core'] }] });
+  const stageRows = (rows) => rows.filter((r) => r.kind === 'prd-started' || r.kind === 'prd-shipped').map((r) => [r.kind, r.repo, r.number, r.login, r.at]);
+
+  it('writes prd-started for a merged omni:phase-0 PR that refs a PRD, and prd-shipped for a merged omni:feature PR that closes one, credited to the PRD issue\'s author at the merge', async () => {
+    const fake = fakeSupabase(oneRepo());
+    const report = await run(fake, fakeGh(stages()));
+    expect(stageRows(fake.tables.contributions)).toEqual([
+      ['prd-shipped', 'vertuo-core', 12, 'carol', '2026-09-10T08:00:00Z'],
+      ['prd-shipped', 'vertuo-core', 328, 'pierre-d', '2026-09-27T18:00:00Z'],
+      ['prd-started', 'vertuo-core', 12, 'carol', '2026-09-02T08:00:00Z'],
+      ['prd-started', 'vertuo-core', 328, 'pierre-d', '2026-09-20T10:00:00Z'],
+    ]);
+    expect(report.read).toEqual([{ repo: 'vertuo-core', merged: 7, opened: 1, started: 2, shipped: 2 }]);
+  });
+
+  it('reads a PRD\'s author from the listed omni:prd issues, else with gh issue view, once per PRD', async () => {
+    const gh = fakeGh(stages());
+    await run(fakeSupabase(oneRepo()), gh);
+    const views = gh.calls.filter((c) => c.startsWith('issue view'));
+    expect(views).toEqual(['issue view 12 -R vertuoza/vertuo-core --json author']);
+  });
+
+  it('writes no stage for a labelled PR with no link, nor for a linked PR with no stage label, and keeps every merge a pr-merged row', async () => {
+    const fake = fakeSupabase(oneRepo());
+    await run(fake, fakeGh(stages()));
+    const merged = fake.tables.contributions.filter((r) => r.kind === 'pr-merged').map((r) => r.number);
+    expect(merged).toEqual([50, 51, 52, 53, 54, 55, 56]);
+    expect(fake.tables.contributions.filter((r) => r.kind === 'prd-opened').map((r) => r.number)).toEqual([328]);
+    expect(stageRows(fake.tables.contributions).map((r) => r[2])).not.toContain(54);
+  });
+
+  it('skips and logs a PRD whose issue cannot be read, and still writes the rest', async () => {
+    const fake = fakeSupabase(oneRepo());
+    const { log, lines } = quiet();
+    const world = { 'vertuoza/vertuo-core': { ...stages()['vertuoza/vertuo-core'], unreadablePrds: [12] } };
+    const report = await run(fake, fakeGh(world), { log });
+    expect(lines).toEqual(['vertuoza/vertuo-core PRD #12 skipped: gh: Not Found (HTTP 404)']);
+    expect(report.skipped).toEqual([]);
+    expect(stageRows(fake.tables.contributions).map((r) => [r[0], r[2]])).toEqual([['prd-shipped', 328], ['prd-started', 328]]);
+    expect(fake.tables.contributions.filter((r) => r.kind === 'pr-merged')).toHaveLength(7);
+  });
+
+  it('writes no stage for a PRD whose author is a deleted account', async () => {
+    const world = stages();
+    world['vertuoza/vertuo-core'].older = [{ number: 12, author: null, createdAt: '2026-07-01T07:00:00Z' }];
+    const fake = fakeSupabase(oneRepo());
+    await run(fake, fakeGh(world));
+    expect(stageRows(fake.tables.contributions).map((r) => r[2])).toEqual([328, 328]);
+  });
+});
+
 describe('pnpm game:contributions, as a process', () => {
   let server, tmp;
   beforeEach(() => {
@@ -318,7 +398,7 @@ try {
     const done = await contributions([], { env: { OMNI_LOOP_WORKSPACE: 'vertuoza' } });
     expect(done.code, done.stderr).toBe(0);
     expect(done.stderr).toContain('vertuoza/vertuo-api skipped: gh: Not Found (HTTP 404)');
-    expect(done.stdout).toMatch(/vertuoza: 1 of 2 repositories read · 1 merged pull request · 1 PRD issue · written to contributions/);
+    expect(done.stdout).toMatch(/vertuoza: 1 of 2 repositories read · 1 merged pull request · 1 PRD issue · 0 PRD stages · written to contributions/);
     expect(server.tables.contributions.map((r) => [r.kind, r.repo, r.number, r.login])).toEqual([
       ['pr-merged', 'vertuo-core', 41, 'alice'],
       ['prd-opened', 'vertuo-core', 328, 'pierre-d'],

@@ -1,0 +1,23 @@
+/* /app/fleet (PRD 572): the picker of every fleet, drawn like the board's period switch, the fleet's
+   name beside its colour's pip with its season place, and the page's one line when there is no
+   board. Every colour is a token of src/ask/theme-tokens.ts; the fleet's own comes from the data, as
+   --dash-fleet. At 393 px the picker wraps. */
+
+.fleet-picker ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.ask .fleet-picker a {
+  display: inline-block;
+  padding: 6px 12px;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 999px;
+  color: var(--ask-ink);
+  text-decoration: none;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.ask .fleet-picker a:hover { border-color: var(--ask-plasma); }
+.ask .fleet-picker a[aria-current='page'] { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+.fleet-yours { font-weight: 400; }
+.fleet-head { display: grid; gap: 4px; min-width: 0; }
+.fleet-head .dash-name { margin: 0; }
+.fleet-head .dash-fleet-pip { width: 14px; height: 14px; }
+.fleet-line { margin: 0; overflow-wrap: anywhere; }

@@ -4,7 +4,7 @@ import { FleetCard, mascotSvg } from './FleetCard';
 import { activeFleets, previewOf, retiredFleets, SWATCHES, type Draft, type DraftField, type FleetsState } from './model';
 import type { Refusal } from './refusal';
 
-// /app/fleets drawn from its state (PRD 400 s3). The owner reads New fleet, the form (label, colour
+// /app/settings/fleets drawn from its state (PRD 400 s3). The owner reads New fleet, the form (label, colour
 // swatches or a hex, motto, a mascot or none) with a live card preview, Edit and Retire on each active
 // fleet (Retire confirmed on the page), and the retired fleets under a fold with Restore. A member
 // reads the same cards, read-only, and who may change them. A refusal from the fleet functions is
