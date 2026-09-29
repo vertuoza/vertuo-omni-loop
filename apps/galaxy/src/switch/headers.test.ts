@@ -10,8 +10,8 @@ vi.mock('next/navigation', () => ({ usePathname: () => at.path, useRouter: () =>
 
 // Every header of the app, as the server renders it (PRD 238). Two kinds since PRD 438:
 // - the app's pages (/app, /prd, /ask, /knowledge) sit in the app shell: the sidebar (the crest to
-//   /app, the Dashboard, Work, Settings and Omni groups since PRD 572, the page's item marked current) and the top bar (the page's
-//   title, the theme switch, then Game mode, last);
+//   /app, the Dashboard, Work, Settings and Omni groups since PRD 572, the page's item marked current) and the top bar (the trail
+//   to the page since issue 704, the theme switch, then Game mode, last);
 // - the public pages (/releases, PRD 262, and /docs) keep the public top bar (TopBar, PRD 346): the
 //   OMNI LOOP mark to /app, its menu of Omni's pages (Release notes, Docs: no PRDs), Open the app →
 //   to /app, the theme switch and Game mode, last.
@@ -46,21 +46,21 @@ const controls = (bar: string) =>
 /** The theme switch, Omni first (PRD 284), then Game mode. */
 const THEME_THEN_GAME = ['Omni', 'Light', 'Dark', 'Game mode'];
 
-/** Each app page: its layout, a path under it, the sidebar item marked current, the top bar's title. */
+/** Each app page: its layout, a path under it, the sidebar item marked current, the top bar's trail. */
 const APP_PAGES: Array<[string, Layout, string, string]> = [
-  ['/app', AppLayout, '/app', 'Home'],
-  ['/app/fleet', AppLayout, '/app/fleet', 'Fleet'],
-  ['/app/workspace', AppLayout, '/app/workspace', 'Workspace'],
-  ['/app/engineering', AppLayout, '/app/engineering', 'Engineering'],
-  ['/app/settings/fleets', AppLayout, '/app/settings/fleets', 'Fleets'],
-  ['/app/settings/repositories', AppLayout, '/app/settings/repositories', 'Repositories'],
-  ['/prd', DossierLayout, '/prd', 'PRDs'],
-  ['/prd/<id>', DossierLayout, '/prd', 'PRDs'],
-  ['/ask', AskLayout, '/ask', 'Questions'],
-  ['/ask/<session>', AskLayout, '/ask', 'Questions'],
-  ['/ask/for-me', AskLayout, '/ask/for-me', 'Questions / Shared with me'],
-  ['/ask/history', AskLayout, '/ask/history', 'Questions / History'],
-  ['/knowledge', KnowledgeLayout, '/knowledge', 'Knowledge'],
+  ['/app', AppLayout, '/app', 'Dashboard › Home'],
+  ['/app/fleet', AppLayout, '/app/fleet', 'Dashboard › Fleet'],
+  ['/app/workspace', AppLayout, '/app/workspace', 'Dashboard › Workspace'],
+  ['/app/engineering', AppLayout, '/app/engineering', 'Dashboard › Engineering'],
+  ['/app/settings/fleets', AppLayout, '/app/settings/fleets', 'Settings › Fleets'],
+  ['/app/settings/repositories', AppLayout, '/app/settings/repositories', 'Settings › Repositories'],
+  ['/prd', DossierLayout, '/prd', 'Work › PRDs'],
+  ['/prd/<id>', DossierLayout, '/prd', 'Work › PRDs'],
+  ['/ask', AskLayout, '/ask', 'Work › Questions'],
+  ['/ask/<session>', AskLayout, '/ask', 'Work › Questions'],
+  ['/ask/for-me', AskLayout, '/ask/for-me', 'Work › Questions › Shared with me'],
+  ['/ask/history', AskLayout, '/ask/history', 'Work › Questions › History'],
+  ['/knowledge', KnowledgeLayout, '/knowledge', 'Work › Knowledge'],
 ];
 const pathOf = (name: string) => name.replace('<id>', '3f2a').replace('<session>', '7c1e');
 
@@ -89,17 +89,20 @@ describe('every app page', () => {
     expect(marked.map((a) => /href="([^"]+)"/.exec(a)?.[1])).toEqual([current]);
   });
 
-  it.each(APP_PAGES)('%s: the top bar reads the page\'s title, then the theme switch, then Game mode, then you, last', async (name, layout, _, title) => {
+  it.each(APP_PAGES)('%s: the top bar reads the trail to the page, then the theme switch, then Game mode, then you, last', async (name, layout, _, trail) => {
     const bar = part(await renderAt(layout, pathOf(name)), '<header class="app-bar"', '</header>');
-    expect(bar).toContain(`<p class="app-bar-title">${title}</p>`);
+    const crumbs = part(bar, '<nav class="app-bar-trail"', '</nav>');
+    expect(text(crumbs)).toBe(trail);
     // The user menu's own items left out: it is closed until the avatar opens it.
     // The bell's panel left out too (PRD 499): it is closed until the bell opens it.
     const shown = bar.replace(/<div [^>]*role="menu"[\s\S]*?<\/div><\/div>/g, '').replace(/<div [^>]*class="bell-panel"[\s\S]*?<\/div>(?=<\/div><\/span><span class="app-bar-you">)/, '');
-    // ☰ and the crest open the bar for a phone only (PRD 438 s3): the stylesheet hides them from 900px.
-    expect(controls(shown).slice(0, 2)).toEqual(['☰', '']);
+    // ☰ opens the bar for a phone only (PRD 438 s3): the stylesheet hides it from 900px. The trail's
+    // links, back up to the page's section, follow it (issue 704).
+    const up = controls(crumbs);
+    expect(controls(shown).slice(0, 1 + up.length)).toEqual(['☰', ...up]);
     // Signed in, the bell (PRD 499) sits after Game mode, before you.
     const bell = /class="bell-button"/.test(shown) ? [expect.stringMatching(/^\d*$/)] : [];
-    expect(controls(shown).slice(2, -1)).toEqual([...THEME_THEN_GAME, ...bell]);
+    expect(controls(shown).slice(1 + up.length, -1)).toEqual([...THEME_THEN_GAME, ...bell]);
     expect(shown).toMatch(/aria-haspopup="menu"|>Sign in with GitHub<\/button>/);
     expect(bar).toMatch(/<dialog [^>]*class="game-mode-dialog"/);
     expect(bar).not.toMatch(/<dialog [^>]*\bopen\b/);

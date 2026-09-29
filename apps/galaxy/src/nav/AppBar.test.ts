@@ -1,13 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { logoSvg, spritePixels } from '@omni/design';
 import { describe, expect, it, vi } from 'vitest';
+import { pixelSvg } from '../design/pixel-svg';
 import { GAME_MODE } from '../switch/switch';
 import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
 
-// The app's top bar (PRD 438) as the server renders it: the page's title on the left, then the theme
-// switch (Omni, Light, Dark) and Game mode, unchanged, then, signed in, the bell (PRD 499), then you:
-// the avatar signed in, Sign in with GitHub signed out.
+// The app's top bar (PRD 438) as the server renders it: the section's sprite in its tile and the trail
+// to the page (issue 704) on the left, then the theme switch (Omni, Light, Dark) and Game mode,
+// unchanged, then, signed in, the bell (PRD 499), then you: the avatar signed in, Sign in with GitHub
+// signed out.
 
 const at = { path: '/ask/for-me' as string | null };
 vi.mock('next/navigation', () => ({ usePathname: () => at.path }));
@@ -32,21 +35,43 @@ const render = (path: string | null, viewer: ViewerView = SIGNED_OUT_VIEWER) => 
   return renderToStaticMarkup(createElement(AppBar, { viewer }));
 };
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+/** The bar's trail, the Breadcrumb nav. */
+const trailOf = (bar: string) => bar.slice(bar.indexOf('<nav class="app-bar-trail"'), bar.indexOf('</nav>') + 6);
+/** The markup of the bar's tile. */
+const tileOf = (bar: string) => (bar.match(/<span class="app-bar-tile" aria-hidden="true">[\s\S]*?<\/svg><\/span>/) ?? [''])[0];
+const tileWith = (svg: string) => `<span class="app-bar-tile" aria-hidden="true">${svg}</span>`;
+const sprite = (name: string) => tileWith(pixelSvg(spritePixels(name), { scale: 2, title: '' }));
 const controls = (bar: string) =>
   [...bar.replace(/<dialog[\s\S]*?<\/dialog>/g, '').replace(/<div [^>]*role="menu"[\s\S]*?<\/div><\/div>/g, '').matchAll(/<(a|button)\b[^>]*>([\s\S]*?)<\/\1>/g)].map((m) => text(m[2]));
 
 describe('the top bar', () => {
-  it('is a header holding the page\'s title, then Omni/Light/Dark, then Game mode, then the avatar, in that order', () => {
+  it('is a header holding the trail to the page, then Omni/Light/Dark, then Game mode, then the avatar, in that order', () => {
     const bar = render('/ask/for-me', ADA);
     expect(bar).toMatch(/^<header class="app-bar">/);
-    expect(bar).toContain('<p class="app-bar-title">Questions / Shared with me</p>');
-    const title = bar.indexOf('app-bar-title'), theme = bar.indexOf('aria-label="Theme"'), game = bar.indexOf('>Game mode');
-    expect(title).toBeGreaterThan(0);
-    expect(theme).toBeGreaterThan(title);
+    expect(text(trailOf(bar))).toBe('Work › Questions › Shared with me');
+    const trail = bar.indexOf('app-bar-trail'), theme = bar.indexOf('aria-label="Theme"'), game = bar.indexOf('>Game mode');
+    expect(trail).toBeGreaterThan(0);
+    expect(theme).toBeGreaterThan(trail);
     expect(game).toBeGreaterThan(theme);
     const avatar = bar.indexOf('aria-haspopup="menu"');
     expect(avatar).toBeGreaterThan(game);
-    expect(controls(bar)).toEqual(['☰', '', 'Omni', 'Light', 'Dark', 'Game mode', '', 'A']);
+    expect(controls(bar)).toEqual(['☰', 'Questions', 'Omni', 'Light', 'Dark', 'Game mode', '', 'A']);
+  });
+
+  it('is a Breadcrumb list: the group as text, the section above the page a link, the page itself marked current (issue 704)', () => {
+    expect(trailOf(render('/ask/for-me'))).toBe(
+      '<nav class="app-bar-trail" aria-label="Breadcrumb"><ol>'
+      + '<li>Work</li>'
+      + '<li><span class="app-bar-sep" aria-hidden="true">›</span><a class="app-bar-up" href="/ask">Questions</a></li>'
+      + '<li class="app-bar-here"><span class="app-bar-sep" aria-hidden="true">›</span><span aria-current="page">Shared with me</span></li>'
+      + '</ol></nav>',
+    );
+  });
+
+  it('links the section back from a page under it, marking nothing current there', () => {
+    const trail = trailOf(render('/prd/3f2a'));
+    expect(trail).toContain('<a class="app-bar-up" href="/prd">PRDs</a>');
+    expect(trail).not.toContain('aria-current');
   });
 
   it('holds, signed in, the bell between Game mode and the avatar, with the theme switch and Game mode', () => {
@@ -69,15 +94,31 @@ describe('the top bar', () => {
     expect(render('/app')).not.toContain('class="bell');
   });
 
-  it('opens, for a phone, with ☰ ("Menu"), closed, which opens the sidebar, then the crest linked to /app', () => {
+  it('opens, for a phone, with ☰ ("Menu"), closed, which opens the sidebar, then the tile, then the trail', () => {
     const bar = render('/app', ADA);
     const [menu] = bar.match(/<button\b[^>]*class="app-bar-menu"[^>]*>/) ?? [''];
     expect(menu).toContain('aria-label="Menu"');
     expect(menu).toContain('aria-expanded="false"');
     expect(menu).toContain('aria-controls="app-sidebar"');
-    expect(bar.indexOf('app-bar-menu')).toBeLessThan(bar.indexOf('app-bar-crest'));
-    expect(bar.indexOf('app-bar-crest')).toBeLessThan(bar.indexOf('app-bar-title'));
-    expect(bar).toMatch(/<a class="app-bar-crest" href="\/app" aria-label="OMNI LOOP, Home">/);
+    expect(bar.indexOf('app-bar-menu')).toBeLessThan(bar.indexOf('app-bar-tile'));
+    expect(bar.indexOf('app-bar-tile')).toBeLessThan(bar.indexOf('app-bar-trail'));
+  });
+
+  it('holds the section\'s own sprite at 2× in the tile where the crest was, the crest staying in the sidebar (issue 704)', () => {
+    expect(tileOf(render('/app/workspace'))).toBe(sprite('menu-workspace'));
+    expect(tileOf(render('/app'))).toBe(sprite('menu-home'));
+    expect(tileOf(render('/prd/3f2a'))).toBe(sprite('menu-prds'));
+    expect(render('/app', ADA)).not.toContain('app-bar-crest');
+  });
+
+  it('holds a nested item\'s section sprite: Shared with me is under Questions', () => {
+    expect(tileOf(render('/ask/for-me'))).toBe(sprite('menu-questions'));
+  });
+
+  it('holds the OMNI LOOP mark in the tile on a section without a sprite, and on a path under no item', () => {
+    const mark = tileWith(logoSvg('mark', { scale: 1, title: null }));
+    expect(tileOf(render('/app/settings/fleets'))).toBe(mark);
+    expect(tileOf(render('/nowhere'))).toBe(mark);
   });
 
   it('keeps the theme switch and Game mode together, the row that wraps on a phone, and you apart', () => {
@@ -99,24 +140,24 @@ describe('the top bar', () => {
 
   it('ends, signed out, with Sign in with GitHub in the avatar\'s place', () => {
     const bar = render('/app');
-    expect(controls(bar)).toEqual(['☰', '', 'Omni', 'Light', 'Dark', 'Game mode', 'Sign in with GitHub']);
+    expect(controls(bar)).toEqual(['☰', 'Omni', 'Light', 'Dark', 'Game mode', 'Sign in with GitHub']);
     expect(bar).not.toContain('aria-haspopup="menu"');
   });
 
   it.each([
-    ['/app', 'Home'],
-    ['/app/fleet', 'Fleet'],
-    ['/app/workspace', 'Workspace'],
-    ['/app/settings/fleets', 'Fleets'],
-    ['/prd/3f2a', 'PRDs'],
-    ['/ask/history', 'Questions / History'],
-    ['/knowledge', 'Knowledge'],
-  ])('on %s reads %s', (path, title) => {
-    expect(render(path)).toContain(`<p class="app-bar-title">${title}</p>`);
+    ['/app', 'Dashboard › Home'],
+    ['/app/fleet', 'Dashboard › Fleet'],
+    ['/app/workspace', 'Dashboard › Workspace'],
+    ['/app/settings/fleets', 'Settings › Fleets'],
+    ['/prd/3f2a', 'Work › PRDs'],
+    ['/ask/history', 'Work › Questions › History'],
+    ['/knowledge', 'Work › Knowledge'],
+  ])('on %s reads %s', (path, trail) => {
+    expect(text(trailOf(render(path)))).toBe(trail);
   });
 
-  it('shows no title on a path that falls under no item', () => {
-    expect(render('/nowhere')).not.toContain('app-bar-title');
+  it('shows no trail on a path that falls under no item', () => {
+    expect(render('/nowhere')).not.toContain('app-bar-trail');
   });
 
   it('holds the Game mode dialog, closed, in exactly GAME_MODE\'s words', () => {
@@ -127,11 +168,13 @@ describe('the top bar', () => {
     expect(dialog).toMatch(/<a [^>]*href="\/#menu"[^>]*>Switch<\/a>/);
   });
 
-  it('links the crest home through next/link: a click keeps the layout (PRD 657)', () => {
+  it('links back up the trail through next/link: a click keeps the layout (PRD 657)', () => {
     linked.length = 0;
-    const [crest] = render('/prd/3f2a', ADA).match(/<a\b[^>]*class="app-bar-crest"[^>]*>/) ?? [''];
-    expect(crest).toContain('href="/app"');
-    expect(linked).toEqual(['/app']);
+    render('/prd/3f2a', ADA);
+    expect(linked).toEqual(['/prd']);
+    linked.length = 0;
+    render('/ask/history', ADA);
+    expect(linked).toEqual(['/ask']);
   });
 
   it('offers no System theme', () => {
@@ -142,9 +185,14 @@ describe('the top bar', () => {
 describe('its stylesheet', () => {
   const css = readFileSync(new URL('./app-bar.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 
-  it('below 900px shows ☰ and the crest, and above hides them', () => {
-    expect(css).toMatch(/\.app-bar-menu,\s*\.app-bar-crest\s*\{\s*display:\s*none;?\s*\}/);
+  it('below 900px shows ☰, and above hides it; the tile shows at every width', () => {
+    expect(css).toMatch(/\.app-bar-menu\s*\{\s*display:\s*none;?\s*\}/);
     expect(css).toMatch(/@media \(max-width: 899\.98px\)[\s\S]*\.app-bar-menu/);
+    expect(css).not.toMatch(/\.app-bar-tile[^{]*\{[^}]*display:\s*none/);
+  });
+
+  it('draws the sprite in the tile crisp, never smoothed', () => {
+    expect(css).toMatch(/\.app-bar-tile svg\s*\{[^}]*image-rendering:\s*pixelated/);
   });
 
   it('names no colour of its own: every colour comes from the ask pages\' tokens', () => {

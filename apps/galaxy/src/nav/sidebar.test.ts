@@ -1,9 +1,9 @@
 import { SPRITE_DEFS } from '@omni/design';
 import { describe, expect, it } from 'vitest';
-import { SIDEBAR, badgeOf, currentItem, pageTitle, type SidebarItem } from './sidebar';
+import { SIDEBAR, badgeOf, currentItem, pageTrail, type SidebarItem } from './sidebar';
 
 // The app's sidebar as data (PRD 438, regrouped by PRD 572): Dashboard, Work, Settings, then Omni, and the two pure reads
-// the shell makes of a path, the item it falls under and the top bar's title.
+// the shell makes of a path, the item it falls under and the top bar's trail (issue 704).
 
 describe('SIDEBAR', () => {
   it('holds Dashboard, Work, Settings, then Omni (PRD 572)', () => {
@@ -69,47 +69,71 @@ describe('SIDEBAR', () => {
   });
 });
 
-describe('currentItem and pageTitle', () => {
+describe('currentItem and pageTrail', () => {
   const CASES: Array<[string, string | null, string | null]> = [
-    ['/app', 'home', 'Home'],
-    ['/app/fleet', 'fleet', 'Fleet'],
-    ['/app/fleet?fleet=beaver&period=30d', 'fleet', 'Fleet'],
-    ['/app/workspace', 'workspace', 'Workspace'],
-    ['/app/workspace?period=season', 'workspace', 'Workspace'],
-    ['/app/engineering', 'engineering', 'Engineering'],
-    ['/app/engineering?period=30d&sort=merged', 'engineering', 'Engineering'],
-    ['/app/engineering/vertuoza/pdf-builder', 'engineering', 'Engineering'],
-    ['/app/engineering/vertuoza/pdf-builder?period=30d', 'engineering', 'Engineering'],
-    ['/app/settings/fleets', 'fleets', 'Fleets'],
-    ['/app/settings/repositories', 'repositories', 'Repositories'],
-    ['/prd', 'prds', 'PRDs'],
-    ['/prd/3f2a', 'prds', 'PRDs'],
-    ['/prd?who=all', 'prds', 'PRDs'],
-    ['/bugs', 'bugs', 'Bug Fixes'],
-    ['/bugs/3f2a', 'bugs', 'Bug Fixes'],
-    ['/visual', 'visual', 'Visual Updates'],
-    ['/visual/3f2a?tab=variations', 'visual', 'Visual Updates'],
+    ['/app', 'home', 'Dashboard › Home'],
+    ['/app/fleet', 'fleet', 'Dashboard › Fleet'],
+    ['/app/fleet?fleet=beaver&period=30d', 'fleet', 'Dashboard › Fleet'],
+    ['/app/workspace', 'workspace', 'Dashboard › Workspace'],
+    ['/app/workspace?period=season', 'workspace', 'Dashboard › Workspace'],
+    ['/app/engineering', 'engineering', 'Dashboard › Engineering'],
+    ['/app/engineering?period=30d&sort=merged', 'engineering', 'Dashboard › Engineering'],
+    ['/app/engineering/vertuoza/pdf-builder', 'engineering', 'Dashboard › Engineering'],
+    ['/app/engineering/vertuoza/pdf-builder?period=30d', 'engineering', 'Dashboard › Engineering'],
+    ['/app/settings/fleets', 'fleets', 'Settings › Fleets'],
+    ['/app/settings/repositories', 'repositories', 'Settings › Repositories'],
+    ['/prd', 'prds', 'Work › PRDs'],
+    ['/prd/3f2a', 'prds', 'Work › PRDs'],
+    ['/prd?who=all', 'prds', 'Work › PRDs'],
+    ['/bugs', 'bugs', 'Work › Bug Fixes'],
+    ['/bugs/3f2a', 'bugs', 'Work › Bug Fixes'],
+    ['/visual', 'visual', 'Work › Visual Updates'],
+    ['/visual/3f2a?tab=variations', 'visual', 'Work › Visual Updates'],
     ['/visualise', null, null],
-    ['/ask', 'questions', 'Questions'],
-    ['/ask/7c1e', 'questions', 'Questions'],
-    ['/ask/q/42', 'questions', 'Questions'],
-    ['/ask/for-me', 'for-me', 'Questions / Shared with me'],
-    ['/ask/history', 'history', 'Questions / History'],
-    ['/knowledge', 'knowledge', 'Knowledge'],
-    ['/knowledge?domain=x', 'knowledge', 'Knowledge'],
+    ['/ask', 'questions', 'Work › Questions'],
+    ['/ask/7c1e', 'questions', 'Work › Questions'],
+    ['/ask/q/42', 'questions', 'Work › Questions'],
+    ['/ask/for-me', 'for-me', 'Work › Questions › Shared with me'],
+    ['/ask/history', 'history', 'Work › Questions › History'],
+    ['/knowledge', 'knowledge', 'Work › Knowledge'],
+    ['/knowledge?domain=x', 'knowledge', 'Work › Knowledge'],
     ['/nowhere', null, null],
     ['/application', null, null],
     ['/', null, null],
   ];
+  const read = (path: string | null) => pageTrail(path)?.crumbs.map((c) => c.label).join(' › ') ?? null;
 
-  it.each(CASES)('%s falls under %s, titled %s', (path, item, title) => {
+  it.each(CASES)('%s falls under %s, its trail %s', (path, item, trail) => {
     expect(currentItem(path)).toBe(item);
-    expect(pageTitle(path)).toBe(title);
+    expect(read(path)).toBe(trail);
   });
 
   it('reads no item from nothing', () => {
     expect(currentItem(null)).toBeNull();
-    expect(pageTitle(null)).toBeNull();
+    expect(pageTrail(null)).toBeNull();
+  });
+
+  it('links a nested item\'s section, and never its group, which has no page of its own', () => {
+    expect(pageTrail('/ask/for-me')?.crumbs).toEqual([
+      { label: 'Work' },
+      { label: 'Questions', path: '/ask' },
+      { label: 'Shared with me' },
+    ]);
+  });
+
+  it('links the last crumb back to its page from a page under it, and not on the page itself, whatever the query', () => {
+    expect(pageTrail('/prd/3f2a')?.crumbs.at(-1)).toEqual({ label: 'PRDs', path: '/prd' });
+    expect(pageTrail('/app/engineering/vertuoza/pdf-builder')?.crumbs.at(-1)).toEqual({ label: 'Engineering', path: '/app/engineering' });
+    expect(pageTrail('/prd')?.crumbs.at(-1)).toEqual({ label: 'PRDs' });
+    expect(pageTrail('/prd/?who=all')?.crumbs.at(-1)).toEqual({ label: 'PRDs' });
+    expect(pageTrail('/app/workspace#top')?.crumbs.at(-1)).toEqual({ label: 'Workspace' });
+  });
+
+  it('carries the section\'s sprite, a nested item its parent\'s, and none for a section without one', () => {
+    expect(pageTrail('/app/workspace')?.sprite).toBe('menu-workspace');
+    expect(pageTrail('/prd/3f2a')?.sprite).toBe('menu-prds');
+    expect(pageTrail('/ask/history')?.sprite).toBe('menu-questions');
+    expect(pageTrail('/app/settings/fleets')?.sprite).toBeNull();
   });
 });
 

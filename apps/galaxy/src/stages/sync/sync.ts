@@ -13,7 +13,16 @@
 // PRD 657 (s5): once a repository's stages are recorded, the open outbox questions of each of its PRDs
 // seen (every folder, and every issue read) are recounted into prd_outbox (../outbox/recount.ts), so /prd
 // and the waiting outbox never read GitHub. A recount that fails is logged; the stages still land.
+//
+// PRD 691 (s2): after its repositories, each workspace's fix dossiers (visual and bug) that have no stored
+// release are read through the fix reader and stored in fix_facts (../../fixes/facts/refresh.ts), so
+// /bugs and /visual never read GitHub. A released fix is final and is not read again. A refresh that
+// fails, or a workspace whose fixes cannot be listed, is logged; the stages still land and the run
+// answers 200.
 import { createHash, timingSafeEqual } from 'node:crypto';
+import type { FixReader, FixRef } from '../../dossier/github/reader';
+import { isFinal, refreshFixFacts } from '../../fixes/facts/refresh';
+import type { FixFactsStore } from '../../fixes/facts/store';
 import { recountOutboxes, type RecountDeps } from '../outbox/recount';
 import type { StageStore } from '../store';
 import { stagesOfRepo, type RepoSnapshot } from './core';
@@ -32,8 +41,18 @@ export type SyncDeps = {
   store: StageStore;
   /** The GitHub summaries and the outbox store the open questions are recounted with; none, no recount. */
   outbox?: Pick<RecountDeps, 'summary' | 'store'>;
+  /** The workspace's fix dossiers, the reader their facts are read with and where they are stored; none, no refresh. */
+  fixes?: FixSyncDeps;
   now(): string;
   log(line: string): void;
+};
+
+/** What the sync needs to keep a workspace's fix facts fresh (PRD 691, s2). */
+export type FixSyncDeps = {
+  /** The workspace's numbered fix dossiers, of kind visual or bug. */
+  dossiers(workspace: SyncWorkspace): Promise<FixRef[]>;
+  reader: FixReader;
+  store: FixFactsStore;
 };
 
 /** What a repository gave: the stages and topics seen and recorded. */
@@ -89,6 +108,22 @@ async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: st
   return { workspace: workspace.slug, repository: repository.toLowerCase(), stages: stages.length, topics: learnt };
 }
 
+/** Reads and stores the facts of the workspace's fixes that have no stored release; logs, never throws. */
+async function refreshFixes(deps: SyncDeps, workspace: SyncWorkspace, syncedAt: string): Promise<void> {
+  if (!deps.fixes) return;
+  const { dossiers, reader, store } = deps.fixes;
+  try {
+    const fixes = await dossiers(workspace);
+    if (fixes.length === 0) return;
+    const stored = await store.readFacts(workspace.id, fixes.map((f) => f.id));
+    const unreleased = fixes.filter((f) => !isFinal(stored.get(f.id)));
+    const log = (error: unknown) => deps.log(`stages sync: a fix of ${workspace.slug} was not read — ${why(error)}`);
+    await refreshFixFacts(workspace.id, unreleased, { reader, store, now: () => syncedAt, log });
+  } catch (error) {
+    deps.log(`stages sync: the fix facts of ${workspace.slug} were not refreshed — ${why(error)}`);
+  }
+}
+
 export async function syncStages(request: Request, deps: SyncDeps): Promise<Response> {
   if (!bearerMatches(request, deps.secret)) return json(401, { error: 'A valid bearer secret is required.' });
   const syncedAt = deps.now();
@@ -101,13 +136,12 @@ export async function syncStages(request: Request, deps: SyncDeps): Promise<Resp
   }
   const reply: SyncReply = { synced_at: syncedAt, repositories: [], skipped: [] };
   for (const workspace of workspaces) {
-    let repositories: string[];
+    let repositories: string[] = [];
     try {
       repositories = await deps.repositories(workspace);
     } catch (error) {
       deps.log(`stages sync: the repositories of ${workspace.slug} cannot be listed — ${why(error)}`);
       reply.skipped.push({ workspace: workspace.slug, repository: null, reason: why(error) });
-      continue;
     }
     for (const repository of repositories) {
       try {
@@ -117,6 +151,7 @@ export async function syncStages(request: Request, deps: SyncDeps): Promise<Resp
         reply.skipped.push({ workspace: workspace.slug, repository: repository.toLowerCase(), reason: why(error) });
       }
     }
+    await refreshFixes(deps, workspace, syncedAt);
   }
   return json(200, reply);
 }
