@@ -11,8 +11,10 @@
 -- the same brainstorm and delivery rounds of a dossier, once each, and nothing its caller could not
 -- read; dossier_list() lists each dossier of the caller's workspaces with its repositories, its latest
 -- versions, its question counts and its last activity, and nothing of another workspace. PRD 627 adds
--- the kind: a PRD, a visual fix or a bug fix, each taking only its own versions. One
--- transaction, rolled back at the end. Any `FAIL:` stops the run.
+-- the kind: a PRD, a visual fix or a bug fix, each taking only its own versions. PRD 657 makes
+-- dossier_list() set-based and scoped to a workspace when asked: the same rows, counts and order as
+-- the previous body on every fixture here, for every account, and with p_workspace only that
+-- workspace's. One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
 
@@ -826,11 +828,11 @@ reset role;
 -- ── dossier_list() runs as its caller, and only the signed-in may call it ──
 do $$
 begin
-  if (select p.prosecdef from pg_proc p where p.oid = 'public.dossier_list(uuid)'::regprocedure) then
+  if (select p.prosecdef from pg_proc p where p.oid = 'public.dossier_list(uuid, uuid)'::regprocedure) then
     raise exception 'FAIL: dossier_list() is security definer: row-level security would not decide what it lists';
   end if;
-  if has_function_privilege('anon', 'public.dossier_list(uuid)', 'execute')
-     or not has_function_privilege('authenticated', 'public.dossier_list(uuid)', 'execute') then
+  if has_function_privilege('anon', 'public.dossier_list(uuid, uuid)', 'execute')
+     or not has_function_privilege('authenticated', 'public.dossier_list(uuid, uuid)', 'execute') then
     raise exception 'FAIL: dossier_list() is callable by anon, or not by the signed-in';
   end if;
 end $$;
@@ -991,6 +993,140 @@ begin
     raise exception 'FAIL: dossier_push() is callable by anon, or not by the signed-in';
   end if;
 end $$;
+
+-- ── Set-based and scoped: dossier_list() (PRD 657) ──
+-- The previous body (20261011090000_fix_dossiers.sql, one dossier_rounds() call per dossier), kept
+-- here as pg_temp.dossier_list_before, runs as its caller as the new one does. On every fixture above,
+-- for each account, the new function gives exactly its rows, counts and order: with no argument, with
+-- each dossier named, and, with p_workspace, only that workspace's rows, as the previous body gave
+-- them. Nothing but that workspace's; nothing of a workspace its caller is not in.
+create function pg_temp.dossier_list_before(p_dossier uuid default null)
+returns table (
+  id uuid, workspace_id uuid, home_repo text, prd integer, kind text, title text, opened_by uuid,
+  created_at timestamptz, numbered_at timestamptz, repos text[], latest jsonb, asked integer,
+  answered integer, last_activity timestamptz
+)
+language sql
+stable
+security invoker
+as $$
+  select d.id as id, d.workspace_id as workspace_id, d.home_repo as home_repo, d.prd as prd, d.kind as kind, d.title as title,
+         d.opened_by as opened_by, d.created_at as created_at, d.numbered_at as numbered_at,
+         array[d.home_repo] || array(
+           select distinct x.repo
+             from unnest(q.repos || p.repos) as x (repo)
+            where x.repo <> d.home_repo
+            order by x.repo
+         ) as repos,
+         coalesce(v.latest, '{}'::jsonb) as latest,
+         q.asked as asked,
+         q.answered as answered,
+         greatest(d.created_at, d.numbered_at, v.at, q.asked_at, q.answered_at) as last_activity
+    from public.dossiers d
+    cross join lateral (
+      select count(*)::integer as asked,
+             (count(*) filter (where r.status = 'answered'))::integer as answered,
+             max(r.created_at) as asked_at,
+             max(r.answered_at) as answered_at,
+             coalesce(array_agg(lower(r.repo)) filter (where r.repo is not null), '{}'::text[]) as repos
+        from public.dossier_rounds(d.id) r
+    ) q
+    cross join lateral (
+      select jsonb_object_agg(k.kind, jsonb_build_object('id', k.id, 'version', k.version, 'source', k.source, 'created_at', k.created_at)) as latest,
+             max(k.created_at) as at
+        from (
+          select distinct on (dv.kind) dv.kind, dv.id, dv.source, dv.created_at, count(*) over (partition by dv.kind) as version
+            from public.dossier_versions dv
+           where dv.dossier_id = d.id
+           order by dv.kind, dv.created_at desc, dv.id desc
+        ) k
+    ) v
+    cross join lateral (
+      select coalesce(array_agg(lower(w.github_org || '/' || e.region)), '{}'::text[]) as repos
+        from public.workspaces w
+        join public.ledger_events e
+          on e.workspace_id = w.id and e.planet = d.prd and e.type = 'REGION_SURVEYED' and e.region is not null
+       where w.id = d.workspace_id
+         and d.kind = 'prd'
+         and w.github_org is not null
+         and w.plan_repo is not null
+         and d.home_repo = lower(w.github_org || '/' || w.plan_repo)
+    ) p
+   where p_dossier is null or d.id = p_dossier
+   order by last_activity desc, d.id
+$$;
+grant execute on function pg_temp.dossier_list_before(uuid) to authenticated;
+
+-- One account's comparison: every row in order, the whole list, one dossier at a time, and each
+-- workspace on its own. Raises a FAIL naming what differs.
+create function pg_temp.compare_lists(who text) returns void language plpgsql as $$
+declare
+  ws uuid;
+  one uuid;
+  before jsonb;
+  after jsonb;
+begin
+  select coalesce(jsonb_agg(to_jsonb(l) - 'ordinality' order by l.ordinality), '[]') into before from pg_temp.dossier_list_before() with ordinality l;
+  select coalesce(jsonb_agg(to_jsonb(l) - 'ordinality' order by l.ordinality), '[]') into after from public.dossier_list() with ordinality l;
+  if jsonb_array_length(after) = 0 and who <> 'eve' then
+    raise exception 'FAIL: % listed no dossier, so the comparison proves nothing', who;
+  end if;
+  if after is distinct from before then
+    raise exception 'FAIL: for %, dossier_list() did not give the rows, counts and order the previous body gave: before %, after %', who, before, after;
+  end if;
+  for one in select b.id from pg_temp.dossier_list_before() b loop
+    if (select to_jsonb(l) from public.dossier_list(p_dossier => one) l) is distinct from (select to_jsonb(b) from pg_temp.dossier_list_before(one) b) then
+      raise exception 'FAIL: for %, dossier_list(p_dossier) of % did not give the previous body''s row', who, one;
+    end if;
+  end loop;
+  for ws in select w.id from public.workspaces w loop
+    select coalesce(jsonb_agg(to_jsonb(l) - 'ordinality' order by l.ordinality), '[]') into before
+      from pg_temp.dossier_list_before() with ordinality l where l.workspace_id = ws;
+    select coalesce(jsonb_agg(to_jsonb(l) - 'ordinality' order by l.ordinality), '[]') into after
+      from public.dossier_list(p_workspace => ws) with ordinality l;
+    if after is distinct from before then
+      raise exception 'FAIL: for %, dossier_list(p_workspace) of % did not give that workspace''s rows alone, as the previous body did: before %, after %', who, ws, before, after;
+    end if;
+  end loop;
+end $$;
+grant execute on function pg_temp.compare_lists(text) to authenticated;
+
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+select pg_temp.compare_lists('ada');
+do $$
+declare
+  vertuoza constant uuid := (select id from public.workspaces where slug = 'vertuoza');
+  acme constant uuid := (select id from public.workspaces where slug = 'acme');
+begin
+  -- Ada is in both: each workspace lists its own dossiers, and the two make the whole list.
+  if exists (select 1 from public.dossier_list(p_workspace => acme) l where l.workspace_id <> acme)
+     or not exists (select 1 from public.dossier_list(p_workspace => acme))
+     or (select count(*) from public.dossier_list(p_workspace => acme)) + (select count(*) from public.dossier_list(p_workspace => vertuoza))
+        <> (select count(*) from public.dossier_list()) then
+    raise exception 'FAIL: dossier_list(p_workspace) did not list that workspace''s dossiers alone';
+  end if;
+  -- Both arguments: the dossier, only when it is of that workspace.
+  if exists (select 1 from public.dossier_list(p_dossier => (select id from ids where name = 'l-plan40'), p_workspace => acme))
+     or not exists (select 1 from public.dossier_list(p_dossier => (select id from ids where name = 'l-plan40'), p_workspace => vertuoza)) then
+    raise exception 'FAIL: dossier_list(p_dossier, p_workspace) listed a dossier of another workspace, or not its own';
+  end if;
+  insert into ids values ('ws-vertuoza', vertuoza);
+end $$;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+select pg_temp.compare_lists('bob');
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
+select pg_temp.compare_lists('carl');
+do $$
+begin
+  -- Carl is not in Vertuoza, and cannot read its row: naming it by its id lists nothing.
+  if exists (select 1 from public.dossier_list(p_workspace => (select id from ids where name = 'ws-vertuoza'))) then
+    raise exception 'FAIL: an account of another workspace listed a Vertuoza dossier by naming the workspace';
+  end if;
+end $$;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000e1', 'eve@example.com');
+select pg_temp.compare_lists('eve');
+reset role;
 
 select 'dossier checks passed' as result;
 rollback;
