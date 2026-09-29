@@ -21,6 +21,7 @@ const READ = {
   roster: [member('u-ada', 'ada-gh', 'octo', 'ADA'), member('u-paul', 'paetienne', 'octo', 'Paul Etienne'), member('u-sol', 'sol-gh', null, 'SOL')],
   activity: [{ kind: 'pr-merged', repo: 'vertuo-ai-domain', number: 1, login: 'paetienne', at: '2026-09-25T08:00:00Z' }],
   answered: [{ user_id: 'u-paul', answered: 9 }],
+  prds: [],
   galaxy: {
     heroes: [{ name: 'ada-gh', points: 40 }],
     teams: [

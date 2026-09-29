@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { STAGE_LABELS, STAGES, type StageId } from '../../stages/stage';
 import { CouldNotLoad } from '../Notes';
 import { UNREADABLE, type Read } from '../part';
 import type { FleetRank } from '../rankings/rank';
@@ -6,7 +7,7 @@ import { axisTicks, columnLabels, dayName } from './chart';
 import { periodHref, type Query } from './links';
 import type { BoardValue } from './load';
 import { PERIODS, type Period } from './period';
-import { SOLO, STAGES, type ChartDay, type PersonRow, type RepoRow, type Stage, type StageDay, type Stages } from './tally';
+import { EVENTS, GROUPS, SOLO, type ChartDay, type EventDay, type PersonRow, type PrdEvent, type RepoRow, type StageTally } from './tally';
 import './board.css';
 
 // A board (PRD 572), drawn on the server, top to bottom: the period switch, the four tiles, the two
@@ -14,11 +15,14 @@ import './board.css';
 // fleet ranking. Every dashboard page (Home, Fleet, Workspace) draws one for its scope. Each part draws
 // itself from its own value, or says it could not load, alone. The charts are inline SVG with no
 // script, hidden from a screen reader, which reads a list of the days and their counts instead.
+// PRD 587: the PRDs tile counts the scope's PRDs at each of the seven stages now, each count opening
+// /prd at that stage; People's PRDs read open · building · shipped now; the per-day chart keeps the
+// period's events, named opened · started · shipped so nobody reads it as where PRDs are.
 
 const COUNT = new Intl.NumberFormat('en-US');
 const n = (value: number) => COUNT.format(value);
 
-export const STAGE_LABEL: Record<Stage, string> = { drafted: 'drafted', inProgress: 'in progress', shipped: 'shipped' };
+export const EVENT_LABEL: Record<PrdEvent, string> = { opened: 'opened', started: 'started', shipped: 'shipped' };
 const PERIOD_WORDS: Record<Period, string> = { '7d': 'last 7 days', '30d': 'last 30 days', season: 'this season' };
 
 export interface BoardProps {
@@ -61,24 +65,24 @@ function Tile({ label, value, children }: { label: string; value: Read<unknown>;
 
 const Figure = ({ value }: { value: number }) => <p className="board-tile-figure"><b>{n(value)}</b></p>;
 
-function StagesFigure({ stages }: { stages: Stages }) {
+function StagesFigure({ stages, links }: { stages: StageTally; links: Record<StageId, string> }) {
   return (
     <p className="board-tile-figure board-tile-stages">
       {STAGES.map((s, i) => (
         <span key={s}>
           {i > 0 && <span className="board-dot" aria-hidden="true"> · </span>}
-          <b>{n(stages[s])}</b> <span className="board-stage-word">{STAGE_LABEL[s]}</span>
+          <a className="board-stage" href={links[s]}><b>{n(stages[s])}</b> <span className="board-stage-word">{STAGE_LABELS[s]}</span></a>
         </span>
       ))}
     </p>
   );
 }
 
-function Tiles({ tiles }: { tiles: BoardValue['tiles'] }) {
+function Tiles({ tiles, links }: { tiles: BoardValue['tiles']; links: BoardValue['stageLinks'] }) {
   return (
     <ul className="board-tiles" aria-label="Totals">
       <Tile label="PRs merged" value={tiles.prs}>{tiles.prs !== UNREADABLE && <Figure value={tiles.prs} />}</Tile>
-      <Tile label="PRDs" value={tiles.prds}>{tiles.prds !== UNREADABLE && <StagesFigure stages={tiles.prds} />}</Tile>
+      <Tile label="PRDs" value={tiles.prds}>{tiles.prds !== UNREADABLE && <StagesFigure stages={tiles.prds} links={links} />}</Tile>
       <Tile label="Repositories" value={tiles.repositories}>{tiles.repositories !== UNREADABLE && <Figure value={tiles.repositories} />}</Tile>
       <Tile label="Questions answered" value={tiles.answered}>{tiles.answered !== UNREADABLE && <Figure value={tiles.answered} />}</Tile>
     </ul>
@@ -168,21 +172,21 @@ function MergesChart({ days, period }: { days: Read<ChartDay[]>; period: Period 
   );
 }
 
-function PrdChart({ days, period }: { days: Read<StageDay[]>; period: Period }) {
+function PrdChart({ days, period }: { days: Read<EventDay[]>; period: Period }) {
   const title = `PRD events per day · ${PERIOD_WORDS[period]}`;
   if (days === UNREADABLE) return <ChartPart id="board-prds" title={title} total={null}><CouldNotLoad /></ChartPart>;
   const last = days.length - 1;
-  const said = (d: StageDay, i: number) =>
-    `${dayWords(d.date, i === last)}: ${STAGES.map((s) => `${n(d[s])} ${STAGE_LABEL[s]}`).join(', ')}`;
-  const total = days.reduce((s, d) => s + d.drafted + d.inProgress + d.shipped, 0);
+  const said = (d: EventDay, i: number) =>
+    `${dayWords(d.date, i === last)}: ${EVENTS.map((e) => `${n(d[e])} ${EVENT_LABEL[e]}`).join(', ')}`;
+  const total = days.reduce((s, d) => s + d.opened + d.started + d.shipped, 0);
   return (
     <ChartPart id="board-prds" title={title} total={<p className="board-chart-total"><b>{n(total)}</b> total</p>}>
       <ul className="board-legend" aria-hidden="true">
-        {STAGES.map((s) => <li key={s}><span className={`board-key board-bar-${s}`} />{STAGE_LABEL[s]}</li>)}
+        {EVENTS.map((e) => <li key={e}><span className={`board-key board-bar-${e}`} />{EVENT_LABEL[e]}</li>)}
       </ul>
       <Bars columns={days.map((d, i) => ({
         date: d.date, said: said(d, i),
-        parts: STAGES.map((s) => ({ key: s, count: d[s], className: `board-bar board-bar-${s}` })),
+        parts: EVENTS.map((e) => ({ key: e, count: d[e], className: `board-bar board-bar-${e}` })),
       }))} />
       <ul className="ask-sr">{days.map((d, i) => <li key={d.date}>{said(d, i)}</li>)}</ul>
     </ChartPart>
@@ -202,8 +206,8 @@ function Fleet({ fleet }: { fleet: PersonRow['fleet'] }) {
 }
 
 function PrdsCell({ prds }: { prds: PersonRow['prds'] }) {
-  if (prds === null || prds === UNREADABLE) return cell(prds);
-  return <span aria-label={STAGES.map((s) => `${prds[s]} ${STAGE_LABEL[s]}`).join(', ')}>{STAGES.map((s) => n(prds[s])).join(' · ')}</span>;
+  if (prds === UNREADABLE) return cell(prds);
+  return <span aria-label={GROUPS.map((g) => `${prds[g]} ${g}`).join(', ')}>{GROUPS.map((g) => n(prds[g])).join(' · ')}</span>;
 }
 
 /** Which of the table's columns could not be read, for the line under it. */
@@ -212,7 +216,8 @@ function failed(rows: PersonRow[]): string[] {
   if (!first) return [];
   return [
     rows.some((r) => r.points === UNREADABLE) && 'points',
-    rows.some((r) => r.prs === UNREADABLE) && 'PRs and PRDs',
+    rows.some((r) => r.prs === UNREADABLE) && 'PRs',
+    first.prds === UNREADABLE && 'PRDs',
     first.answered === UNREADABLE && 'questions',
   ].filter((x): x is string => Boolean(x));
 }
@@ -231,7 +236,7 @@ function People({ people, title, note }: { people: Read<PersonRow[]>; title: str
                   <th scope="col">Fleet</th>
                   <th scope="col" className="is-num">Points</th>
                   <th scope="col" className="is-num">PRs</th>
-                  <th scope="col" className="is-num">PRDs <span className="board-th-note">drafted · in progress · shipped</span></th>
+                  <th scope="col" className="is-num">PRDs <span className="board-th-note">{GROUPS.join(' · ')}</span></th>
                   <th scope="col" className="is-num">Questions</th>
                 </tr>
               </thead>
@@ -314,7 +319,7 @@ export function Board({ board, path, query, peopleTitle = 'People', peopleNote, 
   return (
     <div className="board">
       <PeriodSwitch period={period} path={path} query={query} />
-      <Tiles tiles={board.tiles} />
+      <Tiles tiles={board.tiles} links={board.stageLinks} />
       <div className="board-charts">
         <MergesChart days={board.merges} period={period} />
         <PrdChart days={board.prdEvents} period={period} />

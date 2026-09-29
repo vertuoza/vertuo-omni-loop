@@ -1,7 +1,6 @@
 import { settle, UNREADABLE, type Read } from '../part';
-import { boardOf, type AnsweredCount, type BoardReads, type BoardValue, type SeasonView } from '../board/load';
+import { boardOf, type BoardRead, type BoardReads, type BoardValue } from '../board/load';
 import { periodWindow, type Period } from '../board/period';
-import type { Activity, Member } from '../board/tally';
 import { rankFleets, type FleetRank } from '../rankings/rank';
 import { chooseFleet } from './pick';
 
@@ -35,10 +34,7 @@ export interface FleetRequest {
 }
 
 /** Which fleet to show and its board, from what was read: pure, so the loader and the demo agree. */
-export function fleetOf(
-  read: { roster: Read<Member[]>; activity: Read<Activity[]>; answered: Read<AnsweredCount[]>; galaxy: Read<SeasonView> },
-  request: FleetRequest,
-): FleetValue {
+export function fleetOf(read: BoardRead, request: FleetRequest): FleetValue {
   const mine = read.roster === UNREADABLE ? null : read.roster.find((m) => m.userId === request.viewerId)?.fleet ?? null;
   const fleets = read.galaxy === UNREADABLE ? UNREADABLE : rankFleets(read.galaxy.teams, mine);
   const choice = chooseFleet({ asked: request.asked, mine, fleets: fleets === UNREADABLE ? UNREADABLE : fleets.map((f) => f.name) });
@@ -61,14 +57,15 @@ export function fleetOf(
   };
 }
 
-/** The fleet's board: the four reads together, each on its own, then fleetOf. */
+/** The fleet's board: the board's reads together, each on its own, then fleetOf. */
 export async function loadFleet(reads: BoardReads, request: FleetRequest): Promise<FleetValue> {
   const window = periodWindow(request.period, request.now);
-  const [roster, activity, answered, galaxy] = await Promise.all([
+  const [roster, activity, answered, galaxy, prds] = await Promise.all([
     settle('the workspace\'s members', () => reads.roster()),
     settle('the contributions', () => reads.activity(window.from, window.to)),
     settle('the questions answered', () => reads.answered(window.from, window.to)),
     settle('the season', () => reads.galaxy()),
+    settle('the PRDs\' stages', () => reads.prds()),
   ]);
-  return fleetOf({ roster, activity, answered, galaxy }, request);
+  return fleetOf({ roster, activity, answered, galaxy, prds }, request);
 }
