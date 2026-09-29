@@ -231,6 +231,21 @@ export const ENTRIES = deepFreeze([
       'GitHub through gh and stores nothing.',
   },
   {
+    name: 'targets',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni targets [--json]'],
+    summary: "a plan repository's target repositories, and where each stands",
+    detail:
+      "In a plan repository, one whose config has a plan section, one row per target repository, " +
+      'in config order: its role, where its knowledge lives (own, imported or none), the kit ' +
+      'version its default branch runs, and its state. ok; stale when an imported copy was read ' +
+      'before a change to a file it was drawn from; drifted when the config no longer says what ' +
+      'the repository has; unreachable when gh cannot read it. It reads GitHub through gh, clones ' +
+      'nothing and refreshes nothing. --json prints the same rows as one document. Exit 0 when ' +
+      'every row is ok, 1 otherwise, or 1 with not a plan repository.',
+  },
+  {
     name: 'whoami',
     kind: 'command',
     who: 'you',
@@ -533,6 +548,22 @@ export const ENTRIES = deepFreeze([
       "proposed entries and fills the playbook's forms from evidence, leaving a question for a " +
       'person where proof is missing. It ends with one docs-only PR a person merges. --refresh ' +
       'redoes only what went stale.',
+  },
+  {
+    name: 'mega-invade',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:mega-invade [--sync]'],
+    label: '/omni:mega-invade',
+    summary: 'make this a plan repository that knows its targets',
+    detail:
+      'Makes this repository a plan repository: it reads the repositories its guide names and its ' +
+      'config lists through gh, without cloning, shows one map and takes every answer in one ' +
+      'message: target or not, its role, and for one without its own knowledge base whether to ' +
+      'import a draft of it. It writes the plan section of the config and each imported copy, from ' +
+      'a read-only clone in which nothing runs, and ends with one docs-only PR a person merges. It ' +
+      'never writes in a target. omni targets then reports each one; --sync redraws only what ' +
+      'changed in the stale copies.',
   },
   {
     name: 'ask',

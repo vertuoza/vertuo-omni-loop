@@ -109,4 +109,50 @@ omni knowledge BR-QUOTE-1
 When your repository changes a lot, run `/omni:invade --refresh`: it redoes only what went stale,
 and never rewrites what a person wrote.
 
+## A plan repository
+
+When one feature lands in several repositories (the screen in one, the business logic in another),
+you can keep its plan in one place: a **plan repository**. It holds no product code; it carries the
+PRDs, while the code's pull requests open in its **target repositories**. Install the loop in it
+like any other repository, then, at its root, type:
+
+```text agent
+/omni:mega-invade
+```
+
+It reads the page of your plan repository that says which repository does what (a guide with one
+`## <name>` heading per repository), and the targets its config already lists. It reads each of
+them through GitHub, without cloning it, and shows you **one map**: whether each has the loop, its
+version, and whether it has a knowledge base of its own. Then it asks, in one list, for each one:
+
+- **target or not**, and its **role**: one word such as `back-end`, `front-end` or `legacy`;
+- for a target without a knowledge base of its own, **import one or not**. Import reads a shallow
+  copy of that repository, never runs anything in it, and writes a draft of its knowledge base in
+  your plan repository, under `.omni-loop/knowledge/repos/<name>/`. A target that has its own is
+  read where it lives, never copied.
+
+It writes only in your plan repository, never in a target. It ends with one docs-only pull request:
+the imported drafts, the `plan` section of `.omni-loop/config.yml` in a commit of its own, a table of
+where each target stands, and, for each gap, the step to take in that repository:
+`npx omni-loop init`, then `/omni:invade` there. You merge it.
+
+From then on, to see where each target stands:
+
+```bash terminal agent
+omni targets
+```
+
+It prints one row per target: its role, where its knowledge lives, the loop's version, and its
+state: `ok`; `stale` when an imported draft was read before a change to a file it was drawn from;
+`drifted` when the config no longer says what the repository has; `unreachable` when GitHub will not
+show it to you. It reads and never changes anything. To refresh the stale drafts, type:
+
+```text agent
+/omni:mega-invade --sync
+```
+
+It redraws only what changed, never rewrites what a person wrote, proposes to drop the draft of a
+target that now has its own knowledge base, and opens one pull request, or none when there is
+nothing to do.
+
 [Next → How the loop works](/docs/loop)
