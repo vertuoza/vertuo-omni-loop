@@ -33,7 +33,8 @@ feature branch with `Part of #698`.
   `<span>`. Both take `link={false}`, and then render a `<span>`.
 - The bell lines, fix list rows, ask history rows, the "for me" link, the fleet picker and the share
   button pass `link={false}`. A test renders each of them and finds no `<a>` inside an `<a>`.
-- A linked chip shows the underline on hover and a visible focus ring.
+- A linked chip has no underline at rest. On hover or focus only its name (the person's name or the
+  fleet's label) is underlined, never the face or mascot, and focus shows a visible ring.
 
 **s2**
 - **My profile** is a `menuitem` between the name block and Sign out, linking to
