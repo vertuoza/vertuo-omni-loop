@@ -58,7 +58,7 @@ describe('Home, with the real board', () => {
     const html = home({ userId: 'u-ada', login: 'ada-gh', team: 'octo' });
     const heading = /<h2 id="board-people">([\s\S]*?)<\/h2>/.exec(section(html, 'board-people'))![1];
     expect(text(heading)).toBe('Your fleet OCTO');
-    expect(heading).toMatch(/<span class="fleet-chip is-inline" style="--fleet:#3355ff"><span class="fleet-chip-mascot" aria-hidden="true"><svg /);
+    expect(heading).toMatch(/<a class="fleet-chip is-inline" href="\/app\/fleet\?fleet=octo" style="--fleet:#3355ff"><span class="fleet-chip-mascot" aria-hidden="true"><svg /);
     expect(rows(html)).toEqual([
       'ADA ◀ (you) OCTO 120 2 0 · 0 · 0 4',
       'Paul Etienne OCTO 0 0 0 · 0 · 0 0',

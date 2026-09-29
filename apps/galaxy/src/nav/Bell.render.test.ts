@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { nestedLinks } from '../people/nested-links';
 import type { DocumentGroup } from '../waiting/documents';
 import { EMPTY_WAITING, type WaitingList, type WaitingOutbox, type WaitingQuestion } from '../waiting/waiting';
 import { BellView } from './Bell.tsx';
@@ -65,6 +66,13 @@ describe('the bell', () => {
     const body = panel(render({ questions: [shared], outbox: [] }));
     expect(body).toMatch(/shared by <span class="person-chip is-inline"><img class="person-face is-photo" src="https:\/\/a.test\/bob.png" alt=""[^>]*\/>Bob<\/span>/);
     expect(text(body)).toContain('1 min · shared by Bob');
+  });
+
+  it('keeps who shared plain inside the line\'s link: no link in a link (PRD 698)', () => {
+    const shared = { ...q('theirs', MIN, 'Bob'), sharedByFace: { kind: 'photo' as const, url: 'https://a.test/bob.png' } };
+    const html = render({ questions: [shared], outbox: [o('i1', 459, 'high')] });
+    expect(html).toContain('person-chip');
+    expect(nestedLinks(html)).toBe(0);
   });
 
   it('lists each outbox item\'s PRD, title, question and rank, linking to its PRD\'s Outbox tab', () => {

@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { peopleOf } from '../people/load';
 import { faceOf } from '../people/face';
+import { nestedLinks } from '../people/nested-links';
 import { FixList } from './FixList';
 import type { FixItem } from './list';
 import { TimelinePane } from './TimelinePane';
@@ -29,6 +30,14 @@ describe('the list of fixes', () => {
     expect(text(html)).toContain('asked by @anna');
   });
 
+  it('keeps who asked plain inside the row\'s link, even a member with a login: no link in a link (PRD 698)', () => {
+    const anna = peopleOf([ANNA], FLEETS).byLogin('anna', '@anna');
+    expect(anna.login).toBe('anna');
+    const html = list([item(anna)]);
+    expect(html).toContain('asked by <span class="person-chip is-inline">');
+    expect(nestedLinks(html)).toBe(0);
+  });
+
   it('shows no asked line when GitHub did not say', () => {
     expect(list([item(null)])).not.toContain('asked by');
   });
@@ -48,7 +57,7 @@ describe('the Timeline', () => {
   it('draws a member\'s hero and an outsider\'s GitHub photo beside "by @login", the text unchanged', () => {
     const html = renderToStaticMarkup(createElement(TimelinePane, { fix: view, people: peopleOf([ANNA], FLEETS) }));
     const [asked, merged, released] = lines(html);
-    expect(asked).toMatch(/<span>by <span class="person-chip is-inline"><span class="person-face is-hero" aria-hidden="true"><svg /);
+    expect(asked).toMatch(/<span>by <a class="person-chip is-inline" href="\/app\/people\/anna"><span class="person-face is-hero" aria-hidden="true"><svg /);
     expect(merged).toContain('<span>by <span class="person-chip is-inline"><img class="person-face is-photo" src="https://github.com/Stranger.png?size=48" alt=""');
     expect(released).not.toContain('person-chip');
     expect(lines(html).map(text)).toEqual(['Asked by @anna · 29 Sep 2026', 'Merged by @Stranger · 29 Sep 2026', 'Released v1 · 29 Sep 2026']);
