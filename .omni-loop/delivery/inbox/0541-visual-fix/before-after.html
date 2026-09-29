@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visual Fix Lane</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: today beside after, then the variations page the person picks from, then the PR and the boundary. */
+:root{
+  --bg:#f5f6f8; --panel:#ffffff; --ink:#1b2130; --muted:#5b6475; --line:#d9dde5;
+  --accent:#2f5bd3; --slow:#b3261e; --slow-bg:#fbe9e7; --ok:#1d7a46; --ok-bg:#e5f4ea;
+  --code:#eef1f6; --pick:#2f5bd3; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12151c; --panel:#1a1f29; --ink:#e6e9ef; --muted:#9aa3b4; --line:#2c3342;
+    --accent:#7d9bf0; --slow:#f2877e; --slow-bg:#3a1f1d; --ok:#6ccf94; --ok-bg:#16301f;
+    --code:#222938; --pick:#7d9bf0; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12151c; --panel:#1a1f29; --ink:#e6e9ef; --muted:#9aa3b4; --line:#2c3342;
+  --accent:#7d9bf0; --slow:#f2877e; --slow-bg:#3a1f1d; --ok:#6ccf94; --ok-bg:#16301f;
+  --code:#222938; --pick:#7d9bf0; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,sans-serif;padding-inline:16px;padding-block:32px 48px}
+main{max-width:1080px;margin:0 auto;display:grid;gap:40px}
+h1{font-size:26px;line-height:1.2;margin:0 0 6px;text-wrap:balance;font-weight:600}
+h2{font-size:18px;margin:0 0 12px;font-weight:600;text-wrap:balance}
+p{margin:0;max-width:68ch}
+.lede{color:var(--muted)}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px}
+code{background:var(--code);padding:1px 5px;border-radius:4px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+.col{display:grid;gap:12px;align-content:start;min-width:0}
+.tag{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:grid;gap:10px;min-width:0}
+ol.steps{margin:0;padding-left:22px;display:grid;gap:6px}
+ol.steps li::marker{color:var(--muted);font-variant-numeric:tabular-nums}
+.pill{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.pill.slow{background:var(--slow-bg);color:var(--slow)}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.merge{color:var(--slow);font-weight:600}
+.row{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.meta{color:var(--muted);font-size:13px}
+.term{background:var(--code);border-radius:6px;padding:10px 12px;font:13px/1.5 "IBM Plex Mono",ui-monospace,monospace;white-space:pre-wrap;overflow-x:auto}
+/* The variations page mockup: each option is a tiny app shell, sidebar + content. */
+.vars{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:760px){.vars{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:440px){.vars{grid-template-columns:1fr}}
+.opt{display:grid;gap:6px}
+.opt .lbl{font-size:13px;font-weight:600;display:flex;justify-content:space-between;gap:8px}
+.opt .lbl span{font-weight:400;color:var(--muted)}
+.opt.picked .shell{outline:3px solid var(--pick);outline-offset:2px}
+.shell{display:grid;grid-template-columns:34% 1fr;height:120px;border-radius:6px;overflow:hidden;border:1px solid var(--line);max-width:100%}
+.shell .side{padding:10px 8px;display:grid;gap:6px;align-content:start}
+.shell .side i{display:block;height:6px;border-radius:3px;background:currentColor;opacity:.55}
+.shell .side i.on{opacity:1}
+.shell .main{padding:10px;display:grid;gap:6px;align-content:start}
+.shell .main b{display:block;height:8px;width:60%;border-radius:3px;background:currentColor;opacity:.8}
+.shell .main i{display:block;height:6px;border-radius:3px;background:currentColor;opacity:.3}
+/* Sample palettes for the example: these colours are the content of the mockup, fixed in both themes on purpose. */
+.p-today .side{background:#f1f3f7;color:#9aa1ae}.p-today .main{background:#ffffff;color:#8a93a3}
+.p-a .side{background:#dfe4ec;color:#5d6676}.p-a .main{background:#ffffff;color:#8a93a3}
+.p-b .side{background:#1d2330;color:#c6ccd8}.p-b .main{background:#ffffff;color:#8a93a3}
+.p-c .side{background:#e8edfb;color:#2f5bd3}.p-c .main{background:#ffffff;color:#8a93a3}
+.p-d .side{background:#f1f3f7;color:#6b7383;box-shadow:inset -3px 0 0 #c9cfda}.p-d .main{background:#fbfbfd;color:#8a93a3}
+.p-e .side{background:#2f5bd3;color:#e9eefc}.p-e .main{background:#ffffff;color:#8a93a3}
+.table-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:14px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.yes{color:var(--ok);font-weight:600}.no{color:var(--slow);font-weight:600}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>PRD 541 · /omni:visual-fix, a fast lane for small visual changes</h1>
+  <p class="lede">The example throughout: “the sidebar background is too light”. Today it takes the whole loop. After, one command, one pick, one pull request.</p>
+</header>
+
+<section>
+  <h2>From one line to a merged change</h2>
+  <div class="cols">
+    <div class="col">
+      <div class="row"><span class="tag">Today</span><span class="pill slow">2 merges · about an hour</span></div>
+      <div class="card">
+        <ol class="steps">
+          <li><code>/omni:brainstorm</code>: design questions about a colour</li>
+          <li>PRD issue, spec, before/after page</li>
+          <li><code>/omni:plan</code>: a plan of one slice</li>
+          <li>Phase-0 PR: <span class="merge">a person merges</span></li>
+          <li><code>/clear</code>, then <code>/omni:yolo</code></li>
+          <li>A wave: one sub-PR into a feature branch</li>
+          <li>Outbox gate, ship, feature PR marked ready</li>
+          <li>Feature PR: <span class="merge">a person merges</span></li>
+          <li>Retro and knowledge harvest run on it</li>
+        </ol>
+        <p class="meta">Or it is done by hand, outside the loop: no issue, no label, nothing to track.</p>
+      </div>
+    </div>
+    <div class="col">
+      <div class="row"><span class="tag">After</span><span class="pill ok">1 merge · minutes</span></div>
+      <div class="card">
+        <div class="term">/omni:visual-fix 'the sidebar background is too light'</div>
+        <ol class="steps">
+          <li>Opens issue #612 <code>Visual: the sidebar background is too light</code>, labelled <code>omni:visual</code></li>
+          <li>Finds the sidebar and its tokens; says what it will touch</li>
+          <li>Shows today and five variations; you pick one</li>
+          <li>Applies it on <code>fix/612-sidebar-background</code>, runs the preflight</li>
+          <li>Looks at the real screen once</li>
+          <li>Writes <code>delivery/visual/0612-sidebar-background/before-after.html</code></li>
+          <li><code>omni visual 612</code> → <code>ok</code>, then one PR: <span class="merge">a person merges</span></li>
+        </ol>
+        <p class="meta">No spec, plan, phase-0 PR, wave or outbox: you took the one decision there was.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Step 3: the variations page</h2>
+  <p class="lede" style="margin-bottom:14px">A scratchpad page built from the real screen’s markup and styles, opened in your browser. Every run shows four or five real directions, never five shades of one. The question comes to you in the terminal, or on the Omni page when ask mode is on.</p>
+  <div class="card">
+    <div class="vars">
+      <div class="opt"><div class="lbl">Today <span>too light</span></div><div class="shell p-today"><div class="side"><i class="on"></i><i></i><i></i><i></i></div><div class="main"><b></b><i></i><i></i></div></div></div>
+      <div class="opt"><div class="lbl">A <span>one step darker</span></div><div class="shell p-a"><div class="side"><i class="on"></i><i></i><i></i><i></i></div><div class="main"><b></b><i></i><i></i></div></div></div>
+      <div class="opt picked"><div class="lbl">B <span>dark sidebar · picked</span></div><div class="shell p-b"><div class="side"><i class="on"></i><i></i><i></i><i></i></div><div class="main"><b></b><i></i><i></i></div></div></div>
+      <div class="opt"><div class="lbl">C <span>tinted with the accent</span></div><div class="shell p-c"><div class="side"><i class="on"></i><i></i><i></i><i></i></div><div class="main"><b></b><i></i><i></i></div></div></div>
+      <div class="opt"><div class="lbl">D <span>same fill, strong edge</span></div><div class="shell p-d"><div class="side"><i class="on"></i><i></i><i></i><i></i></div><div class="main"><b></b><i></i><i></i></div></div></div>
+      <div class="opt"><div class="lbl">E <span>accent sidebar</span></div><div class="shell p-e"><div class="side"><i class="on"></i><i></i><i></i><i></i></div><div class="main"><b></b><i></i><i></i></div></div></div>
+    </div>
+    <div class="term">Which sidebar background?  A · B · C · D · E · another round (with a note)
+› B</div>
+  </div>
+</section>
+
+<section>
+  <h2>What the reviewer gets</h2>
+  <div class="cols">
+    <div class="col">
+      <div class="card">
+        <div class="row"><strong>fix(sidebar): the sidebar background is too light (#612)</strong></div>
+        <div class="row"><span class="pill ok">omni:visual</span><span class="meta">base main · 1 commit, signed</span></div>
+        <div class="term">Closes #612
+
+What changed   --sidebar-bg: one token, two themes
+The pick       B, a dark sidebar (4 others not picked)
+Before/after   .omni-loop/delivery/visual/0612-sidebar-background/before-after.html
+Verified       pnpm test: green · omni visual 612: ok
+               real screen looked at on /app, light and dark
+Risk           look only; revert the PR to roll back</div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <span class="tag">The boundary</span>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Change</th><th>Visual fix?</th></tr></thead>
+          <tbody>
+            <tr><td>A colour, token, spacing, font, copy</td><td class="yes">yes</td></tr>
+            <tr><td>Markup or layout of an existing screen</td><td class="yes">yes</td></tr>
+            <tr><td>A prop that hides an element, a hover state</td><td class="yes">yes</td></tr>
+            <tr><td>Data, fetching, a route, an API</td><td class="no">no → brainstorm</td></tr>
+            <tr><td>A new screen, a new flow, a stored shape</td><td class="no">no → brainstorm</td></tr>
+          </tbody>
+        </table></div>
+        <p class="meta">Crossing the line stops the skill: a comment on the issue names what crossed it and gives the <code>/omni:brainstorm</code> line. No PR opens.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>What stays the same</h2>
+  <div class="card">
+    <ol class="steps" style="list-style:disc">
+      <li><code>/omni:brainstorm</code> and <code>/omni:yolo</code> are unchanged, and remain the way in for anything with behaviour.</li>
+      <li>A person merges every PR. The skill never merges.</li>
+      <li>Every merge still cuts a kit release. A visual fix gets no release note, retro or knowledge PR.</li>
+      <li>Next, as their own PRDs: <code>/omni:bug-fix</code>, then Bugs and Visual views in the Omni menu, which list the <code>omni:visual</code> issues and folders this lane leaves behind.</li>
+    </ol>
+  </div>
+</section>
+</main>
+</body>
+</html>
