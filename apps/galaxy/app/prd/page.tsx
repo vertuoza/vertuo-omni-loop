@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
-import { Notice } from '../../src/ask/page/Notice';
 import { arcadeMode } from '../../src/data/mode';
-import { supabaseEnv, supabaseServer } from '../../src/data/supabase-server';
 import type { DossierListRow } from '../../src/dossier/store';
 import { dossierGithub } from '../../src/dossier/github/server';
 import { DEMO_DOSSIER_ID, DEMO_GITHUB, DEMO_VIEWER, demoHistory } from '../../src/dossier/page/demo';
@@ -11,6 +9,7 @@ import {
   HISTORY_CALLBACK, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readOpenCounts,
   type CurrentStages, type OpenCounts,
 } from '../../src/dossier/page/history';
+import { DossierDatabaseDown, DossiersClosed, dossierSession } from '../../src/dossier/page/route-gate';
 import { readHistory } from '../../src/dossier/page/source';
 import { stageStore } from '../../src/stages/store';
 
@@ -49,16 +48,9 @@ export default async function HistoryRoute({ searchParams }: Props) {
     const rows = demoHistory(Date.now());
     return listing(rows, DEMO_VIEWER, await readOpenCounts(historyToRead(rows, filters, DEMO_VIEWER), DEMO_READER));
   }
-  const env = supabaseEnv();
-  if (mode === 'closed' || !env) {
-    return (
-      <Notice title="PRD dossiers are not open here">
-        <p className="ask-muted">This deployment has no database, so it keeps no dossier.</p>
-      </Notice>
-    );
-  }
-  const db = await supabaseServer();
-  const { data: { user } } = await db.auth.getUser();
+  const session = await dossierSession(mode);
+  if (!session) return <DossiersClosed />;
+  const { env, db, user } = session;
   if (!user) return <DossierSignIn supabase={env} returnPath={HISTORY_CALLBACK} error={one(query.signin_error)} what="history" />;
 
   let rows: DossierListRow[];
@@ -66,11 +58,7 @@ export default async function HistoryRoute({ searchParams }: Props) {
     rows = await readHistory(db);
   } catch (error) {
     console.error(error);
-    return (
-      <Notice title="The dossier database could not answer" tone="error">
-        <p className="ask-muted">Reload the page in a moment.</p>
-      </Notice>
-    );
+    return <DossierDatabaseDown />;
   }
   const [open, stages] = await Promise.all([
     readOpenCounts(historyToRead(rows, filters, user.id), dossierGithub()),

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 import { COMMAND_TABLE } from '../bin/commands/index.mjs';
-import { STAGES, STAGE_WORDS } from '../lib/status/format.mjs';
+import { STAGE_ORDER, STAGE_WORDS } from '../lib/status/format.mjs';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const PLUGIN_DIR = 'kit/plugin';
@@ -763,7 +763,7 @@ describe('the hand-off that ends the yolo and the yolo-fix', () => {
 // outbox on the green ending and under building on the red and held ones.
 describe('the seven stages in the hand-offs of the brainstorm and the yolo', () => {
   const read = (skill) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
-  const TRACK = STAGES.map((stage) => STAGE_WORDS[stage]).join(' ──▶ ');
+  const TRACK = STAGE_ORDER.map((stage) => STAGE_WORDS[stage]).join(' ──▶ ');
 
   /** The fenced blocks of `text` that start with `Where it is`, or hold the track, as their lines. */
   const blocks = (text) => {
@@ -791,14 +791,14 @@ describe('the seven stages in the hand-offs of the brainstorm and the yolo', () 
 
   it('/omni:brainstorm names the seven stages, one line each, "you are here" under PRD', () => {
     const [block] = blocks(skillSection(read('brainstorm'), '10.'));
-    expect(stageLines(block)).toEqual(STAGES.map((stage) => STAGE_WORDS[stage]));
+    expect(stageLines(block)).toEqual(STAGE_ORDER.map((stage) => STAGE_WORDS[stage]));
     expect(here(block)).toBe('PRD');
   });
 
   it('/omni:yolo names the seven stages, "you are here" under outbox when green, under building when red or held', () => {
     const found = blocks(skillSection(read('yolo'), '7. Hand off'));
     expect(found).toHaveLength(2);
-    expect(stageLines(found[0])).toEqual(STAGES.map((stage) => STAGE_WORDS[stage]));
+    expect(stageLines(found[0])).toEqual(STAGE_ORDER.map((stage) => STAGE_WORDS[stage]));
     expect(here(found[0])).toBe('outbox');
     expect(here(found[1])).toBe('building');
   });

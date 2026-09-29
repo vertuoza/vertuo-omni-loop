@@ -8,8 +8,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { currentStage, isStoredStage, STORED_STAGES, type StageRow, type StoredStage } from './stage';
 
-export const STAGES_TABLE = 'prd_stages';
-export const TOPICS_TABLE = 'prd_topics';
+const STAGES_TABLE = 'prd_stages';
+const TOPICS_TABLE = 'prd_topics';
 
 /** A PRD of a workspace: its repository (`owner/name`) and its issue number. */
 export type StageKey = { workspace_id: string; repository: string; prd: number };

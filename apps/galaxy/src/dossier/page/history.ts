@@ -85,10 +85,8 @@ export type HistoryItem = {
 
 type Query = Record<string, string | string[] | undefined>;
 
-const one = (value: string | string[] | undefined) => {
-  const first = (Array.isArray(value) ? value[0] : value)?.trim();
-  return first ? first : undefined;
-};
+/** A parameter's first value, trimmed; undefined when absent or blank. */
+const one = (value: string | string[] | undefined) => [value].flat()[0]?.trim() || undefined;
 
 /** The filters an address carries: `who` (`all`, or else Mine), `repo`, `state` (`draft` or `prd`), `q`, `needs` (`answer`),
  * `stage` (one of the seven; anything else is no filter). */
@@ -130,18 +128,29 @@ function stageOfRow(row: DossierListRow, stages: CurrentStages): StageId | null 
   return stages.get(stageKeyOf(row)) ?? null;
 }
 
-function passes(row: DossierListRow, filters: HistoryFilters, viewer: string | null, open: OpenCounts, stages: CurrentStages = new Map()): boolean {
+/** The filters on where a row is and who it waits on: its stage, Mine, Needs an answer. */
+function passesProgress(row: DossierListRow, filters: HistoryFilters, viewer: string | null, open: OpenCounts, stages: CurrentStages): boolean {
   if (filters.stage && stageOfRow(row, stages) !== filters.stage) return false;
   if (filters.who === 'mine' && (viewer === null || row.opened_by !== viewer)) return false;
-  if (filters.needsAnswer && openOf(row, open) === 0) return false;
+  return !(filters.needsAnswer && openOf(row, open) === 0);
+}
+
+/** Whether every word searched is in the title, ignoring case. */
+const titleHas = (title: string, search: string) => {
+  const words = title.toLowerCase();
+  return search.toLowerCase().split(/\s+/).every((word) => words.includes(word));
+};
+
+/** The filters on what a row is: its repository, draft or PRD, and the words of its title. */
+function passesContent(row: DossierListRow, filters: HistoryFilters): boolean {
   if (filters.repo && !row.repos.includes(filters.repo)) return false;
   if (filters.state === 'draft' && row.prd !== null) return false;
   if (filters.state === 'prd' && row.prd === null) return false;
-  if (filters.search) {
-    const title = row.title.toLowerCase();
-    if (!filters.search.toLowerCase().split(/\s+/).every((word) => title.includes(word))) return false;
-  }
-  return true;
+  return !filters.search || titleHas(row.title, filters.search);
+}
+
+function passes(row: DossierListRow, filters: HistoryFilters, viewer: string | null, open: OpenCounts, stages: CurrentStages = new Map()): boolean {
+  return passesProgress(row, filters, viewer, open, stages) && passesContent(row, filters);
 }
 
 const newestFirst = (a: DossierListRow, b: DossierListRow) =>

@@ -17,7 +17,7 @@ const GAP = '     ';
 
 /** The seven stages of the loop, in the order a PRD goes (PRD 587): the kit's one list of them, held
  * to the Omni app's own list by `kit/test/stage-words.test.mjs`. */
-export const STAGES = Object.freeze(['idea', 'prd', 'inbox', 'building', 'outbox', 'shipped', 'retro']);
+export const STAGE_ORDER = Object.freeze(['idea', 'prd', 'inbox', 'building', 'outbox', 'shipped', 'retro']);
 
 /** Each stage in words, as the Omni app shows it. */
 export const STAGE_WORDS = Object.freeze({
@@ -48,7 +48,7 @@ function header({ slug, base, fetchedAt }, now) {
  * building followed by its open items while it holds a PRD. A count that would push the line past
  * `WIDTH` starts the next one. */
 function counts(values) {
-  const parts = STAGES.map((stage) => {
+  const parts = STAGE_ORDER.map((stage) => {
     const word = STAGE_WORDS[stage].toUpperCase();
     if (stage === 'idea') return `${word} ${IDEA_COUNT}`;
     if (stage === 'building' && values.building > 0) return `${word} ${values.building} · ${plural(values.openItems, 'open item')}`;

@@ -226,7 +226,7 @@ export const DEMO_GITHUB: GithubSummary = {
 const DEMO_REPOS = [DEMO_REPO, 'vertuoza/vertuo-core', 'vertuoza/vertuo-web'];
 
 /** The demo PRD's stored stages: opened, its phase-0 merged, its first slice merged; synced 5 minutes ago. */
-export function demoStages(opened: number): StageRow[] {
+function demoStages(opened: number): StageRow[] {
   const synced = iso(opened + 3 * 24 * 60 * MIN - 5 * MIN);
   return [
     { stage: 'prd', reached_at: iso(opened + 90 * MIN), synced_at: synced },

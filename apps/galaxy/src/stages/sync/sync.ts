@@ -27,17 +27,17 @@ export type SyncDeps = {
 };
 
 /** What a repository gave: the stages and topics seen and recorded. */
-export type SyncedRepo = { workspace: string; repository: string; stages: number; topics: number };
+type SyncedRepo = { workspace: string; repository: string; stages: number; topics: number };
 /** What was skipped, and why; `repository` null when the workspace's repositories could not be listed. */
-export type SkippedRepo = { workspace: string; repository: string | null; reason: string };
-export type SyncReply = { synced_at: string; repositories: SyncedRepo[]; skipped: SkippedRepo[] };
+type SkippedRepo = { workspace: string; repository: string | null; reason: string };
+type SyncReply = { synced_at: string; repositories: SyncedRepo[]; skipped: SkippedRepo[] };
 
 const json = (status: number, body: unknown) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } });
 const why = (error: unknown) => (error instanceof Error ? error.message.split('\n')[0] : String(error));
 const digest = (text: string) => createHash('sha256').update(text).digest();
 
 /** Whether the request carries `Bearer <secret>`; never, without a secret. Compared in constant time. */
-export function bearerMatches(request: Request, secret: string | undefined): boolean {
+function bearerMatches(request: Request, secret: string | undefined): boolean {
   if (!secret) return false;
   const header = request.headers.get('authorization') ?? '';
   const match = /^Bearer (.+)$/.exec(header);

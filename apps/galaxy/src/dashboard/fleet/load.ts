@@ -1,6 +1,6 @@
-import { settle, UNREADABLE, type Read } from '../part';
-import { boardOf, type BoardRead, type BoardReads, type BoardValue } from '../board/load';
-import { periodWindow, type Period } from '../board/period';
+import { UNREADABLE, type Read } from '../part';
+import { boardOf, readBoard, type BoardRead, type BoardReads, type BoardValue } from '../board/load';
+import type { Period } from '../board/period';
 import { rankFleets, type FleetRank } from '../rankings/rank';
 import { chooseFleet } from './pick';
 
@@ -59,13 +59,5 @@ export function fleetOf(read: BoardRead, request: FleetRequest): FleetValue {
 
 /** The fleet's board: the board's reads together, each on its own, then fleetOf. */
 export async function loadFleet(reads: BoardReads, request: FleetRequest): Promise<FleetValue> {
-  const window = periodWindow(request.period, request.now);
-  const [roster, activity, answered, galaxy, prds] = await Promise.all([
-    settle('the workspace\'s members', () => reads.roster()),
-    settle('the contributions', () => reads.activity(window.from, window.to)),
-    settle('the questions answered', () => reads.answered(window.from, window.to)),
-    settle('the season', () => reads.galaxy()),
-    settle('the PRDs\' stages', () => reads.prds()),
-  ]);
-  return fleetOf({ roster, activity, answered, galaxy, prds }, request);
+  return fleetOf(await readBoard(reads, request), request);
 }

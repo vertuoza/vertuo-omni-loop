@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { Notice } from '../../../src/ask/page/Notice';
 import { arcadeMode } from '../../../src/data/mode';
-import { supabaseEnv, supabaseServer } from '../../../src/data/supabase-server';
 import { dossierGithub } from '../../../src/dossier/github/server';
 import type { GithubSummary } from '../../../src/dossier/github/summary';
 import { renderMarkdown, type RenderedMarkdown } from '../../../src/dossier/markdown';
@@ -10,6 +9,7 @@ import { DossierPage } from '../../../src/dossier/page/DossierPage';
 import { DossierSignIn } from '../../../src/dossier/page/DossierSignIn';
 import { pulseOf, signature } from '../../../src/dossier/page/live';
 import { LiveRefresh } from '../../../src/dossier/page/live-refresh';
+import { DossierDatabaseDown, DossiersClosed, dossierSession } from '../../../src/dossier/page/route-gate';
 import { dossierCallbackPath } from '../../../src/dossier/page/sign-in';
 import { readContent, readDossier, readPlanSlices, type Db } from '../../../src/dossier/page/source';
 import { dossierView, readPick, type DossierRead } from '../../../src/dossier/page/view';
@@ -78,16 +78,9 @@ export default async function DossierRoute({ params, searchParams }: Props) {
     const markdown = shown && !shown.frame ? await markdownOf(async () => demoContent(shown.id)) : null;
     return <DossierPage view={view} markdown={markdown} supabase={null} />;
   }
-  const env = supabaseEnv();
-  if (mode === 'closed' || !env) {
-    return (
-      <Notice title="PRD dossiers are not open here">
-        <p className="ask-muted">This deployment has no database, so it keeps no dossier.</p>
-      </Notice>
-    );
-  }
-  const db = await supabaseServer();
-  const { data: { user } } = await db.auth.getUser();
+  const session = await dossierSession(mode);
+  if (!session) return <DossiersClosed />;
+  const { env, db, user } = session;
   if (!user) return <DossierSignIn supabase={env} returnPath={dossierCallbackPath(id)} error={one(query.signin_error)} />;
 
   let read: DossierRead | null;
@@ -95,11 +88,7 @@ export default async function DossierRoute({ params, searchParams }: Props) {
     read = await readDossier(db, id, user.id);
   } catch (error) {
     console.error(error);
-    return (
-      <Notice title="The dossier database could not answer" tone="error">
-        <p className="ask-muted">Reload the page in a moment.</p>
-      </Notice>
-    );
+    return <DossierDatabaseDown />;
   }
   if (!read && one(query.deleted) === '1') {
     return (

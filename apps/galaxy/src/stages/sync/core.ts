@@ -71,7 +71,7 @@ export function syncConfig(text: string, repository: string): SyncConfig {
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** A branch shape as a pattern: `{topic}` is the topic given, any other placeholder one path segment. */
-export function branchPattern(shape: string, topic: string): RegExp {
+function branchPattern(shape: string, topic: string): RegExp {
   const parts = shape.split(/(\{\w+\})/).map((part) => {
     if (part === '{topic}') return escape(topic);
     return /^\{\w+\}$/.test(part) ? '[^/]+' : escape(part);
@@ -84,6 +84,42 @@ const earliest = (dates: readonly (string | null)[]): string | null =>
 
 const counted = (pull: SnapshotPull) => pull.state === 'open' || pull.merged_at !== null;
 
+type Folder = { prd: number; topic: string; place: 'inbox' | 'shipped' };
+
+/** Each PRD's folder, the first one found (inbox before shipped), in PRD order. */
+function foldersOf(snapshot: RepoSnapshot): Folder[] {
+  const folders = new Map<number, Folder>();
+  for (const [place, names] of [['inbox', snapshot.inbox], ['shipped', snapshot.shipped]] as const) {
+    for (const name of names) {
+      const parsed = parseFolderName(name) as { prd: number; topic: string } | null;
+      if (parsed && !folders.has(parsed.prd)) folders.set(parsed.prd, { prd: parsed.prd, topic: parsed.topic, place });
+    }
+  }
+  return [...folders.values()].sort((a, b) => a.prd - b.prd);
+}
+
+/** The stages a folder's pull requests date, in track order; null for a stage not reached. */
+function folderStages(config: SyncConfig, pulls: readonly SnapshotPull[], { topic, place }: Folder, syncedAt: string): [StoredStage, string | null][] {
+  const on = (shape: string) => {
+    const pattern = branchPattern(shape, topic);
+    return pulls.filter((p) => pattern.test(p.head));
+  };
+  const feature = config.branches.feature.replace('{topic}', topic);
+  const phase0 = earliest(on(config.branches.phase0).map((p) => p.merged_at));
+  const building = earliest(on(config.branches.slice).filter((p) => p.base === feature).map((p) => p.merged_at));
+  const features = on(config.branches.feature);
+  const ready = earliest(features.filter((p) => p.state === 'open' && !p.draft).map((p) => p.ready_at ?? p.created_at));
+  const mergedFeature = earliest(features.map((p) => p.merged_at));
+  const retro = earliest(on(config.branches.retro).filter(counted).map((p) => p.created_at));
+  return [
+    ['inbox', phase0 ?? (place === 'inbox' ? syncedAt : null)],
+    ['building', building],
+    ['outbox', ready],
+    ['shipped', place === 'shipped' ? mergedFeature ?? syncedAt : null],
+    ['retro', retro],
+  ];
+}
+
 /** Every stage and topic the repository shows; nothing without a config. */
 export function stagesOfRepo(snapshot: RepoSnapshot, syncedAt: string): { stages: SeenStage[]; topics: SeenTopic[] } {
   const { config } = snapshot;
@@ -95,35 +131,9 @@ export function stagesOfRepo(snapshot: RepoSnapshot, syncedAt: string): { stages
   };
 
   for (const issue of snapshot.issues) seen(issue.number, 'prd', issue.created_at);
-
-  const folders = new Map<number, { topic: string; place: 'inbox' | 'shipped' }>();
-  for (const [place, names] of [['inbox', snapshot.inbox], ['shipped', snapshot.shipped]] as const) {
-    for (const name of names) {
-      const parsed = parseFolderName(name) as { prd: number; topic: string } | null;
-      if (parsed && !folders.has(parsed.prd)) folders.set(parsed.prd, { topic: parsed.topic, place });
-    }
+  const folders = foldersOf(snapshot);
+  for (const folder of folders) {
+    for (const [stage, at] of folderStages(config, snapshot.pulls, folder, syncedAt)) seen(folder.prd, stage, at);
   }
-
-  const topics: SeenTopic[] = [];
-  for (const [prd, { topic, place }] of [...folders.entries()].sort(([a], [b]) => a - b)) {
-    topics.push({ repository, prd, topic });
-    const on = (shape: string) => {
-      const pattern = branchPattern(shape, topic);
-      return snapshot.pulls.filter((p) => pattern.test(p.head));
-    };
-    const feature = config.branches.feature.replace('{topic}', topic);
-    const phase0 = earliest(on(config.branches.phase0).map((p) => p.merged_at));
-    const building = earliest(on(config.branches.slice).filter((p) => p.base === feature).map((p) => p.merged_at));
-    const features = on(config.branches.feature);
-    const ready = earliest(features.filter((p) => p.state === 'open' && !p.draft).map((p) => p.ready_at ?? p.created_at));
-    const mergedFeature = earliest(features.map((p) => p.merged_at));
-    const retro = earliest(on(config.branches.retro).filter(counted).map((p) => p.created_at));
-
-    seen(prd, 'inbox', phase0 ?? (place === 'inbox' ? syncedAt : null));
-    seen(prd, 'building', building);
-    seen(prd, 'outbox', ready);
-    if (place === 'shipped') seen(prd, 'shipped', mergedFeature ?? syncedAt);
-    seen(prd, 'retro', retro);
-  }
-  return { stages, topics };
+  return { stages, topics: folders.map(({ prd, topic }) => ({ repository, prd, topic })) };
 }

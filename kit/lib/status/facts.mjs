@@ -43,7 +43,7 @@ function readBase(ctx, exec) {
 }
 
 /** The file a retro PR adds to a shipped PRD's folder: a folder holding it is at retro (PRD 587). */
-export const RETRO_FILE = 'retro.md';
+const RETRO_FILE = 'retro.md';
 
 /** The PRD folders directly under `dir` at `ref`, as `{ prd, topic, name }`; none when `dir` is not
  * there. */

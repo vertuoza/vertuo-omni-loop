@@ -48,8 +48,8 @@ export type CurrentStage = {
   syncedAt: string | null;
 };
 
-export const BRAINSTORMING = 'Brainstorming';
-export const SYNCING = 'Syncing…';
+const BRAINSTORMING = 'Brainstorming';
+const SYNCING = 'Syncing…';
 
 /** The latest stage on the track among `rows`; null when there is none. */
 export function currentStage(rows: readonly Pick<StageRow, 'stage'>[]): StoredStage | null {
@@ -74,7 +74,7 @@ export type StageInput = {
   openOutbox?: OpenOutbox;
 };
 
-export function stageOf({ prd, answered = false, rows, openOutbox = null }: StageInput): CurrentStage {
+export function storedStageOf({ prd, answered = false, rows, openOutbox = null }: StageInput): CurrentStage {
   if (prd === null) {
     const id = answered ? 'idea' : 'brainstorming';
     return { id, track: trackOf(answered ? 'idea' : null), words: answered ? `Stage: ${STAGE_LABELS.idea}` : BRAINSTORMING, badge: null, syncedAt: null };

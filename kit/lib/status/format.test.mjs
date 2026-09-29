@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fetchedAgo, formatOverview, STAGES, STAGE_WORDS } from './format.mjs';
+import { fetchedAgo, formatOverview, STAGE_ORDER, STAGE_WORDS } from './format.mjs';
 
 const NOW = Date.UTC(2026, 8, 28, 12, 0, 0);
 const SECOND = 1000;
@@ -96,8 +96,8 @@ describe('formatOverview', () => {
 
 describe('formatOverview — the seven stages (PRD 315 s2, PRD 587 s5)', () => {
   it('keeps the kit\'s seven stages in the order a PRD goes, in the app\'s words', () => {
-    expect(STAGES).toEqual(['idea', 'prd', 'inbox', 'building', 'outbox', 'shipped', 'retro']);
-    expect(STAGES.map((stage) => STAGE_WORDS[stage])).toEqual(['idea', 'PRD', 'inbox', 'building', 'outbox', 'shipped', 'retro']);
+    expect(STAGE_ORDER).toEqual(['idea', 'prd', 'inbox', 'building', 'outbox', 'shipped', 'retro']);
+    expect(STAGE_ORDER.map((stage) => STAGE_WORDS[stage])).toEqual(['idea', 'PRD', 'inbox', 'building', 'outbox', 'shipped', 'retro']);
   });
 
   it('prints the seven counts in order, the open items beside building, and the stages in progress under the bar', () => {
@@ -110,7 +110,7 @@ describe('formatOverview — the seven stages (PRD 315 s2, PRD 587 s5)', () => {
       '             4 in progress: 2 in the inbox, 1 being built, 1 in the outbox',
     ]);
     const words = lines(text).slice(2, 4).join(' ');
-    const at = STAGES.map((stage) => words.indexOf(`${STAGE_WORDS[stage].toUpperCase()} `));
+    const at = STAGE_ORDER.map((stage) => words.indexOf(`${STAGE_WORDS[stage].toUpperCase()} `));
     expect(at.every((index) => index >= 0)).toBe(true);
     expect(at).toEqual([...at].sort((a, b) => a - b));
   });

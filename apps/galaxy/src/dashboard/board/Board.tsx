@@ -22,7 +22,7 @@ import './board.css';
 const COUNT = new Intl.NumberFormat('en-US');
 const n = (value: number) => COUNT.format(value);
 
-export const EVENT_LABEL: Record<PrdEvent, string> = { opened: 'opened', started: 'started', shipped: 'shipped' };
+const EVENT_LABEL: Record<PrdEvent, string> = { opened: 'opened', started: 'started', shipped: 'shipped' };
 const PERIOD_WORDS: Record<Period, string> = { '7d': 'last 7 days', '30d': 'last 30 days', season: 'this season' };
 
 export interface BoardProps {

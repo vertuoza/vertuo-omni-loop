@@ -10,7 +10,7 @@ import { stageHref } from './links';
 import { periodWindow, type Period, type PeriodWindow } from './period';
 import {
   answeredIn, circleOf, inCircle, inPeriod, membersOf, MERGED, mergesPerDay, openedBy, peopleRows, prdEventsPerDay, prdsNow, repositoriesOf, stageTally,
-  type Activity, type ChartDay, type DayActivity, type EventDay, type FleetTag, type Member, type PersonRow, type PrdNow, type RepoRow, type Scope,
+  type Activity, type ChartDay, type Circle, type DayActivity, type EventDay, type FleetTag, type Member, type PersonRow, type PrdNow, type RepoRow, type Scope,
   type StageTally,
 } from './tally';
 
@@ -99,14 +99,38 @@ export interface BoardValue {
 const fleetTags = (season: Read<SeasonView>): FleetTag[] =>
   (season === UNREADABLE ? [] : season.teams.map((t) => ({ name: t.name, label: t.label, color: t.color })));
 
+/** Who the scope holds; unreadable for a fleet when the roster is, since only the roster says who is in it. */
+function circleFor(roster: Read<Member[]>, scope: Scope): Read<Circle> {
+  if (scope.kind === 'fleet' && roster === UNREADABLE) return UNREADABLE;
+  return circleOf(scope, roster === UNREADABLE ? [] : roster);
+}
+
+/** The People table: the rows of the members the request's people scope lists. */
+function peopleOf(
+  read: BoardRead, request: BoardRequest, activity: Read<DayActivity[]>, answered: Read<Map<string, number>>,
+): Read<PersonRow[]> {
+  if (read.roster === UNREADABLE) return UNREADABLE;
+  return peopleRows(membersOf(request.people, read.roster), {
+    activity,
+    answered,
+    heroes: read.galaxy === UNREADABLE ? UNREADABLE : read.galaxy.heroes,
+    fleets: fleetTags(read.galaxy),
+    prds: read.prds ?? UNREADABLE,
+  }, request.viewerId);
+}
+
+/** The season's fleet ranking, the viewer's fleet marked. */
+function fleetRanking(read: BoardRead, viewerId: string | null): Read<FleetRank[]> {
+  if (read.galaxy === UNREADABLE) return UNREADABLE;
+  const me = read.roster === UNREADABLE ? undefined : read.roster.find((m) => m.userId === viewerId);
+  return rankFleets(read.galaxy.teams, me?.fleet ?? null);
+}
+
 /** The board, from what was read: pure, so the loader and the demo draw it the same way. */
 export function boardOf(read: BoardRead, request: BoardRequest): BoardValue {
   const window = periodWindow(request.period, request.now);
   const season = seasonBounds(request.now);
-  const needsRoster = (s: Scope) => s.kind === 'fleet';
-  const circle = needsRoster(request.scope) && read.roster === UNREADABLE
-    ? UNREADABLE
-    : circleOf(request.scope, read.roster === UNREADABLE ? [] : read.roster);
+  const circle = circleFor(read.roster, request.scope);
 
   const period = read.activity === UNREADABLE ? UNREADABLE : inPeriod(read.activity, window);
   const scoped: Read<DayActivity[]> = period === UNREADABLE || circle === UNREADABLE ? UNREADABLE : period.filter((r) => inCircle(circle, r));
@@ -114,14 +138,6 @@ export function boardOf(read: BoardRead, request: BoardRequest): BoardValue {
   const tally = <T>(draw: (rows: DayActivity[]) => T): Read<T> => (scoped === UNREADABLE ? UNREADABLE : draw(scoped));
   const prds = read.prds ?? UNREADABLE;
 
-  const me = read.roster === UNREADABLE ? undefined : read.roster.find((m) => m.userId === request.viewerId);
-  const people: Read<PersonRow[]> = read.roster === UNREADABLE ? UNREADABLE : peopleRows(membersOf(request.people, read.roster), {
-    activity: period,
-    answered: counts,
-    heroes: read.galaxy === UNREADABLE ? UNREADABLE : read.galaxy.heroes,
-    fleets: fleetTags(read.galaxy),
-    prds,
-  }, request.viewerId);
 
   return {
     window,
@@ -136,13 +152,13 @@ export function boardOf(read: BoardRead, request: BoardRequest): BoardValue {
     merges: tally((rows) => mergesPerDay(rows, window.days)),
     prdEvents: tally((rows) => prdEventsPerDay(rows, window.days)),
     repositories: tally(repositoriesOf),
-    people,
-    fleets: read.galaxy === UNREADABLE ? UNREADABLE : rankFleets(read.galaxy.teams, me?.fleet ?? null),
+    people: peopleOf(read, request, period, counts),
+    fleets: fleetRanking(read, request.viewerId),
   };
 }
 
-/** The board's read: the five reads in parallel, each on its own, then boardOf. */
-export async function loadBoard(reads: BoardReads, request: BoardRequest): Promise<BoardValue> {
+/** The five reads of a period in parallel, each on its own: what boardOf draws from. */
+export async function readBoard(reads: BoardReads, request: Pick<BoardRequest, 'period' | 'now'>): Promise<BoardRead> {
   const window = periodWindow(request.period, request.now);
   const [roster, activity, answered, galaxy, prds] = await Promise.all([
     settle('the workspace\'s members', () => reads.roster()),
@@ -151,7 +167,12 @@ export async function loadBoard(reads: BoardReads, request: BoardRequest): Promi
     settle('the season', () => reads.galaxy()),
     settle('the PRDs\' stages', () => reads.prds()),
   ]);
-  return boardOf({ roster, activity, answered, galaxy, prds }, request);
+  return { roster, activity, answered, galaxy, prds };
+}
+
+/** The board's read: the five reads in parallel, each on its own, then boardOf. */
+export async function loadBoard(reads: BoardReads, request: BoardRequest): Promise<BoardValue> {
+  return boardOf(await readBoard(reads, request), request);
 }
 
 // ── The reads, from Supabase ──────────────────────────────────────────────
@@ -159,6 +180,19 @@ export async function loadBoard(reads: BoardReads, request: BoardRequest): Promi
 const PAGE = 1000;
 
 type RosterRow = { user_id: string; name: string | null; github_login: string | null; avatar_url: string | null; fleet: string | null };
+
+type Page<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
+
+/** Every row of a paged read, PAGE rows at a time; `what` names it when it fails. */
+async function allPages<T>(what: string, page: (from: number, to: number) => Page<T>): Promise<T[]> {
+  const rows: T[] = [];
+  for (let start = 0; ; start += PAGE) {
+    const { data, error } = await page(start, start + PAGE - 1);
+    if (error) throw new Error(`Supabase: could not read ${what} (${error.message})`);
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE) return rows;
+  }
+}
 
 /** A PRD's key in the stage store (`owner/name#7`) back to its repository and number. */
 function unkey(key: string): { repository: string; prd: number } {
@@ -171,21 +205,15 @@ function unkey(key: string): { repository: string; prd: number } {
 export function supabaseReads(
   db: SupabaseClient, workspace: string, galaxy: () => Promise<GalaxyView>, stages: Pick<StageStore, 'currentStages'> = stageStore(db),
 ): BoardReads {
-  async function openers(): Promise<Pick<Activity, 'repo' | 'number' | 'login'>[]> {
-    const rows: Pick<Activity, 'repo' | 'number' | 'login'>[] = [];
-    for (let start = 0; ; start += PAGE) {
-      const { data, error } = await db
-        .from('contributions')
-        .select('repo, number, login')
-        .eq('workspace_id', workspace)
-        .eq('kind', 'prd-opened')
-        .order('repo', { ascending: true })
-        .order('number', { ascending: true })
-        .range(start, start + PAGE - 1);
-      if (error) throw new Error(`Supabase: could not read who opened the PRDs (${error.message})`);
-      rows.push(...((data ?? []) as Pick<Activity, 'repo' | 'number' | 'login'>[]));
-      if (!data || data.length < PAGE) return rows;
-    }
+  function openers(): Promise<Pick<Activity, 'repo' | 'number' | 'login'>[]> {
+    return allPages('who opened the PRDs', (from, to) => db
+      .from('contributions')
+      .select('repo, number, login')
+      .eq('workspace_id', workspace)
+      .eq('kind', 'prd-opened')
+      .order('repo', { ascending: true })
+      .order('number', { ascending: true })
+      .range(from, to) as unknown as Page<Pick<Activity, 'repo' | 'number' | 'login'>>);
   }
   return {
     async roster() {
@@ -195,24 +223,18 @@ export function supabaseReads(
         userId: r.user_id, name: r.name, login: r.github_login?.toLowerCase() ?? null, avatarUrl: r.avatar_url, fleet: r.fleet,
       }));
     },
-    async activity(from, to) {
-      const rows: Activity[] = [];
-      for (let start = 0; ; start += PAGE) {
-        const { data, error } = await db
-          .from('contributions')
-          .select('kind, repo, number, login, at')
-          .eq('workspace_id', workspace)
-          .gte('at', from.toISOString())
-          .lt('at', to.toISOString())
-          .order('at', { ascending: true })
-          .order('kind', { ascending: true })
-          .order('repo', { ascending: true })
-          .order('number', { ascending: true })
-          .range(start, start + PAGE - 1);
-        if (error) throw new Error(`Supabase: could not read the contributions (${error.message})`);
-        rows.push(...((data ?? []) as Activity[]));
-        if (!data || data.length < PAGE) return rows;
-      }
+    activity(from, to) {
+      return allPages('the contributions', (first, last) => db
+        .from('contributions')
+        .select('kind, repo, number, login, at')
+        .eq('workspace_id', workspace)
+        .gte('at', from.toISOString())
+        .lt('at', to.toISOString())
+        .order('at', { ascending: true })
+        .order('kind', { ascending: true })
+        .order('repo', { ascending: true })
+        .order('number', { ascending: true })
+        .range(first, last) as unknown as Page<Activity>);
     },
     async answered(from, to) {
       const { data, error } = await db.rpc('answered_counts', { workspace, from_at: from.toISOString(), to_at: to.toISOString() });

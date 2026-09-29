@@ -23706,7 +23706,7 @@ var INDENT = "  ";
 var LABEL2 = "  delivered  ";
 var UNDER_BAR = " ".repeat(LABEL2.length);
 var GAP = "     ";
-var STAGES2 = Object.freeze(["idea", "prd", "inbox", "building", "outbox", "shipped", "retro"]);
+var STAGE_ORDER = Object.freeze(["idea", "prd", "inbox", "building", "outbox", "shipped", "retro"]);
 var STAGE_WORDS = Object.freeze({
   idea: "idea",
   prd: "PRD",
@@ -23730,7 +23730,7 @@ function header({ slug, base, fetchedAt: fetchedAt2 }, now) {
   return ["omni status", ...slug ? [slug] : [], `${base}, ${fetchedAgo(fetchedAt2, now)}`].join(" \xB7 ");
 }
 function counts(values) {
-  const parts = STAGES2.map((stage2) => {
+  const parts = STAGE_ORDER.map((stage2) => {
     const word = STAGE_WORDS[stage2].toUpperCase();
     if (stage2 === "idea") return `${word} ${IDEA_COUNT}`;
     if (stage2 === "building" && values.building > 0) return `${word} ${values.building} \xB7 ${plural3(values.openItems, "open item")}`;

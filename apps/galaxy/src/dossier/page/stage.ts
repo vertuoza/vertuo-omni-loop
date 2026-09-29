@@ -7,9 +7,9 @@
 // `stageOf` below is PRD 426's reading of the stage from the GitHub summary alone. Only the page's
 // pulse (./live.ts) still uses it, to notice that something moved on GitHub; nothing shows it.
 import { UNREAD, type GithubSummary, type IssueRef, type PullRef, type Read } from '../github/summary';
-import { stageOf as storedStage, type CurrentStage, type OpenOutbox, type StageId, type StageRow } from '../../stages/stage';
+import { storedStageOf, type CurrentStage, type OpenOutbox, type StageId, type StageRow } from '../../stages/stage';
 
-export { STAGES, STAGE_LABELS, type StageId, type TrackStop } from '../../stages/stage';
+export { STAGES, STAGE_LABELS, type StageId } from '../../stages/stage';
 
 /** The one button: a link that opens GitHub, or a command to copy. */
 export type NextAction =
@@ -30,7 +30,7 @@ export function outboxAnswerUrl(summary: GithubSummary): string | null {
 }
 
 /** The feature PR's open outbox items and where they are answered; null when unknown or none is open. */
-export function openOutboxOf(summary: GithubSummary | null | undefined): OpenOutbox {
+function openOutboxOf(summary: GithubSummary | null | undefined): OpenOutbox {
   const outbox = summary?.outbox ?? null;
   if (!summary || !outbox || !known(outbox) || outbox.open.length === 0) return null;
   const href = outboxAnswerUrl(summary);
@@ -61,43 +61,65 @@ export function stageOf(prd: number | null, summary: GithubSummary | null, slice
 type Action = { action: NextAction | null; caption: string | null };
 const none: Action = { action: null, caption: null };
 
+type ActionInput = { prd: number | null; read: GithubSummary | null; slices: number | null };
+
+const caption = (text: string): Action => ({ action: null, caption: text });
+const link = (label: string, href: string): Action => ({ action: { kind: 'link', label, href }, caption: null });
+
+function specAction({ read }: ActionInput): Action {
+  const phase0 = read ? read.phase0 : UNREAD;
+  if (!known(phase0)) return none;
+  if (phase0 === null) return caption('Spec being written');
+  return phase0.state === 'merged' ? none : link('Approve spec', phase0.url);
+}
+
+function buildAction({ prd }: ActionInput): Action {
+  return prd === null ? none : { action: { kind: 'copy', label: 'Build it', command: `/omni:yolo ${prd}` }, caption: null };
+}
+
+/** `2/4 slices`, or `2 slices merged` when the plan's slice count is not known. */
+const builtWords = (merged: number, slices: number | null) =>
+  slices === null ? `${merged} slice${merged === 1 ? '' : 's'} merged` : `${merged}/${slices} slices`;
+
+function buildingCaption({ read, slices }: ActionInput): Action {
+  const merged = read ? read.mergedSlices : UNREAD;
+  if (!known(merged) || merged === 0) return caption('Being built');
+  return caption(`Being built · ${builtWords(merged, slices)}`);
+}
+
+function reviewAction({ read }: ActionInput): Action {
+  const feature = read ? read.feature : UNREAD;
+  return known(feature) && feature ? link('Review & merge', feature.url) : none;
+}
+
+/** Open outbox items come first: the button answers them, whatever the stage would show otherwise. */
+const outboxFirst =
+  (otherwise: (input: ActionInput) => Action) =>
+  (input: ActionInput): Action => {
+    const open = openOutboxOf(input.read);
+    return open ? link('Answer the outbox', open.href) : otherwise(input);
+  };
+
+function retroAction({ read }: ActionInput): Action {
+  const retro = read ? read.retro : UNREAD;
+  return known(retro) && retro ? link('Read the retro', retro.url) : none;
+}
+
+const ACTIONS: Readonly<Record<CurrentStage['id'], (input: ActionInput) => Action>> = {
+  idea: () => caption('Brainstorm in progress'),
+  brainstorming: () => none,
+  syncing: () => none,
+  prd: specAction,
+  inbox: buildAction,
+  building: outboxFirst(buildingCaption),
+  outbox: outboxFirst(reviewAction),
+  shipped: () => caption('Shipped · the retro is written next'),
+  retro: retroAction,
+};
+
 /** The one button and the caption of a stage, by PRD 426's rules, from what the GitHub summary holds. */
-export function actionOf(id: CurrentStage['id'], prd: number | null, summary: GithubSummary | null | undefined, slices: number | null = null): Action {
-  const read = summary ?? null;
-  switch (id) {
-    case 'idea':
-      return { action: null, caption: 'Brainstorm in progress' };
-    case 'brainstorming':
-    case 'syncing':
-      return none;
-    case 'prd': {
-      const phase0 = read ? read.phase0 : UNREAD;
-      if (!known(phase0)) return none;
-      if (phase0 === null) return { action: null, caption: 'Spec being written' };
-      return phase0.state === 'merged' ? none : { action: { kind: 'link', label: 'Approve spec', href: phase0.url }, caption: null };
-    }
-    case 'inbox':
-      return prd === null ? none : { action: { kind: 'copy', label: 'Build it', command: `/omni:yolo ${prd}` }, caption: null };
-    case 'building':
-    case 'outbox': {
-      const open = openOutboxOf(read);
-      if (open) return { action: { kind: 'link', label: 'Answer the outbox', href: open.href }, caption: null };
-      if (id === 'outbox') {
-        const feature = read ? read.feature : UNREAD;
-        return known(feature) && feature ? { action: { kind: 'link', label: 'Review & merge', href: feature.url }, caption: null } : none;
-      }
-      const merged = read ? read.mergedSlices : UNREAD;
-      if (!known(merged) || merged === 0) return { action: null, caption: 'Being built' };
-      const built = slices === null ? `${merged} slice${merged === 1 ? '' : 's'} merged` : `${merged}/${slices} slices`;
-      return { action: null, caption: `Being built · ${built}` };
-    }
-    case 'shipped':
-      return { action: null, caption: 'Shipped · the retro is written next' };
-    case 'retro': {
-      const retro = read ? read.retro : UNREAD;
-      return known(retro) && retro ? { action: { kind: 'link', label: 'Read the retro', href: retro.url }, caption: null } : none;
-    }
-  }
+function actionOf(id: CurrentStage['id'], prd: number | null, summary: GithubSummary | null | undefined, slices: number | null = null): Action {
+  return ACTIONS[id]({ prd, read: summary ?? null, slices });
 }
 
 /** One entry of the links line: `issue #426`, `phase-0 #431`…, done (✓) once merged or closed. */
@@ -143,7 +165,7 @@ export type StageViewInput = {
 };
 
 export function stageView({ prd, answered = false, rows, github = null, slices = null }: StageViewInput): StageView {
-  const stage = storedStage({ prd, answered, rows, openOutbox: openOutboxOf(github) });
+  const stage = storedStageOf({ prd, answered, rows, openOutbox: openOutboxOf(github) });
   return {
     ...stage,
     ...actionOf(stage.id, prd, github, slices),

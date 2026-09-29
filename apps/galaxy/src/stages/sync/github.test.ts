@@ -15,32 +15,56 @@ const pull = (number: number, head: string, more: Record<string, unknown> = {}) 
   number, state: 'open', draft: false, merged_at: null, created_at: '2026-09-20T00:00:00Z', head: { ref: head }, base: { ref: 'trunk' }, ...more,
 });
 
-function fakeGithub(repo: { config?: string | null; inbox?: string[]; shipped?: string[]; issues?: unknown[]; pulls?: unknown[]; events?: Record<number, unknown[]>; fail?: RegExp }) {
+type FakeRepo = { config?: string | null; inbox?: string[]; shipped?: string[]; issues?: unknown[]; pulls?: unknown[]; events?: Record<number, unknown[]>; fail?: RegExp };
+/** One route of the fake GitHub: its answer, or null when the URL is not its own. */
+type Route = (url: URL, repo: FakeRepo, init: RequestInit) => Response | null;
+
+const firstPage = (url: URL, items: unknown[] = []) => (url.searchParams.get('page') === '1' ? items : []);
+
+const tokenRoute: Route = (url, _repo, init) =>
+  (url.pathname === '/app/installations/11/access_tokens' && init.method === 'POST'
+    ? json({ token: 'ghs_1', expires_at: new Date(NOW + 3_600_000).toISOString() }, 201)
+    : null);
+
+const configRoute: Route = (url, repo) => {
+  if (url.pathname !== '/repos/acme/widgets/contents/.omni-loop/config.yml') return null;
+  return repo.config === null ? json({}, 404) : new Response(repo.config ?? CONFIG);
+};
+
+const folderRoute: Route = (url, repo) => {
+  const dir = /^\/repos\/acme\/widgets\/contents\/loop\/delivery\/(inbox|shipped)$/.exec(url.pathname)?.[1] as 'inbox' | 'shipped' | undefined;
+  if (!dir) return null;
+  expect(url.searchParams.get('ref')).toBe('trunk');
+  const names = repo[dir];
+  return names ? json([...names.map((name) => ({ name, type: 'dir' })), { name: '.gitkeep', type: 'file' }]) : json({}, 404);
+};
+
+const issuesRoute: Route = (url, repo) => {
+  if (url.pathname !== '/repos/acme/widgets/issues') return null;
+  expect(url.searchParams.get('labels')).toBe('product');
+  return json(firstPage(url, repo.issues));
+};
+
+const pullsRoute: Route = (url, repo) => (url.pathname === '/repos/acme/widgets/pulls' ? json(firstPage(url, repo.pulls)) : null);
+
+const eventsRoute: Route = (url, repo) => {
+  const events = /^\/repos\/acme\/widgets\/issues\/(\d+)\/events$/.exec(url.pathname)?.[1];
+  return events ? json(repo.events?.[Number(events)] ?? []) : null;
+};
+
+const ROUTES: readonly Route[] = [tokenRoute, configRoute, folderRoute, issuesRoute, pullsRoute, eventsRoute];
+
+function fakeGithub(repo: FakeRepo) {
   const calls: string[] = [];
   const fetchImpl = vi.fn(async (href: string, init: RequestInit) => {
     const url = new URL(href);
     const at = `${url.pathname}${url.search}`;
     calls.push(at);
     if (repo.fail?.test(at)) return json({ message: 'boom' }, 502);
-    if (url.pathname === '/app/installations/11/access_tokens' && init.method === 'POST') {
-      return json({ token: 'ghs_1', expires_at: new Date(NOW + 3_600_000).toISOString() }, 201);
+    for (const route of ROUTES) {
+      const answer = route(url, repo, init);
+      if (answer) return answer;
     }
-    if (url.pathname === '/repos/acme/widgets/contents/.omni-loop/config.yml') {
-      return repo.config === null ? json({}, 404) : new Response(repo.config ?? CONFIG);
-    }
-    const dir = /^\/repos\/acme\/widgets\/contents\/loop\/delivery\/(inbox|shipped)$/.exec(url.pathname)?.[1] as 'inbox' | 'shipped' | undefined;
-    if (dir) {
-      expect(url.searchParams.get('ref')).toBe('trunk');
-      const names = repo[dir];
-      return names ? json([...names.map((name) => ({ name, type: 'dir' })), { name: '.gitkeep', type: 'file' }]) : json({}, 404);
-    }
-    if (url.pathname === '/repos/acme/widgets/issues') {
-      expect(url.searchParams.get('labels')).toBe('product');
-      return json(url.searchParams.get('page') === '1' ? repo.issues ?? [] : []);
-    }
-    if (url.pathname === '/repos/acme/widgets/pulls') return json(url.searchParams.get('page') === '1' ? repo.pulls ?? [] : []);
-    const events = /^\/repos\/acme\/widgets\/issues\/(\d+)\/events$/.exec(url.pathname)?.[1];
-    if (events) return json(repo.events?.[Number(events)] ?? []);
     throw new Error(`unexpected GitHub call ${href}`);
   });
   return { fetchImpl, calls };

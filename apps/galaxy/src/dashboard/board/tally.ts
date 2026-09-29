@@ -96,7 +96,7 @@ export const MERGED = 'pr-merged';
 
 /** The PRD events of the per-day chart, and the kind of `contributions` row that marks each. */
 export type PrdEvent = 'opened' | 'started' | 'shipped';
-export const EVENT_OF: Readonly<Record<string, PrdEvent>> = {
+const EVENT_OF: Readonly<Record<string, PrdEvent>> = {
   'prd-opened': 'opened',
   'prd-started': 'started',
   'prd-shipped': 'shipped',
@@ -188,7 +188,7 @@ export function stageTally(prds: readonly PrdNow[]): StageTally {
 /** The People table's three groups of a person's PRDs now. */
 export type PrdGroup = 'open' | 'building' | 'shipped';
 export const GROUPS: readonly PrdGroup[] = ['open', 'building', 'shipped'];
-export const GROUP_OF: Readonly<Record<StageId, PrdGroup>> = {
+const GROUP_OF: Readonly<Record<StageId, PrdGroup>> = {
   idea: 'open', prd: 'open', inbox: 'open', building: 'building', outbox: 'building', shipped: 'shipped', retro: 'shipped',
 };
 export type PrdGroups = Record<PrdGroup, number>;
@@ -269,6 +269,20 @@ export interface PeopleInput {
 
 const rank = (n: PersonRow['prs'] | PersonRow['points']) => (typeof n === 'number' ? n : -1);
 
+const nameOf = (m: Member) => m.name?.trim() || m.login || 'A member';
+
+const fleetOf = (m: Member, fleets: ReadonlyMap<string, FleetTag>): PersonRow['fleet'] =>
+  !m.fleet ? SOLO : fleets.get(m.fleet) ?? { name: m.fleet, label: m.fleet.toUpperCase(), color: null };
+
+/** The member's PRDs now, grouped: the ones they opened, by login or by account. */
+function prdsOfMember(prds: PeopleInput['prds'], login: string | null, userId: string): PersonRow['prds'] {
+  if (prds === UNREADABLE) return UNREADABLE;
+  return groupsOf(prds.filter((p) => (login !== null && p.login?.toLowerCase() === login) || p.userId === userId));
+}
+
+const answeredOf = (answered: PeopleInput['answered'], userId: string): PersonRow['answered'] =>
+  answered === UNREADABLE ? UNREADABLE : answered.get(userId) ?? 0;
+
 export function peopleRows(members: readonly Member[], input: PeopleInput, viewerId: string | null): PersonRow[] {
   const byLogin = new Map<string, DayActivity[]>();
   if (input.activity !== UNREADABLE) {
@@ -288,15 +302,14 @@ export function peopleRows(members: readonly Member[], input: PeopleInput, viewe
       (!login ? null : unreadable ? UNREADABLE : value());
     return {
       userId: m.userId,
-      name: m.name?.trim() || m.login || 'A member',
+      name: nameOf(m),
       login,
       avatarUrl: m.avatarUrl,
-      fleet: !m.fleet ? SOLO : fleets.get(m.fleet) ?? { name: m.fleet, label: m.fleet.toUpperCase(), color: null },
+      fleet: fleetOf(m, fleets),
       points: byGithub(input.heroes === UNREADABLE, () => points.get(login!) ?? 0),
       prs: byGithub(input.activity === UNREADABLE, () => mine.filter((r) => r.kind === MERGED).length),
-      prds: input.prds === UNREADABLE ? UNREADABLE : groupsOf(input.prds.filter((p) =>
-        (login !== null && p.login?.toLowerCase() === login) || p.userId === m.userId)),
-      answered: input.answered === UNREADABLE ? UNREADABLE : input.answered.get(m.userId) ?? 0,
+      prds: prdsOfMember(input.prds, login, m.userId),
+      answered: answeredOf(input.answered, m.userId),
       you: m.userId === viewerId,
     };
   });

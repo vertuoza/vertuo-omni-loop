@@ -17,7 +17,7 @@ import type { StageStore } from '../store';
 export const STAGE_SIGNATURE_HEADER = 'x-omni-signature-256';
 
 /** The stages a pull request event can show: every stored stage but PRD, which only the sync sees. */
-export const EVENT_STAGES: readonly StoredStage[] = ['inbox', 'building', 'outbox', 'shipped', 'retro'];
+const EVENT_STAGES: readonly StoredStage[] = ['inbox', 'building', 'outbox', 'shipped', 'retro'];
 
 export type StageEvent = { repository: string; topic: string; prd: number | null; stage: StoredStage; at: string };
 

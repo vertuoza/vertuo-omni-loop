@@ -7,16 +7,16 @@
 // until a minute before it expires, and never leaves this module.
 import { z } from 'zod';
 import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
-import { githubApp, REPO, type AppCredentials, type InstallationToken } from '../../signup/github-app';
+import { githubApp, REPO, type AppCredentials } from '../../signup/github-app';
+import { keptInstallationTokens } from '../../signup/installation-tokens';
 import { syncConfig, type RepoSnapshot, type SnapshotPull } from './core';
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
 const GITHUB = 'https://api.github.com';
 const CONFIG_PATH = '.omni-loop/config.yml';
-const TOKEN_MARGIN_MS = 60_000;
 /** The most pages of a hundred pull requests or issues read per repository, newest first. */
-export const MAX_PAGES = 20;
+const MAX_PAGES = 20;
 
 const Entries = z.array(z.object({ name: z.string(), type: z.string() }));
 const Issues = z.array(z.object({
@@ -44,15 +44,7 @@ export type StagesReader = {
 
 export function stagesReader(creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now): StagesReader {
   const app = githubApp(creds, fetchImpl, clock);
-  const tokens = new Map<number, InstallationToken>();
-
-  async function tokenFor(id: number): Promise<string> {
-    const kept = tokens.get(id);
-    if (kept && clock() < kept.expiresAt - TOKEN_MARGIN_MS) return kept.token;
-    const token = await app.installationToken(id);
-    tokens.set(id, token);
-    return token.token;
-  }
+  const tokenFor = keptInstallationTokens((id) => app.installationToken(id), clock);
 
   return {
     async snapshot(installation, repository) {

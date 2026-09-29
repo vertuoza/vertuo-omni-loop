@@ -18,10 +18,10 @@ import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
 export const STAGE_SIGNATURE_HEADER = 'x-omni-signature-256';
 
 /** Galaxy's production host, when `GALAXY_URL` is not set. */
-export const DEFAULT_GALAXY_URL = 'https://vertuo-omni-loop-galaxy.vercel.app';
+const DEFAULT_GALAXY_URL = 'https://vertuo-omni-loop-galaxy.vercel.app';
 
 /** The kit's default branch shapes and link lines. */
-export const DEFAULT_SHAPES = (() => {
+const DEFAULT_SHAPES = (() => {
   const { branches, prLinks } = parseConfig('kit: 1');
   return Object.freeze({ branches, prLinks });
 })();
@@ -41,43 +41,56 @@ export const DEFAULT_SHAPES = (() => {
  * @returns {StageEvent | null}
  */
 export function toStageEvent(event, payload, shapes = DEFAULT_SHAPES) {
-  if (event !== 'pull_request') return null;
+  const pull = event === 'pull_request' ? pullOf(payload) : null;
+  const recognise = pull ? RECOGNISERS.get(payload.action) : undefined;
+  const seen = recognise ? recognise(pull, shapes.branches) : null;
+  if (!seen?.topic || !seen.at) return null;
+  return { repository: pull.repository, topic: seen.topic, prd: prdOf(pull.pr.body, shapes.prLinks), stage: seen.stage, at: seen.at };
+}
+
+/** The parts of a pull request event the stages read; null when one is missing. */
+function pullOf(payload) {
   const pr = payload?.pull_request;
   const repository = payload?.repository?.full_name;
   const head = pr?.head?.ref;
   const base = pr?.base?.ref;
-  if (!pr || !repository || typeof head !== 'string' || typeof base !== 'string') return null;
-
-  const { branches } = shapes;
-  const defaultBranch = payload.repository.default_branch ?? 'main';
-  const found = (stage, topic, at) => (topic && at ? { repository, topic, prd: prdOf(pr.body, shapes.prLinks), stage, at } : null);
-
-  switch (payload.action) {
-    case 'closed': {
-      if (pr.merged !== true) return null;
-      const phase0 = match(branches.phase0, head);
-      if (phase0) return found('inbox', phase0.topic, pr.merged_at);
-      const slice = match(branches.slice, head);
-      if (slice && base === fill(branches.feature, slice.topic)) return found('building', slice.topic, pr.merged_at);
-      if (slice) return null;
-      const feature = match(branches.feature, head);
-      if (feature && base === defaultBranch) return found('shipped', feature.topic, pr.merged_at);
-      return null;
-    }
-    case 'ready_for_review': {
-      if (match(branches.slice, head)) return null;
-      const feature = match(branches.feature, head);
-      if (feature && base === defaultBranch) return found('outbox', feature.topic, pr.updated_at ?? new Date().toISOString());
-      return null;
-    }
-    case 'opened': {
-      const retro = match(branches.retro, head);
-      return retro ? found('retro', retro.topic, pr.created_at ?? new Date().toISOString()) : null;
-    }
-    default:
-      return null;
-  }
+  if (!repository || typeof head !== 'string' || typeof base !== 'string') return null;
+  return { pr, repository, head, base, defaultBranch: payload.repository.default_branch ?? 'main' };
 }
+
+const seenAt = (stage, topic, at) => ({ stage, topic, at });
+const now = () => new Date().toISOString();
+
+/** A merged PR: a phase-0 PR (inbox), a slice PR into its feature branch (building) or the feature PR (shipped). */
+function mergedStage({ pr, head, base, defaultBranch }, branches) {
+  if (pr.merged !== true) return null;
+  const phase0 = match(branches.phase0, head);
+  if (phase0) return seenAt('inbox', phase0.topic, pr.merged_at);
+  const slice = match(branches.slice, head);
+  if (slice) return base === fill(branches.feature, slice.topic) ? seenAt('building', slice.topic, pr.merged_at) : null;
+  const feature = match(branches.feature, head);
+  return feature && base === defaultBranch ? seenAt('shipped', feature.topic, pr.merged_at) : null;
+}
+
+/** The feature PR marked ready (outbox); a slice PR marked ready is none. */
+function readyStage({ pr, head, base, defaultBranch }, branches) {
+  if (match(branches.slice, head)) return null;
+  const feature = match(branches.feature, head);
+  return feature && base === defaultBranch ? seenAt('outbox', feature.topic, pr.updated_at ?? now()) : null;
+}
+
+/** An opened retro PR (retro). */
+function openedStage({ pr, head }, branches) {
+  const retro = match(branches.retro, head);
+  return retro ? seenAt('retro', retro.topic, pr.created_at ?? now()) : null;
+}
+
+/** The pull request actions that can show a stage, each to its reading. */
+const RECOGNISERS = new Map([
+  ['closed', mergedStage],
+  ['ready_for_review', readyStage],
+  ['opened', openedStage],
+]);
 
 /** `sha256=<hex>`: the HMAC-SHA256 of the exact body under the shared secret. */
 export function signStageEvent(secret, body) {
