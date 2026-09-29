@@ -11,7 +11,7 @@ spec: file
 column), `apps/galaxy/src/dossier/` (the stage, the header, the history), `apps/galaxy/app/api/`
 (one new route), `apps/galaxy/app/prd/` (the list), the dashboard tile of PRD 572,
 `apps/omni-app/src/webhook/` (forwarding PR events), and the stage words in the kit
-(`kit/lib/status/`, `kit/plugin/skills/brainstorm/SKILL.md`).
+(`kit/lib/status/`, `kit/lib/help/`, the brainstorm and yolo `SKILL.md`).
 
 ## Problem
 
@@ -78,7 +78,7 @@ scope (you, a fleet, the workspace). Clicking a count opens /prd filtered to tha
 
 **The kit.** The seven words are the same everywhere. `omni status` gains *building* between inbox
 and outbox (a PRD whose feature branch has a merged sub-PR and whose feature PR is still a draft),
-and `/omni:brainstorm`'s *Where it is* block lists seven stages.
+and the *Where it is* blocks of `/omni:brainstorm`, `/omni:yolo` and `omni help` list seven stages.
 
 ## Decisions
 
@@ -168,7 +168,7 @@ with no dossier (they have no page to show a stage on).
    shows its stage pill.
 9. The dashboard shows a *PRDs by stage* tile for the board's scope, and each count opens /prd
    filtered.
-10. `omni status` and `/omni:brainstorm`'s hand-off use the seven words, with building between inbox
+10. `omni status`, `omni help` and the hand-offs of `/omni:brainstorm` and `/omni:yolo` use the seven words, with building between inbox
     and outbox.
 11. A stage event with a bad signature is refused (401) and writes nothing. A repeated event keeps
     the first date.
