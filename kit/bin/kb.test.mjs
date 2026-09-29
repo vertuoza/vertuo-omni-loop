@@ -5,6 +5,8 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ConfigSchema } from '../lib/config.mjs';
+import { loadContext } from '../lib/context.mjs';
+import { readKnowledge } from '../lib/knowledge/registers.mjs';
 import { FORM_IDS, FORMS, parseForm } from '../lib/playbook/forms.mjs';
 import { fillConfig } from '../lib/playbook/resolve.mjs';
 import { formTemplate } from '../lib/playbook/templates.mjs';
@@ -661,5 +663,132 @@ describe('omni check kb — acceptance criterion 5: check all runs it', () => {
     const red = await omni(root, ['check', 'all']);
     expect(red.code).toBe(1);
     expect(red.out).toContain(`  ${TESTING}: "## Never" See: gone.md does not exist`);
+  });
+});
+
+describe('imported knowledge in a plan repository (PRD 522, s2)', () => {
+  const K = '.omni-loop/knowledge';
+  const COPY = `${K}/repos/vertuo-backend-php`;
+  const READ_AT = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
+  const PLAN_CONFIG = {
+    '.omni-loop/config.yml': [
+      CONFIG_TEXT.trimEnd(),
+      'plan:',
+      '  guide: null',
+      '  targets:',
+      '    - repo: acme/vertuo-backend-php',
+      '      role: back-end',
+      '      knowledge: imported',
+      `      readAt: ${READ_AT}`,
+      '    - repo: acme/vertuo-apps',
+      '      role: front-end',
+      '      knowledge: own',
+      '',
+    ].join('\n'),
+  };
+  const principle = (id) => `## ${id}\n\nA decision.\n\nWhy: x\nDecided: y\nSource: PRD #1\n\n`;
+  const rule = (id, serves, { source = 'src/Quote/QuoteRule.php', enforcedBy = 'tests/QuoteRuleTest.php', stated = 'Stated: 2026-09-29\n' } = {}) =>
+    `## ${id}\n\nA rule.\n\nServes: ${serves}\nSource: ${source}\nEnforced by: ${enforcedBy}\n${stated}\n`;
+  const OWN = {
+    [`${K}/product/principles.md`]: `# Principles\n\n${principle('P-PRODUCT-1')}`,
+    [`${K}/product/rules.md`]: `# Rules\n\n${rule('BR-PRODUCT-1', 'P-PRODUCT-1', { source: 'PRD #1', enforcedBy: 'unenforced' })}`,
+    [`${K}/product/invariants.md`]: '# Invariants\n',
+  };
+  // The copy's evidence, its See: line and its registers' paths all name files of the target, none
+  // of which exists on the plan repository's disk.
+  const COPY_FILES = {
+    [`${COPY}/README.md`]: `# acme/vertuo-backend-php — imported\n\nRead at ${READ_AT}. A draft.\n`,
+    [`${COPY}/playbook/testing.md`]: testingForm({
+      frontMatter: { evidence: ['composer.json@abcdef1', 'phpunit.xml@1234567'] },
+      slots: { never: { body: 'See: docs/testing.md' } },
+    }),
+    [`${COPY}/product/principles.md`]: `# Principles\n\n${principle('P-PRODUCT-1')}${principle('P-PRODUCT-2')}`,
+    [`${COPY}/product/rules.md`]: `# Rules\n\n${rule('BR-PRODUCT-1', 'P-PRODUCT-2')}`,
+    [`${COPY}/product/invariants.md`]: '# Invariants\n',
+  };
+  const FILES = { ...PLAN_CONFIG, ...OWN, ...COPY_FILES };
+
+  it('omni check kb passes on a well-formed copy, looking none of its target paths up on disk', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const { code, out, err } = await omni(root, ['check', 'kb']);
+    expect(out).not.toMatch(/does not exist/);
+    expect(code).toBe(0);
+    expect(out).toMatch(/^check kb — 13 form\(s\): 13 missing; \d+ warning\(s\); 1 imported copy checked\.$/m);
+    expect(err).toContain(`warning: ${COPY}: ${COPY}/playbook/briefing.md: missing — the kit defaults apply; \`omni kb init\` writes it`);
+    expect(err).not.toMatch(/evidence composer\.json/);
+  });
+
+  it.each([
+    [
+      'a form',
+      { [`${COPY}/playbook/testing.md`]: testingForm({ frontMatter: { form: 'ci' } }) },
+      `${COPY}: ${COPY}/playbook/testing.md: front matter says form: ci, but this is the testing form's file`,
+    ],
+    [
+      'a register entry',
+      { [`${COPY}/product/rules.md`]: `# Rules\n\n${rule('BR-PRODUCT-1', 'P-PRODUCT-2', { stated: '' })}` },
+      `${COPY}: ${COPY}/product/rules.md: BR-PRODUCT-1 — is missing a "Stated: YYYY-MM-DD" line.`,
+    ],
+    [
+      'a register layout',
+      { [`${COPY}/product/invariants.md`]: null },
+      `${COPY}: ${COPY}/product/invariants.md: product — is missing.`,
+    ],
+  ])('omni check kb fails on a malformed copy (%s) with the own-knowledge message, prefixed by the copy', async (_, change, line) => {
+    const files = { ...FILES, ...change };
+    for (const [path, text] of Object.entries(files)) if (text === null) delete files[path];
+    const { root } = makeRepo({ git: true, files });
+    const { code, out } = await omni(root, ['check', 'kb']);
+    expect(code).toBe(1);
+    expect(violations(out)).toEqual([line]);
+  });
+
+  it('omni check kb fails when an imported target has no copy', async () => {
+    const files = Object.fromEntries(Object.entries(FILES).filter(([path]) => !path.startsWith(COPY)));
+    const { root } = makeRepo({ git: true, files });
+    const { code, out } = await omni(root, ['check', 'kb']);
+    expect(code).toBe(1);
+    expect(violations(out)).toEqual([`${COPY}: missing — plan.targets lists acme/vertuo-backend-php as imported, so its copy lives here`]);
+  });
+
+  it('the plan repository’s own registers never read a copy, even for an id both hold', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const { entries } = readKnowledge({ ctx: loadContext(root) });
+    expect(entries.filter((entry) => entry.file.startsWith(`${K}/repos/`))).toEqual([]);
+    expect(entries.map(({ id, file }) => `${id} ${file}`)).toEqual([`P-PRODUCT-1 ${K}/product/principles.md`, `BR-PRODUCT-1 ${K}/product/rules.md`]);
+    const knowledge = await omni(root, ['check', 'knowledge']);
+    expect(knowledge.out).toMatch(/1 principle\(s\), 1 rule\(s\)/);
+    expect(knowledge.code).toBe(0);
+    expect((await omni(root, ['knowledge', 'P-PRODUCT-2'])).code).not.toBe(0);
+  });
+
+  it('omni kb status --json lists each imported target’s forms and registers under targets', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const { code, out } = await omni(root, ['kb', 'status', '--json']);
+    expect(code).toBe(0);
+    const status = JSON.parse(out);
+    expect(Object.keys(status)).toEqual(['frontDoor', 'forms', 'registers', 'targets']);
+    expect(status.registers).toEqual([{ folder: `${K}/product`, laws: 2, proposals: 0 }]);
+    expect(status.targets).toHaveLength(1);
+    const [copy] = status.targets;
+    expect(Object.keys(copy)).toEqual(['repo', 'folder', 'forms', 'registers']);
+    expect(copy.repo).toBe('acme/vertuo-backend-php');
+    expect(copy.folder).toBe(COPY);
+    expect(copy.registers).toEqual([{ folder: `${COPY}/product`, laws: 3, proposals: 0 }]);
+    expect(copy.forms.map(({ form }) => form)).toEqual(status.forms.map(({ form }) => form));
+    expect(copy.forms.find(({ form }) => form === 'testing')).toMatchObject({ file: `${COPY}/playbook/testing.md`, state: 'filled', stale: [] });
+    expect(copy.forms.find(({ form }) => form === 'decisions')).toMatchObject({ file: `${COPY}/adr/README.md`, state: 'missing' });
+  });
+
+  it('omni kb status prints a line per imported copy, and --json says targets: [] without a plan section', async () => {
+    const { root } = makeRepo({ git: true, files: FILES });
+    const lines = (await omni(root, ['kb', 'status'])).out.split('\n').map((line) => line.trim().replace(/\s+/g, ' '));
+    expect(lines.slice(lines.indexOf('Imported copies: 1'), lines.indexOf('Imported copies: 1') + 2)).toEqual([
+      'Imported copies: 1',
+      `acme/vertuo-backend-php ${COPY} · 1 filled · 12 missing · 1 register folder(s)`,
+    ]);
+    const { root: plain } = makeRepo({ git: true, files: CONFIG });
+    expect(JSON.parse((await omni(plain, ['kb', 'status', '--json'])).out).targets).toEqual([]);
+    expect((await omni(plain, ['kb', 'status'])).out).not.toMatch(/Imported copies/);
   });
 });
