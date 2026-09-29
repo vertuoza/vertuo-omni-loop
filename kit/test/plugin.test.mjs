@@ -102,6 +102,21 @@ function skillSection(text, start) {
   return lines.slice(from, to < 0 ? undefined : to).join('\n');
 }
 
+/** The last non-blank line of a section's last fenced block, or null when it has none. */
+function lastFencedLine(section) {
+  let open = false;
+  let block = [];
+  let last = null;
+  for (const line of section.split('\n')) {
+    if (line.trim().startsWith('```')) {
+      if (open) last = block.filter((text) => text.trim() !== '').at(-1)?.trim() ?? null;
+      open = !open;
+      block = [];
+    } else if (open) block.push(line);
+  }
+  return last;
+}
+
 // OmniMan signs the loop's work (PRD #99). A skill that asks for the session's co-author trailer
 // asks for the signature's trailer too, and one that opens a pull request or an issue, or rewrites
 // its body, asks for the footer. A comment is never signed, so commenting alone asks for nothing.
@@ -622,21 +637,6 @@ describe('the hand-off that ends the brainstorm and the plan', () => {
   const PLAN = ['**What is next?**', 'Review the plan', '/clear'];
   const HANDOFF = 'Next command: `/omni:yolo <n>`, once the phase-0 PR is merged';
 
-  /** The last non-blank line of a section's last fenced block, or null when it has none. */
-  const lastFencedLine = (section) => {
-    let open = false;
-    let block = [];
-    let last = null;
-    for (const line of section.split('\n')) {
-      if (line.trim().startsWith('```')) {
-        if (open) last = block.filter((text) => text.trim() !== '').at(-1)?.trim() ?? null;
-        open = !open;
-        block = [];
-      } else if (open) block.push(line);
-    }
-    return last;
-  };
-
   /** Each phrase the section lacks after the one before it, and a last fenced line that is not the command. */
   const handOffViolations = (section, phrases) => {
     const out = [];
@@ -886,5 +886,107 @@ describe('the ultra skills in this repository', () => {
     expect(skillSection(text, '4.')).toContain('`repo`');
     expect(skillSection(text, '5.')).toContain('/omni:do-work --in-wave --target <repo>');
     expect(skillSection(text, '8.')).toContain('/omni:ultra-yolo-fix <n>');
+  });
+});
+
+// PRD 686: `/omni:think-big` explores a vast idea with a studio of agents before `/omni:brainstorm`.
+// Its step 0 follows `/omni:dossier-open` after the briefing, as the brainstorm's does; its gate gives
+// a tweak the `/omni:visual-fix` line and offers a feature the `/omni:brainstorm` line or a lite run;
+// its record is proven by `omni concept` and opened through `/omni:pr`; it never merges; and its
+// hand-off ends on the wedge's `/omni:brainstorm --concept` line.
+describe('the think-big skill in this repository', () => {
+  const read = () => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills/think-big/SKILL.md'), 'utf8');
+  const STEPS = [
+    '## Step 0', '## 1. Gate', '## 2. Fuel', '## 3. Round 1, go wide', '## 4. Rounds 2 and on, deepen',
+    '## 5. Crown', '## 6. Record', '## 7. Hand off',
+  ];
+  /** Each mention `text` lacks after the one before it, as `<mention> after <previous>`. */
+  const orderGaps = (text, mentions) => {
+    const out = [];
+    let from = 0;
+    mentions.forEach((mention, index) => {
+      const at = text.indexOf(mention, from);
+      if (at < 0) out.push(`${mention} after ${mentions[index - 1] ?? 'the start'}`);
+      else from = at + mention.length;
+    });
+    return out;
+  };
+
+  it('is named think-big, and its description says what triggers it', () => {
+    const { name, description } = frontmatter(read()) ?? {};
+    expect(name).toBe('think-big');
+    expect(description).toMatch(/\bTriggers on\b.*"\/omni:think-big"/);
+  });
+
+  it("carries the spec's steps 0 to 7, in order", () => {
+    expect(orderGaps(read(), STEPS)).toEqual([]);
+  });
+
+  it('follows /omni:dossier-open after the briefing, in step 0, and says the run is token-heavy', () => {
+    const step = skillSection(read(), 'Step 0');
+    expect(orderGaps(step, ['omni.mjs config', 'kb show briefing', '/omni:dossier-open', 'token-heavy'])).toEqual([]);
+  });
+
+  it('its gate gives a tweak the /omni:visual-fix line, and offers a feature the /omni:brainstorm line or a lite run', () => {
+    const gate = skillSection(read(), '1.');
+    for (const phrase of ["`/omni:visual-fix '<line>'`", "`/omni:brainstorm '<line>'`", '**lite** run', '*Vast*', '*Feature*', '*Tweak*']) {
+      expect(gate, phrase).toContain(phrase);
+    }
+    for (const kind of ['product', 'identity', 'platform']) expect(gate, kind).toContain(`*${kind}*`);
+    expect(gate).toMatch(/In doubt between feature and vast, take vast/);
+  });
+
+  it('holds the studio: its role cards, one debate, the "go crazy" dial and the verdict rubric', () => {
+    const studio = skillSection(read(), 'The studio');
+    for (const role of ['Concept artist', 'Prototyper', 'Visionary', 'Craft', 'Skeptic', 'Value', 'User', 'Moderator']) {
+      expect(studio, role).toContain(`**${role}**`);
+    }
+    expect(orderGaps(studio, ['**Open.**', '**Cross-talk.**', '**Converge.**'])).toEqual([]);
+    expect(studio).toMatch(/answers the others by name/);
+    expect(studio).toContain('"go crazy" dial');
+    for (const score of ['*Wow*', '*User value*', '*Craft*', '*Fit*', '*Feasibility*']) expect(studio, score).toContain(score);
+    expect(studio).toMatch(/Dissent is kept, never averaged away/);
+    expect(studio).toMatch(/spawns? no (?:agent|subagent)/i);
+  });
+
+  it('draws a board per round, with its toggles and reactions line, and asks one question per round', () => {
+    const boards = skillSection(read(), 'Boards');
+    for (const phrase of ['board-r<k>.html', '**keep**', '**kill**', '**merge**', '**push further**', '**copy my reactions**', '**one question**']) {
+      expect(boards, phrase).toContain(phrase);
+    }
+    expect(boards).toMatch(/never kills, merges or crowns a concept the person did not/);
+    expect(boards).toContain('limits.beforeAfterMaxBytes');
+  });
+
+  it('crowns only what the person crowned, with a vision tour and an area map, the wedge first', () => {
+    const crown = skillSection(read(), '5.');
+    for (const phrase of ['vision.html', 'area map', 'the wedge first', 'one reply']) expect(crown, phrase).toContain(phrase);
+    expect(crown).toMatch(/the studio never does/);
+  });
+
+  it('records the concept through omni config, proves it with omni concept, then opens its PR through /omni:pr', () => {
+    const record = skillSection(read(), '6.');
+    for (const key of ['labels.concept', 'branches.concept', '<paths.delivery>/inbox/concepts/<nnnn>-<slug>/']) expect(record, key).toContain(key);
+    for (const file of ['concept.md', 'vision.html', 'board-r<k>.html', 'debate.md', '<p data-omni-reactions>']) expect(record, file).toContain(file);
+    expect(orderGaps(record, [
+      'gh issue create --title "Concept: <title>"', 'git worktree add -b <concept branch>', 'docs(concept): <slug>',
+      'omni.mjs concept <n>', 'git push -u <remote> <concept branch>', '/omni:pr', 'docs(concept): <title>', 'Refs #<n>',
+      '## The concept', '## Areas', '## Verified', '## Risk and rollback', 'omni sign footer',
+    ])).toEqual([]);
+  });
+
+  it('never merges, and writes nothing in the repository or on GitHub before its record', () => {
+    const text = read();
+    const never = skillSection(text, 'Never');
+    expect(never).toContain('**Never merge.**');
+    expect(never).toMatch(/Never crown, kill or merge a concept for the person/);
+    expect(never).toMatch(/before step 6/);
+    expect(text).not.toMatch(/\bgh pr merge\b/);
+  });
+
+  it("ends its hand-off on the wedge's /omni:brainstorm --concept line, after /clear", () => {
+    const handOff = skillSection(read(), '7.');
+    expect(orderGaps(handOff, ['<folder>/', 'concept.md', 'vision.html', '**What is next?**', 'Merge that PR', '/clear'])).toEqual([]);
+    expect(lastFencedLine(handOff)).toBe('/omni:brainstorm --concept <n> <wedge id>');
   });
 });
