@@ -13,6 +13,11 @@
 //   the SHA-256 of its content, computed here and never taken from the caller, differs from the latest
 //   version of its kind; a version's number is its place among its kind's versions.
 //
+// Since PRD 627 a dossier has a kind (prd, visual or bug), keyed with the repository and the number: a push
+// names it (a PRD's when it does not), each kind takes only its own versions, a fix is never a draft, and
+// a round of variations is added unless one of the same content is there
+// (supabase/migrations/20261010090000_fix_dossiers.sql).
+//
 // The repository is kept in lower case, as the migration keeps it. The page's reads (PRD 216's page to
 // share) run on the same tables under the migration's access rules on reading and deleting, written
 // here as its policies write them, and name people through ask_members() (PRD 144). That the database holds those rules, and that nothing is ever
@@ -35,7 +40,8 @@
 // activity (its opening, numbering, versions and rounds asked or answered), newest first.
 import { createHash } from 'node:crypto';
 import {
-  ARTIFACT_MAX_BYTES, DOSSIER_KINDS, TITLE_MAX, type DossierKind, type DossierListRow, type DossierRoundRow, type LatestVersion, type RoundRule,
+  ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, KIND_ARTIFACTS, TITLE_MAX, WORK_KINDS, type ArtifactKind, type DossierListRow, type DossierRoundRow,
+  type LatestVersion, type RoundRule, type WorkKind,
 } from './store';
 
 type Row = Record<string, unknown>;
@@ -49,7 +55,7 @@ export type FakeAccount = { id: string; email: string; workspaces?: string[]; na
 export const FAKE_WORKSPACE = '00000000-0000-4000-8000-00000000a0a0';
 
 export type FakeDossier = {
-  id: string; workspace_id: string; home_repo: string; prd: number | null; title: string;
+  id: string; workspace_id: string; home_repo: string; prd: number | null; kind: WorkKind; title: string;
   opened_by: string | null; claude_session_id: string | null; created_at: string; numbered_at: string | null;
 };
 export type FakeVersion = {
@@ -107,7 +113,8 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     return mine.find((w) => (orgs[w] ?? '').toLowerCase() === owner && owner !== '') ?? mine[0] ?? null;
   }
 
-  /** dossier_add_version(): the version added, or null when the content equals the latest of its kind. */
+  /** dossier_add_version(): the version added, or null when the content equals the latest of its kind (for
+   * variations, any round of its kind: 20261010090000_fix_dossiers.sql). */
   function addVersion(
     dossier: FakeDossier, kind: string, content: string,
     { source, uploadedBy = null, commitSha = null }: { source: 'kit' | 'github'; uploadedBy?: string | null; commitSha?: string | null },
@@ -115,7 +122,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     const hash = sha256(content);
     const ofKind = tables.dossier_versions.filter((v) => v.dossier_id === dossier.id && v.kind === kind);
     const latest = [...ofKind].sort((a, b) => a.created_at.localeCompare(b.created_at)).at(-1);
-    if (latest?.sha256 === hash) return null;
+    if (kind === 'variations' ? ofKind.some((v) => v.sha256 === hash) : latest?.sha256 === hash) return null;
     tables.dossier_versions.push({
       id: newId(), dossier_id: dossier.id, kind, content, sha256: hash, bytes: Buffer.byteLength(content, 'utf8'),
       source, uploaded_by: uploadedBy, commit_sha: commitSha, git_blob: null, created_at: clock(),
@@ -136,7 +143,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     const place = workspaceFor(me, repo);
     if (!place) return refuse('42501', 'Join a workspace first: a dossier belongs to one.');
     const row: FakeDossier = {
-      id: newId(), workspace_id: place, home_repo: repo, prd: null, title, opened_by: me.id,
+      id: newId(), workspace_id: place, home_repo: repo, prd: null, kind: 'prd', title, opened_by: me.id,
       claude_session_id: session as string | null, created_at: stamp(), numbered_at: null,
     };
     tables.dossiers.push(row);
@@ -150,29 +157,33 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     const title = typeof args.p_title === 'string' ? args.p_title.trim() : '';
     const draftId = args.p_draft ?? null;
     const artifacts = args.p_artifacts;
+    const kind = (args.p_kind ?? 'prd') as WorkKind;
+    if (!WORK_KINDS.includes(kind)) return refuse('22023', 'A dossier\'s kind is prd, visual or bug.');
     if (!REPO.test(repo)) return refuse('22023', 'A dossier needs its repository as owner/name.');
     if (!Number.isInteger(prd) || (prd as number) <= 0) return refuse('22023', 'A PRD number is a positive whole number.');
     if (title.length < 1 || title.length > TITLE_MAX) return refuse('22023', 'A dossier needs a title of 1 to 200 characters.');
     if (!Array.isArray(artifacts)) return refuse('22023', 'The artifacts are a list.');
     const seen = new Set<string>();
     for (const item of artifacts as Row[]) {
-      if (!item || typeof item !== 'object' || !DOSSIER_KINDS.includes(item.kind as never) || typeof item.content !== 'string') {
-        return refuse('22023', 'Each artifact is {kind, content}, its kind one of spec, plan, before-after.');
+      if (!item || typeof item !== 'object' || !ARTIFACT_KINDS.includes(item.kind as never) || typeof item.content !== 'string') {
+        return refuse('22023', 'Each artifact is {kind, content}, its kind one of spec, plan, before-after, variations, bug-record.');
       }
-      if (seen.has(item.kind as string)) return refuse('22023', 'Each kind is sent once.');
+      if (item.kind !== 'variations' && seen.has(item.kind as string)) return refuse('22023', 'Each kind is sent once.');
+      if (!KIND_ARTIFACTS[kind].includes(item.kind as ArtifactKind)) return refuse('22023', `A ${kind} dossier takes no ${item.kind as string} version.`);
       seen.add(item.kind as string);
       if (Buffer.byteLength(item.content as string, 'utf8') > ARTIFACT_MAX_BYTES) return refuse('54000', 'An artifact holds 512 KiB at most.');
     }
 
     let dossier: FakeDossier;
     if (draftId !== null) {
+      if (kind !== 'prd') return refuse('22023', 'A fix has no draft: push it by its number alone.');
       const draft = tables.dossiers.find((d) => d.id === draftId && isMember(me, d.workspace_id));
       if (!draft) return refuse('P0002', 'No such draft dossier.');
       if (draft.home_repo !== repo) return refuse('22023', `This draft belongs to ${draft.home_repo}.`);
       if (draft.prd !== null && draft.prd !== prd) return refuse('22023', `This dossier is already PRD #${draft.prd}.`);
       dossier = draft;
       if (draft.prd === null) {
-        const keyed = tables.dossiers.find((d) => d.workspace_id === draft.workspace_id && d.home_repo === repo && d.prd === prd);
+        const keyed = tables.dossiers.find((d) => d.workspace_id === draft.workspace_id && d.home_repo === repo && d.kind === 'prd' && d.prd === prd);
         if (keyed) {
           for (const version of tables.dossier_versions) if (version.dossier_id === draft.id) version.dossier_id = keyed.id;
           keyed.claude_session_id = draft.claude_session_id ?? keyed.claude_session_id;
@@ -187,12 +198,12 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     } else {
       const place = workspaceFor(me, repo);
       if (!place) return refuse('42501', 'Join a workspace first: a dossier belongs to one.');
-      const keyed = tables.dossiers.find((d) => d.workspace_id === place && d.home_repo === repo && d.prd === prd);
+      const keyed = tables.dossiers.find((d) => d.workspace_id === place && d.home_repo === repo && d.kind === kind && d.prd === prd);
       if (keyed) {
         dossier = keyed;
       } else {
         dossier = {
-          id: newId(), workspace_id: place, home_repo: repo, prd: prd as number, title, opened_by: me.id,
+          id: newId(), workspace_id: place, home_repo: repo, prd: prd as number, kind, title, opened_by: me.id,
           claude_session_id: null, created_at: stamp(), numbered_at: stamp(),
         };
         tables.dossiers.push(dossier);
@@ -318,15 +329,15 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     return dossiers.map((d): DossierListRow => {
       const asked = rounds(me, d.id);
       const versions = tables.dossier_versions.filter((v) => v.dossier_id === d.id).sort((a, b) => a.created_at.localeCompare(b.created_at));
-      const latest: Partial<Record<DossierKind, LatestVersion>> = {};
-      for (const kind of DOSSIER_KINDS) {
+      const latest: Partial<Record<ArtifactKind, LatestVersion>> = {};
+      for (const kind of ARTIFACT_KINDS) {
         const ofKind = versions.filter((v) => v.kind === kind);
         const last = ofKind.at(-1);
         if (last) latest[kind] = { id: last.id, version: ofKind.length, source: last.source, created_at: last.created_at };
       }
       const org = orgs[d.workspace_id] ?? null;
       const plan = tables.plan_repos[d.workspace_id] ?? null;
-      const regions = org && plan && d.home_repo === `${org}/${plan}`.toLowerCase()
+      const regions = d.kind === 'prd' && org && plan && d.home_repo === `${org}/${plan}`.toLowerCase()
         ? tables.ledger_events
           .filter((e) => e.workspace_id === d.workspace_id && e.planet === d.prd && e.type === 'REGION_SURVEYED' && e.region !== null)
           .map((e) => `${org}/${e.region}`.toLowerCase())
@@ -374,11 +385,11 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
   }
 
   /** A dossier the fallback created (no opener, no Claude session), with versions read from GitHub. */
-  function seedFromGithub({ workspace = FAKE_WORKSPACE, repo, prd, title, versions = [] }: {
-    workspace?: string; repo: string; prd: number; title: string; versions?: Array<{ kind: string; content: string }>;
+  function seedFromGithub({ workspace = FAKE_WORKSPACE, repo, prd, kind = 'prd', title, versions = [] }: {
+    workspace?: string; repo: string; prd: number; kind?: WorkKind; title: string; versions?: Array<{ kind: string; content: string }>;
   }): FakeDossier {
     const dossier: FakeDossier = {
-      id: newId(), workspace_id: workspace, home_repo: repo.toLowerCase(), prd, title, opened_by: null,
+      id: newId(), workspace_id: workspace, home_repo: repo.toLowerCase(), prd, kind, title, opened_by: null,
       claude_session_id: null, created_at: stamp(), numbered_at: stamp(),
     };
     tables.dossiers.push(dossier);
