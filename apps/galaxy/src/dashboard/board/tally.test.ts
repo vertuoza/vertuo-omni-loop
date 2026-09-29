@@ -127,7 +127,7 @@ describe('peopleRows', () => {
     act('prd-opened', 'ada-gh', '2026-09-25T08:00:00Z', 'vertuo-omni-loop', 12),
     act('pr-merged', 'stranger', '2026-09-25T08:00:00Z', 'vertuo-core', 6),
   ], WEEK);
-  const FLEETS = [{ name: 'octo', label: 'OCTO', color: '#3355ff' }, { name: 'beaver', label: 'BEAVER', color: '#8a5a2b' }];
+  const FLEETS = [{ name: 'octo', label: 'OCTO', color: '#3355ff', mascot: null }, { name: 'beaver', label: 'BEAVER', color: '#8a5a2b', mascot: 'beaver' }];
   const HEROES = [{ name: 'Ada-GH', points: 120 }, { name: 'bob-gh', points: 300 }];
   const answered = new Map([['u-paul', 9], ['u-ada', 1]]);
   const PRDS: PrdNow[] = [
@@ -176,7 +176,7 @@ describe('peopleRows', () => {
 
   it('a fleet the galaxy does not know still shows, by its name in capitals', () => {
     const people = peopleRows([member('a', 'x-gh', 'ghost')], { activity: [], answered: new Map(), heroes: [], fleets: [], prds: [] }, null);
-    expect(people[0].fleet).toEqual({ name: 'ghost', label: 'GHOST', color: null });
+    expect(people[0].fleet).toEqual({ name: 'ghost', label: 'GHOST', color: null, mascot: null });
   });
 
   it('a column whose read failed reads unreadable for everyone, and the rest still count', () => {

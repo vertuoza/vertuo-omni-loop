@@ -64,8 +64,9 @@ describe('the workspace history', () => {
     });
     expect(trial.context).toEqual(['vertuoza/vertuo-app', 'feat/pricing', 'PRD #94', '/omni:yolo', 'answered in 1 min 0 s']);
     expect(storage).toMatchObject({ askedBy: 'ADA', answeredBy: 'bob@vertuoza.com', category: 'Architecture' });
+    expect(storage).toMatchObject({ askedByFace: { kind: 'initial', letter: 'A' }, answeredByFace: { kind: 'initial', letter: 'B' } });
     const open = historyList(ROWS, {}, MEMBERS)[0];
-    expect(open).toMatchObject({ answer: null, answeredBy: null, status: 'open', category: 'unsorted' });
+    expect(open).toMatchObject({ answer: null, answeredBy: null, answeredByFace: null, status: 'open', category: 'unsorted' });
   });
 
   it.each([

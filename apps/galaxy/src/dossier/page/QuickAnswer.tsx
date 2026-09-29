@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
+import { PersonChip } from '../../people/PersonChip';
 import { answerQuick, type QuickOutcome } from './source';
 import type { QuickRound } from './view';
 
@@ -28,6 +29,14 @@ export function takenLine(outcome: Extract<QuickOutcome, { kind: 'taken' }>, nam
   return `Already answered by ${names[outcome.by] ?? 'someone who left the workspace'}`;
 }
 
+/** The same line, the face of whoever came first before their name (PRD 652). */
+export function Taken({ outcome, quick }: { outcome: Extract<QuickOutcome, { kind: 'taken' }>; quick: Pick<QuickRound, 'names' | 'faces'> }) {
+  const name = outcome.by !== null ? quick.names[outcome.by] : undefined;
+  const face = outcome.by !== null ? quick.faces[outcome.by] : undefined;
+  if (outcome.moved || !name || !face) return <>{takenLine(outcome, quick.names)}</>;
+  return <>Already answered by <PersonChip person={{ name, face }} size="inline" /></>;
+}
+
 export function QuickAnswer({ supabase, roundId, quick }: Props) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
@@ -51,7 +60,7 @@ export function QuickAnswer({ supabase, roundId, quick }: Props) {
   }
 
   if (sent.kind === 'answered') return <p className="dossier-quick-note" role="status">Answer sent.</p>;
-  if (sent.kind === 'taken') return <p className="dossier-quick-note" role="status">{takenLine(sent, quick.names)}</p>;
+  if (sent.kind === 'taken') return <p className="dossier-quick-note" role="status"><Taken outcome={sent} quick={quick} /></p>;
   const busy = !ready || sent.kind === 'sending';
   return (
     <div className="dossier-quick">

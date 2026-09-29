@@ -3,18 +3,20 @@
 // with answer it while it is open; any other member reads it. Once answered, it says who answered
 // first, with the answer: the first answer wins, and whoever comes second reads it here.
 import { readQuestions, type AskQuestion } from '../answer-model';
+import type { Face } from '../../people/face';
 import { memberLabel, sessionClosed, type AskMember } from '../store';
 import { asked, entry, HOOK_WAIT_MS, minutesLeft, type HistoryEntry, type HistoryLine, type RoundRow, type SessionRow } from './view';
 
-/** A workspace's member, as the page names them. */
-export type Member = Pick<AskMember, 'user_id' | 'email' | 'name'>;
+/** A workspace's member, as the page names them, with their face when the people directory decided
+ * it (PRD 652: readMembers resolves it by account id, on the server). */
+export type Member = Pick<AskMember, 'user_id' | 'email' | 'name'> & { face?: Face };
 
 /** A round, its session, the session's other rounds, and who the round is shared with. */
 export type QuestionState = { session: SessionRow; round: RoundRow; earlier: RoundRow[]; sharedWith: string[] };
 
 export type QuestionView = { earlier: HistoryEntry[] } & (
   | { kind: 'open'; canAnswer: boolean; questions: AskQuestion[]; movesAt: number }
-  | { kind: 'answered'; by: string; byMe: boolean; via: 'page' | 'terminal' | null; lines: HistoryLine[] }
+  | { kind: 'answered'; by: string; byFace: Face; byMe: boolean; via: 'page' | 'terminal' | null; lines: HistoryLine[] }
   | { kind: 'moved'; questions: AskQuestion[] }
   | { kind: 'closed'; questions: AskQuestion[] }
 );
@@ -25,6 +27,17 @@ export function nameOf(id: string | null | undefined, members: Member[]): string
   return member ? memberLabel(member) : 'someone who left the workspace';
 }
 
+/** A person's face on the ask screens (PRD 652): the one the directory decided for the member, else
+ * the initial of the name the screen prints, so someone who left, or a member read with no directory,
+ * still shows a face. Pure and free of the design package: the question page is a client component. */
+export function faceOfMember(id: string | null | undefined, members: Member[], name: string): Face {
+  const face = id ? members.find((m) => m.user_id === id)?.face : undefined;
+  return face ?? initialFace(name);
+}
+
+/** The name's initial, as a face: what a screen draws when no directory decided one. */
+export const initialFace = (name: string): Face => ({ kind: 'initial', letter: Array.from(name.trim())[0]?.toUpperCase() ?? '?' });
+
 export function questionView(state: QuestionState, me: string | null, members: Member[], now: number): QuestionView {
   const { session, round } = state;
   const before = state.earlier.filter((r) => r.id !== round.id && asked(r, round) < 0).sort(asked);
@@ -34,7 +47,8 @@ export function questionView(state: QuestionState, me: string | null, members: M
   if (round.status === 'answered') {
     const { lines } = entry(round, session);
     const by = round.answered_by ?? null;
-    return { kind: 'answered', by: nameOf(by, members), byMe: by !== null && by === me, via: round.answered_via, lines, earlier };
+    const name = nameOf(by, members);
+    return { kind: 'answered', by: name, byFace: faceOfMember(by, members, name), byMe: by !== null && by === me, via: round.answered_via, lines, earlier };
   }
   const movesAt = Date.parse(round.created_at) + HOOK_WAIT_MS;
   if (round.status === 'abandoned' || now >= movesAt) return { kind: 'moved', questions, earlier };
@@ -51,7 +65,12 @@ export function answeredTitle(view: Extract<QuestionView, { kind: 'answered' }>)
 /** A round shared with the caller, with its session and who shared it. */
 export type ForMeRow = { round: RoundRow; session: SessionRow; sharedBy: string };
 
-export type ForMeEntry = { roundId: string; question: string; sessionTitle: string; sharedBy: string; minutesLeft: number };
+export type ForMeEntry = {
+  roundId: string; question: string; sessionTitle: string; sharedBy: string;
+  /** The sharer's face (PRD 652); left out, the page draws the name's initial. */
+  sharedByFace?: Face;
+  minutesLeft: number;
+};
 
 /** The rounds shared with the caller that they may still answer, the soonest to move to the terminal first. */
 export function forMeList(rows: ForMeRow[], members: Member[], now: number): ForMeEntry[] {
@@ -61,11 +80,13 @@ export function forMeList(rows: ForMeRow[], members: Member[], now: number): For
     .sort((a, b) => a.movesAt - b.movesAt)
     .map(({ row, movesAt }) => {
       const [first] = readQuestions(row.round.questions);
+      const sharedBy = nameOf(row.sharedBy, members);
       return {
         roundId: row.round.id,
         question: first?.question ?? 'A question',
         sessionTitle: row.session.title,
-        sharedBy: nameOf(row.sharedBy, members),
+        sharedBy,
+        sharedByFace: faceOfMember(row.sharedBy, members, sharedBy),
         minutesLeft: minutesLeft(movesAt, now),
       };
     });

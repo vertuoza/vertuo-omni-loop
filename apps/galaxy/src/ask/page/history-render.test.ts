@@ -28,11 +28,23 @@ describe('the history page', () => {
   it('shows each round\'s answer, who asked, who answered, its category and its context line', () => {
     const html = page();
     expect(html).toContain('Hook mode + nudge (Recommended)');
-    expect(html).toMatch(/asked by ADA/);
-    expect(html).toMatch(/answered by PAULA/);
+    const text = html.replace(/<[^>]*>/g, '');
+    expect(text).toMatch(/asked by ADA/);
+    expect(text).toMatch(/answered by PAULA/);
     expect(html).toContain('data-category="architecture"');
     expect(html).toContain('data-category="unsorted"');
     expect(html).toContain('vertuoza/vertuo-omni-loop · feat/ask-mode · PRD #71');
+  });
+
+  it('draws who asked and who answered as chips, the face before the name, the words unchanged (PRD 652)', () => {
+    const html = page();
+    expect(html).toContain('asked by <span class="person-chip is-inline"><span class="person-face is-initial" aria-hidden="true" data-initial="A"></span>ADA</span>');
+    expect(html).toContain(' · answered by <span class="person-chip is-inline"><span class="person-face is-initial" aria-hidden="true" data-initial="P"></span>PAULA</span>');
+    const photo = { kind: 'photo' as const, url: 'https://github.com/ada.png?size=48' };
+    const faced = DEMO_MEMBERS.map((m) => (m.name === 'ADA' ? { ...m, face: photo } : m));
+    const withPhoto = renderToStaticMarkup(createElement(WorkspaceHistory, { items: historyList(rows, {}, faced), choices: historyChoices(rows, faced), filters: {} }));
+    expect(withPhoto).toContain('asked by <span class="person-chip is-inline"><img class="person-face is-photo" src="https://github.com/ada.png?size=48" alt=""');
+    expect(withPhoto).not.toMatch(/<option[^>]*>[^<]*<(?:img|span)/);
   });
 
   it('shows "📎 N screenshots" on an answer that has them, and nothing on one without (PRD 620)', () => {

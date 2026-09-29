@@ -13,7 +13,7 @@ import { settle, UNREADABLE, type DemoInput, type PartInput } from '../part';
 import { seasonBounds } from '../season';
 import { demoRankings } from './demo';
 import { loadRankings, type RankingsValue } from './load';
-import { GAP } from './rank';
+import { GAP, rankFleets } from './rank';
 import { Rankings } from './Rankings';
 
 // The rankings (PRD 328, slice s3): every fleet the season knows, ranked with its points and yours
@@ -62,6 +62,16 @@ describe('the rankings\' read', () => {
     const r = await loadRankings(input()) as RankingsValue;
     expect(r.fleets.map((f) => [f.rank, f.label, f.points, f.yours])).toEqual([
       [1, 'PIRATES', 2300, false], [2, 'BEAVER', 1900, true], [3, 'INVINCIBLE-TEAM', 0, false],
+    ]);
+  });
+
+  it('carries each fleet\'s colour and mascot, for its chip (PRD 652)', () => {
+    const teams = [
+      { name: 'beaver', label: 'BEAVER', color: '#8a5a2b', mascot: 'beaver', points: 1900, rank: 2 },
+      { name: 'pirates', label: 'PIRATES', color: '#2fc6a4', mascot: null, points: 2300, rank: 1 },
+    ];
+    expect(rankFleets(teams, 'beaver').map((f) => [f.name, f.color, f.mascot])).toEqual([
+      ['pirates', '#2fc6a4', null], ['beaver', '#8a5a2b', 'beaver'],
     ]);
   });
 

@@ -8,7 +8,7 @@ import type { ViewerView } from './viewer-view';
 // The end of the app's top bar (PRD 438) as the server renders it: signed in, the avatar button and
 // its menu (the name and login, then Sign out); signed out, Sign in with GitHub.
 
-const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: 'https://avatars.test/ada.png', workspaceName: 'Acme', waiting: null };
+const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: 'https://avatars.test/ada.png', heroSvg: null, workspaceName: 'Acme', waiting: null };
 
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 /** What the menu reads: everything inside its element. */
@@ -41,6 +41,21 @@ describe('the user menu', () => {
     const bare = renderToStaticMarkup(createElement(UserMenu, { viewer: { ...ADA, avatarUrl: null } }));
     expect(bare).not.toContain('<img');
     expect(bare).toContain('<span class="user-menu-initial" aria-hidden="true">A</span>');
+  });
+
+  it('shows the viewer\'s hero in place of the avatar when they have one, hidden from screen readers (PRD 652)', () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 2"><rect width="1" height="1" fill="#3355ff"/></svg>';
+    const hero = renderToStaticMarkup(createElement(UserMenu, { viewer: { ...ADA, heroSvg: svg } }));
+    const inside = hero.match(/<button\b[^>]*aria-haspopup="menu"[^>]*>([\s\S]*?)<\/button>/)?.[1] ?? '';
+    expect(inside).toBe(`<span class="user-menu-hero" aria-hidden="true">${svg}</span>`);
+    expect(hero).toContain('aria-label="Your account, Ada Lovelace"');
+    expect(menuText(hero)).toBe('Ada Lovelace @ada Sign out');
+  });
+
+  it('keeps the avatar, or the initial, when the viewer has no hero', () => {
+    const inside = (v: ViewerView) => renderToStaticMarkup(createElement(UserMenu, { viewer: v })).match(/<button\b[^>]*aria-haspopup="menu"[^>]*>([\s\S]*?)<\/button>/)?.[1] ?? '';
+    expect(inside(ADA)).toMatch(/^<img class="user-menu-avatar"/);
+    expect(inside({ ...ADA, avatarUrl: null })).toBe('<span class="user-menu-initial" aria-hidden="true">A</span>');
   });
 
   it('leaves out a login it does not know', () => {

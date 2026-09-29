@@ -11,13 +11,14 @@ import type { Activity, Member, PrdNow } from './tally';
 // up to today (enough for every period), and move with the day they are shown on, today last. A
 // merge by someone who is not a member (a bot) shows in the workspace's totals only. PRD 587: the demo's
 // PRDs now are made up too, most of them shipped, a few at every other stage, none by the newcomer.
+// PRD 652: Paul has an arcade hero, so the People tables show a hero, GitHub photos and chips.
 
 /** The demo's *you*, as in src/dashboard/demo.ts. */
 export const DEMO_VIEWER = { login: 'dam-dev', userId: 'demo:dam-dev' } as const;
 
 /** Members with no points: Paul, in a fleet, and a newcomer with no fleet. */
 const NEWCOMERS: Member[] = [
-  { userId: 'demo:paul-e', name: 'PAUL', login: 'paul-e', avatarUrl: null, fleet: 'builders' },
+  { userId: 'demo:paul-e', name: 'PAUL', login: 'paul-e', avatarUrl: null, fleet: 'builders', hero: { v: 1, body: 'boy', skin: 2, hair: 1, suit: 0, cape: 2 } },
   { userId: 'demo:new-hire', name: 'NEWBIE', login: 'new-hire', avatarUrl: null, fleet: null },
 ];
 

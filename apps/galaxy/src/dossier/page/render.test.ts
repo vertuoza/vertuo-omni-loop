@@ -10,7 +10,7 @@ import { DeleteDraft } from './DeleteDraft';
 import { DossierPage } from './DossierPage';
 import { DossierSignIn } from './DossierSignIn';
 import { headHeight } from './PinnedHead';
-import { takenLine } from './QuickAnswer';
+import { Taken, takenLine } from './QuickAnswer';
 import { COPY_WORDS, copyCommand } from './StageHeaderCopy';
 import { dossierView, readPick, type DossierPick } from './view';
 
@@ -74,6 +74,10 @@ function page({
   return renderToStaticMarkup(createElement(DossierPage, { view, markdown: markdown === null ? null : renderMarkdown(markdown), supabase }));
 }
 const tab = (name: DossierPick['tab'], v?: number): DossierPick => ({ tab: name, version: v ?? null });
+/** What the markup reads as text, its tags taken out (PRD 652: a face now sits before a name). */
+const textOf = (html: string) => html.replace(/<[^>]+>/g, '');
+/** A person's chip in a sentence (PRD 652): the face, then the name. */
+const chip = (name: string) => new RegExp(`<span class="person-chip is-inline"><(?:img|span) class="person-face [^>]*>(?:</span>)?${name}</span>`);
 /** The stored stages of a PRD at `stage` (PRD 587): that one row, last synced 29 Sep 2026, 09:15 UTC. */
 const at = (stage: StageRow['stage']): StageRow[] => [{ stage, reached_at: '2026-09-28T10:00:00Z', synced_at: '2026-09-29T09:15:00Z' }];
 
@@ -82,7 +86,8 @@ describe('the header', () => {
     const html = page();
     expect(html).toMatch(/<h1 class="dossier-title"><a class="dossier-number" href="https:\/\/github.com\/vertuoza\/vertuo-omni-loop\/issues\/216" target="_blank" rel="noopener noreferrer">PRD #216 ↗<\/a> ?<span>PRD dossiers<\/span><\/h1>/);
     expect(html).toContain('<li class="dossier-repo">vertuoza/vertuo-omni-loop</li>');
-    expect(html).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
+    expect(textOf(html)).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
+    expect(html).toMatch(chip('Pierre'));
     expect(html).toContain('>Copy link</button>');
   });
 
@@ -265,7 +270,7 @@ describe('the header box (PRD 476)', () => {
       expect(cell(html, 'Stage')).toContain(`<strong>${words}</strong>`);
       expect(cell(html, 'On GitHub')).toContain('<ul class="stage-links" aria-label="On GitHub">');
       expect(cell(html, 'Repo')).toContain('<li class="dossier-repo">vertuoza/vertuo-omni-loop</li>');
-      expect(cell(html, 'Opened')).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
+      expect(textOf(cell(html, 'Opened')!)).toContain('opened by Pierre · 27 Sep 2026, 09:12 UTC');
     }
   });
 
@@ -459,7 +464,9 @@ describe('the Questions tab', () => {
     expect(line).toContain('— shape');
     expect(line).toContain('<span class="dossier-round-count">1/1</span>');
     expect(line).toContain('27 Sep, 09:15');
-    expect(line).toContain('<span class="dossier-outcome">answered by Marie after 1 min 35 s, on the page</span>');
+    expect(textOf(line)).toContain('answered by Marie after 1 min 35 s, on the page');
+    expect(line).toMatch(/<span class="dossier-outcome">answered by <span class="person-chip is-inline">/);
+    expect(line).toMatch(chip('Marie'));
   });
 
   it('shows an answered question, as text, on one line: chip · question → the chosen option, in no box', () => {
@@ -533,11 +540,12 @@ describe('the Questions tab', () => {
 
   it('says who answered and after how long, its category, who asked and where, and links to the question', () => {
     const html = questions();
-    expect(html).toContain('answered by Marie after 1 min 35 s, on the page');
+    expect(textOf(html)).toContain('answered by Marie after 1 min 35 s, on the page');
     expect(html).toContain('moved to the terminal, no answer recorded');
     expect(html).toContain('<span class="dossier-category" data-category="ux-ui">UX/UI</span>');
     expect(html).toContain('<span class="dossier-category" data-category="unsorted">unsorted</span>');
-    expect(html).toContain('asked by Pierre · 27 Sep 2026, 09:15 UTC');
+    expect(textOf(html)).toContain('asked by Pierre · 27 Sep 2026, 09:15 UTC');
+    expect(html).toMatch(chip('Pierre'));
     expect(html).toContain('vertuoza/vertuo-omni-loop · feat/prd-dossiers--s3 · PRD #216 · /omni:do-work');
     expect(html).toContain(`<a class="dossier-round-link" href="/ask/q/r1?from=${ID}">Open the question</a>`);
   });
@@ -582,7 +590,8 @@ describe('a quick round on the Questions tab (PRD 384)', () => {
     expect(buttons(html)).toEqual([]);
     expect(html).not.toContain('dossier-quick-choice');
     expect(html).toContain('aria-label="Options, one could be chosen"');
-    expect(html).toContain('<p class="dossier-quick-note">Waiting for Pierre</p>');
+    expect(textOf(html)).toContain('Waiting for Pierre');
+    expect(html).toMatch(/<p class="dossier-quick-note">Waiting for <span class="person-chip is-inline">/);
   });
 
   it('shows a round that is not quick with its Open link only', () => {
@@ -617,6 +626,15 @@ describe('what a click that came second says', () => {
     expect(takenLine({ kind: 'taken', by: 'u-gone', via: 'page', moved: false }, names)).toBe('Already answered by someone who left the workspace');
     expect(takenLine({ kind: 'taken', by: null, via: 'terminal', moved: false }, names)).toBe('Already answered in the terminal.');
     expect(takenLine({ kind: 'taken', by: null, via: null, moved: true }, names)).toBe('This question moved to the terminal before your answer.');
+  });
+
+  it('draws the face of who came first before their name (PRD 652), and the words alone otherwise', () => {
+    const quick = { names, faces: { 'u-marie': { kind: 'initial' as const, letter: 'M' } } };
+    const taken = (outcome: Parameters<typeof takenLine>[0]) => renderToStaticMarkup(createElement(Taken, { outcome, quick }));
+    expect(taken({ kind: 'taken', by: 'u-marie', via: 'page', moved: false }))
+      .toBe('Already answered by <span class="person-chip is-inline"><span class="person-face is-initial" aria-hidden="true" data-initial="M"></span>Marie</span>');
+    expect(taken({ kind: 'taken', by: 'u-gone', via: 'page', moved: false })).toBe('Already answered by someone who left the workspace');
+    expect(taken({ kind: 'taken', by: 'u-marie', via: 'page', moved: true })).toBe('This question moved to the terminal before your answer.');
   });
 });
 

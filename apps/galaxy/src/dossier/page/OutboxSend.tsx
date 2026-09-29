@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { copyLink } from '../../ask/page/share';
 import { sentView, UNCOUNTED, type SentView } from '../../outbox/sent';
 import { droppedWords, KEPT, readSending, returned, sendingKey } from '../../outbox/sending';
+import type { Face } from '../../people/face';
+import { LoginChip } from './LoginChip';
 import { answers, type Pickable, type Picks } from './outbox-picks';
 
 // Ported from the send half of archive/outbox-answers-v1:apps/galaxy/src/outbox/OutboxAnswers.tsx
@@ -26,6 +28,8 @@ type Props = {
   sendOff: string | null;
   /** Drops the picks on these questions. */
   onDrop: (numbers: number[]) => void;
+  /** The viewer's face: a send posts as them (PRD 652). */
+  sender?: Face | null;
 };
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -44,7 +48,7 @@ function CopyStep({ step }: { step: string }) {
 }
 
 /** What became of a send, as the tab says it. */
-export function SendResult({ sent }: { sent: SentView }) {
+export function SendResult({ sent, sender = null }: { sent: SentView; sender?: Face | null }) {
   if (sent.state === 'failed') return <p className="ask-problem outbox-sent" role="alert">{sent.error} {KEPT}</p>;
   if (sent.state === 'waiting') {
     return <p className="ask-problem outbox-sent" role="alert">GitHub did not send you back with an answer, so nothing was posted. {KEPT}</p>;
@@ -52,7 +56,7 @@ export function SendResult({ sent }: { sent: SentView }) {
   return (
     <div className="outbox-sent" role="status">
       <p>
-        <b>Sent as @{sent.login}</b> ·{' '}
+        <b>Sent as <LoginChip login={sent.login} face={sender} /></b> ·{' '}
         <a href={sent.url} target="_blank" rel="noopener noreferrer">the reply on the pull request</a>
       </p>
       <p>Next, in the terminal: <CopyStep step={sent.next} /></p>
@@ -68,7 +72,7 @@ type State =
   | { state: 'dropped'; numbers: number[]; authorize: string }
   | { state: 'result'; sent: SentView };
 
-export function OutboxSend({ dossierId, questions, picks, count, sendOff, onDrop }: Props) {
+export function OutboxSend({ dossierId, questions, picks, count, sendOff, onDrop, sender = null }: Props) {
   const [state, setState] = useState<State>({ state: 'idle' });
   const key = sendingKey(dossierId);
 
@@ -167,7 +171,7 @@ export function OutboxSend({ dossierId, questions, picks, count, sendOff, onDrop
           {droppedWords(state.numbers)} <a className="ask-button" href={state.authorize}>Send the rest through GitHub</a>
         </p>
       )}
-      {state.state === 'result' && <SendResult sent={state.sent} />}
+      {state.state === 'result' && <SendResult sent={state.sent} sender={sender} />}
     </>
   );
 }

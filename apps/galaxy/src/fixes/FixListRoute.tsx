@@ -12,6 +12,8 @@ import { FiltersSkeleton, ListSkeleton } from '../skeleton/Skeleton';
 import { FixList } from './FixList';
 import { loginOf } from '../nav/viewer';
 import { fixChoices, fixItems, readFixFilters, type FixFacts, type FixKind, type FixViewer } from './list';
+import { loadPeople, type People } from '../people/load';
+import { NOBODY, type PeopleIn } from './people';
 
 // /visual and /bugs (PRD 627): the fixes of one kind of the signed-in person's workspaces, read as
 // /prd reads its list — per request, as the signed-in person, so row-level security decides; signed
@@ -22,6 +24,9 @@ import { fixChoices, fixItems, readFixFilters, type FixFacts, type FixKind, type
 // own page keep, as the signed-in person, one read per workspace: rendering the list makes no GitHub
 // call. A fix with no stored facts yet, or facts that could not be read, reads `—`, and Mine then keeps
 // the fixes the viewer pushed. The user is read through viewer() (PRD 657), from the session's claims.
+// PRD 652, s6: who asked wears their face, read from the people directory of each fix's workspace (one
+// read per workspace the list holds, beside the stored facts); a directory that cannot be read gives GitHub
+// photos, never an error.
 
 type Query = Record<string, string | string[] | undefined>;
 
@@ -45,8 +50,8 @@ export function FixListLoading({ kind }: { kind: FixKind }) {
 export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>) {
   const query = await searchParams;
   const filters = readFixFilters(query);
-  const listing = (rows: DossierListRow[], viewer: FixViewer, facts?: FixFacts) => (
-    <FixList kind={kind} items={fixItems(rows, kind, filters, viewer, facts)} choices={fixChoices(rows, kind)} filters={filters} />
+  const listing = (rows: DossierListRow[], viewer: FixViewer, facts?: FixFacts, people?: PeopleIn) => (
+    <FixList kind={kind} items={fixItems(rows, kind, filters, viewer, facts, people)} choices={fixChoices(rows, kind)} filters={filters} />
   );
   const mode = arcadeMode(process.env);
 
@@ -73,7 +78,16 @@ export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>) 
       </Notice>
     );
   }
-  return listing(rows, { id: user.id, login: loginOf(user) }, await storedFacts(db, ofWork(rows, kind)));
+  const fixes = ofWork(rows, kind);
+  const [facts, people] = await Promise.all([storedFacts(db, fixes), peopleOf(db, fixes)]);
+  return listing(rows, { id: user.id, login: loginOf(user) }, facts, people);
+}
+
+/** The people directory of every workspace these fixes belong to, each read once. */
+async function peopleOf(db: Parameters<typeof loadPeople>[0], rows: DossierListRow[]): Promise<PeopleIn> {
+  const workspaces = [...new Set(rows.map((row) => row.workspace_id))];
+  const read = new Map(await Promise.all(workspaces.map(async (id): Promise<[string, People]> => [id, await loadPeople(db, id)])));
+  return (workspace) => read.get(workspace) ?? NOBODY();
 }
 
 /** The stored facts of each fix, by dossier id, read as the viewer, one read per workspace; a fix with

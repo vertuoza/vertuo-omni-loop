@@ -2,7 +2,8 @@
 -- pull request, after `supabase db start` has applied the migrations:
 --   psql <db> -v ON_ERROR_STOP=1 -f supabase/checks/dashboards.sql
 -- workspace_roster(workspace) lists every member of a workspace, with or without a player row, with a
--- name, a lower-case GitHub login, an avatar and a fleet, and never an email; answered_counts(workspace,
+-- name, a lower-case GitHub login, an avatar, a fleet and a hero (PRD 652: null with no player row),
+-- and never an email; answered_counts(workspace,
 -- from, to) counts each member's answered ask rounds in that workspace's sessions only, in [from, to),
 -- and returns nothing but counts. Both return nothing to a non-member, and neither runs signed out.
 -- One transaction, rolled back at the end. Any `FAIL:` stops the run.
@@ -64,7 +65,7 @@ begin
                join information_schema.routines r on r.specific_name = p.specific_name
               where r.routine_schema = 'public' and r.routine_name in ('workspace_roster', 'answered_counts')
                 and p.parameter_mode = 'OUT'
-                and p.parameter_name not in ('user_id', 'name', 'github_login', 'avatar_url', 'fleet', 'answered')) then
+                and p.parameter_name not in ('user_id', 'name', 'github_login', 'avatar_url', 'fleet', 'hero', 'answered')) then
     raise exception 'FAIL: workspace_roster or answered_counts returns a column it should not (an email, a question, an answer…)';
   end if;
   if has_function_privilege('anon', 'public.workspace_roster(uuid)', 'execute')
@@ -109,12 +110,16 @@ begin
   if r.name <> 'ADA' or r.github_login <> 'ada-gh' or r.fleet <> 'octo' or r.avatar_url <> 'https://avatars.test/ada.png' then
     raise exception 'FAIL: Ada reads as % / % / % / %, not ADA / ada-gh / octo / her avatar', r.name, r.github_login, r.fleet, r.avatar_url;
   end if;
+  if r.hero is distinct from '{"v":1,"body":"girl","skin":2,"hair":3,"suit":0,"cape":8}'::jsonb then
+    raise exception 'FAIL: Ada''s hero reads as %, not her player row''s', r.hero;
+  end if;
   -- Paul, with no player row: the account's full name, the linked identity's login in lower case, no fleet.
   select * into r from public.workspace_roster(dash) where user_id = '00000000-0000-4000-8000-00000000d0b1';
   if r.user_id is null then raise exception 'FAIL: a member with no player row is missing from the roster'; end if;
   if r.name <> 'Paul Etienne' or r.github_login <> 'paetienne' or r.fleet is not null then
     raise exception 'FAIL: Paul reads as % / % / %, not Paul Etienne / paetienne / no fleet', r.name, r.github_login, r.fleet;
   end if;
+  if r.hero is not null then raise exception 'FAIL: Paul, with no player row, has a hero: %', r.hero; end if;
   select * into r from public.workspace_roster(dash) where user_id = '00000000-0000-4000-8000-00000000d051';
   if r.name <> 'SOL' or r.fleet is not null or r.avatar_url is not null then
     raise exception 'FAIL: Sol (solo, no avatar) reads as % / % / %', r.name, r.fleet, r.avatar_url;

@@ -60,6 +60,13 @@ describe('the bell', () => {
     ]);
   });
 
+  it('draws who shared a question as a person chip, its face before the name (PRD 652)', () => {
+    const shared = { ...q('theirs', MIN, 'Bob'), sharedByFace: { kind: 'photo' as const, url: 'https://a.test/bob.png' } };
+    const body = panel(render({ questions: [shared], outbox: [] }));
+    expect(body).toMatch(/shared by <span class="person-chip is-inline"><img class="person-face is-photo" src="https:\/\/a.test\/bob.png" alt=""[^>]*\/>Bob<\/span>/);
+    expect(text(body)).toContain('1 min · shared by Bob');
+  });
+
   it('lists each outbox item\'s PRD, title, question and rank, linking to its PRD\'s Outbox tab', () => {
     const body = panel(render({ questions: [q('a', MIN)], outbox: [o('i1', 459, 'human-action'), o('i2', 460, 'high')] }));
     expect(body.indexOf('>Questions<')).toBeLessThan(body.indexOf('>Outbox<'));

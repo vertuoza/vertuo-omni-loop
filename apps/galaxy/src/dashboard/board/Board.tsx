@@ -1,13 +1,16 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { FleetChip } from '../../people/FleetChip';
+import { PersonChip } from '../../people/PersonChip';
 import { STAGE_LABELS, STAGES, type StageId } from '../../stages/stage';
 import { CouldNotLoad } from '../Notes';
 import { UNREADABLE, type Read } from '../part';
-import type { FleetRank } from '../rankings/rank';
+import { fleetTagOf, type FleetRank } from '../rankings/rank';
 import { axisTicks, columnLabels, dayName } from './chart';
-import { periodHref, type Query } from './links';
+import type { Query } from './links';
 import type { BoardValue } from './load';
-import { PERIODS, type Period } from './period';
-import { EVENTS, GROUPS, SOLO, type ChartDay, type EventDay, type PersonRow, type PrdEvent, type RepoRow, type StageTally } from './tally';
+import type { Period } from './period';
+import { PeriodSwitch } from './PeriodSwitch';
+import { EVENTS, GROUPS, type ChartDay, type EventDay, type PersonRow, type PrdEvent, type RepoRow, type StageTally } from './tally';
 import './board.css';
 
 // A board (PRD 572), drawn on the server, top to bottom: the period switch, the four tiles, the two
@@ -18,6 +21,9 @@ import './board.css';
 // PRD 587: the PRDs tile counts the scope's PRDs at each of the seven stages now, each count opening
 // /prd at that stage; People's PRDs read open · building · shipped now; the per-day chart keeps the
 // period's events, named opened · started · shipped so nobody reads it as where PRDs are.
+// PRD 652: each People row's name starts with the member's face (PersonChip), and its fleet is a
+// FleetChip, its mascot in its colour; the row's text is the same as before. Each fleet of the season's
+// ranking is a FleetChip too.
 
 const COUNT = new Intl.NumberFormat('en-US');
 const n = (value: number) => COUNT.format(value);
@@ -30,26 +36,12 @@ export interface BoardProps {
   /** The page's path and query: the period switch's links keep the rest of the query. */
   path: string;
   query: Query;
-  /** The People table's heading: `People`, or `Your team` on Home. */
-  peopleTitle?: string;
+  /** The People table's heading: `People`, or on Home `Your fleet` and the viewer's fleet chip. */
+  peopleTitle?: ReactNode;
   /** A line under the People table (Home's link to Fleet, for a solo player). */
   peopleNote?: ReactNode;
   /** Whether to end with the season's fleet ranking (Workspace). */
   fleets?: boolean;
-}
-
-function PeriodSwitch({ period, path, query }: { period: Period; path: string; query: Query }) {
-  return (
-    <nav className="board-period" aria-label="Period">
-      <ul>
-        {PERIODS.map((p) => (
-          <li key={p.id}>
-            <a href={periodHref(path, query, p.id)} aria-current={p.id === period ? 'page' : undefined}>{p.label}</a>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
 }
 
 // ── Tiles ────────────────────────────────────────────────────────────────
@@ -199,12 +191,6 @@ const DASH = '–';
 const cell = (value: number | null | typeof UNREADABLE) =>
   (value === null ? <span aria-label="no GitHub login">{DASH}</span> : value === UNREADABLE ? <span aria-label="could not load">?</span> : n(value));
 
-function Fleet({ fleet }: { fleet: PersonRow['fleet'] }) {
-  if (fleet === SOLO) return <span className="board-fleet is-solo">SOLO</span>;
-  const style = fleet.color ? ({ '--dash-fleet': fleet.color } as CSSProperties) : undefined;
-  return <span className="board-fleet" style={style}><span className="dash-fleet-pip" aria-hidden="true" />{fleet.label}</span>;
-}
-
 function PrdsCell({ prds }: { prds: PersonRow['prds'] }) {
   if (prds === UNREADABLE) return cell(prds);
   return <span aria-label={GROUPS.map((g) => `${prds[g]} ${g}`).join(', ')}>{GROUPS.map((g) => n(prds[g])).join(' · ')}</span>;
@@ -222,7 +208,7 @@ function failed(rows: PersonRow[]): string[] {
   ].filter((x): x is string => Boolean(x));
 }
 
-function People({ people, title, note }: { people: Read<PersonRow[]>; title: string; note?: ReactNode }) {
+function People({ people, title, note }: { people: Read<PersonRow[]>; title: ReactNode; note?: ReactNode }) {
   return (
     <section className="board-people" aria-labelledby="board-people">
       <h2 id="board-people">{title}</h2>
@@ -244,10 +230,10 @@ function People({ people, title, note }: { people: Read<PersonRow[]>; title: str
                 {people.map((p) => (
                   <tr key={p.userId} aria-current={p.you ? 'true' : undefined}>
                     <th scope="row" className="board-name">
-                      {p.name}
+                      <PersonChip person={p} />
                       {p.you && <span className="board-you"><span aria-hidden="true"> ◀</span><span className="ask-sr"> (you)</span></span>}
                     </th>
-                    <td><Fleet fleet={p.fleet} /></td>
+                    <td><FleetChip fleet={p.fleet} /></td>
                     <td className="is-num">{cell(p.points)}</td>
                     <td className="is-num">{cell(p.prs)}</td>
                     <td className="is-num"><PrdsCell prds={p.prds} /></td>
@@ -301,7 +287,7 @@ function FleetRanking({ fleets, season }: { fleets: Read<FleetRank[]>; season: s
               <tr key={f.name} aria-current={f.yours ? 'true' : undefined}>
                 <td className="is-num">{f.rank}</td>
                 <th scope="row" className="board-name">
-                  {f.label}
+                  <FleetChip fleet={fleetTagOf(f)} />
                   {f.yours && <span className="board-you"><span aria-hidden="true"> ◀</span><span className="ask-sr"> (your fleet)</span></span>}
                 </th>
                 <td className="is-num">{n(f.points)}</td>

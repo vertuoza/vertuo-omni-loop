@@ -76,8 +76,6 @@
 .board-name { font-weight: 700; overflow-wrap: anywhere; }
 .board-table tr[aria-current='true'] > * { background: var(--ask-plasma-soft); }
 .board-you { color: var(--ask-plasma); }
-.board-fleet { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; white-space: nowrap; }
-.board-fleet.is-solo { color: var(--ask-muted); }
 
 @media (forced-colors: active) {
   .board-bar { fill: CanvasText; }

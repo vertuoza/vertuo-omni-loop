@@ -35,7 +35,7 @@ const question = (id: string, sharedBy: string | null = null): WaitingQuestion =
 const FIVE = [question('a'), question('b'), question('c', 'Bob'), question('d', 'Bob'), question('e', 'Bob')];
 const waiting = (questions: WaitingQuestion[]): WaitingView => ({ questions, unread: false, source: null });
 
-const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, workspaceName: 'Acme', waiting: waiting(FIVE) };
+const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, heroSvg: null, workspaceName: 'Acme', waiting: waiting(FIVE) };
 
 const render = (viewer: ViewerView = ADA, path: string | null = '/app', outbox: WaitingOutbox[] = []) => {
   at.path = path;
