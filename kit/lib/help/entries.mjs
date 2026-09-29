@@ -364,13 +364,20 @@ export const ENTRIES = deepFreeze([
     name: 'item',
     kind: 'command',
     who: 'skills',
-    usage: ['omni item new --prd <n> --slice <id> --file <file>', '  [--adopt] [--json]'],
+    usage: [
+      'omni item new --prd <n> --slice <id> --file <file>',
+      '  [--adopt | --out <dir>] [--json]',
+      'omni item relay <dir> --prd <n>',
+    ],
     summary: 'record a decision an agent took alone',
     detail:
       'Records one decision an agent took without asking as an outbox item, from a JSON file: the ' +
       "kit picks its rank and its id. A decision that would break a named law stops the slice " +
       "instead, and one that needs a person's action blocks it. --adopt sends a medium item " +
-      'straight to the settled ledger.',
+      'straight to the settled ledger. --out writes the item to a folder instead of the outbox, ' +
+      'for a slice built in another repository, and never adopts. relay moves every item and ' +
+      "account of such a folder into PRD n's outbox, checked as new items are; a refused file " +
+      'stays in the folder with its reason, exit 2.',
   },
   {
     name: 'plan',

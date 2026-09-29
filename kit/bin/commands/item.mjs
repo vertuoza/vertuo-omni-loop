@@ -1,10 +1,15 @@
-// `omni item new --prd <n> --slice <id> --file <file> [--adopt] [--json]` — records one decision
+// `omni item new --prd <n> --slice <id> --file <file> [--adopt | --out <dir>] [--json]` — records one decision
 // as an outbox item, through the recording policy in `kit/lib/policy/outbox-policy.mjs`. The
 // `--file` JSON file carries `renderOutboxItem`'s fields minus `prd`, `slice` and `laws` (this
 // command supplies all three) and minus `id` (this command picks the next free one) and `rank`
 // (`decideRecording` decides it). `decideRecording` is always run — every one of its own inputs is
 // optional with a safe default, so a JSON file that names none of them still "carries what it
 // needs": a plain question with no `bears-on` and no named risk.
+//
+// `--out <dir>` (PRD 563, s3) writes the item into `<dir>` instead of the PRD's outbox: the same
+// checks, the same id (the folder's own items count as spent) and the same file name, so a slice
+// built in another repository can hand its items to `omni item relay` below. It never adopts:
+// `--out` with `--adopt` is a usage error.
 //
 // `introFun` and `punchlineFun` (PRD #50, slice s1) are optional, together or neither. The schema
 // itself holds each to `funLineProblems` (the plain-words rules, 120 characters at most), so a line
@@ -42,17 +47,20 @@
 //   exit code is 2, whether or not `--json` was passed; `outcome: 'record'` is never reached.
 // - **After `--adopt`**, the ledger can still refuse the adoption (a malformed `settled.md`, say);
 //   nothing is written then either, `adopted` stays `false`, and the exit code is 1.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { z } from 'zod';
 import { lawsFor } from '../../lib/laws.mjs';
 import { funLineProblems, outboxItemFiles, SETTLED_FILE } from '../../lib/outbox/outbox.mjs';
 import { checkItemText } from '../../lib/outbox/check-outbox.mjs';
+import { relayFolder } from '../../lib/outbox/relay.mjs';
 import { adoptItem, parseSettledEntries } from '../../lib/outbox/settle.mjs';
 import { decideRecording, renderOutboxItem } from '../../lib/policy/outbox-policy.mjs';
-import { parseArgs, positiveInt, println, readUserFile, usageError } from '../args.mjs';
+import { inRoot, parseArgs, positiveInt, println, readUserFile, usageError } from '../args.mjs';
 
-const USAGE = 'usage: omni item new --prd <n> --slice <id> --file <file> [--adopt] [--json]';
+const NEW_USAGE = 'usage: omni item new --prd <n> --slice <id> --file <file> [--adopt | --out <dir>] [--json]';
+const RELAY_USAGE = 'usage: omni item relay <dir> --prd <n>';
+const USAGE = `${NEW_USAGE} | ${RELAY_USAGE.slice('usage: '.length)}`;
 
 const SLUG_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -145,7 +153,7 @@ function readItemInput(ctx, path) {
 
 /** Every id this PRD's slice has already spent: an open item file's basename, or an id `settled.md`
  * already carries — a medium item adopted at raise time leaves no open file behind at all. */
-function spentIds(prd, { ctx }) {
+function spentIds(prd, { ctx, outDir = null }) {
   const outboxDir = ctx.layout.outboxDir(prd);
   const prefix = `${outboxDir}/`;
   const ids = new Set(
@@ -153,6 +161,13 @@ function spentIds(prd, { ctx }) {
       .filter((path) => path.startsWith(prefix))
       .map((path) => basename(path, '.md')),
   );
+  // With `--out`, the folder's own items are spent too: two items raised into one scratch folder
+  // never share an id, and the relay never finds two files of one name.
+  if (outDir !== null && existsSync(outDir)) {
+    for (const name of readdirSync(outDir)) {
+      if (name.endsWith('.md') && statSync(join(outDir, name)).isFile()) ids.add(basename(name, '.md'));
+    }
+  }
   const settledFile = join(ctx.root, outboxDir, SETTLED_FILE);
   if (existsSync(settledFile)) {
     for (const entry of parseSettledEntries(readFileSync(settledFile, 'utf8'), ctx.markers)) {
@@ -164,11 +179,11 @@ function spentIds(prd, { ctx }) {
 
 /** Every two-digit number this slice has already spent, whatever slug it was raised with — an
  * open file's own number, or one `settled.md` already carries. */
-function spentNumbers(prd, slice, { ctx }) {
+function spentNumbers(prd, slice, { ctx, outDir = null }) {
   const prefix = `${slice}-`;
   const shape = /^-(\d{2})-/;
   const numbers = new Set();
-  for (const id of spentIds(prd, { ctx })) {
+  for (const id of spentIds(prd, { ctx, outDir })) {
     if (!id.startsWith(prefix)) continue;
     const match = id.slice(prefix.length - 1).match(shape);
     if (match) numbers.add(match[1]);
@@ -179,8 +194,8 @@ function spentNumbers(prd, slice, { ctx }) {
 /** The next free `<slice>-<nn>-<slug>` id, `nn` the smallest two-digit number this slice has not
  * already spent under ANY slug (as an open file or in `settled.md`) — a running counter per
  * slice, not per slug. */
-function nextItemId(prd, slice, slug, { ctx }) {
-  const spent = spentNumbers(prd, slice, { ctx });
+function nextItemId(prd, slice, slug, { ctx, outDir = null }) {
+  const spent = spentNumbers(prd, slice, { ctx, outDir });
   for (let n = 1; n <= 99; n += 1) {
     const nn = String(n).padStart(2, '0');
     if (!spent.has(nn)) return `${slice}-${nn}-${slug}`;
@@ -195,11 +210,14 @@ function jsonOutcome({ outcome, rank = null, id = null, file = null, adopted = f
 
 async function runNew(args, { ctx, stdout, stderr }) {
   const { positional, flags } = parseArgs('item new', args, {
-    values: ['prd', 'slice', 'file'],
+    values: ['prd', 'slice', 'file', 'out'],
     booleans: ['adopt', 'json'],
   });
   if (positional.length !== 0 || flags.prd === undefined || flags.slice === undefined || flags.file === undefined) {
-    throw usageError(USAGE);
+    throw usageError(NEW_USAGE);
+  }
+  if (flags.out !== undefined && flags.adopt) {
+    throw usageError('omni item new: --out never adopts — pass --out or --adopt, not both; a relayed medium item stays open for the wave to adopt.');
   }
   const prd = positiveInt('item new', '--prd', flags.prd);
   const slice = flags.slice;
@@ -207,6 +225,10 @@ async function runNew(args, { ctx, stdout, stderr }) {
 
   const outboxDir = ctx.layout.outboxDir(prd);
   if (outboxDir === null) throw usageError(`omni item new: PRD ${prd} has no inbox or shipped folder.`);
+
+  // Where the item file goes: the PRD's outbox (repo-relative), or `--out`'s folder (PRD 563).
+  const outDir = flags.out === undefined ? null : inRoot(ctx, flags.out);
+  const destination = outDir === null ? { abs: join(ctx.root, outboxDir), shown: outboxDir } : { abs: outDir, shown: flags.out };
 
   const input = readItemInput(ctx, flags.file);
   const laws = lawsFor(ctx);
@@ -242,7 +264,7 @@ async function runNew(args, { ctx, stdout, stderr }) {
     throw usageError('omni item new: "options" is required unless the decision settles at rank "human-action".');
   }
 
-  const id = nextItemId(prd, slice, input.slug, { ctx });
+  const id = nextItemId(prd, slice, input.slug, { ctx, outDir });
   let text;
   try {
     text = renderOutboxItem({
@@ -292,7 +314,7 @@ async function runNew(args, { ctx, stdout, stderr }) {
   // would be, but the slice cannot carry on: a non-zero exit, with the reason on stderr, is the
   // whole difference.
   if (decision.outcome !== 'record') {
-    const file = writeItemFile(ctx, outboxDir, id, text);
+    const file = writeItemFile(destination, id, text);
     if (asJson) {
       println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, file, reason: decision.reason }));
     } else {
@@ -324,7 +346,7 @@ async function runNew(args, { ctx, stdout, stderr }) {
     return 0;
   }
 
-  const file = writeItemFile(ctx, outboxDir, id, text);
+  const file = writeItemFile(destination, id, text);
   if (asJson) {
     println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, file }));
   } else {
@@ -333,19 +355,44 @@ async function runNew(args, { ctx, stdout, stderr }) {
   return 0;
 }
 
-/** Writes `text` as `<outboxDir>/<id>.md`, creating the directory if needed, and returns the
- * repo-relative path written. */
-function writeItemFile(ctx, outboxDir, id, text) {
-  const file = `${outboxDir}/${id}.md`;
-  mkdirSync(join(ctx.root, outboxDir), { recursive: true });
-  writeFileSync(join(ctx.root, file), text);
-  return file;
+/** Writes `text` as `<id>.md` in the destination folder, creating it if needed, and returns the
+ * path written as the caller named it: repo-relative for the outbox, `--out`'s own spelling
+ * otherwise. */
+function writeItemFile(destination, id, text) {
+  mkdirSync(destination.abs, { recursive: true });
+  writeFileSync(join(destination.abs, `${id}.md`), text);
+  return join(destination.shown, `${id}.md`);
+}
+
+// `omni item relay <dir> --prd <n>` (PRD 563, s3) — moves every item and account a slice built in
+// a target wrote to scratch into the PRD's outbox, through `relayFolder`. Each move is printed on
+// stdout; each refused file on stderr with its reason, left in place, and the exit is 2 while the
+// others still move. An empty folder relays nothing, exit 0.
+async function runRelay(args, { ctx, stdout, stderr }) {
+  const { positional, flags } = parseArgs('item relay', args, { values: ['prd'] });
+  if (positional.length !== 1 || flags.prd === undefined) throw usageError(RELAY_USAGE);
+  const prd = positiveInt('item relay', '--prd', flags.prd);
+  if (ctx.layout.outboxDir(prd) === null) throw usageError(`omni item relay: PRD ${prd} has no inbox or shipped folder.`);
+  const dir = inRoot(ctx, positional[0]);
+  if (!existsSync(dir) || !statSync(dir).isDirectory()) {
+    throw usageError(`omni item relay: ${positional[0]} is not a folder.`);
+  }
+
+  const { moved, refused } = relayFolder({ ctx, laws: lawsFor(ctx), prd, dir });
+  if (moved.length === 0 && refused.length === 0) {
+    println(stdout, `omni item relay — nothing to relay in ${positional[0]}.`);
+    return 0;
+  }
+  for (const { from, to } of moved) println(stdout, `moved ${from} → ${to}`);
+  for (const { file, reason } of refused) println(stderr, `refused ${file} — ${reason}`);
+  return refused.length > 0 ? 2 : 0;
 }
 
 export const item = {
   async run(args, io) {
     const [sub, ...rest] = args;
-    if (sub !== 'new') throw usageError(USAGE);
-    return runNew(rest, io);
+    if (sub === 'new') return runNew(rest, io);
+    if (sub === 'relay') return runRelay(rest, io);
+    throw usageError(USAGE);
   },
 };
