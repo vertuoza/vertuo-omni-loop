@@ -12,20 +12,11 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
   if (typeof require !== "undefined") return require.apply(this, arguments);
   throw Error('Dynamic require of "' + x + '" is not supported');
 });
-var __esm = (fn, res, err) => function __init() {
-  if (err) throw err[0];
-  try {
-    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
-  } catch (e) {
-    throw err = [e], e;
-  }
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
 };
 var __commonJS = (cb, mod) => function __require2() {
-  try {
-    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-  } catch (e) {
-    throw mod = 0, e;
-  }
+  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var __export = (target2, all) => {
   for (var name in all)
@@ -56,18 +47,18 @@ var init_define_OMNI_BUNDLE = __esm({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/identity.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/identity.js
 var require_identity = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/identity.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/identity.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
-    var ALIAS = /* @__PURE__ */ Symbol.for("yaml.alias");
-    var DOC = /* @__PURE__ */ Symbol.for("yaml.document");
-    var MAP = /* @__PURE__ */ Symbol.for("yaml.map");
-    var PAIR = /* @__PURE__ */ Symbol.for("yaml.pair");
-    var SCALAR = /* @__PURE__ */ Symbol.for("yaml.scalar");
-    var SEQ = /* @__PURE__ */ Symbol.for("yaml.seq");
-    var NODE_TYPE = /* @__PURE__ */ Symbol.for("yaml.node.type");
+    var ALIAS = Symbol.for("yaml.alias");
+    var DOC = Symbol.for("yaml.document");
+    var MAP = Symbol.for("yaml.map");
+    var PAIR = Symbol.for("yaml.pair");
+    var SCALAR = Symbol.for("yaml.scalar");
+    var SEQ = Symbol.for("yaml.seq");
+    var NODE_TYPE = Symbol.for("yaml.node.type");
     var isAlias = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === ALIAS;
     var isDocument = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === DOC;
     var isMap = (node) => !!node && typeof node === "object" && node[NODE_TYPE] === MAP;
@@ -114,15 +105,15 @@ var require_identity = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/visit.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/visit.js
 var require_visit = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/visit.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/visit.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
-    var BREAK = /* @__PURE__ */ Symbol("break visit");
-    var SKIP = /* @__PURE__ */ Symbol("skip children");
-    var REMOVE = /* @__PURE__ */ Symbol("remove node");
+    var BREAK = Symbol("break visit");
+    var SKIP = Symbol("skip children");
+    var REMOVE = Symbol("remove node");
     function visit(node, visitor) {
       const visitor_ = initVisitor(visitor);
       if (identity.isDocument(node)) {
@@ -273,9 +264,9 @@ var require_visit = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/directives.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/directives.js
 var require_directives = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/directives.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/directives.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -445,9 +436,9 @@ var require_directives = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/anchors.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/anchors.js
 var require_anchors = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/anchors.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/anchors.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -516,9 +507,9 @@ var require_anchors = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/applyReviver.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/applyReviver.js
 var require_applyReviver = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/applyReviver.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/applyReviver.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     function applyReviver(reviver, obj, key, val) {
@@ -567,9 +558,9 @@ var require_applyReviver = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/toJS.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/toJS.js
 var require_toJS = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/toJS.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/toJS.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -598,9 +589,9 @@ var require_toJS = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Node.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Node.js
 var require_Node = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Node.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Node.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var applyReviver = require_applyReviver();
@@ -640,9 +631,9 @@ var require_Node = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Alias.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Alias.js
 var require_Alias = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Alias.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Alias.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var anchors = require_anchors();
@@ -759,9 +750,9 @@ var require_Alias = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Scalar.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Scalar.js
 var require_Scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Scalar.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Scalar.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -790,9 +781,9 @@ var require_Scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/createNode.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/createNode.js
 var require_createNode = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/createNode.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/createNode.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Alias = require_Alias();
@@ -866,9 +857,9 @@ var require_createNode = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Collection.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Collection.js
 var require_Collection = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Collection.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Collection.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var createNode = require_createNode();
@@ -1010,9 +1001,9 @@ var require_Collection = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyComment.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyComment.js
 var require_stringifyComment = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyComment.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var stringifyComment = (str) => str.replace(/^(?!$)(?: $)?/gm, "#");
@@ -1028,9 +1019,9 @@ var require_stringifyComment = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/foldFlowLines.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/foldFlowLines.js
 var require_foldFlowLines = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/foldFlowLines.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/foldFlowLines.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var FOLD_FLOW = "flow";
@@ -1165,9 +1156,9 @@ ${indent}${text4.slice(fold + 1, end2)}`;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyString.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyString.js
 var require_stringifyString = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyString.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyString.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -1449,9 +1440,9 @@ ${indent}`);
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringify.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringify.js
 var require_stringify = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringify.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringify.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var anchors = require_anchors();
@@ -1574,9 +1565,9 @@ ${ctx.indent}${str}`;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyPair.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyPair.js
 var require_stringifyPair = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyPair.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyPair.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -1708,9 +1699,9 @@ ${ctx.indent}`;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/log.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/log.js
 var require_log = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/log.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/log.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var node_process = __require("process");
@@ -1731,9 +1722,9 @@ var require_log = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/merge.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/merge.js
 var require_merge = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/merge.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -1792,9 +1783,9 @@ var require_merge = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/addPairToJSMap.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/addPairToJSMap.js
 var require_addPairToJSMap = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/addPairToJSMap.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var log = require_log();
@@ -1857,9 +1848,9 @@ var require_addPairToJSMap = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Pair.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Pair.js
 var require_Pair = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Pair.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Pair.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var createNode = require_createNode();
@@ -1898,9 +1889,9 @@ var require_Pair = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyCollection.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyCollection.js
 var require_stringifyCollection = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyCollection.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -2050,9 +2041,9 @@ ${indent}${end}`;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLMap.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLMap.js
 var require_YAMLMap = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLMap.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLMap.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var stringifyCollection = require_stringifyCollection();
@@ -2195,9 +2186,9 @@ var require_YAMLMap = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/map.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/map.js
 var require_map = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/map.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/map.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -2218,9 +2209,9 @@ var require_map = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLSeq.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLSeq.js
 var require_YAMLSeq = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLSeq.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLSeq.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var createNode = require_createNode();
@@ -2335,9 +2326,9 @@ var require_YAMLSeq = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/seq.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/seq.js
 var require_seq = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/seq.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/seq.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -2358,9 +2349,9 @@ var require_seq = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/string.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/string.js
 var require_string = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/string.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/string.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var stringifyString = require_stringifyString();
@@ -2378,9 +2369,9 @@ var require_string = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/null.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/null.js
 var require_null = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/null.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/null.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -2397,9 +2388,9 @@ var require_null = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/bool.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/bool.js
 var require_bool = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/bool.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/bool.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -2422,9 +2413,9 @@ var require_bool = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyNumber.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyNumber.js
 var require_stringifyNumber = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyNumber.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyNumber.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     function stringifyNumber({ format, minFractionDigits, tag, value }) {
@@ -2450,9 +2441,9 @@ var require_stringifyNumber = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/float.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/float.js
 var require_float = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/float.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/float.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -2497,9 +2488,9 @@ var require_float = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/int.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/int.js
 var require_int = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/int.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/int.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var stringifyNumber = require_stringifyNumber();
@@ -2543,9 +2534,9 @@ var require_int = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/schema.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/schema.js
 var require_schema = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/schema.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/schema.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var map = require_map();
@@ -2572,9 +2563,9 @@ var require_schema = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/json/schema.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/json/schema.js
 var require_schema2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/json/schema.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/json/schema.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -2640,9 +2631,9 @@ var require_schema2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/binary.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/binary.js
 var require_binary = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/binary.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var node_buffer = __require("buffer");
@@ -2707,9 +2698,9 @@ var require_binary = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/pairs.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/pairs.js
 var require_pairs = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/pairs.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -2786,9 +2777,9 @@ ${cn.comment}` : item2.comment;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/omap.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/omap.js
 var require_omap = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/omap.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -2865,9 +2856,9 @@ var require_omap = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/bool.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/bool.js
 var require_bool2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/bool.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -2898,9 +2889,9 @@ var require_bool2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/float.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/float.js
 var require_float2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/float.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -2948,9 +2939,9 @@ var require_float2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/int.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/int.js
 var require_int2 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/int.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var stringifyNumber = require_stringifyNumber();
@@ -3028,9 +3019,9 @@ var require_int2 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/set.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/set.js
 var require_set = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/set.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -3118,9 +3109,9 @@ var require_set = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
 var require_timestamp = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var stringifyNumber = require_stringifyNumber();
@@ -3207,9 +3198,9 @@ var require_timestamp = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/schema.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/schema.js
 var require_schema3 = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/schema.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var map = require_map();
@@ -3252,9 +3243,9 @@ var require_schema3 = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/tags.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/tags.js
 var require_tags = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/tags.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/tags.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var map = require_map();
@@ -3347,9 +3338,9 @@ var require_tags = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/Schema.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/Schema.js
 var require_Schema = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/Schema.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/Schema.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -3380,9 +3371,9 @@ var require_Schema = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyDocument.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyDocument.js
 var require_stringifyDocument = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyDocument.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -3461,9 +3452,9 @@ var require_stringifyDocument = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/Document.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/Document.js
 var require_Document = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/Document.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/Document.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Alias = require_Alias();
@@ -3771,9 +3762,9 @@ var require_Document = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/errors.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/errors.js
 var require_errors = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/errors.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/errors.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var YAMLError = class extends Error {
@@ -3837,9 +3828,9 @@ ${pointer}
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-props.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-props.js
 var require_resolve_props = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-props.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-props.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
@@ -3972,9 +3963,9 @@ var require_resolve_props = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-contains-newline.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-contains-newline.js
 var require_util_contains_newline = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-contains-newline.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-contains-newline.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     function containsNewline(key) {
@@ -4015,9 +4006,9 @@ var require_util_contains_newline = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-flow-indent-check.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-flow-indent-check.js
 var require_util_flow_indent_check = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-flow-indent-check.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var utilContainsNewline = require_util_contains_newline();
@@ -4034,9 +4025,9 @@ var require_util_flow_indent_check = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-map-includes.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-map-includes.js
 var require_util_map_includes = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-map-includes.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-map-includes.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -4051,9 +4042,9 @@ var require_util_map_includes = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-map.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-map.js
 var require_resolve_block_map = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-map.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-map.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Pair = require_Pair();
@@ -4160,9 +4151,9 @@ var require_resolve_block_map = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-seq.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-seq.js
 var require_resolve_block_seq = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-seq.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-seq.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var YAMLSeq = require_YAMLSeq();
@@ -4212,9 +4203,9 @@ var require_resolve_block_seq = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-end.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-end.js
 var require_resolve_end = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-end.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-end.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     function resolveEnd(end, offset, reqSpace, onError) {
@@ -4256,9 +4247,9 @@ var require_resolve_end = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-collection.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-collection.js
 var require_resolve_flow_collection = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-collection.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -4451,9 +4442,9 @@ var require_resolve_flow_collection = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-collection.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-collection.js
 var require_compose_collection = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-collection.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-collection.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -4517,9 +4508,9 @@ var require_compose_collection = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-scalar.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-scalar.js
 var require_resolve_block_scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-scalar.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -4701,9 +4692,9 @@ var require_resolve_block_scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-scalar.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-scalar.js
 var require_resolve_flow_scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-scalar.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Scalar = require_Scalar();
@@ -4923,9 +4914,9 @@ var require_resolve_flow_scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-scalar.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-scalar.js
 var require_compose_scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-scalar.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-scalar.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var identity = require_identity();
@@ -5005,9 +4996,9 @@ var require_compose_scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-empty-scalar-position.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-empty-scalar-position.js
 var require_util_empty_scalar_position = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-empty-scalar-position.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     function emptyScalarPosition(offset, before, pos) {
@@ -5036,9 +5027,9 @@ var require_util_empty_scalar_position = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-node.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-node.js
 var require_compose_node = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-node.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-node.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Alias = require_Alias();
@@ -5143,9 +5134,9 @@ var require_compose_node = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-doc.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-doc.js
 var require_compose_doc = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-doc.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-doc.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var Document = require_Document();
@@ -5187,9 +5178,9 @@ var require_compose_doc = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/composer.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/composer.js
 var require_composer = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/composer.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/composer.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var node_process = __require("process");
@@ -5396,9 +5387,9 @@ ${end.comment}` : end.comment;
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-scalar.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-scalar.js
 var require_cst_scalar = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-scalar.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-scalar.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var resolveBlockScalar = require_resolve_block_scalar();
@@ -5582,9 +5573,9 @@ var require_cst_scalar = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-stringify.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-stringify.js
 var require_cst_stringify = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-stringify.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var stringify3 = (cst) => "type" in cst ? stringifyToken(cst) : stringifyItem(cst);
@@ -5644,14 +5635,14 @@ var require_cst_stringify = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-visit.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-visit.js
 var require_cst_visit = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-visit.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-visit.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
-    var BREAK = /* @__PURE__ */ Symbol("break visit");
-    var SKIP = /* @__PURE__ */ Symbol("skip children");
-    var REMOVE = /* @__PURE__ */ Symbol("remove item");
+    var BREAK = Symbol("break visit");
+    var SKIP = Symbol("skip children");
+    var REMOVE = Symbol("remove item");
     function visit(cst, visitor) {
       if ("type" in cst && cst.type === "document")
         cst = { start: cst.start, value: cst.value };
@@ -5707,9 +5698,9 @@ var require_cst_visit = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst.js
 var require_cst = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var cstScalar = require_cst_scalar();
@@ -5810,9 +5801,9 @@ var require_cst = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/lexer.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/lexer.js
 var require_lexer = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/lexer.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/lexer.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var cst = require_cst();
@@ -6400,9 +6391,9 @@ var require_lexer = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/line-counter.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/line-counter.js
 var require_line_counter = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/line-counter.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/line-counter.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var LineCounter = class {
@@ -6432,9 +6423,9 @@ var require_line_counter = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/parser.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/parser.js
 var require_parser = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/parser.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/parser.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var node_process = __require("process");
@@ -7307,9 +7298,9 @@ var require_parser = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/public-api.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/public-api.js
 var require_public_api = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/public-api.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/public-api.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var composer = require_composer();
@@ -7405,9 +7396,9 @@ var require_public_api = __commonJS({
   }
 });
 
-// node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/index.js
+// ../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/index.js
 var require_dist = __commonJS({
-  "node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/index.js"(exports) {
+  "../../../node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/index.js"(exports) {
     "use strict";
     init_define_OMNI_BUNDLE();
     var composer = require_composer();
@@ -7473,10 +7464,10 @@ var import_yaml = __toESM(require_dist(), 1);
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-// node_modules/.pnpm/zod@3.25.76/node_modules/zod/index.js
+// ../../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/index.js
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js
+// ../../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/external.js
 var external_exports = {};
 __export(external_exports, {
   BRAND: () => BRAND,
@@ -7589,16 +7580,16 @@ __export(external_exports, {
 });
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/errors.js
+// ../../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/errors.js
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/locales/en.js
+// ../../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/locales/en.js
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/ZodError.js
+// ../../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/ZodError.js
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/util.js
+// ../../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/util.js
 init_define_OMNI_BUNDLE();
 var util;
 (function(util2) {
@@ -7733,7 +7724,7 @@ var getParsedType = (data) => {
   }
 };
 
-// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/ZodError.js
+// ../../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/ZodError.js
 var ZodIssueCode = util.arrayToEnum([
   "invalid_type",
   "invalid_literal",
@@ -7851,7 +7842,7 @@ ZodError.create = (issues) => {
   return error;
 };
 
-// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/locales/en.js
+// ../../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/locales/en.js
 var errorMap = (issue, _ctx) => {
   let message;
   switch (issue.code) {
@@ -7954,7 +7945,7 @@ var errorMap = (issue, _ctx) => {
 };
 var en_default = errorMap;
 
-// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/errors.js
+// ../../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/errors.js
 var overrideErrorMap = en_default;
 function setErrorMap(map) {
   overrideErrorMap = map;
@@ -7963,7 +7954,7 @@ function getErrorMap() {
   return overrideErrorMap;
 }
 
-// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/parseUtil.js
+// ../../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/parseUtil.js
 init_define_OMNI_BUNDLE();
 var makeIssue = (params) => {
   const { data, path, errorMaps, issueData } = params;
@@ -8074,10 +8065,10 @@ var isDirty = (x) => x.status === "dirty";
 var isValid = (x) => x.status === "valid";
 var isAsync = (x) => typeof Promise !== "undefined" && x instanceof Promise;
 
-// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js
+// ../../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js
 init_define_OMNI_BUNDLE();
 
-// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/errorUtil.js
+// ../../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/errorUtil.js
 init_define_OMNI_BUNDLE();
 var errorUtil;
 (function(errorUtil2) {
@@ -8085,7 +8076,7 @@ var errorUtil;
   errorUtil2.toString = (message) => typeof message === "string" ? message : message?.message;
 })(errorUtil || (errorUtil = {}));
 
-// node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js
+// ../../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
   constructor(parent, value, path, key) {
     this._cachedPath = [];
@@ -11320,7 +11311,7 @@ ZodNaN.create = (params) => {
     ...processCreateParams(params)
   });
 };
-var BRAND = /* @__PURE__ */ Symbol("zod_brand");
+var BRAND = Symbol("zod_brand");
 var ZodBranded = class extends ZodType {
   _parse(input) {
     const { ctx } = this._processInputParams(input);
@@ -11522,14 +11513,14 @@ var ostring = () => stringType().optional();
 var onumber = () => numberType().optional();
 var oboolean = () => booleanType().optional();
 var coerce = {
-  string: ((arg) => ZodString.create({ ...arg, coerce: true })),
-  number: ((arg) => ZodNumber.create({ ...arg, coerce: true })),
-  boolean: ((arg) => ZodBoolean.create({
+  string: (arg) => ZodString.create({ ...arg, coerce: true }),
+  number: (arg) => ZodNumber.create({ ...arg, coerce: true }),
+  boolean: (arg) => ZodBoolean.create({
     ...arg,
     coerce: true
-  })),
-  bigint: ((arg) => ZodBigInt.create({ ...arg, coerce: true })),
-  date: ((arg) => ZodDate.create({ ...arg, coerce: true }))
+  }),
+  bigint: (arg) => ZodBigInt.create({ ...arg, coerce: true }),
+  date: (arg) => ZodDate.create({ ...arg, coerce: true })
 };
 var NEVER = INVALID;
 
@@ -20011,9 +20002,13 @@ var ENTRIES = deepFreeze([
     name: "item",
     kind: "command",
     who: "skills",
-    usage: ["omni item new --prd <n> --slice <id> --file <file>", "  [--adopt] [--json]"],
+    usage: [
+      "omni item new --prd <n> --slice <id> --file <file>",
+      "  [--adopt | --out <dir>] [--json]",
+      "omni item relay <dir> --prd <n>"
+    ],
     summary: "record a decision an agent took alone",
-    detail: "Records one decision an agent took without asking as an outbox item, from a JSON file: the kit picks its rank and its id. A decision that would break a named law stops the slice instead, and one that needs a person's action blocks it. --adopt sends a medium item straight to the settled ledger."
+    detail: "Records one decision an agent took without asking as an outbox item, from a JSON file: the kit picks its rank and its id. A decision that would break a named law stops the slice instead, and one that needs a person's action blocks it. --adopt sends a medium item straight to the settled ledger. --out writes the item to a folder instead of the outbox, for a slice built in another repository, and never adopts. relay moves every item and account of such a folder into PRD n's outbox, checked as new items are; a refused file stays in the folder with its reason, exit 2."
   },
   {
     name: "plan",
@@ -21004,8 +20999,82 @@ var init = {
 
 // kit/bin/commands/item.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync40, mkdirSync as mkdirSync13, readFileSync as readFileSync35, writeFileSync as writeFileSync15 } from "node:fs";
+import { existsSync as existsSync41, mkdirSync as mkdirSync14, readdirSync as readdirSync18, readFileSync as readFileSync36, statSync as statSync6, writeFileSync as writeFileSync16 } from "node:fs";
+import { basename as basename8, join as join47 } from "node:path";
+
+// kit/lib/outbox/relay.mjs
+init_define_OMNI_BUNDLE();
+import { existsSync as existsSync40, mkdirSync as mkdirSync13, readdirSync as readdirSync17, readFileSync as readFileSync35, renameSync as renameSync2, statSync as statSync5, unlinkSync, writeFileSync as writeFileSync15 } from "node:fs";
 import { basename as basename7, join as join46 } from "node:path";
+function markdownFiles(dir) {
+  if (!existsSync40(dir)) return [];
+  return readdirSync17(dir).filter((name) => name.endsWith(".md") && statSync5(join46(dir, name)).isFile()).sort();
+}
+function settledIds(ctx, outboxDir) {
+  const file = join46(ctx.root, outboxDir, SETTLED_FILE);
+  if (!existsSync40(file)) return /* @__PURE__ */ new Set();
+  return new Set(parseSettledEntries(readFileSync35(file, "utf8"), ctx.markers).map((entry) => entry.id));
+}
+function move(from, to) {
+  try {
+    renameSync2(from, to);
+  } catch (error) {
+    if (error?.code !== "EXDEV") throw error;
+    writeFileSync15(to, readFileSync35(from));
+    unlinkSync(from);
+  }
+}
+function itemRefusal({ ctx, laws, prd: prd2, outboxDir, name, text: text4, taken }) {
+  const renderedFile = `${outboxDir}/${name}`;
+  const violations = checkItemText(renderedFile, text4, { ctx, laws });
+  if (violations.length > 0) return violations.join("; ");
+  const { item: item2 } = parseOutboxItem(text4, { file: renderedFile });
+  if (Number(item2.prd) !== prd2) return `it belongs to PRD ${item2.prd}, not PRD ${prd2}`;
+  if (`${item2.id}.md` !== name) return `its file name is not its id ${item2.id}`;
+  if (taken.has(item2.id)) return `${item2.id} is already in the outbox of PRD ${prd2}`;
+  return null;
+}
+function accountRefusal({ prd: prd2, destination, name, text: text4 }) {
+  const parsed = parseAccount(text4, { file: name });
+  if (!parsed.ok) return parsed.errors.join("; ");
+  if (parsed.account.prd !== prd2) return `it belongs to PRD ${parsed.account.prd}, not PRD ${prd2}`;
+  if (existsSync40(destination)) return `an account of that name is already in the outbox of PRD ${prd2}`;
+  return null;
+}
+function relayFolder({ ctx, laws, prd: prd2, dir }) {
+  const outboxDir = ctx.layout.outboxDir(prd2);
+  const moved2 = [];
+  const refused = [];
+  const taken = settledIds(ctx, outboxDir);
+  for (const name of markdownFiles(join46(ctx.root, outboxDir))) taken.add(basename7(name, ".md"));
+  for (const name of markdownFiles(dir)) {
+    const from = join46(dir, name);
+    const reason2 = itemRefusal({ ctx, laws, prd: prd2, outboxDir, name, text: readFileSync35(from, "utf8"), taken });
+    if (reason2 !== null) {
+      refused.push({ file: from, reason: reason2 });
+      continue;
+    }
+    const to = `${outboxDir}/${name}`;
+    mkdirSync13(join46(ctx.root, outboxDir), { recursive: true });
+    move(from, join46(ctx.root, to));
+    taken.add(basename7(name, ".md"));
+    moved2.push({ from, to });
+  }
+  const accountsDir = join46(dir, ACCOUNTS_DIR);
+  for (const name of markdownFiles(accountsDir)) {
+    const from = join46(accountsDir, name);
+    const to = `${outboxDir}/${ACCOUNTS_DIR}/${name}`;
+    const reason2 = accountRefusal({ prd: prd2, destination: join46(ctx.root, to), name: from, text: readFileSync35(from, "utf8") });
+    if (reason2 !== null) {
+      refused.push({ file: from, reason: reason2 });
+      continue;
+    }
+    mkdirSync13(join46(ctx.root, outboxDir, ACCOUNTS_DIR), { recursive: true });
+    move(from, join46(ctx.root, to));
+    moved2.push({ from, to });
+  }
+  return { moved: moved2, refused };
+}
 
 // kit/lib/policy/outbox-policy.mjs
 init_define_OMNI_BUNDLE();
@@ -21265,7 +21334,9 @@ var ACCOUNT_FORMS = Object.freeze({
 });
 
 // kit/bin/commands/item.mjs
-var USAGE9 = "usage: omni item new --prd <n> --slice <id> --file <file> [--adopt] [--json]";
+var NEW_USAGE = "usage: omni item new --prd <n> --slice <id> --file <file> [--adopt | --out <dir>] [--json]";
+var RELAY_USAGE = "usage: omni item relay <dir> --prd <n>";
+var USAGE9 = `${NEW_USAGE} | ${RELAY_USAGE.slice("usage: ".length)}`;
 var SLUG_SHAPE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 function funLine2(field2) {
   return external_exports.string().trim().min(1, `${field2} must not be empty`).superRefine((value, refinement) => {
@@ -21323,33 +21394,38 @@ function readItemInput(ctx, path) {
   }
   return result.data;
 }
-function spentIds(prd2, { ctx }) {
+function spentIds(prd2, { ctx, outDir = null }) {
   const outboxDir = ctx.layout.outboxDir(prd2);
   const prefix = `${outboxDir}/`;
   const ids = new Set(
-    outboxItemFiles({ ctx }).filter((path) => path.startsWith(prefix)).map((path) => basename7(path, ".md"))
+    outboxItemFiles({ ctx }).filter((path) => path.startsWith(prefix)).map((path) => basename8(path, ".md"))
   );
-  const settledFile = join46(ctx.root, outboxDir, SETTLED_FILE);
-  if (existsSync40(settledFile)) {
-    for (const entry of parseSettledEntries(readFileSync35(settledFile, "utf8"), ctx.markers)) {
+  if (outDir !== null && existsSync41(outDir)) {
+    for (const name of readdirSync18(outDir)) {
+      if (name.endsWith(".md") && statSync6(join47(outDir, name)).isFile()) ids.add(basename8(name, ".md"));
+    }
+  }
+  const settledFile = join47(ctx.root, outboxDir, SETTLED_FILE);
+  if (existsSync41(settledFile)) {
+    for (const entry of parseSettledEntries(readFileSync36(settledFile, "utf8"), ctx.markers)) {
       ids.add(entry.id);
     }
   }
   return ids;
 }
-function spentNumbers(prd2, slice, { ctx }) {
+function spentNumbers(prd2, slice, { ctx, outDir = null }) {
   const prefix = `${slice}-`;
   const shape = /^-(\d{2})-/;
   const numbers = /* @__PURE__ */ new Set();
-  for (const id of spentIds(prd2, { ctx })) {
+  for (const id of spentIds(prd2, { ctx, outDir })) {
     if (!id.startsWith(prefix)) continue;
     const match = id.slice(prefix.length - 1).match(shape);
     if (match) numbers.add(match[1]);
   }
   return numbers;
 }
-function nextItemId(prd2, slice, slug, { ctx }) {
-  const spent = spentNumbers(prd2, slice, { ctx });
+function nextItemId(prd2, slice, slug, { ctx, outDir = null }) {
+  const spent = spentNumbers(prd2, slice, { ctx, outDir });
   for (let n = 1; n <= 99; n += 1) {
     const nn = String(n).padStart(2, "0");
     if (!spent.has(nn)) return `${slice}-${nn}-${slug}`;
@@ -21361,17 +21437,22 @@ function jsonOutcome({ outcome, rank = null, id = null, file = null, adopted = f
 }
 async function runNew(args, { ctx, stdout, stderr }) {
   const { positional, flags } = parseArgs("item new", args, {
-    values: ["prd", "slice", "file"],
+    values: ["prd", "slice", "file", "out"],
     booleans: ["adopt", "json"]
   });
   if (positional.length !== 0 || flags.prd === void 0 || flags.slice === void 0 || flags.file === void 0) {
-    throw usageError(USAGE9);
+    throw usageError(NEW_USAGE);
+  }
+  if (flags.out !== void 0 && flags.adopt) {
+    throw usageError("omni item new: --out never adopts \u2014 pass --out or --adopt, not both; a relayed medium item stays open for the wave to adopt.");
   }
   const prd2 = positiveInt("item new", "--prd", flags.prd);
   const slice = flags.slice;
   const asJson = Boolean(flags.json);
   const outboxDir = ctx.layout.outboxDir(prd2);
   if (outboxDir === null) throw usageError(`omni item new: PRD ${prd2} has no inbox or shipped folder.`);
+  const outDir = flags.out === void 0 ? null : inRoot(ctx, flags.out);
+  const destination = outDir === null ? { abs: join47(ctx.root, outboxDir), shown: outboxDir } : { abs: outDir, shown: flags.out };
   const input = readItemInput(ctx, flags.file);
   const laws = lawsFor(ctx);
   const bearsOn = input.bearsOn ?? "none";
@@ -21402,7 +21483,7 @@ async function runNew(args, { ctx, stdout, stderr }) {
   if (decision.rank !== "human-action" && !input.options) {
     throw usageError('omni item new: "options" is required unless the decision settles at rank "human-action".');
   }
-  const id = nextItemId(prd2, slice, input.slug, { ctx });
+  const id = nextItemId(prd2, slice, input.slug, { ctx, outDir });
   let text4;
   try {
     text4 = renderOutboxItem({
@@ -21440,7 +21521,7 @@ async function runNew(args, { ctx, stdout, stderr }) {
     return 2;
   }
   if (decision.outcome !== "record") {
-    const file2 = writeItemFile(ctx, outboxDir, id, text4);
+    const file2 = writeItemFile(destination, id, text4);
     if (asJson) {
       println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, file: file2, reason: decision.reason }));
     } else {
@@ -21470,7 +21551,7 @@ async function runNew(args, { ctx, stdout, stderr }) {
     }
     return 0;
   }
-  const file = writeItemFile(ctx, outboxDir, id, text4);
+  const file = writeItemFile(destination, id, text4);
   if (asJson) {
     println(stdout, jsonOutcome({ outcome: decision.outcome, rank: decision.rank, id, file }));
   } else {
@@ -21478,17 +21559,35 @@ async function runNew(args, { ctx, stdout, stderr }) {
   }
   return 0;
 }
-function writeItemFile(ctx, outboxDir, id, text4) {
-  const file = `${outboxDir}/${id}.md`;
-  mkdirSync13(join46(ctx.root, outboxDir), { recursive: true });
-  writeFileSync15(join46(ctx.root, file), text4);
-  return file;
+function writeItemFile(destination, id, text4) {
+  mkdirSync14(destination.abs, { recursive: true });
+  writeFileSync16(join47(destination.abs, `${id}.md`), text4);
+  return join47(destination.shown, `${id}.md`);
+}
+async function runRelay(args, { ctx, stdout, stderr }) {
+  const { positional, flags } = parseArgs("item relay", args, { values: ["prd"] });
+  if (positional.length !== 1 || flags.prd === void 0) throw usageError(RELAY_USAGE);
+  const prd2 = positiveInt("item relay", "--prd", flags.prd);
+  if (ctx.layout.outboxDir(prd2) === null) throw usageError(`omni item relay: PRD ${prd2} has no inbox or shipped folder.`);
+  const dir = inRoot(ctx, positional[0]);
+  if (!existsSync41(dir) || !statSync6(dir).isDirectory()) {
+    throw usageError(`omni item relay: ${positional[0]} is not a folder.`);
+  }
+  const { moved: moved2, refused } = relayFolder({ ctx, laws: lawsFor(ctx), prd: prd2, dir });
+  if (moved2.length === 0 && refused.length === 0) {
+    println(stdout, `omni item relay \u2014 nothing to relay in ${positional[0]}.`);
+    return 0;
+  }
+  for (const { from, to } of moved2) println(stdout, `moved ${from} \u2192 ${to}`);
+  for (const { file, reason: reason2 } of refused) println(stderr, `refused ${file} \u2014 ${reason2}`);
+  return refused.length > 0 ? 2 : 0;
 }
 var item = {
   async run(args, io) {
     const [sub, ...rest] = args;
-    if (sub !== "new") throw usageError(USAGE9);
-    return runNew(rest, io);
+    if (sub === "new") return runNew(rest, io);
+    if (sub === "relay") return runRelay(rest, io);
+    throw usageError(USAGE9);
   }
 };
 
@@ -21931,8 +22030,8 @@ var phase0 = {
 
 // kit/bin/commands/plan.mjs
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync36 } from "node:fs";
-import { join as join47 } from "node:path";
+import { readFileSync as readFileSync37 } from "node:fs";
+import { join as join48 } from "node:path";
 
 // kit/lib/plan-repo/moved.mjs
 init_define_OMNI_BUNDLE();
@@ -22080,7 +22179,7 @@ function readPlan2(prd2, { ctx, verb }) {
   if (planPath === null) throw usageError(`omni plan ${verb}: PRD ${prd2} has no inbox or shipped folder.`);
   let markdown;
   try {
-    markdown = readFileSync36(join47(ctx.root, planPath), "utf8");
+    markdown = readFileSync37(join48(ctx.root, planPath), "utf8");
   } catch (error) {
     if (error?.code === "ENOENT") throw usageError(`omni plan ${verb}: no plan at ${planPath}.`);
     throw error;
@@ -22175,13 +22274,13 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/delivery/prd.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync41, readFileSync as readFileSync37, readdirSync as readdirSync17 } from "node:fs";
-import { join as join48 } from "node:path";
+import { existsSync as existsSync42, readFileSync as readFileSync38, readdirSync as readdirSync19 } from "node:fs";
+import { join as join49 } from "node:path";
 function whereIs(ctx, prd2) {
   const where = ctx.layout.whereIs(prd2);
   if (!where) return null;
-  const absolute = join48(ctx.root, where.dir);
-  const files = readdirSync17(absolute, { withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => `${where.dir}/${entry.name}`).sort();
+  const absolute = join49(ctx.root, where.dir);
+  const files = readdirSync19(absolute, { withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => `${where.dir}/${entry.name}`).sort();
   const outboxDir = ctx.layout.outboxDir(prd2);
   return {
     prd: Number(prd2),
@@ -22191,12 +22290,12 @@ function whereIs(ctx, prd2) {
     files,
     outboxDir,
     openItems: openItemFiles(prd2, { ctx }),
-    repos: planRepos(join48(absolute, "plan.md"))
+    repos: planRepos(join49(absolute, "plan.md"))
   };
 }
 function planRepos(planPath) {
-  if (!existsSync41(planPath)) return [];
-  const markdown = readFileSync37(planPath, "utf8");
+  if (!existsSync42(planPath)) return [];
+  const markdown = readFileSync38(planPath, "utf8");
   let slices;
   try {
     slices = parsePlanSlices(markdown);
@@ -22243,8 +22342,8 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/outbox/replies.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync42, readFileSync as readFileSync38, writeFileSync as writeFileSync16 } from "node:fs";
-import { join as join49 } from "node:path";
+import { existsSync as existsSync43, readFileSync as readFileSync39, writeFileSync as writeFileSync17 } from "node:fs";
+import { join as join50 } from "node:path";
 var WRITER_ASSOCIATIONS = /* @__PURE__ */ new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 var NUMBERED_LINE = /^\s*(\d+)\s*:\s*(.+)$/;
 var APPROVE_ALL_LINE = /^\s*approve all\s*$/i;
@@ -22431,11 +22530,11 @@ function appendObjection({ ctx, prd: prd2, adoptedEntry, item: item2, answer, ju
     };
   }
   const settledFile = `${ctx.layout.outboxDir(prd2)}/${SETTLED_FILE}`;
-  const absoluteSettled = join49(ctx.root, settledFile);
-  if (!existsSync42(absoluteSettled)) {
+  const absoluteSettled = join50(ctx.root, settledFile);
+  if (!existsSync43(absoluteSettled)) {
     return { ok: false, errors: [`${settledFile}: no ledger holds the adopted item ${item2.id}.`] };
   }
-  const existing = readFileSync38(absoluteSettled, "utf8");
+  const existing = readFileSync39(absoluteSettled, "utf8");
   const separator = existing.endsWith("\n") ? "\n" : "\n\n";
   const entry = renderSettledEntry({
     item: item2,
@@ -22444,7 +22543,7 @@ function appendObjection({ ctx, prd: prd2, adoptedEntry, item: item2, answer, ju
     judgement,
     markers: ctx.markers
   });
-  writeFileSync16(absoluteSettled, `${existing}${separator}${entry}`);
+  writeFileSync17(absoluteSettled, `${existing}${separator}${entry}`);
   return { ok: true, settledFile };
 }
 function readReplies({ ctx, prd: prd2, pr, post: post2 = false }, client) {
@@ -22557,8 +22656,8 @@ Outbox round ${result.round.number} (not posted \u2014 pass --post):
 
 // kit/bin/commands/rework.mjs
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync39, writeFileSync as writeFileSync17 } from "node:fs";
-import { join as join50 } from "node:path";
+import { readFileSync as readFileSync40, writeFileSync as writeFileSync18 } from "node:fs";
+import { join as join51 } from "node:path";
 
 // kit/lib/policy/rework.mjs
 init_define_OMNI_BUNDLE();
@@ -22604,7 +22703,7 @@ function reworkBranch(featureBranch, sliceId, branches = DEFAULT_BRANCHES) {
   }
   return fill(branches.slice, { topic, slice: sliceId });
 }
-function deriveRework(entry, { planSlices = [], featureBranch = null, branches = DEFAULT_BRANCHES } = {}) {
+function deriveRework(entry, { planSlices = [], featureBranch = null, branches = DEFAULT_BRANCHES, planRepository = false } = {}) {
   const parsed = parseOutboxItem(entry.itemText, { file: `settled entry ${entry.id}` });
   if (!parsed.ok) {
     throw new Error(
@@ -22636,6 +22735,7 @@ function deriveRework(entry, { planSlices = [], featureBranch = null, branches =
     territoryKnown: territory.length > 0,
     unknownPlanSlice: planSlice === null,
     wave: 1,
+    ...planRepository ? { repo: planSlice?.repo || null } : {},
     ...featureBranch ? { base: featureBranch, branch: reworkBranch(featureBranch, id, branches) } : {}
   };
 }
@@ -22650,12 +22750,12 @@ function assignWaves(reworks) {
     return { ...rework2, wave: index + 1 };
   });
 }
-function planRework({ settledText = "", planMarkdown = null, prd: prd2, featureBranch, markers, branches = DEFAULT_BRANCHES }) {
+function planRework({ settledText = "", planMarkdown = null, prd: prd2, featureBranch, markers, branches = DEFAULT_BRANCHES, planRepository = false }) {
   const settledCount = parseSettledEntries(settledText, markers).length;
   const drifted = driftedEntries(settledText, markers);
   const planSlices = planMarkdown ? parsePlanSlices(planMarkdown) : [];
   const reworks = assignWaves(
-    drifted.map((entry) => deriveRework(entry, { planSlices, featureBranch, branches }))
+    drifted.map((entry) => deriveRework(entry, { planSlices, featureBranch, branches, planRepository }))
   );
   return {
     prd: prd2,
@@ -22734,7 +22834,7 @@ var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
   try {
-    return readFileSync39(join50(ctx.root, path), "utf8");
+    return readFileSync40(join51(ctx.root, path), "utf8");
   } catch (error) {
     if (error?.code === "ENOENT") return "";
     throw error;
@@ -22761,6 +22861,7 @@ function printPlan(stdout, result) {
     println(stdout, `- ${rework2.id} (wave ${rework2.wave}) \u2014 reworks ${rework2.itemId}`);
     println(stdout, `  branch: ${rework2.branch ?? "(unknown \u2014 no feature branch resolved)"}`);
     println(stdout, `  territory: ${territoryOf(rework2)}`);
+    if ("repo" in rework2) println(stdout, `  repo: ${rework2.repo ?? "(unknown \u2014 the plan names no repository for its slice)"}`);
   }
 }
 async function runPlan(args, { ctx, stdout }) {
@@ -22780,7 +22881,9 @@ async function runPlan(args, { ctx, stdout }) {
     prd: prd2,
     featureBranch,
     markers: ctx.markers,
-    branches: ctx.config.branches
+    branches: ctx.config.branches,
+    // In a plan repository (PRD 563) each rework names the repository its item was raised in.
+    planRepository: Boolean(ctx.config.plan)
   });
   if (flags.json) {
     println(stdout, JSON.stringify(result, null, 2));
@@ -22808,7 +22911,7 @@ async function runClose(args, { ctx, stdout }) {
   } catch (error) {
     throw usageError(error.message.split("\n")[0]);
   }
-  writeFileSync17(join50(ctx.root, settledFile), closedText);
+  writeFileSync18(join51(ctx.root, settledFile), closedText);
   println(
     stdout,
     `omni rework close \u2014 PRD ${prd2}: ${id} closed by ${pullRequest2}; ${settledFile} amended. Commit the amendment.`
@@ -22912,7 +23015,7 @@ import { appendFileSync } from "node:fs";
 // kit/lib/status/facts.mjs
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync12 } from "node:child_process";
-import { readFileSync as readFileSync40, rmSync as rmSync7, statSync as statSync5, utimesSync, writeFileSync as writeFileSync18 } from "node:fs";
+import { readFileSync as readFileSync41, rmSync as rmSync7, statSync as statSync7, utimesSync, writeFileSync as writeFileSync19 } from "node:fs";
 import { resolve as resolve2 } from "node:path";
 function git3(ctx, exec, args) {
   return exec("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -22954,7 +23057,7 @@ var fetchHeadPath = (ctx, exec) => gitPath(ctx, exec, ["--git-path", "FETCH_HEAD
 function fetchTime(path) {
   if (path === null) return null;
   try {
-    const stat = statSync5(path);
+    const stat = statSync7(path);
     return stat.size > 0 ? stat.mtimeMs : null;
   } catch {
     return null;
@@ -22968,8 +23071,8 @@ function fetchedAt(ctx, exec) {
 function snapshot(path) {
   if (path === null) return null;
   try {
-    const stat = statSync5(path);
-    return { path, bytes: readFileSync40(path), atime: stat.atime, mtime: stat.mtime };
+    const stat = statSync7(path);
+    return { path, bytes: readFileSync41(path), atime: stat.atime, mtime: stat.mtime };
   } catch {
     return { path, bytes: null };
   }
@@ -22980,7 +23083,7 @@ function putBack(saved) {
     if (saved.bytes === null) {
       rmSync7(saved.path, { force: true });
     } else {
-      writeFileSync18(saved.path, saved.bytes);
+      writeFileSync19(saved.path, saved.bytes);
       utimesSync(saved.path, saved.atime, saved.mtime);
     }
   } catch {
@@ -23390,16 +23493,16 @@ import { spawn as spawnProcess } from "node:child_process";
 // kit/lib/statusline/board-cache.mjs
 init_define_OMNI_BUNDLE();
 import { randomUUID } from "node:crypto";
-import { closeSync, existsSync as existsSync43, mkdirSync as mkdirSync14, openSync, readFileSync as readFileSync41, renameSync as renameSync2, rmSync as rmSync8, statSync as statSync6, writeFileSync as writeFileSync19 } from "node:fs";
-import { join as join51 } from "node:path";
+import { closeSync, existsSync as existsSync44, mkdirSync as mkdirSync15, openSync, readFileSync as readFileSync42, renameSync as renameSync3, rmSync as rmSync8, statSync as statSync8, writeFileSync as writeFileSync20 } from "node:fs";
+import { join as join52 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
-var BOARD_DIR = join51(LOCAL_DIR, "statusline");
+var BOARD_DIR = join52(LOCAL_DIR, "statusline");
 var REFRESH_AFTER_MS = 60 * 1e3;
 var SHOWN_UNDER_MS = 10 * 60 * 1e3;
 var LOCK_ABANDONED_MS = 2 * 60 * 1e3;
 var UNREADABLE = "the board file holds no slices it can read";
-var boardFile = (root, prd2) => join51(root, BOARD_DIR, `board-${prd2}.json`);
-var lockFile = (root, prd2) => join51(root, BOARD_DIR, `board-${prd2}.lock`);
+var boardFile = (root, prd2) => join52(root, BOARD_DIR, `board-${prd2}.json`);
+var lockFile = (root, prd2) => join52(root, BOARD_DIR, `board-${prd2}.lock`);
 var isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 var isSlice = (value) => isObject(value) && typeof value.id === "string" && Number.isInteger(value.wave) && typeof value.state === "string";
 function attempt5(fn, fallback) {
@@ -23413,7 +23516,7 @@ function omniScript() {
   return runningBundle() ?? fileURLToPath3(new URL("../../bin/omni.mjs", import.meta.url));
 }
 function readBoard(root, prd2) {
-  const value = attempt5(() => JSON.parse(readFileSync41(boardFile(root, prd2), "utf8")), null);
+  const value = attempt5(() => JSON.parse(readFileSync42(boardFile(root, prd2), "utf8")), null);
   if (!isObject(value) || typeof value.at !== "string") return null;
   const at = Date.parse(value.at);
   if (Number.isNaN(at)) return null;
@@ -23436,9 +23539,9 @@ function refreshDue(board2, now) {
   return age === null || age >= REFRESH_AFTER_MS;
 }
 function lockedAt(path) {
-  if (!existsSync43(path)) return null;
-  const at = attempt5(() => Date.parse(JSON.parse(readFileSync41(path, "utf8")).at), Number.NaN);
-  return Number.isNaN(at) ? attempt5(() => statSync6(path).mtimeMs, null) : at;
+  if (!existsSync44(path)) return null;
+  const at = attempt5(() => Date.parse(JSON.parse(readFileSync42(path, "utf8")).at), Number.NaN);
+  return Number.isNaN(at) ? attempt5(() => statSync8(path).mtimeMs, null) : at;
 }
 function lockHeld(root, prd2, now) {
   const at = lockedAt(lockFile(root, prd2));
@@ -23467,18 +23570,18 @@ function cachedSlices({ root, prd: prd2, now, cwd, spawn: spawn2 = null, script,
   return shownSlices(board2, now);
 }
 function ensureBoardDir(root) {
-  mkdirSync14(join51(root, BOARD_DIR), { recursive: true });
-  const ignore = join51(root, LOCAL_DIR, ".gitignore");
-  if (!existsSync43(ignore)) writeFileSync19(ignore, "*\n");
+  mkdirSync15(join52(root, BOARD_DIR), { recursive: true });
+  const ignore = join52(root, LOCAL_DIR, ".gitignore");
+  if (!existsSync44(ignore)) writeFileSync20(ignore, "*\n");
 }
 function writeBoard(root, prd2, entry) {
   ensureBoardDir(root);
   const path = boardFile(root, prd2);
   const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
   try {
-    writeFileSync19(temporary, `${JSON.stringify(entry)}
+    writeFileSync20(temporary, `${JSON.stringify(entry)}
 `);
-    renameSync2(temporary, path);
+    renameSync3(temporary, path);
   } finally {
     rmSync8(temporary, { force: true });
   }
@@ -23493,7 +23596,7 @@ function createLock(path, now) {
     throw error;
   }
   try {
-    writeFileSync19(fd, `${JSON.stringify({ at: new Date(now).toISOString(), owner })}
+    writeFileSync20(fd, `${JSON.stringify({ at: new Date(now).toISOString(), owner })}
 `);
   } finally {
     closeSync(fd);
@@ -23510,7 +23613,7 @@ function takeLock(root, prd2, now) {
 }
 function releaseLock(root, prd2, owner) {
   const path = lockFile(root, prd2);
-  const held = attempt5(() => JSON.parse(readFileSync41(path, "utf8")).owner, null);
+  const held = attempt5(() => JSON.parse(readFileSync42(path, "utf8")).owner, null);
   if (held === owner) rmSync8(path, { force: true });
 }
 var oneLine3 = (error) => String(error?.message ?? error).split("\n")[0].trim() || "the board could not be built";
@@ -23534,8 +23637,8 @@ function refreshBoard({ root, prd: prd2, now, build }) {
 
 // kit/lib/statusline/facts.mjs
 init_define_OMNI_BUNDLE();
-import { readdirSync as readdirSync18 } from "node:fs";
-import { join as join52 } from "node:path";
+import { readdirSync as readdirSync20 } from "node:fs";
+import { join as join53 } from "node:path";
 
 // kit/lib/statusline/stage.mjs
 init_define_OMNI_BUNDLE();
@@ -23677,7 +23780,7 @@ function treeFiles(ctx, ref, dir, exec) {
 }
 function checkoutFolders(ctx, dir) {
   return attempt6(
-    () => readdirSync18(join52(ctx.root, dir), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name),
+    () => readdirSync20(join53(ctx.root, dir), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name),
     []
   );
 }
@@ -23955,7 +24058,7 @@ var statusline = {
 init_define_OMNI_BUNDLE();
 import { mkdtempSync as mkdtempSync2, rmSync as rmSync9 } from "node:fs";
 import { tmpdir as tmpdir2 } from "node:os";
-import { join as join53 } from "node:path";
+import { join as join54 } from "node:path";
 
 // kit/lib/update/plugin.mjs
 init_define_OMNI_BUNDLE();
@@ -23977,7 +24080,7 @@ function updatePlugin({ version: version2 = null, exec, println: println2 }) {
 // kit/bin/commands/update.mjs
 var USAGE18 = "usage: omni update [--to <version>]";
 function handOver2({ cwd, home, from, target: target2, exec }) {
-  const dir = mkdtempSync2(join53(tmpdir2(), "omni-update-"));
+  const dir = mkdtempSync2(join54(tmpdir2(), "omni-update-"));
   try {
     const bundle = downloadBundle({ home, version: target2, dir, exec });
     const fromFlag = from ? ["--from", from] : [];
@@ -24064,8 +24167,8 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/visual/verdict.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync44, readdirSync as readdirSync19, readFileSync as readFileSync42 } from "node:fs";
-import { join as join54 } from "node:path";
+import { existsSync as existsSync45, readdirSync as readdirSync21, readFileSync as readFileSync43 } from "node:fs";
+import { join as join55 } from "node:path";
 var PAGE = "before-after.html";
 var RASTER_DATA_URL = /data:image\/(?!svg\+xml)[a-z0-9.+-]+/i;
 function visualRoot(ctx) {
@@ -24076,17 +24179,17 @@ function folderPrefix(issue) {
 }
 function issueFolders(ctx, issue) {
   const root = visualRoot(ctx);
-  const absolute = join54(ctx.root, root);
-  if (!existsSync44(absolute)) return [];
+  const absolute = join55(ctx.root, root);
+  if (!existsSync45(absolute)) return [];
   const prefix = folderPrefix(issue);
-  return readdirSync19(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length).map((entry) => `${root}/${entry.name}`).sort();
+  return readdirSync21(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length).map((entry) => `${root}/${entry.name}`).sort();
 }
 function pageViolations(ctx, page2) {
-  if (!existsSync44(join54(ctx.root, page2))) return [`${page2}: missing.`];
+  if (!existsSync45(join55(ctx.root, page2))) return [`${page2}: missing.`];
   const violations = [];
   const size = beforeAfterViolation(page2, ctx);
   if (size) violations.push(size);
-  if (RASTER_DATA_URL.test(readFileSync42(join54(ctx.root, page2), "utf8"))) {
+  if (RASTER_DATA_URL.test(readFileSync43(join55(ctx.root, page2), "utf8"))) {
     violations.push(`${page2}: holds a base64 raster image (a data:image/ URL that is not SVG); draw it in SVG or CSS.`);
   }
   return violations;

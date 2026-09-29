@@ -585,3 +585,50 @@ describe('A rework goes towards the option chosen (PRD #1166 s6)', () => {
     ).toHaveLength(1);
   });
 });
+
+describe('A rework lands in the repository its decision was taken in (PRD 563, s3)', () => {
+  const MULTI_PLAN = [
+    '# Plan: a fixture across repositories',
+    '',
+    '| id  | repo               | slice            | territory       | wave |',
+    '| --- | ------------------ | ---------------- | --------------- | ---- |',
+    '| s5  | vertuo-backend-php | The settled item | `src/Contact/`  | 3    |',
+    '| s9  | vertuo-apps        | The screen       | `apps/contact/` | 5    |',
+    '',
+  ].join('\n');
+
+  it('names the repo of the slice its item was raised on, in a plan repository', () => {
+    const result = planRework({
+      settledText: settledLedger([DRIFTED]),
+      planMarkdown: MULTI_PLAN,
+      prd: PRD,
+      featureBranch: FEATURE_BRANCH,
+      markers: MARKERS,
+      planRepository: true,
+    });
+    expect(result.reworks[0]).toMatchObject({ slice: 's5', repo: 'vertuo-backend-php' });
+  });
+
+  it('names no repo when the plan holds no such slice', () => {
+    const result = planRework({
+      settledText: settledLedger([DRIFTED]),
+      planMarkdown: MULTI_PLAN.replace('| s5  |', '| s6  |'),
+      prd: PRD,
+      featureBranch: FEATURE_BRANCH,
+      markers: MARKERS,
+      planRepository: true,
+    });
+    expect(result.reworks[0].repo).toBeNull();
+  });
+
+  it('carries no repo field outside a plan repository, even on a plan with a repo column', () => {
+    const result = planRework({
+      settledText: settledLedger([DRIFTED]),
+      planMarkdown: MULTI_PLAN,
+      prd: PRD,
+      featureBranch: FEATURE_BRANCH,
+      markers: MARKERS,
+    });
+    expect(result.reworks[0]).not.toHaveProperty('repo');
+  });
+});

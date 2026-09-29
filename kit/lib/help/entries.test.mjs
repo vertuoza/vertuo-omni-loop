@@ -93,6 +93,14 @@ describe('the help table in this repository', () => {
     expect(PRINCIPLES).toHaveLength(3);
   });
 
+  it('shows omni item new --out and omni item relay (PRD 563)', () => {
+    const item = ENTRIES.find((e) => e.name === 'item' && e.kind === 'command');
+    expect(item.usage.join(' ')).toMatch(/--out <dir>/);
+    expect(item.usage).toContain('omni item relay <dir> --prd <n>');
+    expect(item.detail).toMatch(/\bnever adopts\b/);
+    expect(item.detail).toMatch(/\brelay moves\b/);
+  });
+
   it('lists every verb of omni dossier, link included (PRD 413)', () => {
     const dossier = ENTRIES.find((e) => e.name === 'dossier' && e.kind === 'command');
     expect(dossier.usage).toEqual(['omni dossier open "<title>"', 'omni dossier push <n>', 'omni dossier link <n>', 'omni dossier status']);
