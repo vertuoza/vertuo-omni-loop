@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { DossierKind } from '../store';
+import type { ArtifactKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
 import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
@@ -12,7 +12,7 @@ import { FRAME_SANDBOX } from './sandbox';
 import { PinnedHead } from './PinnedHead';
 import { DossierTitle, StageAction, StageLinks, StageTrack } from './StageHeader';
 import { VersionPicker } from './VersionPicker';
-import { dossierPath, TAB_LABELS, type DossierView } from './view';
+import { TAB_LABELS, type DossierView } from './view';
 
 // /prd/<id>, the page to share (PRD 216's spec, "The pages"): the header — PRD #n or DRAFT, the title,
 // the repository chips, who opened it and when, Copy link, and Delete draft for its opener — then a tab
@@ -32,6 +32,8 @@ import { dossierPath, TAB_LABELS, type DossierView } from './view';
 // (RetroPane.tsx) renders the retro once written; empty, each reads muted.
 // PRD 579: opening the page marks its PRD seen in this browser (MarkSeen.tsx), and so does each new
 // version it renders while open, so the bell's New documents group drops it.
+// PRD 627: a fix's page is this page on its own route, `#n ↗` with its Visual or Bug badge, no stage,
+// and its kind's tabs: Variations frames the round picked, chosen as Round k; Bug record is markdown.
 
 type Props = {
   view: DossierView;
@@ -43,10 +45,12 @@ type Props = {
   live?: ReactNode;
 };
 
-const EMPTY: Record<DossierKind, string> = {
+const EMPTY: Record<ArtifactKind, string> = {
   'before-after': 'The before/after page has no version yet.',
   spec: 'The spec has no version yet.',
   plan: 'The plan has no version yet.',
+  variations: 'No round of variations yet.',
+  'bug-record': 'The bug record has no version yet.',
 };
 
 function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 'supabase'>) {
@@ -61,7 +65,8 @@ function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 's
       </p>
     );
   }
-  const picker = <VersionPicker action={dossierPath(view.id)} tab={tab} versions={view.versions} shown={shown.number} />;
+  const round = tab === 'variations';
+  const picker = <VersionPicker action={view.link} tab={tab} versions={view.versions} shown={shown.number} noun={round ? 'Round' : 'Version'} />;
   if (shown.frame) {
     return (
       <>
@@ -71,7 +76,7 @@ function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 's
             sandboxed · no cookies · no network ·{' '}
             <a href={shown.frame} target="_blank" rel="noopener noreferrer">open on its own</a>
           </figcaption>
-          <iframe src={shown.frame} sandbox={FRAME_SANDBOX} title={`${TAB_LABELS[tab]}, v${shown.number}`} />
+          <iframe src={shown.frame} sandbox={FRAME_SANDBOX} title={`${TAB_LABELS[tab]}, ${round ? `Round ${shown.number}` : `v${shown.number}`}`} />
         </figure>
       </>
     );
@@ -97,7 +102,7 @@ export function DossierPage({ view, markdown, supabase, live }: Props) {
     <div className="dossier">
       <PinnedHead>
         <div className="dossier-head-top">
-          <DossierTitle heading={view.heading} draft={view.draft} title={view.title} issueUrl={view.issueUrl} />
+          <DossierTitle heading={view.heading} draft={view.draft} title={view.title} issueUrl={view.issueUrl} badge={view.badge} />
           <div className="dossier-actions">
             <StageAction stage={stage} />
             <CopyLink path={view.link} />

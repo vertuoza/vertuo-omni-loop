@@ -11,6 +11,7 @@ import {
   HISTORY_CALLBACK, historyChoices, historyItems, historyToRead, readHistoryFilters, readOpenCounts, type OpenCounts,
 } from '../../src/dossier/page/history';
 import { readHistory } from '../../src/dossier/page/source';
+import { ofWork } from '../../src/dossier/page/work';
 
 // /prd, the history (PRD 216): every dossier of the signed-in person's workspaces, newest activity
 // first, filtered by repository (any of a dossier's repositories) and by draft or PRD, and searched by
@@ -20,6 +21,7 @@ import { readHistory } from '../../src/dossier/page/source';
 // signed-in person opened (the demo's viewer in the demo), or All with who=all. PRD 251: each numbered
 // row the filters let through has its outbox's open questions counted by the server's GitHub reader
 // (its 60-second cache), for `n open` and Needs an answer; the demo counts the demo dossier's outbox.
+// PRD 627: only PRDs' dossiers; the fixes have their own lists, /visual and /bugs.
 
 export const metadata: Metadata = { title: 'PRDs · OMNI LOOP' };
 
@@ -32,13 +34,13 @@ const DEMO_READER = { summary: async ({ id }: { id: string }) => (id === DEMO_DO
 export default async function HistoryRoute({ searchParams }: Props) {
   const query = await searchParams;
   const filters = readHistoryFilters(query);
-  const listing = (rows: DossierListRow[], viewer: string, open: OpenCounts) => (
+  const listing = (all: DossierListRow[], viewer: string, open: OpenCounts, rows = ofWork(all, 'prd')) => (
     <DossierHistory items={historyItems(rows, filters, viewer, open)} choices={historyChoices(rows)} filters={filters} />
   );
   const mode = arcadeMode(process.env);
 
   if (mode === 'demo') {
-    const rows = demoHistory(Date.now());
+    const rows = ofWork(demoHistory(Date.now()), 'prd');
     return listing(rows, DEMO_VIEWER, await readOpenCounts(historyToRead(rows, filters, DEMO_VIEWER), DEMO_READER));
   }
   const env = supabaseEnv();
@@ -55,7 +57,7 @@ export default async function HistoryRoute({ searchParams }: Props) {
 
   let rows: DossierListRow[];
   try {
-    rows = await readHistory(db);
+    rows = ofWork(await readHistory(db), 'prd');
   } catch (error) {
     console.error(error);
     return (

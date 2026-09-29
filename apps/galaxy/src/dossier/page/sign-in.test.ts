@@ -78,4 +78,9 @@ describe('the way back after signing in on the history', () => {
   it('goes back without exchanging anything when this deployment has no database', async () => {
     expect(await historySignInReturn(history('?code=abc'), ORIGIN, null, null)).toBe(`${ORIGIN}/prd`);
   });
+
+  it('goes back to the list of fixes it was opened from (PRD 627)', async () => {
+    expect(await historySignInReturn(new URL(`${ORIGIN}/visual/callback?code=abc`), ORIGIN, async () => ({ error: null }), null, '/visual')).toBe(`${ORIGIN}/visual`);
+    expect(await historySignInReturn(new URL(`${ORIGIN}/bugs/callback`), ORIGIN, null, null, '/bugs')).toBe(`${ORIGIN}/bugs`);
+  });
 });

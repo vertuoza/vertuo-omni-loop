@@ -124,11 +124,15 @@ export async function readPlanSlices(db: Pick<Db, 'from'>, versions: readonly Do
 /** One version's content, or null when the viewer may not read it. */
 export const readContent = (db: Pick<Db, 'from'>, versionId: string) => dossierReader(db).content(versionId);
 
-/** Version `number` of the dossier's before/after page, or null when there is none the viewer may read. */
-export async function readSandboxed(db: Pick<Db, 'from'>, id: string, number: number): Promise<string | null> {
+/** The pages served sandboxed: a before/after page, and a visual fix's rounds of variations (PRD 627). */
+export type SandboxedKind = 'before-after' | 'variations';
+
+/** Version `number` of the dossier's before/after page (or its round `number` of variations), or null when
+ * there is none the viewer may read. */
+export async function readSandboxed(db: Pick<Db, 'from'>, id: string, number: number, artifact: SandboxedKind = 'before-after'): Promise<string | null> {
   if (!isDossierId(id) || !Number.isInteger(number) || number < 1) return null;
   const reader = dossierReader(db);
-  const version = (await reader.versions(id)).filter((v) => v.kind === 'before-after')[number - 1];
+  const version = (await reader.versions(id)).filter((v) => v.kind === artifact)[number - 1];
   return version ? reader.content(version.id) : null;
 }
 
