@@ -1,5 +1,6 @@
 import type { Fleet, GalaxyView } from '@omni/galaxy';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { allPages, type Page } from '../../data/all-pages';
 import { dossierList } from '../../dossier/store';
 import { STAGES, type StageId } from '../../stages/stage';
 import { stageStore, type StageStore } from '../../stages/store';
@@ -177,22 +178,7 @@ export async function loadBoard(reads: BoardReads, request: BoardRequest): Promi
 
 // ── The reads, from Supabase ──────────────────────────────────────────────
 
-const PAGE = 1000;
-
 type RosterRow = { user_id: string; name: string | null; github_login: string | null; avatar_url: string | null; fleet: string | null };
-
-type Page<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
-
-/** Every row of a paged read, PAGE rows at a time; `what` names it when it fails. */
-async function allPages<T>(what: string, page: (from: number, to: number) => Page<T>): Promise<T[]> {
-  const rows: T[] = [];
-  for (let start = 0; ; start += PAGE) {
-    const { data, error } = await page(start, start + PAGE - 1);
-    if (error) throw new Error(`Supabase: could not read ${what} (${error.message})`);
-    rows.push(...(data ?? []));
-    if (!data || data.length < PAGE) return rows;
-  }
-}
 
 /** A PRD's key in the stage store (`owner/name#7`) back to its repository and number. */
 function unkey(key: string): { repository: string; prd: number } {
