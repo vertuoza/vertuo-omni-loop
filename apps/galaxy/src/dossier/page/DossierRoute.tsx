@@ -2,7 +2,9 @@ import { notFound, redirect } from 'next/navigation';
 import { Notice } from '../../ask/page/Notice';
 import { arcadeMode } from '../../data/mode';
 import { supabaseEnv, supabaseServer } from '../../data/supabase-server';
+import { fixPageView, readPickLine, type FixPageView, type PickRead } from '../../fixes/timeline';
 import { dossierGithub } from '../github/server';
+import { UNREAD } from '../github/summary';
 import type { GithubSummary } from '../github/summary';
 import { renderMarkdown, type RenderedMarkdown } from '../markdown';
 import { DEMO_VIEWER, demoContent, demoDossier } from './demo';
@@ -32,6 +34,9 @@ import type { WorkKind } from '../store';
 // shows. A dossier opened on another kind's route is sent to its own, the query kept (./work.ts): a fix
 // at /prd/<id> goes to /visual/<id> or /bugs/<id>, and a PRD at a fix's route to /prd/<id>. A fix reads
 // no GitHub summary: it has no stage.
+// PRD 627, s5: a fix reads instead what GitHub says of its issue and its fix PR, through the same reader
+// and 60-second cache, and — a visual fix — the pick line of its latest before/after version, for its
+// State, its On GitHub links and its Timeline.
 
 export type DossierRouteProps = {
   params: Promise<{ id: string }>;
@@ -54,6 +59,31 @@ async function githubOf(db: Db, read: DossierRead): Promise<{ github?: GithubSum
     readPlanSlices(db, read.versions),
   ]);
   return { github, slices };
+}
+
+/** A fix's state, links and Timeline: GitHub through the server's reader (every moment unknown without
+ * it), and a visual fix's pick line from its latest before/after version. Nothing for a PRD. */
+async function fixOf(db: Db, read: DossierRead): Promise<{ fix?: FixPageView }> {
+  const { dossier } = read;
+  const kind = kindOf(dossier);
+  if (kind === 'prd' || dossier.prd === null) return {};
+  const reader = dossierGithub();
+  const pages = read.versions.filter((v) => v.kind === 'before-after');
+  const latest = pages[pages.length - 1];
+  const [summary, pick] = await Promise.all([
+    reader ? reader.fix({ id: dossier.id, home_repo: dossier.home_repo, prd: dossier.prd }).catch((error: unknown) => {
+      console.error(error);
+      return null;
+    }) : Promise.resolve(null),
+    kind !== 'visual' || !latest ? Promise.resolve<PickRead>('no-page') : readContent(db, latest.id).then(
+      (html): PickRead => (html === null ? UNREAD : readPickLine(html)),
+      (error: unknown): PickRead => {
+        console.error(error);
+        return UNREAD;
+      },
+    ),
+  ]);
+  return { fix: fixPageView(kind, summary, pick) };
 }
 
 /** The shown Spec or Plan, rendered; null when it could not be read (the pane says so). */
@@ -116,7 +146,8 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   const elsewhere = misrouted(kindOf(read.dossier), route, id, query);
   if (elsewhere) redirect(elsewhere);
 
-  const withGithub = { ...read, ...(await githubOf(db, read)) };
+  const [github, fix] = await Promise.all([githubOf(db, read), fixOf(db, read)]);
+  const withGithub = { ...read, ...github, ...fix };
   const view = dossierView(withGithub, user.id, pick);
   const shown = view.shown;
   const markdown = shown && !shown.frame ? await markdownOf(() => readContent(db, shown.id)) : null;

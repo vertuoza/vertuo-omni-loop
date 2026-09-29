@@ -439,3 +439,31 @@ describe('the numbering and the pending answers (PRD 251, s9)', () => {
     expect((await read(gh))?.replies).toBeNull();
   });
 });
+
+describe('a fix, through the same reader (PRD 627, s5)', () => {
+  const FIX = { id: 'd-fix-426', home_repo: 'acme/widgets', prd: 426 };
+
+  it('reads the fix PR on the config\'s fix branch shape, cached 60 s like the PRD summary', async () => {
+    let now = NOW;
+    const gh = fakeGithub({
+      config: CONFIG.replace('  feature: feature/{topic}\n', '  feature: feature/{topic}\n  fix: hotfix/{topic}\n'),
+      issue: { ...ISSUE, created_at: '2026-09-27T08:00:00Z', user: { login: 'anna' }, labels: [] },
+      pulls: [pull(9, 'fix/426-darker'), pull(12, 'hotfix/426-darker')],
+    });
+    const reader = githubReader(CREDS, gh.fetchImpl, () => now);
+    const first = await reader.fix(FIX);
+    expect(first).toMatchObject({ issue: { author: 'anna', state: 'open' }, pull: { number: 12, state: 'open' } });
+    const count = gh.fetchImpl.mock.calls.length;
+    now += SUMMARY_TTL_MS - 1;
+    expect(await reader.fix(FIX)).toEqual(first);
+    expect(gh.fetchImpl.mock.calls.length).toBe(count);
+    now += 1;
+    await reader.fix(FIX);
+    expect(gh.fetchImpl.mock.calls.length).toBeGreaterThan(count);
+  });
+
+  it('is null when the App is not installed, and when GitHub is unreachable', async () => {
+    expect(await githubReader(CREDS, fakeGithub({ installed: false }).fetchImpl, () => NOW).fix(FIX)).toBeNull();
+    expect(await githubReader(CREDS, async () => { throw new TypeError('fetch failed'); }, () => NOW).fix(FIX)).toBeNull();
+  });
+});
