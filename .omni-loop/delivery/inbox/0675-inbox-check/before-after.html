@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbox check</title>
+<style>
+/* Layout: two GitHub-style check lists side by side, today beside after, stacking on a phone. */
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --fg: #1d2330; --muted: #5d6677; --line: #d9dde5;
+  --ok: #1a7f37; --bad: #cf222e; --skip: #8a93a3; --run: #9a6700; --accent: #3b4cca;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1217; --panel: #171b22; --fg: #e3e7ee; --muted: #9aa3b2; --line: #2b313c;
+  --ok: #3fb950; --bad: #f85149; --skip: #6e7681; --run: #d29922; --accent: #8c9bff; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1217; --panel: #171b22; --fg: #e3e7ee; --muted: #9aa3b2; --line: #2b313c;
+  --ok: #3fb950; --bad: #f85149; --skip: #6e7681; --run: #d29922; --accent: #8c9bff; color-scheme: dark }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--sans); padding: 32px 16px }
+main { max-width: 1040px; margin: 0 auto; display: grid; gap: 24px }
+h1 { margin: 0; font-size: 1.6rem; text-wrap: balance }
+.lede { margin: 0; color: var(--muted); max-width: 68ch }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px }
+@media (max-width: 760px) { .cols { grid-template-columns: 1fr } }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px; min-width: 0; display: grid; gap: 12px; align-content: start }
+.tag { font: 600 .72rem var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+h2 { margin: 0; font-size: 1.05rem }
+.pr { font: .85rem var(--mono); color: var(--muted); overflow-wrap: anywhere }
+ul.checks { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 6px }
+ul.checks li { display: grid; grid-template-columns: 18px 1fr auto; gap: 10px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--line); font-size: .9rem }
+ul.checks li:first-child { border-top: 0 }
+.dot { width: 12px; height: 12px; border-radius: 50% }
+.ok .dot { background: var(--ok) } .bad .dot { background: var(--bad) }
+.skip .dot { background: transparent; border: 2px solid var(--skip) } .run .dot { background: var(--run) }
+.state { font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums }
+.name { min-width: 0; overflow-wrap: anywhere }
+.skip .name { color: var(--muted) }
+.new { color: var(--accent); font-weight: 600 }
+pre { margin: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 12px; font: .8rem/1.55 var(--mono); overflow-x: auto }
+pre .ok { color: var(--ok) } pre .bad { color: var(--bad) }
+.note { margin: 0; font-size: .88rem; color: var(--muted) }
+.same h2 { margin-bottom: 4px }
+.same ul { margin: 0; padding-left: 20px; font-size: .9rem }
+</style>
+</head>
+<body>
+<main>
+  <h1>An inbox check for phase-0 PRs</h1>
+  <p class="lede">What a phase-0 pull request shows in its checks, today and after PRD 675. A phase-0 PR carries only the PRD's spec, plan and before/after page, so it should get a check of those files rather than the test suite and two app previews.</p>
+
+  <div class="cols">
+    <section>
+      <span class="tag">Today</span>
+      <h2>Everything runs, nothing checks the PRD</h2>
+      <div class="pr">docs/phase-0-snappy-pages → main · PR #665</div>
+      <ul class="checks">
+        <li class="ok"><span class="dot"></span><span class="name">checks / settle</span><span class="state">3m 5s</span></li>
+        <li class="run"><span class="dot"></span><span class="name">checks / test</span><span class="state">pnpm test</span></li>
+        <li class="run"><span class="dot"></span><span class="name">checks / fallow</span><span class="state">audit</span></li>
+        <li class="ok"><span class="dot"></span><span class="name">Vercel – omni-loop</span><span class="state">preview built</span></li>
+        <li class="ok"><span class="dot"></span><span class="name">Vercel – vertuo-omni-loop-galaxy</span><span class="state">preview built</span></li>
+        <li class="skip"><span class="dot"></span><span class="name">omni-loop · outbox</span><span class="state">skipped</span></li>
+      </ul>
+      <p class="note">A missing plan, an unsigned commit or a source file that slipped in shows nowhere on GitHub: <code>omni phase0</code> ran only in the terminal of whoever opened the PR.</p>
+    </section>
+
+    <section>
+      <span class="tag">After</span>
+      <h2>One check, of the PRD itself</h2>
+      <div class="pr">docs/phase-0-snappy-pages → main</div>
+      <ul class="checks">
+        <li class="ok"><span class="dot"></span><span class="name new">omni-loop · inbox</span><span class="state">success</span></li>
+        <li class="skip"><span class="dot"></span><span class="name">checks / settle</span><span class="state">skipped</span></li>
+        <li class="skip"><span class="dot"></span><span class="name">checks / test</span><span class="state">skipped</span></li>
+        <li class="skip"><span class="dot"></span><span class="name">checks / fallow</span><span class="state">skipped</span></li>
+        <li class="skip"><span class="dot"></span><span class="name">Vercel – both projects</span><span class="state">build ignored</span></li>
+        <li class="skip"><span class="dot"></span><span class="name">omni-loop · outbox</span><span class="state">skipped</span></li>
+      </ul>
+      <pre>PRD 657 · .omni-loop/delivery/inbox/0657-snappy-pages
+<span class="ok">ok</span>      phase-0   docs-only, spec + plan + before/after, 1 commit signed
+<span class="ok">ok</span>      inbox     spec front matter, before-after 41 KB of 500 KB
+<span class="ok">ok</span>      plan      9 slices, 4 waves
+<span class="ok">ok</span>      issue     #657 open, labelled omni:prd</pre>
+      <p class="note">When a gate fails the check is red and names it, for example <span style="color:var(--bad)">not ok  plan  plan.md is missing</span>.</p>
+    </section>
+  </div>
+
+  <section class="same">
+    <span class="tag">Stays the same</span>
+    <h2>Unchanged by this PRD</h2>
+    <ul>
+      <li>Feature PRs, sub-PRs, retro and knowledge PRs: same CI, same previews, and no inbox check run at all.</li>
+      <li>The outbox check: still <em>skipped</em> on a phase-0 PR, still the gate on a feature PR.</li>
+      <li>Other repositories that installed the omni-loop App get the inbox check; their own CI and hosting are untouched.</li>
+      <li>A person still reviews and merges the phase-0 PR.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
