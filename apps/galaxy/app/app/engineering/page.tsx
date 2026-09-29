@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { arcadeMode } from '../../../src/data/mode';
-import { supabaseEnv, supabaseServer } from '../../../src/data/supabase-server';
+import { firstParam as one, memberSession } from '../../../src/data/member-session';
+import { supabaseEnv } from '../../../src/data/supabase-server';
 import { periodOf, type Period } from '../../../src/dashboard/board/period';
 import { demoEngineeringBoard } from '../../../src/engineering/demo';
 import { loadEngineeringBoard } from '../../../src/engineering/load';
@@ -20,20 +20,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
-
-const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
-
 async function viewOf(period: Period, sort: SortKey, now: Date): Promise<EngineeringView> {
-  const mode = arcadeMode(process.env);
-  if (mode === 'demo') return demoEngineeringBoard(period, sort, now);
-  if (mode === 'closed' || !supabaseEnv()) return { kind: 'closed' };
-  const db = await supabaseServer();
-  const { data: { user } } = await db.auth.getUser();
-  return user ? loadEngineeringBoard(db, user, { period, sort, now }) : { kind: 'sign-in' };
+  const session = await memberSession();
+  if (session.kind === 'demo') return demoEngineeringBoard(period, sort, now);
+  if (session.kind !== 'signed-in') return session;
+  return loadEngineeringBoard(session.db, session.user, { period, sort, now });
 }
 
-export default async function EngineeringPage({ searchParams }: Props) {
+export default async function EngineeringPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const query = await searchParams;
   const period = periodOf(one(query.period));
   return (

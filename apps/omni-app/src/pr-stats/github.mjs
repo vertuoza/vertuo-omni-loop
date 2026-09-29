@@ -2,9 +2,9 @@
 // `octokit.request(route, params)`, so a test stubs one function.
 import { isBot, isOmniSigned } from './signed.mjs';
 
-export const PER_PAGE = 100;
+const PER_PAGE = 100;
 /** Pages of pull requests listed at most per read: 5,000 of them. */
-export const MAX_LIST_PAGES = 50;
+const MAX_LIST_PAGES = 50;
 /** Pages of one pull request's reviews or commits read at most (GitHub lists 250 commits at most). */
 const MAX_PAGES = 5;
 

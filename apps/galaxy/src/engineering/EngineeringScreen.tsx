@@ -1,7 +1,5 @@
 import { Notice } from '../ask/page/Notice';
-import { SwitchAccount } from '../ask/page/SignInCard';
-import { DashboardSignIn } from '../dashboard/DashboardSignIn';
-import { APP_CALLBACK } from '../dashboard/sign-in';
+import { MemberGate } from '../dashboard/MemberGate';
 import type { Query } from '../dashboard/board/links';
 import type { Period } from '../dashboard/board/period';
 import { EngineeringBoard } from './EngineeringBoard';
@@ -33,24 +31,13 @@ function Closed() {
 }
 
 export function EngineeringScreen({ view, period, supabase, signinError, query }: EngineeringScreenProps) {
-  switch (view.kind) {
-    case 'closed':
-      return <Closed />;
-    case 'sign-in':
-      return supabase ? <DashboardSignIn supabase={supabase} returnPath={APP_CALLBACK} error={signinError} /> : <Closed />;
-    case 'no-workspace':
-      return (
-        <Notice title="Your account is not in a workspace">
-          <p className="ask-muted">The Engineering board is for the members of a workspace. Sign in with your GitHub account to see yours.</p>
-          {supabase && <SwitchAccount supabase={supabase} />}
-        </Notice>
-      );
-    case 'board':
-      return (
-        <div className="dash">
-          <h1 className="dash-name">{view.name}</h1>
-          <EngineeringBoard board={view.board} period={period} query={query} />
-        </div>
-      );
+  if (view.kind !== 'board') {
+    return <MemberGate kind={view.kind} closed={<Closed />} board="The Engineering board" supabase={supabase} signinError={signinError} />;
   }
+  return (
+    <div className="dash">
+      <h1 className="dash-name">{view.name}</h1>
+      <EngineeringBoard board={view.board} period={period} query={query} />
+    </div>
+  );
 }

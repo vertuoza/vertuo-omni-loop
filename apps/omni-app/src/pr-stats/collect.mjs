@@ -19,7 +19,7 @@ export const BACKFILL_DAYS = 90;
  */
 export const BATCH = 50;
 /** Steps one repository takes at most in one run; a longer backfill carries on at the next run. */
-export const MAX_BATCHES = 20;
+const MAX_BATCHES = 20;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

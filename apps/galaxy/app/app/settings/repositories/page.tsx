@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import '../../../../src/repositories/repositories.css';
-import { arcadeMode } from '../../../../src/data/mode';
-import { supabaseEnv, supabaseServer } from '../../../../src/data/supabase-server';
+import { memberSession } from '../../../../src/data/member-session';
 import type { RepositoryRow } from '../../../../src/repositories/model';
 import { loadRepositoriesPage, type RepositoriesApp } from '../../../../src/repositories/load';
 import { RepositoriesScreen, type RepositoriesScreenView } from '../../../../src/repositories/RepositoriesScreen';
@@ -34,22 +33,18 @@ function appOrNull(): RepositoriesApp | null {
 
 async function viewOf(): Promise<RepositoriesScreenView> {
   const now = Date.now();
-  const mode = arcadeMode(process.env);
-  if (mode === 'demo') {
+  const session = await memberSession();
+  if (session.kind === 'demo') {
     return {
       kind: 'repositories', source: { kind: 'demo' }, owner: true, repositories: DEMO, now,
       access: { kind: 'installed', settingsUrl: null, reachable: ['acme/widgets', 'acme/legacy', 'acme/new-thing'] },
     };
   }
-  const env = supabaseEnv();
-  if (mode === 'closed' || !env) return { kind: 'closed' };
-  const db = await supabaseServer();
-  const { data: { user } } = await db.auth.getUser();
-  if (!user) return { kind: 'sign-in' };
-  const load = await loadRepositoriesPage(db, user, appOrNull(), installUrl(process.env.GITHUB_APP_SLUG));
+  if (session.kind !== 'signed-in') return session;
+  const load = await loadRepositoriesPage(session.db, session.user, appOrNull(), installUrl(process.env.GITHUB_APP_SLUG));
   if (load.kind !== 'repositories') return load;
   return {
-    kind: 'repositories', source: { kind: 'database', ...env, workspace: load.workspace.id },
+    kind: 'repositories', source: { kind: 'database', ...session.env, workspace: load.workspace.id },
     owner: load.owner, repositories: load.repositories, access: load.access, now,
   };
 }

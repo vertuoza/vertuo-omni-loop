@@ -68,6 +68,26 @@ export const REPO = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/;
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
+/** Every repository an installation token reaches, as GitHub spells it, archived ones left out.
+ * Throws when GitHub answers an error or an odd shape. Shared with the knowledge reader. */
+export async function reachedRepositories(token: string, fetchImpl: Fetch = fetch): Promise<string[]> {
+  const names: string[] = [];
+  for (let page = 1; page <= MAX_REPOSITORY_PAGES; page += 1) {
+    const path = `/installation/repositories?per_page=100&page=${page}`;
+    const res = await fetchImpl(`${GITHUB}${path}`, {
+      headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28' },
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error(`GitHub answered ${res.status} to ${path}`);
+    const parsed = RepositoriesAnswer.safeParse(await res.json());
+    if (!parsed.success) throw new Error(`GitHub's answer to ${path} is not the shape it documents`);
+    const { repositories, total_count } = parsed.data;
+    names.push(...repositories.filter((r) => !r.archived && REPO.test(r.full_name)).map((r) => r.full_name));
+    if (repositories.length < 100 || page * 100 >= total_count) break;
+  }
+  return names;
+}
+
 export function githubApp(creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now) {
   const call = (path: string, method: 'GET' | 'POST' = 'GET') => fetchImpl(`${GITHUB}${path}`, {
     method,
@@ -116,21 +136,7 @@ export function githubApp(creds: AppCredentials, fetchImpl: Fetch = fetch, clock
      * 612). Read with a fresh installation token. Throws when GitHub answers an error or an odd shape. */
     async installationRepositories(id: number): Promise<string[]> {
       const { token } = await installationToken(id);
-      const names: string[] = [];
-      for (let page = 1; page <= MAX_REPOSITORY_PAGES; page += 1) {
-        const path = `/installation/repositories?per_page=100&page=${page}`;
-        const res = await fetchImpl(`${GITHUB}${path}`, {
-          headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28' },
-          cache: 'no-store',
-        });
-        if (!res.ok) throw new Error(`GitHub answered ${res.status} to ${path}`);
-        const parsed = RepositoriesAnswer.safeParse(await res.json());
-        if (!parsed.success) throw new Error(`GitHub's answer to ${path} is not the shape it documents`);
-        const { repositories, total_count } = parsed.data;
-        names.push(...repositories.filter((r) => !r.archived && REPO.test(r.full_name)).map((r) => r.full_name));
-        if (repositories.length < 100 || page * 100 >= total_count) break;
-      }
-      return names;
+      return reachedRepositories(token, fetchImpl);
     },
   };
 }

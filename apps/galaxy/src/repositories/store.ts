@@ -14,7 +14,7 @@ export interface RepositoriesPort {
 }
 
 export const NOT_OWNER = 'Only the workspace’s owner can change its repositories.';
-export const GONE = 'That repository is no longer in this workspace. Reload the page.';
+const GONE = 'That repository is no longer in this workspace. Reload the page.';
 export const COULD_NOT_SAVE = 'Couldn’t save this. Try again in a moment.';
 
 /** An error as PostgREST answers it, or anything thrown, as the page says it. */

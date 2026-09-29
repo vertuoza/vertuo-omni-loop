@@ -57,28 +57,37 @@ async function githubOf(db: SupabaseClient, workspace: string): Promise<GithubOf
   return (data as GithubOf | null) ?? { github_org: null, github_installation_id: null };
 }
 
-async function accessOf(github: GithubOf, app: RepositoriesApp | null, installUrl: string | null): Promise<Access> {
-  const stored = github.github_installation_id === null ? null : Number(github.github_installation_id);
-  if (!app) return stored ? { kind: 'installed', settingsUrl: null, reachable: null } : { kind: 'none', installUrl };
-  let installation: Installation | null = null;
+/** The workspace's installation: its stored id's, else its org's or the person's own. */
+async function installationOf(github: GithubOf, stored: number | null, app: RepositoriesApp): Promise<Installation | null> {
+  if (stored) return app.installation(stored);
+  if (!github.github_org) return null;
+  return (await app.orgInstallation(github.github_org)) ?? (await app.userInstallation(github.github_org));
+}
+
+/** The repositories the installation reaches, or null when GitHub could not say. */
+async function reachableOf(app: RepositoriesApp, installation: Installation): Promise<string[] | null> {
   try {
-    installation = stored
-      ? await app.installation(stored)
-      : github.github_org
-        ? (await app.orgInstallation(github.github_org)) ?? (await app.userInstallation(github.github_org))
-        : null;
-  } catch (err) {
-    console.error(`repositories: the Omni App installation could not be read (${why(err)})`);
-    if (stored) return { kind: 'installed', settingsUrl: null, reachable: null };
-  }
-  if (!installation) return { kind: 'none', installUrl };
-  let reachable: string[] | null = null;
-  try {
-    reachable = await app.installationRepositories(installation.id);
+    return await app.installationRepositories(installation.id);
   } catch (err) {
     console.error(`repositories: the Omni App's repositories could not be read (${why(err)})`);
+    return null;
   }
-  return { kind: 'installed', settingsUrl: installationSettingsUrl(installation), reachable };
+}
+
+const unreadInstalled = (): Access => ({ kind: 'installed', settingsUrl: null, reachable: null });
+
+async function accessOf(github: GithubOf, app: RepositoriesApp | null, installUrl: string | null): Promise<Access> {
+  const stored = github.github_installation_id === null ? null : Number(github.github_installation_id);
+  if (!app) return stored ? unreadInstalled() : { kind: 'none', installUrl };
+  let installation: Installation | null = null;
+  try {
+    installation = await installationOf(github, stored, app);
+  } catch (err) {
+    console.error(`repositories: the Omni App installation could not be read (${why(err)})`);
+    if (stored) return unreadInstalled();
+  }
+  if (!installation) return { kind: 'none', installUrl };
+  return { kind: 'installed', settingsUrl: installationSettingsUrl(installation), reachable: await reachableOf(app, installation) };
 }
 
 export async function loadRepositoriesPage(
