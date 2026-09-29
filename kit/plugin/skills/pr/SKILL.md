@@ -66,6 +66,36 @@ Before adding a label, check it exists: `gh label list --search "<name>" --json 
 
 Never add `labels.outboxGo`; it is a person's override.
 
+## `--repo <slug>`
+
+Set by `/omni:ultra-yolo`, `/omni:ultra-wave`, `/omni:ultra-yolo-fix` and `/omni:do-work --target`,
+from a plan repository: the pull request lives in the target repository `<slug>` (`owner/name`, a
+`plan.targets` entry), not in this checkout. Every step above and below holds, with these
+differences.
+
+- **Every `gh` call takes `--repo <slug>`:** the claim's `gh pr create`, `gh label list` and
+  `gh pr edit` for labels, the status comment, and every call of the lifecycle (`gh pr view`,
+  `gh pr checks`, `gh pr ready`, `gh pr merge`, `gh run view`, `gh run rerun`). In the status
+  comment's recipe, `REPO` is `<slug>`, and `gh pr comment` takes `--repo "$REPO"` too.
+- **Git runs in the target's clone** (`<worktrees>/targets/<name>`, or the slice's worktree beside
+  it), and `<remote>` is the remote `git -C <clone> remote` prints, not `repo.remote`. The
+  default branch is the target's, from
+  `gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`, never
+  `repo.defaultBranch`: a merge checks `baseRefName` against it.
+- **Branches, labels and link lines are the plan repository's** config, filled as usual. A link
+  line's `#<n>` points at the plan repository's PRD, so it is written in full:
+  `<repo.slug of the plan repository>#<n>`.
+- **A label is never created there**, whatever `labels.autoCreate` says: a label missing in
+  `<slug>` is left off, and "create label `<name>` in `<slug>`" is a human step, as **Labels** says.
+- **The preflight is the target's own committed one**, as `/omni:do-work`'s
+  **Under `--target <name>`** reads it; a target without one has none, and the **Verified** line
+  says `none — CI is the check`.
+- **Claim in the clone:** step 1 runs `git -C <clone> fetch <remote>` and
+  `git -C <clone> switch -c <slice branch> <remote>/<feature branch>`; after the push, run
+  `git -C <clone> switch --detach` so the slice's own worktree can check the branch out.
+- **Never mark a target feature PR ready**, and never merge one: `/omni:ultra-yolo` marks it ready,
+  a person merges it.
+
 ## Merging and ready
 
 - **Never merge a PR whose base is `repo.defaultBranch`.** A feature PR or standalone PR is merged by

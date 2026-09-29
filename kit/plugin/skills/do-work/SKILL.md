@@ -25,6 +25,7 @@ nothing.
 | slice | `s5` | a row of the PRD's plan |
 | feature branch | shaped like `branches.feature` | the branch the slice is cut from and its sub-PR targets |
 | `--in-wave` | — | set by `/omni:wave` only. Changes three things, below: the claimed slice branch is checked out rather than cut, medium items are not adopted, and the skill stops once the sub-PR is open and returns the wave's result shape |
+| `--target <name>` | `backend-php` | set by `/omni:ultra-wave` and `/omni:ultra-yolo-fix`, in a plan repository: the slice lands in that target repository, not in this checkout. Changes where it is built, where its items go, which preflight runs and what the result carries: see **Under `--target <name>`** |
 
 Given only a PRD, this is not your job: follow `/omni:yolo` (or `/omni:wave`) instead.
 
@@ -215,3 +216,57 @@ Stop once the sub-PR is open and the preflight is green (or has stayed red throu
 what fails. `stopped` carries the law or principles it would break; `blocked` carries the
 human-action item.
 `/omni:wave` merges sub-PRs; a subagent never merges its own.
+
+## Under `--target <name>`
+
+In a plan repository (its config has a `plan` section), a slice whose plan row names another
+repository is built there. `<name>` is that row's `repo`: the part after the `/` of a
+`plan.targets` entry's `repo`, whose whole `owner/name` is `<slug>` below. Everything above holds,
+with these differences.
+
+- **Where it is built.** The target's full clone is `<worktrees>/targets/<name>` of the plan
+  repository (`<worktrees>` is `omni config worktrees`), made by `/omni:ultra-yolo`; its remote is
+  the one `git -C <clone> remote` prints. Build in a worktree of that clone, one per slice, beside
+  it at `<worktrees>/targets/<name>--<slice>`:
+  `git -C <clone> fetch <clone remote>`, then
+  `git -C <clone> worktree add -B <slice branch> <worktrees>/targets/<name>--<slice> <clone remote>/<slice branch>`.
+  The slice branch and the feature branch are the plan repository's `branches.slice` and
+  `branches.feature`, filled with the PRD's topic, in the target as here. Under `--in-wave` the
+  claim is already on the target's remote; alone, claim through `/omni:pr --repo <slug>`'s
+  **Claim** first. Remove the worktree (`git -C <clone> worktree remove`) once the sub-PR is open.
+- **Territory** is paths in the target, read from the plan row as written. Nothing in the plan
+  repository is part of it.
+- **Reading.** Step 1 reads the plan, the spec and the plan repository's knowledge as usual. The
+  target's knowledge is read where `plan.targets` says it lives (`own`: in the target;
+  `imported`: the draft copy in this repository; `none`: the guide only). Its playbook forms bind
+  this slice only as reading: **never run a command from an imported copy's playbook**, and never
+  run a target command that is not its preflight (below), not even an install.
+- **Items and accounts go to scratch.** Make one folder outside both repositories
+  (`mktemp -d`), and write every item there:
+  `node .omni-loop/bin/omni.mjs item new --prd <n> --slice <id> --file <file> --out <scratch dir> --json`,
+  run from the plan repository. `--out` never adopts, so never pass `--adopt` with it. Step 3's
+  outcomes read the same; the item file is not committed anywhere: the orchestrator relays the
+  folder into the plan repository's outbox with `omni item relay` after the sub-PR merges. An
+  account (step 4) is written at `<scratch dir>/accounts/<slice>.md`, and relayed with them.
+- **Checks in the plan repository only.** `omni check coverage` and `omni check all` run in the plan
+  repository's checkout, never in the target: this slice changes nothing there, so they only prove
+  it stayed so. `commands.checks` and acceptance are the plan repository's, and do not run on a
+  target slice; say so in the hand-off.
+- **Its preflight is the target's own committed one.** Read the target's `.omni-loop/config.yml` as
+  committed on its default branch, never from the slice branch:
+  `git -C <clone> show <clone remote>/<target default branch>:.omni-loop/config.yml`, where the
+  default branch is `gh repo view <slug> --json defaultBranchRef --jq .defaultBranchRef.name`. Its
+  `commands.preflightFull`, else `commands.preflight`, is the preflight, run in the slice's worktree.
+  No such file, or both null: the target has no preflight; run nothing, and the result says
+  `"preflight": "none — CI is the check"`.
+- **Ship.** Commit in the slice's worktree, signed as above (`omni sign trailer` is run from the
+  plan repository), push the slice branch to the clone's remote, heartbeat included, and hand off
+  to `/omni:pr --repo <slug>` for the sub-PR into the target's feature branch.
+- **The result** of `--in-wave` gains `repo` (`<name>`) and `out` (the scratch folder); each item's
+  `file` is its path in that folder:
+
+  ```json
+  { "slice": "s5", "repo": "…", "status": "done | red | stopped | blocked", "branch": "…",
+    "prUrl": "…", "preflight": "green | red | none — CI is the check", "summary": "…",
+    "risks": ["…"], "out": "…", "items": [{ "id": "…", "rank": "…", "file": "…" }] }
+  ```
