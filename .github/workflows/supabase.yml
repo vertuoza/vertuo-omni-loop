@@ -61,6 +61,11 @@ jobs:
         # fleets are active, and a fleet's name is derived once and never changes. Nobody signed in
         # writes public.teams directly. The member whose GitHub login is pierrederval owns vertuoza.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/fleets.sql
+      - name: Who may read and write the outbox sends
+        # A send is made only by a member of its dossier's workspace, as themselves, and read only by
+        # its owner; an account of another workspace, of none, or signed out, nothing. Its outcome is
+        # recorded once, by its owner, through outbox_send_done(); nobody updates or deletes a send.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/outbox_sends.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

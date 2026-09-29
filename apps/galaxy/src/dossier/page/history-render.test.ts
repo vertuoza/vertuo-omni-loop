@@ -171,3 +171,36 @@ describe('the sign-in', () => {
     expect(html).not.toContain('Sign in to read this PRD');
   });
 });
+
+describe('the open questions (PRD 251)', () => {
+  const WAITING = row('00000000-0000-4000-8000-0000000000d6', {
+    prd: 251, title: 'Answer the outbox anywhere', numbered_at: '2026-09-26T10:00:00Z', last_activity: '2026-09-26T10:00:00Z',
+  });
+  const rows = [...ROWS, WAITING];
+  const open = new Map([[WAITING.id, 2]]);
+  const render = (filters: HistoryFilters) => renderToStaticMarkup(createElement(DossierHistory, {
+    items: historyItems(rows, filters, 'u-pierre', open), choices: historyChoices(rows), filters,
+  }));
+
+  it('shows n open on the row with open questions only, as the Outbox tab counts them', () => {
+    const html = render(ALL);
+    expect(html).toContain('<span class="dossier-history-artifact dossier-history-open">Outbox <small>2 open</small></span>');
+    expect(html.match(/dossier-history-open/g)).toHaveLength(1);
+  });
+
+  it('offers Needs an answer in the filters, unticked, and keeps it ticked when the address asks for it', () => {
+    expect(render(ALL)).toContain('<input type="checkbox" name="needs" value="answer"/> Needs an answer');
+    const html = render({ who: 'all', needsAnswer: true });
+    expect(html).toContain('<input type="checkbox" name="needs" checked="" value="answer"/> Needs an answer');
+    expect(html.match(/class="dossier-history-row"/g)).toHaveLength(1);
+    expect(html).toContain('Answer the outbox anywhere');
+    expect(html).toContain('<a class="dossier-history-clear" href="/prd?who=all">Clear</a>');
+  });
+
+  it('says nothing matches when no PRD needs an answer', () => {
+    const html = renderToStaticMarkup(createElement(DossierHistory, {
+      items: historyItems(ROWS, { who: 'all', needsAnswer: true }, 'u-pierre'), choices: historyChoices(ROWS), filters: { who: 'all', needsAnswer: true },
+    }));
+    expect(html).toContain('No PRD matches');
+  });
+});

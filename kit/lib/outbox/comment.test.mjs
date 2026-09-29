@@ -2367,3 +2367,76 @@ describe('the Slack note learns what the pull request comment holds (PRD #1166 s
     });
   });
 });
+
+describe('the Omni page line (PRD 251, "The Outbox tab")', () => {
+  const ASK = 'https://omni.example.test';
+  const pageCtx = (overrides = {}) =>
+    flatCtx('/outbox-comment-fixture', { ask: { url: ASK }, ...overrides });
+  const open = [
+    { ...item({ id: 's2-01-a', rank: 'high' }), sections: { questionPlain: 'q', decisionPlain: 'd' } },
+  ];
+  const numbering = [{ number: 1, id: 's2-01-a', since: 't' }];
+  const LINE = `Answer here, or on the Omni page: ${ASK}/prd/at/vertuoza/vertuo-ai-domain/985`;
+
+  it('sits right under the header when the switch is on and ask.url is set', () => {
+    const body = formatOutboxPrComment({ items: open, numbering, prd: 985, ctx: pageCtx() });
+    const lines = body.split('\n');
+    const header = lines.indexOf('**1 question needs your decision**');
+    expect(header).toBeGreaterThan(-1);
+    expect(lines.slice(header + 1, header + 4)).toEqual(['', LINE, '']);
+    expect(body.split(LINE)).toHaveLength(2);
+  });
+
+  it('sits under the header too when nothing is open', () => {
+    const body = formatOutboxPrComment({ items: [], numbering: [], prd: 985, ctx: pageCtx() });
+    expect(body).toContain(`No open items.\n\n${LINE}\n`);
+  });
+
+  it('drops a trailing slash of ask.url', () => {
+    const body = formatOutboxPrComment({
+      items: open,
+      numbering,
+      prd: 985,
+      ctx: pageCtx({ ask: { url: `${ASK}/` } }),
+    });
+    expect(body).toContain(LINE);
+  });
+
+  it('is absent with the switch off', () => {
+    const body = formatOutboxPrComment({
+      items: open,
+      numbering,
+      prd: 985,
+      ctx: pageCtx({ answers: { enabled: false } }),
+    });
+    expect(body).not.toContain('Omni page');
+  });
+
+  it('is absent without ask.url', () => {
+    const body = formatOutboxPrComment({ items: open, numbering, prd: 985, ctx });
+    expect(body).not.toContain('Omni page');
+  });
+
+  it('is absent when the repository names no slug, or the PRD is not given', () => {
+    const noSlug = pageCtx({ repo: { slug: null } });
+    expect(formatOutboxPrComment({ items: open, numbering, prd: 985, ctx: noSlug })).not.toContain(
+      'Omni page',
+    );
+    expect(formatOutboxPrComment({ items: open, numbering, ctx: pageCtx() })).not.toContain(
+      'Omni page',
+    );
+  });
+
+  it('is written by upsertOutboxPrComment, which knows the PRD', () => {
+    withFixtureRoot((root) => {
+      writeOptionedItem(root, { id: 's3-01-components' });
+      const result = upsertOutboxPrComment(
+        { prd: 1166, ctx: flatCtx(root, { ask: { url: ASK } }), now: PINNED },
+        fakeClient(),
+      );
+      expect(result.body).toContain(
+        `Answer here, or on the Omni page: ${ASK}/prd/at/vertuoza/vertuo-ai-domain/1166`,
+      );
+    });
+  });
+});
