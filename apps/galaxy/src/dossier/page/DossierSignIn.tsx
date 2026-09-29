@@ -14,6 +14,14 @@ const COPY = {
     title: 'Sign in to read this PRD',
     body: 'This link opens a PRD\'s dossier: its before/after page, its spec, its plan and every version of each. It opens for the members of its workspace.',
   },
+  visual: {
+    title: 'Sign in to see your workspace\'s visual updates',
+    body: 'This page lists every visual fix of your workspaces: its before/after page and the rounds of variations it was picked from.',
+  },
+  bug: {
+    title: 'Sign in to see your workspace\'s bug fixes',
+    body: 'This page lists every bug fix of your workspaces, with the record of each.',
+  },
   history: {
     title: 'Sign in to see your workspace\'s PRDs',
     body: 'This page lists the dossier of every PRD of your workspaces: its before/after page, its spec, its plan and the questions that shaped it.',

@@ -11,6 +11,7 @@ import {
 } from '../../src/dossier/page/history';
 import { DossierDatabaseDown, DossiersClosed, dossierSession } from '../../src/dossier/page/route-gate';
 import { readHistory } from '../../src/dossier/page/source';
+import { ofWork } from '../../src/dossier/page/work';
 import { stageStore } from '../../src/stages/store';
 
 // /prd, the history (PRD 216): every dossier of the signed-in person's workspaces, newest activity
@@ -24,6 +25,7 @@ import { stageStore } from '../../src/stages/store';
 // PRD 587: the numbered rows' current stages are read from the stored stages, as the signed-in person,
 // for the stage bar, `?stage=` and each row's pill; stages that cannot be read show none. The demo has no
 // stored stage, so only its answered drafts read idea.
+// PRD 627: only PRDs' dossiers; the fixes have their own lists, /visual and /bugs.
 
 export const metadata: Metadata = { title: 'PRDs · OMNI LOOP' };
 
@@ -45,7 +47,7 @@ export default async function HistoryRoute({ searchParams }: Props) {
   const mode = arcadeMode(process.env);
 
   if (mode === 'demo') {
-    const rows = demoHistory(Date.now());
+    const rows = ofWork(demoHistory(Date.now()), 'prd');
     return listing(rows, DEMO_VIEWER, await readOpenCounts(historyToRead(rows, filters, DEMO_VIEWER), DEMO_READER));
   }
   const session = await dossierSession(mode);
@@ -55,7 +57,7 @@ export default async function HistoryRoute({ searchParams }: Props) {
 
   let rows: DossierListRow[];
   try {
-    rows = await readHistory(db);
+    rows = ofWork(await readHistory(db), 'prd');
   } catch (error) {
     console.error(error);
     return <DossierDatabaseDown />;

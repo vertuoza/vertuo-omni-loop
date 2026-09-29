@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createHash } from 'node:crypto';
-import { ARTIFACT_MAX_BYTES, deliveryFolders, dossierSwitch, gitBlobSha, titleOf } from './folders.mjs';
+import { ARTIFACT_MAX_BYTES, deliveryFolders, dossierSwitch, fixFolders, fixTitle, gitBlobSha, titleOf } from './folders.mjs';
 
 const blob = (path, sha, size = 100) => ({ path, mode: '100644', type: 'blob', sha, size });
 
@@ -96,6 +96,77 @@ describe('deliveryFolders: one tree listing, read as PRD folders', () => {
       blob(`${D}/inbox/0002-b/spec.md`, 'x2'),
     ], 'docs/delivery');
     expect(folders.map((f) => f.prd)).toEqual([1]);
+  });
+});
+
+describe('fixFolders: one tree listing, read as visual and bug fixes (PRD 627)', () => {
+  const D = '.omni-loop/delivery';
+
+  it('reads visual/ into before-after and its rounds in numeric order, and bugs/ into one bug-record', () => {
+    const { folders, skipped } = fixFolders([
+      blob(`${D}/visual/0548-omni-links-new-tab/before-after.html`, 'v1'),
+      blob(`${D}/visual/0561-omni-links-footer/variations-r10.html`, 'r10'),
+      blob(`${D}/visual/0561-omni-links-footer/variations-r2.html`, 'r2'),
+      blob(`${D}/visual/0561-omni-links-footer/before-after.html`, 'v2'),
+      blob(`${D}/visual/0561-omni-links-footer/variations-r1.html`, 'r1'),
+      blob(`${D}/visual/0561-omni-links-footer/variations-r0.html`, 'r0'),
+      blob(`${D}/visual/0561-omni-links-footer/notes.md`, 'n1'),
+      blob(`${D}/bugs/0571-number-args/bug.md`, 'b1'),
+      blob(`${D}/bugs/0571-number-args/before-after.html`, 'b2'),
+      blob(`${D}/inbox/0216-prd-dossiers/spec.md`, 'p1'),
+    ], D);
+    expect(folders).toEqual([
+      { kind: 'visual', prd: 548, topic: 'omni-links-new-tab', dir: `${D}/visual/0548-omni-links-new-tab`, files: [{ kind: 'before-after', path: `${D}/visual/0548-omni-links-new-tab/before-after.html`, sha: 'v1', size: 100 }] },
+      {
+        kind: 'visual', prd: 561, topic: 'omni-links-footer', dir: `${D}/visual/0561-omni-links-footer`, files: [
+          { kind: 'before-after', path: `${D}/visual/0561-omni-links-footer/before-after.html`, sha: 'v2', size: 100 },
+          { kind: 'variations', round: 1, path: `${D}/visual/0561-omni-links-footer/variations-r1.html`, sha: 'r1', size: 100 },
+          { kind: 'variations', round: 2, path: `${D}/visual/0561-omni-links-footer/variations-r2.html`, sha: 'r2', size: 100 },
+          { kind: 'variations', round: 10, path: `${D}/visual/0561-omni-links-footer/variations-r10.html`, sha: 'r10', size: 100 },
+        ],
+      },
+      { kind: 'bug', prd: 571, topic: 'number-args', dir: `${D}/bugs/0571-number-args`, files: [{ kind: 'bug-record', path: `${D}/bugs/0571-number-args/bug.md`, sha: 'b1', size: 100 }] },
+    ]);
+    expect(skipped).toEqual([]);
+  });
+
+  it('skips, naming why, a folder whose name does not parse, a file over 512 KiB and a number\'s second folder', () => {
+    const { folders, skipped } = fixFolders([
+      blob(`${D}/visual/drafts/before-after.html`, 'd1'),
+      blob(`${D}/bugs/12-short/bug.md`, 'd2'),
+      blob(`${D}/visual/0009-huge/before-after.html`, 'e1', ARTIFACT_MAX_BYTES + 1),
+      blob(`${D}/visual/0009-huge/variations-r1.html`, 'e2'),
+      blob(`${D}/bugs/0006-b/bug.md`, 's1'),
+      blob(`${D}/bugs/0006-a/bug.md`, 's2'),
+      blob(`${D}/visual/0006-a/before-after.html`, 's3'),
+    ], D);
+    expect(folders.map((f) => [f.kind, f.prd, f.dir, f.files.map((x) => x.kind)])).toEqual([
+      ['visual', 6, `${D}/visual/0006-a`, ['before-after']],
+      ['visual', 9, `${D}/visual/0009-huge`, ['variations']],
+      ['bug', 6, `${D}/bugs/0006-a`, ['bug-record']],
+    ]);
+    expect(skipped).toEqual([
+      { path: `${D}/bugs/0006-b`, reason: `bug fix 6 is read from ${D}/bugs/0006-a` },
+      { path: `${D}/bugs/12-short`, reason: 'the folder name does not read as <nnnn>-<topic>' },
+      { path: `${D}/visual/0009-huge/before-after.html`, reason: `${ARTIFACT_MAX_BYTES + 1} bytes, over 512 KiB` },
+      { path: `${D}/visual/drafts`, reason: 'the folder name does not read as <nnnn>-<topic>' },
+    ]);
+  });
+
+  it('leaves deliveryFolders reading inbox and shipped only', () => {
+    const { folders } = deliveryFolders([blob(`${D}/visual/0548-a/before-after.html`, 'v1'), blob(`${D}/bugs/0571-b/bug.md`, 'b1')], D);
+    expect(folders).toEqual([]);
+  });
+});
+
+describe('fixTitle: the issue\'s title without its prefix, else the topic', () => {
+  it('strips Visual: or Bug:, and falls back to the topic, cut to 200 characters', () => {
+    expect(fixTitle('Visual: Docs open in a new tab', 'omni-links-new-tab')).toBe('Docs open in a new tab');
+    expect(fixTitle('bug:  omni reads 1e2', 'number-args')).toBe('omni reads 1e2');
+    expect(fixTitle('A plain title', 't')).toBe('A plain title');
+    expect(fixTitle(null, 'number-args')).toBe('number-args');
+    expect(fixTitle('Bug: ', 'number-args')).toBe('number-args');
+    expect(fixTitle(`Visual: ${'x'.repeat(250)}`, 't')).toBe('x'.repeat(200));
   });
 });
 

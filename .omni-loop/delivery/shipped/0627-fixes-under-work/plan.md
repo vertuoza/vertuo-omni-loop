@@ -8,7 +8,7 @@ branch (`Part of #627`).
 
 | id | slice | territory | blocked by | wave |
 | --- | --- | --- | --- | --- |
-| s1 | A fix is a dossier with a kind: the migration (`dossiers.kind`, the unique key with kind, the `variations` and `bug-record` version kinds, the kind/version pairing in `dossier_push`), its checks, the push and find API taking a kind (missing = `prd`), and the kit's `omni dossier push <n> --kind visual` (or `bug`) and `omni dossier link <n> --kind …` reading `visual/` and `bugs/` folders | `supabase/migrations/20261010090000_` `supabase/checks/dossiers.sql` `apps/galaxy/src/dossier/api` `apps/galaxy/src/dossier/store` `apps/galaxy/app/api/dossiers/` `kit/bin/commands/dossier` `kit/lib/dossier/` `kit/lib/ask/client` `kit/dist/omni.mjs` | — | 1 |
+| s1 | A fix is a dossier with a kind: the migration (`dossiers.kind`, the unique key with kind, the `variations` and `bug-record` version kinds, the kind/version pairing in `dossier_push`), its checks, the push and find API taking a kind (missing = `prd`), and the kit's `omni dossier push <n> --kind visual` (or `bug`) and `omni dossier link <n> --kind …` reading `visual/` and `bugs/` folders | `supabase/migrations/20261011090000_` `supabase/checks/dossiers.sql` `apps/galaxy/src/dossier/api` `apps/galaxy/src/dossier/store` `apps/galaxy/app/api/dossiers/` `kit/bin/commands/dossier` `kit/lib/dossier/` `kit/lib/ask/client` `kit/dist/omni.mjs` | — | 1 |
 | s2 | Work → Bug Fixes and Work → Visual Updates: the sidebar entries in order, the `/bugs` and `/visual` lists (row, filters Mine/All, repo, search), the fix page at `/bugs/<id>` and `/visual/<id>` with tabs by kind (Before/after, Variations with its round picker, Bug record), the header badge and issue link, and the redirects between `/prd/<id>` and a fix's route; `/prd` lists only `prd` dossiers | `apps/galaxy/src/nav/sidebar` `apps/galaxy/src/nav/Sidebar` `apps/galaxy/src/fixes/` `apps/galaxy/src/dossier/page/` `apps/galaxy/app/prd/` `apps/galaxy/app/bugs/` `apps/galaxy/app/visual/` | s1 | 2 |
 | s3 | The GitHub fallback reads `<delivery>/visual/` and `<delivery>/bugs/` on each repository's default branch into `visual` and `bug` dossiers, so #548, #561 and #571 get pages | `game/dossiers/` | s1 | 2 |
 | s4 | The visual fix keeps its variations and its pick: `/omni:visual-fix` commits `variations-r<k>.html` per round and the `data-omni-pick` line, `omni visual <n>` checks every round page, both fix skills push their dossier with `--kind` and print its link, and the help entries say so | `kit/lib/visual/` `kit/lib/bug/` `kit/bin/commands/visual` `kit/plugin/skills/visual-fix/` `kit/plugin/skills/bug-fix/` `kit/lib/help/` `kit/dist/omni.mjs` | s1 | 2 |
@@ -20,7 +20,7 @@ waves 1 and 2, since s4's skills call s1's `--kind`. `apps/galaxy/src/fixes/`,
 by s2 (the lists and the page) and s5 (the state and the Timeline added to them); s5 is blocked by
 s2 and sits in wave 3. The sidebar's tests (`apps/galaxy/src/nav/sidebar.test.ts`,
 `Sidebar.render.test.ts`) are only touched by s2. s2, s3 and s4 share no prefix and run side by
-side in wave 2. The migration prefix `20261010090000_` must still sort after every migration on
+side in wave 2. The migration prefix `20261011090000_` must still sort after every migration on
 `main` at merge time (PRD 587 and PRD 612 each add `20261008090000_` on their branches).
 
 ## Per slice: done when

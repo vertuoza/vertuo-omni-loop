@@ -2,7 +2,10 @@
 // may do there, and nothing more, as supabase/migrations/20260928090000_dossiers.sql grants it: read
 // the dossiers with their versions embedded, insert a dossier (only the columns granted, ignoring a
 // duplicate key), update a title, read a version's content, and add a version through
-// dossier_add_version() — the version rule, with its checks. Anything else is refused, so a store that
+// dossier_add_version() — the version rule, with its checks. With 20261011090000_fix_dossiers.sql (PRD
+// 627): a dossier has a kind (prd when a row names none), its key is (workspace, repository, kind,
+// number), each kind takes its own versions, and a round of variations is added unless one of the same
+// content is already there. Anything else is refused, so a store that
 // strays from the grants fails its test. Every other table goes to game/test/fake-supabase.mjs.
 import { createHash, randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
@@ -10,7 +13,9 @@ import { fakeSupabase } from '../test/fake-supabase.mjs';
 
 const HOME_REPO = /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/;
 const HEX = /^[0-9a-f]{7,64}$/;
-const INSERTABLE = new Set(['workspace_id', 'home_repo', 'prd', 'title', 'numbered_at']);
+const INSERTABLE = new Set(['workspace_id', 'home_repo', 'kind', 'prd', 'title', 'numbered_at']);
+const KEY = 'workspace_id,home_repo,kind,prd';
+const TAKES = { prd: ['spec', 'plan', 'before-after'], visual: ['before-after', 'variations'], bug: ['bug-record'] };
 const RULE_ARGS = ['p_dossier', 'p_kind', 'p_content', 'p_source', 'p_uploaded_by', 'p_commit_sha', 'p_git_blob'];
 const MAX_BYTES = 524288;
 
@@ -46,6 +51,7 @@ function filtered(rows, params) {
 export function fakeDossiers(tables = {}) {
   tables.dossiers ??= [];
   tables.dossier_versions ??= [];
+  for (const d of tables.dossiers) d.kind ??= 'prd'; // the column's default
   const others = fakeSupabase(tables);
   const calls = [];
   let clock = Date.parse('2026-09-27T10:00:00Z');
@@ -68,20 +74,23 @@ export function fakeDossiers(tables = {}) {
 
   function insertDossiers(url, headers, rows) {
     const prefer = headers?.Prefer ?? headers?.prefer ?? '';
-    if (url.searchParams.get('on_conflict') !== 'workspace_id,home_repo,prd' || !prefer.includes('resolution=ignore-duplicates')) {
+    if (url.searchParams.get('on_conflict') !== KEY || !prefer.includes('resolution=ignore-duplicates')) {
       return refuse(409, '23505', 'the fake takes a dossier only as an insert that ignores a duplicate key');
     }
     const inserted = [];
     for (const row of rows) {
       const denied = Object.keys(row).find((c) => !INSERTABLE.has(c));
       if (denied) return refuse(403, '42501', `permission denied for column ${denied} of table dossiers`);
+      const kind = row.kind ?? 'prd';
+      if (!(kind in TAKES)) return refuse(400, '23514', 'dossiers_kind_check');
+      if (kind !== 'prd' && (row.prd ?? null) === null) return refuse(400, '23514', 'dossiers_fix_numbered');
       if (!HOME_REPO.test(row.home_repo ?? '') || row.home_repo.length > 200) return refuse(400, '23514', 'dossiers_home_repo_check');
       if (row.prd !== null && row.prd !== undefined && !(Number.isInteger(row.prd) && row.prd > 0)) return refuse(400, '23514', 'dossiers_prd_check');
       if (typeof row.title !== 'string' || chars(row.title) < 1 || chars(row.title) > 200) return refuse(400, '23514', 'dossiers_title_check');
       if (((row.prd ?? null) === null) !== ((row.numbered_at ?? null) === null)) return refuse(400, '23514', 'dossiers_numbered');
-      const taken = tables.dossiers.some((d) => d.workspace_id === row.workspace_id && d.home_repo === row.home_repo && row.prd != null && d.prd === row.prd);
+      const taken = tables.dossiers.some((d) => d.workspace_id === row.workspace_id && d.home_repo === row.home_repo && d.kind === kind && row.prd != null && d.prd === row.prd);
       if (taken) continue;
-      const dossier = { id: randomUUID(), workspace_id: row.workspace_id, home_repo: row.home_repo, prd: row.prd ?? null, title: row.title, opened_by: null, claude_session_id: null, created_at: tick(), numbered_at: row.numbered_at ?? null };
+      const dossier = { id: randomUUID(), workspace_id: row.workspace_id, home_repo: row.home_repo, kind, prd: row.prd ?? null, title: row.title, opened_by: null, claude_session_id: null, created_at: tick(), numbered_at: row.numbered_at ?? null };
       tables.dossiers.push(dossier);
       inserted.push(dossier);
     }
@@ -106,15 +115,17 @@ export function fakeDossiers(tables = {}) {
     if (p_content === null || p_content === undefined) return refuse(400, '22023', 'A version needs its content.');
     const bytes = Buffer.byteLength(p_content, 'utf8');
     if (bytes > MAX_BYTES) return refuse(400, '54000', `An artifact holds 512 KiB at most: this ${p_kind} is ${bytes} bytes.`);
-    if (!tables.dossiers.some((d) => d.id === p_dossier)) return refuse(400, 'P0002', 'No such dossier.');
-    if (!['spec', 'plan', 'before-after'].includes(p_kind)) return refuse(400, '23514', 'dossier_versions_kind_check');
+    const dossier = tables.dossiers.find((d) => d.id === p_dossier);
+    if (!dossier) return refuse(400, 'P0002', 'No such dossier.');
+    if (!['spec', 'plan', 'before-after', 'variations', 'bug-record'].includes(p_kind)) return refuse(400, '23514', 'dossier_versions_kind_check');
+    if (!TAKES[dossier.kind].includes(p_kind)) return refuse(400, '22023', `A ${dossier.kind} dossier takes no ${p_kind} version.`);
     if (!['kit', 'github'].includes(p_source)) return refuse(400, '23514', 'dossier_versions_source_check');
     if (p_source === 'github' && p_commit_sha === null) return refuse(400, '23514', 'dossier_versions_github_commit');
     if ((p_commit_sha !== null && !HEX.test(p_commit_sha)) || (p_git_blob !== null && !HEX.test(p_git_blob))) return refuse(400, '23514', 'dossier_versions_hex_check');
     const sha256 = createHash('sha256').update(p_content, 'utf8').digest('hex');
     const ofKind = tables.dossier_versions.filter((v) => v.dossier_id === p_dossier && v.kind === p_kind);
     const latest = [...ofKind].sort((a, b) => b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id))[0];
-    if (latest?.sha256 === sha256) return reply(200, null);
+    if (p_kind === 'variations' ? ofKind.some((v) => v.sha256 === sha256) : latest?.sha256 === sha256) return reply(200, null);
     tables.dossier_versions.push({
       id: randomUUID(), dossier_id: p_dossier, kind: p_kind, content: p_content, sha256, bytes, source: p_source,
       uploaded_by: p_uploaded_by, commit_sha: p_commit_sha, git_blob: p_git_blob, created_at: tick(),

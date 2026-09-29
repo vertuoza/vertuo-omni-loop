@@ -229,6 +229,113 @@ describe('syncDossiers: what it skips, and logs, without failing', () => {
   });
 });
 
+describe('syncDossiers: visual and bug fixes (PRD 627)', () => {
+  const V548 = '<!doctype html><title>Visual 548 before/after</title>\n';
+  const V561 = '<!doctype html><title>Sidebar Omni foot</title>\n';
+  const BUG = '# Bug 571: omni reads 1e2 as a PRD number\n';
+  const R1 = '<!doctype html><title>Round 1</title>\n';
+  const R2 = '<!doctype html><title>Round 2</title>\n';
+
+  function withFixes() {
+    const repo = omniLoop();
+    repo.files[`${D}/visual/0548-omni-links-new-tab/before-after.html`] = V548;
+    repo.files[`${D}/visual/0561-omni-links-footer/before-after.html`] = V561;
+    repo.files[`${D}/bugs/0571-number-args/bug.md`] = BUG;
+    repo.issues = { 548: 'Visual: Docs and Release notes open in a new tab', 571: 'Bug: omni reads 1e2 or 0x10 as a PRD number' };
+    return repo;
+  }
+  const fixes = (fake, kind) => fake.tables.dossiers.filter((d) => d.kind === kind).map((d) => [d.prd, d.title, d.numbered_at]);
+  const versionsOf = (fake, kind, prd) => {
+    const d = fake.tables.dossiers.find((x) => x.kind === kind && x.prd === prd);
+    return fake.tables.dossier_versions.filter((v) => v.dossier_id === d.id).map((v) => [v.kind, v.content]);
+  };
+
+  it('makes two visual and one bug dossier for #548, #561 and #571, titled after their issues or else their topics', async () => {
+    const { fake, run, lines } = setup({ 'vertuoza/vertuo-omni-loop': withFixes() });
+    const [report] = await run();
+    expect(fixes(fake, 'visual')).toEqual([
+      [548, 'Docs and Release notes open in a new tab', NOW.toISOString()],
+      [561, 'omni-links-footer', NOW.toISOString()],
+    ]);
+    expect(fixes(fake, 'bug')).toEqual([[571, 'omni reads 1e2 or 0x10 as a PRD number', NOW.toISOString()]]);
+    expect(fake.tables.dossiers.filter((d) => d.kind === 'prd').map((d) => d.prd)).toEqual([3, 216]);
+    expect(versionsOf(fake, 'visual', 548)).toEqual([['before-after', V548]]);
+    expect(versionsOf(fake, 'bug', 571)).toEqual([['bug-record', BUG]]);
+    expect(fake.tables.dossier_versions.find((v) => v.content === BUG)).toMatchObject({ source: 'github', commit_sha: C1, git_blob: gitBlobSha(BUG) });
+    expect(report.created).toEqual([3, 216]);
+    expect(report.fixes).toEqual({
+      folders: 3,
+      created: [{ kind: 'visual', prd: 548 }, { kind: 'visual', prd: 561 }, { kind: 'bug', prd: 571 }],
+      added: [{ fix: 'visual', prd: 548, kind: 'before-after', version: 1 }, { fix: 'visual', prd: 561, kind: 'before-after', version: 1 }, { fix: 'bug', prd: 571, kind: 'bug-record', version: 1 }],
+    });
+    expect(lines.at(-1)).toBe('vertuoza/vertuo-omni-loop @ c1000000 (main): 2 PRD folders · 3 fix folders · 5 dossiers created · 7 files fetched · added: #3 spec v1, #216 spec v1, #216 plan v1, #216 before-after v1, visual #548 before-after v1, visual #561 before-after v1, bug #571 bug-record v1');
+  });
+
+  it('adds no version and fetches nothing on a second run, and reads an issue\'s title only when it opens its dossier', async () => {
+    const { fake, run, github, blobReads } = setup({ 'vertuoza/vertuo-omni-loop': withFixes() });
+    await run();
+    const before = { versions: fake.tables.dossier_versions.length, blobs: blobReads().length, issues: github.calls.filter((c) => c.includes('/issues/')).length };
+    const [report] = await run();
+    expect(report).toMatchObject({ created: [], added: [], fetched: 0, fixes: { folders: 3, created: [], added: [] } });
+    expect(fake.tables.dossier_versions).toHaveLength(before.versions);
+    expect(blobReads()).toHaveLength(before.blobs);
+    expect(github.calls.filter((c) => c.includes('/issues/'))).toHaveLength(before.issues);
+    expect(fake.tables.dossiers).toHaveLength(5);
+  });
+
+  it('adds each variations round in order, then only a new round, fetching only it', async () => {
+    const { fake, run, world, blobReads } = setup({ 'vertuoza/vertuo-omni-loop': withFixes() });
+    const files = world['vertuoza/vertuo-omni-loop'].files;
+    files[`${D}/visual/0548-omni-links-new-tab/variations-r1.html`] = R1;
+    await run();
+    files[`${D}/visual/0548-omni-links-new-tab/variations-r2.html`] = R2;
+    const fetchedBefore = blobReads().length;
+    const [report] = await run();
+    expect(blobReads().slice(fetchedBefore)).toEqual([expect.stringContaining(`/git/blobs/${gitBlobSha(R2)} `)]);
+    expect(report.fixes.added).toEqual([{ fix: 'visual', prd: 548, kind: 'variations', version: 2 }]);
+    expect(versionsOf(fake, 'visual', 548)).toEqual([['before-after', V548], ['variations', R1], ['variations', R2]]);
+  });
+
+  it('finds the fix the kit pushed, fetching a round only when no round the kit stored hashes the same', async () => {
+    const kitFix = { id: 'd-kit', workspace_id: VERTUOZA, home_repo: 'vertuoza/vertuo-omni-loop', kind: 'visual', prd: 548, title: 'From the kit', opened_by: 'u1', claude_session_id: null, created_at: '2026-09-27T08:00:00Z', numbered_at: '2026-09-27T08:00:00Z' };
+    const kit = (id, kind, content, at) => ({ id, dossier_id: 'd-kit', kind, content, sha256: 'x'.repeat(64), bytes: Buffer.byteLength(content), source: 'kit', uploaded_by: 'u1', commit_sha: null, git_blob: null, created_at: at });
+    const repo = withFixes();
+    repo.files[`${D}/visual/0548-omni-links-new-tab/variations-r1.html`] = R1;
+    repo.files[`${D}/visual/0548-omni-links-new-tab/variations-r2.html`] = R2;
+    const { run, fake, blobReads } = setup({ 'vertuoza/vertuo-omni-loop': repo }, {
+      dossiers: [kitFix],
+      dossier_versions: [kit('k1', 'before-after', V548, '2026-09-27T08:00:01Z'), kit('k2', 'variations', R1, '2026-09-27T08:00:02Z')],
+    });
+    const [report] = await run();
+    const fetched = blobReads().map((c) => c.split(' ')[1].split('/').pop());
+    expect(fetched).toContain(gitBlobSha(R2));
+    expect(fetched).not.toContain(gitBlobSha(R1));
+    expect(fetched).not.toContain(gitBlobSha(V548));
+    expect(report.fixes.created).toEqual([{ kind: 'visual', prd: 561 }, { kind: 'bug', prd: 571 }]);
+    expect(fake.tables.dossiers.filter((d) => d.kind === 'visual' && d.prd === 548).map((d) => [d.id, d.title])).toEqual([['d-kit', 'From the kit']]);
+  });
+
+  it('titles a fix after its folder\'s topic when its issue cannot be read, and logs it', async () => {
+    const { run, fake, github, lines } = setup({ 'vertuoza/vertuo-omni-loop': withFixes() });
+    const exec = github.exec;
+    github.exec = async (args) => {
+      if (args[1].endsWith('/issues/548')) throw Object.assign(new Error('Command failed'), { stderr: 'gh: Server Error (HTTP 502)\n' });
+      return exec(args);
+    };
+    await run();
+    expect(fixes(fake, 'visual').map(([prd, title]) => [prd, title])).toEqual([[548, 'omni-links-new-tab'], [561, 'omni-links-footer']]);
+    expect(lines).toContain('  ! vertuoza/vertuo-omni-loop: the title of issue 548 cannot be read (gh: Server Error (HTTP 502)): titled omni-links-new-tab');
+  });
+
+  it('reads the fixes of a repository with no PRD folder, and skips a fix folder whose name does not parse', async () => {
+    const { run, fake, lines } = setup({ 'vertuoza/vertuo-core': { commit: C1, files: { '.omni-loop/config.yml': ON, [`${D}/bugs/0012-crash/bug.md`]: BUG, [`${D}/visual/draft/before-after.html`]: V548 } } });
+    const [report] = await run(['vertuo-core']);
+    expect(report.folders).toBe(0);
+    expect(fixes(fake, 'bug').map(([prd, title]) => [prd, title])).toEqual([[12, 'crash']]);
+    expect(lines).toContain(`  ! skipped ${D}/visual/draft in vertuoza/vertuo-core: the folder name does not read as <nnnn>-<topic>`);
+  });
+});
+
 describe('syncDossiers: whose dossiers', () => {
   it('writes the workspace it runs for, reads each repository once, and leaves another workspace\'s dossier of the same key alone', async () => {
     const acmeDossier = { id: 'd-acme', workspace_id: ACME, home_repo: 'vertuoza/vertuo-omni-loop', prd: 216, title: 'Theirs', opened_by: null, claude_session_id: null, created_at: '2026-09-27T08:00:00Z', numbered_at: '2026-09-27T08:00:00Z' };

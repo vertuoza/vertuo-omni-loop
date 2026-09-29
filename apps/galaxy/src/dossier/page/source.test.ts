@@ -92,6 +92,20 @@ describe('reading a version', () => {
     expect(await readSandboxed(as('bob'), 'not-a-uuid', 1)).toBeNull();
     expect(await readSandboxed(as('bob'), numbered, 0)).toBeNull();
   });
+
+  it('serves a visual fix\'s round of variations by its number, apart from its before/after page (PRD 627)', async () => {
+    const { fake, as } = await world();
+    const pushed = await fake.client('ada').rpc('dossier_push', {
+      p_repo: 'acme/widgets', p_prd: 548, p_kind: 'visual', p_title: 'Darker sidebar', p_draft: null,
+      p_artifacts: [{ kind: 'before-after', content: PAGE }, { kind: 'variations', content: '<title>r1</title>' }, { kind: 'variations', content: '<title>r2</title>' }],
+    });
+    const fix = (pushed.data as { id: string }).id;
+    expect(await readSandboxed(as('bob'), fix, 2, 'variations')).toBe('<title>r2</title>');
+    expect(await readSandboxed(as('bob'), fix, 1, 'variations')).toBe('<title>r1</title>');
+    expect(await readSandboxed(as('bob'), fix, 1)).toBe(PAGE);
+    expect(await readSandboxed(as('bob'), fix, 3, 'variations')).toBeNull();
+    expect(await readSandboxed(as('carl'), fix, 1, 'variations')).toBeNull();
+  });
 });
 
 describe('deleting a draft', () => {

@@ -7,15 +7,17 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import {
-  ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierList, dossierPulse, dossierReader, dossierRounds, dossierStore, DossierStoreError, LIST_FIELDS,
-  ROUND_FIELDS, TITLE_MAX, VERSION_COLUMNS,
+  ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, DOSSIER_COLUMNS, DOSSIER_KINDS, dossierList, dossierPulse, dossierReader, dossierRounds, dossierStore, DossierStoreError, LIST_FIELDS,
+  ROUND_FIELDS, TITLE_MAX, VERSION_COLUMNS, WORK_KINDS,
 } from './store';
 
 const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20260928090000_dossiers.sql', import.meta.url)), 'utf8');
+// PRD 627: the kind of a dossier, its new version kinds and dossier_push() taking the kind.
+const FIX_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261011090000_fix_dossiers.sql', import.meta.url)), 'utf8');
 
 /** The parameter names `create function public.<name>(…)` declares, in order. */
-function parameters(name: string): string[] {
-  const match = new RegExp(`create function public\\.${name}\\(([^)]*)\\)`).exec(MIGRATION);
+function parameters(name: string, migration = MIGRATION): string[] {
+  const match = new RegExp(`create function public\\.${name}\\(([^)]*)\\)`).exec(migration);
   if (!match) throw new Error(`the migration declares no ${name}()`);
   return match[1].split(',').map((part) => part.trim().split(/\s+/)[0]);
 }
@@ -43,11 +45,20 @@ describe('the dossier store', () => {
     const { calls, db } = recording({ data: pushed, error: null });
     const push = { repo: 'acme/widgets', prd: 7, title: 'Team inbox', draftId: null, artifacts: [{ kind: 'spec' as const, content: 'x' }] };
     expect(await dossierStore(db).push(push)).toEqual(pushed);
-    expect(Object.keys(calls[0].args)).toEqual(parameters('dossier_push'));
+    // A PRD's push names no kind: the function's last parameter defaults to prd.
+    expect(Object.keys(calls[0].args)).toEqual(parameters('dossier_push', FIX_MIGRATION).slice(0, -1));
     expect(calls[0]).toEqual({
       name: 'dossier_push',
       args: { p_repo: 'acme/widgets', p_prd: 7, p_title: 'Team inbox', p_draft: null, p_artifacts: [{ kind: 'spec', content: 'x' }] },
     });
+    expect(FIX_MIGRATION).toContain("p_kind text default 'prd'");
+  });
+
+  it('pushes a fix with its kind, as the last of the migration\'s parameters', async () => {
+    const { calls, db } = recording({ data: { id: 'd9', added: [], unchanged: [] }, error: null });
+    await dossierStore(db).push({ repo: 'acme/widgets', prd: 548, kind: 'visual', title: 'Links', draftId: null, artifacts: [{ kind: 'variations', content: 'r1' }] });
+    expect(Object.keys(calls[0].args)).toEqual(parameters('dossier_push', FIX_MIGRATION));
+    expect(calls[0].args.p_kind).toBe('visual');
   });
 
   it('turns a refusal into a DossierStoreError carrying Postgres\'s code and reason', async () => {
@@ -61,14 +72,17 @@ describe('the dossier store', () => {
     expect(MIGRATION).toContain(`kind in (${DOSSIER_KINDS.map((k) => `'${k}'`).join(', ')})`);
     expect(MIGRATION).toContain(`bytes between 0 and ${ARTIFACT_MAX_BYTES}`);
     expect(MIGRATION).toContain(`char_length(title) between 1 and ${TITLE_MAX}`);
+    expect(FIX_MIGRATION).toContain(`kind in (${ARTIFACT_KINDS.map((k) => `'${k}'`).join(', ')})`);
+    expect(FIX_MIGRATION).toContain(`kind in (${WORK_KINDS.map((k) => `'${k}'`).join(', ')})`);
   });
 });
 
 /** The columns `grant select (…) on public.<table> to authenticated` names. */
 function granted(table: string): string[] {
-  const match = new RegExp(`grant select \\(([^)]*)\\)\\s+on public\\.${table} to authenticated`).exec(MIGRATION);
-  if (!match) throw new Error(`the migration grants no columns of ${table}`);
-  return match[1].split(',').map((column) => column.trim());
+  const pattern = new RegExp(`grant select \\(([^)]*)\\)\\s+on public\\.${table} to authenticated`, 'g');
+  const columns = [MIGRATION, FIX_MIGRATION].flatMap((migration) => [...migration.matchAll(pattern)].flatMap((m) => m[1].split(',').map((c) => c.trim())));
+  if (!columns.length) throw new Error(`the migrations grant no columns of ${table}`);
+  return columns;
 }
 
 /** A client that records each query built on it and answers `answer`. */
@@ -126,9 +140,15 @@ describe('reading a dossier as its members do (the page to share)', () => {
     const { calls, db } = querying({ data: [{ id: 'd2' }], error: null });
     expect(await dossierReader(db).numbered('Acme/Widgets', 7)).toBe('d2');
     expect(calls).toEqual([
-      ['from', 'dossiers'], ['select', 'id'], ['eq', 'home_repo', 'acme/widgets'], ['eq', 'prd', 7],
+      ['from', 'dossiers'], ['select', 'id'], ['eq', 'home_repo', 'acme/widgets'], ['eq', 'kind', 'prd'], ['eq', 'prd', 7],
       ['order', 'numbered_at', { ascending: false, nullsFirst: false }], ['order', 'id', { ascending: true }], ['limit', 1],
     ]);
+  });
+
+  it('finds a fix\'s dossier by its kind (PRD 627)', async () => {
+    const { calls, db } = querying({ data: [{ id: 'd3' }], error: null });
+    expect(await dossierReader(db).numbered('acme/widgets', 571, 'bug')).toBe('d3');
+    expect(calls).toContainEqual(['eq', 'kind', 'bug']);
   });
 
   it('finds no dossier when row-level security hides every row, or there is none', async () => {
@@ -174,7 +194,8 @@ describe('reading a dossier\'s rounds', () => {
 
 // ── The history (PRD 216, step 4) ───────────────────────────────────────────────
 
-const LIST_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20260928110000_dossier_list.sql', import.meta.url)), 'utf8');
+// dossier_list() as PRD 627 last wrote it: with each dossier's kind.
+const LIST_MIGRATION = FIX_MIGRATION;
 
 describe('reading the history', () => {
   it('calls dossier_list() with the migration\'s parameter: every dossier, or one', async () => {

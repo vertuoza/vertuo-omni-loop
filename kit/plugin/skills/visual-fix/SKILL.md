@@ -1,15 +1,17 @@
 ---
 name: visual-fix
-description: Takes a small visual change from one line to one pull request a person merges — opens (or reads) its issue, shows today beside four or five rendered variations and asks which one, applies the pick on a fix branch, looks at the real screen once, records a before/after page, proves it with omni visual and opens the PR into the default branch. No PRD, spec, plan, phase-0 PR, feature branch, wave or outbox. Stops and hands over the /omni:brainstorm line when the change needs data, a route, an API, a stored shape, a new screen or a new behaviour. Never merges. Triggers on "visual fix", "change the colour of", "this looks off", "make the sidebar darker", "/omni:visual-fix".
+description: Takes a small visual change from one line to one pull request a person merges — opens (or reads) its issue, shows today beside four or five rendered variations and asks which one, applies the pick on a fix branch, looks at the real screen once, records a before/after page with the pick and every round of variations, proves it with omni visual, opens the PR into the default branch and sends the record to the fix's page on the Omni page. No PRD, spec, plan, phase-0 PR, feature branch, wave or outbox. Stops and hands over the /omni:brainstorm line when the change needs data, a route, an API, a stored shape, a new screen or a new behaviour. Never merges. Triggers on "visual fix", "change the colour of", "this looks off", "make the sidebar darker", "/omni:visual-fix".
 ---
 
 # Visual fix: one line to one pull request
 
 A fast lane beside the loop, not inside it. A small visual change (a colour, a spacing, a label, a
 hover state) gets an issue, a set of rendered variations the person picks from, one fix branch and
-one pull request. There is no PRD, dossier, inbox folder, spec, plan, phase-0 PR, feature branch,
-wave or outbox: the person takes every visual decision by picking. No release note and no retro
-follow a visual fix. It ends at a review gate: **a person merges.**
+one pull request. There is no PRD, inbox folder, spec, plan, phase-0 PR, feature branch, wave or
+outbox: the person takes every visual decision by picking. The record (the before/after page, who
+picked what, and every round of variations shown) is committed with the fix and sent to the fix's
+own page on the Omni page, a Visual Update. No release note and no retro follow a visual fix. It
+ends at a review gate: **a person merges.**
 
 In order: **start** (step 0, the flow's step 1); open or read the **issue** (2); **locate** the screen and check the **boundary**
 (3); draw the **variations** and ask (4); cut the **branch** (5); **apply** the pick (6); the
@@ -121,16 +123,22 @@ visual to change in this repository, and stop.
 Always, even when the line is precise: the person picks, the skill never does.
 
 1. Write **one self-contained HTML page** to the session's scratchpad directory, never the
-   repository. Build it from the real screen's markup and styles, copied in (inline CSS, inline
-   SVG, no network): **today** first, then **four or five distinct variations**, labelled A to E.
-   Each is a real direction, not a shade of the same one: when the line asks for "darker", show
-   darker in different ways (a tone, a contrast, a border, a weight), not five greys.
+   repository yet: it is the first **round**. Build it from the real screen's markup and styles,
+   copied in (inline CSS, inline SVG, no network, **no base64 raster image**, at most
+   `limits.beforeAfterMaxBytes` bytes, since step 8 commits it as it is): **today** first, then
+   **four or five distinct variations**, labelled A to E. Each is a real direction, not a shade of
+   the same one: when the line asks for "darker", show darker in different ways (a tone, a
+   contrast, a border, a weight), not five greys.
 2. Open it in the person's browser when the session can, and give its path either way.
 3. Ask which one, as **one question** through the session's question tool, with A to E as its
    options; the person may answer "another round", with a note. Ask mode carries the question to
    the Omni page when it is on.
-4. "Another round" writes a **new** page, beside the old one, from the note. Repeat until one
-   variation is picked.
+4. "Another round" writes a **new** page, beside the old one, from the note, under the same rules.
+   Repeat until one variation is picked. Keep every round's page as it was shown, and its number,
+   k = 1, 2, … in the order shown.
+5. Note **who picked**, and the day: in ask mode, the GitHub login the Omni page gives with the
+   answer; otherwise the login of the person at the terminal, `gh api user --jq .login`. Step 8
+   writes it in the pick line.
 
 ## 5. Branch
 
@@ -169,14 +177,25 @@ that was not.**
 
 ## 8. Record
 
-Write `<paths.delivery>/visual/<nnnn>-<slug>/before-after.html`, the only file in that folder:
+The fix's folder is `<paths.delivery>/visual/<nnnn>-<slug>/`. Write in it:
 
-- **today** beside **the pick**, at full size, each labelled;
-- then the variations not picked, smaller, under a heading **Not picked**, each with its letter.
+- `before-after.html`:
+  - **the pick line**, once, in exactly this shape, with the letter, the login and the day of
+    step 4 (no other attribute, no other words; the Omni page reads it as it is):
 
-It is self-contained: inline CSS and inline SVG, no script from the network, and **no base64 raster
-image** (a `data:image/` URL that is not SVG). It is at most `limits.beforeAfterMaxBytes` bytes.
-Build it from the scratchpad page of step 4, never by linking to it.
+    ```html
+    <p data-omni-pick>Picked <letter> by @<login> on <YYYY-MM-DD></p>
+    ```
+
+  - **today** beside **the pick**, at full size, each labelled;
+  - then the variations not picked, smaller, under a heading **Not picked**, each with its letter.
+- `variations-r<k>.html`: every round's page of step 4, one file per round shown, k = 1, 2, … in
+  the order shown, copied as the person saw it.
+
+Nothing else goes in that folder. Every page in it is self-contained: inline CSS and inline SVG, no
+script from the network, and **no base64 raster image** (a `data:image/` URL that is not SVG). Each
+is at most `limits.beforeAfterMaxBytes` bytes. Build `before-after.html` from the round pages, never
+by linking to them.
 
 ## 9. Ship
 
@@ -188,11 +207,13 @@ Build it from the scratchpad page of step 4, never by linking to it.
    | exit | what you do |
    |---|---|
    | `0` | `ok`: carry on. |
-   | `1` | `not ok`, one line per failed check: fix each (a second folder, a missing page, a page too big, a raster image, an unsigned commit), commit, and rerun. |
+   | `1` | `not ok`, one line per failed check: fix each (a second folder, a missing page, a page or a round too big, a raster image, a round not named `variations-r<k>.html`, any other file in the folder, an unsigned commit), commit, and rerun. |
    | `2` | The kit is not installed here, or its config does not read: say so and stop. |
 
 3. **Push** the fix branch: `git push -u <remote> <fix branch>`.
-4. **Open the PR through `/omni:pr`**, as a standalone PR: base `repo.defaultBranch`, label
+4. **Send the record to its page:** follow `/omni:dossier-push <n> --kind visual`, and carry on
+   whatever it prints. Keep the link it printed for the hand-off.
+5. **Open the PR through `/omni:pr`**, as a standalone PR: base `repo.defaultBranch`, label
    `labels.visual` (subject to its **Labels** rules), title the commit's subject, and this body,
    signed (**Signing**):
 
@@ -205,11 +226,14 @@ Build it from the scratchpad page of step 4, never by linking to it.
 
    ## The pick
 
+   <p data-omni-pick>Picked <letter> by @<login> on <YYYY-MM-DD></p>
+
    <its letter>: <one sentence on the direction>.
 
    ## Before/after
 
-   `<paths.delivery>/visual/<nnnn>-<slug>/before-after.html`
+   `<paths.delivery>/visual/<nnnn>-<slug>/before-after.html`, and the rounds of variations shown:
+   `variations-r1.html`<, `variations-r2.html` …> beside it
 
    ## Verified
 
@@ -225,15 +249,19 @@ Build it from the scratchpad page of step 4, never by linking to it.
    <the line `omni sign footer` prints>
    ```
 
-   The before/after line is a repository path, never a URL. `/omni:pr` watches it until it is
-   green or stuck.
+   The pick line is the one in `before-after.html`, copied as it is. The before/after line is a
+   repository path, never a URL. `/omni:pr` watches it until it is green or stuck.
 
 ## 10. Hand off
 
-Print, in a few lines: the issue, the PR, what was verified and what was not (the preflight, the
-`omni visual` line, the real check or why it was not done), then:
+Print, in a few lines: the issue, the PR, the fix's page beside it, what was verified and what was
+not (the preflight, the `omni visual` line, the real check or why it was not done), then:
 
 > Open the PR's preview and merge it if it looks right.
+
+The fix's page is the link step 9's push printed. When the push was skipped, run
+`node .omni-loop/bin/omni.mjs dossier link <n> --kind visual`; when it prints `none` or cannot reach
+the app, say the fix has no page yet and give its issue, `https://github.com/<repo.slug>/issues/<n>`.
 
 After **The stop**, the hand-off is the issue, the comment and the `/omni:brainstorm` line, and the
 worktree left behind, when there is one.
@@ -243,7 +271,8 @@ worktree left behind, when there is one.
 - **Never merge.** A person merges the PR; the skill stops at the hand-off.
 - **Never pick for the person.** Four or five variations, always, and one question.
 - **Never cross the boundary** to finish a fix: stop, and hand over the `/omni:brainstorm` line.
-- Never commit on `repo.defaultBranch`, and never write the variations page into the repository.
+- Never commit on `repo.defaultBranch`, and never write a round of variations into the repository
+  before step 8, nor change one after it was shown.
 - Never report a screen as seen that was not.
-- Never open a PRD, a dossier, an inbox folder, a plan or an outbox item for a visual fix, and never
-  batch several visual fixes into one PR.
+- Never open a PRD, an inbox folder, a plan or an outbox item for a visual fix, and never batch
+  several visual fixes into one PR.

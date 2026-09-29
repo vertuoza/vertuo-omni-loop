@@ -231,6 +231,27 @@ describe('the dossier lookup (PRD 413)', () => {
     const { client } = stubbed(() => new Response('{}', { status: 404 }));
     await expect(client.findDossier({ repo: 'acme/widgets', prd: 7 })).rejects.toMatchObject({ status: 404 });
   });
+
+  it('asks for a fix by its kind, and for a PRD without one (PRD 627)', async () => {
+    const { calls, client } = stubbed(() => new Response(JSON.stringify({ id: 'd-2', url: 'https://omni.example/bugs/d-2' }), { status: 200 }));
+    await client.findDossier({ repo: 'acme/widgets', prd: 571, kind: 'bug' });
+    await client.findDossier({ repo: 'acme/widgets', prd: 7, kind: 'prd' });
+    expect(calls.map((c) => c.url)).toEqual([
+      'https://omni.example/api/dossiers?repo=acme%2Fwidgets&prd=571&kind=bug',
+      'https://omni.example/api/dossiers?repo=acme%2Fwidgets&prd=7',
+    ]);
+  });
+
+  it('pushes a fix with its kind, and a PRD with none, so an older server reads it as before (PRD 627)', async () => {
+    const { calls, client } = stubbed(() => new Response(JSON.stringify({ id: 'd-3', url: 'u', added: [], unchanged: [] }), { status: 200 }));
+    const artifacts = [{ kind: 'variations', content: 'r1' }];
+    await client.pushDossier({ repo: 'acme/widgets', prd: 548, kind: 'visual', title: 'Links', artifacts });
+    await client.pushDossier({ repo: 'acme/widgets', prd: 7, kind: 'prd', title: 'Team inbox', artifacts: [] });
+    expect(calls.map((c) => JSON.parse(c.body))).toEqual([
+      { repo: 'acme/widgets', prd: 548, kind: 'visual', title: 'Links', artifacts },
+      { repo: 'acme/widgets', prd: 7, title: 'Team inbox', artifacts: [] },
+    ]);
+  });
 });
 
 describe('where a repository\'s questions land (PRD 459)', () => {

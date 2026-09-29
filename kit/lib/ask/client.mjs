@@ -188,13 +188,16 @@ export function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, cal
      * one. @returns {Promise<{ id: string, url: string }>} */
     openDossier: ({ title, repo, claudeSessionId = null }) =>
       call('POST', '/api/dossiers', { body: { title, repo, ...(claudeSessionId ? { claudeSessionId } : {}) } }),
-    /** PRD 216: sends a PRD folder's artifacts, whole; the draft is named only when there is one.
+    /** PRD 216: sends a PRD folder's artifacts, whole; the draft is named only when there is one. Since
+     * PRD 627 a fix's push names its kind (visual or bug); a PRD's names none, as before.
      * @returns {Promise<{ id: string, url: string, added: Array<{ kind: string, version: number }>, unchanged: string[] }>} */
-    pushDossier: ({ repo, prd, title, draftId = null, artifacts }) =>
-      call('POST', '/api/dossiers/push', { body: { repo, prd, title, ...(draftId ? { draftId } : {}), artifacts } }),
-    /** PRD 413: PRD `prd`'s dossier for `repo`, as the caller may read it; a 404 when it has none.
-     * @returns {Promise<{ id: string, url: string }>} */
-    findDossier: ({ repo, prd }) =>
-      call('GET', `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd) })}`),
+    pushDossier: ({ repo, prd, kind = 'prd', title, draftId = null, artifacts }) =>
+      call('POST', '/api/dossiers/push', {
+        body: { repo, prd, ...(kind && kind !== 'prd' ? { kind } : {}), title, ...(draftId ? { draftId } : {}), artifacts },
+      }),
+    /** PRD 413: PRD `prd`'s dossier for `repo`, as the caller may read it; a 404 when it has none. Since
+     * PRD 627, a fix's by its kind (visual or bug). @returns {Promise<{ id: string, url: string }>} */
+    findDossier: ({ repo, prd, kind = 'prd' }) =>
+      call('GET', `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd), ...(kind && kind !== 'prd' ? { kind } : {}) })}`),
   };
 }

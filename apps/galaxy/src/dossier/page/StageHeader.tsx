@@ -7,11 +7,15 @@ import { StageHeaderCopy } from './StageHeaderCopy';
 // current one bold and the later ones faded, written in words for the Stage cell, with the questions
 // badge beside the pills at building, and the issue and pull requests that exist for the On GitHub cell.
 // Hovering the stage says when it was last synced. A draft with no answer and a PRD not synced yet light
-// nothing, and say Brainstorming or Syncing….
+// nothing, and say Brainstorming or Syncing…. A fix's title (PRD 627) reads `#n ↗` after its kind's
+// badge; a fix has no stage track.
 
-export function DossierTitle({ heading, draft, title, issueUrl }: { heading: string; draft: boolean; title: string; issueUrl: string | null }) {
+export function DossierTitle({ heading, draft, title, issueUrl, badge = null }: {
+  heading: string; draft: boolean; title: string; issueUrl: string | null; badge?: string | null;
+}) {
   return (
     <h1 className="dossier-title">
+      {badge && <><span className="dossier-kind">{badge}</span>{' '}</>}
       {draft || !issueUrl ? (
         <span className="dossier-draft">DRAFT</span>
       ) : (

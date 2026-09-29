@@ -1,9 +1,9 @@
 // A fake `gh` for the fallback's tests: answers the four `gh api` reads game/dossiers/github.mjs makes
-// (the default branch, its head, a file at a commit, the recursive tree, a blob) from a small world of
+// (the default branch, its head, a file at a commit, the recursive tree, a blob, an issue's title) from a small world of
 // repositories, each a map of path → content on its default branch. Every blob is named by the hash
 // git gives it, so a test changes a file by changing its content. Nothing reaches GitHub.
 //
-// world: { 'owner/name': { branch?: 'main', commit: '<hex>', files: { path: content }, unreadable?: true } }
+// world: { 'owner/name': { branch?: 'main', commit: '<hex>', files: { path: content }, issues?: { n: title }, unreadable?: true } }
 // A missing file answers as gh does, with `gh: Not Found (HTTP 404)` on stderr. `ghScript()` wraps the
 // same fake as an executable `gh`, for a test that runs game:dossiers as a process.
 import { createHash } from 'node:crypto';
@@ -41,6 +41,11 @@ export function fakeGitHub(world) {
         ...Object.entries(repo.files).map(([p, content]) => ({ path: p, mode: '100644', type: 'blob', sha: gitBlobSha(content), size: Buffer.byteLength(content) })),
       ].sort((a, b) => (a.path < b.path ? -1 : 1));
       return JSON.stringify({ sha: treeOf(repo.commit), tree, truncated: Boolean(repo.truncated) });
+    }
+    if (/^\/issues\/\d+$/.test(route) && rest.join(' ') === '--jq .title') {
+      const title = repo.issues?.[route.slice('/issues/'.length)];
+      if (title === undefined) throw notFound(path);
+      return `${title}\n`;
     }
     if (route.startsWith('/git/blobs/') && raw) {
       const content = blobs.get(route.slice('/git/blobs/'.length));
