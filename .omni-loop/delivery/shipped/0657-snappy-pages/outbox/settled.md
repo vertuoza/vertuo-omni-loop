@@ -18,6 +18,7 @@ and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/REA
 - Raised: 2026-09-29
 - Slice: s2
 - Wave: 1
+- Stays here: Cheap-to-reverse implementation choice of where to read a field; no lasting guarantee or rule beyond existing behaviour, so it stays in the ledger.
 
 ### The answer, as it was given
 
@@ -96,6 +97,7 @@ Low: one small function builds the person from the session, and swapping it back
 - Raised: 2026-09-29
 - Slice: s2
 - Wave: 1
+- Became: BR-PRODUCT-50, P-PRODUCT-47
 
 ### The answer, as it was given
 
@@ -173,6 +175,7 @@ Low: the tile can go back to its own read by dropping one argument, with no stor
 - Raised: 2026-09-29
 - Slice: s2
 - Wave: 1
+- Stays here: A one-off, test-only edit with low cost to change; ADR-0053 covers shared test ground going forward, and nothing lasting about product behaviour remains.
 
 ### The answer, as it was given
 
@@ -250,6 +253,7 @@ Low: test files only, each edit a few lines, easy to take back or move.
 - Raised: 2026-09-29
 - Slice: s3
 - Wave: 1
+- Stays here: A one-off test adjustment for this slice, reverted in three lines, with no lasting rule or product guarantee beyond what the tests already checked.
 
 ### The answer, as it was given
 
@@ -329,6 +333,7 @@ Undoing it is reverting three test lines; no product code outside the slice chan
 - Raised: 2026-09-29
 - Slice: s8
 - Wave: 1
+- Became: ADR-0054
 
 ### The answer, as it was given
 
@@ -408,6 +413,7 @@ Nothing to undo but the key: dropping the count and the fingerprint from seasonK
 - Raised: 2026-09-29
 - Slice: s10
 - Wave: 1
+- Stays here: A local refresh trade-off that is cheap to reverse and was adopted without review. It guarantees nothing lasting, and no existing entry needs to record it.
 
 ### The answer, as it was given
 
@@ -487,6 +493,7 @@ Option B is one small component that re-reads the stage and outbox part through 
 - Raised: 2026-09-29
 - Slice: s4
 - Wave: 2
+- Stays here: A one-off territory call for this slice with a cheap revert; it sets no lasting rule, and the behaviour it keeps is already covered by P-PRODUCT-30.
 
 ### The answer, as it was given
 
@@ -564,6 +571,7 @@ Reverting is two files of code and five test helpers; no stored data, no contrac
 - Raised: 2026-09-29
 - Slice: s4
 - Wave: 2
+- Stays here: A local streaming choice for this step that is cheap to split later, with no stored data or contract; nothing lasting to record beyond the ledger.
 
 ### The answer, as it was given
 
@@ -641,6 +649,7 @@ Splitting the board later is a change inside the board's folder and the stream f
 - Raised: 2026-09-29
 - Slice: s4
 - Wave: 2
+- Stays here: A local performance choice about render order, cheap to change later with no data or contract; no lasting guarantee or cross-cutting decision to record.
 
 ### The answer, as it was given
 
@@ -718,6 +727,7 @@ A change in the frame's code later, no stored data and no contract.
 - Raised: 2026-09-29
 - Slice: s4
 - Wave: 2
+- Stays here: A local rendering and streaming choice for one page, cheap to change later, with no stored data or contract and no lasting product guarantee to record.
 
 ### The answer, as it was given
 
@@ -795,6 +805,7 @@ A change to the list's drawing later; no stored data, no contract.
 - Raised: 2026-09-29
 - Slice: s4
 - Wave: 2
+- Stays here: A local rendering trade-off in the PRD page's view, cheap to reshape later with no stored data or contract; nothing lasting for the knowledge base.
 
 ### The answer, as it was given
 
@@ -872,6 +883,7 @@ Moving to small blocks later is a reshaping of the PRD page's view and page file
 - Raised: 2026-09-29
 - Slice: s5
 - Wave: 3
+- Became: ADR-0055
 
 ### The answer, as it was given
 
@@ -950,6 +962,7 @@ The table is new in this PRD, so before it ships dropping or changing the column
 - Raised: 2026-09-29
 - Slice: s5
 - Wave: 3
+- Became: ADR-0028
 
 ### The answer, as it was given
 
@@ -1027,6 +1040,7 @@ Removing or moving the step is a one-line edit of the workflow; nothing is store
 - Raised: 2026-09-29
 - Slice: s5
 - Wave: 3
+- Became: ADR-0056
 
 ### The answer, as it was given
 

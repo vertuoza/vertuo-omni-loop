@@ -583,3 +583,15 @@ Stated: 2026-09-28
 Decided: nobody — adopted when raised (medium), 2026-09-28
 Merged: @pierrederval, 2026-09-28, PR #403
 Proposed: harvest 2026-09-28
+
+## BR-PRODUCT-50
+
+The dashboard's waiting-for-you tile counts the same questions the page's sidebar lists, each once, even one that is both yours and shared with you. When that list cannot be read, the tile says it could not load and the rest of the dashboard still shows.
+
+Serves: P-PRODUCT-47
+Source: .omni-loop/delivery/shipped/0657-snappy-pages/outbox/settled.md, entry s2-02-waiting-count-from-the-shared-list, PRD #657
+Enforced by: unenforced
+Stated: 2026-09-29
+Decided: nobody — adopted when raised (medium), 2026-09-29
+Merged: @pierrederval, 2026-09-29, PR #664
+Proposed: harvest 2026-09-29
