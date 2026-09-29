@@ -13,16 +13,18 @@ type Props = {
   selected: string | null;
   /** The tab's own label for a principle of another tab, keyed by its tab. */
   tabLabel: (key: string) => string;
+  /** The menu's `?repo=`, carried by every row's address; null for the deployed checkout. */
+  repo: string | null;
   onChoose: (id: string, event: MouseEvent) => void;
 };
 
-function Rows({ rows, selected, tabLabel, onChoose }: Omit<Props, 'index' | 'query'> & { rows: IndexRow[] }) {
+function Rows({ rows, selected, tabLabel, repo, onChoose }: Omit<Props, 'index' | 'query'> & { rows: IndexRow[] }) {
   return (
     <ol className="km-rows">
       {rows.map(({ entry, role, foreign }) => (
         <li key={`${role} ${entry.id}`} data-role={role}>
           <a
-            href={entryHref({ domain: tabOf(entry), entry: entry.id })}
+            href={entryHref({ domain: tabOf(entry), entry: entry.id }, repo)}
             className="km-row"
             data-kind={entry.kind}
             aria-current={entry.id === selected ? 'true' : undefined}

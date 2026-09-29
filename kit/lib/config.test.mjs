@@ -83,6 +83,14 @@ describe('parseConfig', () => {
     expect(config.branches.knowledge).toBe('kb/{topic}');
   });
 
+  it('names the visual label when the config does not set it', () => {
+    expect(parseConfig('kit: 1\n').labels.visual).toBe('omni:visual');
+  });
+
+  it('reads back a visual label the config sets', () => {
+    expect(parseConfig('kit: 1\nlabels:\n  visual: looks\n').labels.visual).toBe('looks');
+  });
+
   it('puts the playbook under the knowledge folder and names the invade branch when both are unset', () => {
     const config = parseConfig('kit: 1\n');
     expect(config.paths.playbook).toBe('.omni-loop/knowledge/playbook');
