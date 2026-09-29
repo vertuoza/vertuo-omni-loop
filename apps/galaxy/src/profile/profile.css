@@ -1,6 +1,7 @@
 /* /app/people/<login> (PRD 698 s3): the header (the person's chip at heading size, @login and their
    fleet, their season place), then the board, then their pull requests and reviews side by side,
-   stacked at phone width. Every colour is a token of src/ask/theme-tokens.ts. */
+   stacked at phone width. PRD 698 s5: their PRDs and fixes above them, the same way; a row's title
+   link reads in the body font, its #n in the list's plasma, its pill after it. Every colour is a token of src/ask/theme-tokens.ts. */
 
 .profile-head { display: grid; gap: 4px; min-width: 0; }
 .profile-head .dash-name { margin: 0; }
@@ -18,3 +19,4 @@
 .profile-diff .is-del { color: var(--ask-red); }
 .profile-line, .profile-more { margin: 0; overflow-wrap: anywhere; }
 .profile-more { margin-top: 8px; }
+.profile-list a.profile-title { font-family: inherit; }

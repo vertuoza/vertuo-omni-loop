@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Activity, Member } from '../dashboard/board/tally';
+import type { DossierListRow } from '../dossier/store';
 import type { PullRequestRow, ReviewRow } from '../engineering/tally';
 import { loadProfile, placeOf, type ProfileReads, type ProfileRequest } from './load';
 
@@ -26,6 +27,12 @@ const pr = (number: number, author: string, openedAt: string, mergedAt: string |
   commits: 1, additions: 5, deletions: 2, omniSigned: false,
 });
 
+const dossier = (id: string, prd: number, kind: DossierListRow['kind'], opener: string | null): DossierListRow => ({
+  id, workspace_id: 'w1', home_repo: 'acme/widgets', prd, kind, title: id, opened_by: opener, created_at: '2026-09-01T08:00:00Z',
+  numbered_at: null, repos: ['acme/widgets'], latest: {}, asked: 0, answered: 0, last_activity: '2026-09-25T08:00:00Z',
+});
+const DOSSIERS = [dossier('p7', 7, 'prd', 'u-ada'), dossier('p8', 8, 'prd', 'u-bob'), dossier('b3', 3, 'bug', 'u-ada'), dossier('v4', 4, 'visual', 'u-ada')];
+
 type Fail = Partial<Record<keyof ProfileReads, boolean>>;
 const calls: string[] = [];
 function reads(fail: Fail = {}, tracked = ['acme/widgets']): ProfileReads {
@@ -46,6 +53,9 @@ function reads(fail: Fail = {}, tracked = ['acme/widgets']): ProfileReads {
       pr(9, 'ada-gh', '2026-08-01T08:00:00Z'),
     ]),
     reviews: read('reviews', [{ repo: 'acme/widgets', number: 3, reviewer: 'ada-gh', firstAt: '2026-09-25T09:00:00Z' }] as ReviewRow[]),
+    dossiers: read('dossiers', DOSSIERS),
+    stages: read('stages', new Map([['w1 acme/widgets#7', 'shipped']])),
+    fixFacts: read('fixFacts', new Map()),
   };
 }
 const request = (over: Partial<ProfileRequest> = {}): ProfileRequest => ({ login: 'ada-gh', viewerId: 'u-bob', period: '7d', now: NOW, ...over });
@@ -86,6 +96,28 @@ describe('a member\'s profile', () => {
     if (value.kind !== 'profile') throw new Error(value.kind);
     expect(value.work).toEqual({ kind: 'no-repository' });
     expect(calls.some((c) => c.startsWith('pullRequests') || c.startsWith('reviews'))).toBe(false);
+  });
+});
+
+describe('their PRDs and fixes (s5)', () => {
+  it('lists the PRDs they opened and the fixes they asked for, reading the facts of the fixes only', async () => {
+    const value = await loadProfile(reads(), request());
+    if (value.kind !== 'profile' || value.lists === 'unreadable') throw new Error('no lists');
+    expect(value.lists.prd).toMatchObject({ rows: [{ id: 'p7', stage: 'shipped' }], more: false, moreHref: '/prd?who=ada-gh' });
+    expect(value.lists.bug).toMatchObject({ rows: [{ id: 'b3' }], moreHref: '/bugs?who=ada-gh' });
+    expect(value.lists.visual).toMatchObject({ rows: [{ id: 'v4' }], moreHref: '/visual?who=ada-gh' });
+    expect(calls.find((c) => c.startsWith('fixFacts'))).toContain('"b3"');
+    expect(calls.find((c) => c.startsWith('fixFacts'))).not.toContain('"p7"');
+  });
+
+  it('the dossiers failing: the lists say so; the stages or the facts failing: the rows show none', async () => {
+    const down = await loadProfile(reads({ dossiers: true }), request());
+    if (down.kind !== 'profile') throw new Error(down.kind);
+    expect(down.lists).toBe('unreadable');
+    const bare = await loadProfile(reads({ stages: true, fixFacts: true }), request());
+    if (bare.kind !== 'profile' || bare.lists === 'unreadable') throw new Error('no lists');
+    expect(bare.lists.prd.rows[0].stage).toBeNull();
+    expect(bare.lists.bug.rows[0].stateLabel).toBe('—');
   });
 });
 

@@ -11,8 +11,12 @@ import { APP_CALLBACK } from '../dashboard/sign-in';
 import { FleetChip } from '../people/FleetChip';
 import { PersonChip } from '../people/PersonChip';
 import type { ProfileBoard } from './profile';
-import type { ProfileHead, ProfileWork, WorkList } from './load';
+import type { HistoryItem } from '../dossier/page/history';
+import type { FixItem } from '../fixes/list';
+import { StagePill } from '../stages/stage-pill';
+import type { DossierList, ProfileHead, ProfileLists, ProfileWork, WorkList } from './load';
 import { profilePath, type ProfilePullRequest, type ProfileReview } from './select';
+import '../dossier/page/dossier.css';
 import './profile.css';
 
 // /app/people/<login> in each situation (PRD 698 s3), decided once by the page: a member's profile —
@@ -22,6 +26,10 @@ import './profile.css';
 // on /app/fleet, closed, signed out and in no workspace. An empty list reads "Nothing in this period";
 // a workspace that tracks no repository says so under both pull request lists, linking to Settings ›
 // Repositories. Read-only: nothing on it is editable, your own profile included.
+// PRD 698 s5: above those, the PRDs they opened (#n, the title and the stage pill, to the dossier's page)
+// and the bug fixes and visual updates they asked for (the fix lists' row: #n, the title, the state pill,
+// a bug's risk and regression badges, to the fix's page), of the period, at most 10 each, then **see
+// all** to /prd, /bugs or /visual for them. The pills borrow the lists' look (dossier.css).
 
 type Supabase = { url: string; key: string };
 
@@ -119,6 +127,55 @@ const reviewRow = (r: ProfileReview) => (
   </li>
 );
 
+function DossierSection<T extends { id: string }>({ id, title, list, row }: {
+  id: string; title: string; list: Read<DossierList<T>>; row: (item: T) => ReactNode;
+}) {
+  let body: ReactNode;
+  if (list === UNREADABLE) body = <CouldNotLoad />;
+  else if (list.rows.length === 0) body = <p className="profile-line">{PROFILE_LINE.empty}</p>;
+  else {
+    body = (
+      <>
+        <ul className="profile-list">{list.rows.map((item) => <li key={item.id}>{row(item)}</li>)}</ul>
+        {list.more && <p className="profile-more"><a href={list.moreHref}>See all</a></p>}
+      </>
+    );
+  }
+  return (
+    <section className="profile-work" aria-labelledby={id}>
+      <h2 id={id}>{title}</h2>
+      {body}
+    </section>
+  );
+}
+
+const prdRow = (item: HistoryItem) => (
+  <>
+    <a className="profile-title" href={item.href}><span className="dossier-number">{item.heading}</span> {item.title}</a>
+    {item.stage && <StagePill stage={item.stage} />}
+  </>
+);
+
+const fixRow = (item: FixItem) => (
+  <>
+    <a className="profile-title" href={item.href}><span className="dossier-number">{item.heading}</span> {item.title}</a>
+    <span className={`fix-state fix-state-${item.state ?? 'unknown'}`}>{item.stateLabel}</span>
+    {item.risk && <span className="fix-badge">{item.risk}</span>}
+    {item.regression && <span className="fix-badge fix-badge-regression">regression</span>}
+  </>
+);
+
+function Lists({ lists }: { lists: Read<ProfileLists> }) {
+  const part = <K extends keyof ProfileLists>(key: K): Read<ProfileLists[K]> => (lists === UNREADABLE ? UNREADABLE : lists[key]);
+  return (
+    <div className="profile-works">
+      <DossierSection id="profile-prds" title="PRDs" list={part('prd')} row={prdRow} />
+      <DossierSection id="profile-bugs" title="Bug fixes" list={part('bug')} row={fixRow} />
+      <DossierSection id="profile-visual" title="Visual updates" list={part('visual')} row={fixRow} />
+    </div>
+  );
+}
+
 function Work({ work }: { work: Read<ProfileWork> }) {
   const lists = work !== UNREADABLE && work.kind === 'lists' ? work : null;
   return (
@@ -161,6 +218,7 @@ export function ProfileScreen({ view, supabase, signinError, query }: ProfileScr
         <div className="dash">
           <Head person={view.person} season={view.board.season.name} />
           <Board board={view.board} path={profilePath(view.person.login)} query={query} peopleTitle="Season and counts" />
+          <Lists lists={view.lists} />
           <Work work={view.work} />
         </div>
       );

@@ -6,7 +6,13 @@ import type { Place } from '../dashboard/you';
 import type { PullRequestRow, ReviewRow } from '../engineering/tally';
 import { faceOf, type Face } from '../people/face';
 import { SOLO, type FleetTag } from '../people/types';
-import { moreHref, profileStageLinks, pullRequestsOf, reviewsOf, type Capped, type ProfilePullRequest, type ProfileReview } from './select';
+import type { CurrentStages, HistoryItem } from '../dossier/page/history';
+import type { DossierListRow } from '../dossier/store';
+import { ofWork } from '../dossier/page/work';
+import type { FixFacts, FixItem } from '../fixes/list';
+import {
+  fixesOf, moreHref, prdsOf, profileStageLinks, pullRequestsOf, reviewsOf, seeAllHref, type Capped, type ProfilePullRequest, type ProfileReview,
+} from './select';
 
 // A person's profile (PRD 698 s3), read in the viewer's workspace: the board's five reads (the roster
 // among them, which says whether the login is a member), and the tracked repositories, then that
@@ -16,6 +22,11 @@ import { moreHref, profileStageLinks, pullRequestsOf, reviewsOf, type Capped, ty
 // for them. No read here calls GitHub, and none is new: every member reads these rows today on
 // /app/workspace and /app/engineering. The reads are a port (ProfileReads) so the loader is tested on
 // fakes; the page's are in ./profile.ts.
+// PRD 698 s5: with them, the workspace's dossiers (dossier_list, as the viewer, as /prd reads them), each
+// numbered one's stored stage, and what GitHub says of each fix through the fix lists' own cached reader
+// (so no GitHub read /bugs and /visual do not already make), for the PRDs they opened and the fixes they
+// asked for. The stages and the facts are the lists' best effort: when they cannot be read, the rows show
+// no stage, or `—`. The dossiers unreadable, the three lists say so.
 
 export interface ProfileReads extends BoardReads {
   /** The workspace's tracked repositories, `owner/name`. */
@@ -24,6 +35,12 @@ export interface ProfileReads extends BoardReads {
   pullRequests(login: string, from: Date, to: Date, repos: string[]): Promise<PullRequestRow[]>;
   /** The person's first reviews in those repositories, given within [from, to). */
   reviews(login: string, from: Date, to: Date, repos: string[]): Promise<ReviewRow[]>;
+  /** The workspace's dossiers: its PRDs and its fixes, as /prd, /bugs and /visual read them. */
+  dossiers(): Promise<DossierListRow[]>;
+  /** Each numbered dossier's current stored stage, by stageKeyOf. */
+  stages(rows: DossierListRow[]): Promise<CurrentStages>;
+  /** What GitHub says of each fix, by dossier id, through the fix lists' reader. */
+  fixFacts(rows: DossierListRow[]): Promise<FixFacts>;
 }
 
 export interface ProfileRequest {
@@ -51,16 +68,28 @@ export interface ProfileHead {
   place: Read<Place | null>;
 }
 
+/** A list of their dossiers: its rows, whether more exist, and where **see all** goes. */
+export type DossierList<T> = Capped<T> & { moreHref: string };
+
+/** The PRDs they opened, and the bug fixes and visual updates they asked for, of the period. */
+export interface ProfileLists {
+  prd: DossierList<HistoryItem>;
+  bug: DossierList<FixItem>;
+  visual: DossierList<FixItem>;
+}
+
 export type ProfileValue =
   | { kind: 'not-member'; login: string }
   | { kind: 'unreadable'; login: string }
-  | { kind: 'profile'; person: ProfileHead; board: BoardValue; work: Read<ProfileWork> };
+  | { kind: 'profile'; person: ProfileHead; board: BoardValue; work: Read<ProfileWork>; lists: Read<ProfileLists> };
 
 /** What a profile is drawn from: the board's reads, and the work of the period (unreadable when the
  * tracked repositories could not be read). */
 export interface ProfileRead {
   board: BoardRead;
   work: Read<{ tracked: string[]; pullRequests: Read<PullRequestRow[]>; reviews: Read<ReviewRow[]> }>;
+  /** The workspace's dossiers, their stages and their fixes' facts (unreadable when the dossiers are). */
+  dossiers: Read<{ rows: DossierListRow[]; stages: CurrentStages; facts: FixFacts }>;
 }
 
 function fleetOf(member: Member, board: BoardRead): FleetTag | typeof SOLO {
@@ -92,6 +121,18 @@ function workOf(read: ProfileRead['work'], request: ProfileRequest): Read<Profil
   };
 }
 
+function listsOf(read: ProfileRead['dossiers'], member: Member, request: ProfileRequest): Read<ProfileLists> {
+  if (read === UNREADABLE) return UNREADABLE;
+  const window = periodWindow(request.period, request.now);
+  const { login } = request;
+  const whom = new Set([member.userId]);
+  return {
+    prd: { ...prdsOf(read.rows, login, whom, window, read.stages), moreHref: seeAllHref('prd', login) },
+    bug: { ...fixesOf(read.rows, 'bug', login, whom, window, read.facts), moreHref: seeAllHref('bug', login) },
+    visual: { ...fixesOf(read.rows, 'visual', login, whom, window, read.facts), moreHref: seeAllHref('visual', login) },
+  };
+}
+
 /** The profile, from what was read: pure, so the loader and the demo draw it the same way. */
 export function profileOf(read: ProfileRead, request: ProfileRequest): ProfileValue {
   const { login } = request;
@@ -114,6 +155,7 @@ export function profileOf(read: ProfileRead, request: ProfileRequest): ProfileVa
     },
     board: { ...board, stageLinks: profileStageLinks(login) },
     work: workOf(read.work, request),
+    lists: listsOf(read.dossiers, member, request),
   };
 }
 
@@ -129,8 +171,20 @@ async function readWork(reads: ProfileReads, request: ProfileRequest): Promise<P
   return { tracked, pullRequests, reviews };
 }
 
+/** The workspace's dossiers, then their stages and their fixes' facts together; either failing reads as none. */
+async function readDossiers(reads: ProfileReads): Promise<ProfileRead['dossiers']> {
+  const rows = await settle('the dossiers', () => reads.dossiers());
+  if (rows === UNREADABLE) return UNREADABLE;
+  const fixes = [...ofWork(rows, 'bug'), ...ofWork(rows, 'visual')];
+  const [stages, facts] = await Promise.all([
+    fixes.length === rows.length ? new Map() : settle('the PRDs\' stages', () => reads.stages(rows)),
+    fixes.length === 0 ? new Map() : settle('the fixes on GitHub', () => reads.fixFacts(fixes)),
+  ]);
+  return { rows, stages: stages === UNREADABLE ? new Map() : stages, facts: facts === UNREADABLE ? new Map() : facts };
+}
+
 /** The profile's reads together, each on its own, then profileOf. */
 export async function loadProfile(reads: ProfileReads, request: ProfileRequest): Promise<ProfileValue> {
-  const [board, work] = await Promise.all([readBoard(reads, request), readWork(reads, request)]);
-  return profileOf({ board, work }, request);
+  const [board, work, dossiers] = await Promise.all([readBoard(reads, request), readWork(reads, request), readDossiers(reads)]);
+  return profileOf({ board, work, dossiers }, request);
 }

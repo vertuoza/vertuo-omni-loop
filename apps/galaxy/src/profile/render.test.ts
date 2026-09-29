@@ -2,6 +2,8 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { Member } from '../dashboard/board/tally';
+import type { FixSummary } from '../dossier/github/fix';
+import type { DossierListRow } from '../dossier/store';
 import type { PullRequestRow } from '../engineering/tally';
 import { profileOf, type ProfileRead } from './load';
 import { ProfileScreen, type ProfileView } from './ProfileScreen';
@@ -25,7 +27,27 @@ const pr = (number: number, day: number, merged: boolean): PullRequestRow => {
     commits: 1, additions: 1200, deletions: 30, omniSigned: false,
   };
 };
-const READ = (work: ProfileRead['work']): ProfileRead => ({
+const dossier = (id: string, n: number, kind: DossierListRow['kind'], day: number, opener: string | null = 'u-ada'): DossierListRow => ({
+  id, workspace_id: 'w1', home_repo: 'acme/widgets', prd: n, kind, title: `The ${kind} ${n}`, opened_by: opener,
+  created_at: '2026-09-01T08:00:00Z', numbered_at: null, repos: ['acme/widgets'], latest: {}, asked: 0, answered: 0,
+  last_activity: `2026-09-${String(day).padStart(2, '0')}T08:00:00Z`,
+});
+const asked = (author: string): FixSummary => ({
+  issue: { number: 5, url: 'https://github.com/acme/widgets/issues/5', state: 'open', author, createdAt: '2026-09-24T08:00:00Z', risk: null, regression: false },
+  pull: { number: 6, url: 'https://github.com/acme/widgets/pull/6', state: 'merged', mergedAt: '2026-09-25T08:00:00Z', mergedBy: null },
+  approvals: [], release: null,
+});
+const DOSSIERS: ProfileRead['dossiers'] = {
+  rows: [
+    dossier('d-p', 42, 'prd', 25),
+    dossier('d-b', 5, 'bug', 24, null),
+    dossier('d-v', 8, 'visual', 23),
+    dossier('d-x', 9, 'prd', 25, 'u-sol'),
+  ],
+  stages: new Map([['w1 acme/widgets#42', 'outbox' as const]]),
+  facts: new Map([['d-b', asked('ada-gh')]]),
+};
+const READ = (work: ProfileRead['work'], dossiers: ProfileRead['dossiers'] = DOSSIERS): ProfileRead => ({
   board: {
     roster: [member('u-ada', 'ada-gh', 'octo', 'ADA'), member('u-sol', 'sol-gh', null, 'SOL')],
     activity: [{ kind: 'pr-merged', repo: 'acme/widgets', number: 1, login: 'ada-gh', at: '2026-09-25T08:00:00Z' }],
@@ -34,14 +56,15 @@ const READ = (work: ProfileRead['work']): ProfileRead => ({
     galaxy: { heroes: [{ name: 'ada-gh', points: 40 }], teams: [{ name: 'octo', label: 'OCTO', color: '#3355ff', mascot: 'octopod', points: 40, rank: 1 }] },
   },
   work,
+  dossiers,
 });
 const LISTS: ProfileRead['work'] = {
   tracked: ['acme/widgets'],
   pullRequests: [pr(1, 25, true), pr(2, 24, false)],
   reviews: [{ repo: 'acme/gears', number: 7, reviewer: 'ada-gh', firstAt: '2026-09-23T09:00:00Z' }],
 };
-const profile = (work: ProfileRead['work'] = LISTS, login = 'ada-gh') =>
-  profileOf(READ(work), { login, viewerId: 'u-sol', period: '7d', now: NOW });
+const profile = (work: ProfileRead['work'] = LISTS, login = 'ada-gh', dossiers: ProfileRead['dossiers'] = DOSSIERS) =>
+  profileOf(READ(work, dossiers), { login, viewerId: 'u-sol', period: '7d', now: NOW });
 const screen = (view: ProfileView, supabase: { url: string; key: string } | null = { url: 'http://x', key: 'anon' }) =>
   renderToStaticMarkup(createElement(ProfileScreen, { view, supabase, signinError: null, query: { period: '7d' } }));
 
@@ -99,6 +122,44 @@ describe('a member\'s profile', () => {
   });
 });
 
+describe('their PRDs, bug fixes and visual updates (s5)', () => {
+  it('lists the PRDs they opened with the stage pill, and the fixes they asked for with the state pill, each to its page', () => {
+    const html = screen(profile());
+    const t = text(html);
+    expect(t).toContain('PRDs #42 The prd 42 outbox');
+    expect(t).toContain('Bug fixes #5 The bug 5 Merged');
+    expect(t).toContain('Visual updates #8 The visual 8 —');
+    expect(t).not.toContain('The prd 9');
+    expect(html).toContain('href="/prd/d-p"');
+    expect(html).toContain('href="/bugs/d-b"');
+    expect(html).toContain('href="/visual/d-v"');
+    expect(t).not.toContain('See all');
+  });
+
+  it('with more than 10 in a list: 10 rows, then see all to that list for them', () => {
+    const rows = Array.from({ length: 11 }, (_, i) => dossier(`b${i}`, 100 + i, 'bug', 25));
+    const html = screen(profile(LISTS, 'ada-gh', { rows, stages: new Map(), facts: new Map() }));
+    expect(html.match(/href="\/bugs\/b\d+"/g)).toHaveLength(10);
+    expect(html).toContain('<a href="/bugs?who=ada-gh">See all</a>');
+    expect(html).not.toContain('/prd?who=ada-gh">See all');
+  });
+
+  it('an empty list reads nothing in this period', () => {
+    const t = text(screen(profile(LISTS, 'ada-gh', { rows: [], stages: new Map(), facts: new Map() })));
+    expect(t).toContain('PRDs Nothing in this period');
+    expect(t).toContain('Bug fixes Nothing in this period');
+    expect(t).toContain('Visual updates Nothing in this period');
+  });
+
+  it('the dossiers out of reach: the three lists say so, the rest stands', () => {
+    const t = text(screen(profile(LISTS, 'ada-gh', 'unreadable')));
+    expect(t).toContain(`PRDs ${UNREADABLE_LINE}`);
+    expect(t).toContain(`Bug fixes ${UNREADABLE_LINE}`);
+    expect(t).toContain(`Visual updates ${UNREADABLE_LINE}`);
+    expect(t).toContain('acme/widgets#1');
+  });
+});
+
 describe('the other situations', () => {
   it('a login outside the workspace: not in this workspace, and no data', () => {
     const html = screen(profile(LISTS, 'stranger'));
@@ -123,5 +184,8 @@ describe('the other situations', () => {
     expect(t).toContain('PAUL');
     expect(t).toContain('Pull requests vertuoza/');
     expect(demoProfile('nobody', '7d', NOW)).toEqual({ kind: 'not-member', login: 'nobody' });
+    const you = demoProfile('dam-dev', '30d', new Date());
+    if (you.kind !== 'profile' || you.lists === 'unreadable') throw new Error('no demo lists');
+    expect(you.lists.prd.rows.length).toBeGreaterThan(0);
   });
 });

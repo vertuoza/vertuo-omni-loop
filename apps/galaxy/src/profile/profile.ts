@@ -10,6 +10,14 @@ import type { Period } from '../dashboard/board/period';
 import { MERGED } from '../dashboard/board/tally';
 import { allPages, type Page } from '../data/all-pages';
 import type { PullRequestRow, ReviewRow } from '../engineering/tally';
+import { dossierGithub } from '../dossier/github/server';
+import type { FixSummary } from '../dossier/github/fix';
+import { DEMO_VIEWER as DEMO_DOSSIER_VIEWER, demoHistory } from '../dossier/page/demo';
+import { readCurrentStages } from '../dossier/page/history';
+import { readHistory } from '../dossier/page/source';
+import type { DossierListRow } from '../dossier/store';
+import type { FixFacts } from '../fixes/list';
+import { stageStore } from '../stages/store';
 import { loadProfile, profileOf, type ProfileReads, type ProfileValue } from './load';
 
 // A person's profile (PRD 698 s3), as the signed-in person, in the workspace they joined first (the
@@ -18,6 +26,9 @@ import { loadProfile, profileOf, type ProfileReads, type ProfileValue } from './
 // GitHub read: row-level security lets every member read these rows today. With the workspace itself
 // out of reach, the page says it could not load. The demo draws a demo member's profile from the demo
 // world's made-up merges.
+// PRD 698 s5: the dossiers are dossier_list()'s, as the viewer, kept to this workspace; their stages the
+// stage store's; and what GitHub says of each fix is read through the server's one cached fix reader, the
+// one /bugs and /visual read through, so the profile adds no GitHub read of its own.
 
 export type ProfileBoard = { kind: 'no-workspace' } | ProfileValue;
 
@@ -70,7 +81,27 @@ export function supabaseProfileReads(db: SupabaseClient, workspace: string, gala
         .range(start, end) as unknown as Page<StoredReview>);
       return rows.map((r): ReviewRow => ({ repo: r.repo, number: r.number, reviewer: r.reviewer, firstAt: r.first_at }));
     },
+    async dossiers() {
+      return (await readHistory(db)).filter((row) => row.workspace_id === workspace);
+    },
+    stages: (rows) => readCurrentStages(rows, stageStore(db)),
+    fixFacts,
   };
+}
+
+/** What GitHub says of each numbered fix, by dossier id, through the fix lists' cached reader; a fix it
+ * could not read is left out (`—`), and so is every fix without the App's credentials. */
+async function fixFacts(rows: DossierListRow[]): Promise<FixFacts> {
+  const reader = dossierGithub();
+  if (!reader) return new Map();
+  const read = await Promise.all(rows.filter((row) => row.prd !== null).map(async (row): Promise<[string, FixSummary | null]> => {
+    const fix = await reader.fix({ id: row.id, home_repo: row.home_repo, prd: row.prd! }).catch((error: unknown) => {
+      console.error(error);
+      return null;
+    });
+    return [row.id, fix];
+  }));
+  return new Map(read);
 }
 
 /** The profile of `login` in the workspace the viewer joined first. */
@@ -112,7 +143,14 @@ export function demoProfile(login: string, period: Period, now: Date, galaxy: Ga
     {
       board: { roster, activity, answered: demoAnswered(roster), galaxy, prds: demoPrds(roster) },
       work: { tracked: DEMO_TRACKED, pullRequests, reviews },
+      dossiers: { rows: demoDossiers(roster, now), stages: new Map(), facts: new Map() },
     },
     { login, viewerId: DEMO_VIEWER.userId, period, now },
   );
+}
+
+/** The demo history's dossiers, the demo viewer's credited to the demo's *you*, so their profile lists them. */
+function demoDossiers(roster: readonly { userId: string }[], now: Date): DossierListRow[] {
+  const you = roster.some((m) => m.userId === DEMO_VIEWER.userId) ? DEMO_VIEWER.userId : null;
+  return demoHistory(now.getTime()).map((row) => (row.opened_by === DEMO_DOSSIER_VIEWER ? { ...row, opened_by: you } : row));
 }
