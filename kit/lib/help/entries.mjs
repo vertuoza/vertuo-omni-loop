@@ -391,6 +391,18 @@ export const ENTRIES = deepFreeze([
       "loop's signature, unless signing is off. --base defaults to {remote}/{defaultBranch}.",
   },
   {
+    name: 'visual',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni visual <n> [--base <ref>]'],
+    summary: 'grade a visual fix branch',
+    detail:
+      "The proof step of /omni:visual-fix, run on its fix branch: one folder for issue <n> under " +
+      "the delivery folder's visual/, holding a before-after.html under the size cap with no base64 " +
+      "raster image, and every commit carrying the loop's signature, unless signing is off. Prints " +
+      'ok, or not ok with one line per failed check. --base defaults to {remote}/{defaultBranch}.',
+  },
+  {
     name: 'sign',
     kind: 'command',
     who: 'skills',
