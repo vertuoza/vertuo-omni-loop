@@ -3,13 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardScreenProps } from './DashboardScreen';
 
 // /app (app/app/page.tsx), called as the server calls it, with its data sources stubbed (PRD 328):
-// it decides the situation once, top to bottom, and hands it to the screen.
+// it reads the period from the query (PRD 572), decides the situation once, top to bottom, and hands
+// it to the screen, with the query for the period switch to keep.
 const given = vi.hoisted(() => ({
   mode: 'supabase' as 'demo' | 'closed' | 'supabase',
   user: null as null | { id: string; email: string },
   load: { kind: 'no-workspace' } as unknown,
 }));
-const demoDashboard = vi.hoisted(() => vi.fn((now: Date) => ({ demo: now.toISOString() })));
+const demoDashboard = vi.hoisted(() => vi.fn((period: string, now: Date) => ({ period, demo: now.toISOString() })));
 const loadDashboard = vi.hoisted(() => vi.fn(async (..._args: unknown[]) => given.load));
 const getUser = vi.hoisted(() => vi.fn(async () => ({ data: { user: given.user } })));
 
@@ -65,10 +66,24 @@ describe('/app decides once', () => {
     given.load = { kind: 'dashboard', dashboard: { name: 'ADA' } };
     const { view } = await propsOf();
     expect(view).toEqual(given.load);
-    const [db, user, now] = loadDashboard.mock.calls[0];
+    const [db, user, period, now] = loadDashboard.mock.calls[0];
     expect((db as { auth: unknown }).auth).toBeTruthy();
     expect(user).toEqual(given.user);
+    expect(period).toBe('7d');
     expect(now).toBeInstanceOf(Date);
+  });
+
+  it('reads the query\'s period, and hands the screen the query for the period switch to keep', async () => {
+    given.user = { id: 'u1', email: 'ada@vertuoza.com' };
+    const { query } = await propsOf({ period: '30d', x: '1' });
+    expect(loadDashboard.mock.calls[0][2]).toBe('30d');
+    expect(query).toEqual({ period: '30d', x: '1' });
+  });
+
+  it('reads an unknown period as 7 days, in the demo too', async () => {
+    given.mode = 'demo';
+    await propsOf({ period: 'forever' });
+    expect(demoDashboard).toHaveBeenCalledWith('7d', expect.any(Date));
   });
 
   it('signed in to an account in no workspace: the loader says so, and the page shows it', async () => {
