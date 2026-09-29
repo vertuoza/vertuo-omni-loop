@@ -14,6 +14,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { readMembers, sendAnswers } from '../../ask/page/source';
 import { askShares } from '../../ask/store';
+import { loadPeople } from '../../people/load';
 import {
   dossierList, dossierPulse, dossierReader, dossierRounds, type DossierListRow, type DossierPulse, type DossierRoundRow,
   type DossierVersionRow,
@@ -67,17 +68,19 @@ async function readAnswerable(db: Db, rounds: DossierRoundRow[] | null, me: stri
 }
 
 /** The dossier, its versions (without their content), its workspace's members, its rounds, its
- * repositories, and the open rounds `me` may answer; null when the viewer may not read it, or it does
+ * repositories, the open rounds `me` may answer, and the workspace's people directory for the faces
+ * (PRD 652; a failed read falls back to GitHub photos and initials, never an error); null when the viewer may not read it, or it does
  * not exist. */
 export async function readDossier(db: Db, id: string, me: string | null = null): Promise<DossierRead | null> {
   if (!isDossierId(id)) return null;
   const reader = dossierReader(db);
   const dossier = await reader.dossier(id);
   if (!dossier) return null;
-  const [versions, members, rounds, repos] = await Promise.all([
+  const [versions, members, rounds, repos, people] = await Promise.all([
     reader.versions(id), readMembers(db, dossier.workspace_id), readRounds(db, id), readRepos(db, id),
+    loadPeople(db as SupabaseClient, dossier.workspace_id),
   ]);
-  return { dossier, versions, members, rounds, repos, answerable: await readAnswerable(db, rounds, me) };
+  return { dossier, versions, members, rounds, repos, answerable: await readAnswerable(db, rounds, me), people };
 }
 
 /** What one click on a quick round did: answered it, or found it taken — answered first by someone

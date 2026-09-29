@@ -176,6 +176,7 @@ describe('the cards', () => {
     const card = /data-answered="true"[\s\S]*?<\/article>/.exec(html)?.[0] ?? '';
     expect(text(card)).toContain('Answered B because red frightens people by @ada on GitHub · 27 Sep 2026, 09:30 UTC · the reply');
     expect(card).toContain(`href="${PR}#issuecomment-5"`);
+    expect(card).toContain('by <span class="person-chip is-inline"><img class="person-face is-photo" src="https://github.com/ada.png?size=48" alt=""');
     expect(card).toContain('type="radio"');
     expect(card).not.toContain('will not read');
   });
@@ -211,6 +212,7 @@ describe('the cards', () => {
     expect(text(html)).toContain('Settled · 1');
     expect(text(html)).toContain('Question 4 agreed Keep the name? · approved by @ada · 26 Sep 2026 · the reply');
     expect(html).toContain('<p class="outbox-settled-answer">A. Keep it.</p>');
+    expect(html).toMatch(/approved by <span class="person-chip is-inline"><img class="person-face is-photo" src="https:\/\/github.com\/ada.png\?size=48" alt=""[^>]*\/>@ada<\/span>/);
   });
 
   it('links the outbox comment, to answer on the pull request instead', () => {

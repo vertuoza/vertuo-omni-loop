@@ -31,6 +31,10 @@
 // next dossier) and delivery (its number in its home repository), in its own workspace, a round both
 // match once as brainstorm, in the order they were asked, nothing for someone who cannot read it.
 //
+// The faces (PRD 652): workspace_roster(workspace) of supabase/migrations/20261012090000_roster_hero.sql,
+// to its members only — each member's name, their GitHub login, avatar, fleet and hero as seeded by a
+// test (seedPlayer), null when none was — and the workspace's fleets (`teams`), readable by its members.
+//
 // The history (PRD 216, step 4): each workspace's plan repository and its ledger's REGION_SURVEYED
 // events, seeded by a test (seedPlanet), and dossier_list(dossier) of
 // supabase/migrations/20260928110000_dossier_list.sql written here as the migration writes it — each
@@ -61,6 +65,11 @@ export type FakeVersion = {
   id: string; dossier_id: string; kind: string; content: string; sha256: string; bytes: number;
   source: 'kit' | 'github'; uploaded_by: string | null; commit_sha: string | null; git_blob: string | null; created_at: string;
 };
+
+/** What workspace_roster() adds to a member (PRD 652): each left out reads null. */
+export type FakePlayer = { login?: string; avatar?: string; fleet?: string; hero?: unknown };
+/** A fleet of a workspace, as `teams` holds it (PRD 400, PRD 652). */
+export type FakeFleet = { workspace_id: string; name: string; label: string; color: string | null; mascot: string | null };
 
 /** An ask session (PRD 71, PRD 144), with the workspace PRD 144 placed it in. */
 export type FakeAskSession = {
@@ -93,8 +102,12 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     ledger_events: [] as FakeLedgerEvent[],
     /** Each workspace's plan repository, a bare name, by workspace id. */
     plan_repos: {} as Record<string, string>,
+    /** Each member's GitHub login, avatar, fleet and hero (PRD 652), by workspace id then account id. */
+    players: {} as Record<string, Record<string, FakePlayer>>,
+    teams: [] as FakeFleet[],
   };
-  const state = { fail: null as Failure | null, calls: 0 };
+  /** `fail`: every read fails so. `rosterDown` (PRD 652): only the faces' reads (roster and fleets) fail. */
+  const state = { fail: null as Failure | null, calls: 0, rosterDown: false };
   let next = 0;
   let tick = 0;
   const newId = () => `00000000-0000-4000-8000-${String((next += 1)).padStart(12, '0')}`;
@@ -226,7 +239,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
    * their own draft (its versions go with it), and no other delete removes a row. Only the steps the
    * page's reads and the lookup take: select, eq, order (nulls where Postgres puts them, or where `nullsFirst` says), limit, maybeSingle, delete.
    */
-  function query(me: FakeAccount | null, table: 'dossiers' | 'dossier_versions' | 'ask_shares') {
+  function query(me: FakeAccount | null, table: 'dossiers' | 'dossier_versions' | 'ask_shares' | 'teams') {
     let columns: string[] | null = null;
     let removing = false;
     const filters: Array<(row: Row) => boolean> = [];
@@ -235,6 +248,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
 
     const readable = (row: Row): boolean => {
       if (!me) return false;
+      if (table === 'teams') return isMember(me, row.workspace_id as string);
       if (table === 'ask_shares') {
         // "a member reads the shares of their workspace's rounds" (20260927120000_ask_shares.sql).
         const round = tables.ask_rounds.find((r) => r.id === row.round_id);
@@ -292,6 +306,17 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     return Object.values(accounts)
       .filter((account, i, all) => isMember(account, workspace) && all.findIndex((a) => a.id === account.id) === i)
       .map((account) => ({ user_id: account.id, email: account.email, name: account.name ?? null }));
+  }
+
+  /** workspace_roster() (PRD 652): a workspace's members with their login, avatar, fleet and hero, to its members only. */
+  function roster(me: FakeAccount | null, workspace: string) {
+    return members(me, workspace).map((member) => {
+      const player = tables.players[workspace]?.[member.user_id] ?? {};
+      return {
+        user_id: member.user_id, name: member.name, github_login: player.login ?? null, avatar_url: player.avatar ?? null,
+        fleet: player.fleet ?? null, hero: player.hero ?? null,
+      };
+    });
   }
 
   /** dossier_rounds(): the dossier's rounds by the two rules, as `me` may read them. */
@@ -356,13 +381,16 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
   function client(token: string) {
     const me = accounts[token] ?? null;
     return {
-      from: (table: 'dossiers' | 'dossier_versions' | 'ask_shares') => query(me, table),
+      from: (table: 'dossiers' | 'dossier_versions' | 'ask_shares' | 'teams') => query(me, table),
       rpc: (name: string, args: Row) => Promise.resolve().then((): Result => {
         state.calls += 1;
         if (state.fail) return { data: null, error: state.fail };
         if (name === 'dossier_open') return open(me, args);
         if (name === 'dossier_push') return push(me, args);
         if (name === 'ask_members') return { data: members(me, args.workspace as string), error: null };
+        if (name === 'workspace_roster') {
+          return state.rosterDown ? refuse('57014', 'canceling statement due to statement timeout') : { data: roster(me, args.workspace as string), error: null };
+        }
         if (name === 'dossier_rounds') return { data: rounds(me, args.p_dossier), error: null };
         if (name === 'dossier_list') return { data: list(me, args.p_dossier), error: null };
         return refuse('PGRST202', `Could not find the function public.${name}`);
@@ -424,5 +452,11 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
     for (const region of regions) tables.ledger_events.push({ workspace_id: workspace, type: 'REGION_SURVEYED', planet: prd, region });
   }
 
-  return { tables, client, state, seedFromGithub, seedAsk, seedShare, seedPlanet, sha256 };
+  /** A member's GitHub login, avatar, fleet and hero in `workspace` (PRD 652), and a fleet they fly in. */
+  function seedPlayer(userId: string, player: FakePlayer, { workspace = FAKE_WORKSPACE, fleet }: { workspace?: string; fleet?: Omit<FakeFleet, 'workspace_id'> } = {}) {
+    (tables.players[workspace] ??= {})[userId] = player;
+    if (fleet) tables.teams.push({ workspace_id: workspace, ...fleet });
+  }
+
+  return { tables, client, state, seedFromGithub, seedAsk, seedShare, seedPlanet, seedPlayer, sha256 };
 }

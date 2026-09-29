@@ -79,6 +79,11 @@ describe('what the tab says of a send', () => {
     expect(html).not.toContain('will not read');
   });
 
+  it('posted: the sender\'s face before @login when the page knows it (PRD 652)', () => {
+    const html = renderToStaticMarkup(createElement(SendResult, { sent: posted, sender: { kind: 'initial', letter: 'A' } }));
+    expect(html).toContain('<b>Sent as <span class="person-chip is-inline"><span class="person-face is-initial" aria-hidden="true" data-initial="A"></span>@ada</span></b>');
+  });
+
   it('an author the kit does not count: said, with what it means', () => {
     const html = text(say({ ...posted, login: 'visitor', counted: false }));
     expect(html).toContain('GitHub does not list @visitor as an owner, member or collaborator of this repository, so /omni:yolo-fix will not read this reply.');

@@ -76,6 +76,10 @@ beforeEach(async () => {
 });
 afterEach(() => { vi.restoreAllMocks(); });
 
+/** What the markup reads as text, its tags taken out (PRD 652: a face now sits before a name). */
+const textOf = (html: string) => html.replace(/<[^>]+>/g, '');
+const HERO = { v: 1, body: 'girl', skin: 2, hair: 3, suit: 0, cape: 8 };
+
 const open = async (id: string, query: Record<string, string> = {}) =>
   (await Page({ params: Promise.resolve({ id }), searchParams: Promise.resolve(query) })) as ReactElement;
 const html = async (id: string, query: Record<string, string> = {}) => renderToStaticMarkup(await open(id, query));
@@ -88,9 +92,26 @@ describe('the page to share', () => {
     expect(page).toContain('<a class="dossier-number" href="https://github.com/acme/widgets/issues/7" target="_blank" rel="noopener noreferrer">PRD #7 ↗</a>');
     expect(page).toContain('Team inbox');
     expect(page).toContain('<li class="dossier-repo">acme/widgets</li>');
-    expect(page).toContain('opened by ADA · ');
+    expect(textOf(page)).toContain('opened by ADA · ');
     expect(page).toContain(`src="/prd/${numbered}/v/1/page"`);
     expect(page).toContain('sandbox="allow-scripts"');
+  });
+
+  it('draws who opened it with their face, read once from the workspace\'s people (PRD 652)', async () => {
+    given.fake.seedPlayer(ADA.id, { login: 'ada-gh', fleet: 'octo', hero: HERO }, { fleet: { name: 'octo', label: 'OCTO', color: '#3355ff', mascot: 'octopod' } });
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(page).toMatch(/opened by <span class="person-chip is-inline"><span class="person-face is-hero" aria-hidden="true"><svg [^]*?<\/span>ADA<\/span>/);
+  });
+
+  it('with the people out of reach, still shows the page, the opener with their initial (PRD 652)', async () => {
+    given.fake.seedPlayer(ADA.id, { login: 'ada-gh', hero: HERO });
+    given.fake.state.rosterDown = true;
+    given.token = 'bob';
+    const page = await html(numbered);
+    expect(textOf(page)).toContain('opened by ADA · ');
+    expect(page).toContain('<span class="person-face is-initial" aria-hidden="true" data-initial="A"></span>ADA');
+    expect(page).not.toContain('is-hero');
   });
 
   it('chips every repository of the dossier: its home, and for a PRD of the plan repository its planet\'s regions', async () => {
@@ -120,7 +141,7 @@ describe('the page to share', () => {
     const page = await html(numbered, { tab: 'questions' });
     expect(page).toContain('Questions<small>1/2</small><span class="dossier-left">1 to answer</span>');
     expect([...page.matchAll(/<span class="dossier-rule">([a-z]+)<\/span>/g)].map((m) => m[1])).toEqual(['delivery', 'delivery']);
-    expect(page).toContain('answered by ADA after 2 min 0 s, in the terminal');
+    expect(textOf(page)).toContain('answered by ADA after 2 min 0 s, in the terminal');
     expect(page).toContain('not answered yet');
     given.token = 'carl';
     await expect(open(numbered, { tab: 'questions' })).rejects.toMatchObject(notFound);
@@ -141,7 +162,7 @@ describe('the page to share', () => {
     given.token = 'bob';
     const other = await html(numbered, { tab: 'questions' });
     expect(buttons(other)).toEqual([]);
-    expect(other).toContain('Waiting for ADA');
+    expect(textOf(other)).toContain('Waiting for ADA');
 
     given.fake.seedShare(round.id, BOB.id, ADA.id);
     expect(buttons(await html(numbered, { tab: 'questions' }))).toEqual(['Yes', 'No']);
