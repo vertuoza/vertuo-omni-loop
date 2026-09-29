@@ -1,4 +1,4 @@
-// The one way into the stored PRD stages (supabase/migrations/20261008090000_prd_stages.sql): public.prd_stages
+// The one way into the stored PRD stages (supabase/migrations/20261009090000_prd_stages.sql): public.prd_stages
 // and public.prd_topics. The sync and the stage events write, as the service role; the pages read, as
 // the signed-in member, so row-level security keeps each workspace's rows to its members.
 //

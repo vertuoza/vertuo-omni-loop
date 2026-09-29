@@ -1,5 +1,5 @@
 // Where a PRD is (PRD 587): a pure function of its stored stages (supabase/migrations/
-// 20261008090000_prd_stages.sql), never of a live GitHub read. The seven stages are the words every
+// 20261009090000_prd_stages.sql), never of a live GitHub read. The seven stages are the words every
 // side uses: STAGES here, and the kit's list, which a test holds to this one.
 //
 // A stage is recorded once, the first time it is seen, and never moved back; the current stage is the

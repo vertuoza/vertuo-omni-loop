@@ -95,9 +95,9 @@ function Tiles({ tiles, links }: { tiles: BoardValue['tiles']; links: BoardValue
 const CHART = { top: 16, plot: 120, base: 136, height: 160, left: 7 } as const;
 const pct = (v: number) => `${Number(v.toFixed(3))}%`;
 
-type Column = { date: string; parts: { key: string; count: number; className: string }[]; said: string };
+export type Column = { date: string; parts: { key: string; count: number; className: string }[]; said: string };
 
-function Bars({ columns }: { columns: Column[] }) {
+export function Bars({ columns }: { columns: Column[] }) {
   const totals = columns.map((c) => c.parts.reduce((s, p) => s + p.count, 0));
   const ticks = axisTicks(Math.max(0, ...totals));
   const top = ticks.at(-1)!;

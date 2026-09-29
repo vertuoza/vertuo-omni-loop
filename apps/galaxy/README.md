@@ -130,7 +130,7 @@ choice of Light or Dark is remembered in the browser, Omni being the absence of 
 dashboard** (PRD 328), beside the Fleet and Workspace boards (PRD 572, [Your dashboard: Home, Fleet
 and Workspace](#your-dashboard-home-fleet-and-workspace)): your hero, fleet, season points and
 places, Waiting for you, then your numbers and your team's. The sidebar groups the pages as
-**Dashboard** (Home, Fleet, Workspace), **Work** (PRDs, Questions, Knowledge), **Settings** (Fleets)
+**Dashboard** (Home, Fleet, Workspace, Engineering), **Work** (PRDs, Questions, Knowledge), **Settings** (Fleets, Repositories)
 and **Omni** (`src/nav/sidebar.ts`). It asks you to sign in, and each page
 it links to signs the visitor in on its own, except `/releases`, which is public
 ([Release notes](#release-notes)). Every app page's header
@@ -511,6 +511,44 @@ pages' tokens only (`src/design-system.test.ts`), and nothing is wider than a 39
 
 **Fleets** moved under **Settings** with PRD 572: the page is `/app/settings/fleets`, and
 `/app/fleets` answers with a permanent redirect there, the query kept (`app/app/fleets/route.ts`).
+
+### Engineering, and Settings › Repositories (PRD 612)
+
+**Settings › Repositories** (`/app/settings/repositories`, `src/repositories/`) lists the
+workspace's repositories (`public.repositories`), each with a **Tracked** switch and its last
+collection. The workspace's owner adds one with **Add repository**, which lists what the workspace's
+Omni App installation can see and is not listed yet, and switches tracking through the owner-only
+`add_repository()` and `set_repository_tracked()`; every other member reads the list. A repository
+the App cannot read shows *Omni App has no access*, with a link to the installation's settings on
+GitHub. Vertuoza, and only Vertuoza, starts with six tracked repositories; any other workspace starts
+with none. omni-app's `prStats` Inngest function collects the tracked repositories every 15 minutes
+into `pull_requests` and `pull_request_reviews` ([`apps/omni-app/README.md`](../omni-app/README.md)).
+
+**Dashboard › Engineering** (`/app/engineering`, `app/app/engineering/page.tsx`,
+`src/engineering/`) is every member's, and counts the tracked repositories only: switching one off
+takes it out of every number at the next page load, and switching it back brings its history back.
+Under the same period switch as the other boards (`?period=7d|30d|season`), top to bottom:
+
+1. **Six tiles**: PRs opened, PRs merged, open now, median time to merge, commits, lines +/−.
+2. **Omni Loop**: the share of merged PRs Omni-man signed (*1 of 2 merged PRs signed by Omni-man
+   (50%)*), their median time to merge beside the rest's, and their lines; beside it, **PRs merged per
+   day**, the part Omni-man signed stacked apart, drawn as the other boards' charts are.
+3. **Repositories**: every tracked repository, 0s kept, with opened, merged, open now, median time to
+   merge, commits and lines; each heading a link that sorts by it, kept as `?sort=` (merged, most
+   first, by default; the median fastest first).
+4. **Most opened**, **most merged** (who pressed Merge) and **most reviews**: five people each, most
+   first, ties in login order. Bots (a login ending in `[bot]`) and Omni-man are left out of these
+   lists, and still count everywhere else.
+
+The counting rules (`src/engineering/tally.ts`): *opened* by `opened_at` in the period, credited to
+the author; *merged* by `merged_at` in the period, credited to `merged_by`; *open now* is every PR
+neither merged nor closed, whatever the period; *time to merge* is `merged_at − opened_at`, a median
+over the PRs merged in the period; commits and lines are summed over those PRs; a *review* counts
+once per reviewer per PR, on its first date, never by the PR's author. Every base branch counts.
+`src/engineering/load.ts` reads, as the signed-in person, the tracked repositories, then their PRs
+opened, merged or still open in the window and their reviews, a thousand rows at a time. With no
+tracked repository the page says *No tracked repositories yet → Settings → Repositories*; a read that
+fails leaves the board saying it could not load. The demo draws a made-up board (`src/engineering/demo.ts`).
 
 ## The knowledge map
 
