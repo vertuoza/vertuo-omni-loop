@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fixes under Work</title>
+<style>
+/* Layout: four today · after pairs: the Work menu, a fix list, a visual update's page, a bug fix's page. Then what stays the same. */
+:root {
+  --bg: #f3f4f7; --panel: #ffffff; --ink: #1b1d26; --muted: #5d6275; --line: #dcdfe8;
+  --accent: #d6283b; --code: #eef0f5; --new: #fff1c7; --fill: #1b1d26; --fillInk: #ffffff;
+  --ok: #1f7a4d; --warn: #b3261e; --omni: #1f6f8b;
+  --display: "Anton", Impact, "Arial Narrow", sans-serif;
+  --body: -apple-system, "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12131a; --panel: #1b1d27; --ink: #eceef5; --muted: #9aa0b4; --line: #2f3242; --code: #252836; --new: #3d3413; --fill: #eceef5; --fillInk: #12131a; --ok: #6fd3a0; --warn: #ff8a80; --omni: #7cc8e3; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #12131a; --panel: #1b1d27; --ink: #eceef5; --muted: #9aa0b4; --line: #2f3242; --code: #252836; --new: #3d3413; --fill: #eceef5; --fillInk: #12131a; --ok: #6fd3a0; --warn: #ff8a80; --omni: #7cc8e3; color-scheme: dark }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--body); padding: 24px 16px 48px }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 32px }
+h1 { font: 400 2rem/1.1 var(--display); letter-spacing: .02em; margin: 0; text-wrap: balance }
+h2 { font: 400 1.3rem/1.1 var(--display); letter-spacing: .03em; margin: 0 }
+.lede { color: var(--muted); margin: 4px 0 0; max-width: 70ch }
+section { display: grid; gap: 12px }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px }
+@media (max-width: 760px) { .cols { grid-template-columns: 1fr } }
+.col { min-width: 0; display: grid; gap: 8px; align-content: start }
+.tag { font: 600 11px/1 var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted) }
+.tag.after { color: var(--accent) }
+.screen { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px; display: grid; gap: 10px; min-width: 0 }
+.lbl { font: 600 10px var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted) }
+.note { color: var(--muted); font-size: 13px; margin: 0 }
+.new { background: var(--new); border-radius: 3px; padding: 0 4px }
+.nav { display: grid; gap: 2px }
+.nav div { padding: 5px 8px; border-radius: 4px }
+.nav .sub { padding-left: 22px; color: var(--muted) }
+.nav .on { background: var(--fill); color: var(--fillInk) }
+.rows { display: grid; gap: 0; overflow-x: auto }
+.row { display: grid; grid-template-columns: 48px minmax(0,1fr) auto auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums }
+.row:first-child { border-top: 0 }
+.row .n { font-family: var(--mono); color: var(--muted) }
+.row .who { color: var(--muted); font-size: 12px }
+.pill { font: 600 11px/1 var(--body); padding: 4px 8px; border-radius: 99px; border: 1px solid var(--line); white-space: nowrap }
+.pill.merged { color: var(--ok); border-color: var(--ok) }
+.pill.review { color: var(--omni); border-color: var(--omni) }
+.pill.asked { color: var(--muted) }
+.pill.risk { color: var(--warn); border-color: var(--warn) }
+.chips { display: flex; flex-wrap: wrap; gap: 6px }
+.chip { font-size: 12px; padding: 3px 8px; border-radius: 4px; background: var(--code) }
+.chip.on { background: var(--fill); color: var(--fillInk) }
+.empty { color: var(--muted); font-style: italic; padding: 18px 0; text-align: center; border: 1px dashed var(--line); border-radius: 4px }
+.head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px }
+.head b { font-size: 16px }
+.badge { font: 600 10px/1 var(--body); letter-spacing: .1em; text-transform: uppercase; padding: 4px 6px; border-radius: 3px; background: var(--accent); color: #fff }
+.links { font-size: 12px; color: var(--omni) }
+.tabs { display: flex; flex-wrap: wrap; gap: 14px; border-bottom: 1px solid var(--line); font-size: 13px }
+.tabs span { padding: 4px 0; color: var(--muted) }
+.tabs .on { color: var(--ink); border-bottom: 2px solid var(--accent); font-weight: 600 }
+.tl { display: grid; gap: 0; font-variant-numeric: tabular-nums }
+.tl div { display: grid; grid-template-columns: 92px minmax(0,1fr) auto; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px }
+.tl div:first-child { border-top: 0 }
+.tl .m { font-weight: 600 }
+.tl .t { color: var(--muted); font-family: var(--mono); font-size: 12px }
+.tl .yet { color: var(--muted); font-style: italic }
+.gh { font-family: var(--mono); font-size: 12px; background: var(--code); border-radius: 4px; padding: 10px; overflow-x: auto; white-space: pre; margin: 0 }
+ul.same { margin: 0; padding-left: 18px; display: grid; gap: 4px; max-width: 80ch }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Bug fixes and visual updates under Work</h1>
+  <p class="lede">PRD 627. Today a fix exists only on GitHub: an issue, a <code>fix/</code> pull request and a record in the repository. After this, each fix has a page on the Omni site, like a small PRD, listed under Work with who asked, who picked, who approved and who merged.</p>
+</header>
+
+<section>
+  <h2>1 · The Work menu</h2>
+  <div class="cols">
+    <div class="col">
+      <span class="tag">Today</span>
+      <div class="screen">
+        <span class="lbl">Work</span>
+        <div class="nav">
+          <div class="on">PRDs</div>
+          <div>Questions</div>
+          <div class="sub">Shared with me</div>
+          <div class="sub">History</div>
+          <div>Knowledge</div>
+        </div>
+      </div>
+      <p class="note">Fixes appear nowhere on the site.</p>
+    </div>
+    <div class="col">
+      <span class="tag after">After</span>
+      <div class="screen">
+        <span class="lbl">Work</span>
+        <div class="nav">
+          <div>PRDs</div>
+          <div><span class="new">Bug Fixes</span></div>
+          <div class="on"><span>Visual Updates</span></div>
+          <div>Questions</div>
+          <div class="sub">Shared with me</div>
+          <div class="sub">History</div>
+          <div>Knowledge</div>
+        </div>
+      </div>
+      <p class="note">Three kinds of work, three entries: <code>/prd</code>, <code>/bugs</code>, <code>/visual</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>2 · Visual Updates list</h2>
+  <div class="cols">
+    <div class="col">
+      <span class="tag">Today</span>
+      <div class="screen">
+        <span class="lbl">Where do I find visual fix #561?</span>
+        <pre class="gh">gh pr list --label omni:visual --state all
+# or open .omni-loop/delivery/visual/ in the repo</pre>
+      </div>
+      <p class="note">Only on GitHub, one by one.</p>
+    </div>
+    <div class="col">
+      <span class="tag after">After</span>
+      <div class="screen">
+        <div class="chips"><span class="chip on">All</span><span class="chip">Mine</span><span class="chip">Asked</span><span class="chip">In review</span><span class="chip">Merged</span></div>
+        <div class="rows">
+          <div class="row"><span class="n">#634</span><span>Sidebar background darker<br><span class="who">vertuo-omni-loop · asked by @anton</span></span><span class="pill review">In review</span><span class="who">2 h</span></div>
+          <div class="row"><span class="n">#561</span><span>Omni links in the footer<br><span class="who">vertuo-omni-loop · asked by @pierre-derval</span></span><span class="pill merged">Merged</span><span class="who">1 d</span></div>
+          <div class="row"><span class="n">#548</span><span>Omni links open in a new tab<br><span class="who">vertuo-omni-loop · asked by @pierre-derval</span></span><span class="pill merged">Merged</span><span class="who">1 d</span></div>
+        </div>
+      </div>
+      <p class="note">#548 and #561 come in from the repository on the next sync. #634 is an example. Bug Fixes has the same list, plus a risk pill and a <em>regression</em> badge.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>3 · A visual update's page</h2>
+  <div class="cols">
+    <div class="col">
+      <span class="tag">Today</span>
+      <div class="screen">
+        <span class="lbl">After the pick</span>
+        <p class="note">The variations page A–E lives in the session's scratch folder and is gone when the session ends. The pull request says which letter was picked, but not who picked it or when.</p>
+        <div class="empty">No page</div>
+      </div>
+    </div>
+    <div class="col">
+      <span class="tag after">After</span>
+      <div class="screen">
+        <div class="head"><span class="badge">Visual</span><b>#634 Sidebar background darker</b></div>
+        <span class="links">issue #634 · PR #635 ✓</span>
+        <div class="tabs"><span class="on">Timeline</span><span>Before/after</span><span>Variations · 2 rounds</span><span>Questions</span></div>
+        <div class="tl">
+          <div><span class="m">Asked</span><span>@anton</span><span class="t">29 Sep 10:02</span></div>
+          <div><span class="m">Picked C</span><span>@anton (round 2)</span><span class="t">29 Sep 10:21</span></div>
+          <div><span class="m">Approved</span><span>@pierre-derval</span><span class="t">29 Sep 11:40</span></div>
+          <div><span class="m">Merged</span><span>@pierre-derval</span><span class="t">29 Sep 11:42</span></div>
+          <div><span class="m">Released</span><span class="yet">not yet</span><span class="t"></span></div>
+        </div>
+      </div>
+      <p class="note">Each round of variations is committed as <code>variations-r1.html</code>, <code>-r2</code>… next to <code>before-after.html</code> and uploaded as a version. The pick line in the before/after page names who picked.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>4 · A bug fix's page</h2>
+  <div class="cols">
+    <div class="col">
+      <span class="tag">Today</span>
+      <div class="screen">
+        <span class="lbl">Bug 571's record</span>
+        <pre class="gh">.omni-loop/delivery/bugs/0571-number-args/bug.md</pre>
+        <p class="note">Readable in the repository only. Who approved and merged it is on the pull request.</p>
+      </div>
+    </div>
+    <div class="col">
+      <span class="tag after">After</span>
+      <div class="screen">
+        <div class="head"><span class="badge">Bug</span><b>#571 omni reads 1e2 or 0x10 as a PRD number</b> <span class="pill risk">risk low</span></div>
+        <span class="links">issue #571 · PR #573 ✓</span>
+        <div class="tabs"><span class="on">Timeline</span><span>Bug record</span><span>Questions</span></div>
+        <div class="tl">
+          <div><span class="m">Asked</span><span>@pierre-derval</span><span class="t">29 Sep</span></div>
+          <div><span class="m">Approved</span><span class="yet">no approving review</span><span class="t"></span></div>
+          <div><span class="m">Merged</span><span>@pierre-derval</span><span class="t">29 Sep</span></div>
+          <div><span class="m">Released</span><span>v0.0.N</span><span class="t">29 Sep</span></div>
+        </div>
+      </div>
+      <p class="note">Bug record renders <code>bug.md</code>. A bug has no Picked moment. The times here are illustrative.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>What stays the same</h2>
+  <ul class="same">
+    <li>The PRDs list, a PRD's page, its tabs, stages and filters.</li>
+    <li><code>omni dossier push &lt;n&gt;</code> with no <code>--kind</code>: it is still a PRD push.</li>
+    <li>The fix skills stay a fast lane. They open no PRD, spec, plan, phase-0 PR or outbox, and a person still merges.</li>
+    <li>Dashboards count merged pull requests as today; they don't count fixes by kind yet.</li>
+  </ul>
+</section>
+
+</div>
+</body>
+</html>
