@@ -300,6 +300,145 @@ export const SPRITE_DEFS = Object.freeze({
     },
   },
 
+  // atom-eve mascot (PRD 517): Atom Eve, in a pink bodysuit with magenta trim, long red hair and a
+  // light pink atom on the chest, one hand raised holding a pink energy ball that flickers, its sparks
+  // moving.
+  'atom-eve': {
+    w: 32, h: 32,
+    draw(d, f) {
+      d.rect(11, 26, 4, 3, 'M').rect(10, 28, 5, 3, 'M', 3);
+      d.poly([[7, 17], [25, 17], [22, 27], [10, 27]], 'M');
+      d.poly([[5, 19], [9, 17], [9, 25], [6, 25]], 'M');
+      d.ellipse(6.5, 26.5, 2.2, 2, 'M', 3);
+      d.rect(11, 25, 10, 2, 'M', 3);
+      d.mirror();
+      // The raised arm: the mirrored one cleared, then lifted to hold the energy.
+      d.rect(22, 19, 6, 10, null).rect(20, 25, 3, 2, 'M', 3);
+      d.line(23, 19, 26, 13, 'M', 3);
+      d.ellipse(26.5, 11.5, 2.2, 2, 'M', 3);
+      d.ellipse(27, 6 - f, f ? 3 : 3.8, f ? 3 : 3.8, 'M', 0);
+      d.ellipse(27, 6 - f, f ? 1.8 : 1.4, f ? 1.8 : 1.4, 'Q');
+      if (f) d.pxs([[23, 2], [31, 4], [25, 0], [31, 9], [22, 7]], 'y');
+      else d.pxs([[24, 1], [31, 1], [22, 5], [31, 8], [29, 11]], 'y');
+      // Long red hair, behind the face.
+      d.ellipse(15, 9, 8, 8, 'R').rect(7, 9, 4, 11, 'R').rect(19, 9, 4, 10, 'R');
+      d.rect(13, 14, 5, 4, 'S');
+      d.ellipse(15, 10, 6, 6.5, 'S');
+      d.ellipse(15, 4.5, 7, 3.5, 'R').pxs([[9, 7], [10, 8], [20, 7], [21, 8]], 'R');
+      d.px(12, 10, 'X').px(18, 10, 'X').px(12, 9, 'Q').px(18, 9, 'Q');
+      d.rect(11, 8, 3, 1, 'R', 3).rect(17, 8, 3, 1, 'R', 3);
+      d.px(15, 12, 'S', 2).rect(14, 14, 3, 1, 'R', 2);
+      // The magenta collar, and the light pink atom on the chest: two orbits round a bright core.
+      d.rect(12, 17, 7, 1, 'M', 3);
+      d.pxs([[13, 19], [14, 20], [16, 21], [18, 22], [19, 23], [13, 23], [14, 22], [18, 20], [19, 19]], 'M', 0);
+      d.px(16, 21, 'y').px(15, 21, 'M', 0).px(17, 21, 'M', 0);
+    },
+  },
+
+  // shark mascot (PRD 517): an upright blue-grey shark with a white belly, a dorsal fin, fins for arms
+  // and a toothy grin, the four Vertuoza stripes on a collar with a navy tie. The tail swishes, and the
+  // jaw opens wider.
+  shark: {
+    w: 32, h: 32,
+    draw(d, f) {
+      d.poly(f ? [[22, 24], [31, 18], [28, 25], [31, 31], [22, 28]] : [[22, 24], [30, 21], [27, 26], [30, 30], [22, 28]], 'J');
+      d.ellipse(16, 18, 10, 12.5, 'J');
+      d.poly([[13, 7], [18, 0], [20, 8]], 'J');
+      d.ellipse(15, 23, 6.5, 7.5, 'W');
+      d.poly([[6, 18], [1, 25], [8, 23]], 'J');
+      d.poly([[25, 18], [30, 13], [26, 22]], 'J');
+      d.ellipse(12, 30, 3, 1.6, 'J', 2).ellipse(19, 30, 3, 1.6, 'J', 2);
+      d.ellipse(11, 10, 2, 2.2, 'Q').px(11, 10, 'X').px(12, 10, 'X').px(11, 11, 'X').px(12, 11, 'X');
+      d.ellipse(20, 10, 2, 2.2, 'Q').px(20, 10, 'X').px(21, 10, 'X').px(20, 11, 'X').px(21, 11, 'X');
+      d.rect(9, 7, 4, 1, 'k').rect(19, 7, 4, 1, 'k');
+      d.pxs([[7, 12], [7, 14], [8, 13], [24, 12], [24, 14], [23, 13]], 'J', 3);
+      // The grin: a dark mouth lined with teeth, the jaw dropping a pixel as it opens.
+      d.rect(9, 13, 14, 2 + f, 'X');
+      for (let x = 9; x < 23; x += 2) d.px(x, 13, 'Q').px(x + 1, 14 + f, 'Q');
+      // The collar in the four stripes, knotted with a navy tie.
+      d.rect(9, 18, 3, 1, '1').rect(12, 18, 3, 1, '2').rect(17, 18, 3, 1, '3').rect(20, 18, 3, 1, '4');
+      d.rect(15, 18, 2, 1, 'N');
+      d.poly([[15, 19], [17, 19], [17.5, 25], [16, 26.5], [14.5, 25]], 'N');
+    },
+  },
+
+  // turtle mascot (PRD 517): a green turtle with an olive hex-patterned shell, its head out front in
+  // a bandana of the Vertuoza stripes. The head bobs up and the eye blinks.
+  turtle: {
+    w: 32, h: 32,
+    draw(d, f) {
+      const b = -f; // the head bobs up
+      d.ellipse(8, 28, 3, 2.5, 'g').ellipse(22, 28, 3, 2.5, 'g');
+      d.ellipse(28, 25, 2.2, 1.6, 'g');
+      d.ellipse(16, 21, 12, 8.5, 'o');
+      d.rect(4, 26, 24, 2, 'T', 1).rect(4, 27, 24, 1, 'T', 2);
+      // The hex pattern: a lit hexagon in the middle, its seams running out to the rim.
+      d.poly([[13, 16], [19, 16], [21, 20], [19, 24], [13, 24], [11, 20]], 'o', 0);
+      d.line(13, 16, 11, 20, 'k').line(11, 20, 13, 24, 'k').line(19, 16, 21, 20, 'k').line(21, 20, 19, 24, 'k');
+      d.line(13, 16, 19, 16, 'k').line(13, 24, 19, 24, 'k');
+      d.line(11, 20, 5, 19, 'k').line(21, 20, 27, 19, 'k').line(16, 16, 16, 13, 'k').line(13, 24, 11, 26, 'k').line(19, 24, 21, 26, 'k');
+      d.line(7, 22, 5, 17 + b, 'g', 4);
+      d.ellipse(5.5, 12.5 + b, 5, 4.5, 'g');
+      d.rect(1, 9 + b, 10, 1, '1').rect(1, 10 + b, 10, 1, '2');
+      d.px(11, 10 + b, '3').px(12, 11 + b, '4').px(12, 9 + b, '3').px(13, 10 + b, '4');
+      if (f) d.rect(2, 12 + b, 4, 1, 'X');
+      else d.ellipse(4, 13, 1.6, 1.6, 'Q').px(3, 12, 'X').px(3, 13, 'X');
+      d.line(1, 15 + b, 5, 16 + b, 'k');
+    },
+  },
+
+  // allen mascot (PRD 517): Allen the Alien, a wide round pale-blue head with one big green-irised
+  // eye, a green suit with white chest bands. He blinks and hovers a pixel higher, a shadow below.
+  allen: {
+    w: 32, h: 32,
+    draw(d, f) {
+      const u = f; // the hover
+      d.rect(11, 26 - u, 4, 1, 'g').rect(10, 27 - u, 5, 2, 'n');
+      d.poly([[6, 17 - u], [26, 17 - u], [22, 27 - u], [10, 27 - u]], 'g');
+      d.poly([[11, 17 - u], [21, 17 - u], [19, 25 - u], [13, 25 - u]], 'X');
+      d.poly([[4, 19 - u], [8, 17 - u], [8, 25 - u], [5, 25 - u]], 'g');
+      d.ellipse(5.5, 26.5 - u, 2.4, 2.2, 'U');
+      d.rect(11, 25 - u, 10, 2, 'n');
+      d.mirror();
+      d.rect(12, 19 - u, 8, 1, 'Q').rect(13, 21 - u, 6, 1, 'Q').rect(14, 23 - u, 4, 1, 'Q');
+      d.rect(13, 14 - u, 6, 4, 'U');
+      d.ellipse(16, 8 - u, 10, 8, 'U');
+      if (f) d.rect(10, 8 - u, 12, 1, 'X').rect(11, 7 - u, 10, 1, 'U', 3);
+      else {
+        d.ellipse(16, 7.5 - u, 5.5, 4.5, 'Q');
+        d.ellipse(16, 8 - u, 2.6, 2.8, 'g', 2).ellipse(16, 8 - u, 1.2, 1.4, 'X').px(15, 7 - u, 'Q');
+      }
+      d.line(12, 13 - u, 16, 14 - u, 'k').line(16, 14 - u, 20, 13 - u, 'k');
+      if (f) d.ellipse(16, 31, 6, 0.8, 'n', 3);
+    },
+  },
+
+  // robot mascot (PRD 517): a boxy retro steel robot, an antenna with a red light, cyan eyes behind a
+  // dark visor, a mouth grille, the four stripes on a chest panel, rivets. The antenna light blinks
+  // and the eyes brighten.
+  robot: {
+    w: 32, h: 32,
+    draw(d, f) {
+      d.rect(10, 25, 4, 4, 'A').rect(9, 28, 6, 3, 'n');
+      d.rect(6, 15, 20, 11, 'L');
+      d.rect(2, 16, 4, 8, 'A').rect(1, 23, 5, 3, 'n');
+      d.mirror();
+      d.rect(9, 4, 14, 10, 'L');
+      d.rect(14, 13, 4, 2, 'A');
+      d.rect(7, 7, 2, 4, 'A').rect(23, 7, 2, 4, 'A');
+      d.rect(11, 6, 10, 4, 'X');
+      d.rect(12, 7, 3, 2, 'C', f ? 0 : 1).rect(17, 7, 3, 2, 'C', f ? 0 : 1);
+      d.rect(12, 11, 8, 2, 'A').pxs([[13, 11], [15, 11], [17, 11], [19, 11], [13, 12], [15, 12], [17, 12], [19, 12]], 'X');
+      d.line(16, 4, 16, 2, 'A');
+      d.ellipse(16.5, 1.5, 1.6, 1.4, f ? 'e' : 'R');
+      if (f) d.pxs([[13, 0], [20, 0], [13, 2], [20, 2]], 'y');
+      // The chest panel, in the stripes every suit wears.
+      d.rect(10, 16, 12, 9, 'A');
+      SUIT_STRIPES(d, 12, 17, 7);
+      d.pxs([[7, 16], [24, 16], [7, 24], [24, 24], [10, 5], [21, 5], [10, 12], [21, 12]], 'k');
+    },
+  },
+
   // The player's hero (heroes.mjs recolours it): the OMNI-MAN body in two builds, a girl and a boy,
   // with or without a cape. The cape is the plasma material, recoloured per preset; the suit is W
   // (main) and N (trim); the belt buckle Y takes the fleet colour.
@@ -369,10 +508,15 @@ export const SPRITE_DEFS = Object.freeze({
   cursor: { w: 8, h: 8, draw(d) { d.rect(0, 0, 4, 1, 'Y', 1).rect(0, 0, 1, 4, 'Y', 1); }, outline: false },
 });
 
-// The mascot library: every fleet mascot drawn above, the keys an owner may pick for a fleet
-// (public.fleet_mascots() holds the same list, and a fleet stores its pick in public.teams › mascot).
-// A fleet with none is drawn as a hero in its colour (heroes.mjs › fleetSprite).
-export const MASCOTS = Object.freeze(['beaver', 'octopod', 'picsou', 'cia', 'pirate', 'invincible']);
+// The mascot library: every fleet mascot drawn above, the keys an owner may pick for a fleet, in the
+// order the picker shows them. A fleet stores its pick in public.teams › mascot, and the database
+// accepts the keys public.fleet_mascots() returns: mascots.test.mjs fails when the newest migration
+// defining it lists other keys, or another order. A fleet with none is drawn as a hero in its colour
+// (heroes.mjs › fleetSprite).
+export const MASCOTS = Object.freeze([
+  'beaver', 'octopod', 'picsou', 'cia', 'pirate', 'invincible',
+  'atom-eve', 'shark', 'turtle', 'allen', 'robot', // PRD 517
+]);
 
 // Entropy recoloured per wound kind (spec §5.3): the shape is the enemy, the colour says which one.
 // `ramp` replaces the Entropy material; `p` is the bright tone for map specks and labels.

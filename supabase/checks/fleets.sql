@@ -4,11 +4,11 @@
 -- A workspace's owner, and only its owner, creates, restyles, retires and restores its fleets through
 -- create_fleet(), update_fleet(), retire_fleet() and restore_fleet(). A member, the owner of another
 -- workspace and anyone signed out are refused each one, and nothing changes. Each field is checked at
--- its edges and a refusal names its field; at most 12 fleets are active. A fleet's name is derived
--- from its label, unique in its workspace, and never changes. Nobody signed in writes public.teams
--- directly. The Vertuoza owner step of 20261003090000_own_fleets.sql is proven by applying that file
--- again once the member it names exists. One transaction, rolled back at the end. Any `FAIL:` stops
--- the run.
+-- its edges and a refusal names its field; a mascot is one of the library's eleven (PRD 517); at most
+-- 12 fleets are active. A fleet's name is derived from its label, unique in its workspace, and never
+-- changes. Nobody signed in writes public.teams directly. The Vertuoza owner step of
+-- 20261003090000_own_fleets.sql is proven by applying that file again once the member it names
+-- exists. One transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
 
@@ -242,6 +242,53 @@ begin
   perform pg_temp.refused_for(format('select public.update_fleet(%L, ''beaver'', ''BEAVER'', ''#000000'', '''', ''dragon'')', v), 'mascot', 'Mascot');
   if (select label from public.teams where workspace_id = v and name = 'beaver') <> 'BEAVER' then
     raise exception 'FAIL: a refused update changed the fleet';
+  end if;
+end $$;
+reset role;
+
+-- ── The eleven mascots of the library (PRD 517) ──
+-- fleet_mascots() lists @omni/design's MASCOTS in its order; each of the five new keys is taken and
+-- stored, a fleet moves to one, and a key outside the list is still refused, naming the eleven.
+do $$
+begin
+  if public.fleet_mascots() is distinct from array['beaver', 'octopod', 'picsou', 'cia', 'pirate', 'invincible',
+       'atom-eve', 'shark', 'turtle', 'allen', 'robot'] then
+    raise exception 'FAIL: fleet_mascots() is not the eleven keys in order: %', public.fleet_mascots();
+  end if;
+end $$;
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000040a1');
+do $$
+declare
+  v uuid := pg_temp.ws('vertuoza');
+  m text;
+  f public.teams;
+  msg text;
+begin
+  -- Each fleet retired once checked, to leave room under the cap.
+  foreach m in array array['atom-eve', 'shark', 'turtle', 'allen', 'robot'] loop
+    f := public.create_fleet(v, upper(m), '#000000', '', m);
+    if (select t.mascot from public.teams t where t.workspace_id = v and t.name = f.name) is distinct from m then
+      raise exception 'FAIL: a fleet created with the mascot % did not store it: %', m, row(f.*);
+    end if;
+    perform public.retire_fleet(v, f.name);
+  end loop;
+
+  f := public.create_fleet(v, 'TIN CAN', '#000000', '', 'turtle');
+  f := public.update_fleet(v, f.name, 'TIN CAN', '#000000', '', 'robot');
+  if f.mascot is distinct from 'robot' or (select t.mascot from public.teams t where t.workspace_id = v and t.name = f.name) is distinct from 'robot' then
+    raise exception 'FAIL: an update did not move the fleet to the robot: %', row(f.*);
+  end if;
+  perform public.retire_fleet(v, f.name);
+
+  perform pg_temp.refused_for(format('select public.create_fleet(%L, ''DRAGON'', ''#000000'', '''', ''dragon'')', v), 'mascot', 'Mascot');
+  begin
+    perform public.create_fleet(v, 'DRAGON', '#000000', '', 'dragon');
+  exception when invalid_parameter_value then
+    get stacked diagnostics msg = message_text;
+  end;
+  if msg is distinct from 'Mascot: one of beaver, octopod, picsou, cia, pirate, invincible, atom-eve, shark, turtle, allen, robot, or none.' then
+    raise exception 'FAIL: a refused mascot does not name the eleven: %', msg;
   end if;
 end $$;
 reset role;

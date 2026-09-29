@@ -538,7 +538,7 @@ Proposed: harvest 2026-09-27
 
 ## BR-PRODUCT-46
 
-A fleet's mascot is one of six keys held in a database list: beaver, octopus, duck, spy, pirate or invincible hero. The commander, the enemy, the plain heroes and the small icons are refused.
+A fleet's mascot is one of eleven keys held in a database list, the same list and order as the sprite library's mascots: beaver, octopus, duck, spy, pirate, invincible hero, Atom Eve, shark, turtle, Allen the Alien or robot. The commander, the enemy, the plain heroes and the small icons are refused.
 
 Serves: P-PRODUCT-43
 Source: .omni-loop/delivery/shipped/0400-own-fleets/outbox/settled.md, entry s1-01-mascot-choices, PRD #400
