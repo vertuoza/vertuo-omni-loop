@@ -119,13 +119,13 @@ describe('the fleet step, a fleet optional (PRD 400)', () => {
     for (const grid of [WIDE, TALL]) {
       const owner = text(render(grid === TALL ? 'handheld' : 'full', grid, pickOf(0, { fleets: [], owner: true })));
       expect(owner).toContain('NO FLEETS YET — RAISE YOUR OWN!');
-      expect(owner).toContain('SET THEM UP AT /app/fleets');
+      expect(owner).toContain('SET THEM UP AT /app/settings/fleets');
       expect(owner).not.toContain('ASK YOUR OWNER');
     }
     const member = text(render('full', WIDE, pickOf(0, { fleets: [], owner: false })));
     expect(member).toContain('NO FLEETS YET — RAISE YOUR OWN!');
     expect(member).toContain('ASK YOUR OWNER');
-    expect(member).not.toContain('/app/fleets');
+    expect(member).not.toContain('/app/settings/fleets');
   });
 });
 

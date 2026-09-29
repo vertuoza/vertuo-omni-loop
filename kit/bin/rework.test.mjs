@@ -163,6 +163,63 @@ describe('omni rework plan', () => {
   });
 });
 
+describe('omni rework plan — in a plan repository (PRD 563, s3)', () => {
+  const PLAN_REPO_CONFIG = {
+    '.omni-loop/config.yml': [
+      'kit: 1',
+      'repo:',
+      '  slug: acme/widgets-plan',
+      'plan:',
+      '  targets:',
+      '    - repo: acme/widgets-api',
+      '      role: back-end',
+      '      knowledge: own',
+      '',
+    ].join('\n'),
+  };
+  const MULTI_PLAN = [
+    '# Plan: widgets',
+    '',
+    '| id  | repo        | slice            | territory | wave |',
+    '| --- | ----------- | ---------------- | --------- | ---- |',
+    '| s1  | widgets-api | The settled item | `a/`      | 1    |',
+    '',
+  ].join('\n');
+
+  async function multiRepo(config) {
+    const { root } = makeRepo({
+      git: true,
+      files: { ...config, [`${DIR}/spec.md`]: '# spec\n', [`${DIR}/plan.md`]: MULTI_PLAN, [`${OUTBOX}/s1-01-default-country.md`]: ITEM_TEXT },
+    });
+    expect(await settle(root, `${OUTBOX}/s1-01-default-country.md`, "No — use the contact's own country instead.")).toBe(0);
+    return root;
+  }
+
+  it('gives each rework the repo of the slice its item names, plain and --json', async () => {
+    const root = await multiRepo(PLAN_REPO_CONFIG);
+
+    const s = io();
+    expect(await main(['rework', 'plan', String(PRD)], { cwd: root, ...s })).toBe(0);
+    expect(s.out.join('')).toMatch(/^ {2}repo: widgets-api$/m);
+
+    const j = io();
+    expect(await main(['rework', 'plan', String(PRD), '--json'], { cwd: root, ...j })).toBe(0);
+    expect(JSON.parse(j.out.join('')).reworks[0]).toMatchObject({ id: 'fix-s1-01-default-country', repo: 'widgets-api' });
+  });
+
+  it('outside a plan repository prints what it prints today, with no repo', async () => {
+    const root = await multiRepo(CONFIG);
+
+    const s = io();
+    expect(await main(['rework', 'plan', String(PRD)], { cwd: root, ...s })).toBe(0);
+    expect(s.out.join('')).not.toMatch(/repo:/);
+
+    const j = io();
+    expect(await main(['rework', 'plan', String(PRD), '--json'], { cwd: root, ...j })).toBe(0);
+    expect(JSON.parse(j.out.join('')).reworks[0]).not.toHaveProperty('repo');
+  });
+});
+
 describe('omni rework close', () => {
   it('amends only the Closed: line, and omni status goes green for that drift afterwards', async () => {
     const { root, read } = await driftedRepo();

@@ -756,3 +756,59 @@ describe('the hand-off that ends the yolo and the yolo-fix', () => {
     ]);
   });
 });
+
+// PRD 563: three skills build a PRD that spans repositories, from its plan repository, each beside
+// its single-repository twin and following it step for step. None merges into a default branch,
+// adds the outbox override, creates a label in a target, or runs anything there but its preflight.
+describe('the ultra skills in this repository', () => {
+  const read = (skill) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const ULTRA = { 'ultra-yolo': 'yolo', 'ultra-wave': 'wave', 'ultra-yolo-fix': 'yolo-fix' };
+
+  it('each is named for its folder, triggers on its slash command, and follows its twin step for step', () => {
+    for (const [skill, twin] of Object.entries(ULTRA)) {
+      const text = read(skill);
+      const { name, description } = frontmatter(text) ?? {};
+      expect(name).toBe(skill);
+      expect(description, skill).toMatch(new RegExp(`\\bTriggers on\\b.*"/omni:${skill}"`));
+      expect(text, skill).toContain(`It follows \`/omni:${twin}\` **step for step**`);
+    }
+  });
+
+  it('each keeps the four guardrails of the spec', () => {
+    for (const skill of Object.keys(ULTRA)) {
+      const guardrails = skillSection(read(skill), 'Guardrails');
+      expect(guardrails, skill).toMatch(/any repository's default branch/);
+      expect(guardrails, skill).toMatch(/Never add `labels\.outboxGo`/);
+      expect(guardrails, skill).toMatch(/never create a label in a target/i);
+      expect(guardrails, skill).toMatch(/other than its own committed preflight/);
+    }
+  });
+
+  it('/omni:ultra-yolo stops on an ordinary PRD, reads what moved, and hands the red gate to /omni:ultra-yolo-fix', () => {
+    const text = read('ultra-yolo');
+    expect(skillSection(text, 'Step 0')).toContain('PRD <n> is an ordinary PRD: /omni:yolo <n>');
+    expect(skillSection(text, '1.')).toContain('omni.mjs plan moved <n> --json');
+    expect(skillSection(text, '2.')).toContain('Part of <plan slug>#<n>');
+    expect(skillSection(text, '3.')).toContain('/omni:ultra-wave <n>');
+    expect(skillSection(text, '5.')).toContain('/omni:ultra-yolo-fix` steps 2 to 7');
+    const handOff = skillSection(text, '6. Hand off');
+    expect(handOff).toContain('Nothing to run: merging the target PRs, then #<plan PR>, is yours.');
+    expect(handOff).toContain('/omni:ultra-yolo-fix <n>');
+    expect(handOff).toContain('/omni:ultra-yolo <n>');
+  });
+
+  it("/omni:ultra-wave builds through do-work --target and pr --repo, and relays each slice's items", () => {
+    const text = read('ultra-wave');
+    expect(skillSection(text, '2.')).toContain('/omni:pr --repo <slug>');
+    expect(skillSection(text, '3.')).toContain('/omni:do-work --in-wave --target <repo>');
+    expect(skillSection(text, '4.')).toContain('omni.mjs item relay <out> --prd <prd>');
+  });
+
+  it('/omni:ultra-yolo-fix settles on the plan PR and lands each rework in its repo', () => {
+    const text = read('ultra-yolo-fix');
+    expect(skillSection(text, '4.')).toContain('omni.mjs rework plan <prd> --json');
+    expect(skillSection(text, '4.')).toContain('`repo`');
+    expect(skillSection(text, '5.')).toContain('/omni:do-work --in-wave --target <repo>');
+    expect(skillSection(text, '8.')).toContain('/omni:ultra-yolo-fix <n>');
+  });
+});

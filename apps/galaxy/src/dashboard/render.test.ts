@@ -4,10 +4,13 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
 // Each part's view, as the dashboard places it: a marker of its own, carrying what it was given, so
-// these tests hold whatever the parts become (week/, counts/ and rankings/ test their own views).
-vi.mock('./week/Week', () => ({ Week: ({ part }: { part: unknown }) => createElement('p', { 'data-part': 'week' }, `week ${JSON.stringify(part)}`) }));
-vi.mock('./counts/CountTiles', () => ({ Counts: ({ part }: { part: unknown }) => createElement('p', { 'data-part': 'counts' }, `counts ${JSON.stringify(part)}`) }));
-vi.mock('./rankings/Rankings', () => ({ Rankings: ({ part }: { part: unknown }) => createElement('p', { 'data-part': 'rankings' }, `rankings ${JSON.stringify(part)}`) }));
+// these tests hold whatever the parts become (counts/ and board/ test their own views; home/ renders
+// Home with the real board).
+vi.mock('./counts/WaitingTile', () => ({ WaitingTile: ({ part }: { part: unknown }) => createElement('p', { 'data-part': 'waiting' }, `waiting ${JSON.stringify(part)}`) }));
+vi.mock('./board/Board', () => ({
+  Board: ({ board, path, query, peopleTitle, peopleNote }: Record<string, unknown>) => createElement('div', { 'data-part': 'board' },
+    `board ${JSON.stringify({ board, path, query, peopleTitle })}`, peopleNote as never),
+}));
 
 import { DashboardScreen, type DashboardView } from './DashboardScreen';
 import type { DashboardData } from './load';
@@ -24,12 +27,12 @@ const PLAYER: YouValue = {
   score: { points: 1240, you: { rank: 7, of: 23 }, fleet: { label: 'BEAVER', rank: 2, of: 5 } },
 };
 const data = (over: Partial<DashboardData> = {}): DashboardData => ({
-  name: 'PIERRE', season, you: PLAYER, week: 'W', counts: 'C', rankings: 'R', ...over,
+  name: 'PIERRE', season, you: PLAYER, waiting: 'W', board: 'B', solo: false, ...over,
 } as unknown as DashboardData);
 const SUPABASE = { url: 'http://127.0.0.1:54321', key: 'anon' };
 
 const render = (view: DashboardView, supabase: typeof SUPABASE | null = SUPABASE, signinError: string | null = null) =>
-  renderToStaticMarkup(createElement(DashboardScreen, { view, supabase, signinError }));
+  renderToStaticMarkup(createElement(DashboardScreen, { view, supabase, signinError, query: { period: '30d' } }));
 const dashboard = (over: Partial<DashboardData> = {}) => render({ kind: 'dashboard', dashboard: data(over) });
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const h1s = (html: string) => [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/g)].map((m) => text(m[1]));
@@ -93,26 +96,39 @@ describe('the dashboard', () => {
     expect(t).not.toContain('fleet');
   });
 
-  it('places the parts in the spec\'s order: the hero block, the week, the counts, then the rankings', () => {
+  it('places the parts in the spec\'s order: the hero block, Waiting for you, then the board', () => {
     const html = dashboard();
     const at = (marker: string) => html.indexOf(marker);
-    const order = ['<h1', 'data-part="week"', 'data-part="counts"', 'data-part="rankings"'].map(at);
+    const order = ['<h1', 'data-part="waiting"', 'data-part="board"'].map(at);
     expect(order.every((n) => n >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 
-  it('hands each part its own value, or unreadable', () => {
-    const t = text(dashboard({ week: 'unreadable', counts: { n: 3 } as never }));
-    expect(t).toContain('week "unreadable"');
-    expect(t).toContain('counts {"n":3}');
-    expect(t).toContain('rankings "R"');
+  it('hands each part its own value, or unreadable, and the board Home\'s path, the query and "Your team"', () => {
+    const t = text(dashboard({ waiting: 'unreadable', board: { n: 3 } as never }));
+    expect(t).toContain('waiting "unreadable"');
+    expect(t).toContain('board {"board":{"n":3},"path":"/app","query":{"period":"30d"},"peopleTitle":"Your team"}');
+  });
+
+  it('shows no rankings, no Outbox settled, no week and no season counts any more (PRD 572)', () => {
+    const t = text(dashboard());
+    for (const gone of ['rankings', 'Outbox settled', 'PRDs created', 'week']) expect(t).not.toContain(gone);
+  });
+
+  it('with a team: no line to Fleet', () => {
+    expect(dashboard()).not.toContain('href="/app/fleet"');
+  });
+
+  it('solo, or with no player row: a line linking to the Fleet page, under the People table', () => {
+    const html = dashboard({ solo: true });
+    expect(html).toMatch(/<a href="\/app\/fleet">See a fleet’s board on Fleet<\/a>/);
+    expect(html.indexOf('href="/app/fleet"')).toBeGreaterThan(html.indexOf('data-part="board"'));
   });
 
   it('draws no section cards: the sidebar leads to every section (PRD 438)', () => {
     const html = dashboard();
     expect(html).not.toContain('dash-card');
     expect(html).not.toContain('<nav');
-    expect(html.slice(html.indexOf('data-part="rankings"'))).not.toMatch(/<a\b/);
   });
 });
 
@@ -130,7 +146,7 @@ describe('the dashboard, when part of it cannot be shown', () => {
     expect(h1s(html)).toEqual(['PIERRE']);
     expect(html).toContain('<svg');
     expect(text(html)).toContain('BEAVER fleet');
-    expect(html).toContain('data-part="rankings"');
+    expect(html).toContain('data-part="board"');
   });
 
   it('the hero block out of reach: the name heads it, it says so, and the rest renders', () => {
@@ -138,8 +154,8 @@ describe('the dashboard, when part of it cannot be shown', () => {
     expect(h1s(html)).toEqual(['Pierre']);
     expect(text(html)).toContain(UNREADABLE_LINE);
     expect(html).not.toContain('<svg');
-    expect(html).toContain('data-part="week"');
-    expect(html).toContain('data-part="rankings"');
+    expect(html).toContain('data-part="waiting"');
+    expect(html).toContain('data-part="board"');
   });
 
   it('a member who never played: the card that sends them to the arcade, in place of the hero block, never asking for a fleet', () => {
@@ -149,7 +165,7 @@ describe('the dashboard, when part of it cannot be shown', () => {
     expect(text(html)).not.toMatch(/join a fleet/i);
     expect(html).not.toContain('<svg');
     expect(text(html)).not.toContain('pts');
-    for (const part of ['week', 'counts', 'rankings']) expect(html).toContain(`data-part="${part}"`);
+    for (const part of ['waiting', 'board']) expect(html).toContain(`data-part="${part}"`);
   });
 });
 
@@ -189,12 +205,12 @@ describe('the other situations', () => {
 describe('the stylesheet', () => {
   const read = (file: string) => readFileSync(new URL(file, import.meta.url), 'utf8');
   const uncommented = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
-  const SHEETS = ['./dashboard.css', './week/week.css', './counts/counts.css', './rankings/rankings.css'];
+  const SHEETS = ['./dashboard.css', './counts/counts.css'];
 
   it('composes every part\'s: it imports each part\'s stylesheet, first', () => {
     const css = uncommented(read('./dashboard.css')).trim();
     const imports = [...css.matchAll(/@import '([^']+)';/g)].map((m) => m[1]);
-    expect(imports).toEqual(['./week/week.css', './counts/counts.css', './rankings/rankings.css']);
+    expect(imports).toEqual(['./counts/counts.css']);
     expect(css.startsWith('@import')).toBe(true);
     expect(css.slice(css.lastIndexOf('@import')).split('\n').slice(1).join('\n')).not.toContain('@import');
   });

@@ -18,7 +18,7 @@ import { readXp } from './xp';
 //   the arcade's brand. One with no workspace is no crew, reads nothing, and meets the outsider
 //   screen.
 // - A member also gets whether they own the workspace (PRD 400): its fleet screens point the owner
-//   at /app/fleets when it has no fleets yet.
+//   at /app/settings/fleets when it has no fleets yet.
 // - A member with GitHub linked also gets their player_xp row in that workspace, by lower-cased
 //   login, and each game's crew table (its top five, and their own best): each read on its own, so
 //   XP or scores out of reach leave the galaxy shown, and say so.
@@ -46,7 +46,7 @@ export interface ArcadeData {
   dossiers?: DossiersRead;
   brand?: Brand;
   problem?: string;
-  /** The member owns the workspace played (PRD 400): the fleet screens point an owner at /app/fleets. */
+  /** The member owns the workspace played (PRD 400): the fleet screens point an owner at /app/settings/fleets. */
   owner?: boolean;
 }
 

@@ -74,7 +74,53 @@ describe('renderOverview', () => {
   });
 });
 
+/** The table as it stood before PRD 580: no skill entry carries a group, a when line or an example. */
+const withoutDocs = ENTRIES.map(({ group, when, example, ...rest }) => rest);
+
+describe('renderOverview, beside the docs fields (PRD 580)', () => {
+  it('prints the same overview whether or not the skill entries carry them', () => {
+    expect(renderOverview(DEFAULTS)).toBe(renderOverview(DEFAULTS, { entries: withoutDocs }));
+  });
+});
+
 describe('renderEntry', () => {
+  it('ends a skill with a blank line, its When line and its Example with the result, within 80 columns (PRD 580)', () => {
+    const yolo = ENTRIES.find((e) => e.kind === 'skill' && e.name === 'yolo');
+    const text = renderEntry('yolo', DEFAULTS);
+    const before = renderEntry('yolo', DEFAULTS, { entries: withoutDocs });
+    expect(text.startsWith(`${before}\n\n`)).toBe(true);
+    const tail = text.slice(before.length + 2).split('\n');
+    expect(tail[0]).toMatch(/^When {5}Use it when /);
+    const example = tail.findIndex((line) => line.startsWith('Example  '));
+    expect(example).toBeGreaterThan(0);
+    expect(tail.slice(0, example).map((line) => line.slice(9)).join(' ')).toBe(yolo.when);
+    expect(tail[example]).toBe(`Example  ${yolo.example.type}`);
+    expect(tail.slice(example + 1).join(' ').replace(/\s+/g, ' ').trim()).toBe(`→ ${yolo.example.result}`);
+    expect(tail[example + 1].startsWith('         → ')).toBe(true);
+    expect(widest(text)).toBeLessThanOrEqual(80);
+  });
+
+  it('prints a command as it did before, with no When or Example (PRD 580)', () => {
+    const board = renderEntry('board', DEFAULTS);
+    expect(board).toBe(renderEntry('board', DEFAULTS, { entries: withoutDocs }));
+    expect(board).not.toMatch(/^(When|Example) /m);
+  });
+
+  it('wraps a long when line under its label and fills the repository words in the example', () => {
+    const entries = [{
+      name: 's', kind: 'skill', who: 'you', usage: ['/omni:s'], label: '/omni:s', summary: 's', detail: 'Does s.',
+      group: 'build', when: `Use it when ${'word '.repeat(20).trim()}.`, example: { type: '/omni:s 7', result: 'a PR into {defaultBranch}' },
+    }];
+    const lines = renderEntry('s', DEFAULTS, { entries }).split('\n');
+    expect(lines.slice(3)).toEqual([
+      '',
+      `When     Use it when ${'word '.repeat(11).trim()}`,
+      `         ${'word '.repeat(9).trim()}.`,
+      'Example  /omni:s 7',
+      '         → a PR into main',
+    ]);
+  });
+
   it('prints the usage, who runs it, then the sentences, all within 80 columns', () => {
     const text = renderEntry('board', DEFAULTS);
     const [first, blank, ...rest] = text.split('\n');
@@ -111,6 +157,13 @@ describe('renderEntry', () => {
   it('prints /omni:mega-brainstorm by its name or its slash command (PRD 549)', () => {
     expect(renderEntry('mega-brainstorm', DEFAULTS)).toBe(renderEntry('/omni:mega-brainstorm', DEFAULTS));
     expect(renderEntry('/omni:mega-brainstorm', DEFAULTS).split('\n')[0]).toMatch(/^\/omni:mega-brainstorm +for you$/);
+  });
+
+  it('prints /omni:ultra-yolo, ultra-wave and ultra-yolo-fix by their names or their slash commands (PRD 563)', () => {
+    for (const name of ['ultra-yolo', 'ultra-wave', 'ultra-yolo-fix']) {
+      expect(renderEntry(name, DEFAULTS), name).toBe(renderEntry(`/omni:${name}`, DEFAULTS));
+      expect(renderEntry(`/omni:${name}`, DEFAULTS).split('\n')[0], name).toMatch(new RegExp(`^/omni:${name} <n> +for you$`));
+    }
   });
 
   it('fills placeholders and keeps every line of every entry within 80 columns', () => {

@@ -49,6 +49,7 @@ function printPlan(stdout, result) {
     println(stdout, `- ${rework.id} (wave ${rework.wave}) — reworks ${rework.itemId}`);
     println(stdout, `  branch: ${rework.branch ?? '(unknown — no feature branch resolved)'}`);
     println(stdout, `  territory: ${territoryOf(rework)}`);
+    if ('repo' in rework) println(stdout, `  repo: ${rework.repo ?? '(unknown — the plan names no repository for its slice)'}`);
   }
 }
 
@@ -73,6 +74,8 @@ async function runPlan(args, { ctx, stdout }) {
     featureBranch,
     markers: ctx.markers,
     branches: ctx.config.branches,
+    // In a plan repository (PRD 563) each rework names the repository its item was raised in.
+    planRepository: Boolean(ctx.config.plan),
   });
 
   if (flags.json) {

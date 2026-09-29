@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Several Repositories Guide</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: the guide today beside the new page. */
+:root{
+  --bg:#f4f6f5; --panel:#ffffff; --ink:#18221f; --muted:#56635e; --line:#d6dedb;
+  --accent:#0f7a63; --accent-bg:#e2f3ee; --warn:#9a5b00; --warn-bg:#fdf1dc;
+  --bad:#b3261e; --bad-bg:#fbe9e7; --code:#edf1ef; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#101614; --panel:#18201d; --ink:#e3ebe8; --muted:#97a6a0; --line:#2a3531;
+    --accent:#5fd0b2; --accent-bg:#133129; --warn:#f0b35a; --warn-bg:#35270f;
+    --bad:#f2877e; --bad-bg:#3a1f1d; --code:#1f2926; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101614; --panel:#18201d; --ink:#e3ebe8; --muted:#97a6a0; --line:#2a3531;
+  --accent:#5fd0b2; --accent-bg:#133129; --warn:#f0b35a; --warn-bg:#35270f;
+  --bad:#f2877e; --bad-bg:#3a1f1d; --code:#1f2926; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,sans-serif;padding-inline:16px;padding-block:32px 48px}
+main{max-width:1120px;margin:0 auto;display:grid;gap:36px}
+h1{font-size:26px;line-height:1.2;margin:0 0 6px;text-wrap:balance;font-weight:600}
+h2{font-size:18px;margin:0 0 12px;font-weight:600;text-wrap:balance}
+h3{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:600}
+p{margin:0;max-width:68ch}
+.lede{color:var(--muted)}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px}
+.side{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;display:grid;gap:14px;align-content:start;min-width:0}
+.side.after{border-color:var(--accent)}
+.tag{display:inline-block;font:500 12px "IBM Plex Mono",ui-monospace,monospace;padding:2px 8px;border-radius:4px;background:var(--code);color:var(--muted)}
+.after .tag{background:var(--accent-bg);color:var(--accent)}
+pre{margin:0;background:var(--code);border-radius:6px;padding:12px;overflow-x:auto;font:13px/1.5 "IBM Plex Mono",ui-monospace,monospace}
+code{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.92em}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:500}
+.st{display:inline-block;padding:1px 7px;border-radius:10px;font-size:12px;font-weight:500}
+.ok{background:var(--accent-bg);color:var(--accent)}
+.stale{background:var(--warn-bg);color:var(--warn)}
+.unr{background:var(--bad-bg);color:var(--bad)}
+ul{margin:0;padding-left:18px;display:grid;gap:6px}
+svg{max-width:100%;height:auto;display:block}
+svg text{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px}
+.same{background:var(--panel);border:1px dashed var(--line);border-radius:8px;padding:18px}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>PRD 603 · Several repositories, the guide page</h1>
+  <p class="lede">The multi-repository mode (PRDs 522, 549, 563) gets a guide page of its own, drawn like the Loop page: the map, the pull requests over time, and which skill runs which.</p>
+</header>
+<section>
+  <h2>The guide</h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag">today</span>
+<pre>Getting started · Join · Install · Invade · Loop
+· First PRD · Use cases · Troubleshooting
+
+Invade
+  …
+  ## A plan repository        ← prose only, no drawing
+     /omni:mega-invade, omni targets, --sync,
+     then a line each for mega-brainstorm
+     and ultra-yolo</pre>
+      <p class="lede">Nothing shows how the plan repository, its targets and the mega and ultra skills fit together.</p>
+    </div>
+    <div class="side after">
+      <span class="tag">after</span>
+<pre>Getting started · Join · Install · Invade · Loop
+· First PRD · <b>Several repositories</b> · Use cases
+· Troubleshooting
+
+Several repositories
+  1 what it is: one plan, one phase-0, one gate
+  2 [drawing] the map: plan repository + targets
+  3 plan across them: /omni:mega-brainstorm
+  4 [drawing] the pull requests over time
+  5 build: /omni:ultra-yolo, merge order
+  6 [drawing] which skill runs which
+  7 a red gate: /omni:ultra-yolo-fix
+
+Invade › A plan repository → two lines + a link</pre>
+    </div>
+  </div>
+</section>
+<section>
+  <h2>Drawing 2, the pull requests over time (direction A, swim lanes — a sketch; the final follows the Loop drawing's size)</h2>
+  <div class="side after">
+<svg viewBox="0 0 820 440" width="820" height="440">       tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
+  <style>
+    svg { background: #f5f4fc; }
+    text { font-family: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 14px; fill: #17153d; }
+    .dg-px { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 10px; }
+    .dg-tag { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 8px; }
+    .dg-small { font-size: 12.5px; }
+    .dg-code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; }
+    .dg-muted { fill: #4f5486; }
+    .dg-box { fill: #ffffff; stroke: #85819f; stroke-width: 2; }
+    .dg-shadow { fill: #85819f; }
+    .dg-line { fill: none; stroke: #85819f; stroke-width: 2; }
+    .dg-dash { stroke-dasharray: 6 5; }
+    .dg-head { fill: #85819f; }
+    .dg-edge-you { stroke: #6a2fd0; }
+    .dg-key { fill: #efe7ff; stroke: #6a2fd0; }
+    .dg-edge-agents { stroke: #0b6f86; }
+    .dg-edge-app { stroke: #15703f; }
+    .dg-you { fill: #6a2fd0; }
+    .dg-agents { fill: #0b6f86; }
+    .dg-app { fill: #15703f; }
+    @media (prefers-color-scheme: dark) {
+      svg { background: #0e0d33; }
+      text { fill: #f2f4ff; }
+      .dg-muted { fill: #a9aee6; }
+      .dg-box { fill: #16144a; stroke: #6d6acc; }
+      .dg-shadow { fill: #6d6acc; }
+      .dg-line { stroke: #6d6acc; }
+      .dg-head { fill: #6d6acc; }
+      .dg-edge-you { stroke: #b37cff; }
+      .dg-key { fill: #2a1d66; stroke: #b37cff; }
+      .dg-edge-agents { stroke: #6ff0ff; }
+      .dg-edge-app { stroke: #4ee08a; }
+      .dg-you { fill: #b37cff; }
+      .dg-agents { fill: #6ff0ff; }
+      .dg-app { fill: #4ee08a; }
+    }
+  </style>
+<text x="16" y="40" class="dg-tag dg-muted">VERTUO-AUTOMATION-PLAN</text>
+<text x="16" y="72" class="dg-small">main</text>
+<path d="M150 67 L790 67" class="dg-line"/><polygon points="799,67 790,72.5 790,61.5" class="dg-head"/>
+<path d="M170 67 C185 67,182 30,197 30 L237 30 C252 30,249 67,264 67" class="dg-line dg-edge-you"/>
+<text x="217" y="22" class="dg-small" text-anchor="middle">ONE phase-0</text>
+<circle cx="264" cy="67" r="6" class="dg-you"/>
+<text x="16" y="116" class="dg-small">plan PR</text><text x="16" y="131" class="dg-code dg-muted">feat/topic</text>
+<path d="M264 67 C280 67,276 111,292 111 L700 111 C716 111,712 67,728 67" class="dg-line"/>
+<rect x="430" y="96" width="120" height="30" rx="4" class="dg-box dg-key"/><text x="490" y="116" class="dg-small" text-anchor="middle">ONE outbox</text>
+<circle cx="728" cy="67" r="9" class="dg-you"/><text x="728" y="71" class="dg-tag" text-anchor="middle" fill="#fff">3</text>
+<text x="728" y="95" class="dg-tag dg-you" text-anchor="middle">LAST</text>
+<text x="16" y="180" class="dg-tag dg-muted">VERTUO-BACKEND-PHP</text>
+<text x="16" y="212" class="dg-small">main</text>
+<path d="M150 207 L790 207" class="dg-line"/><polygon points="799,207 790,212.5 790,201.5" class="dg-head"/>
+<text x="16" y="252" class="dg-small">feature PR</text>
+<path d="M300 207 C316 207,312 247,328 247 L600 247 C616 247,612 207,628 207" class="dg-line dg-edge-agents"/>
+<path d="M340 247 C350 247,348 275,358 275 L398 275 C408 275,406 247,416 247" class="dg-line dg-edge-agents"/><text x="378" y="292" class="dg-code dg-muted" text-anchor="middle">s1</text>
+<path d="M378 275 C400 200,440 150,470 126" class="dg-line dg-edge-agents dg-dash"/>
+<circle cx="628" cy="207" r="9" class="dg-you"/><text x="628" y="211" class="dg-tag" text-anchor="middle" fill="#fff">1</text>
+<text x="16" y="330" class="dg-tag dg-muted">VERTUO-APPS</text>
+<text x="16" y="362" class="dg-small">main</text>
+<path d="M150 357 L790 357" class="dg-line"/><polygon points="799,357 790,362.5 790,351.5" class="dg-head"/>
+<text x="16" y="402" class="dg-small">feature PR</text>
+<path d="M300 357 C316 357,312 397,328 397 L640 397 C656 397,652 357,668 357" class="dg-line dg-edge-agents"/>
+<path d="M340 397 C350 397,348 425,358 425 L398 425 C408 425,406 397,416 397" class="dg-line dg-edge-agents"/><text x="378" y="438" class="dg-code dg-muted" text-anchor="middle">s3 w1</text>
+<path d="M460 397 C470 397,468 425,478 425 L518 425 C528 425,526 397,536 397" class="dg-line dg-edge-agents"/><text x="498" y="438" class="dg-code dg-muted" text-anchor="middle">s2 w2</text>
+<path d="M498 425 C505 300,500 200,500 126" class="dg-line dg-edge-agents dg-dash"/>
+<circle cx="668" cy="357" r="9" class="dg-you"/><text x="668" y="361" class="dg-tag" text-anchor="middle" fill="#fff">2</text>
+</svg>
+  </div>
+</section>
+<section class="same">
+  <h2>What stays the same</h2>
+  <ul>
+    <li>The skill pages under <code>/docs/skills</code>, built from the help entries.</li>
+    <li>The kit, <code>docs.css</code> and the diagram rules: the drawings use the existing <code>dg-*</code> classes.</li>
+  </ul>
+</section>
+</main>
+</body>
+</html>
