@@ -51,7 +51,7 @@ describe('a skill page', () => {
 
   it('carries what it does, when to use it, its usage, its example and its SKILL.md', () => {
     const page = skillPage('wave')!;
-    const entry = ENTRIES.find((e) => e.kind === 'skill' && e.name === 'wave')!;
+    const entry = (ENTRIES as readonly SkillEntry[]).find((e) => e.kind === 'skill' && e.name === 'wave')!;
     expect(page.summary).toBe(entry.summary);
     expect(page.when).toBe(entry.when);
     expect(page.usage).toEqual(['/omni:wave <n>']);

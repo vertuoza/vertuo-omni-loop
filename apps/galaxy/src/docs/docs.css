@@ -36,6 +36,29 @@
   border-left-color: var(--ask-plasma);
 }
 
+/* Skills › All skills, under the guide's pages, and every skill under it on a skills page (PRD 580). */
+.docs-nav-head { margin: 0 0 4px; padding: 0 12px; font-size: 13px; font-weight: 700; color: var(--ask-muted); }
+
+/* ── The skills overview: a card per skill, two columns from 720 px (PRD 580) ── */
+
+.docs-md .docs-skill-cards { list-style: none; margin: 0 0 1em; padding: 0; display: grid; gap: 10px; }
+.docs-md .docs-skill-cards li + li { margin-top: 0; }
+.ask .docs-skill-card {
+  display: grid;
+  gap: 4px;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  color: var(--ask-ink);
+  text-decoration: none;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 10px;
+}
+.ask .docs-skill-card:hover { border-color: var(--ask-plasma); }
+.ask .docs-skill-card code { justify-self: start; font-weight: 700; color: var(--ask-plasma); }
+.docs-skill-card span { color: var(--ask-muted); font-size: 15px; }
+
 /* ── The search box and its results ── */
 
 .docs-search { display: grid; gap: 6px; position: relative; }
@@ -202,7 +225,8 @@
 
 @media (min-width: 720px) {
   .docs { grid-template-columns: 220px minmax(0, 1fr); gap: 40px; }
-  .docs-side { position: sticky; top: 16px; }
+  .docs-side { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+  .docs-md .docs-skill-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (min-width: 1100px) {

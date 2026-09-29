@@ -12,6 +12,8 @@ import { diagramFigure, isDiagramPath, readSvg } from './diagrams';
 import { DocsPage } from './DocsPage';
 import { plain } from './DocsSearch';
 import { readGuide } from './guide';
+import { skillNames, skillPage, skillsOverview } from './skills';
+import { SkillBody, SkillsOverview, skillSidebar, skillToc } from './skills-view';
 import { guideLoader, sidebarItems } from './tree';
 
 // The guide's pages as /docs serves them (PRD 346): fumadocs-core's loader over docs/guide/, in
@@ -169,6 +171,66 @@ describe('the pages', () => {
 
   it('opens with the search box, labelled', () => {
     expect(render([])).toMatch(/<aside class="docs-side"><search class="docs-search"><label class="docs-search-label" for="docs-search">Search the docs<\/label><input id="docs-search"[^>]*type="search"/);
+  });
+});
+
+describe('the skills pages (PRD 580)', () => {
+  /** A page as the /docs/skills routes draw it. */
+  const skills = (name?: string) => {
+    const page = name ? skillPage(name) : undefined;
+    if (name && !page) throw new Error(`no skill ${name}`);
+    return renderToStaticMarkup(createElement(DocsPage, page
+      ? { items, skills: skillSidebar(), url: page.url, title: page.command, description: page.summary, toc: skillToc(page), children: createElement(SkillBody, { page }) }
+      : { items, skills: skillSidebar(), url: '/docs/skills', title: 'Skills', description: 'Every skill of the Omni Loop, by what you want to do.', toc: [], children: createElement(SkillsOverview, { groups: skillsOverview() }) }));
+  };
+  const navLinks = (html: string, label: string) => (new RegExp(`<nav class="docs-nav" aria-label="${label}">[\\s\\S]*?</nav>`).exec(html)?.[0] ?? '').match(/<a [^>]*>[^<]*<\/a>/g);
+
+  it('shows the guide\'s eight pages, then Skills › All skills, on a guide page', () => {
+    const html = render(['install']);
+    expect(navLinks(html, 'Guide')).toHaveLength(8);
+    expect(html).toMatch(/<\/nav><nav class="docs-nav" aria-label="Skills"><p class="docs-nav-head">Skills<\/p><ol><li><a href="\/docs\/skills">All skills<\/a><\/li><\/ol><\/nav>/);
+  });
+
+  it('lists every skill under All skills on a skills page, the one shown marked current', () => {
+    const overview = navLinks(skills(), 'Skills');
+    expect(overview?.[0]).toBe('<a href="/docs/skills" aria-current="page">All skills</a>');
+    expect(overview?.slice(1)).toEqual(skillNames().map((name) => `<a href="/docs/skills/${name}">/omni:${name}</a>`));
+    const wave = navLinks(skills('wave'), 'Skills');
+    expect(wave?.[0]).toBe('<a href="/docs/skills">All skills</a>');
+    expect(wave?.filter((link) => link.includes('aria-current'))).toEqual(['<a href="/docs/skills/wave" aria-current="page">/omni:wave</a>']);
+    expect(navLinks(skills('wave'), 'Guide')).toHaveLength(8);
+  });
+
+  it('draws the overview: one section per group, a card per skill linking its page', () => {
+    const html = skills();
+    expect(html).toContain('<h1 class="docs-title">Skills</h1>');
+    expect(html).toContain('<p class="docs-lede">Every skill of the Omni Loop, by what you want to do.</p>');
+    expect([...html.matchAll(/<h2 id="[a-z-]+">([^<]*)<\/h2>/g)].map((m) => m[1])).toEqual([
+      'Start a change', 'Build it', 'Set up a repository', 'Several repositories', 'Every day', 'Run by other skills',
+    ]);
+    const cards = [...html.matchAll(/<a class="docs-skill-card" href="([^"]*)"><code>([^<]*)<\/code><span>([^<]*)<\/span><\/a>/g)];
+    expect(cards.map((m) => m[1])).toEqual(skillNames().map((name) => `/docs/skills/${name}`));
+    expect(cards[3].slice(2)).toEqual(['/omni:yolo', 'build a whole PRD: plan, waves, the outbox gate, ship']);
+  });
+
+  it('draws a skill page: its sections in order, its usage and example as code, and its SKILL.md', () => {
+    const html = skills('wave');
+    expect(html).toContain('<h1 class="docs-title">/omni:wave</h1>');
+    expect([...html.matchAll(/<h[23] id="([a-z-]+)">/g)].map((m) => m[1]))
+      .toEqual(['what-it-does', 'when-to-use-it', 'how-to-use-it', 'example', 'who-runs-it', 'related-skills']);
+    expect(html).toContain('<code>/omni:wave &lt;n&gt;</code>');
+    expect(html).toContain('<code>/omni:wave 580</code>');
+    expect(html).toContain('<p>→ the wave&#x27;s sub-PRs merged into the feature branch, and a report</p>');
+    expect(html).toContain('<p>You type it in Claude Code.</p>');
+    expect(html).toContain('<a href="/docs/skills/do-work">/omni:do-work</a>');
+    expect(html).toContain('href="https://github.com/vertuoza/vertuo-omni-loop/blob/main/kit/plugin/skills/wave/SKILL.md"');
+    expect(html).not.toMatch(/\{\w+\}/);
+    expect(html).toContain('<a href="#who-runs-it">Who runs it</a>');
+  });
+
+  it('names the skills that run a skill run by the skills, and leaves Related skills out when none', () => {
+    expect(skills('dossier-push')).toMatch(/<p>Other skills run it:<\/p><ul><li><a href="\/docs\/skills\/brainstorm">\/omni:brainstorm<\/a><\/li><li><a href="\/docs\/skills\/plan">\/omni:plan<\/a><\/li><\/ul>/);
+    expect(skills('pr')).not.toContain('related-skills');
   });
 });
 
