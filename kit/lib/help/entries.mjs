@@ -376,12 +376,15 @@ export const ENTRIES = deepFreeze([
     name: 'plan',
     kind: 'command',
     who: 'skills',
-    usage: ['omni plan check <prd>'],
-    summary: "grade a PRD's plan",
+    usage: ['omni plan check <prd>', 'omni plan moved <prd> [--json]'],
+    summary: "grade a PRD's plan, or see what moved in its targets",
     detail:
-      "Grades PRD n's plan.md before anyone builds from it: every blocker names a slice of the same " +
-      'plan in an earlier wave, no id is used twice, and no two slices of one wave share ground. It ' +
-      'prints the slices, the waves and where they meet, then every violation; exit 1 on any.',
+      "check grades PRD n's plan.md before anyone builds from it: every blocker names a slice of the " +
+      'same plan in an earlier wave, no id is used twice, and no two slices of one wave share ground. ' +
+      'It prints the slices, the waves and where they meet, then every violation; exit 1 on any. ' +
+      "moved, in a plan repository, compares each target's read at with its default branch today: " +
+      'moved with the files changed under its slices\' territories, ok, or unreachable; exit 0 ' +
+      'whatever the states, 1 with not a plan repository.',
   },
   {
     name: 'rework',

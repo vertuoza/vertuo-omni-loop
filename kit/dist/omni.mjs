@@ -7463,7 +7463,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/bin/omni.mjs
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync12 } from "node:child_process";
+import { execFileSync as execFileSync13 } from "node:child_process";
 import { realpathSync as realpathSync5 } from "node:fs";
 import { fileURLToPath as fileURLToPath4 } from "node:url";
 
@@ -16318,6 +16318,9 @@ function parsePlanRepositories(markdown) {
   }
   return rows2;
 }
+function covers(territory, path) {
+  return territory.some((declaration) => path.startsWith(prefixOf(declaration)));
+}
 function sharedGround(left, right) {
   const shared = /* @__PURE__ */ new Set();
   for (const a of left.territory) {
@@ -20016,9 +20019,9 @@ var ENTRIES = deepFreeze([
     name: "plan",
     kind: "command",
     who: "skills",
-    usage: ["omni plan check <prd>"],
-    summary: "grade a PRD's plan",
-    detail: "Grades PRD n's plan.md before anyone builds from it: every blocker names a slice of the same plan in an earlier wave, no id is used twice, and no two slices of one wave share ground. It prints the slices, the waves and where they meet, then every violation; exit 1 on any."
+    usage: ["omni plan check <prd>", "omni plan moved <prd> [--json]"],
+    summary: "grade a PRD's plan, or see what moved in its targets",
+    detail: "check grades PRD n's plan.md before anyone builds from it: every blocker names a slice of the same plan in an earlier wave, no id is used twice, and no two slices of one wave share ground. It prints the slices, the waves and where they meet, then every violation; exit 1 on any. moved, in a plan repository, compares each target's read at with its default branch today: moved with the files changed under its slices' territories, ok, or unreachable; exit 0 whatever the states, 1 with not a plan repository."
   },
   {
     name: "rework",
@@ -21930,7 +21933,65 @@ var phase0 = {
 init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync36 } from "node:fs";
 import { join as join47 } from "node:path";
-var USAGE12 = "usage: omni plan check <prd>";
+
+// kit/lib/plan-repo/moved.mjs
+init_define_OMNI_BUNDLE();
+import { execFileSync as execFileSync11 } from "node:child_process";
+var shortName3 = (slug) => slug.slice(slug.indexOf("/") + 1);
+var pathsOf = (file) => [file.filename, file.previous_filename].filter(Boolean);
+function compareRow(gh, { slug, readAt, slices }) {
+  const branch = gh.repository(slug).default_branch;
+  const compared = gh.compare(slug, readAt, branch);
+  if (compared === null) return { state: "unreachable", detail: `read at ${readAt.slice(0, 7)} cannot be compared with ${branch}` };
+  if ((compared.ahead_by ?? 0) === 0) return { state: "ok" };
+  const files = [];
+  const hit = /* @__PURE__ */ new Set();
+  for (const file of compared.files ?? []) {
+    const under = slices.filter((slice) => pathsOf(file).some((path) => covers(slice.territory, path)));
+    if (under.length === 0) continue;
+    files.push(file.filename);
+    for (const slice of under) hit.add(slice.id);
+  }
+  if (files.length === 0) return { state: "ok" };
+  return { state: "moved", files, slices: slices.map((slice) => slice.id).filter((id) => hit.has(id)) };
+}
+function planMoved({ slices, repositories, planSlug, targets: targets2 }, { exec = execFileSync11, env } = {}) {
+  const gh = ghReader({ exec, env });
+  const slugOf2 = new Map(targets2.map((target2) => [shortName3(target2.repo), target2.repo]));
+  return repositories.filter((row) => row.repo !== shortName3(planSlug)).map((row) => {
+    const base = { repo: row.repo, state: "ok", files: [], slices: [], detail: null };
+    const slug = slugOf2.get(row.repo);
+    if (!slug) return { ...base, state: "unreachable", detail: "not a target of this plan repository" };
+    try {
+      const found = compareRow(gh, { slug, readAt: row.readAt, slices: slices.filter((slice) => slice.repo === row.repo) });
+      return { ...base, ...found };
+    } catch (error) {
+      if (error instanceof Unreachable) return { ...base, state: "unreachable", detail: error.message };
+      throw error;
+    }
+  });
+}
+var SHOWN = 3;
+function detailOf(row) {
+  if (row.state === "moved") {
+    const count3 = `${row.files.length} ${row.files.length === 1 ? "file" : "files"}`;
+    const owners = row.slices.map((id) => `${id}'s`).join(", ");
+    const where = row.slices.length === 1 ? "territory" : "territories";
+    const shown2 = row.files.slice(0, SHOWN).join(", ") + (row.files.length > SHOWN ? ", \u2026" : "");
+    return `${count3} under ${owners} ${where} (${shown2})`;
+  }
+  return row.detail ?? "";
+}
+function movedTable(rows2) {
+  const cells2 = rows2.map((row) => [row.repo, row.state, detailOf(row)]);
+  const widths = [0, 1].map((i) => Math.max(0, ...cells2.map((line) => line[i].length)));
+  return cells2.map(
+    ([repo, state, detail]) => detail ? `${repo.padEnd(widths[0])}   ${state.padEnd(widths[1])}   ${detail}` : `${repo.padEnd(widths[0])}   ${state}`
+  );
+}
+
+// kit/bin/commands/plan.mjs
+var USAGE12 = "usage: omni plan check <prd> | omni plan moved <prd> [--json]";
 var COMMIT = /^[0-9a-f]{40}$/;
 var NO_COMMIT = /^[—–-]$/;
 function duplicateIds(slices) {
@@ -21957,7 +22018,7 @@ function blockedByViolations2(slices) {
   }
   return violations;
 }
-function shortName3(slug) {
+function shortName4(slug) {
   return slug.slice(slug.indexOf("/") + 1);
 }
 function repositoryViolations(slices, repositories, { planSlug, targets: targets2 }) {
@@ -21967,7 +22028,7 @@ function repositoryViolations(slices, repositories, { planSlug, targets: targets
   const violations = [];
   const owners = /* @__PURE__ */ new Map();
   for (const slug of [...targets2.map((target2) => target2.repo), planSlug]) {
-    const name = shortName3(slug);
+    const name = shortName4(slug);
     owners.set(name, [...owners.get(name) ?? [], slug]);
   }
   for (const [name, slugs] of owners) {
@@ -21986,7 +22047,7 @@ function repositoryViolations(slices, repositories, { planSlug, targets: targets
   for (const repo of new Set(slices.map((slice) => slice.repo).filter((name) => owners.has(name)))) {
     if (!rows2.has(repo)) violations.push(`## Repositories: ${repo} holds slices and has no row.`);
   }
-  const planName = shortName3(planSlug);
+  const planName = shortName4(planSlug);
   for (const row of repositories) {
     if (!slices.some((slice) => slice.repo === row.repo)) {
       violations.push(`## Repositories: the row ${row.repo} names no slice's repository.`);
@@ -22014,23 +22075,26 @@ function byRepository(slices) {
   for (const slice of slices) groups.set(slice.repo, [...groups.get(slice.repo) ?? [], slice]);
   return groups;
 }
-function checkPlan(prd2, { ctx }) {
+function readPlan2(prd2, { ctx, verb }) {
   const planPath = ctx.layout.planPath(prd2);
-  if (planPath === null) throw usageError(`omni plan check: PRD ${prd2} has no inbox or shipped folder.`);
+  if (planPath === null) throw usageError(`omni plan ${verb}: PRD ${prd2} has no inbox or shipped folder.`);
   let markdown;
   try {
     markdown = readFileSync36(join47(ctx.root, planPath), "utf8");
   } catch (error) {
-    if (error?.code === "ENOENT") throw usageError(`omni plan check: no plan at ${planPath}.`);
+    if (error?.code === "ENOENT") throw usageError(`omni plan ${verb}: no plan at ${planPath}.`);
     throw error;
   }
   let slices;
   try {
     slices = parsePlanSlices(markdown);
   } catch (error) {
-    throw usageError(`omni plan check: ${planPath}: ${error.message}`);
+    throw usageError(`omni plan ${verb}: ${planPath}: ${error.message}`);
   }
-  const repositories = parsePlanRepositories(markdown);
+  return { planPath, slices, repositories: parsePlanRepositories(markdown) };
+}
+function checkPlan(prd2, { ctx }) {
+  const { planPath, slices, repositories } = readPlan2(prd2, { ctx, verb: "check" });
   const planSection2 = ctx.config.plan ?? null;
   const multi = planSection2 !== null && slices.some((slice) => slice.repo !== null);
   const repoOf = new Map(slices.map((slice) => [slice.id, slice.repo]));
@@ -22046,9 +22110,28 @@ function checkPlan(prd2, { ctx }) {
   const matrices = multi ? [...byRepository(slices)].map(([repo, group]) => ({ repo, rows: collisionRows(group) })) : [{ repo: null, rows: collisionRows(slices) }];
   return { planPath, slices, waves, multi, matrices, violations };
 }
+function moved(rest, { ctx, stdout, exec, env }) {
+  const { positional, flags } = parseArgs("plan moved", rest, { booleans: ["json"] });
+  if (positional.length !== 1) throw usageError(USAGE12);
+  const prd2 = positiveInt("plan moved", "<prd>", positional[0]);
+  const planSection2 = ctx.config.plan ?? null;
+  if (planSection2 === null) {
+    println(stdout, "not a plan repository");
+    return 1;
+  }
+  const { slices, repositories } = readPlan2(prd2, { ctx, verb: "moved" });
+  const rows2 = planMoved(
+    { slices, repositories, planSlug: ctx.config.repo.slug, targets: planSection2.targets },
+    { exec, env: githubEnv(ctx, { exec, env }) }
+  );
+  if (flags.json) println(stdout, JSON.stringify(rows2.map(({ repo, state, files }) => ({ repo, state, files })), null, 2));
+  else for (const line of movedTable(rows2)) println(stdout, line);
+  return 0;
+}
 var plan = {
-  async run(args, { ctx, stdout }) {
+  async run(args, { ctx, stdout, exec, env }) {
     const [sub, ...rest] = args;
+    if (sub === "moved") return moved(rest, { ctx, stdout, exec, env });
     if (sub !== "check") throw usageError(USAGE12);
     const { positional } = parseArgs("plan check", rest);
     if (positional.length !== 1) throw usageError(USAGE12);
@@ -22828,7 +22911,7 @@ import { appendFileSync } from "node:fs";
 
 // kit/lib/status/facts.mjs
 init_define_OMNI_BUNDLE();
-import { execFileSync as execFileSync11 } from "node:child_process";
+import { execFileSync as execFileSync12 } from "node:child_process";
 import { readFileSync as readFileSync40, rmSync as rmSync7, statSync as statSync5, utimesSync, writeFileSync as writeFileSync18 } from "node:fs";
 import { resolve as resolve2 } from "node:path";
 function git3(ctx, exec, args) {
@@ -22903,7 +22986,7 @@ function putBack(saved) {
   } catch {
   }
 }
-function fetchRemote({ ctx, exec = execFileSync11 }) {
+function fetchRemote({ ctx, exec = execFileSync12 }) {
   const saved = snapshot(fetchHeadPath(ctx, exec));
   try {
     git3(ctx, exec, ["fetch", "--prune", ctx.config.repo.remote]);
@@ -23012,7 +23095,7 @@ function phase0Of(ctx, exec, base, remote) {
   }
   return out;
 }
-function readFacts({ ctx, exec = execFileSync11 }) {
+function readFacts({ ctx, exec = execFileSync12 }) {
   const base = readBase(ctx, exec);
   if (!base) return null;
   const { dirs } = ctx.layout;
@@ -24114,7 +24197,7 @@ function recordPrd(argv, { cwd, env, exec }) {
   } catch {
   }
 }
-async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync12, env = process.env, ...more } = {}) {
+async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr = process.stderr, exec = execFileSync13, env = process.env, ...more } = {}) {
   const [first, ...rest] = argv;
   const name = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
   const command = Object.hasOwn(COMMAND_TABLE, name ?? "") ? COMMAND_TABLE[name] : void 0;
