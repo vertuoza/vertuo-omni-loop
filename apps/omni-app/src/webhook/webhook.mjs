@@ -6,8 +6,14 @@
 // Two routes, never both for one delivery: a merged `pull_request.closed` becomes the retro event
 // (PRD 72) and the knowledge harvest event (PRD 82), and nothing else; every other handled action
 // becomes the outbox check event, exactly as before. An unmerged `closed` becomes nothing.
+//
+// Beside either route, a pull request that moves a PRD to a stage (PRD 587) is handed to `forward` as
+// one stage event (src/stage-forward/). Unless one is given, `forward` POSTs it to galaxy, signed with
+// `STAGE_EVENT_SECRET` (`GALAXY_URL` names galaxy when set). It never changes the reply: a failure is
+// logged.
 import { Webhooks } from '@octokit/webhooks';
 import { HARVEST_EVENT, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
+import { forwardStageEvent, stageEventUrl, toStageEvent } from '../stage-forward/stage-forward.mjs';
 
 /**
  * The events and actions the app re-evaluates the outbox check on. `check_run.rerequested` is
@@ -50,10 +56,11 @@ export const HANDLED = Object.freeze({
  *   headers: Record<string, string | undefined> | Headers,
  *   secret: string | undefined,
  *   send: (events: (CheckRequest | RetroRequest | HarvestRequest)[]) => Promise<unknown>,
+ *   forward?: (stageEvent: import('../stage-forward/stage-forward.mjs').StageEvent) => Promise<unknown>,
  * }} input
  * @returns {Promise<WebhookResponse>}
  */
-export async function receiveWebhook({ body, headers, secret, send }) {
+export async function receiveWebhook({ body, headers, secret, send, forward = forwardToGalaxy }) {
   if (!secret) return reply(500, 'webhook secret is not configured');
 
   const signature = header(headers, 'x-hub-signature-256');
@@ -66,7 +73,17 @@ export async function receiveWebhook({ body, headers, secret, send }) {
     return reply(400, 'body is not JSON');
   }
 
-  const events = toEvents(header(headers, 'x-github-event') ?? '', payload);
+  const event = header(headers, 'x-github-event') ?? '';
+  const stageEvent = toStageEvent(event, payload);
+  if (stageEvent) {
+    try {
+      await forward(stageEvent);
+    } catch (error) {
+      console.error(`stage event: could not forward — ${error?.message ?? error}`);
+    }
+  }
+
+  const events = toEvents(event, payload);
   if (events.length === 0) return reply(200, 'ignored');
 
   try {
@@ -159,6 +176,11 @@ export function toRetroRequests(event, payload) {
  */
 export function toHarvestRequests(event, payload) {
   return toRetroRequests(event, payload).map(({ data: { mergeSha, mergedAt, ...data } }) => ({ name: HARVEST_EVENT, data }));
+}
+
+/** The live forward: galaxy's event route, the secret read at the call. */
+function forwardToGalaxy(stageEvent) {
+  return forwardStageEvent(stageEvent, { url: stageEventUrl(), secret: process.env.STAGE_EVENT_SECRET });
 }
 
 /** The installation and repository every event carries, or `null` when the delivery lacks one. */

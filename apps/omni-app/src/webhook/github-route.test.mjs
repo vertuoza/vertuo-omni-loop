@@ -51,6 +51,32 @@ describe('/api/github', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it('forwards a stage event to GALAXY_URL, signed with STAGE_EVENT_SECRET (PRD 587)', async () => {
+    vi.stubEnv('STAGE_EVENT_SECRET', 'stage-secret');
+    vi.stubEnv('GALAXY_URL', 'https://galaxy.example');
+    const post = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('ok', { status: 200 }));
+    const merged = JSON.stringify({
+      action: 'closed',
+      installation: { id: 7 },
+      repository: { name: 'r', full_name: 'o/r', owner: { login: 'o' }, default_branch: 'main' },
+      pull_request: {
+        number: 4, merged: true, merge_commit_sha: 'm', merged_at: '2026-09-29T10:00:00Z',
+        head: { sha: 'h', ref: 'docs/phase-0-x' }, base: { ref: 'main' }, body: 'Refs #9',
+      },
+    });
+    const response = await POST(new Request('https://omni-loop.example/api/github', {
+      method: 'POST',
+      body: merged,
+      headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': sign(merged) },
+    }));
+    expect(response.status).toBe(200);
+    expect(post).toHaveBeenCalledTimes(1);
+    const [url, init] = post.mock.calls[0];
+    expect(url).toBe('https://galaxy.example/api/stages/event');
+    expect(JSON.parse(init.body)).toEqual({ repository: 'o/r', topic: 'x', prd: 9, stage: 'inbox', at: '2026-09-29T10:00:00Z' });
+    expect(init.headers['x-omni-signature-256']).toBe(`sha256=${createHmac('sha256', 'stage-secret').update(init.body).digest('hex')}`);
+  });
+
   it('answers 405 to anything but POST', async () => {
     const response = await GET();
     expect(response.status).toBe(405);

@@ -273,3 +273,74 @@ describe('webhook — the retro route (PRD 72)', () => {
     expect(RETRO_ACTIONS).toEqual({ pull_request: ['closed'] });
   });
 });
+
+describe('webhook — the stage events (PRD 587)', () => {
+  const REPO = { ...REPOSITORY, default_branch: 'main' };
+  const stagePayload = (action, head, base) => ({
+    action,
+    number: 40,
+    installation: INSTALLATION,
+    repository: REPO,
+    pull_request: {
+      number: 40,
+      head: { sha: 'abc123', ref: head },
+      base: { ref: base },
+      merged: action === 'closed',
+      merge_commit_sha: action === 'closed' ? 'm1' : null,
+      merged_at: action === 'closed' ? '2026-09-29T10:00:00Z' : null,
+      created_at: '2026-09-29T08:00:00Z',
+      updated_at: '2026-09-29T09:00:00Z',
+      body: 'Refs #587',
+    },
+  });
+
+  const receive = (payload, { forward, send = vi.fn(async () => ({ ids: ['e'] })), signature } = {}) => {
+    const body = JSON.stringify(payload);
+    return receiveWebhook({
+      body,
+      headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': signature ?? sign(body) },
+      secret: SECRET,
+      send,
+      forward,
+    });
+  };
+
+  const cases = [
+    ['a merged phase-0 PR', stagePayload('closed', 'docs/phase-0-real-stages', 'main'), 'inbox'],
+    ['a merged slice PR', stagePayload('closed', 'feat/real-stages--s1', 'feat/real-stages'), 'building'],
+    ['the feature PR marked ready', stagePayload('ready_for_review', 'feat/real-stages', 'main'), 'outbox'],
+    ['the merged feature PR', stagePayload('closed', 'feat/real-stages', 'main'), 'shipped'],
+    ['an opened retro PR', stagePayload('opened', 'docs/retro-real-stages', 'main'), 'retro'],
+  ];
+
+  it.each(cases)('forwards %s as one stage event', async (_, payload, stage) => {
+    const forward = vi.fn(async () => {});
+    const response = await receive(payload, { forward });
+    expect(response.status).toBe(200);
+    expect(forward).toHaveBeenCalledTimes(1);
+    expect(forward.mock.calls[0][0]).toEqual({
+      repository: 'vertuoza/vertuo-omni-loop', topic: 'real-stages', prd: 587, stage, at: expect.any(String),
+    });
+  });
+
+  it('keeps the retro, harvest and outbox-check events unchanged beside it', async () => {
+    const send = vi.fn(async () => ({ ids: ['e'] }));
+    await receive(stagePayload('closed', 'feat/real-stages', 'main'), { send, forward: async () => {} });
+    expect(send.mock.calls[0][0].map((event) => event.name)).toEqual([RETRO_EVENT, HARVEST_EVENT]);
+    expect(toEvents('pull_request', stagePayload('ready_for_review', 'feat/x', 'main')).map((event) => event.name)).toEqual([OUTBOX_CHECK_EVENT]);
+  });
+
+  it('forwards nothing for any other branch or action, and nothing on a bad signature', async () => {
+    const forward = vi.fn(async () => {});
+    await receive(stagePayload('closed', 'fix/typo', 'main'), { forward });
+    await receive(stagePayload('synchronize', 'feat/x', 'main'), { forward });
+    const refused = await receive(cases[0][1], { forward, signature: sign('x') });
+    expect(refused.status).toBe(401);
+    expect(forward).not.toHaveBeenCalled();
+  });
+
+  it('never fails the reply when the forward throws, nor when the Inngest send finds nothing to send', async () => {
+    const response = await receive(cases[0][1], { forward: async () => { throw new Error('galaxy down'); } });
+    expect(response.status).toBe(200);
+  });
+});
