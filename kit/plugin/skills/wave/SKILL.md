@@ -38,6 +38,11 @@ playbook, section by section: a section the repository left blank prints the kit
 `[hole]` is a question for a person, never a reason to stop. A form adds to the steps below; it
 never overrides this skill's rules.
 
+**A PRD that spans repositories.** Run `node .omni-loop/bin/omni.mjs prd <prd>`. When it prints a
+`repos:` line, the PRD's plan lands slices in other repositories: stop with the one line
+`PRD <prd> spans repositories: /omni:ultra-yolo <prd> builds it`, before any branch, claim or
+dispatch.
+
 Find the feature PR: `gh pr list --head <feature branch> --base <repo.defaultBranch> --state open
 --json number,body`. No feature branch or no feature PR: stop, and say to follow `/omni:plan` first.
 
