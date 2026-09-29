@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 620
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-owner-deletes-screenshots -->
+
+## s1-01-owner-deletes-screenshots — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s1
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-owner-deletes-screenshots
 prd: 620
@@ -47,3 +77,7 @@ One storage rule in the new migration; changing it is a follow-up migration that
 (author) The PRD, the registers and the glossary do not settle this:
 
 - (author) The alternative, a service-role delete on session removal, would bring a service key into the ask API, which today acts only as the caller.
+
+```
+
+<!-- /omni-outbox-settled: s1-01-owner-deletes-screenshots -->
