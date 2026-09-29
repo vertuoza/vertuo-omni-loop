@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Engineering board</title>
+<style>
+/* Layout: three today · after pairs: the sidebar, Settings → Repositories, Dashboard → Engineering. Then what stays the same. */
+:root {
+  --bg: #f3f4f7; --panel: #ffffff; --ink: #1b1d26; --muted: #5d6275; --line: #dcdfe8;
+  --accent: #d6283b; --code: #eef0f5; --new: #fff1c7; --fill: #1b1d26; --fillInk: #ffffff;
+  --ok: #1f7a4d; --warn: #b3261e; --omni: #1f6f8b;
+  --display: "Anton", Impact, "Arial Narrow", sans-serif;
+  --body: -apple-system, "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12131a; --panel: #1b1d27; --ink: #eceef5; --muted: #9aa0b4; --line: #2f3242; --code: #252836; --new: #3d3413; --fill: #eceef5; --fillInk: #12131a; --ok: #6fd3a0; --warn: #ff8a80; --omni: #7cc8e3; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #12131a; --panel: #1b1d27; --ink: #eceef5; --muted: #9aa0b4; --line: #2f3242; --code: #252836; --new: #3d3413; --fill: #eceef5; --fillInk: #12131a; --ok: #6fd3a0; --warn: #ff8a80; --omni: #7cc8e3; color-scheme: dark }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--body); padding: 24px 16px 48px }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 32px }
+h1 { font: 400 2rem/1.1 var(--display); letter-spacing: .02em; margin: 0; text-wrap: balance }
+h2 { font: 400 1.3rem/1.1 var(--display); letter-spacing: .03em; margin: 0 }
+.lede { color: var(--muted); margin: 4px 0 0; max-width: 70ch }
+section { display: grid; gap: 12px }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px }
+@media (max-width: 760px) { .cols { grid-template-columns: 1fr } }
+.col { min-width: 0; display: grid; gap: 8px; align-content: start }
+.tag { font: 600 11px/1 var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted) }
+.tag.after { color: var(--accent) }
+.screen { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px; display: grid; gap: 10px; min-width: 0 }
+.lbl { font: 600 10px var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted) }
+.note { color: var(--muted); font-size: 13px; margin: 0 }
+.new { background: var(--new); border-radius: 3px; padding: 0 4px }
+.nav { display: grid; gap: 2px; font-size: 13px }
+.nav .grp { margin-top: 8px }
+.nav .it { padding: 3px 8px; border-radius: 4px }
+.nav .on { background: var(--code); font-weight: 600 }
+.row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); flex-wrap: wrap }
+.row:first-of-type { border-top: 0 }
+.repo { font: 13px var(--mono); flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere }
+.meta { font-size: 12px; color: var(--muted) }
+.meta.bad { color: var(--warn) }
+.sw { width: 30px; height: 16px; border-radius: 999px; background: var(--ok); position: relative; flex: none }
+.sw::after { content: ""; position: absolute; top: 2px; right: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--panel) }
+.sw.off { background: var(--line) }
+.sw.off::after { right: auto; left: 2px }
+.btn { display: inline-block; font: 600 12px var(--body); background: var(--fill); color: var(--fillInk); border-radius: 4px; padding: 5px 10px }
+.link { color: var(--accent); font-size: 12px }
+.empty { border: 1px dashed var(--line); border-radius: 6px; padding: 18px; text-align: center; color: var(--muted) }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px }
+.tiles.four { grid-template-columns: repeat(4, minmax(0, 1fr)) }
+@media (max-width: 460px) { .tiles, .tiles.four { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
+.tile { border: 1px solid var(--line); border-radius: 4px; padding: 8px; min-width: 0 }
+.tile b { display: block; font: 400 1.4rem/1.1 var(--display); letter-spacing: .02em; font-variant-numeric: tabular-nums }
+.tile span { font-size: 11px; color: var(--muted) }
+.tbl { overflow-x: auto }
+table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums }
+th, td { text-align: right; padding: 4px 6px; border-top: 1px solid var(--line); white-space: nowrap }
+th { font-weight: 600; color: var(--muted); border-top: 0 }
+th:first-child, td:first-child { text-align: left; font-family: var(--mono) }
+.people { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px }
+@media (max-width: 560px) { .people { grid-template-columns: 1fr } }
+.people ol { margin: 4px 0 0; padding-left: 18px; font-size: 12px }
+.omni { border: 1px solid var(--omni); border-radius: 4px; padding: 10px; display: grid; gap: 4px }
+.omni .big { font: 400 1.3rem/1.1 var(--display); color: var(--omni); letter-spacing: .02em }
+.bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--line) }
+.bar i { background: var(--omni) }
+ul.same { margin: 0; padding-left: 18px; display: grid; gap: 4px }
+code { font: 12px var(--mono); background: var(--code); padding: 1px 4px; border-radius: 3px }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>PRD 612 · Tracked repositories and the Engineering board</h1>
+    <p class="lede">Owners add the repositories to monitor from Settings. The Omni App collects their pull requests, and a new board shows the numbers. The figures below are examples, not real counts.</p>
+  </header>
+
+  <section>
+    <h2>The sidebar</h2>
+    <div class="cols">
+      <div class="col"><span class="tag">Today</span>
+        <div class="screen nav">
+          <span class="lbl">Dashboard</span><span class="it">Home</span><span class="it">Fleet</span><span class="it">Workspace</span>
+          <span class="lbl grp">Work</span><span class="it">PRDs</span>
+          <span class="lbl grp">Settings</span><span class="it">Fleets</span>
+        </div>
+      </div>
+      <div class="col"><span class="tag after">After</span>
+        <div class="screen nav">
+          <span class="lbl">Dashboard</span><span class="it">Home</span><span class="it">Fleet</span><span class="it">Workspace</span><span class="it on"><span class="new">Engineering</span></span>
+          <span class="lbl grp">Work</span><span class="it">PRDs</span>
+          <span class="lbl grp">Settings</span><span class="it">Fleets</span><span class="it"><span class="new">Repositories</span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Settings → Repositories</h2>
+    <div class="cols">
+      <div class="col"><span class="tag">Today</span>
+        <div class="screen">
+          <div class="empty">There is no page. Vertuoza's three repositories sit in the game's <code>sectors</code> table, and only a migration changes them.<br><br><code>vertuo-omni-loop</code> · <code>vertuo-ai-domain</code> · <code>vertuo-workflow-domain</code></div>
+        </div>
+        <p class="note">vertuo-backend-php, vertuo-apps and pdf-builder are counted nowhere.</p>
+      </div>
+      <div class="col"><span class="tag after">After · Vertuoza, as an owner</span>
+        <div class="screen">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span class="lbl">6 repositories · 5 tracked</span><span class="btn">Add repository</span></div>
+          <div>
+            <div class="row"><span class="repo">vertuoza/vertuo-ai-domain</span><span class="meta">collected 3 min ago</span><span class="sw"></span></div>
+            <div class="row"><span class="repo">vertuoza/vertuo-workflow-domain</span><span class="meta">collected 3 min ago</span><span class="sw"></span></div>
+            <div class="row"><span class="repo">vertuoza/vertuo-omni-loop</span><span class="meta">collected 3 min ago</span><span class="sw"></span></div>
+            <div class="row"><span class="repo">vertuoza/vertuo-backend-php</span><span class="meta bad">Omni App has no access · <span class="link">grant it on GitHub →</span></span><span class="sw"></span></div>
+            <div class="row"><span class="repo">vertuoza/vertuo-apps</span><span class="meta">not collected yet</span><span class="sw"></span></div>
+            <div class="row"><span class="repo">vertuoza/pdf-builder</span><span class="meta">tracking off · history kept</span><span class="sw off"></span></div>
+          </div>
+          <span class="link">Missing one? Give the Omni App access on GitHub →</span>
+        </div>
+        <p class="note">Add repository lists only what the App can see and is not listed yet, and one click adds a repository, tracked. Members who are not owners see this list read only. Any other workspace starts empty.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Dashboard → Engineering · last 7 days</h2>
+    <div class="cols">
+      <div class="col"><span class="tag">Today · the Workspace board, the only numbers</span>
+        <div class="screen">
+          <div class="tiles four">
+            <div class="tile"><b>41</b><span>PRs merged</span></div>
+            <div class="tile"><b>3·2·1</b><span>PRDs</span></div>
+            <div class="tile"><b>3</b><span>Repositories</span></div>
+            <div class="tile"><b>12</b><span>Questions answered</span></div>
+          </div>
+          <p class="note">Merged PRs only, three repositories only. No time to merge, openers, reviewers, commits or lines. It works only while the game job runs.</p>
+        </div>
+      </div>
+      <div class="col"><span class="tag after">After · new board, tracked repositories</span>
+        <div class="screen">
+          <div class="tiles">
+            <div class="tile"><b>72</b><span>PRs opened</span></div>
+            <div class="tile"><b>58</b><span>PRs merged</span></div>
+            <div class="tile"><b>19</b><span>open now</span></div>
+            <div class="tile"><b>11.2 h</b><span>median time to merge</span></div>
+            <div class="tile"><b>214</b><span>commits</span></div>
+            <div class="tile"><b>+18k −6k</b><span>lines</span></div>
+          </div>
+          <div class="tbl"><table>
+            <tr><th>repository</th><th>opened</th><th>merged</th><th>open</th><th>to merge</th><th>commits</th></tr>
+            <tr><td>vertuo-omni-loop</td><td>31</td><td>29</td><td>4</td><td>3.8 h</td><td>96</td></tr>
+            <tr><td>vertuo-ai-domain</td><td>17</td><td>13</td><td>6</td><td>22.5 h</td><td>58</td></tr>
+            <tr><td>vertuo-backend-php</td><td>12</td><td>9</td><td>5</td><td>30.1 h</td><td>33</td></tr>
+            <tr><td>vertuo-workflow-domain</td><td>8</td><td>5</td><td>3</td><td>17.0 h</td><td>19</td></tr>
+            <tr><td>vertuo-apps</td><td>4</td><td>2</td><td>1</td><td>41.3 h</td><td>8</td></tr>
+          </table></div>
+          <div class="people">
+            <div><span class="lbl">Most opened</span><ol><li>Anna · 14</li><li>Paul · 11</li><li>Marc · 9</li><li>Lea · 7</li><li>Tom · 5</li></ol></div>
+            <div><span class="lbl">Most merged</span><ol><li>Pierre · 21</li><li>Anna · 12</li><li>Paul · 8</li><li>Lea · 6</li><li>Marc · 4</li></ol></div>
+            <div><span class="lbl">Most reviews</span><ol><li>Paul · 18</li><li>Lea · 15</li><li>Pierre · 12</li><li>Anna · 9</li><li>Tom · 3</li></ol></div>
+          </div>
+          <div class="omni">
+            <span class="lbl">Omni Loop · signed by Omni-man</span>
+            <span class="big">31 of 58 merged PRs · 53%</span>
+            <div class="bar"><i style="width:53%"></i></div>
+            <span class="meta">median time to merge 4.1 h signed · 19.6 h the rest · +11k −3k lines</span>
+          </div>
+          <p class="note">These lists never include bots, and never include Omni-man, who has his own panel. A review of your own pull request never counts.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What stays the same</h2>
+    <ul class="same">
+      <li>The game: <code>sectors</code>, <code>contributions</code>, the <code>game.yml</code> job, points and the ledger.</li>
+      <li>The Workspace board and its four tiles.</li>
+      <li>The Omni App's outbox check and retro.</li>
+      <li>The App's GitHub permissions. It already has read access to pull requests and contents.</li>
+    </ul>
+  </section>
+</div>
+</body>
+</html>
