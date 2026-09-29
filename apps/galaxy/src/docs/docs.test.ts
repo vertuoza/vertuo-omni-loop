@@ -232,7 +232,7 @@ describe('the skills pages (PRD 580)', () => {
   });
 
   it('names the skills that run a skill run by the skills, and leaves Related skills out when none', () => {
-    expect(skills('dossier-push')).toMatch(/<p>Other skills run it:<\/p><ul><li><a href="\/docs\/skills\/brainstorm">\/omni:brainstorm<\/a><\/li><li><a href="\/docs\/skills\/plan">\/omni:plan<\/a><\/li><\/ul>/);
+    expect(skills('dossier-push')).toMatch(/<p>Other skills run it:<\/p><ul><li><a href="\/docs\/skills\/brainstorm">\/omni:brainstorm<\/a><\/li><li><a href="\/docs\/skills\/plan">\/omni:plan<\/a><\/li><li><a href="\/docs\/skills\/visual-fix">\/omni:visual-fix<\/a><\/li><li><a href="\/docs\/skills\/bug-fix">\/omni:bug-fix<\/a><\/li><\/ul>/);
     expect(skills('pr')).not.toContain('related-skills');
   });
 });

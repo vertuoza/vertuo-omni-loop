@@ -1,6 +1,6 @@
 ---
 name: bug-fix
-description: Takes a bug from one line, or an existing issue, to one pull request a person merges — opens (or reads) its issue, classifies it, posts a triage (domain, risk, regression), proves a reproduction red before any fix, fixes it test-first on a fix branch, adds the guard that would have caught it, runs mutation testing when the repository has it, records the fix, proves it with omni bug and opens the PR into the default branch. No PRD, spec, plan, phase-0 PR, feature branch, wave or outbox. Stops on a flaky check (tooling, not a bug), on a reproduction that passes before the fix, and hands over the /omni:brainstorm line when the fix needs a product decision, a stored shape, a shared contract or a new screen, route or API. Never merges. Triggers on "fix this bug", "fix #612", "this is broken", "bug fix", "/omni:bug-fix".
+description: Takes a bug from one line, or an existing issue, to one pull request a person merges — opens (or reads) its issue, classifies it, posts a triage (domain, risk, regression), proves a reproduction red before any fix, fixes it test-first on a fix branch, adds the guard that would have caught it, runs mutation testing when the repository has it, records the fix, proves it with omni bug, opens the PR into the default branch and sends the record to the fix's page on the Omni page. No PRD, spec, plan, phase-0 PR, feature branch, wave or outbox. Stops on a flaky check (tooling, not a bug), on a reproduction that passes before the fix, and hands over the /omni:brainstorm line when the fix needs a product decision, a stored shape, a shared contract or a new screen, route or API. Never merges. Triggers on "fix this bug", "fix #612", "this is broken", "bug fix", "/omni:bug-fix".
 ---
 
 <!-- Ported from vertuo-ai-domain@47a1a194a:.claude/skills/vertuo-fix-bug/SKILL.md — changes in kit/porting/plugin--bug-fix.md -->
@@ -9,8 +9,9 @@ description: Takes a bug from one line, or an existing issue, to one pull reques
 
 A fast lane beside the loop, not inside it. A bug something a user, a browser or an API caller can
 observe gets an issue, a triage, a reproduction seen failing before the fix, one fix branch and one
-pull request. There is no PRD, dossier, inbox folder, spec, plan, phase-0 PR, feature branch, wave
-or outbox: the red reproduction is the spec. No release note and no retro follow a bug fix. It ends
+pull request. There is no PRD, inbox folder, spec, plan, phase-0 PR, feature branch, wave or
+outbox: the red reproduction is the spec. The record is committed with the fix and sent to the
+fix's own page on the Omni page, a Bug Fix. No release note and no retro follow a bug fix. It ends
 at a review gate: **a person merges.**
 
 In order: **start** (step 0); open or read the **issue** (1); **classify** (2); **triage** (3);
@@ -272,7 +273,9 @@ future Bugs view reads:
    | `2` | The kit is not installed here, its config does not read, or `--base` does not resolve: say so and stop. |
 
 3. **Push** the fix branch: `git push -u <remote> <fix branch>`.
-4. **Open the PR through `/omni:pr`**, as a standalone PR: base `repo.defaultBranch`, label
+4. **Send the record to its page:** follow `/omni:dossier-push <n> --kind bug`, and carry on
+   whatever it prints. Keep the link it printed for the hand-off.
+5. **Open the PR through `/omni:pr`**, as a standalone PR: base `repo.defaultBranch`, label
    `labels.bug` (subject to its **Labels** rules), title the commit's subject, and this body, signed
    (**Signing**):
 
@@ -310,10 +313,14 @@ future Bugs view reads:
 
 ## 13. Hand off
 
-Print, in a few lines: the issue, the PR, what was proven and what was not (the red line, the
-preflight, the `omni bug` line, the guard, the mutation line), then:
+Print, in a few lines: the issue, the PR, the fix's page beside it, what was proven and what was
+not (the red line, the preflight, the `omni bug` line, the guard, the mutation line), then:
 
 > Review the PR and merge it if it is right.
+
+The fix's page is the link step 12's push printed. When the push was skipped, run
+`node .omni-loop/bin/omni.mjs dossier link <n> --kind bug`; when it prints `none` or cannot reach the
+app, say the fix has no page yet and give its issue, `https://github.com/<repo.slug>/issues/<n>`.
 
 **A person merges.** After a stop, the hand-off is the issue, the comment the stop posted (and the
 `/omni:brainstorm` line, after **The stop**), and the worktree left behind, when there is one.
@@ -342,5 +349,5 @@ comment on the issue with the PR's link.
 - **Never cross the boundary** to finish a fix: stop, and hand over the `/omni:brainstorm` line.
 - Never commit on `repo.defaultBranch`.
 - Never report anything as proven that was not run.
-- Never open a PRD, a dossier, an inbox folder, a plan or an outbox item for a bug fix, and never
-  batch several bugs into one PR.
+- Never open a PRD, an inbox folder, a plan or an outbox item for a bug fix, and never batch
+  several bugs into one PR.
