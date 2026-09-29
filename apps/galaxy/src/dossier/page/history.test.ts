@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { fakePrdOutboxStore } from '../../stages/outbox/store.fake';
 import type { DossierListRow } from '../store';
 import {
-  filtered, historyAddress, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readOpenCounts,
-  stageKeyOf, type CurrentStages, type HistoryFilters, type OpenCounts,
+  filtered, historyAddress, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readLoginIds,
+  readOpenCounts, stageKeyOf, type CurrentStages, type HistoryFilters, type OpenCounts,
 } from './history';
 
 // /prd, the history (PRD 216's spec, "The pages"), as pure functions of the rows dossier_list() gives the
@@ -51,14 +51,21 @@ describe('the filters in the address', () => {
     expect(readHistoryFilters({ repo: ['a/b', 'c/d'] })).toEqual({ who: 'mine', repo: 'a/b' });
   });
 
-  it('reads who=all as All; a missing, empty or unknown who is Mine', () => {
+  it('reads who=all as All; a missing, empty or malformed who is Mine', () => {
     expect(readHistoryFilters({ who: 'all' })).toEqual({ who: 'all' });
     expect(readHistoryFilters({ who: ' all ' })).toEqual({ who: 'all' });
     expect(readHistoryFilters({})).toEqual({ who: 'mine' });
     expect(readHistoryFilters({ who: '' })).toEqual({ who: 'mine' });
-    expect(readHistoryFilters({ who: 'x' })).toEqual({ who: 'mine' });
     expect(readHistoryFilters({ who: 'mine' })).toEqual({ who: 'mine' });
     expect(readHistoryFilters({ who: 'ALL' })).toEqual({ who: 'mine' });
+    expect(readHistoryFilters({ who: 'Mine' })).toEqual({ who: 'mine' });
+    for (const bad of ['-ada', 'ada-', 'a--b', 'a b', 'ada/../x', 'a'.repeat(40)]) expect(readHistoryFilters({ who: bad }), bad).toEqual({ who: 'mine' });
+  });
+
+  it('reads who=<login> as that person, the login in lower case (PRD 698)', () => {
+    expect(readHistoryFilters({ who: 'x' })).toEqual({ who: { login: 'x' } });
+    expect(readHistoryFilters({ who: ' Ada-GH ' })).toEqual({ who: { login: 'ada-gh' } });
+    expect(filtered({ who: { login: 'ada-gh' } })).toBe(false);
   });
 
   it('says whether any filter is set', () => {
@@ -79,6 +86,11 @@ describe('the addresses', () => {
     expect(historyAddress({ who: 'mine', repo: 'vertuoza/vertuo-core', state: 'prd', search: 'ask mode' }))
       .toBe('/prd?repo=vertuoza%2Fvertuo-core&state=prd&q=ask+mode');
     expect(historyAddress(all({ repo: 'a/b', state: 'draft', search: 'x' }))).toBe('/prd?repo=a%2Fb&state=draft&q=x&who=all');
+  });
+
+  it('carries who=<login> last, as the profile\'s stage links write it (PRD 698)', () => {
+    expect(historyAddress({ who: { login: 'ada-gh' } })).toBe('/prd?who=ada-gh');
+    expect(historyAddress({ who: { login: 'ada-gh' }, stage: 'inbox' })).toBe('/prd?stage=inbox&who=ada-gh');
   });
 });
 
@@ -325,5 +337,43 @@ describe('the stages (PRD 587)', () => {
     expect([...read]).toEqual([[stageKeyOf(DOSSIERS), 'building']]);
     expect((await readCurrentStages(rows, null)).size).toBe(0);
     expect((await readCurrentStages(ROWS.filter((r) => r.prd === null), { currentStages: async () => { throw new Error('never asked'); } })).size).toBe(0);
+  });
+});
+
+describe('one person\'s PRDs, who=<login> (PRD 698)', () => {
+  const ADA = { who: { login: 'ada-gh' } } as const;
+  const BY_ADA = row('00000000-0000-4000-8000-0000000000e1', { prd: 300, title: 'Ada\'s PRD', opened_by: 'u-ada', last_activity: '2026-09-29T09:00:00Z' });
+  const SYNCED = row('00000000-0000-4000-8000-0000000000e2', { prd: 301, title: 'Synced', opened_by: null });
+  const MIXED = [...ROWS, BY_ADA, SYNCED];
+
+  it('keeps the dossiers opened by one of the account ids the login holds, by the rule Mine uses', () => {
+    expect(historyItems(MIXED, ADA, 'u-pierre', new Map(), new Map(), new Set(['u-ada'])).map((i) => i.title)).toEqual(['Ada\'s PRD']);
+    expect(historyToRead(MIXED, ADA, 'u-pierre', new Set(['u-ada'])).map((r) => r.id)).toEqual([BY_ADA.id]);
+    expect(historyStageBar(MIXED, ADA, 'u-pierre', new Map(), new Map(), new Set(['u-ada'])).find((s) => s.id === 'inbox')?.href).toBe('/prd?stage=inbox&who=ada-gh');
+  });
+
+  it('keeps none when the login holds no account here, never the viewer\'s', () => {
+    expect(historyItems(MIXED, ADA, 'u-pierre')).toEqual([]);
+    expect(historyItems(MIXED, ADA, 'u-ada', new Map(), new Map(), new Set())).toEqual([]);
+  });
+
+  it('keeps Mine and All as they were', () => {
+    expect(historyItems(MIXED, { who: 'mine' }, 'u-ada', new Map(), new Map(), new Set(['u-pierre'])).map((i) => i.title)).toEqual(['Ada\'s PRD']);
+    expect(historyItems(MIXED, ALL, 'u-ada')).toHaveLength(5);
+  });
+
+  it('reads the account ids a login holds in each workspace once, ignoring case; a roster that fails adds none', async () => {
+    const roster = vi.fn(async (workspace: string) => {
+      if (workspace === 'w3') throw new Error('down');
+      return workspace === 'w1'
+        ? [{ user_id: 'u-ada', github_login: 'Ada-GH' }, { user_id: 'u-bob', github_login: 'bob' }]
+        : [{ user_id: 'u-ada-2', github_login: 'ada-gh' }, { user_id: 'u-none', github_login: null }];
+    });
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const rows = [row('a'), row('b'), row('c', { workspace_id: 'w2' }), row('d', { workspace_id: 'w3' })];
+    expect([...await readLoginIds(rows, 'ada-gh', roster)].sort()).toEqual(['u-ada', 'u-ada-2']);
+    expect(roster).toHaveBeenCalledTimes(3);
+    expect(error).toHaveBeenCalledOnce();
+    error.mockRestore();
   });
 });
