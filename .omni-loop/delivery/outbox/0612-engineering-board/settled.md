@@ -157,3 +157,391 @@ A second source is a few lines in the page's read; meanwhile one more GitHub cal
 ```
 
 <!-- /omni-outbox-settled: s1-03-no-access-read-from-the-app -->
+
+<!-- omni-outbox-settled: s2-01-route-test-outside-territory -->
+
+## s2-01-route-test-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-01-route-test-outside-territory
+prd: 612
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 2
+---
+
+## The question, in plain words
+
+Serving the new collector changed the list of jobs the app answers for, and an existing test that pins that list sits outside this slice's area. Was it right to update that test here?
+
+## The decision, in plain words
+
+We updated the existing test so it expects the new collector beside the three jobs it already listed, and changed nothing else in it.
+
+## The intro, for fun
+
+Adding a new job to the app made an old test count to four instead of three.
+
+## The punchline, for fun
+
+We taught the test to count one higher and left the rest of it alone.
+
+## The options, in plain words
+
+A. A: Update the existing route test in place to list the collector (what was built).
+B. B: Move the served-functions assertion into the collector's own folder and leave the route test untouched.
+C. C: Widen the plan's territory for this slice to include the route test, and keep the change as built.
+
+## What I had to decide
+
+Whether a test that pins the served functions may be updated by the slice that adds a function, although its file sits outside the slice's territory.
+
+## What I did meanwhile
+
+The route test expects four served functions and seven registered ones (the three failure handlers included); the whole omni-app suite is green.
+
+## What it costs to change later
+
+Reverting is a few lines in one test file; nothing stored or shipped depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The plan's territory for s2 names the served route file but not the test that pins it (author).
+
+```
+
+<!-- /omni-outbox-settled: s2-01-route-test-outside-territory -->
+
+<!-- omni-outbox-settled: s2-02-collector-batch-size -->
+
+## s2-02-collector-batch-size — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s2-02-collector-batch-size
+prd: 612
+slice: s2
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 2
+---
+
+## The question, in plain words
+
+How much should the collector read in one go, so a long first read of a busy repository never runs out of time?
+
+## The decision, in plain words
+
+It reads at most fifty pull requests per step and twenty steps per repository per run; a longer first read simply carries on at the next run a quarter of an hour later.
+
+## The intro, for fun
+
+Ninety days of pull requests do not fit in one breath.
+
+## The punchline, for fun
+
+So the collector reads fifty at a time and comes back for more.
+
+## The options, in plain words
+
+A. A: Fifty per step, twenty steps per repository per run (what was built).
+B. B: One step per repository with no cap, as the spec's wording reads, at the risk of a timeout on a large backfill.
+C. C: Smaller batches of twenty, for a tighter time limit, at the cost of more steps.
+
+## What I had to decide
+
+The batch size per step and the number of steps per repository per run for the collector.
+
+## What I did meanwhile
+
+Fifty pull requests per step, twenty steps per repository per run: up to a thousand pull requests per repository every fifteen minutes. The cursor only moves past what was written.
+
+## What it costs to change later
+
+Two constants in the collector; changing them needs no migration.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- The spec sets no bound on one step's work; the numbers come from three calls per pull request and a Vercel function's time limit, not from a measurement (author).
+
+```
+
+<!-- /omni-outbox-settled: s2-02-collector-batch-size -->
+
+<!-- omni-outbox-settled: s3-01-sidebar-tests-outside-territory -->
+
+## s3-01-sidebar-tests-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-sidebar-tests-outside-territory
+prd: 612
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 2
+---
+
+## The question, in plain words
+
+Adding Engineering to the sidebar meant touching three tests the plan did not list, the ones that count the sidebar's entries on every page. Is that all right?
+
+## The decision, in plain words
+
+We taught those three tests about the new Engineering entry, exactly as the Repositories entry did before. Nothing else outside the plan was changed.
+
+## The intro, for fun
+
+The sidebar grew one line, and three tests noticed.
+
+## The punchline, for fun
+
+We told them politely, and they counted to one more.
+
+## The options, in plain words
+
+A. A. Keep the three test edits, the option built.
+B. B. Widen the plan's territory for sidebar changes to name these tests, and keep the edits.
+
+## What I had to decide
+
+Whether slice s3 may change three sidebar tests outside its territory: apps/galaxy/src/nav/Sidebar.render.test.ts, apps/galaxy/src/switch/headers.test.ts and apps/galaxy/src/switch/switch.test.ts, as s1 did for the Repositories entry (item s1-01, adopted).
+
+## What I did meanwhile
+
+Each of the three tests now expects the Engineering entry after Workspace, and headers.test.ts also checks /app/engineering sits in the app shell with the title Engineering.
+
+## What it costs to change later
+
+Reverting is removing the Engineering entry from three expected lists; the sidebar tests then go red, since the sidebar change forces them.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether the plan meant apps/galaxy/src/nav/sidebar to cover Sidebar.render.test.ts, whose name differs only in case (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-01-sidebar-tests-outside-territory -->
+
+<!-- omni-outbox-settled: s3-02-top-five-ties-in-login-order -->
+
+## s3-02-top-five-ties-in-login-order — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-02-top-five-ties-in-login-order
+prd: 612
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 2
+---
+
+## The question, in plain words
+
+When several people have the same count at the edge of a top-5 list, who gets the last places?
+
+## The decision, in plain words
+
+Each list shows exactly five people at most, most first. People with the same count are listed in alphabetical order of their GitHub name, and whoever falls past fifth is left out.
+
+## The intro, for fun
+
+Six people tie for fifth place, and the podium has one step left.
+
+## The punchline, for fun
+
+The alphabet broke the tie, so it is good news for anyone named Aaron.
+
+## The options, in plain words
+
+A. A. At most five, ties in alphabetical order of login, the option built.
+B. B. Everyone tied at the fifth count is shown, so a list may run past five.
+C. C. At most five, ties broken by who reached the count first.
+
+## What I had to decide
+
+How the three top-5 people lists (most opened, most merged, most reviews) break ties, and whether a tie at fifth place may show more than five people.
+
+## What I did meanwhile
+
+topFive() in apps/galaxy/src/engineering/tally.ts sorts by count, most first, then by login A to Z, and cuts at five; the acceptance criteria's at most five people holds.
+
+## What it costs to change later
+
+A constant change in one function and its test: a different tie-break, or showing everyone tied at fifth.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether people tied at fifth place should all be shown, or marked as tied (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-02-top-five-ties-in-login-order -->
+
+<!-- omni-outbox-settled: s3-03-empty-state-only-with-nothing-tracked -->
+
+## s3-03-empty-state-only-with-nothing-tracked — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-03-empty-state-only-with-nothing-tracked
+prd: 612
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 2
+---
+
+## The question, in plain words
+
+The Engineering board has an empty state. Should it show when nothing is tracked, or also when repositories are tracked but not collected yet?
+
+## The decision, in plain words
+
+The empty state shows only when the workspace tracks no repository. A workspace that tracks repositories not collected yet sees the board with zeros, each tracked repository listed in the table.
+
+## The intro, for fun
+
+The board opens its shop before the first delivery truck arrives.
+
+## The punchline, for fun
+
+The shelves say zero, and the sign says open.
+
+## The options, in plain words
+
+A. A. Empty only with no tracked repository; zeros otherwise, the option built.
+B. B. Empty also while no tracked repository has been collected yet.
+
+## What I had to decide
+
+When /app/engineering shows its empty state (No tracked repositories yet → Settings → Repositories): the spec says both with nothing collected yet and, in its acceptance criteria, for a workspace with no repositories.
+
+## What I did meanwhile
+
+engineeringOf() in apps/galaxy/src/engineering/tally.ts returns the empty state when the tracked list is empty; otherwise the board, zeros kept. Settings → Repositories already says not collected yet on each row that waits.
+
+## What it costs to change later
+
+A one-line change in engineeringOf() and one read of the collection time per repository, which the tracked read can add.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether tracked repositories waiting for their first collection should read as empty, or as zeros (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-03-empty-state-only-with-nothing-tracked -->
