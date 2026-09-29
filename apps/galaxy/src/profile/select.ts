@@ -1,9 +1,15 @@
 import { STAGES, type StageId } from '../stages/stage';
 import type { PullRequestRow, ReviewRow } from '../engineering/tally';
+import { historyAddress, historyItems, type CurrentStages, type HistoryItem, type Whom } from '../dossier/page/history';
+import type { DossierListRow, WorkKind } from '../dossier/store';
+import { fixAddress, fixItems, type FixFacts, type FixItem, type FixKind } from '../fixes/list';
 
 // A person's profile (PRD 698 s3), its pure choices: the login a path names, one person's pull
 // requests and reviews of one period (newest first, at most 10, and whether more exist), and where
 // each of the page's links goes. Logins match ignoring case, as everywhere on the board.
+// PRD 698 s5: the PRDs they opened and the fixes they asked for, chosen by the lists' own functions under
+// `who=<login>` (so by the rule Mine uses: they opened it, or, for a fix, its issue is theirs), kept when
+// their last activity falls within the period, newest first, at most 10; see all opens that list for them.
 
 /** How many rows a profile list shows. */
 export const PROFILE_LIMIT = 10;
@@ -88,4 +94,23 @@ export function reviewsOf(rows: readonly ReviewRow[], login: string, window: Win
     .filter((r) => r.reviewer.toLowerCase() === who && within(r.firstAt, window))
     .map((r) => ({ repo: r.repo, number: r.number, url: githubPullUrl(r.repo, r.number), at: r.firstAt }));
   return capped(chosen.sort(newestFirst));
+}
+
+/** Where **see all** under their PRDs, bug fixes or visual updates goes: that list, for them. */
+export function seeAllHref(kind: WorkKind, login: string): string {
+  const who = { login: login.toLowerCase() };
+  return kind === 'prd' ? historyAddress({ who }) : fixAddress(kind, { who });
+}
+
+/** The PRDs (and drafts) they opened, active within the period; `whom` the account ids they hold. */
+export function prdsOf(rows: DossierListRow[], login: string, whom: Whom, window: Window, stages: CurrentStages): Capped<HistoryItem> {
+  const items = historyItems(rows.filter((row) => (row.kind ?? 'prd') === 'prd'), { who: { login } }, null, new Map(), stages, whom);
+  return capped(items.filter((item) => within(item.at, window)));
+}
+
+/** The fixes of `kind` they asked for, active within the period, with what GitHub said of each. */
+export function fixesOf(
+  rows: readonly DossierListRow[], kind: FixKind, login: string, whom: Whom, window: Window, facts: FixFacts,
+): Capped<FixItem> {
+  return capped(fixItems(rows, kind, { who: { login } }, null, facts, undefined, whom).filter((item) => within(item.at, window)));
 }

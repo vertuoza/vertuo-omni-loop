@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import type { FixSummary } from '../dossier/github/fix';
+import type { DossierListRow } from '../dossier/store';
 import type { PullRequestRow, ReviewRow } from '../engineering/tally';
 import {
-  capped, githubPullUrl, moreHref, profileLogin, profilePath, profileStageLinks, pullRequestsOf, reviewsOf, PROFILE_LIMIT,
+  capped, fixesOf, githubPullUrl, moreHref, prdsOf, profileLogin, profilePath, profileStageLinks, pullRequestsOf, reviewsOf, seeAllHref,
+  PROFILE_LIMIT,
 } from './select';
 
 // The profile's pure choices (PRD 698 s3): one person's pull requests and reviews of one period,
@@ -95,5 +98,78 @@ describe('the addresses', () => {
     expect(moreHref('reviewed', 'ada-gh', ['acme/widgets'])).toBe(
       'https://github.com/search?type=pullrequests&q=is%3Apr+reviewed-by%3Aada-gh+repo%3Aacme%2Fwidgets',
     );
+  });
+});
+
+// PRD 698 s5: the PRDs they opened and the fixes they asked for, of the period, by the rule the lists'
+// who=<login> uses, at most 10 each.
+
+const dossier = (id: string, over: Partial<DossierListRow> = {}): DossierListRow => ({
+  id, workspace_id: 'w1', home_repo: 'acme/widgets', prd: Number(id.replace(/\D/g, '')) || null, kind: 'prd', title: `Title ${id}`,
+  opened_by: 'u-ada', created_at: '2026-09-01T08:00:00Z', numbered_at: null, repos: ['acme/widgets'], latest: {}, asked: 0, answered: 0,
+  last_activity: '2026-09-25T08:00:00Z', ...over,
+});
+const fact = (author: string): FixSummary => ({
+  issue: { number: 1, url: 'https://github.com/acme/widgets/issues/1', state: 'open', author, createdAt: '2026-09-24T08:00:00Z', risk: 'omni:risk-high', regression: true },
+  pull: null, approvals: [], release: null,
+});
+const ADA = new Set(['u-ada']);
+
+describe('prdsOf', () => {
+  it('keeps the PRDs they opened, active within the period, newest first, with each one\'s stage', () => {
+    const rows = [
+      dossier('p1', { last_activity: '2026-09-24T08:00:00Z' }),
+      dossier('p2', { last_activity: '2026-09-28T08:00:00Z' }),
+      dossier('p3', { last_activity: '2026-09-01T08:00:00Z' }), // before the period
+      dossier('p4', { opened_by: 'u-bob' }), // someone else's
+      dossier('p5', { opened_by: null }), // nobody's
+      dossier('v6', { kind: 'visual' }), // a fix, not a PRD
+    ];
+    const stages = new Map([['w1 acme/widgets#2', 'shipped' as const]]);
+    const got = prdsOf(rows, 'ada-gh', ADA, WINDOW, stages);
+    expect(got.more).toBe(false);
+    expect(got.rows.map((r) => [r.heading, r.title, r.href, r.stage])).toEqual([
+      ['#2', 'Title p2', '/prd/p2', 'shipped'],
+      ['#1', 'Title p1', '/prd/p1', null],
+    ]);
+  });
+
+  it('caps at 10 and says more exist', () => {
+    const rows = Array.from({ length: 11 }, (_, i) => dossier(`p${i + 1}`));
+    const got = prdsOf(rows, 'ada-gh', ADA, WINDOW, new Map());
+    expect(got.rows).toHaveLength(PROFILE_LIMIT);
+    expect(got.more).toBe(true);
+  });
+});
+
+describe('fixesOf', () => {
+  it('keeps the fixes of one kind they asked for (pushed, or their issue), active within the period', () => {
+    const rows = [
+      dossier('b1', { kind: 'bug' }), // they pushed it
+      dossier('b2', { kind: 'bug', opened_by: null, last_activity: '2026-09-27T08:00:00Z' }), // their issue
+      dossier('b3', { kind: 'bug', opened_by: 'u-bob' }), // someone else's issue
+      dossier('b4', { kind: 'bug', last_activity: '2026-09-01T08:00:00Z' }), // before the period
+      dossier('v5', { kind: 'visual' }), // the other kind
+    ];
+    const facts = new Map([['b2', fact('Ada-GH')], ['b3', fact('bob-gh')]]);
+    const got = fixesOf(rows, 'bug', 'ada-gh', ADA, WINDOW, facts);
+    expect(got.rows.map((r) => [r.heading, r.href, r.stateLabel, r.risk, r.regression])).toEqual([
+      ['#2', '/bugs/b2', 'Asked', 'omni:risk-high', true],
+      ['#1', '/bugs/b1', '—', null, false],
+    ]);
+    expect(fixesOf(rows, 'visual', 'ada-gh', ADA, WINDOW, facts).rows.map((r) => r.href)).toEqual(['/visual/v5']);
+  });
+
+  it('caps at 10 and says more exist', () => {
+    const rows = Array.from({ length: 12 }, (_, i) => dossier(`v${i + 1}`, { kind: 'visual' }));
+    expect(fixesOf(rows, 'visual', 'ada-gh', ADA, WINDOW, new Map())).toMatchObject({ more: true });
+  });
+});
+
+describe('seeAllHref', () => {
+  it('opens each list for that person', () => {
+    expect(seeAllHref('prd', 'ada-gh')).toBe('/prd?who=ada-gh');
+    expect(seeAllHref('bug', 'ada-gh')).toBe('/bugs?who=ada-gh');
+    expect(seeAllHref('visual', 'ada-gh')).toBe('/visual?who=ada-gh');
   });
 });
