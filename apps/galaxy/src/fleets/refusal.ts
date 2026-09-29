@@ -1,5 +1,5 @@
 // A refusal from the fleet functions (supabase/migrations/20261003090000_own_fleets.sql, PRD 400), as
-// /app/fleets shows it. A field's refusal carries SQLSTATE 22023 and the field's name as its hint,
+// /app/settings/fleets shows it. A field's refusal carries SQLSTATE 22023 and the field's name as its hint,
 // and its message starts with the field ("Label: 1 to 12 characters."): the page shows that message
 // next to the field. `fleets` is the cap of 12 active fleets. Anything else belongs to the form.
 
