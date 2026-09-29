@@ -25,6 +25,9 @@ const FORGED = {
   // OmniMan's poses (PRD 141, s4), pinned as first drawn.
   'omni-point': '19419fc7bd1902f7', 'omni-cheer': 'ea66af00b11d0821', 'omni-run': '3c9651d4bb89d59d',
   'omni-point-cape': '5eb31659af009eab', 'omni-cheer-cape': '82c1ed1e1605dd1f', 'omni-run-cape': '01ae4561e5f23ee0',
+  // Five more fleet mascots (PRD 517), pinned as first drawn.
+  'atom-eve': '1e42cfc26600f03d', shark: '495dd4fb409b4fc0', turtle: 'd28966aeb4de80a0', allen: '6badf132695634da',
+  robot: '8100607b943d962b',
 };
 const FORGED_WOUNDED = {
   transmission: '36e0b517c4c911e4', 'unconfirmed-ground': 'b1db9c109ced6935', beacon: '0ac20bcc96a66c5b',
