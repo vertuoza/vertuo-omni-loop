@@ -9,7 +9,7 @@ import { seasonBounds, type Season } from '../season';
 import { stageHref } from './links';
 import { periodWindow, type Period, type PeriodWindow } from './period';
 import {
-  answeredIn, circleOf, inCircle, inPeriod, membersOf, MERGED, mergesPerDay, openedBy, peopleRows, prdEventsPerDay, prdsNow, repositoriesOf, stageTally,
+  answeredIn, circleOf, inCircle, SOLO, inPeriod, membersOf, MERGED, mergesPerDay, openedBy, peopleRows, prdEventsPerDay, prdsNow, repositoriesOf, stageTally,
   type Activity, type ChartDay, type Circle, type DayActivity, type EventDay, type FleetTag, type Member, type PersonRow, type PrdNow, type RepoRow, type Scope,
   type StageTally,
 } from './tally';
@@ -20,7 +20,7 @@ import {
 //
 // | read                                       | the parts drawn from it                                       |
 // |--------------------------------------------|---------------------------------------------------------------|
-// | roster (workspace_roster)                  | People; with a fleet scope, everything the scope filters      |
+// | roster (workspace_roster, heroes included) | People; with a fleet scope, everything the scope filters      |
 // | contributions over the period's days       | PRs merged, PRDs and Repositories tiles, both charts, the     |
 // |                                            | repositories, People's PRs and PRDs                           |
 // | answered counts (answered_counts)          | Questions answered tile, People's questions                   |
@@ -40,7 +40,7 @@ export interface AnsweredCount { user_id: string; answered: number }
 /** The season as the board needs it from the galaxy: the heroes' points, the fleets' look and rank. */
 export type SeasonView = {
   heroes: readonly { name: string; points: number }[];
-  teams: readonly Pick<Fleet, 'name' | 'label' | 'color' | 'points' | 'rank'>[];
+  teams: readonly (Pick<Fleet, 'name' | 'label' | 'color' | 'points' | 'rank'> & { mascot?: string | null })[];
 };
 
 /** The board's five reads. Each rejects when it cannot be read. */
@@ -92,12 +92,23 @@ export interface BoardValue {
   prdEvents: Read<EventDay[]>;
   repositories: Read<RepoRow[]>;
   people: Read<PersonRow[]>;
+  /** The fleet the People table lists (PRD 652: Home's heading chip): its tag, SOLO when the table is
+   * one person's own row, null when it lists the whole workspace. Known from the request alone, so it
+   * shows even when the roster cannot be read. */
+  peopleFleet: FleetTag | typeof SOLO | null;
   /** The season's fleet ranking, the viewer's fleet marked. */
   fleets: Read<FleetRank[]>;
 }
 
 const fleetTags = (season: Read<SeasonView>): FleetTag[] =>
-  (season === UNREADABLE ? [] : season.teams.map((t) => ({ name: t.name, label: t.label, color: t.color })));
+  (season === UNREADABLE ? [] : season.teams.map((t) => ({ name: t.name, label: t.label, color: t.color, mascot: t.mascot ?? null })));
+
+/** The fleet a people scope lists: its tag from the season, else by its name in capitals. */
+function peopleFleetOf(people: Scope, season: Read<SeasonView>): BoardValue['peopleFleet'] {
+  if (people.kind === 'workspace') return null;
+  if (people.kind === 'you') return SOLO;
+  return fleetTags(season).find((f) => f.name === people.fleet) ?? { name: people.fleet, label: people.fleet.toUpperCase(), color: null, mascot: null };
+}
 
 /** Who the scope holds; unreadable for a fleet when the roster is, since only the roster says who is in it. */
 function circleFor(roster: Read<Member[]>, scope: Scope): Read<Circle> {
@@ -153,6 +164,7 @@ export function boardOf(read: BoardRead, request: BoardRequest): BoardValue {
     prdEvents: tally((rows) => prdEventsPerDay(rows, window.days)),
     repositories: tally(repositoriesOf),
     people: peopleOf(read, request, period, counts),
+    peopleFleet: peopleFleetOf(request.people, read.galaxy),
     fleets: fleetRanking(read, request.viewerId),
   };
 }
@@ -179,7 +191,7 @@ export async function loadBoard(reads: BoardReads, request: BoardRequest): Promi
 
 const PAGE = 1000;
 
-type RosterRow = { user_id: string; name: string | null; github_login: string | null; avatar_url: string | null; fleet: string | null };
+type RosterRow = { user_id: string; name: string | null; github_login: string | null; avatar_url: string | null; fleet: string | null; hero?: unknown };
 
 type Page<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
 
@@ -220,7 +232,7 @@ export function supabaseReads(
       const { data, error } = await db.rpc('workspace_roster', { workspace });
       if (error) throw new Error(`Supabase: could not read the workspace's members (${error.message})`);
       return ((data ?? []) as RosterRow[]).map((r) => ({
-        userId: r.user_id, name: r.name, login: r.github_login?.toLowerCase() ?? null, avatarUrl: r.avatar_url, fleet: r.fleet,
+        userId: r.user_id, name: r.name, login: r.github_login?.toLowerCase() ?? null, avatarUrl: r.avatar_url, fleet: r.fleet, hero: r.hero ?? null,
       }));
     },
     activity(from, to) {

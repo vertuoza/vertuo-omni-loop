@@ -75,6 +75,16 @@ describe('loadBoard', () => {
     expect(board.people.map((p) => p.userId)).toEqual(['u-paul', 'u-bob', 'u-ada']);
   });
 
+  it('carries each fleet\'s mascot to its People rows, and each member\'s face', async () => {
+    const galaxy = { ...GALAXY, teams: GALAXY.teams.map((t) => ({ ...t, mascot: t.name === 'beaver' ? 'beaver' : null })) };
+    const board = await loadBoard({ ...reads(), galaxy: async () => galaxy }, WORKSPACE);
+    if (board.people === 'unreadable') throw new Error('people unreadable');
+    const bob = board.people.find((p) => p.userId === 'u-bob')!;
+    expect(bob.fleet).toEqual({ name: 'beaver', label: 'BEAVER', color: '#8a5a2b', mascot: 'beaver' });
+    expect(bob.face).toEqual({ kind: 'photo', url: 'https://github.com/bob-gh.png?size=48' });
+    expect(board.people.find((p) => p.userId === 'u-ada')!.fleet).toMatchObject({ name: 'octo', mascot: null });
+  });
+
   it('reads the period\'s window: its first Brussels midnight to the one after today', async () => {
     const r = reads();
     await loadBoard(r, WORKSPACE);
@@ -185,9 +195,15 @@ describe('supabaseReads', () => {
   const galaxy = async () => { throw new Error('unused'); };
 
   it('reads the roster through workspace_roster, logins in lower case', async () => {
-    const rpc = vi.fn(async () => ({ data: [{ user_id: 'u', name: null, github_login: 'PaEtienne', avatar_url: null, fleet: null }], error: null }));
+    const rpc = vi.fn(async () => ({ data: [
+      { user_id: 'u', name: null, github_login: 'PaEtienne', avatar_url: null, fleet: null, hero: null },
+      { user_id: 'v', name: 'ADA', github_login: 'ada', avatar_url: null, fleet: 'octo', hero: { v: 1 } },
+    ], error: null }));
     const r = supabaseReads({ rpc } as never, 'w-1', galaxy as never);
-    expect(await r.roster()).toEqual([{ userId: 'u', name: null, login: 'paetienne', avatarUrl: null, fleet: null }]);
+    expect(await r.roster()).toEqual([
+      { userId: 'u', name: null, login: 'paetienne', avatarUrl: null, fleet: null, hero: null },
+      { userId: 'v', name: 'ADA', login: 'ada', avatarUrl: null, fleet: 'octo', hero: { v: 1 } },
+    ]);
     expect(rpc).toHaveBeenCalledWith('workspace_roster', { workspace: 'w-1' });
   });
 
