@@ -855,3 +855,237 @@ Reverting one test file, which would then fail against the new overview.
 ```
 
 <!-- /omni-outbox-settled: s5-03-status-command-test-outside-territory -->
+
+<!-- omni-outbox-settled: s6-01-fleet-count-opens-all -->
+
+## s6-01-fleet-count-opens-all — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-01-fleet-count-opens-all
+prd: 587
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 3
+---
+
+## The question, in plain words
+
+On a fleet's dashboard, each PRD count opens the PRD list, but that list cannot narrow to one fleet. Where should the count take you?
+
+## The decision, in plain words
+
+It opens the list at that stage showing everyone's PRDs, so the list can hold more than the fleet's count. Your own dashboard opens your PRDs, and the workspace's opens everyone's.
+
+## The intro, for fun
+
+The fleet counted its PRDs and clicked, and the whole workspace came along for the ride.
+
+## The punchline, for fun
+
+The list has no fleet button yet, so for now everyone is invited.
+
+## The options, in plain words
+
+A. Open the list with All at that stage, the option built.
+B. Add a fleet filter to the PRD list so the count and the list match.
+C. Show a fleet's counts without links.
+
+## What I had to decide
+
+Which filter of the PRD list a fleet dashboard's stage count opens, since the list has Mine and All but no fleet filter.
+
+## What I did meanwhile
+
+A fleet's counts link to the list at that stage with All; the personal dashboard links with Mine, the workspace with All.
+
+## What it costs to change later
+
+One line in the board's links, plus a fleet filter on the PRD list if one is wanted.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether a fleet filter on the PRD list is wanted later (author)
+
+```
+
+<!-- /omni-outbox-settled: s6-01-fleet-count-opens-all -->
+
+<!-- omni-outbox-settled: s6-02-fleet-board-outside-territory -->
+
+## s6-02-fleet-board-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-02-fleet-board-outside-territory
+prd: 587
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 3
+---
+
+## The question, in plain words
+
+Counting PRDs by where they are now on the fleet dashboard meant touching the fleet page's loader and three tests, which the plan gave to nobody. Is that fine?
+
+## The decision, in plain words
+
+We changed them, so the fleet dashboard reads the PRDs too instead of saying they could not load.
+
+## The intro, for fun
+
+The plan drew the fence round the board, and the fleet page was standing just outside it.
+
+## The punchline, for fun
+
+We let it in, or its PRD tile would have sulked forever.
+
+## The options, in plain words
+
+A. Keep the changes in this slice, the option built.
+B. Move the fleet changes to their own slice before the feature PR is ready.
+
+## What I had to decide
+
+Whether the slice may change the fleet page's loader, its demo and three page tests outside its declared territory.
+
+## What I did meanwhile
+
+The fleet loader reads the PRDs now with the other reads, its demo passes made-up PRDs, and the home and fleet tests pass PRDs too.
+
+## What it costs to change later
+
+Reverting the edits: the fleet dashboard's PRD tile would say it could not load.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether a later slice planned to own the fleet loader (author)
+
+```
+
+<!-- /omni-outbox-settled: s6-02-fleet-board-outside-territory -->
+
+<!-- omni-outbox-settled: s6-03-who-opened-a-prd -->
+
+## s6-03-who-opened-a-prd — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s6
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s6-03-who-opened-a-prd
+prd: 587
+slice: s6
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 3
+---
+
+## The question, in plain words
+
+To count your PRDs or a fleet's, the dashboard must know who opened each one. Where should that come from?
+
+## The decision, in plain words
+
+From who opened the PRD issue, as the game already records it, or from who opened its page. A PRD with neither counts on the workspace dashboard only.
+
+## The intro, for fun
+
+Every PRD has a parent, but some of them left no forwarding address.
+
+## The punchline, for fun
+
+Those orphans still count for the workspace, just not for anyone in particular.
+
+## The options, in plain words
+
+A. Use the recorded issue author, then the page opener, the option built.
+B. Have the stage sync store each PRD issue's author beside its stages.
+C. Count by the page opener only.
+
+## What I had to decide
+
+Which record says who opened a PRD, for the personal and fleet counts and the People column.
+
+## What I did meanwhile
+
+The issue author from the recorded PRD-opened events, matched by repository name and number, or the account that opened the PRD's page; neither known means workspace only.
+
+## What it costs to change later
+
+A change in one read and one pure function; no stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- the PRD-opened events are only polled over the last 40 days, so an older PRD with no page may have no known opener (author)
+- whether the stage sync should store the issue author itself (author)
+
+```
+
+<!-- /omni-outbox-settled: s6-03-who-opened-a-prd -->
