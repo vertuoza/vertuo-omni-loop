@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import type { DocumentGroup } from '../waiting/documents';
 import { EMPTY_WAITING, type WaitingList, type WaitingOutbox, type WaitingQuestion } from '../waiting/waiting';
 import { BellView } from './Bell.tsx';
 import type { BellAlerts, BellUnread } from './bell';
@@ -77,6 +78,32 @@ describe('the bell', () => {
     expect(body).not.toContain('Nothing waiting for you.');
     const kept = panel(render({ questions: [q('a', MIN)], outbox: [] }, { questions: true }));
     expect(text(kept)).toMatch(/Questions couldn't be read — retrying\. .*Which a\?/);
+  });
+});
+
+describe('its New documents group (PRD 579)', () => {
+  const doc: DocumentGroup = { dossierId: 'd-579', prd: 579, title: 'New documents alert', kinds: ['spec', 'before-after'], newestId: 'v9', newestAt: NOW - 3 * MIN };
+  const withDocs = (list: WaitingList, documents: DocumentGroup[]) =>
+    renderToStaticMarkup(createElement(BellView, { list, unread: {}, now: NOW, documents }));
+
+  it('lists each PRD after Outbox, linking to its page, with the kinds and how long ago', () => {
+    const body = panel(withDocs({ questions: [], outbox: [o('i1', 459, 'high')] }, [doc]));
+    expect(body.indexOf('>Outbox<')).toBeLessThan(body.indexOf('>New documents<'));
+    const links = [...body.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map((m) => [m[1], text(m[2])]);
+    expect(links.at(-1)).toEqual(['/prd/d-579', 'PRD 579 · New documents alert New spec, before/after 3 min']);
+  });
+
+  it('never adds to the bell\'s count or its name', () => {
+    const none = button(withDocs(EMPTY_WAITING, [doc]));
+    expect(none).toContain('aria-label="Nothing waiting for you"');
+    expect(none).not.toContain('bell-badge');
+    const one = button(withDocs({ questions: [q('a', MIN)], outbox: [] }, [doc, { ...doc, dossierId: 'd-572', prd: 572 }]));
+    expect(one).toContain('aria-label="Waiting for you: 1"');
+    expect(one).toMatch(/<span class="bell-badge" aria-hidden="true">1<\/span>/);
+  });
+
+  it('with only new documents, does not say nothing waits', () => {
+    expect(panel(withDocs(EMPTY_WAITING, [doc]))).not.toContain('Nothing waiting for you.');
   });
 });
 
