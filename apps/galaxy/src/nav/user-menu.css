@@ -69,6 +69,7 @@
   color: var(--ask-ink);
   font: 600 14px/1.3 var(--ask-body);
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
 }
 .user-menu-item:hover,

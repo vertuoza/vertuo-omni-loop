@@ -278,3 +278,38 @@ describe('the stages (PRD 587)', () => {
     expect(history()).not.toContain('PRDs by stage');
   });
 });
+
+describe('one person\'s PRDs, who=<login> (PRD 698)', () => {
+  const ADA: HistoryFilters = { who: { login: 'ada-gh' } };
+  const theirs = (filters: HistoryFilters, whom = new Set(['u-pierre'])) => renderToStaticMarkup(createElement(DossierHistory, {
+    items: historyItems(ROWS, filters, 'u-other', new Map(), new Map(), whom), choices: historyChoices(ROWS), filters,
+  }));
+
+  it('presses neither Mine nor All, and both leave the person', () => {
+    expect(toggle(theirs(ADA))).toEqual([['Mine', '/prd', false], ['All', '/prd?who=all', false]]);
+  });
+
+  it('reads "Opened by @login", linking to their profile, and lists their PRDs', () => {
+    const html = theirs(ADA);
+    expect(html).toContain('<p class="ask-hint dossier-history-by">Opened by <a href="/app/people/ada-gh">@ada-gh</a></p>');
+    expect(html).toContain('href="/prd/00000000-0000-4000-8000-0000000000d1"');
+  });
+
+  it('keeps the login in the form, and Clear keeps it', () => {
+    const html = theirs({ ...ADA, search: 'dossiers' });
+    expect(html).toContain('<input type="hidden" name="who" value="ada-gh"/>');
+    expect(html).toContain('href="/prd?who=ada-gh">Clear</a>');
+  });
+
+  it('says so when they opened none, pointing to All', () => {
+    const html = theirs(ADA, new Set());
+    expect(html).toContain('@ada-gh has not opened a PRD here.');
+    expect(html).toContain('href="/prd?who=all"');
+    expect(html).not.toContain('You have not opened');
+  });
+
+  it('draws no "Opened by" line under Mine or All', () => {
+    expect(history()).not.toContain('Opened by');
+    expect(history({ who: 'mine' })).not.toContain('Opened by');
+  });
+});

@@ -1,9 +1,10 @@
-/* The app's top bar (PRD 438): the page's title on the left, the theme switch and Game mode, then
-   you, on the right. Every colour is a token of src/ask/theme-tokens.ts, so Omni, light and dark
-   follow the theme switch. It stands apart from the page on the surface, over a 2 px strong rule
-   (PRD 498, T1). Its end wraps rather than push the page sideways.
-   Below 900 px (src/nav/drawer.ts) the sidebar is a drawer: the first row holds ☰, the crest, the
-   title and you; the theme switch and Game mode wrap to a second row. */
+/* The app's top bar (PRD 438): the section's sprite in its tile and the trail to the page on the left
+   (issue 704), the theme switch and Game mode, then you, on the right. Every colour is a token of
+   src/ask/theme-tokens.ts, so Omni, light and dark follow the theme switch. It stands apart from the
+   page on the surface, over a 2 px strong rule (PRD 498, T1). Its end wraps rather than push the page
+   sideways.
+   Below 900 px (src/nav/drawer.ts) the sidebar is a drawer: the first row holds ☰, the tile, the
+   trail and you; the theme switch and Game mode wrap to a second row. */
 
 .app-bar {
   /* The bell's panel hangs from the bar on a phone (bell.css). */
@@ -18,12 +19,40 @@
   background: var(--ask-surface);
   border-bottom: 2px solid var(--ask-line-strong);
 }
-.app-bar-title {
-  margin: 0;
-  font: 700 16px/1.3 var(--ask-body);
-  color: var(--ask-ink);
-  overflow-wrap: anywhere;
+/* The section's sprite (issue 704), at 2× in a sunk tile, crisp: the bar shows where you are at a
+   glance, as the sidebar does beside each section. */
+.app-bar-tile {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 8px;
+  background: var(--ask-sunk);
+  line-height: 0;
 }
+.app-bar-tile svg { image-rendering: pixelated; }
+
+/* The trail (issue 704): the group and the crumbs above the page muted, the page (the last crumb,
+   a link back from a page under it) in ink. */
+.app-bar-trail { min-width: 0; }
+.app-bar-trail ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 600 15px/1.3 var(--ask-body);
+  color: var(--ask-muted);
+}
+.app-bar-trail li { display: inline-flex; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+.app-bar-sep { font-weight: 700; color: var(--ask-muted); }
+.app-bar-here { font-size: 16px; font-weight: 700; color: var(--ask-ink); }
+.ask a.app-bar-up { color: inherit; text-decoration: none; }
+.ask a.app-bar-up:hover { color: var(--ask-ink); text-decoration: underline; }
 .app-bar-end {
   display: inline-flex;
   align-items: center;
@@ -39,9 +68,8 @@
   flex-wrap: wrap;
 }
 
-/* ☰ and the crest are the phone's: the sidebar holds the crest from 900 px. */
-.app-bar-menu,
-.app-bar-crest { display: none; }
+/* ☰ is the phone's: the sidebar shows from 900 px. */
+.app-bar-menu { display: none; }
 
 .app-bar-menu {
   place-items: center;
@@ -56,21 +84,20 @@
   cursor: pointer;
 }
 .app-bar-menu[aria-expanded='true'] { border-color: var(--ask-ink); }
-.ask a.app-bar-crest { align-items: center; line-height: 0; text-decoration: none; }
 
 @media (max-width: 899.98px) {
   .app-bar {
     display: grid;
     grid-template-columns: auto auto minmax(0, 1fr) auto;
     grid-template-areas:
-      'menu crest title you'
+      'menu tile trail you'
       'view view view view';
     column-gap: 10px;
     row-gap: 10px;
   }
   .app-bar-menu { display: inline-grid; grid-area: menu; }
-  .ask a.app-bar-crest { display: inline-flex; grid-area: crest; }
-  .app-bar-title { grid-area: title; min-width: 0; }
+  .app-bar-tile { grid-area: tile; }
+  .app-bar-trail { grid-area: trail; }
   .app-bar-you { grid-area: you; justify-self: end; }
   /* Its two halves take their own places in the bar's grid. */
   .app-bar-end { display: contents; }

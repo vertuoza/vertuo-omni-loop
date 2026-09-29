@@ -105,10 +105,10 @@ describe('a board', () => {
     }, {}, {}, false);
     const people = html.slice(html.indexOf('board-people'), html.indexOf('board-repos'));
     const names = [...people.matchAll(/<th scope="row" class="board-name">([\s\S]*?)<\/th>/g)].map((m) => m[1]);
-    expect(names.find((n) => n.includes('ADA'))).toMatch(/^<span class="person-chip is-table"><span class="person-face is-hero" aria-hidden="true"><svg /);
+    expect(names.find((n) => n.includes('ADA'))).toMatch(/^<a class="person-chip is-table" href="\/app\/people\/ada-gh"><span class="person-face is-hero" aria-hidden="true"><svg /);
     expect(names.find((n) => n.includes('Paul'))).toContain('<img class="person-face is-photo" src="https://a.test/paul.png" alt=""');
     expect(names.find((n) => n.includes('NOGIT'))).toContain('data-initial="N"');
-    expect(people).toMatch(/<span class="fleet-chip is-table" style="--fleet:#3355ff"><span class="fleet-chip-mascot" aria-hidden="true"><svg [\s\S]*?<span class="fleet-chip-label">OCTO<\/span>/);
+    expect(people).toMatch(/<a class="fleet-chip is-table" href="\/app\/fleet\?fleet=octo" style="--fleet:#3355ff"><span class="fleet-chip-mascot" aria-hidden="true"><svg [\s\S]*?<span class="fleet-chip-label">OCTO<\/span>/);
     expect(people).toContain('<span class="fleet-chip is-solo">SOLO</span>');
   });
 
@@ -125,7 +125,7 @@ describe('a board', () => {
   it('shows each fleet of the ranking as a chip with its mascot, yours still marked (PRD 652)', () => {
     const html = render({ galaxy: { ...READ.galaxy, teams: [{ ...READ.galaxy.teams[0], mascot: 'octopod' }] } });
     const fleets = html.slice(html.indexOf('board-fleets'));
-    expect(fleets).toMatch(/<th scope="row" class="board-name"><span class="fleet-chip is-table" style="--fleet:#3355ff"><span class="fleet-chip-mascot" aria-hidden="true"><svg [\s\S]*?<span class="fleet-chip-label">OCTO<\/span><\/span><span class="board-you">/);
+    expect(fleets).toMatch(/<th scope="row" class="board-name"><a class="fleet-chip is-table" href="\/app\/fleet\?fleet=octo" style="--fleet:#3355ff"><span class="fleet-chip-mascot" aria-hidden="true"><svg [\s\S]*?<span class="fleet-chip-label">OCTO<\/span><\/a><span class="board-you">/);
     expect(text(fleets)).toContain('1 OCTO ◀ (your fleet) 40');
   });
 

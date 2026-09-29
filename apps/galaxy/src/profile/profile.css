@@ -1,0 +1,22 @@
+/* /app/people/<login> (PRD 698 s3): the header (the person's chip at heading size, @login and their
+   fleet, their season place), then the board, then their pull requests and reviews side by side,
+   stacked at phone width. PRD 698 s5: their PRDs and fixes above them, the same way; a row's title
+   link reads in the body font, its #n in the list's plasma, its pill after it. Every colour is a token of src/ask/theme-tokens.ts. */
+
+.profile-head { display: grid; gap: 4px; min-width: 0; }
+.profile-head .dash-name { margin: 0; }
+.profile-head .person-chip { --chip-size: 32px; white-space: normal; overflow-wrap: anywhere; }
+.profile-who { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; overflow-wrap: anywhere; }
+.profile-works { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 32px; }
+.profile-work { min-width: 0; }
+.profile-work h2 { margin: 0 0 8px; }
+.profile-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.profile-list li { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; min-width: 0; overflow-wrap: anywhere; }
+.profile-list a { font-family: var(--ask-mono); }
+.profile-meta { color: var(--ask-muted); }
+.profile-diff { font-family: var(--ask-mono); }
+.profile-diff .is-add { color: var(--ask-green); }
+.profile-diff .is-del { color: var(--ask-red); }
+.profile-line, .profile-more { margin: 0; overflow-wrap: anywhere; }
+.profile-more { margin-top: 8px; }
+.profile-list a.profile-title { font-family: inherit; }

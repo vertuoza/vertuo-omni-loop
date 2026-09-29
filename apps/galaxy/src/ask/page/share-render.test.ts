@@ -7,6 +7,7 @@ import { AskSession } from './AskSession';
 import { DEMO_MEMBERS, DEMO_OWNER, DEMO_TEAMMATE, demoQuestion, demoState } from './demo';
 import { ForMe } from './ForMe';
 import { ShareButton } from './ShareButton';
+import { nestedLinks } from '../../people/nested-links';
 
 // Sharing a question and For me (PRD 144), as the server renders them: what a person sees before any
 // script runs.
@@ -51,6 +52,12 @@ describe('the Share button', () => {
     expect(html).toContain('Shared with <span class="person-chip is-inline"><img class="person-face is-photo" src="https://github.com/paula.png?size=48" alt=""');
     expect(html).toMatch(/<input[^>]*readOnly=""[^>]*value="https:\/\/galaxy.example\/ask\/q\/r1"/);
     expect(html).toContain('>Copy</button>');
+  });
+
+  it('draws who it went to as a plain chip, never a link (PRD 698)', () => {
+    const html = button({ kind: 'shared', with: 'po', copy: 'idle' });
+    expect(html).not.toContain('<a class="person-chip');
+    expect(nestedLinks(html)).toBe(0);
   });
 
   it('draws the initial of a member shared with whose face is not known, and keeps the options text only (PRD 652)', () => {
@@ -105,6 +112,14 @@ describe('For me', () => {
     expect(text(html)).toContain('vertuo-core · feat/plans · shared by ADA · 4 min left');
     expect(html).toContain('shared by <span class="person-chip is-inline"><span class="person-face is-initial" aria-hidden="true" data-initial="A"></span>ADA</span>');
     expect(html).toContain('4 min left');
+  });
+
+  it('keeps who shared plain inside the question\'s link: no link in a link (PRD 698)', () => {
+    const html = renderToStaticMarkup(createElement(ForMe, {
+      entries: [{ roundId: 'r1', question: 'Which plan?', sessionTitle: 'vertuo-core', sharedBy: 'PAULA', sharedByFace: PHOTO, minutesLeft: 4 }],
+    }));
+    expect(html).toContain('person-chip');
+    expect(nestedLinks(html)).toBe(0);
   });
 
   it('draws the sharer\'s face before their name, when the directory decided one (PRD 652)', () => {

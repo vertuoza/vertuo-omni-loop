@@ -94,7 +94,7 @@ export function BellView({ list, documents = [], unread, now, onOpen, alerts }: 
                       <span className="bell-line-text">{line.text}</span>
                       <span className="bell-line-meta" suppressHydrationWarning>
                         {line.meta}
-                        {line.sharedBy && <> · shared by <PersonChip person={line.sharedBy} size="inline" /></>}
+                        {line.sharedBy && <> · shared by <PersonChip person={line.sharedBy} size="inline" link={false} /></>}
                       </span>
                     </a>
                   </li>

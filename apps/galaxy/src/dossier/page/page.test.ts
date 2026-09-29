@@ -105,7 +105,7 @@ describe('the page to share', () => {
     given.fake.seedPlayer(ADA.id, { login: 'ada-gh', fleet: 'octo', hero: HERO }, { fleet: { name: 'octo', label: 'OCTO', color: '#3355ff', mascot: 'octopod' } });
     given.token = 'bob';
     const page = await html(numbered);
-    expect(page).toMatch(/opened by <span class="person-chip is-inline"><span class="person-face is-hero" aria-hidden="true"><svg [^]*?<\/span>ADA<\/span>/);
+    expect(page).toMatch(/opened by <a class="person-chip is-inline" href="\/app\/people\/ada-gh"><span class="person-face is-hero" aria-hidden="true"><svg [^]*?<\/span><span class="person-chip-name">ADA<\/span><\/a>/);
   });
 
   it('with the people out of reach, still shows the page, the opener with their initial (PRD 652)', async () => {
@@ -482,7 +482,7 @@ describe('the layout', () => {
     const page = renderToStaticMarkup(await Layout({ children: null }));
     // next/link (PRD 657) writes aria-current before href.
     expect(page).toMatch(/<a class="app-sidebar-item" aria-current="page" href="\/prd"><span class="app-sidebar-sprite" aria-hidden="true"><svg [^>]*>.*?<\/svg><\/span>PRDs<\/a>/);
-    expect(page).toContain('<p class="app-bar-title">PRDs</p>');
+    expect(page).toContain('<nav class="app-bar-trail" aria-label="Breadcrumb"><ol><li>Work</li><li class="app-bar-here"><span class="app-bar-sep" aria-hidden="true">›</span><a class="app-bar-up" href="/prd">PRDs</a></li></ol></nav>');
     expect(page).not.toContain('All PRDs');
   });
 });

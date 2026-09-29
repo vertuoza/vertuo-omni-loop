@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect } from 'vitest';
+import { nestedLinks } from '../../people/nested-links';
 import { DEMO_MEMBERS, demoHistory } from './demo';
 import { WorkspaceHistory } from './WorkspaceHistory';
 import { historyChoices, historyList, type HistoryFilters } from './workspace-history';
@@ -67,6 +68,12 @@ describe('the history page', () => {
 
   it('offers no Clear while nothing is chosen', () => {
     expect(page()).not.toContain('ask-history-clear');
+  });
+
+  it('keeps who asked and who answered plain inside each row\'s link: no link in a link (PRD 698)', () => {
+    const html = page();
+    expect(html).toContain('person-chip');
+    expect(nestedLinks(html)).toBe(0);
   });
 
   it('says so when nothing matches, and when nothing was ever asked', () => {

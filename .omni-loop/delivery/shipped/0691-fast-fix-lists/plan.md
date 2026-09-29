@@ -8,7 +8,7 @@ feature branch, with `Part of #691`.
 
 | id | slice | territory | blocked by | wave |
 | --- | --- | --- | --- | --- |
-| s1 | The `fix_facts` table (migration, SQL check) and its store and fake. `refreshFixFacts(workspace, fixes, deps)` reads each fix through the reader and stores it: an `UNREAD` part keeps the stored value, and a fix with a stored release is not read | `supabase/migrations/20261013090000_fix_facts` `supabase/checks/fix_facts.sql` `apps/galaxy/src/fixes/facts/` | — | 1 |
+| s1 | The `fix_facts` table (migration, SQL check) and its store and fake. `refreshFixFacts(workspace, fixes, deps)` reads each fix through the reader and stores it: an `UNREAD` part keeps the stored value, and a fix with a stored release is not read | `supabase/migrations/20261014090000_fix_facts` `supabase/checks/fix_facts.sql` `apps/galaxy/src/fixes/facts/` | — | 1 |
 | s2 | The stages sync refreshes, per workspace, the facts of every fix dossier that has no stored release | `apps/galaxy/src/stages/sync/` | s1 | 2 |
 | s3 | `/bugs` and `/visual` read `fix_facts` and make no GitHub call. They read the user through `viewer()` and each has a `loading.tsx`. A fix's own page writes the facts it read back to `fix_facts` | `apps/galaxy/src/fixes/FixListRoute` `apps/galaxy/src/fixes/list` `apps/galaxy/src/fixes/routes.test.ts` `apps/galaxy/src/dossier/page/DossierRoute` `apps/galaxy/app/bugs/` `apps/galaxy/app/visual/` | s1 | 2 |
 
@@ -21,7 +21,7 @@ both import s1's module and run in wave 2, after it.
 
 **s1 · The store**
 
-- Migration `20261013090000_fix_facts.sql`: `fix_facts(dossier_id uuid primary key references
+- Migration `20261014090000_fix_facts.sql`: `fix_facts(dossier_id uuid primary key references
   dossiers on delete cascade, workspace_id uuid not null, facts jsonb not null, synced_at timestamptz
   not null)`. Row-level security: members read their workspace (`is_member`), and only the service
   role writes. `supabase/checks/fix_facts.sql` proves both, and that a member of another workspace,

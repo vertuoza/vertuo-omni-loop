@@ -56,7 +56,7 @@ function Picker({ fleets, current, query }: { fleets: Read<FleetRank[]>; current
           {fleets.map((f) => (
             <li key={f.name}>
               <a href={hrefWith(FLEET_PATH, query, { fleet: f.name })} aria-current={f.name === current ? 'page' : undefined}>
-                <FleetChip fleet={fleetTagOf(f)} />
+                <FleetChip fleet={fleetTagOf(f)} link={false} />
                 {f.yours && <span className="fleet-yours"><span aria-hidden="true"> ◀</span><span className="ask-sr"> (your fleet)</span></span>}
               </a>
             </li>
@@ -106,7 +106,7 @@ export function FleetScreen({ view, supabase, signinError, query }: FleetScreenP
         <div className="dash">
           <Picker fleets={view.fleets} current={view.fleet.name} query={query} />
           <header className="fleet-head">
-            <h1 className="dash-name"><FleetChip fleet={view.fleet} /></h1>
+            <h1 className="dash-name"><FleetChip fleet={view.fleet} link={false} /></h1>
             <Place place={view.fleet.place} season={view.board.season.name} />
           </header>
           <Board board={view.board} path={FLEET_PATH} query={query} />

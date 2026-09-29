@@ -1,4 +1,6 @@
-import { type ReactElement } from 'react';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FAKE_WORKSPACE, fakeSupabase } from '../dossier/store.fake';
@@ -6,6 +8,8 @@ import { FAKE_WORKSPACE, fakeSupabase } from '../dossier/store.fake';
 // The routes of PRD 627, called as the server calls them, reading as the viewer through the stubbed
 // client of ../dossier/store.fake.ts: /visual and /bugs list only their kind, /prd only PRDs; a fix's
 // page opens on its own route, and each page sends another kind's id to its own route, the query kept.
+// PRD 691 s3: the lists read the stored fix facts (the fake store of ../fixes/facts/store.fake.ts) and
+// make no GitHub call, which a reader that throws on any call proves; a fix's page stores what it read.
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com', name: 'ADA' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
@@ -16,8 +20,29 @@ const given = vi.hoisted(() => ({
   /** The signed-in person's GitHub login, when they signed in with GitHub (issue 674). */
   login: null as string | null,
   fake: null as unknown as ReturnType<typeof import('../dossier/store.fake').fakeSupabase>,
+  /** The stored fix facts (PRD 691). */
+  facts: null as unknown as import('./facts/store.fake').FakeFixFactsStore,
+  /** When set, the GitHub reader throws on any call: nothing may ask it. */
+  githubDown: false,
+  /** Every GitHub read, in order. */
+  githubCalls: [] as string[],
+  /** When set, GitHub could not read a fix's approvals this time. */
+  approvalsUnread: false,
+  /** The tasks the page left for after the response (Next's after()). */
+  later: [] as (() => unknown)[],
   roster: null as import('../people/load').RosterRow[] | null,
 }));
+
+/** What GitHub says of every fix here (PRD 627, s5): asked by anna, its fix PR open with one approval. */
+const summaryOf = (prd: number) => ({
+  issue: {
+    number: prd, url: `https://github.com/acme/widgets/issues/${prd}`, state: 'open' as const, author: 'anna', createdAt: '2026-09-29T08:00:00Z',
+    risk: prd === 571 ? 'omni:risk-high' : null, regression: prd === 571,
+  },
+  pull: { number: 600, url: 'https://github.com/acme/widgets/pull/600', state: 'open' as const, mergedAt: null, mergedBy: null },
+  approvals: [{ login: 'carla', at: '2026-09-29T11:00:00Z' }],
+  release: null,
+});
 
 vi.mock('server-only', () => ({}));
 vi.mock('next/navigation', async (original) => ({
@@ -25,21 +50,27 @@ vi.mock('next/navigation', async (original) => ({
   useRouter: () => ({ refresh: () => {} }),
   usePathname: () => '/visual',
 }));
-// What GitHub says of every fix here (PRD 627, s5): asked by anna, its fix PR open with one approval.
+vi.mock('next/server', async (original) => ({
+  ...(await original<typeof import('next/server')>()),
+  after: (task: () => unknown) => { given.later.push(task); },
+}));
+const githubRead = (what: string) => {
+  given.githubCalls.push(what);
+  if (given.githubDown) throw new Error(`GitHub was asked: ${what}`);
+};
 vi.mock('../dossier/github/server', () => ({
   dossierGithub: () => ({
-    summary: vi.fn(async () => null),
-    fix: vi.fn(async ({ prd }: { prd: number }) => ({
-      issue: {
-        number: prd, url: `https://github.com/acme/widgets/issues/${prd}`, state: 'open', author: 'anna', createdAt: '2026-09-29T08:00:00Z',
-        risk: prd === 571 ? 'omni:risk-high' : null, regression: prd === 571,
-      },
-      pull: { number: 600, url: 'https://github.com/acme/widgets/pull/600', state: 'open', mergedAt: null, mergedBy: null },
-      approvals: [{ login: 'carla', at: '2026-09-29T11:00:00Z' }],
-      release: null,
-    })),
+    summary: vi.fn(async () => { githubRead('summary'); return null; }),
+    fix: vi.fn(async ({ prd }: { prd: number }) => { githubRead(`fix ${prd}`);
+      return given.approvalsUnread ? { ...summaryOf(prd), approvals: 'unread' } : summaryOf(prd);
+    }),
   }),
 }));
+vi.mock('./facts/store', async (original) => ({
+  ...(await original<typeof import('./facts/store')>()),
+  fixFactsStore: () => given.facts,
+}));
+vi.mock('../data/sign-in-live', () => ({ serviceDb: () => ({}) }));
 // PRD 652, s6: the people directory, read for real (the fake has no roster, so it falls back to GitHub
 // photos) unless a test hands one in.
 vi.mock('../people/load', async (original) => {
@@ -69,6 +100,7 @@ const { default: BugPage } = await import('../../app/bugs/[id]/page.tsx');
 const { default: PrdPage } = await import('../../app/prd/[id]/page.tsx');
 const { GET: roundRoute } = await import('../../app/visual/[id]/r/[round]/page/route.ts');
 const { settled } = await import('../dossier/page/stream/settled');
+const { fakeFixFactsStore } = await import('./facts/store.fake');
 
 let prd = '';
 let visual = '';
@@ -83,6 +115,11 @@ beforeEach(async () => {
   given.roster = null;
   given.login = null;
   given.fake = fakeSupabase({ ada: ADA, bob: BOB }, { [FAKE_WORKSPACE]: 'acme' });
+  given.facts = fakeFixFactsStore(() => '2026-09-29T12:00:00Z');
+  given.githubDown = false;
+  given.githubCalls = [];
+  given.approvalsUnread = false;
+  given.later = [];
   prd = await push('ada', { p_prd: 7, p_title: 'Team inbox', p_artifacts: [{ kind: 'spec', content: '# Team inbox\n' }] });
   visual = await push('bob', {
     p_prd: 548, p_kind: 'visual', p_title: 'Darker sidebar',
@@ -100,7 +137,16 @@ const page = async (route: (p: { params: Promise<{ id: string }>; searchParams: 
   renderToStaticMarkup(await settled(await route({ params: Promise.resolve({ id }), searchParams: query(q) }) as ReactElement));
 const redirectTo = (path: string) => ({ digest: expect.stringContaining(`;${path};`) });
 
+/** Stores what GitHub says of each fix, as the stages sync would have. */
+const stored = (...fixes: [string, number][]) => given.facts.writeFacts(fixes.map(([id, n]) => ({ dossier_id: id, workspace_id: FAKE_WORKSPACE, facts: summaryOf(n) })));
+
 describe('the lists', () => {
+  beforeEach(async () => {
+    await stored([visual, 548], [bug, 571]);
+    given.githubDown = true;
+  });
+  afterEach(() => { expect(given.githubCalls).toEqual([]); });
+
   it('/visual lists the visual fixes only, Mine by default', async () => {
     const mine = await list(VisualList);
     expect(mine).toContain('<h1 class="dossier-title">Visual Updates</h1>');
@@ -152,9 +198,102 @@ describe('the lists', () => {
     expect(all).not.toContain('Ask page crash');
   });
 
+  describe('one person\'s rows, who=<login> (PRD 698)', () => {
+    beforeEach(() => {
+      given.fake.seedPlayer(ADA.id, { login: 'Ada-GH' });
+      given.fake.seedPlayer(BOB.id, { login: 'bob-gh' });
+    });
+
+    it('/prd keeps the PRDs that person opened, read through their account in the viewer\'s workspace', async () => {
+      const ada = await list(PrdList, { who: 'ada-gh' });
+      expect(ada).toContain(`href="/prd/${prd}"`);
+      expect(ada).toContain('Opened by <a href="/app/people/ada-gh">@ada-gh</a>');
+      expect(ada).not.toContain('aria-current="page"');
+      expect(await list(PrdList, { who: 'bob-gh' })).toContain('@bob-gh has not opened a PRD here.');
+      expect(await list(PrdList, { who: 'stranger' })).toContain('@stranger has not opened a PRD here.');
+    });
+
+    it('/bugs keeps the fixes that person pushed, or whose issue they opened', async () => {
+      const ada = await list(BugList, { who: 'ada-gh' });
+      expect(ada).toContain(`href="/bugs/${bug}"`);
+      expect(ada).toContain('Asked by <a href="/app/people/ada-gh">@ada-gh</a>');
+      expect(await list(BugList, { who: 'bob-gh' })).toContain('@bob-gh has not asked for a bug fix here.');
+      // Every issue here was opened by @anna, who holds no account: her issues still count.
+      expect(await list(BugList, { who: 'anna' })).toContain(`href="/bugs/${bug}"`);
+    });
+
+    it('/visual keeps the fixes that person asked for, whoever reads it', async () => {
+      const bob = await list(VisualList, { who: 'bob-gh' });
+      expect(bob).toContain(`href="/visual/${visual}"`);
+      expect(bob).toContain('Asked by <a href="/app/people/bob-gh">@bob-gh</a>');
+      given.token = 'ada';
+      expect(await list(VisualList, { who: 'bob-gh' })).toContain(`href="/visual/${visual}"`);
+      expect(await list(VisualList, { who: 'ada-gh' })).toContain('@ada-gh has not asked for a visual update here.');
+    });
+
+    it('keeps who=mine and who=all as they were', async () => {
+      expect(await list(VisualList, { who: 'mine' })).toContain(`href="/visual/${visual}"`);
+      expect(await list(BugList, { who: 'mine' })).toContain('You have not asked for a bug fix yet.');
+      expect(await list(PrdList, { who: 'all' })).toContain(`href="/prd/${prd}"`);
+      expect(await list(PrdList, { who: 'mine' })).toContain('You have not opened a PRD yet.');
+    });
+  });
+
   it('asks someone signed out to sign in, coming back to the list', async () => {
     given.token = null;
     expect(await list(VisualList)).toContain('Sign in to see your workspace&#x27;s visual updates');
+  });
+
+  it('reads the stored facts of the workspace\'s fixes in one read (PRD 691)', async () => {
+    given.facts.reads = [];
+    await list(BugList, { who: 'all' });
+    expect(given.facts.reads).toEqual([`${FAKE_WORKSPACE} 1`]);
+  });
+
+  it('shows `—` for a fix with no stored facts yet, and keeps it under Mine for who pushed it (PRD 691)', async () => {
+    given.facts.rows = [];
+    const mine = await list(VisualList);
+    expect(mine).toContain(`href="/visual/${visual}"`);
+    expect(mine).toContain('<span class="fix-state fix-state-unknown">—</span>');
+    expect(mine).not.toContain('asked by @anna');
+    given.token = 'ada';
+    given.login = 'Anna';
+    expect(await list(VisualList)).toContain('You have not asked for a visual update yet.');
+  });
+
+  it('shows the lists as the database has them when the stored facts cannot be read (PRD 691)', async () => {
+    given.facts.fail = 'down';
+    const all = await list(BugList, { who: 'all' });
+    expect(all).toContain(`href="/bugs/${bug}"`);
+    expect(all).toContain('<span class="fix-state fix-state-unknown">—</span>');
+  });
+});
+
+describe('the lists\' frame (PRD 691)', () => {
+  const GALAXY = join(import.meta.dirname, '..', '..');
+  const source = (path: string) => readFileSync(join(GALAXY, path), 'utf8');
+
+  it.each(['app/bugs', 'app/visual'])('%s has a loading.tsx that draws the list\'s skeleton', (route) => {
+    const file = join(GALAXY, route, 'loading.tsx');
+    expect(existsSync(file), `${route}/loading.tsx`).toBe(true);
+    expect(source(`${route}/loading.tsx`)).toMatch(/export default function/);
+    expect(source(`${route}/loading.tsx`)).toMatch(/src\/skeleton\//);
+  });
+
+  it('draws each list\'s own heading while it starts', async () => {
+    const { default: BugsLoading } = await import('../../app/bugs/loading.tsx');
+    const { default: VisualLoading } = await import('../../app/visual/loading.tsx');
+    const bugs = renderToStaticMarkup(createElement(BugsLoading));
+    expect(bugs).toContain('<h1 class="dossier-title">Bug Fixes</h1>');
+    expect(bugs).toContain('Loading bug fixes…');
+    expect(bugs).toContain('aria-busy="true"');
+    expect(renderToStaticMarkup(createElement(VisualLoading))).toContain('<h1 class="dossier-title">Visual Updates</h1>');
+  });
+
+  it('reads the user through viewer(), never auth.getUser', () => {
+    const route = source('src/fixes/FixListRoute.tsx');
+    expect(route).not.toMatch(/getUser/);
+    expect(route).toMatch(/dossierSession|viewer\(\)/);
   });
 });
 
@@ -187,6 +326,36 @@ describe('a fix\'s page', () => {
     await expect(page(VisualPage, prd)).rejects.toMatchObject(redirectTo(`/prd/${prd}`));
     await expect(page(BugPage, prd, { tab: 'spec' })).rejects.toMatchObject(redirectTo(`/prd/${prd}?tab=spec`));
     await expect(page(BugPage, visual)).rejects.toMatchObject(redirectTo(`/visual/${visual}`));
+  });
+
+  it('stores what it read of the fix, after the response (PRD 691)', async () => {
+    const html = await page(BugPage, bug);
+    expect(html).toContain('<dt>State</dt>');
+    expect(given.facts.rows).toEqual([]);
+    expect(given.later).toHaveLength(1);
+    await given.later[0]();
+    expect(given.facts.rows).toEqual([{ dossier_id: bug, workspace_id: FAKE_WORKSPACE, facts: summaryOf(571), synced_at: '2026-09-29T12:00:00Z' }]);
+  });
+
+  it('keeps a stored part GitHub could not read this time (PRD 691)', async () => {
+    await stored([visual, 548]);
+    given.approvalsUnread = true;
+    await page(VisualPage, visual);
+    await given.later[0]();
+    expect(given.facts.rows[0].facts.approvals).toEqual(summaryOf(548).approvals);
+  });
+
+  it('only logs a write it could not make (PRD 691)', async () => {
+    given.facts.fail = 'down';
+    await page(VisualPage, visual);
+    await expect(Promise.resolve(given.later[0]())).resolves.toBeUndefined();
+    expect(console.error).toHaveBeenCalled();
+  });
+
+  it('stores nothing when GitHub could not be read (PRD 691)', async () => {
+    given.githubDown = true;
+    await page(VisualPage, visual);
+    expect(given.later).toEqual([]);
   });
 
   it('serves a round of variations sandboxed, to a member only', async () => {

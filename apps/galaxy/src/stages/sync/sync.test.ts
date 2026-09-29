@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { DossierRef } from '../../dossier/github/reader';
+import type { FixSummary } from '../../dossier/github/fix';
+import type { DossierRef, FixReader, FixRef } from '../../dossier/github/reader';
 import type { GithubSummary } from '../../dossier/github/summary';
+import { fakeFixFactsStore } from '../../fixes/facts/store.fake';
 import { fakePrdOutboxStore } from '../outbox/store.fake';
 import { fakeStageStore } from '../store.fake';
 import { syncConfig, type RepoSnapshot } from './core';
@@ -236,5 +238,78 @@ describe('the open outbox questions (PRD 657, s5)', () => {
     const { d, store } = deps();
     expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
     expect(store.writes.length).toBeGreaterThan(0);
+  });
+});
+
+describe('the fix facts (PRD 691, s2)', () => {
+  const REPO = 'acme/widgets';
+  const fixRef = (id: string, prd: number): FixRef => ({ id, home_repo: REPO, prd });
+  const issue = (n: number) => ({ number: n, url: `https://github.com/${REPO}/issues/${n}`, state: 'open' as const, author: 'ada', createdAt: '2026-09-28T09:00:00Z', risk: null, regression: false });
+  const release = { tag: 'v0.0.9', url: `https://github.com/${REPO}/releases/tag/v0.0.9`, at: '2026-09-28T13:00:00Z' };
+  const summary = (n: number, more: Partial<FixSummary> = {}): FixSummary => ({ issue: issue(n), pull: null, approvals: [], release: null, ...more });
+
+  /** The sync with its fix deps: acme holds the fixes f1, f2 and f3, globex holds g1. */
+  function withFixes(more: { fix?: FixReader['fix']; dossiers?: (w: SyncWorkspace) => Promise<FixRef[]> } = {}) {
+    const setup = deps();
+    const facts = fakeFixFactsStore(() => NOW);
+    const asked: string[] = [];
+    const listed: Record<string, FixRef[]> = {
+      acme: [fixRef('f1', 1), fixRef('f2', 2), fixRef('f3', 3)],
+      globex: [{ id: 'g1', home_repo: 'globex/core', prd: 4 }],
+    };
+    const fix = more.fix ?? (async (r: FixRef) => summary(r.prd));
+    const reader: FixReader = { fix: async (r) => { asked.push(r.id); return fix(r); } };
+    setup.d.fixes = { dossiers: more.dossiers ?? (async (w) => listed[w.slug] ?? []), reader, store: facts };
+    return { ...setup, facts, asked };
+  }
+
+  it('reads and stores, per workspace, every fix dossier that has no stored release, at the sync\'s time', async () => {
+    const { d, facts, asked } = withFixes();
+    await facts.writeFacts([{ dossier_id: 'f1', workspace_id: 'w-acme', facts: summary(1, { release }) }], '2026-09-28T00:00:00Z');
+    expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
+    expect(asked.sort()).toEqual(['f2', 'f3', 'g1']);
+    expect(facts.writes.slice(1)).toEqual(['w-acme f2, w-acme f3', 'w-globex g1']);
+    expect(facts.rows.find((r) => r.dossier_id === 'g1')).toMatchObject({ workspace_id: 'w-globex', synced_at: NOW });
+    expect(facts.rows.find((r) => r.dossier_id === 'f1')).toMatchObject({ synced_at: '2026-09-28T00:00:00Z' });
+  });
+
+  it('refreshes a workspace\'s fixes even when its repositories cannot be listed', async () => {
+    const { d, asked } = withFixes();
+    d.repositories = async (w) => {
+      if (w.slug === 'acme') throw new Error('the App is not installed');
+      return ['globex/core'];
+    };
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(asked.sort()).toEqual(['f1', 'f2', 'f3', 'g1']);
+  });
+
+  it('logs a refresh that throws, and the sync still answers 200 with every stage recorded', async () => {
+    const { d, facts, store, lines } = withFixes();
+    facts.fail = 'boom';
+    const res = await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(res.status).toBe(200);
+    expect((await res.json()).skipped).toEqual([]);
+    expect(store.stages.length).toBe(4);
+    expect(lines.filter((l) => l.includes('fix facts') && l.includes('boom')).length).toBe(2);
+  });
+
+  it('logs a workspace whose fix dossiers cannot be listed, and refreshes the others', async () => {
+    const { d, asked, lines } = withFixes({
+      dossiers: async (w) => {
+        if (w.slug === 'acme') throw new Error('Supabase refused: nope');
+        return [{ id: 'g1', home_repo: 'globex/core', prd: 4 }];
+      },
+    });
+    expect((await syncStages(post(`Bearer ${SECRET}`), d)).status).toBe(200);
+    expect(asked).toEqual(['g1']);
+    expect(lines.some((l) => l.includes('acme') && l.includes('nope'))).toBe(true);
+  });
+
+  it('logs a fix GitHub cannot read, and keeps its stored facts', async () => {
+    const { d, facts, lines } = withFixes({ fix: async (r) => { if (r.id === 'f2') throw new Error('GitHub answered 502'); return summary(r.prd); } });
+    await facts.writeFacts([{ dossier_id: 'f2', workspace_id: 'w-acme', facts: summary(2) }], '2026-09-28T00:00:00Z');
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(facts.rows.find((r) => r.dossier_id === 'f2')).toMatchObject({ synced_at: '2026-09-28T00:00:00Z' });
+    expect(lines.some((l) => l.includes('502'))).toBe(true);
   });
 });

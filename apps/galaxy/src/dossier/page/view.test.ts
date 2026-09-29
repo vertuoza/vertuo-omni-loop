@@ -749,7 +749,7 @@ describe('the faces of the people it names (PRD 652)', () => {
     expect(first.askedBy).toMatchObject({ name: 'Pierre', face: { kind: 'hero' } });
     expect(first.askedAt).toBe('27 Sep 2026, 09:15 UTC');
     expect(first.answeredBy).toEqual({
-      person: { name: 'marie@vertuoza.com', face: { kind: 'photo', url: 'https://a.test/marie.png' }, fleet: 'solo' },
+      person: { name: 'marie@vertuoza.com', face: { kind: 'photo', url: 'https://a.test/marie.png' }, fleet: 'solo', login: 'marie-gh' },
       rest: ' after 1 min 35 s, on the page',
     });
     expect(`answered by ${first.answeredBy!.person.name}${first.answeredBy!.rest}`).toBe(first.outcome);
