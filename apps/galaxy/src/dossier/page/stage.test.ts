@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { UNREAD, type GithubSummary, type PullRef } from '../github/summary';
-import { stageOf, stageView, UNKNOWN_WORDS } from './stage';
+import type { StageRow } from '../../stages/stage';
+import { stageOf, stageView, syncedWords } from './stage';
 
-// The stage and its next action (PRD 426, part 2): each row of the spec's table, tried from the latest
-// stage down, and unknown whenever what decides it could not be read.
+// PRD 426's reading of the stage from the GitHub summary, which only the page's pulse still uses: each
+// row of its spec's table, tried from the latest stage down, and unknown whenever what decides it could
+// not be read. Then the header's view (PRD 587): the stage from the stored rows, the button and the links
+// from the summary.
 
 const pr = (number: number, state: PullRef['state'], draft = false): PullRef =>
   ({ number, url: `https://github.com/acme/widgets/pull/${number}`, state, draft });
@@ -13,7 +16,7 @@ const summary = (more: Partial<GithubSummary> = {}): GithubSummary => ({
   phase0: null, feature: null, retro: null, mergedSlices: 0, ...more,
 });
 
-describe('the stage of a PRD', () => {
+describe('the stage of a PRD, read from GitHub for the pulse', () => {
   it('is idea for a draft, whatever GitHub says', () => {
     expect(stageOf(null, null)).toEqual({ id: 'idea', action: null, caption: 'Brainstorm in progress' });
   });
@@ -87,13 +90,17 @@ describe('the stage of a PRD', () => {
   });
 });
 
-describe('the header\'s view of the stage', () => {
-  it('lights the current stop, ticks those passed, names the stage in words and lists only the links that exist', () => {
-    const view = stageView(426, summary({ phase0: pr(431, 'merged'), feature: pr(433, 'open', true), mergedSlices: 1 }), 3);
+const row = (stage: StageRow['stage'], synced_at = '2026-09-29T09:15:00Z'): StageRow => ({ stage, reached_at: '2026-09-20T09:00:00Z', synced_at });
+
+describe('the header\'s view of the stage (PRD 587)', () => {
+  const building = summary({ phase0: pr(431, 'merged'), feature: pr(433, 'open', true), mergedSlices: 1 });
+
+  it('takes the stage from the stored rows, lights it bold with the earlier stops passed, and lists only the links that exist', () => {
+    const view = stageView({ prd: 426, rows: [row('prd'), row('inbox'), row('building')], github: building, slices: 3 });
     expect(view.track.map((s) => `${s.label}:${s.state}`)).toEqual(
-      ['idea:passed', 'PRD:passed', 'inbox:passed', 'outbox:current', 'shipped:ahead', 'retro:ahead'],
+      ['idea:passed', 'PRD:passed', 'inbox:passed', 'building:current', 'outbox:ahead', 'shipped:ahead', 'retro:ahead'],
     );
-    expect(view.words).toBe('Stage: outbox');
+    expect(view).toMatchObject({ id: 'building', words: 'Stage: building', caption: 'Being built · 1/3 slices', action: null, badge: null });
     expect(view.links).toEqual([
       { label: 'issue #426', href: 'https://github.com/acme/widgets/issues/426', done: false },
       { label: 'phase-0 #431', href: 'https://github.com/acme/widgets/pull/431', done: true },
@@ -101,14 +108,42 @@ describe('the header\'s view of the stage', () => {
     ]);
   });
 
-  it('lights nothing when unknown, and says so', () => {
-    const view = stageView(426, null);
-    expect(view.track.every((s) => s.state === 'ahead')).toBe(true);
-    expect(view.words).toBe(UNKNOWN_WORDS);
-    expect(view.links).toEqual([]);
+  it('never reads GitHub for the stage: the stored stage shows with the summary missing, only the GitHub-bound button goes', () => {
+    for (const github of [null, undefined, summary({ retro: UNREAD, feature: UNREAD, phase0: UNREAD, mergedSlices: UNREAD, issue: UNREAD })]) {
+      const view = stageView({ prd: 426, rows: [row('outbox')], github });
+      expect(view).toMatchObject({ id: 'outbox', words: 'Stage: outbox', action: null, links: [] });
+      expect(stageView({ prd: 426, rows: [row('inbox')], github }).action).toEqual({ kind: 'copy', label: 'Build it', command: '/omni:yolo 426' });
+      expect(stageView({ prd: 426, rows: [row('building')], github }).caption).toBe('Being built');
+      expect(stageView({ prd: 426, rows: [row('shipped')], github }).caption).toBe('Shipped · the retro is written next');
+    }
   });
 
-  it('leaves out of the links line what could not be read', () => {
-    expect(stageView(426, summary({ issue: UNREAD, phase0: pr(431, 'open') })).links.map((l) => l.label)).toEqual(['phase-0 #431']);
+  it('keeps PRD 426\'s button for each stage', () => {
+    const at = (rows: StageRow[], github: GithubSummary) => stageView({ prd: 426, rows, github, slices: 4 }).action;
+    expect(at([row('prd')], summary({ phase0: pr(431, 'open') }))).toEqual({ kind: 'link', label: 'Approve spec', href: 'https://github.com/acme/widgets/pull/431' });
+    expect(stageView({ prd: 426, rows: [row('prd')], github: summary() }).caption).toBe('Spec being written');
+    expect(at([row('outbox')], summary({ feature: pr(433, 'open') }))).toEqual({ kind: 'link', label: 'Review & merge', href: 'https://github.com/acme/widgets/pull/433' });
+    expect(at([row('retro')], summary({ retro: pr(440, 'open') }))).toEqual({ kind: 'link', label: 'Read the retro', href: 'https://github.com/acme/widgets/pull/440' });
+    expect(at([row('shipped')], summary({ feature: pr(433, 'merged') }))).toBeNull();
+  });
+
+  it('at building with open outbox items, shows N questions waiting linking to the outbox comment, and Answer the outbox', () => {
+    const item = { id: 's1-01-x', rank: 'high' as const, question: 'Q?', decision: 'D.', options: [], personSteps: null };
+    const comment = 'https://github.com/acme/widgets/pull/433#issuecomment-9';
+    const view = stageView({ prd: 426, rows: [row('building')], github: { ...building, outbox: { open: [item, { ...item, id: 's1-02-y' }], settled: [] }, outboxComment: comment } });
+    expect(view.badge).toEqual({ label: '2 questions waiting', href: comment });
+    expect(view.action).toEqual({ kind: 'link', label: 'Answer the outbox', href: comment });
+  });
+
+  it('reads Brainstorming for a draft with no answer and idea once answered, with no links and no sync time', () => {
+    expect(stageView({ prd: null, rows: [] })).toMatchObject({ id: 'brainstorming', words: 'Brainstorming', caption: null, links: [], synced: null });
+    expect(stageView({ prd: null, answered: true, rows: [] }).caption).toBe('Brainstorm in progress');
+    expect(stageView({ prd: null, answered: true, rows: [] })).toMatchObject({ id: 'idea', words: 'Stage: idea' });
+  });
+
+  it('reads Syncing… for a numbered PRD with no rows yet, and says when each PRD was last synced', () => {
+    expect(stageView({ prd: 426, rows: [], github: building })).toMatchObject({ id: 'syncing', words: 'Syncing…', action: null, caption: null, synced: 'not synced yet' });
+    expect(stageView({ prd: 426, rows: [row('prd', '2026-09-29T11:15:00Z')] }).synced).toBe('last synced 29 Sep 2026, 11:15 UTC');
+    expect(syncedWords(null)).toBe('not synced yet');
   });
 });

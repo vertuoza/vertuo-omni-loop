@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createElement, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fakeStageStore } from '../../stages/store.fake';
 import { FAKE_WORKSPACE, fakeSupabase } from '../store.fake';
 import { signature } from './live';
 import { LiveRefresh } from './live-refresh';
@@ -25,6 +26,8 @@ const given = vi.hoisted(() => ({
   path: '/prd',
   // The GitHub reader (PRD 426), stubbed: the tests never call GitHub.
   summary: null as unknown as import('vitest').Mock,
+  // The stored stages (PRD 587), in memory.
+  stages: null as unknown as import('../../stages/store.fake').FakeStageStore,
 }));
 
 vi.mock('server-only', () => ({}));
@@ -35,6 +38,10 @@ vi.mock('next/navigation', async (original) => ({
   usePathname: () => given.path,
 }));
 vi.mock('../github/server', () => ({ dossierGithub: () => ({ summary: given.summary }) }));
+vi.mock('../../stages/store', async (original) => ({
+  ...(await original<typeof import('../../stages/store')>()),
+  stageStore: () => given.stages,
+}));
 vi.mock('../../data/mode', () => ({ arcadeMode: () => given.mode }));
 vi.mock('../../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
@@ -64,6 +71,7 @@ beforeEach(async () => {
   });
   numbered = (pushed.data as { id: string }).id;
   given.summary = vi.fn(async () => null);
+  given.stages = fakeStageStore();
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => { vi.restoreAllMocks(); });
@@ -255,7 +263,7 @@ describe('the page to share', () => {
   });
 });
 
-describe('the stage, read from GitHub (PRD 426)', () => {
+describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426)', () => {
   const inbox = {
     repo: 'acme/widgets', prd: 7, folder: '0007-team-inbox', topic: 'team-inbox',
     issue: { number: 7, url: 'https://github.com/acme/widgets/issues/7', state: 'open' },
@@ -263,8 +271,12 @@ describe('the stage, read from GitHub (PRD 426)', () => {
     feature: null, retro: null, mergedSlices: 0,
   };
 
-  it('reads GitHub for a signed-in member on a numbered dossier, and shows its stage', async () => {
+  const stored = (stage: 'inbox' | 'shipped') =>
+    given.stages.recordStages([{ workspace_id: FAKE_WORKSPACE, repository: 'acme/widgets', prd: 7, stage, reached_at: '2026-09-28T10:00:00Z' }], '2026-09-29T09:15:00Z');
+
+  it('reads the stored stage and GitHub for a signed-in member on a numbered dossier, and shows its stage and button', async () => {
     given.summary.mockResolvedValue(inbox);
+    await stored('inbox');
     given.token = 'bob';
     const page = await html(numbered);
     expect(given.summary).toHaveBeenCalledWith({ id: numbered, home_repo: 'acme/widgets', prd: 7 });
@@ -273,19 +285,31 @@ describe('the stage, read from GitHub (PRD 426)', () => {
     expect(page).toContain('>phase-0 #12</a> <span class="ask-hint">✓</span>');
   });
 
-  it('says the stage is unknown when GitHub did not answer, and still shows the dossier', async () => {
+  it('shows the stored stage when GitHub did not answer, and still shows the dossier', async () => {
     given.summary.mockRejectedValue(new Error('GitHub is down'));
+    await stored('shipped');
     given.token = 'bob';
     const page = await html(numbered);
-    expect(page).toContain('Stage unknown: GitHub did not answer.');
+    expect(page).toContain('<strong>Stage: shipped</strong>');
+    expect(page).toContain('title="last synced 29 Sep 2026, 09:15 UTC"');
     expect(page).toContain(`src="/prd/${numbered}/v/1/page"`);
+  });
+
+  it('says Syncing… for a PRD with no stored stage yet, or whose stages could not be read', async () => {
+    given.summary.mockResolvedValue(inbox);
+    given.token = 'bob';
+    expect(await html(numbered)).toContain('<strong>Syncing…</strong>');
+    given.stages.fail = 'down';
+    const page = await html(numbered);
+    expect(page).toContain('<strong>Syncing…</strong>');
+    expect(page).toContain('PRD #7 ↗');
   });
 
   it('makes no GitHub call for a signed-out visitor, a draft, or demo mode', async () => {
     await html(numbered);
     given.token = 'ada';
     const page = await html(draft);
-    expect(page).toContain('<strong>Stage: idea</strong>');
+    expect(page).toContain('<strong>Brainstorming</strong></p>');
     given.mode = 'demo';
     await html('anything');
     expect(given.summary).not.toHaveBeenCalled();

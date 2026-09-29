@@ -9,12 +9,14 @@
 // brainstorm asked a question in another repository, and a PRD the page read from the repository, so
 // every filter has something to keep and something to leave out.
 //
-// Its GitHub summary (PRD 426, part 6) is built in, so demo mode makes no GitHub call: the PRD is in
-// the outbox stage, three of its five slices merged into the feature branch, two decisions open and
-// two settled, and no retro yet. Its outbox (PRD 251, s9) reads like a real one on the Outbox tab: a
+// Its GitHub summary (PRD 426, part 6) is built in, so demo mode makes no GitHub call: three of its five
+// slices merged into the feature branch, two decisions open and two settled, and no retro yet. Its
+// stored stages (PRD 587) are built in too: PRD, inbox and building, so the header shows building with
+// its questions badge. Its outbox (PRD 251, s9) reads like a real one on the Outbox tab: a
 // human action and a decision open, in the pull request's numbering, one answered on GitHub and not
 // yet settled, a medium adopted when raised, and Send off (the dossier is marked `demo`).
 import { DEMO_MEMBERS, DEMO_OWNER } from '../../ask/page/demo';
+import type { StageRow } from '../../stages/stage';
 import type { GithubSummary } from '../github/summary';
 import { DOSSIER_KINDS, type DossierListRow, type DossierRoundRow, type DossierVersionRow, type LatestVersion } from '../store';
 import type { DossierRead } from './view';
@@ -223,6 +225,16 @@ export const DEMO_GITHUB: GithubSummary = {
 /** The demo dossier's repositories: its home, then its planet's regions. */
 const DEMO_REPOS = [DEMO_REPO, 'vertuoza/vertuo-core', 'vertuoza/vertuo-web'];
 
+/** The demo PRD's stored stages: opened, its phase-0 merged, its first slice merged; synced 5 minutes ago. */
+export function demoStages(opened: number): StageRow[] {
+  const synced = iso(opened + 3 * 24 * 60 * MIN - 5 * MIN);
+  return [
+    { stage: 'prd', reached_at: iso(opened + 90 * MIN), synced_at: synced },
+    { stage: 'inbox', reached_at: iso(opened + 24 * 60 * MIN), synced_at: synced },
+    { stage: 'building', reached_at: iso(opened + 2 * 24 * 60 * MIN), synced_at: synced },
+  ];
+}
+
 export function demoDossier(now: number): DossierRead {
   const opened = now - 3 * 24 * 60 * MIN;
   const version = (id: string, kind: DossierVersionRow['kind'], at: number, more: Partial<DossierVersionRow> = {}): DossierVersionRow => ({
@@ -245,6 +257,7 @@ export function demoDossier(now: number): DossierRead {
     repos: DEMO_REPOS,
     github: DEMO_GITHUB,
     slices: 5,
+    stages: demoStages(opened),
     demo: true,
   };
 }
