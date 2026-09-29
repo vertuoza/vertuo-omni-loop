@@ -12,7 +12,7 @@ const SESSION = '00000000-0000-4000-8000-0000000000a5';
 const row = (round_id: string, status: DossierRoundRow['status'], created_at: string) => ({ round_id, status, created_at });
 const ROUNDS = [row('r1', 'answered', '2026-09-28T09:00:00Z'), row('r2', 'open', '2026-09-28T09:10:00Z')];
 
-const answered = (byMe: boolean): QuestionView => ({ kind: 'answered', by: byMe ? 'Ada' : 'Bob', byMe, via: 'page', lines: [], earlier: [] });
+const answered = (byMe: boolean): QuestionView => ({ kind: 'answered', by: byMe ? 'Ada' : 'Bob', byFace: { kind: 'initial', letter: byMe ? 'A' : 'B' }, byMe, via: 'page', lines: [], earlier: [] });
 const open: QuestionView = { kind: 'open', canAnswer: true, questions: [], movesAt: 0, earlier: [] };
 
 function reader(rounds: BackRounds | Error) {

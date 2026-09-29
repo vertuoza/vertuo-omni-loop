@@ -1,3 +1,4 @@
+import { PersonChip } from '../../people/PersonChip';
 import { CATEGORIES, CATEGORY_LABELS } from '../classify';
 import { ContextLine } from './ContextLine';
 import { Screenshots } from './History';
@@ -52,10 +53,19 @@ function Filters({ choices, filters }: { choices: HistoryChoices; filters: Histo
 
 const STATUS: Record<HistoryItem['status'], string> = { open: 'waiting', answered: 'answered', abandoned: 'moved to the terminal' };
 
+/** Who asked and who answered, each as a chip (PRD 652): the text reads as it did, the faces added. */
+function Who({ item }: { item: HistoryItem }) {
+  const asked = <>asked by <PersonChip person={{ name: item.askedBy, face: item.askedByFace }} size="inline" /></>;
+  if (item.answeredBy === null || item.answeredByFace === null) return <span className="ask-hint">{asked}{` · ${STATUS[item.status]}`}</span>;
+  const via = item.via ? `, ${item.via === 'page' ? 'on the page' : 'in the terminal'}` : '';
+  return (
+    <span className="ask-hint">
+      {asked}{' · answered by '}<PersonChip person={{ name: item.answeredBy, face: item.answeredByFace }} size="inline" />{via}
+    </span>
+  );
+}
+
 function Row({ item }: { item: HistoryItem }) {
-  const who = item.answeredBy
-    ? `asked by ${item.askedBy} · answered by ${item.answeredBy}${item.via ? `, ${item.via === 'page' ? 'on the page' : 'in the terminal'}` : ''}`
-    : `asked by ${item.askedBy} · ${STATUS[item.status]}`;
   return (
     <li>
       <a className="ask-history-link" href={item.href}>
@@ -69,7 +79,7 @@ function Row({ item }: { item: HistoryItem }) {
         </span>
         {item.answer !== null && <span className="ask-history-answer">{item.answer}</span>}
         <Screenshots count={item.screenshots} />
-        <span className="ask-hint">{who}</span>
+        <Who item={item} />
       </a>
       <ContextLine parts={item.context} />
     </li>

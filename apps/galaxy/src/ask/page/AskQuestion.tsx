@@ -8,6 +8,7 @@ import { CategoryChip } from './CategoryChip';
 import { ContextLine } from './ContextLine';
 import { demoQuestionPort } from './demo';
 import { AnswerList, History } from './History';
+import { PersonChip } from '../../people/PersonChip';
 import { useWaiting } from '../../waiting/WaitingProvider';
 import { titled } from '../../waiting/waiting';
 import { poll } from './poll';
@@ -161,7 +162,7 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
 
       {view.kind === 'answered' && (
         <section className="ask-card" aria-live="polite">
-          <h1>{answeredTitle(view)}</h1>
+          <h1>{view.byMe ? answeredTitle(view) : <>Already answered by <PersonChip person={{ name: view.by, face: view.byFace }} size="inline" /></>}</h1>
           <p className="ask-muted">{view.via === 'terminal' ? 'Answered in the terminal.' : 'Answered on the page.'}</p>
           <AnswerList lines={view.lines} className="ask-answered" />
         </section>
