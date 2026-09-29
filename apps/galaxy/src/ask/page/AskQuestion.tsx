@@ -7,7 +7,7 @@ import { backAfterSend, dossierRoundsReader, noRounds } from './back';
 import { CategoryChip } from './CategoryChip';
 import { ContextLine } from './ContextLine';
 import { demoQuestionPort } from './demo';
-import { History } from './History';
+import { History, Screenshots } from './History';
 import { useWaiting } from '../../waiting/WaitingProvider';
 import { titled } from '../../waiting/waiting';
 import { poll } from './poll';
@@ -167,7 +167,7 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
             {view.lines.map((line, i) => (
               <Fragment key={i}>
                 <dt>{line.question}</dt>
-                <dd>{line.answer ?? '—'}</dd>
+                <dd>{line.answer ?? '—'}<Screenshots count={line.screenshots} before=" " /></dd>
               </Fragment>
             ))}
           </dl>

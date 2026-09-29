@@ -27,7 +27,7 @@ export type StorageDb = Pick<SupabaseClient, 'storage'>;
 export type SortDb = Pick<SupabaseClient, 'rpc'>;
 
 const SESSION = 'id, owner, title, status, created_at, last_seen_at, workspace_id, repo, branch';
-const ROUND = 'id, questions, answers, answered_via, status, created_at, answered_at, prd, skill, model, tokens, cost_usd, answered_by, category, category_by';
+const ROUND = 'id, questions, answers, answered_via, status, created_at, answered_at, attachments, prd, skill, model, tokens, cost_usd, answered_by, category, category_by';
 const HEAD = 'id, status, category, category_by';
 
 type Head = Pick<RoundRow, 'id' | 'status' | 'category' | 'category_by'>;

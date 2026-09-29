@@ -7,7 +7,8 @@ import { AskPage } from './AskPage';
 import { AskSession } from './AskSession';
 import { CategoryChip } from './CategoryChip';
 import { ContextLine } from './ContextLine';
-import { demoSessions, demoState } from './demo';
+import { AskQuestion } from './AskQuestion';
+import { DEMO_MEMBERS, DEMO_TEAMMATE, demoQuestion, demoSessions, demoState } from './demo';
 import { History } from './History';
 import { RoundForm } from './RoundForm';
 import { rowOf, startPage } from './tabs';
@@ -145,6 +146,29 @@ describe('the history, rendered', () => {
 
   it('shows nothing before the first answer', () => {
     expect(renderToStaticMarkup(createElement(History, { history: [] }))).toBe('');
+  });
+
+  it('shows "📎 N screenshots" on an answer that has them, in the summary and the full answer (PRD 620)', () => {
+    const shots: HistoryEntry = { id: 'd', outcome: 'answered', via: 'page', at: '', lines: [{ header: 'Look', question: 'What broke?', answer: '(see screenshots)', screenshots: 2 }] };
+    const withShots = renderToStaticMarkup(createElement(History, { history: [shots] }));
+    expect(withShots).toMatch(/Look: <b>\(see screenshots\)<\/b> <span class="ask-shots-count">📎 2 screenshots<\/span>/);
+    expect(withShots).toMatch(/<dd>\(see screenshots\) <span class="ask-shots-count">📎 2 screenshots<\/span><\/dd>/);
+    expect(html).not.toContain('📎');
+  });
+});
+
+describe('the shared-round page, answered with screenshots (PRD 620)', () => {
+  const NOW = Date.parse('2026-09-26T10:00:00Z');
+  const page = (shots: boolean) => {
+    const initial = demoQuestion(NOW, true);
+    const question = Object.keys(initial.round.answers ?? {})[0];
+    const round = shots ? { ...initial.round, attachments: { [question]: [`${initial.round.id}/1.png`] } } : initial.round;
+    return renderToStaticMarkup(createElement(AskQuestion, { source: { kind: 'demo' }, initial: { ...initial, round }, serverNow: NOW, me: DEMO_TEAMMATE, members: DEMO_MEMBERS }));
+  };
+
+  it('shows "📎 1 screenshot" beside the answer, and nothing new without', () => {
+    expect(page(true)).toMatch(/<dd>[^<]* <span class="ask-shots-count">📎 1 screenshot<\/span><\/dd>/);
+    expect(page(false)).not.toContain('📎');
   });
 });
 

@@ -10,6 +10,7 @@ import { historyChoices, historyList, type HistoryFilters } from './workspace-hi
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
 const rows = demoHistory(NOW);
+const count = (html: string, pattern: RegExp) => html.match(new RegExp(pattern.source, 'g'))?.length ?? 0;
 
 const page = (filters: HistoryFilters = {}) =>
   renderToStaticMarkup(createElement(WorkspaceHistory, {
@@ -32,6 +33,12 @@ describe('the history page', () => {
     expect(html).toContain('data-category="architecture"');
     expect(html).toContain('data-category="unsorted"');
     expect(html).toContain('vertuoza/vertuo-omni-loop · feat/ask-mode · PRD #71');
+  });
+
+  it('shows "📎 N screenshots" on an answer that has them, and nothing on one without (PRD 620)', () => {
+    const html = page();
+    expect(count(html, /📎/)).toBe(1);
+    expect(html).toMatch(/<span class="ask-history-answer">14 days<\/span><span class="ask-shots-count">📎 2 screenshots<\/span>/);
   });
 
   it('offers a GET form with every filter and the search, keeping what is chosen', () => {
