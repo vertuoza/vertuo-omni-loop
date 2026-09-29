@@ -18219,12 +18219,12 @@ function creditItems({ prs, issues = [], commits, labels, signature, since }) {
   const from = since ? time(`${since}-01T00:00:00Z`) : null;
   const seen = /* @__PURE__ */ new Set();
   const items = [];
-  const add = (type, raw, { labelled, merged, counted: counted3, kind }) => {
+  const add = (type, raw, { labelled: labelled2, merged, counted: counted3, kind }) => {
     const key = `${type}:${keyOf(raw.repo, raw.number)}`;
     if (seen.has(key)) return;
     seen.add(key);
     const reasons = [];
-    if (raw.labels.some(labelled)) reasons.push("label");
+    if (raw.labels.some(labelled2)) reasons.push("label");
     if (signature && isSignedBody(raw.body)) reasons.push("marker");
     if (merged) reasons.push("commit");
     if (sameAccount(raw.author, bot)) reasons.push("author");
@@ -19898,6 +19898,14 @@ var PRINCIPLES = deepFreeze([
   "Only a person merges into {defaultBranch}.",
   "Every decision an agent takes alone becomes an outbox item that you answer or adopt."
 ]);
+var SKILL_GROUPS = deepFreeze([
+  { id: "start", title: "Start a change" },
+  { id: "build", title: "Build it" },
+  { id: "setup", title: "Set up a repository" },
+  { id: "multi-repo", title: "Several repositories" },
+  { id: "everyday", title: "Every day" },
+  { id: "run-by-skills", title: "Run by other skills" }
+]);
 var ENTRIES = deepFreeze([
   // Commands you type in the terminal. Their order is the overview's.
   {
@@ -20200,7 +20208,13 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:brainstorm"],
     label: "/omni:brainstorm",
     summary: "an idea, to a design, to a PRD and its phase-0 PR",
-    detail: "Turns an idea into an approved design, then into a PRD the loop can build: the PRD issue, the spec, the before/after page and the plan, in a docs-only phase-0 PR a person reviews and merges before any code is written. It writes no code and merges nothing, and ends with the /omni:yolo line that builds it."
+    detail: "Turns an idea into an approved design, then into a PRD the loop can build: the PRD issue, the spec, the before/after page and the plan, in a docs-only phase-0 PR a person reviews and merges before any code is written. It writes no code and merges nothing, and ends with the /omni:yolo line that builds it.",
+    group: "start",
+    when: "Use it when you have an idea for a change and want it designed before any code is written.",
+    example: {
+      type: "/omni:brainstorm list every skill in the docs",
+      result: "a PRD issue, its spec and plan, and a phase-0 PR for a person to review"
+    }
   },
   {
     name: "mega-brainstorm",
@@ -20209,7 +20223,13 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:mega-brainstorm"],
     label: "/omni:mega-brainstorm",
     summary: "one PRD across repositories, from a plan repository",
-    detail: "The brainstorm of a plan repository, one /omni:mega-invade set up: it turns one idea into one PRD whose plan says which slice lands in which target repository, read from a read-only clone of each, in which nothing runs. The spec, the plan, the draft feature PR and one phase-0 PR, with a table of what lands where, all live in the plan repository; it never writes in a target. It ends with the /omni:ultra-yolo line that builds it."
+    detail: "The brainstorm of a plan repository, one /omni:mega-invade set up: it turns one idea into one PRD whose plan says which slice lands in which target repository, read from a read-only clone of each, in which nothing runs. The spec, the plan, the draft feature PR and one phase-0 PR, with a table of what lands where, all live in the plan repository; it never writes in a target. It ends with the /omni:ultra-yolo line that builds it.",
+    group: "multi-repo",
+    when: "Use it when one idea needs changes in several repositories and this is their plan repository.",
+    example: {
+      type: "/omni:mega-brainstorm show invoices in the mobile app",
+      result: "one PRD whose plan says which slice lands in which repository"
+    }
   },
   {
     name: "yolo",
@@ -20218,7 +20238,13 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:yolo <n>"],
     label: "/omni:yolo <n>",
     summary: "build a whole PRD: plan, waves, the outbox gate, ship",
-    detail: "Builds a whole PRD with nothing asked along the way: plans it if needed, runs /omni:wave until every slice is merged into the feature branch or nothing more can move, then runs the outbox gate. Green, it ships and marks the feature PR ready for a person to merge; red, the PR stays a draft with the outbox questions posted on it. It never merges into {defaultBranch}."
+    detail: "Builds a whole PRD with nothing asked along the way: plans it if needed, runs /omni:wave until every slice is merged into the feature branch or nothing more can move, then runs the outbox gate. Green, it ships and marks the feature PR ready for a person to merge; red, the PR stays a draft with the outbox questions posted on it. It never merges into {defaultBranch}.",
+    group: "build",
+    when: "Use it when a PRD's phase-0 PR is merged and you want it all built with nothing asked.",
+    example: {
+      type: "/omni:yolo 580",
+      result: "the feature PR ready for you to merge, or a draft with the outbox questions"
+    }
   },
   {
     name: "yolo-fix",
@@ -20227,7 +20253,13 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:yolo-fix <n>"],
     label: "/omni:yolo-fix <n>",
     summary: "rework what you answered on the feature PR",
-    detail: "Brings a PRD back in line with what a person answered on its feature PR: settles the replies, reworks every decision they disagreed with as its own slice, inside the bound its item stated, checks the whole feature, then ships it when the gate is green. It asks no question of its own and never merges into {defaultBranch}."
+    detail: "Brings a PRD back in line with what a person answered on its feature PR: settles the replies, reworks every decision they disagreed with as its own slice, inside the bound its item stated, checks the whole feature, then ships it when the gate is green. It asks no question of its own and never merges into {defaultBranch}.",
+    group: "build",
+    when: "Use it when you have answered the outbox questions on a feature PR and want the PRD reworked.",
+    example: {
+      type: "/omni:yolo-fix 580",
+      result: "every decision you disagreed with reworked, then the feature PR shipped"
+    }
   },
   {
     name: "visual-fix",
@@ -20236,7 +20268,13 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:visual-fix <line or n>"],
     label: "/omni:visual-fix",
     summary: "a small visual change, to one PR",
-    detail: "For a small visual change, such as a colour, a spacing or a label: from one line or an issue number, it shows today beside four or five variations, asks which one, applies the pick on a fix branch, looks at the real screen once and opens one PR into {defaultBranch} with its before/after page. No PRD, plan or outbox. A change that needs data, a route or a new screen stops it, with the /omni:brainstorm line to run instead. It never merges."
+    detail: "For a small visual change, such as a colour, a spacing or a label: from one line or an issue number, it shows today beside four or five variations, asks which one, applies the pick on a fix branch, looks at the real screen once and opens one PR into {defaultBranch} with its before/after page. No PRD, plan or outbox. A change that needs data, a route or a new screen stops it, with the /omni:brainstorm line to run instead. It never merges.",
+    group: "start",
+    when: "Use it when something on screen looks off and the fix is a colour, a spacing or a label.",
+    example: {
+      type: "/omni:visual-fix make the sidebar darker",
+      result: "four or five variations to pick from, then one PR with your pick"
+    }
   },
   {
     name: "bug-fix",
@@ -20245,7 +20283,13 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:bug-fix <line or n>"],
     label: "/omni:bug-fix",
     summary: "a bug, to one PR",
-    detail: "For a bug a user, a browser or an API caller can see: from one line or an issue, it posts a triage (how bad, whether a change broke it), proves a reproduction fails before any fix, fixes it test-first on a fix branch, adds the check that would have caught it and opens one PR into {defaultBranch}. No PRD, plan or outbox. A flaky check is not a bug and stops it; a fix that needs a product decision, a stored shape or a new screen stops it, with the /omni:brainstorm line to run instead. It never merges."
+    detail: "For a bug a user, a browser or an API caller can see: from one line or an issue, it posts a triage (how bad, whether a change broke it), proves a reproduction fails before any fix, fixes it test-first on a fix branch, adds the check that would have caught it and opens one PR into {defaultBranch}. No PRD, plan or outbox. A flaky check is not a bug and stops it; a fix that needs a product decision, a stored shape or a new screen stops it, with the /omni:brainstorm line to run instead. It never merges.",
+    group: "start",
+    when: "Use it when something a user can see is broken and needs a fix, not a new design.",
+    example: {
+      type: "/omni:bug-fix the Send button does nothing",
+      result: "a triage on the issue, then one PR with the fix and its test"
+    }
   },
   {
     name: "plan",
@@ -20254,7 +20298,13 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:plan <n>"],
     label: "/omni:plan <n>",
     summary: "slice a PRD into waves (yolo runs it when needed)",
-    detail: "Turns one PRD in the inbox into a plan of thin slices, each with its territory, what blocks it and its wave, written as plan.md beside the spec and graded by omni plan check. It commits the plan on the PRD's feature branch and opens the draft feature PR. It writes no code; /omni:yolo runs it when a PRD has no plan yet."
+    detail: "Turns one PRD in the inbox into a plan of thin slices, each with its territory, what blocks it and its wave, written as plan.md beside the spec and graded by omni plan check. It commits the plan on the PRD's feature branch and opens the draft feature PR. It writes no code; /omni:yolo runs it when a PRD has no plan yet.",
+    group: "build",
+    when: "Use it when a PRD is in the inbox and you want to see its slices and waves before building.",
+    example: {
+      type: "/omni:plan 580",
+      result: "plan.md beside the spec, and the draft feature PR"
+    }
   },
   {
     name: "wave",
@@ -20263,7 +20313,13 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:wave <n>"],
     label: "/omni:wave <n>",
     summary: "build one wave of a PRD's slices",
-    detail: "Builds one wave of a PRD in parallel: claims every slice that can run, has one agent build each in a worktree of its own through /omni:do-work, then merges their sub-PRs into the feature branch one at a time, checks the wave together and adopts its medium decisions. /omni:yolo runs it for each wave. It never merges into {defaultBranch}."
+    detail: "Builds one wave of a PRD in parallel: claims every slice that can run, has one agent build each in a worktree of its own through /omni:do-work, then merges their sub-PRs into the feature branch one at a time, checks the wave together and adopts its medium decisions. /omni:yolo runs it for each wave. It never merges into {defaultBranch}.",
+    group: "build",
+    when: "Use it when you want to build only a PRD's next wave and look at it before the next one.",
+    example: {
+      type: "/omni:wave 580",
+      result: "the wave's sub-PRs merged into the feature branch, and a report"
+    }
   },
   {
     name: "do-work",
@@ -20272,7 +20328,13 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:do-work <n> <slice>"],
     label: "/omni:do-work",
     summary: "build one slice of a PRD",
-    detail: "Builds one slice of a PRD to standard: reads the repository's own context first, works test-first, changes only the slice's territory, records every decision it takes without asking as an outbox item, and ships the slice as a sub-PR into the feature branch. Each agent of /omni:wave does this job; you may run it on one slice."
+    detail: "Builds one slice of a PRD to standard: reads the repository's own context first, works test-first, changes only the slice's territory, records every decision it takes without asking as an outbox item, and ships the slice as a sub-PR into the feature branch. Each agent of /omni:wave does this job; you may run it on one slice.",
+    group: "build",
+    when: "Use it when you want one slice of a PRD built on its own, outside a wave.",
+    example: {
+      type: "/omni:do-work 580 s1",
+      result: "the slice built test-first, as a sub-PR into the feature branch"
+    }
   },
   {
     name: "pr",
@@ -20281,7 +20343,13 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:pr"],
     label: "/omni:pr",
     summary: "open, watch and finish a pull request",
-    detail: "Opens, updates, watches and finishes a pull request of the loop: a feature PR into {defaultBranch}, a sub-PR into a feature branch, or a standalone PR. It keeps its status comment current and works on it while CI is red or it conflicts. The other skills hand their pull requests to it."
+    detail: "Opens, updates, watches and finishes a pull request of the loop: a feature PR into {defaultBranch}, a sub-PR into a feature branch, or a standalone PR. It keeps its status comment current and works on it while CI is red or it conflicts. The other skills hand their pull requests to it.",
+    group: "build",
+    when: "Use it when a pull request needs opening or updating, or its CI is red or it conflicts.",
+    example: {
+      type: "/omni:pr",
+      result: "the pull request opened or updated, its status comment kept current"
+    }
   },
   {
     name: "invade",
@@ -20290,7 +20358,13 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:invade [--refresh]"],
     label: "/omni:invade",
     summary: "set up this repository's knowledge base",
-    detail: "Sets up this repository's knowledge base from what the repository can prove: it explores it without changing it, shows one map and takes every answer in one message, then writes proposed entries and fills the playbook's forms from evidence, leaving a question for a person where proof is missing. It ends with one docs-only PR a person merges. --refresh redoes only what went stale."
+    detail: "Sets up this repository's knowledge base from what the repository can prove: it explores it without changing it, shows one map and takes every answer in one message, then writes proposed entries and fills the playbook's forms from evidence, leaving a question for a person where proof is missing. It ends with one docs-only PR a person merges. --refresh redoes only what went stale.",
+    group: "setup",
+    when: "Use it when a repository has no knowledge base yet, or when its knowledge base went stale.",
+    example: {
+      type: "/omni:invade",
+      result: "one docs-only PR with proposed entries and the playbook filled"
+    }
   },
   {
     name: "mega-invade",
@@ -20299,7 +20373,13 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:mega-invade [--sync]"],
     label: "/omni:mega-invade",
     summary: "make this a plan repository that knows its targets",
-    detail: "Makes this repository a plan repository: it reads the repositories its guide names and its config lists through gh, without cloning, shows one map and takes every answer in one message: target or not, its role, and for one without its own knowledge base whether to import a draft of it. It writes the plan section of the config and each imported copy, from a read-only clone in which nothing runs, and ends with one docs-only PR a person merges. It never writes in a target. omni targets then reports each one; --sync redraws only what changed in the stale copies."
+    detail: "Makes this repository a plan repository: it reads the repositories its guide names and its config lists through gh, without cloning, shows one map and takes every answer in one message: target or not, its role, and for one without its own knowledge base whether to import a draft of it. It writes the plan section of the config and each imported copy, from a read-only clone in which nothing runs, and ends with one docs-only PR a person merges. It never writes in a target. omni targets then reports each one; --sync redraws only what changed in the stale copies.",
+    group: "multi-repo",
+    when: "Use it when a change spans several repositories and you want one repository to plan them.",
+    example: {
+      type: "/omni:mega-invade",
+      result: "one docs-only PR with the plan section of the config and its targets"
+    }
   },
   {
     name: "ask",
@@ -20308,7 +20388,13 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:ask on|off|status"],
     label: "/omni:ask on|off",
     summary: "answer Claude's questions on a web page",
-    detail: "Switches ask mode on or off in this checkout, or says whether it is on. While it is on, every question Claude asks goes to a web page, a tab per terminal, and the terminal takes over whenever the page cannot answer. It needs a sign-in first: omni signin, once per computer."
+    detail: "Switches ask mode on or off in this checkout, or says whether it is on. While it is on, every question Claude asks goes to a web page, a tab per terminal, and the terminal takes over whenever the page cannot answer. It needs a sign-in first: omni signin, once per computer.",
+    group: "everyday",
+    when: "Use it when you would rather answer Claude's questions on a web page than in the terminal.",
+    example: {
+      type: "/omni:ask on",
+      result: "ask mode on, and the link of the page that shows the questions"
+    }
   },
   {
     name: "status",
@@ -20317,7 +20403,13 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:status [--fetch]"],
     label: "/omni:status",
     summary: "where your PRDs are",
-    detail: "Runs omni status inside Claude and prints its overview as is: how many PRDs have shipped, wait in the inbox, are being built in the outbox or wait for review, and the PRDs that are yours, each with where it stands. It fetches first only when you ask for fresh data, and never runs the outbox gate of one PRD."
+    detail: "Runs omni status inside Claude and prints its overview as is: how many PRDs have shipped, wait in the inbox, are being built in the outbox or wait for review, and the PRDs that are yours, each with where it stands. It fetches first only when you ask for fresh data, and never runs the outbox gate of one PRD.",
+    group: "everyday",
+    when: "Use it when you want to know where your PRDs stand without leaving Claude.",
+    example: {
+      type: "/omni:status",
+      result: "how many PRDs shipped, wait in the inbox or the outbox, and yours"
+    }
   },
   {
     name: "help",
@@ -20326,7 +20418,13 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:help [<name>]"],
     label: "/omni:help [<name>]",
     summary: "this page, or one command or skill",
-    detail: "Runs omni help inside Claude and prints its output as is: this page, or, given a name, one command or skill."
+    detail: "Runs omni help inside Claude and prints its output as is: this page, or, given a name, one command or skill.",
+    group: "everyday",
+    when: "Use it when you want the loop explained, or what one command or skill does.",
+    example: {
+      type: "/omni:help yolo",
+      result: "what /omni:yolo does, when to use it and an example"
+    }
   },
   // Skills other skills run.
   {
@@ -20335,7 +20433,13 @@ var ENTRIES = deepFreeze([
     who: "skills",
     usage: ['/omni:dossier-open "<one line of the idea>"'],
     summary: "open a draft dossier for an idea",
-    detail: "Opens a draft dossier for an idea on the Omni page, linked to this Claude session, so the people the idea is for can follow it before the first question is asked. /omni:brainstorm runs it first; it never stops the skill that runs it."
+    detail: "Opens a draft dossier for an idea on the Omni page, linked to this Claude session, so the people the idea is for can follow it before the first question is asked. /omni:brainstorm runs it first; it never stops the skill that runs it.",
+    group: "run-by-skills",
+    when: "Use it when an idea should be followed on the Omni page before its first question.",
+    example: {
+      type: '/omni:dossier-open "a skills page in the docs"',
+      result: `the draft dossier's link, as "follow along at \u2026"`
+    }
   },
   {
     name: "dossier-push",
@@ -20343,7 +20447,13 @@ var ENTRIES = deepFreeze([
     who: "skills",
     usage: ["/omni:dossier-push <n>"],
     summary: "send a PRD's files to its dossier",
-    detail: "Sends PRD n's spec, plan and before/after page to its dossier on the Omni page, adding a version only where a file changed. /omni:brainstorm runs it after each of its pushes, and /omni:plan after it pushes the plan; it never stops the skill that runs it."
+    detail: "Sends PRD n's spec, plan and before/after page to its dossier on the Omni page, adding a version only where a file changed. /omni:brainstorm runs it after each of its pushes, and /omni:plan after it pushes the plan; it never stops the skill that runs it.",
+    group: "run-by-skills",
+    when: "Use it when a PRD's spec, plan or before/after page changed and its dossier should show it.",
+    example: {
+      type: "/omni:dossier-push 580",
+      result: "the dossier's link and the versions it added"
+    }
   }
 ]);
 
@@ -20354,6 +20464,7 @@ var LABEL_COLUMN = 24;
 var STAGE_COLUMN = 9;
 var WHO_RUNS = Object.freeze({ you: "for you", skills: "run by the skills" });
 var HELP_CLOSING = "omni help <command> tells more about any of them.";
+var DOCS_LABEL_COLUMN = 9;
 function repositoryWords(config2) {
   const delivery = config2.paths.delivery;
   return {
@@ -20418,12 +20529,28 @@ function renderOverview(config2, { entries: entries3 = ENTRIES } = {}) {
   lines.push("", HELP_CLOSING);
   return lines.join("\n");
 }
+function labelled(label, text4) {
+  const under = " ".repeat(DOCS_LABEL_COLUMN);
+  const [first = "", ...more] = wrapWords(text4, { width: HELP_WIDTH - DOCS_LABEL_COLUMN });
+  return [label.padEnd(DOCS_LABEL_COLUMN) + first, ...more.map((line) => under + line)];
+}
+function docsLines(entry, fill2) {
+  if (!entry.when || !entry.example) return [];
+  const under = " ".repeat(DOCS_LABEL_COLUMN);
+  const result = wrapWords(fill2(entry.example.result), { width: HELP_WIDTH - DOCS_LABEL_COLUMN - 2 });
+  return [
+    "",
+    ...labelled("When", fill2(entry.when)),
+    ...labelled("Example", fill2(entry.example.type)),
+    ...result.map((line, index) => `${under}${index ? "  " : "\u2192 "}${line}`)
+  ];
+}
 function entryLines(entry, fill2) {
   const [first, ...more] = entry.usage.map(fill2);
   const who2 = WHO_RUNS[entry.who];
   const head = first.length + 2 + who2.length <= HELP_WIDTH ? [`${first.padEnd(HELP_WIDTH - who2.length)}${who2}`, ...more] : [first, ...more, who2.padStart(HELP_WIDTH)];
   const paragraphs = entry.detail.split(/\n\s*\n/).map((paragraph) => wrapWords(fill2(paragraph)));
-  return [...head, "", ...paragraphs.flatMap((lines, index) => index ? ["", ...lines] : lines)];
+  return [...head, "", ...paragraphs.flatMap((lines, index) => index ? ["", ...lines] : lines), ...docsLines(entry, fill2)];
 }
 function renderEntry(name, config2, { entries: entries3 = ENTRIES } = {}) {
   const slash = /^\/omni:(.+)$/.exec(name);
