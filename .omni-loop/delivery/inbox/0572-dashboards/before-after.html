@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Team Dashboards</title>
+<style>
+  /* Layout: a heading, then pairs of mock screens (today | after), each a sidebar beside a page. One look: the app's Omni theme. */
+  :root {
+    color-scheme: dark;
+    --void: #07061c; --deep: #0e0d33; --cab: #120f3a; --line: #1a2170; --navy: #2f3fc4; --white: #f2f4ff;
+    --dim: #8a90d6; --yellow: #ffd84a; --red: #ff3b5c; --green: #4ee08a; --plasma: #a45cff; --cyan: #6ff0ff;
+    --beaver: #ff9d3c; --octopod: #6ff0ff;
+    --pixel: 'Press Start 2P', ui-monospace, 'SF Mono', Menlo, monospace;
+    --display: 'Anton', 'Impact', 'Haettenschweiler', 'Arial Narrow Bold', sans-serif;
+    --body: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--void); color: var(--white); font: 15px/1.55 var(--body); padding: 32px 16px 64px; }
+  main { max-width: 1180px; margin: 0 auto; display: grid; gap: 44px; }
+  h1 { font: 44px/1.05 var(--display); margin: 0; text-wrap: balance; text-transform: uppercase; }
+  h1 em { font-style: normal; color: var(--yellow); }
+  h2 { font: 24px/1.1 var(--display); text-transform: uppercase; margin: 0 0 6px; letter-spacing: .01em; }
+  .lede { max-width: 72ch; color: var(--dim); margin: 12px 0 0; }
+  .meta { font: 10px/1.6 var(--pixel); color: var(--dim); letter-spacing: .04em; margin-top: 14px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 980px) { .pair { grid-template-columns: 1fr; } }
+  .col { min-width: 0; }
+  .tag { font: 10px/1 var(--pixel); letter-spacing: .06em; display: inline-block; padding: 6px 8px; border-radius: 4px; margin-bottom: 10px; }
+  .tag.b { background: var(--deep); color: var(--dim); border: 1px solid var(--line); }
+  .tag.a { background: var(--yellow); color: var(--void); }
+  .screen { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--void); display: grid; grid-template-columns: 150px 1fr; font-size: 12px; min-height: 420px; }
+  @media (max-width: 520px) { .screen { grid-template-columns: 1fr; } }
+  .notes { margin: 10px 0 0; padding-left: 18px; color: var(--dim); font-size: 14px; }
+  .notes b { color: var(--white); }
+  .bad { color: var(--red); } .good { color: var(--green); }
+
+  /* sidebar */
+  .side { background: var(--cab); border-right: 1px solid var(--line); padding: 12px 10px; display: grid; align-content: start; gap: 4px; }
+  .crest { font: 9px/1.4 var(--pixel); color: var(--yellow); }
+  .ws { color: var(--dim); font-size: 11px; margin-bottom: 6px; }
+  .grp { font: 8px/1 var(--pixel); color: var(--dim); letter-spacing: .08em; margin: 10px 0 4px; text-transform: uppercase; }
+  .it { padding: 4px 8px; border-radius: 5px; color: var(--white); display: flex; justify-content: space-between; }
+  .it.sub { padding-left: 18px; color: var(--dim); }
+  .it.on { background: var(--navy); font-weight: 700; }
+  .it.new { outline: 1px dashed var(--yellow); outline-offset: -1px; }
+  .badge { background: var(--red); border-radius: 8px; padding: 0 5px; font-size: 10px; font-weight: 700; }
+
+  /* page */
+  .page { padding: 12px 14px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+  .ttl { font: 18px/1 var(--display); text-transform: uppercase; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .hero { display: flex; gap: 10px; align-items: center; background: var(--deep); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+  .sprite { width: 34px; height: 34px; background: var(--beaver); border-radius: 4px; box-shadow: inset 0 -10px 0 var(--plasma); flex: none; }
+  .small { color: var(--dim); font-size: 11px; }
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .tile { background: var(--deep); border: 1px solid var(--line); border-radius: 6px; padding: 6px 7px; min-width: 0; }
+  .tile .n { font: 18px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+  .tile .l { color: var(--dim); font-size: 10px; }
+  .stage { display: flex; gap: 6px; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .period { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; font-size: 10px; }
+  .period span { padding: 3px 7px; color: var(--dim); }
+  .period span.on { background: var(--yellow); color: var(--void); font-weight: 700; }
+  .panel { background: var(--deep); border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; min-width: 0; }
+  .panel h4 { margin: 0 0 4px; font-size: 11px; color: var(--dim); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  svg { display: block; width: 100%; height: auto; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 11px; }
+  th { text-align: right; color: var(--dim); font-weight: 700; padding: 2px 4px; }
+  td { text-align: right; padding: 3px 4px; border-top: 1px solid var(--line); }
+  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+  tr.me td { background: rgba(47,63,196,.35); }
+  tr.paul td { color: var(--green); }
+  .tbl { overflow-x: auto; }
+  .fl { font: 8px/1 var(--pixel); }
+  .miss { border: 1px dashed var(--red); border-radius: 6px; padding: 6px 8px; color: var(--red); font-size: 11px; }
+  .picker { display: flex; gap: 4px; flex-wrap: wrap; font-size: 10px; }
+  .picker span { border: 1px solid var(--line); border-radius: 10px; padding: 2px 7px; color: var(--dim); }
+  .picker span.on { border-color: var(--beaver); color: var(--beaver); }
+  .legend { display: flex; gap: 8px; font-size: 10px; color: var(--dim); }
+  .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 3px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dashboards: <em>you, your fleet, the workspace</em></h1>
+    <p class="lede">Today, <code>/app</code> only shows the person looking, and other people appear only in a ranking of game points, where anyone at 0 is missing. Paul merged seven PRs into vertuo-ai-domain this week and answered questions, and nobody sees him. After this PRD, the sidebar gets a Dashboard group, and each board lists every member, 0s included, with PRs merged, PRDs per day by stage, repositories and questions answered.</p>
+    <p class="meta">PRD 572 · apps/galaxy · sample numbers</p>
+  </header>
+
+  <section>
+    <h2>Home</h2>
+    <div class="pair">
+      <div class="col">
+        <span class="tag b">TODAY · /app</span>
+        <div class="screen" aria-label="Today's Home">
+          <nav class="side">
+            <div class="crest">OMNI LOOP</div><div class="ws">Vertuoza</div>
+            <div class="grp">Work</div>
+            <div class="it on">Home</div><div class="it">PRDs <span class="badge">2</span></div>
+            <div class="it">Questions</div><div class="it sub">Shared with me</div><div class="it sub">History</div>
+            <div class="it">Knowledge</div><div class="it">Fleets</div>
+            <div class="grp">Omni</div><div class="it">Docs ↗</div><div class="it">Release notes ↗</div>
+          </nav>
+          <div class="page">
+            <div class="hero"><div class="sprite"></div><div><div class="ttl">Pierre</div><div class="small">BEAVER · 0 pts · No points yet this season</div></div></div>
+            <div class="panel"><h4>PRs merged into main · last 7 days · yours</h4>
+              <svg viewBox="0 0 280 60" role="img" aria-label="Your merges per day"><g fill="#2f3fc4"><rect x="10" y="30" width="26" height="24"/><rect x="50" y="20" width="26" height="34"/><rect x="90" y="42" width="26" height="12"/><rect x="130" y="10" width="26" height="44"/><rect x="170" y="30" width="26" height="24"/><rect x="210" y="54" width="26" height="0"/></g><rect x="250" y="20" width="26" height="34" fill="#ffd84a"/><line x1="4" y1="54.5" x2="280" y2="54.5" stroke="#1a2170"/></svg>
+            </div>
+            <div class="tiles">
+              <div class="tile"><div class="n">6</div><div class="l">Questions answered</div></div>
+              <div class="tile"><div class="n">0</div><div class="l">Outbox settled</div></div>
+              <div class="tile"><div class="n">4</div><div class="l">PRDs created</div></div>
+              <div class="tile"><div class="n">1</div><div class="l">Waiting for you</div></div>
+            </div>
+            <div class="panel"><h4>Individuals · season points</h4>
+              <table><tr><th>#</th><th>Name</th><th>Pts</th></tr>
+                <tr><td>1</td><td>Clément</td><td>120</td></tr><tr><td>2</td><td>Nasser</td><td>75</td></tr><tr><td>3</td><td>Aurélie</td><td>40</td></tr></table>
+            </div>
+            <div class="miss">Paul: 7 PRs merged, questions answered, 0 points. Not listed anywhere.</div>
+          </div>
+        </div>
+        <ul class="notes"><li class="bad">Only people with points appear, so a member at 0 is never shown.</li><li>Your merges only: nothing about your team or anyone else.</li></ul>
+      </div>
+
+      <div class="col">
+        <span class="tag a">AFTER · /app</span>
+        <div class="screen" aria-label="Home after">
+          <nav class="side">
+            <div class="crest">OMNI LOOP</div><div class="ws">Vertuoza</div>
+            <div class="grp">Dashboard</div>
+            <div class="it on new">Home</div><div class="it new">Fleet</div><div class="it new">Workspace</div>
+            <div class="grp">Work</div>
+            <div class="it">PRDs <span class="badge">2</span></div><div class="it">Questions</div><div class="it sub">Shared with me</div><div class="it sub">History</div><div class="it">Knowledge</div>
+            <div class="grp">Settings</div><div class="it new">Fleets</div>
+            <div class="grp">Omni</div><div class="it">Docs ↗</div><div class="it">Release notes ↗</div>
+          </nav>
+          <div class="page">
+            <div class="hero"><div class="sprite"></div><div><div class="ttl">Pierre</div><div class="small">BEAVER · 0 pts · BEAVER #2 of 6 · 1 waiting for you</div></div></div>
+            <div class="row"><span class="period"><span class="on">7 days</span><span>30 days</span><span>Season</span></span></div>
+            <div class="tiles">
+              <div class="tile"><div class="n">5</div><div class="l">PRs merged</div></div>
+              <div class="tile"><div class="stage"><b>2</b><b>1</b><b>1</b></div><div class="l">PRDs · drafted · in progress · shipped</div></div>
+              <div class="tile"><div class="n">2</div><div class="l">Repositories</div></div>
+              <div class="tile"><div class="n">6</div><div class="l">Questions answered</div></div>
+            </div>
+            <div class="panel"><h4>Your team · BEAVER · last 7 days</h4>
+              <div class="tbl"><table>
+                <tr><th>Name</th><th>Fleet</th><th>Pts</th><th>PRs</th><th>PRDs</th><th>Q&amp;A</th></tr>
+                <tr class="paul"><td>Paul</td><td class="fl" style="color:var(--beaver)">BEAVER</td><td>0</td><td>7</td><td>0·0·0</td><td>9</td></tr>
+                <tr class="me"><td>Pierre (you)</td><td class="fl" style="color:var(--beaver)">BEAVER</td><td>0</td><td>5</td><td>2·1·1</td><td>6</td></tr>
+                <tr><td>Aurélie</td><td class="fl" style="color:var(--beaver)">BEAVER</td><td>40</td><td>3</td><td>0·0·1</td><td>2</td></tr>
+                <tr><td>Marc</td><td class="fl" style="color:var(--beaver)">BEAVER</td><td>0</td><td>0</td><td>0·0·0</td><td>0</td></tr>
+              </table></div>
+            </div>
+          </div>
+        </div>
+        <ul class="notes"><li class="good">Every member of your fleet is listed, 0s included. Paul shows his 7 PRs and 9 answers.</li><li>Your own tiles, and your charts below the team (not drawn here), follow the period.</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Fleet and Workspace</h2>
+    <div class="pair">
+      <div class="col">
+        <span class="tag a">AFTER · /app/fleet?fleet=beaver</span>
+        <div class="screen" style="grid-template-columns: 1fr" aria-label="Fleet board">
+          <div class="page">
+            <div class="row"><span class="ttl">BEAVER</span><span class="small">#2 of 6 fleets this season</span></div>
+            <div class="picker"><span class="on">BEAVER</span><span>OCTOPOD</span><span>PICSOU</span><span>CIA</span><span>INVINCIBLE</span><span>+1</span></div>
+            <div class="row"><span class="period"><span>7 days</span><span class="on">30 days</span><span>Season</span></span></div>
+            <div class="tiles">
+              <div class="tile"><div class="n">41</div><div class="l">PRs merged</div></div>
+              <div class="tile"><div class="stage"><b>6</b><b>4</b><b>3</b></div><div class="l">PRDs · drafted · in progress · shipped</div></div>
+              <div class="tile"><div class="n">3</div><div class="l">Repositories</div></div>
+              <div class="tile"><div class="n">37</div><div class="l">Questions answered</div></div>
+            </div>
+            <div class="charts">
+              <div class="panel"><h4>PRs merged per day</h4>
+                <svg viewBox="0 0 150 56" role="img" aria-label="Fleet merges per day, 30 days"><g fill="#2f3fc4"><rect x="2" y="40" width="3" height="12"/><rect x="7" y="34" width="3" height="18"/><rect x="12" y="46" width="3" height="6"/><rect x="17" y="30" width="3" height="22"/><rect x="22" y="52" width="3" height="0"/><rect x="27" y="36" width="3" height="16"/><rect x="32" y="26" width="3" height="26"/><rect x="37" y="40" width="3" height="12"/><rect x="42" y="44" width="3" height="8"/><rect x="47" y="30" width="3" height="22"/><rect x="52" y="20" width="3" height="32"/><rect x="57" y="38" width="3" height="14"/><rect x="62" y="46" width="3" height="6"/><rect x="67" y="34" width="3" height="18"/><rect x="72" y="24" width="3" height="28"/><rect x="77" y="40" width="3" height="12"/><rect x="82" y="30" width="3" height="22"/><rect x="87" y="46" width="3" height="6"/><rect x="92" y="18" width="3" height="34"/><rect x="97" y="34" width="3" height="18"/><rect x="102" y="40" width="3" height="12"/><rect x="107" y="28" width="3" height="24"/><rect x="112" y="44" width="3" height="8"/><rect x="117" y="12" width="3" height="40"/><rect x="122" y="30" width="3" height="22"/><rect x="127" y="36" width="3" height="16"/><rect x="132" y="22" width="3" height="30"/><rect x="137" y="40" width="3" height="12"/><rect x="142" y="26" width="3" height="26"/></g><rect x="146" y="16" width="3" height="36" fill="#ffd84a"/><line x1="0" y1="52.5" x2="150" y2="52.5" stroke="#1a2170"/></svg>
+              </div>
+              <div class="panel"><h4>PRD events per day</h4>
+                <svg viewBox="0 0 150 56" role="img" aria-label="Fleet PRD events per day, stacked by stage"><g fill="#8a90d6"><rect x="12" y="44" width="4" height="8"/><rect x="37" y="44" width="4" height="8"/><rect x="72" y="36" width="4" height="16"/><rect x="102" y="44" width="4" height="8"/><rect x="132" y="44" width="4" height="8"/></g><g fill="#a45cff"><rect x="47" y="44" width="4" height="8"/><rect x="72" y="28" width="4" height="8"/><rect x="92" y="44" width="4" height="8"/><rect x="117" y="44" width="4" height="8"/></g><g fill="#4ee08a"><rect x="57" y="44" width="4" height="8"/><rect x="102" y="36" width="4" height="8"/><rect x="142" y="44" width="4" height="8"/></g><line x1="0" y1="52.5" x2="150" y2="52.5" stroke="#1a2170"/></svg>
+                <div class="legend"><span><i class="sw" style="background:var(--dim)"></i>drafted</span><span><i class="sw" style="background:var(--plasma)"></i>in progress</span><span><i class="sw" style="background:var(--green)"></i>shipped</span></div>
+              </div>
+            </div>
+            <div class="panel"><h4>Repositories involved</h4><div class="small">vertuo-ai-domain · 29 PRs · 5 PRD events &nbsp; vertuo-omni-loop · 10 · 7 &nbsp; vertuo-workflow-domain · 2 · 1</div></div>
+          </div>
+        </div>
+        <ul class="notes"><li>Your fleet by default; the picker opens any fleet and keeps the period.</li><li>Below: the same People table, for the fleet's members.</li></ul>
+      </div>
+
+      <div class="col">
+        <span class="tag a">AFTER · /app/workspace</span>
+        <div class="screen" style="grid-template-columns: 1fr" aria-label="Workspace board">
+          <div class="page">
+            <div class="row"><span class="ttl">Vertuoza</span><span class="small">every member · 6 fleets</span></div>
+            <div class="row"><span class="period"><span class="on">7 days</span><span>30 days</span><span>Season</span></span></div>
+            <div class="tiles">
+              <div class="tile"><div class="n">63</div><div class="l">PRs merged</div></div>
+              <div class="tile"><div class="stage"><b>5</b><b>3</b><b>4</b></div><div class="l">PRDs · drafted · in progress · shipped</div></div>
+              <div class="tile"><div class="n">3</div><div class="l">Repositories</div></div>
+              <div class="tile"><div class="n">52</div><div class="l">Questions answered</div></div>
+            </div>
+            <div class="panel"><h4>People · last 7 days</h4>
+              <div class="tbl"><table>
+                <tr><th>Name</th><th>Fleet</th><th>Pts</th><th>PRs</th><th>PRDs</th><th>Q&amp;A</th></tr>
+                <tr><td>Nasser</td><td class="fl" style="color:var(--octopod)">OCTOPOD</td><td>75</td><td>18</td><td>0·0·0</td><td>4</td></tr>
+                <tr><td>Clément</td><td class="fl" style="color:var(--octopod)">OCTOPOD</td><td>120</td><td>9</td><td>1·1·1</td><td>7</td></tr>
+                <tr class="paul"><td>Paul</td><td class="fl" style="color:var(--beaver)">BEAVER</td><td>0</td><td>7</td><td>0·0·0</td><td>9</td></tr>
+                <tr class="me"><td>Pierre (you)</td><td class="fl" style="color:var(--beaver)">BEAVER</td><td>0</td><td>5</td><td>2·1·1</td><td>6</td></tr>
+                <tr><td>Dordure1</td><td class="fl">SOLO</td><td>0</td><td>0</td><td>0·0·0</td><td>0</td></tr>
+              </table></div>
+            </div>
+            <div class="panel"><h4>Fleets · season</h4><div class="small">1 OCTOPOD 195 · 2 BEAVER 40 ◀ · 3 PICSOU 0 · …</div></div>
+          </div>
+        </div>
+        <ul class="notes"><li class="good">Every member of the workspace, SOLO or in a fleet, at 0 or not.</li><li>The fleet ranking moves here from Home.</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What stays the same</h2>
+    <ul class="notes">
+      <li><b>The game:</b> the rulebook, the ledger, season points and Game mode. Points still come from PRD delivery only.</li>
+      <li><b>Work pages:</b> PRDs, Questions and Knowledge, with their badges. Fleets management is the same page, now at <code>/app/settings/fleets</code> (the old address redirects).</li>
+      <li><b>Privacy:</b> members see each other's name, GitHub login, fleet and counts, never an email or a question's text.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
