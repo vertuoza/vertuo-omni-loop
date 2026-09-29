@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR checks</title>
+<style>
+/* Layout: two columns (today · after) of the same three scenes: a ready PR's checks, an agent's commit, a burst of pushes. */
+:root {
+  --bg: #f3f4f7; --panel: #ffffff; --ink: #1b1d26; --muted: #5d6275; --line: #dcdfe8;
+  --accent: #d6283b; --code: #eef0f5; --ok: #1f8a4c; --bad: #c62a3a; --skip: #8a8fa3; --new: #fff1c7;
+  --display: "Anton", Impact, "Arial Narrow", sans-serif;
+  --body: -apple-system, "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12131a; --panel: #1b1d27; --ink: #eceef5; --muted: #9aa0b4; --line: #2f3242; --code: #252836;
+  --ok: #4cc27f; --bad: #ff6b78; --skip: #7d8296; --new: #3d3413; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #12131a; --panel: #1b1d27; --ink: #eceef5; --muted: #9aa0b4; --line: #2f3242; --code: #252836;
+  --ok: #4cc27f; --bad: #ff6b78; --skip: #7d8296; --new: #3d3413; color-scheme: dark }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--body); padding: 24px 16px 48px }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 24px }
+h1 { font: 400 2rem/1.1 var(--display); letter-spacing: .02em; margin: 0; text-wrap: balance }
+h2 { font-size: .75rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 }
+h3 { font-size: 1rem; margin: 0 }
+.lede { color: var(--muted); margin: 4px 0 0; max-width: 65ch }
+.scene { display: grid; gap: 10px }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px }
+@media (max-width: 760px) { .cols { grid-template-columns: 1fr } }
+.col { min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 10px; align-content: start }
+.tag { font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: var(--muted) }
+.col.after .tag { color: var(--accent) }
+ul.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px }
+ul.checks li { display: flex; gap: 8px; align-items: baseline; font-family: var(--mono); font-size: .85rem }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; transform: translateY(1px) }
+.ok { background: var(--ok) } .bad { background: var(--bad) } .skip { background: var(--skip) }
+.new { background: var(--new); border-radius: 4px; padding: 0 4px }
+pre { margin: 0; background: var(--code); border-radius: 6px; padding: 10px 12px; font: .8rem/1.5 var(--mono); overflow-x: auto; white-space: pre }
+.note { color: var(--muted); margin: 0; font-size: .85rem }
+.same { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px }
+.same ul { margin: 6px 0 0; padding-left: 18px }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>PR checks — tests and Fallow on ready pull requests</h1>
+    <p class="lede">PRD 598. Today no workflow runs the tests on a pull request here, and nothing watches dead code. After: a ready PR into <code>main</code> is graded by <code>checks / test</code> and <code>checks / fallow</code>, behind a 3-minute settle, and a Claude hook runs the same Fallow audit before every commit and push.</p>
+  </header>
+
+  <section class="scene">
+    <h2>A feature PR is marked ready</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag">Today</span>
+        <ul class="checks">
+          <li><span class="dot ok"></span>outbox — omni-loop app</li>
+        </ul>
+        <p class="note">Only the outbox check. Tests ran once, on the agent's machine, before <code>omni ship</code>. A person's own PR runs nothing.</p>
+      </div>
+      <div class="col after">
+        <span class="tag">After</span>
+        <ul class="checks">
+          <li><span class="dot ok"></span>outbox — omni-loop app</li>
+          <li><span class="dot ok"></span><span class="new">checks / settle</span> — waited 180 s, head unchanged</li>
+          <li><span class="dot ok"></span><span class="new">checks / test</span> — pnpm test</li>
+          <li><span class="dot bad"></span><span class="new">checks / fallow</span> — 1 new unused export</li>
+        </ul>
+        <p class="note">Drafts, sub-PRs into a feature branch and docs-only PRs (phase-0, retro) still run nothing.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="scene">
+    <h2>An agent commits a slice that leaves an export unused</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag">Today</span>
+<pre>$ git commit -m "feat(kit): s2 …"
+[feat/x--s2 3f1c2aa] feat(kit): s2 …
+ 3 files changed, 84 insertions(+)</pre>
+        <p class="note">Committed and pushed. The unused export joins the 279 findings already on main, and nobody sees it.</p>
+      </div>
+      <div class="col after">
+        <span class="tag">After</span>
+<pre>$ git commit -m "feat(kit): s2 …"
+fallow-gate: blocked by fallow 3.30.0
+  unused export  formatRow
+    kit/lib/help/render.mjs:42
+PreToolUse hook refused the command (exit 2)</pre>
+        <p class="note">The agent deletes or uses <code>formatRow</code>, then commits. Only findings the change introduces count; the 279 existing ones sit in <code>fallow/*.json</code> baselines.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="scene">
+    <h2>Three pushes to a ready PR, a minute apart</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag">Today</span>
+        <p class="note">No CI to pay for, and nothing graded.</p>
+      </div>
+      <div class="col after">
+        <span class="tag">After</span>
+        <ul class="checks">
+          <li><span class="dot skip"></span>run 1 — cancelled in settle by push 2</li>
+          <li><span class="dot skip"></span>run 2 — cancelled in settle by push 3</li>
+          <li><span class="dot ok"></span>run 3 — settled, test + fallow ran once</li>
+        </ul>
+        <p class="note">One full run for the burst. A cancelled run cost one idle runner for under 3 minutes.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="same">
+    <h3>What stays the same</h3>
+    <ul>
+      <li>The <code>supabase</code>, <code>game</code>, <code>release</code> and <code>releases</code> workflows.</li>
+      <li>The kit, the plugin and <code>omni init</code>: nothing ships to other repositories.</li>
+      <li>Branch protection on <code>main</code>: making the checks required is a setting a person turns on after merge.</li>
+      <li>The 279 existing Fallow findings: recorded, not fixed.</li>
+    </ul>
+  </section>
+</div>
+</body>
+</html>
