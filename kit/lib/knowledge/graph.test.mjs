@@ -2,7 +2,7 @@
 // knowledge folder with a product folder, two domains and one cross-domain file.
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.mjs';
-import { buildGraph, GRAPH_VERSION, prdOf, readGraph } from './graph.mjs';
+import { buildGraph, graphOfTexts, GRAPH_VERSION, prdOf, readGraph } from './graph.mjs';
 import { readKnowledge } from './registers.mjs';
 
 const K = '.omni-loop/knowledge';
@@ -217,6 +217,26 @@ describe('the knowledge graph — PRD #149, acceptance criterion 1', () => {
   it('is built from what readKnowledge returns, and carries a null repository as null', () => {
     const { ctx } = makeRepo({ files: FILES });
     expect(buildGraph(readKnowledge({ ctx }), { repo: null })).toEqual({ ...readGraph({ ctx }), repo: null });
+  });
+});
+
+describe('graphOfTexts — the graph of a knowledge folder held in memory', () => {
+  it('is the graph readGraph builds off disk, from the same files', () => {
+    const { ctx } = makeRepo({ files: FILES });
+    expect(graphOfTexts({ texts: FILES, knowledgeRoot: K, repo: 'acme/widgets' })).toEqual(readGraph({ ctx }));
+  });
+
+  it('reads the folder where the repository\'s config puts it, and ignores every file outside it', () => {
+    const moved = Object.fromEntries(Object.entries(FILES).map(([path, text]) => [path.replace(K, 'docs/kb'), text]));
+    const graph = graphOfTexts({ texts: { ...moved, 'README.md': '## P-PRODUCT-9\n\nNot knowledge.\n' }, knowledgeRoot: 'docs/kb', repo: 'acme/tools' });
+    expect(graph.repo).toBe('acme/tools');
+    expect(graph.entries).toHaveLength(11);
+    expect(graph.entries.map((one) => one.file)).toContain('docs/kb/product/principles.md');
+    expect(graph.entries.map((one) => one.id)).not.toContain('P-PRODUCT-9');
+  });
+
+  it('is an empty graph, never an error, when no file sits in the folder', () => {
+    expect(graphOfTexts({ texts: {}, knowledgeRoot: K, repo: null })).toEqual({ version: 1, repo: null, domains: [], entries: [], links: [], loose: [], unserved: [] });
   });
 });
 

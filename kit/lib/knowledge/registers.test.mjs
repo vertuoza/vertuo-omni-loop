@@ -6,8 +6,10 @@ import { flatCtx } from '../../test/flat-layout.mjs';
 import { gradeKnowledge } from './check-knowledge.mjs';
 import {
   codeOf,
+  diskSource,
   idParts,
   idsCitedIn,
+  memorySource,
   parseEntryFile,
   readKnowledge,
 } from './registers.mjs';
@@ -155,22 +157,22 @@ describe('parseEntryFile', () => {
   });
 });
 
-describe('readKnowledge — a fixture tree', () => {
-  const roots = [];
-  afterEach(() => {
-    while (roots.length > 0) rmSync(roots.pop(), { recursive: true, force: true });
-  });
+const roots = [];
+afterEach(() => {
+  while (roots.length > 0) rmSync(roots.pop(), { recursive: true, force: true });
+});
 
-  function tree(files) {
-    const root = mkdtempSync(join(tmpdir(), 'registers-'));
-    roots.push(root);
-    for (const [path, text] of Object.entries(files)) {
-      mkdirSync(join(root, path, '..'), { recursive: true });
-      writeFileSync(join(root, path), text);
-    }
-    return root;
+function tree(files) {
+  const root = mkdtempSync(join(tmpdir(), 'registers-'));
+  roots.push(root);
+  for (const [path, text] of Object.entries(files)) {
+    mkdirSync(join(root, path, '..'), { recursive: true });
+    writeFileSync(join(root, path), text);
   }
+  return root;
+}
 
+describe('readKnowledge — a fixture tree', () => {
   it('reads an absent knowledge folder as empty', () => {
     const root = tree({});
     expect(readKnowledge({ ctx: flatCtx(root) })).toEqual({
@@ -209,6 +211,50 @@ describe('readKnowledge — a fixture tree', () => {
       ['BR-AGENTSESSION-1', 'rule', ['AGENTSESSION']],
       ['X-ADVISOR-CREDITS-1', 'rule', ['ADVISOR', 'CREDITS']],
     ]);
+  });
+
+  it('reads the same folder from memory as off disk', () => {
+    const files = {
+      'docs/knowledge/README.md': '# Knowledge\n',
+      'docs/knowledge/product/principles.md': '## P-PRODUCT-1\n\nx\n\nWhy: y\n',
+      'docs/knowledge/product/notes.txt': 'not a register',
+      'docs/knowledge/domains/agent-session/README.md': '# x\n\nGlossary term: Session\n',
+      'docs/knowledge/domains/agent-session/rules.md': '## BR-AGENTSESSION-1\n\nx\n\nServes: P-PRODUCT-1\n',
+      'docs/knowledge/domains/erp/invariants.md': '## N-ERP-1\n\nx\n',
+      'docs/knowledge/cross-domain/advisor--credits.md': '## X-ADVISOR-CREDITS-1\n\nx\n\nKind: rule\n',
+      'docs/knowledge/cross-domain/notes.txt': 'not a register',
+    };
+    const ctx = flatCtx(tree(files));
+    expect(readKnowledge({ ctx, source: memorySource(files) })).toEqual(readKnowledge({ ctx }));
+    expect(readKnowledge({ ctx, source: memorySource(files) }).domains.map((d) => d.name)).toEqual(['agent-session', 'erp']);
+  });
+});
+
+describe('the sources readKnowledge reads through', () => {
+  const files = { 'k/a.md': 'A', 'k/d/b.md': 'B', 'k/d/e/c.md': 'C', 'k/z.md': 'Z', 'kb/x.md': 'X' };
+
+  it('names the files and the folders right under a folder, sorted, and nothing for an absent one', () => {
+    const source = memorySource(files);
+    expect(source.files('k')).toEqual(['a.md', 'z.md']);
+    expect(source.dirs('k')).toEqual(['d']);
+    expect(source.dirs('k/d')).toEqual(['e']);
+    expect(source.files('missing')).toEqual([]);
+    expect(source.dirs('missing')).toEqual([]);
+  });
+
+  it('reads a file it holds, and refuses one it does not', () => {
+    const source = memorySource(files);
+    expect(source.read('k/d/b.md')).toBe('B');
+    expect(() => source.read('k/nope.md')).toThrow(/k\/nope\.md is not among the files read/);
+    expect(() => source.read('toString')).toThrow(/not among the files read/);
+  });
+
+  it('lists the disk the same way', () => {
+    const source = diskSource(tree(files));
+    expect(source.files('k')).toEqual(['a.md', 'z.md']);
+    expect(source.dirs('k')).toEqual(['d']);
+    expect(source.read('k/d/b.md')).toBe('B');
+    expect(source.files('missing')).toEqual([]);
   });
 });
 
