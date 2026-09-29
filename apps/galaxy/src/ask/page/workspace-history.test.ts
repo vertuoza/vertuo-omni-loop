@@ -47,6 +47,15 @@ describe('the workspace history', () => {
     expect(list.map((item) => item.href)).toEqual(['/ask/q/r3', '/ask/q/r2', '/ask/q/r1']);
   });
 
+  it('counts every screenshot a round\'s answers carry, and none for a round without (PRD 620)', () => {
+    const shots = [row('r4', ONE, 12, {
+      status: 'answered', answers: { 'Question r4?': '(see screenshots)' }, answered_via: 'page', answered_at: at(13),
+      attachments: { 'Question r4?': ['r4/1.png', 'r4/2.png', 'r4/3.webp'] },
+    }), ...ROWS];
+    const list = historyList(shots, {}, MEMBERS);
+    expect(list.map((item) => item.screenshots)).toEqual([3, 0, 0, 0]);
+  });
+
   it('says what each round asked, what was answered, who asked, who answered and how it is sorted', () => {
     const [, trial, storage] = historyList(ROWS, {}, MEMBERS);
     expect(trial).toMatchObject({

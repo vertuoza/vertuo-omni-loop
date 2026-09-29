@@ -422,6 +422,8 @@ html:has(.ask[data-ask-theme]) body {
 .ask-past summary:hover { background: var(--ask-surface); }
 .ask-past-sum { min-width: 0; overflow-wrap: anywhere; }
 .ask-past-sum b { color: var(--ask-ink); font-weight: 700; }
+/* "📎 N screenshots" beside an answer that carries them (PRD 620). */
+.ask-shots-count { color: var(--ask-muted); font-size: 14px; font-weight: 400; white-space: nowrap; }
 .ask-ok { color: var(--ask-green); font-weight: 700; }
 .ask-via {
   flex: none;
