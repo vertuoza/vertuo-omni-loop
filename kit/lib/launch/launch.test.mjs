@@ -18,6 +18,16 @@ describe('launchDecision', () => {
     expect(launchDecision({ argv: ['--version'], self: SELF, bin: '/repo/b.mjs', hasConfig: false }).kind).toBe('handover');
   });
 
+  it('runs itself for update --apply, the hop where the downloaded bundle installs its own version', () => {
+    const bin = '/repo/.omni-loop/bin/omni.mjs';
+    expect(launchDecision({ argv: ['update', '--apply'], self: SELF, bin, hasConfig: true })).toEqual({ kind: 'self' });
+    expect(launchDecision({ argv: ['update', '--apply', '--from', '0.0.38'], self: SELF, bin, hasConfig: true })).toEqual({ kind: 'self' });
+    expect(launchDecision({ argv: ['update', '--from', '0.0.38', '--apply'], self: SELF, bin, hasConfig: true })).toEqual({ kind: 'self' });
+    for (const argv of [['update'], ['update', '--to', 'v0.0.84'], ['status', '--apply'], ['--apply', 'update']]) {
+      expect(launchDecision({ argv, self: SELF, bin, hasConfig: true }), argv.join(' ')).toEqual({ kind: 'handover', bin });
+    }
+  });
+
   it('runs itself when the checkout’s bin is the running file', () => {
     expect(launchDecision({ argv: ['status'], self: SELF, bin: SELF, hasConfig: true })).toEqual({ kind: 'self' });
   });
@@ -57,6 +67,15 @@ describe('planLaunch', () => {
     mkdirSync(join(root, '.omni-loop/bin'), { recursive: true });
     symlinkSync(self, join(root, '.omni-loop/bin/omni.mjs'));
     expect(planLaunch(['status'], { cwd: root, self })).toEqual({ kind: 'self' });
+  });
+
+  it('lets a downloaded release bundle apply its own update in a checkout pinned to an older bin (#643)', () => {
+    const { root } = makeRepo({ git: true, files: { '.omni-loop/bin/omni.mjs': '// omni v0.0.38\n' } });
+    const bundle = join(mkdtempSync(join(tmpdir(), 'omni-update-')), 'omni.mjs');
+    writeFileSync(bundle, '// omni v0.0.84\n');
+    expect(planLaunch(['update', '--apply', '--from', '0.0.38'], { cwd: root, self: bundle })).toEqual({ kind: 'self' });
+    expect(planLaunch(['update', '--apply'], { cwd: root, self: bundle })).toEqual({ kind: 'self' });
+    expect(planLaunch(['update'], { cwd: root, self: bundle }).kind).toBe('handover');
   });
 
   it('outside a git checkout, refuses a command that needs the kit', () => {

@@ -2,7 +2,9 @@
 // Before any command runs, it looks at where it runs:
 // - inside a git checkout whose `.omni-loop/bin/omni.mjs` exists and is a different file from the
 //   running one, it hands over to that file — every argument, stdin, stdout and stderr pass through,
-//   and its exit code is the launcher's — so a repository always runs its own pinned copy;
+//   and its exit code is the launcher's — so a repository always runs its own pinned copy, except for
+//   `update --apply`: that is a release bundle `omni update` downloaded to install its own version,
+//   and handing it back to the older pinned bin would install the old version again (#643);
 // - otherwise it runs itself. Outside a repository that has the kit (neither its bin nor its config),
 //   only the commands that need no kit run (`init`, `help`, `version` and their flags, and the ask
 //   hooks, which must stay silent wherever Claude Code fires them); any other command is refused with
@@ -26,6 +28,11 @@ export function runsWithoutKit(argv) {
   return WITHOUT_KIT.has(name) || (name === 'ask' && sub === 'hook');
 }
 
+/** Whether `argv` is the hop where `omni update` runs a downloaded bundle to install itself. */
+function appliesUpdate(argv) {
+  return argv[0] === 'update' && argv.includes('--apply');
+}
+
 /**
  * What the launcher does, decided from facts alone:
  * `{ kind: 'handover', bin }`, `{ kind: 'self' }` or `{ kind: 'refuse', message }`.
@@ -35,7 +42,7 @@ export function runsWithoutKit(argv) {
  *   a git checkout or when the checkout has none. `hasConfig`: the checkout has the kit's config.
  */
 export function launchDecision({ argv, self, bin, hasConfig }) {
-  if (bin !== null && bin !== self) return { kind: 'handover', bin };
+  if (bin !== null && bin !== self && !appliesUpdate(argv)) return { kind: 'handover', bin };
   if (bin !== null || hasConfig || runsWithoutKit(argv)) return { kind: 'self' };
   return { kind: 'refuse', message: NO_KIT };
 }
