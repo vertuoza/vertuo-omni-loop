@@ -19562,6 +19562,15 @@ var ENTRIES = deepFreeze([
     detail: "Sets up this repository's knowledge base from what the repository can prove: it explores it without changing it, shows one map and takes every answer in one message, then writes proposed entries and fills the playbook's forms from evidence, leaving a question for a person where proof is missing. It ends with one docs-only PR a person merges. --refresh redoes only what went stale."
   },
   {
+    name: "mega-invade",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:mega-invade [--sync]"],
+    label: "/omni:mega-invade",
+    summary: "make this a plan repository that knows its targets",
+    detail: "Makes this repository a plan repository: it reads the repositories its guide names and its config lists through gh, without cloning, shows one map and takes every answer in one message: target or not, its role, and for one without its own knowledge base whether to import a draft of it. It writes the plan section of the config and each imported copy, from a read-only clone in which nothing runs, and ends with one docs-only PR a person merges. It never writes in a target. omni targets then reports each one; --sync redraws only what changed in the stale copies."
+  },
+  {
     name: "ask",
     kind: "skill",
     who: "you",
