@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import MarkdownIt from 'markdown-it';
@@ -8,6 +8,7 @@ import type { MetaData, Source } from 'fumadocs-core/source';
 import type { TOCItemType } from 'fumadocs-core/toc';
 import { describe, expect, it } from 'vitest';
 import { badgedBlock, codeKinds, type HastNode } from './badges';
+import { diagramFigure, isDiagramPath, readSvg } from './diagrams';
 import { DocsPage } from './DocsPage';
 import { plain } from './DocsSearch';
 import { readGuide } from './guide';
@@ -17,7 +18,8 @@ import { guideLoader, sidebarItems } from './tree';
 // meta.json's order, each page drawn by DocsPage with the sidebar, its title, its body and its table
 // of contents. In the app fumadocs-mdx compiles the bodies at build time; here markdown-it stands in
 // for it, over the same files, since a test runs no bundler. The compile step's badges (PRD 373) are
-// set above each block by the same badgedBlock the rehype plugin calls, around markdown-it's <pre>.
+// set above each block by the same badgedBlock the rehype plugin calls, around markdown-it's <pre>; and
+// each diagram is set in the page by the same readSvg and diagramFigure the remark plugin calls.
 
 const GUIDE = fileURLToPath(new URL('../../../../docs/guide', import.meta.url));
 const markdown = new MarkdownIt();
@@ -28,7 +30,7 @@ const toHtml = (node: HastNode): string => {
   if (!('tagName' in node)) return '';
   const attributes = Object.entries(node.properties).map(([name, value]) => name === 'className'
     ? ` class="${(value as string[]).join(' ')}"`
-    : ` ${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}="${String(value)}"`).join('');
+    : ` ${/^data[A-Z]/.test(name) ? name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`) : name}="${markdown.utils.escapeHtml(String(value))}"`).join('');
   return `<${node.tagName}${attributes}>${node.children.map(toHtml).join('')}</${node.tagName}>`;
 };
 const fence = markdown.renderer.rules.fence!;
@@ -37,6 +39,15 @@ markdown.renderer.rules.fence = (tokens, i, options, env, self) => {
   const kinds = codeKinds(tokens[i].info.trim().split(/\s+/).slice(1).join(' '));
   return kinds.length > 0 ? toHtml(badgedBlock(kinds, { type: 'raw', value: pre })) : pre;
 };
+const image = markdown.renderer.rules.image!;
+markdown.renderer.rules.image = (tokens, i, options, env, self) => {
+  const src = String(tokens[i].attrGet('src') ?? '');
+  if (!isDiagramPath(src)) return image(tokens, i, options, env, self);
+  const alt = self.renderInlineAsText(tokens[i].children ?? [], options, env);
+  return toHtml(diagramFigure(readSvg(readFileSync(join(GUIDE, src), 'utf8')), alt));
+};
+/** A page's body as the app compiles it: a diagram's figure in place of its paragraph. */
+const renderBody = (body: string) => markdown.render(body).replace(/<p>(<figure [\s\S]*?<\/figure>)<\/p>/g, '$1');
 
 /** A page as the test hands it to the loader: its body as markdown-it's HTML. */
 type TestPage = { title?: string; html: string; toc: TOCItemType[] };
@@ -49,7 +60,7 @@ function source(): Source<{ pageData: TestPage; metaData: MetaData }> {
     path: `${page.slug}.md`,
     data: {
       title: page.title ?? undefined,
-      html: markdown.render(page.body),
+      html: renderBody(page.body),
       toc: [...page.body.matchAll(/^(#{2,4}) (.+)$/gm)].map(([, hashes, title]) => ({
         title, url: `#${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, depth: hashes.length,
       })),
@@ -71,12 +82,15 @@ function render(slug: string[]) {
 }
 
 describe('the sidebar', () => {
-  it('lists the five pages, in order, at /docs and under it', () => {
+  it('lists the eight pages, in order, at /docs and under it', () => {
     expect(items).toEqual([
       { name: 'Getting started', url: '/docs' },
+      { name: 'Join a team', url: '/docs/join' },
       { name: 'Install', url: '/docs/install' },
       { name: 'Invade', url: '/docs/invade' },
+      { name: 'How the loop works', url: '/docs/loop' },
       { name: 'Your first PRD', url: '/docs/first-prd' },
+      { name: 'Use cases', url: '/docs/use-cases' },
       { name: 'When something goes wrong', url: '/docs/troubleshooting' },
     ]);
   });
@@ -86,9 +100,12 @@ describe('the sidebar', () => {
     expect(html).toContain('<nav class="docs-nav" aria-label="Guide">');
     expect([...html.matchAll(/<nav class="docs-nav"[\s\S]*?<\/nav>/g)][0][0].match(/<a [^>]*>[^<]*<\/a>/g)).toEqual([
       '<a href="/docs">Getting started</a>',
+      '<a href="/docs/join">Join a team</a>',
       '<a href="/docs/install" aria-current="page">Install</a>',
       '<a href="/docs/invade">Invade</a>',
+      '<a href="/docs/loop">How the loop works</a>',
       '<a href="/docs/first-prd">Your first PRD</a>',
+      '<a href="/docs/use-cases">Use cases</a>',
       '<a href="/docs/troubleshooting">When something goes wrong</a>',
     ]);
   });
@@ -96,16 +113,20 @@ describe('the sidebar', () => {
 
 describe('the pages', () => {
   it('serves Getting started at /docs, and each other page at /docs/<page>', () => {
-    expect(guide.generateParams().map((p) => p.slug.join('/')).sort()).toEqual(['', 'first-prd', 'install', 'invade', 'troubleshooting']);
+    expect(guide.generateParams().map((p) => p.slug.join('/')).sort())
+      .toEqual(['', 'first-prd', 'install', 'invade', 'join', 'loop', 'troubleshooting', 'use-cases']);
     expect(guide.getPage([])?.data.title).toBe('Getting started');
     expect(guide.getPage(['nope'])).toBeUndefined();
   });
 
   it.each([
-    [[], 'Getting started', '/docs/install'],
+    [[], 'Getting started', '/docs/join'],
+    [['join'], 'Join a team', '/docs/loop'],
     [['install'], 'Install', '/docs/invade'],
-    [['invade'], 'Invade', '/docs/first-prd'],
-    [['first-prd'], 'Your first PRD', '/docs/troubleshooting'],
+    [['invade'], 'Invade', '/docs/loop'],
+    [['loop'], 'How the loop works', '/docs/first-prd'],
+    [['first-prd'], 'Your first PRD', '/docs/use-cases'],
+    [['use-cases'], 'Use cases', '/docs/troubleshooting'],
     [['troubleshooting'], 'When something goes wrong', '/docs'],
   ])('/docs/%s renders its title, its body and its Next link', (slug, title, next) => {
     const html = render(slug);
@@ -157,7 +178,7 @@ describe('a code block', () => {
     .map(([, badges, code]) => [[...badges.matchAll(/<span class="docs-badge" data-kind="[a-z]+">([^<]*)<\/span>/g)].map((m) => m[1]).join(' + '), code]);
 
   it('shows where it goes, as badge text above its code, on every page', () => {
-    for (const slug of [['install'], ['invade'], ['first-prd'], ['troubleshooting']]) {
+    for (const slug of [['join'], ['install'], ['invade'], ['loop'], ['first-prd'], ['use-cases'], ['troubleshooting']]) {
       const html = render(slug);
       expect(html.match(/<pre>/g)?.length, slug.join()).toBe(blocks(html).length);
     }
@@ -180,8 +201,44 @@ describe('a code block', () => {
     expect(firstPrd).toContainEqual(['GITHUB COMMENT', '1: A']);
   });
 
+  it('shows the plugin a newcomer installs, from a terminal or from Claude Code', () => {
+    const join = blocks(render(['join']));
+    expect(join).toContainEqual(['TERMINAL', 'claude plugin marketplace add vertuoza/vertuo-omni-loop']);
+    expect(join).toContainEqual(['CODING AGENT', '/plugin marketplace add vertuoza/vertuo-omni-loop']);
+    expect(join).toContainEqual(['TERMINAL + CODING AGENT', 'omni signin']);
+  });
+
   it('shows a path that is neither run nor pasted as inline code, not as a block', () => {
     expect(render(['first-prd'])).toContain('<code>.omni-loop/delivery/shipped/&lt;n&gt;-&lt;topic&gt;/release.md</code>.');
+  });
+});
+
+describe('a diagram', () => {
+  /** Every figure of a page: its drawing's accessible name, and the classes its shapes and words use. */
+  const figures = (html: string) => [...html.matchAll(/<figure class="docs-figure"><svg ([^>]*)>([\s\S]*?)<\/svg><\/figure>/g)]
+    .map(([, attributes, inside]) => ({
+      role: /role="([^"]*)"/.exec(attributes)?.[1],
+      name: /aria-label="([^"]*)"/.exec(attributes)?.[1],
+      classes: [...new Set([...inside.matchAll(/class="([^"]*)"/g)].flatMap((m) => m[1].split(' ')))].sort(),
+      inside,
+    }));
+
+  it('is drawn in the page itself, three on How the loop works, each named by its alt text', () => {
+    const html = render(['loop']);
+    const drawn = figures(html);
+    expect(drawn.map((figure) => [figure.role, figure.name?.split(':')[0]])).toEqual([
+      ['img', 'The Omni Loop'],
+      ['img', 'The pull requests of one PRD over time'],
+      ['img', 'Which skill runs which'],
+    ]);
+    expect(html).not.toMatch(/<img /);
+  });
+
+  it('leaves the file\'s own style, title and description out: the theme paints it, its alt text names it', () => {
+    for (const figure of figures(render(['loop']))) {
+      expect(figure.inside).not.toMatch(/<(style|title|desc)[ >]/);
+      expect(figure.classes.every((name) => name.startsWith('dg-'))).toBe(true);
+    }
   });
 });
 
@@ -198,6 +255,21 @@ describe('its stylesheet', () => {
     expect(css).toMatch(/\.docs-toc \{ display: none;/);
     expect(css).toMatch(/@media \(min-width: 720px\) \{\s*\.docs \{ grid-template-columns: 220px minmax\(0, 1fr\);/);
     expect(css).toMatch(/@media \(min-width: 1100px\) \{[^@]*\.docs-toc \{ display: block;/);
+  });
+
+  it('paints every class a diagram uses, with the theme\'s tokens only, and lets a figure scroll on a phone', () => {
+    const rule = (selector: string) => new RegExp(`${selector.replace(/[.[\]()]/g, '\\$&')} \\{([^}]*)\\}`).exec(css)?.[1] ?? '';
+    const used = new Set<string>();
+    for (const file of readdirSync(join(GUIDE, 'diagrams'))) {
+      for (const [, names] of readFileSync(join(GUIDE, 'diagrams', file), 'utf8').matchAll(/class="([^"]*)"/g)) {
+        for (const name of names.split(' ')) used.add(name);
+      }
+    }
+    for (const name of used) expect(rule(`.docs-figure .${name}`), name).toMatch(/var\(--ask-[a-z-]+\)|font-size|stroke-dasharray/);
+    const diagramRules = css.slice(css.indexOf('.docs-figure {'), css.indexOf('.docs-toc {'));
+    expect(diagramRules).not.toMatch(/#[0-9a-f]{3,6}\b/i);
+    expect(rule('.docs-figure')).toMatch(/overflow-x: auto;/);
+    expect(rule('.docs-figure svg')).toMatch(/min-width: 600px;/);
   });
 
   it('draws the badges as arcade chips above the code, never copied with it', () => {

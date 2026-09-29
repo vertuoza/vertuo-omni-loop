@@ -19,6 +19,9 @@
  * - **honesty** — a path-shaped `Enforced by:` or `Source:` that does not exist is refused: a wrong
  *   claim is worse than an honest `unenforced`; every id cited inside an entry file resolves.
  *
+ * In an imported copy's context (`ctx.copyOf`, PRD 522, `copies.mjs`) every path names a file of
+ * the target, so none is looked up: the honesty checks on paths and the owning libraries are skipped.
+ *
  * A principle no entry serves is a **wish**: reported, never a violation — a signal that nothing
  * concrete makes it true yet.
  *
@@ -71,6 +74,8 @@ const PREFIX_OF_KIND = { principle: 'P', rule: 'BR', invariant: 'N' };
 /** Every library a domain README lists under "## Owning libraries" exists under `ctx.root`. */
 export function findOwningLibraryViolations(ctx, knowledge) {
   const violations = [];
+  // An imported copy's libraries are its target's, never this disk's (PRD 522).
+  if (ctx.copyOf) return violations;
   for (const domain of knowledge.domains) {
     const readme = `${domainsDir(ctx)}/${domain.name}/README.md`;
     if (!existsSync(join(ctx.root, readme))) continue;
@@ -255,6 +260,8 @@ export function headingAnchors(text) {
 /** Paths a line names must exist under `ctx.root`: a wrong claim is worse than an honest `unenforced`. */
 function missingPathViolations(ctx, entry, label, value, { onlyPathLike }) {
   const violations = [];
+  // An imported copy's paths name files of its target, never of this disk (PRD 522).
+  if (ctx.copyOf) return violations;
   for (const part of partsOf(value)) {
     if (onlyPathLike && !PATH_LIKE.test(part)) continue;
     const [path, anchor] = part.split('#');

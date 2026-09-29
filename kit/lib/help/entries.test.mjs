@@ -52,11 +52,39 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 29 commands and the 13 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(29);
-    expect(skillFolders()).toHaveLength(13);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(29);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(13);
+  it('holds the 32 commands and the 16 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(32);
+    expect(skillFolders()).toHaveLength(16);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(32);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(16);
+  });
+
+  it('lists /omni:visual-fix for you, with its usage and when to use it (PRD 541)', () => {
+    const visualFix = ENTRIES.find((e) => e.name === 'visual-fix' && e.kind === 'skill');
+    expect(visualFix).toMatchObject({ who: 'you', usage: ['/omni:visual-fix <line or n>'], label: '/omni:visual-fix' });
+    expect(visualFix.detail).toMatch(/\bsmall visual change\b/);
+    expect(visualFix.detail).toMatch(/\/omni:brainstorm\b/);
+  });
+
+  it('has /omni:mega-invade for you, with --sync, after /omni:invade (PRD 522)', () => {
+    const skills = ENTRIES.filter((e) => e.kind === 'skill');
+    const mega = skills.find((e) => e.name === 'mega-invade');
+    expect(mega).toMatchObject({ who: 'you', usage: ['/omni:mega-invade [--sync]'], label: '/omni:mega-invade' });
+    expect(skills.indexOf(mega)).toBe(skills.findIndex((e) => e.name === 'invade') + 1);
+    expect(mega.detail).toMatch(/\bplan repository\b/);
+    expect(mega.detail).toMatch(/\bomni targets\b/);
+    expect(mega.detail).toMatch(/--sync/);
+  });
+
+  it('has /omni:mega-brainstorm for you, after /omni:brainstorm, naming the plan repository and ultra-yolo (PRD 549)', () => {
+    const skills = ENTRIES.filter((e) => e.kind === 'skill');
+    const mega = skills.find((e) => e.name === 'mega-brainstorm');
+    expect(mega).toMatchObject({ who: 'you', usage: ['/omni:mega-brainstorm'], label: '/omni:mega-brainstorm' });
+    expect(skills.indexOf(mega)).toBe(skills.findIndex((e) => e.name === 'brainstorm') + 1);
+    expect(mega.detail).toMatch(/\bplan repository\b/);
+    expect(mega.detail).toMatch(/\/omni:mega-invade\b/);
+    expect(mega.detail).toMatch(/\/omni:ultra-yolo\b/);
+    expect(mega.detail).toMatch(/\bnever writes in a target\b/);
   });
 
   it('names the six stages of the loop in order, each with one line, and three principles', () => {
