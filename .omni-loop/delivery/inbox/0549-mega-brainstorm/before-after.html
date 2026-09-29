@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mega Brainstorm</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one idea planned across repositories; today beside after, section by section. */
+:root{
+  --bg:#f4f6f5; --panel:#ffffff; --ink:#18221f; --muted:#56635e; --line:#d6dedb;
+  --accent:#0f7a63; --accent-bg:#e2f3ee; --warn:#9a5b00; --warn-bg:#fdf1dc;
+  --bad:#b3261e; --bad-bg:#fbe9e7; --code:#edf1ef; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#101614; --panel:#18201d; --ink:#e3ebe8; --muted:#97a6a0; --line:#2a3531;
+    --accent:#5fd0b2; --accent-bg:#133129; --warn:#f0b35a; --warn-bg:#35270f;
+    --bad:#f2877e; --bad-bg:#3a1f1d; --code:#1f2926; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101614; --panel:#18201d; --ink:#e3ebe8; --muted:#97a6a0; --line:#2a3531;
+  --accent:#5fd0b2; --accent-bg:#133129; --warn:#f0b35a; --warn-bg:#35270f;
+  --bad:#f2877e; --bad-bg:#3a1f1d; --code:#1f2926; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,sans-serif;padding-inline:16px;padding-block:32px 48px}
+main{max-width:1120px;margin:0 auto;display:grid;gap:36px}
+h1{font-size:26px;line-height:1.2;margin:0 0 6px;text-wrap:balance;font-weight:600}
+h2{font-size:18px;margin:0 0 12px;font-weight:600;text-wrap:balance}
+h3{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:600}
+p{margin:0;max-width:68ch}
+.lede{color:var(--muted)}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px}
+.side{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;display:grid;gap:14px;align-content:start;min-width:0}
+.side.after{border-color:var(--accent)}
+.tag{display:inline-block;font:500 12px "IBM Plex Mono",ui-monospace,monospace;padding:2px 8px;border-radius:4px;background:var(--code);color:var(--muted)}
+.after .tag{background:var(--accent-bg);color:var(--accent)}
+pre{margin:0;background:var(--code);border-radius:6px;padding:12px;overflow-x:auto;font:13px/1.5 "IBM Plex Mono",ui-monospace,monospace}
+code{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.92em}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:500}
+.st{display:inline-block;padding:1px 7px;border-radius:10px;font-size:12px;font-weight:500}
+.ok{background:var(--accent-bg);color:var(--accent)}
+.stale{background:var(--warn-bg);color:var(--warn)}
+.unr{background:var(--bad-bg);color:var(--bad)}
+ul{margin:0;padding-left:18px;display:grid;gap:6px}
+svg{max-width:100%;height:auto;display:block}
+svg text{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px}
+.same{background:var(--panel);border:1px dashed var(--line);border-radius:8px;padding:18px}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>PRD 549 · mega-brainstorm</h1>
+  <p class="lede">One plan across repositories, reviewed in one phase-0. Part 2 of the multi-repository mode:
+  in <code>vertuo-automation-plan</code>, a PM runs <code>/omni:mega-brainstorm</code> and gets one PRD whose
+  slices each name the repository their code lands in. Building across them (ultra-yolo) comes next.</p>
+</header>
+
+<section>
+  <h2>One feature, back-end and front-end</h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag">today</span>
+      <svg viewBox="0 0 440 230" role="img" aria-label="Today: two brainstorms in two repositories, two phase-0 pull requests nobody sees side by side">
+        <rect x="150" y="10" width="140" height="40" rx="6" fill="var(--code)" stroke="var(--line)"/>
+        <text x="220" y="35" text-anchor="middle" fill="var(--ink)">one idea</text>
+        <line x1="190" y1="50" x2="90" y2="96" stroke="var(--line)" stroke-width="1.5"/>
+        <line x1="250" y1="50" x2="350" y2="96" stroke="var(--line)" stroke-width="1.5"/>
+        <rect x="10" y="96" width="160" height="48" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+        <text x="90" y="117" text-anchor="middle" fill="var(--ink)">/omni:brainstorm</text>
+        <text x="90" y="134" text-anchor="middle" fill="var(--muted)">in vertuo-backend-php</text>
+        <rect x="270" y="96" width="160" height="48" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+        <text x="350" y="117" text-anchor="middle" fill="var(--ink)">/omni:brainstorm</text>
+        <text x="350" y="134" text-anchor="middle" fill="var(--muted)">in vertuo-apps</text>
+        <rect x="10" y="172" width="160" height="44" rx="6" fill="var(--bad-bg)" stroke="var(--bad)"/>
+        <text x="90" y="199" text-anchor="middle" fill="var(--bad)">phase-0 #1</text>
+        <rect x="270" y="172" width="160" height="44" rx="6" fill="var(--bad-bg)" stroke="var(--bad)"/>
+        <text x="350" y="199" text-anchor="middle" fill="var(--bad)">phase-0 #2</text>
+        <line x1="90" y1="144" x2="90" y2="172" stroke="var(--line)" stroke-width="1.5"/>
+        <line x1="350" y1="144" x2="350" y2="172" stroke="var(--line)" stroke-width="1.5"/>
+        <text x="220" y="199" text-anchor="middle" fill="var(--muted)">≠</text>
+      </svg>
+      <ul>
+        <li>Two conversations, two specs, two plans that do not know each other.</li>
+        <li>A slice's territory is a path; nothing says in which repository.</li>
+      </ul>
+    </div>
+    <div class="side after">
+      <span class="tag">after</span>
+      <svg viewBox="0 0 440 230" role="img" aria-label="After: one mega-brainstorm in the plan repository, one phase-0, slices naming their repository">
+        <rect x="120" y="10" width="200" height="48" rx="6" fill="var(--accent-bg)" stroke="var(--accent)"/>
+        <text x="220" y="31" text-anchor="middle" fill="var(--ink)">/omni:mega-brainstorm</text>
+        <text x="220" y="48" text-anchor="middle" fill="var(--muted)">in vertuo-automation-plan</text>
+        <line x1="220" y1="58" x2="220" y2="84" stroke="var(--accent)" stroke-width="1.5"/>
+        <rect x="80" y="84" width="280" height="44" rx="6" fill="var(--accent-bg)" stroke="var(--accent)"/>
+        <text x="220" y="111" text-anchor="middle" fill="var(--accent)">ONE phase-0 · What lands where</text>
+        <line x1="160" y1="128" x2="90" y2="172" stroke="var(--line)" stroke-dasharray="4 3" stroke-width="1.5"/>
+        <line x1="280" y1="128" x2="350" y2="172" stroke="var(--line)" stroke-dasharray="4 3" stroke-width="1.5"/>
+        <rect x="10" y="172" width="160" height="44" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+        <text x="90" y="192" text-anchor="middle" fill="var(--ink)">vertuo-backend-php</text>
+        <text x="90" y="208" text-anchor="middle" fill="var(--muted)">s1 · read only</text>
+        <rect x="270" y="172" width="160" height="44" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+        <text x="350" y="192" text-anchor="middle" fill="var(--ink)">vertuo-apps</text>
+        <text x="350" y="208" text-anchor="middle" fill="var(--muted)">s2, s3 · read only</text>
+      </svg>
+      <ul>
+        <li>One conversation, one spec with a <code>## Repositories</code> section, one plan.</li>
+        <li>Targets are read through a shallow clone in the scratch folder; nothing runs in it, nothing is written there.</li>
+        <li>The draft feature PR and the phase-0 PR both live in the plan repository.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>The plan's slice table</h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag">today</span>
+      <div class="scroll"><table>
+        <tr><th>id</th><th>slice</th><th>territory</th><th>blocked by</th><th>wave</th></tr>
+        <tr><td>s1</td><td>the quote total is served</td><td><code>src/Quote/</code></td><td>—</td><td>1</td></tr>
+        <tr><td>s2</td><td>the quote screen shows it</td><td><code>apps/quote/</code></td><td>s1</td><td>2</td></tr>
+      </table></div>
+      <p class="lede">Every path is in the repository the plan sits in.</p>
+    </div>
+    <div class="side after">
+      <span class="tag">after, in a plan repository</span>
+      <h3>Repositories</h3>
+      <div class="scroll"><table>
+        <tr><th>repo</th><th>role</th><th>read at</th><th>knowledge</th></tr>
+        <tr><td>vertuo-backend-php</td><td>back-end</td><td><code>3f2a9c1…</code></td><td><span class="st stale">imported (stale)</span></td></tr>
+        <tr><td>vertuo-apps</td><td>front-end</td><td><code>9b01e44…</code></td><td><span class="st ok">own</span></td></tr>
+      </table></div>
+      <h3>Slices</h3>
+      <div class="scroll"><table>
+        <tr><th>id</th><th>repo</th><th>slice</th><th>territory</th><th>blocked by</th><th>wave</th></tr>
+        <tr><td>s1</td><td>vertuo-backend-php</td><td>the quote total is served</td><td><code>src/Quote/</code></td><td>—</td><td>1</td></tr>
+        <tr><td>s2</td><td>vertuo-apps</td><td>the quote screen shows it</td><td><code>apps/quote/</code></td><td>s1</td><td>2</td></tr>
+        <tr><td>s3</td><td>vertuo-apps</td><td>the empty quote says why</td><td><code>apps/i18n/</code></td><td>—</td><td>1</td></tr>
+      </table></div>
+      <p class="lede">One wave numbering for all repositories; slices collide only inside the same repository; <code>blocked by</code> crosses repositories.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><code>omni plan check</code> and <code>omni prd</code></h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag">today</span>
+<pre>$ omni plan check 549
+3 slices · 2 waves
+wave 1: s1, s3
+wave 2: s2
+
+$ omni prd 549
+PRD 549 — 0549-quote-total
+state: inbox
+…
+
+$ /omni:yolo 549
+→ builds every slice in this checkout</pre>
+    </div>
+    <div class="side after">
+      <span class="tag">after</span>
+<pre>$ omni plan check 549
+3 slices · 2 waves · 2 repositories
+wave 1: s1 (vertuo-backend-php), s3 (vertuo-apps)
+wave 2: s2 (vertuo-apps)
+
+$ omni prd 549
+PRD 549 — 0549-quote-total
+state: inbox
+repos: vertuo-backend-php, vertuo-apps
+…
+
+$ /omni:yolo 549
+PRD 549 spans repositories: /omni:ultra-yolo 549 builds it</pre>
+      <p class="lede">Refused, field first: no <code>repo</code> column, an unknown repo, a shared short name, a repo without a row, a row without a slice, a malformed <code>read at</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>The phase-0 pull request</h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag">today</span>
+      <p>Summary · Verified · Risk and rollback · Reviewer focus. One repository, so nothing to route.</p>
+    </div>
+    <div class="side after">
+      <span class="tag">after, one mega phase-0</span>
+      <h3>What lands where</h3>
+      <div class="scroll"><table>
+        <tr><th>repo</th><th>role</th><th>slices</th><th>waves</th></tr>
+        <tr><td>vertuo-backend-php</td><td>back-end</td><td>s1</td><td>1</td></tr>
+        <tr><td>vertuo-apps</td><td>front-end</td><td>s2, s3</td><td>1, 2</td></tr>
+      </table></div>
+      <p class="lede">Each team finds its part. The reply ends with <code>/omni:ultra-yolo 549</code>; until that skill ships, the line above it says the plan waits in the inbox.</p>
+    </div>
+  </div>
+</section>
+
+<section class="same">
+  <h2>What stays the same</h2>
+  <ul>
+    <li>A repository with no <code>plan</code> section: <code>/omni:brainstorm</code>, <code>omni plan check</code> and every existing plan grade exactly as today; a <code>repo</code> column there is refused.</li>
+    <li><code>omni phase0</code> is unchanged: the plan repository's phase-0 is docs-only already.</li>
+    <li>Nothing is written in any target repository, and no branch or pull request opens there before ultra-yolo.</li>
+    <li>The Omni app, its dossier pages and the game read the PRD as any other.</li>
+  </ul>
+</section>
+</main>
+</body>
+</html>
