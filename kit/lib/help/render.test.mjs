@@ -23,8 +23,8 @@ describe('renderOverview', () => {
     const marks = [
       "omni: the Omni Loop's command line",
       'THE LOOP',
-      '  idea ──▶ PRD ──▶ inbox ──▶ outbox ──▶ shipped ──▶ retro',
-      ...STAGES.map((stage) => `  ${stage.name.padEnd(9)}${stage.line.split('{')[0]}`),
+      '  idea ──▶ PRD ──▶ inbox ──▶ building ──▶ outbox ──▶ shipped ──▶ retro',
+      ...STAGES.map((stage) => `  ${stage.name.padEnd(10)}${stage.line.split('{')[0]}`),
       'The folder is the status.',
       'IN CLAUDE (type these)',
       'IN THE TERMINAL',

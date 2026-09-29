@@ -1,14 +1,16 @@
 import type { GalaxyView } from '@omni/galaxy';
+import type { StageId } from '../../stages/stage';
 import { boardOf, type AnsweredCount, type BoardRequest, type BoardValue } from './load';
 import { brusselsDay, brusselsMidnight } from './period';
-import type { Activity, Member } from './tally';
+import type { Activity, Member, PrdNow } from './tally';
 
 // The board in the demo (PRD 572: development, or OMNI_LOOP_DEMO=1), on the demo world: its roster is
 // the demo galaxy's heroes, *you* (DAM-DEV) playing solo as on the demo's Home, and two members with
 // no points yet, one of them with no fleet either, so the People tables show 0s and SOLO. The demo
 // world holds no merges, PRD stages or answers, so they are made up and fixed here, over the 35 days
 // up to today (enough for every period), and move with the day they are shown on, today last. A
-// merge by someone who is not a member (a bot) shows in the workspace's totals only.
+// merge by someone who is not a member (a bot) shows in the workspace's totals only. PRD 587: the demo's
+// PRDs now are made up too, most of them shipped, a few at every other stage, none by the newcomer.
 
 /** The demo's *you*, as in src/dashboard/demo.ts. */
 export const DEMO_VIEWER = { login: 'dam-dev', userId: 'demo:dam-dev' } as const;
@@ -72,11 +74,23 @@ export function demoAnswered(roster: readonly Member[]): AnsweredCount[] {
   }));
 }
 
+/** Where the made-up PRDs are now, in turn: most shipped, a few at every other stage. */
+const DEMO_STAGES: readonly StageId[] = ['shipped', 'shipped', 'retro', 'building', 'shipped', 'outbox', 'inbox', 'prd', 'idea', 'shipped', 'retro'];
+
+/** The made-up PRDs now: two per member with a login, bar the newcomer, each opened by that member. */
+export function demoPrds(roster: readonly Member[]): PrdNow[] {
+  const authors = roster.filter((m) => m.login && m.login !== 'new-hire');
+  return authors.flatMap((m, k) => [0, 1].map((i): PrdNow => {
+    const stage = DEMO_STAGES[(k * 2 + i) % DEMO_STAGES.length];
+    return stage === 'idea' ? { stage, login: null, userId: m.userId } : { stage, login: m.login, userId: null };
+  }));
+}
+
 /** A board of the demo world, for any scope and period. */
 export function demoBoard(galaxy: GalaxyView, request: Omit<BoardRequest, 'viewerId'>): BoardValue {
   const roster = demoRoster(galaxy);
   return boardOf(
-    { roster, activity: demoActivity(roster, request.now), answered: demoAnswered(roster), galaxy },
+    { roster, activity: demoActivity(roster, request.now), answered: demoAnswered(roster), galaxy, prds: demoPrds(roster) },
     { ...request, viewerId: DEMO_VIEWER.userId },
   );
 }

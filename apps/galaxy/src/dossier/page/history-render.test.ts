@@ -5,7 +5,7 @@ import type { DossierListRow } from '../store';
 import { DossierHistory } from './DossierHistory';
 import { DossierSignIn } from './DossierSignIn';
 import { DEMO_VIEWER, demoHistory } from './demo';
-import { historyChoices, historyItems, type HistoryFilters } from './history';
+import { historyChoices, historyItems, historyStageBar, stageKeyOf, type CurrentStages, type HistoryFilters } from './history';
 
 // /prd as the server renders it (PRD 216): what a person sees before any script runs — the filters and
 // the search, a GET form to the same page; the rows, newest activity first, each a link to its dossier;
@@ -202,5 +202,52 @@ describe('the open questions (PRD 251)', () => {
       items: historyItems(ROWS, { who: 'all', needsAnswer: true }, 'u-pierre'), choices: historyChoices(ROWS), filters: { who: 'all', needsAnswer: true },
     }));
     expect(html).toContain('No PRD matches');
+  });
+});
+
+describe('the stages (PRD 587)', () => {
+  const ANSWERED = row('00000000-0000-4000-8000-0000000000d3', { title: 'Half answered', asked: 2, answered: 1, last_activity: '2026-09-19T09:00:00Z' });
+  const rows = [...ROWS, ANSWERED];
+  const stages: CurrentStages = new Map([[stageKeyOf(ROWS[0]), 'building']]);
+  const render = (filters: HistoryFilters) => renderToStaticMarkup(createElement(DossierHistory, {
+    items: historyItems(rows, filters, 'u-pierre', new Map(), stages), choices: historyChoices(rows), filters,
+    stages: historyStageBar(rows, filters, 'u-pierre', new Map(), stages),
+  }));
+  const bar = (html: string) =>
+    [...html.matchAll(/<a class="stage-stop stage-(passed|current)"( aria-current="page")? href="([^"]+)" style="text-decoration:none">([^<]+) <small>(\d+)<\/small><\/a>/g)]
+      .map((m) => [m[4], Number(m[5]), m[3].replaceAll('&amp;', '&'), m[1] === 'current']);
+
+  it('shows the bar above the list, the seven stages in order with their counts, each a link', () => {
+    const html = render(ALL);
+    expect(html).toContain('aria-label="PRDs by stage"');
+    expect(bar(html)).toEqual([
+      ['idea', 1, '/prd?stage=idea&who=all', false], ['PRD', 0, '/prd?stage=prd&who=all', false],
+      ['inbox', 0, '/prd?stage=inbox&who=all', false], ['building', 1, '/prd?stage=building&who=all', false],
+      ['outbox', 0, '/prd?stage=outbox&who=all', false], ['shipped', 0, '/prd?stage=shipped&who=all', false],
+      ['retro', 0, '/prd?stage=retro&who=all', false],
+    ]);
+    expect(html.indexOf('PRDs by stage')).toBeGreaterThan(html.indexOf('<form'));
+    expect(html.indexOf('PRDs by stage')).toBeLessThan(html.indexOf('dossier-history-list'));
+  });
+
+  it('highlights the selected stage, whose link clears it, and keeps only its rows', () => {
+    const html = render({ who: 'all', stage: 'building' });
+    expect(bar(html).find(([label]) => label === 'building')).toEqual(['building', 1, '/prd?who=all', true]);
+    expect(bar(html).filter(([, , , current]) => current)).toHaveLength(1);
+    expect(html).toContain('aria-current="page" href="/prd?who=all" style="text-decoration:none">building');
+    expect(html.match(/class="dossier-history-row"/g)).toHaveLength(1);
+    expect(html).toContain('<input type="hidden" name="stage" value="building"/>');
+    expect(html).toContain('<a class="dossier-history-clear" href="/prd?who=all">Clear</a>');
+  });
+
+  it('shows each row its current stage pill, and none for a draft with no answer', () => {
+    const html = render(ALL);
+    const pills = [...html.matchAll(/<a class="dossier-history-row"[\s\S]*?<\/a>/g)]
+      .map((m) => m[0].match(/<span class="stage-stop stage-current">([^<]+)<\/span>/)?.[1] ?? null);
+    expect(pills).toEqual(['building', null, 'idea']);
+  });
+
+  it('without a bar given, shows none', () => {
+    expect(history()).not.toContain('PRDs by stage');
   });
 });

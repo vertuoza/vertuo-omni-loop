@@ -70,7 +70,7 @@ th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: v
 <div class="wrap">
   <header>
     <h1>PRD 587 · Real PRD stages</h1>
-    <p class="lede">Today the pills come from one live GitHub read and often say <em>Stage unknown</em>. After: seven stages, each lit by an event the database records, with counts per stage on /prd and on the dashboard. Highlighted parts are new.</p>
+    <p class="lede">Today the pills come from one live GitHub read and often say <em>Stage unknown</em>, and the dashboard counts events, so shipped PRDs read as drafted. After: seven stages stored per PRD, synced from the repository every 15 minutes (a folder in <code>shipped/</code> is shipped), sped up by GitHub events, with counts of where PRDs are now on /prd and on the dashboard. Highlighted parts are new.</p>
   </header>
 
   <section class="col">
@@ -98,7 +98,7 @@ th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: v
             <span class="badge">2 questions waiting →</span>
           </div>
           <div class="words">Stage: building · 3/5 slices</div>
-          <div class="small">Passed stages filled, the current one bold, later ones faded. If GitHub is down: the same pills, plus <em>last checked 09:42</em>.</div>
+          <div class="small">Passed stages filled, the current one bold, later ones faded. Never waits on GitHub. Hover: <em>last synced 11:15</em>.</div>
         </div>
       </div>
     </div>
@@ -123,7 +123,7 @@ th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: v
         <div class="screen">
           <div class="small">Mine · All · Drafts · PRDs · search…</div>
           <div class="bar">
-            <span class="p"><b>3</b> idea</span><span class="p"><b>5</b> PRD</span><span class="p"><b>2</b> inbox</span><span class="p sel"><b>2</b> building</span><span class="p"><b>4</b> outbox</span><span class="p"><b>20</b> shipped</span><span class="p"><b>18</b> retro</span>
+            <span class="p"><b>3</b> idea</span><span class="p"><b>5</b> PRD</span><span class="p"><b>2</b> inbox</span><span class="p sel"><b>2</b> building</span><span class="p"><b>4</b> outbox</span><span class="p"><b>60</b> shipped</span><span class="p"><b>18</b> retro</span>
           </div>
           <div class="url">/prd?stage=building</div>
           <div class="row"><span class="n">#580</span><span>Skills section in the docs</span><span class="p current">building</span></div>
@@ -135,13 +135,28 @@ th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: v
   </section>
 
   <section class="col">
-    <span class="tag after">After · dashboard (PRD 572), new tile</span>
-    <div class="screen" style="background:var(--new)">
-      <div class="lbl">PRDs by stage · Workspace</div>
-      <div class="tile">
-        <div class="cell"><b>3</b><span>idea</span></div><div class="cell"><b>5</b><span>PRD</span></div><div class="cell"><b>2</b><span>inbox</span></div><div class="cell"><b>2</b><span>building</span></div><div class="cell"><b>4</b><span>outbox</span></div><div class="cell"><b>20</b><span>shipped</span></div><div class="cell"><b>18</b><span>retro</span></div>
+    <h2>The dashboard (PRD 572)</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag">Today · counts events of the period</span>
+        <div class="screen">
+          <div class="lbl">PRDs</div>
+          <div class="words bad">58 drafted · 0 in progress · 0 shipped</div>
+          <div class="row"><span class="n">PIERRE</span><span class="small">PRDs drafted · in progress · shipped</span><span class="n">58 · 0 · 0</span></div>
+          <div class="small">All 60 PRDs on main sit in <code>shipped/</code>, yet they read as drafted.</div>
+        </div>
       </div>
-      <div class="small">Scope follows the board (you · fleet · workspace). Each count opens /prd filtered.</div>
+      <div class="col">
+        <span class="tag after">After · where each PRD is now</span>
+        <div class="screen" style="background:var(--new)">
+          <div class="lbl">PRDs by stage · Workspace</div>
+          <div class="tile">
+            <div class="cell"><b>3</b><span>idea</span></div><div class="cell"><b>5</b><span>PRD</span></div><div class="cell"><b>2</b><span>inbox</span></div><div class="cell"><b>2</b><span>building</span></div><div class="cell"><b>1</b><span>outbox</span></div><div class="cell"><b>42</b><span>shipped</span></div><div class="cell"><b>18</b><span>retro</span></div>
+          </div>
+          <div class="row"><span class="n">PIERRE</span><span class="small">PRDs open · building · shipped (now)</span><span class="n">7 · 3 · 60</span></div>
+          <div class="small">The per-day chart stays events, relabelled <em>opened · started · shipped</em>. Each count opens /prd filtered.</div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -149,26 +164,27 @@ th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: v
     <h2>What lights each stage</h2>
     <div class="screen">
       <table>
-        <tr><th>Stage</th><th>Lit when</th><th>Recorded by</th></tr>
-        <tr><td>idea</td><td>first question answered</td><td>galaxy</td></tr>
-        <tr><td>PRD</td><td>spec + before/after pushed to the dossier</td><td>galaxy</td></tr>
-        <tr><td>inbox</td><td>phase-0 PR merged</td><td>GitHub → omni-app → galaxy</td></tr>
-        <tr style="background:var(--new)"><td>building</td><td>first sub-PR merged into the feature branch</td><td>GitHub → omni-app → galaxy</td></tr>
-        <tr><td>outbox</td><td>feature PR marked ready (waiting for you)</td><td>GitHub → omni-app → galaxy</td></tr>
-        <tr><td>shipped</td><td>feature PR merged</td><td>GitHub → omni-app → galaxy</td></tr>
-        <tr><td>retro</td><td>retro PR opened</td><td>GitHub → omni-app → galaxy</td></tr>
+        <tr><th>Stage</th><th>Lit when</th><th>What the sync reads in the repo</th></tr>
+        <tr><td>idea</td><td>first question answered (drafts only)</td><td>— read from the dossier</td></tr>
+        <tr><td>PRD</td><td>PRD issue opened</td><td>the omni:prd issue</td></tr>
+        <tr><td>inbox</td><td>phase-0 PR merged</td><td>folder in inbox/</td></tr>
+        <tr style="background:var(--new)"><td>building</td><td>first sub-PR merged into the feature branch</td><td>a merged slice PR</td></tr>
+        <tr><td>outbox</td><td>feature PR marked ready (waiting for you)</td><td>feature PR open, not draft</td></tr>
+        <tr><td>shipped</td><td>feature PR merged</td><td>folder in shipped/</td></tr>
+        <tr><td>retro</td><td>retro PR opened</td><td>a retro-branch PR</td></tr>
       </table>
     </div>
-    <svg viewBox="0 0 900 150" role="img" aria-label="Flow: GitHub PR events go to omni-app, which forwards a signed stage event to galaxy, which stores the date; pages and counts read the stored dates">
-      <rect class="box" x="10" y="45" width="150" height="56" rx="6"/><text x="85" y="70" text-anchor="middle">GitHub</text><text class="m" x="85" y="88" text-anchor="middle">PR opened · ready · merged</text>
-      <rect class="box" x="220" y="45" width="160" height="56" rx="6"/><text x="300" y="70" text-anchor="middle">omni-app webhook</text><text class="m" x="300" y="88" text-anchor="middle">knows the branch shapes</text>
-      <rect class="hot" x="440" y="45" width="190" height="56" rx="6"/><text x="535" y="70" text-anchor="middle">galaxy /api/dossiers/stage</text><text class="m" x="535" y="88" text-anchor="middle">signed · first date kept</text>
-      <rect class="hot" x="690" y="10" width="200" height="50" rx="6"/><text x="790" y="32" text-anchor="middle">dossier_stages</text><text class="m" x="790" y="48" text-anchor="middle">one date per stage</text>
-      <rect class="box" x="690" y="90" width="200" height="50" rx="6"/><text x="790" y="112" text-anchor="middle">PRD page · /prd · dashboard</text><text class="m" x="790" y="128" text-anchor="middle">read dates, never wait on GitHub</text>
-      <path class="ln" d="M160 73 H214 M380 73 H434 M630 66 L684 40 M790 60 V84"/>
-      <path class="ln" d="M210 69 l6 4 -6 4 M430 69 l6 4 -6 4 M786 78 l4 6 4 -6"/>
+    <svg viewBox="0 0 900 170" role="img" aria-label="Flow: every 15 minutes a workflow wakes galaxy's sync, which reads the repositories through the GitHub App; between syncs, omni-app forwards signed PR events; both write prd_stages, which pages and counts read">
+      <rect class="hot" x="10" y="10" width="170" height="50" rx="6"/><text x="95" y="32" text-anchor="middle">stages.yml · every 15 min</text><text class="m" x="95" y="48" text-anchor="middle">wakes the sync</text>
+      <rect class="hot" x="240" y="10" width="210" height="50" rx="6"/><text x="345" y="32" text-anchor="middle">galaxy /api/stages/sync</text><text class="m" x="345" y="48" text-anchor="middle">folders + issues + PRs = truth</text>
+      <rect class="box" x="10" y="100" width="170" height="50" rx="6"/><text x="95" y="122" text-anchor="middle">GitHub PR event</text><text class="m" x="95" y="138" text-anchor="middle">opened · ready · merged</text>
+      <rect class="box" x="240" y="100" width="210" height="50" rx="6"/><text x="345" y="122" text-anchor="middle">omni-app → /api/stages/event</text><text class="m" x="345" y="138" text-anchor="middle">signed · faster than the sync</text>
+      <rect class="hot" x="510" y="55" width="160" height="50" rx="6"/><text x="590" y="77" text-anchor="middle">prd_stages</text><text class="m" x="590" y="93" text-anchor="middle">one date per stage</text>
+      <rect class="box" x="720" y="55" width="170" height="50" rx="6"/><text x="805" y="77" text-anchor="middle">PRD page · /prd · board</text><text class="m" x="805" y="93" text-anchor="middle">never wait on GitHub</text>
+      <path class="ln" d="M180 35 H234 M180 125 H234 M450 35 L504 72 M450 125 L504 88 M670 80 H714"/>
+      <path class="ln" d="M230 31 l6 4 -6 4 M230 121 l6 4 -6 4 M710 76 l6 4 -6 4"/>
     </svg>
-    <p class="note">Existing PRDs get their dates from a one-time catch-up. A PRD with nothing stored falls back to today's GitHub read and saves the result. The words "Stage unknown" go away.</p>
+    <p class="note">Every PRD issue counts, with or without a dossier. A missed event is fixed by the next sync. The words "Stage unknown" go away.</p>
   </section>
 </div>
 </body>

@@ -19945,7 +19945,8 @@ var STAGES = deepFreeze([
   { name: "idea", line: "talked through with /omni:brainstorm, nothing written yet" },
   { name: "PRD", line: "spec, plan and before/after, in a phase-0 PR a person reviews" },
   { name: "inbox", line: "phase-0 PR merged: approved, ready to build", folder: "{inbox}" },
-  { name: "outbox", line: "being built in waves; what the agents decided alone waits for you" },
+  { name: "building", line: "first sub-PR merged into the feature branch: built in waves" },
+  { name: "outbox", line: "feature PR ready: the change and its outbox wait for you" },
   { name: "shipped", line: "feature PR merged: the change is on {defaultBranch}", folder: "{shipped}" },
   { name: "retro", line: "a retro PR tells how it went; a knowledge PR keeps what it taught" }
 ]);
@@ -19972,7 +19973,7 @@ var ENTRIES = deepFreeze([
     label: "omni status",
     summary: "your PRDs, the inbox, the outbox, what has shipped",
     also: [["omni status <n>", "the outbox gate for PRD n (exit 0 green, 1 red)"]],
-    detail: "With no PRD number, the overview of this repository, read from git only: how many PRDs have shipped, wait in the inbox, are being built in the outbox or wait for review, a bar of delivered against in progress, and the PRDs that are yours, each with where it stands. It reads {remote}/{defaultBranch} as last fetched; --fetch fetches it first. With a PRD number, the outbox gate the loop runs before a feature PR merges: exit 0 when its outbox lets it through, 1 while an item is open, a drift is not reworked or a risky change is not accounted for."
+    detail: "With no PRD number, the overview of this repository, read from git only: how many PRDs sit at each stage of the loop (PRD, inbox, building, outbox, shipped, retro; an idea is a draft on the Omni app), a bar of delivered against in progress, and the PRDs that are yours, each with where it stands. It reads {remote}/{defaultBranch} as last fetched; --fetch fetches it first. With a PRD number, the outbox gate the loop runs before a feature PR merges: exit 0 when its outbox lets it through, 1 while an item is open, a drift is not reworked or a risky change is not accounted for."
   },
   {
     name: "prd",
@@ -20508,7 +20509,7 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:status [--fetch]"],
     label: "/omni:status",
     summary: "where your PRDs are",
-    detail: "Runs omni status inside Claude and prints its overview as is: how many PRDs have shipped, wait in the inbox, are being built in the outbox or wait for review, and the PRDs that are yours, each with where it stands. It fetches first only when you ask for fresh data, and never runs the outbox gate of one PRD.",
+    detail: "Runs omni status inside Claude and prints its overview as is: how many PRDs sit at each stage of the loop, from PRD through inbox, building and outbox to shipped and retro, and the PRDs that are yours, each with where it stands. It fetches first only when you ask for fresh data, and never runs the outbox gate of one PRD.",
     group: "everyday",
     when: "Use it when you want to know where your PRDs stand without leaving Claude.",
     example: {
@@ -20566,7 +20567,7 @@ var ENTRIES = deepFreeze([
 var HELP_WIDTH = 78;
 var HELP_INDENT = "  ";
 var LABEL_COLUMN = 24;
-var STAGE_COLUMN = 9;
+var STAGE_COLUMN = 10;
 var WHO_RUNS = Object.freeze({ you: "for you", skills: "run by the skills" });
 var HELP_CLOSING = "omni help <command> tells more about any of them.";
 var DOCS_LABEL_COLUMN = 9;
@@ -23406,12 +23407,22 @@ function readBase(ctx, exec) {
   const local = commitOf(ctx, exec, `refs/heads/${names.local}`);
   return local ? { name: names.local, commit: local } : null;
 }
+var RETRO_FILE = "retro.md";
 function foldersAt(ctx, exec, ref, dir) {
   return entries(git4(ctx, exec, ["ls-tree", "-z", "-d", "--name-only", ref, "--", `${dir}/`])).map((path) => {
     const name = path.slice(path.lastIndexOf("/") + 1);
     const folder = parseFolderName(name);
     return folder && { ...folder, name };
   }).filter(Boolean);
+}
+function retroAt(ctx, exec, ref, dir) {
+  const out = /* @__PURE__ */ new Set();
+  for (const path of entries(git4(ctx, exec, ["ls-tree", "-r", "-z", "--name-only", ref, "--", `${dir}/`]))) {
+    const parts = path.slice(dir.length + 1).split("/");
+    const folder = parts.length === 2 && parts[1] === RETRO_FILE ? parseFolderName(parts[0]) : null;
+    if (folder) out.add(folder.prd);
+  }
+  return [...out];
 }
 function gitPath(ctx, exec, args) {
   try {
@@ -23530,7 +23541,7 @@ function unlessUnreadable(read2) {
 }
 function featuresOf(ctx, exec, base, inbox, remote) {
   const out = [];
-  for (const { topic, name } of inbox) {
+  for (const { prd: prd2, topic, name } of inbox) {
     const branch = fillBranch(ctx.config.branches.feature, { topic });
     const ref = remote.get(branch);
     if (!ref) continue;
@@ -23542,6 +23553,7 @@ function featuresOf(ctx, exec, base, inbox, remote) {
         forked: changedOutside(ctx, exec, [`${base}...${ref}`]),
         differs: changedOutside(ctx, exec, [base, ref]),
         outbox: filesUnder2(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name}`),
+        ships: foldersAt(ctx, exec, ref, ctx.layout.dirs.shipped).some((folder) => folder.prd === prd2),
         authors: authorsOf(beyond),
         touched: touchedBy(ctx, beyond)
       };
@@ -23578,6 +23590,7 @@ function readFacts({ ctx, exec = execFileSync12 }) {
     email: userEmail(ctx, exec),
     shallow: isShallow(ctx, exec),
     shipped: foldersAt(ctx, exec, base.commit, dirs.shipped),
+    retro: retroAt(ctx, exec, base.commit, dirs.shipped),
     inbox,
     touched: touchedBy(ctx, commitsIn(ctx, exec, base.commit, [`${ctx.config.paths.delivery}/`])),
     features: featuresOf(ctx, exec, base.commit, inbox, remote),
@@ -23619,17 +23632,18 @@ function isBuilt({ forked, differs }) {
   const now = new Set(differs);
   return forked.some((path) => now.has(path));
 }
-function outboxOf(inbox, features) {
-  const out = [];
+function buildingAndOutboxOf(inbox, features) {
+  const out = { building: [], outbox: [] };
   for (const { prd: prd2, topic } of inbox) {
     const mine = features.filter((feature) => feature.topic === topic);
     if (mine.length === 0) continue;
     const openItems2 = mine.reduce((sum, feature) => sum + feature.outbox.filter(isOpenItem).length, 0);
-    if (openItems2 > 0 || mine.some(isBuilt)) out.push({ prd: prd2, topic, openItems: openItems2 });
+    if (mine.some((feature) => feature.ships === true)) out.outbox.push({ prd: prd2, topic, openItems: openItems2 });
+    else if (openItems2 > 0 || mine.some(isBuilt)) out.building.push({ prd: prd2, topic, openItems: openItems2 });
   }
   return out;
 }
-function inReviewOf(phase02, taken) {
+function prdOf2(phase02, taken) {
   const held = phase02.flatMap(({ topic, inbox }) => inbox.filter((folder) => folder.topic === topic));
   return stage(held, taken);
 }
@@ -23647,32 +23661,38 @@ function yoursOf(facts, stages, onBase) {
   if (facts.shallow) return { state: "shallow", ...none };
   const mine = yourNumbers(facts, onBase, facts.email.toLowerCase());
   const yours2 = (entries3) => entries3.filter(({ prd: prd2 }) => mine.has(prd2));
-  const rows2 = ["outbox", "inbox", "inReview"].flatMap((stage2) => yours2(stages[stage2]).map((entry) => ({ stage: stage2, ...entry })));
-  return { state: "known", email: facts.email, rows: rows2, shipped: yours2(stages.shipped) };
+  const rows2 = ["outbox", "building", "inbox", "prd"].flatMap((stage2) => yours2(stages[stage2]).map((entry) => ({ stage: stage2, ...entry })));
+  const delivered = [...stages.shipped, ...stages.retro].sort((a, b) => b.prd - a.prd);
+  return { state: "known", email: facts.email, rows: rows2, shipped: yours2(delivered) };
 }
 function overviewFor(facts) {
-  const shipped = stage(facts.shipped);
-  const onBase = stage(facts.inbox, new Set(shipped.map(({ prd: prd2 }) => prd2)));
-  const outbox = outboxOf(onBase, facts.features);
-  const inOutbox2 = new Set(outbox.map(({ prd: prd2 }) => prd2));
-  const inbox = onBase.filter(({ prd: prd2 }) => !inOutbox2.has(prd2));
-  const inReview = inReviewOf(facts.phase0, new Set([...facts.shipped, ...facts.inbox].map(({ prd: prd2 }) => prd2)));
-  const inProgress = inbox.length + outbox.length;
-  const stages = { shipped, outbox, inbox, inReview };
+  const delivered = stage(facts.shipped);
+  const withRetro = new Set(facts.retro ?? []);
+  const retro = delivered.filter(({ prd: prd3 }) => withRetro.has(prd3));
+  const shipped = delivered.filter(({ prd: prd3 }) => !withRetro.has(prd3));
+  const onBase = stage(facts.inbox, new Set(delivered.map(({ prd: prd3 }) => prd3)));
+  const { building, outbox } = buildingAndOutboxOf(onBase, facts.features);
+  const past = new Set([...building, ...outbox].map(({ prd: prd3 }) => prd3));
+  const inbox = onBase.filter(({ prd: prd3 }) => !past.has(prd3));
+  const prd2 = prdOf2(facts.phase0, new Set([...facts.shipped, ...facts.inbox].map((folder) => folder.prd)));
+  const inProgress = inbox.length + building.length + outbox.length;
+  const stages = { prd: prd2, inbox, building, outbox, shipped, retro };
   return {
     slug: facts.slug,
     base: facts.base,
     fetchedAt: facts.fetchedAt,
     stages,
     counts: {
-      shipped: shipped.length,
+      prd: prd2.length,
       inbox: inbox.length,
+      building: building.length,
+      openItems: building.reduce((sum, { openItems: openItems2 }) => sum + openItems2, 0),
       outbox: outbox.length,
-      openItems: outbox.reduce((sum, { openItems: openItems2 }) => sum + openItems2, 0),
-      inReview: inReview.length
+      shipped: shipped.length,
+      retro: retro.length
     },
-    bar: barFor(shipped.length, shipped.length + inProgress),
-    inProgress: { total: inProgress, inbox: inbox.length, outbox: outbox.length },
+    bar: barFor(delivered.length, delivered.length + inProgress),
+    inProgress: { total: inProgress, inbox: inbox.length, building: building.length, outbox: outbox.length },
     yours: yoursOf(facts, stages, onBase)
   };
 }
@@ -23686,6 +23706,17 @@ var INDENT = "  ";
 var LABEL2 = "  delivered  ";
 var UNDER_BAR = " ".repeat(LABEL2.length);
 var GAP = "     ";
+var STAGE_ORDER = Object.freeze(["idea", "prd", "inbox", "building", "outbox", "shipped", "retro"]);
+var STAGE_WORDS = Object.freeze({
+  idea: "idea",
+  prd: "PRD",
+  inbox: "inbox",
+  building: "building",
+  outbox: "outbox",
+  shipped: "shipped",
+  retro: "retro"
+});
+var IDEA_COUNT = "on the app";
 var plural3 = (count3, word) => `${count3} ${word}${count3 === 1 ? "" : "s"}`;
 function fetchedAgo(fetchedAt2, now) {
   if (fetchedAt2 === null || fetchedAt2 === void 0) return "never fetched";
@@ -23698,13 +23729,13 @@ function fetchedAgo(fetchedAt2, now) {
 function header({ slug, base, fetchedAt: fetchedAt2 }, now) {
   return ["omni status", ...slug ? [slug] : [], `${base}, ${fetchedAgo(fetchedAt2, now)}`].join(" \xB7 ");
 }
-function counts({ shipped, inbox, outbox, openItems: openItems2, inReview }) {
-  const parts = [
-    `SHIPPED ${shipped}`,
-    `INBOX ${inbox}`,
-    ...outbox > 0 ? [`OUTBOX ${outbox} \xB7 ${plural3(openItems2, "open item")}`] : [],
-    ...inReview > 0 ? [`IN REVIEW ${inReview}`] : []
-  ];
+function counts(values) {
+  const parts = STAGE_ORDER.map((stage2) => {
+    const word = STAGE_WORDS[stage2].toUpperCase();
+    if (stage2 === "idea") return `${word} ${IDEA_COUNT}`;
+    if (stage2 === "building" && values.building > 0) return `${word} ${values.building} \xB7 ${plural3(values.openItems, "open item")}`;
+    return `${word} ${values[stage2]}`;
+  });
   const out = [];
   for (const part of parts) {
     const joined2 = out.length ? `${out.at(-1)}${GAP}${part}` : null;
@@ -23716,18 +23747,29 @@ function counts({ shipped, inbox, outbox, openItems: openItems2, inReview }) {
 function bar({ bar: { delivered, total, percent, filled }, inProgress }) {
   if (total === 0) return ["  nothing yet: /omni:brainstorm to start"];
   const cells2 = `${"\u2588".repeat(filled)}${"\u2591".repeat(BAR_CELLS - filled)}`;
-  const parts = [[inProgress.inbox, "in the inbox"], [inProgress.outbox, "in the outbox"]].filter(([count3]) => count3 > 0).map(([count3, where]) => `${count3} ${where}`);
-  const under = inProgress.total === 0 ? "nothing in progress" : `${inProgress.total} in progress: ${parts.join(", ")}`;
-  return [`${LABEL2}${cells2}  ${delivered} of ${total} \xB7 ${percent}%`, `${UNDER_BAR}${under}`];
+  const top = `${LABEL2}${cells2}  ${delivered} of ${total} \xB7 ${percent}%`;
+  if (inProgress.total === 0) return [top, `${UNDER_BAR}nothing in progress`];
+  const parts = [[inProgress.inbox, "in the inbox"], [inProgress.building, "being built"], [inProgress.outbox, "in the outbox"]].filter(([count3]) => count3 > 0).map(([count3, where]) => `${count3} ${where}`);
+  const under = [`${UNDER_BAR}${inProgress.total} in progress: ${parts[0]}`];
+  for (const part of parts.slice(1)) {
+    const joined2 = `${under.at(-1)}, ${part}`;
+    if (joined2.length <= WIDTH) under[under.length - 1] = joined2;
+    else {
+      under[under.length - 1] += ",";
+      under.push(`${UNDER_BAR}${part}`);
+    }
+  }
+  return [top, ...under];
 }
-var STAGE_WORDS = { outbox: "outbox", inbox: "inbox", inReview: "in review", shipped: "shipped" };
 var NUMBER_GAP = "  ";
 var TOPIC_GAP = "    ";
 var SEPARATOR = " \xB7 ";
 var cut = (text4, width) => text4.length <= width ? text4 : `${text4.slice(0, Math.max(0, width - 1))}\u2026`;
 var stageColumn = (stage2) => `${INDENT}${STAGE_WORDS[stage2].padEnd(UNDER_BAR.length - INDENT.length)}`;
 function standing({ stage: stage2, prd: prd2, openItems: openItems2 }) {
-  if (stage2 === "outbox") return openItems2 > 0 ? `${plural3(openItems2, "open item")} wait${openItems2 === 1 ? "s" : ""} for an answer` : "being built";
+  const waiting = openItems2 > 0 ? `${plural3(openItems2, "open item")} wait${openItems2 === 1 ? "s" : ""} for an answer` : null;
+  if (stage2 === "outbox") return waiting ?? "its feature PR waits for your review";
+  if (stage2 === "building") return waiting ?? "being built";
   if (stage2 === "inbox") return `ready to build: /omni:yolo ${prd2}`;
   return "its phase-0 PR waits for a merge";
 }

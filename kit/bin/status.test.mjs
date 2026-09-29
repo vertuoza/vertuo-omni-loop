@@ -64,7 +64,8 @@ describe('omni status — the overview (PRD 315, slice s1)', () => {
     expect(s.out.join('')).toBe([
       'omni status · acme/widgets · origin/main, fetched just now',
       '',
-      '  SHIPPED 3     INBOX 2',
+      '  IDEA on the app     PRD 0     INBOX 2     BUILDING 0     OUTBOX 0',
+      '  SHIPPED 3     RETRO 0',
       '',
       `  delivered  ${'█'.repeat(18)}${'░'.repeat(12)}  3 of 5 · 60%`,
       '             2 in progress: 2 in the inbox',
@@ -100,7 +101,7 @@ describe('omni status — the overview (PRD 315, slice s1)', () => {
     write(`${DELIVERY}/shipped/0006-working-tree/spec.md`);
     const s = io();
     expect(await main(['status'], { cwd: root, ...s })).toBe(0);
-    expect(s.out.join('')).toContain('  SHIPPED 3     INBOX 2\n');
+    expect(s.out.join('')).toContain('  IDEA on the app     PRD 0     INBOX 2     BUILDING 0     OUTBOX 0\n  SHIPPED 3     RETRO 0\n');
   });
 
   it('reads the local main when there is no origin/main', async () => {
@@ -109,7 +110,7 @@ describe('omni status — the overview (PRD 315, slice s1)', () => {
     expect(await main(['status'], { cwd: root, ...s })).toBe(0);
     const out = s.out.join('');
     expect(out.split('\n')[0]).toBe('omni status · acme/widgets · main, never fetched');
-    expect(out).toContain('  SHIPPED 1     INBOX 1\n');
+    expect(out).toContain('  IDEA on the app     PRD 0     INBOX 1     BUILDING 0     OUTBOX 0\n  SHIPPED 1     RETRO 0\n');
     expect(out).toContain('  1 of 2 · 50%\n');
   });
 
@@ -134,7 +135,7 @@ describe('omni status — the overview (PRD 315, slice s1)', () => {
     const s = io();
     expect(await main(['status'], { cwd: root, ...s })).toBe(0);
     const out = s.out.join('');
-    expect(out).toContain('  SHIPPED 0     INBOX 0\n');
+    expect(out).toContain('  IDEA on the app     PRD 0     INBOX 0     BUILDING 0     OUTBOX 0\n  SHIPPED 0     RETRO 0\n');
     expect(out).toContain('\n  nothing yet: /omni:brainstorm to start\n');
     expect(out).not.toContain('delivered');
   });
@@ -159,13 +160,13 @@ describe('omni status — the overview (PRD 315, slice s1)', () => {
 
     const before = io();
     expect(await main(['status'], { cwd: root, ...before })).toBe(0);
-    expect(before.out.join('')).toContain('  SHIPPED 3     INBOX 2\n');
+    expect(before.out.join('')).toContain('  IDEA on the app     PRD 0     INBOX 2     BUILDING 0     OUTBOX 0\n  SHIPPED 3     RETRO 0\n');
 
     const after = io();
     expect(await main(['status', '--fetch'], { cwd: root, ...after })).toBe(0);
     const out = after.out.join('');
     expect(out.split('\n')[0]).toBe('omni status · acme/widgets · origin/main, fetched just now');
-    expect(out).toContain('  SHIPPED 4     INBOX 2\n');
+    expect(out).toContain('  IDEA on the app     PRD 0     INBOX 2     BUILDING 0     OUTBOX 0\n  SHIPPED 4     RETRO 0\n');
     expect(out).not.toContain('fetch failed');
   });
 
@@ -177,7 +178,7 @@ describe('omni status — the overview (PRD 315, slice s1)', () => {
     const out = s.out.join('').split('\n');
     expect(out[0]).toMatch(/^fetch failed: fatal: .*nowhere\.git.*; showing your last fetch$/);
     expect(out[1]).toBe('omni status · acme/widgets · origin/main, never fetched');
-    expect(s.out.join('')).toContain('  SHIPPED 3     INBOX 2\n');
+    expect(s.out.join('')).toContain('  IDEA on the app     PRD 0     INBOX 2     BUILDING 0     OUTBOX 0\n  SHIPPED 3     RETRO 0\n');
     expect(existsSync(join(root, '.git/FETCH_HEAD'))).toBe(false);
   });
 
@@ -251,21 +252,21 @@ function pushBranch({ seed, bare, root }, branch, files, { from = 'main' } = {})
   git(root, 'fetch', '-q', 'origin');
 }
 
-/** The counts line, the bar's numbers and the line under the bar of one `omni status` in `root`. */
+/** The count lines (joined), the bar's numbers and the line under the bar of one `omni status` in `root`. */
 async function overviewIn(root) {
   const s = io();
   expect(await main(['status'], { cwd: root, ...s })).toBe(0);
   expect(s.err.join('')).toBe('');
   const out = s.out.join('').split('\n');
   const bar = out.find((line) => line.startsWith('  delivered'));
-  return { counts: out[2], bar: bar?.split('  ').at(-1), under: out[out.indexOf(bar) + 1] };
+  return { counts: out.slice(2, out.indexOf('', 2)).join('\n'), bar: bar?.split('  ').at(-1), under: out[out.indexOf(bar) + 1] };
 }
 
 const OUTBOX = `${DELIVERY}/outbox`;
 const CODE = { 'src/widget.mjs': 'export const widget = 1;\n' };
 
-describe('omni status — the outbox and the PRDs in review (PRD 315, slice s2)', () => {
-  it('counts a PRD in the outbox when its feature branch carries code, with its open items', async () => {
+describe('omni status — building and the PRDs in review (PRD 315 s2, PRD 587 s5)', () => {
+  it('counts a PRD building when its feature branch carries code, with its open items', async () => {
     const repo = cloned(THREE_AND_TWO);
     pushBranch(repo, 'feat/fourth', {
       ...CODE,
@@ -275,9 +276,9 @@ describe('omni status — the outbox and the PRDs in review (PRD 315, slice s2)'
       [`${OUTBOX}/0004-fourth/accounts/s1.md`]: '# account\n',
     });
     const { counts, bar, under } = await overviewIn(repo.root);
-    expect(counts).toBe('  SHIPPED 3     INBOX 1     OUTBOX 1 · 2 open items');
+    expect(counts).toBe('  IDEA on the app     PRD 0     INBOX 1     BUILDING 1 · 2 open items\n  OUTBOX 0     SHIPPED 3     RETRO 0');
     expect(bar).toBe('3 of 5 · 60%');
-    expect(under).toBe('             2 in progress: 1 in the inbox, 1 in the outbox');
+    expect(under).toBe('             2 in progress: 1 in the inbox, 1 being built');
   });
 
   it("counts a feature branch that is only its PRD's phase-0 copy in the inbox", async () => {
@@ -285,21 +286,21 @@ describe('omni status — the outbox and the PRDs in review (PRD 315, slice s2)'
     const repo = cloned({ ...THREE_AND_TWO, ...scenario });
     pushBranch(repo, 'feat/fifth', { ...folder('inbox', '0005-fifth'), ...scenario }, { from: 'main~1' });
     const { counts, bar } = await overviewIn(repo.root);
-    expect(counts).toBe('  SHIPPED 3     INBOX 2');
+    expect(counts).toBe('  IDEA on the app     PRD 0     INBOX 2     BUILDING 0     OUTBOX 0\n  SHIPPED 3     RETRO 0');
     expect(bar).toBe('3 of 5 · 60%');
   });
 
-  it('counts a feature branch with one open item and no code in the outbox', async () => {
+  it('counts a feature branch with one open item and no code as building', async () => {
     const repo = cloned(THREE_AND_TWO);
     pushBranch(repo, 'feat/fifth', { [`${OUTBOX}/0005-fifth/s1-01-a.md`]: '# a\n' });
-    expect((await overviewIn(repo.root)).counts).toBe('  SHIPPED 3     INBOX 1     OUTBOX 1 · 1 open item');
+    expect((await overviewIn(repo.root)).counts).toBe('  IDEA on the app     PRD 0     INBOX 1     BUILDING 1 · 1 open item\n  OUTBOX 0     SHIPPED 3     RETRO 0');
   });
 
-  it('counts a phase-0 branch whose PRD is in neither folder of main in review, out of the bar', async () => {
+  it('counts a phase-0 branch whose PRD is in neither folder of main at PRD, out of the bar', async () => {
     const repo = cloned(THREE_AND_TWO);
     pushBranch(repo, 'docs/phase-0-ninth', folder('inbox', '0009-ninth'));
     const { counts, bar, under } = await overviewIn(repo.root);
-    expect(counts).toBe('  SHIPPED 3     INBOX 2     IN REVIEW 1');
+    expect(counts).toBe('  IDEA on the app     PRD 1     INBOX 2     BUILDING 0     OUTBOX 0\n  SHIPPED 3     RETRO 0');
     expect(bar).toBe('3 of 5 · 60%');
     expect(under).toBe('             2 in progress: 2 in the inbox');
   });
@@ -311,7 +312,7 @@ describe('omni status — the outbox and the PRDs in review (PRD 315, slice s2)'
     pushBranch(repo, 'feat/nowhere', { ...CODE, [`${OUTBOX}/0004-fourth/s1-01-a.md`]: '# a\n' });
     pushBranch(repo, 'docs/phase-0-nowhere', folder('inbox', '0010-elsewhere'));
     const { counts, bar } = await overviewIn(repo.root);
-    expect(counts).toBe('  SHIPPED 3     INBOX 2');
+    expect(counts).toBe('  IDEA on the app     PRD 0     INBOX 2     BUILDING 0     OUTBOX 0\n  SHIPPED 3     RETRO 0');
     expect(bar).toBe('3 of 5 · 60%');
   });
 
@@ -322,7 +323,7 @@ describe('omni status — the outbox and the PRDs in review (PRD 315, slice s2)'
     pushBranch(repo, 'feat/fifth', CODE);
     pushBranch(repo, 'review/ninth', folder('inbox', '0009-ninth'));
     pushBranch(repo, 'docs/phase-0-tenth', folder('inbox', '0010-tenth'));
-    expect((await overviewIn(repo.root)).counts).toBe('  SHIPPED 3     INBOX 1     OUTBOX 1 · 0 open items     IN REVIEW 1');
+    expect((await overviewIn(repo.root)).counts).toBe('  IDEA on the app     PRD 1     INBOX 1     BUILDING 1 · 0 open items\n  OUTBOX 0     SHIPPED 3     RETRO 0');
   });
 
   it('skips a branch it cannot read, and still shows the overview', async () => {
@@ -336,7 +337,7 @@ describe('omni status — the outbox and the PRDs in review (PRD 315, slice s2)'
     commit(root, 'no history in common with main');
     git(root, 'update-ref', 'refs/remotes/origin/feat/fifth', 'HEAD');
     git(root, 'checkout', '-q', '-f', 'main');
-    expect((await overviewIn(root)).counts).toBe('  SHIPPED 3     INBOX 2');
+    expect((await overviewIn(root)).counts).toBe('  IDEA on the app     PRD 0     INBOX 2     BUILDING 0     OUTBOX 0\n  SHIPPED 3     RETRO 0');
   });
 
   it('reads the remote branches only: not a local branch, not the working tree, and never fetches', async () => {
@@ -355,8 +356,34 @@ describe('omni status — the outbox and the PRDs in review (PRD 315, slice s2)'
     };
     const s = io();
     expect(await main(['status'], { cwd: root, ...s, exec })).toBe(0);
-    expect(s.out.join('')).toContain('\n  SHIPPED 3     INBOX 1     OUTBOX 1 · 0 open items\n');
+    expect(s.out.join('')).toContain('\n  IDEA on the app     PRD 0     INBOX 1     BUILDING 1 · 0 open items\n  OUTBOX 0     SHIPPED 3     RETRO 0\n');
     expect(calls.filter(([, sub]) => sub === 'fetch')).toEqual([]);
+  });
+});
+
+describe('omni status — outbox and retro (PRD 587, slice s5)', () => {
+  it('counts a PRD whose feature branch shipped its folder, the green gate before ready, in the outbox', async () => {
+    const repo = cloned(THREE_AND_TWO);
+    pushBranch(repo, 'feat/fifth', CODE);
+    const { seed, bare, root } = repo;
+    git(seed.root, 'checkout', '-q', '-b', 'feat/fourth', 'main');
+    git(seed.root, 'mv', `${DELIVERY}/inbox/0004-fourth`, `${DELIVERY}/shipped/0004-fourth`);
+    for (const [path, text] of Object.entries(CODE)) seed.write(path, text);
+    commit(seed.root, 'omni ship 4');
+    git(seed.root, 'push', '-q', bare, 'feat/fourth');
+    git(seed.root, 'checkout', '-q', 'main');
+    git(root, 'fetch', '-q', 'origin');
+    const { counts, bar, under } = await overviewIn(repo.root);
+    expect(counts).toBe('  IDEA on the app     PRD 0     INBOX 0     BUILDING 1 · 0 open items\n  OUTBOX 1     SHIPPED 3     RETRO 0');
+    expect(bar).toBe('3 of 5 · 60%');
+    expect(under).toBe('             2 in progress: 1 being built, 1 in the outbox');
+  });
+
+  it('counts a shipped folder holding the retro file at retro, still delivered', async () => {
+    const { root } = cloned({ ...THREE_AND_TWO, [`${DELIVERY}/shipped/0002-second/retro.md`]: '# retro\n' });
+    const { counts, bar } = await overviewIn(root);
+    expect(counts).toBe('  IDEA on the app     PRD 0     INBOX 2     BUILDING 0     OUTBOX 0\n  SHIPPED 2     RETRO 1');
+    expect(bar).toBe('3 of 5 · 60%');
   });
 });
 
@@ -377,7 +404,7 @@ describe('omni status — the fetch time in a linked worktree (PRD 315, slice s2
     const s = io();
     expect(await main(['status'], { cwd: worktree, ...s })).toBe(0);
     expect(s.out.join('').split('\n')[0]).toBe('omni status · acme/widgets · origin/main, fetched 2 hours ago');
-    expect(s.out.join('')).toContain('\n  SHIPPED 3     INBOX 2\n');
+    expect(s.out.join('')).toContain('\n  IDEA on the app     PRD 0     INBOX 2     BUILDING 0     OUTBOX 0\n  SHIPPED 3     RETRO 0\n');
   });
 
   it("says the newer of the worktree's own fetch and the main checkout's", async () => {
@@ -434,11 +461,11 @@ describe('omni status — your PRDs (PRD 315, slice s3)', () => {
   }
 
   const MINE = [
-    '  outbox     #7  seventh    1 open item waits for an answer',
-    '  outbox     #5  fifth      being built',
+    '  building   #7  seventh    1 open item waits for an answer',
+    '  building   #5  fifth      being built',
     '  inbox      #8  eighth     ready to build: /omni:yolo 8',
     '  inbox      #6  sixth      ready to build: /omni:yolo 6',
-    '  in review  #9  ninth      its phase-0 PR waits for a merge',
+    '  PRD        #9  ninth      its phase-0 PR waits for a merge',
     '  shipped    2: #3 third · #1 first',
   ];
 
@@ -456,7 +483,7 @@ describe('omni status — your PRDs (PRD 315, slice s3)', () => {
   it('lists the PRDs whose folder you touched, or whose feature branch carries a commit of yours, each with where it stands', async () => {
     const { root } = cloneOf(seeded());
     const out = await statusIn(root);
-    expect(out[2]).toBe('  SHIPPED 3     INBOX 2     OUTBOX 3 · 1 open item     IN REVIEW 2');
+    expect(out.slice(2, 4).join('\n')).toBe('  IDEA on the app     PRD 2     INBOX 2     BUILDING 3 · 1 open item\n  OUTBOX 0     SHIPPED 3     RETRO 0');
     expect(yoursIn(out)).toEqual(['  Yours · me@example.com', ...MINE]);
     for (const line of out) expect(line.length).toBeLessThanOrEqual(80);
   });
@@ -472,11 +499,11 @@ describe('omni status — your PRDs (PRD 315, slice s3)', () => {
     git(root, 'config', 'user.email', OTHER);
     expect(yoursIn(await statusIn(root))).toEqual([
       '  Yours · other@example.com',
-      '  outbox     #7   seventh    1 open item waits for an answer',
-      '  outbox     #5   fifth      being built',
-      '  outbox     #4   fourth     being built',
+      '  building   #7   seventh    1 open item waits for an answer',
+      '  building   #5   fifth      being built',
+      '  building   #4   fourth     being built',
       '  inbox      #8   eighth     ready to build: /omni:yolo 8',
-      '  in review  #10  tenth      its phase-0 PR waits for a merge',
+      '  PRD        #10  tenth      its phase-0 PR waits for a merge',
       '  shipped    2: #3 third · #2 second',
     ]);
   });
@@ -486,7 +513,7 @@ describe('omni status — your PRDs (PRD 315, slice s3)', () => {
     git(root, 'config', 'user.email', 'nobody@example.com');
     const out = await statusIn(root);
     expect(yoursIn(out)).toEqual(['  Yours · nobody@example.com', '  none yet']);
-    expect(out[2]).toBe('  SHIPPED 3     INBOX 2     OUTBOX 3 · 1 open item     IN REVIEW 2');
+    expect(out.slice(2, 4).join('\n')).toBe('  IDEA on the app     PRD 2     INBOX 2     BUILDING 3 · 1 open item\n  OUTBOX 0     SHIPPED 3     RETRO 0');
   });
 
   it('says one line without a user.email, the counts and the bar still shown', async () => {
@@ -495,7 +522,7 @@ describe('omni status — your PRDs (PRD 315, slice s3)', () => {
     const bare = (command, args, options) => execFileSync(command, args, { ...options, env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' } });
     const out = await statusIn(root, bare);
     expect(yoursIn(out)).toEqual(['  set git config user.email to see yours']);
-    expect(out[2]).toBe('  SHIPPED 3     INBOX 2     OUTBOX 3 · 1 open item     IN REVIEW 2');
+    expect(out.slice(2, 4).join('\n')).toBe('  IDEA on the app     PRD 2     INBOX 2     BUILDING 3 · 1 open item\n  OUTBOX 0     SHIPPED 3     RETRO 0');
     expect(out.some((line) => line.endsWith('3 of 8 · 37%'))).toBe(true);
   });
 
@@ -506,7 +533,7 @@ describe('omni status — your PRDs (PRD 315, slice s3)', () => {
     git(root, 'config', 'user.email', ME);
     const out = await statusIn(root);
     expect(yoursIn(out)).toEqual(['  this clone is shallow: git fetch --unshallow to see yours']);
-    expect(out[2]).toBe('  SHIPPED 3     INBOX 5');
+    expect(out.slice(2, 4).join('\n')).toBe('  IDEA on the app     PRD 0     INBOX 5     BUILDING 0     OUTBOX 0\n  SHIPPED 3     RETRO 0');
     expect(out.some((line) => line.endsWith('3 of 8 · 37%'))).toBe(true);
   });
 });

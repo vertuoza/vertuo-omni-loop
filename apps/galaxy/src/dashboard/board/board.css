@@ -38,6 +38,8 @@
 .board-tile-figure b { color: var(--ask-ink); font-size: 28px; line-height: 1.2; }
 .board-tile-stages b { font-size: 20px; }
 .board-tile-stages > span { white-space: nowrap; }
+.board-stage { color: inherit; text-decoration: none; }
+.board-stage:hover .board-stage-word, .board-stage:focus-visible .board-stage-word { text-decoration: underline; }
 .board-tile .dash-note { font-size: 15px; }
 
 /* ── Charts ── */
@@ -52,8 +54,8 @@
 .board-day-name { fill: var(--ask-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .board-day-name.is-today { fill: var(--ask-ink); font-weight: 700; }
 .board-bar { fill: var(--ask-plasma); }
-.board-bar-drafted { fill: var(--ask-cyan); background: var(--ask-cyan); }
-.board-bar-inProgress { fill: var(--ask-yellow); background: var(--ask-yellow); }
+.board-bar-opened { fill: var(--ask-cyan); background: var(--ask-cyan); }
+.board-bar-started { fill: var(--ask-yellow); background: var(--ask-yellow); }
 .board-bar-shipped { fill: var(--ask-green); background: var(--ask-green); }
 .board-hit { fill: transparent; }
 .board-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--ask-muted); font-size: 14px; }

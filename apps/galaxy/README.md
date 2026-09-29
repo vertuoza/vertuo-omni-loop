@@ -787,6 +787,32 @@ is the planet's PRD.
   single-file artifact shows them without the OPEN hint, since it has no page to open.
 - **In the demo**, a planet's OPEN opens the pages' demo dossier, whichever planet it was pressed on.
 
+## PRD stages (PRD 587)
+
+Where each PRD is (PRD, inbox, building, outbox, shipped, retro) is stored in `public.prd_stages`,
+one row per stage with the date it was reached, and each PRD folder's topic in `public.prd_topics`.
+The pages read them and never wait on GitHub. Two ways in write them, as the service role:
+
+- **The sync, every 15 minutes, is the truth.** The `stages` workflow
+  (`.github/workflows/stages.yml`) calls `POST /api/stages/sync` with
+  `Authorization: Bearer <STAGES_SYNC_SECRET>` and fails when the reply is not 2xx. For each
+  workspace, galaxy lists the repositories its App installation reaches that carry a
+  `.omni-loop/config.yml`, and reads each through the App (`src/stages/sync/github.ts`): its config,
+  the PRD folders in `inbox/` and `shipped/` on its default branch, the issues carrying `labels.prd`,
+  its pull requests, and when an open feature PR was marked ready. `src/stages/sync/core.ts` turns
+  that into stages, each dated by its own event (the issue's creation, the phase-0 merge, the first
+  slice PR merged into the feature branch, the feature PR's ready time, its merge, the retro PR's
+  creation). A folder in `inbox/` or `shipped/` whose PR is not found is recorded at the sync's time.
+  A repository that cannot be read is logged and skipped, and the others still land. A stage keeps
+  its first date, so a rerun writes nothing new. The reply names the stages and topics per
+  repository, and what was skipped and why.
+- **Stage events, between two syncs.** omni-app posts a signed stage event to
+  `POST /api/stages/event` when a phase-0, slice, feature or retro PR moves, signed with
+  `STAGE_EVENT_SECRET`.
+
+While either secret is missing on galaxy, its route refuses every call (401), and stages come from
+the other way in. Where each is set: [Deploy to production](#deploy-to-production), steps 2 and 5.
+
 ## Release notes
 
 Every PRD the loop ships carries a release note (PRD 262): a `release.md` beside its spec, a title and
@@ -939,6 +965,8 @@ releases workflow ─ releases:sync, when a PRD ships ──────┘     
                                                                      │  nobody's, for /releases
                                                                      ▼
                                                       Vercel, fra1: apps/galaxy
+                                                                     ▲
+stages workflow ─ POST /api/stages/sync, every 15 minutes ───────────┘  galaxy reads GitHub as the App
 ```
 
 ### 1. Create the Supabase project
@@ -962,6 +990,8 @@ Repository settings › Secrets and variables › Actions:
 | `SUPABASE_ACCESS_TOKEN` | secret | the personal access token | `supabase.yml` › deploy |
 | `SUPABASE_DB_PASSWORD` | secret | the database password | `supabase.yml` › deploy |
 | `SUPABASE_SERVICE_ROLE_KEY` | secret | the secret key | `game.yml` › ledger and rankings; `releases.yml` › sync |
+| `GALAXY_URL` | variable | the production arcade's URL, `https://<production host>` | `stages.yml`; unset, the stages sync stays off |
+| `STAGES_SYNC_SECRET` | secret | the same value as galaxy's `STAGES_SYNC_SECRET` (step 5) | `stages.yml` › sync |
 
 ### 3. Apply the migrations
 
@@ -1018,6 +1048,12 @@ fills `public.releases` for `/releases` ([Release notes](#release-notes)).
    `https://<galaxy host>/prd/github/callback`, beside any it already lists (a GitHub App keeps
    several). Without the two variables, the tab still reads the questions and Send says sending is
    not open here; without the callback URL, Send fails with GitHub's reason.
+   For the PRD stages (PRD 587), two secrets, server only, each a long random string
+   (`openssl rand -hex 32`): `STAGES_SYNC_SECRET`, the same value as the repository's Actions secret
+   of that name (step 2), which the `stages` workflow sends to `/api/stages/sync`; and
+   `STAGE_EVENT_SECRET`, the same value as on omni-app, which signs its stage events to
+   `/api/stages/event`. Without one, its route refuses every call and stages come from the other way
+   in ([PRD stages](#prd-stages-prd-587)).
 3. Deploy. The page renders per request with the visitor's session. If Supabase cannot be read, the
    arcade still plays its attract mode and says the galaxy is out of reach. `/releases` reads the
    database at build time instead, as nobody, and again at most every 5 minutes.
