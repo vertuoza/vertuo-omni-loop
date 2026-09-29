@@ -1,23 +1,27 @@
 import { periodWindow, type Period } from '../dashboard/board/period';
-import { withFaces, type FacePlayer } from './faces';
+import { peopleOf } from '../people/load';
+import { withPeople } from './faced';
 import type { EngineeringBoard } from './load';
 import { engineeringOf, OMNI_MAN, type PullRequestRow, type ReviewRow, type SortKey } from './tally';
 
 // The demo's Engineering board (PRD 612 s3), for development and OMNI_LOOP_DEMO=1: two tracked
 // repositories and a month and a half of made-up pull requests and reviews, counted as a workspace's
-// would be, with a player or two for their heroes. Fixed: the same `now` draws the same board. Given a
+// would be, with a member or two for their heroes. Fixed: the same `now` draws the same board. Given a
 // repository (PRD 645 s2), that repository's page: the board over it alone, or not tracked.
 
 const TRACKED = ['acme/widgets', 'acme/gears'];
 const PEOPLE = ['ada', 'bob', 'carl', 'dora', 'eli', 'fay'];
 const HOUR = 3_600_000;
 
-/** The demo's players, so both kinds of face show: ada and dora draw their heroes (ada in her fleet's
- * colour, dora with no fleet), everyone else their GitHub picture. */
-const PLAYERS: FacePlayer[] = [
-  { login: 'ada', hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 }, color: '#e0457b' },
-  { login: 'dora', hero: { v: 1, body: 'boy', skin: 2, hair: 1, suit: 1, cape: 0 }, color: null },
-];
+/** The demo's people directory, so both kinds of face show: ada and dora draw their heroes (ada in
+ * her fleet's colour, dora with no fleet), everyone else their GitHub photo. */
+const DEMO_PEOPLE = peopleOf(
+  [
+    { user_id: 'demo-ada', name: 'Ada', github_login: 'ada', avatar_url: null, fleet: 'comets', hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } },
+    { user_id: 'demo-dora', name: 'Dora', github_login: 'dora', avatar_url: null, fleet: null, hero: { v: 1, body: 'boy', skin: 2, hair: 1, suit: 1, cape: 0 } },
+  ],
+  [{ name: 'comets', label: 'COMETS', color: '#e0457b', mascot: null }],
+);
 
 const openedAt = (i: number, now: Date) => new Date(now.getTime() - (i * 11 + 3) * HOUR);
 const isSigned = (i: number) => i % 3 === 0;
@@ -56,5 +60,5 @@ export function demoEngineeringBoard(period: Period, sort: SortKey, now: Date, r
   const found = repo === undefined ? undefined : TRACKED.find((r) => r.toLowerCase() === repo.toLowerCase());
   if (repo !== undefined && !found) return { kind: 'not-tracked' };
   const board = engineeringOf({ tracked: found ? [found] : TRACKED, ...rows(now) }, periodWindow(period, now), sort);
-  return { kind: 'board', name: 'Demo workspace', board: withFaces(board, PLAYERS), ...(found ? { repo: found } : {}) };
+  return { kind: 'board', name: 'Demo workspace', board: withPeople(board, DEMO_PEOPLE), ...(found ? { repo: found } : {}) };
 }
