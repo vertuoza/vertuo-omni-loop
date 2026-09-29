@@ -35,7 +35,7 @@ export function phase0Topic(headRef, template) {
 }
 
 /** The parsed base config, or `null` when the base has none or it does not parse. */
-export function readConfigAt(base) {
+function readConfigAt(base) {
   const file = join(base, CONFIG_FILE);
   if (!existsSync(file)) return null;
   try {

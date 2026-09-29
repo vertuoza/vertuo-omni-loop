@@ -58,44 +58,67 @@ function repositoryViolations(slices, repositories, { planSlug, targets }) {
   if (slices.every((slice) => slice.repo === null)) {
     return ['repo: the slice table has no repo column — in a plan repository each slice names the repository it lands in.'];
   }
-  const violations = [];
+  const owners = ownersByShortName([...targets.map((target) => target.repo), planSlug]);
+  return [
+    ...shortNameClashes(owners),
+    ...unknownRepoViolations(slices, owners),
+    ...missingRowViolations(slices, repositories, owners),
+    ...repositoryRowViolations(slices, repositories, { owners, planName: shortName(planSlug) }),
+  ];
+}
 
+/** Each short name, with the slugs that share it. */
+function ownersByShortName(slugs) {
   const owners = new Map();
-  for (const slug of [...targets.map((target) => target.repo), planSlug]) {
+  for (const slug of slugs) {
     const name = shortName(slug);
     owners.set(name, [...(owners.get(name) ?? []), slug]);
   }
-  for (const [name, slugs] of owners) {
-    if (slugs.length > 1) {
-      violations.push(`repo: "${name}" is the short name of ${slugs.join(' and ')} — a slice could not say which.`);
-    }
-  }
+  return owners;
+}
 
-  for (const slice of slices) {
-    if (!owners.has(slice.repo)) {
-      violations.push(
+function shortNameClashes(owners) {
+  return [...owners]
+    .filter(([, slugs]) => slugs.length > 1)
+    .map(([name, slugs]) => `repo: "${name}" is the short name of ${slugs.join(' and ')} — a slice could not say which.`);
+}
+
+function unknownRepoViolations(slices, owners) {
+  return slices
+    .filter((slice) => !owners.has(slice.repo))
+    .map(
+      (slice) =>
         `repo: ${slice.id} names "${slice.repo}", which is neither a target nor this plan repository (${[...owners.keys()].join(', ')}).`,
-      );
-    }
-  }
+    );
+}
 
+function missingRowViolations(slices, repositories, owners) {
   const rows = new Set(repositories.map((row) => row.repo));
-  for (const repo of new Set(slices.map((slice) => slice.repo).filter((name) => owners.has(name)))) {
-    if (!rows.has(repo)) violations.push(`## Repositories: ${repo} holds slices and has no row.`);
-  }
-  const planName = shortName(planSlug);
+  const named = new Set(slices.map((slice) => slice.repo).filter((name) => owners.has(name)));
+  return [...named].filter((repo) => !rows.has(repo)).map((repo) => `## Repositories: ${repo} holds slices and has no row.`);
+}
+
+function repositoryRowViolations(slices, repositories, { owners, planName }) {
+  const violations = [];
   for (const row of repositories) {
-    if (!slices.some((slice) => slice.repo === row.repo)) {
-      violations.push(`## Repositories: the row ${row.repo} names no slice's repository.`);
-    } else if (row.repo === planName) {
-      if (!NO_COMMIT.test(row.readAt)) {
-        violations.push(`read at: ${row.repo} is the plan repository and reads "${row.readAt}", not —.`);
-      }
-    } else if (owners.has(row.repo) && !COMMIT.test(row.readAt)) {
-      violations.push(`read at: ${row.repo} reads "${row.readAt}", not the full 40-character commit its clone was read at.`);
-    }
+    const violation = rowViolation(row, slices, { owners, planName });
+    if (violation) violations.push(violation);
   }
   return violations;
+}
+
+/** One `## Repositories` row's fault, or null. */
+function rowViolation(row, slices, { owners, planName }) {
+  if (!slices.some((slice) => slice.repo === row.repo)) {
+    return `## Repositories: the row ${row.repo} names no slice's repository.`;
+  }
+  if (row.repo === planName) {
+    return NO_COMMIT.test(row.readAt) ? null : `read at: ${row.repo} is the plan repository and reads "${row.readAt}", not —.`;
+  }
+  if (owners.has(row.repo) && !COMMIT.test(row.readAt)) {
+    return `read at: ${row.repo} reads "${row.readAt}", not the full 40-character commit its clone was read at.`;
+  }
+  return null;
 }
 
 /** What an ordinary repository's plan may not carry: either table of a plan repository. */

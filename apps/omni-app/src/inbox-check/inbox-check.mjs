@@ -29,7 +29,7 @@ import { compareFacts, completeInboxAsFailure, readIssue, startInboxCheck } from
 export const INBOX_FUNCTION_ID = 'inbox-check';
 
 /** `ci.inboxContext` when a repository sets none, taken from the kit's own schema. */
-export const DEFAULT_INBOX_NAME = ConfigSchema.parse({ kit: 1 }).ci.inboxContext;
+const DEFAULT_INBOX_NAME = ConfigSchema.parse({ kit: 1 }).ci.inboxContext;
 
 /** What a run returns when it posted nothing: not a phase-0 PR, or no loop on this repository. */
 const SILENT = Object.freeze({ posted: false, reason: 'not a phase-0 PR of a repository with omni-loop' });
