@@ -235,3 +235,23 @@ describe('no tracked repository', () => {
     expect(engineeringOf(read({ tracked: [], pullRequests: [pr()] }), WEEK, 'merged')).toEqual({ kind: 'empty', window: WEEK });
   });
 });
+
+describe('one repository (PRD 645 s2)', () => {
+  it('fed one tracked repository, counts only its pull requests and reviews: tiles, people, the Omni panel and per day', () => {
+    const gears = merged(4, { repo: 'acme/gears', author: 'ada', mergedBy: 'bob', commits: 3, additions: 7, deletions: 2, omniSigned: true });
+    const widgets = merged(20, { repo: 'acme/widgets', author: 'carl', mergedBy: 'dora', commits: 9, additions: 100, deletions: 50 });
+    const rows = [gears, pr({ repo: 'Acme/Gears', author: 'eli' }), widgets, pr({ repo: 'acme/widgets', author: 'fay' })];
+    const reviews = [
+      review({ repo: 'acme/gears', number: gears.number, reviewer: 'carl' }),
+      review({ repo: 'acme/widgets', number: widgets.number, reviewer: 'bob' }),
+    ];
+    const b = board(read({ tracked: ['Acme/Gears'], pullRequests: rows, reviews }));
+    expect(b.tiles).toEqual({ opened: 2, merged: 1, openNow: 1, medianToMerge: 4 * HOUR, commits: 3, additions: 7, deletions: 2 });
+    expect(b.people.opened.map((p) => p.login)).toEqual(['ada', 'eli']);
+    expect(b.people.merged).toEqual([{ login: 'bob', count: 1 }]);
+    expect(b.people.reviews).toEqual([{ login: 'carl', count: 1 }]);
+    expect(b.omni).toMatchObject({ merged: 1, of: 1, share: 100, additions: 7, deletions: 2 });
+    expect(b.perDay.reduce((s, d) => s + d.signed + d.rest, 0)).toBe(1);
+    expect(b.repositories.map((r) => r.repo)).toEqual(['acme/gears']);
+  });
+});

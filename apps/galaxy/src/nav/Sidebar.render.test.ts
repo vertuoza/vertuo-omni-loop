@@ -12,6 +12,18 @@ import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
 
 const at = { path: '/app' as string | null };
 vi.mock('next/navigation', () => ({ usePathname: () => at.path }));
+// next/link as a plain anchor that records each href it links (PRD 657): a soft navigation keeps the
+// layout and the waiting polls, so every entry must go through it.
+const linked = vi.hoisted((): string[] => []);
+vi.mock('next/link', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    default: ({ prefetch: _prefetch, ...props }: Record<string, unknown>) => {
+      linked.push(String(props.href));
+      return h('a', props);
+    },
+  };
+});
 
 const { Sidebar } = await import('./Sidebar.tsx');
 /** The release running, as the release workflow stamps it in the root package.json. */
@@ -157,6 +169,27 @@ describe('the sidebar', () => {
       expect(html).toContain(`<p class="app-sidebar-label" id="app-sidebar-${id}">${label}</p><ul class="app-sidebar-items" aria-labelledby="app-sidebar-${id}">`);
     }
     expect(html).toContain('<ul class="app-sidebar-links" aria-label="Omni">');
+  });
+});
+
+describe('its links (PRD 657)', () => {
+  it('makes every entry, the crest included, a next/link: a click changes the page without a document load', () => {
+    linked.length = 0;
+    const hrefs = links(render(ADA, '/app', [gate('a')])).map((l) => /href="([^"]+)"/.exec(l.attrs)?.[1]);
+    expect(hrefs.length).toBeGreaterThan(10);
+    expect(linked).toEqual(hrefs);
+  });
+
+  it.each([
+    ['/prd/3f2a', '/prd'],
+    ['/ask/for-me', '/ask/for-me'],
+    ['/app/settings/fleets', '/app/settings/fleets'],
+  ])('keeps the highlight on %s through the link, prefix match included: %s', (path, current) => {
+    linked.length = 0;
+    const marked = links(render(ADA, path)).filter((l) => l.attrs.includes('aria-current="page"'));
+    expect(marked).toHaveLength(1);
+    expect(marked[0].attrs).toContain(`href="${current}"`);
+    expect(linked).toContain(current);
   });
 });
 

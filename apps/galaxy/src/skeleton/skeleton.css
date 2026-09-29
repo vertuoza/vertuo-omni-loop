@@ -1,0 +1,37 @@
+/* The skeletons (PRD 657 s4): grey blocks where a page's data goes, while it streams in. A skeleton
+   borrows the box of the block it stands for (a board tile, the hero, a PRD row), so the page does not
+   shift when the block arrives; the bones inside are this sheet's. Every colour is a token of
+   src/ask/theme-tokens.ts, as in src/ask/ask.css. A quiet pulse, and none for reduced motion. */
+
+.skel { display: grid; gap: 12px; min-width: 0; }
+.skel-row { display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap; min-width: 0; }
+.skel-bone {
+  display: block;
+  max-width: 100%;
+  border-radius: 6px;
+  background: var(--ask-line);
+  animation: skel-pulse 1.4s ease-in-out infinite;
+}
+.skel-line { height: 14px; }
+.skel-title { height: 28px; width: 14em; }
+.skel-figure { height: 28px; width: 3em; }
+.skel-hero { width: 96px; height: 96px; border-radius: 8px; }
+.skel-chart { height: 160px; }
+.skel-box {
+  display: grid; gap: 10px; min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+  background: var(--ask-surface);
+}
+.skel-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+/* The tiles' grid, as the board's and Waiting for you's: two by two on a phone, four from 720 px. */
+.skel-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 720px) { .skel-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.skel-charts { display: grid; gap: 16px; }
+@media (min-width: 900px) { .skel-charts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+@keyframes skel-pulse { 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) {
+  .skel-bone { animation: none; }
+}

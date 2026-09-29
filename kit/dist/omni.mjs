@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target2) => (target2 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.88" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.95" };
   }
 });
 
@@ -11653,6 +11653,8 @@ var ConfigSchema = external_exports.object({
   board: section({ matchBy: external_exports.enum(["base", "label"]).default("base") }),
   ci: section({
     outboxContext: text.default("outbox"),
+    // PRD 675: the name of the check run the omni-loop App posts on a phase-0 PR.
+    inboxContext: text.default("inbox"),
     aggregateCheck: nullableText.default(null),
     branchProtection: external_exports.boolean().default(false),
     runner: text.default("ubuntu-latest")
@@ -17096,21 +17098,29 @@ function beforeAfterViolation(file, ctx) {
   if (size <= ctx.config.limits.beforeAfterMaxBytes) return null;
   return `${file}: is ${size} bytes, over the ${ctx.config.limits.beforeAfterMaxBytes}-byte cap.`;
 }
+function gradeFolder(specFile, ctx) {
+  const folder = basename5(dirname7(specFile));
+  const violations = [];
+  let record = null;
+  if (!existsSync18(join23(ctx.root, specFile))) {
+    violations.push(`${specFile}: spec.md is missing.`);
+  } else {
+    const text4 = readRepoFile(ctx, specFile);
+    const graded = violationsForFile(specFile, folder, text4, ctx);
+    violations.push(...graded.violations);
+    if (graded.record) record = { ...graded.record, file: specFile, folder };
+  }
+  const beforeAfter = beforeAfterViolation(`${dirname7(specFile)}/before-after.html`, ctx);
+  if (beforeAfter) violations.push(beforeAfter);
+  return { violations, record };
+}
 function findInboxViolations({ ctx }) {
   const violations = [];
   const records = [];
   for (const specFile of ctx.layout.specFiles()) {
-    const folder = basename5(dirname7(specFile));
-    if (!existsSync18(join23(ctx.root, specFile))) {
-      violations.push(`${specFile}: spec.md is missing.`);
-    } else {
-      const text4 = readRepoFile(ctx, specFile);
-      const { record, violations: fileViolations } = violationsForFile(specFile, folder, text4, ctx);
-      violations.push(...fileViolations);
-      if (record) records.push({ ...record, file: specFile, folder });
-    }
-    const beforeAfter = beforeAfterViolation(`${dirname7(specFile)}/before-after.html`, ctx);
-    if (beforeAfter) violations.push(beforeAfter);
+    const graded = gradeFolder(specFile, ctx);
+    violations.push(...graded.violations);
+    if (graded.record) records.push(graded.record);
   }
   violations.push(...blockedByViolations(records, ctx));
   return violations;
@@ -22617,10 +22627,139 @@ init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync38 } from "node:fs";
 import { join as join49 } from "node:path";
 
+// kit/lib/inbox/plan-grade.mjs
+init_define_OMNI_BUNDLE();
+var COMMIT = /^[0-9a-f]{40}$/;
+var NO_COMMIT = /^[—–-]$/;
+function duplicateIds(slices) {
+  const counts2 = /* @__PURE__ */ new Map();
+  for (const slice of slices) counts2.set(slice.id, (counts2.get(slice.id) ?? 0) + 1);
+  return [...counts2.entries()].filter(([, count3]) => count3 > 1).map(([id]) => id);
+}
+function blockedByViolations2(slices) {
+  const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
+  const violations = [];
+  for (const slice of slices) {
+    for (const blocker of slice.blockedBy ?? []) {
+      if (!waveOf.has(blocker)) {
+        violations.push(`${slice.id} is blocked by "${blocker}", which names no slice in this plan.`);
+        continue;
+      }
+      const blockerWave = waveOf.get(blocker);
+      if (blockerWave >= slice.wave) {
+        violations.push(
+          `${slice.id} (wave ${slice.wave}) is blocked by ${blocker} (wave ${blockerWave}) \u2014 a blocker must sit in an earlier wave.`
+        );
+      }
+    }
+  }
+  return violations;
+}
+function shortName3(slug) {
+  return slug.slice(slug.indexOf("/") + 1);
+}
+function repositoryViolations(slices, repositories, { planSlug, targets: targets2 }) {
+  if (slices.every((slice) => slice.repo === null)) {
+    return ["repo: the slice table has no repo column \u2014 in a plan repository each slice names the repository it lands in."];
+  }
+  const owners = ownersByShortName([...targets2.map((target2) => target2.repo), planSlug]);
+  return [
+    ...shortNameClashes(owners),
+    ...unknownRepoViolations(slices, owners),
+    ...missingRowViolations(slices, repositories, owners),
+    ...repositoryRowViolations(slices, repositories, { owners, planName: shortName3(planSlug) })
+  ];
+}
+function ownersByShortName(slugs) {
+  const owners = /* @__PURE__ */ new Map();
+  for (const slug of slugs) {
+    const name = shortName3(slug);
+    owners.set(name, [...owners.get(name) ?? [], slug]);
+  }
+  return owners;
+}
+function shortNameClashes(owners) {
+  return [...owners].filter(([, slugs]) => slugs.length > 1).map(([name, slugs]) => `repo: "${name}" is the short name of ${slugs.join(" and ")} \u2014 a slice could not say which.`);
+}
+function unknownRepoViolations(slices, owners) {
+  return slices.filter((slice) => !owners.has(slice.repo)).map(
+    (slice) => `repo: ${slice.id} names "${slice.repo}", which is neither a target nor this plan repository (${[...owners.keys()].join(", ")}).`
+  );
+}
+function missingRowViolations(slices, repositories, owners) {
+  const rows2 = new Set(repositories.map((row) => row.repo));
+  const named = new Set(slices.map((slice) => slice.repo).filter((name) => owners.has(name)));
+  return [...named].filter((repo) => !rows2.has(repo)).map((repo) => `## Repositories: ${repo} holds slices and has no row.`);
+}
+function repositoryRowViolations(slices, repositories, { owners, planName }) {
+  const violations = [];
+  for (const row of repositories) {
+    const violation2 = rowViolation(row, slices, { owners, planName });
+    if (violation2) violations.push(violation2);
+  }
+  return violations;
+}
+function rowViolation(row, slices, { owners, planName }) {
+  if (!slices.some((slice) => slice.repo === row.repo)) {
+    return `## Repositories: the row ${row.repo} names no slice's repository.`;
+  }
+  if (row.repo === planName) {
+    return NO_COMMIT.test(row.readAt) ? null : `read at: ${row.repo} is the plan repository and reads "${row.readAt}", not \u2014.`;
+  }
+  if (owners.has(row.repo) && !COMMIT.test(row.readAt)) {
+    return `read at: ${row.repo} reads "${row.readAt}", not the full 40-character commit its clone was read at.`;
+  }
+  return null;
+}
+function notPlanRepositoryViolations(slices, repositories) {
+  const violations = [];
+  if (slices.some((slice) => slice.repo !== null)) violations.push("repo: a repo column needs a plan repository.");
+  if (repositories.length > 0) violations.push("## Repositories: a Repositories table needs a plan repository.");
+  return violations;
+}
+function byRepository(slices) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const slice of slices) groups.set(slice.repo, [...groups.get(slice.repo) ?? [], slice]);
+  return groups;
+}
+function gradePlan(markdown, { config: config2 }) {
+  let slices;
+  try {
+    slices = parsePlanSlices(markdown);
+  } catch (error) {
+    return {
+      slices: [],
+      repositories: [],
+      waves: [],
+      multi: false,
+      collisions: [],
+      matrices: [],
+      violations: [error.message],
+      parseError: error.message
+    };
+  }
+  const repositories = parsePlanRepositories(markdown);
+  const planSection2 = config2.plan ?? null;
+  const multi = planSection2 !== null && slices.some((slice) => slice.repo !== null);
+  const repoOf = new Map(slices.map((slice) => [slice.id, slice.repo]));
+  const collisions2 = sameWaveCollisions(slices);
+  const violations = [
+    ...planSection2 === null ? notPlanRepositoryViolations(slices, repositories) : repositoryViolations(slices, repositories, { planSlug: config2.repo.slug, targets: planSection2.targets }),
+    ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
+    ...blockedByViolations2(slices),
+    ...collisions2.map(
+      (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${multi ? ` of ${repoOf.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
+    )
+  ];
+  const waves = [...new Set(slices.map((slice) => slice.wave))].sort((a, b) => a - b);
+  const matrices = multi ? [...byRepository(slices)].map(([repo, group]) => ({ repo, rows: collisionRows(group) })) : [{ repo: null, rows: collisionRows(slices) }];
+  return { slices, repositories, waves, multi, collisions: collisions2, matrices, violations, parseError: null };
+}
+
 // kit/lib/plan-repo/moved.mjs
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync11 } from "node:child_process";
-var shortName3 = (slug) => slug.slice(slug.indexOf("/") + 1);
+var shortName4 = (slug) => slug.slice(slug.indexOf("/") + 1);
 var pathsOf = (file) => [file.filename, file.previous_filename].filter(Boolean);
 function compareRow(gh, { slug, readAt, slices }) {
   const branch = gh.repository(slug).default_branch;
@@ -22640,8 +22779,8 @@ function compareRow(gh, { slug, readAt, slices }) {
 }
 function planMoved({ slices, repositories, planSlug, targets: targets2 }, { exec = execFileSync11, env } = {}) {
   const gh = ghReader({ exec, env });
-  const slugOf2 = new Map(targets2.map((target2) => [shortName3(target2.repo), target2.repo]));
-  return repositories.filter((row) => row.repo !== shortName3(planSlug)).map((row) => {
+  const slugOf2 = new Map(targets2.map((target2) => [shortName4(target2.repo), target2.repo]));
+  return repositories.filter((row) => row.repo !== shortName4(planSlug)).map((row) => {
     const base = { repo: row.repo, state: "ok", files: [], slices: [], detail: null };
     const slug = slugOf2.get(row.repo);
     if (!slug) return { ...base, state: "unreachable", detail: "not a target of this plan repository" };
@@ -22675,99 +22814,21 @@ function movedTable(rows2) {
 
 // kit/bin/commands/plan.mjs
 var USAGE13 = "usage: omni plan check <prd> | omni plan moved <prd> [--json]";
-var COMMIT = /^[0-9a-f]{40}$/;
-var NO_COMMIT = /^[—–-]$/;
-function duplicateIds(slices) {
-  const counts2 = /* @__PURE__ */ new Map();
-  for (const slice of slices) counts2.set(slice.id, (counts2.get(slice.id) ?? 0) + 1);
-  return [...counts2.entries()].filter(([, count3]) => count3 > 1).map(([id]) => id);
-}
-function blockedByViolations2(slices) {
-  const waveOf = new Map(slices.map((slice) => [slice.id, slice.wave]));
-  const violations = [];
-  for (const slice of slices) {
-    for (const blocker of slice.blockedBy ?? []) {
-      if (!waveOf.has(blocker)) {
-        violations.push(`${slice.id} is blocked by "${blocker}", which names no slice in this plan.`);
-        continue;
-      }
-      const blockerWave = waveOf.get(blocker);
-      if (blockerWave >= slice.wave) {
-        violations.push(
-          `${slice.id} (wave ${slice.wave}) is blocked by ${blocker} (wave ${blockerWave}) \u2014 a blocker must sit in an earlier wave.`
-        );
-      }
-    }
-  }
-  return violations;
-}
-function shortName4(slug) {
-  return slug.slice(slug.indexOf("/") + 1);
-}
-function repositoryViolations(slices, repositories, { planSlug, targets: targets2 }) {
-  if (slices.every((slice) => slice.repo === null)) {
-    return ["repo: the slice table has no repo column \u2014 in a plan repository each slice names the repository it lands in."];
-  }
-  const violations = [];
-  const owners = /* @__PURE__ */ new Map();
-  for (const slug of [...targets2.map((target2) => target2.repo), planSlug]) {
-    const name = shortName4(slug);
-    owners.set(name, [...owners.get(name) ?? [], slug]);
-  }
-  for (const [name, slugs] of owners) {
-    if (slugs.length > 1) {
-      violations.push(`repo: "${name}" is the short name of ${slugs.join(" and ")} \u2014 a slice could not say which.`);
-    }
-  }
-  for (const slice of slices) {
-    if (!owners.has(slice.repo)) {
-      violations.push(
-        `repo: ${slice.id} names "${slice.repo}", which is neither a target nor this plan repository (${[...owners.keys()].join(", ")}).`
-      );
-    }
-  }
-  const rows2 = new Set(repositories.map((row) => row.repo));
-  for (const repo of new Set(slices.map((slice) => slice.repo).filter((name) => owners.has(name)))) {
-    if (!rows2.has(repo)) violations.push(`## Repositories: ${repo} holds slices and has no row.`);
-  }
-  const planName = shortName4(planSlug);
-  for (const row of repositories) {
-    if (!slices.some((slice) => slice.repo === row.repo)) {
-      violations.push(`## Repositories: the row ${row.repo} names no slice's repository.`);
-    } else if (row.repo === planName) {
-      if (!NO_COMMIT.test(row.readAt)) {
-        violations.push(`read at: ${row.repo} is the plan repository and reads "${row.readAt}", not \u2014.`);
-      }
-    } else if (owners.has(row.repo) && !COMMIT.test(row.readAt)) {
-      violations.push(`read at: ${row.repo} reads "${row.readAt}", not the full 40-character commit its clone was read at.`);
-    }
-  }
-  return violations;
-}
-function notPlanRepositoryViolations(slices, repositories) {
-  const violations = [];
-  if (slices.some((slice) => slice.repo !== null)) violations.push("repo: a repo column needs a plan repository.");
-  if (repositories.length > 0) violations.push("## Repositories: a Repositories table needs a plan repository.");
-  return violations;
-}
 function counted2(count3, singular, pluralForm) {
   return `${count3} ${count3 === 1 ? singular : pluralForm}`;
 }
-function byRepository(slices) {
-  const groups = /* @__PURE__ */ new Map();
-  for (const slice of slices) groups.set(slice.repo, [...groups.get(slice.repo) ?? [], slice]);
-  return groups;
-}
-function readPlan2(prd2, { ctx, verb }) {
+function readPlanText(prd2, { ctx, verb }) {
   const planPath = ctx.layout.planPath(prd2);
   if (planPath === null) throw usageError(`omni plan ${verb}: PRD ${prd2} has no inbox or shipped folder.`);
-  let markdown;
   try {
-    markdown = readFileSync38(join49(ctx.root, planPath), "utf8");
+    return { planPath, markdown: readFileSync38(join49(ctx.root, planPath), "utf8") };
   } catch (error) {
     if (error?.code === "ENOENT") throw usageError(`omni plan ${verb}: no plan at ${planPath}.`);
     throw error;
   }
+}
+function readPlan2(prd2, { ctx, verb }) {
+  const { planPath, markdown } = readPlanText(prd2, { ctx, verb });
   let slices;
   try {
     slices = parsePlanSlices(markdown);
@@ -22777,21 +22838,10 @@ function readPlan2(prd2, { ctx, verb }) {
   return { planPath, slices, repositories: parsePlanRepositories(markdown) };
 }
 function checkPlan(prd2, { ctx }) {
-  const { planPath, slices, repositories } = readPlan2(prd2, { ctx, verb: "check" });
-  const planSection2 = ctx.config.plan ?? null;
-  const multi = planSection2 !== null && slices.some((slice) => slice.repo !== null);
-  const repoOf = new Map(slices.map((slice) => [slice.id, slice.repo]));
-  const violations = [
-    ...planSection2 === null ? notPlanRepositoryViolations(slices, repositories) : repositoryViolations(slices, repositories, { planSlug: ctx.config.repo.slug, targets: planSection2.targets }),
-    ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
-    ...blockedByViolations2(slices),
-    ...sameWaveCollisions(slices).map(
-      (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${multi ? ` of ${repoOf.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
-    )
-  ];
-  const waves = [...new Set(slices.map((slice) => slice.wave))].sort((a, b) => a - b);
-  const matrices = multi ? [...byRepository(slices)].map(([repo, group]) => ({ repo, rows: collisionRows(group) })) : [{ repo: null, rows: collisionRows(slices) }];
-  return { planPath, slices, waves, multi, matrices, violations };
+  const { planPath, markdown } = readPlanText(prd2, { ctx, verb: "check" });
+  const graded = gradePlan(markdown, { config: ctx.config });
+  if (graded.parseError !== null) throw usageError(`omni plan check: ${planPath}: ${graded.parseError}`);
+  return { planPath, ...graded };
 }
 function moved(rest, { ctx, stdout, exec, env }) {
   const { positional, flags } = parseArgs("plan moved", rest, { booleans: ["json"] });

@@ -105,25 +105,55 @@ export function beforeAfterViolation(file, ctx) {
   return `${file}: is ${size} bytes, over the ${ctx.config.limits.beforeAfterMaxBytes}-byte cap.`;
 }
 
-/** Grades every spec the inbox holds, and every sibling before-after page. */
+/**
+ * One inbox folder's own grading, its spec file named: the spec's violations, its before-after
+ * page's size, and the parsed record (`null` when absent or malformed) for the `blocked-by` pass.
+ */
+function gradeFolder(specFile, ctx) {
+  const folder = basename(dirname(specFile));
+  const violations = [];
+  let record = null;
+
+  if (!existsSync(join(ctx.root, specFile))) {
+    violations.push(`${specFile}: spec.md is missing.`);
+  } else {
+    const text = readRepoFile(ctx, specFile);
+    const graded = violationsForFile(specFile, folder, text, ctx);
+    violations.push(...graded.violations);
+    if (graded.record) record = { ...graded.record, file: specFile, folder };
+  }
+
+  const beforeAfter = beforeAfterViolation(`${dirname(specFile)}/before-after.html`, ctx);
+  if (beforeAfter) violations.push(beforeAfter);
+
+  return { violations, record };
+}
+
+/**
+ * The inbox rules for one PRD's folder only (PRD 675): exactly what `findInboxViolations` reports
+ * for that folder, and nothing for any other folder's faults. A PRD with no inbox folder is one
+ * violation saying so. What the omni-loop App grades a phase-0 PR with.
+ */
+export function inboxViolationsFor({ ctx, prd }) {
+  const wanted = Number(prd);
+  const specFile = ctx.layout
+    .specFiles()
+    .find((file) => parseFolderName(basename(dirname(file)))?.prd === wanted);
+  if (specFile === undefined) return [`PRD ${wanted} has no inbox folder.`];
+
+  const { violations, record } = gradeFolder(specFile, ctx);
+  return [...violations, ...blockedByViolations(record ? [record] : [], ctx)];
+}
+
+/** Grades every spec the inbox holds, and every sibling before-after page, folder by folder. */
 export function findInboxViolations({ ctx }) {
   const violations = [];
   const records = [];
 
   for (const specFile of ctx.layout.specFiles()) {
-    const folder = basename(dirname(specFile));
-
-    if (!existsSync(join(ctx.root, specFile))) {
-      violations.push(`${specFile}: spec.md is missing.`);
-    } else {
-      const text = readRepoFile(ctx, specFile);
-      const { record, violations: fileViolations } = violationsForFile(specFile, folder, text, ctx);
-      violations.push(...fileViolations);
-      if (record) records.push({ ...record, file: specFile, folder });
-    }
-
-    const beforeAfter = beforeAfterViolation(`${dirname(specFile)}/before-after.html`, ctx);
-    if (beforeAfter) violations.push(beforeAfter);
+    const graded = gradeFolder(specFile, ctx);
+    violations.push(...graded.violations);
+    if (graded.record) records.push(graded.record);
   }
 
   violations.push(...blockedByViolations(records, ctx));

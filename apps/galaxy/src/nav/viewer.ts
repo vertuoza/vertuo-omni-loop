@@ -1,10 +1,7 @@
 import 'server-only';
 import { readForMeLive } from '../ask/page/for-me-live';
 import { DEMO_YOU } from '../dashboard/demo';
-import { arcadeMode } from '../data/mode';
-import { supabaseEnv, supabaseServer } from '../data/supabase-server';
-import { firstWorkspace } from '../data/workspace';
-import { readWaitingQuestions } from '../waiting/source';
+import { viewer } from '../data/viewer';
 import type { WaitingSource } from '../waiting/view';
 import type { WaitingQuestion } from '../waiting/waiting';
 import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
@@ -39,7 +36,8 @@ export interface ViewerSource {
 
 const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
 
-const loginOf = (user: Person) => {
+/** The person's GitHub login, when they signed in with GitHub (the fix lists' Mine reads it too, issue 674). */
+export const loginOf = (user: Person) => {
   const d = user.identities?.find((i) => i.provider === 'github')?.identity_data ?? null;
   return text(d?.user_name) ?? text(d?.preferred_username);
 };
@@ -85,21 +83,20 @@ async function demoQuestions(now: number): Promise<WaitingQuestion[]> {
   }));
 }
 
-/** The viewer of this request: the demo's hero in the demo, signed out with no database. */
+/** The viewer of this request: the demo's hero in the demo, signed out with no database. Read through
+ * viewer() (PRD 657): the client, the user, the workspace and the questions are the page's own, read
+ * once per request. */
 export async function viewerLive(): Promise<Viewer> {
-  const mode = arcadeMode(process.env);
-  if (mode === 'demo') {
+  const seen = await settle(() => viewer(), null);
+  if (seen?.kind === 'demo') {
     return { ...SIGNED_OUT, signedIn: true, name: DEMO_YOU.name, login: DEMO_YOU.login, waiting: { questions: await demoQuestions(Date.now()), unread: false, source: { kind: 'demo' } } };
   }
-  const env = supabaseEnv();
-  if (mode === 'closed' || !env) return SIGNED_OUT;
+  if (seen?.kind !== 'signed-in') return SIGNED_OUT;
+  const { env, user } = seen;
   return readViewer({
-    user: async (): Promise<Person | null> => {
-      const { data: { user } } = await (await supabaseServer()).auth.getUser();
-      return user;
-    },
-    workspace: async (userId) => firstWorkspace(await supabaseServer(), userId),
-    questions: async (userId) => readWaitingQuestions(await supabaseServer(), userId, Date.now()),
+    user: async () => user,
+    workspace: () => seen.workspace(),
+    questions: () => seen.questions(),
     live: (userId) => ({ kind: 'database', url: env.url, key: env.key, me: userId }),
   });
 }

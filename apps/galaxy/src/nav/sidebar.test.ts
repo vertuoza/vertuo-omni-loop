@@ -78,6 +78,8 @@ describe('currentItem and pageTitle', () => {
     ['/app/workspace?period=season', 'workspace', 'Workspace'],
     ['/app/engineering', 'engineering', 'Engineering'],
     ['/app/engineering?period=30d&sort=merged', 'engineering', 'Engineering'],
+    ['/app/engineering/vertuoza/pdf-builder', 'engineering', 'Engineering'],
+    ['/app/engineering/vertuoza/pdf-builder?period=30d', 'engineering', 'Engineering'],
     ['/app/settings/fleets', 'fleets', 'Fleets'],
     ['/app/settings/repositories', 'repositories', 'Repositories'],
     ['/prd', 'prds', 'PRDs'],

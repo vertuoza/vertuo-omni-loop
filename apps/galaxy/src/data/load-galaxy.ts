@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS, lookOf, type FleetConfig, type GalaxyView, type LedgerEvent, type Projects } from '@omni/galaxy';
 import type { FleetRow, Player } from '../arcade/types';
 import { PLAYER_COLUMNS } from './players';
+import { liveSeason, seasonKey, type Newest, type SeasonDeps } from './season-cache';
 
 // Every loader reads one workspace, as the signed-in member: row-level security already hides every
 // workspace they do not belong to, and the filter keeps a member of several to the one shown.
@@ -36,40 +37,86 @@ export async function loadFleets(db: SupabaseClient, workspace: string): Promise
   return fleetsFrom((data ?? []) as TeamRow[]);
 }
 
-/** The workspace's galaxy: its ledger, sectors and fleets. */
-export async function loadGalaxy(db: SupabaseClient, workspace: string, now = new Date()): Promise<GalaxyView> {
+/**
+ * The workspace's galaxy: its ledger, sectors and fleets, folded by buildGalaxy. With a service key
+ * (season-cache.ts, PRD 657), the fold is cached: the viewer reads the newest event with the count, and
+ * the sectors and fleets, and the ledger is paged, with the service key, only when that key is new. A
+ * viewer who reads no event (not a member, or an empty ledger) gets the fold of nothing, as the
+ * uncached read gives them, and the service key is never used for them.
+ */
+export async function loadGalaxy(db: SupabaseClient, workspace: string, now = new Date(), season: SeasonDeps = liveSeason()): Promise<GalaxyView> {
+  if (!season) {
+    const [events, projects] = await Promise.all([readLedger(db, workspace), readProjects(db, workspace)]);
+    return buildGalaxy(events, { projects, now, source: 'supabase' });
+  }
+  const [newest, projects] = await Promise.all([readNewest(db, workspace), readProjects(db, workspace)]);
+  if (!newest) return buildGalaxy([], { projects, now, source: 'supabase' });
+  return season.cache(seasonKey(workspace, newest, projects, now), async () =>
+    buildGalaxy(await readLedger(season.service, workspace), { projects, now, source: 'supabase' }));
+}
+
+/** The workspace's newest ledger event and how many it holds, as the viewer reads them; null when none shows. */
+async function readNewest(db: SupabaseClient, workspace: string): Promise<Newest | null> {
+  const { data, error, count } = await db
+    .from('ledger_events')
+    .select('id, at', { count: 'exact' })
+    .eq('workspace_id', workspace)
+    .order('at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(1);
+  if (error) throw new Error(`Supabase: could not read ledger_events (${error.message})`);
+  const row = (data ?? [])[0] as { id: string; at: string } | undefined;
+  return row ? { id: row.id, at: new Date(row.at).toISOString(), count: count ?? 0 } : null;
+}
+
+type LedgerRow = Pick<LedgerEvent, 'id' | 'type' | 'planet'> & { at: string; region: string | null; contributor: string | null; team: string | null; data: LedgerEvent['data'] | null };
+
+/** A stored ledger row as buildGalaxy reads an event: its date to the second, empty fields left out. */
+function eventOf(row: LedgerRow): LedgerEvent {
+  return {
+    id: row.id, at: new Date(row.at).toISOString().replace(/\.\d{3}Z$/, 'Z'), type: row.type, planet: row.planet, data: row.data ?? {},
+    ...(row.region ? { region: row.region } : {}),
+    ...(row.contributor ? { contributor: row.contributor } : {}),
+    ...(row.team ? { team: row.team } : {}),
+  };
+}
+
+/** One page of the workspace's ledger, oldest first. */
+async function ledgerPage(db: SupabaseClient, workspace: string, from: number): Promise<LedgerRow[]> {
+  const { data, error } = await db
+    .from('ledger_events')
+    .select('id, at, type, planet, region, contributor, team, data')
+    .eq('workspace_id', workspace)
+    .order('at', { ascending: true })
+    .order('id', { ascending: true })
+    .range(from, from + PAGE - 1);
+  if (error) throw new Error(`Supabase: could not read ledger_events (${error.message})`);
+  return (data ?? []) as LedgerRow[];
+}
+
+/** Every event of the workspace's ledger, oldest first, a page at a time. */
+async function readLedger(db: SupabaseClient, workspace: string): Promise<LedgerEvent[]> {
   const events: LedgerEvent[] = [];
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await db
-      .from('ledger_events')
-      .select('id, at, type, planet, region, contributor, team, data')
-      .eq('workspace_id', workspace)
-      .order('at', { ascending: true })
-      .order('id', { ascending: true })
-      .range(from, from + PAGE - 1);
-    if (error) throw new Error(`Supabase: could not read ledger_events (${error.message})`);
-    for (const row of data ?? []) {
-      events.push({
-        id: row.id, at: new Date(row.at).toISOString().replace(/\.\d{3}Z$/, 'Z'), type: row.type, planet: row.planet, data: row.data ?? {},
-        ...(row.region ? { region: row.region } : {}),
-        ...(row.contributor ? { contributor: row.contributor } : {}),
-        ...(row.team ? { team: row.team } : {}),
-      });
-    }
-    if (!data || data.length < PAGE) break;
+    const rows = await ledgerPage(db, workspace, from);
+    events.push(...rows.map(eventOf));
+    if (rows.length < PAGE) return events;
   }
+}
+
+/** The workspace's sectors and fleets, as buildGalaxy takes them. */
+async function readProjects(db: SupabaseClient, workspace: string): Promise<Projects> {
   const [sectors, teams] = await Promise.all([
     db.from('sectors').select('name, repos').eq('workspace_id', workspace),
     db.from('teams').select(TEAM_COLUMNS).eq('workspace_id', workspace),
   ]);
   if (sectors.error || teams.error) throw new Error(`Supabase: could not read sectors/teams (${(sectors.error ?? teams.error)!.message})`);
-  const projects: Projects = {
+  return {
     sectors: Object.fromEntries((sectors.data ?? []).map((s) => [s.name, { repos: s.repos ?? [] }])),
     teams: Object.fromEntries(((teams.data ?? []) as TeamRow[]).map((t): [string, FleetConfig] => [t.name, {
       home: t.home, label: t.label, color: t.color, motto: t.motto, mascot: t.mascot, sort: t.sort, retired: Boolean(t.retired_at),
     }])),
   };
-  return buildGalaxy(events, { projects, now, source: 'supabase' });
 }
 
 /** The workspace's whole crew: names and heroes for the Hall of Heroes and the fleet screens. */

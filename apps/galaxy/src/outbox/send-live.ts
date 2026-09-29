@@ -1,7 +1,9 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseEnv, supabaseServer } from '../data/supabase-server';
+import { serviceDb } from '../data/sign-in-live';
 import { dossierGithub } from '../dossier/github/server';
+import { recountLive } from '../stages/outbox/live';
 import { sendOpen } from './open';
 import { githubUser, type OutboxSource, type SendDeps, type SendStore } from './send';
 import type { SendRow } from './sent';
@@ -14,7 +16,8 @@ import type { SendRow } from './sent';
 // (supabase/migrations/20261005090000_outbox_sends.sql); the server's one GitHub reader, as the omni-loop
 // App, read fresh for a send and cleared once it is posted; and GitHub, as the omni-loop App's user
 // authorisation — GITHUB_APP_CLIENT_ID and GITHUB_APP_CLIENT_SECRET, both server-only. Without them,
-// Send is off; without a database, nobody is signed in.
+// Send is off; without a database, nobody is signed in. PRD 657 (s5): once a reply is posted, its PRD's
+// open questions are recounted into prd_outbox as the service role (src/stages/outbox/live.ts).
 
 const SEND_COLUMNS = 'id, dossier_id, pr_number, reply, nonce_hash, created_at, posted_at, comment_url, login, counted, error';
 
@@ -71,6 +74,15 @@ function outboxSource(): OutboxSource {
   };
 }
 
+/** Recounts the dossier's PRD, found as the service role; a draft, or no dossier, recounts nothing. */
+async function recountDossier(dossierId: string): Promise<void> {
+  const { data, error } = await serviceDb().from('dossiers').select('workspace_id, home_repo, prd').eq('id', dossierId).maybeSingle();
+  if (error) throw new SendStoreError('read the dossier to recount', error.code, error.message);
+  const row = data as { workspace_id: string; home_repo: string; prd: number | null } | null;
+  if (!row || row.prd === null) return;
+  await recountLive(row.workspace_id, [{ repository: row.home_repo, prd: row.prd, id: dossierId }]);
+}
+
 export function sendDeps(): SendDeps {
   const clientId = process.env.GITHUB_APP_CLIENT_ID?.trim() || null;
   const clientSecret = process.env.GITHUB_APP_CLIENT_SECRET?.trim() || '';
@@ -84,5 +96,6 @@ export function sendDeps(): SendDeps {
     },
     outbox: outboxSource(),
     github: () => githubUser({ clientId: clientId ?? '', clientSecret, fetch }),
+    recount: recountDossier,
   };
 }

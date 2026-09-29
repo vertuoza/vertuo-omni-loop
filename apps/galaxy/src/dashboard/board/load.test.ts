@@ -237,12 +237,14 @@ describe('supabaseReads', () => {
       q.range = async () => ({ data: [{ repo: 'vertuo-omni-loop', number: 12, login: 'Ada-GH' }], error: null });
       return q;
     };
-    const rpc = vi.fn(async () => ({
-      data: [
-        { id: 'd1', workspace_id: 'w-1', home_repo: 'vertuoza/vertuo-core', prd: 3, opened_by: 'u-bob', answered: 0 },
-        { id: 'd2', workspace_id: 'w-1', home_repo: 'vertuoza/vertuo-core', prd: null, opened_by: 'u-ada', answered: 2 },
-        { id: 'd3', workspace_id: 'w-2', home_repo: 'other/repo', prd: null, opened_by: 'u-x', answered: 5 },
-      ],
+    // dossier_list(p_workspace) lists that workspace's dossiers alone: the database scopes, not the board.
+    const dossiers = [
+      { id: 'd1', workspace_id: 'w-1', home_repo: 'vertuoza/vertuo-core', prd: 3, opened_by: 'u-bob', answered: 0 },
+      { id: 'd2', workspace_id: 'w-1', home_repo: 'vertuoza/vertuo-core', prd: null, opened_by: 'u-ada', answered: 2 },
+      { id: 'd3', workspace_id: 'w-2', home_repo: 'other/repo', prd: null, opened_by: 'u-x', answered: 5 },
+    ];
+    const rpc = vi.fn(async (_fn: string, args: { p_workspace?: string }) => ({
+      data: dossiers.filter((d) => d.workspace_id === args.p_workspace),
       error: null,
     }));
     const r = supabaseReads({ from: () => query(), rpc } as never, 'w-1', galaxy as never, store);
@@ -255,7 +257,8 @@ describe('supabaseReads', () => {
     ]));
     expect(filters).toContainEqual(['eq', 'workspace_id', 'w-1']);
     expect(filters).toContainEqual(['eq', 'kind', 'prd-opened']);
-    expect(rpc).toHaveBeenCalledWith('dossier_list', { p_dossier: null });
+    expect(rpc).toHaveBeenCalledWith('dossier_list', { p_workspace: 'w-1' });
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 
   it('PRDs now reject when the stage store refuses', async () => {

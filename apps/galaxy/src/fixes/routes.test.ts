@@ -13,6 +13,8 @@ const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.c
 const given = vi.hoisted(() => ({
   mode: 'supabase' as 'demo' | 'closed' | 'supabase',
   token: null as string | null,
+  /** The signed-in person's GitHub login, when they signed in with GitHub (issue 674). */
+  login: null as string | null,
   fake: null as unknown as ReturnType<typeof import('../dossier/store.fake').fakeSupabase>,
 }));
 
@@ -43,7 +45,12 @@ vi.mock('../data/supabase-server', () => ({
   supabaseServer: async () => {
     const client = given.fake.client(given.token ?? 'signed-out');
     const user = given.token ? await client.auth.getUser(given.token) : { data: { user: null } };
-    return { ...client, auth: { getUser: async () => user } };
+    const github = given.login ? [{ provider: 'github', identity_data: { user_name: given.login } }] : undefined;
+    const signedIn = user.data.user ? { data: { user: { ...user.data.user, identities: github } } } : user;
+    // The claims a GitHub sign-in carries: its login in user_metadata, the provider in app_metadata.
+    const meta = given.login ? { user_metadata: { user_name: given.login }, app_metadata: { provider: 'github', providers: ['github'] } } : {};
+    const claims = user.data.user ? { claims: { sub: user.data.user.id, email: user.data.user.email, ...meta } } : null;
+    return { ...client, auth: { getUser: async () => signedIn, getClaims: async () => ({ data: claims, error: null }) } };
   },
 }));
 
@@ -54,6 +61,7 @@ const { default: VisualPage } = await import('../../app/visual/[id]/page.tsx');
 const { default: BugPage } = await import('../../app/bugs/[id]/page.tsx');
 const { default: PrdPage } = await import('../../app/prd/[id]/page.tsx');
 const { GET: roundRoute } = await import('../../app/visual/[id]/r/[round]/page/route.ts');
+const { settled } = await import('../dossier/page/stream/settled');
 
 let prd = '';
 let visual = '';
@@ -65,6 +73,7 @@ const push = async (who: string, args: Record<string, unknown>) =>
 beforeEach(async () => {
   given.mode = 'supabase';
   given.token = 'bob';
+  given.login = null;
   given.fake = fakeSupabase({ ada: ADA, bob: BOB }, { [FAKE_WORKSPACE]: 'acme' });
   prd = await push('ada', { p_prd: 7, p_title: 'Team inbox', p_artifacts: [{ kind: 'spec', content: '# Team inbox\n' }] });
   visual = await push('bob', {
@@ -78,9 +87,9 @@ afterEach(() => { vi.restoreAllMocks(); });
 
 const query = (q: Record<string, string> = {}) => Promise.resolve(q);
 const list = async (route: (p: { searchParams: Promise<Record<string, string>> }) => unknown, q: Record<string, string> = {}) =>
-  renderToStaticMarkup((await route({ searchParams: query(q) })) as ReactElement);
+  renderToStaticMarkup(await settled(await route({ searchParams: query(q) }) as ReactElement));
 const page = async (route: (p: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string>> }) => unknown, id: string, q: Record<string, string> = {}) =>
-  renderToStaticMarkup((await route({ params: Promise.resolve({ id }), searchParams: query(q) })) as ReactElement);
+  renderToStaticMarkup(await settled(await route({ params: Promise.resolve({ id }), searchParams: query(q) }) as ReactElement));
 const redirectTo = (path: string) => ({ digest: expect.stringContaining(`;${path};`) });
 
 describe('the lists', () => {
@@ -96,6 +105,13 @@ describe('the lists', () => {
     expect(mine).not.toContain('regression');
   });
 
+  it('keeps under Mine a fix someone else pushed whose issue the viewer opened on GitHub (issue 674)', async () => {
+    given.token = 'ada';
+    expect(await list(VisualList)).toContain('You have not asked for a visual update yet.');
+    given.login = 'Anna';
+    expect(await list(VisualList)).toContain(`href="/visual/${visual}"`);
+  });
+
   it('shows a bug fix\'s risk label and regression badge, and filters by state', async () => {
     const all = await list(BugList, { who: 'all' });
     expect(all).toContain('<span class="fix-badge">omni:risk-high</span>');
@@ -105,7 +121,7 @@ describe('the lists', () => {
   });
 
   it('/bugs lists the bug fixes only, under All when the viewer pushed none', async () => {
-    expect(await list(BugList)).toContain('You have not pushed a bug fix yet.');
+    expect(await list(BugList)).toContain('You have not asked for a bug fix yet.');
     const all = await list(BugList, { who: 'all' });
     expect(all).toContain(`href="/bugs/${bug}"`);
     expect(all).not.toContain('Darker sidebar');

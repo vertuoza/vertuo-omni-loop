@@ -76,6 +76,10 @@ jobs:
         # its first date. A member reads their own workspace's rows; anyone else reads nothing, and
         # nobody signed in writes.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/prd_stages.sql
+      - name: Who may read and write the PRD outboxes
+        # Only the service role records and recounts a PRD's open outbox questions. A member reads
+        # their own workspace's rows; anyone else reads nothing, and nobody signed in writes.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/prd_outbox.sql
       - name: Who may read and write the repositories
         # Only a workspace's owner adds a repository or switches its tracking, through the two
         # repository functions; a member, another workspace's owner, a stranger and anyone signed out

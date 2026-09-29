@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
 import type { DossierListRow, DossierRoundRow } from '../dossier/store';
-import { demoDossiers, planetDossier, readDossiers } from './dossiers';
+import { demoDossiers, planetDossier, readDossiers, workspaceDossiers } from './dossiers';
 import { withDossiers, type FakeDossier } from './dossiers.fake';
 import { ACME, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from './galaxy.fake';
 
@@ -174,6 +174,40 @@ describe('readDossiers', () => {
     const { fake, read } = world();
     fake.state.failOn = 'd-12';
     expect(await read()).toEqual({ 12: 'unreadable', 13: expect.objectContaining({ id: 'd-13' }) });
+  });
+});
+
+describe('workspaceDossiers', () => {
+  const DOSSIERS: FakeDossier[] = [
+    { row: listed('d-12', 12), rounds: [] },
+    { row: listed('d-draft', null), rounds: [] },
+    { row: listed('d-acme-12', 12, { workspace_id: ACME, home_repo: 'acme/acme-plan' }), rounds: [] },
+  ];
+
+  function world(person: FakeUser) {
+    const fake = withDossiers(fakeGalaxyDb(twoWorkspaces(), Object.values(PEOPLE)), DOSSIERS);
+    return { fake, db: fake.client(person) as unknown as SupabaseClient };
+  }
+
+  it('asks dossier_list() for one workspace by name, and lists that workspace\'s dossiers alone', async () => {
+    const { fake, db } = world(PEOPLE.both);
+    expect((await workspaceDossiers(db, VERTUOZA)).map((d) => d.id)).toEqual(['d-12', 'd-draft']);
+    expect((await workspaceDossiers(db, ACME)).map((d) => d.id)).toEqual(['d-acme-12']);
+    expect(fake.calls).toEqual([
+      { kind: 'rpc', fn: 'dossier_list', args: { p_workspace: VERTUOZA } },
+      { kind: 'rpc', fn: 'dossier_list', args: { p_workspace: ACME } },
+    ]);
+  });
+
+  it('lists nothing of a workspace its caller is not in', async () => {
+    const { db } = world(PEOPLE.wile);
+    expect(await workspaceDossiers(db, VERTUOZA)).toEqual([]);
+  });
+
+  it('rejects, naming what it read, when the list cannot be read', async () => {
+    const { fake, db } = world(PEOPLE.ada);
+    fake.state.failOn = 'dossier_list';
+    await expect(workspaceDossiers(db, VERTUOZA)).rejects.toThrow(/workspace's dossiers.*out of reach/);
   });
 });
 

@@ -6,11 +6,12 @@ import { memberWorkspace, type Workspace } from '../data/workspace';
 import { boardOf, loadBoard, supabaseReads, type BoardValue } from './board/load';
 import type { Period } from './board/period';
 import type { Waiting } from './counts/counts';
-import { loadWaiting } from './counts/load';
+import { loadWaiting, waitingOfQuestions } from './counts/load';
 import { homeRequest } from './home/team';
 import { once, settle, UNREADABLE, type PartInput, type Read } from './part';
 import { seasonBounds, type Season } from './season';
 import { loadYou, loginOf, nameOf, type YouValue } from './you';
+import type { WaitingQuestion } from '../waiting/waiting';
 
 // Home's read (PRD 328, reshaped by PRD 572), as the signed-in person: row-level security decides
 // what each read returns. First the workspace they joined first (joined by GitHub org at sign-in, PRD
@@ -38,7 +39,12 @@ export type DashboardLoad = { kind: 'no-workspace' } | { kind: 'dashboard'; dash
 
 const NONE = { roster: UNREADABLE, activity: UNREADABLE, answered: UNREADABLE, galaxy: UNREADABLE } as const;
 
-export async function loadDashboard(db: SupabaseClient, user: User, period: Period, now: Date): Promise<DashboardLoad> {
+/** `questions` is the waiting list's Questions part the layout read for this request (src/data/viewer.ts,
+ * PRD 657): Waiting for you is counted from it, not read again. Without it, Waiting for you reads the
+ * ask tables itself. */
+export async function loadDashboard(
+  db: SupabaseClient, user: User, period: Period, now: Date, questions?: () => Promise<WaitingQuestion[]>,
+): Promise<DashboardLoad> {
   const season = seasonBounds(now);
   let workspace: Workspace | null;
   try {
@@ -63,7 +69,7 @@ export async function loadDashboard(db: SupabaseClient, user: User, period: Peri
   const home = homeRequest({ userId: user.id, login: input.login, team: input.team });
   const [you, waiting, board] = await Promise.all([
     settle('your hero', () => loadYou(input, me, () => loadFleets(db, id))),
-    settle('the questions waiting for you', () => loadWaiting(input)),
+    settle('the questions waiting for you', async () => (questions ? waitingOfQuestions(await questions()) : loadWaiting(input))),
     loadBoard(supabaseReads(db, id, input.galaxy), { scope: home.scope, people: home.people, viewerId: user.id, period, now }),
   ]);
   return { kind: 'dashboard', dashboard: { name: nameOf(player, user), season, you, waiting, board, solo: home.solo } };

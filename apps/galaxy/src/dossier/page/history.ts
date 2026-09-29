@@ -10,18 +10,18 @@
 // with `who=all`; who combines with every other filter, and clearing the filters keeps it.
 //
 // PRD 251 (s10): a numbered row whose outbox has open questions shows `n open`, the Outbox tab's own
-// count (the open items), read from the server's GitHub reader and its 60-second cache
-// (readOpenCounts), only for the numbered rows the other filters let through (historyToRead). Needs an
-// answer (`needs=answer`) keeps only those rows; a row whose outbox could not be read counts as none.
+// count (the open items), only for the numbered rows the other filters let through (historyToRead).
+// Needs an answer (`needs=answer`) keeps only those rows; a row whose outbox could not be read counts as
+// none. PRD 657 (s5): the counts are read from prd_outbox, which the stages sync, the stage events and
+// the sends fill (readOpenCounts), so the list makes no GitHub read; they may lag up to 15 minutes.
 //
 // PRD 587 (s4): each row shows its current stage as a pill — a numbered PRD's from its stored stages
 // (readCurrentStages, through the stage store, as the viewer), a draft's idea once any of its questions is
 // answered, and none for a draft with no answer or a PRD not synced yet. A stage bar above the list counts
 // the seven stages over the rows every other filter keeps, and `stage=<id>` keeps only the rows at it.
-import type { GithubReader } from '../github/reader';
 import { isStage, STAGE_LABELS, STAGES, type StageId, type StoredStage } from '../../stages/stage';
 import { prdKey, type PrdRef, type StageStore } from '../../stages/store';
-import { UNREAD } from '../github/summary';
+import type { PrdOutboxStore } from '../../stages/outbox/store';
 import type { DossierKind, DossierListRow } from '../store';
 import { dossierPath, stamp, TAB_LABELS, TABS } from './view';
 
@@ -163,21 +163,29 @@ export function historyToRead(rows: DossierListRow[], filters: HistoryFilters, v
   return rows.filter((row) => row.prd !== null && passes(row, rest, viewer, new Map())).sort(newestFirst);
 }
 
-/** A reader of dossiers' GitHub summaries: the server's one, with its 60-second cache. */
-type SummaryReader = Pick<GithubReader, 'summary'>;
+/** A reader of the stored outboxes (PRD 657, s5): prd_outbox, as the viewer. */
+type OpenReader = Pick<PrdOutboxStore, 'countsOf'>;
 
-/** Each dossier's open outbox questions, as its Outbox tab counts them, read from `reader` all at once. A
- * dossier whose summary or outbox could not be read, or a reader that throws, is left out; no reader, none. */
-export async function readOpenCounts(rows: readonly DossierListRow[], reader: SummaryReader | null): Promise<Map<string, number>> {
+/** Each numbered dossier's open outbox questions, as the stages sync last stored them in prd_outbox,
+ * read per workspace all at once; no GitHub read. A dossier with no stored count is left out, and so is
+ * every dossier of a workspace whose outboxes could not be read; no reader, none. */
+export async function readOpenCounts(rows: readonly DossierListRow[], reader: OpenReader | null): Promise<Map<string, number>> {
   const counts = new Map<string, number>();
   if (!reader) return counts;
-  await Promise.all(rows.map(async (row) => {
-    if (row.prd === null) return;
+  const byWorkspace = new Map<string, DossierListRow[]>();
+  for (const row of rows) {
+    if (row.prd === null) continue;
+    byWorkspace.set(row.workspace_id, [...(byWorkspace.get(row.workspace_id) ?? []), row]);
+  }
+  await Promise.all([...byWorkspace].map(async ([workspace, numbered]) => {
     try {
-      const outbox = (await reader.summary({ id: row.id, home_repo: row.home_repo, prd: row.prd }))?.outbox ?? null;
-      if (outbox && outbox !== UNREAD) counts.set(row.id, outbox.open.length);
+      const stored = await reader.countsOf(workspace, numbered.map((row) => ({ repository: row.home_repo, prd: row.prd ?? 0 })));
+      for (const row of numbered) {
+        const count = stored.get(prdKey({ repository: row.home_repo, prd: row.prd ?? 0 }));
+        if (count) counts.set(row.id, count.open_questions);
+      }
     } catch (error) {
-      console.error(`PRD history: the outbox of ${row.home_repo}#${row.prd} could not be counted: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`PRD history: the outboxes of workspace ${workspace} could not be read: ${error instanceof Error ? error.message : String(error)}`);
     }
   }));
   return counts;
