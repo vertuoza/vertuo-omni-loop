@@ -1,0 +1,65 @@
+# The checks of a ready pull request into main (PRD 598): `test` runs `pnpm test` and `fallow` runs
+# `pnpm fallow:audit`, each against its own gate, side by side. A draft runs nothing, and neither does
+# a sub-PR into a feature branch (its base is not main) nor a pull request that changes only docs.
+# Marking a feature PR ready is what grades it, then every push after.
+#
+# `settle` waits first (scripts/settle-head.sh carries the numbers): a newer push cancels this run
+# while it is still one idle runner (the concurrency group below), and a branch that moved anyway
+# makes the run stale, so `test` and `fallow` skip. A burst of pushes costs one full run.
+name: checks
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore: ['**/*.md', 'docs/**']
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.head_ref }}
+  cancel-in-progress: true
+jobs:
+  settle:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    outputs:
+      stale: ${{ steps.gate.outputs.stale }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SETTLE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash scripts/settle-head.sh
+
+  test:
+    needs: settle
+    if: needs.settle.outputs.stale == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  fallow:
+    needs: settle
+    if: needs.settle.outputs.stale == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # The audit grades only what this pull request changes, measured from its base.
+      FALLOW_AUDIT_BASE: origin/${{ github.base_ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm fallow:audit
