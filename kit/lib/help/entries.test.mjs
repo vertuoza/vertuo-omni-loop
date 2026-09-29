@@ -53,10 +53,16 @@ describe('the help table in this repository', () => {
   });
 
   it('holds the 32 commands and the 15 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(32);
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(33);
     expect(skillFolders()).toHaveLength(15);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(32);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(33);
     expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(15);
+  });
+
+  it('lists omni bug for skills, with its usage (PRD 556)', () => {
+    const bug = ENTRIES.find((e) => e.name === 'bug' && e.kind === 'command');
+    expect(bug).toMatchObject({ who: 'skills', usage: ['omni bug <n> [--base <ref>]'] });
+    expect(bug.detail).toMatch(/\/omni:bug-fix\b/);
   });
 
   it('lists /omni:visual-fix for you, with its usage and when to use it (PRD 541)', () => {

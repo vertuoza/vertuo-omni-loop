@@ -418,6 +418,20 @@ export const ENTRIES = deepFreeze([
       'ok, or not ok with one line per failed check. --base defaults to {remote}/{defaultBranch}.',
   },
   {
+    name: 'bug',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni bug <n> [--base <ref>]'],
+    summary: 'grade a bug fix branch',
+    detail:
+      "The proof step of /omni:bug-fix, run on its fix branch: one folder for issue <n> under the " +
+      "delivery folder's bugs/, holding a bug.md with its Triage, Reproduction, Fix, Guard and " +
+      'Mutation sections, a risk of critical, high, medium or low, a reproduction file the branch ' +
+      "changes and its red line, and every commit carrying the loop's signature, unless signing is " +
+      'off. It runs no test. Prints ok, or not ok with one line per failed check. --base defaults ' +
+      'to {remote}/{defaultBranch}.',
+  },
+  {
     name: 'sign',
     kind: 'command',
     who: 'skills',
