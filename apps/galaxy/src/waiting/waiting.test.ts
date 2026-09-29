@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { HOOK_WAIT_MS, type SessionRow } from '../ask/page/view';
 import type { ForMeRow } from '../ask/page/question';
 import type { TabRow } from '../ask/page/tabs';
+import { peopleOf } from '../people/load';
 import { EMPTY_WAITING, mergeQuestions, ownQuestions, sharedQuestions, titled, WAITING_MS, waitingCounts, type WaitingQuestion } from './waiting';
 
 // The waiting list (PRD 499), as pure functions: the Questions part merged from the person's own
@@ -81,8 +82,18 @@ describe('shared rounds', () => {
     const members = [{ user_id: 'u-bob', email: 'bob@example.com', name: 'Bob' }];
     const list = sharedQuestions([shared('x', 2 * MIN), shared('old', HOOK_WAIT_MS + MIN), shared('done', MIN, 'answered')], members, NOW);
     expect(list).toEqual([
-      { kind: 'question', id: 'x', sessionTitle: 'vertuo-omni-loop · s-x', question: 'Shared x?', askedAt: NOW - 2 * MIN, sharedBy: 'Bob' },
+      { kind: 'question', id: 'x', sessionTitle: 'vertuo-omni-loop · s-x', question: 'Shared x?', askedAt: NOW - 2 * MIN, sharedBy: 'Bob', sharedByFace: { kind: 'initial', letter: 'B' } },
     ]);
+  });
+
+  it('carry the sharer\'s face from the people directory of the session\'s workspace (PRD 652)', () => {
+    const members = [{ user_id: 'u-bob', email: 'bob@example.com', name: 'Bob' }];
+    const row = { ...shared('x', 2 * MIN), session: session('s-x', { workspace_id: 'w-1' }) };
+    const people = new Map([['w-1', peopleOf([{ user_id: 'u-bob', name: 'BOB', github_login: 'bob-gh', avatar_url: 'https://a.test/bob.png', fleet: null }], [])]]);
+    const [only] = sharedQuestions([row], members, NOW, people);
+    expect(only).toMatchObject({ sharedBy: 'Bob', sharedByFace: { kind: 'photo', url: 'https://a.test/bob.png' } });
+    const [elsewhere] = sharedQuestions([{ ...row, session: session('s-x', { workspace_id: 'w-2' }) }], members, NOW, people);
+    expect(elsewhere.sharedByFace).toEqual({ kind: 'initial', letter: 'B' });
   });
 });
 

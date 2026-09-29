@@ -49,7 +49,7 @@ describe('the viewer', () => {
   });
 
   it('asks for the workspace, the questions and where to read them again, of the person signed in', async () => {
-    const workspace = vi.fn(async () => ({ name: 'Acme' }));
+    const workspace = vi.fn(async () => ({ id: 'w-acme', name: 'Acme' }));
     const questions = vi.fn(async () => WAITING);
     const live = vi.fn(() => LIVE);
     await readViewer(fake({ workspace, questions, live }));
@@ -59,7 +59,7 @@ describe('the viewer', () => {
   });
 
   it('is signed out with no session, and reads nothing else', async () => {
-    const workspace = vi.fn(async () => ({ name: 'Acme' }));
+    const workspace = vi.fn(async () => ({ id: 'w-acme', name: 'Acme' }));
     const questions = vi.fn(async () => WAITING);
     expect(await readViewer(fake({ user: async () => null, workspace, questions }))).toEqual(SIGNED_OUT);
     expect(SIGNED_OUT.waiting).toBeNull();
