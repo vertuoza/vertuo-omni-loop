@@ -53,9 +53,9 @@ describe('the sidebar', () => {
 
   it('lists Dashboard, Work, Settings, then Omni, their items in order (PRD 572)', () => {
     const html = render();
-    expect(text(html)).toMatch(/^OMNI LOOP Acme Dashboard Home Fleet Workspace Work PRDs Questions 5 Shared with me 3 History Knowledge Settings Fleets Repositories Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
+    expect(text(html)).toMatch(/^OMNI LOOP Acme Dashboard Home Fleet Workspace Engineering Work PRDs Questions 5 Shared with me 3 History Knowledge Settings Fleets Repositories Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
     expect(links(html).slice(1).map((l) => /href="([^"]+)"/.exec(l.attrs)?.[1])).toEqual([
-      '/app', '/app/fleet', '/app/workspace', '/prd', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/settings/fleets', '/app/settings/repositories', '/docs', '/releases',
+      '/app', '/app/fleet', '/app/workspace', '/app/engineering', '/prd', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/settings/fleets', '/app/settings/repositories', '/docs', '/releases',
     ]);
   });
 
@@ -95,6 +95,7 @@ describe('the sidebar', () => {
     ['/app/fleet', '/app/fleet'],
     ['/app/fleet?fleet=beaver', '/app/fleet'],
     ['/app/workspace', '/app/workspace'],
+    ['/app/engineering', '/app/engineering'],
     ['/app/settings/fleets', '/app/settings/fleets'],
     ['/app/settings/repositories', '/app/settings/repositories'],
     ['/prd/3f2a', '/prd'],
