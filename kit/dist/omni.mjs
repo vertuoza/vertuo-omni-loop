@@ -12874,8 +12874,11 @@ function runsWithoutKit(argv) {
   const [name, sub] = argv;
   return WITHOUT_KIT.has(name) || name === "ask" && sub === "hook";
 }
+function appliesUpdate(argv) {
+  return argv[0] === "update" && argv.includes("--apply");
+}
 function launchDecision({ argv, self: self2, bin, hasConfig }) {
-  if (bin !== null && bin !== self2) return { kind: "handover", bin };
+  if (bin !== null && bin !== self2 && !appliesUpdate(argv)) return { kind: "handover", bin };
   if (bin !== null || hasConfig || runsWithoutKit(argv)) return { kind: "self" };
   return { kind: "refuse", message: NO_KIT };
 }
