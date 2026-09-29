@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 523
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s3-01-failed-read-kept-a-minute -->
+
+## s3-01-failed-read-kept-a-minute — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s3-01-failed-read-kept-a-minute
 prd: 523
@@ -46,3 +76,7 @@ One line in the knowledge reader: keep only a graph that was read, and let a fai
 (author) The PRD, the registers and the glossary do not settle this:
 
 - (author) The spec keeps a graph one minute per repository and budgets one call per picked repository a minute; it does not say whether a failure counts as an answer to keep.
+
+```
+
+<!-- /omni-outbox-settled: s3-01-failed-read-kept-a-minute -->
