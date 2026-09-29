@@ -9,12 +9,17 @@
 // GitHub did not answer (./timeline.ts) — and a bug fix's row its issue's risk label and a *regression*
 // badge; the state is a filter too (`state=asked|in-review|merged`). What GitHub said of each fix is
 // handed in by the route, read through the page's one cached reader.
+// PRD 652, s6: who asked is a person, resolved by login through the directory of the fix's workspace, so
+// the row draws their face; with no directory, a login still gets its GitHub photo.
 import type { FixIssue, FixSummary } from '../dossier/github/fix';
 import { UNREAD } from '../dossier/github/summary';
 import type { ArtifactKind, DossierListRow, WorkKind } from '../dossier/store';
 import { isArtifactTab, KIND_TABS, stamp, TAB_LABELS } from '../dossier/page/view';
 import { fixState, STATE_LABELS, type FixState } from './timeline';
 import { ofWork, WORK_PATHS, workPath } from '../dossier/page/work';
+import { NOBODY, type PeopleIn } from './people';
+import type { People } from '../people/load';
+import type { Person } from '../people/types';
 
 /** A list of fixes: a visual fix's or a bug fix's. */
 export type FixKind = Exclude<WorkKind, 'prd'>;
@@ -46,8 +51,8 @@ export type FixItem = {
   /** `last activity 29 Sep 2026, 09:30 UTC`. */
   activity: string;
   at: string;
-  /** `asked by @anna`; null when GitHub did not say. */
-  asked: string | null;
+  /** Who asked, named `@anna` with their face (PRD 652, s6); null when GitHub did not say. */
+  askedBy: Person | null;
   /** The state pill: `Asked`, `In review`, `Merged`, or `—` when GitHub did not answer. */
   state: FixState | null;
   stateLabel: string;
@@ -111,6 +116,7 @@ export type FixFacts = ReadonlyMap<string, FixSummary | null>;
 /** The fixes of `kind` the filters let through for this viewer (their user id), newest activity first. */
 export function fixItems(
   rows: readonly DossierListRow[], kind: FixKind, filters: FixFilters, viewer: string | null, facts: FixFacts = new Map(),
+  peopleIn: PeopleIn = NOBODY,
 ): FixItem[] {
   const factsOf = (row: DossierListRow) => facts.get(row.id) ?? null;
   return ofWork(rows, kind).filter((row) => passes(row, filters, viewer))
@@ -128,24 +134,24 @@ export function fixItems(
     }),
     activity: `last activity ${stamp(row.last_activity)}`,
     at: row.last_activity,
-    ...githubFacts(kind, factsOf(row)),
+    ...githubFacts(kind, factsOf(row), peopleIn(row.workspace_id)),
   }));
 }
 
 /** The fix's issue, when GitHub gave it. */
 const issueOf = (fix: FixSummary | null): FixIssue | null => (fix === null || fix.issue === UNREAD ? null : fix.issue);
 
-/** Who asked: the issue's author, when GitHub said. */
-const askedBy = (issue: FixIssue | null) => (issue?.author ? `asked by @${issue.author}` : null);
+/** Who asked: the issue's author, when GitHub said, with their face. */
+const askedBy = (issue: FixIssue | null, people: People) => (issue?.author ? people.byLogin(issue.author, `@${issue.author}`) : null);
 
 /** A bug fix's risk label and regression badge; none for a visual fix, or when GitHub did not say. */
 const bugLabels = (kind: FixKind, issue: FixIssue | null): Pick<FixItem, 'risk' | 'regression'> =>
   (kind === 'bug' && issue !== null ? { risk: issue.risk, regression: issue.regression } : { risk: null, regression: false });
 
-function githubFacts(kind: FixKind, fix: FixSummary | null): Pick<FixItem, 'asked' | 'state' | 'stateLabel' | 'risk' | 'regression'> {
+function githubFacts(kind: FixKind, fix: FixSummary | null, people: People): Pick<FixItem, 'askedBy' | 'state' | 'stateLabel' | 'risk' | 'regression'> {
   const state = fixState(fix);
   const issue = issueOf(fix);
-  return { asked: askedBy(issue), state, stateLabel: STATE_LABELS[state ?? 'unknown'], ...bugLabels(kind, issue) };
+  return { askedBy: askedBy(issue, people), state, stateLabel: STATE_LABELS[state ?? 'unknown'], ...bugLabels(kind, issue) };
 }
 
 /** What the repository filter offers: every repository of every fix of `kind`, once each, in order. */

@@ -11,6 +11,8 @@ import type { FixSummary } from '../dossier/github/fix';
 import { ofWork } from '../dossier/page/work';
 import { FixList } from './FixList';
 import { fixChoices, fixItems, readFixFilters, type FixFacts, type FixKind } from './list';
+import { loadPeople, type People } from '../people/load';
+import { NOBODY, type PeopleIn } from './people';
 
 // /visual and /bugs (PRD 627): the fixes of one kind of the signed-in person's workspaces, read as
 // /prd reads its list — per request, as the signed-in person, so row-level security decides; signed
@@ -19,6 +21,9 @@ import { fixChoices, fixItems, readFixFilters, type FixFacts, type FixKind } fro
 // PRD 627, s5: each fix's state, who asked, and a bug fix's risk and regression labels are read live from
 // GitHub through the server's one reader, cached 60 s per fix; without the App's credentials, or when
 // GitHub does not answer, each pill reads `—`.
+// PRD 652, s6: who asked wears their face, read from the people directory of each fix's workspace (one
+// read per workspace the list holds, beside GitHub's); a directory that cannot be read gives GitHub
+// photos, never an error.
 
 type Query = Record<string, string | string[] | undefined>;
 
@@ -30,8 +35,8 @@ const fixCallbackPath = (kind: FixKind) => `${WORK_PATHS[kind]}/callback`;
 export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>) {
   const query = await searchParams;
   const filters = readFixFilters(query);
-  const listing = (rows: DossierListRow[], viewer: string, facts?: FixFacts) => (
-    <FixList kind={kind} items={fixItems(rows, kind, filters, viewer, facts)} choices={fixChoices(rows, kind)} filters={filters} />
+  const listing = (rows: DossierListRow[], viewer: string, facts?: FixFacts, people?: PeopleIn) => (
+    <FixList kind={kind} items={fixItems(rows, kind, filters, viewer, facts, people)} choices={fixChoices(rows, kind)} filters={filters} />
   );
   const mode = arcadeMode(process.env);
 
@@ -59,7 +64,16 @@ export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>) 
       </Notice>
     );
   }
-  return listing(rows, user.id, await factsOf(ofWork(rows, kind)));
+  const fixes = ofWork(rows, kind);
+  const [facts, people] = await Promise.all([factsOf(fixes), peopleOf(db, fixes)]);
+  return listing(rows, user.id, facts, people);
+}
+
+/** The people directory of every workspace these fixes belong to, each read once. */
+async function peopleOf(db: Parameters<typeof loadPeople>[0], rows: DossierListRow[]): Promise<PeopleIn> {
+  const workspaces = [...new Set(rows.map((row) => row.workspace_id))];
+  const read = new Map(await Promise.all(workspaces.map(async (id): Promise<[string, People]> => [id, await loadPeople(db, id)])));
+  return (workspace) => read.get(workspace) ?? NOBODY();
 }
 
 /** What GitHub says of each fix, by dossier id; a fix it could not read is left out (`—`). */

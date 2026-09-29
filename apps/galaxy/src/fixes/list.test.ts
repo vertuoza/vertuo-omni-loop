@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DossierListRow } from '../dossier/store';
 import { UNREAD } from '../dossier/github/summary';
+import { peopleOf } from '../people/load';
 import { fixAddress, fixChoices, fixItems, readFixFilters } from './list';
 
 // /visual and /bugs (PRD 627), as pure functions of the rows dossier_list() gives the viewer and the
@@ -77,7 +78,7 @@ describe('the rows', () => {
       id: SIDEBAR.id, href: `/visual/${SIDEBAR.id}`, heading: '#548', title: 'Darker sidebar', repos: ['vertuoza/vertuo-omni-loop'],
       artifacts: [{ kind: 'before-after', label: 'Before/after', badge: 'v1' }, { kind: 'variations', label: 'Variations', badge: '2 rounds' }],
       activity: 'last activity 29 Sep 2026, 09:30 UTC', at: SIDEBAR.last_activity,
-      asked: null, state: null, stateLabel: '—', risk: null, regression: false,
+      askedBy: null, state: null, stateLabel: '—', risk: null, regression: false,
     });
     expect(topbar.artifacts).toEqual([]);
     const [crash] = fixItems(ROWS, 'bug', { who: 'all' }, 'u-pierre');
@@ -91,13 +92,26 @@ describe('the rows', () => {
       [CRASH.id, { issue: { ...ISSUE, risk: 'omni:risk-high', regression: true }, pull: null, approvals: [], release: null }],
     ]);
     const [sidebar, topbar] = fixItems(ROWS, 'visual', { who: 'all' }, 'u-pierre', facts);
-    expect(sidebar).toMatchObject({ asked: 'asked by @anna', state: 'merged', stateLabel: 'Merged', risk: null, regression: false });
-    expect(topbar).toMatchObject({ asked: null, state: null, stateLabel: '—' });
+    expect(sidebar).toMatchObject({ askedBy: { name: '@anna' }, state: 'merged', stateLabel: 'Merged', risk: null, regression: false });
+    expect(topbar).toMatchObject({ askedBy: null, state: null, stateLabel: '—' });
     expect(fixItems(ROWS, 'bug', { who: 'all' }, 'u-pierre', facts)[0]).toMatchObject({
       state: 'asked', stateLabel: 'Asked', risk: 'omni:risk-high', regression: true,
     });
     expect(ids(fixItems(ROWS, 'visual', { who: 'all', state: 'merged' }, 'u-pierre', facts))).toEqual([SIDEBAR.id]);
     expect(ids(fixItems(ROWS, 'visual', { who: 'all', state: 'asked' }, 'u-pierre', facts))).toEqual([]);
+  });
+
+  it('gives who asked a face, by login through the directory of the fix\'s workspace (PRD 652, s6)', () => {
+    const facts = new Map([[SIDEBAR.id, { issue: ISSUE, pull: null, approvals: [], release: null }], [TOPBAR.id, { issue: { ...ISSUE, author: 'Stranger' }, pull: null, approvals: [], release: null }]]);
+    const anna = { user_id: 'u-anna', name: 'Anna', github_login: 'ANNA', avatar_url: 'https://a.test/anna.png', fleet: null, hero: null };
+    const asked: string[] = [];
+    const peopleIn = (workspace: string) => { asked.push(workspace); return peopleOf([anna], []); };
+    const [sidebar, topbar] = fixItems(ROWS, 'visual', { who: 'all' }, 'u-pierre', facts, peopleIn);
+    expect(sidebar.askedBy).toMatchObject({ name: '@anna', face: { kind: 'photo', url: 'https://a.test/anna.png' } });
+    expect(topbar.askedBy).toMatchObject({ name: '@Stranger', face: { kind: 'photo', url: 'https://github.com/Stranger.png?size=48' } });
+    expect(asked).toEqual(['w1', 'w1']);
+    // With no directory, a login still gets its GitHub photo.
+    expect(fixItems(ROWS, 'visual', { who: 'all' }, 'u-pierre', facts)[0].askedBy?.face).toEqual({ kind: 'photo', url: 'https://github.com/anna.png?size=48' });
   });
 
   it('reads and writes the state filter', () => {
