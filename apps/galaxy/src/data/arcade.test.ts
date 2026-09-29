@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 
 vi.mock('server-only', () => ({}));
+// The page reads the season as the viewer, uncached: the season cache (season-cache.test.ts) needs a
+// service key, and none reaches this test even when the shell holds one.
+vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', '');
 
 import type { DossierListRow } from '../dossier/store';
 import { arcadeFor, OUT_OF_REACH } from './arcade';
