@@ -320,7 +320,7 @@ describe('omni bundle', () => {
     expect(exists(join(root, 'node_modules'))).toBe(false);
     const out = execFileSync('node', ['.omni-loop/bin/omni.mjs', 'prd', '42'], { cwd: root, encoding: 'utf8' });
     expect(out).toMatch(/0042-a/);
-  }, 30000);
+  });
 });
 
 // PRD #324, slice s5: a command that names one PRD records it for the Claude session it runs in, in
@@ -488,14 +488,14 @@ describe('omni — the launcher', () => {
     const got = run(['status', '42', '--labels', 'a b'], { cwd: join(root, 'src'), input: 'hello' });
     expect(got.code).toBe(7);
     expect(JSON.parse(got.out)).toEqual({ argv: ['status', '42', '--labels', 'a b'], stdin: 'hello' });
-  }, 30000);
+  });
 
   it('runs its own commands when the repository’s bin is the running file', () => {
     const { root } = makeRepo({ git: true, files: CONFIG });
     mkdir(join(root, '.omni-loop/bin'), { recursive: true });
     symlinkSync(CLI, join(root, '.omni-loop/bin/omni.mjs'));
     expect(run(['config', 'repo.slug'], { cwd: root })).toEqual({ code: 0, out: 'acme/widgets\n', err: '' });
-  }, 30000);
+  });
 
   it('outside a repository with the kit, runs help and --version, and refuses status with one line', () => {
     for (const cwd of [mkdtempSync(join(tmpdir(), 'omni-nogit-')), makeRepo({ git: true }).root]) {
@@ -504,5 +504,5 @@ describe('omni — the launcher', () => {
       expect(run(['status'], { cwd }), cwd).toEqual({ code: 2, out: '', err: 'omni: no Omni Loop kit here — run omni init in your repository\n' });
       expect(run(['init', '--nope'], { cwd }).err, cwd).not.toMatch(/no Omni Loop kit here/);
     }
-  }, 30000);
+  });
 });

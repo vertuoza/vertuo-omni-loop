@@ -17,7 +17,7 @@ describe('bundleVersion', () => {
     const bundle = join(dir, 'omni.mjs');
     execFileSync('node', [join(repoRoot, 'kit/build.mjs'), bundle, pkg], { cwd: tmpdir(), stdio: 'ignore' });
     expect(bundleVersion(readFileSync(bundle, 'utf8'))).toBe('0.0.7');
-  }, 30000);
+  });
 
   it('is null for a bundle built with no version, and for a file with no marker', () => {
     expect(bundleVersion('define_OMNI_BUNDLE_default = { home: "acme/kit", version: null };')).toBeNull();

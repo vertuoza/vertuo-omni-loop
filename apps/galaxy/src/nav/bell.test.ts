@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { DocumentGroup } from '../waiting/documents';
 import { EMPTY_WAITING, type WaitingOutbox, type WaitingQuestion } from '../waiting/waiting';
 import { bell, bellName, bellPanel, CLOSED_BELL, waitedFor } from './bell';
 
@@ -73,6 +74,36 @@ describe('the panel', () => {
     const panel = bellPanel({ questions: [], outbox: [o('i1', 459)] }, { outboxPrds: 2 }, NOW);
     expect(panel.groups[0]).toMatchObject({ label: 'Outbox', problem: '2 PRDs couldn\'t be read' });
     expect(bellPanel({ questions: [], outbox: [] }, { outboxPrds: 1 }, NOW).groups[0].problem).toBe('1 PRD couldn\'t be read');
+  });
+});
+
+const d = (prd: number, ago: number, kinds: DocumentGroup['kinds'] = ['spec', 'before-after']): DocumentGroup => ({
+  dossierId: `d-${prd}`, prd, title: `PRD title ${prd}`, kinds, newestId: `v-${prd}`, newestAt: NOW - ago,
+});
+
+describe('the panel\'s New documents group (PRD 579)', () => {
+  it('comes after Outbox, one line per PRD as the part holds them (newest first), linking to the PRD page', () => {
+    const panel = bellPanel({ questions: [q('a', MIN)], outbox: [o('i1', 459)] }, {}, NOW, [d(579, 20_000, ['spec', 'plan', 'before-after']), d(572, 3 * MIN, ['plan'])]);
+    expect(panel.groups.map((g) => g.label)).toEqual(['Questions', 'Outbox', 'New documents']);
+    expect(panel.groups[2]).toEqual({
+      label: 'New documents',
+      problem: null,
+      lines: [
+        { id: 'docs-d-579', href: '/prd/d-579', head: 'PRD 579 · PRD title 579', text: 'New spec, plan, before/after', meta: 'just now' },
+        { id: 'docs-d-572', href: '/prd/d-572', head: 'PRD 572 · PRD title 572', text: 'New plan', meta: '3 min' },
+      ],
+    });
+  });
+
+  it('shows only with lines or a problem', () => {
+    expect(bellPanel(EMPTY_WAITING, {}, NOW, [])).toEqual({ groups: [], empty: true });
+    expect(bellPanel(EMPTY_WAITING, {}, NOW)).toEqual({ groups: [], empty: true });
+    const unread = bellPanel(EMPTY_WAITING, { documents: true }, NOW, []);
+    expect(unread).toEqual({ groups: [{ label: 'New documents', problem: 'New documents couldn\'t be read — retrying.', lines: [] }], empty: false });
+  });
+
+  it('alone, the panel is not empty', () => {
+    expect(bellPanel(EMPTY_WAITING, {}, NOW, [d(579, MIN)]).empty).toBe(false);
   });
 });
 

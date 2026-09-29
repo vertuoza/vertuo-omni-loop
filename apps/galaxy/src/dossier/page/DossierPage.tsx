@@ -3,9 +3,11 @@ import type { DossierKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
 import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
+import { MarkSeen } from './MarkSeen';
 import { OutboxPane } from './OutboxPane';
 import { QuestionsPane } from './QuestionsPane';
 import { RetroPane } from './RetroPane';
+import { seenSignature } from './seen';
 import { FRAME_SANDBOX } from './sandbox';
 import { PinnedHead } from './PinnedHead';
 import { DossierTitle, StageAction, StageLinks, StageTrack } from './StageHeader';
@@ -28,6 +30,8 @@ import { dossierPath, TAB_LABELS, type DossierView } from './view';
 // Its Outbox tab (OutboxPane.tsx) is where the decisions taken while it was built are answered, beside
 // the spec, the before/after page or the brainstorm (PRD 251, s9), and its Retro tab
 // (RetroPane.tsx) renders the retro once written; empty, each reads muted.
+// PRD 579: opening the page marks its PRD seen in this browser (MarkSeen.tsx), and so does each new
+// version it renders while open, so the bell's New documents group drops it.
 
 type Props = {
   view: DossierView;
@@ -136,6 +140,7 @@ export function DossierPage({ view, markdown, supabase, live }: Props) {
           ))}
         </nav>
       </PinnedHead>
+      <MarkSeen id={view.id} signature={seenSignature(view.tabs)} />
       {live}
       <section className="dossier-pane" aria-label={TAB_LABELS[view.tab]}>
         <Pane view={view} markdown={markdown} supabase={supabase} />
