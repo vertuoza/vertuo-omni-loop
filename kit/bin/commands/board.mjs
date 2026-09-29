@@ -8,6 +8,10 @@
 // per-pull-request `gh pr view --json commits` call, and only for the pull requests that could
 // possibly be `claimed-stale` in the first place.
 //
+// In a plan repository (PRD 563), a plan whose slices name their `repo` is read one `gh pr list`
+// per repository a slice names (its `plan.targets` entry, or `repo.slug` for the plan repository),
+// and a repository `gh` cannot read makes its own slices `unreadable` instead of failing the board.
+//
 // `buildBoard` is that whole building part, exported so that the status line's background refresh
 // (`omni statusline --refresh <n>`, PRD 324) builds the board exactly as `omni board` does; the
 // command itself only prints what it returns.
@@ -110,9 +114,10 @@ function fetchHeadCommitDates(prs, { repo, exec, env, now, staleMinutes }) {
 
 const STATE_WIDTH = 'claimed-stale'.length;
 
-function tableLine(row) {
+function tableLine(row, repoWidth) {
   const prCol = row.pr ? `#${row.pr.number}` : '—';
-  return `  ${row.id.padEnd(6)} w${row.wave}  ${row.state.padEnd(STATE_WIDTH)}  ${prCol.padEnd(6)} ${row.title}`;
+  const repoCol = row.repo === undefined ? '' : `${row.repo.padEnd(repoWidth)}  `;
+  return `  ${row.id.padEnd(6)} ${repoCol}w${row.wave}  ${row.state.padEnd(STATE_WIDTH)}  ${prCol.padEnd(6)} ${row.title}`;
 }
 
 /**
@@ -124,7 +129,12 @@ function tableLine(row) {
  * @param {number} prd
  * @param {{ ctx: object, exec: Function, env?: object, repo?: string, now?: number }} options `repo`
  *   is `--repo`'s value, when given
- * @returns {{ slices: object[], result: ReturnType<typeof boardFor> }} the plan's slices, and the board
+ * In a plan repository whose plan has a `repo` column (PRD 563), it reads one pull-request list per
+ * repository a slice names instead, and a repository `gh` cannot read makes only its own slices
+ * `unreadable` rather than throwing.
+ *
+ * @returns {{ slices: object[], result: ReturnType<typeof boardFor>, unreadable: Array<{ repo: string, slug: string | null, reason: string }> }}
+ *   the plan's slices, the board, and each repository that could not be read (in a plan repository)
  */
 export function buildBoard(prd, { ctx, exec, env, repo: repoFlag, now = Date.now() }) {
   const { markdown } = readPlan(prd, { ctx });
@@ -141,12 +151,60 @@ export function buildBoard(prd, { ctx, exec, env, repo: repoFlag, now = Date.now
   const matchBy = ctx.config.board.matchBy;
   const subLabel = ctx.config.labels.sub;
   const staleMinutes = ctx.config.limits.claimStaleMinutes;
+  const read = (slug) => {
+    const listed = fetchPrList({ repo: slug, exec, env: ghEnv, matchBy, featureBranch, subLabel });
+    return fetchHeadCommitDates(listed, { repo: slug, exec, env: ghEnv, now, staleMinutes });
+  };
 
-  const listed = fetchPrList({ repo, exec, env: ghEnv, matchBy, featureBranch, subLabel });
-  const prs = fetchHeadCommitDates(listed, { repo, exec, env: ghEnv, now, staleMinutes });
+  if (slices.every((slice) => slice.repo === null)) {
+    const prs = read(repo);
+    const result = boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic } });
+    return { slices, result, unreadable: [] };
+  }
 
-  const result = boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic } });
-  return { slices, result };
+  // A plan repository (PRD 563): one pull-request list per repository a slice names, each pull
+  // request tagged with the slug it was read from; a repository gh cannot read holds only its slices.
+  const known = knownRepositories(ctx, repo);
+  const repos = {};
+  const prs = [];
+  const unreadable = [];
+  for (const name of new Set(slices.map((slice) => slice.repo))) {
+    const slug = known.get(name) ?? null;
+    if (slug === null) {
+      repos[name] = { slug: null, readable: false };
+      unreadable.push({ repo: name, slug: null, reason: 'neither a target nor this plan repository' });
+      continue;
+    }
+    try {
+      prs.push(...read(slug).map((pr) => ({ ...pr, slug })));
+      repos[name] = { slug, readable: true };
+    } catch (error) {
+      repos[name] = { slug, readable: false };
+      unreadable.push({ repo: name, slug, reason: ghReason(error) });
+    }
+  }
+  const result = boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic }, repos });
+  return { slices, result, unreadable };
+}
+
+/** The part of an `owner/name` slug after the `/`: the name a plan's `repo` column uses. */
+function shortName(slug) {
+  return slug.slice(slug.indexOf('/') + 1);
+}
+
+/** Every repository a plan repository's slices may name, short name to slug: its `plan.targets`,
+ * then the plan repository itself (`repo.slug`, or `--repo`). */
+function knownRepositories(ctx, planSlug) {
+  const known = new Map();
+  for (const target of ctx.config.plan?.targets ?? []) known.set(shortName(target.repo), target.repo);
+  known.set(shortName(planSlug), planSlug);
+  return known;
+}
+
+/** What gh said when it could not read a repository, as one line. */
+function ghReason(error) {
+  const lines = `${error?.stderr ?? ''}\n${error?.message ?? ''}`.split('\n').map((line) => line.trim()).filter(Boolean);
+  return lines[0] ?? 'gh could not read it';
 }
 
 export const board = {
@@ -155,7 +213,7 @@ export const board = {
     if (positional.length !== 1) throw usageError(USAGE);
     const prd = positiveInt('board', '<prd>', positional[0]);
 
-    const { slices, result } = buildBoard(prd, { ctx, exec, env, repo: flags.repo });
+    const { slices, result, unreadable } = buildBoard(prd, { ctx, exec, env, repo: flags.repo });
 
     if (flags.json) {
       println(stdout, JSON.stringify(result, null, 2));
@@ -163,7 +221,11 @@ export const board = {
     }
 
     println(stdout, `omni board — PRD ${prd}: ${slices.length} slice(s).`);
-    for (const row of result.slices) println(stdout, tableLine(row));
+    const repoWidth = Math.max(0, ...result.slices.map((row) => (row.repo ?? '').length));
+    for (const row of result.slices) println(stdout, tableLine(row, repoWidth));
+    for (const { repo, slug, reason } of unreadable) {
+      println(stdout, `omni board — cannot read ${slug ?? repo}: ${reason} — its slices are unreadable.`);
+    }
 
     if (result.frontier.wave === null) {
       println(stdout, 'omni board — runnable frontier: none — nothing is takeable right now.');
