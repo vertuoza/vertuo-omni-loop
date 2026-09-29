@@ -6,7 +6,7 @@ import {
   announce, claimChime, desktopAtLoad, playChime, raiseAlerts, readSwitches, switchDesktopOn, writeSwitches,
   type DesktopState, type NotificationApi, type Store,
 } from './alerts';
-import { DOCS_MS, documentsReader, groupDocuments, readSeen, type DocumentGroup } from './documents';
+import { DOCS_MS, documentsReader, groupDocuments, noticeDocuments, readSeen, type Announced, type DocumentGroup } from './documents';
 import { iconHref } from './icon';
 import { EMPTY_OUTBOX_PART, outboxRead, pollOutbox, readOutbox, type OutboxPart } from './outbox';
 import { questionsReader } from './source';
@@ -32,7 +32,9 @@ import { EMPTY_WAITING, titled, WAITING_MS, waitingCounts, type WaitingCounts, t
 // versions pushed to the numbered dossiers the person opened, read straight from Supabase as them once
 // after load and every 10 s while the tab is visible, grouped per PRD less what this browser has seen
 // (a PRD's page marks it seen). It is news, not a wait: it never adds to the counts, so never to the
-// bell's badge, the tab's `(N)`, the favicon dot or the sidebar badges.
+// bell's badge, the tab's `(N)`, the favicon dot or the sidebar badges. A PRD's group is announced
+// once it settles (s2, `noticeDocuments`): one desktop alert per PRD and one chime per read, behind the
+// same two switches, once per newest version across reloads and tabs.
 
 export type Waiting = {
   list: WaitingList;
@@ -113,7 +115,10 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
   useEffect(() => {
     if (!signedIn) return;
     const kept = readSwitches(storage);
-    setSwitches({ desktop: desktopAtLoad(kept.desktop, notifications()), chime: kept.chime });
+    const loaded = { desktop: desktopAtLoad(kept.desktop, notifications()), chime: kept.chime };
+    // Held at once, so the first New documents read, which may announce, sees the switches as kept.
+    live.current = loaded;
+    setSwitches(loaded);
   }, [signedIn]);
 
   /** A read's new items: one notification each, and one chime for the read. */
@@ -183,10 +188,18 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
     const read = documentsReader(createBrowserClient(url, key), me);
     const loadedAt = Date.now();
     const log = onceEach();
+    // What this tab announced, standing in for storage that cannot be read (s2).
+    let announced: Announced = [];
     const tick = async () => {
       try {
         const rows = await read(Date.now());
-        setDocuments({ groups: groupDocuments(rows, readSeen(storage, loadedAt)), unread: false });
+        const groups = groupDocuments(rows, readSeen(storage, loadedAt));
+        setDocuments({ groups, unread: false });
+        const { desktop, chime } = live.current;
+        announced = noticeDocuments({
+          groups, now: Date.now(), store: storage, kept: announced, desktop, chime,
+          notifications: notifications(), play: () => playChime(audio()), open: openFromAlert,
+        });
       } catch (error) {
         log('documents', error);
         setDocuments((part) => ({ ...part, unread: true }));
