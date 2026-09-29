@@ -127,9 +127,11 @@ Outside the arcade, the app (PRD 238): `/app`, its home, beside `/ask`, `/ask/fo
 default, HOME's palette (the void, the cabinet's navy, comic yellow), then **Light** and **Dark**
 (PRD 284). The theme switch reads `Omni · Light · Dark`; only colours change between them, and a
 choice of Light or Dark is remembered in the browser, Omni being the absence of one. `/app` is **your
-dashboard** (PRD 328, [Your dashboard, `/app`](#your-dashboard-app)): your hero, fleet, season points
-and places, a week of merges, four counts and the rankings, then a compact card per section
-(`SECTIONS` in `src/switch/switch.ts`), each a link to its page. It asks you to sign in, and each page
+dashboard** (PRD 328), beside the Fleet and Workspace boards (PRD 572, [Your dashboard: Home, Fleet
+and Workspace](#your-dashboard-home-fleet-and-workspace)): your hero, fleet, season points and
+places, Waiting for you, then your numbers and your team's. The sidebar groups the pages as
+**Dashboard** (Home, Fleet, Workspace), **Work** (PRDs, Questions, Knowledge), **Settings** (Fleets)
+and **Omni** (`src/nav/sidebar.ts`). It asks you to sign in, and each page
 it links to signs the visitor in on its own, except `/releases`, which is public
 ([Release notes](#release-notes)). Every app page's header
 links its `OMNI LOOP` mark to `/app` and ends with **Game mode**, which asks *Switch to game mode?*:
@@ -417,91 +419,98 @@ panels, wears `stripe-*`. Fonts are not tokens.
 name in `theme.ts`, and `valid_theme()`'s list, in a new migration. `src/arcade/theme.test.ts` fails until the three agree, and while `shell.css` or a canvas
 scene writes a token's colour as a literal.
 
-## Your dashboard, `/app`
+## Your dashboard: Home, Fleet and Workspace
 
-`/app` is the app's home (PRD 238) and **your dashboard** (PRD 328): what the game knows about you,
-without the Game Boy. Both sides land on it: the arcade's APP MODE row and GAME ▮▯ APP switch, and
-every app page's `OMNI LOOP` mark. It renders per request, as the signed-in person, the way `/prd`
-does, so row-level security decides what each read returns (`app/app/page.tsx`, the module
-`src/dashboard/`). Top to bottom (`Dashboard.tsx`):
+The sidebar's **Dashboard** group (PRD 572) holds three boards, each a page rendered per request as
+the signed-in person, the way `/prd` does, so row-level security and the two dashboard functions
+decide what each read returns:
 
-1. **You** (`You.tsx`, `you.ts`). Your hero, drawn on the server as a pixel SVG in your fleet's colour
-   (`pixelSvg` over `heroLook`, as `/design` draws sprites: no script, no canvas). Beside it your name,
-   the page's one `h1`; your fleet, its label beside a square in its colour (the label itself wears the
-   colour on Omni and Dark, and the ink on Light, where a pale fleet would not read); your season's
-   points, *1,240 pts · September season*; and your two places, *You #7 of 23 · BEAVER #2 of 5*, or
-   *No points yet this season · BEAVER #2 of 5*.
-2. **A week of merges** (`week/`). *PRs merged into main · last 7 days*: a bar per day, the six days
-   before today and today, in Brussels days, today last and in bold, each under its weekday, and the
-   week's total at the top right. Inline SVG drawn on the server, with no chart library and no script.
-   The y-axis marks every whole number up to 5; past 5, a round step (2, 5, 10…) and the busiest
-   day's own number at the top. A screen reader reads, in its place, a list of the seven days and
-   their counts. An empty week adds the line *No PRs merged into main in the last 7 days*.
-3. **Four counts** (`counts/`), a tile each: **Questions answered**, **Outbox settled** and **PRDs
-   created**, this season, and **Waiting for you**, right now. **Waiting for you** links to
-   `/ask/for-me` when at least one question waits and every one waiting was shared with you, and to
-   `/ask` otherwise. Two by two on a phone, in one row from 720 px. A 0 shows as 0, and no tile is
-   ever hidden.
-4. **The rankings** (`rankings/`), this season, side by side where they fit. **Fleets**: every fleet
-   the season knows, ranked by points, yours marked ◀. **Individuals**: the top 3, then you with the
-   person just above and just below, `⋯` for the ranks skipped; ranking 1 to 4 shows ranks 1 to 5 with
-   no gap, and ranking last shows no one below. Each row is a rank, a display name (the GitHub login
-   when that person never picked one) and the points.
-5. **The app's sections** (`Cards.tsx`): `SECTIONS`, compact, a title and an arrow each, on one row
-   that wraps.
+| Page | Its scope | Its People table |
+|---|---|---|
+| **Home**, `/app` (`app/app/page.tsx`, `Dashboard.tsx`) | *you*: your login's merges and PRD events, your own questions | **Your team**: every member of your fleet, 0s kept, you marked. A solo player or a member with no player row sees their own row, and *No fleet of your own. See a fleet's board on Fleet* (`home/team.ts`) |
+| **Fleet**, `/app/fleet` (`fleet/`) | *a fleet*: the logins of the roster's members in that fleet | that fleet's members |
+| **Workspace**, `/app/workspace` (`board/workspace.ts`, `board/WorkspaceScreen.tsx`) | *the workspace*: every row, a non-member's merges included (they count in the tiles, the charts and the repositories, and get no row) | every member |
 
-**The season** is the UTC calendar month, the one the game's economy scores (`seasonBounds()` in
-`season.ts`; `buildGalaxy` scores `now.toISOString().slice(0, 7)`): the points, both rankings and the
-three season counts reset together. The week alone counts Brussels days, because a person reads
-"today" in their own time.
+`/app` is the app's home (PRD 238): both sides land on it, the arcade's APP MODE row and GAME ▮▯ APP
+switch, and every app page's `OMNI LOOP` mark. Above its board it keeps **you** (`YouBlock.tsx`,
+`you.ts`): your hero, drawn on the server as a pixel SVG in your fleet's colour, your name (the page's
+one `h1`), your fleet, your season's points and your two places, *You #7 of 23 · BEAVER #2 of 5*; then
+**Waiting for you** (`counts/`), right now, linking to `/ask/for-me` when every question waiting was
+shared with you, and to `/ask` otherwise. The individuals and fleets rankings, the Outbox settled tile,
+the week of merges and the season's counts left Home with PRD 572: the People tables list everyone,
+and the fleet ranking is on Workspace.
 
-**Its situations**, decided once, top to bottom (`DashboardScreen.tsx`):
+`/app/fleet` shows your fleet by default and any fleet by `?fleet=<name>`, under a picker of every
+fleet of the workspace whose links keep the period (`fleet/pick.ts`). The fleet's place in the
+season's fleet ranking shows beside its name. With no fleet of your own and no `?fleet`, or a
+`?fleet` that names no fleet, the page shows the picker and *Pick a fleet to see its board*; a
+workspace with no fleet says *This workspace has no fleet yet*, linking to Settings › Fleets
+(`/app/settings/fleets`). `/app/workspace` adds, below its board, the season's fleet ranking: every
+fleet the season knows, by points.
 
-| Situation | What `/app` shows |
+**A board** (`board/Board.tsx`), top to bottom, the same on the three pages:
+
+1. **The period switch**: **7 days** (the default), **30 days**, **Season**, a link each, kept in the
+   URL as `?period=7d|30d|season` with the rest of the query; an unknown value reads as 7 days
+   (`board/period.ts`, `board/links.ts`). Every period is a run of Brussels days ending today, today
+   last; the season is the UTC calendar month the game scores (`seasonBounds()` in `season.ts`), its
+   days up to today.
+2. **Four tiles**, one row: **PRs merged**; **PRDs**, three numbers in one tile, *drafted · in
+   progress · shipped*; **Repositories**, those with at least one merged PR or PRD event in the scope
+   and the period; **Questions answered**. A 0 shows as 0, and no tile is ever hidden.
+3. **Two per-day charts**: **PRs merged per day**, and **PRD events per day**, stacked by stage with a
+   legend. Inline SVG drawn on the server, no chart library, no script (`board/chart.ts`); a screen
+   reader reads a list of the days and their counts in their place.
+4. **People**: name (the player's display name, else the account's name, else the GitHub login),
+   fleet (its label in its colour, or SOLO), season points, PRs merged, PRDs (drafted, in progress,
+   shipped, credited to the PRD's author) and questions answered. Every member in the scope, 0s kept,
+   sorted by PRs merged, then points, then name; your row marked. A member with no GitHub login shows
+   a dash in the columns GitHub counts (`peopleRows` in `board/tally.ts`). This is what lists a member
+   who merges and answers but has no points, or no player row, yet.
+5. **Repositories involved**: each repository with its PRs merged and PRD events in the period, most
+   active first.
+
+**PRD stages are events**, not a daily snapshot: *drafted* when the `omni:prd` issue opened, *in
+progress* when its phase-0 PR merged, *shipped* when its feature PR merged, each credited to the PRD
+issue's author, whoever built it.
+
+**Where each number is read from.** `board/load.ts` runs four reads in parallel, as the signed-in
+person, each on its own, then filters them to the scope in pure functions (`board/tally.ts`); logins
+match ignoring case:
+
+| On the board | Read from |
 |---|---|
-| **Demo** (development, or a build with `OMNI_LOOP_DEMO=1`) | The whole dashboard on the demo world, signed in as its *you*: DAM-DEV of BEAVER, one of the demo galaxy's heroes, wearing the demo guest's default hero. The points, places and rankings are the demo galaxy's own; the week (nine merges) and the counts (14, 3, 2 and 1) are made up and fixed, each in its folder's `demo.ts` |
-| **Closed** (a build with no database) | *The dashboard is not open here*, then the section cards |
-| **Signed out** | Only a sign-in card: *Sign in to see your dashboard* and **Sign in with GitHub**. GitHub comes back to `/app/callback`, which turns the code into the session cookie, joins the workspaces of the account's GitHub orgs and links GitHub (`src/data/sign-in.ts`) and returns to `/app`, or to `/app?signin_error=…`, whose reason the card says |
-| **Signed in, in no workspace** | *Your account is not in a workspace*, with **Switch account**, as `/knowledge` does |
-| **A member who never joined a fleet** (no `players` row) | The heading is the account's first name, and in place of the hero, the points and the places, a card: *Join a fleet in the arcade to get your hero and your score*, linking to `/play`. The week, the counts and the rankings still show, counted by the account's linked GitHub identity when it has one |
-| **No GitHub login** (neither `players.github_login` nor a linked identity) | *Link your GitHub in the arcade*, linking to `/play`, in place of the points and places, the week, **Outbox settled** and **PRDs created**, and below the individuals' top 3. The hero, the fleet, the fleets table, **Questions answered** and **Waiting for you** still show: they need no GitHub |
-| **One read fails** | Only its part reads *Couldn't load this. Reload in a moment.*, its error logged on the server, and the rest renders. Each tile fails alone; the rankings need the galaxy and the workspace's players both, so either failing empties both tables. When even the workspace cannot be read, every part says so, and nobody is turned away |
+| who is a member: People's names, logins and fleets; a fleet's logins | `workspace_roster(workspace)`: every `workspace_members` row, with the player's display name else the account's full name, the GitHub login in lower case (`players.github_login`, else the linked GitHub identity), the avatar and `players.team`; no email, and nothing to a non-member |
+| PRs merged, PRDs, Repositories, both charts, the repositories involved, People's PRs and PRDs | `contributions` of the workspace over the period's days: kind `pr-merged`, and `prd-opened`, `prd-started`, `prd-shipped` for the three stages, written by `pnpm game:contributions` at each poll ([`game/README.md` › Contributions](../../game/README.md#contributions)) |
+| Questions answered, People's questions | `answered_counts(workspace, from, to)`: the `ask_rounds` answered in the window in this workspace's sessions, a count per `answered_by` and nothing else, to a member only |
+| People's points, the fleets' colours, a fleet's place, the fleet ranking | `loadGalaxy`, the ledger folded by `buildGalaxy` as `/play` does, read once |
+| Home's hero block | your `players` row and the galaxy, as above |
+| Waiting for you | `readTabs` and `readForMe`, the ask pages' own readers, counted as those pages show them |
 
-**Where each number is read from.** `load.ts` finds the workspace joined first and your player row in
-it, then runs the reads in parallel, each on its own:
+**Its situations**, decided once by each page: the **demo** (development, or a build with
+`OMNI_LOOP_DEMO=1`) shows every part on the demo world, with a demo roster over its heroes (two
+members with no points, one of them with no fleet) and made-up, fixed contributions and answers
+(`board/demo.ts`); a build with **no database** says the dashboard is not open here; **signed out**,
+only a sign-in card, which comes back through `/app/callback` (`src/data/sign-in.ts`); an account in
+**no workspace**, *Your account is not in a workspace*, with **Switch account**. **A read that
+fails** leaves only the parts drawn from it saying *Couldn't load this. Reload in a moment.*, its
+error logged on the server, and the rest renders.
 
-| On the page | Read from |
-|---|---|
-| hero, name, fleet | your `players` row (`hero`, `display_name`, `team`), and `teams` for the fleet's label and colour |
-| season points, your place, both rankings | `loadGalaxy`, the ledger folded by `buildGalaxy` as `/play` does: its `heroes` and `teams`, read once for every part that asks |
-| names in the individuals table | the workspace's `players`, by GitHub login (`loadCrew`) |
-| the week | `contributions` of the workspace, kind `pr-merged`, your login, the last 7 Brussels days |
-| PRDs created | `contributions` of the workspace, kind `prd-opened`, your login, this season |
-| Outbox settled | `ledger_events` of the workspace, type `WOUND_CLOSED`, id starting `outbox:`, `contributor` your login, this season |
-| Questions answered | `ask_rounds` whose `answered_by` is you, with `answered_at` this season, in every workspace you belong to, as the ask pages read them |
-| Waiting for you | `readTabs` and `readForMe`, the ask pages' own readers, counted as those pages show them: your sessions whose newest round is open and the page can still answer (not once the terminal has taken it over, nor in a closed session), plus the open questions shared with you |
+**Numbers that read 0 for now.** Season points and places come from the ledger, whose projector
+reads each repository's `docs/inbox/*.md` and the plan repository's PRD issues only
+(`game/sources/github.mjs`), while the kit writes `.omni-loop/delivery/{inbox,shipped}/`: they read
+0 for most people until a later PRD teaches the projector the kit's delivery folders, and the boards
+show activity beside them. The merges and PRD stages read 0 while the game workflow is off, and the
+stages cover the poller's 40-day window only.
 
-Your GitHub login is `players.github_login`, else the account's linked GitHub identity, and every
-comparison with a stored login ignores case. A bot's login never matches a person, so bots never
-appear on anyone's week or counts; the individuals table shows whoever the ledger credits.
+**The code.** `src/dashboard/` holds Home (`Dashboard.tsx`, `DashboardScreen.tsx`, `load.ts`,
+`demo.ts`, `home/`), the board every page draws (`board/`) and Fleet (`fleet/`); `rankings/` ranks
+the fleets. Every part keeps one contract (`part.ts`): its value, or `'unreadable'`. The pages add
+no script beyond the sign-in card's button and the app bar's controls, their styles use the ask
+pages' tokens only (`src/design-system.test.ts`), and nothing is wider than a 393 px window.
 
-**Numbers that read 0 for now.** The points, the places, the rankings and **Outbox settled** come
-from the ledger, whose projector reads each repository's `docs/inbox/*.md` and the plan repository's
-PRD issues only (`game/sources/github.mjs`), while the kit writes `.omni-loop/delivery/{inbox,shipped}/`.
-So it most likely records no slice, feature PR or outbox settle for today's repositories, and these
-read 0 until a later PRD teaches the projector the kit's delivery folders. The page says nothing about
-it. The week and **PRDs created** read 0 while the game workflow is off: `pnpm game:contributions`
-fills `contributions` at each poll ([`game/README.md` › Contributions](../../game/README.md#contributions)).
-**Questions answered** and **Waiting for you** read the ask tables, and count today.
-
-**The code.** `src/dashboard/` holds the hero block and the files that compose the page
-(`Dashboard.tsx`, `load.ts`, `demo.ts`, `dashboard.css`), and a folder per part (`week/`, `counts/`,
-`rankings/`), each with its pure functions, loader, view, demo, stylesheet and tests. Every part keeps
-one contract (`part.ts`): its loader is given the database as the person, the workspace, their user
-id, their GitHub login in lower case, their fleet, the time, the season and the galaxy, and resolves
-with its value or `'unreadable'`; its view is drawn on the server from that value and the season.
-The page adds no script beyond the sign-in card's button and the app bar's controls, its styles use
-the ask pages' tokens only (`src/design-system.test.ts`), and nothing is wider than a 393 px window.
+**Fleets** moved under **Settings** with PRD 572: the page is `/app/settings/fleets`, and
+`/app/fleets` answers with a permanent redirect there, the query kept (`app/app/fleets/route.ts`).
 
 ## The knowledge map
 

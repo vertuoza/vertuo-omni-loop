@@ -1,4 +1,4 @@
-/* /app/fleets (PRD 400 s3), on the ask pages' reading surface: the head card, the form with its live
+/* /app/settings/fleets (PRD 400 s3), on the ask pages' reading surface: the head card, the form with its live
    preview, the fleets as cards, the retired ones under a fold. Every colour is a token of
    src/ask/theme-tokens.ts; a fleet's own colour comes from the data, as --fleet on its card. Nothing
    is wider than the window: at 393 px everything wraps. */

@@ -19,13 +19,13 @@ describe('NO FLEETS YET — RAISE YOUR OWN! (PRD 400)', () => {
     expect(html.match(/<canvas/g)).toHaveLength(MASCOTS.length);
   });
 
-  it('points the owner at /app/fleets, and tells a member to ask the owner', () => {
+  it('points the owner at /app/settings/fleets, and tells a member to ask the owner', () => {
     const owner = render(true);
-    expect(text(owner)).toContain('SET THEM UP AT /app/fleets');
-    expect(owner).toContain('href="/app/fleets"');
+    expect(text(owner)).toContain('SET THEM UP AT /app/settings/fleets');
+    expect(owner).toContain('href="/app/settings/fleets"');
     expect(text(owner)).not.toContain('ASK YOUR OWNER');
     const member = text(render(false, TALL));
     expect(member).toContain('ASK YOUR OWNER');
-    expect(member).not.toContain('/app/fleets');
+    expect(member).not.toContain('/app/settings/fleets');
   });
 });
