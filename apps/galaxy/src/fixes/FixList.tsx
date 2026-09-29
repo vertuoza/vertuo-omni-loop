@@ -116,7 +116,7 @@ export function FixList({ kind, items, choices, filters }: { kind: FixKind; item
           <Filters kind={kind} choices={choices} filters={filters} />
           {noneOfMine ? (
             <section className="ask-card">
-              <h2>You have not pushed a {names.one} yet.</h2>
+              <h2>You have not asked for a {names.one} yet.</h2>
               <p className="ask-muted">{toAll(`See every ${names.one} of your workspace`)}.</p>
             </section>
           ) : items.length === 0 ? (

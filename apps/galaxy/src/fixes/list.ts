@@ -1,8 +1,8 @@
 // /visual and /bugs, the lists of fixes (PRD 627): every dossier of one kind — a visual fix's or a bug
 // fix's — of the viewer's workspaces, newest activity first, as pure functions of the rows
 // dossier_list() gives the viewer (row-level security already left out every other workspace) and the
-// filters in the address. Laid out as /prd's list: Mine by default (the fixes the viewer pushed, so one
-// the GitHub fallback read shows only under All) or All with `who=all`, a repository (any of a fix's
+// filters in the address. Laid out as /prd's list: Mine by default (the fixes the viewer pushed or whose
+// issue they opened, issue 674: the GitHub fallback reads most fixes, so none of those is pushed) or All with `who=all`, a repository (any of a fix's
 // repositories), and the words of a title. Each row shows #n (its issue's number), the title, its
 // repository chips, what it holds and its last activity, and opens the fix's own page.
 // PRD 627, s5: each row also shows who asked and its state pill — Asked, In review, Merged, or `—` when
@@ -95,8 +95,18 @@ export function fixAddress(kind: FixKind, filters: FixFilters): string {
   return query ? `${WORK_PATHS[kind]}?${query}` : WORK_PATHS[kind];
 }
 
-function passes(row: DossierListRow, filters: FixFilters, viewer: string | null): boolean {
-  if (filters.who === 'mine' && (viewer === null || row.opened_by !== viewer)) return false;
+/** Who reads the list: their user id and their GitHub login, when they signed in with GitHub. */
+export type FixViewer = { id: string; login: string | null };
+
+/** Mine (issue 674): a fix the viewer pushed, or whose issue they opened; the sync pushes most fixes. */
+function isMine(row: DossierListRow, viewer: FixViewer | null, fix: FixSummary | null): boolean {
+  if (viewer === null) return false;
+  const author = issueOf(fix)?.author;
+  return row.opened_by === viewer.id || (!!author && !!viewer.login && author.toLowerCase() === viewer.login.toLowerCase());
+}
+
+function passes(row: DossierListRow, filters: FixFilters, viewer: FixViewer | null, fix: FixSummary | null): boolean {
+  if (filters.who === 'mine' && !isMine(row, viewer, fix)) return false;
   if (filters.repo && !row.repos.includes(filters.repo)) return false;
   if (filters.search) {
     const title = row.title.toLowerCase();
@@ -113,13 +123,13 @@ const badgeOf = (kind: ArtifactKind, count: number) => (kind === 'variations' ? 
 /** What GitHub said of each fix, by dossier id; a fix left out reads as GitHub not answering. */
 export type FixFacts = ReadonlyMap<string, FixSummary | null>;
 
-/** The fixes of `kind` the filters let through for this viewer (their user id), newest activity first. */
+/** The fixes of `kind` the filters let through for this viewer, newest activity first. */
 export function fixItems(
-  rows: readonly DossierListRow[], kind: FixKind, filters: FixFilters, viewer: string | null, facts: FixFacts = new Map(),
+  rows: readonly DossierListRow[], kind: FixKind, filters: FixFilters, viewer: FixViewer | null, facts: FixFacts = new Map(),
   peopleIn: PeopleIn = NOBODY,
 ): FixItem[] {
   const factsOf = (row: DossierListRow) => facts.get(row.id) ?? null;
-  return ofWork(rows, kind).filter((row) => passes(row, filters, viewer))
+  return ofWork(rows, kind).filter((row) => passes(row, filters, viewer, factsOf(row)))
     .filter((row) => !filters.state || fixState(factsOf(row)) === filters.state)
     .sort(newestFirst).map((row): FixItem => ({
     id: row.id,

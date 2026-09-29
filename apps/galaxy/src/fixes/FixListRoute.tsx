@@ -10,7 +10,8 @@ import { dossierGithub } from '../dossier/github/server';
 import type { FixSummary } from '../dossier/github/fix';
 import { ofWork } from '../dossier/page/work';
 import { FixList } from './FixList';
-import { fixChoices, fixItems, readFixFilters, type FixFacts, type FixKind } from './list';
+import { loginOf } from '../nav/viewer';
+import { fixChoices, fixItems, readFixFilters, type FixFacts, type FixKind, type FixViewer } from './list';
 import { loadPeople, type People } from '../people/load';
 import { NOBODY, type PeopleIn } from './people';
 
@@ -35,12 +36,12 @@ const fixCallbackPath = (kind: FixKind) => `${WORK_PATHS[kind]}/callback`;
 export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>) {
   const query = await searchParams;
   const filters = readFixFilters(query);
-  const listing = (rows: DossierListRow[], viewer: string, facts?: FixFacts, people?: PeopleIn) => (
+  const listing = (rows: DossierListRow[], viewer: FixViewer, facts?: FixFacts, people?: PeopleIn) => (
     <FixList kind={kind} items={fixItems(rows, kind, filters, viewer, facts, people)} choices={fixChoices(rows, kind)} filters={filters} />
   );
   const mode = arcadeMode(process.env);
 
-  if (mode === 'demo') return listing(demoHistory(Date.now()), DEMO_VIEWER);
+  if (mode === 'demo') return listing(demoHistory(Date.now()), { id: DEMO_VIEWER, login: null });
   const env = supabaseEnv();
   if (mode === 'closed' || !env) {
     return (
@@ -66,7 +67,7 @@ export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>) 
   }
   const fixes = ofWork(rows, kind);
   const [facts, people] = await Promise.all([factsOf(fixes), peopleOf(db, fixes)]);
-  return listing(rows, user.id, facts, people);
+  return listing(rows, { id: user.id, login: loginOf(user) }, facts, people);
 }
 
 /** The people directory of every workspace these fixes belong to, each read once. */

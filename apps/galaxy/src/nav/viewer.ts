@@ -44,7 +44,8 @@ export interface ViewerSource {
 
 const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
 
-const loginOf = (user: Person) => {
+/** The person's GitHub login, when they signed in with GitHub (the fix lists' Mine reads it too, issue 674). */
+export const loginOf = (user: Person) => {
   const d = user.identities?.find((i) => i.provider === 'github')?.identity_data ?? null;
   return text(d?.user_name) ?? text(d?.preferred_username);
 };

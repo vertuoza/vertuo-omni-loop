@@ -6,7 +6,7 @@ import { fixAddress, fixChoices, fixItems, readFixFilters } from './list';
 
 // /visual and /bugs (PRD 627), as pure functions of the rows dossier_list() gives the viewer and the
 // filters in the address: only the dossiers of the list's kind, newest activity first, Mine (the ones
-// the viewer pushed, the default) or All (`who=all`), a repository, and the words of a title; each row
+// the viewer pushed or whose issue they opened, the default) or All (`who=all`), a repository, and the words of a title; each row
 // opens the fix's own page.
 
 const row = (id: string, more: Partial<DossierListRow> = {}): DossierListRow => ({
@@ -40,6 +40,9 @@ const ISSUE = {
 };
 const OPEN = { number: 562, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/562', state: 'open' as const, mergedAt: null as string | null, mergedBy: null };
 
+/** The viewer: the user who pushed the fixes opened_by names, signed in as @pierre. */
+const ME = { id: 'u-pierre', login: 'pierre' };
+
 const ids = (items: { id: string }[]) => items.map((i) => i.id);
 
 describe('the filters in the address', () => {
@@ -57,23 +60,33 @@ describe('the filters in the address', () => {
 
 describe('the rows', () => {
   it('lists only the dossiers of its kind, newest activity first', () => {
-    expect(ids(fixItems(ROWS, 'visual', { who: 'all' }, 'u-pierre'))).toEqual([SIDEBAR.id, TOPBAR.id]);
-    expect(ids(fixItems(ROWS, 'bug', { who: 'all' }, 'u-pierre'))).toEqual([CRASH.id]);
+    expect(ids(fixItems(ROWS, 'visual', { who: 'all' }, ME))).toEqual([SIDEBAR.id, TOPBAR.id]);
+    expect(ids(fixItems(ROWS, 'bug', { who: 'all' }, ME))).toEqual([CRASH.id]);
   });
 
   it('keeps Mine to the fixes the viewer pushed, so one the fallback read shows only under All', () => {
-    expect(ids(fixItems(ROWS, 'visual', { who: 'mine' }, 'u-pierre'))).toEqual([SIDEBAR.id]);
+    expect(ids(fixItems(ROWS, 'visual', { who: 'mine' }, ME))).toEqual([SIDEBAR.id]);
     expect(ids(fixItems(ROWS, 'visual', { who: 'mine' }, null))).toEqual([]);
   });
 
+  it('keeps under Mine a fix the sync read whose issue the viewer opened, their GitHub login in any case (issue 674)', () => {
+    const facts = new Map([
+      [TOPBAR.id, { issue: { ...ISSUE, number: 561, author: 'PierreDerval' }, pull: null, approvals: [], release: null }],
+      [CRASH.id, { issue: { ...ISSUE, number: 571, author: 'anna' }, pull: null, approvals: [], release: null }],
+    ]);
+    const pierre = { id: 'u-other', login: 'pierrederval' };
+    expect(ids(fixItems(ROWS, 'visual', { who: 'mine' }, pierre, facts))).toEqual([TOPBAR.id]);
+    expect(ids(fixItems(ROWS, 'bug', { who: 'mine' }, pierre, facts))).toEqual([]);
+  });
+
   it('filters by any of its repositories, and by every word of the search', () => {
-    expect(ids(fixItems(ROWS, 'visual', { who: 'all', repo: 'vertuoza/vertuo-core' }, 'u-pierre'))).toEqual([TOPBAR.id]);
-    expect(ids(fixItems(ROWS, 'visual', { who: 'all', search: 'SIDEBAR dark' }, 'u-pierre'))).toEqual([SIDEBAR.id]);
-    expect(ids(fixItems(ROWS, 'visual', { who: 'all', search: 'sidebar light' }, 'u-pierre'))).toEqual([]);
+    expect(ids(fixItems(ROWS, 'visual', { who: 'all', repo: 'vertuoza/vertuo-core' }, ME))).toEqual([TOPBAR.id]);
+    expect(ids(fixItems(ROWS, 'visual', { who: 'all', search: 'SIDEBAR dark' }, ME))).toEqual([SIDEBAR.id]);
+    expect(ids(fixItems(ROWS, 'visual', { who: 'all', search: 'sidebar light' }, ME))).toEqual([]);
   });
 
   it('shows #n, the title, the repositories, what it holds and its last activity, and opens the fix\'s own page', () => {
-    const [sidebar, topbar] = fixItems(ROWS, 'visual', { who: 'all' }, 'u-pierre');
+    const [sidebar, topbar] = fixItems(ROWS, 'visual', { who: 'all' }, ME);
     expect(sidebar).toEqual({
       id: SIDEBAR.id, href: `/visual/${SIDEBAR.id}`, heading: '#548', title: 'Darker sidebar', repos: ['vertuoza/vertuo-omni-loop'],
       artifacts: [{ kind: 'before-after', label: 'Before/after', badge: 'v1' }, { kind: 'variations', label: 'Variations', badge: '2 rounds' }],
@@ -81,7 +94,7 @@ describe('the rows', () => {
       askedBy: null, state: null, stateLabel: '—', risk: null, regression: false,
     });
     expect(topbar.artifacts).toEqual([]);
-    const [crash] = fixItems(ROWS, 'bug', { who: 'all' }, 'u-pierre');
+    const [crash] = fixItems(ROWS, 'bug', { who: 'all' }, ME);
     expect(crash).toMatchObject({ href: `/bugs/${CRASH.id}`, heading: '#571', artifacts: [{ kind: 'bug-record', label: 'Bug record', badge: 'v1' }] });
   });
 
@@ -91,14 +104,14 @@ describe('the rows', () => {
       [TOPBAR.id, { issue: UNREAD, pull: UNREAD, approvals: UNREAD, release: UNREAD }],
       [CRASH.id, { issue: { ...ISSUE, risk: 'omni:risk-high', regression: true }, pull: null, approvals: [], release: null }],
     ]);
-    const [sidebar, topbar] = fixItems(ROWS, 'visual', { who: 'all' }, 'u-pierre', facts);
+    const [sidebar, topbar] = fixItems(ROWS, 'visual', { who: 'all' }, ME, facts);
     expect(sidebar).toMatchObject({ askedBy: { name: '@anna' }, state: 'merged', stateLabel: 'Merged', risk: null, regression: false });
     expect(topbar).toMatchObject({ askedBy: null, state: null, stateLabel: '—' });
-    expect(fixItems(ROWS, 'bug', { who: 'all' }, 'u-pierre', facts)[0]).toMatchObject({
+    expect(fixItems(ROWS, 'bug', { who: 'all' }, ME, facts)[0]).toMatchObject({
       state: 'asked', stateLabel: 'Asked', risk: 'omni:risk-high', regression: true,
     });
-    expect(ids(fixItems(ROWS, 'visual', { who: 'all', state: 'merged' }, 'u-pierre', facts))).toEqual([SIDEBAR.id]);
-    expect(ids(fixItems(ROWS, 'visual', { who: 'all', state: 'asked' }, 'u-pierre', facts))).toEqual([]);
+    expect(ids(fixItems(ROWS, 'visual', { who: 'all', state: 'merged' }, ME, facts))).toEqual([SIDEBAR.id]);
+    expect(ids(fixItems(ROWS, 'visual', { who: 'all', state: 'asked' }, ME, facts))).toEqual([]);
   });
 
   it('gives who asked a face, by login through the directory of the fix\'s workspace (PRD 652, s6)', () => {
