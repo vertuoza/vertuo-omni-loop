@@ -57,6 +57,8 @@ const { default: Page } = await import('../../../app/prd/[id]/page.tsx');
 const { default: HistoryPage } = await import('../../../app/prd/page.tsx');
 const { default: Layout } = await import('../../../app/prd/layout.tsx');
 const { GET: sandboxRoute } = await import('../../../app/prd/[id]/v/[version]/page/route.ts');
+const { settled } = await import('./stream/settled');
+const { DossierStream } = await import('./stream/DossierStream');
 
 let numbered = '';
 let draft = '';
@@ -77,8 +79,9 @@ beforeEach(async () => {
 });
 afterEach(() => { vi.restoreAllMocks(); });
 
+// A PRD's page streams (PRD 657 s4): these tests read what it ends as, once its reads have resolved.
 const open = async (id: string, query: Record<string, string> = {}) =>
-  (await Page({ params: Promise.resolve({ id }), searchParams: Promise.resolve(query) })) as ReactElement;
+  settled(await Page({ params: Promise.resolve({ id }), searchParams: Promise.resolve(query) }));
 const html = async (id: string, query: Record<string, string> = {}) => renderToStaticMarkup(await open(id, query));
 const notFound = { digest: expect.stringContaining('404') };
 
@@ -275,6 +278,14 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
   const stored = (stage: 'inbox' | 'shipped') =>
     given.stages.recordStages([{ workspace_id: FAKE_WORKSPACE, repository: 'acme/widgets', prd: 7, stage, reached_at: '2026-09-28T10:00:00Z' }], '2026-09-29T09:15:00Z');
 
+  it('never waits for GitHub before the page: a numbered PRD\'s page streams while the summary is read (PRD 657 s4)', async () => {
+    given.summary.mockReturnValue(new Promise(() => {}));
+    given.token = 'bob';
+    const page = (await Page({ params: Promise.resolve({ id: numbered }), searchParams: Promise.resolve({}) })) as ReactElement;
+    expect(page.type).toBe(DossierStream);
+    expect(given.summary).toHaveBeenCalledWith({ id: numbered, home_repo: 'acme/widgets', prd: 7 });
+  });
+
   it('reads the stored stage and GitHub for a signed-in member on a numbered dossier, and shows its stage and button', async () => {
     given.summary.mockResolvedValue(inbox);
     await stored('inbox');
@@ -319,7 +330,7 @@ describe('the stage, stored (PRD 587), with its button read from GitHub (PRD 426
 
 describe('the history', () => {
   const list = async (query: Record<string, string> = {}) =>
-    renderToStaticMarkup((await HistoryPage({ searchParams: Promise.resolve(query) })) as ReactElement);
+    renderToStaticMarkup(await settled(await HistoryPage({ searchParams: Promise.resolve(query) })));
   const rows = (page: string) => [...page.matchAll(/<a class="dossier-history-row" href="\/prd\/([^"]+)">/g)].map((m) => m[1]);
 
   it('lists every dossier of a member\'s workspace under All, newest activity first, each opening its page', async () => {

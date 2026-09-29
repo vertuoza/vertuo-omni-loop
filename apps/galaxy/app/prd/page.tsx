@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 import { arcadeMode } from '../../src/data/mode';
 import type { DossierListRow } from '../../src/dossier/store';
 import { dossierGithub } from '../../src/dossier/github/server';
@@ -12,6 +13,8 @@ import {
 import { DossierDatabaseDown, DossiersClosed, dossierSession } from '../../src/dossier/page/route-gate';
 import { readHistory } from '../../src/dossier/page/source';
 import { ofWork } from '../../src/dossier/page/work';
+import { PrdListLoading } from '../../src/skeleton/pages';
+import { Streamed } from '../../src/skeleton/Streamed';
 import { stageStore } from '../../src/stages/store';
 
 // /prd, the history (PRD 216): every dossier of the signed-in person's workspaces, newest activity
@@ -26,6 +29,9 @@ import { stageStore } from '../../src/stages/store';
 // for the stage bar, `?stage=` and each row's pill; stages that cannot be read show none. The demo has no
 // stored stage, so only its answered drafts read idea.
 // PRD 627: only PRDs' dossiers; the fixes have their own lists, /visual and /bugs.
+// PRD 657 s4: a signed-in person's list streams in its own block, under the list's skeleton (the
+// heading, the filters' place and the rows'), so the frame is sent before the dossiers are read. The
+// filters stream with the rows: their repositories and the empty list's words come from the same read.
 
 export const metadata: Metadata = { title: 'PRDs · OMNI LOOP' };
 
@@ -55,16 +61,20 @@ export default async function HistoryRoute({ searchParams }: Props) {
   const { env, db, user } = session;
   if (!user) return <DossierSignIn supabase={env} returnPath={HISTORY_CALLBACK} error={one(query.signin_error)} what="history" />;
 
-  let rows: DossierListRow[];
-  try {
-    rows = ofWork(await readHistory(db), 'prd');
-  } catch (error) {
-    console.error(error);
-    return <DossierDatabaseDown />;
+  /** The list as the signed-in person reads it: the dossiers, then their open questions and stages. */
+  async function history(userId: string): Promise<ReactNode> {
+    let rows: DossierListRow[];
+    try {
+      rows = ofWork(await readHistory(db), 'prd');
+    } catch (error) {
+      console.error(error);
+      return <DossierDatabaseDown />;
+    }
+    const [open, stages] = await Promise.all([
+      readOpenCounts(historyToRead(rows, filters, userId), dossierGithub()),
+      readCurrentStages(rows, stageStore(db)),
+    ]);
+    return listing(rows, userId, open, stages);
   }
-  const [open, stages] = await Promise.all([
-    readOpenCounts(historyToRead(rows, filters, user.id), dossierGithub()),
-    readCurrentStages(rows, stageStore(db)),
-  ]);
-  return listing(rows, user.id, open, stages);
+  return <Streamed read={history(user.id)} skeleton={<PrdListLoading />} failed={<DossierDatabaseDown />}>{(list) => list}</Streamed>;
 }

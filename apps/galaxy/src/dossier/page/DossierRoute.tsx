@@ -4,20 +4,19 @@ import { arcadeMode } from '../../data/mode';
 import { fixPageView, readPickLine, type FixPageView, type PickRead } from '../../fixes/timeline';
 import { dossierGithub } from '../github/server';
 import { UNREAD } from '../github/summary';
-import type { GithubSummary } from '../github/summary';
 import { renderMarkdown, type RenderedMarkdown } from '../markdown';
 import { DEMO_VIEWER, demoContent, demoDossier } from './demo';
 import { DossierPage } from './DossierPage';
 import { DossierSignIn } from './DossierSignIn';
 import { pulseOf, signature } from './live';
 import { LiveRefresh } from './live-refresh';
+import { DossierStream, type DossierReads } from './stream/DossierStream';
 import { DossierDatabaseDown, DossiersClosed, dossierSession } from './route-gate';
 import { dossierCallbackPath } from './sign-in';
 import { readContent, readDossier, readPlanSlices, type Db } from './source';
 import { dossierView, readPick, type DossierRead } from './view';
 import { kindOf, misrouted } from './work';
 import type { WorkKind } from '../store';
-import type { StageRow } from '../../stages/stage';
 import { stageStore } from '../../stages/store';
 
 // /prd/<id>, the page to share (PRD 216): one PRD's dossier. Rendered per request, as the signed-in
@@ -41,6 +40,9 @@ import { stageStore } from '../../stages/store';
 // PRD 627, s5: a fix reads instead what GitHub says of its issue and its fix PR, through the same reader
 // and 60-second cache, and — a visual fix — the pick line of its latest before/after version, for its
 // State, its On GitHub links and its Timeline.
+// PRD 657 s4: a numbered PRD's page streams (./stream/DossierStream.tsx): it is sent as soon as the
+// database has answered, the parts only GitHub knows saying they are being read, then again, whole,
+// when the GitHub summary arrives. A draft reads no GitHub, and a fix's page waits for its summary.
 
 export type DossierRouteProps = {
   params: Promise<{ id: string }>;
@@ -49,23 +51,22 @@ export type DossierRouteProps = {
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
 
-/** The stored stages, the GitHub summary and the plan's slice count of a numbered PRD dossier the
- * member reads; the summary is null when GitHub could not be read, the stages null when they could not
- * be read; nothing for a draft or a fix. */
-async function githubOf(db: Db, read: DossierRead): Promise<{ github?: GithubSummary | null; slices?: number | null; stages?: StageRow[] | null }> {
+/** The GitHub summary, the plan's slice count and the stored stages of a numbered PRD dossier the member
+ * reads, each started now and awaited by the page's own blocks (PRD 657 s4); the summary reads null when
+ * GitHub could not be read, the stages null when they could not be read. */
+function prdReads(db: Db, read: DossierRead): DossierReads {
   const { dossier } = read;
-  if (dossier.prd === null || kindOf(dossier) !== 'prd') return {};
+  const prd = dossier.prd as number;
   const reader = dossierGithub();
   const logged = (error: unknown) => {
     console.error(error);
     return null;
   };
-  const [github, slices, stages] = await Promise.all([
-    reader ? reader.summary({ id: dossier.id, home_repo: dossier.home_repo, prd: dossier.prd }).catch(logged) : Promise.resolve(null),
-    readPlanSlices(db, read.versions),
-    stageStore(db).stagesOf({ workspace_id: dossier.workspace_id, repository: dossier.home_repo, prd: dossier.prd }).catch(logged),
-  ]);
-  return { github, slices, stages };
+  return {
+    github: reader ? reader.summary({ id: dossier.id, home_repo: dossier.home_repo, prd }).catch(logged) : Promise.resolve(null),
+    slices: readPlanSlices(db, read.versions),
+    stages: stageStore(db).stagesOf({ workspace_id: dossier.workspace_id, repository: dossier.home_repo, prd }).catch(logged),
+  };
 }
 
 /** A fix's state, links and Timeline: GitHub through the server's reader (every moment unknown without
@@ -153,11 +154,17 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
   const elsewhere = misrouted(kindOf(read.dossier), route, id, query);
   if (elsewhere) redirect(elsewhere);
 
-  const [github, fix] = await Promise.all([githubOf(db, read), fixOf(db, read)]);
-  const withGithub = { ...read, ...github, ...fix };
-  const view = dossierView(withGithub, user.id, pick);
+  const live = (seen: DossierRead) => {
+    const pulse = pulseOf(seen);
+    return <LiveRefresh supabase={env} id={read.dossier.id} signature={pulse ? signature(pulse) : null} />;
+  };
+  if (read.dossier.prd !== null && kindOf(read.dossier) === 'prd') {
+    // A numbered PRD streams: the page as the database has it at once, then with its GitHub summary.
+    const markdown = shownMarkdown(dossierView(read, user.id, pick), (shownId) => readContent(db, shownId));
+    return <DossierStream read={read} me={user.id} pick={pick} reads={prdReads(db, read)} markdown={markdown} supabase={env} live={live} />;
+  }
+  const withFix = { ...read, ...(await fixOf(db, read)) };
+  const view = dossierView(withFix, user.id, pick);
   const markdown = await shownMarkdown(view, (shownId) => readContent(db, shownId));
-  const pulse = pulseOf(withGithub);
-  const live = <LiveRefresh supabase={env} id={view.id} signature={pulse ? signature(pulse) : null} />;
-  return <DossierPage view={view} markdown={markdown} supabase={env} live={live} />;
+  return <DossierPage view={view} markdown={markdown} supabase={env} live={live(withFix)} />;
 }
