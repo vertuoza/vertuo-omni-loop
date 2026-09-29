@@ -214,6 +214,53 @@ describe('the cache and the token', () => {
     expect(gh.fetchImpl.mock.calls.length).toBeGreaterThan(count);
   });
 
+  it('makes one set of requests for two concurrent summaries of one dossier (PRD 657, s6)', async () => {
+    const alone = fakeGithub({ inbox: ['0426-prd-page-stage'], issue: ISSUE });
+    await githubReader(CREDS, alone.fetchImpl, () => NOW).summary(DOSSIER);
+    const gh = fakeGithub({ inbox: ['0426-prd-page-stage'], issue: ISSUE });
+    const reader = githubReader(CREDS, gh.fetchImpl, () => NOW);
+    const [first, second] = await Promise.all([reader.summary(DOSSIER), reader.summary(DOSSIER)]);
+    expect(second).toBe(first);
+    expect(gh.calls).toEqual(alone.calls);
+  });
+
+  it('reads a repository\'s config.yml once for two PRDs within the cache window, and again after (PRD 657, s6)', async () => {
+    let now = NOW;
+    const gh = fakeGithub({ inbox: ['0426-prd-page-stage'], issue: ISSUE });
+    const reader = githubReader(CREDS, gh.fetchImpl, () => now);
+    const configReads = () => gh.calls.filter((c) => c.includes('/contents/.omni-loop/config.yml')).length;
+    await Promise.all([reader.summary(DOSSIER), reader.summary({ ...DOSSIER, id: 'd-427', prd: 427 })]);
+    await reader.summary({ ...DOSSIER, id: 'd-428', prd: 428 });
+    await reader.fix({ ...DOSSIER, id: 'd-fix', prd: 429 });
+    expect(configReads()).toBe(1);
+    now += SUMMARY_TTL_MS;
+    await reader.summary({ ...DOSSIER, id: 'd-430', prd: 430 });
+    expect(configReads()).toBe(2);
+  });
+
+  it('reads the config again at once after a failed read (PRD 657, s6)', async () => {
+    let broken = true;
+    const gh = fakeGithub({ inbox: ['0426-prd-page-stage'], issue: ISSUE });
+    const flaky = vi.fn(async (href: string, init: RequestInit) =>
+      (broken && href.includes('config.yml') ? new Response('{}', { status: 502 }) : gh.fetchImpl(href, init)));
+    const reader = githubReader(CREDS, flaky, () => NOW);
+    expect(await reader.summary(DOSSIER)).toBeNull();
+    broken = false;
+    expect(await reader.summary({ ...DOSSIER, id: 'd-427', prd: 427 })).not.toBeNull();
+  });
+
+  it('a forget while a read is in flight makes the next read fresh (PRD 657, s6)', async () => {
+    const gh = fakeGithub({ inbox: ['0426-prd-page-stage'], issue: ISSUE });
+    const reader = githubReader(CREDS, gh.fetchImpl, () => NOW);
+    const pending = reader.summary(DOSSIER);
+    reader.forget(DOSSIER.id);
+    await pending;
+    const issueReads = () => gh.calls.filter((c) => c === '/repos/acme/widgets/issues/426').length;
+    const before = issueReads();
+    await reader.summary(DOSSIER);
+    expect(issueReads()).toBe(before + 1);
+  });
+
   it('keeps an unreadable answer for 60 s too', async () => {
     const gh = fakeGithub({ installed: false });
     const reader = githubReader(CREDS, gh.fetchImpl, () => NOW);
