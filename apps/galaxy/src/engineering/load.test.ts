@@ -16,6 +16,8 @@ import { loadEngineering, loadEngineeringBoard, supabaseEngineeringReads, type E
 const NOW = new Date('2026-09-26T10:00:00Z');
 const REQUEST = { period: '7d', sort: 'merged', now: NOW } as const;
 
+const HERO = { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 };
+
 const PR = {
   repo: 'acme/widgets', number: 7, author: 'ada', authorIsBot: false, openedAt: '2026-09-24T08:00:00Z', mergedAt: '2026-09-24T10:00:00Z',
   closedAt: '2026-09-24T10:00:00Z', mergedBy: 'bob', commits: 2, additions: 3, deletions: 1, omniSigned: false,
@@ -28,6 +30,7 @@ function reads(over: Partial<EngineeringReads> = {}): EngineeringReads & { asked
     tracked: async () => { asked.push('tracked'); return ['acme/widgets']; },
     pullRequests: async (from, repos) => { asked.push(['prs', from.toISOString(), repos]); return [PR]; },
     reviews: async (from, to, repos) => { asked.push(['reviews', from.toISOString(), to.toISOString(), repos]); return []; },
+    faces: async (logins) => { asked.push(['faces', logins]); return [{ login: 'Ada', hero: HERO, color: '#e0457b' }]; },
     ...over,
   };
 }
@@ -44,7 +47,30 @@ describe('loadEngineering', () => {
       'tracked',
       ['prs', '2026-09-19T22:00:00.000Z', ['acme/widgets']],
       ['reviews', '2026-09-19T22:00:00.000Z', '2026-09-26T22:00:00.000Z', ['acme/widgets']],
+      ['faces', ['ada', 'bob']],
     ]);
+  });
+
+  it('gives each person shown their face: a player\'s hero, anyone else\'s GitHub picture', async () => {
+    const board = await loadEngineering(reads(), REQUEST);
+    if (board === UNREADABLE || board.kind !== 'board') throw new Error('no board');
+    expect(board.people.opened[0]).toEqual({ login: 'ada', count: 1, face: { kind: 'hero', hero: HERO, color: '#e0457b' } });
+    expect(board.people.merged[0]).toEqual({ login: 'bob', count: 1, face: { kind: 'github', src: 'https://github.com/bob.png?size=56' } });
+  });
+
+  it('when the faces cannot be read: the board still, every face the GitHub picture, the error logged', async () => {
+    const board = await loadEngineering(reads({ faces: async () => { throw new Error('players down'); } }), REQUEST);
+    if (board === UNREADABLE || board.kind !== 'board') throw new Error('no board');
+    expect(board.tiles.merged).toBe(1);
+    expect(board.people.opened[0].face).toEqual({ kind: 'github', src: 'https://github.com/ada.png?size=56' });
+    expect(board.people.merged[0].face).toEqual({ kind: 'github', src: 'https://github.com/bob.png?size=56' });
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('players down'));
+  });
+
+  it('with nobody to show: no faces read', async () => {
+    const r = reads({ pullRequests: async () => [] });
+    await loadEngineering(r, REQUEST);
+    expect(r.asked.some((a) => Array.isArray(a) && a[0] === 'faces')).toBe(false);
   });
 
   it('with no tracked repository: the empty state, and nothing else read', async () => {
@@ -83,7 +109,7 @@ describe('supabaseEngineeringReads', () => {
         const call: unknown[] = [table];
         calls.push(call);
         const q: Record<string, unknown> = {};
-        for (const m of ['select', 'eq', 'in', 'or', 'gte', 'lt', 'order', 'range']) q[m] = (...a: unknown[]) => { call.push([m, ...a]); return q; };
+        for (const m of ['select', 'eq', 'in', 'or', 'gte', 'lt', 'order', 'range', 'limit']) q[m] = (...a: unknown[]) => { call.push([m, ...a]); return q; };
         q.then = (ok: (v: unknown) => unknown, ko?: (e: unknown) => unknown) => Promise.resolve(answers[table].shift()).then(ok, ko);
         return q;
       },
@@ -118,6 +144,19 @@ describe('supabaseEngineeringReads', () => {
     expect(rows).toEqual([{ repo: 'acme/widgets', number: 7, reviewer: 'carl', firstAt: '2026-09-25T08:00:00Z' }]);
     expect(calls[0]).toContainEqual(['gte', 'first_at', '2026-09-19T22:00:00.000Z']);
     expect(calls[0]).toContainEqual(['lt', 'first_at', '2026-09-26T22:00:00.000Z']);
+  });
+
+  it('reads the faces in one query: the workspace\'s players with one of the logins, lower-cased too, with their fleet\'s colour', async () => {
+    const { calls, db } = fakeDb({ players: [{ data: [
+      { github_login: 'Ada', hero: HERO, teams: { color: '#e0457b' } },
+      { github_login: 'carl', hero: HERO, teams: null },
+    ], error: null }] });
+    const rows = await supabaseEngineeringReads(db, 'ws-1').faces(['Ada', 'bob']);
+    expect(rows).toEqual([{ login: 'Ada', hero: HERO, color: '#e0457b' }, { login: 'carl', hero: HERO, color: null }]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContainEqual(['select', 'github_login, hero, teams(color)']);
+    expect(calls[0]).toContainEqual(['eq', 'workspace_id', 'ws-1']);
+    expect(calls[0]).toContainEqual(['in', 'github_login', ['Ada', 'bob', 'ada']]);
   });
 
   it('rejects with what could not be read', async () => {

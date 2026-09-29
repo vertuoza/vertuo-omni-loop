@@ -3,6 +3,7 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { settle, UNREADABLE, type Read } from '../dashboard/part';
 import { periodWindow, type Period } from '../dashboard/board/period';
 import { memberWorkspace, type Workspace } from '../data/workspace';
+import { loginsShown, withFaces, type FacePlayer } from './faces';
 import { engineeringOf, type EngineeringValue, type PullRequestRow, type ReviewRow, type SortKey } from './tally';
 
 // /app/engineering's read (PRD 612 s3), as the signed-in person, so row-level security decides what
@@ -10,7 +11,9 @@ import { engineeringOf, type EngineeringValue, type PullRequestRow, type ReviewR
 // reviews). First the tracked repositories; with none, the empty state and no other read. Then, in
 // parallel, the pull requests that can count in the period (opened or merged since its first instant,
 // or open now) and the reviews first given within it, of those repositories only. Any read that fails
-// leaves the whole board saying it could not load, its error logged. The reads are a port
+// leaves the whole board saying it could not load, its error logged. Last, the faces (PRD 645 s1): the
+// workspace's players among the logins the three lists show, for their heroes. That read fails soft:
+// its error logged, every face falls back to the GitHub picture and the board still renders. The reads are a port
 // (EngineeringReads) so the loader is tested on fakes; supabaseEngineeringReads is the page's.
 
 export interface EngineeringReads {
@@ -20,6 +23,8 @@ export interface EngineeringReads {
   pullRequests(from: Date, repos: string[]): Promise<PullRequestRow[]>;
   /** Their reviews first given within [from, to). */
   reviews(from: Date, to: Date, repos: string[]): Promise<ReviewRow[]>;
+  /** The workspace's players whose GitHub login is one of these, with their hero and fleet's colour. */
+  faces(logins: string[]): Promise<FacePlayer[]>;
 }
 
 export interface EngineeringRequest { period: Period; sort: SortKey; now: Date }
@@ -34,7 +39,19 @@ export async function loadEngineering(reads: EngineeringReads, { period, sort, n
     settle('the reviews', () => reads.reviews(window.from, window.to, tracked)),
   ]);
   if (pullRequests === UNREADABLE || reviews === UNREADABLE) return UNREADABLE;
-  return engineeringOf({ tracked, pullRequests, reviews }, window, sort);
+  const board = engineeringOf({ tracked, pullRequests, reviews }, window, sort);
+  return withFaces(board, await facesOf(reads, loginsShown(board)));
+}
+
+/** The players among these logins; none, its error logged, when they cannot be read. */
+async function facesOf(reads: EngineeringReads, logins: string[]): Promise<FacePlayer[]> {
+  if (logins.length === 0) return [];
+  try {
+    return await reads.faces(logins);
+  } catch (error) {
+    console.error(`engineering: the faces could not be read, GitHub pictures instead (${(error as Error).message})`);
+    return [];
+  }
 }
 
 export type EngineeringBoard = { kind: 'no-workspace' } | { kind: 'board'; name: string; board: Read<EngineeringValue> };
@@ -61,6 +78,7 @@ type StoredPullRequest = {
   closed_at: string | null; merged_by: string | null; commits: number; additions: number; deletions: number; omni_signed: boolean;
 };
 type StoredReview = { repo: string; number: number; reviewer: string; first_at: string };
+type StoredFace = { github_login: string; hero: unknown; teams: { color: string } | null };
 
 type Page<T> = (start: number, end: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
 
@@ -114,6 +132,13 @@ export function supabaseEngineeringReads(db: SupabaseClient, workspace: string):
         .order('reviewer', { ascending: true })
         .range(start, end));
       return rows.map((r) => ({ repo: r.repo, number: r.number, reviewer: r.reviewer, firstAt: r.first_at }));
+    },
+    async faces(logins) {
+      // A stored login keeps GitHub's spelling; ask for it and for its lower case, and faceOf matches either.
+      const spellings = [...new Set([...logins, ...logins.map((l) => l.toLowerCase())])];
+      const { data, error } = await db.from('players').select('github_login, hero, teams(color)').eq('workspace_id', workspace).in('github_login', spellings);
+      if (error) throw new Error(`Supabase: could not read the players (${error.message})`);
+      return ((data ?? []) as unknown as StoredFace[]).map((r) => ({ login: r.github_login, hero: r.hero, color: r.teams?.color ?? null }));
     },
   };
 }

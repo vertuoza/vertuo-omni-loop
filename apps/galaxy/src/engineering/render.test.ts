@@ -5,6 +5,7 @@ import { UNREADABLE } from '../dashboard/part';
 import { periodWindow } from '../dashboard/board/period';
 import { demoEngineeringBoard } from './demo';
 import { EngineeringScreen, type EngineeringView } from './EngineeringScreen';
+import type { Face } from './faces';
 import { engineeringOf, OMNI_MAN, type PullRequestRow } from './tally';
 
 // /app/engineering as the server renders it (PRD 612 s3), to static markup: what a person sees
@@ -75,10 +76,59 @@ describe('the Engineering board, with data', () => {
     expect(html).toMatch(/aria-sort="descending"><a class="eng-sort" href="[^"]*sort=merged">Merged<\/a>/);
   });
 
-  it('shows the three top-5 lists, without bots or Omni-man', () => {
-    expect(t).toContain('Most opened ada 1 carl 1 Most merged bob 2 Most reviews dora 1');
+  it('shows the three top-5 lists as ranked rows, without bots or Omni-man', () => {
+    expect(t).toContain('Most opened 1 ada 1 2 carl 1 Most merged 1 bob 2 Most reviews 1 dora 1');
     expect(t).not.toContain('dependabot');
     expect(t).not.toMatch(/Most opened[^M]*omni-loop-invader/);
+  });
+});
+
+describe('the top-people lists (PRD 645 s1)', () => {
+  const HERO = { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } as const;
+  const people = (logins: [string, number][]) => logins.map(([login, count]) => ({ login, count }));
+  const faced = (opened: [string, number][], faces: Record<string, Face> = {}): EngineeringView => {
+    const view = board();
+    if (view.kind !== 'board' || view.board === UNREADABLE || view.board.kind !== 'board') throw new Error('no board');
+    const withFace = (list: [string, number][]) => people(list).map((p) => (faces[p.login] ? { ...p, face: faces[p.login] } : p));
+    return { ...view, board: { ...view.board, people: { opened: withFace(opened), merged: withFace([['bob', 2]]), reviews: withFace([['dora', 1]]) } } };
+  };
+  const rowsOf = (html: string, id: string) => html.split(`id="${id}"`)[1].split('</section>')[0].match(/<li[^>]*>.*?<\/li>/g) ?? [];
+
+  const FIVE: [string, number][] = [['ada', 8], ['bob', 6], ['carl', 4], ['dora', 2], ['eli', 1]];
+
+  it('renders each person as a row: rank, avatar, login, a right-aligned count, a bar scaled to the first', () => {
+    const html = render(faced(FIVE));
+    const rows = rowsOf(html, 'eng-top-opened');
+    expect(rows).toHaveLength(5);
+    expect(text(rows[0] ?? '')).toBe('1 ada 8');
+    expect(rows[0]).toContain('class="eng-rank"');
+    expect(rows[0]).toContain('class="eng-count"');
+    expect(rows[0]).toContain('style="width:100%"');
+    expect(rows[1]).toContain('style="width:75%"');
+    expect(rows[4]).toContain('style="width:12.5%"');
+  });
+
+  it('gives each list its own bar colour', () => {
+    const html = render(faced(FIVE));
+    expect(rowsOf(html, 'eng-top-opened')[0]).toContain('eng-meter-opened');
+    expect(rowsOf(html, 'eng-top-merged')[0]).toContain('eng-meter-merged');
+    expect(rowsOf(html, 'eng-top-reviews')[0]).toContain('eng-meter-reviews');
+  });
+
+  it('draws a hero as an inline pixel SVG, and a GitHub picture as a 28 px image with an empty alt', () => {
+    const html = render(faced([['ada', 2], ['bob', 1]], {
+      ada: { kind: 'hero', hero: HERO, color: '#e0457b' },
+      bob: { kind: 'github', src: 'https://github.com/bob.png?size=56' },
+    }));
+    const [ada, bob] = rowsOf(html, 'eng-top-opened');
+    expect(ada).toMatch(/<span class="eng-face" aria-hidden="true"><svg [^>]*shape-rendering="crispEdges"/);
+    expect(ada).not.toContain('<img');
+    expect(bob).toContain('<img class="eng-face" src="https://github.com/bob.png?size=56" alt="" width="28" height="28"');
+  });
+
+  it('a person with no face read yet: the GitHub picture', () => {
+    const [ada] = rowsOf(render(faced([['ada', 2]])), 'eng-top-opened');
+    expect(ada).toContain('src="https://github.com/ada.png?size=56"');
   });
 });
 
@@ -110,5 +160,11 @@ describe('the demo', () => {
       expect(view.kind === 'board' && view.board !== UNREADABLE && view.board.kind).toBe('board');
       expect(render(view)).toBe(render(demoEngineeringBoard(period, 'merged', NOW)));
     }
+  });
+
+  it('shows both kinds of face: a hero and a GitHub picture', () => {
+    const html = render(demoEngineeringBoard('30d', 'merged', NOW));
+    expect(html).toMatch(/<span class="eng-face" aria-hidden="true"><svg/);
+    expect(html).toContain('<img class="eng-face" src="https://github.com/');
   });
 });
