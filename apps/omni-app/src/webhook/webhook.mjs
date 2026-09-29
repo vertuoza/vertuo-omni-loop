@@ -7,12 +7,16 @@
 // (PRD 72) and the knowledge harvest event (PRD 82), and nothing else; every other handled action
 // becomes the outbox check event, exactly as before. An unmerged `closed` becomes nothing.
 //
+// The inbox check (PRD 675) listens to that same outbox check event, so every handled pull request
+// action re-evaluates both. A re-run of an inbox check run (its `external_id` is the inbox's) becomes
+// the inbox check event alone; a re-run of any other check run stays the outbox check event.
+//
 // Beside either route, a pull request that moves a PRD to a stage (PRD 587) is handed to `forward` as
 // one stage event (src/stage-forward/). Unless one is given, `forward` POSTs it to galaxy, signed with
 // `STAGE_EVENT_SECRET` (`GALAXY_URL` names galaxy when set). It never changes the reply: a failure is
 // logged.
 import { Webhooks } from '@octokit/webhooks';
-import { HARVEST_EVENT, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
+import { HARVEST_EVENT, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
 import { forwardStageEvent, stageEventUrl, toStageEvent } from '../stage-forward/stage-forward.mjs';
 
 /**
@@ -109,8 +113,9 @@ export function toEvents(event, payload) {
 }
 
 /**
- * The outbox check's filter, pure: a check action becomes one check request per pull request it
- * names; anything else — a `closed`, merged or not, included — becomes none.
+ * The checks' filter, pure: a check action becomes one check request per pull request it names —
+ * the inbox check event for a re-run of an inbox check run, the outbox check event otherwise;
+ * anything else — a `closed`, merged or not, included — becomes none.
  * @param {string} event
  * @param {any} payload
  * @returns {CheckRequest[]}
@@ -123,6 +128,7 @@ export function toCheckRequests(event, payload) {
   if (!source) return [];
 
   const trigger = `${event}.${payload.action}`;
+  const name = event === 'check_run' && payload.check_run?.external_id === INBOX_EXTERNAL_ID ? INBOX_CHECK_EVENT : OUTBOX_CHECK_EVENT;
   const pulls =
     event === 'pull_request'
       ? [{ number: payload.pull_request?.number ?? payload.number, sha: payload.pull_request?.head?.sha }]
@@ -134,7 +140,7 @@ export function toCheckRequests(event, payload) {
   return pulls
     .filter((pull) => Number.isInteger(pull.number) && pull.sha)
     .map((pull) => ({
-      name: OUTBOX_CHECK_EVENT,
+      name,
       data: { ...source, prNumber: pull.number, headSha: pull.sha, trigger },
     }));
 }
