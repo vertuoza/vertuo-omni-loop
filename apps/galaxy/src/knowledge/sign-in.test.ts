@@ -10,6 +10,8 @@ describe('signing in from the knowledge map', () => {
     expect(knowledgeCallbackPath({})).toBe('/knowledge/callback');
     expect(knowledgeCallbackPath({ domain: 'product', entry: 'BR-PRODUCT-3' })).toBe('/knowledge/callback?domain=product&entry=BR-PRODUCT-3');
     expect(knowledgeCallbackPath({ domain: '', entry: null })).toBe('/knowledge/callback');
+    expect(knowledgeCallbackPath({ repo: 'acme/anvils', domain: 'product', entry: null })).toBe('/knowledge/callback?repo=acme%2Fanvils&domain=product');
+    expect(knowledgeCallbackPath({ repo: null, domain: 'product', entry: null })).toBe('/knowledge/callback?domain=product');
   });
 
   it('comes back to /knowledge once the code is exchanged, on the same entry', async () => {
@@ -19,6 +21,11 @@ describe('signing in from the knowledge map', () => {
       .toBe(`${ORIGIN}/knowledge?domain=product&entry=BR-PRODUCT-3`);
     expect(codes).toEqual(['abc']);
     expect(await knowledgeSignInReturn(callback('?code=abc'), ORIGIN, ok)).toBe(`${ORIGIN}/knowledge`);
+  });
+
+  it('comes back to the repository the menu showed, on the same domain and entry', async () => {
+    expect(await knowledgeSignInReturn(callback('?code=abc&repo=acme%2Fanvils&domain=quote&entry=BR-QUOTE-1'), ORIGIN, ok))
+      .toBe(`${ORIGIN}/knowledge?repo=acme%2Fanvils&domain=quote&entry=BR-QUOTE-1`);
   });
 
   it("comes back with Google's or Supabase's reason when the sign-in was refused", async () => {
@@ -37,10 +44,14 @@ describe('signing in from the knowledge map', () => {
     expect(await knowledgeSignInReturn(callback('?code=abc'), ORIGIN, null)).toBe(`${ORIGIN}/knowledge`);
   });
 
-  it('always comes back to /knowledge on this site, carrying nothing but the domain and the entry', async () => {
+  it('always comes back to /knowledge on this site, carrying nothing but the repository, the domain and the entry', async () => {
     const back = new URL(await knowledgeSignInReturn(callback('?code=abc&next=https://evil.example&domain=%2F%2Fevil.example&redirect=%2Fx'), ORIGIN, ok));
     expect(back.origin).toBe(ORIGIN);
     expect(back.pathname).toBe('/knowledge');
     expect([...back.searchParams.keys()]).toEqual(['domain']);
+    const repo = new URL(await knowledgeSignInReturn(callback('?code=abc&repo=https%3A%2F%2Fevil.example&next=%2Fx'), ORIGIN, ok));
+    expect(repo.origin).toBe(ORIGIN);
+    expect(repo.pathname).toBe('/knowledge');
+    expect([...repo.searchParams.keys()]).toEqual(['repo']);
   });
 });

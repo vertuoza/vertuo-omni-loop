@@ -12,7 +12,7 @@ describe('loop labels', () => {
 
   it('asks for a label two keys share only once', () => {
     const names = loopLabels({ ...defaults, needsFix: 'OMNI:SUB' }).map((label) => label.name);
-    expect(names).toEqual(['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:outbox-go', 'omni:retro', 'omni:knowledge']);
+    expect(names).toEqual(['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual']);
   });
 
   it('asks for the knowledge label with its own colour and a description', () => {
@@ -33,5 +33,15 @@ describe('loop labels', () => {
     expect(others.map(([, style]) => style.color)).not.toContain(retro.color);
     expect(retro.description).toMatch(/^Omni Loop: \S/);
     expect(retro.description.length).toBeLessThanOrEqual(100);
+  });
+
+  it('asks for the visual label with its own colour and a description', () => {
+    const visual = loopLabels(defaults).find((label) => label.name === 'omni:visual');
+    expect(visual).toEqual({ name: 'omni:visual', ...LABEL_STYLES.visual });
+    expect(visual.color).toMatch(/^[0-9a-f]{6}$/);
+    const others = Object.entries(LABEL_STYLES).filter(([key]) => key !== 'visual');
+    expect(others.map(([, style]) => style.color)).not.toContain(visual.color);
+    expect(visual.description).toMatch(/^Omni Loop: \S/);
+    expect(visual.description.length).toBeLessThanOrEqual(100);
   });
 });

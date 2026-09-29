@@ -227,7 +227,7 @@
 
 /* ── The Questions tab (PRD 498): a strip counting the questions, then one outlined list, a line per round ── */
 
-.dossier-progress { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; min-width: 0; }
+.dossier-progress { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; min-width: 0; margin-bottom: 4px; }
 .dossier-progress-words { margin: 0; font-weight: 700; }
 .dossier-meter { display: block; flex: 0 1 260px; min-width: 120px; height: 8px; background: var(--ask-sunk); border-radius: 999px; overflow: hidden; }
 .dossier-meter > span { display: block; height: 100%; background: var(--ask-green); }
@@ -264,7 +264,7 @@
   align-items: center;
   gap: 6px 14px;
   flex-wrap: wrap;
-  padding: 12px 16px;
+  padding: 16px 24px;
   min-width: 0;
 }
 summary.dossier-round-line { cursor: pointer; list-style: none; }
@@ -273,7 +273,7 @@ summary.dossier-round-line::before { content: '▸'; color: var(--ask-muted); wi
 .dossier-fold[open] > summary.dossier-round-line::before { transform: rotate(90deg); }
 summary.dossier-round-line:hover { background: var(--ask-sunk); }
 summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: -2px; }
-.dossier-round[data-state='open'] .dossier-round-line { padding-left: 38px; }
+.dossier-round[data-state='open'] .dossier-round-line { padding-left: 46px; }
 .dossier-mark { display: inline-grid; place-items: center; width: 14px; height: 14px; flex: none; font-weight: 800; line-height: 1; }
 .dossier-mark[data-state='answered'] { color: var(--ask-green); }
 .dossier-mark[data-state='open'] { width: 10px; height: 10px; border-radius: 50%; background: var(--ask-yellow); box-shadow: 0 0 0 2px var(--ask-on-yellow); }
@@ -282,7 +282,7 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .dossier-round-headers { color: var(--ask-muted); overflow-wrap: anywhere; }
 .dossier-round-count { font: 600 13px/1.2 var(--ask-mono); color: var(--ask-muted); white-space: nowrap; }
 .dossier-round-when { font-size: 14px; white-space: nowrap; }
-.dossier-round-body { display: grid; gap: 12px; padding: 4px 16px 14px 44px; min-width: 0; }
+.dossier-round-body { display: grid; gap: 16px; padding: 4px 24px 22px 52px; min-width: 0; }
 .dossier-rule,
 .dossier-category {
   font: 700 12px/1 var(--ask-body);
@@ -316,7 +316,7 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .dossier-option-desc { font-size: 15px; color: var(--ask-muted); overflow-wrap: anywhere; }
 .dossier-answer { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 /* An answered question, on one line: chip · question (muted) → what was chosen (ink), in no box. */
-.dossier-q-line { font-size: 16px; font-weight: 400; text-wrap: pretty; }
+.dossier-q-line { font-size: 16px; font-weight: 400; line-height: 1.6; text-wrap: pretty; }
 .dossier-q-asked { color: var(--ask-muted); }
 .dossier-chosen { display: inline; }
 .dossier-choice + .dossier-choice::before { content: ', '; }
@@ -326,7 +326,7 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .dossier-round .dossier-options { display: flex; flex-wrap: wrap; gap: 8px; }
 .dossier-round[data-state='open'] .dossier-option { border: 1.5px solid var(--ask-line-strong); max-width: 420px; }
 .dossier-outcome { margin: 0; font-size: 15px; }
-.dossier-round-foot { margin: 0; display: flex; align-items: baseline; gap: 6px 16px; flex-wrap: wrap; }
+.dossier-round-foot { margin: 0; padding-top: 4px; display: flex; align-items: baseline; gap: 6px 16px; flex-wrap: wrap; }
 .dossier-round-foot .dossier-round-link { margin-left: auto; }
 .dossier-round-foot .ask-hint { overflow-wrap: anywhere; min-width: 0; }
 .ask a.dossier-round-link { font-size: 15px; white-space: nowrap; }
@@ -341,31 +341,151 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
   .dossier-md h4 { scroll-margin-top: calc(var(--dossier-head-h, 0px) + 16px); }
 }
 
-/* ── The Outbox tab (PRD 426): the open decisions, then the settled ones, across the page ── */
+/* ── The Outbox tab (PRD 426; PRD 251, s9): the questions, and the context rail beside them. Wide
+   (960px and up, as outbox-context.tsx's WIDE), the rail sits on the right and stays in view while
+   the questions scroll; tall, it is a Context disclosure above them. Ported from the first build's
+   outbox.css; every colour is a token. ── */
 
+.outbox { display: grid; gap: 16px; min-width: 0; }
 .outbox-answer { margin: 0; }
-.outbox-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; min-width: 0; }
-.outbox-item {
+.outbox-main { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.outbox-pr { margin: 0; }
+
+.outbox-context {
+  min-width: 0;
+  background: var(--ask-surface);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 12px;
+  padding: 12px;
+}
+.outbox-context > summary { cursor: pointer; font-weight: 700; }
+.outbox-context[open] > summary { margin-bottom: 10px; }
+.outbox-switch { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px; }
+.ask a.outbox-switch-link {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--ask-line-strong);
+  color: var(--ask-muted);
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+}
+.ask a.outbox-switch-link[aria-current='page'] { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); }
+.outbox-context-body { min-width: 0; overflow-wrap: anywhere; }
+.outbox-frame iframe { height: 70vh; min-height: 360px; }
+.outbox-brainstorm { margin: 0; padding-left: 20px; display: grid; gap: 12px; }
+.outbox-brainstorm p { margin: 0; }
+
+@media (min-width: 960px) {
+  .outbox { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .outbox-main { grid-column: 1; grid-row: 1; }
+  .outbox-context { grid-column: 2; grid-row: 1; }
+  .outbox-context > summary { display: none; }
+}
+/* Tall enough for PRD 476's pinned header, the rail stays in view just under it. */
+@media (min-width: 900px) and (min-height: 700px) {
+  .outbox-context {
+    position: sticky;
+    top: calc(var(--dossier-head-h, 0px) + 16px);
+    max-height: calc(100vh - var(--dossier-head-h, 0px) - 32px);
+    overflow: auto;
+  }
+}
+
+.outbox-answers { display: grid; gap: 14px; min-width: 0; }
+.outbox-toolbar { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; }
+.outbox-note,
+.outbox-nothing {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--ask-sunk);
+  border: 1.5px solid var(--ask-line-strong);
+}
+.outbox-nothing { font-weight: 700; }
+.outbox-cards { display: grid; gap: 12px; min-width: 0; }
+.outbox-group > summary { cursor: pointer; font-weight: 700; padding: 8px 0; }
+.outbox-group[open] > summary { margin-bottom: 8px; }
+
+.outbox-card {
   display: grid;
   gap: 10px;
-  padding: 16px 18px;
   min-width: 0;
+  padding: 16px;
   background: var(--ask-surface);
   border: 1.5px solid var(--ask-line-strong);
   border-left: 4px solid var(--ask-plasma);
   border-radius: 12px;
+  overflow-wrap: anywhere;
+  scroll-margin-top: 16px;
 }
-.outbox-item[data-state='settled'] { border-left-color: var(--ask-line); }
-.outbox-rank,
-.outbox-verdict {
+.outbox-card[data-kind='action'] { border-left-color: var(--ask-red); }
+.outbox-card[data-adopted='true'] { border-left-color: var(--ask-line); }
+.outbox-card-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.outbox-number { margin: 0; font-size: 18px; }
+.outbox-rank {
   font: 700 12px/1 var(--ask-body);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: var(--ask-muted);
+  background: var(--ask-sunk);
   border-radius: 4px;
   padding: 5px 8px;
 }
-.outbox-rank { color: var(--ask-on-plasma); background: var(--ask-plasma); }
-.outbox-verdict { color: var(--ask-ink); background: var(--ask-sunk); border: 1px solid var(--ask-line-strong); }
+.outbox-rank[data-rank='high'] { color: var(--ask-on-plasma); background: var(--ask-plasma); }
+.outbox-rank[data-rank='human-action'] { color: var(--ask-red); background: var(--ask-surface); box-shadow: inset 0 0 0 1px var(--ask-red); }
+.outbox-fun { margin: 0; font-style: italic; color: var(--ask-muted); }
+.outbox-card .dossier-md { max-width: none; }
+.outbox-card .dossier-md > :last-child { margin-bottom: 0; }
+.outbox-decision { display: grid; gap: 4px; }
+.outbox-pending {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--ask-plasma-soft);
+}
+.outbox-pending p { margin: 0; }
+.outbox-pending-label { font-weight: 700; }
+.outbox-options { margin: 0; padding: 0; border: 0; display: grid; gap: 6px; min-width: 0; }
+.outbox-options legend { margin-bottom: 4px; }
+.outbox-option {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.outbox-option[data-picked='true'] { border-color: var(--ask-plasma); }
+.outbox-option .ask-rec { grid-column: 3; justify-self: start; }
+.outbox-option-letter { font-weight: 700; }
+.outbox-option-text { grid-column: 3; min-width: 0; }
+.outbox-option-text > p { margin: 0; }
+.outbox-option input { margin: 0; }
+.outbox-reason { display: grid; gap: 4px; }
+.outbox-reason textarea {
+  width: 100%;
+  font: inherit;
+  color: var(--ask-ink);
+  background: var(--ask-ground);
+  border: 1.5px solid var(--ask-line-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+.outbox-card .ask-button.quiet { justify-self: start; }
+.outbox-chips { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+.ask .outbox-chips a.ask-chip { text-decoration: none; }
+.outbox-details > summary { cursor: pointer; color: var(--ask-muted); font-size: 14px; }
+.outbox-details h4 { margin: 12px 0 4px; font-size: 15px; }
+
+.outbox-settled-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.outbox-settled { padding: 12px 14px; border: 1.5px solid var(--ask-line-strong); border-radius: 10px; background: var(--ask-surface); }
+.outbox-settled p { margin: 0; }
+.outbox-settled-answer { margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* ── A quick round (PRD 384): its options as buttons, one click answers ── */
 
@@ -453,5 +573,5 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
   .dossier-round-line { padding: 10px 12px; }
   .dossier-round[data-state='open'] .dossier-round-line { padding-left: 12px; }
   .dossier-round-body { padding: 4px 12px 12px; }
-  .outbox-item { padding: 14px; }
+  .outbox-card { padding: 14px; }
 }

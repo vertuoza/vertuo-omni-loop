@@ -297,6 +297,14 @@ Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s5-0
 Merged: @pierrederval, 2026-09-27, PR #161
 Proposed: harvest 2026-09-27
 
+## P-PRODUCT-34
+
+Merged into P-PRODUCT-30, which says the same thing.
+
+Why: The harvest found this decision already stated as P-PRODUCT-30; the id stays so it is never given to another decision.
+Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, see P-PRODUCT-30, PRD #160
+Proposed: harvest 2026-09-28
+
 ## P-PRODUCT-35
 
 A player is always told about a game they unlocked, even when they climbed past its unlock level between two visits.
@@ -304,7 +312,7 @@ A player is always told about a game they unlocked, even when they climbed past 
 Why: Returning players and the demo guest skip levels, and a game that opened silently would never be announced.
 Source: .omni-loop/delivery/shipped/0160-game-room/outbox/settled.md, entry s6-02-levels-climbed-between-visits, PRD #160
 Merged: @pierrederval, 2026-09-27, PR #161
-Proposed: harvest 2026-09-27
+Proposed: harvest 2026-09-28
 
 ## P-PRODUCT-36
 
@@ -331,7 +339,7 @@ A person's name or email address is shown only to people who share a workspace w
 Why: Members need a recognisable label to share questions with each other, but outsiders must not learn who belongs to a workspace.
 Source: .omni-loop/delivery/shipped/0144-question-history/outbox/settled.md, entry s4-01-teammates-named-by-email, PRD #144
 Merged: @pierrederval, 2026-09-27, PR #147
-Proposed: harvest 2026-09-27
+Proposed: harvest 2026-09-28
 
 ## P-PRODUCT-39
 
@@ -358,7 +366,7 @@ While the arcade asks a person a question, the game never moves on beneath it; d
 Why: A person who says no should find the same screen they left, not one that changed while they were deciding.
 Source: .omni-loop/delivery/shipped/0238-game-app-switch/outbox/settled.md, entry s3-02-timed-screens-wait-under-confirm, PRD #238
 Merged: @pierrederval, 2026-09-27, PR #239
-Proposed: harvest 2026-09-27
+Proposed: harvest 2026-09-28
 
 ## P-PRODUCT-42
 

@@ -141,6 +141,7 @@ export function parsePlanSlices(markdown) {
     if (!id) continue;
     slices.push({
       id,
+      repo: column('repo') === -1 ? null : plainCell(row[column('repo')]),
       title: column('slice') === -1 ? '' : (row[column('slice')] ?? ''),
       territory: territoryPrefixes(row[column('territory')]),
       blockedBy: column('blocked by') === -1 ? [] : blockedByCell(row[column('blocked by')]),
@@ -151,6 +152,47 @@ export function parsePlanSlices(markdown) {
     throw new Error('The slice table holds no slice; there is nothing to grade.');
   }
   return slices;
+}
+
+/** A cell's text with its backticks stripped: `''` for an empty cell, never `null`. */
+function plainCell(cell) {
+  return (cell ?? '').replace(/`/g, '').trim();
+}
+
+/**
+ * The rows of a plan's `## Repositories` table (PRD 549), in the order they are written: each
+ * repository a plan repository's slices land in, with its `role`, the commit its territories were
+ * `read at`, and how its `knowledge` was read. `[]` when the plan has no such heading, or no table
+ * under it — an ordinary plan names no repository.
+ */
+export function parsePlanRepositories(markdown) {
+  const lines = markdown.split('\n');
+  const heading = lines.findIndex((line) => /^##\s+repositories\s*$/i.test(line.trim()));
+  if (heading === -1) return [];
+
+  let headerIndex = -1;
+  for (let i = heading + 1; i < lines.length; i += 1) {
+    if (/^#{1,2}\s/.test(lines[i].trim())) break;
+    if (isTableRow(lines[i])) {
+      headerIndex = i;
+      break;
+    }
+  }
+  if (headerIndex === -1) return [];
+
+  const header = cells(lines[headerIndex]).map((name) => name.toLowerCase());
+  const at = (row, name) => (header.indexOf(name) === -1 ? '' : plainCell(row[header.indexOf(name)]));
+  const rows = [];
+  for (let index = headerIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!isTableRow(line)) break;
+    if (isSeparatorRow(line)) continue;
+    const row = cells(line);
+    const repo = at(row, 'repo');
+    if (!repo) continue;
+    rows.push({ repo, role: at(row, 'role'), readAt: at(row, 'read at'), knowledge: at(row, 'knowledge') });
+  }
+  return rows;
 }
 
 /** True when one of the declared prefixes owns this path. */
@@ -176,11 +218,16 @@ export function sharedGround(left, right) {
   return [...shared];
 }
 
-/** Every pair of slices whose declarations intersect, in slice order. */
+/**
+ * Every pair of slices whose declarations intersect, in slice order. Only slices of one repository
+ * can meet (PRD 549): a territory is a path in its slice's `repo`, and two slices with no `repo`
+ * (`null`, an ordinary plan) share one repository, as they always did.
+ */
 export function collisions(slices) {
   const pairs = [];
   for (let i = 0; i < slices.length; i += 1) {
     for (let j = i + 1; j < slices.length; j += 1) {
+      if ((slices[i].repo ?? null) !== (slices[j].repo ?? null)) continue;
       const shared = sharedGround(slices[i], slices[j]);
       if (shared.length > 0) pairs.push({ left: slices[i].id, right: slices[j].id, shared });
     }

@@ -70,6 +70,32 @@ It prints the repository's settings when all is well. Otherwise, one of three th
   something in it is wrong. The rest of the line names the key: fix or remove it, and run
   `omni config` again until it prints the settings.
 
+## You ran `omni init` in a repository that had the kit
+
+`omni init` installs the loop, and the repository had it already: you joined a team that runs it,
+and only your laptop needed setting up ([Join a team](/docs/join)). Nothing is broken. `init` kept
+the repository's config and its `omni`, said `kept` beside each, and did the two things your laptop
+needed: it installed the plugin and signed you in, under **On this computer**.
+
+It also left you on a branch of its own, `chore/install-omni-loop`, and may have pushed it. Do not
+type the lines it printed to finish the install pull request: there is nothing to install. Go back to
+your default branch, and delete its branch:
+
+```bash terminal agent
+git switch main
+git branch -D chore/install-omni-loop
+```
+
+If it printed `pushed chore/install-omni-loop`, delete the branch on GitHub too, unless a pull
+request is open from it:
+
+```bash terminal agent
+git push origin --delete chore/install-omni-loop
+```
+
+If it opened a pull request, because the repository lacked a knowledge form the kit now has, close
+it: `omni update` is how the repository moves to a newer kit.
+
 ## A missing `omni:` label
 
 The loop marks its issues and pull requests with labels: `omni:prd`, `omni:phase-0`,
@@ -192,7 +218,8 @@ git push
 - **`/omni:yolo` stops at once, naming uncommitted changes.** It needs a checkout with no
   uncommitted changes. Commit them, or move them elsewhere, then run it again.
 - **Claude Code does not know `/omni:brainstorm`.** The `omni` plugin is not installed in this
-  Claude Code: see [Install](/docs/install), then restart Claude Code.
+  Claude Code. The plugin is installed once per laptop, not per repository: see step 4 of
+  [Join a team](/docs/join), then restart Claude Code.
 - **`gh` asks you to run `gh auth login`.** The GitHub CLI is not signed in on this computer. Run
   `gh auth login`, then the command that failed.
 - **The feature pull request has the `omni:needs-fix` label.** A slice or a check stayed red after
