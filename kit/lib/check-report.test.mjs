@@ -30,7 +30,7 @@ describe('trackedFiles', () => {
     const files = trackedFiles(ctx);
     expect(files).toHaveLength(6000);
     expect(files).toEqual([...expected].sort());
-  }, 60_000);
+  });
 
   it('returns a path with a space and a non-ASCII character exactly as written', () => {
     const { ctx } = makeRepo({ git: true, files: { 'notes/café plan.md': '# plan\n', 'a.md': '' } });

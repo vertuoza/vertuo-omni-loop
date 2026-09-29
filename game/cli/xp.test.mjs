@@ -122,7 +122,7 @@ describe('pnpm game:xp, as a process', () => {
     expect(run.code, run.stderr).toBe(0);
     expect(run.stdout).toMatch(/vertuoza: 3 logins · 2 with a level · written to player_xp/);
     expect(server.tables.player_xp.map((r) => [r.github_login, r.xp, r.level])).toEqual([['alice', 20, 1], ['bob', 15, 1], ['carol', 0, 0]]);
-  }, 20_000);
+  });
 
   it('exits non-zero and writes nothing when the ledger cannot be read', async () => {
     server = await serveFake({ workspaces, ledger_events: ledger(), player_xp: [] }, { failOn: 'ledger_events' });
@@ -130,7 +130,7 @@ describe('pnpm game:xp, as a process', () => {
     expect(run.code).toBe(1);
     expect(run.stderr).toMatch(/read ledger_events failed \(503/);
     expect(server.calls.filter((c) => c.method === 'POST')).toEqual([]);
-  }, 20_000);
+  });
 
   it('stops, naming both ways to name a workspace, when neither is set', async () => {
     server = await serveFake({ workspaces });
@@ -138,5 +138,5 @@ describe('pnpm game:xp, as a process', () => {
     expect(run.code).toBe(2);
     expect(run.stderr).toMatch(/no workspace named: pass --workspace <slug>, or set OMNI_LOOP_WORKSPACE/);
     expect(server.calls).toEqual([]);
-  }, 20_000);
+  });
 });

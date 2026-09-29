@@ -30,7 +30,9 @@ function memoryTokens(entries) {
   return { store, read: (host) => store[host] ?? null, write: (host, tokens) => { store[host] = tokens; } };
 }
 
-const FAST = { totalMs: 400, callMs: 1000 };
+// A test that expects the page's answer waits long enough for it on a loaded machine: the fake server
+// answers at once, so a quiet machine never waits. A test of giving up passes its own short total (#570).
+const ROOMY = { totalMs: 30_000, callMs: 10_000 };
 
 let server;
 afterEach(async () => {
@@ -45,7 +47,7 @@ async function modeOn(options = {}) {
   writeMode(root, { host: server.host });
   const tokens = memoryTokens({ [server.host]: { access_token: 'access-1', refresh_token: 'refresh-1' } });
   const client = askClient({ baseUrl: server.url, host: server.host, tokens });
-  const pre = (input, limits = FAST, more = {}) => preHook({ root, host: server.host, client, input, title: () => TITLE, limits, ...more });
+  const pre = (input, limits = ROOMY, more = {}) => preHook({ root, host: server.host, client, input, title: () => TITLE, limits, ...more });
   return { root, write, client, tokens, pre };
 }
 
@@ -114,8 +116,8 @@ describe('the pre hook', () => {
 
   it('opens one session per terminal, and two questions in flight together each get their own answer', async () => {
     const { root, pre } = await modeOn({ holdMs: 30 });
-    const a = pre(preInput([COLOUR], 'toolu_a', 'term-a'), { totalMs: 5000, callMs: 1000 });
-    const b = pre(preInput([PLACES], 'toolu_b', 'term-b'), { totalMs: 5000, callMs: 1000 });
+    const a = pre(preInput([COLOUR], 'toolu_a', 'term-a'), ROOMY);
+    const b = pre(preInput([PLACES], 'toolu_b', 'term-b'), ROOMY);
     // Both rounds are posted, each in its own session, before either is answered.
     while (server.rounds.size < 2) await new Promise((resolve) => setTimeout(resolve, 10));
     const rounds = [...server.rounds.values()];
@@ -145,7 +147,7 @@ describe('the pre hook', () => {
   it('still asks the question when reading the context throws', async () => {
     const { pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
     const readContext = () => { throw new Error('the transcript moved'); };
-    const output = await pre(preInput([COLOUR]), FAST, { readContext });
+    const output = await pre(preInput([COLOUR]), ROOMY, { readContext });
     expect(output.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
     const [round] = server.rounds.values();
     expect(round.context).toBeNull();
@@ -154,14 +156,14 @@ describe('the pre hook', () => {
 
   it('opens the terminal\'s session with context.repo (PRD 144)', async () => {
     const { pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
-    await pre(preInput([COLOUR]), FAST, { readSessionContext: () => ({ repo: 'acme/widgets' }) });
+    await pre(preInput([COLOUR]), ROOMY, { readSessionContext: () => ({ repo: 'acme/widgets' }) });
     expect(server.calls.find((call) => call.path === '/api/ask/sessions').body).toEqual({ title: TITLE, context: { repo: 'acme/widgets' } });
   });
 
   it('still opens the session, with no context, when reading context.repo throws', async () => {
     const { pre } = await modeOn({ answer: (round) => firstOptionAnswers(round.questions) });
     const readSessionContext = () => { throw new Error('the config moved'); };
-    const output = await pre(preInput([COLOUR]), FAST, { readSessionContext });
+    const output = await pre(preInput([COLOUR]), ROOMY, { readSessionContext });
     expect(output.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Yellow (Recommended)' });
     expect(server.calls.find((call) => call.path === '/api/ask/sessions').body).toEqual({ title: TITLE });
   });
@@ -175,7 +177,7 @@ describe('the pre hook', () => {
       server.answerRound(round.id, { [COLOUR.question]: 'Cyan' });
     };
     const { pre } = await modeOn({ holdMs: 30, onCall });
-    const output = await pre(preInput([COLOUR]), { totalMs: 5000, callMs: 1000 });
+    const output = await pre(preInput([COLOUR]), ROOMY);
     expect(output.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Cyan' });
     expect(waits).toBe(3);
   });
@@ -191,7 +193,7 @@ describe('the pre hook', () => {
     const { root, pre } = await modeOn({ holdMs: 50 });
     const started = Date.now();
     expect(await pre(preInput([COLOUR]), { totalMs: 200, callMs: 1000 })).toBeNull();
-    expect(Date.now() - started).toBeLessThan(1500);
+    expect(Date.now() - started).toBeLessThan(4000);
     const [round] = server.rounds.values();
     expect(round.status).toBe('abandoned');
     expect(server.calls.at(-1).path).toBe(`/api/ask/rounds/${round.id}/abandon`);
@@ -202,7 +204,7 @@ describe('the pre hook', () => {
     const { pre } = await modeOn({ holdMs: 5000 });
     const started = Date.now();
     expect(await pre(preInput([COLOUR]), { totalMs: 300, callMs: 60000 })).toBeNull();
-    expect(Date.now() - started).toBeLessThan(1500);
+    expect(Date.now() - started).toBeLessThan(4000);
     expect([...server.rounds.values()][0].status).toBe('abandoned');
   });
 

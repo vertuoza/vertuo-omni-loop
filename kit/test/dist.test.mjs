@@ -17,7 +17,7 @@ describe('the committed bundle (AC 10)', () => {
     const fresh = join(mkdtempSync(join(tmpdir(), 'omni-dist-')), 'omni.mjs');
     execFileSync('node', [join(repoRoot, 'kit/build.mjs'), fresh], { cwd: tmpdir(), stdio: 'ignore' });
     expect(readFileSync(fresh).equals(committed())).toBe(true);
-  }, 30000);
+  });
 
   it('starts with a node shebang', () => {
     expect(committed().toString('utf8').split('\n')[0]).toBe('#!/usr/bin/env node');

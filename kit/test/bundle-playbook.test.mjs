@@ -51,7 +51,7 @@ describe('the committed bundle, alone in a fixture repository (acceptance criter
     const testing = bundled(root, ['kb', 'show', 'testing']).out;
     expect(testing).toContain('## Commands  [kit default]\n`make check` runs the whole suite.');
     expect(testing).toContain('## Never  [kit default]\n- A test never proves implementation trivia');
-  }, 30000);
+  });
 
   it('lays down the same blank forms as the kit’s source, and grades them the same', async () => {
     const bundle = repoWithBundle();
@@ -65,5 +65,5 @@ describe('the committed bundle, alone in a fixture repository (acceptance criter
     const checked = bundled(bundle.root, ['check', 'kb']);
     expect(checked.code).toBe(0);
     expect(checked.out).toBe((await fromSource(source.root, ['check', 'kb'])).out);
-  }, 30000);
+  });
 });

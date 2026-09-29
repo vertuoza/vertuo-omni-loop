@@ -76,7 +76,7 @@ describe('pnpm game:dossiers', () => {
     expect(run.stderr).toMatch(/no workspace named: pass --workspace <slug>, or set OMNI_LOOP_WORKSPACE\nusage: game:dossiers --workspace <slug>/);
     expect(server.calls).toEqual([]);
     expect(ghCalls()).toEqual([]);
-  }, 20_000);
+  });
 
   it('stops on a workspace it cannot read, or one that names no GitHub organisation', async () => {
     expect((await dossiers(['--workspace', 'ghost'])).stderr).toMatch(/no workspace "ghost"/);
@@ -84,7 +84,7 @@ describe('pnpm game:dossiers', () => {
     expect(bare.code).toBe(1);
     expect(bare.stderr).toMatch(/workspace "bare" has no github_org/);
     expect(ghCalls()).toEqual([]);
-  }, 20_000);
+  });
 
   it('reads every sector repository and the plan repository, creates the dossiers, and adds nothing the second time', async () => {
     const first = await dossiers([], { OMNI_LOOP_WORKSPACE: 'vertuoza' });
@@ -102,5 +102,5 @@ describe('pnpm game:dossiers', () => {
     expect(second.stdout.trim().split('\n').at(-1)).toBe('dossiers: 1 of 2 repositories read · 0 created · 0 versions added');
     expect(blobs()).toBe(1);
     expect(server.tables.dossier_versions).toHaveLength(1);
-  }, 20_000);
+  });
 });

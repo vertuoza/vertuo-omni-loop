@@ -392,7 +392,7 @@ describe('omni status — the fetch time in a linked worktree (PRD 315, slice s2
   });
 });
 
-describe('omni status — your PRDs (PRD 315, slice s3)', { timeout: 20_000 }, () => {
+describe('omni status — your PRDs (PRD 315, slice s3)', () => {
   /** Commits `files` as `email` on the seed's `branch`, cutting it from `main` when it is new. */
   function commitOn(seed, branch, email, files) {
     const exists = git(seed.root, 'branch', '--list', branch).trim() !== '';
