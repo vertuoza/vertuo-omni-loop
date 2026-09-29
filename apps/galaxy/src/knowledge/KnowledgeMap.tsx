@@ -10,7 +10,8 @@ import { BETWEEN, entryHref, indexOf, select, tabEntries, tabs, type Selection }
 // entry's panel, and the index with its filter. Every tab, dot and row is a real link to its address,
 // so the page reads without a script; with one, a choice updates the page and the address in place
 // (the address can be shared, and the back button walks the choices), and the filter narrows the
-// index and dims every dot it does not match.
+// index and dims every dot it does not match. Every address keeps the repository the menu shows
+// (`repo`, null for the deployed checkout); changing repository loads the page anew.
 
 /** A plain click: one that does not ask for a new tab or window. */
 const plainClick = (event: MouseEvent) => event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
@@ -28,7 +29,7 @@ function countsLine(entries: KnowledgeEntry[]) {
   ].join(' · ');
 }
 
-export function KnowledgeMap({ graph, initial }: { graph: KnowledgeGraph; initial: Selection }) {
+export function KnowledgeMap({ graph, initial, repo = null }: { graph: KnowledgeGraph; initial: Selection; repo?: string | null }) {
   const [selection, setSelection] = useState(initial);
   const [query, setQuery] = useState('');
   const panel = useRef<HTMLDivElement>(null);
@@ -67,7 +68,7 @@ export function KnowledgeMap({ graph, initial }: { graph: KnowledgeGraph; initia
     event.preventDefault();
     reveal.current = bringPanel;
     setSelection(next);
-    const href = entryHref(next);
+    const href = entryHref(next, repo);
     if (`${window.location.pathname}${window.location.search}` !== href) window.history.pushState(null, '', href);
   };
   const choose = (id: string, event: MouseEvent) => go(select(graph, { entry: id }), event, true);
@@ -80,7 +81,7 @@ export function KnowledgeMap({ graph, initial }: { graph: KnowledgeGraph; initia
         {allTabs.map((tab) => (
           <a
             key={tab.key}
-            href={entryHref({ domain: tab.key, entry: null })}
+            href={entryHref({ domain: tab.key, entry: null }, repo)}
             aria-current={tab.key === selection.domain ? 'page' : undefined}
             className="km-tab"
             onClick={(event) => openTab(tab.key, event)}
@@ -101,6 +102,7 @@ export function KnowledgeMap({ graph, initial }: { graph: KnowledgeGraph; initia
             label={selection.domain === BETWEEN ? 'between' : title}
             selected={selected?.id ?? null}
             query={query}
+            repo={repo}
             onChoose={choose}
           />
           <ul className="km-legend">
@@ -112,7 +114,7 @@ export function KnowledgeMap({ graph, initial }: { graph: KnowledgeGraph; initia
           </ul>
         </figure>
         <div ref={panel} className="km-side">
-          <EntryPanel graph={graph} entry={selected} onChoose={choose} />
+          <EntryPanel graph={graph} entry={selected} repo={repo} onChoose={choose} />
         </div>
         <section className="km-index" aria-labelledby="km-index-title">
           <h2 id="km-index-title">Index</h2>
@@ -128,7 +130,7 @@ export function KnowledgeMap({ graph, initial }: { graph: KnowledgeGraph; initia
               spellCheck={false}
             />
           </div>
-          <EntryIndex index={index} query={query} selected={selected?.id ?? null} tabLabel={tabLabel} onChoose={choose} />
+          <EntryIndex index={index} query={query} selected={selected?.id ?? null} tabLabel={tabLabel} repo={repo} onChoose={choose} />
         </section>
       </div>
     </div>
