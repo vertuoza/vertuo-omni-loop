@@ -1,10 +1,10 @@
-import type { CSSProperties } from 'react';
 import { Notice } from '../../ask/page/Notice';
 import { SwitchAccount } from '../../ask/page/SignInCard';
 import { DashboardSignIn } from '../DashboardSignIn';
 import { CouldNotLoad } from '../Notes';
+import { FleetChip } from '../../people/FleetChip';
 import { UNREADABLE, type Read } from '../part';
-import type { FleetRank } from '../rankings/rank';
+import { fleetTagOf, type FleetRank } from '../rankings/rank';
 import { APP_CALLBACK } from '../sign-in';
 import { Board } from '../board/Board';
 import { hrefWith, type Query } from '../board/links';
@@ -17,6 +17,8 @@ import './fleet.css';
 // fleet to see its board*, for a viewer with no fleet or a `?fleet` that names none; *This workspace
 // has no fleet yet*, linking to Settings › Fleets; and, as on Workspace, closed, signed out and in no
 // workspace. The picker's links keep the rest of the query, so picking a fleet keeps the period.
+// PRD 652: each picker link and the page's header name the fleet as its FleetChip, its mascot in its
+// colour.
 
 type Supabase = { url: string; key: string };
 
@@ -54,7 +56,7 @@ function Picker({ fleets, current, query }: { fleets: Read<FleetRank[]>; current
           {fleets.map((f) => (
             <li key={f.name}>
               <a href={hrefWith(FLEET_PATH, query, { fleet: f.name })} aria-current={f.name === current ? 'page' : undefined}>
-                {f.label}
+                <FleetChip fleet={fleetTagOf(f)} />
                 {f.yours && <span className="fleet-yours"><span aria-hidden="true"> ◀</span><span className="ask-sr"> (your fleet)</span></span>}
               </a>
             </li>
@@ -100,12 +102,11 @@ export function FleetScreen({ view, supabase, signinError, query }: FleetScreenP
         </div>
       );
     case 'board': {
-      const style = view.fleet.color ? ({ '--dash-fleet': view.fleet.color } as CSSProperties) : undefined;
       return (
         <div className="dash">
           <Picker fleets={view.fleets} current={view.fleet.name} query={query} />
-          <header className="fleet-head" style={style}>
-            <h1 className="dash-name dash-fleet"><span className="dash-fleet-pip" aria-hidden="true" />{view.fleet.label}</h1>
+          <header className="fleet-head">
+            <h1 className="dash-name"><FleetChip fleet={view.fleet} /></h1>
             <Place place={view.fleet.place} season={view.board.season.name} />
           </header>
           <Board board={view.board} path={FLEET_PATH} query={query} />

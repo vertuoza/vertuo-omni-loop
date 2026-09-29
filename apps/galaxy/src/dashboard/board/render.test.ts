@@ -122,6 +122,13 @@ describe('a board', () => {
     expect(text(render({}, {}, {}, false))).not.toContain('Fleets · September');
   });
 
+  it('shows each fleet of the ranking as a chip with its mascot, yours still marked (PRD 652)', () => {
+    const html = render({ galaxy: { ...READ.galaxy, teams: [{ ...READ.galaxy.teams[0], mascot: 'octopod' }] } });
+    const fleets = html.slice(html.indexOf('board-fleets'));
+    expect(fleets).toMatch(/<th scope="row" class="board-name"><span class="fleet-chip is-table" style="--fleet:#3355ff"><span class="fleet-chip-mascot" aria-hidden="true"><svg [\s\S]*?<span class="fleet-chip-label">OCTO<\/span><\/span><span class="board-you">/);
+    expect(text(fleets)).toContain('1 OCTO ◀ (your fleet) 40');
+  });
+
   it('says so where a read failed, and draws the rest', () => {
     const t = text(render({ activity: 'unreadable' }));
     expect(t).toContain(`PRs merged ${UNREADABLE_LINE}`);
