@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261012090000_roster_hero.sql', import.meta.url)), 'utf8');
+const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261013090000_roster_hero.sql', import.meta.url)), 'utf8');
 const sql = MIGRATION.replace(/--.*$/gm, '').replace(/\s+/g, ' ');
 
 describe('the roster-hero migration', () => {

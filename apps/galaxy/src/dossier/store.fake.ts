@@ -31,7 +31,7 @@
 // next dossier) and delivery (its number in its home repository), in its own workspace, a round both
 // match once as brainstorm, in the order they were asked, nothing for someone who cannot read it.
 //
-// The faces (PRD 652): workspace_roster(workspace) of supabase/migrations/20261012090000_roster_hero.sql,
+// The faces (PRD 652): workspace_roster(workspace) of supabase/migrations/20261013090000_roster_hero.sql,
 // to its members only — each member's name, their GitHub login, avatar, fleet and hero as seeded by a
 // test (seedPlayer), null when none was — and the workspace's fleets (`teams`), readable by its members.
 //
