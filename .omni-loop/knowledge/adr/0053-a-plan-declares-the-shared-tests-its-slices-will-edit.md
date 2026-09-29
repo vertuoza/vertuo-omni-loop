@@ -1,4 +1,4 @@
-# ADR-0052 — A plan declares the tests its slices will all edit as shared ground
+# ADR-0053 — A plan declares the tests its slices will all edit as shared ground
 
 **Status:** accepted · **Date:** 2026-09-28 · **PRD:** #487 · **Decided:** @pierrederval, closing retro PRs #406, #446 and #467 and choosing the fix after #514, 2026-09-28
 
