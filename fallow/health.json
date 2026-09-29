@@ -1,0 +1,1158 @@
+{
+  "kind": "health",
+  "finding_counts": {
+    "apps/galaxy/app/app/fleets/page.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/app/ask/q/[round]/page.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/app/ask/signin/page.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/app/prd/[id]/page.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/app/prd/at/[owner]/[repo]/[n]/page.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/app/signup/installed/callback/route.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/app/signup/installed/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/scripts/shots.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 4
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/galaxy/src/arcade/ArcadeApp.tsx": {
+      "complexity_critical": {
+        "count": 4
+      },
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 4
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/arcade/fullscreen.ts": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/arcade/games/invaders.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_high": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/arcade/name-entry.ts": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/arcade/scenes/chart-layout.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/arcade/scenes/chart.ts": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/arcade/scenes/chart.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/arcade/scenes/index.ts": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/arcade/scenes/map.ts": {
+      "complexity_critical": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/arcade/scenes/menu.tsx": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/arcade/scenes/planet.ts": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/arcade/scenes/recruit.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/arcade/scenes/recruit.tsx": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/arcade/scenes/theme.test.ts": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/arcade/sound.ts": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/ask/api.ts": {
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "apps/galaxy/src/ask/classify.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/ask/cli-code-live.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/ask/cli-code.ts": {
+      "complexity_high": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/ask/page/AskPage.tsx": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/ask/page/AskQuestion.tsx": {
+      "complexity_high": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/ask/page/AskRoute.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/ask/page/AskSession.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/ask/page/ShareButton.tsx": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/ask/page/history-live.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/ask/page/source.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/ask/page/tabs.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/ask/page/view.ts": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/ask/page/workspace-history.ts": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/ask/store.fake.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "apps/galaxy/src/data/dossiers.fake.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/data/galaxy.fake.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/galaxy/src/data/load-galaxy.ts": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/design/pixel-svg.ts": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/docs/diagrams.ts": {
+      "complexity_high": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/docs/guide.ts": {
+      "complexity_critical": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/dossier/api.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/dossier/github/reader.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/dossier/page/OutboxSend.tsx": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/galaxy/src/dossier/page/history.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/dossier/page/outbox-answers.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/dossier/page/outbox-view.ts": {
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/dossier/page/stage.ts": {
+      "complexity_high": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/dossier/page/view.ts": {
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/dossier/store.fake.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/galaxy/src/home/Controls.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/knowledge/KnowledgeScreen.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/knowledge/access.ts": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/knowledge/github.test.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/outbox/send-live.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/outbox/send.ts": {
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/waiting/WaitingProvider.tsx": {
+      "complexity_high": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/waiting/documents.ts": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/galaxy/src/waiting/outbox.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/omni-app/src/knowledge-harvest/render.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/omni-app/src/outbox-check/fake-github.mjs": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/omni-app/src/retro/guard.mjs": {
+      "complexity_high": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/omni-app/src/retro/kinds/after-merge.mjs": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 3
+      }
+    },
+    "apps/omni-app/src/retro/kinds/churn-generated.mjs": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/omni-app/src/retro/kinds/churn-lines.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/omni-app/src/retro/kinds/churn.mjs": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/omni-app/src/retro/kinds/ci-logs.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/omni-app/src/retro/kinds/ci.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/omni-app/src/retro/kinds/delivery.facts.mjs": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/omni-app/src/retro/kinds/delivery.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/omni-app/src/retro/kinds/delivery.reads.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "apps/omni-app/src/retro/narrate.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/omni-app/src/retro/render.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/omni-app/src/retro/retro.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/omni-app/test/github-replay.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "game/cli/banner.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "game/cli/contributions.test.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "game/config.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "game/dossiers/fake-github.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "game/dossiers/fake-supabase.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "game/dossiers/folders.mjs": {
+      "complexity_high": {
+        "count": 1
+      }
+    },
+    "game/dossiers/sync.mjs": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "game/economy.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "game/experience.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "game/planet-state.mjs": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      }
+    },
+    "game/projector.mjs": {
+      "complexity_critical": {
+        "count": 1
+      }
+    },
+    "game/sources/github.mjs": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 2
+      }
+    },
+    "game/test/fake-supabase.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "kit/bin/board.test.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/bin/commands/answers.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/bin/commands/ask.mjs": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "kit/bin/commands/check.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "kit/bin/commands/comment.mjs": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "kit/bin/commands/credits.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "kit/bin/commands/dossier.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "kit/bin/commands/harvest.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "kit/bin/commands/init.mjs": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "kit/bin/commands/item.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "kit/bin/commands/plan.mjs": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "kit/bin/commands/signin.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/bin/commands/status.mjs": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "kit/bin/commands/update.mjs": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "kit/bin/init.test.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "kit/bin/update.test.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "kit/lib/ask/context.mjs": {
+      "complexity_high": {
+        "count": 1
+      }
+    },
+    "kit/lib/ask/hook.mjs": {
+      "complexity_high": {
+        "count": 1
+      }
+    },
+    "kit/lib/bug/verdict.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/credits/classify.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/credits/reader.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/dossier/local.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/help/entries.test.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "kit/lib/inbox/check-inbox.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/inbox/inbox.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/inbox/territory.mjs": {
+      "complexity_high": {
+        "count": 1
+      }
+    },
+    "kit/lib/init/install-pr.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/init/install-pr.test.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/init/steps.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/knowledge/check-knowledge.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "kit/lib/knowledge/check-knowledge.test.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/knowledge/classify.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/knowledge/harvest.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/knowledge/registers.mjs": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "kit/lib/knowledge/write.mjs": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/openrouter.mjs": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/outbox/answers.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/outbox/check-outbox.mjs": {
+      "complexity_moderate": {
+        "count": 2
+      }
+    },
+    "kit/lib/outbox/comment.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/outbox/outbox.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "kit/lib/outbox/replies.mjs": {
+      "complexity_high": {
+        "count": 1
+      },
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/outbox/settle.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/plan-repo/targets.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/plan-repo/targets.test.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/playbook/check-playbook.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "kit/lib/playbook/forms.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/playbook/resolve.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/lib/statusline/facts.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "kit/test/fake-ask-server.mjs": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 2
+      }
+    },
+    "packages/design/src/draw.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_high": {
+        "count": 2
+      },
+      "complexity_moderate": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "packages/design/src/forge.mjs": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "packages/design/src/logo.mjs": {
+      "complexity_high": {
+        "count": 1
+      }
+    },
+    "packages/design/src/logo.test.mjs": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
+    "packages/design/src/sprites.mjs": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "packages/galaxy/src/galaxy.mjs": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    }
+  },
+  "runtime_coverage_findings": [],
+  "target_keys": [
+    "kit/lib/knowledge/check-knowledge.mjs:dead code",
+    "kit/bin/commands/dossier.mjs:untested risk",
+    "apps/galaxy/src/data/sign-in-live.ts:high impact",
+    "game/planet-state.mjs:high impact",
+    "apps/galaxy/src/dossier/github/reader.ts:high impact",
+    "apps/galaxy/src/arcade/ArcadeApp.tsx:high impact",
+    "game/economy.mjs:high impact",
+    "apps/galaxy/src/ask/page/tabs.ts:high impact",
+    "apps/galaxy/src/outbox/send-live.ts:dead code",
+    "apps/galaxy/src/dossier/page/view.ts:high impact",
+    "apps/galaxy/src/outbox/send.ts:high impact",
+    "game/projector.mjs:high impact",
+    "apps/galaxy/src/fleets/store.ts:high impact",
+    "kit/lib/bug/verdict.mjs:dead code",
+    "kit/lib/knowledge/write.mjs:dead code",
+    "apps/galaxy/src/fleets/refusal.ts:dead code",
+    "apps/galaxy/src/dossier/page/stage.ts:high impact",
+    "kit/lib/credits/classify.mjs:high impact",
+    "kit/lib/laws.mjs:high impact",
+    "apps/galaxy/src/arcade/games/room.ts:high impact",
+    "apps/galaxy/src/arcade/scenes/map.ts:high impact",
+    "apps/galaxy/src/knowledge/view.ts:high impact",
+    "apps/galaxy/src/nav/viewer.ts:high impact",
+    "apps/galaxy/src/ask/api.ts:high impact",
+    "apps/galaxy/src/arcade/scenes/chart-layout.ts:high impact",
+    "apps/galaxy/src/waiting/WaitingProvider.tsx:high impact",
+    "apps/galaxy/src/arcade/fullscreen.ts:dead code",
+    "apps/galaxy/src/arcade/games/invaders.ts:high impact",
+    "apps/galaxy/src/ask/page/workspace-history.ts:high impact",
+    "apps/galaxy/src/ask/store.fake.ts:high impact",
+    "game/sources/github.mjs:high impact",
+    "apps/galaxy/src/dossier/page/live.ts:high impact",
+    "kit/lib/ask/client.mjs:high impact",
+    "kit/lib/knowledge/copies.mjs:dead code",
+    "apps/galaxy/src/arcade/onboarding.ts:high impact",
+    "apps/galaxy/src/dashboard/you.ts:high impact",
+    "apps/galaxy/src/ask/page/source.ts:high impact",
+    "apps/galaxy/src/docs/badges.ts:high impact",
+    "apps/galaxy/src/waiting/documents.ts:high impact",
+    "apps/galaxy/src/ask/page/AskSession.tsx:complexity",
+    "apps/galaxy/src/waiting/source.ts:high impact",
+    "kit/test/fake-ask-server.mjs:high impact",
+    "apps/galaxy/src/signup/signup.fake.ts:high impact",
+    "kit/lib/outbox/decision-coverage.mjs:dead code",
+    "apps/galaxy/src/arcade/account-demo.ts:high impact",
+    "apps/galaxy/src/home/spreads/StrategyGuide.tsx:dead code",
+    "kit/lib/outbox/replies.mjs:complexity",
+    "apps/omni-app/src/retro/narrate.mjs:high impact",
+    "apps/galaxy/src/ask/cli-code.ts:high impact",
+    "kit/lib/ask/hook.mjs:high impact",
+    "kit/lib/visual/verdict.mjs:dead code",
+    "apps/galaxy/src/dossier/page/history.ts:high impact",
+    "kit/bin/commands/check.mjs:complexity",
+    "kit/lib/statusline/board-cache.mjs:circular dependency",
+    "kit/test/fixture.mjs:high impact",
+    "apps/galaxy/src/docs/guide.ts:complexity",
+    "apps/galaxy/src/dossier/page/outbox-view.ts:high impact",
+    "apps/galaxy/src/data/galaxy.fake.ts:high impact",
+    "kit/bin/omni.mjs:circular dependency",
+    "apps/galaxy/src/arcade/fleets.ts:high impact",
+    "kit/bin/commands/ask.mjs:untested risk",
+    "apps/galaxy/src/dossier/api.ts:high impact",
+    "apps/galaxy/src/ask/answer-model.ts:high impact",
+    "apps/galaxy/src/data/load-galaxy.ts:high impact",
+    "apps/galaxy/src/docs/diagrams.ts:high impact",
+    "kit/lib/dossier/folder.mjs:dead code",
+    "kit/lib/ask/credentials.mjs:high impact",
+    "kit/lib/delivery/ship.mjs:high impact",
+    "kit/lib/status/overview.mjs:high impact",
+    "kit/lib/dossier/local.mjs:high impact",
+    "game/dossiers/folders.mjs:high impact",
+    "apps/galaxy/src/dossier/page/source.ts:high impact",
+    "game/config.mjs:high impact",
+    "apps/galaxy/src/ask/page/AskQuestion.tsx:complexity",
+    "apps/omni-app/src/retro/kinds/churn.mjs:complexity",
+    "packages/galaxy/src/galaxy.mjs:complexity",
+    "apps/galaxy/src/arcade/scenes/invaders-score.ts:high impact",
+    "kit/lib/init/repo.mjs:high impact",
+    "apps/galaxy/src/ask/page/view.ts:high impact",
+    "kit/lib/plan-repo/targets.mjs:high impact",
+    "apps/galaxy/src/arcade/sound.ts:high impact",
+    "apps/galaxy/src/dossier/page/outbox-picks.ts:high impact",
+    "packages/design/src/forge.mjs:high impact",
+    "kit/lib/help/entries.test.mjs:complexity",
+    "apps/omni-app/src/retro/kinds/after-merge.mjs:high impact",
+    "kit/lib/statusline/facts.mjs:circular dependency",
+    "apps/galaxy/src/arcade/scenes/common.tsx:high impact",
+    "kit/lib/statusline/sessions.mjs:high impact",
+    "apps/galaxy/src/signup/installed.ts:high impact",
+    "apps/galaxy/src/data/sign-in.ts:high impact",
+    "apps/galaxy/src/ask/page/question.ts:high impact",
+    "apps/galaxy/src/ask/cli-code-live.ts:high impact",
+    "apps/omni-app/src/retro/kinds/timeline.mjs:high impact",
+    "game/experience.mjs:high impact",
+    "kit/lib/playbook/check-playbook.mjs:high impact",
+    "apps/omni-app/src/retro/render.mjs:high impact",
+    "game/sources/supabase.mjs:high impact",
+    "apps/omni-app/test/github-replay.mjs:high impact",
+    "kit/bin/args.mjs:high impact",
+    "apps/galaxy/src/data/scores.ts:high impact",
+    "kit/lib/knowledge/graph.mjs:high impact",
+    "apps/galaxy/src/data/mode.ts:high impact",
+    "game/test/fake-supabase.mjs:high impact",
+    "apps/galaxy/src/data/workspace.ts:high impact",
+    "apps/galaxy/src/ask/page/poll.ts:high impact",
+    "kit/lib/releases/note.mjs:high impact",
+    "apps/galaxy/src/arcade/account-closed.ts:high impact",
+    "apps/galaxy/src/dossier/page/history-at.ts:high impact",
+    "packages/design/src/heroes.mjs:high impact",
+    "packages/design/src/logo.mjs:high impact",
+    "apps/galaxy/src/fleets/model.ts:high impact",
+    "game/dossiers/fake-supabase.mjs:high impact",
+    "kit/lib/layout.mjs:high impact",
+    "kit/lib/ask/local-state.mjs:high impact",
+    "kit/lib/version/version.mjs:high impact",
+    "apps/omni-app/src/retro/guard.mjs:untested risk",
+    "apps/omni-app/src/webhook/webhook.mjs:high impact",
+    "kit/lib/openrouter.mjs:high impact",
+    "kit/bin/commands/statusline.mjs:circular dependency",
+    "kit/lib/init/bundle.mjs:high impact",
+    "apps/omni-app/src/snapshot/snapshot.mjs:high impact",
+    "apps/omni-app/src/retro/kinds/ci-logs.mjs:high impact",
+    "apps/galaxy/src/dossier/store.fake.ts:high impact",
+    "game/dossiers/sync.mjs:untested risk",
+    "apps/galaxy/src/ask/page/History.tsx:high impact",
+    "kit/bin/commands/plan.mjs:untested risk",
+    "kit/lib/dossier/draft.mjs:high impact",
+    "apps/galaxy/src/nav/drawer-context.tsx:high impact",
+    "packages/design/src/draw.mjs:complexity",
+    "kit/bin/commands/item.mjs:complexity",
+    "apps/galaxy/src/knowledge/github.test.ts:complexity",
+    "kit/bin/init.test.mjs:complexity"
+  ]
+}
