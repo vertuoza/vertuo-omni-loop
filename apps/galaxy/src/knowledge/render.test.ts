@@ -1,11 +1,14 @@
+import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect } from 'vitest';
+import type { KnowledgeGraph } from '../data/knowledge';
 import type { KnowledgeView } from './access';
 import { GRAPH, SECRETS } from './fixture';
+import { KnowledgeMap } from './KnowledgeMap';
 import { KnowledgeScreen } from './KnowledgeScreen';
 import { OrreryDiagram } from './OrreryDiagram';
-import { tabEntries } from './view';
+import { select, tabEntries } from './view';
 
 // The /knowledge page as the server renders it: what a person sees before any script runs.
 
@@ -168,11 +171,52 @@ describe('the address selecting an entry', () => {
 describe('the filter', () => {
   it('dims every dot that does not match, by id or by words', () => {
     const svg = renderToStaticMarkup(createElement(OrreryDiagram, {
-      graph: GRAPH, entries: tabEntries(GRAPH, 'product'), label: 'product', selected: 'P-PRODUCT-1', query: 'outbox', onChoose: () => {},
+      graph: GRAPH, entries: tabEntries(GRAPH, 'product'), label: 'product', selected: 'P-PRODUCT-1', query: 'outbox', repo: null, onChoose: () => {},
     }));
     const dim = [...svg.matchAll(/class="km-pick is-dim"[^>]*data-entry="([^"]+)"/g)].map((m) => m[1]).sort();
     expect(dim).toEqual(['BR-PRODUCT-1', 'BR-PRODUCT-3', 'N-PRODUCT-1', 'N-PRODUCT-2', 'P-PRODUCT-1', 'P-PRODUCT-3']);
     expect(count(svg, /class="km-pick"/)).toBe(2);
+  });
+});
+
+describe('the map of a repository the menu shows (PRD 523)', () => {
+  const ANVILS: KnowledgeGraph = { ...GRAPH, repo: 'acme/Anvils' };
+  /** The map alone, on one entry, with `repo` as given: left out when undefined. */
+  const drawn = (entry: string, repo?: string | null) =>
+    renderToStaticMarkup(createElement(KnowledgeMap, { graph: ANVILS, initial: select(ANVILS, { entry })!, ...(repo === undefined ? {} : { repo }) }));
+  /** Every address on the map. */
+  const addresses = (html: string) => [...html.matchAll(/href="(\/knowledge[^"]*)"/g)].map((m) => m[1]);
+  const ids = ANVILS.entries.map((e) => e.id);
+
+  it('carries the repository on every tab, dot, index row and panel link', () => {
+    const html = drawn('BR-PRODUCT-1', 'acme/Anvils');
+    expect(between(html, 'class="km-tabs"', '</nav>')).toMatch(/href="\/knowledge\?repo=acme%2FAnvils&amp;domain=product"[^>]*aria-current="page"/);
+    expect(diagram(html)).toContain('href="/knowledge?repo=acme%2FAnvils&amp;domain=product&amp;entry=BR-PRODUCT-2"');
+    expect(index(html)).toContain('href="/knowledge?repo=acme%2FAnvils&amp;domain=product&amp;entry=BR-PRODUCT-2"');
+    expect(panel(html)).toMatch(/Serves<\/dt><dd>[\s\S]*href="\/knowledge\?repo=acme%2FAnvils&amp;domain=product&amp;entry=P-PRODUCT-1"/);
+    expect(panel(html)).toMatch(/Cites<\/dt><dd>[\s\S]*href="\/knowledge\?repo=acme%2FAnvils&amp;domain=product&amp;entry=P-PRODUCT-3"/);
+    expect(panel(html)).toContain('href="https://github.com/acme/Anvils/issues/7"');
+    expect(panel(drawn('P-PRODUCT-1', 'acme/Anvils'))).toMatch(/Served by<\/dt><dd>[\s\S]*href="\/knowledge\?repo=acme%2FAnvils&amp;domain=product&amp;entry=BR-PRODUCT-1"/);
+  });
+
+  it.each(ids)('on %s, leaves no address without the repository', (id) => {
+    const html = drawn(id, 'acme/Anvils');
+    expect(addresses(html).length).toBeGreaterThan(0);
+    expect(addresses(html).filter((href) => !href.startsWith('/knowledge?repo=acme%2FAnvils&amp;domain='))).toEqual([]);
+    expect(html).not.toMatch(/href="\/knowledge\?domain=/);
+  });
+
+  it.each(ids)('on %s, draws exactly today\'s map without a repository, the repository being the only difference', (id) => {
+    const today = drawn(id);
+    expect(today).not.toContain('repo=');
+    expect(drawn(id, null)).toBe(today);
+    expect(drawn(id, 'acme/Anvils').replaceAll('repo=acme%2FAnvils&amp;', '')).toBe(today);
+  });
+
+  it('pushes the address of a choice in the same repository', () => {
+    const source = readFileSync(new URL('./KnowledgeMap.tsx', import.meta.url), 'utf8');
+    expect(source).toContain('const href = entryHref(next, repo);');
+    expect(source).toContain("window.history.pushState(null, '', href)");
   });
 });
 

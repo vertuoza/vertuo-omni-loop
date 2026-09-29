@@ -15,6 +15,8 @@ type Props = {
   label: string;
   selected: string | null;
   query: string;
+  /** The menu's `?repo=`, carried by every dot's address; null for the deployed checkout. */
+  repo: string | null;
   onChoose: (id: string, event: MouseEvent) => void;
 };
 
@@ -23,7 +25,7 @@ type Props = {
 const labelSize = (label: string, sun: number) =>
   Math.round(Math.min(11, (2 * sun * 0.84) / (0.68 * Math.max(label.length, 1))) * 10) / 10;
 
-export function OrreryDiagram({ graph, entries, label, selected, query, onChoose }: Props) {
+export function OrreryDiagram({ graph, entries, label, selected, query, repo, onChoose }: Props) {
   const layout = orrery(entries);
   const at = new Map(layout.dots.map((dot) => [dot.entry.id, dot]));
   const drawn = graph.links.filter((link) => at.has(link.from) && at.has(link.to));
@@ -49,7 +51,7 @@ export function OrreryDiagram({ graph, entries, label, selected, query, onChoose
       {layout.dots.map(({ entry, x, y }) => (
         <a
           key={entry.id}
-          href={entryHref({ domain: tabOf(entry), entry: entry.id })}
+          href={entryHref({ domain: tabOf(entry), entry: entry.id }, repo)}
           className={matches(entry, query) ? 'km-pick' : 'km-pick is-dim'}
           tabIndex={-1}
           data-entry={entry.id}
