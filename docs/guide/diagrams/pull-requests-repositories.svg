@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 640" width="800" height="640">
+  <title>Pull requests of one PRD across repositories</title>
+  <desc>PRD 600 lives in the plan repository vertuo-automation-plan: its one phase-0 PR carries the PRD into the default branch, and its plan PR holds the one outbox. Once a person merges the phase-0 PR, each target opens a feature PR: vertuo-backend-php builds s1, vertuo-apps builds s2 in wave 1 and s3 in wave 2, each slice a sub-PR the agents merge into its target's feature branch. Every slice's decisions come back, dashed, into the plan PR's outbox. A person then merges in order: the back-end PR, the front-end PR, and the plan PR last, which closes the PRD.</desc>
+  <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
+       tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
+  <style>
+    svg { background: #f5f4fc; }
+    text { font-family: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 14px; fill: #17153d; }
+    .dg-px { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 10px; }
+    .dg-tag { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 8px; }
+    .dg-small { font-size: 12.5px; }
+    .dg-code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; }
+    .dg-muted { fill: #4f5486; }
+    .dg-box { fill: #ffffff; stroke: #85819f; stroke-width: 2; }
+    .dg-shadow { fill: #85819f; }
+    .dg-line { fill: none; stroke: #85819f; stroke-width: 2; }
+    .dg-dash { stroke-dasharray: 6 5; }
+    .dg-head { fill: #85819f; }
+    .dg-edge-you { stroke: #6a2fd0; }
+    .dg-key { fill: #efe7ff; stroke: #6a2fd0; }
+    .dg-edge-agents { stroke: #0b6f86; }
+    .dg-edge-app { stroke: #15703f; }
+    .dg-you { fill: #6a2fd0; }
+    .dg-agents { fill: #0b6f86; }
+    .dg-app { fill: #15703f; }
+    @media (prefers-color-scheme: dark) {
+      svg { background: #0e0d33; }
+      text { fill: #f2f4ff; }
+      .dg-muted { fill: #a9aee6; }
+      .dg-box { fill: #16144a; stroke: #6d6acc; }
+      .dg-shadow { fill: #6d6acc; }
+      .dg-line { stroke: #6d6acc; }
+      .dg-head { fill: #6d6acc; }
+      .dg-edge-you { stroke: #b37cff; }
+      .dg-key { fill: #2a1d66; stroke: #b37cff; }
+      .dg-edge-agents { stroke: #6ff0ff; }
+      .dg-edge-app { stroke: #4ee08a; }
+      .dg-you { fill: #b37cff; }
+      .dg-agents { fill: #6ff0ff; }
+      .dg-app { fill: #4ee08a; }
+    }
+  </style>
+  <!-- the merge order, read from the numbers -->
+  <text x="784" y="22" class="dg-tag dg-you" text-anchor="end">YOU MERGE, IN ORDER</text>
+  <text x="784" y="40" class="dg-small dg-muted" text-anchor="end">each target PR, then the plan PR</text>
+
+  <!-- the plan repository -->
+  <text x="16" y="18" class="dg-tag dg-muted">PLAN REPOSITORY</text>
+  <text x="16" y="34" class="dg-code">vertuo-automation-plan</text>
+  <text x="16" y="64" class="dg-small dg-muted">phase-0 PR</text>
+  <text x="16" y="115" class="dg-small">default branch</text>
+  <text x="16" y="176" class="dg-small">plan PR</text>
+  <text x="16" y="192" class="dg-code dg-muted">feat/&lt;topic&gt;</text>
+  <path d="M160 110 L780 110" class="dg-line"/>
+  <polygon points="789,110 780,115.5 780,104.5" class="dg-head"/>
+  <!-- the plan PR: the feature branch of the plan repository, holding the one outbox -->
+  <path d="M176 110 C196 110, 192 180, 212 180 L714 180 C734 180, 730 110, 750 110" class="dg-line"/>
+  <circle cx="176" cy="110" r="5" class="dg-box"/>
+  <text x="220" y="204" class="dg-small dg-muted">plan.md, draft plan PR</text>
+  <!-- the one phase-0 PR: docs only, a person merges it -->
+  <path d="M210 110 C230 110, 226 60, 246 60 L294 60 C314 60, 310 110, 330 110" class="dg-line dg-edge-you"/>
+  <circle cx="210" cy="110" r="5" class="dg-box"/>
+  <text x="270" y="48" class="dg-small" text-anchor="middle">spec, plan, what lands where</text>
+  <circle cx="330" cy="110" r="6" class="dg-head dg-you"/>
+  <text x="330" y="136" class="dg-tag dg-you" text-anchor="middle">YOU MERGE</text>
+  <text x="330" y="152" class="dg-small" text-anchor="middle">the one phase-0 PR</text>
+  <!-- the one outbox, on the plan PR -->
+  <rect x="443" y="169" width="200" height="28" class="dg-shadow"/>
+  <rect x="440" y="166" width="200" height="28" class="dg-box dg-key"/>
+  <text x="540" y="185" class="dg-small" text-anchor="middle">the one outbox</text>
+  <text x="732" y="204" class="dg-small dg-muted" text-anchor="middle">ready last</text>
+  <text x="750" y="90" class="dg-tag dg-you" text-anchor="middle">LAST</text>
+  <circle cx="750" cy="110" r="10" class="dg-box dg-key"/>
+  <text x="750" y="114" class="dg-tag dg-you" text-anchor="middle">3</text>
+
+  <!-- a target: the back-end -->
+  <text x="16" y="236" class="dg-tag dg-muted">TARGET, BACK-END</text>
+  <text x="16" y="252" class="dg-code">vertuo-backend-php</text>
+  <text x="16" y="285" class="dg-small">default branch</text>
+  <text x="16" y="326" class="dg-small">target PR</text>
+  <text x="16" y="342" class="dg-code dg-muted">feat/&lt;topic&gt;</text>
+  <text x="16" y="375" class="dg-small">sub-PRs</text>
+  <text x="16" y="391" class="dg-small dg-muted">one per slice</text>
+  <path d="M160 280 L780 280" class="dg-line"/>
+  <polygon points="789,280 780,285.5 780,274.5" class="dg-head"/>
+  <path d="M360 280 C380 280, 376 330, 396 330 L654 330 C674 330, 670 280, 690 280" class="dg-line"/>
+  <circle cx="360" cy="280" r="5" class="dg-box"/>
+  <path d="M470 330 C490 330, 486 370, 506 370 L534 370 C554 370, 550 330, 570 330" class="dg-line dg-edge-agents"/>
+  <circle cx="570" cy="330" r="6" class="dg-head dg-agents"/>
+  <text x="520" y="388" class="dg-code" text-anchor="middle">s1</text>
+  <text x="690" y="354" class="dg-small dg-muted" text-anchor="middle">ready, CI green</text>
+  <circle cx="690" cy="280" r="10" class="dg-box dg-key"/>
+  <text x="690" y="284" class="dg-tag dg-you" text-anchor="middle">1</text>
+
+  <!-- a target: the front-end -->
+  <text x="16" y="426" class="dg-tag dg-muted">TARGET, FRONT-END</text>
+  <text x="16" y="442" class="dg-code">vertuo-apps</text>
+  <text x="16" y="475" class="dg-small">default branch</text>
+  <text x="16" y="516" class="dg-small">target PR</text>
+  <text x="16" y="532" class="dg-code dg-muted">feat/&lt;topic&gt;</text>
+  <text x="16" y="565" class="dg-small">sub-PRs</text>
+  <text x="16" y="581" class="dg-small dg-muted">one per slice</text>
+  <path d="M160 470 L780 470" class="dg-line"/>
+  <polygon points="789,470 780,475.5 780,464.5" class="dg-head"/>
+  <path d="M360 470 C380 470, 376 520, 396 520 L684 520 C704 520, 700 470, 720 470" class="dg-line"/>
+  <circle cx="360" cy="470" r="5" class="dg-box"/>
+  <path d="M410 520 C430 520, 426 560, 446 560 L474 560 C494 560, 490 520, 510 520" class="dg-line dg-edge-agents"/>
+  <circle cx="510" cy="520" r="6" class="dg-head dg-agents"/>
+  <text x="460" y="578" class="dg-code" text-anchor="middle">s2</text>
+  <path d="M570 520 C590 520, 586 560, 606 560 L634 560 C654 560, 650 520, 670 520" class="dg-line dg-edge-agents"/>
+  <circle cx="670" cy="520" r="6" class="dg-head dg-agents"/>
+  <text x="620" y="578" class="dg-code" text-anchor="middle">s3</text>
+  <text x="716" y="544" class="dg-small dg-muted" text-anchor="middle">ready, CI green</text>
+  <circle cx="720" cy="470" r="10" class="dg-box dg-key"/>
+  <text x="720" y="474" class="dg-tag dg-you" text-anchor="middle">2</text>
+
+  <!-- each slice's decisions, carried into the one outbox -->
+  <path d="M520 370 L520 205" class="dg-line dg-edge-agents dg-dash"/>
+  <polygon points="520,196 514.5,205 525.5,205" class="dg-head dg-agents"/>
+  <path d="M460 560 L460 205" class="dg-line dg-edge-agents dg-dash"/>
+  <polygon points="460,196 454.5,205 465.5,205" class="dg-head dg-agents"/>
+  <path d="M620 560 L620 205" class="dg-line dg-edge-agents dg-dash"/>
+  <polygon points="620,196 614.5,205 625.5,205" class="dg-head dg-agents"/>
+  <text x="628" y="236" class="dg-small dg-agents">each slice's decisions</text>
+
+  <!-- the waves -->
+  <text x="490" y="608" class="dg-tag dg-agents" text-anchor="middle">WAVE 1</text>
+  <text x="620" y="608" class="dg-tag dg-agents" text-anchor="middle">WAVE 2</text>
+  <text x="470" y="628" class="dg-small dg-muted" text-anchor="middle">/omni:ultra-yolo: agents build each slice in its target, and carry its decisions home</text>
+</svg>
