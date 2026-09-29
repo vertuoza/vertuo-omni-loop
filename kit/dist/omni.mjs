@@ -22016,7 +22016,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/delivery/prd.mjs
 init_define_OMNI_BUNDLE();
-import { readdirSync as readdirSync17 } from "node:fs";
+import { existsSync as existsSync41, readFileSync as readFileSync37, readdirSync as readdirSync17 } from "node:fs";
 import { join as join48 } from "node:path";
 function whereIs(ctx, prd2) {
   const where = ctx.layout.whereIs(prd2);
@@ -22031,8 +22031,25 @@ function whereIs(ctx, prd2) {
     dir: where.dir,
     files,
     outboxDir,
-    openItems: openItemFiles(prd2, { ctx })
+    openItems: openItemFiles(prd2, { ctx }),
+    repos: planRepos(join48(absolute, "plan.md"))
   };
+}
+function planRepos(planPath) {
+  if (!existsSync41(planPath)) return [];
+  const markdown = readFileSync37(planPath, "utf8");
+  let slices;
+  try {
+    slices = parsePlanSlices(markdown);
+  } catch {
+    return [];
+  }
+  if (slices.every((slice) => slice.repo === null)) return [];
+  const names = parsePlanRepositories(markdown).map((row) => row.repo);
+  for (const slice of slices) {
+    if (slice.repo && !names.includes(slice.repo)) names.push(slice.repo);
+  }
+  return names;
 }
 
 // kit/bin/commands/prd.mjs
@@ -22054,7 +22071,8 @@ var prd = {
       ...where.files.map((file) => `  - ${file}`),
       `outbox: ${where.outboxDir ?? "none"}`,
       `open items: ${where.openItems.length === 0 ? "none" : ""}`.trimEnd(),
-      ...where.openItems.map((file) => `  - ${file}`)
+      ...where.openItems.map((file) => `  - ${file}`),
+      ...where.repos.length === 0 ? [] : [`repos: ${where.repos.join(", ")}`]
     ];
     println(stdout, lines.join("\n"));
     return 0;
@@ -22066,7 +22084,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/outbox/replies.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync41, readFileSync as readFileSync37, writeFileSync as writeFileSync16 } from "node:fs";
+import { existsSync as existsSync42, readFileSync as readFileSync38, writeFileSync as writeFileSync16 } from "node:fs";
 import { join as join49 } from "node:path";
 var WRITER_ASSOCIATIONS = /* @__PURE__ */ new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 var NUMBERED_LINE = /^\s*(\d+)\s*:\s*(.+)$/;
@@ -22255,10 +22273,10 @@ function appendObjection({ ctx, prd: prd2, adoptedEntry, item: item2, answer, ju
   }
   const settledFile = `${ctx.layout.outboxDir(prd2)}/${SETTLED_FILE}`;
   const absoluteSettled = join49(ctx.root, settledFile);
-  if (!existsSync41(absoluteSettled)) {
+  if (!existsSync42(absoluteSettled)) {
     return { ok: false, errors: [`${settledFile}: no ledger holds the adopted item ${item2.id}.`] };
   }
-  const existing = readFileSync37(absoluteSettled, "utf8");
+  const existing = readFileSync38(absoluteSettled, "utf8");
   const separator = existing.endsWith("\n") ? "\n" : "\n\n";
   const entry = renderSettledEntry({
     item: item2,
@@ -22380,7 +22398,7 @@ Outbox round ${result.round.number} (not posted \u2014 pass --post):
 
 // kit/bin/commands/rework.mjs
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync38, writeFileSync as writeFileSync17 } from "node:fs";
+import { readFileSync as readFileSync39, writeFileSync as writeFileSync17 } from "node:fs";
 import { join as join50 } from "node:path";
 
 // kit/lib/policy/rework.mjs
@@ -22557,7 +22575,7 @@ var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
   try {
-    return readFileSync38(join50(ctx.root, path), "utf8");
+    return readFileSync39(join50(ctx.root, path), "utf8");
   } catch (error) {
     if (error?.code === "ENOENT") return "";
     throw error;
@@ -22735,7 +22753,7 @@ import { appendFileSync } from "node:fs";
 // kit/lib/status/facts.mjs
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync11 } from "node:child_process";
-import { readFileSync as readFileSync39, rmSync as rmSync7, statSync as statSync5, utimesSync, writeFileSync as writeFileSync18 } from "node:fs";
+import { readFileSync as readFileSync40, rmSync as rmSync7, statSync as statSync5, utimesSync, writeFileSync as writeFileSync18 } from "node:fs";
 import { resolve as resolve2 } from "node:path";
 function git3(ctx, exec, args) {
   return exec("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -22792,7 +22810,7 @@ function snapshot(path) {
   if (path === null) return null;
   try {
     const stat = statSync5(path);
-    return { path, bytes: readFileSync39(path), atime: stat.atime, mtime: stat.mtime };
+    return { path, bytes: readFileSync40(path), atime: stat.atime, mtime: stat.mtime };
   } catch {
     return { path, bytes: null };
   }
@@ -23213,7 +23231,7 @@ import { spawn as spawnProcess } from "node:child_process";
 // kit/lib/statusline/board-cache.mjs
 init_define_OMNI_BUNDLE();
 import { randomUUID } from "node:crypto";
-import { closeSync, existsSync as existsSync42, mkdirSync as mkdirSync14, openSync, readFileSync as readFileSync40, renameSync as renameSync2, rmSync as rmSync8, statSync as statSync6, writeFileSync as writeFileSync19 } from "node:fs";
+import { closeSync, existsSync as existsSync43, mkdirSync as mkdirSync14, openSync, readFileSync as readFileSync41, renameSync as renameSync2, rmSync as rmSync8, statSync as statSync6, writeFileSync as writeFileSync19 } from "node:fs";
 import { join as join51 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 var BOARD_DIR = join51(LOCAL_DIR, "statusline");
@@ -23236,7 +23254,7 @@ function omniScript() {
   return runningBundle() ?? fileURLToPath3(new URL("../../bin/omni.mjs", import.meta.url));
 }
 function readBoard(root, prd2) {
-  const value = attempt5(() => JSON.parse(readFileSync40(boardFile(root, prd2), "utf8")), null);
+  const value = attempt5(() => JSON.parse(readFileSync41(boardFile(root, prd2), "utf8")), null);
   if (!isObject(value) || typeof value.at !== "string") return null;
   const at = Date.parse(value.at);
   if (Number.isNaN(at)) return null;
@@ -23259,8 +23277,8 @@ function refreshDue(board2, now) {
   return age === null || age >= REFRESH_AFTER_MS;
 }
 function lockedAt(path) {
-  if (!existsSync42(path)) return null;
-  const at = attempt5(() => Date.parse(JSON.parse(readFileSync40(path, "utf8")).at), Number.NaN);
+  if (!existsSync43(path)) return null;
+  const at = attempt5(() => Date.parse(JSON.parse(readFileSync41(path, "utf8")).at), Number.NaN);
   return Number.isNaN(at) ? attempt5(() => statSync6(path).mtimeMs, null) : at;
 }
 function lockHeld(root, prd2, now) {
@@ -23292,7 +23310,7 @@ function cachedSlices({ root, prd: prd2, now, cwd, spawn: spawn2 = null, script,
 function ensureBoardDir(root) {
   mkdirSync14(join51(root, BOARD_DIR), { recursive: true });
   const ignore = join51(root, LOCAL_DIR, ".gitignore");
-  if (!existsSync42(ignore)) writeFileSync19(ignore, "*\n");
+  if (!existsSync43(ignore)) writeFileSync19(ignore, "*\n");
 }
 function writeBoard(root, prd2, entry) {
   ensureBoardDir(root);
@@ -23333,7 +23351,7 @@ function takeLock(root, prd2, now) {
 }
 function releaseLock(root, prd2, owner) {
   const path = lockFile(root, prd2);
-  const held = attempt5(() => JSON.parse(readFileSync40(path, "utf8")).owner, null);
+  const held = attempt5(() => JSON.parse(readFileSync41(path, "utf8")).owner, null);
   if (held === owner) rmSync8(path, { force: true });
 }
 var oneLine3 = (error) => String(error?.message ?? error).split("\n")[0].trim() || "the board could not be built";
