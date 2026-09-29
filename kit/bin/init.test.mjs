@@ -326,8 +326,11 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     const answers = ['make check', '', 'make all'];
     const s = io();
     const tty = { isTTY: true, write: s.stdout.write };
+    // A home of its own and a sign-in that does not happen: on a terminal, init would otherwise run the
+    // real sign-in flow and wait on the browser whenever this computer is not signed in.
     const code = await main(['init'], {
       cwd: root, stdout: tty, stderr: s.stderr, stdin: { isTTY: true }, exec: fakeExec().exec, bundle: fakeBundle(),
+      home: freshHome(), signIn: async () => 1,
       ask: async (question) => { questions.push(question); return answers.shift(); },
     });
     expect(code).toBe(0);
