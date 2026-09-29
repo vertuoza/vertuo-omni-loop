@@ -38,10 +38,13 @@ export function parseArgs(command, argv, { values = [], booleans = [] } = {}) {
   return { positional, flags };
 }
 
-/** A positive integer argument, or a `UsageError` naming what it is. */
+const DIGITS = /^\d+$/;
+
+/** A positive integer argument written in plain digits, or a `UsageError` naming what it is: "1e2",
+ * "0x10" or " 16" are refused rather than read as another number (bug #571). */
 export function positiveInt(command, what, value) {
   const number = Number(value);
-  if (value === undefined || value === true || !Number.isInteger(number) || number <= 0) {
+  if (value === undefined || value === true || !DIGITS.test(String(value)) || number <= 0) {
     throw usageError(`omni ${command}: ${what} must be a positive number${value === undefined ? '' : `, got "${value}"`}.`);
   }
   return number;

@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target2) => (target2 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.64" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.65" };
   }
 });
 
@@ -13149,9 +13149,10 @@ function parseArgs(command, argv, { values = [], booleans = [] } = {}) {
   }
   return { positional, flags };
 }
+var DIGITS = /^\d+$/;
 function positiveInt(command, what, value) {
   const number = Number(value);
-  if (value === void 0 || value === true || !Number.isInteger(number) || number <= 0) {
+  if (value === void 0 || value === true || !DIGITS.test(String(value)) || number <= 0) {
     throw usageError(`omni ${command}: ${what} must be a positive number${value === void 0 ? "" : `, got "${value}"`}.`);
   }
   return number;
