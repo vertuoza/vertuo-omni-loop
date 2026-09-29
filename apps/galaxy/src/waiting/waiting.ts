@@ -13,6 +13,9 @@ import type { SessionRow } from '../ask/page/view';
 /** How often the Questions part is read again while the tab is visible. */
 export const WAITING_MS = 5000;
 
+/** How often it is read while the tab is hidden (PRD 657, s10). */
+export const HIDDEN_WAITING_MS = 15_000;
+
 /** One question waiting: a round, by its id. */
 export type WaitingQuestion = {
   kind: 'question';
