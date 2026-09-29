@@ -14,6 +14,7 @@ const given = vi.hoisted(() => ({
   mode: 'supabase' as 'demo' | 'closed' | 'supabase',
   token: null as string | null,
   fake: null as unknown as ReturnType<typeof import('../dossier/store.fake').fakeSupabase>,
+  roster: null as import('../people/load').RosterRow[] | null,
 }));
 
 vi.mock('server-only', () => ({}));
@@ -37,6 +38,12 @@ vi.mock('../dossier/github/server', () => ({
     })),
   }),
 }));
+// PRD 652, s6: the people directory, read for real (the fake has no roster, so it falls back to GitHub
+// photos) unless a test hands one in.
+vi.mock('../people/load', async (original) => {
+  const real = await original<typeof import('../people/load')>();
+  return { ...real, loadPeople: vi.fn(async (db: never, workspace: string) => (given.roster ? real.peopleOf(given.roster, []) : real.loadPeople(db, workspace))) };
+});
 vi.mock('../data/mode', () => ({ arcadeMode: () => given.mode }));
 vi.mock('../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
@@ -65,6 +72,7 @@ const push = async (who: string, args: Record<string, unknown>) =>
 beforeEach(async () => {
   given.mode = 'supabase';
   given.token = 'bob';
+  given.roster = null;
   given.fake = fakeSupabase({ ada: ADA, bob: BOB }, { [FAKE_WORKSPACE]: 'acme' });
   prd = await push('ada', { p_prd: 7, p_title: 'Team inbox', p_artifacts: [{ kind: 'spec', content: '# Team inbox\n' }] });
   visual = await push('bob', {
@@ -92,8 +100,18 @@ describe('the lists', () => {
     expect(mine).not.toContain('Ask page crash');
     expect(mine).not.toContain('Team inbox');
     expect(mine).toContain('<span class="fix-state fix-state-in-review">In review</span>');
-    expect(mine).toContain('asked by @anna');
+    // PRD 652, s6: who asked wears a face; with no roster to read, the GitHub photo.
+    expect(mine).toContain('asked by <span class="person-chip is-inline"><img class="person-face is-photo" src="https://github.com/anna.png?size=48" alt=""');
+    expect(mine.replace(/<[^>]+>/g, '')).toContain('asked by @anna');
     expect(mine).not.toContain('regression');
+  });
+
+  it('draws who asked from the directory of the fix\'s workspace (PRD 652, s6)', async () => {
+    const { loadPeople } = await import('../people/load');
+    given.roster = [{ user_id: 'u-anna', name: 'Anna', github_login: 'anna', avatar_url: null, fleet: null, hero: { v: 1, body: 'girl', skin: 2, hair: 3, suit: 0, cape: 8 } }];
+    const mine = await list(VisualList);
+    expect(mine).toMatch(/asked by <span class="person-chip is-inline"><span class="person-face is-hero" aria-hidden="true"><svg /);
+    expect(loadPeople).toHaveBeenLastCalledWith(expect.anything(), FAKE_WORKSPACE);
   });
 
   it('shows a bug fix\'s risk label and regression badge, and filters by state', async () => {
@@ -137,7 +155,8 @@ describe('a fix\'s page', () => {
     expect(html).toContain('<ol class="fix-timeline" aria-label="Timeline">');
     expect(html).toContain('<dt>State</dt><dd><span class="fix-state fix-state-in-review">In review</span></dd>');
     expect(html).toContain('href="https://github.com/acme/widgets/pull/600"');
-    expect(html).toContain('<span>by @anna</span>');
+    expect(html).toContain('<span>by <span class="person-chip is-inline"><img class="person-face is-photo" src="https://github.com/anna.png?size=48" alt=""');
+    expect(html.replace(/<[^>]+>/g, '')).toContain('by @anna');
     // The two before/after pages already merged carry no pick line.
     expect(html).toMatch(/<span class="fix-moment-label">Picked<\/span> <span class="ask-hint">not recorded<\/span>/);
     expect(await page(BugPage, bug)).not.toContain('Picked');

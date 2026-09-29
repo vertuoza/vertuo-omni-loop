@@ -1,6 +1,7 @@
 import { WORK_NAMES, WORK_PATHS } from '../dossier/page/work';
 import { fixAddress, fixFiltered, type FixFilters, type FixItem, type FixKind } from './list';
 import { STATE_LABELS } from './timeline';
+import { PersonChip } from '../people/PersonChip';
 
 // /visual and /bugs (PRD 627), laid out as /prd's list: Mine / All at the head of the filters, then a
 // search over titles and a repository, sent as a GET to the same page so they work before any script
@@ -9,6 +10,7 @@ import { STATE_LABELS } from './timeline';
 // escapes it. An empty Mine points to All at the same address.
 // PRD 627, s5: a row also shows who asked and the state pill (Asked, In review, Merged, `—` when GitHub
 // did not answer), a bug fix's row its risk label and a *regression* badge; the state is a filter.
+// PRD 652, s6: who asked wears their face, beside the same words.
 
 type Choices = { repos: string[] };
 
@@ -86,7 +88,7 @@ function Row({ item }: { item: FixItem }) {
               ? <span className="ask-hint">nothing pushed yet</span>
               : item.artifacts.map((a) => <span key={a.kind} className="dossier-history-artifact">{a.label} <small>{a.badge}</small></span>)}
           </span>
-          {item.asked && <span className="ask-hint">{item.asked}</span>}
+          {item.askedBy && <span className="ask-hint">asked by <PersonChip person={item.askedBy} size="inline" /></span>}
           <time className="ask-hint" dateTime={item.at}>{item.activity}</time>
         </span>
       </a>
