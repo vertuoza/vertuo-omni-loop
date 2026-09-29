@@ -19,7 +19,7 @@ export const EVERY_15_MINUTES = '*/15 * * * *';
 /**
  * @param {{
  *   client: import('inngest').Inngest,
- *   octokitFor: (installationId: number) => Promise<{ request: Function }> | { request: Function },
+ *   octokitFor: (installationId: number) => Promise<{ graphql: Function }> | { graphql: Function },
  *   env?: Record<string, string | undefined>,
  *   storeFor?: (connection: { url: string, key: string }) => object,
  *   log?: (line: string) => void,
