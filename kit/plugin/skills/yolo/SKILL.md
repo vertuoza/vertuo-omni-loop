@@ -45,6 +45,13 @@ where a form has a hole. Beside them, print once the proposed register entries, 
 `Registers` lines: `<n> proposed knowledge entries — not laws until confirmed`. A proposed entry
 floors nothing and stops no slice; delivery carries on. Do not run it again this run.
 
+**A PRD that spans repositories.** Run `node .omni-loop/bin/omni.mjs prd <n>`. When it prints a
+`repos:` line, the PRD's plan lands slices in other repositories: stop with the one line
+`PRD <n> spans repositories: /omni:ultra-yolo <n> builds it`, before any branch, claim or dispatch.
+Read the same way every later `omni prd <n>` of this run (step 1, item 3, reads it on the feature
+branch, where the plan lives): a `repos:` line there stops the run with the same line, before any
+plan, claim or wave.
+
 ## 1. Find the PRD, the plan and the feature PR
 
 1. `git fetch <remote>`, then
@@ -54,7 +61,8 @@ floors nothing and stops no slice; delivery carries on. Do not run it again this
    tracked changes (`git status --porcelain --untracked-files=no` prints nothing). Otherwise stop in
    one line naming it; never stash, clean or reset. **Do this again before every board read**: each
    wave moves the feature branch. The run leaves the checkout detached; say so in the report.
-3. `node .omni-loop/bin/omni.mjs prd <n>`. It must be in state `inbox`. `shipped`, with the feature
+3. `node .omni-loop/bin/omni.mjs prd <n>`. A `repos:` line stops the run (Step 0, **A PRD that
+   spans repositories**). It must be in state `inbox`. `shipped`, with the feature
    PR still a draft, means a previous run shipped and stopped before ready: go to step 5, green path,
    item 4. Anything else: stop and say where it is.
 4. No feature branch, no feature PR, or no `plan.md` in the PRD's files: follow `/omni:plan` first.
