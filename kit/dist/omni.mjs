@@ -16425,25 +16425,33 @@ function runnableFrontier(rows2) {
     collisions: collisions2
   };
 }
-function boardFor({ slices, prs = [], now = Date.now(), limits, config: config2, prd: prd2 }) {
+function boardFor({ slices, prs = [], now = Date.now(), limits, config: config2, prd: prd2, repos = null }) {
   const { topic } = prd2;
   const featureBranch = fillBranch(config2.branches.feature, { topic });
   const live = prs.filter(isLive);
-  const matched = new Map(
-    slices.map((slice) => {
-      const sliceBranch = fillBranch(config2.branches.slice, { topic, slice: slice.id });
-      const candidates = live.filter(
-        (pr) => pr.headRefName === sliceBranch && matchesFeature(pr, { matchBy: config2.board.matchBy, featureBranch, subLabel: config2.labels.sub })
-      );
-      return [slice.id, pickPr(candidates)];
-    })
-  );
-  const mergedById = new Map([...matched].map(([id, pr]) => [id, Boolean(pr && isMerged(pr))]));
-  const rows2 = slices.map((slice) => {
-    const pr = matched.get(slice.id) ?? null;
+  const acrossRepos = slices.some((slice) => (slice.repo ?? null) !== null);
+  const repoOf = (slice) => acrossRepos ? repos?.[slice.repo] ?? { slug: null, readable: false } : null;
+  const matched = slices.map((slice) => {
+    const repo = repoOf(slice);
+    if (repo && !repo.readable) return null;
+    const sliceBranch = fillBranch(config2.branches.slice, { topic, slice: slice.id });
+    const candidates = live.filter(
+      (pr) => pr.headRefName === sliceBranch && (!repo || pr.slug === repo.slug) && matchesFeature(pr, { matchBy: config2.board.matchBy, featureBranch, subLabel: config2.labels.sub })
+    );
+    return pickPr(candidates);
+  });
+  const mergedById = new Map(slices.map((slice, index) => [slice.id, Boolean(matched[index] && isMerged(matched[index]))]));
+  const rows2 = slices.map((slice, index) => {
+    const pr = matched[index];
+    const repo = repoOf(slice);
+    const rest = { ...slice };
+    delete rest.repo;
     const blockersMerged = (slice.blockedBy ?? []).every((blockerId) => mergedById.get(blockerId) === true);
-    const state = stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config2.labels.needsFix });
-    return { ...slice, pr, state };
+    if (!repo) {
+      return { ...rest, pr, state: stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config2.labels.needsFix }) };
+    }
+    const state = repo.readable ? stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config2.labels.needsFix }) : "unreadable";
+    return { ...rest, repo: slice.repo, slug: repo.slug, pr, state };
   });
   return { prd: { topic }, slices: rows2, frontier: runnableFrontier(rows2) };
 }
@@ -16509,9 +16517,10 @@ function fetchHeadCommitDates(prs, { repo, exec, env, now, staleMinutes }) {
   );
 }
 var STATE_WIDTH = "claimed-stale".length;
-function tableLine(row) {
+function tableLine(row, repoWidth) {
   const prCol = row.pr ? `#${row.pr.number}` : "\u2014";
-  return `  ${row.id.padEnd(6)} w${row.wave}  ${row.state.padEnd(STATE_WIDTH)}  ${prCol.padEnd(6)} ${row.title}`;
+  const repoCol = row.repo === void 0 ? "" : `${row.repo.padEnd(repoWidth)}  `;
+  return `  ${row.id.padEnd(6)} ${repoCol}w${row.wave}  ${row.state.padEnd(STATE_WIDTH)}  ${prCol.padEnd(6)} ${row.title}`;
 }
 function buildBoard(prd2, { ctx, exec, env, repo: repoFlag, now = Date.now() }) {
   const { markdown } = readPlan(prd2, { ctx });
@@ -16528,23 +16537,67 @@ function buildBoard(prd2, { ctx, exec, env, repo: repoFlag, now = Date.now() }) 
   const matchBy = ctx.config.board.matchBy;
   const subLabel = ctx.config.labels.sub;
   const staleMinutes = ctx.config.limits.claimStaleMinutes;
-  const listed2 = fetchPrList({ repo, exec, env: ghEnv, matchBy, featureBranch, subLabel });
-  const prs = fetchHeadCommitDates(listed2, { repo, exec, env: ghEnv, now, staleMinutes });
-  const result = boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic } });
-  return { slices, result };
+  const read2 = (slug) => {
+    const listed2 = fetchPrList({ repo: slug, exec, env: ghEnv, matchBy, featureBranch, subLabel });
+    return fetchHeadCommitDates(listed2, { repo: slug, exec, env: ghEnv, now, staleMinutes });
+  };
+  if (slices.every((slice) => slice.repo === null)) {
+    const prs2 = read2(repo);
+    const result2 = boardFor({ slices, prs: prs2, now, limits: ctx.config.limits, config: ctx.config, prd: { topic } });
+    return { slices, result: result2, unreadable: [] };
+  }
+  const known = knownRepositories(ctx, repo);
+  const repos = {};
+  const prs = [];
+  const unreadable2 = [];
+  for (const name of new Set(slices.map((slice) => slice.repo))) {
+    const slug = known.get(name) ?? null;
+    if (slug === null) {
+      repos[name] = { slug: null, readable: false };
+      unreadable2.push({ repo: name, slug: null, reason: "neither a target nor this plan repository" });
+      continue;
+    }
+    try {
+      prs.push(...read2(slug).map((pr) => ({ ...pr, slug })));
+      repos[name] = { slug, readable: true };
+    } catch (error) {
+      repos[name] = { slug, readable: false };
+      unreadable2.push({ repo: name, slug, reason: ghReason(error) });
+    }
+  }
+  const result = boardFor({ slices, prs, now, limits: ctx.config.limits, config: ctx.config, prd: { topic }, repos });
+  return { slices, result, unreadable: unreadable2 };
+}
+function shortName(slug) {
+  return slug.slice(slug.indexOf("/") + 1);
+}
+function knownRepositories(ctx, planSlug) {
+  const known = /* @__PURE__ */ new Map();
+  for (const target2 of ctx.config.plan?.targets ?? []) known.set(shortName(target2.repo), target2.repo);
+  known.set(shortName(planSlug), planSlug);
+  return known;
+}
+function ghReason(error) {
+  const lines = `${error?.stderr ?? ""}
+${error?.message ?? ""}`.split("\n").map((line) => line.trim()).filter(Boolean);
+  return lines[0] ?? "gh could not read it";
 }
 var board = {
   async run(args, { ctx, stdout, exec, env }) {
     const { positional, flags } = parseArgs("board", args, { values: ["repo"], booleans: ["json"] });
     if (positional.length !== 1) throw usageError(USAGE3);
     const prd2 = positiveInt("board", "<prd>", positional[0]);
-    const { slices, result } = buildBoard(prd2, { ctx, exec, env, repo: flags.repo });
+    const { slices, result, unreadable: unreadable2 } = buildBoard(prd2, { ctx, exec, env, repo: flags.repo });
     if (flags.json) {
       println(stdout, JSON.stringify(result, null, 2));
       return 0;
     }
     println(stdout, `omni board \u2014 PRD ${prd2}: ${slices.length} slice(s).`);
-    for (const row of result.slices) println(stdout, tableLine(row));
+    const repoWidth = Math.max(0, ...result.slices.map((row) => (row.repo ?? "").length));
+    for (const row of result.slices) println(stdout, tableLine(row, repoWidth));
+    for (const { repo, slug, reason: reason2 } of unreadable2) {
+      println(stdout, `omni board \u2014 cannot read ${slug ?? repo}: ${reason2} \u2014 its slices are unreadable.`);
+    }
     if (result.frontier.wave === null) {
       println(stdout, "omni board \u2014 runnable frontier: none \u2014 nothing is takeable right now.");
     } else {
@@ -18264,7 +18317,7 @@ function cell(text4, width, gap = 1) {
   return value.length + gap > width ? `${value}${" ".repeat(gap)}` : value.padEnd(width);
 }
 var joined = (parts) => parts.length ? parts.join(" \xB7 ") : "none";
-var shortName = (repo) => repo.slice(repo.indexOf("/") + 1);
+var shortName2 = (repo) => repo.slice(repo.indexOf("/") + 1);
 var counted = (count3, one, many) => `${count3} ${count3 === 1 ? one : many}`;
 var signatureLine = (signatures) => `signed ${signatures.signed} \xB7 before signing ${signatures["before signing"]} \xB7 missed ${signatures.missed}`;
 function creditsReport({ name, scope, since, summary }) {
@@ -18283,14 +18336,14 @@ function creditsReport({ name, scope, since, summary }) {
   }
   if (commits !== null) lines.push(`Co-authored commits on default branches: ${commits}`);
   lines.push(
-    cell("By repo", LABEL) + joined(byRepo.map(({ repo, count: count3 }) => `${shortName(repo)} ${count3}`)),
+    cell("By repo", LABEL) + joined(byRepo.map(({ repo, count: count3 }) => `${shortName2(repo)} ${count3}`)),
     cell("By month", LABEL) + joined(byMonth.map(({ month, count: count3 }) => `${month} ${count3}`))
   );
   return lines;
 }
 function creditsList(items) {
   const rows2 = items.map((item2) => [
-    shortName(item2.repo),
+    shortName2(item2.repo),
     `#${item2.number}`,
     item2.kind,
     item2.state,
@@ -21904,7 +21957,7 @@ function blockedByViolations2(slices) {
   }
   return violations;
 }
-function shortName2(slug) {
+function shortName3(slug) {
   return slug.slice(slug.indexOf("/") + 1);
 }
 function repositoryViolations(slices, repositories, { planSlug, targets: targets2 }) {
@@ -21914,7 +21967,7 @@ function repositoryViolations(slices, repositories, { planSlug, targets: targets
   const violations = [];
   const owners = /* @__PURE__ */ new Map();
   for (const slug of [...targets2.map((target2) => target2.repo), planSlug]) {
-    const name = shortName2(slug);
+    const name = shortName3(slug);
     owners.set(name, [...owners.get(name) ?? [], slug]);
   }
   for (const [name, slugs] of owners) {
@@ -21933,7 +21986,7 @@ function repositoryViolations(slices, repositories, { planSlug, targets: targets
   for (const repo of new Set(slices.map((slice) => slice.repo).filter((name) => owners.has(name)))) {
     if (!rows2.has(repo)) violations.push(`## Repositories: ${repo} holds slices and has no row.`);
   }
-  const planName = shortName2(planSlug);
+  const planName = shortName3(planSlug);
   for (const row of repositories) {
     if (!slices.some((slice) => slice.repo === row.repo)) {
       violations.push(`## Repositories: the row ${row.repo} names no slice's repository.`);
