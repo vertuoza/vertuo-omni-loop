@@ -1,0 +1,62 @@
+import { describe, expect, it } from 'vitest';
+import { COULD_NOT_SAVE, databaseRepositories, demoRepositoriesPort, NOT_OWNER, refusalOf } from './store';
+
+// Settings → Repositories's two calls (PRD 612 s1): add_repository() and set_repository_tracked(),
+// as the signed-in person, each answering the row it saved or a refusal the page shows; and the demo,
+// which keeps the same rules in memory.
+
+function db(answer: { data?: unknown; error?: unknown } | Error) {
+  const calls: [string, unknown][] = [];
+  return {
+    calls,
+    rpc: async (fn: string, args: Record<string, unknown>) => {
+      calls.push([fn, args]);
+      if (answer instanceof Error) throw answer;
+      return { data: answer.data ?? null, error: answer.error ?? null };
+    },
+  };
+}
+
+const STORED = { full_name: 'vertuoza/vertuo-apps', tracked: true, collected_at: null, collect_error: null };
+
+describe('the database calls', () => {
+  it('adds a repository with add_repository(), answering the row it saved', async () => {
+    const d = db({ data: STORED });
+    expect(await databaseRepositories(d, 'ws-1').add('Vertuoza/vertuo-apps')).toEqual({
+      ok: true, repository: { fullName: 'vertuoza/vertuo-apps', tracked: true, collectedAt: null, collectError: null },
+    });
+    expect(d.calls).toEqual([['add_repository', { p_workspace: 'ws-1', p_full_name: 'Vertuoza/vertuo-apps' }]]);
+  });
+
+  it('switches tracking with set_repository_tracked()', async () => {
+    const d = db({ data: { ...STORED, tracked: false } });
+    expect(await databaseRepositories(d, 'ws-1').setTracked('vertuoza/vertuo-apps', false)).toMatchObject({ ok: true, repository: { tracked: false } });
+    expect(d.calls).toEqual([['set_repository_tracked', { p_workspace: 'ws-1', p_full_name: 'vertuoza/vertuo-apps', p_tracked: false }]]);
+  });
+
+  it('answers a refusal for a non-owner, an error, nothing, or a failed call', async () => {
+    expect(await databaseRepositories(db({ error: { code: '42501' } }), 'ws-1').add('a/b')).toEqual({ ok: false, message: NOT_OWNER });
+    expect(await databaseRepositories(db({ error: { code: 'XX000' } }), 'ws-1').add('a/b')).toEqual({ ok: false, message: COULD_NOT_SAVE });
+    expect(await databaseRepositories(db({}), 'ws-1').setTracked('a/b', true)).toEqual({ ok: false, message: COULD_NOT_SAVE });
+    expect(await databaseRepositories(db(new Error('fetch failed')), 'ws-1').add('a/b')).toEqual({ ok: false, message: COULD_NOT_SAVE });
+  });
+});
+
+describe('a refusal', () => {
+  it('names the owner for 42501, and asks to try again otherwise', () => {
+    expect(refusalOf({ code: '42501' })).toBe(NOT_OWNER);
+    expect(refusalOf(null)).toBe(COULD_NOT_SAVE);
+  });
+});
+
+describe('the demo', () => {
+  it('adds a repository tracked, in lower case, and switches it', async () => {
+    const port = demoRepositoriesPort([]);
+    expect(await port.add('Acme/Widgets')).toEqual({ ok: true, repository: { fullName: 'acme/widgets', tracked: true, collectedAt: null, collectError: null } });
+    expect(await port.setTracked('acme/widgets', false)).toMatchObject({ ok: true, repository: { tracked: false } });
+  });
+
+  it('refuses to switch a repository it does not list', async () => {
+    expect(await demoRepositoriesPort([]).setTracked('acme/nothing', false)).toMatchObject({ ok: false });
+  });
+});

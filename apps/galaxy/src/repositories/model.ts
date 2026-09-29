@@ -1,0 +1,105 @@
+// Settings → Repositories as pure data (PRD 612 s1). A row of public.repositories
+// (supabase/migrations/20261008090000_repositories.sql) as the page draws it; the line that says
+// when it was last collected; what Add repository offers (what the workspace's Omni App installation
+// can see, minus what is listed); which listed repositories the App cannot read; and the page's state
+// through its actions. GitHub spells a repository in any case; the list keeps it in lower case, so
+// every comparison ignores case.
+
+export interface RepositoryRow {
+  /** `owner/name`, in lower case. */
+  fullName: string;
+  tracked: boolean;
+  /** When the collector last finished a collection of it, or null before the first. */
+  collectedAt: string | null;
+  /** Why the last collection failed, or null when it succeeded. */
+  collectError: string | null;
+}
+
+/** A public.repositories row, as PostgREST answers it. */
+export interface StoredRepository {
+  full_name: string;
+  tracked: boolean;
+  collected_at?: string | null;
+  collect_error?: string | null;
+}
+
+export const rowOf = (r: StoredRepository): RepositoryRow => ({
+  fullName: r.full_name,
+  tracked: r.tracked,
+  collectedAt: r.collected_at ?? null,
+  collectError: r.collect_error ?? null,
+});
+
+const MINUTE = 60_000;
+
+function ago(ms: number): string {
+  if (ms < MINUTE) return 'just now';
+  if (ms < 60 * MINUTE) return `${Math.floor(ms / MINUTE)} min ago`;
+  if (ms < 24 * 60 * MINUTE) return `${Math.floor(ms / (60 * MINUTE))} h ago`;
+  return `${Math.floor(ms / (24 * 60 * MINUTE))} d ago`;
+}
+
+/** When the repository was last collected, as its row says it. A failure wins: it is retried on the
+ * collector's next run. */
+export function collectionLabel(row: RepositoryRow, now: number): string {
+  if (row.collectError) return 'last collection failed · retrying';
+  if (!row.collectedAt) return 'not collected yet';
+  return `collected ${ago(Math.max(0, now - Date.parse(row.collectedAt)))}`;
+}
+
+const key = (name: string) => name.toLowerCase();
+const byName = (a: string, b: string) => key(a).localeCompare(key(b), 'en');
+
+/** What Add repository offers: the repositories the App can see that are not listed yet, by name. */
+export function addable(listed: readonly RepositoryRow[], reachable: readonly string[]): string[] {
+  const have = new Set(listed.map((r) => key(r.fullName)));
+  return reachable.filter((name) => !have.has(key(name))).sort(byName);
+}
+
+/** Whether the App's listing leaves the repository out: it cannot read it. Unknown, never, when the
+ * listing could not be read. */
+export function hasNoAccess(row: RepositoryRow, reachable: readonly string[] | null): boolean {
+  if (!reachable) return false;
+  return !reachable.some((name) => key(name) === key(row.fullName));
+}
+
+// ── The page's state ─────────────────────────────────────────────────────────────
+
+export interface RepositoriesState {
+  repositories: RepositoryRow[];
+  /** The Add list is open. */
+  picking: boolean;
+  /** A call is on its way: every control waits. */
+  busy: boolean;
+  /** What the last call was refused with, or null. */
+  refusal: string | null;
+}
+
+export type RepositoriesAction =
+  | { type: 'pick' }
+  | { type: 'close' }
+  | { type: 'busy' }
+  | { type: 'saved'; repository: RepositoryRow }
+  | { type: 'refused'; message: string };
+
+const sorted = (rows: RepositoryRow[]) => [...rows].sort((a, b) => byName(a.fullName, b.fullName));
+
+export const initialState = (repositories: RepositoryRow[]): RepositoriesState =>
+  ({ repositories: sorted(repositories), picking: false, busy: false, refusal: null });
+
+export function repositoriesReducer(state: RepositoriesState, action: RepositoriesAction): RepositoriesState {
+  switch (action.type) {
+    case 'pick':
+      return { ...state, picking: true, refusal: null };
+    case 'close':
+      return { ...state, picking: false, refusal: null };
+    case 'busy':
+      return { ...state, busy: true, refusal: null };
+    case 'saved': {
+      const others = state.repositories.filter((r) => key(r.fullName) !== key(action.repository.fullName));
+      return { ...state, repositories: sorted([...others, action.repository]), picking: false, busy: false, refusal: null };
+    }
+    case 'refused':
+      return { ...state, busy: false, refusal: action.message };
+  }
+}
