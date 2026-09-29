@@ -33,10 +33,11 @@ function ghLine(error) {
 
 const isNotFound = (error) => /HTTP 404/.test(`${error?.stderr ?? ''}\n${error?.message ?? ''}`);
 
-class Unreachable extends Error {}
+export class Unreachable extends Error {}
 
-/** The `gh api` readings one target needs. A missing file or directory is `null`; any other failure throws. */
-function ghReader({ exec, env }) {
+/** The `gh api` readings one target needs. A missing file or directory is `null`; any other failure throws
+ * `Unreachable`. Shared with `omni plan moved` (`./moved.mjs`). */
+export function ghReader({ exec, env }) {
   const api = (args) => String(exec('gh', ['api', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...(env ? { env } : {}) }));
   const call = (args) => {
     try {
