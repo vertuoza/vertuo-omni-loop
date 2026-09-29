@@ -29,7 +29,7 @@ export function profileLogin(part: string): string | null {
   return LOGIN.test(part) ? part.toLowerCase() : null;
 }
 
-export const PEOPLE_PATH = '/app/people';
+const PEOPLE_PATH = '/app/people';
 export const profilePath = (login: string) => `${PEOPLE_PATH}/${encodeURIComponent(login.toLowerCase())}`;
 
 export const githubPullUrl = (repo: string, number: number) => `https://github.com/${repo}/pull/${number}`;

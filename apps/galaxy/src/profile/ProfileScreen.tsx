@@ -34,9 +34,9 @@ import './profile.css';
 type Supabase = { url: string; key: string };
 
 /** Where a workspace's repositories are tracked. */
-export const REPOSITORIES_SETTINGS_PATH = '/app/settings/repositories';
+const REPOSITORIES_SETTINGS_PATH = '/app/settings/repositories';
 
-export const PROFILE_LINE = {
+const PROFILE_LINE = {
   notMember: 'Not in this workspace',
   empty: 'Nothing in this period',
   noRepository: 'This workspace tracks no repository yet',

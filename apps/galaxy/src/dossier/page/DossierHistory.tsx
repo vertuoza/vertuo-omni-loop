@@ -127,14 +127,50 @@ const ToAll = ({ filters, children }: { filters: HistoryFilters; children: strin
   <a className="dossier-history-to-all" href={historyAddress({ ...filters, who: 'all' })}>{children}</a>
 );
 
+/** Below the filters: the rows, or why there are none (theirs, yours, or none matching). */
+function HistoryBody({ items, filters }: { items: HistoryItem[]; filters: HistoryFilters }) {
+  if (items.length > 0) {
+    return (
+      <ol className="dossier-history-list" aria-label="PRDs, newest activity first">
+        {items.map((item) => <Row key={item.id} item={item} />)}
+      </ol>
+    );
+  }
+  const login = whoLogin(filters.who);
+  if (!filtered(filters) && login !== null) {
+    return (
+      <section className="ask-card">
+        <h2>@{login} has not opened a PRD here.</h2>
+        <p className="ask-muted"><ToAll filters={filters}>See every PRD of your workspace</ToAll>.</p>
+      </section>
+    );
+  }
+  if (!filtered(filters) && filters.who === 'mine') {
+    return (
+      <section className="ask-card">
+        <h2>You have not opened a PRD yet.</h2>
+        <p className="ask-muted">
+          The PRDs you open with a brainstorm show here, drafts included. <ToAll filters={filters}>See every PRD of your workspace</ToAll>.
+        </p>
+      </section>
+    );
+  }
+  return (
+    <section className="ask-card">
+      <h2>No PRD matches</h2>
+      <p className="ask-muted">
+        Loosen a filter, or search another word.
+        {filters.who !== 'all' && <> Or <ToAll filters={filters}>look in every PRD of your workspace</ToAll>.</>}
+      </p>
+    </section>
+  );
+}
+
 export function DossierHistory({ items, choices, filters, stages }: {
   items: HistoryItem[]; choices: Choices; filters: HistoryFilters; stages?: StageBarEntry[];
 }) {
-  const mine = filters.who === 'mine';
   const login = whoLogin(filters.who);
   const nothingYet = items.length === 0 && !filtered(filters) && filters.who === 'all';
-  const noneOfMine = items.length === 0 && !filtered(filters) && mine;
-  const noneOfTheirs = items.length === 0 && !filtered(filters) && login !== null;
   return (
     <div className="dossier dossier-history">
       <h1 className="dossier-title">PRDs</h1>
@@ -152,31 +188,7 @@ export function DossierHistory({ items, choices, filters, stages }: {
           {login && <OpenedBy login={login} />}
           <Filters choices={choices} filters={filters} />
           {stages && <StageBar stages={stages} />}
-          {noneOfTheirs ? (
-            <section className="ask-card">
-              <h2>@{login} has not opened a PRD here.</h2>
-              <p className="ask-muted"><ToAll filters={filters}>See every PRD of your workspace</ToAll>.</p>
-            </section>
-          ) : noneOfMine ? (
-            <section className="ask-card">
-              <h2>You have not opened a PRD yet.</h2>
-              <p className="ask-muted">
-                The PRDs you open with a brainstorm show here, drafts included. <ToAll filters={filters}>See every PRD of your workspace</ToAll>.
-              </p>
-            </section>
-          ) : items.length === 0 ? (
-            <section className="ask-card">
-              <h2>No PRD matches</h2>
-              <p className="ask-muted">
-                Loosen a filter, or search another word.
-                {filters.who !== 'all' && <> Or <ToAll filters={filters}>look in every PRD of your workspace</ToAll>.</>}
-              </p>
-            </section>
-          ) : (
-            <ol className="dossier-history-list" aria-label="PRDs, newest activity first">
-              {items.map((item) => <Row key={item.id} item={item} />)}
-            </ol>
-          )}
+          <HistoryBody items={items} filters={filters} />
         </>
       )}
     </div>

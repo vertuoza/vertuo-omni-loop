@@ -41,7 +41,7 @@ const PR_COLUMNS = 'repo, number, author, author_is_bot, opened_at, merged_at, c
 
 /** The profile's reads of one workspace, as the signed-in person. `login` is a checked GitHub login
  * (profileLogin), so it holds no pattern character for `ilike`. */
-export function supabaseProfileReads(db: SupabaseClient, workspace: string, galaxy: () => Promise<GalaxyView>): ProfileReads {
+function supabaseProfileReads(db: SupabaseClient, workspace: string, galaxy: () => Promise<GalaxyView>): ProfileReads {
   return {
     ...supabaseReads(db, workspace, galaxy),
     async tracked() {

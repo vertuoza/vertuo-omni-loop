@@ -16,7 +16,7 @@ import './people.css';
 const HEX = /^#[0-9a-f]{6}$/i;
 
 /** The board of the fleet with this name. */
-export const fleetHref = (name: string) => `/app/fleet?fleet=${encodeURIComponent(name)}`;
+const fleetHref = (name: string) => `/app/fleet?fleet=${encodeURIComponent(name)}`;
 
 export function FleetChip({ fleet, size = 'table', link = true }: { fleet: FleetTag | typeof SOLO; size?: ChipSize; link?: boolean }) {
   if (fleet === SOLO) return <span className="fleet-chip is-solo">SOLO</span>;
