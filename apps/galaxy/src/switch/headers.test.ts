@@ -84,7 +84,9 @@ describe('every app page', () => {
 
   it.each(APP_PAGES)('%s: marks exactly one sidebar item current: %s', async (name, layout, current) => {
     const side = part(await renderAt(layout, pathOf(name)), '<aside', '</aside>');
-    expect([...side.matchAll(/href="([^"]+)"[^>]*aria-current="page"/g)].map((m) => m[1])).toEqual([current]);
+    // next/link (PRD 657) writes aria-current before href: read each link whatever its attributes' order.
+    const marked = [...side.matchAll(/<a\b[^>]*>/g)].map((m) => m[0]).filter((a) => a.includes('aria-current="page"'));
+    expect(marked.map((a) => /href="([^"]+)"/.exec(a)?.[1])).toEqual([current]);
   });
 
   it.each(APP_PAGES)('%s: the top bar reads the page\'s title, then the theme switch, then Game mode, then you, last', async (name, layout, _, title) => {
