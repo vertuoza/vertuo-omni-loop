@@ -9,7 +9,7 @@
 // GitHub did not answer (./timeline.ts) — and a bug fix's row its issue's risk label and a *regression*
 // badge; the state is a filter too (`state=asked|in-review|merged`). What GitHub said of each fix is
 // handed in by the route, read through the page's one cached reader.
-import type { FixSummary } from '../dossier/github/fix';
+import type { FixIssue, FixSummary } from '../dossier/github/fix';
 import { UNREAD } from '../dossier/github/summary';
 import type { ArtifactKind, DossierListRow, WorkKind } from '../dossier/store';
 import { isArtifactTab, KIND_TABS, stamp, TAB_LABELS } from '../dossier/page/view';
@@ -132,16 +132,20 @@ export function fixItems(
   }));
 }
 
+/** The fix's issue, when GitHub gave it. */
+const issueOf = (fix: FixSummary | null): FixIssue | null => (fix === null || fix.issue === UNREAD ? null : fix.issue);
+
+/** Who asked: the issue's author, when GitHub said. */
+const askedBy = (issue: FixIssue | null) => (issue?.author ? `asked by @${issue.author}` : null);
+
+/** A bug fix's risk label and regression badge; none for a visual fix, or when GitHub did not say. */
+const bugLabels = (kind: FixKind, issue: FixIssue | null): Pick<FixItem, 'risk' | 'regression'> =>
+  (kind === 'bug' && issue !== null ? { risk: issue.risk, regression: issue.regression } : { risk: null, regression: false });
+
 function githubFacts(kind: FixKind, fix: FixSummary | null): Pick<FixItem, 'asked' | 'state' | 'stateLabel' | 'risk' | 'regression'> {
   const state = fixState(fix);
-  const issue = fix && fix.issue !== UNREAD ? fix.issue : null;
-  return {
-    asked: issue?.author ? `asked by @${issue.author}` : null,
-    state,
-    stateLabel: STATE_LABELS[state ?? 'unknown'],
-    risk: kind === 'bug' ? issue?.risk ?? null : null,
-    regression: kind === 'bug' && issue?.regression === true,
-  };
+  const issue = issueOf(fix);
+  return { asked: askedBy(issue), state, stateLabel: STATE_LABELS[state ?? 'unknown'], ...bugLabels(kind, issue) };
 }
 
 /** What the repository filter offers: every repository of every fix of `kind`, once each, in order. */

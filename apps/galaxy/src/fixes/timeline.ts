@@ -7,7 +7,7 @@
 // fix only, from the pick line), Approved (one line per approving review), Merged (who and when) and
 // Released (the first release published after the merge, linked). A moment not reached reads *not
 // yet*; one GitHub could not answer, *unknown*; a before/after page with no pick line, *not recorded*.
-import type { FixSummary } from '../dossier/github/fix';
+import type { FixApproval, FixIssue, FixPull, FixRelease, FixSummary } from '../dossier/github/fix';
 import { UNREAD, type Read } from '../dossier/github/summary';
 import { stamp } from '../dossier/page/view';
 import type { FixKind } from './list';
@@ -63,7 +63,7 @@ const at = (id: MomentId, label: string, state: Exclude<MomentState, 'done'>): M
 const done = (id: MomentId, label: string, who: string | null, when: string, href: string | null): Moment =>
   ({ id, label, state: 'done', who: who === null ? null : `@${who}`, when, href });
 
-/** Whether a part was read: UNREAD, or no summary at all, is unknown. */
+/** A part of the summary: UNREAD, or no summary at all, is unknown. */
 const known = <T,>(fix: FixSummary | null, part: (f: FixSummary) => Read<T>): T | typeof UNREAD => (fix === null ? UNREAD : part(fix));
 
 function picked(pick: PickRead): Moment {
@@ -73,29 +73,39 @@ function picked(pick: PickRead): Moment {
   return done('picked', `Picked ${pick.letter}`, pick.login, day(pick.date), null);
 }
 
+function askedOf(issue: FixIssue | null | typeof UNREAD): Moment {
+  return issue === UNREAD || issue === null ? at('asked', 'Asked', 'unknown') : done('asked', 'Asked', issue.author, stamp(issue.createdAt), issue.url);
+}
+
+function approvedOf(approvals: FixApproval[] | typeof UNREAD, pull: FixPull | null | typeof UNREAD): Moment[] {
+  if (approvals === UNREAD) return [at('approved', 'Approved', 'unknown')];
+  if (!approvals.length) return [at('approved', 'Approved', 'not-yet')];
+  const url = pull !== UNREAD && pull !== null ? pull.url : null;
+  return approvals.map((a) => done('approved', 'Approved', a.login, stamp(a.at), url));
+}
+
+function mergedOf(pull: FixPull | null | typeof UNREAD): Moment {
+  if (pull === UNREAD) return at('merged', 'Merged', 'unknown');
+  if (pull?.state !== 'merged' || pull.mergedAt === null) return at('merged', 'Merged', 'not-yet');
+  return done('merged', 'Merged', pull.mergedBy, stamp(pull.mergedAt), pull.url);
+}
+
+function releasedOf(release: FixRelease | null | typeof UNREAD): Moment {
+  if (release === UNREAD) return at('released', 'Released', 'unknown');
+  if (release === null) return at('released', 'Released', 'not-yet');
+  return done('released', `Released ${release.tag}`, null, stamp(release.at), release.url);
+}
+
 /** The Timeline of a fix of `kind`, in the spec's order; a bug fix has no Picked moment. */
 export function timelineOf(kind: FixKind, fix: FixSummary | null, pick: PickRead): Moment[] {
-  const issue = known(fix, (f) => f.issue);
   const pull = known(fix, (f) => f.pull);
-  const approvals = known(fix, (f) => f.approvals);
-  const release = known(fix, (f) => f.release);
-  const moments: Moment[] = [
-    issue === UNREAD || issue === null ? at('asked', 'Asked', 'unknown') : done('asked', 'Asked', issue.author, stamp(issue.createdAt), issue.url),
+  return [
+    askedOf(known(fix, (f) => f.issue)),
+    ...(kind === 'visual' ? [picked(pick)] : []),
+    ...approvedOf(known(fix, (f) => f.approvals), pull),
+    mergedOf(pull),
+    releasedOf(known(fix, (f) => f.release)),
   ];
-  if (kind === 'visual') moments.push(picked(pick));
-  if (approvals === UNREAD) moments.push(at('approved', 'Approved', 'unknown'));
-  else if (!approvals.length) moments.push(at('approved', 'Approved', 'not-yet'));
-  else {
-    const url = pull !== UNREAD && pull !== null ? pull.url : null;
-    moments.push(...approvals.map((a) => done('approved', 'Approved', a.login, stamp(a.at), url)));
-  }
-  if (pull === UNREAD) moments.push(at('merged', 'Merged', 'unknown'));
-  else if (pull?.state !== 'merged' || pull.mergedAt === null) moments.push(at('merged', 'Merged', 'not-yet'));
-  else moments.push(done('merged', 'Merged', pull.mergedBy, stamp(pull.mergedAt), pull.url));
-  if (release === UNREAD) moments.push(at('released', 'Released', 'unknown'));
-  else if (release === null) moments.push(at('released', 'Released', 'not-yet'));
-  else moments.push(done('released', `Released ${release.tag}`, null, stamp(release.at), release.url));
-  return moments;
 }
 
 /** What a fix's page shows of GitHub (PRD 627, s5): its state, its issue and PR links, and its Timeline. */

@@ -64,7 +64,7 @@ const Releases = z.array(z.object({
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** A branch of the fix: `branches.fix` with a topic starting `<n>-`. */
-export function fixBranch(shape: string, n: number): RegExp {
+function fixBranch(shape: string, n: number): RegExp {
   const [before, after = ''] = shape.split('{topic}');
   return new RegExp(`^${escape(before)}${n}-[a-z0-9-]+${escape(after)}$`);
 }
