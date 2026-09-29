@@ -5,7 +5,7 @@ import { peopleOf } from '../people/load';
 import { faceOf } from '../people/face';
 import { nestedLinks } from '../people/nested-links';
 import { FixList } from './FixList';
-import type { FixItem } from './list';
+import type { FixFilters, FixItem, FixKind } from './list';
 import { TimelinePane } from './TimelinePane';
 import type { FixPageView } from './timeline';
 
@@ -40,6 +40,37 @@ describe('the list of fixes', () => {
 
   it('shows no asked line when GitHub did not say', () => {
     expect(list([item(null)])).not.toContain('asked by');
+  });
+});
+
+describe('one person\'s fixes, who=<login> (PRD 698)', () => {
+  const theirs = (items: FixItem[], filters: FixFilters = { who: { login: 'anna' } }, kind: FixKind = 'bug') =>
+    renderToStaticMarkup(createElement(FixList, { kind, items, choices: { repos: [] }, filters }));
+  const toggle = (html: string) =>
+    [...html.matchAll(/<a class="dossier-history-who"( aria-current="page")? href="([^"]+)">([^<]+)<\/a>/g)].map((m) => [m[3], m[2], Boolean(m[1])]);
+
+  it('presses neither Mine nor All, and reads "Asked by @login" linking to their profile', () => {
+    const html = theirs([item(null)]);
+    expect(toggle(html)).toEqual([['Mine', '/bugs', false], ['All', '/bugs?who=all', false]]);
+    expect(html).toContain('<p class="ask-hint dossier-history-by">Asked by <a href="/app/people/anna">@anna</a></p>');
+    expect(nestedLinks(html)).toBe(0);
+  });
+
+  it('keeps the login in the form, and Clear keeps it', () => {
+    const html = theirs([item(null)], { who: { login: 'anna' }, state: 'merged' }, 'visual');
+    expect(html).toContain('<input type="hidden" name="who" value="anna"/>');
+    expect(html).toContain('href="/visual?who=anna">Clear</a>');
+  });
+
+  it('says so when they asked for none, pointing to All', () => {
+    const html = theirs([]);
+    expect(html).toContain('@anna has not asked for a bug fix here.');
+    expect(html).toContain('href="/bugs?who=all"');
+  });
+
+  it('draws no "Asked by" line under Mine or All', () => {
+    expect(list([item(null)])).not.toContain('Asked by');
+    expect(theirs([item(null)], { who: 'mine' })).not.toContain('Asked by');
   });
 });
 
