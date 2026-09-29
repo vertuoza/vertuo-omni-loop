@@ -127,6 +127,24 @@ function firstTable(lines) {
   return { header: cells(header), rows: rest.filter((line) => !SEPARATOR_ROW.test(line)).map(cells) };
 }
 
+/** An id listed twice, once; else an id that is not kebab-case. A missing id column reads `undefined`. */
+function idFaults(ids) {
+  const seen = new Set();
+  const twice = new Set();
+  const faults = [];
+  for (const id of ids) {
+    if (id === undefined) continue;
+    if (seen.has(id)) {
+      if (!twice.has(id)) faults.push(`Areas: id "${id}" is listed twice.`);
+      twice.add(id);
+    } else if (!KEBAB.test(id)) {
+      faults.push(`Areas: id "${id}" is not kebab-case.`);
+    }
+    seen.add(id);
+  }
+  return faults;
+}
+
 function areasOf(lines, scale) {
   const table = firstTable(lines);
   if (!table) return { areas: [], faults: [`Areas: no table; it holds one with the columns ${AREA_COLUMNS.slice(0, -1).join(', ')} and ${AREA_COLUMNS.at(-1)}.`] };
@@ -134,22 +152,14 @@ function areasOf(lines, scale) {
   const faults = AREA_COLUMNS.filter((name) => column[name] === -1).map((name) => `Areas: the table has no "${name}" column.`);
   const cell = (row, name) => (column[name] === -1 ? undefined : (row[column[name]] ?? ''));
 
-  const seen = new Set();
-  const twice = new Set();
   const areas = table.rows.map((row, index) => {
     const id = cell(row, 'id');
     const prd = cell(row, 'PRD');
-    if (id !== undefined && seen.has(id)) {
-      if (!twice.has(id)) faults.push(`Areas: id "${id}" is listed twice.`);
-      twice.add(id);
-    } else if (id !== undefined && !KEBAB.test(id)) {
-      faults.push(`Areas: id "${id}" is not kebab-case.`);
-    }
-    seen.add(id);
     const filled = PRD_CELL.exec(prd ?? '');
     if (prd && !filled) faults.push(`Areas: the PRD cell of "${id ?? `row ${index + 1}`}" is "${prd}", neither empty nor #<number>.`);
     return { id, area: cell(row, 'area'), brief: cell(row, 'brief'), prd: filled ? Number(filled[1]) : null };
   });
+  faults.push(...idFaults(areas.map((area) => area.id)));
 
   const allowed = AREA_ROWS[scale];
   if (allowed && (areas.length < allowed.min || areas.length > allowed.max)) {

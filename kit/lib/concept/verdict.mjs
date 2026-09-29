@@ -18,9 +18,9 @@
  * 6. Every commit of the branch carries the trailer `omni sign trailer` prints, unless the config
  *    says `signature: null`.
  */
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fixVerdict } from '../fix-verdict.mjs';
+import { fixVerdict, numberedFolders, rasterFaults } from '../fix-verdict.mjs';
 import { beforeAfterViolation } from '../inbox/check-inbox.mjs';
 import { padPrd } from '../layout.mjs';
 import { parseConcept } from './parse.mjs';
@@ -35,9 +35,6 @@ const HOLDS = `${RECORD}, ${VISION}, ${DEBATE} and board-r<k>.html only`;
 const ROUND = /^board-r([1-9]\d*)\.html$/;
 /** A name that means to be a board, well formed or not. */
 const ROUND_LIKE = /^board/i;
-
-/** A `data:image/` URL whose type is anything but SVG. */
-const RASTER_DATA_URL = /data:image\/(?!svg\+xml)[a-z0-9.+-]+/i;
 
 /** A URL reached over the network: `http://`, `https://` or protocol-relative `//`. */
 const REMOTE = /^\s*(?:https?:)?\/\//i;
@@ -65,21 +62,28 @@ export function folderPrefix(concept) {
   return `${padPrd(concept)}-`;
 }
 
-/** Every folder under the concepts root named for `concept`, sorted, as repository paths. */
-function conceptFolders(ctx, concept) {
-  const root = ctx.layout.dirs.concepts;
-  const absolute = join(ctx.root, root);
-  if (!existsSync(absolute)) return [];
-  const prefix = folderPrefix(concept);
-  return readdirSync(absolute, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length)
-    .map((entry) => `${root}/${entry.name}`)
-    .sort();
-}
-
 /** Each `[what, pattern]` of `patterns` found in `texts`, as `<what> <url>`. */
 function textLoads(texts, patterns) {
   return patterns.flatMap(([what, pattern]) => texts.flatMap((text) => [...text.matchAll(pattern)].map((match) => `${what} ${match[1]}`)));
+}
+
+/** The URLs an attribute names: each candidate of a `srcset`, else its one value. */
+function attributeUrls(attribute, value) {
+  return attribute === 'srcset' ? value.split(',').map((candidate) => candidate.trim().split(/\s+/)[0]) : [value];
+}
+
+/** One tag's loads from the network, as `<tag attribute> <url>`; a style attribute's text goes to `styles`. */
+function tagLoads(name, attributes, styles) {
+  const loads = [];
+  for (const [, attr, ...values] of attributes.matchAll(ATTRIBUTE)) {
+    const attribute = attr.toLowerCase();
+    const value = values.find((v) => v !== undefined) ?? '';
+    if (attribute === 'style') styles.push(value);
+    if (FOLLOWED.has(name) || !LOADING.has(attribute)) continue;
+    const remote = attributeUrls(attribute, value).filter((url) => REMOTE.test(url));
+    loads.push(...remote.map((url) => `<${name} ${attribute}> ${url.trim()}`));
+  }
+  return loads;
 }
 
 /**
@@ -88,19 +92,8 @@ function textLoads(texts, patterns) {
  * module import or a fetch in its scripts. A link a person follows (`<a href>`) is none.
  */
 export function networkLoads(html) {
-  const loads = [];
   const styles = [...html.matchAll(STYLE_BLOCK)].map((match) => match[1]);
-  for (const [, tag, attributes] of html.matchAll(TAG)) {
-    const name = tag.toLowerCase();
-    for (const [, attr, ...values] of attributes.matchAll(ATTRIBUTE)) {
-      const attribute = attr.toLowerCase();
-      const value = values.find((v) => v !== undefined) ?? '';
-      if (attribute === 'style') styles.push(value);
-      if (FOLLOWED.has(name) || !LOADING.has(attribute)) continue;
-      const urls = attribute === 'srcset' ? value.split(',').map((candidate) => candidate.trim().split(/\s+/)[0]) : [value];
-      for (const url of urls.filter((u) => REMOTE.test(u))) loads.push(`<${name} ${attribute}> ${url.trim()}`);
-    }
-  }
+  const loads = [...html.matchAll(TAG)].flatMap(([, tag, attributes]) => tagLoads(tag.toLowerCase(), attributes, styles));
   const scripts = [...html.matchAll(SCRIPT_BLOCK)].map((match) => match[1]);
   return [...loads, ...textLoads(styles, CSS_LOADS), ...textLoads(scripts, SCRIPT_LOADS)];
 }
@@ -110,9 +103,7 @@ function pageFaults(ctx, page) {
   const size = beforeAfterViolation(page, ctx);
   if (size) faults.push(size);
   const html = readFileSync(join(ctx.root, page), 'utf8');
-  if (RASTER_DATA_URL.test(html)) {
-    faults.push(`${page}: holds a base64 raster image (a data:image/ URL that is not SVG); draw it in SVG or CSS.`);
-  }
+  faults.push(...rasterFaults(page, html));
   const loads = networkLoads(html);
   if (loads.length) {
     faults.push(`${page}: loads from the network: ${loads.join(', ')}; inline it, and keep only links a person follows.`);
@@ -127,37 +118,53 @@ function recordFaults(ctx, folder, concept) {
   return parsed.record.concept === concept ? [] : [`${file}: concept is ${parsed.record.concept}, not ${concept}.`];
 }
 
+const byName = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
+/** The kind of one folder entry: a round, a required file, a misnamed round, or a stray. */
+function entryKind(entry) {
+  const round = entry.isFile() ? ROUND.exec(entry.name) : null;
+  if (round) return { kind: 'round', k: Number(round[1]) };
+  if (!entry.isFile()) return { kind: 'other' };
+  if (REQUIRED.includes(entry.name)) return { kind: 'present' };
+  return { kind: ROUND_LIKE.test(entry.name) ? 'misnamed' : 'other' };
+}
+
+/** The folder's entries, sorted into required files present, rounds (by k), misnamed rounds and strays. */
+function folderEntries(ctx, folder) {
+  const sorted = { present: new Set(), rounds: [], misnamed: [], others: [] };
+  for (const entry of readdirSync(join(ctx.root, folder), { withFileTypes: true })) {
+    const { kind, k } = entryKind(entry);
+    if (kind === 'round') sorted.rounds.push({ name: entry.name, k });
+    else if (kind === 'present') sorted.present.add(entry.name);
+    else if (kind === 'misnamed') sorted.misnamed.push(entry.name);
+    else sorted.others.push(entry.name);
+  }
+  sorted.rounds.sort((a, b) => a.k - b.k);
+  return sorted;
+}
+
+/** The boards missing from rounds numbered 1 to the last, with no gap. */
+function roundFaults(folder, rounds) {
+  const last = rounds.at(-1)?.k ?? 0;
+  if (last === 0) return [`${folder}/board-r1.html: missing.`];
+  const shown = new Set(rounds.map((round) => round.k));
+  return Array.from({ length: last - 1 }, (_, index) => index + 1)
+    .filter((k) => !shown.has(k))
+    .map((k) => `${folder}/board-r${k}.html: missing; the rounds are numbered from 1 with no gap.`);
+}
+
 /** The folder's files, rounds, misnamed rounds and strays, then its record and its pages. */
 function folderFaults(ctx, folder, concept) {
-  const present = new Set();
-  const rounds = [];
-  const misnamed = [];
-  const others = [];
-  for (const entry of readdirSync(join(ctx.root, folder), { withFileTypes: true })) {
-    const { name } = entry;
-    const round = entry.isFile() ? ROUND.exec(name) : null;
-    if (round) rounds.push({ name, k: Number(round[1]) });
-    else if (REQUIRED.includes(name) && entry.isFile()) present.add(name);
-    else if (entry.isFile() && ROUND_LIKE.test(name)) misnamed.push(name);
-    else others.push(name);
-  }
-  rounds.sort((a, b) => a.k - b.k);
-  const byName = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
-
-  const faults = REQUIRED.filter((name) => !present.has(name)).map((name) => `${folder}/${name}: missing.`);
-  const last = rounds.at(-1)?.k ?? 0;
-  if (last === 0) faults.push(`${folder}/board-r1.html: missing.`);
-  for (let k = 1; k < last; k += 1) {
-    if (!rounds.some((round) => round.k === k)) faults.push(`${folder}/board-r${k}.html: missing; the rounds are numbered from 1 with no gap.`);
-  }
-  if (present.has(RECORD)) faults.push(...recordFaults(ctx, folder, concept));
+  const { present, rounds, misnamed, others } = folderEntries(ctx, folder);
   const pages = [...(present.has(VISION) ? [VISION] : []), ...rounds.map((round) => round.name)];
-  for (const page of pages) faults.push(...pageFaults(ctx, `${folder}/${page}`));
-  faults.push(
+  return [
+    ...REQUIRED.filter((name) => !present.has(name)).map((name) => `${folder}/${name}: missing.`),
+    ...roundFaults(folder, rounds),
+    ...(present.has(RECORD) ? recordFaults(ctx, folder, concept) : []),
+    ...pages.flatMap((page) => pageFaults(ctx, `${folder}/${page}`)),
     ...misnamed.sort(byName).map((name) => `${folder}/${name}: a round's board is named board-r<k>.html, k from 1.`),
     ...others.sort(byName).map((name) => `${folder}/${name}: not part of a concept; the folder holds ${HOLDS}.`),
-  );
-  return faults;
+  ];
 }
 
 /** Every changed path outside `folder`, one line each. */
@@ -181,7 +188,7 @@ export function conceptVerdict({ ctx, concept, changed, commits }) {
     commits,
     root: ctx.layout.dirs.concepts,
     prefix: folderPrefix(concept),
-    folders: conceptFolders(ctx, concept),
+    folders: numberedFolders(ctx, ctx.layout.dirs.concepts, folderPrefix(concept)),
     grade: (folder) => [...folderFaults(ctx, folder, concept), ...outsideFaults(folder, changed)],
   });
 }
