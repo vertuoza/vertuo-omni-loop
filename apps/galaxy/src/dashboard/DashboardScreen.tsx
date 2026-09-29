@@ -1,5 +1,6 @@
 import { Notice } from '../ask/page/Notice';
 import { SwitchAccount } from '../ask/page/SignInCard';
+import type { Query } from './board/links';
 import { Dashboard } from './Dashboard';
 import { DashboardSignIn } from './DashboardSignIn';
 import type { DashboardData } from './load';
@@ -25,6 +26,8 @@ export interface DashboardScreenProps {
   supabase: Supabase | null;
   /** Why the last sign-in was refused (`?signin_error=`), for the sign-in card to say. */
   signinError: string | null;
+  /** The page's query: the board's period switch keeps the rest of it. */
+  query: Query;
 }
 
 function Closed() {
@@ -35,7 +38,7 @@ function Closed() {
   );
 }
 
-export function DashboardScreen({ view, supabase, signinError }: DashboardScreenProps) {
+export function DashboardScreen({ view, supabase, signinError, query }: DashboardScreenProps) {
   switch (view.kind) {
     case 'closed':
       return <Closed />;
@@ -51,6 +54,6 @@ export function DashboardScreen({ view, supabase, signinError }: DashboardScreen
         </Notice>
       );
     case 'dashboard':
-      return <Dashboard dashboard={view.dashboard} />;
+      return <Dashboard dashboard={view.dashboard} query={query} />;
   }
 }
