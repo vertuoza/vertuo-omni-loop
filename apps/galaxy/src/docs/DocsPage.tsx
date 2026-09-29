@@ -1,7 +1,11 @@
 import type { ReactNode } from 'react';
 import type { TOCItemType } from 'fumadocs-core/toc';
 import { DocsSearch } from './DocsSearch';
+import { ALL_SKILLS } from './skills-view';
 import type { SidebarItem } from './tree';
+
+// PRD 580: after the guide's pages, the sidebar shows Skills › All skills, and on a skills page every
+// skill's link under it, the one shown marked current.
 
 // One page of the guide at /docs (PRD 346), in the app's own look: the sidebar (search, then every page
 // in meta.json's order, the one shown marked current), the page (its title, its description, its
@@ -19,9 +23,11 @@ export interface DocsPageProps {
   toc: readonly TOCItemType[];
   /** The page's body. */
   children: ReactNode;
+  /** On a skills page, every skill's link, shown under All skills (PRD 580). */
+  skills?: readonly SidebarItem[];
 }
 
-export function DocsPage({ items, url, title, description, toc, children }: DocsPageProps) {
+export function DocsPage({ items, url, title, description, toc, children, skills }: DocsPageProps) {
   return (
     <div className="docs">
       <aside className="docs-side">
@@ -29,6 +35,16 @@ export function DocsPage({ items, url, title, description, toc, children }: Docs
         <nav className="docs-nav" aria-label="Guide">
           <ol>
             {items.map((item) => (
+              <li key={item.url}>
+                <a href={item.url} aria-current={item.url === url ? 'page' : undefined}>{item.name}</a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+        <nav className="docs-nav" aria-label="Skills">
+          <p className="docs-nav-head">Skills</p>
+          <ol>
+            {[ALL_SKILLS, ...(skills ?? [])].map((item) => (
               <li key={item.url}>
                 <a href={item.url} aria-current={item.url === url ? 'page' : undefined}>{item.name}</a>
               </li>
