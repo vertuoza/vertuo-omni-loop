@@ -1,18 +1,23 @@
 import { describe, it, expect } from 'vitest';
 import {
   activeQuestion,
+  addShots,
   answerOf,
   emptyDraft,
   keyIntent,
   pickByKey,
   pickOption,
   readQuestions,
+  removeShot,
   roundAnswers,
+  roundShots,
+  SHOT_MAX_BYTES,
   shownLabel,
   shownPreview,
   toggleOther,
   typeOther,
   type AskQuestion,
+  type Shot,
 } from './answer-model';
 
 // AskUserQuestion's input, as Claude sends it and s2 stores it.
@@ -201,5 +206,73 @@ describe('the preview', () => {
 
   it('is none for a question without previews', () => {
     expect(shownPreview(checks, emptyDraft([checks])[0], 0)).toBeNull();
+  });
+});
+
+describe('screenshots on Other (PRD 620)', () => {
+  const shot = (id: string, type = 'image/png', size = 1000): Shot => ({ id, type, size, file: new Blob(['x'], { type }) });
+  const ids = (shots: Shot[] | undefined) => (shots ?? []).map((s) => s.id);
+
+  it('takes PNG, JPEG, GIF and WebP, and switches Other on as typing does', () => {
+    const draft = pickByKey([storage], emptyDraft([storage]), 0, 1);
+    const { draft: next, refused } = addShots([storage], draft, 0, [shot('a'), shot('b', 'image/jpeg'), shot('c', 'image/gif'), shot('d', 'image/webp')]);
+    expect(refused).toEqual([]);
+    expect(next[0]).toMatchObject({ labels: [], otherOn: true });
+    expect(ids(next[0].shots)).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('keeps the options already ticked in a multi-select', () => {
+    const draft = pickByKey([checks], emptyDraft([checks]), 0, 0);
+    expect(addShots([checks], draft, 0, [shot('a')]).draft[0]).toMatchObject({ labels: ['RLS'], otherOn: true });
+  });
+
+  it('refuses a non-image, a file over 5 MB and a sixth screenshot, each with its reason, and keeps the others', () => {
+    const draft = emptyDraft([storage]);
+    const { draft: next, refused } = addShots([storage], draft, 0, [
+      shot('a'), shot('pdf', 'application/pdf'), shot('big', 'image/png', SHOT_MAX_BYTES + 1), shot('b'), shot('c'), shot('d'), shot('e'), shot('f'),
+    ]);
+    expect(ids(next[0].shots)).toEqual(['a', 'b', 'c', 'd', 'e']);
+    expect(refused).toEqual(['PNG, JPEG, GIF or WebP only', '5 MB max', '5 screenshots max']);
+    expect(addShots([storage], draft, 0, [shot('ok', 'image/png', SHOT_MAX_BYTES)]).refused).toEqual([]);
+  });
+
+  it('leaves the draft as it was when every file is refused', () => {
+    const draft = emptyDraft([storage]);
+    const { draft: next, refused } = addShots([storage], draft, 0, [shot('pdf', 'application/pdf')]);
+    expect(next).toBe(draft);
+    expect(refused).toEqual(['PNG, JPEG, GIF or WebP only']);
+  });
+
+  it('counts five screenshots for the whole round, the most its folder holds', () => {
+    const questions = [storage, checks];
+    const draft = addShots(questions, emptyDraft(questions), 0, [shot('a'), shot('b'), shot('c')]).draft;
+    const { draft: next, refused } = addShots(questions, draft, 1, [shot('d'), shot('e'), shot('f')]);
+    expect(ids(next[1].shots)).toEqual(['d', 'e']);
+    expect(refused).toEqual(['5 screenshots max']);
+  });
+
+  it('removes a screenshot by its ×', () => {
+    const { draft } = addShots([storage], emptyDraft([storage]), 0, [shot('a'), shot('b')]);
+    expect(ids(removeShot(draft, 0, 'a')[0].shots)).toEqual(['b']);
+  });
+
+  it('sends "(see screenshots)" for screenshots and no text, and the text when there is some', () => {
+    const questions = [storage, checks];
+    const { draft } = addShots(questions, emptyDraft(questions), 0, [shot('a')]);
+    expect(answerOf(storage, draft[0])).toBe('(see screenshots)');
+    expect(answerOf(storage, typeOther(storage, draft[0], 'The red one'))).toBe('The red one');
+    const ticked = addShots(questions, pickByKey(questions, draft, 1, 0), 1, [shot('b')]).draft;
+    expect(roundAnswers(questions, ticked)).toEqual({ [storage.question]: '(see screenshots)', [checks.question]: 'RLS, (see screenshots)' });
+  });
+
+  it("names each question's screenshots, only while its Other is chosen", () => {
+    const questions = [storage, checks];
+    let draft = addShots(questions, emptyDraft(questions), 0, [shot('a'), shot('b')]).draft;
+    draft = addShots(questions, draft, 1, [shot('c')]).draft;
+    const named = (d: typeof draft) => Object.fromEntries(Object.entries(roundShots(questions, d)).map(([q, s]) => [q, ids(s)]));
+    expect(named(draft)).toEqual({ [storage.question]: ['a', 'b'], [checks.question]: ['c'] });
+    draft = [pickOption(storage, draft[0], 'Memory'), toggleOther(checks, draft[1])];
+    expect(named(draft)).toEqual({});
+    expect(roundShots([storage], emptyDraft([storage]))).toEqual({});
   });
 });
