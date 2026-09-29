@@ -628,3 +628,159 @@ Text only: undoing it is rewriting a few lines of two skills and three tests, no
 ```
 
 <!-- /omni-outbox-settled: s4-01-push-skill-takes-a-kind -->
+
+<!-- omni-outbox-settled: s5-01-closed-without-fix-reads-dash -->
+
+## s5-01-closed-without-fix-reads-dash — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-closed-without-fix-reads-dash
+prd: 627
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 3
+---
+
+## The question, in plain words
+
+What state does a fix show when its issue was closed but no fix pull request was ever opened or merged?
+
+## The decision, in plain words
+
+It shows the same dash as when GitHub does not answer, because none of Asked, In review or Merged is true for it.
+
+## The intro, for fun
+
+An issue closed with no fix in sight is a story with no middle chapter.
+
+## The punchline, for fun
+
+So the pill shrugs politely and shows a dash.
+
+## The options, in plain words
+
+A. Show the dash, as for GitHub not answering (built).
+B. Add a fourth state, Closed, with its own pill and filter choice.
+C. Keep showing Asked until a fix pull request merges, whatever the issue's state.
+
+## What I had to decide
+
+The spec's table names three states: Asked (issue open, no fix PR open), In review (a fix PR open) and Merged (that PR merged). An issue closed without any fix PR, or whose only fix PR was closed unmerged, fits none of them.
+
+## What I did meanwhile
+
+The state reads the dash (the unknown state) for it, on the list row and in the page header. The state filter never matches it.
+
+## What it costs to change later
+
+One line in the state function and one label: adding a fourth state such as Closed later is a constant and a label, no stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a person wants abandoned fixes told apart from GitHub being silent (author).
+
+```
+
+<!-- /omni-outbox-settled: s5-01-closed-without-fix-reads-dash -->
+
+<!-- omni-outbox-settled: s5-02-risk-badge-shows-label-name -->
+
+## s5-02-risk-badge-shows-label-name — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-risk-badge-shows-label-name
+prd: 627
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 3
+---
+
+## The question, in plain words
+
+How does a bug fix's row show the risk of its issue?
+
+## The decision, in plain words
+
+It shows the risk label exactly as the repository names it on GitHub, such as omni:risk-high, next to the state pill.
+
+## The intro, for fun
+
+Every bug arrives wearing a little hat that says how scary it is.
+
+## The punchline, for fun
+
+The list simply shows the hat, label and all.
+
+## The options, in plain words
+
+A. Show the label's own name, such as omni:risk-high (built).
+B. Show a short word such as high risk, coloured by level.
+C. Show only critical and high, and nothing for lower risks.
+
+## What I had to decide
+
+The spec says bug rows show the issue's risk label, without saying whether in the label's own words or in shorter ones such as high.
+
+## What I did meanwhile
+
+The row shows the first of the repository's configured risk labels (critical, then high, medium, low) the issue carries, as it is written, in a small badge. The regression badge reads regression.
+
+## What it costs to change later
+
+A display string only: shortening it later is one function, with no stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether people read the raw label comfortably on a phone-width row (author).
+
+```
+
+<!-- /omni-outbox-settled: s5-02-risk-badge-shows-label-name -->
