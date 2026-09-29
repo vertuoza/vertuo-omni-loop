@@ -6,6 +6,7 @@ import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { COMMAND_TABLE } from '../../bin/commands/index.mjs';
+import { STAGE_ORDER, STAGE_WORDS } from '../status/format.mjs';
 import { ENTRIES, PRINCIPLES, SKILL_GROUPS, STAGES } from './entries.mjs';
 
 const SKILLS_DIR = fileURLToPath(new URL('../../plugin/skills', import.meta.url));
@@ -34,6 +35,37 @@ function docsViolations(entry, what) {
   return out;
 }
 
+/** Every way one entry's own fields fail, whatever the table holds. */
+function fieldViolations(entry, what) {
+  const out = [];
+  if (!WHO.includes(entry.who)) out.push(`${what}: who is "${entry.who}", not you or skills`);
+  if (!Array.isArray(entry.usage) || entry.usage.length === 0 || !entry.usage.every(oneLine)) out.push(`${what}: no usage`);
+  if (!oneLine(entry.summary)) out.push(`${what}: its summary is not one line`);
+  if (!isText(entry.detail)) out.push(`${what}: no detail`);
+  return out;
+}
+
+/** Every way an entry fails the row rules: a skill for you needs its label, one run by the skills has no row. */
+function rowViolations(entry, what) {
+  const out = [];
+  if (entry.kind === 'skill' && entry.who === 'you' && !oneLine(entry.label)) out.push(`${what}: a skill for you needs its label`);
+  if (entry.who === 'skills' && (entry.label !== undefined || entry.also !== undefined)) out.push(`${what}: run by the skills, it has no row`);
+  return out;
+}
+
+/** Every command or skill with no entry, or with more than one. */
+function countViolations(known, seen) {
+  const out = [];
+  for (const kind of KINDS) {
+    for (const name of known[kind]) {
+      const count = seen[kind].get(name) ?? 0;
+      if (count === 0) out.push(`${kind} ${name}: no entry`);
+      if (count > 1) out.push(`${kind} ${name}: ${count} entries`);
+    }
+  }
+  return out;
+}
+
 /** Every way `entries` fails the command table and the skill folders, as one line each. */
 function entryViolations(entries, { commands, skills }) {
   const out = [];
@@ -47,22 +79,9 @@ function entryViolations(entries, { commands, skills }) {
     }
     seen[entry.kind].set(entry.name, (seen[entry.kind].get(entry.name) ?? 0) + 1);
     if (!known[entry.kind].has(entry.name)) out.push(`${what}: no such ${entry.kind}`);
-    if (!WHO.includes(entry.who)) out.push(`${what}: who is "${entry.who}", not you or skills`);
-    if (!Array.isArray(entry.usage) || entry.usage.length === 0 || !entry.usage.every(oneLine)) out.push(`${what}: no usage`);
-    if (!oneLine(entry.summary)) out.push(`${what}: its summary is not one line`);
-    if (!isText(entry.detail)) out.push(`${what}: no detail`);
-    if (entry.kind === 'skill' && entry.who === 'you' && !oneLine(entry.label)) out.push(`${what}: a skill for you needs its label`);
-    if (entry.who === 'skills' && (entry.label !== undefined || entry.also !== undefined)) out.push(`${what}: run by the skills, it has no row`);
-    out.push(...docsViolations(entry, what));
+    out.push(...fieldViolations(entry, what), ...rowViolations(entry, what), ...docsViolations(entry, what));
   }
-  for (const kind of KINDS) {
-    for (const name of known[kind]) {
-      const count = seen[kind].get(name) ?? 0;
-      if (count === 0) out.push(`${kind} ${name}: no entry`);
-      if (count > 1) out.push(`${kind} ${name}: ${count} entries`);
-    }
-  }
-  return out;
+  return [...out, ...countViolations(known, seen)];
 }
 
 const EXAMPLE = { type: '/omni:s', result: 'does s' };
@@ -161,8 +180,9 @@ describe('the help table in this repository', () => {
     });
   });
 
-  it('names the six stages of the loop in order, each with one line, and three principles', () => {
-    expect(STAGES.map((stage) => stage.name)).toEqual(['idea', 'PRD', 'inbox', 'outbox', 'shipped', 'retro']);
+  it('names the seven stages of the loop in order, in the kit\'s stage words, each with one line, and three principles', () => {
+    expect(STAGES.map((stage) => stage.name)).toEqual(['idea', 'PRD', 'inbox', 'building', 'outbox', 'shipped', 'retro']);
+    expect(STAGES.map((stage) => stage.name)).toEqual(STAGE_ORDER.map((stage) => STAGE_WORDS[stage]));
     for (const stage of STAGES) expect(oneLine(stage.line), stage.name).toBe(true);
     expect(PRINCIPLES).toHaveLength(3);
   });

@@ -1,7 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { Notice } from '../../ask/page/Notice';
 import { arcadeMode } from '../../data/mode';
-import { supabaseEnv, supabaseServer } from '../../data/supabase-server';
 import { fixPageView, readPickLine, type FixPageView, type PickRead } from '../../fixes/timeline';
 import { dossierGithub } from '../github/server';
 import { UNREAD } from '../github/summary';
@@ -12,11 +11,14 @@ import { DossierPage } from './DossierPage';
 import { DossierSignIn } from './DossierSignIn';
 import { pulseOf, signature } from './live';
 import { LiveRefresh } from './live-refresh';
+import { DossierDatabaseDown, DossiersClosed, dossierSession } from './route-gate';
 import { dossierCallbackPath } from './sign-in';
 import { readContent, readDossier, readPlanSlices, type Db } from './source';
 import { dossierView, readPick, type DossierRead } from './view';
 import { kindOf, misrouted } from './work';
 import type { WorkKind } from '../store';
+import type { StageRow } from '../../stages/stage';
+import { stageStore } from '../../stages/store';
 
 // /prd/<id>, the page to share (PRD 216): one PRD's dossier. Rendered per request, as the signed-in
 // person, so row-level security decides: signed out, a sign-in card that comes back here through
@@ -28,7 +30,9 @@ import type { WorkKind } from '../store';
 // open rounds the signed-in person may answer on the list is read here too, on the server.
 // For a numbered dossier and a signed-in member only, the page reads its PRD's GitHub summary (PRD 426)
 // through the server's one reader, cached 60 s; a draft, a signed-out visitor and demo mode make no
-// GitHub call.
+// GitHub call. The stage itself (PRD 587) is read from the PRD's stored stages, as the member, beside
+// that call and never waiting on it: the summary gives only the button, the links and the badge. Stages
+// that could not be read show as not synced yet.
 //
 // PRD 627: the same page serves a fix at /visual/<id> and /bugs/<id>, each route naming the kind it
 // shows. A dossier opened on another kind's route is sent to its own, the query kept (./work.ts): a fix
@@ -45,20 +49,23 @@ export type DossierRouteProps = {
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
 
-/** The GitHub summary of a numbered dossier the member reads, and its plan's slice count; null when
- * GitHub could not be read (the stage is unknown), nothing for a draft. */
-async function githubOf(db: Db, read: DossierRead): Promise<{ github?: GithubSummary | null; slices?: number | null }> {
+/** The stored stages, the GitHub summary and the plan's slice count of a numbered PRD dossier the
+ * member reads; the summary is null when GitHub could not be read, the stages null when they could not
+ * be read; nothing for a draft or a fix. */
+async function githubOf(db: Db, read: DossierRead): Promise<{ github?: GithubSummary | null; slices?: number | null; stages?: StageRow[] | null }> {
   const { dossier } = read;
   if (dossier.prd === null || kindOf(dossier) !== 'prd') return {};
   const reader = dossierGithub();
-  const [github, slices] = await Promise.all([
-    reader ? reader.summary({ id: dossier.id, home_repo: dossier.home_repo, prd: dossier.prd }).catch((error: unknown) => {
-      console.error(error);
-      return null;
-    }) : Promise.resolve(null),
+  const logged = (error: unknown) => {
+    console.error(error);
+    return null;
+  };
+  const [github, slices, stages] = await Promise.all([
+    reader ? reader.summary({ id: dossier.id, home_repo: dossier.home_repo, prd: dossier.prd }).catch(logged) : Promise.resolve(null),
     readPlanSlices(db, read.versions),
+    stageStore(db).stagesOf({ workspace_id: dossier.workspace_id, repository: dossier.home_repo, prd: dossier.prd }).catch(logged),
   ]);
-  return { github, slices };
+  return { github, slices, stages };
 }
 
 /** A fix's state, links and Timeline: GitHub through the server's reader (every moment unknown without
@@ -112,16 +119,9 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
     const markdown = shown && !shown.frame ? await markdownOf(async () => demoContent(shown.id)) : null;
     return <DossierPage view={view} markdown={markdown} supabase={null} />;
   }
-  const env = supabaseEnv();
-  if (mode === 'closed' || !env) {
-    return (
-      <Notice title="PRD dossiers are not open here">
-        <p className="ask-muted">This deployment has no database, so it keeps no dossier.</p>
-      </Notice>
-    );
-  }
-  const db = await supabaseServer();
-  const { data: { user } } = await db.auth.getUser();
+  const session = await dossierSession(mode);
+  if (!session) return <DossiersClosed />;
+  const { env, db, user } = session;
   if (!user) return <DossierSignIn supabase={env} returnPath={dossierCallbackPath(id)} error={one(query.signin_error)} />;
 
   let read: DossierRead | null;
@@ -129,11 +129,7 @@ export async function dossierRoute(route: WorkKind, { params, searchParams }: Do
     read = await readDossier(db, id, user.id);
   } catch (error) {
     console.error(error);
-    return (
-      <Notice title="The dossier database could not answer" tone="error">
-        <p className="ask-muted">Reload the page in a moment.</p>
-      </Notice>
-    );
+    return <DossierDatabaseDown />;
   }
   if (!read && one(query.deleted) === '1') {
     return (

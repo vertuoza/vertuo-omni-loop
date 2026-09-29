@@ -1,0 +1,31 @@
+# The stages sync (PRD 587): every 15 minutes, wakes galaxy's POST /api/stages/sync, which reads each
+# workspace's repositories through the omni-loop GitHub App and records where each PRD is. The sync
+# runs in galaxy, which holds the App's key and the service key; this workflow holds nothing but the
+# bearer secret. It checks out nothing and writes nothing to the repository. A reply that is not 2xx
+# (a wrong secret, the workspaces unreadable) fails the run.
+# Off until the repository variable GALAXY_URL is set. Setup: apps/galaxy/README.md, "Deploy to
+# production".
+name: stages
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sync:
+    if: vars.GALAXY_URL != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: stages-sync          # two syncs never overlap
+      cancel-in-progress: false
+    steps:
+      - name: Sync the PRD stages
+        env:
+          GALAXY_URL: ${{ vars.GALAXY_URL }}
+          STAGES_SYNC_SECRET: ${{ secrets.STAGES_SYNC_SECRET }}
+        run: |
+          curl --fail-with-body --silent --show-error --max-time 320 \
+            -X POST "${GALAXY_URL%/}/api/stages/sync" \
+            -H "Authorization: Bearer ${STAGES_SYNC_SECRET}"

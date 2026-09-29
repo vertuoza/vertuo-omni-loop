@@ -13,7 +13,14 @@
 // count (the open items), read from the server's GitHub reader and its 60-second cache
 // (readOpenCounts), only for the numbered rows the other filters let through (historyToRead). Needs an
 // answer (`needs=answer`) keeps only those rows; a row whose outbox could not be read counts as none.
+//
+// PRD 587 (s4): each row shows its current stage as a pill — a numbered PRD's from its stored stages
+// (readCurrentStages, through the stage store, as the viewer), a draft's idea once any of its questions is
+// answered, and none for a draft with no answer or a PRD not synced yet. A stage bar above the list counts
+// the seven stages over the rows every other filter keeps, and `stage=<id>` keeps only the rows at it.
 import type { GithubReader } from '../github/reader';
+import { isStage, STAGE_LABELS, STAGES, type StageId, type StoredStage } from '../../stages/stage';
+import { prdKey, type PrdRef, type StageStore } from '../../stages/store';
 import { UNREAD } from '../github/summary';
 import type { DossierKind, DossierListRow } from '../store';
 import { dossierPath, stamp, TAB_LABELS, TABS } from './view';
@@ -35,7 +42,19 @@ export type HistoryFilters = {
   search?: string;
   /** Only the dossiers whose outbox has open questions (PRD 251). */
   needsAnswer?: true;
+  /** Only the dossiers at this stage now (PRD 587). */
+  stage?: StageId;
 };
+
+/** Each numbered dossier's current stored stage, by stageKeyOf; one left out has no stored stage yet. */
+export type CurrentStages = ReadonlyMap<string, StoredStage>;
+
+/** A numbered dossier's key among the current stages: its workspace, then its PRD's key. */
+export const stageKeyOf = (row: Pick<DossierListRow, 'workspace_id' | 'home_repo' | 'prd'>) =>
+  `${row.workspace_id} ${prdKey({ repository: row.home_repo, prd: row.prd ?? 0 })}`;
+
+/** One stop of the stage bar: how many rows sit at it, and the list filtered to it (or cleared, when selected). */
+export type StageBarEntry = { id: StageId; label: string; count: number; href: string; selected: boolean };
 
 /** Each dossier's open outbox questions, by its id; a dossier left out was not read, and counts as none. */
 export type OpenCounts = ReadonlyMap<string, number>;
@@ -57,6 +76,8 @@ export type HistoryItem = {
   questions: string;
   /** `2 open`: its outbox's open questions (PRD 251); null when none, or not read. */
   open: string | null;
+  /** Its current stage (PRD 587); null for a draft with no answer, or a PRD not synced yet. */
+  stage: StageId | null;
   /** `last activity 28 Sep 2026, 08:00 UTC`. */
   activity: string;
   at: string;
@@ -64,12 +85,11 @@ export type HistoryItem = {
 
 type Query = Record<string, string | string[] | undefined>;
 
-const one = (value: string | string[] | undefined) => {
-  const first = (Array.isArray(value) ? value[0] : value)?.trim();
-  return first ? first : undefined;
-};
+/** A parameter's first value, trimmed; undefined when absent or blank. */
+const one = (value: string | string[] | undefined) => [value].flat()[0]?.trim() || undefined;
 
-/** The filters an address carries: `who` (`all`, or else Mine), `repo`, `state` (`draft` or `prd`), `q`, `needs` (`answer`). */
+/** The filters an address carries: `who` (`all`, or else Mine), `repo`, `state` (`draft` or `prd`), `q`, `needs` (`answer`),
+ * `stage` (one of the seven; anything else is no filter). */
 export function readHistoryFilters(query: Query): HistoryFilters {
   const filters: HistoryFilters = { who: one(query.who) === 'all' ? 'all' : 'mine' };
   const repo = one(query.repo);
@@ -79,19 +99,22 @@ export function readHistoryFilters(query: Query): HistoryFilters {
   const search = one(query.q);
   if (search) filters.search = search;
   if (one(query.needs) === 'answer') filters.needsAnswer = true;
+  const stage = one(query.stage);
+  if (isStage(stage)) filters.stage = stage;
   return filters;
 }
 
 /** Whether any filter but `who` is set: the page then offers to clear them, keeping `who`. */
 export const filtered = ({ who: _who, ...rest }: HistoryFilters) => Object.keys(rest).length > 0;
 
-/** The history's address for these filters: `repo`, `state`, `q`, then `who=all` for All (Mine is the default). */
+/** The history's address for these filters: `repo`, `state`, `q`, `needs`, `stage`, then `who=all` for All (Mine is the default). */
 export function historyAddress(filters: HistoryFilters): string {
   const params = new URLSearchParams();
   if (filters.repo) params.set('repo', filters.repo);
   if (filters.state) params.set('state', filters.state);
   if (filters.search) params.set('q', filters.search);
   if (filters.needsAnswer) params.set('needs', 'answer');
+  if (filters.stage) params.set('stage', filters.stage);
   if (filters.who === 'all') params.set('who', 'all');
   const query = params.toString();
   return query ? `${HISTORY_PATH}?${query}` : HISTORY_PATH;
@@ -99,26 +122,44 @@ export function historyAddress(filters: HistoryFilters): string {
 
 const openOf = (row: DossierListRow, open: OpenCounts) => open.get(row.id) ?? 0;
 
-function passes(row: DossierListRow, filters: HistoryFilters, viewer: string | null, open: OpenCounts): boolean {
+/** A row's current stage: its stored one when numbered, idea for a draft with an answer, else none. */
+function stageOfRow(row: DossierListRow, stages: CurrentStages): StageId | null {
+  if (row.prd === null) return row.answered > 0 ? 'idea' : null;
+  return stages.get(stageKeyOf(row)) ?? null;
+}
+
+/** The filters on where a row is and who it waits on: its stage, Mine, Needs an answer. */
+function passesProgress(row: DossierListRow, filters: HistoryFilters, viewer: string | null, open: OpenCounts, stages: CurrentStages): boolean {
+  if (filters.stage && stageOfRow(row, stages) !== filters.stage) return false;
   if (filters.who === 'mine' && (viewer === null || row.opened_by !== viewer)) return false;
-  if (filters.needsAnswer && openOf(row, open) === 0) return false;
+  return !(filters.needsAnswer && openOf(row, open) === 0);
+}
+
+/** Whether every word searched is in the title, ignoring case. */
+const titleHas = (title: string, search: string) => {
+  const words = title.toLowerCase();
+  return search.toLowerCase().split(/\s+/).every((word) => words.includes(word));
+};
+
+/** The filters on what a row is: its repository, draft or PRD, and the words of its title. */
+function passesContent(row: DossierListRow, filters: HistoryFilters): boolean {
   if (filters.repo && !row.repos.includes(filters.repo)) return false;
   if (filters.state === 'draft' && row.prd !== null) return false;
   if (filters.state === 'prd' && row.prd === null) return false;
-  if (filters.search) {
-    const title = row.title.toLowerCase();
-    if (!filters.search.toLowerCase().split(/\s+/).every((word) => title.includes(word))) return false;
-  }
-  return true;
+  return !filters.search || titleHas(row.title, filters.search);
+}
+
+function passes(row: DossierListRow, filters: HistoryFilters, viewer: string | null, open: OpenCounts, stages: CurrentStages = new Map()): boolean {
+  return passesProgress(row, filters, viewer, open, stages) && passesContent(row, filters);
 }
 
 const newestFirst = (a: DossierListRow, b: DossierListRow) =>
   Date.parse(b.last_activity) - Date.parse(a.last_activity) || a.id.localeCompare(b.id);
 
-/** The numbered dossiers every filter but Needs an answer lets through, newest activity first: the ones
- * whose open questions the history reads. */
+/** The numbered dossiers every filter but Needs an answer and the stage lets through, newest activity
+ * first: the ones whose open questions the history reads (the stage bar counts over them too). */
 export function historyToRead(rows: DossierListRow[], filters: HistoryFilters, viewer: string | null): DossierListRow[] {
-  const { needsAnswer: _needs, ...rest } = filters;
+  const { needsAnswer: _needs, stage: _stage, ...rest } = filters;
   return rows.filter((row) => row.prd !== null && passes(row, rest, viewer, new Map())).sort(newestFirst);
 }
 
@@ -142,10 +183,58 @@ export async function readOpenCounts(rows: readonly DossierListRow[], reader: Su
   return counts;
 }
 
+/** A reader of the stored stages: the stage store, as the viewer. */
+type StagesReader = Pick<StageStore, 'currentStages'>;
+
+/** The current stored stage of each numbered dossier among `rows`, read per workspace all at once. A
+ * workspace whose stages could not be read, or no reader, leaves its dossiers out: they show no stage. */
+export async function readCurrentStages(rows: readonly DossierListRow[], reader: StagesReader | null): Promise<Map<string, StoredStage>> {
+  const stages = new Map<string, StoredStage>();
+  if (!reader) return stages;
+  const byWorkspace = new Map<string, PrdRef[]>();
+  for (const row of rows) {
+    if (row.prd === null) continue;
+    byWorkspace.set(row.workspace_id, [...(byWorkspace.get(row.workspace_id) ?? []), { repository: row.home_repo, prd: row.prd }]);
+  }
+  await Promise.all([...byWorkspace].map(async ([workspace, prds]) => {
+    try {
+      const current = await reader.currentStages(workspace, prds);
+      for (const [key, stage] of current) stages.set(`${workspace} ${key}`, stage);
+    } catch (error) {
+      console.error(`PRD history: the stages of workspace ${workspace} could not be read: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }));
+  return stages;
+}
+
+/** The stage bar: the seven stages in track order, each counting the rows every filter but the stage lets
+ * through, and linking to the list filtered to it — or, for the stage selected, to the list without it. */
+export function historyStageBar(
+  rows: DossierListRow[], filters: HistoryFilters, viewer: string | null, open: OpenCounts = new Map(), stages: CurrentStages = new Map(),
+): StageBarEntry[] {
+  const { stage: selected, ...rest } = filters;
+  const counts = new Map<StageId, number>();
+  for (const row of rows) {
+    if (!passes(row, rest, viewer, open)) continue;
+    const stage = stageOfRow(row, stages);
+    if (stage) counts.set(stage, (counts.get(stage) ?? 0) + 1);
+  }
+  return STAGES.map((id) => ({
+    id,
+    label: STAGE_LABELS[id],
+    count: counts.get(id) ?? 0,
+    href: historyAddress(id === selected ? rest : { ...rest, stage: id }),
+    selected: id === selected,
+  }));
+}
+
 /** The dossiers the filters let through for this viewer (their user id), newest activity first, as the
- * history lists them; `open` gives each one's open outbox questions (PRD 251). */
-export function historyItems(rows: DossierListRow[], filters: HistoryFilters, viewer: string | null, open: OpenCounts = new Map()): HistoryItem[] {
-  return rows.filter((row) => passes(row, filters, viewer, open)).sort(newestFirst).map((row): HistoryItem => ({
+ * history lists them; `open` gives each one's open outbox questions (PRD 251), `stages` each numbered
+ * one's current stored stage (PRD 587). */
+export function historyItems(
+  rows: DossierListRow[], filters: HistoryFilters, viewer: string | null, open: OpenCounts = new Map(), stages: CurrentStages = new Map(),
+): HistoryItem[] {
+  return rows.filter((row) => passes(row, filters, viewer, open, stages)).sort(newestFirst).map((row): HistoryItem => ({
     id: row.id,
     href: dossierPath(row.id),
     heading: row.prd === null ? 'DRAFT' : `#${row.prd}`,
@@ -159,6 +248,7 @@ export function historyItems(rows: DossierListRow[], filters: HistoryFilters, vi
     }),
     questions: row.asked > 0 ? `${row.answered}/${row.asked} answered` : 'no question yet',
     open: openOf(row, open) > 0 ? `${openOf(row, open)} open` : null,
+    stage: stageOfRow(row, stages),
     activity: `last activity ${stamp(row.last_activity)}`,
     at: row.last_activity,
   }));

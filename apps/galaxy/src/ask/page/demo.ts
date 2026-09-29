@@ -241,6 +241,7 @@ export function demoHistory(now: number): HistoryRow[] {
     id: 'demo-round-trial', questions: [TRIAL], answers: { [TRIAL.question]: '14 days' }, answered_via: 'page', status: 'answered',
     created_at: iso(now - 3 * 24 * 60 * MIN + 10 * MIN), answered_at: iso(now - 3 * 24 * 60 * MIN + 14 * MIN), answered_by: DEMO_OWNER,
     prd: 94, skill: '/omni:yolo', model: 'claude-sonnet-4-6', category: 'business', category_by: 'model',
+    attachments: { [TRIAL.question]: ['demo-round-trial/1.png', 'demo-round-trial/2.png'] },
   };
   // The page answer came from the teammate it was shared with; the terminal's is the owner's.
   const answeredBy = (round: RoundRow) => (round.status !== 'answered' ? null : round.answered_via === 'terminal' ? DEMO_OWNER : DEMO_MEMBERS[1].user_id);

@@ -1,4 +1,4 @@
-// What `omni help` says (PRD 315): the loop's six stages, its principles, then one entry per `omni`
+// What `omni help` says (PRD 315): the loop's seven stages (PRD 587), its principles, then one entry per `omni`
 // command and per plugin skill. Pure data, written by hand for people (a skill's own description is
 // written for Claude's trigger matching), and held to the command table and the skill folders by
 // `entries.test.mjs`. `render.mjs` lays it out.
@@ -24,12 +24,14 @@ const deepFreeze = (value) => {
   return value;
 };
 
-/** The loop, stage by stage: a name, one line, and the folder that holds it, when one does. */
+/** The loop, stage by stage: a name, one line, and the folder that holds it, when one does. The
+ * names are the kit's stage words (`STAGE_WORDS` in `kit/lib/status/format.mjs`), in its order. */
 export const STAGES = deepFreeze([
   { name: 'idea', line: 'talked through with /omni:brainstorm, nothing written yet' },
   { name: 'PRD', line: 'spec, plan and before/after, in a phase-0 PR a person reviews' },
   { name: 'inbox', line: 'phase-0 PR merged: approved, ready to build', folder: '{inbox}' },
-  { name: 'outbox', line: 'being built in waves; what the agents decided alone waits for you' },
+  { name: 'building', line: 'first sub-PR merged into the feature branch: built in waves' },
+  { name: 'outbox', line: 'feature PR ready: the change and its outbox wait for you' },
   { name: 'shipped', line: 'feature PR merged: the change is on {defaultBranch}', folder: '{shipped}' },
   { name: 'retro', line: 'a retro PR tells how it went; a knowledge PR keeps what it taught' },
 ]);
@@ -61,8 +63,9 @@ export const ENTRIES = deepFreeze([
     summary: 'your PRDs, the inbox, the outbox, what has shipped',
     also: [['omni status <n>', 'the outbox gate for PRD n (exit 0 green, 1 red)']],
     detail:
-      'With no PRD number, the overview of this repository, read from git only: how many PRDs have ' +
-      'shipped, wait in the inbox, are being built in the outbox or wait for review, a bar of ' +
+      'With no PRD number, the overview of this repository, read from git only: how many PRDs sit ' +
+      'at each stage of the loop (PRD, inbox, building, outbox, shipped, retro; an idea is a draft ' +
+      'on the Omni app), a bar of ' +
       'delivered against in progress, and the PRDs that are yours, each with where it stands. It ' +
       'reads {remote}/{defaultBranch} as last fetched; --fetch fetches it first. With a PRD number, ' +
       'the outbox gate the loop runs before a feature PR merges: exit 0 when its outbox lets it ' +
@@ -822,8 +825,8 @@ export const ENTRIES = deepFreeze([
     label: '/omni:status',
     summary: 'where your PRDs are',
     detail:
-      'Runs omni status inside Claude and prints its overview as is: how many PRDs have shipped, ' +
-      'wait in the inbox, are being built in the outbox or wait for review, and the PRDs that are ' +
+      'Runs omni status inside Claude and prints its overview as is: how many PRDs sit at each ' +
+      'stage of the loop, from PRD through inbox, building and outbox to shipped and retro, and the PRDs that are ' +
       'yours, each with where it stands. It fetches first only when you ask for fresh data, and ' +
       'never runs the outbox gate of one PRD.',
     group: 'everyday',

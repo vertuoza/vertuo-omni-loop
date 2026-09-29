@@ -31,6 +31,8 @@ export type HistoryItem = {
   more: number;
   /** The answers, joined; null while nothing is answered. */
   answer: string | null;
+  /** How many screenshots the answers carry, all together (PRD 620). */
+  screenshots: number;
   status: RoundRow['status'];
   via: RoundRow['answered_via'];
   askedBy: string;
@@ -104,6 +106,7 @@ export function historyList(rows: HistoryRow[], filters: HistoryFilters, members
       question: lines[0]?.question ?? 'A question',
       more: Math.max(0, readQuestions(round.questions).length - 1),
       answer: answers.length > 0 ? answers.join(' · ') : null,
+      screenshots: lines.reduce((sum, line) => sum + (line.screenshots ?? 0), 0),
       status: round.status,
       via: round.answered_via,
       askedBy: nameOf(session.owner, members),

@@ -6,7 +6,7 @@
 //
 // Every read and write belongs to one workspace: a missing workspace id throws before any call.
 //
-// A dossier has a kind (PRD 627, supabase/migrations/20261010090000_fix_dossiers.sql): `prd`, `visual`
+// A dossier has a kind (PRD 627, supabase/migrations/20261011090000_fix_dossiers.sql): `prd`, `visual`
 // or `bug`, part of its key. Every read names the kind it reads (`prd` when it names none), so a visual
 // fix and a PRD of the same number never meet.
 import { z } from 'zod';

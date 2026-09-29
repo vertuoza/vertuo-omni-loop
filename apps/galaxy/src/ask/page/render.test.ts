@@ -1,12 +1,14 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect } from 'vitest';
-import { emptyDraft, pickOption, readQuestions } from '../answer-model';
+import { addShots, emptyDraft, pickOption, readQuestions } from '../answer-model';
+import { trayOf } from './attachments';
 import { AskPage } from './AskPage';
 import { AskSession } from './AskSession';
 import { CategoryChip } from './CategoryChip';
 import { ContextLine } from './ContextLine';
-import { demoSessions, demoState } from './demo';
+import { AskQuestion } from './AskQuestion';
+import { DEMO_MEMBERS, DEMO_TEAMMATE, demoQuestion, demoSessions, demoState } from './demo';
 import { History } from './History';
 import { RoundForm } from './RoundForm';
 import { rowOf, startPage } from './tabs';
@@ -93,6 +95,38 @@ describe('the round, rendered', () => {
   });
 });
 
+describe('screenshots on Other, rendered (PRD 620)', () => {
+  const png = (id: string) => ({ id, type: 'image/png', size: 3, file: new Blob([id], { type: 'image/png' }) });
+
+  it('gives every Other an Add screenshot button over a hidden image picker', () => {
+    const html = round();
+    expect(count(html, /<button type="button" class="ask-shot-add">Add screenshot<\/button>/)).toBe(2);
+    expect(count(html, /type="file" multiple="" accept="image\/png,image\/jpeg,image\/gif,image\/webp"/)).toBe(2);
+    expect(html).not.toContain('class="ask-shot"');
+  });
+
+  it('shows each screenshot as a thumbnail with a × that removes it', () => {
+    const { draft } = addShots([storage, checks], emptyDraft([storage, checks]), 0, [png('a'), png('b')]);
+    const html = round(draft, true);
+    expect(count(html, /<li class="ask-shot">/)).toBe(2);
+    expect(html).toContain('aria-label="Remove screenshot 1"');
+    expect(html).toContain('aria-label="Remove screenshot 2"');
+    expect(html).toMatch(/<input id="[^"]*-other" type="radio"[^>]*checked=""/);
+  });
+
+  it('says how far the upload got while Send runs, and where it stopped', () => {
+    trayOf('r1').setProgress({ kind: 'uploading', at: 2, total: 3 });
+    const sending = renderToStaticMarkup(createElement(RoundForm, {
+      roundId: 'r1', questions: [storage, checks], draft: emptyDraft([storage, checks]), onDraft: () => {}, canSend: true, sending: true, onSend: () => {}, minutesLeft: 8,
+    }));
+    expect(sending).toContain('>Uploading 2 of 3…</button>');
+    trayOf('r1').setProgress({ kind: 'failed', at: 2, total: 3 });
+    expect(round(undefined, true)).toContain('<p class="ask-shot-problem" role="status">Could not upload 2 of 3 — Send again</p>');
+    trayOf('r1').setProgress({ kind: 'idle' });
+    expect(round()).not.toContain('ask-shot-problem');
+  });
+});
+
 describe('the history, rendered', () => {
   const entries: HistoryEntry[] = [
     { id: 'a', outcome: 'answered', via: 'terminal', at: '', lines: [{ header: 'Host', question: 'Where?', answer: 'The galaxy app' }] },
@@ -112,6 +146,29 @@ describe('the history, rendered', () => {
 
   it('shows nothing before the first answer', () => {
     expect(renderToStaticMarkup(createElement(History, { history: [] }))).toBe('');
+  });
+
+  it('shows "📎 N screenshots" on an answer that has them, in the summary and the full answer (PRD 620)', () => {
+    const shots: HistoryEntry = { id: 'd', outcome: 'answered', via: 'page', at: '', lines: [{ header: 'Look', question: 'What broke?', answer: '(see screenshots)', screenshots: 2 }] };
+    const withShots = renderToStaticMarkup(createElement(History, { history: [shots] }));
+    expect(withShots).toMatch(/Look: <b>\(see screenshots\)<\/b> <span class="ask-shots-count">📎 2 screenshots<\/span>/);
+    expect(withShots).toMatch(/<dd>\(see screenshots\) <span class="ask-shots-count">📎 2 screenshots<\/span><\/dd>/);
+    expect(html).not.toContain('📎');
+  });
+});
+
+describe('the shared-round page, answered with screenshots (PRD 620)', () => {
+  const NOW = Date.parse('2026-09-26T10:00:00Z');
+  const page = (shots: boolean) => {
+    const initial = demoQuestion(NOW, true);
+    const question = Object.keys(initial.round.answers ?? {})[0];
+    const round = shots ? { ...initial.round, attachments: { [question]: [`${initial.round.id}/1.png`] } } : initial.round;
+    return renderToStaticMarkup(createElement(AskQuestion, { source: { kind: 'demo' }, initial: { ...initial, round }, serverNow: NOW, me: DEMO_TEAMMATE, members: DEMO_MEMBERS }));
+  };
+
+  it('shows "📎 1 screenshot" beside the answer, and nothing new without', () => {
+    expect(page(true)).toMatch(/<dd>[^<]* <span class="ask-shots-count">📎 1 screenshot<\/span><\/dd>/);
+    expect(page(false)).not.toContain('📎');
   });
 });
 

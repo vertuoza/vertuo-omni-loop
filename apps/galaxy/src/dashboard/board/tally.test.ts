@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { periodWindow } from './period';
 import {
-  circleOf, inCircle, inPeriod, mergesPerDay, peopleRows, prdEventsPerDay, repositoriesOf, stageCounts, tilesOf,
-  type Activity, type Member,
+  circleOf, eventCounts, groupsOf, inCircle, inPeriod, mergesPerDay, openedBy, peopleRows, prdEventsPerDay, prdsNow, repositoriesOf, stageTally, tilesOf,
+  type Activity, type Member, type PrdNow,
 } from './tally';
 
 // The board's pure functions (PRD 572): who is in the scope, what of the workspace's contributions
@@ -86,17 +86,17 @@ describe('the charts', () => {
     ]);
   });
 
-  it('PRD events per day, by stage', () => {
+  it('PRD events per day: opened, started, shipped', () => {
     const days = prdEventsPerDay(rows, WEEK.days);
     expect(days).toHaveLength(7);
-    expect(days.find((d) => d.date === '2026-09-24')).toEqual({ date: '2026-09-24', drafted: 1, inProgress: 1, shipped: 0 });
-    expect(days.at(-1)).toEqual({ date: '2026-09-26', drafted: 1, inProgress: 0, shipped: 1 });
-    expect(days[0]).toEqual({ date: '2026-09-20', drafted: 0, inProgress: 0, shipped: 0 });
+    expect(days.find((d) => d.date === '2026-09-24')).toEqual({ date: '2026-09-24', opened: 1, started: 1, shipped: 0 });
+    expect(days.at(-1)).toEqual({ date: '2026-09-26', opened: 1, started: 0, shipped: 1 });
+    expect(days[0]).toEqual({ date: '2026-09-20', opened: 0, started: 0, shipped: 0 });
   });
 
-  it('stage counts: drafted, in progress, shipped', () => {
-    expect(stageCounts(rows)).toEqual({ drafted: 2, inProgress: 1, shipped: 1 });
-    expect(stageCounts([])).toEqual({ drafted: 0, inProgress: 0, shipped: 0 });
+  it('event counts: opened, started, shipped', () => {
+    expect(eventCounts(rows)).toEqual({ opened: 2, started: 1, shipped: 1 });
+    expect(eventCounts([])).toEqual({ opened: 0, started: 0, shipped: 0 });
   });
 
   it('repositories involved: each with its PRs and PRD events, most active first, then by name', () => {
@@ -107,13 +107,16 @@ describe('the charts', () => {
     ]);
   });
 
-  it('the tiles: PRs merged, PRDs by stage, repositories, questions answered', () => {
-    expect(tilesOf(rows, 4)).toEqual({ prs: 3, prds: { drafted: 2, inProgress: 1, shipped: 1 }, repositories: 3, answered: 4 });
+  it('the tiles: PRs merged, PRDs by their stage now, repositories, questions answered', () => {
+    const prds: PrdNow[] = [{ stage: 'shipped', login: 'ada-gh', userId: null }, { stage: 'inbox', login: null, userId: null }];
+    expect(tilesOf(rows, 4, prds)).toEqual({
+      prs: 3, prds: { idea: 0, prd: 0, inbox: 1, building: 0, outbox: 0, shipped: 1, retro: 0 }, repositories: 3, answered: 4,
+    });
   });
 
   it('an unknown kind counts for nothing', () => {
     const odd = inPeriod([act('pr-opened', 'ada-gh', '2026-09-26T08:00:00Z')], WEEK);
-    expect(tilesOf(odd, 0)).toEqual({ prs: 0, prds: { drafted: 0, inProgress: 0, shipped: 0 }, repositories: 0, answered: 0 });
+    expect(tilesOf(odd, 0, [])).toMatchObject({ prs: 0, repositories: 0, answered: 0 });
   });
 });
 
@@ -127,42 +130,114 @@ describe('peopleRows', () => {
   const FLEETS = [{ name: 'octo', label: 'OCTO', color: '#3355ff' }, { name: 'beaver', label: 'BEAVER', color: '#8a5a2b' }];
   const HEROES = [{ name: 'Ada-GH', points: 120 }, { name: 'bob-gh', points: 300 }];
   const answered = new Map([['u-paul', 9], ['u-ada', 1]]);
+  const PRDS: PrdNow[] = [
+    { stage: 'prd', login: 'ada-gh', userId: null },
+    { stage: 'outbox', login: 'ADA-gh', userId: null },
+    { stage: 'shipped', login: 'ada-gh', userId: null },
+    { stage: 'retro', login: 'ada-gh', userId: null },
+    { stage: 'idea', login: null, userId: 'u-nog' },
+    { stage: 'shipped', login: 'stranger', userId: null },
+  ];
+  const input = (over: Partial<Parameters<typeof peopleRows>[1]> = {}) =>
+    ({ activity: rows, answered, heroes: HEROES, fleets: FLEETS, prds: PRDS, ...over });
 
   it('lists every member, 0s kept: Paul, with no points, has his 7 PRs and 9 answers', () => {
-    const people = peopleRows(ROSTER, { activity: rows, answered, heroes: HEROES, fleets: FLEETS }, 'u-ada');
+    const people = peopleRows(ROSTER, input(), 'u-ada');
     const paul = people.find((p) => p.userId === 'u-paul')!;
     expect(paul).toMatchObject({ name: 'Paul Etienne', prs: 7, answered: 9, points: 0, fleet: { label: 'OCTO' }, you: false });
-    expect(paul.prds).toEqual({ drafted: 0, inProgress: 0, shipped: 0 });
+    expect(paul.prds).toEqual({ open: 0, building: 0, shipped: 0 });
     expect(people).toHaveLength(5);
     expect(people.find((p) => p.userId === 'u-bob')).toMatchObject({ prs: 0, points: 300, answered: 0 });
   });
 
   it('sorts by PRs merged, then points, then name', () => {
-    const people = peopleRows(ROSTER, { activity: rows, answered, heroes: HEROES, fleets: FLEETS }, 'u-ada');
+    const people = peopleRows(ROSTER, input(), 'u-ada');
     expect(people.map((p) => p.userId)).toEqual(['u-paul', 'u-ada', 'u-bob', 'u-sol', 'u-nog']);
   });
 
   it('marks the viewer, reads SOLO with no fleet, and dashes the GitHub-counted columns with no login', () => {
-    const people = peopleRows(ROSTER, { activity: rows, answered, heroes: HEROES, fleets: FLEETS }, 'u-ada');
+    const people = peopleRows(ROSTER, input(), 'u-ada');
     expect(people.filter((p) => p.you).map((p) => p.userId)).toEqual(['u-ada']);
     expect(people.find((p) => p.userId === 'u-sol')!.fleet).toBe('solo');
-    expect(people.find((p) => p.userId === 'u-nog')).toMatchObject({ prs: null, prds: null, points: null, answered: 0 });
+    expect(people.find((p) => p.userId === 'u-nog')).toMatchObject({ prs: null, points: null, answered: 0 });
+  });
+
+  it('PRDs now: the PRDs each person opened, by login or by account, as open · building · shipped', () => {
+    const people = peopleRows(ROSTER, input(), 'u-ada');
+    expect(people.find((p) => p.userId === 'u-ada')!.prds).toEqual({ open: 1, building: 1, shipped: 2 });
+    expect(people.find((p) => p.userId === 'u-nog')!.prds).toEqual({ open: 1, building: 0, shipped: 0 });
+    expect(people.find((p) => p.userId === 'u-bob')!.prds).toEqual({ open: 0, building: 0, shipped: 0 });
   });
 
   it('names a member by their name, else their login, else as a member', () => {
-    const people = peopleRows([member('a', 'x-gh', null), member('b', null, null)], { activity: [], answered: new Map(), heroes: [], fleets: [] }, null);
+    const people = peopleRows([member('a', 'x-gh', null), member('b', null, null)], { activity: [], answered: new Map(), heroes: [], fleets: [], prds: [] }, null);
     expect(people.map((p) => p.name).sort()).toEqual(['A member', 'x-gh']);
   });
 
   it('a fleet the galaxy does not know still shows, by its name in capitals', () => {
-    const people = peopleRows([member('a', 'x-gh', 'ghost')], { activity: [], answered: new Map(), heroes: [], fleets: [] }, null);
+    const people = peopleRows([member('a', 'x-gh', 'ghost')], { activity: [], answered: new Map(), heroes: [], fleets: [], prds: [] }, null);
     expect(people[0].fleet).toEqual({ name: 'ghost', label: 'GHOST', color: null });
   });
 
   it('a column whose read failed reads unreadable for everyone, and the rest still count', () => {
-    const people = peopleRows(ROSTER, { activity: 'unreadable', answered, heroes: 'unreadable', fleets: FLEETS }, null);
+    const people = peopleRows(ROSTER, input({ activity: 'unreadable', heroes: 'unreadable', prds: 'unreadable' }), null);
     const paul = people.find((p) => p.userId === 'u-paul')!;
     expect(paul).toMatchObject({ prs: 'unreadable', prds: 'unreadable', points: 'unreadable', answered: 9 });
-    expect(people.find((p) => p.userId === 'u-nog')).toMatchObject({ prs: null, points: null });
+    expect(people.find((p) => p.userId === 'u-nog')).toMatchObject({ prs: null, points: null, prds: 'unreadable' });
+  });
+
+  it('the PRDs alone unreadable: only that column says so', () => {
+    const paul = peopleRows(ROSTER, input({ prds: 'unreadable' }), null).find((p) => p.userId === 'u-paul')!;
+    expect(paul).toMatchObject({ prs: 7, prds: 'unreadable' });
+  });
+});
+
+describe('PRDs now (PRD 587): each PRD at its current stage, and who opened it', () => {
+  const STAGES_READ = [
+    { repository: 'vertuoza/vertuo-omni-loop', prd: 12, stage: 'shipped' as const },
+    { repository: 'vertuoza/vertuo-omni-loop', prd: 13, stage: 'building' as const },
+    { repository: 'vertuoza/vertuo-core', prd: 4, stage: 'prd' as const },
+  ];
+  const OPENERS = [
+    { repo: 'vertuo-omni-loop', number: 12, login: 'Ada-GH' },
+    { repo: 'vertuo-core', number: 13, login: 'bob-gh' }, // another repository's #13
+  ];
+  const DOSSIERS = [
+    { home_repo: 'vertuoza/vertuo-omni-loop', prd: 13, opened_by: 'u-bob', answered: 2 },
+    { home_repo: 'vertuoza/vertuo-core', prd: null, opened_by: 'u-sol', answered: 1 },
+    { home_repo: 'vertuoza/vertuo-core', prd: null, opened_by: 'u-ada', answered: 0 },
+  ];
+
+  it('a stored PRD gets its opener\'s login from its prd-opened row, matched by repository name and number, and its dossier\'s opener', () => {
+    expect(prdsNow({ stages: STAGES_READ, openers: OPENERS, dossiers: DOSSIERS })).toEqual([
+      { stage: 'shipped', login: 'ada-gh', userId: null },
+      { stage: 'building', login: null, userId: 'u-bob' },
+      { stage: 'prd', login: null, userId: null },
+      { stage: 'idea', login: null, userId: 'u-sol' },
+    ]);
+  });
+
+  it('a draft lights idea only once a question is answered', () => {
+    expect(prdsNow({ stages: [], openers: [], dossiers: DOSSIERS }).map((p) => p.userId)).toEqual(['u-sol']);
+  });
+
+  it('the tile\'s seven counts, by stage in track order; shipped and retro are never open', () => {
+    const tally = stageTally(prdsNow({ stages: STAGES_READ, openers: OPENERS, dossiers: DOSSIERS }));
+    expect(Object.keys(tally)).toEqual(['idea', 'prd', 'inbox', 'building', 'outbox', 'shipped', 'retro']);
+    expect(tally).toEqual({ idea: 1, prd: 1, inbox: 0, building: 1, outbox: 0, shipped: 1, retro: 0 });
+    expect(groupsOf([{ stage: 'shipped', login: null, userId: null }, { stage: 'retro', login: null, userId: null }]))
+      .toEqual({ open: 0, building: 0, shipped: 2 });
+  });
+
+  it('who opened a PRD: you by login or account, a fleet by its members\', the workspace every PRD', () => {
+    const ada: PrdNow = { stage: 'shipped', login: 'ada-gh', userId: null };
+    const bobs: PrdNow = { stage: 'building', login: null, userId: 'u-bob' };
+    const nobody: PrdNow = { stage: 'prd', login: null, userId: null };
+    const you = circleOf({ kind: 'you', userId: 'u-ada', login: 'ADA-gh' }, ROSTER);
+    expect([ada, bobs, nobody].map((p) => openedBy(you, p))).toEqual([true, false, false]);
+    const beaver = circleOf({ kind: 'fleet', fleet: 'beaver' }, ROSTER);
+    expect([ada, bobs, nobody].map((p) => openedBy(beaver, p))).toEqual([false, true, false]);
+    const all = circleOf({ kind: 'workspace' }, ROSTER);
+    expect([ada, bobs, nobody].map((p) => openedBy(all, p))).toEqual([true, true, true]);
   });
 });

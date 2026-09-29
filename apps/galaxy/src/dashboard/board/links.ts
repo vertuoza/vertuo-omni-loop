@@ -1,8 +1,12 @@
+import { historyAddress } from '../../dossier/page/history';
+import type { StageId } from '../../stages/stage';
 import type { Period } from './period';
+import type { Scope } from './tally';
 
 // The board's links (PRD 572): the period switch, and any other link a page draws on the board (the
 // fleet picker's), keep the rest of the query, so switching the period keeps the fleet and picking a
-// fleet keeps the period.
+// fleet keeps the period. PRD 587: each count of the PRDs tile opens /prd filtered to its stage and to
+// the scope as near as /prd can: Mine for you, All for a fleet and the workspace (/prd has no fleet filter).
 
 export type Query = Record<string, string | string[] | undefined>;
 
@@ -19,3 +23,6 @@ export function hrefWith(path: string, query: Query, change: Record<string, stri
 }
 
 export const periodHref = (path: string, query: Query, period: Period) => hrefWith(path, query, { period });
+
+/** Where a stage's count opens: /prd at that stage, Mine for you, All otherwise. */
+export const stageHref = (scope: Scope, stage: StageId) => historyAddress({ who: scope.kind === 'you' ? 'mine' : 'all', stage });

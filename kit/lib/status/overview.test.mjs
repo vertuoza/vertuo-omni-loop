@@ -14,6 +14,7 @@ function facts({ shipped = [], inbox = [], ...more } = {}) {
     email: null,
     shallow: false,
     shipped: shipped.map(folder),
+    retro: [],
     inbox: inbox.map(folder),
     touched: [],
     features: [],
@@ -24,14 +25,16 @@ function facts({ shipped = [], inbox = [], ...more } = {}) {
 
 /** A feature branch as `readFacts` reads it, cut for topic `t<prd>`: the paths outside the
  * delivery folder it changed since it forked (`forked`), those that differ from the base now
- * (`differs`), every file under its PRD's outbox folder (`outbox`), the authors of its commits
- * beyond the base (`authors`) and the PRD folders those commits touched (`touched`). */
-const feature = (prd, { forked = [], differs = [], outbox = [], authors = [], touched = [], topic = `t${prd}` } = {}) => ({
+ * (`differs`), every file under its PRD's outbox folder (`outbox`), whether it moved the PRD's
+ * folder to the shipped folder (`ships`), the authors of its commits beyond the base (`authors`)
+ * and the PRD folders those commits touched (`touched`). */
+const feature = (prd, { forked = [], differs = [], outbox = [], ships = false, authors = [], touched = [], topic = `t${prd}` } = {}) => ({
   branch: `feat/${topic}`,
   topic,
   forked,
   differs,
   outbox,
+  ships,
   authors,
   touched,
 });
@@ -52,8 +55,8 @@ const OTHER = 'other@example.com';
 describe('overviewFor — the shipped and inbox stages', () => {
   it('counts the shipped and the inbox folders of the base', () => {
     const overview = overviewFor(facts({ shipped: [1, 2, 3], inbox: [4, 5] }));
-    expect(overview.counts).toEqual({ shipped: 3, inbox: 2, outbox: 0, openItems: 0, inReview: 0 });
-    expect(overview.inProgress).toEqual({ total: 2, inbox: 2, outbox: 0 });
+    expect(overview.counts).toEqual({ prd: 0, inbox: 2, building: 0, openItems: 0, outbox: 0, shipped: 3, retro: 0 });
+    expect(overview.inProgress).toEqual({ total: 2, inbox: 2, building: 0, outbox: 0 });
   });
 
   it('lists each stage newest first', () => {
@@ -112,49 +115,49 @@ describe('overviewFor — the bar', () => {
 
   it('has a zero total, and no percentage, with no PRD at all', () => {
     const overview = overviewFor(facts());
-    expect(overview.counts).toEqual({ shipped: 0, inbox: 0, outbox: 0, openItems: 0, inReview: 0 });
+    expect(overview.counts).toEqual({ prd: 0, inbox: 0, building: 0, openItems: 0, outbox: 0, shipped: 0, retro: 0 });
     expect(overview.bar).toEqual({ delivered: 0, total: 0, percent: null, filled: 0 });
-    expect(overview.inProgress).toEqual({ total: 0, inbox: 0, outbox: 0 });
+    expect(overview.inProgress).toEqual({ total: 0, inbox: 0, building: 0, outbox: 0 });
   });
 });
 
-describe('overviewFor — the outbox (PRD 315, slice s2)', () => {
-  it('counts an inbox PRD in the outbox when its feature branch is built, with its open items', () => {
+describe('overviewFor — building (PRD 315 s2, PRD 587)', () => {
+  it('counts an inbox PRD building when its feature branch is built, with its open items', () => {
     const overview = overviewFor(facts({
       shipped: [1],
       inbox: [4, 5],
       features: [feature(4, { ...CODE, outbox: ['s1-01-a.md', 's1-02-b.md', 'settled.md', 'accounts/s1.md'] })],
     }));
-    expect(overview.counts).toEqual({ shipped: 1, inbox: 1, outbox: 1, openItems: 2, inReview: 0 });
-    expect(overview.stages.outbox).toEqual([{ prd: 4, topic: 't4', openItems: 2 }]);
+    expect(overview.counts).toEqual({ prd: 0, inbox: 1, building: 1, openItems: 2, outbox: 0, shipped: 1, retro: 0 });
+    expect(overview.stages.building).toEqual([{ prd: 4, topic: 't4', openItems: 2 }]);
     expect(overview.stages.inbox).toEqual([{ prd: 5, topic: 't5' }]);
   });
 
-  it('reads a feature branch that is only the phase-0 copy of its PRD as inbox, not outbox', () => {
+  it('reads a feature branch that is only the phase-0 copy of its PRD as inbox, not building', () => {
     const copy = feature(4, { forked: ['acceptance/t4.feature'], differs: [] });
     const overview = overviewFor(facts({ inbox: [4], features: [copy] }));
-    expect(overview.counts).toMatchObject({ inbox: 1, outbox: 0 });
+    expect(overview.counts).toMatchObject({ inbox: 1, building: 0 });
   });
 
   it('does not read a feature branch as built when only the base moved on', () => {
     const behind = feature(4, { forked: [], differs: ['src/other.mjs'] });
-    expect(overviewFor(facts({ inbox: [4], features: [behind] })).counts).toMatchObject({ inbox: 1, outbox: 0 });
+    expect(overviewFor(facts({ inbox: [4], features: [behind] })).counts).toMatchObject({ inbox: 1, building: 0 });
   });
 
   it('reads it as built when one path it changed still differs from the base, whatever else did not', () => {
     const built = feature(4, { forked: ['acceptance/t4.feature', 'src/widget.mjs'], differs: ['src/widget.mjs', 'src/other.mjs'] });
-    expect(overviewFor(facts({ inbox: [4], features: [built] })).counts).toMatchObject({ inbox: 0, outbox: 1, openItems: 0 });
+    expect(overviewFor(facts({ inbox: [4], features: [built] })).counts).toMatchObject({ inbox: 0, building: 1, openItems: 0 });
   });
 
-  it('counts a feature branch with one open item and no code in the outbox', () => {
+  it('counts a feature branch with one open item and no code building', () => {
     const overview = overviewFor(facts({ inbox: [4], features: [feature(4, { outbox: ['s1-01-a.md'] })] }));
-    expect(overview.counts).toMatchObject({ inbox: 0, outbox: 1, openItems: 1 });
-    expect(overview.stages.outbox).toEqual([{ prd: 4, topic: 't4', openItems: 1 }]);
+    expect(overview.counts).toMatchObject({ inbox: 0, building: 1, openItems: 1 });
+    expect(overview.stages.building).toEqual([{ prd: 4, topic: 't4', openItems: 1 }]);
   });
 
-  it('counts a built feature branch with no open item in the outbox, none open', () => {
+  it('counts a built feature branch with no open item building, none open', () => {
     const overview = overviewFor(facts({ inbox: [4], features: [feature(4, { ...CODE, outbox: ['settled.md'] })] }));
-    expect(overview.stages.outbox).toEqual([{ prd: 4, topic: 't4', openItems: 0 }]);
+    expect(overview.stages.building).toEqual([{ prd: 4, topic: 't4', openItems: 0 }]);
   });
 
   it('counts open items by the rule outboxItemFiles applies', () => {
@@ -170,13 +173,13 @@ describe('overviewFor — the outbox (PRD 315, slice s2)', () => {
     expect(overviewFor(facts({ inbox: [4], features: [feature(4, { outbox })] })).counts.openItems).toBe(2);
   });
 
-  it('sums the open items of every PRD in the outbox, and lists the outbox newest first', () => {
+  it('sums the open items of every PRD building, and lists building newest first', () => {
     const overview = overviewFor(facts({
       inbox: [4, 5, 6],
       features: [feature(4, { outbox: ['a.md'] }), feature(6, { outbox: ['a.md', 'b.md'] })],
     }));
-    expect(overview.counts).toMatchObject({ inbox: 1, outbox: 2, openItems: 3 });
-    expect(overview.stages.outbox.map(({ prd }) => prd)).toEqual([6, 4]);
+    expect(overview.counts).toMatchObject({ inbox: 1, building: 2, openItems: 3 });
+    expect(overview.stages.building.map(({ prd }) => prd)).toEqual([6, 4]);
   });
 
   it('ignores the feature branch of a shipped PRD, and one whose topic names no inbox folder', () => {
@@ -185,27 +188,27 @@ describe('overviewFor — the outbox (PRD 315, slice s2)', () => {
       inbox: [2],
       features: [feature(1, CODE), feature(9, { ...CODE, outbox: ['a.md'] })],
     }));
-    expect(overview.counts).toEqual({ shipped: 1, inbox: 1, outbox: 0, openItems: 0, inReview: 0 });
+    expect(overview.counts).toEqual({ prd: 0, inbox: 1, building: 0, openItems: 0, outbox: 0, shipped: 1, retro: 0 });
   });
 
-  it('keeps an outbox PRD in progress in the bar', () => {
+  it('keeps a building PRD in progress in the bar', () => {
     const overview = overviewFor(facts({ shipped: [1, 2, 3], inbox: [4, 5], features: [feature(5, CODE)] }));
     expect(overview.bar).toEqual({ delivered: 3, total: 5, percent: 60, filled: 18 });
-    expect(overview.inProgress).toEqual({ total: 2, inbox: 1, outbox: 1 });
+    expect(overview.inProgress).toEqual({ total: 2, inbox: 1, building: 1, outbox: 0 });
   });
 });
 
-describe('overviewFor — in review (PRD 315, slice s2)', () => {
+describe('overviewFor — PRD, a phase-0 PR in review (PRD 315 s2, PRD 587)', () => {
   it('counts a phase-0 branch whose PRD is in neither folder of the base', () => {
     const overview = overviewFor(facts({ shipped: [1], inbox: [2], phase0: [phase0(9, { inbox: [2, 9] })] }));
-    expect(overview.counts).toEqual({ shipped: 1, inbox: 1, outbox: 0, openItems: 0, inReview: 1 });
-    expect(overview.stages.inReview).toEqual([{ prd: 9, topic: 't9' }]);
+    expect(overview.counts).toEqual({ prd: 1, inbox: 1, building: 0, openItems: 0, outbox: 0, shipped: 1, retro: 0 });
+    expect(overview.stages.prd).toEqual([{ prd: 9, topic: 't9' }]);
   });
 
-  it('keeps in review out of the bar and out of the progress', () => {
+  it('keeps PRD out of the bar and out of the progress', () => {
     const overview = overviewFor(facts({ shipped: [1, 2, 3], inbox: [4, 5], phase0: [phase0(9)] }));
     expect(overview.bar).toEqual({ delivered: 3, total: 5, percent: 60, filled: 18 });
-    expect(overview.inProgress).toEqual({ total: 2, inbox: 2, outbox: 0 });
+    expect(overview.inProgress).toEqual({ total: 2, inbox: 2, building: 0, outbox: 0 });
   });
 
   it('ignores a phase-0 branch whose PRD shipped or is in the inbox, and one whose topic names no folder on it', () => {
@@ -214,17 +217,17 @@ describe('overviewFor — in review (PRD 315, slice s2)', () => {
       inbox: [2],
       phase0: [phase0(1), phase0(2), phase0(9, { inbox: [9], topic: 'elsewhere' })],
     }));
-    expect(overview.counts.inReview).toBe(0);
+    expect(overview.counts.prd).toBe(0);
     expect(overview.counts).toMatchObject({ shipped: 1, inbox: 1 });
   });
 
-  it('counts a PRD once when two phase-0 branches hold it, and lists in review newest first', () => {
+  it('counts a PRD once when two phase-0 branches hold it, and lists PRD newest first', () => {
     const overview = overviewFor(facts({ phase0: [phase0(8), phase0(9), { ...phase0(9), branch: 'docs/phase-0-t9-again' }] }));
-    expect(overview.stages.inReview.map(({ prd }) => prd)).toEqual([9, 8]);
-    expect(overview.counts.inReview).toBe(2);
+    expect(overview.stages.prd.map(({ prd }) => prd)).toEqual([9, 8]);
+    expect(overview.counts.prd).toBe(2);
   });
 
-  it('shows nothing yet in the bar when the only PRD is in review', () => {
+  it('shows nothing yet in the bar when the only PRD waits on its phase-0 PR', () => {
     expect(overviewFor(facts({ phase0: [phase0(9)] })).bar).toEqual({ delivered: 0, total: 0, percent: null, filled: 0 });
   });
 });
@@ -251,7 +254,7 @@ describe('overviewFor — yours (PRD 315, slice s3)', () => {
       features: [feature(4, { outbox: ['a.md'], authors: [OTHER], touched: [touch(4)] })],
       phase0: [phase0(9, { touched: [touch(9)] }), phase0(8, { touched: [touch(8, OTHER)] })],
     }));
-    expect(numbers(overview.yours)).toEqual({ rows: ['outbox 4', 'inReview 9'], shipped: [] });
+    expect(numbers(overview.yours)).toEqual({ rows: ['building 4', 'prd 9'], shipped: [] });
   });
 
   it('counts the PRD whose feature branch carries a commit of yours beyond the base, folder untouched', () => {
@@ -261,7 +264,7 @@ describe('overviewFor — yours (PRD 315, slice s3)', () => {
       touched: [touch(3, OTHER), touch(4, OTHER), touch(5, OTHER)],
       features: [feature(4, { ...CODE, authors: [OTHER, ME] }), feature(5, { ...CODE, authors: [OTHER] })],
     }));
-    expect(numbers(overview.yours)).toEqual({ rows: ['outbox 4'], shipped: [] });
+    expect(numbers(overview.yours)).toEqual({ rows: ['building 4'], shipped: [] });
   });
 
   it('counts a feature branch of yours for its inbox PRD even while it is not built', () => {
@@ -285,7 +288,7 @@ describe('overviewFor — yours (PRD 315, slice s3)', () => {
     expect(overview.yours.rows).toEqual([]);
   });
 
-  it('lists the outbox, then the inbox, then in review, each newest first, then the shipped newest first', () => {
+  it('lists building, then the inbox, then PRD, each newest first, then the shipped newest first', () => {
     const overview = overviewFor(facts({
       email: ME,
       shipped: [1, 3, 2],
@@ -295,12 +298,12 @@ describe('overviewFor — yours (PRD 315, slice s3)', () => {
       phase0: [phase0(8, { touched: [touch(8)] }), phase0(9, { touched: [touch(9)] })],
     }));
     expect(overview.yours.rows).toEqual([
-      { stage: 'outbox', prd: 6, topic: 't6', openItems: 0 },
-      { stage: 'outbox', prd: 4, topic: 't4', openItems: 2 },
+      { stage: 'building', prd: 6, topic: 't6', openItems: 0 },
+      { stage: 'building', prd: 4, topic: 't4', openItems: 2 },
       { stage: 'inbox', prd: 7, topic: 't7' },
       { stage: 'inbox', prd: 5, topic: 't5' },
-      { stage: 'inReview', prd: 9, topic: 't9' },
-      { stage: 'inReview', prd: 8, topic: 't8' },
+      { stage: 'prd', prd: 9, topic: 't9' },
+      { stage: 'prd', prd: 8, topic: 't8' },
     ]);
     expect(overview.yours.shipped).toEqual([{ prd: 3, topic: 't3' }, { prd: 2, topic: 't2' }, { prd: 1, topic: 't1' }]);
   });
@@ -314,7 +317,7 @@ describe('overviewFor — yours (PRD 315, slice s3)', () => {
       features: [feature(4, { ...CODE, authors: [ME], touched: [touch(4)] })],
       phase0: [phase0(4, { touched: [touch(4)] })],
     }));
-    expect(numbers(overview.yours)).toEqual({ rows: ['outbox 4'], shipped: [1] });
+    expect(numbers(overview.yours)).toEqual({ rows: ['building 4'], shipped: [1] });
   });
 
   it('leaves out a PRD of yours that is in no stage, and a feature branch whose topic names no inbox PRD', () => {
@@ -344,5 +347,49 @@ describe('overviewFor — yours (PRD 315, slice s3)', () => {
     const overview = overviewFor(facts({ email: ME, shallow: true, shipped: [1], touched: [touch(1)] }));
     expect(overview.yours).toEqual({ state: 'shallow', email: ME, rows: [], shipped: [] });
     expect(overview.bar).toEqual({ delivered: 1, total: 1, percent: 100, filled: 30 });
+  });
+});
+
+describe('overviewFor — the seven stages (PRD 587, slice s5)', () => {
+  it('counts an inbox PRD with a merged sub-PR and a draft feature PR as building', () => {
+    const overview = overviewFor(facts({ inbox: [4], features: [feature(4, CODE)] }));
+    expect(overview.stages.building).toEqual([{ prd: 4, topic: 't4', openItems: 0 }]);
+    expect(overview.counts).toMatchObject({ inbox: 0, building: 1, outbox: 0 });
+  });
+
+  it('counts one whose feature PR is ready, its branch having shipped the folder, as outbox', () => {
+    const overview = overviewFor(facts({ inbox: [4, 5], features: [feature(4, { ...CODE, ships: true }), feature(5, CODE)] }));
+    expect(overview.stages.outbox).toEqual([{ prd: 4, topic: 't4', openItems: 0 }]);
+    expect(overview.stages.building).toEqual([{ prd: 5, topic: 't5', openItems: 0 }]);
+    expect(overview.counts).toEqual({ prd: 0, inbox: 0, building: 1, openItems: 0, outbox: 1, shipped: 0, retro: 0 });
+    expect(overview.inProgress).toEqual({ total: 2, inbox: 0, building: 1, outbox: 1 });
+  });
+
+  it('keeps a red gate, open items and a draft feature PR, at building with its open items', () => {
+    const overview = overviewFor(facts({ inbox: [4], features: [feature(4, { ...CODE, outbox: ['s1-01-a.md'] })] }));
+    expect(overview.counts).toMatchObject({ building: 1, openItems: 1, outbox: 0 });
+  });
+
+  it('counts a shipped folder holding the retro file as retro, still delivered in the bar', () => {
+    const overview = overviewFor({ ...facts({ shipped: [1, 2, 3], inbox: [4] }), retro: [2, 9] });
+    expect(overview.counts).toMatchObject({ shipped: 2, retro: 1 });
+    expect(overview.stages.retro).toEqual([{ prd: 2, topic: 't2' }]);
+    expect(overview.bar).toEqual({ delivered: 3, total: 4, percent: 75, filled: 22 });
+  });
+
+  it('lists a retro PRD of yours among your delivered ones, newest first', () => {
+    const overview = overviewFor({ ...facts({ email: ME, shipped: [1, 2, 3], touched: [touch(1), touch(2), touch(3)] }), retro: [2] });
+    expect(overview.yours.shipped.map(({ prd }) => prd)).toEqual([3, 2, 1]);
+  });
+
+  it('lists yours in the outbox, then building, then the inbox, then PRD', () => {
+    const overview = overviewFor(facts({
+      email: ME,
+      inbox: [4, 5, 6],
+      touched: [4, 5, 6].map((prd) => touch(prd)),
+      features: [feature(4, CODE), feature(5, { ...CODE, ships: true })],
+      phase0: [phase0(9, { touched: [touch(9)] })],
+    }));
+    expect(overview.yours.rows.map(({ stage, prd }) => `${stage} ${prd}`)).toEqual(['outbox 5', 'building 4', 'inbox 6', 'prd 9']);
   });
 });

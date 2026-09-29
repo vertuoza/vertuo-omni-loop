@@ -1,17 +1,18 @@
 import type { Metadata } from 'next';
-import { Notice } from '../../src/ask/page/Notice';
 import { arcadeMode } from '../../src/data/mode';
-import { supabaseEnv, supabaseServer } from '../../src/data/supabase-server';
 import type { DossierListRow } from '../../src/dossier/store';
 import { dossierGithub } from '../../src/dossier/github/server';
 import { DEMO_DOSSIER_ID, DEMO_GITHUB, DEMO_VIEWER, demoHistory } from '../../src/dossier/page/demo';
 import { DossierHistory } from '../../src/dossier/page/DossierHistory';
 import { DossierSignIn } from '../../src/dossier/page/DossierSignIn';
 import {
-  HISTORY_CALLBACK, historyChoices, historyItems, historyToRead, readHistoryFilters, readOpenCounts, type OpenCounts,
+  HISTORY_CALLBACK, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readOpenCounts,
+  type CurrentStages, type OpenCounts,
 } from '../../src/dossier/page/history';
+import { DossierDatabaseDown, DossiersClosed, dossierSession } from '../../src/dossier/page/route-gate';
 import { readHistory } from '../../src/dossier/page/source';
 import { ofWork } from '../../src/dossier/page/work';
+import { stageStore } from '../../src/stages/store';
 
 // /prd, the history (PRD 216): every dossier of the signed-in person's workspaces, newest activity
 // first, filtered by repository (any of a dossier's repositories) and by draft or PRD, and searched by
@@ -21,6 +22,9 @@ import { ofWork } from '../../src/dossier/page/work';
 // signed-in person opened (the demo's viewer in the demo), or All with who=all. PRD 251: each numbered
 // row the filters let through has its outbox's open questions counted by the server's GitHub reader
 // (its 60-second cache), for `n open` and Needs an answer; the demo counts the demo dossier's outbox.
+// PRD 587: the numbered rows' current stages are read from the stored stages, as the signed-in person,
+// for the stage bar, `?stage=` and each row's pill; stages that cannot be read show none. The demo has no
+// stored stage, so only its answered drafts read idea.
 // PRD 627: only PRDs' dossiers; the fixes have their own lists, /visual and /bugs.
 
 export const metadata: Metadata = { title: 'PRDs · OMNI LOOP' };
@@ -34,8 +38,11 @@ const DEMO_READER = { summary: async ({ id }: { id: string }) => (id === DEMO_DO
 export default async function HistoryRoute({ searchParams }: Props) {
   const query = await searchParams;
   const filters = readHistoryFilters(query);
-  const listing = (all: DossierListRow[], viewer: string, open: OpenCounts, rows = ofWork(all, 'prd')) => (
-    <DossierHistory items={historyItems(rows, filters, viewer, open)} choices={historyChoices(rows)} filters={filters} />
+  const listing = (rows: DossierListRow[], viewer: string, open: OpenCounts, stages: CurrentStages = new Map()) => (
+    <DossierHistory
+      items={historyItems(rows, filters, viewer, open, stages)} choices={historyChoices(rows)} filters={filters}
+      stages={historyStageBar(rows, filters, viewer, open, stages)}
+    />
   );
   const mode = arcadeMode(process.env);
 
@@ -43,16 +50,9 @@ export default async function HistoryRoute({ searchParams }: Props) {
     const rows = ofWork(demoHistory(Date.now()), 'prd');
     return listing(rows, DEMO_VIEWER, await readOpenCounts(historyToRead(rows, filters, DEMO_VIEWER), DEMO_READER));
   }
-  const env = supabaseEnv();
-  if (mode === 'closed' || !env) {
-    return (
-      <Notice title="PRD dossiers are not open here">
-        <p className="ask-muted">This deployment has no database, so it keeps no dossier.</p>
-      </Notice>
-    );
-  }
-  const db = await supabaseServer();
-  const { data: { user } } = await db.auth.getUser();
+  const session = await dossierSession(mode);
+  if (!session) return <DossiersClosed />;
+  const { env, db, user } = session;
   if (!user) return <DossierSignIn supabase={env} returnPath={HISTORY_CALLBACK} error={one(query.signin_error)} what="history" />;
 
   let rows: DossierListRow[];
@@ -60,11 +60,11 @@ export default async function HistoryRoute({ searchParams }: Props) {
     rows = ofWork(await readHistory(db), 'prd');
   } catch (error) {
     console.error(error);
-    return (
-      <Notice title="The dossier database could not answer" tone="error">
-        <p className="ask-muted">Reload the page in a moment.</p>
-      </Notice>
-    );
+    return <DossierDatabaseDown />;
   }
-  return listing(rows, user.id, await readOpenCounts(historyToRead(rows, filters, user.id), dossierGithub()));
+  const [open, stages] = await Promise.all([
+    readOpenCounts(historyToRead(rows, filters, user.id), dossierGithub()),
+    readCurrentStages(rows, stageStore(db)),
+  ]);
+  return listing(rows, user.id, open, stages);
 }

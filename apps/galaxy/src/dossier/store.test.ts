@@ -13,7 +13,7 @@ import {
 
 const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20260928090000_dossiers.sql', import.meta.url)), 'utf8');
 // PRD 627: the kind of a dossier, its new version kinds and dossier_push() taking the kind.
-const FIX_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261010090000_fix_dossiers.sql', import.meta.url)), 'utf8');
+const FIX_MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261011090000_fix_dossiers.sql', import.meta.url)), 'utf8');
 
 /** The parameter names `create function public.<name>(…)` declares, in order. */
 function parameters(name: string, migration = MIGRATION): string[] {

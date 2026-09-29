@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 import { COMMAND_TABLE } from '../bin/commands/index.mjs';
+import { STAGE_ORDER, STAGE_WORDS } from '../lib/status/format.mjs';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
 const PLUGIN_DIR = 'kit/plugin';
@@ -606,8 +607,8 @@ describe('the release note in the skills that ship', () => {
 });
 
 // PRD 292: the brainstorm and the plan end with a plain "What is next?", written for someone new to
-// the loop. The brainstorm's step 10 shows the PRD's folder as a tree, where it is on the loop's six
-// stages, then What is next? in three steps; the plan's step 7, run alone, ends with What is next? in
+// the loop. The brainstorm's step 10 shows the PRD's folder as a tree, where it is on the loop's seven
+// stages (PRD 587), then What is next? in three steps; the plan's step 7, run alone, ends with What is next? in
 // two. Each puts the command alone on the reply's last line, and the PRD issue's Handoff says the
 // command waits for the phase-0 merge.
 describe('the hand-off that ends the brainstorm and the plan', () => {
@@ -615,7 +616,7 @@ describe('the hand-off that ends the brainstorm and the plan', () => {
   const COMMAND = '/omni:yolo <n>';
   const BRAINSTORM = [
     '<folder>/', 'spec.md', 'plan.md', 'before-after.html',
-    'idea ──▶ PRD ──▶ inbox ──▶ outbox ──▶ shipped ──▶ retro', 'you are here', 'merging the phase-0 PR moves it here',
+    'idea ──▶ PRD ──▶ inbox ──▶ building ──▶ outbox ──▶ shipped ──▶ retro', 'you are here', 'merging the phase-0 PR moves it here',
     '**What is next?**', 'Review the PRD', 'Merge that PR', '/clear',
   ];
   const PLAN = ['**What is next?**', 'Review the plan', '/clear'];
@@ -688,15 +689,15 @@ describe('the hand-off that ends the brainstorm and the plan', () => {
 
 // PRD 301: the yolo and the yolo-fix end the way the brainstorm does since PRD 292. The yolo's step 7
 // keeps its report, then shows the PRD's folder as a tree (shipped with its outbox inside, or the
-// inbox folder beside its outbox folder), where it is on the loop's six stages ("you are here" under
-// outbox, the feature PR's merge under shipped), then What is next? for the ending the run reached:
+// inbox folder beside its outbox folder), where it is on the loop's seven stages ("you are here" under
+// outbox when green, under building when red or held, the feature PR's merge under shipped), then What is next? for the ending the run reached:
 // green, red or held, each with a last line of its own. The yolo-fix's step 8 ends with that hand-off
 // as written, its held ending resuming with `/omni:yolo-fix <n>`.
 describe('the hand-off that ends the yolo and the yolo-fix', () => {
   const read = (skill) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
   const YOLO = [
     '<dir>/', 'spec.md', 'plan.md', 'before-after.html', 'release.md', 'outbox/', 'settled.md',
-    'idea ──▶ PRD ──▶ inbox ──▶ outbox ──▶ shipped ──▶ retro', 'you are here', 'merging the feature PR moves it here',
+    'idea ──▶ PRD ──▶ inbox ──▶ building ──▶ outbox ──▶ shipped ──▶ retro', 'you are here', 'merging the feature PR moves it here',
     'Review the change', 'Merge that PR', 'retro PR', 'knowledge PR',
     'Read the questions', '#issuecomment-', '/clear',
     'See what holds it', '/clear',
@@ -779,6 +780,56 @@ describe('the hand-off that ends the yolo and the yolo-fix', () => {
       `What is next? 2 ends on /omni:yolo <n>, not ${ENDINGS[1]}`,
       `What is next? 3 ends on nothing, not ${ENDINGS[2]}`,
     ]);
+  });
+});
+
+// PRD 587: the Where it is blocks of the brainstorm and the yolo name the loop's seven stages, the
+// kit's stage words in the kit's order, one plain line each, and the yolo puts "you are here" under
+// outbox on the green ending and under building on the red and held ones.
+describe('the seven stages in the hand-offs of the brainstorm and the yolo', () => {
+  const read = (skill) => readFileSync(join(repoRoot, PLUGIN_DIR, 'skills', skill, 'SKILL.md'), 'utf8');
+  const TRACK = STAGE_ORDER.map((stage) => STAGE_WORDS[stage]).join(' ──▶ ');
+
+  /** The fenced blocks of `text` that start with `Where it is`, or hold the track, as their lines. */
+  const blocks = (text) => {
+    const out = [];
+    let block = null;
+    for (const line of text.split('\n')) {
+      if (line.trim().startsWith('```')) {
+        if (block && block.some((l) => l.trim() === TRACK)) out.push(block);
+        block = block ? null : [];
+      } else if (block) block.push(line);
+    }
+    return out;
+  };
+
+  /** The stage words each line under the track starts with, in order. */
+  const stageLines = (block) => block.map((line) => line.match(/^ {2}(\S+) {2,}\S/)?.[1]).filter(Boolean);
+
+  /** The track word above the marker of "you are here". */
+  const here = (block) => {
+    const track = block.find((line) => line.trim() === TRACK);
+    const at = block.find((line) => line.includes('└─ you are here')).indexOf('└─ you are here');
+    for (const word of track.matchAll(/\S+/g)) if (at >= word.index && at < word.index + word[0].length) return word[0];
+    return null;
+  };
+
+  it('/omni:brainstorm names the seven stages, one line each, "you are here" under PRD', () => {
+    const [block] = blocks(skillSection(read('brainstorm'), '10.'));
+    expect(stageLines(block)).toEqual(STAGE_ORDER.map((stage) => STAGE_WORDS[stage]));
+    expect(here(block)).toBe('PRD');
+  });
+
+  it('/omni:yolo names the seven stages, "you are here" under outbox when green, under building when red or held', () => {
+    const found = blocks(skillSection(read('yolo'), '7. Hand off'));
+    expect(found).toHaveLength(2);
+    expect(stageLines(found[0])).toEqual(STAGE_ORDER.map((stage) => STAGE_WORDS[stage]));
+    expect(here(found[0])).toBe('outbox');
+    expect(here(found[1])).toBe('building');
+  });
+
+  it('never keeps the six-stage track', () => {
+    for (const skill of ['brainstorm', 'yolo']) expect(read(skill)).not.toContain('inbox ──▶ outbox');
   });
 });
 

@@ -6,7 +6,7 @@ import { ENTRIES, PRINCIPLES, STAGES } from './entries.mjs';
 const HELP_WIDTH = 78; // prose wraps here, and who runs a command ends here
 const HELP_INDENT = '  ';
 const LABEL_COLUMN = 24; // the overview's label column
-const STAGE_COLUMN = 9; // the loop's name column
+const STAGE_COLUMN = 10; // the loop's name column: its widest, building, and two spaces
 const WHO_RUNS = Object.freeze({ you: 'for you', skills: 'run by the skills' });
 const HELP_CLOSING = 'omni help <command> tells more about any of them.';
 const DOCS_LABEL_COLUMN = 9; // `When` and `Example`, then their text (PRD 580)

@@ -6,7 +6,7 @@
 //   POST /api/ask/sessions/:id/close                           → {id, status: "closed"}
 //   DELETE /api/ask/sessions/:id                               → {id, deleted: true}
 //   POST /api/ask/sessions/:id/rounds     {questions, context?} → {roundId}
-//   GET  /api/ask/rounds/:id/wait                              → {status: open|answered|abandoned|closed, answers?}
+//   GET  /api/ask/rounds/:id/wait                              → {status: open|answered|abandoned|closed, answers?, attachments?}
 //   POST /api/ask/rounds/:id/answers      {answers, via: "terminal"} → {id, status: "answered", via: "terminal"}
 //   POST /api/ask/rounds/:id/abandon                           → {id, status: "abandoned"}
 //   PATCH /api/ask/rounds/:id/category    {category}           → {id, category, category_by}
@@ -41,18 +41,22 @@
 // then answer it on the page while it is open (/ask/q/<round>). Sharing any other round is refused:
 // 403 for a member who is not the owner, 400 for someone outside the workspace (or the owner themself).
 //
+// An answer given on the page may carry screenshots (PRD 620). `wait` then also hands back, per question,
+// each one's file name and a signed link valid 10 minutes, made as the caller (`{name, url}`, `url`
+// null for a link that could not be made); an answer without any carries no `attachments` field.
+//
 // Where a repository's questions land (PRD 459) is asked by `omni ask on` and `omni ask status`: the
 // workspace, or the database's reason why none (repo_workspace(), through the same service-role lookup
 // the terminal sign-in uses), both as 200: it is a question of fact, not a refusal of the call. When
 // this deployment cannot look it up (no service role), both are null and the terminal says nothing more.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Placement } from './cli-code';
-import { authenticate, withInstallLink, type AskCaller, type TokenCheck } from './auth';
+import { authenticate, callerOrigin as origin, withInstallLink, type AskCaller, type TokenCheck } from './auth';
 import { CATEGORIES, isCategory, type Category, type Classifier, type ClassifyInput } from './classify';
 import { costUsd } from './prices';
 import {
-  askCategories, askShares, askStore, AskStoreError, memberLabel, sessionClosed,
-  type AskAnswers, type AskCategories, type AskRound, type AskRoundFacts, type AskSession, type AskShares, type AskStore, type AskTokens,
+  askAttachments, askCategories, askShares, askStore, AskStoreError, memberLabel, sessionClosed,
+  type AskAnswers, type AskAttachmentFiles, type AskCategories, type AskRound, type AskRoundFacts, type AskSession, type AskShares, type AskStore, type AskTokens,
 } from './store';
 
 /** How long one wait holds before it answers `open`: within the 60 s the routes may run. */
@@ -63,7 +67,7 @@ export const POLL_MS = 1_000;
 export const MAX_BODY_BYTES = 256 * 1024;
 
 /** A Supabase client acting as one access token: the Auth server's check, and the tables. */
-export type AskClient = TokenCheck & Pick<SupabaseClient, 'from' | 'rpc'>;
+export type AskClient = TokenCheck & Pick<SupabaseClient, 'from' | 'rpc' | 'storage'>;
 
 export type AskDeps = {
   /** A client acting as the given access token, or null when no database is configured. */
@@ -92,7 +96,9 @@ const closedSession = () => refuse(409, 'This ask session is closed. Switch ask 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-type Signed = { caller: AskCaller; store: AskStore; categories: AskCategories; shares: AskShares; now: () => number };
+type Signed = {
+  caller: AskCaller; store: AskStore; categories: AskCategories; shares: AskShares; files: AskAttachmentFiles; now: () => number;
+};
 
 /** The caller and a store acting as them, or the Response that refuses them. */
 async function signIn(request: Request, deps: AskDeps): Promise<Signed | Response> {
@@ -101,7 +107,12 @@ async function signIn(request: Request, deps: AskDeps): Promise<Signed | Respons
   if (!auth.ok) return refuse(auth.status, auth.error);
   const client = deps.connect(auth.caller.token);
   return {
-    caller: auth.caller, store: askStore(client), categories: askCategories(client), shares: askShares(client), now: deps.now ?? Date.now,
+    caller: auth.caller,
+    store: askStore(client),
+    categories: askCategories(client),
+    shares: askShares(client),
+    files: askAttachments(client),
+    now: deps.now ?? Date.now,
   };
 }
 
@@ -164,14 +175,6 @@ async function alreadyAnswered(who: Signed, roundId: string, session: AskSession
 /** A call keeps its session alive, unless it already reads as closed. */
 async function touch(who: Signed, session: AskSession) {
   if (!sessionClosed(session, who.now())) await who.store.touchSession(session.id, new Date(who.now()));
-}
-
-/** Where the caller reached this app, behind Vercel's proxy too: the page link must use it. */
-function origin(request: Request) {
-  const url = new URL(request.url);
-  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? url.host;
-  const proto = request.headers.get('x-forwarded-proto') ?? url.protocol.replace(':', '');
-  return `${proto}://${host}`;
 }
 
 /** A context field: missing or null reads as null; `ok` says whether a value it holds is fine. */
@@ -248,12 +251,16 @@ export function closeSession(request: Request, id: string, deps: AskDeps): Promi
   });
 }
 
-/** Deletes the caller's own session and its rounds, for good (PRD 144: kept until its owner deletes it). */
+/** Deletes the caller's own session, its rounds and their screenshots, for good (PRD 144: kept until
+ * its owner deletes it; PRD 620: the screenshots go first). */
 export function deleteSession(request: Request, id: string, deps: AskDeps): Promise<Response> {
   return handle(request, deps, async (who) => {
     const session = UUID.test(id) ? await who.store.session(id) : null;
     if (!session) return notFound('session');
     if (session.owner !== who.caller.id) return refuse(403, 'Only the session\'s owner deletes it.');
+    // Its screenshots first (PRD 620): the rows' delete would leave the files behind, and a failure
+    // here keeps the rows, so deleting again finds them.
+    await who.files.removeRounds(await who.store.roundIds(session.id));
     if (!(await who.store.deleteSession(session.id))) return notFound('session');
     return reply(200, { id: session.id, deleted: true });
   });
@@ -321,13 +328,33 @@ function sortLater(who: Signed, deps: AskDeps, roundId: string, input: ClassifyI
   (deps.later ?? ((run) => void run()))(task);
 }
 
-type Verdict = { status: 'answered'; answers: AskAnswers } | { status: 'abandoned' } | { status: 'closed' };
+/** A screenshot as `wait` hands it back: its file name, and a signed link or null. */
+type AttachmentLink = { name: string; url: string | null };
+
+type Verdict =
+  | { status: 'answered'; answers: AskAnswers; attachments?: Record<string, AttachmentLink[]> }
+  | { status: 'abandoned' }
+  | { status: 'closed' };
 
 function verdict(round: AskRound, session: AskSession, now: number): Verdict | null {
   if (round.status === 'answered') return { status: 'answered', answers: round.answers ?? {} };
   if (round.status === 'abandoned') return { status: 'abandoned' };
   if (sessionClosed(session, now)) return { status: 'closed' };
   return null;
+}
+
+/** The verdict with its screenshots' links, when it is an answer that has any; as it was otherwise. */
+async function withLinks(who: Signed, round: AskRound, found: Verdict): Promise<Verdict> {
+  if (found.status !== 'answered' || !round.attachments) return found;
+  const entries = Object.entries(round.attachments).filter(([, paths]) => Array.isArray(paths) && paths.length > 0);
+  if (entries.length === 0) return found;
+  const urls = await who.files.links(entries.flatMap(([, paths]) => paths));
+  let at = 0;
+  const attachments = Object.fromEntries(entries.map(([question, paths]) => [
+    question,
+    paths.map((path) => ({ name: path.slice(path.lastIndexOf('/') + 1), url: urls[at++] ?? null })),
+  ]));
+  return { ...found, attachments };
 }
 
 const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -338,7 +365,7 @@ export function waitRound(request: Request, id: string, deps: AskDeps): Promise<
     if (!found) return notFound('round');
     let { round, session } = found;
     const first = verdict(round, session, who.now());
-    if (first) return reply(200, first);
+    if (first) return reply(200, await withLinks(who, round, first));
     await touch(who, session);
 
     const sleep = deps.sleep ?? pause;
@@ -354,7 +381,7 @@ export function waitRound(request: Request, id: string, deps: AskDeps): Promise<
       round = nextRound;
       session = nextSession;
       const now = verdict(round, session, who.now());
-      if (now) return reply(200, now);
+      if (now) return reply(200, await withLinks(who, round, now));
     }
   });
 }

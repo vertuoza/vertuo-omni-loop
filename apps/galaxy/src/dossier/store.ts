@@ -5,7 +5,7 @@
 // numbers a draft, and adds a version of each kind only when the hash of its content, computed by the
 // database, differs from the latest. A member of the workspace reads a dossier and its versions.
 // Since PRD 627 a dossier has a kind — a PRD's, a visual fix's or a bug fix's — keyed with the repository
-// and the number (supabase/migrations/20261010090000_fix_dossiers.sql), each kind taking its own versions.
+// and the number (supabase/migrations/20261011090000_fix_dossiers.sql), each kind taking its own versions.
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /** The three artifacts of a PRD's folder, in the order a push sends them. */
@@ -17,7 +17,7 @@ export type DossierKind = (typeof DOSSIER_KINDS)[number];
 export const ARTIFACT_KINDS = ['spec', 'plan', 'before-after', 'variations', 'bug-record'] as const;
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 
-/** What a dossier is of (PRD 627, supabase/migrations/20261010090000_fix_dossiers.sql): a PRD, a visual
+/** What a dossier is of (PRD 627, supabase/migrations/20261011090000_fix_dossiers.sql): a PRD, a visual
  * fix or a bug fix. A fix is numbered by its issue, and is never a draft. */
 export const WORK_KINDS = ['prd', 'visual', 'bug'] as const;
 export type WorkKind = (typeof WORK_KINDS)[number];

@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { UNREAD, type GithubSummary, type OutboxItem } from '../github/summary';
 import type { DossierRoundRow, DossierRow, DossierVersionRow } from '../store';
@@ -85,22 +87,31 @@ describe('the header', () => {
     expect(view(readPick({}), draft)).toMatchObject({ heading: 'DRAFT', draft: true, title: 'Offline quotes' });
   });
 
-  it('links PRD #n to its issue, and gives a draft no link but the idea stage (PRD 426)', () => {
+  it('links PRD #n to its issue, and gives a draft no link but idea once a question is answered, Brainstorming before (PRD 587)', () => {
     expect(view().issueUrl).toBe('https://github.com/vertuoza/vertuo-omni-loop/issues/216');
-    expect(view(readPick({}), draft)).toMatchObject({ issueUrl: null, stage: { id: 'idea', caption: 'Brainstorm in progress' } });
+    expect(view(readPick({}), draft)).toMatchObject({ issueUrl: null, stage: { id: 'idea', words: 'Stage: idea', caption: 'Brainstorm in progress' } });
+    const unanswered = dossierView({ dossier: draft, versions, members: [PIERRE], rounds: [] }, null, readPick({}));
+    expect(unanswered.stage).toMatchObject({ id: 'brainstorming', words: 'Brainstorming' });
+    expect(unanswered.stage?.track.every((s) => s.state === 'ahead')).toBe(true);
   });
 
-  it('shows no track when GitHub was not asked, and the stage worked out from the summary when it was (PRD 426)', () => {
+  it('shows no track when the stages were not asked for, and the stored stage when they were, whatever GitHub says (PRD 587)', () => {
     expect(view().stage).toBeNull();
     const read = { dossier: numbered, versions, members: [PIERRE], rounds };
-    expect(dossierView({ ...read, github: null }, null, readPick({})).stage).toMatchObject({ id: 'unknown', words: 'Stage unknown: GitHub did not answer.' });
+    const stored = [{ stage: 'shipped' as const, reached_at: '2026-09-28T10:00:00Z', synced_at: '2026-09-29T09:15:00Z' }];
+    expect(dossierView({ ...read, github: null, stages: stored }, null, readPick({})).stage)
+      .toMatchObject({ id: 'shipped', words: 'Stage: shipped', synced: 'last synced 29 Sep 2026, 09:15 UTC' });
+    expect(dossierView({ ...read, github: null, stages: [] }, null, readPick({})).stage).toMatchObject({ id: 'syncing', words: 'Syncing…' });
+    expect(dossierView({ ...read, github: null, stages: null }, null, readPick({})).stage).toMatchObject({ id: 'syncing' });
     const github = {
       repo: 'vertuoza/vertuo-omni-loop', prd: 216, folder: '0216-prd-dossiers', topic: 'prd-dossiers', issue: null, retro: null,
       phase0: { number: 220, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/220', state: 'merged' as const, draft: false },
       feature: { number: 221, url: 'https://github.com/vertuoza/vertuo-omni-loop/pull/221', state: 'open' as const, draft: true },
       mergedSlices: 1,
     };
-    expect(dossierView({ ...read, github, slices: 5 }, null, readPick({})).stage).toMatchObject({ id: 'outbox', caption: 'Being built · 1/5 slices' });
+    const building = [{ stage: 'building' as const, reached_at: '2026-09-28T10:00:00Z', synced_at: '2026-09-29T09:15:00Z' }];
+    expect(dossierView({ ...read, github, slices: 5, stages: building }, null, readPick({})).stage).toMatchObject({ id: 'building', caption: 'Being built · 1/5 slices' });
+    expect(dossierView({ ...read, github, slices: 5 }, null, readPick({})).stage).toBeNull();
   });
 
   it('names an opener by their email when they chose no name, and one who left as such', () => {
@@ -681,5 +692,15 @@ describe('the Outbox tab as the place to answer (PRD 251, s9)', () => {
     expect(v.shown).toMatchObject({ id: versions[3].id, number: 3, frame: null });
     expect(v.versions).toEqual([]);
     expect(readPick({ tab: 'outbox', context: 'elsewhere' })).toEqual({ tab: 'outbox', version: null });
+  });
+});
+
+describe('the words of an unknown stage (PRD 587)', () => {
+  it('appear nowhere in apps/galaxy/src: the stage is stored, so it is never unknown', () => {
+    const words = ['Stage', 'unknown'].join(' ');
+    const src = join(import.meta.dirname, '..', '..');
+    const files = readdirSync(src, { recursive: true, encoding: 'utf8' }).filter((f) => /\.(tsx?|css)$/.test(f));
+    expect(files.length).toBeGreaterThan(100);
+    expect(files.filter((f) => readFileSync(join(src, f), 'utf8').includes(words))).toEqual([]);
   });
 });

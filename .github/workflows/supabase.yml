@@ -71,6 +71,17 @@ jobs:
         # each member's answered rounds in that workspace's sessions only; both return nothing to a
         # non-member, and neither runs signed out.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dashboards.sql
+      - name: Who may read and write the PRD stages
+        # Only the service role records a PRD's stages and topics, and a second write of a stage keeps
+        # its first date. A member reads their own workspace's rows; anyone else reads nothing, and
+        # nobody signed in writes.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/prd_stages.sql
+      - name: Who may read and write the repositories
+        # Only a workspace's owner adds a repository or switches its tracking, through the two
+        # repository functions; a member, another workspace's owner, a stranger and anyone signed out
+        # are refused. Members read the repositories, pull requests and reviews; a stranger reads
+        # nothing; nobody writes the three tables directly. vertuoza alone is seeded with six.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/repositories.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

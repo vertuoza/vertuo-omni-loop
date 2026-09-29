@@ -3,7 +3,9 @@
 // PRD 144 (20260927100000_ask_workspace.sql) every member of a session's workspace reads it and its
 // rounds, and only its owner changes or deletes it; a session of another workspace reads as missing,
 // exactly like one that never was. Since 20260927120000_ask_shares.sql its owner may share a round
-// with another member, who may then answer it while it is open.
+// with another member, who may then answer it while it is open. Since PRD 620
+// (20261010090000_ask_attachments.sql) an answer given on the page may carry screenshots: files in the
+// private `ask-attachments` bucket, their paths in the round's `attachments`, set with the answer.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Category } from './classify';
 
@@ -15,6 +17,14 @@ export type AskQuestions = unknown[];
 /** AskUserQuestion's `answers`: question text → the chosen label, several joined with ", ", or the
  * text typed for Other. */
 export type AskAnswers = Record<string, string>;
+/** The screenshots an Other answer carries (PRD 620): question text → one to five paths in the
+ * `ask-attachments` bucket, each `<round id>/<n>.<ext>`. */
+export type AskAttachments = Record<string, string[]>;
+
+/** The private bucket the page uploads screenshots to. */
+export const ATTACHMENTS_BUCKET = 'ask-attachments';
+/** How long a screenshot's signed link lives: the terminal downloads it at once. */
+export const SIGNED_LINK_SECONDS = 10 * 60;
 
 export type AskSession = {
   id: string;
@@ -41,6 +51,8 @@ export type AskRound = {
   session_id: string;
   questions: AskQuestions;
   answers: AskAnswers | null;
+  /** Screenshots recorded with the answer (PRD 620); null for none. */
+  attachments: AskAttachments | null;
   answered_via: 'page' | 'terminal' | null;
   status: AskRoundStatus;
   created_at: string;
@@ -62,7 +74,7 @@ export type AskRound = {
 export type AskRoundFacts = Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd'>;
 
 const SESSION = 'id, owner, title, status, created_at, last_seen_at, workspace_id, repo, branch, claude_session_id';
-const ROUND = 'id, session_id, questions, answers, answered_via, status, created_at, answered_at, prd, skill, model, tokens, cost_usd, answered_by, category, category_by';
+const ROUND = 'id, session_id, questions, answers, answered_via, status, created_at, answered_at, attachments, prd, skill, model, tokens, cost_usd, answered_by, category, category_by';
 
 /** Closed, or 12 hours without a call: either way nobody asks in it any more. */
 export function sessionClosed(session: Pick<AskSession, 'status' | 'last_seen_at'>, now: number): boolean {
@@ -79,7 +91,8 @@ export class AskStoreError extends Error {
 
 type Outcome<T> = { data: T | null; error: { code?: string; message: string } | null };
 
-function settle<T>(what: string, { data, error }: Outcome<T>): T | null {
+/** A database call's data, or the AskStoreError that says what failed. */
+export function settle<T>(what: string, { data, error }: Outcome<T>): T | null {
   if (error) throw new AskStoreError(what, error.code, error.message);
   return data;
 }
@@ -116,6 +129,12 @@ export function askStore(db: Pick<SupabaseClient, 'from'>) {
       return (gone ?? []).length > 0;
     },
 
+    /** The ids of a session's rounds, as the caller reads them. */
+    async roundIds(sessionId: string): Promise<string[]> {
+      const rows = settle<Array<{ id: string }>>('read the rounds', await db.from('ask_rounds').select('id').eq('session_id', sessionId));
+      return (rows ?? []).map((row) => row.id);
+    },
+
     /** A new round; `facts` that are all null are not sent, so an older database takes it too. */
     async addRound(sessionId: string, questions: AskQuestions, facts?: AskRoundFacts): Promise<{ id: string }> {
       const known = Object.fromEntries(Object.entries(facts ?? {}).filter(([, value]) => value !== null));
@@ -127,11 +146,12 @@ export function askStore(db: Pick<SupabaseClient, 'from'>) {
     },
 
     /** Moves a round on only from one of `from`, in one statement, so two writers never both win;
-     * null when it was no longer there to move. */
+     * null when it was no longer there to move. An answer's screenshots, when it has any, go in the
+     * same update: the database takes them only with the answer. */
     async moveRound(
       id: string,
       from: AskRoundStatus[],
-      to: { status: 'abandoned' } | { status: 'answered'; answers: AskAnswers; answered_via: 'page' | 'terminal' },
+      to: { status: 'abandoned' } | { status: 'answered'; answers: AskAnswers; answered_via: 'page' | 'terminal'; attachments?: AskAttachments },
     ): Promise<AskRound | null> {
       return settle('move the round', await db.from('ask_rounds').update(to).eq('id', id).in('status', from).select(ROUND).maybeSingle());
     },
@@ -139,6 +159,45 @@ export function askStore(db: Pick<SupabaseClient, 'from'>) {
 }
 
 export type AskStore = ReturnType<typeof askStore>;
+
+/** The screenshots' files (PRD 620), reached as the caller: the bucket's rules decide. */
+export function askAttachments(db: Pick<SupabaseClient, 'storage'>) {
+  return {
+    /** A signed link per path, valid SIGNED_LINK_SECONDS, in order; null for one that could not be
+     * made, and every one null when the call failed. */
+    async links(paths: string[]): Promise<Array<string | null>> {
+      if (paths.length === 0) return [];
+      try {
+        const { data, error } = await db.storage.from(ATTACHMENTS_BUCKET).createSignedUrls(paths, SIGNED_LINK_SECONDS);
+        if (error || !data) return paths.map(() => null);
+        return paths.map((path, i) => {
+          const signed = data.find((d) => d.path === path) ?? data[i];
+          return signed && !signed.error && signed.signedUrl ? signed.signedUrl : null;
+        });
+      } catch {
+        return paths.map(() => null);
+      }
+    },
+
+    /** Removes every screenshot under the rounds' folders (`<round id>/…`), before their rows go:
+     * deleting the rows alone would leave the files behind. Throws when a folder cannot be listed or
+     * its files cannot be removed, so the rows are kept and a retry finds them. */
+    async removeRounds(roundIds: string[]): Promise<void> {
+      const bucket = db.storage.from(ATTACHMENTS_BUCKET);
+      const folders = await Promise.all(roundIds.map(async (roundId) => {
+        const { data, error } = await bucket.list(roundId, { limit: 100 });
+        if (error) throw new AskStoreError('list the screenshots', undefined, error.message);
+        return (data ?? []).map((file) => `${roundId}/${file.name}`);
+      }));
+      const paths = folders.flat();
+      if (paths.length === 0) return;
+      const { error } = await bucket.remove(paths);
+      if (error) throw new AskStoreError('remove the screenshots', undefined, error.message);
+    },
+  };
+}
+
+export type AskAttachmentFiles = ReturnType<typeof askAttachments>;
 
 /** A round's category and who set it, as the database answers a change of it. */
 export type AskCategory = Pick<AskRound, 'category' | 'category_by'>;

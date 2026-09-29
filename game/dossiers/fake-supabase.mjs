@@ -2,7 +2,7 @@
 // may do there, and nothing more, as supabase/migrations/20260928090000_dossiers.sql grants it: read
 // the dossiers with their versions embedded, insert a dossier (only the columns granted, ignoring a
 // duplicate key), update a title, read a version's content, and add a version through
-// dossier_add_version() — the version rule, with its checks. With 20261010090000_fix_dossiers.sql (PRD
+// dossier_add_version() — the version rule, with its checks. With 20261011090000_fix_dossiers.sql (PRD
 // 627): a dossier has a kind (prd when a row names none), its key is (workspace, repository, kind,
 // number), each kind takes its own versions, and a round of variations is added unless one of the same
 // content is already there. Anything else is refused, so a store that

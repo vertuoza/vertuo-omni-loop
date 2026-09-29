@@ -3,8 +3,9 @@ import { fakeSupabase } from '../store.fake';
 import { AskStoreError } from '../store';
 import {
   databasePort, questionPort, readForMe, readHistory, readMembers, readQuestion, readSession, readTabs, removeSession, sendAnswers, sessionReader, shareRound, sortRound, tabsReader,
-  type Db, type SortDb,
+  type Db, type SortDb, type StorageDb,
 } from './source';
+import { stageShots, type Bucket } from './attachments';
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
@@ -150,6 +151,51 @@ describe('sending the answers', () => {
   });
 });
 
+describe('sending with screenshots (PRD 620)', () => {
+  const png = (id: string) => ({ id, type: 'image/png', size: 3, file: new Blob([id], { type: 'image/png' }) });
+
+  /** Ada's client, with a stub bucket beside the fake tables. */
+  function withBucket(w: Awaited<ReturnType<typeof world>>, token: string) {
+    const uploads: string[] = [];
+    const removed: string[][] = [];
+    const bucket: Bucket = {
+      async upload(path) {
+        uploads.push(path);
+        return { error: null };
+      },
+      async remove(paths) {
+        removed.push(paths);
+        return { error: null };
+      },
+    };
+    const client = w.fake.client(token) as unknown as Db;
+    const db = { from: (table: string) => client.from(table), storage: { from: () => bucket } } as unknown as Db & StorageDb;
+    return { db, uploads, removed };
+  }
+
+  it('uploads the staged screenshots, then records them with the answer', async () => {
+    const w = await world();
+    const id = await w.ask();
+    stageShots(id, { 'Which storage?': [png('a'), png('b')] });
+    const { db, uploads } = withBucket(w, 'ada');
+    expect(await sendAnswers(db, id, { 'Which storage?': '(see screenshots)' })).toBe('answered');
+    expect(uploads).toEqual([`${id}/1.png`, `${id}/2.png`]);
+    expect(w.fake.tables.ask_rounds[0]).toMatchObject({
+      status: 'answered', answers: { 'Which storage?': '(see screenshots)' }, attachments: { 'Which storage?': [`${id}/1.png`, `${id}/2.png`] },
+    });
+  });
+
+  it('deletes the uploads of a round the terminal answered first', async () => {
+    const w = await world();
+    const id = await w.ask();
+    w.fake.tables.ask_rounds[0].status = 'abandoned';
+    stageShots(id, { 'Which storage?': [png('a')] });
+    const { db, removed } = withBucket(w, 'ada');
+    expect(await sendAnswers(db, id, ANSWERS)).toBe('taken');
+    expect(removed).toEqual([[`${id}/1.png`]]);
+  });
+});
+
 describe('deleting the session (PRD 144)', () => {
   it('deletes it and its rounds for its owner', async () => {
     const w = await world();
@@ -201,7 +247,7 @@ describe('sorting a round (PRD 144)', () => {
 });
 
 describe('sharing a round, and the rounds shared with me (PRD 144)', () => {
-  const both = (w: Awaited<ReturnType<typeof world>>, token: string) => w.fake.client(token) as unknown as Db & SortDb;
+  const both = (w: Awaited<ReturnType<typeof world>>, token: string) => w.fake.client(token) as unknown as Db & SortDb & StorageDb;
 
   it('lets the owner share a round with a member, and only the owner', async () => {
     const w = await world();

@@ -1,9 +1,11 @@
+import { existsSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { firstOptionAnswers, startFakeAskServer } from '../../test/fake-ask-server.mjs';
 import { makeRepo } from '../../test/fixture.mjs';
 import { askClient } from './client.mjs';
-import { activeMode, endHook, postHook, preHook, PROMPT_CONTEXT, promptOutput, toolAnswers } from './hook.mjs';
-import { readMode, readRound, readTerminal, writeMode, writeRound, writeTerminal } from './local-state.mjs';
+import { activeMode, endHook, postHook, preHook, PROMPT_CONTEXT, promptOutput, toolAnswers, WAIT_LIMITS } from './hook.mjs';
+import { LOCAL_DIR, readMode, readRound, readTerminal, writeMode, writeRound, writeShot, writeTerminal } from './local-state.mjs';
 
 const COLOUR = {
   question: 'Which colour should the badge be?',
@@ -311,6 +313,121 @@ describe('the pre hook', () => {
       metadata: { source: 'brainstorm' },
       answers: { [COLOUR.question]: 'Yellow (Recommended)' },
     });
+  });
+});
+
+describe('the pre hook, with screenshots on the answer (PRD 620)', () => {
+  const ROUND = '6f1c2e0a-1b2c-4d5e-8f90-123456789abc';
+  const DAY = 24 * 60 * 60 * 1000;
+  const PNG = new Uint8Array([137, 80, 78, 71]);
+
+  /** A client that answers the round at once with `answer`, and serves each link through `serve`. */
+  function stubbed(answer, serve = () => PNG) {
+    const calls = [];
+    const client = {
+      openSession: async () => ({ id: 'sess-1' }),
+      openRound: async () => { calls.push(['openRound']); return { roundId: ROUND }; },
+      wait: async () => ({ status: 'answered', ...answer }),
+      abandon: async () => { calls.push(['abandon']); },
+      download: async (url, options) => { calls.push(['download', url, options]); return serve(url); },
+    };
+    const { root } = makeRepo({ files: { '.omni-loop/config.yml': 'kit: 1\n' } });
+    const pre = (questions = [COLOUR, PLACES], more = {}) =>
+      preHook({ root, host: 'ask.example', client, input: preInput(questions), title: () => TITLE, limits: ROOMY, ...more });
+    const shot = (name) => join(root, LOCAL_DIR, 'ask', 'shots', ROUND, name);
+    return { root, calls, pre, shot };
+  }
+
+  it('downloads each into .omni-loop/local/ask/shots/<round>/ and appends their absolute paths to that question\'s answer', async () => {
+    const { calls, pre, shot } = stubbed({
+      answers: { [COLOUR.question]: 'This one, it is too dark', [PLACES.question]: 'Header' },
+      attachments: { [COLOUR.question]: [{ name: '1.png', url: 'https://files.example/1' }, { name: '2.webp', url: 'https://files.example/2' }] },
+    });
+    const output = await pre([COLOUR, PLACES], { limits: WAIT_LIMITS });
+    expect(output.hookSpecificOutput.updatedInput.answers).toEqual({
+      [COLOUR.question]: `This one, it is too dark\n\nScreenshots (open each with Read):\n- ${shot('1.png')}\n- ${shot('2.webp')}`,
+      [PLACES.question]: 'Header',
+    });
+    expect([...readFileSync(shot('1.png'))]).toEqual([...PNG]);
+    expect(existsSync(shot('2.webp'))).toBe(true);
+    const downloads = calls.filter(([what]) => what === 'download');
+    expect(downloads.map(([, url]) => url)).toEqual(['https://files.example/1', 'https://files.example/2']);
+    // 30 s a file at most, inside the hook's own total.
+    expect(downloads.every(([, , options]) => options.timeoutMs === 30_000)).toBe(true);
+  });
+
+  it('names a screenshot it could not download, and the answer still goes through', async () => {
+    const { calls, pre, shot } = stubbed({
+      answers: { [COLOUR.question]: '(see screenshots)' },
+      attachments: { [COLOUR.question]: [
+        { name: '1.png', url: null },
+        { name: '2.png', url: 'https://files.example/broken' },
+        { name: '3.png', url: 'https://files.example/fine' },
+        { name: '../4.png', url: 'https://files.example/escape' },
+      ] },
+    }, (url) => { if (url.endsWith('broken')) throw new Error('403'); return PNG; });
+    const output = await pre([COLOUR]);
+    expect(output.hookSpecificOutput.updatedInput.answers).toEqual({
+      [COLOUR.question]: [
+        '(see screenshots)',
+        '',
+        'Screenshots (open each with Read):',
+        '- Screenshot 1 could not be downloaded',
+        '- Screenshot 2 could not be downloaded',
+        `- ${shot('3.png')}`,
+        '- Screenshot 4 could not be downloaded',
+      ].join('\n'),
+    });
+    expect(calls.filter(([what]) => what === 'download').map(([, url]) => url)).toEqual(['https://files.example/broken', 'https://files.example/fine']);
+    expect(calls.some(([what]) => what === 'abandon')).toBe(false);
+  });
+
+  it('never downloads past the hook\'s total wait', async () => {
+    let clock = 0;
+    const { calls, pre } = stubbed({
+      answers: { [COLOUR.question]: 'See' },
+      attachments: { [COLOUR.question]: [{ name: '1.png', url: 'https://files.example/1' }, { name: '2.png', url: 'https://files.example/2' }] },
+    }, () => { clock += 12_000; return PNG; });
+    const output = await pre([COLOUR], { limits: { totalMs: 12_000, callMs: 5_000 }, now: () => clock });
+    expect(output.hookSpecificOutput.updatedInput.answers[COLOUR.question]).toMatch(/1\.png\n- Screenshot 2 could not be downloaded$/);
+    expect(calls.filter(([what]) => what === 'download').map(([, , options]) => options.timeoutMs)).toEqual([12_000]);
+  });
+
+  it('removes screenshot folders older than 7 days before it opens a new round, and keeps the others', async () => {
+    const { root, calls, pre } = stubbed({ answers: { [COLOUR.question]: 'Cyan' } });
+    const now = Date.parse('2026-09-29T12:00:00Z');
+    writeShot(root, 'old-round', '1.png', PNG);
+    writeShot(root, 'fresh-round', '1.png', PNG);
+    const shots = join(root, LOCAL_DIR, 'ask', 'shots');
+    utimesSync(join(shots, 'old-round'), new Date(now - 8 * DAY), new Date(now - 8 * DAY));
+    utimesSync(join(shots, 'fresh-round'), new Date(now - DAY), new Date(now - DAY));
+    await pre([COLOUR], { now: () => now });
+    expect(readdirSync(shots)).toEqual(['fresh-round']);
+    expect(calls[0]).toEqual(['openRound']);
+  });
+
+  it('leaves an answer with no screenshots exactly as it was, and downloads nothing', async () => {
+    const none = [undefined, null, {}, { [COLOUR.question]: [] }, { 'A question not asked': [{ name: '1.png', url: 'https://files.example/1' }] }];
+    for (const attachments of none) {
+      const { calls, pre, root } = stubbed({ answers: { [COLOUR.question]: 'Cyan' }, ...(attachments === undefined ? {} : { attachments }) });
+      const output = await pre([COLOUR]);
+      expect(output.hookSpecificOutput.updatedInput.answers).toEqual({ [COLOUR.question]: 'Cyan' });
+      expect(calls.filter(([what]) => what === 'download')).toEqual([]);
+      expect(existsSync(join(root, LOCAL_DIR, 'ask', 'shots'))).toBe(false);
+    }
+  });
+
+  it('still hands the answer back when the round\'s folder cannot be written', async () => {
+    const { root, pre } = stubbed({
+      answers: { [COLOUR.question]: 'See' },
+      attachments: { [COLOUR.question]: [{ name: '1.png', url: 'https://files.example/1' }] },
+    });
+    // A file where the round's folder should go.
+    mkdirSync(join(root, LOCAL_DIR, 'ask', 'shots'), { recursive: true });
+    writeFileSync(join(root, LOCAL_DIR, 'ask', 'shots', ROUND), 'not a folder');
+    const output = await pre([COLOUR]);
+    expect(output.hookSpecificOutput.updatedInput.answers[COLOUR.question])
+      .toBe('See\n\nScreenshots (open each with Read):\n- Screenshot 1 could not be downloaded');
   });
 });
 

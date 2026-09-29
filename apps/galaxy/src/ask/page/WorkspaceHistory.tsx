@@ -1,5 +1,6 @@
 import { CATEGORIES, CATEGORY_LABELS } from '../classify';
 import { ContextLine } from './ContextLine';
+import { Screenshots } from './History';
 import { filtered, type HistoryChoices, type HistoryFilters, type HistoryItem } from './workspace-history';
 
 // The workspace's history (PRD 144): a form of filters and a search, sent as a GET to this same page
@@ -67,6 +68,7 @@ function Row({ item }: { item: HistoryItem }) {
           {item.more > 0 && <span className="ask-hint"> (+{item.more} more)</span>}
         </span>
         {item.answer !== null && <span className="ask-history-answer">{item.answer}</span>}
+        <Screenshots count={item.screenshots} />
         <span className="ask-hint">{who}</span>
       </a>
       <ContextLine parts={item.context} />

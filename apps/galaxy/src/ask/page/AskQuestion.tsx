@@ -1,5 +1,5 @@
 'use client';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { emptyDraft, roundAnswers, type Draft } from '../answer-model';
 import type { Category } from '../classify';
@@ -7,7 +7,7 @@ import { backAfterSend, dossierRoundsReader, noRounds } from './back';
 import { CategoryChip } from './CategoryChip';
 import { ContextLine } from './ContextLine';
 import { demoQuestionPort } from './demo';
-import { History } from './History';
+import { AnswerList, History } from './History';
 import { useWaiting } from '../../waiting/WaitingProvider';
 import { titled } from '../../waiting/waiting';
 import { poll } from './poll';
@@ -163,14 +163,7 @@ export function AskQuestion({ source, initial, serverNow, me, members, from = nu
         <section className="ask-card" aria-live="polite">
           <h1>{answeredTitle(view)}</h1>
           <p className="ask-muted">{view.via === 'terminal' ? 'Answered in the terminal.' : 'Answered on the page.'}</p>
-          <dl className="ask-answered">
-            {view.lines.map((line, i) => (
-              <Fragment key={i}>
-                <dt>{line.question}</dt>
-                <dd>{line.answer ?? '—'}</dd>
-              </Fragment>
-            ))}
-          </dl>
+          <AnswerList lines={view.lines} className="ask-answered" />
         </section>
       )}
 

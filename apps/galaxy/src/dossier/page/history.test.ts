@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import type { DossierListRow } from '../store';
 import { UNREAD, type GithubSummary, type OutboxItem } from '../github/summary';
 import {
-  filtered, historyAddress, historyChoices, historyItems, historyToRead, readHistoryFilters, readOpenCounts, type HistoryFilters, type OpenCounts,
+  filtered, historyAddress, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readOpenCounts,
+  stageKeyOf, type CurrentStages, type HistoryFilters, type OpenCounts,
 } from './history';
 
 // /prd, the history (PRD 216's spec, "The pages"), as pure functions of the rows dossier_list() gives the
@@ -234,5 +235,94 @@ describe('the open questions (PRD 251)', () => {
       },
     });
     expect([...counts]).toEqual([[ASK.id, 1]]);
+  });
+});
+
+describe('the stages (PRD 587)', () => {
+  const PAULAS = row('00000000-0000-4000-8000-0000000000d7', {
+    prd: 300, title: 'Paula ships', opened_by: 'u-paula', numbered_at: '2026-09-25T10:00:00Z', last_activity: '2026-09-25T10:00:00Z',
+  });
+  const ANSWERED = row('00000000-0000-4000-8000-0000000000d8', {
+    title: 'A brainstorm under way', asked: 3, answered: 1, last_activity: '2026-09-19T10:00:00Z',
+  });
+  const SYNCING = row('00000000-0000-4000-8000-0000000000d9', {
+    prd: 590, title: 'Not synced yet', numbered_at: '2026-09-29T10:00:00Z', last_activity: '2026-09-18T10:00:00Z',
+  });
+  const rows = [...ROWS, PAULAS, ANSWERED, SYNCING];
+  const stages: CurrentStages = new Map([
+    [stageKeyOf(DOSSIERS), 'inbox'], [stageKeyOf(ASK), 'shipped'], [stageKeyOf(PAULAS), 'inbox'],
+  ]);
+  const counts = (filters: HistoryFilters, open: OpenCounts = new Map()) =>
+    Object.fromEntries(historyStageBar(rows, filters, 'u-pierre', open, stages).map((s) => [s.id, s.count]));
+
+  it('reads ?stage= from the address, ignores an unknown one, and writes it back before who', () => {
+    expect(readHistoryFilters({ stage: 'inbox' })).toEqual({ who: 'mine', stage: 'inbox' });
+    expect(readHistoryFilters({ stage: ' building ' })).toEqual({ who: 'mine', stage: 'building' });
+    expect(readHistoryFilters({ stage: 'nonsense' })).toEqual({ who: 'mine' });
+    expect(readHistoryFilters({ stage: 'syncing' })).toEqual({ who: 'mine' });
+    expect(filtered({ who: 'mine', stage: 'idea' })).toBe(true);
+    expect(historyAddress(all({ state: 'prd', stage: 'shipped' }))).toBe('/prd?state=prd&stage=shipped&who=all');
+  });
+
+  it('gives each row its current stage: stored for a numbered PRD, idea for an answered draft, none otherwise', () => {
+    const byTitle = Object.fromEntries(historyItems(rows, ALL, 'u-pierre', new Map(), stages).map((i) => [i.title, i.stage]));
+    expect(byTitle).toEqual({
+      'PRD dossiers': 'inbox', 'Ask mode — questions on a page': 'shipped', 'Paula ships': 'inbox',
+      'A brainstorm under way': 'idea', 'Offline quotes on the site app': null, 'Not synced yet': null,
+    });
+    expect(historyItems(rows, ALL, 'u-pierre').map((i) => i.stage).filter(Boolean)).toEqual(['idea']);
+  });
+
+  it('keeps only the rows at the stage picked', () => {
+    expect(historyItems(rows, all({ stage: 'inbox' }), 'u-pierre', new Map(), stages).map((i) => i.heading)).toEqual(['#216', '#300']);
+    expect(historyItems(rows, all({ stage: 'idea' }), 'u-pierre', new Map(), stages).map((i) => i.title)).toEqual(['A brainstorm under way']);
+    expect(historyItems(rows, all({ stage: 'retro' }), 'u-pierre', new Map(), stages)).toEqual([]);
+    expect(historyItems(rows, { ...readHistoryFilters({ stage: 'unknown' }), who: 'all' }, 'u-pierre', new Map(), stages)).toHaveLength(6);
+  });
+
+  it('counts the seven stages in track order over the rows every filter but the stage keeps', () => {
+    expect(historyStageBar(rows, ALL, 'u-pierre', new Map(), stages).map((s) => s.id))
+      .toEqual(['idea', 'prd', 'inbox', 'building', 'outbox', 'shipped', 'retro']);
+    const none = { idea: 0, prd: 0, inbox: 0, building: 0, outbox: 0, shipped: 0, retro: 0 };
+    expect(counts(ALL)).toEqual({ ...none, idea: 1, inbox: 2, shipped: 1 });
+    expect(counts(all({ stage: 'shipped' }))).toEqual(counts(ALL));
+    expect(counts({ who: 'mine' })).toEqual({ ...none, idea: 1, inbox: 1, shipped: 1 });
+    expect(counts(all({ repo: 'vertuoza/vertuo-core' }))).toEqual({ ...none, inbox: 1 });
+    expect(counts(all({ state: 'draft' }))).toEqual({ ...none, idea: 1 });
+    expect(counts(all({ search: 'ask' }))).toEqual({ ...none, shipped: 1 });
+    expect(counts(all({ needsAnswer: true }), new Map([[PAULAS.id, 2]]))).toEqual({ ...none, inbox: 1 });
+  });
+
+  it('links each stage to the list filtered to it, keeping the other filters; the selected one clears it', () => {
+    const bar = historyStageBar(rows, all({ repo: 'a/b', stage: 'inbox' }), 'u-pierre', new Map(), stages);
+    expect(bar.find((s) => s.id === 'inbox')).toMatchObject({ label: 'inbox', selected: true, href: '/prd?repo=a%2Fb&who=all' });
+    expect(bar.find((s) => s.id === 'prd')).toMatchObject({ label: 'PRD', selected: false, href: '/prd?repo=a%2Fb&stage=prd&who=all' });
+    expect(bar.filter((s) => s.selected)).toHaveLength(1);
+  });
+
+  it('does not narrow the outbox reads by the stage', () => {
+    expect(historyToRead(rows, all({ stage: 'retro' }), 'u-pierre').map((r) => r.prd)).toEqual([216, 300, 590, 71]);
+  });
+
+  it('reads the current stages per workspace of the numbered rows, and a workspace that fails reads none', async () => {
+    const OTHER = row('00000000-0000-4000-8000-0000000000da', { prd: 7, workspace_id: 'w2', home_repo: 'Acme/Tool' });
+    const asked: [string, unknown][] = [];
+    const read = await readCurrentStages([...rows, OTHER], {
+      currentStages: async (workspace, prds) => {
+        asked.push([workspace, prds]);
+        if (workspace === 'w2') throw new Error('boom');
+        return new Map([['vertuoza/vertuo-omni-loop#216', 'building' as const]]);
+      },
+    });
+    expect(asked).toEqual([
+      ['w1', [
+        { repository: 'vertuoza/vertuo-omni-loop', prd: 71 }, { repository: 'vertuoza/vertuo-omni-loop', prd: 216 },
+        { repository: 'vertuoza/vertuo-omni-loop', prd: 300 }, { repository: 'vertuoza/vertuo-omni-loop', prd: 590 },
+      ]],
+      ['w2', [{ repository: 'Acme/Tool', prd: 7 }]],
+    ]);
+    expect([...read]).toEqual([[stageKeyOf(DOSSIERS), 'building']]);
+    expect((await readCurrentStages(rows, null)).size).toBe(0);
+    expect((await readCurrentStages(ROWS.filter((r) => r.prd === null), { currentStages: async () => { throw new Error('never asked'); } })).size).toBe(0);
   });
 });

@@ -16,7 +16,7 @@
 // Since PRD 627 a dossier has a kind (prd, visual or bug), keyed with the repository and the number: a push
 // names it (a PRD's when it does not), each kind takes only its own versions, a fix is never a draft, and
 // a round of variations is added unless one of the same content is there
-// (supabase/migrations/20261010090000_fix_dossiers.sql).
+// (supabase/migrations/20261011090000_fix_dossiers.sql).
 //
 // The repository is kept in lower case, as the migration keeps it. The page's reads (PRD 216's page to
 // share) run on the same tables under the migration's access rules on reading and deleting, written
@@ -114,7 +114,7 @@ export function fakeSupabase(accounts: Record<string, FakeAccount>, orgs: Record
   }
 
   /** dossier_add_version(): the version added, or null when the content equals the latest of its kind (for
-   * variations, any round of its kind: 20261010090000_fix_dossiers.sql). */
+   * variations, any round of its kind: 20261011090000_fix_dossiers.sql). */
   function addVersion(
     dossier: FakeDossier, kind: string, content: string,
     { source, uploadedBy = null, commitSha = null }: { source: 'kit' | 'github'; uploadedBy?: string | null; commitSha?: string | null },

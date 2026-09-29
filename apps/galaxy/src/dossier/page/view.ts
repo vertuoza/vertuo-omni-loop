@@ -21,9 +21,10 @@
 // and reads "Waiting for <owner>" to anyone else.
 //
 // The stage header (PRD 426): "PRD #n" links to its issue on the dossier's home repository (no GitHub
-// call needed), and the stage, its one button and its links are worked out from the GitHub summary
-// the route read (./stage.ts). A draft is the idea stage without any read; demo mode shows its
-// built-in sample summary (./demo.ts).
+// call needed). PRD 587: the stage comes from the PRD's stored stages the route read, never from GitHub;
+// its one button and its links are worked out from the GitHub summary when there is one (./stage.ts). A
+// draft reads Brainstorming until a question is answered, then idea, without any read; demo mode shows
+// its built-in stages and sample summary (./demo.ts).
 //
 // The Outbox tab (PRD 426, s2) comes after Plan: the open decisions, highest rank first, then the
 // settled ones in the order settled.md holds them, read from the GitHub summary. Its badge counts
@@ -57,6 +58,7 @@ import {
   CONTEXT_LABELS, CONTEXTS, GITHUB_UNREAD, isContext, OUTBOX_EMPTY, outboxView, type ContextKind, type ContextView, type OutboxView,
 } from './outbox-view';
 import { isDossierId } from './source';
+import type { StageRow } from '../../stages/stage';
 import { stageView, type StageView } from './stage';
 import { kindOf, WORK_NAMES, workPath } from './work';
 
@@ -173,6 +175,8 @@ export type DossierRead = {
   github?: GithubSummary | null;
   /** The slices of the dossier's latest plan version; null or left out when not known. */
   slices?: number | null;
+  /** The PRD's stored stages (PRD 587): none yet reads Syncing…; left out when they were not asked for. */
+  stages?: readonly StageRow[] | null;
   /** The demo dossier (PRD 251, s9): its outbox cannot send. */
   demo?: boolean;
   /** A fix's state, links and Timeline (PRD 627, s5); left out for a PRD. */
@@ -211,7 +215,7 @@ export type DossierView = {
   draft: boolean;
   /** The PRD's issue on the home repository; null for a draft. */
   issueUrl: string | null;
-  /** Where the PRD is and what to do next; null when GitHub was not asked (demo mode). */
+  /** Where the PRD is and what to do next; null for a numbered PRD whose stages were not asked for. */
   stage: StageView | null;
   title: string;
   repos: string[];
@@ -454,7 +458,7 @@ export function questionsView(
 }
 
 export function dossierView(
-  { dossier, versions, members, rounds, repos, answerable = [], github, slices = null, demo = false, fix }: DossierRead, me: string | null, pick: DossierPick, now: number = Date.now(),
+  { dossier, versions, members, rounds, repos, answerable = [], github, slices = null, stages, demo = false, fix }: DossierRead, me: string | null, pick: DossierPick, now: number = Date.now(),
 ): DossierView {
   const work = kindOf(dossier);
   const pageTabs = KIND_TABS[work];
@@ -506,7 +510,9 @@ export function dossierView(
     badge: WORK_NAMES[work].badge,
     draft: dossier.prd === null,
     issueUrl: dossier.prd === null ? null : issueUrl(dossier.home_repo, dossier.prd),
-    stage: !fixed && (dossier.prd === null || github !== undefined) ? stageView(dossier.prd, github ?? null, slices) : null,
+    stage: fixed ? null : dossier.prd === null
+      ? stageView({ prd: null, answered: questions.answered > 0, rows: [] })
+      : stages !== undefined ? stageView({ prd: dossier.prd, rows: stages ?? [], github, slices }) : null,
     title: dossier.title,
     repos: repos?.length ? repos : [dossier.home_repo],
     opened: `${opener} · ${stamp(dossier.created_at)}`,

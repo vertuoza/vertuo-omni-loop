@@ -34,6 +34,7 @@ const reads = (fail: Partial<Record<keyof BoardReads, boolean>> = {}, galaxy = G
     activity: read('activity', ACTIVITY),
     answered: read('answered', [{ user_id: 'u-paul', answered: 9 }, { user_id: 'u-bob', answered: 2 }]),
     galaxy: read('galaxy', galaxy),
+    prds: read('prds', [{ stage: 'shipped', login: 'ada-gh', userId: null }, { stage: 'inbox', login: 'bob-gh', userId: null }]),
   };
 };
 const request = (over: Partial<FleetRequest> = {}): FleetRequest => ({ asked: null, viewerId: 'u-ada', period: '7d', now: NOW, ...over });
@@ -48,6 +49,7 @@ describe('loadFleet', () => {
     expect(fleet.fleet).toEqual({ name: 'octo', label: 'OCTO', color: '#3355ff', place: { rank: 2, of: 2 } });
     expect(fleet.board.tiles.prs).toBe(7);
     expect(fleet.board.tiles.answered).toBe(9);
+    expect(fleet.board.tiles.prds).toMatchObject({ shipped: 1, inbox: 0 });
     const people = fleet.board.people as PersonRow[];
     expect(people.map((p) => p.userId)).toEqual(['u-paul', 'u-ada']);
     expect(people.find((p) => p.userId === 'u-paul')).toMatchObject({ prs: 7, answered: 9, points: 0 });

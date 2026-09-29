@@ -3,10 +3,12 @@ import { StageHeaderCopy } from './StageHeaderCopy';
 
 // The stage's pieces of /prd/<id>'s header box (PRD 426, laid out by PRD 476), rendered on the server:
 // the title ("PRD #n ↗" linking to its issue, or DRAFT), the one button for the title row, the track
-// idea ─ PRD ─ inbox ─ outbox ─ shipped ─ retro with the stages passed ticked and the current one lit
-// and written in words for the Stage cell, and the issue and pull requests that exist for the On GitHub
-// cell. Unknown: nothing lit, and the words say GitHub did not answer, as a status. A fix's title
-// (PRD 627) reads `#n ↗` after its kind's badge.
+// idea ─ PRD ─ inbox ─ building ─ outbox ─ shipped ─ retro (PRD 587) with the stages passed filled, the
+// current one bold and the later ones faded, written in words for the Stage cell, with the questions
+// badge beside the pills at building, and the issue and pull requests that exist for the On GitHub cell.
+// Hovering the stage says when it was last synced. A draft with no answer and a PRD not synced yet light
+// nothing, and say Brainstorming or Syncing…. A fix's title (PRD 627) reads `#n ↗` after its kind's
+// badge; a fix has no stage track.
 
 export function DossierTitle({ heading, draft, title, issueUrl, badge = null }: {
   heading: string; draft: boolean; title: string; issueUrl: string | null; badge?: string | null;
@@ -34,19 +36,22 @@ export function StageAction({ stage }: { stage: StageView | null }) {
   return null;
 }
 
-/** The Stage cell's value: the track, then the stage in words and its caption. */
+/** The Stage cell's value: the track and its badge, then the stage in words and its caption. */
 export function StageTrack({ stage }: { stage: StageView }) {
+  const synced = stage.synced ?? undefined;
   return (
     <>
-      <ol className="stage-track" aria-label="Stages">
+      <ol className="stage-track" aria-label="Stages" title={synced}>
         {stage.track.map((stop) => (
           <li key={stop.id} className={`stage-stop stage-${stop.state}`} aria-current={stop.state === 'current' ? 'step' : undefined}>
-            {stop.state === 'passed' && <span aria-hidden="true">✓ </span>}
             {stop.label}
           </li>
         ))}
       </ol>
-      <p className="stage-words" role={stage.id === 'unknown' ? 'status' : undefined}>
+      {stage.badge && (
+        <a className="stage-badge" href={stage.badge.href} target="_blank" rel="noopener noreferrer">{stage.badge.label} →</a>
+      )}
+      <p className="stage-words" title={synced}>
         <strong>{stage.words}</strong>
         {stage.caption && <span className="ask-hint"> · {stage.caption}</span>}
       </p>

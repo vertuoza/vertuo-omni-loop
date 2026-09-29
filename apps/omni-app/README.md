@@ -70,6 +70,46 @@ default branch, labelled `labels.knowledge` (default `omni:knowledge`). A person
 - **What leaves GitHub:** per decision, the outbox item as raised and its answer, and a summary of the
   knowledge base (ids, titles, statements), with token-shaped strings masked. No code, no logs.
 
+## Stage events (PRD 587)
+
+Five pull request moves put a PRD at a new stage, and the app tells galaxy within the delivery, so the
+PRD's page and /prd show it before galaxy's 15-minute sync:
+
+| Pull request | Stage |
+|---|---|
+| a `branches.phase0` PR merged | inbox |
+| a `branches.slice` PR merged into its feature branch | building |
+| the `branches.feature` PR marked ready for review | outbox |
+| the `branches.feature` PR merged into the default branch | shipped |
+| a `branches.retro` PR opened | retro |
+
+`/api/github` POSTs `{ repository, topic, prd, stage, at }` to galaxy's `/api/stages/event`, signed with
+an HMAC-SHA256 of the body under `STAGE_EVENT_SECRET` (header `x-omni-signature-256`). The PRD number
+comes from the body's `prLinks` line (`Closes #7`, `Part of #7`, `Refs #7`); without one, galaxy finds
+the PRD by its topic. The branch shapes and link lines are the kit's defaults: the webhook reads no
+GitHub API, so a repository with its own shapes gets its stages from the sync alone. A missing secret
+or a failed POST is logged and never changes the webhook's reply, and nothing is retried: the sync
+repairs a missed event. No Inngest function is involved.
+
+## The Engineering board's collector (PRD 612)
+
+Every 15 minutes the Inngest function **pr-stats** (`prStats`) reads the pull requests of every
+**tracked** repository (galaxy's Settings → Repositories) of every workspace with an installation of
+the app, through that installation, and writes them to Supabase for galaxy's Dashboard → Engineering:
+one `pull_requests` row per pull request (author, dates, who merged, base, commits, lines, and whether
+Omni-man signed it), and its reviewers in `pull_request_reviews` (once each, dated at their first
+review, never its author).
+
+- A repository's first collection backfills 90 days; each one after reads only the pull requests
+  updated after its cursor (`repositories.collected_until`). Rows are upserted, so running twice
+  changes nothing.
+- Each repository is its own Inngest step, at most 50 pull requests a step. A failure (no access, a
+  rate limit, a GitHub error) is written to that repository's `collect_error`, with the cursor at what
+  was written, and retried on the next run; the others are collected all the same.
+- **Omni-man signed** a pull request when a commit carries a co-author trailer with his e-mail, its
+  body carries `<!-- omni-loop:signed -->`, or `omni-loop-invader[bot]` opened it.
+- It writes only those two tables and the collection columns of `repositories`, and reads GitHub only.
+
 ## How it runs
 
 ```
@@ -77,6 +117,7 @@ GitHub ── pull_request / check_run.rerequested ──▶ /api/github    veri
              a merged pull_request.closed → omni-loop/retro.requested and
                                             omni-loop/knowledge.harvest.requested, never the outbox check
              every other handled action   → omni-loop/outbox.check.requested
+             a stage move (PRD 587)       → POST galaxy /api/stages/event, signed, beside either route
 Inngest ──▶ /api/inngest   function "outbox-check" (debounced per repo + PR)
               step "in-progress"  create the check run, in_progress, on the head SHA
                                   (no base config: stop here, post nothing)
@@ -101,11 +142,15 @@ Inngest ──▶ /api/inngest   function "knowledge-harvest" (one at a time per
               step "write"            the same tip: write the knowledge, run both checks, drop what fails
               step "publish"          one commit on branches.knowledge, cut from that tip; the knowledge PR
             onFailure          one comment on the merged PR
+Inngest ──▶ /api/inngest   function "pr-stats" (cron */15 * * * *, one run at a time)
+              step "list-repositories"        the tracked repositories of installed workspaces
+              steps "collect <ws>/<repo> <n>" at most 50 pull requests each: details, reviews, commits
 ```
 
 | Unit | Where |
 |---|---|
 | `webhook` — verify and filter a delivery | `src/webhook/`, served at `api/github.mjs` |
+| `stage-forward` — the stage a pull request shows, signed and POSTed to galaxy | `src/stage-forward/` |
 | `snapshot` — only the listed paths, at most 2,000 files and 20 MB | `src/snapshot/` |
 | `evaluate` — pure, reuses the kit's gate unchanged | `src/evaluate/` |
 | `publish` — the check run and the comment | `src/publish/` |
@@ -122,6 +167,7 @@ Inngest ──▶ /api/inngest   function "knowledge-harvest" (one at a time per
 | `knowledge-harvest` — the Inngest function wiring the kit's harvest pipeline | `src/knowledge-harvest/knowledge-harvest.mjs`, served at `api/inngest.mjs` |
 | the harvest's GitHub reads — the merge, the tip, the ids other knowledge PRs take | `src/knowledge-harvest/github.mjs` |
 | `render` — pure: the knowledge PR's title and body, the commit | `src/knowledge-harvest/render.mjs` |
+| `pr-stats` — the Engineering board's collector, its GitHub reads and its store | `src/pr-stats/`, served at `api/inngest.mjs` |
 
 The app only reads YAML, Markdown, JSON, patches and logs, as text; it never runs repository code. The
 retro writes only its own `branches.retro` branches, their pull requests, its retro issues and one
@@ -149,11 +195,15 @@ None of these is taken by the code; a person does each once.
    - `GITHUB_WEBHOOK_SECRET` — the same secret as in the app's settings
    - `INNGEST_EVENT_KEY`
    - `INNGEST_SIGNING_KEY`
+   - `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` — the same project and service key as galaxy's,
+     for the pr-stats collector (PRD 612). With either unset it logs one line and writes nothing.
 
    The private key lives only there. To rotate it, generate a new key in the app's settings, replace
    the Vercel variable, redeploy, then delete the old key.
 3. **Inngest.** Create (or reuse) the Inngest account and sync the app at
-   `https://<production domain>/api/inngest`.
+   `https://<production domain>/api/inngest`. A deploy does not resync it: after a deploy that adds a
+   function (pr-stats, PRD 612, is one), press **Resync** on the app in Inngest, or the new function
+   never runs.
 4. **Branch protection (optional).** Require the **outbox** check from the `omni-loop` app on the
    default branch.
 
@@ -200,6 +250,17 @@ opening a retro PR live (PRD 72, acceptance criterion 1).
    If it does not, the day-14 run is started by a daily scheduled Inngest function instead.
 4. **Create the `omni:retro` label:** run `npx github:vertuoza/vertuo-omni-loop init` in each
    repository.
+
+### Stage events — human steps (PRD 587)
+
+None of these is taken by the code. Until they are done, stages come from galaxy's sync alone, every
+15 minutes.
+
+1. **Set `STAGE_EVENT_SECRET`** in this app's Vercel project, the same value as in galaxy's (galaxy's
+   README says where). Optionally set `GALAXY_URL` when galaxy is not at
+   `https://vertuo-omni-loop-galaxy.vercel.app`.
+2. **Redeploy this project.** A merge is not live here until it redeploys, and a new variable is read
+   only by a new deployment. No Inngest Resync is needed.
 
 ### The knowledge harvest — human steps (PRD 82)
 
