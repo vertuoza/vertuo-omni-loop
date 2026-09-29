@@ -132,6 +132,51 @@ describe('the top-people lists (PRD 645 s1)', () => {
   });
 });
 
+describe('a page per repository (PRD 645 s2)', () => {
+  it('in the board\'s table, each repository name links to its page, carrying the period', () => {
+    const html = renderToStaticMarkup(createElement(EngineeringScreen, { view: board(), period: '30d', supabase: null, signinError: null, query: { period: '30d', sort: 'lines' } }));
+    expect(html).toContain('<th scope="row" class="board-name"><a href="/app/engineering/acme/widgets?period=30d">acme/widgets</a></th>');
+    expect(html).toContain('<a href="/app/engineering/acme/gears?period=30d">acme/gears</a>');
+  });
+
+  const gears: EngineeringView = {
+    kind: 'board', name: 'Vertuoza', repo: 'Acme/Gears',
+    board: engineeringOf({ tracked: ['Acme/Gears'], pullRequests: ROWS, reviews: [] }, WEEK, 'merged'),
+  };
+  const html = renderToStaticMarkup(createElement(EngineeringScreen, { view: gears, period: '30d', supabase: null, signinError: null, query: { period: '30d' } }));
+  const t = text(html);
+
+  it('leads back to every repository, keeping the period, and is headed by the tracked spelling, once', () => {
+    expect(html).toContain('<a class="eng-back" href="/app/engineering?period=30d">← All repositories</a>');
+    expect(html.match(/<h1/g)).toHaveLength(1);
+    expect(html).toContain('<h1 class="dash-name">Acme/Gears</h1>');
+  });
+
+  it('switches the period on the page itself', () => {
+    expect(html).toContain('href="/app/engineering/Acme/Gears?period=season"');
+    expect(html).toMatch(/<a href="\/app\/engineering\/Acme\/Gears\?period=30d" aria-current="page">30 days<\/a>/);
+    expect(html).not.toContain('href="/app/engineering?period=season"');
+  });
+
+  it('counts that repository alone, and has no Repositories table', () => {
+    expect(t).toContain('PRs merged 1');
+    expect(t).toContain('Most merged');
+    expect(t).toContain('Omni Loop');
+    expect(t).toContain('PRs merged per day');
+    expect(html).not.toContain('id="eng-repos"');
+    expect(html).not.toContain('<table');
+  });
+
+  it('in the demo: a tracked repository\'s page renders, an untracked one is not tracked', () => {
+    const view = demoEngineeringBoard('7d', 'merged', NOW, 'ACME/gears');
+    expect(view).toMatchObject({ kind: 'board', repo: 'acme/gears' });
+    const demo = render(view as EngineeringView);
+    expect(demo).toContain('<h1 class="dash-name">acme/gears</h1>');
+    expect(demo).not.toContain('<table');
+    expect(demoEngineeringBoard('7d', 'merged', NOW, 'acme/sprockets')).toEqual({ kind: 'not-tracked' });
+  });
+});
+
 describe('the Engineering board, empty', () => {
   it('with no tracked repository: the empty state, linking Settings → Repositories, and no tiles', () => {
     const html = render(board([], []));

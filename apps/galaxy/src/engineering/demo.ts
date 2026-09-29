@@ -5,7 +5,8 @@ import { engineeringOf, OMNI_MAN, type PullRequestRow, type ReviewRow, type Sort
 
 // The demo's Engineering board (PRD 612 s3), for development and OMNI_LOOP_DEMO=1: two tracked
 // repositories and a month and a half of made-up pull requests and reviews, counted as a workspace's
-// would be, with a player or two for their heroes. Fixed: the same `now` draws the same board.
+// would be, with a player or two for their heroes. Fixed: the same `now` draws the same board. Given a
+// repository (PRD 645 s2), that repository's page: the board over it alone, or not tracked.
 
 const TRACKED = ['acme/widgets', 'acme/gears'];
 const PEOPLE = ['ada', 'bob', 'carl', 'dora', 'eli', 'fay'];
@@ -49,7 +50,11 @@ function rows(now: Date): { pullRequests: PullRequestRow[]; reviews: ReviewRow[]
   return { pullRequests: all.map((i) => pullRequestOf(i, now)), reviews: all.map((i) => reviewOf(i, now)) };
 }
 
-export function demoEngineeringBoard(period: Period, sort: SortKey, now: Date): EngineeringBoard {
-  const board = engineeringOf({ tracked: TRACKED, ...rows(now) }, periodWindow(period, now), sort);
-  return { kind: 'board', name: 'Demo workspace', board: withFaces(board, PLAYERS) };
+export function demoEngineeringBoard(period: Period, sort: SortKey, now: Date): EngineeringBoard;
+export function demoEngineeringBoard(period: Period, sort: SortKey, now: Date, repo: string): EngineeringBoard | { kind: 'not-tracked' };
+export function demoEngineeringBoard(period: Period, sort: SortKey, now: Date, repo?: string): EngineeringBoard | { kind: 'not-tracked' } {
+  const found = repo === undefined ? undefined : TRACKED.find((r) => r.toLowerCase() === repo.toLowerCase());
+  if (repo !== undefined && !found) return { kind: 'not-tracked' };
+  const board = engineeringOf({ tracked: found ? [found] : TRACKED, ...rows(now) }, periodWindow(period, now), sort);
+  return { kind: 'board', name: 'Demo workspace', board: withFaces(board, PLAYERS), ...(found ? { repo: found } : {}) };
 }
