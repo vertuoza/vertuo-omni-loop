@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { FixStatePill, TimelinePane } from '../../fixes/TimelinePane';
 import type { ArtifactKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
 import { CopyLink } from './CopyLink';
@@ -34,6 +35,8 @@ import { TAB_LABELS, type DossierView } from './view';
 // version it renders while open, so the bell's New documents group drops it.
 // PRD 627: a fix's page is this page on its own route, `#n ↗` with its Visual or Bug badge, no stage,
 // and its kind's tabs: Variations frames the round picked, chosen as Round k; Bug record is markdown.
+// PRD 627, s5: a fix's page opens on its Timeline (fixes/Timeline.tsx), and its facts strip carries its
+// State pill (Asked, In review, Merged, or `—`) and, On GitHub, its issue and its fix PR.
 
 type Props = {
   view: DossierView;
@@ -58,6 +61,7 @@ function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 's
   if (tab === 'questions') return <QuestionsPane questions={view.questions} supabase={supabase} />;
   if (tab === 'outbox') return <OutboxPane dossierId={view.id} outbox={view.outbox} spec={markdown} />;
   if (tab === 'retro') return <RetroPane retro={view.retro} />;
+  if (tab === 'timeline') return <TimelinePane fix={view.fix} />;
   if (!shown) {
     return (
       <p className="dossier-empty">
@@ -97,7 +101,7 @@ function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 's
 }
 
 export function DossierPage({ view, markdown, supabase, live }: Props) {
-  const { stage } = view;
+  const { stage, fix } = view;
   return (
     <div className="dossier">
       <PinnedHead>
@@ -124,6 +128,18 @@ export function DossierPage({ view, markdown, supabase, live }: Props) {
               </ul>
             </dd>
           </div>
+          {fix && (
+            <div className="dossier-fact">
+              <dt>State</dt>
+              <dd><FixStatePill fix={fix} /></dd>
+            </div>
+          )}
+          {fix && fix.links.length > 0 && (
+            <div className="dossier-fact">
+              <dt>On GitHub</dt>
+              <dd><StageLinks links={fix.links} /></dd>
+            </div>
+          )}
           {stage && stage.links.length > 0 && (
             <div className="dossier-fact">
               <dt>On GitHub</dt>

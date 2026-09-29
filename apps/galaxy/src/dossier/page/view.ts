@@ -42,6 +42,11 @@
 // on its own sandboxed route) and Questions; a bug fix's Bug record (markdown) and Questions — with no
 // stage. Its header reads `#n` with a *Visual* or *Bug* badge, linked to its issue. A PRD keeps exactly
 // its tabs.
+//
+// PRD 627, s5: a fix's page opens on its Timeline — Asked, Picked (a visual fix only), Approved, Merged,
+// Released, each with who and when, read live from GitHub and the pick line (../../fixes/timeline.ts)
+// — and its header carries the fix's state (Asked, In review, Merged, or `—`) and its issue and PR.
+import type { FixPageView } from '../../fixes/timeline';
 import { readQuestions, shownLabel } from '../../ask/answer-model';
 import { CATEGORY_LABELS, isCategory, type Category } from '../../ask/classify';
 import { nameOf, type Member } from '../../ask/page/question';
@@ -58,7 +63,7 @@ import { kindOf, WORK_NAMES, workPath } from './work';
 export { GITHUB_UNREAD, OUTBOX_EMPTY, outboxView, type OutboxView };
 
 /** The page's tabs: an artifact's, the questions that shaped it, or the decisions taken while it was built. */
-export type DossierTab = ArtifactKind | 'questions' | 'outbox' | 'retro';
+export type DossierTab = ArtifactKind | 'questions' | 'outbox' | 'retro' | 'timeline';
 
 /** The tabs the dossier itself keeps, in the order a PRD is made (PRD 384): the questions first, then
  * the before/after, the spec and the plan. The history lists these. */
@@ -70,17 +75,23 @@ export const PAGE_TABS: readonly DossierTab[] = [...TABS, 'outbox', 'retro'];
 /** Each kind's tabs, in order (PRD 627): a PRD's every tab; a fix's own artifacts, then its questions. */
 export const KIND_TABS: Readonly<Record<WorkKind, readonly DossierTab[]>> = {
   prd: PAGE_TABS,
-  visual: ['before-after', 'variations', 'questions'],
-  bug: ['bug-record', 'questions'],
+  visual: ['timeline', 'before-after', 'variations', 'questions'],
+  bug: ['timeline', 'bug-record', 'questions'],
 };
 
 export const TAB_LABELS: Readonly<Record<DossierTab, string>> = {
   'before-after': 'Before/after', spec: 'Spec', plan: 'Plan', questions: 'Questions', outbox: 'Outbox', retro: 'Retro',
-  variations: 'Variations', 'bug-record': 'Bug record',
+  variations: 'Variations', 'bug-record': 'Bug record', timeline: 'Timeline',
 };
 
+/** The tabs that hold no artifact of the dossier's own. */
+const NOT_ARTIFACTS: readonly DossierTab[] = ['questions', 'outbox', 'retro', 'timeline'];
+
+/** Whether a tab shows versions of an artifact the dossier keeps. */
+export const isArtifactTab = (tab: DossierTab): tab is ArtifactKind => !NOT_ARTIFACTS.includes(tab);
+
 const isDossierTab = (value: unknown): value is DossierTab =>
-  value === 'questions' || value === 'outbox' || value === 'retro' || isArtifactKind(value);
+  value === 'questions' || value === 'outbox' || value === 'retro' || value === 'timeline' || isArtifactKind(value);
 
 /** An empty Retro tab says why. */
 export const RETRO_EMPTY = 'The retro is written when the feature PR merges.';
@@ -164,6 +175,8 @@ export type DossierRead = {
   slices?: number | null;
   /** The demo dossier (PRD 251, s9): its outbox cannot send. */
   demo?: boolean;
+  /** A fix's state, links and Timeline (PRD 627, s5); left out for a PRD. */
+  fix?: FixPageView;
 };
 
 /** A tab and what its label adds: an artifact's latest version (`v3`), or the questions answered out
@@ -221,6 +234,8 @@ export type DossierView = {
   outbox: OutboxView;
   /** The retro, once written (PRD 426, s3). */
   retro: RetroView;
+  /** A fix's state, links and Timeline (PRD 627, s5); null for a PRD, and for a fix the route read none of. */
+  fix: FixPageView | null;
 };
 
 /** One option of a question, as it was offered: its label without "(Recommended)", which becomes a
@@ -439,14 +454,14 @@ export function questionsView(
 }
 
 export function dossierView(
-  { dossier, versions, members, rounds, repos, answerable = [], github, slices = null, demo = false }: DossierRead, me: string | null, pick: DossierPick, now: number = Date.now(),
+  { dossier, versions, members, rounds, repos, answerable = [], github, slices = null, demo = false, fix }: DossierRead, me: string | null, pick: DossierPick, now: number = Date.now(),
 ): DossierView {
   const work = kindOf(dossier);
   const pageTabs = KIND_TABS[work];
   const ofKind = (kind: ArtifactKind) => versions.filter((v) => v.kind === kind);
   const fallback = work === 'prd' ? defaultTab(rounds) : pageTabs[0];
   const tab = pick.tab !== null && pageTabs.includes(pick.tab) ? pick.tab : fallback;
-  const mine = tab === 'questions' || tab === 'outbox' || tab === 'retro' ? [] : ofKind(tab);
+  const mine = isArtifactTab(tab) ? ofKind(tab) : [];
   const href = (to: DossierTab, version: number | null = null) => hrefOf(dossier.id, to, version, fallback, null, work);
   const questions = questionsView(rounds, members, dossier.id, answerable, now);
   const context = pick.context ?? 'before-after';
@@ -460,8 +475,9 @@ export function dossierView(
     if (kind === 'retro') return retroPr ? (retroPr.state === 'open' ? 'open PR' : 'merged') : null;
     if (kind === 'outbox') return outbox.open.length ? `${outbox.open.length} open` : outbox.ledger ? `${outbox.ledger} settled` : null;
     if (kind === 'variations') return roundsBadge(ofKind(kind).length);
-    if (kind !== 'questions') return ofKind(kind).length ? `v${ofKind(kind).length}` : null;
-    return counted.badge;
+    if (kind === 'questions') return counted.badge;
+    if (!isArtifactTab(kind)) return null;
+    return ofKind(kind).length ? `v${ofKind(kind).length}` : null;
   };
   const picked = pick.version !== null && pick.version <= mine.length ? pick.version : mine.length;
   const entries = mine.map((version, i): VersionEntry => {
@@ -511,6 +527,7 @@ export function dossierView(
     questions,
     outbox,
     retro,
+    fix: fixed ? fix ?? null : null,
   };
 }
 

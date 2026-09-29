@@ -22,7 +22,21 @@ vi.mock('next/navigation', async (original) => ({
   useRouter: () => ({ refresh: () => {} }),
   usePathname: () => '/visual',
 }));
-vi.mock('../dossier/github/server', () => ({ dossierGithub: () => ({ summary: vi.fn(async () => null) }) }));
+// What GitHub says of every fix here (PRD 627, s5): asked by anna, its fix PR open with one approval.
+vi.mock('../dossier/github/server', () => ({
+  dossierGithub: () => ({
+    summary: vi.fn(async () => null),
+    fix: vi.fn(async ({ prd }: { prd: number }) => ({
+      issue: {
+        number: prd, url: `https://github.com/acme/widgets/issues/${prd}`, state: 'open', author: 'anna', createdAt: '2026-09-29T08:00:00Z',
+        risk: prd === 571 ? 'omni:risk-high' : null, regression: prd === 571,
+      },
+      pull: { number: 600, url: 'https://github.com/acme/widgets/pull/600', state: 'open', mergedAt: null, mergedBy: null },
+      approvals: [{ login: 'carla', at: '2026-09-29T11:00:00Z' }],
+      release: null,
+    })),
+  }),
+}));
 vi.mock('../data/mode', () => ({ arcadeMode: () => given.mode }));
 vi.mock('../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
@@ -77,6 +91,17 @@ describe('the lists', () => {
     expect(mine).toContain('#548');
     expect(mine).not.toContain('Ask page crash');
     expect(mine).not.toContain('Team inbox');
+    expect(mine).toContain('<span class="fix-state fix-state-in-review">In review</span>');
+    expect(mine).toContain('asked by @anna');
+    expect(mine).not.toContain('regression');
+  });
+
+  it('shows a bug fix\'s risk label and regression badge, and filters by state', async () => {
+    const all = await list(BugList, { who: 'all' });
+    expect(all).toContain('<span class="fix-badge">omni:risk-high</span>');
+    expect(all).toContain('<span class="fix-badge fix-badge-regression">regression</span>');
+    expect(await list(BugList, { who: 'all', state: 'merged' })).toContain('No bug fix matches');
+    expect(await list(BugList, { who: 'all', state: 'in-review' })).toContain(`href="/bugs/${bug}"`);
   });
 
   it('/bugs lists the bug fixes only, under All when the viewer pushed none', async () => {
@@ -104,7 +129,18 @@ describe('a fix\'s page', () => {
     expect(await page(VisualPage, visual)).toContain('<span class="dossier-kind">Visual</span>');
     const record = await page(BugPage, bug);
     expect(record).toContain('<span class="dossier-kind">Bug</span>');
-    expect(record).toContain('<h1>Crash</h1>');
+    expect(await page(BugPage, bug, { tab: 'bug-record' })).toContain('<h1>Crash</h1>');
+  });
+
+  it('opens a fix on its Timeline, with its state and its issue and PR in the header', async () => {
+    const html = await page(VisualPage, visual);
+    expect(html).toContain('<ol class="fix-timeline" aria-label="Timeline">');
+    expect(html).toContain('<dt>State</dt><dd><span class="fix-state fix-state-in-review">In review</span></dd>');
+    expect(html).toContain('href="https://github.com/acme/widgets/pull/600"');
+    expect(html).toContain('<span>by @anna</span>');
+    // The two before/after pages already merged carry no pick line.
+    expect(html).toMatch(/<span class="fix-moment-label">Picked<\/span> <span class="ask-hint">not recorded<\/span>/);
+    expect(await page(BugPage, bug)).not.toContain('Picked');
   });
 
   it('sends a fix opened on /prd/<id> to its own route, the query kept', async () => {

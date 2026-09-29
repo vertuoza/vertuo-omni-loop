@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DossierRow, DossierVersionRow } from '../store';
+import { fixPageView } from '../../fixes/timeline';
 import { dossierView, PAGE_TABS, readPick } from './view';
 
 // A fix's page (PRD 627): the page of /prd/<id>, its tabs chosen by the dossier's kind. A visual fix
@@ -34,16 +35,26 @@ const view = (dossier: DossierRow, versions: DossierVersionRow[], query: Record<
 const tabs = (v: ReturnType<typeof view>) => v.tabs.map((t) => [t.label, t.badge, t.href]);
 
 describe('a visual fix', () => {
-  it('reads Before/after, Variations, Questions, on its own route, opening on Before/after', () => {
+  it('reads Timeline, Before/after, Variations, Questions, on its own route, opening on the Timeline', () => {
     const v = view(fix('visual'), VISUAL_VERSIONS);
     expect(tabs(v)).toEqual([
-      ['Before/after', 'v1', `/visual/${ID}`],
+      ['Timeline', null, `/visual/${ID}`],
+      ['Before/after', 'v1', `/visual/${ID}?tab=before-after`],
       ['Variations', '2 rounds', `/visual/${ID}?tab=variations`],
       ['Questions', null, `/visual/${ID}?tab=questions`],
     ]);
-    expect(v.tab).toBe('before-after');
+    expect(v.tab).toBe('timeline');
     expect(v.link).toBe(`/visual/${ID}`);
-    expect(v.shown?.frame).toBe(`/visual/${ID}/v/1/page`);
+    expect(v.shown).toBeNull();
+    expect(view(fix('visual'), VISUAL_VERSIONS, { tab: 'before-after' }).shown?.frame).toBe(`/visual/${ID}/v/1/page`);
+  });
+
+  it('carries the fix\'s state, links and Timeline the route read; a PRD none (PRD 627, s5)', () => {
+    const facts = fixPageView('visual', null, 'none');
+    const read = (dossier: DossierRow) => dossierView({ dossier, versions: [], members: [PIERRE], rounds: [], fix: facts }, PIERRE.user_id, readPick({}));
+    expect(read(fix('visual')).fix).toBe(facts);
+    expect(read(fix('prd', 216)).fix).toBeNull();
+    expect(view(fix('visual'), []).fix).toBeNull();
   });
 
   it('picks a round of variations as Round k, newest first, each on its sandboxed route', () => {
@@ -56,8 +67,8 @@ describe('a visual fix', () => {
   });
 
   it('badges one round as `1 round`, and none as nothing', () => {
-    expect(view(fix('visual'), VISUAL_VERSIONS.slice(1)).tabs[1].badge).toBe('1 round');
-    expect(view(fix('visual'), []).tabs[1].badge).toBeNull();
+    expect(view(fix('visual'), VISUAL_VERSIONS.slice(1)).tabs[2].badge).toBe('1 round');
+    expect(view(fix('visual'), []).tabs[2].badge).toBeNull();
   });
 
   it('is headed #n with a Visual badge linking to its issue, with no stage and nothing to delete', () => {
@@ -66,25 +77,26 @@ describe('a visual fix', () => {
     });
   });
 
-  it('falls back to Before/after for a tab a visual fix does not have', () => {
-    for (const tab of ['spec', 'plan', 'outbox', 'retro', 'bug-record']) expect(view(fix('visual'), VISUAL_VERSIONS, { tab }).tab).toBe('before-after');
+  it('falls back to the Timeline for a tab a visual fix does not have', () => {
+    for (const tab of ['spec', 'plan', 'outbox', 'retro', 'bug-record']) expect(view(fix('visual'), VISUAL_VERSIONS, { tab }).tab).toBe('timeline');
   });
 });
 
 describe('a bug fix', () => {
-  it('reads Bug record then Questions, on its own route, opening on Bug record rendered as markdown', () => {
+  it('reads Timeline, Bug record, Questions, on its own route, its record rendered as markdown', () => {
     const v = view(fix('bug', 571), BUG_VERSIONS);
     expect(tabs(v)).toEqual([
-      ['Bug record', 'v1', `/bugs/${ID}`],
+      ['Timeline', null, `/bugs/${ID}`],
+      ['Bug record', 'v1', `/bugs/${ID}?tab=bug-record`],
       ['Questions', null, `/bugs/${ID}?tab=questions`],
     ]);
-    expect(v.tab).toBe('bug-record');
-    expect(v.shown).toMatchObject({ number: 1, frame: null });
+    expect(v.tab).toBe('timeline');
+    expect(view(fix('bug', 571), BUG_VERSIONS, { tab: 'bug-record' }).shown).toMatchObject({ number: 1, frame: null });
     expect(v).toMatchObject({ heading: '#571', badge: 'Bug', stage: null, link: `/bugs/${ID}` });
   });
 
-  it('falls back to Bug record for a tab a bug fix does not have', () => {
-    for (const tab of ['before-after', 'variations', 'spec', 'outbox']) expect(view(fix('bug', 571), BUG_VERSIONS, { tab }).tab).toBe('bug-record');
+  it('falls back to the Timeline for a tab a bug fix does not have', () => {
+    for (const tab of ['before-after', 'variations', 'spec', 'outbox']) expect(view(fix('bug', 571), BUG_VERSIONS, { tab }).tab).toBe('timeline');
   });
 });
 
@@ -97,7 +109,8 @@ describe('a PRD', () => {
     }
   });
 
-  it('knows no Variations or Bug record tab', () => {
+  it('knows no Variations, Bug record or Timeline tab', () => {
+    expect(view(fix('prd', 216), [], { tab: 'timeline' }).tab).toBe('before-after');
     expect(view(fix('prd', 216), [], { tab: 'variations' }).tab).toBe('before-after');
     expect(view(fix('prd', 216), [], { tab: 'bug-record' }).tab).toBe('before-after');
   });

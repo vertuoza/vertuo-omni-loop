@@ -172,12 +172,16 @@ export type GithubReader = {
   /** Drops the dossier's cached summary, so the next read is fresh (PRD 251, s11: a send reads the
    * outbox fresh, and clears it once posted so the answer shows at once). */
   forget(dossierId: string): void;
+};
+
+/** The same reader, for a fix (PRD 627, s5). */
+export type FixReader = {
   /** What GitHub says of a fix (./fix.ts), through the same 60-second cache; null when the App is not
    * installed on its repository, or its config could not be read. */
   fix(ref: FixRef): Promise<FixSummary | null>;
 };
 
-export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now): GithubReader {
+export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now): GithubReader & FixReader {
   const app = githubApp(creds, fetchImpl, clock);
   const tokens = new Map<string, InstallationToken>();
   const summaries = new Map<string, { at: number; value: GithubSummary | null }>();

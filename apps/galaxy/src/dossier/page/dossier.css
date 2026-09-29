@@ -587,3 +587,48 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
   .dossier-round-body { padding: 4px 12px 12px; }
   .outbox-card { padding: 14px; }
 }
+
+/* A fix's state and Timeline (PRD 627, s5): the pill on its list row and in its header, the risk and
+   regression badges of a bug fix's row, and the Timeline's moments, each on its own line. */
+.fix-state {
+  display: inline-block;
+  font: 700 12px/1 var(--ask-body);
+  color: var(--ask-ink);
+  background: var(--ask-sunk);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 999px;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+.fix-state-in-review { border-color: var(--ask-cyan); }
+.fix-state-merged { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); }
+.fix-state-unknown { color: var(--ask-muted); }
+.fix-badge {
+  font: 600 12px/1 var(--ask-mono);
+  color: var(--ask-muted);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 4px;
+  padding: 4px 6px;
+}
+.fix-badge-regression { color: var(--ask-red); border-color: var(--ask-red); }
+.fix-timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; max-width: 720px; }
+.fix-moment {
+  padding: 12px 0 12px 20px;
+  border-left: 2px solid var(--ask-line-strong);
+  position: relative;
+  overflow-wrap: anywhere;
+}
+.fix-moment::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 17px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ask-surface);
+  border: 2px solid var(--ask-line-strong);
+}
+.fix-moment-done::before { background: var(--ask-plasma); border-color: var(--ask-plasma); }
+.fix-moment-label { font-weight: 700; }
+.fix-moment:not(.fix-moment-done) .fix-moment-label { color: var(--ask-muted); }
