@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.mjs';
-import { checkSpecText, findInboxViolations } from './check-inbox.mjs';
+import { checkSpecText, findInboxViolations, inboxViolationsFor } from './check-inbox.mjs';
 
 const IN = '.omni-loop/delivery/inbox';
 const SHIPPED = '.omni-loop/delivery/shipped';
@@ -179,6 +179,36 @@ describe('findInboxViolations', () => {
 
       expect(findInboxViolations({ ctx })).toEqual([]);
     });
+  });
+});
+
+describe('inboxViolationsFor (PRD 675)', () => {
+  const broken = {
+    [`${IN}/0042-good/spec.md`]: specText({ frontMatter: { 'blocked-by': '[43]' } }),
+    [`${IN}/0043-bad/spec.md`]: specText({ frontMatter: { prd: 44, 'blocked-by': '[9999]' } }),
+    [`${IN}/0043-bad/before-after.html`]: 'x'.repeat(512_001),
+    [`${IN}/0045-missing/plan.md`]: 'a folder with no spec',
+  };
+
+  it("reports exactly the violations findInboxViolations reports for that folder", () => {
+    const { ctx } = makeRepo({ files: broken });
+    const all = findInboxViolations({ ctx });
+    for (const [prd, folder] of [[42, '0042-good'], [43, '0043-bad'], [45, '0045-missing']]) {
+      const own = all.filter((v) => v.startsWith(`${IN}/${folder}/`));
+      expect(inboxViolationsFor({ ctx, prd })).toEqual(own);
+    }
+  });
+
+  it("reports nothing for another folder's faults", () => {
+    const { ctx } = makeRepo({ files: broken });
+    expect(inboxViolationsFor({ ctx, prd: 42 })).toEqual([]);
+    expect(inboxViolationsFor({ ctx, prd: 43 }).length).toBe(3);
+  });
+
+  it('refuses a PRD with no inbox folder, even one already shipped', () => {
+    const { ctx } = makeRepo({ files: { [`${SHIPPED}/0007-done/spec.md`]: specText({ frontMatter: { prd: 7 } }) } });
+    expect(inboxViolationsFor({ ctx, prd: 7 })).toEqual(['PRD 7 has no inbox folder.']);
+    expect(inboxViolationsFor({ ctx, prd: 8 })).toEqual(['PRD 8 has no inbox folder.']);
   });
 });
 

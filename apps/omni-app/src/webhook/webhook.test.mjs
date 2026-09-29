@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { HARVEST_EVENT, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
+import { HARVEST_EVENT, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
+import { inboxCheck } from '../inbox-check/inbox-check.mjs';
 import { CHECK_ACTIONS, HANDLED, RETRO_ACTIONS, receiveWebhook, toCheckRequests, toEvents, toHarvestRequests, toRetroRequests } from './webhook.mjs';
 
 const SECRET = 'shh-test-secret';
@@ -147,6 +148,29 @@ describe('webhook — the event and action filter', () => {
         },
       },
     ]);
+  });
+
+  it('turns a re-run of an inbox check run into the inbox check event only (PRD 675)', async () => {
+    const payload = rerequestedPayload();
+    payload.check_run = { ...payload.check_run, name: 'inbox', external_id: INBOX_EXTERNAL_ID };
+    const { send } = await deliver({ event: 'check_run', payload });
+    expect(send.mock.calls[0][0]).toEqual([
+      expect.objectContaining({ name: INBOX_CHECK_EVENT, data: expect.objectContaining({ prNumber: 28, trigger: 'check_run.rerequested' }) }),
+    ]);
+  });
+
+  it('keeps a re-run of any other check run the outbox check event, whatever its name', () => {
+    const payload = rerequestedPayload();
+    payload.check_run = { ...payload.check_run, name: 'inbox', external_id: 'someone-else' };
+    expect(toCheckRequests('check_run', payload).map((e) => e.name)).toEqual([OUTBOX_CHECK_EVENT]);
+  });
+
+  it('sends, for every handled pull request action, the one event the outbox and inbox checks both run on', () => {
+    for (const action of CHECK_ACTIONS.pull_request) {
+      expect(toEvents('pull_request', pullRequestPayload(action)).map((e) => e.name)).toEqual([OUTBOX_CHECK_EVENT]);
+    }
+    expect(inboxCheck.opts.triggers).toContainEqual({ event: OUTBOX_CHECK_EVENT });
+    expect(inboxCheck.opts.triggers).toContainEqual({ event: INBOX_CHECK_EVENT });
   });
 
   it('answers 200 and sends nothing to a rerequested check run tied to no pull request', async () => {

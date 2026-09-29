@@ -6,6 +6,10 @@
 # `settle` waits first (scripts/settle-head.sh carries the numbers): a newer push cancels this run
 # while it is still one idle runner (the concurrency group below), and a branch that moved anyway
 # makes the run stale, so `test` and `fallow` skip. A burst of pushes costs one full run.
+#
+# A phase-0 PR (head `docs/phase-0-<topic>`, `branches.phase0` in .omni-loop/config.yml) carries only a
+# PRD's docs: `settle` does not run for it, so neither do `test` and `fallow` (PRD 675). The omni-loop
+# App's inbox check grades it instead.
 name: checks
 on:
   pull_request:
@@ -19,7 +23,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   settle:
-    if: github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false && !startsWith(github.head_ref, 'docs/phase-0-')
     runs-on: ubuntu-latest
     timeout-minutes: 6
     outputs:

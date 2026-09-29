@@ -1,9 +1,9 @@
-# omni-loop — the GitHub App behind the outbox check, the retro and the knowledge harvest
+# omni-loop — the GitHub App behind the outbox check, the inbox check, the retro and the knowledge harvest
 
 `apps/omni-app` is the webhook server of **omni-loop**, a public GitHub App owned by the vertuoza org
 (PRD 28; public since PRD 359, so anyone can install it and a workspace is born from the installation).
-It does three jobs: the **outbox check** on every pull request, and, after every feature pull
-request merges, a **retro** (PRD 72) and a **knowledge harvest** (PRD 82), below. Once the app is
+It does four jobs: the **outbox check** on every pull request, the **inbox check** on every phase-0
+pull request (PRD 675), and, after every feature pull request merges, a **retro** (PRD 72) and a **knowledge harvest** (PRD 82), below. Once the app is
 installed on a repository that has the loop (a `.omni-loop/config.yml` on the base branch), every pull
 request carries one check run named **outbox** (shown as **omni-loop · outbox**):
 
@@ -17,6 +17,30 @@ request carries one check run named **outbox** (shown as **omni-loop · outbox**
 | Broken base config, snapshot over its bound, or any failure after retries | `failure` |
 
 Nothing is added to an installed repository: no workflow, no file under `.github/`, no secret.
+
+## The inbox check (PRD 675)
+
+A phase-0 PR, whose head branch has the `branches.phase0` shape as the base branch's config spells it
+(default `docs/phase-0-<topic>`), also carries a check run named **inbox** (`ci.inboxContext`; shown
+as **omni-loop · inbox**). It grades the PR with the kit's own rules, one summary line per gate:
+
+| Gate | `ok` when |
+|---|---|
+| phase-0 verdict | the kit's `phase0Verdict` on the compare's paths and commits: docs-only, carrying the PRD's spec, plan and before/after, every commit signed (unless `signature` is null) — what `omni phase0 <n>` prints |
+| inbox folder | the kit's inbox rules pass on **this PRD's folder only**; another PRD's broken folder never counts |
+| plan | `plan.md` exists and the kit's plan grading (what `omni plan check <n>` reads from it) finds nothing |
+| PRD issue | issue `<n>` exists, is open, and carries `labels.prd` |
+
+| Situation | Conclusion |
+|---|---|
+| No `.omni-loop/config.yml` on the base branch, or a head branch not of the phase-0 shape (feature PR, sub-PR, anything else) | no check run at all, not even `skipped` |
+| All four gates `ok` | `success` |
+| Any gate `not ok`, or no inbox folder `<nnnn>-<topic>` for the branch's topic | `failure`, naming the gate |
+| Snapshot over its bound, or any failure after retries | `failure` with the reason |
+
+There is no override label and no comment: the check run's summary is the report. The function runs on
+the outbox check's own event, so every pull request action that re-evaluates one re-evaluates both;
+**Re-run** on an inbox check run (recognised by its `external_id`, `omni-loop/inbox`) re-runs it alone.
 
 ## The retro (PRD 72)
 
@@ -116,7 +140,8 @@ review, never its author).
 GitHub ── pull_request / check_run.rerequested ──▶ /api/github    verify signature → inngest.send → 200
              a merged pull_request.closed → omni-loop/retro.requested and
                                             omni-loop/knowledge.harvest.requested, never the outbox check
-             every other handled action   → omni-loop/outbox.check.requested
+             every other handled action   → omni-loop/outbox.check.requested (outbox-check and inbox-check)
+             Re-run of an inbox check run → omni-loop/inbox.check.requested (inbox-check only)
              a stage move (PRD 587)       → POST galaxy /api/stages/event, signed, beside either route
 Inngest ──▶ /api/inngest   function "outbox-check" (debounced per repo + PR)
               step "in-progress"  create the check run, in_progress, on the head SHA
@@ -125,6 +150,14 @@ Inngest ──▶ /api/inngest   function "outbox-check" (debounced per repo + P
               step "publish"      complete the check run; rewrite the outbox comment unless the head moved on
             onFailure          complete the check run as failure — never left in_progress
                                (no base config: post nothing)
+Inngest ──▶ /api/inngest   function "inbox-check" (debounced per repo + PR)
+              step "in-progress"  the base config; a phase-0 head branch gets the check run, in_progress
+                                  (no base config, or another branch shape: stop here, post nothing)
+              step "evaluate"     snapshot the head's inbox + shipped folders into /tmp; the compare and
+                                  the PRD issue; evaluateInbox grades the four gates
+              step "publish"      complete the check run; no comment
+            onFailure          complete the check run as failure — never left in_progress
+                               (not a phase-0 PR: post nothing)
 Inngest ──▶ /api/inngest   function "retro" (one at a time per repository)
               step "qualify"          the config at the merge SHA; a feature PR; its PRD folder
               step "gather-pulls"     the sub-PRs into the feature branch
@@ -155,6 +188,7 @@ Inngest ──▶ /api/inngest   function "pr-stats" (cron */15 * * * *, one run
 | `evaluate` — pure, reuses the kit's gate unchanged | `src/evaluate/` |
 | `publish` — the check run and the comment | `src/publish/` |
 | `outbox-check` — the Inngest function | `src/outbox-check/`, served at `api/inngest.mjs` |
+| `inbox-check` — the Inngest function, its GitHub reads and the pure `evaluateInbox` | `src/inbox-check/`, served at `api/inngest.mjs` |
 | `retro` — the Inngest function wiring the retro's units | `src/retro/retro.mjs`, served at `api/inngest.mjs` |
 | `qualify` — which merged PR gets a retro, and its PRD | `src/retro/qualify.mjs` |
 | the kinds of finding — each one's GitHub reads, detector and section | `src/retro/kinds/` (registry: `index.mjs`) |
@@ -202,7 +236,7 @@ None of these is taken by the code; a person does each once.
    the Vercel variable, redeploy, then delete the old key.
 3. **Inngest.** Create (or reuse) the Inngest account and sync the app at
    `https://<production domain>/api/inngest`. A deploy does not resync it: after a deploy that adds a
-   function (pr-stats, PRD 612, is one), press **Resync** on the app in Inngest, or the new function
+   function (pr-stats, PRD 612, and inbox-check, PRD 675, are two), press **Resync** on the app in Inngest, or the new function
    never runs.
 4. **Branch protection (optional).** Require the **outbox** check from the `omni-loop` app on the
    default branch.

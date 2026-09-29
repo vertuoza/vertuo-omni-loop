@@ -1,0 +1,228 @@
+// `inbox-check` end to end against the stubbed GitHub (PRD 675): the outbox check's fake, widened
+// with the two routes only the inbox check reads (the compare's commits and the PRD issue) and the
+// check run's `external_id`. No test calls GitHub.
+import { createHmac } from 'node:crypto';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { InngestTestEngine } from '@inngest/test';
+import { describe, expect, it } from 'vitest';
+import { inngest, INBOX_CHECK_EVENT, INBOX_EXTERNAL_ID, OUTBOX_CHECK_EVENT } from '../inngest-client.mjs';
+import { fakeGitHub } from '../outbox-check/fake-github.mjs';
+import { receiveWebhook } from '../webhook/webhook.mjs';
+import {
+  INBOX_DEBOUNCE,
+  INBOX_FUNCTION_ID,
+  createInboxCheck,
+  createInboxFailureHandler,
+  inboxCheck,
+} from './inbox-check.mjs';
+
+const FIXTURES = fileURLToPath(new URL('../../test/fixtures/', import.meta.url));
+const fixture = (name) => join(FIXTURES, name);
+const SECRET = 'inbox-secret';
+const REPOSITORY = { name: 'widgets', full_name: 'acme/widgets', owner: { login: 'acme' } };
+
+const TRAILER = 'Co-authored-by: Omni-man <333776611+omni-loop-invader[bot]@users.noreply.github.com>';
+const FOLDER = '.omni-loop/delivery/inbox/0042-widget';
+const COMPLETE_FILES = ['spec.md', 'plan.md', 'before-after.html'].map((file) => ({ filename: `${FOLDER}/${file}`, status: 'added' }));
+const SIGNED = [{ sha: 'c1', commit: { message: `docs(phase-0): widget\n\n${TRAILER}` } }];
+const OPEN_ISSUE = { number: 42, state: 'open', labels: [{ name: 'omni:prd' }] };
+
+/** The outbox check's fake GitHub, plus the compare's commits, the issues route and `external_id`. */
+function inboxGitHub({ base = 'inbox-base', head = 'inbox-head-complete', headRef = 'docs/phase-0-widget', files = COMPLETE_FILES, commits = SIGNED, issue = OPEN_ISSUE } = {}) {
+  const pull = { number: 12, base: { ref: 'main', sha: 'base1' }, head: { ref: headRef, sha: 'head1' }, labels: [] };
+  const github = fakeGitHub({ commits: { base1: fixture(base), head1: fixture(head) }, pull });
+  const inner = github.octokit;
+  github.octokit = {
+    async request(route, params) {
+      if (route === 'GET /repos/{owner}/{repo}/compare/{basehead}') {
+        github.state.requests.push({ route, ...params });
+        return { data: params.page === 1 ? { files, commits } : { files: [], commits: [] } };
+      }
+      if (route === 'GET /repos/{owner}/{repo}/issues/{issue_number}') {
+        github.state.requests.push({ route, ...params });
+        if (!issue || issue.number !== params.issue_number) throw Object.assign(new Error('Not Found'), { status: 404 });
+        return { data: issue };
+      }
+      const response = await inner.request(route, params);
+      if (route === 'POST /repos/{owner}/{repo}/check-runs' && params.external_id) response.data.external_id = params.external_id;
+      return response;
+    },
+  };
+  return github;
+}
+
+const event = (name = OUTBOX_CHECK_EVENT) => ({
+  name,
+  data: { installationId: 7, owner: 'acme', repo: 'widgets', repository: 'acme/widgets', prNumber: 12, headSha: 'head1', trigger: 'pull_request.synchronize' },
+});
+
+async function run(github, e = event()) {
+  const fn = createInboxCheck({ client: inngest, octokitFor: () => github.octokit });
+  return new InngestTestEngine({ function: fn, events: [e] }).execute();
+}
+
+const failedEvent = (message) => ({ event: { name: 'inngest/function.failed', data: { event: event(), error: { message } } }, error: new Error(message) });
+
+describe('inbox-check — a phase-0 PR gets the inbox check', () => {
+  it('a complete phase-0 PR completes success, four gates ok, under the name ci.inboxContext', async () => {
+    const github = inboxGitHub();
+    const { ctx, result } = await run(github);
+    expect(ctx.step.run.mock.calls.map(([id]) => id)).toEqual(['in-progress', 'evaluate', 'publish']);
+    expect(result).toMatchObject({ name: 'inbox', conclusion: 'success', prd: 42 });
+    expect(github.state.checkRuns).toHaveLength(1);
+    expect(github.state.checkRuns[0]).toMatchObject({
+      name: 'inbox',
+      head_sha: 'head1',
+      external_id: INBOX_EXTERNAL_ID,
+      status: 'completed',
+      conclusion: 'success',
+    });
+    expect(github.state.checkRuns[0].output.summary.match(/^- ok — /gm)).toHaveLength(4);
+    expect(github.state.comments).toEqual([]);
+  });
+
+  it('an incomplete phase-0 PR completes failure, naming the gate', async () => {
+    const github = inboxGitHub({ head: 'inbox-head-no-plan', files: COMPLETE_FILES.filter((f) => !f.filename.endsWith('plan.md')) });
+    await run(github);
+    expect(github.state.checkRuns[0]).toMatchObject({ conclusion: 'failure', output: { title: 'Not ok: phase-0 verdict, plan' } });
+  });
+
+  it('an unsigned commit and a closed issue each fail their gate', async () => {
+    const github = inboxGitHub({ commits: [{ sha: 'c9', commit: { message: 'docs: no trailer' } }], issue: { ...OPEN_ISSUE, state: 'closed' } });
+    await run(github);
+    expect(github.state.checkRuns[0].output.title).toBe('Not ok: phase-0 verdict, PRD issue');
+    expect(github.state.checkRuns[0].output.summary).toContain('issue #42 is closed');
+  });
+
+  it('a ci.inboxContext set in the base config renames the check run', async () => {
+    const github = inboxGitHub({ base: 'inbox-base-renamed' });
+    await run(github);
+    expect(github.state.checkRuns[0]).toMatchObject({ name: 'phase-0 shape', conclusion: 'success' });
+  });
+
+  it('snapshots only the base config and the head delivery folder', async () => {
+    const github = inboxGitHub();
+    await run(github);
+    const blobs = github.state.requests.filter((r) => r.route.endsWith('/git/blobs/{file_sha}')).map((r) => r.file_sha);
+    expect(blobs.length).toBeGreaterThan(0);
+    for (const sha of blobs) expect(sha === 'base1:.omni-loop/config.yml' || sha.startsWith('head1:.omni-loop/delivery/inbox/')).toBe(true);
+  });
+});
+
+describe('inbox-check — silent on every other PR', () => {
+  it.each([['a feature PR', 'feat/widget'], ['a sub-PR', 'feat/widget--s1'], ['any other branch', 'fix/widget']])(
+    '%s gets no inbox check run',
+    async (_, headRef) => {
+      const github = inboxGitHub({ headRef });
+      const { ctx, result } = await run(github);
+      expect(ctx.step.run.mock.calls.map(([id]) => id)).toEqual(['in-progress']);
+      expect(result.posted).toBe(false);
+      expect(github.state.checkRuns).toEqual([]);
+    },
+  );
+
+  it('a repository without .omni-loop/config.yml on its base gets no inbox check run', async () => {
+    const github = inboxGitHub({ base: 'base-inactive' });
+    await run(github);
+    expect(github.state.checkRuns).toEqual([]);
+    const writes = github.state.requests.filter((r) => r.route.startsWith('POST ') || r.route.startsWith('PATCH '));
+    expect(writes).toEqual([]);
+  });
+
+  it('the failure handler posts nothing on a PR that is not phase-0', async () => {
+    const github = inboxGitHub({ headRef: 'feat/widget' });
+    const out = await createInboxFailureHandler({ octokitFor: () => github.octokit })(failedEvent('boom'));
+    expect(out.posted).toBe(false);
+    expect(github.state.checkRuns).toEqual([]);
+  });
+});
+
+describe('inbox-check — fail closed', () => {
+  it('a failure after retries completes the running check as failure, with the reason', async () => {
+    const github = inboxGitHub();
+    const broken = {
+      request: async (route, params) => {
+        if (route === 'GET /repos/{owner}/{repo}/compare/{basehead}') throw new Error('GitHub is down');
+        return github.octokit.request(route, params);
+      },
+    };
+    const fn = createInboxCheck({ client: inngest, octokitFor: () => broken });
+    const { error } = await new InngestTestEngine({ function: fn, events: [event()] }).execute();
+    expect(error).toBeTruthy();
+    expect(github.state.checkRuns[0].status).toBe('in_progress');
+
+    await createInboxFailureHandler({ octokitFor: () => github.octokit })(failedEvent('GitHub is down'));
+    expect(github.state.checkRuns).toHaveLength(1);
+    expect(github.state.checkRuns[0]).toMatchObject({
+      status: 'completed',
+      conclusion: 'failure',
+      output: { title: 'omni-loop could not evaluate: GitHub is down' },
+    });
+  });
+
+  it('creates the inbox check already failed when the run failed before creating one', async () => {
+    const github = inboxGitHub();
+    await createInboxFailureHandler({ octokitFor: () => github.octokit })(failedEvent('boom\nstack'));
+    expect(github.state.checkRuns).toEqual([
+      expect.objectContaining({ name: 'inbox', external_id: INBOX_EXTERNAL_ID, conclusion: 'failure', output: expect.objectContaining({ title: 'omni-loop could not evaluate: boom' }) }),
+    ]);
+  });
+
+  it('when GitHub cannot say whether it is a phase-0 PR, completes an open inbox run and creates none', async () => {
+    const github = inboxGitHub({ headRef: 'feat/widget' });
+    const flaky = {
+      request: async (route, params) => {
+        if (route === 'GET /repos/{owner}/{repo}/pulls/{pull_number}') throw new Error('502');
+        return github.octokit.request(route, params);
+      },
+    };
+    const out = await createInboxFailureHandler({ octokitFor: () => flaky })(failedEvent('502'));
+    expect(out).toMatchObject({ name: 'inbox', checkRunIds: [] });
+    expect(github.state.checkRuns).toEqual([]);
+  });
+});
+
+describe('inbox-check — the function’s configuration', () => {
+  it('runs on the outbox check’s event and on its own re-run event, debounced per repository and PR', () => {
+    expect(inboxCheck.id()).toBe(INBOX_FUNCTION_ID);
+    expect(inboxCheck.opts.triggers).toEqual([{ event: OUTBOX_CHECK_EVENT }, { event: INBOX_CHECK_EVENT }]);
+    expect(inboxCheck.opts.debounce).toBe(INBOX_DEBOUNCE);
+    expect(INBOX_DEBOUNCE.key).toContain('event.data.prNumber');
+    expect(inboxCheck.opts.retries).toBe(3);
+    expect(typeof inboxCheck.opts.onFailure).toBe('function');
+  });
+});
+
+describe('inbox-check — from a signed webhook', () => {
+  async function deliver(github, event, payload) {
+    const body = JSON.stringify(payload);
+    const sent = [];
+    await receiveWebhook({
+      body,
+      headers: { 'x-github-event': event, 'x-hub-signature-256': `sha256=${createHmac('sha256', SECRET).update(body).digest('hex')}` },
+      secret: SECRET,
+      send: async (events) => sent.push(...events),
+      forward: async () => {},
+    });
+    for (const e of sent) await run(github, e);
+    return sent;
+  }
+
+  it('a phase-0 PR opened, then its inbox run re-run, each complete the inbox check', async () => {
+    const github = inboxGitHub();
+    const pull = { number: 12, head: { sha: 'head1', ref: 'docs/phase-0-widget' }, base: { ref: 'main' } };
+    await deliver(github, 'pull_request', { action: 'opened', installation: { id: 7 }, repository: REPOSITORY, number: 12, pull_request: pull });
+    const rerun = await deliver(github, 'check_run', {
+      action: 'rerequested',
+      installation: { id: 7 },
+      repository: REPOSITORY,
+      check_run: { name: 'inbox', external_id: INBOX_EXTERNAL_ID, head_sha: 'head1', pull_requests: [{ number: 12, head: { sha: 'head1' } }] },
+    });
+    expect(rerun.map((e) => e.name)).toEqual([INBOX_CHECK_EVENT]);
+    expect(github.state.checkRuns.map((r) => [r.name, r.conclusion])).toEqual([
+      ['inbox', 'success'],
+      ['inbox', 'success'],
+    ]);
+  });
+});

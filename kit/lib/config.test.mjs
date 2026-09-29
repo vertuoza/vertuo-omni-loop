@@ -21,6 +21,15 @@ describe('parseConfig', () => {
     expect(config.ask).toEqual({ url: null });
   });
 
+  it('names the inbox check "inbox" unless the file renames it, and refuses a name that is not text (PRD 675)', () => {
+    expect(parseConfig('kit: 1\n').ci.inboxContext).toBe('inbox');
+    expect(parseConfig('kit: 1\nci:\n  inboxContext: omni/inbox\n').ci.inboxContext).toBe('omni/inbox');
+    expect(parseConfig('kit: 1\nci:\n  inboxContext: omni/inbox\n').ci.outboxContext).toBe('outbox');
+    expect(() => parseConfig('kit: 1\nci:\n  inboxContext: 3\n', 'c.yml')).toThrow(/c\.yml.*ci\.inboxContext/);
+    expect(() => parseConfig('kit: 1\nci:\n  inboxContext: [inbox]\n')).toThrow(/ci\.inboxContext/);
+    expect(() => parseConfig('kit: 1\nci:\n  inboxContext: ""\n')).toThrow(/ci\.inboxContext/);
+  });
+
   it('takes an https ask.url, or http only on 127.0.0.1', () => {
     expect(parseConfig('kit: 1\nask:\n  url: https://ask.example.com\n').ask.url).toBe('https://ask.example.com');
     expect(parseConfig('kit: 1\nask:\n  url: http://127.0.0.1:4321\n').ask.url).toBe('http://127.0.0.1:4321');
