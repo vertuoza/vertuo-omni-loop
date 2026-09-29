@@ -5,11 +5,15 @@ import { StageHeaderCopy } from './StageHeaderCopy';
 // the title ("PRD #n ↗" linking to its issue, or DRAFT), the one button for the title row, the track
 // idea ─ PRD ─ inbox ─ outbox ─ shipped ─ retro with the stages passed ticked and the current one lit
 // and written in words for the Stage cell, and the issue and pull requests that exist for the On GitHub
-// cell. Unknown: nothing lit, and the words say GitHub did not answer, as a status.
+// cell. Unknown: nothing lit, and the words say GitHub did not answer, as a status. A fix's title
+// (PRD 627) reads `#n ↗` after its kind's badge.
 
-export function DossierTitle({ heading, draft, title, issueUrl }: { heading: string; draft: boolean; title: string; issueUrl: string | null }) {
+export function DossierTitle({ heading, draft, title, issueUrl, badge = null }: {
+  heading: string; draft: boolean; title: string; issueUrl: string | null; badge?: string | null;
+}) {
   return (
     <h1 className="dossier-title">
+      {badge && <><span className="dossier-kind">{badge}</span>{' '}</>}
       {draft || !issueUrl ? (
         <span className="dossier-draft">DRAFT</span>
       ) : (

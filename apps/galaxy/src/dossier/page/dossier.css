@@ -48,6 +48,18 @@
   padding: 6px 9px;
   border-radius: 4px;
 }
+.dossier-kind {
+  display: inline-block;
+  vertical-align: middle;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ask-plasma);
+  border: 1px solid var(--ask-plasma);
+  padding: 5px 8px;
+  border-radius: 4px;
+}
 .ask a.dossier-number { text-decoration: none; }
 .ask a.dossier-number:hover,
 .ask a.dossier-number:focus-visible { text-decoration: underline; }

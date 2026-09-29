@@ -124,9 +124,9 @@ export type DossierRow = {
 export type DossierVersionRow = {
   id: string;
   dossier_id: string;
-  /** A PRD's three kinds, as the PRD page reads them; a fix's versions (ArtifactKind) are read by the
-   * fix's own page (PRD 627). */
-  kind: DossierKind;
+  /** A PRD's spec, plan or before-after; a visual fix's before-after or a round of variations; a bug
+   * fix's record (PRD 627). */
+  kind: ArtifactKind;
   bytes: number;
   source: 'kit' | 'github';
   uploaded_by: string | null;
