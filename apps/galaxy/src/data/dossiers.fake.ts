@@ -1,7 +1,7 @@
 // The dossiers beside the stubbed galaxy (galaxy.fake.ts), for the planet's DOSSIER tab: the dossiers
 // table read as one signed-in person under the row-level security of
 // supabase/migrations/20260928090000_dossiers.sql (a member reads their workspace's dossiers, nobody
-// reads another's), and the two functions the tab reads, dossier_list(p_dossier) and
+// reads another's), and the two functions the tab reads, dossier_list(p_dossier, p_workspace) and
 // dossier_rounds(p_dossier), which run as the caller: a dossier they may not read lists nothing and has
 // no round. Every other table and function is the galaxy fake's. It answers the query shapes
 // src/data/dossiers.ts sends, records every one, and nothing else; the functions' own rules are proved
@@ -63,7 +63,8 @@ export function withDossiers(world: ReturnType<typeof fakeGalaxyDb>, dossiers: F
       if (world.state.fail) return { data: null, error: world.state.fail };
       const id = args?.p_dossier;
       if (state.failOn === fn || (typeof id === 'string' && state.failOn === id)) return refused(fn);
-      const mine = dossiers.filter(readable).filter((d) => !state.gone.has(d.row.id)).filter((d) => id === null || id === undefined || d.row.id === id);
+      const mine = dossiers.filter(readable).filter((d) => !state.gone.has(d.row.id)).filter((d) => id === null || id === undefined || d.row.id === id)
+        .filter((d) => typeof args?.p_workspace !== 'string' || d.row.workspace_id === args.p_workspace);
       return { data: clone(fn === 'dossier_list' ? mine.map((d) => d.row) : mine.flatMap((d) => d.rounds)), error: null };
     }
 
