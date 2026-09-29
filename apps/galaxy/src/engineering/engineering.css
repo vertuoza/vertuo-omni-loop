@@ -1,6 +1,6 @@
 /* The Engineering board (PRD 612 s3), on the ask pages' reading surface, drawn with the other boards'
    pieces (../dashboard/board/board.css) and these few of its own: six tiles, the Omni Loop panel, the
-   two parts of a day's bar, the sort links and the three top-5 lists. Every colour is a token of
+   two parts of a day's bar, the sort links, the three top-5 lists, and a repository page's way back. Every colour is a token of
    src/ask/theme-tokens.ts. Nothing is wider than the window: at 393 px the tiles go two by two, the
    panel sits above the chart, the lists one under another, and the table scrolls inside its own box. */
 
@@ -40,6 +40,12 @@ span.eng-face { border-radius: 4px; background: none; }
 .eng-meter-reviews > span { background: var(--ask-cyan); }
 
 .eng-empty p { margin: 0; overflow-wrap: anywhere; }
+
+/* A repository's page (PRD 645 s2): the link back above its heading, and the table's names as links. */
+.eng-back-row { margin: 0 0 4px; }
+.ask .eng-back { color: var(--ask-muted); text-decoration: none; }
+.ask .eng-back:hover { color: var(--ask-ink); text-decoration: underline; }
+.ask .board-name a { color: inherit; overflow-wrap: anywhere; }
 
 @media (forced-colors: active) {
   .eng-bar-signed { fill: Highlight; }

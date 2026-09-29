@@ -18,22 +18,27 @@ import './engineering.css';
 // the URL as `?sort=`), then the three top-5 people lists: ranked rows, each with a face (a player's
 // game hero, else the GitHub picture) and a bar scaled to the list's first count (PRD 645 s1). Over tracked repositories only. With none,
 // the empty state sends the person to Settings → Repositories. The chart is inline SVG with no
-// script, hidden from a screen reader, which reads a list of the days instead.
+// script, hidden from a screen reader, which reads a list of the days instead. Each repository name in
+// the table opens that repository's page (PRD 645 s2): the same board over it alone, with no table,
+// and a period switch that stays on the page.
 
-const ENGINEERING_PATH = '/app/engineering';
+export const ENGINEERING_PATH = '/app/engineering';
+
+/** A repository's page: `/app/engineering/<owner>/<repo>`, each part escaped. */
+export const repositoryPath = (repo: string) => `${ENGINEERING_PATH}/${repo.split('/').map(encodeURIComponent).join('/')}`;
 const REPOSITORIES_PATH = '/app/settings/repositories';
 
 const COUNT = new Intl.NumberFormat('en-US');
 const n = (value: number) => COUNT.format(value);
 const PERIOD_WORDS: Record<Period, string> = { '7d': 'last 7 days', '30d': 'last 30 days', season: 'this season' };
 
-function PeriodSwitch({ period, query }: { period: Period; query: Query }) {
+function PeriodSwitch({ path, period, query }: { path: string; period: Period; query: Query }) {
   return (
     <nav className="board-period" aria-label="Period">
       <ul>
         {PERIODS.map((p) => (
           <li key={p.id}>
-            <a href={periodHref(ENGINEERING_PATH, query, p.id)} aria-current={p.id === period ? 'page' : undefined}>{p.label}</a>
+            <a href={periodHref(path, query, p.id)} aria-current={p.id === period ? 'page' : undefined}>{p.label}</a>
           </li>
         ))}
       </ul>
@@ -119,7 +124,7 @@ function PerDay({ days, period }: { days: MergedDay[]; period: Period }) {
 
 // ── Per repository ───────────────────────────────────────────────────────
 
-function Repositories({ value, query }: { value: Extract<EngineeringValue, { kind: 'board' }>; query: Query }) {
+function Repositories({ value, period, query }: { value: Extract<EngineeringValue, { kind: 'board' }>; period: Period; query: Query }) {
   const head = (id: SortKey, label: string) => (
     <th key={id} scope="col" className={id === 'repo' ? undefined : 'is-num'} aria-sort={id === value.sort ? (id === 'repo' || id === 'time' ? 'ascending' : 'descending') : undefined}>
       <a className="eng-sort" href={hrefWith(ENGINEERING_PATH, query, { sort: id })}>{label}</a>
@@ -134,7 +139,7 @@ function Repositories({ value, query }: { value: Extract<EngineeringValue, { kin
           <tbody>
             {value.repositories.map((r) => (
               <tr key={r.repo}>
-                <th scope="row" className="board-name">{r.repo}</th>
+                <th scope="row" className="board-name"><a href={hrefWith(repositoryPath(r.repo), {}, { period })}>{r.repo}</a></th>
                 <td className="is-num">{n(r.opened)}</td>
                 <td className="is-num">{n(r.merged)}</td>
                 <td className="is-num">{n(r.openNow)}</td>
@@ -203,12 +208,14 @@ export interface EngineeringBoardProps {
   board: Read<EngineeringValue>;
   period: Period;
   query: Query;
+  /** On a repository's page, that repository: the period switch stays on the page, and there is no table. */
+  repo?: string;
 }
 
-export function EngineeringBoard({ board, period, query }: EngineeringBoardProps) {
+export function EngineeringBoard({ board, period, query, repo }: EngineeringBoardProps) {
   return (
     <div className="board eng">
-      <PeriodSwitch period={period} query={query} />
+      <PeriodSwitch path={repo ? repositoryPath(repo) : ENGINEERING_PATH} period={period} query={query} />
       {board === UNREADABLE ? <CouldNotLoad /> : board.kind === 'empty' ? <EmptyEngineering /> : (
         <>
           <Tiles tiles={board.tiles} />
@@ -216,7 +223,7 @@ export function EngineeringBoard({ board, period, query }: EngineeringBoardProps
             <OmniLoop omni={board.omni} />
             <PerDay days={board.perDay} period={period} />
           </div>
-          <Repositories value={board} query={query} />
+          {repo ? null : <Repositories value={board} period={period} query={query} />}
           <div className="eng-people">
             <TopFive kind="opened" title="Most opened" people={board.people.opened} />
             <TopFive kind="merged" title="Most merged" people={board.people.merged} />

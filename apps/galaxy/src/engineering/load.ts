@@ -13,7 +13,8 @@ import { engineeringOf, type EngineeringValue, type PullRequestRow, type ReviewR
 // or open now) and the reviews first given within it, of those repositories only. Any read that fails
 // leaves the whole board saying it could not load, its error logged. Last, the faces (PRD 645 s1): the
 // workspace's players among the logins the three lists show, for their heroes. That read fails soft:
-// its error logged, every face falls back to the GitHub picture and the board still renders. The reads are a port
+// its error logged, every face falls back to the GitHub picture and the board still renders. A
+// repository's page (PRD 645 s2) runs the same reads narrowed to that one tracked repository. The reads are a port
 // (EngineeringReads) so the loader is tested on fakes; supabaseEngineeringReads is the page's.
 
 export interface EngineeringReads {
@@ -29,10 +30,27 @@ export interface EngineeringReads {
 
 export interface EngineeringRequest { period: Period; sort: SortKey; now: Date }
 
-export async function loadEngineering(reads: EngineeringReads, { period, sort, now }: EngineeringRequest): Promise<Read<EngineeringValue>> {
-  const window = periodWindow(period, now);
+export async function loadEngineering(reads: EngineeringReads, request: EngineeringRequest): Promise<Read<EngineeringValue>> {
   const tracked = await settle('the tracked repositories', () => reads.tracked());
   if (tracked === UNREADABLE) return UNREADABLE;
+  return boardOf(reads, tracked, request);
+}
+
+export type RepositoryRead = { kind: 'not-tracked' } | { kind: 'repository'; repo: string; board: Read<EngineeringValue> };
+
+/** One tracked repository's board (PRD 645 s2): the same board, counted over that repository alone.
+ * The repository is matched case-insensitively among the tracked ones and named by its tracked
+ * spelling; one the workspace does not track is not tracked, and nothing else is read. */
+export async function loadEngineeringRepository(reads: EngineeringReads, repo: string, request: EngineeringRequest): Promise<RepositoryRead> {
+  const tracked = await settle('the tracked repositories', () => reads.tracked());
+  if (tracked === UNREADABLE) return { kind: 'repository', repo, board: UNREADABLE };
+  const found = tracked.find((r) => r.toLowerCase() === repo.toLowerCase());
+  if (!found) return { kind: 'not-tracked' };
+  return { kind: 'repository', repo: found, board: await boardOf(reads, [found], request) };
+}
+
+async function boardOf(reads: EngineeringReads, tracked: string[], { period, sort, now }: EngineeringRequest): Promise<Read<EngineeringValue>> {
+  const window = periodWindow(period, now);
   if (tracked.length === 0) return engineeringOf({ tracked, pullRequests: [], reviews: [] }, window, sort);
   const [pullRequests, reviews] = await Promise.all([
     settle('the pull requests', () => reads.pullRequests(window.from, tracked)),
@@ -54,19 +72,37 @@ async function facesOf(reads: EngineeringReads, logins: string[]): Promise<FaceP
   }
 }
 
-export type EngineeringBoard = { kind: 'no-workspace' } | { kind: 'board'; name: string; board: Read<EngineeringValue> };
+/** The board: the workspace's, or on a repository's page (PRD 645 s2) that repository's, `repo` its tracked spelling. */
+export type EngineeringBoard = { kind: 'no-workspace' } | { kind: 'board'; name: string; board: Read<EngineeringValue>; repo?: string };
 
-/** The board of the workspace the person joined first, as /app/workspace reads its own. */
-export async function loadEngineeringBoard(db: SupabaseClient, user: Pick<User, 'id'>, request: EngineeringRequest): Promise<EngineeringBoard> {
-  let workspace: Workspace | null;
+/** The workspace the person joined first, as /app/workspace reads its own; 'unreadable' when it cannot be read. */
+async function workspaceOf(db: SupabaseClient, user: Pick<User, 'id'>): Promise<Workspace | null | 'unreadable'> {
   try {
-    workspace = await memberWorkspace(db, user.id);
+    return await memberWorkspace(db, user.id);
   } catch (error) {
     console.error(`engineering: your workspace could not be read (${(error as Error).message})`);
-    return { kind: 'board', name: 'Engineering', board: UNREADABLE };
+    return 'unreadable';
   }
+}
+
+/** The board of the workspace the person joined first. */
+export async function loadEngineeringBoard(db: SupabaseClient, user: Pick<User, 'id'>, request: EngineeringRequest): Promise<EngineeringBoard> {
+  const workspace = await workspaceOf(db, user);
+  if (workspace === 'unreadable') return { kind: 'board', name: 'Engineering', board: UNREADABLE };
   if (!workspace) return { kind: 'no-workspace' };
   return { kind: 'board', name: workspace.name, board: await loadEngineering(supabaseEngineeringReads(db, workspace.id), request) };
+}
+
+/** One repository's board in that workspace (PRD 645 s2); not tracked when the workspace does not track it. */
+export async function loadEngineeringRepositoryBoard(
+  db: SupabaseClient, user: Pick<User, 'id'>, repo: string, request: EngineeringRequest,
+): Promise<EngineeringBoard | { kind: 'not-tracked' }> {
+  const workspace = await workspaceOf(db, user);
+  if (workspace === 'unreadable') return { kind: 'board', name: 'Engineering', board: UNREADABLE, repo };
+  if (!workspace) return { kind: 'no-workspace' };
+  const got = await loadEngineeringRepository(supabaseEngineeringReads(db, workspace.id), repo, request);
+  if (got.kind === 'not-tracked') return got;
+  return { kind: 'board', name: workspace.name, board: got.board, repo: got.repo };
 }
 
 // ── The reads, from Supabase ────────────────────────────────────────────
