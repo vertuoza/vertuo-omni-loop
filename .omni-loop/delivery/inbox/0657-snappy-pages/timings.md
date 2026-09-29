@@ -18,15 +18,21 @@ warm full load of about 1 s or less on `/prd` and `/app`.
 
 ## Before
 
-Owed: run before merge. The slice that added the script had no signed-in session at hand, so the
-baseline is still to be measured and pasted here (outbox item for slice s1).
+Measured 2026-09-29 on production (`main` at v0.0.93, before this PRD), signed in as a Vertuoza
+member, ten warm loads per page in a row, from Chrome in Belgium. The loads ran as same-origin
+`fetch` calls from a signed-in tab, with the browser's own session and `cache: no-store`, rather than
+through the script with a pasted cookie, which measures the same thing. Nothing streams today, so
+the first byte comes only once the whole page is rendered, and it equals the full load.
 
 | page | first byte, median | first byte, p75 | full load, median | full load, p75 |
 | --- | --- | --- | --- | --- |
-| /prd | owed: run before merge | owed | owed | owed |
-| /app | owed: run before merge | owed | owed | owed |
-| /app/workspace | owed: run before merge | owed | owed | owed |
-| /app/fleet | owed: run before merge | owed | owed | owed |
+| /prd | 788 | 904 | 788 | 905 |
+| /app | 819 | 846 | 819 | 847 |
+| /app/workspace | 730 | 750 | 730 | 750 |
+| /app/fleet | 744 | 770 | 744 | 770 |
+
+The slowest single load was 1042 ms, on `/prd`. These are warm numbers: the instance and the
+GitHub summaries' 60-second cache were already warm after the first load.
 
 ## After
 
