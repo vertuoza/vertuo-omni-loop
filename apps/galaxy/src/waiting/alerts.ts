@@ -1,3 +1,4 @@
+import type { DocumentGroup, DocumentKind } from './documents';
 import type { WaitingItem } from './waiting';
 
 // Alerts for what is new (PRD 499, s5), as pure functions over the browser's parts, each passed in so
@@ -136,11 +137,28 @@ export function alertOf(item: WaitingItem): Alert {
     : { title: `PRD ${item.prd} outbox: ${item.question}`, body: item.title, tag: item.id, href: `/prd/${encodeURIComponent(item.dossierId)}?tab=outbox` };
 }
 
+const KIND_WORDS: Record<DocumentKind, string> = { spec: 'spec', plan: 'plan', 'before-after': 'before/after' };
+
+/** What a desktop alert says of a PRD's new documents (PRD 579, s2): the kinds given (by default all
+ * of its group's), tagged by its newest version so every open tab raises it once, opening its page. */
+export function documentAlertOf(group: DocumentGroup, kinds: readonly DocumentKind[] = group.kinds): Alert {
+  return {
+    title: `PRD ${group.prd}: new ${kinds.map((k) => KIND_WORDS[k]).join(', ')}`,
+    body: group.title,
+    tag: `docs-${group.dossierId}-${group.newestId}`,
+    href: `/prd/${encodeURIComponent(group.dossierId)}`,
+  };
+}
+
 /** One notification per new item while the switch is on; clicking one calls `open` with its link. */
 export function raiseAlerts(api: NotificationApi | null | undefined, state: DesktopState, items: readonly WaitingItem[], open: (href: string) => void): void {
+  raiseEach(api, state, items.map(alertOf), open);
+}
+
+/** One notification per alert while the switch is on; clicking one calls `open` with its link. */
+export function raiseEach(api: NotificationApi | null | undefined, state: DesktopState, alerts: readonly Alert[], open: (href: string) => void): void {
   if (!api || state !== 'on' || api.permission !== 'granted') return;
-  for (const item of items) {
-    const alert = alertOf(item);
+  for (const alert of alerts) {
     try {
       const n = new api(alert.title, { body: alert.body, tag: alert.tag });
       n.onclick = () => {

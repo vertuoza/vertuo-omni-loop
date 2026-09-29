@@ -640,7 +640,7 @@ describe('omni init — the real bundle', () => {
     expect(readFileSync(join(root, '.omni-loop/bin/omni.mjs'))).toEqual(readFileSync(dist));
     const out = execFileSync('node', ['.omni-loop/bin/omni.mjs', 'config', 'commands.test'], { cwd: root, env, encoding: 'utf8' });
     expect(out).toBe('make test\n');
-  }, 30000);
+  });
 });
 
 const KIT_HOME = 'vertuoza/vertuo-omni-loop';

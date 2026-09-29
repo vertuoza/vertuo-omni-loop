@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  ALERTS_KEY, ALERTS_OFF, alertOf, announce, BLOCKED_BY_BROWSER, CHIMED_KEY, claimChime, desktopAtLoad, playChime, raiseAlerts,
+  ALERTS_KEY, ALERTS_OFF, alertOf, documentAlertOf, announce, BLOCKED_BY_BROWSER, CHIMED_KEY, claimChime, desktopAtLoad, playChime, raiseAlerts,
   readSwitches, switchDesktopOn, writeSwitches, type NotificationApi, type Store,
 } from './alerts';
+import type { DocumentGroup } from './documents';
 import type { WaitingItem, WaitingOutbox, WaitingQuestion } from './waiting';
 
 // Alerts for what is new (PRD 499, s5), as pure functions over fakes: what a read announces, the two
@@ -198,5 +199,21 @@ describe('desktop alerts', () => {
   it('says what waits in words a person reads, and where it opens', () => {
     expect(alertOf(q('r 1'))).toEqual({ title: 'Claude is asking: Which r 1?', body: 'terminal r 1', tag: 'r 1', href: '/ask/q/r%201' });
     expect(alertOf(o('i1', 459))).toEqual({ title: 'PRD 459 outbox: Keep i1?', body: 'Gate 459', tag: 'i1', href: '/prd/d-459?tab=outbox' });
+  });
+});
+
+describe('a new documents alert (PRD 579, s2)', () => {
+  const group: DocumentGroup = {
+    dossierId: 'd 572', prd: 572, title: 'Dashboards', kinds: ['spec', 'plan', 'before-after'], newestId: 'v9', newestAt: 0,
+  };
+
+  it('names the PRD and the kinds, the body its title, tagged by its newest version, opening its page', () => {
+    expect(documentAlertOf(group)).toEqual({
+      title: 'PRD 572: new spec, plan, before/after', body: 'Dashboards', tag: 'docs-d 572-v9', href: '/prd/d%20572',
+    });
+  });
+
+  it('names only the kinds it is given', () => {
+    expect(documentAlertOf(group, ['plan']).title).toBe('PRD 572: new plan');
   });
 });

@@ -68,7 +68,7 @@ describe('the game scripts name their workspace', () => {
       expect(run.stderr).toMatch(/no workspace named: pass --workspace <slug>, or set OMNI_LOOP_WORKSPACE/);
     }
     expect(server.calls).toEqual([]);
-  }, 20_000);
+  });
 
   it('each one stops, naming the slug, when the workspace is unknown; --workspace beats the variable', async () => {
     const runs = await Promise.all(EVERY.map(([script, args]) => game(script, [...args, '--workspace', 'ghost'], { OMNI_LOOP_WORKSPACE: 'vertuoza' })));
@@ -77,7 +77,7 @@ describe('the game scripts name their workspace', () => {
       expect(run.stderr).toMatch(/no workspace "ghost"/);
     }
     expect(ghCalls()).toEqual([]);
-  }, 20_000);
+  });
 
   it('each one stops on an argument it does not understand, rather than fall back to the variable\'s workspace', async () => {
     const runs = await Promise.all(EVERY.map(([script, args]) => game(script, [...args, '--worksapce', 'acme'], { OMNI_LOOP_WORKSPACE: 'vertuoza' })));
@@ -86,7 +86,7 @@ describe('the game scripts name their workspace', () => {
       expect(run.stderr).toMatch(/unexpected argument "--worksapce"/);
     }
     expect(server.calls).toEqual([]);
-  }, 20_000);
+  });
 
   it('game:project reads the workspace\'s GitHub organisation and plan repository, and appends rows carrying its workspace', async () => {
     const run = await game('project', ['--workspace', 'acme']);
@@ -101,7 +101,7 @@ describe('the game scripts name their workspace', () => {
     expect(append.body.map((r) => r.workspace_id)).toEqual(append.body.map(() => ACME));
     // Vertuoza's planet:12:charted does not hide Acme's: the id is unique per workspace.
     expect(tables.ledger_events.filter((r) => r.id === 'planet:12:charted').map((r) => r.workspace_id)).toEqual([VERTUOZA, ACME]);
-  }, 20_000);
+  });
 
   it('game:project and game:banner refuse a workspace that names no GitHub organisation', async () => {
     for (const [script, args] of [['project', []], ['banner', ['12']]]) {
@@ -111,14 +111,14 @@ describe('the game scripts name their workspace', () => {
     }
     expect(ghCalls()).toEqual([]);
     expect(server.calls.filter((c) => c.table !== 'workspaces')).toEqual([]);
-  }, 20_000);
+  });
 
   it('game:score folds only the named workspace\'s ledger', async () => {
     const run = await game('score', ['2026-08'], { OMNI_LOOP_WORKSPACE: 'acme' });
     expect(run.code, run.stderr).toBe(0);
     const read = server.calls.find((c) => c.table === 'ledger_events');
     expect(read.url.searchParams.get('workspace_id')).toBe(`eq.${ACME}`);
-  }, 20_000);
+  });
 
   it('game:export writes one workspace: workspace.jsonl and its five tables, nothing of another', async () => {
     tables.ledger_events.push({ ...tables.ledger_events[0], workspace_id: ACME });
@@ -134,5 +134,5 @@ describe('the game scripts name their workspace', () => {
       expect(read(`${table}.jsonl`).map((r) => r.workspace_id)).toEqual([VERTUOZA]);
     }
     expect(readdirSync(dir).map((f) => readFileSync(join(dir, f), 'utf8')).join('')).not.toContain(ACME);
-  }, 20_000);
+  });
 });
