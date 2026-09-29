@@ -20003,6 +20003,15 @@ var ENTRIES = deepFreeze([
     detail: "Turns an idea into an approved design, then into a PRD the loop can build: the PRD issue, the spec, the before/after page and the plan, in a docs-only phase-0 PR a person reviews and merges before any code is written. It writes no code and merges nothing, and ends with the /omni:yolo line that builds it."
   },
   {
+    name: "mega-brainstorm",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:mega-brainstorm"],
+    label: "/omni:mega-brainstorm",
+    summary: "one PRD across repositories, from a plan repository",
+    detail: "The brainstorm of a plan repository, one /omni:mega-invade set up: it turns one idea into one PRD whose plan says which slice lands in which target repository, read from a read-only clone of each, in which nothing runs. The spec, the plan, the draft feature PR and one phase-0 PR, with a table of what lands where, all live in the plan repository; it never writes in a target. It ends with the /omni:ultra-yolo line that builds it."
+  },
+  {
     name: "yolo",
     kind: "skill",
     who: "you",
