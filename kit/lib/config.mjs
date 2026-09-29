@@ -131,6 +131,8 @@ export const ConfigSchema = z
     board: section({ matchBy: z.enum(['base', 'label']).default('base') }),
     ci: section({
       outboxContext: text.default('outbox'),
+      // PRD 675: the name of the check run the omni-loop App posts on a phase-0 PR.
+      inboxContext: text.default('inbox'),
       aggregateCheck: nullableText.default(null),
       branchProtection: z.boolean().default(false),
       runner: text.default('ubuntu-latest'),
