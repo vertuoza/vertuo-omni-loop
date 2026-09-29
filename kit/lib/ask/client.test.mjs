@@ -277,3 +277,39 @@ describe('a renewed sign-in keeps only the sign-in', () => {
     });
   });
 });
+
+describe('downloading a screenshot (PRD 620)', () => {
+  /** A client whose every request is answered by `answer`, each one recorded. */
+  function stubbed(answer) {
+    const requests = [];
+    const tokens = memoryTokens({ 'ask.example': { access_token: 'access-1' } });
+    const client = askClient({
+      baseUrl: 'https://ask.example',
+      host: 'ask.example',
+      tokens,
+      fetch: async (url, init) => {
+        requests.push({ url, init });
+        return answer(url, init);
+      },
+    });
+    return { client, requests };
+  }
+
+  it('fetches the signed link as it is, with no bearer token, and gives its bytes', async () => {
+    const { client, requests } = stubbed(() => new Response(new Uint8Array([137, 80, 78, 71]), { status: 200 }));
+    const link = 'https://files.example/sign/r1/1.png?token=t';
+    const bytes = await client.download(link, { timeoutMs: 30_000 });
+    expect([...bytes]).toEqual([137, 80, 78, 71]);
+    expect(requests).toHaveLength(1);
+    expect(requests[0].url).toBe(link);
+    expect(requests[0].init.headers?.authorization).toBeUndefined();
+    expect(requests[0].init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('is an AskCallError for a refused link or one it cannot reach', async () => {
+    const refused = stubbed(() => new Response('expired', { status: 400 }));
+    await expect(refused.client.download('https://files.example/x')).rejects.toMatchObject({ name: 'AskCallError', status: 400 });
+    const down = stubbed(() => { throw new TypeError('fetch failed'); });
+    await expect(down.client.download('https://files.example/x')).rejects.toBeInstanceOf(AskCallError);
+  });
+});

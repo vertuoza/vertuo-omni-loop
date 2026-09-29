@@ -10,14 +10,20 @@
 //   not at all, and never stops the question), waits on it up to 540 s in all (the hook's own timeout
 //   is 600 s), and hands the page's answer back through `updatedInput.answers`. On any other outcome
 //   it abandons the round when it can, and answers nothing. A closed session is forgotten: the next
-//   question opens anew.
+//   question opens anew. Before it opens a round, it removes the screenshot folders older than 7 days.
+//   An answer that carries screenshots (PRD 620) has each downloaded from its signed link into
+//   `.omni-loop/local/ask/shots/<round id>/`, 30 s a file within the same total, and their absolute
+//   paths appended to that question's answer for Claude to Read; one it could not download is named
+//   instead, and the answer goes through either way.
 // - `post` (PostToolUse on AskUserQuestion): an answer given in the terminal is posted to the page as
 //   well, with `via: "terminal"`; then that question's round file goes.
 // - `end` (SessionEnd): closes this terminal's session and deletes its file.
 // - `prompt` (UserPromptSubmit): one sentence of context, so questions go through the tool.
 import { loadConfig } from '../config.mjs';
 import { askContext, sessionContext } from './context.mjs';
-import { clearRound, clearTerminal, isSafeId, readMode, readRound, readTerminal, writeRound, writeTerminal } from './local-state.mjs';
+import {
+  clearOldShots, clearRound, clearTerminal, isSafeId, isShotName, readMode, readRound, readTerminal, writeRound, writeShot, writeTerminal,
+} from './local-state.mjs';
 
 const TOOL = 'AskUserQuestion';
 
@@ -27,6 +33,12 @@ export const PROMPT_CONTEXT =
 /** The total a `pre` hook waits for the page, and the most one `wait` call may take (the server
  * holds it up to 50 s). */
 export const WAIT_LIMITS = Object.freeze({ totalMs: 540_000, callMs: 60_000 });
+
+/** The most one screenshot's download may take (PRD 620), inside the same total. */
+export const SHOT_DOWNLOAD_MS = 30_000;
+
+/** The line that heads a question's screenshots in its answer. */
+export const SCREENSHOTS_HEADING = 'Screenshots (open each with Read):';
 
 /**
  * The mode in this checkout: the host it is on against and the URL its calls go to, or `null` when
@@ -82,6 +94,40 @@ function contextOf(read) {
   }
 }
 
+/**
+ * `answers` with, for each question whose answer carried screenshots, the heading and one line per
+ * screenshot appended after a blank line: its absolute path once downloaded, or a line saying it
+ * could not be. Nothing here can fail the answer.
+ */
+async function withScreenshots({ root, client, roundId, answers, attachments, deadline, now }) {
+  if (!attachments || typeof attachments !== 'object' || Array.isArray(attachments)) return answers;
+  const shaped = { ...answers };
+  for (const question of Object.keys(answers)) {
+    const shots = attachments[question];
+    if (!Array.isArray(shots) || shots.length === 0) continue;
+    const lines = [];
+    for (const [index, shot] of shots.entries()) {
+      const path = await downloadShot({ root, client, roundId, shot, deadline, now });
+      lines.push(path ? `- ${path}` : `- Screenshot ${index + 1} could not be downloaded`);
+    }
+    shaped[question] = `${answers[question]}\n\n${SCREENSHOTS_HEADING}\n${lines.join('\n')}`;
+  }
+  return shaped;
+}
+
+/** One screenshot written into its round's folder: its absolute path, or `null` when it could not be. */
+async function downloadShot({ root, client, roundId, shot, deadline, now }) {
+  const left = deadline - now();
+  // A name that could leave the folder is refused before anything is fetched.
+  if (left <= 0 || typeof shot?.url !== 'string' || shot.url === '' || !isShotName(shot.name)) return null;
+  try {
+    const bytes = await client.download(shot.url, { timeoutMs: Math.min(SHOT_DOWNLOAD_MS, left) });
+    return writeShot(root, roundId, shot.name, bytes);
+  } catch {
+    return null;
+  }
+}
+
 /** The input's id when it may name a file, else `null`. */
 const idOf = (value) => (isSafeId(value) ? value : null);
 
@@ -128,6 +174,12 @@ export async function preHook({
   if (!terminalId || !toolUseId) return null;
   const deadline = now() + limits.totalMs;
 
+  try {
+    clearOldShots(root, now());
+  } catch {
+    // Old screenshots stay one more round.
+  }
+
   let roundId;
   try {
     const sessionId = await terminalSession({ root, host, client, terminalId, title, readSessionContext });
@@ -173,7 +225,8 @@ export async function preHook({
     const answers = result?.status === 'answered' ? toolAnswers(questions, result.answers) : null;
     if (!answers) return giveUp();
     keep('answered');
-    return preOutput(toolInput, answers);
+    const attachments = result.attachments;
+    return preOutput(toolInput, await withScreenshots({ root, client, roundId, answers, attachments, deadline, now }));
   }
 }
 

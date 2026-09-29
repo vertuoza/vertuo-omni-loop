@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
+import { isAbsolute, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../../test/fixture.mjs';
 import {
   clearMode,
+  clearOldShots,
   clearRound,
   clearTerminal,
   isSafeId,
@@ -13,8 +14,10 @@ import {
   readMode,
   readRound,
   readTerminal,
+  SHOTS_MAX_AGE_MS,
   writeMode,
   writeRound,
+  writeShot,
   writeTerminal,
 } from './local-state.mjs';
 
@@ -131,5 +134,66 @@ describe('the ask local state', () => {
     write(`${LOCAL_DIR}/.gitignore`, '*\n!keep\n');
     writeMode(root, { host: HOST });
     expect(readFileSync(join(root, LOCAL_DIR, '.gitignore'), 'utf8')).toBe('*\n!keep\n');
+  });
+
+  it('keeps a round\'s screenshots when the mode is cleared: `omni ask off` removes nothing of them (PRD 620)', () => {
+    const { root } = makeRepo();
+    writeMode(root, { host: HOST });
+    writeTerminal(root, 'term-a', { sessionId: 'sess-1', host: HOST });
+    writeRound(root, 'toolu_01', { roundId: 'r-1', status: 'open' });
+    const shot = writeShot(root, 'r-1', '1.png', Buffer.from('png'));
+    clearMode(root);
+    expect(readMode(root)).toBeNull();
+    expect(readTerminal(root, 'term-a')).toBeNull();
+    expect(readRound(root, 'toolu_01')).toBeNull();
+    expect(readdirSync(join(root, LOCAL_DIR, 'ask'))).toEqual(['shots']);
+    expect(readFileSync(shot, 'utf8')).toBe('png');
+  });
+});
+
+describe('a round\'s screenshots (PRD 620)', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  it('writes each into .omni-loop/local/ask/shots/<round>/, and gives its absolute path', () => {
+    const { root } = makeRepo();
+    const path = writeShot(root, 'round-1', '2.webp', Buffer.from([1, 2, 3]));
+    expect(isAbsolute(path)).toBe(true);
+    expect(path).toBe(join(root, LOCAL_DIR, 'ask', 'shots', 'round-1', '2.webp'));
+    expect([...readFileSync(path)]).toEqual([1, 2, 3]);
+    // Never committed: the local folder ignores everything in it.
+    expect(readFileSync(join(root, LOCAL_DIR, '.gitignore'), 'utf8')).toBe('*\n');
+  });
+
+  it('refuses a round id or a file name that could leave its folder', () => {
+    const { root } = makeRepo();
+    for (const round of ['../x', 'a/b', '', '..']) expect(() => writeShot(root, round, '1.png', Buffer.from('x'))).toThrow();
+    for (const name of ['../1.png', 'a/1.png', '.png', '1', '', '..', '1.png/x', `${'a'.repeat(80)}.png`]) {
+      expect(() => writeShot(root, 'round-1', name, Buffer.from('x'))).toThrow();
+    }
+  });
+
+  it('removes the folders older than 7 days, and keeps the others', () => {
+    const { root } = makeRepo();
+    const now = Date.parse('2026-09-29T12:00:00Z');
+    writeShot(root, 'old', '1.png', Buffer.from('x'));
+    writeShot(root, 'fresh', '1.png', Buffer.from('y'));
+    const shots = join(root, LOCAL_DIR, 'ask', 'shots');
+    const at = (ms) => new Date(ms);
+    utimesSync(join(shots, 'old'), at(now - 8 * DAY), at(now - 8 * DAY));
+    utimesSync(join(shots, 'fresh'), at(now - 6 * DAY), at(now - 6 * DAY));
+    expect(SHOTS_MAX_AGE_MS).toBe(7 * DAY);
+    expect(clearOldShots(root, now)).toEqual(['old']);
+    expect(readdirSync(shots)).toEqual(['fresh']);
+  });
+
+  it('does nothing without a shots folder, and leaves a stray file in it alone', () => {
+    const { root } = makeRepo();
+    expect(clearOldShots(root, Date.now())).toEqual([]);
+    const shots = join(root, LOCAL_DIR, 'ask', 'shots');
+    mkdirSync(shots, { recursive: true });
+    writeFileSync(join(shots, 'note.txt'), 'x');
+    utimesSync(join(shots, 'note.txt'), new Date(0), new Date(0));
+    expect(clearOldShots(root, Date.now())).toEqual([]);
+    expect(existsSync(join(shots, 'note.txt'))).toBe(true);
   });
 });
