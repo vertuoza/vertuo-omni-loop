@@ -314,3 +314,234 @@ One branch in the relay module: renumbering instead would be a small change ther
 ```
 
 <!-- /omni-outbox-settled: s3-01-relay-refuses-taken-id -->
+
+<!-- omni-outbox-settled: s5-01-target-pr-empty-commit -->
+
+## s5-01-target-pr-empty-commit — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-target-pr-empty-commit
+prd: 563
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 4
+---
+
+## The question, in plain words
+
+A pull request cannot open on a branch that holds nothing new yet. How should the build open each other repository's pull request before any work has landed there?
+
+## The decision, in plain words
+
+It adds one empty, signed starting commit to the new branch, so the draft pull request can open at once and be followed from the start.
+
+## The intro, for fun
+
+GitHub will not open a pull request for a branch with nothing to show.
+
+## The punchline, for fun
+
+So the branch arrives with an empty box and a polite label on it.
+
+## The options, in plain words
+
+A. A. One empty signed commit on the new branch, then the draft pull request at once, the option built.
+B. B. Open each repository's pull request only after its first piece of work has landed there.
+
+## What I had to decide
+
+How /omni:ultra-yolo step 2 opens a draft target feature PR when the target's freshly cut feature branch equals its default branch, which GitHub refuses as a pull request with no commits.
+
+## What I did meanwhile
+
+The skill cuts the feature branch, makes one empty commit (git commit --allow-empty, signed like every other), pushes it, and opens the draft target feature PR right away, as the spec's step 2 asks.
+
+## What it costs to change later
+
+One paragraph of the ultra-yolo skill text: opening the target PR after the first sub-PR merges instead would move that item from step 2 into /omni:ultra-wave's merge step.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec asks for the draft target PR in step 2 but does not say how to open it on a branch with no commits yet.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-target-pr-empty-commit -->
+
+<!-- omni-outbox-settled: s5-02-no-plan-stops -->
+
+## s5-02-no-plan-stops — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-no-plan-stops
+prd: 563
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 4
+---
+
+## The question, in plain words
+
+When a feature that spans several repositories has no plan yet, should the build write one itself, as the one-repository build does, or stop?
+
+## The decision, in plain words
+
+It stops in one line and points to the brainstorm for several repositories, the step that writes such a plan and asks which repository does what.
+
+## The intro, for fun
+
+Building across three repositories without a map is a bold holiday plan.
+
+## The punchline, for fun
+
+The build asks for the map first, and says who draws it.
+
+## The options, in plain words
+
+A. A. Stop in one line and point to the brainstorm for several repositories, the option built.
+B. B. Follow the one-repository planning step and let it write a plan that names a repository per piece.
+
+## What I had to decide
+
+What /omni:ultra-yolo does when the PRD has no plan.md or no plan PR, where /omni:yolo would follow /omni:plan.
+
+## What I did meanwhile
+
+It stops with the line 'PRD <n> has no plan: /omni:mega-brainstorm writes it'. /omni:plan slices one repository and cannot fill the plan's repo column or its Repositories table.
+
+## What it costs to change later
+
+One sentence of the ultra-yolo skill: planning there instead would name a planning step that fills the repo column, which no skill does today outside the mega-brainstorm.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec takes the plan from PRD 549 as given and never says what happens when it is missing.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-no-plan-stops -->
+
+<!-- omni-outbox-settled: s5-03-target-install-red -->
+
+## s5-03-target-install-red — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s5
+- Wave: 4
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-target-install-red
+prd: 563
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 4
+---
+
+## The question, in plain words
+
+When another repository's own checks fail only because its tools are not installed on this computer, should the build install them, or leave that repository's online checks to decide?
+
+## The decision, in plain words
+
+It never installs anything in another repository. It names the missing install as a step for a person and lets that repository's online checks decide.
+
+## The intro, for fun
+
+The checks want their toolbox, and the build promised not to touch the shed.
+
+## The punchline, for fun
+
+It leaves a note on the door and lets the online checks do the inspection.
+
+## The options, in plain words
+
+A. A. Never install in another repository; name it for a person and let the online checks decide, the option built.
+B. B. Run the repository's own install once before its checks, as its configuration names it.
+
+## What I had to decide
+
+What finishing a target (/omni:ultra-yolo step 4) does when the target's committed preflight is red for want of an install, since the spec allows only that preflight to run in a target.
+
+## What I did meanwhile
+
+No install runs in a target. The red step is named as a human step, the target feature PR is still marked ready, and its CI is the check that holds or frees the plan PR.
+
+## What it costs to change later
+
+One sentence in the ultra-yolo skill: allowing an install would have to name which install command runs, something a target's config would then declare.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec lets only a target's committed preflight run and does not say what happens when that preflight needs its dependencies installed first.
+
+```
+
+<!-- /omni-outbox-settled: s5-03-target-install-red -->
