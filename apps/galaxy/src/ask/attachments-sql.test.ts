@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { ATTACHMENTS_BUCKET } from './store';
 
-const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261008120000_ask_attachments.sql', import.meta.url)), 'utf8');
+const MIGRATION = readFileSync(fileURLToPath(new URL('../../../../supabase/migrations/20261010090000_ask_attachments.sql', import.meta.url)), 'utf8');
 const oneLine = MIGRATION.replace(/\s+/g, ' ');
 
 /** Every rule the migration creates on storage.objects: its command and its whole text. */

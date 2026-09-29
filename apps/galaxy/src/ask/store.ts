@@ -4,7 +4,7 @@
 // rounds, and only its owner changes or deletes it; a session of another workspace reads as missing,
 // exactly like one that never was. Since 20260927120000_ask_shares.sql its owner may share a round
 // with another member, who may then answer it while it is open. Since PRD 620
-// (20261008120000_ask_attachments.sql) an answer given on the page may carry screenshots: files in the
+// (20261010090000_ask_attachments.sql) an answer given on the page may carry screenshots: files in the
 // private `ask-attachments` bucket, their paths in the round's `attachments`, set with the answer.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Category } from './classify';
