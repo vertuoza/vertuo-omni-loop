@@ -1,6 +1,7 @@
 // `omni dossier link <n>` (PRD 413), through `main()` on a fixture repository, against a stubbed fetch
 // that follows the lookup's contract (`GET /api/dossiers?repo=<owner/name>&prd=<n>`). The sign-in is an
 // in-memory token store and the environment is passed in, so nothing real is read or written.
+import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -204,5 +205,113 @@ describe('omni dossier open and push print the server\'s reason (PRD 459)', () =
     write('.omni-loop/delivery/inbox/0007-team-inbox/spec.md', '---\nprd: 7\ntitle: Team inbox\nblocked-by: none\nspec: file\n---\n\n# Team inbox\n');
     expect(await run(['push', '7'], { root, fetch: stubFetch(() => json(403, { error: REASON })).fetch }))
       .toEqual({ code: 1, out: '', err: `refused (403): ${REASON}\n` });
+  });
+});
+
+describe('omni dossier push and link --kind (PRD 627)', () => {
+  const VISUAL = '.omni-loop/delivery/visual/0548-omni-links-new-tab';
+  const BUGS = '.omni-loop/delivery/bugs/0571-number-args';
+  const SPEC = '---\nprd: 7\ntitle: Team inbox\nblocked-by: none\nspec: file\n---\n\n# Team inbox\n';
+  const PAGE = '<!doctype html>\n<title>Links</title>\n';
+
+  /** A fetch that keeps each call with its body, and answers with `reply`. */
+  function recordingFetch(reply) {
+    const calls = [];
+    const fetch = async (url, init) => {
+      calls.push({ url: String(url), method: init.method, body: init.body === undefined ? undefined : JSON.parse(init.body) });
+      return reply(String(url), init);
+    };
+    return { calls, fetch };
+  }
+
+  /** git as it is; gh answers the issue's title with `title`, or fails when it is null. */
+  const withIssue = (title, seen = []) => (command, args, options) => {
+    if (command !== 'gh') return execFileSync(command, args, options);
+    seen.push(args);
+    if (title === null) throw new Error('gh: not found');
+    return `${title}\n`;
+  };
+
+  async function run(args, { root, fetch, exec }) {
+    const out = [];
+    const err = [];
+    const code = await main(['dossier', ...args], {
+      cwd: root, tokens: signedIn(), env: {}, fetch, ...(exec ? { exec } : {}),
+      stdout: { write: (s) => out.push(s) }, stderr: { write: (s) => err.push(s) },
+    });
+    return { code, out: out.join(''), err: err.join('') };
+  }
+
+  const pushed = (url) => json(200, { id: 'd-1', url, added: [{ kind: 'before-after', version: 1 }], unchanged: [] });
+
+  it('push <n> with no --kind sends exactly what it sent before: no kind, the PRD folder, and asks GitHub nothing', async () => {
+    const { root, write } = checkout();
+    write('.omni-loop/delivery/inbox/0007-team-inbox/spec.md', SPEC);
+    const { calls, fetch } = recordingFetch(() => pushed(LINK));
+    const seen = [];
+    expect((await run(['push', '7'], { root, fetch, exec: withIssue('never asked', seen) })).code).toBe(0);
+    expect(calls.map((c) => c.body)).toEqual([{ repo: 'acme/widgets', prd: 7, title: 'Team inbox', artifacts: [{ kind: 'spec', content: SPEC }] }]);
+    expect(seen).toEqual([]);
+  });
+
+  it('push <n> --kind visual sends the fix\'s page and rounds with its kind and its issue\'s title, and prints the link', async () => {
+    const { root, write } = checkout();
+    write(`${VISUAL}/before-after.html`, PAGE);
+    write(`${VISUAL}/variations-r2.html`, 'round 2');
+    write(`${VISUAL}/variations-r1.html`, 'round 1');
+    const { calls, fetch } = recordingFetch(() => pushed(`${BASE}/visual/d-1`));
+    const seen = [];
+    const result = await run(['push', '548', '--kind', 'visual'], { root, fetch, exec: withIssue('Visual: Omni links open in a new tab', seen) });
+    expect(result).toEqual({ code: 0, out: `${BASE}/visual/d-1\nadded: before-after v1\n`, err: '' });
+    expect(calls).toEqual([{
+      url: `${BASE}/api/dossiers/push`, method: 'POST',
+      body: {
+        repo: 'acme/widgets', prd: 548, kind: 'visual', title: 'Omni links open in a new tab',
+        artifacts: [{ kind: 'before-after', content: PAGE }, { kind: 'variations', content: 'round 1' }, { kind: 'variations', content: 'round 2' }],
+      },
+    }]);
+    expect(seen).toEqual([['issue', 'view', '548', '--repo', 'acme/widgets', '--json', 'title', '--jq', '.title']]);
+    expect(existsSync(join(root, DOSSIERS_FILE))).toBe(false);
+  });
+
+  it('push <n> --kind bug sends bug.md as its record, titled after the folder when the issue cannot be read', async () => {
+    const { root, write } = checkout();
+    write(`${BUGS}/bug.md`, '# Bug 571\n');
+    const { calls, fetch } = recordingFetch(() => pushed(`${BASE}/bugs/d-1`));
+    expect((await run(['push', '571', '--kind', 'bug'], { root, fetch, exec: withIssue(null) })).code).toBe(0);
+    expect(calls[0].body).toEqual({ repo: 'acme/widgets', prd: 571, kind: 'bug', title: 'number-args', artifacts: [{ kind: 'bug-record', content: '# Bug 571\n' }] });
+  });
+
+  it('push <n> --kind prd is the PRD push', async () => {
+    const { root, write } = checkout();
+    write('.omni-loop/delivery/inbox/0007-team-inbox/spec.md', SPEC);
+    const { calls, fetch } = recordingFetch(() => pushed(LINK));
+    expect((await run(['push', '7', '--kind', 'prd'], { root, fetch })).code).toBe(0);
+    expect(calls[0].body).not.toHaveProperty('kind');
+  });
+
+  it('exits 2 for a fix with no folder, an unknown kind, or a kind on open or status, and calls nothing', async () => {
+    const { root } = checkout();
+    const { calls, fetch } = recordingFetch(() => pushed(LINK));
+    for (const args of [['push', '548', '--kind', 'visual'], ['push', '7', '--kind', 'epic'], ['link', '7', '--kind', 'epic'], ['push', '7', '--kind'],
+      ['open', 'An idea', '--kind', 'bug'], ['status', '--kind', 'bug']]) {
+      const result = await run(args, { root, fetch, exec: withIssue(null) });
+      expect(result.code, JSON.stringify(args)).toBe(2);
+      expect(result.err.trim().split('\n'), JSON.stringify(args)).toHaveLength(1);
+    }
+    expect(calls).toEqual([]);
+  });
+
+  it('link <n> --kind bug asks the app for the bug fix, and prints its link', async () => {
+    const { root } = checkout({ record: RECORD });
+    const { calls, fetch } = recordingFetch(() => json(200, { id: 'd-2', url: `${BASE}/bugs/d-2` }));
+    expect(await run(['link', '571', '--kind', 'bug'], { root, fetch })).toEqual({ code: 0, out: `${BASE}/bugs/d-2\n`, err: '' });
+    expect(calls.map((c) => c.url)).toEqual([`${BASE}/api/dossiers?repo=acme%2Fwidgets&prd=571&kind=bug`]);
+  });
+
+  it('link <n> --kind visual never falls back to a PRD the local record holds', async () => {
+    const { root } = checkout({ record: RECORD });
+    const { fetch } = recordingFetch(down);
+    expect(await run(['link', '7', '--kind', 'visual'], { root, fetch })).toEqual({ code: 1, out: '', err: 'unreachable\n' });
   });
 });
