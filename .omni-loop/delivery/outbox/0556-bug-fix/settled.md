@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 556
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s1-01-init-test-outside-territory -->
+
+## s1-01-init-test-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s1
+- Wave: 1
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s1-01-init-test-outside-territory
 prd: 556
@@ -46,3 +76,7 @@ Reverting is dropping the six names from those lists; no behaviour depends on it
 (author) The PRD, the registers and the glossary do not settle this:
 
 - None: the plan's done-when asks omni init to create the six labels, which this test checks; only its territory list left the file out.
+
+```
+
+<!-- /omni-outbox-settled: s1-01-init-test-outside-territory -->
