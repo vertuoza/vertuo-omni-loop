@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { APP_CALLBACK } from '../dashboard/sign-in';
-import { buttonKey, initialOf, menuKey, signInFromBar, signOutAndLeave, SIGN_OUT_HOME } from './user-menu';
+import { buttonKey, initialOf, menuKey, profileHref, signInFromBar, signOutAndLeave, SIGN_OUT_HOME } from './user-menu';
 
 // The user menu's pure parts (PRD 438): the WAI-ARIA menu-button keys, sign-in from the top bar, and
 // sign-out, which ends this browser's session and lands on HOME.
@@ -101,5 +101,25 @@ describe('the avatar\'s fallback', () => {
     expect(initialOf({ name: 'ada Lovelace', login: 'ada' })).toBe('A');
     expect(initialOf({ name: null, login: 'grace' })).toBe('G');
     expect(initialOf({ name: null, login: null })).toBe('?');
+  });
+});
+
+describe('My profile (PRD 698)', () => {
+  it('opens /app/people/<login>, the login in lower case', () => {
+    expect(profileHref('ada')).toBe('/app/people/ada');
+    expect(profileHref('Grace-Hopper')).toBe('/app/people/grace-hopper');
+  });
+
+  it('is absent without a login', () => {
+    expect(profileHref(null)).toBeNull();
+    expect(profileHref('')).toBeNull();
+  });
+
+  it('is reached by the arrow keys, Home and End, between the two items', () => {
+    expect(buttonKey('ArrowDown', 2)).toEqual({ kind: 'open', index: 0 });
+    expect(menuKey('ArrowDown', 0, 2)).toEqual({ kind: 'focus', index: 1 });
+    expect(menuKey('ArrowUp', 1, 2)).toEqual({ kind: 'focus', index: 0 });
+    expect(menuKey('Home', 1, 2)).toEqual({ kind: 'focus', index: 0 });
+    expect(menuKey('End', 0, 2)).toEqual({ kind: 'focus', index: 1 });
   });
 });

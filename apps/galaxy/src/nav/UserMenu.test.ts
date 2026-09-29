@@ -26,14 +26,14 @@ describe('the user menu', () => {
     expect(html).toMatch(/<img [^>]*src="https:\/\/avatars.test\/ada.png"[^>]*alt=""/);
   });
 
-  it('holds the name and login, then Sign out, in that order', () => {
-    expect(menuText(html)).toBe('Ada Lovelace @ada Sign out');
+  it('holds the name and login, then My profile, then Sign out, in that order', () => {
+    expect(menuText(html)).toBe('Ada Lovelace @ada My profile Sign out');
     expect(html).toMatch(/<div [^>]*role="menu"[^>]*hidden=""/);
   });
 
-  it('makes Sign out the only item that can be chosen: the name is a heading', () => {
-    const items = [...html.matchAll(/role="menuitem"[^>]*>([\s\S]*?)<\/button>/g)].map((m) => text(m[1]));
-    expect(items).toEqual(['Sign out']);
+  it('makes My profile and Sign out the only items that can be chosen: the name is a heading', () => {
+    const items = [...html.matchAll(/role="menuitem"[^>]*>([\s\S]*?)<\/(?:a|button)>/g)].map((m) => text(m[1]));
+    expect(items).toEqual(['My profile', 'Sign out']);
     expect(html).toMatch(/role="presentation"[^>]*>[\s\S]*Ada Lovelace/);
   });
 
@@ -49,7 +49,7 @@ describe('the user menu', () => {
     const inside = hero.match(/<button\b[^>]*aria-haspopup="menu"[^>]*>([\s\S]*?)<\/button>/)?.[1] ?? '';
     expect(inside).toBe(`<span class="user-menu-hero" aria-hidden="true">${svg}</span>`);
     expect(hero).toContain('aria-label="Your account, Ada Lovelace"');
-    expect(menuText(hero)).toBe('Ada Lovelace @ada Sign out');
+    expect(menuText(hero)).toBe('Ada Lovelace @ada My profile Sign out');
   });
 
   it('keeps the avatar, or the initial, when the viewer has no hero', () => {
@@ -58,9 +58,24 @@ describe('the user menu', () => {
     expect(inside({ ...ADA, avatarUrl: null })).toBe('<span class="user-menu-initial" aria-hidden="true">A</span>');
   });
 
-  it('leaves out a login it does not know', () => {
+  it('leaves out a login it does not know, and My profile with it (PRD 698)', () => {
     const noLogin = renderToStaticMarkup(createElement(UserMenu, { viewer: { ...ADA, login: null } }));
     expect(menuText(noLogin)).toBe('Ada Lovelace Sign out');
+    expect(noLogin).not.toContain('/app/people/');
+  });
+
+  it('makes My profile a link to the viewer\'s own profile, a menu item the arrow keys reach (PRD 698)', () => {
+    const link = html.match(/<a\b[^>]*>My profile<\/a>/)?.[0] ?? '';
+    expect(link).toContain('href="/app/people/ada"');
+    expect(link).toContain('role="menuitem"');
+    expect(link).toContain('tabindex="-1"');
+    expect(link).toContain('class="user-menu-item"');
+  });
+
+  it('opens the profile of the login in lower case', () => {
+    const upper = renderToStaticMarkup(createElement(UserMenu, { viewer: { ...ADA, login: 'Ada-L' } }));
+    expect(upper).toContain('href="/app/people/ada-l"');
+    expect(menuText(upper)).toBe('Ada Lovelace @Ada-L My profile Sign out');
   });
 
   it('signs out through signOutAndLeave, with the browser client', () => {
