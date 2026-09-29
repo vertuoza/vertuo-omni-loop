@@ -9,6 +9,7 @@ const LABEL_COLUMN = 24; // the overview's label column
 const STAGE_COLUMN = 9; // the loop's name column
 const WHO_RUNS = Object.freeze({ you: 'for you', skills: 'run by the skills' });
 const HELP_CLOSING = 'omni help <command> tells more about any of them.';
+const DOCS_LABEL_COLUMN = 9; // `When` and `Example`, then their text (PRD 580)
 
 /** The repository's words the help table leaves in braces. */
 function repositoryWords(config) {
@@ -85,7 +86,27 @@ export function renderOverview(config, { entries = ENTRIES } = {}) {
   return lines.join('\n');
 }
 
-/** One entry: its usage with who runs it, then its sentences. */
+/** `text` wrapped under `label`, its continuation lines aligned with the text. */
+function labelled(label, text) {
+  const under = ' '.repeat(DOCS_LABEL_COLUMN);
+  const [first = '', ...more] = wrapWords(text, { width: HELP_WIDTH - DOCS_LABEL_COLUMN });
+  return [label.padEnd(DOCS_LABEL_COLUMN) + first, ...more.map((line) => under + line)];
+}
+
+/** A skill's When line and its Example, with what you get back under it (PRD 580); none for a command. */
+function docsLines(entry, fill) {
+  if (!entry.when || !entry.example) return [];
+  const under = ' '.repeat(DOCS_LABEL_COLUMN);
+  const result = wrapWords(fill(entry.example.result), { width: HELP_WIDTH - DOCS_LABEL_COLUMN - 2 });
+  return [
+    '',
+    ...labelled('When', fill(entry.when)),
+    ...labelled('Example', fill(entry.example.type)),
+    ...result.map((line, index) => `${under}${index ? '  ' : '→ '}${line}`),
+  ];
+}
+
+/** One entry: its usage with who runs it, then its sentences, then a skill's When and Example. */
 function entryLines(entry, fill) {
   const [first, ...more] = entry.usage.map(fill);
   const who = WHO_RUNS[entry.who];
@@ -93,7 +114,7 @@ function entryLines(entry, fill) {
     ? [`${first.padEnd(HELP_WIDTH - who.length)}${who}`, ...more]
     : [first, ...more, who.padStart(HELP_WIDTH)];
   const paragraphs = entry.detail.split(/\n\s*\n/).map((paragraph) => wrapWords(fill(paragraph)));
-  return [...head, '', ...paragraphs.flatMap((lines, index) => (index ? ['', ...lines] : lines))];
+  return [...head, '', ...paragraphs.flatMap((lines, index) => (index ? ['', ...lines] : lines)), ...docsLines(entry, fill)];
 }
 
 /**
