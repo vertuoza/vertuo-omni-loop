@@ -2,8 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { arcadeMode } from '../../src/data/mode';
 import type { DossierListRow } from '../../src/dossier/store';
-import { dossierGithub } from '../../src/dossier/github/server';
-import { DEMO_DOSSIER_ID, DEMO_GITHUB, DEMO_VIEWER, demoHistory } from '../../src/dossier/page/demo';
+import { DEMO_GITHUB, DEMO_VIEWER, demoHistory } from '../../src/dossier/page/demo';
 import { DossierHistory } from '../../src/dossier/page/DossierHistory';
 import { DossierSignIn } from '../../src/dossier/page/DossierSignIn';
 import {
@@ -15,7 +14,9 @@ import { readHistory } from '../../src/dossier/page/source';
 import { ofWork } from '../../src/dossier/page/work';
 import { PrdListLoading } from '../../src/skeleton/pages';
 import { Streamed } from '../../src/skeleton/Streamed';
-import { stageStore } from '../../src/stages/store';
+import { countsOf } from '../../src/stages/outbox/recount';
+import { prdOutboxStore, type OutboxCounts, type PrdOutboxStore } from '../../src/stages/outbox/store';
+import { prdKey, stageStore } from '../../src/stages/store';
 
 // /prd, the history (PRD 216): every dossier of the signed-in person's workspaces, newest activity
 // first, filtered by repository (any of a dossier's repositories) and by draft or PRD, and searched by
@@ -23,8 +24,9 @@ import { stageStore } from '../../src/stages/store';
 // row-level security decides: signed out, a sign-in card that comes back here through /prd/callback.
 // Without a database it plays the demo history in development. PRD 413: Mine by default, the dossiers the
 // signed-in person opened (the demo's viewer in the demo), or All with who=all. PRD 251: each numbered
-// row the filters let through has its outbox's open questions counted by the server's GitHub reader
-// (its 60-second cache), for `n open` and Needs an answer; the demo counts the demo dossier's outbox.
+// row the filters let through has its outbox's open questions counted, for `n open` and Needs an answer;
+// the demo counts the demo dossier's outbox. PRD 657 (s5): the counts are read from prd_outbox, as the
+// signed-in person, so rendering the list makes no GitHub request.
 // PRD 587: the numbered rows' current stages are read from the stored stages, as the signed-in person,
 // for the stage bar, `?stage=` and each row's pill; stages that cannot be read show none. The demo has no
 // stored stage, so only its answered drafts read idea.
@@ -39,7 +41,14 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
 
-const DEMO_READER = { summary: async ({ id }: { id: string }) => (id === DEMO_DOSSIER_ID ? DEMO_GITHUB : null) };
+/** The demo's stored outboxes: the demo dossier's PRD, counted from its built-in summary. */
+const DEMO_READER: Pick<PrdOutboxStore, 'countsOf'> = {
+  countsOf: async (_workspace, prds) => {
+    const demo = countsOf(DEMO_GITHUB);
+    const key = prdKey({ repository: DEMO_GITHUB.repo, prd: DEMO_GITHUB.prd });
+    return new Map(demo ? prds.filter((p) => prdKey(p) === key).map((p): [string, OutboxCounts] => [prdKey(p), demo]) : []);
+  },
+};
 
 export default async function HistoryRoute({ searchParams }: Props) {
   const query = await searchParams;
@@ -71,7 +80,7 @@ export default async function HistoryRoute({ searchParams }: Props) {
       return <DossierDatabaseDown />;
     }
     const [open, stages] = await Promise.all([
-      readOpenCounts(historyToRead(rows, filters, userId), dossierGithub()),
+      readOpenCounts(historyToRead(rows, filters, userId), prdOutboxStore(db)),
       readCurrentStages(rows, stageStore(db)),
     ]);
     return listing(rows, userId, open, stages);
