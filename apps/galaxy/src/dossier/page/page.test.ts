@@ -48,7 +48,8 @@ vi.mock('../../data/supabase-server', () => ({
   supabaseServer: async () => {
     const client = given.fake.client(given.token ?? 'signed-out');
     const user = given.token ? await client.auth.getUser(given.token) : { data: { user: null } };
-    return { ...client, auth: { getUser: async () => user } };
+    const claims = user.data.user ? { claims: { sub: user.data.user.id, email: user.data.user.email } } : null;
+    return { ...client, auth: { getUser: async () => user, getClaims: async () => ({ data: claims, error: null }) } };
   },
 }));
 

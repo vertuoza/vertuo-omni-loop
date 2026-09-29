@@ -2,7 +2,7 @@
 // database and the signed-in person when there is one, and the one notice for a read that failed.
 import { Notice } from '../../ask/page/Notice';
 import type { ArcadeMode } from '../../data/mode';
-import { supabaseEnv, supabaseServer } from '../../data/supabase-server';
+import { viewer } from '../../data/viewer';
 
 /** This deployment keeps no dossier: closed, or no database. */
 export function DossiersClosed() {
@@ -23,11 +23,12 @@ export function DossierDatabaseDown() {
 }
 
 /** The database, its public settings and the signed-in person (null when signed out); null when this
- * deployment keeps no dossier. */
+ * deployment keeps no dossier. Read through viewer() (PRD 657): once per request, shared with the
+ * layout. The demo is each route's own, decided before. */
 export async function dossierSession(mode: ArcadeMode) {
-  const env = supabaseEnv();
-  if (mode === 'closed' || !env) return null;
-  const db = await supabaseServer();
-  const { data: { user } } = await db.auth.getUser();
-  return { env, db, user };
+  if (mode !== 'supabase') return null;
+  const seen = await viewer();
+  if (seen.kind === 'signed-in') return { env: seen.env, db: seen.db, user: seen.user };
+  if (seen.kind === 'sign-in') return { env: seen.env, db: seen.db, user: null };
+  return null;
 }

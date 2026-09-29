@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { arcadeMode } from '../../../src/data/mode';
-import { supabaseEnv, supabaseServer } from '../../../src/data/supabase-server';
+import { supabaseEnv } from '../../../src/data/supabase-server';
+import { viewer } from '../../../src/data/viewer';
 import { periodOf, type Period } from '../../../src/dashboard/board/period';
 import { demoWorkspaceBoard, loadWorkspaceBoard } from '../../../src/dashboard/board/workspace';
 import { WorkspaceScreen, type WorkspaceView } from '../../../src/dashboard/board/WorkspaceScreen';
@@ -23,12 +23,10 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
 
 async function viewOf(period: Period, now: Date): Promise<WorkspaceView> {
-  const mode = arcadeMode(process.env);
-  if (mode === 'demo') return demoWorkspaceBoard(period, now);
-  if (mode === 'closed' || !supabaseEnv()) return { kind: 'closed' };
-  const db = await supabaseServer();
-  const { data: { user } } = await db.auth.getUser();
-  return user ? loadWorkspaceBoard(db, user, period, now) : { kind: 'sign-in' };
+  const seen = await viewer();
+  if (seen.kind === 'demo') return demoWorkspaceBoard(period, now);
+  if (seen.kind !== 'signed-in') return { kind: seen.kind };
+  return loadWorkspaceBoard(seen.db, seen.user, period, now);
 }
 
 export default async function WorkspacePage({ searchParams }: Props) {

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { arcadeMode } from '../../../src/data/mode';
-import { supabaseEnv, supabaseServer } from '../../../src/data/supabase-server';
+import { supabaseEnv } from '../../../src/data/supabase-server';
+import { viewer } from '../../../src/data/viewer';
 import { periodOf, type Period } from '../../../src/dashboard/board/period';
 import { demoFleetBoard, loadFleetBoard } from '../../../src/dashboard/fleet/fleet';
 import { FleetScreen, type FleetView } from '../../../src/dashboard/fleet/FleetScreen';
@@ -24,12 +24,10 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) || null;
 
 async function viewOf(asked: string | null, period: Period, now: Date): Promise<FleetView> {
-  const mode = arcadeMode(process.env);
-  if (mode === 'demo') return demoFleetBoard(asked, period, now);
-  if (mode === 'closed' || !supabaseEnv()) return { kind: 'closed' };
-  const db = await supabaseServer();
-  const { data: { user } } = await db.auth.getUser();
-  return user ? loadFleetBoard(db, user, asked, period, now) : { kind: 'sign-in' };
+  const seen = await viewer();
+  if (seen.kind === 'demo') return demoFleetBoard(asked, period, now);
+  if (seen.kind !== 'signed-in') return { kind: seen.kind };
+  return loadFleetBoard(seen.db, seen.user, asked, period, now);
 }
 
 export default async function FleetPage({ searchParams }: Props) {

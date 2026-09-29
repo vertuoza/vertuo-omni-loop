@@ -99,7 +99,7 @@ describe('/app', () => {
     const source = readFileSync(new URL('../../app/app/page.tsx', import.meta.url), 'utf8');
     expect(source).toMatch(/export default async function/);
     expect(source).toMatch(/await searchParams/);
-    expect(source).toMatch(/supabaseServer\(\)/);
+    expect(source).toMatch(/\bviewer\(\)/);
     expect(source).not.toMatch(/export const dynamic|generateStaticParams/);
   });
 });

@@ -12,14 +12,14 @@ const given = vi.hoisted(() => ({
 }));
 const demoEngineeringBoard = vi.hoisted(() => vi.fn((period: string, sort: string) => ({ kind: 'board', name: 'demo', board: { period, sort } })));
 const loadEngineeringBoard = vi.hoisted(() => vi.fn(async (..._args: unknown[]) => given.load));
-const getUser = vi.hoisted(() => vi.fn(async () => ({ data: { user: given.user } })));
+const getClaims = vi.hoisted(() => vi.fn(async () => ({ data: given.user ? { claims: { sub: given.user.id } } : null, error: null })));
 const rpc = vi.hoisted(() => vi.fn());
 
 vi.mock('server-only', () => ({}));
 vi.mock('../data/mode', () => ({ arcadeMode: () => given.mode }));
 vi.mock('../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
-  supabaseServer: async () => ({ auth: { getUser }, rpc }),
+  supabaseServer: async () => ({ auth: { getClaims }, rpc }),
 }));
 vi.mock('./demo', () => ({ demoEngineeringBoard }));
 vi.mock('./load', () => ({ loadEngineeringBoard }));
@@ -31,7 +31,7 @@ const propsOf = async (query: Record<string, string> = {}) =>
 
 beforeEach(() => {
   Object.assign(given, { mode: 'supabase', user: null, load: { kind: 'no-workspace' } });
-  for (const fn of [demoEngineeringBoard, loadEngineeringBoard, getUser, rpc]) fn.mockClear();
+  for (const fn of [demoEngineeringBoard, loadEngineeringBoard, getClaims, rpc]) fn.mockClear();
 });
 afterEach(() => { vi.restoreAllMocks(); });
 
@@ -43,7 +43,7 @@ describe('/app/engineering decides once', () => {
     expect(period).toBe('season');
     expect(demoEngineeringBoard).toHaveBeenCalledWith('season', 'lines', expect.any(Date));
     expect(query).toEqual({ period: 'season', sort: 'lines' });
-    expect(getUser).not.toHaveBeenCalled();
+    expect(getClaims).not.toHaveBeenCalled();
   });
 
   it('reads an unknown period as 7 days, an unknown sort as merged', async () => {
@@ -69,7 +69,7 @@ describe('/app/engineering decides once', () => {
     given.load = { kind: 'board', name: 'Vertuoza', board: {} };
     const { view } = await propsOf({ period: '30d', sort: 'opened' });
     expect(view).toEqual(given.load);
-    expect(loadEngineeringBoard).toHaveBeenCalledWith(expect.anything(), given.user, { period: '30d', sort: 'opened', now: expect.any(Date) });
+    expect(loadEngineeringBoard).toHaveBeenCalledWith(expect.anything(), expect.objectContaining(given.user), { period: '30d', sort: 'opened', now: expect.any(Date) });
     expect(rpc).not.toHaveBeenCalled();
   });
 });
