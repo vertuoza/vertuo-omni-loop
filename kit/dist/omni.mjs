@@ -14860,7 +14860,7 @@ function upsertOutboxPrComment({ prd: prd2, ctx, now = () => (/* @__PURE__ */ ne
     };
   }
   const previouslyNumbered = new Set(previous.map((entry) => entry.id));
-  const counted2 = {
+  const counted3 = {
     openCount: items.length,
     answeredCount: answered.length,
     adoptedCount: adopted.length,
@@ -14885,7 +14885,7 @@ function upsertOutboxPrComment({ prd: prd2, ctx, now = () => (/* @__PURE__ */ ne
       action: "updated",
       id: existing.id,
       htmlUrl: updated?.html_url ?? existing.html_url ?? null,
-      ...counted2,
+      ...counted3,
       body
     };
   }
@@ -14894,7 +14894,7 @@ function upsertOutboxPrComment({ prd: prd2, ctx, now = () => (/* @__PURE__ */ ne
     action: "created",
     id: created?.id ?? null,
     htmlUrl: created?.html_url ?? null,
-    ...counted2,
+    ...counted3,
     body
   };
 }
@@ -16276,6 +16276,7 @@ function parsePlanSlices(markdown) {
     if (!id) continue;
     slices.push({
       id,
+      repo: column("repo") === -1 ? null : plainCell(row[column("repo")]),
       title: column("slice") === -1 ? "" : row[column("slice")] ?? "",
       territory: territoryPrefixes(row[column("territory")]),
       blockedBy: column("blocked by") === -1 ? [] : blockedByCell(row[column("blocked by")]),
@@ -16286,6 +16287,36 @@ function parsePlanSlices(markdown) {
     throw new Error("The slice table holds no slice; there is nothing to grade.");
   }
   return slices;
+}
+function plainCell(cell2) {
+  return (cell2 ?? "").replace(/`/g, "").trim();
+}
+function parsePlanRepositories(markdown) {
+  const lines = markdown.split("\n");
+  const heading = lines.findIndex((line) => /^##\s+repositories\s*$/i.test(line.trim()));
+  if (heading === -1) return [];
+  let headerIndex = -1;
+  for (let i = heading + 1; i < lines.length; i += 1) {
+    if (/^#{1,2}\s/.test(lines[i].trim())) break;
+    if (isTableRow(lines[i])) {
+      headerIndex = i;
+      break;
+    }
+  }
+  if (headerIndex === -1) return [];
+  const header2 = cells(lines[headerIndex]).map((name) => name.toLowerCase());
+  const at = (row, name) => header2.indexOf(name) === -1 ? "" : plainCell(row[header2.indexOf(name)]);
+  const rows2 = [];
+  for (let index = headerIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!isTableRow(line)) break;
+    if (isSeparatorRow(line)) continue;
+    const row = cells(line);
+    const repo = at(row, "repo");
+    if (!repo) continue;
+    rows2.push({ repo, role: at(row, "role"), readAt: at(row, "read at"), knowledge: at(row, "knowledge") });
+  }
+  return rows2;
 }
 function sharedGround(left, right) {
   const shared = /* @__PURE__ */ new Set();
@@ -16302,6 +16333,7 @@ function collisions(slices) {
   const pairs = [];
   for (let i = 0; i < slices.length; i += 1) {
     for (let j = i + 1; j < slices.length; j += 1) {
+      if ((slices[i].repo ?? null) !== (slices[j].repo ?? null)) continue;
       const shared = sharedGround(slices[i], slices[j]);
       if (shared.length > 0) pairs.push({ left: slices[i].id, right: slices[j].id, shared });
     }
@@ -18018,7 +18050,7 @@ function creditItems({ prs, issues = [], commits, labels, signature, since }) {
   const from = since ? time(`${since}-01T00:00:00Z`) : null;
   const seen = /* @__PURE__ */ new Set();
   const items = [];
-  const add = (type, raw, { labelled, merged, counted: counted2, kind }) => {
+  const add = (type, raw, { labelled, merged, counted: counted3, kind }) => {
     const key = `${type}:${keyOf(raw.repo, raw.number)}`;
     if (seen.has(key)) return;
     seen.add(key);
@@ -18027,7 +18059,7 @@ function creditItems({ prs, issues = [], commits, labels, signature, since }) {
     if (signature && isSignedBody(raw.body)) reasons.push("marker");
     if (merged) reasons.push("commit");
     if (sameAccount(raw.author, bot)) reasons.push("author");
-    if (reasons.length === 0 || !counted2.includes(raw.state)) return;
+    if (reasons.length === 0 || !counted3.includes(raw.state)) return;
     if (from !== null && time(raw.createdAt) < from) return;
     items.push({
       type,
@@ -18083,7 +18115,7 @@ function summarize(items, { commits = null, app = false } = {}) {
   const prs = { total: 0, states: { merged: 0, open: 0 }, kinds: zeros(KINDS2), signatures: zeros(SIGNATURES) };
   const prdIssues = { total: 0, states: { open: 0, closed: 0 }, signatures: zeros(SIGNATURES) };
   const byTheApp = { issues: 0, prs: 0 };
-  const counted2 = [];
+  const counted3 = [];
   for (const item2 of items) {
     if (item2.signature === BY_THE_APP) {
       byTheApp[item2.type === "pr" ? "prs" : "issues"] += 1;
@@ -18095,15 +18127,15 @@ function summarize(items, { commits = null, app = false } = {}) {
     if (item2.signature !== null) totals.signatures[item2.signature] += 1;
     if (item2.type !== "pr") continue;
     prs.kinds[item2.kind] += 1;
-    counted2.push(item2);
+    counted3.push(item2);
   }
   return {
     prs,
     prdIssues,
     byTheApp: app ? byTheApp : null,
     commits: commits === null ? null : commits.length,
-    byRepo: tally(counted2, (item2) => item2.repo).sort(([a, x], [b, y]) => y - x || a.localeCompare(b)).map(([repo, count3]) => ({ repo, count: count3 })),
-    byMonth: tally(counted2, (item2) => new Date(item2.createdAt).toISOString().slice(0, 7)).sort(([a], [b]) => a.localeCompare(b)).map(([month, count3]) => ({ month, count: count3 }))
+    byRepo: tally(counted3, (item2) => item2.repo).sort(([a, x], [b, y]) => y - x || a.localeCompare(b)).map(([repo, count3]) => ({ repo, count: count3 })),
+    byMonth: tally(counted3, (item2) => new Date(item2.createdAt).toISOString().slice(0, 7)).sort(([a], [b]) => a.localeCompare(b)).map(([month, count3]) => ({ month, count: count3 }))
   };
 }
 
@@ -19994,6 +20026,15 @@ var ENTRIES = deepFreeze([
     detail: "Turns an idea into an approved design, then into a PRD the loop can build: the PRD issue, the spec, the before/after page and the plan, in a docs-only phase-0 PR a person reviews and merges before any code is written. It writes no code and merges nothing, and ends with the /omni:yolo line that builds it."
   },
   {
+    name: "mega-brainstorm",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:mega-brainstorm"],
+    label: "/omni:mega-brainstorm",
+    summary: "one PRD across repositories, from a plan repository",
+    detail: "The brainstorm of a plan repository, one /omni:mega-invade set up: it turns one idea into one PRD whose plan says which slice lands in which target repository, read from a read-only clone of each, in which nothing runs. The spec, the plan, the draft feature PR and one phase-0 PR, with a table of what lands where, all live in the plan repository; it never writes in a target. It ends with the /omni:ultra-yolo line that builds it."
+  },
+  {
     name: "yolo",
     kind: "skill",
     who: "you",
@@ -21837,6 +21878,8 @@ init_define_OMNI_BUNDLE();
 import { readFileSync as readFileSync36 } from "node:fs";
 import { join as join47 } from "node:path";
 var USAGE12 = "usage: omni plan check <prd>";
+var COMMIT = /^[0-9a-f]{40}$/;
+var NO_COMMIT = /^[—–-]$/;
 function duplicateIds(slices) {
   const counts2 = /* @__PURE__ */ new Map();
   for (const slice of slices) counts2.set(slice.id, (counts2.get(slice.id) ?? 0) + 1);
@@ -21861,6 +21904,63 @@ function blockedByViolations2(slices) {
   }
   return violations;
 }
+function shortName2(slug) {
+  return slug.slice(slug.indexOf("/") + 1);
+}
+function repositoryViolations(slices, repositories, { planSlug, targets: targets2 }) {
+  if (slices.every((slice) => slice.repo === null)) {
+    return ["repo: the slice table has no repo column \u2014 in a plan repository each slice names the repository it lands in."];
+  }
+  const violations = [];
+  const owners = /* @__PURE__ */ new Map();
+  for (const slug of [...targets2.map((target2) => target2.repo), planSlug]) {
+    const name = shortName2(slug);
+    owners.set(name, [...owners.get(name) ?? [], slug]);
+  }
+  for (const [name, slugs] of owners) {
+    if (slugs.length > 1) {
+      violations.push(`repo: "${name}" is the short name of ${slugs.join(" and ")} \u2014 a slice could not say which.`);
+    }
+  }
+  for (const slice of slices) {
+    if (!owners.has(slice.repo)) {
+      violations.push(
+        `repo: ${slice.id} names "${slice.repo}", which is neither a target nor this plan repository (${[...owners.keys()].join(", ")}).`
+      );
+    }
+  }
+  const rows2 = new Set(repositories.map((row) => row.repo));
+  for (const repo of new Set(slices.map((slice) => slice.repo).filter((name) => owners.has(name)))) {
+    if (!rows2.has(repo)) violations.push(`## Repositories: ${repo} holds slices and has no row.`);
+  }
+  const planName = shortName2(planSlug);
+  for (const row of repositories) {
+    if (!slices.some((slice) => slice.repo === row.repo)) {
+      violations.push(`## Repositories: the row ${row.repo} names no slice's repository.`);
+    } else if (row.repo === planName) {
+      if (!NO_COMMIT.test(row.readAt)) {
+        violations.push(`read at: ${row.repo} is the plan repository and reads "${row.readAt}", not \u2014.`);
+      }
+    } else if (owners.has(row.repo) && !COMMIT.test(row.readAt)) {
+      violations.push(`read at: ${row.repo} reads "${row.readAt}", not the full 40-character commit its clone was read at.`);
+    }
+  }
+  return violations;
+}
+function notPlanRepositoryViolations(slices, repositories) {
+  const violations = [];
+  if (slices.some((slice) => slice.repo !== null)) violations.push("repo: a repo column needs a plan repository.");
+  if (repositories.length > 0) violations.push("## Repositories: a Repositories table needs a plan repository.");
+  return violations;
+}
+function counted2(count3, singular, pluralForm) {
+  return `${count3} ${count3 === 1 ? singular : pluralForm}`;
+}
+function byRepository(slices) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const slice of slices) groups.set(slice.repo, [...groups.get(slice.repo) ?? [], slice]);
+  return groups;
+}
 function checkPlan(prd2, { ctx }) {
   const planPath = ctx.layout.planPath(prd2);
   if (planPath === null) throw usageError(`omni plan check: PRD ${prd2} has no inbox or shipped folder.`);
@@ -21877,15 +21977,21 @@ function checkPlan(prd2, { ctx }) {
   } catch (error) {
     throw usageError(`omni plan check: ${planPath}: ${error.message}`);
   }
+  const repositories = parsePlanRepositories(markdown);
+  const planSection2 = ctx.config.plan ?? null;
+  const multi = planSection2 !== null && slices.some((slice) => slice.repo !== null);
+  const repoOf = new Map(slices.map((slice) => [slice.id, slice.repo]));
   const violations = [
+    ...planSection2 === null ? notPlanRepositoryViolations(slices, repositories) : repositoryViolations(slices, repositories, { planSlug: ctx.config.repo.slug, targets: planSection2.targets }),
     ...duplicateIds(slices).map((id) => `id "${id}" is used by more than one slice row.`),
     ...blockedByViolations2(slices),
     ...sameWaveCollisions(slices).map(
-      (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave} \u2014 two slices in one wave may never share territory.`
+      (collision) => `${collision.left} and ${collision.right} share ${collision.shared.join(", ")} and both sit in wave ${collision.wave}${multi ? ` of ${repoOf.get(collision.left)}` : ""} \u2014 two slices in one wave may never share territory.`
     )
   ];
   const waves = [...new Set(slices.map((slice) => slice.wave))].sort((a, b) => a - b);
-  return { planPath, slices, waves, rows: collisionRows(slices), violations };
+  const matrices = multi ? [...byRepository(slices)].map(([repo, group]) => ({ repo, rows: collisionRows(group) })) : [{ repo: null, rows: collisionRows(slices) }];
+  return { planPath, slices, waves, multi, matrices, violations };
 }
 var plan = {
   async run(args, { ctx, stdout }) {
@@ -21894,13 +22000,26 @@ var plan = {
     const { positional } = parseArgs("plan check", rest);
     if (positional.length !== 1) throw usageError(USAGE12);
     const prd2 = positiveInt("plan check", "<prd>", positional[0]);
-    const { planPath, slices, waves, rows: rows2, violations } = checkPlan(prd2, { ctx });
+    const { planPath, slices, waves, multi, matrices, violations } = checkPlan(prd2, { ctx });
     println(
       stdout,
       `omni plan check \u2014 PRD ${prd2}: ${slices.length} slice(s) across wave(s) ${waves.join(", ")} (${planPath}).`
     );
-    if (rows2.length > 0) {
-      println(stdout, `omni plan check \u2014 collision matrix (${rows2.length} pair(s) sharing ground):`);
+    if (multi) {
+      const repos = new Set(slices.map((slice) => slice.repo)).size;
+      println(
+        stdout,
+        `omni plan check \u2014 ${counted2(slices.length, "slice", "slices")} \xB7 ${counted2(waves.length, "wave", "waves")} \xB7 ${counted2(repos, "repository", "repositories")}:`
+      );
+      for (const wave of waves) {
+        const members = slices.filter((slice) => slice.wave === wave).map((slice) => `${slice.id} (${slice.repo})`);
+        println(stdout, `  wave ${wave}: ${members.join(", ")}`);
+      }
+    }
+    for (const { repo, rows: rows2 } of matrices) {
+      if (rows2.length === 0) continue;
+      const where = repo === null ? "" : `, ${repo}`;
+      println(stdout, `omni plan check \u2014 collision matrix${where} (${rows2.length} pair(s) sharing ground):`);
       for (const row of rows2) println(stdout, `  ${row.pair}: ${row.shared} \u2014 ${row.resolved}`);
     }
     if (violations.length > 0) {
@@ -21920,7 +22039,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/delivery/prd.mjs
 init_define_OMNI_BUNDLE();
-import { readdirSync as readdirSync17 } from "node:fs";
+import { existsSync as existsSync41, readFileSync as readFileSync37, readdirSync as readdirSync17 } from "node:fs";
 import { join as join48 } from "node:path";
 function whereIs(ctx, prd2) {
   const where = ctx.layout.whereIs(prd2);
@@ -21935,8 +22054,25 @@ function whereIs(ctx, prd2) {
     dir: where.dir,
     files,
     outboxDir,
-    openItems: openItemFiles(prd2, { ctx })
+    openItems: openItemFiles(prd2, { ctx }),
+    repos: planRepos(join48(absolute, "plan.md"))
   };
+}
+function planRepos(planPath) {
+  if (!existsSync41(planPath)) return [];
+  const markdown = readFileSync37(planPath, "utf8");
+  let slices;
+  try {
+    slices = parsePlanSlices(markdown);
+  } catch {
+    return [];
+  }
+  if (slices.every((slice) => slice.repo === null)) return [];
+  const names = parsePlanRepositories(markdown).map((row) => row.repo);
+  for (const slice of slices) {
+    if (slice.repo && !names.includes(slice.repo)) names.push(slice.repo);
+  }
+  return names;
 }
 
 // kit/bin/commands/prd.mjs
@@ -21958,7 +22094,8 @@ var prd = {
       ...where.files.map((file) => `  - ${file}`),
       `outbox: ${where.outboxDir ?? "none"}`,
       `open items: ${where.openItems.length === 0 ? "none" : ""}`.trimEnd(),
-      ...where.openItems.map((file) => `  - ${file}`)
+      ...where.openItems.map((file) => `  - ${file}`),
+      ...where.repos.length === 0 ? [] : [`repos: ${where.repos.join(", ")}`]
     ];
     println(stdout, lines.join("\n"));
     return 0;
@@ -21970,7 +22107,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/outbox/replies.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync41, readFileSync as readFileSync37, writeFileSync as writeFileSync16 } from "node:fs";
+import { existsSync as existsSync42, readFileSync as readFileSync38, writeFileSync as writeFileSync16 } from "node:fs";
 import { join as join49 } from "node:path";
 var WRITER_ASSOCIATIONS = /* @__PURE__ */ new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 var NUMBERED_LINE = /^\s*(\d+)\s*:\s*(.+)$/;
@@ -22159,10 +22296,10 @@ function appendObjection({ ctx, prd: prd2, adoptedEntry, item: item2, answer, ju
   }
   const settledFile = `${ctx.layout.outboxDir(prd2)}/${SETTLED_FILE}`;
   const absoluteSettled = join49(ctx.root, settledFile);
-  if (!existsSync41(absoluteSettled)) {
+  if (!existsSync42(absoluteSettled)) {
     return { ok: false, errors: [`${settledFile}: no ledger holds the adopted item ${item2.id}.`] };
   }
-  const existing = readFileSync37(absoluteSettled, "utf8");
+  const existing = readFileSync38(absoluteSettled, "utf8");
   const separator = existing.endsWith("\n") ? "\n" : "\n\n";
   const entry = renderSettledEntry({
     item: item2,
@@ -22284,7 +22421,7 @@ Outbox round ${result.round.number} (not posted \u2014 pass --post):
 
 // kit/bin/commands/rework.mjs
 init_define_OMNI_BUNDLE();
-import { readFileSync as readFileSync38, writeFileSync as writeFileSync17 } from "node:fs";
+import { readFileSync as readFileSync39, writeFileSync as writeFileSync17 } from "node:fs";
 import { join as join50 } from "node:path";
 
 // kit/lib/policy/rework.mjs
@@ -22461,7 +22598,7 @@ var PLAN_USAGE = "usage: omni rework plan <prd> [--json]";
 var CLOSE_USAGE = "usage: omni rework close <id> --prd <n> --pr <n>";
 function readIfExists(ctx, path) {
   try {
-    return readFileSync38(join50(ctx.root, path), "utf8");
+    return readFileSync39(join50(ctx.root, path), "utf8");
   } catch (error) {
     if (error?.code === "ENOENT") return "";
     throw error;
@@ -22639,7 +22776,7 @@ import { appendFileSync } from "node:fs";
 // kit/lib/status/facts.mjs
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync11 } from "node:child_process";
-import { readFileSync as readFileSync39, rmSync as rmSync7, statSync as statSync5, utimesSync, writeFileSync as writeFileSync18 } from "node:fs";
+import { readFileSync as readFileSync40, rmSync as rmSync7, statSync as statSync5, utimesSync, writeFileSync as writeFileSync18 } from "node:fs";
 import { resolve as resolve2 } from "node:path";
 function git3(ctx, exec, args) {
   return exec("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -22696,7 +22833,7 @@ function snapshot(path) {
   if (path === null) return null;
   try {
     const stat = statSync5(path);
-    return { path, bytes: readFileSync39(path), atime: stat.atime, mtime: stat.mtime };
+    return { path, bytes: readFileSync40(path), atime: stat.atime, mtime: stat.mtime };
   } catch {
     return { path, bytes: null };
   }
@@ -23117,7 +23254,7 @@ import { spawn as spawnProcess } from "node:child_process";
 // kit/lib/statusline/board-cache.mjs
 init_define_OMNI_BUNDLE();
 import { randomUUID } from "node:crypto";
-import { closeSync, existsSync as existsSync42, mkdirSync as mkdirSync14, openSync, readFileSync as readFileSync40, renameSync as renameSync2, rmSync as rmSync8, statSync as statSync6, writeFileSync as writeFileSync19 } from "node:fs";
+import { closeSync, existsSync as existsSync43, mkdirSync as mkdirSync14, openSync, readFileSync as readFileSync41, renameSync as renameSync2, rmSync as rmSync8, statSync as statSync6, writeFileSync as writeFileSync19 } from "node:fs";
 import { join as join51 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 var BOARD_DIR = join51(LOCAL_DIR, "statusline");
@@ -23140,7 +23277,7 @@ function omniScript() {
   return runningBundle() ?? fileURLToPath3(new URL("../../bin/omni.mjs", import.meta.url));
 }
 function readBoard(root, prd2) {
-  const value = attempt5(() => JSON.parse(readFileSync40(boardFile(root, prd2), "utf8")), null);
+  const value = attempt5(() => JSON.parse(readFileSync41(boardFile(root, prd2), "utf8")), null);
   if (!isObject(value) || typeof value.at !== "string") return null;
   const at = Date.parse(value.at);
   if (Number.isNaN(at)) return null;
@@ -23163,8 +23300,8 @@ function refreshDue(board2, now) {
   return age === null || age >= REFRESH_AFTER_MS;
 }
 function lockedAt(path) {
-  if (!existsSync42(path)) return null;
-  const at = attempt5(() => Date.parse(JSON.parse(readFileSync40(path, "utf8")).at), Number.NaN);
+  if (!existsSync43(path)) return null;
+  const at = attempt5(() => Date.parse(JSON.parse(readFileSync41(path, "utf8")).at), Number.NaN);
   return Number.isNaN(at) ? attempt5(() => statSync6(path).mtimeMs, null) : at;
 }
 function lockHeld(root, prd2, now) {
@@ -23196,7 +23333,7 @@ function cachedSlices({ root, prd: prd2, now, cwd, spawn: spawn2 = null, script,
 function ensureBoardDir(root) {
   mkdirSync14(join51(root, BOARD_DIR), { recursive: true });
   const ignore = join51(root, LOCAL_DIR, ".gitignore");
-  if (!existsSync42(ignore)) writeFileSync19(ignore, "*\n");
+  if (!existsSync43(ignore)) writeFileSync19(ignore, "*\n");
 }
 function writeBoard(root, prd2, entry) {
   ensureBoardDir(root);
@@ -23237,7 +23374,7 @@ function takeLock(root, prd2, now) {
 }
 function releaseLock(root, prd2, owner) {
   const path = lockFile(root, prd2);
-  const held = attempt5(() => JSON.parse(readFileSync40(path, "utf8")).owner, null);
+  const held = attempt5(() => JSON.parse(readFileSync41(path, "utf8")).owner, null);
   if (held === owner) rmSync8(path, { force: true });
 }
 var oneLine3 = (error) => String(error?.message ?? error).split("\n")[0].trim() || "the board could not be built";
@@ -23791,7 +23928,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/visual/verdict.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync43, readdirSync as readdirSync19, readFileSync as readFileSync41 } from "node:fs";
+import { existsSync as existsSync44, readdirSync as readdirSync19, readFileSync as readFileSync42 } from "node:fs";
 import { join as join54 } from "node:path";
 var PAGE = "before-after.html";
 var RASTER_DATA_URL = /data:image\/(?!svg\+xml)[a-z0-9.+-]+/i;
@@ -23804,16 +23941,16 @@ function folderPrefix(issue) {
 function issueFolders(ctx, issue) {
   const root = visualRoot(ctx);
   const absolute = join54(ctx.root, root);
-  if (!existsSync43(absolute)) return [];
+  if (!existsSync44(absolute)) return [];
   const prefix = folderPrefix(issue);
   return readdirSync19(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length).map((entry) => `${root}/${entry.name}`).sort();
 }
 function pageViolations(ctx, page2) {
-  if (!existsSync43(join54(ctx.root, page2))) return [`${page2}: missing.`];
+  if (!existsSync44(join54(ctx.root, page2))) return [`${page2}: missing.`];
   const violations = [];
   const size = beforeAfterViolation(page2, ctx);
   if (size) violations.push(size);
-  if (RASTER_DATA_URL.test(readFileSync41(join54(ctx.root, page2), "utf8"))) {
+  if (RASTER_DATA_URL.test(readFileSync42(join54(ctx.root, page2), "utf8"))) {
     violations.push(`${page2}: holds a base64 raster image (a data:image/ URL that is not SVG); draw it in SVG or CSS.`);
   }
   return violations;

@@ -52,11 +52,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 32 commands and the 15 skills', () => {
+  it('holds the 32 commands and the 16 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(32);
-    expect(skillFolders()).toHaveLength(15);
+    expect(skillFolders()).toHaveLength(16);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(32);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(15);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(16);
   });
 
   it('lists /omni:visual-fix for you, with its usage and when to use it (PRD 541)', () => {
@@ -74,6 +74,17 @@ describe('the help table in this repository', () => {
     expect(mega.detail).toMatch(/\bplan repository\b/);
     expect(mega.detail).toMatch(/\bomni targets\b/);
     expect(mega.detail).toMatch(/--sync/);
+  });
+
+  it('has /omni:mega-brainstorm for you, after /omni:brainstorm, naming the plan repository and ultra-yolo (PRD 549)', () => {
+    const skills = ENTRIES.filter((e) => e.kind === 'skill');
+    const mega = skills.find((e) => e.name === 'mega-brainstorm');
+    expect(mega).toMatchObject({ who: 'you', usage: ['/omni:mega-brainstorm'], label: '/omni:mega-brainstorm' });
+    expect(skills.indexOf(mega)).toBe(skills.findIndex((e) => e.name === 'brainstorm') + 1);
+    expect(mega.detail).toMatch(/\bplan repository\b/);
+    expect(mega.detail).toMatch(/\/omni:mega-invade\b/);
+    expect(mega.detail).toMatch(/\/omni:ultra-yolo\b/);
+    expect(mega.detail).toMatch(/\bnever writes in a target\b/);
   });
 
   it('names the six stages of the loop in order, each with one line, and three principles', () => {

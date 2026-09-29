@@ -470,6 +470,20 @@ export const ENTRIES = deepFreeze([
       '/omni:yolo line that builds it.',
   },
   {
+    name: 'mega-brainstorm',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:mega-brainstorm'],
+    label: '/omni:mega-brainstorm',
+    summary: 'one PRD across repositories, from a plan repository',
+    detail:
+      'The brainstorm of a plan repository, one /omni:mega-invade set up: it turns one idea into ' +
+      'one PRD whose plan says which slice lands in which target repository, read from a ' +
+      'read-only clone of each, in which nothing runs. The spec, the plan, the draft feature PR ' +
+      'and one phase-0 PR, with a table of what lands where, all live in the plan repository; it ' +
+      'never writes in a target. It ends with the /omni:ultra-yolo line that builds it.',
+  },
+  {
     name: 'yolo',
     kind: 'skill',
     who: 'you',

@@ -122,6 +122,40 @@ require. These four parts are the whole shape:
 4. `## Per slice: done when`: for each slice (or group of like slices), the observable conditions,
    as a bullet list.
 
+**In a plan repository** (the config has a `plan` section; `/omni:mega-brainstorm` runs this skill
+there), a slice lands in one repository, so the slice table gains a `repo` column, and a
+`## Repositories` table comes before `## Slices`. Anywhere else, never write either: `omni plan
+check` refuses a `repo` column outside a plan repository.
+
+- The header row is exactly:
+
+  ```markdown
+  | id | repo | slice | territory | blocked by | wave |
+  | --- | --- | --- | --- | --- | --- |
+  | s1 | <name> | <what it makes true> | `<dir>/` | — | 1 |
+  ```
+
+  `repo` is a repository's **short name**, the part after the `/`: a target's from `plan.targets`,
+  or the plan repository's own (from `repo.slug`) for a docs change the feature needs there. The
+  slice's territory is a path in that repository.
+- `## Repositories` has one row per repository a slice names, and no other:
+
+  ```markdown
+  | repo | role | read at | knowledge |
+  | --- | --- | --- | --- |
+  | <name> | <the target's role> | <40-character commit> | own |
+  | <plan repository's name> | plan | — | own |
+  ```
+
+  `role` is the target's role, or `plan` for the plan repository. `read at` is the full
+  40-character head of the clone the territories were read from
+  (`git -C <clone> rev-parse HEAD`), or `—` on the plan repository's row. `knowledge` is `own`,
+  `imported`, `imported (stale)` or `none`, as `omni targets` read it.
+- Waves are one numbering across every repository, and `blocked by` names slices of any
+  repository. Two slices collide only when they share a repository and their territories meet: the
+  same path in two repositories shares no ground, so the shared-ground note is written per
+  repository.
+
 ## 5. Check until green
 
 ```bash
