@@ -227,7 +227,7 @@
 
 /* ── The Questions tab (PRD 498): a strip counting the questions, then one outlined list, a line per round ── */
 
-.dossier-progress { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; min-width: 0; }
+.dossier-progress { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; min-width: 0; margin-bottom: 4px; }
 .dossier-progress-words { margin: 0; font-weight: 700; }
 .dossier-meter { display: block; flex: 0 1 260px; min-width: 120px; height: 8px; background: var(--ask-sunk); border-radius: 999px; overflow: hidden; }
 .dossier-meter > span { display: block; height: 100%; background: var(--ask-green); }
@@ -264,7 +264,7 @@
   align-items: center;
   gap: 6px 14px;
   flex-wrap: wrap;
-  padding: 12px 16px;
+  padding: 16px 24px;
   min-width: 0;
 }
 summary.dossier-round-line { cursor: pointer; list-style: none; }
@@ -273,7 +273,7 @@ summary.dossier-round-line::before { content: '▸'; color: var(--ask-muted); wi
 .dossier-fold[open] > summary.dossier-round-line::before { transform: rotate(90deg); }
 summary.dossier-round-line:hover { background: var(--ask-sunk); }
 summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: -2px; }
-.dossier-round[data-state='open'] .dossier-round-line { padding-left: 38px; }
+.dossier-round[data-state='open'] .dossier-round-line { padding-left: 46px; }
 .dossier-mark { display: inline-grid; place-items: center; width: 14px; height: 14px; flex: none; font-weight: 800; line-height: 1; }
 .dossier-mark[data-state='answered'] { color: var(--ask-green); }
 .dossier-mark[data-state='open'] { width: 10px; height: 10px; border-radius: 50%; background: var(--ask-yellow); box-shadow: 0 0 0 2px var(--ask-on-yellow); }
@@ -282,7 +282,7 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .dossier-round-headers { color: var(--ask-muted); overflow-wrap: anywhere; }
 .dossier-round-count { font: 600 13px/1.2 var(--ask-mono); color: var(--ask-muted); white-space: nowrap; }
 .dossier-round-when { font-size: 14px; white-space: nowrap; }
-.dossier-round-body { display: grid; gap: 12px; padding: 4px 16px 14px 44px; min-width: 0; }
+.dossier-round-body { display: grid; gap: 16px; padding: 4px 24px 22px 52px; min-width: 0; }
 .dossier-rule,
 .dossier-category {
   font: 700 12px/1 var(--ask-body);
@@ -316,7 +316,7 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .dossier-option-desc { font-size: 15px; color: var(--ask-muted); overflow-wrap: anywhere; }
 .dossier-answer { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 /* An answered question, on one line: chip · question (muted) → what was chosen (ink), in no box. */
-.dossier-q-line { font-size: 16px; font-weight: 400; text-wrap: pretty; }
+.dossier-q-line { font-size: 16px; font-weight: 400; line-height: 1.6; text-wrap: pretty; }
 .dossier-q-asked { color: var(--ask-muted); }
 .dossier-chosen { display: inline; }
 .dossier-choice + .dossier-choice::before { content: ', '; }
@@ -326,7 +326,7 @@ summary.dossier-round-line:focus-visible { outline: 2px solid var(--ask-cyan); o
 .dossier-round .dossier-options { display: flex; flex-wrap: wrap; gap: 8px; }
 .dossier-round[data-state='open'] .dossier-option { border: 1.5px solid var(--ask-line-strong); max-width: 420px; }
 .dossier-outcome { margin: 0; font-size: 15px; }
-.dossier-round-foot { margin: 0; display: flex; align-items: baseline; gap: 6px 16px; flex-wrap: wrap; }
+.dossier-round-foot { margin: 0; padding-top: 4px; display: flex; align-items: baseline; gap: 6px 16px; flex-wrap: wrap; }
 .dossier-round-foot .dossier-round-link { margin-left: auto; }
 .dossier-round-foot .ask-hint { overflow-wrap: anywhere; min-width: 0; }
 .ask a.dossier-round-link { font-size: 15px; white-space: nowrap; }
