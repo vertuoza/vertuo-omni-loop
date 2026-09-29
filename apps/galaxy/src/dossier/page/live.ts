@@ -8,7 +8,8 @@
 // read from the GitHub summary the server caches 60 s. The browser asks the server for them (never
 // GitHub) at most every GITHUB_EVERY_MS, so a change on GitHub shows within about a minute. That part
 // is compared only when both sides have one, so a page rendered without it never refreshes for
-// nothing; the last one known is kept between reads.
+// nothing; the last one known is kept between reads. PRD 251 (s9) adds the pending answers (how many,
+// and the latest one's time), so a reply typed on GitHub shows on the Outbox tab within a minute.
 import { UNREAD, type GithubSummary } from '../github/summary';
 import { DOSSIER_KINDS, type DossierKind, type DossierListRow, type DossierPulse } from '../store';
 import { stageOf, type StageId } from './stage';
@@ -21,8 +22,17 @@ export const LIVE_PROBLEM = 'Cannot reach the server. Trying again every few sec
 /** How often the open page asks the server for the GitHub part: the summary is cached 60 s anyway. */
 export const GITHUB_EVERY_MS = 15_000;
 
-/** What the signature reads of GitHub: the stage, and the open outbox items (null when unknown). */
-export type GithubPulse = { stage: StageId | 'unknown'; open: number | null };
+/** What the signature reads of GitHub: the stage, the open outbox items (null when unknown), and the
+ * pending answers as `<how many>@<the latest's time>` (null when unknown; left out by an older pulse). */
+export type GithubPulse = { stage: StageId | 'unknown'; open: number | null; answers?: string | null };
+
+/** The pending answers, as the signature reads them: how many, and when the latest was written. */
+function answersOf(github: GithubSummary | null): string | null {
+  const replies = github?.replies ?? null;
+  if (!replies || replies === UNREAD) return null;
+  const latest = replies.pending.map((p) => p.at ?? '').sort().at(-1) ?? '';
+  return `${replies.pending.length}@${latest}`;
+}
 
 /** The dossier's pulse, and its GitHub part when there is one (a numbered dossier whose summary was read). */
 export type LivePulse = DossierPulse & { github?: GithubPulse };
@@ -32,7 +42,7 @@ export type LivePulse = DossierPulse & { github?: GithubPulse };
 export function githubPulse(prd: number | null, github: GithubSummary | null | undefined): GithubPulse | undefined {
   if (prd === null || github === undefined) return undefined;
   const outbox = github?.outbox ?? null;
-  return { stage: stageOf(prd, github).id, open: outbox && outbox !== UNREAD ? outbox.open.length : null };
+  return { stage: stageOf(prd, github).id, open: outbox && outbox !== UNREAD ? outbox.open.length : null, answers: answersOf(github) };
 }
 
 const SEPARATOR = '#';
@@ -44,7 +54,9 @@ export function signature(pulse: LivePulse | null): string {
   if (!pulse) return 'gone';
   const versions = DOSSIER_KINDS.map((kind) => `${kind}:${pulse.latest[kind] ?? 0}`).join(',');
   const counts = `${pulse.asked}/${pulse.answered}|${versions}`;
-  return pulse.github ? `${counts}${SEPARATOR}${pulse.github.stage}:${pulse.github.open ?? '-'}` : counts;
+  if (!pulse.github) return counts;
+  const { stage, open, answers } = pulse.github;
+  return `${counts}${SEPARATOR}${stage}:${open ?? '-'}${answers === undefined ? '' : `:${answers ?? '-'}`}`;
 }
 
 /** A signature's two parts: the counts', and GitHub's (null when it has none). */
