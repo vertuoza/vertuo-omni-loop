@@ -389,3 +389,315 @@ Two lines in a test's list, or two colour tokens in board.css.
 ```
 
 <!-- /omni-outbox-settled: s2-04-board-dividers-listed -->
+
+<!-- omni-outbox-settled: s3-01-demo-fleet-opens-on-picker -->
+
+## s3-01-demo-fleet-opens-on-picker — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s3
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s3-01-demo-fleet-opens-on-picker
+prd: 572
+slice: s3
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 2
+---
+
+## The question, in plain words
+
+In the demo, the visitor plays without a fleet. Should the Fleet page open on the list of fleets to pick from, or straight on one fleet's board?
+
+## The decision, in plain words
+
+The demo Fleet page opens on the list of fleets with the line asking to pick one, exactly as a real member without a fleet sees it; one click shows a full board.
+
+## The intro, for fun
+
+The demo visitor walks in with no team shirt on.
+
+## The punchline, for fun
+
+So the page hands them the whole rack to choose from.
+
+## The options, in plain words
+
+A. Open on the list of fleets, as a member without a fleet sees it.
+B. Open straight on the first demo fleet's board.
+C. Make the demo visitor a member of a demo fleet, on every page.
+
+## What I had to decide
+
+Whether /app/fleet in the demo, with no ?fleet, shows the picker (the demo you, DAM-DEV, plays solo) or defaults to a demo fleet's board so every part shows without a click.
+
+## What I did meanwhile
+
+demoFleetBoard follows the same rule as a real member: the demo you is solo, so with no ?fleet the page shows the picker and 'Pick a fleet to see its board'; ?fleet=builders shows every part of the board.
+
+## What it costs to change later
+
+One default in demoFleetBoard (src/dashboard/fleet/fleet.ts) and its render test; no stored data.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- whether the demo is meant to show every part of every page with no click at all (author)
+
+```
+
+<!-- /omni-outbox-settled: s3-01-demo-fleet-opens-on-picker -->
+
+<!-- omni-outbox-settled: s4-01-old-home-parts-kept-unused -->
+
+## s4-01-old-home-parts-kept-unused — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-old-home-parts-kept-unused
+prd: 572
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 2
+---
+
+## The question, in plain words
+
+Home no longer shows the week of merges or the season's rankings. Should their old building blocks be deleted now, or left in place unused for a while?
+
+## The decision, in plain words
+
+They are left in place, unused, and nothing shows them. Removing them also means changing a colour check shared by other pages, which this piece of work does not own.
+
+## The intro, for fun
+
+The old week chart packed its bags, but its suitcase is still in the hall.
+
+## The punchline, for fun
+
+Nobody trips on it, and a tidy-up can carry it out later.
+
+## The options, in plain words
+
+A. A. Leave the week folder and the rankings view unused for now; a follow-up deletes them.
+B. B. Delete them in this slice, editing the shared outline test outside its ground.
+C. C. Keep them for good as a reusable chart for another page.
+
+## What I had to decide
+
+Whether the week chart's folder, no longer drawn anywhere, is deleted in this slice.
+
+## What I did meanwhile
+
+Home stops drawing the week chart, the rankings, Outbox settled and the season counts. The week folder stays on disk unused, since the outline test in src/ask checks its stylesheet; the rankings folder stays because Workspace and Fleet import rankFleets from it.
+
+## What it costs to change later
+
+A follow-up that deletes the week folder and its two lines in the shared outline test, plus Rankings.tsx, rankings/load.ts and rankings/demo.ts if nothing else draws them.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether a later slice or page means to reuse the old week chart (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-01-old-home-parts-kept-unused -->
+
+<!-- omni-outbox-settled: s4-02-waiting-tile-above-board -->
+
+## s4-02-waiting-tile-above-board — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-waiting-tile-above-board
+prd: 572
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 2
+---
+
+## The question, in plain words
+
+Where does the Waiting for you tile sit on Home now that the board brings its own row of four tiles?
+
+## The decision, in plain words
+
+It stays its own tile, right under your hero and above the board's period switch, since it counts what waits now and not what happened in the period.
+
+## The intro, for fun
+
+Five tiles walked into a row; one of them was not about the past week.
+
+## The punchline, for fun
+
+So it got its own seat, closest to the door.
+
+## The options, in plain words
+
+A. A. Its own tile under the hero block, above the board.
+B. B. A fifth tile in the board's row on Home only.
+C. C. A line beside the hero's name instead of a tile.
+
+## What I had to decide
+
+Whether Waiting for you joins the board's tile row or sits apart from it.
+
+## What I did meanwhile
+
+Home shows the hero block, then Waiting for you as a single tile, then the board: the period switch, its four tiles, the charts, Your team and the repositories.
+
+## What it costs to change later
+
+Moving one component on Home; no data or stored shape changes.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- How it reads on a phone next to the board's tiles, pending the manual browser pass (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-02-waiting-tile-above-board -->
+
+<!-- omni-outbox-settled: s4-03-home-page-check-allows-period-switch -->
+
+## s4-03-home-page-check-allows-period-switch — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-home-page-check-allows-period-switch
+prd: 572
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 2
+---
+
+## The question, in plain words
+
+An older check says Home must hold no navigation at all, and the new period switch is a small one. Should the check allow it?
+
+## The decision, in plain words
+
+The check now allows exactly one navigation on Home, the period switch, and still refuses any other, such as the old section cards.
+
+## The intro, for fun
+
+An old rule said no signposts on Home, then three little period buttons moved in.
+
+## The punchline, for fun
+
+They got a permit, one sign only, no billboards.
+
+## The options, in plain words
+
+A. A. Allow the period switch as Home's one navigation in the check.
+B. B. Draw the period switch without a navigation landmark, leaving the old check as it was.
+C. C. Drop the no-navigation part of the old check.
+
+## What I had to decide
+
+How the old no-navigation check on Home treats the board's period switch, since that check lives outside this slice's ground.
+
+## What I did meanwhile
+
+The Home check in src/switch now expects the period switch as the page's only navigation; everything else it checked is unchanged.
+
+## What it costs to change later
+
+One line in one test; nothing shipped depends on it.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- Whether the period switch should rather be marked up as a plain list than as a navigation (author)
+
+```
+
+<!-- /omni-outbox-settled: s4-03-home-page-check-allows-period-switch -->
