@@ -26,7 +26,10 @@ import './drawer.css';
 
 const CREST = logoSvg('mark', { scale: 2, title: null });
 /** A section's sprite (issue 653), at its native 16 px: decoration, its name already says what it is. */
-const sprite = (name: string) => pixelSvg(spritePixels(name), { scale: 1, title: '' });
+function SectionSprite({ name }: { name?: string }) {
+  if (!name) return null;
+  return <span className="app-sidebar-sprite" aria-hidden="true" dangerouslySetInnerHTML={{ __html: pixelSvg(spritePixels(name), { scale: 1, title: '' }) }} />;
+}
 const OMNI = SIDEBAR.find((group) => group.id === 'omni')?.items ?? [];
 
 /** A box with an arrow leaving it: the item opens in a new tab. */
@@ -42,7 +45,7 @@ function Item({ item, current, counts, choose }: { item: SidebarItem; current: S
   return (
     <li>
       <a className="app-sidebar-item" href={item.path} aria-label={label} aria-current={item.id === current ? 'page' : undefined} target={item.leavesApp ? '_blank' : undefined} rel={item.leavesApp ? 'noopener' : undefined} onClick={choose}>
-        {item.sprite && <span className="app-sidebar-sprite" aria-hidden="true" dangerouslySetInnerHTML={{ __html: sprite(item.sprite) }} />}
+        <SectionSprite name={item.sprite} />
         {item.label}
         {waiting !== null && <span className="app-sidebar-badge" aria-hidden="true">{waiting}</span>}
         {item.leavesApp && <span className="app-sidebar-out" aria-hidden="true">{NEW_TAB}</span>}
