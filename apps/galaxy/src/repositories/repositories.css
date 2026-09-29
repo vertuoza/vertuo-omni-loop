@@ -1,0 +1,58 @@
+/* Settings → Repositories (PRD 612 s1), on the ask pages' reading surface: the head card, the Add
+   list, the install card, and one row per repository with its Tracked switch. Every colour is a token
+   of src/ask/theme-tokens.ts. Nothing is wider than the window: at 393 px a row wraps under its name. */
+
+.repositories .ask-card { justify-items: stretch; }
+.repositories .repositories-head,
+.repositories .repositories-install { justify-items: start; }
+.repositories-refusal { margin: 0; color: var(--ask-red); font-weight: 700; overflow-wrap: anywhere; }
+
+.repositories-offer { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.repositories-offer .ask-button { padding: 9px 14px; font-size: 15px; overflow-wrap: anywhere; }
+
+.repositories-list { display: grid; gap: 12px; }
+.repositories-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.repositories-empty,
+.repositories-missing { margin: 0; color: var(--ask-muted); }
+
+.repositories-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 14px 16px;
+  background: var(--ask-surface);
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+}
+.repositories-name { flex: 1 1 200px; min-width: 0; display: grid; gap: 2px; }
+.repositories-name strong { color: var(--ask-ink); overflow-wrap: anywhere; }
+.repositories-collection { font-size: 14px; }
+.repositories-no-access { font-size: 14px; font-weight: 700; color: var(--ask-red); overflow-wrap: anywhere; }
+
+.repositories-switch { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ask-muted); }
+.repositories-toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1.5px solid var(--ask-line-strong);
+  background: var(--ask-sunk);
+  cursor: pointer;
+}
+.repositories-toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--ask-muted);
+  transition: transform 0.15s ease;
+}
+.repositories-toggle[aria-checked='true'] { background: var(--ask-plasma-soft); border-color: var(--ask-plasma); }
+.repositories-toggle[aria-checked='true']::after { transform: translateX(20px); background: var(--ask-plasma); }
+.repositories-toggle:disabled { cursor: not-allowed; opacity: 0.6; }
+.repositories-toggle:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; }
