@@ -10,7 +10,8 @@ import { dossierGithub } from '../dossier/github/server';
 import type { FixSummary } from '../dossier/github/fix';
 import { ofWork } from '../dossier/page/work';
 import { FixList } from './FixList';
-import { fixChoices, fixItems, readFixFilters, type FixFacts, type FixKind } from './list';
+import { loginOf } from '../nav/viewer';
+import { fixChoices, fixItems, readFixFilters, type FixFacts, type FixKind, type FixViewer } from './list';
 
 // /visual and /bugs (PRD 627): the fixes of one kind of the signed-in person's workspaces, read as
 // /prd reads its list — per request, as the signed-in person, so row-level security decides; signed
@@ -30,12 +31,12 @@ const fixCallbackPath = (kind: FixKind) => `${WORK_PATHS[kind]}/callback`;
 export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>) {
   const query = await searchParams;
   const filters = readFixFilters(query);
-  const listing = (rows: DossierListRow[], viewer: string, facts?: FixFacts) => (
+  const listing = (rows: DossierListRow[], viewer: FixViewer, facts?: FixFacts) => (
     <FixList kind={kind} items={fixItems(rows, kind, filters, viewer, facts)} choices={fixChoices(rows, kind)} filters={filters} />
   );
   const mode = arcadeMode(process.env);
 
-  if (mode === 'demo') return listing(demoHistory(Date.now()), DEMO_VIEWER);
+  if (mode === 'demo') return listing(demoHistory(Date.now()), { id: DEMO_VIEWER, login: null });
   const env = supabaseEnv();
   if (mode === 'closed' || !env) {
     return (
@@ -59,7 +60,7 @@ export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>) 
       </Notice>
     );
   }
-  return listing(rows, user.id, await factsOf(ofWork(rows, kind)));
+  return listing(rows, { id: user.id, login: loginOf(user) }, await factsOf(ofWork(rows, kind)));
 }
 
 /** What GitHub says of each fix, by dossier id; a fix it could not read is left out (`—`). */
