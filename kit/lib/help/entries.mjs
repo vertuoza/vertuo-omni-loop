@@ -406,6 +406,18 @@ export const ENTRIES = deepFreeze([
       "loop's signature, unless signing is off. --base defaults to {remote}/{defaultBranch}.",
   },
   {
+    name: 'visual',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni visual <n> [--base <ref>]'],
+    summary: 'grade a visual fix branch',
+    detail:
+      "The proof step of /omni:visual-fix, run on its fix branch: one folder for issue <n> under " +
+      "the delivery folder's visual/, holding a before-after.html under the size cap with no base64 " +
+      "raster image, and every commit carrying the loop's signature, unless signing is off. Prints " +
+      'ok, or not ok with one line per failed check. --base defaults to {remote}/{defaultBranch}.',
+  },
+  {
     name: 'sign',
     kind: 'command',
     who: 'skills',
@@ -482,6 +494,20 @@ export const ENTRIES = deepFreeze([
       'replies, reworks every decision they disagreed with as its own slice, inside the bound its ' +
       'item stated, checks the whole feature, then ships it when the gate is green. It asks no ' +
       'question of its own and never merges into {defaultBranch}.',
+  },
+  {
+    name: 'visual-fix',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:visual-fix <line or n>'],
+    label: '/omni:visual-fix',
+    summary: 'a small visual change, to one PR',
+    detail:
+      'For a small visual change, such as a colour, a spacing or a label: from one line or an ' +
+      'issue number, it shows today beside four or five variations, asks which one, applies the ' +
+      'pick on a fix branch, looks at the real screen once and opens one PR into {defaultBranch} ' +
+      'with its before/after page. No PRD, plan or outbox. A change that needs data, a route or a ' +
+      'new screen stops it, with the /omni:brainstorm line to run instead. It never merges.',
   },
   {
     name: 'plan',

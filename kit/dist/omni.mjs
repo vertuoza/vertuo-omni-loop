@@ -11635,6 +11635,7 @@ var ConfigSchema = external_exports.object({
     outboxGo: text.default("omni:outbox-go"),
     retro: text.default("omni:retro"),
     knowledge: text.default("omni:knowledge"),
+    visual: text.default("omni:visual"),
     autoCreate: external_exports.boolean().default(false)
   }),
   prLinks: section({
@@ -12133,7 +12134,8 @@ var LABEL_STYLES = {
   needsFix: { color: "d93f0b", description: "Omni Loop: this pull request needs a fix before it can move" },
   outboxGo: { color: "1d76db", description: "Omni Loop: a person lets the outbox gate pass" },
   retro: { color: "d4c5f9", description: "Omni Loop: the retro of a merged PRD \u2014 its retro pull request, or one finding to act on" },
-  knowledge: { color: "c2e0c6", description: "Omni Loop: the knowledge pull request harvested from a merged PRD" }
+  knowledge: { color: "c2e0c6", description: "Omni Loop: the knowledge pull request harvested from a merged PRD" },
+  visual: { color: "f9a8d4", description: "Omni Loop: a small visual change, picked from rendered variations and fixed in one PR" }
 };
 function loopLabels(labels) {
   const seen = /* @__PURE__ */ new Set();
@@ -12780,7 +12782,7 @@ function checkConfig(root, version2) {
   }
 }
 function applyUpdate({ root, bundle, version: version2, from, home, exec, println: println2 }) {
-  const git5 = (args, cwd = root) => {
+  const git6 = (args, cwd = root) => {
     try {
       return exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     } catch (error) {
@@ -12804,11 +12806,11 @@ function applyUpdate({ root, bundle, version: version2, from, home, exec, printl
     println2(`PR already open for v${version2}: ${open2}`);
     return 0;
   }
-  git5(["fetch", "-q", remote, defaultBranch]);
+  git6(["fetch", "-q", remote, defaultBranch]);
   const worktree = join9(root, config2.worktrees, branch.replace(/[^\w.-]+/g, "-"));
-  if (existsSync7(worktree)) git5(["worktree", "remove", "--force", worktree]);
+  if (existsSync7(worktree)) git6(["worktree", "remove", "--force", worktree]);
   mkdirSync2(dirname2(worktree), { recursive: true });
-  git5(["worktree", "add", "-q", "-B", branch, worktree, `${remote}/${defaultBranch}`]);
+  git6(["worktree", "add", "-q", "-B", branch, worktree, `${remote}/${defaultBranch}`]);
   try {
     const bin = join9(worktree, BIN_FILE);
     mkdirSync2(dirname2(bin), { recursive: true });
@@ -12820,7 +12822,7 @@ function applyUpdate({ root, bundle, version: version2, from, home, exec, printl
     const created = outside ? [] : writeForms({ ctx }).filter((file) => file.wrote).map((file) => file.path);
     const labels = reconcileLabels(root, { exec, labels: branchConfig.labels });
     const lines = reportLines({ from, to: version2, forms: { created, outside, dir: ctx.layout.frontDoor }, labels });
-    git5(["add", "-A", "--", LOOP_DIR], worktree);
+    git6(["add", "-A", "--", LOOP_DIR], worktree);
     let changed = true;
     try {
       exec("git", ["diff", "--cached", "--quiet"], { cwd: worktree, stdio: "ignore" });
@@ -12834,10 +12836,10 @@ function applyUpdate({ root, bundle, version: version2, from, home, exec, printl
       return 0;
     }
     const trailer = trailerLine(branchConfig.signature);
-    git5(["commit", "-q", "-m", trailer ? `${updateTitle(version2)}
+    git6(["commit", "-q", "-m", trailer ? `${updateTitle(version2)}
 
 ${trailer}` : updateTitle(version2)], worktree);
-    git5(["push", "-q", "-u", remote, branch], worktree);
+    git6(["push", "-q", "-u", remote, branch], worktree);
     const body = updateBody({ lines, home, from, to: version2, footer: footerLine(branchConfig.signature) });
     const url = gh(["pr", "create", ...repoFlag, "--base", defaultBranch, "--head", branch, "--title", updateTitle(version2), "--body", body]).trim();
     println2(`PR: ${url}`);
@@ -19950,6 +19952,14 @@ var ENTRIES = deepFreeze([
     detail: "Grades a phase-0 PR's own diff: docs only, and carrying the spec, the plan and the before/after of the one PRD it asks a person to approve. Every commit must carry the loop's signature, unless signing is off. --base defaults to {remote}/{defaultBranch}."
   },
   {
+    name: "visual",
+    kind: "command",
+    who: "skills",
+    usage: ["omni visual <n> [--base <ref>]"],
+    summary: "grade a visual fix branch",
+    detail: "The proof step of /omni:visual-fix, run on its fix branch: one folder for issue <n> under the delivery folder's visual/, holding a before-after.html under the size cap with no base64 raster image, and every commit carrying the loop's signature, unless signing is off. Prints ok, or not ok with one line per failed check. --base defaults to {remote}/{defaultBranch}."
+  },
+  {
     name: "sign",
     kind: "command",
     who: "skills",
@@ -20000,6 +20010,15 @@ var ENTRIES = deepFreeze([
     label: "/omni:yolo-fix <n>",
     summary: "rework what you answered on the feature PR",
     detail: "Brings a PRD back in line with what a person answered on its feature PR: settles the replies, reworks every decision they disagreed with as its own slice, inside the bound its item stated, checks the whole feature, then ships it when the gate is green. It asks no question of its own and never merges into {defaultBranch}."
+  },
+  {
+    name: "visual-fix",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:visual-fix <line or n>"],
+    label: "/omni:visual-fix",
+    summary: "a small visual change, to one PR",
+    detail: "For a small visual change, such as a colour, a spacing or a label: from one line or an issue number, it shows today beside four or five variations, asks which one, applies the pick on a fix branch, looks at the real screen once and opens one PR into {defaultBranch} with its before/after page. No PRD, plan or outbox. A change that needs data, a route or a new screen stops it, with the /omni:brainstorm line to run instead. It never merges."
   },
   {
     name: "plan",
@@ -23767,11 +23786,102 @@ var version = {
   }
 };
 
+// kit/bin/commands/visual.mjs
+init_define_OMNI_BUNDLE();
+
+// kit/lib/visual/verdict.mjs
+init_define_OMNI_BUNDLE();
+import { existsSync as existsSync43, readdirSync as readdirSync19, readFileSync as readFileSync41 } from "node:fs";
+import { join as join54 } from "node:path";
+var PAGE = "before-after.html";
+var RASTER_DATA_URL = /data:image\/(?!svg\+xml)[a-z0-9.+-]+/i;
+function visualRoot(ctx) {
+  return `${ctx.config.paths.delivery}/visual`;
+}
+function folderPrefix(issue) {
+  return `${String(issue).padStart(4, "0")}-`;
+}
+function issueFolders(ctx, issue) {
+  const root = visualRoot(ctx);
+  const absolute = join54(ctx.root, root);
+  if (!existsSync43(absolute)) return [];
+  const prefix = folderPrefix(issue);
+  return readdirSync19(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length).map((entry) => `${root}/${entry.name}`).sort();
+}
+function pageViolations(ctx, page2) {
+  if (!existsSync43(join54(ctx.root, page2))) return [`${page2}: missing.`];
+  const violations = [];
+  const size = beforeAfterViolation(page2, ctx);
+  if (size) violations.push(size);
+  if (RASTER_DATA_URL.test(readFileSync41(join54(ctx.root, page2), "utf8"))) {
+    violations.push(`${page2}: holds a base64 raster image (a data:image/ URL that is not SVG); draw it in SVG or CSS.`);
+  }
+  return violations;
+}
+function signatureViolations(ctx, commits) {
+  const { signature } = ctx.config;
+  const trailer = trailerLine(signature);
+  if (trailer === null || commits === void 0) return [];
+  return commits.filter((commit) => !carriesTrailer(commit.message, signature)).map((commit) => `unsigned: ${commit.sha} ${commit.message.split("\n")[0]} has no "${trailer}" line.`);
+}
+function visualVerdict({ ctx, issue, commits }) {
+  const failures = [];
+  const folders = issueFolders(ctx, issue);
+  let folder = null;
+  if (folders.length === 0) {
+    failures.push(`no folder ${visualRoot(ctx)}/${folderPrefix(issue)}<slug>/ for issue ${issue}.`);
+  } else if (folders.length > 1) {
+    failures.push(`${folders.length} folders for issue ${issue}, one expected: ${folders.join(", ")}.`);
+  } else {
+    [folder] = folders;
+    failures.push(...pageViolations(ctx, `${folder}/${PAGE}`));
+  }
+  failures.push(...signatureViolations(ctx, commits));
+  return { ok: failures.length === 0, folder, failures };
+}
+
+// kit/bin/commands/visual.mjs
+var USAGE19 = "usage: omni visual <n> [--base <ref>]";
+function git5(args, cwd, exec) {
+  return exec("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+}
+function refExists4(root, ref, exec) {
+  try {
+    git5(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], root, exec);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function rangeCommits2(root, base, exec) {
+  return git5(["log", "--reverse", "--format=%h%x00%B%x1e", `${base}..HEAD`], root, exec).split("").map((record) => record.replace(/^\n/, "")).filter((record) => record.includes("\0")).map((record) => {
+    const [sha, message] = record.split("\0");
+    return { sha, message };
+  });
+}
+var visual = {
+  async run(args, { ctx, stdout, exec }) {
+    const { positional, flags } = parseArgs("visual", args, { values: ["base"] });
+    if (positional.length !== 1) throw usageError(USAGE19);
+    const issue = positiveInt("visual", "<n>", positional[0]);
+    const base = flags.base ?? `${ctx.config.repo.remote}/${ctx.config.repo.defaultBranch}`;
+    if (!refExists4(ctx.root, base, exec)) {
+      const how = flags.base !== void 0 ? "pass another --base <ref>" : "fetch it, or pass --base <ref>";
+      throw usageError(`omni visual: no ${base} \u2014 ${how}.`);
+    }
+    const commits = ctx.config.signature === null ? void 0 : rangeCommits2(ctx.root, base, exec);
+    const verdict = visualVerdict({ ctx, issue, commits });
+    println(stdout, verdict.ok ? "ok" : "not ok");
+    for (const failure2 of verdict.failures) println(stdout, `- ${failure2}`);
+    return verdict.ok ? 0 : 1;
+  }
+};
+
 // kit/bin/commands/index.mjs
-var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, init, ask: ask2, signin, signout, whoami, sign, credits, dossier, version, update, help, statusline, targets });
+var COMMAND_TABLE = Object.freeze({ config, prd, status: status2, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, visual, init, ask: ask2, signin, signout, whoami, sign, credits, dossier, version, update, help, statusline, targets });
 
 // kit/bin/omni.mjs
-var USAGE19 = `usage: omni <command> [args]
+var USAGE20 = `usage: omni <command> [args]
 commands: ${Object.keys(COMMAND_TABLE).join(", ")}
 omni help: what each command does
 `;
@@ -23819,7 +23929,7 @@ async function main(argv, { cwd = process.cwd(), stdout = process.stdout, stderr
   const name = HELP_FLAGS.includes(first) ? "help" : first === VERSION_FLAG ? "version" : first;
   const command = Object.hasOwn(COMMAND_TABLE, name ?? "") ? COMMAND_TABLE[name] : void 0;
   if (!command) {
-    stderr.write(USAGE19);
+    stderr.write(USAGE20);
     return 2;
   }
   recordPrd(argv, { cwd, env, exec });

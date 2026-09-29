@@ -10,6 +10,7 @@ or in Claude Code with `!` before them. In the examples, `7` stands for your PRD
 | You want to… | Type |
 |---|---|
 | [turn an idea into a PRD](#i-have-an-idea) | `/omni:brainstorm <the idea>` |
+| [make a small visual change](#make-a-small-visual-change) | `/omni:visual-fix <the change>` |
 | [build an approved PRD](#build-an-approved-prd) | `/omni:yolo 7` |
 | [answer the agents' questions](#answer-the-agents-questions) | a comment on the feature pull request, then `/omni:yolo-fix 7` |
 | [build it one wave at a time](#build-one-wave-at-a-time) | `/omni:wave 7` |
@@ -41,6 +42,26 @@ default branch on purpose: that merge puts the PRD in the inbox, approved, for e
 ([why](/docs/loop#why-the-phase-0-pull-request-goes-into-the-default-branch)). Something wrong? Do
 not merge: tell Claude what to change, in the same session. The whole walk is
 [Your first PRD](/docs/first-prd).
+
+### Make a small visual change
+
+A colour, a spacing, a label, a hover state: a change you judge by looking at the screen, too small
+for a PRD.
+
+```text agent
+/omni:visual-fix The sidebar background is too light
+```
+
+It opens an issue labelled `omni:visual` (or give it the number of an issue that already says what
+to change), finds the screen, and shows you a page with today beside four or five variations,
+lettered A to E. You pick one, or ask for another round. It applies the pick on a fix branch, looks
+at the real screen once, and opens one pull request into your default branch that closes the issue,
+with a before/after page. There is no spec, no plan and no phase-0 pull request.
+
+When the change turns out to need data, a route, an API or a new screen, it stops, says so on the
+issue, and gives you the `/omni:brainstorm` line to run instead.
+
+**Then:** open the pull request's preview, and merge it if it looks right. It never merges itself.
 
 ## Build
 
