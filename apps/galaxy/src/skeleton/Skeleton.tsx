@@ -134,13 +134,3 @@ export function DossierSkeleton() {
     </Skeleton>
   );
 }
-
-/** A block of a PRD's page read from GitHub, the size of a line of its pills or links. */
-export function PillSkeleton({ what }: { what: string }) {
-  return (
-    <Skeleton what={what} className="skel-row">
-      <Bone width="6em" />
-      <Bone width="6em" />
-    </Skeleton>
-  );
-}
