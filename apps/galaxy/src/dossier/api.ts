@@ -3,9 +3,15 @@
 // stay one line each:
 //
 //   POST /api/dossiers       {title, repo, claudeSessionId?}                         → 201 {id, url}
-//   GET  /api/dossiers?repo=<owner/name>&prd=<n>                                      → 200 {id, url}
-//   POST /api/dossiers/push  {repo, prd, title, draftId?, artifacts: [{kind, content}]}
+//   GET  /api/dossiers?repo=<owner/name>&prd=<n>[&kind=prd|visual|bug]                → 200 {id, url}
+//   POST /api/dossiers/push  {repo, prd, kind?, title, draftId?, artifacts: [{kind, content}]}
 //                                             → 200 {id, url, added: [{kind, version}], unchanged: [kind]}
+//
+// Since PRD 627 a dossier has a kind: a PRD's (`prd`, the kind of every call that sends none, so an older
+// kit pushes and finds as before), a visual fix's (`visual`) or a bug fix's (`bug`), numbered by its issue.
+// Each kind takes its own artifacts — a PRD spec, plan and before-after; a visual fix before-after and
+// variations, a round each, oldest first; a bug fix bug-record — and each is sent once but the rounds. A
+// fix is never a draft. The link goes to the kind's own page: /prd/<id>, /visual/<id> or /bugs/<id>.
 //
 // The kit calls both with the terminal's sign-in. A push finds the dossier (the draft named, else the
 // one keyed by workspace, repository and PRD, else a new one), numbers a draft — merging it into a
@@ -23,11 +29,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { authenticate, withInstallLink, type TokenCheck } from '../ask/auth';
 import {
-  ARTIFACT_MAX_BYTES, DOSSIER_KINDS, dossierReader, dossierStore, DossierStoreError, isDossierKind, TITLE_MAX,
-  type DossierArtifact,
+  ARTIFACT_KINDS, ARTIFACT_MAX_BYTES, dossierReader, dossierStore, DossierStoreError, isArtifactKind, isWorkKind, KIND_ARTIFACTS, TITLE_MAX,
+  WORK_KINDS, type DossierArtifact, type WorkKind,
 } from './store';
 
-/** The largest push: three artifacts of 512 KiB and their JSON. */
+/** The largest push: three artifacts of 512 KiB and their JSON (a visual fix's page and rounds together). */
 export const MAX_PUSH_BYTES = 2 * 1024 * 1024;
 /** The largest draft to open: a title, a repository and a session id. */
 export const MAX_OPEN_BYTES = 64 * 1024;
@@ -61,7 +67,12 @@ function origin(request: Request) {
   return `${proto}://${host}`;
 }
 
-const linkTo = (request: Request, id: string) => `${origin(request)}/prd/${id}`;
+/** Where each kind of dossier is read. */
+const ROUTES: Record<WorkKind, string> = { prd: 'prd', visual: 'visual', bug: 'bugs' };
+
+const linkTo = (request: Request, id: string, kind: WorkKind = 'prd') => `${origin(request)}/${ROUTES[kind]}/${id}`;
+
+const KIND_PROBLEM = `\`kind\`, when sent, is one of ${WORK_KINDS.join(', ')}.`;
 
 /** A client acting as the caller, or the Response that refuses them. */
 async function signIn(request: Request, deps: DossierDeps): Promise<DossierClient | Response> {
@@ -129,9 +140,11 @@ export function findDossier(request: Request, deps: DossierDeps): Promise<Respon
     if (!repo) return refuse(400, 'A lookup names its repository as owner/name.');
     const prd = prdOf(query.get('prd'));
     if (prd === null) return refuse(400, '`prd` is the PRD\'s number.');
-    const id = await dossierReader(client).numbered(repo, prd);
-    if (!id) return refuse(404, `No dossier for PRD #${prd} of ${repo.toLowerCase()}.`);
-    return reply(200, { id, url: linkTo(request, id) });
+    const kind = query.get('kind') ?? 'prd';
+    if (!isWorkKind(kind)) return refuse(400, KIND_PROBLEM);
+    const id = await dossierReader(client).numbered(repo, prd, kind);
+    if (!id) return refuse(404, `No ${kind === 'prd' ? 'dossier for PRD' : `${kind} dossier for`} #${prd} of ${repo.toLowerCase()}.`);
+    return reply(200, { id, url: linkTo(request, id, kind) });
   });
 }
 
@@ -153,22 +166,40 @@ export function openDossier(request: Request, deps: DossierDeps): Promise<Respon
   });
 }
 
-/** The artifacts a push carries, or why they are refused: `status` 400 or 413. */
-function artifactsOf(value: unknown): { artifacts: DossierArtifact[] } | { status: 400 | 413; problem: string } {
+/** The artifacts a push of `kind` carries, or why they are refused: `status` 400 or 413. */
+function artifactsOf(value: unknown, kind: WorkKind): { artifacts: DossierArtifact[] } | { status: 400 | 413; problem: string } {
   const malformed = (problem: string) => ({ status: 400 as const, problem });
   if (!Array.isArray(value)) return malformed('`artifacts` must be a list of {kind, content}.');
   const artifacts: DossierArtifact[] = [];
   for (const item of value) {
-    if (!isRecord(item) || !isDossierKind(item.kind) || typeof item.content !== 'string') {
-      return malformed(`Each artifact is {kind, content}, its kind one of ${DOSSIER_KINDS.join(', ')}.`);
+    if (!isRecord(item) || !isArtifactKind(item.kind) || typeof item.content !== 'string') {
+      return malformed(`Each artifact is {kind, content}, its kind one of ${ARTIFACT_KINDS.join(', ')}.`);
     }
-    if (artifacts.some((a) => a.kind === item.kind)) return malformed(`Each kind is sent once: ${item.kind} came twice.`);
+    if (!KIND_ARTIFACTS[kind].includes(item.kind)) {
+      return malformed(`A ${kind} dossier takes ${KIND_ARTIFACTS[kind].join(', ')}, not ${item.kind}.`);
+    }
+    if (item.kind !== 'variations' && artifacts.some((a) => a.kind === item.kind)) {
+      return malformed(`Each kind is sent once: ${item.kind} came twice.`);
+    }
     // Only the kind and the content go on: a hash the caller sent is never read.
     artifacts.push({ kind: item.kind, content: item.content });
   }
   const large = artifacts.find((a) => bytesOf(a.content) > ARTIFACT_MAX_BYTES);
   if (large) return { status: 413, problem: `An artifact holds ${ARTIFACT_MAX_BYTES / 1024} KiB at most: ${large.kind} is larger.` };
   return { artifacts };
+}
+
+/** A push's kind (a PRD's when it sends none) and the draft it names, or why they are refused: a fix
+ * never names a draft. */
+function kindAndDraftOf(sent: Record<string, unknown>): { kind: WorkKind; draftId: string | null } | { problem: string } {
+  const kind = sent.kind ?? 'prd';
+  if (!isWorkKind(kind)) return { problem: KIND_PROBLEM };
+  const draftId = sent.draftId ?? null;
+  if (!(draftId === null || (typeof draftId === 'string' && UUID.test(draftId)))) {
+    return { problem: '`draftId`, when sent, is the id of a draft dossier.' };
+  }
+  if (draftId !== null && kind !== 'prd') return { problem: 'A fix has no draft: push it by its number alone.' };
+  return { kind, draftId };
 }
 
 export function pushDossier(request: Request, deps: DossierDeps): Promise<Response> {
@@ -182,13 +213,12 @@ export function pushDossier(request: Request, deps: DossierDeps): Promise<Respon
     if (!Number.isInteger(prd) || (prd as number) <= 0 || (prd as number) > PRD_MAX) return refuse(400, '`prd` is the PRD\'s number.');
     const title = titleOf(sent.title);
     if (!title) return refuse(400, `A push carries a title of 1 to ${TITLE_MAX} characters.`);
-    const draftId = sent.draftId ?? null;
-    if (!(draftId === null || (typeof draftId === 'string' && UUID.test(draftId)))) {
-      return refuse(400, '`draftId`, when sent, is the id of a draft dossier.');
-    }
-    const read = artifactsOf(sent.artifacts);
+    const which = kindAndDraftOf(sent);
+    if ('problem' in which) return refuse(400, which.problem);
+    const { kind, draftId } = which;
+    const read = artifactsOf(sent.artifacts, kind);
     if ('problem' in read) return refuse(read.status, read.problem);
-    const pushed = await store.push({ repo, prd: prd as number, title, draftId, artifacts: read.artifacts });
-    return reply(200, { id: pushed.id, url: linkTo(request, pushed.id), added: pushed.added, unchanged: pushed.unchanged });
+    const pushed = await store.push({ repo, prd: prd as number, kind, title, draftId, artifacts: read.artifacts });
+    return reply(200, { id: pushed.id, url: linkTo(request, pushed.id, kind), added: pushed.added, unchanged: pushed.unchanged });
   });
 }
