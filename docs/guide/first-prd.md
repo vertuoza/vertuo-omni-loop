@@ -216,4 +216,4 @@ omni status 7
 The first lists your PRDs and where each one stands; the second says whether PRD 7 still has open
 questions.
 
-[Next → Use cases](/docs/use-cases)
+[Next → Several repositories](/docs/several-repositories)

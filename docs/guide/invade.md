@@ -111,72 +111,9 @@ and never rewrites what a person wrote.
 
 ## A plan repository
 
-When one feature lands in several repositories (the screen in one, the business logic in another),
-you can keep its plan in one place: a **plan repository**. It holds no product code; it carries the
-PRDs, while the code's pull requests open in its **target repositories**. Install the loop in it
-like any other repository, then, at its root, type:
-
-```text agent
-/omni:mega-invade
-```
-
-It reads the page of your plan repository that says which repository does what (a guide with one
-`## <name>` heading per repository), and the targets its config already lists. It reads each of
-them through GitHub, without cloning it, and shows you **one map**: whether each has the loop, its
-version, and whether it has a knowledge base of its own. Then it asks, in one list, for each one:
-
-- **target or not**, and its **role**: one word such as `back-end`, `front-end` or `legacy`;
-- for a target without a knowledge base of its own, **import one or not**. Import reads a shallow
-  copy of that repository, never runs anything in it, and writes a draft of its knowledge base in
-  your plan repository, under `.omni-loop/knowledge/repos/<name>/`. A target that has its own is
-  read where it lives, never copied.
-
-It writes only in your plan repository, never in a target. It ends with one docs-only pull request:
-the imported drafts, the `plan` section of `.omni-loop/config.yml` in a commit of its own, a table of
-where each target stands, and, for each gap, the step to take in that repository:
-`npx omni-loop init`, then `/omni:invade` there. You merge it.
-
-From then on, to see where each target stands:
-
-```bash terminal agent
-omni targets
-```
-
-It prints one row per target: its role, where its knowledge lives, the loop's version, and its
-state: `ok`; `stale` when an imported draft was read before a change to a file it was drawn from;
-`drifted` when the config no longer says what the repository has; `unreachable` when GitHub will not
-show it to you. It reads and never changes anything. To refresh the stale drafts, type:
-
-```text agent
-/omni:mega-invade --sync
-```
-
-It redraws only what changed, never rewrites what a person wrote, proposes to drop the draft of a
-target that now has its own knowledge base, and opens one pull request, or none when there is
-nothing to do.
-
-Once the targets are set, plan a feature across them. In the plan repository, type:
-
-```text agent
-/omni:mega-brainstorm
-```
-
-It is `/omni:brainstorm` for several repositories: it talks the idea through with you, asks which
-repository does what, reads each one it touches from a copy that nothing runs in, and writes one
-PRD whose plan names the repository of every slice. The spec, the plan and one phase-0 pull request,
-with a table of what lands where, all open in the plan repository; nothing is written in a target.
-
-Once a person has merged that phase-0 pull request, build the feature. In the plan repository, type:
-
-```text agent
-/omni:ultra-yolo 7
-```
-
-with your PRD's number. It is `/omni:yolo` for several repositories: it opens one feature pull
-request in each target, builds every slice there, and brings every decision the agents took back
-to the plan repository, where you answer them all in one place. In a target it runs nothing but
-that repository's own committed checks. It marks the plan repository's pull request ready last, and
-tells you the order to merge in: each target's pull request first, then the plan repository's, which
-closes the PRD.
+When one feature lands in several repositories, such as the screen in one and the business logic in
+another, you can keep its plan in one place: a **plan repository**, which holds the PRDs while the
+code's pull requests open in its **target repositories**. You set it up with `/omni:mega-invade`
+instead of `/omni:invade`: [Several repositories](/docs/several-repositories) tells the whole mode.
 
 [Next → How the loop works](/docs/loop)
