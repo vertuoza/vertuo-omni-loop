@@ -14,7 +14,7 @@ Should Atom Eve's gloves, boots, belt and collar be a dark magenta pink, or the 
 
 ## The decision, in plain words
 
-We drew them in a dark magenta, the deepest shades of her own pink, because the design asks for magenta trim and the purple read as violet.
+We drew them in a dark magenta, the deepest shade of her own pink, because the design asks for magenta trim and the purple read as violet.
 
 ## The intro, for fun
 
@@ -36,7 +36,7 @@ Which colour Atom Eve's trim (gloves, boots, belt, collar) is drawn in.
 
 ## What I did meanwhile
 
-The pink material's two darkest tones, a dark magenta; no plasma purple on her at all.
+The pink material's darkest tone, a dark magenta; no plasma purple on her at all.
 
 ## What it costs to change later
 
