@@ -18,6 +18,12 @@ export const LABEL_STYLES = {
   retro: { color: 'd4c5f9', description: 'Omni Loop: the retro of a merged PRD — its retro pull request, or one finding to act on' },
   knowledge: { color: 'c2e0c6', description: 'Omni Loop: the knowledge pull request harvested from a merged PRD' },
   visual: { color: 'f9a8d4', description: 'Omni Loop: a small visual change, picked from rendered variations and fixed in one PR' },
+  bug: { color: 'b60205', description: 'Omni Loop: a behaviour bug, proven red and fixed in one PR' },
+  regression: { color: 'e99695', description: 'Omni Loop: a bug a change broke — the triage names the evidence' },
+  riskCritical: { color: '7a0000', description: 'Omni Loop: bug triage — critical risk' },
+  riskHigh: { color: 'ff7619', description: 'Omni Loop: bug triage — high risk' },
+  riskMedium: { color: 'fef2c0', description: 'Omni Loop: bug triage — medium risk' },
+  riskLow: { color: 'ededed', description: 'Omni Loop: bug triage — low risk' },
 };
 
 /** `[{ name, color, description }]` for every loop label `labels` names, first name wins. */

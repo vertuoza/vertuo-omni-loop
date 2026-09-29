@@ -114,6 +114,13 @@ export const ConfigSchema = z
       retro: text.default('omni:retro'),
       knowledge: text.default('omni:knowledge'),
       visual: text.default('omni:visual'),
+      // PRD 556: the bug-fix lane's labels — the issue and its PR, a regression, and the triage's risk.
+      bug: text.default('omni:bug'),
+      regression: text.default('omni:regression'),
+      riskCritical: text.default('omni:risk-critical'),
+      riskHigh: text.default('omni:risk-high'),
+      riskMedium: text.default('omni:risk-medium'),
+      riskLow: text.default('omni:risk-low'),
       autoCreate: z.boolean().default(false),
     }),
     prLinks: section({
@@ -133,6 +140,8 @@ export const ConfigSchema = z
       preflightFull: nullableText.default(null),
       checks: z.array(text).default([]),
       test: nullableText.default(null),
+      // PRD 556: the command that runs mutation testing on the changed lines; `null` means none here.
+      mutation: nullableText.default(null),
     }),
     acceptance: z
       .object({
