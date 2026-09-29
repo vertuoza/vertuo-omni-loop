@@ -79,7 +79,7 @@ pre{background:var(--code);border-radius:8px;padding:14px;margin:0;overflow-x:au
       <div class="route">
         <b><code>/omni:bug-fix 'saving twice duplicates the row'</code></b>
         <ol class="steps">
-          <li>Opens an issue labelled <code>omni:bug</code>, or reads the one given.</li>
+          <li>Takes a description, or a GitHub issue (<code>612</code>, <code>#612</code> or its URL). A description opens an issue labelled <code>omni:bug</code>.</li>
           <li>Classifies it: a flaky check is tooling, and it <span class="stop">stops</span>.</li>
           <li>Triage comment: domain, risk, regression with evidence. Labels <code>omni:risk-high</code>, <code>omni:regression</code>.</li>
           <li>Needs a product decision, a stored shape or a new route? <span class="stop">Stops</span> with the <code>/omni:brainstorm</code> line.</li>

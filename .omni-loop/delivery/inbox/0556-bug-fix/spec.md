@@ -27,13 +27,22 @@ dossier, inbox folder, spec, plan, phase-0 PR, feature branch, wave or outbox.
 
 ### The flow
 
-`/omni:bug-fix '<one line>'`, or `/omni:bug-fix <n>` for an existing issue.
+The skill takes either a description or a GitHub issue:
+
+| input | example | what it is |
+|---|---|---|
+| a description | `/omni:bug-fix 'saving twice duplicates the row'` | the bug, in the person's words; the skill opens its issue |
+| an issue | `/omni:bug-fix 612`, `/omni:bug-fix #612`, or `/omni:bug-fix https://github.com/<owner>/<repo>/issues/612` | an issue that already reports the bug; the skill uses it as it is |
+
+An issue URL must name `repo.slug`: a URL of another repository stops the skill with one line
+saying which repository it belongs to, since the fix branch and the PR live here. With no input,
+the skill says it takes a description or an issue, and stops.
 
 0. **Start.** `omni config`, then `omni kb show briefing` (its rules bind every step), `omni kb
    show bug-fixing` and `omni kb show testing`. The `bug-fixing` form adds to the skill's steps; it
    never overrides them.
-1. **Issue.** With a line: open an issue titled `Bug: <line>`, labelled `labels.bug`, signed. With a
-   number: read it (`gh issue view <n> --comments`, and every CI run it links), use it as it is,
+1. **Issue.** With a description: open an issue titled `Bug: <line>`, labelled `labels.bug`, signed.
+   With an issue (number, `#n` or URL, all read as its number `<n>`): read it (`gh issue view <n> --comments`, and every CI run it links), use it as it is,
    and add `labels.bug` when it does not carry it. Labels follow `/omni:pr`'s **Labels** rules: a
    missing label is created only when `labels.autoCreate` is true, and a label that cannot be added
    is said in the triage comment, never a reason to stop.
