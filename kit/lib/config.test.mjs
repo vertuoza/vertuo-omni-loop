@@ -91,6 +91,29 @@ describe('parseConfig', () => {
     expect(parseConfig('kit: 1\nlabels:\n  visual: looks\n').labels.visual).toBe('looks');
   });
 
+  it('names the bug-fix labels when the config does not set them (PRD 556)', () => {
+    expect(parseConfig('kit: 1\n').labels).toMatchObject({
+      bug: 'omni:bug',
+      regression: 'omni:regression',
+      riskCritical: 'omni:risk-critical',
+      riskHigh: 'omni:risk-high',
+      riskMedium: 'omni:risk-medium',
+      riskLow: 'omni:risk-low',
+    });
+  });
+
+  it('reads back bug-fix labels the config sets', () => {
+    const text = 'kit: 1\nlabels:\n  bug: defect\n  regression: broke\n  riskCritical: p0\n  riskHigh: p1\n  riskMedium: p2\n  riskLow: p3\n';
+    expect(parseConfig(text).labels).toMatchObject({
+      bug: 'defect', regression: 'broke', riskCritical: 'p0', riskHigh: 'p1', riskMedium: 'p2', riskLow: 'p3',
+    });
+  });
+
+  it('has no mutation command unless the config sets one (PRD 556)', () => {
+    expect(parseConfig('kit: 1\n').commands.mutation).toBeNull();
+    expect(parseConfig('kit: 1\ncommands:\n  mutation: pnpm stryker run\n').commands.mutation).toBe('pnpm stryker run');
+  });
+
   it('puts the playbook under the knowledge folder and names the invade branch when both are unset', () => {
     const config = parseConfig('kit: 1\n');
     expect(config.paths.playbook).toBe('.omni-loop/knowledge/playbook');

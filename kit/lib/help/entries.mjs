@@ -418,6 +418,20 @@ export const ENTRIES = deepFreeze([
       'ok, or not ok with one line per failed check. --base defaults to {remote}/{defaultBranch}.',
   },
   {
+    name: 'bug',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni bug <n> [--base <ref>]'],
+    summary: 'grade a bug fix branch',
+    detail:
+      "The proof step of /omni:bug-fix, run on its fix branch: one folder for issue <n> under the " +
+      "delivery folder's bugs/, holding a bug.md with its Triage, Reproduction, Fix, Guard and " +
+      'Mutation sections, a risk of critical, high, medium or low, a reproduction file the branch ' +
+      "changes and its red line, and every commit carrying the loop's signature, unless signing is " +
+      'off. It runs no test. Prints ok, or not ok with one line per failed check. --base defaults ' +
+      'to {remote}/{defaultBranch}.',
+  },
+  {
     name: 'sign',
     kind: 'command',
     who: 'skills',
@@ -522,6 +536,21 @@ export const ENTRIES = deepFreeze([
       'pick on a fix branch, looks at the real screen once and opens one PR into {defaultBranch} ' +
       'with its before/after page. No PRD, plan or outbox. A change that needs data, a route or a ' +
       'new screen stops it, with the /omni:brainstorm line to run instead. It never merges.',
+  },
+  {
+    name: 'bug-fix',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:bug-fix <line or n>'],
+    label: '/omni:bug-fix',
+    summary: 'a bug, to one PR',
+    detail:
+      'For a bug a user, a browser or an API caller can see: from one line or an issue, it posts a ' +
+      'triage (how bad, whether a change broke it), proves a reproduction fails before any fix, ' +
+      'fixes it test-first on a fix branch, adds the check that would have caught it and opens one ' +
+      'PR into {defaultBranch}. No PRD, plan or outbox. A flaky check is not a bug and stops it; a ' +
+      'fix that needs a product decision, a stored shape or a new screen stops it, with the ' +
+      '/omni:brainstorm line to run instead. It never merges.',
   },
   {
     name: 'plan',

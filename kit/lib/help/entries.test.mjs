@@ -52,11 +52,27 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 32 commands and the 16 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(32);
-    expect(skillFolders()).toHaveLength(16);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(32);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(16);
+  it('holds the 33 commands and the 17 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(33);
+    expect(skillFolders()).toHaveLength(17);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(33);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(17);
+  });
+
+  it('lists omni bug for skills, with its usage (PRD 556)', () => {
+    const bug = ENTRIES.find((e) => e.name === 'bug' && e.kind === 'command');
+    expect(bug).toMatchObject({ who: 'skills', usage: ['omni bug <n> [--base <ref>]'] });
+    expect(bug.detail).toMatch(/\/omni:bug-fix\b/);
+  });
+
+  it('lists /omni:bug-fix for you, after /omni:visual-fix, with its usage and when to use it (PRD 556)', () => {
+    const skills = ENTRIES.filter((e) => e.kind === 'skill');
+    const bugFix = skills.find((e) => e.name === 'bug-fix');
+    expect(bugFix).toMatchObject({ who: 'you', usage: ['/omni:bug-fix <line or n>'], label: '/omni:bug-fix' });
+    expect(skills.indexOf(bugFix)).toBe(skills.findIndex((e) => e.name === 'visual-fix') + 1);
+    expect(bugFix.detail).toMatch(/\bbug\b/);
+    expect(bugFix.detail).toMatch(/\/omni:brainstorm\b/);
+    expect(bugFix.detail).toMatch(/never merges/);
   });
 
   it('lists /omni:visual-fix for you, with its usage and when to use it (PRD 541)', () => {
