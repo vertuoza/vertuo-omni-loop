@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
+  "ignoreCommand": "cd ../.. && bash scripts/vercel-ignore.sh",
   "functions": {
     "api/github.mjs": {
       "maxDuration": 60

@@ -1,0 +1,5 @@
+kit: 1
+repo:
+  slug: acme/widgets
+ci:
+  inboxContext: phase-0 shape
