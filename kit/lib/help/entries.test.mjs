@@ -52,11 +52,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 32 commands and the 16 skills', () => {
+  it('holds the 32 commands and the 19 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(32);
-    expect(skillFolders()).toHaveLength(16);
+    expect(skillFolders()).toHaveLength(19);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(32);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(16);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(19);
   });
 
   it('lists /omni:visual-fix for you, with its usage and when to use it (PRD 541)', () => {
@@ -85,6 +85,22 @@ describe('the help table in this repository', () => {
     expect(mega.detail).toMatch(/\/omni:mega-invade\b/);
     expect(mega.detail).toMatch(/\/omni:ultra-yolo\b/);
     expect(mega.detail).toMatch(/\bnever writes in a target\b/);
+  });
+
+  it('has /omni:ultra-yolo, ultra-yolo-fix and ultra-wave for you, each after its twin (PRD 563)', () => {
+    const skills = ENTRIES.filter((e) => e.kind === 'skill');
+    // The fix's label drops its <n>, as /omni:do-work's does, to fit the overview's label column.
+    for (const [name, twin, usage, label] of [
+      ['ultra-yolo', 'yolo', '/omni:ultra-yolo <n>', '/omni:ultra-yolo <n>'],
+      ['ultra-yolo-fix', 'yolo-fix', '/omni:ultra-yolo-fix <n>', '/omni:ultra-yolo-fix'],
+      ['ultra-wave', 'wave', '/omni:ultra-wave <n>', '/omni:ultra-wave <n>'],
+    ]) {
+      const ultra = skills.find((e) => e.name === name);
+      expect(ultra, name).toMatchObject({ who: 'you', usage: [usage], label });
+      expect(skills.indexOf(ultra), name).toBe(skills.findIndex((e) => e.name === twin) + 1);
+      expect(ultra.detail, name).toMatch(/\bplan repository\b/);
+      expect(ultra.detail, name).toMatch(/\bnever merges into any default branch\b/);
+    }
   });
 
   it('names the six stages of the loop in order, each with one line, and three principles', () => {
