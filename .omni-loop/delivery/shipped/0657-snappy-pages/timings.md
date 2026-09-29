@@ -36,4 +36,25 @@ GitHub summaries' 60-second cache were already warm after the first load.
 
 ## After
 
-Measured after the merge, on production, with the same command.
+Measured 2026-09-29, about 20 minutes after #664 merged (main at `7a4ede1`, migrations applied),
+the same way as Before: signed in, from Chrome in Belgium, same-origin `fetch` from a signed-in tab.
+Ten warm loads per page came after one warm-up load, which is not counted.
+
+| page | first byte, median | first byte, p75 | full load, median | full load, p75 | vs before (median) |
+| --- | --- | --- | --- | --- | --- |
+| /prd | 386 | 439 | 387 | 441 | −51 % |
+| /app | 392 | 402 | 399 | 411 | −51 % |
+| /app/workspace | 364 | 376 | 365 | 378 | −50 % |
+| /app/fleet | 384 | 405 | 387 | 406 | −48 % |
+
+Against the target (acceptance criterion 11):
+
+- **Warm full load of about 1 s or less:** met, at about 0.4 s on every page.
+- **Median first byte under 200 ms:** not met, at about 0.39 s. The layout still waits for the
+  viewer and the bell's questions before it sends the frame (decision s4-03), so the first byte
+  arrives with the first streamed flush. Moving the bell into its own streamed block is the next
+  step if the frame must paint sooner.
+
+Sidebar navigation was checked in the same session. `/app/workspace` → `/prd` → `/app/fleet` changed
+page without a document load, and the router's request answered 200. Just after the deploy, one click
+fell back to a full load, because the router's request answered 503. It did not happen again.
