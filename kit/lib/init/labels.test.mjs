@@ -12,7 +12,7 @@ describe('loop labels', () => {
 
   it('asks for a label two keys share only once', () => {
     const names = loopLabels({ ...defaults, needsFix: 'OMNI:SUB' }).map((label) => label.name);
-    expect(names).toEqual(['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low']);
+    expect(names).toEqual(['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low', 'omni:concept']);
   });
 
   it('asks for the knowledge label with its own colour and a description', () => {
@@ -52,7 +52,8 @@ describe('loop labels', () => {
     ['riskHigh', 'omni:risk-high'],
     ['riskMedium', 'omni:risk-medium'],
     ['riskLow', 'omni:risk-low'],
-  ])('asks for the %s label with its own colour and a description (PRD 556)', (key, name) => {
+    ['concept', 'omni:concept'],
+  ])('asks for the %s label with its own colour and a description (PRD 556, PRD 686)', (key, name) => {
     const label = loopLabels(defaults).find((l) => l.name === name);
     expect(label).toEqual({ name, ...LABEL_STYLES[key] });
     expect(label.color).toMatch(/^[0-9a-f]{6}$/);
