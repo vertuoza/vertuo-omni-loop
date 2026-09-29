@@ -472,3 +472,388 @@ Option B is one small component that re-reads the stage and outbox part through 
 ```
 
 <!-- /omni-outbox-settled: s10-01-prd-page-github-part-not-live -->
+
+<!-- omni-outbox-settled: s4-01-stream-outside-territory -->
+
+## s4-01-stream-outside-territory — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-01-stream-outside-territory
+prd: 657
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 2
+---
+
+## The question, in plain words
+
+Making a PRD's page show before GitHub answers meant changing the part that builds that page and the existing page tests, which were not on this step's list. Is that all right?
+
+## The decision, in plain words
+
+The PRD page's builder now reads GitHub beside the page instead of before it, and the existing page tests check what a page ends up as once every piece has arrived. Nothing a person sees changed, apart from the page arriving sooner.
+
+## The intro, for fun
+
+The plan gave this step a list of rooms to paint, and one door was in the hallway.
+
+## The punchline, for fun
+
+The door is painted the same colour, and the hallway looks the same as before.
+
+## The options, in plain words
+
+A. Keep the change: the PRD page reads GitHub beside the page, and the tests read the finished page (built).
+B. Undo the page builder change: the PRD page waits for GitHub as before, behind its loading skeleton only, and its tests go back as they were.
+
+## What I had to decide
+
+Whether s4 may change apps/galaxy/src/dossier/page/DossierRoute.tsx (the numbered PRD page now returns a streamed page, with its GitHub reads started and not awaited) and the page tests outside its territory (src/dashboard/page.test.ts, src/dashboard/board/page.test.ts, src/dashboard/fleet/page.test.ts, src/dossier/page/page.test.ts, src/fixes/routes.test.ts), which now read a streamed page through src/dossier/page/stream/settled.ts or unwrap the Streamed block.
+
+## What I did meanwhile
+
+Changed them: DossierRoute.tsx keeps its gate, its read and its redirects; a numbered PRD goes to src/dossier/page/stream/DossierStream.tsx, a draft and a fix render as before. The tests keep every assertion they had and read the settled page; /app's test gains the streamed and workspace-out-of-reach cases.
+
+## What it costs to change later
+
+Reverting is two files of code and five test helpers; no stored data, no contract.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the plan meant the page builder to stay untouched, or simply did not list it, is not written anywhere.
+
+```
+
+<!-- /omni-outbox-settled: s4-01-stream-outside-territory -->
+
+<!-- omni-outbox-settled: s4-02-board-streams-as-one-block -->
+
+## s4-02-board-streams-as-one-block — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-02-board-streams-as-one-block
+prd: 657
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 2
+---
+
+## The question, in plain words
+
+The plan asked for each tile and each section of a dashboard board to arrive on its own, but the board is drawn by one piece this step could not split. Is streaming the whole board as one block enough?
+
+## The decision, in plain words
+
+On your own dashboard, your hero, the waiting tile and the board each arrive on their own. On the workspace and fleet dashboards, the whole board arrives as one block under a skeleton of its size, because all its numbers come from the same few reads.
+
+## The intro, for fun
+
+The menu promised each dish would come out as soon as it was ready.
+
+## The punchline, for fun
+
+The dishes on the board share one oven, so they come out on one tray.
+
+## The options, in plain words
+
+A. Stream the board as one block, and Home's three parts on their own (built).
+B. Split the board into sections that each wait for their own read, in a follow-up step that may change the board's own files.
+
+## What I had to decide
+
+Whether a board's sections (tiles, charts, People, Repositories, fleet ranking) must each stream in their own Suspense, or whether the board streams as one block. Board.tsx (src/dashboard/board/) is outside s4's territory and exports only Board, and the sections all draw from loadBoard's five reads, settled together.
+
+## What I did meanwhile
+
+/app streams three blocks (hero, Waiting for you, the board) from src/dashboard/stream/home.ts, each with its own skeleton and its own 'could not load'. /app/workspace and /app/fleet stream their whole screen in one Streamed block under the board skeleton; the fleet's picker and heading come from the same read as its board.
+
+## What it costs to change later
+
+Splitting the board later is a change inside the board's folder and the stream folder; no stored data, no contract.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether one board block meets the '1 s warm load' target on production is not measured yet: the timings after merge will tell.
+
+```
+
+<!-- /omni-outbox-settled: s4-02-board-streams-as-one-block -->
+
+<!-- omni-outbox-settled: s4-03-frame-waits-for-the-bell -->
+
+## s4-03-frame-waits-for-the-bell — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-03-frame-waits-for-the-bell
+prd: 657
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 2
+---
+
+## The question, in plain words
+
+The frame around every page, the sidebar and the top bar, still waits for the count of questions waiting for you before it is sent. Should that count arrive on its own instead, after the frame?
+
+## The decision, in plain words
+
+The frame still reads the count first: it is one quick read, shared with the page, and since clicks no longer reload the whole page it is read once per visit. Every slow part of the pages themselves now arrives on its own.
+
+## The intro, for fun
+
+The front door opens fast, but the doorman still counts your letters first.
+
+## The punchline, for fun
+
+He counts quickly, and he only does it when you walk in from the street.
+
+## The options, in plain words
+
+A. Keep reading the count before the frame (built).
+B. Send the frame without the count, and let the bell fill in right after, in its own block or from the browser's first poll.
+
+## What I had to decide
+
+Whether the layouts (app/app/layout.tsx, app/prd/layout.tsx) send the frame before the waiting questions are read. viewerLive() in src/nav/viewer.ts reads the claims, the workspace and the questions before AppShell renders; streaming the bell apart means changing src/nav, which is outside s4's territory.
+
+## What I did meanwhile
+
+The layouts are unchanged: they await viewerLive(). Every route's loading.tsx sits inside the layout, so its skeleton is sent as soon as the layout's reads are done, and the page's heavy blocks stream after it.
+
+## What it costs to change later
+
+A change in the frame's code later, no stored data and no contract.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the frame's reads keep the first paint under 200 ms on production is not measured: the timings run after merge will tell.
+
+```
+
+<!-- /omni-outbox-settled: s4-03-frame-waits-for-the-bell -->
+
+<!-- omni-outbox-settled: s4-04-prd-filters-arrive-with-the-list -->
+
+## s4-04-prd-filters-arrive-with-the-list — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-04-prd-filters-arrive-with-the-list
+prd: 657
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 2
+---
+
+## The question, in plain words
+
+On the PRD list, the plan asked for the filters to show before the rows, but the filters' repository choices come from the same read as the rows. Should the filters wait for the rows?
+
+## The decision, in plain words
+
+The heading and a grey outline of the filters show at once, and the real filters arrive together with the rows.
+
+## The intro, for fun
+
+The shop opens its doors, but the price tags are still in the delivery van.
+
+## The punchline, for fun
+
+The shelves are already out, and the tags come on the same truck as the goods.
+
+## The options, in plain words
+
+A. The filters arrive with the rows, under a skeleton of their size (built).
+B. Show the filters at once with the search and the draft-or-PRD pick, and fill in the repository choices when the rows arrive.
+
+## What I had to decide
+
+Whether /prd renders its filters outside the list's Suspense. The filter form's repository choices (historyChoices) and the 'No PRD yet' state that hides the filters both come from the dossier rows, and DossierHistory.tsx, which draws filters and rows together, is outside s4's territory.
+
+## What I did meanwhile
+
+app/prd/page.tsx decides the demo, closed and signed-out cases at once, then streams the whole list (filters, stage bar, rows) in one Streamed block under a skeleton of the heading, the filters and six rows. The reads stay in page.tsx, where s5 swaps the GitHub reader.
+
+## What it costs to change later
+
+A change to the list's drawing later; no stored data, no contract.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) Whether the filters showing a moment later matters to people using the list is unknown.
+
+```
+
+<!-- /omni-outbox-settled: s4-04-prd-filters-arrive-with-the-list -->
+
+<!-- omni-outbox-settled: s4-05-prd-page-sent-twice -->
+
+## s4-05-prd-page-sent-twice — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s4
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s4-05-prd-page-sent-twice
+prd: 657
+slice: s4
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 2
+---
+
+## The question, in plain words
+
+A PRD's page now shows as soon as the database answers, then shows again, complete, when GitHub answers, so a long spec travels twice. Is that trade fine?
+
+## The decision, in plain words
+
+Yes for now: the page is readable at once, and the complete copy quietly replaces the first one with the stage button, the GitHub links, the Outbox and the Retro filled in.
+
+## The intro, for fun
+
+The newspaper arrives early, with a blank box where the weather goes.
+
+## The punchline, for fun
+
+Later a second copy lands on the mat, weather included, and the first one goes in the recycling.
+
+## The options, in plain words
+
+A. Send the page from the database first, then the complete page in its place (built).
+B. Reshape the PRD page so only its GitHub parts (the stage button and links, the Outbox and Retro tabs and their badges) stream as small blocks of their own.
+
+## What I had to decide
+
+Whether /prd/<id> streams its GitHub pill and outbox as small blocks of their own, or as a whole-page swap. The view that draws them (dossierView in view.ts, DossierPage.tsx) builds the header, the tabs' badges and the Outbox pane from one GitHub summary, and both files are outside s4's territory.
+
+## What I did meanwhile
+
+src/dossier/page/stream/DossierStream.tsx renders a Suspense whose fallback is the page drawn from the database (pendingView: Outbox and Retro read 'Reading GitHub…', no GitHub badges or links) and whose content is the complete page with LiveRefresh. The shown Spec or Plan is rendered once and shared by both.
+
+## What it costs to change later
+
+Moving to small blocks later is a reshaping of the PRD page's view and page files; no stored data, no contract.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) How large the doubled page gets for the longest specs on production was not measured.
+
+```
+
+<!-- /omni-outbox-settled: s4-05-prd-page-sent-twice -->
