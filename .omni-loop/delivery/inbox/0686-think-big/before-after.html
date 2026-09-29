@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Think Big Studio</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a design studio's crit wall. Today beside after, then one pinned-up board, the studio
+   arguing over it, what lands in the inbox, and the gate. Boldness lives in the board; the rest is quiet. */
+:root{
+  --bg:#eef1f5; --panel:#ffffff; --ink:#141b2e; --muted:#586179; --line:#d5dbe5; --wash:#e3e8f0;
+  --accent:#2446d6; --hi:#ffd84a; --hi-ink:#3a2f00; --kill:#b8362b; --ok:#1c7a4a;
+  --r-vis:#7b3fd0; --r-craft:#0f7f86; --r-skep:#b8362b; --r-val:#a8660a; --r-user:#2c7a2c;
+  --display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1219; --panel:#181d28; --ink:#e7ebf3; --muted:#9aa3b6; --line:#2b3242; --wash:#202736;
+    --accent:#8fa6ff; --hi:#e3bd2f; --hi-ink:#1d1700; --kill:#f0877c; --ok:#6fd09a;
+    --r-vis:#b996f5; --r-craft:#5cc7cd; --r-skep:#f0877c; --r-val:#e6ad52; --r-user:#86cf7c;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1219; --panel:#181d28; --ink:#e7ebf3; --muted:#9aa3b6; --line:#2b3242; --wash:#202736;
+  --accent:#8fa6ff; --hi:#e3bd2f; --hi-ink:#1d1700; --kill:#f0877c; --ok:#6fd09a;
+  --r-vis:#b996f5; --r-craft:#5cc7cd; --r-skep:#f0877c; --r-val:#e6ad52; --r-user:#86cf7c;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--body);padding-inline:16px;padding-block:36px 56px}
+main{max-width:1100px;margin:0 auto;display:grid;gap:56px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0}
+h1{font-size:clamp(34px,6vw,58px);line-height:1.02;font-weight:800;letter-spacing:-.02em}
+h2{font-size:clamp(22px,3vw,28px);line-height:1.15;font-weight:700;letter-spacing:-.01em}
+h3{font-size:17px;line-height:1.25;font-weight:700}
+p{margin:0;max-width:68ch}
+code,.mono{font-family:var(--mono);font-size:13px}
+code{background:var(--wash);padding:1px 5px;border-radius:4px}
+.eyebrow{font:600 12px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.lede{color:var(--muted);font-size:17px}
+section{display:grid;gap:18px;min-width:0}
+.head{display:grid;gap:8px}
+.hl{background:linear-gradient(transparent 58%,var(--hi) 58%,var(--hi) 92%,transparent 92%);color:inherit;padding-inline:2px}
+
+/* Hero */
+header.hero{display:grid;gap:16px}
+.hero .cmd{font:500 15px/1 var(--mono);color:var(--accent)}
+
+/* Today · After */
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:780px){.cols{grid-template-columns:1fr}}
+.col{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;gap:14px;align-content:start;min-width:0}
+.col .tag{font:600 12px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.col.today .tag{color:var(--muted)}
+.col.after .tag{color:var(--accent)}
+.shape{width:100%;height:auto;max-width:100%;display:block}
+.shape .fill-muted{fill:var(--wash);stroke:var(--line)}
+.shape .fill-acc{fill:var(--accent);opacity:.14;stroke:var(--accent)}
+.shape .ink{fill:var(--ink)}
+.shape .mut{fill:var(--muted)}
+.shape .acc{fill:var(--accent)}
+.shape .ln{stroke:var(--muted);stroke-width:1.5;fill:none}
+.shape .lna{stroke:var(--accent);stroke-width:1.5;fill:none}
+.shape text{font:500 11px var(--mono)}
+ol.flow{margin:0;padding-left:22px;display:grid;gap:7px}
+ol.flow li::marker{color:var(--muted);font:500 13px var(--mono)}
+.col .verdict{border-top:1px dashed var(--line);padding-top:12px;color:var(--muted);font-size:14px}
+.col.after .verdict{color:var(--ink)}
+
+/* The board */
+.board{background:var(--panel);border:1px solid var(--line);border-radius:12px;display:grid;overflow:hidden}
+.board-top{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:baseline;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line)}
+.board-top .brief{font:700 19px/1.25 var(--display);max-width:52ch}
+.board-top .meta{font:500 12px/1.4 var(--mono);color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:18px;background:var(--wash)}
+@media (max-width:900px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:540px){.cards{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;display:grid;gap:10px;align-content:start;min-width:0;position:relative}
+.card.kept{outline:3px solid var(--hi);outline-offset:-1px}
+.card.killed{opacity:.55}
+.card .pin{position:absolute;top:-6px;left:50%;width:12px;height:12px;border-radius:50%;background:var(--accent);transform:translateX(-50%);box-shadow:0 1px 0 var(--line)}
+.card .title{display:flex;gap:8px;align-items:baseline}
+.card .letter{font:800 22px/1 var(--display);color:var(--accent)}
+.card .name{font:700 16px/1.2 var(--display)}
+.thumb{width:100%;height:auto;aspect-ratio:16/9;max-width:100%;display:block;border-radius:6px;background:var(--wash)}
+.thumb .bg{fill:var(--wash)}
+.thumb .a{fill:var(--accent)}
+.thumb .a2{fill:var(--accent);opacity:.35}
+.thumb .i{fill:var(--ink)}
+.thumb .m{fill:var(--muted);opacity:.55}
+.thumb .h{fill:var(--hi)}
+.thumb .s{stroke:var(--accent);stroke-width:2;fill:none}
+.thumb .sm{stroke:var(--muted);stroke-width:1.5;fill:none;opacity:.7}
+.wow{font-size:14px;line-height:1.45}
+.wow b{font-weight:600}
+.axis{font:500 12px/1.3 var(--mono);color:var(--muted)}
+.scores{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.sc{display:grid;gap:3px;font:500 10.5px/1 var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.sc .bar{height:5px;border-radius:3px;background:var(--wash);overflow:hidden}
+.sc .bar i{display:block;height:100%;background:var(--accent)}
+.sc.na .bar{background:repeating-linear-gradient(90deg,var(--line) 0 3px,transparent 3px 6px)}
+.stances{display:grid;gap:5px;font-size:13px;line-height:1.4}
+.stance{display:flex;gap:6px;align-items:baseline}
+.who{font:600 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.who.vis{color:var(--r-vis)} .who.craft{color:var(--r-craft)} .who.skep{color:var(--r-skep)} .who.val{color:var(--r-val)} .who.user{color:var(--r-user)}
+.dissent{font-size:12.5px;color:var(--muted);border-left:2px solid var(--r-skep);padding-left:8px}
+.toggles{display:flex;flex-wrap:wrap;gap:6px}
+.tg{font:600 12px/1 var(--body);padding:6px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--panel)}
+.tg.on-keep{background:var(--hi);border-color:var(--hi);color:var(--hi-ink)}
+.tg.on-kill{border-color:var(--kill);color:var(--kill)}
+.tg.on-merge,.tg.on-push{border-color:var(--accent);color:var(--accent)}
+.react{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;justify-content:space-between;padding:14px 18px;border-top:1px solid var(--line)}
+.react .line{font:500 14px/1.4 var(--mono);min-width:0;overflow-wrap:anywhere}
+.btn{font:600 14px/1 var(--body);padding:10px 14px;border-radius:8px;background:var(--accent);color:var(--panel);white-space:nowrap}
+.caption{font-size:13px;color:var(--muted)}
+
+/* The debate */
+.debate{display:grid;gap:10px}
+.post{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+@media (max-width:540px){.post{grid-template-columns:1fr;gap:6px}}
+.post .role{display:grid;gap:4px;align-content:start}
+.post .role .who{font-size:12px}
+.post .role .turn{font:500 11px/1.2 var(--mono);color:var(--muted)}
+.post p{font-size:14.5px}
+.post .to{font:500 12px/1 var(--mono);color:var(--muted)}
+.post .remix{margin-top:6px;font-size:14px}
+.post .remix b{font-weight:600}
+.post.moderator{background:var(--wash);border-style:dashed}
+
+/* Inbox */
+.split{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:20px;align-items:start}
+@media (max-width:860px){.split{grid-template-columns:1fr}}
+pre.tree,.term{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;font:13px/1.6 var(--mono);overflow-x:auto;white-space:pre}
+.term{background:var(--wash)}
+.tbl{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 12px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+td.id{font-family:var(--mono);font-size:13px;white-space:nowrap}
+.wedge{font:600 11px/1 var(--mono);background:var(--hi);color:var(--hi-ink);padding:3px 6px;border-radius:4px;margin-left:6px;white-space:nowrap}
+.prd{font-family:var(--mono);color:var(--ok);font-weight:600}
+.prd.empty{color:var(--muted);font-weight:400}
+
+/* Gate */
+.lanes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:780px){.lanes{grid-template-columns:1fr}}
+.lane{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:10px;align-content:start;min-width:0}
+.lane .scale{font:800 20px/1 var(--display)}
+.lane.vast{border-color:var(--accent);border-width:2px}
+.lane.vast .scale{color:var(--accent)}
+.lane .ex{font-size:14px;color:var(--muted);font-style:italic}
+.lane .goes{font:500 13px/1.45 var(--mono);overflow-wrap:anywhere}
+footer{color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<main>
+
+<header class="hero">
+  <span class="eyebrow">PRD 686 · before / after</span>
+  <h1>Go wide before<br>you go narrow.</h1>
+  <p class="lede">Today every idea goes straight into <code>/omni:brainstorm</code>, which is built to converge. <span class="cmd">/omni:think-big</span> adds a studio in front of it: role agents argue over rendered concepts, round after round, while a product or design person reacts and picks. A vast idea leaves it as a <b>concept in the inbox</b>, and each of its areas then becomes a PRD.</p>
+</header>
+
+<section aria-labelledby="t-today-after">
+  <div class="head">
+    <span class="eyebrow">The loop, today beside after</span>
+    <h2 id="t-today-after">A vast idea: "one agenda for every employee"</h2>
+  </div>
+  <div class="cols">
+    <div class="col today">
+      <span class="tag">Today</span>
+      <svg class="shape" viewBox="0 0 440 120" role="img" aria-label="A funnel that narrows at once, from one line to one PRD">
+        <path class="fill-muted" d="M20 20 L300 48 L300 72 L20 100 Z"/>
+        <rect class="fill-muted" x="300" y="48" width="120" height="24" rx="4"/>
+        <text class="mut" x="24" y="64">one line</text>
+        <text class="ink" x="318" y="64">1 PRD</text>
+      </svg>
+      <ol class="flow">
+        <li>One line into <code>/omni:brainstorm</code>.</li>
+        <li>It asks about purpose and cuts every feature the brief does not need.</li>
+        <li>The idea holds several subsystems, so it is flagged as too big and split into PRDs.</li>
+        <li>The first PRD is designed. Nobody has seen what the whole could be.</li>
+      </ol>
+      <p class="verdict">Nothing goes wide first, nothing is rendered to react to, and nobody argues for the bold direction before the scope is cut.</p>
+    </div>
+    <div class="col after">
+      <span class="tag">After</span>
+      <svg class="shape" viewBox="0 0 440 120" role="img" aria-label="A diamond: the idea widens to many concepts, narrows to one crowned concept, then fans out into areas that each become a PRD">
+        <path class="fill-acc" d="M14 60 L120 12 L230 60 L120 108 Z"/>
+        <circle class="acc" cx="230" cy="60" r="7"/>
+        <path class="lna" d="M237 60 C 280 60, 290 24, 330 24"/>
+        <path class="lna" d="M237 60 L330 60"/>
+        <path class="lna" d="M237 60 C 280 60, 290 96, 330 96"/>
+        <rect class="fill-acc" x="330" y="14" width="96" height="20" rx="4"/>
+        <rect class="fill-acc" x="330" y="50" width="96" height="20" rx="4"/>
+        <rect class="fill-acc" x="330" y="86" width="96" height="20" rx="4"/>
+        <text class="acc" x="44" y="64">6–8 concepts</text>
+        <text class="ink" x="206" y="44">crown</text>
+        <text class="ink" x="340" y="28">area → PRD</text>
+        <text class="ink" x="340" y="64">area → PRD</text>
+        <text class="ink" x="340" y="100">area → PRD</text>
+      </svg>
+      <ol class="flow">
+        <li><b>Gate:</b> it is vast, of the product kind. A tweak would get <code>/omni:visual-fix</code>; a feature, the choice of <code>/omni:brainstorm</code> or a lite run.</li>
+        <li><b>Fuel:</b> today's screens, tokens and knowledge, plus references from other products and industries.</li>
+        <li><b>Round 1:</b> six to eight storyboard cards, each with its one wow moment. The person reacts.</li>
+        <li><b>Rounds 2 and on:</b> the studio remixes the survivors into clickable prototypes.</li>
+        <li><b>Crown:</b> the person picks; a vision tour and an area map, wedge first.</li>
+        <li><b>Inbox:</b> a docs-only concept PR a person merges, then one <code>/omni:brainstorm --concept</code> per area.</li>
+      </ol>
+      <p class="verdict">The whole is seen, argued over and picked before it is cut into PRDs, and each PRD starts from it.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="t-board">
+  <div class="head">
+    <span class="eyebrow">What the person sees · round 1</span>
+    <h2 id="t-board">The board, pinned up after the panel's first turn</h2>
+    <p class="caption">Example content. A board is one self-contained page in the scratchpad; the person toggles each card and copies one reactions line back into the conversation.</p>
+  </div>
+
+  <div class="board">
+    <div class="board-top">
+      <span class="brief">One agenda for every employee, from the office to the site.</span>
+      <span class="meta">round 1 · go wide · 6 concepts · product kind · feasibility not scored yet</span>
+    </div>
+
+    <div class="cards">
+
+      <article class="card">
+        <span class="pin" aria-hidden="true"></span>
+        <div class="title"><span class="letter">A</span><span class="name">The day as a river</span></div>
+        <svg class="thumb" viewBox="0 0 160 90" aria-hidden="true">
+          <rect class="bg" width="160" height="90"/>
+          <path class="s" d="M0 30 C 40 10, 60 60, 100 40 S 150 20, 160 34"/>
+          <path class="sm" d="M0 52 C 40 32, 60 82, 100 62 S 150 42, 160 56"/>
+          <circle class="a" cx="46" cy="33" r="5"/><circle class="a" cx="100" cy="40" r="5"/><circle class="h" cx="132" cy="28" r="6"/>
+          <rect class="m" x="10" y="72" width="60" height="6" rx="3"/>
+        </svg>
+        <p class="wow"><b>Wow moment:</b> the day flows past you; a late delivery bends the river and everyone downstream sees the new time.</p>
+        <span class="axis">axis · time as a living shape</span>
+        <div class="scores">
+          <div class="sc"><span>Wow</span><span class="bar"><i style="width:80%"></i></span></div>
+          <div class="sc"><span>Value</span><span class="bar"><i style="width:60%"></i></span></div>
+          <div class="sc"><span>Craft</span><span class="bar"><i style="width:80%"></i></span></div>
+          <div class="sc"><span>Fit</span><span class="bar"><i style="width:60%"></i></span></div>
+          <div class="sc na"><span>Feas</span><span class="bar"></span></div>
+        </div>
+        <div class="stances">
+          <div class="stance"><span class="who vis">Visionary</span><span>Beautiful. It needs one moment people screenshot.</span></div>
+          <div class="stance"><span class="who user">Site lead</span><span>On a phone in the rain, a river is hard to tap.</span></div>
+        </div>
+        <div class="toggles"><span class="tg">keep</span><span class="tg on-kill">kill</span><span class="tg">merge</span><span class="tg">push</span></div>
+      </article>
+
+      <article class="card kept">
+        <span class="pin" aria-hidden="true"></span>
+        <div class="title"><span class="letter">B</span><span class="name">Crew radar</span></div>
+        <svg class="thumb" viewBox="0 0 160 90" aria-hidden="true">
+          <rect class="bg" width="160" height="90"/>
+          <circle class="sm" cx="80" cy="45" r="36"/><circle class="sm" cx="80" cy="45" r="22"/><circle class="sm" cx="80" cy="45" r="8"/>
+          <path class="a2" d="M80 45 L116 45 A36 36 0 0 0 98 14 Z"/>
+          <circle class="a" cx="100" cy="30" r="4"/><circle class="a" cx="62" cy="58" r="4"/><circle class="h" cx="92" cy="66" r="5"/><circle class="i" cx="80" cy="45" r="3"/>
+        </svg>
+        <p class="wow"><b>Wow moment:</b> open the app at 7am and see who is where, who is free, and who is about to be late, as one sweep.</p>
+        <span class="axis">axis · people in space, not slots in time</span>
+        <div class="scores">
+          <div class="sc"><span>Wow</span><span class="bar"><i style="width:100%"></i></span></div>
+          <div class="sc"><span>Value</span><span class="bar"><i style="width:80%"></i></span></div>
+          <div class="sc"><span>Craft</span><span class="bar"><i style="width:80%"></i></span></div>
+          <div class="sc"><span>Fit</span><span class="bar"><i style="width:60%"></i></span></div>
+          <div class="sc na"><span>Feas</span><span class="bar"></span></div>
+        </div>
+        <div class="stances">
+          <div class="stance"><span class="who val">Value</span><span>Late crews cost the most. This shows them first.</span></div>
+          <div class="stance"><span class="who craft">Craft</span><span>The sweep has to settle in under a second.</span></div>
+        </div>
+        <p class="dissent"><span class="who skep">Skeptic</span> What must be true: we know where people are, and they agree to it.</p>
+        <div class="toggles"><span class="tg on-keep">keep</span><span class="tg">kill</span><span class="tg">merge</span><span class="tg">push</span></div>
+      </article>
+
+      <article class="card">
+        <span class="pin" aria-hidden="true"></span>
+        <div class="title"><span class="letter">C</span><span class="name">The agenda writes itself</span></div>
+        <svg class="thumb" viewBox="0 0 160 90" aria-hidden="true">
+          <rect class="bg" width="160" height="90"/>
+          <rect class="m" x="14" y="14" width="132" height="12" rx="3"/>
+          <rect class="a2" x="14" y="32" width="90" height="12" rx="3"/>
+          <rect class="a" x="14" y="50" width="110" height="12" rx="3"/>
+          <rect class="h" x="128" y="50" width="18" height="12" rx="3"/>
+          <rect class="m" x="14" y="68" width="70" height="8" rx="3"/>
+        </svg>
+        <p class="wow"><b>Wow moment:</b> nobody books anything; the agenda fills itself from the projects, and you only say no.</p>
+        <span class="axis">axis · the software plans, the person vetoes</span>
+        <div class="scores">
+          <div class="sc"><span>Wow</span><span class="bar"><i style="width:80%"></i></span></div>
+          <div class="sc"><span>Value</span><span class="bar"><i style="width:100%"></i></span></div>
+          <div class="sc"><span>Craft</span><span class="bar"><i style="width:60%"></i></span></div>
+          <div class="sc"><span>Fit</span><span class="bar"><i style="width:80%"></i></span></div>
+          <div class="sc na"><span>Feas</span><span class="bar"></span></div>
+        </div>
+        <div class="stances">
+          <div class="stance"><span class="who vis">Visionary</span><span>This is the one idea competitors cannot copy in a sprint.</span></div>
+          <div class="stance"><span class="who user">Office planner</span><span>I would miss the control. Show me why it chose.</span></div>
+        </div>
+        <div class="toggles"><span class="tg">keep</span><span class="tg">kill</span><span class="tg on-merge">merge → E</span><span class="tg">push</span></div>
+      </article>
+
+      <article class="card">
+        <span class="pin" aria-hidden="true"></span>
+        <div class="title"><span class="letter">D</span><span class="name">Say it on site</span></div>
+        <svg class="thumb" viewBox="0 0 160 90" aria-hidden="true">
+          <rect class="bg" width="160" height="90"/>
+          <rect class="a" x="68" y="18" width="24" height="36" rx="12"/>
+          <path class="s" d="M58 44 a22 22 0 0 0 44 0"/>
+          <rect class="i" x="78" y="66" width="4" height="10"/>
+          <rect class="m" x="20" y="40" width="4" height="10" rx="2"/><rect class="m" x="28" y="34" width="4" height="22" rx="2"/><rect class="m" x="36" y="42" width="4" height="6" rx="2"/>
+          <rect class="m" x="120" y="36" width="4" height="18" rx="2"/><rect class="m" x="128" y="42" width="4" height="6" rx="2"/><rect class="m" x="136" y="38" width="4" height="14" rx="2"/>
+        </svg>
+        <p class="wow"><b>Wow moment:</b> gloves on, you say "move the pour to Thursday" and the whole crew's day changes.</p>
+        <span class="axis">axis · voice first, screen second</span>
+        <div class="scores">
+          <div class="sc"><span>Wow</span><span class="bar"><i style="width:80%"></i></span></div>
+          <div class="sc"><span>Value</span><span class="bar"><i style="width:60%"></i></span></div>
+          <div class="sc"><span>Craft</span><span class="bar"><i style="width:40%"></i></span></div>
+          <div class="sc"><span>Fit</span><span class="bar"><i style="width:60%"></i></span></div>
+          <div class="sc na"><span>Feas</span><span class="bar"></span></div>
+        </div>
+        <div class="stances">
+          <div class="stance"><span class="who user">Site lead</span><span>Yes. My hands are never free.</span></div>
+          <div class="stance"><span class="who craft">Craft</span><span>Too plain for now. Where is the confirmation moment?</span></div>
+        </div>
+        <div class="toggles"><span class="tg">keep</span><span class="tg">kill</span><span class="tg">merge</span><span class="tg on-push">push: more playful</span></div>
+      </article>
+
+      <article class="card kept">
+        <span class="pin" aria-hidden="true"></span>
+        <div class="title"><span class="letter">E</span><span class="name">The week as a board game</span></div>
+        <svg class="thumb" viewBox="0 0 160 90" aria-hidden="true">
+          <rect class="bg" width="160" height="90"/>
+          <g class="m"><rect x="14" y="14" width="22" height="22" rx="3"/><rect x="40" y="14" width="22" height="22" rx="3"/><rect x="66" y="14" width="22" height="22" rx="3"/><rect x="92" y="14" width="22" height="22" rx="3"/><rect x="118" y="14" width="22" height="22" rx="3"/></g>
+          <rect class="a" x="40" y="40" width="22" height="22" rx="3"/><rect class="a2" x="66" y="40" width="22" height="22" rx="3"/><rect class="h" x="118" y="40" width="22" height="22" rx="3"/>
+          <circle class="i" cx="51" cy="51" r="5"/>
+          <rect class="m" x="14" y="68" width="100" height="8" rx="3"/>
+        </svg>
+        <p class="wow"><b>Wow moment:</b> drag a crew token onto Thursday and the board shows, before you drop it, every clash it would cause.</p>
+        <span class="axis">axis · planning as play</span>
+        <div class="scores">
+          <div class="sc"><span>Wow</span><span class="bar"><i style="width:100%"></i></span></div>
+          <div class="sc"><span>Value</span><span class="bar"><i style="width:80%"></i></span></div>
+          <div class="sc"><span>Craft</span><span class="bar"><i style="width:100%"></i></span></div>
+          <div class="sc"><span>Fit</span><span class="bar"><i style="width:40%"></i></span></div>
+          <div class="sc na"><span>Feas</span><span class="bar"></span></div>
+        </div>
+        <div class="stances">
+          <div class="stance"><span class="who craft">Craft</span><span>The drag preview is the whole product. Get it perfect.</span></div>
+          <div class="stance"><span class="who val">Value</span><span>Clashes caught before they happen: that is the pitch.</span></div>
+        </div>
+        <p class="dissent"><span class="who skep">Skeptic</span> Fit 2 of 5: our users are not gamers. Keep the play, drop the game words.</p>
+        <div class="toggles"><span class="tg on-keep">keep</span><span class="tg">kill</span><span class="tg">merge</span><span class="tg">push</span></div>
+      </article>
+
+      <article class="card killed">
+        <span class="pin" aria-hidden="true"></span>
+        <div class="title"><span class="letter">F</span><span class="name">Handover moments</span></div>
+        <svg class="thumb" viewBox="0 0 160 90" aria-hidden="true">
+          <rect class="bg" width="160" height="90"/>
+          <rect class="m" x="16" y="20" width="56" height="50" rx="5"/>
+          <rect class="a2" x="88" y="20" width="56" height="50" rx="5"/>
+          <path class="s" d="M74 45 L86 45 M80 39 L86 45 L80 51"/>
+        </svg>
+        <p class="wow"><b>Wow moment:</b> the agenda is built around who hands what to whom, not around meetings.</p>
+        <span class="axis">axis · the handoff is the event</span>
+        <div class="scores">
+          <div class="sc"><span>Wow</span><span class="bar"><i style="width:40%"></i></span></div>
+          <div class="sc"><span>Value</span><span class="bar"><i style="width:60%"></i></span></div>
+          <div class="sc"><span>Craft</span><span class="bar"><i style="width:40%"></i></span></div>
+          <div class="sc"><span>Fit</span><span class="bar"><i style="width:80%"></i></span></div>
+          <div class="sc na"><span>Feas</span><span class="bar"></span></div>
+        </div>
+        <div class="stances">
+          <div class="stance"><span class="who vis">Visionary</span><span>Smart, but nobody would show this to a friend.</span></div>
+        </div>
+        <div class="toggles"><span class="tg">keep</span><span class="tg on-kill">kill</span><span class="tg">merge</span><span class="tg">push</span></div>
+      </article>
+
+    </div>
+
+    <div class="react">
+      <span class="line">keep B E · merge C→E · push D: more playful · kill rest</span>
+      <span class="btn" role="img" aria-label="Copy my reactions button, as on the board">Copy my reactions</span>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="t-debate">
+  <div class="head">
+    <span class="eyebrow">The studio · round 2, cross-talk</span>
+    <h2 id="t-debate">They answer each other by name</h2>
+    <p class="caption">Example content. Each panelist is spawned once and continued turn after turn, so it keeps its role and what it said before. The moderator relays; it never votes.</p>
+  </div>
+  <div class="debate">
+    <div class="post moderator">
+      <div class="role"><span class="who">Moderator</span><span class="turn">turn 2 · relay</span></div>
+      <p>The person kept B and E, merged C into E, and asked for D to be more playful. Every post from turn 1 is attached. Answer each other.</p>
+    </div>
+    <div class="post">
+      <div class="role"><span class="who vis">Visionary</span><span class="turn">turn 2</span></div>
+      <div>
+        <span class="to">→ Skeptic, Craft</span>
+        <p>The Skeptic says our users are not gamers. Agreed on the words, not on the feel. Take Craft's drag preview and let C's auto-planning pre-place the tokens overnight.</p>
+        <p class="remix"><b>Remix of E:</b> you wake up to a board already played; you only move what you disagree with.</p>
+      </div>
+    </div>
+    <div class="post">
+      <div class="role"><span class="who skep">Skeptic</span><span class="turn">turn 2</span></div>
+      <div>
+        <span class="to">→ Visionary</span>
+        <p>That I can back. What must be true: projects carry crew sizes and dates today, so the overnight placement has something to read. It changes my feasibility guess from 2 to 4.</p>
+      </div>
+    </div>
+    <div class="post">
+      <div class="role"><span class="who user">Site lead</span><span class="turn">turn 2</span></div>
+      <div>
+        <span class="to">→ Visionary, Value</span>
+        <p>If the board is played for me, I want B's radar on the same screen. Where my crew is matters more than where the token is.</p>
+        <p class="remix"><b>Remix:</b> the radar becomes the board's live layer, one tap away.</p>
+      </div>
+    </div>
+    <div class="post">
+      <div class="role"><span class="who craft">Craft</span><span class="turn">turn 2</span></div>
+      <div>
+        <span class="to">→ Site lead</span>
+        <p>One tap, and it must keep your place on the board. I changed my mind on B: as a layer it scores 5 on craft, not 4.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="t-inbox">
+  <div class="head">
+    <span class="eyebrow">What lands in the inbox</span>
+    <h2 id="t-inbox">A concept, then one PRD per area</h2>
+    <p class="caption">The concept PR is docs-only and a person merges it. <code>concepts/</code> is not a PRD folder, so status, the board and the inbox check skip it.</p>
+  </div>
+  <div class="split">
+    <pre class="tree" aria-label="The concept's folder">inbox/concepts/0712-team-agenda/
+├── concept.md     the brief, the vision, the
+│                  verdict, killed ideas, fuel,
+│                  and the Areas table
+├── vision.html    clickable vision tour
+├── board-r1.html  round 1, as shown
+├── board-r2.html  round 2, as shown
+└── debate.md      every turn, by role</pre>
+    <div class="tbl">
+      <table>
+        <caption class="caption" style="caption-side:top;text-align:left;padding:10px 12px">concept.md · Areas, in build order</caption>
+        <thead><tr><th>id</th><th>area</th><th>brief</th><th>PRD</th></tr></thead>
+        <tbody>
+          <tr><td class="id">week-board<span class="wedge">wedge</span></td><td>The week board</td><td>Drag crews across the week and see every clash before you drop.</td><td class="prd">#731</td></tr>
+          <tr><td class="id">overnight-plan</td><td>Overnight plan</td><td>The board is pre-played from project dates and crew sizes.</td><td class="prd empty">empty</td></tr>
+          <tr><td class="id">crew-radar</td><td>Crew radar layer</td><td>Where each crew is right now, one tap from the board.</td><td class="prd empty">empty</td></tr>
+          <tr><td class="id">voice-moves</td><td>Say it on site</td><td>Move work by voice, with a confirmation you can feel.</td><td class="prd empty">empty</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <pre class="term" aria-label="The commands that come next">/omni:brainstorm --concept 712 week-board       → PRD #731, fills its cell in the phase-0 PR
+/omni:brainstorm --concept 712 overnight-plan   → next
+/omni:brainstorm --concept 712 crew-radar
+/omni:brainstorm --concept 712 voice-moves</pre>
+</section>
+
+<section aria-labelledby="t-gate">
+  <div class="head">
+    <span class="eyebrow">Before any concept · the gate</span>
+    <h2 id="t-gate">Is it really big?</h2>
+    <p class="caption">The scale and the kind are said out loud, and the person can override them. In doubt between feature and vast, it takes vast.</p>
+  </div>
+  <div class="lanes">
+    <div class="lane">
+      <span class="scale">Tweak</span>
+      <span class="ex">"make the sidebar darker"</span>
+      <span class="goes">→ the /omni:visual-fix line; nothing is written</span>
+    </div>
+    <div class="lane">
+      <span class="scale">Feature</span>
+      <span class="ex">"export an invoice as PDF"</span>
+      <span class="goes">→ the person picks: /omni:brainstorm now, or a lite run ending in a one-area concept</span>
+    </div>
+    <div class="lane vast">
+      <span class="scale">Vast</span>
+      <span class="ex">"a brand new identity" · "rewrite it in TypeScript" · "an agenda for every employee"</span>
+      <span class="goes">→ the studio runs; the boards adapt to the kind</span>
+    </div>
+  </div>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>kind</th><th>the artists' lenses</th><th>what the boards show</th><th>user personas</th></tr></thead>
+      <tbody>
+        <tr><td class="id">product</td><td>10×, steal from another industry, delight, contrarian</td><td>storyboard cards, then clickable prototypes</td><td>the brief's end users</td></tr>
+        <tr><td class="id">identity</td><td>evolution, revolution, heritage, unexpected</td><td>brand boards (type, colour, motion, voice) applied to the real screens</td><td>customers, and staff who see it daily</td></tr>
+        <tr><td class="id">platform</td><td>clean slate, strangler, tooling first, contrarian</td><td>target architecture, migration paths, a demo of what it unlocks</td><td>developers and operators, and the end user who feels it</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>PRD 686 · <code>/omni:think-big</code> · the board, the debate and the concept above are example content drawn for this page.</footer>
+
+</main>
+</body>
+</html>
