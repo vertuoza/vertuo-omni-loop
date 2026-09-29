@@ -229,6 +229,40 @@ function listDir(root, dir, predicate) {
     .sort();
 }
 
+/**
+ * Where {@link readKnowledge} reads the folder from: `files(dir)` and `dirs(dir)` name what sits
+ * right under `dir` (a path from the repository's root), sorted, `[]` when `dir` is absent;
+ * `read(file)` returns a file's text. This one reads the checkout under `root`.
+ */
+export function diskSource(root) {
+  return {
+    files: (dir) => listDir(root, dir, (entry) => entry.isFile()),
+    dirs: (dir) => listDir(root, dir, (entry) => entry.isDirectory()),
+    read: (file) => readFileSync(join(root, file), 'utf8'),
+  };
+}
+
+/**
+ * The same source over texts held in memory, `{ <path from the repository's root>: <text> }`: a
+ * knowledge folder read from somewhere other than a checkout, such as a repository's files fetched
+ * from GitHub. A folder exists when a file sits somewhere under it.
+ */
+export function memorySource(texts) {
+  const paths = Object.keys(texts);
+  const under = (dir) => {
+    const prefix = `${dir}/`;
+    return paths.filter((path) => path.startsWith(prefix)).map((path) => path.slice(prefix.length));
+  };
+  return {
+    files: (dir) => under(dir).filter((rest) => !rest.includes('/')).sort(),
+    dirs: (dir) => [...new Set(under(dir).filter((rest) => rest.includes('/')).map((rest) => rest.split('/')[0]))].sort(),
+    read: (file) => {
+      if (!Object.hasOwn(texts, file)) throw new Error(`${file} is not among the files read`);
+      return texts[file];
+    },
+  };
+}
+
 /** A domain README's `Glossary term:` line, or `null`. */
 export function glossaryTermOf(text) {
   return readFields(text.split('\n')).fields.glossaryTerm ?? null;
@@ -248,25 +282,26 @@ export function crossDomainDir(ctx) {
 }
 
 /**
- * Reads the whole knowledge folder off disk. An absent folder reads as empty — a fixture tree that
- * needs none of it (an outbox test) does not have to seed it.
+ * Reads the whole knowledge folder, off disk unless `source` says otherwise ({@link memorySource}).
+ * An absent folder reads as empty — a fixture tree that needs none of it (an outbox test) does not
+ * have to seed it.
  *
  * `{ entries, domains, crossDomainFiles, productFiles }`: `domains` is `[{ name, code, files,
  * glossaryTerm }]`, `files` the names present in the folder; `crossDomainFiles` is `[{ file, name,
  * pair }]`, `pair` `null` when the name is not `<a>--<b>`.
  */
-export function readKnowledge({ ctx }) {
+export function readKnowledge({ ctx, source = diskSource(ctx.root) }) {
   const entries = [];
   const PRODUCT_DIR = productDir(ctx);
   const DOMAINS_DIR = domainsDir(ctx);
   const CROSS_DOMAIN_DIR = crossDomainDir(ctx);
 
-  const productFiles = listDir(ctx.root, PRODUCT_DIR, (entry) => entry.isFile());
+  const productFiles = source.files(PRODUCT_DIR);
   for (const [name, kind] of Object.entries(LAYER_FILES)) {
     if (!productFiles.includes(name)) continue;
     const file = `${PRODUCT_DIR}/${name}`;
     entries.push(
-      ...parseEntryFile(file, readFileSync(join(ctx.root, file), 'utf8'), {
+      ...parseEntryFile(file, source.read(file), {
         scope: 'product',
         domain: 'product',
         codes: [PRODUCT_CODE],
@@ -275,15 +310,15 @@ export function readKnowledge({ ctx }) {
     );
   }
 
-  const domains = listDir(ctx.root, DOMAINS_DIR, (entry) => entry.isDirectory()).map((name) => {
+  const domains = source.dirs(DOMAINS_DIR).map((name) => {
     const dir = `${DOMAINS_DIR}/${name}`;
-    const files = listDir(ctx.root, dir, (entry) => entry.isFile());
+    const files = source.files(dir);
     const code = codeOf(name);
     for (const [layer, kind] of Object.entries(LAYER_FILES)) {
       if (!files.includes(layer)) continue;
       const file = `${dir}/${layer}`;
       entries.push(
-        ...parseEntryFile(file, readFileSync(join(ctx.root, file), 'utf8'), {
+        ...parseEntryFile(file, source.read(file), {
           scope: 'domain',
           domain: name,
           codes: [code],
@@ -292,22 +327,18 @@ export function readKnowledge({ ctx }) {
       );
     }
     const glossaryTerm = files.includes('README.md')
-      ? glossaryTermOf(readFileSync(join(ctx.root, dir, 'README.md'), 'utf8'))
+      ? glossaryTermOf(source.read(`${dir}/README.md`))
       : null;
     return { name, code, files, glossaryTerm };
   });
 
-  const crossDomainFiles = listDir(
-    ctx.root,
-    CROSS_DOMAIN_DIR,
-    (entry) => entry.isFile() && entry.name.endsWith('.md'),
-  ).map((fileName) => {
+  const crossDomainFiles = source.files(CROSS_DOMAIN_DIR).filter((name) => name.endsWith('.md')).map((fileName) => {
     const name = basename(fileName, '.md');
     const halves = name.split('--');
     const pair = halves.length === 2 && halves.every(Boolean) ? halves : null;
     const file = `${CROSS_DOMAIN_DIR}/${fileName}`;
     entries.push(
-      ...parseEntryFile(file, readFileSync(join(ctx.root, file), 'utf8'), {
+      ...parseEntryFile(file, source.read(file), {
         scope: 'cross-domain',
         domain: name,
         codes: pair ? pair.map(codeOf) : [],

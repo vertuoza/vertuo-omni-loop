@@ -543,11 +543,32 @@ the domain grouped by principle, with its loose entries and unserved principles 
 selection is kept in the address, `/knowledge?domain=<name>&entry=<id>`, so a link to one entry can
 be shared. On a phone the page stacks and scrolls down, never sideways.
 
-**Where the data comes from.** The knowledge of the checkout the app is deployed from, read on the
-server at request time through the kit's own register parser (`src/data/load-knowledge.ts`): no
-Supabase table, no GitHub call. `next.config.mjs` traces the config and the register files into the
-deployment, since nothing imports them. When they cannot be read, the loader logs why, both maps say
-the knowledge is out of reach, and nothing else in the arcade changes.
+**The repository menu.** The page opens on the checkout the app is deployed from. When the crew's
+workspaces have other repositories set up with Omni Loop, a **Repository** menu takes the place of
+the repository's chip: the deployed checkout first, then, by name, every repository the workspaces'
+Omni Loop App (omni-loop-invader) installations reach that carries a `.omni-loop/config.yml` on its
+default branch (what `omni init` and `/omni:invade` leave). Picking one opens
+`/knowledge?repo=<owner/name>` on its first domain, and every address on the page keeps the `repo`, so
+a link to one of its entries can be shared; the star chart link is shown for the deployed checkout
+only, which is all the arcade charts. The menu is a GET form with a **Show** button, so it works before
+any script runs. A repository the menu does not offer is never read: `?repo=` naming one says it is
+not on the menu. A repository set up without knowledge yet says so, and that `/omni:invade` proposes
+some.
+
+**Where the data comes from.** The deployed checkout's knowledge is read on the server at request
+time through the kit's own register parser (`src/data/load-knowledge.ts`): no Supabase table, no
+GitHub call. `next.config.mjs` traces the config and the register files into the deployment, since
+nothing imports them. When they cannot be read, the loader logs why, both maps say the knowledge is
+out of reach, and nothing else in the arcade changes. Another repository's is read from GitHub as the
+Omni Loop App (`src/knowledge/github.ts`), with the App's `GITHUB_APP_ID` and `GITHUB_APP_PRIVATE_KEY`:
+the menu lists the repositories of each workspace's installation (the one it stored, or the App's
+installation on its GitHub org), checking fifty configs per GraphQL call, and a picked repository's
+`product/`, `domains/` and `cross-domain/` registers, under the knowledge folder its config names, are
+read in one more call at its default branch's tip and built into the same graph by the same parser
+(`graphOfTexts` in `kit/lib/knowledge/graph.mjs`). The token stays in server memory; the listing is
+kept five minutes per installation and a graph one minute per repository. Without the App's
+credentials, or when the workspaces or GitHub cannot be read, the menu offers only what it could read
+(the log says why), and the deployed checkout is always there.
 
 **Who sees it.** Whoever sees the galaxy: a crew member (a member of a workspace) signed in, or the
 demo in development. Anyone else's page carries no entry: in the arcade STAR CHART reads
@@ -1028,7 +1049,8 @@ a workspace by being a **member** of it. Vertuoza is workspace #1.
   shrink. A scrolling map comes when the galaxy needs it.
 - **A system fits one screen.** Past about 150 entries in one domain on the Game Boy held upright,
   worlds reach their smallest size and start to touch; paging comes when a knowledge base needs it.
-  The star chart shows this repository's knowledge only; each sector's repositories' is later work.
+  The star chart shows this repository's knowledge only; `/knowledge`'s repository menu reads the
+  others, and the arcade charting them is later work.
 - **An iPhone keeps Safari's bars.** iPhone Safari offers web pages neither fullscreen nor
   vibration, so the Game Boy shows under the address bar and a press makes no buzz. A device that
   misreports its primary pointer gets the other form; the keyboard and taps work in both.
