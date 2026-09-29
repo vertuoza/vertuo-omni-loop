@@ -1,4 +1,5 @@
-import { filtered, HISTORY_PATH, historyAddress, type HistoryFilters, type HistoryItem } from './history';
+import { StagePill } from '../../stages/stage-pill';
+import { filtered, HISTORY_PATH, historyAddress, type HistoryFilters, type HistoryItem, type StageBarEntry } from './history';
 
 // /prd, the history (PRD 216's spec, "The pages"): a search over titles and two picks — a repository, and
 // draft or PRD — sent as a GET to this same page, so they work before any script runs; then every
@@ -8,7 +9,9 @@ import { filtered, HISTORY_PATH, historyAddress, type HistoryFilters, type Histo
 // two links at the head of the filters that keep every other filter; the form carries who=all under All so
 // filtering stays there, and Clear keeps it; an empty Mine points to All at the same address. PRD 251: a
 // row shows its outbox's open questions as the Outbox tab counts them (`Outbox 2 open`), and the
-// Needs an answer box keeps only those rows.
+// Needs an answer box keeps only those rows. PRD 587: a stage bar under the filters counts the seven
+// stages over the rows every other filter keeps, each a link to the list at that stage (the selected one
+// clears it; the form carries it, so filtering stays on it), and each row shows its current stage pill.
 
 type Choices = { repos: string[] };
 type Option = { value: string; label: string };
@@ -43,6 +46,7 @@ function Filters({ choices, filters }: { choices: Choices; filters: HistoryFilte
   return (
     <form className="dossier-history-filters" method="get" action={HISTORY_PATH} role="search">
       {filters.who === 'all' && <input type="hidden" name="who" value="all" />}
+      {filters.stage && <input type="hidden" name="stage" value={filters.stage} />}
       <label className="dossier-history-field dossier-history-search">
         <span className="ask-hint">Search the titles</span>
         <input className="ask-share-link" type="search" name="q" defaultValue={filters.search ?? ''} placeholder="a word of a PRD's title" />
@@ -64,12 +68,33 @@ function Filters({ choices, filters }: { choices: Choices; filters: HistoryFilte
   );
 }
 
+// The bar borrows the track's pill look (dossier.css, .stage-*); the two rules a link row needs beyond it
+// sit here, since that stylesheet belongs to the PRD page.
+const BAR_STYLE = { margin: '0 0 12px' } as const;
+const STOP_STYLE = { textDecoration: 'none' } as const;
+
+function StageBar({ stages }: { stages: StageBarEntry[] }) {
+  return (
+    <nav className="stage-track dossier-history-stages" aria-label="PRDs by stage" style={BAR_STYLE}>
+      {stages.map((s) => (
+        <a
+          key={s.id} className={`stage-stop stage-${s.selected ? 'current' : 'passed'}`} aria-current={s.selected ? 'page' : undefined}
+          href={s.href} style={STOP_STYLE}
+        >
+          {s.label} <small>{s.count}</small>
+        </a>
+      ))}
+    </nav>
+  );
+}
+
 function Row({ item }: { item: HistoryItem }) {
   return (
     <li>
       <a className="dossier-history-row" href={item.href}>
         <span className="dossier-history-title">
           {item.draft ? <span className="dossier-draft">DRAFT</span> : <span className="dossier-number">{item.heading}</span>}{' '}
+          {item.stage && <><StagePill stage={item.stage} />{' '}</>}
           <span>{item.title}</span>
         </span>
         <span className="dossier-repos">
@@ -94,7 +119,9 @@ const ToAll = ({ filters, children }: { filters: HistoryFilters; children: strin
   <a className="dossier-history-to-all" href={historyAddress({ ...filters, who: 'all' })}>{children}</a>
 );
 
-export function DossierHistory({ items, choices, filters }: { items: HistoryItem[]; choices: Choices; filters: HistoryFilters }) {
+export function DossierHistory({ items, choices, filters, stages }: {
+  items: HistoryItem[]; choices: Choices; filters: HistoryFilters; stages?: StageBarEntry[];
+}) {
   const mine = filters.who === 'mine';
   const nothingYet = items.length === 0 && !filtered(filters) && !mine;
   const noneOfMine = items.length === 0 && !filtered(filters) && mine;
@@ -113,6 +140,7 @@ export function DossierHistory({ items, choices, filters }: { items: HistoryItem
         <>
           <Who filters={filters} />
           <Filters choices={choices} filters={filters} />
+          {stages && <StageBar stages={stages} />}
           {noneOfMine ? (
             <section className="ask-card">
               <h2>You have not opened a PRD yet.</h2>
