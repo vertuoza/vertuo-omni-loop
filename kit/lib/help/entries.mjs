@@ -231,6 +231,21 @@ export const ENTRIES = deepFreeze([
       'GitHub through gh and stores nothing.',
   },
   {
+    name: 'targets',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni targets [--json]'],
+    summary: "a plan repository's target repositories, and where each stands",
+    detail:
+      "In a plan repository, one whose config has a plan section, one row per target repository, " +
+      'in config order: its role, where its knowledge lives (own, imported or none), the kit ' +
+      'version its default branch runs, and its state. ok; stale when an imported copy was read ' +
+      'before a change to a file it was drawn from; drifted when the config no longer says what ' +
+      'the repository has; unreachable when gh cannot read it. It reads GitHub through gh, clones ' +
+      'nothing and refreshes nothing. --json prints the same rows as one document. Exit 0 when ' +
+      'every row is ok, 1 otherwise, or 1 with not a plan repository.',
+  },
+  {
     name: 'whoami',
     kind: 'command',
     who: 'you',
