@@ -20104,6 +20104,15 @@ var ENTRIES = deepFreeze([
     detail: "Builds a whole PRD with nothing asked along the way: plans it if needed, runs /omni:wave until every slice is merged into the feature branch or nothing more can move, then runs the outbox gate. Green, it ships and marks the feature PR ready for a person to merge; red, the PR stays a draft with the outbox questions posted on it. It never merges into {defaultBranch}."
   },
   {
+    name: "ultra-yolo",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:ultra-yolo <n>"],
+    label: "/omni:ultra-yolo <n>",
+    summary: "build a PRD across repositories, one gate",
+    detail: "Builds a PRD whose plan lands slices in other repositories, from its plan repository: records each target that moved since the plan was read, opens a draft feature PR in each target, runs /omni:ultra-wave until every slice is merged there, marks each target PR ready once its CI is green, then runs one outbox gate in the plan repository. Green, it ships and marks the plan PR ready last; red, /omni:ultra-yolo-fix takes the answers. In a target it runs only its own committed preflight, and it never merges into any default branch."
+  },
+  {
     name: "yolo-fix",
     kind: "skill",
     who: "you",
@@ -20111,6 +20120,15 @@ var ENTRIES = deepFreeze([
     label: "/omni:yolo-fix <n>",
     summary: "rework what you answered on the feature PR",
     detail: "Brings a PRD back in line with what a person answered on its feature PR: settles the replies, reworks every decision they disagreed with as its own slice, inside the bound its item stated, checks the whole feature, then ships it when the gate is green. It asks no question of its own and never merges into {defaultBranch}."
+  },
+  {
+    name: "ultra-yolo-fix",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:ultra-yolo-fix <n>"],
+    label: "/omni:ultra-yolo-fix",
+    summary: "rework what you answered, in each repository",
+    detail: "The /omni:yolo-fix of a PRD built by /omni:ultra-yolo: reads and settles the answers on the plan PR, in the plan repository, lands each rework in the repository its decision was taken in, checks each target again, then runs the one gate. It asks no question of its own and never merges into any default branch."
   },
   {
     name: "visual-fix",
@@ -20138,6 +20156,15 @@ var ENTRIES = deepFreeze([
     label: "/omni:wave <n>",
     summary: "build one wave of a PRD's slices",
     detail: "Builds one wave of a PRD in parallel: claims every slice that can run, has one agent build each in a worktree of its own through /omni:do-work, then merges their sub-PRs into the feature branch one at a time, checks the wave together and adopts its medium decisions. /omni:yolo runs it for each wave. It never merges into {defaultBranch}."
+  },
+  {
+    name: "ultra-wave",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:ultra-wave <n>"],
+    label: "/omni:ultra-wave <n>",
+    summary: "build one wave across repositories",
+    detail: "The /omni:wave of a plan repository: claims each slice that can run in its own target, has one agent build each there through /omni:do-work --target, merges each sub-PR into its target's feature branch, relays every decision into the plan repository's outbox and adopts its medium ones. /omni:ultra-yolo runs it for each wave. It never merges into any default branch."
   },
   {
     name: "do-work",

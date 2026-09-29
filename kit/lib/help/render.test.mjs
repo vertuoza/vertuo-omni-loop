@@ -113,6 +113,13 @@ describe('renderEntry', () => {
     expect(renderEntry('/omni:mega-brainstorm', DEFAULTS).split('\n')[0]).toMatch(/^\/omni:mega-brainstorm +for you$/);
   });
 
+  it('prints /omni:ultra-yolo, ultra-wave and ultra-yolo-fix by their names or their slash commands (PRD 563)', () => {
+    for (const name of ['ultra-yolo', 'ultra-wave', 'ultra-yolo-fix']) {
+      expect(renderEntry(name, DEFAULTS), name).toBe(renderEntry(`/omni:${name}`, DEFAULTS));
+      expect(renderEntry(`/omni:${name}`, DEFAULTS).split('\n')[0], name).toMatch(new RegExp(`^/omni:${name} <n> +for you$`));
+    }
+  });
+
   it('fills placeholders and keeps every line of every entry within 80 columns', () => {
     const custom = configWith({ paths: { delivery: 'work/delivery' } });
     for (const { kind, name } of ENTRIES) {
