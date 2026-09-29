@@ -63,6 +63,38 @@ describe('dossierStore: the fallback\'s one way into the dossier tables', () => 
     expect(fake.tables.dossiers).toHaveLength(1);
   });
 
+  it('keys a dossier by its kind too (PRD 627): a visual fix and a PRD share a number, each read by its own kind', async () => {
+    const { fake, store } = world({ dossiers: [dossier('d-216')] });
+    const opened = await store.open({ workspaceId: VERTUOZA, homeRepo: HOME, kind: 'visual', prd: 216, title: 'Docs in a new tab', at: '2026-09-27T09:00:00Z' });
+    expect(opened).toEqual({ id: expect.any(String), prd: 216, title: 'Docs in a new tab', latest: {}, rounds: [] });
+    expect(await store.open({ workspaceId: VERTUOZA, homeRepo: HOME, kind: 'visual', prd: 216, title: 'Again', at: '2026-09-27T09:05:00Z' })).toBeNull();
+    const insert = fake.calls.find((c) => c.method === 'POST' && c.path === 'dossiers');
+    expect(insert.url.searchParams.get('on_conflict')).toBe('workspace_id,home_repo,kind,prd');
+    expect(fake.tables.dossiers.map((d) => [d.kind, d.prd])).toEqual([['prd', 216], ['visual', 216]]);
+    expect([...(await store.dossiersOf(VERTUOZA, HOME)).values()].map((d) => d.id)).toEqual(['d-216']);
+    expect([...(await store.dossiersOf(VERTUOZA, HOME, null, { kind: 'visual' })).values()].map((d) => d.id)).toEqual([opened.id]);
+    expect((await store.dossiersOf(VERTUOZA, HOME, 216, { kind: 'bug' })).size).toBe(0);
+  });
+
+  it('reads every round of a visual fix, not only the latest, and adds rounds through the version rule', async () => {
+    const { store } = world({
+      dossiers: [dossier('d-548', { kind: 'visual', prd: 548 })],
+      dossier_versions: [
+        version('v1', 'd-548', 'variations', 'round one', '2026-09-27T08:00:01Z'),
+        version('v2', 'd-548', 'variations', 'round two', '2026-09-27T08:00:02Z', { source: 'github', commit_sha: COMMIT, git_blob: BLOB }),
+        version('v3', 'd-548', 'before-after', 'page', '2026-09-27T08:00:03Z'),
+      ],
+    });
+    const found = (await store.dossiersOf(VERTUOZA, HOME, null, { kind: 'visual' })).get(548);
+    expect(found.latest['before-after']).toEqual({ id: 'v3', gitBlob: null, bytes: 4 });
+    expect(found.rounds).toEqual(expect.arrayContaining([{ id: 'v1', gitBlob: null, bytes: 9 }, { id: 'v2', gitBlob: BLOB, bytes: 9 }]));
+    expect(found.rounds).toHaveLength(2);
+    const add = (kind, content) => store.addVersion({ dossierId: 'd-548', kind, content, commitSha: COMMIT, gitBlob: BLOB });
+    expect(await add('variations', 'round one')).toBeNull();
+    expect(await add('variations', 'round three')).toBe(3);
+    await expect(add('spec', 'a spec')).rejects.toThrow(/A visual dossier takes no spec version/);
+  });
+
   it('retitles a dossier', async () => {
     const { fake, store } = world({ dossiers: [dossier('d-216')] });
     await store.retitle('d-216', 'PRD dossiers, renamed');

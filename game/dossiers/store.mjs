@@ -5,25 +5,41 @@
 // same version rule the kit's pushes go through. It never writes a version itself.
 //
 // Every read and write belongs to one workspace: a missing workspace id throws before any call.
+//
+// A dossier has a kind (PRD 627, supabase/migrations/20261010090000_fix_dossiers.sql): `prd`, `visual`
+// or `bug`, part of its key. Every read names the kind it reads (`prd` when it names none), so a visual
+// fix and a PRD of the same number never meet.
 import { z } from 'zod';
 import { supabaseRest } from '../sources/supabase.mjs';
 
-const KEY = 'workspace_id,home_repo,prd';
+const KEY = 'workspace_id,home_repo,kind,prd';
 // dossier_add_version()'s own order: the first version of a kind in this order is its latest.
 const LATEST_FIRST = 'created_at.desc,id.desc';
 
-const VersionRow = z.object({ id: z.string().min(1), kind: z.enum(['spec', 'plan', 'before-after']), git_blob: z.string().nullable(), bytes: z.number().int() });
+const VERSION_KINDS = ['spec', 'plan', 'before-after', 'variations', 'bug-record'];
+const VersionRow = z.object({ id: z.string().min(1), kind: z.enum(VERSION_KINDS), git_blob: z.string().nullable(), bytes: z.number().int() });
 const DossierRow = z.object({ id: z.string().min(1), prd: z.number().int().positive(), title: z.string(), dossier_versions: z.array(VersionRow).default([]) });
 
 /**
  * @typedef {{ id: string, gitBlob: string | null, bytes: number }} Latest
- * @typedef {{ id: string, prd: number, title: string, latest: Partial<Record<'spec' | 'plan' | 'before-after', Latest>> }} Dossier
+ * @typedef {{ id: string, prd: number, title: string, latest: Partial<Record<string, Latest>>, rounds?: Latest[] }} Dossier
+ *   `rounds`, a visual fix's only: every variations version, since each round is its own
  */
-function toDossier(row) {
+function toDossier(row, kind) {
   const { id, prd, title, dossier_versions: versions } = DossierRow.parse(row);
   const latest = {};
-  for (const v of versions) latest[v.kind] ??= { id: v.id, gitBlob: v.git_blob, bytes: v.bytes };
-  return { id, prd, title, latest };
+  const rounds = [];
+  for (const v of versions) {
+    const read = { id: v.id, gitBlob: v.git_blob, bytes: v.bytes };
+    if (v.kind === 'variations') rounds.push(read);
+    else latest[v.kind] ??= read;
+  }
+  return kind === 'visual' ? { id, prd, title, latest, rounds } : { id, prd, title, latest };
+}
+
+function ofKind(kind) {
+  if (!['prd', 'visual', 'bug'].includes(kind)) throw new Error(`Supabase: a dossier's kind is prd, visual or bug, not ${kind}`);
+  return `kind=eq.${kind}`;
 }
 
 function inWorkspace(workspaceId) {
@@ -55,25 +71,31 @@ export function dossierStore({ url, key, fetch = globalThis.fetch }) {
 
   return {
     /**
-     * A repository's numbered dossiers in the workspace (or only PRD `prd`'s), by PRD number, each with
-     * the latest version of each kind: its id, its blob hash (null when the kit pushed it) and its size.
+     * A repository's numbered dossiers of one kind in the workspace (or only number `prd`'s), by number,
+     * each with the latest version of each kind: its id, its blob hash (null when the kit pushed it) and
+     * its size; a visual fix's with every round too.
+     * @param {{ kind?: 'prd' | 'visual' | 'bug' }} [options] which kind of dossier: `prd` when none is named
      * @returns {Promise<Map<number, Dossier>>}
      */
-    async dossiersOf(workspaceId, homeRepo, prd = null) {
+    async dossiersOf(workspaceId, homeRepo, prd = null, { kind = 'prd' } = {}) {
       const which = prd === null ? 'prd=not.is.null' : `prd=eq.${Number(prd)}`;
       const rows = await rest.select('dossiers', [
         'select=id,prd,title,dossier_versions(id,kind,git_blob,bytes)',
-        inWorkspace(workspaceId), `home_repo=eq.${encodeURIComponent(homeRepo)}`, which,
+        inWorkspace(workspaceId), `home_repo=eq.${encodeURIComponent(homeRepo)}`, ofKind(kind), which,
         'order=prd.asc', `dossier_versions.order=${LATEST_FIRST}`,
       ].join('&'));
-      return new Map(rows.map(toDossier).map((d) => [d.prd, d]));
+      return new Map(rows.map((row) => toDossier(row, kind)).map((d) => [d.prd, d]));
     },
 
-    /** Opens PRD `prd`'s dossier by its key; null when the key is already taken. @returns {Promise<Dossier | null>} */
-    async open({ workspaceId, homeRepo, prd, title, at }) {
+    /**
+     * Opens dossier `prd` of `kind` (`prd` when none is named) by its key; null when the key is already
+     * taken. @returns {Promise<Dossier | null>}
+     */
+    async open({ workspaceId, homeRepo, kind = 'prd', prd, title, at }) {
       inWorkspace(workspaceId);
-      const [row] = await rest.insertNew('dossiers', [{ workspace_id: workspaceId, home_repo: homeRepo, prd, title, numbered_at: at }], KEY, 'id,prd,title');
-      return row ? toDossier(row) : null;
+      ofKind(kind);
+      const [row] = await rest.insertNew('dossiers', [{ workspace_id: workspaceId, home_repo: homeRepo, kind, prd, title, numbered_at: at }], KEY, 'id,prd,title');
+      return row ? toDossier(row, kind) : null;
     },
 
     async retitle(id, title) {
