@@ -1,13 +1,12 @@
 import type { ReactNode } from 'react';
-import { heroLook, spritePixels } from '@omni/design';
-import { pixelSvg } from '../design/pixel-svg';
 import { CouldNotLoad } from '../dashboard/Notes';
 import { UNREADABLE, type Read } from '../dashboard/part';
 import { Bars, type Column } from '../dashboard/board/Board';
 import { dayName } from '../dashboard/board/chart';
 import { hrefWith, periodHref, type Query } from '../dashboard/board/links';
 import { PERIODS, type Period } from '../dashboard/board/period';
-import { faceOf, type Face } from './faces';
+import { faceOf } from '../people/face';
+import { PersonChip } from '../people/PersonChip';
 import { durationWords, SORTS, type EngineeringValue, type MergedDay, type Ranked, type SortKey } from './tally';
 import '../dashboard/board/board.css';
 import './engineering.css';
@@ -15,8 +14,9 @@ import './engineering.css';
 // The Engineering board (PRD 612 s3), drawn on the server, top to bottom: the period switch (the
 // other boards' 7 days / 30 days / Season), the six tiles, the Omni Loop panel beside the chart of
 // merged PRs per day, the per-repository table (each column heading a link that sorts by it, kept in
-// the URL as `?sort=`), then the three top-5 people lists: ranked rows, each with a face (a player's
-// game hero, else the GitHub picture) and a bar scaled to the list's first count (PRD 645 s1). Over tracked repositories only. With none,
+// the URL as `?sort=`), then the three top-5 people lists: ranked rows, each naming the person with a
+// PersonChip (their face from the people directory, PRD 652 s3) and a bar scaled to the list's first
+// count (PRD 645 s1). Over tracked repositories only. With none,
 // the empty state sends the person to Settings → Repositories. The chart is inline SVG with no
 // script, hidden from a screen reader, which reads a list of the days instead. Each repository name in
 // the table opens that repository's page (PRD 645 s2): the same board over it alone, with no table,
@@ -157,15 +157,6 @@ function Repositories({ value, period, query }: { value: Extract<EngineeringValu
 
 // ── People ───────────────────────────────────────────────────────────────
 
-/** A person's face: their hero as a pixel SVG, drawn on the server as the hero block draws it, or their GitHub picture. */
-function Avatar({ login, face }: { login: string; face: Face | undefined }) {
-  const f = face ?? faceOf(login, []);
-  if (f.kind === 'github') return <img className="eng-face" src={f.src} alt="" width={28} height={28} loading="lazy" />;
-  const look = heroLook(f.hero, f.color);
-  const svg = pixelSvg(spritePixels(look.sprite, { tint: look.tint }), { scale: 1, title: '' });
-  return <span className="eng-face" aria-hidden="true" dangerouslySetInnerHTML={{ __html: svg }} />;
-}
-
 /** A bar's length: the count as a share of the list's first count, in percent. */
 const barWidth = (count: number, leader: number) => `${Math.round((count / leader) * 1000) / 10}%`;
 
@@ -182,8 +173,7 @@ function TopFive({ kind, title, people }: { kind: ListKind; title: string; peopl
           {people.map((p, i) => (
             <li key={p.login} className="eng-row">
               <span className="eng-rank">{i + 1}</span>
-              <Avatar login={p.login} face={p.face} />
-              <span className="eng-login">{p.login}</span>
+              <span className="eng-login"><PersonChip person={{ name: p.login, face: p.face ?? faceOf({ name: p.login, login: p.login }) }} /></span>
               <b className="eng-count">{n(p.count)}</b>
               <span className={`eng-meter eng-meter-${kind}`} aria-hidden="true"><span style={{ width: barWidth(p.count, leader) }} /></span>
             </li>

@@ -5,7 +5,7 @@ import { UNREADABLE } from '../dashboard/part';
 import { periodWindow } from '../dashboard/board/period';
 import { demoEngineeringBoard } from './demo';
 import { EngineeringScreen, type EngineeringView } from './EngineeringScreen';
-import type { Face } from './faces';
+import { faceOf, type Face } from '../people/face';
 import { engineeringOf, OMNI_MAN, type PullRequestRow } from './tally';
 
 // /app/engineering as the server renders it (PRD 612 s3), to static markup: what a person sees
@@ -115,20 +115,22 @@ describe('the top-people lists (PRD 645 s1)', () => {
     expect(rowsOf(html, 'eng-top-reviews')[0]).toContain('eng-meter-reviews');
   });
 
-  it('draws a hero as an inline pixel SVG, and a GitHub picture as a 28 px image with an empty alt', () => {
+  it('names each person with a PersonChip (PRD 652 s3): a hero as a hidden pixel SVG, a GitHub photo with an empty alt, then the login', () => {
     const html = render(faced([['ada', 2], ['bob', 1]], {
-      ada: { kind: 'hero', hero: HERO, color: '#e0457b' },
-      bob: { kind: 'github', src: 'https://github.com/bob.png?size=56' },
+      ada: faceOf({ name: 'ada', login: 'ada', hero: HERO, color: '#e0457b' }),
+      bob: faceOf({ name: 'bob', login: 'bob' }),
     }));
     const [ada, bob] = rowsOf(html, 'eng-top-opened');
-    expect(ada).toMatch(/<span class="eng-face" aria-hidden="true"><svg [^>]*shape-rendering="crispEdges"/);
+    expect(ada).toMatch(/<span class="person-chip is-table"><span class="person-face is-hero" aria-hidden="true"><svg [^>]*shape-rendering="crispEdges"/);
     expect(ada).not.toContain('<img');
-    expect(bob).toContain('<img class="eng-face" src="https://github.com/bob.png?size=56" alt="" width="28" height="28"');
+    expect(bob).toContain('<span class="person-chip is-table"><img class="person-face is-photo" src="https://github.com/bob.png?size=48" alt=""');
+    expect(text(bob ?? '')).toBe('2 bob 1');
   });
 
-  it('a person with no face read yet: the GitHub picture', () => {
+  it('a person with no face read yet: the GitHub photo', () => {
     const [ada] = rowsOf(render(faced([['ada', 2]])), 'eng-top-opened');
-    expect(ada).toContain('src="https://github.com/ada.png?size=56"');
+    expect(ada).toContain('class="person-chip is-table"');
+    expect(ada).toContain('src="https://github.com/ada.png?size=48"');
   });
 });
 
@@ -207,9 +209,9 @@ describe('the demo', () => {
     }
   });
 
-  it('shows both kinds of face: a hero and a GitHub picture', () => {
+  it('shows both kinds of face: a hero and a GitHub photo', () => {
     const html = render(demoEngineeringBoard('30d', 'merged', NOW));
-    expect(html).toMatch(/<span class="eng-face" aria-hidden="true"><svg/);
-    expect(html).toContain('<img class="eng-face" src="https://github.com/');
+    expect(html).toMatch(/<span class="person-face is-hero" aria-hidden="true"><svg/);
+    expect(html).toContain('<img class="person-face is-photo" src="https://github.com/');
   });
 });

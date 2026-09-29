@@ -19,21 +19,19 @@
 [aria-sort] .eng-sort { color: var(--ask-ink); }
 
 .eng-people { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 24px 32px; }
-/* A top-people row (PRD 645 s1): rank, 28 px face, login, the count in its own right-aligned column,
-   and under them a thin bar scaled to the list's first count, in the list's colour. A long login
-   wraps inside its column; the count never leaves its own. */
+/* A top-people row (PRD 645 s1): rank, the person's chip (their face then their login, PRD 652 s3),
+   the count in its own right-aligned column, and under them a thin bar scaled to the list's first
+   count, in the list's colour. A long login wraps inside its column; the count never leaves its own. */
 .eng-rows { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
 .eng-row {
-  display: grid; grid-template-columns: 1.5em 28px minmax(0, 1fr) auto; column-gap: 10px; row-gap: 4px;
+  display: grid; grid-template-columns: 1.5em minmax(0, 1fr) auto; column-gap: 10px; row-gap: 4px;
   align-items: center; font-variant-numeric: tabular-nums;
 }
 .eng-rank { color: var(--ask-muted); text-align: right; }
-.eng-face { width: 28px; height: 28px; border-radius: 50%; overflow: hidden; display: block; line-height: 0; background: var(--ask-line); }
-span.eng-face { border-radius: 4px; background: none; }
-.eng-face svg { width: 28px; height: 28px; display: block; image-rendering: pixelated; }
 .eng-login { color: var(--ask-ink); min-width: 0; overflow-wrap: anywhere; }
+.eng-login .person-chip { max-width: 100%; }
 .eng-count { color: var(--ask-ink); text-align: right; white-space: nowrap; }
-.eng-meter { grid-column: 3 / 5; height: 4px; border-radius: 2px; background: var(--ask-line); overflow: hidden; }
+.eng-meter { grid-column: 2 / 4; height: 4px; border-radius: 2px; background: var(--ask-line); overflow: hidden; }
 .eng-meter > span { display: block; height: 100%; border-radius: 2px; }
 .eng-meter-opened > span { background: var(--ask-plasma); }
 .eng-meter-merged > span { background: var(--ask-green); }
