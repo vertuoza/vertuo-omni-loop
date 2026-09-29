@@ -1,5 +1,6 @@
 'use client';
 import { logoSvg } from '@omni/design';
+import { version } from '../../../../package.json';
 import { usePathname } from 'next/navigation';
 import { APP_HOME } from '../switch/switch';
 import { useWaiting } from '../waiting/WaitingProvider';
@@ -15,10 +16,13 @@ import './drawer.css';
 // The item the page falls under carries aria-current="page"; Questions and Shared with me carry how
 // many questions wait there, and PRDs how many outbox items, live from the waiting provider (PRD 499);
 // Docs and Release notes open in a new tab, and say so with the new-tab icon and their name (issue 548).
+// They sit at the sidebar's foot, in one small row without a label, above the release running
+// ("Omni Loop v0.0.54", the root package.json the release workflow stamps; issue 561).
 // Below 900 px it is the phone drawer: hidden until the top bar's ☰ opens it over the page, a scrim
 // behind it. Escape, a tap on the scrim or choosing an item closes it (src/nav/drawer-context.tsx).
 
 const CREST = logoSvg('mark', { scale: 2, title: null });
+const OMNI = SIDEBAR.find((group) => group.id === 'omni')?.items ?? [];
 
 /** A box with an arrow leaving it: the item opens in a new tab. */
 const NEW_TAB = (
@@ -63,7 +67,7 @@ export function Sidebar({ viewer }: { viewer: ViewerView }) {
           {viewer.workspaceName && <p className="app-sidebar-workspace">{viewer.workspaceName}</p>}
         </div>
         <nav className="app-sidebar-nav" aria-label="Sections">
-          {SIDEBAR.map((group) => (
+          {SIDEBAR.filter((group) => group.id !== 'omni').map((group) => (
             <div key={group.id} className="app-sidebar-group">
               <p className="app-sidebar-label" id={`app-sidebar-${group.id}`}>{group.label}</p>
               <ul className="app-sidebar-items" aria-labelledby={`app-sidebar-${group.id}`}>
@@ -72,6 +76,12 @@ export function Sidebar({ viewer }: { viewer: ViewerView }) {
             </div>
           ))}
         </nav>
+        <div className="app-sidebar-foot">
+          <ul className="app-sidebar-links" aria-label="Omni">
+            {OMNI.map((item) => <Item key={item.id} item={item} current={current} counts={counts} choose={choose} />)}
+          </ul>
+          <p className="app-sidebar-version">Omni Loop v{version}</p>
+        </div>
       </aside>
     </>
   );

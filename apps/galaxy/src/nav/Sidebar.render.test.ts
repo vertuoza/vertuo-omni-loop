@@ -14,6 +14,8 @@ const at = { path: '/app' as string | null };
 vi.mock('next/navigation', () => ({ usePathname: () => at.path }));
 
 const { Sidebar } = await import('./Sidebar.tsx');
+/** The release running, as the release workflow stamps it in the root package.json. */
+const VERSION = JSON.parse(readFileSync(new URL('../../../../package.json', import.meta.url), 'utf8')).version;
 const { WaitingProvider } = await import('../waiting/WaitingProvider');
 
 const question = (id: string, sharedBy: string | null = null): WaitingQuestion => ({ kind: 'question', id, sessionTitle: 'feat/x', question: 'Why?', askedAt: 1, sharedBy });
@@ -51,7 +53,7 @@ describe('the sidebar', () => {
 
   it('lists Work, then Omni, their items in order', () => {
     const html = render();
-    expect(text(html)).toMatch(/^OMNI LOOP Acme Work Home PRDs Questions 5 Shared with me 3 History Knowledge Fleets Omni Docs Release notes$/);
+    expect(text(html)).toMatch(/^OMNI LOOP Acme Work Home PRDs Questions 5 Shared with me 3 History Knowledge Fleets Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
     expect(links(html).slice(1).map((l) => /href="([^"]+)"/.exec(l.attrs)?.[1])).toEqual([
       '/app', '/prd', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/fleets', '/docs', '/releases',
     ]);
@@ -117,16 +119,26 @@ describe('the sidebar', () => {
     expect(html).not.toContain('↗');
   });
 
+  it('puts Omni at the foot, unlabelled, with the version running under it (issue 561)', () => {
+    const html = render();
+    const foot = html.slice(html.indexOf('<div class="app-sidebar-foot">'));
+    expect(html.indexOf('</nav>')).toBeLessThan(html.indexOf('<div class="app-sidebar-foot">'));
+    expect(foot).toMatch(/^<div class="app-sidebar-foot"><ul class="app-sidebar-links" aria-label="Omni">/);
+    expect(links(foot).map((l) => l.text)).toEqual(['Docs', 'Release notes']);
+    expect(foot).toContain(`<p class="app-sidebar-version">Omni Loop v${VERSION}</p>`);
+    expect(html).not.toContain('id="app-sidebar-omni"');
+  });
+
   it('is closed as a drawer until ☰ opens it: no scrim, no open mark', () => {
     const html = render();
     expect(html).not.toContain('app-drawer-scrim');
     expect(html).not.toContain('data-open');
   });
 
-  it('names each group\'s list by the group', () => {
+  it('names each group\'s list by the group: Work by its label, Omni\'s foot row by its name', () => {
     const html = render();
     expect(html).toMatch(/<p class="app-sidebar-label" id="app-sidebar-work">Work<\/p><ul class="app-sidebar-items" aria-labelledby="app-sidebar-work">/);
-    expect(html).toMatch(/<p class="app-sidebar-label" id="app-sidebar-omni">Omni<\/p><ul class="app-sidebar-items" aria-labelledby="app-sidebar-omni">/);
+    expect(html).toContain('<ul class="app-sidebar-links" aria-label="Omni">');
   });
 });
 
