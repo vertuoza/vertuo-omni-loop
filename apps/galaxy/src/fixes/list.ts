@@ -11,6 +11,9 @@
 // handed in by the route, read through the page's one cached reader.
 // PRD 652, s6: who asked is a person, resolved by login through the directory of the fix's workspace, so
 // the row draws their face; with no directory, a login still gets its GitHub photo.
+// PRD 698, s4: `who=<login>` keeps the fixes that person asked for, by the rule Mine uses for the viewer —
+// they pushed it (one of the account ids the login holds in the viewer's workspaces, handed in as `whom`) or
+// its issue is theirs.
 import type { FixIssue, FixSummary } from '../dossier/github/fix';
 import { UNREAD } from '../dossier/github/summary';
 import type { ArtifactKind, DossierListRow, WorkKind } from '../dossier/store';
@@ -18,6 +21,7 @@ import { isArtifactTab, KIND_TABS, stamp, TAB_LABELS } from '../dossier/page/vie
 import { fixState, STATE_LABELS, type FixState } from './timeline';
 import { ofWork, WORK_PATHS, workPath } from '../dossier/page/work';
 import { NOBODY, type PeopleIn } from './people';
+import { readWho, whoParam, type HistoryWho, type Whom } from '../dossier/page/history';
 import { one, type Query } from '../nav/query';
 import type { People } from '../people/load';
 import type { Person } from '../people/types';
@@ -26,7 +30,8 @@ import type { Person } from '../people/types';
 export type FixKind = Exclude<WorkKind, 'prd'>;
 
 export type FixFilters = {
-  who: 'mine' | 'all';
+  /** Mine, All, or one person's (PRD 698: `who=<login>`), read as /prd reads it. */
+  who: HistoryWho;
   /** A repository, owner/name in lower case, as dossier_list() gives them. */
   repo?: string;
   /** Words, each of which must appear in the title. */
@@ -63,9 +68,9 @@ export type FixItem = {
   regression: boolean;
 };
 
-/** The filters an address carries: `who` (`all`, or else Mine), `repo`, `q`. */
+/** The filters an address carries: `who` (`all`, a login, or else Mine), `repo`, `q`. */
 export function readFixFilters(query: Query): FixFilters {
-  const filters: FixFilters = { who: one(query.who) === 'all' ? 'all' : 'mine' };
+  const filters: FixFilters = { who: readWho(one(query.who)) };
   const repo = one(query.repo);
   if (repo) filters.repo = repo.toLowerCase();
   const search = one(query.q);
@@ -78,13 +83,14 @@ export function readFixFilters(query: Query): FixFilters {
 /** Whether any filter but `who` is set: the page then offers to clear them, keeping `who`. */
 export const fixFiltered = ({ who: _who, ...rest }: FixFilters) => Object.keys(rest).length > 0;
 
-/** The list's address for these filters: `repo`, `q`, then `who=all` for All (Mine is the default). */
+/** The list's address for these filters: `repo`, `q`, then `who=all` for All or `who=<login>` (Mine is the default). */
 export function fixAddress(kind: FixKind, filters: FixFilters): string {
   const params = new URLSearchParams();
   if (filters.repo) params.set('repo', filters.repo);
   if (filters.search) params.set('q', filters.search);
   if (filters.state) params.set('state', filters.state);
-  if (filters.who === 'all') params.set('who', 'all');
+  const who = whoParam(filters.who);
+  if (who) params.set('who', who);
   const query = String(params);
   return query ? `${WORK_PATHS[kind]}?${query}` : WORK_PATHS[kind];
 }
@@ -92,15 +98,25 @@ export function fixAddress(kind: FixKind, filters: FixFilters): string {
 /** Who reads the list: their user id and their GitHub login, when they signed in with GitHub. */
 export type FixViewer = { id: string; login: string | null };
 
-/** Mine (issue 674): a fix the viewer pushed, or whose issue they opened; the sync pushes most fixes. */
-function isMine(row: DossierListRow, viewer: FixViewer | null, fix: FixSummary | null): boolean {
-  if (viewer === null) return false;
+/** Someone whose fixes a list keeps: the account ids they hold, and their GitHub login. */
+type Asker = { ids: ReadonlySet<string>; login: string | null };
+
+/** Mine (issue 674), or one person's (PRD 698): a fix they pushed, or whose issue they opened; the sync pushes most fixes. */
+function askedFor(row: DossierListRow, asker: Asker | null, fix: FixSummary | null): boolean {
+  if (asker === null) return false;
   const author = issueOf(fix)?.author;
-  return row.opened_by === viewer.id || (!!author && !!viewer.login && author.toLowerCase() === viewer.login.toLowerCase());
+  return (row.opened_by !== null && asker.ids.has(row.opened_by))
+    || (!!author && !!asker.login && author.toLowerCase() === asker.login.toLowerCase());
 }
 
-function passes(row: DossierListRow, filters: FixFilters, viewer: FixViewer | null, fix: FixSummary | null): boolean {
-  if (filters.who === 'mine' && !isMine(row, viewer, fix)) return false;
+/** Whose fixes `who` keeps: nobody's filter for All, the viewer for Mine, the login and `whom` for a person. */
+function askerOf(who: HistoryWho, viewer: FixViewer | null, whom: Whom): Asker | null {
+  if (who === 'mine') return viewer && { ids: new Set([viewer.id]), login: viewer.login };
+  return who === 'all' ? null : { ids: whom, login: who.login };
+}
+
+function passes(row: DossierListRow, filters: FixFilters, asker: Asker | null, fix: FixSummary | null): boolean {
+  if (filters.who !== 'all' && !askedFor(row, asker, fix)) return false;
   if (filters.repo && !row.repos.includes(filters.repo)) return false;
   if (filters.search) {
     const title = row.title.toLowerCase();
@@ -117,13 +133,15 @@ const badgeOf = (kind: ArtifactKind, count: number) => (kind === 'variations' ? 
 /** What GitHub said of each fix, by dossier id; a fix left out reads as GitHub not answering. */
 export type FixFacts = ReadonlyMap<string, FixSummary | null>;
 
-/** The fixes of `kind` the filters let through for this viewer, newest activity first. */
+/** The fixes of `kind` the filters let through for this viewer, newest activity first; `whom`, under
+ * `who=<login>`, the account ids that login holds in the viewer's workspaces (PRD 698). */
 export function fixItems(
   rows: readonly DossierListRow[], kind: FixKind, filters: FixFilters, viewer: FixViewer | null, facts: FixFacts = new Map(),
-  peopleIn: PeopleIn = NOBODY,
+  peopleIn: PeopleIn = NOBODY, whom: Whom = new Set(),
 ): FixItem[] {
   const factsOf = (row: DossierListRow) => facts.get(row.id) ?? null;
-  return ofWork(rows, kind).filter((row) => passes(row, filters, viewer, factsOf(row)))
+  const asker = askerOf(filters.who, viewer, whom);
+  return ofWork(rows, kind).filter((row) => passes(row, filters, asker, factsOf(row)))
     .filter((row) => !filters.state || fixState(factsOf(row)) === filters.state)
     .sort(newestFirst).map((row): FixItem => ({
     id: row.id,

@@ -105,7 +105,7 @@ describe('the page to share', () => {
     given.fake.seedPlayer(ADA.id, { login: 'ada-gh', fleet: 'octo', hero: HERO }, { fleet: { name: 'octo', label: 'OCTO', color: '#3355ff', mascot: 'octopod' } });
     given.token = 'bob';
     const page = await html(numbered);
-    expect(page).toMatch(/opened by <span class="person-chip is-inline"><span class="person-face is-hero" aria-hidden="true"><svg [^]*?<\/span>ADA<\/span>/);
+    expect(page).toMatch(/opened by <a class="person-chip is-inline" href="\/app\/people\/ada-gh"><span class="person-face is-hero" aria-hidden="true"><svg [^]*?<\/span><span class="person-chip-name">ADA<\/span><\/a>/);
   });
 
   it('with the people out of reach, still shows the page, the opener with their initial (PRD 652)', async () => {

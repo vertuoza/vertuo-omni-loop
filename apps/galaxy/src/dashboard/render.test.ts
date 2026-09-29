@@ -62,7 +62,7 @@ describe('the dashboard', () => {
   it('names the fleet as its chip, its mascot in its colour, then "fleet" (PRD 652)', () => {
     const html = dashboard({ you: { ...PLAYER, fleet: { name: 'beaver', label: 'BEAVER', color: '#d08a4a', mascot: 'beaver' } } as YouValue });
     expect(text(you(html))).toContain('BEAVER fleet');
-    expect(you(html)).toMatch(/<p class="dash-fleet"><span class="fleet-chip is-inline" style="--fleet:#d08a4a"><span class="fleet-chip-mascot" aria-hidden="true"><svg [\s\S]*?<span class="fleet-chip-label">BEAVER<\/span><\/span> fleet<\/p>/);
+    expect(you(html)).toMatch(/<p class="dash-fleet"><a class="fleet-chip is-inline" href="\/app\/fleet\?fleet=beaver" style="--fleet:#d08a4a"><span class="fleet-chip-mascot" aria-hidden="true"><svg [\s\S]*?<span class="fleet-chip-label">BEAVER<\/span><\/a> fleet<\/p>/);
   });
 
   it('a solo player\'s fleet line is the SOLO chip', () => {

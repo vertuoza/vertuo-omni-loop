@@ -2,6 +2,7 @@ import { buildGalaxy, demoEvents, DEMO_PROJECTS } from '@omni/galaxy';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { nestedLinks } from '../../people/nested-links';
 import type { Member } from '../board/tally';
 import { fleetOf } from './load';
 import { FleetScreen, type FleetView } from './FleetScreen';
@@ -60,6 +61,13 @@ describe('/app/fleet', () => {
     expect(links[1]).toMatch(chip('OCTO', '#3355ff'));
     expect(links[1]).toContain('<span class="fleet-yours"><span aria-hidden="true"> ◀</span><span class="ask-sr"> (your fleet)</span></span>');
     expect(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/)![1]).toMatch(chip('OCTO', '#3355ff'));
+  });
+
+  it('keeps each picker chip plain inside its link, and the page\'s own header unlinked, while board chips link (PRD 698)', () => {
+    const html = screen(fleet('u-ada'), { period: '30d' });
+    expect(nestedLinks(html)).toBe(0);
+    expect(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/)![1]).not.toContain('<a');
+    expect(html).toMatch(/<a class="person-chip is-table" href="\/app\/people\/[^"]+">/);
   });
 
   it('the period switch keeps the fleet asked for', () => {

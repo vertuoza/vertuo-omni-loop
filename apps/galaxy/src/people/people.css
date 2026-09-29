@@ -24,3 +24,10 @@
 .fleet-chip-mascot { flex: none; display: inline-block; width: var(--chip-size); height: var(--chip-size); }
 .fleet-chip-label { color: var(--fleet, inherit); }
 .fleet-chip.is-solo { color: var(--ask-muted); }
+
+/* PRD 698: a linked chip looks like the chip at rest; hover and keyboard focus underline its name
+   (a person's name, a fleet's label), never the face or the mascot, and focus also draws a ring. */
+a.person-chip, a.fleet-chip { color: inherit; text-decoration: none; }
+a.person-chip:hover .person-chip-name, a.person-chip:focus-visible .person-chip-name,
+a.fleet-chip:hover .fleet-chip-label, a.fleet-chip:focus-visible .fleet-chip-label { text-decoration: underline; }
+a.person-chip:focus-visible, a.fleet-chip:focus-visible { outline: 2px solid var(--ask-cyan); outline-offset: 2px; border-radius: 2px; }

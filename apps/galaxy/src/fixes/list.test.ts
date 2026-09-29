@@ -49,7 +49,12 @@ describe('the filters in the address', () => {
   it('reads Mine by default, All, a repository and a search; anything else is no filter', () => {
     expect(readFixFilters({})).toEqual({ who: 'mine' });
     expect(readFixFilters({ who: 'all', repo: ' Vertuoza/Vertuo-Core ', q: '  bar ', state: 'draft' })).toEqual({ who: 'all', repo: 'vertuoza/vertuo-core', search: 'bar' });
-    expect(readFixFilters({ who: 'nobody', repo: '', q: ' ' })).toEqual({ who: 'mine' });
+    expect(readFixFilters({ who: 'no body', repo: '', q: ' ' })).toEqual({ who: 'mine' });
+  });
+
+  it('reads who=<login> as that person, and writes it back (PRD 698)', () => {
+    expect(readFixFilters({ who: 'Anna' })).toEqual({ who: { login: 'anna' } });
+    expect(fixAddress('bug', { who: { login: 'anna' }, state: 'merged' })).toBe('/bugs?state=merged&who=anna');
   });
 
   it('writes each filter back into the list\'s own address', () => {
@@ -77,6 +82,19 @@ describe('the rows', () => {
     const pierre = { id: 'u-other', login: 'pierrederval' };
     expect(ids(fixItems(ROWS, 'visual', { who: 'mine' }, pierre, facts))).toEqual([TOPBAR.id]);
     expect(ids(fixItems(ROWS, 'bug', { who: 'mine' }, pierre, facts))).toEqual([]);
+  });
+
+  it('keeps under who=<login> the fixes that person asked for, by Mine\'s rule: pushed by one of their ids, or their issue (PRD 698)', () => {
+    const facts = new Map([
+      [TOPBAR.id, { issue: { ...ISSUE, number: 561, author: 'Anna' }, pull: null, approvals: [], release: null }],
+      [CRASH.id, { issue: { ...ISSUE, number: 571, author: 'bob' }, pull: null, approvals: [], release: null }],
+    ]);
+    const anna = { who: { login: 'anna' } } as const;
+    expect(ids(fixItems(ROWS, 'visual', anna, ME, facts))).toEqual([TOPBAR.id]);
+    expect(ids(fixItems(ROWS, 'visual', { who: { login: 'someone' } }, ME, facts, undefined, new Set(['u-pierre'])))).toEqual([SIDEBAR.id]);
+    expect(ids(fixItems(ROWS, 'bug', anna, ME, facts))).toEqual([]);
+    // The ids come from whom, never from the viewer: with none resolved, only the issue's author counts.
+    expect(ids(fixItems(ROWS, 'visual', { who: { login: 'pierre' } }, { id: 'u-pierre', login: 'pierre' }, new Map()))).toEqual([]);
   });
 
   it('filters by any of its repositories, and by every word of the search', () => {

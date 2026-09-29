@@ -14,6 +14,7 @@ import { loginOf } from '../nav/viewer';
 import { fixChoices, fixItems, readFixFilters, type FixFacts, type FixKind, type FixViewer } from './list';
 import { loadPeople, type People } from '../people/load';
 import { NOBODY, type PeopleIn } from './people';
+import { readLoginIds, whoLogin, type Whom } from '../dossier/page/history';
 
 // /visual and /bugs (PRD 627): the fixes of one kind of the signed-in person's workspaces, read as
 // /prd reads its list — per request, as the signed-in person, so row-level security decides; signed
@@ -27,6 +28,8 @@ import { NOBODY, type PeopleIn } from './people';
 // PRD 652, s6: who asked wears their face, read from the people directory of each fix's workspace (one
 // read per workspace the list holds, beside the stored facts); a directory that cannot be read gives GitHub
 // photos, never an error.
+// PRD 698, s4: `who=<login>` keeps that person's fixes: the login's account ids are read from the same
+// workspaces' rosters (workspace_roster, as the signed-in person), only then.
 
 type Query = Record<string, string | string[] | undefined>;
 
@@ -50,9 +53,10 @@ export function FixListLoading({ kind }: { kind: FixKind }) {
 export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>) {
   const query = await searchParams;
   const filters = readFixFilters(query);
-  const listing = (rows: DossierListRow[], viewer: FixViewer, facts?: FixFacts, people?: PeopleIn) => (
-    <FixList kind={kind} items={fixItems(rows, kind, filters, viewer, facts, people)} choices={fixChoices(rows, kind)} filters={filters} />
+  const listing = (rows: DossierListRow[], viewer: FixViewer, facts?: FixFacts, people?: PeopleIn, whom?: Whom) => (
+    <FixList kind={kind} items={fixItems(rows, kind, filters, viewer, facts, people, whom)} choices={fixChoices(rows, kind)} filters={filters} />
   );
+  const login = whoLogin(filters.who);
   const mode = arcadeMode(process.env);
 
   if (mode === 'demo') return listing(demoHistory(Date.now()), { id: DEMO_VIEWER, login: null });
@@ -79,8 +83,15 @@ export async function fixListRoute(kind: FixKind, searchParams: Promise<Query>) 
     );
   }
   const fixes = ofWork(rows, kind);
-  const [facts, people] = await Promise.all([storedFacts(db, fixes), peopleOf(db, fixes)]);
-  return listing(rows, { id: user.id, login: loginOf(user) }, facts, people);
+  const [facts, people, whom] = await Promise.all([
+    storedFacts(db, fixes), peopleOf(db, fixes),
+    login ? readLoginIds(fixes, login, async (workspace) => {
+      const { data, error } = await db.rpc('workspace_roster', { workspace });
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    }) : undefined,
+  ]);
+  return listing(rows, { id: user.id, login: loginOf(user) }, facts, people, whom);
 }
 
 /** The people directory of every workspace these fixes belong to, each read once. */

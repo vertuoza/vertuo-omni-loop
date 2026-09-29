@@ -22,7 +22,7 @@ export function ForMe({ entries }: { entries: ForMeEntry[] }) {
                 <span className="ask-for-me-question">{entry.question}</span>
                 <span className="ask-hint">
                   {entry.sessionTitle} · shared by{' '}
-                  <PersonChip person={{ name: entry.sharedBy, face: entry.sharedByFace ?? initialFace(entry.sharedBy) }} size="inline" />{' '}·{' '}
+                  <PersonChip person={{ name: entry.sharedBy, face: entry.sharedByFace ?? initialFace(entry.sharedBy) }} size="inline" link={false} />{' '}·{' '}
                   <span suppressHydrationWarning>{entry.minutesLeft > 1 ? `${entry.minutesLeft} min left` : 'less than a minute left'}</span>
                 </span>
               </a>
