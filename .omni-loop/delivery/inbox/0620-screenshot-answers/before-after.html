@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Screenshot answers</title>
+<style>
+/* Layout: three today · after pairs: the Other box, Send, what Claude receives. Then what stays the same. */
+:root {
+  --bg: #f3f4f7; --panel: #ffffff; --ink: #1b1d26; --muted: #5d6275; --line: #dcdfe8;
+  --accent: #d6283b; --code: #eef0f5; --new: #fff1c7; --fill: #1b1d26; --fillInk: #ffffff;
+  --ok: #1f7a4d; --warn: #b3261e; --shot1: #c9d7f2; --shot2: #f2d4c9; --shot3: #d2ecd9;
+  --display: "Anton", Impact, "Arial Narrow", sans-serif;
+  --body: -apple-system, "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12131a; --panel: #1b1d27; --ink: #eceef5; --muted: #9aa0b4; --line: #2f3242; --code: #252836; --new: #3d3413; --fill: #eceef5; --fillInk: #12131a; --ok: #6fd3a0; --warn: #ff8a80; --shot1: #2c3a57; --shot2: #57382c; --shot3: #2c4a36; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #12131a; --panel: #1b1d27; --ink: #eceef5; --muted: #9aa0b4; --line: #2f3242; --code: #252836; --new: #3d3413; --fill: #eceef5; --fillInk: #12131a; --ok: #6fd3a0; --warn: #ff8a80; --shot1: #2c3a57; --shot2: #57382c; --shot3: #2c4a36; color-scheme: dark }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--body); padding: 24px 16px 48px }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 32px }
+h1 { font: 400 2rem/1.1 var(--display); letter-spacing: .02em; margin: 0; text-wrap: balance }
+h2 { font: 400 1.3rem/1.1 var(--display); letter-spacing: .03em; margin: 0 }
+.lede { color: var(--muted); margin: 4px 0 0; max-width: 70ch }
+section { display: grid; gap: 12px }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px }
+@media (max-width: 760px) { .cols { grid-template-columns: 1fr } }
+.col { min-width: 0; display: grid; gap: 8px; align-content: start }
+.tag { font: 600 11px/1 var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted) }
+.tag.after { color: var(--accent) }
+.screen { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px; display: grid; gap: 10px; min-width: 0 }
+.note { color: var(--muted); font-size: 13px; margin: 0 }
+.new { background: var(--new); border-radius: 3px; padding: 0 4px }
+.q { font-weight: 600 }
+.opt { display: flex; gap: 8px; align-items: flex-start; border: 1px solid var(--line); border-radius: 5px; padding: 7px 9px; font-size: 13px }
+.opt.on { border-color: var(--ink) }
+.dot { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--muted); flex: none; margin-top: 3px }
+.on .dot { border-color: var(--ink); background: radial-gradient(var(--ink) 45%, transparent 50%) }
+.other { display: grid; gap: 8px; flex: 1; min-width: 0 }
+.ta { border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; min-height: 40px; font-size: 13px; background: var(--bg) }
+.ta.ph { color: var(--muted) }
+.shots { display: flex; gap: 8px; flex-wrap: wrap; align-items: center }
+.shot { width: 64px; height: 44px; border-radius: 4px; border: 1px solid var(--line); position: relative; display: grid; place-items: center; font: 10px var(--mono); color: var(--muted) }
+.shot.a { background: var(--shot1) } .shot.b { background: var(--shot2) } .shot.c { background: var(--shot3) }
+.x { position: absolute; top: -6px; right: -6px; width: 16px; height: 16px; border-radius: 50%; background: var(--fill); color: var(--fillInk); font: 700 10px/16px var(--body); text-align: center }
+.add { border: 1px dashed var(--muted); border-radius: 4px; padding: 6px 10px; font-size: 12px; color: var(--ink); white-space: nowrap }
+.hint { font-size: 12px; color: var(--muted) }
+.bad { font-size: 12px; color: var(--warn) }
+.btn { display: inline-block; font: 600 12px var(--body); background: var(--fill); color: var(--fillInk); border-radius: 4px; padding: 6px 12px; justify-self: start }
+.btn.dim { opacity: .45 }
+.bar { height: 6px; border-radius: 999px; background: var(--code); overflow: hidden }
+.bar i { display: block; height: 100%; width: 66%; background: var(--ok) }
+pre { margin: 0; background: var(--code); border-radius: 5px; padding: 10px 12px; font: 12px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere }
+.same { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; padding: 0; margin: 0; list-style: none }
+@media (max-width: 760px) { .same { grid-template-columns: 1fr } }
+.same li { background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 8px 10px; font-size: 13px }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>Screenshots on an Other answer</h1>
+    <p class="lede">PRD 620. On the ask page, Other takes up to five screenshots beside its text. The terminal downloads them into the checkout and hands Claude their paths, so Claude sees the images.</p>
+  </header>
+
+  <section>
+    <h2>1 · The Other box</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag">Today</span>
+        <div class="screen">
+          <div class="q">Which screen looks wrong?</div>
+          <div class="opt"><span class="dot"></span>The dashboard</div>
+          <div class="opt"><span class="dot"></span>The sidebar</div>
+          <div class="opt on"><span class="dot"></span>
+            <div class="other"><b>Other</b>
+              <div class="ta">The PRD page header, the red bar overlaps the title when…</div>
+            </div>
+          </div>
+          <span class="btn">Send</span>
+        </div>
+        <p class="note">Text only. A screen has to be described in words.</p>
+      </div>
+      <div class="col">
+        <span class="tag after">After</span>
+        <div class="screen">
+          <div class="q">Which screen looks wrong?</div>
+          <div class="opt"><span class="dot"></span>The dashboard</div>
+          <div class="opt"><span class="dot"></span>The sidebar</div>
+          <div class="opt on"><span class="dot"></span>
+            <div class="other"><b>Other</b>
+              <div class="ta">This one, see the overlap:</div>
+              <div class="shots">
+                <span class="shot a">1.png<span class="x">×</span></span>
+                <span class="shot b">2.png<span class="x">×</span></span>
+                <span class="shot c">3.png<span class="x">×</span></span>
+                <span class="add new">+ Add screenshot</span>
+              </div>
+              <span class="hint">Paste, drop or add · PNG, JPEG, GIF, WebP · 5 MB · up to 5</span>
+              <span class="bad">notes.pdf: PNG, JPEG, GIF or WebP only</span>
+            </div>
+          </div>
+          <span class="btn">Send</span>
+        </div>
+        <p class="note">Adding a screenshot switches Other on. Screenshots with no text send as <code>(see screenshots)</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · Send</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag">Today</span>
+        <div class="screen">
+          <span class="btn">Send</span>
+          <p class="note">One update records the answer. Done.</p>
+        </div>
+      </div>
+      <div class="col">
+        <span class="tag after">After</span>
+        <div class="screen">
+          <span class="btn dim">Uploading 2 of 3…</span>
+          <div class="bar"><i></i></div>
+          <span class="bad">Could not upload 2 of 3 — Send again</span>
+          <p class="note">Uploads go straight to a private bucket first. Then one update records the answer and its screenshots. If an upload fails, nothing is recorded, and Send again uploads only what's missing.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · What Claude receives</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag">Today</span>
+<pre>Which screen looks wrong?
+→ The PRD page header, the red bar overlaps
+  the title when…</pre>
+      </div>
+      <div class="col">
+        <span class="tag after">After</span>
+<pre>Which screen looks wrong?
+→ This one, see the overlap:
+
+  <span class="new">Screenshots (open each with Read):</span>
+  - /…/repo/.omni-loop/local/ask/shots/&lt;round&gt;/1.png
+  - /…/repo/.omni-loop/local/ask/shots/&lt;round&gt;/2.png
+  - Screenshot 3 could not be downloaded</pre>
+        <p class="note">The hook downloads each file inside the checkout (never committed; cleared after 7 days). A failed download gets a note in its place, and the answer still goes through.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Stays the same</h2>
+    <ul class="same">
+      <li>Answers stay strings: <code>ask_answers_valid</code> and AskUserQuestion's shape don't change.</li>
+      <li>A kit from before this ignores the new <code>attachments</code> field and gets the text only.</li>
+      <li>Outbox cards and the dossier's quick answers: no screenshots.</li>
+      <li>A terminal answer is recorded exactly as it is today.</li>
+      <li>History shows the answer text, plus "📎 N screenshots" when there are any.</li>
+      <li>Who can answer a round, and who reads it, is unchanged. Screenshots follow the same rules.</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
