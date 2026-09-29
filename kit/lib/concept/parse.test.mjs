@@ -133,6 +133,12 @@ describe('parseConcept — each invalid case, refused by name', () => {
     ]);
   });
 
+  it('an id listed three times, named once', () => {
+    expect(errorsOf(conceptText({ areas: table(row('day-view'), row('day-view'), row('day-view')) }))).toEqual([
+      'Areas: id "day-view" is listed twice.',
+    ]);
+  });
+
   it('seven areas for a vast concept', () => {
     const areas = table(...['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((id) => row(id)));
     expect(errorsOf(conceptText({ areas }))).toEqual(['Areas: 7 areas; a vast concept has two to six.']);

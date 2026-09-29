@@ -10,8 +10,8 @@
  * 2. The six `## ` sections of {@link CONCEPT_SECTIONS}, each present, in that order. Any other
  *    heading is prose the concept may hold.
  * 3. Under **Areas**, a table with the four columns of {@link AREA_COLUMNS}, whose rows are the areas
- *   in build order, the wedge first: kebab-case ids with no duplicate, two to six rows for a vast
- *   concept and one for a lite one, and each `PRD` cell empty or `#<number>`.
+ *    in build order, the wedge first: kebab-case ids with no duplicate, two to six rows for a vast
+ *    concept and one for a lite one, and each `PRD` cell empty or `#<number>`.
  */
 import { z } from 'zod';
 import { parseFrontMatterLines } from '../inbox/inbox.mjs';
@@ -31,7 +31,7 @@ export const AREA_COLUMNS = /** @type {const} */ (['id', 'area', 'brief', 'PRD']
 /** How many areas each scale allows. */
 const AREA_ROWS = { vast: { min: 2, max: 6, words: 'two to six' }, lite: { min: 1, max: 1, words: 'exactly one' } };
 
-const FRONT_FIELDS = Object.keys({ concept: 0, title: 0, kind: 0, scale: 0 });
+const FRONT_FIELDS = ['concept', 'title', 'kind', 'scale'];
 const FRONT_MATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const PRD_CELL = /^#([1-9]\d*)$/;
@@ -135,18 +135,20 @@ function areasOf(lines, scale) {
   const cell = (row, name) => (column[name] === -1 ? undefined : (row[column[name]] ?? ''));
 
   const seen = new Set();
+  const twice = new Set();
   const areas = table.rows.map((row, index) => {
     const id = cell(row, 'id');
     const prd = cell(row, 'PRD');
-    if (id !== undefined) {
-      if (seen.has(id)) faults.push(`Areas: id "${id}" is listed twice.`);
-      else if (!KEBAB.test(id)) faults.push(`Areas: id "${id}" is not kebab-case.`);
-      seen.add(id);
+    if (id !== undefined && seen.has(id)) {
+      if (!twice.has(id)) faults.push(`Areas: id "${id}" is listed twice.`);
+      twice.add(id);
+    } else if (id !== undefined && !KEBAB.test(id)) {
+      faults.push(`Areas: id "${id}" is not kebab-case.`);
     }
-    if (prd !== undefined && prd !== '' && !PRD_CELL.test(prd)) {
-      faults.push(`Areas: the PRD cell of "${id ?? `row ${index + 1}`}" is "${prd}", neither empty nor #<number>.`);
-    }
-    return { id, area: cell(row, 'area'), brief: cell(row, 'brief'), prd: prd && PRD_CELL.test(prd) ? Number(PRD_CELL.exec(prd)[1]) : null };
+    seen.add(id);
+    const filled = PRD_CELL.exec(prd ?? '');
+    if (prd && !filled) faults.push(`Areas: the PRD cell of "${id ?? `row ${index + 1}`}" is "${prd}", neither empty nor #<number>.`);
+    return { id, area: cell(row, 'area'), brief: cell(row, 'brief'), prd: filled ? Number(filled[1]) : null };
   });
 
   const allowed = AREA_ROWS[scale];

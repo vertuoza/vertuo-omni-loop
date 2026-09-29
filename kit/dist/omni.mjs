@@ -18376,7 +18376,7 @@ var AREA_COLUMNS = (
   ["id", "area", "brief", "PRD"]
 );
 var AREA_ROWS = { vast: { min: 2, max: 6, words: "two to six" }, lite: { min: 1, max: 1, words: "exactly one" } };
-var FRONT_FIELDS = Object.keys({ concept: 0, title: 0, kind: 0, scale: 0 });
+var FRONT_FIELDS = ["concept", "title", "kind", "scale"];
 var FRONT_MATTER_BLOCK6 = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 var KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 var PRD_CELL = /^#([1-9]\d*)$/;
@@ -18464,18 +18464,20 @@ function areasOf(lines, scale) {
   const faults = AREA_COLUMNS.filter((name) => column[name] === -1).map((name) => `Areas: the table has no "${name}" column.`);
   const cell2 = (row, name) => column[name] === -1 ? void 0 : row[column[name]] ?? "";
   const seen = /* @__PURE__ */ new Set();
+  const twice = /* @__PURE__ */ new Set();
   const areas = table.rows.map((row, index) => {
     const id = cell2(row, "id");
     const prd2 = cell2(row, "PRD");
-    if (id !== void 0) {
-      if (seen.has(id)) faults.push(`Areas: id "${id}" is listed twice.`);
-      else if (!KEBAB.test(id)) faults.push(`Areas: id "${id}" is not kebab-case.`);
-      seen.add(id);
+    if (id !== void 0 && seen.has(id)) {
+      if (!twice.has(id)) faults.push(`Areas: id "${id}" is listed twice.`);
+      twice.add(id);
+    } else if (id !== void 0 && !KEBAB.test(id)) {
+      faults.push(`Areas: id "${id}" is not kebab-case.`);
     }
-    if (prd2 !== void 0 && prd2 !== "" && !PRD_CELL.test(prd2)) {
-      faults.push(`Areas: the PRD cell of "${id ?? `row ${index + 1}`}" is "${prd2}", neither empty nor #<number>.`);
-    }
-    return { id, area: cell2(row, "area"), brief: cell2(row, "brief"), prd: prd2 && PRD_CELL.test(prd2) ? Number(PRD_CELL.exec(prd2)[1]) : null };
+    seen.add(id);
+    const filled = PRD_CELL.exec(prd2 ?? "");
+    if (prd2 && !filled) faults.push(`Areas: the PRD cell of "${id ?? `row ${index + 1}`}" is "${prd2}", neither empty nor #<number>.`);
+    return { id, area: cell2(row, "area"), brief: cell2(row, "brief"), prd: filled ? Number(filled[1]) : null };
   });
   const allowed = AREA_ROWS[scale];
   if (allowed && (areas.length < allowed.min || areas.length > allowed.max)) {
