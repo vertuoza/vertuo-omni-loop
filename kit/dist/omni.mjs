@@ -18774,10 +18774,15 @@ async function push(prd2, { ctx, repo, client, home, claudeSessionId, stdout, st
     }
     forgetDraft(where, draft.id);
   }
-  if (isText4(result?.id) && isText4(result?.url) && draft && readDossiers(where).some((entry) => entry.id === draft.id)) {
+  if (!isText4(result?.id) || !isText4(result?.url)) return reportPush(result, [], { stdout, stderr });
+  if (draft && readDossiers(where).some((entry) => entry.id === draft.id)) {
     markNumbered(where, draft.id, { prd: prd2, id: result.id, url: result.url });
   }
   return reportPush(result, folder.tooLarge, { stdout, stderr });
+}
+function recordedLink(home, prd2, kind) {
+  if (!home || kind !== "prd") return null;
+  return readDossiers(home).filter((entry) => entry.prd === prd2).at(-1) ?? null;
 }
 async function link(prd2, kind, { repo, client, home, stdout, stderr }) {
   let found;
@@ -18789,7 +18794,7 @@ async function link(prd2, kind, { repo, client, home, stdout, stderr }) {
       println(stderr, "none");
       return 1;
     }
-    const recorded = error.status === null && home && kind === "prd" ? readDossiers(home).filter((entry) => entry.prd === prd2).at(-1) : null;
+    const recorded = error.status === null ? recordedLink(home, prd2, kind) : null;
     if (!recorded) {
       println(stderr, skipLine(error));
       return 1;
@@ -18803,18 +18808,23 @@ async function link(prd2, kind, { repo, client, home, stdout, stderr }) {
   println(stdout, found.url);
   return 0;
 }
+function kindOf2(flag, numbered) {
+  if (flag === void 0) return "prd";
+  if (!numbered || !KINDS3.includes(flag)) throw usageError(USAGE8);
+  return flag;
+}
 var dossier = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, env = process.env, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }) {
     const { positional, flags } = parseArgs("dossier", args, { values: ["kind"] });
     const [verb, ...rest] = positional;
     const title = verb === "open" && rest.length === 1 ? rest[0].trim().slice(0, TITLE_MAX3) : "";
-    const runnable = verb === "status" && rest.length === 0 || ["push", "link"].includes(verb) && rest.length === 1 || title.length > 0;
+    const numbered = ["push", "link"].includes(verb);
+    const runnable = verb === "status" && rest.length === 0 || numbered && rest.length === 1 || title.length > 0;
     if (!runnable) throw usageError(USAGE8);
-    const kind = flags.kind ?? "prd";
-    if (!KINDS3.includes(kind) || flags.kind !== void 0 && !["push", "link"].includes(verb)) throw usageError(USAGE8);
+    const kind = kindOf2(flags.kind, numbered);
     if (verb === "link" && !/^[1-9]\d*$/.test(rest[0])) throw usageError(USAGE8);
-    const prd2 = verb === "push" || verb === "link" ? positiveInt(`dossier ${verb}`, "<n>", rest[0]) : null;
+    const prd2 = numbered ? positiveInt(`dossier ${verb}`, "<n>", rest[0]) : null;
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
     if (verb === "status") {

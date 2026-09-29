@@ -189,6 +189,19 @@ function artifactsOf(value: unknown, kind: WorkKind): { artifacts: DossierArtifa
   return { artifacts };
 }
 
+/** A push's kind (a PRD's when it sends none) and the draft it names, or why they are refused: a fix
+ * never names a draft. */
+function kindAndDraftOf(sent: Record<string, unknown>): { kind: WorkKind; draftId: string | null } | { problem: string } {
+  const kind = sent.kind ?? 'prd';
+  if (!isWorkKind(kind)) return { problem: KIND_PROBLEM };
+  const draftId = sent.draftId ?? null;
+  if (!(draftId === null || (typeof draftId === 'string' && UUID.test(draftId)))) {
+    return { problem: '`draftId`, when sent, is the id of a draft dossier.' };
+  }
+  if (draftId !== null && kind !== 'prd') return { problem: 'A fix has no draft: push it by its number alone.' };
+  return { kind, draftId };
+}
+
 export function pushDossier(request: Request, deps: DossierDeps): Promise<Response> {
   return handle(request, deps, async (client) => {
     const store = dossierStore(client);
@@ -200,13 +213,9 @@ export function pushDossier(request: Request, deps: DossierDeps): Promise<Respon
     if (!Number.isInteger(prd) || (prd as number) <= 0 || (prd as number) > PRD_MAX) return refuse(400, '`prd` is the PRD\'s number.');
     const title = titleOf(sent.title);
     if (!title) return refuse(400, `A push carries a title of 1 to ${TITLE_MAX} characters.`);
-    const kind = sent.kind ?? 'prd';
-    if (!isWorkKind(kind)) return refuse(400, KIND_PROBLEM);
-    const draftId = sent.draftId ?? null;
-    if (!(draftId === null || (typeof draftId === 'string' && UUID.test(draftId)))) {
-      return refuse(400, '`draftId`, when sent, is the id of a draft dossier.');
-    }
-    if (draftId !== null && kind !== 'prd') return refuse(400, 'A fix has no draft: push it by its number alone.');
+    const which = kindAndDraftOf(sent);
+    if ('problem' in which) return refuse(400, which.problem);
+    const { kind, draftId } = which;
     const read = artifactsOf(sent.artifacts, kind);
     if ('problem' in read) return refuse(read.status, read.problem);
     const pushed = await store.push({ repo, prd: prd as number, kind, title, draftId, artifacts: read.artifacts });

@@ -69,7 +69,7 @@ export function readDossierFolder(ctx, prd) {
 }
 
 /** The folder under `<delivery>` each kind of fix keeps its record in. */
-export const FIX_ROOTS = Object.freeze({ visual: 'visual', bug: 'bugs' });
+const FIX_ROOTS = Object.freeze({ visual: 'visual', bug: 'bugs' });
 
 const ROUND = /^variations-r([1-9]\d*)\.html$/;
 const FIX_PREFIX = /^(?:visual|bug)\s*:\s*/i;

@@ -148,10 +148,17 @@ async function push(prd, { ctx, repo, client, home, claudeSessionId, stdout, std
     }
     forgetDraft(where, draft.id);
   }
-  if (isText(result?.id) && isText(result?.url) && draft && readDossiers(where).some((entry) => entry.id === draft.id)) {
+  if (!isText(result?.id) || !isText(result?.url)) return reportPush(result, [], { stdout, stderr });
+  if (draft && readDossiers(where).some((entry) => entry.id === draft.id)) {
     markNumbered(where, draft.id, { prd, id: result.id, url: result.url });
   }
   return reportPush(result, folder.tooLarge, { stdout, stderr });
+}
+
+/** The last link this computer recorded for PRD n, or null. It records PRDs only: a fix has none. */
+function recordedLink(home, prd, kind) {
+  if (!home || kind !== 'prd') return null;
+  return readDossiers(home).filter((entry) => entry.prd === prd).at(-1) ?? null;
 }
 
 async function link(prd, kind, { repo, client, home, stdout, stderr }) {
@@ -164,9 +171,8 @@ async function link(prd, kind, { repo, client, home, stdout, stderr }) {
       println(stderr, 'none');
       return 1;
     }
-    // The app cannot be reached: a link this computer recorded for PRD n is the best there is. It
-    // records PRDs only, so a fix has none.
-    const recorded = error.status === null && home && kind === 'prd' ? readDossiers(home).filter((entry) => entry.prd === prd).at(-1) : null;
+    // The app cannot be reached: a link this computer recorded for PRD n is the best there is.
+    const recorded = error.status === null ? recordedLink(home, prd, kind) : null;
     if (!recorded) {
       println(stderr, skipLine(error));
       return 1;
@@ -181,18 +187,25 @@ async function link(prd, kind, { repo, client, home, stdout, stderr }) {
   return 0;
 }
 
+/** The kind `--kind` names (prd when it names none); only push and link take one. */
+function kindOf(flag, numbered) {
+  if (flag === undefined) return 'prd';
+  if (!numbered || !KINDS.includes(flag)) throw usageError(USAGE);
+  return flag;
+}
+
 export const dossier = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, env = process.env, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }) {
     const { positional, flags } = parseArgs('dossier', args, { values: ['kind'] });
     const [verb, ...rest] = positional;
     const title = verb === 'open' && rest.length === 1 ? rest[0].trim().slice(0, TITLE_MAX) : '';
-    const runnable = (verb === 'status' && rest.length === 0) || (['push', 'link'].includes(verb) && rest.length === 1) || title.length > 0;
+    const numbered = ['push', 'link'].includes(verb);
+    const runnable = (verb === 'status' && rest.length === 0) || (numbered && rest.length === 1) || title.length > 0;
     if (!runnable) throw usageError(USAGE);
-    const kind = flags.kind ?? 'prd';
-    if (!KINDS.includes(kind) || (flags.kind !== undefined && !['push', 'link'].includes(verb))) throw usageError(USAGE);
+    const kind = kindOf(flags.kind, numbered);
     if (verb === 'link' && !/^[1-9]\d*$/.test(rest[0])) throw usageError(USAGE);
-    const prd = verb === 'push' || verb === 'link' ? positiveInt(`dossier ${verb}`, '<n>', rest[0]) : null;
+    const prd = numbered ? positiveInt(`dossier ${verb}`, '<n>', rest[0]) : null;
 
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
