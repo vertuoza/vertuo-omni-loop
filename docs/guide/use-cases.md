@@ -10,6 +10,7 @@ or in Claude Code with `!` before them. In the examples, `7` stands for your PRD
 | You want to… | Type |
 |---|---|
 | [turn an idea into a PRD](#i-have-an-idea) | `/omni:brainstorm <the idea>` |
+| [explore a vast idea before any PRD](#explore-a-vast-idea) | `/omni:think-big <the idea>` |
 | [make a small visual change](#make-a-small-visual-change) | `/omni:visual-fix <the change>` |
 | [fix a bug](#fix-a-bug) | `/omni:bug-fix <the bug>` or `/omni:bug-fix 612` |
 | [build an approved PRD](#build-an-approved-prd) | `/omni:yolo 7` |
@@ -43,6 +44,41 @@ default branch on purpose: that merge puts the PRD in the inbox, approved, for e
 ([why](/docs/loop#why-the-phase-0-pull-request-goes-into-the-default-branch)). Something wrong? Do
 not merge: tell Claude what to change, in the same session. The whole walk is
 [Your first PRD](/docs/first-prd).
+
+### Explore a vast idea
+
+An idea that spans the whole product and would take several PRDs: a new identity, a rewrite, a new
+experience for every user. Before anyone cuts it into PRDs, see what the whole could be.
+
+```text agent
+/omni:think-big Give every employee an agenda in our app
+```
+
+Claude says how big it thinks the idea is, and what kind: a new experience, a new identity or a new
+way to build. A tweak gets the `/omni:visual-fix` line; an idea one PRD would carry is offered
+`/omni:brainstorm` or a lite run. A vast one carries on. A studio of agents shows you six to eight
+rendered concepts on one page, each with the moment a user would tell a colleague about, while a
+panel (a Visionary, a Craft critic, a Skeptic, a Value critic and one or two real users) argues over
+each by name. You keep, kill, merge or push further; the next round turns the ones you kept into
+clickable prototypes. You crown one, click through its vision tour, and edit its **areas**: the
+PRD-sized parts of it, in build order, the first one the wedge. A full run spawns many agents: stop
+after any round, and nothing is written.
+
+Once you crown one, it opens an issue labelled `omni:concept` and one pull request into your default
+branch that carries the concept's folder, such as
+`.omni-loop/delivery/inbox/concepts/0712-team-agenda/`: `concept.md`, the vision tour, every board
+as you saw it and the debate. No spec, no plan, no code.
+
+**Then:** open the vision tour, and merge the pull request: the concept is in the inbox. Then
+brainstorm its areas one at a time, the wedge first, each in a clean session:
+
+```text agent
+/omni:brainstorm --concept 712 day-view
+```
+
+Each starts from the area's brief and the concept's vision, and ends like any brainstorm, with a
+phase-0 pull request. The concept's Areas table shows which area became which PRD. It never merges
+itself.
 
 ### Make a small visual change
 
