@@ -88,12 +88,27 @@ describe('omni visual', () => {
 
   it('is not ok, exit 1, when the folder holds no before-after.html', async () => {
     const { root, write, base } = setup();
-    write(`${DIR}/notes.md`, 'notes\n');
+    write(`${DIR}/variations-r1.html`, VALID_PAGE);
     commit(root, 'fix(app): sidebar darker (#12)');
 
     const { code, out } = await run(root, base);
     expect(code).toBe(1);
     expect(failures(out)).toEqual([`- ${PAGE}: missing.`]);
+  });
+
+  it('is ok with the rounds of variations beside the page, and names a stray file (PRD 627)', async () => {
+    const { root, write, base } = setup();
+    write(PAGE, VALID_PAGE);
+    write(`${DIR}/variations-r1.html`, VALID_PAGE);
+    write(`${DIR}/variations-r2.html`, VALID_PAGE);
+    commit(root, 'fix(app): sidebar darker (#12)');
+    expect((await run(root, base)).code).toBe(0);
+
+    write(`${DIR}/notes.md`, 'notes\n');
+    commit(root, 'docs(app): notes (#12)');
+    const { code, out } = await run(root, base);
+    expect(code).toBe(1);
+    expect(failures(out)).toEqual([`- ${DIR}/notes.md: not part of a visual fix; the folder holds before-after.html and variations-r<k>.html only.`]);
   });
 
   it('is not ok, exit 1, when the page is over limits.beforeAfterMaxBytes', async () => {
