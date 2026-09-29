@@ -1,3 +1,33 @@
+# Settled outbox items — PRD 579
+
+Append-only. Each entry below is one outbox item a human answered: the question exactly as it
+was raised, the answer exactly as it was given, who approved it, when, through which channel,
+and the verdict. Nothing here is ever rewritten — see `.omni-loop/delivery/README.md`.
+
+<!-- omni-outbox-settled: s2-01-announced-while-switches-off -->
+
+## s2-01-announced-while-switches-off — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s2
+- Wave: 2
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
 ---
 id: s2-01-announced-while-switches-off
 prd: 579
@@ -46,3 +76,7 @@ One line in the announcing step: record only when a switch is on. No stored shap
 (author) The PRD, the registers and the glossary do not settle this:
 
 - The spec says what is kept and that alerts sit behind the switches, but not what happens to news that settled while both were off (author).
+
+```
+
+<!-- /omni-outbox-settled: s2-01-announced-while-switches-off -->
