@@ -12337,6 +12337,13 @@ function listDir(root, dir, predicate) {
   if (!existsSync4(abs)) return [];
   return readdirSync2(abs, { withFileTypes: true }).filter(predicate).map((entry) => entry.name).sort();
 }
+function diskSource(root) {
+  return {
+    files: (dir) => listDir(root, dir, (entry) => entry.isFile()),
+    dirs: (dir) => listDir(root, dir, (entry) => entry.isDirectory()),
+    read: (file) => readFileSync3(join4(root, file), "utf8")
+  };
+}
 function glossaryTermOf(text4) {
   return readFields(text4.split("\n")).fields.glossaryTerm ?? null;
 }
@@ -12349,17 +12356,17 @@ function domainsDir(ctx) {
 function crossDomainDir(ctx) {
   return `${ctx.layout.knowledgeRoot}/cross-domain`;
 }
-function readKnowledge({ ctx }) {
+function readKnowledge({ ctx, source = diskSource(ctx.root) }) {
   const entries3 = [];
   const PRODUCT_DIR = productDir(ctx);
   const DOMAINS_DIR = domainsDir(ctx);
   const CROSS_DOMAIN_DIR = crossDomainDir(ctx);
-  const productFiles = listDir(ctx.root, PRODUCT_DIR, (entry) => entry.isFile());
+  const productFiles = source.files(PRODUCT_DIR);
   for (const [name, kind] of Object.entries(LAYER_FILES)) {
     if (!productFiles.includes(name)) continue;
     const file = `${PRODUCT_DIR}/${name}`;
     entries3.push(
-      ...parseEntryFile(file, readFileSync3(join4(ctx.root, file), "utf8"), {
+      ...parseEntryFile(file, source.read(file), {
         scope: "product",
         domain: "product",
         codes: [PRODUCT_CODE],
@@ -12367,15 +12374,15 @@ function readKnowledge({ ctx }) {
       })
     );
   }
-  const domains = listDir(ctx.root, DOMAINS_DIR, (entry) => entry.isDirectory()).map((name) => {
+  const domains = source.dirs(DOMAINS_DIR).map((name) => {
     const dir = `${DOMAINS_DIR}/${name}`;
-    const files = listDir(ctx.root, dir, (entry) => entry.isFile());
+    const files = source.files(dir);
     const code = codeOf(name);
     for (const [layer, kind] of Object.entries(LAYER_FILES)) {
       if (!files.includes(layer)) continue;
       const file = `${dir}/${layer}`;
       entries3.push(
-        ...parseEntryFile(file, readFileSync3(join4(ctx.root, file), "utf8"), {
+        ...parseEntryFile(file, source.read(file), {
           scope: "domain",
           domain: name,
           codes: [code],
@@ -12383,20 +12390,17 @@ function readKnowledge({ ctx }) {
         })
       );
     }
-    const glossaryTerm = files.includes("README.md") ? glossaryTermOf(readFileSync3(join4(ctx.root, dir, "README.md"), "utf8")) : null;
+    const glossaryTerm = files.includes("README.md") ? glossaryTermOf(source.read(`${dir}/README.md`)) : null;
     return { name, code, files, glossaryTerm };
   });
-  const crossDomainFiles = listDir(
-    ctx.root,
-    CROSS_DOMAIN_DIR,
-    (entry) => entry.isFile() && entry.name.endsWith(".md")
-  ).map((fileName) => {
+  const crossDomainNames = source.files(CROSS_DOMAIN_DIR).filter((name) => name.endsWith(".md"));
+  const crossDomainFiles = crossDomainNames.map((fileName) => {
     const name = basename(fileName, ".md");
     const halves = name.split("--");
     const pair = halves.length === 2 && halves.every(Boolean) ? halves : null;
     const file = `${CROSS_DOMAIN_DIR}/${fileName}`;
     entries3.push(
-      ...parseEntryFile(file, readFileSync3(join4(ctx.root, file), "utf8"), {
+      ...parseEntryFile(file, source.read(file), {
         scope: "cross-domain",
         domain: name,
         codes: pair ? pair.map(codeOf) : [],

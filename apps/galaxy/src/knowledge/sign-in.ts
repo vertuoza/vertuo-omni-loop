@@ -3,12 +3,12 @@ import type { Exchange } from '../ask/page/sign-in';
 // Signing in from the knowledge map (PRD 149): the galaxy's Google sign-in, coming back through the
 // page's own callback, which turns the code into the session cookie and returns to /knowledge on the
 // entry the address named, carrying the reason when the sign-in was refused. It only ever returns to
-// /knowledge on this site, and carries nothing but the domain and the entry.
+// /knowledge on this site, and carries nothing but the repository, the domain and the entry.
 
 const CALLBACK = '/knowledge/callback';
-const KEPT = ['domain', 'entry'] as const;
+const KEPT = ['repo', 'domain', 'entry'] as const;
 
-type Wanted = { domain?: string | null; entry?: string | null };
+type Wanted = { repo?: string | null; domain?: string | null; entry?: string | null };
 
 function kept(from: Wanted): URLSearchParams {
   const query = new URLSearchParams();
@@ -28,7 +28,7 @@ export const knowledgeCallbackPath = (wanted: Wanted) => withQuery(CALLBACK, kep
  * sign-in failed. `exchange` is null when this deployment has no database. */
 export async function knowledgeSignInReturn(url: URL, origin: string, exchange: Exchange | null): Promise<string> {
   const params = url.searchParams;
-  const back = new URL(withQuery('/knowledge', kept({ domain: params.get('domain'), entry: params.get('entry') })), origin);
+  const back = new URL(withQuery('/knowledge', kept({ repo: params.get('repo'), domain: params.get('domain'), entry: params.get('entry') })), origin);
   const refused = params.get('error_description') ?? params.get('error');
   const code = params.get('code');
   if (refused) {
