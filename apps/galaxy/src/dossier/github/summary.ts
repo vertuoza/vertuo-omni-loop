@@ -13,7 +13,11 @@ export type IssueRef = { number: number; url: string; state: 'open' | 'closed' }
 
 /** A pull request of the PRD: the most recent one on its head branch that is open or merged (a
  * closed, unmerged one counts as absent). `draft` is GitHub's, and only means something while open. */
-export type PullRef = { number: number; url: string; state: 'open' | 'merged'; draft: boolean };
+export type PullRef = {
+  number: number; url: string; state: 'open' | 'merged'; draft: boolean;
+  /** When it merged (PRD 251, s9); null while open. Left out by a summary made before it. */
+  mergedAt?: string | null;
+};
 
 /** An open outbox item, as the Outbox tab shows it: its rank, the question and the decision in plain
  * words, and its options (A, the one built, first); a human-action item has person steps instead. */
@@ -24,15 +28,50 @@ export type OutboxItem = {
   decision: string | null;
   options: { letter: string; text: string }[];
   personSteps: string | null;
+  /** What the Outbox tab's card shows beside (PRD 251, s9), as the item wrote it; each left out by a
+   * summary made before it. `bearsOn` is the front matter's line (`none`, or ids). */
+  bearsOn?: string;
+  intro?: string | null;
+  punchline?: string | null;
+  details?: OutboxDetails;
 };
+
+/** An item's four closing sections, as written; a section it lacks is left out. */
+export type OutboxDetails = { decide?: string; meanwhile?: string; cost?: string; unknown?: string };
 
 /** A settled outbox entry, in the order settled.md holds it: its title (the item's question in plain
  * words, else its id), its verdict and the answer as it was given. */
-export type SettledItem = { id: string; title: string; verdict: string; answer: string };
+export type SettledItem = {
+  id: string; title: string; verdict: string; answer: string;
+  /** Who approved it, when, and the reply's link (PRD 251, s9); null when the entry names none. */
+  by?: string | null; at?: string | null; url?: string | null;
+};
 
 /** The PRD's outbox: the open items and the settled ones, from the feature branch before shipping and
  * from the shipped folder after. */
-export type Outbox = { open: OutboxItem[]; settled: SettledItem[] };
+export type Outbox = {
+  open: OutboxItem[]; settled: SettledItem[];
+  /** The mediums adopted when raised and not objected to since (PRD 251, s9): the settled entries
+   * whose latest verdict is `adopted`, each read back as its item. */
+  adopted?: OutboxItem[];
+};
+
+/** A question's number on the feature PR's outbox comment, which never changes once given. */
+export type QuestionNumber = { number: number; id: string };
+
+/** Where an answer was given, read from the reply's door line; GitHub when it has none. */
+export type AnswerDoor = 'page' | 'terminal' | 'github';
+
+/** An answer on the feature PR that nobody has settled yet, as the kit's reply reader reads it: the
+ * latest per number. `counted` is false when GitHub does not list its author as someone whose reply
+ * the kit counts (owner, member, collaborator): `/omni:yolo-fix` will not read it. */
+export type PendingAnswer = {
+  number: number; id: string; text: string; by: string; at: string | null; url: string | null; counted: boolean; door: AnswerDoor;
+};
+
+/** What the feature PR's comments say of the outbox (PRD 251, s9): the outbox comment's numbering,
+ * and the pending answers. */
+export type OutboxReplies = { numbering: QuestionNumber[]; pending: PendingAnswer[] };
 
 export type GithubSummary = {
   /** The dossier's home repository, `owner/name`. */
@@ -51,6 +90,9 @@ export type GithubSummary = {
   outbox?: Read<Outbox | null>;
   /** The feature PR's outbox comment, found by its marker; null when there is none. */
   outboxComment?: Read<string | null>;
+  /** The numbering and the pending answers, from the feature PR's comments (PRD 251, s9); null when
+   * there is no feature PR. Left out by a summary made before it. */
+  replies?: Read<OutboxReplies | null>;
   /** The retro, `retro.md` as markdown (PRD 426, s3): from the retro branch while its PR is open, from the
    * default branch once merged; null when there is no retro PR or no file yet. Left out by a summary made before it. */
   retroText?: Read<string | null>;

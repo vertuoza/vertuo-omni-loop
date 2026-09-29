@@ -19,7 +19,8 @@
  * - each old spelling the parser still reads (`terraformed:`, `by: terraform`, PRD #68), once per
  *   place it appears.
  *
- * A path is read from the repository's root. Which slots a form has, and which are required, is
+ * A path is read from the repository's root, except in an imported copy's context (PRD 522), whose
+ * paths name files of its target and are never looked up. Which slots a form has, and which are required, is
  * its template's say, never its own markers'.
  */
 import { existsSync } from 'node:fs';
@@ -37,7 +38,8 @@ function gradeForm({ id, kind }, { ctx, exec }) {
 
   const { form } = read;
   const kit = parseForm(formTemplate(id)).form;
-  const gone = (path) => !existsSync(join(ctx.root, path));
+  // An imported copy's paths name files of its target, never of this disk (PRD 522).
+  const gone = (path) => !ctx.copyOf && !existsSync(join(ctx.root, path));
   const violations = [];
   const warnings = [];
 

@@ -13,6 +13,7 @@
 .app-sidebar {
   display: grid;
   align-content: start;
+  grid-template-rows: auto auto 1fr;
   gap: 18px;
   padding: 16px;
   border-bottom: 1px solid var(--ask-line);
@@ -118,4 +119,21 @@
   color: var(--ask-on-plasma);
   background: var(--ask-plasma);
 }
-.app-sidebar-out { margin-left: auto; color: var(--ask-muted); font-weight: 400; }
+.app-sidebar-out { margin-left: auto; display: inline-flex; color: var(--ask-muted); }
+
+/* ── The foot: Docs · Release notes in one small row, the release running under it (issue 561) ── */
+
+.app-sidebar-foot {
+  align-self: end;
+  display: grid;
+  gap: 6px;
+  padding: 12px 10px 0;
+  border-top: 1px solid var(--ask-line);
+}
+.app-sidebar-links { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.app-sidebar-links li + li::before { content: '·'; margin-right: 6px; color: var(--ask-muted); }
+.ask .app-sidebar-links a.app-sidebar-item { display: inline-flex; gap: 4px; padding: 2px 0; border: 0; font-size: 13px; font-weight: 600; }
+.ask .app-sidebar-links a.app-sidebar-item:hover { text-decoration: underline; }
+.app-sidebar-links .app-sidebar-out { margin-left: 0; }
+.app-sidebar-links .app-sidebar-out svg { width: 11px; height: 11px; }
+.app-sidebar-version { margin: 0; font: 500 12px/1.2 var(--ask-mono); color: var(--ask-muted); }

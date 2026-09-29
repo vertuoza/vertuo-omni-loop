@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bug Fix Lane</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a bug report's journey, today beside after, then the three things the new lane leaves behind. */
+:root{
+  --bg:#f5f4f2; --panel:#ffffff; --ink:#1f1d1b; --muted:#625c56; --line:#dcd7d1;
+  --red:#b42318; --red-bg:#fdecea; --green:#1d7a46; --green-bg:#e4f4ea; --code:#efedea;
+  --display:"Fraunces",Georgia,serif; --body:"Source Sans 3",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#161514; --panel:#201e1c; --ink:#ece8e3; --muted:#a39c94; --line:#35312e;
+    --red:#f28b82; --red-bg:#3a1e1b; --green:#6fd39a; --green-bg:#16301f; --code:#2a2725; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#161514; --panel:#201e1c; --ink:#ece8e3; --muted:#a39c94; --line:#35312e;
+  --red:#f28b82; --red-bg:#3a1e1b; --green:#6fd39a; --green-bg:#16301f; --code:#2a2725; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--body);padding-inline:16px;padding-block:32px 56px}
+main{max-width:1100px;margin:0 auto;display:grid;gap:40px}
+h1{font:600 2rem/1.15 var(--display);margin:0 0 8px;text-wrap:balance}
+h2{font:600 1.35rem/1.2 var(--display);margin:0 0 14px;text-wrap:balance}
+h3{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+p{margin:0;max-width:68ch}
+.lede{color:var(--muted)}
+code,pre{font-family:var(--mono);font-size:.84rem}
+code{background:var(--code);padding:1px 5px;border-radius:4px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:760px){.pair{grid-template-columns:1fr}}
+.col{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;min-width:0;display:grid;gap:14px;align-content:start}
+.tag{display:inline-block;font:500 .75rem var(--mono);padding:2px 8px;border-radius:999px}
+.today .tag{background:var(--red-bg);color:var(--red)}
+.after .tag{background:var(--green-bg);color:var(--green)}
+ol.steps{margin:0;padding:0;list-style:none;display:grid;gap:6px;counter-reset:s}
+ol.steps li{counter-increment:s;display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:baseline}
+ol.steps li::before{content:counter(s);font:500 .78rem var(--mono);color:var(--muted);text-align:right}
+.route{border-left:3px solid var(--line);padding-left:12px;display:grid;gap:4px}
+.route b{font-weight:600}
+.cost{font:500 .8rem var(--mono);color:var(--muted)}
+.stop{color:var(--red)}
+.ok{color:var(--green)}
+pre{background:var(--code);border-radius:8px;padding:14px;margin:0;overflow-x:auto;line-height:1.5;white-space:pre}
+.same ul{margin:0;padding-left:20px;display:grid;gap:4px}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>A bug report, today and after <code>/omni:bug-fix</code></h1>
+  <p class="lede">PRD 556. A second fast lane beside the loop: from one line or an issue to one pull request a person merges, with the reproduction seen red before the fix.</p>
+</header>
+
+<section>
+  <h2>The route a bug takes</h2>
+  <div class="pair">
+    <div class="col today">
+      <span class="tag">today</span>
+      <div class="route">
+        <b>Through <code>/omni:brainstorm</code></b>
+        <p>Design, PRD issue, spec, plan, before/after, phase-0 PR, a merge, then <code>/omni:yolo</code>, waves, the outbox gate, the feature PR.</p>
+        <span class="cost">4 pull requests · 2 human merges · for one slice</span>
+      </div>
+      <div class="route">
+        <b>Or by hand</b>
+        <p>Someone edits the code and opens a PR. Nothing says how bad the bug was, whether a change broke it, or whether the test that came with the fix ever failed without it.</p>
+        <span class="cost">1 pull request · no triage · red never seen</span>
+      </div>
+    </div>
+    <div class="col after">
+      <span class="tag">after</span>
+      <div class="route">
+        <b><code>/omni:bug-fix 'saving twice duplicates the row'</code></b>
+        <ol class="steps">
+          <li>Takes a description, or a GitHub issue (<code>612</code>, <code>#612</code> or its URL). A description opens an issue labelled <code>omni:bug</code>.</li>
+          <li>Classifies it: a flaky check is tooling, and it <span class="stop">stops</span>.</li>
+          <li>Triage comment: domain, risk, regression with evidence. Labels <code>omni:risk-high</code>, <code>omni:regression</code>.</li>
+          <li>Needs a product decision, a stored shape or a new route? <span class="stop">Stops</span> with the <code>/omni:brainstorm</code> line.</li>
+          <li>Words first, then the reproduction, run: it must fail. Green before the fix: <span class="stop">stops</span>.</li>
+          <li>The smallest fix, test-first; the reproduction is never edited.</li>
+          <li>The guard, then the mutation check when <code>commands.mutation</code> is set.</li>
+          <li>Writes <code>bugs/0612-duplicate-row/bug.md</code>; <code>omni bug 612</code> prints <span class="ok">ok</span>.</li>
+          <li>One PR into the default branch, <code>Closes #612</code>. A person merges.</li>
+        </ol>
+        <span class="cost">1 pull request · 1 human merge · red proven</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>What it leaves behind</h2>
+  <div class="pair">
+    <div class="col">
+      <h3>On the issue: the triage comment</h3>
+<pre>&lt;!-- omni-bug:triage --&gt;
+
+## Triage
+
+- **Kind:** behaviour bug
+- **Domain:** records
+- **Risk:** high — saving twice leaves two rows;
+  no workaround but deleting one by hand
+- **Regression:** yes — culprit #598 (`a1b2c3d`)
+- **Reproduction:** `src/records/save.test.mjs`
+- **Branch:** `fix/612-duplicate-row`</pre>
+    </div>
+    <div class="col">
+      <h3>In the PR: the Bug section</h3>
+<pre>## Bug
+
+- **Issue:** #612
+- **Triage:** records · high · regression — culprit #598
+- **Red proven:** ✘ saves once when Save is
+  pressed twice (expected 1 row, got 2)
+- **Guard:** unique key check in save — its own test
+- **Mutation:** not set here
+- **Record:** `.omni-loop/delivery/bugs/0612-duplicate-row/bug.md`</pre>
+    </div>
+  </div>
+  <div class="col" style="margin-top:20px">
+    <h3>In the repository: <code>omni bug 612</code> on the fix branch</h3>
+<pre>$ omni bug 612
+not ok
+- bug.md: the Reproduction's File: src/records/save.test.mjs is not changed on this branch
+- a1f09e2: not signed (no Omni-man trailer)
+
+$ omni bug 612
+ok</pre>
+    <p class="lede">It checks one folder for the issue, the five sections filled, a risk of critical, high, medium or low, a reproduction file that exists and that the branch changes, a red line, and signed commits. It runs no test: CI proves green.</p>
+  </div>
+</section>
+
+<section class="col same">
+  <h2>What stays the same</h2>
+  <ul>
+    <li>The loop for features: <code>/omni:brainstorm</code>, phase-0, <code>/omni:yolo</code>, waves and the outbox.</li>
+    <li><code>/omni:visual-fix</code>, the first fast lane, and its <code>omni visual</code> proof.</li>
+    <li>The <code>bug-fixing</code> playbook form: a repository's own steps still add to the skill's.</li>
+    <li>No release note and no retro for a bug fix; the kit's version still moves on every merge.</li>
+    <li>A person merges. The skill never does.</li>
+  </ul>
+</section>
+</main>
+</body>
+</html>

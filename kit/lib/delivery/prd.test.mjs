@@ -12,6 +12,7 @@ describe('whereIs', () => {
       files: [`${D}/inbox/0042-a/spec.md`],
       outboxDir: `${D}/outbox/0042-a`,
       openItems: [`${D}/outbox/0042-a/s1-01-x.md`],
+      repos: [],
     });
   });
   it('is null for an unknown PRD', () => {

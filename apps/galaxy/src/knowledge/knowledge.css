@@ -31,6 +31,12 @@ html:has(.km-root) body { height: auto; overflow: visible; }
 .km-chart { font-size: 15px; font-weight: 700; text-decoration: none; }
 .km-chart:hover { text-decoration: underline; }
 
+/* The repository menu, in place of the chip when the crew has other repositories to pick from: the
+   dossier page's version picker, laid out the same way. */
+.km-picker { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; margin: 0; min-width: 0; }
+.km-picker-field { display: grid; gap: 4px; min-width: 0; }
+.km-picker .ask-share-pick { max-width: 100%; }
+
 /* ── The page ─────────────────────────────────────────────────────────────── */
 
 .km-main { width: 100%; justify-self: start; display: grid; gap: 18px; min-width: 0; }

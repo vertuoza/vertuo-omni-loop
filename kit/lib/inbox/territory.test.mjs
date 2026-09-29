@@ -4,6 +4,7 @@ import {
   collisionRows,
   collisions,
   covers,
+  parsePlanRepositories,
   parsePlanSlices,
   sameWaveCollisions,
   territoryPrefixes,
@@ -303,5 +304,68 @@ describe('Feature: Slices declare the ground they stand on — a slice that reac
     expect(verdict.fatal).toBe(false);
     expect(verdict.lines.join('\n')).toMatch(/s99/);
     expect(verdict.unknownSlice).toBe(true);
+  });
+});
+
+/** A plan repository's plan (PRD 549): a `## Repositories` table, and a `repo` column per slice. */
+const MULTI_PLAN = `# Plan: across repositories
+
+## Repositories
+
+| repo | role | read at | knowledge |
+| --- | --- | --- | --- |
+| vertuo-backend-php | back-end | 3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4 | imported (stale) |
+| \`vertuo-apps\` | front-end | 9b01e44c2d7a3f5e8b6c1d0a9f8e7d6c5b4a3921 | own |
+
+## Slices
+
+| id | repo | slice | territory | blocked by | wave |
+| --- | --- | --- | --- | --- | --- |
+| s1 | vertuo-backend-php | the quote total is served | \`src/\` | — | 1 |
+| s2 | vertuo-apps | the quote screen shows the total | \`apps/quote/\` | s1 | 2 |
+| s3 | \`vertuo-apps\` | the empty quote says why | \`src/\` | — | 1 |
+`;
+
+describe('PRD 549: a slice names its repository', () => {
+  it("reads each slice's repo from a repo column, backticks stripped", () => {
+    expect(parsePlanSlices(MULTI_PLAN).map((slice) => slice.repo)).toEqual([
+      'vertuo-backend-php',
+      'vertuo-apps',
+      'vertuo-apps',
+    ]);
+  });
+
+  it('reads repo: null on every slice of a table without a repo column', () => {
+    expect(parsePlanSlices(PLAN).map((slice) => slice.repo)).toEqual([null, null, null]);
+  });
+
+  it('reads the ## Repositories rows in order', () => {
+    expect(parsePlanRepositories(MULTI_PLAN)).toEqual([
+      {
+        repo: 'vertuo-backend-php',
+        role: 'back-end',
+        readAt: '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4',
+        knowledge: 'imported (stale)',
+      },
+      { repo: 'vertuo-apps', role: 'front-end', readAt: '9b01e44c2d7a3f5e8b6c1d0a9f8e7d6c5b4a3921', knowledge: 'own' },
+    ]);
+  });
+
+  it('reads [] for a plan with no ## Repositories table', () => {
+    expect(parsePlanRepositories(PLAN)).toEqual([]);
+  });
+
+  it('the same territory in two repositories is no collision', () => {
+    expect(collisions(parsePlanSlices(MULTI_PLAN))).toEqual([]);
+  });
+
+  it('the same territory twice in one repository and one wave is refused', () => {
+    const same = MULTI_PLAN.replace(
+      '| s2 | vertuo-apps | the quote screen shows the total | `apps/quote/` | s1 | 2 |',
+      '| s2 | vertuo-apps | the quote screen shows the total | `src/quote/` | — | 1 |',
+    );
+    expect(sameWaveCollisions(parsePlanSlices(same))).toEqual([
+      { left: 's2', right: 's3', shared: ['src/'], wave: 1 },
+    ]);
   });
 });

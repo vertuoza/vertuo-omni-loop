@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mega Invade</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a plan repository in the middle, its target repositories around it; today beside after. */
+:root{
+  --bg:#f4f6f5; --panel:#ffffff; --ink:#18221f; --muted:#56635e; --line:#d6dedb;
+  --accent:#0f7a63; --accent-bg:#e2f3ee; --warn:#9a5b00; --warn-bg:#fdf1dc;
+  --bad:#b3261e; --bad-bg:#fbe9e7; --code:#edf1ef; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#101614; --panel:#18201d; --ink:#e3ebe8; --muted:#97a6a0; --line:#2a3531;
+    --accent:#5fd0b2; --accent-bg:#133129; --warn:#f0b35a; --warn-bg:#35270f;
+    --bad:#f2877e; --bad-bg:#3a1f1d; --code:#1f2926; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101614; --panel:#18201d; --ink:#e3ebe8; --muted:#97a6a0; --line:#2a3531;
+  --accent:#5fd0b2; --accent-bg:#133129; --warn:#f0b35a; --warn-bg:#35270f;
+  --bad:#f2877e; --bad-bg:#3a1f1d; --code:#1f2926; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,sans-serif;padding-inline:16px;padding-block:32px 48px}
+main{max-width:1120px;margin:0 auto;display:grid;gap:36px}
+h1{font-size:26px;line-height:1.2;margin:0 0 6px;text-wrap:balance;font-weight:600}
+h2{font-size:18px;margin:0 0 12px;font-weight:600;text-wrap:balance}
+h3{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:600}
+p{margin:0;max-width:68ch}
+.lede{color:var(--muted)}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px}
+.side{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px;display:grid;gap:14px;align-content:start;min-width:0}
+.side.after{border-color:var(--accent)}
+.tag{display:inline-block;font:500 12px "IBM Plex Mono",ui-monospace,monospace;padding:2px 8px;border-radius:4px;background:var(--code);color:var(--muted)}
+.after .tag{background:var(--accent-bg);color:var(--accent)}
+pre{margin:0;background:var(--code);border-radius:6px;padding:12px;overflow-x:auto;font:13px/1.5 "IBM Plex Mono",ui-monospace,monospace}
+code{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.92em}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:500}
+.st{display:inline-block;padding:1px 7px;border-radius:10px;font-size:12px;font-weight:500}
+.ok{background:var(--accent-bg);color:var(--accent)}
+.stale{background:var(--warn-bg);color:var(--warn)}
+.unr{background:var(--bad-bg);color:var(--bad)}
+ul{margin:0;padding-left:18px;display:grid;gap:6px}
+svg{max-width:100%;height:auto;display:block}
+svg text{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px}
+.same{background:var(--panel);border:1px dashed var(--line);border-radius:8px;padding:18px}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>PRD 522 · mega-invade</h1>
+  <p class="lede">A plan repository that knows its target repositories. Part 1 of the multi-repository mode:
+  <code>vertuo-automation-plan</code> learns which repositories hold the code, what each one does, and where
+  each one's knowledge lives. Planning across them (mega-brainstorm) and building across them (ultra-yolo) come next.</p>
+</header>
+
+<section>
+  <h2>Where the repositories stand</h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag">today</span>
+      <svg viewBox="0 0 440 220" role="img" aria-label="Today: each repository runs the loop alone; the plan repository knows none of them">
+        <rect x="150" y="12" width="140" height="48" rx="6" fill="var(--code)" stroke="var(--line)"/>
+        <text x="220" y="33" text-anchor="middle" fill="var(--ink)">vertuo-automation-plan</text>
+        <text x="220" y="50" text-anchor="middle" fill="var(--muted)">knows no target</text>
+        <g>
+          <rect x="10" y="150" width="130" height="48" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+          <text x="75" y="171" text-anchor="middle" fill="var(--ink)">vertuo-backend-php</text>
+          <text x="75" y="188" text-anchor="middle" fill="var(--muted)">no loop</text>
+          <rect x="155" y="150" width="130" height="48" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+          <text x="220" y="171" text-anchor="middle" fill="var(--ink)">vertuo-apps</text>
+          <text x="220" y="188" text-anchor="middle" fill="var(--muted)">loop, alone</text>
+          <rect x="300" y="150" width="130" height="48" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+          <text x="365" y="171" text-anchor="middle" fill="var(--ink)">vertuo-soft</text>
+          <text x="365" y="188" text-anchor="middle" fill="var(--muted)">no loop</text>
+        </g>
+        <text x="220" y="112" text-anchor="middle" fill="var(--muted)">no link between them</text>
+      </svg>
+      <ul>
+        <li>The loop's config holds one <code>repo.slug</code>. A PRD, its plan and its pull requests all live in that one repository.</li>
+        <li>Which repository does what is only prose, in <code>docs/git-repositories/README.md</code>.</li>
+        <li>A repository with no knowledge base gives a planner nothing to read.</li>
+      </ul>
+    </div>
+    <div class="side after">
+      <span class="tag">after</span>
+      <svg viewBox="0 0 440 220" role="img" aria-label="After: the plan repository lists three targets, each with a role and a knowledge state">
+        <rect x="150" y="12" width="140" height="48" rx="6" fill="var(--accent-bg)" stroke="var(--accent)"/>
+        <text x="220" y="33" text-anchor="middle" fill="var(--ink)">vertuo-automation-plan</text>
+        <text x="220" y="50" text-anchor="middle" fill="var(--accent)">plan repository</text>
+        <line x1="190" y1="60" x2="75" y2="150" stroke="var(--accent)"/>
+        <line x1="220" y1="60" x2="220" y2="150" stroke="var(--accent)"/>
+        <line x1="250" y1="60" x2="365" y2="150" stroke="var(--accent)"/>
+        <text x="105" y="100" text-anchor="middle" fill="var(--muted)">back-end</text>
+        <text x="220" y="112" text-anchor="middle" fill="var(--muted)">front-end</text>
+        <text x="335" y="100" text-anchor="middle" fill="var(--muted)">legacy</text>
+        <rect x="10" y="150" width="130" height="48" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+        <text x="75" y="171" text-anchor="middle" fill="var(--ink)">vertuo-backend-php</text>
+        <text x="75" y="188" text-anchor="middle" fill="var(--warn)">imported copy</text>
+        <rect x="155" y="150" width="130" height="48" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+        <text x="220" y="171" text-anchor="middle" fill="var(--ink)">vertuo-apps</text>
+        <text x="220" y="188" text-anchor="middle" fill="var(--accent)">own, read in place</text>
+        <rect x="300" y="150" width="130" height="48" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+        <text x="365" y="171" text-anchor="middle" fill="var(--ink)">vertuo-soft</text>
+        <text x="365" y="188" text-anchor="middle" fill="var(--muted)">none</text>
+      </svg>
+      <ul>
+        <li>The plan repository's config lists its targets, a one-word role each, and where each one's knowledge lives.</li>
+        <li>The guide stays the prose; the config points at it and never copies it.</li>
+        <li>A target with no knowledge base can get a draft imported into the plan repository, stamped with the commit it was read at.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>The config</h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag">today · .omni-loop/config.yml</span>
+<pre>repo:
+  slug: vertuoza/vertuo-automation-plan
+  remote: origin
+  defaultBranch: main
+# nothing names another repository</pre>
+    </div>
+    <div class="side after">
+      <span class="tag">after · .omni-loop/config.yml</span>
+<pre>repo:
+  slug: vertuoza/vertuo-automation-plan
+plan:
+  guide: docs/git-repositories/README.md
+  targets:
+    - repo: vertuoza/vertuo-backend-php
+      role: back-end
+      knowledge: imported
+      readAt: 3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4
+    - repo: vertuoza/vertuo-apps
+      role: front-end
+      knowledge: own
+    - repo: vertuoza/vertuo-soft
+      role: legacy
+      knowledge: none</pre>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Asking which targets are ready</h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag">today · $ omni targets</span>
+<pre>omni: unknown command "targets"</pre>
+      <p class="lede">Finding out means opening each repository on GitHub and looking for <code>.omni-loop/</code>.</p>
+    </div>
+    <div class="side after">
+      <span class="tag">after · $ omni targets</span>
+      <div class="scroll">
+      <table>
+        <thead><tr><th>repo</th><th>role</th><th>knowledge</th><th>loop</th><th>state</th></tr></thead>
+        <tbody>
+          <tr><td>vertuoza/vertuo-backend-php</td><td>back-end</td><td>imported</td><td>not installed</td><td><span class="st stale">stale · 4 evidence files changed</span></td></tr>
+          <tr><td>vertuoza/vertuo-apps</td><td>front-end</td><td>own</td><td>v0.0.40</td><td><span class="st ok">ok</span></td></tr>
+          <tr><td>vertuoza/vertuo-soft</td><td>legacy</td><td>none</td><td>not installed</td><td><span class="st ok">ok</span></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="lede">Read through <code>gh api</code> only, no clone. Exit 0 only when every row is ok. Other states: <span class="st unr">unreachable</span> and <span class="st stale">drifted</span>.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Setting it up</h2>
+  <div class="pair">
+    <div class="side">
+      <span class="tag">today · /omni:invade</span>
+      <ul>
+        <li>Explores the repository it runs in, and only that one.</li>
+        <li>Writes that repository's own knowledge base, in one docs-only pull request.</li>
+      </ul>
+    </div>
+    <div class="side after">
+      <span class="tag">after · /omni:mega-invade in the plan repository</span>
+      <ul>
+        <li><strong>Survey:</strong> the guide's repositories, plus the config's targets, each read for loop, version and filled forms.</li>
+        <li><strong>One map, one answer:</strong> target or not, its role, and for one with no knowledge base, import one or not.</li>
+        <li><strong>Import:</strong> a read-only shallow clone, invade's four facets, drafts under <code>.omni-loop/knowledge/repos/&lt;name&gt;/</code>. Nothing runs in the clone.</li>
+        <li><strong>One docs-only pull request</strong> in the plan repository: the config as its own commit, the readiness table, and one next step per gap. Nothing is written in any target.</li>
+        <li><strong><code>--sync</code></strong> redraws only what changed in stale imported copies, and proposes <code>own</code> when a target installs its own knowledge base.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="same">
+  <h3>What stays the same</h3>
+  <ul>
+    <li>A repository with no <code>plan</code> section: its config, its commands and its skills behave exactly as today.</li>
+    <li><code>/omni:invade</code>, <code>/omni:brainstorm</code> and <code>/omni:yolo</code> are unchanged. This PRD adds no repository column to plans and opens no pull request in a target.</li>
+    <li>The plan repository's own knowledge never reads an imported copy: an id in a copy never binds it.</li>
+    <li>The Omni app, the GitHub App and the game are untouched.</li>
+  </ul>
+</section>
+</main>
+</body>
+</html>

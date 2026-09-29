@@ -17,7 +17,8 @@ Nothing reaches your default branch unless you merge it yourself.
 ## Before you start
 
 Your repository has the loop installed and invaded: you followed [Install](/docs/install) and
-[Invade](/docs/invade), and merged both pull requests. Bring your checkout up to date, then open
+[Invade](/docs/invade), and merged both pull requests, or you joined a team whose repository runs
+it and set up your laptop ([Join a team](/docs/join)). Bring your checkout up to date, then open
 Claude Code at the root of the repository:
 
 ```bash terminal
@@ -90,6 +91,12 @@ Something wrong? Do not merge. Tell Claude what to change, in the same session, 
 update the PRD on the feature branch and on the phase-0 pull request alike. When it is right,
 **merge the phase-0 pull request** on GitHub. The PRD is now in the
 **inbox**: approved, and ready to build.
+
+The phase-0 pull request goes into your default branch, not into the PRD's feature branch, which
+holds the same documents already. That merge is what puts the PRD in the inbox: the loop reads the
+inbox on the default branch, so until then `omni status` shows the PRD as `in review`, and the
+merge is your approval on record. [How the loop works](/docs/loop#why-the-phase-0-pull-request-goes-into-the-default-branch)
+gives all four reasons.
 
 ## 3. Build it: `/clear`, then `/omni:yolo <n>`
 
@@ -209,4 +216,4 @@ omni status 7
 The first lists your PRDs and where each one stands; the second says whether PRD 7 still has open
 questions.
 
-[Next → When something goes wrong](/docs/troubleshooting)
+[Next → Use cases](/docs/use-cases)

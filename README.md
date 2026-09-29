@@ -11,6 +11,9 @@ Unanswered questions, stuck slices and shipped bugs are **Entropy**, and they co
 points until someone closes them. The game only reads the delivery layer and can be removed
 without touching it (`game/`, `.github/workflows/game.yml`).
 
+- Using the loop: the guide in [`docs/guide/`](docs/guide/index.md), served at `/docs` by the app. Joining a
+  team that already runs it? Start with [Join a team](docs/guide/join.md), then
+  [How the loop works](docs/guide/loop.md) and [Use cases](docs/guide/use-cases.md).
 - Design: [`docs/superpowers/specs/2026-09-24-omni-plan-game-design.md`](docs/superpowers/specs/2026-09-24-omni-plan-game-design.md)
 - Game layer reference: [`game/README.md`](game/README.md)
 - The galaxy arcade (web UI, Vercel + Supabase): [`apps/galaxy/README.md`](apps/galaxy/README.md)

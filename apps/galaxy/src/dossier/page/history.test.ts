@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import type { DossierListRow } from '../store';
-import { filtered, historyAddress, historyChoices, historyItems, readHistoryFilters, type HistoryFilters } from './history';
+import { UNREAD, type GithubSummary, type OutboxItem } from '../github/summary';
+import {
+  filtered, historyAddress, historyChoices, historyItems, historyToRead, readHistoryFilters, readOpenCounts, type HistoryFilters, type OpenCounts,
+} from './history';
 
 // /prd, the history (PRD 216's spec, "The pages"), as pure functions of the rows dossier_list() gives the
 // viewer and the filters in the address: newest activity first, filtered by repository — any of a
@@ -35,6 +38,11 @@ const ASK = row('00000000-0000-4000-8000-0000000000d3', {
   latest: { plan: { id: 'p1', version: 1, source: 'kit', created_at: '2026-09-10T11:00:00Z' } }, last_activity: '2026-09-12T08:00:00Z',
 });
 const ROWS = [ASK, DOSSIERS, QUOTES];
+
+const OPEN_ITEM: OutboxItem = { id: 's1-01-a', rank: 'high', question: 'q', decision: 'd', options: [], personSteps: null };
+const summary = (more: Partial<GithubSummary>): GithubSummary => ({
+  repo: 'vertuoza/vertuo-omni-loop', prd: 1, folder: null, topic: null, issue: null, phase0: null, feature: null, retro: null, mergedSlices: 0, ...more,
+});
 
 describe('the filters in the address', () => {
   it('reads a repository, draft or PRD, and a search; anything else is no filter', () => {
@@ -160,5 +168,71 @@ describe('what the repository filter offers', () => {
       'vertuoza/vertuo-ai-domain', 'vertuoza/vertuo-core', 'vertuoza/vertuo-mobile', 'vertuoza/vertuo-omni-loop',
     ]);
     expect(historyChoices([]).repos).toEqual([]);
+  });
+});
+
+describe('the open questions (PRD 251)', () => {
+  const WAITING = row('00000000-0000-4000-8000-0000000000d6', {
+    prd: 251, title: 'Answer the outbox anywhere', numbered_at: '2026-09-26T10:00:00Z', last_activity: '2026-09-26T10:00:00Z',
+  });
+  const rows = [...ROWS, WAITING];
+  const open: OpenCounts = new Map([[WAITING.id, 3], [ASK.id, 0]]);
+
+  it('shows n open on a row whose outbox has open questions, and nothing on the others', () => {
+    const items = historyItems(rows, ALL, 'u-pierre', open);
+    expect(items.find((i) => i.id === WAITING.id)?.open).toBe('3 open');
+    expect(items.filter((i) => i.id !== WAITING.id).map((i) => i.open)).toEqual([null, null, null]);
+    expect(historyItems(rows, ALL, 'u-pierre').map((i) => i.open)).toEqual([null, null, null, null]);
+  });
+
+  it('reads Needs an answer from the address, and writes it back', () => {
+    expect(readHistoryFilters({ needs: 'answer' })).toEqual({ who: 'mine', needsAnswer: true });
+    expect(readHistoryFilters({ needs: 'nonsense' })).toEqual({ who: 'mine' });
+    expect(filtered({ who: 'mine', needsAnswer: true })).toBe(true);
+    expect(historyAddress(all({ state: 'prd', needsAnswer: true }))).toBe('/prd?state=prd&needs=answer&who=all');
+  });
+
+  it('Needs an answer keeps only the rows with open questions; a row not read counts as none', () => {
+    expect(historyItems(rows, all({ needsAnswer: true }), 'u-pierre', open).map((i) => i.id)).toEqual([WAITING.id]);
+    expect(historyItems(rows, all({ needsAnswer: true }), 'u-pierre')).toEqual([]);
+    expect(historyItems(rows, { who: 'mine', needsAnswer: true, search: 'outbox' }, 'u-pierre', open).map((i) => i.heading)).toEqual(['#251']);
+  });
+
+  it('asks the reader only for the numbered dossiers the other filters let through', () => {
+    expect(historyToRead(rows, ALL, 'u-pierre').map((r) => r.prd)).toEqual([216, 251, 71]);
+    expect(historyToRead(rows, all({ needsAnswer: true, search: 'ask' }), 'u-pierre').map((r) => r.prd)).toEqual([71]);
+    expect(historyToRead(rows, { who: 'mine' }, 'u-nobody')).toEqual([]);
+  });
+
+  it('counts each dossier\'s open outbox items from the reader, leaving out what it could not read', async () => {
+    const summaries: Record<number, GithubSummary | null> = {
+      216: summary({ outbox: { open: [OPEN_ITEM, OPEN_ITEM], settled: [] } }),
+      251: summary({ outbox: UNREAD }),
+      71: null,
+    };
+    const asked: { id: string; home_repo: string; prd: number }[] = [];
+    const counts = await readOpenCounts(historyToRead(rows, ALL, 'u-pierre'), {
+      summary: async (dossier) => {
+        asked.push(dossier);
+        return summaries[dossier.prd];
+      },
+    });
+    expect(asked).toEqual([
+      { id: DOSSIERS.id, home_repo: DOSSIERS.home_repo, prd: 216 },
+      { id: WAITING.id, home_repo: WAITING.home_repo, prd: 251 },
+      { id: ASK.id, home_repo: ASK.home_repo, prd: 71 },
+    ]);
+    expect([...counts]).toEqual([[DOSSIERS.id, 2]]);
+  });
+
+  it('counts nothing without a reader, and a reader that throws leaves that row out', async () => {
+    expect((await readOpenCounts([WAITING], null)).size).toBe(0);
+    const counts = await readOpenCounts([WAITING, ASK], {
+      summary: async (dossier) => {
+        if (dossier.prd === 251) throw new Error('boom');
+        return summary({ outbox: { open: [OPEN_ITEM], settled: [] } });
+      },
+    });
+    expect([...counts]).toEqual([[ASK.id, 1]]);
   });
 });

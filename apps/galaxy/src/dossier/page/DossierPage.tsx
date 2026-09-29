@@ -25,7 +25,8 @@ import { dossierPath, TAB_LABELS, type DossierView } from './view';
 // actions (the stage's button, Copy link, Delete draft for a draft's opener), the facts strip (Stage,
 // Repo or Repos, On GitHub, Opened; a cell with nothing to show is left out), then the tabs. From
 // 900 × 700 px the box is pinned while the page scrolls (PinnedHead.tsx measures it).
-// Its Outbox tab (OutboxPane.tsx) lists the decisions taken while it was built, and its Retro tab
+// Its Outbox tab (OutboxPane.tsx) is where the decisions taken while it was built are answered, beside
+// the spec, the before/after page or the brainstorm (PRD 251, s9), and its Retro tab
 // (RetroPane.tsx) renders the retro once written; empty, each reads muted.
 
 type Props = {
@@ -47,7 +48,7 @@ const EMPTY: Record<DossierKind, string> = {
 function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 'supabase'>) {
   const { shown, tab } = view;
   if (tab === 'questions') return <QuestionsPane questions={view.questions} supabase={supabase} />;
-  if (tab === 'outbox') return <OutboxPane outbox={view.outbox} />;
+  if (tab === 'outbox') return <OutboxPane dossierId={view.id} outbox={view.outbox} spec={markdown} />;
   if (tab === 'retro') return <RetroPane retro={view.retro} />;
   if (!shown) {
     return (

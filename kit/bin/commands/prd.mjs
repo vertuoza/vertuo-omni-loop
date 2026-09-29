@@ -22,6 +22,7 @@ export const prd = {
       `outbox: ${where.outboxDir ?? 'none'}`,
       `open items: ${where.openItems.length === 0 ? 'none' : ''}`.trimEnd(),
       ...where.openItems.map((file) => `  - ${file}`),
+      ...(where.repos.length === 0 ? [] : [`repos: ${where.repos.join(', ')}`]),
     ];
     println(stdout, lines.join('\n'));
     return 0;

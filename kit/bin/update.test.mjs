@@ -11,7 +11,7 @@ import { makeRepo } from '../test/fixture.mjs';
 import { writeForms } from '../lib/playbook/write-forms.mjs';
 import { main } from './omni.mjs';
 
-const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge'];
+const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual'];
 const CONFIG = 'kit: 1\n# kept by hand, comments and all\nrepo:\n  slug: acme/widgets\npaths:\n  context: []\n';
 // Each bin carries its marker the way esbuild writes it into a real bundle (kit/build.mjs).
 const binOf = (version) => `#!/usr/bin/env node\n    define_OMNI_BUNDLE_default = { home: "acme/kit", version: ${version ? `"${version}"` : 'null'} };\n`;

@@ -24,9 +24,11 @@
  * - **Loose** entries are the rules and invariants with no `serves` link: their `Serves:` is
  *   missing or names no principle. **Unserved** principles are those no entry serves.
  *
- * An absent knowledge folder is an empty graph, never an error.
+ * An absent knowledge folder is an empty graph, never an error. The folder is read off disk
+ * ({@link readGraph}) or from texts already fetched, such as another repository's files read from
+ * GitHub ({@link graphOfTexts}); the same parser reads both.
  */
-import { idsCitedIn, PRODUCT_CODE, readKnowledge } from './registers.mjs';
+import { idsCitedIn, memorySource, PRODUCT_CODE, readKnowledge } from './registers.mjs';
 
 export const GRAPH_VERSION = 1;
 
@@ -106,4 +108,15 @@ export function buildGraph(knowledge, { repo }) {
 /** The graph of the repository `ctx` names, read off disk through the one parser. */
 export function readGraph({ ctx }) {
   return buildGraph(readKnowledge({ ctx }), { repo: ctx.config.repo.slug });
+}
+
+/**
+ * The graph of a knowledge folder held in memory: `texts` by path from the repository's root
+ * (`{ '.omni-loop/knowledge/product/rules.md': '…' }`), `knowledgeRoot` where the folder sits, as
+ * that repository's config says (`paths.knowledge`), and `repo` its slug. Files outside the folder
+ * are ignored; a folder with no file is an empty graph.
+ */
+export function graphOfTexts({ texts, knowledgeRoot, repo }) {
+  const ctx = { layout: { knowledgeRoot } };
+  return buildGraph(readKnowledge({ ctx, source: memorySource(texts) }), { repo });
 }

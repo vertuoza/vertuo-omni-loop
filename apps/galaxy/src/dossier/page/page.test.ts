@@ -172,7 +172,7 @@ describe('the page to share', () => {
       supabase: { url: 'http://127.0.0.1:54321', key: 'anon' },
       id: numbered,
       // The GitHub part the page was rendered with (no reader here: unknown) is part of the start.
-      signature: signature({ asked: 2, answered: 1, latest: { spec: 1, 'before-after': 1 }, github: { stage: 'unknown', open: null } }),
+      signature: signature({ asked: 2, answered: 1, latest: { spec: 1, 'before-after': 1 }, github: { stage: 'unknown', open: null, answers: null } }),
     });
     const markup = renderToStaticMarkup(page);
     expect(markup).not.toContain('Cannot reach the server');
@@ -495,7 +495,7 @@ describe('the stylesheet', () => {
   });
 
   it('spans the page, with a 900 px measure for prose only (PRD 476)', () => {
-    for (const selector of ['.dossier', '.dossier-rounds', '.outbox-items', '.dossier-frame']) {
+    for (const selector of ['.dossier', '.dossier-rounds', '.outbox-cards', '.dossier-frame']) {
       expect(of(selector), selector).not.toMatch(/max-width/);
     }
     for (const selector of ['.dossier-md', '.dossier-front']) expect(of(selector), selector).toMatch(/max-width:\s*900px/);
@@ -531,7 +531,7 @@ describe('the stylesheet', () => {
   it('outlines chips, badges, cards, controls and the tab bar with --ask-line-strong, and keeps --ask-line for dividers (PRD 476)', () => {
     const outlined = [
       '.dossier-head', '.stage-stop', '.dossier-repo', '.dossier-tabs', '.dossier-empty', '.dossier-frame iframe',
-      '.dossier-rounds', '.dossier-category', '.dossier-option', '.outbox-item', '.outbox-verdict',
+      '.dossier-rounds', '.dossier-category', '.dossier-option', '.outbox-card', '.outbox-option', '.outbox-settled', '.outbox-context',
       '.ask .dossier-quick-choice:disabled', '.dossier-history-filters', '.dossier-history-whos',
       '.ask a.dossier-history-row', '.dossier-history-artifact',
     ];
