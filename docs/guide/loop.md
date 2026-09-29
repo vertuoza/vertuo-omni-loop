@@ -14,7 +14,7 @@ shows the loop three ways: its stages, its pull requests, and its skills.
 
 | Stage | What it means | Where you see it | What moves it on |
 |---|---|---|---|
-| **idea** | talked through with Claude, nothing written yet | your Claude Code session | `/omni:brainstorm` writes the PRD |
+| **idea** | talked through with Claude, nothing written yet | your Claude Code session | `/omni:brainstorm` writes the PRD; a vast idea goes through `/omni:think-big` first |
 | **PRD** | a spec, a plan and a before/after page, waiting for a person's approval | the PRD issue, the phase-0 pull request | you merge the phase-0 pull request |
 | **inbox** | approved, ready to build | `.omni-loop/delivery/inbox/` | `/omni:yolo` builds it |
 | **outbox** | being built; what the agents decided alone waits for you | the feature pull request, a draft | you answer the questions, then merge the feature pull request |
@@ -120,6 +120,7 @@ omni board 7
 
 | Skill | Type it when | It ends with |
 |---|---|---|
+| `/omni:think-big` | you have a vast idea, one that would take several PRDs, and want to see bold directions before any is cut | the concept pull request, with its vision tour and its areas; its last line is the `/omni:brainstorm --concept` line of the first area |
 | `/omni:brainstorm` | you have an idea | the PRD issue, the phase-0 pull request and the draft feature pull request; its last line is the `/omni:yolo` line |
 | `/omni:yolo <n>` | the phase-0 pull request is merged | every slice merged into the feature branch; the feature pull request ready, or questions for you |
 | `/omni:yolo-fix <n>` | you answered the questions | what you changed rebuilt, and the feature pull request ready |
@@ -131,7 +132,7 @@ omni board 7
 | `/omni:status` | you want to see where the PRDs are | one screen |
 | `/omni:help` | you want to know what a command does | one screen |
 | `/omni:ask on` | you would rather answer Claude's questions on a web page | the page's link |
-| `/omni:dossier-open`, `/omni:dossier-push` | never: `/omni:brainstorm` and `/omni:plan` run them | the PRD's page on the Omni page |
+| `/omni:dossier-open`, `/omni:dossier-push` | never: `/omni:brainstorm`, `/omni:think-big` and `/omni:plan` run them | the PRD's page on the Omni page |
 
 Every skill, what it does and when to use it: [Skills](/docs/skills).
 
