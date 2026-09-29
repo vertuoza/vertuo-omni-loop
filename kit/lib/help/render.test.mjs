@@ -103,6 +103,11 @@ describe('renderEntry', () => {
     expect(renderEntry('toString', DEFAULTS)).toBeNull();
   });
 
+  it('prints /omni:mega-invade by its name or its slash command (PRD 522)', () => {
+    expect(renderEntry('mega-invade', DEFAULTS)).toBe(renderEntry('/omni:mega-invade', DEFAULTS));
+    expect(renderEntry('/omni:mega-invade', DEFAULTS).split('\n')[0]).toMatch(/^\/omni:mega-invade \[--sync\] +for you$/);
+  });
+
   it('fills placeholders and keeps every line of every entry within 80 columns', () => {
     const custom = configWith({ paths: { delivery: 'work/delivery' } });
     for (const { kind, name } of ENTRIES) {

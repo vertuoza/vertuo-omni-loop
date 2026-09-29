@@ -535,6 +535,22 @@ export const ENTRIES = deepFreeze([
       'redoes only what went stale.',
   },
   {
+    name: 'mega-invade',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:mega-invade [--sync]'],
+    label: '/omni:mega-invade',
+    summary: 'make this a plan repository that knows its targets',
+    detail:
+      'Makes this repository a plan repository: it reads the repositories its guide names and its ' +
+      'config lists through gh, without cloning, shows one map and takes every answer in one ' +
+      'message: target or not, its role, and for one without its own knowledge base whether to ' +
+      'import a draft of it. It writes the plan section of the config and each imported copy, from ' +
+      'a read-only clone in which nothing runs, and ends with one docs-only PR a person merges. It ' +
+      'never writes in a target. omni targets then reports each one; --sync redraws only what ' +
+      'changed in the stale copies.',
+  },
+  {
     name: 'ask',
     kind: 'skill',
     who: 'you',
