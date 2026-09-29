@@ -119,12 +119,12 @@ describe('the rows', () => {
     const anna = { user_id: 'u-anna', name: 'Anna', github_login: 'ANNA', avatar_url: 'https://a.test/anna.png', fleet: null, hero: null };
     const asked: string[] = [];
     const peopleIn = (workspace: string) => { asked.push(workspace); return peopleOf([anna], []); };
-    const [sidebar, topbar] = fixItems(ROWS, 'visual', { who: 'all' }, 'u-pierre', facts, peopleIn);
+    const [sidebar, topbar] = fixItems(ROWS, 'visual', { who: 'all' }, ME, facts, peopleIn);
     expect(sidebar.askedBy).toMatchObject({ name: '@anna', face: { kind: 'photo', url: 'https://a.test/anna.png' } });
     expect(topbar.askedBy).toMatchObject({ name: '@Stranger', face: { kind: 'photo', url: 'https://github.com/Stranger.png?size=48' } });
     expect(asked).toEqual(['w1', 'w1']);
     // With no directory, a login still gets its GitHub photo.
-    expect(fixItems(ROWS, 'visual', { who: 'all' }, 'u-pierre', facts)[0].askedBy?.face).toEqual({ kind: 'photo', url: 'https://github.com/anna.png?size=48' });
+    expect(fixItems(ROWS, 'visual', { who: 'all' }, ME, facts)[0].askedBy?.face).toEqual({ kind: 'photo', url: 'https://github.com/anna.png?size=48' });
   });
 
   it('reads and writes the state filter', () => {
