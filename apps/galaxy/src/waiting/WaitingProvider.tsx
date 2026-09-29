@@ -6,6 +6,7 @@ import {
   announce, claimChime, desktopAtLoad, playChime, raiseAlerts, readSwitches, switchDesktopOn, writeSwitches,
   type DesktopState, type NotificationApi, type Store,
 } from './alerts';
+import { DOCS_MS, documentsReader, groupDocuments, noticeDocuments, readSeen, type Announced, type DocumentGroup } from './documents';
 import { iconHref } from './icon';
 import { EMPTY_OUTBOX_PART, outboxRead, pollOutbox, readOutbox, type OutboxPart } from './outbox';
 import { questionsReader } from './source';
@@ -26,17 +27,27 @@ import { EMPTY_WAITING, titled, WAITING_MS, waitingCounts, type WaitingCounts, t
 // part), so what waited at load announces nothing. A read that finds new items raises one desktop
 // notification per item while Desktop alerts is on, and one chime while Chime is on, played by the
 // first tab to claim it. The two switches, off until switched on, are kept per browser.
+//
+// PRD 579 adds the New documents part (src/waiting/documents.ts): the spec, plan and before/after
+// versions pushed to the numbered dossiers the person opened, read straight from Supabase as them once
+// after load and every 10 s while the tab is visible, grouped per PRD less what this browser has seen
+// (a PRD's page marks it seen). It is news, not a wait: it never adds to the counts, so never to the
+// bell's badge, the tab's `(N)`, the favicon dot or the sidebar badges. A PRD's group is announced
+// once it settles (s2, `noticeDocuments`): one desktop alert per PRD and one chime per read, behind the
+// same two switches, once per newest version across reloads and tabs.
 
 export type Waiting = {
   list: WaitingList;
   counts: WaitingCounts;
   /** A part whose last read failed: it holds what it last had. */
-  unread: { questions: boolean; outbox: boolean };
+  unread: { questions: boolean; outbox: boolean; documents: boolean };
   /** How many PRDs the outbox route could not read, the items of the others kept. */
   unreadPrds: number;
+  /** The New documents part: one group per PRD, newest first. Never counted. */
+  documents: DocumentGroup[];
 };
 
-const EMPTY: Waiting = { list: EMPTY_WAITING, counts: waitingCounts(EMPTY_WAITING), unread: { questions: false, outbox: false }, unreadPrds: 0 };
+const EMPTY: Waiting = { list: EMPTY_WAITING, counts: waitingCounts(EMPTY_WAITING), unread: { questions: false, outbox: false, documents: false }, unreadPrds: 0, documents: [] };
 
 const Context = createContext<Waiting>(EMPTY);
 
@@ -86,6 +97,7 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
   const [questions, setQuestions] = useState(() => view?.questions ?? []);
   const [unread, setUnread] = useState(() => view?.unread ?? false);
   const [outbox, setOutbox] = useState<OutboxPart>(() => ({ ...EMPTY_OUTBOX_PART, items: first }));
+  const [documents, setDocuments] = useState<{ groups: DocumentGroup[]; unread: boolean }>({ groups: [], unread: false });
   const source = view?.source ?? null;
   const url = source?.kind === 'database' ? source.url : null;
   const key = source?.kind === 'database' ? source.key : null;
@@ -103,7 +115,10 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
   useEffect(() => {
     if (!signedIn) return;
     const kept = readSwitches(storage);
-    setSwitches({ desktop: desktopAtLoad(kept.desktop, notifications()), chime: kept.chime });
+    const loaded = { desktop: desktopAtLoad(kept.desktop, notifications()), chime: kept.chime };
+    // Held at once, so the first New documents read, which may announce, sees the switches as kept.
+    live.current = loaded;
+    setSwitches(loaded);
   }, [signedIn]);
 
   /** A read's new items: one notification each, and one chime for the read. */
@@ -166,10 +181,43 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
     }, document, () => Date.now());
   }, [signedIn, notice]);
 
+  // The New documents part: read as `me` at once, then every 10 s while visible. Seen is read again at
+  // each read, so a PRD page opened in any tab clears its group at the next one.
+  useEffect(() => {
+    if (!url || !key || !me) return;
+    const read = documentsReader(createBrowserClient(url, key), me);
+    const loadedAt = Date.now();
+    const log = onceEach();
+    // What this tab announced, standing in for storage that cannot be read (s2).
+    let announced: Announced = [];
+    const tick = async () => {
+      try {
+        const rows = await read(Date.now());
+        const groups = groupDocuments(rows, readSeen(storage, loadedAt));
+        setDocuments({ groups, unread: false });
+        const { desktop, chime } = live.current;
+        announced = noticeDocuments({
+          groups, now: Date.now(), store: storage, kept: announced, desktop, chime,
+          notifications: notifications(), play: () => playChime(audio()), open: openFromAlert,
+        });
+      } catch (error) {
+        log('documents', error);
+        setDocuments((part) => ({ ...part, unread: true }));
+      }
+      return true;
+    };
+    const stop = poll(tick, document, DOCS_MS);
+    if (document.visibilityState === 'visible') void tick();
+    return stop;
+  }, [url, key, me]);
+
   const value = useMemo<Waiting>(() => {
     const list = { questions, outbox: outbox.items };
-    return { list, counts: waitingCounts(list), unread: { questions: unread, outbox: outbox.unread }, unreadPrds: outbox.unreadPrds };
-  }, [questions, unread, outbox]);
+    return {
+      list, counts: waitingCounts(list), unread: { questions: unread, outbox: outbox.unread, documents: documents.unread },
+      unreadPrds: outbox.unreadPrds, documents: documents.groups,
+    };
+  }, [questions, unread, outbox, documents]);
 
   const total = value.counts.total;
   useEffect(() => {

@@ -5,7 +5,7 @@ import { loadFleets } from '../data/load-galaxy';
 import { memberWorkspace } from '../data/workspace';
 import { MASCOTS } from './store';
 
-// /app/fleets's read (PRD 400 s3), as the signed-in person, so row-level security decides what it
+// /app/settings/fleets's read (PRD 400 s3), as the signed-in person, so row-level security decides what it
 // returns: their workspace (the one joined first, as /app's), its fleets, retired ones included,
 // whether they own it (is_owner(), s1) and the mascots an owner may pick (fleet_mascots(), s1). A role
 // that cannot be read reads as a member's: the page then only shows, and the functions refuse anyone

@@ -9,6 +9,12 @@
 // lands in, in a `repo` column, and a `## Repositories` table records each one: this grades both,
 // every refusal naming its field first, and prints the waves and the collision matrix per
 // repository. Outside one, either table is refused, and every other plan grades as before.
+//
+// `omni plan moved <prd> [--json]` (PRD 563) reads, for each target row of a plan repository's
+// `## Repositories`, what changed on the target's default branch since `read at` under the
+// territories of the slices landing there (`kit/lib/plan-repo/moved.mjs`): `moved` with the files,
+// `ok`, or `unreachable`. Read-only. Exit 0 whatever the states (a moved target is a decision, not an
+// error); `not a plan repository` and exit 1 when the config has no `plan` section.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { formatFailure, formatPass } from '../../lib/check-report.mjs';
@@ -18,9 +24,11 @@ import {
   parsePlanSlices,
   sameWaveCollisions,
 } from '../../lib/inbox/territory.mjs';
+import { movedTable, planMoved } from '../../lib/plan-repo/moved.mjs';
 import { parseArgs, positiveInt, println, usageError } from '../args.mjs';
+import { githubEnv } from '../github.mjs';
 
-const USAGE = 'usage: omni plan check <prd>';
+const USAGE = 'usage: omni plan check <prd> | omni plan moved <prd> [--json]';
 
 /** A full 40-character commit, as a target's `read at` must be. */
 const COMMIT = /^[0-9a-f]{40}$/;
@@ -129,15 +137,16 @@ function byRepository(slices) {
   return groups;
 }
 
-function checkPlan(prd, { ctx }) {
+/** PRD n's plan, read and parsed: its path, its slices and its `## Repositories` rows. */
+function readPlan(prd, { ctx, verb }) {
   const planPath = ctx.layout.planPath(prd);
-  if (planPath === null) throw usageError(`omni plan check: PRD ${prd} has no inbox or shipped folder.`);
+  if (planPath === null) throw usageError(`omni plan ${verb}: PRD ${prd} has no inbox or shipped folder.`);
 
   let markdown;
   try {
     markdown = readFileSync(join(ctx.root, planPath), 'utf8');
   } catch (error) {
-    if (error?.code === 'ENOENT') throw usageError(`omni plan check: no plan at ${planPath}.`);
+    if (error?.code === 'ENOENT') throw usageError(`omni plan ${verb}: no plan at ${planPath}.`);
     throw error;
   }
 
@@ -145,9 +154,13 @@ function checkPlan(prd, { ctx }) {
   try {
     slices = parsePlanSlices(markdown);
   } catch (error) {
-    throw usageError(`omni plan check: ${planPath}: ${error.message}`);
+    throw usageError(`omni plan ${verb}: ${planPath}: ${error.message}`);
   }
-  const repositories = parsePlanRepositories(markdown);
+  return { planPath, slices, repositories: parsePlanRepositories(markdown) };
+}
+
+function checkPlan(prd, { ctx }) {
+  const { planPath, slices, repositories } = readPlan(prd, { ctx, verb: 'check' });
   const planSection = ctx.config.plan ?? null;
   const multi = planSection !== null && slices.some((slice) => slice.repo !== null);
   const repoOf = new Map(slices.map((slice) => [slice.id, slice.repo]));
@@ -171,9 +184,30 @@ function checkPlan(prd, { ctx }) {
   return { planPath, slices, waves, multi, matrices, violations };
 }
 
+/** `omni plan moved <prd> [--json]`: one row per target, exit 0 in a plan repository. */
+function moved(rest, { ctx, stdout, exec, env }) {
+  const { positional, flags } = parseArgs('plan moved', rest, { booleans: ['json'] });
+  if (positional.length !== 1) throw usageError(USAGE);
+  const prd = positiveInt('plan moved', '<prd>', positional[0]);
+  const planSection = ctx.config.plan ?? null;
+  if (planSection === null) {
+    println(stdout, 'not a plan repository');
+    return 1;
+  }
+  const { slices, repositories } = readPlan(prd, { ctx, verb: 'moved' });
+  const rows = planMoved(
+    { slices, repositories, planSlug: ctx.config.repo.slug, targets: planSection.targets },
+    { exec, env: githubEnv(ctx, { exec, env }) },
+  );
+  if (flags.json) println(stdout, JSON.stringify(rows.map(({ repo, state, files }) => ({ repo, state, files })), null, 2));
+  else for (const line of movedTable(rows)) println(stdout, line);
+  return 0;
+}
+
 export const plan = {
-  async run(args, { ctx, stdout }) {
+  async run(args, { ctx, stdout, exec, env }) {
     const [sub, ...rest] = args;
+    if (sub === 'moved') return moved(rest, { ctx, stdout, exec, env });
     if (sub !== 'check') throw usageError(USAGE);
     const { positional } = parseArgs('plan check', rest);
     if (positional.length !== 1) throw usageError(USAGE);

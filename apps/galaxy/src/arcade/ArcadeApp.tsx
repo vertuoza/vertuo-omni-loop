@@ -146,7 +146,7 @@ export interface ArcadeProps {
   app?: string;
   /**
    * The signed-in person owns the workspace (PRD 400): with no fleets yet, the fleet screens point
-   * them at /app/fleets, where they set fleets up, and tell anyone else to ask the owner.
+   * them at /app/settings/fleets, where they set fleets up, and tell anyone else to ask the owner.
    */
   owner?: boolean;
 }

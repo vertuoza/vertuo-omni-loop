@@ -27,6 +27,13 @@
  * | `runnable`      | it has no matched pull request and every slice it is blocked by is merged     |
  * | `blocked`       | it has no matched pull request and something it depends on is not merged      |
  *
+ * **Across repositories** (PRD 563): in a plan repository each slice names the `repo` it lands in,
+ * and `repos` maps each short name to `{ slug, readable }`. A slice then matches only a pull request
+ * whose `slug` is its own repository's (the same branch name in two repositories ties two different
+ * slices), every row carries `repo` and `slug`, and a slice of a repository that could not be read
+ * (or that `repos` does not name) is `unreadable` — ahead of every row above — which holds it and
+ * whatever it blocks, and nothing else. On a plan with no `repo` column, rows carry neither field.
+ *
  * An **unknown head commit date** — the caller could not read one — is read as "yes, there is a
  * commit beyond the claim": this module will not call a claim stale on a signal it never actually
  * saw, so the state degrades to `in-flight` rather than `claimed-stale`.
@@ -186,31 +193,45 @@ export function runnableFrontier(rows) {
  * @param {{ branches: { feature: string, slice: string }, board: { matchBy: 'base' | 'label' }, labels: { sub: string, needsFix: string } }} input.config
  * @param {{ topic: string }} input.prd — `topic` is the PRD folder's own topic
  *   (`kit/lib/layout.mjs`'s `parseFolderName`), which fills `{topic}` in the branch templates.
+ * @param {Record<string, { slug: string, readable: boolean }> | null} [input.repos] — a plan
+ *   repository's repositories by short name; each pull request then carries the `slug` it was read
+ *   from. Ignored on a plan with no `repo` column.
  */
-export function boardFor({ slices, prs = [], now = Date.now(), limits, config, prd }) {
+export function boardFor({ slices, prs = [], now = Date.now(), limits, config, prd, repos = null }) {
   const { topic } = prd;
   const featureBranch = fillBranch(config.branches.feature, { topic });
   const live = prs.filter(isLive);
+  const acrossRepos = slices.some((slice) => (slice.repo ?? null) !== null);
+  const repoOf = (slice) => (acrossRepos ? repos?.[slice.repo] ?? { slug: null, readable: false } : null);
 
-  const matched = new Map(
-    slices.map((slice) => {
-      const sliceBranch = fillBranch(config.branches.slice, { topic, slice: slice.id });
-      const candidates = live.filter(
-        (pr) =>
-          pr.headRefName === sliceBranch &&
-          matchesFeature(pr, { matchBy: config.board.matchBy, featureBranch, subLabel: config.labels.sub }),
-      );
-      return [slice.id, pickPr(candidates)];
-    }),
-  );
+  const matched = slices.map((slice) => {
+    const repo = repoOf(slice);
+    if (repo && !repo.readable) return null;
+    const sliceBranch = fillBranch(config.branches.slice, { topic, slice: slice.id });
+    const candidates = live.filter(
+      (pr) =>
+        pr.headRefName === sliceBranch &&
+        (!repo || pr.slug === repo.slug) &&
+        matchesFeature(pr, { matchBy: config.board.matchBy, featureBranch, subLabel: config.labels.sub }),
+    );
+    return pickPr(candidates);
+  });
 
-  const mergedById = new Map([...matched].map(([id, pr]) => [id, Boolean(pr && isMerged(pr))]));
+  const mergedById = new Map(slices.map((slice, index) => [slice.id, Boolean(matched[index] && isMerged(matched[index]))]));
 
-  const rows = slices.map((slice) => {
-    const pr = matched.get(slice.id) ?? null;
+  const rows = slices.map((slice, index) => {
+    const pr = matched[index];
+    const repo = repoOf(slice);
+    const rest = { ...slice };
+    delete rest.repo;
     const blockersMerged = (slice.blockedBy ?? []).every((blockerId) => mergedById.get(blockerId) === true);
-    const state = stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config.labels.needsFix });
-    return { ...slice, pr, state };
+    if (!repo) {
+      return { ...rest, pr, state: stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config.labels.needsFix }) };
+    }
+    const state = repo.readable
+      ? stateFor({ pr, blockersMerged, now, limits, needsFixLabel: config.labels.needsFix })
+      : 'unreadable';
+    return { ...rest, repo: slice.repo, slug: repo.slug, pr, state };
   });
 
   return { prd: { topic }, slices: rows, frontier: runnableFrontier(rows) };

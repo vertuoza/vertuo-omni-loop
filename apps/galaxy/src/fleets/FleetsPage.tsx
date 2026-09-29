@@ -6,7 +6,7 @@ import { FleetsView, type FleetsHandlers } from './FleetsView';
 import { fleetsReducer, initialState } from './model';
 import { databaseFleets, demoFleetsPort, type FleetsPort, type Saved } from './store';
 
-// /app/fleets in the browser (PRD 400 s3): keeps the page's state (model.ts) and calls the fleet
+// /app/settings/fleets in the browser (PRD 400 s3): keeps the page's state (model.ts) and calls the fleet
 // functions as the signed-in person (store.ts), one call at a time; the view draws each step. In the
 // demo, the same rules run in memory.
 

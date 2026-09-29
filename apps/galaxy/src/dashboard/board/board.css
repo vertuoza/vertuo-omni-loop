@@ -1,0 +1,85 @@
+/* A board (PRD 572): the period switch, four tiles, two per-day charts, the People table, the
+   repositories and the fleet ranking, on the ask pages' reading surface. Every colour is a token of
+   src/ask/theme-tokens.ts, as in ../dashboard.css; a fleet's own colour comes from the data, as
+   --dash-fleet on the element that shows it. Nothing is wider than the window: at 393 px the tiles
+   go two by two, the charts one above the other, and the People table scrolls inside its own box. */
+
+.board { display: grid; gap: 28px; min-width: 0; }
+.board > * { min-width: 0; }
+.board h2 { margin: 0; font-size: 17px; line-height: 1.4; overflow-wrap: anywhere; }
+
+/* ── The period switch ── */
+.board-period ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.ask .board-period a {
+  display: inline-block;
+  padding: 6px 12px;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 999px;
+  color: var(--ask-ink);
+  text-decoration: none;
+  font-weight: 700;
+}
+.ask .board-period a:hover { border-color: var(--ask-plasma); }
+.ask .board-period a[aria-current='page'] { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+
+/* ── Tiles ── */
+.board-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 720px) { .board-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.board-tile {
+  display: grid; align-content: start; gap: 4px; min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--ask-line-strong);
+  border-radius: 12px;
+  background: var(--ask-surface);
+  overflow-wrap: anywhere;
+}
+.board-tile-label { margin: 0; font-weight: 700; line-height: 1.3; }
+.board-tile-figure { margin: 0; color: var(--ask-muted); font-variant-numeric: tabular-nums; }
+.board-tile-figure b { color: var(--ask-ink); font-size: 28px; line-height: 1.2; }
+.board-tile-stages b { font-size: 20px; }
+.board-tile-stages > span { white-space: nowrap; }
+.board-tile .dash-note { font-size: 15px; }
+
+/* ── Charts ── */
+.board-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 24px 32px; }
+.board-chart { display: grid; gap: 8px; min-width: 0; align-content: start; }
+.board-chart-head { display: flex; align-items: baseline; justify-content: space-between; gap: 4px 16px; flex-wrap: wrap; }
+.board-chart-total { margin: 0; color: var(--ask-muted); white-space: nowrap; }
+.board-chart-total b { color: var(--ask-ink); font-size: 20px; }
+.board-chart-svg { display: block; width: 100%; height: 160px; overflow: visible; }
+.board-grid { stroke: var(--ask-line); stroke-width: 1; }
+.board-tick,
+.board-day-name { fill: var(--ask-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.board-day-name.is-today { fill: var(--ask-ink); font-weight: 700; }
+.board-bar { fill: var(--ask-plasma); }
+.board-bar-drafted { fill: var(--ask-cyan); background: var(--ask-cyan); }
+.board-bar-inProgress { fill: var(--ask-yellow); background: var(--ask-yellow); }
+.board-bar-shipped { fill: var(--ask-green); background: var(--ask-green); }
+.board-hit { fill: transparent; }
+.board-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--ask-muted); font-size: 14px; }
+.board-legend li { display: flex; align-items: center; gap: 6px; }
+.board-key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+
+/* ── Tables ── */
+.board-people,
+.board-repos,
+.board-fleets { display: grid; gap: 10px; align-content: start; }
+.board-scroll { overflow-x: auto; }
+.board-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.board-table th,
+.board-table td { padding: 6px 8px; border-bottom: 1px solid var(--ask-line); text-align: left; vertical-align: baseline; }
+.board-table thead th { color: var(--ask-muted); font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
+.board-table .is-num { text-align: right; white-space: nowrap; }
+.board-th-note { display: block; font-size: 11px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.board-name { font-weight: 700; overflow-wrap: anywhere; }
+.board-table tr[aria-current='true'] > * { background: var(--ask-plasma-soft); }
+.board-you { color: var(--ask-plasma); }
+.board-fleet { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; white-space: nowrap; }
+.board-fleet.is-solo { color: var(--ask-muted); }
+
+@media (forced-colors: active) {
+  .board-bar { fill: CanvasText; }
+  .board-grid { stroke: GrayText; }
+  .board-tick,
+  .board-day-name { fill: CanvasText; }
+}

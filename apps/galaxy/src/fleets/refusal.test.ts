@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { refusalOf } from './refusal';
 
-// How /app/fleets reads a refusal from the fleet functions (PRD 400 s1): a field's refusal carries
+// How /app/settings/fleets reads a refusal from the fleet functions (PRD 400 s1): a field's refusal carries
 // SQLSTATE 22023 and the field's name as its hint, so the page shows it next to that field; anything
 // else is the form's.
 

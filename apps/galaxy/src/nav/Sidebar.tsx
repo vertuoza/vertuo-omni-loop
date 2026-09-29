@@ -12,7 +12,8 @@ import './sidebar.css';
 import './drawer.css';
 
 // The app's sidebar (PRD 438), on /app, /prd, /ask and /knowledge: the crest and OMNI LOOP, linked to
-// /app, the workspace's name under it, then the Work group and the Omni group (src/nav/sidebar.ts).
+// /app, the workspace's name under it, then the Dashboard, Work and Settings groups (PRD 572) and the
+// Omni group (src/nav/sidebar.ts).
 // The item the page falls under carries aria-current="page"; Questions and Shared with me carry how
 // many questions wait there, and PRDs how many outbox items, live from the waiting provider (PRD 499);
 // Docs and Release notes open in a new tab, and say so with the new-tab icon and their name (issue 548).

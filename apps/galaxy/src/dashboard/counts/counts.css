@@ -1,6 +1,6 @@
-/* The four counts (PRD 328, slice s5): four tiles, a label and a number each, two by two on a phone
-   and in one row from 720 px, the ask pages' breakpoint. Waiting for you is a link, with the arrow the
-   section cards carry. The dashboard's stylesheet imports this one; every colour here is a token of
+/* Waiting for you (PRD 328, kept on Home by PRD 572): a tile, a label and a number, on the grid the
+   counts used, two columns on a phone and four from 720 px, the ask pages' breakpoint, so it is as
+   wide as a board tile. It is a link, with the arrow the section cards carry. The dashboard's stylesheet imports this one; every colour here is a token of
    src/ask/theme-tokens.ts, as in dashboard.css. Nothing is wider than its tile: long words wrap. */
 
 .dash-tiles {

@@ -66,6 +66,11 @@ jobs:
         # its owner; an account of another workspace, of none, or signed out, nothing. Its outcome is
         # recorded once, by its owner, through outbox_send_done(); nobody updates or deletes a send.
         run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/outbox_sends.sql
+      - name: What the dashboards read
+        # workspace_roster lists every member of a workspace (no email) and answered_counts counts
+        # each member's answered rounds in that workspace's sessions only; both return nothing to a
+        # non-member, and neither runs signed out.
+        run: psql 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' -v ON_ERROR_STOP=1 -f supabase/checks/dashboards.sql
 
   deploy:
     if: github.event_name != 'pull_request' && vars.SUPABASE_PROJECT_ID != ''

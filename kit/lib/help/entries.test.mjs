@@ -6,7 +6,7 @@ import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { COMMAND_TABLE } from '../../bin/commands/index.mjs';
-import { ENTRIES, PRINCIPLES, STAGES } from './entries.mjs';
+import { ENTRIES, PRINCIPLES, SKILL_GROUPS, STAGES } from './entries.mjs';
 
 const SKILLS_DIR = fileURLToPath(new URL('../../plugin/skills', import.meta.url));
 const skillFolders = () => readdirSync(SKILLS_DIR, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
@@ -14,6 +14,25 @@ const KINDS = ['command', 'skill'];
 const WHO = ['you', 'skills'];
 const isText = (value) => typeof value === 'string' && value.trim() !== '';
 const oneLine = (value) => isText(value) && !value.includes('\n');
+const GROUP_IDS = SKILL_GROUPS.map((group) => group.id);
+const DOCS_FIELDS = ['group', 'when', 'example'];
+const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Every way a skill entry fails its docs fields (PRD 580), or a command entry carries one. */
+function docsViolations(entry, what) {
+  if (entry.kind === 'command') {
+    const carried = DOCS_FIELDS.filter((field) => entry[field] !== undefined);
+    return carried.length ? [`${what}: a command has no ${carried.join(', ')}`] : [];
+  }
+  const out = [];
+  if (!GROUP_IDS.includes(entry.group)) out.push(`${what}: group "${entry.group}" is not one of SKILL_GROUPS`);
+  if (!oneLine(entry.when) || !entry.when.startsWith('Use it when ')) out.push(`${what}: its when is not one line starting "Use it when"`);
+  const example = entry.example ?? {};
+  const typed = new RegExp(`^/omni:${escape(entry.name)}(\\s|$)`);
+  if (!oneLine(example.type) || !typed.test(example.type)) out.push(`${what}: its example type is not one line starting /omni:${entry.name}`);
+  if (!oneLine(example.result)) out.push(`${what}: its example result is not one line`);
+  return out;
+}
 
 /** Every way `entries` fails the command table and the skill folders, as one line each. */
 function entryViolations(entries, { commands, skills }) {
@@ -34,6 +53,7 @@ function entryViolations(entries, { commands, skills }) {
     if (!isText(entry.detail)) out.push(`${what}: no detail`);
     if (entry.kind === 'skill' && entry.who === 'you' && !oneLine(entry.label)) out.push(`${what}: a skill for you needs its label`);
     if (entry.who === 'skills' && (entry.label !== undefined || entry.also !== undefined)) out.push(`${what}: run by the skills, it has no row`);
+    out.push(...docsViolations(entry, what));
   }
   for (const kind of KINDS) {
     for (const name of known[kind]) {
@@ -45,6 +65,7 @@ function entryViolations(entries, { commands, skills }) {
   return out;
 }
 
+const EXAMPLE = { type: '/omni:s', result: 'does s' };
 const entry = (over) => ({ name: 'x', kind: 'command', who: 'you', usage: ['omni x'], summary: 'does x', detail: 'Does x.', ...over });
 
 describe('the help table in this repository', () => {
@@ -52,11 +73,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 33 commands and the 17 skills', () => {
+  it('holds the 33 commands and the 20 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(33);
-    expect(skillFolders()).toHaveLength(17);
+    expect(skillFolders()).toHaveLength(20);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(33);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(17);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(20);
   });
 
   it('lists omni bug for skills, with its usage (PRD 556)', () => {
@@ -103,10 +124,55 @@ describe('the help table in this repository', () => {
     expect(mega.detail).toMatch(/\bnever writes in a target\b/);
   });
 
+  it('has /omni:ultra-yolo, ultra-yolo-fix and ultra-wave for you, each after its twin (PRD 563)', () => {
+    const skills = ENTRIES.filter((e) => e.kind === 'skill');
+    // The fix's label drops its <n>, as /omni:do-work's does, to fit the overview's label column.
+    for (const [name, twin, usage, label] of [
+      ['ultra-yolo', 'yolo', '/omni:ultra-yolo <n>', '/omni:ultra-yolo <n>'],
+      ['ultra-yolo-fix', 'yolo-fix', '/omni:ultra-yolo-fix <n>', '/omni:ultra-yolo-fix'],
+      ['ultra-wave', 'wave', '/omni:ultra-wave <n>', '/omni:ultra-wave <n>'],
+    ]) {
+      const ultra = skills.find((e) => e.name === name);
+      expect(ultra, name).toMatchObject({ who: 'you', usage: [usage], label });
+      expect(skills.indexOf(ultra), name).toBe(skills.findIndex((e) => e.name === twin) + 1);
+      expect(ultra.detail, name).toMatch(/\bplan repository\b/);
+      expect(ultra.detail, name).toMatch(/\bnever merges into any default branch\b/);
+    }
+  });
+
+  it('groups the skills by what you want to do, in the spec\'s order, with its titles (PRD 580)', () => {
+    expect(SKILL_GROUPS).toEqual([
+      { id: 'start', title: 'Start a change' },
+      { id: 'build', title: 'Build it' },
+      { id: 'setup', title: 'Set up a repository' },
+      { id: 'multi-repo', title: 'Several repositories' },
+      { id: 'everyday', title: 'Every day' },
+      { id: 'run-by-skills', title: 'Run by other skills' },
+    ]);
+    expect(Object.isFrozen(SKILL_GROUPS)).toBe(true);
+    const byGroup = Object.fromEntries(GROUP_IDS.map((id) => [id, ENTRIES.filter((e) => e.kind === 'skill' && e.group === id).map((e) => e.name).sort()]));
+    expect(byGroup).toEqual({
+      start: ['brainstorm', 'bug-fix', 'visual-fix'],
+      build: ['do-work', 'plan', 'pr', 'wave', 'yolo', 'yolo-fix'],
+      setup: ['invade'],
+      'multi-repo': ['mega-brainstorm', 'mega-invade', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
+      everyday: ['ask', 'help', 'status'],
+      'run-by-skills': ['dossier-open', 'dossier-push'],
+    });
+  });
+
   it('names the six stages of the loop in order, each with one line, and three principles', () => {
     expect(STAGES.map((stage) => stage.name)).toEqual(['idea', 'PRD', 'inbox', 'outbox', 'shipped', 'retro']);
     for (const stage of STAGES) expect(oneLine(stage.line), stage.name).toBe(true);
     expect(PRINCIPLES).toHaveLength(3);
+  });
+
+  it('shows omni item new --out and omni item relay (PRD 563)', () => {
+    const item = ENTRIES.find((e) => e.name === 'item' && e.kind === 'command');
+    expect(item.usage.join(' ')).toMatch(/--out <dir>/);
+    expect(item.usage).toContain('omni item relay <dir> --prd <n>');
+    expect(item.detail).toMatch(/\bnever adopts\b/);
+    expect(item.detail).toMatch(/\brelay moves\b/);
   });
 
   it('lists every verb of omni dossier, link included (PRD 413)', () => {
@@ -124,9 +190,11 @@ describe('the help table in this repository', () => {
   });
 });
 
+const skill = (over) => entry({ kind: 'skill', usage: ['/omni:s'], label: '/omni:s', group: 'build', when: 'Use it when s.', example: EXAMPLE, ...over });
+
 describe('the help table guard catches what it is for', () => {
   const live = { commands: ['x', 'y'], skills: ['s'] };
-  const good = [entry({ name: 'x' }), entry({ name: 'y', who: 'skills' }), entry({ name: 's', kind: 'skill', usage: ['/omni:s'], label: '/omni:s' })];
+  const good = [entry({ name: 'x' }), entry({ name: 'y', who: 'skills' }), skill({ name: 's' })];
 
   it('passes a table that matches', () => {
     expect(entryViolations(good, live)).toEqual([]);
@@ -138,7 +206,7 @@ describe('the help table guard catches what it is for', () => {
   });
 
   it('flags an entry naming a command or a skill that does not exist, and one named twice', () => {
-    const table = [...good, entry({ name: 'teleport' }), entry({ name: 'gone', kind: 'skill', label: '/omni:gone' }), entry({ name: 'x' })];
+    const table = [...good, entry({ name: 'teleport' }), skill({ name: 'gone', example: { type: '/omni:gone', result: 'r' } }), entry({ name: 'x' })];
     expect(entryViolations(table, live)).toEqual(['command teleport: no such command', 'skill gone: no such skill', 'command x: 2 entries']);
   });
 
@@ -146,7 +214,7 @@ describe('the help table guard catches what it is for', () => {
     const table = [
       entry({ name: 'x', usage: [] }),
       entry({ name: 'y', summary: 'two\nlines', detail: ' ', who: 'nobody' }),
-      entry({ name: 's', kind: 'skill', usage: ['/omni:s'] }),
+      skill({ name: 's', label: undefined }),
       entry({ name: 'z', kind: 'tool' }),
     ];
     expect(entryViolations(table, live)).toEqual([
@@ -162,5 +230,38 @@ describe('the help table guard catches what it is for', () => {
   it('flags an entry run by the skills that carries a row of the overview', () => {
     const table = [good[0], entry({ name: 'y', who: 'skills', label: 'omni y' }), good[2]];
     expect(entryViolations(table, live)).toEqual(['command y: run by the skills, it has no row']);
+  });
+
+  it('flags a skill entry missing its group, its when line or its example (PRD 580)', () => {
+    for (const [field, message] of [
+      ['group', 'skill s: group "undefined" is not one of SKILL_GROUPS'],
+      ['when', 'skill s: its when is not one line starting "Use it when"'],
+      ['example', 'skill s: its example type is not one line starting /omni:s'],
+    ]) {
+      const table = [good[0], good[1], skill({ name: 's', [field]: undefined })];
+      expect(entryViolations(table, live), field).toContain(message);
+    }
+  });
+
+  it('flags a group outside SKILL_GROUPS, a when not starting "Use it when" and a when on two lines', () => {
+    expect(entryViolations([good[0], good[1], skill({ name: 's', group: 'misc' })], live)).toEqual(['skill s: group "misc" is not one of SKILL_GROUPS']);
+    const message = 'skill s: its when is not one line starting "Use it when"';
+    expect(entryViolations([good[0], good[1], skill({ name: 's', when: 'When you need s.' })], live)).toEqual([message]);
+    expect(entryViolations([good[0], good[1], skill({ name: 's', when: 'Use it when\nyou need s.' })], live)).toEqual([message]);
+  });
+
+  it('flags an example typed as another skill, and a result not on one line', () => {
+    const typedAs = (type) => entryViolations([good[0], good[1], skill({ name: 's', example: { type, result: 'r' } })], live);
+    expect(typedAs('/omni:yolo 7')).toEqual(['skill s: its example type is not one line starting /omni:s']);
+    expect(typedAs('/omni:s-fix 7')).toEqual(['skill s: its example type is not one line starting /omni:s']);
+    expect(typedAs('/omni:s 7')).toEqual([]);
+    expect(entryViolations([good[0], good[1], skill({ name: 's', example: { type: '/omni:s', result: 'two\nlines' } })], live)).toEqual([
+      'skill s: its example result is not one line',
+    ]);
+  });
+
+  it('flags a command entry carrying a group, a when line or an example', () => {
+    const table = [entry({ name: 'x', group: 'build', when: 'Use it when x.', example: EXAMPLE }), good[1], good[2]];
+    expect(entryViolations(table, live)).toEqual(['command x: a command has no group, when, example']);
   });
 });

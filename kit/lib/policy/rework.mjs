@@ -134,10 +134,13 @@ export function reworkBranch(featureBranch, sliceId, branches = DEFAULT_BRANCHES
  * says so and the declaration is whatever the bound named — never a guess.
  *
  * @param {{ id: string, itemText: string, answerText: string, fields: Record<string, string> }} entry
- * @param {{ planSlices?: Array<{ id: string, territory: string[] }>, featureBranch?: string, branches?: { feature: string, slice: string, rework: string } }} [context]
- *   `branches` is `ctx.config.branches` (config's defaults when omitted).
+ * @param {{ planSlices?: Array<{ id: string, repo?: string | null, territory: string[] }>, featureBranch?: string, branches?: { feature: string, slice: string, rework: string }, planRepository?: boolean }} [context]
+ *   `branches` is `ctx.config.branches` (config's defaults when omitted). `planRepository` (PRD
+ *   563): in a plan repository the rework carries `repo`, the repository of the slice its item was
+ *   raised on (`null` when the plan holds no such slice or names none), so it lands where the
+ *   decision was taken; elsewhere the field is absent, and the rework reads exactly as before.
  */
-export function deriveRework(entry, { planSlices = [], featureBranch = null, branches = DEFAULT_BRANCHES } = {}) {
+export function deriveRework(entry, { planSlices = [], featureBranch = null, branches = DEFAULT_BRANCHES, planRepository = false } = {}) {
   const parsed = parseOutboxItem(entry.itemText, { file: `settled entry ${entry.id}` });
   if (!parsed.ok) {
     throw new Error(
@@ -170,6 +173,7 @@ export function deriveRework(entry, { planSlices = [], featureBranch = null, bra
     territoryKnown: territory.length > 0,
     unknownPlanSlice: planSlice === null,
     wave: 1,
+    ...(planRepository ? { repo: planSlice?.repo || null } : {}),
     ...(featureBranch
       ? { base: featureBranch, branch: reworkBranch(featureBranch, id, branches) }
       : {}),
@@ -199,16 +203,17 @@ export function assignWaves(reworks) {
  * With nothing drifted it returns no rework and a report that says so — the command opens no pull
  * request at all.
  *
- * @param {{ settledText?: string, planMarkdown?: string, prd: number, featureBranch: string, markers: object, branches?: object }} input
- *   `branches` is `ctx.config.branches`; omitted, config's defaults apply.
+ * @param {{ settledText?: string, planMarkdown?: string, prd: number, featureBranch: string, markers: object, branches?: object, planRepository?: boolean }} input
+ *   `branches` is `ctx.config.branches`; omitted, config's defaults apply. `planRepository` is
+ *   whether this runs in a plan repository (PRD 563): see {@link deriveRework}.
  */
-export function planRework({ settledText = '', planMarkdown = null, prd, featureBranch, markers, branches = DEFAULT_BRANCHES }) {
+export function planRework({ settledText = '', planMarkdown = null, prd, featureBranch, markers, branches = DEFAULT_BRANCHES, planRepository = false }) {
   const settledCount = parseSettledEntries(settledText, markers).length;
   const drifted = driftedEntries(settledText, markers);
   const planSlices = planMarkdown ? parsePlanSlices(planMarkdown) : [];
 
   const reworks = assignWaves(
-    drifted.map((entry) => deriveRework(entry, { planSlices, featureBranch, branches })),
+    drifted.map((entry) => deriveRework(entry, { planSlices, featureBranch, branches, planRepository })),
   );
 
   return {
