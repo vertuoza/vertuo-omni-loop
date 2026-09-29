@@ -8,6 +8,7 @@ import { GRAPH, SECRETS } from './fixture';
 import { KnowledgeMap } from './KnowledgeMap';
 import { KnowledgeScreen } from './KnowledgeScreen';
 import { OrreryDiagram } from './OrreryDiagram';
+import { repoHref } from './RepoPicker';
 import { select, tabEntries } from './view';
 
 // The /knowledge page as the server renders it: what a person sees before any script runs.
@@ -23,7 +24,7 @@ const screen = (view: KnowledgeView, wanted: Wanted = {}) =>
     signinError: null,
   }));
 
-const map = (wanted: Wanted = {}) => screen({ kind: 'map', graph: GRAPH }, wanted);
+const map = (wanted: Wanted = {}) => screen({ kind: 'map', graph: GRAPH, menu: null }, wanted);
 
 /** The part of the markup between two markers. */
 const between = (html: string, start: string, end: string) => {
@@ -104,9 +105,10 @@ describe('the page\'s own heading, in every state of the page', () => {
     ['a build with no database', { kind: 'closed' }],
     ['signed out', { kind: 'sign-in' }],
     ['signed in without a crew account', { kind: 'crew-only' }],
-    ['the knowledge out of reach', { kind: 'out-of-reach' }],
-    ['the map', { kind: 'map', graph: GRAPH }],
-    ['no knowledge yet', { kind: 'map', graph: { ...GRAPH, domains: [], entries: [], links: [], loose: [], unserved: [] } }],
+    ['the knowledge out of reach', { kind: 'out-of-reach', menu: null }],
+    ['a repository the menu does not offer', { kind: 'not-offered', repo: 'other/secret', menu: null }],
+    ['the map', { kind: 'map', graph: GRAPH, menu: null }],
+    ['no knowledge yet', { kind: 'map', graph: { ...GRAPH, domains: [], entries: [], links: [], loose: [], unserved: [] }, menu: null }],
   ];
 
   it.each(states)('%s: draws no bar of its own and no main: the app shell holds them (PRD 438)', (_, view) => {
@@ -122,7 +124,7 @@ describe('the page\'s own heading, in every state of the page', () => {
   });
 
   it('shows the repository chip only with the map', () => {
-    expect(screen({ kind: 'map', graph: GRAPH })).toContain('<code class="km-repo">acme/widgets</code>');
+    expect(screen({ kind: 'map', graph: GRAPH, menu: null })).toContain('<code class="km-repo">acme/widgets</code>');
     expect(screen({ kind: 'closed' })).not.toContain('km-repo');
   });
 });
@@ -225,7 +227,8 @@ describe('everyone else', () => {
     ['signed out', { kind: 'sign-in' }],
     ['signed in without a crew account', { kind: 'crew-only' }],
     ['a build with no database', { kind: 'closed' }],
-    ['the knowledge out of reach', { kind: 'out-of-reach' }],
+    ['the knowledge out of reach', { kind: 'out-of-reach', menu: null }],
+    ['a repository the menu does not offer', { kind: 'not-offered', repo: 'other/secret', menu: null }],
   ];
 
   it.each(states)('%s: the markup holds no entry id and no statement', (_, view) => {
@@ -252,11 +255,68 @@ describe('everyone else', () => {
   });
 
   it('says the knowledge is out of reach when it cannot be read', () => {
-    expect(screen({ kind: 'out-of-reach' })).toContain('The knowledge is out of reach');
+    expect(screen({ kind: 'out-of-reach', menu: null })).toContain('The knowledge is out of reach');
   });
 
-  it('says there is no knowledge yet for a graph without a domain', () => {
-    const html = screen({ kind: 'map', graph: { ...GRAPH, domains: [], entries: [], links: [], loose: [], unserved: [] } });
+  it('says there is no knowledge yet for a graph without a domain, and how to propose some', () => {
+    const html = screen({ kind: 'map', graph: { ...GRAPH, domains: [], entries: [], links: [], loose: [], unserved: [] }, menu: null });
     expect(html).toContain('No knowledge yet');
+    expect(html).toContain('<code>/omni:invade</code>');
+  });
+});
+
+describe('the repository menu', () => {
+  const ANVILS: KnowledgeGraph = { ...GRAPH, repo: 'acme/Anvils' };
+  const OPTIONS = [{ value: '', label: 'acme/widgets' }, { value: 'acme/Anvils', label: 'acme/Anvils' }];
+  const head = (html: string) => between(html, '<div class="km-page-head">', '</form>');
+  const options = (html: string) => [...html.matchAll(/<option value="([^"]*)"( selected="")?>([^<]+)<\/option>/g)].map((m) => `${m[3]}${m[2] ? ' *' : ''}`);
+
+  it('replaces the chip, a GET form to /knowledge naming each repository, the deployed checkout first and shown', () => {
+    const html = screen({ kind: 'map', graph: GRAPH, menu: { options: OPTIONS, current: '' } });
+    expect(head(html)).toMatch(/<form class="km-picker" action="\/knowledge" method="get">/);
+    expect(head(html)).toMatch(/<select class="ask-share-pick" name="repo">/);
+    expect(options(html)).toEqual(['acme/widgets *', 'acme/Anvils']);
+    expect(head(html)).toContain('<button type="submit" class="ask-button quiet">Show</button>');
+    expect(html).not.toContain('km-repo');
+    expect(html).toContain('<a class="km-chart" href="/#chart">Open the star chart →</a>');
+    expect(diagram(html)).toContain('href="/knowledge?domain=product&amp;entry=BR-PRODUCT-2"');
+  });
+
+  it('shows a picked repository, every address carrying it, and no star chart, which shows the deployed checkout', () => {
+    const html = screen({ kind: 'map', graph: ANVILS, menu: { options: OPTIONS, current: 'acme/Anvils' } });
+    expect(options(html)).toEqual(['acme/widgets', 'acme/Anvils *']);
+    expect(html).not.toContain('km-chart');
+    expect(between(html, 'class="km-tabs"', '</nav>')).toContain('href="/knowledge?repo=acme%2FAnvils&amp;domain=product"');
+    expect(diagram(html)).toContain('href="/knowledge?repo=acme%2FAnvils&amp;domain=product&amp;entry=BR-PRODUCT-2"');
+    expect(index(html)).toContain('href="/knowledge?repo=acme%2FAnvils&amp;domain=product&amp;entry=BR-PRODUCT-2"');
+    expect(panel(html)).toContain('href="/knowledge?repo=acme%2FAnvils&amp;domain=product&amp;entry=BR-PRODUCT-1"');
+    expect(panel(html)).toContain('href="https://github.com/acme/Anvils/issues/');
+    expect(html.match(/href="\/knowledge\?domain=/g)).toBeNull();
+  });
+
+  it('says a picked repository could not be read from GitHub, keeping the menu', () => {
+    const html = screen({ kind: 'out-of-reach', menu: { options: OPTIONS, current: 'acme/Anvils' } });
+    expect(options(html)).toEqual(['acme/widgets', 'acme/Anvils *']);
+    expect(html).toContain('The knowledge of acme/Anvils could not be read from GitHub; this deployment&#x27;s log says why.');
+  });
+
+  it('says a repository the menu does not offer is not on it, and reads nothing of it', () => {
+    const html = screen({ kind: 'not-offered', repo: 'other/secret', menu: { options: OPTIONS, current: '' } });
+    expect(html).toContain('This repository is not on the menu');
+    expect(html).toContain('other/secret is not a repository of your workspaces set up with Omni Loop, or the Omni Loop App cannot read it.');
+    expect(html).toContain('Pick one from the menu above.');
+    expect(options(html)).toEqual(['acme/widgets *', 'acme/Anvils']);
+    for (const secret of SECRETS) expect(html, secret).not.toContain(secret);
+    expect(screen({ kind: 'not-offered', repo: 'other/secret', menu: null })).not.toContain('Pick one from the menu');
+  });
+
+  it('opens a choice at once once scripts run: the deployed checkout at the page\'s own address', () => {
+    expect(repoHref('')).toBe('/knowledge');
+    expect(repoHref('acme/Anvils')).toBe('/knowledge?repo=acme%2FAnvils');
+  });
+
+  it('borrows the version picker\'s look for its select (share.css)', () => {
+    const layout = readFileSync(new URL('../../app/knowledge/layout.tsx', import.meta.url), 'utf8');
+    expect(layout).toContain("import '../../src/ask/page/share.css';");
   });
 });
