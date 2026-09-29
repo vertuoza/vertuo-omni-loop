@@ -1,6 +1,6 @@
 ---
 name: yolo
-description: Build a whole PRD with nothing asked along the way — plan it if needed, run /omni:wave until every slice is merged or nothing more can move, then finish the feature branch, run the outbox gate, and ship before ready. Green gate — omni ship, commit, push, then the feature PR is marked ready. Red gate — the feature PR stays draft with the outbox questions posted on it. Never merges into the default branch. Triggers on "yolo this PRD", "build it, I'll review the outbox after", "/omni:yolo".
+description: Build a whole PRD with nothing asked along the way — plan it if needed, run /omni:wave until every slice is merged or nothing more can move, then finish the feature branch, run the outbox gate, and ship before ready. Green gate — omni ship, commit, push, then the feature PR is marked ready. Red gate — the feature PR stays draft with the outbox questions posted on it, then, with answers.enabled on, it offers to take the answers here and carry on into the yolo-fix steps. Never merges into the default branch. Triggers on "yolo this PRD", "build it, I'll review the outbox after", "/omni:yolo".
 ---
 
 <!-- Ported from vertuo-ai-domain@c4a210122:.claude/skills/vertuo-yolo/SKILL.md (and vertuo-deliver §1–3, with the ask-nothing policy) — changes in kit/porting/plugin--yolo.md -->
@@ -17,9 +17,10 @@ a paragraph of its own just above your session's own attribution lines, and a bo
 that line. Comments are never signed. A command that prints nothing means signing is off here: add
 nothing.
 
-**It asks nothing.** Every decision a slice meets becomes an outbox item (`/omni:do-work` records it
-and carries on); a person reads them all once, at the end, on the feature PR. Only `stopped` and
-`blocked` hold a slice, and only that one.
+**It asks nothing along the way.** Every decision a slice meets becomes an outbox item
+(`/omni:do-work` records it and carries on); a person reads them all once, at the end: on the
+feature PR, on the Omni page, or, when the gate ends red and `answers.enabled` is on, here in the
+terminal (the end of step 6). Only `stopped` and `blocked` hold a slice, and only that one.
 
 ## Input
 
@@ -163,7 +164,7 @@ The **omni-loop** GitHub App, when installed on the repository, posts this same 
 PR as the check named `ci.outboxContext`; this skill never posts it and never waits on it.
 
 **Gate red.** Leave the feature PR in **draft**; do not ship. The comment above holds every open
-question in plain words, each under a number.
+question in plain words, each under a number. The end of step 6 may yet answer them in this run.
 
 Then `git worktree remove <path>`.
 
@@ -178,12 +179,69 @@ Remove `labels.inProgress` from the feature PR (unless the Stuck path already sw
 - `stuck`: held (a stuck, stopped, blocked or in-flight slice, a red wave check) or a stuck finish,
   with the reason; `human steps` names what a person must do.
 
+### Answer here, when the gate ends red
+
+Only when every slice merged, the gate in step 4 read red, and
+`node .omni-loop/bin/omni.mjs config answers.enabled` prints `true`. Held, stuck or green, go
+straight to step 7. When `answers.enabled` is off, skip this part too: the hand-off in step 7 says
+to answer on the pull request, as it always has.
+
+By now the outbox comment, the draft feature PR and its final status comment are written, so
+nothing is lost if the person walks away. Count the open `human-action` and `high` items
+(`node .omni-loop/bin/omni.mjs status <prd>` lists them); mediums are never asked here: they are
+already adopted, and whoever objects does so on the Omni page or on the pull request. Then ask
+**one opening question** through `AskUserQuestion`: "<k> questions keep the outbox red." with three
+choices:
+
+| choice | then |
+|---|---|
+| **Answer here now** | answer them below, then carry on |
+| **Answered on the Omni page or on the pull request — carry on** | carry on at once |
+| **Later — stop here** | step 7, as without this part |
+
+With ask mode on, this question and the ones below go to the ask page like any other.
+
+**Answer here now.**
+
+1. `node .omni-loop/bin/omni.mjs answers ask <prd> --pr <feature PR> --json`. Exit 1 says in one
+   line that nothing is open to ask or the switch is off: print it and carry on. Exit 2: step 7,
+   naming it.
+2. For each of its `batches`, one `AskUserQuestion` call holding the batch's questions in the order
+   given: each question's `header`, its `text` (with its `steps`, for a human action) as the
+   question, and its `options` as the choices, label and text. Keep one pick per question,
+   `{ "number": <its number>, "pick": <the chosen option's pick> }`. `Other` is the person's own
+   words: words that start with an option's letter, or with `not done`, are that pick with the rest
+   as its `reason`; any other words are `{ "number": <n>, "pick": "prose", "text": <the words> }`.
+   `Not done` needs a reason: when it came without one, ask for it once more.
+3. Write the picks as one JSON array to a scratch file (never in the repository), then:
+
+   ```bash
+   node .omni-loop/bin/omni.mjs answers post --prd <prd> --pr <feature PR> --answers <file>
+   ```
+
+   - Exit 0 prints the reply's link: keep it for the hand-off, and carry on.
+   - Exit 1 with `refused` names the pick the reply writer refused; nothing was posted. Ask that
+     question again, and rerun.
+   - Exit 1 because the post failed: the reply is printed. Where the session has no `gh`, rerun with
+     `--print` and post its output as one comment on the feature PR with the session's own GitHub
+     tools, as the person, then carry on. Otherwise print the reply for the person to paste on the
+     feature PR and go to step 7: the gate stays red.
+
+**Carry on.** Follow `/omni:yolo-fix` steps 2 to 7 in this same run, on this feature PR: adopt the
+leftovers, read the replies and settle them, derive and run the reworks, close them, then finish,
+gate and ship before ready. Its step 1 is this run's: the feature PR is this one; put
+`labels.inProgress` back on it and rewrite its status comment as that step says. Its guardrails
+bind these steps. When a reply was not enough, the next outbox round is posted, the gate stays red
+and the feature PR stays draft, exactly as `/omni:yolo-fix` ends; the opening question is not asked
+again. Then hand off as `/omni:yolo-fix` step 8 does, naming what was answered here and the reply's
+link, instead of step 7.
+
 ## 7. Hand off
 
 Report, in one block: the PRD's page beside its number, then the feature PR link and its state
 (ready, draft with the gate red, or held); slices merged out of total, each held slice with its
-reason; the checks that ran and did not; and every open outbox item with its rank and file
-(`omni status <prd>` lists them).
+reason; the checks that ran and did not; every open outbox item with its rank and file
+(`omni status <prd>` lists them); and, when step 6 asked the opening question, the choice made.
 
 The PRD's page comes first on every ending, green, red or held. Run
 `node .omni-loop/bin/omni.mjs dossier link <n>`: exit `0` prints the page's link on one line, so
@@ -310,7 +368,9 @@ keeps its one line: nothing was built, so there is nothing to hand off.
 
 ## Guardrails
 
-- **Never ask.** A decision is an outbox item; nothing here waits on a person.
+- **Never ask along the way.** A decision is an outbox item; nothing waits on a person until the
+  end. The one question is step 6's last part, on a red gate with `answers.enabled` on, and mediums
+  are never asked there.
 - **Never merge into `repo.defaultBranch`.** Sub-PRs merge into the feature branch through
   `/omni:wave`; a person merges the feature PR.
 - **Never add `labels.outboxGo`.** It is a person's override, not this skill's way out.

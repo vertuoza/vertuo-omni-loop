@@ -175,6 +175,10 @@ export const ConfigSchema = z
     // Off by default: a repository opts in. When it is on, `omni ship` refuses a PRD whose folder has
     // no note, or whose note `omni check releases` would fail.
     releaseNotes: section({ enabled: z.boolean().default(false) }),
+    // PRD 251: whether an outbox may be answered outside the pull request — at the end of
+    // `/omni:yolo` (`omni answers`) and on the page `ask.url` names. On by default: a repository
+    // opts out. The pull request takes replies either way.
+    answers: section({ enabled: z.boolean().default(true) }),
     markers: section({ prefix: z.string().regex(/^[a-z][a-z0-9-]*$/, 'lowercase letters, digits and hyphens').default('omni-outbox') }),
     // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.mjs`). By
     // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a

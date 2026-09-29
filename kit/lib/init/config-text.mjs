@@ -1,10 +1,10 @@
 // The `.omni-loop/config.yml` that `omni init` writes: minimal and commented. Only `kit`, `repo`,
-// `labels.autoCreate`, `commands`, `laws`, `ask`, `dossier` and `signature` are written; every other
+// `labels.autoCreate`, `commands`, `laws`, `ask`, `dossier`, `answers` and `signature` are written; every other
 // key keeps its schema default. `signature` is written with its default values, so who signs the
 // loop's work is visible and editable in the repository rather than hidden in the kit. `ask.url` is
 // written as the Omni Loop home page (`signature.home`'s default, ADR-0047) and `dossier.enabled` as
 // true (PRD 420): init writes them, the schema's own defaults stay null and false, so a config
-// written before reads as it did.
+// written before reads as it did. `answers.enabled` is written as true, its schema default (PRD 251).
 // The text is returned only once the kit's own parser accepts it.
 import { stringify } from 'yaml';
 import { CONFIG_FILE, CONFIG_VERSION, ConfigSchema, parseConfig } from '../config.mjs';
@@ -40,6 +40,9 @@ export function renderConfig({ slug, defaultBranch, commands, lawsSource }) {
     '',
     "# Whether omni dossier sends this repository's PRD folders to ask.url.",
     section('dossier', { enabled: true }),
+    '',
+    '# Whether the outbox may be answered outside the pull request, at the end of /omni:yolo. false: only on the pull request.',
+    section('answers', { enabled: true }),
     '',
     "# Who co-signs the loop's commits, pull requests and issues. null: nobody.",
     section('signature', signature),

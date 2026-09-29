@@ -304,6 +304,21 @@ export const ENTRIES = deepFreeze([
       'answer, and with --post posts the next round of questions. /omni:yolo-fix starts from it.',
   },
   {
+    name: 'answers',
+    kind: 'command',
+    who: 'skills',
+    usage: [
+      'omni answers ask <prd> --pr <n> [--repo <owner/name>] [--json]',
+      'omni answers post --prd <n> --pr <n> --answers <file>',
+      '  [--repo <owner/name>] [--print]',
+    ],
+    summary: 'answer the outbox from the terminal',
+    detail:
+      'With ask, prints the open human-action and high questions of the feature PR, in its numbering, ' +
+      'at most four at a time. With post, writes the picks as one reply and posts it on the feature ' +
+      'PR, where omni replies reads it; --print only prints it. /omni:yolo runs it when its gate ends red.',
+  },
+  {
     name: 'comment',
     kind: 'command',
     who: 'skills',

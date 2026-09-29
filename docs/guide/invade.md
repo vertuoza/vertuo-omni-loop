@@ -155,4 +155,4 @@ It redraws only what changed, never rewrites what a person wrote, proposes to dr
 target that now has its own knowledge base, and opens one pull request, or none when there is
 nothing to do.
 
-[Next → Your first PRD](/docs/first-prd)
+[Next → How the loop works](/docs/loop)

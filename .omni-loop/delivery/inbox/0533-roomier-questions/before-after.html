@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roomier Questions List</title>
+<style>
+:root {
+  --ground: #f5f4fc; --surface: #ffffff; --sunk: #eceaf8; --line: #d9d6ee; --line-strong: #85819f;
+  --ink: #17153d; --muted: #4f5486; --plasma: #5a2fc2; --on-plasma: #fff; --green: #15703f;
+  --body: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --ground: #0e0c33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78; --line-strong: #6d6acc;
+    --ink: #f1efff; --muted: #b4b1e6; --plasma: #8b5cf6; --green: #4ade80;
+  }
+}
+:root[data-theme='dark'] {
+  --ground: #0e0c33; --surface: #16144a; --sunk: #1d1a58; --line: #2f2c78; --line-strong: #6d6acc;
+  --ink: #f1efff; --muted: #b4b1e6; --plasma: #8b5cf6; --green: #4ade80;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.4 var(--body); }
+header { max-width: 1400px; margin: 0 auto; padding: 24px 16px 8px; }
+h1 { margin: 0 0 6px; font-size: 24px; }
+header p { margin: 0; color: var(--muted); }
+.cols { max-width: 1400px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 24px; }
+.col h2 { margin: 0 0 12px; font-size: 14px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.pane { display: grid; gap: 16px; }
+
+.progress { display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap; }
+.progress p { margin: 0; font-weight: 700; }
+.meter { display: block; flex: 0 1 200px; height: 8px; background: var(--sunk); border-radius: 999px; overflow: hidden; }
+.meter > span { display: block; height: 100%; width: 100%; background: var(--green); }
+.rounds { list-style: none; margin: 0; padding: 0; display: grid; background: var(--surface);
+  border: 1.5px solid var(--line-strong); border-radius: 12px; overflow: hidden; }
+.round + .round { border-top: 1px solid var(--line); }
+.line { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; padding: 12px 16px; }
+.line::before { content: '▸'; color: var(--muted); width: 12px; flex: none; }
+.unfolded > .line::before { transform: rotate(90deg); }
+.mark { color: var(--green); font-weight: 800; width: 14px; }
+.title { flex: 1 1 200px; display: inline-flex; align-items: center; gap: 6px 8px; flex-wrap: wrap; }
+.rule, .cat { font: 700 12px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; border-radius: 4px; padding: 5px 8px; }
+.rule { color: var(--on-plasma); background: var(--plasma); }
+.cat { color: var(--ink); background: var(--sunk); border: 1px solid var(--line-strong); }
+.heads { color: var(--muted); }
+.count { font: 600 13px/1.2 var(--mono); color: var(--muted); }
+.hint { font-size: 14px; color: var(--muted); }
+.body { display: grid; gap: 12px; padding: 4px 16px 14px 44px; }
+.q { margin: 0; font-size: 16px; text-wrap: pretty; }
+.chip { font-size: 12px; font-weight: 700; line-height: 1; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted); background: var(--sunk); padding: 6px 9px; border-radius: 4px; vertical-align: middle; }
+.asked { color: var(--muted); }
+.lbl { font-weight: 700; }
+.desc { font-size: 15px; color: var(--muted); margin-left: 8px; }
+.foot { margin: 0; display: flex; align-items: baseline; gap: 6px 16px; flex-wrap: wrap; }
+.foot a { margin-left: auto; font-size: 15px; color: var(--plasma); }
+
+/* After: B · Roomier */
+.after .progress { margin-bottom: 4px; }
+.after .line { padding: 16px 24px; }
+.after .body { gap: 16px; padding: 4px 24px 22px 52px; }
+.after .q { line-height: 1.6; }
+.after .foot { padding-top: 4px; }
+
+.changes { max-width: 1400px; margin: 0 auto; padding: 0 16px 32px; }
+.changes table { border-collapse: collapse; width: 100%; font-size: 15px; background: var(--surface); }
+.changes th, .changes td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+.changes code { font-family: var(--mono); font-size: 13px; }
+.wrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>PRD 533 · Roomier questions list</h1>
+  <p>The Questions tab of a PRD page, today and after. The layout stays the same, with more room in every round. The phone view is unchanged.</p>
+</header>
+<div class="cols">
+  <section class="col"><h2>Today</h2><div class="pane">
+  <div class="progress"><p>11 of 11 answered</p><span class="meter"><span></span></span></div>
+  <ol class="rounds">
+    <li class="round unfolded">
+      <div class="line"><span class="mark">✓</span><span class="title"><span class="rule">Brainstorm</span><span class="cat">Business</span><span class="heads">— plan repo</span></span><span class="count">1/1</span><span class="hint">29 Sep, 05:30</span></div>
+      <div class="body">
+        <p class="q"><span class="chip">Plan repo</span> <span class="asked">vertuo-automation-plan already exists as your colleagues' Jira/PSD review repo. Where should the mega-plan live?</span> → <span class="lbl">Reuse vertuo-automation-plan</span><span class="desc">Add an .omni-loop/ footprint and the loop's delivery folder next to psd/, product-health/, plan-delivery/. One place for plans.</span></p>
+        <p class="foot"><span class="hint">asked by PIERRE · 29 Sep 2026, 05:30 UTC</span><span class="hint">vertuoza/vertuo-omni-loop · /omni:brainstorm</span><a href="#">Open the question</a></p>
+      </div>
+    </li>
+    <li class="round unfolded">
+      <div class="line"><span class="mark">✓</span><span class="title"><span class="rule">Brainstorm</span><span class="cat">Architecture</span><span class="heads">— delivery</span></span><span class="count">1/1</span><span class="hint">29 Sep, 05:32</span></div>
+      <div class="body">
+        <p class="q"><span class="chip">Delivery</span> <span class="asked">How should ultra-yolo drive the target repos once the mega-plan is merged in the plan repo?</span> → <span class="lbl">One mega phase-0 that fans out to each repo</span></p>
+        <p class="foot"><span class="hint">asked by PIERRE · 29 Sep 2026, 05:32 UTC</span><span class="hint">vertuoza/vertuo-omni-loop · /omni:brainstorm</span><a href="#">Open the question</a></p>
+      </div>
+    </li>
+    <li class="round">
+      <div class="line"><span class="mark">✓</span><span class="title"><span class="rule">Brainstorm</span><span class="cat">Harness</span><span class="heads">— target gate</span></span><span class="count">1/1</span><span class="hint">29 Sep, 05:33</span></div>
+    </li>
+  </ol>
+</div></section>
+  <section class="col after"><h2>After</h2><div class="pane">
+  <div class="progress"><p>11 of 11 answered</p><span class="meter"><span></span></span></div>
+  <ol class="rounds">
+    <li class="round unfolded">
+      <div class="line"><span class="mark">✓</span><span class="title"><span class="rule">Brainstorm</span><span class="cat">Business</span><span class="heads">— plan repo</span></span><span class="count">1/1</span><span class="hint">29 Sep, 05:30</span></div>
+      <div class="body">
+        <p class="q"><span class="chip">Plan repo</span> <span class="asked">vertuo-automation-plan already exists as your colleagues' Jira/PSD review repo. Where should the mega-plan live?</span> → <span class="lbl">Reuse vertuo-automation-plan</span><span class="desc">Add an .omni-loop/ footprint and the loop's delivery folder next to psd/, product-health/, plan-delivery/. One place for plans.</span></p>
+        <p class="foot"><span class="hint">asked by PIERRE · 29 Sep 2026, 05:30 UTC</span><span class="hint">vertuoza/vertuo-omni-loop · /omni:brainstorm</span><a href="#">Open the question</a></p>
+      </div>
+    </li>
+    <li class="round unfolded">
+      <div class="line"><span class="mark">✓</span><span class="title"><span class="rule">Brainstorm</span><span class="cat">Architecture</span><span class="heads">— delivery</span></span><span class="count">1/1</span><span class="hint">29 Sep, 05:32</span></div>
+      <div class="body">
+        <p class="q"><span class="chip">Delivery</span> <span class="asked">How should ultra-yolo drive the target repos once the mega-plan is merged in the plan repo?</span> → <span class="lbl">One mega phase-0 that fans out to each repo</span></p>
+        <p class="foot"><span class="hint">asked by PIERRE · 29 Sep 2026, 05:32 UTC</span><span class="hint">vertuoza/vertuo-omni-loop · /omni:brainstorm</span><a href="#">Open the question</a></p>
+      </div>
+    </li>
+    <li class="round">
+      <div class="line"><span class="mark">✓</span><span class="title"><span class="rule">Brainstorm</span><span class="cat">Harness</span><span class="heads">— target gate</span></span><span class="count">1/1</span><span class="hint">29 Sep, 05:33</span></div>
+    </li>
+  </ol>
+</div></section>
+</div>
+<div class="changes">
+  <div class="wrap"><table>
+    <tr><th>Where</th><th>Today</th><th>After</th></tr>
+    <tr><td>Strip → list</td><td>16px</td><td>20px (<code>.dossier-progress { margin-bottom: 4px }</code>)</td></tr>
+    <tr><td>Round line</td><td><code>padding: 12px 16px</code></td><td><code>padding: 16px 24px</code> (open round: <code>padding-left</code> 38 → 46px)</td></tr>
+    <tr><td>Round body</td><td><code>gap: 12px; padding: 4px 16px 14px 44px</code></td><td><code>gap: 16px; padding: 4px 24px 22px 52px</code></td></tr>
+    <tr><td>Answered line</td><td>default line height</td><td><code>line-height: 1.6</code></td></tr>
+    <tr><td>Footer</td><td>—</td><td><code>padding-top: 4px</code></td></tr>
+    <tr><td>Phone (&lt; 720px)</td><td colspan="2">unchanged</td></tr>
+  </table></div>
+</div>
+</body>
+</html>

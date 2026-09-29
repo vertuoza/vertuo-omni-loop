@@ -35,12 +35,19 @@ describe('the demo dossier\'s GitHub summary', () => {
     expect(view.stage?.links.map((l) => l.label)).toEqual(['issue #71', 'phase-0 #74', 'feature #76']);
     expect(view.tabs.find((t) => t.kind === 'outbox')).toMatchObject({ badge: '2 open', empty: false });
     expect(view.outbox.state).toBe('items');
-    expect(view.outbox.open[0].rank).toBe('high');
+    expect(view.outbox.open.map((c) => [c.number, c.rank])).toEqual([[5, 'human-action'], [4, 'high']]);
     expect(view.outbox.settled.length).toBe(2);
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it('reads like a real outbox on the Outbox tab (PRD 251, s9): an answer pending, a medium adopted, and Send off, saying so', () => {
+    const { outbox } = dossierView(demoDossier(NOW), DEMO_VIEWER, { tab: 'outbox', version: null }, NOW);
+    expect(outbox.open[1].pending).toMatchObject({ by: 'paula', where: 'on GitHub', counted: true });
+    expect(outbox.adopted.map((c) => [c.number, c.id])).toEqual([[3, 's2-01-poll-interval']]);
+    expect(outbox).toMatchObject({ readOnly: false, sendOff: 'A demo outbox: Send is off here.' });
+  });
+
   it('gives a signature that carries its stage and open outbox count', () => {
-    expect(signature(pulseOf(demoDossier(NOW)))).toMatch(/#outbox:2$/);
+    expect(signature(pulseOf(demoDossier(NOW)))).toMatch(/#outbox:2:1@2026-09-26T09:12:00Z$/);
   });
 });
