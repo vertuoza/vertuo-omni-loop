@@ -16,10 +16,12 @@ const REPO = fileURLToPath(new URL('../../../../', import.meta.url));
 const GUIDE = join(REPO, 'docs/guide');
 const KIT = { skills: join(REPO, 'kit/plugin/skills'), commands: join(REPO, 'kit/bin/commands') };
 
-const ORDER = ['index', 'join', 'install', 'invade', 'loop', 'first-prd', 'use-cases', 'troubleshooting'];
+const ORDER = [
+  'index', 'join', 'install', 'invade', 'loop', 'first-prd', 'several-repositories', 'use-cases', 'troubleshooting',
+];
 const TITLES = [
-  'Getting started', 'Join a team', 'Install', 'Invade', 'How the loop works', 'Your first PRD', 'Use cases',
-  'When something goes wrong',
+  'Getting started', 'Join a team', 'Install', 'Invade', 'How the loop works', 'Your first PRD', 'Several repositories',
+  'Use cases', 'When something goes wrong',
 ];
 
 describe('docs/guide', () => {
@@ -27,7 +29,7 @@ describe('docs/guide', () => {
     expect(guideProblems(GUIDE, KIT)).toEqual([]);
   });
 
-  it('holds its eight pages, in order, each with its title', () => {
+  it('holds its nine pages, in order, each with its title', () => {
     const { order, pages } = readGuide(GUIDE);
     expect(order).toEqual(ORDER);
     expect(pages.map((page) => [page.slug, page.title])).toEqual(ORDER.map((slug, i) => [slug, TITLES[i]]));
@@ -36,7 +38,8 @@ describe('docs/guide', () => {
   it('links each page to the one to read next, and the last back to Getting started', () => {
     const { pages } = readGuide(GUIDE);
     expect(pages.map((page) => page.next)).toEqual([
-      '/docs/join', '/docs/loop', '/docs/invade', '/docs/loop', '/docs/first-prd', '/docs/use-cases', '/docs/troubleshooting', '/docs',
+      '/docs/join', '/docs/loop', '/docs/invade', '/docs/loop', '/docs/first-prd', '/docs/several-repositories',
+      '/docs/use-cases', '/docs/troubleshooting', '/docs',
     ]);
   });
 
@@ -60,6 +63,21 @@ describe('docs/guide', () => {
     expect(diagramsNamed(loop?.body ?? '').map((diagram) => [diagram.src, diagram.alone])).toEqual([
       ['diagrams/loop.svg', true], ['diagrams/pull-requests.svg', true], ['diagrams/skills.svg', true],
     ]);
+  });
+
+  it('draws the repositories, their pull requests and their skills on the several-repositories page', () => {
+    const page = readGuide(GUIDE).pages.find((p) => p.slug === 'several-repositories');
+    expect(diagramsNamed(page?.body ?? '').map((diagram) => [diagram.src, diagram.alone])).toEqual([
+      ['diagrams/repositories.svg', true], ['diagrams/pull-requests-repositories.svg', true],
+      ['diagrams/skills-repositories.svg', true],
+    ]);
+  });
+
+  it('points the Invade page\'s plan-repository section at the several-repositories page', () => {
+    const invade = readGuide(GUIDE).pages.find((p) => p.slug === 'invade')?.body ?? '';
+    const section = invade.slice(invade.indexOf('## A plan repository'), invade.indexOf('[Next →'));
+    expect(section).toContain('](/docs/several-repositories)');
+    expect(section).not.toContain('```');
   });
 });
 
