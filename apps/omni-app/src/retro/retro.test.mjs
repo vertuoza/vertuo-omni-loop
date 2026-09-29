@@ -283,9 +283,11 @@ describe('retro — judged not worth a pull request', () => {
 
   it('is not judged when the verdict is refused, and says why', async () => {
     const scenario = widgetScenario();
-    await engine(scenario, { fetch: judge({ reason: 'Worth it for 3 reasons.' }) }).execute();
+    await engine(scenario, { fetch: judge({ reason: 'Worth it, see https://example.com.' }) }).execute();
     expectNothingPublished(scenario.github);
-    expect(verdictComments(scenario.github)[0].body).toContain('\nRetro: not judged — the verdict was refused: it holds a digit\n');
+    expect(verdictComments(scenario.github)[0].body).toContain(
+      '\nRetro: not judged — the verdict was refused: it carries a link that is not evidence\n',
+    );
   });
 
   it('on a replay edits the one comment in place, never a second', async () => {

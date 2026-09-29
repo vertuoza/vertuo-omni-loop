@@ -283,8 +283,8 @@ describe('guard — the verdict', () => {
     const atCap = judged((r) => (r.verdict.reason = 'A'.repeat(FIELD_CAPS.reason)));
     expect(guard({ reply: atCap, sheet }).dropped).toEqual([]);
 
-    const digit = judged((r) => (r.verdict.reason = 'Two of 3 lessons are new.'));
-    expect(guard({ reply: digit, sheet }).prose.verdict).toEqual({ dropped: DROPPED.digit });
+    const link = judged((r) => (r.verdict.reason = 'See https://example.com for why.'));
+    expect(guard({ reply: link, sheet }).prose.verdict).toEqual({ dropped: DROPPED.foreignLink });
     const notText = judged((r) => (r.verdict.reason = 4));
     expect(guard({ reply: notText, sheet }).prose.verdict).toEqual({ dropped: DROPPED.notText });
   });
@@ -299,6 +299,17 @@ describe('guard — the verdict', () => {
     expect(guard({ reply: atCap, sheet }).dropped).toEqual([]);
     const notText = judged((r) => (r.findings['slow-slice:s3'].why = ['new']));
     expect(guard({ reply: notText, sheet }).prose.verdict).toEqual({ dropped: DROPPED.notText });
+  });
+
+  it('keeps a verdict whose reason and whys hold digits, as #500 wrote them', () => {
+    const reply = judged((r) => {
+      r.verdict.reason = 'Slices s1 and s2 left their territory, a pattern PRD 400 already showed; nothing new.';
+      r.findings['repeated-red:e2e'].why = 'The e2e check went red on 3 commits for a cause no entry names.';
+    });
+    const { prose, dropped } = guard({ reply, sheet });
+    expect(dropped).toEqual([]);
+    expect(prose.verdict.reason).toBe(reply.verdict.reason);
+    expect(prose.findings['repeated-red:e2e'].why).toBe(reply.findings['repeated-red:e2e'].why);
   });
 
   it('keeps the other prose when it drops the verdict', () => {

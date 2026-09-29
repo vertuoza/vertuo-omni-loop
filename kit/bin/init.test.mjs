@@ -80,7 +80,7 @@ function fakeExec({
   return { exec, calls, install, plugin };
 }
 
-const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual'];
+const LOOP_LABELS = ['omni:prd', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low'];
 const labelCalls = (calls, verb) => calls.filter((args) => args[0] === 'label' && args[1] === verb);
 const created = (calls) => labelCalls(calls, 'create').map((args) => args[2]);
 const edits = (calls) => calls.filter((args) => args[0] === 'label' && !['list', 'create'].includes(args[1]));
@@ -334,8 +334,11 @@ describe('omni init — the config it writes (AC 1, 2)', () => {
     const answers = ['make check', '', 'make all'];
     const s = io();
     const tty = { isTTY: true, write: s.stdout.write };
+    // A home of its own and a sign-in that does not happen: on a terminal, init would otherwise run the
+    // real sign-in flow and wait on the browser whenever this computer is not signed in.
     const code = await main(['init'], {
       cwd: root, stdout: tty, stderr: s.stderr, stdin: { isTTY: true }, exec: fakeExec().exec, bundle: fakeBundle(),
+      home: freshHome(), signIn: async () => 1,
       ask: async (question) => { questions.push(question); return answers.shift(); },
     });
     expect(code).toBe(0);
@@ -414,14 +417,14 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
     const fake = fakeExec({ labels: [{ name: 'omni:prd', color: 'ffffff' }, { name: 'omni:sub', color: '000000' }, { name: 'bug' }] });
     const { code, out, calls } = await init(root, [], { fake });
     expect(code).toBe(0);
-    expect(created(calls)).toEqual(['omni:phase-0', 'omni:feature', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual']);
+    expect(created(calls)).toEqual(['omni:phase-0', 'omni:feature', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low']);
     expect(edits(calls)).toEqual([]);
     for (const args of labelCalls(calls, 'create')) {
       expect(args).not.toContain('--force');
       expect(args[args.indexOf('--color') + 1]).toMatch(/^[0-9a-f]{6}$/);
       expect(args[args.indexOf('--description') + 1]).toMatch(/\S/);
     }
-    expect(out).toMatch(/labels\s+created omni:phase-0, omni:feature, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge, omni:visual\s+\(already there: omni:prd, omni:sub\)\n/);
+    expect(out).toMatch(/labels\s+created omni:phase-0, omni:feature, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge, omni:visual, omni:bug, omni:regression, omni:risk-critical, omni:risk-high, omni:risk-medium, omni:risk-low\s+\(already there: omni:prd, omni:sub\)\n/);
   });
 
   it('creates omni:retro with its colour and description when it is missing', async () => {
@@ -507,7 +510,7 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
     const { root } = makeRepo({ git: true, files: { '.omni-loop/config.yml': config, '.omni-loop/bin/omni.mjs': 'bin\n' } });
     const fake = fakeExec();
     await init(root, [], { fake });
-    expect(created(fake.calls)).toEqual(['epic', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'ship-it', 'omni:retro', 'omni:knowledge', 'omni:visual']);
+    expect(created(fake.calls)).toEqual(['epic', 'omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'ship-it', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low']);
   });
 
   it('with an invalid config and no --force, creates no label', async () => {
@@ -541,8 +544,8 @@ describe('omni init — the loop labels (AC 5, 6)', () => {
     };
     const { code, out } = await init(root, [], { fake: { exec, calls: base.calls } });
     expect(code).toBe(0);
-    expect(created(base.calls)).toEqual(['omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual']);
-    expect(out).toMatch(/labels\s+created omni:phase-0, omni:feature, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge, omni:visual\s+\(already there: omni:prd\)\n/);
+    expect(created(base.calls)).toEqual(['omni:phase-0', 'omni:feature', 'omni:sub', 'omni:in-progress', 'omni:needs-fix', 'omni:outbox-go', 'omni:retro', 'omni:knowledge', 'omni:visual', 'omni:bug', 'omni:regression', 'omni:risk-critical', 'omni:risk-high', 'omni:risk-medium', 'omni:risk-low']);
+    expect(out).toMatch(/labels\s+created omni:phase-0, omni:feature, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge, omni:visual, omni:bug, omni:regression, omni:risk-critical, omni:risk-high, omni:risk-medium, omni:risk-low\s+\(already there: omni:prd\)\n/);
     expect(out).toContain('  labels  gh could not create omni:sub — see step 3 below\n');
     expect(out).toContain('  3. Create the labels gh could not create:\n       https://github.com/acme/widgets/labels\n       omni:sub\n');
   });
@@ -637,7 +640,7 @@ describe('omni init — the real bundle', () => {
     expect(readFileSync(join(root, '.omni-loop/bin/omni.mjs'))).toEqual(readFileSync(dist));
     const out = execFileSync('node', ['.omni-loop/bin/omni.mjs', 'config', 'commands.test'], { cwd: root, env, encoding: 'utf8' });
     expect(out).toBe('make test\n');
-  }, 30000);
+  });
 });
 
 const KIT_HOME = 'vertuoza/vertuo-omni-loop';
@@ -664,7 +667,7 @@ const FIRST_RUN = [
   '  wrote   .omni-loop/bin/omni.mjs',
   ...FORM_FILES.map((path) => `  wrote   ${path}`),
   '  wrote   .claude/settings.json  (statusLine)',
-  '  labels  created omni:prd, omni:phase-0, omni:feature, omni:sub, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge, omni:visual',
+  '  labels  created omni:prd, omni:phase-0, omni:feature, omni:sub, omni:in-progress, omni:needs-fix, omni:outbox-go, omni:retro, omni:knowledge, omni:visual, omni:bug, omni:regression, omni:risk-critical, omni:risk-high, omni:risk-medium, omni:risk-low',
   '',
   'Install pull request:',
   '  branch  created chore/install-omni-loop',

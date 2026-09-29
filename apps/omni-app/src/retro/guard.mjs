@@ -14,7 +14,8 @@
 //
 // The judge's verdict (PRD 487) is checked as one: `worthIt` true or false, `reason` a field like any
 // other (capped at `FIELD_CAPS.reason`), each finding's `keep` true or false and its `why` a field
-// capped at `FIELD_CAPS.why`, and a verdict worth it keeping at least one finding the retro found
+// capped at `FIELD_CAPS.why`, except that `reason` and `why` may hold digits: they only explain the
+// verdict, and naming a slice or a count is how a model says why, and a verdict worth it keeping at least one finding the retro found
 // with a lesson it kept. A kept finding without a kept lesson drops it too. A verdict failing any of
 // these is dropped whole, for its first failure, and every `keep` and `why` with it: the retro is
 // then **not judged**. The reasons are
@@ -121,7 +122,7 @@ function judge(reply, prose, evidence, dropped) {
   const verdict = reply.verdict;
   if (!isObject(verdict)) return failed('verdict', DROPPED.noVerdict);
   if (typeof verdict.worthIt !== 'boolean') return failed('verdict.worthIt', DROPPED.notYesOrNo);
-  const reasonRefused = refusal(verdict.reason, FIELD_CAPS.reason, evidence);
+  const reasonRefused = refusal(verdict.reason, FIELD_CAPS.reason, evidence, VERDICT_WORDS);
   if (reasonRefused) return failed('verdict.reason', reasonRefused);
 
   const judged = {};
@@ -135,7 +136,7 @@ function judge(reply, prose, evidence, dropped) {
       marks.keep = words.keep;
     }
     if (words.why !== undefined) {
-      const whyRefused = refusal(words.why, FIELD_CAPS.why, evidence);
+      const whyRefused = refusal(words.why, FIELD_CAPS.why, evidence, VERDICT_WORDS);
       if (whyRefused) return failed(`${field}.why`, whyRefused);
       marks.why = words.why;
     }
@@ -151,15 +152,18 @@ function judge(reply, prose, evidence, dropped) {
   return { worthIt: verdict.worthIt, reason: verdict.reason };
 }
 
+/** The verdict's own words, its `reason` and each `why`, may hold digits. */
+const VERDICT_WORDS = Object.freeze({ digits: true });
+
 /** Why a field is refused, or `null` when it is kept. */
-function refusal(value, cap, evidence) {
+function refusal(value, cap, evidence, { digits = false } = {}) {
   if (typeof value !== 'string') return DROPPED.notText;
   if (value.length > cap) return DROPPED.tooLong;
   if (refusedWordsIn(value).length > 0) return DROPPED.refusedWord;
   const links = linksIn(value);
   if (links.some((link) => !evidence.urls.has(link))) return DROPPED.foreignLink;
   if (findingIdsIn(value).some((id) => !evidence.ids.has(id))) return DROPPED.unknownFinding;
-  if (/\d/.test(setAside(value, evidence))) return DROPPED.digit;
+  if (!digits && /\d/.test(setAside(value, evidence))) return DROPPED.digit;
   return null;
 }
 

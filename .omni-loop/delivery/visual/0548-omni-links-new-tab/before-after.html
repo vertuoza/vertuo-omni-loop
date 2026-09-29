@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visual 548 before/after</title>
+<style>
+/* The app sidebar's Omni group, copied from apps/galaxy/src/nav/sidebar.css on the Omni theme's tokens. */
+:root{--ground:#07061f;--surface:#120f3a;--line:#2a2766;--line-strong:#5a60c4;--ink:#ffffff;--muted:#8a90d6;--plasma:#ffd84a;--page:#e9e8f3;--page-ink:#17153d;color-scheme:light}
+@media (prefers-color-scheme: dark){:root{--page:#0b0a24;--page-ink:#e8e8ff;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--page-ink);font:14px/1.5 system-ui,sans-serif;padding-inline:16px;padding-block:24px 40px}
+main{max-width:1100px;margin:0 auto;display:grid;gap:18px}
+h1{font-size:20px;margin:0}
+p.lede{margin:0;opacity:.8;max-width:70ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+figure{margin:0;display:grid;gap:8px}
+figcaption{font-weight:600}
+figcaption span{font-weight:400;opacity:.75;display:block;font-size:13px}
+.side{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:16px;display:grid;gap:14px}
+.label{margin:0;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+a.item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;border:1px solid transparent;color:var(--ink);text-decoration:none;font-weight:500}
+a.item.cur{color:var(--plasma);border-color:var(--plasma);background:var(--ground)}
+.out{margin-left:auto;color:var(--muted);font-weight:400}
+.hint{font-size:12px;opacity:.7}
+/* B: a new-tab box icon */
+.box{margin-left:auto;color:var(--muted);display:inline-flex}
+/* C: a chip */
+.chip{margin-left:auto;font-size:11px;font-weight:500;color:var(--muted);border:1px solid var(--line-strong);border-radius:999px;padding:0 7px;line-height:18px}
+/* D: a quieter group, the cue on hover */
+.quiet a.item{color:var(--muted);font-weight:400}
+.quiet a.item .out{opacity:0}
+.quiet a.item.hov{border-color:var(--line-strong);color:var(--ink)}
+.quiet a.item.hov .out{opacity:1}
+/* E: icon before the label */
+.lead{color:var(--muted);display:inline-flex}
+.sep{height:1px;background:var(--line);margin:2px 0}
+
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:640px){.pair{grid-template-columns:1fr}}
+.small{font-size:12px}
+.small .side{transform-origin:top left}
+h2{font-size:16px;margin:8px 0 0}
+code{font:12px ui-monospace,monospace}
+</style>
+</head>
+<body>
+<main>
+  <h1>Visual fix #548: Docs and Release notes open in a new tab</h1>
+  <p class="lede">The app sidebar's Omni group, Omni theme. Today the two links open in the same tab. After: they open in a new tab, shown by a new-tab icon in place of ↗, and their accessible names end "(opens in a new tab)". Changed: <code>apps/galaxy/src/nav/Sidebar.tsx</code>, <code>apps/galaxy/src/nav/sidebar.css</code>.</p>
+  <div class="pair">
+    <figure><figcaption>Today <span>same tab; ↗ says it leaves the app</span></figcaption>
+      <div class="side"><p class="label">Work</p><ul><li><a class="item cur">PRDs</a></li></ul>
+        <p class="label">Omni</p><ul><li><a class="item">Docs<span class="out">↗</span></a></li><li><a class="item">Release notes<span class="out">↗</span></a></li></ul></div></figure>
+    <figure><figcaption>B, the pick <span>a new-tab box icon in place of ↗</span></figcaption>
+      <div class="side"><p class="label">Work</p><ul><li><a class="item cur">PRDs</a></li></ul>
+        <p class="label">Omni</p><ul>
+        <li><a class="item">Docs<span class="box"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M9 2h5v5M14 2 7.5 8.5M12 9.5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3.5"/></svg></span></a></li>
+        <li><a class="item">Release notes<span class="box"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M9 2h5v5M14 2 7.5 8.5M12 9.5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3.5"/></svg></span></a></li></ul></div></figure>
+  </div>
+  <h2>Not picked</h2>
+  <div class="grid">
+    <figure class="small"><figcaption>A <span>keep the ↗, now opens a new tab; nothing else changes</span></figcaption>
+      <div class="side"><p class="label">Work</p><ul><li><a class="item cur">PRDs</a></li></ul>
+        <p class="label">Omni</p><ul><li><a class="item">Docs<span class="out">↗</span></a></li><li><a class="item">Release notes<span class="out">↗</span></a></li></ul></div></figure>
+    <figure class="small"><figcaption>C <span>a small "new tab" chip, words not a glyph</span></figcaption>
+      <div class="side"><p class="label">Work</p><ul><li><a class="item cur">PRDs</a></li></ul>
+        <p class="label">Omni</p><ul><li><a class="item">Docs<span class="chip">new tab</span></a></li><li><a class="item">Release notes<span class="chip">new tab</span></a></li></ul></div></figure>
+    <figure class="small"><figcaption>D <span>quieter Omni items; ↗ shows on hover and focus (Docs hovered)</span></figcaption>
+      <div class="side"><p class="label">Work</p><ul><li><a class="item cur">PRDs</a></li></ul>
+        <div class="quiet" style="display:grid;gap:14px"><p class="label">Omni</p><ul><li><a class="item hov">Docs<span class="out">↗</span></a></li><li><a class="item">Release notes<span class="out">↗</span></a></li></ul></div></div></figure>
+    <figure class="small"><figcaption>E <span>the new-tab icon leads the label; a rule sets the group apart</span></figcaption>
+      <div class="side"><p class="label">Work</p><ul><li><a class="item cur">PRDs</a></li></ul>
+        <div class="sep"></div>
+        <p class="label">Omni</p><ul>
+        <li><a class="item"><span class="lead"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M9 2h5v5M14 2 7.5 8.5M12 9.5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3.5"/></svg></span>Docs</a></li>
+        <li><a class="item"><span class="lead"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M9 2h5v5M14 2 7.5 8.5M12 9.5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3.5"/></svg></span>Release notes</a></li></ul></div></figure>
+  </div>
+</main>
+</body>
+</html>

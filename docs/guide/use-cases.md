@@ -11,6 +11,7 @@ or in Claude Code with `!` before them. In the examples, `7` stands for your PRD
 |---|---|
 | [turn an idea into a PRD](#i-have-an-idea) | `/omni:brainstorm <the idea>` |
 | [make a small visual change](#make-a-small-visual-change) | `/omni:visual-fix <the change>` |
+| [fix a bug](#fix-a-bug) | `/omni:bug-fix <the bug>` or `/omni:bug-fix 612` |
 | [build an approved PRD](#build-an-approved-prd) | `/omni:yolo 7` |
 | [answer the agents' questions](#answer-the-agents-questions) | a comment on the feature pull request, then `/omni:yolo-fix 7` |
 | [build it one wave at a time](#build-one-wave-at-a-time) | `/omni:wave 7` |
@@ -62,6 +63,29 @@ When the change turns out to need data, a route, an API or a new screen, it stop
 issue, and gives you the `/omni:brainstorm` line to run instead.
 
 **Then:** open the pull request's preview, and merge it if it looks right. It never merges itself.
+
+### Fix a bug
+
+Something a user, a browser or an API caller can see going wrong, where the right behaviour is
+already clear: too small for a PRD.
+
+```text agent
+/omni:bug-fix Saving twice duplicates the row
+```
+
+It opens an issue labelled `omni:bug` (or give it an issue that already reports the bug: `612`,
+`#612` or its link), and posts a triage on it: which area owns it, how bad it is (a
+`omni:risk-<level>` label), and whether a change broke it (`omni:regression`). On a fix branch it
+writes a test that shows the bug and runs it before any fix: it must fail. Then it fixes the bug,
+adds the cheap check that would have caught it, and opens one pull request into your default branch
+that closes the issue, with a **Bug** section saying what failed before the fix. There is no spec,
+no plan and no phase-0 pull request.
+
+A flaky check is not a bug: it says so on the issue and stops. When the fix needs a product
+decision, a change to stored data or a shared interface, or a new screen, route or API, it stops,
+says so on the issue, and gives you the `/omni:brainstorm` line to run instead.
+
+**Then:** review the pull request, and merge it if it is right. It never merges itself.
 
 ## Build
 
