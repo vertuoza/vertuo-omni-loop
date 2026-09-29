@@ -12,6 +12,7 @@ import { formatFailure, formatPass, trackedFiles } from '../../lib/check-report.
 import { rangeChanges } from '../../lib/git.mjs';
 import { findInboxViolations } from '../../lib/inbox/check-inbox.mjs';
 import { gradeKnowledge } from '../../lib/knowledge/check-knowledge.mjs';
+import { COPIES_DIR, gradeCopies } from '../../lib/knowledge/copies.mjs';
 import { readKnowledge } from '../../lib/knowledge/registers.mjs';
 import { findOutboxViolations } from '../../lib/outbox/check-outbox.mjs';
 import {
@@ -70,7 +71,8 @@ function checkKnowledge({ ctx, stdout, stderr }) {
     println(stdout, formatPass(`check knowledge — no knowledge folder at ${root}; nothing to grade (laws.source is "${ctx.config.laws.source}").`));
     return true;
   }
-  const files = trackedFiles(ctx, root).filter((file) => file.endsWith('.md'));
+  // An imported copy's files cite its own ids, graded by `omni check kb` (PRD 522), never these.
+  const files = trackedFiles(ctx, root).filter((file) => file.endsWith('.md') && !file.startsWith(`${root}/${COPIES_DIR}/`));
   const { violations, wishes, proposals } = gradeKnowledge({ ctx, files });
   for (const wish of wishes) println(stderr, `warning: ${wish}`);
   for (const proposal of proposals) println(stderr, `warning: ${proposal}`);
@@ -88,17 +90,24 @@ function checkKnowledge({ ctx, stdout, stderr }) {
 /** The states a pass line counts, in this order, each only when some form is in it. */
 const FORM_STATES = ['filled', 'pointer', 'blank', 'missing'];
 
+// PRD 522: in a plan repository, every imported copy's forms and registers too, each line prefixed
+// by the copy's folder.
 function checkKb({ ctx, stdout, stderr, exec }) {
-  const { violations, warnings, forms } = gradePlaybook({ ctx, exec });
+  const own = gradePlaybook({ ctx, exec });
+  const copies = gradeCopies({ ctx, exec });
+  const violations = [...own.violations, ...copies.violations];
+  const warnings = [...own.warnings, ...copies.warnings];
   for (const warning of warnings) println(stderr, `warning: ${warning}`);
+  const { forms } = own;
   const counts = FORM_STATES.map((state) => [state, forms.filter((form) => form.state === state).length])
     .filter(([, count]) => count > 0)
     .map(([state, count]) => `${count} ${state}`);
+  const copied = copies.copies === 0 ? '' : `; ${copies.copies} imported ${copies.copies === 1 ? 'copy' : 'copies'} checked`;
   return report(
     stdout,
     'check kb — a form does not hold what it claims:',
     violations,
-    `check kb — ${forms.length} form(s): ${counts.join(', ')}; ${warnings.length} warning(s).`,
+    `check kb — ${forms.length} form(s): ${counts.join(', ')}; ${warnings.length} warning(s)${copied}.`,
   );
 }
 
