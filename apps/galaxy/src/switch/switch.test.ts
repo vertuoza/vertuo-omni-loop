@@ -12,7 +12,7 @@ const pageOf = (path: string) => new URL(`../../app${path}/page.tsx`, import.met
 describe('the app\'s sections', () => {
   it('are the sidebar\'s Dashboard, Work and Settings items, each opening a page that exists', () => {
     const inApp = SIDEBAR.filter((g) => g.id !== 'omni').flatMap((g) => g.items).flatMap((i) => [i, ...(i.children ?? [])]);
-    expect(inApp.map((i) => i.path)).toEqual(['/app', '/app/fleet', '/app/workspace', '/prd', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/settings/fleets']);
+    expect(inApp.map((i) => i.path)).toEqual(['/app', '/app/fleet', '/app/workspace', '/prd', '/bugs', '/visual', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/settings/fleets']);
     for (const { path } of inApp) expect(existsSync(pageOf(path)), `app${path}/page.tsx`).toBe(true);
   });
 });

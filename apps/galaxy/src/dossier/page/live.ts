@@ -11,7 +11,7 @@
 // nothing; the last one known is kept between reads. PRD 251 (s9) adds the pending answers (how many,
 // and the latest one's time), so a reply typed on GitHub shows on the Outbox tab within a minute.
 import { UNREAD, type GithubSummary } from '../github/summary';
-import { DOSSIER_KINDS, type DossierKind, type DossierListRow, type DossierPulse } from '../store';
+import { DOSSIER_KINDS, isDossierKind, type DossierKind, type DossierListRow, type DossierPulse } from '../store';
 import { stageOf, type StageId } from './stage';
 import type { DossierRead } from './view';
 
@@ -70,7 +70,8 @@ function partsOf(value: string): [string, string | null] {
 export function pulseOf(read: DossierRead): LivePulse | null {
   if (!read.rounds) return null;
   const latest: Partial<Record<DossierKind, number>> = {};
-  for (const version of read.versions) latest[version.kind] = (latest[version.kind] ?? 0) + 1;
+  // A PRD's three kinds, as dossier_list() pulses them; a fix's rounds and record are not watched (PRD 627).
+  for (const version of read.versions) if (isDossierKind(version.kind)) latest[version.kind] = (latest[version.kind] ?? 0) + 1;
   const pulse: LivePulse = { asked: read.rounds.length, answered: read.rounds.filter((r) => r.status === 'answered').length, latest };
   const github = githubPulse(read.dossier.prd, read.github);
   return github ? { ...pulse, github } : pulse;
