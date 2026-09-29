@@ -2,10 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { fakeSupabase } from '../store.fake';
 import { AskStoreError } from '../store';
 import {
-  databasePort, questionPort, readForMe, readHistory, readMembers, readQuestion, readSession, readTabs, removeSession, sendAnswers, sessionReader, shareRound, sortRound, tabsReader,
+  databasePort, questionPort, readForMe, readHistory, readMembers, readQuestion, readSession, readTabs, removeSession, sendAnswers, sessionReader, shareRound, sortRound, tabsReader, withFaces,
   type Db, type SortDb, type StorageDb,
 } from './source';
 import { stageShots, type Bucket } from './attachments';
+import { peopleOf } from '../../people/load';
 
 const ADA = { id: '00000000-0000-4000-8000-0000000000a1', email: 'ada@vertuoza.com' };
 const BOB = { id: '00000000-0000-4000-8000-0000000000b1', email: 'bob@vertuoza.com' };
@@ -305,6 +306,40 @@ describe('sharing a round, and the rounds shared with me (PRD 144)', () => {
     expect(members.map((m) => m.email).sort()).toEqual(['ada@vertuoza.com', 'bob@vertuoza.com']);
     expect(await readMembers(both(w, 'carl'), state!.session.workspace_id)).toEqual([]);
     expect(await readMembers(both(w, 'bob'), null)).toEqual([]);
+  });
+
+  it('gives each member a face; with no people directory to read, the initial of their name (PRD 652)', async () => {
+    const w = await world();
+    const state = await readSession(w.as('ada'), w.sessionId);
+    const members = await readMembers(both(w, 'bob'), state!.session.workspace_id);
+    expect(members.map((m) => m.face).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))))
+      .toEqual([{ kind: 'initial', letter: 'A' }, { kind: 'initial', letter: 'B' }]);
+  });
+});
+
+describe('members\' faces (PRD 652)', () => {
+  const members = [
+    { user_id: 'u-ada', email: 'ada@vertuoza.com', name: 'ADA' },
+    { user_id: 'u-bob', email: 'bob@vertuoza.com', name: null },
+    { user_id: 'u-cat', email: 'cat@vertuoza.com', name: 'CAT' },
+  ];
+  const roster = [
+    { user_id: 'u-ada', name: 'ADA', github_login: 'ada', avatar_url: 'https://avatars.example/ada.png', fleet: null },
+    { user_id: 'u-bob', name: null, github_login: 'bob-gh', avatar_url: null, fleet: null },
+  ];
+
+  it('resolves each member by account id through the directory: avatar, else the login\'s GitHub photo, else the initial', () => {
+    expect(withFaces(members, peopleOf(roster, [])).map((m) => m.face)).toEqual([
+      { kind: 'photo', url: 'https://avatars.example/ada.png' },
+      { kind: 'photo', url: 'https://github.com/bob-gh.png?size=48' },
+      { kind: 'initial', letter: 'C' },
+    ]);
+  });
+
+  it('keeps every member, named as before, when the directory could not be read', () => {
+    const faced = withFaces(members, peopleOf([], []));
+    expect(faced.map(({ face: _face, ...m }) => m)).toEqual(members);
+    expect(faced.map((m) => m.face)).toEqual([{ kind: 'initial', letter: 'A' }, { kind: 'initial', letter: 'B' }, { kind: 'initial', letter: 'C' }]);
   });
 });
 
