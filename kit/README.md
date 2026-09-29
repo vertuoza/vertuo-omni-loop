@@ -74,6 +74,28 @@ that runs it: `/omni:brainstorm` follows `/omni:dossier-open` before its first q
 `/omni:dossier-push` after each of its pushes, and `/omni:plan` follows `/omni:dossier-push` after
 it pushes `plan.md`.
 
+**Answers** take the outbox's questions through three doors, the terminal, the PRD's Outbox tab on
+the Omni page and the feature pull request, and every one ends as the person's own reply on the
+feature pull request, in the grammar `omni replies` reads (ADR-0052). The switch is
+`answers: { enabled: true }` in the config: `true` by default, and `omni init` writes it into every
+new config. `omni answers ask <prd> --pr <n> [--json]` prints the open `human-action` and `high`
+questions in the pull request's numbering, in batches of at most four, human action first (mediums
+are never asked: they are already adopted), and exits `1` with one line when nothing is open or the
+switch is off. `omni answers post --prd <n> --pr <n> --answers <file> [--print]` reads the picks
+from a JSON file (`[{ "number": 1, "pick": "A" }, { "number": 2, "pick": "B", "reason": "…" }]`;
+`done`, `not-done` with a reason, or `prose` with its `text`), writes the reply with the one reply
+writer the Omni page also uses, posts it and prints its link; `--print` posts nothing, and a refused
+pick or a failed post exits `1` (a failed post prints the reply, to paste). A reason becomes one
+line of at most 500 characters, with no outbox marker. **The end of `/omni:yolo`:** when its gate
+ends red and the switch is on, it first writes everything it writes today (the outbox comment, the
+draft PR, the status comment), then asks one question: *Answer here now*, *Answered on the Omni page
+or on the pull request — carry on*, or *Later — stop here*. Answering asks through
+`AskUserQuestion` and posts with `omni answers post`; answering or carrying on then follows
+`/omni:yolo-fix` steps 2 to 7 in the same run, so one command can go from a PRD to a pull request
+ready for review. An unattended yolo now waits at that question: `answers.enabled: false` restores
+the old ending. With the switch on and `ask.url` set, the outbox comment also carries a line linking
+the PRD's Outbox tab, `<ask.url>/prd/at/<owner>/<repo>/<n>`.
+
 **Release notes** say, for anyone outside, what each PRD shipped: a `release.md` beside the PRD's
 `spec.md`, whose front matter holds `prd` and `title` (and, on the initial release's notes only,
 `version: 0.0.1`), and whose body is one paragraph of description. `omni check releases` grades

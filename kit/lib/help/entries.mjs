@@ -231,6 +231,21 @@ export const ENTRIES = deepFreeze([
       'GitHub through gh and stores nothing.',
   },
   {
+    name: 'targets',
+    kind: 'command',
+    who: 'you',
+    usage: ['omni targets [--json]'],
+    summary: "a plan repository's target repositories, and where each stands",
+    detail:
+      "In a plan repository, one whose config has a plan section, one row per target repository, " +
+      'in config order: its role, where its knowledge lives (own, imported or none), the kit ' +
+      'version its default branch runs, and its state. ok; stale when an imported copy was read ' +
+      'before a change to a file it was drawn from; drifted when the config no longer says what ' +
+      'the repository has; unreachable when gh cannot read it. It reads GitHub through gh, clones ' +
+      'nothing and refreshes nothing. --json prints the same rows as one document. Exit 0 when ' +
+      'every row is ok, 1 otherwise, or 1 with not a plan repository.',
+  },
+  {
     name: 'whoami',
     kind: 'command',
     who: 'you',
@@ -287,6 +302,21 @@ export const ENTRIES = deepFreeze([
     detail:
       'Reads the numbered replies a person left on the feature PR, settles each outbox item they ' +
       'answer, and with --post posts the next round of questions. /omni:yolo-fix starts from it.',
+  },
+  {
+    name: 'answers',
+    kind: 'command',
+    who: 'skills',
+    usage: [
+      'omni answers ask <prd> --pr <n> [--repo <owner/name>] [--json]',
+      'omni answers post --prd <n> --pr <n> --answers <file>',
+      '  [--repo <owner/name>] [--print]',
+    ],
+    summary: 'answer the outbox from the terminal',
+    detail:
+      'With ask, prints the open human-action and high questions of the feature PR, in its numbering, ' +
+      'at most four at a time. With post, writes the picks as one reply and posts it on the feature ' +
+      'PR, where omni replies reads it; --print only prints it. /omni:yolo runs it when its gate ends red.',
   },
   {
     name: 'comment',
@@ -376,6 +406,18 @@ export const ENTRIES = deepFreeze([
       "loop's signature, unless signing is off. --base defaults to {remote}/{defaultBranch}.",
   },
   {
+    name: 'visual',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni visual <n> [--base <ref>]'],
+    summary: 'grade a visual fix branch',
+    detail:
+      "The proof step of /omni:visual-fix, run on its fix branch: one folder for issue <n> under " +
+      "the delivery folder's visual/, holding a before-after.html under the size cap with no base64 " +
+      "raster image, and every commit carrying the loop's signature, unless signing is off. Prints " +
+      'ok, or not ok with one line per failed check. --base defaults to {remote}/{defaultBranch}.',
+  },
+  {
     name: 'sign',
     kind: 'command',
     who: 'skills',
@@ -428,6 +470,20 @@ export const ENTRIES = deepFreeze([
       '/omni:yolo line that builds it.',
   },
   {
+    name: 'mega-brainstorm',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:mega-brainstorm'],
+    label: '/omni:mega-brainstorm',
+    summary: 'one PRD across repositories, from a plan repository',
+    detail:
+      'The brainstorm of a plan repository, one /omni:mega-invade set up: it turns one idea into ' +
+      'one PRD whose plan says which slice lands in which target repository, read from a ' +
+      'read-only clone of each, in which nothing runs. The spec, the plan, the draft feature PR ' +
+      'and one phase-0 PR, with a table of what lands where, all live in the plan repository; it ' +
+      'never writes in a target. It ends with the /omni:ultra-yolo line that builds it.',
+  },
+  {
     name: 'yolo',
     kind: 'skill',
     who: 'you',
@@ -452,6 +508,20 @@ export const ENTRIES = deepFreeze([
       'replies, reworks every decision they disagreed with as its own slice, inside the bound its ' +
       'item stated, checks the whole feature, then ships it when the gate is green. It asks no ' +
       'question of its own and never merges into {defaultBranch}.',
+  },
+  {
+    name: 'visual-fix',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:visual-fix <line or n>'],
+    label: '/omni:visual-fix',
+    summary: 'a small visual change, to one PR',
+    detail:
+      'For a small visual change, such as a colour, a spacing or a label: from one line or an ' +
+      'issue number, it shows today beside four or five variations, asks which one, applies the ' +
+      'pick on a fix branch, looks at the real screen once and opens one PR into {defaultBranch} ' +
+      'with its before/after page. No PRD, plan or outbox. A change that needs data, a route or a ' +
+      'new screen stops it, with the /omni:brainstorm line to run instead. It never merges.',
   },
   {
     name: 'plan',
@@ -518,6 +588,22 @@ export const ENTRIES = deepFreeze([
       "proposed entries and fills the playbook's forms from evidence, leaving a question for a " +
       'person where proof is missing. It ends with one docs-only PR a person merges. --refresh ' +
       'redoes only what went stale.',
+  },
+  {
+    name: 'mega-invade',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:mega-invade [--sync]'],
+    label: '/omni:mega-invade',
+    summary: 'make this a plan repository that knows its targets',
+    detail:
+      'Makes this repository a plan repository: it reads the repositories its guide names and its ' +
+      'config lists through gh, without cloning, shows one map and takes every answer in one ' +
+      'message: target or not, its role, and for one without its own knowledge base whether to ' +
+      'import a draft of it. It writes the plan section of the config and each imported copy, from ' +
+      'a read-only clone in which nothing runs, and ends with one docs-only PR a person merges. It ' +
+      'never writes in a target. omni targets then reports each one; --sync redraws only what ' +
+      'changed in the stale copies.',
   },
   {
     name: 'ask',

@@ -55,6 +55,12 @@ describe('entryHref — the address of one entry', () => {
     expect(entryHref({ domain: 'product', entry: 'BR-PRODUCT-3' })).toBe('/knowledge?domain=product&entry=BR-PRODUCT-3');
     expect(entryHref({ domain: 'billing', entry: null })).toBe('/knowledge?domain=billing');
   });
+
+  it('names the repository first, when the menu shows one other than the deployed checkout', () => {
+    expect(entryHref({ domain: 'quote', entry: 'BR-QUOTE-1' }, 'acme/anvils')).toBe('/knowledge?repo=acme%2Fanvils&domain=quote&entry=BR-QUOTE-1');
+    expect(entryHref({ domain: 'quote', entry: null }, 'acme/anvils')).toBe('/knowledge?repo=acme%2Fanvils&domain=quote');
+    expect(entryHref({ domain: 'quote', entry: 'BR-QUOTE-1' }, null)).toBe('/knowledge?domain=quote&entry=BR-QUOTE-1');
+  });
 });
 
 describe('indexOf — the index, grouped by principle', () => {

@@ -3,10 +3,13 @@ import { Notice } from '../../src/ask/page/Notice';
 import { arcadeMode } from '../../src/data/mode';
 import { supabaseEnv, supabaseServer } from '../../src/data/supabase-server';
 import type { DossierListRow } from '../../src/dossier/store';
-import { DEMO_VIEWER, demoHistory } from '../../src/dossier/page/demo';
+import { dossierGithub } from '../../src/dossier/github/server';
+import { DEMO_DOSSIER_ID, DEMO_GITHUB, DEMO_VIEWER, demoHistory } from '../../src/dossier/page/demo';
 import { DossierHistory } from '../../src/dossier/page/DossierHistory';
 import { DossierSignIn } from '../../src/dossier/page/DossierSignIn';
-import { HISTORY_CALLBACK, historyChoices, historyItems, readHistoryFilters } from '../../src/dossier/page/history';
+import {
+  HISTORY_CALLBACK, historyChoices, historyItems, historyToRead, readHistoryFilters, readOpenCounts, type OpenCounts,
+} from '../../src/dossier/page/history';
 import { readHistory } from '../../src/dossier/page/source';
 
 // /prd, the history (PRD 216): every dossier of the signed-in person's workspaces, newest activity
@@ -14,7 +17,9 @@ import { readHistory } from '../../src/dossier/page/source';
 // the words of a title; each row opens /prd/<id>. Rendered per request, as the signed-in person, so
 // row-level security decides: signed out, a sign-in card that comes back here through /prd/callback.
 // Without a database it plays the demo history in development. PRD 413: Mine by default, the dossiers the
-// signed-in person opened (the demo's viewer in the demo), or All with who=all.
+// signed-in person opened (the demo's viewer in the demo), or All with who=all. PRD 251: each numbered
+// row the filters let through has its outbox's open questions counted by the server's GitHub reader
+// (its 60-second cache), for `n open` and Needs an answer; the demo counts the demo dossier's outbox.
 
 export const metadata: Metadata = { title: 'PRDs · OMNI LOOP' };
 
@@ -22,15 +27,20 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
 
+const DEMO_READER = { summary: async ({ id }: { id: string }) => (id === DEMO_DOSSIER_ID ? DEMO_GITHUB : null) };
+
 export default async function HistoryRoute({ searchParams }: Props) {
   const query = await searchParams;
   const filters = readHistoryFilters(query);
-  const listing = (rows: DossierListRow[], viewer: string) => (
-    <DossierHistory items={historyItems(rows, filters, viewer)} choices={historyChoices(rows)} filters={filters} />
+  const listing = (rows: DossierListRow[], viewer: string, open: OpenCounts) => (
+    <DossierHistory items={historyItems(rows, filters, viewer, open)} choices={historyChoices(rows)} filters={filters} />
   );
   const mode = arcadeMode(process.env);
 
-  if (mode === 'demo') return listing(demoHistory(Date.now()), DEMO_VIEWER);
+  if (mode === 'demo') {
+    const rows = demoHistory(Date.now());
+    return listing(rows, DEMO_VIEWER, await readOpenCounts(historyToRead(rows, filters, DEMO_VIEWER), DEMO_READER));
+  }
   const env = supabaseEnv();
   if (mode === 'closed' || !env) {
     return (
@@ -54,5 +64,5 @@ export default async function HistoryRoute({ searchParams }: Props) {
       </Notice>
     );
   }
-  return listing(rows, user.id);
+  return listing(rows, user.id, await readOpenCounts(historyToRead(rows, filters, user.id), dossierGithub()));
 }

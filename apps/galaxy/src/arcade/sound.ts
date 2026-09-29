@@ -184,6 +184,31 @@ const MOTIFS: Record<string, (o: AudioNode, t: number) => void> = {
     hiss(o, t + 0.5, 0.4, { type: 'lowpass', freq: 220, gain: 1.4 });
     note(o, 90, t + 0.5, 0.25, 'sine', 0.45, { slideTo: 35 });
   },
+  'atom-eve'(o, t) { // a sparkly rising shimmer: a glow sliding up under climbing bells
+    note(o, freqOf('A4')!, t, 0.34, 'p12', 0.02, { slideTo: freqOf('A5')! });
+    ['E5', 'A5', 'C#6', 'E6', 'A6', 'C#7'].forEach((n, i) => note(o, freqOf(n)!, t + i * 0.045, 0.12, 'sine', 0.05));
+    note(o, freqOf('E7')!, t + 0.3, 0.2, 'sine', 0.025, { vib: 0.03 });
+    hiss(o, t + 0.26, 0.22, { type: 'highpass', freq: 8000, gain: 0.06 });
+  },
+  shark(o, t) { // dun-dun: two low notes, swelling as it closes in
+    for (const [n, at, len, k] of [['E2', 0, 0.16, 1], ['F2', 0.22, 0.16, 1.4], ['E2', 0.5, 0.12, 1.9], ['F2', 0.64, 0.34, 2.6]] as const) {
+      note(o, freqOf(n)!, t + at, len, 'triangle', 0.1 * k);
+      note(o, freqOf(n)!, t + at, len, 'p25', 0.02 * k);
+    }
+  },
+  turtle(o, t) { // three slow, steady plods
+    for (let i = 0; i < 3; i++) {
+      note(o, freqOf('C3')!, t + i * 0.28, 0.14, 'triangle', 0.22, { slideTo: freqOf('G2')! });
+      hiss(o, t + i * 0.28, 0.1, { type: 'lowpass', freq: 400, gain: 0.8 });
+    }
+  },
+  allen(o, t) { // a wobbly UFO warble, up and back down
+    note(o, freqOf('E5')!, t, 0.3, 'sine', 0.06, { vib: 0.05, slideTo: freqOf('B5')! });
+    note(o, freqOf('B5')!, t + 0.3, 0.36, 'sine', 0.06, { vib: 0.05, slideTo: freqOf('G5')! });
+  },
+  robot(o, t) { // quick beeps and boops
+    ['A6', 'A5', 'E6', 'C5', 'A6'].forEach((n, i) => note(o, freqOf(n)!, t + i * 0.07, 0.045, 'square', 0.035));
+  },
 };
 
 const PENTATONIC = ['C5', 'D5', 'E5', 'G5', 'A5', 'C6', 'D6', 'E6'];

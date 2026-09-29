@@ -69,6 +69,7 @@ function stubReader(answers: Record<number, GithubSummary | null | Error>): Gith
       if (answer instanceof Error) throw answer;
       return answer ?? null;
     },
+    forget() {},
   };
 }
 

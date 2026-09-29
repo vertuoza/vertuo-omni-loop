@@ -62,3 +62,13 @@ entry carries `proposed` (`{ by, on }`, or `null` for a law; a malformed line re
 the checker to refuse). `registerCounts({ ctx })` is new: per register folder, its laws and its
 proposed entries, for `omni kb status`. Tests added in `registers.test.mjs`; no ported assertion
 changed.
+
+## After the port: PRD #523, slice s1 — a knowledge folder read from memory
+
+Kit-only, no upstream counterpart. `readKnowledge({ ctx, source })` reads through a source:
+`diskSource(root)` (the default, `ctx.root`: every existing caller unchanged) or
+`memorySource(texts)`, the same `files` / `dirs` / `read` over texts already fetched, so the web
+app can build another repository's graph from its files read over GitHub (`graphOfTexts` in
+`graph.mjs`) without a second parser. Tests added in `registers.test.mjs` and `graph.test.mjs`; the
+`tree()` helper of the fixture-tree block moved to the file's top level so the source tests share
+it; no ported assertion changed.
