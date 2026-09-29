@@ -52,14 +52,14 @@ describe('the Game mode button', () => {
 });
 
 describe('/app', () => {
-  it('sits in the app shell: the sidebar, Home marked current, then the top bar titled Home, the theme switch and Game mode', () => {
+  it('sits in the app shell: the sidebar, Home marked current, then the top bar\'s trail to Home, the theme switch and Game mode', () => {
     const side = between(app, '<aside class="app-sidebar"', '</aside>');
     expect(side).toMatch(/<a class="app-sidebar-crest" href="\/app">/);
     // next/link (PRD 657) writes aria-current before href: read each link whatever its attributes' order.
     const marked = [...side.matchAll(/<a\b[^>]*>/g)].map((m) => m[0]).filter((a) => a.includes('aria-current="page"'));
     expect(marked.map((a) => /href="([^"]+)"/.exec(a)?.[1])).toEqual(['/app']);
     const bar = between(app, '<header class="app-bar"', '</header>');
-    expect(bar).toContain('<p class="app-bar-title">Home</p>');
+    expect(bar).toContain('<nav class="app-bar-trail" aria-label="Breadcrumb"><ol><li>Dashboard</li><li class="app-bar-here"><span class="app-bar-sep" aria-hidden="true">›</span><span aria-current="page">Home</span></li></ol></nav>');
     const theme = bar.indexOf('aria-label="Theme"'), game = bar.indexOf('>Game mode');
     expect(theme).toBeGreaterThan(0);
     expect(game).toBeGreaterThan(theme);
