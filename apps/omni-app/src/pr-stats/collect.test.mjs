@@ -12,8 +12,8 @@ function run({ store, github, now = NOW }) {
   return collectAll({ store, octokitFor: async () => github.octokit, step, now });
 }
 
-const pullsListed = (github, repo) => github.requests.filter((request) => request.route === 'GET /repos/{owner}/{repo}/pulls' && request.repo === repo);
-const detailsRead = (github) => github.requests.filter((request) => request.route === 'GET /repos/{owner}/{repo}/pulls/{pull_number}').map((request) => request.pull_number);
+const pullsListed = (github, repo) => github.queries.filter((query) => query.operation === 'PullsUpdated' && query.repo === repo);
+const detailsRead = (github) => github.queries.filter((query) => query.operation === 'PullDetails').flatMap((query) => query.numbers);
 
 describe('prStats — collecting a tracked repository', () => {
   it('backfills 90 days on the first run and sets the cursor', async () => {
@@ -103,9 +103,11 @@ describe('prStats — collecting a tracked repository', () => {
   });
 
   it('records a 404 or a rate limit on that repository only, and collects the others', async () => {
+    const busyPulls = Array.from({ length: BATCH + 1 }, (_, index) => pull(index + 1, { updated_at: daysAgo(3 - index * 0.01) }));
     const github = fakeGitHub({
       'vertuoza/gone': { fail: { status: 404, message: 'Not Found' } },
-      'vertuoza/busy': { pulls: [pull(1, { updated_at: daysAgo(3) }), pull(2, { updated_at: daysAgo(2) })], fail: { status: 403, message: 'API rate limit exceeded', after: 1 } },
+      // One batch read, then a rate limit on the second.
+      'vertuoza/busy': { pulls: busyPulls, fail: { status: 403, message: 'API rate limit exceeded', after: 1 } },
       'vertuoza/apps': { pulls: [pull(1, { updated_at: daysAgo(1) })] },
     });
     const store = fakeStore([
@@ -120,11 +122,20 @@ describe('prStats — collecting a tracked repository', () => {
     expect(gone.collectError).toMatch(/404/);
     expect(gone.collectedAt).toBeNull();
     expect(busy.collectError).toMatch(/rate limit/);
-    expect(busy.collectedUntil).toBe(daysAgo(3)); // the pull saved before the limit: resumed from there
+    expect(busy.collectedUntil).toBe(daysAgo(3 - (BATCH - 1) * 0.01)); // the batch saved before the limit: resumed from there
+    expect(store.state.pulls.has(`${WS}|vertuoza/busy|${BATCH}`)).toBe(true);
+    expect(store.state.pulls.has(`${WS}|vertuoza/busy|${BATCH + 1}`)).toBe(false);
     expect(apps.collectError).toBeNull();
     expect(apps.collectedAt).toBe(new Date(NOW).toISOString());
     expect(store.state.pulls.has(`${WS}|vertuoza/apps|1`)).toBe(true);
     expect(result.failed).toBe(2);
+  });
+
+  it('records a repository GitHub cannot resolve as NOT_FOUND', async () => {
+    const store = fakeStore([{ workspaceId: WS, installationId: 7, fullName: 'vertuoza/renamed' }]);
+    const result = await run({ store, github: fakeGitHub({}) });
+    expect(store.state.repositories[0].collectError).toBe("NOT_FOUND: Could not resolve to a Repository with the name 'vertuoza/renamed'.");
+    expect(result.failed).toBe(1);
   });
 
   it('clears an earlier failure once a collection succeeds', async () => {
