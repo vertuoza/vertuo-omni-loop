@@ -12,13 +12,13 @@ const given = vi.hoisted(() => ({
 }));
 const demoDashboard = vi.hoisted(() => vi.fn((period: string, now: Date) => ({ period, demo: now.toISOString() })));
 const loadDashboard = vi.hoisted(() => vi.fn(async (..._args: unknown[]) => given.load));
-const getUser = vi.hoisted(() => vi.fn(async () => ({ data: { user: given.user } })));
+const getClaims = vi.hoisted(() => vi.fn(async () => ({ data: given.user ? { claims: { sub: given.user.id, email: given.user.email } } : null, error: null })));
 
 vi.mock('server-only', () => ({}));
 vi.mock('../data/mode', () => ({ arcadeMode: () => given.mode }));
 vi.mock('../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
-  supabaseServer: async () => ({ auth: { getUser } }),
+  supabaseServer: async () => ({ auth: { getClaims } }),
 }));
 vi.mock('./demo', () => ({ demoDashboard }));
 vi.mock('./load', () => ({ loadDashboard }));
@@ -30,7 +30,7 @@ const propsOf = async (query: Record<string, string> = {}) =>
 
 beforeEach(() => {
   Object.assign(given, { mode: 'supabase', user: null, load: { kind: 'no-workspace' } });
-  for (const fn of [demoDashboard, loadDashboard, getUser]) fn.mockClear();
+  for (const fn of [demoDashboard, loadDashboard, getClaims]) fn.mockClear();
 });
 afterEach(() => { vi.restoreAllMocks(); });
 
@@ -44,13 +44,13 @@ describe('/app decides once', () => {
     expect(at).toBeGreaterThanOrEqual(before);
     expect(at).toBeLessThanOrEqual(Date.now());
     expect(supabase).toBeNull();
-    expect(getUser).not.toHaveBeenCalled();
+    expect(getClaims).not.toHaveBeenCalled();
   });
 
   it('with no database: closed, and no session read', async () => {
     given.mode = 'closed';
     expect((await propsOf()).view).toEqual({ kind: 'closed' });
-    expect(getUser).not.toHaveBeenCalled();
+    expect(getClaims).not.toHaveBeenCalled();
   });
 
   it('signed out: the sign-in card, with the reason the last sign-in was refused', async () => {
@@ -68,7 +68,7 @@ describe('/app decides once', () => {
     expect(view).toEqual(given.load);
     const [db, user, period, now] = loadDashboard.mock.calls[0];
     expect((db as { auth: unknown }).auth).toBeTruthy();
-    expect(user).toEqual(given.user);
+    expect(user).toMatchObject(given.user!);
     expect(period).toBe('7d');
     expect(now).toBeInstanceOf(Date);
   });

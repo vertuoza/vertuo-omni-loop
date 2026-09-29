@@ -5,7 +5,8 @@ import type { PartInput } from '../part';
 import { seasonBounds } from '../season';
 import { fakeCountsDb, type AskTables } from './ask.fake';
 import { ASK, FOR_ME } from './counts';
-import { loadWaiting } from './load';
+import { loadWaiting, waitingOfQuestions } from './load';
+import { readWaitingQuestions } from '../../waiting/source';
 
 // Waiting for you's read (PRD 328, kept on Home by PRD 572), on the in-memory fake database
 // (src/data/galaxy.fake.ts, with the ask tables beside it: ./ask.fake.ts), read as one signed-in
@@ -113,5 +114,36 @@ describe('Waiting for you', () => {
 
   it.each(['ask_sessions', 'ask_shares'] as const)('%s out of reach: the read rejects, for the page to say so alone', async (table) => {
     await expect(waitingOf(ada, {}, ({ ask }) => { ask.state.failWhen = (read) => read.table === table; })).rejects.toThrow();
+  });
+});
+
+// PRD 657: the layout reads the waiting list's Questions part once per request (src/data/viewer.ts);
+// Home counts Waiting for you from it rather than reading the ask tables again. Same world, same count.
+describe('Waiting for you, from the questions the layout read', () => {
+  async function both(person: FakeUser, over: Partial<PartInput> = {}, arrange?: Parameters<typeof world>[0]) {
+    const w = world(arrange);
+    const input = inputOf(person, w, over);
+    const questions = await readWaitingQuestions(input.db, person.id, input.now.getTime());
+    return { read: await loadWaiting(input), reused: waitingOfQuestions(questions) };
+  }
+
+  it('counts ADA\'s two, linking to /ask, as the read does', async () => {
+    const { read, reused } = await both(ada);
+    expect(reused).toEqual({ count: 2, href: ASK });
+    expect(reused).toEqual(read);
+  });
+
+  it('links to /ask/for-me when every waiting question was shared, as the read does', async () => {
+    const { read, reused } = await both(ada, {}, ({ ask }) => {
+      Object.assign(ask.tables.ask_rounds.find((r) => r.id === 'r-ada-2')!, answered('r-ada-2', 's-ada', ada.id, '2026-09-26T09:58:00Z'));
+    });
+    expect(reused).toEqual({ count: 1, href: FOR_ME });
+    expect(reused).toEqual(read);
+  });
+
+  it('is 0, linking to /ask, with nothing waiting', async () => {
+    const { read, reused } = await both(wile, { workspace: ACME });
+    expect(reused).toEqual({ count: 0, href: ASK });
+    expect(reused).toEqual(read);
   });
 });

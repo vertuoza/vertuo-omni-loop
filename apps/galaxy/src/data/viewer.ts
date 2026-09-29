@@ -69,7 +69,7 @@ export function userOfClaims(claims: JwtPayload): User {
     identities: github
       ? [{ id: claims.sub, user_id: claims.sub, provider: 'github', identity_data: { user_name: userName, preferred_username: preferred } }]
       : [],
-  } as User;
+  } as unknown as User;
 }
 
 /** A read started at most once: the first call's promise, every call after. */

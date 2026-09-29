@@ -79,7 +79,7 @@ describe('viewer()', () => {
     const [a, b, c] = await Promise.all([viewer(), viewer(), viewer()]);
     expect(a).toBe(b);
     expect(b).toBe(c);
-    if (a.kind !== 'signed-in') throw new Error(`expected signed in, got ${a.kind}`);
+    if (a.kind !== 'signed-in' || b.kind !== 'signed-in' || c.kind !== 'signed-in') throw new Error(`expected signed in, got ${a.kind}`);
     await Promise.all([a.workspace(), b.workspace(), c.workspace()]);
     await Promise.all([a.questions(), c.questions()]);
     expect(clients()).toBe(1);

@@ -11,13 +11,13 @@ const given = vi.hoisted(() => ({
 }));
 const demoFleetBoard = vi.hoisted(() => vi.fn((..._args: unknown[]) => ({ kind: 'pick', fleets: [] })));
 const loadFleetBoard = vi.hoisted(() => vi.fn(async (..._args: unknown[]) => given.load));
-const getUser = vi.hoisted(() => vi.fn(async () => ({ data: { user: given.user } })));
+const getClaims = vi.hoisted(() => vi.fn(async () => ({ data: given.user ? { claims: { sub: given.user.id } } : null, error: null })));
 
 vi.mock('server-only', () => ({}));
 vi.mock('../../data/mode', () => ({ arcadeMode: () => given.mode }));
 vi.mock('../../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
-  supabaseServer: async () => ({ auth: { getUser } }),
+  supabaseServer: async () => ({ auth: { getClaims } }),
 }));
 vi.mock('./fleet', () => ({ demoFleetBoard, loadFleetBoard }));
 
@@ -28,7 +28,7 @@ const propsOf = async (query: Record<string, string> = {}) =>
 
 beforeEach(() => {
   Object.assign(given, { mode: 'supabase', user: null, load: { kind: 'no-workspace' } });
-  for (const fn of [demoFleetBoard, loadFleetBoard, getUser]) fn.mockClear();
+  for (const fn of [demoFleetBoard, loadFleetBoard, getClaims]) fn.mockClear();
 });
 afterEach(() => { vi.restoreAllMocks(); });
 
@@ -38,7 +38,7 @@ describe('/app/fleet decides once', () => {
     const { query } = await propsOf({ fleet: 'builders', period: 'season' });
     expect(demoFleetBoard).toHaveBeenCalledWith('builders', 'season', expect.any(Date));
     expect(query).toEqual({ fleet: 'builders', period: 'season' });
-    expect(getUser).not.toHaveBeenCalled();
+    expect(getClaims).not.toHaveBeenCalled();
   });
 
   it('reads no fleet and an unknown period as none and 7 days', async () => {
@@ -64,6 +64,6 @@ describe('/app/fleet decides once', () => {
     given.load = { kind: 'pick', fleets: [] };
     const { view } = await propsOf({ fleet: 'octo', period: '30d' });
     expect(view).toEqual(given.load);
-    expect(loadFleetBoard).toHaveBeenCalledWith(expect.anything(), given.user, 'octo', '30d', expect.any(Date));
+    expect(loadFleetBoard).toHaveBeenCalledWith(expect.anything(), expect.objectContaining(given.user), 'octo', '30d', expect.any(Date));
   });
 });

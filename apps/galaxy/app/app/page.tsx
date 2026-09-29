@@ -1,5 +1,5 @@
-import { arcadeMode } from '../../src/data/mode';
-import { supabaseEnv, supabaseServer } from '../../src/data/supabase-server';
+import { supabaseEnv } from '../../src/data/supabase-server';
+import { viewer } from '../../src/data/viewer';
 import { periodOf, type Period } from '../../src/dashboard/board/period';
 import { demoDashboard } from '../../src/dashboard/demo';
 import { DashboardScreen, type DashboardView } from '../../src/dashboard/DashboardScreen';
@@ -19,12 +19,10 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
 
 async function viewOf(period: Period, now: Date): Promise<DashboardView> {
-  const mode = arcadeMode(process.env);
-  if (mode === 'demo') return { kind: 'dashboard', dashboard: demoDashboard(period, now) };
-  if (mode === 'closed' || !supabaseEnv()) return { kind: 'closed' };
-  const db = await supabaseServer();
-  const { data: { user } } = await db.auth.getUser();
-  return user ? loadDashboard(db, user, period, now) : { kind: 'sign-in' };
+  const seen = await viewer();
+  if (seen.kind === 'demo') return { kind: 'dashboard', dashboard: demoDashboard(period, now) };
+  if (seen.kind !== 'signed-in') return { kind: seen.kind };
+  return loadDashboard(seen.db, seen.user, period, now, seen.questions);
 }
 
 export default async function AppHome({ searchParams }: Props) {

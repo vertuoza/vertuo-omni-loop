@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import '../../../../src/fleets/fleets.css';
-import { arcadeMode } from '../../../../src/data/mode';
-import { supabaseEnv, supabaseServer } from '../../../../src/data/supabase-server';
+import { viewer } from '../../../../src/data/viewer';
 import { FleetsScreen, type FleetsScreenView } from '../../../../src/fleets/FleetsScreen';
 import { loadFleetsPage } from '../../../../src/fleets/load';
 import { MASCOTS } from '../../../../src/fleets/store';
@@ -16,13 +15,10 @@ import { MASCOTS } from '../../../../src/fleets/store';
 export const metadata: Metadata = { title: 'Fleets · OMNI LOOP' };
 
 async function viewOf(): Promise<FleetsScreenView> {
-  const mode = arcadeMode(process.env);
-  if (mode === 'demo') return { kind: 'fleets', source: { kind: 'demo' }, owner: true, fleets: [], mascots: MASCOTS };
-  const env = supabaseEnv();
-  if (mode === 'closed' || !env) return { kind: 'closed' };
-  const db = await supabaseServer();
-  const { data: { user } } = await db.auth.getUser();
-  if (!user) return { kind: 'sign-in' };
+  const seen = await viewer();
+  if (seen.kind === 'demo') return { kind: 'fleets', source: { kind: 'demo' }, owner: true, fleets: [], mascots: MASCOTS };
+  if (seen.kind !== 'signed-in') return { kind: seen.kind };
+  const { db, user, env } = seen;
   const load = await loadFleetsPage(db, user);
   if (load.kind !== 'fleets') return load;
   return {
