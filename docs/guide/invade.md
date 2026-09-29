@@ -166,4 +166,17 @@ repository does what, reads each one it touches from a copy that nothing runs in
 PRD whose plan names the repository of every slice. The spec, the plan and one phase-0 pull request,
 with a table of what lands where, all open in the plan repository; nothing is written in a target.
 
+Once a person has merged that phase-0 pull request, build the feature. In the plan repository, type:
+
+```text agent
+/omni:ultra-yolo 7
+```
+
+with your PRD's number. It is `/omni:yolo` for several repositories: it opens one feature pull
+request in each target, builds every slice there, and brings every decision the agents took back
+to the plan repository, where you answer them all in one place. In a target it runs nothing but
+that repository's own committed checks. It marks the plan repository's pull request ready last, and
+tells you the order to merge in: each target's pull request first, then the plan repository's, which
+closes the PRD.
+
 [Next → How the loop works](/docs/loop)

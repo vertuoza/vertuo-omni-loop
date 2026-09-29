@@ -378,24 +378,34 @@ export const ENTRIES = deepFreeze([
     name: 'item',
     kind: 'command',
     who: 'skills',
-    usage: ['omni item new --prd <n> --slice <id> --file <file>', '  [--adopt] [--json]'],
+    usage: [
+      'omni item new --prd <n> --slice <id> --file <file>',
+      '  [--adopt | --out <dir>] [--json]',
+      'omni item relay <dir> --prd <n>',
+    ],
     summary: 'record a decision an agent took alone',
     detail:
       'Records one decision an agent took without asking as an outbox item, from a JSON file: the ' +
       "kit picks its rank and its id. A decision that would break a named law stops the slice " +
       "instead, and one that needs a person's action blocks it. --adopt sends a medium item " +
-      'straight to the settled ledger.',
+      'straight to the settled ledger. --out writes the item to a folder instead of the outbox, ' +
+      'for a slice built in another repository, and never adopts. relay moves every item and ' +
+      "account of such a folder into PRD n's outbox, checked as new items are; a refused file " +
+      'stays in the folder with its reason, exit 2.',
   },
   {
     name: 'plan',
     kind: 'command',
     who: 'skills',
-    usage: ['omni plan check <prd>'],
-    summary: "grade a PRD's plan",
+    usage: ['omni plan check <prd>', 'omni plan moved <prd> [--json]'],
+    summary: "grade a PRD's plan, or see what moved in its targets",
     detail:
-      "Grades PRD n's plan.md before anyone builds from it: every blocker names a slice of the same " +
-      'plan in an earlier wave, no id is used twice, and no two slices of one wave share ground. It ' +
-      'prints the slices, the waves and where they meet, then every violation; exit 1 on any.',
+      "check grades PRD n's plan.md before anyone builds from it: every blocker names a slice of the " +
+      'same plan in an earlier wave, no id is used twice, and no two slices of one wave share ground. ' +
+      'It prints the slices, the waves and where they meet, then every violation; exit 1 on any. ' +
+      "moved, in a plan repository, compares each target's read at with its default branch today: " +
+      'moved with the files changed under its slices\' territories, ok, or unreachable; exit 0 ' +
+      'whatever the states, 1 with not a plan repository.',
   },
   {
     name: 'rework',
@@ -543,6 +553,27 @@ export const ENTRIES = deepFreeze([
     },
   },
   {
+    name: 'ultra-yolo',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:ultra-yolo <n>'],
+    label: '/omni:ultra-yolo <n>',
+    summary: 'build a PRD across repositories, one gate',
+    detail:
+      'Builds a PRD whose plan lands slices in other repositories, from its plan repository: ' +
+      'records each target that moved since the plan was read, opens a draft feature PR in each ' +
+      'target, runs /omni:ultra-wave until every slice is merged there, marks each target PR ready ' +
+      "once its CI is green, then runs one outbox gate in the plan repository. Green, it ships and " +
+      'marks the plan PR ready last; red, /omni:ultra-yolo-fix takes the answers. In a target it ' +
+      'runs only its own committed preflight, and it never merges into any default branch.',
+    group: 'multi-repo',
+    when: "Use it when a multi-repository PRD's phase-0 PR is merged in its plan repository and you want it built in every target.",
+    example: {
+      type: '/omni:ultra-yolo 600',
+      result: 'a feature PR ready in each target, then the plan PR ready last, or a draft with the outbox questions',
+    },
+  },
+  {
     name: 'yolo-fix',
     kind: 'skill',
     who: 'you',
@@ -559,6 +590,25 @@ export const ENTRIES = deepFreeze([
     example: {
       type: '/omni:yolo-fix 580',
       result: 'every decision you disagreed with reworked, then the feature PR shipped',
+    },
+  },
+  {
+    name: 'ultra-yolo-fix',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:ultra-yolo-fix <n>'],
+    label: '/omni:ultra-yolo-fix',
+    summary: 'rework what you answered, in each repository',
+    detail:
+      'The /omni:yolo-fix of a PRD built by /omni:ultra-yolo: reads and settles the answers on ' +
+      'the plan PR, in the plan repository, lands each rework in the repository its decision was ' +
+      'taken in, checks each target again, then runs the one gate. It asks no question of its own ' +
+      'and never merges into any default branch.',
+    group: 'multi-repo',
+    when: "Use it when you have answered the outbox questions on a multi-repository PRD's plan PR.",
+    example: {
+      type: '/omni:ultra-yolo-fix 600',
+      result: 'each rework landed in its repository, then the plan PR shipped',
     },
   },
   {
@@ -638,6 +688,26 @@ export const ENTRIES = deepFreeze([
     example: {
       type: '/omni:wave 580',
       result: "the wave's sub-PRs merged into the feature branch, and a report",
+    },
+  },
+  {
+    name: 'ultra-wave',
+    kind: 'skill',
+    who: 'you',
+    usage: ['/omni:ultra-wave <n>'],
+    label: '/omni:ultra-wave <n>',
+    summary: 'build one wave across repositories',
+    detail:
+      'The /omni:wave of a plan repository: claims each slice that can run in its own target, has ' +
+      'one agent build each there through /omni:do-work --target, merges each sub-PR into its ' +
+      "target's feature branch, relays every decision into the plan repository's outbox and " +
+      'adopts its medium ones. /omni:ultra-yolo runs it for each wave. It never merges into any ' +
+      'default branch.',
+    group: 'multi-repo',
+    when: 'Use it when you want one wave of a multi-repository PRD built; /omni:ultra-yolo runs it for each wave.',
+    example: {
+      type: '/omni:ultra-wave 600',
+      result: "the takeable slices built and merged into each target's feature branch",
     },
   },
   {

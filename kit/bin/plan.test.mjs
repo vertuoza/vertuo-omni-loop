@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.mjs';
@@ -332,5 +333,133 @@ describe('omni plan check — user-caused errors are one line, exit 2', () => {
     const code = await main(['plan', 'check', '7'], { cwd: root, ...s });
     expect(code).toBe(2);
     oneLine(s);
+  });
+});
+
+// PRD 563, s2: `omni plan moved <prd>` — what changed in each target under its slices' territories
+// since the plan read it. `gh` is faked; no test calls GitHub.
+describe('omni plan moved (PRD 563)', () => {
+  const MOVED_SLICES = [
+    '| s1 | vertuo-backend-php | the total is served | `src/Quote/` | — | 1 |',
+    '| s2 | vertuo-apps | the screen shows it | `apps/quote/` | s1 | 2 |',
+    '| s3 | vertuo-automation-plan | the guide says so | `guide/` | — | 1 |',
+  ];
+  const MOVED_REPOS = [...REPOS_OK, '| vertuo-automation-plan | plan | — | own |'];
+
+  /** A fake `execFileSync` answering `gh api` from `world`: `{ slug: { compare } }`, a missing slug a 404. */
+  function fakeGh(world) {
+    const calls = [];
+    const exec = (file, args, options) => {
+      if (file === 'git') return execFileSync(file, args, options);
+      if (file !== 'gh') throw new Error(`unexpected ${file}`);
+      calls.push(args.join(' '));
+      const endpoint = args[args.length - 1];
+      const [, owner, name, kind, range] = endpoint.split('?')[0].split('/');
+      const repo = world[`${owner}/${name}`];
+      if (!repo) throw Object.assign(new Error('gh failed'), { stderr: 'gh: Not Found (HTTP 404)\n' });
+      if (kind === undefined) return JSON.stringify({ default_branch: 'main' });
+      if (kind === 'compare') {
+        expect(decodeURIComponent(range)).toMatch(/^[0-9a-f]{40}\.\.\.main$/);
+        if (repo.compare === null) throw Object.assign(new Error('gh failed'), { stderr: 'gh: No common ancestor (HTTP 404)\n' });
+        return JSON.stringify(repo.compare);
+      }
+      throw new Error(`unexpected gh api ${endpoint}`);
+    };
+    return { exec, calls };
+  }
+
+  const unmoved = { compare: { ahead_by: 0, files: [] } };
+  const movedElsewhere = { compare: { ahead_by: 4, files: [{ filename: 'README.md' }, { filename: 'src/Invoice/Pay.php' }] } };
+  const movedInside = {
+    compare: {
+      ahead_by: 2,
+      files: [
+        { filename: 'src/Quote/Total.php' },
+        { filename: 'docs/x.md' },
+        { filename: 'src/Quote/Line.php', previous_filename: 'src/Old.php' },
+      ],
+    },
+  };
+
+  async function moved(args, { config = planRepoConfig(), plan = multiPlan({ repos: MOVED_REPOS, slices: MOVED_SLICES }), world }) {
+    const { root } = makeRepo({ git: true, files: { ...config, '.omni-loop/delivery/inbox/0007-x/plan.md': plan } });
+    const { exec, calls } = fakeGh(world);
+    const s = io();
+    const code = await main(['plan', 'moved', '7', ...args], { cwd: root, exec, env: {}, ...s });
+    return { code, out: s.out.join(''), err: s.err.join(''), calls };
+  }
+
+  it('says ok for a head that has not moved, and never reads the plan repository itself', async () => {
+    const { code, out, err, calls } = await moved([], {
+      world: { 'vertuoza/vertuo-backend-php': unmoved, 'vertuoza/vertuo-apps': unmoved },
+    });
+    expect(err).toBe('');
+    expect(code).toBe(0);
+    expect(out).toMatch(/^vertuo-backend-php\s+ok$/m);
+    expect(out).toMatch(/^vertuo-apps\s+ok$/m);
+    expect(out).not.toMatch(/vertuo-automation-plan/);
+    expect(calls.some((c) => c.includes('vertuo-automation-plan'))).toBe(false);
+  });
+
+  it('says ok for a head that moved without touching a territory path', async () => {
+    const { code, out } = await moved([], {
+      world: { 'vertuoza/vertuo-backend-php': movedElsewhere, 'vertuoza/vertuo-apps': unmoved },
+    });
+    expect(code).toBe(0);
+    expect(out).toMatch(/^vertuo-backend-php\s+ok$/m);
+  });
+
+  it('says moved, naming the files under the territories, and still exits 0', async () => {
+    const { code, out } = await moved([], {
+      world: { 'vertuoza/vertuo-backend-php': movedInside, 'vertuoza/vertuo-apps': unmoved },
+    });
+    expect(code).toBe(0);
+    expect(out).toMatch(
+      /^vertuo-backend-php\s+moved\s+2 files under s1's territory \(src\/Quote\/Total\.php, src\/Quote\/Line\.php\)$/m,
+    );
+    expect(out).not.toMatch(/docs\/x\.md/);
+    expect(out).toMatch(/^vertuo-apps\s+ok$/m);
+  });
+
+  it('says unreachable for a target gh cannot read, and still exits 0', async () => {
+    const { code, out } = await moved([], { world: { 'vertuoza/vertuo-backend-php': unmoved } });
+    expect(code).toBe(0);
+    expect(out).toMatch(/^vertuo-apps\s+unreachable/m);
+    expect(out).toMatch(/^vertuo-backend-php\s+ok$/m);
+  });
+
+  it('says unreachable, naming read at, for a target that no longer has the read at commit (item s2-01)', async () => {
+    const { code, out } = await moved([], {
+      world: { 'vertuoza/vertuo-backend-php': { compare: null }, 'vertuoza/vertuo-apps': unmoved },
+    });
+    expect(code).toBe(0);
+    expect(out).toMatch(/^vertuo-backend-php\s+unreachable\s+read at 3f2a9c1 cannot be compared with main$/m);
+  });
+
+  it('prints [{ repo, state, files }] with --json', async () => {
+    const { code, out } = await moved(['--json'], { world: { 'vertuoza/vertuo-backend-php': movedInside } });
+    expect(code).toBe(0);
+    expect(JSON.parse(out)).toEqual([
+      { repo: 'vertuo-backend-php', state: 'moved', files: ['src/Quote/Total.php', 'src/Quote/Line.php'] },
+      { repo: 'vertuo-apps', state: 'unreachable', files: [] },
+    ]);
+  });
+
+  it('prints not a plan repository and exits 1 without a plan section', async () => {
+    const { code, out, calls } = await moved([], {
+      config: CONFIG,
+      plan: planMd(['| s1 | Alpha | `a/` | — | 1 |']),
+      world: {},
+    });
+    expect(code).toBe(1);
+    expect(out).toBe('not a plan repository\n');
+    expect(calls).toEqual([]);
+  });
+
+  it('refuses a missing prd argument in one line, exit 2', async () => {
+    const { root } = makeRepo({ git: true, files: planRepoConfig() });
+    const s = io();
+    expect(await main(['plan', 'moved'], { cwd: root, ...s })).toBe(2);
+    expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
   });
 });

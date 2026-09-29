@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { makeRepo } from '../test/fixture.mjs';
@@ -609,6 +610,206 @@ describe('omni item new — the intro and the punchline (PRD #50, slice s1)', ()
     const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json], { cwd: root, ...s });
     expect(code).toBe(2);
     expect(s.err.join('')).toMatch(/"introFun"/);
+  });
+});
+
+describe('omni item new --out (PRD 563, s3)', () => {
+  const repo = () => makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
+  const scratch = () => mkdtempSync(join(tmpdir(), 'omni-out-'));
+
+  it('writes the same file name and content into the folder, and nothing in the outbox', async () => {
+    const plain = repo();
+    const s1 = io();
+    expect(await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', writeJson(plain.root, FIELDS)], { cwd: plain.root, ...s1 })).toBe(0);
+    const expected = readTextFile(join(plain.root, s1.out.join('').trim()));
+
+    const { root } = repo();
+    const out = scratch();
+    const s = io();
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', writeJson(root, FIELDS), '--out', out], { cwd: root, ...s });
+    expect(code).toBe(0);
+    expect(s.out.join('').trim()).toBe(join(out, 's7-01-default-timeout.md'));
+    expect(readTextFile(join(out, 's7-01-default-timeout.md'))).toBe(expected);
+    expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
+  });
+
+  it('under --json names the file in the folder', async () => {
+    const { root } = repo();
+    const out = scratch();
+    const s = io();
+    expect(await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', writeJson(root, FIELDS), '--out', out, '--json'], { cwd: root, ...s })).toBe(0);
+    expect(JSON.parse(s.out.join(''))).toMatchObject({
+      outcome: 'record',
+      rank: 'medium',
+      id: 's7-01-default-timeout',
+      file: join(out, 's7-01-default-timeout.md'),
+      adopted: false,
+    });
+  });
+
+  it('counts the numbers already spent in the folder and in the outbox', async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: {
+        ...CONFIG,
+        '.omni-loop/delivery/inbox/0042-a/spec.md': 'x',
+        '.omni-loop/delivery/outbox/0042-a/s7-01-default-timeout.md': 'spent',
+      },
+    });
+    const out = scratch();
+    writeFileSync(join(out, 's7-02-other.md'), 'spent');
+    const s = io();
+    expect(await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', writeJson(root, FIELDS), '--out', out], { cwd: root, ...s })).toBe(0);
+    expect(s.out.join('').trim()).toBe(join(out, 's7-03-default-timeout.md'));
+  });
+
+  it('refuses --out with --adopt, one line, exit 2, nothing written', async () => {
+    const { root } = repo();
+    const out = scratch();
+    const s = io();
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', writeJson(root, FIELDS), '--out', out, '--adopt'], { cwd: root, ...s });
+    expect(code).toBe(2);
+    expect(s.err.join('')).toMatch(/^[^\n]*--out[^\n]*--adopt[^\n]*\n$/);
+    expect(readdirSync(out)).toEqual([]);
+    expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
+  });
+
+  it('a blocked item is written into the folder too, exit 1', async () => {
+    const { root } = repo();
+    const out = scratch();
+    const { options, ...rest } = FIELDS;
+    const json = writeJson(root, { ...rest, needsHumanAction: true, personSteps: 'Set the secret in the console.' });
+    const s = io();
+    expect(await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', json, '--out', out], { cwd: root, ...s })).toBe(1);
+    expect(existsSync(join(out, 's7-01-default-timeout.md'))).toBe(true);
+    expect(existsSync(join(root, '.omni-loop/delivery/outbox/0042-a'))).toBe(false);
+  });
+});
+
+describe('omni item relay (PRD 563, s3)', () => {
+  const OUTBOX = '.omni-loop/delivery/outbox/0042-a';
+  const repo = () => makeRepo({ git: true, files: { ...CONFIG, '.omni-loop/delivery/inbox/0042-a/spec.md': 'x' } });
+  const scratch = () => mkdtempSync(join(tmpdir(), 'omni-out-'));
+
+  async function raise(root, out, fields) {
+    const s = io();
+    const code = await main(['item', 'new', '--prd', '42', '--slice', 's7', '--file', writeJson(root, fields), '--out', out], { cwd: root, ...s });
+    expect(code).toBe(0);
+    return s.out.join('').trim();
+  }
+
+  const ACCOUNT = [
+    '---',
+    'prd: 42',
+    'slice: s7',
+    'graded: 2026-09-29',
+    '---',
+    '',
+    '## Risky changes',
+    '',
+    '- `kit/lib/a.mjs`',
+    '  stored-shape',
+    '  spec point 3',
+    '',
+  ].join('\n');
+
+  it('moves every valid item and account into the outbox, prints each move, exit 0', async () => {
+    const { root } = repo();
+    const out = scratch();
+    const first = await raise(root, out, FIELDS);
+    await raise(root, out, { ...FIELDS, slug: 'retry-count' });
+    mkdirSync(join(out, 'accounts'));
+    writeFileSync(join(out, 'accounts', 's7.md'), ACCOUNT);
+    const itemText = readTextFile(first);
+
+    const s = io();
+    const code = await main(['item', 'relay', out, '--prd', '42'], { cwd: root, ...s });
+    expect(s.err.join('')).toBe('');
+    expect(code).toBe(0);
+    expect(readTextFile(join(root, OUTBOX, 's7-01-default-timeout.md'))).toBe(itemText);
+    expect(existsSync(join(root, OUTBOX, 's7-02-retry-count.md'))).toBe(true);
+    expect(readTextFile(join(root, OUTBOX, 'accounts', 's7.md'))).toBe(ACCOUNT);
+    expect(readdirSync(out)).toEqual(['accounts']);
+    expect(readdirSync(join(out, 'accounts'))).toEqual([]);
+    const printed = s.out.join('');
+    expect(printed).toContain(`${OUTBOX}/s7-01-default-timeout.md`);
+    expect(printed).toContain(`${OUTBOX}/s7-02-retry-count.md`);
+    expect(printed).toContain(`${OUTBOX}/accounts/s7.md`);
+    // the relayed items read as open items of the PRD
+    expect(await main(['check', 'outbox'], { cwd: root, ...io() })).toBe(0);
+  });
+
+  it('leaves a refused item in the folder with its reason, exit 2, while the valid ones still move', async () => {
+    const { root } = repo();
+    const out = scratch();
+    await raise(root, out, FIELDS);
+    const bad = join(out, 's7-02-broken.md');
+    const good = readTextFile(join(out, 's7-01-default-timeout.md'));
+    writeFileSync(bad, good.replace('id: s7-01-default-timeout', 'id: s7-02-broken').replace('A. Wait five seconds', 'A. Wait `defaultTimeoutMs`'));
+
+    const s = io();
+    const code = await main(['item', 'relay', out, '--prd', '42'], { cwd: root, ...s });
+    expect(code).toBe(2);
+    expect(existsSync(join(root, OUTBOX, 's7-01-default-timeout.md'))).toBe(true);
+    expect(existsSync(bad)).toBe(true);
+    expect(existsSync(join(root, OUTBOX, 's7-02-broken.md'))).toBe(false);
+    expect(s.err.join('')).toMatch(/s7-02-broken\.md/);
+    expect(s.err.join('')).toMatch(/option/);
+  });
+
+  it('refuses an item of another PRD, and one whose id is already in the outbox', async () => {
+    const { root } = makeRepo({
+      git: true,
+      files: {
+        ...CONFIG,
+        '.omni-loop/delivery/inbox/0042-a/spec.md': 'x',
+        [`${OUTBOX}/s7-01-default-timeout.md`]: 'already here',
+      },
+    });
+    const out = scratch();
+    const text = readTextFile(await raise(root, out, FIELDS)); // s7-02: the outbox spent 01
+    writeFileSync(join(out, 's7-01-default-timeout.md'), text.replace('id: s7-02-default-timeout', 'id: s7-01-default-timeout'));
+    writeFileSync(
+      join(out, 's7-03-elsewhere.md'),
+      text.replace('id: s7-02-default-timeout', 'id: s7-03-elsewhere').replace('prd: 42', 'prd: 43'),
+    );
+
+    const s = io();
+    expect(await main(['item', 'relay', out, '--prd', '42'], { cwd: root, ...s })).toBe(2);
+    expect(readTextFile(join(root, OUTBOX, 's7-01-default-timeout.md'))).toBe('already here');
+    expect(existsSync(join(root, OUTBOX, 's7-02-default-timeout.md'))).toBe(true);
+    expect(existsSync(join(out, 's7-01-default-timeout.md'))).toBe(true);
+    expect(existsSync(join(out, 's7-03-elsewhere.md'))).toBe(true);
+    const err = s.err.join('');
+    expect(err).toMatch(/s7-01-default-timeout\.md[^\n]*already/);
+    expect(err).toMatch(/s7-03-elsewhere\.md[^\n]*PRD 43/);
+  });
+
+  it('refuses a malformed account and leaves it in place', async () => {
+    const { root } = repo();
+    const out = scratch();
+    mkdirSync(join(out, 'accounts'));
+    writeFileSync(join(out, 'accounts', 's7.md'), 'no front matter\n');
+    const s = io();
+    expect(await main(['item', 'relay', out, '--prd', '42'], { cwd: root, ...s })).toBe(2);
+    expect(existsSync(join(out, 'accounts', 's7.md'))).toBe(true);
+    expect(existsSync(join(root, OUTBOX, 'accounts', 's7.md'))).toBe(false);
+    expect(s.err.join('')).toMatch(/accounts\/s7\.md/);
+  });
+
+  it('an empty folder relays nothing, exit 0', async () => {
+    const { root } = repo();
+    const s = io();
+    expect(await main(['item', 'relay', scratch(), '--prd', '42'], { cwd: root, ...s })).toBe(0);
+    expect(s.out.join('')).toMatch(/nothing to relay/);
+  });
+
+  it('a folder that does not exist, or a missing --prd, is one line, exit 2', async () => {
+    const { root } = repo();
+    const s = io();
+    expect(await main(['item', 'relay', join(tmpdir(), 'omni-no-such-dir-563'), '--prd', '42'], { cwd: root, ...s })).toBe(2);
+    expect(s.err.join('')).toMatch(/^[^\n]+\n$/);
+    expect(await main(['item', 'relay', scratch()], { cwd: root, ...io() })).toBe(2);
   });
 });
 

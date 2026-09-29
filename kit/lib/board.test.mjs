@@ -313,3 +313,92 @@ describe('runnableFrontier', () => {
     expect(result.frontier).toEqual({ wave: 2, runnable: ['s2'], takeable: ['s2'], excluded: [], collisions: [] });
   });
 });
+
+describe('boardFor — a plan repository (PRD 563)', () => {
+  const REPOS = {
+    'widgets-plan': { slug: 'acme/widgets-plan', readable: true },
+    backend: { slug: 'acme/backend', readable: true },
+    frontend: { slug: 'acme/frontend', readable: true },
+  };
+
+  function multi(slices, prs, repos = REPOS) {
+    return board(slices, prs, { repos });
+  }
+
+  it('gives every row its repo and slug', () => {
+    const result = multi([slice({ repo: 'backend' }), slice({ id: 's2', repo: 'widgets-plan' })], []);
+    expect(result.slices.map(({ id, repo, slug }) => ({ id, repo, slug }))).toEqual([
+      { id: 's1', repo: 'backend', slug: 'acme/backend' },
+      { id: 's2', repo: 'widgets-plan', slug: 'acme/widgets-plan' },
+    ]);
+  });
+
+  it('matches a slice only to a pull request of its own repository', () => {
+    const result = multi(
+      [slice({ id: 's1', repo: 'backend' }), slice({ id: 's2', repo: 'frontend', territory: ['b/'] })],
+      [
+        pr({ number: 10, slug: 'acme/frontend', headRefName: 'feat/widgets--s1', state: 'MERGED', mergedAt: '2026-09-25T11:30:00Z' }),
+        pr({ number: 11, slug: 'acme/backend', headRefName: 'feat/widgets--s2', state: 'MERGED', mergedAt: '2026-09-25T11:30:00Z' }),
+      ],
+    );
+    expect(result.slices.map((row) => [row.id, row.state, row.pr])).toEqual([
+      ['s1', 'runnable', null],
+      ['s2', 'runnable', null],
+    ]);
+  });
+
+  it('matches the same slice branch name in two repositories to two different slices', () => {
+    const slices = [slice({ id: 's1', repo: 'backend' }), slice({ id: 's1', repo: 'frontend', territory: ['b/'] })];
+    const result = multi(slices, [
+      pr({ number: 10, slug: 'acme/backend', state: 'MERGED', mergedAt: '2026-09-25T11:30:00Z' }),
+      pr({ number: 20, slug: 'acme/frontend' }),
+    ]);
+    expect(result.slices.map((row) => [row.repo, row.state, row.pr.number])).toEqual([
+      ['backend', 'merged', 10],
+      ['frontend', 'in-flight', 20],
+    ]);
+  });
+
+  it('reads a slice blocked by a merged slice of another repository as runnable, and the frontier across repositories', () => {
+    const result = multi(
+      [
+        slice({ id: 's1', repo: 'backend', wave: 1 }),
+        slice({ id: 's2', repo: 'frontend', wave: 2, blockedBy: ['s1'] }),
+        slice({ id: 's3', repo: 'widgets-plan', wave: 2, territory: ['c/'] }),
+      ],
+      [pr({ slug: 'acme/backend', state: 'MERGED', mergedAt: '2026-09-25T11:30:00Z' })],
+    );
+    expect(result.slices.map((row) => row.state)).toEqual(['merged', 'runnable', 'runnable']);
+    expect(result.frontier).toMatchObject({ wave: 2, takeable: ['s2', 's3'] });
+  });
+
+  it('makes the slices of a repository it cannot read unreadable, and holds what they block', () => {
+    const result = multi(
+      [
+        slice({ id: 's1', repo: 'backend', wave: 1 }),
+        slice({ id: 's2', repo: 'frontend', wave: 1, territory: ['b/'] }),
+        slice({ id: 's3', repo: 'widgets-plan', wave: 2, blockedBy: ['s1'] }),
+      ],
+      [],
+      { ...REPOS, backend: { slug: 'acme/backend', readable: false } },
+    );
+    expect(result.slices.map((row) => [row.id, row.state])).toEqual([
+      ['s1', 'unreadable'],
+      ['s2', 'runnable'],
+      ['s3', 'blocked'],
+    ]);
+    expect(result.frontier).toMatchObject({ wave: 1, takeable: ['s2'] });
+  });
+
+  it('makes a slice naming a repository it does not know unreadable, with no slug', () => {
+    const result = multi([slice({ repo: 'nowhere' })], []);
+    expect(result.slices[0]).toMatchObject({ repo: 'nowhere', slug: null, state: 'unreadable' });
+  });
+
+  it('gives rows no repo or slug on a plan without a repo column', () => {
+    const result = board([slice({ repo: null })], [pr()]);
+    expect(result.slices[0]).not.toHaveProperty('repo');
+    expect(result.slices[0]).not.toHaveProperty('slug');
+    expect(result.slices[0].state).toBe('in-flight');
+  });
+});
