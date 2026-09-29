@@ -42,7 +42,7 @@ describe('loadPeople', () => {
   it('resolves a member by login, ignoring case, the login as the name by default', async () => {
     const people = await loadPeople(fakeDb().db, 'w-1');
     expect(people.byLogin('PaEtienne')).toEqual({
-      name: 'PaEtienne', face: { kind: 'photo', url: 'https://github.com/paetienne.png?size=48' }, fleet: 'solo',
+      name: 'PaEtienne', face: { kind: 'photo', url: 'https://github.com/paetienne.png?size=48' }, fleet: 'solo', login: 'paetienne',
     });
     expect(people.byLogin('ADA-GH', 'ada').face.kind).toBe('hero');
   });
@@ -69,6 +69,15 @@ describe('loadPeople', () => {
     expect(ada.face.kind).toBe('hero');
     expect(ada.fleet).toEqual({ name: 'octo', label: 'OCTO', color: null, mascot: null });
     log.mockRestore();
+  });
+
+  it('carries a member\'s login in lower case, by id or by login, so their chip links to their profile (PRD 698)', async () => {
+    const people = peopleOf([{ ...ROSTER[0], github_login: 'Ada-GH' }, ...ROSTER.slice(1)], FLEETS);
+    expect(people.byId('u-ada', 'ADA').login).toBe('ada-gh');
+    expect(people.byLogin('ADA-gh').login).toBe('ada-gh');
+    expect(people.byId('u-sol', 'Sol')).not.toHaveProperty('login');
+    expect(people.byLogin('stranger')).not.toHaveProperty('login');
+    expect(people.byId('u-nobody', 'nobody')).not.toHaveProperty('login');
   });
 
   it('peopleOf builds the same directory from rows already read', () => {

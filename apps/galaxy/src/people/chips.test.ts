@@ -1,8 +1,10 @@
+import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { faceOf } from './face';
 import { FleetChip } from './FleetChip';
+import { nestedLinks } from './nested-links';
 import { PersonChip } from './PersonChip';
 
 // The two chips (PRD 652, design A · bare sprite), to static markup: the picture inline, decorative,
@@ -61,5 +63,65 @@ describe('FleetChip', () => {
   it('reads SOLO for a player with no fleet', () => {
     const html = chip('solo');
     expect(html).toBe('<span class="fleet-chip is-solo">SOLO</span>');
+  });
+});
+
+// PRD 698 s1: a chip is a link. A person with a login opens their profile, a fleet opens its board;
+// a chip drawn inside another link or button passes link={false} and stays the plain span of before.
+describe('the chips as links (PRD 698)', () => {
+  const face = faceOf({ name: 'ADA' });
+  const personChip = (props: Record<string, unknown>) => renderToStaticMarkup(createElement(PersonChip, { person: { name: 'ADA', face }, ...props } as never));
+  const fleetChip = (props: Record<string, unknown>) => renderToStaticMarkup(createElement(FleetChip, props as never));
+  const OCTO = { name: 'octo', label: 'OCTO', color: '#3355ff', mascot: 'octopod' };
+
+  it('a person with a login links to their profile, the name alone in its own span', () => {
+    const html = personChip({ person: { name: 'ADA', face, login: 'ada-gh' } });
+    expect(html).toMatch(/^<a class="person-chip is-table" href="\/app\/people\/ada-gh">/);
+    expect(html).toContain('<span class="person-chip-name">ADA</span></a>');
+    expect(text(html)).toBe('ADA');
+  });
+
+  it('a login is put in lower case and escaped in the address', () => {
+    expect(personChip({ person: { name: 'ADA', face, login: 'Ada GH' } })).toContain('href="/app/people/ada%20gh"');
+  });
+
+  it('a person with no login stays a span', () => {
+    expect(personChip({})).toMatch(/^<span class="person-chip is-table">/);
+    expect(personChip({})).not.toContain('<a');
+  });
+
+  it('link={false} keeps a person with a login a span', () => {
+    const html = personChip({ person: { name: 'ADA', face, login: 'ada-gh' }, link: false });
+    expect(html).toMatch(/^<span class="person-chip is-table">/);
+    expect(html).not.toContain('<a');
+  });
+
+  it('a fleet links to its board, the label as the name', () => {
+    const html = fleetChip({ fleet: OCTO });
+    expect(html).toMatch(/^<a class="fleet-chip is-table" href="\/app\/fleet\?fleet=octo" style="--fleet:#3355ff">/);
+    expect(html).toContain('<span class="fleet-chip-label">OCTO</span></a>');
+  });
+
+  it('a fleet name is escaped in the address', () => {
+    expect(fleetChip({ fleet: { ...OCTO, name: 'a&b c' } })).toContain('href="/app/fleet?fleet=a%26b%20c"');
+  });
+
+  it('link={false} keeps a fleet a span, and SOLO is never a link', () => {
+    expect(fleetChip({ fleet: OCTO, link: false })).toMatch(/^<span class="fleet-chip is-table"/);
+    expect(fleetChip({ fleet: 'solo' })).toBe('<span class="fleet-chip is-solo">SOLO</span>');
+  });
+
+  it('nestedLinks counts a link opened inside another, and nothing else', () => {
+    expect(nestedLinks('<a href="/x">x <span>y</span></a> <a href="/z">z</a>')).toBe(0);
+    expect(nestedLinks('<a href="/x">x <a class="person-chip" href="/p">p</a></a>')).toBe(1);
+    expect(nestedLinks('<abbr>a</abbr><a href="/x">x</a>')).toBe(0);
+    expect(nestedLinks(`<a href="/x">${personChip({ person: { name: 'ADA', face, login: 'ada-gh' } })}</a>`)).toBe(1);
+  });
+
+  it('underlines only the name, on hover or focus, and rings the focused chip', () => {
+    const css = readFileSync(new URL('./people.css', import.meta.url), 'utf8');
+    expect(css).toMatch(/a\.person-chip, a\.fleet-chip \{[^}]*text-decoration: none/);
+    expect(css).toContain('a.person-chip:hover .person-chip-name, a.person-chip:focus-visible .person-chip-name,\na.fleet-chip:hover .fleet-chip-label, a.fleet-chip:focus-visible .fleet-chip-label { text-decoration: underline; }');
+    expect(css).toMatch(/a\.person-chip:focus-visible, a\.fleet-chip:focus-visible \{[^}]*outline: 2px solid/);
   });
 });

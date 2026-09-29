@@ -42,7 +42,9 @@ export function peopleOf(roster: readonly RosterRow[], fleetRows: readonly Fleet
     if (!row) return { name, face: faceOf({ name, login }), fleet: null };
     const fleet = fleetOf(row, fleets);
     const color = fleet && fleet !== SOLO ? fleet.color : null;
-    return { name, face: faceOf({ name, login: row.github_login ?? login, avatarUrl: row.avatar_url, hero: row.hero, color }), fleet };
+    const face = faceOf({ name, login: row.github_login ?? login, avatarUrl: row.avatar_url, hero: row.hero, color });
+    // PRD 698: a member with a login carries it, in lower case, so their chip links to their profile.
+    return row.github_login ? { name, face, fleet, login: row.github_login.toLowerCase() } : { name, face, fleet };
   };
   return {
     byId: (userId, name) => of(ids.get(userId), name, null),

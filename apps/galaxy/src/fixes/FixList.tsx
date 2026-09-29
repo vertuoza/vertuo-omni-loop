@@ -88,7 +88,7 @@ function Row({ item }: { item: FixItem }) {
               ? <span className="ask-hint">nothing pushed yet</span>
               : item.artifacts.map((a) => <span key={a.kind} className="dossier-history-artifact">{a.label} <small>{a.badge}</small></span>)}
           </span>
-          {item.askedBy && <span className="ask-hint">asked by <PersonChip person={item.askedBy} size="inline" /></span>}
+          {item.askedBy && <span className="ask-hint">asked by <PersonChip person={item.askedBy} size="inline" link={false} /></span>}
           <time className="ask-hint" dateTime={item.at}>{item.activity}</time>
         </span>
       </a>

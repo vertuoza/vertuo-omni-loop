@@ -55,12 +55,12 @@ const STATUS: Record<HistoryItem['status'], string> = { open: 'waiting', answere
 
 /** Who asked and who answered, each as a chip (PRD 652): the text reads as it did, the faces added. */
 function Who({ item }: { item: HistoryItem }) {
-  const asked = <>asked by <PersonChip person={{ name: item.askedBy, face: item.askedByFace }} size="inline" /></>;
+  const asked = <>asked by <PersonChip person={{ name: item.askedBy, face: item.askedByFace }} size="inline" link={false} /></>;
   if (item.answeredBy === null || item.answeredByFace === null) return <span className="ask-hint">{asked}{` · ${STATUS[item.status]}`}</span>;
   const via = item.via ? `, ${item.via === 'page' ? 'on the page' : 'in the terminal'}` : '';
   return (
     <span className="ask-hint">
-      {asked}{' · answered by '}<PersonChip person={{ name: item.answeredBy, face: item.answeredByFace }} size="inline" />{via}
+      {asked}{' · answered by '}<PersonChip person={{ name: item.answeredBy, face: item.answeredByFace }} size="inline" link={false} />{via}
     </span>
   );
 }

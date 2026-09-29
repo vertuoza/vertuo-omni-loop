@@ -35,7 +35,7 @@ export function ShareButton({ roundId, candidates, onShare, origin, initial = { 
   const link = shareLink(origin ?? (typeof window === 'undefined' ? '' : window.location.origin), roundId);
   const sharedWith = (who: string) => {
     const found = candidates.find((c) => c.id === who);
-    return found ? <PersonChip person={{ name: found.label, face: found.face ?? initialFace(found.label) }} size="inline" /> : 'them';
+    return found ? <PersonChip person={{ name: found.label, face: found.face ?? initialFace(found.label) }} size="inline" link={false} /> : 'them';
   };
 
   async function share() {
