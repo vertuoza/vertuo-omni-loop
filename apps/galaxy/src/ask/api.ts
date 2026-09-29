@@ -259,12 +259,16 @@ export function closeSession(request: Request, id: string, deps: AskDeps): Promi
   });
 }
 
-/** Deletes the caller's own session and its rounds, for good (PRD 144: kept until its owner deletes it). */
+/** Deletes the caller's own session, its rounds and their screenshots, for good (PRD 144: kept until
+ * its owner deletes it; PRD 620: the screenshots go first). */
 export function deleteSession(request: Request, id: string, deps: AskDeps): Promise<Response> {
   return handle(request, deps, async (who) => {
     const session = UUID.test(id) ? await who.store.session(id) : null;
     if (!session) return notFound('session');
     if (session.owner !== who.caller.id) return refuse(403, 'Only the session\'s owner deletes it.');
+    // Its screenshots first (PRD 620): the rows' delete would leave the files behind, and a failure
+    // here keeps the rows, so deleting again finds them.
+    await who.files.removeRounds(await who.store.roundIds(session.id));
     if (!(await who.store.deleteSession(session.id))) return notFound('session');
     return reply(200, { id: session.id, deleted: true });
   });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { askAttachments, askStore, ATTACHMENTS_BUCKET, IDLE_CLOSE_MS, sessionClosed, SIGNED_LINK_SECONDS } from './store';
+import { askAttachments, askStore, AskStoreError, ATTACHMENTS_BUCKET, IDLE_CLOSE_MS, sessionClosed, SIGNED_LINK_SECONDS } from './store';
 
 const NOW = Date.parse('2026-09-26T12:00:00Z');
 const seen = (msAgo: number) => new Date(NOW - msAgo).toISOString();
@@ -81,5 +81,69 @@ describe('askAttachments (PRD 620)', () => {
     expect(await askAttachments(all.db).links([])).toEqual([]);
     const none = { storage: { from: () => { throw new Error('no storage'); } } } as unknown as Parameters<typeof askAttachments>[0];
     expect(await askAttachments(none).links(['r1/1.png', 'r1/2.png'])).toEqual([null, null]);
+  });
+});
+
+describe('askAttachments.removeRounds (PRD 620)', () => {
+  type Listed = { data: Array<{ name: string }> | null; error: { message: string } | null };
+  /** A bucket holding `objects`, listing a folder and removing paths as Storage does, every call recorded. */
+  function bucket(objects: string[], fail: { list?: boolean; remove?: boolean } = {}) {
+    const calls: Array<{ bucket: string; op: 'list' | 'remove'; arg: string | string[] }> = [];
+    const db = {
+      storage: {
+        from: (name: string) => ({
+          async list(folder: string): Promise<Listed> {
+            calls.push({ bucket: name, op: 'list', arg: folder });
+            if (fail.list) return { data: null, error: { message: 'list is down' } };
+            return { data: objects.filter((o) => o.startsWith(`${folder}/`)).map((o) => ({ name: o.slice(folder.length + 1) })), error: null };
+          },
+          async remove(paths: string[]) {
+            calls.push({ bucket: name, op: 'remove', arg: paths });
+            if (fail.remove) return { data: null, error: { message: 'remove is down' } };
+            objects = objects.filter((o) => !paths.includes(o));
+            return { data: paths.map((p) => ({ name: p })), error: null };
+          },
+        }),
+      },
+    } as unknown as Parameters<typeof askAttachments>[0];
+    return { calls, db, left: () => objects };
+  }
+
+  it('lists each round\'s folder in the bucket and removes every object in it, in one call', async () => {
+    const b = bucket(['r1/1.png', 'r1/2.webp', 'r2/1.gif', 'r3/1.png']);
+    await askAttachments(b.db).removeRounds(['r1', 'r2']);
+    expect(b.left()).toEqual(['r3/1.png']);
+    expect(b.calls.filter((c) => c.op === 'list').map((c) => [c.bucket, c.arg])).toEqual([[ATTACHMENTS_BUCKET, 'r1'], [ATTACHMENTS_BUCKET, 'r2']]);
+    expect(b.calls.filter((c) => c.op === 'remove')).toEqual([{ bucket: ATTACHMENTS_BUCKET, op: 'remove', arg: ['r1/1.png', 'r1/2.webp', 'r2/1.gif'] }]);
+  });
+
+  it('removes nothing, and calls no remove, when the folders are empty or there are no rounds', async () => {
+    const b = bucket(['r9/1.png']);
+    await askAttachments(b.db).removeRounds(['r1']);
+    await askAttachments(b.db).removeRounds([]);
+    expect(b.calls.map((c) => c.op)).toEqual(['list']);
+    expect(b.left()).toEqual(['r9/1.png']);
+  });
+
+  it('throws, so the rows stay, when a folder cannot be listed or its objects cannot be removed', async () => {
+    const listing = bucket(['r1/1.png'], { list: true });
+    await expect(askAttachments(listing.db).removeRounds(['r1'])).rejects.toBeInstanceOf(AskStoreError);
+    const removing = bucket(['r1/1.png'], { remove: true });
+    await expect(askAttachments(removing.db).removeRounds(['r1'])).rejects.toThrow(/remove is down/);
+    expect(removing.left()).toEqual(['r1/1.png']);
+  });
+});
+
+describe('askStore.roundIds (PRD 620)', () => {
+  it('reads the ids of a session\'s rounds', async () => {
+    const asked: unknown[][] = [];
+    const query = {
+      select(columns: string) { asked.push(['select', columns]); return query; },
+      eq(column: string, value: string) { asked.push(['eq', column, value]); return query; },
+      then: (done: (r: unknown) => unknown) => Promise.resolve({ data: [{ id: 'r1' }, { id: 'r2' }], error: null }).then(done),
+    };
+    const db = { from: (table: string) => { asked.push(['from', table]); return query; } } as unknown as Parameters<typeof askStore>[0];
+    expect(await askStore(db).roundIds('s1')).toEqual(['r1', 'r2']);
+    expect(asked).toEqual([['from', 'ask_rounds'], ['select', 'id'], ['eq', 'session_id', 's1']]);
   });
 });

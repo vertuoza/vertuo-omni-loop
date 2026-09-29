@@ -128,6 +128,12 @@ export function askStore(db: Pick<SupabaseClient, 'from'>) {
       return (gone ?? []).length > 0;
     },
 
+    /** The ids of a session's rounds, as the caller reads them. */
+    async roundIds(sessionId: string): Promise<string[]> {
+      const rows = settle<Array<{ id: string }>>('read the rounds', await db.from('ask_rounds').select('id').eq('session_id', sessionId));
+      return (rows ?? []).map((row) => row.id);
+    },
+
     /** A new round; `facts` that are all null are not sent, so an older database takes it too. */
     async addRound(sessionId: string, questions: AskQuestions, facts?: AskRoundFacts): Promise<{ id: string }> {
       const known = Object.fromEntries(Object.entries(facts ?? {}).filter(([, value]) => value !== null));
@@ -170,6 +176,22 @@ export function askAttachments(db: Pick<SupabaseClient, 'storage'>) {
       } catch {
         return paths.map(() => null);
       }
+    },
+
+    /** Removes every screenshot under the rounds' folders (`<round id>/…`), before their rows go:
+     * deleting the rows alone would leave the files behind. Throws when a folder cannot be listed or
+     * its files cannot be removed, so the rows are kept and a retry finds them. */
+    async removeRounds(roundIds: string[]): Promise<void> {
+      const bucket = db.storage.from(ATTACHMENTS_BUCKET);
+      const folders = await Promise.all(roundIds.map(async (roundId) => {
+        const { data, error } = await bucket.list(roundId, { limit: 100 });
+        if (error) throw new AskStoreError('list the screenshots', undefined, error.message);
+        return (data ?? []).map((file) => `${roundId}/${file.name}`);
+      }));
+      const paths = folders.flat();
+      if (paths.length === 0) return;
+      const { error } = await bucket.remove(paths);
+      if (error) throw new AskStoreError('remove the screenshots', undefined, error.message);
     },
   };
 }
