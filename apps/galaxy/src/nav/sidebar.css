@@ -118,4 +118,4 @@
   color: var(--ask-on-plasma);
   background: var(--ask-plasma);
 }
-.app-sidebar-out { margin-left: auto; color: var(--ask-muted); font-weight: 400; }
+.app-sidebar-out { margin-left: auto; display: inline-flex; color: var(--ask-muted); }

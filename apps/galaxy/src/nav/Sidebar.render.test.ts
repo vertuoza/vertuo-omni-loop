@@ -51,7 +51,7 @@ describe('the sidebar', () => {
 
   it('lists Work, then Omni, their items in order', () => {
     const html = render();
-    expect(text(html)).toMatch(/^OMNI LOOP Acme Work Home PRDs Questions 5 Shared with me 3 History Knowledge Fleets Omni Docs ↗ Release notes ↗$/);
+    expect(text(html)).toMatch(/^OMNI LOOP Acme Work Home PRDs Questions 5 Shared with me 3 History Knowledge Fleets Omni Docs Release notes$/);
     expect(links(html).slice(1).map((l) => /href="([^"]+)"/.exec(l.attrs)?.[1])).toEqual([
       '/app', '/prd', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/fleets', '/docs', '/releases',
     ]);
@@ -107,11 +107,14 @@ describe('the sidebar', () => {
     expect(render(ADA, null)).not.toContain('aria-current');
   });
 
-  it('marks Docs and Release notes as leaving the app: a ↗ glyph and a name ending "(leaves the app)"', () => {
+  it('opens Docs and Release notes in a new tab: a new-tab icon and a name ending "(opens in a new tab)" (issue 548)', () => {
     const html = render();
-    expect(html).toContain('<a class="app-sidebar-item" href="/docs" aria-label="Docs (leaves the app)">Docs<span class="app-sidebar-out" aria-hidden="true">↗</span></a>');
-    expect(html).toContain('<a class="app-sidebar-item" href="/releases" aria-label="Release notes (leaves the app)">Release notes<span class="app-sidebar-out" aria-hidden="true">↗</span></a>');
-    expect(html.match(/leaves the app/g)).toHaveLength(2);
+    for (const [path, label] of [['/docs', 'Docs'], ['/releases', 'Release notes']]) {
+      expect(html).toContain(`<a class="app-sidebar-item" href="${path}" aria-label="${label} (opens in a new tab)" target="_blank" rel="noopener">${label}<span class="app-sidebar-out" aria-hidden="true"><svg`);
+    }
+    expect(html.match(/opens in a new tab/g)).toHaveLength(2);
+    expect(html.match(/target="_blank"/g)).toHaveLength(2);
+    expect(html).not.toContain('↗');
   });
 
   it('is closed as a drawer until ☰ opens it: no scrim, no open mark', () => {
