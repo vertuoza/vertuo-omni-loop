@@ -106,8 +106,10 @@ stops. A worktree it had already cut stays, unpushed, and the hand-off names it.
 
 - exactly one folder `<paths.delivery>/visual/<nnnn>-*` exists for `<n>`, and it holds
   `before-after.html`;
-- the page passes the same before/after checks `omni check inbox` applies to a PRD's page (size,
-  no base64 raster image), reusing that code;
+- the page is at most `limits.beforeAfterMaxBytes` bytes, the size check `omni check inbox` applies
+  to a PRD's page, reusing its code;
+- the page holds no base64 raster image (a `data:image/` URL that is not SVG), a check new to
+  `omni visual`;
 - every commit on the branch since it left the default branch carries the `omni sign trailer`
   line, as `omni phase0` checks.
 
