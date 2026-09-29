@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { Notice } from '../../../../../../src/ask/page/Notice';
 import { arcadeMode } from '../../../../../../src/data/mode';
-import { supabaseEnv, supabaseServer } from '../../../../../../src/data/supabase-server';
+import { viewer } from '../../../../../../src/data/viewer';
 import { demoHistory } from '../../../../../../src/dossier/page/demo';
 import { DossierSignIn } from '../../../../../../src/dossier/page/DossierSignIn';
 import { atCallbackPath, findAt, outboxTabPath, readAt } from '../../../../../../src/dossier/page/history-at';
@@ -30,17 +30,16 @@ export default async function AtRoute({ params, searchParams }: Props) {
     if (!id) notFound();
     redirect(outboxTabPath(id));
   }
-  const env = supabaseEnv();
-  if (mode === 'closed' || !env) {
+  const seen = await viewer();
+  if (seen.kind !== 'signed-in' && seen.kind !== 'sign-in') {
     return (
       <Notice title="PRD dossiers are not open here">
         <p className="ask-muted">This deployment has no database, so it keeps no dossier.</p>
       </Notice>
     );
   }
-  const db = await supabaseServer();
-  const { data: { user } } = await db.auth.getUser();
-  if (!user) return <DossierSignIn supabase={env} returnPath={atCallbackPath(key)} error={one(query.signin_error)} />;
+  const { db, env } = seen;
+  if (seen.kind === 'sign-in') return <DossierSignIn supabase={env} returnPath={atCallbackPath(key)} error={one(query.signin_error)} />;
 
   let id: string | null;
   try {

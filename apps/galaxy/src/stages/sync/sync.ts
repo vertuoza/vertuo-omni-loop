@@ -9,7 +9,12 @@
 // cannot be read or recorded is logged and skipped, and the others still land; a workspace whose
 // repositories cannot be listed likewise. Only the workspaces themselves failing to read fails the run
 // (500), so the workflow goes red.
+//
+// PRD 657 (s5): once a repository's stages are recorded, the open outbox questions of each of its PRDs
+// seen (every folder, and every issue read) are recounted into prd_outbox (../outbox/recount.ts), so /prd
+// and the waiting outbox never read GitHub. A recount that fails is logged; the stages still land.
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { recountOutboxes, type RecountDeps } from '../outbox/recount';
 import type { StageStore } from '../store';
 import { stagesOfRepo, type RepoSnapshot } from './core';
 
@@ -25,6 +30,8 @@ export type SyncDeps = {
   /** Given `since`, only the issues and pull requests updated since then; null reads everything. */
   snapshot(workspace: SyncWorkspace, repository: string, since: string | null): Promise<RepoSnapshot>;
   store: StageStore;
+  /** The GitHub summaries and the outbox store the open questions are recounted with; none, no recount. */
+  outbox?: Pick<RecountDeps, 'summary' | 'store'>;
   now(): string;
   log(line: string): void;
 };
@@ -69,6 +76,14 @@ async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: st
       learnt += 1;
     } catch (error) {
       deps.log(`stages sync: the topic ${topic.topic} of ${repository}#${topic.prd} was not recorded — ${why(error)}`);
+    }
+  }
+  if (deps.outbox) {
+    const prds = [...new Set([...stages, ...topics].map((s) => s.prd))].sort((a, b) => a - b).map((prd) => ({ repository, prd }));
+    try {
+      await recountOutboxes(workspace.id, prds, { ...deps.outbox, stages: deps.store, log: deps.log }, syncedAt);
+    } catch (error) {
+      deps.log(`stages sync: the outboxes of ${repository} were not recounted — ${why(error)}`);
     }
   }
   return { workspace: workspace.slug, repository: repository.toLowerCase(), stages: stages.length, topics: learnt };

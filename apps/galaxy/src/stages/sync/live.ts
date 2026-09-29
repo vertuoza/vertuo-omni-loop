@@ -2,6 +2,7 @@ import 'server-only';
 import { serviceDb } from '../../data/sign-in-live';
 import { knowledgeReader, type KnowledgeReader } from '../../knowledge/github';
 import { appCredentials } from '../../signup/github-app';
+import { outboxDeps } from '../outbox/live';
 import { stageStore, type StageStore } from '../store';
 import { stagesReader, type StagesReader } from './github';
 import type { SyncDeps, SyncWorkspace } from './sync';
@@ -11,6 +12,7 @@ import type { SyncDeps, SyncWorkspace } from './sync';
 // App (GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY). A workspace's repositories are the ones its installation
 // reaches that carry the loop's config, as the knowledge map lists them (src/knowledge/github.ts). Each
 // is built when a call first needs it, so a missing setting fails that call, which the route logs.
+// PRD 657 (s5): each PRD's open outbox questions are recounted into prd_outbox (../outbox/live.ts).
 
 let knowledge: KnowledgeReader | undefined;
 let reader: StagesReader | undefined;
@@ -54,6 +56,7 @@ export function syncDeps(env: Record<string, string | undefined> = process.env):
     repositories: async (workspace) => github().repos(await installationOf(workspace)),
     snapshot: async (workspace, repository, since) => stages().snapshot(await installationOf(workspace), repository, since),
     store: lazyStore(),
+    outbox: outboxDeps(),
     now: () => new Date().toISOString(),
     log: (line) => console.error(line),
   };

@@ -54,7 +54,10 @@ vi.mock('../data/supabase-server', () => ({
     const user = given.token ? await client.auth.getUser(given.token) : { data: { user: null } };
     const github = given.login ? [{ provider: 'github', identity_data: { user_name: given.login } }] : undefined;
     const signedIn = user.data.user ? { data: { user: { ...user.data.user, identities: github } } } : user;
-    return { ...client, auth: { getUser: async () => signedIn } };
+    // The claims a GitHub sign-in carries: its login in user_metadata, the provider in app_metadata.
+    const meta = given.login ? { user_metadata: { user_name: given.login }, app_metadata: { provider: 'github', providers: ['github'] } } : {};
+    const claims = user.data.user ? { claims: { sub: user.data.user.id, email: user.data.user.email, ...meta } } : null;
+    return { ...client, auth: { getUser: async () => signedIn, getClaims: async () => ({ data: claims, error: null }) } };
   },
 }));
 
@@ -65,6 +68,7 @@ const { default: VisualPage } = await import('../../app/visual/[id]/page.tsx');
 const { default: BugPage } = await import('../../app/bugs/[id]/page.tsx');
 const { default: PrdPage } = await import('../../app/prd/[id]/page.tsx');
 const { GET: roundRoute } = await import('../../app/visual/[id]/r/[round]/page/route.ts');
+const { settled } = await import('../dossier/page/stream/settled');
 
 let prd = '';
 let visual = '';
@@ -91,9 +95,9 @@ afterEach(() => { vi.restoreAllMocks(); });
 
 const query = (q: Record<string, string> = {}) => Promise.resolve(q);
 const list = async (route: (p: { searchParams: Promise<Record<string, string>> }) => unknown, q: Record<string, string> = {}) =>
-  renderToStaticMarkup((await route({ searchParams: query(q) })) as ReactElement);
+  renderToStaticMarkup(await settled(await route({ searchParams: query(q) }) as ReactElement));
 const page = async (route: (p: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string>> }) => unknown, id: string, q: Record<string, string> = {}) =>
-  renderToStaticMarkup((await route({ params: Promise.resolve({ id }), searchParams: query(q) })) as ReactElement);
+  renderToStaticMarkup(await settled(await route({ params: Promise.resolve({ id }), searchParams: query(q) }) as ReactElement));
 const redirectTo = (path: string) => ({ digest: expect.stringContaining(`;${path};`) });
 
 describe('the lists', () => {

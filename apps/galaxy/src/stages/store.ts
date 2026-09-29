@@ -77,7 +77,8 @@ const PAGE = 1000;
 
 type Refusal = { message: string; code?: string } | null;
 
-function settle(what: string, error: Refusal): void {
+/** Throws a Supabase refusal as an error naming what was refused; the outbox store shares it. */
+export function settle(what: string, error: Refusal): void {
   if (error) throw new Error(`Supabase refused to ${what}: ${error.message}${error.code ? ` (${error.code})` : ''}`);
 }
 

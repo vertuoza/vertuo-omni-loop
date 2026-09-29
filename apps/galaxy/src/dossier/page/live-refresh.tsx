@@ -3,17 +3,17 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { poll } from '../../ask/page/poll';
-import { everyFew, GITHUB_EVERY_MS, watchChanges } from './live';
-import { readLiveGithub } from './live-github';
+import { watchNewWork } from './live-refresh-watch';
 import { readPulse } from './source';
 
 // The page refreshes itself (PRD 384, part 5): while the tab is visible, every 2 s through poll(), the
-// browser reads the dossier's pulse as the signed-in person, and only when its signature moved asks the
-// server to render the page again, in place (router.refresh()): the address, so the tab and a `?v=`
-// picked by hand, and the scroll position stay. It renders nothing until three reads in a row fail.
-// The demo has no database, and so no LiveRefresh.
-// PRD 426: the signature also covers the stage and the open outbox count, asked of the server (never
-// of GitHub) at most every GITHUB_EVERY_MS; a failed ask keeps the last answer and shows no problem.
+// browser reads the dossier's pulse as the signed-in person, and asks the server to render the page
+// again, in place (router.refresh()): the address, so the tab and a `?v=` picked by hand, and the
+// scroll position stay. It renders nothing until three reads in a row fail. The demo has no database,
+// and so no LiveRefresh.
+// PRD 657, s10: it refreshes only when a new version or a new round appears (live-refresh-watch.ts),
+// and no longer asks the server for the GitHub part (the stage, the open outbox count, the pending
+// answers): a change there shows at the next load of the page.
 
 type Props = {
   supabase: { url: string; key: string };
@@ -29,13 +29,9 @@ export function LiveRefresh({ supabase, id, signature }: Props) {
 
   useEffect(() => {
     const db = createBrowserClient(supabase.url, supabase.key);
-    const stage = everyFew(() => readLiveGithub(id), GITHUB_EVERY_MS);
-    return poll(watchChanges({
+    return poll(watchNewWork({
       initial: rendered.current,
-      read: async () => {
-        const [pulse, github] = await Promise.all([readPulse(db, id), stage()]);
-        return pulse && github ? { ...pulse, github } : pulse;
-      },
+      read: () => readPulse(db, id),
       onChange: () => router.refresh(),
       onProblem: setProblem,
     }), document);

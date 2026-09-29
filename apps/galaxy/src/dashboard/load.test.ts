@@ -13,7 +13,7 @@ const parts = vi.hoisted(() => ({
   board: vi.fn(async (_reads: { galaxy: () => Promise<GalaxyView> }, _request: unknown): Promise<unknown> => 'the board'),
   reads: vi.fn((_db: unknown, _workspace: string, galaxy: () => Promise<GalaxyView>) => ({ galaxy })),
 }));
-vi.mock('./counts/load', () => ({ loadWaiting: parts.waiting }));
+vi.mock('./counts/load', async (actual) => ({ ...(await actual<typeof import('./counts/load')>()), loadWaiting: parts.waiting }));
 vi.mock('./board/load', async (actual) => ({ ...(await actual<typeof import('./board/load')>()), loadBoard: parts.board, supabaseReads: parts.reads }));
 
 import { authUser, fakeGalaxyDb, PEOPLE, twoWorkspaces, VERTUOZA, type FakeUser } from '../data/galaxy.fake';
@@ -191,6 +191,27 @@ describe('one read failing', () => {
     expect(d.solo).toBe(true);
     expect(request()).toMatchObject({ scope: { login: 'ada-gh' } });
     expect(d.board).toBe('the board');
+  });
+
+  it('Waiting for you from the questions the layout read (PRD 657): counted from them, the ask tables not read again', async () => {
+    const w = world();
+    const db = w.client(PEOPLE.ada) as unknown as SupabaseClient;
+    const questions = vi.fn(async () => [
+      { kind: 'question' as const, id: 'r1', sessionTitle: 'feat/ada', question: 'Which storage?', askedAt: 1, sharedBy: null },
+      { kind: 'question' as const, id: 'r2', sessionTitle: 'feat/both', question: 'Who reads it?', askedAt: 2, sharedBy: 'BOTH' },
+    ]);
+    const load = await loadDashboard(db, authUser(PEOPLE.ada) as unknown as User, '7d', NOW, questions);
+    expect(load).toMatchObject({ kind: 'dashboard', dashboard: { waiting: { count: 2, href: '/ask' } } });
+    expect(questions).toHaveBeenCalledTimes(1);
+    expect(parts.waiting).not.toHaveBeenCalled();
+  });
+
+  it('Waiting for you from the layout\'s questions: their read failing reads unreadable alone', async () => {
+    const w = world();
+    const db = w.client(PEOPLE.ada) as unknown as SupabaseClient;
+    const load = await loadDashboard(db, authUser(PEOPLE.ada) as unknown as User, '7d', NOW, async () => { throw new Error('questions are down'); });
+    expect(load).toMatchObject({ kind: 'dashboard', dashboard: { waiting: 'unreadable', board: 'the board' } });
+    expect(errors().some((e) => e.includes('questions are down'))).toBe(true);
   });
 
   it('Waiting for you: it alone reads unreadable, and the error is logged', async () => {

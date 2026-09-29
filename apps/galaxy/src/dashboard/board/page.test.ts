@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import type { StreamedProps } from '../../skeleton/Streamed';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkspaceScreenProps } from './WorkspaceScreen';
 
@@ -11,24 +12,34 @@ const given = vi.hoisted(() => ({
 }));
 const demoWorkspaceBoard = vi.hoisted(() => vi.fn((period: string, now: Date) => ({ kind: 'board', name: 'demo', board: { period, at: now.toISOString() } })));
 const loadWorkspaceBoard = vi.hoisted(() => vi.fn(async (..._args: unknown[]) => given.load));
-const getUser = vi.hoisted(() => vi.fn(async () => ({ data: { user: given.user } })));
+const getClaims = vi.hoisted(() => vi.fn(async () => ({ data: given.user ? { claims: { sub: given.user.id } } : null, error: null })));
 
 vi.mock('server-only', () => ({}));
 vi.mock('../../data/mode', () => ({ arcadeMode: () => given.mode }));
 vi.mock('../../data/supabase-server', () => ({
   supabaseEnv: () => (given.mode === 'supabase' ? { url: 'http://127.0.0.1:54321', key: 'anon' } : null),
-  supabaseServer: async () => ({ auth: { getUser } }),
+  supabaseServer: async () => ({ auth: { getClaims } }),
 }));
 vi.mock('./workspace', () => ({ demoWorkspaceBoard, loadWorkspaceBoard }));
 
+const { Streamed } = await import('../../skeleton/Streamed');
 const { default: Page } = await import('../../../app/app/workspace/page.tsx');
 
-const propsOf = async (query: Record<string, string> = {}) =>
-  ((await Page({ searchParams: Promise.resolve(query) })) as ReactElement<WorkspaceScreenProps>).props;
+const pageOf = async (query: Record<string, string> = {}) => (await Page({ searchParams: Promise.resolve(query) })) as ReactElement;
+
+/** The screen the page draws: a signed-in person's streams in its own block (PRD 657 s4), so it is the
+ * block's, once its read resolves. */
+async function screenOf(element: ReactElement): Promise<ReactElement<WorkspaceScreenProps>> {
+  if (element.type !== Streamed) return element as ReactElement<WorkspaceScreenProps>;
+  const { read, children } = element.props as StreamedProps<unknown>;
+  return children(await read) as ReactElement<WorkspaceScreenProps>;
+}
+
+const propsOf = async (query: Record<string, string> = {}) => (await screenOf(await pageOf(query))).props;
 
 beforeEach(() => {
   Object.assign(given, { mode: 'supabase', user: null, load: { kind: 'no-workspace' } });
-  for (const fn of [demoWorkspaceBoard, loadWorkspaceBoard, getUser]) fn.mockClear();
+  for (const fn of [demoWorkspaceBoard, loadWorkspaceBoard, getClaims]) fn.mockClear();
 });
 afterEach(() => { vi.restoreAllMocks(); });
 
@@ -39,7 +50,7 @@ describe('/app/workspace decides once', () => {
     expect(view.kind).toBe('board');
     expect(demoWorkspaceBoard).toHaveBeenCalledWith('season', expect.any(Date));
     expect(query).toEqual({ period: 'season' });
-    expect(getUser).not.toHaveBeenCalled();
+    expect(getClaims).not.toHaveBeenCalled();
   });
 
   it('reads an unknown period as 7 days', async () => {
@@ -63,8 +74,9 @@ describe('/app/workspace decides once', () => {
   it('signed in: the workspace\'s board for the period, as that person', async () => {
     given.user = { id: 'u-ada' };
     given.load = { kind: 'board', name: 'Vertuoza', board: {} };
-    const { view } = await propsOf({ period: '30d' });
-    expect(view).toEqual(given.load);
-    expect(loadWorkspaceBoard).toHaveBeenCalledWith(expect.anything(), given.user, '30d', expect.any(Date));
+    const page = await pageOf({ period: '30d' });
+    expect(page.type, 'streamed in its own block').toBe(Streamed);
+    expect((await screenOf(page)).props.view).toEqual(given.load);
+    expect(loadWorkspaceBoard).toHaveBeenCalledWith(expect.anything(), expect.objectContaining(given.user), '30d', expect.any(Date));
   });
 });

@@ -238,6 +238,30 @@ describe('/prd/github/callback: the reply posted once, as the person', () => {
     expect(JSON.stringify([...log.mock.calls, ...info.mock.calls, ...warn.mock.calls])).not.toContain(w.gh.token);
   });
 
+  it('recounts the PRD\'s open questions once the reply is posted, and never when nothing was posted (PRD 657, s5)', async () => {
+    const { w, state } = await started();
+    const recounted: string[] = [];
+    w.deps.recount = async (dossierId) => { recounted.push(dossierId); };
+    await w.back({ code: 'the-code', state });
+    expect(recounted).toEqual([DOSSIER]);
+
+    const refused = await started();
+    const none: string[] = [];
+    refused.w.deps.recount = async (dossierId) => { none.push(dossierId); };
+    await refused.w.back({ error: 'access_denied', state: refused.state });
+    expect(none).toEqual([]);
+  });
+
+  it('still lands on the tab when the recount fails, and logs it', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { w, state, id } = await started();
+    w.deps.recount = async () => { throw new Error('Supabase is down'); };
+    const { location } = await w.back({ code: 'the-code', state });
+    expect(location).toBe(`${ORIGIN}/prd/${DOSSIER}?tab=outbox&send=${id}`);
+    expect(w.sends.sends[0].posted_at).not.toBeNull();
+    expect(log.mock.calls.flat().join('\n')).toContain('could not be recounted');
+  });
+
   it('a replayed callback posts nothing a second time', async () => {
     const { w, state } = await started();
     await w.back({ code: 'the-code', state });

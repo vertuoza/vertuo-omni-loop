@@ -1,10 +1,11 @@
 import type { User } from '@supabase/supabase-js';
-import { arcadeMode } from './mode';
-import { supabaseEnv, supabaseServer } from './supabase-server';
+import type { supabaseServer } from './supabase-server';
+import { viewer } from './viewer';
 
 // Who a per-request app page (PRD 612) is drawn for, decided once: the demo in development (or
 // OMNI_LOOP_DEMO=1); with no database, closed; signed out, the sign-in card; signed in, the database
-// as that person, so row-level security decides what each read returns.
+// as that person, so row-level security decides what each read returns. Read through viewer() (PRD
+// 657): once per request, shared with the layout.
 
 export type MemberSession =
   | { kind: 'demo' }
@@ -13,13 +14,9 @@ export type MemberSession =
   | { kind: 'signed-in'; db: Awaited<ReturnType<typeof supabaseServer>>; user: User; env: { url: string; key: string } };
 
 export async function memberSession(): Promise<MemberSession> {
-  const mode = arcadeMode(process.env);
-  if (mode === 'demo') return { kind: 'demo' };
-  const env = supabaseEnv();
-  if (mode === 'closed' || !env) return { kind: 'closed' };
-  const db = await supabaseServer();
-  const { data: { user } } = await db.auth.getUser();
-  return user ? { kind: 'signed-in', db, user, env } : { kind: 'sign-in' };
+  const seen = await viewer();
+  if (seen.kind === 'signed-in') return { kind: 'signed-in', db: seen.db, user: seen.user, env: seen.env };
+  return { kind: seen.kind };
 }
 
 /** A query parameter's first value, or null. */

@@ -55,7 +55,9 @@ describe('/app', () => {
   it('sits in the app shell: the sidebar, Home marked current, then the top bar titled Home, the theme switch and Game mode', () => {
     const side = between(app, '<aside class="app-sidebar"', '</aside>');
     expect(side).toMatch(/<a class="app-sidebar-crest" href="\/app">/);
-    expect([...side.matchAll(/href="([^"]+)"[^>]*aria-current="page"/g)].map((m) => m[1])).toEqual(['/app']);
+    // next/link (PRD 657) writes aria-current before href: read each link whatever its attributes' order.
+    const marked = [...side.matchAll(/<a\b[^>]*>/g)].map((m) => m[0]).filter((a) => a.includes('aria-current="page"'));
+    expect(marked.map((a) => /href="([^"]+)"/.exec(a)?.[1])).toEqual(['/app']);
     const bar = between(app, '<header class="app-bar"', '</header>');
     expect(bar).toContain('<p class="app-bar-title">Home</p>');
     const theme = bar.indexOf('aria-label="Theme"'), game = bar.indexOf('>Game mode');
@@ -99,7 +101,7 @@ describe('/app', () => {
     const source = readFileSync(new URL('../../app/app/page.tsx', import.meta.url), 'utf8');
     expect(source).toMatch(/export default async function/);
     expect(source).toMatch(/await searchParams/);
-    expect(source).toMatch(/supabaseServer\(\)/);
+    expect(source).toMatch(/\bviewer\(\)/);
     expect(source).not.toMatch(/export const dynamic|generateStaticParams/);
   });
 });
