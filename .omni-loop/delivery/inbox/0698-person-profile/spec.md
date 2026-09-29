@@ -63,8 +63,9 @@ Your own profile is the same page; nothing on it is editable.
   `link={false}` and stays a `<span>`, so no page ever nests `<a>` in `<a>` and a click there still
   goes where it goes today: the bell's lines, the fix list rows, ask history rows, the ask "for me"
   link, the fleet picker, and the share button.
-- A linked chip looks like today's chip, plus the app's link hover (underline on the name) and a
-  visible focus ring.
+- At rest, a linked chip looks exactly like today's chip: no underline. On hover (and on keyboard
+  focus) only the name is underlined: the person's name, or the fleet's label. The face and the
+  mascot never are. Keyboard focus also shows a visible focus ring.
 
 **My profile in the avatar menu.** `UserMenu` gets a **My profile** menu item between the
 name/`@login` block and Sign out, linking to `/app/people/<viewer login>`. It follows the menu's
