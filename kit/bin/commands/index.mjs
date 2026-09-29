@@ -5,6 +5,7 @@
 // signout's and whoami's `home`; dossier's `tokens`, `home`, `fetch`, `callMs` and `now`; version's `kit`;
 // update's `kit` and `bundle`; statusline's `stdin`, `now`, `readFacts` and `spawn`).
 import { adopt } from './adopt.mjs';
+import { answers } from './answers.mjs';
 import { ask } from './ask.mjs';
 import { board } from './board.mjs';
 import { check } from './check.mjs';
@@ -28,8 +29,9 @@ import { signin, signout, whoami } from './signin.mjs';
 import { ship } from './ship.mjs';
 import { sign } from './sign.mjs';
 import { status } from './status.mjs';
+import { targets } from './targets.mjs';
 import { statusline } from './statusline.mjs';
 import { update } from './update.mjs';
 import { version } from './version.mjs';
 
-export const COMMAND_TABLE = Object.freeze({ config, prd, status, settle, adopt, replies, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, init, ask, signin, signout, whoami, sign, credits, dossier, version, update, help, statusline });
+export const COMMAND_TABLE = Object.freeze({ config, prd, status, settle, adopt, replies, answers, comment, ship, harvest, check, knowledge, kb, item, plan, board, rework, phase0, init, ask, signin, signout, whoami, sign, credits, dossier, version, update, help, statusline, targets });

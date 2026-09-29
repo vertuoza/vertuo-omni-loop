@@ -11,7 +11,9 @@
 //
 // Its GitHub summary (PRD 426, part 6) is built in, so demo mode makes no GitHub call: the PRD is in
 // the outbox stage, three of its five slices merged into the feature branch, two decisions open and
-// two settled, and no retro yet.
+// two settled, and no retro yet. Its outbox (PRD 251, s9) reads like a real one on the Outbox tab: a
+// human action and a decision open, in the pull request's numbering, one answered on GitHub and not
+// yet settled, a medium adopted when raised, and Send off (the dossier is marked `demo`).
 import { DEMO_MEMBERS, DEMO_OWNER } from '../../ask/page/demo';
 import type { GithubSummary } from '../github/summary';
 import { DOSSIER_KINDS, type DossierListRow, type DossierRoundRow, type DossierVersionRow, type LatestVersion } from '../store';
@@ -140,6 +142,10 @@ function demoRounds(opened: number): DossierRoundRow[] {
 const DEMO_REPO = 'vertuoza/vertuo-omni-loop';
 const pull = (n: number) => `https://github.com/${DEMO_REPO}/pull/${n}`;
 
+const DETAILS = (decide: string, meanwhile: string) => ({
+  decide, meanwhile, cost: 'A constant: a later answer changes one line.', unknown: 'How people use it once it is live.',
+});
+
 /** The demo's GitHub summary: PRD 71 in the outbox stage, two decisions open and two settled, no retro. */
 export const DEMO_GITHUB: GithubSummary = {
   repo: DEMO_REPO, prd: 71, folder: '0071-ask-mode', topic: 'ask-mode',
@@ -151,33 +157,67 @@ export const DEMO_GITHUB: GithubSummary = {
   outbox: {
     open: [
       {
-        id: 's2-01-poll-interval', rank: 'medium',
-        question: 'How often should the page look for a new question?',
-        decision: 'Every two seconds while the tab is visible, and not at all while it is hidden.',
-        options: [
-          { letter: 'A', text: 'Every two seconds while the tab is visible (built)' },
-          { letter: 'B', text: 'Every five seconds, always' },
-        ],
-        personSteps: null,
+        id: 's3-02-page-secret', rank: 'human-action',
+        question: 'The page needs its signing secret on the host before it can take answers.',
+        decision: 'The page stays read-only until the secret is set.',
+        options: [],
+        personSteps: 'Set `ASK_SIGNING_SECRET` in the host\'s environment, then redeploy.',
+        bearsOn: 'none', intro: null, punchline: null,
+        details: DETAILS('Whether the page can take answers without its secret.', 'Kept the page read-only.'),
       },
       {
         id: 's3-01-terminal-takeover', rank: 'high',
         question: 'How long should the page wait before the terminal takes the question back?',
         decision: 'Five minutes, then the terminal asks the same question itself.',
         options: [
-          { letter: 'A', text: 'Five minutes (built)' },
+          { letter: 'A', text: 'Five minutes' },
           { letter: 'B', text: 'Two minutes' },
           { letter: 'C', text: 'Never: the page keeps it until someone answers' },
         ],
         personSteps: null,
+        bearsOn: 'P-PRODUCT-3',
+        intro: 'Five minutes is a long time to stare at a question.',
+        punchline: 'Or a short one, if you are making coffee.',
+        details: DETAILS('How long the page keeps a question before the terminal asks it.', 'Five minutes, as the brainstorm leaned.'),
+      },
+    ],
+    adopted: [
+      {
+        id: 's2-01-poll-interval', rank: 'medium',
+        question: 'How often should the page look for a new question?',
+        decision: 'Every two seconds while the tab is visible, and not at all while it is hidden.',
+        options: [
+          { letter: 'A', text: 'Every two seconds while the tab is visible' },
+          { letter: 'B', text: 'Every five seconds, always' },
+        ],
+        personSteps: null,
+        bearsOn: 'none', intro: null, punchline: null,
+        details: DETAILS('How often the page asks the server for a new question.', 'Every two seconds while visible.'),
       },
     ],
     settled: [
-      { id: 's1-01-page-host', title: 'Where should the question page live?', verdict: 'agreed', answer: 'On the galaxy app, as built.' },
-      { id: 's1-02-raw-html', title: 'How should raw HTML in a question show?', verdict: 'changed', answer: 'As plain text, never rendered.' },
+      {
+        id: 's1-01-page-host', title: 'Where should the question page live?', verdict: 'agreed', answer: 'On the galaxy app, as built.',
+        by: 'paula', at: '2026-09-25T14:02:00Z', url: `${pull(76)}#issuecomment-4250`,
+      },
+      {
+        id: 's1-02-raw-html', title: 'How should raw HTML in a question show?', verdict: 'changed', answer: 'As plain text, never rendered.',
+        by: 'uma', at: '2026-09-25T16:40:00Z', url: `${pull(76)}#issuecomment-4251`,
+      },
+      { id: 's2-01-poll-interval', title: 'How often should the page look for a new question?', verdict: 'adopted', answer: 'Adopted when raised.' },
     ],
   },
   outboxComment: `${pull(76)}#issuecomment-4242`,
+  replies: {
+    numbering: [
+      { number: 1, id: 's1-01-page-host' }, { number: 2, id: 's1-02-raw-html' }, { number: 3, id: 's2-01-poll-interval' },
+      { number: 4, id: 's3-01-terminal-takeover' }, { number: 5, id: 's3-02-page-secret' },
+    ],
+    pending: [{
+      number: 4, id: 's3-01-terminal-takeover', text: 'B because five minutes feels like forever', by: 'paula',
+      at: '2026-09-26T09:12:00Z', url: `${pull(76)}#issuecomment-4260`, counted: true, door: 'github',
+    }],
+  },
 };
 
 /** The demo dossier's repositories: its home, then its planet's regions. */
@@ -205,6 +245,7 @@ export function demoDossier(now: number): DossierRead {
     repos: DEMO_REPOS,
     github: DEMO_GITHUB,
     slices: 5,
+    demo: true,
   };
 }
 

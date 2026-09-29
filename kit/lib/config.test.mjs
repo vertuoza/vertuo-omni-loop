@@ -50,6 +50,15 @@ describe('parseConfig', () => {
     expect(() => parseConfig('kit: 1\nreleaseNotes:\n  on: true\n')).toThrow(/releaseNotes.*on/s);
   });
 
+  it('keeps the answers switch on unless the file switches it off, and refuses one that is not a boolean (PRD 251)', () => {
+    expect(parseConfig('kit: 1\n').answers).toEqual({ enabled: true });
+    expect(parseConfig('kit: 1\nanswers:\n  enabled: false\n').answers).toEqual({ enabled: false });
+    expect(() => parseConfig('kit: 1\nanswers:\n  enabled: yes please\n', 'c.yml')).toThrow(/c\.yml.*answers\.enabled/);
+    expect(() => parseConfig('kit: 1\nanswers:\n  enabled: "false"\n')).toThrow(/answers\.enabled/);
+    expect(() => parseConfig('kit: 1\nanswers:\n  enabled: 0\n')).toThrow(/answers\.enabled/);
+    expect(() => parseConfig('kit: 1\nanswers:\n  on: true\n')).toThrow(/answers.*on/s);
+  });
+
   it('names the retro label and the retro branch when the config sets neither', () => {
     const config = parseConfig('kit: 1\n');
     expect(config.labels.retro).toBe('omni:retro');
@@ -295,5 +304,84 @@ describe('branches.update and the migration step (PRD 347)', () => {
     expect(migrateConfig({ kit: 1, old: 'x' }, migrations)).toEqual({ kit: 3, old: 'x', moved: 'x' });
     expect(migrateConfig({ kit: 2 }, migrations)).toEqual({ kit: 3 });
     expect(migrateConfig({ kit: 3 }, migrations)).toEqual({ kit: 3 });
+  });
+});
+
+describe('the plan section and branches.megaInvade (PRD 522)', () => {
+  const SHA = '3f2a9c1e0b7d4c5a8e6f1d2c3b4a5968778695a4';
+  const target = (fields) =>
+    Object.entries(fields).map(([key, value], index) => `${index === 0 ? '    - ' : '      '}${key}: ${value}`).join('\n');
+  const plan = (targets, guide = 'docs/git-repositories/README.md') =>
+    `kit: 1\nplan:\n  guide: ${guide}\n  targets:\n${targets.map(target).join('\n')}\n`;
+  const IMPORTED = { repo: 'acme/back', role: 'back-end', knowledge: 'imported', readAt: SHA };
+  const OWN = { repo: 'acme/front', role: 'front-end', knowledge: 'own' };
+  const NONE = { repo: 'acme/legacy', role: 'legacy', knowledge: 'none' };
+  const firstLine = (source) => {
+    try {
+      parseConfig(source, 'c.yml');
+    } catch (error) {
+      return error.message.split('\n')[0];
+    }
+    throw new Error('it parsed');
+  };
+
+  it('leaves a config with no plan section exactly as it parses today: no plan key at all', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(Object.hasOwn(config, 'plan')).toBe(false);
+    expect(Object.keys(config)).toEqual([
+      'kit', 'repo', 'github', 'branches', 'worktrees', 'paths', 'labels', 'prLinks', 'board', 'ci', 'commands',
+      'acceptance', 'laws', 'risk', 'notify', 'limits', 'ask', 'dossier', 'releaseNotes', 'answers', 'markers', 'signature',
+    ]);
+  });
+
+  it('names the mega-invade branch docs/omni-mega-invade when the file does not, and keeps one it sets', () => {
+    expect(parseConfig('kit: 1\n').branches.megaInvade).toBe('docs/omni-mega-invade');
+    expect(parseConfig('kit: 1\nbranches:\n  megaInvade: kb/targets\n').branches.megaInvade).toBe('kb/targets');
+  });
+
+  it('reads a valid plan section: the guide, then each target in order, readAt null where it has none', () => {
+    expect(parseConfig(plan([IMPORTED, OWN, NONE])).plan).toEqual({
+      guide: 'docs/git-repositories/README.md',
+      targets: [IMPORTED, { ...OWN, readAt: null }, { ...NONE, readAt: null }],
+    });
+  });
+
+  it('takes a null guide, and reads a guide left out as null', () => {
+    expect(parseConfig(plan([OWN], 'null')).plan.guide).toBeNull();
+    expect(parseConfig(`kit: 1\nplan:\n  targets:\n${target(OWN)}\n`).plan.guide).toBeNull();
+  });
+
+  it('refuses a repo not in owner/name form, and a repo listed twice', () => {
+    expect(firstLine(plan([{ ...OWN, repo: 'front' }]))).toMatch(/^c\.yml .*: plan\.targets\.0\.repo: owner\/name/);
+    expect(firstLine(plan([OWN, { ...NONE, repo: 'acme/front' }]))).toMatch(/: plan\.targets\.1\.repo: acme\/front is listed twice/);
+  });
+
+  it('refuses an empty or missing targets list', () => {
+    expect(firstLine('kit: 1\nplan:\n  guide: null\n  targets: []\n')).toMatch(/: plan\.targets: at least one target/);
+    expect(firstLine('kit: 1\nplan:\n  guide: null\n')).toMatch(/: plan\.targets: /);
+  });
+
+  it('refuses a knowledge other than own, imported or none', () => {
+    expect(firstLine(plan([{ ...OWN, knowledge: 'copied' }]))).toMatch(/: plan\.targets\.0\.knowledge: /);
+  });
+
+  it('refuses an imported target without readAt, a readAt on an own or none target, and a readAt that is not 40 hex characters', () => {
+    const { readAt, ...withoutReadAt } = IMPORTED;
+    expect(firstLine(plan([withoutReadAt]))).toMatch(/: plan\.targets\.0\.readAt: required when knowledge is imported/);
+    expect(firstLine(plan([{ ...OWN, readAt }]))).toMatch(/: plan\.targets\.0\.readAt: only an imported target has one/);
+    expect(firstLine(plan([{ ...NONE, readAt }]))).toMatch(/: plan\.targets\.0\.readAt: only an imported target has one/);
+    expect(firstLine(plan([{ ...IMPORTED, readAt: '3f2a9c1' }]))).toMatch(/: plan\.targets\.0\.readAt: the full 40-character commit/);
+    expect(firstLine(plan([{ ...IMPORTED, readAt: `${SHA.slice(0, 39)}g` }]))).toMatch(/: plan\.targets\.0\.readAt: the full 40-character commit/);
+  });
+
+  it('refuses a role that is not one kebab-case word', () => {
+    for (const role of ['Back-end', 'back end', 'back_end', '-back', 'back-', 'back--end', '""']) {
+      expect(firstLine(plan([{ ...OWN, role }])), role).toMatch(/: plan\.targets\.0\.role: one kebab-case word/);
+    }
+  });
+
+  it('refuses a key the plan section or a target does not hold', () => {
+    expect(firstLine(plan([{ ...OWN, url: 'x' }]))).toMatch(/: plan\.targets\.0: .*unrecognized: url/);
+    expect(firstLine(`kit: 1\nplan:\n  repos: []\n  targets:\n${target(OWN)}\n`)).toMatch(/: plan: .*unrecognized: repos/);
   });
 });

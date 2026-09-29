@@ -35,6 +35,8 @@ function blobHash(path, { ctx, exec }) {
  */
 export function staleEvidence(evidence, { ctx, exec }) {
   const out = [];
+  // An imported copy's evidence names files of its target, never of this disk (PRD 522).
+  if (ctx.copyOf) return out;
   for (const { path, hash } of evidence) {
     const exists = existsSync(join(ctx.root, path));
     const now = exists ? blobHash(path, { ctx, exec }) : null;

@@ -36,6 +36,41 @@ const httpsUrl = z.string().refine((value) => {
   try { return new URL(value).protocol === 'https:'; } catch { return false; }
 }, 'an absolute https URL');
 
+// PRD 522: what a plan repository knows of each target repository's knowledge base.
+export const TARGET_KNOWLEDGE = Object.freeze(['own', 'imported', 'none']);
+
+const target = z
+  .object({
+    repo: z.string().regex(/^[\w.-]+\/[\w.-]+$/, 'owner/name'),
+    role: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'one kebab-case word, such as back-end'),
+    knowledge: z.enum(TARGET_KNOWLEDGE),
+    readAt: z.string().regex(/^[0-9a-f]{40}$/, 'the full 40-character commit the copy was read at').nullable().default(null),
+  })
+  .strict();
+
+// A plan repository's own section (PRD 522): the page saying which repository does what, pointed at
+// and never copied, and its target repositories. Optional: a config without it is no plan repository,
+// and parses with no `plan` key at all.
+const planSection = z
+  .object({
+    guide: nullableText.default(null),
+    targets: z.array(target).min(1, 'at least one target'),
+  })
+  .strict()
+  .superRefine(({ targets }, issues) => {
+    const seen = new Set();
+    targets.forEach(({ repo, knowledge, readAt }, index) => {
+      if (seen.has(repo)) issues.addIssue({ code: 'custom', path: ['targets', index, 'repo'], message: `${repo} is listed twice` });
+      seen.add(repo);
+      if (knowledge === 'imported' && readAt === null) {
+        issues.addIssue({ code: 'custom', path: ['targets', index, 'readAt'], message: 'required when knowledge is imported' });
+      }
+      if (knowledge !== 'imported' && readAt !== null) {
+        issues.addIssue({ code: 'custom', path: ['targets', index, 'readAt'], message: `only an imported target has one, and this one is ${knowledge}` });
+      }
+    });
+  });
+
 export const ConfigSchema = z
   .object({
     kit: z.literal(CONFIG_VERSION),
@@ -56,6 +91,8 @@ export const ConfigSchema = z
       invade: text.default('docs/omni-invade'),
       // PRD 347: the branch `omni update` opens its pull request from; `{version}` is `v<x.y.z>`.
       update: text.default('chore/omni-update-{version}'),
+      // PRD 522: the branch `/omni:mega-invade` opens its one docs-only pull request from.
+      megaInvade: text.default('docs/omni-mega-invade'),
     }),
     worktrees: text.default('.claude/worktrees'),
     paths: section({
@@ -138,6 +175,10 @@ export const ConfigSchema = z
     // Off by default: a repository opts in. When it is on, `omni ship` refuses a PRD whose folder has
     // no note, or whose note `omni check releases` would fail.
     releaseNotes: section({ enabled: z.boolean().default(false) }),
+    // PRD 251: whether an outbox may be answered outside the pull request — at the end of
+    // `/omni:yolo` (`omni answers`) and on the page `ask.url` names. On by default: a repository
+    // opts out. The pull request takes replies either way.
+    answers: section({ enabled: z.boolean().default(true) }),
     markers: section({ prefix: z.string().regex(/^[a-z][a-z0-9-]*$/, 'lowercase letters, digits and hyphens').default('omni-outbox') }),
     // Who co-signs the loop's commits, pull requests and issues (`kit/lib/signature.mjs`). By
     // default the omni-loop GitHub App's bot account; `null` switches signing off. `footer` is a
@@ -153,6 +194,7 @@ export const ConfigSchema = z
       .strict()
       .nullable()
       .default({}),
+    plan: planSection.optional(),
   })
   .strict();
 

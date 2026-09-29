@@ -4,10 +4,12 @@
 // section (a pointer, then the repository's section, then the kit default), each section labelled
 // with where it came from; `show decisions` then lists the decision records, read live. `status`
 // prints the map: each form's state and source, each register folder's laws and proposals, every
-// open question, every stale evidence entry. `graph` prints the knowledge registers as one graph
+// open question, every stale evidence entry, and — in a plan repository — each imported copy
+// (PRD 522). `graph` prints the knowledge registers as one graph
 // (PRD #149): its summary, or with `--json` the whole document. None of them
 // fails on what a form holds: a dead pointer or a kit default naming an unset config key is a
 // warning, and `omni check kb` grades.
+import { copiesStatus } from '../../lib/knowledge/copies.mjs';
 import { countsOf, readGraph } from '../../lib/knowledge/graph.mjs';
 import { DECISIONS_FORM, FORM_IDS } from '../../lib/playbook/forms.mjs';
 import { readDecisions } from '../../lib/playbook/decisions.mjs';
@@ -75,11 +77,29 @@ function registerLines(registers) {
   ];
 }
 
+/** The form states a copy's line counts, in this order, each only when some form is in it. */
+const COPY_STATES = ['filled', 'pointer', 'blank', 'missing', 'invalid'];
+
+/** The imported copies as text (PRD 522): a line per copy, its forms by state and its register folders. */
+function copyLines(targets) {
+  if (targets.length === 0) return [];
+  const width = Math.max(...targets.map(({ repo }) => repo.length));
+  return [
+    `Imported copies: ${targets.length}`,
+    ...targets.map(({ repo, folder, forms, registers }) => {
+      const states = COPY_STATES.map((state) => [state, forms.filter((form) => form.state === state).length])
+        .filter(([, count]) => count > 0)
+        .map(([state, count]) => `${count} ${state}`);
+      return `  ${repo.padEnd(width)}  ${[folder, ...states, `${registers.length} register folder(s)`].join(' · ')}`;
+    }),
+  ];
+}
+
 /**
- * The map as text: a line per form, then each register folder's laws and proposals, then every
- * open question, then every stale evidence entry.
+ * The map as text: a line per form, then each register folder's laws and proposals, then each
+ * imported copy, then every open question, then every stale evidence entry.
  */
-function statusText({ frontDoor, forms, registers }) {
+function statusText({ frontDoor, forms, registers, targets }) {
   const width = Math.max(...forms.map(({ form }) => form.length));
   const lines = [`kb status — ${forms.length} form(s) in ${frontDoor}`];
   for (const { form, kind, state, source, questions, stale } of forms) {
@@ -93,7 +113,7 @@ function statusText({ frontDoor, forms, registers }) {
   const stale = forms.flatMap(({ form, file, stale: entries }) =>
     entries.map(({ path, hash, now }) => `  ${form} (${file}): ${path}@${hash} — ${now === null ? 'gone' : `now ${now.slice(0, 7)}`}`),
   );
-  lines.push(...registerLines(registers));
+  lines.push(...registerLines(registers), ...copyLines(targets));
   lines.push(questions.length > 0 ? `Open questions: ${questions.length}` : 'Open questions: none.', ...questions);
   lines.push(stale.length > 0 ? `Stale evidence: ${stale.length}` : 'Stale evidence: none.', ...stale);
   return lines.join('\n');
@@ -101,7 +121,7 @@ function statusText({ frontDoor, forms, registers }) {
 
 function status(positional, flags, { ctx, stdout, exec }) {
   if (positional.length > 0) throw usageError('usage: omni kb status [--json]');
-  const map = playbookStatus({ ctx, exec });
+  const map = { ...playbookStatus({ ctx, exec }), targets: copiesStatus({ ctx, exec }) };
   println(stdout, flags.json ? JSON.stringify(map, null, 2) : statusText(map));
   return 0;
 }
