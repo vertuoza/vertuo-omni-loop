@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Real PRD stages</title>
+<style>
+/* Layout: PRD header today · after, then the /prd list today · after, then the dashboard tile and the event flow. */
+:root {
+  --bg: #f3f4f7; --panel: #ffffff; --ink: #1b1d26; --muted: #5d6275; --line: #dcdfe8;
+  --accent: #d6283b; --code: #eef0f5; --new: #fff1c7; --fill: #1b1d26; --fillInk: #ffffff; --warn: #b3261e;
+  --display: "Anton", Impact, "Arial Narrow", sans-serif;
+  --body: -apple-system, "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12131a; --panel: #1b1d27; --ink: #eceef5; --muted: #9aa0b4; --line: #2f3242; --code: #252836; --new: #3d3413; --fill: #eceef5; --fillInk: #12131a; --warn: #ff8a80; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #12131a; --panel: #1b1d27; --ink: #eceef5; --muted: #9aa0b4; --line: #2f3242; --code: #252836; --new: #3d3413; --fill: #eceef5; --fillInk: #12131a; --warn: #ff8a80; color-scheme: dark }
+* { box-sizing: border-box }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--body); padding: 24px 16px 48px }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 28px }
+h1 { font: 400 2rem/1.1 var(--display); letter-spacing: .02em; margin: 0; text-wrap: balance }
+h2 { font: 400 1.3rem/1.1 var(--display); letter-spacing: .03em; margin: 0 }
+.lede { color: var(--muted); margin: 4px 0 0; max-width: 70ch }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px }
+@media (max-width: 760px) { .cols { grid-template-columns: 1fr } }
+.col { min-width: 0; display: grid; gap: 8px; align-content: start }
+.tag { font: 600 11px/1 var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted) }
+.tag.after { color: var(--accent) }
+.screen { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px; display: grid; gap: 10px; min-width: 0 }
+.title { font: 700 17px var(--body) }
+.title b { color: #1f6f8b }
+.lbl { font: 600 10px var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted) }
+.pills { display: flex; flex-wrap: wrap; gap: 5px; align-items: center }
+.p { font: 12px var(--mono); border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; color: var(--muted) }
+.p.passed { background: var(--fill); color: var(--fillInk); border-color: var(--fill) }
+.p.current { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent) }
+.p.ahead { opacity: .45 }
+.p.newp { outline: 2px dashed #d9a400; outline-offset: 1px }
+.words { font-weight: 700; font-size: 14px }
+.bad { color: var(--warn) }
+.badge { font: 600 11.5px var(--body); background: var(--new); border-radius: 4px; padding: 2px 8px }
+.small { color: var(--muted); font-size: 12px }
+.row { display: grid; grid-template-columns: 56px 1fr auto; gap: 8px; align-items: center; border-top: 1px solid var(--line); padding-top: 7px; font-size: 12.5px }
+.row .n { font: 600 12px var(--mono) }
+.bar { display: flex; flex-wrap: wrap; gap: 6px; background: var(--new); padding: 8px; border-radius: 6px }
+.bar .p { background: var(--panel) }
+.bar .p b { color: var(--ink) }
+.bar .p.sel { background: var(--accent); color: #fff; border-color: var(--accent) }
+.bar .p.sel b { color: #fff }
+.url { font: 12px var(--mono); color: var(--muted) }
+.tile { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px }
+@media (max-width: 560px) { .tile { grid-template-columns: repeat(4, 1fr) } }
+.cell { border: 1px solid var(--line); border-radius: 6px; padding: 8px 6px; text-align: center }
+.cell b { display: block; font: 400 1.6rem/1 var(--display) }
+.cell span { font: 11px var(--mono); color: var(--muted) }
+svg { width: 100%; height: auto; display: block }
+svg text { fill: var(--ink); font: 12px var(--body) }
+svg .m { fill: var(--muted); font-size: 11px }
+svg .box { fill: var(--panel); stroke: var(--line) }
+svg .hot { fill: var(--new); stroke: #d9a400 }
+svg .ln { stroke: var(--muted); fill: none; stroke-width: 1.4 }
+.note { color: var(--muted); font-size: 12.5px; max-width: 75ch; margin: 0 }
+table { border-collapse: collapse; font-size: 12.5px; width: 100% }
+td, th { border-top: 1px solid var(--line); padding: 5px 8px; text-align: left; vertical-align: top }
+th { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>PRD 587 · Real PRD stages</h1>
+    <p class="lede">Today the pills come from one live GitHub read and often say <em>Stage unknown</em>. After: seven stages, each lit by an event the database records, with counts per stage on /prd and on the dashboard. Highlighted parts are new.</p>
+  </header>
+
+  <section class="col">
+    <h2>A PRD's page header</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag">Today · PRD 580</span>
+        <div class="screen">
+          <div class="title"><b>PRD #580</b> Skills section in the docs</div>
+          <div class="lbl">Stage</div>
+          <div class="pills">
+            <span class="p">idea</span><span class="p">PRD</span><span class="p">inbox</span><span class="p">outbox</span><span class="p">shipped</span><span class="p">retro</span>
+          </div>
+          <div class="words bad">Stage unknown: GitHub did not answer.</div>
+          <div class="small">No pill lit. Being built and waiting for you share one outbox pill.</div>
+        </div>
+      </div>
+      <div class="col">
+        <span class="tag after">After · PRD 580</span>
+        <div class="screen">
+          <div class="title"><b>PRD #580</b> Skills section in the docs</div>
+          <div class="lbl">Stage</div>
+          <div class="pills">
+            <span class="p passed">idea</span><span class="p passed">PRD</span><span class="p passed">inbox</span><span class="p current newp">building</span><span class="p ahead">outbox</span><span class="p ahead">shipped</span><span class="p ahead">retro</span>
+            <span class="badge">2 questions waiting →</span>
+          </div>
+          <div class="words">Stage: building · 3/5 slices</div>
+          <div class="small">Passed stages filled, the current one bold, later ones faded. If GitHub is down: the same pills, plus <em>last checked 09:42</em>.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="col">
+    <h2>The /prd list</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag">Today</span>
+        <div class="screen">
+          <div class="small">Mine · All · Drafts · PRDs · search…</div>
+          <div class="row"><span class="n">#580</span><span>Skills section in the docs</span><span class="small">5/5 answered</span></div>
+          <div class="row"><span class="n">#579</span><span>New documents alert</span><span class="small">1 open</span></div>
+          <div class="row"><span class="n">#572</span><span>Dashboards</span><span class="small">6/6 answered</span></div>
+          <div class="row"><span class="n">DRAFT</span><span>Real PRD stages…</span><span class="small">3/7 answered</span></div>
+          <div class="small">No stage shown and no way to count.</div>
+        </div>
+      </div>
+      <div class="col">
+        <span class="tag after">After · ?stage=building</span>
+        <div class="screen">
+          <div class="small">Mine · All · Drafts · PRDs · search…</div>
+          <div class="bar">
+            <span class="p"><b>3</b> idea</span><span class="p"><b>5</b> PRD</span><span class="p"><b>2</b> inbox</span><span class="p sel"><b>2</b> building</span><span class="p"><b>4</b> outbox</span><span class="p"><b>20</b> shipped</span><span class="p"><b>18</b> retro</span>
+          </div>
+          <div class="url">/prd?stage=building</div>
+          <div class="row"><span class="n">#580</span><span>Skills section in the docs</span><span class="p current">building</span></div>
+          <div class="row"><span class="n">#579</span><span>New documents alert</span><span class="p current">building</span></div>
+          <div class="small">Counts follow the other filters. Click a stage to filter, click it again to clear.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="col">
+    <span class="tag after">After · dashboard (PRD 572), new tile</span>
+    <div class="screen" style="background:var(--new)">
+      <div class="lbl">PRDs by stage · Workspace</div>
+      <div class="tile">
+        <div class="cell"><b>3</b><span>idea</span></div><div class="cell"><b>5</b><span>PRD</span></div><div class="cell"><b>2</b><span>inbox</span></div><div class="cell"><b>2</b><span>building</span></div><div class="cell"><b>4</b><span>outbox</span></div><div class="cell"><b>20</b><span>shipped</span></div><div class="cell"><b>18</b><span>retro</span></div>
+      </div>
+      <div class="small">Scope follows the board (you · fleet · workspace). Each count opens /prd filtered.</div>
+    </div>
+  </section>
+
+  <section class="col">
+    <h2>What lights each stage</h2>
+    <div class="screen">
+      <table>
+        <tr><th>Stage</th><th>Lit when</th><th>Recorded by</th></tr>
+        <tr><td>idea</td><td>first question answered</td><td>galaxy</td></tr>
+        <tr><td>PRD</td><td>spec + before/after pushed to the dossier</td><td>galaxy</td></tr>
+        <tr><td>inbox</td><td>phase-0 PR merged</td><td>GitHub → omni-app → galaxy</td></tr>
+        <tr style="background:var(--new)"><td>building</td><td>first sub-PR merged into the feature branch</td><td>GitHub → omni-app → galaxy</td></tr>
+        <tr><td>outbox</td><td>feature PR marked ready (waiting for you)</td><td>GitHub → omni-app → galaxy</td></tr>
+        <tr><td>shipped</td><td>feature PR merged</td><td>GitHub → omni-app → galaxy</td></tr>
+        <tr><td>retro</td><td>retro PR opened</td><td>GitHub → omni-app → galaxy</td></tr>
+      </table>
+    </div>
+    <svg viewBox="0 0 900 150" role="img" aria-label="Flow: GitHub PR events go to omni-app, which forwards a signed stage event to galaxy, which stores the date; pages and counts read the stored dates">
+      <rect class="box" x="10" y="45" width="150" height="56" rx="6"/><text x="85" y="70" text-anchor="middle">GitHub</text><text class="m" x="85" y="88" text-anchor="middle">PR opened · ready · merged</text>
+      <rect class="box" x="220" y="45" width="160" height="56" rx="6"/><text x="300" y="70" text-anchor="middle">omni-app webhook</text><text class="m" x="300" y="88" text-anchor="middle">knows the branch shapes</text>
+      <rect class="hot" x="440" y="45" width="190" height="56" rx="6"/><text x="535" y="70" text-anchor="middle">galaxy /api/dossiers/stage</text><text class="m" x="535" y="88" text-anchor="middle">signed · first date kept</text>
+      <rect class="hot" x="690" y="10" width="200" height="50" rx="6"/><text x="790" y="32" text-anchor="middle">dossier_stages</text><text class="m" x="790" y="48" text-anchor="middle">one date per stage</text>
+      <rect class="box" x="690" y="90" width="200" height="50" rx="6"/><text x="790" y="112" text-anchor="middle">PRD page · /prd · dashboard</text><text class="m" x="790" y="128" text-anchor="middle">read dates, never wait on GitHub</text>
+      <path class="ln" d="M160 73 H214 M380 73 H434 M630 66 L684 40 M790 60 V84"/>
+      <path class="ln" d="M210 69 l6 4 -6 4 M430 69 l6 4 -6 4 M786 78 l4 6 4 -6"/>
+    </svg>
+    <p class="note">Existing PRDs get their dates from a one-time catch-up. A PRD with nothing stored falls back to today's GitHub read and saves the result. The words "Stage unknown" go away.</p>
+  </section>
+</div>
+</body>
+</html>
