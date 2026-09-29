@@ -134,11 +134,12 @@ describe('loadBoard', () => {
     expect(fleet.stageLinks.retro).toBe('/prd?stage=retro&who=all');
   });
 
-  it('the season\'s fleet ranking, the viewer\'s fleet marked', async () => {
-    const board = await loadBoard(reads(), WORKSPACE);
+  it('the season\'s fleet ranking, the viewer\'s fleet marked, each with its colour and mascot (PRD 652)', async () => {
+    const galaxy = { ...GALAXY, teams: GALAXY.teams.map((t) => ({ ...t, mascot: t.name === 'beaver' ? 'beaver' : null })) };
+    const board = await loadBoard({ ...reads(), galaxy: async () => galaxy }, WORKSPACE);
     expect(board.fleets).toEqual([
-      { rank: 1, name: 'beaver', label: 'BEAVER', points: 300, yours: false },
-      { rank: 2, name: 'octo', label: 'OCTO', points: 120, yours: true },
+      { rank: 1, name: 'beaver', label: 'BEAVER', points: 300, yours: false, color: '#8a5a2b', mascot: 'beaver' },
+      { rank: 2, name: 'octo', label: 'OCTO', points: 120, yours: true, color: '#3355ff', mascot: null },
     ]);
   });
 });

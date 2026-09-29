@@ -95,7 +95,7 @@ describe('Home', () => {
     expect(d.you).toEqual({
       kind: 'player',
       hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 },
-      fleet: { name: 'pirates', label: 'PIRATES', color: '#2fc6a4' },
+      fleet: { name: 'pirates', label: 'PIRATES', color: '#2fc6a4', mascot: null },
       score: { points: 10, you: { rank: 2, of: 2 }, fleet: { label: 'PIRATES', rank: 2, of: 2 } },
     });
     expect([d.waiting, d.board]).toEqual(['the waiting', 'the board']);

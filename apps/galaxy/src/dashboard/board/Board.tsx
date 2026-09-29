@@ -4,7 +4,7 @@ import { PersonChip } from '../../people/PersonChip';
 import { STAGE_LABELS, STAGES, type StageId } from '../../stages/stage';
 import { CouldNotLoad } from '../Notes';
 import { UNREADABLE, type Read } from '../part';
-import type { FleetRank } from '../rankings/rank';
+import { fleetTagOf, type FleetRank } from '../rankings/rank';
 import { axisTicks, columnLabels, dayName } from './chart';
 import { periodHref, type Query } from './links';
 import type { BoardValue } from './load';
@@ -21,7 +21,8 @@ import './board.css';
 // /prd at that stage; People's PRDs read open · building · shipped now; the per-day chart keeps the
 // period's events, named opened · started · shipped so nobody reads it as where PRDs are.
 // PRD 652: each People row's name starts with the member's face (PersonChip), and its fleet is a
-// FleetChip, its mascot in its colour; the row's text is the same as before.
+// FleetChip, its mascot in its colour; the row's text is the same as before. Each fleet of the season's
+// ranking is a FleetChip too.
 
 const COUNT = new Intl.NumberFormat('en-US');
 const n = (value: number) => COUNT.format(value);
@@ -299,7 +300,7 @@ function FleetRanking({ fleets, season }: { fleets: Read<FleetRank[]>; season: s
               <tr key={f.name} aria-current={f.yours ? 'true' : undefined}>
                 <td className="is-num">{f.rank}</td>
                 <th scope="row" className="board-name">
-                  {f.label}
+                  <FleetChip fleet={fleetTagOf(f)} />
                   {f.yours && <span className="board-you"><span aria-hidden="true"> ◀</span><span className="ask-sr"> (your fleet)</span></span>}
                 </th>
                 <td className="is-num">{n(f.points)}</td>

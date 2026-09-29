@@ -1,6 +1,6 @@
-import type { CSSProperties } from 'react';
 import { heroLook, spritePixels } from '@omni/design';
 import { pixelSvg } from '../design/pixel-svg';
+import { FleetChip } from '../people/FleetChip';
 import { ARCADE, CouldNotLoad, LinkGithub } from './Notes';
 import { UNREADABLE, type Read } from './part';
 import type { Season } from './season';
@@ -10,7 +10,8 @@ import { SOLO, type Score, type YouValue } from './you';
 // /design draws its sprites: no script, no canvas), then your name, the page's one heading, your
 // fleet (SOLO for a player with none, PRD 400), your season's points and your two places. A member
 // with no player row gets, in its place, the card that sends them to the arcade to play; a figure
-// that cannot be read or counted says why, and nothing else of the block goes with it.
+// that cannot be read or counted says why, and nothing else of the block goes with it. PRD 652: the
+// fleet line is the fleet's chip, its mascot and label in its colour, then "fleet"; the big hero stays.
 
 const COUNT = new Intl.NumberFormat('en-US');
 
@@ -45,7 +46,7 @@ export function You({ name, you, season }: { name: string; you: Read<YouValue>; 
     );
   }
   const fleet = you.fleet === SOLO ? null : you.fleet;
-  const colour = fleet && HEX.test(fleet.color) ? fleet.color : undefined;
+  const colour = fleet?.color && HEX.test(fleet.color) ? fleet.color : undefined;
   const look = heroLook(you.hero, colour);
   const svg = pixelSvg(spritePixels(look.sprite, { tint: look.tint }), { scale: 2, title: `${name}’s hero` });
   return (
@@ -53,13 +54,8 @@ export function You({ name, you, season }: { name: string; you: Read<YouValue>; 
       <span className="dash-hero" dangerouslySetInnerHTML={{ __html: svg }} />
       <div className="dash-who">
         {heading}
-        {fleet && (
-          <p className="dash-fleet" style={colour ? ({ '--dash-fleet': colour } as CSSProperties) : undefined}>
-            <span className="dash-fleet-pip" aria-hidden="true" />
-            <span><span className="dash-fleet-name">{fleet.label}</span> fleet</span>
-          </p>
-        )}
-        {you.fleet === SOLO && <p className="dash-fleet"><span className="dash-fleet-name">SOLO</span></p>}
+        {fleet && <p className="dash-fleet"><FleetChip fleet={fleet} size="inline" /> fleet</p>}
+        {you.fleet === SOLO && <p className="dash-fleet"><FleetChip fleet={SOLO} size="inline" /></p>}
         <Figures score={you.score} season={season} />
       </div>
     </section>

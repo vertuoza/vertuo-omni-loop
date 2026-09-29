@@ -2,6 +2,7 @@ import type { GalaxyView } from '@omni/galaxy';
 import { validHero, type Hero } from '@omni/design';
 import type { User } from '@supabase/supabase-js';
 import type { FleetRow, Player } from '../arcade/types';
+import { SOLO, type FleetTag } from '../people/types';
 import { UNREADABLE, type PartInput, type Read } from './part';
 
 // The hero block (PRD 328), the dashboard's first part: your hero, your name, your fleet, your season
@@ -23,11 +24,9 @@ export interface Score {
   fleet: (Place & { label: string }) | null;
 }
 
-/** Your fleet, as the block names it: its label, in its colour. */
-export interface FleetTag { name: string; label: string; color: string }
-
-/** A player who plays with no fleet (PRD 400): their player row has no team. */
-export const SOLO = 'solo';
+/** Your fleet, as the block names it: its chip (PRD 652), its label and mascot in its colour. A player
+ * who plays with no fleet (PRD 400), whose player row has no team, reads SOLO. */
+export { SOLO, type FleetTag } from '../people/types';
 
 /** A player's fleet, as the block shows it: their fleet, SOLO with none, or null when their fleet is
  * one the workspace no longer knows. */
@@ -82,7 +81,7 @@ export async function loadYou(input: PartInput, me: Read<Player | null>, fleets:
   if (me === UNREADABLE) return UNREADABLE;
   if (!me) return { kind: 'no-player' };
   const found = me.team ? (await fleets()).find((f) => f.name === me.team) : undefined;
-  const fleet: YouFleet = !me.team ? SOLO : found ? { name: found.name, label: found.label, color: found.color } : null;
+  const fleet: YouFleet = !me.team ? SOLO : found ? { name: found.name, label: found.label, color: found.color, mascot: found.mascot ?? null } : null;
   const hero = validHero(me.hero) ? me.hero : DEFAULT_HERO;
   if (!input.login) return { kind: 'player', hero, fleet, score: 'no-github' };
   let score: Score | 'unreadable';

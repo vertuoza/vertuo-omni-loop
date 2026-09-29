@@ -23,7 +23,7 @@ import type { YouValue } from './you';
 const season = seasonBounds(new Date('2026-09-28T10:00:00Z'));
 const HERO = { v: 1 as const, body: 'boy' as const, skin: 1, hair: 0, suit: 0, cape: 1 };
 const PLAYER: YouValue = {
-  kind: 'player', hero: HERO, fleet: { name: 'beaver', label: 'BEAVER', color: '#d08a4a' },
+  kind: 'player', hero: HERO, fleet: { name: 'beaver', label: 'BEAVER', color: '#d08a4a', mascot: null },
   score: { points: 1240, you: { rank: 7, of: 23 }, fleet: { label: 'BEAVER', rank: 2, of: 5 } },
 };
 const data = (over: Partial<DashboardData> = {}): DashboardData => ({
@@ -59,10 +59,15 @@ describe('the dashboard', () => {
     expect(svgOf(other)).not.toBe(svgOf(dashboard()));
   });
 
-  it('names the fleet, its colour carried as a property the stylesheet reads', () => {
-    const html = dashboard();
-    expect(text(html)).toContain('BEAVER fleet');
-    expect(html).toMatch(/style="--dash-fleet:#d08a4a"/);
+  it('names the fleet as its chip, its mascot in its colour, then "fleet" (PRD 652)', () => {
+    const html = dashboard({ you: { ...PLAYER, fleet: { name: 'beaver', label: 'BEAVER', color: '#d08a4a', mascot: 'beaver' } } as YouValue });
+    expect(text(you(html))).toContain('BEAVER fleet');
+    expect(you(html)).toMatch(/<p class="dash-fleet"><span class="fleet-chip is-inline" style="--fleet:#d08a4a"><span class="fleet-chip-mascot" aria-hidden="true"><svg [\s\S]*?<span class="fleet-chip-label">BEAVER<\/span><\/span> fleet<\/p>/);
+  });
+
+  it('a solo player\'s fleet line is the SOLO chip', () => {
+    const html = dashboard({ you: { ...PLAYER, fleet: 'solo', score: { points: 30, you: { rank: 3, of: 4 }, fleet: null } } as YouValue });
+    expect(you(html)).toContain('<span class="fleet-chip is-solo">SOLO</span>');
   });
 
   it('never carries a fleet colour that is not one: no stray declaration reaches the style', () => {

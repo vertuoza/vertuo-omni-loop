@@ -19,8 +19,8 @@ const ACTIVITY = [...Array.from({ length: 7 }, (_, i) => merged('paetienne', 100
 const GALAXY = {
   heroes: [{ name: 'ada-gh', points: 120 }, { name: 'bob-gh', points: 300 }],
   teams: [
-    { name: 'beaver', label: 'BEAVER', color: '#8a5a2b', points: 300, rank: 1 },
-    { name: 'octo', label: 'OCTO', color: '#3355ff', points: 120, rank: 2 },
+    { name: 'beaver', label: 'BEAVER', color: '#8a5a2b', mascot: null, points: 300, rank: 1 },
+    { name: 'octo', label: 'OCTO', color: '#3355ff', mascot: 'octopod', points: 120, rank: 2 },
   ],
 };
 
@@ -46,7 +46,7 @@ describe('loadFleet', () => {
   it('shows your fleet by default: its members, Paul at 0 points among them, its merges only, its place', async () => {
     const fleet = await loadFleet(reads(), request());
     if (fleet.kind !== 'board') throw new Error(fleet.kind);
-    expect(fleet.fleet).toEqual({ name: 'octo', label: 'OCTO', color: '#3355ff', place: { rank: 2, of: 2 } });
+    expect(fleet.fleet).toEqual({ name: 'octo', label: 'OCTO', color: '#3355ff', mascot: 'octopod', place: { rank: 2, of: 2 } });
     expect(fleet.board.tiles.prs).toBe(7);
     expect(fleet.board.tiles.answered).toBe(9);
     expect(fleet.board.tiles.prds).toMatchObject({ shipped: 1, inbox: 0 });
@@ -55,6 +55,13 @@ describe('loadFleet', () => {
     expect(people.find((p) => p.userId === 'u-paul')).toMatchObject({ prs: 7, answered: 9, points: 0 });
     expect(people.find((p) => p.userId === 'u-ada')?.you).toBe(true);
     expect((fleet.fleets as { name: string; yours: boolean }[]).map((f) => [f.name, f.yours])).toEqual([['beaver', false], ['octo', true]]);
+  });
+
+  it('carries each fleet\'s colour and mascot to the picker, for its chip (PRD 652)', async () => {
+    const fleet = await loadFleet(reads(), request());
+    if (fleet.kind !== 'board') throw new Error(fleet.kind);
+    expect((fleet.fleets as { name: string; color: string; mascot: string | null }[]).map((f) => [f.name, f.color, f.mascot]))
+      .toEqual([['beaver', '#8a5a2b', null], ['octo', '#3355ff', 'octopod']]);
   });
 
   it('shows the fleet ?fleet names', async () => {
@@ -79,7 +86,7 @@ describe('loadFleet', () => {
   it('with the galaxy down: your fleet still, its place and the picker unreadable, the rest drawn', async () => {
     const fleet = await loadFleet(reads({ galaxy: true }), request());
     if (fleet.kind !== 'board') throw new Error(fleet.kind);
-    expect(fleet.fleet).toEqual({ name: 'octo', label: 'OCTO', color: null, place: 'unreadable' });
+    expect(fleet.fleet).toEqual({ name: 'octo', label: 'OCTO', color: null, mascot: null, place: 'unreadable' });
     expect(fleet.fleets).toBe('unreadable');
     expect(fleet.board.tiles.prs).toBe(7);
   });
