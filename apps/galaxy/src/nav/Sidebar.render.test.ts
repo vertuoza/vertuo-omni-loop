@@ -53,9 +53,9 @@ describe('the sidebar', () => {
 
   it('lists Dashboard, Work, Settings, then Omni, their items in order (PRD 572)', () => {
     const html = render();
-    expect(text(html)).toMatch(/^OMNI LOOP Acme Dashboard Home Fleet Workspace Work PRDs Questions 5 Shared with me 3 History Knowledge Settings Fleets Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
+    expect(text(html)).toMatch(/^OMNI LOOP Acme Dashboard Home Fleet Workspace Work PRDs Bug Fixes Visual Updates Questions 5 Shared with me 3 History Knowledge Settings Fleets Docs Release notes Omni Loop v\d+\.\d+\.\d+$/);
     expect(links(html).slice(1).map((l) => /href="([^"]+)"/.exec(l.attrs)?.[1])).toEqual([
-      '/app', '/app/fleet', '/app/workspace', '/prd', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/settings/fleets', '/docs', '/releases',
+      '/app', '/app/fleet', '/app/workspace', '/prd', '/bugs', '/visual', '/ask', '/ask/for-me', '/ask/history', '/knowledge', '/app/settings/fleets', '/docs', '/releases',
     ]);
   });
 
@@ -97,6 +97,8 @@ describe('the sidebar', () => {
     ['/app/workspace', '/app/workspace'],
     ['/app/settings/fleets', '/app/settings/fleets'],
     ['/prd/3f2a', '/prd'],
+    ['/bugs/3f2a', '/bugs'],
+    ['/visual/3f2a', '/visual'],
     ['/ask/q/42', '/ask'],
     ['/ask/for-me', '/ask/for-me'],
     ['/ask/history', '/ask/history'],
