@@ -34,6 +34,7 @@ function lazyStore(): StageStore {
     currentStages: (workspace, prds) => get().currentStages(workspace, prds),
     stageCounts: (workspace, prds) => get().stageCounts(workspace, prds),
     prdByTopic: (workspace, repository, topic) => get().prdByTopic(workspace, repository, topic),
+    lastSynced: (workspace, repository) => get().lastSynced(workspace, repository),
   };
 }
 
@@ -51,7 +52,7 @@ export function syncDeps(env: Record<string, string | undefined> = process.env):
       }));
     },
     repositories: async (workspace) => github().repos(await installationOf(workspace)),
-    snapshot: async (workspace, repository) => stages().snapshot(await installationOf(workspace), repository),
+    snapshot: async (workspace, repository, since) => stages().snapshot(await installationOf(workspace), repository, since),
     store: lazyStore(),
     now: () => new Date().toISOString(),
     log: (line) => console.error(line),

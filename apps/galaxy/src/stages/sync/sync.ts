@@ -3,7 +3,9 @@
 // other caller, or every caller while the deployment has no secret, is refused (401) before anything is
 // read. For each workspace, each repository its App installation reaches that carries the loop's config
 // is read (./github.ts), turned into stages and topics (./core.ts), and recorded through the stage store
-// (../store.ts), which keeps each stage's first date: a rerun writes nothing new. A repository that
+// (../store.ts), which keeps each stage's first date: a rerun writes nothing new. After a repository's
+// first sync, only its issues and pull requests updated since the last one (less OVERLAP) are read
+// (issue 642), so the 15-minute run does not spend the App's hourly GitHub budget. A repository that
 // cannot be read or recorded is logged and skipped, and the others still land; a workspace whose
 // repositories cannot be listed likewise. Only the workspaces themselves failing to read fails the run
 // (500), so the workflow goes red.
@@ -20,7 +22,8 @@ export type SyncDeps = {
   workspaces(): Promise<SyncWorkspace[]>;
   /** The workspace's repositories that carry the loop's config, as `owner/name`. */
   repositories(workspace: SyncWorkspace): Promise<string[]>;
-  snapshot(workspace: SyncWorkspace, repository: string): Promise<RepoSnapshot>;
+  /** Given `since`, only the issues and pull requests updated since then; null reads everything. */
+  snapshot(workspace: SyncWorkspace, repository: string, since: string | null): Promise<RepoSnapshot>;
   store: StageStore;
   now(): string;
   log(line: string): void;
@@ -36,6 +39,15 @@ const json = (status: number, body: unknown) => Response.json(body, { status, he
 const why = (error: unknown) => (error instanceof Error ? error.message.split('\n')[0] : String(error));
 const digest = (text: string) => createHash('sha256').update(text).digest();
 
+/** How far before the last sync a repository is read again, for clocks that disagree. */
+const OVERLAP_MS = 5 * 60_000;
+
+/** When to read a repository's changes from: its last sync less OVERLAP_MS; null, never synced, reads it all. */
+async function sinceOf(deps: SyncDeps, workspace: SyncWorkspace, repository: string): Promise<string | null> {
+  const last = await deps.store.lastSynced(workspace.id, repository);
+  return last === null ? null : new Date(Date.parse(last) - OVERLAP_MS).toISOString();
+}
+
 /** Whether the request carries `Bearer <secret>`; never, without a secret. Compared in constant time. */
 function bearerMatches(request: Request, secret: string | undefined): boolean {
   if (!secret) return false;
@@ -47,7 +59,8 @@ function bearerMatches(request: Request, secret: string | undefined): boolean {
 
 /** Reads and records one repository; its counts, or throws with why it was skipped. */
 async function syncRepo(deps: SyncDeps, workspace: SyncWorkspace, repository: string, syncedAt: string): Promise<SyncedRepo> {
-  const { stages, topics } = stagesOfRepo(await deps.snapshot(workspace, repository), syncedAt);
+  const since = await sinceOf(deps, workspace, repository);
+  const { stages, topics } = stagesOfRepo(await deps.snapshot(workspace, repository, since), syncedAt);
   await deps.store.recordStages(stages.map((s) => ({ ...s, workspace_id: workspace.id })), syncedAt);
   let learnt = 0;
   for (const topic of topics) {
