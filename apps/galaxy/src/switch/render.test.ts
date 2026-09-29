@@ -75,7 +75,8 @@ describe('/app', () => {
   it('draws no section cards: the sidebar leads to every section (PRD 438)', () => {
     expect(app).not.toContain('dash-card');
     const main = between(app, '<main', '</main>');
-    expect(main).not.toContain('<nav');
+    // The board's period switch (PRD 572) is the one navigation Home's page holds.
+    expect(main.match(/<nav\b[^>]*>/g)).toEqual(['<nav class="board-period" aria-label="Period">']);
   });
 
   it('reads the ask pages\' reading surface: the ask root, its theme script first', () => {
