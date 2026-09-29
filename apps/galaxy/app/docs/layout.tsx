@@ -13,7 +13,7 @@ import { TopBar } from '../../src/nav/TopBar';
 
 export const metadata: Metadata = {
   title: { default: 'Docs · OMNI LOOP', template: '%s · Docs · OMNI LOOP' },
-  description: 'How to start with Omni Loop: install it, invade a repository, and ship a first PRD.',
+  description: 'How to start with Omni Loop: join a team that runs it or install it, see how the loop works, and ship a first PRD.',
 };
 
 // One colour for the browser's bar, Omni's ground: this metadata is static and cannot read the stored

@@ -6,7 +6,7 @@ import { parse } from 'yaml';
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
 import { inngest } from '../inngest-client.mjs';
 import { replayGitHub } from '../../test/github-replay.mjs';
-import { FEATURE, OWNER, REPO, widgetScenario } from '../../test/retro-scenario.mjs';
+import { FEATURE, JUDGE_ENV, OWNER, REPO, judge, widgetScenario } from '../../test/retro-scenario.mjs';
 import { detect } from './detect.mjs';
 import { issueMarker, publishIssues, renderIssue } from './issues.mjs';
 import { timeline } from './kinds/timeline.mjs';
@@ -113,7 +113,15 @@ const found = (findings) => ({
 
 const sheetOf = (findings = FOUND) => detect({ run: 'merge', pr, prd, config, pulls: [], records: {}, kinds: [found(findings)] });
 
-const input = ({ sheet = sheetOf(), prose = null, cfg = config } = {}) => ({
+/** The judge's marks alone, keeping every finding of `findings`: no words. */
+const keeping = (findings = FOUND) => ({
+  findings: Object.fromEntries(findings.map((finding) => [finding.id, { keep: true }])),
+  lessons: [],
+  verdict: { worthIt: true, reason: 'Each finding is new.' },
+});
+const KEEP_ALL = keeping();
+
+const input = ({ sheet = sheetOf(), prose = KEEP_ALL, cfg = config } = {}) => ({
   owner: OWNER,
   repo: REPO,
   config: cfg,
@@ -125,13 +133,17 @@ const input = ({ sheet = sheetOf(), prose = null, cfg = config } = {}) => ({
 const PROSE = {
   summary: 'The widgets shipped, but one check kept failing.',
   findings: {
+    ...KEEP_ALL.findings,
     'repeated-red:e2e': {
       title: 'The end-to-end check kept failing',
       whyItMatters: 'Each red run held a slice back and hid whether the change itself was sound.',
       lesson: 'Fix the flaky step before the next wave starts.',
+      keep: true,
+      why: 'No earlier lesson says to fix a flaky step between waves.',
     },
-    'drift:s2-04-colour-store': { title: { dropped: 'it holds a digit' }, whyItMatters: { dropped: 'it links outside the evidence' } },
+    'drift:s2-04-colour-store': { title: { dropped: 'it holds a digit' }, whyItMatters: { dropped: 'it links outside the evidence' }, keep: true },
   },
+  verdict: KEEP_ALL.verdict,
   lessons: [
     { text: 'Keep the end-to-end check green between waves.', findings: ['repeated-red:e2e'] },
     { text: 'Answer decisions before the wave that builds on them.', findings: ['drift:s2-04-colour-store', 'repeated-red:e2e'] },
@@ -191,6 +203,22 @@ describe('publishIssues — the first run', () => {
         retro: RETRO_PATH,
         evidence: finding.evidence.map((item) => item.url),
       });
+    }
+  });
+
+  it('opens issues only for the findings the judge kept, worst first', async () => {
+    const github = replayGitHub();
+    const kept = FOUND.filter((finding) => ['slow-slice:s3', 'territory:s2', 'repeated-red:e2e'].includes(finding.id));
+    const out = await publishIssues(github.octokit, input({ prose: keeping(kept) }));
+    expect(Object.keys(out)).toEqual(['repeated-red:e2e', 'territory:s2', 'slow-slice:s3']);
+    expect(github.state.issues).toHaveLength(3);
+  });
+
+  it('reads and writes nothing when the retro was not judged, or the judge kept nothing', async () => {
+    for (const prose of [null, { findings: {}, lessons: [], verdict: { dropped: 'it gives no verdict' } }, keeping([])]) {
+      const github = replayGitHub();
+      expect(await publishIssues(github.octokit, input({ prose }))).toEqual({});
+      expect(github.state.requests).toEqual([]);
     }
   });
 
@@ -293,7 +321,7 @@ describe('renderIssue', () => {
     golden('issue-facts-only.md', body);
   });
 
-  it('matches its golden file with prose: the model’s title, why it matters, its lesson and the lessons citing it', () => {
+  it('matches its golden file with prose: the model’s title, why it matters, its lesson, the lessons citing it and why it is kept', () => {
     const retroPr = { number: 930, url: `https://github.com/${OWNER}/${REPO}/pull/930` };
     const { title, body } = renderIssue({ sheet, finding: red, prose: PROSE, retroPath: RETRO_PATH, retroPr, prefix: 'omni-outbox' });
     expect(title).toBe('retro(PRD 7): The end-to-end check kept failing');
@@ -335,7 +363,7 @@ describe('renderIssue', () => {
 describe('the retro function — its issues', () => {
   /** The widget scenario, its timeline plus the seven findings above: eight findings, the slow slice once. */
   function engine(scenario) {
-    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env: {}, kinds: [timeline, found(FOUND)] });
+    const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env: JUDGE_ENV, fetch: judge(), kinds: [timeline, found(FOUND)] });
     return new InngestTestEngine({ function: fn, events: [scenario.event] });
   }
   const markdown = (github) => github.filesAt(BRANCH, [RETRO_PATH])[RETRO_PATH];

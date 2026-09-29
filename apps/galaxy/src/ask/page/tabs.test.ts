@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { HOOK_WAIT_MS, type SessionRow } from './view';
-import { ageLabel, firstTab, needsYou, pageTabs, pageWithList, pageWithPane, pickTab, startPage, tabsOf, tabsTitle, toggleList, type TabRow } from './tabs';
+import { ageLabel, askTitle, firstTab, needsYou, pageTabs, pageWithList, pageWithPane, pickTab, startPage, tabsOf, tabsTitle, toggleList, type TabRow } from './tabs';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
 const MIN = 60_000;
@@ -62,9 +62,16 @@ describe('the browser title', () => {
   it('counts the tabs that need you', () => {
     const tabs = tabsOf([row('a', { round: { ago: MIN } }), row('b', { round: { ago: 2 * MIN } }), row('c')], NOW);
     expect(needsYou(tabs)).toBe(2);
-    expect(tabsTitle(2)).toBe('● (2) Claude asks · OMNI LOOP');
-    expect(tabsTitle(1)).toBe('● (1) Claude asks · OMNI LOOP');
-    expect(tabsTitle(0)).toBe('Ask · OMNI LOOP');
+  });
+
+  it('is the plain Claude asks base: the waiting list prefixes the count on every page (PRD 499)', () => {
+    expect(tabsTitle()).toBe('Claude asks · OMNI LOOP');
+    expect(tabsTitle()).not.toContain('●');
+  });
+
+  it('on a question\'s page, says Claude asks while the person may answer it, with no ●', () => {
+    expect(askTitle(true)).toBe('Claude asks · OMNI LOOP');
+    expect(askTitle(false)).toBe('Ask · OMNI LOOP');
   });
 });
 
@@ -99,7 +106,7 @@ describe("the page's state", () => {
     const tabs = pageTabs(after, NOW);
     expect(tabs.map((t) => t.id)).toEqual(['b', 'a']);
     expect(tabs.find((t) => t.id === 'b')?.state).toBe('needs-you');
-    expect(tabsTitle(needsYou(tabs))).toBe('● (1) Claude asks · OMNI LOOP');
+    expect(needsYou(tabs)).toBe(1);
   });
 
   it('keeps the selected tab, read-only at the end, once its session leaves the list', () => {

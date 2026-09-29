@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { createBrowserClient } from '@supabase/ssr';
 import { AskSession, type SourceConfig } from './AskSession';
+import { useWaiting } from '../../waiting/WaitingProvider';
+import { titled } from '../../waiting/waiting';
 import { poll } from './poll';
 import { databaseTabs, type TabsPort } from './source';
 import { needsYou, pageTabs, pageWithList, pageWithPane, pickTab, tabsTitle, toggleList, type Page, type Tab } from './tabs';
@@ -12,7 +14,8 @@ import type { SessionState } from './view';
 // The person's ask page (PRD 142): every open ask session they own as a tab, one per terminal, the
 // selected one's pane beside the list. The list is read again every 2 s while the page is visible;
 // the selection moves only when the person picks a tab (a link to /ask/<id>), never by itself: a
-// question arriving elsewhere badges that tab and counts in the browser title. Below 720 px the list
+// question arriving elsewhere badges that tab. The browser title is Claude asks, prefixed with the
+// waiting list's count like every app page (PRD 499). Below 720 px the list
 // folds into one row at the top that says how many terminals there are and how many need the person;
 // pressing it opens the list, and picking a tab closes it.
 
@@ -50,11 +53,12 @@ export function AskPage({ source, page: initial, pane, serverNow, query = '', me
 
   const tabs = useMemo(() => pageTabs(page, now), [page, now]);
   const waiting = needsYou(tabs);
+  const { counts } = useWaiting();
 
   // Written again on every read: Next writes the layout's metadata title after the first effects.
   useEffect(() => {
-    document.title = tabsTitle(waiting);
-  }, [waiting, now]);
+    document.title = titled(tabsTitle(), counts.total);
+  }, [counts.total, now]);
 
   useEffect(
     () =>

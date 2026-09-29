@@ -110,7 +110,7 @@ describe('the page to share', () => {
     ]);
     given.token = 'bob';
     const page = await html(numbered, { tab: 'questions' });
-    expect(page).toContain('Questions<small>1/2 answered</small>');
+    expect(page).toContain('Questions<small>1/2</small><span class="dossier-left">1 to answer</span>');
     expect([...page.matchAll(/<span class="dossier-rule">([a-z]+)<\/span>/g)].map((m) => m[1])).toEqual(['delivery', 'delivery']);
     expect(page).toContain('answered by ADA after 2 min 0 s, in the terminal');
     expect(page).toContain('not answered yet');
@@ -145,7 +145,7 @@ describe('the page to share', () => {
     given.token = 'bob';
     const page = await html(opened, { tab: 'questions' });
     expect(page).toContain('<span class="dossier-rule">brainstorm</span>');
-    expect(page).toContain('Questions<small>0/1 answered</small>');
+    expect(page).toContain('Questions<small>0/1</small><span class="dossier-left">1 to answer</span>');
     expect(await html(draft, { tab: 'questions' })).toContain('No question yet.');
   });
 
@@ -250,7 +250,7 @@ describe('the page to share', () => {
     const questions = await html('anything', { tab: 'questions' });
     expect(questions).toContain('<span class="dossier-rule">brainstorm</span>');
     expect(questions).toContain('<span class="dossier-rule">delivery</span>');
-    expect(questions).toMatch(/Questions<small>\d+\/\d+ answered<\/small>/);
+    expect(questions).toMatch(/Questions<small>\d+\/\d+( answered)?<\/small>/);
     expect(((await open('anything')).props as { live?: unknown }).live).toBeUndefined();
   });
 });
@@ -481,10 +481,10 @@ describe('the stylesheet', () => {
     for (const rule of rules.filter((r) => r.media !== PINNED)) expect(rule.body, rule.selectors.join(', ')).not.toMatch(/sticky/);
   });
 
-  it('draws the header box on the surface with a strong outline (PRD 476)', () => {
+  it('draws the header on the surface with a strong bottom rule (PRD 476, edge to edge since PRD 498)', () => {
     const head = of('.dossier-head');
     expect(head).toMatch(/background:\s*var\(--ask-surface\)/);
-    expect(head).toMatch(/border:\s*[^;]*var\(--ask-line-strong\)/);
+    expect(head).toMatch(/border-bottom:\s*[^;]*var\(--ask-line-strong\)/);
   });
 
   it('lands a round and a markdown heading just under the pinned box (PRD 476)', () => {
@@ -501,6 +501,22 @@ describe('the stylesheet', () => {
     for (const selector of ['.dossier-md', '.dossier-front']) expect(of(selector), selector).toMatch(/max-width:\s*900px/);
   });
 
+  it('draws the rounds as one outlined list, not cards, an open round on --ask-sunk with a 4 px yellow edge, and no filled chosen option (PRD 498)', () => {
+    expect(of('.dossier-round')).not.toMatch(/border(?:-left)?:/);
+    expect(of('.dossier-round')).not.toMatch(/border-radius/);
+    const open = of(".dossier-round[data-state='open']");
+    expect(open).toMatch(/background:\s*var\(--ask-sunk\)/);
+    expect(open).toMatch(/border-left:\s*4px solid var\(--ask-yellow\)/);
+    expect(of('.dossier-rounds')).toMatch(/background:\s*var\(--ask-surface\)/);
+    expect(of('.dossier-left')).toMatch(/background:\s*var\(--ask-yellow\)/);
+    expect(of('.dossier-left')).toMatch(/color:\s*var\(--ask-on-yellow\)/);
+    expect(of('.dossier-meter')).toMatch(/background:\s*var\(--ask-sunk\)/);
+    expect(of('.dossier-meter > span')).toMatch(/background:\s*var\(--ask-green\)/);
+    expect(of('.dossier-chosen')).not.toMatch(/background|border/);
+    expect(of(".dossier-round[data-state='open'] .dossier-option")).toMatch(/border:\s*[^;]*var\(--ask-line-strong\)/);
+    expect(of(".dossier-round[data-state='open'] .dossier-option")).not.toMatch(/background/);
+  });
+
   it('dims no text with opacity: stages ahead and empty tabs read muted, a tab with content in ink (PRD 476)', () => {
     for (const rule of rules) {
       for (const [, value] of rule.body.matchAll(/opacity:\s*([\d.]+)/g)) expect(Number(value), rule.selectors.join(', ')).toBeGreaterThanOrEqual(1);
@@ -515,7 +531,7 @@ describe('the stylesheet', () => {
   it('outlines chips, badges, cards, controls and the tab bar with --ask-line-strong, and keeps --ask-line for dividers (PRD 476)', () => {
     const outlined = [
       '.dossier-head', '.stage-stop', '.dossier-repo', '.dossier-tabs', '.dossier-empty', '.dossier-frame iframe',
-      '.dossier-round', '.dossier-category', '.dossier-option', '.outbox-card', '.outbox-option', '.outbox-settled', '.outbox-context',
+      '.dossier-rounds', '.dossier-category', '.dossier-option', '.outbox-card', '.outbox-option', '.outbox-settled', '.outbox-context',
       '.ask .dossier-quick-choice:disabled', '.dossier-history-filters', '.dossier-history-whos',
       '.ask a.dossier-history-row', '.dossier-history-artifact',
     ];
@@ -524,7 +540,7 @@ describe('the stylesheet', () => {
       expect(body, selector).toMatch(/border(?:-top|-bottom)?(?:-color)?:\s*[^;]*var\(--ask-line-strong\)/);
       expect(body, selector).not.toMatch(/border(?:-top|-bottom)?(?:-color)?:\s*[^;]*var\(--ask-line\)/);
     }
-    for (const selector of ['.dossier-md th', '.dossier-md hr', '.dossier-md h2', '.dossier-q + .dossier-q']) {
+    for (const selector of ['.dossier-md th', '.dossier-md hr', '.dossier-md h2', '.dossier-q + .dossier-q', '.dossier-round + .dossier-round']) {
       expect(of(selector), selector).toMatch(/border(?:-top|-bottom)?:\s*[^;]*var\(--ask-line\)/);
     }
   });

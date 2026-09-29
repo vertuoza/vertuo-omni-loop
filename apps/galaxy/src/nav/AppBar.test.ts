@@ -6,15 +6,15 @@ import { GAME_MODE } from '../switch/switch';
 import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
 
 // The app's top bar (PRD 438) as the server renders it: the page's title on the left, then the theme
-// switch (Omni, Light, Dark) and Game mode, unchanged, then you: the avatar signed in, Sign in with
-// GitHub signed out.
+// switch (Omni, Light, Dark) and Game mode, unchanged, then, signed in, the bell (PRD 499), then you:
+// the avatar signed in, Sign in with GitHub signed out.
 
 const at = { path: '/ask/for-me' as string | null };
 vi.mock('next/navigation', () => ({ usePathname: () => at.path }));
 
 const { AppBar } = await import('./AppBar.tsx');
 
-const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, workspaceName: 'Acme', forMe: 3 };
+const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, workspaceName: 'Acme', waiting: null };
 
 const render = (path: string | null, viewer: ViewerView = SIGNED_OUT_VIEWER) => {
   at.path = path;
@@ -35,7 +35,20 @@ describe('the top bar', () => {
     expect(game).toBeGreaterThan(theme);
     const avatar = bar.indexOf('aria-haspopup="menu"');
     expect(avatar).toBeGreaterThan(game);
-    expect(controls(bar)).toEqual(['☰', '', 'Omni', 'Light', 'Dark', 'Game mode', 'A']);
+    expect(controls(bar)).toEqual(['☰', '', 'Omni', 'Light', 'Dark', 'Game mode', '', 'A']);
+  });
+
+  it('holds, signed in, the bell between Game mode and the avatar, with the theme switch and Game mode', () => {
+    const bar = render('/app', ADA);
+    const bell = bar.indexOf('class="bell-button"');
+    expect(bell).toBeGreaterThan(bar.indexOf('>Game mode'));
+    expect(bell).toBeLessThan(bar.indexOf('aria-haspopup="menu"'));
+    const view = bar.slice(bar.indexOf('<span class="app-bar-view">'), bar.indexOf('<span class="app-bar-you">'));
+    expect(view).toContain('aria-label="Nothing waiting for you"');
+  });
+
+  it('holds no bell signed out', () => {
+    expect(render('/app')).not.toContain('class="bell');
   });
 
   it('opens, for a phone, with ☰ ("Menu"), closed, which opens the sidebar, then the crest linked to /app', () => {

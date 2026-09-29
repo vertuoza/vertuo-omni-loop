@@ -10,7 +10,9 @@
  *   step each).
  * - {@link finishHarvest} applies what prepare planned, writes the knowledge (`writeKnowledge`),
  *   runs `omni check knowledge` and `omni check outbox` on the result, and drops every entry that
- *   fails, which becomes not placed with the check's message.
+ *   fails, which becomes not placed with the check's message. When no candidate became a register
+ *   entry or a decision record ({@link PROMOTIONS}), it writes none of its own ledger lines
+ *   (PRD #487): its edits are then only what prepare planned, none at all once the PRD is shipped.
  *
  * **Both halves return edits as data and touch no file of the tree they read.** An edit set is
  * `{ deletes, moves, writes }`, applied in that order: `deletes` and `moves` name paths as the tree
@@ -236,6 +238,9 @@ function runChecks(ctx) {
 
 const newOnes = (after, before) => after.filter((line) => !before.includes(line));
 
+/** The kinds that make a candidate knowledge: a new register entry or a decision record. */
+export const PROMOTIONS = Object.freeze(['adr', 'rule', 'invariant']);
+
 /**
  * The second half: apply what prepare planned, write the knowledge, run both checks, and drop every
  * entry that fails. Touches no file of `ctx`'s tree.
@@ -286,12 +291,14 @@ export function finishHarvest({ ctx, prepared, classified, merge, taken = {}, da
       result = attempt(null);
     }
 
-    applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves: [], writes: result.writes } });
+    // No promotion, no notes: a harvest that made nothing knowledge writes none of its own lines.
+    const writes = result.placed.some((entry) => PROMOTIONS.includes(entry.kind)) ? result.writes : [];
+    applyHarvestEdits({ root: scratch.root, edits: { deletes: [], moves: [], writes } });
     const checks = runChecks(scratch);
     const edits = {
       deletes: prepared.edits.deletes,
       moves: prepared.edits.moves,
-      writes: mergeWrites([...prepared.edits.writes, ...result.writes]),
+      writes: mergeWrites([...prepared.edits.writes, ...writes]),
     };
     return { edits, placed: result.placed, notPlaced: result.notPlaced, checks };
   });

@@ -14,6 +14,7 @@ import {
   knowledgeSummary,
 } from './classify.mjs';
 import { candidatesFromLedger } from './harvest.mjs';
+import { LOOK_RULE } from './look-rule.mjs';
 
 const K = '.omni-loop/knowledge';
 
@@ -192,6 +193,10 @@ describe('classificationPrompt', () => {
     ]) {
       expect(prompt).toContain(expected);
     }
+  });
+
+  it('quotes the look rule word for word', () => {
+    expect(classificationPrompt({ candidate: candidate(), summary: SUMMARY })).toContain(LOOK_RULE);
   });
 
   it('is pinned by a snapshot', async () => {

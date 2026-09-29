@@ -2,7 +2,9 @@
 // /knowledge). The Work group holds the workspace's work, the Omni group Omni's own pages, which
 // leave the app for the public ones. A new section is one entry here. Two pure reads of a path: the
 // item it falls under, by the longest matching path (so /app/fleets is Fleets, not Home), and the top
-// bar's title, a nested item's parent first. The query and the hash never count.
+// bar's title, a nested item's parent first. The query and the hash never count. An item that counts
+// what waits for the person (PRD 499) carries its count as a badge, none at 0.
+import type { WaitingCounts } from '../waiting/waiting';
 
 export type SidebarId = 'home' | 'prds' | 'questions' | 'for-me' | 'history' | 'knowledge' | 'fleets' | 'docs' | 'releases';
 
@@ -84,4 +86,11 @@ export function pageTitle(pathname: string | null | undefined): string | null {
   const entry = entryOf(pathname);
   if (!entry) return null;
   return entry.parent ? `${entry.parent.label} / ${entry.item.label}` : entry.item.label;
+}
+
+/** The badge an item carries: Questions the Questions part, Shared with me the shared questions, PRDs
+ * the Outbox part; null at 0, and for an item that counts nothing. */
+export function badgeOf(id: SidebarId, counts: WaitingCounts): number | null {
+  const count = id === 'questions' ? counts.questions : id === 'for-me' ? counts.shared : id === 'prds' ? counts.outbox : 0;
+  return count > 0 ? count : null;
 }

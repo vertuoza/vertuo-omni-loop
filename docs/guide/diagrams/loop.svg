@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 390" width="760" height="390">
+  <title>The Omni Loop</title>
+  <desc>Six stages in a loop: idea, PRD, inbox, outbox, shipped, retro, and back to the next idea. A person moves a PRD through three gates (the phase-0 PR, the outbox questions, the feature PR); the agents build in between; the Omni App opens the retro.</desc>
+  <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
+       tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
+  <style>
+    svg { background: #f5f4fc; }
+    text { font-family: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 14px; fill: #17153d; }
+    .dg-px { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 10px; }
+    .dg-tag { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 8px; }
+    .dg-small { font-size: 12.5px; }
+    .dg-code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; }
+    .dg-muted { fill: #4f5486; }
+    .dg-box { fill: #ffffff; stroke: #85819f; stroke-width: 2; }
+    .dg-shadow { fill: #85819f; }
+    .dg-line { fill: none; stroke: #85819f; stroke-width: 2; }
+    .dg-dash { stroke-dasharray: 6 5; }
+    .dg-head { fill: #85819f; }
+    .dg-edge-you { stroke: #6a2fd0; }
+    .dg-key { fill: #efe7ff; stroke: #6a2fd0; }
+    .dg-edge-agents { stroke: #0b6f86; }
+    .dg-edge-app { stroke: #15703f; }
+    .dg-you { fill: #6a2fd0; }
+    .dg-agents { fill: #0b6f86; }
+    .dg-app { fill: #15703f; }
+    @media (prefers-color-scheme: dark) {
+      svg { background: #0e0d33; }
+      text { fill: #f2f4ff; }
+      .dg-muted { fill: #a9aee6; }
+      .dg-box { fill: #16144a; stroke: #6d6acc; }
+      .dg-shadow { fill: #6d6acc; }
+      .dg-line { stroke: #6d6acc; }
+      .dg-head { fill: #6d6acc; }
+      .dg-edge-you { stroke: #b37cff; }
+      .dg-key { fill: #2a1d66; stroke: #b37cff; }
+      .dg-edge-agents { stroke: #6ff0ff; }
+      .dg-edge-app { stroke: #4ee08a; }
+      .dg-you { fill: #b37cff; }
+      .dg-agents { fill: #6ff0ff; }
+      .dg-app { fill: #4ee08a; }
+    }
+  </style>
+  <!-- idea -->
+  <rect x="27" y="19" width="150" height="96" class="dg-shadow"/>
+  <rect x="24" y="16" width="150" height="96" class="dg-box"/>
+  <text x="38" y="42" class="dg-px">IDEA</text>
+  <text x="38" y="66" class="dg-small">talked through</text>
+  <text x="38" y="82" class="dg-small">with Claude</text>
+  <text x="38" y="102" class="dg-code dg-muted">no file yet</text>
+  <!-- PRD -->
+  <rect x="308" y="19" width="150" height="96" class="dg-shadow"/>
+  <rect x="305" y="16" width="150" height="96" class="dg-box"/>
+  <text x="319" y="42" class="dg-px">PRD</text>
+  <text x="319" y="66" class="dg-small">spec, plan and</text>
+  <text x="319" y="82" class="dg-small">before/after</text>
+  <text x="319" y="102" class="dg-code dg-muted">phase-0 PR</text>
+  <!-- inbox -->
+  <rect x="589" y="19" width="150" height="96" class="dg-shadow"/>
+  <rect x="586" y="16" width="150" height="96" class="dg-box"/>
+  <text x="600" y="42" class="dg-px">INBOX</text>
+  <text x="600" y="66" class="dg-small">approved, and</text>
+  <text x="600" y="82" class="dg-small">ready to build</text>
+  <text x="600" y="102" class="dg-code dg-muted">delivery/inbox/</text>
+  <!-- outbox -->
+  <rect x="589" y="271" width="150" height="96" class="dg-shadow"/>
+  <rect x="586" y="268" width="150" height="96" class="dg-box"/>
+  <text x="600" y="294" class="dg-px">OUTBOX</text>
+  <text x="600" y="318" class="dg-small">being built; the</text>
+  <text x="600" y="334" class="dg-small">agents' questions</text>
+  <text x="600" y="354" class="dg-code dg-muted">feature PR, draft</text>
+  <!-- shipped -->
+  <rect x="308" y="271" width="150" height="96" class="dg-shadow"/>
+  <rect x="305" y="268" width="150" height="96" class="dg-box"/>
+  <text x="319" y="294" class="dg-px">SHIPPED</text>
+  <text x="319" y="318" class="dg-small">merged into the</text>
+  <text x="319" y="334" class="dg-small">default branch</text>
+  <text x="319" y="354" class="dg-code dg-muted">delivery/shipped/</text>
+  <!-- retro -->
+  <rect x="27" y="271" width="150" height="96" class="dg-shadow"/>
+  <rect x="24" y="268" width="150" height="96" class="dg-box"/>
+  <text x="38" y="294" class="dg-px">RETRO</text>
+  <text x="38" y="318" class="dg-small">how it went, and</text>
+  <text x="38" y="334" class="dg-small">what it taught</text>
+  <text x="38" y="354" class="dg-code dg-muted">retro + knowledge</text>
+  <!-- idea → PRD -->
+  <path d="M180 64 L290 64" class="dg-line dg-edge-you"/>
+  <polygon points="299,64 290,69.5 290,58.5" class="dg-head dg-you"/>
+  <text x="239.5" y="52" class="dg-tag dg-you" text-anchor="middle">YOU + CLAUDE</text>
+  <text x="239.5" y="86" class="dg-code" text-anchor="middle">/omni:brainstorm</text>
+  <text x="239.5" y="102" class="dg-small dg-muted" text-anchor="middle">writes the PRD</text>
+  <!-- PRD → inbox -->
+  <path d="M461 64 L571 64" class="dg-line dg-edge-you"/>
+  <polygon points="580,64 571,69.5 571,58.5" class="dg-head dg-you"/>
+  <text x="520.5" y="52" class="dg-tag dg-you" text-anchor="middle">YOU</text>
+  <text x="520.5" y="86" class="dg-small" text-anchor="middle">review, merge</text>
+  <text x="520.5" y="102" class="dg-small" text-anchor="middle">the phase-0 PR</text>
+  <!-- inbox → outbox -->
+  <path d="M661 120 L661 251" class="dg-line dg-edge-agents"/>
+  <polygon points="661,260 655.5,251 666.5,251" class="dg-head dg-agents"/>
+  <text x="649" y="156" class="dg-tag dg-agents" text-anchor="end">AGENTS</text>
+  <text x="649" y="176" class="dg-code" text-anchor="end">/omni:yolo &lt;n&gt;</text>
+  <text x="649" y="194" class="dg-small dg-muted" text-anchor="end">you start it; they plan</text>
+  <text x="649" y="210" class="dg-small dg-muted" text-anchor="end">and build every slice</text>
+  <!-- outbox → shipped -->
+  <path d="M580 316 L470 316" class="dg-line dg-edge-you"/>
+  <polygon points="461,316 470,310.5 470,321.5" class="dg-head dg-you"/>
+  <text x="520.5" y="304" class="dg-tag dg-you" text-anchor="middle">YOU</text>
+  <text x="520.5" y="338" class="dg-small" text-anchor="middle">answer the outbox</text>
+  <text x="520.5" y="354" class="dg-code" text-anchor="middle">/omni:yolo-fix &lt;n&gt;</text>
+  <text x="520.5" y="370" class="dg-small" text-anchor="middle">merge feature PR</text>
+  <!-- shipped → retro -->
+  <path d="M299 316 L189 316" class="dg-line dg-edge-app"/>
+  <polygon points="180,316 189,310.5 189,321.5" class="dg-head dg-app"/>
+  <text x="239.5" y="304" class="dg-tag dg-app" text-anchor="middle">OMNI APP</text>
+  <text x="239.5" y="338" class="dg-small dg-muted" text-anchor="middle">opens the retro</text>
+  <text x="239.5" y="354" class="dg-small dg-muted" text-anchor="middle">+ knowledge PRs</text>
+  <!-- retro → the next idea -->
+  <path d="M99 260 L99 129" class="dg-line dg-dash"/>
+  <polygon points="99,120 104.5,129 93.5,129" class="dg-head"/>
+  <text x="111" y="156" class="dg-tag dg-muted">KNOWLEDGE</text>
+  <text x="111" y="176" class="dg-small dg-muted">what it taught</text>
+  <text x="111" y="192" class="dg-small dg-muted">shapes the next idea</text>
+  <!-- who acts -->
+  <text x="292" y="144" class="dg-tag dg-muted">WHO ACTS</text>
+  <rect x="292" y="156" width="11" height="11" class="dg-you"/>
+  <text x="312" y="166" class="dg-small"><tspan class="dg-you">you:</tspan> a person decides</text>
+  <rect x="292" y="178" width="11" height="11" class="dg-agents"/>
+  <text x="312" y="188" class="dg-small"><tspan class="dg-agents">agents:</tspan> Claude builds</text>
+  <rect x="292" y="200" width="11" height="11" class="dg-app"/>
+  <text x="312" y="210" class="dg-small"><tspan class="dg-app">Omni App:</tspan> on GitHub</text>
+  <text x="380" y="244" class="dg-small dg-muted" text-anchor="middle">Only a person merges into the default branch.</text>
+</svg>

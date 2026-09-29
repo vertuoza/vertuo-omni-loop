@@ -3,7 +3,19 @@ import { internalEvents } from 'inngest';
 import { describe, expect, it, vi } from 'vitest';
 import { inngest, OUTBOX_CHECK_EVENT, RETRO_EVENT } from '../inngest-client.mjs';
 import { failing } from '../../test/github-replay.mjs';
-import { FEATURE, MERGE_SHA, SUB_PULLS, mergeFiles, widgetScenario } from '../../test/retro-scenario.mjs';
+import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
+import {
+  FEATURE,
+  JUDGE_ENV,
+  KEPT_LESSON,
+  KEPT_WHY,
+  KNOWLEDGE_FILES,
+  MERGE_SHA,
+  SUB_PULLS,
+  judge,
+  mergeFiles,
+  widgetScenario,
+} from '../../test/retro-scenario.mjs';
 import { FUNCTION_ID as OUTBOX_FUNCTION_ID } from '../outbox-check/outbox-check.mjs';
 import { DAY_14, FIX_PULLS, ISSUES, MERGED_AT, afterMergeRecording } from './kinds/after-merge.fixtures/day-14.mjs';
 import { GITATTRIBUTES, UNMERGED, churnRecording } from './kinds/churn.fixtures/delivery.mjs';
@@ -18,8 +30,11 @@ import {
   FAILURE_MARKER,
   FOLLOW_UP_STEP,
   RETRO_FUNCTION_ID,
+  VERDICT_MARKER,
   createRetro,
   createRetroFailureHandler,
+  gatherKnowledge,
+  lessonsIn,
   retro,
 } from './retro.mjs';
 
@@ -37,8 +52,9 @@ const FOLDER = '.omni-loop/delivery/shipped/0007-widget';
 const MD = `${FOLDER}/retro.md`;
 const JSON_PATH = `${FOLDER}/retro.json`;
 
-function engine(scenario, { octokit = scenario.github.octokit, env = {} } = {}) {
-  const fn = createRetro({ client: inngest, octokitFor: () => octokit, env });
+/** The retro against the scenario's GitHub; its judge, by default, keeps every finding. */
+function engine(scenario, { octokit = scenario.github.octokit, env = JUDGE_ENV, fetch = judge() } = {}) {
+  const fn = createRetro({ client: inngest, octokitFor: () => octokit, env, fetch });
   return new InngestTestEngine({ function: fn, events: [scenario.event] });
 }
 
@@ -85,8 +101,8 @@ function daysEngine(fn, event, { steps, waits: answers }) {
 }
 
 /** The retro with its day-14 run, its fourteen days passed as `days` says. */
-function followUpEngine(scenario, { env = {}, onWake = () => {}, days = fourteenDays(onWake) } = {}) {
-  const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env, followUp: true });
+function followUpEngine(scenario, { env = JUDGE_ENV, fetch = judge(), onWake = () => {}, days = fourteenDays(onWake) } = {}) {
+  const fn = createRetro({ client: inngest, octokitFor: () => scenario.github.octokit, env, fetch, followUp: true });
   return daysEngine(fn, scenario.event, days);
 }
 
@@ -125,6 +141,17 @@ const retroIssues = (github) => github.state.issues.filter((issue) => issue.labe
 
 const writes = (github) => github.state.requests.filter((r) => !r.route.startsWith('GET '));
 
+/** The verdict comments on the merged feature PR. */
+const verdictComments = (github) => github.state.comments.filter((comment) => comment.issue === 12 && comment.body.includes(VERDICT_MARKER));
+
+/** Nothing of a retro PR: no ref created, no pull request, no issue. */
+function expectNothingPublished(github) {
+  expect(github.state.requests.filter((r) => r.route === 'POST /repos/{owner}/{repo}/git/refs')).toEqual([]);
+  expect(github.state.requests.filter((r) => r.route === 'POST /repos/{owner}/{repo}/pulls')).toEqual([]);
+  expect(github.state.requests.filter((r) => r.route === 'POST /repos/{owner}/{repo}/issues')).toEqual([]);
+  expect(github.state.refs.has(`heads/${BRANCH}`)).toBe(false);
+}
+
 describe('retro — a merged feature PR', () => {
   it('runs its steps in order: qualify, the gathers, facts, narrate, guard, the issues, then publish', async () => {
     const scenario = widgetScenario();
@@ -138,6 +165,7 @@ describe('retro — a merged feature PR', () => {
       'gather-ci',
       'gather-churn',
       'facts',
+      'gather-knowledge',
       'narrate',
       'guard',
       'publish-issues',
@@ -182,13 +210,124 @@ describe('retro — a merged feature PR', () => {
   });
 });
 
-describe('retro — without prose', () => {
-  it('reads "Facts only: no model key" without OPENROUTER_API_KEY', async () => {
+describe('retro — judged worth a pull request', () => {
+  /** The widget scenario with the churn recording: four findings, of which the judge keeps the slow slice only. */
+  function churnScenario() {
+    return widgetScenario({
+      files: { ...mergeFiles(), '.gitattributes': GITATTRIBUTES },
+      subPulls: [UNMERGED, ...SUB_PULLS],
+      recording: churnRecording(),
+    });
+  }
+  const keepSlow = () => judge({ keep: (id) => id === 'slow-slice:s3' });
+
+  it('publishes the branch, retro.md with the kept finding marked and judge: 1, retro.json and the PR, and issues for kept findings only', async () => {
+    const scenario = churnScenario();
+    const { result, error } = await engine(scenario, { fetch: keepSlow() }).execute();
+    expect(error).toBeUndefined();
+    expect(result).toMatchObject({ findings: 4, issues: 1, branch: BRANCH, committed: true, pr: { created: true } });
+
+    const { github } = scenario;
+    const files = github.filesAt(BRANCH, [MD, JSON_PATH]);
+    expect(files[MD]).toContain('\njudge: 1\n');
+    expect(files[MD].match(/- \*\*Kept:\*\* /g)).toHaveLength(1);
+    expect(files[MD]).toContain(`- **Proposed lesson:** ${KEPT_LESSON}\n- **Kept:** ${KEPT_WHY}\n`);
+    expect(files[MD]).toContain('— `churn:src/store/colour.js:8-11`');
+
+    const doc = JSON.parse(files[JSON_PATH]);
+    expect(doc.runs[0].verdict).toEqual({ worthIt: true, reason: 'One lesson is new.' });
+    expect(doc.runs[0].lessons).toEqual([{ text: KEPT_LESSON, findings: ['slow-slice:s3'] }]);
+
+    expect(retroIssues(github).map((issue) => issue.title)).toEqual(['retro(PRD 7): Slice s3 took far longer than the others']);
+    expect(retroIssues(github)[0].body).toContain(`## Why it is kept\n\n${KEPT_WHY}\n`);
+    expect(github.state.pulls.filter((pull) => pull.head.ref === BRANCH)).toHaveLength(1);
+    expect(verdictComments(github)).toEqual([]);
+  });
+});
+
+describe('retro — judged not worth a pull request', () => {
+  it('creates no ref, no PR and no issue: one comment on the feature PR, "Retro: no new lesson", the timeline and each finding', async () => {
     const scenario = widgetScenario();
+    const { ctx, result, error } = await engine(scenario, { fetch: judge({ worthIt: false, reason: 'A slow slice is a known pattern.' }) }).execute();
+    expect(error).toBeUndefined();
+    expect(ctx.step.run.mock.calls.map(([id]) => id).slice(-3)).toEqual(['narrate', 'guard', 'verdict']);
+    expect(result).toMatchObject({ prd: 7, findings: 1, issues: 0, verdict: 'no new lesson', comment: { created: true } });
+
+    expectNothingPublished(scenario.github);
+    const comments = verdictComments(scenario.github);
+    expect(comments).toHaveLength(1);
+    expect(comments[0].body).toBe(
+      [
+        VERDICT_MARKER,
+        'Retro: no new lesson — A slow slice is a known pattern.',
+        '',
+        '- Feature PR #12: 180 minutes from open to merge.',
+        '- 3 slices in 2 waves as merged, 2 planned.',
+        '',
+        '- F1 · Slice s3 took far longer than the others — `slow-slice:s3`',
+        '',
+      ].join('\n'),
+    );
+  });
+
+  it('without a model key is not judged: the same quiet path, "Retro: not judged — no model key"', async () => {
+    const scenario = widgetScenario();
+    const { result, error } = await engine(scenario, { env: {} }).execute();
+    expect(error).toBeUndefined();
+    expect(result).toMatchObject({ findings: 1, issues: 0, verdict: 'not judged' });
+    expectNothingPublished(scenario.github);
+    const [comment, ...more] = verdictComments(scenario.github);
+    expect(more).toEqual([]);
+    expect(comment.body).toMatch(/^<!-- omni-outbox-retro-verdict -->\nRetro: not judged — no model key\n\n- Feature PR #12: /);
+  });
+
+  it('is not judged when the verdict is refused, and says why', async () => {
+    const scenario = widgetScenario();
+    await engine(scenario, { fetch: judge({ reason: 'Worth it for 3 reasons.' }) }).execute();
+    expectNothingPublished(scenario.github);
+    expect(verdictComments(scenario.github)[0].body).toContain('\nRetro: not judged — the verdict was refused: it holds a digit\n');
+  });
+
+  it('on a replay edits the one comment in place, never a second', async () => {
+    const scenario = widgetScenario();
+    await engine(scenario, { fetch: judge({ worthIt: false }) }).execute();
     await engine(scenario, { env: {} }).execute();
-    const md = scenario.github.filesAt(BRANCH, [`${FOLDER}/retro.md`])[`${FOLDER}/retro.md`];
-    expect(md).toContain('\nFacts only: no model key\n');
-    expect(md).toContain('model: none');
+    const comments = verdictComments(scenario.github);
+    expect(comments).toHaveLength(1);
+    expect(comments[0].body).toContain('\nRetro: not judged — no model key\n');
+    expect(scenario.github.state.requests.filter((r) => r.route === 'PATCH /repos/{owner}/{repo}/issues/comments/{comment_id}')).toHaveLength(1);
+    expectNothingPublished(scenario.github);
+  });
+});
+
+describe('retro — what the judge is given', () => {
+  it('reads the knowledge summary and the earlier retros’ lessons at the merge commit, and hands them to the model', async () => {
+    const scenario = widgetScenario({ files: { ...mergeFiles(), ...KNOWLEDGE_FILES } });
+    const fetch = judge();
+    const { error } = await engine(scenario, { fetch }).execute();
+    expect(error).toBeUndefined();
+    const [asked] = fetch.asked;
+    expect(asked.knowledge).toEqual([
+      { id: 'P-PRODUCT-1', line: 'A widget keeps what a person chose for it.' },
+      { id: 'ADR-0001', line: 'ADR-0001 — Colours are stored per widget' },
+    ]);
+    expect(asked.earlierLessons).toEqual(['Answer decisions before the wave that builds on them.']);
+  });
+
+  it('gives nothing to compare with in a repository without knowledge or earlier retros', async () => {
+    const scenario = widgetScenario();
+    const out = await gatherKnowledge(scenario.github.octokit, {
+      owner: 'acme',
+      repo: 'widgets',
+      sha: MERGE_SHA,
+      config: parseConfig(mergeFiles()['.omni-loop/config.yml']),
+    });
+    expect(out).toEqual({ knowledge: { principles: [], laws: [], decisions: [] }, lessons: [] });
+  });
+
+  it('lessonsIn: every run’s lessons, in order, each once; a file that is not JSON gives none', () => {
+    const doc = (texts) => JSON.stringify({ runs: [{ lessons: texts.map((text) => ({ text, findings: [] })) }, { run: 'day-14' }] });
+    expect(lessonsIn([doc(['A', 'B']), 'not json', null, doc(['B', 'C'])])).toEqual(['A', 'B', 'C']);
   });
 });
 
@@ -222,13 +361,8 @@ describe('retro — a replay', () => {
     const scenario = widgetScenario();
     await engine(scenario).execute();
     const first = scenario.github.state.refs.get(`heads/${BRANCH}`);
-    // With a key the model is asked: stubbed here, so no test reaches OpenRouter.
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 401 })));
-    try {
-      await engine(scenario, { env: { OPENROUTER_API_KEY: 'k' } }).execute();
-    } finally {
-      vi.unstubAllGlobals();
-    }
+    // The judge, asked again, words its summary another way.
+    await engine(scenario, { fetch: judge({ summary: 'The widgets shipped; one slice held the feature back.' }) }).execute();
     const second = scenario.github.state.refs.get(`heads/${BRANCH}`);
     expect(second).not.toBe(first);
     expect(scenario.github.state.commits.get(second).parents).toEqual([{ sha: first }]);
@@ -397,15 +531,20 @@ describe('retro — fourteen days later', () => {
     expect(files[MD]).toContain('\n## After merge\n');
   });
 
-  it('on a replay creates no second PR, no second issue and no new commit', async () => {
+  it('on a replay creates no second PR and no second issue, and ends with the same retro', async () => {
     const scenario = afterMergeScenario();
     await followUpEngine(scenario).execute();
-    const head = scenario.github.state.refs.get(`heads/${BRANCH}`);
+    const before = scenario.github.filesAt(BRANCH, [MD, JSON_PATH]);
     const issues = retroIssues(scenario.github).length;
 
     const { error } = await followUpEngine(scenario).execute();
     expect(error).toBeUndefined();
-    expect(scenario.github.state.refs.get(`heads/${BRANCH}`)).toBe(head);
+    // The merge run's words cover its own findings only, so its replay rewrites the file, and the
+    // day-14 run writes the whole retro back: on top, never a rewrite.
+    expect(scenario.github.filesAt(BRANCH, [MD, JSON_PATH])).toEqual(before);
+    for (const request of scenario.github.state.requests.filter((r) => r.route === 'PATCH /repos/{owner}/{repo}/git/refs/{ref}')) {
+      expect(request.force).toBe(false);
+    }
     expect(retroIssues(scenario.github)).toHaveLength(issues);
     expect(scenario.github.state.pulls.filter((pull) => pull.labels.some((label) => label.name === 'omni:retro'))).toHaveLength(1);
   });
@@ -418,40 +557,74 @@ describe('retro — fourteen days later', () => {
     expect((files[MD].match(/\d+/g) ?? []).filter((n) => !held.has(n))).toEqual([]);
   });
 
-  it('asks the model about the whole retro, and keeps the first run’s words when it gives none', async () => {
+  it('asks the model about the whole retro, and keeps the first run’s words and verdict when it gives none', async () => {
     const reply = {
       summary: 'The widgets shipped in the waves planned, but one slice ran far past the others.',
       findings: { 'slow-slice:s3': { title: 'One slice ran far past the others', whyItMatters: 'It held the whole feature back.' } },
       lessons: [],
+      verdict: { worthIt: false, reason: 'A slow slice is a known pattern.' },
     };
     const answers = [Response.json({ choices: [{ message: { content: JSON.stringify(reply) } }] }), new Response('{}', { status: 401 })];
     const fetch = vi.fn(async () => answers.shift() ?? new Response('{}', { status: 401 }));
-    vi.stubGlobal('fetch', fetch);
     const scenario = afterMergeScenario();
-    try {
-      const { error } = await followUpEngine(scenario, { env: { OPENROUTER_API_KEY: 'k' } }).execute();
-      expect(error).toBeUndefined();
-    } finally {
-      vi.unstubAllGlobals();
-    }
+    const { result, error } = await followUpEngine(scenario, { fetch }).execute();
+    expect(error).toBeUndefined();
 
     expect(fetch).toHaveBeenCalledTimes(2);
     const asked = JSON.parse(JSON.parse(fetch.mock.calls[1][1].body).messages[1].content);
     expect(asked.findings.map((finding) => finding.id)).toEqual(['slow-slice:s3', 'bug:40', 'bug:41']);
 
-    const files = scenario.github.filesAt(BRANCH, [MD, JSON_PATH]);
-    expect(files[MD]).toContain(`\n${reply.summary}\n`);
-    expect(files[MD]).toContain('### F1 · One slice ran far past the others — `slow-slice:s3`');
-    expect(files[MD]).toContain(`model: ${DEFAULT_MODEL}`);
-    expect(JSON.parse(files[JSON_PATH]).runs[1].narration).toEqual({ model: DEFAULT_MODEL, reason: 'model unavailable (401)', dropped: [] });
+    // The merge run's verdict stays: no new lesson, so the one comment is rewritten with every finding.
+    expect(result).toMatchObject({ verdict: 'no new lesson', followUp: { findings: 2, issues: 0, verdict: 'no new lesson' } });
+    expectNothingPublished(scenario.github);
+    const comments = verdictComments(scenario.github);
+    expect(comments).toHaveLength(1);
+    expect(comments[0].body).toContain('\nRetro: no new lesson — A slow slice is a known pattern.\n');
+    expect(comments[0].body).toContain('\n- F1 · One slice ran far past the others — `slow-slice:s3`\n');
+    expect(comments[0].body).toContain('\n- F3 · Bug #41 was reported against the PRD after the merge — `bug:41`\n');
   });
 
-  it('goes out facts only at day 14 too, without a model key', async () => {
+  it('without a model key, leaves at day 14 the one comment, rewritten "not judged" with both runs’ findings', async () => {
     const scenario = afterMergeScenario();
-    await followUpEngine(scenario).execute();
-    const md = scenario.github.filesAt(BRANCH, [MD])[MD];
-    expect(md).toContain('\nFacts only: no model key\n');
-    expect(md).toContain('model: none');
+    const { result } = await followUpEngine(scenario, { env: {} }).execute();
+    expect(result).toMatchObject({ verdict: 'not judged', followUp: { verdict: 'not judged', comment: { created: false } } });
+    expectNothingPublished(scenario.github);
+    const comments = verdictComments(scenario.github);
+    expect(comments).toHaveLength(1);
+    expect(comments[0].body).toContain('\nRetro: not judged — no model key\n');
+    expect(comments[0].body.match(/^- F\d /gm)).toEqual(['- F1 ', '- F2 ', '- F3 ']);
+  });
+
+  it('opens the retro PR at day 14 when the merge run was not worth one, with issues for every kept finding', async () => {
+    const scenario = afterMergeScenario();
+    const replies = [judge({ worthIt: false }), judge()];
+    const fetch = (url, init) => replies[0].asked.length === 0 ? replies[0](url, init) : replies[1](url, init);
+    const { result, error } = await followUpEngine(scenario, { fetch }).execute();
+    expect(error).toBeUndefined();
+    expect(result).toMatchObject({ verdict: 'no new lesson', followUp: { findings: 2, issues: 3, branch: BRANCH, pr: { created: true } } });
+
+    const { github } = scenario;
+    const pull = github.state.pulls.find((candidate) => candidate.head.ref === BRANCH);
+    expect(pull).toMatchObject({ state: 'open', labels: [{ name: 'omni:retro' }] });
+    const head = github.state.refs.get(`heads/${BRANCH}`);
+    expect(github.state.commits.get(head).parents).toEqual([{ sha: MERGE_SHA }]);
+    const doc = JSON.parse(github.filesAt(BRANCH, [JSON_PATH])[JSON_PATH]);
+    expect(doc.runs.map((run) => run.run)).toEqual(['merge', 'day-14']);
+    expect(retroIssues(github).map((issue) => issue.title)).toEqual([
+      'retro(PRD 7): Slice s3 took far longer than the others',
+      'retro(PRD 7): Bug #40 was reported against the PRD after the merge',
+      'retro(PRD 7): Bug #41 was reported against the PRD after the merge',
+    ]);
+  });
+
+  it('rewrites the verdict comment at day 14 when neither run is worth a PR', async () => {
+    const scenario = afterMergeScenario();
+    const { result } = await followUpEngine(scenario, { fetch: judge({ worthIt: false }) }).execute();
+    expect(result.followUp).toMatchObject({ findings: 2, issues: 0, verdict: 'no new lesson', comment: { created: false } });
+    expectNothingPublished(scenario.github);
+    const comments = verdictComments(scenario.github);
+    expect(comments).toHaveLength(1);
+    expect(comments[0].body).toContain('\n- F2 · Bug #40 was reported against the PRD after the merge — `bug:40`\n');
   });
 
   it('never waits when built without its day-14 run, nor when no kind takes part in it', async () => {
@@ -476,7 +649,7 @@ describe('retro — fourteen days later', () => {
       expect(error).toBeUndefined();
       expect(waits(ctx)).toEqual([[waitStep(1), { event: DAY_EVENT, timeout: DAY_WAIT }]]);
       expect(ctx.step.sleepUntil).not.toHaveBeenCalled();
-      expect(result.followUp).toMatchObject({ findings: 2, issues: 2 });
+      expect(result.followUp).toMatchObject({ findings: 2, issues: 0, verdict: 'not judged' });
     } finally {
       vi.unstubAllEnvs();
       served.octokit = null;
