@@ -1,4 +1,4 @@
-// The one way into the stored fix facts (supabase/migrations/20261013090000_fix_facts.sql, PRD 691 s1):
+// The one way into the stored fix facts (supabase/migrations/20261014090000_fix_facts.sql, PRD 691 s1):
 // public.fix_facts. The stages sync and a fix's own page write, as the service role; /bugs and /visual
 // read, as the signed-in member, so row-level security keeps each workspace's rows to its members. A row
 // is a fix dossier's FixSummary, exactly as the reader returns it, each part the string 'unread' when
