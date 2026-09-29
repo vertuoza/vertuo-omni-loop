@@ -17,7 +17,8 @@ Nothing reaches your default branch unless you merge it yourself.
 ## Before you start
 
 Your repository has the loop installed and invaded: you followed [Install](/docs/install) and
-[Invade](/docs/invade), and merged both pull requests. Bring your checkout up to date, then open
+[Invade](/docs/invade), and merged both pull requests, or you joined a team whose repository runs
+it and set up your laptop ([Join a team](/docs/join)). Bring your checkout up to date, then open
 Claude Code at the root of the repository:
 
 ```bash terminal
@@ -209,4 +210,4 @@ omni status 7
 The first lists your PRDs and where each one stands; the second says whether PRD 7 still has open
 questions.
 
-[Next → When something goes wrong](/docs/troubleshooting)
+[Next → Use cases](/docs/use-cases)

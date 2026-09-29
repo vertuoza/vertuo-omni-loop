@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 526" width="760" height="526">
+  <title>Which skill runs which</title>
+  <desc>You type /omni:brainstorm, /omni:yolo and /omni:yolo-fix. Brainstorm runs the dossier skills and /omni:plan; yolo runs /omni:plan when there is no plan yet, then /omni:wave for each wave, which runs one /omni:do-work agent per slice; yolo-fix runs one /omni:do-work agent per rework. Every pull request goes through /omni:pr. /omni:invade, /omni:status, /omni:help and /omni:ask are yours at any time.</desc>
+  <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
+       tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
+  <style>
+    svg { background: #f5f4fc; }
+    text { font-family: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 14px; fill: #17153d; }
+    .dg-px { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 10px; }
+    .dg-tag { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 8px; }
+    .dg-small { font-size: 12.5px; }
+    .dg-code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; }
+    .dg-muted { fill: #4f5486; }
+    .dg-box { fill: #ffffff; stroke: #85819f; stroke-width: 2; }
+    .dg-shadow { fill: #85819f; }
+    .dg-line { fill: none; stroke: #85819f; stroke-width: 2; }
+    .dg-dash { stroke-dasharray: 6 5; }
+    .dg-head { fill: #85819f; }
+    .dg-edge-you { stroke: #6a2fd0; }
+    .dg-key { fill: #efe7ff; stroke: #6a2fd0; }
+    .dg-edge-agents { stroke: #0b6f86; }
+    .dg-edge-app { stroke: #15703f; }
+    .dg-you { fill: #6a2fd0; }
+    .dg-agents { fill: #0b6f86; }
+    .dg-app { fill: #15703f; }
+    @media (prefers-color-scheme: dark) {
+      svg { background: #0e0d33; }
+      text { fill: #f2f4ff; }
+      .dg-muted { fill: #a9aee6; }
+      .dg-box { fill: #16144a; stroke: #6d6acc; }
+      .dg-shadow { fill: #6d6acc; }
+      .dg-line { stroke: #6d6acc; }
+      .dg-head { fill: #6d6acc; }
+      .dg-edge-you { stroke: #b37cff; }
+      .dg-key { fill: #2a1d66; stroke: #b37cff; }
+      .dg-edge-agents { stroke: #6ff0ff; }
+      .dg-edge-app { stroke: #4ee08a; }
+      .dg-you { fill: #b37cff; }
+      .dg-agents { fill: #6ff0ff; }
+      .dg-app { fill: #4ee08a; }
+    }
+  </style>
+  <!-- the key -->
+  <rect x="20" y="9" width="14" height="12" class="dg-box dg-key"/>
+  <text x="42" y="20" class="dg-small">you type it</text>
+  <rect x="150" y="9" width="14" height="12" class="dg-box"/>
+  <text x="172" y="20" class="dg-small">a skill runs it</text>
+  <rect x="93" y="47" width="160" height="40" class="dg-shadow"/>
+  <rect x="90" y="44" width="160" height="40" class="dg-box dg-key"/>
+  <text x="170" y="69" class="dg-code dg-you" text-anchor="middle">/omni:brainstorm</text>
+  <rect x="348" y="47" width="150" height="40" class="dg-shadow"/>
+  <rect x="345" y="44" width="150" height="40" class="dg-box dg-key"/>
+  <text x="420" y="69" class="dg-code dg-you" text-anchor="middle">/omni:yolo &lt;n&gt;</text>
+  <rect x="558" y="47" width="170" height="40" class="dg-shadow"/>
+  <rect x="555" y="44" width="170" height="40" class="dg-box dg-key"/>
+  <text x="640" y="69" class="dg-code dg-you" text-anchor="middle">/omni:yolo-fix &lt;n&gt;</text>
+  <!-- the dossier skills: two in one box -->
+  <rect x="23" y="153" width="160" height="58" class="dg-shadow"/>
+  <rect x="20" y="150" width="160" height="58" class="dg-box"/>
+  <text x="100" y="174" class="dg-code" text-anchor="middle">/omni:dossier-open</text>
+  <text x="100" y="194" class="dg-code" text-anchor="middle">/omni:dossier-push</text>
+  <rect x="233" y="153" width="140" height="40" class="dg-shadow"/>
+  <rect x="230" y="150" width="140" height="40" class="dg-box"/>
+  <text x="300" y="175" class="dg-code" text-anchor="middle">/omni:plan &lt;n&gt;</text>
+  <rect x="443" y="153" width="140" height="40" class="dg-shadow"/>
+  <rect x="440" y="150" width="140" height="40" class="dg-box"/>
+  <text x="510" y="175" class="dg-code" text-anchor="middle">/omni:wave &lt;n&gt;</text>
+  <!-- one do-work agent per slice, side by side -->
+  <rect x="563" y="271" width="150" height="40" class="dg-shadow"/>
+  <rect x="560" y="268" width="150" height="40" class="dg-box"/>
+  <rect x="557" y="265" width="150" height="40" class="dg-shadow"/>
+  <rect x="554" y="262" width="150" height="40" class="dg-box"/>
+  <rect x="551" y="259" width="150" height="40" class="dg-shadow"/>
+  <rect x="548" y="256" width="150" height="40" class="dg-box"/>
+  <text x="623" y="281" class="dg-code" text-anchor="middle">/omni:do-work</text>
+  <!-- the edges -->
+  <path d="M130 90 L104.4 136.1" class="dg-line"/>
+  <polygon points="100,144 99.6,133.5 109.2,138.8" class="dg-head"/>
+  <text x="104" y="114" class="dg-small dg-muted" text-anchor="end">its page</text>
+  <path d="M210 90 L272.9 138.5" class="dg-line"/>
+  <polygon points="280,144 269.5,142.9 276.2,134.1" class="dg-head"/>
+  <text x="226" y="128" class="dg-small dg-muted" text-anchor="end">then plans it</text>
+  <path d="M395 90 L327.3 138.7" class="dg-line"/>
+  <polygon points="320,144 324.1,134.3 330.5,143.2" class="dg-head"/>
+  <text x="382" y="118" class="dg-small dg-muted">no plan yet?</text>
+  <path d="M450 90 L498.6 137.7" class="dg-line"/>
+  <polygon points="505,144 494.7,141.6 502.4,133.8" class="dg-head"/>
+  <text x="494" y="114" class="dg-small dg-muted">each wave</text>
+  <path d="M520 196 L592.5 245" class="dg-line dg-edge-agents"/>
+  <polygon points="600,250 589.5,249.5 595.6,240.4" class="dg-head dg-agents"/>
+  <text x="548" y="232" class="dg-small dg-agents" text-anchor="end">one agent</text>
+  <text x="548" y="248" class="dg-small dg-agents" text-anchor="end">per slice</text>
+  <path d="M660 90 L667.6 241" class="dg-line"/>
+  <polygon points="668,250 662.1,241.3 673,240.7" class="dg-head"/>
+  <text x="674" y="170" class="dg-small dg-muted">one per</text>
+  <text x="674" y="186" class="dg-small dg-muted">rework</text>
+  <!-- every pull request goes through /omni:pr -->
+  <rect x="23" y="349" width="720" height="46" class="dg-shadow"/>
+  <rect x="20" y="346" width="720" height="46" class="dg-box"/>
+  <text x="40" y="374" class="dg-code">/omni:pr</text>
+  <text x="112" y="374" class="dg-small dg-muted">every PR the skills open: the claim, the body, the status comment, CI until green</text>
+  <text x="20" y="422" class="dg-tag dg-you">YOURS, ANY TIME</text>
+  <rect x="23" y="439" width="164" height="40" class="dg-shadow"/>
+  <rect x="20" y="436" width="164" height="40" class="dg-box dg-key"/>
+  <text x="102" y="461" class="dg-code dg-you" text-anchor="middle">/omni:invade</text>
+  <text x="102" y="500" class="dg-small dg-muted" text-anchor="middle">the knowledge base</text>
+  <rect x="203" y="439" width="164" height="40" class="dg-shadow"/>
+  <rect x="200" y="436" width="164" height="40" class="dg-box dg-key"/>
+  <text x="282" y="461" class="dg-code dg-you" text-anchor="middle">/omni:status</text>
+  <text x="282" y="500" class="dg-small dg-muted" text-anchor="middle">where the PRDs are</text>
+  <rect x="383" y="439" width="164" height="40" class="dg-shadow"/>
+  <rect x="380" y="436" width="164" height="40" class="dg-box dg-key"/>
+  <text x="462" y="461" class="dg-code dg-you" text-anchor="middle">/omni:help</text>
+  <text x="462" y="500" class="dg-small dg-muted" text-anchor="middle">every command</text>
+  <rect x="563" y="439" width="164" height="40" class="dg-shadow"/>
+  <rect x="560" y="436" width="164" height="40" class="dg-box dg-key"/>
+  <text x="642" y="461" class="dg-code dg-you" text-anchor="middle">/omni:ask on</text>
+  <text x="642" y="500" class="dg-small dg-muted" text-anchor="middle">answer on a web page</text>
+</svg>

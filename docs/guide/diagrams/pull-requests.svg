@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 360" width="800" height="360">
+  <title>Branches and pull requests of one PRD</title>
+  <desc>The phase-0 PR carries the PRD into the default branch, docs only. The feature branch holds the build: one sub-PR per slice, merged into it by the agents, wave after wave. Then the PRD ships on the feature branch, and a person merges the feature PR. The Omni App then opens the retro and knowledge PRs.</desc>
+  <!-- Shown in the guide as the drawing itself: docs.css paints the dg-* classes with the theme's
+       tokens, and this <style> is left out (apps/galaxy/src/docs/diagrams.ts). It serves GitHub. -->
+  <style>
+    svg { background: #f5f4fc; }
+    text { font-family: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 14px; fill: #17153d; }
+    .dg-px { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 10px; }
+    .dg-tag { font-family: 'Press Start 2P', ui-monospace, monospace; font-size: 8px; }
+    .dg-small { font-size: 12.5px; }
+    .dg-code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; }
+    .dg-muted { fill: #4f5486; }
+    .dg-box { fill: #ffffff; stroke: #85819f; stroke-width: 2; }
+    .dg-shadow { fill: #85819f; }
+    .dg-line { fill: none; stroke: #85819f; stroke-width: 2; }
+    .dg-dash { stroke-dasharray: 6 5; }
+    .dg-head { fill: #85819f; }
+    .dg-edge-you { stroke: #6a2fd0; }
+    .dg-key { fill: #efe7ff; stroke: #6a2fd0; }
+    .dg-edge-agents { stroke: #0b6f86; }
+    .dg-edge-app { stroke: #15703f; }
+    .dg-you { fill: #6a2fd0; }
+    .dg-agents { fill: #0b6f86; }
+    .dg-app { fill: #15703f; }
+    @media (prefers-color-scheme: dark) {
+      svg { background: #0e0d33; }
+      text { fill: #f2f4ff; }
+      .dg-muted { fill: #a9aee6; }
+      .dg-box { fill: #16144a; stroke: #6d6acc; }
+      .dg-shadow { fill: #6d6acc; }
+      .dg-line { stroke: #6d6acc; }
+      .dg-head { fill: #6d6acc; }
+      .dg-edge-you { stroke: #b37cff; }
+      .dg-key { fill: #2a1d66; stroke: #b37cff; }
+      .dg-edge-agents { stroke: #6ff0ff; }
+      .dg-edge-app { stroke: #4ee08a; }
+      .dg-you { fill: #b37cff; }
+      .dg-agents { fill: #6ff0ff; }
+      .dg-app { fill: #4ee08a; }
+    }
+  </style>
+  <!-- the lanes -->
+  <text x="16" y="65" class="dg-small dg-muted">phase-0 PR</text>
+  <text x="16" y="137" class="dg-small">default branch</text>
+  <text x="16" y="201" class="dg-small">feature branch</text>
+  <text x="16" y="217" class="dg-code dg-muted">feat/&lt;topic&gt;</text>
+  <text x="16" y="267" class="dg-small">sub-PRs</text>
+  <text x="16" y="283" class="dg-small dg-muted">one per slice</text>
+  <!-- the default branch -->
+  <path d="M154 132 L775 132" class="dg-line"/>
+  <polygon points="784,132 775,137.5 775,126.5" class="dg-head"/>
+  <!-- phase-0 PR: docs only, a person merges it -->
+  <path d="M250 132 C270 132, 266 60, 286 60 L344 60 C364 60, 360 132, 380 132" class="dg-line dg-edge-you"/>
+  <circle cx="250" cy="132" r="5" class="dg-box"/>
+  <text x="315" y="48" class="dg-small" text-anchor="middle">spec, plan, before/after</text>
+  <circle cx="380" cy="132" r="6" class="dg-head dg-you"/>
+  <text x="380" y="158" class="dg-tag dg-you" text-anchor="middle">YOU MERGE</text>
+  <text x="380" y="174" class="dg-small" text-anchor="middle">the phase-0 PR</text>
+  <!-- the feature branch, cut by /omni:brainstorm, its draft PR opened by /omni:plan -->
+  <path d="M196 132 C216 132, 212 204, 232 204 L644 204 C664 204, 660 132, 680 132" class="dg-line"/>
+  <circle cx="196" cy="132" r="5" class="dg-box"/>
+  <text x="240" y="228" class="dg-small dg-muted">plan.md, draft</text>
+  <text x="240" y="244" class="dg-small dg-muted">feature PR</text>
+  <!-- wave 1: two slices side by side, merged one at a time -->
+  <path d="M352 204 C372 204, 368 262, 388 262 L432 262 C452 262, 448 204, 468 204" class="dg-line dg-edge-agents"/>
+  <path d="M370 204 C390 204, 386 298, 406 298 L468 298 C488 298, 484 204, 504 204" class="dg-line dg-edge-agents"/>
+  <text x="410" y="255" class="dg-code" text-anchor="middle">s1</text>
+  <text x="437" y="291" class="dg-code" text-anchor="middle">s2</text>
+  <circle cx="468" cy="204" r="6" class="dg-head dg-agents"/>
+  <circle cx="504" cy="204" r="6" class="dg-head dg-agents"/>
+  <!-- wave 2: a slice that needed wave 1 -->
+  <path d="M522 204 C542 204, 538 262, 558 262 L574 262 C594 262, 590 204, 610 204" class="dg-line dg-edge-agents"/>
+  <text x="566" y="255" class="dg-code" text-anchor="middle">s3</text>
+  <circle cx="610" cy="204" r="6" class="dg-head dg-agents"/>
+  <text x="428" y="330" class="dg-tag dg-agents" text-anchor="middle">WAVE 1</text>
+  <text x="566" y="330" class="dg-tag dg-agents" text-anchor="middle">WAVE 2</text>
+  <text x="497" y="350" class="dg-small dg-muted" text-anchor="middle">/omni:yolo: agents build and merge each sub-PR</text>
+  <!-- ship on the feature branch, then a person merges the feature PR -->
+  <circle cx="640" cy="204" r="5" class="dg-box"/>
+  <text x="640" y="190" class="dg-code" text-anchor="middle">ship</text>
+  <text x="640" y="228" class="dg-small dg-muted" text-anchor="middle">PR ready</text>
+  <circle cx="680" cy="132" r="6" class="dg-head dg-you"/>
+  <text x="692" y="158" class="dg-tag dg-you">YOU MERGE</text>
+  <text x="692" y="174" class="dg-small">the feature PR</text>
+  <!-- the Omni App: retro and knowledge PRs -->
+  <path d="M698 132 C718 132, 714 60, 734 60 L736 60 C756 60, 752 132, 772 132" class="dg-line dg-edge-app"/>
+  <circle cx="772" cy="132" r="6" class="dg-head dg-app"/>
+  <text x="735" y="32" class="dg-tag dg-app" text-anchor="middle">OMNI APP</text>
+  <text x="735" y="48" class="dg-small" text-anchor="middle">retro, knowledge</text>
+</svg>
