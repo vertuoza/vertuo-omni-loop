@@ -1,7 +1,7 @@
 // The fallback's reads of GitHub (PRD 216), through the gh CLI as game/sources/github.mjs reads: every
 // call goes through `exec`, so tests run on gh outputs as fixtures (game/dossiers/fake-github.mjs).
 // Reads only, and only the default branch: its head, one file at that commit, one recursive tree
-// listing, and a blob by its hash.
+// listing, and a blob by its hash; and, for a fix's dossier (PRD 627), its issue's title.
 import { z } from 'zod';
 import { CONFIG_FILE } from './folders.mjs';
 
@@ -44,4 +44,14 @@ export async function readTree(exec, slug, tree) {
 /** A blob's content, by its hash. */
 export async function readBlob(exec, slug, sha) {
   return exec(['api', `repos/${slug}/git/blobs/${sha}`, ...RAW]);
+}
+
+/** Issue `n`'s title (a fix's dossier is titled after it), or null when there is no such issue. */
+export async function readIssueTitle(exec, slug, n) {
+  try {
+    return (await exec(['api', `repos/${slug}/issues/${Number(n)}`, '--jq', '.title'])).trim() || null;
+  } catch (err) {
+    if (notFound(err)) return null;
+    throw err;
+  }
 }
