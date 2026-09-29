@@ -461,6 +461,21 @@ export const ENTRIES = deepFreeze([
       'to {remote}/{defaultBranch}.',
   },
   {
+    name: 'concept',
+    kind: 'command',
+    who: 'skills',
+    usage: ['omni concept <n> [--base <ref>]'],
+    summary: 'grade a concept branch',
+    detail:
+      "The proof step of a concept, run on its concept branch: one folder for concept <n> under " +
+      "{inbox}concepts/, holding a valid concept.md (its front matter, its six sections and its " +
+      'Areas table), vision.html, debate.md and the boards board-r<k>.html numbered from 1 with no ' +
+      'gap, and nothing else. Each page is under the size cap, holds no base64 raster image and ' +
+      'loads nothing from the network; no file outside that folder changed; every commit carries ' +
+      "the loop's signature, unless signing is off. Prints ok, or not ok with one line per failed " +
+      'check. --base defaults to {remote}/{defaultBranch}.',
+  },
+  {
     name: 'sign',
     kind: 'command',
     who: 'skills',

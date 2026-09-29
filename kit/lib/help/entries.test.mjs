@@ -92,11 +92,22 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 33 commands and the 20 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(33);
+  it('holds the 34 commands and the 20 skills', () => {
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(34);
     expect(skillFolders()).toHaveLength(20);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(33);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(34);
     expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(20);
+  });
+
+  it('lists omni concept for skills, after omni bug, with its usage and what it checks (PRD 686)', () => {
+    const commands = ENTRIES.filter((e) => e.kind === 'command');
+    const concept = commands.find((e) => e.name === 'concept');
+    expect(concept).toMatchObject({ who: 'skills', usage: ['omni concept <n> [--base <ref>]'] });
+    expect(commands.indexOf(concept)).toBe(commands.findIndex((e) => e.name === 'bug') + 1);
+    expect(concept.detail).toMatch(/\bconcept\.md\b/);
+    expect(concept.detail).toMatch(/\bboard-r<k>\.html\b/);
+    expect(concept.detail).toMatch(/\bloads nothing from the network\b/);
+    expect(concept.detail).toMatch(/\bno file outside\b/);
   });
 
   it('lists omni bug for skills, with its usage (PRD 556)', () => {

@@ -118,6 +118,18 @@ describe('parseConfig', () => {
     });
   });
 
+  it('names the concept label and the concept branch when the config sets neither (PRD 686)', () => {
+    const config = parseConfig('kit: 1\n');
+    expect(config.labels.concept).toBe('omni:concept');
+    expect(config.branches.concept).toBe('docs/concept-{topic}');
+  });
+
+  it('reads back a concept label and a concept branch the config sets (PRD 686)', () => {
+    const config = parseConfig('kit: 1\nlabels:\n  concept: big-idea\nbranches:\n  concept: concept/{topic}\n');
+    expect(config.labels.concept).toBe('big-idea');
+    expect(config.branches.concept).toBe('concept/{topic}');
+  });
+
   it('has no mutation command unless the config sets one (PRD 556)', () => {
     expect(parseConfig('kit: 1\n').commands.mutation).toBeNull();
     expect(parseConfig('kit: 1\ncommands:\n  mutation: pnpm stryker run\n').commands.mutation).toBe('pnpm stryker run');
@@ -263,6 +275,24 @@ describe('omni config', () => {
       const s = io();
       expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
       expect(s.out.join('')).toBe(`${value}\n`);
+    }
+  });
+
+  it('prints labels.concept and branches.concept, from their defaults or as the file sets them (PRD 686)', async () => {
+    const cases = [
+      [files, [['labels.concept', 'omni:concept'], ['branches.concept', 'docs/concept-{topic}']]],
+      [
+        { '.omni-loop/config.yml': 'kit: 1\nrepo:\n  slug: acme/widgets\nlabels:\n  concept: big-idea\nbranches:\n  concept: concept/{topic}\n' },
+        [['labels.concept', 'big-idea'], ['branches.concept', 'concept/{topic}']],
+      ],
+    ];
+    for (const [repoFiles, expected] of cases) {
+      const { root } = makeRepo({ git: true, files: repoFiles });
+      for (const [key, value] of expected) {
+        const s = io();
+        expect(await main(['config', key], { cwd: root, ...s })).toBe(0);
+        expect(s.out.join('')).toBe(`${value}\n`);
+      }
     }
   });
 

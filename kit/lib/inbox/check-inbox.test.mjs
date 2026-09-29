@@ -68,6 +68,20 @@ describe('findInboxViolations', () => {
     expect(findInboxViolations({ ctx })).toEqual([]);
   });
 
+  it('stays green with a concept under the inbox: a concept folder holds no spec and is no PRD (PRD 686)', () => {
+    const { ctx } = makeRepo({
+      files: {
+        [`${IN}/0042-inbox-and-planner/spec.md`]: specText(),
+        [`${IN}/concepts/0712-x/concept.md`]: '---\nconcept: 712\ntitle: X\nkind: product\nscale: vast\n---\n',
+        [`${IN}/concepts/0712-x/vision.html`]: `<!doctype html>${'x'.repeat(64)}\n`,
+      },
+      config: { limits: { beforeAfterMaxBytes: 32 } },
+    });
+
+    expect(findInboxViolations({ ctx })).toEqual([]);
+    expect(inboxViolationsFor({ ctx, prd: 712 })).toEqual(['PRD 712 has no inbox folder.']);
+  });
+
   it('collects violations across several folders, each naming its own file', () => {
     const { ctx } = makeRepo({
       files: {
