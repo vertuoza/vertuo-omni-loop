@@ -52,11 +52,18 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 30 commands and the 13 skills', () => {
+  it('holds the 31 commands and the 14 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(31);
-    expect(skillFolders()).toHaveLength(13);
+    expect(skillFolders()).toHaveLength(14);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(31);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(13);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(14);
+  });
+
+  it('lists /omni:visual-fix for you, with its usage and when to use it (PRD 541)', () => {
+    const visualFix = ENTRIES.find((e) => e.name === 'visual-fix' && e.kind === 'skill');
+    expect(visualFix).toMatchObject({ who: 'you', usage: ['/omni:visual-fix <line or n>'], label: '/omni:visual-fix' });
+    expect(visualFix.detail).toMatch(/\bsmall visual change\b/);
+    expect(visualFix.detail).toMatch(/\/omni:brainstorm\b/);
   });
 
   it('names the six stages of the loop in order, each with one line, and three principles', () => {
