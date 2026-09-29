@@ -20197,6 +20197,15 @@ var ENTRIES = deepFreeze([
     detail: "For a small visual change, such as a colour, a spacing or a label: from one line or an issue number, it shows today beside four or five variations, asks which one, applies the pick on a fix branch, looks at the real screen once and opens one PR into {defaultBranch} with its before/after page. No PRD, plan or outbox. A change that needs data, a route or a new screen stops it, with the /omni:brainstorm line to run instead. It never merges."
   },
   {
+    name: "bug-fix",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:bug-fix <line or n>"],
+    label: "/omni:bug-fix",
+    summary: "a bug, to one PR",
+    detail: "For a bug a user, a browser or an API caller can see: from one line or an issue, it posts a triage (how bad, whether a change broke it), proves a reproduction fails before any fix, fixes it test-first on a fix branch, adds the check that would have caught it and opens one PR into {defaultBranch}. No PRD, plan or outbox. A flaky check is not a bug and stops it; a fix that needs a product decision, a stored shape or a new screen stops it, with the /omni:brainstorm line to run instead. It never merges."
+  },
+  {
     name: "plan",
     kind: "skill",
     who: "you",
