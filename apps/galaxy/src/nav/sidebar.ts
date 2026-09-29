@@ -3,7 +3,8 @@
 // fleet's, the workspace's, and since PRD 612 Engineering's, at /app/engineering), Work (the workspace's
 // work: PRDs, then, since PRD 627, Bug Fixes and Visual Updates, then Questions and Knowledge), Settings
 // (Fleets, at /app/settings/fleets; and Repositories, at /app/settings/repositories, since PRD 612),
-// and Omni's own pages, which leave the app for the public ones. A new section is one entry here. Two
+// and Omni's own pages, which leave the app for the public ones. Since issue 653 each Dashboard and Work
+// section names its sprite. A new section is one entry here. Two
 // pure reads of a path: the item it falls under, by the longest matching path (so
 // /app/settings/fleets is Fleets and /app/fleet is Fleet, not Home), and the top
 // bar's title, a nested item's parent first. The query and the hash never count. An item that counts
@@ -22,6 +23,8 @@ export interface SidebarItem {
   children?: readonly SidebarItem[];
   /** It opens one of Omni's public pages, outside the app. */
   leavesApp?: boolean;
+  /** The 16×16 sprite of @omni/design drawn before its name (issue 653): Dashboard and Work sections only. */
+  sprite?: string;
 }
 
 export interface SidebarGroup {
@@ -36,29 +39,30 @@ export const SIDEBAR: readonly SidebarGroup[] = [
     id: 'dashboard',
     label: 'Dashboard',
     items: [
-      { id: 'home', label: 'Home', path: '/app' },
-      { id: 'fleet', label: 'Fleet', path: '/app/fleet' },
-      { id: 'workspace', label: 'Workspace', path: '/app/workspace' },
-      { id: 'engineering', label: 'Engineering', path: '/app/engineering' },
+      { id: 'home', label: 'Home', path: '/app', sprite: 'menu-home' },
+      { id: 'fleet', label: 'Fleet', path: '/app/fleet', sprite: 'menu-fleet' },
+      { id: 'workspace', label: 'Workspace', path: '/app/workspace', sprite: 'menu-workspace' },
+      { id: 'engineering', label: 'Engineering', path: '/app/engineering', sprite: 'menu-engineering' },
     ],
   },
   {
     id: 'work',
     label: 'Work',
     items: [
-      { id: 'prds', label: 'PRDs', path: '/prd' },
-      { id: 'bugs', label: 'Bug Fixes', path: '/bugs' },
-      { id: 'visual', label: 'Visual Updates', path: '/visual' },
+      { id: 'prds', label: 'PRDs', path: '/prd', sprite: 'menu-prds' },
+      { id: 'bugs', label: 'Bug Fixes', path: '/bugs', sprite: 'menu-bugs' },
+      { id: 'visual', label: 'Visual Updates', path: '/visual', sprite: 'menu-visual' },
       {
         id: 'questions',
         label: 'Questions',
         path: '/ask',
+        sprite: 'menu-questions',
         children: [
           { id: 'for-me', label: 'Shared with me', path: '/ask/for-me' },
           { id: 'history', label: 'History', path: '/ask/history' },
         ],
       },
-      { id: 'knowledge', label: 'Knowledge', path: '/knowledge' },
+      { id: 'knowledge', label: 'Knowledge', path: '/knowledge', sprite: 'menu-knowledge' },
     ],
   },
   {

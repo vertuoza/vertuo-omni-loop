@@ -447,7 +447,7 @@ describe('the layout', () => {
   it('links to the history of every PRD through the sidebar\'s PRDs, marked current (PRD 438)', async () => {
     given.path = '/prd/3f2a';
     const page = renderToStaticMarkup(await Layout({ children: null }));
-    expect(page).toMatch(/<a class="app-sidebar-item" href="\/prd" aria-current="page">PRDs<\/a>/);
+    expect(page).toMatch(/<a class="app-sidebar-item" href="\/prd" aria-current="page"><span class="app-sidebar-sprite" aria-hidden="true"><svg [^>]*>.*?<\/svg><\/span>PRDs<\/a>/);
     expect(page).toContain('<p class="app-bar-title">PRDs</p>');
     expect(page).not.toContain('All PRDs');
   });

@@ -28,6 +28,10 @@ const FORGED = {
   // Five more fleet mascots (PRD 517), pinned as first drawn.
   'atom-eve': '1e42cfc26600f03d', shark: '495dd4fb409b4fc0', turtle: 'd28966aeb4de80a0', allen: '6badf132695634da',
   robot: '8100607b943d962b',
+  // The app sidebar's section sprites (issue 653), pinned as first drawn.
+  'menu-home': 'b0b02506c51dff57', 'menu-fleet': '72d00a19163fbbc9', 'menu-workspace': 'ba0dcc44e8d776a9',
+  'menu-engineering': '902258f7ef9734b2', 'menu-prds': '0fdfcc7a20bdbc85', 'menu-bugs': '0754b2cdfb13f514',
+  'menu-visual': '3c58704c0f80c755', 'menu-questions': '808ea02264e853ae', 'menu-knowledge': '461492a56cc425b0',
 };
 const FORGED_WOUNDED = {
   transmission: '36e0b517c4c911e4', 'unconfirmed-ground': 'b1db9c109ced6935', beacon: '0ac20bcc96a66c5b',

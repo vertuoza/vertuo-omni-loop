@@ -59,33 +59,42 @@ describe('the sidebar', () => {
     ]);
   });
 
+  it('draws each section\'s sprite before its name, hidden from screen readers, at its native size (issue 653)', () => {
+    const html = render();
+    for (const [path, label] of [['/app', 'Home'], ['/app/fleet', 'Fleet'], ['/prd', 'PRDs'], ['/bugs', 'Bug Fixes'], ['/visual', 'Visual Updates'], ['/knowledge', 'Knowledge']]) {
+      expect(html).toMatch(new RegExp(`<a class="app-sidebar-item" href="${path}"[^>]*><span class="app-sidebar-sprite" aria-hidden="true"><svg [^>]*width="16" height="16"[^>]*>.*?</svg></span>${label}`));
+    }
+    expect(html).toMatch(/href="\/app\/settings\/fleets">Fleets<\/a>/);
+    expect(html).toMatch(/href="\/ask\/history">History<\/a>/);
+  });
+
   it('nests For me and History under Questions', () => {
     const html = render();
-    expect(html).toMatch(/href="\/ask"[^>]*>Questions(?:<span[^>]*>\d+<\/span>)?<\/a><ul class="app-sidebar-children">.*href="\/ask\/for-me".*href="\/ask\/history".*<\/ul><\/li>/);
+    expect(html).toMatch(/href="\/ask"[^>]*>(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?Questions(?:<span[^>]*>\d+<\/span>)?<\/a><ul class="app-sidebar-children">.*href="\/ask\/for-me".*href="\/ask\/history".*<\/ul><\/li>/);
   });
 
   it('shows the Questions part\'s count on Questions, and the shared ones\' on Shared with me', () => {
     const html = render();
-    expect(html).toMatch(/<a class="app-sidebar-item" href="\/ask" aria-label="Questions: 5 waiting">Questions<span class="app-sidebar-badge" aria-hidden="true">5<\/span><\/a>/);
+    expect(html).toMatch(/<a class="app-sidebar-item" href="\/ask" aria-label="Questions: 5 waiting">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?Questions<span class="app-sidebar-badge" aria-hidden="true">5<\/span><\/a>/);
     expect(html).toMatch(/<a class="app-sidebar-item" href="\/ask\/for-me" aria-label="Shared with me: 3 waiting">Shared with me<span class="app-sidebar-badge" aria-hidden="true">3<\/span><\/a>/);
   });
 
   it('shows no Shared with me badge when only my own sessions ask', () => {
     const html = render({ ...ADA, waiting: waiting([question('a')]) });
-    expect(html).toMatch(/aria-label="Questions: 1 waiting">Questions<span class="app-sidebar-badge" aria-hidden="true">1<\/span>/);
+    expect(html).toMatch(/aria-label="Questions: 1 waiting">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?Questions<span class="app-sidebar-badge" aria-hidden="true">1<\/span>/);
     expect(html).toMatch(/<a class="app-sidebar-item" href="\/ask\/for-me">Shared with me<\/a>/);
   });
 
   it('shows the Outbox part\'s count on PRDs, and none at 0', () => {
-    expect(render(ADA, '/app', [gate('a'), gate('b')])).toMatch(/<a class="app-sidebar-item" href="\/prd" aria-label="PRDs: 2 waiting">PRDs<span class="app-sidebar-badge" aria-hidden="true">2<\/span><\/a>/);
-    expect(render()).toMatch(/<a class="app-sidebar-item" href="\/prd">PRDs<\/a>/);
+    expect(render(ADA, '/app', [gate('a'), gate('b')])).toMatch(/<a class="app-sidebar-item" href="\/prd" aria-label="PRDs: 2 waiting">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?PRDs<span class="app-sidebar-badge" aria-hidden="true">2<\/span><\/a>/);
+    expect(render()).toMatch(/<a class="app-sidebar-item" href="\/prd">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?PRDs<\/a>/);
   });
 
   it('shows no badge at 0, nor signed out', () => {
     for (const viewer of [{ ...ADA, waiting: waiting([]) }, SIGNED_OUT_VIEWER]) {
       const html = render(viewer);
       expect(html).not.toContain('app-sidebar-badge');
-      expect(html).toMatch(/<a class="app-sidebar-item" href="\/ask">Questions<\/a>/);
+      expect(html).toMatch(/<a class="app-sidebar-item" href="\/ask">(?:<span class="app-sidebar-sprite"[^>]*>.*?<\/span>)?Questions<\/a>/);
       expect(html).toMatch(/<a class="app-sidebar-item" href="\/ask\/for-me">Shared with me<\/a>/);
     }
   });

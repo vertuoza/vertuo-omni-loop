@@ -1,7 +1,8 @@
 'use client';
-import { logoSvg } from '@omni/design';
+import { logoSvg, spritePixels } from '@omni/design';
 import { version } from '../../../../package.json';
 import { usePathname } from 'next/navigation';
+import { pixelSvg } from '../design/pixel-svg';
 import { APP_HOME } from '../switch/switch';
 import { useWaiting } from '../waiting/WaitingProvider';
 import type { WaitingCounts } from '../waiting/waiting';
@@ -16,6 +17,7 @@ import './drawer.css';
 // Omni group (src/nav/sidebar.ts).
 // The item the page falls under carries aria-current="page"; Questions and Shared with me carry how
 // many questions wait there, and PRDs how many outbox items, live from the waiting provider (PRD 499);
+// Each Dashboard and Work section shows its arcade sprite before its name (issue 653).
 // Docs and Release notes open in a new tab, and say so with the new-tab icon and their name (issue 548).
 // They sit at the sidebar's foot, in one small row without a label, above the release running
 // ("Omni Loop v0.0.54", the root package.json the release workflow stamps; issue 561).
@@ -23,6 +25,8 @@ import './drawer.css';
 // behind it. Escape, a tap on the scrim or choosing an item closes it (src/nav/drawer-context.tsx).
 
 const CREST = logoSvg('mark', { scale: 2, title: null });
+/** A section's sprite (issue 653), at its native 16 px: decoration, its name already says what it is. */
+const sprite = (name: string) => pixelSvg(spritePixels(name), { scale: 1, title: '' });
 const OMNI = SIDEBAR.find((group) => group.id === 'omni')?.items ?? [];
 
 /** A box with an arrow leaving it: the item opens in a new tab. */
@@ -38,6 +42,7 @@ function Item({ item, current, counts, choose }: { item: SidebarItem; current: S
   return (
     <li>
       <a className="app-sidebar-item" href={item.path} aria-label={label} aria-current={item.id === current ? 'page' : undefined} target={item.leavesApp ? '_blank' : undefined} rel={item.leavesApp ? 'noopener' : undefined} onClick={choose}>
+        {item.sprite && <span className="app-sidebar-sprite" aria-hidden="true" dangerouslySetInnerHTML={{ __html: sprite(item.sprite) }} />}
         {item.label}
         {waiting !== null && <span className="app-sidebar-badge" aria-hidden="true">{waiting}</span>}
         {item.leavesApp && <span className="app-sidebar-out" aria-hidden="true">{NEW_TAB}</span>}

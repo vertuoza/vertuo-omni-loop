@@ -506,6 +506,58 @@ export const SPRITE_DEFS = Object.freeze({
     },
   },
   cursor: { w: 8, h: 8, draw(d) { d.rect(0, 0, 4, 1, 'Y', 1).rect(0, 0, 1, 4, 'Y', 1); }, outline: false },
+
+  // The app sidebar's sections (issue 653), 16×16, drawn before each Dashboard and Work item's name.
+  'menu-home': { w: 16, h: 16, draw(d, f) { // a domed habitat on a steel deck, a beacon on its mast
+    d.ellipse(8, 12, 6, 7, 'E').rect(1, 12, 14, 3, 'L');
+    d.rect(7, 13, 2, 2, 'X').rect(3, 8, 2, 2, 'Y').rect(11, 8, 2, 2, 'Y');
+    d.rect(8, 1, 1, 4, 'L').px(8, 0 + f, f ? 'e' : 'R');
+  } },
+  'menu-fleet': { w: 16, h: 16, draw(d, f) { // a starship from above: a wide saucer, two long warp nacelles
+    d.rect(1, 6, 2, 10, 'L').rect(13, 6, 2, 10, 'L').line(3, 12, 6, 11, 'L').line(12, 12, 9, 11, 'L');
+    d.ellipse(8, 4, 6.5, 3.6, 'L').rect(7, 7, 2, 4, 'L').ellipse(8, 12, 2, 2.6, 'L');
+    d.ellipse(8, 3.5, 1.5, 1.2, 'E').rect(1, 6, 2, 1, 'R', 1).rect(13, 6, 2, 1, 'R', 1);
+    d.rect(1, 8, 1, 7, 'C', f ? 0 : 1).rect(14, 8, 1, 7, 'C', f ? 0 : 1);
+  } },
+  'menu-workspace': { w: 16, h: 16, draw(d, f) { // a ringed home world with a moon
+    d.ellipse(8, 8, 5, 5, 'P').line(1, 11, 15, 5, 'Y').ellipse(8, 8, 5, 5, 'P');
+    d.line(1, 11, 3, 10, 'Y').line(13, 6, 15, 5, 'Y').line(5, 11, 11, 8.5, 'Y');
+    d.ellipse(14 - f, 2, 1.2, 1.2, 'L');
+  } },
+  'menu-engineering': { w: 16, h: 16, draw(d, f) { // a gear with a glowing core
+    d.ellipse(8, 8, 5, 5, 'L');
+    for (const [x, y] of [[7, 1], [7, 13], [1, 7], [13, 7]]) d.rect(x, y, 2, 2, 'L');
+    for (const [x, y] of [[3, 3], [11, 3], [3, 11], [11, 11]]) d.rect(x, y, 2, 2, 'L');
+    d.ellipse(8, 8, 2.2, 2.2, f ? 'C' : 'O');
+  } },
+  'menu-prds': { w: 16, h: 16, draw(d, f) { // a rocket, flame flickering
+    d.poly([[8, 0], [11, 4], [11, 11], [5, 11], [5, 4]], 'W').poly([[8, 0], [11, 4], [5, 4]], 'R');
+    d.poly([[5, 8], [2, 12], [5, 11]], 'R').poly([[11, 8], [14, 12], [11, 11]], 'R');
+    d.ellipse(8, 6.5, 1.4, 1.4, 'E').rect(6, 11, 4, 1, 'L');
+    d.poly([[6, 12], [10, 12], [8, 15 + f]], 'O').rect(7, 12, 2, 1 + f, 'Y', 0);
+  } },
+  'menu-bugs': { w: 16, h: 16, draw(d, f) { // an alien bug: Entropy's cousin, six legs and feelers
+    d.line(5, 3, 3, 0 + f, 'Z').line(10, 3, 12, 0 + f, 'Z');
+    for (const y of [7, 10, 13]) { d.line(3, y, 1, y - 1 + f, 'Z').line(12, y, 14, y - 1 + f, 'Z'); }
+    d.ellipse(8, 5, 3.5, 2.8, 'Z').ellipse(8, 11, 4.5, 4.5, 'Z');
+    d.px(6, 5, 'e').px(9, 5, 'e').line(8, 8, 8, 15, 'k');
+  } },
+  'menu-visual': { w: 16, h: 16, draw(d, f) { // a hero's brush, dripping the four stripes
+    d.line(13, 1, 8, 7, 'P', 2.2).rect(6, 7, 3, 3, 'L').poly([[6, 9], [9, 10], [5, 14], [2, 14], [3, 12]], 'Y');
+    d.px(2, 14, '1').px(3, 14, '2').px(4, 14, '3').px(5, 13, '4');
+    d.px(1, 15 - f, '1').px(4, 15, '3');
+  } },
+  'menu-questions': { w: 16, h: 16, draw(d, f) { // the ? block, its question mark casting a shadow
+    const mark = [[6, 4], [7, 3], [8, 3], [9, 3], [10, 4], [10, 5], [9, 6], [8, 7], [8, 8], [8, 10], [7, 4], [7, 8], [7, 11]];
+    d.rect(1, 1, 14, 14, 'Y').pxs([[2, 2], [13, 2], [2, 13], [13, 13]], 'D');
+    d.pxs(mark.map(([x, y]) => [x + 1, y + 1]), 'X').pxs(mark, 'Q');
+    if (f) d.rect(1, 1, 14, 1, 'Y', 0);
+  } },
+  'menu-knowledge': { w: 16, h: 16, draw(d, f) { // a tome of the loop's lore, a star on its cover
+    d.rect(3, 1, 11, 14, 'N').rect(3, 1, 2, 14, 'n').rect(13, 2, 1, 12, 'F');
+    d.pxs([[5, 1], [12, 1], [5, 14], [12, 14]], 'Y', 1);
+    d.rect(8, 4, 1, 7, 'Y').rect(5, 7, 7, 1, 'Y').rect(7, 6, 3, 3, 'Y').px(8, 7, f ? 'y' : 'Q');
+  } },
 });
 
 // The mascot library: every fleet mascot drawn above, the keys an owner may pick for a fleet, in the
