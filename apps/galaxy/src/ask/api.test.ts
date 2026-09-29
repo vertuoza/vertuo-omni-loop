@@ -46,9 +46,31 @@ function world() {
   const fake = fakeSupabase({ 'ada-token': ADA, 'bob-token': BOB, 'dan-token': DAN, 'eve-token': EVE, 'carl-token': CARL }, () => clock.now);
   const sleeps: number[] = [];
   let onSleep: (() => void) | null = null;
+  // The ask-attachments bucket (PRD 620): its objects' paths, and every list or remove it was sent,
+  // with how many rounds were still there at the time.
+  const bucket = {
+    objects: [] as string[],
+    calls: [] as Array<{ op: 'list' | 'remove'; name: string; arg: string | string[]; rounds: number }>,
+    fail: false,
+  };
+  const storage = {
+    from: (name: string) => ({
+      async list(folder: string) {
+        bucket.calls.push({ op: 'list', name, arg: folder, rounds: fake.tables.ask_rounds.length });
+        if (bucket.fail) return { data: null, error: { message: 'storage is down' } };
+        return { data: bucket.objects.filter((o) => o.startsWith(`${folder}/`)).map((o) => ({ name: o.slice(folder.length + 1) })), error: null };
+      },
+      async remove(paths: string[]) {
+        bucket.calls.push({ op: 'remove', name, arg: paths, rounds: fake.tables.ask_rounds.length });
+        if (bucket.fail) return { data: null, error: { message: 'storage is down' } };
+        bucket.objects = bucket.objects.filter((o) => !paths.includes(o));
+        return { data: paths.map((p) => ({ name: p })), error: null };
+      },
+    }),
+  };
   const deps: AskDeps = {
     // The stub answers only the query shapes the store sends, so it is not a whole Supabase client.
-    connect: fake.client as unknown as AskDeps['connect'],
+    connect: ((token: string) => ({ ...fake.client(token), storage })) as unknown as AskDeps['connect'],
     installLink: INSTALL,
     now: () => clock.now,
     async sleep(ms) {
@@ -76,7 +98,7 @@ function world() {
   }
   const row = (table: 'ask_sessions' | 'ask_rounds', id: string) => fake.tables[table].find((r) => r.id === id)!;
   return {
-    clock, fake, deps, sleeps, request, read, session, round, row,
+    clock, fake, bucket, deps, sleeps, request, read, session, round, row,
     whileWaiting(fn: () => void) { onSleep = fn; },
   };
 }
@@ -646,6 +668,62 @@ describe('DELETE /api/ask/sessions/:id (PRD 144)', () => {
     expect((await remove(w, sessionId, 'eve-token')).status).toBe(404);
     expect((await remove({ ...w, deps: { connect: null } }, sessionId)).status).toBe(503);
     expect(w.row('ask_sessions', sessionId)).toBeDefined();
+  });
+
+  describe('its screenshots (PRD 620)', () => {
+    it('removes every object under its rounds\' folders from the bucket, before it deletes the rows', async () => {
+      const w = world();
+      const sessionId = await w.session();
+      const first = await w.round(sessionId);
+      const second = await w.round(sessionId);
+      const other = await w.round(await w.session());
+      w.bucket.objects = [`${first}/1.png`, `${first}/2.webp`, `${second}/1.gif`, `${other}/1.png`];
+      const { status, body } = await w.read(await remove(w, sessionId));
+      expect(status).toBe(200);
+      expect(body).toEqual({ id: sessionId, deleted: true });
+      expect(w.bucket.objects).toEqual([`${other}/1.png`]);
+      expect(w.bucket.calls.filter((c) => c.op === 'list').map((c) => c.arg).sort()).toEqual([first, second].sort());
+      const removed = w.bucket.calls.filter((c) => c.op === 'remove');
+      expect(removed).toEqual([{ op: 'remove', name: 'ask-attachments', arg: [`${first}/1.png`, `${first}/2.webp`, `${second}/1.gif`], rounds: 3 }]);
+      expect(w.fake.tables.ask_rounds.map((r) => r.id)).toEqual([other]);
+    });
+
+    it('removes nothing from the bucket for a session whose rounds have no screenshots', async () => {
+      const w = world();
+      const sessionId = await w.session();
+      await w.round(sessionId);
+      w.bucket.objects = ['00000000-0000-4000-8000-000000000009/1.png'];
+      expect((await remove(w, sessionId)).status).toBe(200);
+      expect(w.bucket.calls.map((c) => c.op)).toEqual(['list']);
+      expect(w.bucket.objects).toHaveLength(1);
+    });
+
+    it('answers 500 and keeps the session and its rounds when the screenshots cannot be removed', async () => {
+      const w = world();
+      const sessionId = await w.session();
+      const roundId = await w.round(sessionId);
+      w.bucket.objects = [`${roundId}/1.png`];
+      w.bucket.fail = true;
+      const { status, body } = await w.read(await remove(w, sessionId));
+      expect(status).toBe(500);
+      expect(body.error).toEqual(expect.any(String));
+      expect(w.row('ask_sessions', sessionId)).toBeDefined();
+      expect(w.row('ask_rounds', roundId)).toBeDefined();
+      w.bucket.fail = false;
+      expect((await remove(w, sessionId)).status).toBe(200);
+      expect(w.bucket.objects).toEqual([]);
+    });
+
+    it('touches no screenshot when the caller may not delete the session', async () => {
+      const w = world();
+      const sessionId = await w.session();
+      const roundId = await w.round(sessionId);
+      w.bucket.objects = [`${roundId}/1.png`];
+      expect((await remove(w, sessionId, 'bob-token')).status).toBe(403);
+      expect((await remove(w, sessionId, 'carl-token')).status).toBe(404);
+      expect(w.bucket.calls).toEqual([]);
+      expect(w.bucket.objects).toEqual([`${roundId}/1.png`]);
+    });
   });
 });
 
