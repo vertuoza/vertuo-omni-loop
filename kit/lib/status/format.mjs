@@ -16,7 +16,7 @@ const UNDER_BAR = ' '.repeat(LABEL.length);
 const GAP = '     ';
 
 /** The seven stages of the loop, in the order a PRD goes (PRD 587): the kit's one list of them, held
- * to galaxy's `STAGES` by `kit/test/stage-words.test.mjs`. */
+ * to the Omni app's own list by `kit/test/stage-words.test.mjs`. */
 export const STAGES = Object.freeze(['idea', 'prd', 'inbox', 'building', 'outbox', 'shipped', 'retro']);
 
 /** Each stage in words, as the Omni app shows it. */
