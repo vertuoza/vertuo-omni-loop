@@ -19764,6 +19764,15 @@ var ENTRIES = deepFreeze([
     detail: "Brings a PRD back in line with what a person answered on its feature PR: settles the replies, reworks every decision they disagreed with as its own slice, inside the bound its item stated, checks the whole feature, then ships it when the gate is green. It asks no question of its own and never merges into {defaultBranch}."
   },
   {
+    name: "visual-fix",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:visual-fix <line or n>"],
+    label: "/omni:visual-fix",
+    summary: "a small visual change, to one PR",
+    detail: "For a small visual change, such as a colour, a spacing or a label: from one line or an issue number, it shows today beside four or five variations, asks which one, applies the pick on a fix branch, looks at the real screen once and opens one PR into {defaultBranch} with its before/after page. No PRD, plan or outbox. A change that needs data, a route or a new screen stops it, with the /omni:brainstorm line to run instead. It never merges."
+  },
+  {
     name: "plan",
     kind: "skill",
     who: "you",
