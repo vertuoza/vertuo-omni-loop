@@ -1,4 +1,9 @@
 import { notFound, redirect } from 'next/navigation';
+import { after } from 'next/server';
+import { serviceDb } from '../../data/sign-in-live';
+import type { FixSummary } from '../github/fix';
+import { mergeFacts } from '../../fixes/facts/refresh';
+import { fixFactsStore } from '../../fixes/facts/store';
 import { Notice } from '../../ask/page/Notice';
 import { arcadeMode } from '../../data/mode';
 import { fixPageView, readPickLine, type FixPageView, type PickRead } from '../../fixes/timeline';
@@ -43,6 +48,9 @@ import { stageStore } from '../../stages/store';
 // PRD 657 s4: a numbered PRD's page streams (./stream/DossierStream.tsx): it is sent as soon as the
 // database has answered, the parts only GitHub knows saying they are being read, then again, whole,
 // when the GitHub summary arrives. A draft reads no GitHub, and a fix's page waits for its summary.
+// PRD 691 s3: what a fix's page read of GitHub is stored in fix_facts, which /bugs and /visual read, as
+// the service role, after the response (Next's after()): the render never waits on it, a part GitHub
+// could not read keeps its stored value, and a write that fails is only logged.
 
 export type DossierRouteProps = {
   params: Promise<{ id: string }>;
@@ -91,7 +99,19 @@ async function fixOf(db: Db, read: DossierRead): Promise<{ fix?: FixPageView }> 
       },
     ),
   ]);
+  if (summary) after(() => keepFacts(dossier, summary));
   return { fix: fixPageView(kind, summary, pick) };
+}
+
+/** Stores what the fix's page read of GitHub, each part it could not read kept as stored; logs a failure. */
+async function keepFacts(dossier: DossierRead['dossier'], read: FixSummary): Promise<void> {
+  try {
+    const store = fixFactsStore(serviceDb());
+    const stored = (await store.readFacts(dossier.workspace_id, [dossier.id])).get(dossier.id) ?? null;
+    await store.writeFacts([{ dossier_id: dossier.id, workspace_id: dossier.workspace_id, facts: mergeFacts(stored, read) }]);
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 /** The shown Spec or Plan, rendered; null when it could not be read (the pane says so). */
