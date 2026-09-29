@@ -36,9 +36,12 @@ describe('SIDEBAR', () => {
     expect(work.items.some((i) => i.leavesApp)).toBe(false);
   });
 
-  it('holds Fleets alone under Settings, at /app/settings/fleets', () => {
+  it('holds Fleets, then Repositories (PRD 612), under Settings', () => {
     const [, , settings] = SIDEBAR;
-    expect(rows(settings.items)).toEqual([['fleets', 'Fleets', '/app/settings/fleets', []]]);
+    expect(rows(settings.items)).toEqual([
+      ['fleets', 'Fleets', '/app/settings/fleets', []],
+      ['repositories', 'Repositories', '/app/settings/repositories', []],
+    ]);
     expect(settings.items.some((i) => i.leavesApp)).toBe(false);
   });
 
@@ -59,6 +62,7 @@ describe('currentItem and pageTitle', () => {
     ['/app/workspace', 'workspace', 'Workspace'],
     ['/app/workspace?period=season', 'workspace', 'Workspace'],
     ['/app/settings/fleets', 'fleets', 'Fleets'],
+    ['/app/settings/repositories', 'repositories', 'Repositories'],
     ['/prd', 'prds', 'PRDs'],
     ['/prd/3f2a', 'prds', 'PRDs'],
     ['/prd?who=all', 'prds', 'PRDs'],
@@ -101,6 +105,6 @@ describe('badgeOf', () => {
   it('gives no badge at 0, nor to an item that counts nothing', () => {
     expect(badgeOf('questions', { ...counts, questions: 0 })).toBeNull();
     expect(badgeOf('for-me', { ...counts, shared: 0 })).toBeNull();
-    for (const id of ['home', 'fleet', 'workspace', 'history', 'knowledge', 'fleets', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
+    for (const id of ['home', 'fleet', 'workspace', 'history', 'knowledge', 'fleets', 'repositories', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
   });
 });
