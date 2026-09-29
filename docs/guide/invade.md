@@ -155,4 +155,15 @@ It redraws only what changed, never rewrites what a person wrote, proposes to dr
 target that now has its own knowledge base, and opens one pull request, or none when there is
 nothing to do.
 
+Once the targets are set, plan a feature across them. In the plan repository, type:
+
+```text agent
+/omni:mega-brainstorm
+```
+
+It is `/omni:brainstorm` for several repositories: it talks the idea through with you, asks which
+repository does what, reads each one it touches from a copy that nothing runs in, and writes one
+PRD whose plan names the repository of every slice. The spec, the plan and one phase-0 pull request,
+with a table of what lands where, all open in the plan repository; nothing is written in a target.
+
 [Next → How the loop works](/docs/loop)
