@@ -109,6 +109,18 @@ export async function readDossiers(db: Db, workspace: string, prds: readonly num
   }
 }
 
+/**
+ * Every dossier of `workspace` the caller may read, newest activity first, as dossier_list(p_workspace)
+ * lists them (supabase/migrations/20261012100000_dossier_list_workspace.sql): the database keeps the one
+ * workspace, set-based, so a dashboard never reads every workspace of its viewer to keep one. Rejects
+ * when the list cannot be read.
+ */
+export async function workspaceDossiers(db: Pick<SupabaseClient, 'rpc'>, workspace: string): Promise<DossierListRow[]> {
+  const { data, error } = await db.rpc('dossier_list', { p_workspace: workspace });
+  if (error) throw new Error(`Supabase: could not read the workspace's dossiers (${error.message})`);
+  return (data ?? []) as DossierListRow[];
+}
+
 // ── The demo's dossiers ─────────────────────────────────────────────────────────
 // For the demo world's planets (@omni/galaxy's demo), as dossier_list() and dossier_rounds() would give
 // them: the planet in distress the demo opens on, with no plan yet and a round still open; a planet being

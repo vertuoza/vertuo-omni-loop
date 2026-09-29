@@ -25,7 +25,7 @@ const themeOf = (value: unknown): Record<string, string> =>
     : {};
 
 /** The workspace the person joined first, or null when they belong to none. */
-export async function firstWorkspace(db: SupabaseClient, userId: string): Promise<Workspace | null> {
+async function firstWorkspace(db: SupabaseClient, userId: string): Promise<Workspace | null> {
   const { data, error } = await db
     .from('workspace_members')
     .select('joined_at, workspace:workspaces(id, slug, name, theme)')
@@ -70,10 +70,22 @@ export async function joinByGithub(db: Pick<SupabaseClient, 'rpc'>, userId: stri
   return (data ?? []) as string[];
 }
 
+/** Each client's member workspace reads, by person: a request's client is shared by the viewer, the
+ * layout and the page's loaders (src/data/viewer.ts, PRD 657), so they share one read. */
+const readsByClient = new WeakMap<object, Map<string, Promise<Workspace | null>>>();
+
 /** The workspace the person plays in, or null. Joining happens at sign-in only, where GitHub's token
- * is at hand (src/data/sign-in.ts): one who belongs to none signs in again, or signs up. */
-export async function memberWorkspace(db: SupabaseClient, userId: string): Promise<Workspace | null> {
-  return firstWorkspace(db, userId);
+ * is at hand (src/data/sign-in.ts): one who belongs to none signs in again, or signs up. Read once
+ * per client and person; a failed read is not kept. */
+export function memberWorkspace(db: SupabaseClient, userId: string): Promise<Workspace | null> {
+  let reads = readsByClient.get(db);
+  if (!reads) readsByClient.set(db, (reads = new Map()));
+  const kept = reads.get(userId);
+  if (kept) return kept;
+  const read = firstWorkspace(db, userId);
+  reads.set(userId, read);
+  read.catch(() => reads.delete(userId));
+  return read;
 }
 
 /** Where a sign-in lands: the arcade for a member of a workspace, sign-up for anyone in none (PRD

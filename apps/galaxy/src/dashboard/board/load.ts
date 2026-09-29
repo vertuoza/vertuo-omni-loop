@@ -1,7 +1,7 @@
 import type { Fleet, GalaxyView } from '@omni/galaxy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { allPages, type Page } from '../../data/all-pages';
-import { dossierList } from '../../dossier/store';
+import { workspaceDossiers } from '../../data/dossiers';
 import { STAGES, type StageId } from '../../stages/stage';
 import { stageStore, type StageStore } from '../../stages/store';
 import { settle, UNREADABLE, type Read } from '../part';
@@ -229,11 +229,11 @@ export function supabaseReads(
     },
     galaxy,
     async prds() {
-      const [current, opened, dossiers] = await Promise.all([stages.currentStages(workspace), openers(), dossierList(db)]);
+      const [current, opened, dossiers] = await Promise.all([stages.currentStages(workspace), openers(), workspaceDossiers(db, workspace)]);
       return prdsNow({
         stages: [...current].map(([key, stage]) => ({ ...unkey(key), stage })),
         openers: opened,
-        dossiers: dossiers.filter((d) => d.workspace_id === workspace),
+        dossiers,
       });
     },
   };

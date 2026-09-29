@@ -1,5 +1,6 @@
 'use client';
 import { logoSvg } from '@omni/design';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ThemeSwitch } from '../ask/theme-switch';
 import { APP_HOME } from '../switch/switch';
@@ -18,7 +19,7 @@ import './app-bar.css';
 // opens the user menu; signed out, Sign in with GitHub in its place.
 // Below 900 px the sidebar hides: the bar opens with ☰, which opens it as a drawer, and the crest.
 // Its first row holds ☰, the crest, the title and you; the theme switch, Game mode and the bell wrap
-// to a second row (app-bar.css).
+// to a second row (app-bar.css). The crest is a next/link (PRD 657): home without a document load.
 
 const CREST = logoSvg('mark', { scale: 2, title: null });
 
@@ -38,9 +39,9 @@ export function AppBar({ viewer }: { viewer: ViewerView }) {
       >
         <span aria-hidden="true">☰</span>
       </button>
-      <a className="app-bar-crest" href={APP_HOME} aria-label="OMNI LOOP, Home">
+      <Link className="app-bar-crest" href={APP_HOME} aria-label="OMNI LOOP, Home">
         <span aria-hidden="true" dangerouslySetInnerHTML={{ __html: CREST }} />
-      </a>
+      </Link>
       {title && <p className="app-bar-title">{title}</p>}
       <span className="app-bar-end">
         <span className="app-bar-view">

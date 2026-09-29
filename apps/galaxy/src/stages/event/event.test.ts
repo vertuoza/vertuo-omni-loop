@@ -1,5 +1,8 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
+import type { GithubSummary } from '../../dossier/github/summary';
+import { recountOutboxes } from '../outbox/recount';
+import { fakePrdOutboxStore } from '../outbox/store.fake';
 import { fakeStageStore } from '../store.fake';
 import { parseStageEvent, receiveStageEvent, STAGE_SIGNATURE_HEADER, type StageEventDeps, verifySignature } from './event';
 
@@ -119,5 +122,48 @@ describe('verifySignature', () => {
     expect(verifySignature(SECRET, 'abd', sign('abc'))).toBe(false);
     expect(verifySignature(SECRET, 'abc', null)).toBe(false);
     expect(verifySignature(SECRET, 'abc', 'sha1=00')).toBe(false);
+  });
+});
+
+describe('the open outbox questions (PRD 657, s5)', () => {
+  const summary: GithubSummary = {
+    repo: 'acme/widgets', prd: 587, folder: null, topic: null, issue: null, phase0: null, retro: null, mergedSlices: 0,
+    feature: { number: 9, url: 'https://github.com/acme/widgets/pull/9', state: 'open', draft: false },
+    outbox: { open: [{ id: 's1-01-a', rank: 'high', question: 'Q?', decision: null, options: [], personSteps: null }], settled: [] },
+  };
+
+  function withRecount(recountFails = false) {
+    const outbox = fakePrdOutboxStore(() => '2026-09-29T12:00:00Z');
+    const asked: number[] = [];
+    let stages: ReturnType<typeof fakeStageStore> | undefined;
+    const set = setup({
+      recount: async (workspace, prds) => {
+        if (recountFails) throw new Error('GitHub is down');
+        return recountOutboxes(workspace, prds, { stages: stages!, store: outbox, summary: async (ref) => { asked.push(ref.prd); return summary; } });
+      },
+    });
+    stages = set.store;
+    return { ...set, outbox, asked };
+  }
+
+  it('recounts the PRD an event places, from its new stage', async () => {
+    const { post, outbox, asked } = withRecount();
+    expect((await post(event({ stage: 'outbox' }))).status).toBe(200);
+    expect(asked).toEqual([587]);
+    expect(outbox.writes).toEqual([`${WS} acme/widgets#587 1`]);
+  });
+
+  it('stores 0 for a PRD an event moves past its outbox, without reading GitHub', async () => {
+    const { post, outbox, asked } = withRecount();
+    await post(event({ stage: 'shipped' }));
+    expect(asked).toEqual([]);
+    expect(outbox.writes).toEqual([`${WS} acme/widgets#587 0`]);
+  });
+
+  it('keeps its reply when the recount fails, and logs it', async () => {
+    const { post, store, log } = withRecount(true);
+    expect((await post(event({ stage: 'outbox' }))).status).toBe(200);
+    expect(store.stages).toHaveLength(1);
+    expect(log.mock.calls.flat().join('\n')).toContain('not recounted');
   });
 });

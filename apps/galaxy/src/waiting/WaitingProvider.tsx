@@ -9,14 +9,15 @@ import {
 import { DOCS_MS, documentsReader, groupDocuments, noticeDocuments, readSeen, type Announced, type DocumentGroup } from './documents';
 import { iconHref } from './icon';
 import { EMPTY_OUTBOX_PART, outboxRead, pollOutbox, readOutbox, type OutboxPart } from './outbox';
+import { pollQuestions } from './questions-poll';
 import { questionsReader } from './source';
 import type { WaitingView } from './view';
-import { EMPTY_WAITING, titled, WAITING_MS, waitingCounts, type WaitingCounts, type WaitingItem, type WaitingList, type WaitingOutbox } from './waiting';
+import { EMPTY_WAITING, titled, waitingCounts, type WaitingCounts, type WaitingItem, type WaitingList, type WaitingOutbox } from './waiting';
 
 // The waiting provider (PRD 499), mounted once by the app shell around the sidebar, the top bar and
 // the page: the one place that reads what waits for the person looking. It starts from the Questions
-// part the server rendered and reads it again every 5 s while the tab is visible (and at once when the
-// tab shows again). The Outbox part starts empty and is read from GET /api/waiting/outbox once after
+// part the server rendered and reads it again every 5 s while the tab is visible, every 15 s while it
+// is hidden (PRD 657, s10), and at once when the tab shows again. The Outbox part starts empty and is read from GET /api/waiting/outbox once after
 // load and every 60 s while visible (src/waiting/outbox.ts). It keeps the browser tab's title prefixed
 // with the count, whatever the page or Next writes there, and the tab's icon dotted while the count is
 // above 0. A failed read keeps the part's last items and is logged once per kind of failure per page
@@ -149,7 +150,7 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
     if (!url || !key || !me) return;
     const read = questionsReader(createBrowserClient(url, key), me);
     const log = onceEach();
-    return poll(async () => {
+    return pollQuestions(async () => {
       try {
         const next = await read(Date.now());
         setQuestions(next);
@@ -162,7 +163,7 @@ export function WaitingProvider({ view, outbox: first = [], children }: {
         setUnread(true);
       }
       return true;
-    }, document, WAITING_MS);
+    }, document);
   }, [url, key, me, notice]);
 
   // The outbox route answers the cookie session, so it is read wherever the questions are.

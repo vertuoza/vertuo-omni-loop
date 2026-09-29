@@ -97,3 +97,13 @@ export type GithubSummary = {
    * default branch once merged; null when there is no retro PR or no file yet. Left out by a summary made before it. */
   retroText?: Read<string | null>;
 };
+
+/** One GitHub read on its own, for `page`: its answer, or UNREAD (logged) when it failed. */
+export async function readPart<T>(page: string, what: string, run: () => Promise<T>): Promise<Read<T>> {
+  try {
+    return await run();
+  } catch (error) {
+    console.error(`${page}: ${what} could not be read from GitHub: ${error instanceof Error ? error.message : String(error)}`);
+    return UNREAD;
+  }
+}

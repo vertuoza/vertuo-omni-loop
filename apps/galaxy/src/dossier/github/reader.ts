@@ -11,6 +11,8 @@
 // also keeps the outbox comment's numbering and the answers nobody has settled yet (PRD 251, s9,
 // ./replies.ts), and from settled.md the adopted mediums, each read back as its item. Each of those
 // reads fails on its own (`UNREAD`); the App not installed, or no config, and the whole summary is null. Every answer, null included, is cached 60 s per dossier.
+// Concurrent reads of one dossier share one promise, and a repository's config is read once per
+// 60-second window whatever the number of its PRDs (PRD 657, s6).
 // The token never leaves this module: the summary holds only numbers, states and github.com links.
 import { parseConfig } from 'vertuo-omni-plan/kit/lib/config.mjs';
 import { parseFolderName } from 'vertuo-omni-plan/kit/lib/layout.mjs';
@@ -22,7 +24,7 @@ import { readFix, type FixSummary } from './fix';
 import { outboxReplies, type KitAdopted, type KitItem, type PrComment } from './replies';
 import { readRetro } from './retro';
 import { githubApp, REPO, type AppCredentials, type InstallationToken } from '../../signup/github-app';
-import { UNREAD, type GithubSummary, type IssueRef, type Outbox, type OutboxDetails, type OutboxItem, type OutboxReplies, type PullRef, type Read, type SettledItem } from './summary';
+import { readPart, UNREAD, type GithubSummary, type IssueRef, type Outbox, type OutboxDetails, type OutboxItem, type OutboxReplies, type PullRef, type Read, type SettledItem } from './summary';
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -184,8 +186,9 @@ export type FixReader = {
 export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, clock: () => number = Date.now): GithubReader & FixReader {
   const app = githubApp(creds, fetchImpl, clock);
   const tokens = new Map<string, InstallationToken>();
-  const summaries = new Map<string, { at: number; value: GithubSummary | null }>();
-  const fixes = new Map<string, { at: number; value: FixSummary | null }>();
+  const summaries = keptFor<GithubSummary | null>(clock);
+  const fixes = keptFor<FixSummary | null>(clock);
+  const configs = keptFor<RepoConfig>(clock);
 
   /** A token for `repo`, reused until a minute before it expires; null when the App is not installed there. */
   async function tokenFor(repo: string): Promise<string | null> {
@@ -215,10 +218,13 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
       Pulls.parse((await json(`/pulls?${new URLSearchParams({ state: 'all', per_page: '100', ...query })}`)) ?? []);
     const owner = repo.split('/')[0];
     return {
-      async config(): Promise<RepoConfig> {
-        const text = await json(`/contents/${path(CONFIG_PATH)}`, 'application/vnd.github.raw+json');
-        if (typeof text !== 'string') throw new Error(`${repo} has no ${CONFIG_PATH}`);
-        return repoConfig(text);
+      /** The repository's config, read once per cache window for all its dossiers; a failed read is not kept. */
+      config(): Promise<RepoConfig> {
+        return configs.get(repo, async () => {
+          const text = await json(`/contents/${path(CONFIG_PATH)}`, 'application/vnd.github.raw+json');
+          if (typeof text !== 'string') throw new Error(`${repo} has no ${CONFIG_PATH}`);
+          return repoConfig(text);
+        });
       },
       /** The PRD's folder under `dir` on `ref`; null when there is none. */
       async folderIn(dir: string, ref: string, prd: number): Promise<string | null> {
@@ -289,14 +295,7 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
   }
 
   /** One read on its own: its answer, or UNREAD when it failed. */
-  async function part<T>(what: string, run: () => Promise<T>): Promise<Read<T>> {
-    try {
-      return await run();
-    } catch (error) {
-      console.error(`PRD page: ${what} could not be read from GitHub: ${error instanceof Error ? error.message : String(error)}`);
-      return UNREAD;
-    }
-  }
+  const part = <T>(what: string, run: () => Promise<T>) => readPart('PRD page', what, run);
 
   async function fresh({ home_repo: repo, prd }: DossierRef): Promise<GithubSummary | null> {
     if (!REPO.test(repo)) return null;
@@ -346,38 +345,54 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
   }
 
   return {
-    async summary(dossier) {
-      const kept = summaries.get(dossier.id);
-      if (kept && clock() - kept.at < SUMMARY_TTL_MS) return kept.value;
-      let value: GithubSummary | null;
-      try {
-        value = await fresh(dossier);
-      } catch (error) {
-        console.error(`PRD page: GitHub could not be read for ${dossier.home_repo}: ${error instanceof Error ? error.message : String(error)}`);
-        value = null;
-      }
-      summaries.set(dossier.id, { at: clock(), value });
-      return value;
+    summary(dossier) {
+      return summaries.get(dossier.id, async () => {
+        try {
+          return await fresh(dossier);
+        } catch (error) {
+          console.error(`PRD page: GitHub could not be read for ${dossier.home_repo}: ${error instanceof Error ? error.message : String(error)}`);
+          return null;
+        }
+      });
     },
     forget(dossierId) {
-      summaries.delete(dossierId);
+      summaries.forget(dossierId);
     },
-    async fix(ref) {
-      const kept = fixes.get(ref.id);
-      if (kept && clock() - kept.at < SUMMARY_TTL_MS) return kept.value;
-      let value: FixSummary | null = null;
-      try {
-        const token = REPO.test(ref.home_repo) ? await tokenFor(ref.home_repo) : null;
-        if (token) {
+    fix(ref) {
+      return fixes.get(ref.id, async () => {
+        try {
+          const token = REPO.test(ref.home_repo) ? await tokenFor(ref.home_repo) : null;
+          if (!token) return null;
           const gh = await read(ref.home_repo, token);
           const { fix } = await gh.config();
-          value = await readFix((route) => gh.json(route), ref.prd, fix.branch, { risk: fix.risk, regression: fix.regression });
+          return await readFix((route) => gh.json(route), ref.prd, fix.branch, { risk: fix.risk, regression: fix.regression });
+        } catch (error) {
+          console.error(`Fix page: GitHub could not be read for ${ref.home_repo}: ${error instanceof Error ? error.message : String(error)}`);
+          return null;
         }
-      } catch (error) {
-        console.error(`Fix page: GitHub could not be read for ${ref.home_repo}: ${error instanceof Error ? error.message : String(error)}`);
-      }
-      fixes.set(ref.id, { at: clock(), value });
-      return value;
+      });
+    },
+  };
+}
+
+/** Answers kept per key for SUMMARY_TTL_MS from when they were asked. Concurrent callers of one key
+ * share one promise; a rejected one is dropped at once, and a forgotten key's pending answer is never
+ * kept, so the next read is fresh. */
+function keptFor<T>(clock: () => number) {
+  const kept = new Map<string, { at: number; value: Promise<T> }>();
+  return {
+    get(key: string, load: () => Promise<T>): Promise<T> {
+      const hit = kept.get(key);
+      if (hit && clock() - hit.at < SUMMARY_TTL_MS) return hit.value;
+      const entry = { at: clock(), value: load() };
+      kept.set(key, entry);
+      entry.value.catch(() => {
+        if (kept.get(key) === entry) kept.delete(key);
+      });
+      return entry.value;
+    },
+    forget(key: string) {
+      kept.delete(key);
     },
   };
 }

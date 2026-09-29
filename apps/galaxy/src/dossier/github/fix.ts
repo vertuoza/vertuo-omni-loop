@@ -6,7 +6,7 @@
 // says *unknown* rather than failing. ./reader.ts gives it the repository's token, config and 60-second
 // cache; this module only reads through the `get` it is handed.
 import { z } from 'zod';
-import { UNREAD, type Read } from './summary';
+import { readPart, UNREAD, type Read } from './summary';
 
 /** A GitHub answer on the repository's route, as JSON; null on 404. Throws on any other failure. */
 export type FixGet = (route: string) => Promise<unknown>;
@@ -69,14 +69,8 @@ function fixBranch(shape: string, n: number): RegExp {
   return new RegExp(`^${escape(before)}${n}-[a-z0-9-]+${escape(after)}$`);
 }
 
-async function part<T>(what: string, run: () => Promise<T>): Promise<Read<T>> {
-  try {
-    return await run();
-  } catch (error) {
-    console.error(`Fix page: ${what} could not be read from GitHub: ${error instanceof Error ? error.message : String(error)}`);
-    return UNREAD;
-  }
-}
+/** One read on its own: its answer, or UNREAD when it failed. */
+const part = <T>(what: string, run: () => Promise<T>) => readPart('Fix page', what, run);
 
 /** Fix `n` of the repository `get` reads, its branches shaped as `fixShape`. */
 export async function readFix(get: FixGet, n: number, fixShape: string, labels: FixLabels): Promise<FixSummary> {

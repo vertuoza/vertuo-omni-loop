@@ -1,6 +1,7 @@
 'use client';
 import { logoSvg } from '@omni/design';
 import { version } from '../../../../package.json';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { APP_HOME } from '../switch/switch';
 import { useWaiting } from '../waiting/WaitingProvider';
@@ -21,6 +22,9 @@ import './drawer.css';
 // ("Omni Loop v0.0.54", the root package.json the release workflow stamps; issue 561).
 // Below 900 px it is the phone drawer: hidden until the top bar's ☰ opens it over the page, a scrim
 // behind it. Escape, a tap on the scrim or choosing an item closes it (src/nav/drawer-context.tsx).
+// Every entry is a next/link (PRD 657): a click changes the page without a document load, so the
+// layout, the waiting polls and the bell's count stay. Docs and Release notes, which open a new tab,
+// are not prefetched.
 
 const CREST = logoSvg('mark', { scale: 2, title: null });
 const OMNI = SIDEBAR.find((group) => group.id === 'omni')?.items ?? [];
@@ -32,16 +36,24 @@ const NEW_TAB = (
   </svg>
 );
 
+/** The spoken name of an item: said to open a new tab, or with its waiting count, or its own label. */
+function spokenLabel(item: SidebarItem, waiting: number | null): string | undefined {
+  if (item.leavesApp) return `${item.label} (opens in a new tab)`;
+  return waiting !== null ? `${item.label}: ${waiting} waiting` : undefined;
+}
+
+/** An item that leaves the app opens in a new tab and is never prefetched. */
+const LEAVES_APP = { target: '_blank', rel: 'noopener', prefetch: false } as const;
+
 function Item({ item, current, counts, choose }: { item: SidebarItem; current: SidebarId | null; counts: WaitingCounts; choose: () => void }) {
   const waiting = badgeOf(item.id, counts);
-  const label = item.leavesApp ? `${item.label} (opens in a new tab)` : waiting !== null ? `${item.label}: ${waiting} waiting` : undefined;
   return (
     <li>
-      <a className="app-sidebar-item" href={item.path} aria-label={label} aria-current={item.id === current ? 'page' : undefined} target={item.leavesApp ? '_blank' : undefined} rel={item.leavesApp ? 'noopener' : undefined} onClick={choose}>
+      <Link className="app-sidebar-item" href={item.path} aria-label={spokenLabel(item, waiting)} aria-current={item.id === current ? 'page' : undefined} {...(item.leavesApp ? LEAVES_APP : {})} onClick={choose}>
         {item.label}
         {waiting !== null && <span className="app-sidebar-badge" aria-hidden="true">{waiting}</span>}
         {item.leavesApp && <span className="app-sidebar-out" aria-hidden="true">{NEW_TAB}</span>}
-      </a>
+      </Link>
       {item.children && (
         <ul className="app-sidebar-children">
           {item.children.map((child) => <Item key={child.id} item={child} current={current} counts={counts} choose={choose} />)}
@@ -61,10 +73,10 @@ export function Sidebar({ viewer }: { viewer: ViewerView }) {
       {drawer.open && <div className="app-drawer-scrim" aria-hidden="true" onClick={() => drawer.send('scrim')} />}
       <aside ref={drawer.panel} className="app-sidebar" id="app-sidebar" aria-label="Sidebar" data-open={drawer.open || undefined}>
         <div className="app-sidebar-head">
-          <a className="app-sidebar-crest" href={APP_HOME} onClick={choose}>
+          <Link className="app-sidebar-crest" href={APP_HOME} onClick={choose}>
             <span className="app-sidebar-logo" aria-hidden="true" dangerouslySetInnerHTML={{ __html: CREST }} />
             <span className="ask-mark">OMNI LOOP</span>
-          </a>
+          </Link>
           {viewer.workspaceName && <p className="app-sidebar-workspace">{viewer.workspaceName}</p>}
         </div>
         <nav className="app-sidebar-nav" aria-label="Sections">

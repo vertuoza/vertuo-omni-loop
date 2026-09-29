@@ -11,6 +11,17 @@ import { SIGNED_OUT_VIEWER, type ViewerView } from './viewer-view';
 
 const at = { path: '/ask/for-me' as string | null };
 vi.mock('next/navigation', () => ({ usePathname: () => at.path }));
+// next/link as a plain anchor that records each href it links (PRD 657).
+const linked = vi.hoisted((): string[] => []);
+vi.mock('next/link', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    default: ({ prefetch: _prefetch, ...props }: Record<string, unknown>) => {
+      linked.push(String(props.href));
+      return h('a', props);
+    },
+  };
+});
 
 const { AppBar } = await import('./AppBar.tsx');
 
@@ -107,6 +118,13 @@ describe('the top bar', () => {
     expect(bar).not.toMatch(/<dialog [^>]*\bopen\b/);
     expect(text(dialog)).toBe([GAME_MODE.title, GAME_MODE.line, GAME_MODE.stay, GAME_MODE.go].join(' '));
     expect(dialog).toMatch(/<a [^>]*href="\/#menu"[^>]*>Switch<\/a>/);
+  });
+
+  it('links the crest home through next/link: a click keeps the layout (PRD 657)', () => {
+    linked.length = 0;
+    const [crest] = render('/prd/3f2a', ADA).match(/<a\b[^>]*class="app-bar-crest"[^>]*>/) ?? [''];
+    expect(crest).toContain('href="/app"');
+    expect(linked).toEqual(['/app']);
   });
 
   it('offers no System theme', () => {
