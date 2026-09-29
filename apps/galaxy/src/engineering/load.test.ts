@@ -9,7 +9,7 @@ vi.mock('../data/workspace', () => ({ memberWorkspace: () => given.workspace() }
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { UNREADABLE } from '../dashboard/part';
-import { loadEngineering, loadEngineeringBoard, supabaseEngineeringReads, type EngineeringReads } from './load';
+import { loadEngineering, loadEngineeringBoard, loadEngineeringRepository, loadEngineeringRepositoryBoard, supabaseEngineeringReads, type EngineeringReads } from './load';
 
 // /app/engineering's read (PRD 612 s3), on fakes: no test calls Supabase.
 
@@ -86,6 +86,34 @@ describe('loadEngineering', () => {
   });
 });
 
+describe('loadEngineeringRepository (PRD 645 s2)', () => {
+  const two = (over: Partial<EngineeringReads> = {}) => reads({ tracked: async () => ['acme/widgets', 'Acme/Gears'], ...over });
+
+  it('reads the pull requests and reviews of that repository alone, found whatever its case, under its tracked spelling', async () => {
+    const r = two({ pullRequests: async (from, repos) => { r.asked.push(['prs', from.toISOString(), repos]); return [{ ...PR, repo: 'Acme/Gears' }]; } });
+    const got = await loadEngineeringRepository(r, 'acme/GEARS', REQUEST);
+    expect(got.kind).toBe('repository');
+    if (got.kind !== 'repository') return;
+    expect(got.repo).toBe('Acme/Gears');
+    expect(got.board !== UNREADABLE && got.board.kind === 'board' && got.board.tiles.merged).toBe(1);
+    expect(r.asked.slice(0, 2)).toEqual([
+      ['prs', '2026-09-19T22:00:00.000Z', ['Acme/Gears']],
+      ['reviews', '2026-09-19T22:00:00.000Z', '2026-09-26T22:00:00.000Z', ['Acme/Gears']],
+    ]);
+  });
+
+  it('for a repository the workspace does not track: not tracked, and nothing else read', async () => {
+    const r = two();
+    expect(await loadEngineeringRepository(r, 'acme/sprockets', REQUEST)).toEqual({ kind: 'not-tracked' });
+    expect(r.asked).toEqual([]);
+  });
+
+  it('when the tracked repositories cannot be read: could not load, under the asked name', async () => {
+    const got = await loadEngineeringRepository(two({ tracked: async () => { throw new Error('boom'); } }), 'acme/gears', REQUEST);
+    expect(got).toEqual({ kind: 'repository', repo: 'acme/gears', board: UNREADABLE });
+  });
+});
+
 describe('loadEngineeringBoard', () => {
   const db = () => ({ from: () => { throw new Error('no read expected'); } }) as unknown as SupabaseClient;
 
@@ -97,6 +125,43 @@ describe('loadEngineeringBoard', () => {
   it('when the workspace cannot be read: the board says it could not load', async () => {
     given.workspace = async () => { throw new Error('down'); };
     expect(await loadEngineeringBoard(db(), { id: 'u-1' }, REQUEST)).toEqual({ kind: 'board', name: 'Engineering', board: UNREADABLE });
+  });
+});
+
+describe('loadEngineeringRepositoryBoard (PRD 645 s2)', () => {
+  it('for an account in no workspace: no-workspace', async () => {
+    given.workspace = async () => null;
+    const db = { from: () => { throw new Error('no read expected'); } } as unknown as SupabaseClient;
+    expect(await loadEngineeringRepositoryBoard(db, { id: 'u-1' }, 'acme/gears', REQUEST)).toEqual({ kind: 'no-workspace' });
+  });
+
+  it('narrows the reads to that repository on Supabase, and heads the board with its tracked spelling', async () => {
+    given.workspace = async () => ({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} });
+    const calls: unknown[][] = [];
+    const answers: Record<string, unknown[][]> = {
+      repositories: [[{ full_name: 'acme/widgets' }, { full_name: 'Acme/Gears' }]], pull_requests: [[]], pull_request_reviews: [[]], players: [[]],
+    };
+    const db = {
+      from(table: string) {
+        const call: unknown[] = [table];
+        calls.push(call);
+        const q: Record<string, unknown> = {};
+        for (const m of ['select', 'eq', 'in', 'or', 'gte', 'lt', 'order', 'range']) q[m] = (...a: unknown[]) => { call.push([m, ...a]); return q; };
+        q.then = (ok: (v: unknown) => unknown) => Promise.resolve({ data: answers[table].shift(), error: null }).then(ok);
+        return q;
+      },
+    } as unknown as SupabaseClient;
+    const got = await loadEngineeringRepositoryBoard(db, { id: 'u-1' }, 'acme/gears', REQUEST);
+    expect(got).toMatchObject({ kind: 'board', name: 'Vertuoza', repo: 'Acme/Gears' });
+    const of = (table: string) => calls.find((c) => c[0] === table)!;
+    expect(of('pull_requests')).toContainEqual(['in', 'repo', ['Acme/Gears']]);
+    expect(of('pull_request_reviews')).toContainEqual(['in', 'repo', ['Acme/Gears']]);
+  });
+
+  it('for a repository the workspace does not track: not tracked', async () => {
+    given.workspace = async () => ({ id: 'ws-1', slug: 'vertuoza', name: 'Vertuoza', theme: {} });
+    const db = { from: () => ({ select: () => ({ eq: () => ({ eq: async () => ({ data: [{ full_name: 'acme/widgets' }], error: null }) }) }) }) } as unknown as SupabaseClient;
+    expect(await loadEngineeringRepositoryBoard(db, { id: 'u-1' }, 'acme/gears', REQUEST)).toEqual({ kind: 'not-tracked' });
   });
 });
 
