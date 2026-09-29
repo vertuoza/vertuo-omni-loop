@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useId, useReducer, useRef, useState } from 'react';
+import { PersonChip } from '../people/PersonChip';
 import { BLOCKED_BY_BROWSER } from '../waiting/alerts';
 import { useAlerts, useWaiting } from '../waiting/WaitingProvider';
 import type { DocumentGroup } from '../waiting/documents';
@@ -12,7 +13,7 @@ import './bell.css';
 // (the focus back on the bell), a click outside it or choosing an item closes it. Below 900 px the
 // panel takes the screen's width under the top bar (bell.css). The panel's foot holds the Desktop
 // alerts and Chime switches (s5), kept by the waiting provider. PRD 579: a New documents group after
-// Outbox, which never adds to the badge.
+// Outbox, which never adds to the badge. PRD 652: who shared a question shows as a person chip.
 
 export function Bell() {
   const { list, unread, unreadPrds, documents } = useWaiting();
@@ -91,7 +92,10 @@ export function BellView({ list, documents = [], unread, now, onOpen, alerts }: 
                     <a className="bell-line" href={line.href} onClick={() => send('choose')}>
                       <span className="bell-line-head">{line.head}</span>
                       <span className="bell-line-text">{line.text}</span>
-                      <span className="bell-line-meta" suppressHydrationWarning>{line.meta}</span>
+                      <span className="bell-line-meta" suppressHydrationWarning>
+                        {line.meta}
+                        {line.sharedBy && <> · shared by <PersonChip person={line.sharedBy} size="inline" /></>}
+                      </span>
                     </a>
                   </li>
                 ))}

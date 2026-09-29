@@ -5,7 +5,8 @@ import { buttonKey, initialOf, menuKey, publicSupabase, signInFromBar, signOutAn
 import type { ViewerView } from './viewer-view';
 import './user-menu.css';
 
-// You, at the end of the app's top bar (PRD 438). Signed in: the avatar, a button that opens the
+// You, at the end of the app's top bar (PRD 438). Signed in: your hero when you have one (PRD 652),
+// else the avatar, else your initial, on a button that opens the
 // user menu, which follows the WAI-ARIA menu-button pattern: the arrow keys move between items,
 // Escape closes it and gives the focus back to the avatar, Tab closes it and moves on, a click
 // outside closes it. It holds the name and login, a heading nobody chooses, then Sign out. Signed
@@ -81,7 +82,9 @@ export function UserMenu({ viewer }: { viewer: ViewerView }) {
         onClick={() => (open ? close(false) : openAt(0))}
         onKeyDown={onButtonKey}
       >
-        {viewer.avatarUrl
+        {viewer.heroSvg
+          ? <span className="user-menu-hero" aria-hidden="true" dangerouslySetInnerHTML={{ __html: viewer.heroSvg }} />
+          : viewer.avatarUrl
           ? <img className="user-menu-avatar" src={viewer.avatarUrl} alt="" width={28} height={28} />
           : <span className="user-menu-initial" aria-hidden="true">{initialOf(viewer)}</span>}
       </button>

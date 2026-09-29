@@ -1,4 +1,6 @@
 import type { DesktopState } from '../waiting/alerts';
+import { faceOf } from '../people/face';
+import type { Person } from '../people/types';
 import type { DocumentGroup, DocumentKind } from '../waiting/documents';
 import type { WaitingList, WaitingOutbox, WaitingQuestion } from '../waiting/waiting';
 
@@ -24,7 +26,9 @@ export type BellAlerts = {
   onChime?: (on: boolean) => void;
 };
 
-export type BellLine = { id: string; href: string; head: string; text: string; meta: string };
+/** A line of the panel; a question someone shared carries them, drawn as a chip after its meta
+ * ("· shared by", PRD 652). */
+export type BellLine = { id: string; href: string; head: string; text: string; meta: string; sharedBy?: Pick<Person, 'name' | 'face'> };
 
 export type BellGroup = { label: 'Questions' | 'Outbox' | 'New documents'; problem: string | null; lines: BellLine[] };
 
@@ -53,7 +57,8 @@ const questionLine = (q: WaitingQuestion, now: number): BellLine => ({
   href: `/ask/q/${encodeURIComponent(q.id)}`,
   head: q.sessionTitle,
   text: q.question,
-  meta: [waitedFor(now - q.askedAt), q.sharedBy && `shared by ${q.sharedBy}`].filter(Boolean).join(' · '),
+  meta: waitedFor(now - q.askedAt),
+  ...(q.sharedBy ? { sharedBy: { name: q.sharedBy, face: q.sharedByFace ?? faceOf({ name: q.sharedBy }) } } : {}),
 });
 
 const outboxLine = (item: WaitingOutbox): BellLine => ({

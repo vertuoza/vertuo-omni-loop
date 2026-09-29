@@ -2,6 +2,8 @@ import { readQuestions } from '../ask/answer-model';
 import { forMeList, type ForMeRow, type Member } from '../ask/page/question';
 import { tabsOf, type TabRow } from '../ask/page/tabs';
 import type { SessionRow } from '../ask/page/view';
+import { faceOf, type Face } from '../people/face';
+import type { People } from '../people/load';
 
 // The waiting list (PRD 499): what waits for the person looking, on every app-shell page, as pure
 // functions. Two parts: Questions, the open rounds of their own sessions and the ones shared with
@@ -26,6 +28,8 @@ export type WaitingQuestion = {
   askedAt: number;
   /** Who shared it with the person, or null for one of their own sessions. */
   sharedBy: string | null;
+  /** The sharer's face (PRD 652), read from their workspace's people directory: the bell's chip. */
+  sharedByFace?: Face;
 };
 
 /** One outbox item waiting on a PRD's opener: the outbox route's item. */
@@ -66,8 +70,10 @@ export function ownQuestions(rows: readonly TabRow[], texts: ReadonlyMap<string,
   });
 }
 
-/** The rounds shared with the person that the page can still answer, named by who shared them. */
-export function sharedQuestions(rows: readonly ForMeRow[], members: Member[], now: number): WaitingQuestion[] {
+/** The rounds shared with the person that the page can still answer, named by who shared them, with
+ * the sharer's face from the people directory of the round's workspace (`people`, by workspace id);
+ * with none, the name's initial. */
+export function sharedQuestions(rows: readonly ForMeRow[], members: Member[], now: number, people: ReadonlyMap<string, People> = new Map()): WaitingQuestion[] {
   const byId = new Map(rows.map((r) => [r.round.id, r]));
   return forMeList([...rows], members, now).flatMap((entry) => {
     const row = byId.get(entry.roundId);
@@ -79,6 +85,7 @@ export function sharedQuestions(rows: readonly ForMeRow[], members: Member[], no
       question: readQuestions(row.round.questions)[0]?.question ?? entry.question,
       askedAt: Date.parse(row.round.created_at),
       sharedBy: entry.sharedBy,
+      sharedByFace: (row.session.workspace_id && people.get(row.session.workspace_id)?.byId(row.sharedBy, entry.sharedBy).face) || faceOf({ name: entry.sharedBy }),
     }];
   });
 }
