@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Engineering board, per repository</title>
+<style>
+/* Layout: two columns (today | after) per change, stacking at phone width. Colours: the app's ask tokens. */
+:root{--ground:#f5f4fc;--surface:#fff;--sunk:#eceaf8;--line:#d9d6ee;--strong:#85819f;--ink:#17153d;--muted:#4f5486;--plasma:#6233cc;--soft:#efe7ff;--green:#15703f;--cyan:#0b6f86;--red:#b3122f;
+--sans:system-ui,-apple-system,"Segoe UI",sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ground:#100d2e;--surface:#1a1640;--sunk:#141134;--line:#2e2a5c;--strong:#8a86b8;--ink:#f3f1ff;--muted:#b5b2da;--plasma:#b37cff;--soft:#2a1d66;--green:#4ee08a;--cyan:#5fd4ee;--red:#ff6b81;color-scheme:dark}}
+:root[data-theme="dark"]{--ground:#100d2e;--surface:#1a1640;--sunk:#141134;--line:#2e2a5c;--strong:#8a86b8;--ink:#f3f1ff;--muted:#b5b2da;--plasma:#b37cff;--soft:#2a1d66;--green:#4ee08a;--cyan:#5fd4ee;--red:#ff6b81;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.45 var(--sans)}
+main{max-width:1240px;margin:0 auto;padding-inline:16px;padding-block:28px 64px;display:grid;gap:40px}
+h1{margin:0;font-size:26px;text-wrap:balance}
+header p{margin:6px 0 0;color:var(--muted);max-width:70ch}
+section.change{display:grid;gap:14px}
+section.change>h2{margin:0;font-size:19px}
+section.change>p{margin:0;color:var(--muted);max-width:75ch}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:20px}
+.side{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:12px;min-width:0;align-content:start}
+.tag{justify-self:start;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 10px;border-radius:999px;background:var(--sunk);color:var(--muted)}
+.tag.after{background:var(--plasma);color:var(--surface)}
+.url{font:13px ui-monospace,Menlo,monospace;color:var(--muted);background:var(--sunk);padding:6px 10px;border-radius:6px;overflow-wrap:anywhere}
+.num{font-variant-numeric:tabular-nums}
+h3{margin:0;font-size:15px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:16px}
+/* today's lists */
+.old ol{margin:4px 0 0;padding-left:20px;display:grid;gap:3px}
+.old li{font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+/* after: ranked rows */
+.rows{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:9px}
+.rows li{display:grid;grid-template-columns:1.1em 22px minmax(0,1fr) auto;gap:2px 8px;align-items:center}
+.rows .rk{color:var(--muted);font-size:13px}
+.rows .who{font-weight:600;overflow-wrap:anywhere;font-size:14px}
+.rows .c{font-weight:700;font-variant-numeric:tabular-nums}
+.rows .bar{grid-column:3/-1;height:5px;background:var(--sunk);border-radius:3px;overflow:hidden}
+.rows .bar i{display:block;height:100%;border-radius:3px;background:var(--k)}
+.av{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;color:var(--surface);background:var(--strong)}
+.hero{width:22px;height:22px;image-rendering:pixelated}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+/* tables */
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+thead th{color:var(--muted);font-size:11px;letter-spacing:.05em;text-transform:uppercase}
+.r{text-align:right}
+tbody th{font-weight:700}
+a.repo{color:var(--cyan);text-decoration:underline;text-underline-offset:2px}
+.hl{outline:2px dashed var(--plasma);outline-offset:2px;border-radius:3px}
+/* repo page */
+.back{color:var(--cyan);font-size:14px}
+.ph{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px}
+.ph h4{margin:0;font-size:20px;overflow-wrap:anywhere}
+.period{display:flex;gap:4px}
+.period span{font-size:12px;font-weight:700;padding:3px 9px;border:1px solid var(--strong);border-radius:6px}
+.period .on{background:var(--plasma);border-color:var(--plasma);color:var(--surface)}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tile{background:var(--sunk);border-radius:8px;padding:8px 10px;display:grid}
+.tile small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.tile b{font-size:20px;font-variant-numeric:tabular-nums}
+.chart{display:grid;gap:4px}
+.chart svg{width:100%;height:90px}
+.none{color:var(--muted);font-size:14px;margin:0;padding:18px;border:1px dashed var(--line);border-radius:8px;text-align:center}
+.same{margin:0;padding-left:18px;color:var(--muted);display:grid;gap:4px}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>PRD 645 · Engineering board: top people and a page per repository</h1>
+<p>Two changes to <b>/app/engineering</b>. Board figures are as the board showed them on 2026-09-29; the people inside pdf-builder are illustrative. On the real page, the purple hero is the person's game hero in their fleet colour, and each letter circle is their GitHub picture.</p>
+</header>
+
+<section class="change" aria-labelledby="c1">
+<h2 id="c1">1 · Most opened, Most merged, Most reviews</h2>
+<p>Today each row reads as one bold run (<i>pierrederval 676</i>). After, the count sits in its own right-aligned column, a bar shows the gap to the leader, and each person has a face.</p>
+<div class="pair">
+<div class="side old"><span class="tag">Today</span>
+<div class="cols">
+<div><h3>Most opened</h3><ol><li>pierrederval 676</li><li>paetienne 76</li><li>nasser-nightborn 67</li><li>Serghok 30</li><li>AuBrille 25</li></ol></div>
+<div><h3>Most merged</h3><ol><li>pierrederval 701</li><li>paetienne 61</li><li>nasser-nightborn 59</li><li>Serghok 30</li><li>AuBrille 22</li></ol></div>
+<div><h3>Most reviews</h3><ol><li>nath-meyr 38</li><li>Serghok 31</li><li>AlexisWalravens 28</li><li>AuBrille 19</li><li>adesombergh 15</li></ol></div>
+</div></div>
+<div class="side"><span class="tag after">After</span>
+<div class="cols" id="after-lists"></div>
+<div class="legend"><span><svg class="hero" viewBox="0 0 8 8" aria-hidden="true"><rect x="2" y="0" width="4" height="3" fill="#b07cff"/><rect x="3" y="1" width="1" height="1" fill="#17153d"/><rect x="5" y="1" width="1" height="1" fill="#17153d"/><rect x="1" y="3" width="6" height="3" fill="#6233cc"/><rect x="2" y="6" width="1" height="2" fill="#6233cc"/><rect x="5" y="6" width="1" height="2" fill="#6233cc"/></svg> game hero (player in the workspace)</span><span><span class="av">G</span> GitHub picture (everyone else)</span></div>
+</div>
+</div>
+</section>
+
+<section class="change" aria-labelledby="c2">
+<h2 id="c2">2 · One repository's own page</h2>
+<p>Today a repository name is plain text, and every number on the board counts all tracked repositories together. After, each name links to <b>/app/engineering/&lt;owner&gt;/&lt;repo&gt;</b>, keeping the period, and that page shows the same board for that repository alone.</p>
+<div class="pair">
+<div class="side"><span class="tag">Today</span>
+<div class="url">/app/engineering?period=30d</div>
+<div class="scroll"><table><thead><tr><th>Repository</th><th class="r">Opened</th><th class="r">Merged</th><th class="r">Open now</th><th class="r">Median to merge</th></tr></thead>
+<tbody><tr><th>vertuoza/vertuo-omni-loop</th><td class="r">516</td><td class="r">485</td><td class="r">2</td><td class="r">17 min</td></tr>
+<tr><th>vertuoza/vertuo-backend-php</th><td class="r">104</td><td class="r">89</td><td class="r">48</td><td class="r">19.5 h</td></tr>
+<tr><th>vertuoza/pdf-builder</th><td class="r">4</td><td class="r">3</td><td class="r">12</td><td class="r">10.7 d</td></tr></tbody></table></div>
+<p class="none">No way to see pdf-builder's own chart or its top people.</p>
+</div>
+<div class="side"><span class="tag after">After</span>
+<div class="url">/app/engineering?period=30d</div>
+<div class="scroll"><table><thead><tr><th>Repository</th><th class="r">Opened</th><th class="r">Merged</th><th class="r">Open now</th><th class="r">Median to merge</th></tr></thead>
+<tbody><tr><th><a class="repo" href="#repo">vertuoza/vertuo-omni-loop</a></th><td class="r">516</td><td class="r">485</td><td class="r">2</td><td class="r">17 min</td></tr>
+<tr><th><a class="repo" href="#repo">vertuoza/vertuo-backend-php</a></th><td class="r">104</td><td class="r">89</td><td class="r">48</td><td class="r">19.5 h</td></tr>
+<tr><th><a class="repo hl" href="#repo">vertuoza/pdf-builder</a></th><td class="r">4</td><td class="r">3</td><td class="r">12</td><td class="r">10.7 d</td></tr></tbody></table></div>
+<div class="url" id="repo">↓ click → /app/engineering/vertuoza/pdf-builder?period=30d</div>
+<a class="back" href="#c2">← All repositories</a>
+<div class="ph"><h4>vertuoza/pdf-builder</h4><div class="period"><span>7d</span><span class="on">30d</span><span>season</span></div></div>
+<div class="tiles">
+<div class="tile"><small>Opened</small><b>4</b></div><div class="tile"><small>Merged</small><b>3</b></div><div class="tile"><small>Open now</small><b>12</b></div>
+<div class="tile"><small>Median to merge</small><b>10.7 d</b></div><div class="tile"><small>Commits</small><b>98</b></div><div class="tile"><small>Lines</small><b>2,604</b></div>
+</div>
+<div class="chart"><h3>Merged per day · pdf-builder</h3>
+<svg viewBox="0 0 300 90" role="img" aria-label="Three merges this period: one on day 9, two on day 24">
+<line x1="0" y1="80" x2="300" y2="80" stroke="var(--line)"/>
+<rect x="84" y="50" width="8" height="30" fill="var(--plasma)"/>
+<rect x="234" y="20" width="8" height="60" fill="var(--plasma)"/>
+</svg></div>
+<div class="cols" id="repo-lists"></div>
+<ul class="same"><li>No Repositories table on this page: one row would repeat the tiles.</li><li>An untracked repository's address returns a 404.</li></ul>
+</div>
+</div>
+</section>
+</main>
+<script>
+const COL={opened:'var(--plasma)',merged:'var(--green)',reviews:'var(--cyan)'};
+const T={opened:'Most opened',merged:'Most merged',reviews:'Most reviews'};
+const HERO=new Set(['pierrederval','serghok']);
+const hero=c=>`<svg class="hero" viewBox="0 0 8 8" aria-hidden="true"><rect x="2" y="0" width="4" height="3" fill="${c}"/><rect x="3" y="1" width="1" height="1" fill="#17153d"/><rect x="5" y="1" width="1" height="1" fill="#17153d"/><rect x="1" y="3" width="6" height="3" fill="#6233cc"/><rect x="2" y="6" width="1" height="2" fill="#6233cc"/><rect x="5" y="6" width="1" height="2" fill="#6233cc"/></svg>`;
+const face=p=>HERO.has(p.toLowerCase())?hero(p==='Serghok'?'#d08a4a':'#b07cff'):`<span class="av" aria-hidden="true">${p[0].toUpperCase()}</span>`;
+function lists(el,L){el.innerHTML=Object.keys(L).map(k=>{const m=L[k][0][1];return `<div><h3>${T[k]}</h3><ol class="rows">${L[k].map(([p,v],i)=>`<li><span class="rk">${i+1}</span>${face(p)}<span class="who">${p}</span><span class="c">${v.toLocaleString('en-US')}</span><span class="bar"><i style="--k:${COL[k]};width:${(v/m*100).toFixed(1)}%"></i></span></li>`).join('')}</ol></div>`}).join('')}
+lists(document.getElementById('after-lists'),{opened:[["pierrederval",676],["paetienne",76],["nasser-nightborn",67],["Serghok",30],["AuBrille",25]],merged:[["pierrederval",701],["paetienne",61],["nasser-nightborn",59],["Serghok",30],["AuBrille",22]],reviews:[["nath-meyr",38],["Serghok",31],["AlexisWalravens",28],["AuBrille",19],["adesombergh",15]]});
+lists(document.getElementById('repo-lists'),{opened:[["nasser-nightborn",3],["AuBrille",1]],merged:[["Serghok",2],["AuBrille",1]],reviews:[["nath-meyr",2],["adesombergh",1]]});
+</script>
+</body>
+</html>
