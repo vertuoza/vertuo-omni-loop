@@ -1,0 +1,49 @@
+{
+  "$schema": "./node_modules/fallow/schema.json",
+  // `.omni-loop/` holds one script, the shim onto `kit/bin/omni.mjs` (an entry below), and
+  // fallow never walks a hidden directory, even when named as an entry: listed here so the run
+  // says so once, in this file, instead of warning on every audit.
+  "ignorePatterns": [".omni-loop/**"],
+  // Files run by path — from a package.json script, a workflow step or a Vercel route —
+  // that no import statement names. Listed so no finding exists only because fallow cannot see
+  // their caller (PRD 598).
+  "entry": [
+    // The kit's CLI: `.omni-loop/bin/omni.mjs` (the shim every skill runs) and the bundle both
+    // start here.
+    "kit/bin/omni.mjs",
+    // `pnpm kit:build` runs it by path.
+    "kit/build.mjs",
+    // The `release` workflow runs it by path (`node kit/release/release.mjs`).
+    "kit/release/release.mjs",
+    // The game's commands, each run by path from a `game:*` script of the root package.json.
+    "game/cli/*.mjs",
+    // The arcade's scripts, run by path from `releases:sync` and the galaxy app's `seed` and
+    // `shots` scripts.
+    "apps/galaxy/scripts/*.mjs",
+    // The arcade's artifact build, run by path from the galaxy app's `artifact` script.
+    "apps/galaxy/artifact/build.mjs",
+    // The GitHub App's Vercel functions: Vercel routes `api/*` by file name.
+    "apps/omni-app/api/*.mjs",
+  ],
+  "ignoreUnresolvedImports": [
+    // fumadocs-mdx writes `apps/galaxy/.source/` at build time and it is gitignored, so on a
+    // fresh checkout (the one CI audits) `src/docs/source.ts`'s import of it never resolves.
+    "../../.source/server",
+    // Not an import: `src/switch/headers.test.ts` builds `new URL('../ask/page/AskBar.tsx', …)`
+    // to assert that the file is gone, and fallow reads the URL as one.
+    "../ask/page/AskBar.tsx",
+  ],
+  // `fallow audit` grades changed files against these, so a pull request sees only the findings
+  // it introduces. How and when to regenerate them: fallow/README.md.
+  "audit": {
+    "deadCodeBaseline": "./fallow/dead-code.json",
+    "dupesBaseline": "./fallow/dupes.json",
+    "healthBaseline": "./fallow/health.json",
+  },
+  // Off, as in vertuoza/vnext: a type-aware baseline's `analysis_identity.completeness` differs
+  // between machines, and `audit` then fails with exit 2 whatever the baseline holds. The
+  // `fallow-type-aware` package is not even installed (package.json `pnpm.ignoredOptionalDependencies`).
+  "typeAware": {
+    "enabled": false,
+  },
+}

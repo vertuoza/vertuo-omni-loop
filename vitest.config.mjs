@@ -6,7 +6,7 @@ export const TEST_TIMEOUT_MS = 120_000;
 
 export default {
   test: {
-    include: ['game/**/*.test.mjs', 'kit/**/*.test.mjs', 'packages/**/*.test.mjs', 'apps/omni-app/**/*.test.mjs', 'apps/*/src/**/*.test.ts'],
+    include: ['game/**/*.test.mjs', 'kit/**/*.test.mjs', 'packages/**/*.test.mjs', 'apps/omni-app/**/*.test.mjs', 'apps/*/src/**/*.test.ts', '.claude/hooks/**/*.test.mjs', 'scripts/**/*.test.mjs'],
     exclude: ['**/node_modules/**'],
     testTimeout: TEST_TIMEOUT_MS,
     hookTimeout: TEST_TIMEOUT_MS,
