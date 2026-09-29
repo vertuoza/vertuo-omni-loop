@@ -42,6 +42,9 @@ function readBase(ctx, exec) {
   return local ? { name: names.local, commit: local } : null;
 }
 
+/** The file a retro PR adds to a shipped PRD's folder: a folder holding it is at retro (PRD 587). */
+export const RETRO_FILE = 'retro.md';
+
 /** The PRD folders directly under `dir` at `ref`, as `{ prd, topic, name }`; none when `dir` is not
  * there. */
 function foldersAt(ctx, exec, ref, dir) {
@@ -52,6 +55,17 @@ function foldersAt(ctx, exec, ref, dir) {
       return folder && { ...folder, name };
     })
     .filter(Boolean);
+}
+
+/** The PRD numbers whose folder directly under `dir` at `ref` holds `RETRO_FILE`. */
+function retroAt(ctx, exec, ref, dir) {
+  const out = new Set();
+  for (const path of entries(git(ctx, exec, ['ls-tree', '-r', '-z', '--name-only', ref, '--', `${dir}/`]))) {
+    const parts = path.slice(dir.length + 1).split('/');
+    const folder = parts.length === 2 && parts[1] === RETRO_FILE ? parseFolderName(parts[0]) : null;
+    if (folder) out.add(folder.prd);
+  }
+  return [...out];
 }
 
 /** A path `git rev-parse <args>` prints, made absolute, or `null` when git cannot say. */
@@ -224,15 +238,16 @@ function unlessUnreadable(read) {
 
 /**
  * The feature branch (`branches.feature` with the folder's topic) of each PRD in the base's inbox
- * that has one on the remote, as `{ branch, topic, forked, differs, outbox, authors, touched }`:
- * `forked` holds the paths outside the delivery folder it changed since it forked from the base,
- * `differs` those that differ from the base now, `outbox` every file under the PRD's outbox folder
- * on it, `authors` the emails of its commits beyond the base, and `touched` the PRD folders those
- * commits touched.
+ * that has one on the remote, as `{ branch, topic, forked, differs, outbox, ships, authors,
+ * touched }`: `forked` holds the paths outside the delivery folder it changed since it forked from
+ * the base, `differs` those that differ from the base now, `outbox` every file under the PRD's
+ * outbox folder on it, `ships` whether its shipped folder holds the PRD (the green gate's
+ * `omni ship`, done before the feature PR is marked ready), `authors` the emails of its commits
+ * beyond the base, and `touched` the PRD folders those commits touched.
  */
 function featuresOf(ctx, exec, base, inbox, remote) {
   const out = [];
-  for (const { topic, name } of inbox) {
+  for (const { prd, topic, name } of inbox) {
     const branch = fillBranch(ctx.config.branches.feature, { topic });
     const ref = remote.get(branch);
     if (!ref) continue;
@@ -244,6 +259,7 @@ function featuresOf(ctx, exec, base, inbox, remote) {
         forked: changedOutside(ctx, exec, [`${base}...${ref}`]),
         differs: changedOutside(ctx, exec, [base, ref]),
         outbox: filesUnder(ctx, exec, ref, `${ctx.layout.dirs.outbox}/${name}`),
+        ships: foldersAt(ctx, exec, ref, ctx.layout.dirs.shipped).some((folder) => folder.prd === prd),
         authors: authorsOf(beyond),
         touched: touchedBy(ctx, beyond),
       };
@@ -272,9 +288,10 @@ function phase0Of(ctx, exec, base, remote) {
 }
 
 /**
- * What the overview needs: `{ slug, base, fetchedAt, email, shallow, shipped, inbox, touched,
+ * What the overview needs: `{ slug, base, fetchedAt, email, shallow, shipped, retro, inbox, touched,
  * features, phase0 }` — `base` the name the base was read under, `email` what `user.email` gives
- * (or `null`), `shallow` whether the clone is, `shipped` and `inbox` the base's PRD folders,
+ * (or `null`), `shallow` whether the clone is, `shipped` and `inbox` the base's PRD folders, `retro`
+ * the numbers of the shipped ones holding `RETRO_FILE`,
  * `touched` the PRD folders each author's commits on the base touched, `features` the feature
  * branches of its inbox's PRDs and `phase0` the phase-0 branches, both read on `<repo.remote>`.
  * `null` when neither the remote-tracking default branch nor the local one exists.
@@ -292,6 +309,7 @@ export function readFacts({ ctx, exec = execFileSync }) {
     email: userEmail(ctx, exec),
     shallow: isShallow(ctx, exec),
     shipped: foldersAt(ctx, exec, base.commit, dirs.shipped),
+    retro: retroAt(ctx, exec, base.commit, dirs.shipped),
     inbox,
     touched: touchedBy(ctx, commitsIn(ctx, exec, base.commit, [`${ctx.config.paths.delivery}/`])),
     features: featuresOf(ctx, exec, base.commit, inbox, remote),
