@@ -1,10 +1,14 @@
 'use client';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useState, useSyncExternalStore } from 'react';
 import {
   activeQuestion,
+  addShots,
   keyIntent,
   pickByKey,
   pickOption,
+  removeShot,
+  roundShots,
+  SHOT_TYPES,
   shownLabel,
   shownPreview,
   toggleOther,
@@ -12,12 +16,16 @@ import {
   type AskQuestion,
   type Draft,
   type Pick,
+  type Shot,
 } from '../answer-model';
+import { imagesOf, progressOf, progressText, shotOf, stageShots, subscribeTrays } from './attachments';
 
 // The open round: each question with its header chip and its text as the heading, the options as
 // large rows (radios, or checkboxes for a multi-select) with their descriptions, the Recommended
 // badge, Other, and a preview panel beside the options when an option carries one. Keys 1 to 4 pick
-// in the question with the focus (else the first without an answer) and Enter sends.
+// in the question with the focus (else the first without an answer) and Enter sends. Other takes
+// screenshots (PRD 620) by its button, by pasting into its text and by dropping files on it; the form
+// stages them for its round, and Send uploads them first, saying how far it got.
 
 type Props = {
   roundId: string;
@@ -39,9 +47,33 @@ function questionOf(el: Element | null): number | null {
   return at === undefined || at === null ? null : Number(at);
 }
 
+/** One screenshot's thumbnail, drawn from its file once the page runs, with the × that removes it. */
+function Thumb({ shot, n, onRemove }: { shot: Shot; n: number; onRemove: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const made = URL.createObjectURL(shot.file);
+    setUrl(made);
+    return () => URL.revokeObjectURL(made);
+  }, [shot.file]);
+  return (
+    <li className="ask-shot">
+      {url ? <img className="ask-shot-img" src={url} alt={`Screenshot ${n}`} /> : <span className="ask-shot-img" aria-hidden="true" />}
+      <button type="button" className="ask-shot-x" aria-label={`Remove screenshot ${n}`} onClick={onRemove}>×</button>
+    </li>
+  );
+}
+
 export function RoundForm({ roundId, questions, draft, onDraft, canSend, sending, onSend, minutesLeft }: Props) {
   const id = useId();
   const [focus, setFocus] = useState<{ question: number; option: number } | null>(null);
+  const [refused, setRefused] = useState<Record<number, string[]>>({});
+  const progress = useSyncExternalStore(subscribeTrays, () => progressOf(roundId), () => progressOf(roundId));
+  const upload = progressText(progress);
+
+  // What Send uploads: the screenshots of every question whose Other is chosen.
+  useEffect(() => {
+    stageShots(roundId, roundShots(questions, draft));
+  }, [roundId, questions, draft]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -65,6 +97,16 @@ export function RoundForm({ roundId, questions, draft, onDraft, canSend, sending
   }, [questions, draft, onDraft, canSend, sending, onSend]);
 
   const update = (index: number, pick: Pick) => onDraft(draft.map((p, i) => (i === index ? pick : p)));
+  const addFiles = (index: number, files: File[]) => {
+    if (!files.length) return;
+    const added = addShots(questions, draft, index, files.map(shotOf));
+    if (added.draft !== draft) onDraft(added.draft);
+    setRefused((all) => ({ ...all, [index]: added.refused }));
+  };
+  const dropShot = (index: number, id: string) => {
+    onDraft(removeShot(draft, index, id));
+    setRefused((all) => ({ ...all, [index]: [] }));
+  };
 
   return (
     <section className="ask-round" aria-label="Claude asks">
@@ -110,7 +152,18 @@ export function RoundForm({ roundId, questions, draft, onDraft, canSend, sending
                     </label>
                   );
                 })}
-                <div className="ask-opt ask-other">
+                <div
+                  className="ask-opt ask-other"
+                  onDragOver={(event) => {
+                    if (Array.from(event.dataTransfer.types).includes('Files')) event.preventDefault();
+                  }}
+                  onDrop={(event) => {
+                    const files = imagesOf(event.dataTransfer);
+                    if (!files.length) return;
+                    event.preventDefault();
+                    addFiles(index, files);
+                  }}
+                >
                   <input
                     id={`${name}-other`}
                     type={question.multiSelect ? 'checkbox' : 'radio'}
@@ -129,7 +182,37 @@ export function RoundForm({ roundId, questions, draft, onDraft, canSend, sending
                     aria-label={`Your own answer: ${question.question}`}
                     value={pick.otherText}
                     onChange={(event) => update(index, typeOther(question, pick, event.target.value))}
+                    onPaste={(event) => {
+                      const files = imagesOf(event.clipboardData);
+                      if (!files.length) return;
+                      event.preventDefault();
+                      addFiles(index, files);
+                    }}
                   />
+                  <div className="ask-shots">
+                    {!!pick.shots?.length && (
+                      <ul className="ask-shot-list" aria-label="Screenshots">
+                        {pick.shots.map((shot, n) => <Thumb key={shot.id} shot={shot} n={n + 1} onRemove={() => dropShot(index, shot.id)} />)}
+                      </ul>
+                    )}
+                    <input
+                      id={`${name}-shots`}
+                      className="ask-sr"
+                      type="file"
+                      multiple
+                      accept={SHOT_TYPES.join(',')}
+                      tabIndex={-1}
+                      aria-hidden="true"
+                      onChange={(event) => {
+                        addFiles(index, Array.from(event.target.files ?? []));
+                        event.target.value = '';
+                      }}
+                    />
+                    <button type="button" className="ask-shot-add" onClick={() => document.getElementById(`${name}-shots`)?.click()}>
+                      Add screenshot
+                    </button>
+                    {!!refused[index]?.length && <p className="ask-shot-refused" role="status">{refused[index].join(' · ')}</p>}
+                  </div>
                 </div>
               </fieldset>
               {preview && (
@@ -149,8 +232,9 @@ export function RoundForm({ roundId, questions, draft, onDraft, canSend, sending
             {minutesLeft > 1 ? `moves to the terminal in ${minutesLeft} min` : 'moves to the terminal in a minute'}
           </span>
         </span>
+        {progress.kind === 'failed' && !sending && <p className="ask-shot-problem" role="status">{upload}</p>}
         <button type="button" className="ask-button" disabled={!canSend || sending} onClick={onSend}>
-          {sending ? 'Sending…' : 'Send to Claude'}
+          {sending ? (progress.kind === 'uploading' ? upload : 'Sending…') : 'Send to Claude'}
         </button>
       </div>
     </section>

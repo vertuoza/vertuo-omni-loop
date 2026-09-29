@@ -1,7 +1,8 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect } from 'vitest';
-import { emptyDraft, pickOption, readQuestions } from '../answer-model';
+import { addShots, emptyDraft, pickOption, readQuestions } from '../answer-model';
+import { trayOf } from './attachments';
 import { AskPage } from './AskPage';
 import { AskSession } from './AskSession';
 import { CategoryChip } from './CategoryChip';
@@ -90,6 +91,38 @@ describe('the round, rendered', () => {
 
   it('says how long before the question moves to the terminal', () => {
     expect(html).toContain('moves to the terminal in 8 min');
+  });
+});
+
+describe('screenshots on Other, rendered (PRD 620)', () => {
+  const png = (id: string) => ({ id, type: 'image/png', size: 3, file: new Blob([id], { type: 'image/png' }) });
+
+  it('gives every Other an Add screenshot button over a hidden image picker', () => {
+    const html = round();
+    expect(count(html, /<button type="button" class="ask-shot-add">Add screenshot<\/button>/)).toBe(2);
+    expect(count(html, /type="file" multiple="" accept="image\/png,image\/jpeg,image\/gif,image\/webp"/)).toBe(2);
+    expect(html).not.toContain('class="ask-shot"');
+  });
+
+  it('shows each screenshot as a thumbnail with a × that removes it', () => {
+    const { draft } = addShots([storage, checks], emptyDraft([storage, checks]), 0, [png('a'), png('b')]);
+    const html = round(draft, true);
+    expect(count(html, /<li class="ask-shot">/)).toBe(2);
+    expect(html).toContain('aria-label="Remove screenshot 1"');
+    expect(html).toContain('aria-label="Remove screenshot 2"');
+    expect(html).toMatch(/<input id="[^"]*-other" type="radio"[^>]*checked=""/);
+  });
+
+  it('says how far the upload got while Send runs, and where it stopped', () => {
+    trayOf('r1').setProgress({ kind: 'uploading', at: 2, total: 3 });
+    const sending = renderToStaticMarkup(createElement(RoundForm, {
+      roundId: 'r1', questions: [storage, checks], draft: emptyDraft([storage, checks]), onDraft: () => {}, canSend: true, sending: true, onSend: () => {}, minutesLeft: 8,
+    }));
+    expect(sending).toContain('>Uploading 2 of 3…</button>');
+    trayOf('r1').setProgress({ kind: 'failed', at: 2, total: 3 });
+    expect(round(undefined, true)).toContain('<p class="ask-shot-problem" role="status">Could not upload 2 of 3 — Send again</p>');
+    trayOf('r1').setProgress({ kind: 'idle' });
+    expect(round()).not.toContain('ask-shot-problem');
   });
 });
 
