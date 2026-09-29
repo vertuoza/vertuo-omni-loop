@@ -13149,9 +13149,10 @@ function parseArgs(command, argv, { values = [], booleans = [] } = {}) {
   }
   return { positional, flags };
 }
+var DIGITS = /^\d+$/;
 function positiveInt(command, what, value) {
   const number = Number(value);
-  if (value === void 0 || value === true || !Number.isInteger(number) || number <= 0) {
+  if (value === void 0 || value === true || !DIGITS.test(String(value)) || number <= 0) {
     throw usageError(`omni ${command}: ${what} must be a positive number${value === void 0 ? "" : `, got "${value}"`}.`);
   }
   return number;
