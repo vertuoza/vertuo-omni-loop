@@ -76,6 +76,7 @@ export const ConfigSchema = z
       outboxGo: text.default('omni:outbox-go'),
       retro: text.default('omni:retro'),
       knowledge: text.default('omni:knowledge'),
+      visual: text.default('omni:visual'),
       autoCreate: z.boolean().default(false),
     }),
     prLinks: section({

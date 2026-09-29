@@ -53,9 +53,9 @@ describe('the help table in this repository', () => {
   });
 
   it('holds the 30 commands and the 13 skills', () => {
-    expect(Object.keys(COMMAND_TABLE)).toHaveLength(30);
+    expect(Object.keys(COMMAND_TABLE)).toHaveLength(31);
     expect(skillFolders()).toHaveLength(13);
-    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(30);
+    expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(31);
     expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(13);
   });
 
