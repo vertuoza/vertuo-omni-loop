@@ -1,14 +1,22 @@
 import { periodWindow, type Period } from '../dashboard/board/period';
+import { withFaces, type FacePlayer } from './faces';
 import type { EngineeringBoard } from './load';
 import { engineeringOf, OMNI_MAN, type PullRequestRow, type ReviewRow, type SortKey } from './tally';
 
 // The demo's Engineering board (PRD 612 s3), for development and OMNI_LOOP_DEMO=1: two tracked
 // repositories and a month and a half of made-up pull requests and reviews, counted as a workspace's
-// would be. Fixed: the same `now` draws the same board.
+// would be, with a player or two for their heroes. Fixed: the same `now` draws the same board.
 
 const TRACKED = ['acme/widgets', 'acme/gears'];
 const PEOPLE = ['ada', 'bob', 'carl', 'dora', 'eli', 'fay'];
 const HOUR = 3_600_000;
+
+/** The demo's players, so both kinds of face show: ada and dora draw their heroes (ada in her fleet's
+ * colour, dora with no fleet), everyone else their GitHub picture. */
+const PLAYERS: FacePlayer[] = [
+  { login: 'ada', hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 }, color: '#e0457b' },
+  { login: 'dora', hero: { v: 1, body: 'boy', skin: 2, hair: 1, suit: 1, cape: 0 }, color: null },
+];
 
 const openedAt = (i: number, now: Date) => new Date(now.getTime() - (i * 11 + 3) * HOUR);
 const isSigned = (i: number) => i % 3 === 0;
@@ -42,5 +50,6 @@ function rows(now: Date): { pullRequests: PullRequestRow[]; reviews: ReviewRow[]
 }
 
 export function demoEngineeringBoard(period: Period, sort: SortKey, now: Date): EngineeringBoard {
-  return { kind: 'board', name: 'Demo workspace', board: engineeringOf({ tracked: TRACKED, ...rows(now) }, periodWindow(period, now), sort) };
+  const board = engineeringOf({ tracked: TRACKED, ...rows(now) }, periodWindow(period, now), sort);
+  return { kind: 'board', name: 'Demo workspace', board: withFaces(board, PLAYERS) };
 }
