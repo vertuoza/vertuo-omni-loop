@@ -13,7 +13,7 @@ import { graphOfTexts } from 'vertuo-omni-plan/kit/lib/knowledge/graph.mjs';
 import { z } from 'zod';
 import type { KnowledgeGraph } from '../data/knowledge';
 import type { WorkspaceGithub } from '../data/workspace';
-import { githubApp, REPO, type AppCredentials, type InstallationToken } from '../signup/github-app';
+import { githubApp, reachedRepositories, type AppCredentials, type InstallationToken } from '../signup/github-app';
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -27,14 +27,6 @@ export const GRAPH_TTL_MS = 60_000;
 const TOKEN_MARGIN_MS = 60_000;
 /** Repositories whose configs one GraphQL call checks. */
 export const CONFIG_BATCH = 50;
-/** Pages of a hundred repositories read from one installation: past a thousand waits for a need. */
-const MAX_PAGES = 10;
-
-const Listing = z.object({
-  total_count: z.number().int().nonnegative(),
-  repositories: z.array(z.object({ full_name: z.string(), archived: z.boolean().optional().default(false) })),
-});
-
 const Blob = z.object({ text: z.string().nullable().optional(), isTruncated: z.boolean().optional() });
 const Entry = z.object({ name: z.string(), type: z.string(), object: Blob.nullable().optional() });
 /** A folder, as the `files` fragment reads it; `entries` is absent when the path is not a folder. */
@@ -124,28 +116,12 @@ export function knowledgeReader(
     return body.data;
   }
 
-  /** Every repository installation `id` reaches, archived ones left out. */
-  async function reached(token: string): Promise<string[]> {
-    const names: string[] = [];
-    for (let page = 1; page <= MAX_PAGES; page += 1) {
-      const path = `/installation/repositories?per_page=100&page=${page}`;
-      const res = await fetchImpl(`${GITHUB}${path}`, { headers: headers(token), cache: 'no-store' });
-      if (!res.ok) throw new Error(`GitHub answered ${res.status} to ${path}`);
-      const parsed = Listing.safeParse(await res.json());
-      if (!parsed.success) throw new Error(`GitHub's answer to ${path} is not the shape it documents`);
-      const { repositories, total_count } = parsed.data;
-      names.push(...repositories.filter((r) => !r.archived && REPO.test(r.full_name)).map((r) => r.full_name));
-      if (repositories.length < 100 || page * 100 >= total_count) break;
-    }
-    return names;
-  }
-
   /** The listed repositories of installation `id`, each with its knowledge folder's path. */
   async function listing(id: number): Promise<Map<string, string>> {
     const kept = listings.get(id);
     if (kept && clock() - kept.at < LISTING_TTL_MS) return kept.value;
     const token = await tokenFor(id);
-    const all = await reached(token);
+    const all = await reachedRepositories(token, fetchImpl);
     const found = new Map<string, string>();
     for (let from = 0; from < all.length; from += CONFIG_BATCH) {
       const batch = all.slice(from, from + CONFIG_BATCH);

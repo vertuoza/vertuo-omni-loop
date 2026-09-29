@@ -1,0 +1,30 @@
+/* The Engineering board (PRD 612 s3), on the ask pages' reading surface, drawn with the other boards'
+   pieces (../dashboard/board/board.css) and these few of its own: six tiles, the Omni Loop panel, the
+   two parts of a day's bar, the sort links and the three top-5 lists. Every colour is a token of
+   src/ask/theme-tokens.ts. Nothing is wider than the window: at 393 px the tiles go two by two, the
+   panel sits above the chart, the lists one under another, and the table scrolls inside its own box. */
+
+@media (min-width: 720px) { .eng-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1100px) { .eng-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
+.eng-omni p { margin: 0; color: var(--ask-muted); overflow-wrap: anywhere; }
+.eng-omni b { color: var(--ask-ink); }
+.eng-omni-share b { font-size: 22px; }
+
+.eng-bar-signed { fill: var(--ask-green); background: var(--ask-green); }
+.eng-bar-rest { fill: var(--ask-plasma); background: var(--ask-plasma); }
+
+.ask .eng-sort { color: inherit; text-decoration: none; }
+.ask .eng-sort:hover { color: var(--ask-ink); text-decoration: underline; }
+[aria-sort] .eng-sort { color: var(--ask-ink); }
+
+.eng-people { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 24px 32px; }
+.eng-top ol { margin: 0; padding-left: 22px; display: grid; gap: 4px; }
+.eng-top li { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+.eng-empty p { margin: 0; overflow-wrap: anywhere; }
+
+@media (forced-colors: active) {
+  .eng-bar-signed { fill: Highlight; }
+  .eng-bar-rest { fill: CanvasText; }
+}
