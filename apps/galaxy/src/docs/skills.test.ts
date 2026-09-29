@@ -71,6 +71,8 @@ describe('a skill page', () => {
     expect(skillPage('dossier-push')!.runBy).toEqual([
       { name: 'brainstorm', command: '/omni:brainstorm', url: '/docs/skills/brainstorm' },
       { name: 'plan', command: '/omni:plan', url: '/docs/skills/plan' },
+      { name: 'visual-fix', command: '/omni:visual-fix', url: '/docs/skills/visual-fix' },
+      { name: 'bug-fix', command: '/omni:bug-fix', url: '/docs/skills/bug-fix' },
     ]);
     expect(skillPage('dossier-open')!.runBy).toEqual([{ name: 'brainstorm', command: '/omni:brainstorm', url: '/docs/skills/brainstorm' }]);
   });

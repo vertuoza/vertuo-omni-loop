@@ -177,8 +177,24 @@ describe('the help table in this repository', () => {
 
   it('lists every verb of omni dossier, link included (PRD 413)', () => {
     const dossier = ENTRIES.find((e) => e.name === 'dossier' && e.kind === 'command');
-    expect(dossier.usage).toEqual(['omni dossier open "<title>"', 'omni dossier push <n>', 'omni dossier link <n>', 'omni dossier status']);
+    expect(dossier.usage).toEqual(['omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug]', 'omni dossier link <n> [--kind visual|bug]', 'omni dossier status']);
     expect(dossier.detail).toMatch(/\blink prints PRD n's page\b/);
+  });
+
+  it('names --kind on dossier push, /omni:dossier-push and both fix skills (PRD 627)', () => {
+    const find = (name, kind) => ENTRIES.find((e) => e.name === name && e.kind === kind);
+    expect(find('dossier', 'command').detail).toMatch(/--kind visual or --kind bug\b.*\bissue n's fix\b/);
+    expect(find('dossier-push', 'skill').usage).toEqual(['/omni:dossier-push <n> [--kind visual|bug]']);
+    expect(find('dossier-push', 'skill').detail).toMatch(/\/omni:visual-fix\b.*\/omni:bug-fix\b.*--kind/);
+    expect(find('visual-fix', 'skill').detail).toMatch(/\/omni:dossier-push <n> --kind visual\b/);
+    expect(find('visual-fix', 'skill').detail).toMatch(/\bevery round of variations\b/);
+    expect(find('bug-fix', 'skill').detail).toMatch(/\/omni:dossier-push <n> --kind bug\b/);
+  });
+
+  it('says omni visual checks the rounds of variations (PRD 627)', () => {
+    const visual = ENTRIES.find((e) => e.name === 'visual' && e.kind === 'command');
+    expect(visual.detail).toMatch(/\bvariations-r<k>\.html\b/);
+    expect(visual.detail).toMatch(/\bno other file\b/);
   });
 
   it('is frozen, down to each entry and its usage', () => {

@@ -150,7 +150,7 @@ export const ENTRIES = deepFreeze([
     name: 'dossier',
     kind: 'command',
     who: 'you',
-    usage: ['omni dossier open "<title>"', 'omni dossier push <n>', 'omni dossier link <n>', 'omni dossier status'],
+    usage: ['omni dossier open "<title>"', 'omni dossier push <n> [--kind visual|bug]', 'omni dossier link <n> [--kind visual|bug]', 'omni dossier status'],
     label: 'omni dossier …',
     summary: "a PRD's dossier on the Omni page",
     detail:
@@ -158,8 +158,9 @@ export const ENTRIES = deepFreeze([
       'spec, plan and before/after. open opens a draft for an idea and prints its link; push sends ' +
       "PRD n's files and adds a version only where a file changed; link prints PRD n's page, on " +
       'any computer, or none when it has no dossier, and writes nothing; status says whether ' +
-      'dossiers are on here. It never holds up the skill that runs it: anything that stops it ' +
-      'exits 1 with one line.',
+      'dossiers are on here. With --kind visual or --kind bug, push and link work on issue n\'s fix ' +
+      'instead: its visual update or bug fix page, filled from its folder. It never holds up the ' +
+      'skill that runs it: anything that stops it exits 1 with one line.',
   },
   {
     name: 'version',
@@ -437,8 +438,9 @@ export const ENTRIES = deepFreeze([
     summary: 'grade a visual fix branch',
     detail:
       "The proof step of /omni:visual-fix, run on its fix branch: one folder for issue <n> under " +
-      "the delivery folder's visual/, holding a before-after.html under the size cap with no base64 " +
-      "raster image, and every commit carrying the loop's signature, unless signing is off. Prints " +
+      "the delivery folder's visual/, holding a before-after.html and each round of variations as " +
+      'variations-r<k>.html, each under the size cap with no base64 raster image, no other file, ' +
+      "and every commit carrying the loop's signature, unless signing is off. Prints " +
       'ok, or not ok with one line per failed check. --base defaults to {remote}/{defaultBranch}.',
   },
   {
@@ -622,7 +624,9 @@ export const ENTRIES = deepFreeze([
       'For a small visual change, such as a colour, a spacing or a label: from one line or an ' +
       'issue number, it shows today beside four or five variations, asks which one, applies the ' +
       'pick on a fix branch, looks at the real screen once and opens one PR into {defaultBranch} ' +
-      'with its before/after page. No PRD, plan or outbox. A change that needs data, a route or a ' +
+      'with its before/after page, every round of variations and who picked what. It sends them to ' +
+      'the fix\'s page on the Omni page (/omni:dossier-push <n> --kind visual) and prints its link. ' +
+      'No PRD, plan or outbox. A change that needs data, a route or a ' +
       'new screen stops it, with the /omni:brainstorm line to run instead. It never merges.',
     group: 'start',
     when: 'Use it when something on screen looks off and the fix is a colour, a spacing or a label.',
@@ -642,7 +646,9 @@ export const ENTRIES = deepFreeze([
       'For a bug a user, a browser or an API caller can see: from one line or an issue, it posts a ' +
       'triage (how bad, whether a change broke it), proves a reproduction fails before any fix, ' +
       'fixes it test-first on a fix branch, adds the check that would have caught it and opens one ' +
-      'PR into {defaultBranch}. No PRD, plan or outbox. A flaky check is not a bug and stops it; a ' +
+      'PR into {defaultBranch}. It sends its record to the fix\'s page on the Omni page ' +
+      '(/omni:dossier-push <n> --kind bug) and prints its link. No PRD, plan or outbox. A flaky ' +
+      'check is not a bug and stops it; a ' +
       'fix that needs a product decision, a stored shape or a new screen stops it, with the ' +
       '/omni:brainstorm line to run instead. It never merges.',
     group: 'start',
@@ -865,12 +871,13 @@ export const ENTRIES = deepFreeze([
     name: 'dossier-push',
     kind: 'skill',
     who: 'skills',
-    usage: ['/omni:dossier-push <n>'],
+    usage: ['/omni:dossier-push <n> [--kind visual|bug]'],
     summary: "send a PRD's files to its dossier",
     detail:
       "Sends PRD n's spec, plan and before/after page to its dossier on the Omni page, adding a " +
       'version only where a file changed. /omni:brainstorm runs it after each of its pushes, and ' +
-      '/omni:plan after it pushes the plan; it never stops the skill that runs it.',
+      '/omni:plan after it pushes the plan; /omni:visual-fix and /omni:bug-fix run it with --kind ' +
+      'visual or --kind bug for their fix\'s page. It never stops the skill that runs it.',
     group: 'run-by-skills',
     when: "Use it when a PRD's spec, plan or before/after page changed and its dossier should show it.",
     example: {
