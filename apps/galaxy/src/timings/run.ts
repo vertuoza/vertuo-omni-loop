@@ -49,50 +49,67 @@ export function parseArgs(argv: readonly string[]): Args {
 
 const ms = (n: number) => String(Math.round(n));
 
-/** Loads every page `runs` times and prints the table; the exit code: 0 done, 1 stopped. */
-export async function timings(argv: readonly string[], deps: Deps): Promise<number> {
-  const args = parseArgs(argv);
-  if (!args.cookie) {
+/** The session cookie the `--cookie` file holds, or null after saying why there is none. */
+function readCookie(file: string | null, deps: Deps): string | null {
+  if (!file) {
     for (const line of HOW_TO_COPY) deps.err(line);
-    return 1;
+    return null;
   }
   let cookie: string;
   try {
-    cookie = deps.readFile(args.cookie).trim();
+    cookie = deps.readFile(file).trim();
   } catch (error) {
-    deps.err(`timings: cannot read ${args.cookie}: ${error instanceof Error ? error.message : String(error)}`);
-    return 1;
+    deps.err(`timings: cannot read ${file}: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
   }
   if (!cookie) {
-    deps.err(`timings: ${args.cookie} is empty`);
+    deps.err(`timings: ${file} is empty`);
     for (const line of HOW_TO_COPY.slice(1)) deps.err(line);
-    return 1;
   }
+  return cookie || null;
+}
+
+/** Why a load does not count as a signed-in page, or null when it does. */
+function refusal(response: Response, body: string): string | null {
+  if (response.status !== 200) {
+    const to = response.headers.get('location');
+    return `answered ${response.status}${to ? ` (to ${to})` : ''}`;
+  }
+  return SIGN_IN_CARD.test(body) ? 'showed its sign-in card' : null;
+}
+
+/** One page loaded `runs` times: its samples, or the refusal that stopped it. */
+async function loadPage(url: string, runs: number, cookie: string, deps: Deps): Promise<Sample[] | string> {
+  const samples: Sample[] = [];
+  for (let run = 0; run < runs; run++) {
+    const start = deps.now();
+    const response = await deps.fetch(url, { headers: { cookie, 'cache-control': 'no-cache' }, redirect: 'manual' });
+    const firstByte = deps.now();
+    const body = await response.text();
+    const end = deps.now();
+    const refused = refusal(response, body);
+    if (refused) return refused;
+    samples.push({ ttfb: firstByte - start, total: end - start });
+  }
+  return samples;
+}
+
+/** Loads every page `runs` times and prints the table; the exit code: 0 done, 1 stopped. */
+export async function timings(argv: readonly string[], deps: Deps): Promise<number> {
+  const args = parseArgs(argv);
+  const cookie = readCookie(args.cookie, deps);
+  if (!cookie) return 1;
 
   deps.out(`${args.base} · ${args.runs} loads per page · ms`);
   deps.out('');
   deps.out('| page | runs | first byte, median | first byte, p75 | full load, median | full load, p75 |');
   deps.out('| --- | --- | --- | --- | --- | --- |');
   for (const page of PAGES) {
-    const samples: Sample[] = [];
-    for (let run = 0; run < args.runs; run++) {
-      const start = deps.now();
-      const response = await deps.fetch(`${args.base}${page}`, {
-        headers: { cookie, 'cache-control': 'no-cache' },
-        redirect: 'manual',
-      });
-      const firstByte = deps.now();
-      const body = await response.text();
-      const end = deps.now();
-      const refused = response.status !== 200
-        ? `answered ${response.status}${response.headers.get('location') ? ` (to ${response.headers.get('location')})` : ''}`
-        : SIGN_IN_CARD.test(body) ? 'showed its sign-in card' : null;
-      if (refused) {
-        deps.err(`timings: ${page} ${refused}.`);
-        deps.err('The cookie is not a signed in session (expired, or copied from another site): copy a fresh one and run again.');
-        return 1;
-      }
-      samples.push({ ttfb: firstByte - start, total: end - start });
+    const samples = await loadPage(`${args.base}${page}`, args.runs, cookie, deps);
+    if (typeof samples === 'string') {
+      deps.err(`timings: ${page} ${samples}.`);
+      deps.err('The cookie is not a signed in session (expired, or copied from another site): copy a fresh one and run again.');
+      return 1;
     }
     const s = summarise(samples);
     deps.out(`| ${page} | ${s.runs} | ${ms(s.ttfb.median)} | ${ms(s.ttfb.p75)} | ${ms(s.total.median)} | ${ms(s.total.p75)} |`);

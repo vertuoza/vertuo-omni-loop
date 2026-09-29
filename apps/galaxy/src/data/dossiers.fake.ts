@@ -41,9 +41,7 @@ export function withDossiers(world: ReturnType<typeof fakeGalaxyDb>, dossiers: F
       private eqs: Record<string, unknown> = {};
       select(columns = '*') { this.columns = columns; return this; }
       eq(column: string, value: unknown) { this.eqs[column] = value; return this; }
-      then<A = Result, B = never>(done?: ((value: Result) => A | PromiseLike<A>) | null, failed?: ((reason: unknown) => B | PromiseLike<B>) | null) {
-        return Promise.resolve().then(() => this.run()).then(done, failed);
-      }
+      then: PromiseLike<Result>['then'] = (done, failed) => Promise.resolve(this.run()).then(done, failed);
       private run(): Result {
         calls.push({ kind: 'from', table: 'dossiers', eq: { ...this.eqs } });
         if (world.state.fail) return { data: null, error: world.state.fail };

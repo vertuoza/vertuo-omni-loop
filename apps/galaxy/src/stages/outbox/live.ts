@@ -12,7 +12,7 @@ import { prdOutboxStore } from './store';
 // needs it, so a missing setting fails that call, which the caller logs.
 
 /** A dossier's summary through the server's reader; null when there is none. */
-export async function serverSummary(ref: DossierRef) {
+async function serverSummary(ref: DossierRef) {
   const reader = dossierGithub();
   return reader ? reader.summary(ref) : null;
 }

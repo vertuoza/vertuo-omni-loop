@@ -36,12 +36,20 @@ const NEW_TAB = (
   </svg>
 );
 
+/** The spoken name of an item: said to open a new tab, or with its waiting count, or its own label. */
+function spokenLabel(item: SidebarItem, waiting: number | null): string | undefined {
+  if (item.leavesApp) return `${item.label} (opens in a new tab)`;
+  return waiting !== null ? `${item.label}: ${waiting} waiting` : undefined;
+}
+
+/** An item that leaves the app opens in a new tab and is never prefetched. */
+const LEAVES_APP = { target: '_blank', rel: 'noopener', prefetch: false } as const;
+
 function Item({ item, current, counts, choose }: { item: SidebarItem; current: SidebarId | null; counts: WaitingCounts; choose: () => void }) {
   const waiting = badgeOf(item.id, counts);
-  const label = item.leavesApp ? `${item.label} (opens in a new tab)` : waiting !== null ? `${item.label}: ${waiting} waiting` : undefined;
   return (
     <li>
-      <Link className="app-sidebar-item" href={item.path} aria-label={label} aria-current={item.id === current ? 'page' : undefined} target={item.leavesApp ? '_blank' : undefined} rel={item.leavesApp ? 'noopener' : undefined} prefetch={item.leavesApp ? false : undefined} onClick={choose}>
+      <Link className="app-sidebar-item" href={item.path} aria-label={spokenLabel(item, waiting)} aria-current={item.id === current ? 'page' : undefined} {...(item.leavesApp ? LEAVES_APP : {})} onClick={choose}>
         {item.label}
         {waiting !== null && <span className="app-sidebar-badge" aria-hidden="true">{waiting}</span>}
         {item.leavesApp && <span className="app-sidebar-out" aria-hidden="true">{NEW_TAB}</span>}

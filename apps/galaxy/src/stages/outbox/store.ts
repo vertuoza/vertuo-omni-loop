@@ -4,7 +4,7 @@
 // workspace's rows to its members. A PRD is a workspace, a repository (kept in lower case) and an issue
 // number. A write replaces the PRD's counts. A refusal throws with Supabase's reason.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { prdKey, type PrdRef, type StageKey } from '../store';
+import { prdKey, settle, type PrdRef, type StageKey } from '../store';
 
 const TABLE = 'prd_outbox';
 
@@ -23,12 +23,6 @@ export type PrdOutboxStore = {
   /** The stored counts of the workspace's PRDs among `prds`, keyed by `prdKey`; a PRD with none is left out. */
   countsOf(workspace: string, prds: readonly PrdRef[]): Promise<Map<string, OutboxCounts>>;
 };
-
-type Refusal = { message: string; code?: string } | null;
-
-function settle(what: string, error: Refusal): void {
-  if (error) throw new Error(`Supabase refused to ${what}: ${error.message}${error.code ? ` (${error.code})` : ''}`);
-}
 
 const RANKS = new Set(['human-action', 'high']);
 

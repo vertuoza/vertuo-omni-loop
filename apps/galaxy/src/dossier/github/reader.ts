@@ -24,7 +24,7 @@ import { readFix, type FixSummary } from './fix';
 import { outboxReplies, type KitAdopted, type KitItem, type PrComment } from './replies';
 import { readRetro } from './retro';
 import { githubApp, REPO, type AppCredentials, type InstallationToken } from '../../signup/github-app';
-import { UNREAD, type GithubSummary, type IssueRef, type Outbox, type OutboxDetails, type OutboxItem, type OutboxReplies, type PullRef, type Read, type SettledItem } from './summary';
+import { readPart, UNREAD, type GithubSummary, type IssueRef, type Outbox, type OutboxDetails, type OutboxItem, type OutboxReplies, type PullRef, type Read, type SettledItem } from './summary';
 
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -295,14 +295,7 @@ export function githubReader(creds: AppCredentials, fetchImpl: Fetch = fetch, cl
   }
 
   /** One read on its own: its answer, or UNREAD when it failed. */
-  async function part<T>(what: string, run: () => Promise<T>): Promise<Read<T>> {
-    try {
-      return await run();
-    } catch (error) {
-      console.error(`PRD page: ${what} could not be read from GitHub: ${error instanceof Error ? error.message : String(error)}`);
-      return UNREAD;
-    }
-  }
+  const part = <T>(what: string, run: () => Promise<T>) => readPart('PRD page', what, run);
 
   async function fresh({ home_repo: repo, prd }: DossierRef): Promise<GithubSummary | null> {
     if (!REPO.test(repo)) return null;

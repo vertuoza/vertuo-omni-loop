@@ -10,13 +10,13 @@ import './skeleton.css';
 type BoneProps = { className?: string; width?: string };
 
 /** One grey block. */
-export function Bone({ className = 'skel-line', width }: BoneProps) {
+function Bone({ className = 'skel-line', width }: BoneProps) {
   const style: CSSProperties | undefined = width ? { width } : undefined;
   return <span className={`skel-bone ${className}`} style={style} aria-hidden="true" />;
 }
 
 /** A busy region that names what is loading. */
-export function Skeleton({ what, className, children }: { what: string; className?: string; children: ReactNode }) {
+function Skeleton({ what, className, children }: { what: string; className?: string; children: ReactNode }) {
   return (
     <div className={['skel', className].filter(Boolean).join(' ')} aria-busy="true">
       <span className="ask-sr">{`Loading ${what}…`}</span>

@@ -69,29 +69,39 @@ async function readNewest(db: SupabaseClient, workspace: string): Promise<Newest
   return row ? { id: row.id, at: new Date(row.at).toISOString(), count: count ?? 0 } : null;
 }
 
+type LedgerRow = Pick<LedgerEvent, 'id' | 'type' | 'planet'> & { at: string; region: string | null; contributor: string | null; team: string | null; data: LedgerEvent['data'] | null };
+
+/** A stored ledger row as buildGalaxy reads an event: its date to the second, empty fields left out. */
+function eventOf(row: LedgerRow): LedgerEvent {
+  return {
+    id: row.id, at: new Date(row.at).toISOString().replace(/\.\d{3}Z$/, 'Z'), type: row.type, planet: row.planet, data: row.data ?? {},
+    ...(row.region ? { region: row.region } : {}),
+    ...(row.contributor ? { contributor: row.contributor } : {}),
+    ...(row.team ? { team: row.team } : {}),
+  };
+}
+
+/** One page of the workspace's ledger, oldest first. */
+async function ledgerPage(db: SupabaseClient, workspace: string, from: number): Promise<LedgerRow[]> {
+  const { data, error } = await db
+    .from('ledger_events')
+    .select('id, at, type, planet, region, contributor, team, data')
+    .eq('workspace_id', workspace)
+    .order('at', { ascending: true })
+    .order('id', { ascending: true })
+    .range(from, from + PAGE - 1);
+  if (error) throw new Error(`Supabase: could not read ledger_events (${error.message})`);
+  return (data ?? []) as LedgerRow[];
+}
+
 /** Every event of the workspace's ledger, oldest first, a page at a time. */
 async function readLedger(db: SupabaseClient, workspace: string): Promise<LedgerEvent[]> {
   const events: LedgerEvent[] = [];
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await db
-      .from('ledger_events')
-      .select('id, at, type, planet, region, contributor, team, data')
-      .eq('workspace_id', workspace)
-      .order('at', { ascending: true })
-      .order('id', { ascending: true })
-      .range(from, from + PAGE - 1);
-    if (error) throw new Error(`Supabase: could not read ledger_events (${error.message})`);
-    for (const row of data ?? []) {
-      events.push({
-        id: row.id, at: new Date(row.at).toISOString().replace(/\.\d{3}Z$/, 'Z'), type: row.type, planet: row.planet, data: row.data ?? {},
-        ...(row.region ? { region: row.region } : {}),
-        ...(row.contributor ? { contributor: row.contributor } : {}),
-        ...(row.team ? { team: row.team } : {}),
-      });
-    }
-    if (!data || data.length < PAGE) break;
+    const rows = await ledgerPage(db, workspace, from);
+    events.push(...rows.map(eventOf));
+    if (rows.length < PAGE) return events;
   }
-  return events;
 }
 
 /** The workspace's sectors and fleets, as buildGalaxy takes them. */

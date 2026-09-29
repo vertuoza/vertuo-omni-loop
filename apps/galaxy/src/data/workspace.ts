@@ -25,7 +25,7 @@ const themeOf = (value: unknown): Record<string, string> =>
     : {};
 
 /** The workspace the person joined first, or null when they belong to none. */
-export async function firstWorkspace(db: SupabaseClient, userId: string): Promise<Workspace | null> {
+async function firstWorkspace(db: SupabaseClient, userId: string): Promise<Workspace | null> {
   const { data, error } = await db
     .from('workspace_members')
     .select('joined_at, workspace:workspaces(id, slug, name, theme)')
