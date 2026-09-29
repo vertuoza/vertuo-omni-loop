@@ -73,11 +73,11 @@ describe('the help table in this repository', () => {
     expect(entryViolations(ENTRIES, { commands: Object.keys(COMMAND_TABLE), skills: skillFolders() })).toEqual([]);
   });
 
-  it('holds the 33 commands and the 17 skills', () => {
+  it('holds the 33 commands and the 20 skills', () => {
     expect(Object.keys(COMMAND_TABLE)).toHaveLength(33);
-    expect(skillFolders()).toHaveLength(17);
+    expect(skillFolders()).toHaveLength(20);
     expect(ENTRIES.filter((e) => e.kind === 'command')).toHaveLength(33);
-    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(17);
+    expect(ENTRIES.filter((e) => e.kind === 'skill')).toHaveLength(20);
   });
 
   it('lists omni bug for skills, with its usage (PRD 556)', () => {
@@ -124,6 +124,22 @@ describe('the help table in this repository', () => {
     expect(mega.detail).toMatch(/\bnever writes in a target\b/);
   });
 
+  it('has /omni:ultra-yolo, ultra-yolo-fix and ultra-wave for you, each after its twin (PRD 563)', () => {
+    const skills = ENTRIES.filter((e) => e.kind === 'skill');
+    // The fix's label drops its <n>, as /omni:do-work's does, to fit the overview's label column.
+    for (const [name, twin, usage, label] of [
+      ['ultra-yolo', 'yolo', '/omni:ultra-yolo <n>', '/omni:ultra-yolo <n>'],
+      ['ultra-yolo-fix', 'yolo-fix', '/omni:ultra-yolo-fix <n>', '/omni:ultra-yolo-fix'],
+      ['ultra-wave', 'wave', '/omni:ultra-wave <n>', '/omni:ultra-wave <n>'],
+    ]) {
+      const ultra = skills.find((e) => e.name === name);
+      expect(ultra, name).toMatchObject({ who: 'you', usage: [usage], label });
+      expect(skills.indexOf(ultra), name).toBe(skills.findIndex((e) => e.name === twin) + 1);
+      expect(ultra.detail, name).toMatch(/\bplan repository\b/);
+      expect(ultra.detail, name).toMatch(/\bnever merges into any default branch\b/);
+    }
+  });
+
   it('groups the skills by what you want to do, in the spec\'s order, with its titles (PRD 580)', () => {
     expect(SKILL_GROUPS).toEqual([
       { id: 'start', title: 'Start a change' },
@@ -139,7 +155,7 @@ describe('the help table in this repository', () => {
       start: ['brainstorm', 'bug-fix', 'visual-fix'],
       build: ['do-work', 'plan', 'pr', 'wave', 'yolo', 'yolo-fix'],
       setup: ['invade'],
-      'multi-repo': ['mega-brainstorm', 'mega-invade'],
+      'multi-repo': ['mega-brainstorm', 'mega-invade', 'ultra-wave', 'ultra-yolo', 'ultra-yolo-fix'],
       everyday: ['ask', 'help', 'status'],
       'run-by-skills': ['dossier-open', 'dossier-push'],
     });
@@ -149,6 +165,14 @@ describe('the help table in this repository', () => {
     expect(STAGES.map((stage) => stage.name)).toEqual(['idea', 'PRD', 'inbox', 'outbox', 'shipped', 'retro']);
     for (const stage of STAGES) expect(oneLine(stage.line), stage.name).toBe(true);
     expect(PRINCIPLES).toHaveLength(3);
+  });
+
+  it('shows omni item new --out and omni item relay (PRD 563)', () => {
+    const item = ENTRIES.find((e) => e.name === 'item' && e.kind === 'command');
+    expect(item.usage.join(' ')).toMatch(/--out <dir>/);
+    expect(item.usage).toContain('omni item relay <dir> --prd <n>');
+    expect(item.detail).toMatch(/\bnever adopts\b/);
+    expect(item.detail).toMatch(/\brelay moves\b/);
   });
 
   it('lists every verb of omni dossier, link included (PRD 413)', () => {

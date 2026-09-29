@@ -82,7 +82,7 @@ describe('a skill page', () => {
 
   it('relates the other skills its words name, in naming order, once each, never itself nor a skill with no entry', () => {
     expect(skillPage('yolo')!.related.map((s) => s.name)).toEqual(['wave']);
-    expect(skillPage('mega-brainstorm')!.related.map((s) => s.name)).toEqual(['mega-invade']);
+    expect(skillPage('mega-brainstorm')!.related.map((s) => s.name)).toEqual(['mega-invade', 'ultra-yolo']);
     expect(skillPage('help')!.related.map((s) => s.name)).toEqual(['yolo']);
     expect(skillPage('pr')!.related).toEqual([]);
     const entries = [skill('a', 'build', 'Then /omni:c, /omni:b, /omni:a, /omni:c and /omni:gone.'), skill('b', 'build'), skill('c', 'build')];
