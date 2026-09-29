@@ -28,6 +28,9 @@ export const RAMPS = Object.freeze({
   C: ['#e6ffff', '#6ff0ff', '#22b8d8', '#0e6a86'], // cyan glow
   g: ['#b8ffd0', '#4ee08a', '#1d9f5a', '#0e5a34'], // terraform green
   K: ['#a8f5e2', '#2fc6a4', '#178a80', '#0b4d52'], // sea teal (the pirate's coat)
+  J: ['#d2e2f2', '#8aa8cc', '#56779e', '#2c4266'], // shark blue-grey
+  o: ['#e4e49a', '#a6a844', '#6c7020', '#383c0e'], // turtle-shell olive
+  U: ['#dce6ff', '#98b0f4', '#6278cc', '#34448e'], // Allen's pale-blue skin
 });
 
 // Flat colours: never shaded, never outlined by the lit-side rule. forge()'s `flat` recolours them.
