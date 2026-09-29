@@ -256,6 +256,31 @@ describe('the dossier skills in this repository', () => {
     expectAfter(skillSection(brainstorm, '9.'), 'git push -u <remote> <phase-0 branch>', '/omni:dossier-push');
     expectAfter(skillSection(read('plan'), '6.'), 'git push -u', '/omni:dossier-push');
   });
+
+  // PRD 627: a fix is a dossier with a kind. Both fix skills push theirs after they push the fix
+  // branch, print its page, and open no PRD, inbox folder, plan or outbox item; the visual fix keeps
+  // every round of variations and the pick line.
+  it('the push takes --kind, and both fix skills follow it after their push, with their kind (PRD 627)', () => {
+    expect(read('dossier-push')).toContain('omni.mjs dossier push <n> --kind <kind>');
+    const visual = read('visual-fix');
+    const bug = read('bug-fix');
+    expectAfter(skillSection(visual, '9.'), 'git push -u <remote> <fix branch>', '/omni:dossier-push <n> --kind visual');
+    expectAfter(skillSection(bug, '12.'), 'git push -u <remote> <fix branch>', '/omni:dossier-push <n> --kind bug');
+    for (const [name, text, kind] of [['visual-fix', visual, 'visual'], ['bug-fix', bug, 'bug']]) {
+      expect(text, name).toContain(`omni.mjs dossier link <n> --kind ${kind}`);
+      expect(text, name).toContain('Never open a PRD, an inbox folder, a plan or an outbox item');
+      expect(text, name).not.toMatch(/\bdossier, an inbox folder\b|\bno PRD, dossier\b/i);
+    }
+  });
+
+  it('the visual fix commits every round shown as variations-r<k>.html and the pick line (PRD 627)', () => {
+    const visual = read('visual-fix');
+    expect(skillSection(visual, '8.')).toContain('variations-r<k>.html');
+    expect(visual).toContain('<p data-omni-pick>Picked <letter> by @<login> on <YYYY-MM-DD></p>');
+    expect(skillSection(visual, '9.')).toMatch(/## The pick\n\n\s*<p data-omni-pick>/);
+    expect(visual).toContain('gh api user --jq .login');
+    expect(visual).not.toContain('never write the variations page into the repository');
+  });
 });
 
 // PRD 315: `/omni:status` is a thin skill, like `/omni:ask`. It runs a bare `omni status`, the

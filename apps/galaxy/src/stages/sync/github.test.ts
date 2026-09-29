@@ -19,7 +19,11 @@ type FakeRepo = { config?: string | null; inbox?: string[]; shipped?: string[]; 
 /** One route of the fake GitHub: its answer, or null when the URL is not its own. */
 type Route = (url: URL, repo: FakeRepo, init: RequestInit) => Response | null;
 
-const firstPage = (url: URL, items: unknown[] = []) => (url.searchParams.get('page') === '1' ? items : []);
+/** The page of a hundred the URL asks for. */
+const page = (url: URL, items: unknown[] = []) => {
+  const at = Number(url.searchParams.get('page'));
+  return items.slice((at - 1) * 100, at * 100);
+};
 
 const tokenRoute: Route = (url, _repo, init) =>
   (url.pathname === '/app/installations/11/access_tokens' && init.method === 'POST'
@@ -42,10 +46,10 @@ const folderRoute: Route = (url, repo) => {
 const issuesRoute: Route = (url, repo) => {
   if (url.pathname !== '/repos/acme/widgets/issues') return null;
   expect(url.searchParams.get('labels')).toBe('product');
-  return json(firstPage(url, repo.issues));
+  return json(page(url, repo.issues));
 };
 
-const pullsRoute: Route = (url, repo) => (url.pathname === '/repos/acme/widgets/pulls' ? json(firstPage(url, repo.pulls)) : null);
+const pullsRoute: Route = (url, repo) => (url.pathname === '/repos/acme/widgets/pulls' ? json(page(url, repo.pulls)) : null);
 
 const eventsRoute: Route = (url, repo) => {
   const events = /^\/repos\/acme\/widgets\/issues\/(\d+)\/events$/.exec(url.pathname)?.[1];
@@ -107,6 +111,30 @@ describe('the stages sync reader', () => {
     const snap = await stagesReader(CREDS, fakeGithub({}).fetchImpl, () => NOW).snapshot(11, 'acme/widgets');
     expect(snap.inbox).toEqual([]);
     expect(snap.shipped).toEqual([]);
+  });
+
+  it('after a sync, reads only the pull requests and issues updated since it: no page of older pull requests', async () => {
+    const since = '2026-09-29T11:00:00Z';
+    const at = (minutes: number) => new Date(Date.parse(since) + minutes * 60_000).toISOString();
+    // 250 pull requests, most recently updated first: 120 since the last sync, 130 before it.
+    const pulls = Array.from({ length: 250 }, (_, i) => pull(1000 - i, `other-${i}`, { updated_at: at(120 - i) }));
+    const gh = fakeGithub({ pulls, issues: [{ number: 42, created_at: '2026-09-18T00:00:00Z' }] });
+    const snap = await stagesReader(CREDS, gh.fetchImpl, () => NOW).snapshot(11, 'acme/widgets', since);
+
+    const pullPages = gh.calls.filter((c) => c.startsWith('/repos/acme/widgets/pulls')).map((c) => new URL(c, 'https://x').searchParams);
+    expect(pullPages.map((q) => [q.get('sort'), q.get('direction'), q.get('page')])).toEqual([['updated', 'desc', '1'], ['updated', 'desc', '2']]);
+    expect(snap.pulls.map((p) => p.number)).toEqual(pulls.slice(0, 121).map((p) => p.number));
+    const issuePages = gh.calls.filter((c) => c.startsWith('/repos/acme/widgets/issues?')).map((c) => new URL(c, 'https://x').searchParams);
+    expect(issuePages.map((q) => q.get('since'))).toEqual([since]);
+  });
+
+  it('without a last sync, reads every pull request and issue as before', async () => {
+    const pulls = Array.from({ length: 250 }, (_, i) => pull(1000 - i, `other-${i}`));
+    const gh = fakeGithub({ pulls });
+    const snap = await stagesReader(CREDS, gh.fetchImpl, () => NOW).snapshot(11, 'acme/widgets', null);
+    expect(snap.pulls).toHaveLength(250);
+    expect(gh.calls.filter((c) => c.startsWith('/repos/acme/widgets/pulls')).map((c) => new URL(c, 'https://x').searchParams.get('sort'))).toEqual(['created', 'created', 'created']);
+    expect(gh.calls.filter((c) => c.startsWith('/repos/acme/widgets/issues?')).some((c) => c.includes('since='))).toBe(false);
   });
 
   it('throws when GitHub fails, naming what it read', async () => {

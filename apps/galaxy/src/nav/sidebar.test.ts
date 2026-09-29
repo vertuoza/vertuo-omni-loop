@@ -27,10 +27,12 @@ describe('SIDEBAR', () => {
     expect(dashboard.items.some((i) => i.leavesApp)).toBe(false);
   });
 
-  it('holds PRDs, Questions (Shared with me, History) and Knowledge under Work, in that order', () => {
+  it('holds PRDs, Bug Fixes, Visual Updates, Questions (Shared with me, History) and Knowledge under Work, in that order (PRD 627)', () => {
     const [, work] = SIDEBAR;
     expect(rows(work.items)).toEqual([
       ['prds', 'PRDs', '/prd', []],
+      ['bugs', 'Bug Fixes', '/bugs', []],
+      ['visual', 'Visual Updates', '/visual', []],
       ['questions', 'Questions', '/ask', [['for-me', 'Shared with me', '/ask/for-me'], ['history', 'History', '/ask/history']]],
       ['knowledge', 'Knowledge', '/knowledge', []],
     ]);
@@ -71,6 +73,11 @@ describe('currentItem and pageTitle', () => {
     ['/prd', 'prds', 'PRDs'],
     ['/prd/3f2a', 'prds', 'PRDs'],
     ['/prd?who=all', 'prds', 'PRDs'],
+    ['/bugs', 'bugs', 'Bug Fixes'],
+    ['/bugs/3f2a', 'bugs', 'Bug Fixes'],
+    ['/visual', 'visual', 'Visual Updates'],
+    ['/visual/3f2a?tab=variations', 'visual', 'Visual Updates'],
+    ['/visualise', null, null],
     ['/ask', 'questions', 'Questions'],
     ['/ask/7c1e', 'questions', 'Questions'],
     ['/ask/q/42', 'questions', 'Questions'],
@@ -110,6 +117,6 @@ describe('badgeOf', () => {
   it('gives no badge at 0, nor to an item that counts nothing', () => {
     expect(badgeOf('questions', { ...counts, questions: 0 })).toBeNull();
     expect(badgeOf('for-me', { ...counts, shared: 0 })).toBeNull();
-    for (const id of ['home', 'fleet', 'workspace', 'engineering', 'history', 'knowledge', 'fleets', 'repositories', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
+    for (const id of ['home', 'fleet', 'workspace', 'engineering', 'bugs', 'visual', 'history', 'knowledge', 'fleets', 'repositories', 'docs', 'releases'] as const) expect(badgeOf(id, counts)).toBeNull();
   });
 });

@@ -3,23 +3,31 @@
  *
  * What `omni visual <n>` grades on a fix branch, as one function a test can hold open. A visual fix
  * has no PRD, spec or plan: its whole record is one folder `<paths.delivery>/visual/<nnnn>-<slug>/`
- * holding `before-after.html`, where `<nnnn>` is the issue number zero-padded to four digits. The
- * checks, each failing with one line a person can act on:
+ * holding `before-after.html`, where `<nnnn>` is the issue number zero-padded to four digits, and
+ * (PRD #627) each round of variations the person picked from, as `variations-r<k>.html`, k from 1.
+ * The checks, each failing with one line a person can act on:
  *
  * 1. Exactly one such folder exists for the issue.
  * 2. It holds `before-after.html`.
- * 3. The page is at most `limits.beforeAfterMaxBytes` bytes — the very check `omni check inbox`
- *    applies to a PRD's page ({@link beforeAfterViolation}).
- * 4. The page holds no raster image inlined as a `data:image/` URL; an SVG one is allowed.
- * 5. Every commit of the branch carries the trailer `omni sign trailer` prints, unless the config
+ * 3. The page and every round page are at most `limits.beforeAfterMaxBytes` bytes each — the very
+ *    check `omni check inbox` applies to a PRD's page ({@link beforeAfterViolation}).
+ * 4. None of them holds a raster image inlined as a `data:image/` URL; an SVG one is allowed.
+ * 5. A file named like a round but not `variations-r<k>.html` fails, and so does any other file or
+ *    folder: the page, then the rounds in round order, then the rest, by name.
+ * 6. Every commit of the branch carries the trailer `omni sign trailer` prints, unless the config
  *    says `signature: null`.
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAfterViolation } from '../inbox/check-inbox.mjs';
-import { carriesTrailer, trailerLine } from '../signature.mjs';
+import { fixVerdict } from '../fix-verdict.mjs';
 
 const PAGE = 'before-after.html';
+
+/** A round of variations: `variations-r<k>.html`, k from 1 with no leading zero — as the dossier reads it. */
+const ROUND = /^variations-r([1-9]\d*)\.html$/;
+/** A name that means to be a round, well formed or not. */
+const ROUND_LIKE = /^variations/i;
 
 /** A `data:image/` URL whose type is anything but SVG. */
 const RASTER_DATA_URL = /data:image\/(?!svg\+xml)[a-z0-9.+-]+/i;
@@ -57,13 +65,25 @@ function pageViolations(ctx, page) {
   return violations;
 }
 
-function signatureViolations(ctx, commits) {
-  const { signature } = ctx.config;
-  const trailer = trailerLine(signature);
-  if (trailer === null || commits === undefined) return [];
-  return commits
-    .filter((commit) => !carriesTrailer(commit.message, signature))
-    .map((commit) => `unsigned: ${commit.sha} ${commit.message.split('\n')[0]} has no "${trailer}" line.`);
+/** The rounds, misnamed rounds and other entries of a fix's folder, beside its page. */
+function folderViolations(ctx, folder) {
+  const rounds = [];
+  const misnamed = [];
+  const others = [];
+  for (const entry of readdirSync(join(ctx.root, folder), { withFileTypes: true })) {
+    const { name } = entry;
+    const round = entry.isFile() ? ROUND.exec(name) : null;
+    if (round) rounds.push({ name, k: Number(round[1]) });
+    else if (name === PAGE && entry.isFile()) continue;
+    else if (entry.isFile() && ROUND_LIKE.test(name)) misnamed.push(name);
+    else others.push(name);
+  }
+  const byName = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  return [
+    ...rounds.sort((a, b) => a.k - b.k).flatMap(({ name }) => pageViolations(ctx, `${folder}/${name}`)),
+    ...misnamed.sort(byName).map((name) => `${folder}/${name}: a round of variations is named variations-r<k>.html, k from 1.`),
+    ...others.sort(byName).map((name) => `${folder}/${name}: not part of a visual fix; the folder holds ${PAGE} and variations-r<k>.html only.`),
+  ];
 }
 
 /**
@@ -73,17 +93,8 @@ function signatureViolations(ctx, commits) {
  * @returns {{ ok: boolean, folder: string | null, failures: string[] }}
  */
 export function visualVerdict({ ctx, issue, commits }) {
-  const failures = [];
-  const folders = issueFolders(ctx, issue);
-  let folder = null;
-  if (folders.length === 0) {
-    failures.push(`no folder ${visualRoot(ctx)}/${folderPrefix(issue)}<slug>/ for issue ${issue}.`);
-  } else if (folders.length > 1) {
-    failures.push(`${folders.length} folders for issue ${issue}, one expected: ${folders.join(', ')}.`);
-  } else {
-    [folder] = folders;
-    failures.push(...pageViolations(ctx, `${folder}/${PAGE}`));
-  }
-  failures.push(...signatureViolations(ctx, commits));
-  return { ok: failures.length === 0, folder, failures };
+  return fixVerdict({
+    ctx, issue, commits, root: visualRoot(ctx), prefix: folderPrefix(issue), folders: issueFolders(ctx, issue),
+    grade: (folder) => [...pageViolations(ctx, `${folder}/${PAGE}`), ...folderViolations(ctx, folder)],
+  });
 }

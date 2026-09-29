@@ -427,6 +427,89 @@ describe('GET /api/dossiers: a PRD\'s link by its number', () => {
   });
 });
 
+describe('a fix is a dossier with a kind (PRD 627)', () => {
+  const VISUAL = {
+    repo: 'acme/widgets', prd: 7, kind: 'visual', title: 'Sidebar darker',
+    artifacts: [{ kind: 'before-after', content: PAGE }, { kind: 'variations', content: 'round 1' }, { kind: 'variations', content: 'round 2' }],
+  };
+
+  it('a push with no kind reaches the PRD, and sends the database no kind at all', async () => {
+    const w = world();
+    const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
+    const connect = (token: string) => {
+      const client = (w.fake.client as (t: string) => ReturnType<typeof w.fake.client>)(token);
+      return { ...client, rpc: (name: string, args: Record<string, unknown>) => { calls.push({ name, args }); return client.rpc(name, args); } };
+    };
+    const response = await pushDossier(w.request('/api/dossiers/push', { body: PUSH }), { connect: connect as unknown as DossierDeps['connect'] });
+    const { body } = await w.read(response);
+    expect(w.dossier(body.id)).toMatchObject({ kind: 'prd', prd: 7 });
+    expect(body.url).toBe(`https://omni.example/prd/${body.id}`);
+    expect(calls.find((c) => c.name === 'dossier_push')?.args).not.toHaveProperty('p_kind');
+  });
+
+  it('a visual fix numbered as a PRD is a dossier of its own, linked under /visual, its rounds each a version', async () => {
+    const w = world();
+    const prd = await w.push(PUSH);
+    const { status, body } = await w.push(VISUAL);
+    expect(status).toBe(200);
+    expect(body.id).not.toBe(prd.body.id);
+    expect(body).toEqual({
+      id: expect.any(String), url: `https://omni.example/visual/${body.id}`,
+      added: [{ kind: 'before-after', version: 1 }, { kind: 'variations', version: 1 }, { kind: 'variations', version: 2 }],
+      unchanged: [],
+    });
+    expect(w.dossier(body.id)).toMatchObject({ kind: 'visual', prd: 7, title: 'Sidebar darker' });
+
+    // The same rounds again, and a third: only the third is added.
+    const again = await w.push({ ...VISUAL, artifacts: [...VISUAL.artifacts, { kind: 'variations', content: 'round 3' }] });
+    expect(again.body.added).toEqual([{ kind: 'variations', version: 3 }]);
+    expect(again.body.unchanged).toEqual(['before-after', 'variations', 'variations']);
+  });
+
+  it('a bug fix takes its record, linked under /bugs', async () => {
+    const w = world();
+    const { status, body } = await w.push({ repo: 'acme/widgets', prd: 571, kind: 'bug', title: 'Numbers', artifacts: [{ kind: 'bug-record', content: '# Bug 571' }] });
+    expect(status).toBe(200);
+    expect(body.url).toBe(`https://omni.example/bugs/${body.id}`);
+    expect(w.dossier(body.id)).toMatchObject({ kind: 'bug', prd: 571 });
+  });
+
+  it('refuses 400 an unknown kind, a version the kind does not take, a kind twice but variations, and a fix naming a draft', async () => {
+    const w = world();
+    const draft = (await w.open({ title: 'A draft', repo: 'acme/widgets' })).body.id;
+    for (const push of [
+      { ...VISUAL, kind: 'epic' },
+      { ...VISUAL, kind: 7 },
+      { ...VISUAL, kind: 'bug' },
+      { ...PUSH, artifacts: [{ kind: 'variations', content: 'a round' }] },
+      { ...PUSH, kind: 'prd', artifacts: [{ kind: 'bug-record', content: 'a record' }] },
+      { ...VISUAL, artifacts: [{ kind: 'before-after', content: 'a' }, { kind: 'before-after', content: 'b' }] },
+      { ...VISUAL, artifacts: [{ kind: 'plan', content: 'a plan' }] },
+      { ...VISUAL, draftId: draft },
+    ]) {
+      const { status, body } = await w.push(push);
+      expect(status, JSON.stringify(push).slice(0, 120)).toBe(400);
+      expect(body.error).toEqual(expect.any(String));
+    }
+    expect(w.fake.tables.dossier_versions).toEqual([]);
+  });
+
+  it('a lookup takes the kind: a PRD\'s when none is sent, each linked under its own route', async () => {
+    const w = world();
+    const prd = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 7, title: 'Team inbox' });
+    const visual = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 7, kind: 'visual', title: 'Sidebar' });
+    const bug = w.fake.seedFromGithub({ repo: 'acme/widgets', prd: 571, kind: 'bug', title: 'Numbers' });
+    expect((await w.find('?repo=acme/widgets&prd=7')).body).toEqual({ id: prd.id, url: `https://omni.example/prd/${prd.id}` });
+    expect((await w.find('?repo=acme/widgets&prd=7&kind=prd')).body.id).toBe(prd.id);
+    expect((await w.find('?repo=acme/widgets&prd=7&kind=visual')).body).toEqual({ id: visual.id, url: `https://omni.example/visual/${visual.id}` });
+    expect((await w.find('?repo=acme/widgets&prd=571&kind=bug')).body).toEqual({ id: bug.id, url: `https://omni.example/bugs/${bug.id}` });
+    expect((await w.find('?repo=acme/widgets&prd=571')).status).toBe(404);
+    for (const query of ['?repo=acme/widgets&prd=7&kind=epic', '?repo=acme/widgets&prd=7&kind=']) {
+      expect((await w.find(query)).status, query).toBe(400);
+    }
+  });
+});
+
 describe('the dossier routes', () => {
   const app = (path: string) => fileURLToPath(new URL(`../../app/api/${path}/route.ts`, import.meta.url));
   const ROUTES: Array<[string, string, string]> = [

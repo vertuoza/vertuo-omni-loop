@@ -61,6 +61,15 @@ describe('the store, on its fake', () => {
     await expect(store.recordTopic({ workspace_id: W, repository: REPO, prd: 8, topic: 'shared-inbox' })).rejects.toThrow(/23505/);
   });
 
+  it('says when a repository was last synced: its latest PRD stage, never another stage', async () => {
+    const store = fakeStageStore();
+    expect(await store.lastSynced(W, REPO)).toBeNull();
+    await store.recordStages([rec(7, 'prd')], at(3));
+    await store.recordStages([rec(8, 'prd', 1, { repository: 'Acme/Widgets' })], at(5));
+    await store.recordStages([rec(7, 'shipped'), rec(9, 'prd', 1, { workspace_id: OTHER })], at(9));
+    expect(await store.lastSynced(W, 'ACME/widgets')).toBe(at(5));
+  });
+
   it('throws when told to fail, as a refused call does', async () => {
     const store = fakeStageStore();
     store.fail = 'down';
@@ -85,7 +94,8 @@ function recording(rows: unknown[] = [], refuse: { message: string; code?: strin
     const filters: Call = [];
     const chain = {
       eq: (column: string, value: unknown) => { filters.push([column, value]); return chain; },
-      order: (column: string) => { filters.push(['order', column]); return chain; },
+      order: (column: string, options?: unknown) => { filters.push(options ? ['order', column, options] : ['order', column]); return chain; },
+      limit: (count: number) => { filters.push(['limit', count]); return chain; },
       range: (first: number, last: number) => { calls.push(['select', table, columns, ...filters, ['range', first, last]]); return answer(rows.slice(first, last + 1)); },
       maybeSingle: () => { calls.push(['select', table, columns, ...filters, 'maybeSingle']); return answer(rows[0] ?? null); },
       then: (resolve: (value: unknown) => unknown, reject: (reason: unknown) => unknown) => {
@@ -134,6 +144,16 @@ describe('the store, on Supabase', () => {
     expect((await stageStore(db).stageCounts(W)).shipped).toBe(1001);
     expect(calls.map((c) => c.at(-1))).toEqual([['range', 0, 999], ['range', 1000, 1999]]);
     expect(await stageStore(recording(rows).db).currentStages(W, [])).toEqual(new Map());
+  });
+
+  it('reads when a repository was last synced from its PRD stages, the latest first; null for none', async () => {
+    const { calls, db } = recording([{ synced_at: at(12) }]);
+    expect(await stageStore(db).lastSynced(W, 'Acme/Widgets')).toBe(at(12));
+    expect(calls).toEqual([[
+      'select', 'prd_stages', 'synced_at', ['workspace_id', W], ['repository', 'acme/widgets'], ['stage', 'prd'],
+      ['order', 'synced_at', { ascending: false }], ['limit', 1], 'maybeSingle',
+    ]]);
+    expect(await stageStore(recording([]).db).lastSynced(W, REPO)).toBeNull();
   });
 
   it('finds a PRD by its topic', async () => {

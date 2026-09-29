@@ -10,7 +10,8 @@
 -- merges into it. Later steps of PRD 216 append their own checks: dossier_rounds() gives each member
 -- the same brainstorm and delivery rounds of a dossier, once each, and nothing its caller could not
 -- read; dossier_list() lists each dossier of the caller's workspaces with its repositories, its latest
--- versions, its question counts and its last activity, and nothing of another workspace. One
+-- versions, its question counts and its last activity, and nothing of another workspace. PRD 627 adds
+-- the kind: a PRD, a visual fix or a bug fix, each taking only its own versions. One
 -- transaction, rolled back at the end. Any `FAIL:` stops the run.
 
 begin;
@@ -404,7 +405,7 @@ begin
     raise exception 'FAIL: the service role may add versions other than through the version rule, or delete a dossier';
   end if;
   if has_function_privilege('anon', 'public.dossier_open(text, text, text)', 'execute')
-     or has_function_privilege('anon', 'public.dossier_push(text, integer, text, uuid, jsonb)', 'execute')
+     or has_function_privilege('anon', 'public.dossier_push(text, integer, text, uuid, jsonb, text)', 'execute')
      or has_function_privilege('anon', 'public.dossier_add_version(uuid, text, text, text, uuid, text, text)', 'execute')
      or has_function_privilege('authenticated', 'public.dossier_add_version(uuid, text, text, text, uuid, text, text)', 'execute') then
     raise exception 'FAIL: an API role may call a dossier function it should not';
@@ -831,6 +832,163 @@ begin
   if has_function_privilege('anon', 'public.dossier_list(uuid)', 'execute')
      or not has_function_privilege('authenticated', 'public.dossier_list(uuid)', 'execute') then
     raise exception 'FAIL: dossier_list() is callable by anon, or not by the signed-in';
+  end if;
+end $$;
+
+-- ── A fix is a dossier with a kind (PRD 627) ──
+-- Every dossier above is a PRD's: kind prd, whether opened as a draft, pushed without a kind, or opened
+-- by the fallback. A visual fix pushed with its kind shares a number with a PRD of the same repository;
+-- a bug fix takes only its bug record, a PRD no variations, a visual fix its before/after and its rounds.
+do $$
+begin
+  if exists (select 1 from public.dossiers where kind <> 'prd') then
+    raise exception 'FAIL: an existing or new dossier is not a prd';
+  end if;
+end $$;
+
+set local role authenticated;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000a1', 'ada@vertuoza.com');
+do $$
+declare
+  prd7 constant uuid := (select id from ids where name = 'dossier');
+  pushed jsonb;
+  visual uuid;
+  bug uuid;
+begin
+  -- A visual fix numbered 7, as PRD 7 is, in the same repository: a dossier of its own.
+  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Sidebar darker', null,
+    '[{"kind": "before-after", "content": "page one"}, {"kind": "variations", "content": "round one"}, {"kind": "variations", "content": "round two"}]',
+    'visual');
+  visual := (pushed ->> 'id')::uuid;
+  if visual = prd7 or pushed -> 'added' <> '[{"kind": "before-after", "version": 1}, {"kind": "variations", "version": 1}, {"kind": "variations", "version": 2}]'::jsonb then
+    raise exception 'FAIL: a visual fix did not get its own dossier beside PRD 7, with its page and its two rounds: %', pushed;
+  end if;
+  if not exists (select 1 from public.dossiers where id = visual and kind = 'visual' and prd = 7 and title = 'Sidebar darker' and numbered_at is not null) then
+    raise exception 'FAIL: a visual fix''s dossier is not kind visual, numbered by its issue';
+  end if;
+  if not exists (select 1 from public.dossiers where id = prd7 and kind = 'prd' and title = 'Team inbox') then
+    raise exception 'FAIL: a visual fix touched the PRD of the same number';
+  end if;
+
+  -- The rounds again, then with a third: only the third is added, as round 3.
+  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Sidebar darker', null,
+    '[{"kind": "before-after", "content": "page one"}, {"kind": "variations", "content": "round one"}, {"kind": "variations", "content": "round two"}, {"kind": "variations", "content": "round three"}]',
+    'visual');
+  if (pushed ->> 'id')::uuid <> visual or pushed -> 'added' <> '[{"kind": "variations", "version": 3}]'::jsonb
+     or pushed -> 'unchanged' <> '["before-after", "variations", "variations"]'::jsonb then
+    raise exception 'FAIL: pushing the rounds again did not add only the new one: %', pushed;
+  end if;
+
+  -- A push with no kind is a PRD's, exactly as before.
+  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "plan", "content": "plan two"}]');
+  if (pushed ->> 'id')::uuid <> prd7 or pushed -> 'added' <> '[]'::jsonb then
+    raise exception 'FAIL: a push without a kind did not reach PRD 7''s dossier: %', pushed;
+  end if;
+
+  -- A bug fix takes its bug record.
+  pushed := public.dossier_push('vertuoza/vertuo-omni-loop', 571, 'omni reads 1e2 as a number', null, '[{"kind": "bug-record", "content": "# Bug 571"}]', 'bug');
+  bug := (pushed ->> 'id')::uuid;
+  if pushed -> 'added' <> '[{"kind": "bug-record", "version": 1}]'::jsonb
+     or not exists (select 1 from public.dossiers where id = bug and kind = 'bug' and prd = 571) then
+    raise exception 'FAIL: a bug fix did not get its dossier with its bug record: %', pushed;
+  end if;
+
+  -- The pairings a kind does not take, and an unknown kind.
+  begin
+    perform public.dossier_push('vertuoza/vertuo-omni-loop', 571, 'omni reads 1e2 as a number', null, '[{"kind": "spec", "content": "a spec"}]', 'bug');
+    raise exception 'FAIL: a bug dossier took a spec version';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "variations", "content": "a round"}]');
+    raise exception 'FAIL: a prd dossier took a variations version';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Team inbox', null, '[{"kind": "bug-record", "content": "a record"}]', 'prd');
+    raise exception 'FAIL: a prd dossier took a bug-record version';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Sidebar darker', null, '[{"kind": "plan", "content": "a plan"}]', 'visual');
+    raise exception 'FAIL: a visual dossier took a plan version';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.dossier_push('vertuoza/vertuo-omni-loop', 7, 'Something', null, '[]', 'epic');
+    raise exception 'FAIL: a push took an unknown kind of dossier';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.dossier_push('vertuoza/vertuo-omni-loop', 12, 'A fix', public.dossier_open('A fix', 'vertuoza/vertuo-omni-loop', null), '[]', 'visual');
+    raise exception 'FAIL: a fix numbered a draft';
+  exception when invalid_parameter_value then null; end;
+  if (select count(*) from public.dossier_versions where dossier_id = bug) <> 1
+     or (select count(*) from public.dossier_versions where dossier_id = visual) <> 4 then
+    raise exception 'FAIL: a refused pairing left a version behind';
+  end if;
+
+  -- The history names each dossier's kind.
+  if (select l.kind from public.dossier_list(visual) l) is distinct from 'visual'
+     or (select l.kind from public.dossier_list(bug) l) is distinct from 'bug'
+     or (select l.kind from public.dossier_list(prd7) l) is distinct from 'prd' then
+    raise exception 'FAIL: dossier_list() did not give each dossier its kind';
+  end if;
+  insert into ids values ('visual', visual), ('bug', bug);
+end $$;
+
+-- Bob, a member, reads the fixes and their versions; Carl, of another workspace, reads none of them.
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000b1', 'bob@vertuoza.com');
+do $$
+begin
+  if (select count(*) from public.dossiers where id in (select id from ids where name in ('visual', 'bug'))) <> 2
+     or (select count(*) from public.dossier_versions where dossier_id = (select id from ids where name = 'visual')) <> 4
+     or (select count(*) from public.dossier_list() where kind in ('visual', 'bug')) <> 2 then
+    raise exception 'FAIL: a member did not read the fixes of their workspace and their versions';
+  end if;
+end $$;
+select pg_temp.sign_in('00000000-0000-4000-8000-0000000000c1', 'carl@acme.test');
+do $$
+begin
+  if exists (select 1 from public.dossiers where id in (select id from ids where name in ('visual', 'bug')))
+     or exists (select 1 from public.dossier_versions where dossier_id in (select id from ids where name in ('visual', 'bug')))
+     or exists (select 1 from public.dossier_list() where kind in ('visual', 'bug')) then
+    raise exception 'FAIL: an account of another workspace read a fix';
+  end if;
+end $$;
+reset role;
+
+-- The fallback, as the service role, opens a fix by its key, kind included, and the pairing holds for it too.
+set local role service_role;
+do $$
+declare
+  found_id uuid;
+begin
+  insert into public.dossiers (workspace_id, home_repo, kind, prd, title, numbered_at)
+  values ((select id from public.workspaces where slug = 'vertuoza'), 'vertuoza/vertuo-omni-loop', 'visual', 548, 'Omni links in a new tab', now())
+  returning id into found_id;
+  if public.dossier_add_version(found_id, 'before-after', 'page', 'github', null, 'a1b2c3d', 'b10b5ea') is distinct from 1 then
+    raise exception 'FAIL: the service role could not add a visual fix''s page';
+  end if;
+  begin
+    perform public.dossier_add_version(found_id, 'spec', 'a spec', 'github', null, 'a1b2c3d', 'b10b5eb');
+    raise exception 'FAIL: the version rule added a spec to a visual dossier';
+  exception when invalid_parameter_value then null; end;
+  begin
+    insert into public.dossiers (workspace_id, home_repo, kind, prd, title, numbered_at)
+    values ((select id from public.workspaces where slug = 'vertuoza'), 'vertuoza/vertuo-omni-loop', 'bug', null, 'A draft fix', null);
+    raise exception 'FAIL: a fix without a number was stored';
+  exception when check_violation then null; end;
+end $$;
+reset role;
+
+do $$
+begin
+  if has_column_privilege('authenticated', 'public.dossiers', 'kind', 'update')
+     or has_column_privilege('service_role', 'public.dossiers', 'kind', 'update') then
+    raise exception 'FAIL: a role may change a dossier''s kind';
+  end if;
+  if not has_column_privilege('authenticated', 'public.dossiers', 'kind', 'select') then
+    raise exception 'FAIL: a member may not read a dossier''s kind';
+  end if;
+  if has_function_privilege('anon', 'public.dossier_push(text, integer, text, uuid, jsonb, text)', 'execute')
+     or not has_function_privilege('authenticated', 'public.dossier_push(text, integer, text, uuid, jsonb, text)', 'execute') then
+    raise exception 'FAIL: dossier_push() is callable by anon, or not by the signed-in';
   end if;
 end $$;
 

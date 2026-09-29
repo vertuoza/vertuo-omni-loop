@@ -52,7 +52,7 @@ var __toESM = (mod, isNodeMode, target2) => (target2 = mod != null ? __create(__
 var define_OMNI_BUNDLE_default;
 var init_define_OMNI_BUNDLE = __esm({
   "<define:__OMNI_BUNDLE__>"() {
-    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.85" };
+    define_OMNI_BUNDLE_default = { home: "vertuoza/vertuo-omni-loop", version: "0.0.88" };
   }
 });
 
@@ -12874,8 +12874,11 @@ function runsWithoutKit(argv) {
   const [name, sub] = argv;
   return WITHOUT_KIT.has(name) || name === "ask" && sub === "hook";
 }
+function appliesUpdate(argv) {
+  return argv[0] === "update" && argv.includes("--apply");
+}
 function launchDecision({ argv, self: self2, bin, hasConfig }) {
-  if (bin !== null && bin !== self2) return { kind: "handover", bin };
+  if (bin !== null && bin !== self2 && !appliesUpdate(argv)) return { kind: "handover", bin };
   if (bin !== null || hasConfig || runsWithoutKit(argv)) return { kind: "self" };
   return { kind: "refuse", message: NO_KIT };
 }
@@ -15543,12 +15546,15 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     /** PRD 216: opens a draft dossier for `repo`. The Claude session id is sent only when there is
      * one. @returns {Promise<{ id: string, url: string }>} */
     openDossier: ({ title, repo, claudeSessionId = null }) => call("POST", "/api/dossiers", { body: { title, repo, ...claudeSessionId ? { claudeSessionId } : {} } }),
-    /** PRD 216: sends a PRD folder's artifacts, whole; the draft is named only when there is one.
+    /** PRD 216: sends a PRD folder's artifacts, whole; the draft is named only when there is one. Since
+     * PRD 627 a fix's push names its kind (visual or bug); a PRD's names none, as before.
      * @returns {Promise<{ id: string, url: string, added: Array<{ kind: string, version: number }>, unchanged: string[] }>} */
-    pushDossier: ({ repo, prd: prd2, title, draftId = null, artifacts }) => call("POST", "/api/dossiers/push", { body: { repo, prd: prd2, title, ...draftId ? { draftId } : {}, artifacts } }),
-    /** PRD 413: PRD `prd`'s dossier for `repo`, as the caller may read it; a 404 when it has none.
-     * @returns {Promise<{ id: string, url: string }>} */
-    findDossier: ({ repo, prd: prd2 }) => call("GET", `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd2) })}`)
+    pushDossier: ({ repo, prd: prd2, kind = "prd", title, draftId = null, artifacts }) => call("POST", "/api/dossiers/push", {
+      body: { repo, prd: prd2, ...kind && kind !== "prd" ? { kind } : {}, title, ...draftId ? { draftId } : {}, artifacts }
+    }),
+    /** PRD 413: PRD `prd`'s dossier for `repo`, as the caller may read it; a 404 when it has none. Since
+     * PRD 627, a fix's by its kind (visual or bug). @returns {Promise<{ id: string, url: string }>} */
+    findDossier: ({ repo, prd: prd2, kind = "prd" }) => call("GET", `/api/dossiers?${new URLSearchParams({ repo, prd: String(prd2), ...kind && kind !== "prd" ? { kind } : {} })}`)
   };
 }
 
@@ -16749,6 +16755,31 @@ init_define_OMNI_BUNDLE();
 init_define_OMNI_BUNDLE();
 import { existsSync as existsSync17, readdirSync as readdirSync10, readFileSync as readFileSync18, statSync as statSync4 } from "node:fs";
 import { isAbsolute as isAbsolute4, join as join22, normalize } from "node:path";
+
+// kit/lib/fix-verdict.mjs
+init_define_OMNI_BUNDLE();
+function signatureViolations(ctx, commits) {
+  const { signature } = ctx.config;
+  const trailer = trailerLine(signature);
+  if (trailer === null || commits === void 0) return [];
+  return commits.filter((commit) => !carriesTrailer(commit.message, signature)).map((commit) => `unsigned: ${commit.sha} ${commit.message.split("\n")[0]} has no "${trailer}" line.`);
+}
+function fixVerdict({ ctx, issue, root, prefix, folders, grade, commits }) {
+  const failures = [];
+  let folder = null;
+  if (folders.length === 0) {
+    failures.push(`no folder ${root}/${prefix}<slug>/ for issue ${issue}.`);
+  } else if (folders.length > 1) {
+    failures.push(`${folders.length} folders for issue ${issue}, one expected: ${folders.join(", ")}.`);
+  } else {
+    [folder] = folders;
+    failures.push(...grade(folder));
+  }
+  failures.push(...signatureViolations(ctx, commits));
+  return { ok: failures.length === 0, folder, failures };
+}
+
+// kit/lib/bug/verdict.mjs
 var RECORD = "bug.md";
 var SECTIONS = ["Triage", "Reproduction", "Fix", "Guard", "Mutation"];
 var RISK_LEVELS = ["critical", "high", "medium", "low"];
@@ -16831,27 +16862,17 @@ function recordViolations(ctx, record, changed) {
   }
   return violations;
 }
-function signatureViolations(ctx, commits) {
-  const { signature } = ctx.config;
-  const trailer = trailerLine(signature);
-  if (trailer === null || commits === void 0) return [];
-  return commits.filter((commit) => !carriesTrailer(commit.message, signature)).map((commit) => `unsigned: ${commit.sha} ${commit.message.split("\n")[0]} has no "${trailer}" line.`);
-}
 function bugVerdict({ ctx, issue, changed, commits }) {
-  const failures = [];
-  const folders = issueFolders(ctx, issue);
-  let folder = null;
-  if (folders.length === 0) {
-    failures.push(`no folder ${bugRoot(ctx)}/${folderPrefix(issue)}<slug>/ for issue ${issue}.`);
-  } else if (folders.length > 1) {
-    failures.push(`${folders.length} folders for issue ${issue}, one expected: ${folders.join(", ")}.`);
-  } else {
-    [folder] = folders;
-    const changedSet = changed === void 0 ? void 0 : new Set([...changed].map((path) => normalize(path)));
-    failures.push(...recordViolations(ctx, `${folder}/${RECORD}`, changedSet));
-  }
-  failures.push(...signatureViolations(ctx, commits));
-  return { ok: failures.length === 0, folder, failures };
+  const changedSet = changed === void 0 ? void 0 : new Set([...changed].map((path) => normalize(path)));
+  return fixVerdict({
+    ctx,
+    issue,
+    commits,
+    root: bugRoot(ctx),
+    prefix: folderPrefix(issue),
+    folders: issueFolders(ctx, issue),
+    grade: (folder) => recordViolations(ctx, `${folder}/${RECORD}`, changedSet)
+  });
 }
 
 // kit/bin/commands/bug.mjs
@@ -18700,7 +18721,7 @@ function chooseDraft(entries3, { prd: prd2, claudeSessionId }) {
 // kit/lib/dossier/folder.mjs
 init_define_OMNI_BUNDLE();
 import { createHash } from "node:crypto";
-import { existsSync as existsSync29, readFileSync as readFileSync24 } from "node:fs";
+import { existsSync as existsSync29, readdirSync as readdirSync15, readFileSync as readFileSync24 } from "node:fs";
 import { join as join34 } from "node:path";
 var ARTIFACT_MAX_BYTES = 512 * 1024;
 var TITLE_MAX3 = 200;
@@ -18739,9 +18760,54 @@ function readDossierFolder(ctx, prd2) {
   const topic = parseFolderName(where.name)?.topic ?? where.name;
   return { prd: Number(prd2), dir: where.dir, title: (title ?? topic).slice(0, TITLE_MAX3), artifacts, tooLarge };
 }
+var FIX_ROOTS = Object.freeze({ visual: "visual", bug: "bugs" });
+var ROUND = /^variations-r([1-9]\d*)\.html$/;
+var FIX_PREFIX = /^(?:visual|bug)\s*:\s*/i;
+function fixTitle(issueTitle2, topic) {
+  const title = typeof issueTitle2 === "string" ? issueTitle2.trim().replace(FIX_PREFIX, "").trim() : "";
+  return (title || topic).slice(0, TITLE_MAX3);
+}
+function fixFiles(kind, names) {
+  if (kind === "bug") return names.includes("bug.md") ? [{ kind: "bug-record", name: "bug.md" }] : [];
+  const page2 = names.includes("before-after.html") ? [{ kind: "before-after", name: "before-after.html" }] : [];
+  const rounds = names.map((name) => ({ name, match: ROUND.exec(name) })).filter(({ match }) => match).map(({ name, match }) => ({ kind: "variations", name, round: Number(match[1]) })).sort((a, b) => a.round - b.round);
+  return [...page2, ...rounds];
+}
+function readFixFolder(ctx, kind, issue, { issueTitle: issueTitle2 = null } = {}) {
+  const root = `${ctx.config.paths.delivery}/${FIX_ROOTS[kind]}`;
+  const absolute = join34(ctx.root, root);
+  if (!existsSync29(absolute)) return null;
+  const prefix = `${String(issue).padStart(4, "0")}-`;
+  const name = readdirSync15(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length).map((entry) => entry.name).sort()[0];
+  if (!name) return null;
+  const dir = `${root}/${name}`;
+  const artifacts = [];
+  const tooLarge = [];
+  for (const file of fixFiles(kind, readdirSync15(join34(ctx.root, dir)))) {
+    const path = `${dir}/${file.name}`;
+    const raw = readFileSync24(join34(ctx.root, path));
+    if (raw.length > ARTIFACT_MAX_BYTES) {
+      tooLarge.push({ kind: file.kind, path, bytes: raw.length });
+      continue;
+    }
+    const content = raw.toString("utf8");
+    artifacts.push({
+      kind: file.kind,
+      path,
+      content,
+      sha256: sha256(content),
+      bytes: Buffer.byteLength(content, "utf8"),
+      ...file.round ? { round: file.round } : {}
+    });
+  }
+  const topic = name.slice(prefix.length);
+  return { issue: Number(issue), kind, dir, title: fixTitle(issueTitle2, topic), artifacts, tooLarge };
+}
 
 // kit/bin/commands/dossier.mjs
-var USAGE8 = 'usage: omni dossier open "<title>" | omni dossier push <n> | omni dossier link <n> | omni dossier status';
+var USAGE8 = 'usage: omni dossier open "<title>" | omni dossier push <n> [--kind prd|visual|bug] | omni dossier link <n> [--kind prd|visual|bug] | omni dossier status';
+var KINDS3 = ["prd", "visual", "bug"];
+var ISSUE_TITLE_MS = 5e3;
 var NO_SIGN_IN = "no sign-in (omni signin)";
 function claudeSessionOf(env) {
   const id = typeof env?.CLAUDE_CODE_SESSION_ID === "string" ? env.CLAUDE_CODE_SESSION_ID.trim() : "";
@@ -18776,6 +18842,42 @@ async function open(title, { ctx, repo, client, home, claudeSessionId, stdout, s
   println(stdout, draft.url);
   return 0;
 }
+function issueTitle(issue, { ctx, repo, exec }) {
+  try {
+    const title = exec("gh", ["issue", "view", String(issue), "--repo", repo, "--json", "title", "--jq", ".title"], {
+      cwd: ctx.root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: ISSUE_TITLE_MS
+    });
+    return typeof title === "string" && title.trim() ? title.trim() : null;
+  } catch {
+    return null;
+  }
+}
+function reportPush(result, tooLarge, { stdout, stderr }) {
+  if (!isText4(result?.id) || !isText4(result?.url)) {
+    println(stderr, "refused (no dossier in the reply)");
+    return 1;
+  }
+  println(stdout, result.url);
+  println(stdout, addedLine(result));
+  for (const { path } of tooLarge) println(stderr, `too large: ${path}`);
+  return tooLarge.length ? 1 : 0;
+}
+async function pushFix(issue, kind, { ctx, repo, client, exec, stdout, stderr }) {
+  const folder = readFixFolder(ctx, kind, issue);
+  if (!folder) throw usageError(`omni dossier push: issue ${issue} has no ${kind} fix folder.`);
+  const title = fixTitle(issueTitle(issue, { ctx, repo, exec }), folder.title);
+  let result;
+  try {
+    result = await client.pushDossier({ repo, prd: issue, kind, title, artifacts: folder.artifacts.map(({ kind: k, content }) => ({ kind: k, content })) });
+  } catch (error) {
+    println(stderr, skipLine(error));
+    return 1;
+  }
+  return reportPush(result, folder.tooLarge, { stdout, stderr });
+}
 async function push(prd2, { ctx, repo, client, home, claudeSessionId, stdout, stderr }) {
   const folder = readDossierFolder(ctx, prd2);
   if (!folder) throw usageError(`omni dossier push: PRD ${prd2} has no inbox or shipped folder.`);
@@ -18798,29 +18900,27 @@ async function push(prd2, { ctx, repo, client, home, claudeSessionId, stdout, st
     }
     forgetDraft(where, draft.id);
   }
-  if (!isText4(result?.id) || !isText4(result?.url)) {
-    println(stderr, "refused (no dossier in the reply)");
-    return 1;
-  }
+  if (!isText4(result?.id) || !isText4(result?.url)) return reportPush(result, [], { stdout, stderr });
   if (draft && readDossiers(where).some((entry) => entry.id === draft.id)) {
     markNumbered(where, draft.id, { prd: prd2, id: result.id, url: result.url });
   }
-  println(stdout, result.url);
-  println(stdout, addedLine(result));
-  for (const { path } of folder.tooLarge) println(stderr, `too large: ${path}`);
-  return folder.tooLarge.length ? 1 : 0;
+  return reportPush(result, folder.tooLarge, { stdout, stderr });
 }
-async function link(prd2, { repo, client, home, stdout, stderr }) {
+function recordedLink(home, prd2, kind) {
+  if (!home || kind !== "prd") return null;
+  return readDossiers(home).filter((entry) => entry.prd === prd2).at(-1) ?? null;
+}
+async function link(prd2, kind, { repo, client, home, stdout, stderr }) {
   let found;
   try {
-    found = await client.findDossier({ repo, prd: prd2 });
+    found = await client.findDossier({ repo, prd: prd2, kind });
   } catch (error) {
     if (!(error instanceof AskCallError)) throw error;
     if (error.status === 404) {
       println(stderr, "none");
       return 1;
     }
-    const recorded = error.status === null && home ? readDossiers(home).filter((entry) => entry.prd === prd2).at(-1) : null;
+    const recorded = error.status === null ? recordedLink(home, prd2, kind) : null;
     if (!recorded) {
       println(stderr, skipLine(error));
       return 1;
@@ -18834,16 +18934,23 @@ async function link(prd2, { repo, client, home, stdout, stderr }) {
   println(stdout, found.url);
   return 0;
 }
+function kindOf2(flag, numbered) {
+  if (flag === void 0) return "prd";
+  if (!numbered || !KINDS3.includes(flag)) throw usageError(USAGE8);
+  return flag;
+}
 var dossier = {
   withoutContext: true,
   async run(args, { cwd, stdout, stderr, exec, env = process.env, tokens, home, fetch = globalThis.fetch, callMs, now = Date.now }) {
-    const { positional } = parseArgs("dossier", args);
+    const { positional, flags } = parseArgs("dossier", args, { values: ["kind"] });
     const [verb, ...rest] = positional;
     const title = verb === "open" && rest.length === 1 ? rest[0].trim().slice(0, TITLE_MAX3) : "";
-    const runnable = verb === "status" && rest.length === 0 || ["push", "link"].includes(verb) && rest.length === 1 || title.length > 0;
+    const numbered = ["push", "link"].includes(verb);
+    const runnable = verb === "status" && rest.length === 0 || numbered && rest.length === 1 || title.length > 0;
     if (!runnable) throw usageError(USAGE8);
+    const kind = kindOf2(flags.kind, numbered);
     if (verb === "link" && !/^[1-9]\d*$/.test(rest[0])) throw usageError(USAGE8);
-    const prd2 = verb === "push" || verb === "link" ? positiveInt(`dossier ${verb}`, "<n>", rest[0]) : null;
+    const prd2 = numbered ? positiveInt(`dossier ${verb}`, "<n>", rest[0]) : null;
     const ctx = loadContext(cwd, { exec });
     const toggle = dossierSwitch(ctx.config);
     if (verb === "status") {
@@ -18863,8 +18970,9 @@ var dossier = {
       return 1;
     }
     const client = askClient({ baseUrl: toggle.askUrl, host, tokens: store, fetch, ...callMs ? { callMs } : {} });
-    const options = { ctx, repo, client, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(env), stdout, stderr, now };
-    if (verb === "link") return link(prd2, options);
+    const options = { ctx, repo, client, exec, home: mainCheckout(ctx.root, exec), claudeSessionId: claudeSessionOf(env), stdout, stderr, now };
+    if (verb === "link") return link(prd2, kind, options);
+    if (verb === "push" && kind !== "prd") return pushFix(prd2, kind, options);
     return verb === "open" ? open(title, options) : push(prd2, options);
   }
 };
@@ -19080,7 +19188,7 @@ import {
   existsSync as existsSync36,
   mkdirSync as mkdirSync10,
   mkdtempSync,
-  readdirSync as readdirSync16,
+  readdirSync as readdirSync17,
   readFileSync as readFileSync30,
   renameSync,
   rmSync as rmSync6,
@@ -19265,14 +19373,14 @@ import { join as join38 } from "node:path";
 
 // kit/lib/playbook/decisions.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync32, readdirSync as readdirSync15, readFileSync as readFileSync26 } from "node:fs";
+import { existsSync as existsSync32, readdirSync as readdirSync16, readFileSync as readFileSync26 } from "node:fs";
 import { join as join37 } from "node:path";
 var RECORD2 = /^(\d{4})-.+\.md$/;
 var TITLE2 = /^#\s+(.+?)\s*$/m;
 function readDecisions({ ctx }) {
   const dir = ctx.layout.adrDir.replace(/\/+$/, "");
   const absolute = join37(ctx.root, dir);
-  const names = existsSync32(absolute) ? readdirSync15(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && RECORD2.test(entry.name)).map((entry) => entry.name).sort() : [];
+  const names = existsSync32(absolute) ? readdirSync16(absolute, { withFileTypes: true }).filter((entry) => entry.isFile() && RECORD2.test(entry.name)).map((entry) => entry.name).sort() : [];
   const records = names.map((name) => {
     const file = `${dir}/${name}`;
     const title = readFileSync26(join37(ctx.root, file), "utf8").match(TITLE2)?.[1] ?? null;
@@ -19802,7 +19910,7 @@ function loopPaths(ctx) {
 function overlay(root, keep) {
   const scratch = mkdtempSync(join41(tmpdir(), "omni-harvest-"));
   const walk = (dir) => {
-    for (const name of readdirSync16(join41(root, dir))) {
+    for (const name of readdirSync17(join41(root, dir))) {
       const rel = dir ? `${dir}/${name}` : name;
       if (!dir && name === ".git") continue;
       if (keep.includes(rel)) {
@@ -19830,7 +19938,7 @@ function filesUnder(root, dir) {
   const absolute = join41(root, dir);
   if (!existsSync36(absolute)) return [];
   const out = [];
-  for (const entry of readdirSync16(absolute, { withFileTypes: true })) {
+  for (const entry of readdirSync17(absolute, { withFileTypes: true })) {
     const rel = `${dir}/${entry.name}`;
     if (entry.isDirectory()) out.push(...filesUnder(root, rel));
     else if (entry.isFile()) out.push(rel);
@@ -20141,10 +20249,10 @@ var ENTRIES = deepFreeze([
     name: "dossier",
     kind: "command",
     who: "you",
-    usage: ['omni dossier open "<title>"', "omni dossier push <n>", "omni dossier link <n>", "omni dossier status"],
+    usage: ['omni dossier open "<title>"', "omni dossier push <n> [--kind visual|bug]", "omni dossier link <n> [--kind visual|bug]", "omni dossier status"],
     label: "omni dossier \u2026",
     summary: "a PRD's dossier on the Omni page",
-    detail: "A PRD's dossier on the Omni page, where the whole workspace reads every version of its spec, plan and before/after. open opens a draft for an idea and prints its link; push sends PRD n's files and adds a version only where a file changed; link prints PRD n's page, on any computer, or none when it has no dossier, and writes nothing; status says whether dossiers are on here. It never holds up the skill that runs it: anything that stops it exits 1 with one line."
+    detail: "A PRD's dossier on the Omni page, where the whole workspace reads every version of its spec, plan and before/after. open opens a draft for an idea and prints its link; push sends PRD n's files and adds a version only where a file changed; link prints PRD n's page, on any computer, or none when it has no dossier, and writes nothing; status says whether dossiers are on here. With --kind visual or --kind bug, push and link work on issue n's fix instead: its visual update or bug fix page, filled from its folder. It never holds up the skill that runs it: anything that stops it exits 1 with one line."
   },
   {
     name: "version",
@@ -20335,7 +20443,7 @@ var ENTRIES = deepFreeze([
     who: "skills",
     usage: ["omni visual <n> [--base <ref>]"],
     summary: "grade a visual fix branch",
-    detail: "The proof step of /omni:visual-fix, run on its fix branch: one folder for issue <n> under the delivery folder's visual/, holding a before-after.html under the size cap with no base64 raster image, and every commit carrying the loop's signature, unless signing is off. Prints ok, or not ok with one line per failed check. --base defaults to {remote}/{defaultBranch}."
+    detail: "The proof step of /omni:visual-fix, run on its fix branch: one folder for issue <n> under the delivery folder's visual/, holding a before-after.html and each round of variations as variations-r<k>.html, each under the size cap with no base64 raster image, no other file, and every commit carrying the loop's signature, unless signing is off. Prints ok, or not ok with one line per failed check. --base defaults to {remote}/{defaultBranch}."
   },
   {
     name: "bug",
@@ -20467,7 +20575,7 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:visual-fix <line or n>"],
     label: "/omni:visual-fix",
     summary: "a small visual change, to one PR",
-    detail: "For a small visual change, such as a colour, a spacing or a label: from one line or an issue number, it shows today beside four or five variations, asks which one, applies the pick on a fix branch, looks at the real screen once and opens one PR into {defaultBranch} with its before/after page. No PRD, plan or outbox. A change that needs data, a route or a new screen stops it, with the /omni:brainstorm line to run instead. It never merges.",
+    detail: "For a small visual change, such as a colour, a spacing or a label: from one line or an issue number, it shows today beside four or five variations, asks which one, applies the pick on a fix branch, looks at the real screen once and opens one PR into {defaultBranch} with its before/after page, every round of variations and who picked what. It sends them to the fix's page on the Omni page (/omni:dossier-push <n> --kind visual) and prints its link. No PRD, plan or outbox. A change that needs data, a route or a new screen stops it, with the /omni:brainstorm line to run instead. It never merges.",
     group: "start",
     when: "Use it when something on screen looks off and the fix is a colour, a spacing or a label.",
     example: {
@@ -20482,7 +20590,7 @@ var ENTRIES = deepFreeze([
     usage: ["/omni:bug-fix <line or n>"],
     label: "/omni:bug-fix",
     summary: "a bug, to one PR",
-    detail: "For a bug a user, a browser or an API caller can see: from one line or an issue, it posts a triage (how bad, whether a change broke it), proves a reproduction fails before any fix, fixes it test-first on a fix branch, adds the check that would have caught it and opens one PR into {defaultBranch}. No PRD, plan or outbox. A flaky check is not a bug and stops it; a fix that needs a product decision, a stored shape or a new screen stops it, with the /omni:brainstorm line to run instead. It never merges.",
+    detail: "For a bug a user, a browser or an API caller can see: from one line or an issue, it posts a triage (how bad, whether a change broke it), proves a reproduction fails before any fix, fixes it test-first on a fix branch, adds the check that would have caught it and opens one PR into {defaultBranch}. It sends its record to the fix's page on the Omni page (/omni:dossier-push <n> --kind bug) and prints its link. No PRD, plan or outbox. A flaky check is not a bug and stops it; a fix that needs a product decision, a stored shape or a new screen stops it, with the /omni:brainstorm line to run instead. It never merges.",
     group: "start",
     when: "Use it when something a user can see is broken and needs a fix, not a new design.",
     example: {
@@ -20659,9 +20767,9 @@ var ENTRIES = deepFreeze([
     name: "dossier-push",
     kind: "skill",
     who: "skills",
-    usage: ["/omni:dossier-push <n>"],
+    usage: ["/omni:dossier-push <n> [--kind visual|bug]"],
     summary: "send a PRD's files to its dossier",
-    detail: "Sends PRD n's spec, plan and before/after page to its dossier on the Omni page, adding a version only where a file changed. /omni:brainstorm runs it after each of its pushes, and /omni:plan after it pushes the plan; it never stops the skill that runs it.",
+    detail: "Sends PRD n's spec, plan and before/after page to its dossier on the Omni page, adding a version only where a file changed. /omni:brainstorm runs it after each of its pushes, and /omni:plan after it pushes the plan; /omni:visual-fix and /omni:bug-fix run it with --kind visual or --kind bug for their fix's page. It never stops the skill that runs it.",
     group: "run-by-skills",
     when: "Use it when a PRD's spec, plan or before/after page changed and its dossier should show it.",
     example: {
@@ -20943,7 +21051,7 @@ function detectLawsSource({ ctx }) {
 
 // kit/lib/init/notices.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync38, readdirSync as readdirSync17, readFileSync as readFileSync33 } from "node:fs";
+import { existsSync as existsSync38, readdirSync as readdirSync18, readFileSync as readFileSync33 } from "node:fs";
 import { join as join43 } from "node:path";
 var WORKFLOWS = join43(".github", "workflows");
 var PRETTIER_CONFIGS = [
@@ -20973,7 +21081,7 @@ function read(root, path) {
 function legacyLoopWorkflows(root) {
   let names = [];
   try {
-    names = readdirSync17(join43(root, WORKFLOWS));
+    names = readdirSync18(join43(root, WORKFLOWS));
   } catch {
     return [];
   }
@@ -21475,16 +21583,16 @@ var init = {
 
 // kit/bin/commands/item.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync42, mkdirSync as mkdirSync14, readdirSync as readdirSync19, readFileSync as readFileSync37, statSync as statSync8, writeFileSync as writeFileSync16 } from "node:fs";
+import { existsSync as existsSync42, mkdirSync as mkdirSync14, readdirSync as readdirSync20, readFileSync as readFileSync37, statSync as statSync8, writeFileSync as writeFileSync16 } from "node:fs";
 import { basename as basename8, join as join48 } from "node:path";
 
 // kit/lib/outbox/relay.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync41, mkdirSync as mkdirSync13, readdirSync as readdirSync18, readFileSync as readFileSync36, renameSync as renameSync2, statSync as statSync7, unlinkSync, writeFileSync as writeFileSync15 } from "node:fs";
+import { existsSync as existsSync41, mkdirSync as mkdirSync13, readdirSync as readdirSync19, readFileSync as readFileSync36, renameSync as renameSync2, statSync as statSync7, unlinkSync, writeFileSync as writeFileSync15 } from "node:fs";
 import { basename as basename7, join as join47 } from "node:path";
 function markdownFiles(dir) {
   if (!existsSync41(dir)) return [];
-  return readdirSync18(dir).filter((name) => name.endsWith(".md") && statSync7(join47(dir, name)).isFile()).sort();
+  return readdirSync19(dir).filter((name) => name.endsWith(".md") && statSync7(join47(dir, name)).isFile()).sort();
 }
 function settledIds(ctx, outboxDir) {
   const file = join47(ctx.root, outboxDir, SETTLED_FILE);
@@ -21877,7 +21985,7 @@ function spentIds(prd2, { ctx, outDir = null }) {
     outboxItemFiles({ ctx }).filter((path) => path.startsWith(prefix)).map((path) => basename8(path, ".md"))
   );
   if (outDir !== null && existsSync42(outDir)) {
-    for (const name of readdirSync19(outDir)) {
+    for (const name of readdirSync20(outDir)) {
       if (name.endsWith(".md") && statSync8(join48(outDir, name)).isFile()) ids.add(basename8(name, ".md"));
     }
   }
@@ -22073,7 +22181,7 @@ init_define_OMNI_BUNDLE();
 // kit/lib/knowledge/graph.mjs
 init_define_OMNI_BUNDLE();
 var GRAPH_VERSION = 1;
-var KINDS3 = ["principle", "rule", "invariant"];
+var KINDS4 = ["principle", "rule", "invariant"];
 var PRD_IN_SOURCE = /\bPRD\s*#(\d+)\b/;
 function prdOf(source) {
   const match = PRD_IN_SOURCE.exec(source ?? "");
@@ -22106,7 +22214,7 @@ function countsOf(entries3) {
 }
 function buildGraph(knowledge2, { repo }) {
   const pairs = new Map(knowledge2.crossDomainFiles.map(({ file, pair }) => [file, pair ?? []]));
-  const entries3 = knowledge2.entries.filter((entry) => KINDS3.includes(entry.kind)).map((entry) => graphEntry(entry, pairs));
+  const entries3 = knowledge2.entries.filter((entry) => KINDS4.includes(entry.kind)).map((entry) => graphEntry(entry, pairs));
   const byId = new Map(entries3.map((entry) => [entry.id, entry]));
   const domainRows = [
     ...knowledge2.productFiles.length > 0 ? [{ name: "product", code: PRODUCT_CODE, scope: "product" }] : [],
@@ -22750,13 +22858,13 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/delivery/prd.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync43, readFileSync as readFileSync39, readdirSync as readdirSync20 } from "node:fs";
+import { existsSync as existsSync43, readFileSync as readFileSync39, readdirSync as readdirSync21 } from "node:fs";
 import { join as join50 } from "node:path";
 function whereIs(ctx, prd2) {
   const where = ctx.layout.whereIs(prd2);
   if (!where) return null;
   const absolute = join50(ctx.root, where.dir);
-  const files = readdirSync20(absolute, { withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => `${where.dir}/${entry.name}`).sort();
+  const files = readdirSync21(absolute, { withFileTypes: true }).filter((entry) => entry.isFile()).map((entry) => `${where.dir}/${entry.name}`).sort();
   const outboxDir = ctx.layout.outboxDir(prd2);
   return {
     prd: Number(prd2),
@@ -24154,7 +24262,7 @@ function refreshBoard({ root, prd: prd2, now, build }) {
 
 // kit/lib/statusline/facts.mjs
 init_define_OMNI_BUNDLE();
-import { readdirSync as readdirSync21 } from "node:fs";
+import { readdirSync as readdirSync22 } from "node:fs";
 import { join as join54 } from "node:path";
 
 // kit/lib/statusline/stage.mjs
@@ -24297,7 +24405,7 @@ function treeFiles(ctx, ref, dir, exec) {
 }
 function checkoutFolders(ctx, dir) {
   return attempt6(
-    () => readdirSync21(join54(ctx.root, dir), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name),
+    () => readdirSync22(join54(ctx.root, dir), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name),
     []
   );
 }
@@ -24684,9 +24792,11 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/visual/verdict.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync46, readdirSync as readdirSync22, readFileSync as readFileSync44 } from "node:fs";
+import { existsSync as existsSync46, readdirSync as readdirSync23, readFileSync as readFileSync44 } from "node:fs";
 import { join as join56 } from "node:path";
 var PAGE = "before-after.html";
+var ROUND2 = /^variations-r([1-9]\d*)\.html$/;
+var ROUND_LIKE = /^variations/i;
 var RASTER_DATA_URL = /data:image\/(?!svg\+xml)[a-z0-9.+-]+/i;
 function visualRoot(ctx) {
   return `${ctx.config.paths.delivery}/visual`;
@@ -24699,7 +24809,7 @@ function issueFolders2(ctx, issue) {
   const absolute = join56(ctx.root, root);
   if (!existsSync46(absolute)) return [];
   const prefix = folderPrefix2(issue);
-  return readdirSync22(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length).map((entry) => `${root}/${entry.name}`).sort();
+  return readdirSync23(absolute, { withFileTypes: true }).filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length).map((entry) => `${root}/${entry.name}`).sort();
 }
 function pageViolations(ctx, page2) {
   if (!existsSync46(join56(ctx.root, page2))) return [`${page2}: missing.`];
@@ -24711,26 +24821,35 @@ function pageViolations(ctx, page2) {
   }
   return violations;
 }
-function signatureViolations2(ctx, commits) {
-  const { signature } = ctx.config;
-  const trailer = trailerLine(signature);
-  if (trailer === null || commits === void 0) return [];
-  return commits.filter((commit) => !carriesTrailer(commit.message, signature)).map((commit) => `unsigned: ${commit.sha} ${commit.message.split("\n")[0]} has no "${trailer}" line.`);
+function folderViolations(ctx, folder) {
+  const rounds = [];
+  const misnamed = [];
+  const others = [];
+  for (const entry of readdirSync23(join56(ctx.root, folder), { withFileTypes: true })) {
+    const { name } = entry;
+    const round = entry.isFile() ? ROUND2.exec(name) : null;
+    if (round) rounds.push({ name, k: Number(round[1]) });
+    else if (name === PAGE && entry.isFile()) continue;
+    else if (entry.isFile() && ROUND_LIKE.test(name)) misnamed.push(name);
+    else others.push(name);
+  }
+  const byName = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+  return [
+    ...rounds.sort((a, b) => a.k - b.k).flatMap(({ name }) => pageViolations(ctx, `${folder}/${name}`)),
+    ...misnamed.sort(byName).map((name) => `${folder}/${name}: a round of variations is named variations-r<k>.html, k from 1.`),
+    ...others.sort(byName).map((name) => `${folder}/${name}: not part of a visual fix; the folder holds ${PAGE} and variations-r<k>.html only.`)
+  ];
 }
 function visualVerdict({ ctx, issue, commits }) {
-  const failures = [];
-  const folders = issueFolders2(ctx, issue);
-  let folder = null;
-  if (folders.length === 0) {
-    failures.push(`no folder ${visualRoot(ctx)}/${folderPrefix2(issue)}<slug>/ for issue ${issue}.`);
-  } else if (folders.length > 1) {
-    failures.push(`${folders.length} folders for issue ${issue}, one expected: ${folders.join(", ")}.`);
-  } else {
-    [folder] = folders;
-    failures.push(...pageViolations(ctx, `${folder}/${PAGE}`));
-  }
-  failures.push(...signatureViolations2(ctx, commits));
-  return { ok: failures.length === 0, folder, failures };
+  return fixVerdict({
+    ctx,
+    issue,
+    commits,
+    root: visualRoot(ctx),
+    prefix: folderPrefix2(issue),
+    folders: issueFolders2(ctx, issue),
+    grade: (folder) => [...pageViolations(ctx, `${folder}/${PAGE}`), ...folderViolations(ctx, folder)]
+  });
 }
 
 // kit/bin/commands/visual.mjs

@@ -75,6 +75,15 @@ export function fakeStageStore(now: () => string = () => new Date().toISOString(
       check();
       return fake.topics.find((t) => t.workspace_id === workspace && t.repository === repository.toLowerCase() && t.topic === topic)?.prd ?? null;
     },
+
+    async lastSynced(workspace, repository) {
+      check();
+      const seen = fake.stages
+        .filter((s) => s.workspace_id === workspace && s.repository === repository.toLowerCase() && s.stage === 'prd')
+        .map((s) => s.synced_at)
+        .sort((a, b) => Date.parse(b) - Date.parse(a));
+      return seen[0] ?? null;
+    },
   };
   function check() {
     if (fake.fail) throw new Error(`Supabase refused: ${fake.fail}`);

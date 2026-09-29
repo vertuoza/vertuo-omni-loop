@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import type { DossierKind } from '../store';
+import { FixStatePill, TimelinePane } from '../../fixes/TimelinePane';
+import type { ArtifactKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
 import { CopyLink } from './CopyLink';
 import { DeleteDraft } from './DeleteDraft';
@@ -12,7 +13,7 @@ import { FRAME_SANDBOX } from './sandbox';
 import { PinnedHead } from './PinnedHead';
 import { DossierTitle, StageAction, StageLinks, StageTrack } from './StageHeader';
 import { VersionPicker } from './VersionPicker';
-import { dossierPath, TAB_LABELS, type DossierView } from './view';
+import { TAB_LABELS, type DossierView } from './view';
 
 // /prd/<id>, the page to share (PRD 216's spec, "The pages"): the header — PRD #n or DRAFT, the title,
 // the repository chips, who opened it and when, Copy link, and Delete draft for its opener — then a tab
@@ -32,6 +33,10 @@ import { dossierPath, TAB_LABELS, type DossierView } from './view';
 // (RetroPane.tsx) renders the retro once written; empty, each reads muted.
 // PRD 579: opening the page marks its PRD seen in this browser (MarkSeen.tsx), and so does each new
 // version it renders while open, so the bell's New documents group drops it.
+// PRD 627: a fix's page is this page on its own route, `#n ↗` with its Visual or Bug badge, no stage,
+// and its kind's tabs: Variations frames the round picked, chosen as Round k; Bug record is markdown.
+// PRD 627, s5: a fix's page opens on its Timeline (fixes/Timeline.tsx), and its facts strip carries its
+// State pill (Asked, In review, Merged, or `—`) and, On GitHub, its issue and its fix PR.
 
 type Props = {
   view: DossierView;
@@ -43,17 +48,23 @@ type Props = {
   live?: ReactNode;
 };
 
-const EMPTY: Record<DossierKind, string> = {
+const EMPTY: Record<ArtifactKind, string> = {
   'before-after': 'The before/after page has no version yet.',
   spec: 'The spec has no version yet.',
   plan: 'The plan has no version yet.',
+  variations: 'No round of variations yet.',
+  'bug-record': 'The bug record has no version yet.',
 };
 
-function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 'supabase'>) {
+type PaneProps = Pick<Props, 'view' | 'markdown' | 'supabase'>;
+type Shown = NonNullable<DossierView['shown']>;
+
+function Pane({ view, markdown, supabase }: PaneProps) {
   const { shown, tab } = view;
   if (tab === 'questions') return <QuestionsPane questions={view.questions} supabase={supabase} />;
   if (tab === 'outbox') return <OutboxPane dossierId={view.id} outbox={view.outbox} spec={markdown} />;
   if (tab === 'retro') return <RetroPane retro={view.retro} />;
+  if (tab === 'timeline') return <TimelinePane fix={view.fix} />;
   if (!shown) {
     return (
       <p className="dossier-empty">
@@ -61,7 +72,13 @@ function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 's
       </p>
     );
   }
-  const picker = <VersionPicker action={dossierPath(view.id)} tab={tab} versions={view.versions} shown={shown.number} />;
+  return <ArtifactPane view={view} tab={tab} shown={shown} markdown={markdown} />;
+}
+
+/** The shown version of an artifact tab under its picker: framed, or rendered from markdown. */
+function ArtifactPane({ view, tab, shown, markdown }: { view: DossierView; tab: ArtifactKind; shown: Shown; markdown: RenderedMarkdown | null }) {
+  const round = tab === 'variations';
+  const picker = <VersionPicker action={view.link} tab={tab} versions={view.versions} shown={shown.number} noun={round ? 'Round' : 'Version'} />;
   if (shown.frame) {
     return (
       <>
@@ -71,7 +88,7 @@ function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 's
             sandboxed · no cookies · no network ·{' '}
             <a href={shown.frame} target="_blank" rel="noopener noreferrer">open on its own</a>
           </figcaption>
-          <iframe src={shown.frame} sandbox={FRAME_SANDBOX} title={`${TAB_LABELS[tab]}, v${shown.number}`} />
+          <iframe src={shown.frame} sandbox={FRAME_SANDBOX} title={`${TAB_LABELS[tab]}, ${round ? `Round ${shown.number}` : `v${shown.number}`}`} />
         </figure>
       </>
     );
@@ -79,25 +96,28 @@ function Pane({ view, markdown, supabase }: Pick<Props, 'view' | 'markdown' | 's
   return (
     <>
       {picker}
-      {markdown ? (
-        <>
-          {markdown.front && <p className="dossier-front">{markdown.front}</p>}
-          <article className="dossier-md" dangerouslySetInnerHTML={{ __html: markdown.html }} />
-        </>
-      ) : (
-        <p className="ask-problem" role="alert">This version could not be read. Reload the page in a moment.</p>
-      )}
+      <MarkdownVersion markdown={markdown} />
+    </>
+  );
+}
+
+function MarkdownVersion({ markdown }: { markdown: RenderedMarkdown | null }) {
+  if (!markdown) return <p className="ask-problem" role="alert">This version could not be read. Reload the page in a moment.</p>;
+  return (
+    <>
+      {markdown.front && <p className="dossier-front">{markdown.front}</p>}
+      <article className="dossier-md" dangerouslySetInnerHTML={{ __html: markdown.html }} />
     </>
   );
 }
 
 export function DossierPage({ view, markdown, supabase, live }: Props) {
-  const { stage } = view;
+  const { stage, fix } = view;
   return (
     <div className="dossier">
       <PinnedHead>
         <div className="dossier-head-top">
-          <DossierTitle heading={view.heading} draft={view.draft} title={view.title} issueUrl={view.issueUrl} />
+          <DossierTitle heading={view.heading} draft={view.draft} title={view.title} issueUrl={view.issueUrl} badge={view.badge} />
           <div className="dossier-actions">
             <StageAction stage={stage} />
             <CopyLink path={view.link} />
@@ -119,6 +139,18 @@ export function DossierPage({ view, markdown, supabase, live }: Props) {
               </ul>
             </dd>
           </div>
+          {fix && (
+            <div className="dossier-fact">
+              <dt>State</dt>
+              <dd><FixStatePill fix={fix} /></dd>
+            </div>
+          )}
+          {fix && fix.links.length > 0 && (
+            <div className="dossier-fact">
+              <dt>On GitHub</dt>
+              <dd><StageLinks links={fix.links} /></dd>
+            </div>
+          )}
           {stage && stage.links.length > 0 && (
             <div className="dossier-fact">
               <dt>On GitHub</dt>

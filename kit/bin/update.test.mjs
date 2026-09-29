@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeRepo } from '../test/fixture.mjs';
+import { planLaunch } from '../lib/launch/launch.mjs';
 import { writeForms } from '../lib/playbook/write-forms.mjs';
 import { main } from './omni.mjs';
 
@@ -124,6 +125,15 @@ describe('omni update: the running bin finds the release and hands over to it', 
     expect(node.args).toEqual([join(dir, 'omni.mjs'), 'update', '--apply', '--from', '0.0.13']);
     expect(node.options.cwd).toBe(root);
     expect(existsSync(dir)).toBe(false);
+  });
+
+  it('the hand-over is one the launcher lets the new bundle run itself, not the repository’s older bin (#643)', async () => {
+    for (const [bin, version] of [[OLD_BIN, '0.0.13'], [UNVERSIONED_BIN, null]]) {
+      const { root } = installedRepo({ bin });
+      const { calls } = await update(root, [], { kit: { ...KIT, version } });
+      const [bundle, ...argv] = calls.find(({ file }) => file === 'node').args;
+      expect(planLaunch(argv, { cwd: root, self: bundle }), argv.join(' ')).toEqual({ kind: 'self' });
+    }
   });
 
   it("the new bundle's exit code is update's", async () => {

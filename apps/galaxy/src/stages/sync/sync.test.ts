@@ -125,6 +125,44 @@ describe('the stages sync route', () => {
     expect(store.stages.find((s) => s.repository === 'acme/gears')).toMatchObject({ reached_at: NOW, synced_at: '2026-09-29T12:15:00.000Z' });
   });
 
+  it('reads a repository in full on its first sync, then only what changed since it, five minutes early', async () => {
+    const seen: [string, string | null | undefined][] = [];
+    const { d } = deps();
+    const read = d.snapshot;
+    d.snapshot = async (w, repo, since) => { seen.push([repo, since]); return read(w, repo, since); };
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    await syncStages(post(`Bearer ${SECRET}`), { ...d, now: () => '2026-09-29T12:15:00.000Z' });
+    expect(seen).toEqual([
+      ['acme/widgets', null], ['acme/gears', null], ['globex/core', null],
+      // acme/gears holds no PRD issue: nothing tells when it was last synced, so it is read in full again.
+      ['acme/widgets', '2026-09-29T11:55:00.000Z'], ['acme/gears', null], ['globex/core', '2026-09-29T11:55:00.000Z'],
+    ]);
+  });
+
+  it('takes when a repository was last synced from its PRD stages only, which no stage event writes', async () => {
+    const seen: (string | null | undefined)[] = [];
+    const { d, store } = deps({}, { acme: ['acme/widgets'] });
+    await store.recordStages([{ workspace_id: 'w-acme', repository: 'acme/widgets', prd: 42, stage: 'prd', reached_at: '2026-09-18T00:00:00Z' }], '2026-09-29T10:00:00.000Z');
+    await store.recordStages([{ workspace_id: 'w-acme', repository: 'acme/widgets', prd: 42, stage: 'outbox', reached_at: '2026-09-29T11:30:00Z' }], '2026-09-29T11:30:00.000Z');
+    d.snapshot = async (_w, repo, since) => { seen.push(since); return snap(repo); };
+    await syncStages(post(`Bearer ${SECRET}`), d);
+    expect(seen).toEqual(['2026-09-29T09:55:00.000Z']);
+  });
+
+  it('keeps a shipped PRD\'s date when its feature PR is older than what the sync reads', async () => {
+    const { d, store } = deps({}, { acme: ['acme/widgets'] });
+    await syncStages(post(`Bearer ${SECRET}`), {
+      ...d,
+      now: () => '2026-09-20T00:00:00.000Z',
+      snapshot: async (_w, repo) => snap(repo, {
+        shipped: ['0042-dark-mode'], issues: [{ number: 42, created_at: '2026-09-18T00:00:00Z' }],
+        pulls: [{ number: 9, head: 'feat/dark-mode', base: 'main', state: 'closed', draft: false, merged_at: '2026-09-19T00:00:00Z', created_at: '2026-09-18T00:00:00Z', ready_at: null }],
+      }),
+    });
+    await syncStages(post(`Bearer ${SECRET}`), { ...d, snapshot: async (_w, repo) => snap(repo, { shipped: ['0042-dark-mode'] }) });
+    expect(store.stages.find((s) => s.stage === 'shipped')).toMatchObject({ reached_at: '2026-09-19T00:00:00Z', synced_at: NOW });
+  });
+
   it('skips a repository whose stages the database refuses, and logs why', async () => {
     const { d, store, lines } = deps();
     const record = store.recordStages.bind(store);

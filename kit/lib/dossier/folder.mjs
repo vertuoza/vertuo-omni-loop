@@ -5,8 +5,13 @@
 // A missing file is simply not there. A file over 512 KiB is not sent: it is named in `tooLarge`, and
 // the others still are. The title is the spec's `title:`, else the folder's topic, cut to the 200
 // characters the contract takes.
+//
+// A fix's folder (PRD 627) is read by `readFixFolder`: a visual fix's
+// `<delivery>/visual/<nnnn>-<slug>/` gives its `before-after.html` and each `variations-r<k>.html`, a
+// round each in numeric order; a bug fix's `<delivery>/bugs/<nnnn>-<slug>/` gives its `bug.md` as its
+// record. Its title is its issue's without the `Visual: ` or `Bug: ` prefix, else the folder's topic.
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseFrontMatterLines } from '../inbox/inbox.mjs';
 import { parseFolderName } from '../layout.mjs';
@@ -61,4 +66,68 @@ export function readDossierFolder(ctx, prd) {
   }
   const topic = parseFolderName(where.name)?.topic ?? where.name;
   return { prd: Number(prd), dir: where.dir, title: (title ?? topic).slice(0, TITLE_MAX), artifacts, tooLarge };
+}
+
+/** The folder under `<delivery>` each kind of fix keeps its record in. */
+const FIX_ROOTS = Object.freeze({ visual: 'visual', bug: 'bugs' });
+
+const ROUND = /^variations-r([1-9]\d*)\.html$/;
+const FIX_PREFIX = /^(?:visual|bug)\s*:\s*/i;
+
+/** A fix's dossier title: its issue's title without its `Visual: ` or `Bug: ` prefix, else `topic`, cut
+ * to the 200 characters the contract takes. */
+export function fixTitle(issueTitle, topic) {
+  const title = typeof issueTitle === 'string' ? issueTitle.trim().replace(FIX_PREFIX, '').trim() : '';
+  return (title || topic).slice(0, TITLE_MAX);
+}
+
+/** The files of a fix's folder that are sent, in the order they are sent: `{ kind, name, round? }`. */
+function fixFiles(kind, names) {
+  if (kind === 'bug') return names.includes('bug.md') ? [{ kind: 'bug-record', name: 'bug.md' }] : [];
+  const page = names.includes('before-after.html') ? [{ kind: 'before-after', name: 'before-after.html' }] : [];
+  const rounds = names
+    .map((name) => ({ name, match: ROUND.exec(name) }))
+    .filter(({ match }) => match)
+    .map(({ name, match }) => ({ kind: 'variations', name, round: Number(match[1]) }))
+    .sort((a, b) => a.round - b.round);
+  return [...page, ...rounds];
+}
+
+/**
+ * Issue `issue`'s fix of `kind` ('visual' or 'bug'), as its dossier is pushed: the first folder named
+ * for the issue, its artifacts whole with their hashes and sizes (a round carries its number), and its
+ * title. A file over 512 KiB is named in `tooLarge` and not sent.
+ * @param {{ issueTitle?: string | null }} [options] the issue's title, when it could be read
+ * @returns {{ issue: number, kind: 'visual' | 'bug', dir: string, title: string,
+ *   artifacts: Array<{ kind: 'before-after' | 'variations' | 'bug-record', path: string, content: string, sha256: string, bytes: number, round?: number }>,
+ *   tooLarge: Array<{ kind: string, path: string, bytes: number }> } | null} null when the issue has no such folder
+ */
+export function readFixFolder(ctx, kind, issue, { issueTitle = null } = {}) {
+  const root = `${ctx.config.paths.delivery}/${FIX_ROOTS[kind]}`;
+  const absolute = join(ctx.root, root);
+  if (!existsSync(absolute)) return null;
+  const prefix = `${String(issue).padStart(4, '0')}-`;
+  const name = readdirSync(absolute, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith(prefix) && entry.name.length > prefix.length)
+    .map((entry) => entry.name)
+    .sort()[0];
+  if (!name) return null;
+  const dir = `${root}/${name}`;
+  const artifacts = [];
+  const tooLarge = [];
+  for (const file of fixFiles(kind, readdirSync(join(ctx.root, dir)))) {
+    const path = `${dir}/${file.name}`;
+    const raw = readFileSync(join(ctx.root, path));
+    if (raw.length > ARTIFACT_MAX_BYTES) {
+      tooLarge.push({ kind: file.kind, path, bytes: raw.length });
+      continue;
+    }
+    const content = raw.toString('utf8');
+    artifacts.push({
+      kind: file.kind, path, content, sha256: sha256(content), bytes: Buffer.byteLength(content, 'utf8'),
+      ...(file.round ? { round: file.round } : {}),
+    });
+  }
+  const topic = name.slice(prefix.length);
+  return { issue: Number(issue), kind, dir, title: fixTitle(issueTitle, topic), artifacts, tooLarge };
 }

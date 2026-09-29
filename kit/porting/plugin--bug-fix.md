@@ -52,3 +52,5 @@ Bug section are PRD 556's spec, carried whole.
 - **Signing**, as every kit skill: the issue and the PR end with `omni sign footer`, every commit
   with `omni sign trailer`.
 - The hand-off: "Review the PR and merge it if it is right." **A person merges.**
+- **The fix's page** (PRD 627): after the push, the skill follows `/omni:dossier-push <n> --kind bug`
+  and the hand-off prints the page's link beside the PR.
