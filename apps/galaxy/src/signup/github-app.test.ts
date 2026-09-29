@@ -1,6 +1,6 @@
 import { createVerify, generateKeyPairSync } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { appCredentials, appJwt, githubApp, installUrl } from './github-app';
+import { appCredentials, appJwt, githubApp, installationSettingsUrl, installUrl } from './github-app';
 
 const { privateKey, publicKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const PEM = privateKey.export({ type: 'pkcs1', format: 'pem' }).toString();
@@ -106,5 +106,43 @@ describe('what the App reads from GitHub', () => {
     expect((init.headers as Record<string, string>).authorization).toBe(`Bearer ${appJwt(CREDS, NOW)}`);
     await expect(githubApp(CREDS, async () => answer(403, {})).installationToken(5001)).rejects.toThrow(/403/);
     await expect(githubApp(CREDS, async () => answer(201, { token: '' })).installationToken(5001)).rejects.toThrow(/shape/);
+  });
+});
+
+describe('the repositories an installation reaches (PRD 612)', () => {
+  const answer = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
+  const TOKEN = { token: 'ghs_abc', expires_at: '2026-09-28T11:00:00Z' };
+  const repo = (full_name: string, archived = false) => ({ full_name, archived });
+
+  it('takes an installation token, then lists every page of its repositories, archived ones left out', async () => {
+    const page1 = Array.from({ length: 100 }, (_, i) => repo(`Acme/r${i}`));
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.endsWith('/access_tokens')) return answer(201, TOKEN);
+      if (url.endsWith('page=1')) return answer(200, { total_count: 102, repositories: page1 });
+      return answer(200, { total_count: 102, repositories: [repo('Acme/last'), repo('Acme/old', true)] });
+    });
+    const names = await githubApp(CREDS, fetchImpl, () => NOW).installationRepositories(5001);
+    expect(names).toHaveLength(101);
+    expect(names).toContain('Acme/last');
+    expect(names).not.toContain('Acme/old');
+    const [url, init] = fetchImpl.mock.calls[1] as unknown as [string, RequestInit];
+    expect(url).toBe('https://api.github.com/installation/repositories?per_page=100&page=1');
+    expect((init.headers as Record<string, string>).authorization).toBe('Bearer ghs_abc');
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+
+  it('throws when GitHub answers an error or an odd shape', async () => {
+    const failing = (status: number, body: unknown) => async (url: string) => (url.endsWith('/access_tokens') ? answer(201, TOKEN) : answer(status, body));
+    await expect(githubApp(CREDS, failing(500, {})).installationRepositories(5001)).rejects.toThrow(/500/);
+    await expect(githubApp(CREDS, failing(200, { repositories: 'x' })).installationRepositories(5001)).rejects.toThrow(/shape/);
+  });
+});
+
+describe('the installation\'s settings page on GitHub (PRD 612)', () => {
+  it('is the org\'s installation page for an org, the account\'s own for a person', () => {
+    expect(installationSettingsUrl({ id: 5001, account: { login: 'vertuoza', type: 'Organization' } }))
+      .toBe('https://github.com/organizations/vertuoza/settings/installations/5001');
+    expect(installationSettingsUrl({ id: 7, account: { login: 'pierre', type: 'User' } }))
+      .toBe('https://github.com/settings/installations/7');
   });
 });
