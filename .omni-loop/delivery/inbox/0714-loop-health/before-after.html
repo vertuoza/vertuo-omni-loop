@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Engineering board, real merges</title>
+<style>
+/* Layout: one section per change, today beside after, stacking at phone width. Colours: the app's ask tokens, as PRD 645's page. */
+:root{--ground:#f5f4fc;--surface:#fff;--sunk:#eceaf8;--line:#d9d6ee;--strong:#85819f;--ink:#17153d;--muted:#4f5486;--plasma:#6233cc;--green:#15703f;--cyan:#0b6f86;--red:#b3122f;--amber:#8a5a00;--redsoft:#fde8ec;--ambersoft:#fdf1d8;
+--sans:system-ui,-apple-system,"Segoe UI",sans-serif;--mono:ui-monospace,Menlo,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ground:#100d2e;--surface:#1a1640;--sunk:#141134;--line:#2e2a5c;--strong:#8a86b8;--ink:#f3f1ff;--muted:#b5b2da;--plasma:#b37cff;--green:#4ee08a;--cyan:#5fd4ee;--red:#ff6b81;--amber:#f5c15c;--redsoft:#3a1428;--ambersoft:#33260f;color-scheme:dark}}
+:root[data-theme="dark"]{--ground:#100d2e;--surface:#1a1640;--sunk:#141134;--line:#2e2a5c;--strong:#8a86b8;--ink:#f3f1ff;--muted:#b5b2da;--plasma:#b37cff;--green:#4ee08a;--cyan:#5fd4ee;--red:#ff6b81;--amber:#f5c15c;--redsoft:#3a1428;--ambersoft:#33260f;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.45 var(--sans)}
+main{max-width:1240px;margin:0 auto;padding-inline:16px;padding-block:28px 64px;display:grid;gap:40px}
+h1{margin:0;font-size:26px;text-wrap:balance}
+header p{margin:6px 0 0;color:var(--muted);max-width:75ch}
+section.change{display:grid;gap:14px}
+section.change>h2{margin:0;font-size:19px;text-wrap:balance}
+section.change>p{margin:0;color:var(--muted);max-width:75ch}
+.pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:20px;align-items:start}
+.side{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:14px;min-width:0;align-content:start}
+.tag{justify-self:start;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 10px;border-radius:999px;background:var(--sunk);color:var(--muted)}
+.tag.after{background:var(--plasma);color:var(--surface)}
+h3{margin:0;font-size:15px}
+.num,b{font-variant-numeric:tabular-nums}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tile{background:var(--sunk);border-radius:8px;padding:8px 10px;display:grid}
+.tile small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.tile b{font-size:20px}
+.panel{border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:6px}
+.panel p{margin:0}
+.new{color:var(--plasma);font-weight:700}
+.gone{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1px}
+ol.top{margin:0;padding-left:20px;display:grid;gap:2px}
+ol.top li{font-variant-numeric:tabular-nums}
+.health{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.health li{display:grid;grid-template-columns:8.5em minmax(0,1fr) auto;gap:8px;align-items:center;font-size:14px}
+.kind{white-space:nowrap;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px;justify-self:start}
+.k-stuck{background:var(--redsoft);color:var(--red)}
+.k-held{background:var(--ambersoft);color:var(--amber)}
+.k-stale{background:var(--sunk);color:var(--muted)}
+.pr{font-family:var(--mono);font-size:13px;color:var(--cyan);text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere}
+.ago{color:var(--muted);font-size:13px;white-space:nowrap}
+.rate{border-top:1px solid var(--line);padding-top:8px;font-size:14px}
+.none{color:var(--muted);font-size:14px;margin:0;padding:18px;border:1px dashed var(--line);border-radius:8px;text-align:center}
+.promo{font-family:var(--mono);font-size:13px;background:var(--sunk);padding:8px 10px;border-radius:6px;overflow-wrap:anywhere}
+.rules{margin:0;padding-left:18px;display:grid;gap:4px;color:var(--muted);font-size:14px}
+.same{margin:0;padding-left:18px;color:var(--muted);display:grid;gap:4px}
+@media (max-width:420px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.health li{grid-template-columns:minmax(0,1fr) auto}.health .kind{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>PRD 714 · Engineering board: only merges into main, and the loop's health</h1>
+<p>Two changes to <b>/app/engineering</b> and each repository's page, over 30 days. Every figure and pull request number here is illustrative. The "today" tiles and top people follow the shape of the board as PRD 645's page recorded it on 2026-09-29; the real "after" figures come from the 90-day re-read.</p>
+</header>
+
+<section class="change" aria-labelledby="c1">
+<h2 id="c1">1 · Only pull requests into main, master or develop count</h2>
+<p>Today every base branch counts, so the loop's sub-PRs, which the loop opens and merges itself into a feature branch within minutes, fill the tiles, Omni-man's share and the people lists. After, a pull request counts only when its base is main, master or develop and its head is none of them. The sub-PRs get one line of their own.</p>
+<div class="pair">
+<div class="side"><span class="tag">Today</span>
+<div class="tiles">
+<div class="tile"><small>PRs opened</small><b>516</b></div><div class="tile"><small>PRs merged</small><b>485</b></div><div class="tile"><small>Median to merge</small><b>17 min</b></div>
+</div>
+<div class="panel"><h3>Omni Loop</h3>
+<p><b>431 of 485</b> merged PRs signed by Omni-man <b>(89%)</b></p>
+<p>Median time to merge: <b>12 min</b> signed vs <b>19.5 h</b> the rest</p>
+</div>
+<div><h3>Most merged</h3><ol class="top"><li>pierrederval 701</li><li>paetienne 61</li><li>nasser-nightborn 59</li></ol></div>
+<p class="promo">vertuoza/vertuo-apps #812 · develop → main · counted as merged, and as signed</p>
+</div>
+<div class="side"><span class="tag after">After</span>
+<div class="tiles">
+<div class="tile"><small>PRs opened</small><b>128</b></div><div class="tile"><small>PRs merged</small><b>114</b></div><div class="tile"><small>Median to merge</small><b>2.3 h</b></div>
+</div>
+<div class="panel"><h3>Omni Loop</h3>
+<p><b>71 of 114</b> merged PRs signed by Omni-man <b>(62%)</b></p>
+<p>Median time to merge: <b>1.6 h</b> signed vs <b>19.5 h</b> the rest</p>
+<p class="new">+ 371 sub-PRs merged into feature branches</p>
+</div>
+<div><h3>Most merged</h3><ol class="top"><li>pierrederval 88</li><li>paetienne 22</li><li>nasser-nightborn 19</li></ol></div>
+<p class="promo"><span class="gone">vertuoza/vertuo-apps #812 · develop → main</span> · counts nowhere</p>
+</div>
+</div>
+<ul class="rules">
+<li>The rule holds for every tile, the per-repository table, the merged-per-day chart, Most opened, Most merged and the Omni Loop panel.</li>
+<li>Most reviews stays as it is: people do not review the loop's sub-PRs.</li>
+</ul>
+</section>
+
+<section class="change" aria-labelledby="c2">
+<h2 id="c2">2 · Loop health, beside Omni Loop</h2>
+<p>Today a slice stuck with <code>omni:needs-fix</code>, a claim nobody finished or a <code>/omni:yolo</code> run that ended held never merges, so the board never shows it. After, a new panel lists what is stuck right now, each row linking to its pull request, and how often merged slices got stuck first.</p>
+<div class="pair">
+<div class="side"><span class="tag">Today</span>
+<p class="none">No panel. A stuck, held or abandoned pull request is visible only on GitHub, to whoever happens to open it.</p>
+</div>
+<div class="side"><span class="tag after">After</span>
+<div class="panel"><h3>Loop health</h3>
+<ul class="health" aria-label="Stuck right now">
+<li><span class="kind k-stuck">Stuck</span><a class="pr" href="#c2">vertuoza/vertuo-backend-php#1203</a><span class="ago">2 d ago</span></li>
+<li><span class="kind k-held">Held</span><a class="pr" href="#c2">vertuoza/vertuo-omni-loop#688</a><span class="ago">5 h ago</span></li>
+<li><span class="kind k-stale">Stale claim</span><a class="pr" href="#c2">vertuoza/vertuo-apps#431</a><span class="ago">3 h ago</span></li>
+</ul>
+<p class="rate"><b>4 of 34</b> merged sub-PRs got <code>omni:needs-fix</code> first <b>(12%)</b></p>
+</div>
+<div class="panel"><h3>Loop health · a quiet day</h3>
+<p class="none">Nothing stuck right now</p>
+<p class="rate"><b>0 of 12</b> merged sub-PRs got <code>omni:needs-fix</code> first <b>(0%)</b></p>
+</div>
+<ul class="rules">
+<li><b>Stuck:</b> an open pull request labelled <code>omni:needs-fix</code>.</li>
+<li><b>Held:</b> an open signed pull request into a main branch whose status comment says <code>state: stuck</code>.</li>
+<li><b>Stale claim:</b> an open draft sub-PR with nothing beyond its claim, opened over 60 minutes ago: the kit's own rule.</li>
+<li>At most 10 rows, oldest first, then "and N more".</li>
+</ul>
+</div>
+</div>
+</section>
+
+<section class="change" aria-labelledby="c3">
+<h2 id="c3">3 · What stays the same</h2>
+<ul class="same">
+<li>Most reviews, the person profile, the game and every other board.</li>
+<li>Row-level security: members read, the collector writes.</li>
+<li>The kit's skills and commands. The kit only exports its stale-claim rule and the status marker for the board to reuse.</li>
+</ul>
+</section>
+</main>
+</body>
+</html>
