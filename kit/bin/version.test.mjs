@@ -140,11 +140,11 @@ describe('the built bundle carries the version of its package.json', () => {
     const { run } = builtVersion({ name: 'kit', version: '0.0.7' });
     expect(run.status).toBe(0);
     expect(run.stdout).toBe('omni v0.0.7\n');
-  }, 30000);
+  });
 
   it('with no version, prints omni (unversioned)', () => {
     const { run } = builtVersion({ name: 'kit' });
     expect(run.status).toBe(0);
     expect(run.stdout).toBe('omni (unversioned)\n');
-  }, 30000);
+  });
 });

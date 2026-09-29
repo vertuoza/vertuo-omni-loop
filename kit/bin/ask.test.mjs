@@ -402,7 +402,7 @@ describe('ask mode, whole', () => {
     expect(off).toEqual({ status: 0, stdout: 'off\n', stderr: '' });
     expect(existsSync(join(root, '.omni-loop/local/ask.json'))).toBe(false);
     expect(JSON.parse(readFileSync(join(home, '.config', 'omni', 'credentials.json'), 'utf8'))).toHaveProperty(server.host);
-  }, 30000);
+  });
 });
 
 describe('omni ask on, off and status usage', () => {

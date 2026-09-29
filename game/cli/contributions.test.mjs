@@ -323,14 +323,14 @@ try {
       ['pr-merged', 'vertuo-core', 41, 'alice'],
       ['prd-opened', 'vertuo-core', 328, 'pierre-d'],
     ]);
-  }, 20_000);
+  });
 
   it('exits 1 and writes nothing when the rows cannot be written', async () => {
     server = await serveFake({ workspaces, sectors: [{ workspace_id: VERTUOZA, name: 'core-belt', repos: ['vertuo-core'] }], teams: [], players: [] }, { failOn: 'contributions' });
     const done = await contributions(['--workspace', 'vertuoza']);
     expect(done.code).toBe(1);
     expect(done.stderr).toMatch(/write contributions failed \(503/);
-  }, 20_000);
+  });
 
   it('exits 1 for a workspace that names no GitHub organisation, before reading GitHub', async () => {
     server = await serveFake({ workspaces, sectors: [], teams: [], players: [] });
@@ -338,7 +338,7 @@ try {
     expect(done.code).toBe(1);
     expect(done.stderr).toMatch(/workspace "acme" has no github_org/);
     expect(server.calls.filter((c) => c.table !== 'workspaces')).toEqual([]);
-  }, 20_000);
+  });
 
   it('stops, naming both ways to name a workspace, when neither is set', async () => {
     server = await serveFake({ workspaces });
@@ -346,5 +346,5 @@ try {
     expect(done.code).toBe(2);
     expect(done.stderr).toMatch(/no workspace named: pass --workspace <slug>, or set OMNI_LOOP_WORKSPACE/);
     expect(server.calls).toEqual([]);
-  }, 20_000);
+  });
 });
