@@ -20493,7 +20493,7 @@ var deepFreeze = (value) => {
   return value;
 };
 var STAGES = deepFreeze([
-  { name: "idea", line: "talked through with /omni:brainstorm, nothing written yet" },
+  { name: "idea", line: "talked through with /omni:brainstorm, or /omni:think-big if vast" },
   { name: "PRD", line: "spec, plan and before/after, in a phase-0 PR a person reviews" },
   { name: "inbox", line: "phase-0 PR merged: approved, ready to build", folder: "{inbox}" },
   { name: "building", line: "first sub-PR merged into the feature branch: built in waves" },
@@ -20822,13 +20822,28 @@ var ENTRIES = deepFreeze([
   },
   // Skills you type in Claude. Their order is the overview's.
   {
+    name: "think-big",
+    kind: "skill",
+    who: "you",
+    usage: ["/omni:think-big <brief or n>"],
+    label: "/omni:think-big",
+    summary: "a vast idea, explored by a studio, to a concept PR",
+    detail: "For a vast idea, one that spans the whole product and would take several PRDs, before anyone commits to building it. A studio of agents goes wide with six to eight rendered concepts, then deepens the ones you keep into clickable prototypes, while a panel (a Visionary, a Craft critic, a Skeptic, a Value critic and real users) argues over each by name; you react at every round and crown one. It opens one concept PR into {defaultBranch} with the vision tour, every board, the debate and an area map of PRD-sized areas, and ends with one /omni:brainstorm --concept <n> <area> line per area, the wedge first. A feature-sized idea is offered /omni:brainstorm or a lite run; a tweak gets the /omni:visual-fix line. It writes no code and never merges.",
+    group: "start",
+    when: "Use it when an idea spans the whole product and you want bold directions to react to before any scope is cut.",
+    example: {
+      type: "/omni:think-big give the app a brand new identity",
+      result: "rounds of concepts to react to, then a concept PR and one /omni:brainstorm line per area"
+    }
+  },
+  {
     name: "brainstorm",
     kind: "skill",
     who: "you",
-    usage: ["/omni:brainstorm"],
+    usage: ["/omni:brainstorm", "/omni:brainstorm --concept <n> <area>"],
     label: "/omni:brainstorm",
     summary: "an idea, to a design, to a PRD and its phase-0 PR",
-    detail: "Turns an idea into an approved design, then into a PRD the loop can build: the PRD issue, the spec, the before/after page and the plan, in a docs-only phase-0 PR a person reviews and merges before any code is written. It writes no code and merges nothing, and ends with the /omni:yolo line that builds it.",
+    detail: "Turns an idea into an approved design, then into a PRD the loop can build: the PRD issue, the spec, the before/after page and the plan, in a docs-only phase-0 PR a person reviews and merges before any code is written. It writes no code and merges nothing, and ends with the /omni:yolo line that builds it. With --concept <n> <area>, it starts from one area of a concept in the inbox: the area's brief, the vision and the verdict.",
     group: "start",
     when: "Use it when you have an idea for a change and want it designed before any code is written.",
     example: {
@@ -21098,7 +21113,7 @@ var ENTRIES = deepFreeze([
     who: "skills",
     usage: ['/omni:dossier-open "<one line of the idea>"'],
     summary: "open a draft dossier for an idea",
-    detail: "Opens a draft dossier for an idea on the Omni page, linked to this Claude session, so the people the idea is for can follow it before the first question is asked. /omni:brainstorm runs it first; it never stops the skill that runs it.",
+    detail: "Opens a draft dossier for an idea on the Omni page, linked to this Claude session, so the people the idea is for can follow it before the first question is asked. /omni:brainstorm and /omni:think-big run it first; it never stops the skill that runs it.",
     group: "run-by-skills",
     when: "Use it when an idea should be followed on the Omni page before its first question.",
     example: {
