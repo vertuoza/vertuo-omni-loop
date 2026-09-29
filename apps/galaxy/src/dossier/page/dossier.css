@@ -76,7 +76,7 @@
 .dossier-fact dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .dossier-fact-stage dd { display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; }
 
-/* ── The stage (PRD 426): the track, the stage in words, one button, the links ── */
+/* ── The stage (PRD 426, PRD 587): the track, its badge, the stage in words, one button, the links ── */
 
 .stage-track {
   list-style: none;
@@ -95,7 +95,17 @@
   white-space: nowrap;
 }
 .stage-passed { color: var(--ask-ink); background: var(--ask-sunk); }
-.stage-current { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); }
+.stage-current { color: var(--ask-on-plasma); background: var(--ask-plasma); border-color: var(--ask-plasma); font-weight: 800; }
+.stage-badge {
+  font: 700 12px/1 var(--ask-body);
+  padding: 6px 9px;
+  border-radius: 4px;
+  color: var(--ask-on-yellow);
+  background: var(--ask-yellow);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.stage-badge:hover { text-decoration: underline; }
 .stage-ahead { color: var(--ask-muted); }
 .stage-words { margin: 0; overflow-wrap: anywhere; }
 .stage-copy { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }

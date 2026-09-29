@@ -5,8 +5,9 @@ import { signature, pulseOf } from './live';
 import { stageOf } from './stage';
 import { dossierView } from './view';
 
-// Demo mode (PRD 426, part 6): with no database, the page shows a built-in sample summary, a PRD in
-// the outbox stage with open and settled items and no retro, and makes no GitHub call.
+// Demo mode (PRD 426, part 6): with no database, the page shows a built-in sample summary, a PRD with
+// open and settled items and no retro, and makes no GitHub call. Its built-in stored stages (PRD 587)
+// put it at building, with its questions badge.
 
 const NOW = Date.parse('2026-09-28T10:00:00Z');
 
@@ -26,11 +27,13 @@ describe('the demo dossier\'s GitHub summary', () => {
     expect(stageOf(dossier.prd, github, slices ?? null).id).toBe('outbox');
   });
 
-  it('renders the outbox stage, its button and the Outbox tab, with no GitHub call', () => {
+  it('renders the building stage from its stored stages, its questions badge, its button and the Outbox tab, with no GitHub call', () => {
     const fetch = vi.fn();
     vi.stubGlobal('fetch', fetch);
     const view = dossierView(demoDossier(NOW), DEMO_VIEWER, { tab: 'outbox', version: null }, NOW);
-    expect(view.stage?.words).toBe('Stage: outbox');
+    expect(view.stage?.words).toBe('Stage: building');
+    expect(view.stage?.badge).toEqual({ label: '2 questions waiting', href: 'https://github.com/vertuoza/vertuo-omni-loop/pull/76#issuecomment-4242' });
+    expect(view.stage?.synced).toMatch(/^last synced /);
     expect(view.stage?.action).toMatchObject({ kind: 'link', label: 'Answer the outbox' });
     expect(view.stage?.links.map((l) => l.label)).toEqual(['issue #71', 'phase-0 #74', 'feature #76']);
     expect(view.tabs.find((t) => t.kind === 'outbox')).toMatchObject({ badge: '2 open', empty: false });
