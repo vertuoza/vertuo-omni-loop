@@ -8,6 +8,12 @@ The folder is the status.
   note, `release.md`.
 - `archive/` — history no PRD issue can be matched to.
 
+**`visual/<nnnn>-<slug>/`** holds one small visual fix made with `/omni:visual-fix`, outside the
+loop: no PRD, spec, plan or outbox. `<nnnn>` is its `omni:visual` issue's number, zero-padded to four
+digits, and the folder holds `before-after.html` only: today beside the variation the person picked,
+then the ones not picked, self-contained and under the before/after size cap. The fix's pull request
+closes that issue, carries the folder, and is proven by `omni visual <n>` before it opens.
+
 **`release.md`** says what the PRD shipped, in plain words for anyone outside: a title and a
 one-paragraph description, which `omni check releases` grades. The loop writes it when it ships the
 PRD, and the person who merges the feature PR approves its words; a typo is fixed by pull request.
