@@ -152,6 +152,47 @@ describe('the lists', () => {
     expect(all).not.toContain('Ask page crash');
   });
 
+  describe('one person\'s rows, who=<login> (PRD 698)', () => {
+    beforeEach(() => {
+      given.fake.seedPlayer(ADA.id, { login: 'Ada-GH' });
+      given.fake.seedPlayer(BOB.id, { login: 'bob-gh' });
+    });
+
+    it('/prd keeps the PRDs that person opened, read through their account in the viewer\'s workspace', async () => {
+      const ada = await list(PrdList, { who: 'ada-gh' });
+      expect(ada).toContain(`href="/prd/${prd}"`);
+      expect(ada).toContain('Opened by <a href="/app/people/ada-gh">@ada-gh</a>');
+      expect(ada).not.toContain('aria-current="page"');
+      expect(await list(PrdList, { who: 'bob-gh' })).toContain('@bob-gh has not opened a PRD here.');
+      expect(await list(PrdList, { who: 'stranger' })).toContain('@stranger has not opened a PRD here.');
+    });
+
+    it('/bugs keeps the fixes that person pushed, or whose issue they opened', async () => {
+      const ada = await list(BugList, { who: 'ada-gh' });
+      expect(ada).toContain(`href="/bugs/${bug}"`);
+      expect(ada).toContain('Asked by <a href="/app/people/ada-gh">@ada-gh</a>');
+      expect(await list(BugList, { who: 'bob-gh' })).toContain('@bob-gh has not asked for a bug fix here.');
+      // Every issue here was opened by @anna, who holds no account: her issues still count.
+      expect(await list(BugList, { who: 'anna' })).toContain(`href="/bugs/${bug}"`);
+    });
+
+    it('/visual keeps the fixes that person asked for, whoever reads it', async () => {
+      const bob = await list(VisualList, { who: 'bob-gh' });
+      expect(bob).toContain(`href="/visual/${visual}"`);
+      expect(bob).toContain('Asked by <a href="/app/people/bob-gh">@bob-gh</a>');
+      given.token = 'ada';
+      expect(await list(VisualList, { who: 'bob-gh' })).toContain(`href="/visual/${visual}"`);
+      expect(await list(VisualList, { who: 'ada-gh' })).toContain('@ada-gh has not asked for a visual update here.');
+    });
+
+    it('keeps who=mine and who=all as they were', async () => {
+      expect(await list(VisualList, { who: 'mine' })).toContain(`href="/visual/${visual}"`);
+      expect(await list(BugList, { who: 'mine' })).toContain('You have not asked for a bug fix yet.');
+      expect(await list(PrdList, { who: 'all' })).toContain(`href="/prd/${prd}"`);
+      expect(await list(PrdList, { who: 'mine' })).toContain('You have not opened a PRD yet.');
+    });
+  });
+
   it('asks someone signed out to sign in, coming back to the list', async () => {
     given.token = null;
     expect(await list(VisualList)).toContain('Sign in to see your workspace&#x27;s visual updates');

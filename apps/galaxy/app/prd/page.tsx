@@ -6,8 +6,8 @@ import { DEMO_GITHUB, DEMO_VIEWER, demoHistory } from '../../src/dossier/page/de
 import { DossierHistory } from '../../src/dossier/page/DossierHistory';
 import { DossierSignIn } from '../../src/dossier/page/DossierSignIn';
 import {
-  HISTORY_CALLBACK, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readOpenCounts,
-  type CurrentStages, type OpenCounts,
+  HISTORY_CALLBACK, historyChoices, historyItems, historyStageBar, historyToRead, readCurrentStages, readHistoryFilters, readLoginIds, readOpenCounts,
+  whoLogin, type CurrentStages, type OpenCounts, type Whom,
 } from '../../src/dossier/page/history';
 import { DossierDatabaseDown, DossiersClosed, dossierSession } from '../../src/dossier/page/route-gate';
 import { readHistory } from '../../src/dossier/page/source';
@@ -34,6 +34,8 @@ import { prdKey, stageStore } from '../../src/stages/store';
 // PRD 657 s4: a signed-in person's list streams in its own block, under the list's skeleton (the
 // heading, the filters' place and the rows'), so the frame is sent before the dossiers are read. The
 // filters stream with the rows: their repositories and the empty list's words come from the same read.
+// PRD 698 (s4): `who=<login>` lists the PRDs that person opened: the login's account ids are read from the
+// rosters of the listed dossiers' workspaces (workspace_roster, as the signed-in person), only then.
 
 export const metadata: Metadata = { title: 'PRDs · OMNI LOOP' };
 
@@ -53,12 +55,13 @@ const DEMO_READER: Pick<PrdOutboxStore, 'countsOf'> = {
 export default async function HistoryRoute({ searchParams }: Props) {
   const query = await searchParams;
   const filters = readHistoryFilters(query);
-  const listing = (rows: DossierListRow[], viewer: string, open: OpenCounts, stages: CurrentStages = new Map()) => (
+  const listing = (rows: DossierListRow[], viewer: string, open: OpenCounts, stages: CurrentStages = new Map(), whom?: Whom) => (
     <DossierHistory
-      items={historyItems(rows, filters, viewer, open, stages)} choices={historyChoices(rows)} filters={filters}
-      stages={historyStageBar(rows, filters, viewer, open, stages)}
+      items={historyItems(rows, filters, viewer, open, stages, whom)} choices={historyChoices(rows)} filters={filters}
+      stages={historyStageBar(rows, filters, viewer, open, stages, whom)}
     />
   );
+  const login = whoLogin(filters.who);
   const mode = arcadeMode(process.env);
 
   if (mode === 'demo') {
@@ -79,11 +82,16 @@ export default async function HistoryRoute({ searchParams }: Props) {
       console.error(error);
       return <DossierDatabaseDown />;
     }
+    const whom = login ? await readLoginIds(rows, login, async (workspace) => {
+      const { data, error } = await db.rpc('workspace_roster', { workspace });
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    }) : undefined;
     const [open, stages] = await Promise.all([
-      readOpenCounts(historyToRead(rows, filters, userId), prdOutboxStore(db)),
+      readOpenCounts(historyToRead(rows, filters, userId, whom), prdOutboxStore(db)),
       readCurrentStages(rows, stageStore(db)),
     ]);
-    return listing(rows, userId, open, stages);
+    return listing(rows, userId, open, stages, whom);
   }
   return <Streamed read={history(user.id)} skeleton={<PrdListLoading />} failed={<DossierDatabaseDown />}>{(list) => list}</Streamed>;
 }

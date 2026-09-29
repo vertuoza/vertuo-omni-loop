@@ -19,6 +19,11 @@
 // (readCurrentStages, through the stage store, as the viewer), a draft's idea once any of its questions is
 // answered, and none for a draft with no answer or a PRD not synced yet. A stage bar above the list counts
 // the seven stages over the rows every other filter keeps, and `stage=<id>` keeps only the rows at it.
+//
+// PRD 698 (s4): `who=<login>` keeps the dossiers that person opened, by the rule Mine uses for the viewer
+// (opened_by): the route resolves the login to the account ids it holds in the viewer's workspaces
+// (readLoginIds, through workspace_roster, as the viewer) and hands them in as `whom`. Neither Mine nor All
+// is then pressed; the page says whose PRDs these are.
 import { isStage, STAGE_LABELS, STAGES, type StageId, type StoredStage } from '../../stages/stage';
 import { prdKey, type PrdRef, type StageStore } from '../../stages/store';
 import type { PrdOutboxStore } from '../../stages/outbox/store';
@@ -29,8 +34,26 @@ import { dossierPath, stamp, TAB_LABELS, TABS } from './view';
 export const HISTORY_PATH = '/prd';
 export const HISTORY_CALLBACK = '/prd/callback';
 
-/** Mine (the dossiers the viewer opened) or All (every dossier of the viewer's workspaces). */
-export type HistoryWho = 'mine' | 'all';
+/** Mine (the dossiers the viewer opened), All (every dossier of the viewer's workspaces), or one person's
+ * (PRD 698: `who=<login>`, their GitHub login in lower case). */
+export type HistoryWho = 'mine' | 'all' | { login: string };
+
+/** A GitHub login as `who=` may carry one: letters, digits and single hyphens, at most 39, not led by a hyphen. */
+const LOGIN = /^[a-z0-9](?:[a-z0-9]|-(?=[a-z0-9])){0,38}$/;
+
+/** What `who=` says (PRD 413, 698): `all`, a GitHub login (lower-cased), or else Mine — `mine`, missing,
+ * blank, malformed, or a login spelling mine or all in another case. Shared with the fix lists. */
+export function readWho(value: string | undefined): HistoryWho {
+  if (value === 'all') return 'all';
+  const login = value?.toLowerCase();
+  return login && login !== 'mine' && login !== 'all' && LOGIN.test(login) ? { login } : 'mine';
+}
+
+/** `who`'s value in an address: none for Mine (the default), `all`, or the login. */
+export const whoParam = (who: HistoryWho): string | null => (who === 'mine' ? null : who === 'all' ? 'all' : who.login);
+
+/** The login a list is narrowed to under `who=<login>`, else null. */
+export const whoLogin = (who: HistoryWho): string | null => (typeof who === 'object' ? who.login : null);
 
 /** What the history is narrowed to: `who` always, and each other filter left out lets every dossier through. */
 export type HistoryFilters = {
@@ -88,10 +111,10 @@ type Query = Record<string, string | string[] | undefined>;
 /** A parameter's first value, trimmed; undefined when absent or blank. */
 const one = (value: string | string[] | undefined) => [value].flat()[0]?.trim() || undefined;
 
-/** The filters an address carries: `who` (`all`, or else Mine), `repo`, `state` (`draft` or `prd`), `q`, `needs` (`answer`),
+/** The filters an address carries: `who` (`all`, a login, or else Mine), `repo`, `state` (`draft` or `prd`), `q`, `needs` (`answer`),
  * `stage` (one of the seven; anything else is no filter). */
 export function readHistoryFilters(query: Query): HistoryFilters {
-  const filters: HistoryFilters = { who: one(query.who) === 'all' ? 'all' : 'mine' };
+  const filters: HistoryFilters = { who: readWho(one(query.who)) };
   const repo = one(query.repo);
   if (repo) filters.repo = repo.toLowerCase();
   const state = one(query.state);
@@ -107,7 +130,8 @@ export function readHistoryFilters(query: Query): HistoryFilters {
 /** Whether any filter but `who` is set: the page then offers to clear them, keeping `who`. */
 export const filtered = ({ who: _who, ...rest }: HistoryFilters) => Object.keys(rest).length > 0;
 
-/** The history's address for these filters: `repo`, `state`, `q`, `needs`, `stage`, then `who=all` for All (Mine is the default). */
+/** The history's address for these filters: `repo`, `state`, `q`, `needs`, `stage`, then `who=all` for All or
+ * `who=<login>` for one person (Mine is the default). */
 export function historyAddress(filters: HistoryFilters): string {
   const params = new URLSearchParams();
   if (filters.repo) params.set('repo', filters.repo);
@@ -115,7 +139,8 @@ export function historyAddress(filters: HistoryFilters): string {
   if (filters.search) params.set('q', filters.search);
   if (filters.needsAnswer) params.set('needs', 'answer');
   if (filters.stage) params.set('stage', filters.stage);
-  if (filters.who === 'all') params.set('who', 'all');
+  const who = whoParam(filters.who);
+  if (who) params.set('who', who);
   const query = params.toString();
   return query ? `${HISTORY_PATH}?${query}` : HISTORY_PATH;
 }
@@ -128,10 +153,24 @@ function stageOfRow(row: DossierListRow, stages: CurrentStages): StageId | null 
   return stages.get(stageKeyOf(row)) ?? null;
 }
 
-/** The filters on where a row is and who it waits on: its stage, Mine, Needs an answer. */
-function passesProgress(row: DossierListRow, filters: HistoryFilters, viewer: string | null, open: OpenCounts, stages: CurrentStages): boolean {
+/** The account ids a login holds in the viewer's workspaces (PRD 698), as readLoginIds finds them. */
+export type Whom = ReadonlySet<string>;
+
+const NOBODY: Whom = new Set();
+
+/** Whether the row's opener is whom `who` names: the viewer for Mine, one of `whom`'s ids for a login. */
+function opensFor(row: DossierListRow, who: HistoryWho, viewer: string | null, whom: Whom): boolean {
+  if (who === 'all') return true;
+  if (row.opened_by === null) return false;
+  return who === 'mine' ? row.opened_by === viewer : whom.has(row.opened_by);
+}
+
+/** The filters on where a row is and who it waits on: its stage, Mine or one person's, Needs an answer. */
+function passesProgress(
+  row: DossierListRow, filters: HistoryFilters, viewer: string | null, open: OpenCounts, stages: CurrentStages, whom: Whom,
+): boolean {
   if (filters.stage && stageOfRow(row, stages) !== filters.stage) return false;
-  if (filters.who === 'mine' && (viewer === null || row.opened_by !== viewer)) return false;
+  if (!opensFor(row, filters.who, viewer, whom)) return false;
   return !(filters.needsAnswer && openOf(row, open) === 0);
 }
 
@@ -149,8 +188,10 @@ function passesContent(row: DossierListRow, filters: HistoryFilters): boolean {
   return !filters.search || titleHas(row.title, filters.search);
 }
 
-function passes(row: DossierListRow, filters: HistoryFilters, viewer: string | null, open: OpenCounts, stages: CurrentStages = new Map()): boolean {
-  return passesProgress(row, filters, viewer, open, stages) && passesContent(row, filters);
+function passes(
+  row: DossierListRow, filters: HistoryFilters, viewer: string | null, open: OpenCounts, stages: CurrentStages = new Map(), whom: Whom = NOBODY,
+): boolean {
+  return passesProgress(row, filters, viewer, open, stages, whom) && passesContent(row, filters);
 }
 
 const newestFirst = (a: DossierListRow, b: DossierListRow) =>
@@ -158,9 +199,27 @@ const newestFirst = (a: DossierListRow, b: DossierListRow) =>
 
 /** The numbered dossiers every filter but Needs an answer and the stage lets through, newest activity
  * first: the ones whose open questions the history reads (the stage bar counts over them too). */
-export function historyToRead(rows: DossierListRow[], filters: HistoryFilters, viewer: string | null): DossierListRow[] {
+export function historyToRead(rows: DossierListRow[], filters: HistoryFilters, viewer: string | null, whom: Whom = NOBODY): DossierListRow[] {
   const { needsAnswer: _needs, stage: _stage, ...rest } = filters;
-  return rows.filter((row) => row.prd !== null && passes(row, rest, viewer, new Map())).sort(newestFirst);
+  return rows.filter((row) => row.prd !== null && passes(row, rest, viewer, new Map(), new Map(), whom)).sort(newestFirst);
+}
+
+/** A workspace's members as workspace_roster gives them to the viewer: their account id and login. */
+type RosterReader = (workspace: string) => Promise<ReadonlyArray<{ user_id: string; github_login: string | null }>>;
+
+/** The account ids `login` holds (ignoring case) in the workspaces of `rows` (PRD 698), each workspace's roster
+ * read once, as the viewer, so only workspaces they share count. A roster that cannot be read adds none. */
+export async function readLoginIds(rows: readonly Pick<DossierListRow, 'workspace_id'>[], login: string, roster: RosterReader): Promise<Set<string>> {
+  const ids = new Set<string>();
+  const wanted = login.toLowerCase();
+  await Promise.all([...new Set(rows.map((row) => row.workspace_id))].map(async (workspace) => {
+    try {
+      for (const member of await roster(workspace)) if (member.github_login?.toLowerCase() === wanted) ids.add(member.user_id);
+    } catch (error) {
+      console.error(`who=${login}: the members of workspace ${workspace} could not be read: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }));
+  return ids;
 }
 
 /** A reader of the stored outboxes (PRD 657, s5): prd_outbox, as the viewer. */
@@ -219,11 +278,12 @@ export async function readCurrentStages(rows: readonly DossierListRow[], reader:
  * through, and linking to the list filtered to it — or, for the stage selected, to the list without it. */
 export function historyStageBar(
   rows: DossierListRow[], filters: HistoryFilters, viewer: string | null, open: OpenCounts = new Map(), stages: CurrentStages = new Map(),
+  whom: Whom = NOBODY,
 ): StageBarEntry[] {
   const { stage: selected, ...rest } = filters;
   const counts = new Map<StageId, number>();
   for (const row of rows) {
-    if (!passes(row, rest, viewer, open)) continue;
+    if (!passes(row, rest, viewer, open, new Map(), whom)) continue;
     const stage = stageOfRow(row, stages);
     if (stage) counts.set(stage, (counts.get(stage) ?? 0) + 1);
   }
@@ -238,11 +298,12 @@ export function historyStageBar(
 
 /** The dossiers the filters let through for this viewer (their user id), newest activity first, as the
  * history lists them; `open` gives each one's open outbox questions (PRD 251), `stages` each numbered
- * one's current stored stage (PRD 587). */
+ * one's current stored stage (PRD 587); `whom`, under `who=<login>`, the ids that login holds (PRD 698). */
 export function historyItems(
   rows: DossierListRow[], filters: HistoryFilters, viewer: string | null, open: OpenCounts = new Map(), stages: CurrentStages = new Map(),
+  whom: Whom = NOBODY,
 ): HistoryItem[] {
-  return rows.filter((row) => passes(row, filters, viewer, open, stages)).sort(newestFirst).map((row): HistoryItem => ({
+  return rows.filter((row) => passes(row, filters, viewer, open, stages, whom)).sort(newestFirst).map((row): HistoryItem => ({
     id: row.id,
     href: dossierPath(row.id),
     heading: row.prd === null ? 'DRAFT' : `#${row.prd}`,

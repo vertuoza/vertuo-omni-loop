@@ -1,7 +1,8 @@
 import { WORK_NAMES, WORK_PATHS } from '../dossier/page/work';
 import { fixAddress, fixFiltered, type FixFilters, type FixItem, type FixKind } from './list';
 import { STATE_LABELS } from './timeline';
-import { PersonChip } from '../people/PersonChip';
+import { PersonChip, profileHref } from '../people/PersonChip';
+import { whoLogin, whoParam } from '../dossier/page/history';
 
 // /visual and /bugs (PRD 627), laid out as /prd's list: Mine / All at the head of the filters, then a
 // search over titles and a repository, sent as a GET to the same page so they work before any script
@@ -11,6 +12,8 @@ import { PersonChip } from '../people/PersonChip';
 // PRD 627, s5: a row also shows who asked and the state pill (Asked, In review, Merged, `—` when GitHub
 // did not answer), a bug fix's row its risk label and a *regression* badge; the state is a filter.
 // PRD 652, s6: who asked wears their face, beside the same words.
+// PRD 698, s4: under `who=<login>` neither Mine nor All is pressed, a line reads "Asked by @login" and links
+// to their profile, and the form carries the login so filtering stays on their fixes.
 
 type Choices = { repos: string[] };
 
@@ -40,7 +43,7 @@ function Who({ kind, filters }: { kind: FixKind; filters: FixFilters }) {
 function Filters({ kind, choices, filters }: { kind: FixKind; choices: Choices; filters: FixFilters }) {
   return (
     <form className="dossier-history-filters" method="get" action={WORK_PATHS[kind]} role="search">
-      {filters.who === 'all' && <input type="hidden" name="who" value="all" />}
+      {whoParam(filters.who) && <input type="hidden" name="who" value={whoParam(filters.who)!} />}
       <label className="dossier-history-field dossier-history-search">
         <span className="ask-hint">Search the titles</span>
         <input className="ask-share-link" type="search" name="q" defaultValue={filters.search ?? ''} placeholder={`a word of a ${WORK_NAMES[kind].one}'s title`} />
@@ -99,9 +102,11 @@ function Row({ item }: { item: FixItem }) {
 export function FixList({ kind, items, choices, filters }: { kind: FixKind; items: FixItem[]; choices: Choices; filters: FixFilters }) {
   const names = WORK_NAMES[kind];
   const mine = filters.who === 'mine';
+  const login = whoLogin(filters.who);
   const toAll = (words: string) => <a className="dossier-history-to-all" href={fixAddress(kind, { ...filters, who: 'all' })}>{words}</a>;
-  const nothingYet = items.length === 0 && !fixFiltered(filters) && !mine;
+  const nothingYet = items.length === 0 && !fixFiltered(filters) && filters.who === 'all';
   const noneOfMine = items.length === 0 && !fixFiltered(filters) && mine;
+  const noneOfTheirs = items.length === 0 && !fixFiltered(filters) && login !== null;
   return (
     <div className="dossier dossier-history">
       <h1 className="dossier-title">{names.many}</h1>
@@ -113,8 +118,14 @@ export function FixList({ kind, items, choices, filters }: { kind: FixKind; item
       ) : (
         <>
           <Who kind={kind} filters={filters} />
+          {login && <p className="ask-hint dossier-history-by">Asked by <a href={profileHref(login)}>@{login}</a></p>}
           <Filters kind={kind} choices={choices} filters={filters} />
-          {noneOfMine ? (
+          {noneOfTheirs ? (
+            <section className="ask-card">
+              <h2>@{login} has not asked for a {names.one} here.</h2>
+              <p className="ask-muted">{toAll(`See every ${names.one} of your workspace`)}.</p>
+            </section>
+          ) : noneOfMine ? (
             <section className="ask-card">
               <h2>You have not asked for a {names.one} yet.</h2>
               <p className="ask-muted">{toAll(`See every ${names.one} of your workspace`)}.</p>
@@ -124,7 +135,7 @@ export function FixList({ kind, items, choices, filters }: { kind: FixKind; item
               <h2>No {names.one} matches</h2>
               <p className="ask-muted">
                 Loosen a filter, or search another word.
-                {mine && <> Or {toAll(`look in every ${names.one} of your workspace`)}.</>}
+                {filters.who !== 'all' && <> Or {toAll(`look in every ${names.one} of your workspace`)}.</>}
               </p>
             </section>
           ) : (
