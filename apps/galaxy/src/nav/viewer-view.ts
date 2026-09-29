@@ -9,6 +9,9 @@ export interface ViewerView {
   /** Their GitHub login. */
   login: string | null;
   avatarUrl: string | null;
+  /** Their arcade hero in the current workspace, as a decorative pixel SVG tinted in their fleet's
+   * colour (PRD 652); null when they have none or it could not be read, and the menu shows the avatar. */
+  heroSvg: string | null;
   /** The workspace they joined first, as a label under the crest. */
   workspaceName: string | null;
   /** What waits for them (PRD 499): the Questions part as the page rendered it, for the waiting
@@ -16,4 +19,4 @@ export interface ViewerView {
   waiting: WaitingView | null;
 }
 
-export const SIGNED_OUT_VIEWER: ViewerView = { signedIn: false, name: null, login: null, avatarUrl: null, workspaceName: null, waiting: null };
+export const SIGNED_OUT_VIEWER: ViewerView = { signedIn: false, name: null, login: null, avatarUrl: null, heroSvg: null, workspaceName: null, waiting: null };

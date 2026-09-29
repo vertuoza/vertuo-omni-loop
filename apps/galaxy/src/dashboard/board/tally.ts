@@ -1,3 +1,5 @@
+import { faceOf, type Face } from '../../people/face';
+import { SOLO, type FleetTag } from '../../people/types';
 import { STAGES, type StageId, type StoredStage } from '../../stages/stage';
 import { UNREADABLE, type Read } from '../part';
 import { brusselsDay, type PeriodWindow } from './period';
@@ -32,6 +34,8 @@ export interface Member {
   avatarUrl: string | null;
   /** Their fleet (`players.team`); null for a solo player or a member with no player row. */
   fleet: string | null;
+  /** Their player row's stored hero, unchecked (PRD 652); null or absent with none. */
+  hero?: unknown;
 }
 
 /** A row of `contributions`, as the board reads it. */
@@ -236,9 +240,9 @@ export function answeredIn(counts: ReadonlyMap<string, number>, circle: Circle):
 
 // ── People ────────────────────────────────────────────────────────────────
 
-/** A fleet as a row names it: its label, in its colour (null when the galaxy does not say). */
-export interface FleetTag { name: string; label: string; color: string | null }
-export const SOLO = 'solo';
+/** A fleet as a row names it: its label, in its colour (null when the galaxy does not say), and its
+ * mascot (PRD 652). The chips' own type (src/people/types.ts). */
+export { SOLO, type FleetTag };
 
 /** One member's row. A GitHub-counted column is null (a dash) for a member with no login, and
  * 'unreadable' for everyone when its read failed. PRDs count the PRDs they opened, by login or by
@@ -248,6 +252,8 @@ export interface PersonRow {
   name: string;
   login: string | null;
   avatarUrl: string | null;
+  /** Their face, as faceOf decides it (PRD 652): their hero, else their GitHub photo, else their initial. */
+  face: Face;
   fleet: FleetTag | typeof SOLO;
   points: number | null | typeof UNREADABLE;
   prs: number | null | typeof UNREADABLE;
@@ -272,7 +278,7 @@ const rank = (n: PersonRow['prs'] | PersonRow['points']) => (typeof n === 'numbe
 const nameOf = (m: Member) => m.name?.trim() || m.login || 'A member';
 
 const fleetOf = (m: Member, fleets: ReadonlyMap<string, FleetTag>): PersonRow['fleet'] =>
-  !m.fleet ? SOLO : fleets.get(m.fleet) ?? { name: m.fleet, label: m.fleet.toUpperCase(), color: null };
+  !m.fleet ? SOLO : fleets.get(m.fleet) ?? { name: m.fleet, label: m.fleet.toUpperCase(), color: null, mascot: null };
 
 /** The member's PRDs now, grouped: the ones they opened, by login or by account. */
 function prdsOfMember(prds: PeopleInput['prds'], login: string | null, userId: string): PersonRow['prds'] {
@@ -300,12 +306,15 @@ export function peopleRows(members: readonly Member[], input: PeopleInput, viewe
     const mine = login ? byLogin.get(login) ?? [] : [];
     const byGithub = <T>(unreadable: boolean, value: () => T): T | null | typeof UNREADABLE =>
       (!login ? null : unreadable ? UNREADABLE : value());
+    const name = nameOf(m);
+    const fleet = fleetOf(m, fleets);
     return {
       userId: m.userId,
-      name: nameOf(m),
+      name,
       login,
       avatarUrl: m.avatarUrl,
-      fleet: fleetOf(m, fleets),
+      face: faceOf({ name, login, avatarUrl: m.avatarUrl, hero: m.hero, color: fleet === SOLO ? null : fleet.color }),
+      fleet,
       points: byGithub(input.heroes === UNREADABLE, () => points.get(login!) ?? 0),
       prs: byGithub(input.activity === UNREADABLE, () => mine.filter((r) => r.kind === MERGED).length),
       prds: prdsOfMember(input.prds, login, m.userId),

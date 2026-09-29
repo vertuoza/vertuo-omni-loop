@@ -1,3 +1,4 @@
+import type { FleetTag } from '../../people/types';
 import { UNREADABLE, type Read } from '../part';
 import { boardOf, readBoard, type BoardRead, type BoardReads, type BoardValue } from '../board/load';
 import type { Period } from '../board/period';
@@ -11,11 +12,9 @@ import { chooseFleet } from './pick';
 // board is drawn from all four. The picker lists every fleet of the season's ranking, the viewer's
 // marked; it is unreadable with the galaxy.
 
-/** A fleet as its board's heading shows it: its label, its colour and its place this season. */
-export interface FleetHead {
-  name: string;
-  label: string;
-  color: string | null;
+/** A fleet as its board's heading shows it: its label, its colour, its mascot (PRD 652: its chip) and
+ * its place this season. */
+export interface FleetHead extends FleetTag {
   /** Its place in the season's fleet ranking; null for a fleet the season does not rank. */
   place: Read<{ rank: number; of: number } | null>;
 }
@@ -50,6 +49,7 @@ export function fleetOf(read: BoardRead, request: FleetRequest): FleetValue {
       name,
       label: team?.label ?? name.toUpperCase(),
       color: team?.color ?? null,
+      mascot: team?.mascot ?? null,
       place: ranked === UNREADABLE || fleets === UNREADABLE ? UNREADABLE : ranked ? { rank: ranked.rank, of: fleets.length } : null,
     },
     fleets,

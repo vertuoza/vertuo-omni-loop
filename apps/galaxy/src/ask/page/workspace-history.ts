@@ -5,7 +5,9 @@
 // /ask/q/<round>.
 import { readQuestions } from '../answer-model';
 import { CATEGORY_LABELS, isCategory, type Category } from '../classify';
-import { nameOf, type Member } from './question';
+import { one, type Query } from '../../nav/query';
+import type { Face } from '../../people/face';
+import { faceOfMember, nameOf, type Member } from './question';
 import { contextParts, entry, type RoundRow, type SessionRow } from './view';
 
 /** A round and its session, as the history reads them. */
@@ -37,17 +39,13 @@ export type HistoryItem = {
   via: RoundRow['answered_via'];
   askedBy: string;
   answeredBy: string | null;
+  /** Their faces (PRD 652), drawn before each name. */
+  askedByFace: Face;
+  answeredByFace: Face | null;
   /** The category's label, or "unsorted". */
   category: string;
   at: string;
   context: string[];
-};
-
-type Query = Record<string, string | string[] | undefined>;
-
-const one = (value: string | string[] | undefined) => {
-  const first = (Array.isArray(value) ? value[0] : value)?.trim();
-  return first ? first : undefined;
 };
 
 /** The filters an address carries: `category`, `repo`, `prd`, `skill`, `asked`, `answered`, `q`. */
@@ -100,6 +98,8 @@ export function historyList(rows: HistoryRow[], filters: HistoryFilters, members
     const { lines } = entry(round, session);
     const answers = lines.map((line) => line.answer).filter((a): a is string => a !== null);
     const category = isCategory(round.category) ? CATEGORY_LABELS[round.category] : 'unsorted';
+    const askedBy = nameOf(session.owner, members);
+    const answeredBy = round.answered_by ? nameOf(round.answered_by, members) : null;
     return {
       roundId: round.id,
       href: `/ask/q/${encodeURIComponent(round.id)}`,
@@ -109,8 +109,10 @@ export function historyList(rows: HistoryRow[], filters: HistoryFilters, members
       screenshots: lines.reduce((sum, line) => sum + (line.screenshots ?? 0), 0),
       status: round.status,
       via: round.answered_via,
-      askedBy: nameOf(session.owner, members),
-      answeredBy: round.answered_by ? nameOf(round.answered_by, members) : null,
+      askedBy,
+      answeredBy,
+      askedByFace: faceOfMember(session.owner, members, askedBy),
+      answeredByFace: answeredBy === null ? null : faceOfMember(round.answered_by, members, answeredBy),
       category,
       at: round.created_at,
       context: contextParts(session, round),

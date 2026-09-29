@@ -10,9 +10,10 @@
 // round of the caller's workspaces.
 // An answer's screenshots (PRD 620) go to the bucket first, as the same person: see attachments.ts.
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { loadPeople, type People } from '../../people/load';
 import type { Category } from '../classify';
 import {
-  askCategories, askShares, askStore, ATTACHMENTS_BUCKET, sessionClosed, settle, type AskAnswers, type AskAttachments, type AskCategory,
+  askCategories, askShares, askStore, ATTACHMENTS_BUCKET, memberLabel, sessionClosed, settle, type AskAnswers, type AskAttachments, type AskCategory,
 } from '../store';
 import { sendWithShots, trayOf, type Bucket } from './attachments';
 import type { ForMeRow, Member, QuestionState } from './question';
@@ -141,12 +142,18 @@ export async function shareRound(db: Db & SortDb, roundId: string, member: strin
 export async function readMembers(db: Db & SortDb, workspaceId: string | null | undefined): Promise<Member[]> {
   if (!workspaceId) return [];
   try {
-    return await askShares(db).members(workspaceId);
+    const [members, people] = await Promise.all([askShares(db).members(workspaceId), loadPeople(db as SupabaseClient, workspaceId)]);
+    return withFaces(members, people);
   } catch (error) {
     console.error(error);
     return [];
   }
 }
+
+/** Each member with the face the people directory decides for them, by account id (PRD 652). A
+ * directory that could not be read decides the initial of the name the screens print. */
+export const withFaces = (members: Member[], people: People): Member[] =>
+  members.map((m) => ({ ...m, face: people.byId(m.user_id, memberLabel(m)).face }));
 
 type RoundWithSession = RoundRow & { session_id: string };
 

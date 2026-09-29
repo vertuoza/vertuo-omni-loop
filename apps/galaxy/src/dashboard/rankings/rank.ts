@@ -1,5 +1,6 @@
 import type { Fleet, GalaxyView, Hero } from '@omni/galaxy';
 import type { Player } from '../../arcade/types';
+import type { FleetTag } from '../../people/types';
 
 // The rankings' pure functions (PRD 328): both tables, this season, as the galaxy ranks them
 // (buildGalaxy: by points, then by name). Every fleet the season knows, yours marked; and the
@@ -48,15 +49,25 @@ export function rankWindow(heroes: readonly Pick<Hero, 'name' | 'points' | 'rank
   return { rows, ranked: me >= 0 };
 }
 
-/** One fleet of the season, and whether it is yours. */
-export interface FleetRank { rank: number; name: string; label: string; points: number; yours: boolean }
+/** One fleet of the season, and whether it is yours. Its colour and mascot (PRD 652: its chip) are
+ * carried when the season gives them, as the galaxy's fleets always do. */
+export interface FleetRank {
+  rank: number; name: string; label: string; points: number; yours: boolean;
+  color?: string | null; mascot?: string | null;
+}
+
+/** A fleet as rankFleets reads it: its colour and mascot when known. */
+export type RankedTeam = Pick<Fleet, 'name' | 'label' | 'points' | 'rank'> & { color?: string | null; mascot?: string | null };
 
 /** Every fleet the season knows, ranked by points, with yours (`players.team`) marked. */
-export function rankFleets(teams: readonly Pick<Fleet, 'name' | 'label' | 'points' | 'rank'>[], team: string | null): FleetRank[] {
+export function rankFleets(teams: readonly RankedTeam[], team: string | null): FleetRank[] {
   return [...teams]
     .sort((a, b) => a.rank - b.rank)
-    .map((t) => ({ rank: t.rank, name: t.name, label: t.label, points: t.points, yours: t.name === team }));
+    .map((t) => ({ rank: t.rank, name: t.name, label: t.label, points: t.points, yours: t.name === team, color: t.color, mascot: t.mascot }));
 }
+
+/** A ranked fleet as its chip names it. */
+export const fleetTagOf = (f: FleetRank): FleetTag => ({ name: f.name, label: f.label, color: f.color ?? null, mascot: f.mascot ?? null });
 
 /** An individual's row as the table shows it: by display name. */
 export interface IndividualRow { rank: number; name: string; points: number; you: boolean }
@@ -74,7 +85,7 @@ export interface RankingsValue {
  * display name of the player whose GitHub login it is (ignoring case), else by that login.
  */
 export function rankingsOf(
-  galaxy: { teams: readonly Pick<Fleet, 'name' | 'label' | 'points' | 'rank'>[]; heroes: GalaxyView['heroes'] },
+  galaxy: { teams: readonly RankedTeam[]; heroes: GalaxyView['heroes'] },
   crew: readonly Pick<Player, 'display_name' | 'github_login'>[],
   login: string | null,
   team: string | null,

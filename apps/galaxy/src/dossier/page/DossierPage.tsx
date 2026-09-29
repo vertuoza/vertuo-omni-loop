@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { PersonChip } from '../../people/PersonChip';
 import { FixStatePill, TimelinePane } from '../../fixes/TimelinePane';
 import type { ArtifactKind } from '../store';
 import type { RenderedMarkdown } from '../markdown';
@@ -37,6 +38,7 @@ import { TAB_LABELS, type DossierView } from './view';
 // and its kind's tabs: Variations frames the round picked, chosen as Round k; Bug record is markdown.
 // PRD 627, s5: a fix's page opens on its Timeline (fixes/Timeline.tsx), and its facts strip carries its
 // State pill (Asked, In review, Merged, or `—`) and, On GitHub, its issue and its fix PR.
+// PRD 652: "opened by" draws the opener's face (PersonChip) before their name; the words are unchanged.
 
 type Props = {
   view: DossierView;
@@ -159,7 +161,9 @@ export function DossierPage({ view, markdown, supabase, live }: Props) {
           )}
           <div className="dossier-fact">
             <dt>Opened</dt>
-            <dd className="ask-hint">{view.opened}</dd>
+            <dd className="ask-hint">
+              {view.openedBy ? <>opened by <PersonChip person={view.openedBy} size="inline" /> · {view.openedAt}</> : view.opened}
+            </dd>
           </div>
         </dl>
         <nav className="dossier-tabs" aria-label="Artifacts">

@@ -25,7 +25,7 @@ vi.mock('next/link', async () => {
 
 const { AppBar } = await import('./AppBar.tsx');
 
-const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, workspaceName: 'Acme', waiting: null };
+const ADA: ViewerView = { signedIn: true, name: 'Ada Lovelace', login: 'ada', avatarUrl: null, heroSvg: null, workspaceName: 'Acme', waiting: null };
 
 const render = (path: string | null, viewer: ViewerView = SIGNED_OUT_VIEWER) => {
   at.path = path;
@@ -56,6 +56,13 @@ describe('the top bar', () => {
     expect(bell).toBeLessThan(bar.indexOf('aria-haspopup="menu"'));
     const view = bar.slice(bar.indexOf('<span class="app-bar-view">'), bar.indexOf('<span class="app-bar-you">'));
     expect(view).toContain('aria-label="Nothing waiting for you"');
+  });
+
+  it('ends with the viewer\'s hero as the avatar button when they have one (PRD 652)', () => {
+    const bar = render('/app', { ...ADA, heroSvg: '<svg viewBox="0 0 1 1"></svg>' });
+    const you = bar.slice(bar.indexOf('<span class="app-bar-you">'));
+    expect(you).toMatch(/aria-haspopup="menu"[^>]*><span class="user-menu-hero" aria-hidden="true"><svg viewBox="0 0 1 1"><\/svg><\/span><\/button>/);
+    expect(controls(bar).at(-1)).toBe('');
   });
 
   it('holds no bell signed out', () => {

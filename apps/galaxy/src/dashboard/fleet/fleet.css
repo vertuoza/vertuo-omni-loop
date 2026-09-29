@@ -1,7 +1,7 @@
 /* /app/fleet (PRD 572): the picker of every fleet, drawn like the board's period switch, the fleet's
-   name beside its colour's pip with its season place, and the page's one line when there is no
-   board. Every colour is a token of src/ask/theme-tokens.ts; the fleet's own comes from the data, as
-   --dash-fleet. At 393 px the picker wraps. */
+   chip (PRD 652: its mascot and label) with its season place, and the page's one line when there is
+   no board. Every colour is a token of src/ask/theme-tokens.ts; the fleet's own comes from the data,
+   as the chip's --fleet. At 393 px the picker wraps. */
 
 .fleet-picker ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .ask .fleet-picker a {
@@ -16,8 +16,10 @@
 }
 .ask .fleet-picker a:hover { border-color: var(--ask-plasma); }
 .ask .fleet-picker a[aria-current='page'] { background: var(--ask-plasma); border-color: var(--ask-plasma); color: var(--ask-on-plasma); }
+/* On the plasma ground a fleet colour cannot be read as text: the current fleet's label takes the link's. */
+.ask .fleet-picker a[aria-current='page'] .fleet-chip-label { color: inherit; }
 .fleet-yours { font-weight: 400; }
 .fleet-head { display: grid; gap: 4px; min-width: 0; }
 .fleet-head .dash-name { margin: 0; }
-.fleet-head .dash-fleet-pip { width: 14px; height: 14px; }
+.fleet-head .fleet-chip { --chip-size: 32px; white-space: normal; overflow-wrap: anywhere; }
 .fleet-line { margin: 0; overflow-wrap: anywhere; }
