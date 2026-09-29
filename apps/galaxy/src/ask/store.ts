@@ -91,7 +91,8 @@ export class AskStoreError extends Error {
 
 type Outcome<T> = { data: T | null; error: { code?: string; message: string } | null };
 
-function settle<T>(what: string, { data, error }: Outcome<T>): T | null {
+/** A database call's data, or the AskStoreError that says what failed. */
+export function settle<T>(what: string, { data, error }: Outcome<T>): T | null {
   if (error) throw new AskStoreError(what, error.code, error.message);
   return data;
 }

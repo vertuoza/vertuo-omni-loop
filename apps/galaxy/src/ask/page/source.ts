@@ -12,7 +12,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Category } from '../classify';
 import {
-  askCategories, askShares, askStore, AskStoreError, ATTACHMENTS_BUCKET, sessionClosed, type AskAnswers, type AskAttachments, type AskCategory,
+  askCategories, askShares, askStore, ATTACHMENTS_BUCKET, sessionClosed, settle, type AskAnswers, type AskAttachments, type AskCategory,
 } from '../store';
 import { sendWithShots, trayOf, type Bucket } from './attachments';
 import type { ForMeRow, Member, QuestionState } from './question';
@@ -36,13 +36,6 @@ type Head = Pick<RoundRow, 'id' | 'status' | 'category' | 'category_by'>;
 const same = (known: RoundRow | undefined, head: Head) =>
   known !== undefined && known.status === head.status
   && (known.category ?? null) === (head.category ?? null) && (known.category_by ?? null) === (head.category_by ?? null);
-
-type Outcome<T> = { data: T | null; error: { code?: string; message: string } | null };
-
-function settle<T>(what: string, { data, error }: Outcome<T>): T | null {
-  if (error) throw new AskStoreError(what, error.code, error.message);
-  return data;
-}
 
 async function session(db: Db, id: string): Promise<SessionRow | null> {
   return settle('read the session', await db.from('ask_sessions').select(SESSION).eq('id', id).maybeSingle());

@@ -29,7 +29,7 @@ export function progressText(progress: Progress | undefined): string | null {
 }
 
 /** An upload that failed: nothing was recorded. */
-export class UploadFailed extends Error {
+class UploadFailed extends Error {
   constructor(readonly at: number, readonly total: number) {
     super(progressText({ kind: 'failed', at, total }) ?? '');
   }
@@ -87,26 +87,39 @@ const EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', '
 const numberOf = (path: string) => Number(path.slice(path.lastIndexOf('/') + 1).split('.')[0]);
 const exists = (error: { message: string; statusCode?: string }) => error.statusCode === '409' || /already exists|duplicate/i.test(error.message);
 
+/** Deletes the uploads whose screenshot was removed from the tray, so their numbers are free again. */
+async function dropRemoved(bucket: Bucket, tray: Tray, staged: Shot[]): Promise<void> {
+  const kept = new Set(staged.map((s) => s.id));
+  const gone = [...tray.uploaded].filter(([id]) => !kept.has(id));
+  if (!gone.length) return;
+  const { error } = await bucket.remove(gone.map(([, path]) => path)).catch((e: unknown) => ({ error: e }));
+  // Not deleted: their numbers stay taken, so no new screenshot lands on an old file.
+  if (!error) for (const [id] of gone) tray.uploaded.delete(id);
+}
+
+/** The lowest number from 1 to SHOTS_MAX no upload of the tray holds, or undefined when all are taken. */
+function freeNumber(tray: Tray): number | undefined {
+  const used = new Set([...tray.uploaded.values()].map(numberOf));
+  return Array.from({ length: SHOTS_MAX }, (_, i) => i + 1).find((k) => !used.has(k));
+}
+
+/** Puts one screenshot in the bucket at `path`: true when it is there (one already there counts). */
+async function put(bucket: Bucket, path: string, shot: Shot): Promise<boolean> {
+  const { error } = await bucket.upload(path, shot.file, { contentType: shot.type, upsert: false }).catch((e: unknown) => ({ error: { message: String(e) } }));
+  return !error || exists(error);
+}
+
 /** Uploads what is not in the bucket yet, in order, and names every staged screenshot's path. A
  * screenshot removed after it was uploaded is deleted first, so its number is free again. */
 async function upload(bucket: Bucket, roundId: string, tray: Tray, onProgress: (progress: Progress) => void): Promise<AskAttachments> {
   const staged = Object.values(tray.shots).flat();
-  const kept = new Set(staged.map((s) => s.id));
-  const gone = [...tray.uploaded].filter(([id]) => !kept.has(id));
-  if (gone.length) {
-    const { error } = await bucket.remove(gone.map(([, path]) => path)).catch((e: unknown) => ({ error: e }));
-    // Not deleted: their numbers stay taken, so no new screenshot lands on an old file.
-    if (!error) for (const [id] of gone) tray.uploaded.delete(id);
-  }
+  await dropRemoved(bucket, tray, staged);
   for (const [at, shot] of staged.entries()) {
     if (tray.uploaded.has(shot.id)) continue;
     onProgress({ kind: 'uploading', at: at + 1, total: staged.length });
-    const used = new Set([...tray.uploaded.values()].map(numberOf));
-    const n = Array.from({ length: SHOTS_MAX }, (_, i) => i + 1).find((k) => !used.has(k));
-    if (n === undefined) throw failed(at + 1, staged.length, onProgress);
-    const path = `${roundId}/${n}.${EXT[shot.type] ?? 'png'}`;
-    const { error } = await bucket.upload(path, shot.file, { contentType: shot.type, upsert: false }).catch((e: unknown) => ({ error: { message: String(e) } }));
-    if (error && !exists(error)) throw failed(at + 1, staged.length, onProgress);
+    const n = freeNumber(tray);
+    const path = n === undefined ? null : `${roundId}/${n}.${EXT[shot.type] ?? 'png'}`;
+    if (!path || !(await put(bucket, path, shot))) throw failed(at + 1, staged.length, onProgress);
     tray.uploaded.set(shot.id, path);
   }
   return Object.fromEntries(Object.entries(tray.shots).map(([question, shots]) => [question, shots.map((s) => tray.uploaded.get(s.id) as string)]));

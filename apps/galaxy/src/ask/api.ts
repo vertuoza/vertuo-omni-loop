@@ -51,7 +51,7 @@
 // this deployment cannot look it up (no service role), both are null and the terminal says nothing more.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Placement } from './cli-code';
-import { authenticate, withInstallLink, type AskCaller, type TokenCheck } from './auth';
+import { authenticate, callerOrigin as origin, withInstallLink, type AskCaller, type TokenCheck } from './auth';
 import { CATEGORIES, isCategory, type Category, type Classifier, type ClassifyInput } from './classify';
 import { costUsd } from './prices';
 import {
@@ -175,14 +175,6 @@ async function alreadyAnswered(who: Signed, roundId: string, session: AskSession
 /** A call keeps its session alive, unless it already reads as closed. */
 async function touch(who: Signed, session: AskSession) {
   if (!sessionClosed(session, who.now())) await who.store.touchSession(session.id, new Date(who.now()));
-}
-
-/** Where the caller reached this app, behind Vercel's proxy too: the page link must use it. */
-function origin(request: Request) {
-  const url = new URL(request.url);
-  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? url.host;
-  const proto = request.headers.get('x-forwarded-proto') ?? url.protocol.replace(':', '');
-  return `${proto}://${host}`;
 }
 
 /** A context field: missing or null reads as null; `ok` says whether a value it holds is fine. */

@@ -13,6 +13,20 @@ export function Screenshots({ count, before = '' }: { count: number | undefined;
   return note ? <>{before}<span className="ask-shots-count">{note}</span></> : null;
 }
 
+/** A round's questions, each with its answer and how many screenshots it carries. */
+export function AnswerList({ lines, className }: { lines: { question: string; answer?: string | null; screenshots?: number }[]; className?: string }) {
+  return (
+    <dl className={className}>
+      {lines.map((line, i) => (
+        <Fragment key={i}>
+          <dt>{line.question}</dt>
+          <dd>{line.answer ?? '—'}<Screenshots count={line.screenshots} before=" " /></dd>
+        </Fragment>
+      ))}
+    </dl>
+  );
+}
+
 const TAG: Record<HistoryEntry['outcome'], (via: HistoryEntry['via']) => string> = {
   answered: (via) => via ?? 'page',
   moved: () => 'terminal',
@@ -52,14 +66,7 @@ export function History({ history, chip }: { history: HistoryEntry[]; chip?: (en
                 <Summary entry={entry} />
                 <span className="ask-via" data-via={entry.via ?? entry.outcome}>{TAG[entry.outcome](entry.via)}</span>
               </summary>
-              <dl>
-                {entry.lines.map((line, i) => (
-                  <Fragment key={i}>
-                    <dt>{line.question}</dt>
-                    <dd>{line.answer ?? '—'}<Screenshots count={line.screenshots} before=" " /></dd>
-                  </Fragment>
-                ))}
-              </dl>
+              <AnswerList lines={entry.lines} />
             </details>
             <ContextLine parts={entry.context} />
             {chip?.(entry)}

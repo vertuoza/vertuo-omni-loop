@@ -35,10 +35,10 @@ export const PROMPT_CONTEXT =
 export const WAIT_LIMITS = Object.freeze({ totalMs: 540_000, callMs: 60_000 });
 
 /** The most one screenshot's download may take (PRD 620), inside the same total. */
-export const SHOT_DOWNLOAD_MS = 30_000;
+const SHOT_DOWNLOAD_MS = 30_000;
 
 /** The line that heads a question's screenshots in its answer. */
-export const SCREENSHOTS_HEADING = 'Screenshots (open each with Read):';
+const SCREENSHOTS_HEADING = 'Screenshots (open each with Read):';
 
 /**
  * The mode in this checkout: the host it is on against and the URL its calls go to, or `null` when
@@ -147,6 +147,45 @@ async function terminalSession({ root, host, client, terminalId, title, readSess
   return opened.id;
 }
 
+/** Removes the screenshot folders older than 7 days; one that cannot be removed stays one more round. */
+function sweepOldShots(root, now) {
+  try {
+    clearOldShots(root, now());
+  } catch {
+    // Old screenshots stay one more round.
+  }
+}
+
+/** What `pre` needs from its input, or `null` when the hook has nothing to do with it. */
+function preInput(input) {
+  if (input?.tool_name !== TOOL) return null;
+  const toolInput = input.tool_input;
+  const questions = toolInput?.questions;
+  if (!Array.isArray(questions) || questions.length === 0) return null;
+  const terminalId = idOf(input.session_id);
+  const toolUseId = idOf(input.tool_use_id);
+  if (!terminalId || !toolUseId) return null;
+  return { toolInput, questions, terminalId, toolUseId };
+}
+
+/** The round opened for this question in this terminal's session, or `null` when none could be. */
+async function openRoundFor({ root, host, client, input, title, readContext, readSessionContext, questions, terminalId }) {
+  let roundId;
+  try {
+    const sessionId = await terminalSession({ root, host, client, terminalId, title, readSessionContext });
+    try {
+      ({ roundId } = await client.openRound(sessionId, questions, contextOf(() => readContext({ root, input })) ?? undefined));
+    } catch (error) {
+      // Closed or gone on the server: this question goes to the terminal, the next opens anew.
+      if (SESSION_GONE.includes(error?.status)) clearTerminal(root, terminalId);
+      return null;
+    }
+  } catch {
+    return null;
+  }
+  return typeof roundId === 'string' && roundId !== '' ? roundId : null;
+}
+
 /**
  * @param {{ root: string, host: string, client: ReturnType<import('./client.mjs').askClient>,
  *   input: any, title: () => string, limits?: { totalMs: number, callMs: number }, now?: () => number,
@@ -165,35 +204,14 @@ export async function preHook({
   readContext = askContext,
   readSessionContext = sessionContext,
 }) {
-  if (input?.tool_name !== TOOL) return null;
-  const toolInput = input.tool_input;
-  const questions = toolInput?.questions;
-  if (!Array.isArray(questions) || questions.length === 0) return null;
-  const terminalId = idOf(input.session_id);
-  const toolUseId = idOf(input.tool_use_id);
-  if (!terminalId || !toolUseId) return null;
+  const pre = preInput(input);
+  if (!pre) return null;
+  const { toolInput, questions, terminalId, toolUseId } = pre;
   const deadline = now() + limits.totalMs;
+  sweepOldShots(root, now);
 
-  try {
-    clearOldShots(root, now());
-  } catch {
-    // Old screenshots stay one more round.
-  }
-
-  let roundId;
-  try {
-    const sessionId = await terminalSession({ root, host, client, terminalId, title, readSessionContext });
-    try {
-      ({ roundId } = await client.openRound(sessionId, questions, contextOf(() => readContext({ root, input })) ?? undefined));
-    } catch (error) {
-      // Closed or gone on the server: this question goes to the terminal, the next opens anew.
-      if (SESSION_GONE.includes(error?.status)) clearTerminal(root, terminalId);
-      return null;
-    }
-  } catch {
-    return null;
-  }
-  if (typeof roundId !== 'string' || roundId === '') return null;
+  const roundId = await openRoundFor({ root, host, client, input, title, readContext, readSessionContext, questions, terminalId });
+  if (!roundId) return null;
   const keep = (status) => writeRound(root, toolUseId, { roundId, status });
   keep('open');
 

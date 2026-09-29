@@ -25,7 +25,7 @@ export const SHOT_TYPES: readonly string[] = ['image/png', 'image/jpeg', 'image/
 export const SHOT_MAX_BYTES = 5 * 1024 * 1024;
 export const SHOTS_MAX = 5;
 /** Other's answer text when it has screenshots and no text. */
-export const SEE_SCREENSHOTS = '(see screenshots)';
+const SEE_SCREENSHOTS = '(see screenshots)';
 
 const REFUSED = { type: 'PNG, JPEG, GIF or WebP only', size: '5 MB max', count: '5 screenshots max' } as const;
 

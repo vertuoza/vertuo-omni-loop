@@ -15754,17 +15754,13 @@ async function terminalSession({ root, host, client, terminalId, title, readSess
   writeTerminal(root, terminalId, { sessionId: opened.id, host });
   return opened.id;
 }
-async function preHook({
-  root,
-  host,
-  client,
-  input,
-  title,
-  limits = WAIT_LIMITS,
-  now = Date.now,
-  readContext = askContext,
-  readSessionContext = sessionContext
-}) {
+function sweepOldShots(root, now) {
+  try {
+    clearOldShots(root, now());
+  } catch {
+  }
+}
+function preInput(input) {
   if (input?.tool_name !== TOOL) return null;
   const toolInput = input.tool_input;
   const questions = toolInput?.questions;
@@ -15772,11 +15768,9 @@ async function preHook({
   const terminalId = idOf(input.session_id);
   const toolUseId = idOf(input.tool_use_id);
   if (!terminalId || !toolUseId) return null;
-  const deadline = now() + limits.totalMs;
-  try {
-    clearOldShots(root, now());
-  } catch {
-  }
+  return { toolInput, questions, terminalId, toolUseId };
+}
+async function openRoundFor({ root, host, client, input, title, readContext, readSessionContext, questions, terminalId }) {
   let roundId;
   try {
     const sessionId = await terminalSession({ root, host, client, terminalId, title, readSessionContext });
@@ -15789,7 +15783,26 @@ async function preHook({
   } catch {
     return null;
   }
-  if (typeof roundId !== "string" || roundId === "") return null;
+  return typeof roundId === "string" && roundId !== "" ? roundId : null;
+}
+async function preHook({
+  root,
+  host,
+  client,
+  input,
+  title,
+  limits = WAIT_LIMITS,
+  now = Date.now,
+  readContext = askContext,
+  readSessionContext = sessionContext
+}) {
+  const pre = preInput(input);
+  if (!pre) return null;
+  const { toolInput, questions, terminalId, toolUseId } = pre;
+  const deadline = now() + limits.totalMs;
+  sweepOldShots(root, now);
+  const roundId = await openRoundFor({ root, host, client, input, title, readContext, readSessionContext, questions, terminalId });
+  if (!roundId) return null;
   const keep = (status3) => writeRound(root, toolUseId, { roundId, status: status3 });
   keep("open");
   const giveUp = async () => {
