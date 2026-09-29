@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PRD 523 before/after</title>
+<style>
+/* The app's Omni theme (packages/design/src/tokens.mjs, ASK.omni): the page is drawn in the theme /knowledge opens in.
+   Layout: today and after side by side (stacked on a phone), then the states and where the menu's list comes from. */
+:root{--ground:#07061c;--surface:#120f3a;--sunk:#0e0d33;--line:#1a2170;--ls:#5a60c4;--ink:#f2f4ff;--muted:#8a90d6;--signal:#ffd84a;--onSignal:#07061c;--magenta:#ff3ea5;--cyan:#6ff0ff;--green:#4ee08a;--red:#ff6b86;
+--body:system-ui,-apple-system,"Segoe UI",sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:#040313;color:var(--ink);font:14px/1.45 var(--body);padding:24px 16px 64px}
+main{max-width:1320px;margin:0 auto;display:grid;gap:28px}
+h1{margin:0 0 4px;font-size:22px;text-wrap:balance}
+h2{margin:0 0 10px;font-size:16px}
+.lead{margin:0;color:var(--muted);max-width:92ch}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}@media(max-width:1100px){.cols{grid-template-columns:1fr}}
+.col{display:grid;gap:8px;align-content:start;min-width:0}
+.lbl{font:800 12px var(--mono);letter-spacing:.12em;margin:0;color:var(--muted)}.lbl b{color:var(--signal)}
+.note{margin:0;color:var(--muted);font-size:12.5px}
+code{font-family:var(--mono);font-size:.92em}
+/* the app frame */
+.frame{border:1px solid var(--ls);background:var(--ground);border-radius:6px;overflow:hidden;min-width:0}
+.url{display:flex;align-items:center;gap:8px;background:var(--sunk);border-bottom:1px solid var(--line);padding:6px 10px;font:12px var(--mono);color:var(--muted);overflow-x:auto;white-space:nowrap}
+.url i{width:8px;height:8px;border-radius:50%;background:var(--line);flex:none}.url b{color:var(--ink);font-weight:500}
+.app{display:grid;grid-template-columns:118px minmax(0,1fr)}
+.side{background:var(--surface);border-right:1px solid var(--line);padding:10px 8px;display:grid;gap:3px;align-content:start;font-size:12px;font-weight:650}
+.side .logo{font:800 11px var(--mono);color:var(--signal);margin-bottom:6px}.side .sec{font:700 9px var(--mono);letter-spacing:.1em;color:var(--muted);margin-top:6px}
+.side div{padding:3px 6px}.side .on{border:1.5px solid var(--signal);color:var(--signal);border-radius:5px}
+.bar{display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;border-bottom:1px solid var(--line);font-weight:750;font-size:13px}.bar .sp{flex:1}
+.bar .gm{background:var(--signal);color:var(--onSignal);border-radius:6px;padding:3px 8px;font-size:10.5px}
+.main{padding:12px;display:grid;gap:10px;min-width:0}
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.chip{font:12px var(--mono);color:var(--muted);border:1px solid var(--ls);border-radius:99px;padding:2px 8px}
+.star{color:var(--cyan);font-weight:750;font-size:12px}
+.pick{display:flex;align-items:flex-end;gap:6px;flex-wrap:wrap}
+.field{display:grid;gap:3px}.field span{font-size:11px;color:var(--muted)}
+.select{display:flex;align-items:center;gap:10px;justify-content:space-between;min-width:190px;background:var(--surface);border:1.5px solid var(--ls);border-radius:7px;padding:6px 9px;font-size:12px}
+.select::after{content:"▾";color:var(--muted)}
+.show{background:var(--surface);border:1.5px solid var(--ls);border-radius:7px;padding:6px 10px;font-weight:750;font-size:12px}
+.menu{position:relative}
+.list{position:absolute;left:0;top:calc(100% + 3px);z-index:1;min-width:280px;background:var(--surface);border:1.5px solid var(--ls);border-radius:7px;padding:4px;display:grid;gap:1px;font-size:12px;box-shadow:0 10px 24px #000a}
+.list div{padding:5px 8px;border-radius:4px;display:flex;justify-content:space-between;gap:10px}
+.list .cur{background:var(--signal);color:var(--onSignal);font-weight:700}
+.list small{font:10px var(--mono);color:var(--muted)}.list .cur small{color:var(--onSignal)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}.tab{border:1px solid var(--ls);border-radius:99px;padding:3px 10px;font-weight:750;font-size:12px}.tab small{font-weight:400;color:var(--muted);margin-left:5px}
+.tab.cur{background:var(--signal);border-color:var(--signal);color:var(--onSignal)}.tab.cur small{color:var(--onSignal)}
+.body{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:10px}
+.fig{background:var(--surface);border:1px solid var(--ls);border-radius:9px;padding:6px}
+.fig svg{display:block;width:100%;height:auto}
+.panel{background:var(--surface);border:1px solid var(--ls);border-radius:9px;padding:9px;font-size:11px;display:grid;gap:5px;align-content:start}
+.panel .id{font:700 12px var(--mono)}.panel .k{display:flex;gap:4px}.panel .k span{border:1px solid var(--signal);color:var(--signal);border-radius:99px;padding:0 6px;font-size:10px}
+.panel .k span.p{border-color:var(--ls);color:var(--muted)}.panel a{color:var(--cyan)}
+.gap{opacity:.5}
+/* after-only marks */
+.new{outline:2px dashed var(--magenta);outline-offset:3px;border-radius:8px}
+.tag{font:700 10px var(--mono);letter-spacing:.06em;color:var(--onSignal);background:var(--magenta);border-radius:3px;padding:1px 5px}
+/* the states */
+table{width:100%;border-collapse:collapse;font-size:13px}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:700 11px var(--mono);letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+tr:last-child td{border-bottom:0}
+td b{color:var(--signal)}
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px}
+.step{flex:1 1 170px;background:var(--surface);border:1px solid var(--ls);border-radius:8px;padding:10px;display:grid;gap:4px;min-width:0}
+.step b{font-size:13px}.step span{color:var(--muted);font-size:12px}
+.arrow{align-self:center;color:var(--muted);font:700 16px var(--mono)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}@media(max-width:900px){.two{grid-template-columns:1fr}}
+ul{margin:0;padding-left:18px;display:grid;gap:4px}
+@media(max-width:560px){.app{grid-template-columns:1fr}.side{display:none}.body{grid-template-columns:1fr}}
+</style></head>
+<body><main>
+
+<header>
+  <h1>PRD 523 · The knowledge map's Repository menu</h1>
+  <p class="lead">Today <code>/knowledge</code> shows one knowledge base: the one in the repository the app is deployed from. After, a <b>Repository</b> menu replaces the repository's chip and lists every repository Omni Loop touched in your workspaces, read from GitHub as the Omni Loop App and drawn on the same map.</p>
+</header>
+
+<section class="cols" aria-label="Today and after">
+  <div class="col">
+    <p class="lbl">TODAY</p>
+    <div class="frame">
+      <div class="url"><i></i><i></i><i></i><b>vertuo-omni-loop-galaxy.vercel.app</b>/knowledge</div>
+      <div class="app">
+        <nav class="side"><div class="logo">OMNI LOOP</div><div class="sec">WORK</div><div>Home</div><div>PRDs</div><div>Questions</div><div class="on">Knowledge</div><div>Fleets</div></nav>
+        <div>
+          <div class="bar">Knowledge<span class="sp"></span><span class="gm">Game mode</span></div>
+          <div class="main">
+            <div class="head"><span class="chip">vertuoza/vertuo-omni-loop</span><span class="star">Open the star chart →</span></div>
+            <div class="tabs"><span class="tab cur">product<small>106</small></span></div>
+            <div class="body">
+              <div class="fig"><svg viewBox="0 0 200 150" aria-hidden="true"><g fill="none" stroke="#1a2170"><circle cx="100" cy="75" r="30"/><circle cx="100" cy="75" r="48"/><circle cx="100" cy="75" r="66"/></g><circle cx="100" cy="75" r="14" fill="#ff3ea5"/><g fill="#ffd84a"><circle cx="100" cy="45" r="3"/><circle cx="126" cy="60" r="3"/><circle cx="74" cy="90" r="3"/></g><g fill="none" stroke="#6ff0ff" stroke-width="1.5"><circle cx="100" cy="27" r="3"/><circle cx="148" cy="75" r="3"/><circle cx="66" cy="110" r="3"/></g><g fill="#ff6b86"><circle cx="166" cy="75" r="3"/><circle cx="53" cy="37" r="3"/></g></svg></div>
+              <div class="panel"><span class="id">P-PRODUCT-1</span><span class="k"><span>principle</span><span class="p">proposed</span></span><span>The pull request that opens a feature carries documentation only…</span><a>PRD #3</a></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note">Every crew member, in any workspace, sees Omni Loop's own principles. Acme's knowledge, harvested into <code>acme/widgets</code>, cannot be reached from here.</p>
+  </div>
+
+  <div class="col">
+    <p class="lbl"><b>AFTER</b> · the menu open</p>
+    <div class="frame">
+      <div class="url"><i></i><i></i><i></i><b>vertuo-omni-loop-galaxy.vercel.app</b>/knowledge</div>
+      <div class="app">
+        <nav class="side"><div class="logo">OMNI LOOP</div><div class="sec">WORK</div><div>Home</div><div>PRDs</div><div>Questions</div><div class="on">Knowledge</div><div>Fleets</div></nav>
+        <div>
+          <div class="bar">Knowledge<span class="sp"></span><span class="gm">Game mode</span></div>
+          <div class="main">
+            <div class="head">
+              <div class="pick new">
+                <div class="field menu"><span>Repository</span><div class="select">vertuoza/vertuo-omni-loop</div>
+                  <div class="list" role="presentation"><div class="cur">vertuoza/vertuo-omni-loop<small>deployed</small></div><div>vertuoza/vertuo-api</div><div>vertuoza/vertuo-core</div><div>vertuoza/vertuo-plan</div></div>
+                </div>
+                <span class="show">Show</span>
+              </div>
+              <span class="star">Open the star chart →</span>
+            </div>
+            <div class="tabs gap"><span class="tab cur">product<small>106</small></span></div>
+            <div class="body gap">
+              <div class="fig"><svg viewBox="0 0 200 150" aria-hidden="true"><g fill="none" stroke="#1a2170"><circle cx="100" cy="75" r="30"/><circle cx="100" cy="75" r="48"/><circle cx="100" cy="75" r="66"/></g><circle cx="100" cy="75" r="14" fill="#ff3ea5"/></svg></div>
+              <div class="panel"><span class="id">P-PRODUCT-1</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note"><span class="tag">NEW</span> The menu takes the chip's place: the deployed repository first, then every repository Omni Loop touched in your workspaces, by name. It is a form with a <b>Show</b> button, so it works before any script runs. The repository names other than vertuo-omni-loop are examples.</p>
+  </div>
+</section>
+
+<section class="cols" aria-label="After, a repository picked">
+  <div class="col">
+    <p class="lbl"><b>AFTER</b> · <code>vertuoza/vertuo-core</code> picked</p>
+    <div class="frame">
+      <div class="url"><i></i><i></i><i></i><b>…vercel.app</b>/knowledge?repo=vertuoza%2Fvertuo-core&amp;domain=quote&amp;entry=BR-QUOTE-1</div>
+      <div class="app">
+        <nav class="side"><div class="logo">OMNI LOOP</div><div class="sec">WORK</div><div>Home</div><div>PRDs</div><div>Questions</div><div class="on">Knowledge</div><div>Fleets</div></nav>
+        <div>
+          <div class="bar">Knowledge<span class="sp"></span><span class="gm">Game mode</span></div>
+          <div class="main">
+            <div class="head"><div class="pick"><div class="field"><span>Repository</span><div class="select">vertuoza/vertuo-core</div></div><span class="show">Show</span></div></div>
+            <div class="tabs"><span class="tab">product<small>12</small></span><span class="tab cur">quote<small>9</small></span><span class="tab">invoice<small>7</small></span><span class="tab">Between domains<small>2</small></span></div>
+            <div class="body">
+              <div class="fig"><svg viewBox="0 0 200 150" aria-hidden="true"><g fill="none" stroke="#1a2170"><circle cx="100" cy="75" r="30"/><circle cx="100" cy="75" r="48"/><circle cx="100" cy="75" r="66"/></g><line x1="100" y1="45" x2="148" y2="75" stroke="#f2f4ff" stroke-width="1.5"/><circle cx="100" cy="75" r="14" fill="#ff3ea5"/><g fill="#ffd84a"><circle cx="100" cy="45" r="3"/><circle cx="74" cy="90" r="3"/></g><g fill="#6ff0ff"><circle cx="148" cy="75" r="3"/><circle cx="66" cy="110" r="3"/><circle cx="118" cy="30" r="3"/></g><circle cx="148" cy="75" r="7" fill="none" stroke="#f2f4ff"/><g fill="none" stroke="#ff6b86" stroke-width="1.5"><circle cx="53" cy="37" r="3"/></g></svg></div>
+              <div class="panel"><span class="id">BR-QUOTE-1</span><span class="k"><span>rule</span><span>law</span></span><span>A sent quote is kept.</span><span>Serves <a>P-QUOTE-1</a></span><a>PRD #41</a></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note">The same map, drawn from <code>vertuo-core</code>'s own <code>.omni-loop/knowledge</code> at its default branch's tip. Every tab, dot and row keeps <code>repo=</code>, so the link can be shared. No star chart link: the arcade charts the deployed repository only.</p>
+  </div>
+
+  <div class="col">
+    <p class="lbl">WHAT EACH ADDRESS SHOWS</p>
+    <div class="tw"><table>
+      <thead><tr><th>The address asks for</th><th>The page shows</th></tr></thead>
+      <tbody>
+        <tr><td>nothing, or the deployed repository</td><td>its map, exactly as today, at today's addresses</td></tr>
+        <tr><td>a repository the menu offers</td><td>that repository's map, the menu on it</td></tr>
+        <tr><td>…that GitHub cannot read</td><td><b>The knowledge is out of reach</b>, naming it; the menu stays</td></tr>
+        <tr><td>a repository the menu does not offer</td><td><b>This repository is not on the menu</b>; GitHub is never asked</td></tr>
+        <tr><td>a touched repository with no entry yet</td><td><b>No knowledge yet</b>, and that <code>/omni:invade</code> proposes some</td></tr>
+        <tr><td>anything, with no other repository to offer</td><td>the chip, as today: no menu</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Who reaches the page does not change: signed out, the sign-in card, which comes back to the same <code>repo</code>; in no workspace, the crew-only notice.</p>
+  </div>
+</section>
+
+<section aria-labelledby="where">
+  <h2 id="where">Where the menu's list comes from</h2>
+  <div class="flow">
+    <div class="step"><b>Your workspaces</b><span>every one you belong to, read as you: its GitHub org and its App installation</span></div>
+    <span class="arrow" aria-hidden="true">→</span>
+    <div class="step"><b>The installation's repositories</b><span>as the Omni Loop App, a hundred per page, archived ones left out; kept five minutes</span></div>
+    <span class="arrow" aria-hidden="true">→</span>
+    <div class="step"><b>Touched by Omni?</b><span><code>.omni-loop/config.yml</code> on the default branch, fifty checked per GraphQL call</span></div>
+    <span class="arrow" aria-hidden="true">→</span>
+    <div class="step"><b>The menu</b><span>the deployed repository first, then these by name, each once</span></div>
+  </div>
+</section>
+
+<section class="two" aria-label="What changes and what stays">
+  <div><h2>Changes</h2><ul>
+    <li>A Repository menu on <code>/knowledge</code>, and <code>?repo=owner/name</code> in its addresses.</li>
+    <li>A picked repository's registers are read from GitHub in one call and kept one minute.</li>
+    <li>The kit's parser reads texts already fetched as well as the disk; the app never parses a register itself.</li>
+  </ul></div>
+  <div><h2>Stays the same</h2><ul>
+    <li>The deployed repository's map, its addresses and its star chart.</li>
+    <li>Who may read the map: the crew of a workspace.</li>
+    <li>The kit's commands: <code>omni kb graph</code>, <code>omni check knowledge</code> print what they print today.</li>
+    <li>No database change, no new App permission.</li>
+  </ul></div>
+</section>
+
+</main></body></html>
