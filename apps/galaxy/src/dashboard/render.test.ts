@@ -37,6 +37,8 @@ const dashboard = (over: Partial<DashboardData> = {}) => render({ kind: 'dashboa
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '\'').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const h1s = (html: string) => [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/g)].map((m) => text(m[1]));
 const UNREADABLE_LINE = 'Couldn’t load this. Reload in a moment.';
+/** The hero block alone: the board's heading says "Your fleet" too. */
+const you = (html: string) => html.slice(html.indexOf('class="dash-you"'), html.indexOf('</section>', html.indexOf('class="dash-you"')));
 
 describe('the dashboard', () => {
   it('is headed by the person\'s name: the page\'s one h1', () => {
@@ -71,8 +73,8 @@ describe('the dashboard', () => {
 
   it('a solo player reads SOLO where a fleet is named, and no fleet\'s place', () => {
     const html = dashboard({ you: { ...PLAYER, fleet: 'solo', score: { points: 30, you: { rank: 3, of: 4 }, fleet: null } } as YouValue });
-    expect(text(html)).toContain('SOLO');
-    expect(text(html)).not.toContain('fleet');
+    expect(text(you(html))).toContain('SOLO');
+    expect(text(you(html))).not.toContain('fleet');
     expect(text(html)).not.toContain('UNCREWED');
     expect(html).not.toContain('--dash-fleet');
   });
@@ -93,7 +95,7 @@ describe('the dashboard', () => {
     const t = text(dashboard({ you: { ...PLAYER, fleet: null, score: { points: 30, you: { rank: 3, of: 4 }, fleet: null } } as YouValue }));
     expect(t).toContain('You #3 of 4');
     expect(t).not.toContain(' · BEAVER');
-    expect(t).not.toContain('fleet');
+    expect(text(you(dashboard({ you: { ...PLAYER, fleet: null, score: { points: 30, you: { rank: 3, of: 4 }, fleet: null } } as YouValue })))).not.toContain('fleet');
   });
 
   it('places the parts in the spec\'s order: the hero block, Waiting for you, then the board', () => {
@@ -104,10 +106,10 @@ describe('the dashboard', () => {
     expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 
-  it('hands each part its own value, or unreadable, and the board Home\'s path, the query and "Your team"', () => {
+  it('hands each part its own value, or unreadable, and the board Home\'s path, the query and "Your fleet"', () => {
     const t = text(dashboard({ waiting: 'unreadable', board: { n: 3 } as never }));
     expect(t).toContain('waiting "unreadable"');
-    expect(t).toContain('board {"board":{"n":3},"path":"/app","query":{"period":"30d"},"peopleTitle":"Your team"}');
+    expect(t).toContain('board {"board":{"n":3},"path":"/app","query":{"period":"30d"},"peopleTitle":"Your fleet"}');
   });
 
   it('shows no rankings, no Outbox settled, no week and no season counts any more (PRD 572)', () => {

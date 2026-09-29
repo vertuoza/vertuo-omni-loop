@@ -95,7 +95,21 @@ describe('a board', () => {
     expect(rows).toContain('Paul Etienne SOLO 0 1 0 · 0 · 0 9');
     expect(rows).toContain('ADA ◀ (you) OCTO 40 0 0 · 1 · 2 0');
     expect(rows).toContain('NOGIT SOLO – – 1 · 0 · 0 0');
-    expect(html).toMatch(/<tr aria-current="true"><th scope="row" class="board-name">ADA/);
+    expect(html).toMatch(/<tr aria-current="true"><th scope="row" class="board-name">(?:(?!<\/th>)[\s\S])*ADA/);
+  });
+
+  it('starts each People row with the member\'s face and shows their fleet as a chip with its mascot', () => {
+    const html = render({
+      roster: [{ ...member('u-ada', 'ada-gh', 'octo', 'ADA'), hero: { v: 1, body: 'girl', skin: 2, hair: 3, suit: 0, cape: 8 } },
+        { ...member('u-paul', 'paetienne', null, 'Paul Etienne'), avatarUrl: 'https://a.test/paul.png' }, member('u-nog', null, null, 'NOGIT')],
+    }, {}, {}, false);
+    const people = html.slice(html.indexOf('board-people'), html.indexOf('board-repos'));
+    const names = [...people.matchAll(/<th scope="row" class="board-name">([\s\S]*?)<\/th>/g)].map((m) => m[1]);
+    expect(names.find((n) => n.includes('ADA'))).toMatch(/^<span class="person-chip is-table"><span class="person-face is-hero" aria-hidden="true"><svg /);
+    expect(names.find((n) => n.includes('Paul'))).toContain('<img class="person-face is-photo" src="https://a.test/paul.png" alt=""');
+    expect(names.find((n) => n.includes('NOGIT'))).toContain('data-initial="N"');
+    expect(people).toMatch(/<span class="fleet-chip is-table" style="--fleet:#3355ff"><span class="fleet-chip-mascot" aria-hidden="true"><svg [\s\S]*?<span class="fleet-chip-label">OCTO<\/span>/);
+    expect(people).toContain('<span class="fleet-chip is-solo">SOLO</span>');
   });
 
   it('lists the repositories involved, most active first', () => {
