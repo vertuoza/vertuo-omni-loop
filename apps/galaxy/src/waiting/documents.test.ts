@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Db } from '../ask/page/source';
+import type { NotificationApi } from './alerts';
 import {
-  DOCS_DAYS, DOCS_LIMIT, DOCS_SEEN_KEY, documentsReader, groupDocuments, markSeen, readSeen,
-  type DocumentRow, type Seen,
+  ANNOUNCED_KEPT, DOCS_ANNOUNCED_KEY, DOCS_DAYS, DOCS_LIMIT, DOCS_SEEN_KEY, documentsReader, groupDocuments, markSeen,
+  noticeDocuments, readSeen, settled, SETTLE_MS, toAnnounce, type Announced, type DocumentGroup, type DocumentRow, type Seen,
 } from './documents';
 
 // The waiting list's New documents part (PRD 579, s1): the spec, plan and before/after versions pushed
@@ -30,8 +31,10 @@ describe('grouping new documents per PRD', () => {
       row('v1', 'spec', 6 * MIN, 572),
     ];
     expect(groupDocuments(rows, NEVER)).toEqual([
-      { dossierId: 'd-572', prd: 572, title: 'PRD title 572', kinds: ['spec', 'plan', 'before-after'], newestId: 'v6', newestAt: NOW - 1 * MIN },
-      { dossierId: 'd-579', prd: 579, title: 'PRD title 579', kinds: ['spec', 'before-after'], newestId: 'v4', newestAt: NOW - 3 * MIN },
+      { dossierId: 'd-572', prd: 572, title: 'PRD title 572', kinds: ['spec', 'plan', 'before-after'], newestId: 'v6', newestAt: NOW - 1 * MIN,
+        kindsAt: { spec: NOW - 4 * MIN, plan: NOW - 1 * MIN, 'before-after': NOW - 2 * MIN } },
+      { dossierId: 'd-579', prd: 579, title: 'PRD title 579', kinds: ['spec', 'before-after'], newestId: 'v4', newestAt: NOW - 3 * MIN,
+        kindsAt: { spec: NOW - 3 * MIN, 'before-after': NOW - 5 * MIN } },
     ]);
   });
 
@@ -44,7 +47,7 @@ describe('grouping new documents per PRD', () => {
     const rows = [row('v3', 'plan', 1 * MIN), row('v2', 'before-after', 5 * MIN), row('v1', 'spec', 10 * MIN)];
     const seen: Seen = { since: 0, dossiers: { 'd-572': NOW - 5 * MIN } };
     expect(groupDocuments(rows, seen)).toEqual([
-      { dossierId: 'd-572', prd: 572, title: 'PRD title 572', kinds: ['plan'], newestId: 'v3', newestAt: NOW - MIN },
+      { dossierId: 'd-572', prd: 572, title: 'PRD title 572', kinds: ['plan'], newestId: 'v3', newestAt: NOW - MIN, kindsAt: { plan: NOW - MIN } },
     ]);
   });
 
@@ -155,5 +158,149 @@ describe('what this browser has seen', () => {
     expect(readSeen(throwing, NOW)).toEqual({ since: NOW, dossiers: {} });
     expect(() => markSeen(throwing, 'd-572', NOW)).not.toThrow();
     expect(() => markSeen(() => { throw new Error('no storage'); }, 'd-572', NOW)).not.toThrow();
+  });
+});
+
+// PRD 579, s2: a PRD's new documents are announced once they settle, once per newest version.
+
+const SEC = 1000;
+const g = (prd: number, newestId: string, ago: number, kindsAt: DocumentGroup['kindsAt'] = { spec: NOW - ago }): DocumentGroup => ({
+  dossierId: `d-${prd}`, prd, title: `PRD title ${prd}`,
+  kinds: (['spec', 'plan', 'before-after'] as const).filter((k) => kindsAt?.[k] !== undefined),
+  newestId, newestAt: NOW - ago, kindsAt,
+});
+
+describe('settling', () => {
+  it('holds a group whose newest version is 30 s old, and not one 29 s old', () => {
+    expect(SETTLE_MS).toBe(30 * SEC);
+    const quiet = g(572, 'v1', 30 * SEC);
+    const busy = g(579, 'v2', 29 * SEC);
+    expect(settled([quiet, busy], NOW)).toEqual([quiet]);
+  });
+});
+
+describe('what to announce', () => {
+  it('announces a group never announced, with all its kinds, and remembers its newest', () => {
+    const group = g(572, 'v2', MIN, { spec: NOW - 2 * MIN, 'before-after': NOW - MIN });
+    const { alerts, announced } = toAnnounce([group], []);
+    expect(alerts).toEqual([{ group, kinds: ['spec', 'before-after'] }]);
+    expect(announced).toEqual([{ id: 'v2', dossierId: 'd-572', at: NOW - MIN }]);
+  });
+
+  it('skips a newest id already announced', () => {
+    const group = g(572, 'v2', MIN);
+    const once = toAnnounce([group], []);
+    const twice = toAnnounce([group], once.announced);
+    expect(twice.alerts).toEqual([]);
+    expect(twice.announced).toEqual(once.announced);
+  });
+
+  it('announces a later version of the same PRD, naming only the kinds newer than its last alert', () => {
+    const first = g(572, 'v2', 3 * MIN, { spec: NOW - 4 * MIN, 'before-after': NOW - 3 * MIN });
+    const { announced } = toAnnounce([first], []);
+    const later = g(572, 'v3', MIN, { spec: NOW - 4 * MIN, plan: NOW - MIN, 'before-after': NOW - 3 * MIN });
+    const next = toAnnounce([later], announced);
+    expect(next.alerts).toEqual([{ group: later, kinds: ['plan'] }]);
+    expect(next.announced.map((a) => a.id)).toEqual(['v2', 'v3']);
+  });
+
+  it('names every kind of a group that carries no time per kind', () => {
+    const bare: DocumentGroup = { dossierId: 'd-1', prd: 1, title: 't', kinds: ['spec', 'plan'], newestId: 'v1', newestAt: NOW };
+    expect(toAnnounce([bare], [{ id: 'v0', dossierId: 'd-1', at: NOW - MIN }]).alerts[0].kinds).toEqual(['spec', 'plan']);
+  });
+
+  it('keeps the announced list at most 200 long', () => {
+    expect(ANNOUNCED_KEPT).toBe(200);
+    let announced: Announced = [];
+    for (let i = 0; i < 250; i++) announced = toAnnounce([g(i, `v${i}`, MIN)], announced).announced;
+    expect(announced).toHaveLength(200);
+    expect(announced.at(-1)?.id).toBe('v249');
+  });
+});
+
+/** A fake of the browser's Notification that records what it raised. */
+function notifier() {
+  const raised: { title: string; options: NotificationOptions; onclick: (() => void) | null }[] = [];
+  class Fake {
+    static permission = 'granted';
+    static requestPermission = async () => 'granted';
+    onclick: (() => void) | null = null;
+    constructor(title: string, options: NotificationOptions) {
+      Object.assign(this, { title, options });
+      raised.push(this as never);
+    }
+  }
+  return { api: Fake as unknown as NotificationApi, raised };
+}
+
+describe('announcing settled documents', () => {
+  const two = [g(572, 'v2', MIN), g(579, 'v4', 2 * MIN, { plan: NOW - 2 * MIN })];
+  const setup = (store = memory().store) => {
+    const { api, raised } = notifier();
+    const play = vi.fn();
+    const opened: string[] = [];
+    const input = {
+      groups: two, now: NOW, store, kept: [] as Announced, desktop: 'on' as const, chime: true,
+      notifications: api, play, open: (href: string) => void opened.push(href),
+    };
+    return { raised, play, opened, input };
+  };
+
+  it('with the switches off, raises and plays nothing', () => {
+    const { raised, play, input } = setup();
+    noticeDocuments({ ...input, desktop: 'off', chime: false });
+    expect(raised).toEqual([]);
+    expect(play).not.toHaveBeenCalled();
+  });
+
+  it('with Desktop alerts on, two settled PRDs in one read raise two notifications, each opening its page', () => {
+    const { raised, opened, play, input } = setup();
+    noticeDocuments({ ...input, chime: false });
+    expect(raised.map((n) => [n.title, n.options.tag])).toEqual([
+      ['PRD 572: new spec', 'docs-d-572-v2'],
+      ['PRD 579: new plan', 'docs-d-579-v4'],
+    ]);
+    raised[1].onclick?.();
+    expect(opened).toEqual(['/prd/d-579']);
+    expect(play).not.toHaveBeenCalled();
+  });
+
+  it('with Chime on, one chime plays for the read, claimed once across tabs', () => {
+    const m = memory();
+    const { play, input } = setup(m.store);
+    noticeDocuments({ ...input, desktop: 'off' });
+    expect(play).toHaveBeenCalledTimes(1);
+    // A second tab on the same browser reads the same groups: nothing plays again.
+    const other = vi.fn();
+    noticeDocuments({ ...input, desktop: 'off', play: other });
+    expect(other).not.toHaveBeenCalled();
+  });
+
+  it('holds a group still inside its 30 s', () => {
+    const { raised, play, input } = setup();
+    noticeDocuments({ ...input, groups: [g(572, 'v2', 10 * SEC)] });
+    expect(raised).toEqual([]);
+    expect(play).not.toHaveBeenCalled();
+  });
+
+  it('the first read after load announces settled groups never announced, and a reload announces nothing again', () => {
+    const m = memory();
+    const { raised, input } = setup(m.store);
+    const kept = noticeDocuments({ ...input, chime: false });
+    expect(raised).toHaveLength(2);
+    expect(kept.map((a) => a.id)).toEqual(['v2', 'v4']);
+    // A reload: nothing held in memory, only what the browser stored.
+    noticeDocuments({ ...input, chime: false, kept: [] });
+    expect(raised).toHaveLength(2);
+    expect(JSON.parse(m.map.get(DOCS_ANNOUNCED_KEY)!)).toEqual(kept);
+  });
+
+  it('with a storage that throws: remembers for the visit through what it returns, plays nothing, never throws', () => {
+    const { raised, play, input } = setup(throwing);
+    const kept = noticeDocuments(input);
+    expect(raised).toHaveLength(2);
+    expect(play).not.toHaveBeenCalled();
+    noticeDocuments({ ...input, kept });
+    expect(raised).toHaveLength(2);
   });
 });

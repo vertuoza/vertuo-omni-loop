@@ -1,5 +1,5 @@
 import type { Db } from '../ask/page/source';
-import type { Store } from './alerts';
+import { claimChime, documentAlertOf, raiseEach, type DesktopState, type NotificationApi, type Store } from './alerts';
 
 // The waiting list's New documents part (PRD 579, s1): the spec, plan and before/after versions pushed
 // in the last 7 days to the numbered dossiers the signed-in person opened, read by the browser straight
@@ -44,6 +44,9 @@ export type DocumentGroup = {
   newestId: string;
   /** When the newest landed, in ms. */
   newestAt: number;
+  /** When the newest of each kind landed, in ms: what an alert after an earlier one names (s2). A
+   * group without it names all its kinds. */
+  kindsAt?: Partial<Record<DocumentKind, number>>;
 };
 
 /** What this browser has seen: nothing before `since`, and nothing of a dossier before its time. */
@@ -64,10 +67,12 @@ export function groupDocuments(rows: readonly DocumentRow[], seen: Seen): Docume
     if (last !== undefined && time <= last) continue;
     let entry = groups.get(dossier.id);
     if (!entry) {
-      entry = { group: { dossierId: dossier.id, prd: dossier.prd, title: dossier.title, kinds: [], newestId: r.id, newestAt: time }, kinds: new Set() };
+      entry = { group: { dossierId: dossier.id, prd: dossier.prd, title: dossier.title, kinds: [], newestId: r.id, newestAt: time, kindsAt: {} }, kinds: new Set() };
       groups.set(dossier.id, entry);
     }
     entry.kinds.add(r.kind);
+    const kindsAt = entry.group.kindsAt!;
+    if ((kindsAt[r.kind] ?? -Infinity) < time) kindsAt[r.kind] = time;
     if (time > entry.group.newestAt) {
       entry.group.newestId = r.id;
       entry.group.newestAt = time;
@@ -141,4 +146,86 @@ export function markSeen(store: () => Store, dossierId: string, now: number): vo
   } catch {
     // Nothing is remembered.
   }
+}
+
+// Announcing (PRD 579, s2). Pushes come in bursts, so a PRD's group is announced only once it has
+// settled: its newest version at least 30 s old. It is announced once per newest version id, naming
+// the kinds that landed since that PRD's last alert: one desktop alert per PRD, tagged by its newest
+// version so every open tab raises it once, and one chime per read, claimed by one tab. What was
+// announced is kept in localStorage, bounded, so a reload or a second tab does not announce it again;
+// the first read after load does announce a settled group never announced. Both behind the existing
+// switches; what settles is recorded as announced even with them off, so switching on later does not
+// bring back old news.
+
+/** How long a PRD's newest version must be quiet before it is announced. */
+export const SETTLE_MS = 30_000;
+/** Where this browser keeps what it announced. */
+export const DOCS_ANNOUNCED_KEY = 'omni-waiting-docs-announced';
+/** How many announced versions are kept. */
+export const ANNOUNCED_KEPT = 200;
+
+/** Each newest version announced, oldest first, with its dossier and when it landed. */
+export type Announced = { id: string; dossierId: string; at: number }[];
+
+/** One PRD to announce, and the kinds its alert names. */
+export type DocumentAlert = { group: DocumentGroup; kinds: DocumentKind[] };
+
+/** The groups whose newest version has been quiet for 30 s. */
+export function settled(groups: readonly DocumentGroup[], now: number): DocumentGroup[] {
+  return groups.filter((g) => now - g.newestAt >= SETTLE_MS);
+}
+
+/** Which settled groups to announce, and what is announced after: a newest id already announced is
+ * skipped; a later one names only the kinds newer than its PRD's last alert. */
+export function toAnnounce(groups: readonly DocumentGroup[], announced: Announced): { alerts: DocumentAlert[]; announced: Announced } {
+  const ids = new Set(announced.map((a) => a.id));
+  const next = [...announced];
+  const alerts: DocumentAlert[] = [];
+  for (const group of groups) {
+    if (ids.has(group.newestId)) continue;
+    const last = next.reduce((t, a) => (a.dossierId === group.dossierId && a.at > t ? a.at : t), -Infinity);
+    const newer = group.kindsAt ? group.kinds.filter((k) => (group.kindsAt?.[k] ?? -Infinity) > last) : group.kinds;
+    alerts.push({ group, kinds: newer.length > 0 ? newer : group.kinds });
+    next.push({ id: group.newestId, dossierId: group.dossierId, at: group.newestAt });
+    ids.add(group.newestId);
+  }
+  return { alerts, announced: next.slice(-ANNOUNCED_KEPT) };
+}
+
+function readAnnounced(store: () => Store): Announced | null {
+  try {
+    const raw: unknown = JSON.parse(store().getItem(DOCS_ANNOUNCED_KEY) ?? '[]');
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((a): a is Announced[number] =>
+      !!a && typeof a.id === 'string' && typeof a.dossierId === 'string' && typeof a.at === 'number');
+  } catch (error) {
+    return error instanceof SyntaxError ? [] : null;
+  }
+}
+
+/** A read's groups announced: the settled ones never announced raise a desktop alert each and one
+ * chime, each behind its switch. Returns what is announced now, which the caller passes back as
+ * `kept`: it stands in for storage that cannot be read. Never throws. */
+export function noticeDocuments({ groups, now, store, kept, desktop, chime, notifications, play, open }: {
+  groups: readonly DocumentGroup[];
+  now: number;
+  store: () => Store;
+  kept: Announced;
+  desktop: DesktopState;
+  chime: boolean;
+  notifications: NotificationApi | null | undefined;
+  play: () => void;
+  open: (href: string) => void;
+}): Announced {
+  const { alerts, announced } = toAnnounce(settled(groups, now), readAnnounced(store) ?? kept);
+  if (alerts.length === 0) return announced;
+  try {
+    store().setItem(DOCS_ANNOUNCED_KEY, JSON.stringify(announced));
+  } catch {
+    // Held for this visit through what is returned.
+  }
+  const each = alerts.map((a) => documentAlertOf(a.group, a.kinds));
+  raiseEach(notifications, desktop, each, open);
+  if (chime && claimChime(store, each.map((a) => a.tag))) play();
+  return announced;
 }
