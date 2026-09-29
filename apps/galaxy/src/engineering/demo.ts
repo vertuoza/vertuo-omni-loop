@@ -17,10 +17,10 @@ const HOUR = 3_600_000;
  * her fleet's colour, dora with no fleet), everyone else their GitHub photo. */
 const DEMO_PEOPLE = peopleOf(
   [
-    { user_id: 'demo-ada', name: 'Ada', github_login: 'ada', avatar_url: null, fleet: 'pirates', hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } },
+    { user_id: 'demo-ada', name: 'Ada', github_login: 'ada', avatar_url: null, fleet: 'comets', hero: { v: 1, body: 'girl', skin: 1, hair: 0, suit: 0, cape: 1 } },
     { user_id: 'demo-dora', name: 'Dora', github_login: 'dora', avatar_url: null, fleet: null, hero: { v: 1, body: 'boy', skin: 2, hair: 1, suit: 1, cape: 0 } },
   ],
-  [{ name: 'pirates', label: 'PIRATES', color: '#e0457b', mascot: null }],
+  [{ name: 'comets', label: 'COMETS', color: '#e0457b', mascot: null }],
 );
 
 const openedAt = (i: number, now: Date) => new Date(now.getTime() - (i * 11 + 3) * HOUR);
