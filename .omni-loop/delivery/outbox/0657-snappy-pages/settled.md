@@ -857,3 +857,236 @@ Moving to small blocks later is a reshaping of the PRD page's view and page file
 ```
 
 <!-- /omni-outbox-settled: s4-05-prd-page-sent-twice -->
+
+<!-- omni-outbox-settled: s5-01-waiting-questions-stored -->
+
+## s5-01-waiting-questions-stored — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-01-waiting-questions-stored
+prd: 657
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 3
+---
+
+## The question, in plain words
+
+The waiting list shows each question that waits on you, not just how many there are. Where should the question words come from once the list stops asking GitHub?
+
+## The decision, in plain words
+
+The new table keeps, beside each PRD's count, the few questions that wait on a person, so the waiting list can show them without asking GitHub.
+
+## The intro, for fun
+
+The plan packed a counter for the trip, but the waiting list wanted to read the postcards too.
+
+## The punchline, for fun
+
+So the postcards ride along in the same suitcase, and GitHub stays home.
+
+## The options, in plain words
+
+A. Keep the waiting questions beside each count in the new table, filled by the same recount (built).
+B. Store only the count, and let the waiting list keep asking GitHub for the questions of the PRDs whose count is above zero.
+C. Store only the count, and show the waiting list as a number per PRD, without the question words.
+
+## What I had to decide
+
+Whether prd_outbox keeps the waiting questions (rank, id and words of each human-action or high item while the feature PR is open) in a list column beside open_questions, as built, or whether the waiting outbox keeps reading GitHub for its question words.
+
+## What I did meanwhile
+
+The migration adds a waiting jsonb column (a list, checked by the database) to prd_outbox. The recount fills it from the same GitHub summary it counts, and GET /api/waiting/outbox builds its items from it with no GitHub call. The plan only named open_questions and synced_at.
+
+## What it costs to change later
+
+The table is new in this PRD, so before it ships dropping or changing the column is an edit of its migration; after it ships, one follow-up migration drops the column, and the waiting route goes back to the GitHub reader.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The spec says the waiting outbox reads prd_outbox but only names a count; it does not say where the question words come from.
+
+```
+
+<!-- /omni-outbox-settled: s5-01-waiting-questions-stored -->
+
+<!-- omni-outbox-settled: s5-02-outbox-check-in-workflow -->
+
+## s5-02-outbox-check-in-workflow — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-02-outbox-check-in-workflow
+prd: 657
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 3
+---
+
+## The question, in plain words
+
+The new database check for who may read the open-question counts only runs if the database workflow names it, and that workflow was outside this slice's ground. Should the slice add it there?
+
+## The decision, in plain words
+
+The slice added one step to the database workflow so the new check runs on every pull request, like the checks beside it.
+
+## The intro, for fun
+
+A new guard was hired, trained and given a badge, but nobody put them on the rota.
+
+## The punchline, for fun
+
+So the rota got one more line, written in the same pen as the others.
+
+## The options, in plain words
+
+A. Add the step to the database workflow in this slice (built).
+B. Leave the workflow alone and add the step in a separate change after the feature merges.
+
+## What I had to decide
+
+Whether the new supabase/checks/prd_outbox.sql runs in the supabase workflow through its own step, added by this slice outside its territory, as built.
+
+## What I did meanwhile
+
+One step, 'Who may read and write the PRD outboxes', was added to .github/workflows/supabase.yml after the PRD stages step, running psql on supabase/checks/prd_outbox.sql. The check was also run once by hand against a local database, inside a transaction rolled back at the end, and passed.
+
+## What it costs to change later
+
+Removing or moving the step is a one-line edit of the workflow; nothing is stored.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) The plan names the check file in s5's territory but not the workflow that runs it.
+
+```
+
+<!-- /omni-outbox-settled: s5-02-outbox-check-in-workflow -->
+
+<!-- omni-outbox-settled: s5-03-sync-reads-active-outboxes -->
+
+## s5-03-sync-reads-active-outboxes — adopted
+
+- Verdict: adopted
+- Approved by: nobody
+- Approved at: 2026-09-29
+- Basis: adopted-when-raised — a medium item is adopted the moment it is raised — nobody approves it, and it stands unless someone later objects
+- Closed: yes — adopted when it was raised; nothing to rework unless someone objects
+- Rank: medium
+- Bears on: none
+- Raised: 2026-09-29
+- Slice: s5
+- Wave: 3
+
+### The answer, as it was given
+
+```text
+Adopted the moment it was raised — nobody approved it, and it stands unless someone objects.
+```
+
+### The item, as it was raised
+
+```text
+---
+id: s5-03-sync-reads-active-outboxes
+prd: 657
+slice: s5
+rank: medium
+bears-on: none
+raised: 2026-09-29
+wave: 3
+---
+
+## The question, in plain words
+
+To keep the counts fresh, the quarter-hourly refresh now asks GitHub for the outbox of every PRD being built or waiting on its outbox, which spends some of the app's hourly GitHub allowance. Is that the right trade?
+
+## The decision, in plain words
+
+Every quarter hour, the refresh reads GitHub once for each PRD being built or waiting on its outbox, and stores zero for all the others without asking GitHub.
+
+## The intro, for fun
+
+The list stopped phoning GitHub on every visit, so now the night watch phones on a schedule instead.
+
+## The punchline, for fun
+
+Fewer calls overall, but the watch still has a phone bill.
+
+## The options, in plain words
+
+A. Recount every PRD at building or outbox on each quarter-hourly run (built).
+B. Recount only on stage events and Sends, and let the quarter-hourly run store zero for PRDs that left building or outbox.
+C. Recount on each run, but at most once an hour per PRD.
+
+## What I had to decide
+
+Whether the stages sync reads the GitHub summary of every PRD at building or outbox on each 15-minute run, as built, or only when a stage event or a Send says something changed.
+
+## What I did meanwhile
+
+The sync recounts each repository's PRDs after recording their stages: a PRD at building or outbox costs one GitHub summary (about 12 to 20 requests, config shared per repository by s6), any other stores 0 with no request. A summary that cannot be read keeps the stored count. With five such PRDs this is roughly 400 requests an hour, against the App's 5000 per installation.
+
+## What it costs to change later
+
+Changing when the sync recounts is a code change in the sync alone; nothing stored changes shape.
+
+## What I could not know
+
+(author) The PRD, the registers and the glossary do not settle this:
+
+- (author) How many PRDs sit at building or outbox at once on production was not measured, so the real share of the GitHub budget is an estimate.
+
+```
+
+<!-- /omni-outbox-settled: s5-03-sync-reads-active-outboxes -->
