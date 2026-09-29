@@ -12907,22 +12907,27 @@ function handOver(bin, argv, { spawn: spawn2 = spawnSync } = {}) {
 
 // kit/lib/statusline/sessions.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync11, mkdirSync as mkdirSync5, readdirSync as readdirSync6, readFileSync as readFileSync9, rmSync as rmSync2, statSync as statSync2, writeFileSync as writeFileSync4 } from "node:fs";
+import { existsSync as existsSync11, mkdirSync as mkdirSync5, readdirSync as readdirSync6, readFileSync as readFileSync9, rmSync as rmSync2, statSync as statSync3, writeFileSync as writeFileSync4 } from "node:fs";
 import { join as join13 } from "node:path";
 
 // kit/lib/ask/local-state.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync9, mkdirSync as mkdirSync3, readdirSync as readdirSync5, readFileSync as readFileSync7, rmSync, writeFileSync as writeFileSync2 } from "node:fs";
-import { dirname as dirname3, join as join11 } from "node:path";
+import { existsSync as existsSync9, mkdirSync as mkdirSync3, readdirSync as readdirSync5, readFileSync as readFileSync7, rmSync, statSync as statSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import { dirname as dirname3, join as join11, resolve } from "node:path";
 var LOCAL_DIR = join11(dirname3(CONFIG_FILE), "local");
 var MODE_FILE = "ask.json";
 var TERMINALS_DIR = "ask";
 var ROUNDS_DIR = join11(TERMINALS_DIR, "rounds");
+var SHOTS = "shots";
+var SHOTS_DIR = join11(TERMINALS_DIR, SHOTS);
+var SHOTS_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1e3;
+var SHOT_NAME = /^[A-Za-z0-9_-]{1,64}\.[A-Za-z0-9]{1,8}$/;
 var LEGACY_ROUND_FILE = "ask-round.json";
 var ROUND_STATUSES = ["open", "answered", "abandoned"];
 var SAFE_ID = /^[A-Za-z0-9_-]{1,128}$/;
 var isText = (value) => typeof value === "string" && value.length > 0;
 var isSafeId = (id) => typeof id === "string" && SAFE_ID.test(id);
+var isShotName = (name) => typeof name === "string" && SHOT_NAME.test(name);
 function localFile(root, file) {
   return join11(root, LOCAL_DIR, file);
 }
@@ -12962,7 +12967,14 @@ function writeMode(root, { host }) {
 }
 function clearMode(root) {
   rmSync(localFile(root, MODE_FILE), { force: true });
-  rmSync(localFile(root, TERMINALS_DIR), { recursive: true, force: true });
+  const dir = localFile(root, TERMINALS_DIR);
+  let names = [];
+  try {
+    names = readdirSync5(dir);
+  } catch {
+  }
+  for (const name of names) if (name !== SHOTS) rmSync(join11(dir, name), { recursive: true, force: true });
+  if (existsSync9(dir) && readdirSync5(dir).length === 0) rmSync(dir, { recursive: true, force: true });
   rmSync(localFile(root, LEGACY_ROUND_FILE), { force: true });
 }
 function readTerminal(root, terminalId) {
@@ -13001,12 +13013,42 @@ function writeRound(root, toolUseId, { roundId, status: status3 }) {
 function clearRound(root, toolUseId) {
   if (isSafeId(toolUseId)) rmSync(localFile(root, roundFile(toolUseId)), { force: true });
 }
+function writeShot(root, roundId, name, bytes) {
+  if (!isShotName(name)) throw new Error(`not a safe screenshot name: ${JSON.stringify(name)}`);
+  const dir = resolve(root, LOCAL_DIR, SHOTS_DIR, safe(roundId));
+  ensureLocalDir(root);
+  mkdirSync3(dir, { recursive: true });
+  const path = join11(dir, name);
+  writeFileSync2(path, bytes);
+  return path;
+}
+function clearOldShots(root, now, maxAgeMs = SHOTS_MAX_AGE_MS) {
+  const dir = localFile(root, SHOTS_DIR);
+  let names;
+  try {
+    names = readdirSync5(dir).sort();
+  } catch {
+    return [];
+  }
+  const removed = [];
+  for (const name of names) {
+    const folder = join11(dir, name);
+    try {
+      const stat = statSync2(folder);
+      if (!stat.isDirectory() || !isSafeId(name) || stat.mtimeMs >= now - maxAgeMs) continue;
+      rmSync(folder, { recursive: true, force: true });
+      removed.push(name);
+    } catch {
+    }
+  }
+  return removed;
+}
 
 // kit/lib/dossier/local.mjs
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync3 } from "node:child_process";
 import { existsSync as existsSync10, mkdirSync as mkdirSync4, readFileSync as readFileSync8, realpathSync as realpathSync4, writeFileSync as writeFileSync3 } from "node:fs";
-import { basename as basename2, dirname as dirname4, join as join12, resolve } from "node:path";
+import { basename as basename2, dirname as dirname4, join as join12, resolve as resolve2 } from "node:path";
 var DOSSIERS_FILE = join12(LOCAL_DIR, "dossiers.json");
 var QUIET4 = { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
 var isText2 = (value) => typeof value === "string" && value.length > 0;
@@ -13017,7 +13059,7 @@ function mainCheckout(cwd, exec = execFileSync3) {
   } catch {
     return null;
   }
-  const dir = resolve(cwd, common);
+  const dir = resolve2(cwd, common);
   if (basename2(dir) === ".git") return realpathSync4(dirname4(dir));
   try {
     return realpathSync4(String(exec("git", ["rev-parse", "--show-toplevel"], { cwd, ...QUIET4 })).trim());
@@ -13077,7 +13119,7 @@ function recordAt(path) {
 }
 function writtenAt(path) {
   const at = Date.parse(recordAt(path)?.at ?? "");
-  return Number.isNaN(at) ? statSync2(path).mtimeMs : at;
+  return Number.isNaN(at) ? statSync3(path).mtimeMs : at;
 }
 function prune(dir, now) {
   for (const name of readdirSync6(dir)) {
@@ -15463,8 +15505,23 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     tokens.write(host, renewed(current, fresh));
     return "renewed";
   }
+  async function download(url, { timeoutMs = callMs } = {}) {
+    let response;
+    try {
+      response = await fetch(url, { method: "GET", headers: {}, signal: AbortSignal.timeout(timeoutMs) });
+    } catch (error) {
+      throw new AskCallError(`GET a screenshot: ${error?.name === "TimeoutError" ? "timed out" : "unreachable"}`);
+    }
+    if (!response.ok) throw new AskCallError(`GET a screenshot: ${response.status}`, { status: response.status });
+    try {
+      return new Uint8Array(await response.arrayBuffer());
+    } catch {
+      throw new AskCallError("GET a screenshot: cut off");
+    }
+  }
   return {
     renew,
+    download,
     /** `context`, when given, is `{ repo }` (PRD 144): optional, an older server ignores it.
      * @returns {Promise<{ id: string, url: string }>} */
     openSession: (title, context) => call("POST", "/api/ask/sessions", { body: withContext({ title }, context) }),
@@ -15472,7 +15529,10 @@ function askClient({ baseUrl, host, tokens, fetch = globalThis.fetch, callMs = C
     /** `questions` is `AskUserQuestion`'s input as is; `context`, when given, is where the round came
      * from and what it cost (`./context.mjs`). @returns {Promise<{ roundId: string }>} */
     openRound: (sessionId, questions, context) => call("POST", `/api/ask/sessions/${segment(sessionId)}/rounds`, { body: withContext({ questions }, context) }),
-    /** Held by the server up to 50 s. @returns {Promise<{ status: 'open'|'answered'|'abandoned'|'closed', answers?: Record<string, string> }>} */
+    /** Held by the server up to 50 s. An answer given on the page with screenshots (PRD 620) also
+     * carries, per question, each one's name and a signed link (null when none could be made).
+     * @returns {Promise<{ status: 'open'|'answered'|'abandoned'|'closed', answers?: Record<string, string>,
+     *   attachments?: Record<string, Array<{ name: string, url: string | null }>> }>} */
     wait: (roundId, { timeoutMs = callMs } = {}) => call("GET", `/api/ask/rounds/${segment(roundId)}/wait`, { timeoutMs }),
     /** An answer given in the terminal. */
     answer: (roundId, answers2) => call("POST", `/api/ask/rounds/${segment(roundId)}/answers`, { body: { answers: answers2, via: "terminal" } }),
@@ -15617,6 +15677,8 @@ function askContext({ root, input, exec = execFileSync7 }) {
 var TOOL = "AskUserQuestion";
 var PROMPT_CONTEXT = "Ask mode is on: ask every question to the person through the AskUserQuestion tool, never as plain text.";
 var WAIT_LIMITS = Object.freeze({ totalMs: 54e4, callMs: 6e4 });
+var SHOT_DOWNLOAD_MS = 3e4;
+var SCREENSHOTS_HEADING = "Screenshots (open each with Read):";
 function activeMode(root) {
   const mode = readMode(root);
   if (!mode) return null;
@@ -15654,6 +15716,34 @@ function contextOf(read2) {
     return null;
   }
 }
+async function withScreenshots({ root, client, roundId, answers: answers2, attachments, deadline, now }) {
+  if (!attachments || typeof attachments !== "object" || Array.isArray(attachments)) return answers2;
+  const shaped = { ...answers2 };
+  for (const question of Object.keys(answers2)) {
+    const shots = attachments[question];
+    if (!Array.isArray(shots) || shots.length === 0) continue;
+    const lines = [];
+    for (const [index, shot] of shots.entries()) {
+      const path = await downloadShot({ root, client, roundId, shot, deadline, now });
+      lines.push(path ? `- ${path}` : `- Screenshot ${index + 1} could not be downloaded`);
+    }
+    shaped[question] = `${answers2[question]}
+
+${SCREENSHOTS_HEADING}
+${lines.join("\n")}`;
+  }
+  return shaped;
+}
+async function downloadShot({ root, client, roundId, shot, deadline, now }) {
+  const left = deadline - now();
+  if (left <= 0 || typeof shot?.url !== "string" || shot.url === "" || !isShotName(shot.name)) return null;
+  try {
+    const bytes = await client.download(shot.url, { timeoutMs: Math.min(SHOT_DOWNLOAD_MS, left) });
+    return writeShot(root, roundId, shot.name, bytes);
+  } catch {
+    return null;
+  }
+}
 var idOf = (value) => isSafeId(value) ? value : null;
 var SESSION_GONE = [404, 409];
 async function terminalSession({ root, host, client, terminalId, title, readSessionContext }) {
@@ -15664,17 +15754,13 @@ async function terminalSession({ root, host, client, terminalId, title, readSess
   writeTerminal(root, terminalId, { sessionId: opened.id, host });
   return opened.id;
 }
-async function preHook({
-  root,
-  host,
-  client,
-  input,
-  title,
-  limits = WAIT_LIMITS,
-  now = Date.now,
-  readContext = askContext,
-  readSessionContext = sessionContext
-}) {
+function sweepOldShots(root, now) {
+  try {
+    clearOldShots(root, now());
+  } catch {
+  }
+}
+function preInput(input) {
   if (input?.tool_name !== TOOL) return null;
   const toolInput = input.tool_input;
   const questions = toolInput?.questions;
@@ -15682,7 +15768,9 @@ async function preHook({
   const terminalId = idOf(input.session_id);
   const toolUseId = idOf(input.tool_use_id);
   if (!terminalId || !toolUseId) return null;
-  const deadline = now() + limits.totalMs;
+  return { toolInput, questions, terminalId, toolUseId };
+}
+async function openRoundFor({ root, host, client, input, title, readContext, readSessionContext, questions, terminalId }) {
   let roundId;
   try {
     const sessionId = await terminalSession({ root, host, client, terminalId, title, readSessionContext });
@@ -15695,7 +15783,26 @@ async function preHook({
   } catch {
     return null;
   }
-  if (typeof roundId !== "string" || roundId === "") return null;
+  return typeof roundId === "string" && roundId !== "" ? roundId : null;
+}
+async function preHook({
+  root,
+  host,
+  client,
+  input,
+  title,
+  limits = WAIT_LIMITS,
+  now = Date.now,
+  readContext = askContext,
+  readSessionContext = sessionContext
+}) {
+  const pre = preInput(input);
+  if (!pre) return null;
+  const { toolInput, questions, terminalId, toolUseId } = pre;
+  const deadline = now() + limits.totalMs;
+  sweepOldShots(root, now);
+  const roundId = await openRoundFor({ root, host, client, input, title, readContext, readSessionContext, questions, terminalId });
+  if (!roundId) return null;
   const keep = (status3) => writeRound(root, toolUseId, { roundId, status: status3 });
   keep("open");
   const giveUp = async () => {
@@ -15726,7 +15833,8 @@ async function preHook({
     const answers2 = result?.status === "answered" ? toolAnswers(questions, result.answers) : null;
     if (!answers2) return giveUp();
     keep("answered");
-    return preOutput(toolInput, answers2);
+    const attachments = result.attachments;
+    return preOutput(toolInput, await withScreenshots({ root, client, roundId, answers: answers2, attachments, deadline, now }));
   }
 }
 async function postHook({ root, client, input }) {
@@ -15958,8 +16066,8 @@ var sameText = (a, b) => {
 async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
   if (typeof state !== "string" || state.length === 0) throw new LoopbackError("the listener needs a state to compare with.");
   let settle2;
-  const code = new Promise((resolve3, reject) => {
-    settle2 = { resolve: resolve3, reject };
+  const code = new Promise((resolve4, reject) => {
+    settle2 = { resolve: resolve4, reject };
   });
   code.catch(() => {
   });
@@ -15979,8 +16087,8 @@ async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
     return answer(200, SIGNED_IN);
   });
   let closedResolve;
-  const closed = new Promise((resolve3) => {
-    closedResolve = resolve3;
+  const closed = new Promise((resolve4) => {
+    closedResolve = resolve4;
   });
   let timer;
   function finish(outcome) {
@@ -15990,11 +16098,11 @@ async function startLoopback({ state, timeoutMs = LOOPBACK_WAIT_MS }) {
     server.close(() => closedResolve());
     server.closeAllConnections();
   }
-  await new Promise((resolve3, reject) => {
+  await new Promise((resolve4, reject) => {
     server.once("error", reject);
     server.listen(0, HOST, () => {
       server.off("error", reject);
-      resolve3();
+      resolve4();
     });
   });
   const { port, address } = server.address();
@@ -16639,7 +16747,7 @@ init_define_OMNI_BUNDLE();
 
 // kit/lib/bug/verdict.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync17, readdirSync as readdirSync10, readFileSync as readFileSync18, statSync as statSync3 } from "node:fs";
+import { existsSync as existsSync17, readdirSync as readdirSync10, readFileSync as readFileSync18, statSync as statSync4 } from "node:fs";
 import { isAbsolute as isAbsolute4, join as join22, normalize } from "node:path";
 var RECORD = "bug.md";
 var SECTIONS = ["Triage", "Reproduction", "Fix", "Guard", "Mutation"];
@@ -16679,7 +16787,7 @@ function field(body, key) {
 }
 function isFile(ctx, path) {
   try {
-    return statSync3(join22(ctx.root, path)).isFile();
+    return statSync4(join22(ctx.root, path)).isFile();
   } catch {
     return false;
   }
@@ -16794,7 +16902,7 @@ import { join as join33 } from "node:path";
 
 // kit/lib/inbox/check-inbox.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync18, readdirSync as readdirSync11, statSync as statSync4 } from "node:fs";
+import { existsSync as existsSync18, readdirSync as readdirSync11, statSync as statSync5 } from "node:fs";
 import { basename as basename5, dirname as dirname7, join as join23 } from "node:path";
 
 // kit/lib/inbox/inbox.mjs
@@ -16963,7 +17071,7 @@ function blockedByViolations(records, ctx) {
 function beforeAfterViolation(file, ctx) {
   const absolute = join23(ctx.root, file);
   if (!existsSync18(absolute)) return null;
-  const { size } = statSync4(absolute);
+  const { size } = statSync5(absolute);
   if (size <= ctx.config.limits.beforeAfterMaxBytes) return null;
   return `${file}: is ${size} bytes, over the ${ctx.config.limits.beforeAfterMaxBytes}-byte cap.`;
 }
@@ -17306,8 +17414,8 @@ function findEntryViolations(ctx, entries3) {
   }
   return violations;
 }
-function findUnresolvedCitations(file, text4, resolve3) {
-  return idsCitedIn(text4).filter((id) => !resolve3(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
+function findUnresolvedCitations(file, text4, resolve4) {
+  return idsCitedIn(text4).filter((id) => !resolve4(id)).map((id) => violation(file, id, `is cited in ${file} but does not resolve to any entry.`));
 }
 function findWishes(entries3) {
   return entries3.filter((entry) => entry.kind === "principle" && servedBy(entries3, entry.id).length === 0).map(
@@ -17325,7 +17433,7 @@ function findProposals(entries3) {
 }
 function gradeKnowledge({ ctx, files = [], glossaryText } = {}) {
   const knowledge2 = readKnowledge({ ctx });
-  const resolve3 = (id) => knowledge2.entries.find((entry) => entry.id === id);
+  const resolve4 = (id) => knowledge2.entries.find((entry) => entry.id === id);
   const text4 = glossaryText ?? (ctx.config.paths.glossary ? readRepoFile(ctx, ctx.config.paths.glossary) : "");
   const violations = [
     ...findLayoutViolations(ctx, knowledge2, { glossaryText: text4 }),
@@ -17333,7 +17441,7 @@ function gradeKnowledge({ ctx, files = [], glossaryText } = {}) {
     ...findCrossDomainFileViolations(knowledge2),
     ...findReusedIds(knowledge2.entries),
     ...findEntryViolations(ctx, knowledge2.entries),
-    ...files.flatMap((file) => findUnresolvedCitations(file, readRepoFile(ctx, file), resolve3))
+    ...files.flatMap((file) => findUnresolvedCitations(file, readRepoFile(ctx, file), resolve4))
   ];
   return {
     violations: violations.map(formatViolation),
@@ -17688,7 +17796,7 @@ function lawsFor(ctx) {
     }
     return invariants;
   };
-  function resolve3(bearsOn) {
+  function resolve4(bearsOn) {
     if (bearsOn === "none") return { ok: true };
     const adr = ADR_ID.exec(bearsOn);
     if (adr) {
@@ -17710,7 +17818,7 @@ function lawsFor(ctx) {
     if (source === "claudeMdInvariants") return invariantSet().has(bearsOn);
     return false;
   }
-  return Object.freeze({ source, resolve: resolve3, floorsHigh });
+  return Object.freeze({ source, resolve: resolve4, floorsHigh });
 }
 
 // kit/lib/outbox/check-outbox.mjs
@@ -18962,7 +19070,7 @@ function parseJson(text4) {
   }
 }
 function wait(ms) {
-  return new Promise((resolve3) => setTimeout(resolve3, ms));
+  return new Promise((resolve4) => setTimeout(resolve4, ms));
 }
 
 // kit/lib/knowledge/pipeline.mjs
@@ -18976,7 +19084,7 @@ import {
   readFileSync as readFileSync30,
   renameSync,
   rmSync as rmSync6,
-  statSync as statSync5,
+  statSync as statSync6,
   symlinkSync,
   writeFileSync as writeFileSync12
 } from "node:fs";
@@ -19699,7 +19807,7 @@ function overlay(root, keep) {
       if (!dir && name === ".git") continue;
       if (keep.includes(rel)) {
         cpSync(join41(root, rel), join41(scratch, rel), { recursive: true });
-      } else if (keep.some((path) => path.startsWith(`${rel}/`)) && statSync5(join41(root, rel)).isDirectory()) {
+      } else if (keep.some((path) => path.startsWith(`${rel}/`)) && statSync6(join41(root, rel)).isDirectory()) {
         mkdirSync10(join41(scratch, rel), { recursive: true });
         walk(rel);
       } else {
@@ -21367,16 +21475,16 @@ var init = {
 
 // kit/bin/commands/item.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync42, mkdirSync as mkdirSync14, readdirSync as readdirSync19, readFileSync as readFileSync37, statSync as statSync7, writeFileSync as writeFileSync16 } from "node:fs";
+import { existsSync as existsSync42, mkdirSync as mkdirSync14, readdirSync as readdirSync19, readFileSync as readFileSync37, statSync as statSync8, writeFileSync as writeFileSync16 } from "node:fs";
 import { basename as basename8, join as join48 } from "node:path";
 
 // kit/lib/outbox/relay.mjs
 init_define_OMNI_BUNDLE();
-import { existsSync as existsSync41, mkdirSync as mkdirSync13, readdirSync as readdirSync18, readFileSync as readFileSync36, renameSync as renameSync2, statSync as statSync6, unlinkSync, writeFileSync as writeFileSync15 } from "node:fs";
+import { existsSync as existsSync41, mkdirSync as mkdirSync13, readdirSync as readdirSync18, readFileSync as readFileSync36, renameSync as renameSync2, statSync as statSync7, unlinkSync, writeFileSync as writeFileSync15 } from "node:fs";
 import { basename as basename7, join as join47 } from "node:path";
 function markdownFiles(dir) {
   if (!existsSync41(dir)) return [];
-  return readdirSync18(dir).filter((name) => name.endsWith(".md") && statSync6(join47(dir, name)).isFile()).sort();
+  return readdirSync18(dir).filter((name) => name.endsWith(".md") && statSync7(join47(dir, name)).isFile()).sort();
 }
 function settledIds(ctx, outboxDir) {
   const file = join47(ctx.root, outboxDir, SETTLED_FILE);
@@ -21770,7 +21878,7 @@ function spentIds(prd2, { ctx, outDir = null }) {
   );
   if (outDir !== null && existsSync42(outDir)) {
     for (const name of readdirSync19(outDir)) {
-      if (name.endsWith(".md") && statSync7(join48(outDir, name)).isFile()) ids.add(basename8(name, ".md"));
+      if (name.endsWith(".md") && statSync8(join48(outDir, name)).isFile()) ids.add(basename8(name, ".md"));
     }
   }
   const settledFile = join48(ctx.root, outboxDir, SETTLED_FILE);
@@ -21938,7 +22046,7 @@ async function runRelay(args, { ctx, stdout, stderr }) {
   const prd2 = positiveInt("item relay", "--prd", flags.prd);
   if (ctx.layout.outboxDir(prd2) === null) throw usageError(`omni item relay: PRD ${prd2} has no inbox or shipped folder.`);
   const dir = inRoot(ctx, positional[0]);
-  if (!existsSync42(dir) || !statSync7(dir).isDirectory()) {
+  if (!existsSync42(dir) || !statSync8(dir).isDirectory()) {
     throw usageError(`omni item relay: ${positional[0]} is not a folder.`);
   }
   const { moved: moved2, refused } = relayFolder({ ctx, laws: lawsFor(ctx), prd: prd2, dir });
@@ -23383,8 +23491,8 @@ import { appendFileSync } from "node:fs";
 // kit/lib/status/facts.mjs
 init_define_OMNI_BUNDLE();
 import { execFileSync as execFileSync12 } from "node:child_process";
-import { readFileSync as readFileSync42, rmSync as rmSync7, statSync as statSync8, utimesSync, writeFileSync as writeFileSync19 } from "node:fs";
-import { resolve as resolve2 } from "node:path";
+import { readFileSync as readFileSync42, rmSync as rmSync7, statSync as statSync9, utimesSync, writeFileSync as writeFileSync19 } from "node:fs";
+import { resolve as resolve3 } from "node:path";
 function git4(ctx, exec, args) {
   return exec("git", args, { cwd: ctx.root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
@@ -23426,7 +23534,7 @@ function retroAt(ctx, exec, ref, dir) {
 }
 function gitPath(ctx, exec, args) {
   try {
-    return resolve2(ctx.root, git4(ctx, exec, ["rev-parse", ...args]).trim());
+    return resolve3(ctx.root, git4(ctx, exec, ["rev-parse", ...args]).trim());
   } catch {
     return null;
   }
@@ -23435,7 +23543,7 @@ var fetchHeadPath = (ctx, exec) => gitPath(ctx, exec, ["--git-path", "FETCH_HEAD
 function fetchTime(path) {
   if (path === null) return null;
   try {
-    const stat = statSync8(path);
+    const stat = statSync9(path);
     return stat.size > 0 ? stat.mtimeMs : null;
   } catch {
     return null;
@@ -23443,13 +23551,13 @@ function fetchTime(path) {
 }
 function fetchedAt(ctx, exec) {
   const common = gitPath(ctx, exec, ["--git-common-dir"]);
-  const times = [fetchHeadPath(ctx, exec), common && resolve2(common, "FETCH_HEAD")].map(fetchTime).filter((time3) => time3 !== null);
+  const times = [fetchHeadPath(ctx, exec), common && resolve3(common, "FETCH_HEAD")].map(fetchTime).filter((time3) => time3 !== null);
   return times.length ? Math.max(...times) : null;
 }
 function snapshot(path) {
   if (path === null) return null;
   try {
-    const stat = statSync8(path);
+    const stat = statSync9(path);
     return { path, bytes: readFileSync42(path), atime: stat.atime, mtime: stat.mtime };
   } catch {
     return { path, bytes: null };
@@ -23902,7 +24010,7 @@ import { spawn as spawnProcess } from "node:child_process";
 // kit/lib/statusline/board-cache.mjs
 init_define_OMNI_BUNDLE();
 import { randomUUID } from "node:crypto";
-import { closeSync, existsSync as existsSync45, mkdirSync as mkdirSync15, openSync, readFileSync as readFileSync43, renameSync as renameSync3, rmSync as rmSync8, statSync as statSync9, writeFileSync as writeFileSync20 } from "node:fs";
+import { closeSync, existsSync as existsSync45, mkdirSync as mkdirSync15, openSync, readFileSync as readFileSync43, renameSync as renameSync3, rmSync as rmSync8, statSync as statSync10, writeFileSync as writeFileSync20 } from "node:fs";
 import { join as join53 } from "node:path";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 var BOARD_DIR = join53(LOCAL_DIR, "statusline");
@@ -23950,7 +24058,7 @@ function refreshDue(board2, now) {
 function lockedAt(path) {
   if (!existsSync45(path)) return null;
   const at = attempt5(() => Date.parse(JSON.parse(readFileSync43(path, "utf8")).at), Number.NaN);
-  return Number.isNaN(at) ? attempt5(() => statSync9(path).mtimeMs, null) : at;
+  return Number.isNaN(at) ? attempt5(() => statSync10(path).mtimeMs, null) : at;
 }
 function lockHeld(root, prd2, now) {
   const at = lockedAt(lockFile(root, prd2));

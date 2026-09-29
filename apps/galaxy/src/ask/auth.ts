@@ -24,6 +24,15 @@ export function bearerToken(header: string | null | undefined): string | null {
   return match ? match[1] : null;
 }
 
+/** Where the caller reached this app, behind Vercel's proxy too: the links an API hands back
+ * (the ask page's, a dossier's) must use it. */
+export function callerOrigin(request: Request): string {
+  const url = new URL(request.url);
+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? url.host;
+  const proto = request.headers.get('x-forwarded-proto') ?? url.protocol.replace(':', '');
+  return `${proto}://${host}`;
+}
+
 /** How the database's refusal for a repository no workspace owns ends (repo_workspace(), PRD 459). */
 const INSTALL_HINT = 'install the Omni App';
 

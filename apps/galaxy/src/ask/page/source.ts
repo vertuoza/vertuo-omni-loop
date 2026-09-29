@@ -8,20 +8,26 @@
 // The owner shares a round with another member (PRD 144), who then answers it at /ask/q/<round>
 // while it is open; /ask/for-me lists the rounds shared with the caller; /ask/history reads every
 // round of the caller's workspaces.
+// An answer's screenshots (PRD 620) go to the bucket first, as the same person: see attachments.ts.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Category } from '../classify';
-import { askCategories, askShares, askStore, AskStoreError, sessionClosed, type AskAnswers, type AskCategory } from '../store';
+import {
+  askCategories, askShares, askStore, ATTACHMENTS_BUCKET, sessionClosed, settle, type AskAnswers, type AskAttachments, type AskCategory,
+} from '../store';
+import { sendWithShots, trayOf, type Bucket } from './attachments';
 import type { ForMeRow, Member, QuestionState } from './question';
 import { headerOf, type TabRound, type TabRow } from './tabs';
 import type { RoundRow, SessionRow, SessionState } from './view';
 import type { HistoryRow } from './workspace-history';
 
 export type Db = Pick<SupabaseClient, 'from'>;
+/** What uploading a round's screenshots needs (PRD 620): the storage client. */
+export type StorageDb = Pick<SupabaseClient, 'storage'>;
 /** What sorting a round needs: the database's functions. */
 export type SortDb = Pick<SupabaseClient, 'rpc'>;
 
 const SESSION = 'id, owner, title, status, created_at, last_seen_at, workspace_id, repo, branch';
-const ROUND = 'id, questions, answers, answered_via, status, created_at, answered_at, prd, skill, model, tokens, cost_usd, answered_by, category, category_by';
+const ROUND = 'id, questions, answers, answered_via, status, created_at, answered_at, attachments, prd, skill, model, tokens, cost_usd, answered_by, category, category_by';
 const HEAD = 'id, status, category, category_by';
 
 type Head = Pick<RoundRow, 'id' | 'status' | 'category' | 'category_by'>;
@@ -30,13 +36,6 @@ type Head = Pick<RoundRow, 'id' | 'status' | 'category' | 'category_by'>;
 const same = (known: RoundRow | undefined, head: Head) =>
   known !== undefined && known.status === head.status
   && (known.category ?? null) === (head.category ?? null) && (known.category_by ?? null) === (head.category_by ?? null);
-
-type Outcome<T> = { data: T | null; error: { code?: string; message: string } | null };
-
-function settle<T>(what: string, { data, error }: Outcome<T>): T | null {
-  if (error) throw new AskStoreError(what, error.code, error.message);
-  return data;
-}
 
 async function session(db: Db, id: string): Promise<SessionRow | null> {
   return settle('read the session', await db.from('ask_sessions').select(SESSION).eq('id', id).maybeSingle());
@@ -105,10 +104,18 @@ export function tabsReader(db: Db, owner: string): (now: number) => Promise<TabR
 export const readTabs = (db: Db, owner: string, now: number) => tabsReader(db, owner)(now);
 
 /** Answers a round from the page, only while it is still open: `taken` when the terminal took it
- * over or it was answered already (s2's rule: the page never answers a round it no longer holds). */
-export async function sendAnswers(db: Db, roundId: string, answers: AskAnswers): Promise<'answered' | 'taken'> {
-  const moved = await askStore(db).moveRound(roundId, ['open'], { status: 'answered', answers, answered_via: 'page' });
-  return moved ? 'answered' : 'taken';
+ * over or it was answered already (s2's rule: the page never answers a round it no longer holds).
+ * The screenshots the answer form staged for the round (PRD 620) are uploaded first and recorded with
+ * the answer; a failed upload throws, having recorded nothing. */
+export async function sendAnswers(db: Db & Partial<StorageDb>, roundId: string, answers: AskAnswers): Promise<'answered' | 'taken'> {
+  const record = async (attachments?: AskAttachments) => {
+    const to = attachments ? { status: 'answered' as const, answers, answered_via: 'page' as const, attachments } : { status: 'answered' as const, answers, answered_via: 'page' as const };
+    return (await askStore(db).moveRound(roundId, ['open'], to)) ? 'answered' as const : 'taken' as const;
+  };
+  const tray = trayOf(roundId);
+  if (!db.storage || Object.keys(tray.shots).length === 0) return record();
+  const bucket = db.storage.from(ATTACHMENTS_BUCKET) as unknown as Bucket;
+  return sendWithShots(bucket, roundId, tray, record, (progress) => tray.setProgress(progress));
 }
 
 /** Deletes the session and its rounds for good: true when it went, false when the caller is not its
@@ -198,7 +205,7 @@ export type AskPort = {
 };
 
 /** The database, as the signed-in person, starting from what the server already read. */
-export function databasePort(db: Db & SortDb, seed: SessionState): AskPort {
+export function databasePort(db: Db & SortDb & StorageDb, seed: SessionState): AskPort {
   return {
     read: sessionReader(db, seed.session.id, seed),
     send: (roundId, answers) => sendAnswers(db, roundId, answers),
@@ -216,7 +223,7 @@ export type QuestionPort = {
 };
 
 /** The database, as the signed-in person, for one round. */
-export function questionPort(db: Db & SortDb, roundId: string): QuestionPort {
+export function questionPort(db: Db & SortDb & StorageDb, roundId: string): QuestionPort {
   return {
     read: () => readQuestion(db, roundId),
     send: (id, answers) => sendAnswers(db, id, answers),

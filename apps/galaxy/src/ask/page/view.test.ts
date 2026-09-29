@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  categoryChip, contextParts, HOOK_WAIT_MS, keepSent, minutesLeft, sessionView, withCategory, withPageAnswer, type RoundRow, type SessionState,
+  categoryChip, contextParts, entry, HOOK_WAIT_MS, screenshotsNote, keepSent, minutesLeft, sessionView, withCategory, withPageAnswer, type RoundRow, type SessionState,
 } from './view';
 
 const NOW = Date.parse('2026-09-26T10:00:00Z');
@@ -232,5 +232,25 @@ describe('the category chip (PRD 144)', () => {
     const open = round({ ago: MIN });
     const next = withCategory(state([open]), open.id, { category: 'architecture', category_by: 'bob' });
     expect(next.rounds[0]).toMatchObject({ category: 'architecture', category_by: 'bob' });
+  });
+});
+
+describe('screenshots on an answer (PRD 620)', () => {
+  it('counts each answer\'s screenshots, and says nothing for one without', () => {
+    const r = answered(MIN, 'page', { 'Which storage?': '(see screenshots)', 'Which checks?': 'RLS' });
+    const withShots = { ...r, attachments: { 'Which storage?': [`${r.id}/1.png`, `${r.id}/2.jpg`] } };
+    expect(entry(withShots).lines).toEqual([
+      { header: 'Storage', question: 'Which storage?', answer: '(see screenshots)', screenshots: 2 },
+      { header: 'Checks', question: 'Which checks?', answer: 'RLS' },
+    ]);
+    expect(entry(r).lines.every((line) => line.screenshots === undefined)).toBe(true);
+    expect(entry({ ...r, attachments: null }).lines.every((line) => line.screenshots === undefined)).toBe(true);
+  });
+
+  it('says how many, in plain words', () => {
+    expect(screenshotsNote(undefined)).toBeNull();
+    expect(screenshotsNote(0)).toBeNull();
+    expect(screenshotsNote(1)).toBe('📎 1 screenshot');
+    expect(screenshotsNote(3)).toBe('📎 3 screenshots');
   });
 });

@@ -66,6 +66,13 @@ describe('one question, at /ask/q/<round>', () => {
     expect(answeredTitle(view)).toBe('Already answered by ada@vertuoza.com');
   });
 
+  it('counts the screenshots of an answer that has them (PRD 620)', () => {
+    const shot = { ...answered('r3', 2 * MIN, ADA), attachments: { 'Which storage?': ['r3/1.png'] } };
+    const view = questionView(state(shot), BOB, MEMBERS, NOW);
+    if (view.kind !== 'answered') throw new Error('not answered');
+    expect(view.lines).toEqual([{ header: 'Storage', question: 'Which storage?', answer: 'Memory', screenshots: 1 }]);
+  });
+
   it('names a member by their arcade name, and says so when it was the one looking', () => {
     const byBob = questionView(state(answered('r3', 2 * MIN, BOB)), ADA, MEMBERS, NOW);
     expect(byBob).toMatchObject({ kind: 'answered', by: 'BOB', byMe: false });

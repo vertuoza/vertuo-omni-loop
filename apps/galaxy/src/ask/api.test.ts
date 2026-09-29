@@ -46,9 +46,31 @@ function world() {
   const fake = fakeSupabase({ 'ada-token': ADA, 'bob-token': BOB, 'dan-token': DAN, 'eve-token': EVE, 'carl-token': CARL }, () => clock.now);
   const sleeps: number[] = [];
   let onSleep: (() => void) | null = null;
+  // The ask-attachments bucket (PRD 620): its objects' paths, and every list or remove it was sent,
+  // with how many rounds were still there at the time.
+  const bucket = {
+    objects: [] as string[],
+    calls: [] as Array<{ op: 'list' | 'remove'; name: string; arg: string | string[]; rounds: number }>,
+    fail: false,
+  };
+  const storage = {
+    from: (name: string) => ({
+      async list(folder: string) {
+        bucket.calls.push({ op: 'list', name, arg: folder, rounds: fake.tables.ask_rounds.length });
+        if (bucket.fail) return { data: null, error: { message: 'storage is down' } };
+        return { data: bucket.objects.filter((o) => o.startsWith(`${folder}/`)).map((o) => ({ name: o.slice(folder.length + 1) })), error: null };
+      },
+      async remove(paths: string[]) {
+        bucket.calls.push({ op: 'remove', name, arg: paths, rounds: fake.tables.ask_rounds.length });
+        if (bucket.fail) return { data: null, error: { message: 'storage is down' } };
+        bucket.objects = bucket.objects.filter((o) => !paths.includes(o));
+        return { data: paths.map((p) => ({ name: p })), error: null };
+      },
+    }),
+  };
   const deps: AskDeps = {
     // The stub answers only the query shapes the store sends, so it is not a whole Supabase client.
-    connect: fake.client as unknown as AskDeps['connect'],
+    connect: ((token: string) => ({ ...fake.client(token), storage })) as unknown as AskDeps['connect'],
     installLink: INSTALL,
     now: () => clock.now,
     async sleep(ms) {
@@ -76,7 +98,7 @@ function world() {
   }
   const row = (table: 'ask_sessions' | 'ask_rounds', id: string) => fake.tables[table].find((r) => r.id === id)!;
   return {
-    clock, fake, deps, sleeps, request, read, session, round, row,
+    clock, fake, bucket, deps, sleeps, request, read, session, round, row,
     whileWaiting(fn: () => void) { onSleep = fn; },
   };
 }
@@ -431,6 +453,92 @@ describe('GET /api/ask/rounds/:id/wait', () => {
     expect(Date.parse(w.row('ask_sessions', sessionId).last_seen_at as string)).toBe(asked);
   });
 
+  describe('an answer with screenshots (PRD 620)', () => {
+    /** The world's deps, each client also signing links as `sign` says, and every signing recorded. */
+    function signing(w: ReturnType<typeof world>, sign: (path: string) => string | null, fail = false) {
+      const asked: Array<{ token: string; bucket: string; paths: string[]; expiresIn: number }> = [];
+      const connect = (token: string) => ({
+        ...(w.fake.client(token)),
+        storage: {
+          from: (bucket: string) => ({
+            async createSignedUrls(paths: string[], expiresIn: number) {
+              asked.push({ token, bucket, paths, expiresIn });
+              if (fail) return { data: null, error: { message: 'storage is down' } };
+              return { data: paths.map((path) => ({ path, signedUrl: sign(path) ?? '', error: sign(path) ? null : 'Object not found' })), error: null };
+            },
+          }),
+        },
+      });
+      return { asked, deps: { ...w.deps, connect: connect as unknown as AskDeps['connect'] } };
+    }
+    const Q1 = QUESTIONS[0].question;
+    const Q2 = QUESTIONS[1].question;
+
+    it('hands each screenshot back by name with a 10-minute signed link, made as the caller', async () => {
+      const w = world();
+      const roundId = await w.round(await w.session());
+      const attachments = { [Q1]: [`${roundId}/1.png`, `${roundId}/2.webp`], [Q2]: [`${roundId}/3.jpg`] };
+      Object.assign(w.row('ask_rounds', roundId), { status: 'answered', answers: ANSWERS, answered_via: 'page', attachments });
+      const { asked, deps } = signing(w, (path) => `https://files.example/sign/${path}?token=t`);
+      const { status, body } = await w.read(await waitRound(w.request('GET', `/api/ask/rounds/${roundId}/wait`), roundId, deps));
+      expect(status).toBe(200);
+      expect(body).toEqual({
+        status: 'answered',
+        answers: ANSWERS,
+        attachments: {
+          [Q1]: [
+            { name: '1.png', url: `https://files.example/sign/${roundId}/1.png?token=t` },
+            { name: '2.webp', url: `https://files.example/sign/${roundId}/2.webp?token=t` },
+          ],
+          [Q2]: [{ name: '3.jpg', url: `https://files.example/sign/${roundId}/3.jpg?token=t` }],
+        },
+      });
+      expect(asked).toEqual([{ token: 'ada-token', bucket: 'ask-attachments', paths: [`${roundId}/1.png`, `${roundId}/2.webp`, `${roundId}/3.jpg`], expiresIn: 600 }]);
+    });
+
+    it('gives null for a link that cannot be made, and still answers', async () => {
+      const w = world();
+      const roundId = await w.round(await w.session());
+      Object.assign(w.row('ask_rounds', roundId), {
+        status: 'answered', answers: ANSWERS, answered_via: 'page', attachments: { [Q1]: [`${roundId}/1.png`, `${roundId}/2.png`] },
+      });
+      const one = signing(w, (path) => (path.endsWith('2.png') ? null : `https://files.example/${path}`));
+      expect((await w.read(await waitRound(w.request('GET', `/api/ask/rounds/${roundId}/wait`), roundId, one.deps))).body.attachments).toEqual({
+        [Q1]: [{ name: '1.png', url: `https://files.example/${roundId}/1.png` }, { name: '2.png', url: null }],
+      });
+      const down = signing(w, () => 'never', true);
+      const { status, body } = await w.read(await waitRound(w.request('GET', `/api/ask/rounds/${roundId}/wait`), roundId, down.deps));
+      expect(status).toBe(200);
+      expect(body).toEqual({ status: 'answered', answers: ANSWERS, attachments: { [Q1]: [{ name: '1.png', url: null }, { name: '2.png', url: null }] } });
+    });
+
+    it('carries no attachments field, and signs nothing, for an answer without screenshots', async () => {
+      const w = world();
+      const roundId = await w.round(await w.session());
+      Object.assign(w.row('ask_rounds', roundId), { status: 'answered', answers: ANSWERS, answered_via: 'page', attachments: null });
+      const { asked, deps } = signing(w, () => 'https://files.example/x');
+      expect((await w.read(await waitRound(w.request('GET', `/api/ask/rounds/${roundId}/wait`), roundId, deps))).body).toEqual({ status: 'answered', answers: ANSWERS });
+      Object.assign(w.row('ask_rounds', roundId), { attachments: {} });
+      expect((await w.read(await waitRound(w.request('GET', `/api/ask/rounds/${roundId}/wait`), roundId, deps))).body).toEqual({ status: 'answered', answers: ANSWERS });
+      expect(asked).toEqual([]);
+    });
+
+    it('signs the screenshots of an answer that arrives while it waits', async () => {
+      const w = world();
+      const roundId = await w.round(await w.session());
+      w.whileWaiting(() => {
+        if (w.clock.now - START >= 2000) {
+          Object.assign(w.row('ask_rounds', roundId), {
+            status: 'answered', answers: ANSWERS, answered_via: 'page', attachments: { [Q1]: [`${roundId}/1.gif`] },
+          });
+        }
+      });
+      const { deps } = signing(w, (path) => `https://files.example/${path}`);
+      const { body } = await w.read(await waitRound(w.request('GET', `/api/ask/rounds/${roundId}/wait`), roundId, deps));
+      expect(body.attachments).toEqual({ [Q1]: [{ name: '1.gif', url: `https://files.example/${roundId}/1.gif` }] });
+    });
+  });
+
   it('stops waiting when the caller hangs up', async () => {
     const w = world();
     const roundId = await w.round(await w.session());
@@ -560,6 +668,62 @@ describe('DELETE /api/ask/sessions/:id (PRD 144)', () => {
     expect((await remove(w, sessionId, 'eve-token')).status).toBe(404);
     expect((await remove({ ...w, deps: { connect: null } }, sessionId)).status).toBe(503);
     expect(w.row('ask_sessions', sessionId)).toBeDefined();
+  });
+
+  describe('its screenshots (PRD 620)', () => {
+    it('removes every object under its rounds\' folders from the bucket, before it deletes the rows', async () => {
+      const w = world();
+      const sessionId = await w.session();
+      const first = await w.round(sessionId);
+      const second = await w.round(sessionId);
+      const other = await w.round(await w.session());
+      w.bucket.objects = [`${first}/1.png`, `${first}/2.webp`, `${second}/1.gif`, `${other}/1.png`];
+      const { status, body } = await w.read(await remove(w, sessionId));
+      expect(status).toBe(200);
+      expect(body).toEqual({ id: sessionId, deleted: true });
+      expect(w.bucket.objects).toEqual([`${other}/1.png`]);
+      expect(w.bucket.calls.filter((c) => c.op === 'list').map((c) => c.arg).sort()).toEqual([first, second].sort());
+      const removed = w.bucket.calls.filter((c) => c.op === 'remove');
+      expect(removed).toEqual([{ op: 'remove', name: 'ask-attachments', arg: [`${first}/1.png`, `${first}/2.webp`, `${second}/1.gif`], rounds: 3 }]);
+      expect(w.fake.tables.ask_rounds.map((r) => r.id)).toEqual([other]);
+    });
+
+    it('removes nothing from the bucket for a session whose rounds have no screenshots', async () => {
+      const w = world();
+      const sessionId = await w.session();
+      await w.round(sessionId);
+      w.bucket.objects = ['00000000-0000-4000-8000-000000000009/1.png'];
+      expect((await remove(w, sessionId)).status).toBe(200);
+      expect(w.bucket.calls.map((c) => c.op)).toEqual(['list']);
+      expect(w.bucket.objects).toHaveLength(1);
+    });
+
+    it('answers 500 and keeps the session and its rounds when the screenshots cannot be removed', async () => {
+      const w = world();
+      const sessionId = await w.session();
+      const roundId = await w.round(sessionId);
+      w.bucket.objects = [`${roundId}/1.png`];
+      w.bucket.fail = true;
+      const { status, body } = await w.read(await remove(w, sessionId));
+      expect(status).toBe(500);
+      expect(body.error).toEqual(expect.any(String));
+      expect(w.row('ask_sessions', sessionId)).toBeDefined();
+      expect(w.row('ask_rounds', roundId)).toBeDefined();
+      w.bucket.fail = false;
+      expect((await remove(w, sessionId)).status).toBe(200);
+      expect(w.bucket.objects).toEqual([]);
+    });
+
+    it('touches no screenshot when the caller may not delete the session', async () => {
+      const w = world();
+      const sessionId = await w.session();
+      const roundId = await w.round(sessionId);
+      w.bucket.objects = [`${roundId}/1.png`];
+      expect((await remove(w, sessionId, 'bob-token')).status).toBe(403);
+      expect((await remove(w, sessionId, 'carl-token')).status).toBe(404);
+      expect(w.bucket.calls).toEqual([]);
+      expect(w.bucket.objects).toEqual([`${roundId}/1.png`]);
+    });
   });
 });
 

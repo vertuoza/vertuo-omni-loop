@@ -21,7 +21,7 @@
 // hint; any signed-in account is let through to it, whatever its address), 404 a draft the caller cannot read (or no dossier for a lookup), 413 a body over its cap or an artifact over
 // 512 KiB, 503 no database here or the sign-in service down; 500 the database failed.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { authenticate, withInstallLink, type TokenCheck } from '../ask/auth';
+import { authenticate, callerOrigin as origin, withInstallLink, type TokenCheck } from '../ask/auth';
 import {
   ARTIFACT_MAX_BYTES, DOSSIER_KINDS, dossierReader, dossierStore, DossierStoreError, isDossierKind, TITLE_MAX,
   type DossierArtifact,
@@ -52,14 +52,6 @@ const refuse = (status: number, error: string) => reply(status, { error });
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 const bytesOf = (text: string) => new TextEncoder().encode(text).length;
-
-/** Where the caller reached this app, behind Vercel's proxy too: the dossier's link must use it. */
-function origin(request: Request) {
-  const url = new URL(request.url);
-  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? url.host;
-  const proto = request.headers.get('x-forwarded-proto') ?? url.protocol.replace(':', '');
-  return `${proto}://${host}`;
-}
 
 const linkTo = (request: Request, id: string) => `${origin(request)}/prd/${id}`;
 

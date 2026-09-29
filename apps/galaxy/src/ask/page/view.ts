@@ -3,7 +3,8 @@
 // earlier rounds folded into a history below, newest first, each with its answers and where they
 // were given (page or terminal). Each round carries its context line (PRD 144): repo · branch ·
 // PRD #n · skill · model · tokens · $cost · time to answer, each part left out when unknown — and its
-// category chip: one of six or unsorted, and who set it.
+// category chip: one of six or unsorted, and who set it. An answer given with screenshots (PRD 620)
+// says how many: "📎 N screenshots"; the pictures themselves are not shown here.
 import { readQuestions, type AskQuestion } from '../answer-model';
 import { CATEGORY_LABELS, isCategory, type Category } from '../classify';
 import { sessionClosed, type AskRound, type AskSession } from '../store';
@@ -15,14 +16,18 @@ export const HOOK_WAIT_MS = 540_000;
 /** Where a session came from; missing on a row read before PRD 144's columns, or left out by a demo. */
 export type SessionPlace = Partial<Pick<AskSession, 'repo' | 'branch'>>;
 /** What a round records besides its questions (PRD 144), missing or null when unknown. */
-export type RoundFacts = Partial<Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd' | 'answered_by' | 'category' | 'category_by'>>;
+export type RoundFacts = Partial<Pick<AskRound, 'prd' | 'skill' | 'model' | 'tokens' | 'cost_usd' | 'answered_by' | 'category' | 'category_by' | 'attachments'>>;
 
 export type SessionRow = Pick<AskSession, 'id' | 'owner' | 'title' | 'status' | 'created_at' | 'last_seen_at'> & SessionPlace
   & Partial<Pick<AskSession, 'workspace_id'>>;
 export type RoundRow = Pick<AskRound, 'id' | 'questions' | 'answers' | 'answered_via' | 'status' | 'created_at' | 'answered_at'> & RoundFacts;
 export type SessionState = { session: SessionRow; rounds: RoundRow[] };
 
-export type HistoryLine = { header: string; question: string; answer: string | null };
+export type HistoryLine = {
+  header: string; question: string; answer: string | null;
+  /** How many screenshots the answer carries (PRD 620); left out when it carries none. */
+  screenshots?: number;
+};
 export type HistoryEntry = {
   id: string;
   lines: HistoryLine[];
@@ -79,15 +84,25 @@ export function entry(round: RoundRow, session: SessionPlace = {}): HistoryEntry
   const questions = readQuestions(round.questions);
   const answers = round.answers ?? {};
   const named = new Set(questions.map((q) => q.question));
+  const line = (header: string, question: string, answer: string | null): HistoryLine => {
+    const screenshots = round.attachments?.[question]?.length ?? 0;
+    return screenshots > 0 ? { header, question, answer, screenshots } : { header, question, answer };
+  };
   const lines: HistoryLine[] = [
-    ...questions.map((q) => ({ header: q.header, question: q.question, answer: answers[q.question] ?? null })),
-    ...Object.entries(answers).filter(([question]) => !named.has(question)).map(([question, answer]) => ({ header: '', question, answer })),
+    ...questions.map((q) => line(q.header, q.question, answers[q.question] ?? null)),
+    ...Object.entries(answers).filter(([question]) => !named.has(question)).map(([question, answer]) => line('', question, answer)),
   ];
   const outcome = round.status === 'answered' ? 'answered' : round.status === 'abandoned' ? 'moved' : 'unanswered';
   return {
     id: round.id, lines, outcome, via: round.answered_via, at: round.answered_at ?? round.created_at, context: contextParts(session, round),
     category: round.category ?? null, category_by: round.category_by ?? null,
   };
+}
+
+/** What an answer with screenshots says about them (PRD 620): "📎 N screenshots", or null for none. */
+export function screenshotsNote(count: number | undefined): string | null {
+  if (!count || count < 1) return null;
+  return `📎 ${count} screenshot${count === 1 ? '' : 's'}`;
 }
 
 export function sessionView(state: SessionState, now: number): SessionView {
